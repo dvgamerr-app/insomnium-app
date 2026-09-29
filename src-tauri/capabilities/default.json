@@ -22,7 +22,6 @@
     "allow-load-workspace",
     "allow-save-workspace",
     "core:default",
-    "opener:default",
     "core:window:allow-destroy",
     "dialog:default",
     "fs:default",
