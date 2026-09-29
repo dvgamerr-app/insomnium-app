@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-authorize-oauth"
+description = "Enables the authorize_oauth command without any pre-configured scope."
+commands.allow = ["authorize_oauth"]
+
+[[permission]]
+identifier = "deny-authorize-oauth"
+description = "Denies the authorize_oauth command without any pre-configured scope."
+commands.deny = ["authorize_oauth"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-submit-oauth-callback"
+description = "Enables the submit_oauth_callback command without any pre-configured scope."
+commands.allow = ["submit_oauth_callback"]
+
+[[permission]]
+identifier = "deny-submit-oauth-callback"
+description = "Denies the submit_oauth_callback command without any pre-configured scope."
+commands.deny = ["submit_oauth_callback"]

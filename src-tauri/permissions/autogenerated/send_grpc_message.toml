@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-send-grpc-message"
+description = "Enables the send_grpc_message command without any pre-configured scope."
+commands.allow = ["send_grpc_message"]
+
+[[permission]]
+identifier = "deny-send-grpc-message"
+description = "Denies the send_grpc_message command without any pre-configured scope."
+commands.deny = ["send_grpc_message"]

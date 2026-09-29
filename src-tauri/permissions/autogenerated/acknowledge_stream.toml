@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-acknowledge-stream"
+description = "Enables the acknowledge_stream command without any pre-configured scope."
+commands.allow = ["acknowledge_stream"]
+
+[[permission]]
+identifier = "deny-acknowledge-stream"
+description = "Denies the acknowledge_stream command without any pre-configured scope."
+commands.deny = ["acknowledge_stream"]

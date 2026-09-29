@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-connect-grpc"
+description = "Enables the connect_grpc command without any pre-configured scope."
+commands.allow = ["connect_grpc"]
+
+[[permission]]
+identifier = "deny-connect-grpc"
+description = "Denies the connect_grpc command without any pre-configured scope."
+commands.deny = ["connect_grpc"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-read-template-file"
+description = "Enables the read_template_file command without any pre-configured scope."
+commands.allow = ["read_template_file"]
+
+[[permission]]
+identifier = "deny-read-template-file"
+description = "Denies the read_template_file command without any pre-configured scope."
+commands.deny = ["read_template_file"]

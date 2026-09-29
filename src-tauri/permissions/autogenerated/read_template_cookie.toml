@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-read-template-cookie"
+description = "Enables the read_template_cookie command without any pre-configured scope."
+commands.allow = ["read_template_cookie"]
+
+[[permission]]
+identifier = "deny-read-template-cookie"
+description = "Denies the read_template_cookie command without any pre-configured scope."
+commands.deny = ["read_template_cookie"]

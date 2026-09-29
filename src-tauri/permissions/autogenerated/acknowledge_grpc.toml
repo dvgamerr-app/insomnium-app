@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-acknowledge-grpc"
+description = "Enables the acknowledge_grpc command without any pre-configured scope."
+commands.allow = ["acknowledge_grpc"]
+
+[[permission]]
+identifier = "deny-acknowledge-grpc"
+description = "Denies the acknowledge_grpc command without any pre-configured scope."
+commands.deny = ["acknowledge_grpc"]
