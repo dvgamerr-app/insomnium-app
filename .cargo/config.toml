@@ -1,0 +1,5 @@
+# libuv-sys2 runs bindgen, which needs libclang. Point it at the extracted LLVM
+# in the ignored artifacts folder (see docs/migration/OS-TEMPLATE.md). A
+# LIBCLANG_PATH already set in the environment takes precedence.
+[env]
+LIBCLANG_PATH = { value = "artifacts/tools/llvm-20.1.8/bin", relative = true }
