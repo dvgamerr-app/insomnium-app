@@ -1,144 +1,95 @@
-# Insomnium API Client
+# Insomnium — Tauri migration
 
-*\<currently not being actively maintained>*
- 
-Insomnium is a 100% local and privacy-focused open-source API client for testing GraphQL, REST, WebSockets, Server-sent events and gRPC in development/production.
+API client แบบ local-first กำลังย้ายจาก Electron/React ไป Tauri 2 + Svelte 5 (JavaScript) โดยคง layout และสีหลักของ Insomnium เดิม
 
-- ✅ works 100% offline, the way a local testing tool should behave <br>
-- ✅ no cloud services, no tracking/communication to external servers behind the scene <br>
+**สถานะ: ยังไม่ครบทุกฟีเจอร์ของระบบเดิม** ดูงานที่ทำแล้วและงานถัดไปใน [STATUS](docs/migration/STATUS.md) และ [feature parity](docs/migration/PARITY.md)
 
-[![license](https://img.shields.io/github/license/archGPT/insomnium.svg)](LICENSE)
-[![GitHub Discussions](https://img.shields.io/github/discussions/archGPT/insomnium)](https://github.com/ArchGPT/insomnium/discussions)
-[![join our discord](https://dcbadge.vercel.app/api/server/pCcWcncwkw?style=flat&compact=true)](https://discord.gg/pCcWcncwkw)
+## เริ่มทำงาน
 
-![Insomnium API Client](https://raw.githubusercontent.com/ArchGPT/insomnium/main/screenshots/v0.1.png)
+ใช้ Bun 1.4.2+, Rust stable, และ [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) สำหรับ OS นั้น บน Windows ต้องมี MSVC C++ Build Tools และ WebView2 และต้องมี libclang สำหรับ build native OS tag (ไม่ใช่ runtime dependency) ดู [วิธีเตรียม Clang](docs/migration/OS-TEMPLATE.md)
 
-## Current Status
-
-Due to another related project, this repo is no longer being actively maintained. (You are welcomed to fork this and continue from here on)
-
-## General
-
-I have removed user login, tracking, analytics, etc, from Insomnia so it is now a 100% local app. (And runs faster!)
-
-
-## Download
-
-Insomnium is available for Mac, Windows, Ubuntu, Debian, CentOS, Fedora and [can be downloaded here](https://github.com/ArchGPT/insomnium/releases). Insomnium is also [available on AUR for ArchLinux](https://aur.archlinux.org/packages/insomnium-bin). 
-
-Alternatively, you can build Insomnium from source on your local machine using `bun run app-package`.
-
-
-## Backstory
-
-Insomnium is a fork of [Kong/insomnia at 2023.5.8](https://github.com/ArchGPT/insomnia), the last commit before compulsory account login was introduced. In a sense, Insomnium is a community response to [the latest product update that forces account creation w/o warning](https://news.ycombinator.com/item?id=37680522).
-
-![HN](https://github.com/ArchGPT/insomnium/blob/main/hn.png?raw=true)
-
-I was among the users who were deeply affected by the recent change. I still think Insomnia is a nice product in general, but I have to disagree with the direction it is going. So I have decided to fork it and make it 100% local and privacy-focused.
-
-> *I choose to walk in shades.* <br>
-> *Hearken now, to the song of dusk* <br>
-> *The forest venerates your name* <br> 
->--- [Insomnium, song of the dusk](https://youtu.be/nTIDh1miBSc)
-
-
-## Migration from Insomnia
-
-You can use the GUI (under `Preferences/Data`) or directly e.g. for linux `cp -r ~/.config/Insomnia ~/.config/Insomnium`. [For MacOS and Windows, you can read more here](https://archgpt.dev/insomnium/migration-guide). Feel free to open an issue/discussion if anything weird happens.
-
-## Develop Insomnium
-
-Development on Insomnium can be done on Mac, Windows, or Linux as long as you have [Bun](https://bun.sh/) and [Git](https://git-scm.com/). See `package.json` for the supported Bun version.
-
-<details>
-<summary>Initial Dev Setup</summary>
-
-This repository is structured as a monorepo and contains many JavaScript packages. Each package has its own set of commands, but the most common commands are available from the root [`package.json`](package.json) and can be accessed using the `bun run …` command. Here are the only three commands you should need to start developing on the app.
-
-```shell
-# Install and Link Dependencies
-bun install
-
-# Run Lint
-bun run lint
-
-# Run type checking
-bun run type-check
-
-# Run Tests
-bun test
-
-# Start App with Live Reload
-bun run dev
+```powershell
+bun install --frozen-lockfile
+bun run desktop
 ```
 
-### Linux
+`desktop` เปิด Tauri และเริ่ม frontend dev server ให้แล้ว ถ้าต้องการดูเฉพาะ frontend ใช้ `bun run dev` (browser preview มี CORS และใช้ storage แยกจาก desktop)
 
-If you are on Linux, you may need to install the following supporting packages:
-
-<details>
-<summary>Ubuntu/Debian</summary>
-
-```shell
-# Update library
-sudo apt-get update
-
-# Install font configuration library & support
-sudo apt-get install libfontconfig-dev
+```powershell
+bun run check
+bun run build
+bun run native:check
+cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+bun run desktop:build
 ```
 
-</details>
+JavaScript tooling ทุกคำสั่งใช้ Bun ไม่มี Node server หรือ sidecar ในแอป ใช้ TypeScript 6.0.x เฉพาะเครื่องมือตรวจ JavaScript ไม่ใช้ TypeScript 7 ไม่มี test scripts ใหม่
 
-<details>
-<summary>Fedora</summary>
+## ส่วนที่เริ่มย้ายแล้ว
 
-```shell
-# Install libcurl for node-libcurl
-sudo dnf install libcurl-devel
+- Shared editor: CodeMirror สำหรับ HTTP/gRPC/GraphQL, response, environment และ OpenAPI พร้อม search/folding, undo แยกตาม resource, environment completion, GraphQL schema/variable completion และ navigation; ตั้ง keymap/indent/wrapping ได้ ยังรอตรวจ WebView จริง ดู [editor migration](docs/migration/EDITOR-TEMPLATE-INVENTORY.md)
+
+- Netrc: native file lookup และ Basic auth แยก credentials ตามปลายทาง redirect; ดู [ข้อกำหนดและข้อจำกัด](docs/migration/NETRC-COMPATIBILITY.md)
+- หน้าตา Insomnium: collection sidebar, request tabs, URL/Send, request/response panes, dark/light theme, icon เดิม
+- Collection/folder/request: สร้าง แก้ชื่อ ทำสำเนาทั้ง subtree ย้าย เรียง ลบ และค้นหา; environment create/rename/duplicate/delete และ inheritance
+- HTTP ผ่าน Rust: methods, headers/query, JSON/text/XML/form/multipart/binary, basic/bearer/API key/Digest, GraphQL query + variables
+- GraphQL: operation name, POST/GET, format/validate query และ variables, ดึง schema, import introspection JSON/SDL, ค้น type/field และ export SDL
+- Digest Auth ฝั่ง native: HTTP/SSE/WebSocket, challenge/retry, auth-int, multipart replay และ UTF-8/NFC; credentials จำกัด origin เดิม
+- OAuth1 ฝั่ง native: HMAC-SHA1/HMAC-SHA256/RSA-SHA1/PLAINTEXT พร้อมโหมด body แบบ RFC หรือ Insomnium เดิม; ดูข้อแตกต่างและผลตรวจใน [OAuth1 compatibility](docs/migration/OAUTH1-COMPATIBILITY.md)
+- AWS IAM ฝั่ง native: Signature V4, session token, Host/region/service, body จริงและ redirect; ดูข้อแตกต่างและงานที่เหลือใน [AWS compatibility](docs/migration/AWS-COMPATIBILITY.md)
+- ASAP ฝั่ง native: JWT/key/claims แบบ Insomnium และ Postman รองรับ RSA/PSS/ES256/384/512; native UI/provider acceptance ยังค้าง ดู [ASAP compatibility](docs/migration/ASAP-COMPATIBILITY.md)
+- Hawk ฝั่ง native: SHA1/SHA256 พร้อมโหมด Insomnium เดิม, body จริง และ Postman; ดูผลตรวจและข้อจำกัดใน [Hawk compatibility](docs/migration/HAWK-COMPATIBILITY.md)
+- Basic เลือก UTF-8/Latin-1, Bearer แก้ prefix ได้, API key รองรับ header/query/Cookie และ OpenAPI cookie auth; ดูงาน auth ที่ยังเหลือใน [Auth inventory](docs/migration/AUTH-INVENTORY.md)
+- Response body/headers/cookies/timing/history, cancel, timeout, redirect, proxy, CA/client certificate settings
+- Cookie manager แยกต่อ collection: เพิ่ม/แก้ไข/ลบ/ล้าง บันทึกแบบ atomic และรองรับ send/store cookie แยกกัน
+- WebSocket: connect/send/receive/close, text/binary/ping และ saved payloads; SSE: incremental events, event ID และ retry metadata; มี log/filter/export/history และ cancel
+- gRPC: unary/streaming ทั้งสี่แบบ, proto tree/import/edit/replace/refresh/delete, reflection, metadata, legacy JSON, Send/Commit และประวัติ; refresh รักษา ID/ไฟล์เดิมและตรวจ schema ก่อนบันทึก ยังรอตรวจ UI/IPC จริงและความเข้ากันได้บางกรณี ดู [gRPC compatibility](docs/migration/GRPC-COMPATIBILITY.md)
+- Workspace บันทึกแบบ atomic และเก็บไฟล์ก่อนแก้ไขไว้หนึ่งชุดต่อ session; single-instance ป้องกันหลาย process เขียนทับกัน
+- Import แบบเพิ่ม collection ใหม่จาก Insomnia JSON, Postman v2, HAR, OpenAPI JSON/YAML และ legacy NeDB; export resource JSON
+- API Design: แก้ไข/บันทึก spec, ตรวจโครงสร้าง, preview operations/schema, แนบไฟล์ $ref และสร้าง request ลง folder ใหม่; รายการที่แปลงไม่ครบต้องแก้ใน Settings ก่อนส่ง
+
+รายการนี้เป็นสิ่งที่ implement แล้ว ไม่ใช่ผลรับรองทุก workflow ดูผลตรวจจริงใน STATUS
+
+## ข้อมูลเดิมและการกู้คืน
+
+Source เดิมทั้งหมดอยู่ที่ `_backup/legacy-electron/` และถูก gitignore แล้ว เก็บไว้สำหรับอ้างอิง/rollback อย่าใช้ `git clean -dfX` เพราะจะลบ backup
+
+ตรวจความครบของ backup ได้ด้วย:
+
+```powershell
+bun docs/migration/archive.mjs verify
 ```
 
-</details>
+ฐานข้อมูลผู้ใช้เดิมนอก repo ไม่ถูกย้ายหรือแก้ไข ถ้าจะย้ายข้อมูล ให้ปิดแอปเดิมแล้วเลือก `insomnia.*.db` หลายไฟล์พร้อมกันใน Import หรือแปลงเป็น export ด้วย Bun:
 
-Also on Linux, if Electron is failing during the install process, run the following
-
-```shell
-# Clear Electron install conflicts
-rm -rf ~/.cache/electron
+```powershell
+bun scripts/convert-legacy.mjs "C:\path\to\legacy-data" "E:\exports\insomnium-legacy.json"
 ```
 
-### Windows
+คำสั่งอ่าน source อย่างเดียว, ไม่เขียนทับ output ที่มีอยู่ และไม่คัดลอก response body/certificate/proto ที่อ้างถึงไฟล์ภายนอก ผลลัพธ์นำเข้าใน UI ได้ ข้อมูลที่ยังไม่รองรับถูกเก็บไว้ แต่ไม่ได้หมายความว่าใช้งานฟีเจอร์นั้นได้แล้ว
 
-If you are on Windows and have problems, you may need to install [Windows Build Tools](https://github.com/felixrieseberg/windows-build-tools)
+Workspace ใหม่อยู่ใน app data directory ของ `app.insomnium.desktop`: `workspace-v1.json` และ `workspace-v1.previous.json` กรณีกู้คืน ให้ปิดแอป สำรองทั้งสองไฟล์ก่อน แล้วคัดลอกไฟล์ previous ที่ตรวจสอบแล้วมาแทน workspace ปัจจุบัน Export จาก UI เป็น resource export ไม่รวม settings/history; สำรอง workspace file และโฟลเดอร์ `cookies/` หากต้องการเก็บทั้งหมด
 
-</details>
+## ข้อจำกัดที่ยังต้องทำต่อ
 
-<details>
-<summary>Editor Requirements</summary>
+gRPC, OAuth callback/provider compatibility และ advanced auth, template tags, GraphQL editor completion, Spectral/custom OpenAPI lint และ advanced serialization, collection runner, Git sync และ plugin compatibility ยังไม่ครบ Cookies เก็บใน app data `cookies/<collection-id>.json` รวม session cookie และมี `.previous.json` ก่อนแก้ไขในแต่ละ session; cookie เดิมจาก legacy ย้ายได้ที่ Cookies → Restore cookies from imported collections หลังดู preview โดยคง expiry เดิมและเลือกวิธีจัดการรายการซ้ำ; custom extensions/partitioned cookies ยังต้องจัดการตาม error ที่แสดง Response/upload limit 20 MiB, saved-history budget 40 MiB, response text decode เป็น UTF-8; bytes ต้นฉบับยังอยู่ใน base64 ข้อมูล credential อยู่ใน local JSON ยังไม่มี OS vault
 
-You can use any editor you'd like, but make sure to have support/plugins for the following tools:
+WebSocket/SSE ใช้ได้เฉพาะ desktop และยังรอทดสอบ runtime; SSE ต้องกด Connect ใหม่เอง ไม่มี automatic retry, WebSocket ไม่ negotiate compression ขนาด message/frame/SSE event สูงสุด 20 MiB; log เก็บ 1,000 events / 8 MiB โดยเก็บ event ล่าสุดที่ใหญ่กว่างบไว้ครบหนึ่งรายการ ไม่ได้นำเข้าไฟล์ log ภายนอกของแอปเดิม
 
-- [ESLint](http://eslint.org/) - For catching syntax problems and common errors
-- [JSX Syntax](https://facebook.github.io/react/docs/jsx-in-depth.html) - For React components
+Postman scripts และ auth/template ที่ยังไม่รองรับจะไม่ถูก execute และจะแจ้ง error ก่อนส่ง request แทนการเปลี่ยนความหมายของ request โดยเงียบ ๆ
 
-</details>
+OAuth 2 ตอนนี้รองรับ Client Credentials, Password แบบเดิม และ Refresh Token บน desktop: ตั้งค่าใน Auth แล้วกด Fetch token หรือ Send เพื่อขอ/refresh อัตโนมัติ Token ที่ import ต้องเลือกใช้กับค่าปัจจุบันก่อน และไม่ถูก copy เมื่อ duplicate request Authorization Code/PKCE เปิด system browser และรับ loopback callback หรือวาง callback URL สำหรับ remote/custom redirect ได้แล้ว และเลือก Login window เพื่อจับ remote/custom callback แบบเดิมพร้อมเริ่ม login session ใหม่ได้ แต่ยังรอตรวจ UI/IPC จริง; Implicit รับ token จาก fragment ผ่าน loopback หรือ manual paste ได้แล้ว รวม id_token และ none โดยการใช้ ID token เป็น API credential ต้องเลือกเอง และไม่ได้ตรวจยืนยัน OpenID identity Token เก็บแบบ plaintext ใน workspace และรวมอยู่ใน export; token response ไม่ลงประวัติ request
 
-## Bugs and Feature Requests
+## ทำต่อข้าม session
 
-Before submitting a bug or a feature request, you can read the
-[issue guidelines](CONTRIBUTING.md#using-the-issue-tracker).
+อ่านตามลำดับ: [AGENTS.md](AGENTS.md) → [STATUS](docs/migration/STATUS.md) → [PLAN](docs/migration/PLAN.md) → [PARITY](docs/migration/PARITY.md)
 
-<!-- For more generic product questions and feedback, join the [Slack Team](https://chat.insomnia.rest). -->
+[Design/architecture](docs/migration/DESIGN.md) · [เอกสารและคำสั่งที่ใช้](docs/migration/COMMANDS.md)
 
-## Contributing
+ใช้ข้อความนี้ใน session ใหม่:
 
-Please read through our [contributing guidelines](CONTRIBUTING.md) and [code of conduct](CODE_OF_CONDUCT.md). Included are directions for opening issues, coding standards, and notes on development.
+> ทำ migration E:\insomnium ต่อ อ่าน AGENTS.md และ docs/migration/STATUS.md, PLAN.md, PARITY.md ก่อน ทำ next action และอัปเดตสถานะทุก milestone ใช้ Bun เท่านั้น, Svelte JavaScript, คง UI เดิม, ไม่สร้าง test scripts ใหม่ และค้น official docs ก่อน implementation
 
-<!-- ## Documentation
+MIT — ดู [LICENSE](LICENSE) ซึ่งเก็บลิขสิทธิ์เดิมครบถ้วน
 
-Check out our open-source [Insomnium Documentation](https://archgpt.dev/insomnium-doc). -->
-
-
-## License
-
-[MIT](LICENSE)
+NTLMv2 ฝั่ง native ใช้ connection เดิมระหว่าง challenge พร้อม TLS channel binding; ตรวจขอบเขตและงานที่ยังค้างใน [NTLM compatibility](docs/migration/NTLM-COMPATIBILITY.md).

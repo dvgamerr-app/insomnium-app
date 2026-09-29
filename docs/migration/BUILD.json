@@ -1,0 +1,797 @@
+{
+  "builtAt": "2026-09-28T04:01:47.066Z",
+  "command": "bun run tauri build --bundles nsis --ci",
+  "bun": "1.4.2",
+  "sourceFingerprint": "30cb52a7baa53a5adfc80565f9b13326282fe73d2d704be87aea7e9cb00eea6e",
+  "fingerprintAlgorithm": "SHA-256 of sorted path + LF + SHA-256 + LF; generated validators and vendored source/licenses included; target/gen and top-level documentation excluded",
+  "sourceFileCount": 186,
+  "sources": [
+    {
+      "path": "bun.lock",
+      "sha256": "4c7c0d72d16b920126cfce99fd7985400b954f558db40e02ab7e48d99abcac95"
+    },
+    {
+      "path": "jsconfig.json",
+      "sha256": "c2dc93b41ad2448e36d94a662cdeb40fd8535ec79e66d4b8fa49df341d9e7915"
+    },
+    {
+      "path": "package.json",
+      "sha256": "6b792fe58d74f4fcd7626cf3ca28c7fc79607682065851b2688f9470e504bdcf"
+    },
+    {
+      "path": "scripts/build-openapi-validators.mjs",
+      "sha256": "d81007d59f2b65deec821ddcae194992f31b9746b8b39fcb05f20aa61ed23de3"
+    },
+    {
+      "path": "scripts/convert-legacy.mjs",
+      "sha256": "97608d464f7d27e643876a7db9d3a9d87ac028ec7cb2dedb8fd5db810284c747"
+    },
+    {
+      "path": "src-tauri/.gitignore",
+      "sha256": "e1b11c0407131ad35a1f11d8ec2545c53de147a76f05e264e5b500a14b977332"
+    },
+    {
+      "path": "src-tauri/Cargo.lock",
+      "sha256": "9816b36908a66d285fa06a6aacbbdeecc8c8afabb2c1fe1db483ee8f23840b2e"
+    },
+    {
+      "path": "src-tauri/Cargo.toml",
+      "sha256": "2f022749847273ef0fec6319c2fa002b7aa01cda81744adf36d8eabfc3919d4a"
+    },
+    {
+      "path": "src-tauri/build.rs",
+      "sha256": "dc411bda0be69de06f584889a52c9b331a914829c4e0c0b62ede78470affa872"
+    },
+    {
+      "path": "src-tauri/capabilities/default.json",
+      "sha256": "68e935b505b1a949a33c96870a3ffb10671d34af74e73f0ef690113619dc2c8b"
+    },
+    {
+      "path": "src-tauri/capabilities/desktop.json",
+      "sha256": "ac488e79b4ea7383333cab656752d44ca6470eb8a8854ee4dba50ec90a7b6253"
+    },
+    {
+      "path": "src-tauri/icons/128x128.png",
+      "sha256": "5cb760219723a00a9a01f6906154bfcb48481154edfde1a2defcc774d793c294"
+    },
+    {
+      "path": "src-tauri/icons/128x128@2x.png",
+      "sha256": "080ac1bb20b775aa227f60ad1c0f1835784ef9c2bbc0cf6ba273f28923843353"
+    },
+    {
+      "path": "src-tauri/icons/32x32.png",
+      "sha256": "4db43a558e30ad501446a84154290ae5fd494271befa102d6be9a555200e75fe"
+    },
+    {
+      "path": "src-tauri/icons/64x64.png",
+      "sha256": "18c451a8b5ffc463305fb69fd2edc05d16b863d2ef454f67de077fea62fc6995"
+    },
+    {
+      "path": "src-tauri/icons/Square107x107Logo.png",
+      "sha256": "6de4104cf006e88089af3cea10127231e31ddef15c061afd8a7de73158c0e909"
+    },
+    {
+      "path": "src-tauri/icons/Square142x142Logo.png",
+      "sha256": "16393466b393352c2b85af7c319abd9547f93d909ffd424a81e999be30cf4589"
+    },
+    {
+      "path": "src-tauri/icons/Square150x150Logo.png",
+      "sha256": "e2677096c92d91533f4622218ebeb24bf119f23d3baebf592b0c51a050bfef08"
+    },
+    {
+      "path": "src-tauri/icons/Square284x284Logo.png",
+      "sha256": "c0fe2c0674b5b7e069f532f8384d5a2d6efc580b53bd181c214907519d944c09"
+    },
+    {
+      "path": "src-tauri/icons/Square30x30Logo.png",
+      "sha256": "362df373be42dc70f438bd5246bc80acc3efd1cb8218d051db9358558b11fa39"
+    },
+    {
+      "path": "src-tauri/icons/Square310x310Logo.png",
+      "sha256": "ec72851b361ec1a1b6b159a41e5717132be4647a238d4a3f39023ed9a41a83ca"
+    },
+    {
+      "path": "src-tauri/icons/Square44x44Logo.png",
+      "sha256": "694ae0ece3d15a87a3fa55fd389d6622290427b10cf6d2fba524d52bfa5fa295"
+    },
+    {
+      "path": "src-tauri/icons/Square71x71Logo.png",
+      "sha256": "a629bdbf1d0e2ab57eb1dcf1384564fe4f864c9051139f934747b9bc5ece423d"
+    },
+    {
+      "path": "src-tauri/icons/Square89x89Logo.png",
+      "sha256": "339dbb0c5ea08362bc3d8f4a6480c8403373ae9308f02033404951cad0848816"
+    },
+    {
+      "path": "src-tauri/icons/StoreLogo.png",
+      "sha256": "f6f1c76cd8b11b56d14dd243ff00059e22566b57bedce79bc43ced718d2a7401"
+    },
+    {
+      "path": "src-tauri/icons/android/mipmap-anydpi-v26/ic_launcher.xml",
+      "sha256": "760d4b8a06bf7163dd010c33ad2cac9e4a75fa0177afaba042f83e311eef0c3e"
+    },
+    {
+      "path": "src-tauri/icons/android/mipmap-hdpi/ic_launcher.png",
+      "sha256": "570b48036ae804f790d097bdfeee4a5fe94fbf5f9dc51c8b169524b99016efa2"
+    },
+    {
+      "path": "src-tauri/icons/android/mipmap-hdpi/ic_launcher_foreground.png",
+      "sha256": "aab3f332077b24c36b560e9f0c83ead9372ac828b58b243e9d7ce8e20fc596ad"
+    },
+    {
+      "path": "src-tauri/icons/android/mipmap-hdpi/ic_launcher_round.png",
+      "sha256": "bf27855142e1c2186ed6de9a09b0891b067f37b545ac1b451ed299979dfde286"
+    },
+    {
+      "path": "src-tauri/icons/android/mipmap-mdpi/ic_launcher.png",
+      "sha256": "64433f099e312b4ea545ec4103588a996f5ee49cce4f0dc5fec3860b41499fa9"
+    },
+    {
+      "path": "src-tauri/icons/android/mipmap-mdpi/ic_launcher_foreground.png",
+      "sha256": "d7a6df1d521f09adb5b0603001b0af47a642d27c70b9c5742901a2e0d4826bfd"
+    },
+    {
+      "path": "src-tauri/icons/android/mipmap-mdpi/ic_launcher_round.png",
+      "sha256": "5f3fcbfe9d2a3254bc4278cf5624be57413b9486bfb952a445c6cbea25e2aec9"
+    },
+    {
+      "path": "src-tauri/icons/android/mipmap-xhdpi/ic_launcher.png",
+      "sha256": "90e1fa3418dc547efbdff21d0a11bfce5b133c3d01b00d8d8e6d656ccee58911"
+    },
+    {
+      "path": "src-tauri/icons/android/mipmap-xhdpi/ic_launcher_foreground.png",
+      "sha256": "ebd73cc329c3c27d67901002b5cc017442930f02df2686d645230ff006b178b4"
+    },
+    {
+      "path": "src-tauri/icons/android/mipmap-xhdpi/ic_launcher_round.png",
+      "sha256": "640cf56abaaa795fbeb8c64ed5ab185948792825854a48c21b1f844d31ba20c2"
+    },
+    {
+      "path": "src-tauri/icons/android/mipmap-xxhdpi/ic_launcher.png",
+      "sha256": "81adaf8435a948e981554315bbf1b48d735a4cd8aeb92951226d14bf71e98f56"
+    },
+    {
+      "path": "src-tauri/icons/android/mipmap-xxhdpi/ic_launcher_foreground.png",
+      "sha256": "adca62e33f965fededf80eeb1fd135a4057d4c2cc9a2c9b42c9dbabb1040ee39"
+    },
+    {
+      "path": "src-tauri/icons/android/mipmap-xxhdpi/ic_launcher_round.png",
+      "sha256": "e31999c2c9ed3b4b38070a3094237b6a85b1c89740b305280b2e2dfebbbd6487"
+    },
+    {
+      "path": "src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher.png",
+      "sha256": "bce6fda5fbbfd177cbc2abdb42090c3e4030d99bb739abebcdeb0f683b42ea0a"
+    },
+    {
+      "path": "src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher_foreground.png",
+      "sha256": "b4b3b6b3a22f36faf20d4fba394a1326d24c70038734027b0356259dfd74a854"
+    },
+    {
+      "path": "src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher_round.png",
+      "sha256": "b52e6f6b2560915e00036566809df62ebe2377be075c4184dc1c579f6d98040c"
+    },
+    {
+      "path": "src-tauri/icons/android/values/ic_launcher_background.xml",
+      "sha256": "0687336f0ccc6f7ee09c7c95110667c63b75931238df779a21af401fb864cd34"
+    },
+    {
+      "path": "src-tauri/icons/icon.icns",
+      "sha256": "a2561fa8f8caf00cb7c16514352eb24a3d4d7d6ae882ce557380cecd55a08728"
+    },
+    {
+      "path": "src-tauri/icons/icon.ico",
+      "sha256": "308dea5e272527351e61145111dbb09bb33bfc59b92d5785aae670a2eb53cace"
+    },
+    {
+      "path": "src-tauri/icons/icon.png",
+      "sha256": "5e79fcf8f3b641a5951afb64302300aecef60169ba094ea2cd193b5d3829c378"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-20x20@1x.png",
+      "sha256": "d4570d13c1cad0529bd5c22655bd6c9052303cf2c3ece64bd18b979e010a150b"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-20x20@2x-1.png",
+      "sha256": "92a6f10ecc77c723e6996c90a31409f88f9d4364fd17fe57ffb3a938de150354"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-20x20@2x.png",
+      "sha256": "92a6f10ecc77c723e6996c90a31409f88f9d4364fd17fe57ffb3a938de150354"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-20x20@3x.png",
+      "sha256": "6d2e107fbea841006653f0e3f918a75087aef5584cd32e651f5e72997aa048ba"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-29x29@1x.png",
+      "sha256": "d81b693345719cc6984858906470fe9f3577b89050741c166bbfcc78556cf971"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-29x29@2x-1.png",
+      "sha256": "b65c6d5794217c345a1c7ffad63aa42eebd87c0db3772bf643efd3cbe9d01dc2"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-29x29@2x.png",
+      "sha256": "b65c6d5794217c345a1c7ffad63aa42eebd87c0db3772bf643efd3cbe9d01dc2"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-29x29@3x.png",
+      "sha256": "b862db4f53096e63c820feb393b5f6033896a9c4afb8bd213866683982149db5"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-40x40@1x.png",
+      "sha256": "92a6f10ecc77c723e6996c90a31409f88f9d4364fd17fe57ffb3a938de150354"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-40x40@2x-1.png",
+      "sha256": "5543583452f8adc23087dce7483c25ad2e1993ec6c44f11597d738ce52422696"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-40x40@2x.png",
+      "sha256": "5543583452f8adc23087dce7483c25ad2e1993ec6c44f11597d738ce52422696"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-40x40@3x.png",
+      "sha256": "d6e5e75c8dba2fc694ffceac90deb9e2ce3cc77724e412674141d2af321c5e83"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-512@2x.png",
+      "sha256": "01c8223f6579a272b50f868893541906e5a7529a779cbea3f3986db454898959"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-60x60@2x.png",
+      "sha256": "d6e5e75c8dba2fc694ffceac90deb9e2ce3cc77724e412674141d2af321c5e83"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-60x60@3x.png",
+      "sha256": "2624bff87e2ecca6f5965aad014597ae5c98b0248e28bfa2f97d1ffae55ac27e"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-76x76@1x.png",
+      "sha256": "f44faa5a4148e6c5d83a2e349e9ae18d721983751a2cc106a4224d11ac592d40"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-76x76@2x.png",
+      "sha256": "d88e197636e1d497f754341bf39967e20c7c84b4ae6b8eb5fd663d4c4e2ba39a"
+    },
+    {
+      "path": "src-tauri/icons/ios/AppIcon-83.5x83.5@2x.png",
+      "sha256": "21b7db1a5669d911c97a8e71b50a4949456043050cced78e6802ec155242ce70"
+    },
+    {
+      "path": "src-tauri/permissions/autogenerated/acknowledge_grpc.toml",
+      "sha256": "361fed5f5c6f98ea3840adf6434a15b87da1ed901bb6f40d018c97d687a95fd7"
+    },
+    {
+      "path": "src-tauri/permissions/autogenerated/acknowledge_stream.toml",
+      "sha256": "80cb821ef8c6042b3009e25b4d329990078ae63ed898b3afb273d12817f7b25c"
+    },
+    {
+      "path": "src-tauri/permissions/autogenerated/authorize_oauth.toml",
+      "sha256": "704337637b9902d6d3c209de7a3fbeac9701b66ba4195d959b0a9b1ac4aed6de"
+    },
+    {
+      "path": "src-tauri/permissions/autogenerated/cancel_http.toml",
+      "sha256": "8318f17361a8510976a45ee26b997be245d55ee3bba711630b1c56af941fd095"
+    },
+    {
+      "path": "src-tauri/permissions/autogenerated/change_cookie.toml",
+      "sha256": "1f237c552754c25bef92f63acccb0e8d967a649bb6130d31bef53b6310db01dd"
+    },
+    {
+      "path": "src-tauri/permissions/autogenerated/connect_grpc.toml",
+      "sha256": "9c1f26c4911e0c5915ee5c9e349a7abdb5217e9e5dd59299e44a505e6614c9dc"
+    },
+    {
+      "path": "src-tauri/permissions/autogenerated/connect_stream.toml",
+      "sha256": "551c357335b0ab0dcf29064b6d0f4fa5def133a7f18f5543f6b6503970c81f78"
+    },
+    {
+      "path": "src-tauri/permissions/autogenerated/fetch_oauth_token.toml",
+      "sha256": "95683e14044c55b2c2b18b63efbe8a118325ed910cf59b9740389aa1826721d9"
+    },
+    {
+      "path": "src-tauri/permissions/autogenerated/import_legacy_cookies.toml",
+      "sha256": "415ccd14a889bccadc3ae8043e022b22c09ecefc74ba5a271d83c046484152fa"
+    },
+    {
+      "path": "src-tauri/permissions/autogenerated/list_cookies.toml",
+      "sha256": "b01b65a80bf349f799b92c456d92e9acd96533918bddb9d31a745c7f2d7cef50"
+    },
+    {
+      "path": "src-tauri/permissions/autogenerated/load_grpc_schema.toml",
+      "sha256": "33e1a6de8f8d3f9f8233df06294849d2386e61ce23d1b275bda51a0851f86657"
+    },
+    {
+      "path": "src-tauri/permissions/autogenerated/load_workspace.toml",
+      "sha256": "7e34ad1cff9c83eded47bf2df63630f970bcebfe048f646331a3452d176b146a"
+    },
+    {
+      "path": "src-tauri/permissions/autogenerated/save_workspace.toml",
+      "sha256": "572e20f2eee7a58e712f18ece913d06d1f4c0784f87012e55d672c1131342084"
+    },
+    {
+      "path": "src-tauri/permissions/autogenerated/send_grpc_message.toml",
+      "sha256": "148c87d3544895fc5d81fdf0633f3a15e4e51711493227c3f061d4656a53d7be"
+    },
+    {
+      "path": "src-tauri/permissions/autogenerated/send_http.toml",
+      "sha256": "62b561ba7ea1ba80ad40d43dc63722e0cb0dd3c435a553fff7bc03ff2545dd7a"
+    },
+    {
+      "path": "src-tauri/permissions/autogenerated/send_stream_message.toml",
+      "sha256": "8eb87579dd9c687d7c53f0a154f1aaa50e2984cfabecdc9a57b0fcec4fc3151f"
+    },
+    {
+      "path": "src-tauri/permissions/autogenerated/submit_oauth_callback.toml",
+      "sha256": "d86c202dd74b5b4e803f5ec4de62a4330fa158613ae3174e7598628ba300452d"
+    },
+    {
+      "path": "src-tauri/src/asap.rs",
+      "sha256": "079875ec53075dc57773f9da2abdd927dbd9a24f2220c7d16fc3052198657092"
+    },
+    {
+      "path": "src-tauri/src/aws.rs",
+      "sha256": "4cb64cbd4b17a5e9a0ca5dfcc1850de2eb49c0217fa19f7a196e7f361985143c"
+    },
+    {
+      "path": "src-tauri/src/cookies.rs",
+      "sha256": "5ee76ebacf5720aeb8ca8dadae2e1504b34a298b54bd275b78669572a904854f"
+    },
+    {
+      "path": "src-tauri/src/digest.rs",
+      "sha256": "bba4da8090e2590aad57eb13619997deaeaa727538c8dd4caaf332b7fcbef477"
+    },
+    {
+      "path": "src-tauri/src/grpc.rs",
+      "sha256": "a988d61690ad14698219b18ce110e7af790d10cb19a6eaf20f7e0e2dadca05d5"
+    },
+    {
+      "path": "src-tauri/src/grpc_example.rs",
+      "sha256": "37409b8afa39db9cba0c09e72ffdad34e0204c4e4d805e02ae8bcb8a5bb6b875"
+    },
+    {
+      "path": "src-tauri/src/grpc_legacy.rs",
+      "sha256": "55ca41a649c0711c2a6fb37437313a9947be0002b5351d59284cf476f5e5ea30"
+    },
+    {
+      "path": "src-tauri/src/grpc_schema.rs",
+      "sha256": "182df34b43bb4d234275264f2b0c6ab315b43a3f6fa13b52db6bb9dc6e4ca9b1"
+    },
+    {
+      "path": "src-tauri/src/grpc_transport.rs",
+      "sha256": "84a06a7fcd5e2df53c1c5928d557ef8db5c82001c9db49a669c4c6e68d7387da"
+    },
+    {
+      "path": "src-tauri/src/hawk.rs",
+      "sha256": "36492bcd251104e0e724ac25d84f4123b2d0a9d78ed9d6d91845f81543ce2490"
+    },
+    {
+      "path": "src-tauri/src/http.rs",
+      "sha256": "7f35cce06429af11e15d19ea875e488fbbb8c1dda0816e704d236769a7081129"
+    },
+    {
+      "path": "src-tauri/src/lib.rs",
+      "sha256": "a7dbfba67fb163607d3375be6a8afc4c21734d43314503c29f00823d09888609"
+    },
+    {
+      "path": "src-tauri/src/main.rs",
+      "sha256": "75957a529431b7913ebb064193b3f9233688f411ec4f62baeba15d981909b900"
+    },
+    {
+      "path": "src-tauri/src/netrc.rs",
+      "sha256": "2beaa4f9130dd03155c068ddee320880c1cb826714e17d81a5b77282abe0004d"
+    },
+    {
+      "path": "src-tauri/src/ntlm.rs",
+      "sha256": "6279ac13dad4692bc92791419818782be7afa8226e77cf933b3f3bf5870c79e1"
+    },
+    {
+      "path": "src-tauri/src/oauth-fragment.js",
+      "sha256": "8b79cb884761b84d677cbdf325703d77933a5ca05c94d7d69e450a44412bf98b"
+    },
+    {
+      "path": "src-tauri/src/oauth.rs",
+      "sha256": "2183547f997baa83f078fa674f8e50165e8ea2b6c10af57ff67f420192d19649"
+    },
+    {
+      "path": "src-tauri/src/oauth1.rs",
+      "sha256": "7f303845168184422476f7520a7b77e2f4c96af0ca5bb8bff61a67ba5d4a6b91"
+    },
+    {
+      "path": "src-tauri/src/oauth_browser.rs",
+      "sha256": "8066568fc3abc1482427cefcf09119d9e8742d0a47e0019681e755f0e06c039d"
+    },
+    {
+      "path": "src-tauri/src/oauth_callback.rs",
+      "sha256": "4236336c247559f4022619b302d085d0d49f75484cb84f40c785b8f813b03680"
+    },
+    {
+      "path": "src-tauri/src/oauth_embedded.rs",
+      "sha256": "e4b336d845e2d4d69fcd2bc72e29ae432122a7f4ec1d407cd9cdcecf06da8d99"
+    },
+    {
+      "path": "src-tauri/src/oauth_implicit.rs",
+      "sha256": "dfad990b88d5091ac1fed90be5a6d8d2046795d673d7b51b81b34d599e36b4d1"
+    },
+    {
+      "path": "src-tauri/src/oauth_navigation.rs",
+      "sha256": "db0de77413d9f2f2818e371d356fc48173fc33e5bc7b7d018883b53bb37ede3f"
+    },
+    {
+      "path": "src-tauri/src/storage.rs",
+      "sha256": "d5fa1dc3367a06081a1cea658eed44e5a9de6d4786d5118c961df3f94b6582b2"
+    },
+    {
+      "path": "src-tauri/src/streaming.rs",
+      "sha256": "7bb33df4c52c34358f48fc55795a119b469029ca1c065943d432e5bf0aae6ece"
+    },
+    {
+      "path": "src-tauri/tauri.conf.json",
+      "sha256": "f6f3b392d72ecf7b9268f83705a3280a2359abc36017038399bbd27a277c28b6"
+    },
+    {
+      "path": "src-tauri/vendor/http-auth/CHANGELOG.md",
+      "sha256": "56dea188806cc606ab3767f3bd3d4809df0a010cc9db3630aefca5307e6d24a6"
+    },
+    {
+      "path": "src-tauri/vendor/http-auth/Cargo.toml",
+      "sha256": "88074709cc8080eeff6da6e7f04d1d514e1ff6b5bf40f05ae2752b97346845dc"
+    },
+    {
+      "path": "src-tauri/vendor/http-auth/Cargo.toml.orig",
+      "sha256": "9ce87765450cf57da1929a0b5f36f82cd92258634197ec3709cc3bcb2a61b3d7"
+    },
+    {
+      "path": "src-tauri/vendor/http-auth/LICENSE-APACHE.txt",
+      "sha256": "531ae0e8652952207e2e577daa311955290f78380be845087f2acd86d808df7d"
+    },
+    {
+      "path": "src-tauri/vendor/http-auth/LICENSE-MIT.txt",
+      "sha256": "ed057943f5d1306ad0c87d38e1e523b9e167dce174ef7138fa27200c7cf1243f"
+    },
+    {
+      "path": "src-tauri/vendor/http-auth/PATCH.md",
+      "sha256": "44d5c0f10abf866fd364f75f13bff254f5b3743d97b0f8380a885bf93825e090"
+    },
+    {
+      "path": "src-tauri/vendor/http-auth/README.md",
+      "sha256": "f4902ad2696d024be666683223b1f6147dbc90da92cd04f2e8ea7535481c4c42"
+    },
+    {
+      "path": "src-tauri/vendor/http-auth/UPSTREAM.json",
+      "sha256": "1190946b50fe94365b35852d22d6b38623bb2bee57462ded69181b2c9f5642c0"
+    },
+    {
+      "path": "src-tauri/vendor/http-auth/examples/reqwest.rs",
+      "sha256": "e14686de096ba44a6402e7daa62d35b5a62d6448b1068fddbde327311b274fb5"
+    },
+    {
+      "path": "src-tauri/vendor/http-auth/src/basic.rs",
+      "sha256": "25b67f1ebd4fd983c2b6116200bea370da8df6a7128b9015356056f241b80083"
+    },
+    {
+      "path": "src-tauri/vendor/http-auth/src/digest.rs",
+      "sha256": "686e78ccc904b4b2a99a2a4ece65d4462042e53c25205e523c713d6da5f2438c"
+    },
+    {
+      "path": "src-tauri/vendor/http-auth/src/lib.rs",
+      "sha256": "1ae353854b3893bbcbebbe39b05229166564b8124add39ec866e93ad445ebbf8"
+    },
+    {
+      "path": "src-tauri/vendor/http-auth/src/parser.rs",
+      "sha256": "7740dec3fe43bae1e27ea26c7a316d99ed1501b5164552be631ecc5ec96c8b2d"
+    },
+    {
+      "path": "src-tauri/vendor/http-auth/src/table.rs",
+      "sha256": "8894b5fa7da6f9c014e151e31f70236f22c6c7733e9da51d773ea4293039f4d6"
+    },
+    {
+      "path": "src/app.html",
+      "sha256": "bbdd858a25d2bf34f8a0528d03143d14a9699f6f3c764d083ad42051dc9b3953"
+    },
+    {
+      "path": "src/lib/asap-model.js",
+      "sha256": "d4a336447d84bf4d661af8f7679f4c69f570714e8f68d21a9fa73add4896dd4f"
+    },
+    {
+      "path": "src/lib/components/ApiDesign.svelte",
+      "sha256": "5b05f06d7af2a1909cf42e540dbb300309e87b8f84ad9fb7d7338dc63ca49b49"
+    },
+    {
+      "path": "src/lib/components/AsapEditor.svelte",
+      "sha256": "5ed09516077536a6cbcde2baf0098b5ace8d469a8f92517a0488cf96b1543d60"
+    },
+    {
+      "path": "src/lib/components/AwsEditor.svelte",
+      "sha256": "d7fd844863b32dabdafa2e973a541913c557a048096a8aec23a5bf7c8945c0ac"
+    },
+    {
+      "path": "src/lib/components/CodeEditor.svelte",
+      "sha256": "3abce44de7a7beeaf410bb4c5bc1e4fb83c0e2e2358b9cae170046da759325d0"
+    },
+    {
+      "path": "src/lib/components/CookieManager.svelte",
+      "sha256": "cc26180f3e50d745bf5cb4c9c67e1b584fabcb95472a449c4bb82b45d953376f"
+    },
+    {
+      "path": "src/lib/components/GraphqlEditor.svelte",
+      "sha256": "b77b79850100b4d956d313541e20c38ecded195b6ff303f32dbde36ad94d8c3e"
+    },
+    {
+      "path": "src/lib/components/GrpcPane.svelte",
+      "sha256": "e3298b8ebfae0b8bf6f824c490cfca557153b2560e80a29e06e280a2d6a09c03"
+    },
+    {
+      "path": "src/lib/components/HawkEditor.svelte",
+      "sha256": "04cd0449903f8a3324db0eac68a570d2051f7b83fb7c1f9fb655a5073f79c941"
+    },
+    {
+      "path": "src/lib/components/Icon.svelte",
+      "sha256": "7611541fb36cad91b7aa6b34521469cb451370251b7ab896841e39fd4906dfb7"
+    },
+    {
+      "path": "src/lib/components/KeyValueEditor.svelte",
+      "sha256": "a2252ec70cfc3798ed02d6ede0efa5e7139046b721363a55bc64400c4f8f30d1"
+    },
+    {
+      "path": "src/lib/components/LegacyCookieImport.svelte",
+      "sha256": "1ee9a3323a6b9da55683c328bb2dc979b88f0be273be4000729289901c84f900"
+    },
+    {
+      "path": "src/lib/components/NewRequestMenu.svelte",
+      "sha256": "48615874f4f086672c43dc2f0b6139542314496097385cb33c3a8e426bece0e1"
+    },
+    {
+      "path": "src/lib/components/OAuth1Editor.svelte",
+      "sha256": "ed63795986cfb7deb5a2026fa123d533bf95542ab2742ace998ca1a6a9a08dfa"
+    },
+    {
+      "path": "src/lib/components/OAuthEditor.svelte",
+      "sha256": "51c19b7ec5f13b2857e5cfa7499a1b0537eea5466dcd833f8170154ccf8ffa4b"
+    },
+    {
+      "path": "src/lib/components/ProtoManager.svelte",
+      "sha256": "6b2c2b0e779b23037a6b13faf3a0860ec63b565e8b15abfe6b59bf9f4f2d12a2"
+    },
+    {
+      "path": "src/lib/components/RequestEditor.svelte",
+      "sha256": "1e8d15c2fa9892d02f6fcf3d701a889275ec33d528ff6632763c4e7973586b3f"
+    },
+    {
+      "path": "src/lib/components/RequestTree.svelte",
+      "sha256": "76f423c1e6cd16920c502fa4069288fcd40c2134106667210eb7e07e8b464050"
+    },
+    {
+      "path": "src/lib/components/ResourceManager.svelte",
+      "sha256": "7012ffb313898add35907f7851f0543ab5688c55ed32ea9662cebb9c188ad72b"
+    },
+    {
+      "path": "src/lib/components/ResponsePane.svelte",
+      "sha256": "b84393f028a6d5ad54849a5107f3f2ec2f8315d233c7b34f12f669e495ddc74b"
+    },
+    {
+      "path": "src/lib/components/StreamPane.svelte",
+      "sha256": "5dac606f0f63804b71607edf60c7e42212f994cb555f6f763298c39db69222e2"
+    },
+    {
+      "path": "src/lib/components/WebSocketMessageEditor.svelte",
+      "sha256": "2b9ed4bc79094228ee2275b6afe1a063a20c02d43ca4a8e88a91f4eeec36f028"
+    },
+    {
+      "path": "src/lib/editor-completion.js",
+      "sha256": "c44af11398543aa50e1bc409397dde85a98f8f80526f0a56846feb56e8e197ab"
+    },
+    {
+      "path": "src/lib/editor-engine.js",
+      "sha256": "a347afa770e6e089437563e0942f57eec4297849c3176113f38a118966425d22"
+    },
+    {
+      "path": "src/lib/editor-hover.js",
+      "sha256": "42f3cff42be7618d77945606fb7f0926c803e8a9b33e8c8bbaf20386897987ca"
+    },
+    {
+      "path": "src/lib/editor-keymaps.js",
+      "sha256": "b7627c1fba507dfd82f2b76fa59cf1001ce5288ce05ba0af7677689da1d66851"
+    },
+    {
+      "path": "src/lib/editor-state.js",
+      "sha256": "5a2adc8b9336b95e836f82dcc747e64eb9af765f3eece966528b8467f846c257"
+    },
+    {
+      "path": "src/lib/generated/openapi-2.0.js",
+      "sha256": "ca33e601b3faf04b039fb66e39775faf004c5ad3bbb69046baaa8be8ffa0b68a"
+    },
+    {
+      "path": "src/lib/generated/openapi-3.0.js",
+      "sha256": "bc14f510fe58d8504348f48b9e7e573639b2af923c1de784a369162cdd6c3a8c"
+    },
+    {
+      "path": "src/lib/generated/openapi-3.1.js",
+      "sha256": "5f863bd9a8d28e484b48d80a496eacbabf75ee180405bbef11b6cb540aef15c2"
+    },
+    {
+      "path": "src/lib/generated/openapi-3.2.js",
+      "sha256": "bbab47ad32fbda551731e29599a3d3ff298f8fc4adad7f276986a870674461a7"
+    },
+    {
+      "path": "src/lib/graphql-editor.js",
+      "sha256": "20bec5ea5f329649d9edbb075e32127dba4b4e303e7ad5acb31b8f04de51bcb1"
+    },
+    {
+      "path": "src/lib/graphql.js",
+      "sha256": "1a8ccc25250ac6d45a79b4bb2b326052298f3b4c2e5afd15be754e6b2ae16835"
+    },
+    {
+      "path": "src/lib/grpc-model.js",
+      "sha256": "4f5546cb431b3ba422bccbc7b1b67fc91bebc7f75b43201f7786b49f84424e84"
+    },
+    {
+      "path": "src/lib/grpc.js",
+      "sha256": "7bec1259c2b5a755021f196b0a3e33331f1e88df432ab0673e366b5f03c65649"
+    },
+    {
+      "path": "src/lib/hawk-model.js",
+      "sha256": "fb5ac8255b8cd8dc56cbfc13e1ca3edc6a864571ae41b67e85d96043ad1692e0"
+    },
+    {
+      "path": "src/lib/import-export.js",
+      "sha256": "0369566024b43122e51525b58fe4dfaafa1c9e63efce59988a801eae3a7e11bc"
+    },
+    {
+      "path": "src/lib/legacy-cookies.js",
+      "sha256": "7d719b5985f9b6ce448f9b82837bc8c4a7eb2ca3cc19e457e31d628d23896bbe"
+    },
+    {
+      "path": "src/lib/legacy-import.js",
+      "sha256": "68b657dfd2267feaba05fedf3fbb2f3ed511cb5621dc9ae2702285e8a7dc9eaf"
+    },
+    {
+      "path": "src/lib/model.js",
+      "sha256": "27dfa5bfa921255095c5a58c384d269ab8a9947da2ba18c3fc0db3418068a9fc"
+    },
+    {
+      "path": "src/lib/oauth-model.js",
+      "sha256": "a07e3b5a65986ba089efa98e3c793fe90615c8294993967834f96b82aeebff87"
+    },
+    {
+      "path": "src/lib/oauth.js",
+      "sha256": "16a40f97a8e443f2b3fc9a3489b0f55040fdf626a8f46fa466d16cf36717a0ae"
+    },
+    {
+      "path": "src/lib/oauth1-model.js",
+      "sha256": "9ab2af53016065402a2d3e27185065fa95647fec76c28c5895f8b8c5f45a907e"
+    },
+    {
+      "path": "src/lib/openapi-document.js",
+      "sha256": "ad27ec6254e3bb0f89d6630f9badb5f80865271e6fd5da61f330b39db24cb430"
+    },
+    {
+      "path": "src/lib/openapi-validation.js",
+      "sha256": "f86cce2aedad74def12a79f205e8f74fdf13ab3f79476ab808a4a5896fac40ac"
+    },
+    {
+      "path": "src/lib/openapi.js",
+      "sha256": "a135db8d9c549fa65185ee6f6c4c70d53af53fd618fc1858c128238c0b1ef247"
+    },
+    {
+      "path": "src/lib/openapi.worker.js",
+      "sha256": "d5a82128febdf0d303f539986a4ac3544a7bd04e0dce6a3c3a4020b15ede82aa"
+    },
+    {
+      "path": "src/lib/persistence.js",
+      "sha256": "3254b922954e6578ded62193284d2d34233eb7d79e01c2e235c8c390ba53f569"
+    },
+    {
+      "path": "src/lib/postman-import.js",
+      "sha256": "c08508fd0744d68aa004be1820ba22f4f2b097cd320b69b3c3b6a47a3379a103"
+    },
+    {
+      "path": "src/lib/proto-management.js",
+      "sha256": "4c0412bf35a6f9b4be2345602708fdc5d106596507d6bd38c2e76ac38f9b79bc"
+    },
+    {
+      "path": "src/lib/resources.js",
+      "sha256": "9818ca33df905dfdefd3b0642a0b178fb427c003d08e84cbe62c56677b7aeb43"
+    },
+    {
+      "path": "src/lib/streaming.js",
+      "sha256": "23fe0859d7e25717d02a542d98e421697bd727a2a264d3654d52d68cbbd5b968"
+    },
+    {
+      "path": "src/lib/styles.css",
+      "sha256": "cdb181ae07082ce531cb6922489a78b12c4fdb9999ffd850f92f174aa6530de3"
+    },
+    {
+      "path": "src/lib/transport.js",
+      "sha256": "67156fb955ab18ae7d461966ae2c5147771ff8adcc79a806166938c41b6a34c0"
+    },
+    {
+      "path": "src/lib/uploads.js",
+      "sha256": "65d14c904b7f6d2e2d7a5cb192af59ccd96740c48b49efc87e9ccaf4bdabeea0"
+    },
+    {
+      "path": "src/lib/workspace.svelte.js",
+      "sha256": "c72c2c265538ceabec7f1da65f4b3bc0d9784c2f921f78effd07783a6278b21b"
+    },
+    {
+      "path": "src/routes/+layout.js",
+      "sha256": "06d9b38b113e4c1bf159b3942d7d65302ce05bb01713b438df91b73ad9be9ee6"
+    },
+    {
+      "path": "src/routes/+page.svelte",
+      "sha256": "8a0dcb8e864ac2dd3fad9db2a396e930821f6dd01c7888344ccbaa25203bd206"
+    },
+    {
+      "path": "static/app-icon.png",
+      "sha256": "2152872c0c59e2600b38bb30d0e886687d2d48fb9a8b05c661fa86359873e751"
+    },
+    {
+      "path": "static/favicon.png",
+      "sha256": "2152872c0c59e2600b38bb30d0e886687d2d48fb9a8b05c661fa86359873e751"
+    },
+    {
+      "path": "static/svelte.svg",
+      "sha256": "a39f39b75032527099aa1ede54ff2a507065e32e7329a1460a35a3a4d6ea88fe"
+    },
+    {
+      "path": "static/tauri.svg",
+      "sha256": "3f32698a9cb64f4d06d4df89ecb903418347589a17d297208a7f68741a8b5672"
+    },
+    {
+      "path": "static/vite.svg",
+      "sha256": "4a748afd443918bb16591c834c401dae33e87861ab5dbad0811c3a3b4a9214fb"
+    },
+    {
+      "path": "svelte.config.js",
+      "sha256": "8de5befd50c97d743b6fe693aadf4a013edcdd98041825877bb56aac108e22dd"
+    },
+    {
+      "path": "vite.config.js",
+      "sha256": "128dcf681a00c70c215db381b70e28eb0e11c2671ed84928c1f86ce4547defd8"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "src-tauri/target/release/insomnium.exe",
+      "bytes": 12167680,
+      "sha256": "a9451098ee7797878b05d2d825666fee09d63e337d0002a5eccdc76812686b1a"
+    },
+    {
+      "path": "src-tauri/target/release/bundle/nsis/Insomnium_0.1.0_x64-setup.exe",
+      "bytes": 4512525,
+      "sha256": "be6896dd4e9d151fefa6284024fb31ef69bfe4b989e3761dda03225005f446a8"
+    }
+  ],
+  "checks": [
+    "Final Svelte check0 errors/0 warnings; Prettier and frontend production build passed",
+    "50 inline editor helper assertions across milestones:10 mode/cache,15 environment completion,6 GraphQL language-service,9 operation/reference,4 directive formatting,6 settings; not mounted DOM/IPC tests",
+    "Optional keymaps split into dynamic imports; prior500kB frontend warning resolved without changing warning threshold",
+    "Explicit Vim/lint disposal cleanup added after inspecting upstream toTextArea/detach behavior; final package includes it",
+    "bun run tauri build --bundles nsis --ci: final session37704 exited0 (Rust release4m40s); prior31547 superseded",
+    "All186 source paths/hashes matched artifacts/editor-cleanup-source-snapshot.json after final packaging",
+    "Native backend unchanged from previous reflection checkpoint; prior native/protocol/auth evidence remains in migration docs and was not rerun for frontend-only changes"
+  ],
+  "notVerified": [
+    "real login window creation/navigation/page-load/custom callback/provider behavior",
+    "actual Tauri app-command permission enforcement from main versus login window",
+    "window creation/drop/cancel/close races and profile cookies/reload/isolation",
+    "system-browser provider login and rendered UI/IPC overall",
+    "legacy popup providers, validateAuthSSL/custom client certificate/default unspecified redirect differences (OAUTH-COMPATIBILITY.md)",
+    "native TLS/proxy/cookie runtime and persisted reload",
+    "installer execution; macOS/Linux",
+    "OAuth1 native editor/IPC/provider, unusual legacy URL/parser cases and unsupported Postman parameter-placement/options; see OAUTH1-COMPATIBILITY.md",
+    "Basic/Bearer/API-key rendered UI/IPC/reload and persistent jar/redirect integration (AUTH-INVENTORY.md)",
+    "manual Authorization rendered UI/Tauri IPC and real-provider lifecycle; direct native inspection attached no persistent jar",
+    "AWS real provider, rendered UI/Tauri IPC/reload, TLS/HTTP2/proxy/persistent jar; CodeCommit GIT and unusual legacy URL canonicalization remain gaps (AWS-COMPATIBILITY.md)",
+    "Hawk real provider/UI/Tauri IPC/reload, TLS/HTTP2/proxy/persistent jar and unusual legacy/Postman URL/body serialization (HAWK-COMPATIBILITY.md)",
+    "ASAP real provider/UI/Tauri IPC/reload, TLS/HTTP2/proxy/persistent jar and unusual Postman key/claim coercions (ASAP-COMPATIBILITY.md)",
+    "NTLM native UI/Tauri IPC/reload/IIS/AD/provider, proxy/client certificates/persistent jar, NTLMv1/LM/proxy407, Type3 workstation, unusual certificate hashes/username modes (NTLM-COMPATIBILITY.md)",
+    "Netrc real Tauri UI/IPC/reload, installed-profile Windows/Unix discovery, TLS/proxy/persistent jar and real-provider combinations; parsing/legacy differences in NETRC-COMPATIBILITY.md",
+    "ASAP ES512 real provider/UI/Tauri IPC/reload and TLS/proxy/persistent-jar combinations; unusual key/claim coercions still tracked in ASAP-COMPATIBILITY.md",
+    "gRPC real Tauri UI/IPC/ACL/acknowledgement/backpressure/shutdown races, native directory picker, provider/reflection and persisted reload/history/layout",
+    "gRPC malformed base64/UTF-16/coercion/map/default/extension/reflection WKT edges and multiple-oneof legacy differences; method grouping/sample generation implemented with documented differences; shared editor remains incomplete (GRPC-COMPATIBILITY.md)",
+    "Shared CodeMirror mounted typing/IME/cursor/undo/read-only, UTF-8 size rejection, diagnostic jump, GraphQL hint/lint/hover/directive navigation, lazy keymap races/disposal, Save-Cancel/settings reload and layout/theme CSS; CUA inventory empty and iab creation explicitly unavailable"
+  ],
+  "fullMigrationComplete": false
+}
