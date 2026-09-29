@@ -1,12 +1,21 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
-Updated: 2026-09-29 - Explicit OAuth cookie rendering
+Updated: 2026-09-29 - Dependency cleanup and Tauri version alignment
 Goal: migrate Insomnium Electron/React → Tauri 2 + Svelte JavaScript, Bun only, original UI.
 Status: **IN PROGRESS — foundation implemented; full legacy parity not complete.**
 
 Current execution rule (owner update): Do not use shell execution tools or cmd/PowerShell. Launch Bun and other programs directly through node_repl with node:child_process execFile/spawn, shell:false and windowsHide:true. Bun handles scripts/filesystem operations. This supersedes historical cmd.exe instructions below.
 
-## Explicit OAuth cookie rendering and legacy-source audit — 2026-09-29
+## Dependency cleanup and Tauri version alignment — 2026-09-29
+
+- Owner decision: remove unused/replaceable JavaScript libraries; keep CodeMirror 5, graphql 16, TypeScript 6, url, xmldom/xpath and the other current libraries unchanged.
+- Removed JS `@tauri-apps/plugin-opener` and `@tauri-apps/plugin-window-state` (only the Rust crates are used), the webview `opener:default` capability, and unused template SVGs `static/{svelte,tauri,vite}.svg`.
+- Replaced `buffer` in template-tags.js with local Node-Buffer-compatible helpers: base64 decode accepts URL-safe characters, skips invalid characters, stops at the first `=` and drops a lone trailing sextet; UTF-8 decode keeps a leading BOM and replaces invalid sequences; non-string input still throws. Hash hex/base64/latin1 unchanged.
+- Replaced `vkbeautify`/`@types/vkbeautify` with a local port of vkbeautify 0.99.3 `xml()` (MIT, attributed) so formatted output stays byte-identical; the existing content guard is unchanged.
+- Upgraded `uuid` 9.0.1 → 14.0.2 and `date-fns` 2.30.0 → 4.4.0. date-fns 3+ no longer coerces arguments, so `now custom` passes `String(pattern)` like v2.
+- Tauri CLI reported `tauri (v2.11.6) : @tauri-apps/api (v2.12.0)`. `cargo update --recursive` aligned tauri 2.12.0, tauri-build 2.7.0, plugin-dialog 2.8.0, plugin-fs 2.6.0, plugin-opener 2.6.0, plugin-window-state 2.5.0, plugin-single-instance 2.5.0 with the JS packages.
+- libuv-sys2 bindgen failed with `Unable to find libclang`. Added root `.cargo/config.toml` `[env] LIBCLANG_PATH` (relative, non-forced) pointing at the ignored `artifacts/tools/llvm-20.1.8/bin` from OS-TEMPLATE.md. It must live at the repo root: Cargo discovers config from the working directory, not `--manifest-path`, so `src-tauri/.cargo` was not applied to `bun run native:check`. Other machines/CI still need that extraction or their own LIBCLANG_PATH.
+- Inline parity assertions (not saved) compared the helpers with Bun Buffer/node:crypto and the port with upstream vkbeautify 0.99.3 for 15 decode, 7 encode, 36 hash and 12 XML cases; all matched. `bun run check` 0/0, `bun run build` and `bun run native:check` passed; `bun run tauri info` shows tauri/api/cli 2.12.0 with matching plugin versions. `tauri dev` was not launched.
 
 - Inspected legacy-cookies.js and LegacyCookieImport.svelte: original cookie_jar resources are retained as explicit Restore candidates, with preview/overwrite policy. They are not an active jar. Automatically overlaying all retained records on Send would resurrect deleted cookies or override later edits. Do not implement that blanket overlay.
 - Existing valid template-bearing cookie values can be restored into the native jar and then participate in structured snapshot rendering. Unrepresentable template names/domain/path/expiry still need an explicit persistent template-source model with editing/deletion/clear semantics; this remains incomplete, not removed from scope.
