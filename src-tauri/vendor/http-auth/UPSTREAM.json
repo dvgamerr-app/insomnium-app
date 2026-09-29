@@ -1,0 +1,62 @@
+{
+  "crate": "http-auth",
+  "version": "0.1.10",
+  "repository": "https://github.com/scottlamb/http-auth",
+  "vcs": {
+    "git": {
+      "sha1": "4f39f8be586b7cc29c97c0bad27e73aa4534293e"
+    },
+    "path_in_vcs": ""
+  },
+  "source": "crates.io registry archive; Cargo path patch",
+  "files": [
+    {
+      "path": "Cargo.toml",
+      "sha256": "88074709cc8080eeff6da6e7f04d1d514e1ff6b5bf40f05ae2752b97346845dc"
+    },
+    {
+      "path": "Cargo.toml.orig",
+      "sha256": "9ce87765450cf57da1929a0b5f36f82cd92258634197ec3709cc3bcb2a61b3d7"
+    },
+    {
+      "path": "README.md",
+      "sha256": "f4902ad2696d024be666683223b1f6147dbc90da92cd04f2e8ea7535481c4c42"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "sha256": "56dea188806cc606ab3767f3bd3d4809df0a010cc9db3630aefca5307e6d24a6"
+    },
+    {
+      "path": "LICENSE-MIT.txt",
+      "sha256": "ed057943f5d1306ad0c87d38e1e523b9e167dce174ef7138fa27200c7cf1243f"
+    },
+    {
+      "path": "LICENSE-APACHE.txt",
+      "sha256": "531ae0e8652952207e2e577daa311955290f78380be845087f2acd86d808df7d"
+    },
+    {
+      "path": "src/basic.rs",
+      "sha256": "25b67f1ebd4fd983c2b6116200bea370da8df6a7128b9015356056f241b80083"
+    },
+    {
+      "path": "src/digest.rs",
+      "sha256": "686e78ccc904b4b2a99a2a4ece65d4462042e53c25205e523c713d6da5f2438c"
+    },
+    {
+      "path": "src/lib.rs",
+      "sha256": "e71622dc5f5ed8144607a36eb2de8715f86a30ab7bff83a821cafe3c539156f4"
+    },
+    {
+      "path": "src/parser.rs",
+      "sha256": "fa5db97a1b0c4a882544fe8b2b3d12a03c2c39a372fe6d443b6dc991c10ed8a8"
+    },
+    {
+      "path": "src/table.rs",
+      "sha256": "1f391d9074c7a0a1284f768178b9ebfebe2a059a593fd1679d13cf5b6135a39a"
+    },
+    {
+      "path": "examples/reqwest.rs",
+      "sha256": "e14686de096ba44a6402e7daa62d35b5a62d6448b1068fddbde327311b274fb5"
+    }
+  ]
+}
