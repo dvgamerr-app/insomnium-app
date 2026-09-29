@@ -1,5 +1,76 @@
-import vkbeautify from "vkbeautify";
 import { DOMParser, XMLSerializer, onErrorStopParsing } from "@xmldom/xmldom";
+
+/** Port of vkbeautify 0.99.3 xml() so output stays byte-identical to the
+ * archived formatter. vkBeautify (c) 2012 Vadim Kiryukhin, MIT licensed.
+ * Out-of-range depths intentionally yield "undefined" like the original; the
+ * content comparison below then rejects the result.
+ * @param {string} text @param {string} step */
+function vkbeautifyXml(text, step) {
+  const shift = ["\n"];
+  for (let i = 0; i < 100; i++) shift.push(shift[i] + step);
+  const ar = text
+    .replace(/>\s{0,}</g, "><")
+    .replace(/</g, "~::~<")
+    .replace(/\s*xmlns\:/g, "~::~xmlns:")
+    .replace(/\s*xmlns\=/g, "~::~xmlns=")
+    .split("~::~");
+  let inComment = false;
+  let deep = 0;
+  let str = "";
+  for (let ix = 0; ix < ar.length; ix++) {
+    const part = ar[ix];
+    const open = /^<[\w:\-\.\,]+/.exec(ar[ix - 1]);
+    const close = /^<\/[\w:\-\.\,]+/.exec(part);
+    if (part.search(/<!/) > -1) {
+      // start comment, <![CDATA[...]]> or <!DOCTYPE
+      str += shift[deep] + part;
+      inComment = true;
+      if (
+        part.search(/-->/) > -1 ||
+        part.search(/\]>/) > -1 ||
+        part.search(/!DOCTYPE/) > -1
+      )
+        inComment = false;
+    } else if (part.search(/-->/) > -1 || part.search(/\]>/) > -1) {
+      // end comment or <![CDATA[...]]>
+      str += part;
+      inComment = false;
+    } else if (
+      /^<\w/.exec(ar[ix - 1]) &&
+      close &&
+      // Loose equality compares the RegExp match array with a string.
+      /** @type {any} */ (open) == close[0].replace("/", "")
+    ) {
+      // <elm></elm>
+      str += part;
+      if (!inComment) deep--;
+    } else if (
+      part.search(/<\w/) > -1 &&
+      part.search(/<\//) == -1 &&
+      part.search(/\/>/) == -1
+    ) {
+      // <elm>
+      str += !inComment ? shift[deep++] + part : part;
+    } else if (part.search(/<\w/) > -1 && part.search(/<\//) > -1) {
+      // <elm>...</elm>
+      str += !inComment ? shift[deep] + part : part;
+    } else if (part.search(/<\//) > -1) {
+      // </elm>
+      str += !inComment ? shift[--deep] + part : part;
+    } else if (part.search(/\/>/) > -1) {
+      // <elm/>
+      str += !inComment ? shift[deep] + part : part;
+    } else if (part.search(/<\?/) > -1) {
+      // <?xml ... ?>
+      str += shift[deep] + part;
+    } else if (part.search(/xmlns\:/) > -1 || part.search(/xmlns\=/) > -1) {
+      str += shift[deep] + part;
+    } else {
+      str += part;
+    }
+  }
+  return str[0] == "\n" ? str.slice(1) : str;
+}
 
 /** Compare XML content while allowing indentation in element-only containers.
  * Mixed text, CDATA and xml:space=preserve must remain exact.
@@ -56,7 +127,7 @@ export function xmlPrettify(source, indent = "  ") {
   if (!/^[ \t]{1,16}$/.test(indent)) throw new Error("Invalid XML indentation");
   const parser = new DOMParser({ onError: onErrorStopParsing });
   const before = content(parser.parseFromString(source, "text/xml"));
-  const formatted = vkbeautify.xml(source, indent);
+  const formatted = vkbeautifyXml(source, indent);
   if (formatted.length > 20 * 1024 * 1024)
     throw new Error("Formatted XML exceeds 20 Mi characters");
   if (content(parser.parseFromString(formatted, "text/xml")) !== before)

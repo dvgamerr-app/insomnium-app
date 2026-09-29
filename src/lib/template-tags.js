@@ -1,16 +1,51 @@
-import { Buffer } from "buffer/";
 import { format } from "date-fns";
 import { v1, v4 } from "uuid";
 import { md5, sha1 } from "@noble/hashes/legacy.js";
 import { sha256, sha512 } from "@noble/hashes/sha2.js";
+import { bytesToHex } from "@noble/hashes/utils.js";
 import { JSONPath } from "jsonpath-plus";
 
 export const localTagNames = ["base64", "now", "uuid", "hash", "jsonpath"];
+
+/** Match Node Buffer.from(value, encoding): only strings are accepted.
+ * @param {any} value */
+function requireString(value) {
+  if (typeof value !== "string")
+    throw new TypeError(
+      `The first argument must be of type string. Received type ${typeof value}`,
+    );
+  return value;
+}
+/** @param {Uint8Array} bytes */
+function bytesToBase64(bytes) {
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 8192)
+    binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+  return btoa(binary);
+}
+/** Node Buffer base64 decoding: accepts the URL-safe alphabet, skips invalid
+ * characters, stops at the first "=" and drops a trailing lone sextet.
+ * @param {string} value */
+function base64ToBytes(value) {
+  let clean = value
+    .split("=")[0]
+    .replace(/[^A-Za-z0-9+/_-]/g, "")
+    .replaceAll("-", "+")
+    .replaceAll("_", "/");
+  if (clean.length % 4 === 1) clean = clean.slice(0, -1);
+  return Uint8Array.from(atob(clean), (c) => c.charCodeAt(0));
+}
+/** Node Buffer utf8 decoding keeps a leading BOM and replaces invalid sequences.
+ * @param {Uint8Array} bytes */
+function bytesToUtf8(bytes) {
+  return new TextDecoder("utf-8", { ignoreBOM: true }).decode(bytes);
+}
+
 /** Original encoded arguments are used for JSONPath and other quoted values.
  * @param {any} value */
 export function decodeArgument(value) {
   const encoded = typeof value === "string" && value.match(/^b64::(.+)::46b$/);
-  return encoded ? Buffer.from(encoded[1], "base64").toString("utf8") : value;
+  return encoded ? bytesToUtf8(base64ToBytes(encoded[1])) : value;
 }
 
 /** Synchronous, worker-local tags only. No filesystem/network/app capabilities.
@@ -24,12 +59,14 @@ export function runLocalTag(name, rawArgs) {
     if (action !== "encode" && action !== "decode")
       throw new Error("invalid action");
     if (action === "encode" && (kind === "normal" || kind === "url")) {
-      const result = Buffer.from(value || "", "utf8").toString("base64");
+      const result = bytesToBase64(
+        new TextEncoder().encode(requireString(value || "")),
+      );
       return kind === "url"
         ? result.replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "")
         : result;
     }
-    return Buffer.from(value || "", "base64").toString("utf8");
+    return bytesToUtf8(base64ToBytes(requireString(value || "")));
   }
   if (name === "now") {
     const [kind = "iso-8601", pattern = ""] = args;
@@ -45,7 +82,8 @@ export function runLocalTag(name, rawArgs) {
       case "iso-8601":
         return now.toISOString();
       case "custom":
-        return format(now, pattern);
+        // date-fns 3+ no longer coerces arguments; v2 applied String().
+        return format(now, String(pattern));
       default:
         throw new Error(`Invalid date type "${kind}"`);
     }
@@ -71,9 +109,10 @@ export function runLocalTag(name, rawArgs) {
       ];
     if (!Object.hasOwn(algorithms, String(algorithm).toLowerCase()))
       throw new Error(`Unsupported hash algorithm: ${algorithm}`);
-    return Buffer.from(hash(new TextEncoder().encode(value))).toString(
-      encoding,
-    );
+    const digest = hash(new TextEncoder().encode(value));
+    if (encoding === "hex") return bytesToHex(digest);
+    if (encoding === "base64") return bytesToBase64(digest);
+    return String.fromCharCode(...digest);
   }
   const [json, path] = args;
   if (typeof path !== "string" || path.length > 4096)
