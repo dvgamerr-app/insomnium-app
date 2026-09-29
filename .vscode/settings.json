@@ -1,15 +1,3 @@
 {
-  "json.schemas": [],
-  "files.associations": {
-    "*.db": "ndjson",
-    "*.jsonl": "ndjson",
-    "*.njson": "ndjson"
-  },
-  "files.insertFinalNewline": true,
-  "editor.formatOnSave": true,
-  "editor.formatOnSaveMode": "file",
-  "cSpell.words": [
-    "insomnium"
-  ]
-  // use prettier
+  "svelte.enable-ts-plugin": true
 }
