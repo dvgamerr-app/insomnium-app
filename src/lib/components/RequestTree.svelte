@@ -66,7 +66,7 @@
         <button
           class="tree-request"
           class:active={selected === item._id}
-          style:padding-left={`${18 + depth * 16}px`}
+          style:padding-left={`calc(var(--button-space-18) + ${depth} * var(--button-tree-indent))`}
           onclick={() => onselect(item._id)}
         >
           <span class="method" data-method={item.method || "GET"}

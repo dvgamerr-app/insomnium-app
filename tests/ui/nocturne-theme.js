@@ -95,8 +95,24 @@ await withPreview("nocturne-theme", async (page, output) => {
       const main = await page.locator(".workspace-main").boundingBox();
       const sidebar = await page.locator(".sidebar").boundingBox();
       assert.ok(
-        main && sidebar && sidebar.x >= main.x + main.width - 1,
-        "Collections must be to the right",
+        main && sidebar && sidebar.x + sidebar.width <= main.x + 1,
+        "Collections must be to the left",
+      );
+      assert.deepEqual(
+        await page
+          .locator("button:visible")
+          .evaluateAll((buttons) =>
+            buttons
+              .filter(
+                (button) => getComputedStyle(button).borderRadius !== "0px",
+              )
+              .map(
+                (button) =>
+                  button.getAttribute("aria-label") || button.textContent,
+              ),
+          ),
+        [],
+        "Every button, including Source Control, must have square corners",
       );
       assert.equal(
         await page.evaluate(

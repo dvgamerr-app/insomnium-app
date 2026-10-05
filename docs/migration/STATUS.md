@@ -1,5 +1,10 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Global square button configuration — 2026-10-05
+
+- Centralized button size/spacing/font metrics in src/lib/components/ui/button-config.css. Shared controls, native navigation/tabs, tree rows, Git history/change buttons and responsive rules now consume global tokens. All button radii use the same zero-radius token, including Source Control; existing outline-free focus feedback remains.
+- Check (0 errors/0 warnings), build and saved theme/workspace scenarios pass. Theme coverage now asserts left-side Collections and square visible buttons in both themes at 1440/900/760 widths. Native executable predates this CSS update.
+
 ## Restore Collections to the left — 2026-10-05
 
 - Confirmed the original layout placed Collections on the left; restored that position per owner correction. SplitPane now supports choosing the collapsed pane so Source Control still fills the workspace. A new workspace-left preference key avoids reusing the old right-sidebar ratio.

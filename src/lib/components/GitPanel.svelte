@@ -832,8 +832,8 @@
     min-width: 0;
     text-align: left;
     justify-content: flex-start;
-    padding: 9px 12px;
-    border-radius: 0;
+    padding: var(--button-space-9) var(--button-space-12);
+    border-radius: var(--button-radius);
   }
   .git-change :global(.git-change-name > span:first-of-type) {
     flex: 1;
@@ -891,16 +891,16 @@
   }
   .commit-row {
     display: flex;
-    gap: 6px;
+    gap: var(--button-space-6);
     width: 100%;
-    height: 44px;
+    height: var(--button-size-44);
     text-align: left;
-    padding: 0 12px;
-    border-radius: 0;
+    padding: 0 var(--button-space-12);
+    border-radius: var(--button-radius);
     justify-content: flex-start;
   }
   .commit-row .count {
-    max-width: 64px;
+    max-width: var(--button-size-64);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

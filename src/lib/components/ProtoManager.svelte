@@ -371,7 +371,7 @@
   .proto-tree :global(button.proto-name) {
     border: 0;
     background: transparent;
-    padding: 6px 0;
+    padding: var(--button-space-6) 0;
   }
   label {
     position: relative;

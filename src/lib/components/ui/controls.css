@@ -1,3 +1,4 @@
+@import "./button-config.css";
 /* Nocturne controls: one owner for shape, surfaces and interaction states. */
 :root {
   --ui-radius: 8px;
@@ -54,9 +55,9 @@
   background: var(--panel);
 }
 .ui-button {
-  min-height: var(--ui-height);
-  padding: 7px 12px;
-  border-radius: var(--ui-radius);
+  min-height: var(--button-height);
+  padding: var(--button-space-7) var(--button-space-12);
+  border-radius: var(--button-radius);
   font-weight: 500;
 }
 .ui-button.secondary-button {
@@ -89,8 +90,8 @@
   color: #fff;
 }
 .ui-button.icon-button {
-  width: var(--ui-height);
-  padding: 7px;
+  width: var(--button-height);
+  padding: var(--button-space-7);
 }
 .ui-field {
   display: grid;

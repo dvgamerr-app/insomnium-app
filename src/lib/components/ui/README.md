@@ -2,6 +2,10 @@
 
 Import `controls.css` once after the application layout stylesheet (already done in `+page.svelte`). This stylesheet owns control surfaces, radii, borders, focus, selected/disabled states and modal presentation. Keep feature-specific layout in its feature stylesheet.
 
+`button-config.css`, imported by `controls.css`, is the single global configuration for button spacing, sizes, typography and square corners (`--button-radius: 0px`). Both shared buttons and native tabs/tree/navigation buttons consume its tokens, including responsive tab spacing and tree indentation. Change the scale here instead of adding literal button dimensions in feature CSS. Percentage widths and fill-parent heights remain layout rules. Input and modal radii are separate from button shape.
+
+`SplitPane` accepts `collapsedPane="first"` or `"second"` (default) to choose which side disappears when collapsed. The workspace uses the first pane for Collections on the left and the second for the main view.
+
 | Component | Use |
 | --- | --- |
 | Button | `variant="primary\|secondary\|danger\|ghost"`, `busy`, native button attributes/events; defaults to `type="button"` |

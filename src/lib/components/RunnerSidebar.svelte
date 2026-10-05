@@ -68,14 +68,14 @@
   }
   nav > div {
     display: flex;
-    border-radius: 4px;
+    border-radius: var(--button-radius);
   }
   nav > div.active {
     background: var(--selected);
     color: var(--accent-text);
   }
   .suite-sidebar :global(.suite-name) {
-    padding: 10px;
+    padding: var(--button-space-10);
     text-align: left;
     justify-content: flex-start;
     flex: 1;
