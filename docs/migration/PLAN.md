@@ -1,5 +1,452 @@
 # Insomnium → Tauri migration
 
+2026-10-03 checkpoint: guarded native Git restore save and single-use review/recovery coordinator added; Cargo check/clippy and Svelte check pass,11 injected coordinator checks pass. Native runtime/UI integration still pending. See STATUS.
+
+2026-10-03 checkpoint: selected Git restore planner/client added;17 read-only assertions and check/build pass. Durable apply/review UI/native acceptance next; full parity remains open. See STATUS.
+
+2026-10-03 checkpoint: fixed73 GraphQL scenario compiler errors; full bun run check0 errors/0 warnings, six native scenarios (seven phases) pass on fresh focus probe. Remaining full-parity gates open; see STATUS.
+
+2026-10-02 checkpoint: GraphQL import focus CSS fix passes17 checks on fresh native probe without manual scrolling. Frontend build passes; global check still has73 errors in6 other GraphQL scenarios (next work). Full migration remains open. See STATUS.
+
+2026-10-02 checkpoint: schema-import17 native checks pass with keyboard file input activation and light/dark schema preservation; screenshots inspected. Automatic focus scrolling, SDL save dialog and full parity remain open. See STATUS.
+
+2026-10-02 checkpoint: native schema-import scenario passes 15 checks including loaded schema explorer keyboard traversal and exact type documentation. Full a11y/export/visual/provider/platform/original parity remains open. See STATUS.
+
+2026-10-01 checkpoint: Windows GraphQL WM_CLOSE/reopen6 checks pass; actual cancellation/persist/destroy IPC observed, held native request aborted, persisted request and fresh fetch accepted after reopen. Shared helper import12 regression passes. Full parity and remaining export/visual/provider/platform gates open. See STATUS.
+
+
+2026-10-01 checkpoint: native GraphQL cache6 checks pass: request isolation,3-entry and combined20MiB limits, replacement age, selected clear, persisted body/history. True close/export/visual/provider/platform/full parity remain open. See STATUS.
+
+
+2026-10-01 checkpoint: native GraphQL schema import/browser12 checks pass, including invalid/oversized file preservation, raw introspection JSON and search/directive documentation. Full parity remains open; shared input/UX redesign stays deferred. See STATUS.
+
+
+2026-10-01 checkpoint: native GraphQL source-context6 and real-executor4 cases pass (header/auth/env invalidation, named query/mutation/partial errors/history). Full gate not yet complete; see STATUS/GRAPHQL-RENDERING.
+
+
+2026-10-01 checkpoint: GraphQL editor15 native checks plus schema lifecycle/GET12 checks pass, including source-change discard, native Cancel abort, errors/history preservation and JSON import. Full GraphQL/platform/CI/parity still open. See STATUS.
+
+
+2026-10-01 checkpoint: saved native GraphQL editor scenario passes14 checks (completion/lint/hover/schema import, introspection and Send, reload). Original GraphQL remaining native gates and full parity open. See STATUS/GRAPHQL-RENDERING.
+
+
+2026-10-01 checkpoint: dynamic Debian generator integrated; all-format primary release actual0,12 Debian groups and RPM requirements retained, cleanup verified. Final staging helper emits no warning. Builder stopped; CI/platform/full parity pending. See STATUS.
+
+
+2026-10-01 checkpoint: Debian ELF dependency generator replaces static host minima; helper12 groups and invalid-ELF gate pass. All-format integration live supervisor28308/child31516, artifacts/linux-deb-dynamic-primary. Poll same process. Full parity pending. See STATUS.
+
+
+2026-10-01 checkpoint: primary Linux targets=all RELEASE actual0; Debian/RPM/AppImage exported, metadata/temp cleanup checked. Bun-only3-platform CI workflow added and native actionlint0; remote execution/artifact retention/platform/full parity remain pending. Builder stopped. See STATUS/CI.md.
+
+
+2026-10-01 checkpoint: primary AppImage RELEASE build actual0; exported artifact contains GLES+matching notice, temp config cleanup passes. Runtime without GLES/GTK/WebKit packages reaches20s process smoke. All4 containers stopped; all-format/CI/full parity pending. See STATUS.
+
+
+2026-10-01 checkpoint: AppImage GLES overlay fixes process startup without system libgles2. Primary wrapper now generates ABI-matched GLES+notice config; RELEASE acceptance live supervisor35360/child24236, artifacts/linux-appimage-primary. Poll same process. Full parity pending. See STATUS.
+
+
+2026-10-01 checkpoint: AppImage builds; bundled GTK/WebKit resolves without system packages. Runtime needs additional libgles2 (dynamic dependency unresolved); with it, nonroot process smoke reaches20s. UI/FUSE/bus warning/full parity pending. All4 owned containers stopped. See latest STATUS.
+
+
+2026-10-01 checkpoint: optimized RPM passes clean Fedora44 install/integrity/ldd, nonroot process startup, same-version reinstall and removal with5 WebKit files unchanged. Xvfb DRI3 warning; real UI/upgrade unproven. All3 owned containers stopped; RPM removed. AppImage/CI/full parity next. See STATUS.
+
+
+2026-10-01 checkpoint: desktop:build now generates fresh RPM metadata from Tauri's just-built ELF; end-to-end Linux debug primary build passes49 requirements/MIT/temp cleanup. Windows help passthrough and11 inline routing/merge checks pass. Actual RPM-native runtime/release-all-format/CI/full parity pending. See STATUS.
+
+
+2026-10-01 checkpoint: initial RPM exposed missing ELF requirements/license. Added Bun ELF→RPM config generator, MIT license, verified corrected probe RPM46 requirements/export. Default build/CI integration and RPM-native runtime pending; no full packaging claim. See STATUS/LINUX-DISTRIBUTION.
+
+
+2026-10-01 checkpoint: installed Linux release nonroot startup/AT-SPI and Debian reinstall/remove/install-again/purge verified;5 WebKit profile files unchanged. Actual upgrade/collection/UI acceptance unproven. Both owned containers stopped; runtime package purged. See STATUS/LINUX-DISTRIBUTION.
+
+
+2026-10-01 checkpoint: corrected optimized .deb installs on clean Debian12 (apt0, dpkg status/verify/audit pass, ldd no missing libraries). Both owned containers stopped with state/cache preserved. Installed release startup/lifecycle/platform/full parity next. See STATUS and LINUX-DISTRIBUTION.
+
+
+2026-10-01 checkpoint: Linux optimized Debian build passes; actual release dependency metadata gap fixed in tauri.conf.json and corrected .deb verified/exported. Clean runtime install live supervisor37952/child37940; see STATUS, LINUX-DISTRIBUTION and artifacts/linux-deb-install. Install/start/lifecycle/full parity pending.
+
+
+2026-10-01 checkpoint: Linux Bun1.4.2 frozen install/prepare/Svelte check0/0 and frontend production build pass. Isolated Debian release build live supervisor6304/child20396 with original release profile; artifacts/linux-deb-build. Poll same process; package/install/full parity pending. See STATUS.
+
+
+2026-10-01 checkpoint: Linux embedded debug executable build/link succeeds; isolated nonroot Xvfb startup observed app+WebKit processes,20-second timeout smoke completed. AT-SPI bus warning; rendered UI/workflows/package remain unverified. Owned container now stopped with snapshot/cache preserved. See latest STATUS and artifacts/linux-app-build.
+
+
+2026-10-01 checkpoint: isolated Linux binary build with embedded frontend live supervisor9212/child16460; logs artifacts/linux-app-build. Continue same process; linking/runtime/full parity pending. See STATUS.
+
+
+2026-10-01 checkpoint: full Linux backend Cargo check passes from owned writable snapshot; cfg-only unused_mut fixed and Linux/Windows checks pass. Linked Linux binary/runtime/full parity pending. See STATUS.
+
+
+2026-10-01 checkpoint: Linux native prerequisites installed; full-app locked Cargo check live supervisor38228/child35152. Durable artifacts/linux-app-check/{state.json,check.log}; final result pending. See STATUS.
+
+
+2026-10-01 checkpoint: actual Linux cfg(unix) HTTP/TLS probes pass. Owned container retained for full-app gate; Tauri native dependency install live PID22552. Full Linux app/parity pending. See STATUS.
+
+
+2026-10-01 checkpoint: discovered operational Docker inside WSL; owned read-only-source Rust1.98.1 Linux container created. Patched reqwest Unix build live PID28568; continue same handle. Runtime/full app parity pending. See STATUS.
+
+
+2026-10-01 checkpoint: native AF_UNIX SSE2-byte chunk UTF-8/multiline/event ID/comment handling and Disconnect→EOF passed1790801282297; prior9 wire cases retained. Unix platform and remaining full parity open. See STATUS.
+
+
+2026-10-01 checkpoint: native AF_UNIX Basic/Bearer, cookie replay, same/cross-host302 credential boundaries passed1790801156250; original Send/Cancel cases retained. Unix platform/stream/auth remainder/full parity open. See STATUS.
+
+
+2026-10-01 checkpoint: native HTTPS Unix socket4-case Preferences/CA/validation/reload/error acceptance passed1790801034434, original settings restored. Auth/cookie/redirect/Unix platform/full parity remain open. See STATUS.
+
+
+2026-10-01 checkpoint: fresh native Unix socket import/reload/Send/Cancel→EOF/Send passed1790800806086; URL/auth23-case and CodeCommit6-case regressions pass on same build. HTTPS UI/Unix platform/full parity pending. See STATUS.
+
+
+2026-10-01 checkpoint: saved Unix socket UI Send/persistence/Cancel scenario and fixture compile/check pass; native build live supervisor33312/child29468. Poll same build then run scenario; runtime acceptance pending. See STATUS.
+
+
+2026-10-01 checkpoint: patched Windows AF_UNIX HTTPS passes trusted CA/hostname/SNI/exact peer certificate; wrong-host and unknown-issuer rejected before HTTP. Native UI/app Cancel and Unix platform/full parity remain open. See STATUS.
+
+
+2026-10-01 checkpoint: actual patched AF_UNIX HTTP binary/cookie/redirect/chunked/proxy bypass passed; found and fixed generated proxy-header leak. Timeout cleanup with client drop passed. TLS/native UI/full parity pending. See STATUS.
+
+
+2026-10-01 checkpoint: pinned reqwest Windows AF_UNIX adapter and application routing implemented; rustfmt and locked offline Cargo check pass. Actual HTTP/TLS/native UI and full parity pending. See STATUS.
+
+
+2026-10-01 checkpoint: Windows AF_UNIX nonblocking connect, missing-endpoint error and Pending-future cancellation→peer EOF passed. Integrate pinned reqwest adapter next; full parity open. See STATUS/UNIX-SOCKET.
+
+
+2026-10-01 checkpoint: actual Windows AF_UNIX→Tokio65536-byte echo/read deadline/drop EOF and curl interoperability pass; uds_windows target dependency added. Cancellable connect/reqwest/TLS/UI integration remains next; full parity open. See STATUS.
+
+2026-10-01 finding: Windows supports AF_UNIX via curl/uds_windows but reqwest local transport exposes only named pipes there; sealed connector prevents a simple app-layer replacement. Unix runner lacks toolchain. See UNIX-SOCKET.md for concrete adapter/acceptance next steps; full parity open.
+
+2026-10-01 checkpoint: legacy Unix socket URL→IPC→cfg(unix) reqwest route connected;7 composer/refusal checks and Bun/Windows Cargo checks pass. Actual Unix transport and Windows AF_UNIX parity unverified/incomplete; full scope open. See STATUS.
+
+2026-10-01 checkpoint: CodeCommit303 same/cross-origin GET/body removal and independent ordinary SigV4 transition passed1790799123253;6 cases/10 wire requests. Remaining URL transport/provider/full parity open. See STATUS.
+
+2026-10-01 checkpoint: native CodeCommit4-case/6-request body/signature/307 same+cross-origin acceptance1790798995356 passed;23-case auth regression1790799002871 passes on fresh build. Provider/303/full parity remain open. See STATUS.
+
+2026-10-01 checkpoint: CodeCommit saved native4-case body/redirect/wire scenario prepared; Bun check passes. Isolated native build running (supervisor29448); runtime acceptance and23-case auth regression next. See STATUS.
+
+2026-10-01 checkpoint: native CodeCommit GIT special signer implemented; Cargo check and6 exact fixed-time aws4 signature comparisons pass. Fresh native UI/wire/redirect acceptance pending; full parity remains open. See STATUS.
+
+2026-10-01 checkpoint: legacy lock pins aws4 1.13.2;6 deterministic CodeCommit GIT canonical/signature references captured and independently HMAC-checked. Native implementation still pending; full parity open. See STATUS.
+
+2026-10-01 correction: archived AWS UI/adapter never enabled query signing; prior NEXT presigning priority was not established by legacy evidence. Confirmed CodeCommit GIT special-signing rejection is a legacy gap; capture reference and implement next. Existing limitations/full scope remain recorded. See STATUS.
+
+2026-10-01 checkpoint:4 AWS S3/execute-api native wire signatures passed1790798124712,23 total Settings/Hawk/OAuth1/AWS cases pass. AWS query signing remains unimplemented; full URL/auth/parity open. See STATUS.
+
+2026-10-01 checkpoint:8 native OAuth1 HMAC encoding/mode cases passed1790798012658 via independent wire signature verification;8 Hawk +3 Settings regressions also pass. AWS and full URL/auth/parity scope remain open. See STATUS.
+
+2026-10-01 checkpoint:8 native Hawk SHA1/SHA256 legacy/standard encoding on/off MAC checks passed1790797913458 using raw TCP target and independent HMAC; original3 settings cases also pass. OAuth1/AWS/full raw URL/parity remain open. See STATUS.
+
+2026-10-01 checkpoint: fresh native URL encoding Settings/reload/raw-TCP acceptance1790797792724 and cURL GET regression1790797800441 passed. Signed URL/native and full raw URL/parity remain open. See STATUS.
+
+2026-10-01 checkpoint: saved URL Settings/reload/raw-TCP scenario prepared; Bun check passes. Native URL encoding probe build live (supervisor20296); runtime acceptance and cURL GET regression next. Full parity open. See STATUS.
+
+2026-10-01 checkpoint: legacy auto URL encoding connected to Send/settings;17 composer cases plus cURL import check and Bun check/build pass. Fresh native settings/wire/signature acceptance remains next; raw URL/full parity open. See STATUS.
+
+2026-10-01 finding: legacy default settingEncodeUrl:true is ignored by current Send (ported helper only serves template tags). Six of seven diagnostic URL cases differ. Restore original Send encoding/order next; raw URL fidelity still open. See STATUS.
+
+2026-10-01 checkpoint: five-case native GET/file acceptance passed1790796856828 after315s build. Encoded bytes, HEAD/PATCH/no-body, NUL/refusal and saved state verified; raw Unicode/invalidUTF8 request-target fidelity and full parity remain open. See STATUS.
+
+2026-10-01 checkpoint: saved five-case native GET/file scenario prepared; Bun check passes. Isolated build running at artifacts/native-curl-get-ui-probe (supervisor35312); runtime acceptance next, full parity open. See STATUS.
+
+2026-10-01 checkpoint: GET file-data query parser/editor/composer implemented;39 reference assertions and Bun check/build pass. Native GET acceptance and raw non-UTF8 URL fidelity remain pending; full parity open. See STATUS.
+
+2026-10-01 checkpoint: fixed GET/data precedence over --url-query, including empty data and either option order. Seven actual curl comparisons plus --next reset and Bun check/build pass. GET file implementation/native query acceptance remain next. See STATUS.
+
+2026-10-01 checkpoint: native16/20MiB selection/persistence/reload/Send SHA-256 passed1790796132115; mixed-body regression passed1790796180942 on fresh upload-size build. GET/file reference captured; query implementation and full parity remain next. See STATUS.
+
+2026-10-01 checkpoint: saved native16/20MiB upload persistence/reload/Send SHA-256 scenario prepared; Bun check passes. Isolated build running at artifacts/native-upload-size-ui-probe. Runtime acceptance and mixed-body regression next; full parity open. See STATUS.
+
+2026-10-01 checkpoint: recognized binary uploads separated from template text with aggregate20MiB byte validation;17 boundary assertions and Bun check/build pass. Native full-session/persistence/IPC maximum-size acceptance next; GET and other parity remain open. See STATUS.
+
+2026-10-01 checkpoint: native multi-file scenario1790795545328 passed after successful315s build. Overlapping/stale reads, literal edit, reload and exact curl bytes accepted.16MiB upload/template size conflict reproduced; fix accounting and GET/query next. Full parity remains open. See STATUS.
+
+2026-10-01 checkpoint: saved mixed-body native scenario prepared with overlapping/stale file reads, reload and actual curl wire comparison; isolated build running at artifacts/native-curl-mixed-ui-probe (supervisor17324). Runtime acceptance next; full scope remains open. See STATUS.
+
+2026-10-01 checkpoint: mixed literal/multiple-file body parser/editor/byte composer implemented; six actual curl comparisons plus missing-file/boundary checks pass, Bun check/build pass. Native picker/IPC, GET/query and template-size reconciliation remain next. See STATUS.
+
+2026-10-01 checkpoint: Cookie native build exit0; saved five-group Import/reload/Send regression1790794877414 passed. Manual precedence, empty header, repeated values and --next reset accepted. Mixed-file implementation next; full parity remains open. See STATUS.
+
+2026-10-01 checkpoint: saved five-group Cookie Import/reload/native Send regression prepared; Bun check passes. Isolated native build running at artifacts/native-curl-cookie-ui-probe; runtime acceptance next. See STATUS.
+
+2026-10-01 checkpoint: fixed explicit Cookie header precedence over --cookie. Five actual curl/parser/composer wire comparisons and group-reset check pass; Bun check/build pass. Native Import acceptance of fix pending; cookie files/engine and other full parity remain open. See STATUS.
+
+2026-10-01 checkpoint: native NTLM Import/reload/Send accepted1790794284777 after successful315s build. Independent password proof, identity, connection, POST replay and manual-header suppression pass; MIC/TLS/provider/full parity remain open. See STATUS.
+
+2026-10-01 checkpoint: saved native NTLM Import/reload/connection/body/manual-header scenario prepared; Bun check/build pass. Isolated native build running at artifacts/native-curl-ntlm-ui-probe; runtime acceptance next. Structural fixture does not verify password proof/provider. See STATUS.
+
+2026-10-01 checkpoint: explicit cURL --ntlm maps to native NTLM credentials;27 parser/composer checks and Bun check/build pass. Native Import/handshake acceptance pending; automatic OS sign-in/proxy/mixed negotiation remain unsupported. See STATUS.
+
+2026-10-01 checkpoint: Bearer native build exit0 and saved six-group Import/reload/Send scenario1790793472875 passed. Token precedence, next-group auth reset and manual Authorization verified; mixed auth/other options/full parity remain pending.
+
+2026-10-01 checkpoint: saved cURL transfer-group scenario extended to6 requests covering Bearer precedence/reset/manual header. Bun check passes; isolated native build running at artifacts/native-curl-bearer-ui-probe, supervisor27940. Runtime acceptance next.
+
+2026-10-01 checkpoint: cURL --oauth2-bearer mapped to existing Bearer auth;10 checks including4 real curl wire comparisons pass, Bun check/build pass. Mixed explicit Basic/Digest negotiation remains rejected. Native Import acceptance and other options/full parity pending.
+
+2026-10-01 checkpoint: corrected native build finished exit0. Multipart <file/default+explicit MIME accepted1790792888538; all5 single-file body modes match actual curl for256 byte values through UI selection/reload/native Send1790792912164. Remaining import/full parity open; see STATUS.
+
+2026-10-01 checkpoint: real curl/native regression exposed <file filename= mismatch; parser/composer/UI corrected to omit filename (including stale overrides). Bun check/build and30 composition checks pass. Corrected native build running (supervisor37596, artifacts/native-curl-file-content-fix-ui-probe); saved multipart acceptance next.
+
+2026-10-01 checkpoint: multipart <file implemented with explicit binary IPC flag and filename-free native bytes; Cargo/Bun checks pass,28 composition+4 curl checks pass. Isolated native build running (supervisor24796, artifacts/native-curl-file-content-ui-probe); saved multipart acceptance next.
+
+2026-10-01 checkpoint: saved multipart Import/file-selection/replacement/reload/native-wire scenario1790791996313 passed. Exact binary bytes, MIME/filename overrides, empty filename and literal form-string verified; remaining file/options/full parity scope open. See STATUS.
+
+2026-10-01 checkpoint: isolated cURL build finished exit0; saved native Import/reload/Send scenario1790791796403 passed. Three transfer groups preserve settings and isolate auth/headers; unsupported options leave existing resources unchanged. Other import/full parity remain open; see STATUS.
+
+2026-10-01 checkpoint: saved cURL Import review/apply/reload/native-send scenario written; Bun check passes. Isolated native build running at artifacts/native-curl-import-ui-probe (supervisor20576, child18608). Poll same handle then run tests/ui/curl-import-next.js; runtime acceptance pending.
+
+2026-10-01 checkpoint: cURL --next/-: transfer groups implemented with local option reset;18 inline assertions including4 real curl wire comparisons pass. Bun check/build pass. Native Import acceptance and remaining import/Git/full parity gates pending; see STATUS.
+
+2026-10-01 checkpoint: actual public shallow Fetch journal creation -> foreign-lock refusal -> verified parent termination -> new-process Resume accepted (1790791214812/1790791216338). Five existing termination/error scenarios also pass on current build. No recovery network, exact receipt and preserved resources. Mid-write/powerloss/provider/full parity remain pending; see STATUS.
+
+2026-10-01 checkpoint: real Git2.55.0 upload-pack loopback HTTP full/shallow Fetch accepted (saved scenario1790791041039). Git emits shallow packet without LF as documented; no dependency fix needed. Hosted-provider auth/TLS and remaining crash/fault/full parity gates still pending. See latest STATUS for reproducible command/evidence.
+
+2026-10-01 checkpoint: public journaled full/scoped/shallow Fetch accepted on native build (exit0); nine saved UI scenarios passed including cleanup, retirement race and Resume/lost reply. See latest STATUS for artifact IDs. Real-provider shallow LF compatibility, remaining fault/platform and full parity gates remain outstanding; shared inputs/new UX deferred until migration completes.
+
+2026-10-01 checkpoint: workspace fence/recovery and Git transition UI regressions passed. Public Fetch now uses durable v3 candidate/journal/writer, requires persisted matching intent and carries bounded depth; UI persists v3 branch/depth and offers optional depth. Cargo/Bun checks,18 native admission +237 regressions and45+28 client checks pass. New native build running (supervisor28120, artifacts/native-journaled-fetch-ui-probe); public full/shallow UI acceptance remains next.
+
+2026-10-01 checkpoint: shared atomic workspace write fence implemented for pending Fetch binding/intent/collection; save acquires GitState then StorageState. Cargo checks,19 new+249 prior native checks and282 lease regressions pass. Saved UI interleaving cases added; isolated fence build running at artifacts/native-fetch-workspace-fence-ui-probe. Native/UI validation and public journaled/depth Fetch remain next.
+
+2026-10-01 checkpoint: real native/UI recovery error, shallow Resume success and lost-reply/reload reconciliation all passed on attempt-fix build (artifacts/playwright IDs1790789331865/1790789338588/1790789341332). Includes fresh/cancelled attempts, depth identity, unchanged HEAD/resources, no network, fsck and normal Git reopen. Next atomic workspace journal/binding fence before public journaled Fetch.
+
+2026-10-01 checkpoint: real native journal error/retention UI passes (git-fetch-journal-recovery-1790788741255, PID12428 exit0). Successful Resume scenario exposed one-shot operation reservation; fixed with fresh attemptId for each recovery/cancel while preserving durable identity. Cargo/Bun checks and44 client assertions pass. Attempt-fix build running, supervisor38240, artifacts/native-fetch-recovery-attempt-ui-probe; rerun saved recovery/resume scenarios next.
+
+2026-10-01 checkpoint: ACL build passes six native Fetch/scope/lost-reply/save-error UI scenarios. New journal scenario exposed hidden recovery panel; GitPanel visibility fixed, Bun check/build pass. Fresh panel build running (supervisor16668, artifacts/native-fetch-recovery-panel-ui-probe). Two saved journal recovery/resume scripts await this build; storage journal/intent race fence remains next before public journaled Fetch.
+
+2026-10-01 checkpoint: saved native recovery UI test exposed missing command ACL. Fixed build.rs generator + main-window permissions; Cargo checks pass. Corrected isolated build running, supervisor PID30684, artifacts/native-fetch-recovery-acl-ui-probe. Initial build is not accepted; rerun saved UI scenarios after corrected build completes.
+
+2026-09-30 latest checkpoint: frontend v3 receipts and explicit Inspect/Resume integrated; compiler/frontend build and38 client+28 scope checks pass. Saved journal recovery UI scenario added. Native isolated recovery build is running (supervisor PID11028); UI acceptance remains pending. See STATUS for continuation; do not restart a live build.
+
+2026-09-30 latest checkpoint: explicit native recovery/status commands registered with exact saved binding and operation scope fences; normal admission still refuses journals. Cargo fmt/check/clippy pass; status/journal249 and admission/lease282 current-source assertions pass. Native command/UI acceptance, v3 receipts/intent and journaled public Fetch remain pending. See STATUS checkpoint and artifacts/git-recovery-status-check/full-pack-state.json.
+
+2026-09-30 latest checkpoint: actual independent writer termination/restart passed at prepared-before-ref and after-ref publication boundaries (20 new checks each;195 regressions per suite). Both resumed same journal/snapshot and retired journal/lock; both final repos pass git fsck --full. Evidence: git-writer-crash-check and git-writer-published-crash-check crash-acceptance.json. No live writer/build; explicit native/UI recovery, remaining fault windows and public depth integration remain pending.
+
+2026-09-30 latest checkpoint: private actual journal transition writer now performs prepared/import/one-ref/final/retirement with owned shallow lock and retained uncertain outcomes. New32 transition/finalization cases passed, including real mid-import failure/retry and packed-ref completion; both resulting repos pass git fsck --full. Cargo and journal/lease regression passed. Evidence: git-transition-check and git-published-finalize-check. Process-crash/fault/platform acceptance and public native/UI wiring remain next.
+
+2026-09-30 latest checkpoint: journal-bound read-only recovery validation now handles old/prepared/partial-import and published/final states. Revalidates fetched staging independently, retains previous snapshot roots and requires destination-only completeness after publication. Cargo checks;45 new recovery cases and journal/root/lease regressions passed (git-recovery-plan-check, git-retained-recovery-check). Actual transition writer, crash/fault acceptance and public depth/recovery UI remain next; no native build launched.
+
+2026-09-30 latest checkpoint: private exclusive journal creator implemented with managed identity, bounded recovery-file flush, plan revalidation, create_new/write-through/sync/readback, and retained uncertain outcomes. Windows readonly pack handling fixed and42 new native assertions passed; Cargo checks and282 journal/lease regressions passed. Evidence: git-journal-creation-check and git-stage-recovery-check. Public Fetch wiring, recovery transitions and process-stop/disk-fault/platform acceptance remain pending; no native build launched.
+
+2026-09-30 latest checkpoint: combined stage+destination publication plan implemented and required by candidate completion. Validates exact operation manifest and retained roots, computes objects and old/prepared/final shallow images without destination writes. Cargo checks and29 new publication assertions passed; current-source suites428 unique assertions. Evidence: git-publication-plan-check, git-retained-roots-check, git-stage-recovery-check. Durable stage/journal creation and transitions/recovery remain next; no public depth or native build yet.
+
+2026-09-30 latest checkpoint: retained-root inventory and typed physical graph implemented (refs/packed refs, HEAD, orphan reflogs, pseudorefs, existing shallow roots, tags/tree/blob traversal). Cargo checks,43 new native assertions and candidate/journal regressions passed;399 unique assertions across suites. Evidence: git-retained-roots-check, git-fetch-candidate-check, git-stage-recovery-check. Combined candidate+retained publication plan, durability and production journal/recovery remain next; no public tag/depth parity claimed.
+
+2026-09-30 latest checkpoint: staged v3 candidate preparation verified; preserves unselected history views and writes candidate pack/index only to leased staging. Cargo checks and current-source candidate195 + journal/lease282 assertions passed (356 unique). Production journal writer/recovery, physical root enumeration/durability, v3 receipts and public depth remain pending. Evidence: git-fetch-candidate-check and git-stage-recovery-check. No native build launched; accepted UI binary predates candidate changes.
+
+2026-09-30 latest checkpoint: native v3 per-branch history metadata, depth-aware operation identity and immutable snapshot reader implemented. Cargo checks,44 new v3 assertions and282 current-source regressions passed (git-fetch-snapshot-v3-check and git-stage-recovery-check). Old publisher refuses v3 downgrade; journal writer/v3 publication/JS receipt/depth UI remain pending. No build active.
+
+2026-09-30 latest checkpoint: exclusive stage reacquisition and journal-bound acquisition implemented; bounded owner reads, Cargo checks and282 current-source native assertions passed (artifacts/git-stage-recovery-check/full-pack-state.json), including live independent worker lease refusal/release. Production journal creation/writes/recovery remain pending. No active build; accepted UI binary predates this change.
+
+2026-09-30 latest checkpoint: native-fetch-journal-ui-probe build0; saved cleanup10, main Fetch11, orderly restart3 and scoped Fetch9 passed on the new binary (git-fetch-cleanup-1790782032722, git-fetch-1790782051996, git-fetch-restart-1790782054820, git-fetch-scope-1790782055642). No active build. Journal retention/admission accepted; production journal writer/recovery and shallow publication remain pending.
+
+2026-09-30 latest checkpoint: cleanup now retains journal-owned stages and holds GitState across complete bounded recovery inventory/deletion; native230 assertions and compiler/frontend checks passed. Native acceptance build running child37752/supervisor36532 at artifacts/native-fetch-journal-ui-probe/build-state.json. Saved cleanup scenario extended; runtime acceptance pending. No production journal writer/depth publication yet.
+
+2026-09-30 latest checkpoint: bounded shallow publication journal schema/preflight and read-only managed-repository admission implemented. Cargo checks and203 native assertions passed (artifacts/git-fetch-journal-check/full-pack-state.json). Journal creation/recovery writer, stage retention and v3/depth publication remain pending; no public shallow behavior enabled.
+
+2026-09-30 latest checkpoint: effective shallow-cut planner and standard Git storage/recovery design selected (SHALLOW-HISTORY.md). Cargo checks and166 native/planner/Git fsck+GC assertions passed (artifacts/git-shallow-plan-check/full-pack-state.json). Journal/v3 publication and public depth remain pending; full migration incomplete.
+
+2026-09-30 latest checkpoint: supervisor now preserves requested depth and verifies worker shallow metadata against leased staging; v1/v2 publication rejects depth requests even when remote history is complete. Cargo checks and137 current-source worker/snapshot/import assertions passed (artifacts/git-fetch-history-identity-check/full-pack-state.json). Shallow history publication/recovery and public depth remain pending; full migration incomplete.
+
+2026-09-30 latest checkpoint: private depth1 worker and bounded shallow metadata parser implemented; Cargo checks passed, real shallow protocol/pack plus parser/boundary/snapshot/import worker probe121 assertions passed (artifacts/git-shallow-transport-check/full-pack-state.json). Public depth remains disabled; importer refuses shallow until per-history metadata/publication/consumer integration. No active build; full parity unchanged.
+
+2026-09-30 latest checkpoint: explicit shallow-boundary object validator implemented; current callers remain strict/full-history. Cargo checks and19 shallow+77 existing current-source assertions passed (artifacts/git-shallow-graph-check/full-pack-state.json), including actual missing parent and valid shallow-file independence. Next stage boundary parsing/private depth protocol then safe metadata/import/history integration; public depth not enabled. No active build; full parity remains incomplete.
+
+2026-09-30 latest checkpoint: native-fetch-scope-ui-probe build0; saved scoped Fetch UI/recovery9 groups passed (git-fetch-scope-1790779543786), all-branch Fetch11 and orderly restart3 regression passed on same binary (git-fetch-1790779569300, git-fetch-restart-1790779572314). No active build. Exact-branch full-history Fetch accepted; shallow/depth/relative/pruning/tags and remote operations/full original parity remain pending.
+
+2026-09-30 latest checkpoint: exact branch scope connected through native Fetch/Inspect identity, JS receipt validation, durable v2 intent and Git UI field. Cargo/Svelte/Vite passed; native77 and injected-client28 checks passed. Native build live PID15840/supervisor6936 at artifacts/native-fetch-scope-ui-probe/build-state.json; do not restart while live. Saved scoped UI/recovery acceptance and regression remain next; full original parity incomplete.
+
+2026-09-30 latest checkpoint: scoped v2 Fetch snapshot publication merges selected branch with prior unselected tips; v1 remains readable/writable for full fetch. Supervisor carries scope, merged graph verified, one-pointer CAS retained. Cargo checks passed; actual-source probe41 snapshot+17 import+15 worker assertions (artifacts/git-fetch-scope-check/full-pack-state.json). Public request/intent/receipt/UI scope integration next; no active build or full parity completion.
+
+2026-09-30 latest checkpoint: private native Fetch worker supports validated exact branch selection; Cargo fmt/check/clippy and current-source real-pack32 assertions passed (artifacts/git-stage-branch-check/full-pack-state.json). Existing public Fetch still all-branch until scoped snapshot publication/operation identity integration; singleBranch/depth/prune parity not complete. Next implement scoped publication preserving unselected branches, then request/client/UI acceptance. No active build; last UI binary predates this change.
+
+2026-09-30 latest checkpoint: saved real parent-termination3 + orphan-recovery6 checks passed on native-fetch-cleanup-ui-probe; independent worker lease prevented cleanup after parent exit, then cleanup succeeded after lease release and new UI Fetch succeeded. Evidence git-fetch-parent-termination-1790778371725 and git-fetch-orphan-recovery-1790778373216. Normal cleanup6 regression passed with opt-in crash helper. No active build. Continue missing Git semantics/remote operations and full parity; OS faults/publication crash windows/OS-close still pending.
+
+2026-09-30 latest checkpoint: native-fetch-cleanup-ui-probe build finished0. Saved cleanup UI/native scenario passed6 groups (git-fetch-cleanup-1790778083421), main Fetch11 and orderly restart3 passed on same lease-enabled binary (git-fetch-1790778099419, git-fetch-restart-1790778102010). Real worker retained during parent-alive cleanup; actual parent-crash/orphan-worker acceptance remains next. No active build; full original parity remains incomplete.
+
+2026-09-30 latest checkpoint: explicit tracked Fetch cleanup UI connected; Svelte check0 errors/0 warnings and Vite build passed. Native build running at artifacts/native-fetch-cleanup-ui-probe/build-state.json (child PID35016, supervisor PID29980); do not restart while live. Saved cleanup UI/native IPC and actual parent-crash acceptance remain pending. Deferred reusable inputs/new UX recorded in POST-MIGRATION-UX.md, starts only after full original migration completion.
+
+2026-09-30 latest checkpoint: bounded exclusive-lease staging cleanup command registered; Cargo checks and20 current-source cleanup assertions passed (artifacts/git-stage-cleanup-check/state.json). Windows cannot rename open-lease directory, so cleanup holds exclusive lock while deleting in place. Unknown/v1/malformed/active stages retained. Frontend action, real app IPC/parent-crash acceptance and full parity remain pending; no build active.
+
+2026-09-30 latest checkpoint: parent and native Fetch worker now independently hold shared staging OS leases with v2 ownership marker. Cargo fmt/check/clippy and actual worker real-pack15 assertions passed (artifacts/git-stage-lease-check/full-pack-state.json); Windows lock/delete semantics probed. Automatic cleanup/exclusive reclamation and parent-crash acceptance remain next. Last UI binary predates lease changes; no build active.
+
+2026-09-30 latest checkpoint: saved git-fetch-recovery-errors.js passed native lost Fetch reply5, rejected retirement-save4 and lost retirement-save reply4 checks on existing native-fetch-retire-ui-probe binary. Evidence artifacts/playwright/git-fetch-lost-reply-1790776835174, git-fetch-retire-save-failure-1790776836701, git-fetch-retire-save-lost-reply-1790776838051. Svelte check0 errors/0 warnings. No active build. Actual OS disk faults/crash-stage ownership/recovery and full parity remain pending.
+
+2026-09-30 latest checkpoint: retirement native build0; main Fetch11 + orderly restart3 + in-flight retirement race5 checks passed. Cancel IPC deliberately rejected while real native worker completed network, then saved-binding fence rejected publication and new UI Fetch succeeded. Evidence git-fetch-1790776436355, git-fetch-restart-1790776438945, git-fetch-retire-race-1790776601455. No active build. Save-failure/lost-reply/crash-stage recovery and full original parity remain pending.
+
+2026-09-30 latest checkpoint: explicit Stop tracking pending fetch wired via acknowledged serialized binding save, retaining snapshots and fencing old expected binding. Svelte/Vite checks passed; retirement Playwright scenario prepared. New build artifacts/native-fetch-retire-ui-probe/build-state.json running; runtime retirement/race/save-failure acceptance and full parity remain pending.
+
+2026-09-30 latest checkpoint: durable Fetch recovery UI native acceptance passed10 grouped checks; orderly restart3 and remote-settings regression8 passed on native-fetch-intent-ui-probe. Evidence git-fetch-1790775827974, git-fetch-restart-1790775830365, git-remote-settings-1790775851713. No active build. Unconfirmed intents still block retry/settings: explicit resolution/publication fencing and crash/stage recovery remain next, alongside full parity.
+
+2026-09-30 latest checkpoint: persisted Fetch intent before submission, explicit operation ID and tracked Inspect pending fetch UI wired. Svelte/Vite checks passed. New isolated build live PID24068 at artifacts/native-fetch-intent-ui-probe/build-state.json; saved UI recovery scenario awaits this binary. Unconfirmed/canceled intent resolution and retained-stage/native terminal recovery are not complete.
+
+2026-09-30 latest checkpoint: native inspection build finished0; Fetch/inspection Playwright passed8 grouped checks plus missing snapshot, and separate orderly native restart passed3. Current JS inspection client verified through Bun/native invoke; recovery UI/durable renderer intent remain pending. Evidence artifacts/playwright/git-fetch-1790775212631 and git-fetch-restart-1790775214639. Svelte check0 errors/0 warnings after fixing scenario JSDoc. No active build.
+
+2026-09-30 latest checkpoint: read-only git_remote_fetch_inspect registered; shared request validation and Cargo fmt/check/clippy passed. Saved Fetch scenario extended; new isolated build running at artifacts/native-fetch-inspect-ui-probe/build-state.json (PID37284). Native inspection runtime acceptance and durable frontend intent/recovery still pending; older Fetch seven-check acceptance remains valid for its previous binary.
+
+2026-09-30 latest checkpoint: isolated native Fetch build passed; saved Playwright Fetch passed7 checks (real pack/UI, saved-settings gate, HEAD/resources preserved, same-operation reconciliation, changed persisted binding, Stop). Remote-settings regression passed8 on same binary. Evidence artifacts/playwright/git-fetch-1790774627690 and git-remote-settings-1790774661897. Durable recovery/lost IPC/OS-close/legacy modes and full parity remain pending.
+
+2026-09-30 latest checkpoint: Fetch JavaScript client, tracked workspace wrapper and existing Git panel Fetch/Stop controls wired. Svelte check and Vite build passed. Native rebuild and saved Playwright real-pack IPC lifecycle acceptance are next; reconciliation/recovery and full legacy parity remain pending.
+
+2026-09-30 latest checkpoint: git_remote_fetch command wired with persisted binding/settings admission before/after network, app-data stage, cancellation, snapshot publication and operation-ID reconciliation. Cargo checks;15 admission +23 snapshot +17 import +15 pack assertions passed. Actual command IPC/UI/lock-race/recovery acceptance pending; next JS client/workspace/UI and saved Playwright.
+
+2026-09-30 latest checkpoint: Immutable fetch manifest commit + single endpoint-scoped pointer implemented, using verified importer and sorted branch-tip parents for reachability. Cargo checks;23 snapshot +17 import +15 real-pack assertions passed. Native command/binding admission/UI and crash/recovery/full parity remain pending.
+
+2026-09-30 latest checkpoint: Lease-gated object importer implemented and standalone verified (17 import/cancellation +15 real-pack assertions; Cargo checks passed). Copies complete verified graph without refs/HEAD/worktree changes. Production caller/publication remains pending; remove temporary scoped dead-code expectation when wiring it.
+
+2026-09-30 latest checkpoint: Fetch validates complete reachable commit/tree/blob graph with type/hash checks before success. Cargo checks,15 graph +15 direct-pack assertions and15 worker-pack regression assertions passed. Parent verified import/publication, UI/recovery and full parity remain pending; current validation size limits documented in STATUS.
+
+2026-09-30 latest checkpoint: Native WorkerOutput now hands successful staging lease to consumers; app-data/UUID allocator added (not yet public Fetch IPC). Cargo checks,58 lifecycle/ownership/allocation assertions and15 real-pack assertions passed. Next object validation/import and snapshot publication, then Fetch UI; restart recovery/full parity remain.
+
+2026-09-30 latest checkpoint: Parent now reserves fetch container/ownership marker; confirmed failed/cancelled workers clean it automatically, successful or uncertain work is retained. Cargo checks,43 lifecycle/ownership assertions and15 real-pack assertions through supervisor passed. App-data allocation, restart recovery, successful-stage handoff/publication and UI remain pending.
+
+2026-09-30 latest checkpoint: Fixed supervisor termination evidence: explicit checked wait, idempotent reaped state and joins of both pipe threads before returning errors. Cargo checks/native33 assertions passed. Automatic staging allocation/cleanup, publication and UI remain pending; see STATUS.md.
+
+2026-09-30 latest checkpoint: Fetch now uses shared native process supervisor (300s cap/305s watchdog; advertisement remains30s/35s), with staging ancestor symlink/reparse checks. Cargo checks and29 native assertions passed. Parent-owned allocation/cleanup, publication, IPC/UI and full parity remain pending. See GIT-FETCH-STAGING.md.
+
+2026-09-30 latest checkpoint: Isolated fetch staging primitive/private worker dispatch implemented. Cargo checks passed; real-pack15 assertions and advertisement14 regression assertions passed. Supervisor/path ownership/publication/UI remain pending; multi-ref Transaction is not atomic. See [GIT-FETCH-STAGING.md](GIT-FETCH-STAGING.md). No native app rebuild; full migration incomplete.
+
+2026-09-30 latest checkpoint: Remote settings build finished0; saved native Playwright passed8 checks (save/read/reload/auth error/Stop/endpoint edit/dialog close/data preservation). Evidence git-remote-settings-1790770895847. Next scoped fetch, advance-ref journal/pull/merge and remaining remote/parity workflows; actual providers remain unverified.
+
+2026-09-30 latest checkpoint: Remote settings/read/Stop UI implemented in existing Git dialog.15 model/export assertions and frontend checks/build passed. Saved Playwright settings scenario awaits native build PID30728 at artifacts/native-remote-settings-ui-probe/build-state.json. No mounted UI acceptance yet. Poll same build; next run test:ui:git-remote-settings.
+
+2026-09-30 latest checkpoint: Remote client and tracked workspace advertisement wrapper implemented; 10 client + 6 wrapper assertions and frontend checks/build passed. Settings/connection/Stop controls and mounted UI verification remain next. Evidence: artifacts/git-remote-client-check; details in STATUS.md.
+
+2026-09-30 latest checkpoint: Isolated remote build finished0; saved Playwright native lifecycle passed7 named checks, including actual 30021ms timeout and existing Git UI responsiveness. Evidence git-remote-lifecycle-1790769998943. Settings/remote Stop UI/providers and remaining workflows are pending; next client/workspace admission integration.
+
+2026-09-30 latest checkpoint: Advertisement now uses a cancellable native worker process with bounded lifecycle/registry. Cargo checks and 14 actual-source assertions passed. See [GIT-REMOTE-LIFECYCLE.md](GIT-REMOTE-LIFECYCLE.md); isolated app/IPC/settings/UI acceptance remains pending.
+
+2026-09-30 latest checkpoint: git_remote_advertise primitive implemented with detached native remote and explicit auth mapping. Cargo checks and 14 actual-source loopback assertions passed. No UI/provider/fetch acceptance. Next bounded lifecycle/cancel and settings/client integration; GIT-REMOTE.md retains full remote scope.
+
+Deferred owner-requested phase: reusable components/ui inputs and redesigned UX after this migration goal is complete. See [POST-MIGRATION-UX.md](POST-MIGRATION-UX.md). This does not replace current parity requirements.
+
+2026-09-30 remote design checkpoint: See [GIT-REMOTE.md](GIT-REMOTE.md) for inspected legacy behavior, ordered implementation and acceptance. Current checkout journal cannot advance a branch tip; versioned OID-based recovery is required before pull/merge. Next settings/auth and read-only advertisement. Remote implementation remains pending.
+
+2026-09-30 latest checkpoint: Native deletion build finished 0; saved Playwright deletion/unmerged/stale-session scenarios passed 13 checks. Reload absence now waits for the loaded Git session. Evidence and limits in STATUS.md. Next remote/auth/clone/fetch/pull/push/merge, branch modes and recovery acceptance; full migration remains incomplete. Older checkpoints below are historical.
+
+2026-09-30 checkpoint: Guarded native branch deletion + consumed-session client/UI implemented; frontend/Cargo checks and11 native assertions passed. Saved deletion/unmerged Playwright scenarios added, not yet run. Native build live at artifacts/native-delete-ui-probe/build-state.json; poll before restarting. Full migration incomplete.
+
+
+2026-09-30 checkpoint: Native create build finished0 and all three saved Bun/Playwright scenarios passed: create-and-switch/reload, pending intent resume and mismatch refusal/forget preserving branch. Scripts in tests/ui, results in artifacts/playwright. No browser-use. Remaining branch modes/delete/remotes/recovery/visual parity still pending.
+
+
+2026-09-30 checkpoint: Durable create intent, native verifyOnly resume and create-and-switch/continue/forget UI wired; frontend/Cargo checks and31 coordinator/18 native assertions passed. Isolated build running at artifacts/native-create-ui-probe/build-state.json. Owner prohibits browser-use: future UI acceptance must use saved reusable Playwright JavaScript scenarios with Bun. Native UI acceptance remains next.
+
+
+2026-09-30 checkpoint: Native create-branch accepts optional operationId and acknowledges existing branches only from exact current-tip/creation-reflog/source/author evidence, without rewriting refs. Cargo checks and14 actual-source assertions passed. Durable frontend intent/create-and-switch UI and native IPC acceptance remain next; this is not completed branch creation workflow.
+
+
+2026-09-29 checkpoint: Fresh-process startup recovery passed18 assertions using a real native-produced pending journal after workspace sharing failure. New app startup recovered exact main workspace without manual recovery IPC, preserving history/local/private/foreign data; both probes closed0. Evidence artifacts/native-checkout-ui-recheck/startup-recovery.json. Abrupt crash/stale-lock, mounted failure/retained picker and broader parity remain pending.
+
+
+2026-09-29 checkpoint: Real native checkout/load/save IPC passed18 post-HEAD file-sharing failure/recovery assertions. Before workspace and native journal survived failure, pending journal blocked save, releasing handle let load finish exact target and fresh-document reload agreed. Evidence artifacts/native-checkout-ui-recheck/post-head-ipc.json. Fresh-process startup, mounted failure coordinator, retained picker/review and wider branch/remote parity remain pending.
+
+
+2026-09-29 checkpoint: Native recheck executable verified the conflict-message fix in actual Git dialog after staging reload; source branch/local edit retained, fresh-document reload passed, screenshot inspected and probe closed0. Five assertions recorded in artifacts/native-checkout-ui-recheck/conflict-recheck.json. Next post-HEAD IPC failure/recovery, retained-copy OS picker/review and remaining branch/remote parity.
+
+
+2026-09-29 checkpoint: Actual native checkout/reload/protected-data/selection/conflict and pre-journal ref-lock recovery flows passed16 artifact assertions; probe closed0. Fixed conflict text lost on dialog reload;11 handler checks and frontend build passed. Native fix recheck build is live at artifacts/native-checkout-ui-recheck/build-state.json. Retained picker/review, crash/uncertain IPC and broader branch parity remain pending.
+
+2026-09-29 checkpoint: Existing committed local branch switching and separate recovery modal connected. Retained edits require successful copy and exact reviewed snapshot before replacement.34 coordinator +10 compiled UI-script checks and Svelte/build passed. Isolated native build is in progress; observe artifacts/native-checkout-ui-probe/build-state.json before any restart. Next actual Tauri checkout/recovery/visual acceptance.
+
+2026-09-29 checkpoint: Frontend checkout/recovery coordinator is wired into workspace with exact baseline, pinned three-way plan, authoritative apply and retained unexpected live edits. JS/native selection/topology contract aligned; orphaned branch history preserved on load.31 coordinator +7 compiled-workspace +61 native checks and frontend/Cargo checks passed. Next branch/recovery UI, retained-data resolution and actual Tauri acceptance; full migration remains incomplete.
+
+2026-09-29 checkpoint: Guarded native checkout producer/command now writes journal and switches HEAD, then completes via revalidated recovery under GitState → StorageState. Cargo checks and 55 native assertions passed, including real Windows post-HEAD workspace sharing failure/recovery. Frontend three-way coordinator, candidate/topology/selection contract and Tauri IPC/UI acceptance remain pending.
+
+2026-09-29 checkpoint: Native journal recovery now runs during load under GitState then StorageState. Version/snapshot/ref/binding checks and conservative recovery table implemented; Cargo checks and 33 standalone native assertions passed. No journal producer/HEAD transition or Tauri IPC acceptance yet. Next guarded checkout producer, full candidate/selection coordination and native UI acceptance.
+
+2026-09-29 checkpoint: Native storage load/save now use shared helpers; pending journal blocks ordinary load/save and Git init/commit/create under their existing locks. Cargo checks and24 native storage assertions passed. No journal producer/recovery or native IPC acceptance yet; next guarded journaled checkout/startup recovery.
+
+2026-09-29 checkpoint: Real persistence phase now drives frontend edit/run/save admission and inert UI. Recovery keeps admission closed after drain release; failed recovery stays blocked.28 new checks plus27 barrier regressions and Svelte/build passed. Durable native journal/startup recovery and product checkout/recovery UI remain pending.
+
+2026-09-29 checkpoint: Scoped work now covers body/multipart/WebSocket/proto/schema files, page import picker/file, XML worker and cookie/legacy-restore IPC.42 behavior checks and Svelte/build passed. Native lifecycle acceptance, durable transition/recovery mutation block and journaled checkout remain pending.
+
+2026-09-29 checkpoint: Added guarded resource/settings mutation entry points and page direct-action guards; app shell/dialog inert and keyboard blocked during drain.28 behavior checks plus20 API Design/Git regressions and Svelte/build passed. Remaining file/cookie/import work and durable transition/recovery lock remain pending.
+
+2026-09-29 checkpoint: Registered API Design worker/file reads and Git setup/dialog work with drain. Abort blocks late resource application and future init/commit submission while already accepted saves/native calls remain awaited.46 behavior checks plus12 Git setup regression checks and Svelte/build passed. Direct mutation lock, remaining-writer audit and native checkout/recovery remain pending.
+
+2026-09-29 checkpoint: Shutdown now pauses new tracked HTTP/stream/gRPC/OAuth/Runner/proto runs and bounds cancellation IPC plus completion waiting.19 helper and14 compiled-workspace checks passed; Svelte/build passed. Direct UI/component writers, full mutation lock, native journal/recovery and checkout UI remain pending.
+
+2026-09-29 checkpoint: Real saveData uses exclusive persistence queue with blocked writes during transition/failed recovery.27 inline checks and Svelte/build passed. Workspace writer quiescence, native journal/recovery and checkout UI remain pending.
+
+2026-09-29 checkpoint: Checkout protocol specified in CHECKOUT-TRANSACTION.md after finding queued old workspace snapshots can overwrite a Git-only switch. Next implement persistence barrier/generation with native journaled transition and startup recovery; not implemented yet.
+
+2026-09-29 checkpoint: Client prepares branch switch from pinned target tree and live-state/ref checks using three-way planner.11 inline assertions and Svelte/build passed. Read-only preview only; durable checkout/recovery/UI and native branch acceptance remain pending.
+
+2026-09-29 checkpoint: Native info includes validated branch tip OIDs and explicit symbolic/unborn states with HEAD consistency checks. Cargo checks passed; runtime branch metadata/create acceptance and recoverable checkout/UI remain pending.
+
+2026-09-29 checkpoint: Guarded native create-branch primitive added and Cargo checks passed. It leaves HEAD/resources unchanged; legacy create-and-switch, checkout transactions, UI and runtime acceptance remain pending.
+
+2026-09-29 checkpoint: Native init recovery matrix passed19 assertions: unborn/committed retry leaves files unchanged; six invalid existing path classes rejected/preserved. Probe closed0. ACL/disk/crash/race and cross-store recovery remain unverified. Next branch workflows with resource reconciliation and durable transition handling.
+
+2026-09-29 checkpoint: Canonical Git commit/reload now native-verified clean. UI partial commit preserves unselected tree baseline and local edit across reload. Checkbox margin correction verified as live preview, frontend checks passed. Recovery matrix and branch/remote/full UI parity remain pending. Probe closed0.
+
+2026-09-29 checkpoint: Native Git setup/commit/history passed bounded UI flow; reload exposed YAML key-order changes. Stable sorting and checkbox layout fixes added;7 regression checks and Svelte/build passed. Rebuild/native reload and visual reacceptance required. Probe closed0.
+
+2026-09-29 checkpoint: Git local workflow dialog connected (setup/resume, changes, commit and history).6 history assertions and Svelte/build passed. Actual mounted/native flow, visual parity and recovery acceptance remain pending; branch/remote workflows incomplete.
+
+2026-09-29 checkpoint: Persist-before-init Git setup coordinator connected to workspace entry point; retains binding on failure and detects stale collection/binding.12 inline checks and Svelte/build passed. Visible Git UI and mounted/native recovery acceptance remain pending.
+
+2026-09-29 checkpoint: Explicit native Git initialization can reopen an existing valid managed repository; only an absent path is initialized. Invalid paths remain untouched. Cargo fmt/check/clippy passed; changed native IPC behavior, binding persistence and UI acceptance remain pending. See GIT-INVENTORY.md.
+
+2026-09-29 checkpoint: External import/export strips machine-local native Git binding IDs/version, preserves settings and warns on import; local saved-state restore unchanged.15 inline checks and Svelte/build passed. Binding persistence/recovery and Git UI integration remain next.
+
+2026-09-29 checkpoint: Git frontend binding/session client added with private baseline, live collection checks and consumed commit attempts;18 inline contract checks and Svelte/build passed. Workspace persistence/import recovery and mounted Git UI remain pending. See GIT-INVENTORY.md.
+
+2026-09-29 checkpoint: Native commit/history bounded IPC acceptance passed: initial/partial commit, stale HEAD, preserved unrelated blob/mode, pinned pagination and merge ancestry. Probe closed0. UI/persistence/recovery/remote workflows remain pending. See GIT-INVENTORY.md.
+
+2026-09-29 checkpoint: Native resource commit added with HEAD/branch locks, expected-tip check and managed-tree overlay preserving unrelated entries. Cargo checks passed; native commit/history runtime and UI/resource persistence coordination remain pending. See GIT-INVENTORY.md.
+
+2026-09-29 checkpoint: Resource changes/selected commit candidate model added; preserves deleted names and unselected bytes, requires workspace and valid parent graph.26 inline checks and Svelte/build passed. Native index/commit, revision checks and UI integration pending. See GIT-INVENTORY.md.
+
+2026-09-29 checkpoint: Native Git history command added with immutable-tip pagination, merge ancestry and author/committer metadata. Cargo fmt/check/clippy passed; history runtime/UI acceptance pending. See GIT-INVENTORY.md.
+
+2026-09-29 checkpoint: Isolated native Git build and actual WebView init/info/read-commit IPC passed bounded acceptance, including malformed objects and unchanged HEAD/index/worktree. Probe closed code 0. Git UI/transactions/full operations remain pending; see GIT-INVENTORY.md.
+
+2026-09-29 checkpoint: Native git_repository_read_commit added for exact commit IDs and bounded regular resource blobs; Cargo fmt/check/clippy passed. Native IPC acceptance and JS reader/UI/transaction integration remain pending. See GIT-INVENTORY.md.
+
+2026-09-29 checkpoint: git2 0.21.0 HTTPS/SSH and native managed init/info commands added; Cargo fmt/check/clippy passed after API fixes. Runtime acceptance, remaining Git operations and UI/transaction integration pending. See GIT-INVENTORY.md.
+
+2026-09-29 checkpoint: Git three-way resource planner added;38 inline checks and Svelte/build passed. Protects local/private/foreign data and rejects conflicting or orphaning updates as a whole. Not wired to persistence/native Git/UI. See GIT-INVENTORY.md.
+
+2026-09-29 checkpoint: Git collection snapshot/tree reader added with workspace graph, exclusion and path checks;28 inline assertions including37 archived fixture resources passed, Svelte check/build passed. Remote-state transaction/native backend/UI pending. See GIT-INVENTORY.md.
+
+2026-09-29 checkpoint: Git resource codec foundation added (12 legacy types);87 inline checks and37 archived-fixture round-trips passed, Svelte check/build passed. No native backend/UI or transactional collection apply yet. See GIT-INVENTORY.md.
+
+2026-09-29 checkpoint: Latest Runner sendRequest fix passed actual native UI: direct/detached/overridden callback, Stop without late persisted result/history, and new-document reload. Probe/fixture cleaned up. See NATIVE-RUNNER-ACCEPTANCE.md; broad parity remains incomplete.
+
+2026-09-29 checkpoint: Native callback probe build started; inspect artifacts/native-callback-probe/build-state.json/log and actual process before restarting. Git legacy format/workflow inventory added in GIT-INVENTORY.md; implementation remains TODO.
+
+2026-09-29 checkpoint: Restored Runner insomnia.sendRequest callback and send delegation. Six cases against archived Insomnium class now pass (four failed before fix); five cancellation/fresh-context assertions and frontend checks passed. Native re-verification of this fix remains pending. See RUNNER-INVENTORY.md.
+
+2026-09-29 checkpoint: Rebuilt native desktop paste Import verified through real UI: invalid text/error recovery, review/cancel without changes, additive cURL apply preserving old resources/history and fresh-document reload. Entry screenshot inspected. OS picker/legacy multi-file acceptance remains pending. See IMPORT-UI.md.
+
+2026-09-29 checkpoint: Desktop Import now opens paste/review UI with explicit native file selection and modal-lifetime guards.11 source lifecycle/parser assertions, Svelte check and frontend build passed; rebuilt native import acceptance is pending. See IMPORT-UI.md.
+
+2026-09-29 checkpoint: Isolated native release build and real WebView Runner flow passed: cookie round-trip, passing/failing assertions, Stop without late saved result and fresh-document reload (2 results/3 history/4 fixture requests). Dark Runner screenshots inspected. Probe closed and fixture stopped. Native paste import gap found; full parity remains pending. See NATIVE-RUNNER-ACCEPTANCE.md.
+
+2026-09-29 checkpoint: Native probe retry diagnosed missing MSVC INCLUDE (ring/vswhom-sys headers); child environment corrected. Build is still live, no success/runtime claim. Cookie snapshot allow/deny permission generated. See NATIVE-RUNNER-ACCEPTANCE.md and artifacts/native-runner-probe/build-state.json/log.
+
+2026-09-29 checkpoint: Actual compiled workspace + Runner/template workers + preview HTTP + persistence flow passed25 inline assertions using4 loopback requests and isolated memory storage. Native Tauri/UI/provider acceptance remains pending; see RUNNER-INVENTORY.md.
+
+2026-09-29 checkpoint: Tests UI integrated with suite sidebar, JavaScript editor, CRUD, Run/Stop and result detail.12 CRUD +11 runtime/report assertions and Svelte/build passed; production worker/WASM emitted. Mounted/native/visual acceptance still pending.
+
+2026-09-29 checkpoint: Runner workspace action now reuses shared HTTP sender, snapshots tests/per-Send request environments, owns Stop/shutdown and saves guarded results.13 model checks plus actual-action mocked wiring passed; Svelte/build passed. UI/native acceptance pending.
+
+2026-09-29 checkpoint: Runner worker/supervisor added.14 message-lifecycle assertions and6 actual Vite-built Bun Worker assertions passed, including hard Stop plus transport abort. Svelte/build passed; native sender/UI/WebView acceptance remain pending.
+
+2026-09-29 checkpoint: Isolated Runner runtime added with real Mocha/Chai, async insomnia.send callback bridge, scoped timers, abort/late-response cleanup and result reporting.20 inline assertions and Svelte/build passed; worker/native sender/UI remain pending (RUNNER-INVENTORY.md).
+
+2026-09-29 checkpoint: Mocha10.8.2/Chai4.5.0 installed with Bun; real browser bundles passed six-case QuickJS compatibility probe (7 host assertions). Svelte/build passed. Runner worker/send/UI not implemented; see RUNNER-INVENTORY.md.
+
+2026-09-29 checkpoint: Runner resource prerequisites fixed: additive imports remap selected request/suite; collection copies exclude legacy nonduplicable results/workspace metadata/tokens.18 inline checks and Svelte/build passed. Runtime/UI remain TODO; see RUNNER-INVENTORY.md.
+
+2026-09-29 checkpoint: cURL multipart filename/type metadata and guarded replacement implemented;136 inline checks,6 native-builder/curl wire comparisons and Svelte/build passed. Browser FormData differs; mounted/native IPC and remaining form/options parity stay pending. See CURL-IMPORT.md.
+
+2026-09-29 checkpoint: single-file cURL data modes use guarded explicit file selection, byte transforms and manual Content-Type;98 inline checks,7 local curl comparisons and Svelte/build passed. Mixed files/options/native UI remain pending. See CURL-IMPORT.md.
+
+2026-09-29 checkpoint: cURL import now uses existing paste/file review and additive resource flow;70 inline assertions,8 local curl wire comparisons and Svelte/build passed. File/options/native UI parity remains incomplete. See CURL-IMPORT.md.
+
 2026-09-29 checkpoint: Explicit OAuth Fetch/Refresh renders cookie snapshots;25 inline checks and frontend build passed. Retained legacy Restore records must not be blindly overlaid on Send. See COOKIE-RENDERING.md for remaining template-source lifecycle work.
 
 2026-09-29 checkpoint: Cookie snapshot key/value now render separately and rebuild through RawCookie builder without attribute reparsing;24 inline assertions and Cargo checks passed. See COOKIE-RENDERING.md. Legacy template-source overlay and native wire acceptance remain pending.

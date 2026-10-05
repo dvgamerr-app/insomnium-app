@@ -1,5 +1,9 @@
 # Project instructions
 
+- Owner follow-up (2026-09-30): After the current migration goal is fully complete, build reusable input components in src/lib/components/ui with centralized styling/behavior and redesign UX, using https://hoppscotch.io as a possible reference. Deferred scope and sequence: docs/migration/POST-MIGRATION-UX.md. Preserve the existing Insomnium UI during the current migration; the redesign is the subsequent phase. Browser-use remains prohibited.
+
+- Owner instruction (2026-09-30): Never use browser-use tools (the owner prohibits them because of token cost). For UI testing, do not use ad-hoc browser automation; use saved Playwright scenarios. Write and maintain reusable Playwright JavaScript UI test files, separated by feature/scenario, with shared fixtures/helpers. Rerun or edit the existing scenario for the same behavior instead of repeating interactive browser steps. Run tooling/scripts with Bun only; do not launch Node/npm/yarn. The owner explicitly authorizes these UI test scripts as an exception to the general no-new-test-scripts rule.
+
 - Read `docs/migration/STATUS.md`, `PLAN.md`, and `PARITY.md` before continuing migration. Update STATUS after each completed milestone, failure, or changed decision.
 - Use Bun for all JavaScript tooling and scripts. Never execute Node, npm, npx, pnpm, yarn, Python, or pip. Use `bun x --bun` for JavaScript CLIs. Rust/Cargo is the native Tauri backend.
 - Frontend: Svelte with JavaScript, no TypeScript application files and no TypeScript 7.

@@ -1,10 +1,2393 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
-Updated: 2026-09-29 - Dependency cleanup and Tauri version alignment
+## Source Control tab, shared UI and resizable panels — 2026-10-05
+
+- Owner explicitly requested this workflow/component work now, overriding its earlier post-migration deferral; original migration parity remains open. Git moves from a modal to the left activity rail, with Changes/Staged Changes, guarded selected-resource commits, before/after review, parent-based history lanes, and branch/author/remote dialogs. No VS Code visual design copied. Theme remains Nocturne.
+- Added shared Button/Input/Select/Textarea/Field/Modal/SplitPane, used in Git, key/value editing and main dialogs. SplitPane owns layout/divider CSS, pointer capture, keyboard limits/reset, responsive stacking and local size preferences. Removed old fixed panel grids, borders and native request resize rules that conflict.
+- Svelte check passes (0 errors/0 warnings), frontend build passes. Saved preview panel scenario passes keyboard/pointer bounds, persistence, API/test/GraphQL panels, modal focus/Escape, Git navigation and 1440/900/760 widths. Existing theme regression and final preview rerun both pass. Initial preview scenario failed because it opened an empty API Design screen without creating a document; corrected fixture setup and reran successfully. Initial component compile failures (multiline closing tag and separator warning syntax) corrected.
+- First native build finished exit0 (6m03s). Source-control scenario passed at artifacts/playwright/git-source-control-1791186710940: real selected commit, safe stage restoration/invalidation, before/after, history, author persistence, branch creation, remote dialog, splitters and both theme widths. Updated existing branch scenarios pass create/switch, resume, forget, merged delete, unmerged refusal and stale-HEAD refusal/retry; remote lifecycle passes.
+- Native theme/recovery passes at artifacts/playwright/nocturne-native-theme-1791186893409. Initial source-control scenario used getByLabel exact on a required label containing an asterisk; switched to accessible textbox name. Initial theme recovery expected the old Git modal to disappear; the new branch settings remain after recovery, so the saved scenario now closes them explicitly. Inspected native screenshots and corrected required-label display plus narrow history badge truncation.
+- Saved native gRPC, WS/SSE and GraphQL editor scenarios now exercise their shared splitters too; all pass on the first workspace executable. Evidence: nocturne-grpc-theme-1791186940632, nocturne-stream-theme-1791186951475 and graphql-editor-1791187012534. Final preview scenarios pass; check0/0 and build pass. Final native runner defaults point to the final workspace build record.
+- Final native build finished exit0 (6m06s), artifacts/native-nocturne-workspace-final/build-state.json. Final source-control rerun passes at artifacts/playwright/git-source-control-1791187244103/acceptance.json, including required-label layout and visible commit-title width at760. Inspected final dark760 Git screenshot; branch badges truncate without hiding commit titles. No build remains running. Requested Git/shared-component/resizable-panel scope is complete; original migration parity remains open.
+
+
+## Nocturne naming and CSS cleanup — 2026-10-05
+
+- Owner requested removing overlapping old CSS and using an original theme name. Theme is now **Nocturne**, with Nocturne Dark/Light labels in Preferences; saved scenarios, package command target and theme document renamed accordingly. Original upstream URLs and historical evidence paths remain provenance, not the product theme name.
+- Removed unused spec-source, old response code/line-number and empty-icon CSS. Consolidated duplicated control radius/transition/hover/disabled rules, environment sizing, workspace container rule, search wrapper and request-tab chrome. Removed doubled method/protocol separator and outer GraphQL column edge; narrow GraphQL layout uses a single horizontal divider.
+- URL group now owns one keyboard/text focus ring; its children do not add nested outlines. Kept keyboard focus indicators elsewhere. Saved Nocturne scenario asserts the single ring, single divider and flat control corners in both modes. Full preview suite passes; check0 errors/0 warnings, frontend build passes; inspected dark URL focus screenshot in artifacts/playwright/nocturne-theme/.
+- Native scenarios now use artifacts/native-nocturne-theme-probe/build-state.json as an alias to the prior baseline probe. This CSS-only correction has been verified in the rebuilt preview; no fresh native executable is claimed for this follow-up. Original migration remains open.
+
+## Hoppscotch theme completion audit — 2026-10-05
+
+- Theme objective complete across current application surfaces; requirement/evidence matrix in NOCTURNE-THEME.md. Central dark/light palette, locally bundled fonts, reference shell hierarchy, controls/focus/disabled states, editor syntax/popups, protocol/result panels and dialogs are implemented and visually checked. Original migration is NOT complete; reusable-input/workflow follow-up remains separately deferred.
+- Latest isolated native build finished exit0 in5m46s, includes final completion-popup CSS. Native controls scenario passed at artifacts/playwright/hoppscotch-native-theme-1791181270578/; WS/SSE at hoppscotch-stream-theme-1791181509200/; gRPC at hoppscotch-grpc-theme-1791181488890/. Preview suite passes; Svelte check0 errors/0 warnings; frontend build passes. Executable remains a probe and must not be distributed as production.
+- gRPC fixture debugging: the apparent Send/navigation issue was not established as an app defect. Actual IPC reached connect_grpc. The fixture waited for request END_STREAM; corrected it to respond on a complete framed protobuf message. Removed temporary event/CDP/IPC diagnostics, retained ordinary saved UI actions and real loopback native calls. Final scenario passes success/error in both themes. Shared fixture now waits for its exact collection selection after reload, not just the static Git button.
+- Migration follow-up discovered: gRPC can append `gRPC call cancelled.` despite receiving a valid0 OK response. Theme verification covers its rendered states only; inspect native completion/cancellation handling before claiming gRPC lifecycle parity. Existing broad settings-based schema invalidation (including theme changes) was preserved; the scenario reloads methods after switching themes.
+- No build remains running. Completion evidence and scope limits are in NOCTURNE-THEME.md; full PARITY requirements remain in effect.
+
+## Theme active-state coverage — 2026-10-05
+
+- Previous turn was progress: native proto regression fixed and both-theme native scenario passed. Current turn extends authoritative rendering evidence rather than changing scope.
+- Preview theme scenario now executes real runner pass/fail assertions, opens failed-result details and delete confirmation, checks invalid import and reviewed cURL import, and validates API Design with Operations/Schemas/Diagnostics captures. These additions pass. Populated key/value rows and keyboard-focus checks added next.
+- New saved native stream scenario passes dark/light WS and SSE open/events/headers/disconnect/error at1440/900/760 using a Bun loopback fixture. Evidence artifacts/playwright/hoppscotch-stream-theme-1791180347205/; owned app exit0. Inspected light760 SSE populated state. Initial failure was scenario state: Headers tab persisted into the next request; explicitly select Events. Increased fixture idle timeout to60s to keep streams open during screenshots.
+- Native gRPC scenario in progress: loopback HTTP/2 fixture under Bun; corrected exact method label (/Sample/Echo) and ServerHttp2Stream JSDoc. Existing schema context includes settings, so scenario reloads methods after theme changes. No product caching behavior changed.
+- Fresh final-CSS isolated native build RUNNING: session6059, Tauri PID28188, artifacts/native-hoppscotch-theme-probe/build-state.json. This includes completion-popup specificity fix. Poll same handle; do not launch scenarios until build finishes.
+- References for fixture: https://bun.sh/reference/node/http2/createServer and https://nodejs.org/download/release/v26.8.2/docs/api/http2.html (waitForTrailers/sendTrailers). Bun only; no Node process. Full migration remains incomplete; theme completion audit still pending.
+
+## Native theme scenarios pass; completion popup corrected — 2026-10-05
+
+- Rebuilt isolated probe successfully in5m52s. Saved native theme scenario now passes both dark/light: loaded font, Git/remote/diff at1440/900, cookie editing and clear confirmation, proto source/remove confirmation, injected checkout recovery and unchanged Git HEAD. Evidence: artifacts/playwright/hoppscotch-native-theme-1791180026776/acceptance.json; owned app exit0. Inspected dark proto source and light recovery screenshots. Proto tree fix is verified with ordinary clicks.
+- First rerun reached recovery successfully but the test incorrectly expected the old Git modal to remain open. Product source intentionally closes it when entering recovery; corrected test to require the dialog to be detached after recovery, then reran successfully.
+- Extended preview coverage to keyboard-opened Editor/Certificates preferences and CodeMirror completion popup. Completion regression exposed white vendor popup in dark mode, like the lint tooltip. Increased specificity of popup/item/active-item theme rules. Latest preview suite and frontend build pass. Completion fixture uses the real CodeMirror hint widget with two deterministic entries; it verifies appearance, not schema suggestion correctness.
+- Native artifact includes proto/tooltip fixes but predates the final completion-popup specificity adjustment. No build or test process remains running. NEXT native refresh if needed for final audit, advanced live protocol/result/validation state coverage and final visual review; whole-theme objective remains active. Original migration is not complete.
+
+## Theme tooltip and native proto regression — 2026-10-05
+
+- First isolated native theme build completed successfully (exit0). Saved native theme scenario reached Git/remote/diff and cookie edit/confirmation, then exposed a real Proto Files layout defect: the source editor flex-shrank the file tree until its buttons could not be clicked. Added `flex-shrink: 0` to the tree; fresh native verification pending.
+- Added a saved GraphQL syntax-error tooltip check. It initially failed because lazy-loaded CodeMirror lint CSS overrode the component's equal-specificity theme rule. Increased the theme selector specificity; preview theme suite now passes both themes with actual tooltip background assertions. Build passes; Svelte check0 errors/0 warnings.
+- Rebuilding isolated native probe with both fixes: session25703, Tauri PID25116, artifacts/native-hoppscotch-theme-probe/build-state.json. This supersedes the earlier completed build session87499. Product configuration unchanged; release output is a probe, not a distributable production build.
+- NEXT run saved native theme scenario against rebuilt executable; inspect resulting screenshots and finish remaining theme coverage. Overall migration and whole-theme goal remain active.
+
+## Theme collection/environment layout and native build — 2026-10-05
+
+- Moved active-environment/edit/cookies controls into the request-tab toolbar; compact collection breadcrumb, flat search and New/folder row match the captured reference hierarchy. Environment remains available in design/tests. Added named workspace container queries so GraphQL, API Design and runner columns stack in narrow panes.
+- Expanded saved theme scenario:11 auth modes at1440/900 in both themes, text/XML/form/multipart/binary panels, actual hit-testing of environment/cookie controls at1440/900/760, and populated design/runner content-overflow checks at900/760. Preview suite passes, Svelte check0/0 and build pass. Inspected dark760 populated API Design screenshot. Native/protocol active states still pending.
+- Initial toolbar change left visible cookie text overflowing its icon button and intercepting Edit environment clicks. First replacement missed a split Svelte closing tag; corrected exact icon/text sequence. Saved hit-test catches overlap and now passes without force-clicks. No behavior/assertion removed.
+- Native isolated release build RUNNING: unified exec session87499, Bun Tauri PID29352; artifacts/native-hoppscotch-theme-probe/build-state.json and build.log. Same isolated probe identifier app.insomnium.probe.checkout20260929 as saved native helpers; current frontend built first; no production config changes. Poll actual session/process before restart. On success copies executable to artifacts/native-hoppscotch-theme-probe/insomnium-theme-probe.exe. Usual release output is a probe and must not be distributed.
+- Official docs consulted: https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Containment/Container_queries ; https://v2.tauri.app/reference/cli/ . Commands: bun run check; bun run build; bun run test:ui:theme; bun x --bun tauri build --no-bundle --config <isolated overlay, beforeBuildCommand:null>, documented child MSVC/SDK env.
+- NEXT poll same build; saved native theme scenario for actual cookie/Git/proto views, remaining preview error/loading/dialog states. Whole-theme goal and original migration still incomplete.
+
+
+## Hoppscotch shell, typography and live-reference correction — 2026-10-05
+
+- Previous goal turn made progress (central theme source and a saved preview scenario). Revalidated actual worktree. Current owner theme objective remains active; no claim that full migration is complete.
+- Read upstream Header, Sidenav, PaneLayout, HTTP Request and editor theme sources; captured the live anonymous reference through saved tests/ui/hoppscotch-reference.js (Bun/Playwright, no browser-use tools). Actual rendered default accent is **#6366f1 in BOTH themes**, not the green mixin assumed in the previous turn. Reference evidence: artifacts/playwright/hoppscotch-reference/{dark,light}.json and screenshots. Changed app accent to this observed indigo; retained green HTTP GET/success semantics. Initial reference screenshots were during the Vue fade; added an ancestor-opacity/transition readiness gate before recapturing.
+- Reorganized shell into 48px navigation, main editor and right collections pane; DOM order follows panes. Centered header search focuses the real request filter. Flat navigation, top active request-tab marker, separate URL field group/Send button, compact dialogs and shared control states. Request compose height now scales with viewport to fit Auth/GraphQL. Response empty state lists implemented shortcuts. Corrected gRPC tab label from GET to gRPC.
+- Bundled Inter Variable and Roboto Mono Variable via documented Fontsource imports (5.3.0, Bun lock updated). No remote runtime font requests. OFL notices ship under static/licenses/. All code editors use mono token; syntax tokens mapped from upstream light/dark editor theme, including brackets/types/keywords/property/number/error, replacing leftover CodeMirror default colors. Removed misleading purple token alias.
+- Fixed method selector specificity discovered during visual audit: all seven method colors now survive the later selector rule. Saved scenario verifies computed colors in both themes. Also verifies actual loaded Inter face, editor mono family, right pane geometry and no page overflow at1440/900/760, search focus, theme reload persistence, no page errors, all six request tabs, basic auth, JSON/GraphQL, six dialogs, populated API Design/test-suite views, WS/SSE/gRPC screens and four response tabs after a routed local JSON fixture.
+- Final bun run check:0 errors/0 warnings. bun run build and bun run test:ui:theme pass. Latest result and screenshots: artifacts/playwright/hoppscotch-theme/. Final dark shell and light JSON response screenshots inspected; earlier expanded-run light760/preferences/gRPC/design/runner and dark Auth/GraphQL inspected. Screenshot evidence is distinct from interaction assertions; this is preview UI coverage, not native execution acceptance.
+- Scenario development failures were selector ambiguity/label text (Auth implicit label, duplicate request/response Headers, duplicate New Test, Headers count) and an immediate assertion before search requestAnimationFrame focus. Scoped selectors and condition-based focus wait fixed these, without removing assertions or sleeps. Reduced-motion test context prevents capturing intermediate active-tab colors; all owned browser/server processes exited.
+- Commands: bun add @fontsource-variable/inter @fontsource-variable/roboto-mono; bun x --bun prettier --write <changed files>; bun run check; bun run build; bun run test:ui:theme; bun tests/ui/hoppscotch-reference.js. Sources and remaining completion audit: NOCTURNE-THEME.md.
+- NEXT full theme goal remains incomplete: align remaining collection/environment chrome against captured reference, inspect advanced auth/body/file/error/loading variants and auxiliary layouts at narrow widths, and verify desktop-only Git/cookie/proto/recovery views with a fresh isolated native build. Existing native artifacts contain old assets. Do not claim whole-theme/native acceptance from this preview matrix. No active processes; no installer/publish/commit.
+
+
+## Hoppscotch theme foundation — 2026-10-05
+
+- Latest owner objective explicitly requests the complete Hoppscotch design theme now. This supersedes the prior theme deferral for this task; full migration/parity is still incomplete. Broader reusable-input and workflow redesign remains tracked separately.
+- Inspected official live page and upstream base/accent theme sources: https://hoppscotch.io/ ; https://github.com/hoppscotch/hoppscotch/blob/main/packages/hoppscotch-common/assets/themes/base-themes.scss ; https://github.com/hoppscotch/hoppscotch/blob/main/packages/hoppscotch-common/assets/themes/accent-themes.scss . First guessed source path returned404; resolved actual paths through GitHub tree API.
+- Updated central dark/light surface, text, emerald accent, selection and semantic error tokens; removed purple navigation/brand fills; separated all seven HTTP method colors and applied shared error color to runner. Light semantic text uses darker shades for readability. Existing feature behavior retained.
+- Saved reusable Bun/Playwright preview helper and hoppscotch-theme scenario. Production frontend build passes; Svelte check0 errors/0 warnings. Scenario passes dark/light backgrounds, Send accent, theme persistence after reload, visible Send and no horizontal page overflow at1440/900 widths. Screenshots/result: artifacts/playwright/hoppscotch-theme/. Dark1440 screenshot inspected. This is isolated browser preview evidence, not native IPC or full UI acceptance. No browser-use tools, Node processes or ad-hoc browser automation used.
+- Commands: bun run build; bun run check; bun tests/ui/hoppscotch-theme.js; bun x --bun prettier --write <changed source/scenarios>.
+- NEXT: complete visual fidelity audit of header/navigation/request/response layouts, dialogs/preferences, auth/editor/protocol/runner/Git surfaces; load matching typography; expand the saved scenario for those surfaces and inspect both themes. Current change is theme foundation only, NOT the completed whole-design goal. Native distribution has not been rebuilt. No active task processes.
+
+
+## Guarded selected Git restore save and coordinator — 2026-10-03
+
+- Added git_repository_restore in git_journal.rs and registered command/generated ACL. Under GitState→StorageState it requires loaded session/no checkout journal, validates IDs/unique nonempty selection, reuses collection privacy/ownership/topology/envelope guards, rejects unselected resource changes and pending create/fetch intent, locks HEAD+branch, verifies exact symbolic branch/OID and clean repository, compares persisted before-workspace twice, backs up and atomically writes one workspace file. Git refs/index/worktree are unchanged. No version1 checkout journal is written for this single-file operation.
+- YAML decoding/selected baseline reconstruction remains the frontend planner responsibility (same frontend/native boundary as checkout). Native independently validates write scope and captured HEAD, not YAML-to-candidate semantic equivalence. Runtime refusal/fault/atomic-save coverage remains REQUIRED before UI release.
+- Added createGitRestore coordinator with private single-use review handles, cancel, exact complete-workspace/fresh HEAD+plan revalidation after quiescence, baseline save and exclusive persistence transition. Native reply must match operation/branch/OID/workspace. Uncertain replies require authoritative load instead of resend; unexpected live edits retained and require explicit reviewed-copy recovery. Not wired into workspace/UI yet.
+-11 inline Bun assertions pass: read-only review, mutated visible review cannot alter private candidate, successful confirm/save, consumed/cancelled/forged handles, stale workspace/HEAD refusal, lost-success reply recovery without resend, retained live edits and mismatched review refusal. Native command was injected for these coordinator checks; not actual native runtime evidence. artifacts/git-restore-coordinator-check/result.json.
+- cargo check --locked and cargo clippy --locked -- -D warnings pass using documented child MSVC/SDK environment; command ACL generated by Tauri build. bun run check0 errors/0 warnings; Prettier/targeted diff check pass. Initial JSDoc on a multi-variable declaration left retained implicitly any; split declarations and reran check successfully. No new saved feature test scripts.
+- Official API consulted: https://v2.tauri.app/develop/calling-rust/ ; git2 Transaction docs URL unavailable via web, existing installed transaction/lock pattern reused without adding dependencies. Commands: Bun inline coordinator probe; bun run check; Bun Prettier; Cargo fmt/check/clippy.
+- NEXT actual native restore refusal/write/reload/fault validation, wire coordinator review/confirm/cancel/recovery into existing Git panel/workspace, then saved Playwright acceptance and fresh isolated build. Existing probe lacks the new command. Full restore UX and overall migration remain incomplete; all other PARITY gates retained.
+
+
+## Selected Git restore planning — 2026-10-03
+
+- Added prepareGitRestore in git-staging.js for explicitly selected changed paths against a pinned committed baseline. Restores modified/deleted resources and removes selected local additions. Unlike commit preparation, does not implicitly include workspace changes. Uses existing topology/three-way reconciliation to preserve local metadata/private/foreign records and reject orphaning selections, protected resources, unknown/stale/empty selections. Pure plan only; no refs/persistence mutation.
+- Added createGitClient.prepareRestore: uses private session baseline (ignores modified displayed metadata), requires committed branch, rereads HEAD, rejects changed binding/public collection, guards complete resource array and closed session after async native read. Returned preview is NOT permission to overwrite later live edits.
+-17 inline Bun assertions pass (no saved new test script): selected modify/delete/add, unselected workspace edits, local metadata/protected/foreign preservation, input immutability, orphan/private/empty/unknown refusal, private captured HEAD, read-only IPC, moved HEAD/live foreign edit/closed-session refusal. Evidence artifacts/git-restore-planner-check/result.json. Svelte check0/0; frontend build0; Prettier applied. Initial tool orchestration syntax error occurred before execution/writes, corrected.
+- Source consulted: https://git-scm.com/docs/git-restore ; existing legacy selected undo requirement in GIT-INVENTORY. Commands: inline bun -e probe; bun run check; bun run build; bun x --bun prettier --write src/lib/git-staging.js src/lib/git-client.js.
+- NEXT implement reviewed selected-restore coordinator with quiescence, persisted before-state and native HEAD/binding/resource revalidation under GitState→StorageState; atomic save/recovery and retained live edits, then explicit review/confirm/cancel UI and saved native scenarios. Do not directly apply this preview or reuse a stale plan. Native worktree/index behavior and legacy selection cancellation remain required.
+- Full selected undo is not yet user-accessible. Advance-ref journal/pull/merge/clone/push, GraphQL/platform/CI and full parity remain open; shared input/UX deferred.
+
+
+## GraphQL scenario compiler gate restored — 2026-10-03
+
+- Fixed all73 remaining Svelte check errors across six saved GraphQL scenarios with explicit fixture event/parameter/tuple JSDoc types, a typed callback holder for held close response, and assertions for required wire events/response release callbacks. No ts-ignore, check exclusions, TypeScript application files or removed assertions. Product source unchanged this milestone.
+- bun run check passes0 errors/0 warnings. Prettier and targeted git diff --check pass. Full-worktree diff check still reports two pre-existing Markdown trailing-space lines in SUMMARY-TH.md (17,80); unrelated file unchanged. An initial inline edit script had escaping syntax errors before writing any file; corrected and applied successfully.
+- Reran all six edited native scenarios sequentially against artifacts/native-graphql-focus-ui-probe/build-state.json. Every command exited0; seven phase result files confirm owned app exit0. Evidence:
+- graphql-editor: 15 checks, E:/insomnium/artifacts/playwright/graphql-editor-1790960356786/acceptance.json
+- graphql-execution: 4 checks, E:/insomnium/artifacts/playwright/graphql-execution-1790960368583/acceptance.json
+- graphql-schema-cache: 6 checks, E:/insomnium/artifacts/playwright/graphql-schema-cache-1790960387942/acceptance.json
+- graphql-schema-context: 6 checks, E:/insomnium/artifacts/playwright/graphql-schema-context-1790960403760/acceptance.json
+- graphql-schema-lifecycle: 12 checks, E:/insomnium/artifacts/playwright/graphql-schema-lifecycle-1790960424489/acceptance.json
+- graphql-schema-close: 3 checks, E:/insomnium/artifacts/playwright/graphql-schema-close-1790960434035/acceptance.json
+- graphql-schema-close-reopen: 3 checks, E:/insomnium/artifacts/playwright/graphql-schema-close-reopen-1790960435988/acceptance.json
+- Commands: bun run check; bun x --bun prettier --write <six edited tests/ui/graphql*.js>; INSOMNIUM_UI_BUILD_STATE=artifacts/native-graphql-focus-ui-probe/build-state.json bun tests/ui/<scenario>.js. No new build needed for these test-only fixes.
+- NEXT remaining SDL native save dialog, resize/accessibility, provider/proxy/TLS/cookies and other platforms; all other original PARITY/CI gates remain open. Full migration incomplete and shared input/UX redesign deferred.
+
+
+## GraphQL import focus visibility fixed — 2026-10-02
+
+- Reproduced native failure without test-assisted scroll at artifacts/playwright/graphql-schema-import-1790959506379. Hidden absolute file input was not anchored to its label. Scoped src/lib/styles.css rules position the GraphQL import label relatively and stretch its transparent input over that label. Existing visual layout preserved; API Design styles unchanged.
+- Fresh isolated native release build finished0 in7m56s: artifacts/native-graphql-focus-ui-probe/build-state.json/build.log and insomnium-graphql-focus-probe.exe. Production config unchanged; this overwrites usual target/release output with probe identity and MUST NOT be distributed as production.
+- Saved schema-import scenario passes all17 checks against that new artifact at artifacts/playwright/graphql-schema-import-1790960162694/acceptance.json. Removed scrollIntoView workaround; elementFromPoint now proves focused label visibility in both themes. Screenshots inspected after native run. Keyboard file chooser and schema/browser/error/persistence checks retained. Owned app exit0.
+- Frontend build passes. bun run check initially81 errors; corrected all8 errors in edited scenario using JSDoc/tuple types and nullable schema assertions. Remaining73 errors in6 other GraphQL scenarios are recorded in artifacts/native-graphql-focus-ui-probe/check.log. No clean global-check claim; NEXT address those errors, then SDL save dialog/resize/full a11y/provider/platform/original parity.
+- Commands: bun run check; bun run build; bun x --bun prettier --write src/lib/styles.css tests/ui/graphql-schema-import.js; documented Bun Tauri build --no-bundle with isolated identifier and beforeBuildCommand:null; INSOMNIUM_UI_BUILD_STATE=artifacts/native-graphql-focus-ui-probe/build-state.json bun tests/ui/graphql-schema-import.js. Official CSS source: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/position .
+- Migration remains incomplete; shared inputs and UX redesign remain deferred.
+
+
+## GraphQL focus fix validation in progress — 2026-10-02
+
+- Scoped CSS anchors hidden GraphQL file input to its visible label (position relative; inset0/full size) without changing toolbar layout or API Design controls. Regression now requires label visibility without scrollIntoView.
+- Frontend production build passes. bun run check reports81 errors in7 saved GraphQL test files; inspect and fix relevant annotations, no clean check claim.
+- Isolated native rebuild started: artifacts/native-graphql-focus-ui-probe/build-state.json and build.log; supervisor 40680. Poll actual process before any retry. Native fix acceptance pending.
+
+
+## Import focus regression reproduced — 2026-10-02
+
+- Removed test-assisted scroll from theme scenario and asserted the focused import label center is visible via elementFromPoint. Existing native artifact fails at artifacts/playwright/graphql-schema-import-1790959506379 with false != true. Product focus visibility bug confirmed after schema browser scrolling. Investigating scoped positioning of hidden input; prior17 checks did not cover this.
+
+
+## Native GraphQL keyboard import and theme checks — 2026-10-02
+
+- Existing saved schema-import scenario now passes 17 checks: keyboard import activation via real filechooser event, focus-within outline, schema explorer traversal, and light/dark switching preserves exact schema documentation and request/history while changing text color. Final artifacts: artifacts/playwright/graphql-schema-import-1790959400822/acceptance.json, result.json, theme-styles.json, schema-light.png and schema-dark.png. Owned native process exited0.
+- Both screenshots inspected: toolbar buttons and import focus outline visible in light/dark at 1440x900; schema pane remains scrollable. Theme screenshots explicitly scroll the import label into view after focusing. Earlier screenshots1790959359548 showed toolbar outside the scrolled viewport, so these checks DO NOT establish automatic keyboard focus visibility after scrolling; investigate that separately. No full visual, contrast, screen-reader or resize acceptance claim.
+- Product code unchanged; same isolated native artifact. Commands: bun tests/ui/graphql-schema-import.js; bun x --bun prettier --write tests/ui/graphql-schema-import.js. Official sources: https://playwright.dev/docs/api/class-filechooser and https://playwright.dev/docs/api/class-locator#locator-press . Playwright chooser interception is not an OS file-picker interaction test.
+- Native SDL save dialog, automatic focus scrolling, full accessibility/resize/provider/proxy/TLS/cookies/other platforms and all remaining original parity/CI gates remain open. Shared input/UX redesign deferred.
+
+
+## Native GraphQL import keyboard activation — 2026-10-02
+
+- Extended the existing schema-import scenario to Tab from Fetch schema to the labeled file input, assert a nonzero focus-within outline, activate Enter, observe the actual Playwright filechooser event, and supply the SDL through that chooser. All 16 checks pass at artifacts/playwright/graphql-schema-import-1790959292770/acceptance.json; Bun command exited0. Product code unchanged.
+- Official source: https://playwright.dev/docs/api/class-filechooser . Commands: bun x --bun prettier --write tests/ui/graphql-schema-import.js; bun tests/ui/graphql-schema-import.js. Existing isolated native artifact/helper retained. This proves keyboard activation and file input handling, not interaction with an OS file-picker dialog (Playwright intercepts it). SDL save dialog, broader a11y/theme/resize/provider/platform/full parity remain open.
+
+
+## Native GraphQL schema keyboard acceptance — 2026-10-02
+
+- Extended existing tests/ui/graphql-schema-import.js with three keyboard checks: Tab from search to types, Home/End selections compared with exact GraphQL printType output, Tab to directive selection, and Shift+Tab back through types to search without a focus trap. Existing import/error/history/clear checks retained.
+- Final saved native Windows scenario passes all 15 checks at artifacts/playwright/graphql-schema-import-1790959173048/acceptance.json; result.json confirms successful owned-process exit. Commands: bun tests/ui/graphql-schema-import.js; bun x --bun prettier --write tests/ui/graphql-schema-import.js. Preliminary expanded run also passed at artifacts/playwright/graphql-schema-import-1790959141501; strengthened exact-definition assertions then reran successfully.
+- Official reference consulted: https://playwright.dev/docs/api/class-keyboard . Existing isolated native artifact and saved Playwright helper reused; product code/UI unchanged. Node REPL is only the available tool bridge launching Bun; project scripts execute under Bun.
+- Scope is keyboard navigation within the loaded schema explorer only, not complete accessibility acceptance. Native export/file dialog, import-button keyboard reachability, screen-reader/focus visibility, theme/resize, provider/proxy/TLS/cookies and other platforms remain open. Full original parity and CI gates remain open; shared input/UX redesign remains deferred.
+- NEXT continue remaining GraphQL acceptance or outstanding original feature implementation from PARITY.
+
+
+## Native GraphQL close-while-fetching and reopen acceptance — 2026-10-01
+
+- Previous turn made progress with cache6 checks. Revalidated STATUS/PLAN/PARITY and real +page.svelte onCloseRequested→shutdown→destroy path. Tauri close requires extra permission; destroy bypasses close-request. Product permissions unchanged.
+- Added tests/ui/graphql-schema-close.js and bun run test:ui:graphql-close. First phase3 checks pass at artifacts/playwright/graphql-schema-close-1790809313945/acceptance.json: genuine WM_CLOSE reaches frontend shutdown; observed real IPC commands cancel_http, save_workspace, plugin:window|destroy in order; held fixture request aborts BEFORE response release; owned process exits0 without forced cleanup. Second phase3 checks pass at artifacts/playwright/graphql-schema-close-reopen-1790809315639/acceptance.json: request/body/URL persist with no schema response history, session schema absent, fresh native introspection succeeds without error.
+- tests/ui/helpers/native-app.js now exposes opt-in requestNativeClose. tests/ui/helpers/native-window-close.js uses Bun FFI user32.dll with exact owned PID, visible/unowned observed Tauri Window class, exactly-one candidate, immediate PID recheck and bounded enumeration. No global broadcasts/title selection/foreign-window actions. Windows x64 only. This is a saved UI test helper; no Computer Use/browser-use tooling or Node/Python.
+- Guarded failures are retained below. Early windows included single-instance and Tao event-target windows; class diagnostics resolved main selection. Tauri invoke property is nonwritable/nonconfigurable, so discarded mutation-based observer; final scenario uses documented passive Playwright network events and first proves observer with real load_workspace. No product failure established by those test-harness attempts.
+- Existing schema-import12 checks rerun after shared-helper change and pass at artifacts/playwright/graphql-schema-import-1790809349262/acceptance.json. Bun commands actual0; Prettier applied. All owned apps exited and fixture stopped. Same recorded isolated native artifact; no fresh production package claim.
+- Scope: Windows WM_CLOSE with active GraphQL introspection accepted; does not establish OS shutdown/power-loss/macOS/Linux close behavior. Remaining GraphQL includes native SDL export/file dialog, keyboard/accessibility/theme/resize, provider/proxy/TLS/cookies and other-platform coverage. Full CI/platform/original feature parity remains open; shared input/UX redesign deferred.
+- NEXT continue native export/remaining GraphQL gates where tooling permits, or outstanding original feature work in PARITY. No completion claim.
+
+### Official references consulted for saved close scenario
+
+- https://tauri.app/reference/javascript/api/namespacewindow/
+- https://v2.tauri.app/reference/acl/core-permissions/
+- https://bun.com/docs/runtime/ffi
+- https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-gettopwindow
+- https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getwindow
+- https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getwindowthreadprocessid
+- https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getclassnamew
+- https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postmessagew
+- https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-close
+- https://playwright.dev/docs/network#network-events
+
+
+Second attempt1790809173923 still found three unowned visible windows; no WM_CLOSE posted. Added PID-scoped class/style diagnostics before choosing a stricter main-window criterion.
+
+Third diagnostic run1790809193027 identified main class Tauri Window plus single-instance and Tao event-target windows. Filter exact observed Tauri Window class in addition to owned PID/visible/unowned/exact-one; no title-based selection and no messages posted on failed attempts.
+
+Fourth run1790809222904 posted WM_CLOSE and process exited0 with fixture abort observed, but command-observer assertion did not see cancel_http. Full close acceptance remains unproven; inspect observation mechanism/native shutdown before claiming lifecycle.
+
+Fifth run1790809258131 confirms observer command list empty while WM_CLOSE/exit0/abort succeed. Verify bridge property writability before further close attempts; native cancellation command name confirmed cancel_http in transport.js.
+
+Sixth run1790809282694 proves invoke observer assignment was ineffective (read-only bridge), refused before WM_CLOSE. Replace mutation attempt with documented Playwright network request events and validate observer against real load_workspace first.
+
+## Native close scenario first attempt — 2026-10-01
+
+- Added opt-in saved UI helper using Bun FFI/Win32 WM_CLOSE, guarded to owned probe PID. First attempt1790809142678 refused before posting because three visible top-level windows matched. No product changes. Refine selection to unowned main window, preserving exact-one/PID recheck guard, then rerun. Cleanup used existing owned-window destroy.
+
+
+## Native GraphQL cache acceptance — 2026-10-01
+
+- Previous goal turn made progress with12 schema import/browser checks. Revalidated STATUS/PLAN/PARITY, cacheSchema and native scenario helper; consulted https://playwright.dev/docs/input#upload-files before fixture implementation.
+- Added saved tests/ui/graphql-schema-cache.js and bun run test:ui:graphql-cache.6 checks pass at artifacts/playwright/graphql-schema-cache-1790808908649/acceptance.json: three request-scoped schemas survive switching; fourth evicts oldest load; replacing a schema refreshes load age without another slot; two11MiB description schemas exceed combined20MiB SDL budget and evict older large entry while retaining fitting small entry; Clear affects selected request only; all four request bodies/history unchanged.
+- First run1790808874997 failed only at final body comparison because importer normalizes body with params: []. Recorded failure below and corrected test baseline to actual persisted post-import resources. Full rerun actual0. Product implementation unchanged; same recorded isolated Windows native artifact, not a new production installer. Owned probe closed by helper.
+- Commands: bun tests/ui/graphql-schema-cache.js; bun x --bun prettier --write tests/ui/graphql-schema-cache.js package.json. Native cache count and aggregate-byte gates now have UI evidence; remaining GraphQL includes SDL export/native dialog, true close-while-fetching, accessibility/theme/resize and provider/proxy/TLS/cookies/other platforms. Explicit helper window-destroy cleanup does not verify CloseRequested lifecycle.
+- Inspection found frontend onCloseRequested handler in src/routes/+page.svelte and capability core:window:allow-destroy; next inspect exact native close permissions/event path before implementing saved close-while-fetching acceptance. Do not bypass lifecycle using force-kill and call it graceful close.
+- All other original PARITY and CI/platform gates remain open. Migration goal active; shared components/UX redesign remains deferred.
+
+
+## GraphQL cache acceptance first attempt — 2026-10-01
+
+- Saved tests/ui/graphql-schema-cache.js reached final body-preservation assertion after cache count/age/combined byte-budget checks. Failed because test compared pre-import body with normalized persisted body (importer adds params: []). Artifact artifacts/playwright/graphql-schema-cache-1790808874997. Correct test baseline to persisted post-import data, then rerun same scenario. Product code unchanged; full acceptance not yet claimed.
+
+
+## Native GraphQL schema import and browser acceptance — 2026-10-01
+
+- Added saved tests/ui/graphql-schema-import.js and package command bun run test:ui:graphql-import. Native Windows probe passes all12 checks: SDL descriptions/defaults/deprecation; hidden introspection types; case-insensitive field/description search with empty/reset states; custom directive details; malformed JSON/SDL, unknown type, GraphQL errors and20MiB+1 byte file rejected while retaining valid schema; raw __schema JSON replacement/error reset; unchanged request/history; Clear schema.
+- Evidence: artifacts/playwright/graphql-schema-import-1790808738003/acceptance.json. Command bun tests/ui/graphql-schema-import.js actual0. Same recorded isolated native artifact and helper as preceding GraphQL milestones; no production installer claim. Owned app closed by helper. No product changes or browser-use.
+- Official upload documentation consulted before scenario implementation: https://playwright.dev/docs/input#upload-files . Saved buffer-based file fixtures use documented locator.setInputFiles. Prettier applied. An initial read-only script invocation failed because JavaScript String.replace interpreted a replacement-string token; corrected to a replacement callback, no files changed by that failure.
+- Combined current GraphQL evidence:15 editor +12 lifecycle +6 context +4 execution +12 import/browser checks. Counts do not establish full parity.
+- Remaining GraphQL acceptance: native SDL export/file dialog, close while fetching/cache eviction, keyboard/a11y/theme/resize and provider/proxy/TLS/cookies/other platforms. CI remote execution/artifact retention, packaging platform gates and all other PARITY scope remain open.
+- Confirmed AGENTS.md and POST-MIGRATION-UX.md retain owner instructions: reusable input components in src/lib/components/ui and redesigned UX with possible Hoppscotch reference only AFTER full migration. No browser-use; saved per-feature Playwright via Bun.
+- NEXT inspect remaining schema cache/lifecycle gates and extend the relevant saved scenario, then continue outstanding original parity. Do not start deferred UX or mark migration complete.
+
+
+## Native GraphQL source context and execution acceptance — 2026-10-01
+
+- Previous goal turn progressed with15 editor +12 lifecycle checks. Revalidated STATUS/PLAN/PARITY and actual header/auth/environment UI/source before continuing. Read https://graphql.org/learn/introspection/ and https://www.graphql-js.org/api-v16/graphql/ before fixture implementation.
+- Added saved tests/ui/graphql-schema-context.js:6 checks pass at artifacts/playwright/graphql-schema-context-1790808288788/acceptance.json. Native introspection renders inherited URL and selected environment token/header; header edit and bearer token edit invalidate schema and refetch uses updated wire values; environment switch and active environment JSON edit invalidate and update rendered fields; stored template source remains unchanged.
+- Added tests/ui/graphql-execution.js using actual GraphQL.js parse/validate/execute in Bun loopback fixture (not predetermined response):4 cases pass at artifacts/playwright/graphql-execution-1790808380972/acceptance.json. Selected named operation with Unicode variables; serial mutation aliases produce2 then5; partial data plus resolver error displayed in dedicated GraphQL error UI; invalid Int variable fails before mutation (counter remains5). All four native POST payloads and persisted history bodies match independently executed results.
+- Commands bun tests/ui/graphql-schema-context.js and bun tests/ui/graphql-execution.js actual0; package scripts test:ui:graphql-context and test:ui:graphql-execution added. Prettier applied. Owner-authorized saved Playwright only; no browser-use/CUA/new product edits.
+- Same recorded isolated Windows probe as prior GraphQL milestones; fixtures stopped/owned apps closed. Combined current GraphQL evidence:15 editor,12 schema lifecycle/GET,6 source-context and4 execution cases. Case counts are not a full-parity claim.
+- Remaining GraphQL gate includes raw __schema import, oversized/invalid-schema preservation, SDL export/native dialog, close while fetching/cache eviction, richer schema docs/search/a11y/theme/resize, provider/proxy/TLS/cookies and other platforms. Subscription/protocol scope remains as original inventory. CI remote/artifact/platform and all non-GraphQL parity still open.
+- NEXT remaining import/schema-browser acceptance, then other missing feature implementation/acceptance from PARITY. Shared inputs/UX remains after full migration.
+
+
+## Native GraphQL operation/schema lifecycle and GET acceptance — 2026-10-01
+
+- Previous goal turn made progress with14 native editor checks. Revalidated STATUS/PLAN/PARITY and source schema/current-request guards. Consulted https://graphql.org/learn/queries/#operation-name and https://bun.sh/docs/runtime/http/server before extending fixtures.
+- Extended existing tests/ui/graphql-editor.js with multiple-operation variable completion: Other suggests id without filter; switching Find restores filter scope. Full15-check scenario passes at artifacts/playwright/graphql-editor-1790807942978/acceptance.json.
+- Added saved tests/ui/graphql-schema-lifecycle.js and bun run test:ui:graphql-schema.12 checks pass at artifacts/playwright/graphql-schema-lifecycle-1790808126132/acceptance.json: native schema fetch; query-only edits retain cache; URL edits invalidate; pending response discarded after source change; HTTP503/GraphQL errors/malformed JSON diagnostics; Cancel closes native request (fixture abort signal asserted BEFORE releasing held response); fresh fetch after Cancel ignores late schema and clears errors; schema actions preserve prior response/history; introspection JSON import; native GET has encoded query/variables/operationName exactly once, preserves original URL query, and sends no body.
+- Earlier12-case run1790808068468 passed; expanded abort assertion rerun also passed. One text-edit anchor failed after Prettier changed indentation, before writes; inspected current file and applied corrected anchor. Product code unchanged.
+- Accepted same isolated Windows native artifact as preceding GraphQL milestone; fixture uses127.0.0.1 only. Saved scenarios run via Bun/Playwright, no browser-use/CUA. Owned app and fixture close in helper/finally. No real endpoint or production profile used.
+- Scope remains PARTIAL: native SDL export/file-dialog acceptance, header/auth/environment-specific schema invalidation, mutation/subscription/protocol/provider/TLS/other-platform and visual parity remain open. URL invalidation does not prove every source dimension; GET fixture verifies transport encoding and response display, not arbitrary server execution.
+- Commands: bun tests/ui/graphql-editor.js; bun tests/ui/graphql-schema-lifecycle.js; Bun Prettier; targeted git diff --check. CI/platform/artifact retention and all other original parity remain required; no redesign/shared input implementation before full migration.
+
+
+## Native GraphQL editor acceptance — 2026-10-01
+
+- Previous turn progressed through package dependency fixes. Read current STATUS/PLAN/PARITY, GRAPHQL-RENDERING, CodeEditor/GraphqlEditor and existing native saved-scenario helper. Switched to original application parity while external CI/platform gates remain open.
+- Consulted official Playwright keyboard/file upload docs and GraphQL utilities before implementation: https://playwright.dev/docs/api/class-keyboard , https://playwright.dev/docs/input#upload-files , https://www.graphql-js.org/api-v16/utilities/ .
+- Added owner-authorized saved Playwright JS scenario tests/ui/graphql-editor.js and package script test:ui:graphql-editor. Bun loopback fixture only, actual native Windows WebView/Tauri IPC via isolated existing probe identity; no browser-use/Computer Use/ad-hoc browser tool.
+-14 accepted checks in artifacts/playwright/graphql-editor-1790807788569/acceptance.json: authenticated native introspection, user-body preservation, schema type browser, query completion, operation-variable completion, nested input completion, enum completion, non-object variable lint, rendered validation, hover type navigation+popup cleanup, unknown-field diagnostic, native POST payload/response, reload persistence+session-cache reset, local SDL import.
+- Command bun tests/ui/graphql-editor.js actual0. First attempt failed because test expected sidebar POST rather than GQL; second expected word valid instead of real success sentence. Corrected test only; subsequent run passed and expanded14-case run passed. Failure artifacts retained1790807703302/1790807737007. Product code unchanged.
+- Accepted artifact artifacts/native-unix-socket-ui-probe/insomnium-fetch-recovery-probe.exe, build-state1790800454260→1790800783641, identity app.insomnium.probe.checkout20260929. Latest packaging changes do not alter GraphQL frontend/native request behavior. This is acceptance on that recorded artifact, not proof of an unbuilt production installer.
+- Prettier applied to saved scenario; package script added. Fixture stopped in finally, helper closed owned probe. Scope still PARTIAL: multiple-operation switching, schema invalidation/cancel/errors, JSON schema import/SDL export, GraphQL GET and broader native provider/TLS/platform acceptance remain open. Fixture returns known response; it does not independently execute arbitrary GraphQL queries.
+- NEXT extend saved GraphQL scenarios for remaining acceptance, then other original feature parity. CI remote execution/artifact retention/platform distribution remain open; no scope removal. Shared inputs/UX deferred.
+
+
+## Dynamic Debian metadata verified in combined release build — 2026-10-01
+
+- Continued SAME supervisor28308/child31516 to terminal actual0; optimized native compile3m39s, overall284seconds. Default primary command produced Debian/RPM/AppImage. artifacts/linux-deb-dynamic-primary/state.json/logs. No restart on waits.
+- Actual Debian Depends contains all12 groups independently regenerated from final ELF; no missing entries. RPM requirements also retained, proving merging Debian metadata did not discard RPM metadata. Both insomnium-shlibdeps-* and insomnium-packaging-* tempdirs absent. verification.json.
+- Fixed staging warning after inspecting installed /usr/share/perl5/Dpkg/Path.pm: get_pkg_root_dir requires a DEBIAN directory. Added marker directory to helper. Running build snapshot intentionally unchanged until terminal; final helper tested separately and after copying into snapshot returned IDENTICAL12 groups with no warning. artifacts/linux-deb-generator/final-staging-verification.json and final verification record exact scope.
+- Exported newest .deb artifacts/linux-deb-dynamic-primary/insomnium.deb,8644384bytes,SHA25658e196d470d3567390dfa3dfb1679258432079a629d0966527993695ffb7ed2c. Latest RPM/AppImage retained in builder /target/release/bundle; not additionally exported/installed this milestone. Build metadata acceptance does not replace previous runtime gates or establish new platform acceptance.
+- scripts/generate-deb-config.mjs now computes real package minimums; primary wrapper handles Debian-only and combined formats; root config no longer embeds the previous12 build-host constraints. Explicit user-added Debian dependencies are unioned with computed groups. Raw Tauri bundle users must pass a fresh generated config.
+- CI explicitly installs dpkg-dev; README/CI.md updated. Native actionlint and targeted git diff --check pass. No new saved tests, Node/Python/browser-use or remote changes.
+- Builder stopped; runtime containers remain stopped. Full migration still incomplete. NEXT CI bootstrap/remote validation/artifact retention, Ubuntu actual-ELF/native-platform acceptance, original feature parity. Shared input components/UX stays deferred.
+
+
+## Automatic Debian dependency metadata implemented; integration running — 2026-10-01
+
+- Previous goal turn progressed with combined formats/CI. Revalidated current files and official https://manpages.debian.org/bookworm/dpkg-dev/dpkg-shlibdeps.1.en.html .
+- Ran documented dpkg-shlibdeps -O -e<release-executable> first in isolated control directory; returned12 groups, matching old static list. No ignore-missing-info option. Tool emits a package-directory warning, but returns0 and requirements; preserved evidence artifacts/linux-deb-generator/documented-command.json.
+- Added scripts/generate-deb-config.mjs (Bun build utility): validates ELF, isolated temporary Debian metadata and executable copy, dpkg-shlibdeps from installed symbols/shlibs, parses one nonempty Depends line preserving alternatives, fails on tool/missing requirements, cleans own tempdir in finally. Actual helper returns12 groups; invalid ELF refuses without output. Relative staged path still gives harmless package-directory warning; no suppression or claim of resolved cause.
+- Updated primary wrapper to generate Debian metadata for deb/all, retain user extra constraints, merge RPM overlay without discarding Debian and include AppImage overlay. Removed ONLY the exact known12 generated constraints from root config after equality guard. Raw Tauri bundle needs the generated overlay; use primary desktop:build for complete package metadata.
+- Added explicit dpkg-dev CI prerequisite; README/CI docs updated. Cross-distro/cross-arch acceptance remains pending.
+- All-format primary integration LIVE: supervisor28308/WSL child31516, artifacts/linux-deb-dynamic-primary/{state.json,build.log,stderr.log}; same retained container and optimized profile, command bun run desktop:build --ci -- --locked, CARGO_BUILD_JOBS=1. Do not restart on observation timeout. Poll actual process; final metadata/build acceptance pending.
+- Original full parity and CI remote/artifact/runtime acceptance remain incomplete; no redesigned UX/shared input implementation yet.
+
+
+## Combined Linux release packaging and Bun-only CI workflow — 2026-10-01
+
+- Previous turn progressed by accepting primary AppImage. Revalidated STATUS/PLAN/PARITY/current wrapper and official https://v2.tauri.app/reference/cli/#build before starting default targets=all.
+- Primary bun run desktop:build --ci -- --locked, CARGO_BUILD_JOBS=1, completed actual0 in286seconds. Native optimized compile3m43s. SAME supervisor22712/child36964 observed throughout; no restart. artifacts/linux-all-formats-primary/state.json/logs.
+- Built Debian8.24MiB, RPM8.25MiB and AppImage101.25MiB in one invocation. RPM generator emitted46 requirements; actual package includes every requirement and MIT. Debian metadata retains12 explicit ELF-derived constraints plus Tauri defaults. AppImage staging contains GLES and notice; owned packaging tempdirs absent. verification.json. Full extracted AppImage/runtime acceptance was previous milestone; these newly exported bytes were not separately installed/launched.
+- Exported all3 probe artifacts and SHA256 in artifacts/linux-all-formats-primary/manifest.json. .deb3e52c9f4ad043956787e8124ad3504b424b7a9213b3d962178f7d06ea769fb2c; .rpm1b6520babf664db7c816df845943635afda756b2f4e88fa43a4bbf5375fc3a23; .AppImage67444b2a2dfcdd77d6f5ed3bf4c0656be4155e977fabbd507c9dfbcd602b1192. Host identity unchanged.
+- Added .github/workflows/desktop-build.yml with3 jobs: Ubuntu22.04 x64, Windows2022 x64, macOS15 universal. All run steps, no Node-based actions. Documented pinned Bun installer/native Git exact-event checkout, scoped transient fetch auth, Rust1.98.1, native prerequisites, frozen install/Svelte check/primary release build, SHA256 job summary. No commit/push/remote run/release created.
+- YAML and2 inline JS programs parse. Native actionlint1.7.12 downloaded from upstream and checksum verified; optional shellcheck/pyflakes disabled. Initial job.env runner.temp scope failed, moved to installer step env; final actionlint0. Evidence artifacts/ci-inspection. Docs and limitations in CI.md.
+- CI still PARTIAL: actual runner execution/checkout/platform packages unverified; downloadable artifact retention, signing/notarization, Linux ARM64 and legacy formats pending. Summary hashes alone are NOT downloadable packages. Debian metadata derived on Debian12 requires fresh actual-ELF verification on Ubuntu runner. CI does not reduce original scope.
+- Builder stopped after exports; other3 owned runtime containers already stopped. No live compiler/bundler/app process.
+- NEXT CI runtime/bootstrap/artifact retention and platform acceptance, then outstanding original feature parity. Full goal remains incomplete; no redesign/shared components before migration completion.
+
+
+## Primary AppImage release and bundled GLES accepted — 2026-10-01
+
+- Previous goal turn made progress through GLES implementation/probe. This turn revalidated current docs, polled SAME supervisor35360/child24236 and confirmed actual cargo/rustc then linuxdeploy processes; no timeout restart.
+- Primary bun run desktop:build --bundles appimage --ci -- --locked finished actual0, overall285seconds, optimized native compile3m48s. Original release profile unchanged. artifacts/linux-appimage-primary/state.json/logs.
+- Exported artifacts/linux-appimage-primary/insomnium.AppImage,101.25MiB, SHA256 cd3821319e09e4c58670029cd40e221d284572b6910edeafb3d2e0729854c72a. Probe identity only.
+- Extracted actual output as UID10001. GLES library and copyright present; copyright SHA matches builder package exactly (cf246da9d8979f9be80e5b9c3ce0010c09786f11a55637ff3d09f1a36d269b25). GLES ldd resolves through normal host graphics dispatch; no missing dependencies. Primary wrapper leaves no insomnium-packaging-* tempdirs. verification.json and final-state.json.
+- Runtime confirms no installed libgles2, libgtk-3-0 or libwebkit2gtk-4.1-0. Documented extract-and-run smoke reaches20-second timeout124 with app/WebKitNetwork/WebKitWeb alive at6seconds; AT-SPI works, no missing-library/bus warning in this run. Existing desktop baseline graphics/fonts/audio remains required.
+- This proves packaging/process startup on this Debian12 Xvfb environment, NOT rendered UI/workflows/GPU/Wayland/FUSE launch/graceful close/other distro or architecture acceptance. Previous transient bus warning did not recur, cause remains undetermined.
+- No remaining app/display/dbus children after probe; all FOUR owned containers stopped/exited, state/cache retained. No live builder or installer.
+- CI investigation: active .github directory absent. Official setup-bun and checkout actions currently use node24 internally; cannot adopt those examples under strict no-Node rule. References and decision recorded in LINUX-DISTRIBUTION.md. No workflow/action executed.
+- NEXT primary release all-format integration (RPM+AppImage generators together), Bun-only CI with audited shell/native bootstrap/checkout/artifact handling, then original full parity. Legacy Linux tar.gz/snap, Windows/macOS release/upgrade/data/UI and outstanding Git/plugins/auth/runner/etc remain open. UX/shared components deferred until full goal complete.
+
+
+## AppImage GLES fix implemented; primary release build live — 2026-10-01
+
+- Previous turn progressed through AppImage build/runtime diagnostics. Revalidated current STATUS/PLAN/PARITY and host configuration.
+- Official AppImage custom-files docs: https://v2.tauri.app/distribute/appimage/#custom-files . Exact CLI source https://github.com/tauri-apps/tauri/blob/tauri-cli-v2.12.0/crates/tauri-bundler/src/bundle/linux/appimage/linuxdeploy.rs confirms files copied before linuxdeploy. Initial source URL without appimage subdirectory returned404; corrected path read successfully.
+- Experimental documented files overlay added libGLESv2.so.2. Rebundle actual0 in49.6sec; artifacts/linux-appimage-gles-build/probe.AppImage. Removed system libgles2 from runtime before smoke. Nonroot extract-and-run reaches expected20s timeout124 with app+both WebKit children; no missing GLES and no bus warning this run. Existing desktop platform baseline remains. Process smoke only, no rendered UI/full-runtime claim.
+- Added scripts/generate-appimage-config.mjs: discovers GLES via ldconfig -p, matches ELF class/endian/machine to actual built executable, bundles GLES and package copyright notice. Rejects missing library/notice and invalid ELF. Debian/Fedora notice paths plus INSOMNIUM_GLES_LICENSE override. Native cross-architecture acceptance not proven.
+- Updated scripts/build-desktop.mjs: two-stage packaging for AppImage as well as RPM; merges generated files with custom config, rejects reserved dependency destination overrides, retains other appimage flags/custom files. Owned temp dirs now insomnium-packaging-*. README updated.4 inline ABI/non-ELF/config/routing checks pass; no new saved test.
+- Additional generator acceptance: actual Linux helper emitted ABI-matched GLES and notice mappings; explicit missing-notice path refused without output. artifacts/linux-appimage-primary/generator-checks.json. Targeted git diff --check passes. Latest ps confirms same cargo/rustc alive; no restart.
+- Primary RELEASE AppImage build running in retained builder: bun run desktop:build --bundles appimage --ci -- --locked, CARGO_BUILD_JOBS=1. Supervisor35360/WSL child24236, artifacts/linux-appimage-primary/{state.json,build.log,stderr.log}. Frontend build passed; native optimized executable compiling. Poll SAME process; do not restart on timeout. Actual final result, bundled notice/library, runtime and cleanup pending.
+- Earlier short-lived Bun launcher produced no state/process evidence; persistent supervisor started once confirmed no state. Probe bundler20916/3872 already terminal0.
+- Owned builder remains running for compiler; AppImage runtime now stopped after completed probe. Debian/Fedora package runtimes stopped. Do not stop builder while primary build live. Continue primary verification; then all-format/CI/original full parity. UX/components deferred until full migration; browser-use prohibited.
+
+
+## AppImage build and conditional runtime smoke — 2026-10-01
+
+- Official references consulted: https://v2.tauri.app/distribute/appimage/ and https://docs.appimage.org/user-guide/troubleshooting/fuse.html . Docker uses extraction rather than adding FUSE privileges.
+- Retained optimized binary bundled with bun x --bun tauri bundle --bundles appimage --ci; actual exit0 (~54s). Export artifacts/linux-appimage-build/insomnium-linux-probe_0.1.0_amd64.AppImage,101.24MiB, SHA256 df3986dd9476152dcaf2f905b8daf262044ce67391fa2a52cf56ecc438f314b4. Probe identity only; host identity unchanged.
+- New owned runtime insomnium-appimage-runtime-20261001 (ID ed449b4f05826905d3f2ecb26c3cd12565df3e52c894da1fe473b7755c34ceea), pinned Debian12 image as Debian runtime, --init/1CPU/1GiB/no mounts/ports. Desktop baseline installation recorded in desktop-baseline.json. Initial14 missing libraries match current upstream pkg2appimage excludelist; that list is not proof of exact linuxdeploy embedded policy.
+- GTK/WebKit system packages absent; ldd resolves GTK/WebKit/JavaScriptCore from bundle, no missing linked libraries after baseline. runtime-dependencies.json records evidence.
+- First extracted AppRun attempt failed126 because root extraction directory mode700; no product permission change. Used documented /tmp/insomnium.AppImage --appimage-extract-and-run as UID10001 instead.
+- Actual startup then failed127: dynamically loaded libGLESv2.so.2 absent, despite clean ldd. Installed libgles2 only in runtime and reran. libGLESv2 was NOT found in inspected upstream excludelist; packaging handling/desktop requirement remains unresolved. Do not claim self-contained or clean minimal-runtime acceptance.
+- With libgles2, nonroot isolated XDG/Xvfb20-second smoke reached expected timeout124; app, WebKitNetwork and WebKitWeb alive at6sec. AT-SPI activates; log also says Failed to launch bus: Bus exited with code0 (timing/cause not established). No UI/rendering/workflow/graceful-close claim. Evidence extract-and-run-smoke.json and extract-and-run-gles-smoke.json.
+- Post-run ps contains no app/display/dbus children. All FOUR owned containers stopped/exited; snapshots retained. final-state.json. No product or saved test edits this milestone.
+- NEXT resolve AppImage dynamic GLES dependency and bus warning through upstream docs/source, repeat clean acceptance, then primary release/all-format build and Bun-only CI. FUSE desktop launch, real upgrade/data/UI/macOS/Windows/legacy formats and original full PARITY remain open.
+- Owner follow-up remains recorded in AGENTS.md and POST-MIGRATION-UX.md: reusable components/ui inputs and redesigned UX after FULL migration. Browser-use prohibited; saved Playwright JS scenarios via Bun for UI verification.
+
+
+## Fedora44 clean RPM install/start/reinstall/remove verified — 2026-10-01
+
+- Previous turn made progress (primary RPM integration). Revalidated STATUS/PLAN/PARITY and exported optimized RPM SHA-25614ca1c35378fa9346ead84835e44ca9f80375def058fe1800bcdf05010f40db4 before use.
+- Consulted official Fedora Docker image and DNF5 install/reinstall/remove docs. Fedora quick-docs page denied automated access; used upstream DNF5 documentation instead. Pulled fedora44 pinned digest sha256:43b29f65a41eb9c35e1cd5323e3bdf3b655c2357a9f4f1ff2f9c2798e5045d80.
+- Created owned insomnium-rpm-runtime-20261001, ID9e8eb55bc05118003476f8e5ece6c2d25518ed373c23e8f293bd286e8d5e3520, --init/1CPU/1GiB/no mounts/no ports. Verified /usr/bin/dnf5 ELF and native DNF5 version5.4.3.0; did not use Python-based DNF4 or Python scripting.
+- Clean installation via dnf5 install -y --setopt=install_weak_deps=False /tmp/insomnium-probe.rpm completed actual child exit0 in72seconds. A repository mirror returned404 but DNF recovered and completed; no restart. Local probe is unsigned; DNF noted skipped OpenPGP check for the local file. Artifacts/linux-rpm-install/{image,setup,state}.json and logs.
+- Before adding display tools: rpm -q confirms0.1.0-1.x86_64; rpm -V empty; dnf5 check empty; ldd no missing libraries. Installed executable SHA-256b3e2847da0001464b482bbd07ac86ba0db2b17fe0e08c3ae7cb15ec418d3c17b. verification.json records evidence.
+- Added Xvfb/xauth/dbus/procps/shadow tooling only after clean dependency checks. UID10001/dedicated XDG directories; installed release and WebKitNetwork/WebKitWeb processes alive at6seconds, bounded20-second timeout124. AT-SPI activates. Mesa warns missing DRI3 acceleration under Xvfb; no GPU/rendered-UI success claimed. Post-run ps verifies no remaining app/display/dbus children.
+- Same-version dnf5 reinstall and default remove both pass.5 package files present/absent as expected, rpm verify/DNF dependency checks clean; all5 app-created WebKit profile files retain hashes. Final package absent. This does NOT prove collection/schema preservation, real upgrade, UI/workflows or graceful close.
+- No product/new saved test changes. Fedora runtime stopped; all THREE owned containers inspected exited. Probe RPM removed, /tmp artifact and user profile retained. No live installer/compiler/app. Original linuxRpmInstall supervisor1496/child11868 terminal.
+- NEXT AppImage bundling/dependency/runtime acceptance using retained optimized build, then full primary release/all-format flow and Bun-only CI. Other distros/architectures, actual upgrade/data/UI/macOS/Windows/legacy formats and all original PARITY remain open. UX deferred.
+
+
+## Primary desktop build generates fresh RPM requirements — 2026-10-01
+
+- Previous turn made progress (RPM generator/metadata/license). Revalidated checkpoint and official Tauri CLI2.12.0 bundle.rs ordering: config is loaded before beforeBundleCommand, so mutating a config file from that hook would not update the in-memory bundle settings.
+- Added scripts/build-desktop.mjs and routed package.json desktop:build through it. Windows/macOS, help and explicit --no-bundle delegate directly to documented Tauri commands. Linux RPM flow runs Tauri build --no-bundle, captures its actual reported executable path, generates requirements into a unique temporary config, merges explicitly configured extra RPM dependencies, then invokes Tauri bundle with the same shared debug/target/features/config/signing/bundle flags. Finally removes only its own temp directory.
+- Linux wrapper parses JSON config/merge patches (including platform overlay); custom Cargo profiles/output args and JSON5/TOML overlays explicitly refuse rather than guess paths/config. Cargo --locked/--offline/--frozen supported. Original raw bun run tauri remains available for custom manual flows. README documents prerequisites and boundaries; no hardcoded64-bit dependency list.
+-11 inline argument/config-merge assertions pass, Windows actual desktop:build --help passthrough exit0. No saved test scripts. Ran primary command in retained Linux snapshot: bun run desktop:build --debug --bundles rpm --ci -- --locked, CARGO_BUILD_JOBS=1/CARGO_PROFILE_DEV_DEBUG=0. Actual child exit0 at artifacts/linux-rpm-primary/state.json; supervisor38788/child14900 terminal. Fresh debug RPM20.10MiB.
+- Final verification.json proves all49 debug ELF capabilities present in RPM, License MIT, and no remaining insomnium-rpm temp config directory. Previous release ELF had46 requirements, demonstrating current-binary derivation rather than reuse. Native build15.31s; overall111seconds including compression.
+- One inspection was attempted before bundler completion and failed to read incomplete RPM. Preserved premature-verification.json, waited on SAME process until terminal, then final verification passed; no restart or false build failure.
+- Targeted diff check passes. Builder stopped; Debian runtime remains stopped/purged. No live app/build/install process. Existing Vite chunk-size warning persists; generated npm preview suggestion was not executed.
+- NEXT clean RPM-native runtime install/ABI/start/lifecycle acceptance, release/all-format primary flow and AppImage, then Bun-only CI matrix. Custom profiles/config formats remain documented wrapper boundaries, not claims of tested support. True upgrade/data/UI/macOS/Windows/legacy formats and all original PARITY remain open; UX deferred.
+
+
+## RPM metadata inspected; ELF-derived requirements generator implemented — 2026-10-01
+
+- Previous turn made progress (installed Debian startup/lifecycle). Revalidated STATUS/PLAN/PARITY and config; read official Tauri RPM/configuration and Bun subprocess docs before commands/implementation.
+- Reused retained optimized executable with bun x --bun tauri bundle --bundles rpm --ci. Initial RPM built8.24MiB but rpm -qpR listed only GTK/WebKit plus rpmlib internals; rpm -qpi License empty. Installed rpm inspection tools only inside owned build container.
+- Actual /usr/lib/rpm/rpmdeps --requires /target/release/insomnium returns46 ELF soname/version capabilities. Added scripts/generate-rpm-config.mjs (Bun/JavaScript build utility, no test script) to derive config overlay from the supplied ELF, allowing architecture-specific requirements without hardcoding64-bit capabilities globally. Rejects wrong platform/arguments/non-ELF/failed or empty rpmdeps output.
+- Set bundle.license=MIT in host tauri.conf.json after reading existing LICENSE. Copied bundle settings into probe config without identity changes. Generated overlay then documented tauri bundle --bundles rpm --config /workspace/artifacts/rpm-dependencies.json --ci; exit0. All46 requirements present and License MIT verified. Invalid-ELF command exit1 produced no config. Targeted diff check passes.
+- Corrected probe RPM8.25MiB exported artifacts/linux-rpm-build/insomnium-linux-probe-0.1.0-1.x86_64.rpm; SHA-25614ca1c35378fa9346ead84835e44ca9f80375def058fe1800bcdf05010f40db4. Artifact overlay/evidence in same directory. Build container stopped; Debian runtime remains stopped/purged; no app/build/install live.
+- IMPORTANT: default desktop:build still invokes bare Tauri; generated RPM overlay is not automatically integrated there yet. Do not call RPM packaging fully fixed until primary build/CI uses fresh requirements and actual RPM runtime installation/start/lifecycle pass. Generator verifies ELF format but does not itself verify that caller supplied the same binary Tauri will package; orchestration must bind those paths.
+- Legacy electron-builder config located at _backup/legacy-electron/packages/insomnia/electron-builder.config.js also lists Linux tar.gz/snap and insomnia URI protocol; retain those in distribution/parity inventory rather than silently equating Tauri all with every legacy deliverable. No scope removal.
+- NEXT integrate fresh ELF dependency generation into primary Linux packaging flow, then clean RPM-native install/ABI/start/lifecycle acceptance and AppImage. See LINUX-DISTRIBUTION.md. Original UI/Git/plugins/etc parity and deferred UX ordering unchanged.
+
+
+## Installed Linux release startup and Debian lifecycle verified — 2026-10-01
+
+- Previous turn made progress (release/dependency fix/clean install). Read current STATUS/PLAN/PARITY and official Tauri fake-display + Debian apt-get docs before proceeding.
+- Started same clean runtime container; added Xvfb/xauth/dbus/at-spi2-core/procps AFTER prior clean dependency acceptance. Created UID10001 and isolated XDG directories. Installed /usr/bin/insomnium release process and both WebKit processes alive at6seconds;20-second bounded timeout124, AT-SPI bus activated without previous warning. No sandbox bypass/browser-use. Post-run ps showed all app/display/dbus processes gone. Evidence artifacts/linux-deb-install/startup-smoke.json.
+- Same-version reinstall, remove, install-again and purge all pass. Verified5 package files present/absent, dpkg verify/audit clean, and identical hashes of5 app-created WebKit profile files at every phase. Final dpkg-query confirms package absent. Evidence lifecycle-{baseline,final}.json and lifecycle.json.
+- Scope limits: no actual collection data written/read, no version-to-version upgrade, no rendered UI/IPC/workflow/graceful-close acceptance. WebKit-profile preservation and process liveness do not prove those requirements. No new saved test scripts/product changes.
+- Rewrote LINUX-DISTRIBUTION.md into current-state runbook with evidence/commands/limitations; removed confusing stale live-process statements from that runbook. Both owned containers stopped/inspected exited; runtime package PURGED, /tmp .deb and profile retained. No live task process.
+- NEXT inspect/build remaining configured Linux RPM/AppImage formats and runtime dependencies using official docs; true upgrade/schema/native UI/platform/CI and all original PARITY stay open. Reuse retained build/runtime containers; do not recreate on timeout. Shared inputs/UX remains after full migration.
+
+
+## Corrected Debian package installs cleanly — 2026-10-01
+
+- Continued original release build to actual exit0 and fixed missing Debian dependency metadata as recorded below. Original linuxDebBuild and linuxDebInstall supervisors are both terminal; no build restart on timeout.
+- Clean Debian12 runtime installation completed actual exit0 in41seconds (artifacts/linux-deb-install/state.json). apt resolved dependencies from package metadata with --no-install-recommends, before adding display/test tools.
+- verification.json proves dpkg status install ok installed0.1.0 amd64, dpkg --audit empty, dpkg --verify empty and ldd no missing libraries. Installed executable SHA-2563ed3bf2cd9c805c6541dcee285282568ae1d28334c8343a0848ce2eae89a534f.
+- Host source change: src-tauri/tauri.conf.json bundle.linux.deb.depends now declares12 release ELF library constraints. Corrected probe .deb exported in artifacts/linux-deb-build. Build/runtime container filesystem retained, but BOTH owned containers stopped and inspected exited (containers-stopped.json). No compiler/app/server/installer live. Unrelated containers untouched.
+- This proves optimized Debian package creation and dependency-resolved clean installation only. NEXT start same insomnium-deb-runtime-20261001; add Xvfb/xauth/dbus/AT-SPI test-environment tools, create isolated nonroot user, then verify installed release startup. Follow with reinstall/upgrade and remove/purge/state retention; UI/workflows remain separate saved Playwright/Bun gates. See LINUX-DISTRIBUTION.md. Full Linux/macOS/Windows/CI and original PARITY remain open; UX deferred.
+
+
+## Linux release Debian build passed; runtime dependencies fixed — 2026-10-01
+
+- Previous turn made progress (dependency diagnostic) and verified build wait. Continued SAME supervisor6304/child20396 through active compiler stages; final artifacts/linux-deb-build/state.json confirms actual child exit0. Release compile/link completed15m24s with original optimized/LTO profile; generated .deb8.24MiB. No timeout restart or reduced build profile.
+- Inspected .deb metadata, executable mode, icons and desktop launcher. Extracted release executable; dpkg-shlibdeps returns the same direct dependency minimums as debug diagnostic. Original package declared only unversioned GTK/WebKit, omitting explicit OpenSSL/minimums. Evidence package-inspection.json.
+- Fixed src-tauri/tauri.conf.json bundle.linux.deb.depends with all12 calculated dependency constraints. Applied only bundle settings to copied config, retaining probe identity. Official Tauri bundle --help consulted; bun x --bun tauri bundle --bundles deb --ci succeeds without recompiling unchanged executable.
+- Verified generated Depends contains every configured constraint (Tauri additionally appends unversioned GTK/WebKit). Corrected package SHA-256264859c92d378a2edef574d53923f65e14c1316211ffbd5f3c5db0590b6bb8cc. Copied to artifacts/linux-deb-build/insomnium-linux-probe_0.1.0_amd64.deb. Probe only, not production release. Metadata/rebundle evidence in rebundle-{config,result,verification}.json. Targeted git diff --check passes.
+- Created and started clean owned insomnium-deb-runtime-20261001 (--init,1CPU/1GiB,no host mounts/ports) from pinned Debian bookworm-slim digest in LINUX-DISTRIBUTION.md. Copied only corrected .deb, no build toolchain or source.
+- LIVE installation supervisor linuxDebInstall PID37952 / WSL child37940, started1790803757882: apt-get update && apt-get install -y --no-install-recommends /tmp/insomnium-probe.deb, noninteractive. Separate stdout build.log/stderr.log and state in artifacts/linux-deb-install. Direct last poll live; package dependencies downloading/unpacking. No app running.
+- NEXT poll SAME installer, inspect final actual child result/dpkg status/ldd, then nonroot installed-binary startup, reinstall/upgrade and remove/purge acceptance as LINUX-DISTRIBUTION.md. Build container retains completed snapshot/cache, runtime container is active install target. No unrelated container touched. Full platform/UI/CI/original PARITY remains open; shared-input/UX phase deferred.
+
+
+## Linux release build verified live; Debian dependency gap identified — 2026-10-01
+
+- Previous turn made progress (Linux Bun/check/frontend acceptance and release build launch). Revalidated docs/state and SAME linuxDebBuild supervisor6304 (exitCode:null/result:null); direct container ps showed Cargo PID272 and active rustc. Compilation advances; do not restart or stop container.
+- Process comm/argv showed node for CLI PID203, so inspected actual /proc/203/exe: /root/.bun/bin/bun. This is Bun's --bun launcher behavior, not a Node runtime. Saved runtime-and-needed.json.
+- Inspected official Tauri CLI/bundler2.12.0 source: default Debian metadata adds GTK/WebKit/tray dependencies, does not infer every ELF library. Actual debug ELF directly needs OpenSSL3. dpkg-shlibdeps produced library minimum versions, including libssl3>=3.0.0 and WebKit>=2.41.90, not yet declared in host bundle config.
+- This diagnostic is not final release acceptance. Must repeat on extracted release executable and compare generated metadata before fixing configuration. No product/snapshot edit while release build runs.
+- Added LINUX-DISTRIBUTION.md with exact environment, evidence, dependency diagnostic, next package inspection/clean-runtime install/start/upgrade/remove gates and official references. artifacts/linux-deb-build/debug-dependencies.json records calculation; no saved test scripts.
+- Follow-up verified wait: same supervisor6304 remains live; compiler advanced through vendored reqwest. Prepared clean Debian runtime image and created (not started) owned insomnium-deb-runtime-20261001,1CPU/1GiB/--init, no host mount/ports. See LINUX-DISTRIBUTION.md and runtime-image/runtime-container artifacts. No product changes or build restart.
+- NEXT continue original live release build (state/log under artifacts/linux-deb-build); after actual terminal outcome follow LINUX-DISTRIBUTION.md. Build log stdout/stderr may interleave; child state and artifact inspection determine success. Full original parity and deferred UX sequencing unchanged.
+
+
+## Linux Bun frontend accepted; Debian release build running — 2026-10-01
+
+- Previous goal turn made progress (linked Linux executable and bounded startup evidence). Revalidated current docs, package.json, Cargo.toml, tauri.conf.json and owned container. Existing bundle targets are all; no active .github workflow was found by rg inventory. Full distribution/CI scope remains open.
+- Consulted official https://v2.tauri.app/distribute/debian/ (Debian12 baseline, generated desktop/icons/dependencies), https://v2.tauri.app/reference/cli/ and https://bun.com/docs/installation before setup. Installed Bun1.4.2 inside the owned container with curl -fsSL https://bun.com/install | bash -s "bun-v1.4.2"; verified1.4.2. No Node executable in container PATH.
+- Started same retained insomnium-unix-acceptance-20261001 container. Installed container-only at-spi2-core to provide missing accessibility bus; unzip already installed. Startup warning resolution still needs revalidation. Host/base distro untouched.
+- Copied package.json/bun.lock/Svelte/Vite/jsconfig/src/static/scripts/tests/LICENSE into owned /workspace alongside previous src-tauri snapshot. Host mount remains readonly and probe identifier remains app.insomnium.probe.linux20261001. Source snapshot must be refreshed after future host edits.
+- bun install --frozen-lockfile --ignore-scripts passed (242packages); lifecycle scripts skipped, then known project bun run prepare explicitly passed. bun run check passes0 errors/0 warnings on Linux. Evidence artifacts/linux-app-build/bun-install.json and frontend-{prepare,check,tauri-help}.json. Tauri CLI2.12.0 build --help verified --bundles/--ci and cargo argument forwarding.
+- LIVE linuxDebBuild supervisor PID6304, WSL/Docker child20396, started1790802700780. Command in /workspace: CARGO_BUILD_JOBS=1 bun x --bun tauri build --bundles deb --ci -- --locked. Original release optimization/LTO settings retained; one job bounds concurrent compilation. This is an isolated probe package, not a production release.
+- artifacts/linux-deb-build/{state.json,build.log} hold durable progress. Last direct supervisor poll exitCode:null/result:null. Before-build Bun/Vite frontend completed successfully; log contains Vite's generic npm preview suggestion only, no npm command executed. Native release/package result still pending. Stored linuxDebBuildRun orchestration.
+- NEXT poll the SAME live process; do not restart on timeout. Read final child state, not supervisor exit alone. On success inspect .deb metadata/files/dynamic dependency requirements, copy evidence, then isolated install/start/remove acceptance. On actual failure inspect logs and container OOM state before changing build settings. Do not stop container or modify snapshot while build runs. UI/workflow/platform/CI/full original parity remain unverified where previously recorded; deferred UX remains after complete migration.
+
+
+## Linux linked binary and bounded startup verified — 2026-10-01
+
+- Previous goal turn only confirmed the deferred UX instructions; it did not advance migration. This turn revalidated current STATUS/PLAN/PARITY, actual build result and owned container before proceeding.
+- artifacts/linux-app-build/state.json confirms cargo build --features tauri/custom-protocol --manifest-path /workspace/src-tauri/Cargo.toml --locked completed with child exit0. ELF x86-64 binary /target/debug/insomnium links successfully; ldd reports no missing libraries (link-inspection.json). Debug/embedded frontend build, not release/package acceptance.
+- Confirmed embedded isolated identifier app.insomnium.probe.linux20261001. SHA-256 d73718ec923ee5b1e1a90879889cad26d4b9237ed74c11cc1242fa432ad6d787 (startup-preparation.json). Host config unchanged.
+- Read official Tauri CI fake-display guidance https://v2.tauri.app/develop/tests/webdriver/ci/ before installing xvfb and xauth inside the owned container only: apt-get install -y --no-install-recommends xvfb xauth, DEBIAN_FRONTEND=noninteractive. Attempt to reread Debian xvfb-run manpage returned503; no dependency on that failed fetch.
+- Created container-only nonroot UID10001 insomnium-probe with isolated XDG directories. Launched with timeout --signal=TERM --kill-after=5s 20s dbus-run-session -- xvfb-run -a /target/debug/insomnium. No sandbox-disabling flags, browser-use, WebDriver, Node or new saved test scripts.
+- artifacts/linux-app-build/startup-smoke.json: at6seconds actual insomnium, WebKitNetworkProcess and WebKitWebProcess were alive as UID10001; launcher ended at20seconds with expected timeout124. Only logged warning: AT-SPI accessibility bus org.a11y.Bus service missing in minimal container. Probe-specific WebKit storage was created. This is bounded process startup evidence, NOT rendered UI, IPC/workflow, accessibility, graceful shutdown or installation acceptance.
+- Post-timeout ps showed only terminated zombie children under container sleep PID1, no live app/display/server. Stopped ONLY owned insomnium-unix-acceptance-20261001; docker inspect confirms exited (container-stopped.json). Snapshot, /target cache and binary remain in stopped container; unrelated containers untouched. No compiler/app/server running.
+- NEXT: start the same container via wsl -d dockerman-backend --exec docker start insomnium-unix-acceptance-20261001 when needed; inspect current packaging/CI configuration and official Tauri distribution docs, then advance Linux release/package acceptance. Resolve missing AT-SPI service in the test environment before accessibility validation. Any actual UI scenario must be saved Playwright JavaScript run with Bun; do not treat process survival as UI acceptance. Refresh snapshot after source changes.
+- Documentation verification: targeted git diff --check for STATUS/PLAN/PARITY passes. Repository-wide diff check finds pre-existing trailing whitespace at SUMMARY-TH.md lines17/80; unrelated file left unchanged.
+- Full original PARITY remains open (Git, plugins, lifecycle/protocols, import/spec, platform/installer/CI and remaining native/UI acceptance); no scope removed. Deferred shared inputs/UX still start only after full migration.
+
+
+## Isolated Linux executable build running — 2026-10-01
+
+- Previous goal turn made progress: full Linux/Windows checks pass and cfg warning fixed. Revalidated STATUS/PLAN/PARITY/Cargo manifest. Consulted Cargo build docs and installed tauri2.12.0 crate docs confirming custom-protocol selects embedded production assets.
+- Changed only copied /workspace/src-tauri/tauri.conf.json inside owned container to identifier app.insomnium.probe.linux20261001 / productName Insomnium Linux Probe. Host config unchanged. Frontend is existing Bun-built /workspace/build; no Node tooling used.
+- LIVE linuxAppBuild supervisor PID9212, Docker/WSL child16460, started1790802042441. Command cargo build --features tauri/custom-protocol --manifest-path /workspace/src-tauri/Cargo.toml --locked with CARGO_BUILD_JOBS=2/CARGO_PROFILE_DEV_DEBUG=0. Debug profile binary with embedded frontend; this is not release packaging acceptance.
+- Durable artifacts/linux-app-build/{state.json,build.log}. Latest direct process poll exitCode:null; log compiling Tauri/Wry/crypto dependencies, no error observed but final result unproven. Do not restart on observation timeout. Stored linuxAppBuildRun orchestration.
+- NEXT poll same process/state; on success inspect ELF/link dependencies/embedded isolated identity and perform owned headless startup acceptance. No browser-use allowed; any UI scenarios must remain saved Playwright/Bun as authorized. No source edits while build runs. Full installer/platform/UI acceptance and remaining PARITY still open.
+- Keep owned insomnium-unix-acceptance-20261001 container while build/acceptance runs; no other container touched.
+
+
+## Full Linux backend check passed; platform warning fixed — 2026-10-01
+
+- Previous goal turn made progress (dependencies installed/full check started) and verified wait. Revalidated STATUS/PLAN/PARITY, polled same linuxAppCheck handle until terminal. Supervisor exit0 was NOT cargo success: state result101 showed Tauri build script Read-only file system writing permissions.
+- Created /workspace/src-tauri inside owned container; copied build.rs/capabilities/Cargo.lock/Cargo.toml/icons/permissions/src/tauri.conf.json/vendor and frontend build (no host target/backup/secrets). Host /work remains readonly. Reused /target caches. Retried only after original command terminal, using copied manifest.
+- artifacts/linux-app-check-writable/state.json result0 and check.log prove full Linux application cargo check completed. One unused_mut warning in git_fetch_journal.rs:449 came from Windows-only reparse-point check.
+- Adjusted linked variable to immutable platform shadowing: common symlink result, Windows adds reparse-point flag via separate cfg let; same link rejection behavior. Updated container snapshot file. Final Linux cargo check --locked passes with no warnings (artifacts/linux-app-check-writable/final-check.json); Windows cargo check --locked --offline also passes.
+- No new test scripts. No live compiler/app/server; linuxAppCheck and linuxAppWritable supervisors terminal. Owned insomnium-unix-acceptance-20261001 container retained for next linked Linux build/runtime gate (not a production service).
+- NEXT linked Linux binary build with isolated probe identity and embedded frontend, then appropriate startup/platform acceptance; cargo check proves type/build-script correctness, not linking/GUI/installer/runtime. Source snapshot must be refreshed for any subsequent host edits. Full original PARITY remains open and deferred UX is still after migration.
+
+
+## Linux full-app Cargo check running — 2026-10-01
+
+- Previous goal turn made progress (Linux transport runtime) and began native dependency installation. Revalidated STATUS/PLAN/PARITY and original linuxDeps handle; dependency installation terminal exit0.
+- Started full application cargo check in same owned insomnium-unix-acceptance-20261001 container using CARGO_BUILD_JOBS=2 and CARGO_PROFILE_DEV_DEBUG=0, --manifest-path /work/src-tauri/Cargo.toml --locked. Host source remains readonly; target/cache owned by container.
+- LIVE supervisor linuxAppCheck PID38228; Docker/WSL child PID35152, started1790801692405. Last direct handle poll exitCode:null/result:null. Durable log artifacts/linux-app-check/check.log and state artifacts/linux-app-check/state.json; do not restart on timeout. Logs advance through GTK/Tauri/macros/bindgen/libssh2 dependencies without errors so far; final app result unproven.
+- Orchestration linuxAppCheckRun stored in session. NEXT poll same handle or authoritative process state; read final state/log. Fix actual platform errors if any. If generated schemas require writes, use an owned copied container workspace while keeping host source readonly.
+- No product/test changes this turn. Full Linux application check/runtime and all remaining parity gates open. Owned container must be retained while check runs; remove only it after relevant evidence extracted, never prune unrelated resources.
+
+
+## Linux Unix socket HTTP/TLS runtime accepted; full-app prerequisites installing — 2026-10-01
+
+- Previous goal turn made progress (owned Linux runner) and verified build wait. Revalidated STATUS/PLAN/PARITY and same linuxReqwestBuild handle: terminal exit0. Compiled patched reqwest/Tokio/rustls libraries exist in /target/debug/deps.
+- Adapted prior inline HTTP/TLS probes to std::os::unix::net and /tmp socket files; compiled Rust via stdin inside owned Linux container, no saved non-UI test script. Both compile/run exit0. Evidence artifacts/unix-socket-reference/linux-runtime.json.
+- Real Linux HTTP: exact65536-byte POST/response, Host/Bearer, DNS/dead authenticated proxy bypass with no generated proxy headers, cookie/302 redirect/chunked stream and request deadline cleanup. TLS: trusted CA/SNI/hostname/exact peer certificate success; wrong hostname and unknown issuer rejected before HTTP. This proves cfg(unix) patched-client runtime, NOT full Tauri Linux application.
+- Retaining owned insomnium-unix-acceptance-20261001 container for next full-app platform gate instead of removing/recreating it. Read-only source mount unchanged. Consulted https://v2.tauri.app/start/prerequisites/#linux.
+- apt-get update in container passed. LIVE linuxDeps handle PID22552: apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev libclang-dev. DEBIAN_FRONTEND=noninteractive. First9 packages follow Tauri Debian docs; libclang needed by existing bindgen dependency. No packages installed into base WSL/Windows.
+- NEXT poll same linuxDeps/linuxDepsResult; after success cargo check --manifest-path /work/src-tauri/Cargo.toml --locked (target /target, use low jobs/debug info if memory requires). If build needs generated source files, copy only required project subtree to owned container workspace rather than make host mount writable. Full Linux compile/runtime, installer/platform matrix and all remaining PARITY scope stay open.
+- No native app/server running. Owned container and dependency installation are live; remove only owned container after full platform evidence extracted. Never prune unrelated resources.
+
+
+## Owned Linux runner established; reqwest Unix build running — 2026-10-01
+
+- Previous goal turn made progress (native Windows SSE acceptance). Revalidated STATUS/PLAN/PARITY. Windows PATH lacks docker/podman; read-only WSL inspection discovered /usr/bin/docker in dockerman-backend. Docker daemon26.1.5 is operational. No toolchain installed into base distro; unrelated running container untouched.
+- Consulted official Docker run/bind-mount docs and Rust official image page. Host rustc1.98.1; pulled matching rust:1.98.1-bookworm successfully. Immutable image rust@sha256:93ce27a88655056a51dbdd8f5f2d7ddc071c7b0070fb288a37b5a285fc83971e recorded artifacts/unix-socket-reference/linux-image.json.
+- Created owned container insomnium-unix-acceptance-20261001 (ID ea7163baa47f7c4c8d81c18ef22ad9a965fe2567b81753bd81816d120e4f0485),2 CPUs/2GiB memory; /mnt/e/insomnium bound readonly at /work, CARGO_TARGET_DIR=/target. No published ports. Keeps sleep infinity while acceptance runs. Docker notes swap-limit unavailable; memory limit still applied.
+- LIVE build handle linuxReqwestBuild PID28568, result linuxReqwestBuildResult:null and exitCode:null last direct poll. Command: wsl -d dockerman-backend --exec docker exec insomnium-unix-acceptance-20261001 cargo build --manifest-path /work/src-tauri/Cargo.toml -p reqwest@0.12.28 --locked. Continue polling same handle; do not restart on timeout.
+- NEXT after build completion inspect result, compile stdin Unix variant of prior HTTP/TLS probe using /target/debug/deps in same container, run actual std::os::unix listener/client acceptance. Rust source via stdin avoids saved non-UI test script. Source is readonly; build caches stay inside owned container. Full Tauri Linux app compilation/runtime remains separate gate.
+- Remove only this named owned container after evidence is extracted and acceptance finishes (or recorded terminal failure); never stop/prune unrelated resources. Windows regressions remain accepted, full migration open.
+
+
+## Native AF_UNIX SSE parsing and Disconnect accepted — 2026-10-01
+
+- Previous goal turn made progress (native auth/cookie/redirect acceptance). Revalidated STATUS/PLAN/PARITY; inspected protocolFor/StreamPane and official WHATWG SSE interpretation before scenario extension.
+- Extended existing tests/ui/unix-socket.js with SSE request and real AF_UNIX chunked event-stream fixture. Payload includes keepalive comment, id uds-1, event update and multiline Thai/ASCII data, divided into2-byte HTTP chunks crossing UTF-8 and field boundaries.
+- Native UI Connect receives event; selected event body exactly equals Thai greeting plus newline second line; ID displayed, keepalive absent from event list. Wire verifies GET /sse, Accept:text/event-stream and Bearer. Disconnect results in peer EOF and UI leaves running state.
+- bun run check0 errors/warnings; full extended native scenario passes1790801282297 (10 wire requests including previous Send/Cancel/auth/cookie/redirect cases). Evidence artifacts/playwright/unix-socket-1790801282297/{acceptance,result}.json. Script/app/fixture exits0, no forced cleanup. Existing accepted native build reused; no product changes or rebuild.
+- NEXT investigate remaining platform acceptance (actual Unix cfg/runtime) and challenge/signed auth gaps against original contract. Current SSE evidence covers parsing/delivery/cancel, not reconnection/Last-Event-ID history or every streaming protocol. Raw URL fidelity and all other full PARITY scope remain open. No live processes/build/server.
+
+
+## Native AF_UNIX auth/cookie/redirect routing accepted — 2026-10-01
+
+- Previous goal turn made progress (native HTTPS4-case acceptance). Revalidated STATUS/PLAN/PARITY, inspected frontend auth and native cookie/redirect routing; consulted RFC9110 redirection semantics.
+- Extended existing tests/ui/unix-socket.js (same scenario reused) with same-host302+Set-Cookie, cookie replay after page reload, cross-host302, and Basic auth. Fixture records exact HTTP headers over one real AF_UNIX path; verifies original saved legacy URLs stay unchanged.
+- Same-host redirect retains Bearer and sends newly received host cookie. Cross-host redirect changes effective Host to other.invalid and omits original Authorization/Cookie even though socket path stays identical. Basic header matches independent Base64 fixture. Cookie replay succeeds after frontend reload; this does NOT prove restart-from-disk persistence. Existing Send/Cancel/Send cases remain.
+- bun run check0 errors/warnings; bun tests/ui/unix-socket.js passes1790801156250 (9 wire requests total). Evidence artifacts/playwright/unix-socket-1790801156250/{acceptance,result}.json. Script/native/fixture exits0; no forced cleanup. No product edits or native rebuild; same accepted native-unix-socket-ui-probe used.
+- NEXT cover remaining AF_UNIX streaming/protocol and signed/challenge-auth integration as warranted by original contract, and establish Unix target compilation/runtime. Raw unencoded URL fidelity and remaining full PARITY scope remain open; full migration not complete. No live build/process/server.
+
+
+## Native Unix socket HTTPS Preferences acceptance passed — 2026-10-01
+
+- Previous goal turn made progress (native Send/Cancel and auth regressions). Revalidated STATUS/PLAN/PARITY and inspected Preferences/transport CA and validateCertificates bindings.
+- Added saved tests/ui/unix-socket-tls.js: Bun orchestration with embedded Rust AF_UNIX rustls fixture, fresh OpenSSL P-256 local CA/server cert generated each run using previously documented req/x509 commands, no system trust changes. Uses successful native-unix-socket-ui-probe build; no product edits or new app build.
+- Through actual Preferences UI, edits Custom CA (PEM)/Validate TLS certificates, verifies persisted settings, reloads then Sends original legacy HTTPS Unix URL. Four cases pass: trusted matching hostname; trusted wrong hostname rejected; unknown issuer rejected; explicit validation disabled succeeds. Fixture verifies SNI/Host on success and zero HTTP bytes before rejection; UI displays actual error sending request for negative cases. Original CA/validation settings restored in finally; original request URL persists.
+- Initial run passed1790801006282; strengthened negative UI assertion from broad certificate/TLS regex (could match scenario name) to error sending request, rerun passed1790801034434. Use latter evidence artifacts/playwright/unix-socket-tls-1790801034434/{acceptance,result}.json. Script/app/fixture exit0; no forced cleanup. bun run check passes0 errors/warnings before regex-only assertion tightening.
+- No live process/build/server. NEXT native AF_UNIX auth/cookie/redirect/stream acceptance; Unix target compilation/runtime and remaining full PARITY still open. TLS UI acceptance is not proof of full migration. Deferred shared UI/UX remains subsequent phase.
+
+
+## Native Unix socket Send/Cancel accepted; auth regressions passed — 2026-10-01
+
+- Previous goal turn made progress (saved scenario/fixture) and verified live build. Revalidated STATUS/PLAN/PARITY; continued polling same supervisor33312, never restarted. Build finished exit0 at1790800783641 (~329s), fresh artifact artifacts/native-unix-socket-ui-probe/insomnium-fetch-recovery-probe.exe.
+- bun tests/ui/unix-socket.js passed1790800806086: real AF_UNIX slash-rooted Windows path from original http://unix:/socket:/host/path syntax, import/reload retains original URL, exact encoded request target and effective Host, response text, Cancel→peer EOF and successful Send afterward. Three wire requests. Script/native app/fixture exits0; no forced cleanup. Evidence artifacts/playwright/unix-socket-1790800806086/{acceptance,result}.json.
+- Existing url-encoding scenario passed1790800826812 on same build (23 Settings/Hawk/OAuth1/AWS wire cases); codecommit passed1790800842685 (6 cases/10 requests including307/303 same/cross-origin). Used INSOMNIUM_UI_BUILD_STATE=artifacts/native-unix-socket-ui-probe/build-state.json. These are TCP regressions, not all auth modes over AF_UNIX.
+- No product/test edits this turn. No live build/app/fixture remains. Build handle nativeUnixSocketBuild terminal exit0; authoritative build-state finished/result0.
+- NEXT extend saved Unix socket scenario for native HTTPS trust/hostname/settings and auth/redirect/cookie behavior; retain prior patched-client TLS evidence but do not conflate it with UI acceptance. Unix target compilation/runtime, other platform behavior and all remaining full PARITY scope stay open. Deferred UX starts only after full migration.
+
+
+## Native Unix socket UI scenario prepared; build running — 2026-10-01
+
+- Previous goal turn made progress (HTTPS trust/hostname evidence). Revalidated STATUS/PLAN/PARITY and consulted Playwright Locator docs.
+- Added saved tests/ui/unix-socket.js under owner's explicit reusable UI-test authorization. Bun orchestrates real AF_UNIX Rust fixture (source embedded, compiled via stdin), isolated native app helper, import/reload, legacy slash-rooted URL, exact wire target/Host, response, saved original URL, Cancel→peer EOF and Send after Cancel. Runtime acceptance NOT yet run.
+- Fixed Bun stdin API usage to write then end and env JSDoc; bun run check passes0 errors/warnings. Embedded Rust fixture separately compiled successfully. Bun frontend build passes (existing bundle-size warning). No product source edits during native build.
+- LIVE isolated build: supervisor nativeUnixSocketBuild PID33312, child Tauri build PID29468; started1790800454260. artifacts/native-unix-socket-ui-probe/build-state.json and build.log. Most recent direct handle poll exitCode:null, result:null; compiler log at Compiling insomnium. Do not restart due to elapsed time.
+- NEXT poll same handle nativeUnixSocketBuild/nativeUnixSocketBuildResult (or authoritative OS process if new session). On exit0/build-state finished run bun tests/ui/unix-socket.js; default points to new isolated build. Inspect acceptance/result artifacts and fix any failures. Then run existing URL/auth regression on same build via INSOMNIUM_UI_BUILD_STATE override.
+- HTTPS native UI, app auth/redirect matrix, Unix platform and all other migration parity remain open. Fixture compile did not launch fixture/app; only native build currently live.
+
+
+## Windows AF_UNIX HTTPS certificate validation accepted — 2026-10-01
+
+- Previous goal turn made progress (HTTP acceptance and proxy-header fix). Revalidated STATUS/PLAN/PARITY and consulted official rustls StreamOwned, reqwest tls_info, OpenSSL req/x509 docs before fixture implementation.
+- Generated local P-256 CA and server certificate with Git OpenSSL3.5.7 using documented req/x509 commands. SAN uds-only.invalid, CA:FALSE/serverAuth leaf,2-day lifetime. Files are under ignored artifacts/unix-socket-reference; no OS trust-store change. Exact argument arrays stored tls-fixture-commands.json; regenerate after expiry. server.ext specifies SAN, basicConstraints, digitalSignature, serverAuth.
+- Inline Rust stdin probe uses real uds_windows listener + rustls StreamOwned and patched reqwest release crate. Three HTTPS cases pass: explicit local CA + correct host returns TLS OK, server sees expected SNI/Host, TlsInfo peer certificate exactly matches fixture DER; trusted CA + wrong host fails NotValidForName; untrusted CA fails UnknownIssuer. Negative handshakes fail before any HTTP bytes, not on timeout.
+- Evidence artifacts/unix-socket-reference/windows-uds-tls-probe.json compile/run exit0, no warnings. No product edit/rebuild this turn; no saved non-UI test script. Probe closes listeners/removes socket paths. No live process/build/server.
+- NEXT saved Playwright native scenario using fresh isolated app build: original Unix URL syntax, HTTP/HTTPS settings, response, persistence, app Cancel and socket path mapping on Windows. Shared app auth/redirect/cookie semantics and Unix platform runtime still require their acceptance. TLS probe establishes patched client behavior only, not full native UI/migration completion.
+
+
+## Patched Windows AF_UNIX HTTP accepted; proxy-header leak fixed — 2026-10-01
+
+- Previous goal turn made progress (patched reqwest integration). Revalidated STATUS/PLAN/PARITY and patch provenance.
+- cargo build --release -p reqwest initially ambiguous because graph also includes0.13.5; corrected to -p reqwest@0.12.28 --manifest-path src-tauri/Cargo.toml --locked --offline. Release patched crate built.
+- First actual HTTP probe exposed Proxy-Authorization despite connector proxy bypass. Fixed vendor async_impl/client.rs to clear client proxy matcher list before Arc construction whenever unix_socket is configured (Unix and Windows). This prevents generated proxy auth/custom headers, retaining manually supplied request headers. Connector-only bypass was insufficient.
+- Inline Rust stdin probe against real uds_windows listener passed: exact POST65536 binary body/response, escaped target/effective Host/Bearer header, unresolved .invalid host and dead authenticated proxy bypass, no Proxy-Authorization or custom X-Proxy-Only header, Set-Cookie/replay,302 redirect and chunked response via chunk(). Compile/run exit0, evidence artifacts/unix-socket-reference/windows-uds-http-probe.json.
+- Request timeout returns is_timeout and peer EOF after client drop with runtime continuing100ms. Initial cleanup probe stopped driving current-thread Tokio before waiting on server, causing peer read timeout; corrected fixture to let runtime drive background cleanup. This proves cleanup with client drop, not pooled-client reuse or app Cancel yet.
+- cargo check --locked --offline passes after fix. No saved non-UI test scripts; only stdin probe and ignored evidence/exe. No live process/server/build.
+- NEXT HTTPS certificate/hostname/TLS info acceptance with trusted/untrusted local fixture, then native UI request/cancel/auth/redirect matrix and isolated full build. Unix platform runtime, native-TLS feature and full migration scope remain open.
+
+
+## Windows AF_UNIX connected to patched reqwest — 2026-10-01
+
+- Previous goal turn made progress: nonblocking connection/cancellation proof. Revalidated STATUS/PLAN/PARITY and pinned reqwest connector source; consulted Cargo patch documentation before changes.
+- Vendored crates.io reqwest0.12.28 at src-tauri/vendor/reqwest with licenses and INSOMNIUM-PATCH.md provenance. Root exact =0.12.28 requirement plus [patch.crates-io] applies to shared dependency graph. Registry untouched.
+- Async unix_socket API/path now available on Windows. Connector drops proxies and selects AF_UNIX before named pipe/TCP. socket2 Windows-only dependency creates nonblocking STREAM, awaits writable and checks SO_ERROR; owned stream drops with cancelled future. Existing TLS wrappers reused in a Windows-specific function, preserving effective URI hostname and TLS config; Unix/named-pipe paths untouched.
+- Application build_client now enables socket routing on Windows as well as Unix. Token envelopes still clear socket path. Cargo check --offline updated lock to local package; rustfmt and cargo check --locked --offline then passed (reqwest, reqwest-websocket, app). Root uds_windows dependency from earlier fixture proof remains staged.
+- NEXT compile release connector and prove real HTTP/HTTPS, proxy/DNS bypass, body/redirect/auth/cookie/stream/timeout/cancel through patched client, then saved native UI scenario/new isolated build. Native executable still predates this patch. Native-TLS feature variant and non-Windows platform compilation/runtime remain unverified. Full migration open; no live build/process/server.
+
+
+## Windows AF_UNIX nonblocking connect and cancellation proven — 2026-10-01
+
+- Previous turn only reconfirmed recorded UX scope: no migration progress. Revalidated STATUS/PLAN/PARITY/UNIX-SOCKET and advanced connector feasibility.
+- Read installed socket2 0.6.5 Socket::connect/set_nonblocking/SockAddr::unix API docs and Tokio from_std/writable/take_error docs. Versioned socket2 web fetch failed; installed source provided authoritative details.
+- Inline Rust probe: AF_UNIX STREAM socket set nonblocking BEFORE connect; WouldBlock handled; safe socket.into() ownership transfer to std TcpStream then Tokio; await writable and check SO_ERROR. Actual pending=true. Binary65536 echo, pending-read deadline, stream-drop EOF and curl interoperability passed; missing endpoint returns ConnectionRefused10061 within2-second deadline.
+- Polled connect future once, observed Pending, dropped future; accepted peer observed EOF. Compile/run exit0, no warnings. Evidence artifacts/unix-socket-reference/windows-uds-nonblocking-probe.json. No saved non-UI test script.
+- NEXT integrate focused pinned reqwest Windows local transport adapter retaining TLS/auth/cookie/redirect behavior. Product connector unchanged; Windows app still refuses socket routes. Unix platform/TLS/native UI/full parity remain open. No live probe/server/build.
+
+
+## Windows AF_UNIX Tokio and curl runtime proof passed — 2026-10-01
+
+- Previous goal turn made progress (platform/API feasibility). Revalidated STATUS/PLAN/PARITY/UNIX-SOCKET; consulted uds_windows1.2.1 UnixStream and Tokio TcpStream::from_std documentation.
+- cargo add uds_windows@1.2.1 --target cfg(windows) --manifest-path src-tauri/Cargo.toml --offline; cargo build --release -p uds_windows --manifest-path src-tauri/Cargo.toml --locked --offline passed. Only adapter compiled, no app build. Dependency staged for Windows transport integration.
+- Inline Rust stdin probe uses real uds_windows listener/connect, transfers unique connected Winsock handle into std TcpStream then nonblocking Tokio TcpStream.65536 all-byte-pattern echo matches; pending read timeout completes; dropping stream produces EOF at peer. Separate curl.exe --unix-socket request to same AF_UNIX listener succeeds. No TCP/named-pipe bridge; owned socket files removed. Evidence artifacts/unix-socket-reference/windows-uds-probe.json exit0.
+- Initial probe link failed LNK1107 because adapter release crate contains LTO bitcode; retry with -C panic=abort -C lto=yes matched release profile and passed. Probe provided to rustc stdin, no saved non-UI test script. Stored orchestration windowsUdsProbeRun/windowsUdsProbeRust available in session.
+- Proof covers connected async read/write, read deadline and stream-drop cleanup; connect is synchronous in this probe and connect cancellation/TLS/reqwest are NOT proven. NEXT implement bounded cancellable connect and focused pinned reqwest local-transport extension using demonstrated handle adapter, retain TLS/hostname/cookie/signing/redirect semantics; then native UI acceptance. Windows app still explicitly refuses socket route until connected. Unix target/runtime and all other full parity remain open. No live process/build/server.
+
+
+## Windows AF_UNIX feasibility and runner inventory — 2026-10-01
+
+- Previous goal turn made progress (Unix parser/IPC/native route). Revalidated STATUS/PLAN/PARITY. Read pinned reqwest connector source and official uds_windows docs; wrote detailed evidence/next decisions in UNIX-SOCKET.md. No product edits.
+- Read-only environment checks: Windows curl8.21.0 advertises UnixSockets; Rust only Windows+wasm targets; WSL dockerman-backend is Linux with no cargo/rustc/bun. Did not install tooling into infrastructure distro. This is not a global task blocker.
+- reqwest Windows named-pipe API is not AF_UNIX. connector_layer has sealed Conn response and Unnameable request bounds, so app Tower layer cannot simply substitute a Unix stream. uds_windows1.2.1 source is cached but not compiled; real Windows Unix sockets remain feasible pending runtime/async adapter verification.
+- NEXT prove uds_windows connectivity/cancellation locally, then evaluate focused pinned reqwest local-transport extension retaining existing TLS/cookie/auth/redirect/stream behavior. Unix target/runtime gate and current Windows refusal remain open; no silent platform scope reduction. No live process/build; last accepted native build predates socket changes. Full migration/UX ordering unchanged.
+
+
+## Unix socket URL and IPC route connected; platform acceptance pending — 2026-10-01
+
+- Previous goal turn made progress (CodeCommit303 native acceptance). Revalidated STATUS/PLAN/PARITY, archived network.transformUrl/libcurl-promise and legacy Unix fixture. Read official pinned https://docs.rs/reqwest/0.12.28/reqwest/struct.ClientBuilder.html#method.unix_socket plus installed client.rs: API is cfg(unix), TLS still applies to HTTPS, TCP/proxy/DNS options bypassed.
+- Composer recognizes legacy http(s)://unix:/socket:/host/path before smart encoding, extracts socketPath and effective URL afterward in legacy order. Actual archived example now composes /my/socket plus http://my/path; hostname unix with ordinary port stays TCP. Malformed syntax fails clearly. socketPath travels through HttpRequest and shared native build_client; cfg(unix) uses documented builder.unix_socket. Empty/NUL paths rejected. Non-Unix builds explicitly reject unsupported transport rather than accidentally routing TCP.
+- Browser preview refuses socket requests. Native token and OAuth-browser envelopes clear socket_path so separate auth endpoints do not inherit local routing. Product edits src/lib/transport.js, src-tauri/src/http.rs, src-tauri/src/oauth_browser.rs.
+-7 inline checks passed: archived true/false encoding example, HTTPS/escaped query, unix hostname with TCP port, ordinary URL, malformed socket syntax, preview refusal. Evidence artifacts/unix-socket-reference/composer.json. Bun check0 errors/warnings, frontend production build, Windows cargo check and rustfmt pass (existing bundle warning only). Windows check does NOT compile or execute cfg(unix) branch.
+- NEXT inspect available Unix build/test surface and Windows AF_UNIX support from original/current libraries; perform actual Unix transport/TLS/redirect/auth/cookie/stream acceptance and Windows no-network refusal through saved UI. Windows AF_UNIX/native parity remains a gap, not excluded. Latest native-codecommit-ui-probe predates these changes; no new build/process live. Raw URL and full PARITY scope unchanged; migration not complete.
+
+
+## CodeCommit303 method/signature transition accepted — 2026-10-01
+
+- Previous goal turn made progress (native CodeCommit307 plus auth regressions). Revalidated STATUS/PLAN/PARITY and consulted RFC9110 section15.4.4 https://www.rfc-editor.org/rfc/rfc9110.html#name-303-see-other before extending saved scenario. No product edits/rebuild.
+- tests/ui/codecommit.js now includes same/cross-origin303. Confirms effective GET, empty body, no stale Content-Type/Transfer-Encoding, only absent/zero Content-Length. Same-origin switches from CodeCommit GIT special signature to ordinary SDK SigV4; independent wire canonical/HMAC check verifies GET/empty-body/date/session credential input. Cross-origin has no generated authorization/date/session/checksum. Original4 cases remain.
+- Initial verifier implicit-any diagnostic fixed with string[] JSDoc. bun run check0 errors/warnings passes; native scenario passed1790799123253:6 imported requests/10 wire requests, script/app exit0. Evidence artifacts/playwright/codecommit-1790799123253/{acceptance,result}.json. No live process/build/server.
+- NEXT return to remaining actual URL transport parity: inspect Unix socket contract/platform APIs and raw unencoded request target support, using original implementation/reference and official docs before changes. CodeCommit real provider/TLS/proxy/platform acceptance remains separate, no full auth/migration completion claim. Git/plugin/runtime/platform gates remain in full scope and UX stays deferred.
+
+
+## Native CodeCommit wire and redirect acceptance passed — 2026-10-01
+
+- Previous goal turn made progress (scenario/build launch). Revalidated STATUS/PLAN/PARITY and polled actual nativeCodecommitBuild handle through terminal0, no restart. Build finished1790798987200 after313s; fresh artifact in artifacts/native-codecommit-ui-probe/build-state.json.
+- bun tests/ui/codecommit.js passed1790798995356:4 UI import/reload/Send cases,6 raw TCP requests. GIT/body bytes, independent timestamp-window legacy signature, absence of generated date/session/checksum, same-origin307 re-sign/replay and cross-origin307 Authorization removal, saved URL unchanged. Evidence artifacts/playwright/codecommit-1790798995356/{acceptance,result}.json.
+- With INSOMNIUM_UI_BUILD_STATE set to new CodeCommit build, bun tests/ui/url-encoding.js passed1790799002871:23 Settings/Hawk/OAuth1/AWS wire-signature regression cases. Evidence artifacts/playwright/url-encoding-1790799002871/{acceptance,result}.json. Both scripts/app cleanup exit0; no live build/app/server.
+- This accepts specific local HTTP cases, not real CodeCommit Git credential-helper interoperability/provider/TLS/proxy/platform or all redirect methods. NEXT audit CodeCommit303 method switch and remaining exact legacy URL behavior (raw bytes/Unix sockets), then continue full PARITY including Git/plugin/runtime/platform gates. Full migration not complete; UI redesign still deferred.
+
+
+## CodeCommit native scenario prepared; build running — 2026-10-01
+
+- Previous goal turn made progress (native signer and6 fixed-time signature matches). Revalidated STATUS/PLAN/PARITY and shared redirect executor. No product edits this turn.
+- Added saved tests/ui/codecommit.js:4 imported GIT requests (plain/body/same-origin307/cross-origin307), reload/Send, raw TCP method/target/headers/body, independent legacy HMAC over timestamps bounded by actual Send, no generated date/session/checksum, replay and cross-origin Authorization stripping, unchanged saved URL. Runtime NOT RUN yet. Fixture waits for complete Content-Length body.
+- Initial missing request-line type assertion fixed; bun run check now0 errors/warnings, formatter passed. Frontend output is unchanged/current; new native source from previous turn is being compiled.
+- Started artifacts/native-codecommit-ui-probe build using stored nativeCodecommitBuildScript; supervisor nativeCodecommitBuild PID29448, exitCode null. Retain this process and poll through terminal; never restart on timeout and keep product sources stable.
+- NEXT await successful fresh artifact, bun tests/ui/codecommit.js; then run tests/ui/url-encoding.js with INSOMNIUM_UI_BUILD_STATE=artifacts/native-codecommit-ui-probe/build-state.json for23-case regression. Diagnose actual failures before broader claims.303/native provider/platform/full migration still pending; UI redesign deferred.
+
+
+## Native CodeCommit GIT signer implemented; reference checks pass — 2026-10-01
+
+- Previous goal turn made progress (6 deterministic references). Revalidated STATUS/PLAN/PARITY; consulted pinned aws4 source, time OffsetDateTime docs and Cargo add docs before implementation. Added direct time dependency using cargo add time@0.3 --manifest-path src-tauri/Cargo.toml --offline (existing resolved dependency reused).
+- aws.rs now routes codecommit/GIT to legacy signer instead of rejecting. Uses current UTC without trailing Z, normalized/double-encoded path, sorted query with aws4 empty-name/default1000-pair semantics, only Host/optional Content-Type and empty body-hash line; HMAC-SHA256 derives date/region/service/request key. Header marked sensitive. Existing AWS SDK path remains for ordinary methods/services and shared origin/redirect handling remains.
+- rustfmt passes. cargo check --manifest-path src-tauri/Cargo.toml --locked --offline passes. Inline Rust probe includes actual current aws.rs and calls fixed-time helper; all6 fixtures match exact aws4 Authorization. artifacts/codecommit-reference/native-acceptance.json exit0. Initial probe compile failed because release rlibs require panic=abort; reran same inspection with matching panic strategy, passed. Probe source provided to rustc stdin; no new saved non-UI test script.
+- NEXT saved native UI/wire scenario for CodeCommit GIT and fresh native build; verify timestamp-window reference, absence of generated date/session/checksum, Host/content-type/body behavior, same/cross-origin redirects and23-case ordinary auth regression. Latest native-url-encoding-ui-probe predates this product change. No build/app/server live now. GET/other services still need regression after rebuild; do not claim full CodeCommit/provider or migration completion.
+
+
+## Deterministic CodeCommit reference captured — 2026-10-01
+
+- Previous goal turn made progress (legacy scope/source evidence). Revalidated STATUS/PLAN/PARITY. Archived bun.lock line1424 pins aws4@1.13.2; package manifest uses^1.13.2. Read version-pinned upstream https://raw.githubusercontent.com/mhart/aws4/v1.13.2/aws4.js and lru.js before reference execution.
+- Downloaded unmodified aws4.js/lru.js/LICENSE into ignored artifacts/codecommit-reference with CommonJS package marker, ran using Bun only (no install/Node/npm). aws4.js SHA256=6fe3d3295e99292b9625ce2f0c7e400962c1ad516d1257ab7fb6058247eff4cf.
+- Captured6 deterministic cases at signer timestamp20261001T010203: plain path, escaped/duplicate/empty query, slash/dot normalization plus nameless/plus query, body/content type, session token, manual port. artifacts/codecommit-reference/reference.json contains original inputs, headers, canonical/string-to-sign and signatures. Independent Bun HMAC/SHA256 agrees; no date or session-token headers generated, canonical body hash is empty, timestamp has no Z. This proves reference behavior only, NOT native support.
+- Plain signature with local credentials is3fb57a56c6af68901d5aaf0a1176e7e16955d0a4405ce20af1eb7cc685352179. Legacy adapter supplies only Host and optional content-type to signer; manual Date is not supplied, so production timestamp uses current clock. Do not accidentally add SDK date/session/header behavior to this special branch.
+- NEXT implement native codecommit/GIT special signer from these references, choose existing/documented UTC formatter, preserve ordinary SDK path and redirect clearing; compile and compare fixed-time Rust output against6 fixtures before saved UI/wire acceptance. Current product still explicitly rejects CodeCommit GIT. No product changes/live process/build this turn; full parity remains open.
+
+
+## AWS scope correction and confirmed CodeCommit gap — 2026-10-01
+
+- Previous goal turn made progress (AWS wire acceptance). Revalidated STATUS/PLAN/PARITY before investigating the proposed presigning implementation. No product changes or tests this turn.
+- Corrected previous NEXT priority: archived src/main/network/parse-header-strings.ts _getAwsAuthHeaders passes service/region/body/method/content-type/path/host to aws4.sign, never signQuery. Archived ui/components/editors/auth/aws-auth.tsx has only enabled/credentials/region/service/session token. Archived Postman adapter also has no addAuthDataToQuery/signQuery mapping. Therefore query signing is not a demonstrated lost legacy feature. Its existing imported-option refusal and recorded limitation remain; this finding does not silently remove any owner-authorized scope. Avoid implementing it merely because a previous status called it the next legacy gap.
+- Read official installed aws-sigv4 1.6.0 settings/sign instructions and https://docs.rs/aws-sigv4/1.6.0/aws_sigv4/http_request/struct.SigningSettings.html : query generation would require SignatureLocation::QueryParams, expiry and applying returned params (current native code applies only headers). Do not expose query support without implementing lifecycle/redirect handling and validation.
+- Confirmed actual legacy gap already documented in AWS-COMPATIBILITY: current aws.rs explicitly rejects service=codecommit/method=GIT; aws4 v1.13.2 handles it. Source https://raw.githubusercontent.com/mhart/aws4/v1.13.2/aws4.js : isCodeCommitGit skips automatic date/session/body headers, uses timestamp without trailing Z, and empty canonical body-hash line. Archived adapter sends its generated Authorization/Host. This needs legacy behavior reference acceptance, not ordinary AWS SDK defaults.
+- NEXT inspect exact original aws4 dependency/version and capture deterministic CodeCommit GIT signatures with Bun from the reference implementation; then implement equivalent native path and saved UI/wire acceptance, retaining23-case ordinary auth regression. Full migration/other parity remain open; no live process/build and no UX redesign started.
+
+
+## Native AWS SigV4 matches wire URL — 2026-10-01
+
+- Previous goal turn made progress (OAuth1 wire signature acceptance). Revalidated STATUS/PLAN/PARITY and native AWS signer; consulted official https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_sigv-create-signed-request.html . No product changes or rebuild.
+- Extended saved tests/ui/url-encoding.js with4 cases: S3/execute-api × encoding on/off, explicit region and local fixture session credentials. Independent Bun SHA256/HMAC verifier uses captured raw path/query, sorted encoded query, actual signed headers, empty payload digest, date/region/service signing-key derivation and compares signature. S3 single path encoding/checksum and execute-api double path encoding both covered. No AWS account/network involved.
+- Formatter and bun run check0 errors/warnings pass. bun tests/ui/url-encoding.js passed1790798124712 on native-url-encoding-ui-probe:23 requests total (3 Settings,8 Hawk,8 OAuth1,4 AWS). Evidence artifacts/playwright/url-encoding-1790798124712/{acceptance,result}.json; script/app exit0. No live process/fixture.
+- Acceptance is GET/header signing only; no claim for AWS provider integration, presigning, streaming/body, redirects or service inference. Full URL/auth/parity remains open. NEXT implement remaining AWS query signing (currently explicitly rejected) after inspecting archived behavior and official aws-sigv4 query-signature API; retain existing header-signing acceptance. Raw URL/Unix sockets and all other full PARITY stay in scope; shared UI/UX deferred.
+
+
+## Native OAuth1 HMAC signatures match wire URL — 2026-10-01
+
+- Previous goal turn made progress (Hawk wire signature acceptance). Revalidated STATUS/PLAN/PARITY and OAuth1 config/native implementation. Consulted RFC5849 https://www.rfc-editor.org/rfc/rfc5849.html before extending saved scenario. No product changes or rebuild.
+- Extended tests/ui/url-encoding.js with8 OAuth1 cases: HMAC-SHA1/HMAC-SHA256 × legacy/standard × encoding on/off. Independent verifier constructs RFC percent-encoded/sorted parameters from actual TCP query plus decoded Authorization fields, excludes realm/signature, uses raw wire path/authority and separately encoded consumer/token secrets. Checks configured identity/nonce/time/method/realm and changed-input signature mismatch. SHA256 is the supported extension, not a signature method defined by RFC5849.
+- bun run check0 errors/warnings and formatter pass. bun tests/ui/url-encoding.js passed1790798012658 on native-url-encoding-ui-probe,19 requests total:3 Settings +8 Hawk +8 OAuth1. Evidence artifacts/playwright/url-encoding-1790798012658/{acceptance,result}.json records signature-case matrix. Script/app exit0; no live build/app/server.
+- Clarified test wording: altered target produces a different expected MAC, not a server replay/rejection acceptance.
+- NEXT AWS signed URL wire verification. Full OAuth1 parity remains open: this acceptance covers GET/HMAC/header mode only, not RSA/PLAINTEXT, body hash/form, redirects, token exchange or the currently rejected legacy/query/body options. Raw URL/Unix sockets and remaining full PARITY still pending; UI redesign remains deferred.
+
+
+## Native Hawk signing uses encoded wire URL — 2026-10-01
+
+- Previous goal turn made progress (fresh native URL/cURL GET acceptance). Revalidated STATUS/PLAN/PARITY; no product changes or new native build needed.
+- Consulted official Hawk protocol/API https://github.com/mozilla/hawk/blob/main/API.md . Extended saved tests/ui/url-encoding.js with8 native Hawk cases: SHA1/SHA256 × legacy/standard × encoding true/false. Actual Import/reload/Send; raw TCP headers/request line captured. Independent Bun createHmac computes expected MAC using wire method/target/host/port and fixed test credentials; assertion also confirms changing the target changes the MAC. This is MAC verification, not a production server replay-window/rejection acceptance.
+- Formatter and bun run check pass0 errors/warnings. bun tests/ui/url-encoding.js passed1790797913458 on previously accepted native-url-encoding-ui-probe; includes original3 settings/persistence cases plus8 signatures. Evidence artifacts/playwright/url-encoding-1790797913458/{acceptance,result}.json; script/app exit0, no live fixture/process.
+- NEXT cover OAuth1/AWS signed URL behavior with independent wire-based evidence, then resume remaining URL/cURL parity including raw URL/Unix sockets. Hawk acceptance here is GET/no payload and does not cover payload signing, redirect/replay or provider interoperability. Full migration and deferred UX sequencing unchanged.
+
+
+## Native URL encoding and cURL GET regression passed — 2026-10-01
+
+- Previous goal turn made progress (saved scenario and live build). Revalidated STATUS/PLAN/PARITY and polled the same nativeUrlEncodingBuild handle through terminal0, including verified waits; no rebuild/restart or product edits. Build finished1790797783124 after314s, fresh artifact in artifacts/native-url-encoding-ui-probe/build-state.json.
+- bun tests/ui/url-encoding.js passed1790797792724. Actual UI import, default checked state, off/on persistence across reload and native Send verified. Raw TCP request line proves percent/query/segment/API-key composition for both settings; Send leaves stored URL unchanged. Evidence artifacts/playwright/url-encoding-1790797792724/{acceptance,result}.json.
+- With INSOMNIUM_UI_BUILD_STATE pointing to the new build, bun tests/ui/curl-import-get-file.js passed1790797800441: selected files/reload/native Send, all256bytes URL-encoded data, HEAD/PATCH, NUL truncation, raw-space rejection and no body/default MIME still pass. Evidence artifacts/playwright/curl-import-get-file-1790797800441/{acceptance,result}.json. Both scripts/app cleanup exit0.
+- No live build/app/server remains. Acceptance is specific to these scenarios; raw non-UTF8/Unicode/punctuation fidelity and signed URL native verification remain open. NEXT verify native signed request URL with an independent signature fixture, then continue remaining cURL/URL/full PARITY requirements (including Unix socket gap). Shared UI/UX stays deferred; full migration not complete.
+
+
+## URL Settings native scenario prepared; build running — 2026-10-01
+
+- Previous goal turn made progress (legacy Send encoding implementation and composer acceptance). Revalidated STATUS/PLAN/PARITY and existing saved native UI helper.
+- Added tests/ui/url-encoding.js: ordinary Insomnium resource import, default-on checkbox, off/on persistence across reload, segment/query/API-key composition and unchanged saved URL. Owned TCP fixture captures literal HTTP request-line bytes, avoiding URL parser normalization. Scenario runtime NOT RUN yet.
+- Consulted https://playwright.dev/docs/api/class-locator#locator-set-checked before implementation. Initial TCP chunk union type diagnostic corrected; bun run check now0 errors/warnings. Formatter passes. No product changes this turn; frontend build from prior turn remains current.
+- Started isolated native-url-encoding-ui-probe build from stored nativeUrlEncodingBuildScript; supervisor handle nativeUrlEncodingBuild PID20296, child5236, started1790797468870. Polled actual supervisor: exitCode/result null; log compiling insomnium. Keep same process, do not restart on timeout; keep product sources stable.
+- NEXT wait terminal result/fresh artifact, run bun tests/ui/url-encoding.js. Then run existing tests/ui/curl-import-get-file.js with INSOMNIUM_UI_BUILD_STATE=artifacts/native-url-encoding-ui-probe/build-state.json. Diagnose any exact wire/UI failures. Native signing acceptance and remaining raw URL/full PARITY still open. Shared UI/UX remains deferred.
+
+
+## Legacy URL encoding connected to Send — 2026-10-01
+
+- Previous goal turn was no progress (deferred UX confirmation only). Revalidated current source and STATUS/PLAN/PARITY; continued uncheckpointed encoding implementation rather than treating prior intent as acceptance.
+- Send now applies ported legacy query construction, query API key and segment substitution before smartEncodeUrl; defaults to automatic encoding for ordinary requests. Request Settings exposes Automatically encode URL. Segment replacement and default protocol also work when encoding is false; ordinary query parameter construction keeps legacy ordering in that mode.
+- cURL imports explicitly save settingEncodeUrl:false; old _curlSource records without a setting preserve their query spelling. Explicit true overrides this choice. Existing file query composition remains separate.
+- Consulted https://www.rfc-editor.org/rfc/rfc3986.html and archived network.transformUrl before changes. Commands: bun x --bun prettier --write src/lib/transport.js; bun run check; bun run build — all exit0, Svelte0 errors/warnings; existing large-bundle warning remains.
+- Inline Bun production-composer acceptance:17 cases passed, recorded artifacts/curl-get-file-reference/legacy-url-acceptance.json. Includes all7 prior mismatch diagnostics, repeated/disabled/bare query, API key exactly once, segments with encoding on/off, cURL fallback/override, WebSocket and SSE. Separate actual curlResources→prepareRenderedRequest check confirmed explicit false and empty/nameless/escape preservation.
+- Inspected native digest.rs: Hawk/OAuth1 sign the outgoing request, AWS mutates that request, then same request is cloned for send. This is source evidence only, not new native wire/signature acceptance.
+- NEXT add saved Playwright URL-settings/persistence/native-wire scenario, build fresh isolated native artifact and run it plus cURL GET regression. Latest accepted native-curl-get-ui-probe predates these product changes. No native build or test was started this turn. Raw unencoded bytes, unix sockets and all other unverified PARITY scope remain open. Full migration not complete; shared UI/new UX stays deferred.
+
+
+## Legacy default URL encoding gap established — 2026-10-01
+
+- Previous turn made progress (native GET acceptance). Revalidated STATUS/PLAN/PARITY and inspected archived network.transformUrl, models/request defaults and utils/url/querystring tests; no product edits this turn.
+- Legacy defaults settingEncodeUrl:true. transformUrl joins query/auth parameters, replaces segment values, then smartEncodeUrl. Current Send composer uses WHATWG new URL and URLSearchParams without consuming settingEncodeUrl; already ported template-url.js smartEncodeUrl is used only by request template tags. Thus fixing raw curl transport alone would miss primary legacy behavior.
+- Seven production-composer versus ported legacy-helper comparisons recorded in artifacts/curl-get-file-reference/legacy-url-gap.json; six differ (bare percent, query delimiters, path ampersand, empty/nameless query behavior, escape case). These are diagnosis evidence, not passing acceptance.
+- Consulted official reqwest Request API (Url access, not arbitrary request-target) and http PathAndQuery source: https://docs.rs/reqwest/latest/reqwest/struct.Request.html and https://docs.rs/http/latest/src/http/uri/path.rs.html . Latest http validates UTF8; installed locked crate versions must be inspected before native changes. Invalid-byte raw HTTP would require more than setting reqwest URL.
+- NEXT implement legacy automatic encoding through actual Send in original ordering using existing ported helper, preserve explicit false and expose request setting; define cURL import encoding choice explicitly so exact already-encoded data and empty fields are retained. Cover query/auth/path params, signer input consistency, HTTP/streams and native wire. Keep raw unencoded URL fidelity pending, not removed. No active build/server or new installer. Full parity/UX sequence unchanged.
+
+
+## GET/file native acceptance passed — 2026-10-01
+
+- Previous turn made progress (raw-wire discrepancy evidence) plus verified wait. Revalidated STATUS/PLAN/PARITY and polled same nativeCurlGetBuild to terminal0, no restart. Build finished1790796847161 after315s; fresh artifact in artifacts/native-curl-get-ui-probe/build-state.json.
+- bun tests/ui/curl-import-get-file.js passed1790796856828; evidence artifacts/playwright/curl-import-get-file-1790796856828/{acceptance,result}.json, script/app exit0. Five actual Import/select/reload/native cases match curl for encoded all256byte file+literal+url-query precedence, HEAD, explicit PATCH, binary NUL and raw-space refusal. Missing selections prevent network; no body/default MIME; saved URL/base64 unchanged after Send.
+- Acceptance is limited to these cases. Raw Unicode/invalid-UTF8 and some punctuation remain discrepant as proven by TCP request-line reference; Bun URL-level assertions do not supersede raw-wire evidence. No full URL/cURL parity claim.
+- No product changes or active build/app/server after cleanup. NEXT investigate original legacy URL encoding and native request-target APIs for raw-query fidelity before choosing implementation; continue remaining cURL options/auth/cookie lifecycle/Git/plugin/platform/full PARITY. Shared UI/new UX stays deferred.
+
+
+## Raw GET request-target discrepancy established; native build still live — 2026-10-01
+
+- Previous turn made progress (saved GET scenario/build launch). Revalidated STATUS/PLAN/PARITY and polled nativeCurlGetBuild supervisor35312, exitCode/result null including50s wait. No restart or product changes during compilation.
+- Captured actual request-line bytes using owned TCP server (no URL parser) and curl.exe: artifacts/curl-get-file-reference/raw-wire.json. Five cases show curl sends raw FF80, raw UTF-8 Unicode and raw quote/angle characters; # truncates wire query and NUL ends C-string data. Fixture removed/server closed.
+- Correction to earlier reference interpretation: Bun Request.url normalized Unicode/invalid bytes/punctuation. Those seven URL-level comparisons do NOT prove raw-wire equivalence. Current JS URL/native reqwest pipeline percent-encodes valid Unicode and some punctuation, and explicitly refuses invalid UTF-8; full raw-query fidelity remains an implementation gap. Do not mark URL parity complete or claim raw Unicode wire acceptance. Encoded query/all256bytes scenario remains useful but narrower evidence.
+- NEXT retain same nativeCurlGetBuild; wait terminal and run tests/ui/curl-import-get-file.js. Then investigate native request-target support using official reqwest/hyper/http APIs and archived legacy semantics before changing behavior; do not silently reinterpret raw bytes. Keep full raw URL scope open along with all other parity requirements.
+
+
+## Saved GET/file native scenario prepared; build running — 2026-10-01
+
+- Previous turn made progress (GET file implementation). Revalidated STATUS/PLAN/PARITY and existing saved file-import flow.
+- Added tests/ui/curl-import-get-file.js: five imported requests, missing-file refusal, mounted selection/reload, comparison to actual curl wire for all256bytes encoded plus literal/ignored url-query, HEAD, explicit PATCH, binary NUL and rejected raw space. Checks no body/default MIME and saved URL/bytes unchanged after Send.
+- Initial JSDoc count inference diagnostic fixed with explicit number annotation; formatter and Bun check0 errors/warnings pass. Runtime NOT RUN yet. No product edits this turn; last frontend build includes GET implementation/query precedence.
+- Prior nativeUploadSizeBuild terminal0 confirmed. Started isolated artifacts/native-curl-get-ui-probe/{build-state.json,build.log}; retained nativeCurlGetBuild supervisor35312. Keep product sources stable and poll same handle, never restart on observation timeout.
+- NEXT await terminal/fresh successful artifact, run bun tests/ui/curl-import-get-file.js; diagnose concrete failures. Continue raw non-UTF8 URL wire fidelity, remaining import/auth/Git/plugin/platform/full parity; UX deferred.
+
+
+## GET named-file query composition implemented — 2026-10-01
+
+- Previous turn made progress (query precedence fix). Revalidated STATUS/PLAN/PARITY; consulted official curl tool_operate.c append2query and GET setup before implementation: https://raw.githubusercontent.com/curl/curl/master/src/tool_operate.c . It appends C-string data via CURLU_APPENDQUERY.
+- GET with file data now imports ordered curlSegments even for single file and curlQuery:true; editor explains query/no-body behavior. No path reads. Composer resolves/joins selected file bytes before query parameters/auth processing, applies NUL truncation, rejects raw whitespace/control bytes, uppercases percent escapes and preserves query/fragment parsing. No body/bodyBase64/default binary Content-Type; --url-query precedence stays corrected. Body-type switch clears curlQuery.
+- Raw non-UTF-8 query bytes remain an explicit limitation pending native raw-URL investigation; they are not silently replacement-decoded. URL-encoded arbitrary bytes work. Unicode valid UTF-8 supported. Other raw URL punctuation/empty query and protocol-specific behavior require wider native acceptance. This is not full URL/cURL parity.
+-39 assertions pass over seven actual curl reference cases plus binary urlencode: missing selections, data stripping, binary NUL, raw-space refusal, Unicode, existing query/fragment, ignored url-query, no-body/MIME and persistence round-trip. Evidence artifacts/curl-get-file-reference/get-acceptance.json. Additional exploratory Bun-server URLs normalize raw invalid UTF-8, so do not use those observations as raw-wire proof.
+- Formatter/Bun check0 errors/warnings/build0 pass. No native/dependency changes or active build/server. Native executable predates GET feature.
+- NEXT saved native GET Import/select/reload/Send scenario including encoded all256 bytes, multiple parts, HEAD/explicit method and rejected raw-space; batch refreshed isolated build with query-precedence regression. Investigate raw invalid-UTF8 wire via raw HTTP fixture before claiming fidelity. Full parity and deferred UX unchanged.
+
+
+## GET/data versus url-query precedence corrected — 2026-10-01
+
+- Previous turn made progress (native maximum-size acceptance). Revalidated STATUS/PLAN/PARITY and current importer; consulted official https://curl.se/docs/manpage.html#--get and #--url-query before change.
+- Seven actual curl loopback cases confirm --get with any data argument replaces accumulated --url-query regardless of order, including empty data and explicit PATCH. Without data --url-query still applies; ordinary POST keeps both body and query. Captured artifacts/curl-get-file-reference/precedence.json.
+- Corrected curl-import.js to skip url-query append only for GET-mode with data; existing original URL query/fragment handling and --next-local isolation retained. Seven production parser/composer comparisons and next-reset assertion pass in precedence-acceptance.json.
+- Formatter/Bun check0 errors/warnings/build0 pass. No native/dependency changes or active build/server; native executable predates fix. This is a prerequisite semantic correction, NOT implementation of GET file inputs, which remain pending.
+- NEXT implement delayed file-data query composition using existing ordered segments, preserving curl byte semantics captured in reference.json (NUL, whitespace, UTF-8/invalid bytes, escaping, query/fragment). Add saved native query cases and batch refreshed native acceptance. Full parity/UX sequence unchanged.
+
+
+##16/20MiB native upload and mixed-body regression accepted — 2026-10-01
+
+- Previous turn made progress (saved size scenario/build launch). Revalidated STATUS/PLAN/PARITY and retained nativeUploadSizeBuild through terminal0 without restart; build finished1790796121352 after313s, fresh isolated artifact in artifacts/native-upload-size-ui-probe/build-state.json.
+- bun tests/ui/upload-size.js passed1790796132115: mounted selection, native persistence, reload, actual render session/IPC/HTTP at16MiB and20MiB; exact byte lengths and SHA-256 match. Replacement/second reload pass, only scenario payload cleared afterward. Script/app exit0. Evidence artifacts/playwright/upload-size-1790796132115/{acceptance,result}.json.
+- Mixed-body scenario rerun with INSOMNIUM_UI_BUILD_STATE=artifacts/native-upload-size-ui-probe/build-state.json passed1790796180942; overlapping/stale reads, literal edit/reload/native bytes still correct. No active builds/apps/servers after cleanup. No product changes this turn.
+- While compiler ran, captured7 real curl GET/file reference cases in artifacts/curl-get-file-reference/reference.json. Data strips NUL/CR/LF; binary query truncates at NUL; raw space rejected; urlencode preserves encoded delimiters; Unicode query encoded; percent escapes uppercased. Observed --url-query ignored in combination with --get data in tested case; investigate precedence broadly before implementing, current importer appends both. Synthetic file removed/server stopped. These are reference findings, not new app support.
+- NEXT implement GET file-data byte/query semantics including url-query precedence using captured references and official sources, extend saved native cases. Remaining auth/provider/cookie lifecycle/Git/plugin/platform/full parity unchanged; deferred UX remains later.
+
+
+## Saved16/20MiB native upload scenario prepared; build running — 2026-10-01
+
+- Previous turn made progress (binary/template accounting correction). Revalidated STATUS/PLAN/PARITY and native/helper contracts.
+- Added tests/ui/upload-size.js: actual cURL Import, mounted file selection/replacement at16/20MiB, native persistence metadata checks without large CDP return payloads, reload before Send through actual render session/native IPC, wire size/SHA-256, second reload and clearing only this scenario's payload. Server maxRequestBodySize explicitly21MiB so fixture does not impose an accidental lower limit. No product changes.
+- Formatter/Bun check0 errors/warnings pass. Runtime scenario NOT RUN. Frontend last successful build includes accounting correction.
+- Confirmed prior nativeCurlMixedBuild terminal0; started artifacts/native-upload-size-ui-probe/{build-state.json,build.log}, retained nativeUploadSizeBuild. Keep product source stable; never restart for observation timeout.
+- NEXT poll same handle to terminal, verify fresh successful artifact, run bun tests/ui/upload-size.js, then rerun tests/ui/curl-import-mixed-body.js with INSOMNIUM_UI_BUILD_STATE pointing to new build. Diagnose any actual persistence/IPC/session limit failure. Continue GET file-query and full parity; deferred UX unchanged.
+
+
+## Binary upload/template accounting corrected — 2026-10-01
+
+- Previous turn made progress (multi-file native acceptance and size reproduction). Revalidated STATUS/PLAN/PARITY; official MDN structuredClone/atob docs consulted before implementation.
+- Added request-uploads.js: separate only recognized binary body/file multipart/cURL file-segment base64 from template input, validate base64 and aggregate decoded20MiB bound, retain immutable payload strings, clone/check remaining text, restore before disabled-row filtering. Wired renderRequestSnapshot before its text checks. No blanket template limit increase; unrelated fields named base64 still count as text. Source request unchanged and metadata/literal templates still render.
+-17 inline assertions pass using actual renderRequestSnapshot source with production renderTemplateValue and controlled text callback:16/20MiB payloads, unchanged input, metadata rendering, multipart restoration before disabled filtering,21MiB/aggregate overflow, invalid base64, unrelated oversized text, mixed file/literal and skipBody. Evidence artifacts/curl-mixed-check/upload-render-acceptance.json. This is boundary acceptance, not a compiled full session/native UI acceptance.
+- Formatter, Bun check0 errors/warnings/build0 pass. No dependency/Rust changes, no active build/server/test; native executable predates this correction. Session still snapshots resources and callback serialization keeps its separate20MiB bound; this change does not claim callback large-payload support or reduce snapshot memory.
+- NEXT saved native16/20MiB selection/reload/Send scenario with real session and wire digest, and mixed-body regression on refreshed build; inspect maximum-size persistence/IPC limits if it fails. Continue --get file query implementation and all remaining parity. Deferred UX unchanged.
+
+
+## Multi-file native UI acceptance passed; size conflict reproduced — 2026-10-01
+
+- Previous turn made progress (saved overlapping-read scenario/build launch). Revalidated STATUS/PLAN/PARITY and polled same nativeCurlMixedBuild to terminal0 with no restart; build finished1790795538180 after315s. Fresh artifact recorded in artifacts/native-curl-mixed-ui-probe/build-state.json.
+- bun tests/ui/curl-import-mixed-body.js passed: artifacts/playwright/curl-import-mixed-body-1790795545328/{acceptance,result}.json; script/app exit0. Actual mounted overlapping file reads allow other-row update, same-row replacement defeats delayed stale read, literal edit/reload retains bytes, native body matches actual curl using two all256byte files, and body-type switch clears metadata. No implicit imported path reads; missing selection blocks Send.
+- Reproduced upload/template size conflict independently:16MiB upload passes readBodyUpload but22369624-character base64 fails checkTemplateValue. Evidence artifacts/curl-mixed-check/size-conflict.json. Inspected template-session resource snapshot cloning and separate callback serialized20MiB limit in template-client.js; do not blindly raise all limits. One rg target template-renderer.js did not exist; existing session/client sources were read successfully.
+- No product changes this turn. No active build/test/server after cleanup. Mounted GET/JSON/urlencode variants, request-switch/OS-close cancellation and maximum-size native acceptance remain distinct gates.
+- NEXT fix binary payload accounting/isolation from template text with explicit byte/aggregate bounds, then implement --get file query composition and extend saved UI scenarios. Continue other cURL/Git/plugin/platform/full PARITY; shared UI/new UX deferred.
+
+
+## Multi-file native UI scenario prepared; isolated build running — 2026-10-01
+
+- Previous turn made progress (mixed-body parser/editor/composer). Revalidated STATUS/PLAN/PARITY. Inspected workspace.update: Object.assign preserves other segment references, so per-row identity fence can allow other-row updates; actual Svelte/native behavior still requires acceptance.
+- Added tests/ui/curl-import-mixed-body.js using existing native helper. Imports5 ordered parts, asserts no implicit file read/missing-file refusal, delays actual mounted File.arrayBuffer reads to overlap rows, replaces same-row selection and releases stale read, edits literal, reloads and compares native bytes to actual curl with all256byte fixtures, then checks body-type switch clears metadata. Saved test tracks stale-read completion before acceptance.
+- Formatter and Bun check pass0 errors/warnings before final test-only completion-wait refinement (formatter passed after). No product edits this turn; frontend from last successful build includes mixed body. Scenario NOT RUN yet.
+- Previous nativeCurlCookieBuild terminal0 confirmed. Started artifacts/native-curl-mixed-ui-probe/{build-state.json,build.log}, retained nativeCurlMixedBuild supervisor17324. Keep product sources stable; never restart only for observation timeout.
+- NEXT poll same build to terminal, run bun tests/ui/curl-import-mixed-body.js and diagnose actual UI failures. Template/base64 size conflict, GET file-query composition, cancellation/request-switch coverage and full parity still open. UX remains deferred.
+
+
+## Mixed literal/multiple-file body connected — 2026-10-01
+
+- Previous turn made progress (Cookie native acceptance). Revalidated STATUS/PLAN/PARITY and mixed-body sequence; official curl data/binary/json docs consulted before implementation: https://curl.se/docs/manpage.html . Reused current picker/styles/transport, no generator/dependency/Rust changes.
+- curl-import.js now represents multi-entry file bodies as ordered curlSegments with stable IDs and form/JSON join policy. Existing single-file records remain supported. No imported path reads; stdin and --get files still explicitly rejected pending query integration. Mixed JSON/non-JSON remains separately pending.
+- Added CurlBodyEditor.svelte with per-row file conversion/replacement and literal editing, request/row/generation/workspace fences and cleanup. Body-type switch clears segment state. Added curl-body.js byte composer and wired native bodyBase64 transport: preserves arbitrary bytes, JSON concatenation, conditional ampersand, missing-file refusal and aggregate20MiB output bound.
+- Six production parser/upload/composer wire comparisons against actual curl pass using all256byte fixture, including literal/file ordering, empty prefix/trailing literal, JSON, urlencode and two files. Six missing-file checks, three boundary checks, JSON persistence round-trip pass. Evidence artifacts/curl-mixed-check/acceptance.json. Bun fetch/curl default Accept */* normalized for comparison; no native-default-header claim. Fixture removed/server closed.
+- Formatter, Bun check0 errors/warnings/build0 and targeted git diff --check pass. Native executable predates this change; no active native build/test/server. UI picker/parallel selection/stale selection and actual IPC acceptance NOT yet verified.
+- NEXT reconcile template20MiB-character/base64 vs upload20MiB-byte limit; inspect row identity under actual workspace updates and verify concurrent selection; implement --get file query composition. Add saved native multi-file Import/select/replace/reload/Send scenario then refresh isolated build. Full other parity and deferred UX unchanged.
+
+
+## Cookie Import/reload/native Send regression passed — 2026-10-01
+
+- Previous turn made progress (mixed-file reference and design) plus verified wait. Revalidated STATUS/PLAN/PARITY and polled same nativeCurlCookieBuild handle through terminal exit0 without restart. Build finished1790794868972 after313s; fresh isolated artifact recorded in artifacts/native-curl-cookie-ui-probe/build-state.json.
+- bun tests/ui/curl-import-cookie.js passed, evidence artifacts/playwright/curl-import-cookie-1790794877414/{acceptance,result}.json; script/app exit0. Actual UI review/import sends no network, repeated cookies concatenate, explicit Cookie overrides -b in either order and case, empty Cookie stays empty, next group has no Cookie. Two reloads retain imported requests and preserve original resources.
+- This accepts the Cookie precedence fix on native HTTP, not cookie-file/empty-b engine/redirect lifecycle parity. No product changes this turn and no active build/test/server after cleanup.
+- NEXT implement mixed literal/multiple file body sequence in CURL-IMPORT.md using captured artifacts/curl-mixed-design/reference.json, including byte-preserving composition, per-row selection fences and aggregate/template size-contract reconciliation. Continue GET/query integration and full cURL/Git/plugin/platform/PARITY. Shared inputs/new UX deferred.
+
+
+## Mixed-file body reference captured while Cookie build remains live — 2026-10-01
+
+- Previous turn made progress (saved Cookie UI scenario/build launch). Revalidated STATUS/PLAN/PARITY; polled same nativeCurlCookieBuild supervisor23516 handle repeatedly and waited twice50s, exitCode/result still null. No restart or product changes during compile.
+- Inspected single-file picker/conversion, transport and request-template ownership. Recorded ordered mixed-file implementation sequence in CURL-IMPORT.md and six actual curl reference executions in artifacts/curl-mixed-design/reference.json. Includes binary invalid UTF-8, CR/LF/NUL stripping, empty prefix, JSON concatenation, URL-encoded file plus literal and GET query. Fixture removed/server stopped. These observations establish expected semantics, not implementation acceptance.
+- Identified size-contract conflict: uploads accepts20MiB bytes but checkTemplateValue caps20MiB characters across request including base64. Must reconcile during mixed-file work. No silent scope reduction; multiple files/GET/cancellation/render/export and aggregate limits remain planned requirements.
+- NEXT poll retained nativeCurlCookieBuild to terminal, verify artifacts/native-curl-cookie-ui-probe/build-state.json/fresh artifact, then bun tests/ui/curl-import-cookie.js. After native acceptance implement mixed-file sequence, continuing full PARITY.
+
+
+## Saved Cookie Import regression prepared; native build running — 2026-10-01
+
+- Previous turn made progress (verified Cookie precedence fix). Revalidated STATUS/PLAN/PARITY and existing saved UI import flow.
+- Added tests/ui/curl-import-cookie.js: actual review/apply without network, five transfer groups (repeated cookies, manual Cookie before/after -b with case variation, explicit empty Cookie, next-group reset), reload/native Send wire assertions, second reload and preservation of existing resources. No product/dependency changes. Formatter and Bun check0 errors/warnings pass. Runtime scenario NOT RUN yet.
+- Prior NTLM build handle confirmed terminal exit0 before launching new isolated build using frontend successfully built after cookie fix last turn. New build artifacts/native-curl-cookie-ui-probe/{build-state.json,build.log}; retained node_repl nativeCurlCookieBuild. Keep product sources stable during compile; do not restart on observation timeout.
+- NEXT poll same handle until terminal, verify successful fresh artifact, then bun tests/ui/curl-import-cookie.js. Continue cURL mixed-file/options/cookie lifecycle and full Git/plugin/platform/PARITY. Shared UI/new UX still deferred.
+
+
+## cURL manual Cookie precedence corrected — 2026-10-01
+
+- Previous turn made progress (NTLM native acceptance). Revalidated STATUS/PLAN/PARITY and current cURL importer. Official curl cookie/header manual consulted: https://curl.se/docs/manpage.html#--cookie . Actual curl loopback exposed existing bug: importer appended -b cookies to an explicit Cookie header; curl uses the explicit header instead, regardless of option order.
+- Fixed src/lib/curl-import.js to preserve explicit Cookie unchanged and generate a Cookie header only when none exists. Repeated literal -b values still concatenate. Empty -b activates cookie engine in curl and remains unsupported by current importer; file/cookie-engine lifecycle scope is not silently flattened.
+- Five real curl wire comparisons through production parser/composer+Bun fetch pass: repeated cookies, explicit header in both orders/case variants, explicit empty Cookie; and literal multi-cookie. --next reset assertion passes. Evidence artifacts/curl-cookie-check/acceptance.json. Initial inline harness lacked required timeout then mistakenly treated native tuple headers as objects; corrected fixture/envelope adapter, final checks pass without further product changes.
+- Formatter, Bun check0 errors/warnings/build0 pass. No saved non-UI tests, native/Rust/dependency changes, active build/server or refreshed native executable. Current native executable predates this fix.
+- NEXT add cookie cases to saved cURL native Import scenario and validate on refreshed isolated build, preferably batch with further importer work. Continue mixed-file/options/cookie lifecycle and full Git/plugin/platform/PARITY scope; deferred UX unchanged.
+
+
+## NTLM Import/reload/native proof acceptance passed — 2026-10-01
+
+- Previous turn made progress (independent proof oracle) and verified wait. Revalidated STATUS/PLAN/PARITY; retained nativeCurlNtlmBuild through completion with no restart. Build finished1790794272507 after315s, exit0; fresh isolated artifact recorded in artifacts/native-curl-ntlm-ui-probe/build-state.json.
+- bun tests/ui/curl-import-ntlm.js passed on that build. Evidence artifacts/playwright/curl-import-ntlm-1790794284777/{acceptance,result}.json. Script/app exit0. Actual UI Import/reload preserves explicit DOMAIN\user and colon-containing password; native handshake is unauthenticated -> Type1 -> Type3, correct domain/user, same Type2/Type3 TCP connection, exact POST replay. Independent Bun MD4/HMAC-MD5 oracle validates NTLMv2 password proof. Manual Authorization sends exactly once without NTLM; no Basic fallback. Second reload preserves resources.
+- This accepts the supported imported explicit-credential HTTP path on loopback. MIC/TLS-binding/provider, default OS sign-in/proxy auth/mixed negotiation are NOT established by this scenario. Prior narrow checks do not remove full parity requirements. No product changes, no active build/test/server after cleanup.
+- NEXT continue remaining cURL mixed-file/options/legacy import representation and Git/plugin/platform/full PARITY, including outstanding provider/protocol acceptance. Shared input components and UX redesign remain deferred until original migration complete.
+
+
+## NTLM saved scenario now verifies password proof; same native build still live — 2026-10-01
+
+- Previous turn made progress (saved scenario and native build launch). Revalidated STATUS/PLAN/PARITY and polled retained nativeCurlNtlmBuild handle: exitCode null, result null, including50s wait. No restart; compiler still running at125s.
+- Extended tests/ui/curl-import-ntlm.js with independent Bun MD4/HMAC-MD5 NTLMv2 response-key/proof calculation per https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-nlmp/5e550938-91d4-459f-b67d-75d70009e3f3 . Checks bounded NT response, v2 blob marker, correct proof and altered-proof rejection. Replaces previous structural-only limitation; runtime proof is NOT accepted until scenario runs. MIC/TLS binding/provider remain outside this scenario.
+- Formatter and Bun check pass0 errors/warnings. Only saved UI scenario/docs edited; product sources stable during native compile.
+- NEXT retain nativeCurlNtlmBuild supervisor35556/child27436; poll to terminal, verify artifacts/native-curl-ntlm-ui-probe/build-state.json and fresh executable, run bun tests/ui/curl-import-ntlm.js. Diagnose concrete failures; all remaining parity scope stays active.
+
+
+## NTLM Import native scenario prepared; build running — 2026-10-01
+
+- Previous turn only restated deferred UX scope (no migration progress). Revalidated STATUS/PLAN/PARITY and took next saved UI acceptance step.
+- Added tests/ui/curl-import-ntlm.js for actual Import/reload/native Send, explicit DOMAIN\user credentials with colon-containing password, Type1/Type3 identity, same Type2/Type3 TCP connection, POST replay and manual Authorization suppression. Uses synthetic loopback Type2 per Microsoft MS-NLMP 2.2.1.2: https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-nlmp/801a4681-8809-4be9-ab0d-61dcfe762786 . Fixture checks structure/identity; does NOT validate password proof/MIC or hosted provider authentication.
+- Saved scenario formatter and Bun check pass0 errors/warnings; frontend build exit0. Runtime scenario NOT RUN yet. No product/Rust/dependency changes.
+- Started isolated native build artifacts/native-curl-ntlm-ui-probe/{build-state.json,build.log}; retained node_repl nativeCurlNtlmBuild handle. Do not restart on polling timeout; keep product sources stable during compile.
+- NEXT poll same live handle until terminal, verify successful fresh artifact, then bun tests/ui/curl-import-ntlm.js; diagnose concrete failures and extend proof/provider acceptance. Full cURL/Git/plugin/platform/PARITY scope remains open; shared inputs/new UX deferred.
+
+
+## cURL explicit NTLM import mapping implemented — 2026-10-01
+
+- Previous goal turn made progress (native Bearer acceptance). Revalidated STATUS/PLAN/PARITY and inspected existing native NtlmCredentials/SSPI username parsing and composer.
+- Added --ntlm mapping to existing NTLM editor/native envelope. Requires explicit nonempty username:password, preserves DOMAIN\user/UPN/Unicode username and password after first colon; uses empty separate domain/workstation so SSPI parses the supplied identity. Last --user wins; repeated --ntlm harmless; --next resets.
+- Mixed NTLM with explicit Basic/Digest/Bearer negotiation is rejected instead of silently changing challenge behavior. Automatic Windows sign-in (-u :), interactive password and proxy NTLM remain unsupported. Manual Authorization keeps existing native-auth suppression.
+- Official docs consulted: https://curl.se/docs/manpage.html#--ntlm and #--user . Native limitations remain as recorded in NTLM-COMPATIBILITY.md; this mapping does not claim new provider/SSO/proxy capability.
+- Formatter, Bun check0 errors/warnings/build0 pass.27 inline production parser/composer assertions passed in a fresh Bun process (artifacts/curl-ntlm-check/acceptance.json). First inline attempt was placed in the same script as edits and static-imported the old module before mutation; rerunning fresh corrected the stale harness, no additional product fix.
+- No Rust/dependency changes, saved non-UI tests, active build/server or installer update. Latest native executable predates NTLM import mapping.
+- NEXT saved native Import/reload/NTLM challenge scenario using explicit synthetic credentials and existing native backend, then refreshed isolated build; full handshake/provider acceptance remains open. Continue all remaining cURL/Git/plugin/platform/full PARITY requirements; shared inputs/new UX deferred.
+
+
+## Bearer Import/reload/native Send accepted — 2026-10-01
+
+- Previous goal turn made progress (saved six-group scenario and native build launch). Revalidated STATUS/PLAN/PARITY, polled same live nativeCurlBearerBuild handle and waited until exit0; no restart. Build finished1790793464514 after316s.
+- tests/ui/curl-import-next.js passed on fresh artifacts/native-curl-bearer-ui-probe executable. Evidence artifacts/playwright/curl-import-next-1790793472875/{acceptance,result}.json; script/app exit0.
+- Actual six-group Import preserves prior resources, rejects unsupported options atomically, sends no network during review/apply, persists settings across reload, and sends exact native HTTP method/body/header/auth. Includes last Bearer token with explicit user:password, unauthenticated next group, manual Authorization overriding Bearer, plus prior Basic/GET/PATCH cases. Second reload retains resources.
+- No product changes this turn; no live build/test/server. This accepts supported HTTP Bearer import, not mixed auth negotiation, NTLM import or hosted-provider auth.
+- Read-only NTLM inventory review confirms native explicit DOMAIN\user/UPN/separate domain support, no default OS credentials and no proxy407 support; future curl mapping must preserve those distinctions. No NTLM implementation claimed.
+- NEXT continue unimplemented common cURL options/NTLM mapping/mixed-file representation and full PARITY. Existing provider/crash/platform/Git/plugin gates stay in scope; deferred components/new UX only after full migration.
+
+
+## Bearer native Import scenario prepared; build running — 2026-10-01
+
+- Previous goal turn made progress (Bearer parser mapping and actual curl comparison). Revalidated STATUS/PLAN/PARITY and existing saved transfer-group scenario.
+- Extended tests/ui/curl-import-next.js from3 to6 ordered groups: existing Basic/GET/PATCH plus last Bearer token with user:password, subsequent unauthenticated group and explicit manual Authorization. Checks persisted auth after reload and exact native wire values; existing additive import and atomic unsupported-option checks retained.
+- Bun formatter/check pass0 errors/warnings. New scenario NOT RUN yet; prior accepted build predates Bearer parser.
+- Started isolated native build artifacts/native-curl-bearer-ui-probe/{build-state.json,build.log} with previously built frontend, unchanged product source. Retained node_repl nativeCurlBearerBuild supervisor PID27940. Script default now points here. Build command uses documented Bun Tauri build --no-bundle --config with isolated probe identity.
+- NEXT poll same handle to terminal, verify build-state0 and fresh artifact, then bun tests/ui/curl-import-next.js. Keep product sources stable until compiler exits. Remaining auth negotiation/NTLM/netrc import, other options/mixed-file and full PARITY remain open. Shared UI/new UX still deferred.
+
+
+## cURL HTTP Bearer import mapping — 2026-10-01
+
+- Previous goal turn made progress (native multipart/file-body acceptance). Revalidated STATUS/PLAN/PARITY and current auth composer before implementation.
+- Added --oauth2-bearer value option in curl-import.js, mapped to existing Bearer editor/model (token, prefix Bearer). Last token wins; --next resets auth. Literal --user user:password may coexist but Bearer wins for supported HTTP case. Manual Authorization retains existing precedence. Empty/control-line token rejected.
+- Real curl comparisons revealed Bearer combined with explicit --basic/--digest uses different negotiation behavior; this combination is explicitly rejected, not flattened incorrectly. NTLM/netrc/other cURL auth mappings remain pending and were not added.
+- Official docs consulted: https://curl.se/docs/manpage.html#--oauth2-bearer and #--ntlm . Existing importer/auth subsystem reused, no generator/dependency/native changes.
+- Bun formatter/check0 errors/warnings/build0 pass.10 inline assertions pass, including4 actual curl loopback comparisons for single/repeated token, user+Bearer and manual Authorization. Includes group reset, equals syntax, invalid tokens and unsupported negotiation refusal. Evidence artifacts/curl-bearer-check/acceptance.json.
+- No saved non-UI tests, no active servers/builds. Native executable predates this parser update; native Import acceptance remains pending and must use a refreshed build. Existing source constraints unchanged.
+- NEXT add saved Bearer Import/reload/native Send scenario (or extend transfer-group scenario), refresh isolated native build after grouped frontend work, continue remaining auth/options/mixed-files/full PARITY. No completion claim or deferred UX work.
+
+
+## File-content multipart and all single-file body modes accepted natively — 2026-10-01
+
+- Previous goal turn made progress (proven filename mismatch fixed). Revalidated docs and retained nativeCurlFileContentFixBuild; same process finished exit0 in315s (finished1790792879623). No restart.
+- Extended saved multipart scenario to six parts, adding explicit MIME <file alongside default MIME and ignored filename modifier. Passed native/UI run1790792888538. Confirms exact binary bytes, no filename for both file-content parts, absence of default Content-Type and preservation of explicit text/x-fixture, plus previous upload/text/form-string/selection/reload assertions.
+- Added owner-authorized saved tests/ui/curl-import-file-body.js. Imports all five modes (--data, --data-ascii, --data-binary, --json, --data-urlencode field@file), refuses Send before selection, selects a fixture containing all256 byte values in mounted input, reloads and sends through native HTTP. Compares each resulting body and Content-Type to actual curl over owned loopback; JSON Accept also compared. Stored base64 unchanged after reload/Send (no double conversion).
+- New script initial JSDoc inference diagnostic corrected. First UI run1790792895980 found substring selector ambiguity (/data also matched other modes); changed to exact request button within Collections. Final run1790792912164 passed, script exit0. Final formatter and Bun check0 errors/warnings pass.
+- Evidence artifacts/playwright/curl-import-multipart-1790792888538 and curl-import-file-body-1790792912164. Both use artifacts/native-curl-file-content-fix-ui-probe/build-state.json. Apps and loopback servers closed; no active build.
+- Scope: mounted HTML file input via Playwright, not native OS chooser interaction. Mixed data files/literals, multiple files, multipart nesting/headers/encoders/MIME parameters, unsupported common options and full shell/legacy compatibility remain open. No full migration/installer/platform acceptance claimed.
+- NEXT implement remaining cURL options/mixed-file representation per CURL-IMPORT.md, continue full Git/plugin/provider/fault/PARITY scope. Shared UI/new UX deferred until original migration complete.
+
+
+## File-content filename semantics corrected after real curl comparison — 2026-10-01
+
+- Previous goal turn made progress (<file implementation). Revalidated checkpoint and retained nativeCurlFileContentBuild handle; waited on same live process, then it completed exit0 (finished1790792501960).
+- Actual curl loopback modifier comparison found <file ignores filename= (empty/nonempty) while type= remains effective. Prior statement that explicit filename overrides win was WRONG for this mode. Evidence artifacts/curl-file-content-check/modifier-reference.json and filename-discrepancy.json.
+- Added filename=ignored.bin to saved multipart scenario. Initial completed native build reproduced the mismatch: artifacts/playwright/curl-import-multipart-1790792511592 fails assertion that filename is absent. Prior upload/text assertions passed before reaching the new field; build is not accepted for <file.
+- Fixed parser to discard filename attribute for fileContent; composer gives fileContent priority over any stale saved fileNameOverride; UI hides override controls while file-content mode active. Explicit type= still works, raw bytes flag unchanged. No new Rust change.
+- Bun formatter/check0 errors/warnings/build0 pass.30 corrected inline composition assertions pass including five modifier combinations and stale override defense: artifacts/curl-file-content-check/corrected-composition.json. Previous28-case report's filename expectation is superseded by this correction.
+- New corrected isolated build RUNNING at artifacts/native-curl-file-content-fix-ui-probe/{build-state.json,build.log}. Retained node_repl nativeCurlFileContentFixBuild supervisor PID37596. Product source stable during compile; saved multipart script now defaults to corrected build.
+- NEXT poll same corrected build, then bun tests/ui/curl-import-multipart.js. Extend native coverage for explicit MIME on <file as needed. Initial build terminal; do not rerun old artifact as corrected acceptance. Full import/Git/plugin/platform parity remains incomplete; shared UI/new UX deferred.
+
+
+## Multipart file-content fields implemented; native build running — 2026-10-01
+
+- Previous goal turn made progress (multipart picker/wire acceptance). Revalidated STATUS/PLAN/PARITY and native/browser multipart consumers.
+- curl-form.js accepts field=<named-file as a file selection with fileContent:true; does not read imported paths. Empty/stdin still rejected; nested/multiple multipart remain pending. --form-string stays literal. Existing explicit filename override wins if supplied.
+- transport.js sends new valueBase64 flag for file-content parts, preserves exact selected bytes, omits filename and selected-file MIME by default; explicit overrides remain. Browser fallback refuses filename-free binary parts with desktop-required error rather than converting bytes to text.
+- Native FormPart gains serde-default value_base64:bool for backwards-compatible IPC. Multipart builder decodes bytes when flag or filename present, and attaches filename independently. Existing text and upload paths unchanged. UI Part options has file-content checkbox; selected file name remains visible for replacement.
+- Official sources read before implementation: https://curl.se/docs/manpage.html#--form ; https://docs.rs/reqwest/latest/reqwest/multipart/struct.Part.html . Existing pipeline reused; no new dependency/generator.
+- Cargo fmt/check/clippy -Dwarnings pass; Bun formatter/check0 errors/warnings/build0 pass. Inline parser/composer28 assertions pass (artifacts/curl-file-content-check/acceptance.json). Actual curl loopback4 assertions confirm no filename/default Content-Type and exact binary content. These are not new native-wire acceptance.
+- Extended saved tests/ui/curl-import-multipart.js with fifth <file field, mounted selection, reload and expected native filename-free exact binary bytes. Script check passes; NOT RUN on new implementation yet.
+- New isolated build RUNNING: artifacts/native-curl-file-content-ui-probe/{build-state.json,build.log}; retained node_repl nativeCurlFileContentBuild, supervisor PID24796. Keep product source stable during compile. Script default points to this new build.
+- NEXT poll same build handle until terminal then run bun tests/ui/curl-import-multipart.js. Diagnose concrete failures; old native build lacks valueBase64 support. Then compare explicit <file filename/type modifiers with actual curl and complete remaining multipart/options/full PARITY. No full-goal completion/new UX.
+
+
+## Multipart import file selection and native wire accepted — 2026-10-01
+
+- Previous goal turn made progress (native cURL transfer-group acceptance). Revalidated STATUS/PLAN/PARITY and inspected existing multipart parser, picker and native wire contract after consulting https://curl.se/docs/manpage.html#--form .
+- Existing filename/content-type implementation needed runtime acceptance before further extensions. Added saved owner-authorized tests/ui/curl-import-multipart.js using current native-curl-import-ui-probe executable; no production change/rebuild.
+- Accepted actual Import UI, missing-file Send refusal before network, HTML input file selection and replacement through mounted Svelte handler, retained explicit filename/MIME overrides, persistence/reload and actual native multipart wire.
+- Wire assertions cover bytes including NUL/CRLF/128/255, explicit sent.bin overriding selected replacement.bin, custom file MIME, custom text MIME without filename, explicit empty filename for text, and --form-string literal @/semicolon syntax. Second reload keeps body unchanged.
+- Initial script quoting and per-variable JSDoc errors fixed; Bun check0 errors/warnings. Initial native run1790791956742 failed only because selector expected role=alert while Send errors appear in response pane; saved failure text confirmed correct missing-file error and selector corrected. Final native run1790791996313 passed, app exit0; evidence artifacts/playwright/curl-import-multipart-1790791996313/{acceptance,result}.json.
+- No browser-use, no active test/server/build. This verifies mounted HTML file input via Playwright setInputFiles, not OS file-dialog interaction. Remaining multipart headers/encoders/content-type parameters, <file content, multi-file/nested forms, mixed body files and common options remain in scope.
+- NEXT implement remaining import mappings using official docs and actual curl comparison; single-file binary conversion UI acceptance remains separate. Continue Git/provider/fault/plugin and full PARITY requirements. Deferred shared UI/new UX remains after full migration.
+
+
+## cURL Import native UI acceptance passed — 2026-10-01
+
+- Previous goal turn made progress (saved scenario and build launch). Revalidated STATUS/PLAN/PARITY, then waited on the same retained nativeCurlImportBuild handle; no restart. Build finished exit0 in315s (started1790791466613, finished1790791782491).
+- Fresh isolated artifacts/native-curl-import-ui-probe executable accepted tests/ui/curl-import-next.js exit0. Evidence artifacts/playwright/curl-import-next-1790791796403/{acceptance,result}.json.
+- Verified actual Import UI rejects unsupported later-group option atomically, review/apply does not send network traffic, additive three-group import preserves existing resources, reload keeps method/auth/body settings, and UI Send reaches loopback through native HTTP with exact POST/GET/PATCH, payload and header/auth isolation. Second reload preserves imported resources.
+- This closes native UI acceptance for the implemented --next/-: literal group path only. File picker, multipart metadata, mixed-file/options, other cURL parity and full migration remain open. No production-source changes this turn; no active build/server/test app remains.
+- NEXT continue common missing import file/options and native picker/IPC acceptance per CURL-IMPORT.md, alongside outstanding Git/provider/fault/plugin/full PARITY gates. New UX/shared inputs still deferred until full migration.
+
+
+## Native cURL Import acceptance prepared; build running — 2026-10-01
+
+- Previous goal turn made progress (--next/-: implementation and inline wire comparisons). Revalidated STATUS/PLAN/PARITY and current Import controls.
+- Added owner-authorized saved Playwright tests/ui/curl-import-next.js: reject unsupported options without mutation/network, review three groups without sending, additive import preserving prior resources, persisted method/auth/body isolation, reload, UI Send through native HTTP and second reload. Uses owned loopback fixture and existing isolated native-app helper.
+- Bun formatter and run check pass (0 errors/warnings). Scenario has NOT run yet; no native acceptance claim.
+- Started isolated native build after previous successful frontend build, product source unchanged during compile. artifacts/native-curl-import-ui-probe/{build-state.json,build.log}; retained node_repl handle nativeCurlImportBuild, supervisor PID20576, child18608, started1790791466613. Latest handle poll exitCode:null/result:null confirms live. No restart.
+- Build command reused documented bun x --bun tauri build --no-bundle --config with probe identity and beforeBuildCommand:null. Expected copied artifact insomnium-fetch-recovery-probe.exe inside new probe directory; naming inherited from build helper, isolated identity validated by UI helper.
+- NEXT poll same nativeCurlImportBuild handle until terminal; verify build-state exit0/fresh artifact, then bun tests/ui/curl-import-next.js. Diagnose any concrete selector or product failures. Keep product source stable until compile exits. Continue remaining full PARITY; no goal completion or new UX yet.
+
+
+## cURL multiple transfer groups implemented — 2026-10-01
+
+- Previous goal turn made progress (public journal restart acceptance). Revalidated STATUS/PLAN/PARITY and selected outstanding import functionality; Git remaining gates stay in scope.
+- src/lib/curl-import.js now accepts --next and -: (including short flag clusters), partitions parsed option entries into separate transfer groups and maps each group's URLs to requests in order. Local method/body/header/auth/query/redirect state resets at each boundary. Accepted global CLI presentation flags have no transfer state to carry. Unsupported global options remain rejected.
+- Group separators are recognized only as parsed options, never when consumed as option values or after --. Original full command remains in _curlSource; existing total request and projected expansion limits remain. Empty groups fail visibly before import rather than guessing curl's empty-operation handling.
+- Consulted https://curl.se/docs/manpage.html#--next before editing; inspected archived curl importer (no explicit next mapping). Existing parser/import pipeline reused; no generator/dependency/native change.
+- Bun formatter, check0 errors/warnings and build0 pass; existing Vite large-chunk warning remains (generated npm suggestion not executed).
+- Bun-stdin verification passed18 assertions, including four real curl loopback wire comparisons through production curlResources/prepareRenderedRequest: two authenticated POST URLs, reset-to-HEAD group and independent PATCH group. Compared method/path/body/Authorization/custom header. Option-as-value, clusters, empty/invalid groups, -- terminator and unsupported-option rejection covered. Evidence artifacts/curl-next-check/acceptance.json. No saved non-UI test script created.
+- Native executable predates this frontend change; mounted Import review/apply/save/reload/HTTP acceptance still pending. No live build/server/process; no installer refreshed.
+- NEXT: saved native Import scenario for multi-group cURL and other existing import mappings, refresh isolated frontend/native build for acceptance, continue missing file/options and all remaining full PARITY. Shared inputs/new UX deferred as instructed.
+
+
+## Public Fetch journal survives failed publication and process restart — 2026-10-01
+
+- Previous goal turn made progress (real Git upload-pack interoperability). Revalidated current STATUS/PLAN/PARITY and saved termination scenario.
+- Current journaled native build passed existing parent termination1790791105562, orphan recovery1790791106943, lost reply1790791114266, retire-save-failure1790791116544 and retire-save-lost-reply1790791118157. Evidence artifacts/playwright; both scripts exit0 with current build override.
+- Added owner-authorized saved UI scenario tests/ui/git-fetch-public-journal-crash.js. UI starts real public depth1 Fetch against controlled pack server. A fixture-owned foreign shallow.lock causes actual writer refusal AFTER actual candidate/journal creation. The fixture never constructs the journal itself. Native leaves lock bytes, journal, saved depth intent and HEAD intact.
+- Owned parent is terminated with verified exit event; a new process loads exact journal/workspace. UI Inspect/Resume refuses the still-foreign lock without touching evidence or downloading. After the fixture releases only its own exact lock marker, UI Resume completes same durable operation, confirms depth1 receipt, retires journal/owned lock, preserves HEAD/resources and acknowledges intent with zero recovery network.
+- New saved scenarios passed: git-fetch-public-journal-termination1790791214812 and git-fetch-public-journal-restart1790791216338. Bun formatter and run check pass,0 errors/warnings. Product source unchanged; accepted current executable used, no rebuild/live process.
+- Run: bun tests/ui/git-fetch-public-journal-crash.js (default current artifacts/native-journaled-fetch-ui-probe/build-state.json; optional INSOMNIUM_UI_BUILD_STATE override). Earlier scripts require that override.
+- Official docs consulted before scenario implementation: https://git-scm.com/docs/shallow and https://v2.tauri.app/develop/calling-rust/ . Existing native ShallowGuard ownership rules inspected.
+- Scope is real public Fetch journal creation plus restart after explicit foreign-lock failure. It is NOT mid-write termination, exact mid-ref interruption, power loss or OS-close acceptance. Prior standalone writer crash evidence remains separate.
+- NEXT: remaining mid-publication fault/lock and hosted-provider auth/TLS gates, then all unimplemented PARITY scope including remote checkout/pull/push/merge. Shared components/new UX remain deferred until full migration. Goal stays active.
+
+
+## Real Git upload-pack shallow interoperability accepted — 2026-10-01
+
+- Previous goal turn was progress: nine native/UI acceptance scenarios completed. Revalidated STATUS/PLAN/PARITY and current dependency before this work.
+- Corrected the earlier LF assumption: official pack-protocol shallow-line/unshallow-line grammar has no trailing LF, and upstream libgit2 main still requires exact OID payload length. No evidence justified a dependency patch/upgrade; none made.
+- Extended existing saved tests/ui/git-fetch-depth.js with INSOMNIUM_UI_REAL_GIT=1 mode. Creates an owned ignored bare fixture with git init --bare --object-format=sha1 --template=, imports fixture objects with git index-pack --stdin, sets refs with git update-ref and HEAD with symbolic-ref. Loopback HTTP runs git upload-pack --stateless-rpc [--advertise-refs]; POST response bytes are passed unchanged, with only the HTTP service advertisement prefix supplied for GET.
+- Real Git2.55.0.windows.3 produces shallow packets without LF. Native public full Fetch, selected depth1, retained unselected full history, lost success reply, exact-depth reconciliation, reload Inspect, full expansion and unchanged local HEAD all pass. Current final evidence artifacts/playwright/git-fetch-depth-real-git-1790791041039/{acceptance,result}.json; initial accepted run1790790997767.
+- Bun run check initially caught Buffer<ArrayBufferLike> vs Response BodyInit typing in the saved fixture; changed to Uint8Array.from(bytes), then formatter/check pass (0 errors/warnings) and real Git scenario rerun passes. Product source/dependencies unchanged; no rebuild required.
+- Command: set INSOMNIUM_UI_REAL_GIT=1 and run bun tests/ui/git-fetch-depth.js. Optional INSOMNIUM_UI_BUILD_STATE override; current default artifacts/native-journaled-fetch-ui-probe/build-state.json. All Git child processes hidden/shell:false, configuration environment isolated, bounded timeout/output; fixture repositories retained under ignored artifacts for evidence.
+- Official docs consulted: https://git-scm.com/docs/pack-protocol ; https://git-scm.com/docs/git-upload-pack ; https://git-scm.com/docs/git-index-pack ; https://git-scm.com/docs/git-update-ref ; https://raw.githubusercontent.com/libgit2/libgit2/main/src/libgit2/transports/smart_pkt.c .
+- Scope: this establishes real Git loopback HTTP interoperability, NOT hosted-provider TLS/auth acceptance or all server implementations. No active build/test process remains.
+- NEXT: remaining public Fetch process-crash/fault windows and hosted-provider transport/auth acceptance, then outstanding full PARITY (remote checkout/pull/push/merge, plugins and other listed functionality). Full goal not complete; deferred shared UI/new UX remains after full migration.
+
+
+## Public journaled Fetch native/UI acceptance — 2026-10-01
+
+- Same retained nativeJournaledFetchBuild completed exit0 (started1790790446084, finished1790790760922); artifacts/native-journaled-fetch-ui-probe/build-state.json is finished. No active build remains.
+- Nine saved Playwright scenarios passed on this build: git-fetch1790790798535, restart1790790802578, scope1790790808471, depth1790790818403, cleanup1790790837027, retire-race1790790844497, journal-recovery1790790852025, resume-success1790790858996 and resume-lost-reply1790790861697. Evidence is under artifacts/playwright.
+- Public full/scoped/shallow Fetch now has real native command/UI acceptance, including persisted intent admission, exact operation/depth reconciliation, selected vs retained branch history, lost reply/reload, full expansion, cancellation/settings race, cleanup and explicit journal Resume regression.
+- Initial git-fetch1790790776686 failed because the updated fixture mutated before.resources when persisting its direct Fetch intent. Fixed test to structuredClone(before) before mutation; rerun passes. No product change was needed.
+- All scenarios ran with Bun and INSOMNIUM_UI_BUILD_STATE=artifacts/native-journaled-fetch-ui-probe/build-state.json. No browser-use tools used.
+- Scope limits remain: controlled shallow packet omits LF for installed libgit2 parser compatibility; real-provider interoperability is NOT accepted. Read-only inspection found installed libgit2-sys0.18.8+1.9.7 smart_pkt.c shallow_pkt/unshallow_pkt require exact OID length. Upstream compatibility/fix still needs verification before selecting an implementation.
+- NEXT: investigate documented real-provider shallow packet compatibility, then remaining public-fetch crash/fault windows and all outstanding PARITY items. Full migration, latest installer/platform acceptance, remote pull/push/merge, plugin runtime and other parity gates remain incomplete.
+- Owner follow-up stays deferred: reusable input components under src/lib/components/ui and new UX (Hoppscotch reference) begin AFTER original migration goal is fully complete. See POST-MIGRATION-UX.md.
+
+
+## Public journaled Fetch and depth UI connected — 2026-10-01
+
+- Previous goal turn made progress (workspace fence). Revalidated and waited on the same nativeWorkspaceFenceBuild handle; it finished exit0.
+- Fence build accepted six saved native/UI scenarios: journal recovery/error+status/save interleaving1790789920834, shallow Resume1790789927794, Resume lost reply1790789930424, Git create/switch1790789955603, create resume1790789962362, create forget1790789969128 (artifacts/playwright). Normal workspace writes, explicit recovery and Git transition writes remained functional.
+- Public git_remote_fetch now prepares v3 CandidateInput, creates/flushed JournalCreationInput, and invokes the validated RecoveryInput writer under GitState+StorageState after network/binding revalidation. Network remains outside locks. On error journal/stage evidence is retained; only acknowledged successful writer returns to normal stage cleanup.
+- New native admission requires saved nativeFetchIntent matching operation/workspace/repository/URL/branch/depth before starting a new fetch. Recognized legacy v1/v2 intents remain usable for full-history operations. Already-current same-operation receipts reconcile by exact branch/depth without new network.
+- WorkerInput factory carries bounded depth; public Fetch accepts positive depth<i32::MAX or null for complete history. UI adds optional number input, locks/restores it with pending intent, persists v3 intent before submission and passes depth through JavaScript client.
+- Legacy v1/v2 reader/client compatibility remains. Old publisher and scope-only wrapper retained solely for migration compatibility fixtures with explicit dead_code rationale; production uses journaled v3.
+- Official docs consulted: https://docs.rs/git2/latest/git2/struct.FetchOptions.html#method.depth , https://v2.tauri.app/develop/calling-rust/ , https://git-scm.com/docs/pack-format , https://git-scm.com/docs/pack-protocol .
+- Verification: Cargo fmt/check/clippy -Dwarnings pass after marking retained legacy fixture helpers; Bun check0 with0 errors/warnings and Bun build0 after adding missing string[] JSDoc in the new saved UI scenario. Existing Vite large-chunk warning remains; generated npm suggestion was not executed.
+- Native current-source intent/depth admission18 new checks plus237 candidate/journal regressions passed (artifacts/git-fetch-intent-admission-check/full-pack-state.json compile0/run0). Client45 depth/recovery/attempt checks and28 legacy/scope checks passed via Bun stdin. These do not yet prove the new public native command path end-to-end.
+- Updated saved direct Fetch fixtures to persist intent and assert missing-intent rejection before network; scope expectations now v3. Added tests/ui/git-fetch-depth.js for real loopback shallow pack, selected vs retained history, lost reply/depth reconciliation, invalid depth, and later full expansion. Extended shared pack fixture with tip-only shallow option (3 objects vs5 full, same tip, shallow capability).
+- Known scope limit: controlled shallow protocol fixture uses existing libgit2-compatible packet framing. Real-provider LF/interoperability is still an outstanding parity gate, not established by this fixture.
+- New isolated build RUNNING: artifacts/native-journaled-fetch-ui-probe/{build-state.json,build.log}; node_repl handle nativeJournaledFetchBuild, supervisor PID28120. Product source must remain stable while compiling. The new depth script defaults here; run older scripts with INSOMNIUM_UI_BUILD_STATE set to this path.
+- NEXT poll same build handle, then run saved git-fetch.js, git-fetch-scope.js, git-fetch-depth.js, cleanup/retirement race as appropriate and journal recovery/resume regression on the new public path. Diagnose concrete failures, keep all parity scope. Full migration/installer/platform/new UX remain incomplete/deferred as before.
+
+
+## Atomic workspace write protection for pending Fetch — 2026-10-01
+
+- After successful recovery UI acceptance, implemented shared git_fetch_journal::protect_workspace_bindings and invoked it from storage::write_workspace_file. This covers normal Session save and Git transition recovery writer.
+- save_workspace now holds GitState before StorageState through authoritative old-workspace read, bounded native repository scan, comparison and atomic write. Existing Git transition/load callers already hold this order; no renderer preflight is trusted as the write fence.
+- Journal presence, including malformed/partial contents, protects exact saved binding (including intent) and eligible owning collection. Binding deletion/reparent/settings/intent changes, duplicated bindings, collection removal/privacy changes are refused. Unrelated request edits and collection rename remain allowed. Journal removal after successful recovery allows intent acknowledgment again.
+- Root scan bounded1024, native managed IDs and plain ancestry validated; unknown/inaccessible root paths refuse save. No journal parse needed to preserve uncertain publication evidence. No journal/stage deletion or automatic recovery.
+- Official docs consulted before implementation: https://doc.rust-lang.org/std/sync/struct.Mutex.html and https://v2.tauri.app/develop/state-management/ .
+- cargo fmt/check/clippy -Dwarnings all pass. Current-source Bun-stdin/Rust probe artifacts/git-workspace-fetch-fence-check/full-pack-state.json compile0/run0:19 new binding/write cases +54 journal/status +195 candidate/v3 regressions =268. Includes actual write_workspace_file unchanged-byte refusal, unrelated save, malformed journal guard and post-retirement save.
+- Current-source journal/lease regression artifacts/git-stage-recovery-check/full-pack-state.json compile0/run0:282 checks.
+- Extended saved tests/ui/git-fetch-journal-recovery.js with status-null -> journal-created -> native-save interleaving, unrelated request save/restore and partial journal intent protection. Native/UI fence cases have NOT been run on new code yet.
+- New isolated native build RUNNING at artifacts/native-fetch-workspace-fence-ui-probe/{build-state.json,build.log}; node_repl handle nativeWorkspaceFenceBuild, supervisor PID34636. Both saved journal scripts default to this build.
+- NEXT poll same build handle, then run both saved journal scripts and selected workspace/Git transition regression as appropriate. Once accepted, wire public Fetch to v3 Candidate -> Journal -> Recovery writer, expose bounded depth and persist v3 operation intent. Full migration/installer/platform parity remains incomplete.
+
+
+## Successful native/UI shallow Resume and lost reply accepted — 2026-10-01
+
+- Attempt-fix build completed exit0: artifacts/native-fetch-recovery-attempt-ui-probe/build-state.json. Same retained supervisor38240 reached terminal state; no restart.
+- Saved Playwright scripts passed: git-fetch-journal-recovery-1790789331865; git-fetch-resume-success-1790789338588; git-fetch-resume-lost-reply-1790789341332 under artifacts/playwright.
+- Actual native/UI writer accepts the v3 depth1 fixture, rejects changed branch/depth, rejects durable UUID as attempt ID and pre-cancelled attempt, then resumes same operation using fresh attempt. Imports staged tree/blob/commit, publishes exact snapshot and shallow boundary, retires journal/owned lock, preserves local HEAD/resources and retains stage.
+- Success acknowledgment clears matching durable intent. Controlled lost native success reply preserves intent; reload + Inspect confirms exact depth1 receipt and clears it without replay/download. Wrong depth does not confirm. Both completed repositories pass actual git fsck --full; network counter remains0. Reload changes restores local commit controls.
+- Fixture scope: saved tests prepare a bare staging candidate and journal with documented Git plumbing; this proves real explicit native writer/UI flow, not live public Fetch journal creation or a new process/power-loss crash. Prior standalone process termination evidence remains separate.
+- NEXT implement atomic pending-journal binding/intent protection across workspace writes before public journaled/depth Fetch. Full parity/installer/platform goal remains incomplete.
+
+
+## Journal recovery UI accepted; same-operation retry bug fixed — 2026-10-01
+
+- Previous goal turn made progress (panel visibility fix and saved scenarios). Revalidated current STATUS/PLAN/PARITY and retained nativeRecoveryPanelBuild handle until terminal exit0; build completed in315s at artifacts/native-fetch-recovery-panel-ui-probe/build-state.json.
+- Saved tests/ui/git-fetch-journal-recovery.js passed on real native build: status/operation/binding validation, blocked normal admission, retirement guard before Inspect, visible explicit Resume, missing candidate refusal and unchanged evidence, malformed journal retention. Also asserts local commit/switch/setup controls absent during pending recovery. Evidence artifacts/playwright/git-fetch-journal-recovery-1790788741255/{acceptance,result}.json; app PID12428 exited0, no live UI app from this scenario.
+- Successful Resume fixture initially used repository/.git instead of native bare repository/objects; corrected only saved scenario. First failure evidence git-fetch-resume-success-1790788747988.
+- Next attempt exposed a product retry bug: RemoteJobState reserves one-shot request IDs for60s, so using durable operation ID as cancellation/job identity prevented same-session recovery retries after a scope rejection. Evidence git-fetch-resume-success-1790788775201.
+- Fix: RecoveryRequest now requires a fresh canonical attemptId distinct from fetch.requestId (durable operation). Client generates each attempt ID, submits {fetch,depth,attemptId}, and routes cancellation to that attempt only. Native reserves attemptId; journal/endpoint/branch/depth/receipt continue matching the durable operation. Kept original remote registry tombstones and duplicate protection unchanged.
+- Saved Resume scenario now supplies fresh IDs for deliberate wrong-branch/depth invocations, then uses UI Resume for the same persisted operation. Added post-success Reload changes assertion to verify normal local Git opens again.
+- Cargo fmt/check/clippy -Dwarnings pass. Bun check0 (no errors/warnings) and Bun build0. Client Bun-stdin probe now44 passing assertions including distinct same-operation attempt identities and cancellation isolated to first attempt: artifacts/git-recovery-status-check/client-v3-state.json. This is injected client evidence, not native success/retry acceptance yet.
+- New attempt-fix native build RUNNING: artifacts/native-fetch-recovery-attempt-ui-probe/{build-state.json,build.log}; node_repl handle nativeRecoveryAttemptBuild, supervisor PID38240. Both saved journal scripts default to this build. Keep source stable and do not restart live build.
+- NEXT poll this same build to completion, run Bun tests/ui/git-fetch-journal-recovery.js and Bun tests/ui/git-fetch-journal-resume.js. Success/lost-reply Resume acceptance is still pending; preserve original scope. After that implement atomic pending-journal binding/intent fence across workspace writes (save_workspace currently StorageState-only; git_journal also writes workspace), then public journaled/depth Fetch/v3 intent creation. Other full PARITY/installer/platform work remains pending.
+
+
+## Recovery panel visibility fix; six native UI regressions passed — 2026-10-01
+
+- Previous goal turn made progress (v3 client/workspace flow and ACL fix). Revalidated retained build handle and current STATUS/PLAN/PARITY.
+- Corrected ACL build artifacts/native-fetch-recovery-acl-ui-probe finished exit0. Saved recovery error scenario advanced past native status/mismatched-operation/binding/admission assertions, then failed UI lookup: Remote panel was hidden when git_repository_info refused a pending journal. Evidence artifacts/playwright/git-fetch-journal-recovery-1790788281927/failure.txt. Owned fixture journal/stage removed in scenario finally; test app closed.
+- Root cause: GitPanel rendered GitRemotePanel only inside a successfully opened local Git session, while journal recovery deliberately blocks normal open.
+- Consulted https://svelte.dev/docs/svelte/if; GitPanel now retains a recovery Remote panel when a saved fetch intent existed at load and normal open failed. Setup action is hidden in this state; local branch/commit controls stay unavailable. The fallback stays mounted through acknowledgment so completion notice remains visible; Reload changes reopens normal local session.
+- Bun check0 (no warnings/errors), Bun build0 after fix. Vite existing large-chunk warning remains.
+- Six saved Playwright scenarios passed on ACL build (predates only the panel visibility fix): git-fetch-1790788388720, git-fetch-restart-1790788391491, git-fetch-scope-1790788397387, git-fetch-lost-reply-1790788405200, git-fetch-retire-save-failure-1790788406775, git-fetch-retire-save-lost-reply-1790788408112. Evidence under artifacts/playwright; three scripts exited0.
+- Added tests/ui/git-fetch-journal-resume.js: real shallow v3 candidate objects via documented Git init/hash-object/mktree/commit-tree commands; exact branch/depth refusal, UI Resume writer, journal retirement, same-operation lost reply/reload reconciliation, unchanged HEAD/resources, zero network, fsck. NOT RUN YET. Fixture journal is prepared directly; it does not claim a live public-Fetch crash.
+- Docs consulted for fixture commands: https://git-scm.com/docs/git-init , https://git-scm.com/docs/git-hash-object , https://git-scm.com/docs/git-mktree , https://git-scm.com/docs/git-commit-tree . Commands use direct hidden Git processes orchestrated by Bun; no Node executable/shell/browser-use.
+- Fresh panel-fix native build RUNNING: artifacts/native-fetch-recovery-panel-ui-probe/{build-state.json,build.log}; retained node_repl handle nativeRecoveryPanelBuild, supervisor PID16668. Both new saved scenarios default to this build. Do not restart while handle live.
+- NEXT poll same build then run Bun tests/ui/git-fetch-journal-recovery.js and Bun tests/ui/git-fetch-journal-resume.js. Inspect concrete failures; complete native UI acceptance. Before public journaled Fetch, storage.rs save_workspace needs an atomic pending-journal/binding-intent fence under GitState then StorageState (currently save takes only StorageState). Frontend retirement status check alone cannot fence a journal created between observation and save.
+- Public journaled/depth fetch, durable v3 intent creation, other full PARITY/installer/platform requirements remain incomplete. Deferred shared inputs/new UX remain after full original goal.
+
+
+## Native recovery UI acceptance found missing ACL; fixed and rebuilding — 2026-10-01
+
+- Initial isolated native recovery build finished exit0 in311s: artifacts/native-fetch-recovery-ui-probe/build-state.json. Supervisor11028 is terminal. This build is NOT accepted: new command calls were denied by ACL.
+- Saved Playwright tests/ui/git-fetch-journal-recovery.js failed at its first no-journal status call: "Command git_remote_fetch_recovery_status not allowed by ACL". Evidence artifacts/playwright/git-fetch-journal-recovery-1790787878730. No journal/stage fixture had been created yet. The helper closed the owned test app.
+- Root cause: lib.rs registration was added but custom commands were absent from build.rs AppManifest command generator and main-window capabilities/default.json.
+- Consulted https://v2.tauri.app/security/permissions/; added only git_remote_fetch_recovery_status and git_remote_fetch_recover to generator and their allow permissions to existing main-window capability. Cargo check generated permission TOMLs; no handcrafted generated permission files. cargo fmt/check/clippy -Dwarnings all exit0 after fix.
+- New build RUNNING in artifacts/native-fetch-recovery-acl-ui-probe/{build-state.json,build.log}; retained node_repl child handle nativeRecoveryAclBuild, supervisor PID30684. Previous failed-ACL executable remains preserved separately. Product frontend is unchanged from successful Bun build/check.
+- New saved scenario defaults to ACL-corrected build. NEXT verify nativeRecoveryAclBuild exit/result and build-state; once finished exit0 run Bun tests/ui/git-fetch-journal-recovery.js, then existing Fetch/scope/recovery-errors scripts with INSOMNIUM_UI_BUILD_STATE=artifacts/native-fetch-recovery-acl-ui-probe/build-state.json. Use saved Playwright only, no browser-use.
+- UI/native acceptance remains unproven until rerun. Successful full journal Resume UI, atomic retirement integration before journaled public Fetch, public depth/v3 intent and full migration parity remain pending.
+
+
+## Frontend v3 receipt and explicit recovery flow — 2026-09-30
+
+- Previous goal turn made progress (native recovery/status commands). Read current STATUS/PLAN/PARITY and consulted https://v2.tauri.app/develop/calling-rust/ before client integration.
+- Added bounded JavaScript v3 receipt validation: exact branch history coverage, requested/updated depth agreement, sorted unique nonzero boundaries, per-history/aggregate limits, legacy metadata rejection. Added normalizeFetchDepth with the same positive <i32::MAX bound as native.
+- Client recoveryStatus is metadata-only/read-only; recoverFetch uses the exact saved UUID/branch/depth, drains original IPC, forwards cancellation, and accepts a committed receipt even after view cancellation. Public Fetch depth remains disabled.
+- Native FetchRequest supports depth for read-only inspect matching; native public Fetch still rejects finite depth. Recovery validates depth bound and rejects ambiguous nested depth.
+- Workspace inspection supports v3 intent and queries journal status first; explicit Resume reuses saved identity, validates receipt, and clears only matching intent after acknowledgment. No automatic resume. Existing v1/v2 intent creation remains unchanged until public journaled/depth fetch is wired.
+- Insomnium Git panel now exposes Resume after observing pending publication. Stop tracking queries journal status and refuses a recognized pending publication, retaining operation intent. The future public journal writer still needs atomic storage-retirement integration review: this frontend observation alone is not an inter-command transaction fence.
+- Passed Bun run check (0 errors/warnings), Bun run build, cargo fmt/check/clippy -Dwarnings. Vite reports existing >500kB bundle warning; its printed npm preview suggestion was not executed.
+- Client probes via Bun stdin:38 new v3/recovery/cancellation checks (artifacts/git-recovery-status-check/client-v3-state.json) and28 branch regression checks. Injected IPC evidence only.
+- Added saved Playwright tests/ui/git-fetch-journal-recovery.js: native status/error retention, mismatched operation/binding, normal admission refusal, retire guard, explicit Resume error and malformed journal. Synthetic incomplete candidate; does not prove successful UI recovery.
+- Native isolated build IN PROGRESS: artifacts/native-fetch-recovery-ui-probe/build-state.json and build.log; supervisor PID11028 verified live via retained child handle. Do not restart on observation timeout. BeforeBuild frontend output was built this turn. Product source must stay stable until the build settles.
+- NEXT verify the same build process to completion, run new saved scenario and existing Fetch/scope/recovery-errors scenarios with INSOMNIUM_UI_BUILD_STATE pointing to that build. Then add successful journal resume UI acceptance, wire public journaled/depth Fetch and durable v3 intent creation. Full migration/installer/platform parity remains incomplete.
+
+
+## Explicit native recovery/status commands — 2026-09-30
+
+- Previous goal turn was no progress for migration (confirmed already-recorded deferred UX scope). Revalidated current source and continued the next native integration step.
+- Consulted https://v2.tauri.app/develop/calling-rust/ before implementing Tauri commands/registration.
+- Added git_remote_fetch_recovery_status: loaded storage + pending-storage-transition fence, exact saved workspace/binding validation, native-managed repository/ODB isolation, endpoint+operation journal identity and observable ref/shallow state. Read-only metadata observation: does not acquire stage lease, validate candidate recoverability or perform writes.
+- Added git_remote_fetch_recover: explicit request with {fetch: existing FetchRequest, depth: positive integer or null}. Reserves cancellable operation, holds GitState then StorageState through admission/validation/writer, reacquires exact journal stage exclusively, validates complete recovery plan plus endpoint/UUID/branch/depth before transition. No journal: only reconciles a currently published matching snapshot. Successful recovery preserves staging for acknowledgment/explicit cleanup.
+- Factored identity-only open_managed_for_recovery; normal open_managed and normal fetch destination still call ensure_ready and reject pending journals. Recovery opener retains bounded preflight, no search, native path/worktree identity; command destination retains recursive plain-file and alternate/shared-storage rejection.
+- Registered both commands in lib.rs. No renderer-supplied filesystem path, automatic recovery or startup cleanup.
+- Verification: cargo fmt --manifest-path src-tauri/Cargo.toml; cargo check --manifest-path src-tauri/Cargo.toml; cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings all exit0.
+- Current-source Bun-stdin/Rust probe artifacts/git-recovery-status-check/full-pack-state.json compile0/run0: 54 journal/status checks (12 new) +195 candidate/v3/transport regressions =249. Checks cover absent journal, matching metadata, wrong operation/endpoint, malformed journal, unchanged bytes/HEAD/refs, normal admission refusal and recovery opener identity/preflight.
+- Current-source artifacts/git-stage-recovery-check/full-pack-state.json compile0/run0:282 admission/lease/cleanup/graph regressions.
+- Limits: command wrappers compiled but have not yet been invoked through a new native app/UI build. Status reports metadata only; it does not prove branch/depth or candidate graph until explicit recover validates them. Saved-binding/command cancellation/error surfaces still need saved Playwright coverage.
+- NEXT connect v3 frontend receipt/intent and explicit recovery UI, exercise native commands through a fresh isolated build and saved Playwright scenarios; then wire journaled public Fetch/depth path. Public Fetch still uses old publisher. Remaining fault windows/platform/installer/full PARITY remain incomplete. Deferred inputs/new UX still follow full original migration completion.
+
+
+## Independent writer process termination/restart accepted — 2026-09-30
+
+- Previous goal turn made progress: actual prepared/import/ref/final/retirement writer. Read current STATUS/PLAN/PARITY and official Rust Child kill/wait docs; this turn verified actual independent-process interruption without production fault/pause hooks or source changes.
+- Built current-source standalone native probe with a real16MiB deterministic binary tree and actual canonical owned stage/journal. Child acquired the journal stage lease, reported readiness and entered the real FetchSnapshot recovery writer. Parent confirmed live process handle/lease refusal, observed the targeted repository state, killed the child, waited for non-success exit, then started a separate process against the same journal/stage.
+- Prepared-before-publication case: killed PID11068 exit1 only after prepared shallow image was observed and while still live; ref remained absent, journal bytes unchanged, owned shallow lock/stage retained and normal admission blocked. Restart PID24452 exit0 committed the same snapshot80339d1f5c89c69abf71066e6375dde4af3e37e8 and retired journal/lock without changing HEAD.
+- After-ref-publication case: killed PID5692 exit1 after observing the intended ref while child was live; journal/owned lock/stage remained. Restart PID27532 exit0 finalized the same snapshotfa21b1639b9d53dca3399da9248b402e46bca50a and retired journal/lock, preserving HEAD and final shallow bytes.
+- Each case passed20 new assertions plus195 preceding candidate/v3/native checks. Evidence: artifacts/git-writer-crash-check/{full-pack-state,crash-acceptance}.json and artifacts/git-writer-published-crash-check/{full-pack-state,crash-acceptance}.json. Both compile0/run0. crash-acceptance records exact fixture path, operation UUID, child PIDs/exits and resumed stdout/stderr.
+- Ran real git fsck --full after each restarted writer completed: both exit0 with empty stdout/stderr, captured in crash-acceptance.json. Both killed handles were waited, both restart handles observed exited; no writer process remains active.
+- No product changes, new native app build, saved non-UI scripts, browser-use or new UI acceptance this turn. Rust core uses the previously passing fmt/check/clippy source; these probes compiled the current files.
+- Scope of proof: Windows process termination at observed prepared/pre-ref and published-ref boundaries, same-operation resumption and final graph integrity. This is not power loss, OS storage failure, exact mid-ref-transaction lock interruption, interrupted readonly restoration, partial journal/lock marker writes, retirement fault windows, or Unix/platform acceptance.
+- NEXT wire explicit native journal recovery and status to validated saved binding/operation identity, preserving admission/fencing; handle/report stale unknown ref locks and malformed/partial journal evidence without unsafe deletion. Complete remaining fault windows and saved Playwright native/UI acceptance before exposing depth/relative operation/intent/v3 receipt flows.
+- Full original migration/installer/platform parity remains incomplete. Shared inputs/new UX remain deferred until that goal is complete.
+
+## Actual journaled transition/resume writer verified — 2026-09-30
+
+- Previous goal turn made progress: journal-bound graph validation. Read current STATUS/PLAN/PARITY and existing ref/storage code; consulted AtomicWriteFile, Git transaction/rename and refdb compression docs before implementing writes.
+- Added RecoveryInput -> FetchSnapshot transition: fresh journal-bound validation; owned shallow.lock reservation/reacquisition; atomic prepared shallow image via AtomicWriteFile; planned object import with hash/content checks and owned-file flush; destination-only graph verification; exactly one expected-OID locked snapshot ref transaction; ref/reflog flush; atomic final shallow image; final validation; owned lock release; journal retirement. Local HEAD/workspace remain unchanged; staging remains for acknowledgment/explicit cleanup.
+- Shallow lock marker binds operation UUID and exact stage owner; OS exclusive file lock excludes active users. Unowned/malformed locks refuse writes. Errors retain the recognizable lock without Drop deletion, allowing a later run holding the stage lease to resume. A partial ownership-marker write remains blocked/retained, not guessed.
+- Imported existing objects must match planned bytes; new loose objects are flushed, with directory sync on Unix. Ref finalization supports either loose or packed snapshot refs and syncs ref/reflog parent chains on Unix. Cancellation before ref commit retains pending recovery; once ref commits, finalization uses a non-cancelled view for that same operation.
+- Shared sync_owned_file retains Windows readonly restore behavior and is located with native core helpers. Atomic-write-file is already a dependency; native stdin probe linkage now includes it. No package/runtime changes or saved non-UI test scripts.
+- Cargo fmt/check/clippy -- -D warnings passed. Actual transition/resume22 checks +42 creation+195 earlier checks passed (259): artifacts/git-transition-check/full-pack-state.json. Published packed-ref finalization10 +15 retained recovery+195 passed (220): artifacts/git-published-finalize-check/full-pack-state.json. Current-source stage-recovery282 regression rerun.
+- Actual import failure was induced by a directory at the last planned loose-object path. Writer had already installed prepared metadata and imported earlier objects, then failed with original journal/ref and owned lock retained. Removing only the disposable obstruction allowed retry to complete import/ref/final/retirement, preserving HEAD and staging. Also checked cancellation, unowned and live lock refusal, idle owned-lock reacquisition, admission after completion and no duplicate recovery without journal.
+- Already-published fixture used libgit2 refdb_compress so snapshot ref existed only in packed-refs, then invoked the actual writer to finalize/retire while retaining local full history and HEAD. Both completed fixtures passed real git fsck --full (exit0), evidence fsck-state.json in their artifact directories; retained fixture reports one valid dangling old snapshot, not missing/corrupt objects.
+- Initial compile needed String conversion for one error. Native harness initially omitted the helper because it extracts core before first Tauri command; moved helper into that existing core section, then all transition checks passed. Ref/reflog Unix parent-chain sync subsequently added; Windows compiler/lint and journal/lease regression passed.
+- NOT yet accepted: real process termination during these transitions, power loss/disk faults, interrupted readonly/lock-marker/journal reservation writes, Unix/platform durability, native app UI/IPC. Writer remains private; no native build or public recovery/depth UI enabled.
+- NEXT exercise independent-process stop/restart of actual writer and known stale lock/partial-journal outcomes; then expose explicit native recovery with expected saved binding/operation checks, v3 receipt/intent/depth/relative UI and saved Playwright scenarios. Maintain recovery/metadata integrity under failures before enabling public shallow publication.
+- Full original migration/installer/platform parity remains incomplete; deferred components/new UX unchanged.
+
+## Journal-bound recovery graph validation verified — 2026-09-30
+
+- Previous goal turn made progress: exclusive journal creation/recovery-file flush. Read current STATUS/PLAN/PARITY and journal/root source; consulted official git2 raw ODB/transaction and Git shallow docs before implementing recovery validation.
+- Added RecoveryInput -> PublicationPlan conversion. Requires validated native managed identity and exact journal-bound stage name/owner held under GitState and a settled creator lease or restarted exclusive recovery lease. Reads exact journal/state/shallow bytes and immutable staged candidate; checks operation identity.
+- SnapshotManifest now validates only updated branches against raw staging first, so destination objects cannot mask absent fetched data while unselected full histories may legitimately live only in destination. Full candidate history validation then runs over the combined read-only store.
+- Refactored RetainedRoots into a shared reader with an explicit object source. Normal-state inventory still uses destination only and rejects missing boundary objects. Recovery inventory may validate prepared-but-not-imported boundaries through the verified combined store.
+- Recovery graph includes retained roots, candidate, old boundary roots, and expected previous immutable snapshot even after ref publication without a reflog. Authorized cuts are old cuts plus verified fetched cuts. Requires computed final cuts and exact old-union-final prepared set to agree with journal, then rereads journal bytes/state/shallow, root inventory and ownership.
+- After snapshot publication, destination alone must satisfy immutable snapshot/history and final physical graph; staging cannot hide missing imported objects. Before publication, partial import is accepted only when verified staging completes the planned graph. No writes occur during recovery validation. Journal creation now invokes this validator after writing/readback.
+- Extracted shared managed identity and read-only stage recovery_identity helpers; flush still rechecks that identity. Stage/lease/schema behavior retained.
+- Cargo fmt/check/clippy -- -D warnings passed. New state probe30 +journal creation42 +preceding195 checks passed (267): artifacts/git-recovery-plan-check/full-pack-state.json. Separate retained-snapshot recovery15 +195 passed (210): artifacts/git-retained-recovery-check/full-pack-state.json. Also reran normal roots246 and stage-recovery282 against current source (486 unique assertions across these four overlapping suites).
+- New45 cases cover old/prepared metadata before objects exist, partial snapshot-only import, premature ref publication refusal, complete published/final state, actual missing loose destination blob with fresh repository open, altered operation/final/prepared metadata, cancellation/owner changes, unchanged evidence, selected fetch with retained full history absent from staging, preservation of expected old snapshot without reflog, and missing/invalid old snapshot refusal.
+- One source-edit anchor did not match rustfmt output after the snapshot helper had already been written; corrected only the remaining extraction. Separate retained fixture initially held an ODB temporary too briefly; bound the handle and reran. No saved non-UI test scripts or test-only production behavior added.
+- These are deliberately constructed real-object repository states, not process-crash or real transition-writer acceptance. Partial/malformed journal remains retained and blocks recovery rather than being guessed from. No public recovery command/automatic opening behavior changed; no native build launched.
+- NEXT implement transition writer using fresh journal-bound validation before each step: atomic prepared shallow replacement, planned object import+flush, destination verification, one expected-ref transaction, final shallow replacement and journal retirement. Keep stage/journal on ambiguous errors and add process-stop/disk-fault acceptance before public depth/relative/intent/v3 receipt/UI integration.
+- Full original migration/installer/platform parity remains incomplete; shared inputs/new UX remain deferred.
+
+## Exclusive journal creation and recovery-file flush verified — 2026-09-30
+
+- Previous goal turn made progress: combined publication plan implementation and verification. Read current STATUS/PLAN/PARITY, native ownership/managed-path/storage dependencies, and official Rust/File/OpenOptions/Windows flush/permissions docs before writing.
+- StageReservation::sync_recovery_material validates canonical native app-data stage identity/owner, rejects object alternates and linked/special files, bounds traversal to1.1m entries/8GiB, flushes existing recovery files with sync_all, rechecks lengths/owner/cancellation, and syncs directory hierarchy on Unix. No file contents are written by this helper.
+- Windows libgit2 packs/indexes are readonly. Initial real probe failed opening them for flush. Inspected actual fixture modes100444 and corrected Windows-only handling: clear readonly solely to open a write-capable handle, restore original attribute immediately even if open fails, then sync using the held handle. Unix opens files read-only and never clears permissions. A narrowly scoped expect for clippy permissions_set_readonly_false documents this Windows-only semantic; ACLs unchanged. Process death during the brief attribute window remains untested.
+- Added JournalCreationInput/TryFrom for native Journal. Requires native managed worktree/app-data identity and held GitState/settled worker lease; computes plan, flushes owned stage, recomputes/compares plan, validates bounded schema/state and atomically reserves FILE with create_new. Writes/syncs bounded JSON, uses FILE_FLAG_WRITE_THROUGH on Windows, syncs repository directory on Unix, then rereads exact journal bytes and before-publication state.
+- Existing journals are never overwritten. Cancellation is honored before reservation; after reservation the intent is retained, including partial/failed writes. Malformed journal admission/cleanup fail closed so staging is not silently collected. This is exclusive file creation, NOT atomic all-or-nothing JSON visibility; no import/ref/shallow write occurs in this constructor.
+- Cargo fmt/check/clippy -- -D warnings passed. New native journal-creation probe42 assertions +195 preceding checks passed (237 total): artifacts/git-journal-creation-check/full-pack-state.json. Reran current-source stage-recovery282 assertions at artifacts/git-stage-recovery-check/full-pack-state.json. These two suites cover398 unique assertions; earlier combined-plan29/root43 evidence remains at its preceding checkpoints.
+- New evidence uses an actual newly created journal (not only synthetic fixtures), native managed destination and canonical copied owned stage. Verifies cancel/wrong app/owner/preexisting incomplete journal refusal, unchanged destination ODB/HEAD/refs/shallow, exact binding/JSON/state, cleanup retention, duplicate-create refusal, active-lease refusal, release then journal-bound exclusive reacquisition with readable candidate, malformed-journal retention, and pack bytes/readonly restoration after actual Windows sharing-denied open and successful flush.
+- Constructor remains private/unwired to public Fetch/UI. No native app build launched. Unix directory sync branch has not run on this Windows host. Successful API flush/readback is not power-loss, disk-fault, directory-entry persistence or cross-platform durability acceptance.
+- NEXT implement journal-bound combined recovery validation for old/prepared/partially imported states, then atomic prepared shallow write, planned import+flush, one expected-ref transaction, final metadata and journal retirement. Preserve stage/journal on uncertainty. Add process-stop/disk-fault acceptance and public depth/relative request/intent/v3 receipt/UI only when recovery is complete.
+- Full migration/installer/platform parity still incomplete. Deferred shared UI inputs/new UX unchanged.
+
+## Combined candidate/destination publication plan verified — 2026-09-30
+
+- Previous goal turn made progress: retained-root inventory and typed graph implementation/verification. Read current STATUS/PLAN/PARITY and candidate/stage APIs, then consulted official Git shallow and git2 ODB documentation before this implementation.
+- Extracted prepare_history_view so candidate construction and publication planning reconstruct the same verified manifest from supervisor-owned request, staged fetched graph and previous retained histories. Candidate success now requires combined publication planning after disk readback.
+- Added native-only PublicationInput/PublicationPlan. The plan independently validates existing destination roots/objects, validates stage data before adding the destination alternate, reads the immutable candidate and requires exact expected v3 manifest identity, then plans the combined typed graph over retained roots plus candidate.
+- Authorized physical cut candidates are old physical cuts plus verified fetched boundaries. Output contains sorted unique object IDs, expected snapshot, exact old shallow image (including absent/empty/CRLF), prepared image (old union final cuts) and final effective cuts. Images pass the journal's shared boundary parser/limits. Rechecks retained inventory, expected ref, stage ownership, pending-journal admission and cancellation.
+- Planning does not write destination objects/refs/HEAD/workspace/shallow/journal. PublicationPlan is internal data, not a persisted journal or permission to publish. Object IDs are canonical strings for eventual native import/journal use; no renderer command exposes this plan.
+- Cargo fmt/check/clippy -- -D warnings passed. New publication probe29 assertions +195 preceding candidate/v3/native assertions passed (224 total): artifacts/git-publication-plan-check/full-pack-state.json. Separately reran retained roots246 and stage recovery282 against current sources;428 unique assertions across the overlapping suites.
+- New evidence covers complete local ancestry avoiding an unnecessary physical cut despite a requested shallow view; empty destination requiring a real cut; old CRLF boundary retained in prepared metadata and removed only in final plan when staging supplies ancestry; exact sorted object plan; stale ref/operation/candidate/cancel refusal; independent old-repository validation rejecting unauthorized missing ancestry even when staging could supply it; pending malformed journal retention; unchanged destination ODB/HEAD/shallow/no journal writes.
+- Initial helper extraction held an ODB borrow while returning Repository; explicitly released the handle. Clippy exposed unused plan until candidate completion was wired through it. Candidate probe needed current journal/native managed-path modules after that dependency; harness updated without saved non-UI test files.
+- NEXT implement durable stage/candidate ordering and exclusive bounded journal creation under GitState using this exact plan; then prepared/import/ref/final transitions and explicit recovery. New-publication planning intentionally rejects pending journals; recovery needs a separate journal-bound path validating prepared/partially imported states against retained staging, not blind reuse of normal-state admission.
+- No native app build launched; last accepted UI binary predates these changes. Public depth/relative transport/intent/v3 receipt/UI and whole original migration/installer/platform parity remain incomplete. Shared input components/new UX stay deferred.
+
+## Retained-root inventory and typed physical graph verified — 2026-09-30
+
+- Previous goal turn made progress: current-source candidate/regression verification and durable checkpoint. This turn implemented the next native prerequisite in git_fetch_journal.rs and git_remote.rs after reading STATUS/PLAN/PARITY and official Repository/Reflog/repository-layout documentation.
+- RetainedRoots inventories loose/packed refs, resolved or unborn/detached HEAD, both old/new nonzero reflog IDs including orphaned log files, known pseudorefs (ORIG_HEAD/FETCH_HEAD/MERGE_HEAD/REBASE_HEAD/CHERRY_PICK_HEAD/REVERT_HEAD/AUTO_MERGE), and existing shallow boundaries as roots. Preserves exact old shallow bytes including absent vs empty and CRLF.
+- Bounds plain filesystem scanning before libgit2 reads refs/logs:100000 entries/refs,32MiB per reflog/packed-refs,128MiB scanned refs/logs,1m log entries/unique roots; reject links/special files, malformed refs/log records, pending ref lock names, invalid pseudorefs and noncommit/missing shallow roots. Checks cancellation throughout. Linked/shared worktrees and detected reftable are explicitly refused, not silently partially inventoried; native managed repos currently use single-worktree files storage.
+- New typed repository graph input validates annotated/nested tag targets and direct tree/blob roots, as well as commits, with existing content-hash/type/size/tree checks. Existing fetched-branch APIs remain commit-only. A read-only retained-graph conversion opens raw ODB view (no implicit shallow traversal), computes effective cuts and repeats the inventory to detect root changes. Caller still must hold GitState.
+- Cargo fmt/check/clippy -- -D warnings passed. New native probe43 assertions +203 prior checks passed at artifacts/git-retained-roots-check/full-pack-state.json. Reran candidate195 and stage-recovery282 against current sources, both compile0/run0;399 unique assertions across the three overlapping suites.
+- New evidence covers empty/unborn repo, local ancestry, deleted-ref orphan reflog old/new IDs, annotated/nested blob tags, direct tree/blob roots, packed-only commit, pseudoref-only commit, detached HEAD, dangling shallow root/exact old bytes, unauthorized missing ancestor, malformed/locked refs, malformed reflog/FETCH_HEAD, reftable refusal, oversized packed-refs and invalid/missing boundary objects. No mutation of HEAD or shallow from inventory/planning.
+- Initial compile needed explicit atomic type paths and git2 0.21 symbolic_target Result handling; fixed. Clippy caught unconstructed inventory until wired into retained-graph conversion. Temporary probe first needed crate-qualified module call; corrected and all checks rerun. No saved non-UI test scripts added.
+- This is private inventory/graph infrastructure, not public tag-fetch parity or journal publication. Stage+destination final plan integration, durable candidate/stage ordering, exclusive journal writer and recovery transitions remain next. Missing shallow objects during an incomplete publication must be handled through the journal recovery plan, not this normal-state inventory alone.
+- NEXT combine validated candidate/stage with retained destination inventory and authorized cut union, preserving exact old bytes for journal; persist recovery material and implement prepared/import/ref/final transition under GitState. Then native/public depth/relative request, durable intent, JS v3 receipt and saved Playwright acceptance.
+- No native app build launched. Latest accepted UI binary predates these private changes. Full original migration/production installer remain incomplete; reusable UI/new UX still deferred.
+
+## Staged v3 candidate verified — 2026-09-30
+
+- Previous turn only confirmed already-recorded deferred UX scope: no migration progress. This continuation revalidated current candidate sources, reran both native suites, and completed this durable checkpoint.
+- CandidateInput/TryFrom now prepares immutable v3 snapshots in the leased stage. Fetched graph is validated before adding any destination alternate, then branch-specific boundary views are projected and previous unselected histories preserved (legacy v1/v2 histories normalize to full).
+- StageReservation::object_repository centralizes bounded plain-object-tree validation and raw ODB opening; importer reuses it. Stage config/refs are not opened. Destination objects are only a read-only in-memory alternate for retained histories.
+- Candidate blob/tree/commit writes use git2 mempack, then Indexer writes pack/index only under staging. A fresh raw ODB reads the persisted candidate and validates mixed histories; expected snapshot ref and cancellation are checked again. No destination object, ref, HEAD, workspace, shallow or journal write is performed by preparation.
+- Cargo fmt/check/clippy -- -D warnings passed against current source. Current-source candidate suite passed195 assertions (30 candidate +44 v3 +121 earlier checks), and separate journal/lease/planner suite passed282. There are356 unique assertions across these suites, accounting for overlapping121. Evidence: artifacts/git-fetch-candidate-check/full-pack-state.json and artifacts/git-stage-recovery-check/full-pack-state.json, both compile0/run0.
+- Candidate cases cover actual depth1 missing ancestry, retained full history, no destination writes, fresh-ODB readback, destination dependency for retained objects, changed expected ref/cancel/invalid operation/scope refusal, stage-config independence, exact boundary projection even when parent is available, and preserving an unselected shallow view during a full selected fetch.
+- Disk readback is NOT fsync/power-loss durability proof. Candidate may depend on retained destination objects. Before journal publication/recovery, verify the destination identity/expected ref and candidate graphs again, and implement explicit durability ordering. A staging lease alone does not authorize publication.
+- No public command calls the candidate builder yet. No production journal writer/recovery transition, v3 JS receipt or public depth UI enabled. Latest accepted native UI binary predates this work; no native build was launched this turn.
+- NEXT: enumerate all retained physical roots (refs, HEAD, reflogs, existing shallow roots) and compute effective physical cuts over stage+destination; establish durable candidate/stage ordering; create journal exclusively under GitState; implement prepared/import/ref/final transitions and explicit recovery. Only then connect native depth/relative requests, persisted intent, JS v3 receipts and saved Playwright acceptance.
+- Full original migration and installer/platform acceptance remain incomplete. Shared inputs/new UX remain deferred until that goal is complete.
+
+## Snapshot v3 history metadata and immutable reader verified — 2026-09-30
+
+- Previous goal turn made progress (journal-bound stage reacquisition). Read current STATUS/PLAN/PARITY, snapshot and frontend receipt code. Consulted official Git fetch/shallow and Serde field attributes before implementation.
+- SnapshotManifest supports v3 with requestedDepth and exactly one per-branch history {name,depth,boundaries}. Validates branch coverage/uniqueness, positive finite depths, updated-branch depth matches operation depth, full-history entries have no cuts, canonical sorted unique nonzero OIDs, max10000 cuts/history and100000 entries across manifest. v1/v2 reject depth/history metadata; their serialized shape remains unchanged.
+- matches_history_operation compares UUID+branch+depth. Existing matches_operation now means a full-history operation (depthNone), preventing accidental confirmation of a depth request from older call sites.
+- Added read_snapshot_object for immutable unpublished candidates: validates endpoint key, manifest/tree and exact parent-tip identity without ref writes. read_snapshot delegates to it. Metadata read is distinct from graph completeness validation.
+- validate_snapshot_histories verifies each distinct tip/boundary view, including strict full retained histories and exact shallow views, with cancellation and cumulative1m-object/4GiB work limits. Existing full publication uses the same helper and remains v1/v2. A current v3 snapshot cannot be silently overwritten by the old publisher; it requires journal integration.
+- Cargo fmt/check/clippy -D warnings passed. New v3 probe44 checks passed with121 transport/snapshot/import regressions: artifacts/git-fetch-snapshot-v3-check/full-pack-state.json. Separately reran existing282 checks against current sources at artifacts/git-stage-recovery-check/full-pack-state.json (326 unique assertions across suites; overlapping121 not double-counted).
+- New checks cover mixed full/shallow graphs with an actually absent parent, immutable candidate/no ref side effect, requested-depth identity, metadata mismatches/malformed fields/missing branches, invalid depths/OIDs/duplicate boundaries, missing or unrelated cut graph refusal, cancellation, complete graph at requested depth20, retained shallow branch after full selected operation, and old-publisher v3 refusal with unchanged ref/HEAD.
+- First combined tool input exceeded64000-byte review limit; it was not executed. Split v3 checks from the larger journal/lease regression into smaller reviewable calls. Initial v3 harness compile attempted private RemoteAdvertisement fields; switched fixture construction to serde and reran successfully. No production workaround/visibility relaxation or saved non-UI test file.
+- v3 is native schema/reader/validation only. No v3 production publisher, JS receipt support, public depth/relative request/intent/UI or journal writer/recovery transition enabled. Latest accepted native UI binary predates these changes; no build running.
+- NEXT build a verified immutable staged candidate preserving retained per-branch histories, persist journal under GitState, and implement prepared/import/ref/final transitions with explicit recovery. Then JS/native request/receipt/depth UI and saved acceptance. Full original migration/production installer remain incomplete; deferred components/UX unchanged.
+
+## Journal-bound recovery stage reacquisition verified — 2026-09-30
+
+- Previous goal turn made progress (journal-aware cleanup and native UI acceptance). Re-read current STATUS/PLAN/PARITY, stage ownership and journal implementation; consulted Rust File::try_lock/OpenOptions docs before changes.
+- StageReservation can now be reacquired through TryFrom<(native app-data path, validated fetch-name, expected owner bytes)>. Opens existing zero-byte regular lease without create/truncate, acquires exclusive OS lock, checks canonical name/marker, exact owner and plain ancestry/repository path. Missing/changed/linked material or live shared/exclusive lease refuses recovery. Drop only releases lease; no cleanup.
+- Added journal-bound TryFrom<(native app-data path, already validated Repository)>: reads validated bounded journal, checks allowed publication state, acquires the exact stage/owner, rereads and compares exact journal bytes/state and rechecks stage before returning. Caller must hold GitState and still verify immutable target snapshot/graph before any import/publication; acquiring a lease alone authorizes no writes.
+- Worker and reservation owner reads now use bounded257-byte streams, closing the post-metadata unbounded-read gap. Marker syntax is shared within StageReservation; existing v2 behavior retained.
+- Cargo fmt/check/clippy -D warnings passed. Current-source standalone native probe282 assertions passed:41 new recovery lease/ownership checks +11 journal-bound checks +230 preceding checks. Evidence artifacts/git-stage-recovery-check/full-pack-state.json and logs.
+- Actual independent probe process acquired worker shared lease, reported readiness and stayed live; recovery was refused until explicit release and observed successful process exit. Also checked competing recovery, cleanup active report, changed owner/no deletion, traversal/invalid names, invalid markers, lease/owner missing/oversize/directory/symlink, unchanged payload, no create-on-failure, journal/ref-state mismatch and exact journal preservation. This is process lease behavior, not crash/power-loss or publication recovery acceptance.
+- No production journal writer/recovery command or shallow-publication UI enabled. Latest accepted native-fetch-journal-ui-probe binary predates these changes; no build active. No saved non-UI scripts added (Bun/Rust stdin probe).
+- NEXT construct verified immutable snapshot/metadata plan, persist a new journal exclusively under GitState while retaining stage, then apply prepared/import/ref/final transitions and explicit recovery; keep stage/journal on ambiguous outcomes. Public depth/relative/v3 and whole original PARITY remain incomplete. Deferred shared components/new UX unchanged.
+
+## Journal retention native UI acceptance passed — 2026-09-30
+
+- Continued the same verified-live build child37752; build finished0 after5m49s, no restart. Accepted executable artifacts/native-fetch-journal-ui-probe/insomnium-fetch-journal-probe.exe, isolated identity app.insomnium.probe.checkout20260929. No build remains active.
+- Extended saved git-fetch-cleanup.js passed10 groups on this binary: existing idle/legacy/malformed/unknown/live-worker cleanup plus journal-owned idle retention, unrelated deletion, native info/Inspect refusal without writes/network, malformed-journal UI error before deletion, and cleanup eligibility after removing only its synthetic fixture journal.
+- Evidence artifacts/playwright/git-fetch-cleanup-1790782032722/{acceptance,result}.json; native PID33592 exit0. Synthetic journal fixture is explicitly NOT production journal creation or recovery acceptance.
+- Main Fetch11, orderly restart3 and selected-branch Fetch9 regression passed sequentially on the same binary: git-fetch-1790782051996 (PID35020), git-fetch-restart-1790782054820 (PID21840), git-fetch-scope-1790782055642 (PID34152). All native exit0. Verified artifact contents/check scope; no OS-close, power-loss, provider OAuth or shallow-publication claim.
+- Rust checks and230 standalone native assertions already passed in the preceding checkpoint within this goal turn. Svelte check0 errors/0 warnings, Vite build and saved-scenario formatting passed. No further code changes after these checks.
+- NEXT: production journal creation under GitState with validated leased staging and immutable snapshot metadata; stage reacquisition for recovery; atomic prepared/final shallow file replacement and v3 snapshot publication, then public depth/relative and explicit recovery UI. Journal-based cleanup retention/admission are now accepted prerequisites, not completion of shallow Fetch or full migration. Production installer and full original PARITY remain incomplete; deferred shared inputs/new UX unchanged.
+
+## Journal-owned staging retention implemented; native acceptance build running — 2026-09-30
+
+- Previous goal turn made progress (journal admission and203 checks). Read current docs/cleanup code and official Rust read_dir/Mutex and Tauri state-management documentation before implementation.
+- git_fetch_journal::retained_stages scans all managed repositories before any stage deletion, with1024-entry limit and existing bounded/plain journal validation. Collects stage names regardless of current marker match. Malformed/inaccessible/unknown/linked repository or journal state aborts cleanup before deleting anything; never infer ownership from partial JSON.
+- Cleanup skips journal-owned fetch names and matching reclaim aliases, reporting retained. Idle unrelated stages still delete; active shared leases still report active. Native cleanup command now holds GitState across inventory and deletion, preventing in-app journal publication/recovery races. Future journal writers must use the same mutex; filesystem defenses remain cooperative, not protection against malicious external replacement.
+- Cargo fmt/check/clippy -D warnings passed. Current-source native probe230 assertions passed:27 journal-owned cleanup cases +203 prior journal/graph/worker/snapshot/import checks. Evidence artifacts/git-fetch-journal-cleanup-check/full-pack-state.json. Includes no-live-lease retention, changed owner, reclaim alias, malformed/oversize/directory/link/unknown inventory refusal before unrelated deletion, active lease, explicit fixture journal removal then eligibility, and1025-repository scan limit. Initial inline harness compile failed on a dangling doc comment; normalized extracted comments and reran successfully. Product compiler checks already passed.
+- Extended existing saved tests/ui/git-fetch-cleanup.js with synthetic journal retention/native admission, malformed-journal UI refusal and post-fixture-removal cleanup. Its default build now native-fetch-journal-ui-probe. Svelte check0 errors/0 warnings and Prettier passed; Vite build passed (existing bundle-size warning only). Runtime scenario not run yet at this checkpoint.
+- Native build RUNNING: supervisor36532, confirmed live child37752, artifacts/native-fetch-journal-ui-probe/build-state.json and build.log. Isolated identity app.insomnium.probe.checkout20260929, target insomnium-fetch-journal-probe.exe; direct Bun x --bun tauri build --no-bundle --config, no shell. Poll same process; do not restart merely because it is slow.
+- NEXT run saved cleanup10 groups, then main Fetch/restart and scoped Fetch regression on new binary. Production journal creation, stage reacquisition, atomic shallow writes, v3 snapshots/public depth/recovery remain unimplemented. Full migration and current production installer remain incomplete; deferred UX/components unchanged.
+
+## Shallow publication journal admission implemented — 2026-09-30
+
+- Previous goal turn made progress (effective-cut planner and166 checks). Read STATUS/PLAN/PARITY and existing atomic storage/checkout recovery before implementation; consulted atomic-write-file AtomicWriteFile and git2 Transaction official docs.
+- Added git_fetch_journal.rs, registered in lib.rs. Version1 schema validates canonical operation UUID, endpoint key, old/target snapshot IDs, native stage name/owner marker and old/prepared/final shallow images. Prepared image must include old and final cuts. Schema rejects unknown fields and unsupported versions. No credentials or arbitrary filesystem path fields.
+- Bounded plain-file reader distinguishes absent vs empty, rejects symlinks/reparse points/directories, bounds both metadata and actual read (journal2MiB, shallow410000bytes). Shared shallow parser extracted from git_remote; existing transport parser behavior retained.
+- open_managed now preflights pending metadata before libgit2 opens the repository, then refuses pending publication based on observed direct snapshot ref and exact shallow bytes: expected ref +old/prepared means before; target ref +prepared/final means after; all other combinations conflict. Malformed/unknown files are retained. These checks never resume writes, change HEAD, clean staging or delete the journal.
+- Initial actual-source probe caught libgit2 parsing malformed/oversize shallow content during Repository::open_ext before the post-open check. Added preflight before open and reran. Initial failure retained at artifacts/git-fetch-journal-check/initial-preflight-failure.json.
+- Cargo fmt/check/clippy -D warnings passed. Actual-current-source standalone Rust probe203 assertions passed (37 new journal/admission/state/retention +166 existing planner/Git fsck/GC/worker/snapshot/import checks). Evidence artifacts/git-fetch-journal-check/full-pack-state.json and logs. Journal scenarios call the actual open_managed implementation, not a replica; verify state retention, unchanged HEAD/blob, absent/empty distinction, malformed/oversize/directory/link rejection and no-journal admission.
+- This is the admission layer only: production does NOT create journals yet, and no explicit recovery writer or shallow publication path exists. Journal validity/ref-state classification alone cannot authorize writes; retained stage/target snapshot/graph and metadata provenance still require verification. Pending files are intentionally blocked until that implementation. Public depth/import guards remain.
+- NEXT implement exclusive journal creation, leased stage recovery, atomic prepared/final shallow replacement, versioned target snapshot validation and explicit recovery command/UI. Resolve cleanup ownership for journal-retained stages before creating production journals. No active app build; current accepted UI binary predates this change. Full migration/production installer remains incomplete; deferred UX/components unchanged.
+
+## Mixed shallow/full history representation verified — 2026-09-30
+
+- Previous goal turn made progress (supervisor depth identity and137 checks). Re-read current docs/code and legacy Git fetch before continuing. Selected standard Git objects + effective repository shallow metadata + versioned snapshot/journal; decision and exact remaining steps in SHALLOW-HISTORY.md. This replaces the earlier blanket avoidance of global shallow metadata with the precise requirement to preserve available complete ancestry.
+- Added bounded plan_object_graph_while sharing the existing hash/type/tree/blob validator. It traverses available parents and cuts only at authorized candidates with a missing direct parent. Returns validated objects and sorted effective cuts; unreachable candidates omitted. Global callers must include all retained roots and existing boundaries. Exact worker boundary validation remains unchanged.
+- Current full importer uses the planner with no candidates; shallow import and depth publication guards remain. No incomplete history can enter production through this change.
+- Cargo fmt/check/clippy -D warnings passed. Current-source Rust/native-worker probe166 assertions passed:29 new mixed-history/planner/real-Git checks +137 previous checks. Evidence artifacts/git-shallow-plan-check/full-pack-state.json. Real Git fsck/GC preserve full local main, shallow remote snapshot parents, HEAD and binary content; adding missing parent permits cut removal and repeat fsck/GC.
+- Separate disposable pre-import check confirms Git2.55.0.windows.3 fsck accepts a shallow entry before its commit object is imported; evidence preimport-metadata.json. This does not prove crash recovery or arbitrary partial-import consistency.
+- Initial probe launch hit Windows ENAMETOOLONG before process launch; switched to Bun stdin and Rust stdin, then passed. No saved non-UI test script, no browser-use, no new dependency.
+- Official docs/commands, journal sequence and recovery table recorded in SHALLOW-HISTORY.md. NEXT implement journal/admission/recovery, v3 per-branch/request history metadata and publication, then public depth/relative and UI acceptance. No active app build; latest accepted UI binary predates changes. Full original migration and production installer remain incomplete; deferred shared components/new UX unchanged.
+
+## Supervisor depth identity and staged metadata agreement — 2026-09-30
+
+- Previous turn only confirmed the already-recorded deferred UX plan: no migration progress. This turn re-read current STATUS/PLAN/PARITY and implementation, then corrected the worker-to-snapshot history contract.
+- WorkerOutput now captures requested_depth from supervisor input alongside selected_branch. verified_boundaries validates depth, requires a stage for history metadata, rereads the leased repository's bounded shallow file, compares canonical boundaries to worker output, and rejects boundaries for a full-history request. Called after worker completion and again before object import.
+- v1/v2 publication rejects any requested depth before object writes, including a short remote returning complete history/no boundaries. Empty boundaries cannot erase request identity. Public Fetch remains full-history; this is a prerequisite, not completion of shallow parity.
+- Cargo fmt/check/clippy -- -D warnings passed. Current-source standalone Rust/native-worker probe passed 137 assertions (19 boundary +41 transport/parser/identity +45 snapshot +17 import +15 worker), including 16 new identity/metadata checks. Evidence: artifacts/git-fetch-history-identity-check/full-pack-state.json and runtime/build logs.
+- Checked requested depth survives real worker transport, omitted/changed stage metadata fails, full request with injected shallow file is refused before writes, invalid depths fail, and complete history returned to depth20 cannot publish as v1/v2 or write destination objects/refs. Existing full-history snapshot/import regression passed.
+- Initial edit launcher had a JavaScript syntax error before execution; no files changed. Applied patch directly. Initial complete-history depth fixture omitted shallow negotiation and failed Net/GenericError; fixed fixture to send the empty shallow phase before the pack, reran successfully. Initial runtime evidence retained in initial-fixture-failure.json. Production protocol unchanged.
+- Official docs consulted before implementation: https://git-scm.com/docs/shallow and https://docs.rs/git2/latest/git2/struct.FetchOptions.html#method.depth . Direct hidden Bun launches; Rust probe passed via stdin; no saved non-UI test script added.
+- NEXT: integrate versioned shallow history storage/publication with Git reachability and recovery, including mixed full/shallow histories; then carry depth through public request/intent/receipt/UI. Current global-shallow vs per-history design remains unresolved; do not remove guards or treat a manifest-only boundary list as GC-safe. No app build running; latest accepted UI binary predates this change. Original full migration and production installer remain incomplete. Deferred components/ui/new UX unchanged.
+
+## Private depth transport and shallow metadata parsing verified — 2026-09-30
+
+- Previous goal turn made progress: explicit boundary graph validator. Owner supplied replacement AGENTS.md rules during this turn; applied those rules. Original migration remains active, Bun-only/Svelte-JavaScript and no Computer Use; no saved test script was created/modified in this turn.
+- StagedFetchInput now has private optional depth. None means full; positive values below i32::MAX accepted, zero/overflow/infinite sentinel rejected before repository/network work. Existing public worker factory passes None; public Fetch request/UI still has no depth option.
+- Added read_shallow_boundaries: existing owned repository shallow file only, regular/non-symlink/non-reparse, metadata+bounded stream read <=410000 bytes, UTF8 canonical lowercase40-hex nonzero IDs, no duplicates, max10000; sorted output. Missing/empty file means no boundary. Graph validation independently requires each boundary to be a reachable commit and validates tree/blob contents.
+- Worker sets documented libgit2 depth, reads staged boundaries, rejects unexpected shallow result for full-history request, verifies graph with explicit boundaries, returns shallowBoundaries in native advertisement metadata (discovery defaults empty). Full-history/import/publication paths continue working.
+- Importer explicitly refuses nonempty shallow boundaries before object writes until versioned history integration is implemented; prevents publishing truncated history through existing v1/v2 full-history manifest. This temporary integration boundary is not completion of shallow parity.
+- Cargo fmt/check/clippy -D warnings passed. Actual-current-source standalone Rust worker/protocol/parser probe passed25 new transport/parser +19 boundary +45 snapshot +17 import +15 worker assertions (121 total): artifacts/git-shallow-transport-check/full-pack-state.json and logs.
+- Real smart-HTTP depth1 negotiation observed deepen1, received shallow tip and3-object pack, verified omitted parent, existing binary blob, boundary metadata and import refusal with untouched target ODB. Also checked invalid depths, parser missing/empty/LF/CRLF files, duplicate/zero/blank/invalid/uppercase/oversize/directory/symlink cases.
+- Initial fixture failed Net/GenericError; diagnostic-only compiled source exposed invalid packet line. Installed libgit2 1.9.7 smart_pkt.c shallow parser requires OID-length payload without trailing LF, although protocol permits no-LF pkt-line. Changed fixture to no-LF shallow packet (not production error reporting); adding NAK alone was insufficient and reverted. Initial failure retained at initial-runtime-failure.json. Then fixture held a repository handle across deletion on Windows; dropped probe handle before discard, rerun passed. Real provider compatibility including LF boundary packets remains unverified.
+- Official docs consulted: https://git-scm.com/docs/pack-protocol ; https://doc.rust-lang.org/std/io/trait.Read.html#method.take ; https://docs.rs/git2/latest/git2/struct.FetchOptions.html#method.depth ; https://docs.rs/git2/latest/git2/struct.PackBuilder.html . Inspected installed libgit2-sys-0.18.8+1.9.7 smart_protocol.c/smart_pkt.c. Probe supplied via rustc stdin, no saved non-UI script.
+- NEXT design/implement per-history shallow metadata/import/publication and consumers. Avoid managed global shallow file truncating unrelated local/full histories; account for branch-specific boundaries, deepening/relative semantics, reachability/GC and mixed shallow/full tips. Then expose depth in request/intent/client/UI and saved native acceptance. Existing private worker capability does not complete those items.
+- No app build active. Accepted native UI binary remains native-fetch-scope-ui-probe and predates shallow validator/transport changes. Full original PARITY and production installer remain incomplete; shared UI inputs/new UX remains deferred until migration completion.
+
+## Explicit shallow-boundary graph validation implemented — 2026-09-30
+
+- Previous goal turn made progress: scoped Fetch native UI/recovery/regression accepted. Read official Git shallow semantics, pack protocol and git2 FetchOptions depth before adding the next shallow-history prerequisite.
+- Added validate_object_graph_with_boundaries_while(repository,tips,boundaries,check). Existing validate_object_graph_while delegates with an empty boundary list, so all current Fetch/import/publication callers remain strict full-history. No depth option enabled yet.
+- Boundary list is explicit and bounded to10000, rejects duplicates/zero IDs, and every boundary must be a commit reached from supplied tips. Only parent traversal stops at boundaries; boundary commit hash, tree graph, file blobs/types/names/sizes and cancellation remain checked. Missing non-boundary parents still fail. Missing trees/blobs still fail even at a boundary.
+- Cargo fmt/check/clippy -D warnings passed. Inline current-source Rust probe passed19 new shallow checks plus45 snapshot/17 import/15 worker checks (96 total). Evidence artifacts/git-shallow-graph-check/full-pack-state.json and logs. Fixture truly omits parent object; verifies boundary success, strict failure, wrong/unreachable/blob/duplicate/zero/limit rejection, tree/blob absence rejection, full vs cut history and cancellation.
+- Explicitly wrote a valid41-byte OID+LF shallow file and reopened repository: strict validator still rejected missing parent while explicit boundary validation succeeded. Inspected actual file encoding on disk. A follow-up launcher replacement attempted to correct suspected escaped newline but anchor did not match; no files/code changed because actual encoding was already correct.
+- Official docs: https://git-scm.com/docs/shallow ; https://docs.rs/git2/latest/git2/struct.FetchOptions.html#method.depth ; https://git-scm.com/docs/pack-protocol . No new dependency/init. Probe Rust supplied on stdin, no saved non-UI test script.
+- NEXT implement bounded/plain-file parsing of worker staging shallow metadata and private depth transport, test real protocol shallow boundary/pack behavior. Then carry verified boundaries through import and versioned per-history metadata before public depth/relative request/UI. Do not silently accept missing ancestors or write fetched shallow boundaries into managed global shallow file: that could truncate unrelated local/full-history traversal. Resolve history/GC/ref reachability semantics and mixed selected/full histories before publishing shallow data.
+- No app build active; latest accepted scoped UI binary predates this validator refactor. Public Fetch still full-history; shallow/depth/relative/pruning/tags, remote operations and full original PARITY/production installer remain incomplete. Deferred shared inputs/new UX unchanged.
+
+## Scoped Fetch native UI and recovery accepted — 2026-09-30
+
+- Previous goal turn made progress: scope request/client/intent/UI integration and native build. Polled the same live child PID15840 until existing native-fetch-scope-ui-probe build finished0; no restart. Build state points to insomnium-fetch-scope-probe.exe with isolated probe identity. No build remains active.
+- Added saved tests/ui/git-fetch-scope.js and Bun alias test:ui:git-fetch-scope. Extended shared gitPackFixture with optional advance:true third commit (default fixture unchanged). Fixture identity/history/blob and5-object pack checked. Used existing native-app and scoped IPC failure helpers; no browser-use or standalone interactive automation.
+- Scoped scenario passed9 groups: all-branch v1; selected feature/a advances while main retains prior OID; lost successful native selected Fetch reply retains v2 intent; same UUID/wrong branch refuses Fetch and does not confirm Inspect; matching scope reconciles without network; reload restores/locks selection and Inspect clears intent; invalid branch rejected in UI/native before network; missing branch stays unconfirmed and explicit retirement/new selected Fetch succeeds; local HEAD/request edit preserved.
+- Evidence artifacts/playwright/git-fetch-scope-1790779543786/{acceptance,result}.json; PID36560 exit0. These are loopback provider/controlled IPC reply-loss checks, not shallow/tag/provider-OAuth/OS disk fault/crash acceptance.
+- Existing main Fetch11 and orderly native restart3 regression passed on same scope-enabled executable: artifacts/playwright/git-fetch-1790779569300 and git-fetch-restart-1790779572314. Normal helper cleanup, not OS-close acceptance.
+- Prettier/Svelte check0 errors/0 warnings passed. Official docs consulted for saved scenario/fixture: https://playwright.dev/docs/api/class-locator#locator-fill and https://git-scm.com/docs/pack-format . Runs use direct Bun tests/ui/git-fetch-scope.js; regression INSOMNIUM_UI_BUILD_STATE set to native-fetch-scope-ui-probe state through Bun before importing git-fetch.js.
+- Next continue original Git parity: shallow/depth/relative history representation and transfer/import validation, pruning/tag semantics, then remote checkout/pull/push/merge with journal/ref/workspace consistency. Exact-branch full-history Fetch is accepted; it does not complete legacy Fetch parity or whole migration.
+- Full original PARITY, runtime/plugin/provider/platform/OS lifecycle and current production installer remain incomplete. Deferred components/ui inputs/new UX still starts after full migration.
+
+## Scoped Fetch request/client/intent/UI integrated; native build running — 2026-09-30
+
+- Previous goal turn made progress: scoped snapshot v2 native publication/probe. FetchRequest now accepts optional branch (absent/null means all), validates exact ref name/length before work, passes selection into native worker factory. Existing native AppHandle factory defaults to all.
+- SnapshotManifest.matches_operation compares operation UUID AND selected branch. Fetch refuses reconciliation of same UUID/different scope; Inspect reports confirmed only for matching UUID+scope. No network retry is used for reconciliation.
+- JS client exports normalizeFetchBranch, captures scope before async work, validates v1/all vs v2/selected receipt shape and selected branch presence, checks Fetch reply scope and Inspect confirmedCurrent consistency. Existing all-branch inputs normalize to null.
+- Workspace fetch accepts optional fourth branch argument and saves v2 nativeFetchIntent with branch for selected fetch (v1/no branch for all). Reload inspection supports both versions and validates version/scope consistency before passing exact branch to native Inspect. Retirement supports both versions.
+- GitRemotePanel has Fetch branch (optional) input; blank means all, disabled while busy/pending, pending v2 scope restored/displayed. Existing layout/styles reused. Hint accurately says complete history; this does not implement shallow/depth/relative/tag pruning.
+- Cargo fmt/check/clippy -D warnings passed. Current-source native snapshot/worker probe45+17+15=77 assertions passed, including same-ID/different-scope nonmatch: artifacts/git-fetch-request-scope-check/full-pack-state.json. Inline Bun client probe28 checks passed (client-state.json there), covering v1/v2, correct/mismatched scope, inconsistent inspection, malformed/missing selected branch and invalid input before submission. Client probe uses injected responses, not native UI acceptance.
+- Prettier, Svelte check0 errors/0 warnings and Vite build passed. Initial Svelte check caught missing JSDoc branch annotation (default null inferred as null only); corrected and reran. First client-edit launcher accidentally truncated a nested template literal and performed no write; inspected actual file and reran with JSON-encoded helper text. Existing >500kB bundle warning remains; do not execute build output's npm suggestion.
+- Official docs consulted: https://v2.tauri.app/develop/calling-rust/ and https://git-scm.com/docs/git-check-ref-format . No new dependency/init. Saved native environment/hidden direct launchers used throughout.
+- Isolated native build RUNNING, confirmed live child PID15840, supervisor PID6936. State artifacts/native-fetch-scope-ui-probe/build-state.json; log build.log; intended artifact insomnium-fetch-scope-probe.exe; identity app.insomnium.probe.checkout20260929. Uses bun x --bun tauri build --no-bundle --config with beforeBuildCommand:null after successful Vite build. Do not restart while same handle alive; poll state/PID.
+- NEXT: after build0 add saved tests/ui/git-fetch-scope.js using existing native-app/git fixtures. Verify all then selected update preserves unselected tips, native same-ID/different-scope Fetch rejects and Inspect false, v2 pending intent persists after stop/lost reply/reload and Inspect uses correct branch, explicit retirement/retry, invalid name/no-network and HEAD preservation. Rerun existing main Fetch/restart on new binary. No scoped UI/native IPC acceptance has run yet.
+- Full original PARITY unchanged: depth/relative/tags/pruning, remote checkout/pull/push/merge, runtime/plugin/provider/platform/OS lifecycle and production installer still incomplete. Reusable inputs/new UX deferred until full migration completion.
+
+## Scoped Fetch snapshot publication implemented — 2026-09-30
+
+- Previous goal turn made progress: private exact-branch worker and32 assertions. Added supervisor-captured selected_branch to WorkerOutput; publication does not infer request scope from worker response contents.
+- Snapshot v1 remains all-branch with no serialized selectedBranch. New v2 represents exact-branch update with selectedBranch required, valid and present in resulting branches. Reader rejects version/scope mismatch, absent selected branch and unsupported version; continues validating manifest/tree/parent identity.
+- Scoped publication requires exactly one fetched branch matching supervisor selection, merges prior branches except selected, sorts union and publishes one endpoint pointer under existing expected-OID/ref-lock checks. Unselected tips retain their prior OIDs. Full fetch still replaces branch inventory and writes v1. Selected missing branch is rejected by worker; unselected pruning/tag semantics remain unimplemented and are not silently claimed complete.
+- After importing selected objects, validates entire merged reachable graph (including retained tips) before publication. Snapshot parents pin all distinct resulting tips. HEAD/local refs/workspace remain untouched by publication.
+- Cargo fmt/check/clippy -D warnings passed. Current-source inline Rust real-worker/snapshot probe passed41 snapshot +17 import +15 worker assertions. Evidence artifacts/git-fetch-scope-check/full-pack-state.json and logs. Advanced feature/a to a distinct third commit while main retained old tip; checked union parent reachability/readback, stale scope refusal, malformed v1/v2/missing/unknown scope rejection, all-branch v1 publication after v2, and existing cancellation/lock/prune/empty/import protections.
+- Official docs consulted: https://docs.rs/git2/latest/git2/struct.Transaction.html and https://serde.rs/field-attrs.html . Existing dependencies only; retain single-pointer publication because multi-ref transaction commit is not atomic. Probe source passed via rustc stdin with existing release rlibs, panic=abort; no saved non-UI test script added.
+- Not exposed through public Fetch yet. Next add optional branch to validated Fetch request and worker admission, bind scope into operation reconciliation/inspection and durable nativeFetchIntent, then support v2 receipt validation in JS and wire saved UI branch selection/scenarios. Never confirm a reused operation ID with a different scope.
+- No app build running. Last accepted native UI executable predates selected-worker/scoped-snapshot changes. Shallow/relative, pruning/tags, remote checkout/pull/push/merge, runtime/plugin/provider/platform/OS lifecycle/full original PARITY and production installer remain incomplete. Deferred shared inputs/new UX remains after full migration.
+
+## Exact-branch Fetch worker implemented — 2026-09-30
+
+- Previous goal turn made progress: real parent-termination/orphan-lease acceptance. Inspected legacy git-vcs.ts fetch/pull/checkout/log and git-actions.tsx call sites. Legacy UI Fetch/Pull preparation uses singleBranch:true/depth:1; wrapper forwards relative/depth and enables prune/pruneTags. Remote checkout fetches requested branch depth1/tagsfalse. Current native full-history/all-branch snapshots do not yet provide this parity.
+- Added optional native-only branch field to StagedFetchInput (serde default None for old worker payloads). Worker constructs one validated exact refs/heads refspec or existing wildcard. Rejects invalid names/oversized refs before repository creation/network, requires selected branch in advertisement, validates downloaded selected ref against advertised OID and verifies complete reachable graph. No renderer-supplied arbitrary refspec/path.
+- Supervisor's existing public Fetch constructor explicitly passes branch:None. Public/UI Fetch remains all-branch: do NOT enable selected branch publication until snapshot scope/merge/prune semantics and durable operation identity include selection. This is implementation groundwork toward original parity, not a completed singleBranch feature or replacement for depth/prune.
+- Cargo fmt/check/clippy -D warnings passed. Current-source real-pack worker inline probe passed existing15 plus selected-branch17 assertions: feature/a only ref, no main stage ref, complete ancestry/binary, missing branch rejection, five invalid names rejected with cleaned staging. Evidence artifacts/git-stage-branch-check/full-pack-state.json plus build/runtime logs. Rust source supplied to rustc stdin with existing release rlibs/panic=abort; no saved non-UI test script.
+- Official docs consulted before change: https://docs.rs/git2/latest/git2/struct.Remote.html#method.fetch ; https://git-scm.com/docs/git-fetch ; https://isomorphic-git.org/docs/en/fetch . No new dependencies/generator. Native checks use cargo fmt/check/clippy --manifest-path src-tauri/Cargo.toml, clippy -- -D warnings; direct hidden launcher with configured native environment.
+- Initial read-only rg query had an unescaped parenthesis; corrected follow-up to fixed-string search for StagedFetchInput construction. No product failure.
+- Next: version snapshot/operation scope for exact-branch publication (preserve unselected fetched branches; define deletion/pruning from authoritative advertisement), then native request/client/UI and saved scenario. Shallow/relative mode needs explicit shallow boundaries and compatible object validation/import/history semantics, not simply depth() plus ignoring missing parents. Tags/pruneTags remain separate required work.
+- No app build active. Last accepted UI binary predates exact-branch worker change; source Cargo/current-worker probe passed, new native UI build still needed after integration. Remote checkout/pull/push/merge, OS faults/lifecycle, full original PARITY and production installer remain incomplete. Deferred shared inputs/new UX starts after full migration.
+
+## Parent termination / orphan Fetch recovery accepted — 2026-09-30
+
+- Previous goal turn made progress: cleanup UI/native acceptance and same-binary Fetch regressions passed. Reused successful native-fetch-cleanup-ui-probe binary; no production change/rebuild needed.
+- Extended saved native-app helper with opt-in allowParentTermination and terminateParent callback. It terminates only its owned spawned probe parent, requires running child and successful kill delivery, awaits an exit event, records intentional termination, and preserves normal nonzero-exit failure behavior for all other scenarios. No shell, process-name-wide kill or production process targeting.
+- Added tests/ui/git-fetch-parent-crash.js and Bun alias test:ui:git-fetch-parent-crash. First phase starts real Fetch via UI (persisted intent), gates loopback Git advertisement, verifies owner marker parent PID, terminates parent, records exit. Evidence artifacts/playwright/git-fetch-parent-termination-1790778371725:3 checks, parent PID34908 exit signal SIGTERM.
+- Recovery phase opens new native process while original worker remains gated. Pending workspace survives; native Inspect reports no committed snapshot; UI cleanup reports active1 and preserves exact owner. Released server then receives orphan Git POST after parent exit, proving worker continues independently. Cleanup subsequently removed1/active0/retained6/limitedfalse; pending workspace and HEAD unchanged, no orphan snapshot published. Explicit retirement and new UI Fetch succeed.
+- Recovery evidence artifacts/playwright/git-fetch-orphan-recovery-1790778373216:6 checks, PID27672 exit0. Worker lifetime evidenced by independent held/released lease and real post-exit protocol, NOT an independently retained worker process exit handle. Do not claim power-loss, actual OS disk fault, OS-close or every crash window coverage.
+- Reran original cleanup UI6 groups with modified helper: artifacts/playwright/git-fetch-cleanup-1790778391721 passed. Prettier and Svelte check0 errors/0 warnings passed.
+- Official docs read before helper change: https://bun.sh/reference/node/child_process/ChildProcess/kill and https://playwright.dev/docs/api/class-browser#browser-close . Bun documents abrupt termination on Windows; exit event is still checked. One node_repl launcher lost its cp binding before file creation; re-imported direct launcher, no shell fallback.
+- Next move Git parity forward: inspect legacy Fetch option/remote checkout flows and native snapshot/journal constraints, implement missing semantics using official docs. Outstanding recovery items include publication-window crash/OS disk fault/partial metadata cleanup and OS-close; do not repeatedly treat parent-alive cleanup as the only required acceptance.
+- No active build. Full original migration/PARITY remains incomplete (remote operations, plugins/runtime compatibility, provider/protocol/platform/lifecycle acceptance and production installer). Deferred shared UI inputs/new UX remains after full migration.
+
+## Fetch cleanup UI/native acceptance passed — 2026-09-30
+
+- Previous goal turn was a verified wait: build child PID35016 was live. Existing build now finished0 without restart; artifacts/native-fetch-cleanup-ui-probe/build-state.json points to current isolated lease/cleanup-enabled executable. No build remains active.
+- Added saved tests/ui/git-fetch-cleanup.js and Bun alias test:ui:git-fetch-cleanup. Uses existing native-app/git fixtures and real loopback Git pack worker. Resolves app-data through documented Tauri path IPC and verifies probe identity before creating disposable filesystem fixtures. No production app-data fixtures or browser-use tools.
+- Cleanup acceptance passed6 groups: UI removes idle v2 stage; v1/malformed/unknown payload remains; real in-flight native Fetch stage reports active and retains owner; worker completes/publication succeeds after cleanup; repeated cleanup preserves snapshot with no network; HEAD and full saved workspace unchanged. Evidence artifacts/playwright/git-fetch-cleanup-1790778083421/{acceptance,result}.json; PID32836 exit0.
+- Initial scenario failed only because assertion read snapshot.operationId instead of snapshot.manifest.operationId. Corrected saved scenario and reran successfully; initial artifact git-fetch-cleanup-1790778062797 retained. No product change was required.
+- Main Fetch regression11 and orderly native restart3 checks passed on this same new binary: artifacts/playwright/git-fetch-1790778099419 and git-fetch-restart-1790778102010; PIDs32460/37156 exit0. These do not establish crash/power-loss or OS-close behavior.
+- Prettier and Svelte check0 errors/0 warnings passed for new scenario. Official docs consulted: https://playwright.dev/docs/api/class-locator#locator-click and https://v2.tauri.app/reference/javascript/api/namespacepath/#appdatadir ; installed @tauri-apps/api/path source checked for BaseDirectory/resolve_directory contract.
+- Next: saved real parent-crash/orphan-worker scenario, prove independently held worker lease prevents cleanup after parent termination and idle retry works after worker exits. Current helper only supports orderly window destroy; extend deliberately for expected parent termination with precise child ownership/evidence. Do not mistake current parent-alive case for orphan-worker acceptance.
+- Remaining full original PARITY is unchanged, including Git remote operations/options, runtime/plugin/provider/OS lifecycle/platform acceptance and current production installer. Deferred reusable inputs/new UX starts only after full migration completion.
+
+## Fetch cleanup UI connected; native build running — 2026-09-30
+
+- Added tracked cleanupGitFetchStaging in workspace.svelte.js. It validates native report counts and awaits original IPC through workspace drain even when the dialog closes.
+- GitRemotePanel now has explicit Clean unused fetch files action and removed/active/retained/limited feedback. It is separate from Fetch intent and does not run automatically.
+- Prettier, Svelte check (0 errors/0 warnings), and Vite build passed. Existing bundle-size warning remains.
+- Isolated native build is still running: artifacts/native-fetch-cleanup-ui-probe/build-state.json, child PID35016, supervisor PID29980; process liveness checked after compaction. Log currently reports Compiling insomnium. Do not restart while alive; poll this state and PID. Intended artifact: artifacts/native-fetch-cleanup-ui-probe/insomnium-fetch-cleanup-probe.exe; probe identity app.insomnium.probe.checkout20260929.
+- Next: wait for successful build, add saved Playwright cleanup UI/native IPC scenario, verify idle removal and actual active Fetch worker retention, then actual parent-crash/orphan-worker recovery. These checks have not run for this new UI/binary.
+- Owner follow-up remains recorded in AGENTS.md and POST-MIGRATION-UX.md: reusable components/ui inputs with centralized styling/behavior, followed by new UX using Hoppscotch as possible reference, only after full original migration goal is complete. No browser-use; saved feature-specific Playwright JavaScript scenarios with Bun only.
+- Full migration is incomplete. Keep original PARITY scope; no production installer rebuilt in this checkpoint.
+
+## Exclusive-lease staging cleanup implemented — 2026-09-30
+
+- Previous turn made progress (shared parent/worker leases). Added git_fetch_cleanup.rs and git_remote_cleanup_staging command/handler/AppManifest/capability; generated permission artifacts with Cargo. Command accepts no renderer path and operates only under app-data/git-fetch-v1. It is explicit maintenance; no startup/automatic deletion or UI caller yet.
+- Cleanup handles at most1024 root entries and1,100,000 inspected tree nodes per call. Reports removed/active/retained/limited counts. Requires canonical fetch-/reclaim-UUID name, plain ancestry, empty regular non-reparse lease, exclusive OS lock, bounded valid v2 ownership record, expected top-level entries and plain regular repository tree. Unknown/v1/malformed/missing-lease material is retained; held shared lease counts active.
+- IMPORTANT changed design from prior checkpoint: Windows probe showed directory rename fails while its lease handle is open. Do not release lock just to rename. Cleanup now deletes in place while holding exclusive lease through validation/payload deletion/final removal. Ownership marker remains until repository payload is gone. Existing reclaim-* names are accepted for conservative recovery, but no new quarantine rename is used.
+- Failure during final container removal can leave partially removed metadata requiring manual handling; failed/unknown paths stay retained. This cooperative locking/preflight is not handle-relative protection against malicious external path replacement. No ref/HEAD/workspace changes are made.
+- Official docs read before implementation: https://doc.rust-lang.org/std/fs/fn.rename.html and https://doc.rust-lang.org/std/fs/fn.remove_dir_all.html ; File lock documentation read previously. Uses existing std/serde/uuid, no new dependency/init.
+- Cargo fmt/check/clippy -D warnings passed. Current-source standalone cleanup probe passed20 assertions: absent root, idle and prior reclaim container removal, held parent lease retained, legacy/oversize/unrelated/missing-lease retained, unrelated payload preserved, child-held lease retained and removable after checked child kill/wait. Evidence artifacts/git-stage-cleanup-check/state.json. Probe compiled from stdin; no saved non-UI test script.
+- Initial probe compile failed due panic unwind vs release abort rlibs; matched release panic=abort. Then probe exposed Windows rename failure (removed0 instead of2), corrected in-place deletion. Initial evidence retained as initial-build-failure.json and initial-runtime-failure.json.
+- Next add tracked frontend maintenance action and saved Playwright/native IPC acceptance, including real fetch worker alive across parent termination and retry cleanup. Last accepted app binary predates shared leases and cleanup; no app rebuild active. Actual parent-crash, OS disk faults/OS-close, stage cleanup end-to-end and full original PARITY remain pending.
+
+## Shared staging leases implemented — 2026-09-30
+
+- Previous turn made progress (lost-reply/save recovery acceptance). Inspected native StageReservation/worker lifetime: v1 marker/PID alone cannot prove that an orphan worker stopped after parent crash.
+- Read official std::fs::File try_lock_shared/try_lock documentation (https://doc.rust-lang.org/std/fs/struct.File.html#method.try_lock_shared and #method.try_lock). Existing configured toolchain is rustc1.98.1; these stable locking APIs require Rust1.89+. No new dependency/generator needed. Initial bare rustc launcher lacked RUSTUP_HOME; reran with existing native environment successfully, no toolchain installation/change.
+- StageReservation now creates a dedicated empty .insomnium-fetch-lease file, takes a shared OS lock and keeps its File handle through import/publication/cleanup. New owner marker is insomnium-fetch-stage-v2. Worker independently opens existing lease, rejects nonregular/link/reparse files, takes its own shared lock, checks bounded v2 owner/UUID/PID and ancestry before fetch_stage. Lock acquisition never creates a missing worker container or lease.
+- Both parent and worker must release their own handle before an exclusive cleanup lock can succeed. Parent death alone no longer implies idle staging if worker still holds its lease. This is cooperative filesystem locking; it is not a handle-relative defense against malicious external path replacement.
+- Inline Rust Windows probe verified concurrent shared locks reject exclusive lock until both close and remove_dir_all succeeds while lease handle is held (default Windows share-delete behavior). No saved non-UI test script added. Disposable fixture only.
+- Cargo fmt/check/clippy -D warnings passed. Actual current-source staged worker real-pack probe passed15 assertions (pack/history/binary/scoped refs/HEAD/existing path/corrupt/empty/invalid URL); evidence artifacts/git-stage-lease-check/full-pack-state.json and logs. This is not orphan-parent-kill/restart acceptance.
+- No automatic staging deletion/scanner added yet. Next build cleanup around exclusive lease acquisition plus ownership revalidation/quarantine and bounded traversal; v1/unknown/malformed stages must be retained rather than assuming PID expiry proves safe deletion. Add saved Playwright/native parent-crash/worker-still-live cases and production app rebuild after integration.
+- Current last accepted UI binary predates these lease changes (native-fetch-retire-ui-probe). No new app build running. Retained-stage cleanup/crash recovery, OS disk faults/OS-close and full original PARITY remain incomplete.
+
+## Fetch lost-reply and retirement-save recovery accepted — 2026-09-30
+
+- Previous turn made progress (retirement/race acceptance). Reused successful native-fetch-retire-ui-probe binary; no rebuild or production source change needed.
+- Added reusable tests/ui/helpers/ipc-failure.js with scoped transport fault injection before native delivery or after a real successful native response. It preserves all other IPC, records invocation/native-success counts, consumes discarded response bytes and restores browser fetch in finally. No credentials/request headers are logged. Uses the native transport mechanism inspected in preceding checkpoint.
+- Saved tests/ui/git-fetch-recovery-errors.js (Bun alias test:ui:git-fetch-recovery-errors) passed3 native UI scenarios:
+  - git-fetch-lost-reply-1790776835174:5 checks; real native Fetch success replaced with an IPC error; durable intent retained, native Inspect confirms committed snapshot, reload/UI recovery clears it without network, local HEAD unchanged. PID27768 exited0.
+  - git-fetch-retire-save-failure-1790776836701:4 checks; save rejected before native delivery; local pending intent restored, durable resources unchanged, reload/retry retirement succeeds without network/HEAD change. PID2896 exited0.
+  - git-fetch-retire-save-lost-reply-1790776838051:4 checks; native save succeeds but its reply is replaced; UI retains uncertain pending state, reload sees authoritative retired state and unlocks controls without network/HEAD change. PID35964 exited0.
+- Evidence under artifacts/playwright/<scenario>/{acceptance,result}.json. All use isolated probe identity and explicit window-destroy cleanup. These are controlled transport failures, NOT OS disk-full/write failure, kill/power-loss or OS-close acceptance.
+- Svelte check0 errors/0 warnings. No active build/probe remains from these completed runs. No browser-use or Node executable; saved Playwright scenarios run with Bun.
+- Next retained staging cleanup and native worker ownership across crash/restart, then real filesystem-failure/OS-close acceptance. Also retain full original scope: superseded operation receipts/legacy fetch options/provider-proxy-TLS, clone/pull/push/merge and all remaining PARITY items. Full migration remains active.
+
+## Fetch retirement and in-flight fence accepted — 2026-09-30
+
+- Previous turn was progress (retirement implementation/scenario/build). Polled same PID31992 until finished0; artifacts/native-fetch-retire-ui-probe/build-state.json, finished1790776393531. No active build remains.
+- Saved git-fetch.js passed11 grouped checks including explicit retirement marker, enabled controls across reload and rejection of exact old request before network; evidence artifacts/playwright/git-fetch-1790776436355, PID26468 exited0. Orderly restart3 checks passed git-fetch-restart-1790776438945, PID35344 exited0.
+- Added feature-separated tests/ui/git-fetch-retire-race.js + Bun script alias. Holds a real native worker on controlled loopback advertisement, injects cancellation IPC rejection, retires through UI, releases real pack network, then requires native saved-binding rejection with no published snapshot, unchanged HEAD, and successful new UI Fetch.
+- Race passed5 checks: artifacts/playwright/git-fetch-retire-race-1790776601455/{acceptance,result}.json; PID30716 exited0. This proves final persisted-binding fencing when cancel is not delivered; it does not prove disk-fault, crash/power-loss, or retained-stage cleanup.
+- Fault-injection attempts initially failed: native invoke is non-writable/non-configurable (count0, then Cannot redefine property). Initial source-edit anchor failed and one unchanged scenario reran; artifacts git-fetch-retire-race-1790776444852,1790776497009,1790776522831 retained. Fixed saved scenario to replace browser fetch only for the exact cancel IPC URL, return synthetic Tauri error response, preserve/restore all other real transport. No production hook or credential/header logging.
+- Official mocks docs reviewed: https://v2.tauri.app/reference/javascript/api/namespacemocks/ ; inspected installed API/core and native tauri2.12 scripts to identify actual transport. Browser mockIPC assignment does not override locked native invoke; native transport fault injection is scoped to the saved Playwright scenario.
+- Final svelte-check0 errors/0 warnings after correcting browser-vs-Bun fetch JSDoc (initial missing preconnect type error). Production code unchanged this turn.
+- Next add failed/uncertain retirement-save and actual lost fetch-reply cases; retained staging recovery/worker ownership after crash, receipt supersession/legacy fetch modes, provider/proxy/TLS and clone/pull/push/merge/full PARITY remain incomplete. Keep full goal active.
+
+## Explicit pending Fetch retirement wired — 2026-09-30
+
+- Added retireGitRemoteFetch and Stop tracking pending fetch in existing panel. Explicit action requests cancellation best effort, rechecks captured binding/workspace, removes pending intent and persists a bounded last-retirement marker {version1,operationId,disposition:tracking-stopped}. Existing snapshots/refs/staging files are not deleted. Success is shown only after persistence acknowledges.
+- Publication fence uses existing semantics rather than a second native workspace writer: persistence queue serializes snapshots; save_workspace holds StorageState; Fetch final admission/publication holds GitState then StorageState and compares the entire expected binding. Once retirement save completes, an old request cannot pass final admission against that changed binding. A snapshot already committed before the save remains; UI explicitly says this is not rollback.
+- Save failure restores pending intent/previous marker in memory if still applicable, reports uncertainty, and does not claim a successful fence. Concurrent save-failure/late IPC/crash races still need acceptance. Cancellation ack alone is not proof of completion.
+- Read official invoke docs before implementation: https://v2.tauri.app/develop/calling-rust/ . Inspected persistence.js, persistence-queue.js and existing native storage/fetch lock boundaries. No dependency/init/native-command change needed.
+- Svelte check0 errors/0 warnings and Vite build0; existing >500kB warning remains. Saved tests/ui/git-fetch.js extended to retire stopped intent, verify durable marker/unlocked controls across reload, reject replay of exact old binding before network, and retain previous snapshot restart checks. Runtime acceptance PENDING.
+- Started isolated build artifacts/native-fetch-retire-ui-probe/build-state.json; supervisor PID32392. Poll same build PID/state until terminal, then run bun tests/ui/git-fetch.js. Do not use older intent binary for this scenario.
+- Next verify runtime; extend gated in-flight retirement/publication race and save-failure/restart cases. Retained stages/native worker ownership after crash, prior operation receipt history, legacy fetch options and full original PARITY remain pending. Retirement does not claim worker reaping or stage cleanup.
+
+Build PID at checkpoint: 31992; verified live: true.
+
+## Durable Fetch recovery UI acceptance passed — 2026-09-30
+
+- Previous turn made progress (intent persistence/UI/scenario/build). Polled same live PID24068 until isolated build finished0 at1790775805556; no restart. Record artifacts/native-fetch-intent-ui-probe/build-state.json; artifact insomnium-fetch-intent-probe.exe. No active build remains.
+- Extended saved tests/ui/git-fetch.js with unknown-after-Stop inspection, persisted identity, reload survival and disabled retry/settings. Full scenario passed10 grouped checks, including confirmed pending intent seeded then recovered/cleared through actual UI without network.
+- Evidence artifacts/playwright/git-fetch-1790775827974/{acceptance,result}.json, app PID17060 exited0. This verifies normal fetch clears its intent, confirmed UI recovery and unconfirmed retention; seeded success record is not a real lost IPC transport simulation.
+- Orderly new native process inspection passed3 checks: artifacts/playwright/git-fetch-restart-1790775830365; PID31484 exited0. Existing remote-settings regression passed8 on same binary: artifacts/playwright/git-remote-settings-1790775851713.
+- Svelte check0 errors/0 warnings after scenario additions. All UI control used saved Playwright with Bun; no browser-use.
+- Remaining functional gap: stopped/failed pre-publication operations retain an unconfirmed intent and currently cannot resume Fetch/change saved settings. Need an explicit resolve/dismiss path; do not label absence of a current snapshot as proof of rollback.
+- Inspected save_workspace: StorageState lock serializes its persisted binding write against final fetch publication, which holds GitState then StorageState and rechecks exact expected binding. An explicit native retirement operation could cancel/fence a pending operation by atomically clearing/marking its exact intent under these locks and report any already-published snapshot. Must handle save failure/uncertain outcome, preserve stage evidence, reject changed intent and verify races before exposing it. This is a design direction, not implemented or accepted.
+- Next implement explicit resolution with publication fencing, saved Playwright cancellation/restart/race coverage; then retained-stage cleanup/native terminal recovery and original legacy modes/provider/pull/merge/clone/push/full PARITY. Full migration goal remains active.
+
+## Durable Fetch intent and recovery UI wired — 2026-09-30
+
+- Fetch now persists binding.nativeFetchIntent {version1, operationId, workspaceId, repositoryId, url} before native submission. No credentials are copied into the intent. The client accepts this explicit operation ID; native receives the exact binding including intent.
+- Workspace wrapper retains tracked work until native and confirmation persistence settle. Successful receipt clears only an unchanged exact binding intent; failed confirmation save restores the in-memory intent. Errors/unknown outcomes retain identity. Save remote settings/new Fetch are blocked while intent exists.
+- Added tracked inspectGitRemoteFetch and existing-panel Inspect pending fetch control. Native observation is read-only; confirmed current operation clears its intent through persistence. Unconfirmed status is retained without automatic retry. This is not yet a complete recovery system: canceled-before-publication/persist-failed intents have no abandon/final-negative path yet; native terminal ledger/staging ownership must resolve this before full acceptance.
+- Svelte check0 errors/0 warnings, Vite build0 (existing chunk-size warning). Official Tauri invoke/Svelte lifecycle patterns were consulted in preceding checkpoints; no new dependency or initialization.
+- Updated saved tests/ui/git-fetch.js to seed a confirmed pending intent, reload UI, inspect/clear without network, and expect retained intent after Stop. This models an unconsumed success record, not an actual lost IPC transport. Runtime verification PENDING on new binary.
+- Isolated build started: artifacts/native-fetch-intent-ui-probe/build-state.json, supervisor PID6764/build PID24068 verified live. Intended insomnium-fetch-intent-probe.exe. Poll same PID/state; after finished/code0 run bun tests/ui/git-fetch.js. No restart just for observation timeout.
+- NEXT: run updated scenario, fix failures, add unconfirmed/cancel/restart durable intent cases; design native terminal outcome/explicit resolution and retained-stage recovery. Saving/recovery failure races, changed credentials, superseded receipts and all original Git/full PARITY scope remain pending.
+
+## Fetch inspection client and orderly restart verified — 2026-09-30
+
+- Previous turn made progress (native inspect command/checks/build). Polled same PID37284 until build completed code0; artifacts/native-fetch-inspect-ui-probe/build-state.json, finished1790775178669. No active build remains.
+- Added createGitRemoteClient.inspectFetch: captures immutable request; validates operation ID, endpoint hash, snapshot/branch schema and confirmedCurrent consistency; rejects stale read responses; invokes only inspection, no cancel/network worker. Shared endpoint hash/snapshot validator used by Fetch. Native exact saved-binding admission still applies.
+- Saved Playwright calls this current JS client from Bun with actual native invoke injection. The test binary contains the prior frontend bundle; inspection client is not yet exposed in the application UI. This proves client/native integration, not a recovery UI.
+- tests/ui/git-fetch.js passed8 grouped checks plus explicit missing-snapshot false/null/no-network assertions. Evidence artifacts/playwright/git-fetch-1790775212631/{acceptance,result}.json; PID31244 exited0.
+- Same saved script relaunches a separate native process and confirms persisted operation/snapshot with zero network and preserved local HEAD:3 checks, artifacts/playwright/git-fetch-restart-1790775214639/{acceptance,result}.json; PID28964 exited0. This is orderly explicit destroy/relaunch, not crash/power-loss, OS-close or durable renderer intent recovery.
+- Full svelte-check initially found13 missing JSDoc errors in the previously added UI scenario/fixture. Fixed annotations and reran:0 errors/0 warnings. No TypeScript application files introduced.
+- Next persist a Fetch intent before native submission (operation ID/endpoint/binding identity without duplicating credentials), wire read-only Inspect into tracked workspace/UI and retain unresolved state after lost reply/restart. Do not auto-retry an unconfirmed operation. Native retained-stage cleanup, superseded receipts, crash/power-loss and all legacy parity items remain pending.
+- Official command/lifecycle patterns already consulted in preceding checkpoints; this client uses existing invoke API with no new dependency/generator.
+
+## Read-only Fetch reconciliation command — 2026-09-30
+
+- Added git_remote_fetch_inspect using the same validated FetchRequest, Git→Storage lock order, loaded-session/persisted-binding admission, managed destination checks and snapshot reader as Fetch. Registered handler, AppManifest and capability; generated permission artifacts via Cargo.
+- Response {requestId, confirmedCurrent, snapshot}: true only if current snapshot operation ID matches. Missing/different current snapshot means unconfirmed, NOT never-committed; a newer fetch can supersede it. This command never starts worker/network, publishes refs or deletes staging files. Exact saved-binding admission still applies; recovery across changed settings needs further design.
+- Extracted shared request validation without changing Fetch behavior. Cargo fmt/check/clippy -D warnings all passed. Official pattern reviewed: https://v2.tauri.app/develop/calling-rust/ . No dependency/init required.
+- Extended saved tests/ui/git-fetch.js with matching/unknown operation inspection and unchanged network count. Runtime verification is PENDING. Scenario default now requires artifacts/native-fetch-inspect-ui-probe/build-state.json; earlier successful seven-check evidence does not prove this new command.
+- Isolated rebuild started: supervisor PID36876, build PID37284 verified live. Poll same build-state/PID (do not restart on timeout). Intended artifact insomnium-fetch-inspect-probe.exe. After finished/code0 run bun tests/ui/git-fetch.js; inspect acceptance/result and update docs.
+- Next after native acceptance: persist a Fetch operation intent before submission, expose read-only Inspect in JS/workspace/UI, and recover it after lost reply/restart. Native ledger, superseded-operation receipts, retained stage cleanup/crash ownership and full original parity remain unresolved. Do not automatically rerun fetch when status is unconfirmed.
+
+## Fetch native UI acceptance passed — 2026-09-30
+
+- Previous turn was progress (saved scenario/build started). Polled the same live build PID28044 until finished; did not restart. Native isolated build finished code0 in6m00s. Evidence: artifacts/native-fetch-ui-probe/build-state.json; artifact insomnium-fetch-probe.exe, identity app.insomnium.probe.checkout20260929. This is a test binary, not a production installer.
+- Saved Playwright tests/ui/git-fetch.js passed7 checks on the new native binary: unsaved settings refused without network; real pack download/two branches via UI; unchanged local HEAD/resources; native operation receipt; same-operation reconciliation without another network request; changed persisted binding during held advertisement rejected after network; Stop closes connection and tracked UI settles.
+- Fixture is a real four-object pack (two commits/tree/binary blob); shared helper runs in Bun. A one-shot network gate exercises actual native storage admission after saved settings change. No browser-use, shell, Node executable or external production endpoint.
+- Evidence: artifacts/playwright/git-fetch-1790774627690/{acceptance,result}.json. Probe exited0 (PID32064). Result scope: loopback provider, explicit window destroy; does not establish lost IPC transport, OS-close, crash/power-loss/restart recovery or full Git parity.
+- Existing remote-settings Playwright regression passed8 checks against the same new binary: artifacts/playwright/git-remote-settings-1790774661897. The initial regression launcher attempted unavailable process global in node_repl and did not launch; corrected to set environment inside Bun, then passed.
+- Next: implement durable Fetch operation reconciliation/retained-stage restart recovery and saved Playwright failure/restart cases. Remaining legacy fetch modes/provider auth/proxy/TLS, clone/pull/push/merge and all PARITY items still apply. Same-branch advancement needs versioned checkout journal; do not bypass its existing guard. Full goal remains active.
+
+## Fetch native acceptance prepared — 2026-09-30
+
+- Saved tests/ui/git-fetch.js and shared helpers/git-pack-fixture.js; Bun-only real SHA-1 Git pack contains two commits, tree and binary blob. Scenario covers unsaved-settings refusal, UI Fetch/two branches, unchanged HEAD/resources, same-operation native reconciliation without network, and Stop with actual stalled connection. Added test:ui:git-fetch script. Scenario is NOT yet runtime accepted.
+- Official references read before writing fixture/scenario: https://git-scm.com/docs/pack-format and https://playwright.dev/docs/api/class-locator . Uses existing Playwright native-app isolated identity/helper; no browser-use tools.
+- Started isolated native build: artifacts/native-fetch-ui-probe/build-state.json and build.log; supervisor PID20976, build PID28044 verified live on this checkpoint. No restart: poll this same build state/PID until terminal. Intended artifact insomnium-fetch-probe.exe. Frontend build already passed in previous checkpoint.
+- NEXT: after build status finished/result.code0, run Bun tests/ui/git-fetch.js through hidden direct launcher; fix any runtime failures in the saved scenario/source. Do not run against the older remote-settings binary. Add changed persisted binding/IPC-loss/recovery cases afterward. Full migration remains incomplete.
+
+## Fetch workspace and UI wired — 2026-09-30
+
+- Added fetchGitRemote tracked workspace wrapper. Refuses pending/failed saves and unsaved connection edits; captures the entire binding immutably and checks workspace/binding/draft identity. Native persisted-binding admission remains authoritative. Work stays registered through native settlement after Stop/dialog disposal/drain.
+- Existing GitRemotePanel now offers Fetch remote branches, distinct fetching status, Stop, branch receipt display and cleanup notice. Successful publication after cancellation is reported as completed, not rolled back. Errors show operation ID and uncertain-completion wording; reconciliation/recovery UI remains pending.
+- Svelte check passed (0 errors/0 warnings); Vite build passed. Initial build launcher maxBuffer=5000 caused ERR_CHILD_PROCESS_STDIO_MAXBUFFER; rerun with 2 MB buffer exited0. Existing >500kB chunk warning remains. No Node/npm command executed.
+- Read official lifecycle docs before wiring: https://svelte.dev/docs/svelte/lifecycle-hooks . Used existing onDestroy cancellation and Tauri invoke pattern; no generator/dependency change needed.
+- NEXT: saved reusable Playwright Fetch scenario with real Git pack fixture, isolated native rebuild, IPC success/Stop/changed saved binding/lost reply reconciliation acceptance. Current app binary predates native Fetch. No native/UI runtime acceptance claimed; retained stages/restart recovery/legacy fetch modes and full original parity remain incomplete.
+
+## Fetch JavaScript client — 2026-09-30
+
+- Added createGitRemoteClient.fetch with immutable request capture, saved-binding URL validation, endpoint SHA-256 receipt identity, operation ID and manifest/branch validation.
+- Cancellation sends git_remote_cancel once and awaits the original command. A committed native success remains a success even after abort/view change; the result carries current:false. Errors retain requestId/submitted for future reconciliation rather than claiming rollback.
+- Native schema permits a default branch without an advertised tip (for example unborn remote); client follows that contract.
+- Svelte compiler check passed with 0 errors/0 warnings. No runtime Fetch acceptance yet and no native rebuild this checkpoint.
+- Next: tracked workspace wrapper with persisted binding admission, existing Git panel Fetch/Stop controls, saved Playwright real-pack/native IPC scenarios, reconciliation/recovery. Client is not yet called by UI. Full migration remains incomplete.
+- Official docs consulted: https://v2.tauri.app/develop/calling-rust/ . Commands: bun x --bun prettier --write src/lib/git-remote-client.js; bun x --bun svelte-check --tsconfig ./jsconfig.json --config ./svelte.config.js --fail-on-warnings. No new dependency/generator required.
+
+Updated: 2026-09-30 - native Fetch command wired; frontend/IPC acceptance pending
 Goal: migrate Insomnium Electron/React → Tauri 2 + Svelte JavaScript, Bun only, original UI.
 Status: **IN PROGRESS — foundation implemented; full legacy parity not complete.**
 
 Current execution rule (owner update): Do not use shell execution tools or cmd/PowerShell. Launch Bun and other programs directly through node_repl with node:child_process execFile/spawn, shell:false and windowsHide:true. Bun handles scripts/filesystem operations. This supersedes historical cmd.exe instructions below.
+
+## Native Fetch command wired — 2026-09-30
+
+- Previous goal turn was progress: single-pointer publication implemented/checked. Revalidated docs and current storage/binding/native Git code.
+- Added git_fetch_command.rs and git_remote_fetch handler, AppManifest command and main-window capability. Permission artifacts generated by cargo/tauri-build, not handwritten generated output. Removed temporary dead-code expectation on snapshot publication.
+- FetchRequest carries canonical operation/request UUID, workspace/repository IDs and exact expected saved binding (bounded64 KiB); never a filesystem path or independent credentials. Native derives HTTP(S) endpoint and anonymous/basic/GitHub/GitLab credentials from persisted binding; supports legacy basic token fallback. Unsupported/non-normalized legacy settings must be saved through existing settings UI first.
+- Admission under GitState then StorageState requires loaded storage, no pending Git transition, existing public collection, exactly one matching binding/version/repository mapping, and exact saved-binding equality. Reads expected current endpoint snapshot before network. Repeats admission after network before publication, allowing unrelated resource edits but refusing changed binding/settings.
+- Network runs with both locks released. Uses app-data/UUID allocator, shared request registry/cancel supervisor and staged fetch. Publication runs under native Git/storage admission; reservation persists through publication/cleanup.
+- Destination checks managed path, plain Git filesystem entries, absence of alternate/shared object declarations and canonical common Git directory before opening/admitting writes. This remains preflight rather than handle-based protection against concurrent external replacement.
+- If current snapshot operation UUID already matches the request, command returns observed committed result without fetching again (reconciled:true, cleanupPending:null because old cleanup is unknown). A freshly published result returns cleanupPending true/false; cleanup failure does not turn committed publication into an uncommitted error. Other post-network admission/publication errors retain owned stage for recovery; orphan/retained-stage housekeeping is not complete.
+- Cargo fmt/check/clippy -D warnings passed.15 actual admission/settings-helper assertions passed (valid/stale/duplicate/shared/private/missing collection binding and auth mappings/refusals), with23 snapshot +17 import +15 real-pack regression assertions. Evidence artifacts/git-fetch-command-check/{state,full-pack-state}.json and logs.
+- Scope of verification: pure admission helper/settings mapping and existing worker/import/publication source exercised; actual async command, lock interleavings, Tauri IPC, AppHandle path resolution, changed-settings during network, reconciled lost reply and command destination guard failures NOT yet runtime accepted. No native app rebuild or UI run this turn; no active build remains.
+- Next add plain-JavaScript Fetch client/workspace wrapper with tracked work/drain/cancel, require saved settings and capture immutable binding; wire Fetch/Stop/results into existing Git panel. Write/reuse saved Playwright native scenarios, build isolated app and verify IPC lifecycle/admission/reconciliation. Add retained-stage/restart recovery and remaining legacy fetch modes, provider/pull/merge/clone/push/full parity.
+- Official docs consulted: https://v2.tauri.app/develop/calling-rust/ ; https://docs.rs/tauri-build/latest/tauri_build/struct.AppManifest.html . Used documented tauri::command/invoke_handler/AppManifest pattern and Cargo generation; no dependency/init needed. Bun-only hidden subprocess launch, no browser-use.
+
+## Single-pointer fetch snapshot publication — 2026-09-30
+
+- Previous goal turn was progress: verified object importer completed/checked. Read current migration docs and installed git2 transaction source before implementation.
+- Added git_fetch_snapshot.rs. Current representation is one immutable manifest commit selected by refs/insomnium-fetch/{SHA256(normalized endpoint)}/current. Manifest stores schema1, endpoint digest, operation UUID, branch map and advertised default branch; no raw URL or credentials. Snapshot commit parents are the sorted unique fetched branch tips, keeping complete reachable graphs alive through ordinary Git reachability.
+- This replaces the earlier tentative multi-generation-ref design for the initial full-branch mode. One pointer selects the entire map; readers do not enumerate partially written tracking refs. Empty branch sets produce a valid zero-parent snapshot. This is local internal metadata, not a local branch commit or workspace tree.
+- publish_snapshot reads/validates expected current snapshot, imports objects through ObjectImportReceipt, builds immutable metadata objects, then locks exactly ONE ref, rechecks expected direct tip under lock, checks cancellation and writes that pointer. Rejects stale/locked/symbolic state. No dependency on multi-ref transaction atomicity.
+- After the write boundary cancellation is not reported as uncommitted. Ref write errors explicitly require outcome inspection/retained staging; publication reads back expected pointer before returning. Operation UUID is in the manifest for later lost-reply reconciliation. No automatic replay, local HEAD/ref changes or workspace mutation.
+- Reader validates schema, endpoint digest, operation UUID, branch names/OIDs/duplicates, single manifest tree entry/mode/size and exact parent-tip correspondence. It returns the immutable snapshot selected by the one captured pointer.
+- Removed importer dead-code expectation because publication now calls it. A narrowly scoped expectation remains on publish_snapshot until native Fetch command/admission integration; no production Fetch IPC/UI wired yet.
+- Cargo fmt/check/clippy -D warnings passed. Actual-source fixture passed23 snapshot assertions: initial/readback, whole branch map, endpoint separation, raw URL omission, commit-parent reachability, unchanged local HEAD, stale expected pointer, pre-cancel, held ref lock, branch removal, empty snapshot and symbolic-ref refusal. Existing17 import/cancellation +15 real-pack checks also passed in the same native probe.
+- Evidence artifacts/git-fetch-snapshot-check/{state,full-pack-state}.json and logs. Initial compiler error on internal advertisement URL visibility fixed; retained initial-field-visibility-failure.log. No native app build/UI acceptance and no running process remains.
+- Limits: no abrupt crash/power-loss/fsync/GC execution acceptance, injected ref-write uncertainty or lost-reply retry integration. Reader correspondence is not a full rehash of every previously published graph on every read. Initial snapshot replaces the full branch map; legacy single/depth/relative/prune/pruneTags semantics remain pending and must not be claimed complete.
+- Next wire native Fetch command with managed destination/path/ODB validation, GitState then binding/settings admission, expected prior snapshot captured before network, operation ID reconciliation and staging cleanup only after known outcome. Then client/workspace/UI/saved Playwright, restart/orphan recovery, remaining remote workflows and full parity.
+- Official docs: https://docs.rs/git2/latest/git2/struct.Repository.html#method.commit ; https://docs.rs/git2/latest/git2/struct.Transaction.html#method.commit ; https://docs.rs/git2/latest/git2/struct.Repository.html#method.reference_matching ; https://docs.rs/sha2/latest/sha2/ . Existing sha2 dependency used; no dependency/install/init. Installed git2 0.21 transaction source verified single-reference lock/set_target/commit behavior.
+
+## Verified native object import primitive — 2026-09-30
+
+- Previous goal turn was progress: fetched graph validation implemented/checked. Revalidated current worktree and migration docs.
+- Added ObjectImportReceipt::try_from((&WorkerOutput, &destination_repository, &AtomicBool)). Requires a handed-off staging lease; revalidates ownership/path, scans objects for non-regular/link/reparse entries, rejects disk/http alternate declarations, then constructs a read-only source ODB from only that owned objects directory using Odb::new/add_disk_alternate and Repository::from_odb. Does not open staging repository config or resolve staging refs.
+- Pins worker-advertised branch OIDs, validates complete source graph before target writes, hashes bytes again during ODB copy, checks each returned write OID, then validates the target graph and ownership again. Source config cannot redirect reads. Caller must supply an already-admitted managed destination under appropriate GitState/binding checks; command integration is pending.
+- Writes Git objects only. No refs/HEAD/index/worktree/workspace writes or snapshot publication. Failure/cancellation after some object writes can leave unreachable objects; never claim a published fetch or delete unrelated target objects to roll back.
+- Added cancellation callback checks before/between/after graph objects as well as scan/copy loops. A single bounded object read/hash is not interruptible mid-call. Existing graph limits apply; import input scan capped at1100000 entries.
+- Cargo fmt/check/clippy -D warnings passed.17 actual-source import assertions passed using a real fetched two-commit pack and independent normal destination repository: imported binary/history, unchanged existing HEAD/ref count/working edits, repeat import, pre-cancel/no writes, cancellation during graph traversal, ignored invalid staging config, refused alternate store/object symlink/changed ownership/missing pack.15 real-pack regression assertions also passed.
+- Evidence artifacts/git-object-import-check/{state,full-pack-state}.json and logs. No native app build/UI acceptance this turn, no running probe/build remains.
+- Clippy initially reported the import receipt as not constructed because the production snapshot caller is not wired yet. Recorded initial-clippy-unwired-import.log and added a narrowly-scoped expect(dead_code) with the explicit next-milestone reason. Remove that expectation when adding the publication caller; this is prepared/standalone-verified implementation, not production integration.
+- Next implement endpoint-scoped snapshot publication with one observable ref transition and captured binding/settings/expected prior state. Integrate this importer under native locks/admission and remove its temporary dead-code expectation; retain staging until publication outcome is known, then cleanup. Fetch command/client/UI/Playwright, restart recovery, legacy depth/prune modes, advance-ref journal/pull/merge/clone/push and full parity remain open.
+- Limits: path scanning/ownership is preflight, not race-proof protection from external mutation. Destination identity/ODB indirection validation must be part of command admission. No disk-full/mid-copy OS error, crash, GC/publication or actual provider acceptance yet.
+- Official docs consulted before implementation: https://docs.rs/git2/latest/git2/struct.Odb.html#method.write ; https://docs.rs/git2/latest/git2/struct.Odb.html#method.add_disk_alternate ; https://docs.rs/git2/latest/git2/struct.Repository.html#method.from_odb ; https://docs.rs/git2/latest/git2/struct.Repository.html#method.open_ext . No dependency/init required; documented Cargo commands and inline Bun/Rust probes used.
+
+## Complete fetched object graph validation — 2026-09-30
+
+- Previous goal turn was progress: typed stage handoff and native app-data allocator completed. Revalidated STATUS/PLAN/PARITY and current fetch source.
+- Added validate_object_graph in git_remote.rs; fetch_stage now validates all advertised branch tips before returning worker success. Traversal follows every commit parent and root/nested tree, validates expected object type, header/data length and recomputed SHA-1 object ID, and returns unique verified OIDs for the later import step.
+- Handles ordinary/executable files and symlink blobs without materializing paths. Preserves binary/non-resource content. Gitlinks (submodule commits) belong to another repository and are not treated as missing objects; their tree entries remain intact. Rejects zero IDs, conflicting types, missing/malformed/corrupt objects, duplicate/invalid tree names and unsupported raw modes.
+- Validation is iterative and deduplicates before queuing. Explicit current limits:1000000 reachable objects,256 MiB per object and4 GiB total uncompressed reachable bytes. Limit failures reject the stage rather than truncating history. These are initial resource limits, not evidence of legacy large-repository parity; configurable/streaming large-object handling remains a compatibility concern. Existing worker timeout bounds validation lifetime.
+- Cargo fmt/check/clippy -D warnings passed. Actual-source probe passed15 graph assertions (completeness, dedup, missing parents/blob/tip, wrong types, malformed commit, duplicate names, executable/symlink/submodule handling, corrupt loose object) plus15 direct real-pack assertions. Separate15 real-pack regression assertions passed through native supervisor/reservation/handoff with validation active.
+- Evidence artifacts/git-object-graph-check/{state,probe-state,full-pack-state}.json and logs. Initial corruption probe hit Windows read-only object attribute; changed only disposable fixture object permissions to inject corruption and reran successfully. Initial failed probe retained. No active build/probe remains.
+- Limits: this validates worker staging, not yet a native parent import/publication trust boundary. Parent must re-open owned staging, reject alternate/config/path escapes and revalidate/import bytes without a mutation gap before publishing refs. No managed repository/HEAD/workspace changed. No native app build/UI acceptance this turn.
+- Next implement verified object import and complete endpoint-scoped snapshot publication under native admission using the handed-off lease. Then Fetch IPC/client/UI and saved Playwright, restart/orphan recovery, legacy depth/prune modes, advance-ref journal/pull/merge/clone/push and all remaining parity. Full migration incomplete.
+- Official docs consulted before implementation: https://docs.rs/git2/latest/git2/struct.Oid.html#method.hash_object ; https://docs.rs/git2/latest/git2/struct.Odb.html#method.read_header ; https://docs.rs/git2/latest/git2/struct.TreeEntry.html#method.filemode_raw . No new dependency/generator. Existing Cargo checks and inline Bun/Rust stdin probes used.
+
+## Successful stage handoff and app-data allocation — 2026-09-30
+
+- Previous goal turn was progress: parent reservation/failure cleanup and real-pack verification completed. Revalidated worktree/docs before changes.
+- run_worker now returns native-only WorkerOutput containing advertisement plus optional StageReservation. Successful fetch preserves and hands off its ownership marker; native consumers can request a revalidated repository_path and explicitly discard after consumption. Rechecks both container ownership and repository directory ancestry. No automatic cleanup on Drop.
+- Advertisement Tauri command explicitly converts only non-stage results to the existing RemoteAdvertisement response. WorkerOutput is not serializable; conversion refuses staged fetch output. No filesystem lease/path is exposed to the renderer and existing advertisement IPC shape is unchanged.
+- Added native TryFrom<(tauri::AppHandle, RemoteAdvertisementInput)> allocation entry point. Uses documented app.path().app_data_dir(), fixed git-fetch-v1 child and fresh fetch-{UUID} container path. Parent/root ancestry is checked before use; concurrent root creation accepts AlreadyExists only after revalidation. Renderer will supply connection/binding data, never paths. This native constructor is prepared but NOT yet wired to a public Fetch command.
+- Cargo fmt/check/clippy -D warnings passed.58 actual-source assertions passed: prior lifecycle/ownership checks plus lease handoff/revalidation, changed marker refuses repository access/deletion, explicit post-consumption cleanup, renderer-conversion refusal retaining stage, UUID isolation/path shape, allocation without premature container creation, full allocate/worker/discard cycle and app-data junction refusal.
+- Real two-commit pack regression passed15 assertions through supervisor after WorkerOutput change. Evidence artifacts/git-stage-handoff-check/{state,probe-state,full-pack-state}.json and logs. AppHandle adapter compiled; filesystem allocator exercised with an isolated directory, not actual Tauri runtime resolution. No native app build/UI acceptance this turn, no active process remains.
+- Native consumers must now use output.stage ownership and output.advertisement. Do not reconstruct lease ownership from a caller-provided path or silently convert staged results into advertisement-only renderer responses.
+- Next: complete object validation/import and one-point endpoint-scoped snapshot publication using the handed-off lease, captured settings/binding admission, then wire Fetch command/client/UI and saved Playwright. Restart orphan recovery, successful-publication cleanup integration, external path replacement races, disk limits/progress and actual providers still need work. Legacy depth/prune modes, advance-ref journal/pull/merge/clone/push and all full parity requirements remain.
+- Docs consulted: https://docs.rs/tauri/latest/tauri/path/struct.PathResolver.html#method.app_data_dir ; https://doc.rust-lang.org/std/fs/fn.symlink_metadata.html . No new dependency/init required. Existing Cargo commands via Bun/direct hidden execution.
+
+## Parent staging reservation and failure cleanup — 2026-09-30
+
+- Previous goal turn was progress: explicit reap evidence/pipe joins fixed. Revalidated current docs and fetch sources.
+- Parent run_worker now exclusively reserves the requested native-only staging container before starting a fetch child. It writes/syncs a create_new ownership marker containing format version, random UUID and parent PID (no URL/credentials). Child receives only container/repository as its fresh bare repository path.
+- On failed/invalid/timeout/cancelled work, parent discards the container only if no child was started or wait confirmed termination. Missing pipes/unconfirmed termination retain it. Successful fetch retains container/repository for later validation/import/publication. No Drop-based directory deletion.
+- Cleanup revalidates container ancestry and the exact bounded regular ownership marker; rejects links/reparse markers or changed/missing ownership. Uses Rust remove_dir_all, which does not follow nested symlinks. A cleanup failure reports retained recovery state rather than pretending deletion succeeded.
+- Cargo fmt/check/clippy -D warnings passed.43 actual-source native lifecycle/ownership assertions passed, covering automatic timeout/cancel cleanup, pre-cancel, existing container refusal, marker tampering/refusal and restoration/cleanup, parent junction refusal, nested symlink cleanup preserving its unrelated target, invalid request cleanup, and previous job/reap checks.
+- A separate real two-commit Git pack passed15 assertions THROUGH the current process supervisor and staging reservation (previous real-pack probe called fetch_stage directly): scoped refs, ancestry, binary blob outside .insomnium, HEAD/FETCH_HEAD behavior, existing-directory refusal, corrupt pack, empty remote and invalid input. Evidence artifacts/git-stage-ownership-check/{state,probe-state,full-pack-state}.json and logs.
+- One edit initially wrote a literal newline escape into Rust; fmt caught it, corrected and retained initial-fmt-failure.log. Final checks passed. No native app build or UI run this turn; no active probe/build remains.
+- Native supervisor StagedFetchInput.directory now denotes a fresh container; private worker input still denotes the fresh bare repo inside it. This API is not accepted by a renderer command. Callers of the native supervisor must read container/repository; do not use old directory-as-repository assumptions.
+- Still pending: derive staging root/UUID path from Tauri app data (never renderer path), lease handoff/explicit cleanup after successful publication, process-identity-aware restart/orphan recovery, disk/resource policy and race-resistant ownership if required. Current parent preflight/marker is not a handle-based defense against concurrent external path replacement. No blanket orphan deletion or PID-only liveness decision.
+- Next implement app-owned allocation plus validated snapshot import/publication, captured settings/binding admission, then Fetch controls and saved Playwright. Multi-ref Transaction remains non-atomic; preserve one observable publication point. Full legacy depth/prune modes, advance-ref journal/pull/merge/clone/push and all remaining parity stay in scope.
+- Official docs consulted before edits: https://doc.rust-lang.org/std/fs/struct.OpenOptions.html#method.create_new ; https://doc.rust-lang.org/std/fs/fn.remove_dir_all.html . No new dependency/init; existing documented Cargo checks launched through Bun with hidden process options.
+
+## Worker termination evidence fixed — 2026-09-30
+
+- Previous goal turn was progress: fetch supervision/path guards implemented and checked. Inspected current STATUS/PLAN/PARITY and source before continuing.
+- Found a lifecycle gap before implementing automatic staging cleanup: OwnedChild::drop discarded kill/wait results, so a timeout/cancel return did not itself prove that wait succeeded. Also an early error from writer.join could skip joining the reader thread.
+- OwnedChild now tracks reaped state and exposes terminate_and_reap. Normal completion explicitly checks wait success; Drop remains a fallback. A kill error does not override successful wait (the process may already have exited). An unconfirmed wait returns an explicit retain-staging-for-recovery error. Repeated termination/reaping is idempotent after confirmation.
+- Both pipe threads are joined before evaluating either join result. This prevents a writer panic from detaching the reader by early return. No automatic staging deletion was introduced.
+- Cargo fmt/check/clippy -D warnings passed. Actual-source native probe passed33 assertions: prior29 lifecycle/path checks plus initial unconfirmed state, confirmed reap state, observed terminal child status and repeated reap success. Evidence artifacts/git-worker-reap-check/{state,probe-state}.json and logs. No active build/probe remains.
+- Limits: OS wait failure and pipe-thread panic were not fault-injected; these branches were source-reviewed and compiled. Native app/IPC/UI not rebuilt or rerun. This is a supervisor bug fix, not completed staging ownership/recovery.
+- Next: parent-owned staging allocation/lease and explicit cleanup gated on confirmed process termination; preserve uncertain stages for recovery. Then complete object validation/import and endpoint-scoped snapshot publication, settings admission, UI/saved Playwright and remaining Git/full parity. Keep the full original migration scope.
+- Official docs consulted: https://doc.rust-lang.org/std/process/struct.Child.html#method.wait ; https://doc.rust-lang.org/std/thread/struct.JoinHandle.html#method.join . No new dependency or generator needed.
+
+## Fetch worker supervision — 2026-09-30
+
+- Previous turn was progress: fetch staging primitive and real-pack checks completed. Current worktree revalidated before implementation.
+- Generalized run_worker with native-only WorkerInput conversions for advertisement and StagedFetchInput. Both protocols use the same bounded stdin/stdout transport, cancellation flag, hidden child process, kill/wait and pipe joins before completion. No new renderer IPC/capability exposes staging paths.
+- Separate maximum policies: advertisement30 seconds, fetch300 seconds; caller timeouts are capped to the operation maximum. Worker orphan watchdog is operation maximum plus5 seconds (35/305 seconds). The five-minute fetch limit is an initial bounded policy, not provider/large-repository performance acceptance; progress reporting remains pending.
+- fetch_stage now inspects every existing parent component with symlink_metadata, rejects non-directory/symlink/Windows reparse parents, missing ancestors and non-absolute/parent-traversal paths before exclusive staging creation. This is a path preflight, not a race-proof handle-based ownership boundary. Parent-owned staging root/allocation and cleanup/restart handling are still required before public exposure.
+- Cargo fmt/check/clippy -D warnings passed. Actual-source native worker probe passed29 assertions: existing advertisement lifecycle/registry14 plus fetch empty completion, existing-directory refusal, timeout, cancellation, cleanup after return, pre-cancel without directory creation, Windows junction rejection with untouched target, missing-parent refusal and fetch policy constant. Evidence artifacts/git-fetch-supervisor-check/{state,probe-state}.json and logs. Child processes and Bun fixture completed; no build remains running.
+- Initial junction probe incorrectly required the error word reparse; the generic plain-directory guard rejected the junction first. Corrected assertion to verify refusal plus untouched destination. Initial failure saved. No production guard weakened.
+- Limits: no actual five-minute timeout run, full pack through the supervisor, crash/orphan cleanup, active-path replacement race or native Tauri/UI acceptance this turn. Prior real-pack checks directly called fetch_stage. No native application rebuild occurred.
+- Next implement parent-owned stage allocation/lease and explicit cleanup after reaping, then validate/import complete objects and publish one endpoint-scoped snapshot. Do not treat non-atomic multi-ref Transaction as the publish boundary. Settings admission, tracking refs, Fetch UI/Playwright, legacy depth/prune modes, advance-ref journal/pull/merge/clone/push and full parity remain open.
+- Docs consulted before edits: https://doc.rust-lang.org/std/process/struct.Child.html#method.wait ; https://doc.rust-lang.org/std/fs/fn.symlink_metadata.html . No dependency/init required. Commands unchanged: cargo fmt/check/clippy via Bun/direct hidden process, no shell or browser-use.
+
+## Isolated fetch primitive — 2026-09-30
+
+- Previous goal turn was no progress on migration (confirmed an already-recorded deferred UX request). Revalidated current worktree and continued the fetch implementation.
+- Added fetch_stage in src-tauri/src/git_remote.rs and private --insomnium-git-fetch-stage-worker-v1 dispatch before Tauri startup. It requires an absolute fresh directory, creates it exclusively, initializes bare/no-reinit/no-external-template, and downloads full branch histories into refs/insomnium-stage/heads/*. No managed repository or workspace is opened.
+- Refactored authentication callbacks and advertisement parser for reuse. Stage repository uses an empty config to avoid inherited URL rewrites/certificate overrides/credential helpers. Stage fetch explicitly disables redirects, tags, pruning and FETCH_HEAD updates; fetch result validates each staged branch tip against the advertisement and checks commit objects.
+- Cargo fmt/check/clippy -D warnings passed. Actual-source Rust stdin probe with a Bun loopback smart-HTTP endpoint passed15 assertions using a real two-commit pack and a binary blob outside .insomnium: branch refs, ancestry/content, unchanged staging HEAD, empty FETCH_HEAD, refusal of existing directories, corrupt pack, empty remote and invalid URL. Advertisement regression passed14 assertions. Evidence: artifacts/git-fetch-stage-check/{state,probe-state,advertisement-state}.json and accompanying logs.
+- Probe corrections: symbolic_target returns Result in git2 0.21; corrected probe unwrap. libgit2 creates an empty FETCH_HEAD even with updates disabled; verified content empty instead of asserting file absence. Initial failures retained in the evidence directory. These were probe assumptions, not passed acceptance.
+- IMPORTANT: this is an internal download primitive, not completed Fetch. No frontend IPC/capability/control exposes it. Parent staging allocation/path ancestry/reparse checks, process supervision/cancel/cleanup and restart orphan cleanup, captured settings/binding identity, complete object validation/import, tracking publication and saved native Playwright acceptance remain to implement. Current private worker retains a35-second watchdog; production fetch timeout/progress policy remains undecided.
+- Verified official git2 Transaction::commit is not atomic across multiple refs; prior updates remain on later failure. Do not use a multi-ref transaction as the sole publish boundary. Next design/implement a complete staged snapshot with a single observable publication point, retaining objects through Git refs and checking expected previous state; partial generations must be invisible. Detailed continuation: GIT-FETCH-STAGING.md.
+- Single-branch/depth/relative/prune/pruneTags compatibility, redirects/provider/proxy/TLS, pull/merge advance-ref journal, clone/push and full parity remain in scope. No native app build/UI acceptance this turn; prior settings app artifact does not contain this primitive. No running build or probe remains. UX redesign/shared inputs stay deferred.
+
+## Remote settings native UI accepted — 2026-09-30
+
+- Previous goal turn was progress: settings/read/Stop UI and checks completed, isolated build started. Polled original PID30728 until exit0; build took about6m16s. Artifact artifacts/native-remote-settings-ui-probe/insomnium-remote-settings-probe.exe, isolated checkout identity.
+- Extended the same saved tests/ui/git-remote-settings.js with wrong-password error preservation and dialog-close cancellation, including server-side connection abort observation. Prettier/Svelte check passed (0 errors/0 warnings).
+- Saved Playwright scenario passed8 named checks on the actual native app: local settings save, Basic-auth branch discovery, settings/credentials reload, auth error keeps draft and persisted settings, closing dialog aborts native connection/reopens saved settings, Stop, changed-endpoint cancellation/cleared result, unchanged persisted resources/HEAD after unsaved edits.
+- Evidence: artifacts/playwright/git-remote-settings-1790770895847/result.json and acceptance.json. App PID22408 exited0. No app source changes this turn and no active build remains from this milestone.
+- Limits: loopback synthetic advertisement, not actual provider login/refresh, TLS/proxy/redirect credentials, filesystem save-failure, checkout-drain/OS-close/crash or full visual parity. Existing native lifecycle timeout evidence remains separate.
+- Next implement fetch with scoped remote tracking refs and captured endpoint/settings identity, then versioned advance-ref journal before pull/merge. Continue provider token lifecycle, clone/push/remaining branch modes and full parity. Remote settings alone is not Git sync completion. No browser-use; redesigned UX/shared inputs remain deferred.
+
+## Remote settings/read/Stop UI implemented — 2026-09-30
+
+- Previous turn was progress: remote client/workspace admission checked. Added GitRemotePanel inside the existing Git dialog layout, with local settings save, anonymous/basic/GitHub-token/GitLab-token fields, Read remote branches, Stop, error/status/default branch/advertised branch list.
+- Editing fields cancels the active read and clears results; destruction cancels. Uses advertiseGitRemote wrapper for tracked work and stale-result refusal. Save uses beginWorkspaceWork and existing persistence queue; failed save retains in-memory edits and existing workspace saveFailed semantics.
+- Added git-remote-settings.js for URL normalization (HTTP(S), git+ prefix, git@host:path, ssh URL, hosted aliases and owner/repo), provider validation and legacy credential mapping. Actual SSH transport and full hosted URL compatibility are not claimed.
+- Found portable Git exporter retained credentials. Export now removes Git credentials while preserving connection URI; import still reads legacy settings and strips native binding identity as before. This aligns with the remote contract. Not an encrypted credential store/provider refresh implementation.
+- Prettier, Svelte sync/check (0 errors/0 warnings), Vite build passed.15 inline actual-model/sanitizer assertions passed; evidence artifacts/git-remote-settings-check. Nonfatal bundle-size warning remains.
+- Added tests/ui/git-remote-settings.js and Bun alias test:ui:git-remote-settings. Covers UI basic-auth read, local settings/reload, Stop, endpoint-change cancellation, persisted-data/HEAD preservation. Formatted/typechecked; native UI acceptance NOT run yet.
+- Isolated build running: artifacts/native-remote-settings-ui-probe/build-state.json, PID30728 / supervisor26884, confirmed live at elapsed95s. Intended artifact insomnium-remote-settings-probe.exe. Poll this exact handle before proceeding; do not restart on timeout. Current built frontend included, same isolated checkout identity.
+- Next finish build, run bun tests/ui/git-remote-settings.js sequentially, fix/rerun that saved scenario. Then provider lifecycle, close/drain/error scenarios, fetch/advance-ref journal/pull/merge/clone/push remain. Full migration incomplete; UX redesign/shared input phase deferred.
+- Official docs consulted: https://svelte.dev/docs/svelte/lifecycle-hooks ; https://svelte.dev/docs/svelte/bind ; https://developer.mozilla.org/en-US/docs/Web/API/URL/URL . No new dependency/generator needed; Bun x --bun tools and documented existing Tauri no-bundle build used.
+
+## Remote client/workspace admission — 2026-09-30
+
+- Previous goal turn was progress: native lifecycle Playwright acceptance completed. Added src/lib/git-remote-client.js and exported advertiseGitRemote workspace wrapper.
+- Client snapshots input before submission, allocates UUID, attaches AbortSignal to native cancel once, validates returned endpoint/branch data and refuses aborted/stale results. Cancel acknowledgement does not resolve the original advertisement promise.
+- Workspace wrapper registers beginWorkspaceWork, forwards external cancellation, verifies original data/active collection/binding and current input fingerprint before returning, and finishes only after the original call settles. Controls still need to call this wrapper; no remote settings/Stop UI exists yet.
+- Inline Bun probes: 10 client assertions and 6 actual exported-wrapper assertions passed with mocked native/workspace boundaries. Covers cancellation while pending, immutable request input, pre-abort, endpoint/duplicate response refusal, stale settings and deferred finish. Evidence artifacts/git-remote-client-check/{probe.json,workspace-probe.json}.
+- Prettier, Svelte sync/check (0 errors/0 warnings), Vite build passed; state.json records commands/results. Nonfatal >500kB chunk warning remains. No new test script/dependency or native source change. Existing isolated executable predates this frontend wrapper; no claim of mounted UI acceptance.
+- Official docs read before implementation: https://v2.tauri.app/develop/calling-rust/ ; https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal .
+- Next implement remote settings/connection/Stop controls in existing Git layout with URL input normalization and local settings persistence, then saved Playwright stale-result/Stop/reload cases. Provider refresh and full remote workflow backlog remain in scope.
+
+## Native remote lifecycle accepted — 2026-09-30
+
+- Previous turn was progress: process-based timeout/cancel and standalone checks. Observed the original native build PID35160 until successful exit0 (5m49s); did not restart it. Artifact artifacts/native-remote-ui-probe/insomnium-remote-probe.exe uses isolated checkout identity.
+- Added reusable tests/ui/git-remote-lifecycle.js and Bun alias test:ui:git-remote. Prettier/Svelte check passed with 0 errors / 0 warnings. No application source changes this turn.
+- Saved Playwright scenario passed on the actual Tauri executable: advertisement result, no extra WebView page, existing Git dialog reload while network is stalled, prompt native cancel, pre-cancel prevents network admission, real timeout at 30021ms, unchanged local HEAD/resources. Probe exited0.
+- Evidence: artifacts/playwright/git-remote-lifecycle-1790769998943/{result.json,acceptance.json}. Uses Bun loopback synthetic advertisement/stalled endpoint; fixture idleTimeout disabled so native timeout wins.
+- Scope: native IPC and existing UI responsiveness, not remote settings/Stop controls (not implemented), real providers, TLS/proxy/redirect credentials, parent-crash watchdog or OS-close lifecycle. No production package updated.
+- Inspected beginWorkspaceWork/createWorkspaceWorkScope: client integration must connect AbortSignal to native cancel and keep work registered until original advertisement settles. A cancelled/stale endpoint result must never apply to another binding or collection.
+- Next implement settings/client integration, legacy URL normalization/provider lifecycle and saved UI connection/Stop/error scenarios; then continue fetch/advance-ref journal/pull/merge/clone/push and all remaining parity. No browser-use; redesigned UX/shared input phase remains deferred.
+- Official references used for scenario: https://bun.sh/docs/runtime/http/server ; https://playwright.dev/docs/api/class-page#page-evaluate . Direct command: bun tests/ui/git-remote-lifecycle.js.
+
+## Saved remote lifecycle scenario prepared — 2026-09-30
+
+- Added tests/ui/git-remote-lifecycle.js and test:ui:git-remote Bun alias. Disposable loopback server, advertisement/cancel/pre-cancel/actual timeout IPC, existing Git dialog responsiveness and unchanged local data assertions. Remote settings controls are not implemented or covered.
+- Prettier and Svelte check passed (0 errors / 0 warnings). Scenario awaits the same native build PID35160, confirmed live at elapsed132 seconds. No restart or new app source changes.
+- Run saved scenario after build finishes; instructions/official sources in tests/ui/README.md.
+
+## Isolated remote build in progress — 2026-09-30
+
+- Started artifacts/native-remote-ui-probe/build-state.json, native build PID 35160 (supervisor 25180), confirmed live. Poll this same handle; never restart because of observation timeout. Intended artifact insomnium-remote-probe.exe, isolated checkout probe identity. Frontend source unchanged; existing built frontend reused with beforeBuildCommand null.
+- Next use completed build for worker dispatch/native IPC and then settings/UI acceptance. Saved Playwright helper still defaults to the older deletion build; pass INSOMNIUM_UI_BUILD_STATE for remote acceptance or deliberately update after build success.
+
+## Remote worker timeout/cancel implemented — 2026-09-30
+
+- Previous goal turn was progress: read-only advertisement primitive and loopback checks completed.
+- Added git_remote_job.rs process supervisor, UUID job registry, pre-cancel/duplicate protection, 4-job concurrency limit, 30-second timeout and cancel command. Input credentials use stdin, Windows worker uses CREATE_NO_WINDOW and no shell. run() dispatches worker before Tauri/single-instance setup.
+- Completion waits for child termination/reaping and pipe workers; independent child watchdog bounds an orphan to 35 seconds after worker startup. Cancel command acknowledges request only; original promise signals completed cleanup.
+- Cargo fmt/check/clippy passed; 14 actual-source loopback assertions passed including a stalled server timeout/cancel and registry races. Evidence artifacts/git-remote-job-check. No application UI changed.
+- Full implementation/limitations and official sources: [GIT-REMOTE-LIFECYCLE.md](GIT-REMOTE-LIFECYCLE.md). Native app build/IPC, parent-crash/watchdog, OS-close, settings/client/UI and actual providers still need acceptance.
+- Next isolated native build and settings/client wiring with tracked cancellation, then saved Playwright UI scenarios. Continue full remote/parity backlog; UX redesign remains deferred.
+
+## Native remote advertisement primitive — 2026-09-30
+
+- Previous goal turn made progress by recording the owner's deferred shared-input/UX phase. Current migration scope remains unchanged.
+- Added src-tauri/src/git_remote.rs and git_remote_advertise handler/build-manifest/capability. It uses a detached git2 remote, so no local repository, HEAD, workspace or refs are opened/modified. Network work runs outside GitState/StorageState.
+- Input currently requires normalized HTTP(S) URL and explicit anonymous/basic/github/gitlab credentials. URL embedded credentials/fragments/control characters rejected; credentials bounded, basic username colon rejected. GitHub token/x-oauth-basic and GitLab oauth2/token mirror legacy callback mapping. No credential persistence/provider refresh yet.
+- Credential callback checks requested origin and bounds callback attempts. Default certificate verification remains enabled. Errors return libgit2 class/code rather than server messages that may echo secrets. This is not evidence of all redirect credential behavior; cross-host redirect, TLS/proxy and actual providers still need acceptance.
+- Output distinguishes zero advertised refs from zero branches, includes server HEAD symref/default branch and head OID, sorted full branch refs/OIDs, and rejects oversized/invalid/duplicate branches or incompatible OID width. Does not infer the default branch from alphabetical ordering.
+- Cargo fmt/check/clippy -D warnings passed. Initial compile exposed callback lifetime declaration order; corrected and retained initial-failure.json. Generated permission file produced through existing AppManifest build.
+- Actual-source Rust stdin probe compiled and ran against a temporary Bun loopback smart-HTTP advertisement fixture: 14 assertions passed for anonymous, basic/provider credential mapping, wrong credentials, empty advertisement, sorted branches/default HEAD, invalid URL and basic username. Synthetic advertised OIDs do not represent downloadable objects; this is not fetch/clone evidence. No saved new test script or browser-use. Fixture stopped and native process exited 0.
+- Evidence: artifacts/git-remote-advertise-check/state.json, probe-state.json, probe-build.log, probe-runtime.log. No new native app release/probe build, no mounted UI/Tauri IPC acceptance yet.
+- Next add bounded network lifecycle/cancel and settings/client admission before exposing this in UI, preserve URL input normalization compatibility, then saved Playwright remote scenarios. Provider token storage/refresh, fetch, advance-ref journal, pull/merge, clone and push remain pending. Full migration is incomplete.
+- Docs used: https://docs.rs/git2/latest/git2/struct.Remote.html ; https://docs.rs/git2/latest/git2/struct.RemoteConnection.html ; https://docs.rs/git2/latest/git2/struct.RemoteHead.html ; https://docs.rs/git2/0.21.0/git2/struct.RemoteCallbacks.html . Installed git2 0.21.0 source also checked; no dependency install/init required.
+
+## Owner follow-up — deferred UI/UX phase
+
+Owner follow-up (2026-09-30): After the current migration goal is fully complete, build reusable input components in src/lib/components/ui with centralized styling/behavior and redesign UX, using https://hoppscotch.io as a possible reference. Deferred scope and sequence: docs/migration/POST-MIGRATION-UX.md. Preserve the existing Insomnium UI during the current migration; the redesign is the subsequent phase. Browser-use remains prohibited. No application UI or migration scope changed in this checkpoint.
+
+## Remote inventory and journal gap — 2026-09-30
+
+- Previous goal turn made progress: guarded deletion native Playwright acceptance passed.
+- Inspected legacy settings, URL normalization, provider credential callbacks, clone resource installation and fetch/pull/push/merge actions, plus official Git/git2 docs. Recorded evidence, implementation sequence and acceptance cases in GIT-REMOTE.md.
+- Confirmed schema-v1 checkout journal cannot advance the current branch: recovery uses branch identity and locks require two different branches with unchanged tips. Pull/merge requires a versioned advance-ref operation with OID-based recovery; do not just remove the equal-branch guard.
+- Legacy force form value is read but not passed to push; no actual force-push UI behavior inferred. Provider login/refresh, non-resource Git tree preservation and clone no/multiple/existing-workspace cases remain required.
+- Next implement connection settings/auth and read-only remote advertisement before fetch; advance-ref journal precedes pull/merge. Remote code/UI is not implemented yet. No new dependency, test script or remote operation this checkpoint. Full migration remains incomplete.
+
+## Guarded deletion accepted in native UI — 2026-09-30
+
+- Previous goal turn made progress by recording the owner's browser-use prohibition. This turn completed native deletion acceptance.
+- Existing native build finished with code 0; artifact: artifacts/native-delete-ui-probe/insomnium-delete-probe.exe, isolated identity app.insomnium.probe.checkout20260929. No production package updated.
+- Three saved Bun/Playwright scenarios passed sequentially, 13 named checks total:
+  - git-delete-branch-1790768615482: UI merged-branch deletion, unchanged HEAD/resources, active-branch refusal and absence after fully loaded Git session on reload.
+  - git-delete-unmerged-1790768566676: UI unmerged refusal, retained current branch/commit, native stale-target refusal.
+  - git-delete-stale-session-1790768580216: HEAD advanced after dialog opened, UI refusal preserves both tips, fresh explicit retry deletes merged ancestor and preserves workspace.
+- Evidence: artifacts/playwright/<name>/result.json and acceptance.json. All app processes exited code 0 via explicit window destroy; this is not OS-close lifecycle, lost IPC reply, abrupt crash, remote Git or full visual-parity acceptance.
+- First run failed at an exact label locator because nested select option text affected label matching. Corrected saved scenarios to use combobox role and Switch branch prefix; retained failure artifacts at git-delete-branch-1790768485089. Also added an explicit session-load wait before the post-reload absence assertion. No application source changed this turn.
+- Prettier passed; Svelte check passed with 0 errors / 0 warnings after final scenario edits. Native checks/build from the prior implementation remain applicable.
+- Read official locator documentation before editing: https://playwright.dev/docs/locators#locate-by-role. Commands: bun tests/ui/git-delete-branch.js; bun tests/ui/git-delete-unmerged.js; bun tests/ui/git-delete-stale-session.js (sequential direct hidden process launches, no shell).
+- Next: review legacy remote settings/auth/clone/fetch/pull/push/merge against official Git/git2 docs and implement remaining workflows; keep unborn/detached branch modes, recovery/picker/crash/OS-close acceptance and the full PARITY backlog in scope. Never treat guarded local deletion as completed Git migration.
+
+## Deletion acceptance in progress — 2026-09-30
+
+- Native deletion build finished successfully (exit 0); using its isolated artifact.
+- First saved deletion scenario timed out at exact label matching: nested select option text is part of the label lookup. Changed all three saved deletion scenarios to a role-based combobox locator with Switch branch prefix, per https://playwright.dev/docs/locators#locate-by-role. Re-running the same scenarios; this is a test locator correction, not an application fix. Failure artifact retained at artifacts/playwright/git-delete-branch-1790768485089.
+
+## Guarded branch deletion implementation — 2026-09-30
+
+- Previous turn was progress: saved Playwright create/resume/forget scenarios passed on the native app.
+- Read legacy deleteGitBranchAction/GitVCS.deleteBranch and official Git/git2 deletion/transaction/ancestry docs before implementation.
+- Added git_repository_delete_branch with generated permission/capability/handler registration. Locks HEAD and sorted source/target refs, checks exact displayed HEAD and target OIDs/direct ref/name, clean repository operation state, rejects active/case-alias target and linked worktrees. Requires target commit equal to or ancestor of current HEAD; no force fallback. Deletes only the target ref; does not apply workspace/index/worktree changes.
+- Git client consumes the captured session before native submission and refuses pending creation. Git dialog exposes Delete selected branch and explains merge requirement; tracked run prevents competing checkout drain until native completion. Reloads branches after success/error.
+- Cargo fmt/check/clippy passed.11 actual-source Rust assertions passed (same-tip/ancestor delete, active/unmerged/stale/missing/detached refusal and tip preservation), evidence artifacts/git-delete-native-check. Standalone probe has harmless unused-import warnings; application clippy -D warnings passed.
+- Svelte check/build passed after adding JSDoc types to the previously saved Playwright helpers and IPC callbacks. The first full check after introducing scripts exposed44 errors there, then3 new unmerged-scenario callbacks; corrected without excluding tests or weakening strict checks. Evidence artifacts/git-delete-ui-check.
+- Added reusable tests/ui/git-delete-branch.js and git-delete-unmerged.js, plus Bun script aliases. They cover actual UI deletion/reload, active/unmerged/stale-tip refusals. Not executed yet against new native command. Shared helper/README default build record now points to artifacts/native-delete-ui-probe/build-state.json; override remains available.
+- Isolated native build PID28784 (supervisor26528) confirmed live; poll the same handle/state, do not restart on timeout. Intended artifact insomnium-delete-probe.exe, same isolated checkout probe identity. No production package updated.
+- Next finish this build, run both saved Playwright scenarios sequentially, fix any findings and re-run relevant scenarios. No browser-use. Remote/delete edge cases, unborn/detached branch workflows, recovery/OS dialogs and full parity remain incomplete.
+- Sources: https://git-scm.com/docs/git-branch ; https://docs.rs/git2/latest/git2/struct.Transaction.html#method.remove ; https://docs.rs/git2/latest/git2/struct.Repository.html#method.graph_descendant_of . Existing Tauri AppManifest command generation used; no new dependency. Bun x --bun frontend tools, direct Cargo checks and documented no-bundle Tauri build launched without shell.
+
+## Saved Playwright native Git scenarios accepted — 2026-09-30
+
+- Previous turn was progress: durable create workflow/UI and compiler checks were completed, then the owner mandated saved Playwright scenarios instead of browser-use.
+- Observed the same native build process until successful exit0 (about6 minutes). Artifact artifacts/native-create-ui-probe/insomnium-create-probe.exe, identity app.insomnium.probe.checkout20260929.
+- Installed pinned playwright-core1.63.0 with bun add --dev --exact --ignore-scripts playwright-core. Bun executes the library directly; no Playwright Node workers, browser download, shell or browser-use tools.
+- Added tests/ui/helpers/native-app.js for verified isolated build launch, documented WebView2 connectOverCDP, bounded waits, explicit cleanup and result/failure artifacts; git-fixture.js creates unique collections/repositories and retains previous fixture data.
+- Added reusable scenarios: git-create-and-switch.js, git-create-resume.js and git-create-forget.js. All three ran via direct hidden Bun and passed actual native UI. Covers same-tip create/switch, exact resource/history preservation and reload; saved submitted-intent resume; mismatched creation evidence refusal and explicit intent clearing without deleting branch.
+- First create scenario failed because fixture omitted workspace_meta that app creates on reload. Added complete metadata to the shared fixture, reran that same scenario successfully; no application defect inferred. Failed run evidence retained.
+- Passing artifacts: artifacts/playwright/git-create-and-switch-1790767532963 ; git-create-resume-1790767551669 ; git-create-forget-1790767558155. Each result.json records exit0. No task build/app processes left running.
+- Scope: resume arranges a durable submitted intent and already-created native ref; not an actual lost transport reply. No abrupt crash/stale-lock, OS dialog or normal OS-close acceptance. Screenshots are failure diagnostics, not full visual parity proof.
+- Official docs read before setup: https://playwright.dev/docs/webview2 ; https://playwright.dev/docs/api/class-browsertype#browser-type-connect-over-cdp . Adapted direct spawn to shell:false/windowsHide:true per owner; all JavaScript run by Bun. Commands and limits in tests/ui/README.md.
+- Next add saved scenarios for remaining branch/recovery cases and implement branch deletion/remotes plus remaining parity. Unborn/detached creation still incomplete. Full migration remains IN PROGRESS.
+
+## Durable create-and-switch UI and owner UI-test policy — 2026-09-30
+
+- Previous completed goal turn was progress: native creation retry evidence implemented and checked.
+- Added git-create.js workflow with persisted prepared/submitted/created intent scoped to binding/workspace/repository/source tip/target/author/operation ID. One drain covers intent saves, ref creation and journaled checkout; checkoutPaused avoids nested drain and pins source/created target tips.
+- Resumed submitted/created requests use native verifyOnly, which never creates an absent ref and can verify matching creation evidence after HEAD already switched. Missing/ambiguous evidence retains intent for inspection. UI exposes Create and switch / Continue branch creation / Forget pending creation; forgetting removes only local metadata and leaves refs intact.
+- Pending intent disables other commit/switch buttons; portable import/export strips nativeCreateIntent. Unborn creation currently asks for a first commit; detached/unborn/full legacy branch behavior remains in scope.
+- Frontend format/Svelte check/build and Cargo fmt/check/clippy passed.31 real-workflow assertions with mocked boundaries and18 actual-source native assertions passed (including verify-only absence and already-on-target). Evidence artifacts/git-create-ui-check and artifacts/git-create-ui-native-check. No native UI acceptance of the new flow yet.
+- Started isolated native build at artifacts/native-create-ui-probe/build-state.json, PID35836 (supervisor4480), identity app.insomnium.probe.checkout20260929. Process confirmed live at this checkpoint; poll the same handle/state, never restart on timeout. Existing fixture is main after prior startup recovery; inspect before reuse.
+- Owner now explicitly prohibits browser-use and requests saved, reusable Playwright UI scenarios so the same behavior can be retested cheaply. Recorded in AGENTS.md. This authorizes UI test scripts as an exception to the general no-new-tests rule. Do not resume ad-hoc browser/CDP automation or browser-use tools; implement scenario files in JavaScript, launched with Bun, using shared fixtures/helpers.
+- Next read official Playwright/WebView2 docs, add Bun-compatible saved UI scenarios for create-and-switch and resume/forget/reload, then use the completed isolated native build for acceptance. Do not claim mock/standalone checks prove mounted UI behavior.
+- Docs consulted: https://v2.tauri.app/develop/calling-rust/ ; https://svelte.dev/docs/svelte/$state ; https://git-scm.com/docs/git-checkout ; https://v2.tauri.app/reference/cli/#build . Native build command: bun x --bun tauri build --no-bundle --config with isolated identifier and beforeBuildCommand:null after separately completed frontend build. No shell/Node/npm execution.
+- Full migration remains incomplete.
+
+## Native branch creation retry evidence — 2026-09-30
+
+- Prior completed milestone was progress: fresh-process startup recovery passed. Continued legacy create-and-switch review: createNewGitBranchAction calls checkout(newName), so creating a ref alone is not feature completion.
+- GitCreateBranchInput now accepts optional operationId (ASCII alphanumeric/underscore/hyphen,1..100). Existing callers without it retain non-idempotent duplicate refusal.
+- With an ID, native creation ensures a branch reflog and includes operation ID plus source ref in the creation message. Under existing HEAD/source/target locks, an existing exact target is acknowledged only when its direct tip matches expected and newest reflog records zero→expected with exact operation/source and author. Retry returns without updating refs/logs.
+- Different ID/author, missing creation evidence, moved target, case mismatch and retained nonempty log without a ref refuse. HEAD/source revision guards remain. This is conservative evidence, not an atomic ref+receipt guarantee; missing/ambiguous reflog requires inspection, never overwrite.
+- Cargo fmt/check/clippy passed.14 actual-source Rust fixture assertions passed via rustc stdin, including unchanged retry log/HEAD, unrelated same-tip branch refusal, invalid ID, legacy caller, missing log and moved target preservation. Evidence artifacts/git-create-retry-check/{state.json,probe-state.json}. No saved test scripts, UI changes, native package rebuild or IPC acceptance.
+- Initial launcher syntax/session-binding errors occurred before source mutation; corrected. Compiler found git2 0.21 Reference.name returns Result<&str> rather than optional name; corrected source and inline probe, reran checks successfully.
+- This does NOT globally reserve operation IDs or survive arbitrary external reflog deletion/recreation as proof of origin. Frontend must persist a scoped intent before submission (repository/binding/workspace, target, source branch/OID, author, operation ID), reuse it on retry and retain an acknowledged-created phase. Do not regenerate an ID or infer ownership from matching tip alone.
+- Next implement durable frontend intent/coordinator and create-and-switch UI using journaled checkout. On recovery, inspect current HEAD/refs and intent before deciding whether creation or switching remains; expose ambiguous cases. Unborn/detached semantics, full workflow/native acceptance and remote/delete parity remain pending.
+- Official docs consulted: https://git-scm.com/docs/git-checkout ; https://docs.rs/git2/latest/git2/struct.Transaction.html ; https://docs.rs/git2/latest/git2/struct.Repository.html#method.reference_ensure_log ; https://docs.rs/git2/latest/git2/struct.ReflogEntry.html . No generator/dependency needed. All commands through hidden node_repl→Bun launcher; Cargo invoked directly.
+- Full migration remains incomplete; production and isolated probe executables predate this source change.
+
+## Fresh-process startup recovery accepted — 2026-09-29
+
+- Previous turn was progress: real post-HEAD write-failure/recovery IPC passed18 assertions.
+- Reused verified isolated executable and real client/planner to prepare target→main. Held the workspace through the documented Bun FFI CreateFileW sharing fixture, producing a real native journal and changed HEAD while workspace replacement failed.
+- Closed the first process by explicit window destroy while the sharing handle remained held. Verified terminal exit0 and journal still present, then released the handle and launched a new native process.
+- Before any manual load/recovery IPC in the second process, observed startup had removed the pending journal, persisted the exact journal afterWorkspace and displayed main resources. Local edit, deleted-request history and private/foreign resources survived.
+-18 scenario assertions recorded in artifacts/native-checkout-ui-recheck/startup-recovery.json, plus screenshot startup-recovery.png. Both process exits verified0. No new source changes, saved test scripts, dependencies or rebuild.
+- Scope: fresh-process recovery from native-produced target+before state after a clean explicit exit. Not abrupt crash within a transaction, stale-lock handling, OS close lifecycle or mounted frontend failure coordination.
+- Fixture now main, no pending journal; req_delete restored from source, req_keep retains local edit. Do not use earlier target-state notes as current fixture state.
+- Next: mounted recovery/retained-copy OS picker acceptance, interruption/stale-lock and OS-close checks, create-and-switch/delete/remotes and remaining full feature parity. Full migration incomplete.
+
+## Native post-HEAD workspace-write failure accepted — 2026-09-29
+
+- Previous turn was progress: the native conflict-message fix was accepted and durable handoff updated.
+- Used the existing verified isolated recheck executable, real Git client/three-way planner and direct Tauri checkout/load/save IPC. Restored only owned fixture req_delete to its exact baseline before preparing main→target.
+- Bun FFI CreateFileW opened the probe workspace with GENERIC_READ and FILE_SHARE_READ, denying replacement. A separate owned sharing fixture first verified the handle's write denial; all handles closed in finally.
+- Actual checkout changed HEAD to target but atomic workspace replacement failed. The before workspace and exact native-produced journal remained. Ordinary save was blocked; load recovery also failed while the handle was held and retained the journal.
+- After CloseHandle, native load applied the exact after workspace and removed the journal. Deleted-request history, nonconflicting local edit and target resource changes were retained; ordinary save worked again and a fresh document displayed target data.
+-18 assertions passed in artifacts/native-checkout-ui-recheck/post-head-ipc.json. This exercises actual native commands and real planning, not the mounted frontend coordinator under failure. It does not prove crash/lost reply, retained-copy OS picker/review or OS-close lifecycle. No application source changes, saved test scripts or rebuild.
+- Fixture now rests on target, recovered workspace persisted, no pending journal. Reuse fixture.json for refs but inspect current state before the next scenario.
+- Docs consulted before the inline Bun probe: https://bun.sh/docs/runtime/ffi ; https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew ; https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-closehandle . Bun -e launched directly through node_repl execFile(shell:false,windowsHide:true); FFI is probe-only, no production dependency added.
+- Next: recovery on fresh process/startup after a pending transition, mounted recovery/retained-copy OS picker acceptance, process interruption/stale locks and OS-close lifecycle; create-and-switch/delete/remotes and wider parity still pending.
+
+Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
+
+## Native conflict-message recheck accepted — 2026-09-29
+
+- Previous turn was progress: reconciled the durable Thai handoff and confirmed the old build had finished successfully.
+- Launched that verified recheck executable under isolated identity app.insomnium.probe.checkout20260929. Actual UI edited req_delete, selected target and attempted checkout.
+- Conflict text remained visible inside Git dialog after staging reload; source HEAD remained main and the conflicting local URL persisted. Fresh-document reload retained the edit. Screenshot visually inspected: readable error and controls without overlap.
+- Five assertions including clean process exit recorded in artifacts/native-checkout-ui-recheck/conflict-recheck.json; screenshot conflict-recheck.png. Probe PID12072 exited0 at2026-09-29T13:01:24.333Z by explicit window destroy, not OS-close lifecycle acceptance.
+- No application source changes or rebuild this turn. Fixture now retains URL https://example.invalid/recheck-conflict on req_delete in main. Restore exact fixture baseline (including modified metadata) within the owned probe before a nonconflicting checkout failure probe; do not alter production data.
+- Next: actual post-HEAD workspace-write failure/recovery through native IPC, retained-copy OS picker/review, process interruption/stale locks and OS-close lifecycle. Native standalone post-HEAD sharing-failure coverage is not equivalent to IPC acceptance. Create-and-switch/delete/remotes and full migration remain incomplete.
+
+## Status summary refresh — 2026-09-29
+
+- Reconciled SUMMARY-TH.md against the latest checkpoints and recorded artifacts; removed stale claims that checkout coordinator/journal/branch/recovery UI are not implemented.
+- Observed native-checkout-ui-recheck/build-state.json: finished, exit code0, artifact artifacts/native-checkout-ui-recheck/insomnium-checkout-probe.exe (isolated identity app.insomnium.probe.checkout20260929). Prior running-build notes below are historical. No recheck launch/acceptance artifacts were found in that directory; native conflict-message verification remains next.
+- This reporting turn changed documentation only; no new build, runtime acceptance or application code changes. Full migration remains incomplete.
+
+## Native checkout UI acceptance and conflict-message fix — 2026-09-29
+
+- Previous turn was progress: branch/recovery UI was implemented and a native build was started. This turn observed the same live process until successful completion (5m41s), then launched the verified isolated artifact.
+- Actual Tauri UI switched main→target and back. Native HEAD and persisted resource changes agreed; removed request/environment selections cleared, valid local/foreign tabs, nonconflicting local edit, private/foreign resources and deleted-request history were preserved. Actual Page.reload retained history/local edits. Journal absent after success.
+- Actual UI conflicting deletion refused checkout, preserved branch/local edit and reported conflict. Found a UI defect: switchBranch's staging reload cleared the dialog's error. Fixed by retaining the switch failure text after reload;11 compiled-handler checks and Svelte0/0/build0 passed. Native artifact recheck of this fix is pending.
+- Real native target-ref lock failure entered persistence recovery. The old Git dialog closed, a usable non-inert recovery dialog opened while app shell remained inert; removing only the owned fixture lock and clicking Retry recovery restored source workspace and editing. Screenshot inspection showed readable controls/no overlap in these two dialogs.
+-16 assertions verified recorded native artifacts; artifacts/native-checkout-ui-probe/acceptance.json describes evidence and limits. Probe process23328 closed code0 at2026-09-29T12:50:24.503Z. Identity app.insomnium.probe.checkout20260929; not a production package.
+- Probe limitations/corrections: Tauri invoke/global objects are read-only, so attempted lost-reply override did not install and does not prove uncertain post-commit IPC. Recovery acceptance used a real pre-journal ref-lock error instead. Restoring only a URL retained modified metadata and still conflicted; fixture baseline was restored exactly before the lock scenario. Reload probe was corrected to wait for the new page context. First setup lacked APPDATA env and was corrected to the verified USERPROFILE/AppData/Roaming path; partial isolated fixture remains retained.
+- Retained-copy native OS picker/review, post-HEAD IPC uncertainty, process-crash/stale-lock and OS-close acceptance remain pending. Full migration incomplete.
+- A fresh native recheck build for the UI fix is now running at artifacts/native-checkout-ui-recheck/build-state.json (PID984; supervisor34432). Poll that exact state/live handle, never restart solely on timeout. Same isolated identity; use original fixture.json from native-checkout-ui-probe for expected refs/data. Next verify conflict text remains in actual dialog, then continue remaining branch/remote/recovery parity.
+
+## Branch switch and recovery UI — 2026-09-29
+
+- Previous turn was progress: frontend coordinator, selection contract and history preservation were implemented and verified.
+- GitPanel now lists direct committed local branch targets and calls checkoutGit directly (not through its registered run wrapper, avoiding a self-drain wait). Uses entered author; blocks duplicate submissions, reloads changes/history after success, reports conflicts/errors.
+- Added separate GitRecovery modal outside inert app shell/dialog. On recovery phase, page closes the old modal via untrack(closeModal); recovery modal stays mounted through recovering and prevents dismissal while editing is blocked.
+- Retained edits require a complete local recovery JSON copy: cancelled picker or failed write does not acknowledge a copy; checkbox review is required before passing that exact snapshot. Coordinator accepts replacement only when reviewed snapshot equals both retained snapshot and current live workspace before and after load. Stale/different review still refuses overwrite.
+- Existing dialog/fs plugins and permissions reused. No new dependency or generator. Branch creation/deletion/remote workflow remain pending; current UI switches existing committed local branches only.
+- Validation: Svelte check0/0 and build0 (existing chunk warning);34 real-module coordinator/review checks and10 actual Svelte-script handler checks passed with mocked native/dialog/filesystem boundaries. Evidence artifacts/checkout-ui-check. No saved test scripts.
+- A launcher call used the wrong Bun path and failed before editing/running checks; corrected to D:/home/.bun/bin/bun.exe. No application defect inferred.
+- Isolated native build started with identity app.insomnium.probe.checkout20260929, beforeBuildCommand:null and --no-bundle. At last observation build process PID32288 was live; supervisor PID33288. Durable state/log artifacts/native-checkout-ui-probe/build-state.json and build.log. Do not restart on observation timeout; poll this same handle/state. Native UI/IPC and OS picker acceptance not yet performed.
+- Next finish observing this build, verify/copy its resulting probe executable, run native checkout/conflict/selection/reload/recovery acceptance and inspect UI. Retained export/review needs real dialog/fs acceptance. Full migration incomplete.
+
+## Frontend checkout coordination and selection contract — 2026-09-29
+
+- Previous turn was progress: guarded native journal producer/checkout and 55 native assertions were completed.
+- Added git-checkout.js coordinator and wired checkoutGit/recoverGitCheckout/retainedGitCheckoutWorkspace into workspace.svelte.js. Checkout owns run drain (must not itself be registered as a drained component task), saves the exact baseline, opens a fresh Git session, plans against pinned trees, verifies unchanged live data, and submits/applies inside the persistence transition callback.
+- Unknown native outcomes or unexpected results keep the queue in recovery. Explicit recovery loads/applies before reopening. Unexpected live edits are copied into a retrievable retained snapshot and automatic overwrite is refused. Recovery/export UI is still required for resolving these retained edits.
+- Added git-workspace.js to create a detached full candidate, validate navigable topology, clear only invalid request/environment selections and filter invalid tabs. Native journal validation independently enforces exactly this envelope repair; history/settings/other envelope fields remain unchanged. Native validates cycles and request/environment parent types before producer/recovery.
+- Three-way reconciliation now rejects invalid merged navigable topology. Fixed validateData dropping history for requests absent on the current branch: orphaned request history is retained on load. Transient response restoration clones history records before marking streams closed, preserving authoritative durable history.
+- Actual workspace apply replaces authoritative data, restores response cache and clears stale schema/error caches before the queue unlocks. No branch/recovery UI controls yet; native command and app entry points are implemented but full mounted workflow remains pending.
+- Verification:31 coordinator checks use real Git client/planner, persistence queue and run drain with mocked native/storage boundaries;7 Svelte-compiled workspace checks exercise real coordinator/persistence integration and cache/history application.61 native assertions (55 prior +6 selection contract checks) passed against current Rust sources. Svelte check0/0/build0 and Cargo fmt/check/clippy0. Existing nonfatal Vite chunk-size warning remains. Evidence artifacts/checkout-coordinator-check and artifacts/native-selection-check. No saved test scripts or native package rebuild.
+- Next add branch/recovery UI outside the inert recovery area, expose retained-data export/explicit resolution, then rebuild an isolated native app and verify complete checkout/conflict/selection/reload/recovery flows. Native YAML semantic equivalence to the candidate still relies on the coordinated JS decoder/planner; process interruption/locks, create-and-switch/delete/remotes and full parity remain incomplete.
+
+## Guarded native checkout producer — 2026-09-29
+
+- Previous turn was progress: recovery-on-load and the 33-case native fixture matrix were implemented and verified.
+- Added git_repository_checkout command with app permission/handler registration. It holds GitState then StorageState, requires a loaded session, checks exact persisted beforeWorkspace, validates journal/snapshot ownership, author, source HEAD and both recorded refs, and preserves the normal first-save backup before writing the journal.
+- The producer atomically writes the versioned journal, changes only symbolic HEAD through a locked git2 transaction, then reacquires/revalidates refs through the shared recovery path to finish workspace persistence and cleanup. Returns operation ID, authoritative branch/OID and full workspace; failures after journal creation require recovery/load rather than blind retry.
+- Extracted shared lock_refs; both recovery and checkout now run the existing bounded managed-blob reader for source/target commits in addition to committed Workspace path ownership checks. No physical checkout/index write.
+- Cargo fmt/check/clippy passed. 55 standalone native assertions passed (33 recovery regressions +22 checkout/failure checks), including stale baseline/refs, wrong HEAD, unloaded session, author/pending refusal, exact backup, duplicate refusal, backup-failure retry and Windows file-sharing failure after HEAD. The real failed-write journal blocked stale ordinary save and recovery completed after releasing the handle. Evidence artifacts/native-checkout-check.
+- Probe extraction initially left a dangling doc comment; corrected the inline source extraction and reran successfully. No saved test script/source. No frontend source changed or production/native IPC acceptance performed.
+- This is the native transaction boundary, not complete product checkout. Frontend still must decode both pinned trees, run three-way reconciliation, drain/save exact baseline, validate live state and apply authoritative data under the persistence barrier. Native currently validates managed paths/bounds and snapshot ownership, not YAML semantic equivalence of candidate to commits.
+- Non-resource envelope equality remains enforced; selection repair/history preservation contract and resource-type topology validation require completion before exposing branch switching. Unborn/detached/remote, create-and-switch retry, delete/remote UI, process-kill/stale-lock recovery and wider filesystem failure acceptance remain in scope.
+- Next implement coordinated frontend checkout with selection repair and conflict presentation, strengthen candidate/topology validation, then native IPC/UI acceptance. Full migration remains incomplete.
+
+## Native journal recovery on load — 2026-09-29
+
+- Previous turn was progress: the Thai handoff was reconciled against current checkpoints and recorded evidence.
+- Added git_journal.rs with a versioned, deny-unknown-fields journal reader, bounded to 256 MiB. Rejects non-regular files, symlinks/reparse points, invalid IDs/bindings and ambiguous states; retains failed evidence.
+- load_workspace now holds GitState then StorageState while recovering and loading. Recovery locks HEAD and sorted recorded branch refs, checks exact direct OIDs/clean state, and verifies each recorded commit has the expected sole Workspace entry.
+- Recovery handles source+before without rewriting, target+before by completing recorded after, and target+after by cleanup. Equal snapshots use actual HEAD. Other combinations/ref movement are refused. No ref/index/worktree mutation during recovery; original backup retained.
+- Snapshot validation preserves foreign/private/local-only records, local resource metadata and collection ownership. The current recovery format requires all non-resource workspace fields to remain identical. Selection repair and its durable coordination remain an integration item; this is not permission to discard history or bypass the checkout protocol.
+- Cargo fmt/check/clippy passed; 33 standalone native recovery checks passed using actual module/source helpers compiled through rustc stdin, isolated managed repositories and journal fixtures. Evidence: artifacts/native-journal-check. No saved test script/source, frontend change, production build or Tauri IPC acceptance.
+- Corrected TreeEntry.name() Result matching after compiler failure. The first standalone probe link failed because its broad library search included an unrelated generated msvcrt.lib; narrowed paths to actual git2/ssh2/z dependencies. Final compile/run succeeded.
+- Limitations: no journal producer/HEAD transition command yet; no product checkout/recovery UI. Commit Workspace path identity is checked, but full managed tree decoding/candidate reconciliation must be integrated with the producer. Real process interruption (including stale Git lock files), disk/ACL failure and arbitrary external filesystem races remain unverified. Existing lock files are not deleted automatically.
+- Next: implement journal creation and guarded checkout under both locks, finish candidate/topology and authoritative selection repair contract, then wire frontend coordinator/branch UI and run native IPC/interruption acceptance. Full migration remains incomplete.
+
+## Native shared storage and pending-journal guards — 2026-09-29
+
+- Previous turn was progress: actual persistence phase was connected to edit/run/save admission and checked.
+- Refactored storage.rs into shared read_workspace_file/write_workspace_file and Session load/save/require_loaded/ensure_backup paths, used by existing native commands. Preserves legacy wrapper reads without rewrite, loaded-session requirement, exact first-save backup and retry after backup failure.
+- Added fixed git-transition-v1.json path guard using symlink_metadata. Any existing entry (including malformed file, directory or link) blocks ordinary load/save without deleting or following it. Inspection errors also refuse the operation.
+- Git init/commit/create-branch now check the pending journal under GitState before managed path/native mutation. Read-only info/read/history remain available. Storage operations guard under StorageState; no reverse Git lock acquisition introduced.
+- Cargo fmt/check/clippy all0.24 actual native storage assertions passed by compiling the non-Tauri storage source directly through rustc stdin against existing dependencies, then executing in isolated artifact fixtures. Covers ordinary saves/backups, legacy wrapper, damaged JSON/duplicate IDs, pending file/directory/junction preservation and backup failure/retry. Junction target sentinel unchanged. Evidence artifacts/native-storage-check; source hash recorded. No test source/script file saved.
+- No native app rebuild or Tauri IPC acceptance this milestone; standalone probe does not prove Git command integration/runtime. No journal is created or automatically recovered yet. Pending-journal load currently refuses rather than acknowledging inconsistent state; startup recovery must replace that refusal only after validation.
+- Next implement versioned native journal creation/validation, guarded HEAD+workspace transition and startup recovery under GitState then StorageState. Then authoritative frontend apply/selection repair and branch/recovery UI. Full migration remains incomplete.
+
+## Persistence recovery phase controls admission — 2026-09-29
+
+- Previous goal turn was progress: remaining file/cookie/import/XML writers were registered and checked.
+- Persistence queue now exposes a read-only synchronous phase subscription. Notifications cover reserved/running/recovery/recovering/idle; an observer failure cannot change transition outcome. Persistence module forwards subscription without an unlock setter.
+- Workspace subscribes into reactive persistencePhase (HMR cleanup included), but mutation/run admission reads the actual queue phase rather than trusting the UI copy. Existing user mutation entry points, new runs/component scopes and persist remain blocked after run drain releases if the queue is still in recovery. persist refuses before history/settings normalization.
+- Page shell/dialog inert and keyboard guards include all non-idle persistence phases. API Design direct new-document path now uses the same mutation guard.
+-17 checks exercised the real persistence module/queue with Svelte-compiled workspace and fake storage: uncertain transition after drain release, rejected starts/edits/saves, failed recovery, authoritative apply before idle, stale UI-phase copy and failed baseline save refusing submission.11 phase-subscription checks and27 original barrier regression checks passed. Svelte check0/0/build0; evidence artifacts/recovery-admission-check. No checks running or saved test scripts.
+- Probe initially assumed one microtask was enough to drain the preceding save; corrected to await its settlement before asserting running. No application defect inferred from that observation timing.
+- This is a frontend in-memory admission block, not durable/startup recovery. Native journal/checkout, authoritative workspace coordinator and recovery UI are not implemented. Do not expose branch switching until these are connected and accepted.
+- Next implement native shared storage/journal protocol and pending-journal write guards, recovery under GitState then StorageState, then workspace apply/selection repair and branch/recovery UI. Native lifecycle and full migration remain incomplete.
+
+## Remaining file/cookie/import writers registered — 2026-09-29
+
+- Previous turn was progress: mutation entry guards and inert page/dialog were implemented and checked.
+- Added createWorkspaceWorkScope around beginWorkspaceWork. Component disposal/drain aborts accepted work, but registration stays pending until finally; current() also checks workspace object and active collection identity.
+- Registered request-body, multipart, WebSocket payload, proto and GraphQL schema file reads plus page import file/picker. Late cancelled/disposed/replaced-workspace results cannot apply. Proto pending review records its workspace/request; WebSocket file result also preserves newer manual payload edits.
+- Registered XML formatter; abort terminates its worker and releases the task, late messages are ignored. Registered cookie list/change and legacy restore IPC; already submitted native writes remain awaited and cancelled results do not launch refresh or retain restore approval.
+-42 inline checks passed:11 scoped workspace tasks,10 real compiled cookie component checks,21 file/XML cases using actual Svelte AST-extracted handlers/functions and compiled proto script. Mocked file/IPC/lifecycle boundaries, not mounted/native acceptance. Svelte check0/0 and build0; existing non-fatal >500kB Vite chunk warning remains. Evidence artifacts/remaining-writers-check. Checks finished; no saved test scripts or native rebuild.
+- Reviewed TemplatePreview, ResponsePane filter worker and CodeEditor import/keymap callbacks: observed results update display/editor state with cleanup guards; no persistent resource writes identified in those inspected callbacks. This is source audit, not proof of all lifecycle/native parity.
+- Next integrate mutation admission with persistence transition/recovery phases so uncertain native outcomes retain editing block; implement native journaled checkout/startup recovery, authoritative workspace apply and branch UI. Native close/drain, picker, cookie and file acceptance still pending. Full migration incomplete.
+
+## Workspace mutation entry guards and inert UI — 2026-09-29
+
+- Previous goal turn was progress: API Design and Git work were registered with drain and checked.
+- Added canEditWorkspace and guarded 20 resource/selection/environment/proto/OAuth/Runner mutation entry points plus updateSettings. Accepted background cleanup/save remains allowed while drain is settling; new user edits return without changing data.
+- Page direct environment/create/import/tab actions and keyboard shortcuts now honor the same drain guard. App shell and modal dialog explicitly use inert during drain (modal dialogs can escape ancestor inertness).
+- Preferences now use explicit value/checked + change handlers through updateSettings instead of binding directly into workspace. Editor indent/autocomplete normalization remains centralized; theme toggle also uses the guarded setter. Layout unchanged.
+-28 compiled-workspace assertions passed covering all21 mutation entry points, no dependency/save side effects while blocked, normal edits/settings normalization and release after drain failure. API Design11 and Git panel9 regression checks also passed. Svelte check0/0 and build0; Vite reports a non-fatal >500kB chunk warning. Evidence artifacts/mutation-guard-check. No saved test scripts; checks finished.
+- This guard follows the current run-drain reservation, not a durable native transition/recovery lock. Full checkout is still unimplemented. Mounted inert/focus/keyboard/preferences/native-close acceptance still pending.
+- Remaining audit found uncaptured file-reading intervals in RequestEditor body upload, ProtoManager choose, GraphqlEditor schema import; cookie change/legacy import IPC and page import picker also need lifecycle review/registration. Existing identity guards reduce some stale cases but do not prove complete transition quiescence.
+- Next register/invalidate those remaining async operations, then implement coordinated native journal/checkout/load recovery and branch UI. Keep full migration goal active.
+
+## API Design and Git work registered with drain — 2026-09-29
+
+- Previous goal turn was progress: tracked run drain/start guards and bounded shutdown cancellation were implemented and checked.
+- Added beginWorkspaceWork registration with abort signal and idempotent finish. Drain now aborts registered component work and waits for actual completion; abort alone never releases a pending save/native call.
+- API Design registers worker and file reads. Worker cancellation/timeout/disposal terminates the worker and rejects queued stale messages; an already accepted resource save stays tracked until it settles. File results are checked after reading and discarded after abort, component disposal or changed document/collection. Worker constructor/postMessage failures clean up registration.
+- Git setup registers its whole lifecycle, checks AbortSignal before init and after native completion, retains durable binding for retry. Git dialog operations register through final completion: cancellation before commit submission prevents it; an already submitted commit remains awaited and its late UI result is ignored.
+- Svelte check initially found recursive JSDoc inference in finishWorker. Fixed with explicit parameter shape; Svelte check0/0 and build0 now pass.
+-46 inline behavior checks passed (19 compiled workspace,7 Git setup cancellation,11 compiled API Design script,9 compiled Git panel script), plus12 prior Git setup regression checks. Evidence artifacts/component-drain-check. Component checks use real Svelte-compiled scripts with mocked dependencies/lifecycle, not mounted DOM or native IPC. No saved test scripts; checks finished.
+- Direct UI/resource/settings/import mutation lock and full remaining-writer audit are still required. Native journal/checkout/recovery and branch UI remain incomplete; no native or production rebuild this milestone.
+- Next audit remaining asynchronous component writers (cookies/settings/import/editor completions), implement central live mutation reservation plus UI binding/keyboard guards, then coordinate persisted baseline/native journal and authoritative apply. Native shutdown/runtime acceptance still pending.
+
+## Tracked run drain and shutdown deadline — 2026-09-29
+
+- Previous turn was progress: consolidated SUMMARY-TH against current artifacts and removed stale Git UI claims.
+- Added run-drain.js and integrated with actual shutdown through withWorkspaceRunsPaused. Reservation is synchronous; new HTTP/stream/gRPC sends, payloads, proto refresh, OAuth fetch/adoption and Runner launches are refused while tracked runs settle.
+- The 10-second deadline now covers cancellation IPC as well as completion promises; previously shutdown awaited cancellation before starting its timer. Accepted completion identities are detached and newly registered completions are also awaited. A timed-out drain cannot invoke its operation later.
+- Inline checks found and fixed a mutable initial-array snapshot bug. A subsequent probe itself incorrectly generated a new rejected Promise on every pending() call and timed out; corrected to stable completion identity. No application hang inferred from that invalid probe.
+-19 helper assertions and14 checks of the real Svelte-compiled workspace module with mocked transport/persistence passed. Svelte check0/0 and frontend build0. Evidence artifacts/run-drain-check/{probe.json,workspace-probe.json,state.json,frontend.log}. No saved test scripts; checks finished.
+- This is tracked-run coordination, NOT a full workspace mutation lock or completed checkout. Direct UI edits, API Design worker/file completion, Git setup/commit and other asynchronous component writers are not covered. The run gate releases after callback/error; uncertain native transition must separately retain the persistence/mutation recovery block.
+- Next inventory/register remaining writers and block live mutations, then integrate persistence barrier with native journal/checkout and startup recovery. Native shutdown/runtime acceptance and production rebuild still pending. Full migration incomplete.
+
+## Workspace persistence queue barrier — 2026-09-29
+
+- Previous turn was progress: storage/queue inspection identified late-save hazard and specified checkout protocol.
+- Added persistence-queue.js and routed real saveData through it. Exclusive transition reserves synchronously, drains accepted saves, rejects new saves/overlapping operations, and refuses to start if the latest queued save failed.
+- Callback failure keeps persistence blocked until explicit successful recovery; recovery failure remains blocked. Success applies callback result before releasing barrier and advances generation. Ordinary detached save ordering/retry behavior retained.
+-27 inline assertions passed including actual persistence.js wrappers with in-memory browser storage; Svelte check0/0 and build0. Evidence artifacts/persistence-barrier-check. No checks running.
+- This is queue enforcement only. It does NOT block live resource mutation/background writers, persist a native journal or recover on startup. Transition/recovery exports await checkout coordinator integration; normal existing saveData is already integrated.
+- Next coordinate workspace writer quiescence and live-state application with this barrier, implement journaled native checkout/load recovery, then branch UI/native acceptance. Full migration incomplete; no saved test scripts or native/release build.
+
+## Checkout transaction protocol defined from storage evidence — 2026-09-29
+
+- Previous turn was progress: pinned switch preview with11 inline checks and frontend checks.
+- Inspected actual native StorageState/atomic write and frontend save queue. Found queued snapshots are captured before execution, so a Git-only lock or raw HEAD switch could be overwritten by a late old save.
+- Added CHECKOUT-TRANSACTION.md with lock order, frontend generation/barrier requirements, native before/after journal, startup recovery table, create-and-switch retry semantics and interruption acceptance.
+- Decision: implement the persistence barrier together with journaled native checkout; do not wire preview directly to a HEAD-only command. This changes the next implementation action.
+- No code changes/build/tests/repository writes this checkpoint; it is a specification, not implemented recovery or checkout. Next persistence generation/barrier plus coordination of asynchronous workspace writers, then journal/native transition and UI. Full migration incomplete.
+
+## Pinned branch switch preparation client — 2026-09-29
+
+- Previous turn was progress: exact native branch tip metadata added with Cargo checks.
+- Added createGitClient.prepareSwitch(session,getResources,targetBranch). Reads target commit using private captured branch tip, verifies returned OID, rereads native source/target refs, checks session still live and whole resource array unchanged, then invokes three-way resource planner on a detached snapshot.
+- Preserves independent local changes; conflicts return no candidate resources. Guards local-only/foreign data changes too because planner returns the complete resource array. Visible session metadata mutation cannot change target OID.
+-11 inline assertions passed; Svelte check0/0 and frontend build0. Evidence artifacts/git-switch-plan-check. No checks left running.
+- This is a read-only preview, not checkout authorization or durable state. It does not change HEAD, write resources or create a branch. Only committed direct local source/target branches currently supported; unborn/detached/remote/create-and-switch paths remain scope.
+- Next implement coordinated durable checkout transition/recovery with expected-ref checks at mutation time and live-resource validation, then UI integration and actual native acceptance. Full migration incomplete.
+
+## Native branch tip metadata — 2026-09-29
+
+- Previous turn was progress: guarded create-branch primitive compiled successfully.
+- Extended existing RepositoryInfo with branchTips[{name,headOid,symbolic}], retaining branch name list for current UI. Direct targets must resolve to commits; unborn current branch represented with null tip, symbolic local refs explicitly marked.
+- Current branch tip must agree with captured HEAD; a missing/changing current branch causes a reload error instead of returning internally contradictory metadata. Branch cap includes an unborn current branch. This is observed metadata, not locks held across a future frontend action; future checkout must revalidate both tips under native locks.
+- Cargo fmt/check/clippy all0; artifacts/git-branch-info-check. No running checks, new tests, repo writes or native release build. JS RepositoryInfo documentation updated; no frontend behavior changed.
+- Native runtime coverage for branchTips and prior create-branch is still pending. Next prepare branch-switch resource candidates from pinned source/target trees, implement durable transition/recovery and expected-ref guarded checkout; integrate create-and-switch UI. Full migration incomplete.
+
+## Guarded native branch creation foundation — 2026-09-29
+
+- Previous turn was progress: bounded native initialization recovery acceptance completed.
+- Read legacy create/checkout actions: legacy create action checks out the branch immediately. New native primitive only creates the ref; full create-and-switch remains pending and is not represented as complete parity.
+- Added git_repository_create_branch(repositoryId,input) with validated name, expected current branch/full commit OID and explicit author. Locks HEAD and both refs; requires clean operation state and unchanged source tip, rejects existing/case-alias branches, creates only new target ref without changing HEAD/index/worktree/app resources.
+- Registered handler, build manifest and main capability; generated permission src-tauri/permissions/autogenerated/git_repository_create_branch.toml exists.
+- Cargo fmt/check/clippy all0; artifacts/git-branch-create-check/state.json and check.log. No checks left running. No runtime acceptance, frontend caller, native release build or repository mutation yet.
+- Next integrate native branch operations with session client/UI and durable resource transition for create-and-switch/checkout; then native acceptance of stale HEAD, duplicate names, nested refs, locks and preserved current branch. Full migration remains incomplete.
+
+## Native Git initialization recovery acceptance — 2026-09-29
+
+- Previous turn was progress: native canonical reload and partial commit accepted; checkbox margin source fix passed frontend checks.
+- Reused the verified isolated native binary (Git initialization code unchanged; binary still predates margin-only edit), identity app.insomnium.probe.gitui20260929, new evidence folder artifacts/native-git-recovery-probe.
+-19 inline native IPC assertions passed: new unborn main init, retry identical info and all-file hashes, committed repository retry unchanged HEAD and all-file hashes; empty/nonrepo/partial .git/plain file/gitfile/junction paths rejected unchanged. Junction target separately confirmed sentinel-only and unchanged.
+- Evidence recovery-evidence.json records cases/errors and limits. App exit0 and PID31196 absent. No native rebuild, application code edits or saved test scripts this milestone; fixtures only in isolated app data/artifacts.
+- Not covered: ACL denial, disk-full, process-crash injection, external path replacement races or full cross-store recovery. Invalid partial directories are preserved and reported, not automatically repaired.
+- Next implement branch create/list/delete/switch plus app-resource reconciliation and durable transition recovery. Review legacy branch actions and official git2 transaction/reference APIs first; plain ref switching alone does not implement legacy virtual-resource checkout. Full migration remains incomplete.
+
+## Git native reload and partial commit reacceptance — 2026-09-29
+
+- Previous turn was progress/verified wait: started post-fix isolated rebuild and verified live process. Same build completed0 in5m43s; current executable identity verified before UI actions.
+- Actual UI explicitly committed canonical YAML formatting, then document reload showed Changes(0). The key-order regression is now native-verified for this flow.
+- Edited original request URL and duplicated it through UI, unchecked the original row, committed only copy. Native tree decode independently confirmed original baseline URL unchanged, copied request included and original local edit retained in saved workspace. Reload retained exactly that one local change.
+- Evidence artifacts/native-git-ui-recheck/{canonical-reload.json,before-partial.json,partial-commit.json,partial-reload.json}; screenshot partial-selection.png.
+- Screenshot still showed displaced checkbox despite width fix. Computed styles identified inherited auto horizontal margins. Added margin:0 to source; live inline-style preview checked alignment and screenshot visually inspected (checkbox-margin-preview.png/json). This final CSS correction is not yet in native executable.
+- Svelte/build all0 after margin fix (artifacts/git-checkbox-fix/state.json). Probe exit0 and PID4500 confirmed absent; no checks left running.
+- Next finish native setup failure/recovery matrix (unborn retry, invalid/partial paths, unchanged files), then branch/remote workflows and related UI. Include final CSS in next native build; do not claim full visual/UI parity.
+- No saved test scripts or production commits/package. Full migration incomplete.
+
+## Git reload fix native rebuild started — 2026-09-29
+
+- Previous turn was progress: native UI acceptance exposed key-order bug, fixed YAML sorting and checkbox width, regression7 and frontend checks passed.
+- Started a fresh isolated release rebuild AFTER those source changes and confirming no cargo.exe running. Reuses isolated identity app.insomnium.probe.gitui20260929 and existing test data; new evidence folder artifacts/native-git-ui-recheck.
+- Command: bun x --bun tauri build --no-bundle --config '{"identifier":"app.insomnium.probe.gitui20260929","productName":"Insomnium Git UI Probe","build":{"beforeBuildCommand":null}}'. Official CLI documentation was already consulted for this exact build workflow.
+- Latest observation: CLI PID23668 confirmed live via signal0, state running, compile in progress. Poll artifacts/native-git-ui-recheck/build-state.json and build.log; do not restart on observation timeout.
+- Next verify terminal code0/fresh identity, launch with artifact-local WebView profile, reuse existing isolated repository. Commit canonical YAML changes explicitly, reload and require zero spurious changes. Then verify selected/unselected edits, checkbox screenshot and init recovery matrix.
+- No new native acceptance result yet. Full migration remains incomplete.
+
+## Native Git UI probe found reload ordering bug — 2026-09-29
+
+- Previous turn was progress/verified wait: isolated native build started and live PID verified. Build now finished0 (5m43s); fresh executable identity app.insomnium.probe.gitui20260929 confirmed at runtime.
+- Actual UI setup persisted binding, initial commit/history passed, request URL edit produced one change and second commit. Repeated native initialization preserved existing committed HEAD.
+- Reload exposed a real defect: unchanged resources became modified because native JSON persistence reordered object keys while Git YAML retained insertion order. Artifacts preserve failure; full reload acceptance did NOT pass.
+- Fixed encodeGitResource with documented YAML sortMapEntries:true.7 inline regression assertions using native captured data passed, including reversed nested maps, real edit detection and preserved array/raw body ordering. Previously written unsorted trees may have a one-time formatting change; no automatic repository rewrite.
+- Screenshot review also found global input width stretching checkbox; constrained Git checkbox width locally.
+- Svelte check0/0 and frontend build0 after fixes; artifacts/git-ordering-fix. Native executable predates these two fixes and must be rebuilt/rechecked. No checks left running; probe exit0 and PID absent.
+- Next: rebuild isolated native probe from current source; commit canonical resource snapshot then reload and verify zero spurious changes, selected/unselected changes, screenshot correction, partial/invalid init paths and error recovery. Branch/remote/merge/full migration remain incomplete.
+
+## Native Git UI acceptance build started — 2026-09-29
+
+- Previous turn was progress: Git dialog implementation and frontend/history checks.
+- Consulted https://v2.tauri.app/reference/cli/ and confirmed no cargo.exe running before starting isolated release build.
+- Running command: bun x --bun tauri build --no-bundle --config '{"identifier":"app.insomnium.probe.gitui20260929","productName":"Insomnium Git UI Probe","build":{"beforeBuildCommand":null}}'.
+- Evidence artifacts/native-git-ui-probe/build-state.json and build.log. Latest observation confirmed CLI PID4676 live using signal0; compilation ongoing, no terminal result yet. Continue polling this same process/state; do not restart merely because observation timed out.
+- Next verify finished code0 and fresh executable/embedded isolated identity, then launch with isolated WebView profile and app data. Exercise actual Git dialog setup → selected commit → history → reload; check repeated native init for existing repositories, invalid/partial paths preserved and HEAD/config unchanged.
+- No runtime acceptance yet. Existing production BUILD/package remains unchanged. Full migration incomplete.
+
+## Git local workflow dialog — 2026-09-29
+
+- Previous turn was progress: persist-before-init workspace setup coordinator.
+- Added Git button in collection header and GitPanel in existing modal. Includes explicit setup/resume, reload, selected resource staging with required workspace rows, before/after text, exclusions, author/message, local commit and paged local history.
+- Uses captured collection ID, raw staging session (preserves WeakMap identity), unmount cleanup and live collection checks. Commit saves author first, then existing client validates live resource snapshot; attempted commit session is discarded and must reload on failure.
+- Added session-anchored client history with tip validation and35-row pages.6 inline contract assertions passed. Svelte check0 errors/0 warnings and frontend build0; artifacts/git-ui-check. No checks remain running.
+- UI is implemented but NOT yet visually/runtime accepted. Prior native executable predates this dialog and initialization recovery. Next rebuild isolated native probe; exercise setup/commit/history/reload and recovery paths, inspect visual layout against legacy.
+- Branch/remote/auth/merge/rollback and cross-store recovery remain incomplete. No saved test scripts, native build or installer in this milestone.
+
+## Git workspace setup persistence — 2026-09-29
+
+- Previous turn was progress: idempotent native initialization with successful Cargo checks.
+- Added git-setup.js coordinator and explicit workspace setupGit entry point. It persists a local binding before native initialization, retains the ID across save/IPC failure, rejects overlapping setup for a collection and rechecks live collection/binding after asynchronous boundaries.
+- Browser/not-ready workspace calls are rejected before mutation. Loading saved state does not automatically initialize repositories. Invalid existing directories remain native errors; no cleanup or repair is inferred.
+-12 inline assertions passed (save failure/retry, IPC failure/retry, duplicate calls, workspace replacement, removed binding and thrown save). Svelte check0 errors/0 warnings and Vite build0; artifacts/git-setup-check. No saved test scripts and no checks left running.
+- Not wired to a visible Svelte dialog yet; actual Svelte proxy/native/persistence acceptance still pending, including previous native retry change. No cross-store transaction or full Git completion claimed.
+- Next connect setup/staging/commit/history UI with captured collection identity, then rebuild isolated native probe and verify complete flow and error recovery.
+
+## Native Git initialization recovery — 2026-09-29
+
+- Previous turn was progress: consolidated the requested Thai handoff and checked current artifacts.
+- Explicit git_repository_init now opens an existing managed repository instead of rejecting every existing directory. It does not reinitialize or reset HEAD.
+- symlink_metadata distinguishes absent paths from permission/I/O errors. Existing invalid directories and non-directory paths are preserved and rejected; only NotFound permits exclusive create_dir followed by no_reinit initialization. Managed link/reparse checks remain, with root rechecked after creation.
+- Cargo fmt --check, check and clippy -D warnings passed (all code 0). Evidence: artifacts/git-init-recovery-check/state.json and check.log. No checks remain running.
+- This change has NOT been rebuilt/runtime-verified through native IPC. Next: verify retry with unborn and committed repositories, malformed/partial paths and unchanged HEAD/config/files; then wire binding persistence/recovery and Svelte Git UI.
+- No saved test scripts, production repository writes or installer build. Full migration remains incomplete.
+
+## Native Git binding import/export boundary — 2026-09-29
+
+- Previous turn was progress: frontend binding/session client. Found import ID remapping left native repository mapping active; fixed external import/export to detach machine-local IDs/version while retaining portable settings.
+- Import review reports disconnection. Existing local persistence restoration stays bound.15 inline assertions plus Svelte check0/0 and frontend build0 passed; artifacts/git-portability-check.
+- No checks left running, native repository changes, saved test scripts or native/installer rebuild.
+- Next binding initialization persistence/recovery and Svelte setup/staging/history UI, then mounted/native flow acceptance. Full migration remains incomplete.
+
+## Git frontend binding/session client — 2026-09-29
+
+- Previous turn was progress: native commit/history acceptance completed. Added frontend local binding and staging-session client this turn.
+- Protects private baseline from UI mutation, rejects collection/binding changes across reads and before submission, consumes attempted sessions to avoid blind commit retries; leaves later edits local.
+-18 inline contract checks passed; Svelte check0/0 and frontend build0. Evidence artifacts/git-client-check. No checks left running.
+- Still not wired to workspace persistence/UI. Next save/recover binding, reset imported native mappings, connect setup/staging/history dialogs and verify actual frontend/native flow. See GIT-INVENTORY for limits.
+- No saved test scripts, native repository writes or native/installer build. Full migration incomplete.
+
+## Native commit/history acceptance completed — 2026-09-29
+
+- Previous turn was progress: native guarded commit and compiler checks. This turn rebuilt isolated release and verified actual WebView IPC commit/history.
+- Initial and selected commits,7 commit rejection cases, external stale HEAD, unrelated blob/mode preservation, immutable-tip history and6-commit merge ancestry passed. Independent Git confirmed HEAD and released locks; index/worktree not materialized.
+- Evidence artifacts/native-git-commit-probe. Build0 (5m39s), app cleanup0 and process confirmed absent. GIT-INVENTORY records exact scope/limits.
+- Next persistent collection/repository binding, captured revision and recovery, Svelte staging/log UI, then branch/remote/rollback. No cross-store transaction or full Git parity claimed.
+- No application edits or saved test scripts this milestone; fixture commits only in isolated app data. No installer/production BUILD update. Full migration incomplete.
+
+## Native commit/history acceptance build started — 2026-09-29
+
+- Previous turn was progress: guarded native commit and compiler checks passed.
+- Started isolated native build after reading official Tauri CLI docs and confirming no cargo.exe was running. Same isolated identifier app.insomnium.probe.git20260929, new artifact folder artifacts/native-git-commit-probe.
+- Durable build-state.json/build.log identify current CLI PID 28208; signal-0 confirms it live in this observation. Do not restart based on observation timeout.
+- Next: verify terminal code0/fresh identity, then new commit-flow repository IPC acceptance for initial/partial commits, stale HEAD/branch and history pages; preserve prior isolated acceptance repo. No runtime success yet.
+
+## Guarded native resource commit — 2026-09-29
+
+- Previous turn was progress: staging model/checks. Added native selected-candidate commit, HEAD/branch ref locks and expected-tip validation.
+- Tree overlay preserves unrelated repository objects/modes; native path/size/ownership guards complement JS graph/content validation. Physical index/worktree intentionally unchanged; app resources are virtual worktree.
+- Cargo fmt/check/clippy all0; generated Tauri permission verified. Evidence artifacts/native-git-commit-check/state.json/log (check.log). No checks left running.
+- Not yet runtime-verified or UI-wired. Next isolated commit/history acceptance, then resource revision/persistence recovery and staging/log UI. Ref update is not a cross-store transaction.
+- No saved test scripts, actual repo commits, native app build or installer this milestone. Full migration incomplete.
+
+## Git resource staging model — 2026-09-29
+
+- Previous turn was progress: native history implementation/checks. Added pure resource changes and selected commit candidate generation this turn.
+-26 inline assertions passed; Svelte check0/0 and frontend build code0. Evidence artifacts/git-staging-check. No checks left running.
+- Required workspace changes, deleted names, private exclusions, unselected bytes and parent graph validated. Model is not native staging/commit or a revision-guarded transaction.
+- Re-read legacy history: log fetches origin before local log when configured; remote history integration still required. GIT-INVENTORY records evidence/limits.
+- Next: native commit/index transaction, captured tip/resource revision and Svelte staging UI; history native acceptance also pending. No saved tests/native build/installer; full migration incomplete.
+
+## Native Git history foundation — 2026-09-29
+
+- Previous turn was progress: init/info/read passed bounded native IPC acceptance and probe cleanup.
+- Added immutable-tip paged Git history with all-parent ancestry, messages, author/committer/timestamps and explicit display truncation/lossy flags; manifest/capability/generated permission registered.
+- Cargo fmt/check/clippy all code 0; artifacts/native-git-history-check/state.json and check.log. No build remains running from this milestone.
+- History runtime acceptance still pending; previous native probe predates this command. Next validate merge/pagination/metadata and connect diff/staging/commit, transactions and UI.
+- No saved test script, repository mutation, native app/installer build. GIT-INVENTORY records API/bounds/limits. Full migration remains incomplete.
+
+## Native Git IPC acceptance completed — 2026-09-29
+
+- Previous turn was progress: committed resource reader and compiler checks. This turn built and verified isolated native executable, then exercised init/info/read through actual WebView IPC.
+- Valid commit round-trip and JS reader compatibility passed; empty root handled explicitly; nine malformed object cases rejected. HEAD/index/worktree unchanged. Exact scope and fixture-launcher correction in GIT-INVENTORY.md.
+- Evidence in artifacts/native-git-probe. Build code 0 (6m31s); app cleanup code 0 and process confirmed absent. No new app code or saved test script in this milestone.
+- Next: status/diff/staging/commit/history, guarded resource apply/persistence and Git UI, then branch/remote workflows. Existing save revision is not sufficient for a transaction guard.
+- No production installer/BUILD update. Release target currently contains isolated probe identity. Full migration remains incomplete.
+
+## Isolated native Git build started — 2026-09-29
+
+- Previous turn was progress: committed-resource reader implemented and Cargo checks passed.
+- Re-read migration documents and official Tauri CLI docs. Confirmed no cargo.exe before launching a hidden direct Bun build with beforeBuildCommand:null and isolated identifier app.insomnium.probe.git20260929.
+- Build state/log: artifacts/native-git-probe/build-state.json and build.log; CLI PID 29052, started 09:47:08 UTC. Last direct signal-0 observation confirmed live. Do not restart without checking this same process and terminal state.
+- Next: verify exit 0 and fresh executable identity, launch isolated WebView profile, verify init/info/read-commit IPC and resource-reader compatibility. No acceptance success claimed yet.
+- GIT-INVENTORY.md records persistence integration evidence: current save revision alone is not a resource transaction guard. Full migration remains incomplete.
+
+## Native committed Git resource reader — 2026-09-29
+
+- Previous turn made progress by correcting the owner-requested durable summary and handoff.
+- Added exact-commit resource reads with bounded tree/blob validation and generated Tauri permission; follows official git2 docs and installed crate APIs.
+- Cargo fmt/check/clippy all exited 0. Evidence: artifacts/native-git-read-check/state.json/log (log filename: check.log). No compiler left running from this milestone.
+- Native init/info/read acceptance, JS collection reader integration, transactions and Git UI/workflows remain pending. See GIT-INVENTORY.md for exact behavior and next actions.
+- No saved test scripts, real repository mutations, native runtime run or installer. Full migration remains incomplete.
+
+## Owner-requested summary retry — 2026-09-29
+
+- Re-read migration status/plan/parity, Thai summary and latest Git inventory; verified Git source commands, ignored legacy backup, terminal Cargo check evidence and production BUILD timestamp.
+- Updated SUMMARY-TH.md to remove stale Git TODO/handoff claims and distinguish implemented foundation, passed checks, pending native acceptance and remaining workflow/UI.
+- Included ordered continuation steps and durable references for a new session. Full migration remains incomplete.
+- Documentation only; no application changes, new build, new acceptance run or test script in this summary turn.
+
+## Native Git init/info foundation — 2026-09-29
+
+- Previous turn was progress: pure three-way resource planner passed checks. This turn selected git2 0.21.0 and enabled HTTPS/SSH using official Cargo commands.
+- Added managed repository init/info Rust commands, blocking-operation lock, path containment/link guards and main-window permissions. Generated permission files verified.
+- Dependency native build passed. Corrected4 git2 API signature errors after inspecting installed crate source; final Cargo fmt/check/clippy all code0. Durable evidence in artifacts/native-git-check/commands-fixed-state.json/log.
+- An initial launcher timeout lost observation; no cargo.exe remained before durable retry. Do not infer success from timeout. All checks now terminal; no build left running.
+- Native runtime/IPC acceptance and actual repository operations beyond init/info remain pending. GIT-INVENTORY.md records commands, sources and limitations.
+- Next: isolated native init/info acceptance, repository tree/status/staging/commit/history and guarded collection apply/UI. No saved test scripts or installer. Full migration remains incomplete.
+
+## Git three-way update planner — 2026-09-29
+
+- Previous turn was progress: collection snapshot/reader implemented and checked. This turn added pure base/current/incoming resource reconciliation in src/lib/git-reconcile.js.
+- Keeps local changes where incoming is unchanged, accepts matching changes, reports conflicting edits/deletes/adds and protects private/local-only/foreign IDs. Parent conflicts reject the whole candidate; no input mutation or persistence.
+-38 inline checks passed; Svelte check0/0 and frontend build passed. GIT-INVENTORY.md records API, evidence and limits.
+- Git remains unavailable end-to-end: revision/lifecycle/persistence coordination, native repository backend and UI still required. Next connect native repository state and guarded apply; do not treat this pure planner as an atomic transaction.
+- No saved tests, new dependencies, real repository writes, installer or native build. Full migration remains incomplete.
+
+## Git collection snapshot and reader — 2026-09-29
+
+- Previous turn was progress: Git resource codec implemented and checked. This turn added src/lib/git-collection.js to snapshot one workspace and validate a complete managed repository tree.
+-28 inline assertions passed, including5 archived fixture collections/37 resources; Svelte check0/0 and frontend build passed.
+- Verified legacy descendant traversal does not prune private ancestors. New snapshot explicitly rejects a public tree whose parent was excluded; GIT-INVENTORY.md records behavior and remaining UI resolution.
+- Validation now covers root/ownership graph, duplicate/case-colliding paths, limits and private/local-only exclusions. No application-state write or Git operation is wired yet.
+- Next: baseline/current/incoming reconciliation and revision-guarded transaction/persistence, then native backend/UI. No new dependencies, saved tests, native build or installer. Full migration remains incomplete.
+
+## Git resource codec foundation — 2026-09-29
+
+- Previous turn was progress: latest Runner callback fix passed native acceptance and probe/fixture were cleaned up.
+- Added src/lib/git-resources.js after official yaml docs and legacy model/NeDB review.12 legacy types, path/ID/type validation, JSON/YAML bounds, parent mapping, private/local-only rejection and local provenance exclusion.
+-87 inline assertions and37 actual archived-fixture resource round-trips passed. Fixed2 JSDoc Map inference errors; final Svelte check0/0 and frontend build code0. Initial build capture overflow was corrected; no success inferred from truncated output.
+- GIT-INVENTORY.md records exact evidence and limits. Codec is not wired to UI/native Git; collection ownership/topology/transactional application and backend remain next.
+- No saved test scripts, dependency changes, repository mutations or native/installer build. Full migration remains incomplete.
+
+## Native callback acceptance completed — 2026-09-29
+
+- Previous turn was progress: launched native build, verified it live, and recorded initial Git inventory. This turn waited on that same build and confirmed terminal code 0 (6m31s).
+- Actual isolated native WebView Tests UI verified direct/detached/overridden insomnia.sendRequest and send delegation with 3 local requests; 1 passed/0 failed.
+- Fourth request used slow direct callback; Stop and delayed-response wait preserved results/history. New-document reload retained them. Screenshot inspected.
+- Probe cleanup exit 0; fixture confirmed gone. NATIVE-RUNNER-ACCEPTANCE.md records exact scope/artifacts. No app source changes, saved test scripts, installer or production BUILD.json update.
+- Extended GIT-INVENTORY.md with selected staging/rollback, workspace staging invariant, branch metadata and suspicious legacy merge/unused force behavior. Git implementation remains TODO.
+- Next: remaining Runner/import/lifecycle acceptance and Git resource codec/backend work, then other PARITY. Full migration remains incomplete.
+
+## Native callback build and Git inventory — 2026-09-29
+
+- Previous goal turn was progress: corrected the owner-requested durable Thai summary and handoff.
+- Re-read STATUS/PLAN/PARITY and official Tauri CLI docs. Confirmed frontend build timestamp follows runner-runtime.js fix and no cargo.exe was running before launch.
+- Started hidden direct Bun native build with the documented isolated identifier overlay and beforeBuildCommand:null; production config unchanged. Logs/state: artifacts/native-callback-probe/build.log and build-state.json. Supervisor PID 14472, CLI PID 28736; latest signal-0 check confirmed CLI live, log compiling insomnium. No build success or callback-native acceptance claimed.
+- Build command: bun x --bun tauri build --no-bundle --config with {"identifier":"app.insomnium.probe.runner20260929","productName":"Insomnium Native Probe","build":{"beforeBuildCommand":null}}. Explicit child MSVC/SDK INCLUDE/LIB/PATH and libclang match NATIVE-RUNNER-ACCEPTANCE.md.
+- Added GIT-INVENTORY.md from legacy repository/VCS/NeDB adapter and UI locations; .insomnium YAML resource format, private/local-only boundaries and checkout resource application are required. git2 is only a candidate; no dependency/backend selected or implemented. Git remains TODO.
+- Next: inspect this same build's terminal state and actual process before any restart, then copy/verify probe identity and exercise direct/detached/overridden sendRequest plus Stop through real WebView. If still running, continue Git action/conflict/provider inventory.
+- No new application code, saved test scripts, installer or production BUILD.json update. Full migration remains incomplete.
+
+## Owner-requested current summary — 2026-09-29
+
+- Refreshed SUMMARY-TH.md from current checkpoints, callback implementation and native build/app state files.
+- Corrected stale summary claims: bounded native Runner and desktop paste Import acceptance already passed; latest sendRequest fix still needs native re-verification.
+- Listed implemented areas, remaining parity, delivery gaps and ordered handoff. Git sync remains TODO; production BUILD.json predates latest source.
+- Documentation only: no application changes, build, new test script or new acceptance run in this summary turn. Prior native Runner/import states are finished/code 0. Full migration remains incomplete.
+
+## Runner sendRequest compatibility — 2026-09-29
+
+- Prior retry was no progress because the mandated launcher failed before accessing files. Environment changed; Bun workspace access now works and the blocker is no longer present.
+- Restored public insomnia.sendRequest and send() delegation through it. Actual archived-class comparison: 6 legacy passes, 4 new-runtime failures before fix, all 6 new-runtime passes after fix.
+- Five direct-callback cancellation/fresh-context assertions passed; Svelte check 0/0 and frontend build passed. No saved test script, dependencies or native build.
+- RUNNER-INVENTORY.md records sources and limits. Native probe/installer artifacts predate this fix; callback-specific native acceptance is pending.
+- Next: native/script/import/result Runner acceptance and remaining PARITY. Full migration remains incomplete.
+
+## Native desktop paste Import acceptance — 2026-09-29
+
+- Previous turn was progress: implemented desktop paste entry and guards with frontend/lifecycle checks. This turn waited on the verified existing compiler, confirmed release build exit 0, and checked the rebuilt app.
+- Real native UI verified paste visibility, invalid error/recovery, review/cancel with unchanged resources/history, additive cURL POST/header/body import, and fresh-document reload. Screenshot inspected. No shell execution or network Send of imported content.
+- Kept original isolated-probe resources intact. Native identity confirmed; production config and BUILD.json unchanged. Evidence and remaining OS picker acceptance are in IMPORT-UI.md.
+- Idle probe cleanup through allowed destroy completed with exit 0 at 08:18:33 UTC; app-state.json confirms termination. No server started this turn and no process remains from this milestone.
+- Read legacy Runner result model/routes/actions while waiting: run-all selects direct suite children; result index chooses latest workspace result; single-test result uses suite parent. Continue comparison of script/result/import behavior before declaring Runner parity. An initial guessed legacy component path did not exist; rg --files located actual routes.
+- Next: finish Runner script/import/result behavior and remaining transport/data/Git/plugin/platform acceptance. Full migration remains incomplete.
+
+## Desktop paste Import implementation — 2026-09-29
+
+- Previous turn was progress: actual native Runner acceptance. This turn fixes the desktop paste-import gap it exposed.
+- Import now opens shared paste/review dialog; native file choice remains an explicit button using the existing picker. Added busy/modal-revision guards to discard late replies/errors.
+- Actual source lifecycle/real-parser probe passed 11 inline assertions; Svelte check 0/0 and production frontend build passed. No saved test scripts.
+- Native build supervisor PID 45668 started with isolated overlay and corrected child environment. Read artifacts/native-import-probe/build-state.json/log and inspect actual process before restarting. Native import UI acceptance is pending; see IMPORT-UI.md.
+- Next: verify rebuilt desktop paste/review/cancel/apply/reload and then remaining PARITY gaps. Full migration remains incomplete.
+
+## Native Runner acceptance — 2026-09-29
+
+- Previous turn was progress: diagnosed MSVC header failure, corrected child environment and left a verified live build. This turn confirmed build code 0 and executed the actual app.
+- Isolated probe identifier confirmed in executable and via native API; production config unchanged. Real native WebView/CSP/QuickJS workers/HTTP/cookies and persisted results exercised through mounted Runner UI.
+- Verified pass, deliberate failure with Expected/Actual, Stop with no late saved history/result, and fresh-document reload. Fixture totals: 4 local requests, 2 saved results, 3 history entries. Screenshots captured and inspected; see NATIVE-RUNNER-ACCEPTANCE.md for exact scope and artifacts.
+- Corrected a probe-only reload observer race. Programmatic close was ACL-denied; idle probe cleanup used allowed destroy (exit 0). Fixture server SIGTERM and confirmed gone. Normal OS-close lifecycle is still pending.
+- Native desktop Import currently routes directly to file picker; paste UI is preview-only. Investigate/fix this gap next, then remaining Runner/transport/legacy parity. No new development test script, installer or production BUILD.json update.
+- Full migration remains incomplete. No active probe/compiler/server remains from this milestone.
+
+## Native probe build investigation — 2026-09-29
+
+- Prior summary turn was progress: refreshed durable overview. On continuation, original child handle reported exitCode 1 despite callback variable remaining null. Treat actual handle as terminal.
+- Retried with durable stdout/stderr and result files under ignored artifacts/native-runner-probe. Confirmed ring/vswhom-sys compilation failed because MSVC INCLUDE was absent (stddef.h/windows.h). Compiler and SDK are installed.
+- Added MSVC/Windows SDK include directories to the build child environment only; restarted after confirmed terminal failure. No shell or global environment change. Current supervisor PID 56536; inspect build-state.json and build.log, and actual process before any restart. Previous failed log/state retained as previous-build files.
+- Consulted Tauri CLI reference and Microsoft CL environment docs. Native UI/IPC verification remains pending.
+- Verified retry child PID 50384 live using signal 0; supervisor handle still has no exit code. Rust compiler PID 58444 observed active. Generated snapshot permission exists. Read NATIVE-RUNNER-ACCEPTANCE.md for exact environment, isolation, failure and next steps. Do not launch the stale executable until successful build is recorded.
+- A documentation tool-call syntax error occurred before writes and was corrected; no application change from it.
+
+## Owner-requested Thai summary refresh — 2026-09-29
+
+- Rewrote SUMMARY-TH.md as a current overview: implemented areas, latest Runner evidence, missing features, acceptance, delivery and ordered continuation. Corrected stale opening text that described Runner as wholly unimplemented.
+- Documentation-only summary turn; no new application edits, build or acceptance run.
+- Carry-forward from preceding work: snapshot_request_cookies was added to src-tauri/build.rs command manifest and default capability; native/runtime verification remains pending.
+- Existing isolated native probe build was observed with PID 41772, exit still null and last captured output compiling dependencies. This is observation, not build success. Check the existing process/result before rebuilding; PID can be reused after exit.
+- Build launched through hidden direct Bun process: bun x --bun tauri build --no-bundle --config '{"identifier":"app.insomnium.probe.runner20260929","productName":"Insomnium Native Probe","build":{"beforeBuildCommand":null}}'. Uses existing frontend build and configured MSVC/SDK/libclang. It is a probe, not production release; do not update BUILD.json as a production package.
+- No native app launch or UI/IPC verification recorded yet. Next: resolve probe build outcome, then isolated native/UI acceptance and remaining PARITY items. Full migration remains incomplete.
+
+## Runner integrated HTTP flow — 2026-09-29
+
+- Actual compiled workspace/Runner/template workers/composer/HTTP preview executed against controlled loopback server.25 assertions passed: environment/body/Basic auth/response/history, failed assertion/single result, Stop, save/reload. Persistence used isolated memory storage; no user-data access.
+- Initial probe-only absolute worker path failed; relative base corrected it without changing application config. Final process exited0; server stopped and temporary output removed. See RUNNER-INVENTORY.md for scope and official sources.
+- Previous turn added UI; this turn supplies stronger integration evidence. No application source changes, saved test scripts or installer; existing build checks were not redundantly rerun.
+- Next native/UI/provider and remaining Runner parity acceptance; preview HTTP evidence does not establish Tauri IPC/visual completion. Full migration remains incomplete.
+
+## Tests UI — 2026-09-29
+
+- Integrated RunnerSidebar/RunnerPane into Tests navigation with saved suite selection, suite/test CRUD, JavaScript editing, request choice, one/all Run, Stop and result/error details. Kept existing theme and archived three-pane organization; gated request shortcuts outside Requests.
+- 12 CRUD/selection and11 runtime/report assertions passed. Reporter includes state/pending for same-named tests. Prettier, Svelte check0/0 and build passed; production worker and WASM emitted.
+- No mounted UI/native/visual proof: CUA currently has no enabled apps/browsers. RUNNER-INVENTORY.md records exact evidence, corrected pre-write tool syntax failure and remaining acceptance. No saved tests/installer rebuild.
+- Previous turn connected shared sender; this turn exposes Runner to the user. Next verify real UI/IPC/network and remaining Runner script/import/history edges, then other PARITY gaps. Full goal remains incomplete.
+
+## Runner shared sender — 2026-09-29
+
+- Added runTests action using shared dependent HTTP sender, per-Send current request/environment snapshots, suite-owned OAuth progress/Stop/shutdown and deletion guards. New results retain workspace parent and explicit suite/test references.
+- Added runner-model.js for snapshot/legacy response/result lookup; unitTestId import remapping.13 model assertions and actual runTests-source checks with mocked worker/sender passed. These do not establish native HTTP/UI acceptance.
+- Prettier, Svelte check0/0 and production build passed. No saved test scripts/installer.
+- Previous turn implemented worker lifecycle; this turn connects app orchestration and persistence. Next implement suite/test UI, result details/reload and real native/provider/dependency acceptance. Full migration remains incomplete.
+
+## Runner worker supervision — 2026-09-29
+
+- Added runner.worker.js and runner-client.js for one-run worker ownership, send/result/abort messages, hard termination, transport cancellation and startup/whole-run watchdogs.
+- 14 inline supervisor assertions and6 actual Vite-built Bun Worker assertions passed, including Stop during infinite guest execution with pending transport abort under1 second. Temporary build directory cleaned. This is not native WebView evidence.
+- Prettier, Svelte check0/0 and application build passed. Application UI integration remains pending; standalone worker packaging was verified separately. No saved tests/dependency changes/installer.
+- Previous turn implemented runtime; this turn adds and verifies worker lifecycle. Next connect shared native sender and environment semantics, then UI/results persistence and Tauri acceptance. Full migration remains incomplete.
+
+## Isolated Runner runtime — 2026-09-29
+
+- Added runner-runtime.js using real Mocha/Chai in QuickJS with async insomnia.send host bridge, per-test request ownership, timers, cancellation, timeout and reporter results.
+- 20 inline assertions passed against actual module/bundles, including Stop, stale response/timer suppression, infinite loop failure, filter/bail and empty suite. Fixed missing reporter error payload; documented failed probe expectations and corrected tool quoting in RUNNER-INVENTORY.md.
+- Prettier, bun run check0/0 and bun run build passed. No saved tests or native/package build. Not yet imported by application UI.
+- Previous turn proved engine compatibility; this turn implements runtime. Next: worker packaging/termination, owned shared HTTP sender, Runner UI and saved results. Full goal remains incomplete.
+
+## Runner engine compatibility — 2026-09-29
+
+- Added exact Mocha10.8.2/Chai4.5.0 through documented Bun add --exact --ignore-scripts, matching archived baseline. No Node/Mocha CLI execution.
+- Actual browser bundles ran in QuickJS:3 passing cases,1 deliberate assertion failure,1 timeout and1 pending;7 host assertions passed. Initial missing location.search failure resolved with guest-only empty location.
+- Svelte check0/0 and production build passed. No worker/UI/native send integration or installer yet. RUNNER-INVENTORY.md records shim/cleanup requirements and next steps.
+- Previous turn progressed resource import/duplication. This turn proves the engine choice and updates dependencies; full goal remains active. Next implement production isolated runtime and insomnia.send bridge, then owned shared transport/UI.
+
+## Runner resource prerequisites — 2026-09-29
+
+- Fixed active request/suite import references and excluded legacy nonduplicable workspace metadata and test results from collection duplication. Existing source data and imported historical results remain intact.
+- 18 inline assertions passed; bun run check 0 errors/0 warnings and bun run build passed. No saved tests, dependency changes or installer build.
+- Recorded actual legacy Runner contracts and ordered implementation/acceptance in RUNNER-INVENTORY.md, including workspace-parent vs suite-parent historical results. Runtime/UI remain TODO.
+- Previous turn made progress by updating the requested Thai Markdown summary. This turn changes application resource behavior. Full migration remains active and incomplete.
+- Next: prove Mocha/Chai isolated runtime compatibility, connect the owned shared HTTP sender, then Runner UI/results/lifecycle acceptance.
+
+## Thai summary refresh — 2026-09-29
+
+- Owner requested a Markdown progress summary. Updated SUMMARY-TH.md with an at-a-glance overview, latest multipart evidence, remaining features and acceptance/delivery steps.
+- Documentation only; no application changes or new build/acceptance run. Latest implementation checkpoint remains cURL multipart filename/type metadata. Full migration is incomplete.
+
+## cURL multipart filename/type metadata — 2026-09-29
+
+- Added curl-form.js for multipart grammar after shell quoting: quoted filenames/text, escaped quotes/backslashes, filename= and type= metadata. Comma/semicolon inside quotes is preserved. Unsupported nested forms, file-content < fields, multi-file lists, custom headers/encoders and MIME parameters still fail explicitly.
+- Imported fileNameOverride/contentTypeOverride remain separate from selected-file metadata. Existing KeyValueEditor now exposes Part options for sent filename and Content-Type. Selecting/replacing a file preserves overrides; text with an explicit filename becomes UTF-8 file bytes in the native envelope. Empty filename is preserved rather than defaulted.
+- Multipart picker now guards overlapping reads with per-row selection identity and unmount lifetime, in addition to row identity. Late results/errors do not replace newer selections or deleted/changed fields.
+- 136 inline checks passed:33 new multipart parser/composition/preview/reload cases,70 importer regressions,28 single-file regressions,5 checks executing the actual fileChanged/change source for overlap/remove/replace/unmount/success. Mounted DOM interaction is not verified.
+- Six native multipart wire comparisons against curl8.21.0 passed. Probe extracted the actual multipart builder from src-tauri/src/http.rs and used the cached reqwest0.12.28 rlib (confirmed by manifest and .d source paths). Headers compared by case-insensitive names/order; values and part bytes matched. Includes empty filename, delimiters, MIME override and typed text. This is native builder evidence, not Tauri IPC/full app acceptance.
+- Browser comparison found Bun FormData adds charset=utf-8 to text/plain file parts; do not claim browser wire parity. Preview rejects custom Content-Type on a text part with no filename because FormData cannot represent it faithfully. Native path supports it.
+- Prettier, bun run check (0/0), bun run build passed. A tool-call quoting syntax error happened before writes and was corrected. No dependency/Rust source changes or saved test scripts; Rust probe built from stdin. Fixture and EXE/PDB removed; both echo servers ended with SIGTERM.
+- Sources read before implementation: curl manual/form grammar, upstream tool_formparse.c, existing native builder and reqwest Part documentation. See CURL-IMPORT.md. Previous goal turn advanced file-body support; this turn advances multipart lifecycle/metadata. Full migration remains incomplete.
+- Next: mixed/multiple cURL data representation, outstanding options/form edges and native UI/IPC acceptance; retain cookie template-source, URL/SSE, Runner/Git/plugins and all other PARITY gates.
+
+## cURL single-file request bodies — 2026-09-29
+
+- Extended cURL import for a single named file with --data/-d, --data-ascii, --data-binary, --json, and --data-urlencode (including name@file). Import retains a placeholder; existing binary picker reads only a file explicitly selected by the user.
+- uploads.js transforms selected bytes according to mode: data/ascii remove CR/LF/NUL; binary/JSON preserve bytes; URL encoding processes arbitrary bytes without UTF-8 decoding, with + for spaces and an already-encoded ASCII field prefix. Input and transformed upload are capped at 20 MiB.
+- Binary transport now respects an enabled explicit Content-Type, using application/octet-stream only as a fallback. This allows imported JSON/form/custom file MIME to reach the existing native bodyBase64 envelope.
+- RequestEditor shows the imported transformation, clears imported conversion metadata/bytes when changing body type, and guards pending reads by request ID/body identity/selection generation/unmount. It rechecks ownership immediately before applying the upload. Ordinary binary uploads receive the same race protection.
+- 98 inline checks passed (70 importer regressions updated for supported files +28 file-mode/byte/header/save-reload/limit/selection checks). Seven local network comparisons with curl 8.21.0 matched method/body bytes/Content-Type/Accept using all256 byte values. These used actual importer/upload/composition with Bun fetch; Tauri UI/native IPC acceptance is still pending.
+- A malformed edit-tool command failed before filesystem writes; corrected. No saved test scripts, dependencies or Rust changes. Synthetic fixture directory removed and echo-server handle ended with SIGTERM.
+- Prettier, bun run check (0 errors/0 warnings), bun run build passed. No installer rebuild. Official curl manual, Blob.arrayBuffer and Svelte onDestroy documentation read before implementation; links and details in CURL-IMPORT.md.
+- Remaining: mixed/multiple data files, file data with --get, stdin/config, multipart modifiers, common unsupported curl options and actual mounted/native acceptance. These remain in scope. Previous goal turn implemented the parser; this turn advances its file lifecycle. Full migration remains incomplete.
+- Next: richer multipart filenames/content types and mixed data representation, then remaining curl options/native import acceptance plus cookie-source/URL/SSE/Runner/Git/plugins/PARITY gates.
+
+## cURL import through existing review flow — 2026-09-29
+
+- Added src/lib/curl-import.js and integrated parseImport plus native/browser file pickers and paste review. Literal Bash quoting, HTTP URLs, multiple requests, headers, Basic/Digest, cookies, data/JSON/query, simple multipart and redirect options map into existing resources. Unknown/unsupported options fail visibly; no shell, command execution or file reads in importer.
+- Raw encoded bodies retain their exact text plus Content-Type; multipart file placeholders require selection before Send. Additive ID remapping/topology validation remain in the existing pipeline. Input/token/request/expansion guards bound parsing.
+- 70 inline assertions and eight loopback wire comparisons against Windows curl 8.21.0 passed. Comparisons used imported resources + prepareRenderedRequest + Bun fetch, not native Tauri/WebView. No saved tests/dependencies/native changes/user data writes.
+- Corrected missed HEAD guard insertion and actual-curl differences for encoded spaces, empty data prefix and appended percent escape casing. Read upstream curl source before fixes. Local server handle terminated with SIGTERM.
+- bun run check: 0 errors/0 warnings; bun run build and Prettier passed. No fresh installer; source newer than BUILD.json.
+- See [CURL-IMPORT.md](CURL-IMPORT.md) for supported options, official sources, commands/evidence and remaining file/option/desktop parity. Current gaps include compressed/TLS/proxy/timeouts/config/files, richer forms, command dialects and native UI acceptance; curl parity is PARTIAL, not complete.
+- Previous goal turn made progress by updating the Thai status summary. This turn implements a missing import subsystem; the full migration goal remains active.
+- Next: curl remaining option/file mappings and native import acceptance, alongside cookie template-source lifecycle, URL/SSE parity and remaining PARITY requirements.
 
 ## Dependency cleanup and Tauri version alignment — 2026-09-29
 

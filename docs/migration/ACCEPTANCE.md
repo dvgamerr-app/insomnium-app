@@ -32,12 +32,20 @@ Run `bun run desktop`. Use a disposable collection and a loopback-only API that 
 
 ## GraphQL gate
 
+Windows close/reopen evidence (2026-10-01): tests/ui/graphql-schema-close.js passes3+3 checks at artifacts/playwright/graphql-schema-close-1790809313945 and graphql-schema-close-reopen-1790809315639. WM_CLOSE→cancel_http/save_workspace/destroy, abort before fixture release and clean reopen/fresh fetch verified. Other OS lifecycle/export/visual/provider gates remain open.
+
+Native cache evidence (2026-10-01): tests/ui/graphql-schema-cache.js passes6 checks at artifacts/playwright/graphql-schema-cache-1790808908649/acceptance.json. Covers request isolation,3-entry and aggregate20MiB eviction, replacement age and selected clear without request/history changes. CloseRequested lifecycle remains unverified.
+
+Additional native evidence (2026-10-01): tests/ui/graphql-schema-import.js passes12 import/browser checks at artifacts/playwright/graphql-schema-import-1790808738003/acceptance.json. Invalid/oversized imports preserve valid schema; raw introspection JSON, search, descriptions/defaults/deprecation, directive details and Clear schema accepted. Native export, cache eviction/close, visual/accessibility/provider/platform gates remain open.
+
+2026-10-01 native Windows evidence: saved graphql-editor (15), graphql-schema-lifecycle (12), graphql-schema-context (6), graphql-execution (4) scenarios pass. Exact coverage/artifacts in GRAPHQL-RENDERING.md. Combined bullets below remain unchecked where any constituent acceptance is still outstanding.
+
 - [ ] Use a disposable local GraphQL endpoint: query/variables and operation names via POST and GET, repeated URL parameters, environment expansion, auth and native proxy/TLS/cookies. GET encodes GraphQL fields in the URL without a body; use POST for mutations.
 - [ ] Fetch schema explicitly; verify original query/variables/operation, prior response and history remain unchanged. HTTP/auth failure, disabled introspection, malformed JSON and GraphQL errors are visible. Cancel fetch and close the app while fetching.
 - [ ] Change endpoint/headers/auth/settings/environment during/after fetch: ignore mismatched results and require refresh. No automatic network call when switching requests or opening Schema.
 - [ ] Import introspection JSON (wrapped data and raw __schema) and SDL. Invalid or >20 MiB schema fails visibly without replacing a valid schema. Search types/fields, view descriptions/deprecations/defaults and export SDL. Clear schema; cache eviction/restart does not remove user request data.
 - [ ] Format query, choose one of multiple operations, validate missing fields/required variables/types, verify error locations and partial GraphQL response errors. Validation leaves query/variables unchanged; no server custom scalar validation is claimed.
-- [ ] Keyboard-select schema import and type search/list, resize, and verify dark/light original Insomnium styling. Legacy completion/navigation remains outstanding.
+- [ ] Keyboard-select schema import and type search/list, resize, and verify dark/light original Insomnium styling. Native query/variable completion and hover type navigation passed; keyboard-only schema browsing and visual acceptance remain outstanding.
 
 ## Streaming gate
 
