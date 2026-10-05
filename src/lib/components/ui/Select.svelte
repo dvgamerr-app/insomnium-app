@@ -1,5 +1,5 @@
 <script>
-  /** @type {Omit<import('svelte/elements').HTMLSelectAttributes, 'value'> & {value?:string, children?:import('svelte').Snippet, invalid?:boolean}} */
+  /** @type {Omit<import('svelte/elements').HTMLSelectAttributes, 'value'> & {value?:string|number, children?:import('svelte').Snippet, invalid?:boolean}} */
   let {
     value = $bindable(""),
     children,
@@ -13,10 +13,13 @@
 <select
   {...rest}
   {value}
-  aria-invalid={invalid || undefined}
+  aria-invalid={invalid || rest["aria-invalid"] || undefined}
   class={`ui-select ${className}`}
   onchange={(event) => {
-    value = event.currentTarget.value;
+    value =
+      typeof value === "number"
+        ? Number(event.currentTarget.value)
+        : event.currentTarget.value;
     onchange?.(event);
   }}>{@render children?.()}</select
 >

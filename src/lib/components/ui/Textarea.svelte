@@ -12,7 +12,7 @@
 <textarea
   {...rest}
   {value}
-  aria-invalid={invalid || undefined}
+  aria-invalid={invalid || rest["aria-invalid"] || undefined}
   class={`ui-textarea ${className}`}
   oninput={(event) => {
     value = event.currentTarget.value;
