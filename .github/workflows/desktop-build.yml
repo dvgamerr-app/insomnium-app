@@ -1,0 +1,139 @@
+name: Desktop build (Bun and Cargo)
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - runner: windows-2022
+            target: x86_64-pc-windows-msvc
+          - runner: macos-15
+            target: universal-apple-darwin
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    env:
+      RUSTUP_TOOLCHAIN: 1.98.1
+      CI: "true"
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # Do not replace with setup-bun/checkout/cache/upload JS actions:
+      # those actions start Node even when the project itself uses Bun.
+      - name: Install pinned Bun (Linux/macOS)
+        if: runner.os != 'Windows'
+        env:
+          BUN_INSTALL: ${{ runner.temp }}/insomnium-bun
+        run: |
+          curl -fsSL https://bun.com/install | bash -s "bun-v1.4.2"
+          echo "$BUN_INSTALL/bin" >> "$GITHUB_PATH"
+
+      - name: Install pinned Bun (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          BUN_INSTALL: ${{ runner.temp }}/insomnium-bun
+        run: |
+          $installer = Join-Path $env:RUNNER_TEMP 'insomnium-install-bun.ps1'
+          Invoke-WebRequest https://bun.com/install.ps1 -OutFile $installer
+          & $installer -Version '1.4.2'
+          if ($LASTEXITCODE -ne 0) { throw 'Bun installation failed' }
+          Join-Path $env:BUN_INSTALL 'bin' | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+
+      - name: Checkout exact event commit with native Git
+        env:
+          CHECKOUT_TOKEN: ${{ github.token }}
+        run: |
+          bun - <<'JS'
+          import { mkdir } from 'node:fs/promises';
+          import { resolve } from 'node:path';
+          const token = process.env.CHECKOUT_TOKEN;
+          delete process.env.CHECKOUT_TOKEN;
+          const server = new URL(process.env.GITHUB_SERVER_URL);
+          const repository = process.env.GITHUB_REPOSITORY;
+          const sha = process.env.GITHUB_SHA;
+          if (server.protocol !== 'https:' || !/^[\w.-]+\/[\w.-]+$/.test(repository) || !/^[a-f0-9]{40,64}$/.test(sha)) throw new Error('Invalid checkout coordinates');
+          const source = resolve(process.env.GITHUB_WORKSPACE, 'source');
+          await mkdir(source);
+          const run = async (args, env = process.env) => {
+            const child = Bun.spawn(['git', ...args], { env, stdout: 'inherit', stderr: 'inherit' });
+            if (await child.exited) throw new Error('Git checkout failed');
+          };
+          await run(['init', source]);
+          await run(['-C', source, 'remote', 'add', 'origin', server.origin + '/' + repository + '.git']);
+          const auth = {
+            ...process.env,
+            GIT_TERMINAL_PROMPT: '0',
+            GIT_CONFIG_COUNT: '1',
+            GIT_CONFIG_KEY_0: 'http.' + server.origin + '/.extraHeader',
+            GIT_CONFIG_VALUE_0: 'AUTHORIZATION: basic ' + Buffer.from('x-access-token:' + token).toString('base64'),
+          };
+          await run(['-C', source, 'fetch', '--depth=1', '--no-tags', 'origin', sha], auth);
+          await run(['-C', source, 'checkout', '--detach', sha]);
+          // Auth was process-local for fetch; no credential written to Git config.
+          JS
+
+      - name: Install Linux native build prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf rpm libgles2 dpkg-dev
+
+      - name: Install pinned Rust
+        run: |
+          rustup toolchain install 1.98.1 --profile minimal
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            rustup target add --toolchain 1.98.1 aarch64-apple-darwin x86_64-apple-darwin
+          fi
+
+      - name: Install locked dependencies and check Svelte
+        working-directory: source
+        run: |
+          bun --version
+          rustc --version
+          bun install --frozen-lockfile
+          bun run check
+
+      - name: Build desktop packages
+        working-directory: source
+        env:
+          BUILD_TARGET: ${{ matrix.target }}
+        run: bun run desktop:build --target "$BUILD_TARGET" --ci -- --locked
+
+      - name: Record package hashes
+        working-directory: source
+        env:
+          BUILD_TARGET: ${{ matrix.target }}
+        run: |
+          bun - <<'JS'
+          import { appendFile } from 'node:fs/promises';
+          const root = 'src-tauri/target/' + process.env.BUILD_TARGET + '/release/bundle';
+          const files = [];
+          for await (const path of new Bun.Glob('**/*').scan({ cwd: root, onlyFiles: true })) {
+            if (!/\.(deb|rpm|AppImage|msi|exe|dmg)$/.test(path)) continue;
+            const file = Bun.file(root + '/' + path);
+            const hash = new Bun.CryptoHasher('sha256').update(await file.arrayBuffer()).digest('hex');
+            files.push({ path, bytes: file.size, sha256: hash });
+          }
+          if (!files.length) throw new Error('No desktop packages generated');
+          await Bun.write('desktop-packages.json', JSON.stringify(files, null, 2) + '\n');
+          const summary = '### Built desktop packages\n\n' + files.map(f => '- ' + f.path + ' (' + f.bytes + ' bytes), SHA256 ' + f.sha256).join('\n') + '\n\nBuild-only validation; package upload, signing and runtime acceptance are separate pending gates.\n';
+          console.log(summary);
+          await appendFile(process.env.GITHUB_STEP_SUMMARY, summary);
+          JS

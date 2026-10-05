@@ -23,6 +23,10 @@ cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 bun run desktop:build
 ```
 
+บน Linux `desktop:build` ใช้ build → สร้าง dependency config จาก executable → bundle สำหรับ Debian/RPM/AppImage: Debian ต้องมี `dpkg-shlibdeps` (package `dpkg-dev`) และ package metadata ของ library บนระบบ build เพื่อคำนวณ minimum versions จาก ELF ทุกครั้ง; RPM ต้องมี `rpmdeps` (Debian/Ubuntu: package `rpm`); AppImage ต้องมี `ldconfig`, GLES ที่ตรงกับสถาปัตยกรรมของ executable (Debian/Ubuntu: `libgles2`) และ license ของ library เพื่อรวม GLES ที่ WebKit โหลดตอน runtime ลงใน bundle โดยอัตโนมัติ รองรับ notice มาตรฐานของ Debian/Fedora หรือกำหนด `INSOMNIUM_GLES_LICENSE` ให้ชี้ไฟล์ notice ของ package ที่ใช้ ห้าม override destination `/usr/lib/libGLESv2.so.2` และ notice ที่ wrapper จัดการ
+
+เลือกเฉพาะ Debian (ยังคงสร้าง dependencies ใหม่) ได้ด้วย `bun run desktop:build --bundles deb`; Windows/macOS ส่งคำสั่งต่อให้ Tauri ตามเดิม Linux wrapper รองรับ release/debug, target, features, JSON config และ Cargo `--locked`/`--offline`/`--frozen`; config แบบ JSON5/TOML หรือ Cargo profile/output แบบกำหนดเองให้ใช้ [ขั้นตอน manual ที่ต้องสร้าง metadata ใหม่](docs/migration/LINUX-DISTRIBUTION.md) ห้ามนำ config ที่สร้างจาก binary เก่ามาใช้ซ้ำ Cross-architecture runtime ยังไม่ผ่านการตรวจยืนยัน
+
 JavaScript tooling ทุกคำสั่งใช้ Bun ไม่มี Node server หรือ sidecar ในแอป ใช้ TypeScript 6.0.x เฉพาะเครื่องมือตรวจ JavaScript ไม่ใช้ TypeScript 7 ไม่มี test scripts ใหม่
 
 ## ส่วนที่เริ่มย้ายแล้ว
@@ -45,7 +49,7 @@ JavaScript tooling ทุกคำสั่งใช้ Bun ไม่มี Node
 - WebSocket: connect/send/receive/close, text/binary/ping และ saved payloads; SSE: incremental events, event ID และ retry metadata; มี log/filter/export/history และ cancel
 - gRPC: unary/streaming ทั้งสี่แบบ, proto tree/import/edit/replace/refresh/delete, reflection, metadata, legacy JSON, Send/Commit และประวัติ; refresh รักษา ID/ไฟล์เดิมและตรวจ schema ก่อนบันทึก ยังรอตรวจ UI/IPC จริงและความเข้ากันได้บางกรณี ดู [gRPC compatibility](docs/migration/GRPC-COMPATIBILITY.md)
 - Workspace บันทึกแบบ atomic และเก็บไฟล์ก่อนแก้ไขไว้หนึ่งชุดต่อ session; single-instance ป้องกันหลาย process เขียนทับกัน
-- Import แบบเพิ่ม collection ใหม่จาก Insomnia JSON, Postman v2, HAR, OpenAPI JSON/YAML และ legacy NeDB; export resource JSON
+- Import แบบเพิ่ม collection ใหม่จาก Insomnia JSON, Postman v2, HAR, OpenAPI JSON/YAML และ legacy NeDB; วาง cURL หรือเลือกไฟล์ .curl/.txt ผ่าน Review import ได้แล้ว (ยังเหลือ file/options/native acceptance ดู [cURL import](docs/migration/CURL-IMPORT.md)); export resource JSON
 - API Design: แก้ไข/บันทึก spec, ตรวจโครงสร้าง, preview operations/schema, แนบไฟล์ $ref และสร้าง request ลง folder ใหม่; รายการที่แปลงไม่ครบต้องแก้ใน Settings ก่อนส่ง
 
 รายการนี้เป็นสิ่งที่ implement แล้ว ไม่ใช่ผลรับรองทุก workflow ดูผลตรวจจริงใน STATUS
