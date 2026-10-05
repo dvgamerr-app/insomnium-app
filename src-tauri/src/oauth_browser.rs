@@ -109,6 +109,7 @@ pub async fn authorize_oauth(
     request.asap = None;
     request.ntlm = None;
     request.netrc = false;
+    request.socket_path = None;
     let mut cancelled = state.begin(&request.id)?;
     let mut jar = None;
     let operation = async {

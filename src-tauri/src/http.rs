@@ -39,6 +39,8 @@ pub struct HttpRequest {
     pub(crate) workspace_id: String,
     pub(crate) method: String,
     pub(crate) url: String,
+    #[serde(default)]
+    pub(crate) socket_path: Option<String>,
     pub(crate) headers: Vec<(String, String)>,
     #[serde(default)]
     pub(crate) suppress_user_agent: bool,
@@ -85,6 +87,8 @@ pub struct FormPart {
     pub(crate) name: String,
     pub(crate) value: String,
     pub(crate) file_name: Option<String>,
+    #[serde(default)]
+    pub(crate) value_base64: bool,
     pub(crate) content_type: Option<String>,
 }
 
@@ -218,6 +222,7 @@ pub async fn fetch_oauth_token(
     request.asap = None;
     request.ntlm = None;
     request.netrc = false;
+    request.socket_path = None;
     let mut cancelled = state.begin(&request.id)?;
     let mut jar = None;
     let exchange = async {
@@ -337,6 +342,19 @@ pub(crate) fn build_client(
             .retry(reqwest::retry::never())
             .connector_layer(ntlm.connection.clone());
     }
+    if let Some(path) = request.socket_path.as_deref() {
+        if path.is_empty() || path.contains('\0') {
+            return Err("Unix socket path must be nonempty and contain no NUL.".into());
+        }
+        #[cfg(any(unix, windows))]
+        {
+            builder = builder.unix_socket(path);
+        }
+        #[cfg(not(any(unix, windows)))]
+        {
+            return Err("Unix socket transport is not yet available on this platform.".into());
+        }
+    }
     let client = builder.build().map_err(|e| e.to_string())?;
     if let Some(ntlm) = ntlm {
         ntlm.connection.installed();
@@ -369,14 +387,16 @@ pub(crate) fn build_request(
     if let Some(parts) = &request.multipart {
         let mut form = reqwest::multipart::Form::new();
         for part in parts {
-            let mut field = if let Some(filename) = &part.file_name {
+            let mut field = if part.value_base64 || part.file_name.is_some() {
                 reqwest::multipart::Part::bytes(
                     STANDARD.decode(&part.value).map_err(|e| e.to_string())?,
                 )
-                .file_name(filename.clone())
             } else {
                 reqwest::multipart::Part::text(part.value.clone())
             };
+            if let Some(filename) = &part.file_name {
+                field = field.file_name(filename.clone());
+            }
             if let Some(mime) = &part.content_type {
                 field = field.mime_str(mime).map_err(|e| e.to_string())?;
             }

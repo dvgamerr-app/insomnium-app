@@ -1,3 +1,9 @@
+import {
+  smartEncodeUrl,
+  buildQueryParameter,
+  joinUrlAndQueryString,
+} from "./template-url.js";
+import { composeCurlBody, appendCurlFileQuery } from "./curl-body.js";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { environmentFor, render, workspaceFor, protocolFor } from "./model.js";
 import { oauthHeader } from "./oauth-model.js";
@@ -88,7 +94,66 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
     );
   if (request._migrationIssues?.length)
     throw new Error(request._migrationIssues.join("\n"));
-  const url = new URL(resolve(request.url));
+  // Saved cURL commands retain their explicit query spelling; ordinary requests
+  // use Insomnium's legacy automatic encoding unless the owner disables it.
+  const encodeUrl = request.settingEncodeUrl ?? !request._curlSource;
+  const legacyQuery = !request._curlSource || encodeUrl;
+  let sourceUrl = resolve(request.url);
+  if (legacyQuery) {
+    const query = [];
+    for (const parameter of request.parameters ?? []) {
+      if (parameter.disabled || (!parameter.name && !parameter.sendEmptyName))
+        continue;
+      query.push(
+        buildQueryParameter(
+          {
+            name: resolve(parameter.name),
+            value: parameter.noValue ? undefined : resolve(parameter.value),
+          },
+          !parameter.sendEmptyName,
+        ),
+      );
+    }
+    const authentication = request.authentication ?? {};
+    if (
+      !authentication.disabled &&
+      authentication.type === "apikey" &&
+      authentication.addTo === "queryParams"
+    )
+      query.push(
+        buildQueryParameter({
+          name: resolve(authentication.key),
+          value: resolve(authentication.value),
+        }),
+      );
+    sourceUrl = joinUrlAndQueryString(
+      sourceUrl,
+      query.filter(Boolean).join("&"),
+    );
+  }
+  if (Array.isArray(request.segmentParams))
+    sourceUrl = sourceUrl.replace(
+      /:([\w_-]*?)(?=($|[^\w_-]))/g,
+      (match, name) => {
+        const segment = request.segmentParams.find(
+          (/** @type {any} */ row) => row.name === name,
+        );
+        return segment?.value ? resolve(segment.value) : match;
+      },
+    );
+  const usesUnixSocket = /^https?:\/\/unix:\//.test(sourceUrl);
+  sourceUrl = smartEncodeUrl(sourceUrl, encodeUrl);
+  let socketPath = null;
+  if (usesUnixSocket) {
+    const match = sourceUrl.match(/^(https?:)\/\/unix:?(\/[^:]+):\/(.+)$/);
+    if (!match)
+      throw new Error(
+        "Use http://unix:/socket/path:/hostname/path for a Unix socket.",
+      );
+    socketPath = match[2];
+    sourceUrl = match[1] + "//" + match[3];
+  }
+  const url = new URL(sourceUrl);
   const protocol = protocolFor(request);
   if (protocol === "websocket") {
     if (url.protocol === "http:") url.protocol = "ws:";
@@ -109,7 +174,14 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
       },
     );
   }
-  for (const param of request.parameters ?? [])
+  if (protocol !== "websocket" && request.body?.curlQuery === true) {
+    const queryUrl = appendCurlFileQuery(
+      url,
+      composeCurlBody(request.body, resolve),
+    );
+    url.href = queryUrl.href;
+  }
+  for (const param of legacyQuery ? [] : (request.parameters ?? []))
     if (!param.disabled && (param.name || param.sendEmptyName)) {
       const encoded = new URLSearchParams([
         [resolve(param.name), resolve(param.value)],
@@ -250,9 +322,10 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
           throw new Error(
             `API key destination “${auth.addTo}” has not been migrated yet.`,
           );
-        if (auth.addTo === "queryParams")
-          url.searchParams.append(resolve(auth.key), resolve(auth.value));
-        else if (!manualAuthorization) {
+        if (auth.addTo === "queryParams") {
+          if (!legacyQuery)
+            url.searchParams.append(resolve(auth.key), resolve(auth.value));
+        } else if (!manualAuthorization) {
           if (auth.addTo === "cookie") {
             // Cookie is an explicit header, separate from the collection jar.
             // Combine existing header fields with semicolons, preserving pair order.
@@ -332,20 +405,42 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
           );
         return {
           name: resolve(p.name),
-          value: p.type === "file" ? p.base64 : resolve(p.value),
-          fileName: p.type === "file" ? p.fileName || "upload.bin" : null,
-          contentType: p.contentType || null,
+          value:
+            p.type === "file"
+              ? p.base64
+              : typeof p.fileNameOverride === "string"
+                ? encodeBase64(new TextEncoder().encode(resolve(p.value)))
+                : resolve(p.value),
+          valueBase64: p.type === "file" && p.fileContent === true,
+          fileName:
+            p.type === "file" && p.fileContent === true
+              ? null
+              : typeof p.fileNameOverride === "string"
+                ? resolve(p.fileNameOverride)
+                : p.type === "file" && p.fileContent !== true
+                  ? p.fileName || "upload.bin"
+                  : null,
+          contentType: p.contentTypeOverride
+            ? resolve(p.contentTypeOverride)
+            : p.type === "file" && p.fileContent === true
+              ? null
+              : p.contentType || null,
         };
       });
     // Native client supplies the multipart boundary; remove all manual copies.
     for (let i = headers.length - 1; i >= 0; i--)
       if (headers[i][0].toLowerCase() === "content-type") headers.splice(i, 1);
-  } else if (mime === "application/octet-stream") {
-    if (typeof body.base64 !== "string")
-      throw new Error("Select a binary file before sending");
-    bodyBase64 = body.base64;
-    setHeader("Content-Type", mime);
-  } else if (mime) {
+  } else if (mime === "application/octet-stream" && body.curlQuery !== true) {
+    if (body.curlSegments)
+      bodyBase64 = encodeBase64(composeCurlBody(body, resolve));
+    else {
+      if (typeof body.base64 !== "string")
+        throw new Error("Select a binary file before sending");
+      bodyBase64 = body.base64;
+    }
+    if (!headers.some(([name]) => name.toLowerCase() === "content-type"))
+      headers.push(["Content-Type", mime]);
+  } else if (mime && body.curlQuery !== true) {
     text = resolve(body.text || "");
     if (!headers.some((h) => h[0].toLowerCase() === "content-type"))
       headers.push(["Content-Type", mime]);
@@ -362,6 +457,7 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
     workspaceId: workspaceFor(data.resources, request._id),
     method: protocol === "websocket" ? "GET" : request.method || "GET",
     url: url.toString(),
+    socketPath,
     headers,
     suppressUserAgent:
       request.suppressUserAgent === true ||
@@ -445,6 +541,8 @@ async function readPreviewBody(response, signal) {
 /** @param {Record<string, any>} request @param {AbortSignal} signal */
 export async function send(request, signal) {
   if (isTauri()) return invoke("send_http", { request });
+  if (request.socketPath)
+    throw new Error("Unix socket requests require the desktop app.");
   if (request.digest)
     throw new Error("Digest authentication requires the desktop app.");
   if (request.oauth1)
@@ -482,7 +580,11 @@ export async function send(request, signal) {
   if (request.multipart) {
     const form = new FormData();
     for (const p of request.multipart) {
-      if (p.fileName)
+      if (p.valueBase64 && p.fileName === null)
+        throw new Error(
+          "File-content multipart fields require the desktop app to preserve exact bytes.",
+        );
+      if (p.fileName !== null)
         form.append(
           p.name,
           new Blob([Uint8Array.from(atob(p.value), (c) => c.charCodeAt(0))], {
@@ -490,7 +592,13 @@ export async function send(request, signal) {
           }),
           p.fileName,
         );
-      else form.append(p.name, p.value);
+      else {
+        if (p.contentType)
+          throw new Error(
+            "Custom Content-Type on text multipart fields requires the desktop app.",
+          );
+        form.append(p.name, p.value);
+      }
     }
     body = form;
   } else if (typeof request.bodyBase64 === "string")

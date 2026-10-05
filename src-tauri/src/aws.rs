@@ -156,9 +156,7 @@ impl<'a> Signer<'a> {
                 return Err(format!("Set a valid AWS {name} explicitly in Auth; it could not be inferred from Host."));
             }
         }
-        if service == "codecommit" && request.method().as_str() == "GIT" {
-            return Err("AWS CodeCommit GIT signing has not been migrated yet.".into());
-        }
+
         Ok(Self {
             credentials,
             region,
@@ -184,6 +182,17 @@ impl<'a> Signer<'a> {
         request
             .headers_mut()
             .insert(header::HOST, self.host.clone());
+        if self.service == "codecommit" && request.method().as_str() == "GIT" {
+            let value = codecommit_header(
+                request,
+                self.credentials,
+                &self.region,
+                &self.host,
+                time::OffsetDateTime::now_utc(),
+            )?;
+            request.headers_mut().insert(header::AUTHORIZATION, value);
+            return Ok(());
+        }
         let identity = Credentials::new(
             self.credentials.access_key_id.clone(),
             self.credentials.secret_access_key.clone(),
@@ -261,4 +270,128 @@ impl<'a> Signer<'a> {
         }
         Ok(())
     }
+}
+
+fn legacy_encode(value: &str) -> String {
+    const SET: &percent_encoding::AsciiSet = &percent_encoding::NON_ALPHANUMERIC
+        .remove(b'-')
+        .remove(b'.')
+        .remove(b'_')
+        .remove(b'~');
+    percent_encoding::utf8_percent_encode(value, SET).to_string()
+}
+
+fn codecommit_header(
+    request: &Request,
+    credentials: &AwsCredentials,
+    region: &str,
+    host: &header::HeaderValue,
+    now: time::OffsetDateTime,
+) -> Result<header::HeaderValue, String> {
+    use hmac::{Hmac, Mac};
+    use sha2::{Digest, Sha256};
+    let stamp = format!(
+        "{:04}{:02}{:02}T{:02}{:02}{:02}",
+        now.year(),
+        u8::from(now.month()),
+        now.day(),
+        now.hour(),
+        now.minute(),
+        now.second()
+    );
+    if !(0..=9999).contains(&now.year()) {
+        return Err("CodeCommit signing requires a four-digit UTC year.".into());
+    }
+    let mut segments = Vec::new();
+    for segment in request.url().path().split('/') {
+        match segment {
+            "" | "." => (),
+            ".." => {
+                segments.pop();
+            }
+            value => segments.push(legacy_encode(value)),
+        }
+    }
+    let mut path = format!("/{}", segments.join("/"));
+    if request.url().path().ends_with('/') && path != "/" {
+        path.push('/');
+    }
+    // aws4 uses querystring.parse's default 1000-pair limit and drops empty names.
+    let mut query: Vec<_> = request
+        .url()
+        .query_pairs()
+        .take(1000)
+        .filter(|(name, _)| !name.is_empty())
+        .map(|(name, value)| (legacy_encode(&name), legacy_encode(&value)))
+        .collect();
+    query.sort();
+    let query = query
+        .into_iter()
+        .map(|(name, value)| format!("{name}={value}"))
+        .collect::<Vec<_>>()
+        .join("&");
+    let normalize = |value: &header::HeaderValue| -> Result<String, String> {
+        Ok(value
+            .to_str()
+            .map_err(|_| "CodeCommit signed headers must be ASCII.")?
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" "))
+    };
+    let mut headers = Vec::new();
+    if request
+        .headers()
+        .get_all(header::CONTENT_TYPE)
+        .iter()
+        .count()
+        > 1
+    {
+        return Err("CodeCommit signing requires one Content-Type header.".into());
+    }
+    if let Some(value) = request.headers().get(header::CONTENT_TYPE) {
+        headers.push(("content-type", normalize(value)?));
+    }
+    headers.push(("host", normalize(host)?));
+    let names = headers
+        .iter()
+        .map(|(name, _)| *name)
+        .collect::<Vec<_>>()
+        .join(";");
+    let canonical_headers = headers
+        .iter()
+        .map(|(name, value)| format!("{name}:{value}\n"))
+        .collect::<String>();
+    let canonical = format!("GIT\n{path}\n{query}\n{canonical_headers}\n{names}\n");
+    let hex = |bytes: &[u8]| {
+        bytes
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>()
+    };
+    let scope = format!("{}/{region}/codecommit/aws4_request", &stamp[..8]);
+    let input = format!(
+        "AWS4-HMAC-SHA256\n{stamp}\n{scope}\n{}",
+        hex(&Sha256::digest(canonical.as_bytes()))
+    );
+    let hmac = |key: &[u8], value: &str| -> Result<Vec<u8>, String> {
+        let mut mac =
+            Hmac::<Sha256>::new_from_slice(key).map_err(|_| "Invalid CodeCommit signing key.")?;
+        mac.update(value.as_bytes());
+        Ok(mac.finalize().into_bytes().to_vec())
+    };
+    let mut key = hmac(
+        format!("AWS4{}", credentials.secret_access_key).as_bytes(),
+        &stamp[..8],
+    )?;
+    for value in [region, "codecommit", "aws4_request"] {
+        key = hmac(&key, value)?;
+    }
+    let signature = hex(&hmac(&key, &input)?);
+    let mut value = header::HeaderValue::from_str(&format!(
+        "AWS4-HMAC-SHA256 Credential={}/{scope}, SignedHeaders={names}, Signature={signature}",
+        credentials.access_key_id
+    ))
+    .map_err(|_| "Invalid CodeCommit Authorization header.")?;
+    value.set_sensitive(true);
+    Ok(value)
 }

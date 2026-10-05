@@ -24,7 +24,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
-reqwest = { version = "0.12.28", default-features = false, features = ["rustls-tls", "json", "multipart", "cookies", "gzip", "brotli", "deflate", "stream"] }
+reqwest = { version = "=0.12.28", default-features = false, features = ["rustls-tls", "json", "multipart", "cookies", "gzip", "brotli", "deflate", "stream"] }
 tokio = { version = "1.53.1", features = ["sync", "time", "macros", "net", "rt"] }
 base64 = "0.22"
 atomic-write-file = "0.3.1"
@@ -63,6 +63,8 @@ prost-reflect = { version = "0.16.5", features = ["serde"] }
 tonic-reflection = { version = "0.14.6", default-features = false }
 ryu-js = "1.0.3"
 libuv-sys2 = { version = "~1.53.0", features = ["skip-pkg-config"] }
+git2 = { version = "0.21.0", features = ["https", "ssh"] }
+time = "0.3"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
@@ -74,8 +76,12 @@ panic = "abort"
 strip = true
 
 [patch.crates-io]
+reqwest = { path = "vendor/reqwest" }
 http-auth = { path = "vendor/http-auth" }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2"
 tauri-plugin-window-state = "2"
+
+[target."cfg(windows)".dependencies]
+uds_windows = "1.2.1"

@@ -1,5 +1,7 @@
 # NTLM compatibility checkpoint
 
+2026-10-01 native UI acceptance: bun tests/ui/curl-import-ntlm.js passed on artifacts/native-curl-ntlm-ui-probe/build-state.json. Evidence artifacts/playwright/curl-import-ntlm-1790794284777; validates imported explicit credentials with independent NTLMv2 proof, reload, connection binding, POST replay and manual Authorization suppression. Does not cover MIC/TLS binding/hosted provider/OS sign-in/proxy/mixed negotiation.
+
 Updated 2026-09-24. NTLMv2 implemented and directly inspected; full legacy/native-provider parity remains pending.
 
 ## Architecture and behavior

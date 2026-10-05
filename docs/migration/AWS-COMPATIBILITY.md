@@ -16,7 +16,7 @@ Implemented 2026-09-24; native UI/provider acceptance remains pending.
 
 The old adapter supplied only Host/content type/body text to aws4 1.13.2. The new implementation signs actual bytes and eligible manual headers. It follows AWS SDK query canonicalization, including all duplicate query values and empty keys; old aws4's S3 branch took only the first duplicate value and discarded empty keys. Unusual percent-encoded/slash/path behavior is not claimed to be bit-for-bit compatible with the old URL parser. Review these cases against the intended AWS service, rather than assuming a matching build proves parity.
 
-CodeCommit's special `GIT` signing is explicitly blocked and remains a legacy gap. SigV4a, presigned URL generation and chunk/event-stream body signing are not implemented. Ordinary pre-existing presigned URLs can be sent with IAM disabled. There is no automatic clock-skew retry or credential acquisition. The original Enable toggle is respected; the legacy unconditional AWS parser branch is not reproduced when disabled.
+CodeCommit's special `GIT` signing is implemented as of 2026-10-01; six fixed-time aws4 reference signatures pass, while fresh native UI/wire/redirect/provider acceptance remains pending. SigV4a, presigned URL generation and chunk/event-stream body signing are not implemented. Ordinary pre-existing presigned URLs can be sent with IAM disabled. There is no automatic clock-skew retry or credential acquisition. The original Enable toggle is respected; the legacy unconditional AWS parser branch is not reproduced when disabled.
 
 Real AWS endpoint acceptance, temporary credential expiration, TLS/proxy/HTTP2, cookie-provider interaction, UI/environment switching/reload and Tauri IPC remain unverified. CUA exposes no apps/browsers. No AWS account or real credentials were used; no installer was run.
 
@@ -38,3 +38,14 @@ Real AWS endpoint acceptance, temporary credential expiration, TLS/proxy/HTTP2, 
 - https://raw.githubusercontent.com/postmanlabs/postman-runtime/develop/lib/authorizer/aws4.js
 
 Installed API source: `D:/home/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aws-sigv4-1.6.0`, plus aws-credential-types 1.3.0. Do not use a cached older SigningSettings page as evidence for the pinned API.
+
+## 2026-10-01 evidence update
+
+- Native UI import/reload/Send now accepted for S3/execute-api GET with encoding on/off and session tokens; independent wire SigV4 check: artifacts/playwright/url-encoding-1790798124712. This supersedes only those specific earlier UI/IPC gaps; provider/body/redirect/platform gates are unchanged.
+- Legacy _getAwsAuthHeaders and AWSAuth UI never enable signQuery. Presigning remains an unsupported imported option, not evidence of a missing original UI feature. CodeCommit GIT is a confirmed original aws4 special path and remains explicitly rejected pending implementation.
+
+- 2026-10-01: CodeCommit native helper matches6 aws4 1.13.2 fixed-time references (artifacts/codecommit-reference/native-acceptance.json); direct time dependency added by Cargo. Latest source is not yet included in an accepted native UI build.
+
+- Native CodeCommit UI/wire checkpoint: artifacts/playwright/codecommit-1790798995356 passed4 requests/6 wire hops; body, independent signature, same/cross-origin307 and reload accepted.23-case ordinary auth regression1790799002871 passed. These results supersede the specific pending UI/307 gates above;303/provider/TLS/proxy/platform remain unverified.
+
+- CodeCommit303 accepted1790799123253: same-origin GIT→GET switches to ordinary SigV4 with empty body; cross-origin strips credentials.6 total cases/10 wire requests pass. This supersedes pending303 notes above only; real provider/TLS/proxy/platform remain unverified.
