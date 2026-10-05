@@ -9,11 +9,14 @@ export const referenceKeys = [
   "requestId",
   "environmentId",
   "activeEnvironmentId",
+  "activeRequestId",
+  "activeUnitTestSuiteId",
   "workspaceId",
   "cookieJarId",
   "protoFileId",
   "protoDirectoryId",
   "unitTestSuiteId",
+  "unitTestId",
   "activePayloadId",
   "sourceSpecId",
 ];
@@ -139,9 +142,12 @@ export function duplicateResource(resources, resourceId) {
   if (!original || !["workspace", ...treeTypes].includes(original._type))
     throw new Error("This item cannot be duplicated.");
   const selected = descendants(resources, resourceId);
-  // OAuth tokens are per request, never duplicated (same as the legacy model).
+  // Legacy model policy: credentials, run results and local workspace UI state
+  // belong to their original owner; copying a collection starts with fresh state.
   const source = resources.filter(
-    (r) => selected.has(r._id) && r._type !== "oauth2_token",
+    (r) =>
+      selected.has(r._id) &&
+      !["oauth2_token", "unit_test_result", "workspace_meta"].includes(r._type),
   );
   const mapping = new Map(source.map((r) => [r._id, id(r._id.split("_")[0])]));
   const copies = source.map((resource) => {
