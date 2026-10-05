@@ -1,5 +1,13 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Shared control redesign and broad adoption — 2026-10-05
+
+- Owner correctly pointed out that the prior component scaffold did not fulfill broad UI redesign/adoption. New Nocturne control surfaces now have centralized8px radius,34px height, contrasting borders, hover/focus/error states, themed dropdown pickers, and redesigned modal spacing/header/backdrop. Removed old modal/UI primitive CSS ownership instead of retaining two competing sets.
+- Migrated253 additional input/select/button sites plus15 textareas across request/auth/settings/import/resources/Git/runner/protocol panels. Added data-driven Dropdown, used for theme and editor keymap. Native select semantics remain; base-select is progressive enhancement with native fallback on unsupported engines. Numeric bindings and native input element references are preserved. Component API/examples: src/lib/components/ui/README.md.
+- Check0 errors/0 warnings and frontend build pass. Saved workspace scenario passes actual custom picker dark/light, keyboard selection, Escape closing dropdown before modal, numeric persistence and existing resize/focus checks; inspected dropdown/settings screenshots. Initial CSS integration regressed URL field width/focus and method color specificity; corrected dedicated group rules, preserving one focus ring and divider. Existing theme scenario rerun passes both modes at1440/900/760.
+- Fresh isolated native controls build finished exit0 (5m48s), artifacts/native-nocturne-controls-probe/build-state.json. Seven saved native scenarios pass: git-source-control-1791190755188, nocturne-native-theme-1791190765950, nocturne-grpc-theme-1791190779021, nocturne-stream-theme-1791190789832, graphql-editor-1791190802029, curl-import-multipart-1791190814703 and curl-import-file-body-1791190824024. Inspected native author modal with new controls. No build remains running. Original migration parity remains open.
+
+
 ## Source Control tab, shared UI and resizable panels — 2026-10-05
 
 - Owner explicitly requested this workflow/component work now, overriding its earlier post-migration deferral; original migration parity remains open. Git moves from a modal to the left activity rail, with Changes/Staged Changes, guarded selected-resource commits, before/after review, parent-based history lanes, and branch/author/remote dialogs. No VS Code visual design copied. Theme remains Nocturne.

@@ -4,7 +4,7 @@ import { gitCollection } from "./helpers/git-fixture.js";
 import { exerciseSplit } from "./helpers/split-pane.js";
 
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
-  "artifacts/native-nocturne-workspace-final/build-state.json";
+  "artifacts/native-nocturne-controls-probe/build-state.json";
 await withNativeApp("git-source-control", async ({ page, invoke, output }) => {
   const errors = /** @type {string[]} */ ([]);
   page.on("pageerror", (error) => errors.push(error.message));

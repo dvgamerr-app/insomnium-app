@@ -4,7 +4,7 @@ import { withNativeApp } from "./helpers/native-app.js";
 import { gitCollection } from "./helpers/git-fixture.js";
 
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
-  "artifacts/native-nocturne-workspace-final/build-state.json";
+  "artifacts/native-nocturne-controls-probe/build-state.json";
 const server = Bun.serve({
   hostname: "127.0.0.1",
   port: 0,

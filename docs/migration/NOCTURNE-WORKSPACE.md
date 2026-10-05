@@ -4,7 +4,7 @@ Owner request (2026-10-05): Git in the left rail with a familiar source-control 
 
 ## Shared components
 
-`src/lib/components/ui` contains Svelte JavaScript primitives. Native attributes/events pass through controls; `value` is bindable for Input, Select and Textarea. Button defaults to `type="button"`; variants are primary, secondary, danger and ghost, with disabled/busy handling. Field associates an id with its label and renders description/error; callers connect `aria-describedby` to the rendered `<id>-description`/`<id>-error` when present. Native checkbox/file inputs keep their specialized behavior.
+`src/lib/components/ui` contains Svelte JavaScript primitives. The follow-up owner correction expanded adoption to253 additional input/select/button sites and15 textareas, with a visible control redesign and data-driven Dropdown; see the component directory README for API/examples. `controls.css` is the central visual owner, imported after application layout CSS. Native attributes/events pass through controls; `value` is bindable for Input, Select and Textarea. Button defaults to `type="button"`; variants are primary, secondary, danger and ghost, with disabled/busy handling. Field associates an id with its label and renders description/error; callers connect `aria-describedby` to the rendered `<id>-description`/`<id>-error` when present. Native checkbox/file inputs keep their specialized behavior.
 
 Modal owns native dialog open/cancel/close, heading association and focus restoration. Callers own state and submit behavior. Main application dialogs and Git branch/author/remote dialogs use it. Shared controls are also used by key/value editors across HTTP and gRPC.
 
@@ -28,3 +28,5 @@ SplitPane accepts `first`/`second` snippets, `storageKey`, accessible `label`, `
 ## Verified result
 
 Final check reports0 errors/0 warnings; production frontend and isolated native build pass. Saved preview theme/workspace scenarios pass, including modal focus, responsive layout and splitter persistence. Final native source-control evidence: `artifacts/playwright/git-source-control-1791187244103/acceptance.json` (both modes,1440/900/760). Branch create/resume/forget/delete/stale protection, remote cancellation, checkout recovery, gRPC, WS/SSE and GraphQL schema splitter scenarios also passed; timestamps/build distinctions are recorded in STATUS.
+
+Shared-control redesign follow-up: `artifacts/native-nocturne-controls-probe/build-state.json` is the current successful isolated build. Preview screenshots at `artifacts/playwright/nocturne-workspace/dropdown-dark.png`, `dropdown-light.png`, and `shared-settings.png` show the actual redesigned controls. Seven native regression scenarios passed with this build; see latest STATUS. Native fallback dropdown behavior on other engines is retained, but those engines were not visually tested in this Windows session.

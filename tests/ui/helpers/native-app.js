@@ -16,7 +16,7 @@ export const probeIdentifier = "app.insomnium.probe.checkout20260929";
 export async function withNativeApp(scenario, run, options = {}) {
   const buildPath =
     process.env.INSOMNIUM_UI_BUILD_STATE ||
-    "artifacts/native-nocturne-workspace-final/build-state.json";
+    "artifacts/native-nocturne-controls-probe/build-state.json";
   const build = JSON.parse(await readFile(buildPath, "utf8"));
   assert.equal(build.status, "finished", "Native build must finish first");
   assert.equal(build.result?.code, 0, "Native build failed");

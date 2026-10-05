@@ -41,12 +41,53 @@ await withPreview("nocturne-workspace", async (page, output) => {
     .getByRole("button", { name: "Preferences", exact: true });
   await preferences.click();
   await page.getByRole("dialog").waitFor();
+  const dialog = page.getByRole("dialog");
+  const theme = dialog.getByRole("combobox", { name: "Theme", exact: true });
+  assert.equal(
+    await theme.evaluate((el) => getComputedStyle(el).appearance),
+    "base-select",
+  );
+  await theme.click();
+  await page.screenshot({ path: output + "/dropdown-dark.png" });
+  await page.keyboard.press("Escape");
+  assert.equal(
+    await dialog.count(),
+    1,
+    "Escape closes dropdown before its modal",
+  );
+  await theme.click();
+  await page.keyboard.press("End");
+  await page.keyboard.press("Enter");
+  assert.equal(
+    await page.locator("html").getAttribute("data-theme"),
+    "light",
+    "dropdown supports keyboard selection",
+  );
+  await theme.click();
+  await page.screenshot({ path: output + "/dropdown-light.png" });
+  await page.keyboard.press("Escape");
+  await theme.selectOption("dark");
+  const timeout = dialog.getByRole("spinbutton", {
+    name: "Request timeout (ms)",
+    exact: true,
+  });
+  assert.ok((await timeout.getAttribute("class"))?.includes("ui-input"));
+  await timeout.fill("4321");
+  await timeout.press("Tab");
+  await page.screenshot({ path: output + "/shared-settings.png" });
   await page.keyboard.press("Escape");
   assert.equal(await page.getByRole("dialog").count(), 0);
   assert.equal(
     await preferences.evaluate((el) => el === document.activeElement),
     true,
   );
+  await preferences.click();
+  assert.equal(
+    await timeout.inputValue(),
+    "4321",
+    "shared numeric input persists its value",
+  );
+  await page.keyboard.press("Escape");
   await page.keyboard.press("Control+Shift+G");
   await page
     .getByRole("region", { name: "Source Control", exact: true })
@@ -88,6 +129,8 @@ await withPreview("nocturne-workspace", async (page, output) => {
         "saved sizes after reload",
         "API, tests and GraphQL panels",
         "modal Escape and focus restoration",
+        "custom dropdown dark/light picker and keyboard selection",
+        "shared numeric input persistence",
         "Git left tab and preview empty state",
         "1440/900/760 widths",
       ],

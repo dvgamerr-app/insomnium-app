@@ -6,7 +6,7 @@ import { buildSchema, introspectionFromSchema } from "graphql";
 import { withNativeApp, poll } from "./helpers/native-app.js";
 
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
-  "artifacts/native-nocturne-workspace-final/build-state.json";
+  "artifacts/native-nocturne-controls-probe/build-state.json";
 const sdl = `
   enum Role { ADMIN READER }
   input Filter { role: Role, limit: Int }

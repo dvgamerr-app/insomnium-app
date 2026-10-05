@@ -5,7 +5,7 @@ import { withNativeApp } from "./helpers/native-app.js";
 import { gitCollection } from "./helpers/git-fixture.js";
 
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
-  "artifacts/native-nocturne-workspace-final/build-state.json";
+  "artifacts/native-nocturne-controls-probe/build-state.json";
 let fail = false;
 const server = createServer();
 server.on(

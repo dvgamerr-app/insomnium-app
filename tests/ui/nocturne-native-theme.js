@@ -4,7 +4,7 @@ import { withIpcFailure } from "./helpers/ipc-failure.js";
 import { gitCollection } from "./helpers/git-fixture.js";
 
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
-  "artifacts/native-nocturne-workspace-final/build-state.json";
+  "artifacts/native-nocturne-controls-probe/build-state.json";
 await withNativeApp(
   "nocturne-native-theme",
   async ({ page, invoke, output }) => {

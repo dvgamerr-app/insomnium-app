@@ -1,10 +1,13 @@
 # UI scenarios (Playwright + Bun)
 
-## Nocturne theme
+## Shared controls and Nocturne theme
+
+- `bun run test:ui:workspace` checks shared dropdown keyboard selection and dark/light picker styling, Escape ordering, numeric input persistence, modal focus, and resizable panels. Screenshot evidence includes `dropdown-dark.png`, `dropdown-light.png` and `shared-settings.png`.
+- `bun run test:ui:source-control` verifies selected native commits, staging, author settings, branches and panel sizing using the isolated controls probe.
 
 - `bun tests/ui/nocturne-reference.js` captures the anonymous live reference in dark/light themes using an isolated Edge session.
 - `bun run build`, then `bun run test:ui:theme` checks the static preview at1440/900/760 widths, both themes, editor/auth/body/dialog/design/runner/protocol surfaces and routed HTTP success/loading/failure. Outputs are in `artifacts/playwright/nocturne-theme/`.
-- `bun tests/ui/nocturne-native-theme.js` checks actual native Git, cookies, proto management and checkout recovery. Defaults to the successful isolated build record `artifacts/native-nocturne-theme-probe/build-state.json`; run sequentially with other native scenarios. Outputs use timestamped scenario folders.
+- `bun tests/ui/nocturne-native-theme.js` checks actual native Git, cookies, proto management and checkout recovery. Defaults to the successful isolated build record `artifacts/native-nocturne-controls-probe/build-state.json`; run sequentially with other native scenarios. Outputs use timestamped scenario folders.
 - `bun tests/ui/nocturne-stream-theme.js` checks live WS/SSE events, headers, disconnection and errors against a Bun loopback server, both themes at1440/900/760.
 - `bun tests/ui/nocturne-grpc-theme.js` checks gRPC messages, metadata, trailers and errors against a Bun HTTP/2 fixture using an imported proto. Uses the same isolated native build record.
 
