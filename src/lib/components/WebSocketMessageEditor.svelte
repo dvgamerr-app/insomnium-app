@@ -1,6 +1,8 @@
 <script>
+  import { onDestroy } from "svelte";
   import {
     workspace as app,
+    createWorkspaceWorkScope,
     addPayload,
     update,
     remove,
@@ -10,6 +12,8 @@
   import Icon from "./Icon.svelte";
   /** @type {{ request: Record<string, any> }} */
   let { request } = $props();
+  const fileWork = createWorkspaceWorkScope();
+  onDestroy(fileWork.dispose);
   let error = $state(""),
     sending = $state(false);
   const payloads = $derived(
@@ -101,16 +105,31 @@
           onchange={async (event) => {
             const file = event.currentTarget.files?.[0];
             const selectedId = payload._id;
+            const original = payload;
+            const originalValue = payload.value;
+            const originalMode = payload.mode;
             if (!file) return;
+            fileWork.cancel();
+            /** @type {import("../workspace.svelte.js").ScopedWorkspaceWork|undefined} */ let work;
             try {
+              work = fileWork.begin();
               const upload = await readUpload(file);
+              if (
+                !work.current() ||
+                payload !== original ||
+                payload.value !== originalValue ||
+                payload.mode !== originalMode
+              )
+                return;
               update(selectedId, {
                 value: upload.base64,
                 fileName: upload.fileName,
               });
               error = "";
             } catch (e) {
-              error = String(e);
+              if (!work || work.current()) error = String(e);
+            } finally {
+              work?.finish();
             }
           }}
         /></label

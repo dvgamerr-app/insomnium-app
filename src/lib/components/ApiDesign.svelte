@@ -1,8 +1,11 @@
 <script>
+  import SplitPane from "./ui/SplitPane.svelte";
   import CodeEditor from "./CodeEditor.svelte";
   import { onDestroy } from "svelte";
   import {
     workspace,
+    beginWorkspaceWork,
+    canEditWorkspace,
     persist,
     update,
     selectRequest,
@@ -64,17 +67,51 @@
   let worker = null;
   /** @type {ReturnType<typeof setTimeout> | undefined} */
   let timeout;
-  function cancel() {
+  /** @type {ReturnType<typeof beginWorkspaceWork>|null} */
+  let workerWork = null;
+  /** @type {Set<ReturnType<typeof beginWorkspaceWork>>} */
+  const fileWork = new Set();
+  let disposed = false;
+  let applying = false;
+  function stopWorker() {
     worker?.terminate();
     worker = null;
     clearTimeout(timeout);
+  }
+  /** @param {{signal:AbortSignal,cancel:()=>void,finish:()=>void}} work */
+  function finishWorker(work) {
+    work.signal.removeEventListener("abort", cancel);
+    work.finish();
+    if (workerWork !== work) return;
+    stopWorker();
+    workerWork = null;
+    applying = false;
     busy = false;
   }
-  onDestroy(cancel);
+  function cancel() {
+    const work = workerWork;
+    if (!work) return;
+    work.signal.removeEventListener("abort", cancel);
+    work.cancel();
+    stopWorker();
+    // An already accepted resource save must settle before releasing the task.
+    if (!applying) finishWorker(work);
+  }
+  onDestroy(() => {
+    disposed = true;
+    cancel();
+    for (const work of fileWork) work.cancel();
+  });
   function create(
     /** @type {string} */ contents = "openapi: 3.1.0\ninfo:\n  title: New API\n  version: 1.0.0\npaths: {}\n",
     fileName = "openapi.yaml",
   ) {
+    if (
+      disposed ||
+      !canEditWorkspace() ||
+      workspace.data.activeWorkspaceId !== workspaceId
+    )
+      return;
     const resource = {
       _id: id("spc"),
       _type: "api_spec",
@@ -96,14 +133,28 @@
     const files = Array.from(event.currentTarget.files || []);
     event.currentTarget.value = "";
     const target = spec;
+    const snapshot = input;
+    /** @type {ReturnType<typeof beginWorkspaceWork>|undefined} */ let work;
     try {
+      work = beginWorkspaceWork();
+      fileWork.add(work);
       if (reference && !target) return;
       const loaded = [];
       for (const file of files) {
         if (file.size > specLimit)
           throw new Error(`${file.name} exceeds 2 MiB.`);
+        work.signal.throwIfAborted();
         loaded.push({ name: file.name, contents: await file.text() });
+        work.signal.throwIfAborted();
       }
+      if (
+        disposed ||
+        workspace.data.activeWorkspaceId !== workspaceId ||
+        input !== snapshot
+      )
+        throw new Error(
+          "Document or collection changed while reading files. Open them again.",
+        );
       if (reference) {
         const combined = [...(target.files || []), ...loaded];
         if (
@@ -116,18 +167,23 @@
       } else if (loaded[0]) create(loaded[0].contents, loaded[0].name);
       error = "";
     } catch (e) {
-      error = String(e);
+      if (!disposed) error = String(e);
+    } finally {
+      if (work) {
+        fileWork.delete(work);
+        work.finish();
+      }
     }
   }
   function check(/** @type {boolean} */ generate = false) {
-    if (!spec || busy) return;
+    if (!spec || busy || disposed) return;
     if (generate && !current?.valid) return;
     const snapshot = input;
-    busy = true;
-    generating = generate;
-    error = "";
-    notice = "";
+    /** @type {ReturnType<typeof beginWorkspaceWork>} */ let work;
     try {
+      work = beginWorkspaceWork();
+      workerWork = work;
+      work.signal.addEventListener("abort", cancel, { once: true });
       worker = new Worker(new URL("../openapi.worker.js", import.meta.url), {
         type: "module",
       });
@@ -136,48 +192,76 @@
       error = String(e);
       return;
     }
+    busy = true;
+    generating = generate;
+    error = "";
+    notice = "";
+    const activeWorker = worker;
+    const valid = () =>
+      !disposed && workerWork === work && !work.signal.aborted;
     timeout = setTimeout(() => {
+      if (!valid()) return;
       cancel();
       error =
         "Specification processing exceeded 15 seconds. Reduce its size and retry.";
     }, 15000);
-    worker.onerror = (event) => {
+    activeWorker.onerror = (event) => {
+      if (!valid()) return;
       cancel();
       error = event.message || "Specification processing failed.";
     };
-    worker.onmessage = async (event) => {
-      cancel();
-      if (snapshot !== input) {
-        notice = "Document changed while processing. Validate again.";
-        return;
-      }
-      if (event.data.error) {
-        error = event.data.error;
-        return;
-      }
-      result = event.data.analysis;
-      checkedInput = snapshot;
-      operationIndex = 0;
-      if (event.data.resources) {
-        workspace.data.resources.push(...event.data.resources);
-        const first = event.data.resources.find(
-          (/** @type {any} */ resource) => resource._type === "request",
-        );
-        if (first) selectRequest(first._id);
-        const saved = await persist();
-        if (saved)
-          notice = `Generated ${event.data.resources.length - 1} requests in a new folder. Review sample values and authentication before sending.`;
-        else
-          error =
-            "Requests were added in memory but saving failed. Export the workspace before closing.";
+    activeWorker.onmessage = async (event) => {
+      if (!valid() || applying) return;
+      applying = true;
+      stopWorker();
+      try {
+        work.signal.throwIfAborted();
+        if (
+          snapshot !== input ||
+          workspace.data.activeWorkspaceId !== workspaceId
+        ) {
+          notice =
+            "Document or collection changed while processing. Validate again.";
+          return;
+        }
+        if (event.data.error) {
+          error = event.data.error;
+          return;
+        }
+        result = event.data.analysis;
+        checkedInput = snapshot;
+        operationIndex = 0;
+        if (event.data.resources) {
+          workspace.data.resources.push(...event.data.resources);
+          const first = event.data.resources.find(
+            (/** @type {any} */ resource) => resource._type === "request",
+          );
+          if (first) selectRequest(first._id);
+          const saved = await persist();
+          if (!valid()) return;
+          if (saved)
+            notice = `Generated ${event.data.resources.length - 1} requests in a new folder. Review sample values and authentication before sending.`;
+          else
+            error =
+              "Requests were added in memory but saving failed. Export the workspace before closing.";
+        }
+      } catch (e) {
+        if (valid()) error = String(e);
+      } finally {
+        finishWorker(work);
       }
     };
-    worker.postMessage({
-      spec: JSON.parse(snapshot),
-      workspaceId,
-      generate,
-      serverOverride,
-    });
+    try {
+      activeWorker.postMessage({
+        spec: JSON.parse(snapshot),
+        workspaceId,
+        generate,
+        serverOverride,
+      });
+    } catch (e) {
+      cancel();
+      error = String(e);
+    }
   }
   function jump(/** @type {{ line: number, column: number }} */ diagnostic) {
     if (!editor) return;
@@ -292,97 +376,108 @@
             >
           </div>{/each}
       </details>{/if}
-    <div class="design-columns">
-      <CodeEditor
-        bind:this={editor}
-        identity={spec._id + ":source"}
-        label="OpenAPI source"
-        value={spec.contents || ""}
-        mode={spec.fileName?.toLowerCase().endsWith(".json")
-          ? "application/json"
-          : "yaml"}
-        settings={workspace.data.settings}
-        maxBytes={specLimit}
-        onlimit={() =>
-          (error = "Document exceeds 2 MiB. The last saved source was kept.")}
-        onchange={(contents) => update(spec._id, { contents })}
-      />
-      <div class="design-preview">
-        {#if current}
-          <div class="editor-tabs">
-            {#each ["Operations", "Schemas", "Diagnostics"] as tab}<button
-                class:active={previewTab === tab}
-                onclick={() => (previewTab = tab)}
-                >{tab}{tab === "Diagnostics"
-                  ? ` (${current.diagnosticCount})`
-                  : ""}</button
-              >{/each}
-          </div>
-          {#if previewTab === "Diagnostics"}<div class="design-diagnostics">
-              {#each current.diagnostics as diagnostic}<button
-                  class="diagnostic-row"
-                  onclick={() => jump(diagnostic)}
-                  ><strong class:error-label={diagnostic.severity === "error"}
-                    >{diagnostic.severity} · {diagnostic.line}:{diagnostic.column}</strong
-                  ><span>{diagnostic.message}</span><small
-                    >{diagnostic.path}</small
-                  ></button
-                >{:else}<p class="hint padded">
-                  No validation errors or built-in style warnings.
-                </p>{/each}
+    <SplitPane
+      class="design-columns"
+      storageKey="design"
+      label="API source and preview size"
+      stackAt={640}
+      minFirst={220}
+      minSecond={220}
+    >
+      {#snippet first()}
+        <CodeEditor
+          bind:this={editor}
+          identity={spec._id + ":source"}
+          label="OpenAPI source"
+          value={spec.contents || ""}
+          mode={spec.fileName?.toLowerCase().endsWith(".json")
+            ? "application/json"
+            : "yaml"}
+          settings={workspace.data.settings}
+          maxBytes={specLimit}
+          onlimit={() =>
+            (error = "Document exceeds 2 MiB. The last saved source was kept.")}
+          onchange={(contents) => update(spec._id, { contents })}
+        />
+      {/snippet}{#snippet second()}
+        <div class="design-preview">
+          {#if current}
+            <div class="editor-tabs">
+              {#each ["Operations", "Schemas", "Diagnostics"] as tab}<button
+                  class:active={previewTab === tab}
+                  onclick={() => (previewTab = tab)}
+                  >{tab}{tab === "Diagnostics"
+                    ? ` (${current.diagnosticCount})`
+                    : ""}</button
+                >{/each}
             </div>
-          {:else if previewTab === "Schemas"}<pre
-              class="schema-definition">{previewJson(
-                current.original.components?.schemas ||
-                  current.original.definitions ||
-                  {},
-              )}</pre>
-          {:else}
-            <div class="design-toolbar">
-              <input
-                aria-label="Search API operations"
-                placeholder="Filter operations…"
-                bind:value={search}
-              />
-            </div>
-            <select
-              class="operation-list"
-              size={6}
-              aria-label="API operations"
-              value={operationIndex}
-              onchange={(event) =>
-                (operationIndex = Number(event.currentTarget.value))}
-              >{#each operations as item, index}<option value={index}
-                  >{item.method.toUpperCase()}
-                  {item.path} · {item.summary}</option
-                >{/each}</select
-            >
-            {#if operation}<div class="operation-docs">
-                <h3>{operation.method.toUpperCase()} {operation.path}</h3>
-                <p>{operation.operation.description || operation.summary}</p>
-                {#each ["parameters", "requestBody", "responses", "security"] as field}<details
-                  >
-                    <summary>{field}</summary>
-                    <pre class="schema-definition">{previewJson(
-                        operation.operation[field] ??
-                          (field === "parameters"
-                            ? operation.item.parameters
-                            : field === "security"
-                              ? current.schema.security
-                              : null) ??
-                          {},
-                      )}</pre>
-                  </details>{/each}
-              </div>{/if}
-          {/if}
-        {:else}<div class="empty-response">
-            <h2>{result ? "Document changed" : "API preview"}</h2>
-            <p>
-              Validate the source to update operations, schemas and diagnostics.
-            </p>
-          </div>{/if}
-      </div>
-    </div>
+            {#if previewTab === "Diagnostics"}<div class="design-diagnostics">
+                {#each current.diagnostics as diagnostic}<button
+                    class="diagnostic-row"
+                    onclick={() => jump(diagnostic)}
+                    ><strong class:error-label={diagnostic.severity === "error"}
+                      >{diagnostic.severity} · {diagnostic.line}:{diagnostic.column}</strong
+                    ><span>{diagnostic.message}</span><small
+                      >{diagnostic.path}</small
+                    ></button
+                  >{:else}<p class="hint padded">
+                    No validation errors or built-in style warnings.
+                  </p>{/each}
+              </div>
+            {:else if previewTab === "Schemas"}<pre
+                class="schema-definition">{previewJson(
+                  current.original.components?.schemas ||
+                    current.original.definitions ||
+                    {},
+                )}</pre>
+            {:else}
+              <div class="design-toolbar">
+                <input
+                  aria-label="Search API operations"
+                  placeholder="Filter operations…"
+                  bind:value={search}
+                />
+              </div>
+              <select
+                class="operation-list"
+                size={6}
+                aria-label="API operations"
+                value={operationIndex}
+                onchange={(event) =>
+                  (operationIndex = Number(event.currentTarget.value))}
+                >{#each operations as item, index}<option value={index}
+                    >{item.method.toUpperCase()}
+                    {item.path} · {item.summary}</option
+                  >{/each}</select
+              >
+              {#if operation}<div class="operation-docs">
+                  <h3>{operation.method.toUpperCase()} {operation.path}</h3>
+                  <p>{operation.operation.description || operation.summary}</p>
+                  {#each ["parameters", "requestBody", "responses", "security"] as field}<details
+                    >
+                      <summary>{field}</summary>
+                      <pre class="schema-definition">{previewJson(
+                          operation.operation[field] ??
+                            (field === "parameters"
+                              ? operation.item.parameters
+                              : field === "security"
+                                ? current.schema.security
+                                : null) ??
+                            {},
+                        )}</pre>
+                    </details>{/each}
+                </div>{/if}
+            {/if}
+          {:else}<div class="empty-response">
+              <h2>{result ? "Document changed" : "API preview"}</h2>
+              <p>
+                Validate the source to update operations, schemas and
+                diagnostics.
+              </p>
+            </div>{/if}
+        </div>
+      {/snippet}</SplitPane
+    >
     <div class="design-toolbar">
       <input
         aria-label="Generated requests server override"

@@ -1,10 +1,13 @@
 <script>
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import { invoke, isTauri } from "@tauri-apps/api/core";
+  import { createWorkspaceWorkScope } from "../workspace.svelte.js";
   import Icon from "./Icon.svelte";
   import LegacyCookieImport from "./LegacyCookieImport.svelte";
   /** @type {{ workspaceId: string }} */
   let { workspaceId } = $props();
+  const workScope = createWorkspaceWorkScope();
+  onDestroy(workScope.dispose);
   let cookies = $state(/** @type {Record<string, any>[]} */ ([]));
   let busy = $state(false),
     error = $state(""),
@@ -15,13 +18,18 @@
   let confirmClear = $state(false);
   async function refresh() {
     if (!isTauri()) return;
+    /** @type {import("../workspace.svelte.js").ScopedWorkspaceWork|undefined} */ let work;
     busy = true;
     try {
-      cookies = await invoke("list_cookies", { workspaceId });
+      work = workScope.begin();
+      const result = await invoke("list_cookies", { workspaceId });
+      if (!work.current()) return;
+      cookies = result;
       error = "";
     } catch (e) {
-      error = String(e);
+      if (!work || work.current()) error = String(e);
     } finally {
+      work?.finish();
       busy = false;
     }
   }
@@ -29,10 +37,13 @@
     void refresh();
   });
   async function change(/** @type {Record<string, any>} */ patch) {
+    if (busy) return;
+    /** @type {import("../workspace.svelte.js").ScopedWorkspaceWork|undefined} */ let work;
     busy = true;
     error = "";
     notice = "";
     try {
+      work = workScope.begin();
       await invoke("change_cookie", {
         workspaceId,
         url: null,
@@ -41,15 +52,17 @@
         clear: false,
         ...patch,
       });
+      if (!work.current()) return;
       previous = null;
       raw = "";
       url = "";
       confirmClear = false;
       await refresh();
-      notice = "Cookies saved.";
+      if (work.current()) notice = "Cookies saved.";
     } catch (e) {
-      error = String(e);
+      if (!work || work.current()) error = String(e);
     } finally {
+      work?.finish();
       busy = false;
     }
   }

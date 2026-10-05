@@ -1,3 +1,21 @@
+import {
+  gitRemoteSettingsPatch,
+  readGitRemoteSettings,
+  validateGitRemoteSettings,
+} from "./git-remote-settings.js";
+import { createGitBranchWorkflow } from "./git-create.js";
+import { createGitCheckout } from "./git-checkout.js";
+import { createRunDrain } from "./run-drain.js";
+import { isTauri, invoke } from "@tauri-apps/api/core";
+import { createGitClient, nativeGitBinding } from "./git-client.js";
+import {
+  createGitRemoteClient,
+  normalizeFetchBranch,
+  normalizeFetchDepth,
+} from "./git-remote-client.js";
+import { createGitSetup } from "./git-setup.js";
+import { runSuiteInWorker } from "./runner-client.js";
+import { runnerSuite, runnerResponse } from "./runner-model.js";
 import { requestDataScope } from "./request-scope.js";
 import { createResponseTemplateResolver } from "./template-response-send.js";
 import {
@@ -20,7 +38,14 @@ import {
   environmentFor,
   render,
 } from "./model.js";
-import { loadData, saveData } from "./persistence.js";
+import {
+  loadData,
+  saveData,
+  runWorkspaceTransition,
+  recoverWorkspaceTransition,
+  workspacePersistencePhase,
+  subscribeWorkspacePersistence,
+} from "./persistence.js";
 import { requestMeta, withResponseFilter } from "./request-meta.js";
 import { prepareRenderedRequest, send, cancel } from "./transport.js";
 import { connectStream, sendMessage, appendStreamEvent } from "./streaming.js";
@@ -71,6 +96,9 @@ export const workspace = $state({
   data: initialData(),
   ready: false,
   saving: false,
+  draining: false,
+  persistencePhase:
+    /** @type {import("./persistence-queue.js").PersistencePhase} */ ("idle"),
   saveFailed: false,
   error: "",
   notice: "",
@@ -84,13 +112,236 @@ export const workspace = $state({
   schemaErrors: /** @type {Record<string, string>} */ ({}),
   oauthErrors: /** @type {Record<string, string>} */ ({}),
   oauthProgress: /** @type {Record<string, any>} */ ({}),
+  runnerErrors: /** @type {Record<string,string>} */ ({}),
   search: "",
 });
+const unsubscribePersistence = subscribeWorkspacePersistence((phase) => {
+  workspace.persistencePhase = phase;
+});
+if (import.meta.hot) import.meta.hot.dispose(unsubscribePersistence);
+const gitClient = createGitClient();
+const setupGitBinding = createGitSetup({
+  getResources: () => workspace.data.resources,
+  persist,
+  initialize: (binding) => gitClient.initialize(binding),
+});
+/** Explicit setup only; loading a workspace never creates a repository.
+ * @param {string} workspaceId */
+export async function setupGit(workspaceId) {
+  if (!workspace.ready) throw new Error("Workspace is not ready.");
+  if (!isTauri())
+    throw new Error("Git repositories require the desktop application.");
+  const work = beginWorkspaceWork();
+  try {
+    return await setupGitBinding(workspaceId, work.signal);
+  } finally {
+    work.finish();
+  }
+}
 let revision = 0;
 /** @type {Map<string, Promise<void>>} */
 const completions = new Map();
+/** @type {Map<symbol,{controller:AbortController,completion:Promise<void>}>} */
+const componentWork = new Map();
+/** Register component/file/native work before its first await.
+ * Abort prevents later mutations; finish only after all work and saves settle.
+ * @returns {{signal:AbortSignal,cancel:()=>void,finish:()=>void}} */
+export function beginWorkspaceWork() {
+  if (!acceptWorkspaceRun())
+    throw new Error("Workspace operations are stopping.");
+  const key = Symbol("workspace-work");
+  const controller = new AbortController();
+  /** @type {()=>void} */ let complete = () => {};
+  const completion = new Promise((resolve) => {
+    complete = () => resolve(undefined);
+  });
+  componentWork.set(key, { controller, completion });
+  return {
+    signal: controller.signal,
+    cancel: () => controller.abort(),
+    finish: () => {
+      if (!componentWork.delete(key)) return;
+      complete();
+    },
+  };
+}
+/** @typedef {{signal:AbortSignal,cancel:()=>void,finish:()=>void,current:()=>boolean}} ScopedWorkspaceWork */
+/** A component scope keeps cancelled reads/IPC registered until finally.
+ * @returns {{begin:()=>ScopedWorkspaceWork,cancel:()=>void,dispose:()=>void}} */
+export function createWorkspaceWorkScope() {
+  /** @type {Set<ReturnType<typeof beginWorkspaceWork>>} */ const tasks =
+    new Set();
+  let disposed = false;
+  const cancel = () => {
+    for (const work of tasks) work.cancel();
+  };
+  return {
+    begin() {
+      if (disposed) throw new Error("This editor has been closed.");
+      const work = beginWorkspaceWork();
+      const data = workspace.data;
+      const collectionId = data.activeWorkspaceId;
+      tasks.add(work);
+      return {
+        signal: work.signal,
+        cancel: work.cancel,
+        current: () =>
+          !disposed &&
+          tasks.has(work) &&
+          !work.signal.aborted &&
+          workspace.data === data &&
+          data.activeWorkspaceId === collectionId,
+        finish: () => {
+          tasks.delete(work);
+          work.finish();
+        },
+      };
+    },
+    cancel,
+    dispose() {
+      disposed = true;
+      cancel();
+    },
+  };
+}
+const runDrain = createRunDrain({
+  pending: () => [
+    ...completions.values(),
+    ...[...componentWork.values()].map((work) => work.completion),
+  ],
+  cancel: async () => {
+    for (const work of [...componentWork.values()]) work.controller.abort();
+    await Promise.all(Object.keys(workspace.running).map(stop));
+  },
+  onChange: (active) => {
+    workspace.draining = active;
+  },
+});
+
+const checkoutGitWorkspace = createGitCheckout({
+  getData: () => workspace.data,
+  apply: (data) => {
+    workspace.data = data;
+    workspace.responses = {};
+    for (const response of [...data.history].reverse()) {
+      const restored = { ...response };
+      if (restored.protocol) restored.connectionState = "closed";
+      workspace.responses[restored.requestId] = restored;
+    }
+    workspace.schemas = {};
+    workspace.grpcSchemas = {};
+    workspace.grpcErrors = {};
+    workspace.schemaErrors = {};
+    workspace.oauthErrors = {};
+    workspace.oauthProgress = {};
+    workspace.runnerErrors = {};
+    workspace.saveFailed = false;
+    workspace.error = "";
+  },
+  quiesce: withWorkspaceRunsPaused,
+  save: saveData,
+  transition: runWorkspaceTransition,
+  recover: recoverWorkspaceTransition,
+  load: loadData,
+  client: gitClient,
+  invoke,
+  operationId: () => id("checkout"),
+});
+const createGitWorkspace = createGitBranchWorkflow({
+  getData: () => workspace.data,
+  apply: (data) => {
+    workspace.data = data;
+    workspace.saveFailed = false;
+  },
+  quiesce: withWorkspaceRunsPaused,
+  save: saveData,
+  invoke,
+  checkoutPaused: checkoutGitWorkspace.checkoutPaused,
+  operationId: () => id("branch"),
+});
+/** @param {string} workspaceId @param {string} name @param {{name:string,email:string}} author */
+export function createAndSwitchGit(workspaceId, name, author) {
+  if (!workspace.ready || !isTauri())
+    return Promise.reject(
+      new Error("Branch creation requires a loaded desktop workspace."),
+    );
+  return createGitWorkspace.createAndSwitch(workspaceId, name, author);
+}
+/** Discard local pending intent only; never deletes the created branch. @param {string} workspaceId */
+export function forgetGitCreation(workspaceId) {
+  if (!workspace.ready || !isTauri())
+    return Promise.reject(
+      new Error("Branch creation requires a loaded desktop workspace."),
+    );
+  return createGitWorkspace.forget(workspaceId);
+}
+/** Checkout owns the drain: do not wrap this call in beginWorkspaceWork.
+ * @param {string} workspaceId @param {string} targetBranch
+ * @param {{name:string,email:string}} author */
+export function checkoutGit(workspaceId, targetBranch, author) {
+  if (!workspace.ready || !isTauri())
+    return Promise.reject(
+      new Error("Checkout requires a loaded desktop workspace."),
+    );
+  return checkoutGitWorkspace.checkout(workspaceId, targetBranch, author);
+}
+/** @param {Record<string,any>|null} [reviewedWorkspace] */
+export function recoverGitCheckout(reviewedWorkspace = null) {
+  return checkoutGitWorkspace.recover(reviewedWorkspace);
+}
+export function retainedGitCheckoutWorkspace() {
+  return checkoutGitWorkspace.retainedWorkspace();
+}
+/** Stops tracked network/Runner/proto work; does not lock direct UI/resource edits.
+ * @template T @param {()=>Promise<T>} operation @returns {Promise<T>} */
+export function withWorkspaceRunsPaused(operation) {
+  return runDrain.pause(operation);
+}
+/** User/resource edits are refused while accepted work is being drained.
+ * Background completion cleanup still runs before the drain callback starts. */
+export function canEditWorkspace() {
+  if (workspacePersistencePhase() !== "idle") {
+    workspace.notice =
+      "Workspace transition or recovery is active. Editing is paused.";
+    return false;
+  }
+  if (!runDrain.active) return true;
+  workspace.notice = "Workspace operations are stopping. Wait before editing.";
+  return false;
+}
+/** @param {Record<string,any>} patch */
+export function updateSettings(patch) {
+  if (!canEditWorkspace()) return;
+  const next = { ...patch };
+  if (Object.hasOwn(next, "editorIndentSize"))
+    next.editorIndentSize = Math.max(
+      1,
+      Math.min(16, Math.round(Number(next.editorIndentSize) || 2)),
+    );
+  if (Object.hasOwn(next, "autocompleteDelay"))
+    next.autocompleteDelay = Math.max(
+      0,
+      Math.min(2000, Math.round(Number(next.autocompleteDelay) || 0)),
+    );
+  Object.assign(workspace.data.settings, next);
+  void persist();
+}
+function acceptWorkspaceRun() {
+  if (workspacePersistencePhase() !== "idle") {
+    workspace.notice =
+      "Workspace transition or recovery is active. New operations are paused.";
+    return false;
+  }
+  if (!runDrain.active) return true;
+  workspace.notice =
+    "Workspace operations are stopping. Try again when they finish.";
+  return false;
+}
+
 /** @type {Map<string,string>} */
 const payloadRuns = new Map();
+/** @type {Map<string,Set<string>>} */
+const runnerTargets = new Map();
 export async function initialize() {
   try {
     const data = await loadData();
@@ -106,6 +357,11 @@ export async function initialize() {
 }
 export async function persist() {
   if (!workspace.ready) return false;
+  if (workspacePersistencePhase() !== "idle") {
+    workspace.error =
+      "Workspace transition or recovery is active. Saving remains paused.";
+    return false;
+  }
   trimHistory();
   workspace.data.settings.maxHistory = historyLimit(
     workspace.data.settings.maxHistory,
@@ -126,12 +382,14 @@ export async function persist() {
 }
 /** @param {string} resourceId @param {Record<string, any>} patch */
 export function update(resourceId, patch) {
+  if (!canEditWorkspace()) return;
   const resource = workspace.data.resources.find((r) => r._id === resourceId);
   if (resource) Object.assign(resource, patch, { modified: Date.now() });
   void persist();
 }
 /** @param {string} requestId @param {string} filter */
 export function setResponseFilter(requestId, filter) {
+  if (!canEditWorkspace()) return;
   if (
     !workspace.data.resources.some(
       (r) => r._id === requestId && r._type === "request",
@@ -146,6 +404,7 @@ export function setResponseFilter(requestId, filter) {
 }
 /** @param {string} requestId */
 export function selectRequest(requestId) {
+  if (!canEditWorkspace()) return;
   const collectionId = workspaceFor(workspace.data.resources, requestId);
   if (!collectionId) return;
   if (workspace.data.activeWorkspaceId !== collectionId) {
@@ -169,6 +428,7 @@ function activateCollection(workspaceId) {
 }
 /** @param {string} environmentId */
 export function selectEnvironment(environmentId) {
+  if (!canEditWorkspace()) return;
   const data = workspace.data;
   data.activeEnvironmentId = validEnvironmentSelection(
     data.resources,
@@ -180,6 +440,7 @@ export function selectEnvironment(environmentId) {
 }
 /** @param {string} workspaceId */
 export function selectWorkspace(workspaceId) {
+  if (!canEditWorkspace()) return;
   if (
     !workspace.data.resources.some(
       (r) => r._type === "workspace" && r._id === workspaceId,
@@ -205,6 +466,7 @@ export function addRequest(
   parentId = workspace.data.activeWorkspaceId,
   protocol = "http",
 ) {
+  if (!canEditWorkspace()) return;
   const request = newRequest(parentId, {
     metaSortKey: nextSortKey(workspace.data.resources, parentId),
     ...(protocol === "websocket"
@@ -243,6 +505,7 @@ export function addRequest(
 }
 /** @param {string} requestId */
 export function addPayload(requestId) {
+  if (!canEditWorkspace()) return;
   const payload = {
     _id: id("ws-payload"),
     _type: "websocket_payload",
@@ -256,6 +519,8 @@ export function addPayload(requestId) {
 }
 /** @param {string} requestId @param {string} payloadId */
 export async function sendPayload(requestId, payloadId) {
+  if (!acceptWorkspaceRun())
+    throw new Error("Workspace operations are stopping.");
   const request = workspace.data.resources.find(
     (r) => r._id === requestId && r._type === "websocket_request",
   );
@@ -370,6 +635,7 @@ export async function sendPayload(requestId, payloadId) {
 }
 /** @param {string} name */
 export function addWorkspace(name) {
+  if (!canEditWorkspace()) return;
   const workspaceId = id("wrk");
   workspace.data.resources.push(
     {
@@ -393,6 +659,7 @@ export function addWorkspace(name) {
 }
 /** @param {string} name @param {string} [parentId] */
 export function addFolder(name, parentId = workspace.data.activeWorkspaceId) {
+  if (!canEditWorkspace()) return;
   workspace.data.resources.push({
     _id: id("fld"),
     _type: "request_group",
@@ -405,6 +672,7 @@ export function addFolder(name, parentId = workspace.data.activeWorkspaceId) {
 }
 /** @param {string} resourceId */
 export function duplicate(resourceId) {
+  if (!canEditWorkspace()) return;
   const copyId = duplicateResource(workspace.data.resources, resourceId);
   const copy = workspace.data.resources.find((r) => r._id === copyId);
   if (copy?._type === "workspace") selectWorkspace(copy._id);
@@ -413,10 +681,13 @@ export function duplicate(resourceId) {
 }
 /** @param {string} resourceId @param {Record<string, any>} patch @param {string} parentId */
 export function editResource(resourceId, patch, parentId) {
+  if (!canEditWorkspace()) return;
   const resource = workspace.data.resources.find((r) => r._id === resourceId);
   if (!resource) throw new Error("The item no longer exists.");
   if (resource._type !== "workspace" && resource.parentId !== parentId) {
     const ids = descendants(workspace.data.resources, resourceId);
+    for (const [suiteId, targets] of runnerTargets)
+      if ([...targets].some((target) => ids.has(target))) void stop(suiteId);
     if ([...ids].some((key) => workspace.running[key]))
       throw new Error("Cancel running requests before moving this item.");
     moveResource(workspace.data.resources, resourceId, parentId);
@@ -428,11 +699,13 @@ export function editResource(resourceId, patch, parentId) {
 }
 /** @param {string} resourceId @param {number} direction */
 export function reorder(resourceId, direction) {
+  if (!canEditWorkspace()) return;
   reorderResource(workspace.data.resources, resourceId, direction);
   void persist();
 }
 /** @param {string} resourceId */
 export function remove(resourceId) {
+  if (!canEditWorkspace()) return;
   const resource = workspace.data.resources.find((r) => r._id === resourceId);
   if (!resource) return;
   if (
@@ -455,6 +728,7 @@ export function remove(resourceId) {
     (h) => !ids.has(h.requestId),
   );
   for (const key of ids) {
+    delete workspace.runnerErrors[key];
     delete workspace.grpcSchemas[key];
     delete workspace.grpcErrors[key];
     delete workspace.responses[key];
@@ -486,6 +760,10 @@ export async function execute(
   introspection = false,
   initialPayload = null,
 ) {
+  if (!acceptWorkspaceRun()) {
+    initialPayload?.settle(new Error("Workspace operations are stopping."));
+    return;
+  }
   if (initialPayload && (workspace.running[requestId] || introspection)) {
     initialPayload.settle(
       new Error("WebSocket connection is already being prepared."),
@@ -804,6 +1082,7 @@ export async function execute(
 /** Discover or call gRPC with the same cancellation/close tracking as HTTP.
  * @param {string} requestId @param {boolean} [discoveryOnly] */
 export async function executeGrpc(requestId, discoveryOnly = false) {
+  if (!acceptWorkspaceRun()) return;
   if (workspace.running[requestId]) return;
   const request = workspace.data.resources.find(
     (r) => r._id === requestId && r._type === "grpc_request",
@@ -1024,6 +1303,8 @@ export async function executeGrpc(requestId, discoveryOnly = false) {
 }
 /** @param {string} requestId @param {boolean} [finish] */
 export async function sendGrpc(requestId, finish = false) {
+  if (!acceptWorkspaceRun())
+    throw new Error("Workspace operations are stopping.");
   const running = workspace.running[requestId],
     run = workspace.grpcRuns[requestId];
   if (
@@ -1133,6 +1414,7 @@ export function cancelChangedGrpcCalls() {
 }
 /** @param {string} requestId @param {{name:string,text:string}[]} files */
 export function addGrpcProtos(requestId, files) {
+  if (!canEditWorkspace()) return;
   const collectionId = workspaceFor(workspace.data.resources, requestId);
   const added = importProtoFiles(workspace.data.resources, collectionId, files);
   workspace.data.resources.push(...added);
@@ -1151,6 +1433,8 @@ export async function replaceGrpcProtos(
   files,
   progress = () => {},
 ) {
+  if (!acceptWorkspaceRun())
+    throw new Error("Workspace operations are stopping.");
   if (workspace.running[requestId])
     throw new Error("Stop the current request before updating protos.");
   const resources = $state.snapshot(workspace.data.resources);
@@ -1222,6 +1506,7 @@ export async function replaceGrpcProtos(
 /** Called after the UI confirms the displayed subtree and affected requests.
  * @param {string} collectionId @param {string} targetId */
 export async function removeGrpcProto(collectionId, targetId) {
+  if (!canEditWorkspace()) return;
   const { ids } = protoRemoval(
     workspace.data.resources,
     collectionId,
@@ -1322,6 +1607,7 @@ function storeOAuthRecord(data, record) {
 /** Fetch/refresh without sending the resource or replacing its response/history.
  * @param {string} requestId @param {"fetch" | "refresh"} [action] */
 export async function authorizeOAuth(requestId, action = "fetch") {
+  if (!acceptWorkspaceRun()) return;
   if (workspace.running[requestId]) return;
   const request = workspace.data.resources.find((r) => r._id === requestId);
   if (!request) return;
@@ -1377,6 +1663,7 @@ export async function authorizeOAuth(requestId, action = "fetch") {
 }
 /** Start a new shared login-window profile; retained API tokens are unchanged. */
 export async function resetOAuthBrowserSession() {
+  if (!canEditWorkspace()) return false;
   if (
     Object.values(workspace.oauthProgress).some(
       (progress) => progress.mode === "embedded",
@@ -1443,6 +1730,7 @@ function clearOAuthProgress(requestId) {
 /** Explicitly bind a preserved/imported token to the currently reviewed settings.
  * @param {string} requestId @param {string} tokenId */
 export async function useSavedOAuth(requestId, tokenId) {
+  if (!acceptWorkspaceRun()) return false;
   if (workspace.running[requestId]) return false;
   const runId = id("oauth-adopt");
   const controller = new AbortController();
@@ -1534,6 +1822,7 @@ export async function useSavedOAuth(requestId, tokenId) {
 /** Remove only the active native copy; retained import source records remain available for review.
  * @param {string} requestId */
 export function clearOAuth(requestId) {
+  if (!canEditWorkspace()) return;
   if (workspace.running[requestId]) return;
   workspace.data.resources = workspace.data.resources.filter(
     (r) =>
@@ -1610,31 +1899,11 @@ export async function stop(requestId) {
   }
 }
 export async function shutdown() {
-  const pending = [...completions.values()];
-  await Promise.all(Object.keys(workspace.running).map(stop));
-  /** @type {ReturnType<typeof setTimeout> | undefined} */
-  let timer;
   try {
-    await Promise.race([
-      Promise.all(pending),
-      new Promise((_, reject) => {
-        timer = setTimeout(
-          () =>
-            reject(
-              new Error(
-                "Connections are still closing. Try closing again in a moment.",
-              ),
-            ),
-          10000,
-        );
-      }),
-    ]);
-    return await persist();
+    return await withWorkspaceRunsPaused(persist);
   } catch (error) {
     workspace.error = String(error);
     return false;
-  } finally {
-    clearTimeout(timer);
   }
 }
 
@@ -1726,5 +1995,600 @@ async function sendDependentRequest(
     signal.removeEventListener("abort", abort);
     if (workspace.oauthProgress[request._id]?.id === runId)
       clearOAuthProgress(request._id);
+  }
+}
+
+/** Run one saved test or its suite; request/environment state is captured per Send,
+ * matching legacy request-data lookup. Test names/code/request IDs are fixed at run start.
+ * @param {string} suiteId @param {string|null} [testId] */
+export async function runTests(suiteId, testId = null) {
+  if (!acceptWorkspaceRun()) return null;
+  if (workspace.running[suiteId]) return;
+  const selected = runnerSuite(
+    $state.snapshot(workspace.data.resources),
+    suiteId,
+    testId,
+  );
+  const runId = id("runner");
+  const controller = new AbortController();
+  workspace.running[suiteId] = { id: runId, controller };
+  workspace.runnerErrors[suiteId] = "";
+  const targets = new Set([suiteId, ...selected.testIds]);
+  runnerTargets.set(suiteId, targets);
+  /** @type {Set<Promise<any>>} */ const sends = new Set();
+  /** @type {()=>void} */ let completed = () => {};
+  completions.set(
+    suiteId,
+    new Promise((resolve) => {
+      completed = resolve;
+    }),
+  );
+  try {
+    const result = await runSuiteInWorker(
+      selected.suite,
+      (requestId, signal) => {
+        const operation = (async () => {
+          signal.throwIfAborted();
+          controller.signal.throwIfAborted();
+          const data = requestDataScope(
+            $state.snapshot(workspace.data),
+            requestId,
+          );
+          const request = data.resources.find(
+            (r) => r._id === requestId && r._type === "request",
+          );
+          if (!request)
+            throw new Error("Runner supports saved HTTP requests only");
+          targets.add(requestId);
+          const owner = { requestId: suiteId, runId };
+          /** @type {ReturnType<typeof createResponseTemplateResolver>} */
+          const resolveResponse = createResponseTemplateResolver(
+            data.resources,
+            data.history || [],
+            data.activeEnvironmentId,
+            (dependency, chain, childSignal) => {
+              targets.add(dependency._id);
+              return sendDependentRequest(
+                data,
+                dependency,
+                chain,
+                AbortSignal.any([childSignal, controller.signal]),
+                resolveResponse,
+                owner,
+              );
+            },
+            (dependency) =>
+              requestDataScope(data, dependency._id).activeEnvironmentId,
+          );
+          const response = await sendDependentRequest(
+            data,
+            request,
+            [requestId],
+            AbortSignal.any([signal, controller.signal]),
+            resolveResponse,
+            owner,
+          );
+          return runnerResponse(response);
+        })();
+        sends.add(operation);
+        void operation.then(
+          () => sends.delete(operation),
+          () => sends.delete(operation),
+        );
+        return operation;
+      },
+      { signal: controller.signal },
+    );
+    controller.signal.throwIfAborted();
+    if (
+      workspace.running[suiteId]?.id !== runId ||
+      !workspace.data.resources.some(
+        (r) => r._id === suiteId && r._type === "unit_test_suite",
+      ) ||
+      selected.testIds.some(
+        (test) =>
+          !workspace.data.resources.some(
+            (r) => r._id === test && r.parentId === suiteId,
+          ),
+      )
+    )
+      throw new Error("Test suite changed or was deleted before completion");
+    const now = Date.now();
+    workspace.data.resources.push({
+      _id: id("utr"),
+      _type: "unit_test_result",
+      parentId: selected.collectionId,
+      unitTestSuiteId: suiteId,
+      unitTestId: testId,
+      results: result,
+      created: now,
+      modified: now,
+    });
+    await persist();
+    return result;
+  } catch (error) {
+    if (workspace.data.resources.some((r) => r._id === suiteId))
+      workspace.runnerErrors[suiteId] = controller.signal.aborted
+        ? "Run cancelled"
+        : String(error);
+    return null;
+  } finally {
+    controller.abort();
+    // shutdown waits for native cleanup, not just worker termination.
+    await Promise.allSettled([...sends]);
+    runnerTargets.delete(suiteId);
+    if (workspace.running[suiteId]?.id === runId)
+      delete workspace.running[suiteId];
+    completions.delete(suiteId);
+    completed();
+  }
+}
+
+/** @param {string} suiteId */
+export function selectTestSuite(suiteId) {
+  if (!canEditWorkspace()) return;
+  const suite = workspace.data.resources.find(
+    (r) => r._id === suiteId && r._type === "unit_test_suite",
+  );
+  if (!suite) return;
+  let meta = workspace.data.resources.find(
+    (r) => r._type === "workspace_meta" && r.parentId === suite.parentId,
+  );
+  if (!meta) {
+    meta = {
+      _id: id("wrkm"),
+      _type: "workspace_meta",
+      parentId: suite.parentId,
+      activeEnvironmentId: selectedEnvironmentFor(
+        workspace.data,
+        suite.parentId,
+      ),
+    };
+    workspace.data.resources.push(meta);
+  }
+  meta.activeUnitTestSuiteId = suiteId;
+  meta.modified = Date.now();
+  void persist();
+}
+/** @param {string} collectionId */
+export function addTestSuite(collectionId) {
+  if (!canEditWorkspace()) return;
+  if (
+    !workspace.data.resources.some(
+      (r) => r._id === collectionId && r._type === "workspace",
+    )
+  )
+    return;
+  const now = Date.now(),
+    suiteId = id("uts");
+  workspace.data.resources.push({
+    _id: suiteId,
+    _type: "unit_test_suite",
+    parentId: collectionId,
+    name: "New Suite",
+    created: now,
+    modified: now,
+  });
+  selectTestSuite(suiteId);
+  return suiteId;
+}
+/** @param {string} suiteId */
+export function addUnitTest(suiteId) {
+  if (!canEditWorkspace()) return;
+  if (
+    !workspace.data.resources.some(
+      (r) => r._id === suiteId && r._type === "unit_test_suite",
+    )
+  )
+    return;
+  const now = Date.now(),
+    testId = id("ut");
+  workspace.data.resources.push({
+    _id: testId,
+    _type: "unit_test",
+    parentId: suiteId,
+    name: "New Test",
+    requestId: null,
+    code: "const response = await insomnia.send();\nexpect(response.status).to.equal(200);",
+    created: now,
+    modified: now,
+  });
+  void persist();
+  return testId;
+}
+
+const gitRemoteClient = createGitRemoteClient();
+/** Tracks native discovery through completion, including cancellation.
+ * getInput lets a dialog invalidate a result when its unsaved settings change.
+ * @param {string} workspaceId
+ * @param {()=>import("./git-remote-client.js").RemoteInput} getInput
+ * @param {AbortSignal} signal */
+export async function advertiseGitRemote(workspaceId, getInput, signal) {
+  if (!workspace.ready || !isTauri())
+    throw new Error("Git remotes require a ready desktop workspace.");
+  const data = workspace.data;
+  const binding = nativeGitBinding(data.resources, workspaceId);
+  if (!binding || data.activeWorkspaceId !== workspaceId)
+    throw new Error("Open the active collection's Git settings first.");
+  const bindingId = binding._id,
+    repositoryId = binding.nativeRepositoryId;
+  const input = JSON.parse(JSON.stringify(getInput()));
+  const fingerprint = JSON.stringify(input);
+  const work = beginWorkspaceWork();
+  const cancel = () => work.cancel();
+  signal.addEventListener("abort", cancel, { once: true });
+  if (signal.aborted) cancel();
+  try {
+    return await gitRemoteClient.advertise(input, {
+      signal: work.signal,
+      current: () => {
+        if (workspace.data !== data || data.activeWorkspaceId !== workspaceId)
+          return false;
+        const current = nativeGitBinding(data.resources, workspaceId);
+        return (
+          current?._id === bindingId &&
+          current?.nativeRepositoryId === repositoryId &&
+          JSON.stringify(getInput()) === fingerprint
+        );
+      },
+    });
+  } finally {
+    signal.removeEventListener("abort", cancel);
+    work.finish();
+  }
+}
+
+/** Save local connection settings through the existing workspace persistence queue.
+ * @param {string} workspaceId
+ * @param {import("./git-remote-client.js").RemoteInput} input */
+export async function saveGitRemoteSettings(workspaceId, input) {
+  if (!workspace.ready || !isTauri() || !canEditWorkspace())
+    throw new Error(
+      "Remote settings cannot be saved while workspace operations are stopping.",
+    );
+  if (workspace.data.activeWorkspaceId !== workspaceId)
+    throw new Error("Collection changed. Reopen Git settings.");
+  const binding = nativeGitBinding(workspace.data.resources, workspaceId);
+  if (!binding) throw new Error("Collection has no native Git binding.");
+  if (binding.nativeFetchIntent)
+    throw new Error(
+      "Inspect the pending fetch before changing saved remote settings.",
+    );
+  const patch = gitRemoteSettingsPatch(input);
+  const work = beginWorkspaceWork();
+  try {
+    Object.assign(binding, patch, { modified: Date.now() });
+    if (!(await persist()))
+      throw new Error(
+        "Remote settings could not be saved. Retry after fixing the workspace save error.",
+      );
+  } finally {
+    work.finish();
+  }
+}
+
+/** Fetch only saved settings and persist its identity before native submission.
+ * @param {string} workspaceId
+ * @param {()=>import("./git-remote-client.js").RemoteInput} getInput
+ * @param {AbortSignal} signal
+ * @param {string|null} [branch]
+ * @param {number|null} [depth] */
+export async function fetchGitRemote(
+  workspaceId,
+  getInput,
+  signal,
+  branch = null,
+  depth = null,
+) {
+  branch = normalizeFetchBranch(branch);
+  depth = normalizeFetchDepth(depth);
+  if (!workspace.ready || !isTauri() || !canEditWorkspace())
+    throw new Error("Git fetch requires an available desktop workspace.");
+  if (workspace.saving || workspace.saveFailed)
+    throw new Error("Finish saving the workspace before fetching.");
+  const data = workspace.data;
+  const binding = nativeGitBinding(data.resources, workspaceId);
+  if (!binding || data.activeWorkspaceId !== workspaceId)
+    throw new Error("Open the active collection's Git settings first.");
+  if (binding.nativeFetchIntent)
+    throw new Error("Inspect the pending fetch before starting another.");
+  const draft = JSON.stringify(validateGitRemoteSettings(getInput()));
+  const saved = JSON.stringify(
+    validateGitRemoteSettings(readGitRemoteSettings(binding)),
+  );
+  if (draft !== saved) throw new Error("Save remote settings before fetching.");
+  const work = beginWorkspaceWork();
+  const cancel = () => work.cancel();
+  signal.addEventListener("abort", cancel, { once: true });
+  if (signal.aborted) cancel();
+  try {
+    if (work.signal.aborted)
+      throw new Error("Git fetch cancelled before submission.");
+    const operationId = crypto.randomUUID();
+    binding.nativeFetchIntent = {
+      version: 3,
+      operationId,
+      workspaceId,
+      repositoryId: binding.nativeRepositoryId,
+      url: binding.uri,
+      branch,
+      depth,
+    };
+    const expectedBinding = JSON.parse(JSON.stringify(binding));
+    const fingerprint = JSON.stringify(expectedBinding);
+    if (!(await persist()))
+      throw new Error(
+        "Fetch operation could not be saved. No native fetch was submitted.",
+      );
+    const value = await gitRemoteClient.fetch(
+      {
+        requestId: operationId,
+        branch,
+        depth,
+        workspaceId,
+        repositoryId: binding.nativeRepositoryId,
+        expectedBinding,
+      },
+      {
+        signal: work.signal,
+        current: () => {
+          if (
+            workspace.data !== data ||
+            data.activeWorkspaceId !== workspaceId ||
+            JSON.stringify(nativeGitBinding(data.resources, workspaceId)) !==
+              fingerprint
+          )
+            return false;
+          try {
+            return (
+              JSON.stringify(validateGitRemoteSettings(getInput())) === draft
+            );
+          } catch {
+            return false;
+          }
+        },
+      },
+    );
+    const intentCleared = await clearConfirmedFetchIntent(
+      data,
+      workspaceId,
+      fingerprint,
+    );
+    return { ...value, intentCleared };
+  } finally {
+    signal.removeEventListener("abort", cancel);
+    work.finish();
+  }
+}
+
+/** Remove only the exact confirmed intent; preserve it on a failed save.
+ * @param {typeof workspace.data} data @param {string} workspaceId @param {string} fingerprint */
+async function clearConfirmedFetchIntent(data, workspaceId, fingerprint) {
+  if (workspace.data !== data) return false;
+  const binding = nativeGitBinding(data.resources, workspaceId);
+  if (!binding || JSON.stringify(binding) !== fingerprint) return false;
+  const intent = binding.nativeFetchIntent;
+  delete binding.nativeFetchIntent;
+  if (await persist()) return true;
+  // Do not overwrite a newer operation if another caller changed the binding.
+  if (!binding.nativeFetchIntent) binding.nativeFetchIntent = intent;
+  return false;
+}
+
+/** Read-only native inspection of a persisted operation, then clear only confirmed completion.
+ * @param {string} workspaceId @param {AbortSignal} signal */
+export async function inspectGitRemoteFetch(
+  workspaceId,
+  signal,
+  recover = false,
+) {
+  if (!workspace.ready || !isTauri() || !canEditWorkspace())
+    throw new Error(
+      "Fetch inspection requires an available desktop workspace.",
+    );
+  if (workspace.saving || workspace.saveFailed)
+    throw new Error("Finish saving the workspace before inspecting the fetch.");
+  const data = workspace.data;
+  const binding = nativeGitBinding(data.resources, workspaceId);
+  const intent = binding?.nativeFetchIntent;
+  if (
+    !binding ||
+    data.activeWorkspaceId !== workspaceId ||
+    ![1, 2, 3].includes(intent?.version) ||
+    intent.workspaceId !== workspaceId ||
+    intent.repositoryId !== binding.nativeRepositoryId ||
+    intent.url !== binding.uri
+  )
+    throw new Error(
+      "Pending fetch identity changed. Recovery requires the original binding and endpoint.",
+    );
+  const branch = normalizeFetchBranch(intent.branch);
+  const depth = normalizeFetchDepth(intent.depth);
+  if (
+    (intent.version !== 3 && depth !== null) ||
+    (intent.version === 1 && branch !== null) ||
+    (intent.version === 2 && branch === null)
+  )
+    throw new Error(
+      "Pending fetch branch scope is invalid. Retain the operation and inspect its saved binding.",
+    );
+  const expectedBinding = JSON.parse(JSON.stringify(binding));
+  const fingerprint = JSON.stringify(expectedBinding);
+  const work = beginWorkspaceWork();
+  const cancel = () => work.cancel();
+  signal.addEventListener("abort", cancel, { once: true });
+  if (signal.aborted) cancel();
+  try {
+    const request = {
+      requestId: intent.operationId,
+      branch,
+      workspaceId,
+      repositoryId: intent.repositoryId,
+      expectedBinding,
+    };
+    const scope = {
+      signal: work.signal,
+      current: () =>
+        workspace.data === data &&
+        data.activeWorkspaceId === workspaceId &&
+        JSON.stringify(nativeGitBinding(data.resources, workspaceId)) ===
+          fingerprint,
+    };
+    const pendingRecovery = await gitRemoteClient.recoveryStatus(
+      request,
+      scope,
+    );
+    if (pendingRecovery && !recover)
+      return { confirmedCurrent: false, intentCleared: false, pendingRecovery };
+    const value = recover
+      ? {
+          ...(await gitRemoteClient.recoverFetch({ ...request, depth }, scope)),
+          confirmedCurrent: true,
+        }
+      : await gitRemoteClient.inspectFetch(
+          { ...request, ...(depth === null ? {} : { depth }) },
+          scope,
+        );
+    const intentCleared = value.confirmedCurrent
+      ? await clearConfirmedFetchIntent(data, workspaceId, fingerprint)
+      : false;
+    return { ...value, intentCleared, pendingRecovery: null };
+  } finally {
+    signal.removeEventListener("abort", cancel);
+    work.finish();
+  }
+}
+
+/** Explicitly stop tracking an uncertain operation; this never rolls back a snapshot.
+ * Saving a changed binding is the publication fence: native Fetch rechecks the
+ * entire expected binding under StorageState before it can publish.
+ * @param {string} workspaceId @param {AbortSignal} signal */
+export async function retireGitRemoteFetch(workspaceId, signal) {
+  if (
+    !workspace.ready ||
+    !isTauri() ||
+    !canEditWorkspace() ||
+    workspace.saving ||
+    workspace.saveFailed
+  )
+    throw new Error(
+      "Finish saving the workspace before resolving a pending fetch.",
+    );
+  const data = workspace.data;
+  const binding = nativeGitBinding(data.resources, workspaceId);
+  const intent = binding?.nativeFetchIntent;
+  if (
+    !binding ||
+    data.activeWorkspaceId !== workspaceId ||
+    ![1, 2, 3].includes(intent?.version) ||
+    intent.workspaceId !== workspaceId ||
+    intent.repositoryId !== binding.nativeRepositoryId ||
+    typeof intent.operationId !== "string" ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(
+      intent.operationId,
+    )
+  )
+    throw new Error("Pending fetch identity changed. Reload Git settings.");
+  const fingerprint = JSON.stringify(binding);
+  const work = beginWorkspaceWork();
+  const cancel = () => work.cancel();
+  signal.addEventListener("abort", cancel, { once: true });
+  if (signal.aborted) cancel();
+  try {
+    if (work.signal.aborted) throw new Error("Fetch resolution cancelled.");
+    const pending = await gitRemoteClient.recoveryStatus(
+      {
+        requestId: intent.operationId,
+        workspaceId,
+        repositoryId: intent.repositoryId,
+        expectedBinding: JSON.parse(fingerprint),
+        branch: normalizeFetchBranch(intent.branch),
+      },
+      {
+        signal: work.signal,
+        current: () =>
+          workspace.data === data &&
+          data.activeWorkspaceId === workspaceId &&
+          JSON.stringify(nativeGitBinding(data.resources, workspaceId)) ===
+            fingerprint,
+      },
+    );
+    if (pending)
+      throw new Error(
+        "Fetch publication needs recovery. Inspect and resume it before stopping tracking.",
+      );
+    // Cancellation is best effort; persisted binding change is the actual fence.
+    await invoke("git_remote_cancel", { requestId: intent.operationId }).catch(
+      () => {},
+    );
+    if (
+      work.signal.aborted ||
+      workspace.data !== data ||
+      data.activeWorkspaceId !== workspaceId ||
+      JSON.stringify(nativeGitBinding(data.resources, workspaceId)) !==
+        fingerprint
+    )
+      throw new Error("Pending fetch changed before resolution.");
+    const previous = binding.nativeFetchRetired;
+    const retired = {
+      version: 1,
+      operationId: intent.operationId,
+      disposition: "tracking-stopped",
+    };
+    binding.nativeFetchRetired = retired;
+    delete binding.nativeFetchIntent;
+    if (!(await persist())) {
+      // Persistence failure is uncertain. Keep recovery available; never report
+      // a successful fence until the serialized workspace write acknowledges it.
+      if (
+        !binding.nativeFetchIntent &&
+        JSON.stringify(binding.nativeFetchRetired) === JSON.stringify(retired)
+      ) {
+        binding.nativeFetchIntent = intent;
+        if (previous === undefined) delete binding.nativeFetchRetired;
+        else binding.nativeFetchRetired = previous;
+      }
+      throw new Error(
+        "Could not save fetch resolution. Pending operation retained; save and inspect again.",
+      );
+    }
+    return { operationId: intent.operationId };
+  } finally {
+    signal.removeEventListener("abort", cancel);
+    work.finish();
+  }
+}
+
+/** Explicit app-wide fetch staging maintenance. Native owns all paths/leases.
+ * @param {AbortSignal} signal */
+export async function cleanupGitFetchStaging(signal) {
+  if (!workspace.ready || !isTauri() || !canEditWorkspace())
+    throw new Error("Fetch cleanup requires an available desktop workspace.");
+  const work = beginWorkspaceWork();
+  const cancel = () => work.cancel();
+  signal.addEventListener("abort", cancel, { once: true });
+  if (signal.aborted) cancel();
+  try {
+    if (work.signal.aborted)
+      throw new Error("Fetch cleanup cancelled before submission.");
+    // Filesystem maintenance is not a remote worker. Keep awaiting the original
+    // command even when the dialog closes so workspace draining remains honest.
+    const value =
+      /** @type {{removed:number,active:number,retained:number,limited:boolean}} */ (
+        await invoke("git_remote_cleanup_staging")
+      );
+    if (
+      !value ||
+      typeof value.limited !== "boolean" ||
+      ![value.removed, value.active, value.retained].every(
+        (n) => Number.isSafeInteger(n) && n >= 0,
+      ) ||
+      value.removed + value.active + value.retained > 1024
+    )
+      throw new Error("Invalid fetch cleanup report.");
+    return value;
+  } finally {
+    signal.removeEventListener("abort", cancel);
+    work.finish();
   }
 }

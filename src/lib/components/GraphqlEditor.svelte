@@ -1,5 +1,6 @@
 <script>
-  import { untrack } from "svelte";
+  import SplitPane from "./ui/SplitPane.svelte";
+  import { untrack, onDestroy } from "svelte";
   import CodeEditor from "./CodeEditor.svelte";
   import {
     graphqlVariableTypes,
@@ -20,6 +21,7 @@
   } from "../graphql.js";
   import {
     workspace,
+    createWorkspaceWorkScope,
     execute,
     stop,
     cacheSchema,
@@ -27,6 +29,8 @@
   import { download } from "../import-export.js";
   /** @type {{ request: Record<string, any>, onchange: (patch: Record<string, any>) => void }} */
   let { request, onchange } = $props();
+  const fileWork = createWorkspaceWorkScope();
+  onDestroy(fileWork.dispose);
   let view = $state("Query");
   let message = $state("");
   let error = $state("");
@@ -194,10 +198,15 @@
     const requestId = request._id;
     event.currentTarget.value = "";
     if (!file) return;
+    fileWork.cancel();
+    /** @type {import("../workspace.svelte.js").ScopedWorkspaceWork|undefined} */ let work;
     try {
+      work = fileWork.begin();
       if (file.size > schemaLimit)
         throw new Error("Schema exceeds the 20 MiB limit.");
-      const result = readSchema(await file.text());
+      const text = await file.text();
+      if (!work.current() || request._id !== requestId) return;
+      const result = readSchema(text);
       if (
         !workspace.data.resources.some((resource) => resource._id === requestId)
       )
@@ -206,7 +215,9 @@
       error = "";
       view = "Schema";
     } catch (e) {
-      error = String(e);
+      if (!work || work.current()) error = String(e);
+    } finally {
+      work?.finish();
     }
   }
 </script>
@@ -294,45 +305,56 @@
       >{#each operations as operation}<option value={operation}
         ></option>{/each}</datalist
     >
-    <div class="graphql-editors">
-      <div>
-        QUERY<CodeEditor
-          identity={request._id + ":graphql-query"}
-          mode="graphql"
-          onnavigate={navigate}
-          label="GraphQL query"
-          value={content.body.query || ""}
-          {schema}
-          settings={workspace.data.settings}
-          environment={environmentFor(
-            workspace.data.resources,
-            request,
-            workspace.data.activeEnvironmentId,
-          )}
-          onchange={(query) => change({ query })}
-          placeholder={"query { viewer { id } }"}
-        />
-      </div>
-      <div>
-        VARIABLES<CodeEditor
-          identity={request._id + ":graphql-variables"}
-          mode="graphql-variables"
-          variableToType={variableTypes}
-          label="GraphQL variables"
-          value={typeof content.body.variables === "string"
-            ? content.body.variables
-            : JSON.stringify(content.body.variables ?? {}, null, 2)}
-          settings={workspace.data.settings}
-          environment={environmentFor(
-            workspace.data.resources,
-            request,
-            workspace.data.activeEnvironmentId,
-          )}
-          onchange={(variables) => change({ variables })}
-          placeholder={"{}"}
-        />
-      </div>
-    </div>
+    <SplitPane
+      class="graphql-editors"
+      storageKey="graphql"
+      label="GraphQL query and variables size"
+      initial={67}
+      stackAt={640}
+      minFirst={150}
+      minSecond={150}
+    >
+      {#snippet first()}
+        <div class="graphql-editor-column">
+          QUERY<CodeEditor
+            identity={request._id + ":graphql-query"}
+            mode="graphql"
+            onnavigate={navigate}
+            label="GraphQL query"
+            value={content.body.query || ""}
+            {schema}
+            settings={workspace.data.settings}
+            environment={environmentFor(
+              workspace.data.resources,
+              request,
+              workspace.data.activeEnvironmentId,
+            )}
+            onchange={(query) => change({ query })}
+            placeholder={"query { viewer { id } }"}
+          />
+        </div>
+      {/snippet}{#snippet second()}
+        <div class="graphql-editor-column">
+          VARIABLES<CodeEditor
+            identity={request._id + ":graphql-variables"}
+            mode="graphql-variables"
+            variableToType={variableTypes}
+            label="GraphQL variables"
+            value={typeof content.body.variables === "string"
+              ? content.body.variables
+              : JSON.stringify(content.body.variables ?? {}, null, 2)}
+            settings={workspace.data.settings}
+            environment={environmentFor(
+              workspace.data.resources,
+              request,
+              workspace.data.activeEnvironmentId,
+            )}
+            onchange={(variables) => change({ variables })}
+            placeholder={"{}"}
+          />
+        </div>
+      {/snippet}</SplitPane
+    >
   {:else if entry}
     <p class="hint padded">
       {entry.source} · {new Date(entry.loadedAt).toLocaleTimeString()} · {schema.getQueryType()
@@ -342,41 +364,52 @@
         ? ` / ${schema.getSubscriptionType().name}`
         : ""} · Session cache
     </p>
-    <div class="schema-explorer">
-      <div class="schema-types">
-        <input
-          aria-label="Search schema types and fields"
-          placeholder="Find type or field…"
-          bind:value={search}
-        />
-        <select
-          size={8}
-          aria-label="Schema types"
-          value={directive ? "" : type?.name || ""}
-          onchange={(event) => {
-            selectedType = event.currentTarget.value;
-            selectedDirective = "";
-          }}
-          >{#each types as item}<option value={item.name}>{item.name}</option
-            >{/each}</select
-        >
-        <select
-          size={4}
-          aria-label="Schema directives"
-          value={directive?.name || ""}
-          onchange={(event) => (selectedDirective = event.currentTarget.value)}
-        >
-          {#each directives as item}<option value={item.name}
-              >@{item.name}</option
-            >{/each}
-        </select>
-      </div>
-      <pre class="schema-definition">{directive
-          ? graphqlDirectiveText(directive)
-          : type
-            ? printType(type)
-            : "No matching types"}</pre>
-    </div>
+    <SplitPane
+      class="schema-explorer"
+      storageKey="graphql-schema"
+      label="Schema types and documentation size"
+      initial={30}
+      minFirst={140}
+      minSecond={170}
+    >
+      {#snippet first()}
+        <div class="schema-types">
+          <input
+            aria-label="Search schema types and fields"
+            placeholder="Find type or field…"
+            bind:value={search}
+          />
+          <select
+            size={8}
+            aria-label="Schema types"
+            value={directive ? "" : type?.name || ""}
+            onchange={(event) => {
+              selectedType = event.currentTarget.value;
+              selectedDirective = "";
+            }}
+            >{#each types as item}<option value={item.name}>{item.name}</option
+              >{/each}</select
+          >
+          <select
+            size={4}
+            aria-label="Schema directives"
+            value={directive?.name || ""}
+            onchange={(event) =>
+              (selectedDirective = event.currentTarget.value)}
+          >
+            {#each directives as item}<option value={item.name}
+                >@{item.name}</option
+              >{/each}
+          </select>
+        </div>
+      {/snippet}{#snippet second()}
+        <pre class="schema-definition">{directive
+            ? graphqlDirectiveText(directive)
+            : type
+              ? printType(type)
+              : "No matching types"}</pre>
+      {/snippet}</SplitPane
+    >
   {:else}
     <div class="empty-body">
       <p>

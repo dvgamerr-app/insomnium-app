@@ -1,11 +1,18 @@
 <script>
+  import SplitPane from "$lib/components/ui/SplitPane.svelte";
+  import Modal from "$lib/components/ui/Modal.svelte";
+  import Button from "$lib/components/ui/Button.svelte";
+  import GitRecovery from "$lib/components/GitRecovery.svelte";
+  import GitPanel from "$lib/components/GitPanel.svelte";
+  import RunnerSidebar from "$lib/components/RunnerSidebar.svelte";
+  import RunnerPane from "$lib/components/RunnerPane.svelte";
   import TemplatePromptDialog from "$lib/components/TemplatePromptDialog.svelte";
   import {
     templatePrompt,
     cancelAllTemplatePrompts,
   } from "$lib/template-prompt-dialog.js";
   import CodeEditor from "$lib/components/CodeEditor.svelte";
-  import { onMount } from "svelte";
+  import { onMount, onDestroy, untrack } from "svelte";
   import { isTauri } from "@tauri-apps/api/core";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import Icon from "$lib/components/Icon.svelte";
@@ -36,12 +43,22 @@
     execute,
     stop,
     shutdown,
+    canEditWorkspace,
+    updateSettings,
+    createWorkspaceWorkScope,
     cancelChangedGrpcCalls,
   } from "$lib/workspace.svelte.js";
   import { id, workspaceFor, protocolFor } from "$lib/model.js";
   import { orderedChildren } from "$lib/resources.js";
   import { pickImport, parseImport, exportData } from "$lib/import-export.js";
+  import "@fontsource-variable/inter";
+  import "@fontsource-variable/roboto-mono";
   import "$lib/styles.css";
+  const editingBlocked = $derived(
+    app.draining || app.persistencePhase !== "idle",
+  );
+  const importWork = createWorkspaceWorkScope();
+  onDestroy(importWork.dispose);
   let modal = $state(""),
     name = $state(""),
     modalError = $state(""),
@@ -49,6 +66,8 @@
     environmentName = $state(""),
     environmentText = $state("{}"),
     importText = $state("");
+  let importBusy = $state(false);
+  let importRevision = 0;
   let managedId = $state("");
   let mainView = $state("requests");
   let newFolderParent = $state("");
@@ -143,9 +162,13 @@
     document.documentElement.dataset.theme = app.data.settings.theme;
   });
   $effect(() => {
-    if (modal && modalElement && !modalElement.open) modalElement.showModal();
+    if (app.persistencePhase === "recovery") untrack(closeModal);
   });
   function showModal(/** @type {string} */ type) {
+    if (!canEditWorkspace()) return;
+    importWork.cancel();
+    importRevision++;
+    importBusy = false;
     modal = type;
     name = "";
     modalError = "";
@@ -161,6 +184,9 @@
     showModal("new-folder");
   }
   function closeModal() {
+    importWork.cancel();
+    importRevision++;
+    importBusy = false;
     modalElement?.close();
     modal = "";
     pendingImport = null;
@@ -168,6 +194,7 @@
   function editEnvironment(
     /** @type {string} */ target = selectedEnvironment?._id || "",
   ) {
+    if (!canEditWorkspace()) return;
     if (!target) {
       const env = {
         _id: id("env"),
@@ -203,6 +230,7 @@
     }
   }
   function create() {
+    if (!canEditWorkspace()) return;
     if (!name.trim()) {
       modalError = "Enter a name";
       return;
@@ -221,23 +249,38 @@
     }
     closeModal();
   }
-  async function importFile() {
+  function importFile() {
+    importText = "";
+    pendingImport = null;
+    showModal("import");
+  }
+  /** @param {File} [file] */
+  async function chooseImportFile(file) {
+    if (importBusy || modal !== "import") return;
+    const revision = ++importRevision;
+    /** @type {import("$lib/workspace.svelte.js").ScopedWorkspaceWork|undefined} */ let work;
+    importBusy = true;
+    modalError = "";
     try {
-      if (isTauri()) {
-        const result = await pickImport();
-        if (result) {
-          showModal("import");
-          pendingImport = result;
-        }
-      } else {
-        importText = "";
-        showModal("import");
-      }
-    } catch (e) {
-      app.error = String(e);
+      work = importWork.begin();
+      const result = file ? parseImport(await file.text()) : await pickImport();
+      if (!work.current()) return;
+      if (revision === importRevision && modal === "import" && result)
+        pendingImport = result;
+    } catch (error) {
+      if (
+        revision === importRevision &&
+        modal === "import" &&
+        (!work || work.current())
+      )
+        modalError = String(error);
+    } finally {
+      work?.finish();
+      if (revision === importRevision) importBusy = false;
     }
   }
   function applyImport() {
+    if (!canEditWorkspace()) return;
     if (!pendingImport) return;
     app.data.resources.push(...pendingImport.resources);
     const target = pendingImport.resources.find((r) => r._type === "workspace");
@@ -251,6 +294,7 @@
     void persist();
   }
   function closeTab(/** @type {string} */ tabId) {
+    if (!canEditWorkspace()) return;
     app.data.openTabs = app.data.openTabs.filter((t) => t !== tabId);
     if (app.data.activeRequestId === tabId)
       app.data.activeRequestId =
@@ -260,18 +304,22 @@
   function keyboard(/** @type {KeyboardEvent} */ event) {
     if (
       !app.ready ||
+      editingBlocked ||
       modal ||
       $templatePrompt ||
       !(event.ctrlKey || event.metaKey)
     )
       return;
-    if (event.key === "Enter" && request) {
+    if (event.shiftKey && event.key.toLowerCase() === "g") {
+      event.preventDefault();
+      mainView = "git";
+    } else if (event.key === "Enter" && request && mainView === "requests") {
       event.preventDefault();
       void execute(request._id);
-    } else if (event.key.toLowerCase() === "n") {
+    } else if (event.key.toLowerCase() === "n" && mainView === "requests") {
       event.preventDefault();
       addRequest();
-    } else if (event.key.toLowerCase() === "p") {
+    } else if (event.key.toLowerCase() === "p" && mainView === "requests") {
       event.preventDefault();
       filterInput?.focus();
     } else if (event.key.toLowerCase() === "s") {
@@ -286,7 +334,7 @@
 <svelte:head
   ><title>{collection?.name || "Insomnium"} · Insomnium</title></svelte:head
 >
-<div class="app-shell">
+<div class="app-shell" inert={editingBlocked} aria-busy={editingBlocked}>
   <header class="app-header">
     <div class="brand">
       <img class="brand-mark" src="/app-icon.png" alt="" /><span>Insomnium</span
@@ -312,6 +360,16 @@
       disabled={!collection}
       onclick={() => manageResource(app.data.activeWorkspaceId)}
       ><Icon name="more" size={17} /></button
+    ><button
+      class="header-search"
+      aria-label="Search requests"
+      onclick={() => {
+        mainView = "requests";
+        requestAnimationFrame(() => filterInput?.focus());
+      }}
+      ><Icon name="search" size={14} /><span>Search requests</span><kbd
+        >Ctrl P</kbd
+      ></button
     ><span class="spacer"></span><span class="local-indicator"
       ><i></i> Local workspace</span
     ><button
@@ -319,9 +377,9 @@
       title="Toggle theme"
       aria-label="Toggle theme"
       onclick={() => {
-        app.data.settings.theme =
-          app.data.settings.theme === "dark" ? "light" : "dark";
-        void persist();
+        updateSettings({
+          theme: app.data.settings.theme === "dark" ? "light" : "dark",
+        });
       }}
       ><Icon
         name={app.data.settings.theme === "dark" ? "sun" : "moon"}
@@ -330,9 +388,19 @@
     >
   </header>
   <nav class="activity-bar" aria-label="Main navigation">
+    <Button
+      variant="ghost"
+      class="activity"
+      aria-label="Git"
+      title="Source Control"
+      aria-current={mainView === "git" ? "page" : undefined}
+      onclick={() => (mainView = "git")}
+      ><Icon name="branch" size={22} /></Button
+    >
     <button
       class="activity"
       class:active={mainView === "requests"}
+      aria-current={mainView === "requests" ? "page" : undefined}
       title="Collections"
       aria-label="Collections"
       onclick={() => {
@@ -342,10 +410,19 @@
     ><button
       class="activity"
       class:active={mainView === "design"}
+      aria-current={mainView === "design" ? "page" : undefined}
       title="API Design"
       aria-label="API Design"
       onclick={() => (mainView = "design")}
       ><Icon name="code" size={22} /></button
+    ><button
+      class="activity"
+      class:active={mainView === "tests"}
+      aria-current={mainView === "tests" ? "page" : undefined}
+      title="Tests"
+      aria-label="Tests"
+      onclick={() => (mainView = "tests")}
+      ><Icon name="check" size={22} /></button
     ><button
       class="activity"
       title="Import collection"
@@ -367,262 +444,329 @@
       ><Icon name="settings" size={22} /></button
     >
   </nav>
-  <aside class="sidebar" aria-label="Collections">
-    <div class="environment-controls">
-      <div class="environment-row">
-        <span class="environment-dot"></span><select
-          aria-label="Active environment"
-          value={app.data.activeEnvironmentId}
-          onchange={(event) => {
-            selectEnvironment(event.currentTarget.value);
-          }}
-          ><option value="">Base Environment</option
-          >{#each environments.filter((e) => e._id !== baseEnvironment?._id) as env}<option
-              value={env._id}>{env.name}</option
-            >{/each}</select
-        ><button
-          class="icon-button subtle"
-          aria-label="Edit environment"
-          title="Edit environment"
-          onclick={() => editEnvironment()}
-          ><Icon name="settings" size={16} /></button
-        >
-      </div>
-      <button class="cookie-button" onclick={() => showModal("cookies")}
-        ><Icon name="cookie" size={16} /> Cookies</button
-      >
-    </div>
-    <div class="sidebar-search">
-      <div class="search-input">
-        <Icon name="search" size={14} /><input
-          bind:this={filterInput}
-          aria-label="Filter requests"
-          placeholder="Filter requests"
-          bind:value={app.search}
-        /><kbd>⌃ P</kbd>
-      </div>
-      <NewRequestMenu
-        oncreate={(protocol) =>
-          addRequest(app.data.activeWorkspaceId, protocol)}
-      />
-    </div>
-    <div class="collection-label">
-      <span>COLLECTION</span><button
-        class="icon-button subtle"
-        aria-label="New folder"
-        title="New folder"
-        onclick={() => newFolder()}><Icon name="folder" size={15} /></button
-      >
-    </div>
-    <div class="request-tree">
-      <RequestTree
-        resources={app.data.resources}
-        parentId={app.data.activeWorkspaceId}
-        selected={app.data.activeRequestId}
-        search={app.search}
-        onselect={selectRequest}
-        onfolder={addRequest}
-        onmanage={manageResource}
-      />{#if !requests.length}<div class="sidebar-empty">
-          Your collection is empty.<button
-            class="text-button"
-            onclick={() => addRequest()}>Create a request</button
-          >
-        </div>{/if}
-    </div>
-    <div class="sidebar-footer">
-      <span
-        >{requests.length}
-        {requests.length === 1 ? "request" : "requests"}</span
-      ><button class="text-button" onclick={importFile}
-        ><Icon name="upload" size={13} /> Import</button
-      >
-    </div>
-  </aside>
-  <main class="workspace-main">
-    {#if app.error}<div class="notification error" role="alert">
-        <span>{app.error}</span><button
-          class="icon-button"
-          aria-label="Dismiss error"
-          onclick={() => (app.error = "")}
-          ><Icon name="close" size={14} /></button
-        >
-      </div>{/if}
-    {#if app.notice}<div class="notification" role="status">
-        <span>{app.notice}</span><button
-          class="icon-button"
-          aria-label="Dismiss message"
-          onclick={() => (app.notice = "")}
-          ><Icon name="close" size={14} /></button
-        >
-      </div>{/if}
-    {#if !isTauri()}<div class="preview-notice">
-        Browser preview · desktop requests use native networking without browser
-        CORS restrictions.
-      </div>{/if}
-    {#if !app.ready}<div class="empty-response">
-        <h2>Loading your workspace</h2>
-        <p>
-          {app.error
-            ? "Resolve the storage error before editing. Your data has not been reset."
-            : "Reading local data…"}
-        </p>
-      </div>{:else if mainView === "design"}{#key app.data.activeWorkspaceId}<ApiDesign
-          workspaceId={app.data.activeWorkspaceId}
-          onrequests={() => (mainView = "requests")}
-        />{/key}{:else}
-      <div class="request-tabs" aria-label="Open requests">
-        {#each tabs as item (item?._id)}{#if item}<div
-              class="request-tab"
-              class:active={item._id === request?._id}
+  <SplitPane
+    class="workspace-area"
+    storageKey="workspace"
+    label="Collection sidebar size"
+    initial={70}
+    minFirst={320}
+    minSecond={220}
+    collapsed={mainView === "git"}
+  >
+    {#snippet first()}
+      <main class="workspace-main">
+        {#if app.error}<div class="notification error" role="alert">
+            <span>{app.error}</span><button
+              class="icon-button"
+              aria-label="Dismiss error"
+              onclick={() => (app.error = "")}
+              ><Icon name="close" size={14} /></button
             >
-              <button onclick={() => selectRequest(item._id)}
-                ><span class="method" data-method={item.method}
-                  >{protocolFor(item) === "websocket"
-                    ? "WS"
-                    : protocolFor(item) === "sse"
-                      ? "SSE"
-                      : item.method || "API"}</span
-                ><span>{item.name}</span></button
-              ><button
-                class="tab-close"
-                aria-label={`Close ${item.name}`}
-                onclick={() => closeTab(item._id)}
-                ><Icon name="close" size={12} /></button
+          </div>{/if}
+        {#if app.notice}<div class="notification" role="status">
+            <span>{app.notice}</span><button
+              class="icon-button"
+              aria-label="Dismiss message"
+              onclick={() => (app.notice = "")}
+              ><Icon name="close" size={14} /></button
+            >
+          </div>{/if}
+        {#if !isTauri()}<div class="preview-notice">
+            Browser preview · desktop requests use native networking without
+            browser CORS restrictions.
+          </div>{/if}
+        {#if mainView !== "git"}<div class="workspace-topbar">
+            {#if mainView === "requests"}
+              <div class="request-tabs" aria-label="Open requests">
+                {#each tabs as item (item?._id)}{#if item}<div
+                      class="request-tab"
+                      class:active={item._id === request?._id}
+                    >
+                      <button onclick={() => selectRequest(item._id)}
+                        ><span class="method" data-method={item.method}
+                          >{protocolFor(item) === "websocket"
+                            ? "WS"
+                            : protocolFor(item) === "sse"
+                              ? "SSE"
+                              : protocolFor(item) === "grpc"
+                                ? "gRPC"
+                                : item.method || "API"}</span
+                        ><span>{item.name}</span></button
+                      ><button
+                        class="tab-close"
+                        aria-label={`Close ${item.name}`}
+                        onclick={() => closeTab(item._id)}
+                        ><Icon name="close" size={12} /></button
+                      >
+                    </div>{/if}{/each}<button
+                  class="icon-button"
+                  aria-label="Add request tab"
+                  title="New request"
+                  onclick={() => addRequest()}
+                  ><Icon name="plus" size={15} /></button
+                >
+              </div>
+            {:else}<span class="workspace-view-title"
+                >{mainView === "tests"
+                  ? "Collection tests"
+                  : "API Design"}</span
+              >{/if}
+            <div class="environment-controls">
+              <div class="environment-row">
+                <span class="environment-dot"></span><select
+                  aria-label="Active environment"
+                  value={app.data.activeEnvironmentId}
+                  onchange={(event) => {
+                    selectEnvironment(event.currentTarget.value);
+                  }}
+                  ><option value="">Base Environment</option
+                  >{#each environments.filter((e) => e._id !== baseEnvironment?._id) as env}<option
+                      value={env._id}>{env.name}</option
+                    >{/each}</select
+                ><button
+                  class="icon-button subtle"
+                  aria-label="Edit environment"
+                  title="Edit environment"
+                  onclick={() => editEnvironment()}
+                  ><Icon name="settings" size={16} /></button
+                >
+              </div>
+              <button
+                class="cookie-button"
+                aria-label="Cookies"
+                title="Cookies"
+                onclick={() => showModal("cookies")}
+                ><Icon name="cookie" size={16} /></button
               >
-            </div>{/if}{/each}<button
-          class="icon-button"
-          aria-label="Add request tab"
-          title="New request"
-          onclick={() => addRequest()}><Icon name="plus" size={15} /></button
-        >
-      </div>
-      {#if request && ["request", "websocket_request"].includes(request._type)}
-        <div class="request-heading">
-          <input
-            class="request-name"
-            aria-label="Request name"
-            value={request.name}
-            onchange={(event) =>
-              update(request._id, {
-                name: event.currentTarget.value || "Untitled Request",
-              })}
-          /><span class="spacer"></span><button
-            class="icon-button subtle"
-            title="Move or manage request"
-            aria-label="Move or manage request"
-            onclick={() => manageResource(request._id)}
-            ><Icon name="more" size={17} /></button
-          ><button
-            class="icon-button subtle"
-            title="Duplicate request"
-            aria-label="Duplicate request"
-            onclick={() => duplicate(request._id)}
-            ><Icon name="copy" size={15} /></button
-          ><button
-            class="icon-button subtle"
-            title="Delete request"
-            aria-label="Delete request"
-            onclick={() => showModal("delete-request")}
-            ><Icon name="trash" size={15} /></button
+            </div>
+          </div>
+        {/if}
+        {#if !app.ready}<div class="empty-response">
+            <h2>Loading your workspace</h2>
+            <p>
+              {app.error
+                ? "Resolve the storage error before editing. Your data has not been reset."
+                : "Reading local data…"}
+            </p>
+          </div>{:else if mainView === "git"}{#key app.data.activeWorkspaceId}<GitPanel
+              workspaceId={app.data.activeWorkspaceId}
+              onclose={() => (mainView = "requests")}
+            />{/key}{:else if mainView === "tests"}{#key app.data.activeWorkspaceId}<RunnerPane
+              collectionId={app.data.activeWorkspaceId}
+            />{/key}{:else if mainView === "design"}{#key app.data.activeWorkspaceId}<ApiDesign
+              workspaceId={app.data.activeWorkspaceId}
+              onrequests={() => (mainView = "requests")}
+            />{/key}{:else}
+          {#if request && ["request", "websocket_request"].includes(request._type)}
+            <div class="request-heading">
+              <input
+                class="request-name"
+                aria-label="Request name"
+                value={request.name}
+                onchange={(event) =>
+                  update(request._id, {
+                    name: event.currentTarget.value || "Untitled Request",
+                  })}
+              /><span class="spacer"></span><button
+                class="icon-button subtle"
+                title="Move or manage request"
+                aria-label="Move or manage request"
+                onclick={() => manageResource(request._id)}
+                ><Icon name="more" size={17} /></button
+              ><button
+                class="icon-button subtle"
+                title="Duplicate request"
+                aria-label="Duplicate request"
+                onclick={() => duplicate(request._id)}
+                ><Icon name="copy" size={15} /></button
+              ><button
+                class="icon-button subtle"
+                title="Delete request"
+                aria-label="Delete request"
+                onclick={() => showModal("delete-request")}
+                ><Icon name="trash" size={15} /></button
+              >
+            </div>
+            <form
+              class="url-bar"
+              onsubmit={(event) => {
+                event.preventDefault();
+                void execute(request._id);
+              }}
+            >
+              <div class="request-url-fields">
+                {#if protocol === "websocket"}<span class="protocol-label"
+                    >WS</span
+                  >{:else}<select
+                    class="method-select"
+                    data-method={request.method}
+                    aria-label="HTTP method"
+                    value={request.method}
+                    onchange={(event) =>
+                      update(request._id, {
+                        method: event.currentTarget.value,
+                      })}
+                    >{#each ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"] as method}<option
+                        value={method}>{method}</option
+                      >{/each}{#if !["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"].includes(request.method)}<option
+                        value={request.method}>{request.method}</option
+                      >{/if}</select
+                  >{/if}
+                {#if protocol !== "websocket"}<select
+                    class="protocol-select"
+                    aria-label="Response mode"
+                    disabled={!!app.running[request._id]}
+                    value={protocol}
+                    onchange={(event) =>
+                      update(request._id, {
+                        responseMode: event.currentTarget.value,
+                      })}
+                    ><option value="http">HTTP</option><option value="sse"
+                      >SSE</option
+                    ></select
+                  >{/if}<input
+                  class="url-input"
+                  aria-label="Request URL"
+                  placeholder={protocol === "websocket"
+                    ? "wss://api.example.com/socket"
+                    : "https://api.example.com/resource"}
+                  spellcheck="false"
+                  value={request.url}
+                  oninput={(event) =>
+                    update(request._id, { url: event.currentTarget.value })}
+                />
+              </div>
+              {#if app.running[request._id]}<button
+                  type="button"
+                  class="send-button"
+                  onclick={() => stop(request._id)}
+                  ><Icon name="stop" size={15} />
+                  {protocol === "http" ? "Cancel" : "Disconnect"}</button
+                >{:else}<button type="submit" class="send-button"
+                  >{protocol === "http" ? "Send" : "Connect"}
+                  <Icon name="send" size={16} /></button
+                >{/if}
+            </form>
+            <SplitPane
+              storageKey="request-response"
+              label="Request and response size"
+              axis="y"
+              initial={45}
+              minFirst={140}
+              minSecond={120}
+            >
+              {#snippet first()}<div class="request-compose">
+                  {#key request._id}<RequestEditor
+                      {request}
+                      onchange={(patch) => update(request._id, patch)}
+                    />{/key}
+                </div>
+              {/snippet}{#snippet second()}
+                {#if protocol !== "http" || app.responses[request._id]?.protocol}<StreamPane
+                    response={app.responses[request._id]}
+                    running={!!app.running[request._id]}
+                    history={app.data.history.filter(
+                      (h) => h.requestId === request._id && h.protocol,
+                    )}
+                    onhistory={(response) =>
+                      (app.responses[request._id] = response)}
+                  />{:else}<ResponsePane
+                    requestId={request._id}
+                    response={app.responses[request._id]}
+                    running={!!app.running[request._id]}
+                    history={app.data.history.filter(
+                      (h) => h.requestId === request._id && !h.protocol,
+                    )}
+                    onhistory={(response) =>
+                      (app.responses[request._id] = response)}
+                  />{/if}
+              {/snippet}</SplitPane
+            >
+          {:else if request?._type === "grpc_request"}{#key request._id}<GrpcPane
+                {request}
+              />{/key}
+          {:else if request}<div class="empty-response">
+              <Icon name="code" size={32} />
+              <h2>{request.name}</h2>
+              <p>
+                This {request._type.replaceAll("_", " ")} is preserved. Its protocol
+                migration is pending.
+              </p>
+            </div>
+          {:else}<div class="empty-response">
+              <img class="large-brand" src="/app-icon.png" alt="Insomnium" />
+              <h2>Your next request starts here</h2>
+              <p>Choose a request from the collection, or create a new one.</p>
+              <button class="primary-button" onclick={() => addRequest()}
+                ><Icon name="plus" size={16} /> New request</button
+              >
+            </div>{/if}
+        {/if}
+      </main>
+    {/snippet}
+    {#snippet second()}
+      <aside class="sidebar" aria-label="Collections">
+        <div class="sidebar-heading">
+          <span class="sidebar-workspace" title={collection?.name}
+            >{collection?.name || "Local workspace"}</span
+          ><Icon name="chevron" size={12} /><span
+            >{mainView === "tests" ? "Test suites" : "Collections"}</span
           >
         </div>
-        <form
-          class="url-bar"
-          onsubmit={(event) => {
-            event.preventDefault();
-            void execute(request._id);
-          }}
-        >
-          {#if protocol === "websocket"}<span class="protocol-label">WS</span
-            >{:else}<select
-              class="method-select"
-              data-method={request.method}
-              aria-label="HTTP method"
-              value={request.method}
-              onchange={(event) =>
-                update(request._id, { method: event.currentTarget.value })}
-              >{#each ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"] as method}<option
-                  value={method}>{method}</option
-                >{/each}{#if !["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"].includes(request.method)}<option
-                  value={request.method}>{request.method}</option
-                >{/if}</select
-            >{/if}
-          {#if protocol !== "websocket"}<select
-              class="protocol-select"
-              aria-label="Response mode"
-              disabled={!!app.running[request._id]}
-              value={protocol}
-              onchange={(event) =>
-                update(request._id, {
-                  responseMode: event.currentTarget.value,
-                })}
-              ><option value="http">HTTP</option><option value="sse">SSE</option
-              ></select
-            >{/if}<input
-            class="url-input"
-            aria-label="Request URL"
-            placeholder={protocol === "websocket"
-              ? "wss://api.example.com/socket"
-              : "https://api.example.com/resource"}
-            spellcheck="false"
-            value={request.url}
-            oninput={(event) =>
-              update(request._id, { url: event.currentTarget.value })}
-          />{#if app.running[request._id]}<button
-              type="button"
-              class="send-button"
-              onclick={() => stop(request._id)}
-              ><Icon name="stop" size={15} />
-              {protocol === "http" ? "Cancel" : "Disconnect"}</button
-            >{:else}<button type="submit" class="send-button"
-              >{protocol === "http" ? "Send" : "Connect"}
-              <Icon name="send" size={16} /></button
-            >{/if}
-        </form>
-        <div class="request-compose">
-          {#key request._id}<RequestEditor
-              {request}
-              onchange={(patch) => update(request._id, patch)}
-            />{/key}
-        </div>
-        {#if protocol !== "http" || app.responses[request._id]?.protocol}<StreamPane
-            response={app.responses[request._id]}
-            running={!!app.running[request._id]}
-            history={app.data.history.filter(
-              (h) => h.requestId === request._id && h.protocol,
-            )}
-            onhistory={(response) => (app.responses[request._id] = response)}
-          />{:else}<ResponsePane
-            requestId={request._id}
-            response={app.responses[request._id]}
-            running={!!app.running[request._id]}
-            history={app.data.history.filter(
-              (h) => h.requestId === request._id && !h.protocol,
-            )}
-            onhistory={(response) => (app.responses[request._id] = response)}
-          />{/if}
-      {:else if request?._type === "grpc_request"}{#key request._id}<GrpcPane
-            {request}
-          />{/key}
-      {:else if request}<div class="empty-response">
-          <Icon name="code" size={32} />
-          <h2>{request.name}</h2>
-          <p>
-            This {request._type.replaceAll("_", " ")} is preserved. Its protocol migration
-            is pending.
-          </p>
-        </div>
-      {:else}<div class="empty-response">
-          <img class="large-brand" src="/app-icon.png" alt="Insomnium" />
-          <h2>Your next request starts here</h2>
-          <p>Choose a request from the collection, or create a new one.</p>
-          <button class="primary-button" onclick={() => addRequest()}
-            ><Icon name="plus" size={16} /> New request</button
-          >
-        </div>{/if}
-    {/if}
-  </main>
+        {#if mainView === "tests"}
+          <RunnerSidebar collectionId={app.data.activeWorkspaceId} />
+        {:else}
+          <div class="sidebar-search">
+            <div class="search-input">
+              <Icon name="search" size={14} /><input
+                bind:this={filterInput}
+                aria-label="Filter requests"
+                placeholder="Filter requests"
+                bind:value={app.search}
+              /><kbd>⌃ P</kbd>
+            </div>
+          </div>
+          <div class="collection-label">
+            <NewRequestMenu
+              oncreate={(protocol) =>
+                addRequest(app.data.activeWorkspaceId, protocol)}
+            />
+            <button
+              class="icon-button subtle"
+              aria-label="New folder"
+              title="New folder"
+              onclick={() => newFolder()}
+              ><Icon name="folder" size={15} /></button
+            >
+          </div>
+          <div class="request-tree">
+            <RequestTree
+              resources={app.data.resources}
+              parentId={app.data.activeWorkspaceId}
+              selected={app.data.activeRequestId}
+              search={app.search}
+              onselect={selectRequest}
+              onfolder={addRequest}
+              onmanage={manageResource}
+            />{#if !requests.length}<div class="sidebar-empty">
+                Your collection is empty.<button
+                  class="text-button"
+                  onclick={() => addRequest()}>Create a request</button
+                >
+              </div>{/if}
+          </div>
+          <div class="sidebar-footer">
+            <span
+              >{requests.length}
+              {requests.length === 1 ? "request" : "requests"}</span
+            ><button class="text-button" onclick={importFile}
+              ><Icon name="upload" size={13} /> Import</button
+            >
+          </div>
+        {/if}
+      </aside>
+    {/snippet}
+  </SplitPane>
   <footer class="statusbar">
     <button class="text-button" onclick={() => showModal("settings")}
       ><Icon name="settings" size={14} /> Preferences</button
@@ -639,33 +783,35 @@
     ><span class="version">v0.1.0</span>
   </footer>
 </div>
+{#if app.persistencePhase === "recovery" || app.persistencePhase === "recovering"}
+  <GitRecovery />
+{/if}
 {#if modal}
-  <dialog class="modal" bind:this={modalElement} oncancel={closeModal}>
-    <div class="modal-heading">
-      <h2>
-        {modal === "environment"
-          ? "Manage environments"
-          : modal === "manage-item"
-            ? `Manage ${managedResource?._type === "workspace" ? "collection" : managedResource?._type === "request_group" ? "folder" : "request"}`
-            : modal === "settings"
-              ? "Preferences"
-              : modal === "cookies"
-                ? "Cookies"
-                : modal === "import"
-                  ? "Import collection"
-                  : modal === "delete-environment"
-                    ? "Delete environment?"
-                    : modal === "delete-request"
-                      ? "Delete request?"
-                      : modal
-                          .replaceAll("-", " ")
-                          .replace(/^./, (c) => c.toUpperCase())}
-      </h2>
-      <button class="icon-button" aria-label="Close dialog" onclick={closeModal}
-        ><Icon name="close" /></button
-      >
-    </div>
-    <div class="modal-content">
+  <Modal
+    inert={editingBlocked}
+    bind:element={modalElement}
+    onclose={closeModal}
+  >
+    {#snippet heading()}
+      {modal === "environment"
+        ? "Manage environments"
+        : modal === "manage-item"
+          ? `Manage ${managedResource?._type === "workspace" ? "collection" : managedResource?._type === "request_group" ? "folder" : "request"}`
+          : modal === "settings"
+            ? "Preferences"
+            : modal === "cookies"
+              ? "Cookies"
+              : modal === "import"
+                ? "Import collection"
+                : modal === "delete-environment"
+                  ? "Delete environment?"
+                  : modal === "delete-request"
+                    ? "Delete request?"
+                    : modal
+                        .replaceAll("-", " ")
+                        .replace(/^./, (c) => c.toUpperCase())}
+    {/snippet}
+    {#snippet children()}
       {#if modal === "manage-item" && managedResource}
         {#key managedId}<ResourceManager
             resource={managedResource}
@@ -708,7 +854,7 @@
           <button
             class="secondary-button"
             onclick={() => {
-              if (!editingEnvironment) return;
+              if (!canEditWorkspace() || !editingEnvironment) return;
               const env = {
                 ...$state.snapshot(editingEnvironment),
                 _id: id("env"),
@@ -752,8 +898,9 @@
             <summary>Editor</summary>
             <label
               >Keymap<select
-                bind:value={app.data.settings.editorKeyMap}
-                onchange={() => persist()}
+                value={app.data.settings.editorKeyMap}
+                onchange={(event) =>
+                  updateSettings({ editorKeyMap: event.currentTarget.value })}
                 ><option value="default">Default</option><option value="vim"
                   >Vim</option
                 ><option value="emacs">Emacs</option><option value="sublime"
@@ -766,33 +913,31 @@
                 type="number"
                 min="1"
                 max="16"
-                bind:value={app.data.settings.editorIndentSize}
-                onchange={() => {
-                  app.data.settings.editorIndentSize = Math.max(
-                    1,
-                    Math.min(
-                      16,
-                      Math.round(
-                        Number(app.data.settings.editorIndentSize) || 2,
-                      ),
-                    ),
-                  );
-                  void persist();
-                }}
+                value={app.data.settings.editorIndentSize}
+                onchange={(event) =>
+                  updateSettings({
+                    editorIndentSize: event.currentTarget.valueAsNumber,
+                  })}
               /></label
             >
             <label class="checkbox-label"
               ><input
                 type="checkbox"
-                bind:checked={app.data.settings.editorIndentWithTabs}
-                onchange={() => persist()}
+                checked={app.data.settings.editorIndentWithTabs}
+                onchange={(event) =>
+                  updateSettings({
+                    editorIndentWithTabs: event.currentTarget.checked,
+                  })}
               />Indent with tabs (except YAML)</label
             >
             <label class="checkbox-label"
               ><input
                 type="checkbox"
-                bind:checked={app.data.settings.editorLineWrapping}
-                onchange={() => persist()}
+                checked={app.data.settings.editorLineWrapping}
+                onchange={(event) =>
+                  updateSettings({
+                    editorLineWrapping: event.currentTarget.checked,
+                  })}
               />Wrap long lines</label
             >
             <label
@@ -800,28 +945,21 @@
                 type="number"
                 min="0"
                 max="2000"
-                bind:value={app.data.settings.autocompleteDelay}
-                onchange={() => {
-                  app.data.settings.autocompleteDelay = Math.max(
-                    0,
-                    Math.min(
-                      2000,
-                      Math.round(
-                        Number(app.data.settings.autocompleteDelay) || 0,
-                      ),
-                    ),
-                  );
-                  void persist();
-                }}
+                value={app.data.settings.autocompleteDelay}
+                onchange={(event) =>
+                  updateSettings({
+                    autocompleteDelay: event.currentTarget.valueAsNumber,
+                  })}
               /></label
             >
           </details>
           <label
             >Theme<select
-              bind:value={app.data.settings.theme}
-              onchange={() => persist()}
-              ><option value="dark">Dark</option><option value="light"
-                >Light</option
+              value={app.data.settings.theme}
+              onchange={(event) =>
+                updateSettings({ theme: event.currentTarget.value })}
+              ><option value="dark">Nocturne Dark</option><option value="light"
+                >Nocturne Light</option
               ></select
             ></label
           ><label
@@ -829,59 +967,84 @@
               type="number"
               min="1"
               max="3600000"
-              bind:value={app.data.settings.timeout}
-              onchange={() => persist()}
+              value={app.data.settings.timeout}
+              onchange={(event) =>
+                updateSettings({
+                  timeout:
+                    event.currentTarget.value === ""
+                      ? undefined
+                      : event.currentTarget.valueAsNumber,
+                })}
             /></label
           ><label
             >Response history limit<input
               type="number"
               min="1"
               max="100"
-              bind:value={app.data.settings.maxHistory}
-              onchange={() => persist()}
+              value={app.data.settings.maxHistory}
+              onchange={(event) =>
+                updateSettings({
+                  maxHistory:
+                    event.currentTarget.value === ""
+                      ? undefined
+                      : event.currentTarget.valueAsNumber,
+                })}
             /></label
           ><label class="checkbox-label"
             ><input
               type="checkbox"
-              bind:checked={app.data.settings.followRedirects}
-              onchange={() => persist()}
+              checked={app.data.settings.followRedirects}
+              onchange={(event) =>
+                updateSettings({
+                  followRedirects: event.currentTarget.checked,
+                })}
             /> Follow redirects (maximum 10)</label
           ><label class="checkbox-label"
             ><input
               type="checkbox"
-              bind:checked={app.data.settings.validateCertificates}
-              onchange={() => persist()}
+              checked={app.data.settings.validateCertificates}
+              onchange={(event) =>
+                updateSettings({
+                  validateCertificates: event.currentTarget.checked,
+                })}
             /> Validate TLS certificates</label
           ><label class="checkbox-label"
             ><input
               type="checkbox"
-              bind:checked={app.data.settings.useCookies}
-              onchange={() => persist()}
+              checked={app.data.settings.useCookies}
+              onchange={(event) =>
+                updateSettings({ useCookies: event.currentTarget.checked })}
             /> Send and store cookies</label
           ><label
             >Proxy URL<input
               placeholder="http://127.0.0.1:8080"
-              bind:value={app.data.settings.proxy}
-              onchange={() => persist()}
+              value={app.data.settings.proxy}
+              onchange={(event) =>
+                updateSettings({ proxy: event.currentTarget.value })}
             /></label
           >
           <details>
             <summary>Certificates</summary><label
               >Custom CA (PEM)<textarea
                 class="code-editor small-editor"
-                bind:value={app.data.settings.caPem}
-                onchange={() => persist()}></textarea></label
+                value={app.data.settings.caPem}
+                onchange={(event) =>
+                  updateSettings({ caPem: event.currentTarget.value })}
+              ></textarea></label
             ><label
               >Client certificate host<input
                 placeholder="api.example.com"
-                bind:value={app.data.settings.identityHost}
-                onchange={() => persist()}
+                value={app.data.settings.identityHost}
+                onchange={(event) =>
+                  updateSettings({ identityHost: event.currentTarget.value })}
               /></label
             ><label
               >Client certificate and private key (PEM)<textarea
                 class="code-editor small-editor"
-                bind:value={app.data.settings.identityPem}
-                onchange={() => persist()}></textarea></label
+                value={app.data.settings.identityPem}
+                onchange={(event) =>
+                  updateSettings({ identityPem: event.currentTarget.value })}
+              ></textarea></label
             >
             <p class="hint">
               Client identity applies only to matching hostnames. Stored locally
@@ -902,6 +1065,9 @@
             Existing collections will be kept. {pendingImport.preserved} additional
             resources will be preserved.
           </p>
+          {#each pendingImport.warnings as warning}<p class="hint">
+              {warning}
+            </p>{/each}
           {#if pendingImport.apiSpecs}<p class="hint">
               {pendingImport.apiSpecs} API documents will open in API Design. Validate
               the source and generate requests there.
@@ -917,31 +1083,41 @@
             >
           </div>{:else}<p class="hint">
             Insomnia JSON, Insomnium JSON, Postman v2, HAR, and OpenAPI
-            JSON/YAML.
+            JSON/YAML, or cURL commands (Bash quoting).
           </p>
-          <label class="binary-picker"
-            >Choose collection file<input
-              type="file"
-              accept=".json,.har,.yaml,.yml"
-              onchange={async (event) => {
-                const file = event.currentTarget.files?.[0];
-                if (file) {
-                  try {
-                    pendingImport = parseImport(await file.text());
-                  } catch (e) {
-                    modalError = String(e);
-                  }
-                }
-              }}
-            /></label
-          ><textarea
+          {#if isTauri()}
+            <button
+              class="secondary-button"
+              disabled={importBusy}
+              onclick={() => chooseImportFile()}>Choose collection file</button
+            >
+          {:else}
+            <label class="binary-picker"
+              >Choose collection file<input
+                type="file"
+                disabled={importBusy}
+                accept=".json,.har,.yaml,.yml,.curl,.txt"
+                onchange={(event) => {
+                  const file = event.currentTarget.files?.[0];
+                  if (file) void chooseImportFile(file);
+                }}
+              /></label
+            >
+          {/if}
+          {#if importBusy}<p class="hint" role="status">
+              Reading collection…
+            </p>{/if}
+          <textarea
             class="code-editor environment-editor"
-            aria-label="Import JSON"
+            aria-label="Import collection or cURL commands"
             bind:value={importText}
-            placeholder="Or paste collection JSON here…"></textarea>
+            disabled={importBusy}
+            placeholder="Or paste collection JSON, OpenAPI YAML, or cURL commands here…"
+          ></textarea>
           <div class="modal-actions">
             <button
               class="primary-button"
+              disabled={importBusy || !importText.trim()}
               onclick={() => {
                 try {
                   pendingImport = parseImport(importText);
@@ -1008,6 +1184,6 @@
           </div>
         </form>{/if}
       {#if modalError}<p class="inline-error" role="alert">{modalError}</p>{/if}
-    </div>
-  </dialog>
+    {/snippet}
+  </Modal>
 {/if}

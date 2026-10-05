@@ -1,9 +1,14 @@
 <script>
+  import { onDestroy } from "svelte";
   import { jsonPrettify } from "../json-prettify.js";
   import { environmentFor, workspaceFor } from "../model.js";
   import CodeEditor from "./CodeEditor.svelte";
+  import CurlBodyEditor from "./CurlBodyEditor.svelte";
   import TemplatePreview from "./TemplatePreview.svelte";
-  import { workspace as app } from "../workspace.svelte.js";
+  import {
+    workspace as app,
+    createWorkspaceWorkScope,
+  } from "../workspace.svelte.js";
   import GraphqlEditor from "./GraphqlEditor.svelte";
   import OAuthEditor from "./OAuthEditor.svelte";
   import OAuth1Editor from "./OAuth1Editor.svelte";
@@ -13,11 +18,17 @@
   import KeyValueEditor from "./KeyValueEditor.svelte";
   import Icon from "./Icon.svelte";
   import WebSocketMessageEditor from "./WebSocketMessageEditor.svelte";
-  import { readUpload } from "../uploads.js";
+  import { readCurrentBodyUpload } from "../uploads.js";
   /** @type {{ request: Record<string, any>, onchange: (patch: Record<string, any>) => void }} */
   let { request, onchange } = $props();
   let tab = $state("Body");
   let error = $state("");
+  const fileWork = createWorkspaceWorkScope();
+  let fileSelection = 0;
+  onDestroy(() => {
+    fileSelection++;
+    fileWork.dispose();
+  });
   let formatting = $state(false);
   let cancelFormat = () => {};
   const xmlBody = $derived(
@@ -68,9 +79,11 @@
     const source = String(request.body?.text || "");
     const mime = request.body?.mimeType;
     let active = true;
+    /** @type {import("../workspace.svelte.js").ScopedWorkspaceWork|undefined} */ let work;
     /** @type {Worker | undefined} */ let worker;
     /** @type {ReturnType<typeof setTimeout> | undefined} */ let timer;
     const current = () =>
+      (!work || work.current()) &&
       request._id === requestId &&
       String(request.body?.text || "") === source &&
       request.body?.mimeType === mime &&
@@ -79,6 +92,8 @@
       active = false;
       clearTimeout(timer);
       worker?.terminate();
+      work?.signal.removeEventListener("abort", cancelFormat);
+      work?.finish();
       formatting = false;
     };
     const fail = (/** @type {string} */ message) => {
@@ -90,6 +105,8 @@
     formatting = true;
     error = "";
     try {
+      work = fileWork.begin();
+      work.signal.addEventListener("abort", cancelFormat, { once: true });
       worker = new Worker(new URL("../xml-format.worker.js", import.meta.url), {
         type: "module",
       });
@@ -148,6 +165,17 @@
         onchange={(event) =>
           body({
             mimeType: event.currentTarget.value,
+            ...(request.body?.curlFileMode || request.body?.curlSegments
+              ? {
+                  curlFileMode: undefined,
+                  curlSegments: undefined,
+                  curlJoin: undefined,
+                  curlQuery: undefined,
+                  curlFilePrefix: undefined,
+                  base64: undefined,
+                  fileName: undefined,
+                }
+              : {}),
             ...(event.currentTarget.value === "application/graphql"
               ? { text: JSON.stringify({ query: "", variables: "{}" }) }
               : {}),
@@ -183,25 +211,65 @@
         files={request.body.mimeType === "multipart/form-data"}
         onchange={(params) => body({ params })}
       />
-    {:else if request.body.mimeType === "application/octet-stream"}<label
-        class="binary-picker"
-        ><Icon name="upload" />{request.body.fileName ||
-          "Select a file to send"}<input
-          type="file"
-          onchange={async (event) => {
-            const file = event.currentTarget.files?.[0];
-            if (file) {
-              try {
-                const upload = await readUpload(file);
-                body(upload);
-                error = "";
-              } catch (e) {
-                error = String(e);
+    {:else if request.body.mimeType === "application/octet-stream"}
+      {#if request.body.curlSegments}
+        {#key request._id}<CurlBodyEditor {request} onchange={body} />{/key}
+      {:else}
+        {#if request.body.curlFileMode}<p class="hint">
+            Select the file referenced by the imported command. {[
+              "data",
+              "data-ascii",
+            ].includes(request.body.curlFileMode)
+              ? "CR, LF and NUL bytes are removed."
+              : request.body.curlFileMode === "data-urlencode"
+                ? "File bytes are URL-encoded."
+                : "File bytes are preserved."}
+          </p>{/if}
+        <label class="binary-picker"
+          ><Icon name="upload" />{request.body.fileName ||
+            "Select a file to send"}<input
+            type="file"
+            onchange={async (event) => {
+              const file = event.currentTarget.files?.[0];
+              if (file) {
+                const requestId = request._id;
+                const originalBody = request.body;
+                const selection = ++fileSelection;
+                /** @type {import("../workspace.svelte.js").ScopedWorkspaceWork|undefined} */ let work;
+                const current = () =>
+                  selection === fileSelection && (!work || work.current());
+                try {
+                  work = fileWork.begin();
+                  const upload = await readCurrentBodyUpload(
+                    requestId,
+                    originalBody,
+                    () => request,
+                    current,
+                    file,
+                  );
+                  if (
+                    !current() ||
+                    request._id !== requestId ||
+                    request.body !== originalBody
+                  )
+                    return;
+                  body(upload);
+                  error = "";
+                } catch (e) {
+                  if (
+                    current() &&
+                    request._id === requestId &&
+                    request.body === originalBody
+                  )
+                    error = String(e);
+                } finally {
+                  work?.finish();
+                }
               }
-            }
-          }}
-        /></label
-      >
+            }}
+          /></label
+        >
+      {/if}
     {:else}<CodeEditor
         identity={request._id + ":body"}
         value={request.body.text || ""}
@@ -461,6 +529,14 @@
             >I have corrected these request fields</button
           >
         </div>{/if}
+      <label class="checkbox-label"
+        ><input
+          type="checkbox"
+          checked={request.settingEncodeUrl ?? !request._curlSource}
+          onchange={(event) =>
+            onchange({ settingEncodeUrl: event.currentTarget.checked })}
+        /> Automatically encode URL</label
+      >
       <label
         >Redirects<select
           value={request.settingFollowRedirects || "global"}

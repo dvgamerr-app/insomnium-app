@@ -1,7 +1,9 @@
 <script>
+  import { onDestroy } from "svelte";
   import Icon from "./Icon.svelte";
   import {
     workspace as app,
+    createWorkspaceWorkScope,
     update,
     addGrpcProtos,
     replaceGrpcProtos,
@@ -17,6 +19,10 @@
   } from "../proto-management.js";
   import { workspaceFor } from "../model.js";
   /** @type {{request:Record<string,any>}} */ let { request } = $props();
+  const fileWork = createWorkspaceWorkScope();
+  onDestroy(fileWork.dispose);
+  /** @type {typeof app.data|null} */ let pendingData = null;
+  let pendingRequest = "";
   let error = $state(""),
     notice = $state(""),
     targetId = $state(""),
@@ -50,6 +56,8 @@
     }
   });
   function discard() {
+    fileWork.cancel();
+    pendingData = null;
     epoch++;
     pending = [];
     targetId = "";
@@ -63,12 +71,16 @@
   ) {
     const input = /** @type {HTMLInputElement} */ (event.currentTarget),
       version = ++epoch;
+    fileWork.cancel();
+    const selectedRequest = request._id;
+    /** @type {import("../workspace.svelte.js").ScopedWorkspaceWork|undefined} */ let work;
     reading = true;
     error = "";
     notice = "";
     pending = [];
     targetId = selectedId;
     try {
+      work = fileWork.begin();
       const selected = [...(input.files || [])].filter((f) =>
         f.name.endsWith(".proto"),
       );
@@ -93,12 +105,23 @@
             );
           name = name.slice(name.indexOf("/") + 1);
         }
+        work.signal.throwIfAborted();
         result.push({ name, text: await f.text() });
+        work.signal.throwIfAborted();
       }
-      if (version === epoch) pending = result;
+      if (
+        version === epoch &&
+        work.current() &&
+        request._id === selectedRequest
+      ) {
+        pending = result;
+        pendingData = app.data;
+        pendingRequest = selectedRequest;
+      }
     } catch (e) {
-      if (version === epoch) error = String(e);
+      if (version === epoch && (!work || work.current())) error = String(e);
     } finally {
+      work?.finish();
       input.value = "";
       if (version === epoch) reading = false;
     }
@@ -107,6 +130,10 @@
     error = "";
     notice = "";
     try {
+      if (pendingData !== app.data || pendingRequest !== request._id)
+        throw new Error(
+          "Workspace or request changed. Select the proto files again.",
+        );
       if (targetId) {
         const result = await replaceGrpcProtos(
           request._id,
@@ -304,6 +331,7 @@
 
 <style>
   .proto-tree {
+    flex-shrink: 0;
     list-style: none;
     margin: 0;
     padding: 0;

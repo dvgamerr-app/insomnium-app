@@ -6,8 +6,11 @@
 </script>
 
 <details class="new-request-menu" bind:this={menu}>
-  <summary class="icon-button" title="New request" aria-label="New request"
-    ><Icon name="plus" size={18} /></summary
+  <summary
+    class="new-request-trigger"
+    title="New request"
+    aria-label="New request"
+    ><Icon name="plus" size={16} /><span>New</span></summary
   >
   <div class="request-menu-options">
     {#each [["http", "HTTP Request"], ["websocket", "WebSocket Request"], ["sse", "Event Stream (SSE)"], ["grpc", "gRPC Request"]] as [protocol, label]}

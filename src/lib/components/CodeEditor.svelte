@@ -376,7 +376,7 @@
     white-space: pre-wrap;
   }
   :global(.graphql-editor-info a) {
-    color: var(--purple);
+    color: var(--accent-text);
     cursor: pointer;
   }
   :global(.graphql-editor-info .type-name-pill) {
@@ -386,16 +386,27 @@
   :global(.graphql-editor-info .info-deprecation) {
     margin-top: 8px;
   }
-  :global(.CodeMirror-hints) {
+  :global(body .CodeMirror-lint-tooltip) {
+    background: var(--raised);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    font: 12px/1.6 var(--font-mono);
+    padding: 8px 12px;
+    box-shadow: 0 4px 18px #0005;
+    max-width: min(600px, calc(100vw - 24px));
+  }
+  :global(body .CodeMirror-hints) {
+    font-family: var(--font-mono);
     background: var(--raised);
     border-color: var(--line);
     color: var(--text);
     max-width: 480px;
   }
-  :global(.CodeMirror-hint) {
+  :global(body .CodeMirror-hint) {
     color: var(--text);
   }
-  :global(li.CodeMirror-hint-active) {
+  :global(body li.CodeMirror-hint-active) {
     background: var(--selected);
     color: var(--text);
   }
@@ -411,16 +422,14 @@
     height: 100%;
     min-height: 180px;
     resize: vertical;
-    font-family: monospace;
+    font-family: var(--font-mono);
   }
   .shared-code-editor :global(.CodeMirror) {
     height: 100%;
     min-height: 180px;
     background: var(--bg);
     color: var(--text);
-    font:
-      13px/1.5 Consolas,
-      monospace;
+    font: 12px/1.6 var(--font-mono);
   }
   .shared-code-editor :global(.CodeMirror-gutters) {
     background: var(--bg);
@@ -439,22 +448,53 @@
   .shared-code-editor :global(.CodeMirror-activeline-background) {
     background: var(--hover);
   }
-  .shared-code-editor :global(.cm-string) {
-    color: var(--code);
+  .shared-code-editor :global(.cm-string),
+  .shared-code-editor :global(.cm-string-2),
+  .shared-code-editor :global(.cm-variable),
+  .shared-code-editor :global(.cm-variable-2) {
+    color: var(--syntax-variable);
   }
   .shared-code-editor :global(.cm-property),
-  .shared-code-editor :global(.cm-tag) {
-    color: var(--purple);
+  .shared-code-editor :global(.cm-tag),
+  .shared-code-editor :global(.cm-def),
+  .shared-code-editor :global(.cm-attribute) {
+    color: var(--syntax-name);
   }
   .shared-code-editor :global(.cm-number),
   .shared-code-editor :global(.cm-atom) {
-    color: var(--green);
+    color: var(--syntax-constant);
   }
   .shared-code-editor :global(.cm-keyword) {
-    color: var(--purple);
+    color: var(--syntax-keyword);
   }
-  .shared-code-editor :global(.cm-comment) {
-    color: var(--muted);
+  .shared-code-editor :global(.cm-comment),
+  .shared-code-editor :global(.cm-meta),
+  .shared-code-editor :global(.cm-bracket),
+  .shared-code-editor :global(.cm-qualifier) {
+    color: var(--syntax-meta);
+  }
+  .shared-code-editor :global(.cm-operator) {
+    color: var(--syntax-operator);
+  }
+  .shared-code-editor :global(.cm-type),
+  .shared-code-editor :global(.cm-variable-3) {
+    color: var(--syntax-type);
+  }
+  .shared-code-editor :global(.cm-builtin) {
+    color: var(--syntax-process);
+  }
+  .shared-code-editor :global(.cm-link),
+  .shared-code-editor :global(.cm-header) {
+    color: var(--syntax-link);
+  }
+  .shared-code-editor :global(.cm-error),
+  .shared-code-editor :global(.CodeMirror-nonmatchingbracket) {
+    color: var(--danger);
+  }
+  .shared-code-editor :global(.CodeMirror-matchingbracket) {
+    color: var(--text);
+    background: var(--selected);
+    text-decoration: underline;
   }
   .shared-code-editor :global(.CodeMirror-dialog) {
     background: var(--panel);

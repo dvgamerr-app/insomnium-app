@@ -1,4 +1,5 @@
 <script>
+  import SplitPane from "./ui/SplitPane.svelte";
   import { jsonPrettify } from "../json-prettify.js";
   import { environmentFor } from "../model.js";
   import CodeEditor from "./CodeEditor.svelte";
@@ -126,15 +127,17 @@
     void executeGrpc(request._id);
   }}
 >
-  <span class="protocol-label">gRPC</span>
-  <input
-    class="url-input"
-    aria-label="gRPC server URL"
-    placeholder="grpc://localhost:50051"
-    value={request.url}
-    spellcheck="false"
-    oninput={(e) => update(request._id, { url: e.currentTarget.value })}
-  />
+  <div class="request-url-fields">
+    <span class="protocol-label">gRPC</span>
+    <input
+      class="url-input"
+      aria-label="gRPC server URL"
+      placeholder="grpc://localhost:50051"
+      value={request.url}
+      spellcheck="false"
+      oninput={(e) => update(request._id, { url: e.currentTarget.value })}
+    />
+  </div>
   {#if running}<button
       type="button"
       class="send-button"
@@ -214,212 +217,233 @@
 {#if error || app.grpcErrors[request._id]}<p class="inline-error">
     {error || app.grpcErrors[request._id]}
   </p>{/if}
-<div class="request-compose">
-  <div class="editor-tabs" role="tablist" aria-label="gRPC request editor">
-    {#each ["Body", "Metadata", "Proto Files", "Docs", "Settings"] as name}<button
-        role="tab"
-        aria-selected={tab === name}
-        class:active={tab === name}
-        onclick={() => (tab = name)}>{name}</button
-      >{/each}
-  </div>
-  <section class="request-editor" aria-label={`${tab} editor`}>
-    {#if tab === "Body"}
-      <div class="editor-toolbar">
-        <span>JSON message</span><span class="spacer"></span><button
+<SplitPane
+  storageKey="grpc-response"
+  label="gRPC request and response size"
+  axis="y"
+  initial={45}
+  minFirst={140}
+  minSecond={120}
+>
+  {#snippet first()}<div class="request-compose">
+      <div class="editor-tabs" role="tablist" aria-label="gRPC request editor">
+        {#each ["Body", "Metadata", "Proto Files", "Docs", "Settings"] as name}<button
+            role="tab"
+            aria-selected={tab === name}
+            class:active={tab === name}
+            onclick={() => (tab = name)}>{name}</button
+          >{/each}
+      </div>
+      <section class="request-editor" aria-label={`${tab} editor`}>
+        {#if tab === "Body"}
+          <div class="editor-toolbar">
+            <span>JSON message</span><span class="spacer"></span><button
+              class="text-button"
+              disabled={!!selectedSent}
+              onclick={() => {
+                try {
+                  body(jsonPrettify(request.body?.text || "{}", "  "));
+                  error = "";
+                } catch (e) {
+                  error = String(e);
+                }
+              }}>Format</button
+            >
+            <button
+              class="text-button"
+              disabled={!!selectedSent || !method || !!method.exampleError}
+              onclick={() => body(pretty(method.example))}>Use example</button
+            >
+            {#if run?.method?.clientStreaming}<button
+                class="primary-button"
+                disabled={run.phase !== "open" ||
+                  run.sending ||
+                  run.senderClosed}
+                onclick={() => sendGrpc(request._id)}>Send message</button
+              ><button
+                disabled={run.phase !== "open" ||
+                  run.sending ||
+                  run.senderClosed}
+                onclick={() => sendGrpc(request._id, true)}
+                >{run.senderClosed ? "Committed" : "Commit"}</button
+              >{/if}
+          </div>
+          {#if sent.length}
+            <div
+              class="editor-tabs"
+              role="tablist"
+              aria-label="gRPC sent messages"
+            >
+              <button
+                role="tab"
+                aria-selected={!selectedSent}
+                class:active={!selectedSent}
+                onclick={() => (selectedSentId = "")}>Body</button
+              >
+              {#each sent as message, i (message._id)}
+                <button
+                  role="tab"
+                  aria-selected={selectedSent?._id === message._id}
+                  class:active={selectedSent?._id === message._id}
+                  title={`Sent at ${new Date(message.created).toLocaleString()}`}
+                  onclick={() => (selectedSentId = message._id)}
+                  >Stream {i + 1}</button
+                >
+              {/each}
+            </div>
+          {/if}
+          {#if method?.exampleError}<p class="inline-error">
+              Example unavailable: {method.exampleError}
+            </p>{/if}
+          {#if selectedSent}
+            <div class="grpc-message-time">
+              Sent at {new Date(selectedSent.created).toLocaleString()} · Read only
+            </div>
+            <pre class="grpc-message">{pretty(selectedSent.text)}</pre>
+          {:else}<CodeEditor
+              identity={request._id + ":grpc-body"}
+              value={request.body?.text || ""}
+              mode="application/json"
+              label="gRPC JSON message"
+              settings={app.data.settings}
+              environment={environmentFor(
+                app.data.resources,
+                request,
+                app.data.activeEnvironmentId,
+              )}
+              onchange={body}
+            />{/if}
+        {:else if tab === "Metadata"}<KeyValueEditor
+            rows={request.metadata || []}
+            label="Metadata"
+            onchange={(metadata) => update(request._id, { metadata })}
+          />
+          <p class="grpc-hint">
+            Use base64 values for metadata names ending in -bin.
+          </p>
+        {:else if tab === "Proto Files"}
+          <ProtoManager {request} />
+        {:else if tab === "Docs"}<textarea
+            class="code-editor grpc-body"
+            aria-label="gRPC documentation"
+            value={request.description || ""}
+            oninput={(e) =>
+              update(request._id, { description: e.currentTarget.value })}
+          ></textarea>
+        {:else}<label class="grpc-hint"
+            >Message JSON format <select
+              disabled={running}
+              value={request.grpcJsonMode || "legacy"}
+              onchange={(e) =>
+                update(request._id, { grpcJsonMode: e.currentTarget.value })}
+              ><option value="legacy">Insomnium legacy</option><option
+                value="protoJson">Standard ProtoJSON</option
+              ></select
+            ></label
+          >
+          <p class="grpc-hint">
+            Legacy keeps the original object fields, defaults and oneof names.
+            ProtoJSON uses standard timestamp strings and base64 bytes. Changing
+            format does not rewrite the body.
+          </p>
+          <p class="grpc-hint">
+            grpcs:// validates server certificates. Global custom CA and
+            matching-host client identity apply. HTTP proxy, cookie and HTTP
+            auth settings do not apply; use metadata for authentication.
+          </p>
+        {/if}
+      </section>
+    </div>
+  {/snippet}{#snippet second()}
+    <section class="response-pane grpc-response" aria-label="gRPC response">
+      <div class="response-status">
+        <span
+          class="status-badge"
+          class:failure={response?.status !== 0 && response?.status != null}
+          >{response?.status != null
+            ? `${response.status} ${response.status === 0 ? "OK" : response.statusText || "Error"}`
+            : running
+              ? "Running"
+              : response?.connectionState || "Ready"}</span
+        >{#if response?.elapsedMs != null}<span class="metric"
+            >{response.elapsedMs} <small>ms</small></span
+          >{/if}<span class="spacer"></span>
+        <select
+          class="history-select"
+          aria-label="gRPC response history"
+          disabled={running}
+          value={response?._id || ""}
+          onchange={(e) => {
+            const saved = history.find((h) => h._id === e.currentTarget.value);
+            if (saved) app.responses[request._id] = saved;
+          }}
+          ><option value="">History</option>{#each history as h}<option
+              value={h._id}>{new Date(h.created).toLocaleString()}</option
+            >{/each}</select
+        ><button
           class="text-button"
-          disabled={!!selectedSent}
-          onclick={() => {
-            try {
-              body(jsonPrettify(request.body?.text || "{}", "  "));
-              error = "";
-            } catch (e) {
-              error = String(e);
-            }
-          }}>Format</button
+          disabled={!response}
+          onclick={exportResponse}>Save response</button
         >
-        <button
-          class="text-button"
-          disabled={!!selectedSent || !method || !!method.exampleError}
-          onclick={() => body(pretty(method.example))}>Use example</button
-        >
-        {#if run?.method?.clientStreaming}<button
-            class="primary-button"
-            disabled={run.phase !== "open" || run.sending || run.senderClosed}
-            onclick={() => sendGrpc(request._id)}>Send message</button
-          ><button
-            disabled={run.phase !== "open" || run.sending || run.senderClosed}
-            onclick={() => sendGrpc(request._id, true)}
-            >{run.senderClosed ? "Committed" : "Commit"}</button
+      </div>
+      <div class="editor-tabs" role="tablist" aria-label="gRPC response tabs">
+        {#each ["Response", "Sent", "Metadata", "Trailers"] as name}<button
+            role="tab"
+            aria-selected={responseTab === name}
+            class:active={responseTab === name}
+            onclick={() => (responseTab = name)}>{name}</button
+          >{/each}<span class="spacer"
+        ></span>{#if response?.serverStreaming}<label class="grpc-hint"
+            ><input type="checkbox" bind:checked={follow} /> Auto-scroll</label
           >{/if}
       </div>
-      {#if sent.length}
-        <div class="editor-tabs" role="tablist" aria-label="gRPC sent messages">
-          <button
-            role="tab"
-            aria-selected={!selectedSent}
-            class:active={!selectedSent}
-            onclick={() => (selectedSentId = "")}>Body</button
-          >
-          {#each sent as message, i (message._id)}
-            <button
-              role="tab"
-              aria-selected={selectedSent?._id === message._id}
-              class:active={selectedSent?._id === message._id}
-              title={`Sent at ${new Date(message.created).toLocaleString()}`}
-              onclick={() => (selectedSentId = message._id)}
-              >Stream {i + 1}</button
-            >
-          {/each}
-        </div>
-      {/if}
-      {#if method?.exampleError}<p class="inline-error">
-          Example unavailable: {method.exampleError}
+      {#if response?.dropped}<p class="grpc-hint">
+          {response.dropped} older events were removed from the bounded response log.
         </p>{/if}
-      {#if selectedSent}
-        <div class="grpc-message-time">
-          Sent at {new Date(selectedSent.created).toLocaleString()} · Read only
-        </div>
-        <pre class="grpc-message">{pretty(selectedSent.text)}</pre>
-      {:else}<CodeEditor
-          identity={request._id + ":grpc-body"}
-          value={request.body?.text || ""}
-          mode="application/json"
-          label="gRPC JSON message"
-          settings={app.data.settings}
-          environment={environmentFor(
-            app.data.resources,
-            request,
-            app.data.activeEnvironmentId,
-          )}
-          onchange={body}
-        />{/if}
-    {:else if tab === "Metadata"}<KeyValueEditor
-        rows={request.metadata || []}
-        label="Metadata"
-        onchange={(metadata) => update(request._id, { metadata })}
-      />
-      <p class="grpc-hint">
-        Use base64 values for metadata names ending in -bin.
-      </p>
-    {:else if tab === "Proto Files"}
-      <ProtoManager {request} />
-    {:else if tab === "Docs"}<textarea
-        class="code-editor grpc-body"
-        aria-label="gRPC documentation"
-        value={request.description || ""}
-        oninput={(e) =>
-          update(request._id, { description: e.currentTarget.value })}
-      ></textarea>
-    {:else}<label class="grpc-hint"
-        >Message JSON format <select
-          disabled={running}
-          value={request.grpcJsonMode || "legacy"}
-          onchange={(e) =>
-            update(request._id, { grpcJsonMode: e.currentTarget.value })}
-          ><option value="legacy">Insomnium legacy</option><option
-            value="protoJson">Standard ProtoJSON</option
-          ></select
-        ></label
-      >
-      <p class="grpc-hint">
-        Legacy keeps the original object fields, defaults and oneof names.
-        ProtoJSON uses standard timestamp strings and base64 bytes. Changing
-        format does not rewrite the body.
-      </p>
-      <p class="grpc-hint">
-        grpcs:// validates server certificates. Global custom CA and
-        matching-host client identity apply. HTTP proxy, cookie and HTTP auth
-        settings do not apply; use metadata for authentication.
-      </p>
-    {/if}
-  </section>
-</div>
-<section class="response-pane grpc-response" aria-label="gRPC response">
-  <div class="response-status">
-    <span
-      class="status-badge"
-      class:failure={response?.status !== 0 && response?.status != null}
-      >{response?.status != null
-        ? `${response.status} ${response.status === 0 ? "OK" : response.statusText || "Error"}`
-        : running
-          ? "Running"
-          : response?.connectionState || "Ready"}</span
-    >{#if response?.elapsedMs != null}<span class="metric"
-        >{response.elapsedMs} <small>ms</small></span
-      >{/if}<span class="spacer"></span>
-    <select
-      class="history-select"
-      aria-label="gRPC response history"
-      disabled={running}
-      value={response?._id || ""}
-      onchange={(e) => {
-        const saved = history.find((h) => h._id === e.currentTarget.value);
-        if (saved) app.responses[request._id] = saved;
-      }}
-      ><option value="">History</option>{#each history as h}<option
-          value={h._id}>{new Date(h.created).toLocaleString()}</option
-        >{/each}</select
-    ><button class="text-button" disabled={!response} onclick={exportResponse}
-      >Save response</button
-    >
-  </div>
-  <div class="editor-tabs" role="tablist" aria-label="gRPC response tabs">
-    {#each ["Response", "Sent", "Metadata", "Trailers"] as name}<button
-        role="tab"
-        aria-selected={responseTab === name}
-        class:active={responseTab === name}
-        onclick={() => (responseTab = name)}>{name}</button
-      >{/each}<span class="spacer"></span>{#if response?.serverStreaming}<label
-        class="grpc-hint"
-        ><input type="checkbox" bind:checked={follow} /> Auto-scroll</label
-      >{/if}
-  </div>
-  {#if response?.dropped}<p class="grpc-hint">
-      {response.dropped} older events were removed from the bounded response log.
-    </p>{/if}
-  <div class="grpc-log" bind:this={log}>
-    {#if responseTab === "Response"}
-      {#if !messages.length}<p class="grpc-hint">
-          {running
-            ? "Waiting for a response…"
-            : "Send a request to see the response."}
-        </p>
-      {:else if response?.serverStreaming}{#each messages as message (message._id)}<div
-            class="grpc-message-time"
+      <div class="grpc-log" bind:this={log}>
+        {#if responseTab === "Response"}
+          {#if !messages.length}<p class="grpc-hint">
+              {running
+                ? "Waiting for a response…"
+                : "Send a request to see the response."}
+            </p>
+          {:else if response?.serverStreaming}{#each messages as message (message._id)}<div
+                class="grpc-message-time"
+              >
+                Received at {new Date(message.created).toLocaleTimeString()}
+              </div>
+              <pre class="grpc-message">{pretty(message.text)}</pre>{/each}
+          {:else}<div class="editor-tabs">
+              {#each messages as message, i}<button
+                  class:active={selectedMessage === i}
+                  onclick={() => (selectedMessage = i)}>Response {i + 1}</button
+                >{/each}
+            </div>
+            <pre class="grpc-message">{pretty(
+                (messages[selectedMessage] || messages[0]).text,
+              )}</pre>{/if}
+        {:else if responseTab === "Sent"}{#each sent as message (message._id)}<div
+              class="grpc-message-time"
+            >
+              Sent at {new Date(message.created).toLocaleTimeString()}
+            </div>
+            <pre class="grpc-message">{pretty(message.text)}</pre>{/each}
+        {:else}<table class="grpc-metadata">
+            <tbody
+              >{#each (responseTab === "Metadata" ? response?.headers : response?.trailers) || [] as [name, value]}<tr
+                  ><th>{name}</th><td>{value}</td></tr
+                >{/each}</tbody
+            >
+          </table>{/if}
+        {#each (response?.events || []).filter((/** @type {Record<string,any>} */ e) => e.kind === "error") as event}<p
+            class="inline-error"
           >
-            Received at {new Date(message.created).toLocaleTimeString()}
-          </div>
-          <pre class="grpc-message">{pretty(message.text)}</pre>{/each}
-      {:else}<div class="editor-tabs">
-          {#each messages as message, i}<button
-              class:active={selectedMessage === i}
-              onclick={() => (selectedMessage = i)}>Response {i + 1}</button
-            >{/each}
-        </div>
-        <pre class="grpc-message">{pretty(
-            (messages[selectedMessage] || messages[0]).text,
-          )}</pre>{/if}
-    {:else if responseTab === "Sent"}{#each sent as message (message._id)}<div
-          class="grpc-message-time"
-        >
-          Sent at {new Date(message.created).toLocaleTimeString()}
-        </div>
-        <pre class="grpc-message">{pretty(message.text)}</pre>{/each}
-    {:else}<table class="grpc-metadata">
-        <tbody
-          >{#each (responseTab === "Metadata" ? response?.headers : response?.trailers) || [] as [name, value]}<tr
-              ><th>{name}</th><td>{value}</td></tr
-            >{/each}</tbody
-        >
-      </table>{/if}
-    {#each (response?.events || []).filter((/** @type {Record<string,any>} */ e) => e.kind === "error") as event}<p
-        class="inline-error"
-      >
-        {event.message}
-      </p>{/each}
-  </div>
-</section>
+            {event.message}
+          </p>{/each}
+      </div>
+    </section>
+  {/snippet}</SplitPane
+>
 
 <style>
   .grpc-methods {

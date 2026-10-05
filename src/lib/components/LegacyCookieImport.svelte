@@ -1,9 +1,12 @@
 <script>
+  import { onDestroy } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
-  import { workspace } from "../workspace.svelte.js";
+  import { workspace, createWorkspaceWorkScope } from "../workspace.svelte.js";
   import { legacyCookiePlan } from "../legacy-cookies.js";
   /** @type {{ workspaceId: string, onimported: () => Promise<void>, disabled?: boolean }} */
   let { workspaceId, onimported, disabled = false } = $props();
+  const workScope = createWorkspaceWorkScope();
+  onDestroy(workScope.dispose);
   let plan = $derived(legacyCookiePlan(workspace.data.resources, workspaceId));
   let busy = $state(false),
     overwrite = $state(false),
@@ -15,16 +18,21 @@
     JSON.stringify({ workspaceId, cookies: plan.entries, overwrite }),
   );
   async function restore(/** @type {boolean} */ preview) {
-    if (!preview && reviewed !== input) return;
+    if (busy || disabled || (!preview && reviewed !== input)) return;
+    /** @type {import("../workspace.svelte.js").ScopedWorkspaceWork|undefined} */ let work;
     busy = true;
     error = "";
     notice = "";
     const snapshot = input;
+    reviewed = "";
     try {
-      report = await invoke("import_legacy_cookies", {
+      work = workScope.begin();
+      const result = await invoke("import_legacy_cookies", {
         ...JSON.parse(snapshot),
         preview,
       });
+      if (!work.current() || input !== snapshot) return;
+      report = result;
       if (preview) reviewed = snapshot;
       else {
         reviewed = "";
@@ -32,9 +40,10 @@
         await onimported();
       }
     } catch (e) {
-      error = String(e);
+      if (!work || work.current()) error = String(e);
       reviewed = "";
     } finally {
+      work?.finish();
       busy = false;
     }
   }

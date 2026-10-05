@@ -1,0 +1,42 @@
+# Nocturne theme — completion audit
+
+Current theme name: **Nocturne Dark / Nocturne Light**. October5 owner follow-up removes the reference brand from theme naming. Current checks run with `bun run test:ui:theme` (`tests/ui/nocturne-theme.js`); current preview evidence is in `artifacts/playwright/nocturne-theme/`. CSS cleanup removes unused legacy blocks and duplicate control overrides, with one shared URL focus ring and single pane/control dividers. Historical evidence below retains its original paths.
+
+Owner objective: ปรับ design theme ทั้งหมด ให้ลอกจาก https://hoppscotch.io/
+
+The explicit October5 objective authorizes this theme phase now. Original migration parity and deferred reusable input/workflow work remain separately tracked. Preserve Insomnium identity and existing feature/data behavior while matching the reference's visual system. No browser-use tools; all captured UI evidence uses saved Bun/Playwright scenarios.
+
+## Reference
+
+- Live https://hoppscotch.io/ captured anonymously by `bun tests/ui/nocturne-reference.js`, in dark/light system preferences at1440×960. Script waits for full pane opacity; screenshots and computed font/background/accent are in `artifacts/playwright/hoppscotch-reference/`.
+- Live accent observed October5: `#6366f1` in both themes. Earlier green-mixin assumption is superseded. Dark background `#181818`, light `#fff`, Inter Variable. Keep HTTP method/success colors independent of accent.
+- Official upstream implementation: [base themes](https://github.com/hoppscotch/hoppscotch/blob/main/packages/hoppscotch-common/assets/themes/base-themes.scss), [accent themes](https://github.com/hoppscotch/hoppscotch/blob/main/packages/hoppscotch-common/assets/themes/accent-themes.scss), [editor themes](https://github.com/hoppscotch/hoppscotch/blob/main/packages/hoppscotch-common/assets/themes/editor-themes.scss), [header](https://github.com/hoppscotch/hoppscotch/blob/main/packages/hoppscotch-common/src/components/app/Header.vue), [navigation](https://github.com/hoppscotch/hoppscotch/blob/main/packages/hoppscotch-common/src/components/app/Sidenav.vue), [pane layout](https://github.com/hoppscotch/hoppscotch/blob/main/packages/hoppscotch-common/src/components/app/PaneLayout.vue), [request controls](https://github.com/hoppscotch/hoppscotch/blob/main/packages/hoppscotch-common/src/components/http/Request.vue).
+- Fonts: [Fontsource installation](https://fontsource.org/docs/getting-started/install), [MDN font-face](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/At-rules/@font-face). Installed with `bun add @fontsource-variable/inter @fontsource-variable/roboto-mono`; Vite bundles normal variable fonts locally. OFL notices in `static/licenses/`.
+
+## Current coverage
+
+| Requirement | Authoritative evidence | Remaining work |
+| --- | --- | --- |
+| Dark/light palette, typography, semantic colors | Central CSS; bundled fonts; UI asserts loaded Inter, mono family, body/Send/method/error/tooltip/completion colors; source audit finds no component-specific literal palette colors; final native completion-popup checks pass | Verified |
+| Reference shell/layout | Right-pane bounding boxes and toolbar hit-tests at1440/900/760; compact collection chrome, environment in request toolbar; populated narrow design/runner/stream screenshots; direct reference/current screenshot comparison | Verified for theme scope |
+| HTTP editor and response | Six tabs; eleven auth modes at1440/900; JSON/GraphQL/text/XML/form/multipart/binary; tooltip/completion; response200/four tabs/loading/failure; populated/disabled query/header rows and actual Tab focus outline | Verified |
+| WS/SSE/gRPC | Both-theme idle screens; native proto source/confirmation; live native WS/SSE events/headers/disconnect/error and gRPC response/sent/metadata/trailers/error at1440/900/760 | Verified for rendering/theme; see transport caveat below |
+| Dialogs/settings | Preferences (keyboard-opened Editor/Certificates), Environment, Import (invalid and review), Cookies, Manage/New collection; native cookie/proto confirmation and Git recovery; runner deletion confirmation | Verified for existing dialog styles |
+| Design/runner | Populated views, narrow overflow checks; real API validation/Operations/Schemas/Diagnostics; real runner pass/fail/details/confirmation screenshots in both themes | Verified |
+| Native-only UI | Fresh isolated release includes final CSS; native scenario passes Git/remote/diff, cookie edit/confirm, proto source/confirm, recovery, loaded fonts and completion-popup colors | Verified |
+| Regression/tooling | `bun run check`0/0, `bun run build`, `bun run test:ui:theme`, three saved native theme scenarios pass | Verified |
+
+Screenshots in `artifacts/playwright/hoppscotch-theme/` are named by theme/surface. `result.json` records the latest run; the helper records failure status and a failure screenshot if assertions fail. Preview requests use an in-process Playwright route; no external API is called. This proves rendering of the response fixture, not native transport correctness.
+
+## Final evidence — 2026-10-05
+
+- Final embedded-frontend build: `artifacts/native-hoppscotch-theme-probe/build-state.json`, exit0, release build5m46s. Isolated identifier only; the executable is a test probe, not a production distribution.
+- Native controls/font/popups/Git/cookies/proto/recovery: `artifacts/playwright/hoppscotch-native-theme-1791181270578/acceptance.json` and `result.json`, passed with app exit0.
+- Native WS/SSE: `artifacts/playwright/hoppscotch-stream-theme-1791181509200/acceptance.json` and `result.json`.
+- Native gRPC: `artifacts/playwright/hoppscotch-grpc-theme-1791181488890/acceptance.json` and `result.json`. Inspected light760 populated response; fixture sends a complete protobuf message and terminal status/trailers. It responds when a full input message arrives, rather than waiting for request stream closure.
+- Static preview: `artifacts/playwright/hoppscotch-theme/result.json`, both themes; screenshot names identify every tested surface. Inspected shell alongside reference, syntax tooltip, runner assertion details, populated narrow design/tests and native stream/proto/recovery/completion surfaces.
+- Source audit: components use central palette/font tokens. Remaining literal white action-label and black translucent backdrop/shadow values are intentional neutral treatments. No old component-specific accent palette remains.
+
+The theme objective is complete across the existing application surfaces. Insomnium identity and its existing feature set remain; this is a visual-system adaptation of Hoppscotch, not an implementation of Hoppscotch's cloud/login features. The separate full migration and deferred reusable-input/workflow phase remain open.
+
+Transport caveat discovered during visual verification: native gRPC can display `gRPC call cancelled.` after receiving a valid `0 OK` response. The scenario proves rendering of messages/metadata/trailers/error styles, not transport lifecycle parity. Track that existing completion/cancellation behavior in the migration status; it is not a theme acceptance claim.

@@ -261,13 +261,13 @@
         <h3>Could not send request</h3>
         <pre>{response.error}</pre>
       </div>
-    {:else if !response}<div class="empty-response">
-        <div class="empty-response-icon"><Icon name="send" size={34} /></div>
-        <h2>Ready when you are</h2>
-        <p>Enter a URL and send your first request.</p>
-        <div class="keyboard-hint">
-          <kbd>Ctrl</kbd><span> + </span><kbd>Enter</kbd>
-        </div>
+    {:else if !response}<div class="empty-response request-shortcuts">
+        <p>Send a request to see the response.</p>
+        {#each [["Send request", "Enter"], ["New request", "N"], ["Find request", "P"], ["Save workspace", "S"]] as [label, key]}
+          <div class="shortcut-row">
+            <span>{label}</span><span><kbd>Ctrl</kbd><kbd>{key}</kbd></span>
+          </div>
+        {/each}
       </div>
     {:else if tab === "Preview"}<div class="preview-toolbar">
         <button class:chosen={!raw} onclick={() => (raw = false)}>Pretty</button
