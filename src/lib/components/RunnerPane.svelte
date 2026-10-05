@@ -1,4 +1,7 @@
 <script>
+  import Input from "./ui/Input.svelte";
+  import Button from "./ui/Button.svelte";
+  import Select from "./ui/Select.svelte";
   import SplitPane from "./ui/SplitPane.svelte";
   import {
     workspace,
@@ -80,7 +83,7 @@
 {#if suite}
   <section class="runner" aria-label="Collection tests">
     <header>
-      <input
+      <Input
         aria-label="Test suite name"
         value={suite.name}
         disabled={running}
@@ -89,26 +92,32 @@
             name: event.currentTarget.value.trim() || "Untitled Suite",
           })}
       />
-      <button
+      <Button
+        variant="secondary"
         class="secondary-button"
         disabled={running}
         onclick={() => addUnitTest(suite._id)}
-        ><Icon name="plus" size={14} /> New Test</button
+        ><Icon name="plus" size={14} /> New Test</Button
       >
-      {#if running}<button class="danger-button" onclick={() => stop(suite._id)}
-          ><Icon name="stop" size={14} /> Stop</button
+      {#if running}<Button
+          variant="danger"
+          class="danger-button"
+          onclick={() => stop(suite._id)}
+          ><Icon name="stop" size={14} /> Stop</Button
         >
-      {:else}<button
+      {:else}<Button
+          variant="primary"
           class="primary-button"
           disabled={!tests.length}
-          onclick={() => run()}><Icon name="play" size={14} /> Run Tests</button
+          onclick={() => run()}><Icon name="play" size={14} /> Run Tests</Button
         >{/if}
-      <button
+      <Button
+        variant="ghost"
         class="icon-button"
         aria-label="Delete test suite"
         title="Delete test suite"
         onclick={() => (deleting = suite._id)}
-        ><Icon name="trash" size={15} /></button
+        ><Icon name="trash" size={15} /></Button
       >
     </header>
     {#if deleteTarget}
@@ -118,10 +127,14 @@
             ? " and its tests"
             : ""}?</span
         >
-        <button class="secondary-button" onclick={() => (deleting = "")}
-          >Cancel</button
+        <Button
+          variant="secondary"
+          class="secondary-button"
+          onclick={() => (deleting = "")}>Cancel</Button
         >
-        <button class="danger-button" onclick={confirmDelete}>Delete</button>
+        <Button variant="danger" class="danger-button" onclick={confirmDelete}
+          >Delete</Button
+        >
       </div>
     {/if}
     {#if workspace.runnerErrors[suite._id]}<div
@@ -143,7 +156,7 @@
           {#each tests as test (test._id)}
             <article>
               <div class="test-toolbar">
-                <input
+                <Input
                   aria-label="Test name"
                   value={test.name}
                   disabled={running}
@@ -152,25 +165,27 @@
                       name: event.currentTarget.value.trim() || "Untitled Test",
                     })}
                 />
-                <button
+                <Button
+                  variant="ghost"
                   class="icon-button"
                   title="Run this test"
                   aria-label={"Run " + test.name}
                   disabled={running}
                   onclick={() => run(test._id)}
-                  ><Icon name="play" size={14} /></button
+                  ><Icon name="play" size={14} /></Button
                 >
-                <button
+                <Button
+                  variant="ghost"
                   class="icon-button"
                   title="Delete test"
                   aria-label={"Delete " + test.name}
                   onclick={() => (deleting = test._id)}
-                  ><Icon name="trash" size={14} /></button
+                  ><Icon name="trash" size={14} /></Button
                 >
               </div>
               <label class="request-choice"
                 >Request
-                <select
+                <Select
                   aria-label={"Request for " + test.name}
                   value={test.requestId || ""}
                   disabled={running}
@@ -188,7 +203,7 @@
                       value={request._id}
                       >{request.method || "GET"} · {request.name}</option
                     >{/each}
-                </select>
+                </Select>
               </label>
               <div class="test-code">
                 <CodeEditor
@@ -205,9 +220,10 @@
           {:else}<div class="empty-response">
               <h2>No tests yet</h2>
               <p>Add a test and select a request to get started.</p>
-              <button
+              <Button
+                variant="secondary"
                 class="secondary-button"
-                onclick={() => addUnitTest(suite._id)}>New Test</button
+                onclick={() => addUnitTest(suite._id)}>New Test</Button
               >
             </div>{/each}
         </div>
@@ -296,8 +312,8 @@
     border-bottom: 1px solid var(--line);
     flex-wrap: wrap;
   }
-  header > input,
-  .test-toolbar > input {
+  header > :global(input),
+  .test-toolbar > :global(input) {
     flex: 1;
     min-width: 100px;
   }
@@ -321,7 +337,7 @@
     padding: 10px;
     color: var(--muted);
   }
-  .request-choice select {
+  .request-choice :global(select) {
     flex: 1;
   }
   .test-code {

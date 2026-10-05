@@ -583,7 +583,8 @@
 
 {#snippet changeRow(row = /** @type {any} */ ({}), isStaged = false)}
   <div class="git-change" class:active={activePath === row.path}>
-    <button
+    <Button
+      variant="ghost"
       class="git-change-name"
       onclick={() => {
         activePath = row.path;
@@ -598,7 +599,7 @@
           : row.status === "deleted"
             ? "D"
             : "M"}</span
-      ></button
+      ></Button
     >
     <Button
       variant="ghost"
@@ -826,7 +827,7 @@
   .commit-row.active {
     background: var(--selected);
   }
-  .git-change-name {
+  .git-change :global(.git-change-name) {
     flex: 1;
     min-width: 0;
     text-align: left;
@@ -834,7 +835,7 @@
     padding: 9px 12px;
     border-radius: 0;
   }
-  .git-change-name > span:first-of-type {
+  .git-change :global(.git-change-name > span:first-of-type) {
     flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;

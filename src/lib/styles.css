@@ -558,7 +558,7 @@ kbd {
   color: var(--accent-text);
   font-weight: 600;
 }
-.protocol-select {
+.protocol-select.ui-select {
   width: 78px;
   flex-shrink: 0;
   border: 0;
@@ -825,19 +825,21 @@ kbd {
   outline: 2px solid var(--accent-text);
   outline-offset: -2px;
 }
-.request-url-fields :focus-visible {
+.request-url-fields :is(.ui-input, .ui-select):focus-visible {
   outline: none;
 }
-.method-select {
+.method-select.ui-select {
+  width: 96px;
+  flex-shrink: 0;
   border: 0;
   border-radius: 0;
-  color: var(--accent-text);
+
   background: transparent;
   padding-left: 13px;
   font-size: 12px;
   font-weight: 600;
 }
-.url-input {
+.url-input.ui-input {
   flex: 1;
   border: 0;
   background: transparent;
@@ -904,6 +906,8 @@ kbd {
   padding: 0 13px;
 }
 .editor-toolbar select {
+  width: auto;
+  max-width: 100%;
   padding: 4px 22px 4px 4px;
   border: 0;
   background: transparent;
@@ -1345,40 +1349,6 @@ kbd {
   padding: 5px 15px;
   border-bottom: 1px solid var(--line);
 }
-.modal {
-  color: var(--text);
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  width: 620px;
-  max-width: calc(100vw - 50px);
-  max-height: 85vh;
-  padding: 0;
-  box-shadow: 0 16px 48px #0005;
-}
-.modal::backdrop {
-  background: #0007;
-  backdrop-filter: blur(3px);
-}
-.modal-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--line);
-}
-.modal-heading h2 {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 500;
-}
-.modal-content {
-  padding: 20px;
-}
-.modal-content > p {
-  line-height: 1.7;
-  font-size: 13px;
-}
 .modal-actions {
   display: flex;
   align-items: center;
@@ -1612,26 +1582,6 @@ kbd {
 
 .workspace-area {
   grid-area: workspace;
-}
-.ui-field {
-  display: grid;
-  gap: 7px;
-  min-width: 0;
-}
-.ui-field > label {
-  display: block;
-  color: var(--muted);
-  font-size: 12px;
-}
-.ui-input,
-.ui-select,
-.ui-textarea {
-  width: 100%;
-}
-.ui-input[aria-invalid="true"],
-.ui-select[aria-invalid="true"],
-.ui-textarea[aria-invalid="true"] {
-  border-color: var(--danger);
 }
 .activity[aria-current="page"] {
   color: var(--text);

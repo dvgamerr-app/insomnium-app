@@ -1,4 +1,8 @@
 <script>
+  import Textarea from "./ui/Textarea.svelte";
+  import Select from "./ui/Select.svelte";
+  import Button from "./ui/Button.svelte";
+  import Input from "./ui/Input.svelte";
   import { onDestroy } from "svelte";
   import { jsonPrettify } from "../json-prettify.js";
   import { environmentFor, workspaceFor } from "../model.js";
@@ -159,7 +163,7 @@
     <WebSocketMessageEditor {request} />
   {:else if tab === "Body"}
     <div class="editor-toolbar">
-      <select
+      <Select
         aria-label="Body type"
         value={request.body?.mimeType || ""}
         onchange={(event) =>
@@ -183,18 +187,20 @@
         >{#each mimeTypes as [value, label]}<option {value}>{label}</option
           >{/each}{#if request.body?.mimeType && !mimeTypes.some(([value]) => value === request.body.mimeType)}<option
             value={request.body.mimeType}>{request.body.mimeType}</option
-          >{/if}</select
+          >{/if}</Select
       ><span class="spacer"
-      ></span>{#if request.body?.mimeType === "application/json"}<button
+      ></span>{#if request.body?.mimeType === "application/json"}<Button
+          variant="ghost"
           class="text-button"
-          onclick={format}><Icon name="code" size={14} /> Format JSON</button
-        >{:else if xmlBody}<button
+          onclick={format}><Icon name="code" size={14} /> Format JSON</Button
+        >{:else if xmlBody}<Button
+          variant="ghost"
           class="text-button"
           disabled={formatting}
           onclick={formatXml}
           ><Icon name="code" size={14} />{formatting
             ? "Formatting…"
-            : "Format XML"}</button
+            : "Format XML"}</Button
         >{/if}
     </div>
     {#if error}<p class="inline-error">{error}</p>{/if}
@@ -323,7 +329,7 @@
   {:else if tab === "Auth"}
     <div class="form-panel">
       <label
-        >Authentication<select
+        >Authentication<Select
           value={request.authentication?.type || ""}
           onchange={(event) =>
             auth({
@@ -358,7 +364,7 @@
           >{#if request.authentication?.type && !["basic", "bearer", "apikey", "digest", "oauth2", "oauth1", "iam", "hawk", "asap", "ntlm", "netrc"].includes(request.authentication.type)}<option
               value={request.authentication.type}
               >{request.authentication.type} (migration pending)</option
-            >{/if}</select
+            >{/if}</Select
         ></label
       >
       {#if request.authentication?.type}<label class="checkbox-label"
@@ -397,13 +403,13 @@
           apply to any host. Disable authentication to stop lookup.
         </p>
       {:else if ["basic", "digest", "ntlm"].includes(request.authentication?.type)}<label
-          >Username<input
+          >Username<Input
             autocomplete="off"
             value={request.authentication.username || ""}
             oninput={(event) => auth({ username: event.currentTarget.value })}
           /></label
         ><label
-          >Password<input
+          >Password<Input
             type="password"
             autocomplete="off"
             value={request.authentication.password || ""}
@@ -412,14 +418,14 @@
         >
         {#if request.authentication.type === "ntlm"}
           <label
-            >Domain (optional)<input
+            >Domain (optional)<Input
               value={request.authentication.domain || ""}
               oninput={(event) => auth({ domain: event.currentTarget.value })}
               autocomplete="off"
             /></label
           >
           <label
-            >Workstation (Type 1 negotiation only)<input
+            >Workstation (Type 1 negotiation only)<Input
               value={request.authentication.workstation || ""}
               oninput={(event) =>
                 auth({ workstation: event.currentTarget.value })}
@@ -450,7 +456,7 @@
           </p>
         {/if}
       {:else if request.authentication?.type === "bearer"}<label
-          >Token<input
+          >Token<Input
             type="password"
             autocomplete="off"
             value={request.authentication.token || ""}
@@ -459,25 +465,25 @@
           /></label
         >
         <label
-          >Header prefix<input
+          >Header prefix<Input
             value={request.authentication.prefix || ""}
             placeholder="Bearer"
             oninput={(event) => auth({ prefix: event.currentTarget.value })}
           /></label
         >
       {:else if request.authentication?.type === "apikey"}<label
-          >Key<input
+          >Key<Input
             value={request.authentication.key || ""}
             oninput={(event) => auth({ key: event.currentTarget.value })}
           /></label
         ><label
-          >Value<input
+          >Value<Input
             type="password"
             value={request.authentication.value || ""}
             oninput={(event) => auth({ value: event.currentTarget.value })}
           /></label
         ><label
-          >Add to<select
+          >Add to<Select
             value={request.authentication.addTo || "header"}
             onchange={(event) => auth({ addTo: event.currentTarget.value })}
             ><option value="header">Header</option><option value="queryParams"
@@ -487,7 +493,7 @@
                 value={request.authentication.addTo}
                 >{request.authentication.addTo} (unsupported)</option
               >{/if}
-          </select></label
+          </Select></label
         >
         {#if request.authentication.addTo === "cookie"}<p class="hint">
             Adds a Cookie header alongside manual cookie pairs. It takes
@@ -522,11 +528,12 @@
           <ul>
             {#each request._openapiIssues as issue}<li>{issue}</li>{/each}
           </ul>
-          <button
+          <Button
+            variant="secondary"
             class="secondary-button"
             onclick={() =>
               onchange({ _openapiIssues: [], _openapiReviewedAt: Date.now() })}
-            >I have corrected these request fields</button
+            >I have corrected these request fields</Button
           >
         </div>{/if}
       <label class="checkbox-label"
@@ -538,7 +545,7 @@
         /> Automatically encode URL</label
       >
       <label
-        >Redirects<select
+        >Redirects<Select
           value={request.settingFollowRedirects || "global"}
           onchange={(event) =>
             onchange({ settingFollowRedirects: event.currentTarget.value })}
@@ -546,7 +553,7 @@
           <option value="global">Use global preference</option><option
             value="on">Follow redirects</option
           ><option value="off">Do not follow redirects</option>
-        </select></label
+        </Select></label
       >
       <label class="checkbox-label"
         ><input
@@ -569,10 +576,11 @@
         the browser’s cookie policy.
       </p>
     </div>
-  {:else}<textarea
+  {:else}<Textarea
       class="code-editor body-text"
       aria-label="Request documentation"
       value={request.description || ""}
       oninput={(event) => onchange({ description: event.currentTarget.value })}
-      placeholder="Document this request in Markdown…"></textarea>{/if}
+      placeholder="Document this request in Markdown…"
+    ></Textarea>{/if}
 </section>

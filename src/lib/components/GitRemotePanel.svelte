@@ -1,4 +1,7 @@
 <script>
+  import Input from "./ui/Input.svelte";
+  import Select from "./ui/Select.svelte";
+  import Button from "./ui/Button.svelte";
   import { onMount, onDestroy } from "svelte";
   import {
     workspace,
@@ -275,7 +278,7 @@
   <h3>Remote repository</h3>
   <div class="form-panel resource-form">
     <label
-      >Repository URL<input
+      >Repository URL<Input
         bind:value={url}
         oninput={changed}
         disabled={saving || disabled}
@@ -283,7 +286,7 @@
       /></label
     >
     <label
-      >Remote authentication<select
+      >Remote authentication<Select
         bind:value={kind}
         onchange={() => {
           secret = "";
@@ -295,10 +298,10 @@
         <option value="basic">Username and password/token</option>
         <option value="github">GitHub token</option>
         <option value="gitlab">GitLab token</option>
-      </select></label
+      </Select></label
     >
     {#if kind === "basic"}<label
-        >Git username<input
+        >Git username<Input
           bind:value={username}
           oninput={changed}
           disabled={saving || disabled}
@@ -306,7 +309,7 @@
         /></label
       >{/if}
     {#if kind !== "anonymous"}<label
-        >Git password or token<input
+        >Git password or token<Input
           type="password"
           bind:value={secret}
           oninput={changed}
@@ -317,7 +320,7 @@
   </div>
   <div class="form-panel resource-form">
     <label
-      >Fetch branch (optional)<input
+      >Fetch branch (optional)<Input
         bind:value={fetchBranch}
         disabled={busy || saving || disabled || !!pendingFetch}
         placeholder="All remote branches"
@@ -327,7 +330,7 @@
   </div>
   <div class="form-panel resource-form">
     <label
-      >Fetch depth (optional)<input
+      >Fetch depth (optional)<Input
         type="number"
         min="1"
         max="2147483646"
@@ -339,49 +342,57 @@
     >
   </div>
   <div class="resource-tools">
-    <button
+    <Button
+      variant="secondary"
       class="secondary-button"
       disabled={busy || saving || disabled || !!pendingFetch || !url.trim()}
-      onclick={saveSettings}>Save remote settings</button
+      onclick={saveSettings}>Save remote settings</Button
     >
-    <button
+    <Button
+      variant="secondary"
       class="secondary-button"
       disabled={busy || saving || disabled || !url.trim()}
-      onclick={connect}>Read remote branches</button
+      onclick={connect}>Read remote branches</Button
     >
-    <button
+    <Button
+      variant="secondary"
       class="secondary-button"
       disabled={busy || saving || disabled || !!pendingFetch || !url.trim()}
-      onclick={fetchRemote}>Fetch remote branches</button
+      onclick={fetchRemote}>Fetch remote branches</Button
     >
     {#if pendingFetch}
-      <button
+      <Button
+        variant="secondary"
         class="secondary-button"
         disabled={busy || saving || disabled}
-        onclick={() => inspectFetch()}>Inspect pending fetch</button
+        onclick={() => inspectFetch()}>Inspect pending fetch</Button
       >
       {#if recoveryAvailable}
-        <button
+        <Button
+          variant="secondary"
           class="secondary-button"
           disabled={busy || saving || disabled}
-          onclick={() => inspectFetch(true)}>Resume pending fetch</button
+          onclick={() => inspectFetch(true)}>Resume pending fetch</Button
         >
       {/if}
-      <button
+      <Button
+        variant="secondary"
         class="secondary-button"
         disabled={busy || saving || disabled || recoveryAvailable}
-        onclick={retireFetch}>Stop tracking pending fetch</button
+        onclick={retireFetch}>Stop tracking pending fetch</Button
       >
     {/if}
-    <button
+    <Button
+      variant="secondary"
       class="secondary-button"
       disabled={busy || saving || disabled}
-      onclick={cleanFetchFiles}>Clean unused fetch files</button
+      onclick={cleanFetchFiles}>Clean unused fetch files</Button
     >
     {#if cleaning}<span role="status">Cleaning fetch files…</span>{/if}
-    {#if busy && !cleaning}<button
+    {#if busy && !cleaning}<Button
+        variant="secondary"
         class="secondary-button"
-        onclick={() => controller?.abort()}>Stop remote request</button
+        onclick={() => controller?.abort()}>Stop remote request</Button
       ><span role="status"
         >{inspecting
           ? "Inspecting fetch…"

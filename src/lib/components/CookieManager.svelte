@@ -1,4 +1,7 @@
 <script>
+  import Textarea from "./ui/Textarea.svelte";
+  import Button from "./ui/Button.svelte";
+  import Input from "./ui/Input.svelte";
   import { onMount, onDestroy } from "svelte";
   import { invoke, isTauri } from "@tauri-apps/api/core";
   import { createWorkspaceWorkScope } from "../workspace.svelte.js";
@@ -85,7 +88,8 @@
   <div class="cookie-list">
     {#each cookies as cookie (`${cookie.domain}\n${cookie.path}\n${cookie.name}`)}
       <div class="cookie-entry">
-        <button
+        <Button
+          variant="ghost"
           class="cookie-detail"
           disabled={busy}
           onclick={() => edit(cookie)}
@@ -98,8 +102,9 @@
               ? " · Secure"
               : ""}{cookie.httpOnly ? " · HttpOnly" : ""}</small
           >
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="ghost"
           class="icon-button subtle"
           disabled={busy}
           aria-label={`Delete cookie ${cookie.name}`}
@@ -111,7 +116,7 @@
                 path: cookie.path,
                 name: cookie.name,
               },
-            })}><Icon name="trash" size={15} /></button
+            })}><Icon name="trash" size={15} /></Button
         >
       </div>
     {:else}<p class="hint">
@@ -119,20 +124,27 @@
       </p>{/each}
   </div>
   <div class="resource-tools">
-    <button class="secondary-button" disabled={busy} onclick={refresh}
-      >Refresh</button
+    <Button
+      variant="secondary"
+      class="secondary-button"
+      disabled={busy}
+      onclick={refresh}>Refresh</Button
     >
-    <button
+    <Button
+      variant="danger"
       class="danger-button"
       disabled={busy || !cookies.length}
-      onclick={() => (confirmClear = true)}>Clear all…</button
+      onclick={() => (confirmClear = true)}>Clear all…</Button
     >
-    {#if confirmClear}<span>Clear every cookie in this collection?</span><button
+    {#if confirmClear}<span>Clear every cookie in this collection?</span><Button
+        variant="danger"
         class="danger-button"
         disabled={busy}
-        onclick={() => change({ clear: true })}>Confirm clear</button
-      ><button class="secondary-button" onclick={() => (confirmClear = false)}
-        >Cancel</button
+        onclick={() => change({ clear: true })}>Confirm clear</Button
+      ><Button
+        variant="secondary"
+        class="secondary-button"
+        onclick={() => (confirmClear = false)}>Cancel</Button
       >{/if}
   </div>
   <form
@@ -143,7 +155,7 @@
   >
     <div class="form-panel resource-form cookie-form">
       <label
-        >Cookie URL<input
+        >Cookie URL<Input
           type="url"
           required
           placeholder="https://api.example.com/"
@@ -152,27 +164,33 @@
         /></label
       >
       <label
-        >Set-Cookie value<textarea
+        >Set-Cookie value<Textarea
           required
           spellcheck="false"
           class="code-editor small-editor"
           placeholder="session=value; Path=/; Secure; HttpOnly"
           bind:value={raw}
-          disabled={busy}></textarea></label
+          disabled={busy}
+        ></Textarea></label
       >
     </div>
     <div class="modal-actions">
-      {#if previous}<button
+      {#if previous}<Button
+          variant="secondary"
           class="secondary-button"
           type="button"
           onclick={() => {
             previous = null;
             raw = "";
             url = "";
-          }}>New cookie</button
+          }}>New cookie</Button
         >{/if}
-      <button class="primary-button" type="submit" disabled={busy}
-        >{busy ? "Saving…" : previous ? "Save cookie" : "Add cookie"}</button
+      <Button
+        variant="primary"
+        class="primary-button"
+        type="submit"
+        disabled={busy}
+        >{busy ? "Saving…" : previous ? "Save cookie" : "Add cookie"}</Button
       >
     </div>
   </form>

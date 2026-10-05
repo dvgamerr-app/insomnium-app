@@ -1,4 +1,5 @@
 <script>
+  import Button from "./ui/Button.svelte";
   import { onDestroy } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
   import { workspace, createWorkspaceWorkScope } from "../workspace.svelte.js";
@@ -65,16 +66,18 @@
       /> Replace cookies with the same name, domain and path</label
     >
     <div class="resource-tools">
-      <button
+      <Button
+        variant="secondary"
         class="secondary-button"
         disabled={busy || disabled || !plan.entries.length}
-        onclick={() => restore(true)}>Preview restore</button
+        onclick={() => restore(true)}>Preview restore</Button
       >
-      {#if report && reviewed === input}<button
+      {#if report && reviewed === input}<Button
+          variant="primary"
           class="primary-button"
           disabled={busy || disabled || !report.imported}
           onclick={() => restore(false)}
-          >Restore {report.imported} cookies</button
+          >Restore {report.imported} cookies</Button
         >{/if}
     </div>
     {#if report && reviewed === input}<p class="hint">

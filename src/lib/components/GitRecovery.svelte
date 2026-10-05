@@ -1,4 +1,5 @@
 <script>
+  import Button from "./ui/Button.svelte";
   import { onMount } from "svelte";
   import { save } from "@tauri-apps/plugin-dialog";
   import { writeTextFile } from "@tauri-apps/plugin-fs";
@@ -68,8 +69,11 @@
         Additional unsaved edits were retained. Save a recovery copy before
         loading the saved workspace.
       </p>
-      <button class="secondary-button" disabled={busy} onclick={saveCopy}
-        >Save recovery copy</button
+      <Button
+        variant="secondary"
+        class="secondary-button"
+        disabled={busy}
+        onclick={saveCopy}>Save recovery copy</Button
       >
       {#if saved}
         <label class="recovery-choice"
@@ -81,13 +85,14 @@
     {#if error}<p class="inline-error" role="alert">{error}</p>{/if}
     {#if busy}<p role="status">Recovering workspace…</p>{/if}
     <div class="modal-actions">
-      <button
+      <Button
+        variant="primary"
         class="primary-button"
         disabled={busy || (!!retained && (!saved || !reviewed))}
         onclick={recover}
       >
         {retained ? "Load recovered workspace" : "Retry recovery"}
-      </button>
+      </Button>
     </div>
   </div>
 </dialog>

@@ -1,4 +1,7 @@
 <script>
+  import Textarea from "./ui/Textarea.svelte";
+  import Select from "./ui/Select.svelte";
+  import Input from "./ui/Input.svelte";
   /** @type {{ authentication: Record<string, any>, onchange: (patch: Record<string, any>) => void }} */
   let { authentication: auth, onchange } = $props();
   const methods = ["HMAC-SHA1", "HMAC-SHA256", "RSA-SHA1", "PLAINTEXT"];
@@ -17,7 +20,7 @@
 </script>
 
 <label
-  >Signature method<select
+  >Signature method<Select
     value={auth.signatureMethod || ""}
     onchange={(event) =>
       onchange({ signatureMethod: event.currentTarget.value })}
@@ -28,11 +31,11 @@
         value={auth.signatureMethod}
         >{auth.signatureMethod} (unsupported)</option
       >{/if}
-  </select></label
+  </Select></label
 >
 {#each fields as [key, label, secret]}
   <label
-    >{label}<input
+    >{label}<Input
       type={secret ? "password" : "text"}
       value={auth[String(key)] || ""}
       oninput={(event) =>
@@ -43,15 +46,16 @@
   >
 {/each}
 {#if auth.signatureMethod === "RSA-SHA1"}<label
-    >RSA private key (PEM)<textarea
+    >RSA private key (PEM)<Textarea
       value={auth.privateKey || ""}
       oninput={(event) => onchange({ privateKey: event.currentTarget.value })}
-      rows="7"
+      rows={7}
       autocomplete="off"
-      spellcheck="false"></textarea></label
+      spellcheck="false"
+    ></Textarea></label
   >{/if}
 <label
-  >Body signing<select
+  >Body signing<Select
     value={auth.bodyMode || "legacy"}
     onchange={(event) => onchange({ bodyMode: event.currentTarget.value })}
   >
@@ -61,7 +65,7 @@
     {#if auth.bodyMode && !["standard", "legacy"].includes(auth.bodyMode)}<option
         value={auth.bodyMode}>{auth.bodyMode} (unsupported)</option
       >{/if}
-  </select></label
+  </Select></label
 >
 <label class="checkbox-label"
   ><input
@@ -88,11 +92,11 @@
   </p>
 {/if}
 {#if auth.addParamsToHeader != null && ![true, "true"].includes(auth.addParamsToHeader)}<label
-    >Parameter destination<select
+    >Parameter destination<Select
       value="unsupported"
       onchange={() => onchange({ addParamsToHeader: true })}
       ><option value="unsupported">Imported URL/body (not migrated)</option
-      ><option value="header">Authorization header</option></select
+      ><option value="header">Authorization header</option></Select
     ></label
   >{/if}
 <p class="hint">

@@ -1,4 +1,7 @@
 <script>
+  import Select from "./ui/Select.svelte";
+  import Button from "./ui/Button.svelte";
+  import Input from "./ui/Input.svelte";
   import SplitPane from "./ui/SplitPane.svelte";
   import CodeEditor from "./CodeEditor.svelte";
   import { onDestroy } from "svelte";
@@ -278,7 +281,7 @@
 
 <section class="api-design" aria-label="API Design">
   <div class="design-toolbar">
-    <strong>API Design</strong><select
+    <strong>API Design</strong><Select
       aria-label="API document"
       value={spec?._id || ""}
       onchange={(event) => {
@@ -288,10 +291,13 @@
       disabled={busy}
       >{#each specs as item}<option value={item._id}
           >{item.fileName || "API document"}</option
-        >{/each}</select
+        >{/each}</Select
     >
-    <button class="secondary-button" onclick={() => create()} disabled={busy}
-      >New document</button
+    <Button
+      variant="secondary"
+      class="secondary-button"
+      onclick={() => create()}
+      disabled={busy}>New document</Button
     >
     <label class="schema-import"
       >Open JSON / YAML<input
@@ -301,28 +307,36 @@
         disabled={busy}
       /></label
     >
-    <span class="spacer"></span><button
+    <span class="spacer"></span><Button
+      variant="secondary"
       class="secondary-button"
-      onclick={onrequests}>Debug requests</button
+      onclick={onrequests}>Debug requests</Button
     >
   </div>
   {#if error}<p class="inline-error" role="alert">{error}</p>{/if}
   {#if notice}<p class="hint padded" role="status">{notice}</p>{/if}
   {#if spec}
     <div class="design-toolbar">
-      <input
+      <Input
         aria-label="Specification file name"
         value={spec.fileName || ""}
         oninput={(event) =>
           update(spec._id, { fileName: event.currentTarget.value })}
       />
-      <button class="primary-button" disabled={busy} onclick={() => check()}
-        >Validate & preview</button
+      <Button
+        variant="primary"
+        class="primary-button"
+        disabled={busy}
+        onclick={() => check()}>Validate & preview</Button
       >
-      {#if busy}<button class="secondary-button" onclick={cancel}
-          >Cancel {generating ? "generation" : "validation"}</button
+      {#if busy}<Button
+          variant="secondary"
+          class="secondary-button"
+          onclick={cancel}
+          >Cancel {generating ? "generation" : "validation"}</Button
         >{/if}
-      <button
+      <Button
+        variant="secondary"
         class="secondary-button"
         onclick={async () => {
           try {
@@ -333,7 +347,7 @@
           } catch (e) {
             error = String(e);
           }
-        }}>Export source</button
+        }}>Export source</Button
       >
       <label class="schema-import"
         >Attach $ref files<input
@@ -352,7 +366,7 @@
           attached files are resolved.
         </p>
         {#each spec.files as file, index}<div class="design-toolbar">
-            <input
+            <Input
               aria-label={`Reference file ${index + 1} name`}
               value={file.name}
               oninput={(event) =>
@@ -364,7 +378,8 @@
                         : item,
                   ),
                 })}
-            /><button
+            /><Button
+              variant="ghost"
               class="text-button"
               onclick={() =>
                 update(spec._id, {
@@ -372,7 +387,7 @@
                     (/** @type {any} */ _, /** @type {number} */ i) =>
                       i !== index,
                   ),
-                })}>Remove reference</button
+                })}>Remove reference</Button
             >
           </div>{/each}
       </details>{/if}
@@ -412,14 +427,15 @@
                 >{/each}
             </div>
             {#if previewTab === "Diagnostics"}<div class="design-diagnostics">
-                {#each current.diagnostics as diagnostic}<button
+                {#each current.diagnostics as diagnostic}<Button
+                    variant="ghost"
                     class="diagnostic-row"
                     onclick={() => jump(diagnostic)}
                     ><strong class:error-label={diagnostic.severity === "error"}
                       >{diagnostic.severity} · {diagnostic.line}:{diagnostic.column}</strong
                     ><span>{diagnostic.message}</span><small
                       >{diagnostic.path}</small
-                    ></button
+                    ></Button
                   >{:else}<p class="hint padded">
                     No validation errors or built-in style warnings.
                   </p>{/each}
@@ -432,13 +448,13 @@
                 )}</pre>
             {:else}
               <div class="design-toolbar">
-                <input
+                <Input
                   aria-label="Search API operations"
                   placeholder="Filter operations…"
                   bind:value={search}
                 />
               </div>
-              <select
+              <Select
                 class="operation-list"
                 size={6}
                 aria-label="API operations"
@@ -448,7 +464,7 @@
                 >{#each operations as item, index}<option value={index}
                     >{item.method.toUpperCase()}
                     {item.path} · {item.summary}</option
-                  >{/each}</select
+                  >{/each}</Select
               >
               {#if operation}<div class="operation-docs">
                   <h3>{operation.method.toUpperCase()} {operation.path}</h3>
@@ -479,15 +495,16 @@
       {/snippet}</SplitPane
     >
     <div class="design-toolbar">
-      <input
+      <Input
         aria-label="Generated requests server override"
         placeholder="Server override (optional) · https://api.example.com"
         bind:value={serverOverride}
-      /><button
+      /><Button
+        variant="primary"
         class="primary-button"
         disabled={busy || !current?.valid || !current?.operations?.length}
         onclick={() => check(true)}
-        >Generate {current?.operations?.length || ""} requests</button
+        >Generate {current?.operations?.length || ""} requests</Button
       ><span class="hint"
         >Creates a new folder. Existing requests are kept.</span
       >
@@ -495,8 +512,8 @@
   {:else}<div class="empty-response">
       <h2>Design your API</h2>
       <p>Open an OpenAPI/Swagger JSON or YAML document, or start a new one.</p>
-      <button class="primary-button" onclick={() => create()}
-        >New API document</button
+      <Button variant="primary" class="primary-button" onclick={() => create()}
+        >New API document</Button
       >
     </div>{/if}
 </section>

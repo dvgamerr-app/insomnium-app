@@ -1,4 +1,5 @@
 <script>
+  import Button from "./ui/Button.svelte";
   import {
     workspace,
     addTestSuite,
@@ -19,24 +20,29 @@
 </script>
 
 <div class="suite-sidebar">
-  <button class="secondary-button" onclick={() => addTestSuite(collectionId)}
-    ><Icon name="plus" size={15} /> New Test Suite</button
+  <Button
+    variant="secondary"
+    class="secondary-button"
+    onclick={() => addTestSuite(collectionId)}
+    ><Icon name="plus" size={15} /> New Test Suite</Button
   >
   <nav aria-label="Test suites">
     {#each suites as suite (suite._id)}
       <div class:active={suite._id === selected?._id}>
-        <button
+        <Button
+          variant="ghost"
           class="suite-name"
           aria-current={suite._id === selected?._id ? "page" : undefined}
-          onclick={() => selectTestSuite(suite._id)}>{suite.name}</button
+          onclick={() => selectTestSuite(suite._id)}>{suite.name}</Button
         >
         {#if workspace.running[suite._id]}
-          <button
+          <Button
+            variant="ghost"
             class="icon-button"
             aria-label={"Stop " + suite.name}
             title="Stop tests"
             onclick={() => stop(suite._id)}
-            ><Icon name="stop" size={14} /></button
+            ><Icon name="stop" size={14} /></Button
           >
         {/if}
       </div>
@@ -54,7 +60,7 @@
     min-height: 0;
     flex: 1;
   }
-  .suite-sidebar > button {
+  .suite-sidebar > :global(button) {
     width: 100%;
   }
   nav {
@@ -68,7 +74,7 @@
     background: var(--selected);
     color: var(--accent-text);
   }
-  .suite-name {
+  .suite-sidebar :global(.suite-name) {
     padding: 10px;
     text-align: left;
     justify-content: flex-start;

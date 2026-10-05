@@ -1,4 +1,6 @@
 <script>
+  import Button from "./ui/Button.svelte";
+  import Input from "./ui/Input.svelte";
   import { onMount } from "svelte";
   import Icon from "./Icon.svelte";
   import {
@@ -42,11 +44,12 @@
   >
     <div class="modal-heading">
       <h2 id={"template-prompt-title-" + prompt.id}>{prompt.title}</h2>
-      <button
+      <Button
+        variant="ghost"
         class="icon-button"
         aria-label="Cancel prompt"
         onclick={() => cancelTemplatePrompt(prompt.id)}
-        ><Icon name="close" /></button
+        ><Icon name="close" /></Button
       >
     </div>
     <form
@@ -60,7 +63,7 @@
     >
       <label class="name-label" for={"template-prompt-value-" + prompt.id}>
         {prompt.label || "Value"}
-        <input
+        <Input
           id={"template-prompt-value-" + prompt.id}
           name="prompt-value"
           type={prompt.inputType}
@@ -71,12 +74,15 @@
         />
       </label>
       <div class="modal-actions">
-        <button
+        <Button
+          variant="secondary"
           type="button"
           class="secondary-button"
-          onclick={() => cancelTemplatePrompt(prompt.id)}>Cancel</button
+          onclick={() => cancelTemplatePrompt(prompt.id)}>Cancel</Button
         >
-        <button type="submit" class="primary-button">Submit</button>
+        <Button variant="primary" type="submit" class="primary-button"
+          >Submit</Button
+        >
       </div>
     </form>
   </dialog>

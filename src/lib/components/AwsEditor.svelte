@@ -1,4 +1,6 @@
 <script>
+  import Input from "./ui/Input.svelte";
+  import Button from "./ui/Button.svelte";
   /** @type {{ authentication: Record<string, any>, onchange: (patch: Record<string, any>) => void }} */
   let { authentication: auth, onchange } = $props();
   const fields = [
@@ -12,7 +14,7 @@
 
 {#each fields as [key, label, secret]}
   <label
-    >{label}<input
+    >{label}<Input
       type={secret ? "password" : "text"}
       value={auth[String(key)] || ""}
       oninput={(event) =>
@@ -26,8 +28,10 @@
   <p class="hint">
     This import uses AWS query signing, which is not available yet.
   </p>
-  <button onclick={() => onchange({ addAuthDataToQuery: false })}
-    >Use signed headers</button
+  <Button
+    variant="ghost"
+    onclick={() => onchange({ addAuthDataToQuery: false })}
+    >Use signed headers</Button
   >
 {/if}
 <p class="hint">

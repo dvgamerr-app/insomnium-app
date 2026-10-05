@@ -1,4 +1,5 @@
 <script>
+  import Textarea from "./ui/Textarea.svelte";
   import { onDestroy } from "svelte";
   import { readBodyUpload } from "../uploads.js";
   import { createWorkspaceWorkScope } from "../workspace.svelte.js";
@@ -70,12 +71,12 @@
     >
   {:else}
     <label
-      >Part {index + 1}<textarea
+      >Part {index + 1}<Textarea
         aria-label={"Text for body part " + (index + 1)}
         value={segment.value}
         oninput={(event) =>
           patchSegment(segment.id, { value: event.currentTarget.value })}
-      ></textarea></label
+      ></Textarea></label
     >
   {/if}
 {/each}

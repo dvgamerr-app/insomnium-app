@@ -1,4 +1,7 @@
 <script>
+  import Select from "./ui/Select.svelte";
+  import Button from "./ui/Button.svelte";
+  import Input from "./ui/Input.svelte";
   import { jsonPrettify } from "../json-prettify.js";
   import CodeEditor from "./CodeEditor.svelte";
   import { workspace, setResponseFilter } from "../workspace.svelte.js";
@@ -193,7 +196,7 @@
       >
     {:else}<span class="hint">Response</span>{/if}
     <span class="spacer"></span>
-    {#if history.length}<select
+    {#if history.length}<Select
         class="history-select"
         aria-label="Response history"
         value={response?._id || ""}
@@ -205,7 +208,7 @@
         }}
         >{#each history as entry}<option value={entry._id}
             >{new Date(entry.created).toLocaleTimeString()} · {entry.status}</option
-          >{/each}</select
+          >{/each}</Select
       >{/if}
   </div>
   <div
@@ -222,7 +225,8 @@
             >{response.headers.length}</span
           >{/if}</button
       >{/each}<span class="spacer"></span>
-    {#if response && !response.error}<button
+    {#if response && !response.error}<Button
+        variant="ghost"
         class="icon-button"
         aria-label="Copy response"
         disabled={processing && (!currentResult || currentResult.busy)}
@@ -235,8 +239,9 @@
           } catch (e) {
             copyError = String(e);
           }
-        }}><Icon name={copied ? "check" : "copy"} size={15} /></button
-      ><button
+        }}><Icon name={copied ? "check" : "copy"} size={15} /></Button
+      ><Button
+        variant="ghost"
         class="icon-button"
         aria-label="Save response"
         title="Save response"
@@ -252,7 +257,7 @@
           } catch (e) {
             copyError = String(e);
           }
-        }}><Icon name="download" size={15} /></button
+        }}><Icon name="download" size={15} /></Button
       >{/if}
   </div>
   <div class="response-content">
@@ -289,24 +294,25 @@
             applyFilter(filterDraft);
           }}
         >
-          <input
+          <Input
             aria-label={`Filter response body with ${xmlResponse ? "XPath" : "JSONPath"}`}
             placeholder={xmlResponse
               ? "/store/books/author"
               : "$.store.books[*].author"}
-            maxlength="4096"
+            maxlength={4096}
             value={filterDraft}
             oninput={(event) => {
               filterDraft = event.currentTarget.value;
               if (!filterDraft) applyFilter("");
             }}
           />
-          <button type="submit">Filter</button>
-          {#if filter || filterDraft}<button
+          <Button variant="ghost" type="submit">Filter</Button>
+          {#if filter || filterDraft}<Button
+              variant="ghost"
               type="button"
-              onclick={() => applyFilter("")}>Clear</button
+              onclick={() => applyFilter("")}>Clear</Button
             >{/if}
-          {#if filterHistory.length}<select
+          {#if filterHistory.length}<Select
               aria-label="Response filter history"
               value=""
               onchange={(event) => {
@@ -317,11 +323,12 @@
               <option value="" disabled>History</option>
               {#each filterHistory as item}<option value={item}>{item}</option
                 >{/each}
-            </select>{/if}
-          <button
+            </Select>{/if}
+          <Button
+            variant="ghost"
             type="button"
             aria-expanded={filterHelp}
-            onclick={() => (filterHelp = !filterHelp)}>Help</button
+            onclick={() => (filterHelp = !filterHelp)}>Help</Button
           >
         </form>
         {#if filterHelp}<p class="hint padded">
@@ -404,11 +411,11 @@
     padding: 6px 12px;
     align-items: center;
   }
-  .response-filter input {
+  .response-filter :global(input) {
     flex: 1;
     min-width: 80px;
   }
-  .response-filter select {
+  .response-filter :global(select) {
     max-width: 140px;
   }
 </style>

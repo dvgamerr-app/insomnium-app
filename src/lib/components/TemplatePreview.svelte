@@ -1,4 +1,5 @@
 <script>
+  import Button from "./ui/Button.svelte";
   import { renderRequestPreview } from "../template-preview.js";
   import { clearPromptValues } from "../template-prompt.js";
   import CodeEditor from "./CodeEditor.svelte";
@@ -72,12 +73,13 @@
       masked prompts stay hidden. OS tags read system information in the desktop
       app. Interactive prompting on Send is still pending.
     </p>
-    <button
+    <Button
+      variant="ghost"
       class="secondary"
       onclick={() => {
         clearPromptValues();
         promptRevision++;
-      }}>Clear prompt values</button
+      }}>Clear prompt values</Button
     >
     {#if busy}<p class="hint" role="status">Rendering…</p>
     {:else if error}<p class="inline-error" role="alert">{error}</p>

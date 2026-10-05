@@ -1,4 +1,7 @@
 <script>
+  import Select from "./ui/Select.svelte";
+  import Input from "./ui/Input.svelte";
+  import Button from "./ui/Button.svelte";
   import { onMount } from "svelte";
   import { requestDataScope } from "../request-scope.js";
   import { renderOAuthRequest } from "../request-render.js";
@@ -101,7 +104,7 @@
 </script>
 
 <label
-  >Grant type<select
+  >Grant type<Select
     value={auth.grantType || ""}
     onchange={(event) => change("grantType", event.currentTarget.value)}
   >
@@ -114,11 +117,11 @@
     {#if auth.grantType && !supported}<option value={auth.grantType}
         >{auth.grantType} (migration pending)</option
       >{/if}
-  </select></label
+  </Select></label
 >
 {#if ["authorization_code", "implicit"].includes(auth.grantType)}
   <label
-    >Login browser<select
+    >Login browser<Select
       value={auth.browserMode || "system"}
       onchange={(event) => change("browserMode", event.currentTarget.value)}
     >
@@ -128,10 +131,10 @@
       {#if auth.browserMode && !["system", "embedded"].includes(auth.browserMode)}<option
           value={auth.browserMode}>{auth.browserMode} (unsupported)</option
         >{/if}
-    </select></label
+    </Select></label
   >
   <label
-    >Authorization URL<input
+    >Authorization URL<Input
       value={auth.authorizationUrl || ""}
       oninput={(event) => change("authorizationUrl", event.currentTarget.value)}
       autocomplete="off"
@@ -139,7 +142,7 @@
     /></label
   >
   <label
-    >Redirect URL<input
+    >Redirect URL<Input
       value={auth.redirectUrl || ""}
       oninput={(event) => change("redirectUrl", event.currentTarget.value)}
       placeholder={auth.browserMode === "embedded"
@@ -151,12 +154,12 @@
   >
   {#if auth.browserMode !== "embedded"}
     <label
-      >Receive callback<select
+      >Receive callback<Select
         value={auth.callbackMode || "auto"}
         onchange={(event) => change("callbackMode", event.currentTarget.value)}
         ><option value="auto">Automatic for loopback URLs</option><option
           value="manual">Paste callback URL manually</option
-        ></select
+        ></Select
       ></label
     >
     <p class="hint">
@@ -176,14 +179,15 @@
       settings and certificate validation are separate from API request
       settings.
     </p>
-    <button
+    <Button
+      variant="secondary"
       class="secondary-button"
       disabled={running ||
         Object.values(workspace.oauthProgress).some(
           (value) => value.mode === "embedded",
         )}
       onclick={() => resetOAuthBrowserSession()}
-      >Start fresh login session</button
+      >Start fresh login session</Button
     >
   {/if}
   {#if auth.grantType === "authorization_code"}
@@ -195,20 +199,20 @@
       />Use PKCE</label
     >
     {#if auth.usePkce !== false}<label
-        >PKCE method<select
+        >PKCE method<Select
           value={auth.pkceMethod || "S256"}
           onchange={(event) => change("pkceMethod", event.currentTarget.value)}
           ><option value="S256">S256</option><option value="plain"
             >Plain (legacy)</option
           >{#if auth.pkceMethod && !["S256", "plain"].includes(auth.pkceMethod)}<option
               value={auth.pkceMethod}>{auth.pkceMethod} (unsupported)</option
-            >{/if}</select
+            >{/if}</Select
         ></label
       >{/if}
   {/if}
   {#if auth.grantType === "implicit"}
     <label
-      >Response type<select
+      >Response type<Select
         value={auth.responseType || "token"}
         onchange={(event) => change("responseType", event.currentTarget.value)}
       >
@@ -220,7 +224,7 @@
         {#if auth.responseType && !["token", "id_token", "id_token token", "none"].includes(auth.responseType)}<option
             value={auth.responseType}>{auth.responseType}</option
           >{/if}
-      </select></label
+      </Select></label
     >
     <label class="checkbox-label"
       ><input
@@ -245,7 +249,7 @@
   <details>
     <summary>Authorization response options</summary>
     <label
-      >State<input
+      >State<Input
         value={auth.state || ""}
         placeholder="Generate randomly for each login"
         oninput={(event) => change("state", event.currentTarget.value)}
@@ -253,7 +257,7 @@
       /></label
     >
     <label
-      >Expected issuer (optional)<input
+      >Expected issuer (optional)<Input
         value={auth.issuer || ""}
         oninput={(event) => change("issuer", event.currentTarget.value)}
       /></label
@@ -263,20 +267,20 @@
       callback.
     </p>
     {#if auth.grantType === "authorization_code" && auth.responseType && auth.responseType !== "code"}<label
-        >Response type<select
+        >Response type<Select
           value={auth.responseType}
           onchange={(event) =>
             change("responseType", event.currentTarget.value)}
           ><option value={auth.responseType}
             >{auth.responseType} (incompatible with Authorization Code)</option
-          ><option value="code">code</option></select
+          ><option value="code">code</option></Select
         ></label
       >{/if}
   </details>
 {/if}
 {#each fields as [key, label, secret]}
   <label
-    >{label}<input
+    >{label}<Input
       type={secret ? "password" : "text"}
       value={auth[String(key)] || ""}
       oninput={(event) => change(String(key), event.currentTarget.value)}
@@ -287,14 +291,14 @@
 {/each}
 {#if auth.grantType === "password"}
   <label
-    >Username<input
+    >Username<Input
       value={auth.username || ""}
       oninput={(event) => change("username", event.currentTarget.value)}
       autocomplete="off"
     /></label
   >
   <label
-    >Password<input
+    >Password<Input
       type="password"
       value={auth.password || ""}
       oninput={(event) => change("password", event.currentTarget.value)}
@@ -303,7 +307,7 @@
   >
 {/if}
 <label
-  >Client authentication<select
+  >Client authentication<Select
     value={auth.credentialsInBody === true ? "body" : "header"}
     onchange={(event) =>
       change("credentialsInBody", event.currentTarget.value === "body")}
@@ -311,59 +315,59 @@
     <option value="header">Basic header</option><option value="body"
       >Credentials in request body</option
     >
-  </select></label
+  </Select></label
 >
 <details>
   <summary>More OAuth options</summary>
   {#if auth.addTokenTo && auth.addTokenTo !== "header"}
     <label
-      >Token destination<select
+      >Token destination<Select
         value={auth.addTokenTo}
         onchange={(event) => change("addTokenTo", event.currentTarget.value)}
         ><option value={auth.addTokenTo}
           >{auth.addTokenTo} (migration pending)</option
-        ><option value="header">Header</option></select
+        ><option value="header">Header</option></Select
       ></label
     >
   {/if}
   {#if auth.tokenType && String(auth.tokenType).toLowerCase() !== "bearer"}
     <label
-      >Token type<select
+      >Token type<Select
         value={auth.tokenType}
         onchange={(event) => change("tokenType", event.currentTarget.value)}
         ><option value={auth.tokenType}
           >{auth.tokenType} (migration pending)</option
-        ><option value="bearer">Bearer</option></select
+        ><option value="bearer">Bearer</option></Select
       ></label
     >
   {/if}
   <label
-    >Audience<input
+    >Audience<Input
       value={auth.audience || ""}
       oninput={(event) => change("audience", event.currentTarget.value)}
     /></label
   >
   <label
-    >Resource<input
+    >Resource<Input
       value={auth.resource || ""}
       oninput={(event) => change("resource", event.currentTarget.value)}
     /></label
   >
   <label
-    >Origin header<input
+    >Origin header<Input
       value={auth.origin || ""}
       oninput={(event) => change("origin", event.currentTarget.value)}
     /></label
   >
   <label
-    >Token prefix (NO_PREFIX sends only the token)<input
+    >Token prefix (NO_PREFIX sends only the token)<Input
       value={auth.tokenPrefix ?? auth.headerPrefix ?? ""}
       placeholder="Bearer"
       oninput={(event) => change("tokenPrefix", event.currentTarget.value)}
     /></label
   >
   <label
-    >Initial refresh token<input
+    >Initial refresh token<Input
       type="password"
       value={auth.refreshToken || ""}
       oninput={(event) => change("refreshToken", event.currentTarget.value)}
@@ -371,7 +375,7 @@
     /></label
   >
   <label
-    >Manual access token override<input
+    >Manual access token override<Input
       type="password"
       value={auth.accessToken || ""}
       oninput={(event) => change("accessToken", event.currentTarget.value)}
@@ -409,25 +413,26 @@
           )} seconds.
         </p>
         <label
-          >Redirect URI for this login<input
+          >Redirect URI for this login<Input
             readonly
             value={progress.redirectUrl}
           /></label
         >
         <label
-          >Final callback URL<input
+          >Final callback URL<Input
             bind:value={callbackUrl}
             placeholder="Paste the complete URL after authorization"
             autocomplete="off"
             spellcheck="false"
           /></label
         >
-        <button
+        <Button
+          variant="secondary"
           class="secondary-button"
           disabled={!callbackUrl.trim()}
           onclick={async () => {
             if (await completeOAuth(request._id, callbackUrl)) callbackUrl = "";
-          }}>Use callback URL</button
+          }}>Use callback URL</Button
         >
         <p class="hint">
           {progress.mode === "embedded"
@@ -460,7 +465,7 @@
     <label
       >{status.token.credentialKind === "id_token"
         ? "ID token"
-        : "Access token"}<input
+        : "Access token"}<Input
         type={show ? "text" : "password"}
         value={status.token.accessToken}
         readonly
@@ -472,20 +477,23 @@
     >
   {/if}
   <div class="oauth-actions">
-    {#if running}<button
+    {#if running}<Button
+        variant="secondary"
         class="secondary-button"
-        onclick={() => stop(request._id)}>Cancel</button
+        onclick={() => stop(request._id)}>Cancel</Button
       >
     {:else}
-      <button
+      <Button
+        variant="primary"
         class="primary-button"
         disabled={auth.disabled || manual || !supported}
         onclick={() => authorizeOAuth(request._id)}
         >{["authorization_code", "implicit"].includes(auth.grantType)
           ? "Authorize"
-          : "Fetch token"}</button
+          : "Fetch token"}</Button
       >
-      <button
+      <Button
+        variant="secondary"
         class="secondary-button"
         disabled={auth.disabled ||
           manual ||
@@ -500,14 +508,15 @@
             )
           )}
         onclick={() => authorizeOAuth(request._id, "refresh")}
-        >Refresh token</button
+        >Refresh token</Button
       >
-      <button
+      <Button
+        variant="secondary"
         class="secondary-button"
         disabled={!tokens.some(
           (token) => token._oauthVersion === 1 && !token._oauthImported,
         )}
-        onclick={() => clearOAuth(request._id)}>Clear active token</button
+        onclick={() => clearOAuth(request._id)}>Clear active token</Button
       >
     {/if}
   </div>
@@ -521,7 +530,7 @@
   <details>
     <summary>Review saved or imported tokens</summary>
     <label
-      >Saved token<select
+      >Saved token<Select
         value={selected}
         onchange={(event) => {
           selected = event.currentTarget.value;
@@ -534,7 +543,7 @@
               ? "Previous settings"
               : "Imported"} · {date(token.expiresAt)}</option
           >{/each}
-      </select></label
+      </Select></label
     >
     {#if saved}
       {#if saved.credentialKind === "id_token"}<p class="hint">
@@ -549,12 +558,13 @@
         Check the request URL, provider and client credentials before binding
         this token to the current settings. The source record is retained.
       </p>
-      <button
+      <Button
+        variant="secondary"
         class="secondary-button"
         disabled={running || auth.disabled || manual}
         onclick={async () => {
           if (await useSavedOAuth(request._id, saved._id)) selected = "";
-        }}>Use with current settings</button
+        }}>Use with current settings</Button
       >
     {/if}
   </details>

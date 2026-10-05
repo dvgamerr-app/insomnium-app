@@ -1,4 +1,7 @@
 <script>
+  import Textarea from "./ui/Textarea.svelte";
+  import Input from "./ui/Input.svelte";
+  import Select from "./ui/Select.svelte";
   /** @type {{ authentication: Record<string, any>, onchange: (patch: Record<string, any>) => void }} */
   let { authentication: auth, onchange } = $props();
   const algorithms = [
@@ -21,7 +24,7 @@
 
 {#each fields as [key, label]}
   <label
-    >{label}<input
+    >{label}<Input
       value={auth[key] || ""}
       oninput={(event) => onchange({ [key]: event.currentTarget.value })}
       autocomplete="off"
@@ -30,7 +33,7 @@
   >
 {/each}
 <label
-  >Audience (aud; string or JSON array)<input
+  >Audience (aud; string or JSON array)<Input
     value={Array.isArray(auth.audience)
       ? JSON.stringify(auth.audience)
       : auth.audience || ""}
@@ -40,25 +43,27 @@
   /></label
 >
 <label
-  >Additional claims (JSON)<textarea
+  >Additional claims (JSON)<Textarea
     value={typeof auth.additionalClaims === "string"
       ? auth.additionalClaims
       : JSON.stringify(auth.additionalClaims || {}, null, 2)}
     oninput={(event) =>
       onchange({ additionalClaims: event.currentTarget.value })}
-    rows="5"
-    spellcheck="false"></textarea></label
+    rows={5}
+    spellcheck="false"
+  ></Textarea></label
 >
 <label
-  >Private key (PEM, base64 DER/PEM or PKCS8 data URI)<textarea
+  >Private key (PEM, base64 DER/PEM or PKCS8 data URI)<Textarea
     value={auth.privateKey || ""}
     oninput={(event) => onchange({ privateKey: event.currentTarget.value })}
-    rows="7"
+    rows={7}
     autocomplete="off"
-    spellcheck="false"></textarea></label
+    spellcheck="false"
+  ></Textarea></label
 >
 <label
-  >Claims mode<select
+  >Claims mode<Select
     value={auth.claimsMode || "legacy"}
     onchange={(event) =>
       onchange({
@@ -74,11 +79,11 @@
     {#if auth.claimsMode && !["legacy", "postman"].includes(auth.claimsMode)}<option
         value={auth.claimsMode}>{auth.claimsMode} (unsupported)</option
       >{/if}
-  </select></label
+  </Select></label
 >
 {#if auth.claimsMode === "postman"}
   <label
-    >Algorithm<select
+    >Algorithm<Select
       value={auth.algorithm || "RS256"}
       onchange={(event) => onchange({ algorithm: event.currentTarget.value })}
     >
@@ -88,10 +93,10 @@
       {#if auth.algorithm && !algorithms.includes(auth.algorithm)}<option
           value={auth.algorithm}>{auth.algorithm} (unsupported)</option
         >{/if}
-    </select></label
+    </Select></label
   >
   <label
-    >Expiry (seconds; default 3600)<input
+    >Expiry (seconds; default 3600)<Input
       value={auth.expirySeconds || ""}
       oninput={(event) =>
         onchange({ expirySeconds: event.currentTarget.value })}

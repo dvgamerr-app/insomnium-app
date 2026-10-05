@@ -1,4 +1,8 @@
 <script>
+  import Textarea from "./ui/Textarea.svelte";
+  import Button from "./ui/Button.svelte";
+  import Input from "./ui/Input.svelte";
+  import Select from "./ui/Select.svelte";
   import { descendants } from "../model.js";
   import { orderedChildren, resourcePath } from "../resources.js";
   import Icon from "./Icon.svelte";
@@ -81,11 +85,15 @@
   </p>
   <p class="hint">Saved responses for these requests will also be removed.</p>
   <div class="modal-actions">
-    <button class="secondary-button" onclick={() => (confirmingDelete = false)}
-      >Back</button
+    <Button
+      variant="secondary"
+      class="secondary-button"
+      onclick={() => (confirmingDelete = false)}>Back</Button
     >
-    <button class="danger-button" onclick={() => action(ondelete)}
-      >Delete</button
+    <Button
+      variant="danger"
+      class="danger-button"
+      onclick={() => action(ondelete)}>Delete</Button
     >
   </div>
 {:else}
@@ -96,20 +104,20 @@
     }}
   >
     <div class="form-panel resource-form">
-      <label>Name<input bind:value={name} /></label>
+      <label>Name<Input bind:value={name} /></label>
       <label
-        >Description<textarea rows="3" bind:value={description}
-        ></textarea></label
+        >Description<Textarea rows={3} bind:value={description}
+        ></Textarea></label
       >
       {#if !isCollection}
         <label
-          >Location<select bind:value={parentId}>
+          >Location<Select bind:value={parentId}>
             {#each destinations as target (target._id)}
               <option value={target._id}
                 >{resourcePath(resources, target._id)}</option
               >
             {/each}
-          </select></label
+          </Select></label
         >
         {#if parentId !== resource.parentId}<p class="hint">
             Moving changes which collection and folder variables apply to this
@@ -118,10 +126,11 @@
       {/if}
       {#if isFolder}
         <label
-          >Folder variables (JSON)<textarea
+          >Folder variables (JSON)<Textarea
             class="code-editor small-editor"
             spellcheck="false"
-            bind:value={environment}></textarea></label
+            bind:value={environment}
+          ></Textarea></label
         >
         <p class="hint">
           These values override collection and selected environment variables
@@ -130,48 +139,63 @@
       {/if}
     </div>
     <div class="resource-tools">
-      <button
+      <Button
+        variant="secondary"
         type="button"
         class="secondary-button"
         disabled={index <= 0}
-        onclick={() => action(() => onreorder(-1))}>Move up</button
+        onclick={() => action(() => onreorder(-1))}>Move up</Button
       >
-      <button
+      <Button
+        variant="secondary"
         type="button"
         class="secondary-button"
         disabled={index < 0 || index >= siblings.length - 1}
-        onclick={() => action(() => onreorder(1))}>Move down</button
+        onclick={() => action(() => onreorder(1))}>Move down</Button
       >
-      <button
+      <Button
+        variant="secondary"
         type="button"
         class="secondary-button"
         onclick={() => action(onduplicate)}
-        ><Icon name="copy" size={14} /> Duplicate</button
+        ><Icon name="copy" size={14} /> Duplicate</Button
       >
       {#if isCollection || isFolder}
-        <button type="button" class="secondary-button" onclick={onrequest}
-          ><Icon name="plus" size={14} /> New request</button
+        <Button
+          variant="secondary"
+          type="button"
+          class="secondary-button"
+          onclick={onrequest}><Icon name="plus" size={14} /> New request</Button
         >
-        <button type="button" class="secondary-button" onclick={onfolder}
-          ><Icon name="folder" size={14} /> New folder</button
+        <Button
+          variant="secondary"
+          type="button"
+          class="secondary-button"
+          onclick={onfolder}><Icon name="folder" size={14} /> New folder</Button
         >
       {/if}
     </div>
     <div class="modal-actions">
-      <button
+      <Button
+        variant="danger"
         type="button"
         class="danger-button"
         disabled={lastCollection}
         title={lastCollection
           ? "Keep at least one collection"
           : "Delete this item and its children"}
-        onclick={() => (confirmingDelete = true)}>Delete…</button
+        onclick={() => (confirmingDelete = true)}>Delete…</Button
       >
       <span class="spacer"></span>
-      <button type="button" class="secondary-button" onclick={onclose}
-        >Cancel</button
+      <Button
+        variant="secondary"
+        type="button"
+        class="secondary-button"
+        onclick={onclose}>Cancel</Button
       >
-      <button type="submit" class="primary-button">Save changes</button>
+      <Button variant="primary" type="submit" class="primary-button"
+        >Save changes</Button
+      >
     </div>
   </form>
 {/if}

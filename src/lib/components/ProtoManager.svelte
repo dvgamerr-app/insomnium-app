@@ -1,4 +1,7 @@
 <script>
+  import Textarea from "./ui/Textarea.svelte";
+  import Button from "./ui/Button.svelte";
+  import Input from "./ui/Input.svelte";
   import { onDestroy } from "svelte";
   import Icon from "./Icon.svelte";
   import {
@@ -207,7 +210,9 @@
   </p>{/if}
 {#if notice}<p class="hint" role="status">{notice}</p>{/if}
 {#if reading}<p class="hint">
-    Reading selected files… <button onclick={discard}>Cancel</button>
+    Reading selected files… <Button variant="ghost" onclick={discard}
+      >Cancel</Button
+    >
   </p>{/if}
 {#if pending.length}
   <div class="preview">
@@ -218,24 +223,28 @@
         ? "Existing IDs and files absent from this selection will be kept. Every file in the affected proto root is validated before saving."
         : "Existing saved files will be kept."}
     </p>
-    {#each pending as item, i}<input
+    {#each pending as item, i}<Input
         aria-label={`Proto path ${i + 1}`}
         disabled={running}
         value={item.name}
         oninput={(e) => (pending[i] = { ...item, name: e.currentTarget.value })}
       />{/each}
     <div class="editor-toolbar">
-      <button
+      <Button
+        variant="primary"
         class="primary-button"
         disabled={running || reading}
         onclick={apply}
         >{targetId
           ? "Validate and update"
-          : `Import ${pending.length} files`}</button
+          : `Import ${pending.length} files`}</Button
       >
-      <button disabled={running} onclick={discard}>Discard</button>
-      {#if progress}<span role="status">{progress}</span><button
-          onclick={() => stop(request._id)}>Cancel update</button
+      <Button variant="ghost" disabled={running} onclick={discard}
+        >Discard</Button
+      >
+      {#if progress}<span role="status">{progress}</span><Button
+          variant="ghost"
+          onclick={() => stop(request._id)}>Cancel update</Button
         >{/if}
     </div>
   </div>
@@ -251,13 +260,14 @@
         name={item._type === "proto_directory" ? "folder" : "file"}
         size={15}
       />
-      {#if item._type === "proto_file"}<button
+      {#if item._type === "proto_file"}<Button
+          variant="ghost"
           class="proto-name"
           disabled={running}
           title={item.name}
           onclick={() =>
             update(request._id, { protoFileId: item._id, protoMethodName: "" })}
-          >{item.name}</button
+          >{item.name}</Button
         >
       {:else}<span class="proto-name" title={item.name}>{item.name}</span>{/if}
       {#if item._type === "proto_directory"}
@@ -280,12 +290,13 @@
           /></label
         >
       {/if}
-      <button
+      <Button
+        variant="ghost"
         class="text-button"
         disabled={running || reading}
         aria-label={`Remove ${item.name}`}
         onclick={() => (deleting = item._id)}
-        ><Icon name="trash" size={14} /></button
+        ><Icon name="trash" size={14} /></Button
       >
     </li>
   {:else}<li class="hint">No saved proto files in this collection.</li>{/each}
@@ -302,28 +313,28 @@
     {#if removal.requests.length}<ul>
         {#each removal.requests as affected}<li>{affected.name}</li>{/each}
       </ul>{/if}
-    <button disabled={running} onclick={remove}>Confirm remove</button><button
-      onclick={() => (deleting = "")}>Keep files</button
-    >
+    <Button variant="ghost" disabled={running} onclick={remove}
+      >Confirm remove</Button
+    ><Button variant="ghost" onclick={() => (deleting = "")}>Keep files</Button>
   </div>
 {/if}
 {#if file}
   <div class="editor-toolbar">
-    <input
+    <Input
       aria-label="Proto filename"
       value={file.name}
       disabled={running}
       onchange={rename}
     />
   </div>
-  <textarea
+  <Textarea
     class="code-editor proto-source"
     aria-label="Proto source"
     spellcheck="false"
     disabled={running}
     value={file.protoText}
     oninput={(e) => update(file._id, { protoText: e.currentTarget.value })}
-  ></textarea>
+  ></Textarea>
 {:else}<p class="hint">
     Select a saved file to edit its source. Use Server reflection when no local
     proto is needed.
@@ -357,7 +368,7 @@
     white-space: nowrap;
     text-align: left;
   }
-  button.proto-name {
+  .proto-tree :global(button.proto-name) {
     border: 0;
     background: transparent;
     padding: 6px 0;
@@ -388,12 +399,12 @@
     padding: 8px;
     border-bottom: 1px solid var(--line);
   }
-  .preview > input {
+  .preview > :global(input) {
     display: block;
     width: 100%;
     margin: 5px 0;
   }
-  .proto-source {
+  :global(.proto-source) {
     min-height: 220px;
     width: 100%;
   }

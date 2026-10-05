@@ -1,4 +1,8 @@
 <script>
+  import Textarea from "./ui/Textarea.svelte";
+  import Button from "./ui/Button.svelte";
+  import Input from "./ui/Input.svelte";
+  import Select from "./ui/Select.svelte";
   import SplitPane from "./ui/SplitPane.svelte";
   import { untrack, onDestroy } from "svelte";
   import CodeEditor from "./CodeEditor.svelte";
@@ -230,7 +234,8 @@
     <button class:active={view === "Schema"} onclick={() => (view = "Schema")}
       >Schema</button
     >
-    <button
+    <Button
+      variant="ghost"
       disabled={Boolean(content.error)}
       onclick={() => {
         try {
@@ -238,21 +243,26 @@
         } catch (e) {
           error = String(e);
         }
-      }}>Format</button
+      }}>Format</Button
     >
-    <button disabled={Boolean(content.error) || validating} onclick={check}
-      >{validating ? "Validating…" : "Validate"}</button
+    <Button
+      variant="ghost"
+      disabled={Boolean(content.error) || validating}
+      onclick={check}>{validating ? "Validating…" : "Validate"}</Button
     >
     <span class="spacer"></span>
-    <button
+    <Button
+      variant="ghost"
       disabled={!context || running}
       title="Send a separate introspection POST using this request's auth, headers and environment"
       onclick={async () => {
         await execute(request._id, true);
         view = "Schema";
-      }}>Fetch schema</button
+      }}>Fetch schema</Button
     >
-    {#if running}<button onclick={() => stop(request._id)}>Cancel</button>{/if}
+    {#if running}<Button variant="ghost" onclick={() => stop(request._id)}
+        >Cancel</Button
+      >{/if}
     <label class="schema-import"
       >Import schema<input
         type="file"
@@ -260,19 +270,21 @@
         onchange={importSchema}
       /></label
     >
-    {#if entry}<button
+    {#if entry}<Button
+        variant="ghost"
         onclick={async () => {
           try {
             await download(entry.sdl, "schema.graphql");
           } catch (e) {
             error = String(e);
           }
-        }}>Export SDL</button
-      ><button
+        }}>Export SDL</Button
+      ><Button
+        variant="ghost"
         onclick={() => {
           delete workspace.schemas[request._id];
           delete workspace.schemaErrors[request._id];
-        }}>Clear schema</button
+        }}>Clear schema</Button
       >{/if}
   </div>
   {#if content.error}<p class="inline-error">
@@ -283,16 +295,16 @@
       role="alert">{error || workspace.schemaErrors[request._id]}</pre>{/if}
   {#if message}<p class="hint padded" role="status">{message}</p>{/if}
   {#if content.error}
-    <textarea
+    <Textarea
       class="code-editor body-text"
       aria-label="Invalid GraphQL body JSON"
       value={request.body?.text || ""}
       oninput={(event) =>
         onchange({ ...request.body, text: event.currentTarget.value })}
-    ></textarea>
+    ></Textarea>
   {:else if view === "Query"}
     <label class="graphql-operation"
-      >Operation name<input
+      >Operation name<Input
         aria-label="GraphQL operation name"
         list={`graphql-operations-${request._id}`}
         value={content.body.operationName || ""}
@@ -374,12 +386,12 @@
     >
       {#snippet first()}
         <div class="schema-types">
-          <input
+          <Input
             aria-label="Search schema types and fields"
             placeholder="Find type or field…"
             bind:value={search}
           />
-          <select
+          <Select
             size={8}
             aria-label="Schema types"
             value={directive ? "" : type?.name || ""}
@@ -388,9 +400,9 @@
               selectedDirective = "";
             }}
             >{#each types as item}<option value={item.name}>{item.name}</option
-              >{/each}</select
+              >{/each}</Select
           >
-          <select
+          <Select
             size={4}
             aria-label="Schema directives"
             value={directive?.name || ""}
@@ -400,7 +412,7 @@
             {#each directives as item}<option value={item.name}
                 >@{item.name}</option
               >{/each}
-          </select>
+          </Select>
         </div>
       {/snippet}{#snippet second()}
         <pre class="schema-definition">{directive

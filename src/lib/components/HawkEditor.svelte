@@ -1,4 +1,6 @@
 <script>
+  import Input from "./ui/Input.svelte";
+  import Select from "./ui/Select.svelte";
   /** @type {{ authentication: Record<string, any>, onchange: (patch: Record<string, any>) => void }} */
   let { authentication: auth, onchange } = $props();
   const fields = [
@@ -14,7 +16,7 @@
 
 {#each fields as [key, label, secret]}
   <label
-    >{label}<input
+    >{label}<Input
       type={secret ? "password" : "text"}
       value={auth[String(key)] || ""}
       oninput={(event) =>
@@ -25,7 +27,7 @@
   >
 {/each}
 <label
-  >Algorithm<select
+  >Algorithm<Select
     value={auth.algorithm || ""}
     onchange={(event) => onchange({ algorithm: event.currentTarget.value })}
   >
@@ -34,7 +36,7 @@
     {#if auth.algorithm && !["sha1", "sha256"].includes(auth.algorithm)}<option
         value={auth.algorithm}>{auth.algorithm} (unsupported)</option
       >{/if}
-  </select></label
+  </Select></label
 >
 <label class="checkbox-label"
   ><input
@@ -45,7 +47,7 @@
   />Validate payload</label
 >
 <label
-  >Signing mode<select
+  >Signing mode<Select
     value={auth.bodyMode || "legacy"}
     onchange={(event) => onchange({ bodyMode: event.currentTarget.value })}
   >
@@ -55,7 +57,7 @@
     {#if auth.bodyMode && !["legacy", "standard", "postman"].includes(auth.bodyMode)}<option
         value={auth.bodyMode}>{auth.bodyMode} (unsupported)</option
       >{/if}
-  </select></label
+  </Select></label
 >
 <p class="hint">
   Legacy mode hashes saved body text and its MIME type; absent text has no

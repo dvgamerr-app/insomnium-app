@@ -1,4 +1,8 @@
 <script>
+  import Textarea from "./ui/Textarea.svelte";
+  import Select from "./ui/Select.svelte";
+  import Button from "./ui/Button.svelte";
+  import Input from "./ui/Input.svelte";
   import { onDestroy } from "svelte";
   import {
     workspace as app,
@@ -43,7 +47,7 @@
 </script>
 
 <div class="editor-toolbar">
-  <select
+  <Select
     aria-label="Saved WebSocket payload"
     value={payload?._id || ""}
     onchange={(event) =>
@@ -52,19 +56,24 @@
     {#each payloads as item (item._id)}<option value={item._id}
         >{item.name}</option
       >{/each}
-  </select>
-  <button class="text-button" onclick={() => addPayload(request._id)}
-    ><Icon name="plus" size={14} /> Payload</button
+  </Select>
+  <Button
+    variant="ghost"
+    class="text-button"
+    onclick={() => addPayload(request._id)}
+    ><Icon name="plus" size={14} /> Payload</Button
   >
   <span class="spacer"></span>
-  {#if payload}<button
+  {#if payload}<Button
+      variant="ghost"
       class="icon-button subtle"
       title="Delete payload"
       aria-label="Delete payload"
       onclick={() => remove(payload._id)}
-      ><Icon name="trash" size={14} /></button
+      ><Icon name="trash" size={14} /></Button
     >{/if}
-  <button
+  <Button
+    variant="primary"
     class="primary-button"
     disabled={!payload || sending || (!!app.running[request._id] && !connected)}
     onclick={send}
@@ -72,19 +81,19 @@
       ? "Sending…"
       : connected
         ? "Send message"
-        : "Connect and send"}</button
+        : "Connect and send"}</Button
   >
 </div>
 {#if error}<p class="inline-error" role="alert">{error}</p>{/if}
 {#if payload}
   <div class="payload-options">
-    <input
+    <Input
       aria-label="Payload name"
       value={payload.name}
       onchange={(event) =>
         update(payload._id, { name: event.currentTarget.value || "Payload" })}
     />
-    <select
+    <Select
       aria-label="Payload type"
       value={payload.mode}
       onchange={(event) =>
@@ -98,7 +107,7 @@
       {#if !["text/plain", "application/json", "binary", "ping"].includes(payload.mode)}<option
           value={payload.mode}>{payload.mode}</option
         >{/if}
-    </select>
+    </Select>
     {#if payload.mode === "binary"}<label class="file-picker"
         >Choose file<input
           type="file"
@@ -135,7 +144,7 @@
         /></label
       >{/if}
   </div>
-  <textarea
+  <Textarea
     class="code-editor body-text"
     aria-label="WebSocket message"
     spellcheck="false"
@@ -144,10 +153,13 @@
       update(payload._id, { value: event.currentTarget.value })}
     placeholder={payload.mode === "binary"
       ? "Paste Base64 or choose a file"
-      : "Message to send…"}></textarea>
+      : "Message to send…"}
+  ></Textarea>
 {:else}<div class="empty-body">
     <p>No saved payloads.</p>
-    <button class="secondary-button" onclick={() => addPayload(request._id)}
-      >Create a payload</button
+    <Button
+      variant="secondary"
+      class="secondary-button"
+      onclick={() => addPayload(request._id)}>Create a payload</Button
     >
   </div>{/if}

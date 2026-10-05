@@ -1,4 +1,7 @@
 <script>
+  import Select from "./ui/Select.svelte";
+  import Button from "./ui/Button.svelte";
+  import Input from "./ui/Input.svelte";
   import SplitPane from "./ui/SplitPane.svelte";
   import Icon from "./Icon.svelte";
   import { download } from "../import-export.js";
@@ -67,7 +70,7 @@
       >{/if}
     <span class="metric">{events.length} events</span>
     <span class="spacer"></span>
-    {#if history.length}<select
+    {#if history.length}<Select
         class="history-select"
         aria-label="Connection history"
         disabled={running}
@@ -82,7 +85,7 @@
         {#each history as entry (entry._id)}<option value={entry._id}
             >{new Date(entry.created).toLocaleTimeString()} · {entry.protocol}</option
           >{/each}
-      </select>{/if}
+      </Select>{/if}
   </div>
   <div
     class="editor-tabs response-tabs"
@@ -96,7 +99,8 @@
         onclick={() => (tab = name)}>{name}</button
       >{/each}
     <span class="spacer"></span>
-    <button
+    <Button
+      variant="ghost"
       class="text-button"
       disabled={!events.length}
       onclick={async () => {
@@ -109,7 +113,7 @@
         } catch (e) {
           error = String(e);
         }
-      }}>Export log</button
+      }}>Export log</Button
     >
   </div>
   {#if response?.dropped}<p class="hint stream-notice">
@@ -134,7 +138,7 @@
     >
       {#snippet first()}
         <div class="stream-event-list">
-          <input
+          <Input
             class="stream-filter"
             aria-label="Filter stream events"
             bind:value={filter}
@@ -171,7 +175,8 @@
             >
             {#if selected?.id}<span class="hint">ID: {selected.id}</span>{/if}
             <span class="spacer"></span>
-            <button
+            <Button
+              variant="ghost"
               class="icon-button"
               disabled={!selected}
               aria-label="Copy stream event"
@@ -182,14 +187,15 @@
                 } catch (e) {
                   error = String(e);
                 }
-              }}><Icon name="copy" size={14} /></button
+              }}><Icon name="copy" size={14} /></Button
             >
-            <button
+            <Button
+              variant="ghost"
               class="icon-button"
               disabled={!selected}
               aria-label="Save stream event"
               title="Save event"
-              onclick={saveEvent}><Icon name="download" size={14} /></button
+              onclick={saveEvent}><Icon name="download" size={14} /></Button
             >
           </div>
           {#if selected}<pre class="stream-event-body">{body}</pre>{:else}<div

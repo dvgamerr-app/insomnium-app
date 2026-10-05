@@ -1,4 +1,8 @@
 <script>
+  import Textarea from "./ui/Textarea.svelte";
+  import Input from "./ui/Input.svelte";
+  import Button from "./ui/Button.svelte";
+  import Select from "./ui/Select.svelte";
   import SplitPane from "./ui/SplitPane.svelte";
   import { jsonPrettify } from "../json-prettify.js";
   import { environmentFor } from "../model.js";
@@ -110,7 +114,7 @@
 </script>
 
 <div class="request-heading">
-  <input
+  <Input
     class="request-name"
     aria-label="Request name"
     value={request.name}
@@ -129,7 +133,7 @@
 >
   <div class="request-url-fields">
     <span class="protocol-label">gRPC</span>
-    <input
+    <Input
       class="url-input"
       aria-label="gRPC server URL"
       placeholder="grpc://localhost:50051"
@@ -138,21 +142,26 @@
       oninput={(e) => update(request._id, { url: e.currentTarget.value })}
     />
   </div>
-  {#if running}<button
+  {#if running}<Button
+      variant="primary"
       type="button"
       class="send-button"
       onclick={() => stop(request._id)}
-      ><Icon name="stop" size={15} /> Cancel</button
+      ><Icon name="stop" size={15} /> Cancel</Button
     >
-  {:else}<button class="send-button" type="submit" disabled={!method}
+  {:else}<Button
+      variant="primary"
+      class="send-button"
+      type="submit"
+      disabled={!method}
       >{method?.clientStreaming ? "Connect" : "Send"}<Icon
         name="send"
         size={15}
-      /></button
+      /></Button
     >{/if}
 </form>
 <div class="editor-toolbar grpc-methods">
-  <select
+  <Select
     aria-label="Proto source"
     disabled={running}
     value={request.protoFileId || ""}
@@ -169,14 +178,15 @@
     {#if request.protoFileId && !files.some((f) => f.id === request.protoFileId)}<option
         value={request.protoFileId}>Missing saved proto file</option
       >{/if}
-  </select>
-  <button
+  </Select>
+  <Button
+    variant="ghost"
     class="text-button"
     disabled={running}
     onclick={() => executeGrpc(request._id, true)}
-    >{run?.phase === "schema" ? "Loading…" : "Load methods"}</button
+    >{run?.phase === "schema" ? "Loading…" : "Load methods"}</Button
   >
-  <select
+  <Select
     aria-label="gRPC method"
     title={request.protoMethodName ||
       "Add a proto file or use server reflection"}
@@ -211,7 +221,7 @@
         value={request.protoMethodName}
         >{request.protoMethodName} (load schema)</option
       >{/if}
-  </select>
+  </Select>
   {#if method}<span class="muted">{grpcMethodType(method)}</span>{/if}
 </div>
 {#if error || app.grpcErrors[request._id]}<p class="inline-error">
@@ -237,7 +247,8 @@
       <section class="request-editor" aria-label={`${tab} editor`}>
         {#if tab === "Body"}
           <div class="editor-toolbar">
-            <span>JSON message</span><span class="spacer"></span><button
+            <span>JSON message</span><span class="spacer"></span><Button
+              variant="ghost"
               class="text-button"
               disabled={!!selectedSent}
               onclick={() => {
@@ -247,25 +258,28 @@
                 } catch (e) {
                   error = String(e);
                 }
-              }}>Format</button
+              }}>Format</Button
             >
-            <button
+            <Button
+              variant="ghost"
               class="text-button"
               disabled={!!selectedSent || !method || !!method.exampleError}
-              onclick={() => body(pretty(method.example))}>Use example</button
+              onclick={() => body(pretty(method.example))}>Use example</Button
             >
-            {#if run?.method?.clientStreaming}<button
+            {#if run?.method?.clientStreaming}<Button
+                variant="primary"
                 class="primary-button"
                 disabled={run.phase !== "open" ||
                   run.sending ||
                   run.senderClosed}
-                onclick={() => sendGrpc(request._id)}>Send message</button
-              ><button
+                onclick={() => sendGrpc(request._id)}>Send message</Button
+              ><Button
+                variant="ghost"
                 disabled={run.phase !== "open" ||
                   run.sending ||
                   run.senderClosed}
                 onclick={() => sendGrpc(request._id, true)}
-                >{run.senderClosed ? "Committed" : "Commit"}</button
+                >{run.senderClosed ? "Committed" : "Commit"}</Button
               >{/if}
           </div>
           {#if sent.length}
@@ -323,22 +337,22 @@
           </p>
         {:else if tab === "Proto Files"}
           <ProtoManager {request} />
-        {:else if tab === "Docs"}<textarea
+        {:else if tab === "Docs"}<Textarea
             class="code-editor grpc-body"
             aria-label="gRPC documentation"
             value={request.description || ""}
             oninput={(e) =>
               update(request._id, { description: e.currentTarget.value })}
-          ></textarea>
+          ></Textarea>
         {:else}<label class="grpc-hint"
-            >Message JSON format <select
+            >Message JSON format <Select
               disabled={running}
               value={request.grpcJsonMode || "legacy"}
               onchange={(e) =>
                 update(request._id, { grpcJsonMode: e.currentTarget.value })}
               ><option value="legacy">Insomnium legacy</option><option
                 value="protoJson">Standard ProtoJSON</option
-              ></select
+              ></Select
             ></label
           >
           <p class="grpc-hint">
@@ -368,7 +382,7 @@
         >{#if response?.elapsedMs != null}<span class="metric"
             >{response.elapsedMs} <small>ms</small></span
           >{/if}<span class="spacer"></span>
-        <select
+        <Select
           class="history-select"
           aria-label="gRPC response history"
           disabled={running}
@@ -379,11 +393,12 @@
           }}
           ><option value="">History</option>{#each history as h}<option
               value={h._id}>{new Date(h.created).toLocaleString()}</option
-            >{/each}</select
-        ><button
+            >{/each}</Select
+        ><Button
+          variant="ghost"
           class="text-button"
           disabled={!response}
-          onclick={exportResponse}>Save response</button
+          onclick={exportResponse}>Save response</Button
         >
       </div>
       <div class="editor-tabs" role="tablist" aria-label="gRPC response tabs">
@@ -449,7 +464,7 @@
   .grpc-methods {
     flex-wrap: wrap;
   }
-  .grpc-methods select {
+  .grpc-methods :global(select) {
     max-width: 42%;
     min-width: 160px;
     flex: 1;
@@ -460,7 +475,7 @@
     margin: 8px 12px;
     line-height: 1.5;
   }
-  .grpc-body {
+  .request-editor :global(.grpc-body) {
     width: 100%;
     flex: 1;
     min-height: 100px;
