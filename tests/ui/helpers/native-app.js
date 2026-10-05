@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 
 /** @typedef {import("playwright-core").Page} Page */
 /** @typedef {(command:string,args?:Record<string,any>)=>Promise<any>} NativeInvoke */
-/** @typedef {{page:Page,output:string,invoke:NativeInvoke,requestNativeClose:()=>Promise<any>,terminateParent:()=>Promise<{pid:number,exit:any}>}} ScenarioContext */
+/** @typedef {{page:Page,output:string,invoke:NativeInvoke,requestNativeClose:(action?:()=>Promise<void>)=>Promise<any>,terminateParent:()=>Promise<{pid:number,exit:any}>}} ScenarioContext */
 export const probeIdentifier = "app.insomnium.probe.checkout20260929";
 
 /** Only launch the isolated artifact described by a successful build record.
@@ -92,7 +92,7 @@ export async function withNativeApp(scenario, run, options = {}) {
     await run({
       page,
       output,
-      requestNativeClose: async () => {
+      requestNativeClose: async (action) => {
         assert.equal(
           options.allowNativeClose,
           true,
@@ -104,7 +104,9 @@ export async function withNativeApp(scenario, run, options = {}) {
         );
         const { requestOwnedWindowClose } =
           await import("./native-window-close.js");
-        const posted = requestOwnedWindowClose(child.pid);
+        const posted = action
+          ? await action()
+          : requestOwnedWindowClose(child.pid);
         const result = await Promise.race([
           exited,
           Bun.sleep(15000).then(() => null),

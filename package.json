@@ -43,6 +43,7 @@
     "test:ui:graphql-close": "bun tests/ui/graphql-schema-close.js",
     "test:ui:theme": "bun tests/ui/nocturne-theme.js",
     "test:ui:workspace": "bun tests/ui/nocturne-workspace.js",
+    "test:ui:window-controls": "bun tests/ui/window-controls.js",
     "test:ui:source-control": "bun tests/ui/git-source-control.js"
   },
   "license": "MIT",

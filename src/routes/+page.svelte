@@ -1,4 +1,5 @@
 <script>
+  import WindowControls from "$lib/components/ui/WindowControls.svelte";
   import Textarea from "$lib/components/ui/Textarea.svelte";
   import Select from "$lib/components/ui/Select.svelte";
   import Input from "$lib/components/ui/Input.svelte";
@@ -340,7 +341,7 @@
   ><title>{collection?.name || "Insomnium"} · Insomnium</title></svelte:head
 >
 <div class="app-shell" inert={editingBlocked} aria-busy={editingBlocked}>
-  <header class="app-header">
+  <header class="app-header" data-tauri-drag-region>
     <div class="brand">
       <img class="brand-mark" src="/app-icon.png" alt="" /><span>Insomnium</span
       >
@@ -378,7 +379,7 @@
       ><Icon name="search" size={14} /><span>Search requests</span><kbd
         >Ctrl P</kbd
       ></Button
-    ><span class="spacer"></span><span class="local-indicator"
+    ><span class="spacer" data-tauri-drag-region></span><span class="local-indicator"
       ><i></i> Local workspace</span
     ><Button
       variant="ghost"
@@ -395,6 +396,7 @@
         size={17}
       /></Button
     >
+    <WindowControls onerror={(error) => (app.error = String(error))} />
   </header>
   <nav class="activity-bar" aria-label="Main navigation">
     <Button

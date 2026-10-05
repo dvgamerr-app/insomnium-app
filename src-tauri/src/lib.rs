@@ -47,6 +47,11 @@ pub fn run() {
         }))
         .plugin(
             tauri_plugin_window_state::Builder::new()
+                // Window chrome belongs to the platform config, not saved user geometry.
+                .with_state_flags(
+                    tauri_plugin_window_state::StateFlags::all()
+                        & !tauri_plugin_window_state::StateFlags::DECORATIONS,
+                )
                 .with_filter(|label| label == "main")
                 .build(),
         )
