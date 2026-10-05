@@ -458,14 +458,15 @@
   </nav>
   <SplitPane
     class="workspace-area"
-    storageKey="workspace"
+    storageKey="workspace-left"
     label="Collection sidebar size"
-    initial={70}
-    minFirst={320}
-    minSecond={220}
+    initial={20}
+    minFirst={220}
+    minSecond={320}
+    collapsedPane="first"
     collapsed={mainView === "git"}
   >
-    {#snippet first()}
+    {#snippet second()}
       <main class="workspace-main">
         {#if app.error}<div class="notification error" role="alert">
             <span>{app.error}</span><Button
@@ -734,7 +735,7 @@
         {/if}
       </main>
     {/snippet}
-    {#snippet second()}
+    {#snippet first()}
       <aside class="sidebar" aria-label="Collections">
         <div class="sidebar-heading">
           <span class="sidebar-workspace" title={collection?.name}

@@ -1,5 +1,10 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Restore Collections to the left — 2026-10-05
+
+- Confirmed the original layout placed Collections on the left; restored that position per owner correction. SplitPane now supports choosing the collapsed pane so Source Control still fills the workspace. A new workspace-left preference key avoids reusing the old right-sidebar ratio.
+- Frontend check (0 errors/0 warnings), build and saved theme/workspace preview scenarios pass, including resize persistence and Source Control navigation. Inspected the rebuilt dark screenshot. Native executable was not rebuilt for this visual correction; migration parity remains open.
+
 ## Outline removal and Lucide icons — 2026-10-05
 
 - Owner requested no outlines, then confirmed Lucide Icons. Removed outline rings from controls, URL group, schema/proto import and split handles. Focus now changes existing surface/border colors; borderless key/value fields use a subtle background. No replacement box-shadow rings. Saved theme assertions now require no outline and keyboard focus/background feedback.

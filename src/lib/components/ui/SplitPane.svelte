@@ -1,6 +1,6 @@
 <script>
   import { onMount, untrack } from "svelte";
-  /** @type {{first:import('svelte').Snippet,second:import('svelte').Snippet,axis?:'x'|'y',initial?:number,minFirst?:number,minSecond?:number,storageKey:string,label:string,stackAt?:number,collapsed?:boolean,class?:string}} */
+  /** @type {{first:import('svelte').Snippet,second:import('svelte').Snippet,axis?:'x'|'y',initial?:number,minFirst?:number,minSecond?:number,storageKey:string,label:string,stackAt?:number,collapsed?:boolean,collapsedPane?:'first'|'second',class?:string}} */
   let {
     first,
     second,
@@ -12,6 +12,7 @@
     label,
     stackAt = 0,
     collapsed = false,
+    collapsedPane = "second",
     class: className = "",
   } = $props();
   const id = $props.id();
@@ -118,7 +119,9 @@
     : tracks}
   style:grid-template-rows={collapsed || !vertical ? "minmax(0, 1fr)" : tracks}
 >
-  <div class="split-content" id={`${id}-first`}>{@render first()}</div>
+  {#if !collapsed || collapsedPane !== "first"}
+    <div class="split-content" id={`${id}-first`}>{@render first()}</div>
+  {/if}
   {#if !collapsed}
     <!-- WAI-ARIA Window Splitter defines a focusable separator with arrow-key interaction. -->
     <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
@@ -145,6 +148,8 @@
       }}
       title="Drag to resize · arrows to adjust · Enter to reset"
     ></div>
+  {/if}
+  {#if !collapsed || collapsedPane === "first"}
     <div class="split-content">{@render second()}</div>
   {/if}
 </div>
