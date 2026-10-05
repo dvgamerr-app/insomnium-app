@@ -1,5 +1,12 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Outline removal and Lucide icons — 2026-10-05
+
+- Owner requested no outlines, then confirmed Lucide Icons. Removed outline rings from controls, URL group, schema/proto import and split handles. Focus now changes existing surface/border colors; borderless key/value fields use a subtle background. No replacement box-shadow rings. Saved theme assertions now require no outline and keyboard focus/background feedback.
+- Replaced all application Icon hand-authored SVG paths with explicit per-icon imports from @lucide/svelte1.52.0. Stream direction character arrows and CSS loading spinners now use Lucide SVGs through the same component. Commit-history SVG remains a data graph, not a UI icon; native control indicators retain browser semantics. License copied to static/licenses/Lucide-ISC.txt.
+- Consulted official Lucide installation documentation: https://github.com/lucide-icons/lucide/blob/main/docs/guide/installation.md ; installed with bun add @lucide/svelte (Svelte5 package). Check0/0 and frontend build pass. Saved theme and workspace preview regressions pass, including no-outline keyboard focus and Lucide navigation SVG assertions. Inspected dark URL-focus screenshot. Native controls executable from the preceding milestone predates these visual changes; this follow-up is verified in the rebuilt preview.
+
+
 ## Shared control redesign and broad adoption — 2026-10-05
 
 - Owner correctly pointed out that the prior component scaffold did not fulfill broad UI redesign/adoption. New Nocturne control surfaces now have centralized8px radius,34px height, contrasting borders, hover/focus/error states, themed dropdown pickers, and redesigned modal spacing/header/backdrop. Removed old modal/UI primitive CSS ownership instead of retaining two competing sets.

@@ -59,8 +59,11 @@
 
 <section class="response-pane stream-pane" aria-label="Stream response">
   <div class="response-status">
-    {#if running && response?.connectionState !== "open"}<span class="spinner"
-      ></span>{/if}
+    {#if running && response?.connectionState !== "open"}<Icon
+        name="loader"
+        size={13}
+        class="spinner"
+      />{/if}
     <span
       class="status-badge"
       class:failure={response?.connectionState === "error"}
@@ -150,11 +153,14 @@
               onclick={() => (selectedId = event._id)}
             >
               <span class="stream-event-type"
-                >{event.direction === "sent"
-                  ? "↑"
-                  : event.direction === "received" || event.kind === "sse"
-                    ? "↓"
-                    : "·"}
+                ><Icon
+                  name={event.direction === "sent"
+                    ? "arrowUp"
+                    : event.direction === "received" || event.kind === "sse"
+                      ? "arrowDown"
+                      : "dot"}
+                  size={13}
+                />
                 {event.event || event.format || event.kind}</span
               >
               <time>{new Date(event.created).toLocaleTimeString()}</time>

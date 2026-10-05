@@ -6,6 +6,17 @@ await withPreview("nocturne-workspace", async (page, output) => {
   const errors = /** @type {string[]} */ ([]);
   page.on("pageerror", (error) => errors.push(error.message));
   await page.getByRole("button", { name: "Git", exact: true }).waitFor();
+  assert.equal(
+    await page
+      .locator(".activity-bar svg")
+      .evaluateAll(
+        (icons) =>
+          icons.length > 0 &&
+          icons.every((icon) => icon.classList.contains("lucide-icon")),
+      ),
+    true,
+    "navigation icons come from Lucide",
+  );
   await exerciseSplit(page, "Collection sidebar size");
   await exerciseSplit(page, "Request and response size");
   const sidebar = page.getByRole("separator", {

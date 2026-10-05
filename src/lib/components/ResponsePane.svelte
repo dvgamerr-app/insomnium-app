@@ -181,7 +181,9 @@
           .join("\n")}</pre>
     </details>{/if}
   <div class="response-status">
-    {#if running}<span class="spinner"></span><span>Sending request…</span>
+    {#if running}<Icon name="loader" size={13} class="spinner" /><span
+        >Sending request…</span
+      >
     {:else if response?.error}<span class="error-label">Request failed</span>
     {:else if response}<span
         class="status-badge"

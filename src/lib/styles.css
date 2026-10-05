@@ -1291,9 +1291,7 @@ kbd {
 .spinner {
   width: 13px;
   height: 13px;
-  border: 2px solid var(--line);
-  border-top-color: var(--accent-text);
-  border-radius: 50%;
+  color: var(--accent-text);
   animation: spin 1s linear infinite;
 }
 @keyframes spin {
