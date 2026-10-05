@@ -1,0 +1,276 @@
+import assert from "node:assert/strict";
+import { withNativeApp, poll } from "./helpers/native-app.js";
+import { withIpcFailure } from "./helpers/ipc-failure.js";
+import { gitCollection } from "./helpers/git-fixture.js";
+
+process.env.INSOMNIUM_UI_BUILD_STATE ||=
+  "artifacts/native-nocturne-workspace-final/build-state.json";
+await withNativeApp(
+  "nocturne-native-theme",
+  async ({ page, invoke, output }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    const fixture = await gitCollection({ page, invoke });
+    const recoveryBranch = "theme-visual-recovery";
+    await invoke("git_repository_create_branch", {
+      repositoryId: fixture.repositoryId,
+      input: {
+        name: recoveryBranch,
+        expectedBranch: "main",
+        expectedHeadOid: fixture.oid,
+        authorName: fixture.author.name,
+        authorEmail: fixture.author.email,
+        verifyOnly: false,
+      },
+    });
+    const captures = [];
+    for (const theme of ["dark", "light"]) {
+      if ((await page.locator("html").getAttribute("data-theme")) !== theme)
+        await page
+          .getByRole("button", { name: "Toggle theme", exact: true })
+          .click();
+      await page.waitForFunction(
+        (t) => document.documentElement.dataset.theme === t,
+        theme,
+      );
+      await page.evaluate(() => document.fonts.ready);
+      assert.equal(
+        await page.evaluate(() =>
+          [...document.fonts].some(
+            (f) => f.family === "Inter Variable" && f.status === "loaded",
+          ),
+        ),
+        true,
+      );
+      await page.locator(".new-request-menu summary").click();
+      await page
+        .getByRole("button", { name: "HTTP Request", exact: true })
+        .click();
+      await page
+        .getByLabel("Body type", { exact: true })
+        .selectOption("application/graphql");
+      await page.locator(".CodeMirror").first().waitFor();
+      await page
+        .locator(".CodeMirror")
+        .first()
+        .evaluate((el) => {
+          const editor = /** @type {any} */ (el).CodeMirror;
+          editor.focus();
+          editor.showHint({
+            completeSingle: false,
+            hint: () => ({
+              list: ["query", "mutation"],
+              from: editor.getCursor(),
+              to: editor.getCursor(),
+            }),
+          });
+        });
+      await page.locator(".CodeMirror-hints").waitFor();
+      assert.equal(
+        await page
+          .locator(".CodeMirror-hints")
+          .evaluate((el) => getComputedStyle(el).backgroundColor),
+        theme === "dark" ? "rgb(38, 38, 38)" : "rgb(243, 244, 246)",
+      );
+      await page.screenshot({
+        path: output + "/" + theme + "-native-completion.png",
+      });
+      await page.keyboard.press("Escape");
+      captures.push(theme + " native completion popup");
+      for (const width of [1440, 900]) {
+        await page.setViewportSize({ width, height: 900 });
+        await page.getByRole("button", { name: "Git", exact: true }).click();
+        const panel = page.getByRole("region", {
+          name: "Source Control",
+          exact: true,
+        });
+        await panel.getByRole("heading", { name: /^Changes/ }).waitFor();
+        assert.equal(
+          await panel.evaluate((el) => el.scrollWidth <= el.clientWidth),
+          true,
+          "Git panel overflow",
+        );
+        await page.screenshot({
+          path: output + "/" + theme + "-git-" + width + ".png",
+        });
+        await panel
+          .getByRole("button", { name: "Remote", exact: true })
+          .click();
+        const dialog = page.getByRole("dialog");
+        await dialog
+          .getByRole("combobox", { name: /^Remote authentication/ })
+          .selectOption("basic");
+        await dialog
+          .getByRole("textbox", { name: "Git username", exact: true })
+          .scrollIntoViewIfNeeded();
+        await page.screenshot({
+          path: output + "/" + theme + "-git-remote-" + width + ".png",
+        });
+        await page.keyboard.press("Escape");
+        await panel
+          .getByRole("button", { name: /^View changes for / })
+          .first()
+          .click();
+        await panel.locator(".git-diff-side").first().waitFor();
+        await page.screenshot({
+          path: output + "/" + theme + "-git-diff-" + width + ".png",
+        });
+        await page
+          .getByRole("button", { name: "Close Source Control", exact: true })
+          .click();
+        captures.push(theme + " Git/remote/diff " + width);
+      }
+      await page.setViewportSize({ width: 900, height: 900 });
+      await page.getByRole("button", { name: "Cookies", exact: true }).click();
+      const dialog = page.getByRole("dialog");
+      await dialog
+        .getByLabel("Cookie URL", { exact: true })
+        .fill("https://theme.example.invalid/");
+      await dialog
+        .getByLabel("Set-Cookie value", { exact: true })
+        .fill("theme_" + theme + "=sample; Path=/; Secure; HttpOnly");
+      await dialog
+        .getByRole("button", { name: "Add cookie", exact: true })
+        .click();
+      await dialog.getByText("Cookies saved.", { exact: true }).waitFor();
+      await dialog
+        .getByRole("button", { name: new RegExp("^theme_" + theme) })
+        .click();
+      assert.equal(
+        await dialog
+          .getByLabel("Set-Cookie value", { exact: true })
+          .inputValue()
+          .then((t) => t.includes("sample")),
+        true,
+      );
+      await page.screenshot({
+        path: output + "/" + theme + "-native-cookies.png",
+      });
+      assert.equal(
+        await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth),
+        true,
+        "Cookie dialog overflow",
+      );
+      await dialog
+        .getByRole("button", { name: "Clear all…", exact: true })
+        .click();
+      await page.screenshot({
+        path: output + "/" + theme + "-cookie-confirm.png",
+      });
+      await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+      await page
+        .getByRole("button", { name: "Close dialog", exact: true })
+        .click();
+      captures.push(theme + " cookie edit/confirm");
+      await page.locator(".new-request-menu summary").click();
+      await page
+        .getByRole("button", { name: "gRPC Request", exact: true })
+        .click();
+      await page.getByRole("tab", { name: "Proto Files", exact: true }).click();
+      if (theme === "dark") {
+        await page.getByLabel("Import files", { exact: true }).setInputFiles({
+          name: "theme.proto",
+          mimeType: "text/plain",
+          buffer: Buffer.from(
+            'syntax = "proto3"; package theme; message Input { string name = 1; } service Sample { rpc Echo (Input) returns (Input); }',
+          ),
+        });
+        await page
+          .getByRole("button", { name: "Import 1 files", exact: true })
+          .click();
+      }
+      await page
+        .getByRole("button", { name: "theme.proto", exact: true })
+        .click();
+      await page
+        .getByRole("textbox", { name: "Proto source", exact: true })
+        .waitFor();
+      await page.screenshot({
+        path: output + "/" + theme + "-proto-source.png",
+      });
+      await page
+        .getByRole("button", { name: "Remove theme.proto", exact: true })
+        .click();
+      await page
+        .getByRole("button", { name: "Keep files", exact: true })
+        .waitFor();
+      await page.screenshot({
+        path: output + "/" + theme + "-proto-confirm.png",
+      });
+      await page
+        .getByRole("button", { name: "Keep files", exact: true })
+        .click();
+      captures.push(theme + " proto source/confirm");
+      await page.getByRole("button", { name: "Git", exact: true }).click();
+      await page
+        .getByRole("region", { name: "Source Control", exact: true })
+        .getByRole("button", { name: "Branches", exact: true })
+        .click();
+      await page
+        .getByRole("combobox", { name: /^Switch branch/ })
+        .selectOption(recoveryBranch);
+      const fault = await withIpcFailure(
+        page,
+        "git_repository_checkout",
+        false,
+        async () => {
+          await page
+            .getByRole("button", { name: "Switch branch", exact: true })
+            .click();
+          await page.locator(".recovery-dialog").waitFor();
+          assert.equal(
+            await page.locator(".app-shell").getAttribute("inert"),
+            "",
+          );
+          await page.screenshot({
+            path: output + "/" + theme + "-checkout-recovery.png",
+          });
+        },
+      );
+      assert.equal(fault.calls, 1);
+      assert.equal(fault.completed, 0);
+      await page
+        .locator(".recovery-dialog")
+        .getByRole("button", { name: "Retry recovery", exact: true })
+        .click();
+      await page.locator(".recovery-dialog").waitFor({ state: "detached" });
+      // Source Control keeps its branch settings while the global recovery dialog owns focus.
+      await page
+        .getByRole("dialog", { name: "Branches", exact: true })
+        .waitFor();
+      await page.keyboard.press("Escape");
+      await page.getByRole("dialog").waitFor({ state: "detached" });
+      await page
+        .getByRole("button", { name: "Collections", exact: true })
+        .click();
+      captures.push(theme + " checkout recovery");
+      await poll(
+        async () =>
+          !(await invoke("load_workspace")).resources.every(
+            (/** @type {any} */ r) => r._type !== "proto_file",
+          ),
+        "native proto persisted",
+      );
+    }
+    const info = await invoke("git_repository_info", {
+      repositoryId: fixture.repositoryId,
+    });
+    assert.equal(
+      info.headOid,
+      fixture.oid,
+      "Theme inspection must not change Git HEAD",
+    );
+    await Bun.write(
+      output + "/acceptance.json",
+      JSON.stringify(
+        {
+          passed: true,
+          captures,
+          fonts: "loaded native",
+          gitHeadUnchanged: true,
+        },
+        null,
+        2,
+      ),
+    );
+  },
+);
