@@ -19,6 +19,11 @@ SplitPane accepts `first`/`second` snippets, `storageKey`, accessible `label`, `
 
 ## References and checks
 
+- Windows chrome uses the platform-specific `tauri.windows.conf.json` overlay (`decorations:false`), with minimize/maximize/restore/close controls after the theme switch. Header empty space is a Tauri drag region. Close calls `Window.close()` so the existing save/shutdown guard runs before destruction. Other desktop platforms retain their native decorations.
+- [Window-state persistence](https://v2.tauri.app/plugin/window-state/) excludes `StateFlags::DECORATIONS`: saved geometry still restores, but old decorated state cannot override platform chrome configuration.
+- Consulted [Tauri window customization](https://v2.tauri.app/learn/window-customization/) and [window API](https://v2.tauri.app/reference/javascript/api/namespacewindow/). Build command: `bun x --bun tauri build --no-bundle --config` with isolated probe identifier and `beforeBuildCommand:null` after frontend build. Saved native scenario: `bun tests/ui/window-controls.js`.
+- Request names display as text until focus, then enter inline editing; blur/Enter saves and Escape cancels. Method/protocol selects center their labels and use Lucide chevrons while retaining native select keyboard behavior.
+
 - [Svelte props](https://svelte.dev/docs/svelte/$props), [bindable](https://svelte.dev/docs/svelte/$bindable), [snippets](https://svelte.dev/docs/svelte/snippet).
 - [WAI window splitter](https://www.w3.org/WAI/ARIA/apg/patterns/windowsplitter/) for focusable separator keyboard semantics; explicit compiler suppression documents this APG pattern.
 - [VS Code staging workflow](https://code.visualstudio.com/docs/sourcecontrol/staging-commits), [history](https://code.visualstudio.com/docs/sourcecontrol/history): behavior reference only.

@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Windows header controls and request heading — 2026-10-05
+
+- Owner requested hidden Windows titlebar and minimize/maximize/close after theme switch. Added Windows-only undecorated-window overlay, shared WindowControls, explicit window permissions, drag region and resize-driven maximize/restore icon. Close preserves the existing guarded save/shutdown path.
+- Request name now renders text until focus; shared EditableName saves on blur/Enter and cancels with Escape. Method/protocol labels are centered with Lucide SVG arrows. Check0/0, frontend build and both saved preview scenarios pass; workspace scenario covers editing/cancel, SVG arrows and method/protocol selection. Inspected dark screenshot.
+- First isolated build passed (6m17s), but native acceptance found window-state restoring the old decorated state over the Windows config. Excluded DECORATIONS from persisted/restored window-state flags while retaining geometry. Corrected build passed (5m47s), artifacts/native-window-controls-final/build-state.json. Saved native window-controls-1791193810920 passes undecorated state with the existing saved state, position after theme switch, maximize/restore/minimize, and actual guarded close/exit0. Native theme regression nocturne-native-theme-1791193829478 also passes; inspected native header screenshot. Earlier launcher failed before spawning because Bun rejects stderr:'stdout'; corrected to separate logs. No build remains running; full migration parity remains open.
+
 ## Global square button configuration — 2026-10-05
 
 - Centralized button size/spacing/font metrics in src/lib/components/ui/button-config.css. Shared controls, native navigation/tabs, tree rows, Git history/change buttons and responsive rules now consume global tokens. All button radii use the same zero-radius token, including Source Control; existing outline-free focus feedback remains.

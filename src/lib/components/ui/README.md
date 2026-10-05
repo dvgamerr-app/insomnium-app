@@ -9,8 +9,10 @@ Import `controls.css` once after the application layout stylesheet (already done
 | Component | Use |
 | --- | --- |
 | Button | `variant="primary\|secondary\|danger\|ghost"`, `busy`, native button attributes/events; defaults to `type="button"` |
+| EditableName | Text until focus, then input; `value`, `onchange`; Enter/blur saves, Escape cancels |
+| WindowControls | Windows desktop minimize/maximize/restore/close; `onerror`; uses existing native close guard |
 | Input | Text/password/number/search/URL fields, native validation, bindable `value` and native `element`, `invalid` |
-| Select | Dropdowns with option/optgroup snippets; also preserves native listbox `size` semantics |
+| Select | Dropdowns with option/optgroup snippets; native listbox `size` semantics; `svgArrow` for centered method/protocol controls with Lucide chevrons |
 | Dropdown | Data-driven single-choice control: `options=[{value,label,disabled?}]`, optional placeholder, bindable string `value` |
 | Textarea | Multiline fields, native attributes/events, bindable `value`, `invalid` |
 | Field | Label, required marker, description and error; control id must match Field id |

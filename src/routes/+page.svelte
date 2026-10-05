@@ -1,5 +1,6 @@
 <script>
   import WindowControls from "$lib/components/ui/WindowControls.svelte";
+  import EditableName from "$lib/components/ui/EditableName.svelte";
   import Textarea from "$lib/components/ui/Textarea.svelte";
   import Select from "$lib/components/ui/Select.svelte";
   import Input from "$lib/components/ui/Input.svelte";
@@ -379,8 +380,8 @@
       ><Icon name="search" size={14} /><span>Search requests</span><kbd
         >Ctrl P</kbd
       ></Button
-    ><span class="spacer" data-tauri-drag-region></span><span class="local-indicator"
-      ><i></i> Local workspace</span
+    ><span class="spacer" data-tauri-drag-region></span><span
+      class="local-indicator"><i></i> Local workspace</span
     ><Button
       variant="ghost"
       class="icon-button subtle"
@@ -582,15 +583,13 @@
             />{/key}{:else}
           {#if request && ["request", "websocket_request"].includes(request._type)}
             <div class="request-heading">
-              <Input
-                class="request-name"
-                aria-label="Request name"
-                value={request.name}
-                onchange={(event) =>
-                  update(request._id, {
-                    name: event.currentTarget.value || "Untitled Request",
-                  })}
-              /><span class="spacer"></span><Button
+              {#key request._id}<EditableName
+                  value={request.name}
+                  onchange={(name) =>
+                    update(request._id, {
+                      name,
+                    })}
+                />{/key}<span class="spacer"></span><Button
                 variant="ghost"
                 class="icon-button subtle"
                 title="Move or manage request"
@@ -625,6 +624,7 @@
                     >WS</span
                   >{:else}<Select
                     class="method-select"
+                    svgArrow
                     data-method={request.method}
                     aria-label="HTTP method"
                     value={request.method}
@@ -640,6 +640,7 @@
                   >{/if}
                 {#if protocol !== "websocket"}<Select
                     class="protocol-select"
+                    svgArrow
                     aria-label="Response mode"
                     disabled={!!app.running[request._id]}
                     value={protocol}

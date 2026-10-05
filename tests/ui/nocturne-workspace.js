@@ -8,6 +8,53 @@ await withPreview("nocturne-workspace", async (page, output) => {
   await page.getByRole("button", { name: "Git", exact: true }).waitFor();
   assert.equal(
     await page
+      .getByRole("textbox", { name: "Request name", exact: true })
+      .count(),
+    0,
+  );
+  await page
+    .getByRole("button", { name: "Edit request name", exact: true })
+    .focus();
+  const name = page.getByRole("textbox", { name: "Request name", exact: true });
+  await name.fill("Renamed request");
+  await name.press("Enter");
+  assert.equal(
+    await page
+      .getByRole("button", { name: "Edit request name", exact: true })
+      .innerText(),
+    "Renamed request",
+  );
+  await page
+    .getByRole("button", { name: "Edit request name", exact: true })
+    .focus();
+  await name.fill("Discard this");
+  await name.press("Escape");
+  assert.equal(
+    await page
+      .getByRole("button", { name: "Edit request name", exact: true })
+      .innerText(),
+    "Renamed request",
+  );
+  assert.equal(
+    await page
+      .locator(".select-with-icon .select-arrow svg.lucide-icon")
+      .count(),
+    2,
+  );
+  for (const label of ["HTTP method", "Response mode"]) {
+    assert.equal(
+      await page
+        .getByLabel(label, { exact: true })
+        .evaluate((el) => getComputedStyle(el).textAlign),
+      "center",
+    );
+  }
+  await page.getByLabel("HTTP method", { exact: true }).selectOption("POST");
+  await page.getByLabel("Response mode", { exact: true }).selectOption("sse");
+  await page.getByLabel("Response mode", { exact: true }).selectOption("http");
+  await page.getByLabel("HTTP method", { exact: true }).selectOption("GET");
+  assert.equal(
+    await page
       .locator(".activity-bar svg")
       .evaluateAll(
         (icons) =>
@@ -26,6 +73,13 @@ await withPreview("nocturne-workspace", async (page, output) => {
   const saved = await sidebar.getAttribute("aria-valuenow");
   await page.reload();
   await sidebar.waitFor();
+  assert.equal(
+    await page
+      .getByRole("button", { name: "Edit request name", exact: true })
+      .innerText(),
+    "Renamed request",
+    "Edited request name persists across reload",
+  );
   await page.waitForFunction(
     (value) =>
       document
