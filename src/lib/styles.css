@@ -205,9 +205,11 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
-summary:focus-visible {
-  outline: 2px solid var(--accent-text);
-  outline-offset: -2px;
+summary:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+  outline: none;
+  background-color: var(--selected);
 }
 input,
 select,
@@ -822,8 +824,8 @@ kbd {
   overflow: hidden;
 }
 .request-url-fields:has(:focus-visible) {
-  outline: 2px solid var(--accent-text);
-  outline-offset: -2px;
+  outline: none;
+  background-color: var(--selected);
 }
 .request-url-fields :is(.ui-input, .ui-select):focus-visible {
   outline: none;
@@ -992,7 +994,8 @@ kbd {
   cursor: pointer;
 }
 .schema-import:focus-within {
-  outline: 1px solid var(--accent);
+  outline: none;
+  background-color: var(--selected);
 }
 .graphql-operation {
   display: flex;
@@ -1082,6 +1085,9 @@ kbd {
   background: transparent;
   font-size: 12px;
   padding: 9px 10px;
+}
+.kv-row input:not([type="checkbox"]):focus-visible {
+  background: var(--selected);
 }
 .kv-row.disabled {
   opacity: 0.45;

@@ -117,8 +117,8 @@ await withPreview("nocturne-theme", async (page, output) => {
         );
         return [field.borderWidth, field.outlineStyle, group.outlineStyle];
       }),
-      ["0px", "none", "solid"],
-      "URL has one shared focus ring",
+      ["0px", "none", "none"],
+      "URL focus has no outline",
     );
     assert.equal(
       await page
@@ -205,6 +205,13 @@ await withPreview("nocturne-theme", async (page, output) => {
         await row.getByRole("textbox").last().fill("sample-value");
         await row.getByRole("textbox").first().focus();
         await page.keyboard.press("Tab");
+        await page.waitForFunction(
+          (expected) =>
+            document.activeElement &&
+            getComputedStyle(document.activeElement).backgroundColor ===
+              expected,
+          theme === "dark" ? "rgb(38, 38, 38)" : "rgb(243, 244, 246)",
+        );
         assert.equal(
           await row
             .getByRole("textbox")
@@ -212,10 +219,10 @@ await withPreview("nocturne-theme", async (page, output) => {
             .evaluate(
               (el) =>
                 el === document.activeElement &&
-                getComputedStyle(el).outlineStyle === "solid",
+                getComputedStyle(el).outlineStyle === "none",
             ),
           true,
-          "Keyboard focus must remain visible",
+          "Keyboard focus uses a subtle background without an outline",
         );
         await page.screenshot({
           path: output + "/" + theme + "-" + tab.toLowerCase() + "-focus.png",

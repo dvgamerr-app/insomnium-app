@@ -386,8 +386,8 @@
     cursor: pointer;
   }
   label:focus-within {
-    outline: 2px solid var(--accent);
-    outline-offset: 1px;
+    outline: none;
+    background-color: var(--selected);
   }
   .hint {
     margin: 10px 12px;

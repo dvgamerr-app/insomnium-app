@@ -38,8 +38,11 @@
 .ui-select:focus-visible,
 .ui-textarea:focus-visible,
 .ui-button:focus-visible {
-  outline: 2px solid var(--accent-text);
-  outline-offset: 2px;
+  outline: none;
+  border-color: var(--accent-text);
+}
+.ui-button:focus-visible {
+  background-color: var(--selected);
 }
 .ui-input[aria-invalid="true"],
 .ui-select[aria-invalid="true"],
@@ -70,6 +73,12 @@
 }
 .ui-button.primary-button:hover:not(:disabled) {
   background: var(--accent-hover);
+}
+.ui-button.primary-button:focus-visible {
+  background: var(--accent-hover);
+}
+.ui-button.secondary-button:focus-visible {
+  background: var(--raised);
 }
 .ui-button.danger-button {
   background: var(--danger-surface);

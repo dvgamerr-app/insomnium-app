@@ -196,8 +196,7 @@
     background: var(--accent-text);
   }
   .split-handle:focus-visible {
-    outline: 1px solid var(--accent-text);
-    outline-offset: -1px;
+    outline: none;
   }
   .dragging {
     user-select: none;
