@@ -1,3 +1,4 @@
+import { separateRequestUploads } from "./request-uploads.js";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { createRequestRenderSession } from "./template-session.js";
 import { requestEnvironmentLayers } from "./template-environment.js";
@@ -25,9 +26,9 @@ async function requestCookieSnapshot(data, request) {
  */
 export async function renderRequestSnapshot(session, request, options = {}) {
   session.signal.throwIfAborted();
-  checkTemplateValue(request);
+  const uploads = separateRequestUploads(request);
   checkTemplateValue(options.cookieJar);
-  const input = structuredClone(request);
+  const input = uploads.input;
   const cookieJar = structuredClone(options.cookieJar ?? null);
   // Preserve the original GraphQL comment workaround before any body rendering.
   if (input.body?.mimeType === "application/graphql" && input.body.text) {
@@ -53,6 +54,7 @@ export async function renderRequestSnapshot(session, request, options = {}) {
     },
   );
   const rendered = result._request;
+  uploads.restore(rendered);
   rendered.description = await session.renderValue(description, {
     path: "description",
     keepOnError: true,

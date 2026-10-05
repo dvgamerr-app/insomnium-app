@@ -1,3 +1,4 @@
+import { curlResources, isCurlImport } from "./curl-import.js";
 import { isTauri } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { readTextFile, writeTextFile, writeFile } from "@tauri-apps/plugin-fs";
@@ -12,13 +13,29 @@ import {
   postmanHeaders,
 } from "./postman-import.js";
 
+/** Native repository IDs identify app-data on this machine, not portable resources.
+ * Keep repository settings, but never reactivate a local binding through import.
+ * @param {Record<string, any>} resource @param {boolean} [forExport] */
+function portableGitResource(resource, forExport = false) {
+  if (resource._type !== "git_repository") return resource;
+  const copy = { ...resource };
+  delete copy.nativeRepositoryId;
+  delete copy.nativeBindingVersion;
+  delete copy.nativeCreateIntent;
+  if (forExport) delete copy.credentials;
+  return copy;
+}
+
 /** @param {string} text */
 export function parseImport(text) {
   let source;
-  try {
-    source = JSON.parse(text);
-  } catch {
-    source = parseSpec(text).value;
+  if (isCurlImport(text)) source = { resources: curlResources(text) };
+  else {
+    try {
+      source = JSON.parse(text);
+    } catch {
+      source = parseSpec(text).value;
+    }
   }
   if (!source || typeof source !== "object")
     throw new Error("Expected a collection object");
@@ -197,7 +214,7 @@ export function parseImport(text) {
       );
   } else
     throw new Error(
-      "Unsupported file. Use Insomnia JSON, Insomnium JSON, Postman collection v2, HAR, or OpenAPI JSON/YAML.",
+      "Unsupported file. Use Insomnia JSON, Insomnium JSON, Postman collection v2, HAR, OpenAPI JSON/YAML, or cURL commands.",
     );
   if (!resources.length) throw new Error("The import contains no resources");
   const ids = new Set();
@@ -211,12 +228,18 @@ export function parseImport(text) {
       throw new Error("The import contains invalid or duplicate resource IDs");
     ids.add(r._id);
   }
+  const detachedGitBindings = resources.filter(
+    (r) =>
+      r._type === "git_repository" &&
+      (Object.hasOwn(r, "nativeRepositoryId") ||
+        Object.hasOwn(r, "nativeBindingVersion")),
+  ).length;
   // Imports are additive: remap all IDs and references to avoid replacing existing user data.
   const mapping = new Map(
     resources.map((r) => [r._id, id(r._id.split("_")[0])]),
   );
   resources = resources.map((resource) => {
-    const copy = structuredClone(resource);
+    const copy = portableGitResource(structuredClone(resource));
     for (const key of referenceKeys)
       if (mapping.has(copy[key])) copy[key] = mapping.get(copy[key]);
     if (copy._type === "oauth2_token") copy._oauthImported = true;
@@ -258,6 +281,19 @@ export function parseImport(text) {
   ]);
   return {
     resources,
+    warnings: [
+      ...(detachedGitBindings
+        ? [
+            "Imported Git settings are disconnected from local repositories. Set up Git for the imported collection before syncing.",
+          ]
+        : []),
+      ...(resources.some((r) => r._curlSource)
+        ? [
+            "cURL commands use literal Bash quoting. Shell variables, config files and unsupported options are rejected.",
+            "Raw data stays in the text editor with its Content-Type header to preserve encoding. Referenced body and multipart files must be selected before sending.",
+          ]
+        : []),
+    ],
     cookieJars: resources.filter((r) => r._type === "cookie_jar").length,
     apiSpecs: resources.filter((r) => r._type === "api_spec").length,
     requests: resources.filter((r) =>
@@ -273,7 +309,7 @@ export async function pickImport() {
     filters: [
       {
         name: "API collections / legacy databases",
-        extensions: ["json", "yaml", "yml", "har", "db"],
+        extensions: ["json", "yaml", "yml", "har", "db", "curl", "txt"],
       },
     ],
   });
@@ -301,7 +337,9 @@ export async function exportData(data) {
       __export_format: 4,
       __export_date: new Date().toISOString(),
       __export_source: "insomnium.tauri:0.1.0",
-      resources: data.resources,
+      resources: data.resources.map((resource) =>
+        portableGitResource(resource, true),
+      ),
     },
     null,
     2,
