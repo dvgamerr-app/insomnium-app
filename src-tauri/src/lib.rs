@@ -2,6 +2,14 @@ mod asap;
 mod aws;
 mod cookies;
 mod digest;
+mod git;
+mod git_fetch_cleanup;
+mod git_fetch_command;
+mod git_fetch_journal;
+mod git_fetch_snapshot;
+mod git_journal;
+mod git_remote;
+mod git_remote_job;
 mod grpc;
 mod grpc_example;
 mod grpc_legacy;
@@ -26,6 +34,9 @@ use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    if git_remote_job::worker_entry() {
+        return;
+    }
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(window) = app.get_webview_window("main") {
@@ -48,6 +59,8 @@ pub fn run() {
         .manage(streaming::StreamState::default())
         .manage(grpc::GrpcState::default())
         .manage(storage::StorageState::default())
+        .manage(git::GitState::default())
+        .manage(git_remote_job::RemoteJobState::default())
         .invoke_handler(tauri::generate_handler![
             http::send_http,
             http::cancel_http,
@@ -69,7 +82,23 @@ pub fn run() {
             template::read_template_file,
             template::read_template_os,
             storage::load_workspace,
-            storage::save_workspace
+            storage::save_workspace,
+            git_remote_job::git_remote_advertise,
+            git_fetch_command::git_remote_fetch,
+            git_fetch_cleanup::git_remote_cleanup_staging,
+            git_fetch_command::git_remote_fetch_inspect,
+            git_fetch_command::git_remote_fetch_recovery_status,
+            git_fetch_command::git_remote_fetch_recover,
+            git_remote_job::git_remote_cancel,
+            git::git_repository_init,
+            git::git_repository_info,
+            git::git_repository_read_commit,
+            git::git_repository_history,
+            git::git_repository_create_branch,
+            git::git_repository_delete_branch,
+            git::git_repository_commit,
+            git_journal::git_repository_checkout,
+            git_journal::git_repository_restore
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

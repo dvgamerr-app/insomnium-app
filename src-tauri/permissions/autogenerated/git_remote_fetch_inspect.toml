@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-git-remote-fetch-inspect"
+description = "Enables the git_remote_fetch_inspect command without any pre-configured scope."
+commands.allow = ["git_remote_fetch_inspect"]
+
+[[permission]]
+identifier = "deny-git-remote-fetch-inspect"
+description = "Denies the git_remote_fetch_inspect command without any pre-configured scope."
+commands.deny = ["git_remote_fetch_inspect"]

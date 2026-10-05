@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-git-repository-history"
+description = "Enables the git_repository_history command without any pre-configured scope."
+commands.allow = ["git_repository_history"]
+
+[[permission]]
+identifier = "deny-git-repository-history"
+description = "Denies the git_repository_history command without any pre-configured scope."
+commands.deny = ["git_repository_history"]

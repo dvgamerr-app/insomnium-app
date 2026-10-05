@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-git-remote-cleanup-staging"
+description = "Enables the git_remote_cleanup_staging command without any pre-configured scope."
+commands.allow = ["git_remote_cleanup_staging"]
+
+[[permission]]
+identifier = "deny-git-remote-cleanup-staging"
+description = "Denies the git_remote_cleanup_staging command without any pre-configured scope."
+commands.deny = ["git_remote_cleanup_staging"]

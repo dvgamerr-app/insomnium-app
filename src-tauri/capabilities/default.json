@@ -2,7 +2,9 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capability for the main window",
-  "windows": ["main"],
+  "windows": [
+    "main"
+  ],
   "permissions": [
     "allow-send-http",
     "allow-cancel-http",
@@ -17,6 +19,7 @@
     "allow-send-grpc-message",
     "allow-acknowledge-grpc",
     "allow-list-cookies",
+    "allow-snapshot-request-cookies",
     "allow-change-cookie",
     "allow-import-legacy-cookies",
     "allow-load-workspace",
@@ -31,6 +34,22 @@
     "fs:allow-write-file",
     "allow-read-template-file",
     "allow-read-template-cookie",
-    "allow-read-template-os"
+    "allow-read-template-os",
+    "allow-git-repository-init",
+    "allow-git-repository-info",
+    "allow-git-repository-read-commit",
+    "allow-git-repository-history",
+    "allow-git-repository-commit",
+    "allow-git-repository-create-branch",
+    "allow-git-repository-checkout",
+    "allow-git-repository-restore",
+    "allow-git-repository-delete-branch",
+    "allow-git-remote-advertise",
+    "allow-git-remote-cancel",
+    "allow-git-remote-fetch",
+    "allow-git-remote-fetch-inspect",
+    "allow-git-remote-fetch-recovery-status",
+    "allow-git-remote-fetch-recover",
+    "allow-git-remote-cleanup-staging"
   ]
 }

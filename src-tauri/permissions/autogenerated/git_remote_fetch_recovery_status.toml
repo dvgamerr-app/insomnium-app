@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-git-remote-fetch-recovery-status"
+description = "Enables the git_remote_fetch_recovery_status command without any pre-configured scope."
+commands.allow = ["git_remote_fetch_recovery_status"]
+
+[[permission]]
+identifier = "deny-git-remote-fetch-recovery-status"
+description = "Denies the git_remote_fetch_recovery_status command without any pre-configured scope."
+commands.deny = ["git_remote_fetch_recovery_status"]

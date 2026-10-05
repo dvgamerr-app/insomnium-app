@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-git-remote-advertise"
+description = "Enables the git_remote_advertise command without any pre-configured scope."
+commands.allow = ["git_remote_advertise"]
+
+[[permission]]
+identifier = "deny-git-remote-advertise"
+description = "Denies the git_remote_advertise command without any pre-configured scope."
+commands.deny = ["git_remote_advertise"]

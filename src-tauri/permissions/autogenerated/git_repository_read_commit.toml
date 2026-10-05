@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-git-repository-read-commit"
+description = "Enables the git_repository_read_commit command without any pre-configured scope."
+commands.allow = ["git_repository_read_commit"]
+
+[[permission]]
+identifier = "deny-git-repository-read-commit"
+description = "Denies the git_repository_read_commit command without any pre-configured scope."
+commands.deny = ["git_repository_read_commit"]

@@ -1,9 +1,13 @@
+import { createPersistenceQueue } from "./persistence-queue.js";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { validateData } from "./model.js";
 import { validateTopology } from "./resources.js";
 
 const key = "insomnium-tauri-preview-v1";
-let queue = Promise.resolve();
+const queue = createPersistenceQueue(async (snapshot) => {
+  if (isTauri()) await invoke("save_workspace", { data: snapshot });
+  else localStorage.setItem(key, JSON.stringify(snapshot));
+});
 export async function loadData() {
   let value;
   if (isTauri()) {
@@ -17,17 +21,26 @@ export async function loadData() {
   validateTopology(data.resources);
   return data;
 }
-/** Serialize saves: slower disk writes must never overwrite a later edit. @param {unknown} data */
+/** Serialize detached saves and reject writes during a transition. @param {unknown} data */
 export function saveData(data) {
-  const snapshot = JSON.parse(JSON.stringify(data));
-  queue = queue
-    .catch(() => {})
-    .then(async () => {
-      if (isTauri()) {
-        await invoke("save_workspace", { data: snapshot });
-      } else {
-        localStorage.setItem(key, JSON.stringify(snapshot));
-      }
-    });
-  return queue;
+  return queue.save(data);
+}
+/** Caller must quiesce writers, then apply native result inside operation.
+ * @template T @param {()=>Promise<T>} operation */
+export function runWorkspaceTransition(operation) {
+  return queue.exclusive(operation);
+}
+/** Apply validated recovered state inside operation before reopening saves.
+ * @template T @param {()=>Promise<T>} operation */
+export function recoverWorkspaceTransition(operation) {
+  return queue.recover(operation);
+}
+export function workspacePersistencePhase() {
+  return queue.phase;
+}
+
+/** Read-only phase subscription; no public setter can bypass recovery.
+ * @param {(phase:import("./persistence-queue.js").PersistencePhase)=>void} listener */
+export function subscribeWorkspacePersistence(listener) {
+  return queue.subscribe(listener);
 }

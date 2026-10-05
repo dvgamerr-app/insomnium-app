@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-git-repository-commit"
+description = "Enables the git_repository_commit command without any pre-configured scope."
+commands.allow = ["git_repository_commit"]
+
+[[permission]]
+identifier = "deny-git-repository-commit"
+description = "Denies the git_repository_commit command without any pre-configured scope."
+commands.deny = ["git_repository_commit"]

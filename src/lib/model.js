@@ -133,7 +133,8 @@ export function validateData(value) {
       r._type === "workspace_meta" ? { ...r } : r,
     ),
     openTabs: (data.openTabs || []).filter((tab) => ids.has(tab)),
-    history: (data.history || []).filter((entry) => ids.has(entry.requestId)),
+    // Branch switching may temporarily remove a request. Preserve its local history.
+    history: [...(data.history || [])],
     settings: { ...defaults.settings, ...data.settings },
   };
   if (

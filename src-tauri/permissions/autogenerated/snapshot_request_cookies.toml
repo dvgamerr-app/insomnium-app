@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-snapshot-request-cookies"
+description = "Enables the snapshot_request_cookies command without any pre-configured scope."
+commands.allow = ["snapshot_request_cookies"]
+
+[[permission]]
+identifier = "deny-snapshot-request-cookies"
+description = "Denies the snapshot_request_cookies command without any pre-configured scope."
+commands.deny = ["snapshot_request_cookies"]
