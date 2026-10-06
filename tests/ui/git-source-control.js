@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import { withNativeApp, poll } from "./helpers/native-app.js";
 import { gitCollection } from "./helpers/git-fixture.js";
 import { exerciseSplit } from "./helpers/split-pane.js";
+import { openGitBranches } from "./helpers/git-panel.js";
 
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
-  "artifacts/native-nocturne-controls-probe/build-state.json";
+  "artifacts/native-unified-diff-probe/build-state.json";
 await withNativeApp("git-source-control", async ({ page, invoke, output }) => {
   const errors = /** @type {string[]} */ ([]);
   page.on("pageerror", (error) => errors.push(error.message));
@@ -38,19 +39,36 @@ await withNativeApp("git-source-control", async ({ page, invoke, output }) => {
       exact: true,
     })
     .click();
+  const diff = panel.getByRole("region", {
+    name: "Unified changes",
+    exact: true,
+  });
+  await diff.locator(".CodeMirror").waitFor();
+  assert.match(await diff.innerText(), /https:\/\/example.invalid\/baseline/);
+  assert.match(await diff.innerText(), /https:\/\/example.invalid\/local-edit/);
+  assert.ok(await diff.locator(".diff-line-deleted").count());
+  assert.ok(await diff.locator(".diff-line-added").count());
   assert.ok(
-    (await panel.locator(".git-diff-side").nth(0).innerText()).includes(
-      "https://example.invalid/baseline",
-    ),
+    await diff.locator(".cm-atom, .cm-string").count(),
+    "YAML syntax is rendered",
   );
-  assert.ok(
-    (await panel.locator(".git-diff-side").nth(1).innerText()).includes(
-      "https://example.invalid/local-edit",
-    ),
+  assert.equal(
+    await panel.getByRole("button", { name: "Branches", exact: true }).count(),
+    0,
+    "single local branch stays out of the primary toolbar",
   );
+  await panel
+    .getByRole("button", { name: "Set up remote", exact: true })
+    .waitFor();
+  await page.screenshot({ path: output + "/unified-yaml-diff.png" });
   await exerciseSplit(page, "Source Control sidebar size");
   await exerciseSplit(page, "Changes and history size");
-  await exerciseSplit(page, "Before and after size");
+  assert.equal(
+    await page
+      .getByRole("separator", { name: "Before and after size", exact: true })
+      .count(),
+    0,
+  );
   await panel
     .getByLabel("Commit message", { exact: true })
     .fill("Commit selected request");
@@ -151,8 +169,13 @@ await withNativeApp("git-source-control", async ({ page, invoke, output }) => {
     "Nocturne Tester",
   );
   const branch = "feature/nocturne-" + Date.now();
-  await panel.getByRole("button", { name: "Branches", exact: true }).click();
+  await openGitBranches(page);
   const dialog = page.getByRole("dialog");
+  assert.equal(
+    await dialog.getByLabel("Switch branch", { exact: true }).count(),
+    0,
+    "single local branch has no empty switch control",
+  );
   await dialog.getByLabel("New branch", { exact: true }).fill(branch);
   await dialog
     .getByRole("button", { name: "Create and switch", exact: true })
@@ -168,8 +191,11 @@ await withNativeApp("git-source-control", async ({ page, invoke, output }) => {
       ).branch === branch,
     "new branch",
   );
-  await panel.getByRole("button", { name: "Remote", exact: true }).click();
-  await dialog.getByRole("heading", { name: "Remote", exact: true }).waitFor();
+  await panel.getByRole("button", { name: "Branches", exact: true }).waitFor();
+  await panel.getByRole("button", { name: /^(Set up remote|Remote)$/ }).click();
+  await dialog
+    .getByRole("heading", { name: /^(Set up remote|Remote)$/ })
+    .waitFor();
   await page.keyboard.press("Escape");
   for (const theme of ["dark", "light"]) {
     if ((await page.locator("html").getAttribute("data-theme")) !== theme)
@@ -199,7 +225,8 @@ await withNativeApp("git-source-control", async ({ page, invoke, output }) => {
       {
         status: "passed",
         checks: [
-          "real native diff",
+          "real native unified diff with red removals, green additions and YAML syntax",
+          "single local branch actions tucked away until needed",
           "stage/unstage",
           "safe draft restoration",
           "changed resource unstaged",

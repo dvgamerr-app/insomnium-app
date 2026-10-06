@@ -1,8 +1,10 @@
 # Nocturne controls
 
-Import `controls.css` once after the application layout stylesheet (already done in `+page.svelte`). This stylesheet owns control surfaces, radii, borders, focus, selected/disabled states and modal presentation. Keep feature-specific layout in its feature stylesheet.
+The application imports `src/lib/styles.css` once; it forwards to `styles/index.css`, which orders foundation/theme, layout and UI styles. Do not additionally import `controls.css` in the application. It remains a standalone entry for UI-only consumers. UI styles own control surfaces, borders, focus, disabled states and dialog presentation; feature styles own layout.
 
-`button-config.css`, imported by `controls.css`, is the single global configuration for button spacing, sizes, typography and square corners (`--button-radius: 0px`). Both shared buttons and native tabs/tree/navigation buttons consume its tokens, including responsive tab spacing and tree indentation. Change the scale here instead of adding literal button dimensions in feature CSS. Percentage widths and fill-parent heights remain layout rules. Input and modal radii are separate from button shape.
+`src/lib/styles/tokens/foundation.css` owns shared spacing, typography, sizes and shape; `button-config.css` is a compatibility entry importing that foundation. Button corners use `--button-radius: 0px`. Percentage widths and fill-parent heights remain layout rules. Input and dialog radii are separate from button shape.
+
+Single-choice `Select` and `Dropdown` use the same Lucide SVG chevron by default, including collection, environment, body type/JSON, response history, authentication and redirects. `styles/select.css` owns the arrow; `styles/variants.css` owns layout variants and full-surface hover. Method/protocol values have equal left/right padding and centered horizontal/vertical alignment. Consumers must not replace the arrow or paint hover on a text child. Native `multiple`/`size` listboxes have no dropdown arrow. `svgArrow={false}` is an explicit opt-out, not an application default.
 
 `SplitPane` accepts `collapsedPane="first"` or `"second"` (default) to choose which side disappears when collapsed. The workspace uses the first pane for Collections on the left and the second for the main view.
 
@@ -12,12 +14,15 @@ Import `controls.css` once after the application layout stylesheet (already done
 | EditableName | Text until focus, then input; `value`, `onchange`; Enter/blur saves, Escape cancels |
 | WindowControls | Windows desktop minimize/maximize/restore/close; `onerror`; uses existing native close guard |
 | Input | Text/password/number/search/URL fields, native validation, bindable `value` and native `element`, `invalid` |
-| Select | Dropdowns with option/optgroup snippets; native listbox `size` semantics; `svgArrow` for centered method/protocol controls with Lucide chevrons |
+| Select | Dropdowns with option/optgroup snippets; SVG arrow by default; `variant="method\|protocol"` centers the value; native listbox `size` semantics |
 | Dropdown | Data-driven single-choice control: `options=[{value,label,disabled?}]`, optional placeholder, bindable string `value` |
 | Textarea | Multiline fields, native attributes/events, bindable `value`, `invalid` |
 | Field | Label, required marker, description and error; control id must match Field id |
 | Modal | Native dialog focus containment, Escape/cancel, focus restoration; `title` or heading snippet, children, `onclose` |
 | SplitPane | Resizable first/second snippets; see `docs/migration/NOCTURNE-WORKSPACE.md` |
+| UnifiedDiff | One read-only YAML/JSON change view; `identity`, nullable `before`/`after`, `mode`; old/new line numbers, minus/plus markers and themed red/green backgrounds |
+
+`UnifiedDiff` uses the existing `CodeEditor`, which exposes optional `lineDecorations` (`line`, `className`, `gutterText`, `gutterLabel`). Decorations are reset when content changes; ordinary editors retain their normal line numbers/folding. The diff preserves source text, highlights YAML directly, and uses CodeMirror's viewport rendering. It does not deserialize or rewrite resources. Diff styles belong to `styles/diff.css`.
 
 ```svelte
 <script>

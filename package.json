@@ -63,6 +63,7 @@
     "codemirror": "5.65.21",
     "codemirror-graphql": "^2.2.9",
     "date-fns": "4.4.0",
+    "diff": "9.0.0",
     "graphql": "16",
     "jsonpath-plus": "11.1.0",
     "mocha": "10.8.2",

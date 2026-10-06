@@ -2,6 +2,10 @@
 
 ## Shared controls and Nocturne theme
 
+- `bun tests/ui/git-diff.js` checks the production unified diff component: YAML syntax, old/new line markers, red/green backgrounds, read-only behavior, gutter bounds, and switching modified/added/deleted/unchanged in dark/light at1440/900/760. `git-source-control.js` and `nocturne-native-theme.js` now default to `artifacts/native-unified-diff-probe/build-state.json`; await that build before running native scenarios. Source-control acceptance checks the real native change baseline, staging/commit and simplified local branch actions.
+
+- `bun tests/ui/design-system.js` checks shared field/checkbox/file/tab/dialog contracts using production components in a saved fixture. `nocturne-theme.js` additionally checks SVG dropdown arrows, native-arrow suppression, arrow bounds and full-surface hover in both themes; `nocturne-workspace.js` checks centered method/protocol alignment and picker keyboard behavior. Keep `bun run check` and `bun run build` sequential because both mutate SvelteKit generated output.
+
 - `bun run test:ui:workspace` checks shared dropdown keyboard selection and dark/light picker styling, Escape ordering, numeric input persistence, modal focus, and resizable panels. Screenshot evidence includes `dropdown-dark.png`, `dropdown-light.png` and `shared-settings.png`.
 - `bun run test:ui:source-control` verifies selected native commits, staging, author settings, branches and panel sizing using the isolated controls probe.
 

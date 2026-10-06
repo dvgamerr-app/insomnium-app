@@ -4,7 +4,7 @@ import { withIpcFailure } from "./helpers/ipc-failure.js";
 import { gitCollection } from "./helpers/git-fixture.js";
 
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
-  "artifacts/native-nocturne-controls-probe/build-state.json";
+  "artifacts/native-unified-diff-probe/build-state.json";
 await withNativeApp(
   "nocturne-native-theme",
   async ({ page, invoke, output }) => {
@@ -93,7 +93,7 @@ await withNativeApp(
           path: output + "/" + theme + "-git-" + width + ".png",
         });
         await panel
-          .getByRole("button", { name: "Remote", exact: true })
+          .getByRole("button", { name: /^(Set up remote|Remote)$/ })
           .click();
         const dialog = page.getByRole("dialog");
         await dialog
@@ -110,7 +110,7 @@ await withNativeApp(
           .getByRole("button", { name: /^View changes for / })
           .first()
           .click();
-        await panel.locator(".git-diff-side").first().waitFor();
+        await panel.locator(".ui-unified-diff .CodeMirror").waitFor();
         await page.screenshot({
           path: output + "/" + theme + "-git-diff-" + width + ".png",
         });
@@ -216,7 +216,17 @@ await withNativeApp(
           await page
             .getByRole("button", { name: "Switch branch", exact: true })
             .click();
-          await page.locator(".recovery-dialog").waitFor();
+          const recovery = page.getByRole("dialog", {
+            name: "Recover checkout",
+            exact: true,
+          });
+          await recovery.waitFor();
+          await page.keyboard.press("Escape");
+          assert.equal(
+            await recovery.isVisible(),
+            true,
+            "recovery cannot be dismissed by Escape",
+          );
           assert.equal(
             await page.locator(".app-shell").getAttribute("inert"),
             "",
@@ -229,10 +239,12 @@ await withNativeApp(
       assert.equal(fault.calls, 1);
       assert.equal(fault.completed, 0);
       await page
-        .locator(".recovery-dialog")
+        .getByRole("dialog", { name: "Recover checkout", exact: true })
         .getByRole("button", { name: "Retry recovery", exact: true })
         .click();
-      await page.locator(".recovery-dialog").waitFor({ state: "detached" });
+      await page
+        .getByRole("dialog", { name: "Recover checkout", exact: true })
+        .waitFor({ state: "detached" });
       // Source Control keeps its branch settings while the global recovery dialog owns focus.
       await page
         .getByRole("dialog", { name: "Branches", exact: true })

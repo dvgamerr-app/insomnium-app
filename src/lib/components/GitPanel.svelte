@@ -4,6 +4,9 @@
 </script>
 
 <script>
+  import Feedback from "./ui/Feedback.svelte";
+  import EmptyState from "./ui/EmptyState.svelte";
+
   import Button from "./ui/Button.svelte";
   import Input from "./ui/Input.svelte";
   import Select from "./ui/Select.svelte";
@@ -11,6 +14,7 @@
   import Field from "./ui/Field.svelte";
   import Modal from "./ui/Modal.svelte";
   import SplitPane from "./ui/SplitPane.svelte";
+  import UnifiedDiff from "./ui/UnifiedDiff.svelte";
   import Icon from "./Icon.svelte";
   import { graphRows } from "../git-graph.js";
   import { isTauri } from "@tauri-apps/api/core";
@@ -79,6 +83,17 @@
   let activeWork = null;
   const collection = $derived(
     workspace.data.resources.find((r) => r._id === workspaceId),
+  );
+  const remoteConfigured = $derived(
+    Boolean(
+      nativeGitBinding(workspace.data.resources, workspaceId)?.uri?.trim(),
+    ),
+  );
+  const branchActionsNeeded = $derived(
+    remoteConfigured ||
+      !!pendingCreation ||
+      (!!session && !session.info.branch) ||
+      (session?.info.branches?.length ?? 0) > 1,
   );
   const current = () =>
     !disposed &&
@@ -333,16 +348,18 @@
       onclick={onclose}><Icon name="close" /></Button
     >
   </header>
-  {#if error}<p class="inline-error padded" role="alert">{error}</p>{/if}
+  {#if error}<Feedback as="p" class="inline-error padded" role="alert"
+      >{error}</Feedback
+    >{/if}
   {#if notice}<p class="hint padded" role="status">{notice}</p>{/if}
-  {#if !isTauri()}<div class="empty-response">
+  {#if !isTauri()}<EmptyState variant="response" class="empty-response">
       <Icon name="branch" size={32} />
       <h2>Source Control</h2>
       <p>
         Open the desktop app to track changes, stage resources and commit to
         your local repository.
       </p>
-    </div>
+    </EmptyState>
   {:else if session}
     <SplitPane
       storageKey="git-detail"
@@ -400,14 +417,22 @@
                   ><Icon name="check" size={15} />Commit staged ({selected.length})</Button
                 >
                 <div class="git-tools">
-                  <Button
+                  {#if branchActionsNeeded}<Button
+                      variant="ghost"
+                      onclick={() => (settings = "branches")}>Branches</Button
+                    >{/if}<Button
                     variant="ghost"
-                    onclick={() => (settings = "branches")}>Branches</Button
-                  ><Button variant="ghost" onclick={() => (settings = "author")}
-                    >Author</Button
+                    onclick={() => (settings = "author")}>Author</Button
                   ><Button variant="ghost" onclick={() => (settings = "remote")}
-                    >Remote</Button
+                    >{remoteConfigured ? "Remote" : "Set up remote"}</Button
                   >
+                  {#if !branchActionsNeeded}<Button
+                      variant="ghost"
+                      aria-label="More Source Control actions"
+                      title="Local branch actions"
+                      onclick={() => (settings = "branches")}
+                      ><Icon name="more" size={16} /></Button
+                    >{/if}
                 </div>
                 {#if !name.trim() || !email.trim()}<p class="hint">
                     Set your author name and email before committing.
@@ -467,9 +492,14 @@
                 >
               </div>
               {#each commits as entry, index (entry.oid)}
-                <button
-                  class="commit-row"
-                  class:active={activeCommit?.oid === entry.oid}
+                <Button
+                  variant="plain"
+                  class={[
+                    "commit-row",
+                    activeCommit?.oid === entry.oid && "active",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
                   onclick={() => {
                     activeCommit = entry;
                     activePath = "";
@@ -490,11 +520,11 @@
                       >{entry.author.name} · {entry.oid.slice(0, 8)}</small
                     ></span
                   >
-                  {#each session?.info.branchTips?.filter((branch) => branch.headOid === entry.oid) || [] as branch}<span
+                  {#each branchActionsNeeded ? session?.info.branchTips?.filter((branch) => branch.headOid === entry.oid) || [] : [] as branch}<span
                       class="count"
                       title={branch.name}>{branch.name}</span
                     >{/each}
-                </button>
+                </Button>
               {:else}<p class="git-empty hint">No commits yet.</p>{/each}
               {#if nextOffset !== null}<Button
                   variant="ghost"
@@ -517,23 +547,14 @@
                 >{activeChange.status}</span
               >
             </header>
-            <SplitPane
-              storageKey="git-diff"
-              label="Before and after size"
-              initial={50}
-              minFirst={160}
-              minSecond={160}
-              stackAt={500}
-            >
-              {#snippet first()}<section class="git-diff-side">
-                  <h4>Before</h4>
-                  <pre>{activeChange.before ?? "(not present)"}</pre>
-                </section>{/snippet}
-              {#snippet second()}<section class="git-diff-side">
-                  <h4>After</h4>
-                  <pre>{activeChange.after ?? "(removed)"}</pre>
-                </section>{/snippet}
-            </SplitPane>
+            <UnifiedDiff
+              identity={`git-diff:${workspaceId}:${activeChange.path}`}
+              before={activeChange.before}
+              after={activeChange.after}
+              mode={activeChange.path.endsWith(".json")
+                ? "application/json"
+                : "yaml"}
+            />
           {:else if activeCommit}<article class="commit-detail">
               <h3>{activeCommit.message.split("\n")[0]}</h3>
               <p>
@@ -556,15 +577,15 @@
                   Some commit text could not be displayed in full.
                 </p>{/if}
             </article>
-          {:else}<div class="empty-response">
+          {:else}<EmptyState variant="response" class="empty-response">
               <Icon name="branch" size={32} />
               <h2>Review your changes</h2>
               <p>Select a resource to compare its saved and current values.</p>
-            </div>{/if}
+            </EmptyState>{/if}
         </div>
       {/snippet}
     </SplitPane>
-  {:else}<div class="empty-response">
+  {:else}<EmptyState variant="response" class="empty-response">
       <Icon name="branch" size={32} />
       <h2>Track this collection</h2>
       {#if busy}<p role="status">
@@ -578,7 +599,7 @@
         <Button variant="primary" onclick={() => run(initialize)}
           >{hasBinding ? "Resume Git setup" : "Set up Git"}</Button
         >{/if}
-    </div>{/if}
+    </EmptyState>{/if}
 </section>
 
 {#snippet changeRow(row = /** @type {any} */ ({}), isStaged = false)}
@@ -624,62 +645,66 @@
         : "Commit author"}
     onclose={() => (settings = "")}
   >
-    {#if error}<p class="inline-error" role="alert">{error}</p>{/if}
+    {#if error}<Feedback as="p" class="inline-error" role="alert"
+        >{error}</Feedback
+      >{/if}
     {#if notice}<p class="hint" role="status">{notice}</p>{/if}
     {#if settings === "remote"}<GitRemotePanel
         {workspaceId}
         disabled={busy || !!pendingCreation}
       />
     {:else if settings === "branches" && session}
-      <div class="resource-tools">
-        <label
-          >Switch branch
-          <Select
-            bind:value={targetBranch}
-            disabled={busy || !session?.info.headOid}
+      {#if (session.info.branches?.length ?? 0) > 1 || !session.info.branch}
+        <div class="resource-tools">
+          <Field
+            >Switch branch
+            <Select
+              bind:value={targetBranch}
+              disabled={busy || !session?.info.headOid}
+            >
+              <option value="">Choose a branch</option>
+              {#each session?.info.branchTips || [] as branch (branch.name)}
+                {#if branch.name !== session?.info.branch}
+                  <option
+                    value={branch.name}
+                    disabled={branch.symbolic || !branch.headOid}
+                    >{branch.name}</option
+                  >
+                {/if}
+              {/each}
+            </Select>
+          </Field>
+          <Button
+            class="secondary-button"
+            disabled={busy ||
+              !!pendingCreation ||
+              !targetBranch ||
+              !name.trim() ||
+              !email.trim()}
+            onclick={switchBranch}>Switch branch</Button
           >
-            <option value="">Choose a branch</option>
-            {#each session?.info.branchTips || [] as branch (branch.name)}
-              {#if branch.name !== session?.info.branch}
-                <option
-                  value={branch.name}
-                  disabled={branch.symbolic || !branch.headOid}
-                  >{branch.name}</option
-                >
-              {/if}
-            {/each}
-          </Select>
-        </label>
-        <Button
-          class="secondary-button"
-          disabled={busy ||
-            !!pendingCreation ||
-            !targetBranch ||
-            !name.trim() ||
-            !email.trim()}
-          onclick={switchBranch}>Switch branch</Button
-        >
-      </div>
-      <p class="hint">
-        Uses your commit author. Non-conflicting local edits are kept;
-        conflicting changes stop checkout.
-      </p>
+        </div>
+        <p class="hint">
+          Uses your commit author. Non-conflicting local edits are kept;
+          conflicting changes stop checkout.
+        </p>
 
-      <div class="resource-tools">
-        <Button
-          class="secondary-button"
-          disabled={busy ||
-            !!pendingCreation ||
-            !targetBranch ||
-            !session?.info.headOid}
-          onclick={() => run(deleteSelectedBranch)}
-          >Delete selected branch</Button
-        >
-      </div>
-      <p class="hint">
-        Deletion keeps collection data and requires the selected branch to be
-        fully merged into the current branch.
-      </p>
+        <div class="resource-tools">
+          <Button
+            class="secondary-button"
+            disabled={busy ||
+              !!pendingCreation ||
+              !targetBranch ||
+              !session?.info.headOid}
+            onclick={() => run(deleteSelectedBranch)}
+            >Delete selected branch</Button
+          >
+        </div>
+        <p class="hint">
+          Deletion keeps collection data and requires the selected branch to be
+          fully merged into the current branch.
+        </p>
+      {/if}
 
       {#if pendingCreation}
         <p class="hint">
@@ -704,12 +729,12 @@
         </p>
       {:else}
         <div class="resource-tools">
-          <label
+          <Field
             >New branch<Input
               bind:value={newBranch}
               disabled={busy || !session?.info.headOid}
               placeholder="feature/my-change"
-            /></label
+            /></Field
           >
           <Button
             class="secondary-button"
@@ -769,8 +794,8 @@
   .git-detail-heading {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 14px 18px;
+    gap: var(--space-12);
+    padding: var(--space-14) var(--space-18);
     border-bottom: 1px solid var(--line);
   }
   h2,
@@ -780,15 +805,15 @@
     margin: 0;
   }
   h2 {
-    font-size: 15px;
+    font-size: var(--font-size-15);
     font-weight: 600;
   }
   h3 {
-    font-size: 12px;
+    font-size: var(--font-size-12);
     font-weight: 600;
   }
   h4 {
-    font-size: 11px;
+    font-size: var(--font-size-11);
     color: var(--muted);
   }
   .git-sidebar,
@@ -799,19 +824,19 @@
   }
   .git-commit {
     display: grid;
-    gap: 8px;
-    padding: 14px;
+    gap: var(--space-8);
+    padding: var(--space-14);
   }
   .git-tools {
     display: flex;
-    gap: 8px;
+    gap: var(--space-8);
   }
   .git-group-heading {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
-    padding: 8px 12px;
+    gap: var(--space-8);
+    padding: var(--space-8) var(--space-12);
     border-block: 1px solid var(--line);
   }
   .git-group-heading small {
@@ -821,10 +846,10 @@
   .git-change {
     display: flex;
     align-items: center;
-    padding-right: 6px;
+    padding-right: var(--space-6);
   }
   .git-change.active,
-  .commit-row.active {
+  :global(.commit-row.active) {
     background: var(--selected);
   }
   .git-change :global(.git-change-name) {
@@ -832,7 +857,7 @@
     min-width: 0;
     text-align: left;
     justify-content: flex-start;
-    padding: var(--button-space-9) var(--button-space-12);
+    padding: var(--space-9) var(--space-12);
     border-radius: var(--button-radius);
   }
   .git-change :global(.git-change-name > span:first-of-type) {
@@ -844,7 +869,7 @@
   .git-change small,
   .commit-title small {
     display: block;
-    font-size: 10px;
+    font-size: var(--font-size-10);
     color: var(--faint);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -855,7 +880,7 @@
   }
   .git-empty,
   .git-excluded {
-    padding: 12px;
+    padding: var(--space-12);
   }
   .git-detail {
     display: flex;
@@ -866,41 +891,20 @@
   }
   .git-detail-heading p {
     overflow-wrap: anywhere;
-    font-size: 10px;
+    font-size: var(--font-size-10);
   }
-  .git-diff-side {
+  :global(.commit-row) {
     display: flex;
-    flex: 1;
-    flex-direction: column;
-    min-height: 0;
-    overflow: hidden;
-  }
-  .git-diff-side h4 {
-    padding: 10px 14px;
-    background: var(--panel);
-    border-bottom: 1px solid var(--line);
-  }
-  .git-diff-side pre {
-    margin: 0;
-    padding: 16px;
-    overflow: auto;
-    flex: 1;
-    font: 12px/1.7 var(--font-mono);
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-  }
-  .commit-row {
-    display: flex;
-    gap: var(--button-space-6);
+    gap: var(--space-6);
     width: 100%;
-    height: var(--button-size-44);
+    height: var(--size-44);
     text-align: left;
-    padding: 0 var(--button-space-12);
+    padding: 0 var(--space-12);
     border-radius: var(--button-radius);
     justify-content: flex-start;
   }
-  .commit-row .count {
-    max-width: var(--button-size-64);
+  :global(.commit-row .count) {
+    max-width: var(--size-64);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -927,7 +931,7 @@
     stroke-width: 2;
   }
   .commit-detail {
-    padding: 24px;
+    padding: var(--space-24);
     overflow: auto;
     line-height: 1.8;
   }
