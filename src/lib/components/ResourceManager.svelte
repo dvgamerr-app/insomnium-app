@@ -1,4 +1,7 @@
 <script>
+  import FormPanel from "./ui/FormPanel.svelte";
+  import Feedback from "./ui/Feedback.svelte";
+  import Field from "./ui/Field.svelte";
   import Textarea from "./ui/Textarea.svelte";
   import Button from "./ui/Button.svelte";
   import Input from "./ui/Input.svelte";
@@ -103,21 +106,21 @@
       save();
     }}
   >
-    <div class="form-panel resource-form">
-      <label>Name<Input bind:value={name} /></label>
-      <label
+    <FormPanel class="form-panel resource-form">
+      <Field>Name<Input bind:value={name} /></Field>
+      <Field
         >Description<Textarea rows={3} bind:value={description}
-        ></Textarea></label
+        ></Textarea></Field
       >
       {#if !isCollection}
-        <label
+        <Field
           >Location<Select bind:value={parentId}>
             {#each destinations as target (target._id)}
               <option value={target._id}
                 >{resourcePath(resources, target._id)}</option
               >
             {/each}
-          </Select></label
+          </Select></Field
         >
         {#if parentId !== resource.parentId}<p class="hint">
             Moving changes which collection and folder variables apply to this
@@ -125,19 +128,19 @@
           </p>{/if}
       {/if}
       {#if isFolder}
-        <label
+        <Field
           >Folder variables (JSON)<Textarea
             class="code-editor small-editor"
             spellcheck="false"
             bind:value={environment}
-          ></Textarea></label
+          ></Textarea></Field
         >
         <p class="hint">
           These values override collection and selected environment variables
           for requests in this folder.
         </p>
       {/if}
-    </div>
+    </FormPanel>
     <div class="resource-tools">
       <Button
         variant="secondary"
@@ -199,4 +202,5 @@
     </div>
   </form>
 {/if}
-{#if error}<p class="inline-error" role="alert">{error}</p>{/if}
+{#if error}<Feedback as="p" class="inline-error" role="alert">{error}</Feedback
+  >{/if}

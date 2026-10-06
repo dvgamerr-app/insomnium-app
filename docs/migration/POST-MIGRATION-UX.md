@@ -7,6 +7,8 @@
 
 ## สิ่งที่ต้องทำ
 
+คำสั่งเพิ่มเติม 2026-10-05: เจ้าของชี้ปัญหา UI/UX ที่แยกกันเขียนและไม่ใช้ components/design system เดียวกันทั่วระบบ แล้วเลือกให้บันทึกปัญหาและแผนแก้ก่อน ดู [UI-DESIGN-SYSTEM-DEBT.md](UI-DESIGN-SYSTEM-DEBT.md) สำหรับหลักฐานจาก snapshot เดิม, regression Select svgArrow, CSS ownership, ลำดับการรวมระบบและเกณฑ์รับงาน คำยืนยันล่าสุดยังเป็นการบันทึก docs; งาน consolidation ที่มีอยู่ใน working tree ติดตามแยกใน STATUS และยังไม่ปิด debt เรื่อง adoption/ownership จนกว่าจะตรวจรับครบ
+
 - ออกแบบ reusable Svelte JavaScript components ใน `src/lib/components/ui/` สำหรับ input แต่ละชนิด ให้ปรับพฤติกรรมและหน้าตาจากจุดเดียว
 - สำรวจ input ที่ใช้อยู่จริงก่อนกำหนด API: text, password, number, URL, search, textarea, select/combobox, checkbox, radio, switch และ file picker; แยก editor เฉพาะทางเท่าที่จำเป็น
 - ใช้ field wrapper ร่วมกันสำหรับ label, description, validation/error, required/optional และสถานะ disabled/read-only/loading; รองรับ keyboard, focus และ accessibility

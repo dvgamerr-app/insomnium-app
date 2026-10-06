@@ -1,0 +1,71 @@
+.editor-tabs {
+  display: flex;
+  align-items: center;
+  height: 39px;
+  min-height: 39px;
+  border-bottom: 1px solid var(--line);
+  padding-left: var(--space-9);
+}
+
+.ui-tab-panel {
+  display: contents;
+}
+
+.editor-tabs > button:not(.icon-button) {
+  height: 100%;
+  border-radius: var(--button-radius);
+  border-bottom: 2px solid transparent;
+  padding: 0 var(--space-16);
+  color: var(--muted);
+  font-size: var(--font-size-12);
+  gap: var(--space-6);
+}
+
+.editor-tabs > button.active {
+  border-bottom-color: var(--accent-text);
+  color: var(--text);
+}
+
+.count {
+  font-size: 9px;
+  background: var(--raised);
+  border-radius: 3px;
+  padding: 1px var(--space-4);
+  color: var(--muted);
+  line-height: 14px;
+}
+
+.ui-segmented {
+  display: inline-flex;
+  gap: var(--space-4);
+}
+.ui-segmented-choice {
+  color: var(--muted);
+  padding: var(--space-5) var(--space-8);
+  font-size: var(--font-size-11);
+}
+.ui-segmented-choice[aria-pressed="true"] {
+  color: var(--accent-text);
+  background: var(--selected);
+}
+.ui-segmented-compact .ui-segmented-choice {
+  font-size: var(--font-size-10);
+  padding: var(--space-3) var(--space-8);
+}
+
+@media (max-width: 1050px) {
+  .editor-tabs > button:not(.icon-button) {
+    padding: 0 var(--space-12);
+  }
+}
+
+@media (max-width: 800px) {
+  .editor-tabs {
+    overflow-x: auto;
+    padding-left: 0;
+  }
+  .editor-tabs > button:not(.icon-button) {
+    padding: 0 var(--space-10);
+    white-space: nowrap;
+  }
+}

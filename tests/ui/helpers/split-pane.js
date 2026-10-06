@@ -4,10 +4,10 @@ import assert from "node:assert/strict";
 export async function exerciseSplit(page, name) {
   const handle = page.getByRole("separator", { name, exact: true });
   await handle.waitFor();
-  const horizontal =
-    (await handle.getAttribute("aria-orientation")) === "horizontal";
   await handle.focus();
   await handle.press("Enter");
+  const horizontal =
+    (await handle.getAttribute("aria-orientation")) === "horizontal";
   const initial = Number(await handle.getAttribute("aria-valuenow"));
   await handle.press(horizontal ? "ArrowDown" : "ArrowRight");
   assert.ok(

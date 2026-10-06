@@ -1,4 +1,7 @@
 <script>
+  import Feedback from "./ui/Feedback.svelte";
+  import Field from "./ui/Field.svelte";
+  import Checkbox from "./ui/Checkbox.svelte";
   import Button from "./ui/Button.svelte";
   import { onDestroy } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
@@ -58,12 +61,9 @@
       duplicate source records superseded · {plan.issues.length} need attention. Original
       imported records are kept. Restoring uses their original expiry dates.
     </p>
-    <label class="checkbox-label"
-      ><input
-        type="checkbox"
-        bind:checked={overwrite}
-        disabled={busy || disabled}
-      /> Replace cookies with the same name, domain and path</label
+    <Field layout="inline" class="checkbox-label"
+      ><Checkbox bind:checked={overwrite} disabled={busy || disabled} /> Replace cookies
+      with the same name, domain and path</Field
     >
     <div class="resource-tools">
       <Button
@@ -94,6 +94,8 @@
           </li>{/each}
       </ul>{/if}
     {#if notice}<p class="hint" role="status">{notice}</p>{/if}
-    {#if error}<p class="inline-error" role="alert">{error}</p>{/if}
+    {#if error}<Feedback as="p" class="inline-error" role="alert"
+        >{error}</Feedback
+      >{/if}
   </details>
 {/if}

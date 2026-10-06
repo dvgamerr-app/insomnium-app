@@ -63,10 +63,12 @@
         .toLowerCase()
         .includes(search.toLowerCase())}
       <div class="tree-request-row" class:active={selected === item._id}>
-        <button
-          class="tree-request"
-          class:active={selected === item._id}
-          style:padding-left={`calc(var(--button-space-18) + ${depth} * var(--button-tree-indent))`}
+        <Button
+          variant="plain"
+          class={["tree-request", selected === item._id && "active"]
+            .filter(Boolean)
+            .join(" ")}
+          style={`padding-left: calc(var(--space-18) + ${depth} * var(--button-tree-indent))`}
           onclick={() => onselect(item._id)}
         >
           <span class="method" data-method={item.method || "GET"}
@@ -80,7 +82,7 @@
                     ? "GQL"
                     : item.method}</span
           ><span>{item.name}</span>
-        </button>
+        </Button>
         <Button
           variant="ghost"
           class="icon-button subtle tree-actions"

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { withPreview } from "./helpers/preview-app.js";
+import { assertSvgDropdowns, assertControlHover } from "./helpers/select.js";
 
 await withPreview("nocturne-theme", async (page, output) => {
   await page
@@ -62,6 +63,7 @@ await withPreview("nocturne-theme", async (page, output) => {
     await page
       .getByRole("combobox", { name: "HTTP method", exact: true })
       .selectOption("GET");
+    await assertControlHover(page);
     assert.equal(
       await page.evaluate(() => document.fonts.check('12px "Inter Variable"')),
       true,
@@ -74,6 +76,7 @@ await withPreview("nocturne-theme", async (page, output) => {
     );
     for (const width of [1440, 900, 760]) {
       await page.setViewportSize({ width, height: 960 });
+      await assertSvgDropdowns(page);
       assert.ok(await page.locator(".send-button").isVisible());
       for (const name of ["Edit environment", "Cookies"]) {
         assert.equal(
@@ -248,6 +251,7 @@ await withPreview("nocturne-theme", async (page, output) => {
       await page.screenshot({
         path: output + "/" + theme + "-editor-" + tab.toLowerCase() + ".png",
       });
+      await assertSvgDropdowns(page);
     }
     await page
       .getByLabel("Body type", { exact: true })
@@ -418,11 +422,11 @@ await withPreview("nocturne-theme", async (page, output) => {
         await page
           .getByRole("button", { name: "Validate & preview", exact: true })
           .click();
-        await page.getByRole("button", { name: /^Diagnostics \(/ }).waitFor();
+        await page.getByRole("tab", { name: /^Diagnostics \(/ }).waitFor();
         for (const section of ["Operations", "Schemas", "Diagnostics"]) {
           await page
             .locator(".design-preview")
-            .getByRole("button", { name: new RegExp("^" + section) })
+            .getByRole("tab", { name: new RegExp("^" + section) })
             .click();
           await page.screenshot({
             path:
@@ -556,6 +560,7 @@ await withPreview("nocturne-theme", async (page, output) => {
         .getByRole("region", { name: "Response", exact: true })
         .getByRole("tab", { name: new RegExp("^" + name + "(?:\\s|$)") })
         .click();
+      await assertSvgDropdowns(page);
       await page.screenshot({
         path: output + "/" + theme + "-response-" + name.toLowerCase() + ".png",
       });

@@ -1,4 +1,12 @@
 <script>
+  import TabPanel from "./ui/TabPanel.svelte";
+  let activeTab0 = $state("");
+  import SegmentedControl from "./ui/SegmentedControl.svelte";
+  import Feedback from "./ui/Feedback.svelte";
+  import EmptyState from "./ui/EmptyState.svelte";
+  import Toolbar from "./ui/Toolbar.svelte";
+  import TabList from "./ui/TabList.svelte";
+  import TabButton from "./ui/TabButton.svelte";
   import Select from "./ui/Select.svelte";
   import Button from "./ui/Button.svelte";
   import Input from "./ui/Input.svelte";
@@ -200,6 +208,7 @@
     <span class="spacer"></span>
     {#if history.length}<Select
         class="history-select"
+        variant="history"
         aria-label="Response history"
         value={response?._id || ""}
         onchange={(event) => {
@@ -213,19 +222,21 @@
           >{/each}</Select
       >{/if}
   </div>
-  <div
+  <TabList
+    panelId="response-view-panel"
+    bind:activeId={activeTab0}
     class="editor-tabs response-tabs"
     role="tablist"
     aria-label="Response view"
   >
-    {#each ["Preview", "Headers", "Cookies", "Timeline"] as name}<button
+    {#each ["Preview", "Headers", "Cookies", "Timeline"] as name}<TabButton
+        class={[tab === name && "active"].filter(Boolean).join(" ")}
         role="tab"
         aria-selected={tab === name}
-        class:active={tab === name}
         onclick={() => (tab = name)}
         >{name}{#if name === "Headers" && response?.headers}<span class="count"
             >{response.headers.length}</span
-          >{/if}</button
+          >{/if}</TabButton
       >{/each}<span class="spacer"></span>
     {#if response && !response.error}<Button
         variant="ghost"
@@ -261,163 +272,180 @@
           }
         }}><Icon name="download" size={15} /></Button
       >{/if}
-  </div>
-  <div class="response-content">
-    {#if copyError}<p class="inline-error">{copyError}</p>{/if}
-    {#if response?.error}<div class="error-state">
-        <h3>Could not send request</h3>
-        <pre>{response.error}</pre>
-      </div>
-    {:else if !response}<div class="empty-response request-shortcuts">
-        <p>Send a request to see the response.</p>
-        {#each [["Send request", "Enter"], ["New request", "N"], ["Find request", "P"], ["Save workspace", "S"]] as [label, key]}
-          <div class="shortcut-row">
-            <span>{label}</span><span><kbd>Ctrl</kbd><kbd>{key}</kbd></span>
-          </div>
-        {/each}
-      </div>
-    {:else if tab === "Preview"}<div class="preview-toolbar">
-        <button class:chosen={!raw} onclick={() => (raw = false)}>Pretty</button
-        ><button class:chosen={raw} onclick={() => (raw = true)}>Raw</button
-        ><span class="spacer"></span><span class="hint"
-          >{response.headers
-            ?.find(
-              (/** @type {string[]} */ h) =>
-                h[0].toLowerCase() === "content-type",
-            )?.[1]
-            ?.split(";")[0] || "Response body"}</span
+  </TabList>
+  <TabPanel id="response-view-panel" labelledBy={activeTab0}
+    ><div class="response-content">
+      {#if copyError}<Feedback as="p" class="inline-error">{copyError}</Feedback
+        >{/if}
+      {#if response?.error}<div class="error-state">
+          <h3>Could not send request</h3>
+          <pre>{response.error}</pre>
+        </div>
+      {:else if !response}<EmptyState
+          variant="response"
+          class="empty-response request-shortcuts"
         >
-      </div>
-      {#if !raw && (jsonResponse || xmlResponse)}
-        <form
-          class="response-filter"
-          onsubmit={(event) => {
-            event.preventDefault();
-            applyFilter(filterDraft);
-          }}
+          <p>Send a request to see the response.</p>
+          {#each [["Send request", "Enter"], ["New request", "N"], ["Find request", "P"], ["Save workspace", "S"]] as [label, key]}
+            <div class="shortcut-row">
+              <span>{label}</span><span><kbd>Ctrl</kbd><kbd>{key}</kbd></span>
+            </div>
+          {/each}
+        </EmptyState>
+      {:else if tab === "Preview"}<Toolbar
+          variant="preview"
+          class="preview-toolbar"
         >
-          <Input
-            aria-label={`Filter response body with ${xmlResponse ? "XPath" : "JSONPath"}`}
-            placeholder={xmlResponse
-              ? "/store/books/author"
-              : "$.store.books[*].author"}
-            maxlength={4096}
-            value={filterDraft}
-            oninput={(event) => {
-              filterDraft = event.currentTarget.value;
-              if (!filterDraft) applyFilter("");
+          <SegmentedControl
+            label="Response formatting"
+            variant="compact"
+            value={raw}
+            options={[
+              { value: false, label: "Pretty" },
+              { value: true, label: "Raw" },
+            ]}
+            onchange={(value) => (raw = Boolean(value))}
+          /><span class="spacer"></span><span class="hint"
+            >{response.headers
+              ?.find(
+                (/** @type {string[]} */ h) =>
+                  h[0].toLowerCase() === "content-type",
+              )?.[1]
+              ?.split(";")[0] || "Response body"}</span
+          >
+        </Toolbar>
+        {#if !raw && (jsonResponse || xmlResponse)}
+          <form
+            class="response-filter"
+            onsubmit={(event) => {
+              event.preventDefault();
+              applyFilter(filterDraft);
             }}
-          />
-          <Button variant="ghost" type="submit">Filter</Button>
-          {#if filter || filterDraft}<Button
+          >
+            <Input
+              aria-label={`Filter response body with ${xmlResponse ? "XPath" : "JSONPath"}`}
+              placeholder={xmlResponse
+                ? "/store/books/author"
+                : "$.store.books[*].author"}
+              maxlength={4096}
+              value={filterDraft}
+              oninput={(event) => {
+                filterDraft = event.currentTarget.value;
+                if (!filterDraft) applyFilter("");
+              }}
+            />
+            <Button variant="ghost" type="submit">Filter</Button>
+            {#if filter || filterDraft}<Button
+                variant="ghost"
+                type="button"
+                onclick={() => applyFilter("")}>Clear</Button
+              >{/if}
+            {#if filterHistory.length}<Select
+                aria-label="Response filter history"
+                value=""
+                onchange={(event) => {
+                  applyFilter(event.currentTarget.value);
+                  event.currentTarget.value = "";
+                }}
+              >
+                <option value="" disabled>History</option>
+                {#each filterHistory as item}<option value={item}>{item}</option
+                  >{/each}
+              </Select>{/if}
+            <Button
               variant="ghost"
               type="button"
-              onclick={() => applyFilter("")}>Clear</Button
-            >{/if}
-          {#if filterHistory.length}<Select
-              aria-label="Response filter history"
-              value=""
-              onchange={(event) => {
-                applyFilter(event.currentTarget.value);
-                event.currentTarget.value = "";
-              }}
+              aria-expanded={filterHelp}
+              onclick={() => (filterHelp = !filterHelp)}>Help</Button
             >
-              <option value="" disabled>History</option>
-              {#each filterHistory as item}<option value={item}>{item}</option
-                >{/each}
-            </Select>{/if}
-          <Button
-            variant="ghost"
-            type="button"
-            aria-expanded={filterHelp}
-            onclick={() => (filterHelp = !filterHelp)}>Help</Button
-          >
-        </form>
-        {#if filterHelp}<p class="hint padded">
-            {#if xmlResponse}XPath 1.0: <code>//item</code> selects elements,
-              <code>//item/@id</code>
-              selects attributes, and <code>count(//item)</code> counts matches.
-              For namespaces, use
-              <code>//*[local-name()='item']</code>.{:else}JSONPath: <code
-                >$</code
-              >
-              selects the root, <code>$.items[*]</code>
-              selects items, <code>$..name</code> finds names recursively, and
-              <code>$.items[?(@.price &lt; 10)]</code> filters values.{/if} Press
-            Enter to apply. Copy uses the displayed result; Save keeps the original
-            response.
-          </p>{/if}
-        {#if processing && (!currentResult || currentResult.busy)}<p
-            class="hint padded"
-            role="status"
-          >
-            Preparing response preview…
-          </p>{/if}
-        {#if processing && currentResult?.error}<p
-            class="inline-error"
-            role="alert"
-          >
-            {currentResult.error}
-          </p>{/if}
-      {/if}
-      <CodeEditor
-        identity={String(response._id || response.created) +
-          (raw ? ":raw" : ":preview")}
-        value={body}
-        label="Response body"
-        readOnly
-        mode={raw
-          ? "text/plain"
-          : response.headers?.find(
-              (/** @type {string[]} */ h) =>
-                h[0].toLowerCase() === "content-type",
-            )?.[1] || "text/plain"}
-        settings={workspace.data.settings}
-        placeholder="(empty response)"
-      />
-    {:else if tab === "Headers" || tab === "Cookies"}<div
-        class="response-headers"
-      >
-        {#each (response.headers || []).filter((/** @type {string[]} */ h) => tab !== "Cookies" || h[0].toLowerCase() === "set-cookie") as [name, value]}<div
-          >
-            <span>{name}</span><code>{value}</code>
-          </div>{:else}<p class="hint padded">
-            No {tab.toLowerCase()} in this response.
-          </p>{/each}
-      </div>
-    {:else}<div class="timeline">
-        <div>
-          <span class="timeline-dot"></span><span>Request started</span><code
-            >0 ms</code
-          >
+          </form>
+          {#if filterHelp}<p class="hint padded">
+              {#if xmlResponse}XPath 1.0: <code>//item</code> selects elements,
+                <code>//item/@id</code>
+                selects attributes, and <code>count(//item)</code> counts
+                matches. For namespaces, use
+                <code>//*[local-name()='item']</code>.{:else}JSONPath: <code
+                  >$</code
+                >
+                selects the root, <code>$.items[*]</code>
+                selects items, <code>$..name</code> finds names recursively, and
+                <code>$.items[?(@.price &lt; 10)]</code> filters values.{/if} Press
+              Enter to apply. Copy uses the displayed result; Save keeps the original
+              response.
+            </p>{/if}
+          {#if processing && (!currentResult || currentResult.busy)}<p
+              class="hint padded"
+              role="status"
+            >
+              Preparing response preview…
+            </p>{/if}
+          {#if processing && currentResult?.error}<Feedback
+              as="p"
+              class="inline-error"
+              role="alert"
+            >
+              {currentResult.error}
+            </Feedback>{/if}
+        {/if}
+        <CodeEditor
+          identity={String(response._id || response.created) +
+            (raw ? ":raw" : ":preview")}
+          value={body}
+          label="Response body"
+          readOnly
+          mode={raw
+            ? "text/plain"
+            : response.headers?.find(
+                (/** @type {string[]} */ h) =>
+                  h[0].toLowerCase() === "content-type",
+              )?.[1] || "text/plain"}
+          settings={workspace.data.settings}
+          placeholder="(empty response)"
+        />
+      {:else if tab === "Headers" || tab === "Cookies"}<div
+          class="response-headers"
+        >
+          {#each (response.headers || []).filter((/** @type {string[]} */ h) => tab !== "Cookies" || h[0].toLowerCase() === "set-cookie") as [name, value]}<div
+            >
+              <span>{name}</span><code>{value}</code>
+            </div>{:else}<p class="hint padded">
+              No {tab.toLowerCase()} in this response.
+            </p>{/each}
         </div>
-        <div>
-          <span class="timeline-dot"></span><span
-            >Response headers received</span
-          ><code>{response.headersMs} ms</code>
-        </div>
-        <div>
-          <span class="timeline-dot"></span><span
-            >Response downloaded · {response.size} bytes</span
-          ><code>{response.elapsedMs} ms</code>
-        </div>
-        <p class="hint">{response.method} {response.url}</p>
-      </div>{/if}
-  </div>
+      {:else}<div class="timeline">
+          <div>
+            <span class="timeline-dot"></span><span>Request started</span><code
+              >0 ms</code
+            >
+          </div>
+          <div>
+            <span class="timeline-dot"></span><span
+              >Response headers received</span
+            ><code>{response.headersMs} ms</code>
+          </div>
+          <div>
+            <span class="timeline-dot"></span><span
+              >Response downloaded · {response.size} bytes</span
+            ><code>{response.elapsedMs} ms</code>
+          </div>
+          <p class="hint">{response.method} {response.url}</p>
+        </div>{/if}
+    </div></TabPanel
+  >
 </section>
 
 <style>
   .response-filter {
     display: flex;
-    gap: 6px;
-    padding: 6px 12px;
+    gap: var(--space-6);
+    padding: var(--space-6) var(--space-12);
     align-items: center;
   }
   .response-filter :global(input) {
     flex: 1;
     min-width: 80px;
   }
-  .response-filter :global(select) {
+  .response-filter :global(.ui-select-shell) {
     max-width: 140px;
   }
 </style>

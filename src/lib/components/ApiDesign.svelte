@@ -1,4 +1,13 @@
 <script>
+  import TabPanel from "./ui/TabPanel.svelte";
+  let activeTab0 = $state("");
+  import TabList from "./ui/TabList.svelte";
+  import TabButton from "./ui/TabButton.svelte";
+  import Toolbar from "./ui/Toolbar.svelte";
+  import Feedback from "./ui/Feedback.svelte";
+  import EmptyState from "./ui/EmptyState.svelte";
+
+  import FilePicker from "./ui/FilePicker.svelte";
   import Select from "./ui/Select.svelte";
   import Button from "./ui/Button.svelte";
   import Input from "./ui/Input.svelte";
@@ -280,7 +289,7 @@
 </script>
 
 <section class="api-design" aria-label="API Design">
-  <div class="design-toolbar">
+  <Toolbar variant="design" class="design-toolbar">
     <strong>API Design</strong><Select
       aria-label="API document"
       value={spec?._id || ""}
@@ -299,24 +308,25 @@
       onclick={() => create()}
       disabled={busy}>New document</Button
     >
-    <label class="schema-import"
-      >Open JSON / YAML<input
-        type="file"
-        accept=".json,.yaml,.yml"
-        onchange={(event) => loadFile(event)}
-        disabled={busy}
-      /></label
+    <FilePicker
+      class="schema-import"
+      variant="compact"
+      accept=".json,.yaml,.yml"
+      onchange={(event) => loadFile(event)}
+      disabled={busy}>Open JSON / YAML</FilePicker
     >
     <span class="spacer"></span><Button
       variant="secondary"
       class="secondary-button"
       onclick={onrequests}>Debug requests</Button
     >
-  </div>
-  {#if error}<p class="inline-error" role="alert">{error}</p>{/if}
+  </Toolbar>
+  {#if error}<Feedback as="p" class="inline-error" role="alert"
+      >{error}</Feedback
+    >{/if}
   {#if notice}<p class="hint padded" role="status">{notice}</p>{/if}
   {#if spec}
-    <div class="design-toolbar">
+    <Toolbar variant="design" class="design-toolbar">
       <Input
         aria-label="Specification file name"
         value={spec.fileName || ""}
@@ -349,23 +359,25 @@
           }
         }}>Export source</Button
       >
-      <label class="schema-import"
-        >Attach $ref files<input
-          type="file"
-          multiple
-          accept=".json,.yaml,.yml"
-          onchange={(event) => loadFile(event, true)}
-          disabled={busy}
-        /></label
+      <FilePicker
+        class="schema-import"
+        variant="compact"
+        multiple
+        accept=".json,.yaml,.yml"
+        onchange={(event) => loadFile(event, true)}
+        disabled={busy}>Attach $ref files</FilePicker
       >
-    </div>
+    </Toolbar>
     {#if spec.files?.length}<details class="design-references">
         <summary>{spec.files.length} reference files</summary>
         <p class="hint">
           Names match relative $ref paths (for example schemas/pet.yaml). Only
           attached files are resolved.
         </p>
-        {#each spec.files as file, index}<div class="design-toolbar">
+        {#each spec.files as file, index}<Toolbar
+            variant="design"
+            class="design-toolbar"
+          >
             <Input
               aria-label={`Reference file ${index + 1} name`}
               value={file.name}
@@ -389,7 +401,7 @@
                   ),
                 })}>Remove reference</Button
             >
-          </div>{/each}
+          </Toolbar>{/each}
       </details>{/if}
     <SplitPane
       class="design-columns"
@@ -417,84 +429,99 @@
       {/snippet}{#snippet second()}
         <div class="design-preview">
           {#if current}
-            <div class="editor-tabs">
-              {#each ["Operations", "Schemas", "Diagnostics"] as tab}<button
-                  class:active={previewTab === tab}
+            <TabList
+              panelId="api-design-panel"
+              bind:activeId={activeTab0}
+              aria-label="API design view"
+              class="editor-tabs"
+            >
+              {#each ["Operations", "Schemas", "Diagnostics"] as tab}<TabButton
+                  aria-selected={previewTab === tab}
+                  class={[previewTab === tab && "active"]
+                    .filter(Boolean)
+                    .join(" ")}
                   onclick={() => (previewTab = tab)}
                   >{tab}{tab === "Diagnostics"
                     ? ` (${current.diagnosticCount})`
-                    : ""}</button
+                    : ""}</TabButton
                 >{/each}
-            </div>
-            {#if previewTab === "Diagnostics"}<div class="design-diagnostics">
-                {#each current.diagnostics as diagnostic}<Button
-                    variant="ghost"
-                    class="diagnostic-row"
-                    onclick={() => jump(diagnostic)}
-                    ><strong class:error-label={diagnostic.severity === "error"}
-                      >{diagnostic.severity} · {diagnostic.line}:{diagnostic.column}</strong
-                    ><span>{diagnostic.message}</span><small
-                      >{diagnostic.path}</small
-                    ></Button
-                  >{:else}<p class="hint padded">
-                    No validation errors or built-in style warnings.
-                  </p>{/each}
-              </div>
-            {:else if previewTab === "Schemas"}<pre
-                class="schema-definition">{previewJson(
-                  current.original.components?.schemas ||
-                    current.original.definitions ||
-                    {},
-                )}</pre>
-            {:else}
-              <div class="design-toolbar">
-                <Input
-                  aria-label="Search API operations"
-                  placeholder="Filter operations…"
-                  bind:value={search}
-                />
-              </div>
-              <Select
-                class="operation-list"
-                size={6}
-                aria-label="API operations"
-                value={operationIndex}
-                onchange={(event) =>
-                  (operationIndex = Number(event.currentTarget.value))}
-                >{#each operations as item, index}<option value={index}
-                    >{item.method.toUpperCase()}
-                    {item.path} · {item.summary}</option
-                  >{/each}</Select
-              >
-              {#if operation}<div class="operation-docs">
-                  <h3>{operation.method.toUpperCase()} {operation.path}</h3>
-                  <p>{operation.operation.description || operation.summary}</p>
-                  {#each ["parameters", "requestBody", "responses", "security"] as field}<details
-                    >
-                      <summary>{field}</summary>
-                      <pre class="schema-definition">{previewJson(
-                          operation.operation[field] ??
-                            (field === "parameters"
-                              ? operation.item.parameters
-                              : field === "security"
-                                ? current.schema.security
-                                : null) ??
-                            {},
-                        )}</pre>
-                    </details>{/each}
-                </div>{/if}
-            {/if}
-          {:else}<div class="empty-response">
+            </TabList>
+            <TabPanel id="api-design-panel" labelledBy={activeTab0}
+              >{#if previewTab === "Diagnostics"}<div
+                  class="design-diagnostics"
+                >
+                  {#each current.diagnostics as diagnostic}<Button
+                      variant="ghost"
+                      class="diagnostic-row"
+                      onclick={() => jump(diagnostic)}
+                      ><strong
+                        class:error-label={diagnostic.severity === "error"}
+                        >{diagnostic.severity} · {diagnostic.line}:{diagnostic.column}</strong
+                      ><span>{diagnostic.message}</span><small
+                        >{diagnostic.path}</small
+                      ></Button
+                    >{:else}<p class="hint padded">
+                      No validation errors or built-in style warnings.
+                    </p>{/each}
+                </div>
+              {:else if previewTab === "Schemas"}<pre
+                  class="schema-definition">{previewJson(
+                    current.original.components?.schemas ||
+                      current.original.definitions ||
+                      {},
+                  )}</pre>
+              {:else}
+                <Toolbar variant="design" class="design-toolbar">
+                  <Input
+                    aria-label="Search API operations"
+                    placeholder="Filter operations…"
+                    bind:value={search}
+                  />
+                </Toolbar>
+                <Select
+                  class="operation-list"
+                  size={6}
+                  aria-label="API operations"
+                  value={operationIndex}
+                  onchange={(event) =>
+                    (operationIndex = Number(event.currentTarget.value))}
+                  >{#each operations as item, index}<option value={index}
+                      >{item.method.toUpperCase()}
+                      {item.path} · {item.summary}</option
+                    >{/each}</Select
+                >
+                {#if operation}<div class="operation-docs">
+                    <h3>{operation.method.toUpperCase()} {operation.path}</h3>
+                    <p>
+                      {operation.operation.description || operation.summary}
+                    </p>
+                    {#each ["parameters", "requestBody", "responses", "security"] as field}<details
+                      >
+                        <summary>{field}</summary>
+                        <pre class="schema-definition">{previewJson(
+                            operation.operation[field] ??
+                              (field === "parameters"
+                                ? operation.item.parameters
+                                : field === "security"
+                                  ? current.schema.security
+                                  : null) ??
+                              {},
+                          )}</pre>
+                      </details>{/each}
+                  </div>{/if}
+              {/if}</TabPanel
+            >
+          {:else}<EmptyState variant="response" class="empty-response">
               <h2>{result ? "Document changed" : "API preview"}</h2>
               <p>
                 Validate the source to update operations, schemas and
                 diagnostics.
               </p>
-            </div>{/if}
+            </EmptyState>{/if}
         </div>
       {/snippet}</SplitPane
     >
-    <div class="design-toolbar">
+    <Toolbar variant="design" class="design-toolbar">
       <Input
         aria-label="Generated requests server override"
         placeholder="Server override (optional) · https://api.example.com"
@@ -508,12 +535,12 @@
       ><span class="hint"
         >Creates a new folder. Existing requests are kept.</span
       >
-    </div>
-  {:else}<div class="empty-response">
+    </Toolbar>
+  {:else}<EmptyState variant="response" class="empty-response">
       <h2>Design your API</h2>
       <p>Open an OpenAPI/Swagger JSON or YAML document, or start a new one.</p>
       <Button variant="primary" class="primary-button" onclick={() => create()}
         >New API document</Button
       >
-    </div>{/if}
+    </EmptyState>{/if}
 </section>

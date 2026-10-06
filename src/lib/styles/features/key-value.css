@@ -1,0 +1,38 @@
+.kv-heading,
+.kv-row {
+  display: grid;
+  grid-template-columns: 32px minmax(100px, 1fr) minmax(140px, 1.5fr) 30px;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+}
+
+.kv-heading {
+  color: var(--faint);
+  font-size: var(--font-size-10);
+  height: 30px;
+  padding-left: var(--space-7);
+}
+
+.kv-heading > span {
+  padding-left: var(--space-8);
+}
+
+.kv-row {
+  padding: 0 var(--space-5);
+  min-height: 36px;
+}
+
+.kv-row.disabled {
+  opacity: 0.45;
+}
+
+.kv-value {
+  display: flex;
+  border-left: 1px solid var(--line);
+  min-height: 35px;
+}
+
+.add-row {
+  margin: var(--space-10) var(--space-14);
+  color: var(--accent-text);
+}

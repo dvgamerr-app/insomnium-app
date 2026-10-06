@@ -1,22 +1,32 @@
 <script>
+  import { fieldContext } from "./field-context.js";
   import Icon from "../Icon.svelte";
-  /** @type {Omit<import('svelte/elements').HTMLSelectAttributes, 'value'> & {value?:string|number, children?:import('svelte').Snippet, invalid?:boolean, svgArrow?:boolean}} */
+  /** @type {Omit<import('svelte/elements').HTMLSelectAttributes, 'value'> & {value?:string|number, children?:import('svelte').Snippet, variant?:'default'|'inline'|'toolbar'|'history'|'method'|'protocol'|'workspace'|'environment', invalid?:boolean, svgArrow?:boolean}} */
   let {
     value = $bindable(""),
     children,
     invalid = false,
-    svgArrow = false,
+    variant = "default",
+    svgArrow = true,
     class: className = "",
     onchange,
     ...rest
   } = $props();
+  const field = fieldContext();
 </script>
 
 {#snippet control()}
   <select
     {...rest}
+    data-ui-variant={variant}
+    id={rest.id ?? field?.id}
+    disabled={rest.disabled ?? field?.disabled}
+    aria-describedby={rest["aria-describedby"] ?? field?.describedBy}
     {value}
-    aria-invalid={invalid || rest["aria-invalid"] || undefined}
+    aria-invalid={invalid ||
+      field?.invalid ||
+      rest["aria-invalid"] ||
+      undefined}
     class={`ui-select ${className}`}
     onchange={(event) => {
       value =
@@ -28,46 +38,16 @@
   >
 {/snippet}
 
-{#if svgArrow}
-  <span class={`select-with-icon ${className}-wrapper`}>
+{#if svgArrow && !rest.multiple && rest.size == null}
+  <span
+    class={`ui-select-shell select-with-icon ${className}-wrapper`}
+    data-ui-variant={variant}
+  >
     {@render control()}
-    <span class="select-arrow"><Icon name="down" size={14} /></span>
+    <span class="select-arrow" aria-hidden="true"
+      ><Icon name="down" size={14} /></span
+    >
   </span>
 {:else}
   {@render control()}
 {/if}
-
-<style>
-  .select-with-icon {
-    position: relative;
-    display: flex;
-    flex-shrink: 0;
-  }
-  .select-with-icon :global(select.ui-select) {
-    width: 100%;
-    height: 100%;
-    appearance: none;
-    text-align: center;
-    text-align-last: center;
-    padding: 0 24px 0 8px;
-    line-height: normal;
-  }
-  .select-with-icon :global(select::picker-icon) {
-    display: none;
-  }
-  .select-arrow {
-    position: absolute;
-    right: 7px;
-    top: 50%;
-    transform: translateY(-50%);
-    display: flex;
-    pointer-events: none;
-    color: var(--muted);
-  }
-  .method-select-wrapper {
-    width: 96px;
-  }
-  .protocol-select-wrapper {
-    width: 78px;
-  }
-</style>

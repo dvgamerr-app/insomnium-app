@@ -27,18 +27,31 @@ export async function withPreview(name, run) {
       viewport: { width: 1440, height: 960 },
       reducedMotion: "reduce",
     });
+    const startupErrors = /** @type {string[]} */ ([]);
+    page.on("pageerror", (error) =>
+      startupErrors.push(error.stack || error.message),
+    );
+    page.on("console", (message) => {
+      if (message.type() === "error") startupErrors.push(message.text());
+    });
     await page.goto(`http://127.0.0.1:${server.port}`);
     await Bun.write(
       output + "/result.json",
       JSON.stringify({ status: "running" }),
     );
     try {
+      await page.waitForTimeout(300);
+      if (startupErrors.length) throw new Error(startupErrors.join("\n"));
       await run(page, output);
     } catch (error) {
       await page.screenshot({ path: output + "/failure.png" }).catch(() => {});
       await Bun.write(
         output + "/result.json",
-        JSON.stringify({ status: "failed", error: String(error) }),
+        JSON.stringify({
+          status: "failed",
+          error: String(error),
+          startupErrors,
+        }),
       );
       throw error;
     }

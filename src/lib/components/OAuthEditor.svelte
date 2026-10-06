@@ -1,4 +1,7 @@
 <script>
+  import Feedback from "./ui/Feedback.svelte";
+  import Field from "./ui/Field.svelte";
+  import Checkbox from "./ui/Checkbox.svelte";
   import Select from "./ui/Select.svelte";
   import Input from "./ui/Input.svelte";
   import Button from "./ui/Button.svelte";
@@ -103,7 +106,7 @@
   }
 </script>
 
-<label
+<Field
   >Grant type<Select
     value={auth.grantType || ""}
     onchange={(event) => change("grantType", event.currentTarget.value)}
@@ -117,10 +120,10 @@
     {#if auth.grantType && !supported}<option value={auth.grantType}
         >{auth.grantType} (migration pending)</option
       >{/if}
-  </Select></label
+  </Select></Field
 >
 {#if ["authorization_code", "implicit"].includes(auth.grantType)}
-  <label
+  <Field
     >Login browser<Select
       value={auth.browserMode || "system"}
       onchange={(event) => change("browserMode", event.currentTarget.value)}
@@ -131,17 +134,17 @@
       {#if auth.browserMode && !["system", "embedded"].includes(auth.browserMode)}<option
           value={auth.browserMode}>{auth.browserMode} (unsupported)</option
         >{/if}
-    </Select></label
+    </Select></Field
   >
-  <label
+  <Field
     >Authorization URL<Input
       value={auth.authorizationUrl || ""}
       oninput={(event) => change("authorizationUrl", event.currentTarget.value)}
       autocomplete="off"
       spellcheck="false"
-    /></label
+    /></Field
   >
-  <label
+  <Field
     >Redirect URL<Input
       value={auth.redirectUrl || ""}
       oninput={(event) => change("redirectUrl", event.currentTarget.value)}
@@ -150,17 +153,17 @@
         : "Automatic loopback (available port)"}
       autocomplete="off"
       spellcheck="false"
-    /></label
+    /></Field
   >
   {#if auth.browserMode !== "embedded"}
-    <label
+    <Field
       >Receive callback<Select
         value={auth.callbackMode || "auto"}
         onchange={(event) => change("callbackMode", event.currentTarget.value)}
         ><option value="auto">Automatic for loopback URLs</option><option
           value="manual">Paste callback URL manually</option
         ></Select
-      ></label
+      ></Field
     >
     <p class="hint">
       Register the redirect with your provider. A blank URL uses a free loopback
@@ -191,14 +194,13 @@
     >
   {/if}
   {#if auth.grantType === "authorization_code"}
-    <label class="checkbox-label"
-      ><input
-        type="checkbox"
+    <Field layout="inline" class="checkbox-label"
+      ><Checkbox
         checked={auth.usePkce !== false}
         onchange={(event) => change("usePkce", event.currentTarget.checked)}
-      />Use PKCE</label
+      />Use PKCE</Field
     >
-    {#if auth.usePkce !== false}<label
+    {#if auth.usePkce !== false}<Field
         >PKCE method<Select
           value={auth.pkceMethod || "S256"}
           onchange={(event) => change("pkceMethod", event.currentTarget.value)}
@@ -207,11 +209,11 @@
           >{#if auth.pkceMethod && !["S256", "plain"].includes(auth.pkceMethod)}<option
               value={auth.pkceMethod}>{auth.pkceMethod} (unsupported)</option
             >{/if}</Select
-        ></label
+        ></Field
       >{/if}
   {/if}
   {#if auth.grantType === "implicit"}
-    <label
+    <Field
       >Response type<Select
         value={auth.responseType || "token"}
         onchange={(event) => change("responseType", event.currentTarget.value)}
@@ -224,15 +226,14 @@
         {#if auth.responseType && !["token", "id_token", "id_token token", "none"].includes(auth.responseType)}<option
             value={auth.responseType}>{auth.responseType}</option
           >{/if}
-      </Select></label
+      </Select></Field
     >
-    <label class="checkbox-label"
-      ><input
-        type="checkbox"
+    <Field layout="inline" class="checkbox-label"
+      ><Checkbox
         checked={auth.useIdentityToken === true}
         onchange={(event) =>
           change("useIdentityToken", event.currentTarget.checked)}
-      />Use ID token as API credential</label
+      />Use ID token as API credential</Field
     >
     <p class="hint">
       ID tokens are retained separately. Selecting this option sends the ID
@@ -248,25 +249,25 @@
   {/if}
   <details>
     <summary>Authorization response options</summary>
-    <label
+    <Field
       >State<Input
         value={auth.state || ""}
         placeholder="Generate randomly for each login"
         oninput={(event) => change("state", event.currentTarget.value)}
         autocomplete="off"
-      /></label
+      /></Field
     >
-    <label
+    <Field
       >Expected issuer (optional)<Input
         value={auth.issuer || ""}
         oninput={(event) => change("issuer", event.currentTarget.value)}
-      /></label
+      /></Field
     >
     <p class="hint">
       An expected issuer requires an exact matching iss parameter in the
       callback.
     </p>
-    {#if auth.grantType === "authorization_code" && auth.responseType && auth.responseType !== "code"}<label
+    {#if auth.grantType === "authorization_code" && auth.responseType && auth.responseType !== "code"}<Field
         >Response type<Select
           value={auth.responseType}
           onchange={(event) =>
@@ -274,39 +275,39 @@
           ><option value={auth.responseType}
             >{auth.responseType} (incompatible with Authorization Code)</option
           ><option value="code">code</option></Select
-        ></label
+        ></Field
       >{/if}
   </details>
 {/if}
 {#each fields as [key, label, secret]}
-  <label
+  <Field
     >{label}<Input
       type={secret ? "password" : "text"}
       value={auth[String(key)] || ""}
       oninput={(event) => change(String(key), event.currentTarget.value)}
       autocomplete="off"
       spellcheck="false"
-    /></label
+    /></Field
   >
 {/each}
 {#if auth.grantType === "password"}
-  <label
+  <Field
     >Username<Input
       value={auth.username || ""}
       oninput={(event) => change("username", event.currentTarget.value)}
       autocomplete="off"
-    /></label
+    /></Field
   >
-  <label
+  <Field
     >Password<Input
       type="password"
       value={auth.password || ""}
       oninput={(event) => change("password", event.currentTarget.value)}
       autocomplete="off"
-    /></label
+    /></Field
   >
 {/if}
-<label
+<Field
   >Client authentication<Select
     value={auth.credentialsInBody === true ? "body" : "header"}
     onchange={(event) =>
@@ -315,72 +316,72 @@
     <option value="header">Basic header</option><option value="body"
       >Credentials in request body</option
     >
-  </Select></label
+  </Select></Field
 >
 <details>
   <summary>More OAuth options</summary>
   {#if auth.addTokenTo && auth.addTokenTo !== "header"}
-    <label
+    <Field
       >Token destination<Select
         value={auth.addTokenTo}
         onchange={(event) => change("addTokenTo", event.currentTarget.value)}
         ><option value={auth.addTokenTo}
           >{auth.addTokenTo} (migration pending)</option
         ><option value="header">Header</option></Select
-      ></label
+      ></Field
     >
   {/if}
   {#if auth.tokenType && String(auth.tokenType).toLowerCase() !== "bearer"}
-    <label
+    <Field
       >Token type<Select
         value={auth.tokenType}
         onchange={(event) => change("tokenType", event.currentTarget.value)}
         ><option value={auth.tokenType}
           >{auth.tokenType} (migration pending)</option
         ><option value="bearer">Bearer</option></Select
-      ></label
+      ></Field
     >
   {/if}
-  <label
+  <Field
     >Audience<Input
       value={auth.audience || ""}
       oninput={(event) => change("audience", event.currentTarget.value)}
-    /></label
+    /></Field
   >
-  <label
+  <Field
     >Resource<Input
       value={auth.resource || ""}
       oninput={(event) => change("resource", event.currentTarget.value)}
-    /></label
+    /></Field
   >
-  <label
+  <Field
     >Origin header<Input
       value={auth.origin || ""}
       oninput={(event) => change("origin", event.currentTarget.value)}
-    /></label
+    /></Field
   >
-  <label
+  <Field
     >Token prefix (NO_PREFIX sends only the token)<Input
       value={auth.tokenPrefix ?? auth.headerPrefix ?? ""}
       placeholder="Bearer"
       oninput={(event) => change("tokenPrefix", event.currentTarget.value)}
-    /></label
+    /></Field
   >
-  <label
+  <Field
     >Initial refresh token<Input
       type="password"
       value={auth.refreshToken || ""}
       oninput={(event) => change("refreshToken", event.currentTarget.value)}
       autocomplete="off"
-    /></label
+    /></Field
   >
-  <label
+  <Field
     >Manual access token override<Input
       type="password"
       value={auth.accessToken || ""}
       oninput={(event) => change("accessToken", event.currentTarget.value)}
       autocomplete="off"
-    /></label
+    /></Field
   >
   <p class="hint">
     A manual access token overrides automatic fetching and has no tracked
@@ -399,7 +400,9 @@
 <div class="oauth-token-panel">
   {#if progress}
     <div role="status">
-      {#if progress.warning}<p class="inline-error">{progress.warning}</p>{/if}
+      {#if progress.warning}<Feedback as="p" class="inline-error"
+          >{progress.warning}</Feedback
+        >{/if}
       <strong
         >{progress.stage === "waiting"
           ? "Waiting for browser authorization"
@@ -412,19 +415,19 @@
             Math.ceil((progress.expiresAt - now) / 1000),
           )} seconds.
         </p>
-        <label
+        <Field
           >Redirect URI for this login<Input
             readonly
             value={progress.redirectUrl}
-          /></label
+          /></Field
         >
-        <label
+        <Field
           >Final callback URL<Input
             bind:value={callbackUrl}
             placeholder="Paste the complete URL after authorization"
             autocomplete="off"
             spellcheck="false"
-          /></label
+          /></Field
         >
         <Button
           variant="secondary"
@@ -462,7 +465,7 @@
     <span class="hint">Expires: {date(status.token.expiresAt)}</span>
     {#if status.token.scope}<span class="hint">Scope: {status.token.scope}</span
       >{/if}
-    <label
+    <Field
       >{status.token.credentialKind === "id_token"
         ? "ID token"
         : "Access token"}<Input
@@ -470,10 +473,10 @@
         value={status.token.accessToken}
         readonly
         autocomplete="off"
-      /></label
+      /></Field
     >
-    <label class="checkbox-label"
-      ><input type="checkbox" bind:checked={show} />Show token</label
+    <Field layout="inline" class="checkbox-label"
+      ><Checkbox bind:checked={show} />Show token</Field
     >
   {/if}
   <div class="oauth-actions">
@@ -529,7 +532,7 @@
 {#if tokens.some((token) => token._id !== status.token?._id)}
   <details>
     <summary>Review saved or imported tokens</summary>
-    <label
+    <Field
       >Saved token<Select
         value={selected}
         onchange={(event) => {
@@ -543,7 +546,7 @@
               ? "Previous settings"
               : "Imported"} · {date(token.expiresAt)}</option
           >{/each}
-      </Select></label
+      </Select></Field
     >
     {#if saved}
       {#if saved.credentialKind === "id_token"}<p class="hint">
@@ -569,22 +572,27 @@
     {/if}
   </details>
 {/if}
-{#if status.error}<p class="inline-error">{status.error}</p>{/if}
-{#if workspace.oauthErrors[request._id]}<p class="inline-error" role="alert">
+{#if status.error}<Feedback as="p" class="inline-error">{status.error}</Feedback
+  >{/if}
+{#if workspace.oauthErrors[request._id]}<Feedback
+    as="p"
+    class="inline-error"
+    role="alert"
+  >
     {workspace.oauthErrors[request._id]}
-  </p>{/if}
+  </Feedback>{/if}
 
 <style>
   .oauth-token-panel {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: var(--space-10);
     border-top: 1px solid var(--line);
-    padding-top: 16px;
+    padding-top: var(--space-16);
   }
   .oauth-actions {
     display: flex;
-    gap: 8px;
+    gap: var(--space-8);
     flex-wrap: wrap;
   }
   .hint {

@@ -1,4 +1,7 @@
 <script>
+  import FormPanel from "./ui/FormPanel.svelte";
+  import Feedback from "./ui/Feedback.svelte";
+  import Field from "./ui/Field.svelte";
   import Input from "./ui/Input.svelte";
   import Select from "./ui/Select.svelte";
   import Button from "./ui/Button.svelte";
@@ -276,16 +279,16 @@
 
 <section class="remote-panel" aria-label="Git remote">
   <h3>Remote repository</h3>
-  <div class="form-panel resource-form">
-    <label
+  <FormPanel class="form-panel resource-form">
+    <Field
       >Repository URL<Input
         bind:value={url}
         oninput={changed}
         disabled={saving || disabled}
         placeholder="https://host/owner/repository.git"
-      /></label
+      /></Field
     >
-    <label
+    <Field
       >Remote authentication<Select
         bind:value={kind}
         onchange={() => {
@@ -298,38 +301,38 @@
         <option value="basic">Username and password/token</option>
         <option value="github">GitHub token</option>
         <option value="gitlab">GitLab token</option>
-      </Select></label
+      </Select></Field
     >
-    {#if kind === "basic"}<label
+    {#if kind === "basic"}<Field
         >Git username<Input
           bind:value={username}
           oninput={changed}
           disabled={saving || disabled}
           autocomplete="off"
-        /></label
+        /></Field
       >{/if}
-    {#if kind !== "anonymous"}<label
+    {#if kind !== "anonymous"}<Field
         >Git password or token<Input
           type="password"
           bind:value={secret}
           oninput={changed}
           disabled={saving || disabled}
           autocomplete="off"
-        /></label
+        /></Field
       >{/if}
-  </div>
-  <div class="form-panel resource-form">
-    <label
+  </FormPanel>
+  <FormPanel class="form-panel resource-form">
+    <Field
       >Fetch branch (optional)<Input
         bind:value={fetchBranch}
         disabled={busy || saving || disabled || !!pendingFetch}
         placeholder="All remote branches"
         autocomplete="off"
-      /></label
+      /></Field
     >
-  </div>
-  <div class="form-panel resource-form">
-    <label
+  </FormPanel>
+  <FormPanel class="form-panel resource-form">
+    <Field
       >Fetch depth (optional)<Input
         type="number"
         min="1"
@@ -338,9 +341,9 @@
         bind:value={fetchDepth}
         disabled={busy || saving || disabled || !!pendingFetch}
         placeholder="Complete history"
-      /></label
+      /></Field
     >
-  </div>
+  </FormPanel>
   <div class="resource-tools">
     <Button
       variant="secondary"
@@ -419,7 +422,9 @@
       another fetch or changing saved settings. Stop tracking allows a new fetch
       and keeps any snapshots already saved; it does not undo a completed fetch.
     </p>{/if}
-  {#if error}<p class="inline-error" role="alert">{error}</p>{/if}
+  {#if error}<Feedback as="p" class="inline-error" role="alert"
+      >{error}</Feedback
+    >{/if}
   {#if notice}<p class="hint" role="status">{notice}</p>{/if}
   {#if result}
     <p>Default branch: {result.defaultBranch || "Not advertised"}</p>
@@ -438,9 +443,9 @@
 <style>
   .remote-panel {
     display: grid;
-    gap: 10px;
+    gap: var(--space-10);
     border-top: 1px solid var(--line);
-    padding-top: 12px;
+    padding-top: var(--space-12);
   }
   h3,
   p {
@@ -450,6 +455,6 @@
     max-height: 180px;
     overflow: auto;
     margin: 0;
-    padding-left: 20px;
+    padding-left: var(--space-20);
   }
 </style>

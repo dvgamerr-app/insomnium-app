@@ -1,4 +1,8 @@
 <script>
+  import Feedback from "./ui/Feedback.svelte";
+  import FilePicker from "./ui/FilePicker.svelte";
+  import Field from "./ui/Field.svelte";
+  import Checkbox from "./ui/Checkbox.svelte";
   import Input from "./ui/Input.svelte";
   import Select from "./ui/Select.svelte";
   import Button from "./ui/Button.svelte";
@@ -56,33 +60,36 @@
 </script>
 
 <div class="kv-editor">
-  {#if error}<p class="inline-error" role="alert">{error}</p>{/if}
+  {#if error}<Feedback as="p" class="inline-error" role="alert"
+      >{error}</Feedback
+    >{/if}
   <div class="kv-heading">
     <span></span><span>{label}</span><span>Value</span><span></span>
   </div>
   {#each rows as row, index}
     <div class="kv-row" class:disabled={row.disabled}>
-      <input
-        type="checkbox"
+      <Checkbox
         aria-label={`Enable ${row.name || label}`}
         checked={!row.disabled}
         onchange={(event) =>
           change(index, { disabled: !event.currentTarget.checked })}
       />
       <Input
+        variant="inline"
         aria-label={`${label} ${index + 1}`}
         placeholder={label}
         value={row.name}
         oninput={(event) => change(index, { name: event.currentTarget.value })}
       />
       <div class="kv-value">
-        {#if files && row.type === "file"}<label class="file-picker"
-            >{row.fileName || "Choose file"}<input
-              type="file"
-              onchange={(event) => fileChanged(index, event)}
-            /></label
+        {#if files && row.type === "file"}<FilePicker
+            class="file-picker"
+            variant="inline"
+            onchange={(event) => fileChanged(index, event)}
+            >{row.fileName || "Choose file"}</FilePicker
           >
         {:else}<Input
+            variant="inline"
             aria-label={`Value ${index + 1}`}
             placeholder="Value"
             value={row.value}
@@ -93,6 +100,7 @@
               })}
           />{/if}
         {#if files}<Select
+            variant="inline"
             aria-label="Field type"
             value={row.type || "text"}
             onchange={(event) =>
@@ -111,15 +119,14 @@
     </div>
     {#if files}<details class="multipart-options">
         <summary>Part options</summary>
-        {#if row.type === "file"}<label
-            ><input
-              type="checkbox"
+        {#if row.type === "file"}<Field layout="inline"
+            ><Checkbox
               checked={row.fileContent === true}
               onchange={(event) =>
                 change(index, { fileContent: event.currentTarget.checked })}
-            />Send file contents without a filename</label
+            />Send file contents without a filename</Field
           >{/if}
-        <label
+        <Field
           >Content-Type
           <Input
             aria-label={`Content-Type for ${row.name || index + 1}`}
@@ -130,10 +137,11 @@
                 contentTypeOverride: event.currentTarget.value || undefined,
               })}
           />
-        </label>
-        {#if !(row.type === "file" && row.fileContent === true)}<label>
-            <input
-              type="checkbox"
+        </Field>
+        {#if !(row.type === "file" && row.fileContent === true)}<Field
+            layout="inline"
+          >
+            <Checkbox
               checked={typeof row.fileNameOverride === "string"}
               onchange={(event) =>
                 change(index, {
@@ -143,8 +151,8 @@
                 })}
             />
             Override sent filename
-          </label>
-          {#if typeof row.fileNameOverride === "string"}<label
+          </Field>
+          {#if typeof row.fileNameOverride === "string"}<Field
               >Filename
               <Input
                 aria-label={`Sent filename for ${row.name || index + 1}`}
@@ -154,7 +162,7 @@
                     fileNameOverride: event.currentTarget.value,
                   })}
               />
-            </label>{/if}{/if}
+            </Field>{/if}{/if}
       </details>{/if}
   {/each}
   <Button
@@ -172,7 +180,7 @@
   .multipart-options summary {
     cursor: pointer;
   }
-  .multipart-options label {
+  .multipart-options :global(.ui-field) {
     display: block;
     margin-top: 0.5rem;
   }

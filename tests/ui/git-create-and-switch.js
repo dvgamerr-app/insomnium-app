@@ -3,6 +3,7 @@ import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { withNativeApp, poll } from "./helpers/native-app.js";
 import { gitCollection } from "./helpers/git-fixture.js";
+import { openGitBranches } from "./helpers/git-panel.js";
 
 await withNativeApp(
   "git-create-and-switch",
@@ -10,10 +11,7 @@ await withNativeApp(
     const fixture = await gitCollection({ page, invoke });
     const branch = "feature/playwright-" + Date.now();
     await page.getByRole("button", { name: "Git", exact: true }).click();
-    await page
-      .getByRole("region", { name: "Source Control", exact: true })
-      .getByRole("button", { name: "Branches", exact: true })
-      .click();
+    await openGitBranches(page);
     const dialog = page.locator("dialog[open]");
     await dialog.getByLabel("New branch", { exact: true }).fill(branch);
     await dialog

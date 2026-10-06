@@ -1,4 +1,5 @@
 <script>
+  import Field from "./ui/Field.svelte";
   import Input from "./ui/Input.svelte";
   import Button from "./ui/Button.svelte";
   /** @type {{ authentication: Record<string, any>, onchange: (patch: Record<string, any>) => void }} */
@@ -13,7 +14,7 @@
 </script>
 
 {#each fields as [key, label, secret]}
-  <label
+  <Field
     >{label}<Input
       type={secret ? "password" : "text"}
       value={auth[String(key)] || ""}
@@ -21,7 +22,7 @@
         onchange({ [String(key)]: event.currentTarget.value })}
       autocomplete="off"
       spellcheck="false"
-    /></label
+    /></Field
   >
 {/each}
 {#if auth.addAuthDataToQuery != null && ![false, "false"].includes(auth.addAuthDataToQuery)}

@@ -2,13 +2,15 @@
 
 Owner request (2026-10-05): Git in the left rail with a familiar source-control workflow, original visual styling, reusable controls, and resizable panels. This explicitly starts the previously deferred component/workflow scope. Migration parity remains separate.
 
+Latest Source Control follow-up: Before/After panes are replaced by one read-only unified diff, with old/new line numbers, red removed rows, green added rows and YAML syntax highlighting through the shared CodeEditor. Git bytes are displayed directly, not parsed and rewritten; legacy JSON paths retain JSON highlighting. The former Before/After divider is removed. Branch management is tucked into the additional-actions icon for a single local branch with no remote; it becomes prominent for multiple branches, a configured remote, detached HEAD or pending creation. The empty switch/delete controls are hidden for a single local branch. Remote setup remains available as “Set up remote”. See STATUS for fresh verification; earlier native evidence below predates this follow-up.
+
 ## Shared components
 
 `src/lib/components/ui` contains Svelte JavaScript primitives. The follow-up owner correction expanded adoption to253 additional input/select/button sites and15 textareas, with a visible control redesign and data-driven Dropdown; see the component directory README for API/examples. `controls.css` is the central visual owner, imported after application layout CSS. Native attributes/events pass through controls; `value` is bindable for Input, Select and Textarea. Button defaults to `type="button"`; variants are primary, secondary, danger and ghost, with disabled/busy handling. Field associates an id with its label and renders description/error; callers connect `aria-describedby` to the rendered `<id>-description`/`<id>-error` when present. Native checkbox/file inputs keep their specialized behavior.
 
 Modal owns native dialog open/cancel/close, heading association and focus restoration. Callers own state and submit behavior. Main application dialogs and Git branch/author/remote dialogs use it. Shared controls are also used by key/value editors across HTTP and gRPC.
 
-SplitPane accepts `first`/`second` snippets, `storageKey`, accessible `label`, `axis`, initial percentage, pixel minima, optional stacking breakpoint and collapsed state. Drag the divider or focus it and use arrows (2%), Shift+arrows (10%), Home/End (bounds), Enter/double-click (reset). Only size preferences go into localStorage. Each content pane owns its scrolling. Applied to collection sidebar, request/response, gRPC, stream events/detail, GraphQL query/variables and schema explorer, API source/preview, test editor/results and Git changes/history/diff.
+SplitPane accepts `first`/`second` snippets, `storageKey`, accessible `label`, `axis`, initial percentage, pixel minima, optional stacking breakpoint and collapsed state. Drag the divider or focus it and use arrows (2%), Shift+arrows (10%), Home/End (bounds), Enter/double-click (reset). Only size preferences go into localStorage. Each content pane owns its scrolling. Applied to collection sidebar, request/response, gRPC, stream events/detail, GraphQL query/variables and schema explorer, API source/preview, test editor/results and Git sidebar/detail and changes/history. The unified diff itself uses one editor.
 
 ## Git behavior
 

@@ -1,4 +1,7 @@
 <script>
+  import FormPanel from "./ui/FormPanel.svelte";
+  import Feedback from "./ui/Feedback.svelte";
+  import Field from "./ui/Field.svelte";
   import Textarea from "./ui/Textarea.svelte";
   import Button from "./ui/Button.svelte";
   import Input from "./ui/Input.svelte";
@@ -153,17 +156,17 @@
       void change({ url, raw, previous });
     }}
   >
-    <div class="form-panel resource-form cookie-form">
-      <label
+    <FormPanel class="form-panel resource-form cookie-form">
+      <Field
         >Cookie URL<Input
           type="url"
           required
           placeholder="https://api.example.com/"
           bind:value={url}
           disabled={busy}
-        /></label
+        /></Field
       >
-      <label
+      <Field
         >Set-Cookie value<Textarea
           required
           spellcheck="false"
@@ -171,9 +174,9 @@
           placeholder="session=value; Path=/; Secure; HttpOnly"
           bind:value={raw}
           disabled={busy}
-        ></Textarea></label
+        ></Textarea></Field
       >
-    </div>
+    </FormPanel>
     <div class="modal-actions">
       {#if previous}<Button
           variant="secondary"
@@ -195,5 +198,7 @@
     </div>
   </form>
   {#if notice}<p class="hint" role="status">{notice}</p>{/if}
-  {#if error}<p class="inline-error" role="alert">{error}</p>{/if}
+  {#if error}<Feedback as="p" class="inline-error" role="alert"
+      >{error}</Feedback
+    >{/if}
 {/if}

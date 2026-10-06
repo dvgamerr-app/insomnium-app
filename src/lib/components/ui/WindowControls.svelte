@@ -70,8 +70,8 @@
     align-self: stretch;
   }
   .window-controls :global(.window-control) {
-    width: var(--button-size-44);
-    padding: var(--button-space-7);
+    width: var(--size-44);
+    padding: var(--space-7);
   }
   .window-controls :global(.window-close:hover) {
     background: var(--danger-fill);

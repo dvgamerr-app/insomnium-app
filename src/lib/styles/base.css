@@ -1,0 +1,43 @@
+:root {
+  font-family: var(--font-sans);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  font-size: var(--font-size-12);
+  font-synthesis: none;
+}
+
+* {
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: var(--raised) transparent;
+}
+
+body {
+  margin: 0;
+  color: var(--text);
+  background: var(--bg);
+  overflow: hidden;
+}
+
+svg {
+  flex-shrink: 0;
+}
+
+pre,
+code,
+kbd,
+.code-editor {
+  font-family: var(--font-mono);
+}
+
+kbd {
+  font-size: var(--font-size-10);
+  padding: var(--space-2) var(--space-5);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--muted);
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+}

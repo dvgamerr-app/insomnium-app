@@ -1,4 +1,11 @@
 <script>
+  import SegmentedControl from "./ui/SegmentedControl.svelte";
+  import Toolbar from "./ui/Toolbar.svelte";
+  import Feedback from "./ui/Feedback.svelte";
+  import EmptyState from "./ui/EmptyState.svelte";
+
+  import FilePicker from "./ui/FilePicker.svelte";
+  import Field from "./ui/Field.svelte";
   import Textarea from "./ui/Textarea.svelte";
   import Button from "./ui/Button.svelte";
   import Input from "./ui/Input.svelte";
@@ -227,13 +234,17 @@
 </script>
 
 <div class="graphql-panel">
-  <div class="graphql-toolbar">
-    <button class:active={view === "Query"} onclick={() => (view = "Query")}
-      >Query</button
-    >
-    <button class:active={view === "Schema"} onclick={() => (view = "Schema")}
-      >Schema</button
-    >
+  <Toolbar variant="graphql" class="graphql-toolbar">
+    <SegmentedControl
+      label="GraphQL view"
+      variant="default"
+      value={view}
+      options={[
+        { value: "Query", label: "Query" },
+        { value: "Schema", label: "Schema" },
+      ]}
+      onchange={(value) => (view = String(value))}
+    />
     <Button
       variant="ghost"
       disabled={Boolean(content.error)}
@@ -263,12 +274,11 @@
     {#if running}<Button variant="ghost" onclick={() => stop(request._id)}
         >Cancel</Button
       >{/if}
-    <label class="schema-import"
-      >Import schema<input
-        type="file"
-        accept=".json,.graphql,.gql,.graphqls"
-        onchange={importSchema}
-      /></label
+    <FilePicker
+      class="schema-import"
+      variant="compact"
+      accept=".json,.graphql,.gql,.graphqls"
+      onchange={importSchema}>Import schema</FilePicker
     >
     {#if entry}<Button
         variant="ghost"
@@ -286,10 +296,10 @@
           delete workspace.schemaErrors[request._id];
         }}>Clear schema</Button
       >{/if}
-  </div>
-  {#if content.error}<p class="inline-error">
+  </Toolbar>
+  {#if content.error}<Feedback as="p" class="inline-error">
       {content.error} Edit the original body below to repair it.
-    </p>{/if}
+    </Feedback>{/if}
   {#if error || workspace.schemaErrors[request._id]}<pre
       class="graphql-diagnostic error-label"
       role="alert">{error || workspace.schemaErrors[request._id]}</pre>{/if}
@@ -303,7 +313,7 @@
         onchange({ ...request.body, text: event.currentTarget.value })}
     ></Textarea>
   {:else if view === "Query"}
-    <label class="graphql-operation"
+    <Field class="graphql-operation"
       >Operation name<Input
         aria-label="GraphQL operation name"
         list={`graphql-operations-${request._id}`}
@@ -311,7 +321,7 @@
         placeholder="Automatic for a single operation"
         oninput={(event) =>
           change({ operationName: event.currentTarget.value })}
-      /></label
+      /></Field
     >
     <datalist id={`graphql-operations-${request._id}`}
       >{#each operations as operation}<option value={operation}
@@ -423,7 +433,7 @@
       {/snippet}</SplitPane
     >
   {:else}
-    <div class="empty-body">
+    <EmptyState variant="body" class="empty-body">
       <p>
         {cached
           ? "Request or environment changed. Fetch schema again."
@@ -432,6 +442,6 @@
       <span
         >Fetch from this endpoint or import introspection JSON / GraphQL SDL.</span
       >
-    </div>
+    </EmptyState>
   {/if}
 </div>

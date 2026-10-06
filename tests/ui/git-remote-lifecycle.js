@@ -77,13 +77,13 @@ try {
           exact: true,
         });
         await dialog
-          .getByRole("button", { name: "Branches", exact: true })
+          .getByRole("button", { name: "Reload changes", exact: true })
           .waitFor();
         await dialog
           .getByRole("button", { name: "Reload changes", exact: true })
           .click();
         await dialog
-          .getByRole("button", { name: "Branches", exact: true })
+          .getByRole("button", { name: "Reload changes", exact: true })
           .waitFor();
         const started = Date.now();
         await invoke("git_remote_cancel", { requestId });

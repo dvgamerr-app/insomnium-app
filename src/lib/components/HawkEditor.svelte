@@ -1,4 +1,6 @@
 <script>
+  import Field from "./ui/Field.svelte";
+  import Checkbox from "./ui/Checkbox.svelte";
   import Input from "./ui/Input.svelte";
   import Select from "./ui/Select.svelte";
   /** @type {{ authentication: Record<string, any>, onchange: (patch: Record<string, any>) => void }} */
@@ -15,7 +17,7 @@
 </script>
 
 {#each fields as [key, label, secret]}
-  <label
+  <Field
     >{label}<Input
       type={secret ? "password" : "text"}
       value={auth[String(key)] || ""}
@@ -23,10 +25,10 @@
         onchange({ [String(key)]: event.currentTarget.value })}
       autocomplete="off"
       spellcheck="false"
-    /></label
+    /></Field
   >
 {/each}
-<label
+<Field
   >Algorithm<Select
     value={auth.algorithm || ""}
     onchange={(event) => onchange({ algorithm: event.currentTarget.value })}
@@ -36,17 +38,16 @@
     {#if auth.algorithm && !["sha1", "sha256"].includes(auth.algorithm)}<option
         value={auth.algorithm}>{auth.algorithm} (unsupported)</option
       >{/if}
-  </Select></label
+  </Select></Field
 >
-<label class="checkbox-label"
-  ><input
-    type="checkbox"
+<Field layout="inline" class="checkbox-label"
+  ><Checkbox
     checked={auth.validatePayload === true || auth.validatePayload === "true"}
     onchange={(event) =>
       onchange({ validatePayload: event.currentTarget.checked })}
-  />Validate payload</label
+  />Validate payload</Field
 >
-<label
+<Field
   >Signing mode<Select
     value={auth.bodyMode || "legacy"}
     onchange={(event) => onchange({ bodyMode: event.currentTarget.value })}
@@ -57,7 +58,7 @@
     {#if auth.bodyMode && !["legacy", "standard", "postman"].includes(auth.bodyMode)}<option
         value={auth.bodyMode}>{auth.bodyMode} (unsupported)</option
       >{/if}
-  </Select></label
+  </Select></Field
 >
 <p class="hint">
   Legacy mode hashes saved body text and its MIME type; absent text has no

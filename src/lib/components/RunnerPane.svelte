@@ -1,4 +1,7 @@
 <script>
+  import Feedback from "./ui/Feedback.svelte";
+  import EmptyState from "./ui/EmptyState.svelte";
+  import Field from "./ui/Field.svelte";
   import Input from "./ui/Input.svelte";
   import Button from "./ui/Button.svelte";
   import Select from "./ui/Select.svelte";
@@ -137,12 +140,13 @@
         >
       </div>
     {/if}
-    {#if workspace.runnerErrors[suite._id]}<div
+    {#if workspace.runnerErrors[suite._id]}<Feedback
+        as="div"
         class="inline-error padded"
         role="alert"
       >
         {workspace.runnerErrors[suite._id]}
-      </div>{/if}
+      </Feedback>{/if}
     <SplitPane
       class="runner-columns"
       storageKey="runner"
@@ -183,7 +187,7 @@
                   ><Icon name="trash" size={14} /></Button
                 >
               </div>
-              <label class="request-choice"
+              <Field class="request-choice"
                 >Request
                 <Select
                   aria-label={"Request for " + test.name}
@@ -204,7 +208,7 @@
                       >{request.method || "GET"} · {request.name}</option
                     >{/each}
                 </Select>
-              </label>
+              </Field>
               <div class="test-code">
                 <CodeEditor
                   identity={"unit-test:" + test._id}
@@ -217,7 +221,7 @@
                 />
               </div>
             </article>
-          {:else}<div class="empty-response">
+          {:else}<EmptyState variant="response" class="empty-response">
               <h2>No tests yet</h2>
               <p>Add a test and select a request to get started.</p>
               <Button
@@ -225,7 +229,7 @@
                 class="secondary-button"
                 onclick={() => addUnitTest(suite._id)}>New Test</Button
               >
-            </div>{/each}
+            </EmptyState>{/each}
         </div>
       {/snippet}{#snippet second()}
         <section
@@ -289,10 +293,10 @@
       {/snippet}</SplitPane
     >
   </section>
-{:else}<div class="empty-response">
+{:else}<EmptyState variant="response" class="empty-response">
     <h2>No test suite selected</h2>
     <p>Create a suite from the sidebar.</p>
-  </div>{/if}
+  </EmptyState>{/if}
 
 <style>
   .runner {
@@ -307,8 +311,8 @@
   .delete-confirm {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px;
+    gap: var(--space-8);
+    padding: var(--space-10);
     border-bottom: 1px solid var(--line);
     flex-wrap: wrap;
   }
@@ -330,14 +334,14 @@
   article {
     border-bottom: 1px solid var(--line);
   }
-  .request-choice {
+  :global(.request-choice) {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 10px;
+    gap: var(--space-10);
+    padding: var(--space-10);
     color: var(--muted);
   }
-  .request-choice :global(select) {
+  :global(.request-choice select) {
     flex: 1;
   }
   .test-code {
@@ -348,18 +352,18 @@
     overflow: auto;
   }
   .test-results {
-    padding: 16px;
+    padding: var(--space-16);
   }
   h2 {
-    font-size: 16px;
+    font-size: var(--font-size-16);
     font-weight: 500;
-    margin: 0 0 12px;
+    margin: 0 0 var(--space-12);
   }
   .result-counts {
     display: flex;
     flex-wrap: wrap;
-    gap: 14px;
-    padding-bottom: 16px;
+    gap: var(--space-14);
+    padding-bottom: var(--space-16);
   }
   .passed {
     color: var(--green);
@@ -369,14 +373,14 @@
   }
   details {
     border-top: 1px solid var(--line);
-    padding: 10px 0;
+    padding: var(--space-10) 0;
   }
   summary {
     cursor: pointer;
     overflow-wrap: anywhere;
   }
   summary span {
-    margin-right: 8px;
+    margin-right: var(--space-8);
   }
   small {
     float: right;
@@ -385,6 +389,6 @@
   pre {
     white-space: pre-wrap;
     overflow-wrap: anywhere;
-    font-size: 12px;
+    font-size: var(--font-size-12);
   }
 </style>

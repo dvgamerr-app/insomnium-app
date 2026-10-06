@@ -1,4 +1,8 @@
 <script>
+  import Toolbar from "./ui/Toolbar.svelte";
+  import Feedback from "./ui/Feedback.svelte";
+  import EmptyState from "./ui/EmptyState.svelte";
+  import FilePicker from "./ui/FilePicker.svelte";
   import Textarea from "./ui/Textarea.svelte";
   import Select from "./ui/Select.svelte";
   import Button from "./ui/Button.svelte";
@@ -46,7 +50,7 @@
   }
 </script>
 
-<div class="editor-toolbar">
+<Toolbar variant="editor" class="editor-toolbar">
   <Select
     aria-label="Saved WebSocket payload"
     value={payload?._id || ""}
@@ -83,8 +87,9 @@
         ? "Send message"
         : "Connect and send"}</Button
   >
-</div>
-{#if error}<p class="inline-error" role="alert">{error}</p>{/if}
+</Toolbar>
+{#if error}<Feedback as="p" class="inline-error" role="alert">{error}</Feedback
+  >{/if}
 {#if payload}
   <div class="payload-options">
     <Input
@@ -108,40 +113,39 @@
           value={payload.mode}>{payload.mode}</option
         >{/if}
     </Select>
-    {#if payload.mode === "binary"}<label class="file-picker"
-        >Choose file<input
-          type="file"
-          onchange={async (event) => {
-            const file = event.currentTarget.files?.[0];
-            const selectedId = payload._id;
-            const original = payload;
-            const originalValue = payload.value;
-            const originalMode = payload.mode;
-            if (!file) return;
-            fileWork.cancel();
-            /** @type {import("../workspace.svelte.js").ScopedWorkspaceWork|undefined} */ let work;
-            try {
-              work = fileWork.begin();
-              const upload = await readUpload(file);
-              if (
-                !work.current() ||
-                payload !== original ||
-                payload.value !== originalValue ||
-                payload.mode !== originalMode
-              )
-                return;
-              update(selectedId, {
-                value: upload.base64,
-                fileName: upload.fileName,
-              });
-              error = "";
-            } catch (e) {
-              if (!work || work.current()) error = String(e);
-            } finally {
-              work?.finish();
-            }
-          }}
-        /></label
+    {#if payload.mode === "binary"}<FilePicker
+        class="file-picker"
+        variant="inline"
+        onchange={async (event) => {
+          const file = event.currentTarget.files?.[0];
+          const selectedId = payload._id;
+          const original = payload;
+          const originalValue = payload.value;
+          const originalMode = payload.mode;
+          if (!file) return;
+          fileWork.cancel();
+          /** @type {import("../workspace.svelte.js").ScopedWorkspaceWork|undefined} */ let work;
+          try {
+            work = fileWork.begin();
+            const upload = await readUpload(file);
+            if (
+              !work.current() ||
+              payload !== original ||
+              payload.value !== originalValue ||
+              payload.mode !== originalMode
+            )
+              return;
+            update(selectedId, {
+              value: upload.base64,
+              fileName: upload.fileName,
+            });
+            error = "";
+          } catch (e) {
+            if (!work || work.current()) error = String(e);
+          } finally {
+            work?.finish();
+          }
+        }}>Choose file</FilePicker
       >{/if}
   </div>
   <Textarea
@@ -155,11 +159,11 @@
       ? "Paste Base64 or choose a file"
       : "Message to send…"}
   ></Textarea>
-{:else}<div class="empty-body">
+{:else}<EmptyState variant="body" class="empty-body">
     <p>No saved payloads.</p>
     <Button
       variant="secondary"
       class="secondary-button"
       onclick={() => addPayload(request._id)}>Create a payload</Button
     >
-  </div>{/if}
+  </EmptyState>{/if}

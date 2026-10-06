@@ -103,7 +103,12 @@
         height = box.height;
       }
     });
-    if (root) observer.observe(root);
+    if (root) {
+      // Initialize orientation and bounds before waiting for the first observer delivery.
+      width = root.clientWidth;
+      height = root.clientHeight;
+      observer.observe(root);
+    }
     return () => observer.disconnect();
   });
 </script>

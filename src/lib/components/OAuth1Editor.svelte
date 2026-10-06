@@ -1,4 +1,6 @@
 <script>
+  import Field from "./ui/Field.svelte";
+  import Checkbox from "./ui/Checkbox.svelte";
   import Textarea from "./ui/Textarea.svelte";
   import Select from "./ui/Select.svelte";
   import Input from "./ui/Input.svelte";
@@ -19,7 +21,7 @@
   ];
 </script>
 
-<label
+<Field
   >Signature method<Select
     value={auth.signatureMethod || ""}
     onchange={(event) =>
@@ -31,10 +33,10 @@
         value={auth.signatureMethod}
         >{auth.signatureMethod} (unsupported)</option
       >{/if}
-  </Select></label
+  </Select></Field
 >
 {#each fields as [key, label, secret]}
-  <label
+  <Field
     >{label}<Input
       type={secret ? "password" : "text"}
       value={auth[String(key)] || ""}
@@ -42,19 +44,19 @@
         onchange({ [String(key)]: event.currentTarget.value })}
       autocomplete="off"
       spellcheck="false"
-    /></label
+    /></Field
   >
 {/each}
-{#if auth.signatureMethod === "RSA-SHA1"}<label
+{#if auth.signatureMethod === "RSA-SHA1"}<Field
     >RSA private key (PEM)<Textarea
       value={auth.privateKey || ""}
       oninput={(event) => onchange({ privateKey: event.currentTarget.value })}
       rows={7}
       autocomplete="off"
       spellcheck="false"
-    ></Textarea></label
+    ></Textarea></Field
   >{/if}
-<label
+<Field
   >Body signing<Select
     value={auth.bodyMode || "legacy"}
     onchange={(event) => onchange({ bodyMode: event.currentTarget.value })}
@@ -65,15 +67,14 @@
     {#if auth.bodyMode && !["standard", "legacy"].includes(auth.bodyMode)}<option
         value={auth.bodyMode}>{auth.bodyMode} (unsupported)</option
       >{/if}
-  </Select></label
+  </Select></Field
 >
-<label class="checkbox-label"
-  ><input
-    type="checkbox"
+<Field layout="inline" class="checkbox-label"
+  ><Checkbox
     checked={auth.includeBodyHash === true || auth.includeBodyHash === "true"}
     onchange={(event) =>
       onchange({ includeBodyHash: event.currentTarget.checked })}
-  />Hash body</label
+  />Hash body</Field
 >
 {#if (auth.bodyMode || "legacy") === "legacy"}
   <p class="hint">
@@ -91,13 +92,13 @@
     as its signature.
   </p>
 {/if}
-{#if auth.addParamsToHeader != null && ![true, "true"].includes(auth.addParamsToHeader)}<label
+{#if auth.addParamsToHeader != null && ![true, "true"].includes(auth.addParamsToHeader)}<Field
     >Parameter destination<Select
       value="unsupported"
       onchange={() => onchange({ addParamsToHeader: true })}
       ><option value="unsupported">Imported URL/body (not migrated)</option
       ><option value="header">Authorization header</option></Select
-    ></label
+    ></Field
   >{/if}
 <p class="hint">
   OAuth1 signs each native HTTP, GraphQL or stream handshake. Supply existing
@@ -107,12 +108,9 @@
 </p>
 {#each ["addEmptyParamsToSign", "disableHeaderEncoding"] as key}
   {#if auth[key] != null && ![false, "false"].includes(auth[key])}
-    <label class="checkbox-label"
-      ><input
-        type="checkbox"
-        checked
-        onchange={() => onchange({ [key]: false })}
-      />Imported {key} (unsupported; uncheck to use standard signing)</label
+    <Field layout="inline" class="checkbox-label"
+      ><Checkbox checked onchange={() => onchange({ [key]: false })} />Imported {key}
+      (unsupported; uncheck to use standard signing)</Field
     >
   {/if}
 {/each}

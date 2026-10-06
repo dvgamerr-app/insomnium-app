@@ -1,0 +1,50 @@
+.legacy-cookie-import {
+  border: 1px solid var(--line);
+  padding: var(--space-10);
+  margin: var(--space-10) 0;
+}
+
+.legacy-cookie-import summary {
+  cursor: pointer;
+}
+
+.legacy-cookie-issues {
+  max-height: 130px;
+  overflow: auto;
+  padding-left: var(--space-22);
+  font-size: var(--font-size-11);
+  color: var(--muted);
+}
+
+.cookie-list {
+  max-height: 210px;
+  overflow: auto;
+}
+
+.cookie-entry {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+}
+
+.cookie-detail {
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: var(--space-10) var(--space-5);
+  gap: var(--space-4);
+}
+
+.cookie-detail > span {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.cookie-detail > small {
+  color: var(--faint);
+}
+
+.cookie-form {
+  margin-top: var(--space-20);
+}

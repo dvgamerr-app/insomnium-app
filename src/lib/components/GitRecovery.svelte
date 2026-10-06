@@ -1,6 +1,9 @@
 <script>
+  import Feedback from "./ui/Feedback.svelte";
+  import Field from "./ui/Field.svelte";
+  import Checkbox from "./ui/Checkbox.svelte";
   import Button from "./ui/Button.svelte";
-  import { onMount } from "svelte";
+  import DialogShell from "./ui/DialogShell.svelte";
   import { save } from "@tauri-apps/plugin-dialog";
   import { writeTextFile } from "@tauri-apps/plugin-fs";
   import {
@@ -8,15 +11,11 @@
     recoverGitCheckout,
     retainedGitCheckoutWorkspace,
   } from "../workspace.svelte.js";
-  let dialog = $state(/** @type {HTMLDialogElement|undefined} */ (undefined));
   let busy = $state(false);
   let error = $state("");
   let retained = $state.raw(retainedGitCheckoutWorkspace());
   let saved = $state.raw(/** @type {Record<string,any>|null} */ (null));
   let reviewed = $state(false);
-  onMount(() => {
-    dialog?.showModal();
-  });
   async function saveCopy() {
     if (busy || !retained) return;
     busy = true;
@@ -52,63 +51,57 @@
   }
 </script>
 
-<dialog
-  class="modal recovery-dialog"
-  bind:this={dialog}
-  oncancel={(event) => event.preventDefault()}
->
-  <div class="modal-heading"><h2>Recover checkout</h2></div>
-  <div class="modal-content">
+<DialogShell title="Recover checkout" size="recovery" dismissible={false}>
+  <p>
+    Checkout could not finish. Editing is paused until the saved workspace is
+    recovered.
+  </p>
+  {#if workspace.error}<Feedback as="p" class="inline-error"
+      >{workspace.error}</Feedback
+    >{/if}
+  {#if retained}
     <p>
-      Checkout could not finish. Editing is paused until the saved workspace is
-      recovered.
+      Additional unsaved edits were retained. Save a recovery copy before
+      loading the saved workspace.
     </p>
-    {#if workspace.error}<p class="inline-error">{workspace.error}</p>{/if}
-    {#if retained}
-      <p>
-        Additional unsaved edits were retained. Save a recovery copy before
-        loading the saved workspace.
-      </p>
-      <Button
-        variant="secondary"
-        class="secondary-button"
-        disabled={busy}
-        onclick={saveCopy}>Save recovery copy</Button
+    <Button
+      variant="secondary"
+      class="secondary-button"
+      disabled={busy}
+      onclick={saveCopy}>Save recovery copy</Button
+    >
+    {#if saved}
+      <Field layout="inline" class="recovery-choice"
+        ><Checkbox bind:checked={reviewed} disabled={busy} />
+        I have saved my edits and want to load the recovered workspace.</Field
       >
-      {#if saved}
-        <label class="recovery-choice"
-          ><input type="checkbox" bind:checked={reviewed} disabled={busy} />
-          I have saved my edits and want to load the recovered workspace.</label
-        >
-      {/if}
     {/if}
-    {#if error}<p class="inline-error" role="alert">{error}</p>{/if}
-    {#if busy}<p role="status">Recovering workspace…</p>{/if}
-    <div class="modal-actions">
-      <Button
-        variant="primary"
-        class="primary-button"
-        disabled={busy || (!!retained && (!saved || !reviewed))}
-        onclick={recover}
-      >
-        {retained ? "Load recovered workspace" : "Retry recovery"}
-      </Button>
-    </div>
+  {/if}
+  {#if error}<Feedback as="p" class="inline-error" role="alert"
+      >{error}</Feedback
+    >{/if}
+  {#if busy}<p role="status">Recovering workspace…</p>{/if}
+  <div class="modal-actions">
+    <Button
+      variant="primary"
+      class="primary-button"
+      disabled={busy || (!!retained && (!saved || !reviewed))}
+      onclick={recover}
+    >
+      {retained ? "Load recovered workspace" : "Retry recovery"}
+    </Button>
   </div>
-</dialog>
+</DialogShell>
 
 <style>
-  .recovery-dialog {
-    max-width: 620px;
-  }
-  .recovery-choice {
+  :global(.recovery-choice.ui-field) {
     display: flex;
-    gap: 8px;
+    gap: var(--space-8);
     align-items: start;
-    margin-top: 14px;
+    margin-top: var(--space-14);
   }
-  .recovery-choice input {
+  :global(.recovery-choice .ui-checkbox) {
     width: auto;
-    margin: 3px 0 0;
+    margin: var(--space-3) 0 0;
   }
 </style>

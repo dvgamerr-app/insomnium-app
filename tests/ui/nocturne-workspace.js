@@ -35,18 +35,68 @@ await withPreview("nocturne-workspace", async (page, output) => {
       .innerText(),
     "Renamed request",
   );
-  assert.equal(
-    await page
-      .locator(".select-with-icon .select-arrow svg.lucide-icon")
-      .count(),
-    2,
-  );
+  for (const select of await page
+    .locator("select.ui-select:not([multiple]):not([size])")
+    .all()) {
+    assert.equal(
+      await select
+        .locator("..")
+        .locator(".select-arrow svg.lucide-icon")
+        .count(),
+      1,
+      "every shared dropdown uses the same SVG chevron",
+    );
+  }
   for (const label of ["HTTP method", "Response mode"]) {
+    const alignment = await page
+      .getByLabel(label, { exact: true })
+      .evaluate((el) => {
+        const style = getComputedStyle(el);
+        return {
+          left: style.paddingLeft,
+          right: style.paddingRight,
+          justify: style.justifyContent,
+          align: style.alignItems,
+        };
+      });
+    assert.equal(
+      alignment.left,
+      alignment.right,
+      "balanced padding centers the value in the whole field",
+    );
+    assert.equal(alignment.justify, "center");
+    assert.equal(alignment.align, "center");
+    assert.equal(
+      await page
+        .getByLabel(label, { exact: true })
+        .evaluate((el) => getComputedStyle(el).appearance),
+      "base-select",
+      "SVG-arrow select preserves the shared themed picker",
+    );
     assert.equal(
       await page
         .getByLabel(label, { exact: true })
         .evaluate((el) => getComputedStyle(el).textAlign),
       "center",
+    );
+  }
+  for (const control of [
+    page.getByLabel("HTTP method", { exact: true }),
+    page.getByRole("button", { name: "Send", exact: true }),
+  ]) {
+    await page.mouse.move(0, 0);
+    const before = await control.evaluate(
+      (el) => getComputedStyle(el).backgroundColor,
+    );
+    await control.hover({ position: { x: 3, y: 3 } });
+    await page.waitForTimeout(160);
+    const after = await control.evaluate(
+      (el) => getComputedStyle(el).backgroundColor,
+    );
+    assert.notEqual(
+      after,
+      before,
+      "hover in the padded corner changes the full control surface",
     );
   }
   await page.getByLabel("HTTP method", { exact: true }).selectOption("POST");
@@ -195,6 +245,9 @@ await withPreview("nocturne-workspace", async (page, output) => {
         "API, tests and GraphQL panels",
         "modal Escape and focus restoration",
         "custom dropdown dark/light picker and keyboard selection",
+        "SVG arrows on every shared dropdown",
+        "balanced method/protocol padding and centered flex alignment",
+        "full surface hover from padded corners",
         "shared numeric input persistence",
         "Git left tab and preview empty state",
         "1440/900/760 widths",

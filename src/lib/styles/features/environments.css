@@ -1,0 +1,9 @@
+.environment-editor {
+  width: 100%;
+  height: 250px;
+  resize: vertical;
+}
+
+.environment-name {
+  margin-top: var(--space-16);
+}

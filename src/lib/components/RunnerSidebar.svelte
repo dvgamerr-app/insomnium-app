@@ -55,7 +55,7 @@
 
 <style>
   .suite-sidebar {
-    padding: 12px;
+    padding: var(--space-12);
     overflow: auto;
     min-height: 0;
     flex: 1;
@@ -64,7 +64,7 @@
     width: 100%;
   }
   nav {
-    margin-top: 12px;
+    margin-top: var(--space-12);
   }
   nav > div {
     display: flex;
@@ -75,7 +75,7 @@
     color: var(--accent-text);
   }
   .suite-sidebar :global(.suite-name) {
-    padding: var(--button-space-10);
+    padding: var(--space-10);
     text-align: left;
     justify-content: flex-start;
     flex: 1;

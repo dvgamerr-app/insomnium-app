@@ -1,4 +1,11 @@
 <script>
+  import TabPanel from "./ui/TabPanel.svelte";
+  let activeTab0 = $state("");
+  import Feedback from "./ui/Feedback.svelte";
+  import Toolbar from "./ui/Toolbar.svelte";
+  import EmptyState from "./ui/EmptyState.svelte";
+  import TabList from "./ui/TabList.svelte";
+  import TabButton from "./ui/TabButton.svelte";
   import Select from "./ui/Select.svelte";
   import Button from "./ui/Button.svelte";
   import Input from "./ui/Input.svelte";
@@ -75,6 +82,7 @@
     <span class="spacer"></span>
     {#if history.length}<Select
         class="history-select"
+        variant="history"
         aria-label="Connection history"
         disabled={running}
         value={response?._id || ""}
@@ -90,16 +98,18 @@
           >{/each}
       </Select>{/if}
   </div>
-  <div
+  <TabList
+    panelId="stream-view-panel"
+    bind:activeId={activeTab0}
     class="editor-tabs response-tabs"
     role="tablist"
     aria-label="Stream view"
   >
-    {#each ["Events", "Headers"] as name}<button
+    {#each ["Events", "Headers"] as name}<TabButton
+        class={[tab === name && "active"].filter(Boolean).join(" ")}
         role="tab"
         aria-selected={tab === name}
-        class:active={tab === name}
-        onclick={() => (tab = name)}>{name}</button
+        onclick={() => (tab = name)}>{name}</TabButton
       >{/each}
     <span class="spacer"></span>
     <Button
@@ -118,101 +128,115 @@
         }
       }}>Export log</Button
     >
-  </div>
+  </TabList>
   {#if response?.dropped}<p class="hint stream-notice">
       {response.dropped} older events removed from this log. Showing the latest 1,000
       events within an 8 MiB budget.
     </p>{/if}
-  {#if response?.error || error}<p class="inline-error" role="alert">
+  {#if response?.error || error}<Feedback
+      as="p"
+      class="inline-error"
+      role="alert"
+    >
       {response?.error || error}
-    </p>{/if}
-  {#if tab === "Headers"}<div class="response-content response-headers">
-      {#each response?.headers || [] as [name, value]}<div>
-          <span>{name}</span><code>{value}</code>
-        </div>{:else}<p class="hint padded">No handshake headers yet.</p>{/each}
-    </div>{:else}
-    <SplitPane
-      class="stream-log"
-      storageKey="stream-events"
-      label="Stream events and detail size"
-      initial={32}
-      minFirst={150}
-      minSecond={150}
-    >
-      {#snippet first()}
-        <div class="stream-event-list">
-          <Input
-            class="stream-filter"
-            aria-label="Filter stream events"
-            bind:value={filter}
-            placeholder="Filter events"
-          />
-          {#each visible as event (event._id)}<button
-              class="stream-event"
-              class:active={event._id === selected?._id}
-              onclick={() => (selectedId = event._id)}
-            >
-              <span class="stream-event-type"
-                ><Icon
-                  name={event.direction === "sent"
-                    ? "arrowUp"
-                    : event.direction === "received" || event.kind === "sse"
-                      ? "arrowDown"
-                      : "dot"}
-                  size={13}
-                />
-                {event.event || event.format || event.kind}</span
+    </Feedback>{/if}
+  <TabPanel id="stream-view-panel" labelledBy={activeTab0}
+    >{#if tab === "Headers"}<div class="response-content response-headers">
+        {#each response?.headers || [] as [name, value]}<div>
+            <span>{name}</span><code>{value}</code>
+          </div>{:else}<p class="hint padded">
+            No handshake headers yet.
+          </p>{/each}
+      </div>{:else}
+      <SplitPane
+        class="stream-log"
+        storageKey="stream-events"
+        label="Stream events and detail size"
+        initial={32}
+        minFirst={150}
+        minSecond={150}
+      >
+        {#snippet first()}
+          <div class="stream-event-list">
+            <Input
+              class="stream-filter"
+              aria-label="Filter stream events"
+              bind:value={filter}
+              placeholder="Filter events"
+            />
+            {#each visible as event (event._id)}<Button
+                variant="plain"
+                class={["stream-event", event._id === selected?._id && "active"]
+                  .filter(Boolean)
+                  .join(" ")}
+                onclick={() => (selectedId = event._id)}
               >
-              <time>{new Date(event.created).toLocaleTimeString()}</time>
-              <span class="stream-event-summary"
-                >{event.reason ||
-                  event.message ||
-                  event.data ||
-                  event.url ||
-                  ""}</span
-              >
-            </button>{/each}
-        </div>
-      {/snippet}{#snippet second()}
-        <div class="stream-event-detail">
-          <div class="preview-toolbar">
-            <button class:chosen={!selectedId} onclick={() => (selectedId = "")}
-              >Follow latest</button
-            >
-            {#if selected?.id}<span class="hint">ID: {selected.id}</span>{/if}
-            <span class="spacer"></span>
-            <Button
-              variant="ghost"
-              class="icon-button"
-              disabled={!selected}
-              aria-label="Copy stream event"
-              title="Copy event"
-              onclick={async () => {
-                try {
-                  await navigator.clipboard.writeText(selected?.data ?? body);
-                } catch (e) {
-                  error = String(e);
-                }
-              }}><Icon name="copy" size={14} /></Button
-            >
-            <Button
-              variant="ghost"
-              class="icon-button"
-              disabled={!selected}
-              aria-label="Save stream event"
-              title="Save event"
-              onclick={saveEvent}><Icon name="download" size={14} /></Button
-            >
+                <span class="stream-event-type"
+                  ><Icon
+                    name={event.direction === "sent"
+                      ? "arrowUp"
+                      : event.direction === "received" || event.kind === "sse"
+                        ? "arrowDown"
+                        : "dot"}
+                    size={13}
+                  />
+                  {event.event || event.format || event.kind}</span
+                >
+                <time>{new Date(event.created).toLocaleTimeString()}</time>
+                <span class="stream-event-summary"
+                  >{event.reason ||
+                    event.message ||
+                    event.data ||
+                    event.url ||
+                    ""}</span
+                >
+              </Button>{/each}
           </div>
-          {#if selected}<pre class="stream-event-body">{body}</pre>{:else}<div
-              class="empty-response"
-            >
-              <Icon name="globe" size={30} />
-              <h2>Waiting for events</h2>
-              <p>Connect to begin receiving messages.</p>
-            </div>{/if}
-        </div>
-      {/snippet}</SplitPane
-    >
-  {/if}
+        {/snippet}{#snippet second()}
+          <div class="stream-event-detail">
+            <Toolbar variant="preview" class="preview-toolbar">
+              <Button
+                variant="plain"
+                class={[!selectedId && "chosen"].filter(Boolean).join(" ")}
+                onclick={() => (selectedId = "")}>Follow latest</Button
+              >
+              {#if selected?.id}<span class="hint">ID: {selected.id}</span>{/if}
+              <span class="spacer"></span>
+              <Button
+                variant="ghost"
+                class="icon-button"
+                disabled={!selected}
+                aria-label="Copy stream event"
+                title="Copy event"
+                onclick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(selected?.data ?? body);
+                  } catch (e) {
+                    error = String(e);
+                  }
+                }}><Icon name="copy" size={14} /></Button
+              >
+              <Button
+                variant="ghost"
+                class="icon-button"
+                disabled={!selected}
+                aria-label="Save stream event"
+                title="Save event"
+                onclick={saveEvent}><Icon name="download" size={14} /></Button
+              >
+            </Toolbar>
+            {#if selected}<pre
+                class="stream-event-body">{body}</pre>{:else}<EmptyState
+                variant="response"
+                class="empty-response"
+              >
+                <Icon name="globe" size={30} />
+                <h2>Waiting for events</h2>
+                <p>Connect to begin receiving messages.</p>
+              </EmptyState>{/if}
+          </div>
+        {/snippet}</SplitPane
+      >
+    {/if}</TabPanel
+  >
 </section>

@@ -1,0 +1,82 @@
+.spinner {
+  width: 13px;
+  height: 13px;
+  color: var(--accent-text);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.statusbar {
+  grid-area: footer;
+  display: flex;
+  align-items: center;
+  gap: 23px;
+  padding: 0 var(--space-13);
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--muted);
+  font-size: var(--font-size-10);
+}
+
+.statusbar .text-button {
+  font-size: var(--font-size-10);
+}
+
+.status-save {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  font-size: 9px;
+}
+
+.save-dot {
+  width: 5px;
+  height: 5px;
+  background: var(--green);
+  border-radius: 50%;
+}
+
+.save-dot.busy {
+  background: var(--accent-text);
+}
+
+.version {
+  font-size: 9px;
+  color: var(--faint);
+}
+
+.notification {
+  display: flex;
+  align-items: center;
+  gap: var(--space-10);
+  padding: var(--space-7) var(--space-14);
+  background: var(--selected);
+  font-size: var(--font-size-12);
+}
+
+.notification > span {
+  flex: 1;
+}
+
+.notification.error {
+  background: var(--danger-surface);
+  color: var(--danger);
+}
+
+.preview-notice {
+  color: var(--muted);
+  font-size: var(--font-size-10);
+  padding: var(--space-5) var(--space-15);
+  border-bottom: 1px solid var(--line);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+}

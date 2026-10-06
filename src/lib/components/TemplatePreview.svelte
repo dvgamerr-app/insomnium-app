@@ -1,4 +1,5 @@
 <script>
+  import Feedback from "./ui/Feedback.svelte";
   import Button from "./ui/Button.svelte";
   import { renderRequestPreview } from "../template-preview.js";
   import { clearPromptValues } from "../template-prompt.js";
@@ -82,7 +83,9 @@
       }}>Clear prompt values</Button
     >
     {#if busy}<p class="hint" role="status">Rendering…</p>
-    {:else if error}<p class="inline-error" role="alert">{error}</p>
+    {:else if error}<Feedback as="p" class="inline-error" role="alert"
+        >{error}</Feedback
+      >
     {:else}<CodeEditor
         identity={identity + ":template-preview"}
         value={result}
@@ -96,10 +99,10 @@
 
 <style>
   .template-preview {
-    padding: 6px 12px;
+    padding: var(--space-6) var(--space-12);
   }
   summary {
     cursor: pointer;
-    font-size: 12px;
+    font-size: var(--font-size-12);
   }
 </style>

@@ -1,0 +1,79 @@
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  transition:
+    background-color 100ms,
+    border-color 100ms,
+    color 100ms;
+  color: var(--text);
+}
+
+button,
+select {
+  cursor: pointer;
+}
+
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--button-gap);
+  padding: var(--button-padding);
+  background: transparent;
+  border: 0;
+  border-radius: var(--button-radius);
+}
+
+button:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+  outline: none;
+  background-color: var(--selected);
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button:disabled:hover {
+  filter: none;
+}
+
+input[type="checkbox"] {
+  accent-color: var(--accent-text);
+  width: 13px;
+  height: 13px;
+  margin: auto;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--faint);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button,
+  input,
+  select,
+  textarea {
+    transition: none;
+  }
+}

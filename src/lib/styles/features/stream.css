@@ -1,0 +1,71 @@
+.stream-pane {
+  min-height: 200px;
+}
+
+.stream-event-list {
+  overflow: auto;
+  min-width: 0;
+}
+
+.stream-filter {
+  margin: var(--space-6);
+  width: calc(100% - 12px);
+}
+
+.stream-event {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-4) var(--space-8);
+  text-align: left;
+  width: 100%;
+  padding: var(--space-9) var(--space-12);
+  border-radius: var(--button-radius);
+  border-bottom: 1px solid var(--line);
+}
+
+.stream-event.active {
+  background: var(--selected);
+}
+
+.stream-event-type {
+  color: var(--accent-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stream-event time {
+  color: var(--faint);
+  font-size: var(--font-size-10);
+}
+
+.stream-event-summary {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: var(--font-size-11);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.stream-event-detail {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.stream-event-body {
+  padding: var(--space-14);
+  margin: 0;
+  flex: 1;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-12);
+}
+
+.stream-notice {
+  margin: 0;
+  padding: var(--space-6) var(--space-12);
+  border-bottom: 1px solid var(--line);
+}

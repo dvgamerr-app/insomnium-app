@@ -1,4 +1,12 @@
 <script>
+  import EmptyState from "$lib/components/ui/EmptyState.svelte";
+  import Toolbar from "$lib/components/ui/Toolbar.svelte";
+  import FormPanel from "$lib/components/ui/FormPanel.svelte";
+  import Feedback from "$lib/components/ui/Feedback.svelte";
+
+  import Field from "$lib/components/ui/Field.svelte";
+  import FilePicker from "$lib/components/ui/FilePicker.svelte";
+  import Checkbox from "$lib/components/ui/Checkbox.svelte";
   import WindowControls from "$lib/components/ui/WindowControls.svelte";
   import EditableName from "$lib/components/ui/EditableName.svelte";
   import Textarea from "$lib/components/ui/Textarea.svelte";
@@ -348,6 +356,7 @@
       >
     </div>
     <span class="breadcrumb-slash">/</span><Select
+      variant="workspace"
       class="workspace-select"
       aria-label="Collection"
       value={app.data.activeWorkspaceId}
@@ -409,32 +418,38 @@
       onclick={() => (mainView = "git")}
       ><Icon name="branch" size={22} /></Button
     >
-    <button
-      class="activity"
-      class:active={mainView === "requests"}
+    <Button
+      variant="plain"
+      class={["activity", mainView === "requests" && "active"]
+        .filter(Boolean)
+        .join(" ")}
       aria-current={mainView === "requests" ? "page" : undefined}
       title="Collections"
       aria-label="Collections"
       onclick={() => {
         mainView = "requests";
         filterInput?.focus();
-      }}><Icon name="home" size={22} /></button
-    ><button
-      class="activity"
-      class:active={mainView === "design"}
+      }}><Icon name="home" size={22} /></Button
+    ><Button
+      variant="plain"
+      class={["activity", mainView === "design" && "active"]
+        .filter(Boolean)
+        .join(" ")}
       aria-current={mainView === "design" ? "page" : undefined}
       title="API Design"
       aria-label="API Design"
       onclick={() => (mainView = "design")}
-      ><Icon name="code" size={22} /></button
-    ><button
-      class="activity"
-      class:active={mainView === "tests"}
+      ><Icon name="code" size={22} /></Button
+    ><Button
+      variant="plain"
+      class={["activity", mainView === "tests" && "active"]
+        .filter(Boolean)
+        .join(" ")}
       aria-current={mainView === "tests" ? "page" : undefined}
       title="Tests"
       aria-label="Tests"
       onclick={() => (mainView = "tests")}
-      ><Icon name="check" size={22} /></button
+      ><Icon name="check" size={22} /></Button
     ><Button
       variant="ghost"
       class="activity"
@@ -536,6 +551,7 @@
             <div class="environment-controls">
               <div class="environment-row">
                 <span class="environment-dot"></span><Select
+                  variant="environment"
                   aria-label="Active environment"
                   value={app.data.activeEnvironmentId}
                   onchange={(event) => {
@@ -565,14 +581,14 @@
             </div>
           </div>
         {/if}
-        {#if !app.ready}<div class="empty-response">
+        {#if !app.ready}<EmptyState variant="response" class="empty-response">
             <h2>Loading your workspace</h2>
             <p>
               {app.error
                 ? "Resolve the storage error before editing. Your data has not been reset."
                 : "Reading local data…"}
             </p>
-          </div>{:else if mainView === "git"}{#key app.data.activeWorkspaceId}<GitPanel
+          </EmptyState>{:else if mainView === "git"}{#key app.data.activeWorkspaceId}<GitPanel
               workspaceId={app.data.activeWorkspaceId}
               onclose={() => (mainView = "requests")}
             />{/key}{:else if mainView === "tests"}{#key app.data.activeWorkspaceId}<RunnerPane
@@ -623,6 +639,7 @@
                 {#if protocol === "websocket"}<span class="protocol-label"
                     >WS</span
                   >{:else}<Select
+                    variant="method"
                     class="method-select"
                     svgArrow
                     data-method={request.method}
@@ -639,6 +656,7 @@
                       >{/if}</Select
                   >{/if}
                 {#if protocol !== "websocket"}<Select
+                    variant="protocol"
                     class="protocol-select"
                     svgArrow
                     aria-label="Response mode"
@@ -652,6 +670,7 @@
                       >SSE</option
                     ></Select
                   >{/if}<Input
+                  variant="url"
                   class="url-input"
                   aria-label="Request URL"
                   placeholder={protocol === "websocket"
@@ -716,15 +735,18 @@
           {:else if request?._type === "grpc_request"}{#key request._id}<GrpcPane
                 {request}
               />{/key}
-          {:else if request}<div class="empty-response">
+          {:else if request}<EmptyState
+              variant="response"
+              class="empty-response"
+            >
               <Icon name="code" size={32} />
               <h2>{request.name}</h2>
               <p>
                 This {request._type.replaceAll("_", " ")} is preserved. Its protocol
                 migration is pending.
               </p>
-            </div>
-          {:else}<div class="empty-response">
+            </EmptyState>
+          {:else}<EmptyState variant="response" class="empty-response">
               <img class="large-brand" src="/app-icon.png" alt="Insomnium" />
               <h2>Your next request starts here</h2>
               <p>Choose a request from the collection, or create a new one.</p>
@@ -734,7 +756,7 @@
                 onclick={() => addRequest()}
                 ><Icon name="plus" size={16} /> New request</Button
               >
-            </div>{/if}
+            </EmptyState>{/if}
         {/if}
       </main>
     {/snippet}
@@ -753,6 +775,7 @@
           <div class="sidebar-search">
             <div class="search-input">
               <Icon name="search" size={14} /><Input
+                variant="search"
                 bind:element={filterInput}
                 aria-label="Filter requests"
                 placeholder="Filter requests"
@@ -783,13 +806,16 @@
               onselect={selectRequest}
               onfolder={addRequest}
               onmanage={manageResource}
-            />{#if !requests.length}<div class="sidebar-empty">
+            />{#if !requests.length}<EmptyState
+                variant="sidebar"
+                class="sidebar-empty"
+              >
                 Your collection is empty.<Button
                   variant="ghost"
                   class="text-button"
                   onclick={() => addRequest()}>Create a request</Button
                 >
-              </div>{/if}
+              </EmptyState>{/if}
           </div>
           <div class="sidebar-footer">
             <span
@@ -875,7 +901,10 @@
             onfolder={() => newFolder(managedId)}
             onclose={closeModal}
           />{/key}
-      {:else if modal === "environment"}<div class="modal-toolbar">
+      {:else if modal === "environment"}<Toolbar
+          variant="modal"
+          class="modal-toolbar"
+        >
           <Select
             aria-label="Environment to edit"
             value={environmentId}
@@ -889,7 +918,7 @@
             onclick={() => showModal("new-environment")}
             ><Icon name="plus" size={15} /> New environment</Button
           >
-        </div>
+        </Toolbar>
         <div class="resource-tools">
           <Button
             variant="secondary"
@@ -914,8 +943,8 @@
             onclick={() => showModal("delete-environment")}>Delete…</Button
           >
         </div>
-        <label class="name-label environment-name"
-          >Name<Input bind:value={environmentName} /></label
+        <Field class="name-label environment-name"
+          >Name<Input bind:value={environmentName} /></Field
         >
         <p class="hint">
           Use <code>{"{{ _.base_url }}"}</code> in URLs, headers, bodies, and authentication.
@@ -940,7 +969,9 @@
             onclick={saveEnvironment}>Save environment</Button
           >
         </div>
-      {:else if modal === "settings"}<div class="form-panel settings-form">
+      {:else if modal === "settings"}<FormPanel
+          class="form-panel settings-form"
+        >
           <details>
             <summary>Editor</summary>
             <label
@@ -956,7 +987,7 @@
                 ]}
               /></label
             >
-            <label
+            <Field
               >Indent width<Input
                 type="number"
                 min="1"
@@ -966,29 +997,27 @@
                   updateSettings({
                     editorIndentSize: event.currentTarget.valueAsNumber,
                   })}
-              /></label
+              /></Field
             >
-            <label class="checkbox-label"
-              ><input
-                type="checkbox"
+            <Field layout="inline" class="checkbox-label"
+              ><Checkbox
                 checked={app.data.settings.editorIndentWithTabs}
                 onchange={(event) =>
                   updateSettings({
                     editorIndentWithTabs: event.currentTarget.checked,
                   })}
-              />Indent with tabs (except YAML)</label
+              />Indent with tabs (except YAML)</Field
             >
-            <label class="checkbox-label"
-              ><input
-                type="checkbox"
+            <Field layout="inline" class="checkbox-label"
+              ><Checkbox
                 checked={app.data.settings.editorLineWrapping}
                 onchange={(event) =>
                   updateSettings({
                     editorLineWrapping: event.currentTarget.checked,
                   })}
-              />Wrap long lines</label
+              />Wrap long lines</Field
             >
-            <label
+            <Field
               >Autocomplete delay (ms; 0 disables automatic suggestions)<Input
                 type="number"
                 min="0"
@@ -998,7 +1027,7 @@
                   updateSettings({
                     autocompleteDelay: event.currentTarget.valueAsNumber,
                   })}
-              /></label
+              /></Field
             >
           </details>
           <label
@@ -1011,7 +1040,7 @@
                 { value: "light", label: "Nocturne Light" },
               ]}
             /></label
-          ><label
+          ><Field
             >Request timeout (ms)<Input
               type="number"
               min="1"
@@ -1024,8 +1053,8 @@
                       ? undefined
                       : event.currentTarget.valueAsNumber,
                 })}
-            /></label
-          ><label
+            /></Field
+          ><Field
             >Response history limit<Input
               type="number"
               min="1"
@@ -1038,62 +1067,59 @@
                       ? undefined
                       : event.currentTarget.valueAsNumber,
                 })}
-            /></label
-          ><label class="checkbox-label"
-            ><input
-              type="checkbox"
+            /></Field
+          ><Field layout="inline" class="checkbox-label"
+            ><Checkbox
               checked={app.data.settings.followRedirects}
               onchange={(event) =>
                 updateSettings({
                   followRedirects: event.currentTarget.checked,
                 })}
-            /> Follow redirects (maximum 10)</label
-          ><label class="checkbox-label"
-            ><input
-              type="checkbox"
+            /> Follow redirects (maximum 10)</Field
+          ><Field layout="inline" class="checkbox-label"
+            ><Checkbox
               checked={app.data.settings.validateCertificates}
               onchange={(event) =>
                 updateSettings({
                   validateCertificates: event.currentTarget.checked,
                 })}
-            /> Validate TLS certificates</label
-          ><label class="checkbox-label"
-            ><input
-              type="checkbox"
+            /> Validate TLS certificates</Field
+          ><Field layout="inline" class="checkbox-label"
+            ><Checkbox
               checked={app.data.settings.useCookies}
               onchange={(event) =>
                 updateSettings({ useCookies: event.currentTarget.checked })}
-            /> Send and store cookies</label
-          ><label
+            /> Send and store cookies</Field
+          ><Field
             >Proxy URL<Input
               placeholder="http://127.0.0.1:8080"
               value={app.data.settings.proxy}
               onchange={(event) =>
                 updateSettings({ proxy: event.currentTarget.value })}
-            /></label
+            /></Field
           >
           <details>
-            <summary>Certificates</summary><label
+            <summary>Certificates</summary><Field
               >Custom CA (PEM)<Textarea
                 class="code-editor small-editor"
                 value={app.data.settings.caPem}
                 onchange={(event) =>
                   updateSettings({ caPem: event.currentTarget.value })}
-              ></Textarea></label
-            ><label
+              ></Textarea></Field
+            ><Field
               >Client certificate host<Input
                 placeholder="api.example.com"
                 value={app.data.settings.identityHost}
                 onchange={(event) =>
                   updateSettings({ identityHost: event.currentTarget.value })}
-              /></label
-            ><label
+              /></Field
+            ><Field
               >Client certificate and private key (PEM)<Textarea
                 class="code-editor small-editor"
                 value={app.data.settings.identityPem}
                 onchange={(event) =>
                   updateSettings({ identityPem: event.currentTarget.value })}
-              ></Textarea></label
+              ></Textarea></Field
             >
             <p class="hint">
               Client identity applies only to matching hostnames. Stored locally
@@ -1103,7 +1129,7 @@
           <p class="hint">
             Ctrl/Cmd + Enter: send · + N: new request · + P: filter.
           </p>
-        </div>
+        </FormPanel>
       {:else if modal === "cookies"}<CookieManager
           workspaceId={app.data.activeWorkspaceId}
         />
@@ -1148,16 +1174,15 @@
               onclick={() => chooseImportFile()}>Choose collection file</Button
             >
           {:else}
-            <label class="binary-picker"
-              >Choose collection file<input
-                type="file"
-                disabled={importBusy}
-                accept=".json,.har,.yaml,.yml,.curl,.txt"
-                onchange={(event) => {
-                  const file = event.currentTarget.files?.[0];
-                  if (file) void chooseImportFile(file);
-                }}
-              /></label
+            <FilePicker
+              class="binary-picker"
+              variant="dropzone"
+              disabled={importBusy}
+              accept=".json,.har,.yaml,.yml,.curl,.txt"
+              onchange={(event) => {
+                const file = event.currentTarget.files?.[0];
+                if (file) void chooseImportFile(file);
+              }}>Choose collection file</FilePicker
             >
           {/if}
           {#if importBusy}<p class="hint" role="status">
@@ -1230,7 +1255,7 @@
             create();
           }}
         >
-          <label class="name-label"
+          <Field class="name-label"
             >Name<Input
               bind:value={name}
               placeholder={modal === "new-collection"
@@ -1238,7 +1263,7 @@
                 : modal === "new-folder"
                   ? "New Folder"
                   : "Development"}
-            /></label
+            /></Field
           >
           <div class="modal-actions">
             <Button
@@ -1251,7 +1276,9 @@
             >
           </div>
         </form>{/if}
-      {#if modalError}<p class="inline-error" role="alert">{modalError}</p>{/if}
+      {#if modalError}<Feedback as="p" class="inline-error" role="alert"
+          >{modalError}</Feedback
+        >{/if}
     {/snippet}
   </Modal>
 {/if}

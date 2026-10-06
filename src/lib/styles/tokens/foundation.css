@@ -1,0 +1,54 @@
+/* Global button metrics. All native and shared buttons consume this scale.
+   Keep layout percentages (full-width rows/tabs) in their owning layout. */
+:root {
+  --font-size-18: 18px;
+  --font-size-16: 16px;
+  --font-size-15: 15px;
+  --font-size-14: 14px;
+  --font-size-13: 13px;
+  --space-32: 32px;
+  --space-30: 30px;
+  --space-28: 28px;
+  --space-24: 24px;
+  --space-22: 22px;
+  --space-20: 20px;
+  --space-15: 15px;
+  --space-11: 11px;
+  --space-2: 2px;
+  --button-radius: 0px;
+  --button-height: 34px;
+  --button-gap: var(--space-7);
+  --button-padding: var(--space-7) var(--space-12);
+  --button-tree-indent: 16px;
+  --font-size-10: 10px;
+  --font-size-11: 11px;
+  --font-size-12: 12px;
+  --size-190: 190px;
+  --size-278: 278px;
+  --size-30: 30px;
+  --size-300: 300px;
+  --size-44: 44px;
+  --size-48: 48px;
+  --size-64: 64px;
+  --size-88: 88px;
+  --space-10: 10px;
+  --space-12: 12px;
+  --space-13: 13px;
+  --space-14: 14px;
+  --space-16: 16px;
+  --space-18: 18px;
+  --space-21: 21px;
+  --space-3: 3px;
+  --space-4: 4px;
+  --space-5: 5px;
+  --space-6: 6px;
+  --space-7: 7px;
+  --space-8: 8px;
+  --space-9: 9px;
+  --font-sans:
+    "Inter Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "Roboto Mono Variable", Consolas, monospace;
+  --radius-group: 4px;
+  --radius-control: 8px;
+  --control-height: 34px;
+}

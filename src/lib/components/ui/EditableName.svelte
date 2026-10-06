@@ -56,7 +56,7 @@
     justify-content: flex-start;
     text-align: left;
     padding: 0;
-    font-size: var(--button-font-12);
+    font-size: var(--font-size-12);
     font-weight: 500;
     overflow: hidden;
     white-space: nowrap;

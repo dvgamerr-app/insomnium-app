@@ -1,4 +1,5 @@
 <script>
+  import Feedback from "./ui/Feedback.svelte";
   import { onMount } from "svelte";
   import { attachGraphqlHover } from "../editor-hover.js";
   import { loadEditorKeymap } from "../editor-keymaps.js";
@@ -8,7 +9,7 @@
     saveEditorState,
     takeEditorState,
   } from "../editor-state.js";
-  /** @type {{identity:string,value?:string,mode?:string,label?:string,placeholder?:string,readOnly?:boolean,maxBytes?:number,onlimit?:()=>void,settings?:Record<string,any>,environment?:Record<string,any>,schema?:import('graphql').GraphQLSchema|null,variableToType?:Record<string,import('graphql').GraphQLInputType>,onnavigate?:(reference:any)=>void,onchange?:(value:string)=>void}} */
+  /** @type {{identity:string,value?:string,mode?:string,label?:string,placeholder?:string,readOnly?:boolean,lineDecorations?:{line:number,className:string,gutterText:string,gutterLabel:string}[],maxBytes?:number,onlimit?:()=>void,settings?:Record<string,any>,environment?:Record<string,any>,schema?:import('graphql').GraphQLSchema|null,variableToType?:Record<string,import('graphql').GraphQLInputType>,onnavigate?:(reference:any)=>void,onchange?:(value:string)=>void}} */
   let {
     identity,
     value = "",
@@ -16,6 +17,7 @@
     label = "Code editor",
     placeholder = "",
     readOnly = false,
+    lineDecorations,
     maxBytes = 0,
     onlimit = () => {},
     settings = {},
@@ -37,6 +39,8 @@
   let failure = $state("");
   let active = "";
   let synchronizing = false;
+  /** @type {{handle:import('codemirror').LineHandle,className:string}[]} */
+  let decoratedLines = [];
   export function focus() {
     if (cm) cm.focus();
     else textarea?.focus();
@@ -235,6 +239,14 @@
   });
   $effect(() => {
     if (!cm) return;
+    const mountedEditor = cm;
+    mountedEditor.operation(() => {
+      for (const { handle, className } of decoratedLines) {
+        mountedEditor.removeLineClass(handle, "background", className);
+      }
+      decoratedLines = [];
+      mountedEditor.clearGutter("editor-line-decorations");
+    });
     synchronizing = true;
     try {
       if (active !== identity) {
@@ -262,6 +274,42 @@
         );
       }
       cm.setOption("mode", editorMode(mode));
+      cm.setOption("lineNumbers", !lineDecorations);
+      cm.setOption("foldGutter", !lineDecorations);
+      cm.setOption(
+        "gutters",
+        lineDecorations
+          ? ["editor-line-decorations"]
+          : [
+              "CodeMirror-lint-markers",
+              "CodeMirror-linenumbers",
+              "CodeMirror-foldgutter",
+            ],
+      );
+      if (lineDecorations) {
+        const editor = cm;
+        editor.operation(() => {
+          for (const decoration of lineDecorations) {
+            if (decoration.line >= editor.lineCount()) continue;
+            const marker = document.createElement("span");
+            marker.className = `editor-line-decoration ${decoration.className}`;
+            marker.textContent = decoration.gutterText;
+            marker.setAttribute("aria-label", decoration.gutterLabel);
+            marker.title = decoration.gutterLabel;
+            editor.setGutterMarker(
+              decoration.line,
+              "editor-line-decorations",
+              marker,
+            );
+            const handle = editor.addLineClass(
+              decoration.line,
+              "background",
+              decoration.className,
+            );
+            decoratedLines.push({ handle, className: decoration.className });
+          }
+        });
+      }
       cm.setOption(
         "lint",
         editorMode(mode).startsWith("graphql") &&
@@ -339,7 +387,9 @@
 </script>
 
 <div class="shared-code-editor" bind:this={host}>
-  {#if failure}<p class="inline-error">Editor unavailable: {failure}</p>{/if}
+  {#if failure}<Feedback as="p" class="inline-error"
+      >Editor unavailable: {failure}</Feedback
+    >{/if}
   <textarea
     bind:this={textarea}
     aria-label={label}
@@ -366,13 +416,13 @@
     max-width: 420px;
     max-height: 45vh;
     overflow: auto;
-    padding: 12px;
+    padding: var(--space-12);
     border: 1px solid var(--line);
     border-radius: 4px;
     background: var(--raised);
     color: var(--text);
     box-shadow: 0 4px 18px #0005;
-    font-size: 12px;
+    font-size: var(--font-size-12);
     white-space: pre-wrap;
   }
   :global(.graphql-editor-info a) {
@@ -380,19 +430,19 @@
     cursor: pointer;
   }
   :global(.graphql-editor-info .type-name-pill) {
-    margin-left: 8px;
+    margin-left: var(--space-8);
   }
   :global(.graphql-editor-info .info-description),
   :global(.graphql-editor-info .info-deprecation) {
-    margin-top: 8px;
+    margin-top: var(--space-8);
   }
   :global(body .CodeMirror-lint-tooltip) {
     background: var(--raised);
     color: var(--text);
     border: 1px solid var(--line);
-    border-radius: var(--radius);
+    border-radius: var(--radius-group);
     font: 12px/1.6 var(--font-mono);
-    padding: 8px 12px;
+    padding: var(--space-8) var(--space-12);
     box-shadow: 0 4px 18px #0005;
     max-width: min(600px, calc(100vw - 24px));
   }

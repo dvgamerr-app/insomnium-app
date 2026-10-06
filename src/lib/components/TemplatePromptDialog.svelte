@@ -1,8 +1,9 @@
 <script>
+  import Field from "./ui/Field.svelte";
   import Button from "./ui/Button.svelte";
   import Input from "./ui/Input.svelte";
   import { onMount } from "svelte";
-  import Icon from "./Icon.svelte";
+  import DialogShell from "./ui/DialogShell.svelte";
   import {
     templatePrompt,
     attachTemplatePromptHost,
@@ -12,46 +13,24 @@
   } from "../template-prompt-dialog.js";
 
   onMount(attachTemplatePromptHost);
-
-  /** @param {HTMLDialogElement} element @param {number} id */
-  function openDialog(element, id) {
-    try {
-      element.showModal();
-      const input = element.querySelector("input");
-      input?.focus();
-      input?.select();
-    } catch (error) {
-      cancelTemplatePrompt(id, new Error(String(error)));
-    }
-    return {
-      destroy() {
-        element.close();
-      },
-    };
-  }
 </script>
 
 {#each $templatePrompt ? [$templatePrompt] : [] as prompt (prompt.id)}
-  <dialog
-    class="modal template-prompt-modal"
-    use:openDialog={prompt.id}
-    aria-labelledby={"template-prompt-title-" + prompt.id}
-    oncancel={(event) => {
-      event.preventDefault();
-      cancelTemplatePrompt(prompt.id);
-    }}
+  <DialogShell
+    title={prompt.title}
+    size="compact"
+    wrapContent={false}
+    onrequestclose={() => cancelTemplatePrompt(prompt.id)}
     onclose={() => cancelTemplatePrompt(prompt.id)}
+    closeLabel="Cancel prompt"
+    onopenerror={(error) =>
+      cancelTemplatePrompt(prompt.id, new Error(String(error)))}
+    onopen={(element) => {
+      const input = element.querySelector("input");
+      input?.focus();
+      input?.select();
+    }}
   >
-    <div class="modal-heading">
-      <h2 id={"template-prompt-title-" + prompt.id}>{prompt.title}</h2>
-      <Button
-        variant="ghost"
-        class="icon-button"
-        aria-label="Cancel prompt"
-        onclick={() => cancelTemplatePrompt(prompt.id)}
-        ><Icon name="close" /></Button
-      >
-    </div>
     <form
       class="modal-content"
       onsubmit={(event) => {
@@ -61,7 +40,7 @@
           answerTemplatePrompt(prompt.id, input.value);
       }}
     >
-      <label class="name-label" for={"template-prompt-value-" + prompt.id}>
+      <Field class="name-label" for={"template-prompt-value-" + prompt.id}>
         {prompt.label || "Value"}
         <Input
           id={"template-prompt-value-" + prompt.id}
@@ -72,7 +51,7 @@
           autocomplete="off"
           spellcheck="false"
         />
-      </label>
+      </Field>
       <div class="modal-actions">
         <Button
           variant="secondary"
@@ -85,14 +64,5 @@
         >
       </div>
     </form>
-  </dialog>
+  </DialogShell>
 {/each}
-
-<style>
-  .template-prompt-modal {
-    width: 480px;
-  }
-  h2 {
-    overflow-wrap: anywhere;
-  }
-</style>

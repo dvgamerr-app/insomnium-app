@@ -1,4 +1,7 @@
 <script>
+  import Feedback from "./ui/Feedback.svelte";
+  import FilePicker from "./ui/FilePicker.svelte";
+  import Field from "./ui/Field.svelte";
   import Textarea from "./ui/Textarea.svelte";
   import { onDestroy } from "svelte";
   import { readBodyUpload } from "../uploads.js";
@@ -59,24 +62,24 @@
     : "Body parts are sent in the order shown."} Select each referenced file before
   sending.
 </p>
-{#if error}<p class="inline-error">{error}</p>{/if}
+{#if error}<Feedback as="p" class="inline-error">{error}</Feedback>{/if}
 {#each request.body.curlSegments as segment, index (segment.id)}
   {#if segment.type === "file"}
-    <label class="binary-picker"
-      >Part {index + 1}: {segment.fileName}<input
-        aria-label={"File for body part " + (index + 1)}
-        type="file"
-        onchange={(event) => selectFile(event, segment)}
-      /></label
+    <FilePicker
+      class="binary-picker"
+      variant="dropzone"
+      aria-label={"File for body part " + (index + 1)}
+      onchange={(event) => selectFile(event, segment)}
+      >Part {index + 1}: {segment.fileName}</FilePicker
     >
   {:else}
-    <label
+    <Field
       >Part {index + 1}<Textarea
         aria-label={"Text for body part " + (index + 1)}
         value={segment.value}
         oninput={(event) =>
           patchSegment(segment.id, { value: event.currentTarget.value })}
-      ></Textarea></label
+      ></Textarea></Field
     >
   {/if}
 {/each}

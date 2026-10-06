@@ -1,4 +1,7 @@
 <script>
+  import Toolbar from "./ui/Toolbar.svelte";
+  import Feedback from "./ui/Feedback.svelte";
+  import FilePicker from "./ui/FilePicker.svelte";
   import Textarea from "./ui/Textarea.svelte";
   import Button from "./ui/Button.svelte";
   import Input from "./ui/Input.svelte";
@@ -185,29 +188,27 @@
   }
 </script>
 
-<div class="editor-toolbar">
-  <label class="text-button"
-    >Import files<input
-      type="file"
-      accept=".proto"
-      multiple
-      disabled={running || reading}
-      onchange={(e) => choose(e)}
-    /></label
+<Toolbar variant="editor" class="editor-toolbar">
+  <FilePicker
+    class="text-button"
+    variant="compact"
+    accept=".proto"
+    multiple
+    disabled={running || reading}
+    onchange={(e) => choose(e)}>Import files</FilePicker
   >
-  <label class="text-button"
-    >Import directory<input
-      type="file"
-      webkitdirectory
-      multiple
-      disabled={running || reading}
-      onchange={(e) => choose(e, "", true)}
-    /></label
+  <FilePicker
+    class="text-button"
+    variant="compact"
+    webkitdirectory
+    multiple
+    disabled={running || reading}
+    onchange={(e) => choose(e, "", true)}>Import directory</FilePicker
   >
-</div>
-{#if error || tree.error}<p class="inline-error" role="alert">
+</Toolbar>
+{#if error || tree.error}<Feedback as="p" class="inline-error" role="alert">
     {error || tree.error}
-  </p>{/if}
+  </Feedback>{/if}
 {#if notice}<p class="hint" role="status">{notice}</p>{/if}
 {#if reading}<p class="hint">
     Reading selected files… <Button variant="ghost" onclick={discard}
@@ -229,7 +230,7 @@
         value={item.name}
         oninput={(e) => (pending[i] = { ...item, name: e.currentTarget.value })}
       />{/each}
-    <div class="editor-toolbar">
+    <Toolbar variant="editor" class="editor-toolbar">
       <Button
         variant="primary"
         class="primary-button"
@@ -246,7 +247,7 @@
           variant="ghost"
           onclick={() => stop(request._id)}>Cancel update</Button
         >{/if}
-    </div>
+    </Toolbar>
   </div>
 {/if}
 <ul class="proto-tree" aria-label="Saved proto files">
@@ -271,23 +272,23 @@
         >
       {:else}<span class="proto-name" title={item.name}>{item.name}</span>{/if}
       {#if item._type === "proto_directory"}
-        <label class="text-button" title={`Refresh ${item.name}`}
-          >Refresh<input
-            type="file"
-            webkitdirectory
-            multiple
-            disabled={running || reading}
-            onchange={(e) => choose(e, item._id, true)}
-          /></label
+        <FilePicker
+          class="text-button"
+          title={`Refresh ${item.name}`}
+          variant="compact"
+          webkitdirectory
+          multiple
+          disabled={running || reading}
+          onchange={(e) => choose(e, item._id, true)}>Refresh</FilePicker
         >
       {:else}
-        <label class="text-button" title={`Replace ${item.name}`}
-          >Replace<input
-            type="file"
-            accept=".proto"
-            disabled={running || reading}
-            onchange={(e) => choose(e, item._id)}
-          /></label
+        <FilePicker
+          class="text-button"
+          title={`Replace ${item.name}`}
+          variant="compact"
+          accept=".proto"
+          disabled={running || reading}
+          onchange={(e) => choose(e, item._id)}>Replace</FilePicker
         >
       {/if}
       <Button
@@ -319,14 +320,14 @@
   </div>
 {/if}
 {#if file}
-  <div class="editor-toolbar">
+  <Toolbar variant="editor" class="editor-toolbar">
     <Input
       aria-label="Proto filename"
       value={file.name}
       disabled={running}
       onchange={rename}
     />
-  </div>
+  </Toolbar>
   <Textarea
     class="code-editor proto-source"
     aria-label="Proto source"
@@ -353,9 +354,9 @@
   .proto-tree li {
     display: flex;
     align-items: center;
-    gap: 7px;
+    gap: var(--space-7);
     min-height: 34px;
-    padding-right: 8px;
+    padding-right: var(--space-8);
   }
   .proto-tree li.selected {
     background: var(--selected);
@@ -371,46 +372,31 @@
   .proto-tree :global(button.proto-name) {
     border: 0;
     background: transparent;
-    padding: var(--button-space-6) 0;
+    padding: var(--space-6) 0;
   }
-  label {
-    position: relative;
-    overflow: hidden;
-    cursor: pointer;
-  }
-  label input {
-    position: absolute;
-    inset: 0;
-    opacity: 0;
-    width: 100%;
-    cursor: pointer;
-  }
-  label:focus-within {
-    outline: none;
-    background-color: var(--selected);
-  }
+
   .hint {
-    margin: 10px 12px;
+    margin: var(--space-10) var(--space-12);
     color: var(--muted);
-    font-size: 12px;
+    font-size: var(--font-size-12);
     line-height: 1.5;
   }
   .preview {
-    padding: 8px;
+    padding: var(--space-8);
     border-bottom: 1px solid var(--line);
   }
   .preview > :global(input) {
     display: block;
     width: 100%;
-    margin: 5px 0;
+    margin: var(--space-5) 0;
   }
   :global(.proto-source) {
     min-height: 220px;
     width: 100%;
   }
   .remove-confirm {
-    margin: 10px;
-    padding: 10px;
+    margin: var(--space-10);
+    padding: var(--space-10);
     border: 1px solid var(--line);
   }
 </style>

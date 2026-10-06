@@ -1,0 +1,51 @@
+.form-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-13);
+  padding: var(--space-20);
+  max-width: 570px;
+}
+
+.settings-form,
+.resource-form {
+  padding: 0;
+}
+
+.form-panel details summary {
+  cursor: pointer;
+  color: var(--accent-text);
+  margin: var(--space-5) 0 var(--space-15);
+}
+
+.form-panel details label {
+  margin-bottom: var(--space-12);
+}
+
+.ui-field {
+  display: grid;
+  gap: var(--space-7);
+  min-width: 0;
+  color: var(--muted);
+  font-size: var(--font-size-12);
+}
+
+.ui-field-inline {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-10);
+}
+.ui-field-inline .ui-checkbox {
+  margin: 0;
+}
+
+.ui-field > label {
+  display: block;
+  color: var(--muted);
+  font-size: var(--font-size-12);
+  font-weight: 500;
+}
+
+.ui-field small {
+  line-height: 1.5;
+}
