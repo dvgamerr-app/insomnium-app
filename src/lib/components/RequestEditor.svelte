@@ -19,7 +19,6 @@
   import { environmentFor, workspaceFor } from "../model.js";
   import CodeEditor from "./CodeEditor.svelte";
   import CurlBodyEditor from "./CurlBodyEditor.svelte";
-  import TemplatePreview from "./TemplatePreview.svelte";
   import {
     workspace as app,
     createWorkspaceWorkScope,
@@ -310,20 +309,6 @@
           )}
           onchange={(text) => body({ text })}
           placeholder="Request body…"
-        /><TemplatePreview
-          resources={app.data.resources}
-          history={app.data.history}
-          environmentId={app.data.activeEnvironmentId}
-          workspaceId={workspaceFor(app.data.resources, request._id)}
-          identity={request._id}
-          text={request.body.text || ""}
-          context={environmentFor(
-            app.data.resources,
-            request,
-            app.data.activeEnvironmentId,
-          )}
-          settings={app.data.settings}
-          mode={request.body.mimeType}
         />{/if}
     {:else if tab === "Headers"}<KeyValueEditor
         rows={request.headers || []}

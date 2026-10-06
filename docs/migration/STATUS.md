@@ -1,5 +1,10 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Template preview panel removed — 2026-10-06
+
+- Owner decision: the collapsible Template preview panel under the request body editor is removed from the UI and scope (TemplatePreview.svelte deleted). It was a debugging aid, not required to send requests.
+- Template engine modules (template-preview.js, template-prompt.js, workers, native handlers) are kept because Send/render integration and request/response references still need them; template-preview.js now has no UI caller. PARITY items for the preview panel and Clear prompt values control are out of scope.
+
 ## Source Control unified YAML diff and quieter local branches — 2026-10-06
 
 - Owner requested replacing Before/After panes with one change view, red deleted lines and green added lines, YAML rendering, and reducing branch UI while no remote is configured. GitPanel now uses shared UnifiedDiff over the existing read-only CodeEditor/YAML mode. One document has before/after line numbers and minus/plus gutter markers; backgrounds span the line. JSON legacy paths use JSON highlighting. Git source strings and commit candidates remain unchanged.

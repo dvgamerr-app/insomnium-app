@@ -748,3 +748,7 @@ XML preview formatter implemented with original vkbeautify plus content-preserva
 - Original network.ts revealed per-collection active-environment routing. Current app's global selection cannot reproduce it yet, so cross-collection resends fail before dispatch; finite HTTP only, streaming dependencies explicitly pending. These remain required scope. See DEPENDENT-RESPONSES.md for exact semantics, sources, tests and remaining UI/history/concurrency/native gates.
 - Next: per-collection environment retention and foreign dependency routing, introspection/manual OAuth/gRPC/WS payload pipelines, native cookie/User-Agent/URL parity and real WebView acceptance. Full migration incomplete; source newer than BUILD.json.
 
+
+## Template preview panel removed from scope — 2026-10-06
+
+- Owner removed the request-body Template preview panel (and its Clear prompt values control) from scope. Template engine, native tag handlers and Send integration remain required; see STATUS.md.
