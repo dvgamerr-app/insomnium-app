@@ -341,8 +341,36 @@ await withPreview("nocturne-theme", async (page, output) => {
     }
     await page.setViewportSize({ width: 1440, height: 960 });
     await page.getByLabel("Body type", { exact: true }).selectOption("");
+    const preferences = page.getByRole("region", {
+      name: "Preferences",
+      exact: true,
+    });
+    await page
+      .getByRole("button", { name: "Preferences", exact: true })
+      .first()
+      .click();
+    await preferences.waitFor();
+    for (const section of [
+      "Appearance",
+      "Editor",
+      "Requests",
+      "Network & certificates",
+      "Shortcuts",
+    ]) {
+      await preferences
+        .getByRole("navigation", { name: "Preference sections" })
+        .getByRole("button", { name: section, exact: true })
+        .click();
+      await preferences.getByRole("heading", { name: section }).waitFor();
+    }
+    await page.screenshot({
+      path: output + "/" + theme + "-preferences.png",
+    });
+    await preferences
+      .getByRole("button", { name: "Close Preferences", exact: true })
+      .click();
+    await preferences.waitFor({ state: "detached" });
     for (const name of [
-      "Preferences",
       "Edit environment",
       "Import collection",
       "Cookies",
@@ -372,32 +400,6 @@ await withPreview("nocturne-theme", async (page, output) => {
           .getByRole("dialog")
           .getByRole("button", { name: "Import", exact: true })
           .waitFor();
-      }
-      if (name === "Preferences") {
-        for (const section of ["Editor", "Certificates"]) {
-          const summary = page
-            .getByRole("dialog")
-            .locator("summary")
-            .filter({ hasText: section });
-          await summary.focus();
-          await page.keyboard.press("Enter");
-          assert.equal(
-            await summary.evaluate((el) =>
-              el.parentElement?.hasAttribute("open"),
-            ),
-            true,
-          );
-          await page.screenshot({
-            path:
-              output +
-              "/" +
-              theme +
-              "-preferences-" +
-              section.toLowerCase() +
-              ".png",
-          });
-          await page.keyboard.press("Enter");
-        }
       }
       await page.screenshot({
         path:

@@ -1,5 +1,10 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Preferences full view — 2026-10-06
+
+- Preferences is now a full main view (SettingsPanel.svelte, like Source Control) instead of a dialog; the Collections sidebar collapses while it is open. Settings are grouped into Appearance, Editor, Requests, Network & certificates and Shortcuts sections with a left section navigation. Setting keys and persistence are unchanged.
+- nocturne-workspace, nocturne-theme and unix-socket-tls scenarios updated for the Preferences region (nocturne-workspace and nocturne-theme pass against the static preview; unix-socket-tls is native and was not rerun).
+
 ## Template preview panel removed — 2026-10-06
 
 - Owner decision: the collapsible Template preview panel under the request body editor is removed from the UI and scope (TemplatePreview.svelte deleted). It was a debugging aid, not required to send requests.

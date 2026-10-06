@@ -49,13 +49,12 @@ try{
   const original=(await invoke("load_workspace")).settings;
   const setTls=async(/** @type {string} */ ca,/** @type {boolean} */ validate)=>{
    await page.getByRole("button",{name:"Preferences",exact:true}).first().click();
-   const dialog=page.getByRole("dialog");
+   const dialog=page.getByRole("region",{name:"Preferences",exact:true});
    await dialog.getByLabel("Validate TLS certificates",{exact:true}).setChecked(validate);
-   await dialog.getByText("Certificates",{exact:true}).click();
    const input=dialog.getByLabel("Custom CA (PEM)",{exact:true});
    await input.fill(ca);await input.blur();
    await poll(async()=>{const s=(await invoke("load_workspace")).settings;return s.caPem===ca&&s.validateCertificates===validate;},"TLS settings persisted");
-   await page.keyboard.press("Escape");await dialog.waitFor({state:"detached"});
+   await dialog.getByRole("button",{name:"Close Preferences"}).click();await dialog.waitFor({state:"detached"});
   };
   const resources=[{_id:"wrk_tls",_type:"workspace",parentId:null,name,scope:"collection"},
    ...[["good",goodUrl],["wrong",badUrl]].map(([id,url])=>({_id:"req_"+id,_type:"request",parentId:"wrk_tls",name:name+" "+id,method:"GET",url,headers:[],parameters:[],body:{mimeType:""}}))];

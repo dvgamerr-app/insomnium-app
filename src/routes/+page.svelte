@@ -69,6 +69,7 @@
   import "@fontsource-variable/roboto-mono";
   import "$lib/styles.css";
   import "$lib/components/ui/controls.css";
+  import SettingsPanel from "$lib/components/SettingsPanel.svelte";
   import Dropdown from "$lib/components/ui/Dropdown.svelte";
   const editingBlocked = $derived(
     app.draining || app.persistencePhase !== "idle",
@@ -188,6 +189,9 @@
     modal = type;
     name = "";
     modalError = "";
+  }
+  function openSettings() {
+    if (canEditWorkspace()) mainView = "settings";
   }
   function manageResource(/** @type {string} */ resourceId) {
     managedId = resourceId;
@@ -471,7 +475,7 @@
       class="activity"
       aria-label="Preferences"
       title="Preferences"
-      onclick={() => showModal("settings")}
+      onclick={() => openSettings()}
       ><Icon name="settings" size={22} /></Button
     >
   </nav>
@@ -483,7 +487,7 @@
     minFirst={220}
     minSecond={320}
     collapsedPane="first"
-    collapsed={mainView === "git"}
+    collapsed={mainView === "git" || mainView === "settings"}
   >
     {#snippet second()}
       <main class="workspace-main">
@@ -509,7 +513,7 @@
             Browser preview · desktop requests use native networking without
             browser CORS restrictions.
           </div>{/if}
-        {#if mainView !== "git"}<div class="workspace-topbar">
+        {#if mainView !== "git" && mainView !== "settings"}<div class="workspace-topbar">
             {#if mainView === "requests"}
               <div class="request-tabs" aria-label="Open requests">
                 {#each tabs as item (item?._id)}{#if item}<div
@@ -592,7 +596,10 @@
           </EmptyState>{:else if mainView === "git"}{#key app.data.activeWorkspaceId}<GitPanel
               workspaceId={app.data.activeWorkspaceId}
               onclose={() => (mainView = "requests")}
-            />{/key}{:else if mainView === "tests"}{#key app.data.activeWorkspaceId}<RunnerPane
+            />{/key}{:else if mainView === "settings"}<SettingsPanel
+              settings={app.data.settings}
+              onclose={() => (mainView = "requests")}
+            />{:else if mainView === "tests"}{#key app.data.activeWorkspaceId}<RunnerPane
               collectionId={app.data.activeWorkspaceId}
             />{/key}{:else if mainView === "design"}{#key app.data.activeWorkspaceId}<ApiDesign
               workspaceId={app.data.activeWorkspaceId}
@@ -854,7 +861,7 @@
     <Button
       variant="ghost"
       class="text-button"
-      onclick={() => showModal("settings")}
+      onclick={() => openSettings()}
       ><Icon name="settings" size={14} /> Preferences</Button
     ><span class="status-save"
       ><span class:busy={app.saving} class="save-dot"></span>{!app.ready
@@ -883,9 +890,7 @@
         ? "Manage environments"
         : modal === "manage-item"
           ? `Manage ${managedResource?._type === "workspace" ? "collection" : managedResource?._type === "request_group" ? "folder" : "request"}`
-          : modal === "settings"
-            ? "Preferences"
-            : modal === "cookies"
+          : modal === "cookies"
               ? "Cookies"
               : modal === "import"
                 ? "Import collection"
@@ -990,167 +995,6 @@
             onclick={saveEnvironment}>Save environment</Button
           >
         </div>
-      {:else if modal === "settings"}<FormPanel
-          class="form-panel settings-form"
-        >
-          <details>
-            <summary>Editor</summary>
-            <label
-              >Keymap<Dropdown
-                value={app.data.settings.editorKeyMap}
-                onchange={(event) =>
-                  updateSettings({ editorKeyMap: event.currentTarget.value })}
-                options={[
-                  { value: "default", label: "Default" },
-                  { value: "vim", label: "Vim" },
-                  { value: "emacs", label: "Emacs" },
-                  { value: "sublime", label: "Sublime" },
-                ]}
-              /></label
-            >
-            <Field
-              >Indent width<Input
-                type="number"
-                min="1"
-                max="16"
-                value={app.data.settings.editorIndentSize}
-                onchange={(event) =>
-                  updateSettings({
-                    editorIndentSize: event.currentTarget.valueAsNumber,
-                  })}
-              /></Field
-            >
-            <Field layout="inline" class="checkbox-label"
-              ><Checkbox
-                checked={app.data.settings.editorIndentWithTabs}
-                onchange={(event) =>
-                  updateSettings({
-                    editorIndentWithTabs: event.currentTarget.checked,
-                  })}
-              />Indent with tabs (except YAML)</Field
-            >
-            <Field layout="inline" class="checkbox-label"
-              ><Checkbox
-                checked={app.data.settings.editorLineWrapping}
-                onchange={(event) =>
-                  updateSettings({
-                    editorLineWrapping: event.currentTarget.checked,
-                  })}
-              />Wrap long lines</Field
-            >
-            <Field
-              >Autocomplete delay (ms; 0 disables automatic suggestions)<Input
-                type="number"
-                min="0"
-                max="2000"
-                value={app.data.settings.autocompleteDelay}
-                onchange={(event) =>
-                  updateSettings({
-                    autocompleteDelay: event.currentTarget.valueAsNumber,
-                  })}
-              /></Field
-            >
-          </details>
-          <label
-            >Theme<Dropdown
-              value={app.data.settings.theme}
-              onchange={(event) =>
-                updateSettings({ theme: event.currentTarget.value })}
-              options={[
-                { value: "dark", label: "Nocturne Dark" },
-                { value: "light", label: "Nocturne Light" },
-              ]}
-            /></label
-          ><Field
-            >Request timeout (ms)<Input
-              type="number"
-              min="1"
-              max="3600000"
-              value={app.data.settings.timeout}
-              onchange={(event) =>
-                updateSettings({
-                  timeout:
-                    event.currentTarget.value === ""
-                      ? undefined
-                      : event.currentTarget.valueAsNumber,
-                })}
-            /></Field
-          ><Field
-            >Response history limit<Input
-              type="number"
-              min="1"
-              max="100"
-              value={app.data.settings.maxHistory}
-              onchange={(event) =>
-                updateSettings({
-                  maxHistory:
-                    event.currentTarget.value === ""
-                      ? undefined
-                      : event.currentTarget.valueAsNumber,
-                })}
-            /></Field
-          ><Field layout="inline" class="checkbox-label"
-            ><Checkbox
-              checked={app.data.settings.followRedirects}
-              onchange={(event) =>
-                updateSettings({
-                  followRedirects: event.currentTarget.checked,
-                })}
-            /> Follow redirects (maximum 10)</Field
-          ><Field layout="inline" class="checkbox-label"
-            ><Checkbox
-              checked={app.data.settings.validateCertificates}
-              onchange={(event) =>
-                updateSettings({
-                  validateCertificates: event.currentTarget.checked,
-                })}
-            /> Validate TLS certificates</Field
-          ><Field layout="inline" class="checkbox-label"
-            ><Checkbox
-              checked={app.data.settings.useCookies}
-              onchange={(event) =>
-                updateSettings({ useCookies: event.currentTarget.checked })}
-            /> Send and store cookies</Field
-          ><Field
-            >Proxy URL<Input
-              placeholder="http://127.0.0.1:8080"
-              value={app.data.settings.proxy}
-              onchange={(event) =>
-                updateSettings({ proxy: event.currentTarget.value })}
-            /></Field
-          >
-          <details>
-            <summary>Certificates</summary><Field
-              >Custom CA (PEM)<Textarea
-                class="code-editor small-editor"
-                value={app.data.settings.caPem}
-                onchange={(event) =>
-                  updateSettings({ caPem: event.currentTarget.value })}
-              ></Textarea></Field
-            ><Field
-              >Client certificate host<Input
-                placeholder="api.example.com"
-                value={app.data.settings.identityHost}
-                onchange={(event) =>
-                  updateSettings({ identityHost: event.currentTarget.value })}
-              /></Field
-            ><Field
-              >Client certificate and private key (PEM)<Textarea
-                class="code-editor small-editor"
-                value={app.data.settings.identityPem}
-                onchange={(event) =>
-                  updateSettings({ identityPem: event.currentTarget.value })}
-              ></Textarea></Field
-            >
-            <p class="hint">
-              Client identity applies only to matching hostnames. Stored locally
-              in the workspace file.
-            </p>
-          </details>
-          <p class="hint">
-            Ctrl/Cmd + Enter: send · + N: new request · + P: filter.
-          </p>
-        </FormPanel>
       {:else if modal === "cookies"}<CookieManager
           workspaceId={app.data.activeWorkspaceId}
         />
