@@ -63,6 +63,7 @@
   } from "$lib/workspace.svelte.js";
   import { id, workspaceFor, protocolFor } from "$lib/model.js";
   import { orderedChildren } from "$lib/resources.js";
+  import { curlRequestPatch, isCurlImport } from "$lib/curl-import.js";
   import { pickImport, parseImport, exportData } from "$lib/import-export.js";
   import "@fontsource-variable/inter";
   import "@fontsource-variable/roboto-mono";
@@ -678,8 +679,28 @@
                     : "https://api.example.com/resource"}
                   spellcheck="false"
                   value={request.url}
-                  oninput={(event) =>
-                    update(request._id, { url: event.currentTarget.value })}
+                  onpaste={(event) => {
+                    // Single-line inputs drop newlines, which breaks multi-line curl.
+                    const text = event.clipboardData?.getData("text") ?? "";
+                    if (!isCurlImport(text)) return;
+                    event.preventDefault();
+                    try {
+                      update(request._id, curlRequestPatch(text));
+                    } catch (error) {
+                      app.error = String(error);
+                    }
+                  }}
+                  oninput={(event) => {
+                    const value = event.currentTarget.value;
+                    if (isCurlImport(value))
+                      try {
+                        update(request._id, curlRequestPatch(value));
+                        return;
+                      } catch (error) {
+                        app.error = String(error);
+                      }
+                    update(request._id, { url: value });
+                  }}
                 />
               </div>
               {#if app.running[request._id]}<Button
