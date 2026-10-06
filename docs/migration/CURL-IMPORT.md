@@ -158,4 +158,3 @@ Status: design/reference evidence only; not implemented. Existing binary body st
 7. Validate inline parser/composer/ownership boundaries, then saved Playwright Import/select/replace/reload/native Send with all256byte fixture, multiple files, literals before/between/after, empty values, JSON, data-urlencode, GET and cancellation/stale selection.
 
 Official sources consulted: https://curl.se/docs/manpage.html#--data , #--data-binary , #--data-urlencode , #--json . Six actual curl loopback reference executions are recorded in artifacts/curl-mixed-design/reference.json: data strips CR/LF/NUL per file, binary preserves bytes, empty initial literal adds no leading ampersand, JSON concatenates, URL-encoded file preserves invalid UTF-8 as percent bytes, GET has query and no body/Content-Type. These are curl reference observations, not app acceptance. Synthetic fixture removed/server stopped.
-

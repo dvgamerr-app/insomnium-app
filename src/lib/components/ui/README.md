@@ -8,38 +8,54 @@ Single-choice `Select` and `Dropdown` use the same Lucide SVG chevron by default
 
 `SplitPane` accepts `collapsedPane="first"` or `"second"` (default) to choose which side disappears when collapsed. The workspace uses the first pane for Collections on the left and the second for the main view.
 
-| Component | Use |
-| --- | --- |
-| Button | `variant="primary\|secondary\|danger\|ghost"`, `busy`, native button attributes/events; defaults to `type="button"` |
-| EditableName | Text until focus, then input; `value`, `onchange`; Enter/blur saves, Escape cancels |
-| WindowControls | Windows desktop minimize/maximize/restore/close; `onerror`; uses existing native close guard |
-| Input | Text/password/number/search/URL fields, native validation, bindable `value` and native `element`, `invalid` |
-| Select | Dropdowns with option/optgroup snippets; SVG arrow by default; `variant="method\|protocol"` centers the value; native listbox `size` semantics |
-| Dropdown | Data-driven single-choice control: `options=[{value,label,disabled?}]`, optional placeholder, bindable string `value` |
-| Textarea | Multiline fields, native attributes/events, bindable `value`, `invalid` |
-| Field | Label, required marker, description and error; control id must match Field id |
-| Modal | Native dialog focus containment, Escape/cancel, focus restoration; `title` or heading snippet, children, `onclose` |
-| SplitPane | Resizable first/second snippets; see `docs/migration/NOCTURNE-WORKSPACE.md` |
-| UnifiedDiff | One read-only YAML/JSON change view; `identity`, nullable `before`/`after`, `mode`; old/new line numbers, minus/plus markers and themed red/green backgrounds |
+| Component      | Use                                                                                                                                                           |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Button         | `variant="primary\|secondary\|danger\|ghost"`, `busy`, native button attributes/events; defaults to `type="button"`                                           |
+| EditableName   | Text until focus, then input; `value`, `onchange`; Enter/blur saves, Escape cancels                                                                           |
+| WindowControls | Windows desktop minimize/maximize/restore/close; `onerror`; uses existing native close guard                                                                  |
+| Input          | Text/password/number/search/URL fields, native validation, bindable `value` and native `element`, `invalid`                                                   |
+| Select         | Dropdowns with option/optgroup snippets; SVG arrow by default; `variant="method\|protocol"` centers the value; native listbox `size` semantics                |
+| Dropdown       | Data-driven single-choice control: `options=[{value,label,disabled?}]`, optional placeholder, bindable string `value`                                         |
+| Textarea       | Multiline fields, native attributes/events, bindable `value`, `invalid`                                                                                       |
+| Field          | Label, required marker, description and error; control id must match Field id                                                                                 |
+| Modal          | Native dialog focus containment, Escape/cancel, focus restoration; `title` or heading snippet, children, `onclose`                                            |
+| SplitPane      | Resizable first/second snippets; see `docs/migration/NOCTURNE-WORKSPACE.md`                                                                                   |
+| UnifiedDiff    | One read-only YAML/JSON change view; `identity`, nullable `before`/`after`, `mode`; old/new line numbers, minus/plus markers and themed red/green backgrounds |
 
 `UnifiedDiff` uses the existing `CodeEditor`, which exposes optional `lineDecorations` (`line`, `className`, `gutterText`, `gutterLabel`). Decorations are reset when content changes; ordinary editors retain their normal line numbers/folding. The diff preserves source text, highlights YAML directly, and uses CodeMirror's viewport rendering. It does not deserialize or rewrite resources. Diff styles belong to `styles/diff.css`.
 
 ```svelte
 <script>
-  import Dropdown from '$lib/components/ui/Dropdown.svelte';
-  import Input from '$lib/components/ui/Input.svelte';
-  import Field from '$lib/components/ui/Field.svelte';
-  import Button from '$lib/components/ui/Button.svelte';
-  let name = $state('');
-  let mode = $state('dark');
+  import Dropdown from "$lib/components/ui/Dropdown.svelte";
+  import Input from "$lib/components/ui/Input.svelte";
+  import Field from "$lib/components/ui/Field.svelte";
+  import Button from "$lib/components/ui/Button.svelte";
+  let name = $state("");
+  let mode = $state("dark");
   let saving = $state(false);
 </script>
 
-<Field id="profile-name" label="Name" description="Used on your commits." required>
-  <Input id="profile-name" aria-describedby="profile-name-description" required bind:value={name}/>
+<Field
+  id="profile-name"
+  label="Name"
+  description="Used on your commits."
+  required
+>
+  <Input
+    id="profile-name"
+    aria-describedby="profile-name-description"
+    required
+    bind:value={name}
+  />
 </Field>
-<Dropdown aria-label="Theme" bind:value={mode}
-  options={[{value:'dark',label:'Nocturne Dark'},{value:'light',label:'Nocturne Light'}]}/>
+<Dropdown
+  aria-label="Theme"
+  bind:value={mode}
+  options={[
+    { value: "dark", label: "Nocturne Dark" },
+    { value: "light", label: "Nocturne Light" },
+  ]}
+/>
 <Button variant="primary" type="submit" busy={saving}>Save</Button>
 ```
 

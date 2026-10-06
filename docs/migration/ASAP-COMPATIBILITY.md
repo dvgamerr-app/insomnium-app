@@ -34,7 +34,6 @@ Entirely percent-encoded PEM or an encoded data-URI prefix is not decoded. Encry
 - Documented dependency command: https://doc.rust-lang.org/cargo/commands/cargo-add.html
 - Archived application: network/authentication.ts, models/request.ts, ui/components/editors/auth/asap-auth.tsx and ui/components/auth-private-key-row.tsx under _backup/legacy-electron/packages/insomnia/src.
 
-
 ## ES512 follow-up (2026-09-24)
 
 Added p5210.14.0 as a direct dependency with ecdsa/pem/std; this version was already in Cargo.lock through SSPI. jsonwebtoken11.1.0 has no ES512 Algorithm variant, so only this variant uses RFC7515 compact JSON/base64url encoding with RustCrypto signing. Existing JWT algorithms retain jsonwebtoken. No elliptic-curve/signature arithmetic is implemented in the app. Header alg is fixed to ES512 and kid follows the existing claims/data-URI rules; Postman mode has no typ. Legacy mode remains RS256.

@@ -23,6 +23,7 @@ Updated: 2026-09-29. HTTP Send and initial SSE/WebSocket connection preparation 
 Svelte check passed with0 errors/0 warnings; Vite production build passed. A missing fourth-argument-compatible conditional branch initially caused one compilation error; fixed by separating introspection and rendered transport calls. One command to construct an import failed quoting before any write; corrected. Initial inline Svelte module loading returned a Bun default export for the percent-encoded long data URL; base64 module import fixed the harness, after which all7 assertions passed. No saved tests, dependency install, native edits, installer or live fixture processes. No real user data was loaded/saved by the fixtures (workspace.ready=false); all worker counts returned to0.
 
 Official sources read before implementation/validation:
+
 - https://mozilla.github.io/nunjucks/api.html#asynchronous-support
 - https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/throwIfAborted
 - https://svelte.dev/docs/svelte/svelte-compiler#compileModule

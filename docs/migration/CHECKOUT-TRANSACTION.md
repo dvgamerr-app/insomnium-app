@@ -47,19 +47,20 @@ The exact public API is to be implemented with these guarantees, not added as un
 
 Implemented createRunDrain and withWorkspaceRunsPaused, currently used by shutdown. The run gate reserves before awaiting, rejects overlapping drains, covers cancellation and completions with one deadline, and holds reservation through the supplied operation. On timeout it refuses the operation permanently even if old promises settle later. It resumes admission on failure so a failed close can be retried; it is not the recovery lock for an uncertain native checkout.
 
-| Writer | Current coordination | Required follow-up |
-| --- | --- | --- |
-| HTTP, WebSocket/SSE, gRPC connection | Existing controllers/completions plus new start guard | Native interruption acceptance |
-| Payload/gRPC messages, proto refresh | Existing completion tracking plus new start guard | Native completion/cancel acceptance |
-| OAuth fetch/adopt and Runner/dependent sends | Existing root completion tracking plus new start guard | Verify all descendant cleanup in native flow |
-| API Design generation/file reading | Registered worker/file tasks with abort/stale-result guards; waits accepted save | Mounted/native acceptance and final mutation reservation |
-| Git setup/commit | Registered setup/dialog operations; abort checks before next submission; awaits submitted IPC | Native acceptance and final mutation reservation |
-| Direct UI/resource/settings/import edits | Central entry guards, guarded page actions/settings and inert shell/dialog during drain | Full async writer audit, mounted acceptance and durable recovery admission lock |
-| Queued saveData | Separate persistence barrier already implemented | Drain/save baseline and apply authoritative result under coordinated checkout |
+| Writer                                       | Current coordination                                                                          | Required follow-up                                                              |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| HTTP, WebSocket/SSE, gRPC connection         | Existing controllers/completions plus new start guard                                         | Native interruption acceptance                                                  |
+| Payload/gRPC messages, proto refresh         | Existing completion tracking plus new start guard                                             | Native completion/cancel acceptance                                             |
+| OAuth fetch/adopt and Runner/dependent sends | Existing root completion tracking plus new start guard                                        | Verify all descendant cleanup in native flow                                    |
+| API Design generation/file reading           | Registered worker/file tasks with abort/stale-result guards; waits accepted save              | Mounted/native acceptance and final mutation reservation                        |
+| Git setup/commit                             | Registered setup/dialog operations; abort checks before next submission; awaits submitted IPC | Native acceptance and final mutation reservation                                |
+| Direct UI/resource/settings/import edits     | Central entry guards, guarded page actions/settings and inert shell/dialog during drain       | Full async writer audit, mounted acceptance and durable recovery admission lock |
+| Queued saveData                              | Separate persistence barrier already implemented                                              | Drain/save baseline and apply authoritative result under coordinated checkout   |
 
 Evidence: artifacts/run-drain-check.19 helper assertions;14 checks use the actual Svelte-compiled workspace source with mocked dependencies (not native runtime). Compiler/build passed. Mutable pending-array issue found by the first probe was corrected by detaching the initial array. Probe generation of fresh rejected promises was a probe defect, corrected before acceptance.
 
 Official documentation consulted before implementation:
+
 - [Promise.allSettled](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/allSettled)
 - [AbortController.abort](https://developer.mozilla.org/en-US/docs/Web/API/AbortController/abort)
 - [Svelte $state](https://svelte.dev/docs/svelte/$state)
@@ -75,6 +76,7 @@ API Design worker/file handling and Git setup/dialog operations now use this API
 Verification: 46 inline behavior checks plus12 prior Git setup regression checks; Svelte check0/0 and build0. API Design/Git dialog checks compile actual script bodies with Svelte and use mock browser/native dependencies; they do not prove mounted UI/native behavior. Evidence artifacts/component-drain-check.
 
 Official docs reviewed:
+
 - [Worker.terminate](https://developer.mozilla.org/en-US/docs/Web/API/Worker/terminate)
 - [AbortSignal.throwIfAborted](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/throwIfAborted)
 - [Svelte lifecycle hooks](https://svelte.dev/docs/svelte/lifecycle-hooks)
@@ -90,6 +92,7 @@ The page shell and modal each have inert during drain; keyboard shortcuts check 
 The guard is not yet a durable recovery state. A native transition coordinator must keep mutation admission closed when the persistence queue is in recovery, even after a run-drain callback throws. Do not expose checkout until this is integrated.
 
 Historical asynchronous review targets (registered in the following checkpoint; native acceptance remains):
+
 - RequestEditor body upload begins an uncancellable read before guarded onchange; register before reading and reject stale results after drain.
 - ProtoManager file selection populates pending component state after reads; register/invalidate reads and review pending target after workspace generation changes.
 - GraphqlEditor schema import updates a session cache after reading; cancel/invalidate it across resource replacement.
@@ -99,6 +102,7 @@ Historical asynchronous review targets (registered in the following checkpoint; 
 Evidence: artifacts/mutation-guard-check;28 workspace assertions,11 API Design and9 Git panel script regressions; compiler/build passed. Vite non-fatal chunk-size warning remains. No mounted/native acceptance claimed.
 
 Official docs reviewed before UI changes:
+
 - [Svelte bindings](https://svelte.dev/docs/svelte/bind): existing event listeners run before bound values update; explicit change handlers now read the control value.
 - [HTML inert](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes/inert): modal dialogs require their own inert attribute.
 
@@ -119,6 +123,7 @@ Next implementation boundary: connect run/mutation admission to persistence tran
 Evidence: artifacts/remaining-writers-check,42 inline checks (11 scope,10 cookie,21 file/XML), Svelte0/0 and build0. Actual source handlers/scripts executed with mocked external boundaries; no native runtime claim. No test scripts saved.
 
 Documentation consulted before implementation:
+
 - [Blob.arrayBuffer](https://developer.mozilla.org/en-US/docs/Web/API/Blob/arrayBuffer)
 - [AbortSignal.throwIfAborted](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/throwIfAborted)
 - [Svelte lifecycle hooks](https://svelte.dev/docs/svelte/lifecycle-hooks)
@@ -136,6 +141,7 @@ Page shell/dialog inert and keyboard guard now include the persistence phase. AP
 Evidence artifacts/recovery-admission-check:17 actual queue/persistence + compiled-workspace checks,11 observer checks and27 prior barrier regressions; Svelte0/0/build0. Mock storage/dependencies, no native journal acceptance.
 
 Official sources reviewed:
+
 - [Svelte store contract](https://svelte.dev/docs/svelte/stores)
 - [Promise.then](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/then)
 
@@ -152,6 +158,7 @@ This establishes write exclusion for a future journal producer, not a checkout i
 Validation: Cargo fmt/check/clippy passed.24 native assertions execute the actual storage source (Tauri command wrappers excluded) compiled via rustc stdin; isolated fixtures only. Covers first/repeated backup, legacy raw bytes, malformed workspace, pre-load save, duplicate IDs, pending file/directory/junction, and backup failure/retry. Source hash/evidence in artifacts/native-storage-check. The junction target sentinel remained unchanged. This does not cover full native IPC, process-crash/disk-full/power-loss or cross-process races.
 
 Official sources:
+
 - [AtomicWriteFile 0.3.1](https://docs.rs/atomic-write-file/0.3.1/atomic_write_file/struct.AtomicWriteFile.html)
 - [Rust symlink_metadata](https://doc.rust-lang.org/std/fs/fn.symlink_metadata.html)
 
@@ -180,13 +187,13 @@ Any exception after journal creation leaves the journal available. Do not infer 
 
 On startup/load, inspect journal under both locks, then validate its format, IDs, refs and workspace snapshots. Lock the recorded refs before inspecting or changing them. Compare the actual workspace to the journal's parsed before/after values.
 
-| Actual HEAD and workspace | Recovery action |
-| --- | --- |
-| Source branch/source OID + before | Transition did not apply; retain before and clear journal after validation |
-| Target branch/target OID + before | HEAD applied; write recorded after, verify, then clear journal |
-| Target branch/target OID + after | Transition applied; verify and clear journal |
-| Source + after | Unexpected mixed state; preserve journal/files and report recovery required |
-| Neither recorded workspace, unexpected HEAD/ref movement, missing repo, invalid journal | Preserve all data and stop automatic recovery; expose actionable error |
+| Actual HEAD and workspace                                                               | Recovery action                                                             |
+| --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Source branch/source OID + before                                                       | Transition did not apply; retain before and clear journal after validation  |
+| Target branch/target OID + before                                                       | HEAD applied; write recorded after, verify, then clear journal              |
+| Target branch/target OID + after                                                        | Transition applied; verify and clear journal                                |
+| Source + after                                                                          | Unexpected mixed state; preserve journal/files and report recovery required |
+| Neither recorded workspace, unexpected HEAD/ref movement, missing repo, invalid journal | Preserve all data and stop automatic recovery; expose actionable error      |
 
 If before and after workspace values are identical (e.g. create-and-switch at the same commit), the HEAD distinction still determines whether the transition applied. A separate phase label is diagnostic only; actual files/refs are authoritative.
 
@@ -224,6 +231,7 @@ The current reader accepts only unchanged non-resource workspace fields. The che
 33 standalone native fixture checks passed, including all recovery table branches, before==after, retained backup/workspace bytes, moved refs/detached HEAD, invalid/unknown journal fields, private/foreign/metadata/history/binding changes, orphan refusal, missing workspace, journal directory/junction, existing ref lock and wrong committed Workspace identity. Source hash and terminal results: artifacts/native-journal-check. No Tauri IPC, process-kill or power-loss claim.
 
 Official documentation consulted before implementation:
+
 - https://docs.rs/git2/latest/git2/struct.Transaction.html
 - https://docs.rs/atomic-write-file/latest/atomic_write_file/struct.AtomicWriteFile.html
 - https://serde.rs/container-attrs.html
@@ -288,7 +296,6 @@ Fault-injection limits: replacing Tauri invoke failed silently because its prope
 
 Fixture setup uses actual native init/commit/create-branch and save/load commands, with Git update-ref only inside the isolated probe repository to arrange the two known branch tips. No production app data/repository touched. First failed fixture setup preserved its isolated repository. No saved test scripts.
 
-
 ## Native conflict-message recheck accepted — 2026-09-29
 
 - Previous turn was progress: reconciled the durable Thai handoff and confirmed the old build had finished successfully.
@@ -298,8 +305,6 @@ Fixture setup uses actual native init/commit/create-branch and save/load command
 - No application source changes or rebuild this turn. Fixture now retains URL https://example.invalid/recheck-conflict on req_delete in main. Restore exact fixture baseline (including modified metadata) within the owned probe before a nonconflicting checkout failure probe; do not alter production data.
 - Next: actual post-HEAD workspace-write failure/recovery through native IPC, retained-copy OS picker/review, process interruption/stale locks and OS-close lifecycle. Native standalone post-HEAD sharing-failure coverage is not equivalent to IPC acceptance. Create-and-switch/delete/remotes and full migration remain incomplete.
 
-
-
 ## Native post-HEAD workspace-write failure accepted — 2026-09-29
 
 - Previous turn was progress: the native conflict-message fix was accepted and durable handoff updated.
@@ -307,12 +312,10 @@ Fixture setup uses actual native init/commit/create-branch and save/load command
 - Bun FFI CreateFileW opened the probe workspace with GENERIC_READ and FILE_SHARE_READ, denying replacement. A separate owned sharing fixture first verified the handle's write denial; all handles closed in finally.
 - Actual checkout changed HEAD to target but atomic workspace replacement failed. The before workspace and exact native-produced journal remained. Ordinary save was blocked; load recovery also failed while the handle was held and retained the journal.
 - After CloseHandle, native load applied the exact after workspace and removed the journal. Deleted-request history, nonconflicting local edit and target resource changes were retained; ordinary save worked again and a fresh document displayed target data.
--18 assertions passed in artifacts/native-checkout-ui-recheck/post-head-ipc.json. This exercises actual native commands and real planning, not the mounted frontend coordinator under failure. It does not prove crash/lost reply, retained-copy OS picker/review or OS-close lifecycle. No application source changes, saved test scripts or rebuild.
+  -18 assertions passed in artifacts/native-checkout-ui-recheck/post-head-ipc.json. This exercises actual native commands and real planning, not the mounted frontend coordinator under failure. It does not prove crash/lost reply, retained-copy OS picker/review or OS-close lifecycle. No application source changes, saved test scripts or rebuild.
 - Fixture now rests on target, recovered workspace persisted, no pending journal. Reuse fixture.json for refs but inspect current state before the next scenario.
 - Docs consulted before the inline Bun probe: https://bun.sh/docs/runtime/ffi ; https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew ; https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-closehandle . Bun -e launched directly through node_repl execFile(shell:false,windowsHide:true); FFI is probe-only, no production dependency added.
 - Next: recovery on fresh process/startup after a pending transition, mounted recovery/retained-copy OS picker acceptance, process interruption/stale locks and OS-close lifecycle; create-and-switch/delete/remotes and wider parity still pending.
-
-
 
 ## Fresh-process startup recovery accepted — 2026-09-29
 
@@ -320,12 +323,10 @@ Fixture setup uses actual native init/commit/create-branch and save/load command
 - Reused verified isolated executable and real client/planner to prepare target→main. Held the workspace through the documented Bun FFI CreateFileW sharing fixture, producing a real native journal and changed HEAD while workspace replacement failed.
 - Closed the first process by explicit window destroy while the sharing handle remained held. Verified terminal exit0 and journal still present, then released the handle and launched a new native process.
 - Before any manual load/recovery IPC in the second process, observed startup had removed the pending journal, persisted the exact journal afterWorkspace and displayed main resources. Local edit, deleted-request history and private/foreign resources survived.
--18 scenario assertions recorded in artifacts/native-checkout-ui-recheck/startup-recovery.json, plus screenshot startup-recovery.png. Both process exits verified0. No new source changes, saved test scripts, dependencies or rebuild.
+  -18 scenario assertions recorded in artifacts/native-checkout-ui-recheck/startup-recovery.json, plus screenshot startup-recovery.png. Both process exits verified0. No new source changes, saved test scripts, dependencies or rebuild.
 - Scope: fresh-process recovery from native-produced target+before state after a clean explicit exit. Not abrupt crash within a transaction, stale-lock handling, OS close lifecycle or mounted frontend failure coordination.
 - Fixture now main, no pending journal; req_delete restored from source, req_keep retains local edit. Do not use earlier target-state notes as current fixture state.
 - Next: mounted recovery/retained-copy OS picker acceptance, interruption/stale-lock and OS-close checks, create-and-switch/delete/remotes and remaining full feature parity. Full migration incomplete.
-
-
 
 ## Native branch creation retry evidence — 2026-09-30
 
@@ -340,8 +341,6 @@ Fixture setup uses actual native init/commit/create-branch and save/load command
 - Official docs consulted: https://git-scm.com/docs/git-checkout ; https://docs.rs/git2/latest/git2/struct.Transaction.html ; https://docs.rs/git2/latest/git2/struct.Repository.html#method.reference_ensure_log ; https://docs.rs/git2/latest/git2/struct.ReflogEntry.html . No generator/dependency needed. All commands through hidden node_repl→Bun launcher; Cargo invoked directly.
 - Full migration remains incomplete; production and isolated probe executables predate this source change.
 
-
-
 ## Durable create-and-switch UI and owner UI-test policy — 2026-09-30
 
 - Previous completed goal turn was progress: native creation retry evidence implemented and checked.
@@ -354,8 +353,6 @@ Fixture setup uses actual native init/commit/create-branch and save/load command
 - Next read official Playwright/WebView2 docs, add Bun-compatible saved UI scenarios for create-and-switch and resume/forget/reload, then use the completed isolated native build for acceptance. Do not claim mock/standalone checks prove mounted UI behavior.
 - Docs consulted: https://v2.tauri.app/develop/calling-rust/ ; https://svelte.dev/docs/svelte/$state ; https://git-scm.com/docs/git-checkout ; https://v2.tauri.app/reference/cli/#build . Native build command: bun x --bun tauri build --no-bundle --config with isolated identifier and beforeBuildCommand:null after separately completed frontend build. No shell/Node/npm execution.
 - Full migration remains incomplete.
-
-
 
 ## Saved Playwright native Git scenarios accepted — 2026-09-30
 
@@ -370,8 +367,6 @@ Fixture setup uses actual native init/commit/create-branch and save/load command
 - Official docs read before setup: https://playwright.dev/docs/webview2 ; https://playwright.dev/docs/api/class-browsertype#browser-type-connect-over-cdp . Adapted direct spawn to shell:false/windowsHide:true per owner; all JavaScript run by Bun. Commands and limits in tests/ui/README.md.
 - Next add saved scenarios for remaining branch/recovery cases and implement branch deletion/remotes plus remaining parity. Unborn/detached creation still incomplete. Full migration remains IN PROGRESS.
 
-
-
 ## Guarded branch deletion implementation — 2026-09-30
 
 - Previous turn was progress: saved Playwright create/resume/forget scenarios passed on the native app.
@@ -384,7 +379,6 @@ Fixture setup uses actual native init/commit/create-branch and save/load command
 - Isolated native build PID28784 (supervisor26528) confirmed live; poll the same handle/state, do not restart on timeout. Intended artifact insomnium-delete-probe.exe, same isolated checkout probe identity. No production package updated.
 - Next finish this build, run both saved Playwright scenarios sequentially, fix any findings and re-run relevant scenarios. No browser-use. Remote/delete edge cases, unborn/detached branch workflows, recovery/OS dialogs and full parity remain incomplete.
 - Sources: https://git-scm.com/docs/git-branch ; https://docs.rs/git2/latest/git2/struct.Transaction.html#method.remove ; https://docs.rs/git2/latest/git2/struct.Repository.html#method.graph_descendant_of . Existing Tauri AppManifest command generation used; no new dependency. Bun x --bun frontend tools, direct Cargo checks and documented no-bundle Tauri build launched without shell.
-
 
 ## Guarded deletion accepted in native UI — 2026-09-30
 

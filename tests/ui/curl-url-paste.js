@@ -43,7 +43,11 @@ await withPreview("curl-url-paste", async (page) => {
       );
     }, text);
     await page.waitForTimeout(150);
-    assert.equal(await url.inputValue(), "https://api.example.com/items?x=1", name);
+    assert.equal(
+      await url.inputValue(),
+      "https://api.example.com/items?x=1",
+      name,
+    );
     assert.equal(await method.inputValue(), "POST", name);
   }
   // Typing/filling single-line text is parsed too.

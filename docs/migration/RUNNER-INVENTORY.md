@@ -8,6 +8,7 @@ Status: **Runtime/worker/shared sender/Tests UI implemented; full parity and nat
 ## Legacy contract
 
 Sources under `_backup/legacy-electron/packages/insomnia/src/`:
+
 - `models/unit-test.ts`: saved name/code/requestId, parent suite.
 - `models/unit-test-suite.ts`: named suite, parent workspace; tests/suites can duplicate.
 - `models/unit-test-result.ts`: results record; canDuplicate/canSync false.
@@ -17,6 +18,7 @@ Sources under `_backup/legacy-electron/packages/insomnia/src/`:
 - `network/unit-test-feature.ts`: sends with selected request environment, rendering and plugin transforms. Returns status, statusMessage, UTF-8 data, lower-case header map (last duplicate wins), responseTime.
 
 Engine sources under `_backup/legacy-electron/packages/insomnia-testing/src/`:
+
 - `generate/generate.ts`: recursive describe, async arrow it, expect from chai; beforeEach clears active request, then per-test default request selected.
 - `run/insomnia.ts`: insomnia.send(optional request ID), otherwise active request; missing request throws "No selected request".
 - `run/run.ts`: Mocha/Chai, 60-second timeout, bail/filter; old Node globals/temp-file loading must be replaced.
@@ -64,6 +66,7 @@ Sources consulted before installation/probe: [Bun add](https://bun.sh/docs/pm/cl
 ## Isolated runtime implementation — 2026-09-29
 
 Implemented `src/lib/runner-runtime.js` exporting runSuiteIsolated(engine, sources, suite, send, options).
+
 - Fresh QuickJS VM and real Mocha/Chai browser bundles. Suite snapshot, async per-test code, default/explicit insomnia.send, selected-request reset, filter/bail and legacy-shaped tests/passes/failures/pending/stats.
 - Host send callback receives request ID and per-test AbortSignal. Deferred QuickJS promises serialize bounded response JSON; pump jobs in bounded batches. Timed-out/ended tests discard late host responses without waking stale script continuations.
 - Actual repeating timers with clear support. User timers are scoped to their test and cleared at test boundaries; Mocha captures independent scheduler functions before user timer wrappers replace globals.
@@ -137,6 +140,7 @@ Archived insomnia-testing/src/run/insomnia.ts exposes sendRequest as the supplie
 Added an async guest sendRequest callback backed by the existing owned __runnerSend bridge; send() now delegates through this.sendRequest. No native API, Node runtime or extra capability is exposed. Existing bridge cancellation, bounds and response handling still apply.
 
 Verification used the actual archived Insomnium class under Bun and actual new runtime with Mocha/Chai in QuickJS:
+
 - Direct callback, detached callback, replacement/delegation, active request selection/clear, host rejection and between-test active reset: legacy 6 passed; before fix new runtime 2 passed/4 failed; after fix new runtime 6 passed/0 failed.
 - Five additional host assertions checked direct-callback cancellation, one host call, aborted transport signal and successful fresh context after cancellation.
 - bun run check: 0 errors/0 warnings; bun run build passed and emitted updated worker assets. Build's npm/Node suggestions were not executed.
@@ -151,6 +155,7 @@ Next: native callback/script acceptance and remaining legacy script/import/resul
 The callback probe build completed successfully (6m31s compile) using the documented isolated overlay. Verified the new executable timestamp and embedded identifier before copying; running app returned app.insomnium.probe.runner20260929. Official WebView2 environment/debugging and CDP Runtime docs were consulted again.
 
 Actual Tests UI in the native WebView, production CSP unchanged:
+
 - Added a new Native Callback Acceptance collection with local HTTP request, suite and test, preserving existing probe collections.
 - One test exercised direct insomnia.sendRequest(id), detached callback, then an overridden callback invoked by insomnia.send(). Status/body assertions and delegation count passed: UI 1 passed / 0 failed, local server exactly 3 /echo requests.
 - Changed only this fixture's request/code to direct sendRequest against /slow. Waited for fourth server request, clicked Stop, and waited 8.5 seconds past the server delay. UI reported Run cancelled; saved result count and entire persisted history were unchanged.

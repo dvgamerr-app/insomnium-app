@@ -73,14 +73,12 @@
 - Replaced all application Icon hand-authored SVG paths with explicit per-icon imports from @lucide/svelte1.52.0. Stream direction character arrows and CSS loading spinners now use Lucide SVGs through the same component. Commit-history SVG remains a data graph, not a UI icon; native control indicators retain browser semantics. License copied to static/licenses/Lucide-ISC.txt.
 - Consulted official Lucide installation documentation: https://github.com/lucide-icons/lucide/blob/main/docs/guide/installation.md ; installed with bun add @lucide/svelte (Svelte5 package). Check0/0 and frontend build pass. Saved theme and workspace preview regressions pass, including no-outline keyboard focus and Lucide navigation SVG assertions. Inspected dark URL-focus screenshot. Native controls executable from the preceding milestone predates these visual changes; this follow-up is verified in the rebuilt preview.
 
-
 ## Shared control redesign and broad adoption — 2026-10-05
 
 - Owner correctly pointed out that the prior component scaffold did not fulfill broad UI redesign/adoption. New Nocturne control surfaces now have centralized8px radius,34px height, contrasting borders, hover/focus/error states, themed dropdown pickers, and redesigned modal spacing/header/backdrop. Removed old modal/UI primitive CSS ownership instead of retaining two competing sets.
 - Migrated253 additional input/select/button sites plus15 textareas across request/auth/settings/import/resources/Git/runner/protocol panels. Added data-driven Dropdown, used for theme and editor keymap. Native select semantics remain; base-select is progressive enhancement with native fallback on unsupported engines. Numeric bindings and native input element references are preserved. Component API/examples: src/lib/components/ui/README.md.
 - Check0 errors/0 warnings and frontend build pass. Saved workspace scenario passes actual custom picker dark/light, keyboard selection, Escape closing dropdown before modal, numeric persistence and existing resize/focus checks; inspected dropdown/settings screenshots. Initial CSS integration regressed URL field width/focus and method color specificity; corrected dedicated group rules, preserving one focus ring and divider. Existing theme scenario rerun passes both modes at1440/900/760.
 - Fresh isolated native controls build finished exit0 (5m48s), artifacts/native-nocturne-controls-probe/build-state.json. Seven saved native scenarios pass: git-source-control-1791190755188, nocturne-native-theme-1791190765950, nocturne-grpc-theme-1791190779021, nocturne-stream-theme-1791190789832, graphql-editor-1791190802029, curl-import-multipart-1791190814703 and curl-import-file-body-1791190824024. Inspected native author modal with new controls. No build remains running. Original migration parity remains open.
-
 
 ## Source Control tab, shared UI and resizable panels — 2026-10-05
 
@@ -91,7 +89,6 @@
 - Native theme/recovery passes at artifacts/playwright/nocturne-native-theme-1791186893409. Initial source-control scenario used getByLabel exact on a required label containing an asterisk; switched to accessible textbox name. Initial theme recovery expected the old Git modal to disappear; the new branch settings remain after recovery, so the saved scenario now closes them explicitly. Inspected native screenshots and corrected required-label display plus narrow history badge truncation.
 - Saved native gRPC, WS/SSE and GraphQL editor scenarios now exercise their shared splitters too; all pass on the first workspace executable. Evidence: nocturne-grpc-theme-1791186940632, nocturne-stream-theme-1791186951475 and graphql-editor-1791187012534. Final preview scenarios pass; check0/0 and build pass. Final native runner defaults point to the final workspace build record.
 - Final native build finished exit0 (6m06s), artifacts/native-nocturne-workspace-final/build-state.json. Final source-control rerun passes at artifacts/playwright/git-source-control-1791187244103/acceptance.json, including required-label layout and visible commit-title width at760. Inspected final dark760 Git screenshot; branch badges truncate without hiding commit titles. No build remains running. Requested Git/shared-component/resizable-panel scope is complete; original migration parity remains open.
-
 
 ## Nocturne naming and CSS cleanup — 2026-10-05
 
@@ -140,7 +137,6 @@
 - Official docs consulted: https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Containment/Container_queries ; https://v2.tauri.app/reference/cli/ . Commands: bun run check; bun run build; bun run test:ui:theme; bun x --bun tauri build --no-bundle --config <isolated overlay, beforeBuildCommand:null>, documented child MSVC/SDK env.
 - NEXT poll same build; saved native theme scenario for actual cookie/Git/proto views, remaining preview error/loading/dialog states. Whole-theme goal and original migration still incomplete.
 
-
 ## Hoppscotch shell, typography and live-reference correction — 2026-10-05
 
 - Previous goal turn made progress (central theme source and a saved preview scenario). Revalidated actual worktree. Current owner theme objective remains active; no claim that full migration is complete.
@@ -153,7 +149,6 @@
 - Commands: bun add @fontsource-variable/inter @fontsource-variable/roboto-mono; bun x --bun prettier --write <changed files>; bun run check; bun run build; bun run test:ui:theme; bun tests/ui/hoppscotch-reference.js. Sources and remaining completion audit: NOCTURNE-THEME.md.
 - NEXT full theme goal remains incomplete: align remaining collection/environment chrome against captured reference, inspect advanced auth/body/file/error/loading variants and auxiliary layouts at narrow widths, and verify desktop-only Git/cookie/proto/recovery views with a fresh isolated native build. Existing native artifacts contain old assets. Do not claim whole-theme/native acceptance from this preview matrix. No active processes; no installer/publish/commit.
 
-
 ## Hoppscotch theme foundation — 2026-10-05
 
 - Latest owner objective explicitly requests the complete Hoppscotch design theme now. This supersedes the prior theme deferral for this task; full migration/parity is still incomplete. Broader reusable-input and workflow redesign remains tracked separately.
@@ -163,27 +158,24 @@
 - Commands: bun run build; bun run check; bun tests/ui/hoppscotch-theme.js; bun x --bun prettier --write <changed source/scenarios>.
 - NEXT: complete visual fidelity audit of header/navigation/request/response layouts, dialogs/preferences, auth/editor/protocol/runner/Git surfaces; load matching typography; expand the saved scenario for those surfaces and inspect both themes. Current change is theme foundation only, NOT the completed whole-design goal. Native distribution has not been rebuilt. No active task processes.
 
-
 ## Guarded selected Git restore save and coordinator — 2026-10-03
 
 - Added git_repository_restore in git_journal.rs and registered command/generated ACL. Under GitState→StorageState it requires loaded session/no checkout journal, validates IDs/unique nonempty selection, reuses collection privacy/ownership/topology/envelope guards, rejects unselected resource changes and pending create/fetch intent, locks HEAD+branch, verifies exact symbolic branch/OID and clean repository, compares persisted before-workspace twice, backs up and atomically writes one workspace file. Git refs/index/worktree are unchanged. No version1 checkout journal is written for this single-file operation.
 - YAML decoding/selected baseline reconstruction remains the frontend planner responsibility (same frontend/native boundary as checkout). Native independently validates write scope and captured HEAD, not YAML-to-candidate semantic equivalence. Runtime refusal/fault/atomic-save coverage remains REQUIRED before UI release.
 - Added createGitRestore coordinator with private single-use review handles, cancel, exact complete-workspace/fresh HEAD+plan revalidation after quiescence, baseline save and exclusive persistence transition. Native reply must match operation/branch/OID/workspace. Uncertain replies require authoritative load instead of resend; unexpected live edits retained and require explicit reviewed-copy recovery. Not wired into workspace/UI yet.
--11 inline Bun assertions pass: read-only review, mutated visible review cannot alter private candidate, successful confirm/save, consumed/cancelled/forged handles, stale workspace/HEAD refusal, lost-success reply recovery without resend, retained live edits and mismatched review refusal. Native command was injected for these coordinator checks; not actual native runtime evidence. artifacts/git-restore-coordinator-check/result.json.
+  -11 inline Bun assertions pass: read-only review, mutated visible review cannot alter private candidate, successful confirm/save, consumed/cancelled/forged handles, stale workspace/HEAD refusal, lost-success reply recovery without resend, retained live edits and mismatched review refusal. Native command was injected for these coordinator checks; not actual native runtime evidence. artifacts/git-restore-coordinator-check/result.json.
 - cargo check --locked and cargo clippy --locked -- -D warnings pass using documented child MSVC/SDK environment; command ACL generated by Tauri build. bun run check0 errors/0 warnings; Prettier/targeted diff check pass. Initial JSDoc on a multi-variable declaration left retained implicitly any; split declarations and reran check successfully. No new saved feature test scripts.
 - Official API consulted: https://v2.tauri.app/develop/calling-rust/ ; git2 Transaction docs URL unavailable via web, existing installed transaction/lock pattern reused without adding dependencies. Commands: Bun inline coordinator probe; bun run check; Bun Prettier; Cargo fmt/check/clippy.
 - NEXT actual native restore refusal/write/reload/fault validation, wire coordinator review/confirm/cancel/recovery into existing Git panel/workspace, then saved Playwright acceptance and fresh isolated build. Existing probe lacks the new command. Full restore UX and overall migration remain incomplete; all other PARITY gates retained.
-
 
 ## Selected Git restore planning — 2026-10-03
 
 - Added prepareGitRestore in git-staging.js for explicitly selected changed paths against a pinned committed baseline. Restores modified/deleted resources and removes selected local additions. Unlike commit preparation, does not implicitly include workspace changes. Uses existing topology/three-way reconciliation to preserve local metadata/private/foreign records and reject orphaning selections, protected resources, unknown/stale/empty selections. Pure plan only; no refs/persistence mutation.
 - Added createGitClient.prepareRestore: uses private session baseline (ignores modified displayed metadata), requires committed branch, rereads HEAD, rejects changed binding/public collection, guards complete resource array and closed session after async native read. Returned preview is NOT permission to overwrite later live edits.
--17 inline Bun assertions pass (no saved new test script): selected modify/delete/add, unselected workspace edits, local metadata/protected/foreign preservation, input immutability, orphan/private/empty/unknown refusal, private captured HEAD, read-only IPC, moved HEAD/live foreign edit/closed-session refusal. Evidence artifacts/git-restore-planner-check/result.json. Svelte check0/0; frontend build0; Prettier applied. Initial tool orchestration syntax error occurred before execution/writes, corrected.
+  -17 inline Bun assertions pass (no saved new test script): selected modify/delete/add, unselected workspace edits, local metadata/protected/foreign preservation, input immutability, orphan/private/empty/unknown refusal, private captured HEAD, read-only IPC, moved HEAD/live foreign edit/closed-session refusal. Evidence artifacts/git-restore-planner-check/result.json. Svelte check0/0; frontend build0; Prettier applied. Initial tool orchestration syntax error occurred before execution/writes, corrected.
 - Source consulted: https://git-scm.com/docs/git-restore ; existing legacy selected undo requirement in GIT-INVENTORY. Commands: inline bun -e probe; bun run check; bun run build; bun x --bun prettier --write src/lib/git-staging.js src/lib/git-client.js.
 - NEXT implement reviewed selected-restore coordinator with quiescence, persisted before-state and native HEAD/binding/resource revalidation under GitState→StorageState; atomic save/recovery and retained live edits, then explicit review/confirm/cancel UI and saved native scenarios. Do not directly apply this preview or reuse a stale plan. Native worktree/index behavior and legacy selection cancellation remain required.
 - Full selected undo is not yet user-accessible. Advance-ref journal/pull/merge/clone/push, GraphQL/platform/CI and full parity remain open; shared input/UX deferred.
-
 
 ## GraphQL scenario compiler gate restored — 2026-10-03
 
@@ -200,7 +192,6 @@
 - Commands: bun run check; bun x --bun prettier --write <six edited tests/ui/graphql*.js>; INSOMNIUM_UI_BUILD_STATE=artifacts/native-graphql-focus-ui-probe/build-state.json bun tests/ui/<scenario>.js. No new build needed for these test-only fixes.
 - NEXT remaining SDL native save dialog, resize/accessibility, provider/proxy/TLS/cookies and other platforms; all other original PARITY/CI gates remain open. Full migration incomplete and shared input/UX redesign deferred.
 
-
 ## GraphQL import focus visibility fixed — 2026-10-02
 
 - Reproduced native failure without test-assisted scroll at artifacts/playwright/graphql-schema-import-1790959506379. Hidden absolute file input was not anchored to its label. Scoped src/lib/styles.css rules position the GraphQL import label relatively and stretch its transparent input over that label. Existing visual layout preserved; API Design styles unchanged.
@@ -210,18 +201,15 @@
 - Commands: bun run check; bun run build; bun x --bun prettier --write src/lib/styles.css tests/ui/graphql-schema-import.js; documented Bun Tauri build --no-bundle with isolated identifier and beforeBuildCommand:null; INSOMNIUM_UI_BUILD_STATE=artifacts/native-graphql-focus-ui-probe/build-state.json bun tests/ui/graphql-schema-import.js. Official CSS source: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/position .
 - Migration remains incomplete; shared inputs and UX redesign remain deferred.
 
-
 ## GraphQL focus fix validation in progress — 2026-10-02
 
 - Scoped CSS anchors hidden GraphQL file input to its visible label (position relative; inset0/full size) without changing toolbar layout or API Design controls. Regression now requires label visibility without scrollIntoView.
 - Frontend production build passes. bun run check reports81 errors in7 saved GraphQL test files; inspect and fix relevant annotations, no clean check claim.
 - Isolated native rebuild started: artifacts/native-graphql-focus-ui-probe/build-state.json and build.log; supervisor 40680. Poll actual process before any retry. Native fix acceptance pending.
 
-
 ## Import focus regression reproduced — 2026-10-02
 
 - Removed test-assisted scroll from theme scenario and asserted the focused import label center is visible via elementFromPoint. Existing native artifact fails at artifacts/playwright/graphql-schema-import-1790959506379 with false != true. Product focus visibility bug confirmed after schema browser scrolling. Investigating scoped positioning of hidden input; prior17 checks did not cover this.
-
 
 ## Native GraphQL keyboard import and theme checks — 2026-10-02
 
@@ -230,12 +218,10 @@
 - Product code unchanged; same isolated native artifact. Commands: bun tests/ui/graphql-schema-import.js; bun x --bun prettier --write tests/ui/graphql-schema-import.js. Official sources: https://playwright.dev/docs/api/class-filechooser and https://playwright.dev/docs/api/class-locator#locator-press . Playwright chooser interception is not an OS file-picker interaction test.
 - Native SDL save dialog, automatic focus scrolling, full accessibility/resize/provider/proxy/TLS/cookies/other platforms and all remaining original parity/CI gates remain open. Shared input/UX redesign deferred.
 
-
 ## Native GraphQL import keyboard activation — 2026-10-02
 
 - Extended the existing schema-import scenario to Tab from Fetch schema to the labeled file input, assert a nonzero focus-within outline, activate Enter, observe the actual Playwright filechooser event, and supply the SDL through that chooser. All 16 checks pass at artifacts/playwright/graphql-schema-import-1790959292770/acceptance.json; Bun command exited0. Product code unchanged.
 - Official source: https://playwright.dev/docs/api/class-filechooser . Commands: bun x --bun prettier --write tests/ui/graphql-schema-import.js; bun tests/ui/graphql-schema-import.js. Existing isolated native artifact/helper retained. This proves keyboard activation and file input handling, not interaction with an OS file-picker dialog (Playwright intercepts it). SDL save dialog, broader a11y/theme/resize/provider/platform/full parity remain open.
-
 
 ## Native GraphQL schema keyboard acceptance — 2026-10-02
 
@@ -244,7 +230,6 @@
 - Official reference consulted: https://playwright.dev/docs/api/class-keyboard . Existing isolated native artifact and saved Playwright helper reused; product code/UI unchanged. Node REPL is only the available tool bridge launching Bun; project scripts execute under Bun.
 - Scope is keyboard navigation within the loaded schema explorer only, not complete accessibility acceptance. Native export/file dialog, import-button keyboard reachability, screen-reader/focus visibility, theme/resize, provider/proxy/TLS/cookies and other platforms remain open. Full original parity and CI gates remain open; shared input/UX redesign remains deferred.
 - NEXT continue remaining GraphQL acceptance or outstanding original feature implementation from PARITY.
-
 
 ## Native GraphQL close-while-fetching and reopen acceptance — 2026-10-01
 
@@ -269,7 +254,6 @@
 - https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-close
 - https://playwright.dev/docs/network#network-events
 
-
 Second attempt1790809173923 still found three unowned visible windows; no WM_CLOSE posted. Added PID-scoped class/style diagnostics before choosing a stricter main-window criterion.
 
 Third diagnostic run1790809193027 identified main class Tauri Window plus single-instance and Tao event-target windows. Filter exact observed Tauri Window class in addition to owned PID/visible/unowned/exact-one; no title-based selection and no messages posted on failed attempts.
@@ -284,7 +268,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 
 - Added opt-in saved UI helper using Bun FFI/Win32 WM_CLOSE, guarded to owned probe PID. First attempt1790809142678 refused before posting because three visible top-level windows matched. No product changes. Refine selection to unowned main window, preserving exact-one/PID recheck guard, then rerun. Cleanup used existing owned-window destroy.
 
-
 ## Native GraphQL cache acceptance — 2026-10-01
 
 - Previous goal turn made progress with12 schema import/browser checks. Revalidated STATUS/PLAN/PARITY, cacheSchema and native scenario helper; consulted https://playwright.dev/docs/input#upload-files before fixture implementation.
@@ -294,11 +277,9 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Inspection found frontend onCloseRequested handler in src/routes/+page.svelte and capability core:window:allow-destroy; next inspect exact native close permissions/event path before implementing saved close-while-fetching acceptance. Do not bypass lifecycle using force-kill and call it graceful close.
 - All other original PARITY and CI/platform gates remain open. Migration goal active; shared components/UX redesign remains deferred.
 
-
 ## GraphQL cache acceptance first attempt — 2026-10-01
 
 - Saved tests/ui/graphql-schema-cache.js reached final body-preservation assertion after cache count/age/combined byte-budget checks. Failed because test compared pre-import body with normalized persisted body (importer adds params: []). Artifact artifacts/playwright/graphql-schema-cache-1790808874997. Correct test baseline to persisted post-import data, then rerun same scenario. Product code unchanged; full acceptance not yet claimed.
-
 
 ## Native GraphQL schema import and browser acceptance — 2026-10-01
 
@@ -310,7 +291,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Confirmed AGENTS.md and POST-MIGRATION-UX.md retain owner instructions: reusable input components in src/lib/components/ui and redesigned UX with possible Hoppscotch reference only AFTER full migration. No browser-use; saved per-feature Playwright via Bun.
 - NEXT inspect remaining schema cache/lifecycle gates and extend the relevant saved scenario, then continue outstanding original parity. Do not start deferred UX or mark migration complete.
 
-
 ## Native GraphQL source context and execution acceptance — 2026-10-01
 
 - Previous goal turn progressed with15 editor +12 lifecycle checks. Revalidated STATUS/PLAN/PARITY and actual header/auth/environment UI/source before continuing. Read https://graphql.org/learn/introspection/ and https://www.graphql-js.org/api-v16/graphql/ before fixture implementation.
@@ -320,7 +300,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Same recorded isolated Windows probe as prior GraphQL milestones; fixtures stopped/owned apps closed. Combined current GraphQL evidence:15 editor,12 schema lifecycle/GET,6 source-context and4 execution cases. Case counts are not a full-parity claim.
 - Remaining GraphQL gate includes raw __schema import, oversized/invalid-schema preservation, SDL export/native dialog, close while fetching/cache eviction, richer schema docs/search/a11y/theme/resize, provider/proxy/TLS/cookies and other platforms. Subscription/protocol scope remains as original inventory. CI remote/artifact/platform and all non-GraphQL parity still open.
 - NEXT remaining import/schema-browser acceptance, then other missing feature implementation/acceptance from PARITY. Shared inputs/UX remains after full migration.
-
 
 ## Native GraphQL operation/schema lifecycle and GET acceptance — 2026-10-01
 
@@ -332,18 +311,16 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Scope remains PARTIAL: native SDL export/file-dialog acceptance, header/auth/environment-specific schema invalidation, mutation/subscription/protocol/provider/TLS/other-platform and visual parity remain open. URL invalidation does not prove every source dimension; GET fixture verifies transport encoding and response display, not arbitrary server execution.
 - Commands: bun tests/ui/graphql-editor.js; bun tests/ui/graphql-schema-lifecycle.js; Bun Prettier; targeted git diff --check. CI/platform/artifact retention and all other original parity remain required; no redesign/shared input implementation before full migration.
 
-
 ## Native GraphQL editor acceptance — 2026-10-01
 
 - Previous turn progressed through package dependency fixes. Read current STATUS/PLAN/PARITY, GRAPHQL-RENDERING, CodeEditor/GraphqlEditor and existing native saved-scenario helper. Switched to original application parity while external CI/platform gates remain open.
 - Consulted official Playwright keyboard/file upload docs and GraphQL utilities before implementation: https://playwright.dev/docs/api/class-keyboard , https://playwright.dev/docs/input#upload-files , https://www.graphql-js.org/api-v16/utilities/ .
 - Added owner-authorized saved Playwright JS scenario tests/ui/graphql-editor.js and package script test:ui:graphql-editor. Bun loopback fixture only, actual native Windows WebView/Tauri IPC via isolated existing probe identity; no browser-use/Computer Use/ad-hoc browser tool.
--14 accepted checks in artifacts/playwright/graphql-editor-1790807788569/acceptance.json: authenticated native introspection, user-body preservation, schema type browser, query completion, operation-variable completion, nested input completion, enum completion, non-object variable lint, rendered validation, hover type navigation+popup cleanup, unknown-field diagnostic, native POST payload/response, reload persistence+session-cache reset, local SDL import.
+  -14 accepted checks in artifacts/playwright/graphql-editor-1790807788569/acceptance.json: authenticated native introspection, user-body preservation, schema type browser, query completion, operation-variable completion, nested input completion, enum completion, non-object variable lint, rendered validation, hover type navigation+popup cleanup, unknown-field diagnostic, native POST payload/response, reload persistence+session-cache reset, local SDL import.
 - Command bun tests/ui/graphql-editor.js actual0. First attempt failed because test expected sidebar POST rather than GQL; second expected word valid instead of real success sentence. Corrected test only; subsequent run passed and expanded14-case run passed. Failure artifacts retained1790807703302/1790807737007. Product code unchanged.
 - Accepted artifact artifacts/native-unix-socket-ui-probe/insomnium-fetch-recovery-probe.exe, build-state1790800454260→1790800783641, identity app.insomnium.probe.checkout20260929. Latest packaging changes do not alter GraphQL frontend/native request behavior. This is acceptance on that recorded artifact, not proof of an unbuilt production installer.
 - Prettier applied to saved scenario; package script added. Fixture stopped in finally, helper closed owned probe. Scope still PARTIAL: multiple-operation switching, schema invalidation/cancel/errors, JSON schema import/SDL export, GraphQL GET and broader native provider/TLS/platform acceptance remain open. Fixture returns known response; it does not independently execute arbitrary GraphQL queries.
 - NEXT extend saved GraphQL scenarios for remaining acceptance, then other original feature parity. CI remote execution/artifact retention/platform distribution remain open; no scope removal. Shared inputs/UX deferred.
-
 
 ## Dynamic Debian metadata verified in combined release build — 2026-10-01
 
@@ -355,7 +332,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - CI explicitly installs dpkg-dev; README/CI.md updated. Native actionlint and targeted git diff --check pass. No new saved tests, Node/Python/browser-use or remote changes.
 - Builder stopped; runtime containers remain stopped. Full migration still incomplete. NEXT CI bootstrap/remote validation/artifact retention, Ubuntu actual-ELF/native-platform acceptance, original feature parity. Shared input components/UX stays deferred.
 
-
 ## Automatic Debian dependency metadata implemented; integration running — 2026-10-01
 
 - Previous goal turn progressed with combined formats/CI. Revalidated current files and official https://manpages.debian.org/bookworm/dpkg-dev/dpkg-shlibdeps.1.en.html .
@@ -365,7 +341,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Added explicit dpkg-dev CI prerequisite; README/CI docs updated. Cross-distro/cross-arch acceptance remains pending.
 - All-format primary integration LIVE: supervisor28308/WSL child31516, artifacts/linux-deb-dynamic-primary/{state.json,build.log,stderr.log}; same retained container and optimized profile, command bun run desktop:build --ci -- --locked, CARGO_BUILD_JOBS=1. Do not restart on observation timeout. Poll actual process; final metadata/build acceptance pending.
 - Original full parity and CI remote/artifact/runtime acceptance remain incomplete; no redesigned UX/shared input implementation yet.
-
 
 ## Combined Linux release packaging and Bun-only CI workflow — 2026-10-01
 
@@ -379,7 +354,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Builder stopped after exports; other3 owned runtime containers already stopped. No live compiler/bundler/app process.
 - NEXT CI runtime/bootstrap/artifact retention and platform acceptance, then outstanding original feature parity. Full goal remains incomplete; no redesign/shared components before migration completion.
 
-
 ## Primary AppImage release and bundled GLES accepted — 2026-10-01
 
 - Previous goal turn made progress through GLES implementation/probe. This turn revalidated current docs, polled SAME supervisor35360/child24236 and confirmed actual cargo/rustc then linuxdeploy processes; no timeout restart.
@@ -392,7 +366,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - CI investigation: active .github directory absent. Official setup-bun and checkout actions currently use node24 internally; cannot adopt those examples under strict no-Node rule. References and decision recorded in LINUX-DISTRIBUTION.md. No workflow/action executed.
 - NEXT primary release all-format integration (RPM+AppImage generators together), Bun-only CI with audited shell/native bootstrap/checkout/artifact handling, then original full parity. Legacy Linux tar.gz/snap, Windows/macOS release/upgrade/data/UI and outstanding Git/plugins/auth/runner/etc remain open. UX/shared components deferred until full goal complete.
 
-
 ## AppImage GLES fix implemented; primary release build live — 2026-10-01
 
 - Previous turn progressed through AppImage build/runtime diagnostics. Revalidated current STATUS/PLAN/PARITY and host configuration.
@@ -404,7 +377,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Primary RELEASE AppImage build running in retained builder: bun run desktop:build --bundles appimage --ci -- --locked, CARGO_BUILD_JOBS=1. Supervisor35360/WSL child24236, artifacts/linux-appimage-primary/{state.json,build.log,stderr.log}. Frontend build passed; native optimized executable compiling. Poll SAME process; do not restart on timeout. Actual final result, bundled notice/library, runtime and cleanup pending.
 - Earlier short-lived Bun launcher produced no state/process evidence; persistent supervisor started once confirmed no state. Probe bundler20916/3872 already terminal0.
 - Owned builder remains running for compiler; AppImage runtime now stopped after completed probe. Debian/Fedora package runtimes stopped. Do not stop builder while primary build live. Continue primary verification; then all-format/CI/original full parity. UX/components deferred until full migration; browser-use prohibited.
-
 
 ## AppImage build and conditional runtime smoke — 2026-10-01
 
@@ -419,7 +391,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - NEXT resolve AppImage dynamic GLES dependency and bus warning through upstream docs/source, repeat clean acceptance, then primary release/all-format build and Bun-only CI. FUSE desktop launch, real upgrade/data/UI/macOS/Windows/legacy formats and original full PARITY remain open.
 - Owner follow-up remains recorded in AGENTS.md and POST-MIGRATION-UX.md: reusable components/ui inputs and redesigned UX after FULL migration. Browser-use prohibited; saved Playwright JS scenarios via Bun for UI verification.
 
-
 ## Fedora44 clean RPM install/start/reinstall/remove verified — 2026-10-01
 
 - Previous turn made progress (primary RPM integration). Revalidated STATUS/PLAN/PARITY and exported optimized RPM SHA-25614ca1c35378fa9346ead84835e44ca9f80375def058fe1800bcdf05010f40db4 before use.
@@ -432,18 +403,16 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - No product/new saved test changes. Fedora runtime stopped; all THREE owned containers inspected exited. Probe RPM removed, /tmp artifact and user profile retained. No live installer/compiler/app. Original linuxRpmInstall supervisor1496/child11868 terminal.
 - NEXT AppImage bundling/dependency/runtime acceptance using retained optimized build, then full primary release/all-format flow and Bun-only CI. Other distros/architectures, actual upgrade/data/UI/macOS/Windows/legacy formats and all original PARITY remain open. UX deferred.
 
-
 ## Primary desktop build generates fresh RPM requirements — 2026-10-01
 
 - Previous turn made progress (RPM generator/metadata/license). Revalidated checkpoint and official Tauri CLI2.12.0 bundle.rs ordering: config is loaded before beforeBundleCommand, so mutating a config file from that hook would not update the in-memory bundle settings.
 - Added scripts/build-desktop.mjs and routed package.json desktop:build through it. Windows/macOS, help and explicit --no-bundle delegate directly to documented Tauri commands. Linux RPM flow runs Tauri build --no-bundle, captures its actual reported executable path, generates requirements into a unique temporary config, merges explicitly configured extra RPM dependencies, then invokes Tauri bundle with the same shared debug/target/features/config/signing/bundle flags. Finally removes only its own temp directory.
 - Linux wrapper parses JSON config/merge patches (including platform overlay); custom Cargo profiles/output args and JSON5/TOML overlays explicitly refuse rather than guess paths/config. Cargo --locked/--offline/--frozen supported. Original raw bun run tauri remains available for custom manual flows. README documents prerequisites and boundaries; no hardcoded64-bit dependency list.
--11 inline argument/config-merge assertions pass, Windows actual desktop:build --help passthrough exit0. No saved test scripts. Ran primary command in retained Linux snapshot: bun run desktop:build --debug --bundles rpm --ci -- --locked, CARGO_BUILD_JOBS=1/CARGO_PROFILE_DEV_DEBUG=0. Actual child exit0 at artifacts/linux-rpm-primary/state.json; supervisor38788/child14900 terminal. Fresh debug RPM20.10MiB.
+  -11 inline argument/config-merge assertions pass, Windows actual desktop:build --help passthrough exit0. No saved test scripts. Ran primary command in retained Linux snapshot: bun run desktop:build --debug --bundles rpm --ci -- --locked, CARGO_BUILD_JOBS=1/CARGO_PROFILE_DEV_DEBUG=0. Actual child exit0 at artifacts/linux-rpm-primary/state.json; supervisor38788/child14900 terminal. Fresh debug RPM20.10MiB.
 - Final verification.json proves all49 debug ELF capabilities present in RPM, License MIT, and no remaining insomnium-rpm temp config directory. Previous release ELF had46 requirements, demonstrating current-binary derivation rather than reuse. Native build15.31s; overall111seconds including compression.
 - One inspection was attempted before bundler completion and failed to read incomplete RPM. Preserved premature-verification.json, waited on SAME process until terminal, then final verification passed; no restart or false build failure.
 - Targeted diff check passes. Builder stopped; Debian runtime remains stopped/purged. No live app/build/install process. Existing Vite chunk-size warning persists; generated npm preview suggestion was not executed.
 - NEXT clean RPM-native runtime install/ABI/start/lifecycle acceptance, release/all-format primary flow and AppImage, then Bun-only CI matrix. Custom profiles/config formats remain documented wrapper boundaries, not claims of tested support. True upgrade/data/UI/macOS/Windows/legacy formats and all original PARITY remain open; UX deferred.
-
 
 ## RPM metadata inspected; ELF-derived requirements generator implemented — 2026-10-01
 
@@ -456,7 +425,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Legacy electron-builder config located at _backup/legacy-electron/packages/insomnia/electron-builder.config.js also lists Linux tar.gz/snap and insomnia URI protocol; retain those in distribution/parity inventory rather than silently equating Tauri all with every legacy deliverable. No scope removal.
 - NEXT integrate fresh ELF dependency generation into primary Linux packaging flow, then clean RPM-native install/ABI/start/lifecycle acceptance and AppImage. See LINUX-DISTRIBUTION.md. Original UI/Git/plugins/etc parity and deferred UX ordering unchanged.
 
-
 ## Installed Linux release startup and Debian lifecycle verified — 2026-10-01
 
 - Previous turn made progress (release/dependency fix/clean install). Read current STATUS/PLAN/PARITY and official Tauri fake-display + Debian apt-get docs before proceeding.
@@ -466,7 +434,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Rewrote LINUX-DISTRIBUTION.md into current-state runbook with evidence/commands/limitations; removed confusing stale live-process statements from that runbook. Both owned containers stopped/inspected exited; runtime package PURGED, /tmp .deb and profile retained. No live task process.
 - NEXT inspect/build remaining configured Linux RPM/AppImage formats and runtime dependencies using official docs; true upgrade/schema/native UI/platform/CI and all original PARITY stay open. Reuse retained build/runtime containers; do not recreate on timeout. Shared inputs/UX remains after full migration.
 
-
 ## Corrected Debian package installs cleanly — 2026-10-01
 
 - Continued original release build to actual exit0 and fixed missing Debian dependency metadata as recorded below. Original linuxDebBuild and linuxDebInstall supervisors are both terminal; no build restart on timeout.
@@ -474,7 +441,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - verification.json proves dpkg status install ok installed0.1.0 amd64, dpkg --audit empty, dpkg --verify empty and ldd no missing libraries. Installed executable SHA-2563ed3bf2cd9c805c6541dcee285282568ae1d28334c8343a0848ce2eae89a534f.
 - Host source change: src-tauri/tauri.conf.json bundle.linux.deb.depends now declares12 release ELF library constraints. Corrected probe .deb exported in artifacts/linux-deb-build. Build/runtime container filesystem retained, but BOTH owned containers stopped and inspected exited (containers-stopped.json). No compiler/app/server/installer live. Unrelated containers untouched.
 - This proves optimized Debian package creation and dependency-resolved clean installation only. NEXT start same insomnium-deb-runtime-20261001; add Xvfb/xauth/dbus/AT-SPI test-environment tools, create isolated nonroot user, then verify installed release startup. Follow with reinstall/upgrade and remove/purge/state retention; UI/workflows remain separate saved Playwright/Bun gates. See LINUX-DISTRIBUTION.md. Full Linux/macOS/Windows/CI and original PARITY remain open; UX deferred.
-
 
 ## Linux release Debian build passed; runtime dependencies fixed — 2026-10-01
 
@@ -486,7 +452,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - LIVE installation supervisor linuxDebInstall PID37952 / WSL child37940, started1790803757882: apt-get update && apt-get install -y --no-install-recommends /tmp/insomnium-probe.deb, noninteractive. Separate stdout build.log/stderr.log and state in artifacts/linux-deb-install. Direct last poll live; package dependencies downloading/unpacking. No app running.
 - NEXT poll SAME installer, inspect final actual child result/dpkg status/ldd, then nonroot installed-binary startup, reinstall/upgrade and remove/purge acceptance as LINUX-DISTRIBUTION.md. Build container retains completed snapshot/cache, runtime container is active install target. No unrelated container touched. Full platform/UI/CI/original PARITY remains open; shared-input/UX phase deferred.
 
-
 ## Linux release build verified live; Debian dependency gap identified — 2026-10-01
 
 - Previous turn made progress (Linux Bun/check/frontend acceptance and release build launch). Revalidated docs/state and SAME linuxDebBuild supervisor6304 (exitCode:null/result:null); direct container ps showed Cargo PID272 and active rustc. Compilation advances; do not restart or stop container.
@@ -496,7 +461,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Added LINUX-DISTRIBUTION.md with exact environment, evidence, dependency diagnostic, next package inspection/clean-runtime install/start/upgrade/remove gates and official references. artifacts/linux-deb-build/debug-dependencies.json records calculation; no saved test scripts.
 - Follow-up verified wait: same supervisor6304 remains live; compiler advanced through vendored reqwest. Prepared clean Debian runtime image and created (not started) owned insomnium-deb-runtime-20261001,1CPU/1GiB/--init, no host mount/ports. See LINUX-DISTRIBUTION.md and runtime-image/runtime-container artifacts. No product changes or build restart.
 - NEXT continue original live release build (state/log under artifacts/linux-deb-build); after actual terminal outcome follow LINUX-DISTRIBUTION.md. Build log stdout/stderr may interleave; child state and artifact inspection determine success. Full original parity and deferred UX sequencing unchanged.
-
 
 ## Linux Bun frontend accepted; Debian release build running — 2026-10-01
 
@@ -508,7 +472,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - LIVE linuxDebBuild supervisor PID6304, WSL/Docker child20396, started1790802700780. Command in /workspace: CARGO_BUILD_JOBS=1 bun x --bun tauri build --bundles deb --ci -- --locked. Original release optimization/LTO settings retained; one job bounds concurrent compilation. This is an isolated probe package, not a production release.
 - artifacts/linux-deb-build/{state.json,build.log} hold durable progress. Last direct supervisor poll exitCode:null/result:null. Before-build Bun/Vite frontend completed successfully; log contains Vite's generic npm preview suggestion only, no npm command executed. Native release/package result still pending. Stored linuxDebBuildRun orchestration.
 - NEXT poll the SAME live process; do not restart on timeout. Read final child state, not supervisor exit alone. On success inspect .deb metadata/files/dynamic dependency requirements, copy evidence, then isolated install/start/remove acceptance. On actual failure inspect logs and container OOM state before changing build settings. Do not stop container or modify snapshot while build runs. UI/workflow/platform/CI/full original parity remain unverified where previously recorded; deferred UX remains after complete migration.
-
 
 ## Linux linked binary and bounded startup verified — 2026-10-01
 
@@ -523,7 +486,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Documentation verification: targeted git diff --check for STATUS/PLAN/PARITY passes. Repository-wide diff check finds pre-existing trailing whitespace at SUMMARY-TH.md lines17/80; unrelated file left unchanged.
 - Full original PARITY remains open (Git, plugins, lifecycle/protocols, import/spec, platform/installer/CI and remaining native/UI acceptance); no scope removed. Deferred shared inputs/UX still start only after full migration.
 
-
 ## Isolated Linux executable build running — 2026-10-01
 
 - Previous goal turn made progress: full Linux/Windows checks pass and cfg warning fixed. Revalidated STATUS/PLAN/PARITY/Cargo manifest. Consulted Cargo build docs and installed tauri2.12.0 crate docs confirming custom-protocol selects embedded production assets.
@@ -532,7 +494,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Durable artifacts/linux-app-build/{state.json,build.log}. Latest direct process poll exitCode:null; log compiling Tauri/Wry/crypto dependencies, no error observed but final result unproven. Do not restart on observation timeout. Stored linuxAppBuildRun orchestration.
 - NEXT poll same process/state; on success inspect ELF/link dependencies/embedded isolated identity and perform owned headless startup acceptance. No browser-use allowed; any UI scenarios must remain saved Playwright/Bun as authorized. No source edits while build runs. Full installer/platform/UI acceptance and remaining PARITY still open.
 - Keep owned insomnium-unix-acceptance-20261001 container while build/acceptance runs; no other container touched.
-
 
 ## Full Linux backend check passed; platform warning fixed — 2026-10-01
 
@@ -543,7 +504,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - No new test scripts. No live compiler/app/server; linuxAppCheck and linuxAppWritable supervisors terminal. Owned insomnium-unix-acceptance-20261001 container retained for next linked Linux build/runtime gate (not a production service).
 - NEXT linked Linux binary build with isolated probe identity and embedded frontend, then appropriate startup/platform acceptance; cargo check proves type/build-script correctness, not linking/GUI/installer/runtime. Source snapshot must be refreshed for any subsequent host edits. Full original PARITY remains open and deferred UX is still after migration.
 
-
 ## Linux full-app Cargo check running — 2026-10-01
 
 - Previous goal turn made progress (Linux transport runtime) and began native dependency installation. Revalidated STATUS/PLAN/PARITY and original linuxDeps handle; dependency installation terminal exit0.
@@ -551,7 +511,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - LIVE supervisor linuxAppCheck PID38228; Docker/WSL child PID35152, started1790801692405. Last direct handle poll exitCode:null/result:null. Durable log artifacts/linux-app-check/check.log and state artifacts/linux-app-check/state.json; do not restart on timeout. Logs advance through GTK/Tauri/macros/bindgen/libssh2 dependencies without errors so far; final app result unproven.
 - Orchestration linuxAppCheckRun stored in session. NEXT poll same handle or authoritative process state; read final state/log. Fix actual platform errors if any. If generated schemas require writes, use an owned copied container workspace while keeping host source readonly.
 - No product/test changes this turn. Full Linux application check/runtime and all remaining parity gates open. Owned container must be retained while check runs; remove only it after relevant evidence extracted, never prune unrelated resources.
-
 
 ## Linux Unix socket HTTP/TLS runtime accepted; full-app prerequisites installing — 2026-10-01
 
@@ -563,7 +522,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - NEXT poll same linuxDeps/linuxDepsResult; after success cargo check --manifest-path /work/src-tauri/Cargo.toml --locked (target /target, use low jobs/debug info if memory requires). If build needs generated source files, copy only required project subtree to owned container workspace rather than make host mount writable. Full Linux compile/runtime, installer/platform matrix and all remaining PARITY scope stay open.
 - No native app/server running. Owned container and dependency installation are live; remove only owned container after full platform evidence extracted. Never prune unrelated resources.
 
-
 ## Owned Linux runner established; reqwest Unix build running — 2026-10-01
 
 - Previous goal turn made progress (native Windows SSE acceptance). Revalidated STATUS/PLAN/PARITY. Windows PATH lacks docker/podman; read-only WSL inspection discovered /usr/bin/docker in dockerman-backend. Docker daemon26.1.5 is operational. No toolchain installed into base distro; unrelated running container untouched.
@@ -573,7 +531,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - NEXT after build completion inspect result, compile stdin Unix variant of prior HTTP/TLS probe using /target/debug/deps in same container, run actual std::os::unix listener/client acceptance. Rust source via stdin avoids saved non-UI test script. Source is readonly; build caches stay inside owned container. Full Tauri Linux app compilation/runtime remains separate gate.
 - Remove only this named owned container after evidence is extracted and acceptance finishes (or recorded terminal failure); never stop/prune unrelated resources. Windows regressions remain accepted, full migration open.
 
-
 ## Native AF_UNIX SSE parsing and Disconnect accepted — 2026-10-01
 
 - Previous goal turn made progress (native auth/cookie/redirect acceptance). Revalidated STATUS/PLAN/PARITY; inspected protocolFor/StreamPane and official WHATWG SSE interpretation before scenario extension.
@@ -581,7 +538,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Native UI Connect receives event; selected event body exactly equals Thai greeting plus newline second line; ID displayed, keepalive absent from event list. Wire verifies GET /sse, Accept:text/event-stream and Bearer. Disconnect results in peer EOF and UI leaves running state.
 - bun run check0 errors/warnings; full extended native scenario passes1790801282297 (10 wire requests including previous Send/Cancel/auth/cookie/redirect cases). Evidence artifacts/playwright/unix-socket-1790801282297/{acceptance,result}.json. Script/app/fixture exits0, no forced cleanup. Existing accepted native build reused; no product changes or rebuild.
 - NEXT investigate remaining platform acceptance (actual Unix cfg/runtime) and challenge/signed auth gaps against original contract. Current SSE evidence covers parsing/delivery/cancel, not reconnection/Last-Event-ID history or every streaming protocol. Raw URL fidelity and all other full PARITY scope remain open. No live processes/build/server.
-
 
 ## Native AF_UNIX auth/cookie/redirect routing accepted — 2026-10-01
 
@@ -591,7 +547,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - bun run check0 errors/warnings; bun tests/ui/unix-socket.js passes1790801156250 (9 wire requests total). Evidence artifacts/playwright/unix-socket-1790801156250/{acceptance,result}.json. Script/native/fixture exits0; no forced cleanup. No product edits or native rebuild; same accepted native-unix-socket-ui-probe used.
 - NEXT cover remaining AF_UNIX streaming/protocol and signed/challenge-auth integration as warranted by original contract, and establish Unix target compilation/runtime. Raw unencoded URL fidelity and remaining full PARITY scope remain open; full migration not complete. No live build/process/server.
 
-
 ## Native Unix socket HTTPS Preferences acceptance passed — 2026-10-01
 
 - Previous goal turn made progress (native Send/Cancel and auth regressions). Revalidated STATUS/PLAN/PARITY and inspected Preferences/transport CA and validateCertificates bindings.
@@ -600,7 +555,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Initial run passed1790801006282; strengthened negative UI assertion from broad certificate/TLS regex (could match scenario name) to error sending request, rerun passed1790801034434. Use latter evidence artifacts/playwright/unix-socket-tls-1790801034434/{acceptance,result}.json. Script/app/fixture exit0; no forced cleanup. bun run check passes0 errors/warnings before regex-only assertion tightening.
 - No live process/build/server. NEXT native AF_UNIX auth/cookie/redirect/stream acceptance; Unix target compilation/runtime and remaining full PARITY still open. TLS UI acceptance is not proof of full migration. Deferred shared UI/UX remains subsequent phase.
 
-
 ## Native Unix socket Send/Cancel accepted; auth regressions passed — 2026-10-01
 
 - Previous goal turn made progress (saved scenario/fixture) and verified live build. Revalidated STATUS/PLAN/PARITY; continued polling same supervisor33312, never restarted. Build finished exit0 at1790800783641 (~329s), fresh artifact artifacts/native-unix-socket-ui-probe/insomnium-fetch-recovery-probe.exe.
@@ -608,7 +562,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Existing url-encoding scenario passed1790800826812 on same build (23 Settings/Hawk/OAuth1/AWS wire cases); codecommit passed1790800842685 (6 cases/10 requests including307/303 same/cross-origin). Used INSOMNIUM_UI_BUILD_STATE=artifacts/native-unix-socket-ui-probe/build-state.json. These are TCP regressions, not all auth modes over AF_UNIX.
 - No product/test edits this turn. No live build/app/fixture remains. Build handle nativeUnixSocketBuild terminal exit0; authoritative build-state finished/result0.
 - NEXT extend saved Unix socket scenario for native HTTPS trust/hostname/settings and auth/redirect/cookie behavior; retain prior patched-client TLS evidence but do not conflate it with UI acceptance. Unix target compilation/runtime, other platform behavior and all remaining full PARITY scope stay open. Deferred UX starts only after full migration.
-
 
 ## Native Unix socket UI scenario prepared; build running — 2026-10-01
 
@@ -619,7 +572,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - NEXT poll same handle nativeUnixSocketBuild/nativeUnixSocketBuildResult (or authoritative OS process if new session). On exit0/build-state finished run bun tests/ui/unix-socket.js; default points to new isolated build. Inspect acceptance/result artifacts and fix any failures. Then run existing URL/auth regression on same build via INSOMNIUM_UI_BUILD_STATE override.
 - HTTPS native UI, app auth/redirect matrix, Unix platform and all other migration parity remain open. Fixture compile did not launch fixture/app; only native build currently live.
 
-
 ## Windows AF_UNIX HTTPS certificate validation accepted — 2026-10-01
 
 - Previous goal turn made progress (HTTP acceptance and proxy-header fix). Revalidated STATUS/PLAN/PARITY and consulted official rustls StreamOwned, reqwest tls_info, OpenSSL req/x509 docs before fixture implementation.
@@ -627,7 +579,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Inline Rust stdin probe uses real uds_windows listener + rustls StreamOwned and patched reqwest release crate. Three HTTPS cases pass: explicit local CA + correct host returns TLS OK, server sees expected SNI/Host, TlsInfo peer certificate exactly matches fixture DER; trusted CA + wrong host fails NotValidForName; untrusted CA fails UnknownIssuer. Negative handshakes fail before any HTTP bytes, not on timeout.
 - Evidence artifacts/unix-socket-reference/windows-uds-tls-probe.json compile/run exit0, no warnings. No product edit/rebuild this turn; no saved non-UI test script. Probe closes listeners/removes socket paths. No live process/build/server.
 - NEXT saved Playwright native scenario using fresh isolated app build: original Unix URL syntax, HTTP/HTTPS settings, response, persistence, app Cancel and socket path mapping on Windows. Shared app auth/redirect/cookie semantics and Unix platform runtime still require their acceptance. TLS probe establishes patched client behavior only, not full native UI/migration completion.
-
 
 ## Patched Windows AF_UNIX HTTP accepted; proxy-header leak fixed — 2026-10-01
 
@@ -639,7 +590,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - cargo check --locked --offline passes after fix. No saved non-UI test scripts; only stdin probe and ignored evidence/exe. No live process/server/build.
 - NEXT HTTPS certificate/hostname/TLS info acceptance with trusted/untrusted local fixture, then native UI request/cancel/auth/redirect matrix and isolated full build. Unix platform runtime, native-TLS feature and full migration scope remain open.
 
-
 ## Windows AF_UNIX connected to patched reqwest — 2026-10-01
 
 - Previous goal turn made progress: nonblocking connection/cancellation proof. Revalidated STATUS/PLAN/PARITY and pinned reqwest connector source; consulted Cargo patch documentation before changes.
@@ -647,7 +597,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Async unix_socket API/path now available on Windows. Connector drops proxies and selects AF_UNIX before named pipe/TCP. socket2 Windows-only dependency creates nonblocking STREAM, awaits writable and checks SO_ERROR; owned stream drops with cancelled future. Existing TLS wrappers reused in a Windows-specific function, preserving effective URI hostname and TLS config; Unix/named-pipe paths untouched.
 - Application build_client now enables socket routing on Windows as well as Unix. Token envelopes still clear socket path. Cargo check --offline updated lock to local package; rustfmt and cargo check --locked --offline then passed (reqwest, reqwest-websocket, app). Root uds_windows dependency from earlier fixture proof remains staged.
 - NEXT compile release connector and prove real HTTP/HTTPS, proxy/DNS bypass, body/redirect/auth/cookie/stream/timeout/cancel through patched client, then saved native UI scenario/new isolated build. Native executable still predates this patch. Native-TLS feature variant and non-Windows platform compilation/runtime remain unverified. Full migration open; no live build/process/server.
-
 
 ## Windows AF_UNIX nonblocking connect and cancellation proven — 2026-10-01
 
@@ -657,7 +606,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Polled connect future once, observed Pending, dropped future; accepted peer observed EOF. Compile/run exit0, no warnings. Evidence artifacts/unix-socket-reference/windows-uds-nonblocking-probe.json. No saved non-UI test script.
 - NEXT integrate focused pinned reqwest Windows local transport adapter retaining TLS/auth/cookie/redirect behavior. Product connector unchanged; Windows app still refuses socket routes. Unix platform/TLS/native UI/full parity remain open. No live probe/server/build.
 
-
 ## Windows AF_UNIX Tokio and curl runtime proof passed — 2026-10-01
 
 - Previous goal turn made progress (platform/API feasibility). Revalidated STATUS/PLAN/PARITY/UNIX-SOCKET; consulted uds_windows1.2.1 UnixStream and Tokio TcpStream::from_std documentation.
@@ -666,7 +614,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Initial probe link failed LNK1107 because adapter release crate contains LTO bitcode; retry with -C panic=abort -C lto=yes matched release profile and passed. Probe provided to rustc stdin, no saved non-UI test script. Stored orchestration windowsUdsProbeRun/windowsUdsProbeRust available in session.
 - Proof covers connected async read/write, read deadline and stream-drop cleanup; connect is synchronous in this probe and connect cancellation/TLS/reqwest are NOT proven. NEXT implement bounded cancellable connect and focused pinned reqwest local-transport extension using demonstrated handle adapter, retain TLS/hostname/cookie/signing/redirect semantics; then native UI acceptance. Windows app still explicitly refuses socket route until connected. Unix target/runtime and all other full parity remain open. No live process/build/server.
 
-
 ## Windows AF_UNIX feasibility and runner inventory — 2026-10-01
 
 - Previous goal turn made progress (Unix parser/IPC/native route). Revalidated STATUS/PLAN/PARITY. Read pinned reqwest connector source and official uds_windows docs; wrote detailed evidence/next decisions in UNIX-SOCKET.md. No product edits.
@@ -674,15 +621,13 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - reqwest Windows named-pipe API is not AF_UNIX. connector_layer has sealed Conn response and Unnameable request bounds, so app Tower layer cannot simply substitute a Unix stream. uds_windows1.2.1 source is cached but not compiled; real Windows Unix sockets remain feasible pending runtime/async adapter verification.
 - NEXT prove uds_windows connectivity/cancellation locally, then evaluate focused pinned reqwest local-transport extension retaining existing TLS/cookie/auth/redirect/stream behavior. Unix target/runtime gate and current Windows refusal remain open; no silent platform scope reduction. No live process/build; last accepted native build predates socket changes. Full migration/UX ordering unchanged.
 
-
 ## Unix socket URL and IPC route connected; platform acceptance pending — 2026-10-01
 
 - Previous goal turn made progress (CodeCommit303 native acceptance). Revalidated STATUS/PLAN/PARITY, archived network.transformUrl/libcurl-promise and legacy Unix fixture. Read official pinned https://docs.rs/reqwest/0.12.28/reqwest/struct.ClientBuilder.html#method.unix_socket plus installed client.rs: API is cfg(unix), TLS still applies to HTTPS, TCP/proxy/DNS options bypassed.
 - Composer recognizes legacy http(s)://unix:/socket:/host/path before smart encoding, extracts socketPath and effective URL afterward in legacy order. Actual archived example now composes /my/socket plus http://my/path; hostname unix with ordinary port stays TCP. Malformed syntax fails clearly. socketPath travels through HttpRequest and shared native build_client; cfg(unix) uses documented builder.unix_socket. Empty/NUL paths rejected. Non-Unix builds explicitly reject unsupported transport rather than accidentally routing TCP.
 - Browser preview refuses socket requests. Native token and OAuth-browser envelopes clear socket_path so separate auth endpoints do not inherit local routing. Product edits src/lib/transport.js, src-tauri/src/http.rs, src-tauri/src/oauth_browser.rs.
--7 inline checks passed: archived true/false encoding example, HTTPS/escaped query, unix hostname with TCP port, ordinary URL, malformed socket syntax, preview refusal. Evidence artifacts/unix-socket-reference/composer.json. Bun check0 errors/warnings, frontend production build, Windows cargo check and rustfmt pass (existing bundle warning only). Windows check does NOT compile or execute cfg(unix) branch.
+  -7 inline checks passed: archived true/false encoding example, HTTPS/escaped query, unix hostname with TCP port, ordinary URL, malformed socket syntax, preview refusal. Evidence artifacts/unix-socket-reference/composer.json. Bun check0 errors/warnings, frontend production build, Windows cargo check and rustfmt pass (existing bundle warning only). Windows check does NOT compile or execute cfg(unix) branch.
 - NEXT inspect available Unix build/test surface and Windows AF_UNIX support from original/current libraries; perform actual Unix transport/TLS/redirect/auth/cookie/stream acceptance and Windows no-network refusal through saved UI. Windows AF_UNIX/native parity remains a gap, not excluded. Latest native-codecommit-ui-probe predates these changes; no new build/process live. Raw URL and full PARITY scope unchanged; migration not complete.
-
 
 ## CodeCommit303 method/signature transition accepted — 2026-10-01
 
@@ -691,14 +636,12 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Initial verifier implicit-any diagnostic fixed with string[] JSDoc. bun run check0 errors/warnings passes; native scenario passed1790799123253:6 imported requests/10 wire requests, script/app exit0. Evidence artifacts/playwright/codecommit-1790799123253/{acceptance,result}.json. No live process/build/server.
 - NEXT return to remaining actual URL transport parity: inspect Unix socket contract/platform APIs and raw unencoded request target support, using original implementation/reference and official docs before changes. CodeCommit real provider/TLS/proxy/platform acceptance remains separate, no full auth/migration completion claim. Git/plugin/runtime/platform gates remain in full scope and UX stays deferred.
 
-
 ## Native CodeCommit wire and redirect acceptance passed — 2026-10-01
 
 - Previous goal turn made progress (scenario/build launch). Revalidated STATUS/PLAN/PARITY and polled actual nativeCodecommitBuild handle through terminal0, no restart. Build finished1790798987200 after313s; fresh artifact in artifacts/native-codecommit-ui-probe/build-state.json.
 - bun tests/ui/codecommit.js passed1790798995356:4 UI import/reload/Send cases,6 raw TCP requests. GIT/body bytes, independent timestamp-window legacy signature, absence of generated date/session/checksum, same-origin307 re-sign/replay and cross-origin307 Authorization removal, saved URL unchanged. Evidence artifacts/playwright/codecommit-1790798995356/{acceptance,result}.json.
 - With INSOMNIUM_UI_BUILD_STATE set to new CodeCommit build, bun tests/ui/url-encoding.js passed1790799002871:23 Settings/Hawk/OAuth1/AWS wire-signature regression cases. Evidence artifacts/playwright/url-encoding-1790799002871/{acceptance,result}.json. Both scripts/app cleanup exit0; no live build/app/server.
 - This accepts specific local HTTP cases, not real CodeCommit Git credential-helper interoperability/provider/TLS/proxy/platform or all redirect methods. NEXT audit CodeCommit303 method switch and remaining exact legacy URL behavior (raw bytes/Unix sockets), then continue full PARITY including Git/plugin/runtime/platform gates. Full migration not complete; UI redesign still deferred.
-
 
 ## CodeCommit native scenario prepared; build running — 2026-10-01
 
@@ -708,14 +651,12 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Started artifacts/native-codecommit-ui-probe build using stored nativeCodecommitBuildScript; supervisor nativeCodecommitBuild PID29448, exitCode null. Retain this process and poll through terminal; never restart on timeout and keep product sources stable.
 - NEXT await successful fresh artifact, bun tests/ui/codecommit.js; then run tests/ui/url-encoding.js with INSOMNIUM_UI_BUILD_STATE=artifacts/native-codecommit-ui-probe/build-state.json for23-case regression. Diagnose actual failures before broader claims.303/native provider/platform/full migration still pending; UI redesign deferred.
 
-
 ## Native CodeCommit GIT signer implemented; reference checks pass — 2026-10-01
 
 - Previous goal turn made progress (6 deterministic references). Revalidated STATUS/PLAN/PARITY; consulted pinned aws4 source, time OffsetDateTime docs and Cargo add docs before implementation. Added direct time dependency using cargo add time@0.3 --manifest-path src-tauri/Cargo.toml --offline (existing resolved dependency reused).
 - aws.rs now routes codecommit/GIT to legacy signer instead of rejecting. Uses current UTC without trailing Z, normalized/double-encoded path, sorted query with aws4 empty-name/default1000-pair semantics, only Host/optional Content-Type and empty body-hash line; HMAC-SHA256 derives date/region/service/request key. Header marked sensitive. Existing AWS SDK path remains for ordinary methods/services and shared origin/redirect handling remains.
 - rustfmt passes. cargo check --manifest-path src-tauri/Cargo.toml --locked --offline passes. Inline Rust probe includes actual current aws.rs and calls fixed-time helper; all6 fixtures match exact aws4 Authorization. artifacts/codecommit-reference/native-acceptance.json exit0. Initial probe compile failed because release rlibs require panic=abort; reran same inspection with matching panic strategy, passed. Probe source provided to rustc stdin; no new saved non-UI test script.
 - NEXT saved native UI/wire scenario for CodeCommit GIT and fresh native build; verify timestamp-window reference, absence of generated date/session/checksum, Host/content-type/body behavior, same/cross-origin redirects and23-case ordinary auth regression. Latest native-url-encoding-ui-probe predates this product change. No build/app/server live now. GET/other services still need regression after rebuild; do not claim full CodeCommit/provider or migration completion.
-
 
 ## Deterministic CodeCommit reference captured — 2026-10-01
 
@@ -725,7 +666,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Plain signature with local credentials is3fb57a56c6af68901d5aaf0a1176e7e16955d0a4405ce20af1eb7cc685352179. Legacy adapter supplies only Host and optional content-type to signer; manual Date is not supplied, so production timestamp uses current clock. Do not accidentally add SDK date/session/header behavior to this special branch.
 - NEXT implement native codecommit/GIT special signer from these references, choose existing/documented UTC formatter, preserve ordinary SDK path and redirect clearing; compile and compare fixed-time Rust output against6 fixtures before saved UI/wire acceptance. Current product still explicitly rejects CodeCommit GIT. No product changes/live process/build this turn; full parity remains open.
 
-
 ## AWS scope correction and confirmed CodeCommit gap — 2026-10-01
 
 - Previous goal turn made progress (AWS wire acceptance). Revalidated STATUS/PLAN/PARITY before investigating the proposed presigning implementation. No product changes or tests this turn.
@@ -734,14 +674,12 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Confirmed actual legacy gap already documented in AWS-COMPATIBILITY: current aws.rs explicitly rejects service=codecommit/method=GIT; aws4 v1.13.2 handles it. Source https://raw.githubusercontent.com/mhart/aws4/v1.13.2/aws4.js : isCodeCommitGit skips automatic date/session/body headers, uses timestamp without trailing Z, and empty canonical body-hash line. Archived adapter sends its generated Authorization/Host. This needs legacy behavior reference acceptance, not ordinary AWS SDK defaults.
 - NEXT inspect exact original aws4 dependency/version and capture deterministic CodeCommit GIT signatures with Bun from the reference implementation; then implement equivalent native path and saved UI/wire acceptance, retaining23-case ordinary auth regression. Full migration/other parity remain open; no live process/build and no UX redesign started.
 
-
 ## Native AWS SigV4 matches wire URL — 2026-10-01
 
 - Previous goal turn made progress (OAuth1 wire signature acceptance). Revalidated STATUS/PLAN/PARITY and native AWS signer; consulted official https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_sigv-create-signed-request.html . No product changes or rebuild.
 - Extended saved tests/ui/url-encoding.js with4 cases: S3/execute-api × encoding on/off, explicit region and local fixture session credentials. Independent Bun SHA256/HMAC verifier uses captured raw path/query, sorted encoded query, actual signed headers, empty payload digest, date/region/service signing-key derivation and compares signature. S3 single path encoding/checksum and execute-api double path encoding both covered. No AWS account/network involved.
 - Formatter and bun run check0 errors/warnings pass. bun tests/ui/url-encoding.js passed1790798124712 on native-url-encoding-ui-probe:23 requests total (3 Settings,8 Hawk,8 OAuth1,4 AWS). Evidence artifacts/playwright/url-encoding-1790798124712/{acceptance,result}.json; script/app exit0. No live process/fixture.
 - Acceptance is GET/header signing only; no claim for AWS provider integration, presigning, streaming/body, redirects or service inference. Full URL/auth/parity remains open. NEXT implement remaining AWS query signing (currently explicitly rejected) after inspecting archived behavior and official aws-sigv4 query-signature API; retain existing header-signing acceptance. Raw URL/Unix sockets and all other full PARITY stay in scope; shared UI/UX deferred.
-
 
 ## Native OAuth1 HMAC signatures match wire URL — 2026-10-01
 
@@ -751,14 +689,12 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Clarified test wording: altered target produces a different expected MAC, not a server replay/rejection acceptance.
 - NEXT AWS signed URL wire verification. Full OAuth1 parity remains open: this acceptance covers GET/HMAC/header mode only, not RSA/PLAINTEXT, body hash/form, redirects, token exchange or the currently rejected legacy/query/body options. Raw URL/Unix sockets and remaining full PARITY still pending; UI redesign remains deferred.
 
-
 ## Native Hawk signing uses encoded wire URL — 2026-10-01
 
 - Previous goal turn made progress (fresh native URL/cURL GET acceptance). Revalidated STATUS/PLAN/PARITY; no product changes or new native build needed.
 - Consulted official Hawk protocol/API https://github.com/mozilla/hawk/blob/main/API.md . Extended saved tests/ui/url-encoding.js with8 native Hawk cases: SHA1/SHA256 × legacy/standard × encoding true/false. Actual Import/reload/Send; raw TCP headers/request line captured. Independent Bun createHmac computes expected MAC using wire method/target/host/port and fixed test credentials; assertion also confirms changing the target changes the MAC. This is MAC verification, not a production server replay-window/rejection acceptance.
 - Formatter and bun run check pass0 errors/warnings. bun tests/ui/url-encoding.js passed1790797913458 on previously accepted native-url-encoding-ui-probe; includes original3 settings/persistence cases plus8 signatures. Evidence artifacts/playwright/url-encoding-1790797913458/{acceptance,result}.json; script/app exit0, no live fixture/process.
 - NEXT cover OAuth1/AWS signed URL behavior with independent wire-based evidence, then resume remaining URL/cURL parity including raw URL/Unix sockets. Hawk acceptance here is GET/no payload and does not cover payload signing, redirect/replay or provider interoperability. Full migration and deferred UX sequencing unchanged.
-
 
 ## Native URL encoding and cURL GET regression passed — 2026-10-01
 
@@ -767,7 +703,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - With INSOMNIUM_UI_BUILD_STATE pointing to the new build, bun tests/ui/curl-import-get-file.js passed1790797800441: selected files/reload/native Send, all256bytes URL-encoded data, HEAD/PATCH, NUL truncation, raw-space rejection and no body/default MIME still pass. Evidence artifacts/playwright/curl-import-get-file-1790797800441/{acceptance,result}.json. Both scripts/app cleanup exit0.
 - No live build/app/server remains. Acceptance is specific to these scenarios; raw non-UTF8/Unicode/punctuation fidelity and signed URL native verification remain open. NEXT verify native signed request URL with an independent signature fixture, then continue remaining cURL/URL/full PARITY requirements (including Unix socket gap). Shared UI/UX stays deferred; full migration not complete.
 
-
 ## URL Settings native scenario prepared; build running — 2026-10-01
 
 - Previous goal turn made progress (legacy Send encoding implementation and composer acceptance). Revalidated STATUS/PLAN/PARITY and existing saved native UI helper.
@@ -775,7 +710,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Consulted https://playwright.dev/docs/api/class-locator#locator-set-checked before implementation. Initial TCP chunk union type diagnostic corrected; bun run check now0 errors/warnings. Formatter passes. No product changes this turn; frontend build from prior turn remains current.
 - Started isolated native-url-encoding-ui-probe build from stored nativeUrlEncodingBuildScript; supervisor handle nativeUrlEncodingBuild PID20296, child5236, started1790797468870. Polled actual supervisor: exitCode/result null; log compiling insomnium. Keep same process, do not restart on timeout; keep product sources stable.
 - NEXT wait terminal result/fresh artifact, run bun tests/ui/url-encoding.js. Then run existing tests/ui/curl-import-get-file.js with INSOMNIUM_UI_BUILD_STATE=artifacts/native-url-encoding-ui-probe/build-state.json. Diagnose any exact wire/UI failures. Native signing acceptance and remaining raw URL/full PARITY still open. Shared UI/UX remains deferred.
-
 
 ## Legacy URL encoding connected to Send — 2026-10-01
 
@@ -787,7 +721,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Inspected native digest.rs: Hawk/OAuth1 sign the outgoing request, AWS mutates that request, then same request is cloned for send. This is source evidence only, not new native wire/signature acceptance.
 - NEXT add saved Playwright URL-settings/persistence/native-wire scenario, build fresh isolated native artifact and run it plus cURL GET regression. Latest accepted native-curl-get-ui-probe predates these product changes. No native build or test was started this turn. Raw unencoded bytes, unix sockets and all other unverified PARITY scope remain open. Full migration not complete; shared UI/new UX stays deferred.
 
-
 ## Legacy default URL encoding gap established — 2026-10-01
 
 - Previous turn made progress (native GET acceptance). Revalidated STATUS/PLAN/PARITY and inspected archived network.transformUrl, models/request defaults and utils/url/querystring tests; no product edits this turn.
@@ -796,7 +729,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Consulted official reqwest Request API (Url access, not arbitrary request-target) and http PathAndQuery source: https://docs.rs/reqwest/latest/reqwest/struct.Request.html and https://docs.rs/http/latest/src/http/uri/path.rs.html . Latest http validates UTF8; installed locked crate versions must be inspected before native changes. Invalid-byte raw HTTP would require more than setting reqwest URL.
 - NEXT implement legacy automatic encoding through actual Send in original ordering using existing ported helper, preserve explicit false and expose request setting; define cURL import encoding choice explicitly so exact already-encoded data and empty fields are retained. Cover query/auth/path params, signer input consistency, HTTP/streams and native wire. Keep raw unencoded URL fidelity pending, not removed. No active build/server or new installer. Full parity/UX sequence unchanged.
 
-
 ## GET/file native acceptance passed — 2026-10-01
 
 - Previous turn made progress (raw-wire discrepancy evidence) plus verified wait. Revalidated STATUS/PLAN/PARITY and polled same nativeCurlGetBuild to terminal0, no restart. Build finished1790796847161 after315s; fresh artifact in artifacts/native-curl-get-ui-probe/build-state.json.
@@ -804,14 +736,12 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Acceptance is limited to these cases. Raw Unicode/invalid-UTF8 and some punctuation remain discrepant as proven by TCP request-line reference; Bun URL-level assertions do not supersede raw-wire evidence. No full URL/cURL parity claim.
 - No product changes or active build/app/server after cleanup. NEXT investigate original legacy URL encoding and native request-target APIs for raw-query fidelity before choosing implementation; continue remaining cURL options/auth/cookie lifecycle/Git/plugin/platform/full PARITY. Shared UI/new UX stays deferred.
 
-
 ## Raw GET request-target discrepancy established; native build still live — 2026-10-01
 
 - Previous turn made progress (saved GET scenario/build launch). Revalidated STATUS/PLAN/PARITY and polled nativeCurlGetBuild supervisor35312, exitCode/result null including50s wait. No restart or product changes during compilation.
 - Captured actual request-line bytes using owned TCP server (no URL parser) and curl.exe: artifacts/curl-get-file-reference/raw-wire.json. Five cases show curl sends raw FF80, raw UTF-8 Unicode and raw quote/angle characters; # truncates wire query and NUL ends C-string data. Fixture removed/server closed.
 - Correction to earlier reference interpretation: Bun Request.url normalized Unicode/invalid bytes/punctuation. Those seven URL-level comparisons do NOT prove raw-wire equivalence. Current JS URL/native reqwest pipeline percent-encodes valid Unicode and some punctuation, and explicitly refuses invalid UTF-8; full raw-query fidelity remains an implementation gap. Do not mark URL parity complete or claim raw Unicode wire acceptance. Encoded query/all256bytes scenario remains useful but narrower evidence.
 - NEXT retain same nativeCurlGetBuild; wait terminal and run tests/ui/curl-import-get-file.js. Then investigate native request-target support using official reqwest/hyper/http APIs and archived legacy semantics before changing behavior; do not silently reinterpret raw bytes. Keep full raw URL scope open along with all other parity requirements.
-
 
 ## Saved GET/file native scenario prepared; build running — 2026-10-01
 
@@ -821,16 +751,14 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Prior nativeUploadSizeBuild terminal0 confirmed. Started isolated artifacts/native-curl-get-ui-probe/{build-state.json,build.log}; retained nativeCurlGetBuild supervisor35312. Keep product sources stable and poll same handle, never restart on observation timeout.
 - NEXT await terminal/fresh successful artifact, run bun tests/ui/curl-import-get-file.js; diagnose concrete failures. Continue raw non-UTF8 URL wire fidelity, remaining import/auth/Git/plugin/platform/full parity; UX deferred.
 
-
 ## GET named-file query composition implemented — 2026-10-01
 
 - Previous turn made progress (query precedence fix). Revalidated STATUS/PLAN/PARITY; consulted official curl tool_operate.c append2query and GET setup before implementation: https://raw.githubusercontent.com/curl/curl/master/src/tool_operate.c . It appends C-string data via CURLU_APPENDQUERY.
 - GET with file data now imports ordered curlSegments even for single file and curlQuery:true; editor explains query/no-body behavior. No path reads. Composer resolves/joins selected file bytes before query parameters/auth processing, applies NUL truncation, rejects raw whitespace/control bytes, uppercases percent escapes and preserves query/fragment parsing. No body/bodyBase64/default binary Content-Type; --url-query precedence stays corrected. Body-type switch clears curlQuery.
 - Raw non-UTF-8 query bytes remain an explicit limitation pending native raw-URL investigation; they are not silently replacement-decoded. URL-encoded arbitrary bytes work. Unicode valid UTF-8 supported. Other raw URL punctuation/empty query and protocol-specific behavior require wider native acceptance. This is not full URL/cURL parity.
--39 assertions pass over seven actual curl reference cases plus binary urlencode: missing selections, data stripping, binary NUL, raw-space refusal, Unicode, existing query/fragment, ignored url-query, no-body/MIME and persistence round-trip. Evidence artifacts/curl-get-file-reference/get-acceptance.json. Additional exploratory Bun-server URLs normalize raw invalid UTF-8, so do not use those observations as raw-wire proof.
+  -39 assertions pass over seven actual curl reference cases plus binary urlencode: missing selections, data stripping, binary NUL, raw-space refusal, Unicode, existing query/fragment, ignored url-query, no-body/MIME and persistence round-trip. Evidence artifacts/curl-get-file-reference/get-acceptance.json. Additional exploratory Bun-server URLs normalize raw invalid UTF-8, so do not use those observations as raw-wire proof.
 - Formatter/Bun check0 errors/warnings/build0 pass. No native/dependency changes or active build/server. Native executable predates GET feature.
 - NEXT saved native GET Import/select/reload/Send scenario including encoded all256 bytes, multiple parts, HEAD/explicit method and rejected raw-space; batch refreshed isolated build with query-precedence regression. Investigate raw invalid-UTF8 wire via raw HTTP fixture before claiming fidelity. Full parity and deferred UX unchanged.
-
 
 ## GET/data versus url-query precedence corrected — 2026-10-01
 
@@ -840,7 +768,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Formatter/Bun check0 errors/warnings/build0 pass. No native/dependency changes or active build/server; native executable predates fix. This is a prerequisite semantic correction, NOT implementation of GET file inputs, which remain pending.
 - NEXT implement delayed file-data query composition using existing ordered segments, preserving curl byte semantics captured in reference.json (NUL, whitespace, UTF-8/invalid bytes, escaping, query/fragment). Add saved native query cases and batch refreshed native acceptance. Full parity/UX sequence unchanged.
 
-
 ##16/20MiB native upload and mixed-body regression accepted — 2026-10-01
 
 - Previous turn made progress (saved size scenario/build launch). Revalidated STATUS/PLAN/PARITY and retained nativeUploadSizeBuild through terminal0 without restart; build finished1790796121352 after313s, fresh isolated artifact in artifacts/native-upload-size-ui-probe/build-state.json.
@@ -848,7 +775,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Mixed-body scenario rerun with INSOMNIUM_UI_BUILD_STATE=artifacts/native-upload-size-ui-probe/build-state.json passed1790796180942; overlapping/stale reads, literal edit/reload/native bytes still correct. No active builds/apps/servers after cleanup. No product changes this turn.
 - While compiler ran, captured7 real curl GET/file reference cases in artifacts/curl-get-file-reference/reference.json. Data strips NUL/CR/LF; binary query truncates at NUL; raw space rejected; urlencode preserves encoded delimiters; Unicode query encoded; percent escapes uppercased. Observed --url-query ignored in combination with --get data in tested case; investigate precedence broadly before implementing, current importer appends both. Synthetic file removed/server stopped. These are reference findings, not new app support.
 - NEXT implement GET file-data byte/query semantics including url-query precedence using captured references and official sources, extend saved native cases. Remaining auth/provider/cookie lifecycle/Git/plugin/platform/full parity unchanged; deferred UX remains later.
-
 
 ## Saved16/20MiB native upload scenario prepared; build running — 2026-10-01
 
@@ -858,15 +784,13 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Confirmed prior nativeCurlMixedBuild terminal0; started artifacts/native-upload-size-ui-probe/{build-state.json,build.log}, retained nativeUploadSizeBuild. Keep product source stable; never restart for observation timeout.
 - NEXT poll same handle to terminal, verify fresh successful artifact, run bun tests/ui/upload-size.js, then rerun tests/ui/curl-import-mixed-body.js with INSOMNIUM_UI_BUILD_STATE pointing to new build. Diagnose any actual persistence/IPC/session limit failure. Continue GET file-query and full parity; deferred UX unchanged.
 
-
 ## Binary upload/template accounting corrected — 2026-10-01
 
 - Previous turn made progress (multi-file native acceptance and size reproduction). Revalidated STATUS/PLAN/PARITY; official MDN structuredClone/atob docs consulted before implementation.
 - Added request-uploads.js: separate only recognized binary body/file multipart/cURL file-segment base64 from template input, validate base64 and aggregate decoded20MiB bound, retain immutable payload strings, clone/check remaining text, restore before disabled-row filtering. Wired renderRequestSnapshot before its text checks. No blanket template limit increase; unrelated fields named base64 still count as text. Source request unchanged and metadata/literal templates still render.
--17 inline assertions pass using actual renderRequestSnapshot source with production renderTemplateValue and controlled text callback:16/20MiB payloads, unchanged input, metadata rendering, multipart restoration before disabled filtering,21MiB/aggregate overflow, invalid base64, unrelated oversized text, mixed file/literal and skipBody. Evidence artifacts/curl-mixed-check/upload-render-acceptance.json. This is boundary acceptance, not a compiled full session/native UI acceptance.
+  -17 inline assertions pass using actual renderRequestSnapshot source with production renderTemplateValue and controlled text callback:16/20MiB payloads, unchanged input, metadata rendering, multipart restoration before disabled filtering,21MiB/aggregate overflow, invalid base64, unrelated oversized text, mixed file/literal and skipBody. Evidence artifacts/curl-mixed-check/upload-render-acceptance.json. This is boundary acceptance, not a compiled full session/native UI acceptance.
 - Formatter, Bun check0 errors/warnings/build0 pass. No dependency/Rust changes, no active build/server/test; native executable predates this correction. Session still snapshots resources and callback serialization keeps its separate20MiB bound; this change does not claim callback large-payload support or reduce snapshot memory.
 - NEXT saved native16/20MiB selection/reload/Send scenario with real session and wire digest, and mixed-body regression on refreshed build; inspect maximum-size persistence/IPC limits if it fails. Continue --get file query implementation and all remaining parity. Deferred UX unchanged.
-
 
 ## Multi-file native UI acceptance passed; size conflict reproduced — 2026-10-01
 
@@ -876,7 +800,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - No product changes this turn. No active build/test/server after cleanup. Mounted GET/JSON/urlencode variants, request-switch/OS-close cancellation and maximum-size native acceptance remain distinct gates.
 - NEXT fix binary payload accounting/isolation from template text with explicit byte/aggregate bounds, then implement --get file query composition and extend saved UI scenarios. Continue other cURL/Git/plugin/platform/full PARITY; shared UI/new UX deferred.
 
-
 ## Multi-file native UI scenario prepared; isolated build running — 2026-10-01
 
 - Previous turn made progress (mixed-body parser/editor/composer). Revalidated STATUS/PLAN/PARITY. Inspected workspace.update: Object.assign preserves other segment references, so per-row identity fence can allow other-row updates; actual Svelte/native behavior still requires acceptance.
@@ -885,16 +808,14 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Previous nativeCurlCookieBuild terminal0 confirmed. Started artifacts/native-curl-mixed-ui-probe/{build-state.json,build.log}, retained nativeCurlMixedBuild supervisor17324. Keep product sources stable; never restart only for observation timeout.
 - NEXT poll same build to terminal, run bun tests/ui/curl-import-mixed-body.js and diagnose actual UI failures. Template/base64 size conflict, GET file-query composition, cancellation/request-switch coverage and full parity still open. UX remains deferred.
 
-
 ## Mixed literal/multiple-file body connected — 2026-10-01
 
 - Previous turn made progress (Cookie native acceptance). Revalidated STATUS/PLAN/PARITY and mixed-body sequence; official curl data/binary/json docs consulted before implementation: https://curl.se/docs/manpage.html . Reused current picker/styles/transport, no generator/dependency/Rust changes.
 - curl-import.js now represents multi-entry file bodies as ordered curlSegments with stable IDs and form/JSON join policy. Existing single-file records remain supported. No imported path reads; stdin and --get files still explicitly rejected pending query integration. Mixed JSON/non-JSON remains separately pending.
 - Added CurlBodyEditor.svelte with per-row file conversion/replacement and literal editing, request/row/generation/workspace fences and cleanup. Body-type switch clears segment state. Added curl-body.js byte composer and wired native bodyBase64 transport: preserves arbitrary bytes, JSON concatenation, conditional ampersand, missing-file refusal and aggregate20MiB output bound.
-- Six production parser/upload/composer wire comparisons against actual curl pass using all256byte fixture, including literal/file ordering, empty prefix/trailing literal, JSON, urlencode and two files. Six missing-file checks, three boundary checks, JSON persistence round-trip pass. Evidence artifacts/curl-mixed-check/acceptance.json. Bun fetch/curl default Accept */* normalized for comparison; no native-default-header claim. Fixture removed/server closed.
+- Six production parser/upload/composer wire comparisons against actual curl pass using all256byte fixture, including literal/file ordering, empty prefix/trailing literal, JSON, urlencode and two files. Six missing-file checks, three boundary checks, JSON persistence round-trip pass. Evidence artifacts/curl-mixed-check/acceptance.json. Bun fetch/curl default Accept _/_ normalized for comparison; no native-default-header claim. Fixture removed/server closed.
 - Formatter, Bun check0 errors/warnings/build0 and targeted git diff --check pass. Native executable predates this change; no active native build/test/server. UI picker/parallel selection/stale selection and actual IPC acceptance NOT yet verified.
 - NEXT reconcile template20MiB-character/base64 vs upload20MiB-byte limit; inspect row identity under actual workspace updates and verify concurrent selection; implement --get file query composition. Add saved native multi-file Import/select/replace/reload/Send scenario then refresh isolated build. Full other parity and deferred UX unchanged.
-
 
 ## Cookie Import/reload/native Send regression passed — 2026-10-01
 
@@ -903,7 +824,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - This accepts the Cookie precedence fix on native HTTP, not cookie-file/empty-b engine/redirect lifecycle parity. No product changes this turn and no active build/test/server after cleanup.
 - NEXT implement mixed literal/multiple file body sequence in CURL-IMPORT.md using captured artifacts/curl-mixed-design/reference.json, including byte-preserving composition, per-row selection fences and aggregate/template size-contract reconciliation. Continue GET/query integration and full cURL/Git/plugin/platform/PARITY. Shared inputs/new UX deferred.
 
-
 ## Mixed-file body reference captured while Cookie build remains live — 2026-10-01
 
 - Previous turn made progress (saved Cookie UI scenario/build launch). Revalidated STATUS/PLAN/PARITY; polled same nativeCurlCookieBuild supervisor23516 handle repeatedly and waited twice50s, exitCode/result still null. No restart or product changes during compile.
@@ -911,14 +831,12 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Identified size-contract conflict: uploads accepts20MiB bytes but checkTemplateValue caps20MiB characters across request including base64. Must reconcile during mixed-file work. No silent scope reduction; multiple files/GET/cancellation/render/export and aggregate limits remain planned requirements.
 - NEXT poll retained nativeCurlCookieBuild to terminal, verify artifacts/native-curl-cookie-ui-probe/build-state.json/fresh artifact, then bun tests/ui/curl-import-cookie.js. After native acceptance implement mixed-file sequence, continuing full PARITY.
 
-
 ## Saved Cookie Import regression prepared; native build running — 2026-10-01
 
 - Previous turn made progress (verified Cookie precedence fix). Revalidated STATUS/PLAN/PARITY and existing saved UI import flow.
 - Added tests/ui/curl-import-cookie.js: actual review/apply without network, five transfer groups (repeated cookies, manual Cookie before/after -b with case variation, explicit empty Cookie, next-group reset), reload/native Send wire assertions, second reload and preservation of existing resources. No product/dependency changes. Formatter and Bun check0 errors/warnings pass. Runtime scenario NOT RUN yet.
 - Prior NTLM build handle confirmed terminal exit0 before launching new isolated build using frontend successfully built after cookie fix last turn. New build artifacts/native-curl-cookie-ui-probe/{build-state.json,build.log}; retained node_repl nativeCurlCookieBuild. Keep product sources stable during compile; do not restart on observation timeout.
 - NEXT poll same handle until terminal, verify successful fresh artifact, then bun tests/ui/curl-import-cookie.js. Continue cURL mixed-file/options/cookie lifecycle and full Git/plugin/platform/PARITY. Shared UI/new UX still deferred.
-
 
 ## cURL manual Cookie precedence corrected — 2026-10-01
 
@@ -928,14 +846,12 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Formatter, Bun check0 errors/warnings/build0 pass. No saved non-UI tests, native/Rust/dependency changes, active build/server or refreshed native executable. Current native executable predates this fix.
 - NEXT add cookie cases to saved cURL native Import scenario and validate on refreshed isolated build, preferably batch with further importer work. Continue mixed-file/options/cookie lifecycle and full Git/plugin/platform/PARITY scope; deferred UX unchanged.
 
-
 ## NTLM Import/reload/native proof acceptance passed — 2026-10-01
 
 - Previous turn made progress (independent proof oracle) and verified wait. Revalidated STATUS/PLAN/PARITY; retained nativeCurlNtlmBuild through completion with no restart. Build finished1790794272507 after315s, exit0; fresh isolated artifact recorded in artifacts/native-curl-ntlm-ui-probe/build-state.json.
 - bun tests/ui/curl-import-ntlm.js passed on that build. Evidence artifacts/playwright/curl-import-ntlm-1790794284777/{acceptance,result}.json. Script/app exit0. Actual UI Import/reload preserves explicit DOMAIN\user and colon-containing password; native handshake is unauthenticated -> Type1 -> Type3, correct domain/user, same Type2/Type3 TCP connection, exact POST replay. Independent Bun MD4/HMAC-MD5 oracle validates NTLMv2 password proof. Manual Authorization sends exactly once without NTLM; no Basic fallback. Second reload preserves resources.
 - This accepts the supported imported explicit-credential HTTP path on loopback. MIC/TLS-binding/provider, default OS sign-in/proxy auth/mixed negotiation are NOT established by this scenario. Prior narrow checks do not remove full parity requirements. No product changes, no active build/test/server after cleanup.
 - NEXT continue remaining cURL mixed-file/options/legacy import representation and Git/plugin/platform/full PARITY, including outstanding provider/protocol acceptance. Shared input components and UX redesign remain deferred until original migration complete.
-
 
 ## NTLM saved scenario now verifies password proof; same native build still live — 2026-10-01
 
@@ -944,7 +860,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Formatter and Bun check pass0 errors/warnings. Only saved UI scenario/docs edited; product sources stable during native compile.
 - NEXT retain nativeCurlNtlmBuild supervisor35556/child27436; poll to terminal, verify artifacts/native-curl-ntlm-ui-probe/build-state.json and fresh executable, run bun tests/ui/curl-import-ntlm.js. Diagnose concrete failures; all remaining parity scope stays active.
 
-
 ## NTLM Import native scenario prepared; build running — 2026-10-01
 
 - Previous turn only restated deferred UX scope (no migration progress). Revalidated STATUS/PLAN/PARITY and took next saved UI acceptance step.
@@ -952,7 +867,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Saved scenario formatter and Bun check pass0 errors/warnings; frontend build exit0. Runtime scenario NOT RUN yet. No product/Rust/dependency changes.
 - Started isolated native build artifacts/native-curl-ntlm-ui-probe/{build-state.json,build.log}; retained node_repl nativeCurlNtlmBuild handle. Do not restart on polling timeout; keep product sources stable during compile.
 - NEXT poll same live handle until terminal, verify successful fresh artifact, then bun tests/ui/curl-import-ntlm.js; diagnose concrete failures and extend proof/provider acceptance. Full cURL/Git/plugin/platform/PARITY scope remains open; shared inputs/new UX deferred.
-
 
 ## cURL explicit NTLM import mapping implemented — 2026-10-01
 
@@ -964,7 +878,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - No Rust/dependency changes, saved non-UI tests, active build/server or installer update. Latest native executable predates NTLM import mapping.
 - NEXT saved native Import/reload/NTLM challenge scenario using explicit synthetic credentials and existing native backend, then refreshed isolated build; full handshake/provider acceptance remains open. Continue all remaining cURL/Git/plugin/platform/full PARITY requirements; shared inputs/new UX deferred.
 
-
 ## Bearer Import/reload/native Send accepted — 2026-10-01
 
 - Previous goal turn made progress (saved six-group scenario and native build launch). Revalidated STATUS/PLAN/PARITY, polled same live nativeCurlBearerBuild handle and waited until exit0; no restart. Build finished1790793464514 after316s.
@@ -974,7 +887,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Read-only NTLM inventory review confirms native explicit DOMAIN\user/UPN/separate domain support, no default OS credentials and no proxy407 support; future curl mapping must preserve those distinctions. No NTLM implementation claimed.
 - NEXT continue unimplemented common cURL options/NTLM mapping/mixed-file representation and full PARITY. Existing provider/crash/platform/Git/plugin gates stay in scope; deferred components/new UX only after full migration.
 
-
 ## Bearer native Import scenario prepared; build running — 2026-10-01
 
 - Previous goal turn made progress (Bearer parser mapping and actual curl comparison). Revalidated STATUS/PLAN/PARITY and existing saved transfer-group scenario.
@@ -982,7 +894,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Bun formatter/check pass0 errors/warnings. New scenario NOT RUN yet; prior accepted build predates Bearer parser.
 - Started isolated native build artifacts/native-curl-bearer-ui-probe/{build-state.json,build.log} with previously built frontend, unchanged product source. Retained node_repl nativeCurlBearerBuild supervisor PID27940. Script default now points here. Build command uses documented Bun Tauri build --no-bundle --config with isolated probe identity.
 - NEXT poll same handle to terminal, verify build-state0 and fresh artifact, then bun tests/ui/curl-import-next.js. Keep product sources stable until compiler exits. Remaining auth negotiation/NTLM/netrc import, other options/mixed-file and full PARITY remain open. Shared UI/new UX still deferred.
-
 
 ## cURL HTTP Bearer import mapping — 2026-10-01
 
@@ -994,7 +905,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - No saved non-UI tests, no active servers/builds. Native executable predates this parser update; native Import acceptance remains pending and must use a refreshed build. Existing source constraints unchanged.
 - NEXT add saved Bearer Import/reload/native Send scenario (or extend transfer-group scenario), refresh isolated native build after grouped frontend work, continue remaining auth/options/mixed-files/full PARITY. No completion claim or deferred UX work.
 
-
 ## File-content multipart and all single-file body modes accepted natively — 2026-10-01
 
 - Previous goal turn made progress (proven filename mismatch fixed). Revalidated docs and retained nativeCurlFileContentFixBuild; same process finished exit0 in315s (finished1790792879623). No restart.
@@ -1005,7 +915,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Scope: mounted HTML file input via Playwright, not native OS chooser interaction. Mixed data files/literals, multiple files, multipart nesting/headers/encoders/MIME parameters, unsupported common options and full shell/legacy compatibility remain open. No full migration/installer/platform acceptance claimed.
 - NEXT implement remaining cURL options/mixed-file representation per CURL-IMPORT.md, continue full Git/plugin/provider/fault/PARITY scope. Shared UI/new UX deferred until original migration complete.
 
-
 ## File-content filename semantics corrected after real curl comparison — 2026-10-01
 
 - Previous goal turn made progress (<file implementation). Revalidated checkpoint and retained nativeCurlFileContentBuild handle; waited on same live process, then it completed exit0 (finished1790792501960).
@@ -1015,7 +924,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Bun formatter/check0 errors/warnings/build0 pass.30 corrected inline composition assertions pass including five modifier combinations and stale override defense: artifacts/curl-file-content-check/corrected-composition.json. Previous28-case report's filename expectation is superseded by this correction.
 - New corrected isolated build RUNNING at artifacts/native-curl-file-content-fix-ui-probe/{build-state.json,build.log}. Retained node_repl nativeCurlFileContentFixBuild supervisor PID37596. Product source stable during compile; saved multipart script now defaults to corrected build.
 - NEXT poll same corrected build, then bun tests/ui/curl-import-multipart.js. Extend native coverage for explicit MIME on <file as needed. Initial build terminal; do not rerun old artifact as corrected acceptance. Full import/Git/plugin/platform parity remains incomplete; shared UI/new UX deferred.
-
 
 ## Multipart file-content fields implemented; native build running — 2026-10-01
 
@@ -1029,7 +937,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - New isolated build RUNNING: artifacts/native-curl-file-content-ui-probe/{build-state.json,build.log}; retained node_repl nativeCurlFileContentBuild, supervisor PID24796. Keep product source stable during compile. Script default points to this new build.
 - NEXT poll same build handle until terminal then run bun tests/ui/curl-import-multipart.js. Diagnose concrete failures; old native build lacks valueBase64 support. Then compare explicit <file filename/type modifiers with actual curl and complete remaining multipart/options/full PARITY. No full-goal completion/new UX.
 
-
 ## Multipart import file selection and native wire accepted — 2026-10-01
 
 - Previous goal turn made progress (native cURL transfer-group acceptance). Revalidated STATUS/PLAN/PARITY and inspected existing multipart parser, picker and native wire contract after consulting https://curl.se/docs/manpage.html#--form .
@@ -1040,7 +947,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - No browser-use, no active test/server/build. This verifies mounted HTML file input via Playwright setInputFiles, not OS file-dialog interaction. Remaining multipart headers/encoders/content-type parameters, <file content, multi-file/nested forms, mixed body files and common options remain in scope.
 - NEXT implement remaining import mappings using official docs and actual curl comparison; single-file binary conversion UI acceptance remains separate. Continue Git/provider/fault/plugin and full PARITY requirements. Deferred shared UI/new UX remains after full migration.
 
-
 ## cURL Import native UI acceptance passed — 2026-10-01
 
 - Previous goal turn made progress (saved scenario and build launch). Revalidated STATUS/PLAN/PARITY, then waited on the same retained nativeCurlImportBuild handle; no restart. Build finished exit0 in315s (started1790791466613, finished1790791782491).
@@ -1048,7 +954,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Verified actual Import UI rejects unsupported later-group option atomically, review/apply does not send network traffic, additive three-group import preserves existing resources, reload keeps method/auth/body settings, and UI Send reaches loopback through native HTTP with exact POST/GET/PATCH, payload and header/auth isolation. Second reload preserves imported resources.
 - This closes native UI acceptance for the implemented --next/-: literal group path only. File picker, multipart metadata, mixed-file/options, other cURL parity and full migration remain open. No production-source changes this turn; no active build/server/test app remains.
 - NEXT continue common missing import file/options and native picker/IPC acceptance per CURL-IMPORT.md, alongside outstanding Git/provider/fault/plugin/full PARITY gates. New UX/shared inputs still deferred until full migration.
-
 
 ## Native cURL Import acceptance prepared; build running — 2026-10-01
 
@@ -1058,7 +963,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Started isolated native build after previous successful frontend build, product source unchanged during compile. artifacts/native-curl-import-ui-probe/{build-state.json,build.log}; retained node_repl handle nativeCurlImportBuild, supervisor PID20576, child18608, started1790791466613. Latest handle poll exitCode:null/result:null confirms live. No restart.
 - Build command reused documented bun x --bun tauri build --no-bundle --config with probe identity and beforeBuildCommand:null. Expected copied artifact insomnium-fetch-recovery-probe.exe inside new probe directory; naming inherited from build helper, isolated identity validated by UI helper.
 - NEXT poll same nativeCurlImportBuild handle until terminal; verify build-state exit0/fresh artifact, then bun tests/ui/curl-import-next.js. Diagnose any concrete selector or product failures. Keep product source stable until compile exits. Continue remaining full PARITY; no goal completion or new UX yet.
-
 
 ## cURL multiple transfer groups implemented — 2026-10-01
 
@@ -1070,7 +974,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Bun-stdin verification passed18 assertions, including four real curl loopback wire comparisons through production curlResources/prepareRenderedRequest: two authenticated POST URLs, reset-to-HEAD group and independent PATCH group. Compared method/path/body/Authorization/custom header. Option-as-value, clusters, empty/invalid groups, -- terminator and unsupported-option rejection covered. Evidence artifacts/curl-next-check/acceptance.json. No saved non-UI test script created.
 - Native executable predates this frontend change; mounted Import review/apply/save/reload/HTTP acceptance still pending. No live build/server/process; no installer refreshed.
 - NEXT: saved native Import scenario for multi-group cURL and other existing import mappings, refresh isolated frontend/native build for acceptance, continue missing file/options and all remaining full PARITY. Shared inputs/new UX deferred as instructed.
-
 
 ## Public Fetch journal survives failed publication and process restart — 2026-10-01
 
@@ -1084,7 +987,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Scope is real public Fetch journal creation plus restart after explicit foreign-lock failure. It is NOT mid-write termination, exact mid-ref interruption, power loss or OS-close acceptance. Prior standalone writer crash evidence remains separate.
 - NEXT: remaining mid-publication fault/lock and hosted-provider auth/TLS gates, then all unimplemented PARITY scope including remote checkout/pull/push/merge. Shared components/new UX remain deferred until full migration. Goal stays active.
 
-
 ## Real Git upload-pack shallow interoperability accepted — 2026-10-01
 
 - Previous goal turn was progress: nine native/UI acceptance scenarios completed. Revalidated STATUS/PLAN/PARITY and current dependency before this work.
@@ -1097,7 +999,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Scope: this establishes real Git loopback HTTP interoperability, NOT hosted-provider TLS/auth acceptance or all server implementations. No active build/test process remains.
 - NEXT: remaining public Fetch process-crash/fault windows and hosted-provider transport/auth acceptance, then outstanding full PARITY (remote checkout/pull/push/merge, plugins and other listed functionality). Full goal not complete; deferred shared UI/new UX remains after full migration.
 
-
 ## Public journaled Fetch native/UI acceptance — 2026-10-01
 
 - Same retained nativeJournaledFetchBuild completed exit0 (started1790790446084, finished1790790760922); artifacts/native-journaled-fetch-ui-probe/build-state.json is finished. No active build remains.
@@ -1108,7 +1009,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Scope limits remain: controlled shallow packet omits LF for installed libgit2 parser compatibility; real-provider interoperability is NOT accepted. Read-only inspection found installed libgit2-sys0.18.8+1.9.7 smart_pkt.c shallow_pkt/unshallow_pkt require exact OID length. Upstream compatibility/fix still needs verification before selecting an implementation.
 - NEXT: investigate documented real-provider shallow packet compatibility, then remaining public-fetch crash/fault windows and all outstanding PARITY items. Full migration, latest installer/platform acceptance, remote pull/push/merge, plugin runtime and other parity gates remain incomplete.
 - Owner follow-up stays deferred: reusable input components under src/lib/components/ui and new UX (Hoppscotch reference) begin AFTER original migration goal is fully complete. See POST-MIGRATION-UX.md.
-
 
 ## Public journaled Fetch and depth UI connected — 2026-10-01
 
@@ -1126,7 +1026,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - New isolated build RUNNING: artifacts/native-journaled-fetch-ui-probe/{build-state.json,build.log}; node_repl handle nativeJournaledFetchBuild, supervisor PID28120. Product source must remain stable while compiling. The new depth script defaults here; run older scripts with INSOMNIUM_UI_BUILD_STATE set to this path.
 - NEXT poll same build handle, then run saved git-fetch.js, git-fetch-scope.js, git-fetch-depth.js, cleanup/retirement race as appropriate and journal recovery/resume regression on the new public path. Diagnose concrete failures, keep all parity scope. Full migration/installer/platform/new UX remain incomplete/deferred as before.
 
-
 ## Atomic workspace write protection for pending Fetch — 2026-10-01
 
 - After successful recovery UI acceptance, implemented shared git_fetch_journal::protect_workspace_bindings and invoked it from storage::write_workspace_file. This covers normal Session save and Git transition recovery writer.
@@ -1140,7 +1039,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - New isolated native build RUNNING at artifacts/native-fetch-workspace-fence-ui-probe/{build-state.json,build.log}; node_repl handle nativeWorkspaceFenceBuild, supervisor PID34636. Both saved journal scripts default to this build.
 - NEXT poll same build handle, then run both saved journal scripts and selected workspace/Git transition regression as appropriate. Once accepted, wire public Fetch to v3 Candidate -> Journal -> Recovery writer, expose bounded depth and persist v3 operation intent. Full migration/installer/platform parity remains incomplete.
 
-
 ## Successful native/UI shallow Resume and lost reply accepted — 2026-10-01
 
 - Attempt-fix build completed exit0: artifacts/native-fetch-recovery-attempt-ui-probe/build-state.json. Same retained supervisor38240 reached terminal state; no restart.
@@ -1149,7 +1047,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Success acknowledgment clears matching durable intent. Controlled lost native success reply preserves intent; reload + Inspect confirms exact depth1 receipt and clears it without replay/download. Wrong depth does not confirm. Both completed repositories pass actual git fsck --full; network counter remains0. Reload changes restores local commit controls.
 - Fixture scope: saved tests prepare a bare staging candidate and journal with documented Git plumbing; this proves real explicit native writer/UI flow, not live public Fetch journal creation or a new process/power-loss crash. Prior standalone process termination evidence remains separate.
 - NEXT implement atomic pending-journal binding/intent protection across workspace writes before public journaled/depth Fetch. Full parity/installer/platform goal remains incomplete.
-
 
 ## Journal recovery UI accepted; same-operation retry bug fixed — 2026-10-01
 
@@ -1162,7 +1059,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Cargo fmt/check/clippy -Dwarnings pass. Bun check0 (no errors/warnings) and Bun build0. Client Bun-stdin probe now44 passing assertions including distinct same-operation attempt identities and cancellation isolated to first attempt: artifacts/git-recovery-status-check/client-v3-state.json. This is injected client evidence, not native success/retry acceptance yet.
 - New attempt-fix native build RUNNING: artifacts/native-fetch-recovery-attempt-ui-probe/{build-state.json,build.log}; node_repl handle nativeRecoveryAttemptBuild, supervisor PID38240. Both saved journal scripts default to this build. Keep source stable and do not restart live build.
 - NEXT poll this same build to completion, run Bun tests/ui/git-fetch-journal-recovery.js and Bun tests/ui/git-fetch-journal-resume.js. Success/lost-reply Resume acceptance is still pending; preserve original scope. After that implement atomic pending-journal binding/intent fence across workspace writes (save_workspace currently StorageState-only; git_journal also writes workspace), then public journaled/depth Fetch/v3 intent creation. Other full PARITY/installer/platform work remains pending.
-
 
 ## Recovery panel visibility fix; six native UI regressions passed — 2026-10-01
 
@@ -1178,7 +1074,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - NEXT poll same build then run Bun tests/ui/git-fetch-journal-recovery.js and Bun tests/ui/git-fetch-journal-resume.js. Inspect concrete failures; complete native UI acceptance. Before public journaled Fetch, storage.rs save_workspace needs an atomic pending-journal/binding-intent fence under GitState then StorageState (currently save takes only StorageState). Frontend retirement status check alone cannot fence a journal created between observation and save.
 - Public journaled/depth fetch, durable v3 intent creation, other full PARITY/installer/platform requirements remain incomplete. Deferred shared inputs/new UX remain after full original goal.
 
-
 ## Native recovery UI acceptance found missing ACL; fixed and rebuilding — 2026-10-01
 
 - Initial isolated native recovery build finished exit0 in311s: artifacts/native-fetch-recovery-ui-probe/build-state.json. Supervisor11028 is terminal. This build is NOT accepted: new command calls were denied by ACL.
@@ -1188,7 +1083,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - New build RUNNING in artifacts/native-fetch-recovery-acl-ui-probe/{build-state.json,build.log}; retained node_repl child handle nativeRecoveryAclBuild, supervisor PID30684. Previous failed-ACL executable remains preserved separately. Product frontend is unchanged from successful Bun build/check.
 - New saved scenario defaults to ACL-corrected build. NEXT verify nativeRecoveryAclBuild exit/result and build-state; once finished exit0 run Bun tests/ui/git-fetch-journal-recovery.js, then existing Fetch/scope/recovery-errors scripts with INSOMNIUM_UI_BUILD_STATE=artifacts/native-fetch-recovery-acl-ui-probe/build-state.json. Use saved Playwright only, no browser-use.
 - UI/native acceptance remains unproven until rerun. Successful full journal Resume UI, atomic retirement integration before journaled public Fetch, public depth/v3 intent and full migration parity remain pending.
-
 
 ## Frontend v3 receipt and explicit recovery flow — 2026-09-30
 
@@ -1204,7 +1098,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Native isolated build IN PROGRESS: artifacts/native-fetch-recovery-ui-probe/build-state.json and build.log; supervisor PID11028 verified live via retained child handle. Do not restart on observation timeout. BeforeBuild frontend output was built this turn. Product source must stay stable until the build settles.
 - NEXT verify the same build process to completion, run new saved scenario and existing Fetch/scope/recovery-errors scenarios with INSOMNIUM_UI_BUILD_STATE pointing to that build. Then add successful journal resume UI acceptance, wire public journaled/depth Fetch and durable v3 intent creation. Full migration/installer/platform parity remains incomplete.
 
-
 ## Explicit native recovery/status commands — 2026-09-30
 
 - Previous goal turn was no progress for migration (confirmed already-recorded deferred UX scope). Revalidated current source and continued the next native integration step.
@@ -1218,7 +1111,6 @@ Sixth run1790809282694 proves invoke observer assignment was ineffective (read-o
 - Current-source artifacts/git-stage-recovery-check/full-pack-state.json compile0/run0:282 admission/lease/cleanup/graph regressions.
 - Limits: command wrappers compiled but have not yet been invoked through a new native app/UI build. Status reports metadata only; it does not prove branch/depth or candidate graph until explicit recover validates them. Saved-binding/command cancellation/error surfaces still need saved Playwright coverage.
 - NEXT connect v3 frontend receipt/intent and explicit recovery UI, exercise native commands through a fresh isolated build and saved Playwright scenarios; then wire journaled public Fetch/depth path. Public Fetch still uses old publisher. Remaining fault windows/platform/installer/full PARITY remain incomplete. Deferred inputs/new UX still follow full original migration completion.
-
 
 ## Independent writer process termination/restart accepted — 2026-09-30
 
@@ -1912,7 +1804,7 @@ Owner follow-up (2026-09-30): After the current migration goal is fully complete
 - Reused verified isolated executable and real client/planner to prepare target→main. Held the workspace through the documented Bun FFI CreateFileW sharing fixture, producing a real native journal and changed HEAD while workspace replacement failed.
 - Closed the first process by explicit window destroy while the sharing handle remained held. Verified terminal exit0 and journal still present, then released the handle and launched a new native process.
 - Before any manual load/recovery IPC in the second process, observed startup had removed the pending journal, persisted the exact journal afterWorkspace and displayed main resources. Local edit, deleted-request history and private/foreign resources survived.
--18 scenario assertions recorded in artifacts/native-checkout-ui-recheck/startup-recovery.json, plus screenshot startup-recovery.png. Both process exits verified0. No new source changes, saved test scripts, dependencies or rebuild.
+  -18 scenario assertions recorded in artifacts/native-checkout-ui-recheck/startup-recovery.json, plus screenshot startup-recovery.png. Both process exits verified0. No new source changes, saved test scripts, dependencies or rebuild.
 - Scope: fresh-process recovery from native-produced target+before state after a clean explicit exit. Not abrupt crash within a transaction, stale-lock handling, OS close lifecycle or mounted frontend failure coordination.
 - Fixture now main, no pending journal; req_delete restored from source, req_keep retains local edit. Do not use earlier target-state notes as current fixture state.
 - Next: mounted recovery/retained-copy OS picker acceptance, interruption/stale-lock and OS-close checks, create-and-switch/delete/remotes and remaining full feature parity. Full migration incomplete.
@@ -1924,7 +1816,7 @@ Owner follow-up (2026-09-30): After the current migration goal is fully complete
 - Bun FFI CreateFileW opened the probe workspace with GENERIC_READ and FILE_SHARE_READ, denying replacement. A separate owned sharing fixture first verified the handle's write denial; all handles closed in finally.
 - Actual checkout changed HEAD to target but atomic workspace replacement failed. The before workspace and exact native-produced journal remained. Ordinary save was blocked; load recovery also failed while the handle was held and retained the journal.
 - After CloseHandle, native load applied the exact after workspace and removed the journal. Deleted-request history, nonconflicting local edit and target resource changes were retained; ordinary save worked again and a fresh document displayed target data.
--18 assertions passed in artifacts/native-checkout-ui-recheck/post-head-ipc.json. This exercises actual native commands and real planning, not the mounted frontend coordinator under failure. It does not prove crash/lost reply, retained-copy OS picker/review or OS-close lifecycle. No application source changes, saved test scripts or rebuild.
+  -18 assertions passed in artifacts/native-checkout-ui-recheck/post-head-ipc.json. This exercises actual native commands and real planning, not the mounted frontend coordinator under failure. It does not prove crash/lost reply, retained-copy OS picker/review or OS-close lifecycle. No application source changes, saved test scripts or rebuild.
 - Fixture now rests on target, recovered workspace persisted, no pending journal. Reuse fixture.json for refs but inspect current state before the next scenario.
 - Docs consulted before the inline Bun probe: https://bun.sh/docs/runtime/ffi ; https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew ; https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-closehandle . Bun -e launched directly through node_repl execFile(shell:false,windowsHide:true); FFI is probe-only, no production dependency added.
 - Next: recovery on fresh process/startup after a pending transition, mounted recovery/retained-copy OS picker acceptance, process interruption/stale locks and OS-close lifecycle; create-and-switch/delete/remotes and wider parity still pending.
@@ -1952,7 +1844,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - Actual Tauri UI switched main→target and back. Native HEAD and persisted resource changes agreed; removed request/environment selections cleared, valid local/foreign tabs, nonconflicting local edit, private/foreign resources and deleted-request history were preserved. Actual Page.reload retained history/local edits. Journal absent after success.
 - Actual UI conflicting deletion refused checkout, preserved branch/local edit and reported conflict. Found a UI defect: switchBranch's staging reload cleared the dialog's error. Fixed by retaining the switch failure text after reload;11 compiled-handler checks and Svelte0/0/build0 passed. Native artifact recheck of this fix is pending.
 - Real native target-ref lock failure entered persistence recovery. The old Git dialog closed, a usable non-inert recovery dialog opened while app shell remained inert; removing only the owned fixture lock and clicking Retry recovery restored source workspace and editing. Screenshot inspection showed readable controls/no overlap in these two dialogs.
--16 assertions verified recorded native artifacts; artifacts/native-checkout-ui-probe/acceptance.json describes evidence and limits. Probe process23328 closed code0 at2026-09-29T12:50:24.503Z. Identity app.insomnium.probe.checkout20260929; not a production package.
+  -16 assertions verified recorded native artifacts; artifacts/native-checkout-ui-probe/acceptance.json describes evidence and limits. Probe process23328 closed code0 at2026-09-29T12:50:24.503Z. Identity app.insomnium.probe.checkout20260929; not a production package.
 - Probe limitations/corrections: Tauri invoke/global objects are read-only, so attempted lost-reply override did not install and does not prove uncertain post-commit IPC. Recovery acceptance used a real pre-journal ref-lock error instead. Restoring only a URL retained modified metadata and still conflicted; fixture baseline was restored exactly before the lock scenario. Reload probe was corrected to wait for the new page context. First setup lacked APPDATA env and was corrected to the verified USERPROFILE/AppData/Roaming path; partial isolated fixture remains retained.
 - Retained-copy native OS picker/review, post-HEAD IPC uncertainty, process-crash/stale-lock and OS-close acceptance remain pending. Full migration incomplete.
 - A fresh native recheck build for the UI fix is now running at artifacts/native-checkout-ui-recheck/build-state.json (PID984; supervisor34432). Poll that exact state/live handle, never restart solely on timeout. Same isolated identity; use original fixture.json from native-checkout-ui-probe for expected refs/data. Next verify conflict text remains in actual dialog, then continue remaining branch/remote/recovery parity.
@@ -2020,7 +1912,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - Persistence queue now exposes a read-only synchronous phase subscription. Notifications cover reserved/running/recovery/recovering/idle; an observer failure cannot change transition outcome. Persistence module forwards subscription without an unlock setter.
 - Workspace subscribes into reactive persistencePhase (HMR cleanup included), but mutation/run admission reads the actual queue phase rather than trusting the UI copy. Existing user mutation entry points, new runs/component scopes and persist remain blocked after run drain releases if the queue is still in recovery. persist refuses before history/settings normalization.
 - Page shell/dialog inert and keyboard guards include all non-idle persistence phases. API Design direct new-document path now uses the same mutation guard.
--17 checks exercised the real persistence module/queue with Svelte-compiled workspace and fake storage: uncertain transition after drain release, rejected starts/edits/saves, failed recovery, authoritative apply before idle, stale UI-phase copy and failed baseline save refusing submission.11 phase-subscription checks and27 original barrier regression checks passed. Svelte check0/0/build0; evidence artifacts/recovery-admission-check. No checks running or saved test scripts.
+  -17 checks exercised the real persistence module/queue with Svelte-compiled workspace and fake storage: uncertain transition after drain release, rejected starts/edits/saves, failed recovery, authoritative apply before idle, stale UI-phase copy and failed baseline save refusing submission.11 phase-subscription checks and27 original barrier regression checks passed. Svelte check0/0/build0; evidence artifacts/recovery-admission-check. No checks running or saved test scripts.
 - Probe initially assumed one microtask was enough to drain the preceding save; corrected to await its settlement before asserting running. No application defect inferred from that observation timing.
 - This is a frontend in-memory admission block, not durable/startup recovery. Native journal/checkout, authoritative workspace coordinator and recovery UI are not implemented. Do not expose branch switching until these are connected and accepted.
 - Next implement native shared storage/journal protocol and pending-journal write guards, recovery under GitState then StorageState, then workspace apply/selection repair and branch/recovery UI. Native lifecycle and full migration remain incomplete.
@@ -2031,7 +1923,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - Added createWorkspaceWorkScope around beginWorkspaceWork. Component disposal/drain aborts accepted work, but registration stays pending until finally; current() also checks workspace object and active collection identity.
 - Registered request-body, multipart, WebSocket payload, proto and GraphQL schema file reads plus page import file/picker. Late cancelled/disposed/replaced-workspace results cannot apply. Proto pending review records its workspace/request; WebSocket file result also preserves newer manual payload edits.
 - Registered XML formatter; abort terminates its worker and releases the task, late messages are ignored. Registered cookie list/change and legacy restore IPC; already submitted native writes remain awaited and cancelled results do not launch refresh or retain restore approval.
--42 inline checks passed:11 scoped workspace tasks,10 real compiled cookie component checks,21 file/XML cases using actual Svelte AST-extracted handlers/functions and compiled proto script. Mocked file/IPC/lifecycle boundaries, not mounted/native acceptance. Svelte check0/0 and build0; existing non-fatal >500kB Vite chunk warning remains. Evidence artifacts/remaining-writers-check. Checks finished; no saved test scripts or native rebuild.
+  -42 inline checks passed:11 scoped workspace tasks,10 real compiled cookie component checks,21 file/XML cases using actual Svelte AST-extracted handlers/functions and compiled proto script. Mocked file/IPC/lifecycle boundaries, not mounted/native acceptance. Svelte check0/0 and build0; existing non-fatal >500kB Vite chunk warning remains. Evidence artifacts/remaining-writers-check. Checks finished; no saved test scripts or native rebuild.
 - Reviewed TemplatePreview, ResponsePane filter worker and CodeEditor import/keymap callbacks: observed results update display/editor state with cleanup guards; no persistent resource writes identified in those inspected callbacks. This is source audit, not proof of all lifecycle/native parity.
 - Next integrate mutation admission with persistence transition/recovery phases so uncertain native outcomes retain editing block; implement native journaled checkout/startup recovery, authoritative workspace apply and branch UI. Native close/drain, picker, cookie and file acceptance still pending. Full migration incomplete.
 
@@ -2041,7 +1933,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - Added canEditWorkspace and guarded 20 resource/selection/environment/proto/OAuth/Runner mutation entry points plus updateSettings. Accepted background cleanup/save remains allowed while drain is settling; new user edits return without changing data.
 - Page direct environment/create/import/tab actions and keyboard shortcuts now honor the same drain guard. App shell and modal dialog explicitly use inert during drain (modal dialogs can escape ancestor inertness).
 - Preferences now use explicit value/checked + change handlers through updateSettings instead of binding directly into workspace. Editor indent/autocomplete normalization remains centralized; theme toggle also uses the guarded setter. Layout unchanged.
--28 compiled-workspace assertions passed covering all21 mutation entry points, no dependency/save side effects while blocked, normal edits/settings normalization and release after drain failure. API Design11 and Git panel9 regression checks also passed. Svelte check0/0 and build0; Vite reports a non-fatal >500kB chunk warning. Evidence artifacts/mutation-guard-check. No saved test scripts; checks finished.
+  -28 compiled-workspace assertions passed covering all21 mutation entry points, no dependency/save side effects while blocked, normal edits/settings normalization and release after drain failure. API Design11 and Git panel9 regression checks also passed. Svelte check0/0 and build0; Vite reports a non-fatal >500kB chunk warning. Evidence artifacts/mutation-guard-check. No saved test scripts; checks finished.
 - This guard follows the current run-drain reservation, not a durable native transition/recovery lock. Full checkout is still unimplemented. Mounted inert/focus/keyboard/preferences/native-close acceptance still pending.
 - Remaining audit found uncaptured file-reading intervals in RequestEditor body upload, ProtoManager choose, GraphqlEditor schema import; cookie change/legacy import IPC and page import picker also need lifecycle review/registration. Existing identity guards reduce some stale cases but do not prove complete transition quiescence.
 - Next register/invalidate those remaining async operations, then implement coordinated native journal/checkout/load recovery and branch UI. Keep full migration goal active.
@@ -2053,7 +1945,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - API Design registers worker and file reads. Worker cancellation/timeout/disposal terminates the worker and rejects queued stale messages; an already accepted resource save stays tracked until it settles. File results are checked after reading and discarded after abort, component disposal or changed document/collection. Worker constructor/postMessage failures clean up registration.
 - Git setup registers its whole lifecycle, checks AbortSignal before init and after native completion, retains durable binding for retry. Git dialog operations register through final completion: cancellation before commit submission prevents it; an already submitted commit remains awaited and its late UI result is ignored.
 - Svelte check initially found recursive JSDoc inference in finishWorker. Fixed with explicit parameter shape; Svelte check0/0 and build0 now pass.
--46 inline behavior checks passed (19 compiled workspace,7 Git setup cancellation,11 compiled API Design script,9 compiled Git panel script), plus12 prior Git setup regression checks. Evidence artifacts/component-drain-check. Component checks use real Svelte-compiled scripts with mocked dependencies/lifecycle, not mounted DOM or native IPC. No saved test scripts; checks finished.
+  -46 inline behavior checks passed (19 compiled workspace,7 Git setup cancellation,11 compiled API Design script,9 compiled Git panel script), plus12 prior Git setup regression checks. Evidence artifacts/component-drain-check. Component checks use real Svelte-compiled scripts with mocked dependencies/lifecycle, not mounted DOM or native IPC. No saved test scripts; checks finished.
 - Direct UI/resource/settings/import mutation lock and full remaining-writer audit are still required. Native journal/checkout/recovery and branch UI remain incomplete; no native or production rebuild this milestone.
 - Next audit remaining asynchronous component writers (cookies/settings/import/editor completions), implement central live mutation reservation plus UI binding/keyboard guards, then coordinate persisted baseline/native journal and authoritative apply. Native shutdown/runtime acceptance still pending.
 
@@ -2063,7 +1955,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - Added run-drain.js and integrated with actual shutdown through withWorkspaceRunsPaused. Reservation is synchronous; new HTTP/stream/gRPC sends, payloads, proto refresh, OAuth fetch/adoption and Runner launches are refused while tracked runs settle.
 - The 10-second deadline now covers cancellation IPC as well as completion promises; previously shutdown awaited cancellation before starting its timer. Accepted completion identities are detached and newly registered completions are also awaited. A timed-out drain cannot invoke its operation later.
 - Inline checks found and fixed a mutable initial-array snapshot bug. A subsequent probe itself incorrectly generated a new rejected Promise on every pending() call and timed out; corrected to stable completion identity. No application hang inferred from that invalid probe.
--19 helper assertions and14 checks of the real Svelte-compiled workspace module with mocked transport/persistence passed. Svelte check0/0 and frontend build0. Evidence artifacts/run-drain-check/{probe.json,workspace-probe.json,state.json,frontend.log}. No saved test scripts; checks finished.
+  -19 helper assertions and14 checks of the real Svelte-compiled workspace module with mocked transport/persistence passed. Svelte check0/0 and frontend build0. Evidence artifacts/run-drain-check/{probe.json,workspace-probe.json,state.json,frontend.log}. No saved test scripts; checks finished.
 - This is tracked-run coordination, NOT a full workspace mutation lock or completed checkout. Direct UI edits, API Design worker/file completion, Git setup/commit and other asynchronous component writers are not covered. The run gate releases after callback/error; uncertain native transition must separately retain the persistence/mutation recovery block.
 - Next inventory/register remaining writers and block live mutations, then integrate persistence barrier with native journal/checkout and startup recovery. Native shutdown/runtime acceptance and production rebuild still pending. Full migration incomplete.
 
@@ -2072,7 +1964,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - Previous turn was progress: storage/queue inspection identified late-save hazard and specified checkout protocol.
 - Added persistence-queue.js and routed real saveData through it. Exclusive transition reserves synchronously, drains accepted saves, rejects new saves/overlapping operations, and refuses to start if the latest queued save failed.
 - Callback failure keeps persistence blocked until explicit successful recovery; recovery failure remains blocked. Success applies callback result before releasing barrier and advances generation. Ordinary detached save ordering/retry behavior retained.
--27 inline assertions passed including actual persistence.js wrappers with in-memory browser storage; Svelte check0/0 and build0. Evidence artifacts/persistence-barrier-check. No checks running.
+  -27 inline assertions passed including actual persistence.js wrappers with in-memory browser storage; Svelte check0/0 and build0. Evidence artifacts/persistence-barrier-check. No checks running.
 - This is queue enforcement only. It does NOT block live resource mutation/background writers, persist a native journal or recover on startup. Transition/recovery exports await checkout coordinator integration; normal existing saveData is already integrated.
 - Next coordinate workspace writer quiescence and live-state application with this barrier, implement journaled native checkout/load recovery, then branch UI/native acceptance. Full migration incomplete; no saved test scripts or native/release build.
 
@@ -2089,7 +1981,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - Previous turn was progress: exact native branch tip metadata added with Cargo checks.
 - Added createGitClient.prepareSwitch(session,getResources,targetBranch). Reads target commit using private captured branch tip, verifies returned OID, rereads native source/target refs, checks session still live and whole resource array unchanged, then invokes three-way resource planner on a detached snapshot.
 - Preserves independent local changes; conflicts return no candidate resources. Guards local-only/foreign data changes too because planner returns the complete resource array. Visible session metadata mutation cannot change target OID.
--11 inline assertions passed; Svelte check0/0 and frontend build0. Evidence artifacts/git-switch-plan-check. No checks left running.
+  -11 inline assertions passed; Svelte check0/0 and frontend build0. Evidence artifacts/git-switch-plan-check. No checks left running.
 - This is a read-only preview, not checkout authorization or durable state. It does not change HEAD, write resources or create a branch. Only committed direct local source/target branches currently supported; unborn/detached/remote/create-and-switch paths remain scope.
 - Next implement coordinated durable checkout transition/recovery with expected-ref checks at mutation time and live-resource validation, then UI integration and actual native acceptance. Full migration incomplete.
 
@@ -2114,7 +2006,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 
 - Previous turn was progress: native canonical reload and partial commit accepted; checkbox margin source fix passed frontend checks.
 - Reused the verified isolated native binary (Git initialization code unchanged; binary still predates margin-only edit), identity app.insomnium.probe.gitui20260929, new evidence folder artifacts/native-git-recovery-probe.
--19 inline native IPC assertions passed: new unborn main init, retry identical info and all-file hashes, committed repository retry unchanged HEAD and all-file hashes; empty/nonrepo/partial .git/plain file/gitfile/junction paths rejected unchanged. Junction target separately confirmed sentinel-only and unchanged.
+  -19 inline native IPC assertions passed: new unborn main init, retry identical info and all-file hashes, committed repository retry unchanged HEAD and all-file hashes; empty/nonrepo/partial .git/plain file/gitfile/junction paths rejected unchanged. Junction target separately confirmed sentinel-only and unchanged.
 - Evidence recovery-evidence.json records cases/errors and limits. App exit0 and PID31196 absent. No native rebuild, application code edits or saved test scripts this milestone; fixtures only in isolated app data/artifacts.
 - Not covered: ACL denial, disk-full, process-crash injection, external path replacement races or full cross-store recovery. Invalid partial directories are preserved and reported, not automatically repaired.
 - Next implement branch create/list/delete/switch plus app-resource reconciliation and durable transition recovery. Review legacy branch actions and official git2 transaction/reference APIs first; plain ref switching alone does not implement legacy virtual-resource checkout. Full migration remains incomplete.
@@ -2172,7 +2064,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - Previous turn was progress: idempotent native initialization with successful Cargo checks.
 - Added git-setup.js coordinator and explicit workspace setupGit entry point. It persists a local binding before native initialization, retains the ID across save/IPC failure, rejects overlapping setup for a collection and rechecks live collection/binding after asynchronous boundaries.
 - Browser/not-ready workspace calls are rejected before mutation. Loading saved state does not automatically initialize repositories. Invalid existing directories remain native errors; no cleanup or repair is inferred.
--12 inline assertions passed (save failure/retry, IPC failure/retry, duplicate calls, workspace replacement, removed binding and thrown save). Svelte check0 errors/0 warnings and Vite build0; artifacts/git-setup-check. No saved test scripts and no checks left running.
+  -12 inline assertions passed (save failure/retry, IPC failure/retry, duplicate calls, workspace replacement, removed binding and thrown save). Svelte check0 errors/0 warnings and Vite build0; artifacts/git-setup-check. No saved test scripts and no checks left running.
 - Not wired to a visible Svelte dialog yet; actual Svelte proxy/native/persistence acceptance still pending, including previous native retry change. No cross-store transaction or full Git completion claimed.
 - Next connect setup/staging/commit/history UI with captured collection identity, then rebuild isolated native probe and verify complete flow and error recovery.
 
@@ -2196,7 +2088,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 
 - Previous turn was progress: native commit/history acceptance completed. Added frontend local binding and staging-session client this turn.
 - Protects private baseline from UI mutation, rejects collection/binding changes across reads and before submission, consumes attempted sessions to avoid blind commit retries; leaves later edits local.
--18 inline contract checks passed; Svelte check0/0 and frontend build0. Evidence artifacts/git-client-check. No checks left running.
+  -18 inline contract checks passed; Svelte check0/0 and frontend build0. Evidence artifacts/git-client-check. No checks left running.
 - Still not wired to workspace persistence/UI. Next save/recover binding, reset imported native mappings, connect setup/staging/history dialogs and verify actual frontend/native flow. See GIT-INVENTORY for limits.
 - No saved test scripts, native repository writes or native/installer build. Full migration incomplete.
 
@@ -2226,7 +2118,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 ## Git resource staging model — 2026-09-29
 
 - Previous turn was progress: native history implementation/checks. Added pure resource changes and selected commit candidate generation this turn.
--26 inline assertions passed; Svelte check0/0 and frontend build code0. Evidence artifacts/git-staging-check. No checks left running.
+  -26 inline assertions passed; Svelte check0/0 and frontend build code0. Evidence artifacts/git-staging-check. No checks left running.
 - Required workspace changes, deleted names, private exclusions, unselected bytes and parent graph validated. Model is not native staging/commit or a revision-guarded transaction.
 - Re-read legacy history: log fetches origin before local log when configured; remote history integration still required. GIT-INVENTORY records evidence/limits.
 - Next: native commit/index transaction, captured tip/resource revision and Svelte staging UI; history native acceptance also pending. No saved tests/native build/installer; full migration incomplete.
@@ -2283,14 +2175,14 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 
 - Previous turn was progress: collection snapshot/reader implemented and checked. This turn added pure base/current/incoming resource reconciliation in src/lib/git-reconcile.js.
 - Keeps local changes where incoming is unchanged, accepts matching changes, reports conflicting edits/deletes/adds and protects private/local-only/foreign IDs. Parent conflicts reject the whole candidate; no input mutation or persistence.
--38 inline checks passed; Svelte check0/0 and frontend build passed. GIT-INVENTORY.md records API, evidence and limits.
+  -38 inline checks passed; Svelte check0/0 and frontend build passed. GIT-INVENTORY.md records API, evidence and limits.
 - Git remains unavailable end-to-end: revision/lifecycle/persistence coordination, native repository backend and UI still required. Next connect native repository state and guarded apply; do not treat this pure planner as an atomic transaction.
 - No saved tests, new dependencies, real repository writes, installer or native build. Full migration remains incomplete.
 
 ## Git collection snapshot and reader — 2026-09-29
 
 - Previous turn was progress: Git resource codec implemented and checked. This turn added src/lib/git-collection.js to snapshot one workspace and validate a complete managed repository tree.
--28 inline assertions passed, including5 archived fixture collections/37 resources; Svelte check0/0 and frontend build passed.
+  -28 inline assertions passed, including5 archived fixture collections/37 resources; Svelte check0/0 and frontend build passed.
 - Verified legacy descendant traversal does not prune private ancestors. New snapshot explicitly rejects a public tree whose parent was excluded; GIT-INVENTORY.md records behavior and remaining UI resolution.
 - Validation now covers root/ownership graph, duplicate/case-colliding paths, limits and private/local-only exclusions. No application-state write or Git operation is wired yet.
 - Next: baseline/current/incoming reconciliation and revision-guarded transaction/persistence, then native backend/UI. No new dependencies, saved tests, native build or installer. Full migration remains incomplete.
@@ -2299,7 +2191,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 
 - Previous turn was progress: latest Runner callback fix passed native acceptance and probe/fixture were cleaned up.
 - Added src/lib/git-resources.js after official yaml docs and legacy model/NeDB review.12 legacy types, path/ID/type validation, JSON/YAML bounds, parent mapping, private/local-only rejection and local provenance exclusion.
--87 inline assertions and37 actual archived-fixture resource round-trips passed. Fixed2 JSDoc Map inference errors; final Svelte check0/0 and frontend build code0. Initial build capture overflow was corrected; no success inferred from truncated output.
+  -87 inline assertions and37 actual archived-fixture resource round-trips passed. Fixed2 JSDoc Map inference errors; final Svelte check0/0 and frontend build code0. Initial build capture overflow was corrected; no success inferred from truncated output.
 - GIT-INVENTORY.md records exact evidence and limits. Codec is not wired to UI/native Git; collection ownership/topology/transactional application and backend remain next.
 - No saved test scripts, dependency changes, repository mutations or native/installer build. Full migration remains incomplete.
 
@@ -2486,7 +2378,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - Existing valid template-bearing cookie values can be restored into the native jar and then participate in structured snapshot rendering. Unrepresentable template names/domain/path/expiry still need an explicit persistent template-source model with editing/deletion/clear semantics; this remains incomplete, not removed from scope.
 - Added shared requestCookieSnapshot helper and an explicit includeCookies option to renderOAuthRequest. authorizeOAuth Fetch/Refresh opts in; URL/authentication and cookie snapshot render within the same owned Send session. Generation remains native metadata. Existing OAuth token envelope forwards the rendered snapshot into native transport.
 - Preview and saved-token adoption do not opt into cookie loading/rendering; preview explicitly suppresses it even if requested. Cookie flags/global disable still skip snapshots. Cancellation is checked after lookup and session owns subsequent rendering cleanup. Unrelated request bodies/headers are still not rendered.
--25 inline assertions passed:12 compiled explicit Fetch/Refresh cases including rendered native cookie envelope plus previous dependency/prompt/Stop/token-source guards;7 ordinary cookie snapshot regressions;6 OAuth preview regressions. Native IPC mocked; no actual provider/WebView claim. Workers0; no saved test scripts/real-user-state writes.
+  -25 inline assertions passed:12 compiled explicit Fetch/Refresh cases including rendered native cookie envelope plus previous dependency/prompt/Stop/token-source guards;7 ordinary cookie snapshot regressions;6 OAuth preview regressions. Native IPC mocked; no actual provider/WebView claim. Workers0; no saved test scripts/real-user-state writes.
 - Svelte0 errors/0 warnings, Vite production build and git diff --check passed. Bun ran Prettier/Svelte/Vite via hidden node_repl direct launch. No native change/dependency/new installer; source newer than BUILD.json.
 - The extracted helper initially had a return newline causing ASI; compiler caught it, fixed and rerun. First fixture returned collection-A templates for collection B, failing dependency rendering; corrected the mock to scope cookies by collection and reran. A guessed oauth-exchange.js search path was absent; actual implementation is oauth.js.
 - Official docs consulted before edits: https://v2.tauri.app/develop/calling-rust/#returning-data and https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/throwIfAborted . Existing subsystem reused; no generator needed.
@@ -2496,7 +2388,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 
 - Replaced cookie_store raw_cookie strings in the new snapshot IPC with SnapshotCookie fields: key/value, typed domain/path/absolute expiry, secure/httpOnly. Generic request renderer now sees key/value separately. No frontend source change was needed.
 - Provider rebuilds RawCookie through the documented builder, never parsing expanded values as Set-Cookie attributes. It then restores typed scope and expiry explicitly. Rendered header control characters fail before sending. Source/native durable cookies remain untouched; request-local snapshot and delta merge contract retained.
--24 inline assertions passed:7 compiled frontend snapshot/IPC cases updated for the structured shape and17 native assertions against actual provider/snapshot conversion source. Native cases include prior generation/bounds/isolation behavior plus semicolon/Domain/Path-looking values staying literal, preserved domain/path/absolute expiry/secure/httpOnly, serde roundtrip and invalid-header rejection. This proves internal value/scope preservation, not how a server interprets a semicolon inside an outgoing Cookie header.
+  -24 inline assertions passed:7 compiled frontend snapshot/IPC cases updated for the structured shape and17 native assertions against actual provider/snapshot conversion source. Native cases include prior generation/bounds/isolation behavior plus semicolon/Domain/Path-looking values staying literal, preserved domain/path/absolute expiry/secure/httpOnly, serde roundtrip and invalid-header rejection. This proves internal value/scope preservation, not how a server interprets a semicolon inside an outgoing Cookie header.
 - Cargo check --locked, fmt -- --check, clippy --locked -- -D warnings and git diff --check passed. Initial check found two borrowed CookieExpiration values requiring clone; fixed and rerun. Native-only source change; no frontend build repeat or installer. Native probe compiled via rustc stdin with existing rlibs, EXE/PDB cleaned; no saved test source or real-user-state writes.
 - Before implementing, consulted https://docs.rs/cookie/latest/cookie/struct.CookieBuilder.html and installed official cookie_store0.22.1 lib.rs/cookie.rs/cookie_path.rs/domain/expiration definitions. Online cookie_store index failed; installed crate source confirmed public reexports, builder conversion and clone/serde behavior. No generator/dependency needed; hidden node_repl/Bun/direct Cargo rules retained.
 - This supersedes the prior raw_cookie interpolation limitation. Full legacy cookie parity remains incomplete: imported cookie_jar template records not representable in native persistent storage need structured overlay; tagged native domain/path/expiry representation differs from legacy fields, and template-bearing scope/expiry/import behavior needs reconciliation. Manual OAuth cookie rendering and real WebView/HTTP/SSE/WebSocket/redirect acceptance remain pending.
@@ -2507,7 +2399,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - Added main-window snapshot_request_cookies command and registration. Returns unexpired native cookie_store records plus collection generation, with10,000-cookie/8 MiB serialized bound. Snapshot includes native absolute expiry/scope metadata rather than reparsing relative Max-Age on every send.
 - renderSendRequest obtains the collection snapshot before constructing its render session when cookies are enabled. Renders it alongside the request with the same environment/dependency/prompt context; preserves the original generation as ownership metadata and attaches the rendered cookieSnapshot to the outgoing request. Cancellation after snapshot lookup prevents rendering/dispatch. Cookie reads do not change UI collection selection or persist expanded source values.
 - transport forwards cookieSnapshot; HttpRequest accepts an optional snapshot (older/internal callers fall back to native provider-time snapshots). build_client passes it to CookieProvider, which bounds it again, rejects stale generation and uses it only for the private request store. Received Set-Cookie still merges only response deltas. Cookie-disabled requests omit loading/sending snapshots.
--40 inline assertions passed:7 compiled workspace/mocked IPC cookie cases (environment render, generation/collection, source immutability, flags/global disable, failure, cancellation),12 WebSocket initial-message regressions,9 User-Agent regressions (native mocks now return empty snapshots),12 actual native snapshot/provider assertions including serde roundtrip, rendered private cookies, source jar retention, oversized/stale snapshots and previous concurrency/redirect/clear behavior. Native probe used rustc stdin and existing dependency rlibs; temporary EXE/PDB removed. No saved test scripts, app/user-state writes or live fixture workers.
+  -40 inline assertions passed:7 compiled workspace/mocked IPC cookie cases (environment render, generation/collection, source immutability, flags/global disable, failure, cancellation),12 WebSocket initial-message regressions,9 User-Agent regressions (native mocks now return empty snapshots),12 actual native snapshot/provider assertions including serde roundtrip, rendered private cookies, source jar retention, oversized/stale snapshots and previous concurrency/redirect/clear behavior. Native probe used rustc stdin and existing dependency rlibs; temporary EXE/PDB removed. No saved test scripts, app/user-state writes or live fixture workers.
 - Cargo check --locked, clippy --locked -- -D warnings, fmt -- --check, Svelte0/0, Vite build and git diff --check passed. Bun Prettier/Svelte/Vite and direct Cargo/rustc via hidden node_repl launch rules; no dependency/generator/new installer. Source newer than BUILD.json.
 - Consulted official https://v2.tauri.app/develop/calling-rust/ before command work. Cookie documentation page failed to load; inspected installed official cookie_store0.22.1 src/cookie.rs serde contract and previously consulted CookieStore clone/from_cookies docs. Native serde preserves raw_cookie plus path/domain/expiry.
 - Remaining cookie parity: legacy cookie_jar resource records containing templates that native import cannot represent are not yet overlaid; native raw_cookie string templating is not proven equivalent to original separately rendered key/value/domain/path fields (attribute delimiters need reconciliation). Manual OAuth token exchanges still use their existing native provider-time snapshot; no explicit cookie template renderer added there. Real WebView/IPC/network/redirect/header/SSE/WebSocket acceptance remains pending. Do not mark full cookie parity verified.
@@ -2518,7 +2410,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - Inspected original common/render.ts getRenderedRequestAndContext and libcurl-promise.ts cookie initialization: each request begins with a cookie snapshot, then learns redirect cookies. Current native CookieProvider instead reread the collection's shared store on every hop, allowing concurrent requests to change its outgoing cookies.
 - CookieProvider now clones the current CookieStore when the provider is created. Outgoing cookies read that private store. Received Set-Cookie updates the private store when sending is enabled, even if persistence is disabled. With store enabled, only received cookie deltas merge into the live collection jar; an old snapshot never replaces newer unrelated entries.
 - Existing collection generation invalidation remains: edit/clear/import invalidates older providers, prevents further sends from that snapshot and blocks late response writes. Lock order is consistently collection then private request store. No changes to disk format, Cookie UI or parser scope/expiry matching.
--8 native inline assertions passed against the actual provider function/struct/trait implementation extracted from cookies.rs, compiled via rustc stdin and existing release dependency rlibs: concurrent isolation, response learning, delta merge preserving a newer session, local-only redirect cookie, no persistence when disabled, store-only mode, later provider visibility, and clear invalidating old sends/writes. In-memory fixture only; no app/user cookie data touched. Temporary executable/PDB removed; no saved test source/scripts.
+  -8 native inline assertions passed against the actual provider function/struct/trait implementation extracted from cookies.rs, compiled via rustc stdin and existing release dependency rlibs: concurrent isolation, response learning, delta merge preserving a newer session, local-only redirect cookie, no persistence when disabled, store-only mode, later provider visibility, and clear invalidating old sends/writes. In-memory fixture only; no app/user cookie data touched. Temporary executable/PDB removed; no saved test source/scripts.
 - Cargo fmt -- --check, cargo check --locked, cargo clippy --locked -- -D warnings and git diff --check passed. Native-only change; no unnecessary frontend rerun or installer. Hidden node_repl direct programs and Bun filesystem operations retained.
 - Official docs consulted before editing: https://docs.rs/cookie_store/0.22.1/cookie_store/struct.CookieStore.html (clone/parse/request values). Attempted exact reqwest CookieStore trait page was unavailable; existing provider trait implementation and compiled crate validate its contract. Reused existing subsystem, no generator/dependency needed.
 - A guessed src/lib/cookies.js read/search path was absent; rg --files located legacy-cookies.js. No source edit failure.
@@ -2531,7 +2423,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - HttpRequest adds a serde-defaulted suppress_user_agent boolean so older/internal envelopes remain compatible. build_client sets its implicit Insomnium agent only when suppression is false. Shared HTTP/SSE/WebSocket HTTP-client preparation receives the flag; gRPC has a separate transport and is unchanged.
 - Browser preview rejects suppression without an enabled explicit User-Agent because browser-controlled headers cannot guarantee omission. Desktop dispatch remains native. Existing default identity/version unchanged.
 - Read archived common/render.ts suppression computation and main/network/libcurl-promise.ts USERAGENT behavior. Consulted exact-version official docs before editing: https://docs.rs/reqwest/0.12.28/reqwest/struct.ClientBuilder.html#method.user_agent . No new subsystem/generator/dependency.
--9 inline assertions passed using compiled workspace and built template workers/mocked send_http: no header, disabled mixed-case header, enabled custom header, disabled+enabled coexistence, explicit empty value, unrelated disabled header, direct composer, preview rejection and worker cleanup. No saved test files or real-user-state writes.
+  -9 inline assertions passed using compiled workspace and built template workers/mocked send_http: no header, disabled mixed-case header, enabled custom header, disabled+enabled coexistence, explicit empty value, unrelated disabled header, direct composer, preview rejection and worker cleanup. No saved test files or real-user-state writes.
 - Cargo fmt -- --check, cargo check --locked, cargo clippy --locked -- -D warnings, Svelte0/0, Vite build and git diff --check passed. Bun ran Prettier/svelte-check/Vite through hidden node_repl; Cargo launched directly with documented MSVC/SDK/CARGO_HOME/RUSTUP_HOME/LIBCLANG_PATH child environment. No installer rebuilt; source newer than BUILD.json.
 - An archive search included generated source maps and hit its output buffer; narrowed evidence to original render.ts/libcurl-promise.ts. No code mutation failed.
 - Native compiler/lint and frontend envelope checks do not prove on-wire omission/redirect/handshake behavior. Real WebView/native HTTP, SSE and WebSocket header acceptance remains pending. Next: rendered cookie snapshot/native jar parity, URL encoding, live SSE raw history, then runtime/UI/platform/packaging acceptance and remaining PARITY rows. Full migration incomplete.
@@ -2572,7 +2464,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - grpcConnection/grpcSchemaRequest/grpcContext/grpcBody accept explicit resolved inputs, avoiding a second interpolation of literal output. Existing synchronous composition remains for compatibility. grpcSourceContext supplies a noninteractive hash for UI/stale-call checks; excludes this request's body/method/modified fields so editing a streaming message remains possible. Method changes are checked separately.
 - Schema cache stores both raw source context and resolved connection context. Repeated templates that resolve differently force discovery again. Metadata/environment/proto/settings changes discard stale preparations or close live calls; conservative changes to other source resources also invalidate. External dynamic inputs/history are not replayed during UI context checks.
 - Client-message operations track shutdown completion, follow the connection signal, reject changed/closed/replaced runs before dispatch and clear sending state. Status/completion aborts pending render work. No native schema/codec/transport logic changed.
--40 inline assertions passed:15 compiled gRPC/mocked-native cases (reflection, cache, unary, skipped discovery body, prompt Cancel, client messages/half-close, Stop, changed endpoint, dynamic metadata dependency, cleanup),7 composition/source checks (legacy compatibility, resolved literals, local proto and body/context edits),11 WebSocket regressions and7 OAuth introspection regressions. Svelte0/0, Vite build and git diff --check passed. A pure-probe tool call had a quoting syntax error before execution; corrected and rerun. No saved test scripts/new dependencies/native edits/installer; workers0, no real-user-state writes.
+  -40 inline assertions passed:15 compiled gRPC/mocked-native cases (reflection, cache, unary, skipped discovery body, prompt Cancel, client messages/half-close, Stop, changed endpoint, dynamic metadata dependency, cleanup),7 composition/source checks (legacy compatibility, resolved literals, local proto and body/context edits),11 WebSocket regressions and7 OAuth introspection regressions. Svelte0/0, Vite build and git diff --check passed. A pure-probe tool call had a quoting syntax error before execution; corrected and rerun. No saved test scripts/new dependencies/native edits/installer; workers0, no real-user-state writes.
 - Read official grpc.io core-concepts/reflection docs and archived grpc-request-pane.tsx getRenderedGrpcRequest/getRenderedGrpcRequestMessage/reflection interpolation before implementing. Existing subsystem reused; no generator needed. Bun directly runs Prettier, svelte-check with existing flags and vite build; git diff --check. Hidden node_repl program launch rules retained.
 - Real WebView/native gRPC wire/proto/codec and call-end cancellation acceptance remains pending; mocked native checks prove frontend composition/lifecycle only. Source newer than BUILD.json. Next: streaming dependency completion and remaining stream behavior, native cookie/User-Agent/URL parity, then full runtime/UI/platform/packaging acceptance and other PARITY gaps. Full migration incomplete.
 
@@ -2581,7 +2473,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - sendPayload now snapshots payload/current collection environment and renders text/JSON/ping with the shared Send session and dependent-response adapter. Binary Base64 remains literal. JSON is validated after rendering. Request URL/auth/body are not rerendered for subsequent messages.
 - Each payload operation captures its connection ID, follows its AbortSignal and rechecks matching active/open response/run and resource existence before dispatch. Replaced/closed connections never receive a late rendered message. One payload operation per request is allowed; operation completion participates in shutdown. Payload/environment edits after clicking Send use the captured snapshot; deletion/connection replacement cancels dispatch.
 - Native closed events and execute finalization abort the connection owner to release pending prompt/render/dependency work. Existing native message format/size handling is unchanged.
--22 inline assertions passed:11 compiled payload cases (text/JSON/binary/ping, prompt, duplicate-send guard, Stop, replacement connection, dependency and cleanup),5 actual execute/mocked-native close/shutdown cases,6 dependent OAuth cancellation regressions. Svelte0/0, Vite build and git diff --check passed. No saved test files/dependencies/native edits/installer; workers0, no real-user-state writes.
+  -22 inline assertions passed:11 compiled payload cases (text/JSON/binary/ping, prompt, duplicate-send guard, Stop, replacement connection, dependency and cleanup),5 actual execute/mocked-native close/shutdown cases,6 dependent OAuth cancellation regressions. Svelte0/0, Vite build and git diff --check passed. No saved test files/dependencies/native edits/installer; workers0, no real-user-state writes.
 - Consulted official Tauri channels and MDN AbortController.abort plus archived main/network/websocket.ts and ui/components/websockets/websocket-request-pane.tsx interpolation/send sequence. A guessed archive path was absent and an rg expression had an unmatched parenthesis; located actual file and reran search. No source edit failures.
 - Real WebView/Rust WebSocket wire acceptance remains pending; mocked IPC proves frontend ownership only. Automatic connect-and-send behavior from the archive and advanced stream parity still need reconciliation. Next: gRPC discovery/send/client-stream message renderer, streaming dependency completion, native cookie/User-Agent/URL parity and full PARITY acceptance. Full migration incomplete; source newer than BUILD.json.
 
@@ -2590,7 +2482,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - useSavedOAuth is now an asynchronous, cancellable tracked operation. It scopes the request environment, renders URL/authentication with prompt/dependency support, computes the resolved context and binds a new native record. Imported source records remain untouched; existing active native copies follow the prior replacement policy.
 - Validates the chosen token before rendering; checks the current request/source hash and exact selected-token snapshot again before binding. Cancel, changed request/environment or changed/missing token prevents adoption. Disabled/non-OAuth requests and manual access-token overrides are rejected. Expiry/ID-token send rules remain in oauthHeader.
 - UI awaits the adoption result, retains selection on failure and no longer blocks an explicit action solely because noninteractive preview cannot resolve its template. Save failure remains visible and returns false (in-memory change follows the existing persistence/recovery contract).
--23 inline assertions passed:12 compiled Svelte adoption cases (resolved context, import retention, no primary send/unrelated body prompt, prompt answer/Cancel, token/request edits, Stop, manual override/disabled auth, explicit dependent response and worker cleanup),11 manual Fetch/Refresh regressions. Svelte0/0, production Vite build and git diff --check passed. No saved test scripts/new dependencies/native changes/installer; workers0 and no real-user-state writes.
+  -23 inline assertions passed:12 compiled Svelte adoption cases (resolved context, import retention, no primary send/unrelated body prompt, prompt answer/Cancel, token/request edits, Stop, manual override/disabled auth, explicit dependent response and worker cleanup),11 manual Fetch/Refresh regressions. Svelte0/0, production Vite build and git diff --check passed. No saved test scripts/new dependencies/native changes/installer; workers0 and no real-user-state writes.
 - Consulted official https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/throwIfAborted and https://svelte.dev/docs/svelte/$state before implementation. Reused existing renderer/token validation; no initialization needed. Commands: Bun launches Prettier, svelte-check with existing flags and Vite build; git diff --check. Hidden node_repl launch rules retained.
 - Real WebView/provider/UI/persistence acceptance remains pending. Next: gRPC discovery/send and subsequent WebSocket payload shared rendering, streaming dependency completion, native cookie/User-Agent/URL parity and full PARITY acceptance. Full migration incomplete; source newer than BUILD.json.
 
@@ -2598,7 +2490,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 
 - authorizeOAuth now owns a scoped snapshot, async OAuth rendering, dependent-response resolver and resolved token exchange/source guard. renderOAuthRequest renders URL/authentication only; unrelated body/header/query fields are not evaluated. Manual actions retain explicit override checks and do not dispatch the primary request or replace its response/history.
 - OAuthEditor token status now uses a debounced, abortable preview of the same URL/authentication input and resolved token lookup. Preview never opens prompts or resends dependencies. Refresh can be attempted when a saved local refresh token exists; the action resolves the actual current context before selecting a token, so previous-setting tokens are not silently reused.
--24 inline assertions passed:11 compiled manual action cases (dependency, auth templates, token storage/Refresh, prompt answer/Cancel, changed-source discard, native Stop and cleanup),6 actual-worker token preview cases,7 dependent interactive callback regressions. Svelte0/0, production Vite build and git diff --check passed. Fixtures/workers cleaned; no saved tests/dependencies/native edits/new installer.
+  -24 inline assertions passed:11 compiled manual action cases (dependency, auth templates, token storage/Refresh, prompt answer/Cancel, changed-source discard, native Stop and cleanup),6 actual-worker token preview cases,7 dependent interactive callback regressions. Svelte0/0, production Vite build and git diff --check passed. Fixtures/workers cleaned; no saved tests/dependencies/native edits/new installer.
 - Read official Tauri channel and MDN AbortSignal.throwIfAborted docs plus archived o-auth-2-auth.tsx manual handleRender(authentication). One guessed archive filename was missing; located actual file with rg --files. A UI edit command had a quote syntax error before mutation, corrected using serialized source text. Final compiler check caught a missed snapshot declaration replacement in OAuthEditor; corrected and checks rerun successfully. Commands run via hidden node_repl direct Bun/program execution.
 - Source newer than BUILD.json. Real WebView/provider/UI acceptance remains pending. Preview cannot prove token applicability when dynamic values cannot be resolved without interaction; explicit Fetch/Refresh performs authoritative Send-purpose resolution. Saved/imported token adoption still uses the old synchronous context and needs integration. Next: adoption, gRPC/WS payload rendering, streaming dependency completion, native transport parity and full PARITY acceptance. Full migration incomplete.
 
@@ -2606,7 +2498,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 
 - resolveQuery is now asynchronous, resolves only the GraphQL body with the shared preview session/environment layers, honors body-render opt-out and normalizes string/object variables. Does not evaluate unrelated URL/auth fields, acquire OAuth, open prompts or resend dependent requests; response tags read saved history.
 - GraphqlEditor owns an AbortController/revision for Validate, displays pending state, suppresses stale results and disposes on body/context/history/schema change or unmount. Existing query/schema diagnostics remain.
--39 inline assertions passed:12 real-worker preview cases,9 compiled lifecycle cases extracted from the actual component block,18 introspection regressions. Svelte0/0, Vite production build and git diff --check passed. No saved tests/dependencies/native changes/installer; fixtures stopped/workers0.
+  -39 inline assertions passed:12 real-worker preview cases,9 compiled lifecycle cases extracted from the actual component block,18 introspection regressions. Svelte0/0, Vite production build and git diff --check passed. No saved tests/dependencies/native changes/installer; fixtures stopped/workers0.
 - Sources read: https://svelte.dev/docs/svelte/$effect and https://www.graphql-js.org/api-v16/validation/ . Existing renderer reused; no initialization needed. Commands: Bun directly launches Prettier, svelte-check with existing flags, Vite build; git diff --check. Hidden node_repl launch rules retained.
 - Probe corrections: schema-error fixture initially bypassed normalization and lacked variables; corrected to run resolveQuery first. Lifecycle probe had a string newline syntax error and an import rejected by the Svelte compiler; corrected to public Svelte import before compiling. Final probes passed.
 - Full component DOM/WebView interaction still requires acceptance; extracted lifecycle verification is not a rendered UI test. Existing schema cache conservative/dynamic-source limitations remain. Next: manual OAuth Fetch/Refresh and gRPC/WS payload shared rendering, streaming dependency completion, native transport parity and full PARITY acceptance. Full migration incomplete.
@@ -2615,7 +2507,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 
 - Schema fetch now builds its generated body before async Send rendering, with per-collection environment, dependent responses, resolved OAuth and cancellation. User operation/body and ordinary response/history are preserved.
 - Replaced synchronous rendering in schema cache identity with a hashed source/token fingerprint. UI cache inspection never prompts or sends; source edits and cancelled late responses are rejected. Query-only edits retain schema. Conservative source and dynamic external-input limits documented.
--39 inline assertions passed (18 local HTTP/Svelte,7 native OAuth,14 dependency OAuth regressions); Svelte0/0, Vite build and git diff --check passed. No saved tests/dependencies/native edits/installer. Fixtures stopped, workers0.
+  -39 inline assertions passed (18 local HTTP/Svelte,7 native OAuth,14 dependency OAuth regressions); Svelte0/0, Vite build and git diff --check passed. No saved tests/dependencies/native edits/installer. Fixtures stopped, workers0.
 - See GRAPHQL-RENDERING.md for exact behavior, sources, commands and corrected edit/fixture failures. Next: GraphQL Validate/manual OAuth/gRPC/WS payload renderers, streaming dependency completion, native transport parity and WebView acceptance. Full migration incomplete; source newer than BUILD.json.
 
 ## Cross-collection dependent HTTP routing — 2026-09-29
@@ -2624,21 +2516,21 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - Resolver history/new-response cache is keyed by request and caller environment. Sends validate/cache the target environment and return that immediate response. Thus foreign no-history may resend even when target-environment history exists; this preserves inspected original caller-versus-target semantics.
 - Connected scoped routing in workspace.execute/sendDependentRequest and removed the temporary cross-collection guard. Source guards compare the current request's collection selection. Existing conservative all-resource/settings guard remains; unrelated edits can still discard a pending token.
 - Fixed dependent manual OAuth callback authorization: progress carries its root owner; callbacks require the matching live non-aborted owner, and late/cancelled callbacks fail.
--61 inline assertions passed:34 existing resolver/native OAuth/cycle/local HTTP regressions,7 three-collection local HTTP cases,8 foreign OAuth/shared tokens/source-change cases,7 manual callback/cancellation cases,5 scoped resolver/identity checks. Svelte0/0, Vite build and git diff --check passed. One JSDoc mismatch was corrected after the compiler identified it.
+  -61 inline assertions passed:34 existing resolver/native OAuth/cycle/local HTTP regressions,7 three-collection local HTTP cases,8 foreign OAuth/shared tokens/source-change cases,7 manual callback/cancellation cases,5 scoped resolver/identity checks. Svelte0/0, Vite build and git diff --check passed. One JSDoc mismatch was corrected after the compiler identified it.
 - No saved test scripts, dependency/native changes, real user data writes or installer. Fixture servers stopped, workers0. Real WebView/provider/native cancellation acceptance remains pending.
 - Next: finite completion semantics for streaming dependencies and integration of introspection/manual OAuth/gRPC/WS payload renderers; native cookie/User-Agent/URL handling and full PARITY acceptance. Source newer than BUILD.json; full migration incomplete.
 
 ## Per-collection environment retention — 2026-09-29
 
 - Added workspace_meta selection storage, old-global migration, validation, collection/tab restore, Base retention and deleted-environment cleanup. Import/duplicate remap activeEnvironmentId; UI layout unchanged.
--20 inline Bun assertions passed, including compiled Svelte actions. Svelte0/0, Vite production build and git diff --check passed. No saved test scripts/dependencies/native edits/installer.
+  -20 inline Bun assertions passed, including compiled Svelte actions. Svelte0/0, Vite production build and git diff --check passed. No saved test scripts/dependencies/native edits/installer.
 - See COLLECTION-ENVIRONMENTS.md for precedence, sources, commands and next steps. Cross-collection dependency resend remains guarded until scoped rendering/history/OAuth routing is implemented and verified. Full migration remains incomplete; source newer than BUILD.json.
 
 ## Same-collection dependent HTTP response sends — 2026-09-29
 
 - Added template-response-send.js policy/history/chain resolver; extracted shared response lookup/read helpers; bridged an application-owned response callback through session/request rendering and workspace.execute. Dependencies recursively render and send with unique native IDs, resolved OAuth, history and root cancellation.
 - Preserved inspected legacy trigger/chain behavior, including independent root always occurrences, mutable child chains and cached-history fallback on cycles. Host network waits share deadline pause notifications but keep heartbeat/watchdog/VM/total bounds. Limit32 sends/chain entries and40Mi retained new-response characters.
--38 inline assertions passed:17 policy/resolver,9 compiled Svelte/local HTTP,6 mocked-native dependent OAuth/cancel,2 root-reentry cycle,2 timeout/watchdog,1 invalid trigger and1 cross-collection guard. Svelte0/0 and Vite build passed; workers/fixture servers stopped. No saved test scripts/dependencies/native edits/installer.
+  -38 inline assertions passed:17 policy/resolver,9 compiled Svelte/local HTTP,6 mocked-native dependent OAuth/cancel,2 root-reentry cycle,2 timeout/watchdog,1 invalid trigger and1 cross-collection guard. Svelte0/0 and Vite build passed; workers/fixture servers stopped. No saved test scripts/dependencies/native edits/installer.
 - Original network.ts revealed per-collection active-environment routing. Current app's global selection cannot reproduce it yet, so cross-collection resends fail before dispatch; finite HTTP only, streaming dependencies explicitly pending. These remain required scope. See DEPENDENT-RESPONSES.md for exact semantics, sources, tests and remaining UI/history/concurrency/native gates.
 - Next: per-collection environment retention and foreign dependency routing, introspection/manual OAuth/gRPC/WS payload pipelines, native cookie/User-Agent/URL parity and real WebView acceptance. Full migration incomplete; source newer than BUILD.json.
 
@@ -2647,7 +2539,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - Execution recovered from the node_repl sandbox failure. Revalidated and recorded the prior request snapshot milestone before continuing.
 - Added renderSendRequest ownership wrapper and connected workspace.execute HTTP/initial SSE/WebSocket preparation to full async request rendering and prepareRenderedRequest. Cancellation is registered before rendering; prompt Cancel/Stop prevent network dispatch; body opt-out/literal outputs are not rerendered.
 - OAuth model/exchange functions now accept explicit resolved inputs. ensureOAuth uses a separate hashed raw-source guard to discard changed/cancelled exchanges without executing templates again. Ordinary token fingerprints remain compatible; manual Authorization still bypasses automatic acquisition. Renderer session is disposed before OAuth/network work.
--27 inline assertions passed:7 compiled Svelte execute cases through a real local HTTP fixture,12 mocked-desktop OAuth lifecycle cases and8 compatibility cases. Svelte0/0 and Vite production build passed. No saved test scripts/dependencies/native changes/new installer. Fixtures stopped, workers0; no real user state loaded/saved.
+  -27 inline assertions passed:7 compiled Svelte execute cases through a real local HTTP fixture,12 mocked-desktop OAuth lifecycle cases and8 compatibility cases. Svelte0/0 and Vite production build passed. No saved test scripts/dependencies/native changes/new installer. Fixtures stopped, workers0; no real user state loaded/saved.
 - Corrected one import-construction quoting failure before mutation, one function-arity compilation error and the inline harness's long data-URL encoding. Details, references, commands and exact limits in SEND-RENDERING.md.
 - Next: dependent-response callbacks and wait/cache lifecycle; introspection/manual OAuth/gRPC/WS payload callers; native cookie snapshot/User-Agent handling; URL encoding parity and WebView acceptance. These are outstanding scope, not removed features. Current source newer than BUILD.json; full migration remains incomplete.
 
@@ -2663,7 +2555,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 
 - Added template-environment.js and template-object.js: saved key ordering without lost keys/prototype traversal, base→selected ancestry→folders, same-name/deep merge and three legacy self-render passes; cloned recursive fields, disabled/path exclusions, one extra tag pass and field diagnostics. Bounds and interruption propagation prevent KEEP from swallowing cancellation. Preview now uses resource layers.
 - Shared session lazily prepares environment once, exposes renderValue/getContext, passes partial context to nested request tags without preparation deadlock and caps preview at30seconds total (send10minutes unchanged). Native callback Abort/Timeout/limit errors retain interruption semantics. Actual Send remains on the old synchronous renderer.
--49 inline assertions passed (22 VM/helper,7 compiled-session,8 boundaries,10 nested-prompt regressions,2 interruption/deadline cases), no live workers. Svelte0/0 and Vite production build passed. No saved test scripts, native changes or installer. Two generation commands failed parsing before mutation; fixed. Initial2 JSDoc diagnostics fixed; incorrect base64 fixture argument corrected and suite rerun.
+  -49 inline assertions passed (22 VM/helper,7 compiled-session,8 boundaries,10 nested-prompt regressions,2 interruption/deadline cases), no live workers. Svelte0/0 and Vite production build passed. No saved test scripts, native changes or installer. Two generation commands failed parsing before mutation; fixed. Initial2 JSDoc diagnostics fixed; incorrect base64 fixture argument corrected and suite rerun.
 - Consulted official Nunjucks/MDN/Bun and archived render.ts first. Tried documented json-order install; proved dropped-key/hasOwnProperty defects, then removed it. No final new dependency. All program/file operations through hidden node_repl/Bun. See ENVIRONMENT-RENDERING.md for full contract, sources, commands and validation.
 - Next: full request/cookieJar pipeline (description KEEP, skip body, GraphQL workaround, disabled rows, URL handling), dependent-response sending/cache/network-wait ownership, then actual Send/auth/OAuth/GraphQL/gRPC/streams. Native UI acceptance pending; source newer than BUILD.json. Full migration incomplete.
 
@@ -2671,7 +2563,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 
 - Added template-session.js createRequestRenderSession(context, options) with preview/send purpose, structured-cloned context/resources/history/metadata, owned AbortController, render(text, field?) and idempotent dispose. Preview now uses this session with automatic disposal. Each top-level field allows64 nested renders/depth12; session1000 renders/16 active workers. Any field failure cancels the session's other work. Send-purpose session has a ten-minute total cap, preserving TimeoutError on expiry.
 - Added application-owned template-interaction.js. Actual ask callbacks acquire/release a reference-counted wait; only clients in that session subscribe. Parent/child client and core active deadlines receive shared wait transitions, including subscription during an existing wait. Every paused worker still emits heartbeats and keeps its own five-second watchdog, VM execution budget and hard deadline. Guest templates cannot publish wait notifications.
--19 inline assertions passed:10 compiled session cases (multi-level request/header/parameter prompt waiting6.1s, ancestor resume, snapshot isolation, dispose/late work, nested Cancel, noninteractive preview, cycle and external abort),7 interaction lifecycle/isolation cases and2 nested watchdog/session-timeout cases. Hard cap was accelerated for verification. Svelte0/0 and production Vite build passed. No saved test scripts/new dependency/native changes.
+  -19 inline assertions passed:10 compiled session cases (multi-level request/header/parameter prompt waiting6.1s, ancestor resume, snapshot isolation, dispose/late work, nested Cancel, noninteractive preview, cycle and external abort),7 interaction lifecycle/isolation cases and2 nested watchdog/session-timeout cases. Hard cap was accelerated for verification. Svelte0/0 and production Vite build passed. No saved test scripts/new dependency/native changes.
 - One initial edit stopped because its expected runtime insertion marker did not match; only the new interaction helper had been written. Inspected the actual initialization block and completed the edit. No abandoned running processes.
 - Actual Send remains unconnected. Recursive environment/field pipeline and dependent-response sends are still required. The new send-purpose session currently rejects response trigger modes always/no-history/when-expired explicitly; default/never reads saved responses. This is an integration gap, not a scope removal. Shared prompt timing for nested fields is fixed; dependent network waits still need their own integration.
 - See PROMPT-TEMPLATE.md for current session ownership/timing contract. Official Nunjucks async API and MDN AbortController/Worker.postMessage/structuredClone docs consulted before edits. All launch/edit/check work used hidden node_repl and Bun. No new installer or live task processes; native WebView acceptance still unverified; source newer than BUILD.json. Full migration incomplete.
@@ -2681,7 +2573,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 
 - Added FIFO prompt service and mounted Svelte dialog using existing Insomnium modal styles. Supports title/label/default/text/password, active-ID protection, Cancel/Escape/abort/unmount/native-close cleanup and application shortcut suppression. promptTemplateTag defaults to the dialog service; previews remain noninteractive. Queue32/default-text4Mi/label-title4096 limits; no logging/persistence.
 - Added explicit interactivePrompts policy: core/client five-second active budgets pause only on direct prompt waits, keeping remaining time across overlaps. Worker heartbeat1s/watchdog5s and total ten-minute cap preserve bounded waiting; VM execution2s/memory bounds remain. Cancel is propagated as AbortError and disposes the worker/other handlers. Details in PROMPT-TEMPLATE.md.
--36 inline assertions passed across queue/cache lifecycle, deadline accounting, compiled worker/client integration (including6.1s wait), watchdog/hard-cap cleanup and guest-loop/non-prompt bounds. Hard-cap timer was accelerated for verification. Svelte0/0 and Vite production build passed. No saved test scripts/new dependency/native changes.
+  -36 inline assertions passed across queue/cache lifecycle, deadline accounting, compiled worker/client integration (including6.1s wait), watchdog/hard-cap cleanup and guest-loop/non-prompt bounds. Hard-cap timer was accelerated for verification. Svelte0/0 and Vite production build passed. No saved test scripts/new dependency/native changes.
 - Actual Send is NOT connected. Nested request/response parent waits do not yet inherit child interaction pauses; resolve this in the shared send-render session. Send cache invalidation, recursive environments/fields, dependent sends and protocol/auth integration remain. CUA apps=[]/browsers=[]; actual dialog focus/Escape/WebView/CSP acceptance unverified.
 - Official Svelte store/effect and MDN dialog/AbortSignal/worker/timing docs consulted first. All execution via hidden node_repl with Bun. No active task processes/new installer; source newer than BUILD.json. Full migration remains incomplete.
 - Next: shared preview/send render session with interaction-wait propagation and cancellation, recursive environment/request fields, then all Send/auth/protocol call sites and dependent responses. See PROMPT-TEMPLATE.md for ordered steps.
@@ -2709,7 +2601,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - Preview handler never opens a prompt. Masked prompts return a placeholder (original tag editor disables masked preview); explicit/cached plaintext remains available for unmasked tags. Clear prompt values control clears cache and rerenders preview. Clear increments generation so already pending replies cannot repopulate cache; aborted replies are discarded.
 - Interactive ask contract is implemented as a reusable helper but NOT connected to UI/Send. Caller must observe signal to close/settle an open dialog; current renderer deadlines still preclude normal interactive waiting. No claim of completed prompt/send parity or original plugin-store persistence.
 - Read archived prompt run/disablePreview/cache logic and official Nunjucks custom tag / AbortSignal.throwIfAborted docs before implementation. Reused existing noble-hashes md5; no new dependency/generator.
--17 inline lifecycle assertions passed: defaults, implicit request scoping, explicit key reuse, masking, saveLastValue, empty value retention, clear, late-clear reply, aborted reply and title validation. Svelte0/0 and Vite build passed. No saved test scripts; mounted clear action and WebView preview remain unverified.
+  -17 inline lifecycle assertions passed: defaults, implicit request scoping, explicit key reuse, masking, saveLastValue, empty value retention, clear, late-clear reply, aborted reply and title validation. Svelte0/0 and Vite build passed. No saved test scripts; mounted clear action and WebView preview remain unverified.
 - Commands through hidden node_repl execFile: Bun Prettier, svelte-check --tsconfig ./jsconfig.json --config ./svelte.config.js --fail-on-warnings, Vite build and inline Bun -e checks. No native changes/new installer/live processes; source newer than BUILD.json.
 - Next: OS tags; render execution-vs-wait timing policy; interactive Svelte prompt dialog/queue/cancellation and send-session cache lifecycle; recursive environment/request pipeline and Send/auth/protocol integration with response dependencies. Full migration incomplete.
 
@@ -2720,7 +2612,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - template-response-filter-client.js gives each extraction a disposable worker,3-second deadline and AbortSignal cleanup. responseTemplatePreview decodes body then delegates body filter to worker; nested template cancellation propagates. Preview does not resend dependencies.
 - Bounds:20Mi body/output characters,4096 query characters,10000 selected nodes/matches. XML selection cap is checked after evaluation; worker deadline remains needed, not a heap isolation guarantee. Parent VM2-second wall clock can still expire before worker3-second deadline; unified timing policy remains pending.
 - Read upstream JSONPath-Plus, goto100/xpath and xmldom README/API docs before implementation: https://github.com/JSONPath-Plus/JSONPath ; https://github.com/goto100/xpath ; https://github.com/xmldom/xmldom . Existing dependencies reused.
--18 inline helper assertions plus6 compiled-worker/client assertions passed (24 total): JSON scalar/object/multiple/root/no results, XML inner content/attribute/text/scalar/multiple/malformed/limits, history integration, cancellation and worker cleanup. Final Svelte0/0 and Vite build passed. No saved test scripts. Bun workers exercise production artifact; actual WebView/CSP/native acceptance remains unverified.
+  -18 inline helper assertions plus6 compiled-worker/client assertions passed (24 total): JSON scalar/object/multiple/root/no results, XML inner content/attribute/text/scalar/multiple/malformed/limits, history integration, cancellation and worker cleanup. Final Svelte0/0 and Vite build passed. No saved test scripts. Bun workers exercise production artifact; actual WebView/CSP/native acceptance remains unverified.
 - Commands: hidden direct node_repl execFile Bun Prettier on changed files, svelte-check --tsconfig ./jsconfig.json --config ./svelte.config.js --fail-on-warnings, Vite build; inline assertions Bun -e. No native changes/new installer/live processes; source newer than BUILD.json.
 - Next: OS/prompt tags, charset parity, shared render timing/cancellation and recursive environment/request orchestration; integrate response dependency resend/requestChain and all Send/auth/protocol call sites. Full migration incomplete.
 
@@ -2730,7 +2622,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - Found current HTTP history did not retain environment identity. New successful HTTP entries now record environmentId from the send's dataSnapshot (not current selection at completion). Preview selects latest matching request+environment HTTP record; unknown-environment older history is excluded with actionable resend message. Existing history is retained unchanged. validateData preserves the new field.
 - Raw body decodes original bodyBase64 bytes using Content-Type charset via TextDecoder with UTF-8 fallback; bounded20MiB bytes/28Mi base64 text. Text-only history falls back to stored body with20Mi-character limit. TextDecoder encoding coverage/mappings are not assumed identical to original iconv-lite; further parity review pending.
 - Read official https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder , https://github.com/JSONPath-Plus/JSONPath , https://github.com/goto100/xpath and inspected current response/history/filter structures before implementation. No new dependencies/generator required.
--16 inline assertions passed for URL/header/raw, Windows-1251/UTF8/unknown charset, text fallback, latest selection, environment isolation/base environment, unknown history, missing request/header, errors/status and streaming exclusion. Svelte0/0 and Vite build passed. No saved test scripts. New history environment attribution was inspected in source; native IPC/persistence/reload/selection interaction remains unverified.
+  -16 inline assertions passed for URL/header/raw, Windows-1251/UTF8/unknown charset, text fallback, latest selection, environment isolation/base environment, unknown history, missing request/header, errors/status and streaming exclusion. Svelte0/0 and Vite build passed. No saved test scripts. New history environment attribution was inspected in source; native IPC/persistence/reload/selection interaction remains unverified.
 - Direct hidden node_repl execFile Bun Prettier/Svelte/Vite and inline Bun -e. No native changes/new installer/live processes; source newer than BUILD.json.
 - Next: response JSONPath/XPath extraction in disposable worker, then response resend behavior/requestChain in Send, OS/prompt tags, time/cancellation policy and shared recursive environment/request pipeline. Full migration incomplete.
 
@@ -2739,7 +2631,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - request tag now supports oauth2/oauth2-identity/oauth2-refresh through existing savedOAuthTokens lookup. Selects latest record belonging to request (obtainedAt/modified ordering), including imported records; accessToken must exist as in original tag, then returns requested field. Missing optional field remains undefined, empty remains empty, malformed non-text field reports an error.
 - This is explicit reading of saved data, not Authorization selection: no expiry/context validation, refresh, network call or identity verification occurs, matching original single-record tag semantics. Current authorization binding/expiry rules remain unchanged. Multiple-record latest selection is migration-specific because original getByParentId assumed one record; documented in preview hint.
 - Read archived o-auth-2-token.ts/getByParentId and local-template-tags.ts, current OAuth model and official https://mozilla.github.io/nunjucks/api.html#custom-tags before implementation. No dependency/generator needed.
--10 inline synthetic-record assertions passed: three fields, request isolation/latest ordering, imported+expired saved value, empty/undefined optional fields, missing access token, invalid type and no mutation. No real credentials used/output; no saved test scripts. Svelte0 errors/0 warnings and Vite build passed.
+  -10 inline synthetic-record assertions passed: three fields, request isolation/latest ordering, imported+expired saved value, empty/undefined optional fields, missing access token, invalid type and no mutation. No real credentials used/output; no saved test scripts. Svelte0 errors/0 warnings and Vite build passed.
 - Direct hidden node_repl execFile Bun Prettier, Svelte check, Vite build and inline Bun -e checks. No native changes/new installer/live processes; source newer than BUILD.json. Mounted/native preview and persistence acceptance still pending.
 - Next: response/OS/prompt tags, interactive time/cancellation budgets, recursive environment rendering, shared request serialization and Send/auth/protocol integration. Full migration remains incomplete.
 
@@ -2749,7 +2641,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - Read https://bun.sh/docs/runtime/transpiler , https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent and upstream https://github.com/defunctzombie/node-url before porting. Raw README URL initially failed; upstream repository documentation succeeded. Installed bun add --ignore-scripts --exact url@0.11.4; it is bundled JavaScript, no Node runtime invoked.
 - request tag URL now renders base URL and each parameter name/value through the recursive renderer, joins query before fragment, applies original default protocol/settingEncodeUrl and encoding semantics. Like the archived tag, includes disabled parameter rows, omits unnamed strict rows, and emits bare name for empty value. This differs from current Send preparation; transport URL unification remains required.
 - request cookie uses the same rendered URL and native cookie handler with propagated signal; browser reports desktop requirement. OAuth references remain explicitly pending. UI hint updated.
--28 inline assertions passed:20 URL comparisons against archived implementation (encoding enabled/disabled, spaces, Unicode, percent escapes, duplicate/empty query, credentials, IPv6, fragments and empty input),3 query-builder comparisons,5 request URL/cookie routing checks. The original reference ran under Bun's URL compatibility API; its deprecation warning did not involve Node execution.
+  -28 inline assertions passed:20 URL comparisons against archived implementation (encoding enabled/disabled, spaces, Unicode, percent escapes, duplicate/empty query, credentials, IPv6, fragments and empty input),3 query-builder comparisons,5 request URL/cookie routing checks. The original reference ran under Bun's URL compatibility API; its deprecation warning did not involve Node execution.
 - Initial generated-JS annotation diagnostics resolved; a missing await-parenthesis in the editing command was corrected. Final Svelte0/0 and Vite build passed. No saved test scripts/native changes. Real WebView/IPC/URL-cookie lookup acceptance pending. New browser package is not assumed identical for every malformed URL; broader differential coverage required before shared Send use.
 - Next: OAuth reference policy/context, response/OS/prompt tags, time/cancellation budgets, shared environment/request rendering and Send/auth/protocol integration. No new installer/live processes; source newer than BUILD.json. Full migration incomplete.
 
@@ -2758,7 +2650,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - Added template-request.js for original request name/folder/header/parameter attributes. Folder ancestry includes request_group/workspace and detects cycles. Header/parameter names and values render asynchronously in inherited environment; case-insensitive first match and inclusion of disabled rows follow archived request tag behavior. Unknown attributes return null. URL/cookie/OAuth reference attributes explicitly report pending migration.
 - Added template-preview.js orchestration and connected TemplatePreview with a resource snapshot supplied by RequestEditor. Resources remain outside VM. Each nested field renders through the same worker/client and native handlers; branch field identifiers detect recursive references, depth12/total64 render limits bound work. AbortSignal propagates through nested workers. Request field preview also works in browser mode; native file/cookie remain desktop-only.
 - Consulted https://mozilla.github.io/nunjucks/api.html#renderstring and https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/throwIfAborted ; compared original request tag and current transport/OAuth contracts. No generator/new package needed.
--12 inline helper assertions passed (metadata/ancestry/case-insensitivity/disabled fields/missing values/unsupported attributes/no mutation);4 orchestration assertions passed through compiled workers with simulated browser location/WASM fetch (nested header→parameter→environment, recursion error, worker cleanup, preabort). Final Svelte0/0 and Vite build passed. No saved test scripts; actual mounted/native acceptance remains pending.
+  -12 inline helper assertions passed (metadata/ancestry/case-insensitivity/disabled fields/missing values/unsupported attributes/no mutation);4 orchestration assertions passed through compiled workers with simulated browser location/WASM fetch (nested header→parameter→environment, recursion error, worker cleanup, preabort). Final Svelte0/0 and Vite build passed. No saved test scripts; actual mounted/native acceptance remains pending.
 - Updated preview hint to accurately list partial request support. Send still uses existing variable-only renderer. Existing2-second VM wall time/5-second worker limits include child waits, so large valid reference trees may time out; shared engine/session and interactive policy need further work.
 - Commands: direct hidden node_repl execFile Bun Prettier --write on four changed JS/Svelte files; Bun svelte-check --tsconfig ./jsconfig.json --config ./svelte.config.js --fail-on-warnings; Bun Vite build. Inline checks via Bun -e. No native changes/new installer/live task processes.
 - Next: request URL serialization and cookie/OAuth references, response/OS/prompt tags, recursive environment pipeline and Send integration, then native verification. Source newer than BUILD.json; full migration remains incomplete.
@@ -2799,7 +2691,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - Owner confirmed preserving the original Insomnium UI/layout. jirasync-hub-app remains a read-only architectural reference.
 - Consulted official [Nunjucks async extension API](https://mozilla.github.io/nunjucks/api.html#asynchronous-extensions) and [QuickJS embedding/lifetime documentation](https://raw.githubusercontent.com/justjake/quickjs-emscripten/main/README.md), plus installed Nunjucks browser scheduler and archived BaseExtension, before implementation.
 - template-runtime.js now uses CallExtensionAsync and callback-based rendering. Trusted application code may register async handlers; names are validated, capped at64 including built-ins, and cannot replace built-ins. Worker/client do not yet expose native handlers. No file/network/Tauri capabilities added to guest.
-- Argument envelopes preserve top-level undefined versus null. Empty calls use the original __EMPTY_NUNJUCKS_ARG__ sentinel/filter: initial inline execution exposed Nunjucks's empty async argument compiler failure; matched archived parser and reran successfully.
+- Argument envelopes preserve top-level undefined versus null. Empty calls use the original **EMPTY_NUNJUCKS_ARG** sentinel/filter: initial inline execution exposed Nunjucks's empty async argument compiler failure; matched archived parser and reran successfully.
 - Bounded one-shot callback scheduling supports the browser ASAP timeout/interval fallback. These are scheduling shims, not general-purpose timer semantics (delay/repeating behavior not implemented). All retained guest callbacks/timers are disposed on success/failure/timeout; late extension resolution checks liveness before touching VM. Falsy Promise rejections retain failure status.
 - Existing128MiB heap/512KiB stack/2-second wall-clock interrupt,20Mi-character bounds and1000 tag-call bound retained. Scheduler capped at1000 registrations; host completion deadline5seconds plus outer disposable worker deadline. Await time counts toward2seconds: interactive prompts need explicit future cancellation/time policy. Host extension work is not itself cancelled by VM disposal.
 - Validation:16 inline async VM assertions,3 rejection/late-disposal assertions and3 compiled worker assertions passed (22 total); no saved test scripts. Production-worker checks simulate browser location/fetch in Bun, not native WebView/CSP acceptance. Initial14 JS annotation diagnostics fixed; final Svelte0 errors/0 warnings and Vite build passed. Worker373.15kB/WASM503.13kB.
@@ -2814,7 +2706,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - Added a narrow synchronous QuickJS bridge: tag name whitelist, JSON arguments, up to32 args/1000 calls/20Mi argument/result characters. Guest cannot access Buffer/crypto/date libraries or host functions directly beyond this bridge. Nunjucks parses tag arguments using its original signature parser; run modes preserved. Missing-variable arguments serialized as null remain an edge to align with original undefined/default semantics.
 - JSONPath uses browser safe evaluator with4096 query length/10000 matches/20Mi cumulative result limit. Host tag work runs inside disposable worker; VM memory/time limits do not independently constrain host-library allocations/execution. Outer worker deadline remains required. Native tags (os/file/cookie/prompt/response/request), asynchronous tag bridge and widgets are still pending.
 - Read official buffer, noble-hashes, uuid v9 README and date-fns v2 format source before using APIs. Bun add --ignore-scripts --exact buffer@6.0.3 date-fns@2.30.0 uuid@9.0.1. Existing @noble/hashes and JSONPath reused. No Node runtime or shell invocation.
--16 inline VM/tag assertions passed; one direct UUID-null guard check and one compiled-browser-worker tag check passed (18 total). Initial Svelte JSONPath return-type diagnostics fixed with runtime array narrowing; Svelte0/0/build passed (worker370.89kB, WASM503.13kB). Build precedes final UUID-null guard and comment-only correction; source remains unpackaged. No saved test scripts.
+  -16 inline VM/tag assertions passed; one direct UUID-null guard check and one compiled-browser-worker tag check passed (18 total). Initial Svelte JSONPath return-type diagnostics fixed with runtime array narrowing; Svelte0/0/build passed (worker370.89kB, WASM503.13kB). Build precedes final UUID-null guard and comment-only correction; source remains unpackaged. No saved test scripts.
 - Preview explains supported tags and remaining Send limitation. Native WebView/CSP/interaction acceptance remains unverified. No active processes/new installer. Next: asynchronous native tag bridge and environment/request render pipeline, then replace Send/auth/protocol callers without mutating stored request values. Full migration incomplete.
 
 ## Template worker and preview checkpoint - 2026-09-28
@@ -2831,7 +2723,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - Researched original templating/index.ts and official Nunjucks API/templating, QuickJS embedding/runtime limits and CSP WebAssembly documentation. Selected actual Nunjucks inside QuickJS/WASM for compatibility without frontend JavaScript unsafe-eval. This is a foundation decision, not completed request rendering.
 - Installed nunjucks3.2.4 and quickjs-emscripten0.32.0 via direct Bun add --ignore-scripts --exact. No lifecycle shell commands. Added template-runtime.js using documented getQuickJS/newContext/evalCode APIs. Fresh VM per render; JSON-only input; no host functions, module loader, filesystem/network/Tauri APIs exposed. Bounds:128MiB VM heap,512KiB stack,2-second interrupt,20Mi-character serialized input/output. All handles/context disposed.
 - Preserves original autoescape:false, throwOnUndefined:true, root and underscore context aliases, all/variables/tags delimiter modes and debug identity filter. Uses original Nunjucks filters, expressions, loops/macros/comments rather than a handwritten syntax subset.
--10 inline Bun assertions passed (bracket/filters, loops, macros, comments, render modes, no autoescape, missing variable error, absent host APIs and infinite-loop interruption). Svelte check0/0 and frontend build passed. No saved test scripts.
+  -10 inline Bun assertions passed (bracket/filters, loops, macros, comments, render modes, no autoescape, missing variable error, absent host APIs and infinite-loop interruption). Svelte check0/0 and frontend build passed. No saved test scripts.
 - NOT integrated into application rendering yet: model.render remains unchanged. Browser WASM asset/loading/CSP, disposable worker/client, native built-in tag bridge, async request/environment rendering, cancellation/errors, template widgets and plugin compatibility remain required. Browser may need narrowly scoped wasm-unsafe-eval; current CSP has not changed. Nunjucks source parameter must remain trusted bundled code, never user-provided engine source.
 - No active operations/new installer. Source newer than BUILD.json. Next: bundle production WASM with documented variant/loader, wire worker/client and verify actual browser acceptance; then bridge original tags and replace all render call sites with async pipeline. Full migration incomplete.
 
@@ -2865,7 +2757,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - HTTP response Preview now offers JSONPath input (Enter/apply), clear, history selection and inline examples. Filter is persisted per request using request_meta, including imported legacy metadata. Updates preserve unrelated metadata/ID and existing history on clear/duplicate; new unique filters use original first10-plus-new behavior (up to11). Request/body/filter identity and effect disposal guard stale worker replies.
 - Evaluation runs in a disposable Vite module worker; terminated on success/error, request/body/filter/tab/raw changes, disposal or3-second deadline. Bounds:20 Mi UTF-16 input/result characters,4096-character path,10000 returned matches. Errors show [] plus visible error, rather than silently reporting no matches. Raw remains original; Copy uses displayed result; Save downloads original response bytes.
 - Initial inline check caught JSONPath skipping falsy roots. Fixed explicit $ root selection for null/false/zero/empty string. Other falsy-root expressions retain upstream behavior; broader scalar-selector compatibility pending. JSONPath values use JSON.parse numeric semantics as legacy did, so filtered large numeric values can round; unfiltered formatter preserves numeric spelling. Do not claim lossless filtering.
--27 browser-resolved JSONPath/metadata assertions passed,4 actual compiled Vite worker message round-trips passed in Bun, and3 follow-up history-preservation checks passed (34 total). No saved test scripts. Svelte check0/0; frontend build passed before final metadata-only history correction, followed by Svelte check again. Worker29.86kB; no node:vm import in worker. Native WebView CSP/worker timeout/stale-result/UI/reload acceptance not yet verified.
+  -27 browser-resolved JSONPath/metadata assertions passed,4 actual compiled Vite worker message round-trips passed in Bun, and3 follow-up history-preservation checks passed (34 total). No saved test scripts. Svelte check0/0; frontend build passed before final metadata-only history correction, followed by Svelte check again. Worker29.86kB; no node:vm import in worker. Native WebView CSP/worker timeout/stale-result/UI/reload acceptance not yet verified.
 - No native changes or active operations. Source is newer than BUILD.json/shared-editor installer; JSON formatter and response filters are not packaged. Next: XPath/XML response formatting/filtering and UI acceptance, then remaining editor/template/runtime parity. Full migration remains incomplete.
 
 ## JSON formatter checkpoint — 2026-09-28
@@ -3102,7 +2994,6 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - Hawk: 45 native cases (two published vectors and independent MAC checks on 38 wire requests), 34 AWS and 14 manual/Digest/OAuth1 regression cases passed. JS environment/import/mode/browser/disabled/manual checks passed. Actual modules/builders were compiled from stdin without a persistent jar or saved test script. No UI/IPC/provider/TLS/proxy claim; see HAWK-COMPATIBILITY.md.
 
 - Manual Authorization: actual compiled Svelte workspace with mocked IPC passed HTTP/GraphQL/SSE/WS, no unused OAuth exchange, explicit Fetch/Refresh persistence and restored automatic refresh. Fourteen native loopback cases used actual client/request builders and signed executor; manual empty/duplicate headers, unused invalid credentials, redirect/follow-off/cross-origin, final 401, SSE/WS and automatic Digest/OAuth1 regressions passed. Persistent jar was not attached; no real UI/IPC/TLS/proxy verification.
-
 
 - Basic/API-key options: Svelte check (0 errors/warnings), changed-file Prettier and git diff checks passed. Inline Bun compared 20 UTF-8/Latin-1 cases against the actual archived Basic function, including all 256 byte values, Thai/emoji/lone surrogate and a long credential. Environment preparation, disabled/manual precedence, duplicate API-key headers, Cookie ordering, stream preparation, import retention and OpenAPI cookie security passed. Browser Cookie failed before fetch. Three direct reqwest wire echoes passed for both Basic encodings and Cookie. Rust code/dependencies unchanged; actual UI/IPC, cookie-store persistence and TLS/proxy are not covered. CUA again returned no surfaces.
 

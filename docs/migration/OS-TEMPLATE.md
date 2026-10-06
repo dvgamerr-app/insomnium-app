@@ -6,14 +6,14 @@ Updated: 2026-09-28. Implemented for desktop template preview; Send still uses t
 
 The archived OS tag is in _backup/legacy-electron/packages/insomnia/src/ui/components/templating/local-template-tags.ts. The new Rust provider uses libuv directly, with no Node runtime or sidecar.
 
-| Function | Native result |
-| --- | --- |
-| arch | Build architecture mapped to legacy x64/ia32/arm64/ppc/ppc64/loong64 spellings |
-| platform | Build OS mapped to win32/darwin/sunos where required |
-| cpus | Logical CPU array: model, MHz speed, user/nice/sys/idle/irq times in milliseconds |
-| freemem | Free memory bytes reported by libuv; zero if unknown |
-| hostname | Native hostname |
-| release | Native OS release from uv_os_uname |
+| Function | Native result                                                                                 |
+| -------- | --------------------------------------------------------------------------------------------- |
+| arch     | Build architecture mapped to legacy x64/ia32/arm64/ppc/ppc64/loong64 spellings                |
+| platform | Build OS mapped to win32/darwin/sunos where required                                          |
+| cpus     | Logical CPU array: model, MHz speed, user/nice/sys/idle/irq times in milliseconds             |
+| freemem  | Free memory bytes reported by libuv; zero if unknown                                          |
+| hostname | Native hostname                                                                               |
+| release  | Native OS release from uv_os_uname                                                            |
 | userInfo | Effective user uid/gid, username, home directory and shell; Windows uid/gid -1 and shell null |
 
 Only these seven function names are accepted. CPU allocation is freed through RAII, as are user information strings. CPU lists are capped at 10,000 entries. The command runs blocking OS work away from the UI thread and is restricted to the main window. Aborting a preview discards its result; it does not forcibly cancel a native OS query already in progress.

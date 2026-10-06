@@ -12,6 +12,7 @@ Both restart processes acquired the released OS lease and known owned shallow lo
 This proves those observed Windows process boundaries only. It does not cover hardware/power-loss durability, partial journal/lock-marker writes, interruption while libgit2 holds a ref lock, interrupted attribute restoration or Unix behavior. Unknown locks and malformed records remain retained; do not infer ownership or silently delete them. Native/UI recovery command and binding fencing are still pending.
 
 Reference consulted: https://doc.rust-lang.org/std/process/struct.Child.html#method.kill .
+
 ## Actual transition writer — 2026-09-30
 
 FetchSnapshot::try_from(RecoveryInput) now executes the journaled transition under the caller's GitState/stage lease. Uses an operation+stage-owner shallow.lock marker and exclusive OS lock. Existing matching idle locks are reusable; unknown or active locks fail closed. There is no automatic Drop deletion on failure.
@@ -25,6 +26,7 @@ Evidence:22 actual writer cases in git-transition-check and10 already-published 
 Still pending: real writer process-stop/restart, ref/shallow replacement and retirement fault windows, partial journal/lock-marker recovery handling, binding fencing/native commands, v3 receipts/intents/depth/relative UI, saved Playwright acceptance and platform/installer matrix.
 
 References:
+
 - https://docs.rs/atomic-write-file/latest/atomic_write_file/struct.AtomicWriteFile.html#method.commit
 - https://docs.rs/git2/latest/git2/struct.Transaction.html
 - https://doc.rust-lang.org/std/fs/fn.rename.html
@@ -43,6 +45,7 @@ Evidence: new30 state and15 retained-snapshot checks in artifacts/git-recovery-p
 No transition writes or crash acceptance yet. Callers must revalidate immediately before every eventual write under GitState; a returned plan is not permission to overwrite a subsequently changed repository. Partial/malformed journals remain retained and blocked. Next implement prepared/import/ref/final/retirement transitions and explicit recovery command, then process-stop/disk-fault acceptance and public depth integration.
 
 References: https://docs.rs/git2/latest/git2/struct.Repository.html#method.from_odb ; https://git-scm.com/docs/shallow ; https://docs.rs/git2/latest/git2/struct.Transaction.html .
+
 ## Exclusive intent creation — 2026-09-30
 
 Journal::try_from(JournalCreationInput) now creates a new bounded record after validating native managed destination/stage identity, computing the combined plan, flushing recovery files, and recomputing that plan. It uses create_new (never overwrite), writes and syncs JSON, then verifies exact bytes and before-publication state. Windows uses FILE_FLAG_WRITE_THROUGH; Unix additionally syncs directories. Caller must hold GitState and retain the settled worker's staging lease.
@@ -56,6 +59,7 @@ Evidence: artifacts/git-journal-creation-check/full-pack-state.json:42 new cases
 Next: implement combined journal-bound recovery validation that accepts recognized prepared/partial-import states, atomic shallow replacement, import+object flush, expected-ref transaction, final metadata and journal retirement. Partial journal handling and real process-stop/disk-fault acceptance remain required before enabling public shallow publication.
 
 References consulted:
+
 - https://doc.rust-lang.org/std/fs/struct.File.html#method.sync_all
 - https://doc.rust-lang.org/std/fs/struct.OpenOptions.html#method.create_new
 - https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-flushfilebuffers
@@ -74,6 +78,7 @@ The new plan rejects pending journals and independently invalid old graphs. Reco
 Evidence: artifacts/git-publication-plan-check/full-pack-state.json,29 new +195 existing checks; retained roots246 and recovery282 also rerun. Cargo fmt/check/clippy -- -D warnings passed. No native UI build or power-loss durability claim.
 
 References consulted before implementation:
+
 - https://git-scm.com/docs/shallow
 - https://docs.rs/git2/latest/git2/struct.Odb.html#method.add_disk_alternate
 
@@ -92,6 +97,7 @@ This normal-state inventory rejects missing existing boundary objects. A journal
 Still required: combine candidate stage and destination inventories with verified fetched/old boundary union; capture final objects/cuts and old/prepared/final images; durable stage ordering; exclusive journal creation and transitions/recovery. The root planner does not enable tag-fetch UI or satisfy the separate remote tag/prune parity items.
 
 References consulted before implementation:
+
 - https://docs.rs/git2/latest/git2/struct.Repository.html#method.references
 - https://docs.rs/git2/latest/git2/struct.Reflog.html
 - https://git-scm.com/docs/gitrepository-layout
@@ -146,14 +152,14 @@ The detailed journal encoding, atomic replacement/fsync behavior on Windows, cra
 
 ## Recovery rules to implement
 
-| Observed state | Required behavior |
-| --- | --- |
-| Expected old ref, old/prepared metadata | Verify retained stage and resume the planned import/publication, or explicitly abandon while retaining any physical cuts needed by imported dangling objects. Do not blindly restore old shallow bytes after partial import. |
-| Intended new ref, prepared/final metadata | Validate objects and complete final metadata; report the original operation as committed. |
-| Any unrelated ref or unrecognized metadata | Retain journal/stage and report conflict; do not overwrite external changes. |
-| Stage absent/corrupt before completion | Keep protective metadata and pending journal; report missing recovery evidence. Do not guess from timestamps. |
-| Cancellation before journal | Existing cancellation/cleanup semantics. |
-| Cancellation after durable journal | Settle or expose recovery for that same operation; do not publish another UUID or delete recovery material prematurely. |
+| Observed state                             | Required behavior                                                                                                                                                                                                            |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Expected old ref, old/prepared metadata    | Verify retained stage and resume the planned import/publication, or explicitly abandon while retaining any physical cuts needed by imported dangling objects. Do not blindly restore old shallow bytes after partial import. |
+| Intended new ref, prepared/final metadata  | Validate objects and complete final metadata; report the original operation as committed.                                                                                                                                    |
+| Any unrelated ref or unrecognized metadata | Retain journal/stage and report conflict; do not overwrite external changes.                                                                                                                                                 |
+| Stage absent/corrupt before completion     | Keep protective metadata and pending journal; report missing recovery evidence. Do not guess from timestamps.                                                                                                                |
+| Cancellation before journal                | Existing cancellation/cleanup semantics.                                                                                                                                                                                     |
+| Cancellation after durable journal         | Settle or expose recovery for that same operation; do not publish another UUID or delete recovery material prematurely.                                                                                                      |
 
 ## Verified evidence
 

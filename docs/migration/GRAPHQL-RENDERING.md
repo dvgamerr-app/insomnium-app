@@ -38,23 +38,21 @@ GraphQL editor Validate now uses async preview rendering (see milestone below). 
 
 - resolveQuery is now asynchronous, resolves only the GraphQL body with the shared preview session/environment layers, honors body-render opt-out and normalizes string/object variables. Does not evaluate unrelated URL/auth fields, acquire OAuth, open prompts or resend dependent requests; response tags read saved history.
 - GraphqlEditor owns an AbortController/revision for Validate, displays pending state, suppresses stale results and disposes on body/context/history/schema change or unmount. Existing query/schema diagnostics remain.
--39 inline assertions passed:12 real-worker preview cases,9 compiled lifecycle cases extracted from the actual component block,18 introspection regressions. Svelte0/0, Vite production build and git diff --check passed. No saved tests/dependencies/native changes/installer; fixtures stopped/workers0.
+  -39 inline assertions passed:12 real-worker preview cases,9 compiled lifecycle cases extracted from the actual component block,18 introspection regressions. Svelte0/0, Vite production build and git diff --check passed. No saved tests/dependencies/native changes/installer; fixtures stopped/workers0.
 - Sources read: https://svelte.dev/docs/svelte/$effect and https://www.graphql-js.org/api-v16/validation/ . Existing renderer reused; no initialization needed. Commands: Bun directly launches Prettier, svelte-check with existing flags, Vite build; git diff --check. Hidden node_repl launch rules retained.
 - Probe corrections: schema-error fixture initially bypassed normalization and lacked variables; corrected to run resolveQuery first. Lifecycle probe had a string newline syntax error and an import rejected by the Svelte compiler; corrected to public Svelte import before compiling. Final probes passed.
 - Full component DOM/WebView interaction still requires acceptance; extracted lifecycle verification is not a rendered UI test. Existing schema cache conservative/dynamic-source limitations remain. Next: manual OAuth Fetch/Refresh and gRPC/WS payload shared rendering, streaming dependency completion, native transport parity and full PARITY acceptance. Full migration incomplete.
-
 
 ## Native GraphQL editor acceptance — 2026-10-01
 
 - Previous turn progressed through package dependency fixes. Read current STATUS/PLAN/PARITY, GRAPHQL-RENDERING, CodeEditor/GraphqlEditor and existing native saved-scenario helper. Switched to original application parity while external CI/platform gates remain open.
 - Consulted official Playwright keyboard/file upload docs and GraphQL utilities before implementation: https://playwright.dev/docs/api/class-keyboard , https://playwright.dev/docs/input#upload-files , https://www.graphql-js.org/api-v16/utilities/ .
 - Added owner-authorized saved Playwright JS scenario tests/ui/graphql-editor.js and package script test:ui:graphql-editor. Bun loopback fixture only, actual native Windows WebView/Tauri IPC via isolated existing probe identity; no browser-use/Computer Use/ad-hoc browser tool.
--14 accepted checks in artifacts/playwright/graphql-editor-1790807788569/acceptance.json: authenticated native introspection, user-body preservation, schema type browser, query completion, operation-variable completion, nested input completion, enum completion, non-object variable lint, rendered validation, hover type navigation+popup cleanup, unknown-field diagnostic, native POST payload/response, reload persistence+session-cache reset, local SDL import.
+  -14 accepted checks in artifacts/playwright/graphql-editor-1790807788569/acceptance.json: authenticated native introspection, user-body preservation, schema type browser, query completion, operation-variable completion, nested input completion, enum completion, non-object variable lint, rendered validation, hover type navigation+popup cleanup, unknown-field diagnostic, native POST payload/response, reload persistence+session-cache reset, local SDL import.
 - Command bun tests/ui/graphql-editor.js actual0. First attempt failed because test expected sidebar POST rather than GQL; second expected word valid instead of real success sentence. Corrected test only; subsequent run passed and expanded14-case run passed. Failure artifacts retained1790807703302/1790807737007. Product code unchanged.
 - Accepted artifact artifacts/native-unix-socket-ui-probe/insomnium-fetch-recovery-probe.exe, build-state1790800454260→1790800783641, identity app.insomnium.probe.checkout20260929. Latest packaging changes do not alter GraphQL frontend/native request behavior. This is acceptance on that recorded artifact, not proof of an unbuilt production installer.
 - Prettier applied to saved scenario; package script added. Fixture stopped in finally, helper closed owned probe. Scope still PARTIAL: multiple-operation switching, schema invalidation/cancel/errors, JSON schema import/SDL export, GraphQL GET and broader native provider/TLS/platform acceptance remain open. Fixture returns known response; it does not independently execute arbitrary GraphQL queries.
 - NEXT extend saved GraphQL scenarios for remaining acceptance, then other original feature parity. CI remote execution/artifact retention/platform distribution remain open; no scope removal. Shared inputs/UX deferred.
-
 
 ## Native GraphQL operation/schema lifecycle and GET acceptance — 2026-10-01
 
@@ -66,7 +64,6 @@ GraphQL editor Validate now uses async preview rendering (see milestone below). 
 - Scope remains PARTIAL: native SDL export/file-dialog acceptance, header/auth/environment-specific schema invalidation, mutation/subscription/protocol/provider/TLS/other-platform and visual parity remain open. URL invalidation does not prove every source dimension; GET fixture verifies transport encoding and response display, not arbitrary server execution.
 - Commands: bun tests/ui/graphql-editor.js; bun tests/ui/graphql-schema-lifecycle.js; Bun Prettier; targeted git diff --check. CI/platform/artifact retention and all other original parity remain required; no redesign/shared input implementation before full migration.
 
-
 ## Native GraphQL source context and execution acceptance — 2026-10-01
 
 - Previous goal turn progressed with15 editor +12 lifecycle checks. Revalidated STATUS/PLAN/PARITY and actual header/auth/environment UI/source before continuing. Read https://graphql.org/learn/introspection/ and https://www.graphql-js.org/api-v16/graphql/ before fixture implementation.
@@ -76,7 +73,6 @@ GraphQL editor Validate now uses async preview rendering (see milestone below). 
 - Same recorded isolated Windows probe as prior GraphQL milestones; fixtures stopped/owned apps closed. Combined current GraphQL evidence:15 editor,12 schema lifecycle/GET,6 source-context and4 execution cases. Case counts are not a full-parity claim.
 - Remaining GraphQL gate includes raw __schema import, oversized/invalid-schema preservation, SDL export/native dialog, close while fetching/cache eviction, richer schema docs/search/a11y/theme/resize, provider/proxy/TLS/cookies and other platforms. Subscription/protocol scope remains as original inventory. CI remote/artifact/platform and all non-GraphQL parity still open.
 - NEXT remaining import/schema-browser acceptance, then other missing feature implementation/acceptance from PARITY. Shared inputs/UX remains after full migration.
-
 
 ## Native GraphQL schema import and browser acceptance — 2026-10-01
 
@@ -88,7 +84,6 @@ GraphQL editor Validate now uses async preview rendering (see milestone below). 
 - Confirmed AGENTS.md and POST-MIGRATION-UX.md retain owner instructions: reusable input components in src/lib/components/ui and redesigned UX with possible Hoppscotch reference only AFTER full migration. No browser-use; saved per-feature Playwright via Bun.
 - NEXT inspect remaining schema cache/lifecycle gates and extend the relevant saved scenario, then continue outstanding original parity. Do not start deferred UX or mark migration complete.
 
-
 ## Native GraphQL cache acceptance — 2026-10-01
 
 - Previous goal turn made progress with12 schema import/browser checks. Revalidated STATUS/PLAN/PARITY, cacheSchema and native scenario helper; consulted https://playwright.dev/docs/input#upload-files before fixture implementation.
@@ -97,7 +92,6 @@ GraphQL editor Validate now uses async preview rendering (see milestone below). 
 - Commands: bun tests/ui/graphql-schema-cache.js; bun x --bun prettier --write tests/ui/graphql-schema-cache.js package.json. Native cache count and aggregate-byte gates now have UI evidence; remaining GraphQL includes SDL export/native dialog, true close-while-fetching, accessibility/theme/resize and provider/proxy/TLS/cookies/other platforms. Explicit helper window-destroy cleanup does not verify CloseRequested lifecycle.
 - Inspection found frontend onCloseRequested handler in src/routes/+page.svelte and capability core:window:allow-destroy; next inspect exact native close permissions/event path before implementing saved close-while-fetching acceptance. Do not bypass lifecycle using force-kill and call it graceful close.
 - All other original PARITY and CI/platform gates remain open. Migration goal active; shared components/UX redesign remains deferred.
-
 
 ## Native GraphQL close-while-fetching and reopen acceptance — 2026-10-01
 
@@ -122,8 +116,6 @@ GraphQL editor Validate now uses async preview rendering (see milestone below). 
 - https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-close
 - https://playwright.dev/docs/network#network-events
 
-
-
 ## Native GraphQL schema keyboard acceptance — 2026-10-02
 
 - Extended existing tests/ui/graphql-schema-import.js with three keyboard checks: Tab from search to types, Home/End selections compared with exact GraphQL printType output, Tab to directive selection, and Shift+Tab back through types to search without a focus trap. Existing import/error/history/clear checks retained.
@@ -132,14 +124,12 @@ GraphQL editor Validate now uses async preview rendering (see milestone below). 
 - Scope is keyboard navigation within the loaded schema explorer only, not complete accessibility acceptance. Native export/file dialog, import-button keyboard reachability, screen-reader/focus visibility, theme/resize, provider/proxy/TLS/cookies and other platforms remain open. Full original parity and CI gates remain open; shared input/UX redesign remains deferred.
 - NEXT continue remaining GraphQL acceptance or outstanding original feature implementation from PARITY.
 
-
 ## Native GraphQL keyboard import and theme checks — 2026-10-02
 
 - Existing saved schema-import scenario now passes 17 checks: keyboard import activation via real filechooser event, focus-within outline, schema explorer traversal, and light/dark switching preserves exact schema documentation and request/history while changing text color. Final artifacts: artifacts/playwright/graphql-schema-import-1790959400822/acceptance.json, result.json, theme-styles.json, schema-light.png and schema-dark.png. Owned native process exited0.
 - Both screenshots inspected: toolbar buttons and import focus outline visible in light/dark at 1440x900; schema pane remains scrollable. Theme screenshots explicitly scroll the import label into view after focusing. Earlier screenshots1790959359548 showed toolbar outside the scrolled viewport, so these checks DO NOT establish automatic keyboard focus visibility after scrolling; investigate that separately. No full visual, contrast, screen-reader or resize acceptance claim.
 - Product code unchanged; same isolated native artifact. Commands: bun tests/ui/graphql-schema-import.js; bun x --bun prettier --write tests/ui/graphql-schema-import.js. Official sources: https://playwright.dev/docs/api/class-filechooser and https://playwright.dev/docs/api/class-locator#locator-press . Playwright chooser interception is not an OS file-picker interaction test.
 - Native SDL save dialog, automatic focus scrolling, full accessibility/resize/provider/proxy/TLS/cookies/other platforms and all remaining original parity/CI gates remain open. Shared input/UX redesign deferred.
-
 
 ## GraphQL import focus visibility fixed — 2026-10-02
 
@@ -149,7 +139,6 @@ GraphQL editor Validate now uses async preview rendering (see milestone below). 
 - Frontend build passes. bun run check initially81 errors; corrected all8 errors in edited scenario using JSDoc/tuple types and nullable schema assertions. Remaining73 errors in6 other GraphQL scenarios are recorded in artifacts/native-graphql-focus-ui-probe/check.log. No clean global-check claim; NEXT address those errors, then SDL save dialog/resize/full a11y/provider/platform/original parity.
 - Commands: bun run check; bun run build; bun x --bun prettier --write src/lib/styles.css tests/ui/graphql-schema-import.js; documented Bun Tauri build --no-bundle with isolated identifier and beforeBuildCommand:null; INSOMNIUM_UI_BUILD_STATE=artifacts/native-graphql-focus-ui-probe/build-state.json bun tests/ui/graphql-schema-import.js. Official CSS source: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/position .
 - Migration remains incomplete; shared inputs and UX redesign remain deferred.
-
 
 ## GraphQL scenario compiler gate restored — 2026-10-03
 
@@ -165,4 +154,3 @@ GraphQL editor Validate now uses async preview rendering (see milestone below). 
 - graphql-schema-close-reopen: 3 checks, E:/insomnium/artifacts/playwright/graphql-schema-close-reopen-1790960435988/acceptance.json
 - Commands: bun run check; bun x --bun prettier --write <six edited tests/ui/graphql*.js>; INSOMNIUM_UI_BUILD_STATE=artifacts/native-graphql-focus-ui-probe/build-state.json bun tests/ui/<scenario>.js. No new build needed for these test-only fixes.
 - NEXT remaining SDL native save dialog, resize/accessibility, provider/proxy/TLS/cookies and other platforms; all other original PARITY/CI gates remain open. Full migration incomplete and shared input/UX redesign deferred.
-

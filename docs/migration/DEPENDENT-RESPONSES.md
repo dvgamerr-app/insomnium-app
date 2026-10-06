@@ -5,10 +5,12 @@ Updated: 2026-09-29. Same- and cross-collection finite HTTP dependencies are con
 ## Legacy evidence and implementation
 
 Read archived ui/components/templating/local-template-tags.ts response.run (around lines565-700), plugins/context/network.ts and network/network.ts fetchRequestData. Official sources consulted before implementation:
+
 - https://mozilla.github.io/nunjucks/api.html#asynchronous-support
 - https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/any_static
 
 The original uses environment-scoped latest history, then optionally sends before extracting the requested field. Trigger semantics retained:
+
 - never/unknown string: read history only.
 - no-history: send only when no response exists. A failed response still counts as history.
 - when-expired: send when history is absent or ageSeconds > maxAgeSeconds (strict comparison, original numeric coercion). An omitted age does not expire an existing response; the legacy UI supplies60 as its default.
@@ -18,6 +20,7 @@ The original uses environment-scoped latest history, then optionally sends befor
 Root calls have independent initially empty chains, matching the inspected original. A child receives and shares its parent's mutable array; IDs are appended before send and never popped. If an ID is already present, use existing history; without history this fails instead of recursing. This also allows the archived root re-entry behavior: A→B→A can send an inner A once, then B's next occurrence reads history. Repeated root always tags are not globally deduplicated or memoized.
 
 Files:
+
 - template-response.js now separates reference validation, environment-scoped latest-response lookup and field extraction. Preview uses the same helpers. Existing body decoding/filter-worker bounds remain.
 - template-response-send.js createResponseTemplateResolver snapshots resources/history/environment and tracks freshly received responses. Child sends receive a cloned source request, shared chain and AbortSignal. Incoming response identity/environment is checked; cancelled late results are not cached. Bounds are32 sends per root resolver,32 chain entries and40Mi serialized characters retained for newly received latest responses (in addition to the initial snapshot). These are explicit runtime limits, not proof of unbounded legacy parity.
 - template-session.js accepts an application-owned responseResolver only for send purpose. Its awaited callback acquires/releases the existing reference-counted host-wait coordinator. This pauses ancestor active wall deadlines while preserving worker heartbeats, five-second watchdogs, VM execution limits and ten-minute session/hard limits. Guest code cannot publish wait notifications. Without an adapter, resend modes still reject explicitly; previews always read their saved snapshot.
@@ -51,11 +54,12 @@ Svelte check0 errors/0 warnings and Vite production build passed. A search initi
 - Resolver history/new-response cache is keyed by request and caller environment. Sends validate/cache the target environment and return that immediate response. Thus foreign no-history may resend even when target-environment history exists; this preserves inspected original caller-versus-target semantics.
 - Connected scoped routing in workspace.execute/sendDependentRequest and removed the temporary cross-collection guard. Source guards compare the current request's collection selection. Existing conservative all-resource/settings guard remains; unrelated edits can still discard a pending token.
 - Fixed dependent manual OAuth callback authorization: progress carries its root owner; callbacks require the matching live non-aborted owner, and late/cancelled callbacks fail.
--61 inline assertions passed:34 existing resolver/native OAuth/cycle/local HTTP regressions,7 three-collection local HTTP cases,8 foreign OAuth/shared tokens/source-change cases,7 manual callback/cancellation cases,5 scoped resolver/identity checks. Svelte0/0, Vite build and git diff --check passed. One JSDoc mismatch was corrected after the compiler identified it.
+  -61 inline assertions passed:34 existing resolver/native OAuth/cycle/local HTTP regressions,7 three-collection local HTTP cases,8 foreign OAuth/shared tokens/source-change cases,7 manual callback/cancellation cases,5 scoped resolver/identity checks. Svelte0/0, Vite build and git diff --check passed. One JSDoc mismatch was corrected after the compiler identified it.
 - No saved test scripts, dependency/native changes, real user data writes or installer. Fixture servers stopped, workers0. Real WebView/provider/native cancellation acceptance remains pending.
 - Next: finite completion semantics for streaming dependencies and integration of introspection/manual OAuth/gRPC/WS payload renderers; native cookie/User-Agent/URL handling and full PARITY acceptance. Source newer than BUILD.json; full migration incomplete.
 
 Official sources consulted before these edits:
+
 - https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/defineProperty
 - https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/throwIfAborted
 - https://v2.tauri.app/develop/calling-rust/#channels
@@ -72,7 +76,6 @@ Validation commands unchanged: Bun directly launches Prettier, svelte-check and 
 - Official docs consulted before implementation: https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events and https://docs.rs/reqwest/latest/reqwest/struct.Response.html#method.chunk . Existing subsystem reused; no generator needed. Commands: Bun directly launches Prettier, svelte-check --tsconfig ./jsconfig.json --config ./svelte.config.js --fail-on-warnings and vite build; git diff --check. Hidden node_repl execFile shell:false/windowsHide:true retained.
 - Next: reconcile live SSE history and preview response bounds, WebSocket connect-and-send, native cookie/User-Agent/URL parity, then full runtime/UI/platform/packaging acceptance and remaining PARITY rows. Full migration remains incomplete.
 
-
 ## Browser-preview response bound — 2026-09-29
 
 - Fixed transport.js preview send: replaced unbounded response.arrayBuffer with a ReadableStream reader. Count actual received bytes, grow a byte buffer up to20 MiB, accept exactly the limit and reject the first excess chunk with the native send_http error. Content-Length is not trusted. No partial successful response is returned.
@@ -81,4 +84,3 @@ Validation commands unchanged: Bun directly launches Prettier, svelte-check and 
 - Svelte check0 errors/0 warnings, Vite production build and git diff --check passed. Bun launched Prettier, svelte-check --tsconfig ./jsconfig.json --config ./svelte.config.js --fail-on-warnings and vite build through hidden node_repl execFile. No native changes/dependency installation/new installer; source newer than BUILD.json.
 - Consulted official docs before editing: https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream/getReader and https://developer.mozilla.org/en-US/docs/Web/API/ReadableStreamDefaultReader/cancel . Reused existing subsystem; no generator needed.
 - The body limit is now enforced in preview as well as the inspected native implementation. Browser CORS/header/redirect restrictions remain distinct; Bun fetch checks do not establish real WebView acceptance. Next: live SSE raw history reconciliation, WebSocket automatic connect-and-send, native cookie/User-Agent/URL parity, then full runtime/UI/platform/packaging and remaining PARITY work. Full migration incomplete.
-

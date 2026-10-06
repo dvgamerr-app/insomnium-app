@@ -1,11 +1,16 @@
 # Original 26 root entries moved with checked absolute PowerShell paths.
+
 bun docs/migration/archive.mjs verify
 bun create tauri-app .migration-scaffold --manager bun --template svelte --identifier app.insomnium.desktop --tauri-version 2 --yes
+
 # Generated files promoted to root without overwriting occupied destinations.
+
 # package scripts changed to bun x --bun before installing.
+
 bun install
 bun run build
-```
+
+````
 
 https://v2.tauri.app/start/create-project/
 https://v2.tauri.app/start/frontend/sveltekit/
@@ -25,7 +30,7 @@ cargo add atomic-write-file --manifest-path src-tauri/Cargo.toml
 bun run tauri remove store
 bun run tauri add single-instance
 bun run tauri icon static/app-icon.png
-```
+````
 
 Store was evaluated first from the official plugin. Source inspection found ignored load errors (`let _ = store_inner.load()`) and direct `fs::write`. It was replaced with app-owned atomic storage to avoid resetting damaged data or truncating workspace files.
 
@@ -125,6 +130,7 @@ Uses documented library upgrade/parser APIs, not a custom WebSocket framing or S
 ## GraphQL schema and editor milestone (2026-09-24)
 
 Read before implementation:
+
 - https://graphql.org/learn/introspection/ — schema queries and disabled introspection behavior.
 - https://graphql.org/learn/serving-over-http/ — POST JSON, GET query/variables/operationName and response media types.
 - https://www.graphql-js.org/api-v16/utilities/ — getIntrospectionQuery, buildClientSchema, buildSchema and printSchema.
@@ -135,6 +141,7 @@ Read before implementation:
 - Legacy reference: ui/components/editors/body/graph-ql-editor.tsx (introspection clone, errors, local JSON import and operation editor).
 
 Commands executed:
+
 ```powershell
 bun add graphql@16
 bun x --bun prettier --write src/lib/graphql.js src/lib/transport.js src/lib/workspace.svelte.js src/lib/components/GraphqlEditor.svelte src/lib/components/RequestEditor.svelte src/lib/components/ResponsePane.svelte src/lib/styles.css
@@ -150,6 +157,7 @@ A temporary Bun.serve loopback server and direct imported modules were exercised
 ## Legacy cookie restore milestone (2026-09-24)
 
 Sources read before implementation:
+
 - https://raw.githubusercontent.com/salesforce/tough-cookie/v4.1.4/lib/cookie.js — serialized attributes, fromJSON, Max-Age precedence, creation-anchored expiryTime, and default domain scope.
 - https://github.com/salesforce/tough-cookie/blob/master/api/docs/tough-cookie.cookiejar.md — deserialization puts cookies in serialized order.
 - https://docs.rs/cookie_store/0.22.1/cookie_store/struct.CookieStore.html — insert, matching keys, expiry and cloning.
@@ -164,6 +172,7 @@ Checks run: Bun Prettier, bun run check (0 errors/warnings), cargo fmt --check, 
 ## OpenAPI/API Design milestone (2026-09-24)
 
 Official sources read before implementation:
+
 - https://swagger.io/specification/v3.1/ — parameters, servers, security and request bodies.
 - https://raw.githubusercontent.com/scalar/scalar/main/packages/openapi-parser/README.md — filesystem/dereference APIs; no fetch plugins installed.
 - https://raw.githubusercontent.com/scalar/scalar/main/packages/openapi-validator/README.md — schema and path validation.
@@ -175,7 +184,8 @@ Official sources read before implementation:
 - https://bun.sh/docs/bundler — browser ESM output from generated validators.
 
 Commands executed:
-~~~powershell
+
+```powershell
 bun add @scalar/openapi-parser yaml
 bun add @scalar/openapi-validator
 bun add openapi-sampler
@@ -184,7 +194,7 @@ bun run generate:openapi
 bun run check
 bun run build
 bun run tauri build --bundles nsis --ci
-~~~
+```
 
 Installed parser 0.29.5, validator 0.1.4, yaml 2.9.1, sampler 1.7.6 and Ajv 8.20.0. Parser validate was found to supply a missing info.version, so validation uses unmodified source with the strict official structural schemas instead. Runtime Ajv compilation requires dynamic Function and violates the existing CSP. scripts/build-openapi-validators.mjs uses documented Ajv standalone output plus Bun.build before the browser bundle, without relaxing CSP. The locked Scalar package supplies schema files through its installed dist/schemas paths (an internal package path; inspect again when upgrading). Generated src/lib/generated files and artifacts/openapi-build are ignored; bun install prepare regenerates them, or run bun run generate:openapi explicitly. No Node executable was run.
 
@@ -193,6 +203,7 @@ Direct synthetic inspections ran from Bun stdin, with no saved test files or use
 ## Digest authentication milestone (2026-09-24)
 
 Official sources consulted before implementation:
+
 - https://www.rfc-editor.org/rfc/rfc7616.html — challenge lists, auth/auth-int, algorithms, stale nonce and origin/protection space.
 - https://docs.rs/digest_auth/0.3.1/digest_auth/ — AuthContext and prompt.respond; installed source inspected for algorithm/body hash and quoting.
 - https://docs.rs/http-auth/0.1.10/http_auth/ — ChallengeParser supports combined RFC7235 challenge lists. Only its parser is enabled.
@@ -202,7 +213,8 @@ Official sources consulted before implementation:
 - Legacy ui/components/editors/auth/digest-auth.tsx, models/request.ts and network/authentication.ts — saved username/password/disabled fields and neighboring auth behavior.
 
 Commands executed:
-~~~powershell
+
+```powershell
 cargo info digest_auth@0.3.1
 cargo info http-auth@0.1.10
 cargo add http-auth@0.1.10 --manifest-path src-tauri/Cargo.toml --no-default-features --features digest-scheme
@@ -213,7 +225,7 @@ cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 cargo build --manifest-path src-tauri/Cargo.toml
 bun run check
 bun run tauri build --bundles nsis --ci
-~~~
+```
 
 After inspecting the actual implementation, removed http-auth's digest-scheme feature from Cargo.toml: its auth-int path passes raw body bytes into H(A2), whereas RFC7616 requires H(entity-body). Use its challenge-list parser only, and digest_auth for the documented calculation including the body hash. This is why both dependencies exist. Session algorithms without qop cannot be serialized correctly by digest_auth and are rejected explicitly. No handwritten cryptographic algorithm or Basic fallback.
 
@@ -224,6 +236,7 @@ Digest follow-up evidence: direct native inspection of an escaped ASCII realm an
 ## Digest Unicode/NFC fix (2026-09-24)
 
 Sources read before changes:
+
 - https://www.rfc-editor.org/rfc/rfc7616.html — section 4: charset=UTF-8 is case-insensitive, NFC username/password and username*.
 - https://www.rfc-editor.org/rfc/rfc5987.html — UTF-8 extended parameter encoding.
 - https://doc.rust-lang.org/cargo/reference/overriding-dependencies.html — documented [patch.crates-io] path override.
@@ -243,6 +256,7 @@ Native verification: 17 direct header/hash cases and 8 malformed/unsupported cas
 ## OAuth token exchange foundation (2026-09-24)
 
 Sources read before implementation:
+
 - https://docs.rs/oauth2/5.0.0/oauth2/ and trait.AsyncHttpClient.html — documented grant builders/custom async HTTP adapter. Installed source was inspected for RFC6749 Basic encoding, response parsing and token types.
 - https://www.rfc-editor.org/rfc/rfc6749.html — client/password/refresh grants, token responses and rotation.
 - https://www.rfc-editor.org/rfc/rfc8252 and https://www.rfc-editor.org/rfc/rfc9700 — native external-browser/PKCE and legacy grant considerations for the next phase.
@@ -289,9 +303,10 @@ Inspected original main/authorizeUserInWindow.ts and o-auth-2/get-token.ts first
 
 Used documented tauri_build::try_build and AppManifest::commands; cargo check generated 13 permission TOMLs before use. Commands: cargo fmt/check/clippy -D warnings with src-tauri/Cargo.toml; bun x --bun prettier --write changed JS/Svelte/JSON; bun run check; bun run tauri build --bundles nsis --ci (session 47190).
 
-Bun orchestrated actual native modules compiled from stdin. First helper's Unicode literal was emitted as Rust-incompatible escapes; corrected ephemeral helper to Rust brace escapes and reran successfully. ACL helper initially assumed another manifest key and one capability; inspected generated __app-acl__ and both capabilities, then verified all 13 commands/main-local grants. No application compiler findings. Some read-only searches used stale/glob paths; corrected through inventory. A long documentation-writing shell command was rejected by policy before execution; applied the authorized documentation updates as explicit file patches instead. No test scripts saved. Compiled Svelte/mock-IPC checks passed; CUA remains unavailable.
+Bun orchestrated actual native modules compiled from stdin. First helper's Unicode literal was emitted as Rust-incompatible escapes; corrected ephemeral helper to Rust brace escapes and reran successfully. ACL helper initially assumed another manifest key and one capability; inspected generated **app-acl** and both capabilities, then verified all 13 commands/main-local grants. No application compiler findings. Some read-only searches used stale/glob paths; corrected through inventory. A long documentation-writing shell command was rejected by policy before execution; applied the authorized documentation updates as explicit file patches instead. No test scripts saved. Compiled Svelte/mock-IPC checks passed; CUA remains unavailable.
 
 Legacy login-window release session 47190 exited 0. All 152 source hashes matched captured inputs after packaging; executable/NSIS hashes are in BUILD.json. Real window/provider/IPC/installer acceptance remains pending.
+
 # OAuth1 signing and NO_PREFIX (2026-09-24)
 
 Before implementation: read RFC 5849 and verified erratum 2550 (https://www.rfc-editor.org/errata/rfc5849), https://www.ietf.org/archive/id/draft-eaton-oauth-bodyhash-00.html, https://docs.rs/hmac/0.12.1/hmac/, https://docs.rs/rsa/latest/rsa/, https://docs.rs/oauth1-request/0.6.1/oauth1_request/, original o-auth-1 adapter/editor and https://github.com/ddo/oauth-1.0a. Read Postman runtime authorizer before import mapping: https://github.com/postmanlabs/postman-runtime/blob/develop/lib/authorizer/oauth1.js. Inspect installed crate source when a docs page is unavailable.
@@ -314,7 +329,7 @@ Date: 2026-09-24. Commands were executed using PowerShell/Bun/Cargo; no Node/npm
 
 ## Initialization (already completed — do not run again)
 
-```powershell
+````powershell
 bun create tauri-app --help
 bun docs/migration/archive.mjs capture
 
@@ -411,7 +426,7 @@ cargo build --manifest-path src-tauri/Cargo.toml --lib --locked
 bun run check
 bun x --bun prettier --check src-tauri/capabilities/default.json
 git diff --check
-```
+````
 
 Initial check/clippy passed. Inline inspection found metadata ASCII/base64 joining and Any-example edge cases; fixed and rechecked. Final debug library build session42794 exited0 (31.37s), Svelte0/0. Native source compiled via rustc stdin, orchestrated only with Bun;63 gRPC cases and103 existing-auth regressions passed. No saved test scripts, external protoc, Node runtime or real credentials. Synthetic TLS key removed and all servers stopped.172-file debug snapshot is artifacts/grpc-core-source-snapshot.json; no gRPC release build was performed. BUILD.json/installer remain the previous ES512 checkpoint.
 
@@ -494,9 +509,18 @@ Docs consulted before port: https://bun.sh/docs/runtime/transpiler (loader/targe
 Initialization used inline JavaScript through PowerShell here-string piped to bun run -:
 
 ```js
-const source = await Bun.file('_backup/legacy-electron/packages/insomnia/src/utils/prettify/json.ts').text();
-const output = new Bun.Transpiler({ loader: 'ts', target: 'browser' }).transformSync(source);
-await Bun.write('src/lib/json-prettify.js', '// Ported from Insomnium utils/prettify/json.ts (MIT); original formatter attribution: jsonlint.\n' + output);
+const source = await Bun.file(
+  "_backup/legacy-electron/packages/insomnia/src/utils/prettify/json.ts",
+).text();
+const output = new Bun.Transpiler({
+  loader: "ts",
+  target: "browser",
+}).transformSync(source);
+await Bun.write(
+  "src/lib/json-prettify.js",
+  "// Ported from Insomnium utils/prettify/json.ts (MIT); original formatter attribution: jsonlint.\n" +
+    output,
+);
 ```
 
 Then customized JS bounds/Unicode handling/JSDoc and connected three Svelte surfaces. Ran bun x --bun prettier --write src/lib/json-prettify.js src/lib/components/RequestEditor.svelte src/lib/components/GrpcPane.svelte src/lib/components/ResponsePane.svelte; bun run check; inline Bun assertions against10 existing fixture pairs plus14 boundary/value cases; bun run build. All passed. No saved test scripts or forbidden runtimes executed. Vite prints its generic npm preview suggestion; that command was not run. No new installer; BUILD.json describes the previous shared-editor package.
@@ -504,6 +528,7 @@ Then customized JS bounds/Unicode handling/JSDoc and connected three Svelte surf
 ## JSON response filters — 2026-09-28
 
 Official references read before implementation:
+
 - https://jsonpath-plus.github.io/JSONPath/docs/ts/index.html (browser export, eval:safe, wrap; project states not actively maintained)
 - https://bun.sh/docs/pm/cli/add
 - https://vite.dev/guide/features.html#web-workers
@@ -527,7 +552,6 @@ Official documentation: https://raw.githubusercontent.com/vkiryukhin/vkBeautify/
 Read https://svelte.dev/docs/svelte/$effect and https://vite.dev/guide/features.html#web-workers before wiring. Ran bun x --bun prettier --write modified JS/Svelte; bun run check (0/0); bun run build (passed); five inline compiled-worker assertions (passed after correcting empty-XML diagnostic expectation); git diff --check. All shell calls explicit cmd.exe/login:false, inline Bun data-module execution, no saved tests/dependencies/native package.
 
 Current execution rule (owner update): Do not use shell execution tools or cmd/PowerShell. Launch Bun and other programs directly through node_repl with node:child_process execFile/spawn, shell:false and windowsHide:true. Bun handles scripts/filesystem operations. This supersedes historical cmd.exe instructions below.
-
 
 Nunjucks foundation: direct node_repl execFile Bun add --ignore-scripts --exact nunjucks quickjs-emscripten; direct Bun entrypoints node_modules/prettier/bin/prettier.cjs --write, node_modules/@sveltejs/kit/svelte-kit.js sync, node_modules/svelte-check/bin/svelte-check --tsconfig ./jsconfig.json --config ./svelte.config.js --fail-on-warnings, node_modules/vite/bin/vite.js build. All launched shell:false/windowsHide:true.10 inline Bun assertions passed; no saved test scripts. References/next steps in TEMPLATE-RUNTIME.md.
 

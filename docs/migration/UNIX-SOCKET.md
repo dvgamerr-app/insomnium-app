@@ -40,6 +40,7 @@ Evidence: artifacts/unix-socket-reference/windows-uds-nonblocking-probe.json. so
 Actual pending connect succeeded; explicit Pending future drop produced peer EOF. Missing endpoint returned OS10061. Overloaded listener, TLS, full-app cancellation and non-Windows acceptance remain unverified. Root uds_windows dependency remains staged; final adapter may use socket2 instead.
 
 Sources:
+
 - https://docs.rs/socket2/latest/socket2/struct.Socket.html#method.connect
 - https://docs.rs/socket2/latest/socket2/struct.SockAddr.html#method.unix
 - Installed socket2-0.6.5/src/socket.rs and src/sockaddr.rs API docs (versioned web fetch failed).
@@ -75,6 +76,7 @@ Source: https://doc.rust-lang.org/cargo/reference/overriding-dependencies.html#t
 - NEXT saved Playwright native scenario using fresh isolated app build: original Unix URL syntax, HTTP/HTTPS settings, response, persistence, app Cancel and socket path mapping on Windows. Shared app auth/redirect/cookie semantics and Unix platform runtime still require their acceptance. TLS probe establishes patched client behavior only, not full native UI/migration completion.
 
 Sources:
+
 - https://docs.rs/rustls/0.23.45/rustls/struct.StreamOwned.html
 - https://docs.rs/reqwest/0.12.28/reqwest/struct.ClientBuilder.html#method.tls_info
 - https://docs.openssl.org/3.5/man1/openssl-req/
@@ -126,6 +128,7 @@ Source: https://html.spec.whatwg.org/multipage/server-sent-events.html#event-str
 - Remove only this named owned container after evidence is extracted and acceptance finishes (or recorded terminal failure); never stop/prune unrelated resources. Windows regressions remain accepted, full migration open.
 
 Sources:
+
 - https://docs.docker.com/engine/containers/run/
 - https://docs.docker.com/engine/storage/bind-mounts/
 - https://hub.docker.com/_/rust

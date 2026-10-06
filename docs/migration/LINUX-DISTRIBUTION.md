@@ -6,10 +6,10 @@ Updated2026-10-01. **Partial: full migration/platform/UI acceptance remains open
 
 Both owned containers are stopped; no app/build/installer is live. Do not touch unrelated containers.
 
-| Container | Purpose/current state |
-| --- | --- |
+| Container                          | Purpose/current state                                                                          |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------- |
 | insomnium-unix-acceptance-20261001 | Rust1.98.1/Bun1.4.2 Debian12 build environment; retained /workspace snapshot and /target cache |
-| insomnium-deb-runtime-20261001 | Clean Debian12 runtime baseline; probe package now purged; generated profile retained |
+| insomnium-deb-runtime-20261001     | Clean Debian12 runtime baseline; probe package now purged; generated profile retained          |
 
 Docker entry point: `wsl -d dockerman-backend --exec docker`. Start the relevant existing container with `docker start NAME`; never recreate due to an observation timeout.
 
@@ -63,6 +63,7 @@ Recalculate when changing Rust/native dependencies or supported build baseline/a
 Runtime container currently has no installed probe package after purge. Start it and reinstall /tmp/insomnium-probe.deb before another run. Display tools xvfb/xauth/dbus/at-spi2-core/procps and UID10001 already exist.
 
 Inside runtime container as UID10001, set:
+
 - XDG_RUNTIME_DIR=/tmp/insomnium-probe-runtime
 - XDG_DATA_HOME=/home/insomnium-probe/.local/share
 - XDG_CONFIG_HOME=/home/insomnium-probe/.config
@@ -138,7 +139,6 @@ References: https://hub.docker.com/_/fedora ; https://dnf5.readthedocs.io/en/lat
 - NEXT resolve AppImage dynamic GLES dependency and bus warning through upstream docs/source, repeat clean acceptance, then primary release/all-format build and Bun-only CI. FUSE desktop launch, real upgrade/data/UI/macOS/Windows/legacy formats and original full PARITY remain open.
 - Owner follow-up remains recorded in AGENTS.md and POST-MIGRATION-UX.md: reusable components/ui inputs and redesigned UX after FULL migration. Browser-use prohibited; saved Playwright JS scenarios via Bun for UI verification.
 
-
 ## AppImage GLES fix implemented; primary release build live — 2026-10-01
 
 - Previous turn progressed through AppImage build/runtime diagnostics. Revalidated current STATUS/PLAN/PARITY and host configuration.
@@ -149,7 +149,6 @@ References: https://hub.docker.com/_/fedora ; https://dnf5.readthedocs.io/en/lat
 - Primary RELEASE AppImage build running in retained builder: bun run desktop:build --bundles appimage --ci -- --locked, CARGO_BUILD_JOBS=1. Supervisor35360/WSL child24236, artifacts/linux-appimage-primary/{state.json,build.log,stderr.log}. Frontend build passed; native optimized executable compiling. Poll SAME process; do not restart on timeout. Actual final result, bundled notice/library, runtime and cleanup pending.
 - Earlier short-lived Bun launcher produced no state/process evidence; persistent supervisor started once confirmed no state. Probe bundler20916/3872 already terminal0.
 - Owned builder and AppImage runtime running; Debian/Fedora package runtimes stopped. Do not stop builder while primary build live. Continue primary verification; then all-format/CI/original full parity. UX/components deferred until full migration; browser-use prohibited.
-
 
 ## CI runtime constraint investigation — 2026-10-01
 
@@ -167,7 +166,6 @@ No .github directory exists in the active worktree at this checkpoint. Official 
 - CI investigation: active .github directory absent. Official setup-bun and checkout actions currently use node24 internally; cannot adopt those examples under strict no-Node rule. References and decision recorded in LINUX-DISTRIBUTION.md. No workflow/action executed.
 - NEXT primary release all-format integration (RPM+AppImage generators together), Bun-only CI with audited shell/native bootstrap/checkout/artifact handling, then original full parity. Legacy Linux tar.gz/snap, Windows/macOS release/upgrade/data/UI and outstanding Git/plugins/auth/runner/etc remain open. UX/shared components deferred until full goal complete.
 
-
 ## Combined Linux release packaging and Bun-only CI workflow — 2026-10-01
 
 - Previous turn progressed by accepting primary AppImage. Revalidated STATUS/PLAN/PARITY/current wrapper and official https://v2.tauri.app/reference/cli/#build before starting default targets=all.
@@ -180,7 +178,6 @@ No .github directory exists in the active worktree at this checkpoint. Official 
 - Builder stopped after exports; other3 owned runtime containers already stopped. No live compiler/bundler/app process.
 - NEXT CI runtime/bootstrap/artifact retention and platform acceptance, then outstanding original feature parity. Full goal remains incomplete; no redesign/shared components before migration completion.
 
-
 ## Automatic Debian dependency metadata implemented; integration running — 2026-10-01
 
 - Previous goal turn progressed with combined formats/CI. Revalidated current files and official https://manpages.debian.org/bookworm/dpkg-dev/dpkg-shlibdeps.1.en.html .
@@ -191,7 +188,6 @@ No .github directory exists in the active worktree at this checkpoint. Official 
 - All-format primary integration LIVE: supervisor28308/WSL child31516, artifacts/linux-deb-dynamic-primary/{state.json,build.log,stderr.log}; same retained container and optimized profile, command bun run desktop:build --ci -- --locked, CARGO_BUILD_JOBS=1. Do not restart on observation timeout. Poll actual process; final metadata/build acceptance pending.
 - Original full parity and CI remote/artifact/runtime acceptance remain incomplete; no redesigned UX/shared input implementation yet.
 
-
 ## Dynamic Debian metadata verified in combined release build — 2026-10-01
 
 - Continued SAME supervisor28308/child31516 to terminal actual0; optimized native compile3m39s, overall284seconds. Default primary command produced Debian/RPM/AppImage. artifacts/linux-deb-dynamic-primary/state.json/logs. No restart on waits.
@@ -201,7 +197,6 @@ No .github directory exists in the active worktree at this checkpoint. Official 
 - scripts/generate-deb-config.mjs now computes real package minimums; primary wrapper handles Debian-only and combined formats; root config no longer embeds the previous12 build-host constraints. Explicit user-added Debian dependencies are unioned with computed groups. Raw Tauri bundle users must pass a fresh generated config.
 - CI explicitly installs dpkg-dev; README/CI.md updated. Native actionlint and targeted git diff --check pass. No new saved tests, Node/Python/browser-use or remote changes.
 - Builder stopped; runtime containers remain stopped. Full migration still incomplete. NEXT CI bootstrap/remote validation/artifact retention, Ubuntu actual-ELF/native-platform acceptance, original feature parity. Shared input components/UX stays deferred.
-
 
 Manual Debian metadata flow (after native build):
 

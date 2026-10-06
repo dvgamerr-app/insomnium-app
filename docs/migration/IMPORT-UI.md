@@ -33,6 +33,7 @@ Open Import in the rebuilt probe, verify paste is visible without a file dialog,
 Release probe build completed at 08:16:33 UTC with exit 0 (4m56s). Opened the rebuilt executable with the same isolated probe identifier and a separate WebView profile; native API confirmed the identity. Production configuration and BUILD.json were not changed.
 
 Using actual mounted UI through the probe's loopback CDP endpoint:
+
 - Import opened the paste dialog immediately, with the explicit Choose collection file button and disabled empty Review button. Captured and visually inspected import-entry.png.
 - Invalid text displayed the concrete parser error (Flow map must end with a closing brace). A subsequent valid literal cURL input cleared it and displayed review.
 - Cancel retained identical saved resources and HTTP history; reopening started with empty input.

@@ -180,7 +180,6 @@ Direct native protocol/wire checks passed (HAWK-COMPATIBILITY.md). Verify in act
 3. Verify original-origin redirects, closed-connection error and no Type3 on a replacement connection. Direct HTTP/TLS loopback evidence is in NTLM-COMPATIBILITY.md; it does not satisfy provider/UI acceptance.
 4. Resolve NTLMv1/LM, proxy407, Type3 workstation and unusual certificate/username cases before marking full parity.
 
-
 ## Netrc native acceptance (pending)
 
 1. Use a disposable profile with synthetic .netrc/_netrc and verify HTTP/GraphQL/SSE/WebSocket sends through real Tauri IPC, disabled/manual override, cancellation, reload and credential-free history/export/errors.

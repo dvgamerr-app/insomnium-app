@@ -33,19 +33,19 @@ Updated: 2026-09-30. **Native advertisement primitive implemented and standalone
 
 Legacy paths below are relative to _backup/legacy-electron/packages/insomnia/src/. Inspected source, not production credentials.
 
-| Source | Observed behavior | Migration requirement |
-| --- | --- | --- |
-| models/git-repository.ts | Local-only repository model: uri, credentials, author, needsFullClone, uriNeedsMigration; cannot sync/duplicate | Keep connection/auth metadata out of resource trees and portable exports; import legacy connection settings deliberately |
-| ui/routes/git-actions.tsx:328 | Hosted URL conversion followed by scp-like git@host:path and ssh:// fallback to HTTPS | Preserve supported input forms with a visible normalized endpoint; distinguish input compatibility from actual SSH transport |
-| sync/git/utils.ts | Basic username/password; GitHub token as username + x-oauth-basic; GitLab oauth2 + token; provider token lookup and GitLab refresh | Implement explicit anonymous/basic/GitHub/GitLab modes and provider token lifecycle, not only a generic password field |
-| git-actions.tsx:540 | Update URI, author and credentials; new bindings require full clone | Save settings atomically, invalidate stale sessions when changed, expose connection errors without losing entered values |
+| Source                                            | Observed behavior                                                                                                                                                       | Migration requirement                                                                                                                     |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| models/git-repository.ts                          | Local-only repository model: uri, credentials, author, needsFullClone, uriNeedsMigration; cannot sync/duplicate                                                         | Keep connection/auth metadata out of resource trees and portable exports; import legacy connection settings deliberately                  |
+| ui/routes/git-actions.tsx:328                     | Hosted URL conversion followed by scp-like git@host:path and ssh:// fallback to HTTPS                                                                                   | Preserve supported input forms with a visible normalized endpoint; distinguish input compatibility from actual SSH transport              |
+| sync/git/utils.ts                                 | Basic username/password; GitHub token as username + x-oauth-basic; GitLab oauth2 + token; provider token lookup and GitLab refresh                                      | Implement explicit anonymous/basic/GitHub/GitLab modes and provider token lifecycle, not only a generic password field                    |
+| git-actions.tsx:540                               | Update URI, author and credentials; new bindings require full clone                                                                                                     | Save settings atomically, invalidate stale sessions when changed, expose connection errors without losing entered values                  |
 | sync/git/shallow-clone.ts and git-actions.tsx:349 | Single-branch depth-1 preview; require one Workspace when present; no workspace creates design workspace; existing ID navigates to existing workspace; later full clone | Stage clone separately, validate resources/topology before workspace installation, handle no/multiple/existing workspace cases explicitly |
-| sync/git/git-vcs.ts:239,279 | Remote branch advertisement; origin configuration | Read advertised branches separately from local branches; show network failure rather than silently treating it as empty |
-| sync/git/git-vcs.ts:407 | Fetch supports single/all branches, depth/relative, prune and pruneTags | Track fetched refs independently of local branch/resource application; preserve depth/prune behavior in the compatibility backlog |
-| git-actions.tsx:921 | Push current branch; equality check gives Nothing to push; action reads force but does not pass it to push | Normal push and explicit rejection reporting required. Do not infer that legacy UI actually force-pushed from the unused form value |
-| git-actions.tsx:998 | Fetch depth 1 then pull; Git writes flow through database-backed filesystem | Pull must update native refs and workspace as one recoverable transition, including local edits |
-| sync/git/git-vcs.ts:398 | Merge current branch with chosen branch | Support fast-forward, up-to-date, divergent merge and conflict workflow; fast-forward-only is an intermediate milestone |
-| sync/git/http-client.ts | Electron HTTP transport, redirects and binary body | Replace with native transport; verify proxy/TLS/redirect/provider compatibility independently |
+| sync/git/git-vcs.ts:239,279                       | Remote branch advertisement; origin configuration                                                                                                                       | Read advertised branches separately from local branches; show network failure rather than silently treating it as empty                   |
+| sync/git/git-vcs.ts:407                           | Fetch supports single/all branches, depth/relative, prune and pruneTags                                                                                                 | Track fetched refs independently of local branch/resource application; preserve depth/prune behavior in the compatibility backlog         |
+| git-actions.tsx:921                               | Push current branch; equality check gives Nothing to push; action reads force but does not pass it to push                                                              | Normal push and explicit rejection reporting required. Do not infer that legacy UI actually force-pushed from the unused form value       |
+| git-actions.tsx:998                               | Fetch depth 1 then pull; Git writes flow through database-backed filesystem                                                                                             | Pull must update native refs and workspace as one recoverable transition, including local edits                                           |
+| sync/git/git-vcs.ts:398                           | Merge current branch with chosen branch                                                                                                                                 | Support fast-forward, up-to-date, divergent merge and conflict workflow; fast-forward-only is an intermediate milestone                   |
+| sync/git/http-client.ts                           | Electron HTTP transport, redirects and binary body                                                                                                                      | Replace with native transport; verify proxy/TLS/redirect/provider compatibility independently                                             |
 
 Legacy clone also preserves files outside .insomnium through its routed filesystem. Native merge/push must preserve the complete Git tree; the resource codec only owns .insomnium. Do not reconstruct a remote repository solely from application resources.
 
@@ -57,12 +57,12 @@ Therefore this journal **cannot** represent pull/merge advancing the current bra
 
 Proposed advance-ref record: operation/repository/workspace IDs, exact branch reference, old/new OIDs, before/after workspace, and pinned merge inputs. Native validates candidate resources and complete commit tree. Under GitState then StorageState, lock HEAD and the branch, require symbolic HEAD/name and old OID, persist journal, then compare-and-update ref. Recovery uses:
 
-| Branch tip | Workspace | Result |
-| --- | --- | --- |
-| old | before | Nothing applied; retain before and finish aborted transition |
-| new | before | Complete recorded after workspace |
-| new | after | Verify and finish cleanup |
-| old | after, unrelated tip, detached/changed HEAD, unrelated workspace | Refuse overwrite; retain journal for recovery |
+| Branch tip | Workspace                                                        | Result                                                       |
+| ---------- | ---------------------------------------------------------------- | ------------------------------------------------------------ |
+| old        | before                                                           | Nothing applied; retain before and finish aborted transition |
+| new        | before                                                           | Complete recorded after workspace                            |
+| new        | after                                                            | Verify and finish cleanup                                    |
+| old        | after, unrelated tip, detached/changed HEAD, unrelated workspace | Refuse overwrite; retain journal for recovery                |
 
 These are proposed rules, not implemented guarantees. Lost replies re-enter recovery and inspect recorded state; they do not trigger an automatic second pull, merge commit or push.
 

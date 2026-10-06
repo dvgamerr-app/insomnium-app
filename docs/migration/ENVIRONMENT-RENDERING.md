@@ -7,6 +7,7 @@ Checkpoint: 2026-09-28. Implemented in preview and shared session API; **actual 
 Read archived packages/insomnia/src/common/render.ts and templating/index.ts before implementation. The former is authoritative for merge/pass/disabled/path behavior.
 
 Official references consulted:
+
 - https://mozilla.github.io/nunjucks/api.html#asynchronous-support
 - https://mozilla.github.io/nunjucks/templating.html#variables
 - https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/fromEntries
@@ -20,7 +21,7 @@ All programs launched hidden through node_repl execFile(shell:false, windowsHide
 ## Implemented contract
 
 - template-environment.js collects base environment, selected ancestry within the workspace (base not duplicated), then outer-to-inner request_group environments. A request without a resolvable workspace returns null for caller fallback. Cross-workspace selected environments are ignored, matching current model behavior. Preview uses authoritative resource layers; supplied context is the fallback only when no workspace resolves.
-- Saved property maps use $ root and ~| separators, including array indexes. Specified existing own keys come first; duplicate/stale entries ignored and all omitted own keys appended. Numeric keys still obey JavaScript object enumeration. __proto__, constructor and hasOwnProperty stay ordinary own data properties. No map path is assigned through object prototypes.
+- Saved property maps use $ root and ~| separators, including array indexes. Specified existing own keys come first; duplicate/stale entries ignored and all omitted own keys appended. Numeric keys still obey JavaScript object enumeration. **proto**, constructor and hasOwnProperty stay ordinary own data properties. No map path is assigned through object prototypes.
 - Stable ordering processes literal values before strings containing {{ or {%. Bare same-name interpolation is rendered against the parent value before overriding it. Nested plain objects merge; arrays/null/scalars replace. Regex metacharacters in key names are escaped. Parent same-name syntax retains the original narrow regex: underscore-alias self-overrides are not newly supported.
 - After merge, three sequential self-render passes use KEEP_ON_ERROR. Unchanged top-level values skip further passes; objects are cloned each pass. Unresolved or cyclic template strings may remain, matching the original bounded algorithm. This is not a topological resolver.
 - template-object.js clones values before rendering. Arrays/objects render sequentially, keys do not render, disabled objects and blacklisted paths skip, first-level underscore wrapper names are omitted from diagnostic paths. Date/RegExp/Error/boxed primitives are preserved by cloning. Complete variable/tag/comment delimiter pairs invoke the isolated renderer; otherwise text stays literal. A result containing a tag receives one additional render, retaining the first result if that second render fails under KEEP.
