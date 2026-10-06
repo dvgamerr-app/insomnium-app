@@ -1,0 +1,43 @@
+name: PR check (Qlty)
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-check-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qlty:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      QLTY_TELEMETRY: "off"
+      CHECKOUT_TOKEN: ${{ github.token }}
+      BASE_REF: ${{ github.base_ref }}
+    steps:
+      # Native Git checkout, matching desktop-build.yml: no JavaScript actions.
+      - name: Checkout pull request commit
+        run: |
+          git init source
+          cd source
+          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+          auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$CHECKOUT_TOKEN" | base64 -w0)"
+          git -c "http.$GITHUB_SERVER_URL/.extraHeader=$auth" fetch --depth=1 --no-tags origin "$GITHUB_SHA" "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
+          git checkout --detach "$GITHUB_SHA"
+
+      - name: Install Qlty
+        run: |
+          curl -fsSL https://qlty.sh | bash
+          echo "$HOME/.qlty/bin" >> "$GITHUB_PATH"
+
+      - name: Qlty check
+        working-directory: source
+        run: qlty check -a --no-upgrade-check
+
+      - name: Qlty smells
+        working-directory: source
+        run: qlty smells --upstream "origin/$BASE_REF" --no-snippets --no-upgrade-check
