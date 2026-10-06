@@ -37,7 +37,7 @@ jobs:
 
       - name: Qlty check
         working-directory: source
-        run: qlty check -a --no-upgrade-check
+        run: qlty check --upstream "origin/$BASE_REF" --no-upgrade-check
 
       - name: Qlty smells
         working-directory: source
