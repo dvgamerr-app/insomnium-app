@@ -33,6 +33,7 @@ pub struct MergeCandidate {
     merge_base_oid: Option<String>,
     target_oid: Option<String>,
     conflicts: Vec<MergeConflict>,
+    conflict_contents: Vec<crate::git_merge_preview::ConflictContent>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -118,6 +119,7 @@ pub(crate) fn prepare(repo: &Repository, input: &MergeInput) -> Result<MergeCand
         merge_base_oid: None,
         target_oid: Some(old.to_string()),
         conflicts: Vec::new(),
+        conflict_contents: Vec::new(),
     };
     if old == incoming {
         if input.resolutions.is_some() {
@@ -190,6 +192,7 @@ pub(crate) fn prepare(repo: &Repository, input: &MergeInput) -> Result<MergeCand
             }
             candidate.conflicts.push(describe_conflict(&conflict));
         }
+        candidate.conflict_contents = crate::git_merge_preview::read(repo, &candidate.conflicts)?;
     } else {
         if input.author_name.trim().is_empty()
             || input.author_name.len() > 1000

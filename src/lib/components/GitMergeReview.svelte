@@ -13,19 +13,27 @@
   let gitChoices = $state(/** @type {Record<string,string>} */ (Object.fromEntries(initialReview.gitConflicts.map((/** @type {any} */ _row, /** @type {number} */ i) => [i, ""]))));
   let workingChoices = $state(/** @type {Record<string,string>} */ (Object.fromEntries(initialReview.workingConflicts.map((/** @type {any} */ row) => [row.id, ""]))));
   let custom = $state(/** @type {Record<string,string>} */ (Object.fromEntries(initialReview.gitConflicts.map((/** @type {any} */ _row, /** @type {number} */ i) => [i, ""]))));
+  let customPaths = $state(/** @type {Record<string,string>} */ (Object.fromEntries(initialReview.gitConflicts.map((/** @type {any} */ row, /** @type {number} */ i) => [i, row.ours ? "ours" : row.theirs ? "theirs" : "ancestor"]))));
+  let customModes = $state(/** @type {Record<string,string>} */ (Object.fromEntries(initialReview.gitConflicts.map((/** @type {any} */ row, /** @type {number} */ i) => [i, (row.ours || row.theirs || row.ancestor).mode === 0o100755 ? "100755" : "100644"]))));
   const conflicts = $derived(review.gitConflicts.length + review.workingConflicts.length);
   const resolvable = $derived(review.gitConflicts.every((/** @type {any} */ _row, /** @type {number} */ i) => !!gitChoices[i]) &&
     review.workingConflicts.every((/** @type {any} */ row) => row.reason === "local-and-incoming-changed" && !!workingChoices[row.id]));
   /** Git paths are bytes; show replacement glyphs only in the display. Choices retain exact bytes.
    * @param {any} conflict */
   function path(conflict) {
-    return new TextDecoder().decode(Uint8Array.from((conflict.ours || conflict.theirs || conflict.ancestor).path));
+    const bytes = Uint8Array.from((conflict.ours || conflict.theirs || conflict.ancestor).path);
+    try { return new TextDecoder("utf-8", {fatal:true}).decode(bytes); }
+    catch { return "Path bytes: " + Array.from(bytes, byte => byte.toString(16).padStart(2,"0")).join(" "); }
   }
+  /** @param {any} entry */
+  function content(entry) { return review.conflictContents.find((/** @type {any} */ item) => item.oid === entry.oid); }
+  /** @param {number} mode */
+  function modeName(mode) { return mode === 0o100755 ? "Executable file" : mode === 0o120000 ? "Symbolic link" : mode === 0o160000 ? "Submodule" : "File"; }
   function resolve() {
     onresolve({ gitResolutions: review.gitConflicts.map((/** @type {any} */ conflict, /** @type {number} */ i) => ({
       conflict, choice: gitChoices[i],
-      ...(gitChoices[i] === "custom" ? { path: (conflict.ours || conflict.theirs || conflict.ancestor).path,
-        mode: 0o100644, content: Array.from(new TextEncoder().encode(custom[i] || "")) } : {}),
+      ...(gitChoices[i] === "custom" ? { path: conflict[customPaths[i]].path,
+        mode: parseInt(customModes[i], 8), content: Array.from(new TextEncoder().encode(custom[i])) } : {}),
     })), workspaceResolutions: review.workingConflicts.map((/** @type {any} */ row) => ({ id: row.id, choice: workingChoices[row.id] })) });
   }
 </script>
@@ -37,6 +45,23 @@
     <p>The current branch already includes this revision.</p>
   {:else if conflicts}
     {#each review.gitConflicts as conflict, i}
+      {#each [["ancestor", "Base"], ["ours", "Current branch"], ["theirs", "Incoming branch"]] as [side, label]}
+        {@const entry = conflict[side]}
+        <details>
+          <summary>{label}: {entry ? path({ours:entry}) : "File absent"}</summary>
+          {#if entry}
+            {@const blob = content(entry)}
+            <p class="hint">{modeName(entry.mode)} · {blob.size === null ? "Commit" : `${blob.size} bytes`} · {entry.oid.slice(0,10)}</p>
+            {#if blob.kind === "text"}
+              <Textarea aria-label={`${label} content ${i + 1}`} readonly rows={6} value={blob.text} />
+            {:else if blob.kind === "binary"}
+              <p>Binary content. First {Math.min(blob.size,128)} bytes:</p>
+              <Textarea aria-label={`${label} binary preview ${i + 1}`} readonly rows={3} value={blob.previewHex} />
+            {:else if blob.kind === "gitlink"}<p>Submodule commit {entry.oid}.</p>
+            {:else}<p>Content preview omitted {blob.kind === "tooLarge" ? "because the file exceeds 256 KiB" : "because this review exceeds the 2 MiB preview budget"}. Keep either branch or enter a replacement.</p>{/if}
+          {/if}
+        </details>
+      {/each}
       <Field>{path(conflict)}
         <Select aria-label={`Git conflict choice ${i + 1}`} bind:value={gitChoices[i]} disabled={busy}>
           <option value="">Choose resolution</option><option value="ours">Keep current branch</option>
@@ -44,7 +69,21 @@
           <option value="custom">Write custom text</option>
         </Select>
       </Field>
-      {#if gitChoices[i] === "custom"}<Field>Custom text for {path(conflict)}
+      {#if gitChoices[i] === "custom"}
+        <Field>Replacement path
+          <Select aria-label={`Custom merge path ${i + 1}`} bind:value={customPaths[i]} disabled={busy}>
+            {#each [["ours", "Current branch"], ["theirs", "Incoming branch"], ["ancestor", "Base"]] as [side,label]}
+              {#if conflict[side]}<option value={side}>{label}: {path({ours:conflict[side]})}</option>{/if}
+            {/each}
+          </Select>
+        </Field>
+        <Field>Replacement file mode
+          <Select aria-label={`Custom merge mode ${i + 1}`} bind:value={customModes[i]} disabled={busy}>
+            <option value="100644">File</option><option value="100755">Executable file</option>
+          </Select>
+        </Field>
+        <p class="hint">Custom text creates UTF-8 file content.</p>
+        <Field>Custom text for {path(conflict)}
         <Textarea aria-label={`Custom merge text ${i + 1}`} bind:value={custom[i]} disabled={busy} />
       </Field>{/if}
     {/each}

@@ -1,4 +1,5 @@
 import { planGitCollectionUpdate } from "./git-reconcile.js";
+import { validateMergeConflictContents } from "./git-merge-preview.js";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { id } from "./model.js";
 import { snapshotGitCollection } from "./git-collection.js";
@@ -387,6 +388,7 @@ export function createGitClient({ call = nativeCall } = {}) {
         (candidate.kind === "upToDate" && candidate.targetOid !== saved.info.headOid) ||
         (candidate.kind === "fastForward" && (candidate.targetOid !== candidate.incomingOid || candidate.mergeBaseOid !== saved.info.headOid)))
       throw new Error("Native merge returned an invalid pinned candidate.");
+    validateMergeConflictContents(candidate);
     let plan = null;
     if (!candidate.conflicts.length && candidate.kind !== "upToDate") {
       const committed = await call("git_repository_read_commit", { repositoryId: saved.repositoryId, commitOid: candidate.targetOid });

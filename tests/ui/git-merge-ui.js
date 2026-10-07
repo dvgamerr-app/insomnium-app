@@ -75,8 +75,47 @@ await withNativeApp("git-merge-ui", async (context) => {
   assert.equal(await fixtureGit(x.repo, ["rev-parse", "refs/heads/main"]), x.newOid);
   await assertAdvanceCleanup(x);
   checks.push("mounted-up-to-date-no-persistence-or-ref-change");
+  /** @param {string} text @param {string} mode */
+  async function externalCommit(text, mode) {
+    const blob = await fixtureGit(x.repo, ["hash-object", "-w", "--stdin"], text);
+    const entries = await fixtureGit(x.repo, ["ls-tree", x.newOid + "^{tree}"]);
+    const tree = await fixtureGit(x.repo, ["mktree"], entries + "\n" + mode + " blob " + blob + "\tpreview-ui.txt\n");
+    return fixtureGit(x.repo, ["commit-tree", tree, "-p", x.newOid], "Mounted preview conflict\n");
+  }
+  const currentText = "Current pinned text\n", incomingText = "Incoming pinned text\n";
+  const currentOid = await externalCommit(currentText, "100755");
+  const incomingOid = await externalCommit(incomingText, "100644");
+  await fixtureGit(x.repo, ["update-ref", "refs/heads/main", currentOid, x.newOid]);
+  await fixtureGit(x.repo, ["update-ref", "refs/heads/incoming", incomingOid, x.newOid]);
+  await panel.getByRole("button", { name: "Reload changes", exact: true }).click();
+  const divergentBefore = await invoke("load_workspace");
+  const divergentBytes = await readFile(x.workspace);
+  await start();
+  await review.getByText("Current branch: preview-ui.txt", {exact:true}).click();
+  await review.getByText("Incoming branch: preview-ui.txt", {exact:true}).click();
+  assert.equal(await review.getByLabel("Current branch content 1", {exact:true}).inputValue(), currentText);
+  assert.equal(await review.getByLabel("Incoming branch content 1", {exact:true}).inputValue(), incomingText);
+  await page.screenshot({ path: join(output, "pinned-git-conflict-review.png") });
+  await review.getByLabel("Git conflict choice 1", {exact:true}).selectOption("custom");
+  assert.equal(await review.getByLabel("Custom merge mode 1", {exact:true}).inputValue(), "100755");
+  await review.getByLabel("Custom merge path 1", {exact:true}).selectOption("theirs");
+  await review.getByLabel("Custom merge text 1", {exact:true}).fill("Reviewed mounted merge\n");
+  await review.getByRole("button", {name:"Review resolutions",exact:true}).click();
+  await review.getByRole("button", {name:"Apply merge",exact:true}).waitFor();
+  assert.deepEqual(await readFile(x.workspace), divergentBytes);
+  assert.equal(await fixtureGit(x.repo, ["rev-parse", "refs/heads/main"]), currentOid);
+  await review.getByRole("button", {name:"Apply merge",exact:true}).click();
+  await review.waitFor({state:"hidden"});
+  await panel.getByRole("status").filter({hasText:"Merged into main"}).waitFor();
+  const mergeOid = await fixtureGit(x.repo, ["rev-parse", "refs/heads/main"]);
+  assert.equal(await fixtureGit(x.repo, ["show", "-s", "--format=%P", mergeOid]), currentOid + " " + incomingOid);
+  assert.match(await fixtureGit(x.repo, ["ls-tree", mergeOid, "--", "preview-ui.txt"]), /^100755 blob /);
+  assert.equal(await fixtureGit(x.repo, ["show", mergeOid + ":preview-ui.txt"]), "Reviewed mounted merge");
+  assert.deepEqual(await invoke("load_workspace"), divergentBefore);
+  await assertAdvanceCleanup(x);
+  checks.push("mounted-pinned-git-text-preview-custom-path-executable-divergent-merge-preserves-workspace");
   assert.deepEqual(errors, []);
   await page.screenshot({ path: join(output, "merged-source-control.png") });
   await Bun.write(join(output, "acceptance.json"), JSON.stringify({ passed: true, checks,
-    scope: "Mounted production local-branch UI/coordinator and actual native fast-forward with working conflict; no network/divergent Git conflict/content/recovery/drain/platform acceptance." }, null, 2));
+    scope: "Mounted production local-branch fast-forward/working incoming conflict and divergent text preview/custom executable merge; no network/binary UI/recovery/drain/platform acceptance." }, null, 2));
 });

@@ -63,11 +63,11 @@ await withNativeApp("git-merge-prepare", async (context) => {
     },
   });
   /** Adds an external blob to a complete root tree using owned Git objects only.
-   * @param {string} parent @param {string} name @param {string} content */
-  async function external(parent, name, content) {
+   * @param {string} parent @param {string} name @param {string} content @param {string} [mode] */
+  async function external(parent, name, content, mode = "100644") {
     const blob = await fixtureGit(x.repo, ["hash-object", "-w", "--stdin"], content);
     const entries = await fixtureGit(x.repo, ["ls-tree", parent + "^{tree}"]);
-    const tree = await fixtureGit(x.repo, ["mktree"], entries + "\n100644 blob " + blob + "\t" + name + "\n");
+    const tree = await fixtureGit(x.repo, ["mktree"], entries + "\n" + mode + " blob " + blob + "\t" + name + "\n");
     const commit = await fixtureGit(x.repo, ["commit-tree", tree, "-p", parent], "External fixture\n");
     return { commit, blob };
   }
@@ -97,7 +97,46 @@ await withNativeApp("git-merge-prepare", async (context) => {
   assert.equal(conflict.conflicts[0].ours.oid, conflictOurs.blob);
   assert.equal(conflict.conflicts[0].theirs.oid, conflictTheirs.blob);
   assert.equal(new TextDecoder().decode(Uint8Array.from(conflict.conflicts[0].ours.path)), "conflict.bin");
+  assert.deepEqual(conflict.conflictContents.find((/** @type {any} */ row) => row.oid === conflictOurs.blob), {
+    oid: conflictOurs.blob, size: 6, kind: "binary", text: null, previewHex: "6f757273000a",
+  });
   checks.push("binary-add-add-conflict-no-partial-candidate-no-ref-workspace-index-change");
+  const textValue = "Current reviewed café\n";
+  const textOurs = await external(x.f.oid, "preview.txt", textValue, "100755");
+  const textTheirs = await external(x.f.oid, "preview.txt", "Incoming reviewed text\n");
+  await fixtureGit(x.repo, ["update-ref", main, textOurs.commit]);
+  const textReview = await prepare(textOurs.commit, textTheirs.commit);
+  assert.equal(textReview.conflicts[0].ours.mode, 0o100755);
+  assert.deepEqual(textReview.conflictContents.find((/** @type {any} */ row) => row.oid === textOurs.blob), {
+    oid: textOurs.blob, size: new TextEncoder().encode(textValue).length, kind: "text", text: textValue, previewHex: null,
+  });
+  const largeOurs = await external(x.f.oid, "preview.txt", "x".repeat(256 * 1024 + 1));
+  await fixtureGit(x.repo, ["update-ref", main, largeOurs.commit]);
+  const largeReview = await prepare(largeOurs.commit, textTheirs.commit);
+  assert.deepEqual(largeReview.conflictContents.find((/** @type {any} */ row) => row.oid === largeOurs.blob), {
+    oid: largeOurs.blob, size: 256 * 1024 + 1, kind: "tooLarge", text: null, previewHex: null,
+  });
+  /** @param {string} side */
+  async function budgetBranch(side) {
+    let entries = await fixtureGit(x.repo, ["ls-tree", x.f.oid + "^{tree}"]);
+    for (let i = 0; i < 11; i++) {
+      const blob = await fixtureGit(x.repo, ["hash-object", "-w", "--stdin"], side + i + "\n" + "x".repeat(120 * 1024));
+      entries += "\n100644 blob " + blob + "\tbudget-" + i + ".txt";
+    }
+    const tree = await fixtureGit(x.repo, ["mktree"], entries + "\n");
+    return fixtureGit(x.repo, ["commit-tree", tree, "-p", x.f.oid], side + " budget\n");
+  }
+  const budgetOurs = await budgetBranch("current"), budgetTheirs = await budgetBranch("incoming");
+  await fixtureGit(x.repo, ["update-ref", main, budgetOurs]);
+  const budgetReview = await prepare(budgetOurs, budgetTheirs);
+  assert.equal(budgetReview.conflicts.length, 11);
+  assert.ok(budgetReview.conflictContents.some((/** @type {any} */ row) => row.kind === "budgetExceeded"));
+  assert.ok(budgetReview.conflictContents.filter((/** @type {any} */ row) => row.kind === "text" || row.kind === "binary")
+    .reduce((/** @type {number} */ n, /** @type {any} */ row) => n + row.size, 0) <= 2 * 1024 * 1024);
+  assert.ok(budgetReview.conflictContents.filter((/** @type {any} */ row) => row.kind === "budgetExceeded")
+    .every((/** @type {any} */ row) => row.text === null && row.previewHex === null));
+  await fixtureGit(x.repo, ["update-ref", main, conflictOurs.commit]);
+  checks.push("pinned-text-executable-binary-file-and-total-preview-bounds-no-mutation");
   const reviewed = conflict.conflicts[0];
   /** @param {string} choice @param {any} [extra] */
   async function resolve(choice, extra = {}) {

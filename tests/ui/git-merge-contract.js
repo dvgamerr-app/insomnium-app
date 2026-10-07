@@ -8,5 +8,5 @@ await withComponentFixture("git-merge-contract", async (page, output) => {
   const result = JSON.parse(await evidence.innerText());
   await Bun.write(output + "/acceptance.json", JSON.stringify(result, null, 2));
   assert.equal(result.passed, true, result.error);
-  assert.equal(result.checks.length, 7);
+  assert.equal(result.checks.length, 8);
 });

@@ -39,9 +39,10 @@ function fixture(options = {}) {
     if (command === "git_repository_info") return { branch: "main", headOid: old, branches: ["main", "incoming"], changes: [] };
     if (command === "git_repository_read_commit") return { commitOid: args.commitOid, files: snapshotGitCollection(args.commitOid === old ? base : next, root._id).files };
     if (command === "git_repository_prepare_merge") {
+      if (options.previewReply) return structuredClone(options.previewReply);
       if (options.badReply) return { sourceOid: old, incomingOid: incoming, kind: "fastForward", targetOid: old, mergeBaseOid: old, conflicts: [] };
       return { sourceOid: old, incomingOid: incoming, kind: options.upToDate ? "upToDate" : "fastForward",
-        targetOid: options.upToDate ? old : incoming, mergeBaseOid: options.upToDate ? null : old, conflicts: [] };
+        targetOid: options.upToDate ? old : incoming, mergeBaseOid: options.upToDate ? null : old, conflicts: [], conflictContents: options.badContents || [] };
     }
     if (command === "git_repository_apply_merge") {
       check(locked, "Apply submitted outside exclusive transition");
@@ -107,7 +108,34 @@ button.onclick = async () => {
     x = fixture({ upToDate: true }); review = await x.review(); await x.coordinator.confirm(review);
     check(!x.calls.includes("drain") && !x.calls.includes("save") && !x.calls.includes("transition"), "Up-to-date operation drained work or persisted data");
     x = fixture({ badReply: true }); await rejects(() => x.review(), /invalid pinned candidate/);
+    x = fixture({ badContents: [{}] }); await rejects(() => x.review(), /invalid conflict content/);
+    check(!x.calls.includes("git_repository_apply_merge"), "Malformed conflict display admitted mutation");
     checks.push("up-to-date-no-save-and-malformed-native-candidate-refusal");
+    const preview = { sourceOid: "a".repeat(40), incomingOid: "b".repeat(40), kind: "merge",
+      targetOid: null, mergeBaseOid: "a".repeat(40),
+      conflicts: [{ ancestor:null, ours:{oid:"c".repeat(40),path:[120],mode:0o100755},theirs:null }],
+      conflictContents:[{oid:"c".repeat(40),size:2,kind:"text",text:"x\n",previewHex:null}] };
+    x = fixture({previewReply:preview}); review = await x.review();
+    check(review.conflictContents[0].text === "x\n", "Pinned text not exposed");
+    review.conflictContents[0].text = "Detached tampering";
+    await rejects(() => x.coordinator.confirm(review), /Resolve all reviewed conflicts/);
+    check(!x.calls.includes("git_repository_apply_merge"), "Unresolved display authorized mutation");
+    /** @type {((value:any)=>void)[]} */ const corruptions = [
+      value => { value.conflictContents = []; },
+      value => { value.conflictContents[0].oid = "d".repeat(40); },
+      value => { value.conflictContents[0].size = 1; },
+      value => { value.conflictContents[0].previewHex = "ff"; },
+      value => { value.conflicts[0].ours.path = [0]; },
+      value => { value.conflicts[0].ours.mode = 0o100600; },
+      value => { value.conflictContents[0].text = "x".repeat(256*1024+1); value.conflictContents[0].size = value.conflictContents[0].text.length; },
+      value => { value.conflictContents[0].kind = "binary"; value.conflictContents[0].text = null; value.conflictContents[0].previewHex = "ff"; },
+    ];
+    for (const corrupt of corruptions) {
+      const reply = structuredClone(preview); corrupt(reply);
+      x = fixture({previewReply:reply}); await rejects(() => x.review(), /invalid conflict content/);
+      check(!x.calls.includes("save") && !x.calls.includes("git_repository_apply_merge"), "Malformed content persisted state");
+    }
+    checks.push("pinned-conflict-content-identity-type-size-path-mode-bounds-refusal-no-mutation");
     x = fixture({ saveFailure: true }); review = await x.review();
     await rejects(() => x.coordinator.confirm(review), /baseline save refusal/);
     check(!x.calls.includes("transition"), "Failed save admitted transition");

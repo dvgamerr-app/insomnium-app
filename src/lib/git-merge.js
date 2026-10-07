@@ -30,6 +30,7 @@ export function createGitMerge(options) {
         sourceOid: prepared.sourceOid, incomingOid: prepared.candidate.incomingOid,
         targetOid: prepared.candidate.targetOid, kind: prepared.candidate.kind,
         gitConflicts: structuredClone(prepared.candidate.conflicts),
+        conflictContents: structuredClone(prepared.candidate.conflictContents),
         workingConflicts: structuredClone(prepared.plan?.conflicts || []),
         changes: structuredClone(prepared.plan?.changes || []),
       });
