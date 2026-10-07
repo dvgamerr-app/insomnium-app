@@ -94,6 +94,16 @@ function openReadLock(path, sharing) {
  * Only the existing isolated probe's managed repository is accepted.
  * @param {string} repositoryId */
 export async function holdProbeRestoreLease(repositoryId) {
+  return holdProbeLease(repositoryId, "insomnium-restore-ref-locks-v1.lease");
+}
+
+/** @param {string} repositoryId */
+export async function holdProbeAdvanceLease(repositoryId) {
+  return holdProbeLease(repositoryId, "insomnium-advance-ref-locks-v1.lease");
+}
+
+/** @param {string} repositoryId @param {string} name */
+async function holdProbeLease(repositoryId, name) {
   assert.equal(process.platform, "win32");
   assert.ok(process.env.APPDATA);
   assert.match(repositoryId, /^[A-Za-z0-9_-]{1,100}$/);
@@ -103,7 +113,7 @@ export async function holdProbeRestoreLease(repositoryId) {
     "git-v1",
     "repo-" + repositoryId,
     ".git",
-    "insomnium-restore-ref-locks-v1.lease",
+    name,
   );
   const path = await realpath(expected);
   assert.equal(path.toLowerCase(), expected.toLowerCase());

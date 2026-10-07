@@ -14,10 +14,10 @@ const LEASE: &str = "insomnium-restore-ref-locks-v1.lease";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct Lock {
-    name: String,
-    identity: String,
-    digest: String,
+pub(crate) struct Lock {
+    pub(crate) name: String,
+    pub(crate) identity: String,
+    pub(crate) digest: String,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -29,7 +29,7 @@ struct Record {
 }
 
 #[cfg(windows)]
-fn file_identity(file: &fs::File) -> Result<String, String> {
+pub(crate) fn file_identity(file: &fs::File) -> Result<String, String> {
     use std::os::windows::io::AsRawHandle;
     #[link(name = "kernel32")]
     extern "system" {
@@ -43,13 +43,13 @@ fn file_identity(file: &fs::File) -> Result<String, String> {
     Ok(format!("windows:{}:{}:{}", info[7], info[11], info[12]))
 }
 #[cfg(unix)]
-fn file_identity(file: &fs::File) -> Result<String, String> {
+pub(crate) fn file_identity(file: &fs::File) -> Result<String, String> {
     use std::os::unix::fs::MetadataExt;
     let metadata = file.metadata().map_err(|e| e.to_string())?;
     Ok(format!("unix:{}:{}", metadata.dev(), metadata.ino()))
 }
 
-fn plain(path: &Path, cap: u64) -> Result<Option<fs::File>, String> {
+pub(crate) fn plain(path: &Path, cap: u64) -> Result<Option<fs::File>, String> {
     crate::git::reject_link(path)?;
     let file = match fs::File::open(path) {
         Ok(file) => file,
@@ -84,7 +84,7 @@ fn read_record(root: &Path) -> Result<Option<Record>, String> {
     }
     Ok(Some(record))
 }
-fn lock_path(root: &Path, name: &str) -> Result<PathBuf, String> {
+pub(crate) fn lock_path(root: &Path, name: &str) -> Result<PathBuf, String> {
     if name != "HEAD" && (!name.starts_with("refs/heads/") || !git2::Reference::is_valid_name(name))
     {
         return Err("Invalid owned restore ref name; retained.".into());
@@ -104,7 +104,7 @@ fn lock_path(root: &Path, name: &str) -> Result<PathBuf, String> {
     }
     Ok(path)
 }
-fn fingerprint(root: &Path, name: &str) -> Result<Option<Lock>, String> {
+pub(crate) fn fingerprint(root: &Path, name: &str) -> Result<Option<Lock>, String> {
     let Some(mut file) = plain(&lock_path(root, name)?, 1024)? else {
         return Ok(None);
     };

@@ -1,6 +1,12 @@
 # Git sync migration inventory
 
-## Current-source remaining-work audit — 2026-10-07
+## Current advancement foundation checkpoint — 2026-10-07
+
+- Schema2 same-branch journal reader b2ccdac plus registered git_repository_advance writer and separate mutation ownership now implement the prerequisite that the historical audit below identified. Saved Windows writer/ref-rename parent+restart/lost-success parent+restart/reader/restore/Source Control acceptance passes on build1791359893235/1791360274228/result0; exact artifacts and failure corrections are in STATUS/GIT-REMOTE.
+- This is the native prepared-input primitive, not public pull/merge. No network pull/push/clone/merge command or end-user workflow has been added; no frontend quiescence/reconciliation/conflict coordinator calls advancement yet. Those full original workflows, Fetch/provider/other-platform/fault acceptance and remaining original PARITY are required. Preserve existing UI and defer redesign per current owner instruction.
+- Restore's read-only guard is unchanged apart from visibility of shared low-level path/identity/fingerprint helpers. New advance guard permits exactly HEAD+one mutating branch with its own record/lease and explicit old/new uncertainty; it does not replace other listed transaction sites. Partial-byte/ownership-persistence gap/power-loss/disk-full/cross-platform behavior is not claimed. Compact before starting the next feature; continue full GIT-REMOTE step5 after actual compact.
+
+## Remaining-work audit before advancement — historical 2026-10-07
 
 - Local status/staging/selected commit/history, branch create/delete/switch and selected restore have production callers/native commands; restore pre-replace interruption is now verified (STATUS). Older foundation/TODO checkpoints below are historical, not current implementation descriptions.
 - Fetch exists in git_fetch_command.rs, lib.rs and GitRemotePanel.svelte, including Inspect/Resume and cleanup. Existing artifacts git-fetch-depth-real-git1790791041039 and git-fetch-public-journal-restart1790791216338 were reread: real upload-pack full/selected depth1/history expansion/reconciliation and public-journal restart acceptance passed on their recorded journaled-fetch build. These historical artifacts do not prove the latest restore build or hosted-provider compatibility.

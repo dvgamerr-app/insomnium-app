@@ -759,6 +759,122 @@ pub async fn git_repository_checkout(
     .map_err(|e| e.to_string())?
 }
 
+/// Applies an already prepared fast-forward/merge commit and reconciled complete
+/// workspace. No network, merge computation or retry occurs under these locks.
+pub(crate) fn advance(
+    directory: &Path,
+    session: &mut storage::Session,
+    input: CheckoutInput,
+) -> Result<CheckoutResult, String> {
+    storage::ensure_no_pending_transition(directory)?;
+    session.require_loaded()?;
+    let journal = input.journal;
+    if journal.schema_version != 2 {
+        return Err("Advance requires a version-2 same-branch journal".into());
+    }
+    validate_journal(&journal)?;
+    for value in [&input.author_name, &input.author_email] {
+        if value.trim().is_empty() || value.len() > 4096 || value.chars().any(char::is_control) {
+            return Err("Advance author name/email is invalid".into());
+        }
+    }
+    let records = resources(&journal.before_workspace)?;
+    let binding = records
+        .values()
+        .find(|r| {
+            r["_type"] == "git_repository" && r["nativeRepositoryId"] == journal.repository_id
+        })
+        .ok_or("Missing advance binding")?;
+    if ["nativeCreateIntent", "nativeFetchIntent"]
+        .iter()
+        .any(|field| binding.get(*field).is_some_and(|v| !v.is_null()))
+    {
+        return Err("Resolve pending Git work before advance".into());
+    }
+    let error = |e: git2::Error| e.message().to_owned();
+    let signature = git2::Signature::now(&input.author_name, &input.author_email).map_err(error)?;
+    let bytes = serde_json::to_vec(&journal).map_err(|e| e.to_string())?;
+    if bytes.len() as u64 > MAX_JOURNAL_BYTES {
+        return Err("Advance journal exceeds 256 MiB".into());
+    }
+    if storage::read_workspace_file(directory)?.as_ref() != Some(&journal.before_workspace) {
+        return Err("Persisted workspace changed; prepare advance again".into());
+    }
+    let path = git::managed_path(&directory.join("git-v1"), &journal.repository_id)?;
+    let repo = git::open_managed(&path)?;
+    let reference = git::branch_reference(&journal.source_branch)?;
+    let old = journal_oid(&journal.source_oid)?;
+    let new = journal_oid(&journal.target_oid)?;
+    let mut locks = crate::git_advance_lock::AdvanceRefLocks::new(
+        &repo,
+        &journal.operation_id,
+        &reference,
+        old,
+        new,
+    )?;
+    locks.lock_refs()?;
+    if repo.state() != git2::RepositoryState::Clean
+        || repo
+            .find_reference("HEAD")
+            .map_err(error)?
+            .symbolic_target()
+            .map_err(error)?
+            != Some(reference.as_str())
+        || repo.find_reference(&reference).map_err(error)?.target() != Some(old)
+    {
+        return Err("Git HEAD changed or repository is not clean; prepare advance again".into());
+    }
+    validate_advance_graph(&repo, &journal)?;
+    session.ensure_backup(directory)?;
+    if storage::read_workspace_file(directory)?.as_ref() != Some(&journal.before_workspace) {
+        return Err("Workspace changed before advance journal creation".into());
+    }
+    storage::ensure_no_pending_transition(directory)?;
+    storage::atomic_write(&directory.join(storage::GIT_TRANSITION_FILE), &bytes)?;
+    // Every error after the durable record requires authoritative load/recovery.
+    // Neither commit failure nor a missing reply proves the ref update aborted.
+    let apply = || -> Result<CheckoutResult, String> {
+        locks.commit(&signature)?;
+        let result = recover_inner(directory)?.ok_or("Advance journal disappeared")?;
+        if result.operation_id != journal.operation_id
+            || result.branch != journal.target_branch
+            || journal_oid(&result.head_oid)? != new
+            || result.workspace != journal.after_workspace
+        {
+            return Err(
+                "Advance did not reach the requested target; load authoritative state".into(),
+            );
+        }
+        Ok(result)
+    };
+    apply().map_err(|error| {
+        format!(
+            "Advance outcome requires recovery/load before retry: {error}. Journal location: {}",
+            directory.join(storage::GIT_TRANSITION_FILE).display()
+        )
+    })
+}
+
+#[tauri::command]
+pub async fn git_repository_advance(
+    app: tauri::AppHandle,
+    git_state: tauri::State<'_, git::GitState>,
+    storage_state: tauri::State<'_, storage::StorageState>,
+    input: CheckoutInput,
+) -> Result<CheckoutResult, String> {
+    use tauri::Manager;
+    let directory = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let git_lock = git_state.0.clone();
+    let storage_lock = storage_state.0.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let _git_guard = git_lock.lock().map_err(|e| e.to_string())?;
+        let mut session = storage_lock.lock().map_err(|e| e.to_string())?;
+        advance(&directory, &mut session, input)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RestoreInput {

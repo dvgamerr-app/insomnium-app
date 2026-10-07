@@ -3,6 +3,7 @@ mod aws;
 mod cookies;
 mod digest;
 mod git;
+mod git_advance_lock;
 mod git_fetch_cleanup;
 mod git_fetch_command;
 mod git_fetch_journal;
@@ -105,6 +106,7 @@ pub fn run() {
             git::git_repository_delete_branch,
             git::git_repository_commit,
             git_journal::git_repository_checkout,
+            git_journal::git_repository_advance,
             git_journal::git_repository_restore
         ])
         .run(tauri::generate_context!())

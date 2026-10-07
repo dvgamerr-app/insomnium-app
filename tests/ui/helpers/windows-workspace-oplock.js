@@ -23,6 +23,37 @@ export async function gateProbeWorkspaceReplacement() {
     expected.toLowerCase(),
     "Refuse redirected probe workspace",
   );
+  return gateExistingFile(path);
+}
+
+/** Block replacement of an existing main branch ref in an owned probe repo.
+ * @param {string} repositoryId */
+export async function gateProbeMainRefReplacement(repositoryId) {
+  assert.equal(process.platform, "win32");
+  assert.equal(process.arch, "x64");
+  assert.ok(process.env.APPDATA);
+  assert.match(repositoryId, /^[A-Za-z0-9_-]{1,100}$/);
+  const expected = resolve(
+    process.env.APPDATA,
+    probeIdentifier,
+    "git-v1",
+    "repo-" + repositoryId,
+    ".git",
+    "refs",
+    "heads",
+    "main",
+  );
+  const path = await realpath(expected);
+  assert.equal(
+    path.toLowerCase(),
+    expected.toLowerCase(),
+    "Refuse redirected probe ref",
+  );
+  return gateExistingFile(path);
+}
+
+/** @param {string} path */
+function gateExistingFile(path) {
   const library = dlopen("kernel32.dll", {
     CreateFileW: {
       args: ["buffer", "u32", "u32", "ptr", "u32", "u32", "u64"],
