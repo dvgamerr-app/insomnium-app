@@ -141,6 +141,64 @@ try {
     const hints = page.locator(".CodeMirror-hints");
     await hints.waitFor();
     assert.match(await hints.innerText(), /users/);
+    const assertCompletionTokens = async () => {
+      const item = hints.locator(".CodeMirror-hint").first();
+      const metrics = () =>
+        hints.evaluate((el) => {
+          const popup = getComputedStyle(el);
+          const node = el.querySelector(".CodeMirror-hint");
+          if (!node) throw Error("Completion option must be present");
+          const option = getComputedStyle(node);
+          return {
+            padding: popup.padding,
+            itemPadding: option.padding,
+            shadow: popup.boxShadow,
+            radius: popup.borderRadius,
+            itemRadius: option.borderRadius,
+            font: popup.fontSize,
+          };
+        });
+      const defaults = await metrics();
+      assert.equal(defaults.padding, "2px");
+      assert.equal(defaults.itemPadding, "0px 4px");
+      assert.equal(defaults.shadow, "rgba(0, 0, 0, 0.2) 2px 3px 5px 0px");
+      assert.equal(defaults.radius, "3px");
+      assert.equal(defaults.itemRadius, "2px");
+      try {
+        await page.evaluate(() => {
+          const root = document.documentElement.style;
+          root.setProperty("--space-2", "6px");
+          root.setProperty("--space-4", "9px");
+          root.setProperty(
+            "--editor-completion-shadow",
+            "0 1px 7px rgb(1, 2, 3)",
+          );
+        });
+        const changed = await metrics();
+        assert.equal(
+          changed.padding,
+          "6px",
+          "Completion popup must follow shared spacing",
+        );
+        assert.equal(changed.itemPadding, "0px 9px");
+        assert.equal(changed.shadow, "rgb(1, 2, 3) 0px 1px 7px 0px");
+        assert.equal(changed.radius, defaults.radius);
+        assert.equal(changed.itemRadius, defaults.itemRadius);
+        assert.equal(changed.font, defaults.font);
+        await item.waitFor();
+      } finally {
+        await page.evaluate(() => {
+          for (const name of [
+            "--space-2",
+            "--space-4",
+            "--editor-completion-shadow",
+          ])
+            document.documentElement.style.removeProperty(name);
+        });
+      }
+      assert.deepEqual(await metrics(), defaults);
+    };
+    await assertCompletionTokens();
     await page.keyboard.press("Escape");
     checks.push("schema query completion");
     await edit("GraphQL query", query);
@@ -332,6 +390,37 @@ try {
       /role: Role/,
     );
     checks.push("local SDL schema import");
+    await panel.getByRole("button", { name: "Query", exact: true }).click();
+    // Network schema identity includes settings; local SDL remains valid across theme changes.
+    for (const theme of ["light", "dark"]) {
+      if ((await page.locator("html").getAttribute("data-theme")) !== theme)
+        await page
+          .getByRole("button", { name: "Toggle theme", exact: true })
+          .click();
+      await page.waitForFunction(
+        (value) => document.documentElement.dataset.theme === value,
+        theme,
+      );
+      await poll(
+        async () => (await invoke("load_workspace")).settings.theme === theme,
+        "Completion theme persisted " + theme,
+      );
+      await edit("GraphQL query", "query { us");
+      await page.keyboard.press("Control+Space");
+      await hints.waitFor();
+      assert.match(await hints.innerText(), /users/);
+      assert.equal(
+        await hints.evaluate((el) => getComputedStyle(el).backgroundColor),
+        theme === "dark" ? "rgb(38, 38, 38)" : "rgb(243, 244, 246)",
+      );
+      await assertCompletionTokens();
+      await hints.screenshot({ path: join(output, `completion-${theme}.png`) });
+      await page.keyboard.press("Escape");
+    }
+    await edit("GraphQL query", query);
+    checks.push(
+      "native completion spacing/shadow token propagation and restoration with network schema and local SDL in both themes",
+    );
     await writeFile(
       join(output, "acceptance.json"),
       JSON.stringify({ checks, events }, null, 2),

@@ -448,12 +448,15 @@
   }
   :global(body .CodeMirror-hints) {
     font-family: var(--font-mono);
+    padding: var(--space-2);
+    box-shadow: var(--editor-completion-shadow);
     background: var(--raised);
     border-color: var(--line);
     color: var(--text);
     max-width: 480px;
   }
   :global(body .CodeMirror-hint) {
+    padding: 0 var(--space-4);
     color: var(--text);
   }
   :global(body li.CodeMirror-hint-active) {

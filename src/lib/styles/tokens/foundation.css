@@ -50,6 +50,7 @@
   --font-mono: "Roboto Mono Variable", Consolas, monospace;
   --radius-group: 4px;
   --editor-popup-shadow: 0 var(--space-4) var(--space-18) #0005;
+  --editor-completion-shadow: var(--space-2) var(--space-3) var(--space-5) #0003;
   --radius-control: 8px;
   --control-height: 34px;
 }
