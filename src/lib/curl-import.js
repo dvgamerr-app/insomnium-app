@@ -5,8 +5,24 @@ import { id, newRequest } from "./model.js";
 const MAX_INPUT = 1024 * 1024;
 const MAX_WORDS = 20000;
 
+/**
+ * Convert Windows cmd (caret escapes) and PowerShell (backtick continuation)
+ * pastes into the Bash quoting the parser understands. Text only; nothing runs.
+ * @param {string} text
+ */
+function normalizeShell(text) {
+  if (text.length > MAX_INPUT)
+    throw new Error("cURL import exceeds 1 MiB of text.");
+  // cmd: ^ escapes the next character and ^<newline> continues the line.
+  if (/\^"|\^[ \t]*\r?\n/.test(text))
+    return text.replace(/\^\r?\n/g, " ").replace(/\^([\s\S])/g, "$1");
+  // PowerShell: a trailing backtick continues the line.
+  return text.replace(/\x60[ \t]*\r?\n/g, " ");
+}
+
 /** @param {string} text */
 function commands(text) {
+  text = normalizeShell(text);
   if (text.length > MAX_INPUT)
     throw new Error("cURL import exceeds 1 MiB of text.");
   if (text.includes("\0")) throw new Error("cURL commands cannot contain NUL.");
@@ -592,7 +608,27 @@ function requestsFor(words, workspaceId, entries) {
 
 /** @param {string} text */
 export function isCurlImport(text) {
-  return /^\s*curl(?:\.exe)?(?:\s|$)/i.test(text);
+  return /^\s*(?:\x60|\^|&\s*)?curl(?:\.exe)?(?:\s|$)/i.test(text);
+}
+
+/**
+ * Fields of the first cURL request, for filling an existing request.
+ * @param {string} text
+ */
+export function curlRequestPatch(text) {
+  const request = curlResources(text).find((r) => r._type === "request");
+  if (!request) throw new Error("cURL command has no URL.");
+  return {
+    url: request.url,
+    method: request.method,
+    headers: request.headers,
+    parameters: [],
+    authentication: request.authentication,
+    body: request.body,
+    settingFollowRedirects: request.settingFollowRedirects,
+    settingEncodeUrl: false,
+    _curlSource: request._curlSource,
+  };
 }
 
 /** @param {string} text */

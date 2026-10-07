@@ -39,6 +39,7 @@ Outputs: `artifacts/playwright/<scenario>-<timestamp>/`; result.json and accepta
 These scenarios verify native UI behavior with loopback debugging; they do not cover OS file dialogs, abrupt process crashes, lost transport replies or OS-close lifecycle. Resume arranges a durable submitted intent with an already-created native ref.
 
 Official references:
+
 - https://playwright.dev/docs/webview2
 - https://playwright.dev/docs/api/class-browsertype#browser-type-connect-over-cdp
 

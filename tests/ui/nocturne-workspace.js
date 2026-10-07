@@ -155,8 +155,11 @@ await withPreview("nocturne-workspace", async (page, output) => {
     .getByRole("navigation", { name: "Main navigation" })
     .getByRole("button", { name: "Preferences", exact: true });
   await preferences.click();
-  await page.getByRole("dialog").waitFor();
-  const dialog = page.getByRole("dialog");
+  const dialog = page.getByRole("region", {
+    name: "Preferences",
+    exact: true,
+  });
+  await dialog.waitFor();
   const theme = dialog.getByRole("combobox", { name: "Theme", exact: true });
   assert.equal(
     await theme.evaluate((el) => getComputedStyle(el).appearance),
@@ -168,7 +171,7 @@ await withPreview("nocturne-workspace", async (page, output) => {
   assert.equal(
     await dialog.count(),
     1,
-    "Escape closes dropdown before its modal",
+    "Escape closes dropdown before leaving Preferences",
   );
   await theme.click();
   await page.keyboard.press("End");
@@ -190,19 +193,15 @@ await withPreview("nocturne-workspace", async (page, output) => {
   await timeout.fill("4321");
   await timeout.press("Tab");
   await page.screenshot({ path: output + "/shared-settings.png" });
-  await page.keyboard.press("Escape");
-  assert.equal(await page.getByRole("dialog").count(), 0);
-  assert.equal(
-    await preferences.evaluate((el) => el === document.activeElement),
-    true,
-  );
+  await dialog.getByRole("button", { name: "Close Preferences" }).click();
+  await dialog.waitFor({ state: "detached" });
   await preferences.click();
   assert.equal(
     await timeout.inputValue(),
     "4321",
     "shared numeric input persists its value",
   );
-  await page.keyboard.press("Escape");
+  await dialog.getByRole("button", { name: "Close Preferences" }).click();
   await page.keyboard.press("Control+Shift+G");
   await page
     .getByRole("region", { name: "Source Control", exact: true })

@@ -23,7 +23,7 @@ The example action replaces body only when clicked. Local-proto examples seriali
 
 September28: implemented package grouping/short-path/full-path tooltip/type labels in Svelte using keyed optgroups;10 inline Bun cases and Svelte0/0/frontend build passed. Sources read before editing: https://svelte.dev/docs/svelte/each and https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/optgroup . Actual native dropdown/tab interaction remains pending.
 
-Further archived evidence from main/ipc/grpc.ts: local loadMethods returns only type/fullPath (lines60–68); reflection constructs mockedRequestMethods[methodName]().plain (line106) and forwards example (line128). Thus legacy samples apply to reflection. Current native empty-message defaults also offered for local proto are an extension, not an original equivalence claim.
+Further archived evidence from main/ipc/grpc.ts: local loadMethods returns only type/fullPath (lines60–68); reflection constructs mockedRequestMethods[methodName](<>).plain (line106) and forwards example (line128). Thus legacy samples apply to reflection. Current native empty-message defaults also offered for local proto are an extension, not an original equivalence claim.
 
 September28: grpc_example.rs implements reflection samples, validated through the legacy parser before optional ProtoJSON rendering. First declared oneof member and byte arrays intentionally correct unsendable archived examples; over-visited optional fields are omitted. Full type names prevent collisions. Limits are four visits per name/type, depth16,1024 fields and128KiB. Failed examples keep method discovery usable with exampleError.15 native cases and5 archived comparisons/independent wire decodes passed. Local-default extension remains unchanged.
 

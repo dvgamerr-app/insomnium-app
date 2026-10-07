@@ -37,20 +37,20 @@
 
 “มี implementation” ไม่ได้แปลว่าผ่านการตรวจครบทุกกรณีในแอปจริง
 
-| ส่วน | ทำแล้ว | ยังเหลือ |
-| --- | --- | --- |
-| โครงสร้างและ backup | Tauri 2 + Svelte JavaScript + Bun, Rust backend และ legacy backup | CI และ platform matrix |
-| UI และจัดการข้อมูล | Sidebar/collections/folders/requests, environments, tabs, response panes, themes, CRUD/copy/move/search | เทียบ UI/keyboard/resize/light-dark ทั้งแอปกับของเดิม |
-| HTTP / body / history | Native transport, body หลัก, headers/status/timing/history, timeout/Stop | Encoding/redirect/network edges และ native acceptance ให้ครบ |
-| Authentication / TLS | Basic/Bearer/API key, Digest, OAuth1/2/PKCE, AWS IAM, Hawk, ASAP, NTLM, netrc และ certificate settings | Provider จริง, login WebView, proxy/TLS/client certificates และ compatibility edges |
-| Templates / environments / cookies | Isolated renderer, inheritance, built-in tags, prompt/dependencies, shared rendering และ cookie jar | Custom plugins, legacy cookie template source/lifecycle และ rendering edges |
-| GraphQL / WebSocket / SSE / gRPC | Editors/transports หลัก, streaming/Stop, proto/reflection | Completion/navigation, native UI/IPC/reload และ stream/history parity |
-| Storage / import / export | Atomic save/backup; Insomnia/Postman/HAR/NeDB/OpenAPI/cURL; native paste import ผ่านบาง flow | OS picker, legacy หลายไฟล์/external assets/recovery และ cURL options/files |
-| API Design | OpenAPI editor/import/export/preview, structural validation/local refs และ request generation | Spectral/custom rules และ advanced serialization |
-| Tests / Runner | Mocha/Chai ใน QuickJS worker, suite/test CRUD, JS editor, Run/Stop, shared sender และ saved results | Script/import/result/lifecycle compatibility ที่เหลือ |
-| Git local | Setup/resume, staging/partial commit/history, create-and-switch/continue/forget, guarded delete, สลับ committed local branch และ journal/recovery | Unborn/detached/remote, fetch/pull/push/merge และ failure acceptance เพิ่มเติม |
-| Desktop / packaging | Dialogs/window state/single instance/icons/shortcuts; เคย build Windows EXE/NSIS ผ่าน | Native menus, package ล่าสุด และ install/upgrade/uninstall |
-| Custom plugin runtime | มีพื้นฐาน renderer และ built-in tags | ยังไม่ครบ runtime/compatibility ของ plugin เดิม |
+| ส่วน                               | ทำแล้ว                                                                                                                                            | ยังเหลือ                                                                            |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| โครงสร้างและ backup                | Tauri 2 + Svelte JavaScript + Bun, Rust backend และ legacy backup                                                                                 | CI และ platform matrix                                                              |
+| UI และจัดการข้อมูล                 | Sidebar/collections/folders/requests, environments, tabs, response panes, themes, CRUD/copy/move/search                                           | เทียบ UI/keyboard/resize/light-dark ทั้งแอปกับของเดิม                               |
+| HTTP / body / history              | Native transport, body หลัก, headers/status/timing/history, timeout/Stop                                                                          | Encoding/redirect/network edges และ native acceptance ให้ครบ                        |
+| Authentication / TLS               | Basic/Bearer/API key, Digest, OAuth1/2/PKCE, AWS IAM, Hawk, ASAP, NTLM, netrc และ certificate settings                                            | Provider จริง, login WebView, proxy/TLS/client certificates และ compatibility edges |
+| Templates / environments / cookies | Isolated renderer, inheritance, built-in tags, prompt/dependencies, shared rendering และ cookie jar                                               | Custom plugins, legacy cookie template source/lifecycle และ rendering edges         |
+| GraphQL / WebSocket / SSE / gRPC   | Editors/transports หลัก, streaming/Stop, proto/reflection                                                                                         | Completion/navigation, native UI/IPC/reload และ stream/history parity               |
+| Storage / import / export          | Atomic save/backup; Insomnia/Postman/HAR/NeDB/OpenAPI/cURL; native paste import ผ่านบาง flow                                                      | OS picker, legacy หลายไฟล์/external assets/recovery และ cURL options/files          |
+| API Design                         | OpenAPI editor/import/export/preview, structural validation/local refs และ request generation                                                     | Spectral/custom rules และ advanced serialization                                    |
+| Tests / Runner                     | Mocha/Chai ใน QuickJS worker, suite/test CRUD, JS editor, Run/Stop, shared sender และ saved results                                               | Script/import/result/lifecycle compatibility ที่เหลือ                               |
+| Git local                          | Setup/resume, staging/partial commit/history, create-and-switch/continue/forget, guarded delete, สลับ committed local branch และ journal/recovery | Unborn/detached/remote, fetch/pull/push/merge และ failure acceptance เพิ่มเติม      |
+| Desktop / packaging                | Dialogs/window state/single instance/icons/shortcuts; เคย build Windows EXE/NSIS ผ่าน                                                             | Native menus, package ล่าสุด และ install/upgrade/uninstall                          |
+| Custom plugin runtime              | มีพื้นฐาน renderer และ built-in tags                                                                                                              | ยังไม่ครบ runtime/compatibility ของ plugin เดิม                                     |
 
 ## งานล่าสุด: Git checkout และ recovery
 
@@ -128,14 +128,14 @@ Native build ใหม่จบ code 0 แล้ว และ Playwright ผ่�
 
 ## ผลตรวจที่ยืนยันจาก artifacts
 
-| ชุดตรวจ | ผล | ขอบเขต |
-| --- | --- | --- |
-| Frontend ล่าสุด | Prettier, Svelte sync/check และ Vite build จบ code 0 | [state](../../artifacts/checkout-ui-check/state.json) |
-| Checkout coordinator | 34 assertions ผ่าน | โมดูลจริง แต่ mock native/storage boundaries |
-| Compiled Svelte handlers | 11 assertions ผ่าน รวม conflict text หลัง reload | Mock dialog/filesystem/IPC; ไม่ใช่ OS picker จริง |
-| Native selection/journal | Cargo fmt/check/clippy ผ่าน; standalone probe compile/run code 0 | Rust probe ไม่แทนการตรวจ Tauri UI ทั้งระบบ |
-| Native checkout UI รอบก่อน | 16 assertions ผ่าน พร้อม defect ที่แก้ source แล้ว | รวม switch/reload/conflict และ pre-journal ref-lock recovery |
-| Native recheck build/UI | Build code 0; acceptance 5 ข้อผ่าน | Conflict ใน dialog, HEAD/local edit/reload และปิด probe; ยังไม่ใช่ post-HEAD failure acceptance |
+| ชุดตรวจ                    | ผล                                                               | ขอบเขต                                                                                          |
+| -------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Frontend ล่าสุด            | Prettier, Svelte sync/check และ Vite build จบ code 0             | [state](../../artifacts/checkout-ui-check/state.json)                                           |
+| Checkout coordinator       | 34 assertions ผ่าน                                               | โมดูลจริง แต่ mock native/storage boundaries                                                    |
+| Compiled Svelte handlers   | 11 assertions ผ่าน รวม conflict text หลัง reload                 | Mock dialog/filesystem/IPC; ไม่ใช่ OS picker จริง                                               |
+| Native selection/journal   | Cargo fmt/check/clippy ผ่าน; standalone probe compile/run code 0 | Rust probe ไม่แทนการตรวจ Tauri UI ทั้งระบบ                                                      |
+| Native checkout UI รอบก่อน | 16 assertions ผ่าน พร้อม defect ที่แก้ source แล้ว               | รวม switch/reload/conflict และ pre-journal ref-lock recovery                                    |
+| Native recheck build/UI    | Build code 0; acceptance 5 ข้อผ่าน                               | Conflict ใน dialog, HEAD/local edit/reload และปิด probe; ยังไม่ใช่ post-HEAD failure acceptance |
 
 หลักฐานเพิ่มเติม: [coordinator](../../artifacts/checkout-ui-check/coordinator-probe.json), [handlers](../../artifacts/checkout-ui-check/component-probe.json), [Cargo checks](../../artifacts/native-selection-check/state.json), [native probe](../../artifacts/native-selection-check/probe-state.json)
 

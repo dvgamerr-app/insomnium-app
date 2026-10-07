@@ -176,14 +176,14 @@ src/lib/components/ui/
 
 ## รายการงานที่ต้องติดตาม
 
-| งาน | ปัญหาที่แก้ | ผลลัพธ์ที่ต้องตรวจรับ |
-| --- | --- | --- |
-| R2 — Select picker | Dropdown หลุดธีมจาก specificity | Themed picker และ fallback ถูกต้องตาม engine; HTTP method/Response mode ผ่าน scenario |
-| A1/A6 — CSS ownership | Global/component rules ซ้ำและ import order ไม่ชัด | Entry เดียว, owner ชัด, ลบ declarations ซ้ำ |
-| A2 — Foundations | Tokens/scales และค่ารายหน้าคนละชุด | Mapping กลาง; เปลี่ยน token แล้ว consumers เปลี่ยนร่วมกัน |
-| A3/A4 — Component adoption | สร้าง controls/fields/tabs ซ้ำราย feature | Public contracts, consumers จริง และรายการข้อยกเว้นพร้อมเหตุผล |
-| A5 — Dialog composition | Presentation/focus/lifecycle เขียนแยก | Shell ร่วม; prompt queue/abort และ recovery lock ยังถูกต้อง |
-| Verification/documentation | มี components แต่ยังยืนยันความสอดคล้องไม่ได้ | Inventory หลังย้าย, saved scenarios, check/build และ README/STATUS ตรง source |
+| งาน                        | ปัญหาที่แก้                                       | ผลลัพธ์ที่ต้องตรวจรับ                                                                 |
+| -------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| R2 — Select picker         | Dropdown หลุดธีมจาก specificity                   | Themed picker และ fallback ถูกต้องตาม engine; HTTP method/Response mode ผ่าน scenario |
+| A1/A6 — CSS ownership      | Global/component rules ซ้ำและ import order ไม่ชัด | Entry เดียว, owner ชัด, ลบ declarations ซ้ำ                                           |
+| A2 — Foundations           | Tokens/scales และค่ารายหน้าคนละชุด                | Mapping กลาง; เปลี่ยน token แล้ว consumers เปลี่ยนร่วมกัน                             |
+| A3/A4 — Component adoption | สร้าง controls/fields/tabs ซ้ำราย feature         | Public contracts, consumers จริง และรายการข้อยกเว้นพร้อมเหตุผล                        |
+| A5 — Dialog composition    | Presentation/focus/lifecycle เขียนแยก             | Shell ร่วม; prompt queue/abort และ recovery lock ยังถูกต้อง                           |
+| Verification/documentation | มี components แต่ยังยืนยันความสอดคล้องไม่ได้      | Inventory หลังย้าย, saved scenarios, check/build และ README/STATUS ตรง source         |
 
 สถานะทุกงานยังไม่ถือว่าปิดในเอกสารรอบนี้ ให้บันทึกหลักฐานของ implementation แยกจากข้อพบเดิม และทำเครื่องหมายผ่านเฉพาะเกณฑ์ที่ตรวจจริง
 

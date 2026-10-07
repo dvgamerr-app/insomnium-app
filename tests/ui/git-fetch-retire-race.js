@@ -84,7 +84,10 @@ try {
         const host = /** @type {any} */ (window);
         const original = window.fetch;
         host.__fetchCancelFault = { original, count: 0 };
-        host.fetch = (/** @type {RequestInfo|URL} */ input, /** @type {RequestInit|undefined} */ init) => {
+        host.fetch = (
+          /** @type {RequestInfo|URL} */ input,
+          /** @type {RequestInit|undefined} */ init,
+        ) => {
           const url =
             typeof input === "string"
               ? input

@@ -14,105 +14,71 @@
 
 2026-10-01 checkpoint: Windows GraphQL WM_CLOSE/reopen6 checks pass; actual cancellation/persist/destroy IPC observed, held native request aborted, persisted request and fresh fetch accepted after reopen. Shared helper import12 regression passes. Full parity and remaining export/visual/provider/platform gates open. See STATUS.
 
-
 2026-10-01 checkpoint: native GraphQL cache6 checks pass: request isolation,3-entry and combined20MiB limits, replacement age, selected clear, persisted body/history. True close/export/visual/provider/platform/full parity remain open. See STATUS.
-
 
 2026-10-01 checkpoint: native GraphQL schema import/browser12 checks pass, including invalid/oversized file preservation, raw introspection JSON and search/directive documentation. Full parity remains open; shared input/UX redesign stays deferred. See STATUS.
 
-
 2026-10-01 checkpoint: native GraphQL source-context6 and real-executor4 cases pass (header/auth/env invalidation, named query/mutation/partial errors/history). Full gate not yet complete; see STATUS/GRAPHQL-RENDERING.
-
 
 2026-10-01 checkpoint: GraphQL editor15 native checks plus schema lifecycle/GET12 checks pass, including source-change discard, native Cancel abort, errors/history preservation and JSON import. Full GraphQL/platform/CI/parity still open. See STATUS.
 
-
 2026-10-01 checkpoint: saved native GraphQL editor scenario passes14 checks (completion/lint/hover/schema import, introspection and Send, reload). Original GraphQL remaining native gates and full parity open. See STATUS/GRAPHQL-RENDERING.
-
 
 2026-10-01 checkpoint: dynamic Debian generator integrated; all-format primary release actual0,12 Debian groups and RPM requirements retained, cleanup verified. Final staging helper emits no warning. Builder stopped; CI/platform/full parity pending. See STATUS.
 
-
 2026-10-01 checkpoint: Debian ELF dependency generator replaces static host minima; helper12 groups and invalid-ELF gate pass. All-format integration live supervisor28308/child31516, artifacts/linux-deb-dynamic-primary. Poll same process. Full parity pending. See STATUS.
-
 
 2026-10-01 checkpoint: primary Linux targets=all RELEASE actual0; Debian/RPM/AppImage exported, metadata/temp cleanup checked. Bun-only3-platform CI workflow added and native actionlint0; remote execution/artifact retention/platform/full parity remain pending. Builder stopped. See STATUS/CI.md.
 
-
 2026-10-01 checkpoint: primary AppImage RELEASE build actual0; exported artifact contains GLES+matching notice, temp config cleanup passes. Runtime without GLES/GTK/WebKit packages reaches20s process smoke. All4 containers stopped; all-format/CI/full parity pending. See STATUS.
-
 
 2026-10-01 checkpoint: AppImage GLES overlay fixes process startup without system libgles2. Primary wrapper now generates ABI-matched GLES+notice config; RELEASE acceptance live supervisor35360/child24236, artifacts/linux-appimage-primary. Poll same process. Full parity pending. See STATUS.
 
-
 2026-10-01 checkpoint: AppImage builds; bundled GTK/WebKit resolves without system packages. Runtime needs additional libgles2 (dynamic dependency unresolved); with it, nonroot process smoke reaches20s. UI/FUSE/bus warning/full parity pending. All4 owned containers stopped. See latest STATUS.
-
 
 2026-10-01 checkpoint: optimized RPM passes clean Fedora44 install/integrity/ldd, nonroot process startup, same-version reinstall and removal with5 WebKit files unchanged. Xvfb DRI3 warning; real UI/upgrade unproven. All3 owned containers stopped; RPM removed. AppImage/CI/full parity next. See STATUS.
 
-
 2026-10-01 checkpoint: desktop:build now generates fresh RPM metadata from Tauri's just-built ELF; end-to-end Linux debug primary build passes49 requirements/MIT/temp cleanup. Windows help passthrough and11 inline routing/merge checks pass. Actual RPM-native runtime/release-all-format/CI/full parity pending. See STATUS.
-
 
 2026-10-01 checkpoint: initial RPM exposed missing ELF requirements/license. Added Bun ELF→RPM config generator, MIT license, verified corrected probe RPM46 requirements/export. Default build/CI integration and RPM-native runtime pending; no full packaging claim. See STATUS/LINUX-DISTRIBUTION.
 
-
 2026-10-01 checkpoint: installed Linux release nonroot startup/AT-SPI and Debian reinstall/remove/install-again/purge verified;5 WebKit profile files unchanged. Actual upgrade/collection/UI acceptance unproven. Both owned containers stopped; runtime package purged. See STATUS/LINUX-DISTRIBUTION.
-
 
 2026-10-01 checkpoint: corrected optimized .deb installs on clean Debian12 (apt0, dpkg status/verify/audit pass, ldd no missing libraries). Both owned containers stopped with state/cache preserved. Installed release startup/lifecycle/platform/full parity next. See STATUS and LINUX-DISTRIBUTION.
 
-
 2026-10-01 checkpoint: Linux optimized Debian build passes; actual release dependency metadata gap fixed in tauri.conf.json and corrected .deb verified/exported. Clean runtime install live supervisor37952/child37940; see STATUS, LINUX-DISTRIBUTION and artifacts/linux-deb-install. Install/start/lifecycle/full parity pending.
-
 
 2026-10-01 checkpoint: Linux Bun1.4.2 frozen install/prepare/Svelte check0/0 and frontend production build pass. Isolated Debian release build live supervisor6304/child20396 with original release profile; artifacts/linux-deb-build. Poll same process; package/install/full parity pending. See STATUS.
 
-
 2026-10-01 checkpoint: Linux embedded debug executable build/link succeeds; isolated nonroot Xvfb startup observed app+WebKit processes,20-second timeout smoke completed. AT-SPI bus warning; rendered UI/workflows/package remain unverified. Owned container now stopped with snapshot/cache preserved. See latest STATUS and artifacts/linux-app-build.
-
 
 2026-10-01 checkpoint: isolated Linux binary build with embedded frontend live supervisor9212/child16460; logs artifacts/linux-app-build. Continue same process; linking/runtime/full parity pending. See STATUS.
 
-
 2026-10-01 checkpoint: full Linux backend Cargo check passes from owned writable snapshot; cfg-only unused_mut fixed and Linux/Windows checks pass. Linked Linux binary/runtime/full parity pending. See STATUS.
-
 
 2026-10-01 checkpoint: Linux native prerequisites installed; full-app locked Cargo check live supervisor38228/child35152. Durable artifacts/linux-app-check/{state.json,check.log}; final result pending. See STATUS.
 
-
 2026-10-01 checkpoint: actual Linux cfg(unix) HTTP/TLS probes pass. Owned container retained for full-app gate; Tauri native dependency install live PID22552. Full Linux app/parity pending. See STATUS.
-
 
 2026-10-01 checkpoint: discovered operational Docker inside WSL; owned read-only-source Rust1.98.1 Linux container created. Patched reqwest Unix build live PID28568; continue same handle. Runtime/full app parity pending. See STATUS.
 
-
 2026-10-01 checkpoint: native AF_UNIX SSE2-byte chunk UTF-8/multiline/event ID/comment handling and Disconnect→EOF passed1790801282297; prior9 wire cases retained. Unix platform and remaining full parity open. See STATUS.
-
 
 2026-10-01 checkpoint: native AF_UNIX Basic/Bearer, cookie replay, same/cross-host302 credential boundaries passed1790801156250; original Send/Cancel cases retained. Unix platform/stream/auth remainder/full parity open. See STATUS.
 
-
 2026-10-01 checkpoint: native HTTPS Unix socket4-case Preferences/CA/validation/reload/error acceptance passed1790801034434, original settings restored. Auth/cookie/redirect/Unix platform/full parity remain open. See STATUS.
-
 
 2026-10-01 checkpoint: fresh native Unix socket import/reload/Send/Cancel→EOF/Send passed1790800806086; URL/auth23-case and CodeCommit6-case regressions pass on same build. HTTPS UI/Unix platform/full parity pending. See STATUS.
 
-
 2026-10-01 checkpoint: saved Unix socket UI Send/persistence/Cancel scenario and fixture compile/check pass; native build live supervisor33312/child29468. Poll same build then run scenario; runtime acceptance pending. See STATUS.
-
 
 2026-10-01 checkpoint: patched Windows AF_UNIX HTTPS passes trusted CA/hostname/SNI/exact peer certificate; wrong-host and unknown-issuer rejected before HTTP. Native UI/app Cancel and Unix platform/full parity remain open. See STATUS.
 
-
 2026-10-01 checkpoint: actual patched AF_UNIX HTTP binary/cookie/redirect/chunked/proxy bypass passed; found and fixed generated proxy-header leak. Timeout cleanup with client drop passed. TLS/native UI/full parity pending. See STATUS.
-
 
 2026-10-01 checkpoint: pinned reqwest Windows AF_UNIX adapter and application routing implemented; rustfmt and locked offline Cargo check pass. Actual HTTP/TLS/native UI and full parity pending. See STATUS.
 
-
 2026-10-01 checkpoint: Windows AF_UNIX nonblocking connect, missing-endpoint error and Pending-future cancellation→peer EOF passed. Integrate pinned reqwest adapter next; full parity open. See STATUS/UNIX-SOCKET.
-
 
 2026-10-01 checkpoint: actual Windows AF_UNIX→Tokio65536-byte echo/read deadline/drop EOF and curl interoperability pass; uds_windows target dependency added. Cancellable connect/reqwest/TLS/UI integration remains next; full parity open. See STATUS.
 
@@ -326,24 +292,17 @@ Deferred owner-requested phase: reusable components/ui inputs and redesigned UX 
 
 2026-09-30 checkpoint: Guarded native branch deletion + consumed-session client/UI implemented; frontend/Cargo checks and11 native assertions passed. Saved deletion/unmerged Playwright scenarios added, not yet run. Native build live at artifacts/native-delete-ui-probe/build-state.json; poll before restarting. Full migration incomplete.
 
-
 2026-09-30 checkpoint: Native create build finished0 and all three saved Bun/Playwright scenarios passed: create-and-switch/reload, pending intent resume and mismatch refusal/forget preserving branch. Scripts in tests/ui, results in artifacts/playwright. No browser-use. Remaining branch modes/delete/remotes/recovery/visual parity still pending.
-
 
 2026-09-30 checkpoint: Durable create intent, native verifyOnly resume and create-and-switch/continue/forget UI wired; frontend/Cargo checks and31 coordinator/18 native assertions passed. Isolated build running at artifacts/native-create-ui-probe/build-state.json. Owner prohibits browser-use: future UI acceptance must use saved reusable Playwright JavaScript scenarios with Bun. Native UI acceptance remains next.
 
-
 2026-09-30 checkpoint: Native create-branch accepts optional operationId and acknowledges existing branches only from exact current-tip/creation-reflog/source/author evidence, without rewriting refs. Cargo checks and14 actual-source assertions passed. Durable frontend intent/create-and-switch UI and native IPC acceptance remain next; this is not completed branch creation workflow.
-
 
 2026-09-29 checkpoint: Fresh-process startup recovery passed18 assertions using a real native-produced pending journal after workspace sharing failure. New app startup recovered exact main workspace without manual recovery IPC, preserving history/local/private/foreign data; both probes closed0. Evidence artifacts/native-checkout-ui-recheck/startup-recovery.json. Abrupt crash/stale-lock, mounted failure/retained picker and broader parity remain pending.
 
-
 2026-09-29 checkpoint: Real native checkout/load/save IPC passed18 post-HEAD file-sharing failure/recovery assertions. Before workspace and native journal survived failure, pending journal blocked save, releasing handle let load finish exact target and fresh-document reload agreed. Evidence artifacts/native-checkout-ui-recheck/post-head-ipc.json. Fresh-process startup, mounted failure coordinator, retained picker/review and wider branch/remote parity remain pending.
 
-
 2026-09-29 checkpoint: Native recheck executable verified the conflict-message fix in actual Git dialog after staging reload; source branch/local edit retained, fresh-document reload passed, screenshot inspected and probe closed0. Five assertions recorded in artifacts/native-checkout-ui-recheck/conflict-recheck.json. Next post-HEAD IPC failure/recovery, retained-copy OS picker/review and remaining branch/remote parity.
-
 
 2026-09-29 checkpoint: Actual native checkout/reload/protected-data/selection/conflict and pre-journal ref-lock recovery flows passed16 artifact assertions; probe closed0. Fixed conflict text lost on dialog reload;11 handler checks and frontend build passed. Native fix recheck build is live at artifacts/native-checkout-ui-recheck/build-state.json. Retained picker/review, crash/uncertain IPC and broader branch parity remain pending.
 
@@ -527,11 +486,9 @@ Interactive implementation handoff: Frontend resolveOAuth preserves authorizatio
 
 Authorization Code milestone: Hyper provides bounded callbacks and cancellation. Implicit and optional legacy login-window interception are now implemented and directly inspected. Follow OAUTH-COMPATIBILITY.md for actual remaining legacy differences and real browser/provider acceptance.
 
-
 ## gRPC follow-up
 
 Archived inventory and official sources are in GRPC-INVENTORY.md. Native core, legacy JSON, Svelte/proto management, method package grouping and sent-message tabs are implemented. BUILD.json records the last package, which predates the method/tab changes. Remaining steps: original reflection sample generation; native UI/IPC/picker/reload; JSON edge/shared-editor gaps in GRPC-COMPATIBILITY.md. Full gRPC parity remains incomplete.
-
 
 ASAP ES512 follow-up: P-521 signing/editor/key formats implemented and89 native cases plus RFC6979 vector verified. The previous ES512 algorithm gap is resolved in code; provider/UI acceptance remains. See ASAP-COMPATIBILITY.md for current supported algorithms and key formats.
 
@@ -586,7 +543,7 @@ XML preview formatter implemented with original vkbeautify plus content-preserva
 - Researched original templating/index.ts and official Nunjucks API/templating, QuickJS embedding/runtime limits and CSP WebAssembly documentation. Selected actual Nunjucks inside QuickJS/WASM for compatibility without frontend JavaScript unsafe-eval. This is a foundation decision, not completed request rendering.
 - Installed nunjucks3.2.4 and quickjs-emscripten0.32.0 via direct Bun add --ignore-scripts --exact. No lifecycle shell commands. Added template-runtime.js using documented getQuickJS/newContext/evalCode APIs. Fresh VM per render; JSON-only input; no host functions, module loader, filesystem/network/Tauri APIs exposed. Bounds:128MiB VM heap,512KiB stack,2-second interrupt,20Mi-character serialized input/output. All handles/context disposed.
 - Preserves original autoescape:false, throwOnUndefined:true, root and underscore context aliases, all/variables/tags delimiter modes and debug identity filter. Uses original Nunjucks filters, expressions, loops/macros/comments rather than a handwritten syntax subset.
--10 inline Bun assertions passed (bracket/filters, loops, macros, comments, render modes, no autoescape, missing variable error, absent host APIs and infinite-loop interruption). Svelte check0/0 and frontend build passed. No saved test scripts.
+  -10 inline Bun assertions passed (bracket/filters, loops, macros, comments, render modes, no autoescape, missing variable error, absent host APIs and infinite-loop interruption). Svelte check0/0 and frontend build passed. No saved test scripts.
 - NOT integrated into application rendering yet: model.render remains unchanged. Browser WASM asset/loading/CSP, disposable worker/client, native built-in tag bridge, async request/environment rendering, cancellation/errors, template widgets and plugin compatibility remain required. Browser may need narrowly scoped wasm-unsafe-eval; current CSP has not changed. Nunjucks source parameter must remain trusted bundled code, never user-provided engine source.
 - No active operations/new installer. Source newer than BUILD.json. Next: bundle production WASM with documented variant/loader, wire worker/client and verify actual browser acceptance; then bridge original tags and replace all render call sites with async pipeline. Full migration incomplete.
 
@@ -606,7 +563,7 @@ XML preview formatter implemented with original vkbeautify plus content-preserva
 - Added a narrow synchronous QuickJS bridge: tag name whitelist, JSON arguments, up to32 args/1000 calls/20Mi argument/result characters. Guest cannot access Buffer/crypto/date libraries or host functions directly beyond this bridge. Nunjucks parses tag arguments using its original signature parser; run modes preserved. Missing-variable arguments serialized as null remain an edge to align with original undefined/default semantics.
 - JSONPath uses browser safe evaluator with4096 query length/10000 matches/20Mi cumulative result limit. Host tag work runs inside disposable worker; VM memory/time limits do not independently constrain host-library allocations/execution. Outer worker deadline remains required. Native tags (os/file/cookie/prompt/response/request), asynchronous tag bridge and widgets are still pending.
 - Read official buffer, noble-hashes, uuid v9 README and date-fns v2 format source before using APIs. Bun add --ignore-scripts --exact buffer@6.0.3 date-fns@2.30.0 uuid@9.0.1. Existing @noble/hashes and JSONPath reused. No Node runtime or shell invocation.
--16 inline VM/tag assertions passed; one direct UUID-null guard check and one compiled-browser-worker tag check passed (18 total). Initial Svelte JSONPath return-type diagnostics fixed with runtime array narrowing; Svelte0/0/build passed (worker370.89kB, WASM503.13kB). Build precedes final UUID-null guard and comment-only correction; source remains unpackaged. No saved test scripts.
+  -16 inline VM/tag assertions passed; one direct UUID-null guard check and one compiled-browser-worker tag check passed (18 total). Initial Svelte JSONPath return-type diagnostics fixed with runtime array narrowing; Svelte0/0/build passed (worker370.89kB, WASM503.13kB). Build precedes final UUID-null guard and comment-only correction; source remains unpackaged. No saved test scripts.
 - Preview explains supported tags and remaining Send limitation. Native WebView/CSP/interaction acceptance remains unverified. No active processes/new installer. Next: asynchronous native tag bridge and environment/request render pipeline, then replace Send/auth/protocol callers without mutating stored request values. Full migration incomplete.
 
 ## Async template extension checkpoint — 2026-09-28
@@ -614,14 +571,13 @@ XML preview formatter implemented with original vkbeautify plus content-preserva
 - Owner confirmed preserving the original Insomnium UI/layout. jirasync-hub-app remains a read-only architectural reference.
 - Consulted official [Nunjucks async extension API](https://mozilla.github.io/nunjucks/api.html#asynchronous-extensions) and [QuickJS embedding/lifetime documentation](https://raw.githubusercontent.com/justjake/quickjs-emscripten/main/README.md), plus installed Nunjucks browser scheduler and archived BaseExtension, before implementation.
 - template-runtime.js now uses CallExtensionAsync and callback-based rendering. Trusted application code may register async handlers; names are validated, capped at64 including built-ins, and cannot replace built-ins. Worker/client do not yet expose native handlers. No file/network/Tauri capabilities added to guest.
-- Argument envelopes preserve top-level undefined versus null. Empty calls use the original __EMPTY_NUNJUCKS_ARG__ sentinel/filter: initial inline execution exposed Nunjucks's empty async argument compiler failure; matched archived parser and reran successfully.
+- Argument envelopes preserve top-level undefined versus null. Empty calls use the original **EMPTY_NUNJUCKS_ARG** sentinel/filter: initial inline execution exposed Nunjucks's empty async argument compiler failure; matched archived parser and reran successfully.
 - Bounded one-shot callback scheduling supports the browser ASAP timeout/interval fallback. These are scheduling shims, not general-purpose timer semantics (delay/repeating behavior not implemented). All retained guest callbacks/timers are disposed on success/failure/timeout; late extension resolution checks liveness before touching VM. Falsy Promise rejections retain failure status.
 - Existing128MiB heap/512KiB stack/2-second wall-clock interrupt,20Mi-character bounds and1000 tag-call bound retained. Scheduler capped at1000 registrations; host completion deadline5seconds plus outer disposable worker deadline. Await time counts toward2seconds: interactive prompts need explicit future cancellation/time policy. Host extension work is not itself cancelled by VM disposal.
 - Validation:16 inline async VM assertions,3 rejection/late-disposal assertions and3 compiled worker assertions passed (22 total); no saved test scripts. Production-worker checks simulate browser location/fetch in Bun, not native WebView/CSP acceptance. Initial14 JS annotation diagnostics fixed; final Svelte0 errors/0 warnings and Vite build passed. Worker373.15kB/WASM503.13kB.
 - Commands launched directly with node_repl execFile(shell:false,windowsHide:true): Bun node_modules/prettier/bin/prettier.cjs --write src/lib/template-runtime.js; Bun node_modules/svelte-check/bin/svelte-check --tsconfig ./jsconfig.json --config ./svelte.config.js --fail-on-warnings; Bun node_modules/vite/bin/vite.js build. Inline inspections used Bun -e. No shell, Node, npm, Python or new dependency executed/installed.
 - Next: worker/main native-tag request/reply protocol with cancellation; implement original os/file/cookie/prompt/response/request semantics, decoded argument handling and request/environment orchestration; replace Send/auth/GraphQL/gRPC/WebSocket render call sites without mutating saved inputs. Native preview/IPC/CSP acceptance and full PARITY remain pending.
 - No active task processes/new installer. Source is newer than BUILD.json; full migration remains IN PROGRESS.
-
 
 ## Native tag messaging checkpoint — 2026-09-28
 
@@ -632,7 +588,6 @@ XML preview formatter implemented with original vkbeautify plus content-preserva
 - Four initial JavaScript annotation diagnostics fixed. Final Svelte0 errors/0 warnings, frontend build passed (template worker373.96kB);14 inline assertions through actual compiled worker + source client passed, including async replies, encoded/missing/null args, native failure, nonserializable result, loop, preabort, pending abort, late completion and zero remaining workers. Bun wrapper simulates browser location/WASM fetch; real WebView/CSP/IPC remains unverified. No saved test scripts.
 - Direct hidden execFile Bun commands: node_modules/prettier/bin/prettier.cjs --write src/lib/template.worker.js src/lib/template-client.js src/lib/template-tags.js; node_modules/svelte-check/bin/svelte-check --tsconfig ./jsconfig.json --config ./svelte.config.js --fail-on-warnings; node_modules/vite/bin/vite.js build. Inline validation via Bun -e. No shell/Node/npm/Python.
 - This implements the transport contract only: no native handler enabled in UI yet. Next implement original os/file/cookie/prompt/response/request handlers using existing native services and original semantics, connect preview context/purpose, then environment/request orchestration and Send callers. Keep original Insomnium UI. No new installer/active processes; source newer than BUILD.json. Full migration remains incomplete.
-
 
 ## Native file template tag checkpoint — 2026-09-28
 
@@ -645,7 +600,6 @@ XML preview formatter implemented with original vkbeautify plus content-preserva
 - Repeat native commands via node_repl execFile(shell:false,windowsHide:true), executable D:/home/.cargo/bin/cargo.exe or rustfmt.exe. Set CARGO_HOME=D:/home/.cargo and RUSTUP_HOME=D:/home/.rustup. MSVC root: C:/Program Files (x86)/Microsoft Visual Studio/2017/BuildTools/VC/Tools/MSVC/14.16.27023. SDK root: C:/Program Files (x86)/Windows Kits/10, version10.0.19041.0. PATH adds MSVC bin/Hostx64/x64 and SDK bin/10.0.19041.0/x64. LIB adds MSVC lib/x64 and SDK Lib/10.0.19041.0/ucrt/x64 plus um/x64. INCLUDE adds MSVC include and SDK Include/10.0.19041.0/ucrt, shared, um. Do not invoke vcvars/cmd/PowerShell. Launch Bun directly for Prettier/Svelte/Vite as previous checkpoint.
 - Next: remaining native tags (os/cookie/prompt/response/request), cancellation/time-budget policies and environment/request render pipeline, Send/auth/protocol integration, tag widgets and real native acceptance. Source newer than BUILD.json; no installer or live task processes. Full migration incomplete.
 
-
 ## Native cookie template tag checkpoint — 2026-09-28
 
 - Implemented read_template_cookie in cookies.rs and registered its command/permission for main window. Uses existing collection CookieState/PersistentJar and CookieStore::matches for unexpired domain/path/HTTPOnly/Secure eligibility. Does not write cookies or send requests. HTTP/S URL required; URL20KiB/name8KiB limits.
@@ -656,17 +610,15 @@ XML preview formatter implemented with original vkbeautify plus content-preserva
 - Direct node_repl hidden execFile commands with existing Rust/MSVC environment from prior checkpoint; Bun runs Prettier/Svelte/Vite. No shell/Node/npm/Python. No live task processes/new installer; source newer than BUILD.json.
 - Next: os/prompt/response/request handlers, original creation-order cookie parity, interactive time/cancellation policy, recursive environment/request rendering and Send/auth/protocol callers, real native verification. Full migration incomplete.
 
-
 ## Request field template preview checkpoint — 2026-09-28
 
 - Added template-request.js for original request name/folder/header/parameter attributes. Folder ancestry includes request_group/workspace and detects cycles. Header/parameter names and values render asynchronously in inherited environment; case-insensitive first match and inclusion of disabled rows follow archived request tag behavior. Unknown attributes return null. URL/cookie/OAuth reference attributes explicitly report pending migration.
 - Added template-preview.js orchestration and connected TemplatePreview with a resource snapshot supplied by RequestEditor. Resources remain outside VM. Each nested field renders through the same worker/client and native handlers; branch field identifiers detect recursive references, depth12/total64 render limits bound work. AbortSignal propagates through nested workers. Request field preview also works in browser mode; native file/cookie remain desktop-only.
 - Consulted https://mozilla.github.io/nunjucks/api.html#renderstring and https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/throwIfAborted ; compared original request tag and current transport/OAuth contracts. No generator/new package needed.
--12 inline helper assertions passed (metadata/ancestry/case-insensitivity/disabled fields/missing values/unsupported attributes/no mutation);4 orchestration assertions passed through compiled workers with simulated browser location/WASM fetch (nested header→parameter→environment, recursion error, worker cleanup, preabort). Final Svelte0/0 and Vite build passed. No saved test scripts; actual mounted/native acceptance remains pending.
+  -12 inline helper assertions passed (metadata/ancestry/case-insensitivity/disabled fields/missing values/unsupported attributes/no mutation);4 orchestration assertions passed through compiled workers with simulated browser location/WASM fetch (nested header→parameter→environment, recursion error, worker cleanup, preabort). Final Svelte0/0 and Vite build passed. No saved test scripts; actual mounted/native acceptance remains pending.
 - Updated preview hint to accurately list partial request support. Send still uses existing variable-only renderer. Existing2-second VM wall time/5-second worker limits include child waits, so large valid reference trees may time out; shared engine/session and interactive policy need further work.
 - Commands: direct hidden node_repl execFile Bun Prettier --write on four changed JS/Svelte files; Bun svelte-check --tsconfig ./jsconfig.json --config ./svelte.config.js --fail-on-warnings; Bun Vite build. Inline checks via Bun -e. No native changes/new installer/live task processes.
 - Next: request URL serialization and cookie/OAuth references, response/OS/prompt tags, recursive environment pipeline and Send integration, then native verification. Source newer than BUILD.json; full migration remains incomplete.
-
 
 ## Request URL/cookie reference checkpoint — 2026-09-28
 
@@ -674,20 +626,18 @@ XML preview formatter implemented with original vkbeautify plus content-preserva
 - Read https://bun.sh/docs/runtime/transpiler , https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent and upstream https://github.com/defunctzombie/node-url before porting. Raw README URL initially failed; upstream repository documentation succeeded. Installed bun add --ignore-scripts --exact url@0.11.4; it is bundled JavaScript, no Node runtime invoked.
 - request tag URL now renders base URL and each parameter name/value through the recursive renderer, joins query before fragment, applies original default protocol/settingEncodeUrl and encoding semantics. Like the archived tag, includes disabled parameter rows, omits unnamed strict rows, and emits bare name for empty value. This differs from current Send preparation; transport URL unification remains required.
 - request cookie uses the same rendered URL and native cookie handler with propagated signal; browser reports desktop requirement. OAuth references remain explicitly pending. UI hint updated.
--28 inline assertions passed:20 URL comparisons against archived implementation (encoding enabled/disabled, spaces, Unicode, percent escapes, duplicate/empty query, credentials, IPv6, fragments and empty input),3 query-builder comparisons,5 request URL/cookie routing checks. The original reference ran under Bun's URL compatibility API; its deprecation warning did not involve Node execution.
+  -28 inline assertions passed:20 URL comparisons against archived implementation (encoding enabled/disabled, spaces, Unicode, percent escapes, duplicate/empty query, credentials, IPv6, fragments and empty input),3 query-builder comparisons,5 request URL/cookie routing checks. The original reference ran under Bun's URL compatibility API; its deprecation warning did not involve Node execution.
 - Initial generated-JS annotation diagnostics resolved; a missing await-parenthesis in the editing command was corrected. Final Svelte0/0 and Vite build passed. No saved test scripts/native changes. Real WebView/IPC/URL-cookie lookup acceptance pending. New browser package is not assumed identical for every malformed URL; broader differential coverage required before shared Send use.
 - Next: OAuth reference policy/context, response/OS/prompt tags, time/cancellation budgets, shared environment/request rendering and Send/auth/protocol integration. No new installer/live processes; source newer than BUILD.json. Full migration incomplete.
-
 
 ## Saved OAuth request references — 2026-09-28
 
 - request tag now supports oauth2/oauth2-identity/oauth2-refresh through existing savedOAuthTokens lookup. Selects latest record belonging to request (obtainedAt/modified ordering), including imported records; accessToken must exist as in original tag, then returns requested field. Missing optional field remains undefined, empty remains empty, malformed non-text field reports an error.
 - This is explicit reading of saved data, not Authorization selection: no expiry/context validation, refresh, network call or identity verification occurs, matching original single-record tag semantics. Current authorization binding/expiry rules remain unchanged. Multiple-record latest selection is migration-specific because original getByParentId assumed one record; documented in preview hint.
 - Read archived o-auth-2-token.ts/getByParentId and local-template-tags.ts, current OAuth model and official https://mozilla.github.io/nunjucks/api.html#custom-tags before implementation. No dependency/generator needed.
--10 inline synthetic-record assertions passed: three fields, request isolation/latest ordering, imported+expired saved value, empty/undefined optional fields, missing access token, invalid type and no mutation. No real credentials used/output; no saved test scripts. Svelte0 errors/0 warnings and Vite build passed.
+  -10 inline synthetic-record assertions passed: three fields, request isolation/latest ordering, imported+expired saved value, empty/undefined optional fields, missing access token, invalid type and no mutation. No real credentials used/output; no saved test scripts. Svelte0 errors/0 warnings and Vite build passed.
 - Direct hidden node_repl execFile Bun Prettier, Svelte check, Vite build and inline Bun -e checks. No native changes/new installer/live processes; source newer than BUILD.json. Mounted/native preview and persistence acceptance still pending.
 - Next: response/OS/prompt tags, interactive time/cancellation budgets, recursive environment rendering, shared request serialization and Send/auth/protocol integration. Full migration remains incomplete.
-
 
 ## Response history template preview — 2026-09-28
 
@@ -695,10 +645,9 @@ XML preview formatter implemented with original vkbeautify plus content-preserva
 - Found current HTTP history did not retain environment identity. New successful HTTP entries now record environmentId from the send's dataSnapshot (not current selection at completion). Preview selects latest matching request+environment HTTP record; unknown-environment older history is excluded with actionable resend message. Existing history is retained unchanged. validateData preserves the new field.
 - Raw body decodes original bodyBase64 bytes using Content-Type charset via TextDecoder with UTF-8 fallback; bounded20MiB bytes/28Mi base64 text. Text-only history falls back to stored body with20Mi-character limit. TextDecoder encoding coverage/mappings are not assumed identical to original iconv-lite; further parity review pending.
 - Read official https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder , https://github.com/JSONPath-Plus/JSONPath , https://github.com/goto100/xpath and inspected current response/history/filter structures before implementation. No new dependencies/generator required.
--16 inline assertions passed for URL/header/raw, Windows-1251/UTF8/unknown charset, text fallback, latest selection, environment isolation/base environment, unknown history, missing request/header, errors/status and streaming exclusion. Svelte0/0 and Vite build passed. No saved test scripts. New history environment attribution was inspected in source; native IPC/persistence/reload/selection interaction remains unverified.
+  -16 inline assertions passed for URL/header/raw, Windows-1251/UTF8/unknown charset, text fallback, latest selection, environment isolation/base environment, unknown history, missing request/header, errors/status and streaming exclusion. Svelte0/0 and Vite build passed. No saved test scripts. New history environment attribution was inspected in source; native IPC/persistence/reload/selection interaction remains unverified.
 - Direct hidden node_repl execFile Bun Prettier/Svelte/Vite and inline Bun -e. No native changes/new installer/live processes; source newer than BUILD.json.
 - Next: response JSONPath/XPath extraction in disposable worker, then response resend behavior/requestChain in Send, OS/prompt tags, time/cancellation policy and shared recursive environment/request pipeline. Full migration incomplete.
-
 
 ## Response template body filters — 2026-09-28
 
@@ -707,10 +656,9 @@ XML preview formatter implemented with original vkbeautify plus content-preserva
 - template-response-filter-client.js gives each extraction a disposable worker,3-second deadline and AbortSignal cleanup. responseTemplatePreview decodes body then delegates body filter to worker; nested template cancellation propagates. Preview does not resend dependencies.
 - Bounds:20Mi body/output characters,4096 query characters,10000 selected nodes/matches. XML selection cap is checked after evaluation; worker deadline remains needed, not a heap isolation guarantee. Parent VM2-second wall clock can still expire before worker3-second deadline; unified timing policy remains pending.
 - Read upstream JSONPath-Plus, goto100/xpath and xmldom README/API docs before implementation: https://github.com/JSONPath-Plus/JSONPath ; https://github.com/goto100/xpath ; https://github.com/xmldom/xmldom . Existing dependencies reused.
--18 inline helper assertions plus6 compiled-worker/client assertions passed (24 total): JSON scalar/object/multiple/root/no results, XML inner content/attribute/text/scalar/multiple/malformed/limits, history integration, cancellation and worker cleanup. Final Svelte0/0 and Vite build passed. No saved test scripts. Bun workers exercise production artifact; actual WebView/CSP/native acceptance remains unverified.
+  -18 inline helper assertions plus6 compiled-worker/client assertions passed (24 total): JSON scalar/object/multiple/root/no results, XML inner content/attribute/text/scalar/multiple/malformed/limits, history integration, cancellation and worker cleanup. Final Svelte0/0 and Vite build passed. No saved test scripts. Bun workers exercise production artifact; actual WebView/CSP/native acceptance remains unverified.
 - Commands: hidden direct node_repl execFile Bun Prettier on changed files, svelte-check --tsconfig ./jsconfig.json --config ./svelte.config.js --fail-on-warnings, Vite build; inline assertions Bun -e. No native changes/new installer/live processes; source newer than BUILD.json.
 - Next: OS/prompt tags, charset parity, shared render timing/cancellation and recursive environment/request orchestration; integrate response dependency resend/requestChain and all Send/auth/protocol call sites. Full migration incomplete.
-
 
 ## Prompt preview and cache lifecycle — 2026-09-28
 
@@ -718,10 +666,9 @@ XML preview formatter implemented with original vkbeautify plus content-preserva
 - Preview handler never opens a prompt. Masked prompts return a placeholder (original tag editor disables masked preview); explicit/cached plaintext remains available for unmasked tags. Clear prompt values control clears cache and rerenders preview. Clear increments generation so already pending replies cannot repopulate cache; aborted replies are discarded.
 - Interactive ask contract is implemented as a reusable helper but NOT connected to UI/Send. Caller must observe signal to close/settle an open dialog; current renderer deadlines still preclude normal interactive waiting. No claim of completed prompt/send parity or original plugin-store persistence.
 - Read archived prompt run/disablePreview/cache logic and official Nunjucks custom tag / AbortSignal.throwIfAborted docs before implementation. Reused existing noble-hashes md5; no new dependency/generator.
--17 inline lifecycle assertions passed: defaults, implicit request scoping, explicit key reuse, masking, saveLastValue, empty value retention, clear, late-clear reply, aborted reply and title validation. Svelte0/0 and Vite build passed. No saved test scripts; mounted clear action and WebView preview remain unverified.
+  -17 inline lifecycle assertions passed: defaults, implicit request scoping, explicit key reuse, masking, saveLastValue, empty value retention, clear, late-clear reply, aborted reply and title validation. Svelte0/0 and Vite build passed. No saved test scripts; mounted clear action and WebView preview remain unverified.
 - Commands through hidden node_repl execFile: Bun Prettier, svelte-check --tsconfig ./jsconfig.json --config ./svelte.config.js --fail-on-warnings, Vite build and inline Bun -e checks. No native changes/new installer/live processes; source newer than BUILD.json.
 - Next: OS tags; render execution-vs-wait timing policy; interactive Svelte prompt dialog/queue/cancellation and send-session cache lifecycle; recursive environment/request pipeline and Send/auth/protocol integration with response dependencies. Full migration incomplete.
-
 
 ## Template execution and wait timing — 2026-09-28
 
@@ -732,7 +679,6 @@ XML preview formatter implemented with original vkbeautify plus content-preserva
 - Commands: hidden node_repl execFile of Bun -e inline checks; Bun node_modules/prettier/bin/prettier.cjs --write src/lib/template-runtime.js; Bun node_modules/svelte-check/bin/svelte-check --tsconfig ./jsconfig.json --config ./svelte.config.js --fail-on-warnings; Bun node_modules/vite/bin/vite.js build. All launches shell:false/windowsHide:true.
 - Next: define explicit interactive waiting/cancellation policy, implement Svelte prompt dialog queue and connect send-session prompt cache lifecycle; OS tags; recursive environment/request render pipeline and Send/auth/protocol/dependent-response integration. Current Send still uses the old variable-only renderer. Full migration remains incomplete; no new Windows installer, source newer than BUILD.json.
 
-
 ## Native OS template tag — 2026-09-28
 
 - Added native libuv provider for all seven archived OS functions (arch/cpus/freemem/hostname/platform/release/userInfo), main-window read_template_os command/permission, application handler and worker JSONPath formatting. CPU/user allocations use RAII; names are allowlisted and CPU count bounded. JSON property order and first-match/invalid-filter fallback preserve legacy behavior; JSONPath stays in the disposable worker.
@@ -741,27 +687,24 @@ XML preview formatter implemented with original vkbeautify plus content-preserva
 - Desktop preview is connected; Send remains on old variable-only renderer. Actual WebView/IPC/CSP and Linux/macOS acceptance are unverified. Abort discards a late native result but does not cancel OS work already running. No installer/commit/push; no live task processes; source newer than BUILD.json.
 - Next: interactive wait/cancellation policy and Svelte prompt queue, send-session cache lifecycle, recursive environment/request rendering and Send/auth/protocol/dependent-response integration. Full migration remains incomplete.
 
-
 ## Prompt dialog and interactive renderer timing — 2026-09-28
 
 - Added FIFO prompt service and mounted Svelte dialog using existing Insomnium modal styles. Supports title/label/default/text/password, active-ID protection, Cancel/Escape/abort/unmount/native-close cleanup and application shortcut suppression. promptTemplateTag defaults to the dialog service; previews remain noninteractive. Queue32/default-text4Mi/label-title4096 limits; no logging/persistence.
 - Added explicit interactivePrompts policy: core/client five-second active budgets pause only on direct prompt waits, keeping remaining time across overlaps. Worker heartbeat1s/watchdog5s and total ten-minute cap preserve bounded waiting; VM execution2s/memory bounds remain. Cancel is propagated as AbortError and disposes the worker/other handlers. Details in PROMPT-TEMPLATE.md.
--36 inline assertions passed across queue/cache lifecycle, deadline accounting, compiled worker/client integration (including6.1s wait), watchdog/hard-cap cleanup and guest-loop/non-prompt bounds. Hard-cap timer was accelerated for verification. Svelte0/0 and Vite production build passed. No saved test scripts/new dependency/native changes.
+  -36 inline assertions passed across queue/cache lifecycle, deadline accounting, compiled worker/client integration (including6.1s wait), watchdog/hard-cap cleanup and guest-loop/non-prompt bounds. Hard-cap timer was accelerated for verification. Svelte0/0 and Vite production build passed. No saved test scripts/new dependency/native changes.
 - Actual Send is NOT connected. Nested request/response parent waits do not yet inherit child interaction pauses; resolve this in the shared send-render session. Send cache invalidation, recursive environments/fields, dependent sends and protocol/auth integration remain. CUA apps=[]/browsers=[]; actual dialog focus/Escape/WebView/CSP acceptance unverified.
 - Official Svelte store/effect and MDN dialog/AbortSignal/worker/timing docs consulted first. All execution via hidden node_repl with Bun. No active task processes/new installer; source newer than BUILD.json. Full migration remains incomplete.
 - Next: shared preview/send render session with interaction-wait propagation and cancellation, recursive environment/request fields, then all Send/auth/protocol call sites and dependent responses. See PROMPT-TEMPLATE.md for ordered steps.
-
 
 ## Shared request render session and nested interaction — 2026-09-28
 
 - Added template-session.js createRequestRenderSession(context, options) with preview/send purpose, structured-cloned context/resources/history/metadata, owned AbortController, render(text, field?) and idempotent dispose. Preview now uses this session with automatic disposal. Each top-level field allows64 nested renders/depth12; session1000 renders/16 active workers. Any field failure cancels the session's other work. Send-purpose session has a ten-minute total cap, preserving TimeoutError on expiry.
 - Added application-owned template-interaction.js. Actual ask callbacks acquire/release a reference-counted wait; only clients in that session subscribe. Parent/child client and core active deadlines receive shared wait transitions, including subscription during an existing wait. Every paused worker still emits heartbeats and keeps its own five-second watchdog, VM execution budget and hard deadline. Guest templates cannot publish wait notifications.
--19 inline assertions passed:10 compiled session cases (multi-level request/header/parameter prompt waiting6.1s, ancestor resume, snapshot isolation, dispose/late work, nested Cancel, noninteractive preview, cycle and external abort),7 interaction lifecycle/isolation cases and2 nested watchdog/session-timeout cases. Hard cap was accelerated for verification. Svelte0/0 and production Vite build passed. No saved test scripts/new dependency/native changes.
+  -19 inline assertions passed:10 compiled session cases (multi-level request/header/parameter prompt waiting6.1s, ancestor resume, snapshot isolation, dispose/late work, nested Cancel, noninteractive preview, cycle and external abort),7 interaction lifecycle/isolation cases and2 nested watchdog/session-timeout cases. Hard cap was accelerated for verification. Svelte0/0 and production Vite build passed. No saved test scripts/new dependency/native changes.
 - One initial edit stopped because its expected runtime insertion marker did not match; only the new interaction helper had been written. Inspected the actual initialization block and completed the edit. No abandoned running processes.
 - Actual Send remains unconnected. Recursive environment/field pipeline and dependent-response sends are still required. The new send-purpose session currently rejects response trigger modes always/no-history/when-expired explicitly; default/never reads saved responses. This is an integration gap, not a scope removal. Shared prompt timing for nested fields is fixed; dependent network waits still need their own integration.
 - See PROMPT-TEMPLATE.md for current session ownership/timing contract. Official Nunjucks async API and MDN AbortController/Worker.postMessage/structuredClone docs consulted before edits. All launch/edit/check work used hidden node_repl and Bun. No new installer or live task processes; native WebView acceptance still unverified; source newer than BUILD.json. Full migration incomplete.
 - Next: recursive environment/request-field rendering with field diagnostics, dependent-response send callback/chain/cache semantics, then wire Send/auth/GraphQL/gRPC/stream/OAuth pipelines with cancellation registered before render. Preserve shared-session ownership and existing watchdogs.
-
 
 ## Recursive render integration checkpoint — 2026-09-28
 

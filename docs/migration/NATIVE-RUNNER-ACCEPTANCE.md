@@ -15,6 +15,7 @@ Launch Bun directly through node_repl child_process, with shell:false/windowsHid
 The probe overwrites the usual release executable output. Until a production-config build is made again, do not distribute that output or describe it as a production build. BUILD.json still refers to the older production package.
 
 The existing local native environment needs all of:
+
 - CARGO_HOME D:/home/.cargo and RUSTUP_HOME D:/home/.rustup.
 - PATH including MSVC bin/Hostx64/x64, Windows SDK bin/10.0.19041.0/x64 and Cargo bin.
 - LIB including MSVC lib/x64 and Windows SDK Lib/10.0.19041.0/{ucrt,um}/x64.
@@ -60,6 +61,7 @@ Launched the copied executable with an isolated WebView profile and child-local 
 Created a separate **Native Runner Acceptance** collection through UI controls, then edited the local request URL, suite, request selection and JavaScript test through the mounted inputs/CodeMirror. Tests used a Bun server bound to 127.0.0.1 on an ephemeral port. Other collection history visible in the probe was excluded from these assertions and left intact.
 
 Verified:
+
 - Run Tests executed real Mocha/Chai/QuickJS worker/WASM and shared native HTTP sender.
 - Two HTTP requests returned 200 and the expected response header/body; Set-Cookie from the first request was sent as runner_cookie=native on the second.
 - Native saved workspace contained one passing result and two history entries for this fixture; cookie snapshot permission did not block Send.
@@ -72,6 +74,7 @@ Verified:
 Evidence is in ignored artifacts/native-runner-probe: build-state.json/build.log, app-state.json, requests.json, runner-evidence.json, lifecycle-evidence.json, failure-ui.json and runner-{passed,failed,stopped}.png. The fixture JavaScript was entered into the product's API-test editor; no saved development test script was added.
 
 Probe corrections/limits:
+
 - Initial reload observer raced the outgoing DOM; changed it to require a new document marker and then rechecked successfully. No application change was needed for that probe error.
 - Programmatic plugin:window|close was denied by the existing ACL. The probe was idle and persistence already checked; cleanup used the existing allowed destroy command. App exited 0 at 08:08:05 UTC; fixture server stopped with SIGTERM and liveness check confirmed it gone. Normal OS close/shutdown-during-work remains unverified.
 - Native Import opens the file picker; the paste/review branch currently opens only in browser preview. No desktop paste import was proven. Review this UI gap next rather than assuming preview behavior establishes native parity.
@@ -84,6 +87,7 @@ Next: address the native paste-import gap, finish Runner legacy/script/history c
 The callback probe build completed successfully (6m31s compile) using the documented isolated overlay. Verified the new executable timestamp and embedded identifier before copying; running app returned app.insomnium.probe.runner20260929. Official WebView2 environment/debugging and CDP Runtime docs were consulted again.
 
 Actual Tests UI in the native WebView, production CSP unchanged:
+
 - Added a new Native Callback Acceptance collection with local HTTP request, suite and test, preserving existing probe collections.
 - One test exercised direct insomnia.sendRequest(id), detached callback, then an overridden callback invoked by insomnia.send(). Status/body assertions and delegation count passed: UI 1 passed / 0 failed, local server exactly 3 /echo requests.
 - Changed only this fixture's request/code to direct sendRequest against /slow. Waited for fourth server request, clicked Stop, and waited 8.5 seconds past the server delay. UI reported Run cancelled; saved result count and entire persisted history were unchanged.
