@@ -12,10 +12,43 @@ Linux installs Tauri native prerequisites plus dpkg-dev, rpm and libgles2. macOS
 
 ## Verification and remaining gates
 
+### Bun-only Qlty runtime boundary — 2026-10-08
+
+Capability5e0f11f replaces enabled default Prettier/Node and zizmor/Python package
+plugins with prettier-bun and zizmor-native. Formatter file types, config discovery,
+config batching, staged rewrite output and native security SARIF behavior are retained.
+The formatter uses the frozen project dependency (Prettier3.9.9), including its Svelte
+plugin, through Bun. Its helper resolves staged targets before running the CLI from
+the project root; Qlty still owns the temporary copies and reports their changes.
+Wrapper changes and bun.lock invalidate formatter caches. zizmor1.16.3 uses official
+native downloads for Linux/macOS x64/ARM64 and Windows x64. actionlint disables its
+optional Python pyflakes hook; native shellcheck discovery remains enabled.
+
+Run `bun run quality check --upstream <base> --no-upgrade-check` and
+`bun run quality smells --upstream <base> --no-snippets --no-upgrade-check` locally.
+The Bun wrapper supplies explicit executable/helper paths because Qlty sanitizes
+plugin PATH and uses a temporary formatter tree. Plain `qlty check` cannot supply
+those required paths. The PR Qlty job now installs pinned Bun and frozen dependencies
+with --ignore-scripts, then uses this wrapper. It needs no application prepare step.
+No enabled plugin definition requires a Node/Python runtime; the default source still
+contains unused definitions for other tools. Existing OSV Cargo.lock exclusion remains.
+
+Local Windows evidence: artifacts/ci-inspection/qlty-runtime-result.json and merged
+configuration qlty-merged-after.yml. Native Qlty0.642.0 config validation, actual
+formatter/native zizmor/actionlint and full targeted Qlty checks pass; changed-file
+smells, frozen installation and Svelte check0 errors0 warnings pass. Download receipt
+records toolType Download and successful official Windows zizmor ZIP extraction,
+independent of the historical Python installation. Controlled temporary malformed
+package formatting and workflow write-all permission each fail with the expected
+SARIF issue; --no-fix leaves those bytes unchanged and originals are restored in finally.
+Evidence: qlty-runtime-negative-result.json and the two negative SARIF records.
+Initial --all+paths rejection and staging PATH failure were corrected before acceptance.
+This verifies local plugin execution, not actual GitHub runner/bootstrap or all files.
+
 - YAML parses and both inline JavaScript programs parse under Bun.
 - Native actionlint1.7.12 validates the final workflow with exit0. Its zip SHA256 was checked against upstream release checksums. Optional shellcheck/pyflakes integrations were disabled explicitly, so no Python was invoked.
 - Initial actionlint rejection: runner.temp was used at job.env scope, where that context is unavailable. Moved it into installer step environments; rerun passed.
-- No GitHub run or push has been triggered. Workflow changes are committed locally. Runner bootstrap, private/fork checkout, Qlty plugin runtime, Windows/macOS matrix builds, and platform compatibility remain unverified.
+- No GitHub run or push has been triggered. Workflow changes are committed locally. Runner bootstrap, private/fork checkout, Qlty plugin execution on Linux runners, Windows/macOS matrix builds, and platform compatibility remain unverified.
 - This is build validation only. Downloadable artifacts, signing/notarization, updater/release publication, Linux ARM64 and runtime/install/upgrade acceptance remain pending. Package files currently disappear with the runner; only summary/log hashes persist. Do not call full CI/distribution complete.
 - Default Tauri bundle formats do not include every legacy distribution (Linux tar.gz/snap, macOS zip, Windows portable/Squirrel); retain those in PARITY until implemented or explicitly removed.
 - Linux package dependencies must be checked against each runner's actual ELF. The primary wrapper now computes Debian requirements with dpkg-shlibdeps from the built ELF instead of reusing Debian12 minimums. Ubuntu22.04 CI installation/runtime acceptance still requires an actual run.
@@ -31,5 +64,10 @@ Linux installs Tauri native prerequisites plus dpkg-dev, rpm and libgles2. macOS
 - https://rust-lang.github.io/rustup/concepts/toolchains.html — pinned toolchain selection.
 - https://raw.githubusercontent.com/oven-sh/setup-bun/main/action.yml and https://raw.githubusercontent.com/actions/checkout/main/action.yml — Node runtime evidence.
 - https://github.com/rhysd/actionlint/blob/main/docs/install.md — native release binary installation.
+- https://github.com/qltysh/qlty/blob/main/qlty-plugins/plugins/plugin_guide.md — custom plugin definitions, staged formatter drivers and platform downloads.
+- https://github.com/qltysh/qlty/blob/main/qlty-check/src/tool/tool_builder.rs and https://github.com/qltysh/qlty/blob/main/qlty-check/src/tool/null_tool.rs — runtime-free tool selection validated against the installed CLI.
+- https://github.com/qltysh/qlty/blob/main/qlty-check/src/executor/invocation_script.rs — staged target/config interpolation.
+- https://docs.zizmor.sh/installation/ and https://github.com/zizmorcore/zizmor/releases/tag/v1.16.3 — native release assets.
+- https://bun.sh/docs/runtime/child-process — explicit array commands, cwd/env, inherited streams and exit propagation.
 
 Local validation evidence: artifacts/ci-inspection/.
