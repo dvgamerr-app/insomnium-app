@@ -93,7 +93,6 @@
     aria-label="Preference pages"
   >
     {#each tabs as name}<TabButton
-        class={tab === name ? "active" : ""}
         aria-selected={tab === name}
         onclick={() => (tab = name)}>{name}</TabButton
       >{/each}

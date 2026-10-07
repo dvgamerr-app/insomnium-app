@@ -91,6 +91,14 @@ await withComponentFixture("design-system", async (page, output) => {
   await first.press("ArrowRight");
   assert.equal(await second.getAttribute("aria-selected"), "true");
   assert.equal(
+    await second.evaluate((el) => el.classList.contains("active")),
+    true,
+  );
+  assert.equal(
+    await first.evaluate((el) => el.classList.contains("active")),
+    false,
+  );
+  assert.equal(
     await second.evaluate((el) => el === document.activeElement),
     true,
   );
@@ -101,6 +109,19 @@ await withComponentFixture("design-system", async (page, output) => {
   );
   await second.press("Home");
   assert.equal(await first.getAttribute("aria-selected"), "true");
+  assert.equal(await first.getAttribute("tabindex"), "0");
+  assert.equal(await second.getAttribute("tabindex"), "-1");
+  await page
+    .getByRole("button", { name: "Toggle tab orientation", exact: true })
+    .click();
+  await first.focus();
+  await first.press("ArrowDown");
+  assert.equal(await second.getAttribute("aria-selected"), "true");
+  await second.press("ArrowUp");
+  assert.equal(await first.getAttribute("aria-selected"), "true");
+  await page
+    .getByRole("button", { name: "Toggle tab orientation", exact: true })
+    .click();
   await first.press("End");
   assert.equal(await second.getAttribute("aria-selected"), "true");
   await second.press("ArrowRight");
@@ -164,6 +185,41 @@ await withComponentFixture("design-system", async (page, output) => {
       await shared.evaluate((el) => getComputedStyle(el).backgroundColor),
       before,
     );
+    // The selected presentation belongs to TabButton, without a consumer class.
+    await first.click();
+    await page.evaluate(() =>
+      document.documentElement.style.setProperty(
+        "--accent-text",
+        "rgb(18, 52, 86)",
+      ),
+    );
+    assert.equal(
+      await first.evaluate((el) => getComputedStyle(el).borderBottomColor),
+      "rgb(18, 52, 86)",
+    );
+    await page.evaluate(() =>
+      document.documentElement.style.removeProperty("--accent-text"),
+    );
+    await page
+      .getByRole("button", { name: "Toggle tab orientation", exact: true })
+      .click();
+    await page.evaluate(() =>
+      document.documentElement.style.setProperty(
+        "--selected",
+        "rgb(18, 52, 86)",
+      ),
+    );
+    assert.equal(
+      await first.evaluate((el) => getComputedStyle(el).backgroundColor),
+      "rgb(18, 52, 86)",
+    );
+    await page.evaluate(() =>
+      document.documentElement.style.removeProperty("--selected"),
+    );
+    await page.screenshot({ path: output + "/" + theme + "-vertical.png" });
+    await page
+      .getByRole("button", { name: "Toggle tab orientation", exact: true })
+      .click();
     await page.screenshot({ path: output + "/" + theme + ".png" });
   }
   assert.deepEqual(errors, []);

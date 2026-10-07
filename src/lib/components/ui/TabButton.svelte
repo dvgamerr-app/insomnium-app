@@ -6,12 +6,15 @@
   let { children, class: className = "", ...rest } = $props();
   const generatedId = $props.id();
   const id = $derived(rest.id ?? generatedId);
+  const selected = $derived(
+    rest["aria-selected"] === true || rest["aria-selected"] === "true",
+  );
   const tabs =
     /** @type {import('./tabs-context.js').TabsContext|undefined} */ (
       getContext(TABS_CONTEXT)
     );
   $effect(() => {
-    if (rest["aria-selected"]) tabs?.activate(id);
+    if (selected) tabs?.activate(id);
   });
 </script>
 
@@ -21,8 +24,8 @@
   aria-controls={rest["aria-controls"] ?? tabs?.panelId}
   variant="plain"
   role="tab"
-  tabindex={rest["aria-selected"] ? 0 : -1}
-  class={`ui-tab ${className}`}
+  tabindex={selected ? 0 : -1}
+  class={`ui-tab ${selected ? "active" : ""} ${className}`}
 >
   {@render children?.()}
 </Button>

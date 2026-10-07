@@ -156,7 +156,6 @@
 >
   {#each ["Body", "Auth", "Query", "Headers", "Docs", "Settings"] as name}
     <TabButton
-      class={[tab === name && "active"].filter(Boolean).join(" ")}
       role="tab"
       aria-selected={tab === name}
       onclick={() => (tab = name)}

@@ -109,7 +109,6 @@
     aria-label="Stream view"
   >
     {#each ["Events", "Headers"] as name}<TabButton
-        class={[tab === name && "active"].filter(Boolean).join(" ")}
         role="tab"
         aria-selected={tab === name}
         onclick={() => (tab = name)}>{name}</TabButton

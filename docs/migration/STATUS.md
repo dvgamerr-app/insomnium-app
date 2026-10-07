@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Shared tab selection owns presentation — 2026-10-07
+
+- Saved design-system scenario reproduced a selected shared tab with no active class/presentation when its consumer supplied only aria-selected. TabButton now derives active class, roving tabindex and active-ID publication from one selected value, correctly interpreting boolean and native string true/false values. Removed ten duplicate active-class expressions from HTTP request/response, stream, Preferences, gRPC body/sent/response and API Design consumers. Existing navigation CSS keeps the same visual treatment.
+- Expanded the existing design-system fixture/scenario to verify boolean/string selection, disabled skipping, horizontal/vertical navigation, selected class/tabindex and central accent/selected token propagation in both themes. It passes; current check passes 0 errors/0 warnings and frontend build passes. Theme/workspace regressions pass. Initial scenario needed its orientation restored before the original horizontal wrap assertion; added the restore and a JSDoc orientation union, then reran successfully.
+- Official references consulted first: https://www.w3.org/WAI/ARIA/apg/patterns/tabs/ and https://svelte.dev/docs/svelte/$props. Existing components extended; no generator/dependency applies. Commands: bun tests/ui/design-system.js; bun run check; bun run build; bun tests/ui/nocturne-theme.js; bun tests/ui/nocturne-workspace.js. Native executable still predates this UI change; fresh native acceptance follows the CSS entry cleanup. CSS ownership/full migration gates remain open.
+
 ## Native Timeline TLS and latest UI acceptance — 2026-10-07
 
 - Expanded existing unix-socket-tls scenario to check the native Timeline log: attempted GET, network settings, actual certificate subject/issuer/SAN, HTTP/1.1 200, trusted-chain verification and explicit validation-off status. Wrong hostname and untrusted issuer logs retain the native failure cause without claiming an established TLS connection. Active/aria-selected tab assertions confirm Timeline selection. Native success/failure body, persisted settings/reload and fixture handshake checks retained; original settings restored.

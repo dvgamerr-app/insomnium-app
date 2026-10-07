@@ -257,7 +257,6 @@
         aria-label="gRPC request editor"
       >
         {#each ["Body", "Metadata", "Proto Files", "Docs", "Settings"] as name}<TabButton
-            class={[tab === name && "active"].filter(Boolean).join(" ")}
             role="tab"
             aria-selected={tab === name}
             onclick={() => (tab = name)}>{name}</TabButton
@@ -311,16 +310,12 @@
                 aria-label="gRPC sent messages"
               >
                 <TabButton
-                  class={[!selectedSent && "active"].filter(Boolean).join(" ")}
                   role="tab"
                   aria-selected={!selectedSent}
                   onclick={() => (selectedSentId = "")}>Body</TabButton
                 >
                 {#each sent as message, i (message._id)}
                   <TabButton
-                    class={[selectedSent?._id === message._id && "active"]
-                      .filter(Boolean)
-                      .join(" ")}
                     role="tab"
                     aria-selected={selectedSent?._id === message._id}
                     title={`Sent at ${new Date(message.created).toLocaleString()}`}
@@ -438,7 +433,6 @@
         aria-label="gRPC response tabs"
       >
         {#each ["Response", "Sent", "Metadata", "Trailers"] as name}<TabButton
-            class={[responseTab === name && "active"].filter(Boolean).join(" ")}
             role="tab"
             aria-selected={responseTab === name}
             onclick={() => (responseTab = name)}>{name}</TabButton
@@ -474,9 +468,6 @@
               >
                 {#each messages as message, i}<TabButton
                     aria-selected={selectedMessage === i}
-                    class={[selectedMessage === i && "active"]
-                      .filter(Boolean)
-                      .join(" ")}
                     onclick={() => (selectedMessage = i)}
                     >Response {i + 1}</TabButton
                   >{/each}

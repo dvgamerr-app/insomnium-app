@@ -20,6 +20,7 @@
   let number = $state(12);
   let selected = $state("first");
   let activeId = $state("");
+  let orientation = $state(/** @type {'horizontal'|'vertical'} */ ("horizontal"));
   let fileCount = $state(0);
   let fileName = $state("");
   let dialog = $state(false);
@@ -73,9 +74,19 @@
     }}>Choose contract file</FilePicker
   >
   <output aria-label="File selection">{fileCount} / {fileName}</output>
-  <TabList aria-label="Contract tabs" panelId="contract-panel" bind:activeId>
+  <Button
+    onclick={() =>
+      (orientation = orientation === "horizontal" ? "vertical" : "horizontal")}
+    >Toggle tab orientation</Button
+  >
+  <TabList
+    aria-label="Contract tabs"
+    panelId="contract-panel"
+    bind:activeId
+    aria-orientation={orientation}
+  >
     <TabButton
-      aria-selected={selected === "first"}
+      aria-selected={selected === "first" ? "true" : "false"}
       onclick={() => (selected = "first")}>First</TabButton
     >
     <TabButton disabled aria-selected={false}>Disabled tab</TabButton>

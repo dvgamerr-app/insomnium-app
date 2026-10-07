@@ -437,9 +437,6 @@
             >
               {#each ["Operations", "Schemas", "Diagnostics"] as tab}<TabButton
                   aria-selected={previewTab === tab}
-                  class={[previewTab === tab && "active"]
-                    .filter(Boolean)
-                    .join(" ")}
                   onclick={() => (previewTab = tab)}
                   >{tab}{tab === "Diagnostics"
                     ? ` (${current.diagnosticCount})`

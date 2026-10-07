@@ -231,7 +231,6 @@
     aria-label="Response view"
   >
     {#each ["Preview", "Headers", "Cookies", "Timeline"] as name}<TabButton
-        class={[tab === name && "active"].filter(Boolean).join(" ")}
         role="tab"
         aria-selected={tab === name}
         onclick={() => (tab = name)}
