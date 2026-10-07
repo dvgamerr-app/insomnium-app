@@ -39,6 +39,7 @@ fn main() {
             "git_repository_delete_branch",
             "git_repository_checkout",
             "git_repository_advance",
+            "git_repository_apply_merge",
             "git_repository_restore",
         ]),
     ))

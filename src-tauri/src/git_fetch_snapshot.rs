@@ -31,6 +31,12 @@ struct BranchHistory {
 }
 
 impl SnapshotManifest {
+    pub(crate) fn branch_oid(&self, name: &str) -> Option<&str> {
+        self.branches
+            .iter()
+            .find(|branch| branch.name == name)
+            .map(|branch| branch.oid.as_str())
+    }
     #[allow(
         dead_code,
         reason = "Scope-only helper retained for legacy migration compatibility fixtures."

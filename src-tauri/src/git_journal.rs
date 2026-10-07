@@ -646,6 +646,8 @@ pub struct CheckoutInput {
     journal: Journal,
     author_name: String,
     author_email: String,
+    #[serde(default)]
+    source: Option<crate::git_merge_source::MergeSource>,
 }
 
 #[derive(serde::Serialize)]
@@ -664,6 +666,9 @@ pub(crate) fn checkout(
     session: &mut storage::Session,
     input: CheckoutInput,
 ) -> Result<CheckoutResult, String> {
+    if input.source.is_some() {
+        return Err("Incoming source proof is only valid for merge advancement".into());
+    }
     storage::ensure_no_pending_transition(directory)?;
     session.require_loaded()?;
     let journal = input.journal;
@@ -825,11 +830,37 @@ pub(crate) fn advance(
         return Err("Git HEAD changed or repository is not clean; prepare advance again".into());
     }
     validate_advance_graph(&repo, &journal)?;
+    if let Some(source) = &input.source {
+        source.check(
+            &repo,
+            &journal.before_workspace,
+            &journal.repository_id,
+            &journal.workspace_id,
+            &journal
+                .advance
+                .as_ref()
+                .ok_or("Missing advance inputs")?
+                .incoming_oid,
+        )?;
+    }
     session.ensure_backup(directory)?;
     if storage::read_workspace_file(directory)?.as_ref() != Some(&journal.before_workspace) {
         return Err("Workspace changed before advance journal creation".into());
     }
     storage::ensure_no_pending_transition(directory)?;
+    if let Some(source) = &input.source {
+        source.check(
+            &repo,
+            &journal.before_workspace,
+            &journal.repository_id,
+            &journal.workspace_id,
+            &journal
+                .advance
+                .as_ref()
+                .ok_or("Missing advance inputs")?
+                .incoming_oid,
+        )?;
+    }
     storage::atomic_write(&directory.join(storage::GIT_TRANSITION_FILE), &bytes)?;
     // Every error after the durable record requires authoritative load/recovery.
     // Neither commit failure nor a missing reply proves the ref update aborted.
@@ -873,6 +904,21 @@ pub async fn git_repository_advance(
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// Public reviewed workflow requires source admission; foundation advance stays
+/// compatible with already prepared journal callers and restart fixtures.
+#[tauri::command]
+pub async fn git_repository_apply_merge(
+    app: tauri::AppHandle,
+    git_state: tauri::State<'_, git::GitState>,
+    storage_state: tauri::State<'_, storage::StorageState>,
+    input: CheckoutInput,
+) -> Result<CheckoutResult, String> {
+    if input.source.is_none() {
+        return Err("Reviewed merge application requires an incoming source proof".into());
+    }
+    git_repository_advance(app, git_state, storage_state, input).await
 }
 
 #[derive(Deserialize)]

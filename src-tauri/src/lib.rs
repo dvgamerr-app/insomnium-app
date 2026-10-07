@@ -11,6 +11,7 @@ mod git_fetch_snapshot;
 mod git_journal;
 mod git_merge;
 mod git_merge_resolution;
+mod git_merge_source;
 mod git_ref_lock;
 mod git_remote;
 mod git_remote_job;
@@ -110,6 +111,7 @@ pub fn run() {
             git::git_repository_commit,
             git_journal::git_repository_checkout,
             git_journal::git_repository_advance,
+            git_journal::git_repository_apply_merge,
             git_journal::git_repository_restore
         ])
         .run(tauri::generate_context!())

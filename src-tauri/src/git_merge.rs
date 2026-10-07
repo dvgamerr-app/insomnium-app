@@ -20,6 +20,8 @@ pub struct MergeInput {
     expected_merge_base_oid: Option<String>,
     #[serde(default)]
     resolutions: Option<Vec<crate::git_merge_resolution::Resolution>>,
+    #[serde(default)]
+    source: Option<crate::git_merge_source::MergeSource>,
 }
 
 #[derive(Serialize)]
@@ -235,7 +237,25 @@ pub async fn git_repository_prepare_merge(
         let _guard = lock.lock().map_err(|e| e.to_string())?;
         storage::ensure_no_pending_transition(&directory)?;
         let path = git::managed_path(&directory.join("git-v1"), &input.repository_id)?;
-        prepare(&git::open_managed(&path)?, &input)
+        let repo = git::open_managed(&path)?;
+        let check = || -> Result<(), String> {
+            if let Some(source) = &input.source {
+                let data = storage::read_workspace_file(&directory)?
+                    .ok_or("Missing saved merge workspace")?;
+                source.check(
+                    &repo,
+                    &data,
+                    &input.repository_id,
+                    &input.workspace_id,
+                    &input.incoming_oid,
+                )?;
+            }
+            Ok(())
+        };
+        check()?;
+        let candidate = prepare(&repo, &input)?;
+        check()?;
+        Ok(candidate)
     })
     .await
     .map_err(|e| e.to_string())?

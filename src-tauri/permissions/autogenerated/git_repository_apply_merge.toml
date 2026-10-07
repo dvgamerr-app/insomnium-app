@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-git-repository-apply-merge"
+description = "Enables the git_repository_apply_merge command without any pre-configured scope."
+commands.allow = ["git_repository_apply_merge"]
+
+[[permission]]
+identifier = "deny-git-repository-apply-merge"
+description = "Denies the git_repository_apply_merge command without any pre-configured scope."
+commands.deny = ["git_repository_apply_merge"]

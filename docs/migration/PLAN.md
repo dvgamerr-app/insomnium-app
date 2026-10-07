@@ -2,6 +2,8 @@
 
 ## Owner goal workflow — 2026-10-07
 
+Latest step5 source milestone: native local-branch/fetch-snapshot/binding admission and required-proof apply_merge pass5 saved native groups including actual Windows post-ref write refusal/recovery after snapshot change/no duplicate. Current-build merge resolution10/writer8/reader20 regressions pass. Frontend source/working-conflict review/reconciliation/quiescence/recovery, blob loading, public Pull/Merge/real network/history/multiple-base/full parity remain open; continue the same feature.
+
 Current step5: native complete-tree merge candidate preparation passes7 saved native checks plus current-build advancement writer8/reader20 regressions. Public Pull/Merge, conflict resolution, endpoint pinning, workspace reconciliation/quiescence/recovery and original parity remain open; continue the same unfinished feature. Prior feature compact boundary was satisfied by actual context compaction before this resumed work. See STATUS/GIT-REMOTE.
 
 Latest step5: reviewed native conflict resolution passes10 extended saved native groups including actual schema2 custom-candidate application and full local workspace preservation. Target-ref/endpoint+snapshot admission, blob review, frontend working conflicts/reconciliation/quiescence/recovery, public Pull/Merge UI, history/multiple-base/full parity remain open. Continue the same feature; milestone topic commit is not its completion boundary.

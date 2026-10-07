@@ -46,6 +46,7 @@
     "allow-git-repository-create-branch",
     "allow-git-repository-checkout",
     "allow-git-repository-advance",
+    "allow-git-repository-apply-merge",
     "allow-git-repository-restore",
     "allow-git-repository-delete-branch",
     "allow-git-remote-advertise",
