@@ -205,13 +205,13 @@ All twelve feature/editor scoped style blocks were inspected. Their remaining ow
 | GitPanel | Change/history/commit graph layout and selection of domain rows. Keep graph geometry and row layout; remove redundant button-radius declarations and tokenize mono status font. |
 | GitRecovery | Shared Field inline align=start now owns wrapped checkbox alignment/dimensions; feature gap/top margin retained. Dark/light shared geometry and native locked-dialog/retry pass. Actual retained-copy OS picker and reviewed-choice workflow acceptance remains open. |
 | GitRemotePanel | Remote sections and bounded advertisement list layout; no primitive interaction override found. |
-| GrpcPane | Method placement, response log/time/metadata layout. Hints now use shared compact Feedback; fresh native dark/light streaming/error acceptance passes. Mono message font token cleanup remains. |
-| KeyValueEditor | Multipart details layout; remaining rem spacing literals require mapping to foundation tokens while retaining current computed sizes. |
+| GrpcPane | Method placement, response log/time/metadata layout. Hints use shared compact Feedback; message typography now follows font-size-12/font-mono, native token propagation/dark-light streaming acceptance passes. |
+| KeyValueEditor | Multipart details margins now use foundation tokens with original3/9/24/6px sizes. Removed block override of shared Field inline/stacked layout; actual native checkbox/input layout and byte/metadata Send accepted. Feature retains only details placement/cursor responsibility. |
 | OAuthEditor | Token panel/action layout and long-text wrapping; retain domain layout. |
 | ProtoManager | Proto tree/source/preview/remove-confirm layout. Fixed scoped layout reaching shared Button (native flexGrow0 before,1 after); removed redundant background/border and adopted compact Feedback. Fresh native full-surface hover/source/removal acceptance passes. Baseline hover already passed; no reproduced hover defect claimed. |
 | ResponsePane | Filter-row sizing and history placement; only control layout overrides found. |
-| RunnerPane | Suite/test/result layout and domain pass/fail colors. Retain result status presentation; review duplicated flex declaration and shared Field/Select placement. |
-| RunnerSidebar | Suite row layout and parent selection surface; redundant button-radius declaration remains. |
+| RunnerPane | Suite/test/result layout and domain pass/fail colors. Duplicate test-list flex removed; retained shared list/results sizing and domain Field/Select placement. Native runner lifecycle/Stop/reload/fresh run/dark-light widths pass. |
+| RunnerSidebar | Suite row layout and parent selection surface; redundant zero button-radius declaration removed. Native runner lifecycle and both themes/widths pass. |
 | SettingsPanel | Settings view, sidebar, section/grid layout; selected tab presentation is now shared, sidebar width remains a domain layout contract. |
 
 Next implementation order for this debt: remaining token/literal/unused declaration cleanup, then remaining interaction/validation/native workflow coverage. Keep CodeMirror and domain graphs/tables as explicit adapters rather than forcing them into generic primitives. Native acceptance is tracked in STATUS; full migration priority also includes the missing selected Git restore UI.
