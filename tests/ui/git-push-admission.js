@@ -1,5 +1,13 @@
 import assert from "node:assert/strict";
-import { readFile, stat } from "node:fs/promises";
+import {
+  mkdir,
+  readFile,
+  readdir,
+  realpath,
+  rmdir,
+  stat,
+  unlink,
+} from "node:fs/promises";
 import { join } from "node:path";
 import { withNativeApp } from "./helpers/native-app.js";
 import { advanceFixture, fixtureGit } from "./helpers/git-advance-fixture.js";
@@ -100,6 +108,86 @@ await withNativeApp("git-push-admission", async (context) => {
       assert.equal(retired.stageName, null);
       return retired;
     }
+    const reserved = await prepare();
+    const receiptRoot = join(x.directory, "git-push-v1");
+    await mkdir(receiptRoot, { recursive: true });
+    assert.equal(
+      (await realpath(receiptRoot)).toLowerCase(),
+      receiptRoot.toLowerCase(),
+    );
+    const reservedDirectory = join(
+      receiptRoot,
+      `push-${reserved.intent.operationId}`,
+    );
+    await mkdir(reservedDirectory); // Exclusive creation; never reuse an old operation.
+    assert.equal(
+      (await realpath(reservedDirectory)).toLowerCase(),
+      reservedDirectory.toLowerCase(),
+    );
+    const sentinelPath = join(reservedDirectory, "owned-scenario-sentinel");
+    const sentinel = crypto.randomUUID();
+    await Bun.write(sentinelPath, sentinel);
+    const stagesBefore = (
+      await readdir(join(x.directory, "git-fetch-v1"))
+    ).sort();
+    const assertReserved = async () => {
+      assert.deepEqual(await readdir(reservedDirectory), [
+        "owned-scenario-sentinel",
+      ]);
+      assert.equal(await Bun.file(sentinelPath).text(), sentinel);
+      assert.deepEqual(
+        (await readdir(join(x.directory, "git-fetch-v1"))).sort(),
+        stagesBefore,
+      );
+      await assert.rejects(stat(join(reservedDirectory, "receipt.json")), {
+        code: "ENOENT",
+      });
+    };
+    try {
+      await refused(reserved, /already reserved or unconfirmed/i);
+      await assertReserved();
+      const observed = await unchanged(() =>
+        context.invoke("git_remote_push_inspect", {
+          request: { push: reserved, attemptId: crypto.randomUUID() },
+        }),
+      );
+      assert.equal(observed.receipt, null);
+      assert.equal(observed.observedRemoteOid, null);
+      const advertisements = remote.state.advertisements;
+      await unchanged(() =>
+        assert.rejects(
+          () =>
+            context.invoke("git_remote_push_retire", {
+              request: {
+                push: reserved,
+                attemptId: crypto.randomUUID(),
+                expectedReceipt: observed.receipt,
+              },
+            }),
+          /directory is unconfirmed.*retain tracking and material/i,
+        ),
+      );
+      assert.equal(remote.state.advertisements, advertisements);
+      assert.equal(remote.state.receivePosts, 0);
+      await assertReserved();
+    } finally {
+      // Remove only this exclusive fixture's exact sentinel and now-empty directory.
+      // No recursive deletion, native material, older receipt, or foreign file adoption.
+      assert.equal(await Bun.file(sentinelPath).text(), sentinel);
+      await unlink(sentinelPath);
+      await rmdir(reservedDirectory);
+    }
+    const retiredReserved = await retire(reserved); // Fresh observation after explicit fixture removal.
+    assert.equal(retiredReserved.phase, "retired");
+    assert.equal(retiredReserved.result, null);
+    assert.equal(remote.state.receivePosts, 0);
+    assert.deepEqual(
+      (await readdir(join(x.directory, "git-fetch-v1"))).sort(),
+      stagesBefore,
+    );
+    checks.push(
+      "preexisting receiptless operation directory: Push refuses before network/snapshot/receipt; fresh Inspect observes absent remote but retirement refuses adoption/cleanup, exact sentinel/full workspace/refs preserved; exclusive fixture removal then fresh Inspect allows tombstone without upload",
+    );
     const changed = await prepare(x.f.oid, null, (_data, binding) => {
       binding.name = "Changed after pinned intent";
     });
