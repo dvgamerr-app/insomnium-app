@@ -32,6 +32,61 @@ await withNativeApp("git-source-control", async ({ page, invoke, output }) => {
     exact: true,
   });
   await stage.waitFor();
+  const assertGitTokens = async () => {
+    const status = panel.locator(".git-status").first();
+    await status.waitFor();
+    assert.equal(
+      await status.evaluate((el) => getComputedStyle(el).fontSize),
+      "11px",
+    );
+    assert.match(
+      await status.evaluate((el) => getComputedStyle(el).fontFamily),
+      /Roboto Mono Variable/,
+    );
+    const rows = [
+      panel.locator(".git-change-name").first(),
+      panel.locator(".commit-row").first(),
+    ];
+    for (const row of rows) {
+      await row.waitFor();
+      assert.equal(
+        await row.evaluate((el) => getComputedStyle(el).borderRadius),
+        "0px",
+      );
+    }
+    try {
+      await page.evaluate(() => {
+        document.documentElement.style.setProperty("--font-size-11", "14px");
+        document.documentElement.style.setProperty("--button-radius", "7px");
+      });
+      assert.equal(
+        await status.evaluate((el) => getComputedStyle(el).fontSize),
+        "14px",
+        "Git status must follow shared typography",
+      );
+      for (const row of rows)
+        assert.equal(
+          await row.evaluate((el) => getComputedStyle(el).borderRadius),
+          "7px",
+          "Git rows must inherit shared Button shape",
+        );
+    } finally {
+      await page.evaluate(() => {
+        document.documentElement.style.removeProperty("--font-size-11");
+        document.documentElement.style.removeProperty("--button-radius");
+      });
+    }
+    assert.equal(
+      await status.evaluate((el) => getComputedStyle(el).fontSize),
+      "11px",
+    );
+    for (const row of rows)
+      assert.equal(
+        await row.evaluate((el) => getComputedStyle(el).borderRadius),
+        "0px",
+      );
+  };
+  await assertGitTokens();
   assert.equal(await page.getByRole("dialog").count(), 0);
   await panel
     .getByRole("button", {
@@ -218,6 +273,7 @@ await withNativeApp("git-source-control", async ({ page, invoke, output }) => {
       await page
         .getByRole("button", { name: "Toggle theme", exact: true })
         .click();
+    await assertGitTokens();
     for (const width of [1440, 900, 760]) {
       await page.setViewportSize({ width, height: 960 });
       assert.equal(
@@ -270,6 +326,7 @@ await withNativeApp("git-source-control", async ({ page, invoke, output }) => {
           "remote modal",
           "split keyboard and pointer",
           "dark/light 1440/900/760",
+          "native Git status typography and shared row Button shape token override/restore in both themes",
         ],
       },
       null,

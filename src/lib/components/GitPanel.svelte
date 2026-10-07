@@ -1050,7 +1050,6 @@
     text-align: left;
     justify-content: flex-start;
     padding: var(--space-9) var(--space-12);
-    border-radius: var(--button-radius);
   }
   .git-change :global(.git-change-name > span:first-of-type) {
     flex: 1;
@@ -1068,7 +1067,7 @@
   }
   .git-status {
     color: var(--accent-text);
-    font: 11px var(--font-mono);
+    font: var(--font-size-11) var(--font-mono);
   }
   .git-empty,
   .git-excluded {
@@ -1092,7 +1091,6 @@
     height: var(--size-44);
     text-align: left;
     padding: 0 var(--space-12);
-    border-radius: var(--button-radius);
     justify-content: flex-start;
   }
   :global(.commit-row .count) {
