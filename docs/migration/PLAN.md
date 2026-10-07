@@ -1,5 +1,7 @@
 # Insomnium → Tauri migration
 
+Native WSS mTLS acceptance7034378: saved1791415792844/tool86663 terminal0 passes11 groups, with actual authenticated peer/HTTP101/text/normal1000 close and persisted reload. CA bundle/recovery and TLS refusals pass. Shared runner SSE1791415824881 passes11; shared fixture HTTP1791415861141 passes12. Production release unchanged. Remaining full migration/UX, client-send/disconnect/redirect, gRPC/provider/platform gates retained; STATUS pins evidence/handoff.
+
 Native SSE mTLS acceptance557222e: saved1791415540725/tool16330 terminal0 passes11 groups through real Preferences/reload/Connect, mandatory server client verification and exact persisted event/id/data after reload. CA bundle/recovery succeed; missing/mismatched/untrusted/malformed refuse. Shared Preferences helper HTTP regression1791415570542/tool62844 passes12. Production release unchanged; full migration/UX/remaining protocols/platform gates stay required. STATUS records evidence and handoff.
 
 CA bundle acceptance75477b8 verifies existing native HTTP multi-root PEM behavior with the required root in both positions and malformed-CA pre-TCP refusal. Saved run1791415294120/tool47753 terminal0 passes12 groups with four TLS settings restored; no backend change/rebuild. Remaining full migration/UX and TLS/protocol/provider/platform gates stay required; current evidence and handoff in STATUS.

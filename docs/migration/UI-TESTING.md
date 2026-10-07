@@ -2,6 +2,33 @@
 
 Owner requires Bun-only reusable Playwright JavaScript scenarios with shared helpers and headless execution. Browser-use and ad-hoc browser automation remain prohibited.
 
+WSS mTLS acceptance7034378: `bun tests/ui/wss-client-certificate.js` and the
+existing SSE entry point use helpers/stream-client-certificate.js, preserving
+feature-separated commands and shared setup/assertions. The existing Rust fixture
+links cached tungstenite0.27 and serves /ws after mandatory Rustls client auth:
+documented derive_accept_key + from_raw_socket, one text message, normal close1000
+and complete close handshake. Official docs consulted:
+https://docs.rs/tungstenite/latest/tungstenite/handshake/fn.derive_accept_key.html
+and https://docs.rs/tungstenite/latest/tungstenite/protocol/struct.WebSocket.html.
+Versioned0.27 URLs unavailable; matching signatures/close semantics checked in
+D:/home/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tungstenite-0.27.0/src.
+Independent Bun WSS client uses explicit CA/cert/key/rejectUnauthorized:true,
+checks received text/close1000 and server fingerprint before resetting counters;
+TLS constructor options documented in installed bun-types/bun.d.ts.
+Final86663/1791415792844 terminal0 passes11: actual native trusted/bundle/recovered
+GET/HTTP101 with pinned server-observed client CN/fingerprint, exact received
+text, native close1000/reason and saved reload; missing/mismatched/untrusted
+client/server refuse before HTTP/messages, malformed CA/identity before TCP.
+All resources and retained prior history rows preserved, exactly one new row per
+explicit connection including errors. Four TLS settings restored/verified.
+SSE shared-runner58856/1791415824881 passes11 and HTTP shared-fixture26882/
+1791415861141 passes12. Three result/acceptance/restoration/fixture observations
+and WSS success image inspected. Compiler0/0, JS Prettier, Rustfmt and whitespace
+pass; native-hidden owned app PIDs56716/90464/62232 exit0, fixtures close0 and no
+task processes remain. No production/dependency/rebuild changes or TLS bypass.
+Client send/disconnect/redirect, gRPC, legacy/provider/proxy/Git/platform and full
+migration/UX remain separate gates; this fixture finishes after one received text.
+
 SSE mTLS acceptance557222e: `bun tests/ui/sse-client-certificate.js` uses the same
 successful current native-recovery-copy-probe record and mandatory-auth Rust TLS
 fixture as HTTP. Shared tls-preferences.js drives actual Network Preferences,

@@ -8,6 +8,12 @@ See `docs/migration/UI-TESTING.md` for the native host and OS dialog limitations
 
 ## Native HTTP client certificate
 
+`bun tests/ui/wss-client-certificate.js` shares the stream TLS runner with SSE.
+Eleven groups cover native mandatory mTLS upgrade/HTTP101, one received text,
+normal1000 close, CA bundle/refusals/recovery and saved reload. Original TLS
+preferences are restored; run sequentially against the current native build.
+Client-send/disconnect/redirect and gRPC acceptance remain separate.
+
 `bun tests/ui/sse-client-certificate.js` uses the same current native build and
 mandatory-auth TLS fixture, with shared Network Preferences setup. Eleven groups
 check real SSE authentication/bundle/refusals/recovery, exact finite event/id/data
