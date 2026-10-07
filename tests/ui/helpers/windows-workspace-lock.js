@@ -72,6 +72,28 @@ export async function lockProbePushPayload(stageName, operationId) {
   return openReadLock(path, 3); // Reads/writes allowed; delete sharing denied.
 }
 
+/** Deny atomic replacement of an existing exact owned Push receipt.
+ * @param {string} operationId */
+export async function lockProbePushReceipt(operationId) {
+  assert.equal(process.platform, "win32");
+  assert.ok(process.env.APPDATA);
+  assert.match(operationId, /^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/);
+  const expected = resolve(
+    process.env.APPDATA,
+    probeIdentifier,
+    "git-push-v1",
+    "push-" + operationId,
+    "receipt.json",
+  );
+  const path = await realpath(expected);
+  assert.equal(path.toLowerCase(), expected.toLowerCase());
+  const receipt = await Bun.file(path).json();
+  assert.equal(receipt.intent.operationId, operationId);
+  assert.equal(receipt.phase, "submitted");
+  assert.equal(receipt.result, null);
+  return openReadLock(path, 3);
+}
+
 /** @param {string} path @param {number} sharing */
 function openReadLock(path, sharing) {
   const library = dlopen("kernel32.dll", {

@@ -11,6 +11,7 @@ import { buildComponentFixture } from "./helpers/component-fixture.js";
 import { servePartialReceive } from "./helpers/git-partial-receive.js";
 import { snapshotGitCollection } from "../../src/lib/git-collection.js";
 import { randomBytes } from "node:crypto";
+import { lockProbePushReceipt } from "./helpers/windows-workspace-lock.js";
 
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-recovery-copy-probe/build-state.json";
@@ -21,6 +22,7 @@ assert.ok(
     "normal",
     "unknown",
     "partial-upload",
+    "receipt-write-failed",
     "rejected",
     "non-fast-forward",
     "source-advanced",
@@ -47,6 +49,11 @@ try {
       const checks = [];
       /** @type {Awaited<ReturnType<typeof servePartialReceive>> | undefined} */
       let partial;
+      /** @type {Awaited<ReturnType<typeof lockProbePushReceipt>> | undefined} */
+      let receiptLock;
+      /** @type {Buffer | undefined} */
+      let lockedReceiptBytes;
+      const receiptErrors = [];
       try {
         if (mode === "partial-upload") {
           const committed = structuredClone(await invoke("load_workspace"));
@@ -294,6 +301,16 @@ try {
             assert.notEqual(expectedSourceRefs, sourceRefs);
           });
         const submittedAt = performance.now();
+        if (mode === "receipt-write-failed") {
+          remote.beforeNextReceive(async () => {
+            const current = await invoke("load_workspace");
+            const intent = current.resources.find(
+              (/** @type {any} */ row) => row._id === x.f.repositoryId,
+            ).nativePushIntent;
+            receiptLock = await lockProbePushReceipt(intent.operationId);
+            lockedReceiptBytes = await readFile(receiptLock.path);
+          });
+        }
         await dialog
           .getByRole("button", { name: "Confirm Push", exact: true })
           .click();
@@ -328,6 +345,26 @@ try {
             remote.state.completedHeldReceives,
             mode === "completed-stop" ? 1 : 0,
           );
+        } else if (mode === "receipt-write-failed") {
+          await panel
+            .getByRole("alert")
+            .filter({ hasText: "Inspect pending Push" })
+            .waitFor();
+          const message = await panel.getByRole("alert").innerText();
+          assert.match(
+            message,
+            /os error (?:5|32)|Access is denied|being used|sharing violation/i,
+          );
+          receiptErrors.push(message);
+          assert.ok(
+            receiptLock,
+            "Actual owned receipt lock acquired before server execution",
+          );
+          assert.deepEqual(
+            await readFile(receiptLock.path),
+            lockedReceiptBytes,
+          );
+          receiptLock.release();
         } else if (mode === "source-before-confirm") {
           await panel
             .getByRole("alert")
@@ -430,6 +467,13 @@ try {
           assert.equal(nativeReceipt.phase, "submitted");
           assert.equal(nativeReceipt.result, null);
         }
+        if (mode === "receipt-write-failed") {
+          assert.equal(nativeReceipt.phase, "submitted");
+          assert.equal(nativeReceipt.result, null);
+          checks.push(
+            "actual Windows receipt replacement denied after real server acceptance: original submitted receipt bytes retained, no false durable success; independent server commit/tree preserved",
+          );
+        }
         const outgoing = nativeReceipt.stageName
           ? join(x.directory, "git-fetch-v1", nativeReceipt.stageName)
           : null;
@@ -479,6 +523,7 @@ try {
           [
             "unknown",
             "partial-upload",
+            "receipt-write-failed",
             "stop",
             "timeout",
             "completed-stop",
@@ -497,9 +542,11 @@ try {
           checks.push(
             ["stop", "timeout", "completed-stop"].includes(mode)
               ? "stopped submitted Push survives reload; fresh Inspect does not resend or rewrite full data"
-              : partial
-                ? "actual partial-upload disconnect survives reload as pending Push; no second proxy POST, server upload or full-data rewrite"
-                : "real completed-server HTTP503 survives reload as pending Push; no automatic upload or full-data rewrite",
+              : mode === "receipt-write-failed"
+                ? "actual finished-receipt write refusal survives reload with original submitted receipt/intent; no automatic second POST or full-data rewrite"
+                : partial
+                  ? "actual partial-upload disconnect survives reload as pending Push; no second proxy POST, server upload or full-data rewrite"
+                  : "real completed-server HTTP503 survives reload as pending Push; no automatic upload or full-data rewrite",
           );
         }
 
@@ -679,6 +726,45 @@ try {
           );
         }
         if (!clearedOnReload) {
+          if (mode === "receipt-write-failed") {
+            assert.ok(outgoing);
+            receiptLock = await lockProbePushReceipt(
+              actualBinding.nativePushIntent.operationId,
+            );
+            const retainedBytes = await readFile(x.workspace);
+            await clear.click();
+            await panel
+              .getByRole("alert")
+              .filter({
+                hasText:
+                  /os error (?:5|32)|Access is denied|being used|sharing violation/i,
+              })
+              .waitFor();
+            receiptErrors.push(await panel.getByRole("alert").innerText());
+            assert.deepEqual(await invoke("load_workspace"), after);
+            assert.deepEqual(await readFile(x.workspace), retainedBytes);
+            assert.deepEqual(
+              JSON.parse(await readFile(receiptPath, "utf8")),
+              nativeReceipt,
+            );
+            assert.equal((await stat(outgoing)).isDirectory(), true);
+            assert.equal(remote.state.receivePosts, 1);
+            assert.equal(await remote.tip(), x.f.oid);
+            assert.equal(http.cancelled, 0);
+            receiptLock.release();
+            await panel
+              .getByRole("button", {
+                name: "Inspect pending Push",
+                exact: true,
+              })
+              .click();
+            await inspected.waitFor();
+            assert.equal(await clear.isDisabled(), true);
+            await acknowledgment.check();
+            checks.push(
+              "actual retirement receipt replacement denied: exact submitted receipt/full workspace/intent/owned snapshot preserved, fresh unchecked Inspect and explicit retry required without upload",
+            );
+          }
           await clear.click();
           await panel
             .getByRole("status")
@@ -737,6 +823,7 @@ try {
           JSON.stringify(
             {
               checks,
+              receiptErrors: receiptErrors.length ? receiptErrors : undefined,
               partial: partial?.state,
               partialScope: partial
                 ? "Actual owned socket destruction during upload and real Git validation of captured incomplete input; not provider, physical power-loss or all upload boundaries."
@@ -754,6 +841,7 @@ try {
         );
         console.log(JSON.stringify({ passed: checks.length, checks }));
       } finally {
+        receiptLock?.release();
         await partial?.close();
         await remote.close();
       }
