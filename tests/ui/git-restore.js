@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { heldHttp } from "./helpers/held-http.js";
+import { lockProbeWorkspaceReplacement } from "./helpers/windows-workspace-lock.js";
 import { withNativeApp, poll } from "./helpers/native-app.js";
 import { gitCollection } from "./helpers/git-fixture.js";
 import { withIpcFailure } from "./helpers/ipc-failure.js";
@@ -116,6 +117,31 @@ try {
       { ...input, beforeWorkspace: staleWorkspace },
       /Persisted workspace changed/,
     );
+    const lock = await lockProbeWorkspaceReplacement();
+    try {
+      const lockedBytes = await Bun.file(lock.path).bytes();
+      assert.deepEqual(
+        await Bun.file(lock.path).json(),
+        before,
+        "Lock belongs to this loaded probe workspace",
+      );
+      await refused(input, /os error (5|32)|access.*denied|sharing/i);
+      assert.deepEqual(
+        await Bun.file(lock.path).bytes(),
+        lockedBytes,
+        "Atomic replacement refusal leaves exact original bytes",
+      );
+    } finally {
+      lock.release();
+    }
+    const retry = await invoke("git_repository_restore", { input });
+    assert.equal(
+      find(retry.workspace, fixture.requestId).url,
+      "https://example.invalid/baseline",
+    );
+    assert.equal(retry.headOid, oid);
+    // Restore owned local fixture for the independent review/UI cases.
+    await invoke("save_workspace", { data: before });
     await restoreRequest.click();
     await review.waitFor();
     assert.match(await review.innerText(), /Preserved local request/);
@@ -146,6 +172,39 @@ try {
       (await invoke("load_workspace")).resources,
       before.resources,
     );
+    await restoreRequest.click();
+    await review.waitFor();
+    const baselineLock = await lockProbeWorkspaceReplacement();
+    try {
+      const bytes = await Bun.file(baselineLock.path).bytes();
+      await review
+        .getByRole("button", { name: "Restore selected changes", exact: true })
+        .click();
+      await review.waitFor({ state: "hidden" });
+      await panel
+        .getByRole("alert")
+        .filter({ hasText: /os error (5|32)|access.*denied|sharing/i })
+        .waitFor();
+      assert.equal(
+        await page
+          .getByRole("dialog", { name: "Recover restore", exact: true })
+          .count(),
+        0,
+        "Failed baseline save submits no restore transition",
+      );
+      assert.deepEqual(
+        await Bun.file(baselineLock.path).bytes(),
+        bytes,
+        "UI baseline refusal preserves original bytes",
+      );
+      await page.screenshot({ path: output + "/baseline-save-refusal.png" });
+      assert.deepEqual(
+        (await invoke("load_workspace")).resources,
+        before.resources,
+      );
+    } finally {
+      baselineLock.release();
+    }
     await restoreRequest.click();
     await review
       .getByRole("button", { name: "Restore selected changes", exact: true })
@@ -314,8 +373,11 @@ try {
           status: "passed",
           cases: [
             "native stale HEAD/unselected write/stale workspace refusal",
+            "actual Windows atomic replacement refusal preserves exact bytes",
+            "native restore succeeds after owned file handle release",
             "read-only review",
             "cancel",
+            "actual UI baseline save refusal preserves data and allows retry",
             "selected modify preserves unselected",
             "selected delete/add batch",
             "protected resources",
@@ -327,7 +389,7 @@ try {
             "dark/light review widths",
           ],
           limits:
-            "Disk fault and retained-copy OS picker need separate acceptance.",
+            "Disk-full/crash and retained-copy OS picker need separate acceptance; file-sharing failure is covered on Windows only.",
         },
         null,
         2,

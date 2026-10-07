@@ -1,5 +1,7 @@
 # Git sync migration inventory
 
+2026-10-07 sharing-failure acceptance: saved git-restore1791351439885 passes actual Windows native atomic replacement refusal with exact original bytes, successful retry after handle release, mounted UI baseline-save refusal with unchanged resources/no transition and successful retry. Bun FFI fixture opens only the canonical isolated probe file. Native/app sources unchanged; owned exit0. Disk-full/crash, mounted transition-failure recovery, retained-copy picker/review and other-platform/full parity remain open. See STATUS.
+
 2026-10-07 acceptance update: fresh native-restore-layout-probe verifies narrow toolbar bounds and selected restore while a real HTTP request is held. Connection closes, cancelled send leaves history unchanged and fresh native send persists200. Evidence git-restore1791351033422/source-control1791350959259; owned exits0. Shared held-http helper also passes Runner1791351058954. Actual disk fault/retained-copy picker and platform/full parity remain open.
 
 ## Selected restore workspace/UI and native acceptance — 2026-10-07

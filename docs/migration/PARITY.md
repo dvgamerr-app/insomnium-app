@@ -1,5 +1,7 @@
 # Feature parity tracker
 
+2026-10-07 acceptance update: selected restore native Windows file-sharing replacement refusal and mounted baseline-save refusal preserve exact original bytes/resources and successfully retry after release (git-restore1791351439885). This verifies one actual I/O failure; disk-full/crash, mounted transition-failure recovery, retained-copy picker/platform/full parity remain open. See STATUS.
+
 2026-10-07 acceptance update: narrow Git toolbar bounds and selected restore with actual held HTTP cancellation/no cancelled history/fresh persisted200 pass on native-restore-layout-probe. Disk fault/retained-copy picker/platform and original full parity remain open. See STATUS.
 
 2026-10-07 checkpoint: selected Git restore wired into workspace/review/confirm/cancel/recovery UI; fresh native modify/delete/add, read-only/cancel, stale HEAD/workspace/unselected-write refusal and lost-success reply recovery pass. Narrow toolbar repair, disk faults, retained-copy picker and active-run drain acceptance remain; full parity open. See STATUS/GIT-INVENTORY.
