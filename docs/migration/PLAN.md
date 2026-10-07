@@ -1,5 +1,12 @@
 # Insomnium → Tauri migration
 
+## Owner goal workflow — 2026-10-07
+
+- Complete and verify each feature, then commit its changes by topic with the relevant migration status and evidence.
+- After every completed feature, compact the session with `/compact` before starting the next feature. Save the current state, validation results and next action in STATUS first.
+- This session exposes no callable `/compact` tool, and the goal API cannot edit an active objective. These instructions extend the existing migration goal through this durable plan; do not claim compaction ran when it did not. If unavailable, hand off at the feature boundary for the owner to run `/compact`.
+
+
 2026-10-07 checkpoint: mounted production App/workspace retained-copy recovery passes Windows native held-request drain/admission/persistence guards, actual OS picker/write refusal/exact copy/review and fresh Send after recovery. Explicit saved-fixture unexpected-edit injection; disk-full/crash/other-platform/full parity remain open. See STATUS/PARITY.
 
 2026-10-07 checkpoint: selected Git restore workspace/review/confirm/cancel/recovery UI and native refusal/modify/delete/add/active-HTTP drain/lost-success reply acceptance pass. Narrow toolbar wrapping verified on fresh native build. Disk faults/retained-copy picker/platform and full parity remain open. See STATUS/GIT-INVENTORY.
