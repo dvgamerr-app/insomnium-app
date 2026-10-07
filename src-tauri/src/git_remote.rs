@@ -69,7 +69,9 @@ fn credential_pair(credentials: &RemoteCredentials) -> Result<Option<(&str, &str
     let pair = match credentials {
         RemoteCredentials::Anonymous => return Ok(None),
         RemoteCredentials::Basic { username, password } => (username.as_str(), password.as_str()),
-        RemoteCredentials::Github { token } => (token.as_str(), "x-oauth-basic"),
+        // Git over HTTPS uses the token as its password. The nonempty username
+        // is transport syntax, not the identity authenticated by a PAT.
+        RemoteCredentials::Github { token } => ("x-access-token", token.as_str()),
         RemoteCredentials::Gitlab { token } => ("oauth2", token.as_str()),
     };
     if pair.0.is_empty()
