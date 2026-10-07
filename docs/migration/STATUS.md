@@ -1,5 +1,10 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Preferences tabs and Git author — 2026-10-07
+
+- Preferences is split into General, Editor, Requests, Network and Git tabs (shared TabList/TabPanel) instead of one scrolling page of sections.
+- The commit author (name/email of the collection Git binding) moved from the Source Control dialog into Preferences > Git. Source Control keeps a link to it when the author is missing. git-source-control.js (native) was edited for the new path but not rerun; nocturne-workspace, nocturne-theme, design-system and curl-url-paste pass against the static preview.
+
 ## Preferences full view — 2026-10-06
 
 - Preferences is now a full main view (SettingsPanel.svelte, like Source Control) instead of a dialog; the Collections sidebar collapses while it is open. Settings are grouped into Appearance, Editor, Requests, Network & certificates and Shortcuts sections with a left section navigation. Setting keys and persistence are unchanged.

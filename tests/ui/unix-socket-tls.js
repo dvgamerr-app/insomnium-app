@@ -210,6 +210,7 @@ try {
         name: "Preferences",
         exact: true,
       });
+      await dialog.getByRole("tab", { name: "Network", exact: true }).click();
       await dialog
         .getByLabel("Validate TLS certificates", { exact: true })
         .setChecked(validate);

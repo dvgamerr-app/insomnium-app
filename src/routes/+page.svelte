@@ -87,6 +87,7 @@
   let importRevision = 0;
   let managedId = $state("");
   let mainView = $state("requests");
+  let settingsTab = $state("General");
   let newFolderParent = $state("");
   const managedResource = $derived(
     app.data.resources.find((r) => r._id === managedId),
@@ -190,8 +191,10 @@
     name = "";
     modalError = "";
   }
-  function openSettings() {
-    if (canEditWorkspace()) mainView = "settings";
+  function openSettings(/** @type {string} */ tab = "") {
+    if (!canEditWorkspace()) return;
+    if (tab) settingsTab = tab;
+    mainView = "settings";
   }
   function manageResource(/** @type {string} */ resourceId) {
     managedId = resourceId;
@@ -596,8 +599,10 @@
           </EmptyState>{:else if mainView === "git"}{#key app.data.activeWorkspaceId}<GitPanel
               workspaceId={app.data.activeWorkspaceId}
               onclose={() => (mainView = "requests")}
+              onsettings={() => openSettings("Git")}
             />{/key}{:else if mainView === "settings"}<SettingsPanel
               settings={app.data.settings}
+              bind:tab={settingsTab}
               onclose={() => (mainView = "requests")}
             />{:else if mainView === "tests"}{#key app.data.activeWorkspaceId}<RunnerPane
               collectionId={app.data.activeWorkspaceId}

@@ -31,8 +31,8 @@
   } from "../workspace.svelte.js";
   import { pendingGitCreation } from "../git-create.js";
   import { createGitClient, nativeGitBinding } from "../git-client.js";
-  /** @type {{workspaceId:string,onclose?:()=>void}} */
-  let { workspaceId, onclose = () => {} } = $props();
+  /** @type {{workspaceId:string,onclose?:()=>void,onsettings?:()=>void}} */
+  let { workspaceId, onclose = () => {}, onsettings = () => {} } = $props();
   let settings = $state("");
   let activePath = $state("");
   let activeCommit = $state(/** @type {any|null} */ (null));
@@ -174,14 +174,6 @@
     notice = "";
     await setupGit(workspaceId);
     if (current()) await load();
-  }
-  async function saveAuthor() {
-    const binding = nativeGitBinding(resources(), workspaceId);
-    if (!binding || !name.trim() || !email.trim()) return;
-    binding.author = { name: name.trim(), email: email.trim() };
-    binding.modified = Date.now();
-    if (!(await persist())) throw new Error("Could not save author settings.");
-    if (current()) settings = "";
   }
   async function commit() {
     const opened = session;
@@ -420,10 +412,7 @@
                   {#if branchActionsNeeded}<Button
                       variant="ghost"
                       onclick={() => (settings = "branches")}>Branches</Button
-                    >{/if}<Button
-                    variant="ghost"
-                    onclick={() => (settings = "author")}>Author</Button
-                  ><Button variant="ghost" onclick={() => (settings = "remote")}
+                    >{/if}<Button variant="ghost" onclick={() => (settings = "remote")}
                     >{remoteConfigured ? "Remote" : "Set up remote"}</Button
                   >
                   {#if !branchActionsNeeded}<Button
@@ -435,7 +424,10 @@
                     >{/if}
                 </div>
                 {#if !name.trim() || !email.trim()}<p class="hint">
-                    Set your author name and email before committing.
+                    Set your author name and email in
+                    <Button variant="ghost" onclick={onsettings}
+                      >Preferences</Button
+                    > before committing.
                   </p>{/if}
               </form>
               <div class="git-group-heading">
@@ -640,9 +632,7 @@
   <Modal
     title={settings === "branches"
       ? "Branches"
-      : settings === "remote"
-        ? "Remote"
-        : "Commit author"}
+      : "Remote"}
     onclose={() => (settings = "")}
   >
     {#if error}<Feedback as="p" class="inline-error" role="alert"
@@ -750,34 +740,7 @@
             Commit this collection before creating another branch.
           </p>{/if}
       {/if}
-    {:else}<form
-        class="form-panel resource-form"
-        onsubmit={(event) => {
-          event.preventDefault();
-          void run(saveAuthor);
-        }}
-      >
-        <Field id="git-author-name" label="Author name" required
-          ><Input
-            id="git-author-name"
-            required
-            bind:value={name}
-            disabled={busy}
-          /></Field
-        ><Field id="git-author-email" label="Author email" required
-          ><Input
-            id="git-author-email"
-            type="email"
-            required
-            bind:value={email}
-            disabled={busy}
-          /></Field
-        ><Button
-          variant="primary"
-          type="submit"
-          disabled={busy || !name.trim() || !email.trim()}>Save author</Button
-        >
-      </form>{/if}
+    {/if}
   </Modal>
 {/if}
 

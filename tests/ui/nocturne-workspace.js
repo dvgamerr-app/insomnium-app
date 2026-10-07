@@ -185,6 +185,7 @@ await withPreview("nocturne-workspace", async (page, output) => {
   await page.screenshot({ path: output + "/dropdown-light.png" });
   await page.keyboard.press("Escape");
   await theme.selectOption("dark");
+  await dialog.getByRole("tab", { name: "Requests", exact: true }).click();
   const timeout = dialog.getByRole("spinbutton", {
     name: "Request timeout (ms)",
     exact: true,

@@ -144,7 +144,15 @@ await withNativeApp("git-source-control", async ({ page, invoke, output }) => {
     .locator(".commit-detail")
     .getByText(info.headOid, { exact: true })
     .waitFor();
-  await panel.getByRole("button", { name: "Author", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Preferences", exact: true })
+    .first()
+    .click();
+  const preferences = page.getByRole("region", {
+    name: "Preferences",
+    exact: true,
+  });
+  await preferences.getByRole("tab", { name: "Git", exact: true }).click();
   assert.equal(
     await page
       .locator(".ui-field > label")
@@ -153,15 +161,17 @@ await withNativeApp("git-source-control", async ({ page, invoke, output }) => {
     "block",
   );
   await page.screenshot({ path: output + "/author.png" });
-  await page
-    .getByRole("dialog")
+  await preferences
     .getByRole("textbox", { name: "Author name", exact: true })
     .fill("Nocturne Tester");
-  await page
-    .getByRole("dialog")
+  await preferences
     .getByRole("button", { name: "Save author", exact: true })
     .click();
-  await page.getByRole("dialog").waitFor({ state: "detached" });
+  await preferences.getByText("Author saved", { exact: true }).waitFor();
+  await preferences
+    .getByRole("button", { name: "Close Preferences", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Git", exact: true }).first().click();
   assert.equal(
     (await invoke("load_workspace")).resources.find(
       (/** @type {any} */ r) => r._id === fixture.repositoryId,

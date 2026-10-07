@@ -350,19 +350,21 @@ await withPreview("nocturne-theme", async (page, output) => {
       .first()
       .click();
     await preferences.waitFor();
-    for (const section of [
-      "Appearance",
-      "Editor",
-      "Requests",
-      "Network & certificates",
-      "Shortcuts",
-    ]) {
+    for (const section of ["General", "Editor", "Requests", "Network", "Git"]) {
       await preferences
-        .getByRole("navigation", { name: "Preference sections" })
-        .getByRole("button", { name: section, exact: true })
+        .getByRole("tab", { name: section, exact: true })
         .click();
-      await preferences.getByRole("heading", { name: section }).waitFor();
+      assert.equal(
+        await preferences
+          .getByRole("tab", { name: section, exact: true })
+          .getAttribute("aria-selected"),
+        "true",
+      );
+      await preferences.getByRole("heading", { level: 3 }).first().waitFor();
     }
+    await preferences
+      .getByRole("tab", { name: "General", exact: true })
+      .click();
     await page.screenshot({
       path: output + "/" + theme + "-preferences.png",
     });
