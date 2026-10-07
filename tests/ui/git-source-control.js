@@ -61,8 +61,14 @@ await withNativeApp("git-source-control", async ({ page, invoke, output }) => {
     .getByRole("button", { name: "Set up remote", exact: true })
     .waitFor();
   await page.screenshot({ path: output + "/unified-yaml-diff.png" });
-  await exerciseSplit(page, "Source Control sidebar size");
-  await exerciseSplit(page, "Changes and history size");
+  const splits = [
+    await exerciseSplit(page, "Source Control sidebar size"),
+    await exerciseSplit(page, "Changes and history size"),
+  ];
+  await Bun.write(
+    output + "/split-pointer-evidence.json",
+    JSON.stringify(splits, null, 2),
+  );
   assert.equal(
     await page
       .getByRole("separator", { name: "Before and after size", exact: true })
