@@ -209,6 +209,100 @@ pub(crate) fn cleanup(app_data: &Path) -> Result<CleanupReport, String> {
     Ok(report)
 }
 
+/// Explicit Push retirement only. The native receipt supplies identity; renderer
+/// paths are never accepted. Commit the no-resubmission tombstone under the
+/// exclusive worker lease BEFORE deleting anything. Partial removal retains it.
+pub(crate) fn reclaim_push(
+    app_data: &Path,
+    name: &str,
+    expected_owner: &[u8],
+    operation_id: &str,
+    already_retired: bool,
+    before_delete: impl FnOnce() -> Result<(), String>,
+) -> Result<(), String> {
+    if !name.starts_with("fetch-") || !valid_name(name) {
+        return Err("Invalid Push cleanup stage identity.".into());
+    }
+    crate::git_remote_job::StageReservation::validate_marker(expected_owner)?;
+    let directory = app_data.join("git-fetch-v1").join(name);
+    crate::git_remote::validate_stage_parent(&directory.join("repository"))?;
+    match fs::symlink_metadata(&directory) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound && already_retired => {
+            return before_delete();
+        }
+        Ok(_) => {}
+        Err(_) => return Err("Missing Push snapshot; keep tracking for inspection.".into()),
+    }
+    if !plain_metadata(&directory)?.is_dir() {
+        return Err("Push snapshot container changed; retain material.".into());
+    }
+    let lease_path = directory.join(".insomnium-fetch-lease");
+    let metadata = plain_metadata(&lease_path)?;
+    if !metadata.is_file() || metadata.len() != 0 {
+        return Err("Invalid Push cleanup lease; retain material.".into());
+    }
+    let lease = fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(&lease_path)
+        .map_err(|_| "Cannot open Push cleanup lease.")?;
+    lease
+        .try_lock()
+        .map_err(|_| "Push snapshot is active or cannot be leased; Inspect later.")?;
+    let marker_path = directory.join(".insomnium-push-snapshot");
+    let verify = || -> Result<(), String> {
+        if owner(&directory.join(".insomnium-fetch-owner"))? != expected_owner {
+            return Err("Push snapshot ownership changed; retain material.".into());
+        }
+        let metadata = plain_metadata(&marker_path)?;
+        if !metadata.is_file() || metadata.len() != 36 {
+            return Err("Push snapshot operation marker changed; retain material.".into());
+        }
+        let mut actual = Vec::new();
+        fs::File::open(&marker_path)
+            .map_err(|_| "Cannot open Push snapshot marker.")?
+            .take(37)
+            .read_to_end(&mut actual)
+            .map_err(|_| "Cannot read Push snapshot marker.")?;
+        if actual != operation_id.as_bytes() {
+            return Err("Push snapshot belongs to another operation; retain material.".into());
+        }
+        Ok(())
+    };
+    verify()?;
+    for entry in fs::read_dir(&directory).map_err(|_| "Cannot inspect Push snapshot container.")? {
+        let name = entry
+            .map_err(|_| "Cannot inspect Push snapshot entry.")?
+            .file_name();
+        if name != ".insomnium-fetch-owner"
+            && name != ".insomnium-fetch-lease"
+            && name != ".insomnium-push-snapshot"
+            && name != "repository"
+        {
+            return Err("Unexpected Push snapshot material; retain directory.".into());
+        }
+    }
+    plain_tree(&directory, &mut 200_000)?;
+    verify()?;
+    before_delete()?;
+    verify()?;
+    // The fixed native path/ancestry and entire bounded tree have been checked.
+    // Keep the lease open until removal finishes; no cooperative worker enters.
+    let repository = directory.join("repository");
+    match fs::symlink_metadata(&repository) {
+        Ok(_) => fs::remove_dir_all(&repository).map_err(|_| "Push retirement recorded, but payload cleanup is incomplete. Inspect and retry cleanup.")?,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(_) => return Err("Cannot inspect retired Push payload; retain material.".into()),
+    }
+    // Retain owner/operation markers until the payload has been removed.
+    verify()?;
+    fs::remove_dir_all(&directory).map_err(|_| {
+        "Push retirement recorded, but snapshot cleanup is incomplete. Inspect and retry cleanup."
+    })?;
+    drop(lease);
+    Ok(())
+}
+
 /// Explicit maintenance only; publication/checkout/workspace contents are untouched.
 #[tauri::command]
 pub async fn git_remote_cleanup_staging(

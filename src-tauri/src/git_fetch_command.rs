@@ -64,7 +64,7 @@ fn admit(
     git_remote::RemoteAdvertisementInput::from_saved_binding(binding)
 }
 
-fn destination(directory: &Path, repository_id: &str) -> Result<git2::Repository, String> {
+pub(crate) fn destination(directory: &Path, repository_id: &str) -> Result<git2::Repository, String> {
     let repository = recovery_destination(directory, repository_id)?;
     git_fetch_journal::ensure_ready(&repository)?;
     Ok(repository)

@@ -2,6 +2,8 @@
 use git2::{Cred, CredentialType, Direction, Remote, RemoteCallbacks};
 use serde::{Deserialize, Serialize};
 
+pub(crate) mod push;
+
 #[derive(Default, Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum RemoteCredentials {

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-git-remote-push-retire"
+description = "Enables the git_remote_push_retire command without any pre-configured scope."
+commands.allow = ["git_remote_push_retire"]
+
+[[permission]]
+identifier = "deny-git-remote-push-retire"
+description = "Denies the git_remote_push_retire command without any pre-configured scope."
+commands.deny = ["git_remote_push_retire"]

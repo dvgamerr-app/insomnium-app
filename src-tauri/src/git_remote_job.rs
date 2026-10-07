@@ -16,6 +16,7 @@ use std::{
 
 const WORKER_ARG: &str = "--insomnium-git-advertisement-worker-v1";
 const FETCH_WORKER_ARG: &str = "--insomnium-git-fetch-stage-worker-v1";
+const PUSH_WORKER_ARG: &str = "--insomnium-git-push-stage-worker-v1";
 const MAX_INPUT: u64 = 65536;
 const MAX_OUTPUT: u64 = 32 * 1024 * 1024;
 const TIMEOUT: Duration = Duration::from_secs(30);
@@ -79,6 +80,14 @@ fn prune(jobs: &mut HashMap<String, Job>) {
     jobs.retain(|_, job| job.running || job.touched.elapsed() < Duration::from_secs(60));
 }
 impl RemoteJobState {
+    pub(crate) fn ensure_idle(&self, id: &str) -> Result<(), String> {
+        let id = key(id)?;
+        let jobs = self.0.lock().map_err(|_| "Remote job lock failed.")?;
+        if jobs.get(&id).is_some_and(|job| job.running) {
+            return Err("Push is still running. Wait for it to settle before Inspect.".into());
+        }
+        Ok(())
+    }
     pub(crate) fn reserve(&self, id: &str) -> Result<Reservation, String> {
         let id = key(id)?;
         let mut jobs = self.0.lock().map_err(|_| "Remote job lock failed.")?;
@@ -180,7 +189,7 @@ pub(crate) struct StageReservation {
     _lease: std::fs::File,
 }
 impl StageReservation {
-    fn create(directory: &std::path::Path) -> Result<Self, String> {
+    pub(crate) fn create(directory: &std::path::Path) -> Result<Self, String> {
         crate::git_remote::validate_stage_parent(directory)?;
         std::fs::create_dir(directory)
             .map_err(|_| "Cannot reserve fresh Git staging directory.")?;
@@ -299,7 +308,33 @@ impl StageReservation {
         Ok(())
     }
 
-    fn validate_marker(bytes: &[u8]) -> Result<(), String> {
+    /// Outgoing transport reuses the native lease and exact ownership checks.
+    /// It never opens the managed repository or acquires a recovery lease.
+    fn worker_snapshot(repository: &std::path::Path) -> Result<Self, String> {
+        let lease = Self::worker_lease(repository)?;
+        let directory = repository
+            .parent()
+            .ok_or("Missing outgoing staging container.")?;
+        if repository != directory.join("repository") {
+            return Err("Outgoing transport requires the native staging repository.".into());
+        }
+        let mut marker = Vec::new();
+        std::fs::File::open(directory.join(".insomnium-fetch-owner"))
+            .map_err(|_| "Cannot reopen outgoing staging owner.")?
+            .take(257)
+            .read_to_end(&mut marker)
+            .map_err(|_| "Cannot read outgoing staging owner.")?;
+        Self::validate_marker(&marker)?;
+        let stage = Self {
+            directory: directory.to_owned(),
+            marker,
+            _lease: lease,
+        };
+        stage.repository_path()?;
+        Ok(stage)
+    }
+
+    pub(crate) fn validate_marker(bytes: &[u8]) -> Result<(), String> {
         if bytes.len() > 256 {
             return Err("Git staging ownership record exceeds size limit.".into());
         }
@@ -329,6 +364,68 @@ impl StageReservation {
         // Check the repository itself, not just its container.
         crate::git_remote::validate_stage_parent(&repository.join("objects"))?;
         Ok(repository)
+    }
+
+    pub(crate) fn initialize_outgoing(
+        &self,
+        branch: &str,
+        operation: &str,
+    ) -> Result<git2::Repository, String> {
+        self.verify_owner()?;
+        crate::git::branch_reference(branch)?;
+        if uuid::Uuid::parse_str(operation)
+            .map(|id| id.to_string())
+            .ok()
+            .as_deref()
+            != Some(operation)
+        {
+            return Err("Invalid outgoing operation identity.".into());
+        }
+        // The generic idle Fetch cleaner refuses unexpected top-level entries.
+        // This marker keeps submitted Push snapshots retained for inspection.
+        let mut marker = std::fs::File::create_new(self.directory.join(".insomnium-push-snapshot"))
+            .map_err(|_| "Cannot reserve outgoing snapshot marker.".to_owned())?;
+        marker
+            .write_all(operation.as_bytes())
+            .and_then(|_| marker.sync_all())
+            .map_err(|_| "Cannot persist outgoing snapshot marker.".to_owned())?;
+        let repository = self.directory.join("repository");
+        match std::fs::symlink_metadata(&repository) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            _ => return Err("Outgoing snapshot destination already exists; retain stage.".into()),
+        }
+        let mut options = git2::RepositoryInitOptions::new();
+        options
+            .bare(true)
+            .no_reinit(true)
+            .external_template(false)
+            .initial_head(branch);
+        let result = git2::Repository::init_opts(&repository, &options)
+            .map_err(|_| "Cannot initialize outgoing snapshot.".to_owned())?;
+        self.repository_path()?;
+        Ok(result)
+    }
+
+    pub(crate) fn verify_outgoing(&self, operation: &str) -> Result<(), String> {
+        self.verify_owner()?;
+        let path = self.directory.join(".insomnium-push-snapshot");
+        crate::git::reject_link(&path)?;
+        let metadata =
+            std::fs::symlink_metadata(&path).map_err(|_| "Missing outgoing snapshot marker.")?;
+        if !metadata.is_file() || metadata.len() != operation.len() as u64 || operation.len() != 36
+        {
+            return Err("Outgoing snapshot marker changed.".into());
+        }
+        let mut bytes = Vec::new();
+        std::fs::File::open(&path)
+            .map_err(|_| "Cannot open outgoing snapshot marker.")?
+            .take(37)
+            .read_to_end(&mut bytes)
+            .map_err(|_| "Cannot read outgoing snapshot marker.")?;
+        if bytes != operation.as_bytes() {
+            return Err("Outgoing snapshot operation changed.".into());
+        }
+        Ok(())
     }
 
     /// Open only the validated owned ODB; no staging/global Git config or refs.
@@ -737,6 +834,44 @@ fn run_worker_inner(
         WorkerInput::Fetch(input) => (serde_json::to_vec(&input), FETCH_WORKER_ARG, FETCH_TIMEOUT),
     };
     let payload = payload.map_err(|_| "Invalid remote input.")?;
+    run_native_worker(
+        payload,
+        argument,
+        maximum_timeout,
+        cancelled,
+        timeout,
+        cleanup_safe,
+    )
+}
+
+pub(crate) fn run_push_worker(
+    input: crate::git_remote::push::PushWorkerInput,
+    cancelled: Arc<AtomicBool>,
+) -> Result<crate::git_remote::push::PushWorkerResult, String> {
+    let payload = serde_json::to_vec(&input).map_err(|_| "Invalid Push worker input.")?;
+    // Outgoing stage is retained regardless of outcome; caller owns its lease.
+    let mut reaped = true;
+    run_native_worker(
+        payload,
+        PUSH_WORKER_ARG,
+        FETCH_TIMEOUT,
+        cancelled,
+        FETCH_TIMEOUT,
+        &mut reaped,
+    )
+}
+
+fn run_native_worker<T: serde::de::DeserializeOwned>(
+    payload: Vec<u8>,
+    argument: &str,
+    maximum_timeout: Duration,
+    cancelled: Arc<AtomicBool>,
+    timeout: Duration,
+    cleanup_safe: &mut bool,
+) -> Result<T, String> {
+    if cancelled.load(Ordering::SeqCst) {
+        return Err("Git remote request cancelled.".into());
+    }
     let timeout = timeout.min(maximum_timeout);
     if payload.len() as u64 > MAX_INPUT {
         return Err("Remote request exceeds input limit.".into());
@@ -813,7 +948,7 @@ fn run_worker_inner(
     if output.len() as u64 > MAX_OUTPUT {
         return Err("Remote response exceeds output limit.".into());
     }
-    serde_json::from_slice::<Result<RemoteAdvertisement, String>>(&output)
+    serde_json::from_slice::<Result<T, String>>(&output)
         .map_err(|_| "Invalid native remote result.".to_owned())?
 }
 
@@ -821,12 +956,17 @@ fn run_worker_inner(
 pub(crate) fn worker_entry() -> bool {
     let argument = std::env::args_os().nth(1);
     let fetch = argument.as_deref() == Some(std::ffi::OsStr::new(FETCH_WORKER_ARG));
-    if !fetch && argument.as_deref() != Some(std::ffi::OsStr::new(WORKER_ARG)) {
+    let push = argument.as_deref() == Some(std::ffi::OsStr::new(PUSH_WORKER_ARG));
+    if !fetch && !push && argument.as_deref() != Some(std::ffi::OsStr::new(WORKER_ARG)) {
         return false;
     }
     // Also bounds an orphaned worker after abrupt parent exit or blocked stdin.
     std::thread::spawn(move || {
-        let limit = if fetch { FETCH_TIMEOUT } else { TIMEOUT };
+        let limit = if fetch || push {
+            FETCH_TIMEOUT
+        } else {
+            TIMEOUT
+        };
         std::thread::sleep(limit + Duration::from_secs(5));
         std::process::exit(124);
     });
@@ -839,16 +979,22 @@ pub(crate) fn worker_entry() -> bool {
         if bytes.len() as u64 > MAX_INPUT {
             return Err("Remote request exceeds input limit.".into());
         }
-        if fetch {
+        let value = if push {
+            let input: crate::git_remote::push::PushWorkerInput = serde_json::from_slice(&bytes)
+                .map_err(|_| "Invalid native Push input.".to_owned())?;
+            let stage = StageReservation::worker_snapshot(&input.directory)?;
+            serde_json::to_value(crate::git_remote::push::push(input, &stage)?)
+        } else if fetch {
             let input: StagedFetchInput = serde_json::from_slice(&bytes)
                 .map_err(|_| "Invalid native fetch input.".to_owned())?;
             let _lease = StageReservation::worker_lease(&input.directory)?;
-            fetch_stage(input)
+            serde_json::to_value(fetch_stage(input)?)
         } else {
             let input = serde_json::from_slice(&bytes)
                 .map_err(|_| "Invalid native remote input.".to_owned())?;
-            advertise(input)
-        }
+            serde_json::to_value(advertise(input)?)
+        };
+        value.map_err(|_| "Cannot encode native remote response.".to_owned())
     })();
     if let Ok(bytes) = serde_json::to_vec(&result) {
         let _ = std::io::stdout().write_all(&bytes);

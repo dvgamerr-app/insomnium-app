@@ -18,6 +18,7 @@ mod git_ref_lock;
 mod git_remote;
 mod git_remote_checkout;
 mod git_remote_job;
+mod git_push;
 mod grpc;
 mod grpc_example;
 mod grpc_legacy;
@@ -99,6 +100,9 @@ pub fn run() {
             storage::save_workspace,
             git_remote_job::git_remote_advertise,
             git_fetch_command::git_remote_fetch,
+            git_push::git_remote_push,
+            git_push::git_remote_push_inspect,
+            git_push::git_remote_push_retire,
             git_fetch_cleanup::git_remote_cleanup_staging,
             git_fetch_command::git_remote_fetch_inspect,
             git_fetch_command::git_remote_fetch_recovery_status,
