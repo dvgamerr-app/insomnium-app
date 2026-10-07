@@ -32,7 +32,9 @@ export function createGitMerge(options) {
         gitConflicts: structuredClone(prepared.candidate.conflicts),
         conflictContents: structuredClone(prepared.candidate.conflictContents),
         workingConflicts: structuredClone(prepared.plan?.conflicts || []),
-        changes: structuredClone(prepared.plan?.changes || []),
+        changes: structuredClone((prepared.plan?.changes || []).map((/** @type {any} */ change) => ({ ...change,
+          name: after?.resources.find((/** @type {any} */ resource) => resource._id === change.id)?.name ||
+            before.resources.find((/** @type {any} */ resource) => resource._id === change.id)?.name || change.id }))),
       });
       reviews.set(handle, { before, after, prepared, input: captured });
       return handle;

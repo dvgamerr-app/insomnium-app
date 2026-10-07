@@ -5,6 +5,7 @@
   import Field from "./ui/Field.svelte";
   import Select from "./ui/Select.svelte";
   import Textarea from "./ui/Textarea.svelte";
+  import UnifiedDiff from "./ui/UnifiedDiff.svelte";
   /** @type {{review:any,busy:boolean,oncancel:()=>void,onconfirm:()=>void,onresolve:(choices:any)=>void}} */
   let { review, busy, oncancel, onconfirm, onresolve } = $props();
   // Bindable controls with fallback values reject an undefined parent value.
@@ -29,6 +30,13 @@
   function content(entry) { return review.conflictContents.find((/** @type {any} */ item) => item.oid === entry.oid); }
   /** @param {number} mode */
   function modeName(mode) { return mode === 0o100755 ? "Executable file" : mode === 0o120000 ? "Symbolic link" : mode === 0o160000 ? "Submodule" : "File"; }
+  /** @param {string} reason */
+  function reasonName(reason) {
+    return ({ "local-and-incoming-changed":"Local edits and merged revision both changed this resource",
+      "foreign-resource-id":"Resource belongs to another collection", "resource-type-changed":"Resource type changed",
+      "protected-local-resource":"Resource is protected locally", "parent-conflict":"Resource parent would be missing or invalid",
+      "invalid-merged-collection":"Merged collection structure is invalid" })[reason] || "Resource requires review";
+  }
   function resolve() {
     onresolve({ gitResolutions: review.gitConflicts.map((/** @type {any} */ conflict, /** @type {number} */ i) => ({
       conflict, choice: gitChoices[i],
@@ -88,7 +96,25 @@
       </Field>{/if}
     {/each}
     {#each review.workingConflicts as conflict (conflict.id)}
-      <Field>{conflict.id} · {conflict.reason}
+      <section aria-label={`Working conflict ${conflict.id}`}>
+      <h3>{conflict.name}</h3>
+      <p class="hint">{reasonName(conflict.reason)}</p>
+      {#if conflict.preview}
+        {#each [["local", "Base → local edits"], ["incoming", "Base → merged revision"]] as [side,label]}
+          <details>
+            <summary>{label}</summary>
+            {#if !conflict.preview.base.present}<p class="hint">Not present in the base revision.</p>{/if}
+            {#if !conflict.preview[side].present}<p class="hint">{side === "local" ? "Deleted locally." : "Deleted in the merged revision."}</p>{/if}
+            {#if conflict.preview.base.omitted || conflict.preview[side].omitted}
+              <p>Diff preview omitted because it exceeds the review size limit. The resolution uses the complete resource.</p>
+            {:else}
+              <UnifiedDiff identity={`merge-${review.sourceOid}-${conflict.id}-${side}`}
+                before={conflict.preview.base.content} after={conflict.preview[side].content} />
+            {/if}
+          </details>
+        {/each}
+      {/if}
+      <Field>Resolution for {conflict.name}
         {#if conflict.reason === "local-and-incoming-changed"}
           <Select aria-label={`Working conflict choice ${conflict.id}`} bind:value={workingChoices[conflict.id]} disabled={busy}>
             <option value="">Choose resolution</option><option value="local">Keep local edits</option>
@@ -96,10 +122,11 @@
           </Select>
         {:else}<p>Resolve the protected resource or collection structure before reviewing again.</p>{/if}
       </Field>
+      </section>
     {/each}
   {:else}
     <p>{review.changes.length} collection changes. Other local edits are preserved.</p>
-    <ul>{#each review.changes as change (change.id)}<li>{change.kind} · {change.id}</li>{/each}</ul>
+    <ul>{#each review.changes as change (change.id)}<li title={change.id}>{change.kind} · {change.name}</li>{/each}</ul>
   {/if}
   <div class="resource-tools">
     <Button disabled={busy} onclick={oncancel}>Cancel merge</Button>

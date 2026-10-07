@@ -22,8 +22,12 @@ function fixture(options = {}) {
   const root = { _id: "wrk_contract", _type: "workspace", parentId: null, name: "Merge contract", scope: "collection" };
   const request = { _id: "req_contract", _type: "request", parentId: root._id, name: "Request", url: "https://example.invalid/base", method: "GET" };
   const base = /** @type {Record<string,any>[]} */ ([root, request]);
+  if (options.workingBudget) for (let i = 0; i < 8; i++) base.push({ ...request,
+    _id:"req_budget_" + i, description:"x".repeat(120*1024) });
   const next = structuredClone(base);
   next[1].url = "https://example.invalid/incoming";
+  if (options.workingBudget) for (const row of next) if (row._id.startsWith("req_budget_")) row.url = "https://example.invalid/incoming";
+  if (options.protectedIncoming) next.push({...structuredClone(request), _id:"req_private"});
   let data = /** @type {any} */ ({ resources: [...structuredClone(base),
     { _id: "git_contract", _type: "git_repository", parentId: root._id, nativeBindingVersion: 1, nativeRepositoryId: "git_contract" },
     { _id: "req_private", _type: "request", parentId: root._id, name: "Private", isPrivate: true, url: "https://example.invalid/private" },
@@ -31,6 +35,10 @@ function fixture(options = {}) {
     activeWorkspaceId: root._id, activeRequestId: request._id, activeEnvironmentId: "", openTabs: [request._id],
     history: [{ id: "retained-history" }], settings: { theme: "dark" } });
   if (options.localEdit) data.resources[1].url = "https://example.invalid/local";
+  if (options.localEdit) data.resources[1]._curlSource = "Local import sentinel";
+  if (options.largeLocal) data.resources[1].description = "x".repeat(256*1024+1);
+  if (options.deleteLocal) data.resources = data.resources.filter((/** @type {any} */ row) => row._id !== request._id);
+  if (options.workingBudget) for (const row of data.resources) if (row._id.startsWith("req_budget_")) row.url = "https://example.invalid/local";
   let durable = structuredClone(data);
   /** @type {string[]} */ const calls = [];
   let locked = false;
@@ -92,13 +100,55 @@ button.onclick = async () => {
     checks.push("cancel-and-full-workspace-stale-review-no-save-or-submit");
     x = fixture({ localEdit: true }); review = await x.review();
     check(review.workingConflicts.length === 1, "Working conflict missing");
+    const workingRow = review.workingConflicts[0];
+    if (!("preview" in workingRow)) throw new Error("Working conflict preview missing");
+    check(workingRow.name === "Request", "Readable resource name missing");
+    check(!!workingRow.preview.base.content?.includes("https://example.invalid/base"), "Base preview missing");
+    check(!!workingRow.preview.local.content?.includes("https://example.invalid/local"), "Local preview missing");
+    check(!!workingRow.preview.incoming.content?.includes("https://example.invalid/incoming"), "Incoming preview missing");
+    check(!JSON.stringify(review.workingConflicts).includes("https://example.invalid/private"), "Private content leaked into display");
+    check(!JSON.stringify(review.workingConflicts).includes("Local import sentinel"), "Local import metadata leaked into display");
+    workingRow.preview.local.content = "Detached display tampering";
     review = await x.coordinator.resolve(review, { workspaceResolutions: [{ id: "req_contract", choice: "local" }] });
     await x.coordinator.confirm(review);
     check(x.data().resources[1].url.endsWith("/local"), "Local conflict choice lost");
+    check(x.data().resources[1]._curlSource === "Local import sentinel", "Local metadata lost");
     x = fixture({ localEdit: true }); review = await x.review();
     review = await x.coordinator.resolve(review, { workspaceResolutions: [{ id: "req_contract", choice: "incoming" }] });
     await x.coordinator.confirm(review);
     check(x.data().resources[1].url.endsWith("/incoming"), "Incoming conflict choice lost");
+    check(x.data().resources[1]._curlSource === "Local import sentinel", "Incoming choice lost local metadata");
+    x = fixture({largeLocal:true}); review = await x.review();
+    const largeRow = review.workingConflicts[0];
+    if (!("preview" in largeRow)) throw new Error("Large conflict missing");
+    check(largeRow.preview.local.present && largeRow.preview.local.omitted && largeRow.preview.local.content === null, "Oversized side not bounded");
+    review = await x.coordinator.resolve(review, {workspaceResolutions:[{id:"req_contract",choice:"local"}]});
+    await x.coordinator.confirm(review);
+    check(x.data().resources[1].description.length === 256*1024+1, "Bounded preview truncated full chosen resource");
+    x = fixture({workingBudget:true}); review = await x.review();
+    let previewBytes = 0, omittedSides = 0;
+    check(review.workingConflicts.length === 8, "Aggregate conflict fixture missing");
+    for (const row of review.workingConflicts) {
+      if (!("preview" in row)) throw new Error("Aggregate preview missing");
+      for (const side of Object.values(row.preview)) {
+        if (side.content !== null) previewBytes += new TextEncoder().encode(side.content).length;
+        if (side.omitted) omittedSides++;
+      }
+    }
+    check(previewBytes <= 2*1024*1024 && omittedSides > 0, "Aggregate preview budget not enforced");
+    check(!x.calls.includes("save"), "Bounded preview persisted data");
+    x.coordinator.cancel(review);
+    x = fixture({protectedIncoming:true}); review = await x.review();
+    const protectedRow = review.workingConflicts.find(row => row.id === "req_private");
+    check(!!protectedRow && !("preview" in protectedRow), "Protected resource preview exposed");
+    x.coordinator.cancel(review);
+    x = fixture({deleteLocal:true}); review = await x.review();
+    const deletedRow = review.workingConflicts[0];
+    if (!("preview" in deletedRow)) throw new Error("Deleted conflict missing");
+    check(!deletedRow.preview.local.present && deletedRow.preview.local.content === null, "Absent side not represented");
+    review = await x.coordinator.resolve(review, {workspaceResolutions:[{id:"req_contract",choice:"local"}]});
+    await x.coordinator.confirm(review);
+    check(!x.data().resources.some((/** @type {any} */ row) => row._id === "req_contract"), "Local deletion not preserved");
     checks.push("explicit-working-resource-local-and-incoming-resolution");
     x = fixture({ localEdit: true }); review = await x.review();
     await rejects(() => x.coordinator.resolve(review, { workspaceResolutions: [{ id: "req_private", choice: "incoming" }] }), /cannot be resolved/);

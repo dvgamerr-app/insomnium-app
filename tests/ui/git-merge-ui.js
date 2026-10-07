@@ -37,6 +37,20 @@ await withNativeApp("git-merge-ui", async (context) => {
   await start();
   const choice = page.getByLabel("Working conflict choice " + x.f.requestId, { exact: true });
   await choice.waitFor();
+  const working = review.getByRole("region", {name:"Working conflict " + x.f.requestId,exact:true});
+  await working.getByRole("heading", {name:"Preserved local request",exact:true}).waitFor();
+  await working.getByText("Base → local edits", {exact:true}).click();
+  await working.getByText("Base → merged revision", {exact:true}).click();
+  const diffs = working.getByRole("region", {name:"Unified changes",exact:true});
+  for (const [i,url] of [[0,"local-edit"],[1,"advance-writer"]]) {
+    const editor = diffs.nth(Number(i)).locator(".CodeMirror");
+    await editor.waitFor();
+    const text = await editor.evaluate(element => /** @type {any} */ (element).CodeMirror.getValue());
+    assert.ok(text.includes("https://example.invalid/baseline"));
+    assert.ok(text.includes("https://example.invalid/" + url));
+    assert.ok(await diffs.nth(Number(i)).locator(".diff-line-added").count());
+    assert.ok(await diffs.nth(Number(i)).locator(".diff-line-deleted").count());
+  }
   assert.equal(await review.getByRole("button", { name: "Review resolutions", exact: true }).isDisabled(), true);
   assert.deepEqual(await readFile(x.workspace), bytes);
   assert.equal(await fixtureGit(x.repo, ["rev-parse", "refs/heads/main"]), x.f.oid);
@@ -46,6 +60,22 @@ await withNativeApp("git-merge-ui", async (context) => {
   assert.deepEqual(await readFile(x.workspace), bytes);
   await assertAdvanceCleanup(x);
   checks.push("mounted-working-conflict-review-and-cancel-no-data-or-ref-write");
+  await start();
+  await choice.selectOption("local");
+  await review.getByRole("button", {name:"Review resolutions",exact:true}).click();
+  await review.getByRole("button", {name:"Apply merge",exact:true}).waitFor();
+  assert.deepEqual(await readFile(x.workspace), bytes);
+  await review.getByRole("button", {name:"Apply merge",exact:true}).click();
+  await review.waitFor({state:"hidden"});
+  await panel.getByRole("status").filter({hasText:"Merged into main"}).waitFor();
+  assert.deepEqual(await invoke("load_workspace"), x.before);
+  assert.equal(await fixtureGit(x.repo, ["rev-parse", "refs/heads/main"]), x.newOid);
+  await assertAdvanceCleanup(x);
+  checks.push("mounted-working-local-choice-keeps-exact-workspace-while-advancing-reviewed-ref");
+  // Independent incoming-choice case: rewind only this uniquely owned fixture's
+  // exact ref. This is test setup, never an application rollback or recovery.
+  await fixtureGit(x.repo, ["update-ref", "refs/heads/main", x.f.oid, x.newOid]);
+  await panel.getByRole("button", {name:"Reload changes",exact:true}).click();
   await start();
   await choice.selectOption("incoming");
   await review.getByRole("button", { name: "Review resolutions", exact: true }).click();
@@ -117,5 +147,5 @@ await withNativeApp("git-merge-ui", async (context) => {
   assert.deepEqual(errors, []);
   await page.screenshot({ path: join(output, "merged-source-control.png") });
   await Bun.write(join(output, "acceptance.json"), JSON.stringify({ passed: true, checks,
-    scope: "Mounted production local-branch fast-forward/working incoming conflict and divergent text preview/custom executable merge; no network/binary UI/recovery/drain/platform acceptance." }, null, 2));
+    scope: "Mounted local-branch fast-forward/base-local-incoming YAML diffs/both working choices and divergent text/custom executable merge. Exact owned fixture rewind separates choices; no network/binary UI/recovery/drain/platform acceptance." }, null, 2));
 });

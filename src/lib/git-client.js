@@ -1,5 +1,6 @@
 import { planGitCollectionUpdate } from "./git-reconcile.js";
 import { validateMergeConflictContents } from "./git-merge-preview.js";
+import { workingConflictPreviews } from "./git-merge-working-preview.js";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { id } from "./model.js";
 import { snapshotGitCollection } from "./git-collection.js";
@@ -396,6 +397,8 @@ export function createGitClient({ call = nativeCall } = {}) {
         throw new Error("Merge candidate revision does not match.");
       plan = planGitCollectionUpdate(JSON.parse(captured), saved.workspaceId, saved.baseFiles, committed.files,
         { resolutions: request.workspaceResolutions || [] });
+      plan = { ...plan, conflicts: workingConflictPreviews(JSON.parse(captured), saved.workspaceId,
+        saved.baseFiles, committed.files, plan.conflicts) };
     }
     const fresh = await call("git_repository_info", { repositoryId: saved.repositoryId });
     if (fresh.branch !== saved.info.branch || fresh.headOid !== saved.info.headOid ||
