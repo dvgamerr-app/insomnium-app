@@ -37,6 +37,15 @@
 }
 .ui-field-inline .ui-checkbox {
   margin: 0;
+  flex-shrink: 0;
+}
+
+.ui-field-inline[data-ui-align="start"] {
+  align-items: flex-start;
+}
+
+.ui-field-inline[data-ui-align="start"] .ui-checkbox {
+  margin-block-start: var(--space-3);
 }
 
 .ui-field > label {

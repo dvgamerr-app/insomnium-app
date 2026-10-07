@@ -1,5 +1,16 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Shared hint density and wrapped choice contracts — 2026-10-07
+
+- Shared Feedback supports compact density and semantic list items; Field supports first-line alignment for wrapped inline checkbox choices, with nonshrinking checkbox dimensions. Added contract documentation and expanded the existing design-system fixture/scenario. Theme is applied before each geometry/density assertion; both dark/light checks pass. Current bun run check reports0 errors/0 warnings; frontend build and saved theme/workspace regressions previously passed with these application changes.
+- This is the shared-controls topic commit. Protocol/recovery consumer adoption remains a separate topic pending fresh native acceptance on the live native-protocol-controls-probe build. Full migration remains open.
+
+## Protocol hint and recovery alignment consolidation in progress — 2026-10-07
+
+- Native baseline hover check passes, so ProtoManager's prior surface override is not claimed as a reproduced hover defect. Expanded saved native-theme scenario instead reproduces the actual tree-name layout bug (flexGrow0 rather than1): artifacts/playwright/nocturne-native-theme-1791349337654; owned app exit0. Reached shared Button through the scoped tree selector and removed redundant background/border overrides; hints now use shared Feedback compact density while preserving 1.5 line height and domain margins.
+- Field now supports inline align=start for wrapped checkbox choices. GitRecovery uses that contract instead of feature-owned checkbox sizing/margins; feature row gap/top margin remain layout. Shared design-system scenario passes first-line alignment and unsqueezed checkbox dimensions plus normal/compact feedback, in both themes. Check0 errors/0 warnings, frontend build and theme/workspace regressions pass. Fresh native-protocol-controls-probe build is live at artifacts/native-protocol-controls-probe/build-state.json (exec session7285); native acceptance pending, continue the same build.
+- Official CSS specificity and Svelte props docs consulted before edits: https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Cascade/Specificity and https://svelte.dev/docs/svelte/$props. Existing components extended; no generator/dependency required. Full CSS debt and migration remain open. After this bounded consolidation, the migration priority is connecting the existing selected Git restore coordinator to workspace/review UI and real native acceptance; current GitPanel/workspace have no restore caller.
+
 ## Saved Collection runner lifecycle acceptance — 2026-10-07
 
 - Added the missing reusable runner-lifecycle.js scenario using existing shared native/collection helpers and a held loopback HTTP server. Native success proves direct/detached/delegated callbacks (three wire sends), full-suite 2pass/1fail, exact single-test result identity/count, persisted reload, Stop→server connection close without new result/history, and a successful fresh run after Stop (four successful sends total). Both themes at1440/900/760 show no workspace overflow; dark760 screenshot inspected.

@@ -3,6 +3,7 @@
   import Checkbox from "../../../src/lib/components/ui/Checkbox.svelte";
   import DialogShell from "../../../src/lib/components/ui/DialogShell.svelte";
   import Field from "../../../src/lib/components/ui/Field.svelte";
+  import Feedback from "../../../src/lib/components/ui/Feedback.svelte";
   import FilePicker from "../../../src/lib/components/ui/FilePicker.svelte";
   import Input from "../../../src/lib/components/ui/Input.svelte";
   import Select from "../../../src/lib/components/ui/Select.svelte";
@@ -20,7 +21,9 @@
   let number = $state(12);
   let selected = $state("first");
   let activeId = $state("");
-  let orientation = $state(/** @type {'horizontal'|'vertical'} */ ("horizontal"));
+  let orientation = $state(
+    /** @type {'horizontal'|'vertical'} */ ("horizontal"),
+  );
   let fileCount = $state(0);
   let fileName = $state("");
   let dialog = $state(false);
@@ -47,12 +50,25 @@
   <Field label="Contract select"
     ><Select><option>One</option><option>Two</option></Select></Field
   >
+  <Feedback tone="hint" aria-label="Normal feedback">Shared hint</Feedback>
+  <Feedback tone="hint" density="compact" aria-label="Compact feedback"
+    >Compact shared hint</Feedback
+  >
   <Field label="Contract checkbox" layout="inline"
     ><Checkbox bind:checked bind:indeterminate /></Field
   >
   <output aria-label="Checkbox value"
     >{String(checked)} / {String(indeterminate)}</output
   >
+  <div style="max-width:220px">
+    <Field layout="inline" align="start" class="contract-wrapped-choice">
+      <Checkbox aria-label="Wrapped choice" {disabled} />
+      <span
+        >This choice wraps across several lines and keeps its checkbox beside
+        the first line.</span
+      >
+    </Field>
+  </div>
   <output aria-label="Number value"
     >{number === undefined ? "empty" : number}</output
   >

@@ -1,7 +1,7 @@
 <script>
   import { setContext } from "svelte";
   import { FIELD_CONTEXT } from "./field-context.js";
-  /** @type {{id?:string,label?:string,description?:string,error?:string,required?:boolean,disabled?:boolean,readOnly?:boolean,busy?:boolean,layout?:'stacked'|'inline',class?:string,for?:string,children:import('svelte').Snippet}} */
+  /** @type {{id?:string,label?:string,description?:string,error?:string,required?:boolean,disabled?:boolean,readOnly?:boolean,busy?:boolean,layout?:'stacked'|'inline',align?:'center'|'start',class?:string,for?:string,children:import('svelte').Snippet}} */
   let {
     id,
     label,
@@ -12,6 +12,7 @@
     readOnly = false,
     busy = false,
     layout = "stacked",
+    align = "center",
     class: className = "",
     for: forId,
     children,
@@ -54,6 +55,7 @@
 {#if label !== undefined}
   <div
     class={`ui-field ui-field-${layout} ${className}`}
+    data-ui-align={align}
     aria-busy={busy || undefined}
   >
     <label for={controlId}
@@ -66,6 +68,7 @@
   <label
     for={controlId}
     class={`ui-field ui-field-${layout} ${className}`}
+    data-ui-align={align}
     aria-busy={busy || undefined}
   >
     {@render children()}

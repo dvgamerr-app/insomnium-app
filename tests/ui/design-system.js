@@ -157,6 +157,41 @@ await withComponentFixture("design-system", async (page, output) => {
     await page.evaluate((mode) => {
       document.documentElement.dataset.theme = mode;
     }, theme);
+    const normalHint = await page
+      .getByLabel("Normal feedback", { exact: true })
+      .evaluate((el) => getComputedStyle(el).lineHeight);
+    const compactHint = await page
+      .getByLabel("Compact feedback", { exact: true })
+      .evaluate((el) => getComputedStyle(el).lineHeight);
+    assert.ok(
+      parseFloat(compactHint) < parseFloat(normalHint),
+      "shared compact feedback retains denser protocol hints",
+    );
+    const choice = page.getByRole("checkbox", {
+      name: "Wrapped choice",
+      exact: true,
+    });
+    const alignment = await choice.evaluate((el) => {
+      const box = el.getBoundingClientRect();
+      const field = el.closest(".ui-field");
+      const label = field?.querySelector("span")?.getBoundingClientRect();
+      return {
+        width: box.width,
+        top: box.top,
+        labelTop: label?.top,
+        labelHeight: label?.height,
+      };
+    });
+    assert.equal(alignment.width, 13, "long label does not squeeze checkbox");
+    assert.ok(
+      alignment.labelHeight && alignment.labelHeight > 18,
+      "label wraps",
+    );
+    assert.equal(
+      alignment.top - (alignment.labelTop ?? 0),
+      3,
+      "checkbox aligns to first line",
+    );
     const shared = page.getByRole("textbox", {
       name: "Second shared input",
       exact: true,

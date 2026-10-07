@@ -28,6 +28,10 @@
   line-height: 1.7;
 }
 
+.ui-feedback[data-ui-density="compact"] {
+  line-height: 1.5;
+}
+
 .padded {
   padding: var(--space-12) var(--space-18);
 }
