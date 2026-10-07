@@ -2,6 +2,8 @@
 
 ## Selected Git restore
 
+The restore scenario defaults to `artifacts/native-restore-recovery-probe/build-state.json`. Its success-hook helper preserves native execution/replies while acquiring the OS file handle after successful baseline save, so the next real restore replacement fails deterministically. It verifies locked recovery, unchanged authoritative baseline, no recovery write and automatic mounted Source Control session reload followed by another restore. Native source-control/theme regressions use the shared build-state override for this same executable.
+
 On Windows, the saved restore scenario also uses helpers/windows-workspace-lock.js to deny atomic replacement of only the canonical isolated-probe workspace-v1.json. It checks native refusal/exact original bytes/retry and UI baseline-save refusal without a transition, followed by successful retry. The Bun FFI handle/library are released in finally. This covers file sharing, not disk-full/crash or the retained-copy OS picker.
 
 `bun tests/ui/git-restore.js` uses `artifacts/native-restore-ui-probe/build-state.json` or `INSOMNIUM_UI_BUILD_STATE`. Wait for that build to finish successfully. It exercises real native selected restore with review/cancel, modified/deleted/added resources, preserved unselected/protected records, unchanged HEAD, reload and lost-success reply recovery without resubmission. Review captures dark/light at900/760. Run sequentially with other native scenarios on the isolated identity. Actual disk faults and retained-copy OS picker acceptance remain separate.

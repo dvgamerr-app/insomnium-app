@@ -20,7 +20,7 @@
   import { graphRows } from "../git-graph.js";
   import { isTauri } from "@tauri-apps/api/core";
   import GitRemotePanel from "./GitRemotePanel.svelte";
-  import { onMount, onDestroy } from "svelte";
+  import { onDestroy, untrack } from "svelte";
   import {
     workspace,
     setupGit,
@@ -150,8 +150,24 @@
     !activeWork?.signal.aborted &&
     workspace.data.activeWorkspaceId === workspaceId;
   const resources = () => workspace.data.resources;
+  let loadedWorkspaceData = /** @type {Record<string,any>|null} */ (null);
+
+  // Authoritative recovery replaces workspace data while this panel stays mounted.
+  // Wait until persistence/drain release before admitting a new repository load.
+  $effect(() => {
+    const data = workspace.data;
+    const idle = workspace.persistencePhase === "idle" && !workspace.draining;
+    const available = !busy;
+    if (idle && available && isTauri()) {
+      untrack(() => {
+        if (current() && data !== loadedWorkspaceData) void run(load);
+      });
+    }
+  });
 
   async function load() {
+    // Mark even failed loads: errors await explicit Reload rather than a retry loop.
+    loadedWorkspaceData = workspace.data;
     rememberDraft();
     if (session) client.close(session);
     session = null;
@@ -355,9 +371,6 @@
     commits = [...commits, ...result.commits];
     nextOffset = result.nextOffset;
   }
-  onMount(() => {
-    if (isTauri()) void run(load);
-  });
   onDestroy(() => {
     if (restoreReview) cancelGitRestore(restoreReview);
     rememberDraft();

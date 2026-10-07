@@ -4,10 +4,11 @@ import { lockProbeWorkspaceReplacement } from "./helpers/windows-workspace-lock.
 import { withNativeApp, poll } from "./helpers/native-app.js";
 import { gitCollection } from "./helpers/git-fixture.js";
 import { withIpcFailure } from "./helpers/ipc-failure.js";
+import { withIpcSuccessHook } from "./helpers/ipc-success-hook.js";
 import { snapshotGitCollection } from "../../src/lib/git-collection.js";
 
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
-  "artifacts/native-restore-ui-probe/build-state.json";
+  "artifacts/native-restore-recovery-probe/build-state.json";
 
 const fixtureHttp = await heldHttp({ body: "fresh after restore" });
 try {
@@ -206,6 +207,85 @@ try {
       baselineLock.release();
     }
     await restoreRequest.click();
+    await review.waitFor();
+    let transitionLock =
+      /** @type {Awaited<ReturnType<typeof lockProbeWorkspaceReplacement>>|null} */ (
+        null
+      );
+    try {
+      const observation = await withIpcSuccessHook(
+        page,
+        "save_workspace",
+        async () => {
+          transitionLock = await lockProbeWorkspaceReplacement();
+        },
+        async () => {
+          await review
+            .getByRole("button", {
+              name: "Restore selected changes",
+              exact: true,
+            })
+            .click();
+          const recovery = page.getByRole("dialog", {
+            name: "Recover restore",
+            exact: true,
+          });
+          await recovery.waitFor();
+          assert.ok(
+            transitionLock,
+            "Lock was acquired after successful baseline save",
+          );
+          assert.match(
+            await recovery.innerText(),
+            /os error (5|32)|access.*denied|sharing/i,
+          );
+          assert.deepEqual(
+            await Bun.file(transitionLock.path).json(),
+            before,
+            "Failed native replacement retains entire baseline",
+          );
+          await page.keyboard.press("Escape");
+          assert.equal(
+            await recovery.isVisible(),
+            true,
+            "Transition failure keeps recovery locked",
+          );
+          await page.screenshot({
+            path: output + "/native-transition-save-refusal.png",
+          });
+          transitionLock.release();
+          await recovery
+            .getByRole("button", { name: "Retry recovery", exact: true })
+            .click();
+          await recovery.waitFor({ state: "hidden" });
+          assert.deepEqual(
+            (await invoke("load_workspace")).resources,
+            before.resources,
+            "Recovery loads authoritative unchanged baseline",
+          );
+        },
+      );
+      assert.equal(observation.hooks, 1);
+      assert.equal(
+        observation.calls,
+        1,
+        "Only one baseline save, no recovery write",
+      );
+    } finally {
+      transitionLock?.release();
+    }
+    await restoreRequest.waitFor();
+    assert.equal(
+      await panel
+        .getByRole("button", { name: "Resume Git setup", exact: true })
+        .count(),
+      0,
+      "Recovered panel reloads its repository session automatically",
+    );
+    await page.screenshot({
+      path: output + "/source-control-after-recovery.png",
+    });
+    await restoreRequest.click();
     await review
       .getByRole("button", { name: "Restore selected changes", exact: true })
       .click();
@@ -378,6 +458,8 @@ try {
             "read-only review",
             "cancel",
             "actual UI baseline save refusal preserves data and allows retry",
+            "actual native transition save refusal mounts locked recovery",
+            "transition failure recovery loads unchanged baseline without write",
             "selected modify preserves unselected",
             "selected delete/add batch",
             "protected resources",
