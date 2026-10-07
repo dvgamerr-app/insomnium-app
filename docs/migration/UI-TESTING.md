@@ -2,6 +2,24 @@
 
 Owner requires Bun-only reusable Playwright JavaScript scenarios with shared helpers and headless execution. Browser-use and ad-hoc browser automation remain prohibited.
 
+Editor token capabilityf0fae8e: saved `bun tests/ui/nocturne-theme.js` reproduces
+fixed12px editor text ignoring a shared font change, then passes after adoption of
+font-size-12 and editor-popup-shadow. Both themes check original12px/19.2px line
+height and original shadow, override to14px/custom shadow, then restore in finally.
+`bun tests/ui/git-diff.js` passes read-only/syntax/decorations/theme-width contracts.
+Current production native release1791410465778/1791410824138/result0 accepts saved
+GraphQL16 and Source Control13 groups. Final GraphQL1791410899736 also verifies
+actual schema documentation popup radius/shadow/editor-font propagation, restores
+tokens and rehovers for a popup-element screenshot before type navigation/cleanup.
+Final result/acceptance records and screenshot inspected; all exact tools terminal0.
+This closes these editor metrics only, not every editor/debt/domain/platform gate.
+Sources consulted before implementation:
+https://www.w3.org/TR/css-variables-1/#using-variables and
+https://svelte.dev/docs/svelte/scoped-styles. Commands: bun run check/build,
+bun tests/ui/build-recovery-copy-probe.js, and the saved scenarios above with
+INSOMNIUM_UI_BUILD_STATE=artifacts/native-recovery-copy-probe/build-state.json
+for native scenarios. No browser-use/Node/npm/Python invoked.
+
 Multipart/CSS ownership capabilityb909b48: existing static nocturne-theme checks actual part options inline/stacked Field layout, original margins, spacing token propagation and keyboard filename override in both themes; native curl-import-multipart adds same real product file-field layout before unchanged exact byte/MIME/filename Send/reload checks. Existing gRPC theme checks message font token propagation with actual streaming; Runner lifecycle covers duplicate-style cleanup. Fresh release1791408489150/1791408847193/result0/hash16841563805098405804: native gRPC1791408872899/Runner1791408889289/multipart1791408900329/theme1791408908299 all pass/exits0, exact native66729 terminal0. Static38138 terminal0/check0 errors0 warnings. Full debt/workflow/migration gates remain; current evidence and handoff in STATUS. References: [CSS variables](https://www.w3.org/TR/css-variables-1/#using-variables), [Svelte scoped styles](https://svelte.dev/docs/svelte/scoped-styles).
 
 Field required capability820aee4: rerun `bun tests/ui/design-system.js` for5 native required controls, missing-value submission refusal, complete and optional-empty submission, reactive required-again, explicit false override and FilePicker error association alongside existing component contracts. `bun tests/ui/nocturne-theme.js` passes dark/light1440/900/760 after production frontend build. Fresh release1791407772794/1791408129110/result0/hash7242600500128488022 accepts native-theme1791408164309 actual Preferences/Git author inherited ID/required and malformed-email refusal before persistence IPC/full workspace preservation, plus Source Control1791408176998/Push1791408187629. Final native60943 terminal0/all3 app exits0; current exact artifact required for later native replay. Official [HTML required](https://html.spec.whatwg.org/multipage/input.html#attr-input-required) and [Svelte context](https://svelte.dev/docs/svelte/context) consulted. This does not close full design-system/UX/migration gates; STATUS owns handoff.

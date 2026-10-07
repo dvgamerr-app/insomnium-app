@@ -201,7 +201,7 @@ All twelve feature/editor scoped style blocks were inspected. Their remaining ow
 
 | Scoped owner | Retained responsibility / remaining work |
 | --- | --- |
-| CodeEditor | CodeMirror engine DOM, syntax, completion/lint/documentation popup placement. Keep the engine adapter; remaining literal type/radius/shadow metrics should join shared editor tokens. |
+| CodeEditor | CodeMirror engine DOM, syntax, completion/lint/documentation popup placement. Editor/lint font now uses font-size-12; information radius uses radius-group; information/lint shadows use editor-popup-shadow. Static font/shadow and native documentation radius/shadow/font propagation accepted with original defaults. Keep the engine adapter; remaining completion metrics and engine geometry need scoped review. |
 | GitPanel | Change/history/commit graph layout and selection of domain rows. Keep graph geometry and row layout; remove redundant button-radius declarations and tokenize mono status font. |
 | GitRecovery | Shared Field inline align=start now owns wrapped checkbox alignment/dimensions; feature gap/top margin retained. Dark/light shared geometry and native locked-dialog/retry pass. Actual retained-copy OS picker and reviewed-choice workflow acceptance remains open. |
 | GitRemotePanel | Remote sections and bounded advertisement list layout; no primitive interaction override found. |

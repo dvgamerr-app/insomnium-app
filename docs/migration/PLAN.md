@@ -1,5 +1,7 @@
 # Insomnium → Tauri migration
 
+Current editor CSS capabilityf0fae8e makes editor/lint typography and information/lint popup shape/shadow follow shared foundation tokens while preserving defaults. Static old-source failure/fixed dark-light width tests, current native production release1791410465778/1791410824138 and actual GraphQL16/Source Control13 groups pass. Full migration/UX/debt/platform/provider/fault/CI scope retained; exact evidence and closed-handle/no compact-tool handoff in STATUS.
+
 Current CI capability5e0f11f runs the Qlty formatter through Bun/frozen project dependencies and zizmor through official native downloads, with optional Python pyflakes disabled. Actual local formatter/security positive and negative SARIF checks, source preservation, merged runtime assertions, targeted Qlty/smells/frozen install/compiler pass. Full goal remains active; real Linux runner/bootstrap/platform/distribution and all migration/UX gates remain unverified or open. Exact evidence/closed handles/no compact-tool handoff in STATUS/CI.md.
 
 Current CI capabilityd1adba5 adds PR Bun frontend check/build and explicit script-free install/project preparation to frontend/desktop jobs. Native actionlint/YAML scope checks, warm and clean Windows checkout installation/prepare/check/build pass; actual GitHub runner/fork/native matrix/artifacts/signing/distribution remain unverified. Production app/current native artifact unchanged. Full migration/UX scope remains; exact evidence/closed handles/no compact-tool handoff in STATUS/CI.md.
