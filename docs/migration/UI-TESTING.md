@@ -2,6 +2,21 @@
 
 Owner requires Bun-only reusable Playwright JavaScript scenarios with shared helpers and headless execution. Browser-use and ad-hoc browser automation remain prohibited.
 
+CA bundle acceptance75477b8 extends the existing HTTP mTLS scenario with unrelated
+root first / required root second, reversed order, and invalid base64 CA PEM.
+Pinned reqwest0.12.28 uses rustls-tls (Cargo.toml); its upstream vendored
+Certificate::add_to_rustls iterates every PEM certificate already. No backend
+change or rebuild was needed. Final saved run47753/1791415294120 exited0 and
+passed12 groups on the unchanged current release. Both bundle orders each deliver
+one authenticated POST/200 with exact peer CN/fingerprint/body; malformed CA
+fails with native builder error and TCP/HTTP0. All prior negative/recovery/redirect,
+resource/history preservation and four-setting restoration checks also pass.
+Result/acceptance/settings-restored/fixture observations and bundle-second /
+malformed-CA Timeline images inspected. Native hidden PID82016 exits0; owned
+fixture closes successfully and no task processes remain. Compiler0/0, scenario
+Prettier and whitespace checks pass. This proves app-private HTTP bundles on
+Windows, not Git/provider/proxy/other protocol/platform or full TLS parity.
+
 HTTP mTLS capability997f0a7: `bun tests/ui/http-client-certificate.js` reuses the
 current successful artifacts/native-recovery-copy-probe/build-state.json by
 default. Production app/release1791413164927/1791413519384 unchanged; fixture Rust

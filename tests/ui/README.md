@@ -14,7 +14,8 @@ Git OpenSSL, Rust compiler/MSVC/SDK paths and cached native release rlibs; the
 shared helper records those exact paths. Per-run CA/identities stay under the
 owned artifact directory. Rustls requires client authentication and records
 actual peer CN/fingerprint/body; both listeners are checked independently first.
-Nine groups cover native Preferences/reload/Send, TLS refusals/recovery and
+Twelve groups cover native Preferences/reload/Send, both CA bundle orders,
+malformed CA refusal before TCP, TLS refusals/recovery and
 cross-origin destination TCP/HTTP0. All four TLS preferences are restored and
 verified before cleanup. Scope, evidence and commands: docs/migration/UI-TESTING.md.
 

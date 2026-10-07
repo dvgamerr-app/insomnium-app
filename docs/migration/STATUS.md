@@ -1,5 +1,12 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Native HTTP CA bundle acceptance verified and committed — 2026-10-08
+
+- Previous turn reverified headless execution59621af; full migration/UX goal retained. Investigation corrects the initial single-CA hypothesis: pinned reqwest0.12.28 with rustls-tls already iterates every PEM root in Certificate::add_to_rustls. No production fix/rebuild needed. Legacy network adapter passes the enabled workspace CA file path; no broader legacy certificate parity claimed.
+- Capability75477b8 extends the existing saved mTLS scenario with both CA orders (unrelated root first/required root second and reverse), plus invalid base64 CA refusal. Exact bun tests/ui/http-client-certificate.js handle47753 terminal0, evidence artifacts/playwright/http-client-certificate-1791415294120, passes12 groups on unchanged release1791413164927/1791413519384/result0. Both bundles deliver exactly one actual authenticated POST/200 with pinned client CN/SHA256 fingerprint/body. Malformed CA fails before TCP/HTTP0; previous refusal/recovery/cross-origin guards remain verified. All request resources/error history preserved; four TLS settings restored and explicitly checked.
+- Result/acceptance/settings-restored/fixture observations and bundle-second/malformed-CA screenshots inspected. Compiler0 errors0 warnings, scenario Prettier and whitespace pass. Current buildPath/owned native-hidden PID82016/visiblefalse/app exit0; fixture close success and process inventory show no live task handles. Current capability commit75477b8; documentation checkpoint follows.
+- Full migration/UX/debt, remaining TLS/protocol/legacy/Git authenticated HTTPS/provider/proxy/platform/fault/CI/artifact/signing/install-upgrade and PLAN/PARITY gates remain required. Interface cannot invoke /compact; no compaction claimed. Handoff before next feature: current commit/evidence/unchanged release/closed handles above. Next TLS acceptance should inspect saved transport settings and server-name/client-host coverage for WS/SSE/gRPC before changing production behavior; do not infer those protocols from HTTP acceptance.
+
 ## Playwright headless request reverified — 2026-10-08
 
 - Current application checkpoint a1da0b4. All saved browser launches use tests/ui/helpers/preview-app.js → launchUiBrowser with headless: true; repository search finds no headed override or other browser launch. Existing native scenarios attach through connectOverCDP and use native-hidden; they are not browser headless. No implementation change was needed.
