@@ -6,6 +6,7 @@ import {
 import { createGitBranchWorkflow } from "./git-create.js";
 import { createRemoteCheckout } from "./git-remote-checkout.js";
 import { createGitClone } from "./git-clone.js";
+import { createGitPush } from "./git-push.js";
 import { createGitCheckout } from "./git-checkout.js";
 import { createGitRestore } from "./git-restore.js";
 import { createGitMerge } from "./git-merge.js";
@@ -2411,6 +2412,26 @@ export function addUnitTest(suiteId) {
 }
 
 const gitRemoteClient = createGitRemoteClient();
+const gitPush = createGitPush({ getData: () => workspace.data, persist, invoke,
+  advertise: (input, scope) => gitRemoteClient.advertise(input, scope), begin: beginWorkspaceWork });
+function requirePushWorkspace() {
+  if (!workspace.ready || !isTauri() || !canEditWorkspace() || workspace.saving || workspace.saveFailed)
+    throw new Error("Push requires an available, saved desktop workspace.");
+}
+/** @param {string} workspaceId @param {()=>import('./git-remote-client.js').RemoteInput} getInput @param {string} destination @param {AbortSignal} signal */
+export function reviewGitPush(workspaceId, getInput, destination, signal) {
+  requirePushWorkspace(); return gitPush.review(workspaceId, getInput, destination, signal);
+}
+/** @param {object} review @param {AbortSignal} signal */
+export function confirmGitPush(review, signal) { requirePushWorkspace(); return gitPush.confirm(review, signal); }
+/** @param {object} review */
+export function cancelGitPush(review) { gitPush.cancel(review); }
+/** @param {string} workspaceId @param {AbortSignal} signal */
+export function inspectGitPush(workspaceId, signal) { requirePushWorkspace(); return gitPush.inspect(workspaceId, signal); }
+/** @param {object} observation @param {AbortSignal} signal */
+export function forgetGitPush(observation, signal) { requirePushWorkspace(); return gitPush.forget(observation, signal); }
+/** @param {object} observation */
+export function cancelGitPushObservation(observation) { gitPush.cancelObservation(observation); }
 /** Tracks native discovery through completion, including cancellation.
  * getInput lets a dialog invalidate a result when its unsaved settings change.
  * @param {string} workspaceId
@@ -2463,6 +2484,8 @@ export async function saveGitRemoteSettings(workspaceId, input) {
     throw new Error("Collection changed. Reopen Git settings.");
   const binding = nativeGitBinding(workspace.data.resources, workspaceId);
   if (!binding) throw new Error("Collection has no native Git binding.");
+  if (binding.nativePushIntent)
+    throw new Error("Inspect the pending Push before changing remote settings.");
   if (binding.nativeRemoteCheckoutIntent)
     throw new Error("Resolve the pending remote checkout before changing remote settings.");
   if (binding.nativeFetchIntent)
@@ -2505,6 +2528,7 @@ export async function fetchGitRemote(
   const binding = nativeGitBinding(data.resources, workspaceId);
   if (!binding || data.activeWorkspaceId !== workspaceId)
     throw new Error("Open the active collection's Git settings first.");
+  if (binding.nativePushIntent) throw new Error("Inspect the pending Push before fetching.");
   if (binding.nativeRemoteCheckoutIntent)
     throw new Error("Resolve the pending remote checkout before fetching.");
   if (binding.nativeFetchIntent)
