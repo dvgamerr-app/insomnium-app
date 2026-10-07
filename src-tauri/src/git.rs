@@ -101,6 +101,7 @@ pub(crate) fn open_managed_for_recovery(path: &Path) -> Result<Repository, Strin
     {
         return Err("Git repository points outside its managed directory.".into());
     }
+    crate::git_ref_lock::recover(&repo)?;
     Ok(repo)
 }
 

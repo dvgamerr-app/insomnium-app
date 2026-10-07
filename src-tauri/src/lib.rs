@@ -8,6 +8,7 @@ mod git_fetch_command;
 mod git_fetch_journal;
 mod git_fetch_snapshot;
 mod git_journal;
+mod git_ref_lock;
 mod git_remote;
 mod git_remote_job;
 mod grpc;

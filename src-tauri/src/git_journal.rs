@@ -687,9 +687,9 @@ pub(crate) fn restore(
     let error = |e: git2::Error| e.message().to_owned();
     let reference = git::branch_reference(&journal.source_branch)?;
     let expected = git2::Oid::from_str(&journal.source_oid).map_err(error)?;
-    let mut locks = repo.transaction().map_err(error)?;
-    locks.lock_ref("HEAD").map_err(error)?;
-    locks.lock_ref(&reference).map_err(error)?;
+    let mut locks = crate::git_ref_lock::RestoreRefLocks::new(&repo)?;
+    locks.lock_ref("HEAD")?;
+    locks.lock_ref(&reference)?;
     if repo.state() != git2::RepositoryState::Clean
         || repo
             .find_reference("HEAD")

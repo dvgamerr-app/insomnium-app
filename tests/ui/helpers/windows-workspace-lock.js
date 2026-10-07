@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { dlopen } from "bun:ffi";
+import { dlopen, ptr } from "bun:ffi";
 import { realpath } from "node:fs/promises";
 import { resolve, sep } from "node:path";
 import { probeIdentifier } from "./native-app.js";
@@ -83,6 +83,80 @@ function openReadLock(path, sharing) {
           1,
           "Close owned file handle",
         );
+      } finally {
+        library.close();
+      }
+    },
+  };
+}
+
+/** Hold the actual native ref ownership lease to exercise live-owner refusal.
+ * Only the existing isolated probe's managed repository is accepted.
+ * @param {string} repositoryId */
+export async function holdProbeRestoreLease(repositoryId) {
+  assert.equal(process.platform, "win32");
+  assert.ok(process.env.APPDATA);
+  assert.match(repositoryId, /^[A-Za-z0-9_-]{1,100}$/);
+  const expected = resolve(
+    process.env.APPDATA,
+    probeIdentifier,
+    "git-v1",
+    "repo-" + repositoryId,
+    ".git",
+    "insomnium-restore-ref-locks-v1.lease",
+  );
+  const path = await realpath(expected);
+  assert.equal(path.toLowerCase(), expected.toLowerCase());
+  const library = dlopen("kernel32.dll", {
+    CreateFileW: {
+      args: ["buffer", "u32", "u32", "ptr", "u32", "u32", "u64"],
+      returns: "u64",
+    },
+    LockFileEx: {
+      args: ["u64", "u32", "u32", "u32", "u32", "ptr"],
+      returns: "i32",
+    },
+    CloseHandle: { args: ["u64"], returns: "i32" },
+    GetLastError: { args: [], returns: "u32" },
+  });
+  const handle = library.symbols.CreateFileW(
+    Buffer.from(path + "\0", "utf16le"),
+    0xc0000000,
+    7,
+    null,
+    3,
+    128,
+    0n,
+  );
+  if (handle === 0xffffffffffffffffn) {
+    const error = library.symbols.GetLastError();
+    library.close();
+    throw new Error("Cannot open owned lease: " + error);
+  }
+  const overlapped = new Uint8Array(32);
+  if (
+    !library.symbols.LockFileEx(
+      handle,
+      3,
+      0,
+      0xffffffff,
+      0xffffffff,
+      ptr(overlapped),
+    )
+  ) {
+    const error = library.symbols.GetLastError();
+    library.symbols.CloseHandle(handle);
+    library.close();
+    throw new Error("Cannot hold owned lease: " + error);
+  }
+  let released = false;
+  return {
+    path,
+    release() {
+      if (released) return;
+      released = true;
+      try {
+        assert.equal(library.symbols.CloseHandle(handle), 1);
       } finally {
         library.close();
       }

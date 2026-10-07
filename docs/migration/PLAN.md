@@ -6,6 +6,8 @@
 - After every completed feature, compact the session with `/compact` before starting the next feature. Save the current state, validation results and next action in STATUS first.
 - This session exposes no callable `/compact` tool, and the goal API cannot edit an active objective. These instructions extend the existing migration goal through this durable plan; do not claim compaction ran when it did not. If unavailable, hand off at the feature boundary for the owner to run `/compact`.
 
+2026-10-07 checkpoint: repaired reproduced native restore interruption before atomic workspace replace using proven owned-ref recovery; final saved Windows pre-replace and preservation guards plus restore/parent-restart/Source Control/mounted-copy regressions pass. Restore-only ownership and exact boundary are verified; other crash/I/O/platform and full parity remain open. See STATUS/PARITY. Compact before next feature.
+
 
 2026-10-07 checkpoint: mounted production App/workspace retained-copy recovery passes Windows native held-request drain/admission/persistence guards, actual OS picker/write refusal/exact copy/review and fresh Send after recovery. Explicit saved-fixture unexpected-edit injection; disk-full/crash/other-platform/full parity remain open. See STATUS/PARITY.
 
