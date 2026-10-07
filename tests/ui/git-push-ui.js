@@ -17,6 +17,11 @@ process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-recovery-copy-probe/build-state.json";
 const http = await heldHttp();
 const mode = process.env.INSOMNIUM_PUSH_UI_CASE || "normal";
+const redirectStatus = Number(
+  process.env.INSOMNIUM_PUSH_REDIRECT_STATUS || 307,
+);
+if (mode === "post-redirect")
+  assert.ok([301, 302, 303, 307, 308].includes(redirectStatus));
 const ownerFault = [
   "snapshot-owner-changed",
   "snapshot-owner-missing",
@@ -27,6 +32,7 @@ assert.ok(
     "equal",
     "fast-forward",
     "basic-auth",
+    "post-redirect",
     "basic-push-refused",
     "basic-post-refused",
     "basic-inspect-refused",
@@ -59,6 +65,7 @@ try {
       const x = await advanceFixture(context);
       const basicAuth = [
         "basic-auth",
+        "post-redirect",
         "basic-inspect-refused",
         "basic-push-refused",
         "basic-post-refused",
@@ -74,6 +81,34 @@ try {
       /** @type {string | null} */
       let expectedRemoteOid = null;
       const checks = [];
+      const redirectEvidence = {
+        requests: 0,
+        posts: 0,
+        credentialRequests: 0,
+        bytes: 0,
+      };
+      const redirectSink =
+        mode === "post-redirect"
+          ? Bun.serve({
+              hostname: "127.0.0.1",
+              port: 0,
+              async fetch(request) {
+                redirectEvidence.requests++;
+                if (request.method === "POST") redirectEvidence.posts++;
+                if (request.headers.has("Authorization"))
+                  redirectEvidence.credentialRequests++;
+                redirectEvidence.bytes += (
+                  await request.arrayBuffer()
+                ).byteLength;
+                return new Response("", {
+                  status: 401,
+                  headers: {
+                    "WWW-Authenticate": 'Basic realm="owned-redirect-sink"',
+                  },
+                });
+              },
+            })
+          : undefined;
       /** @type {Awaited<ReturnType<typeof servePartialReceive>> | undefined} */
       let partial;
       /** @type {Awaited<ReturnType<typeof lockProbePushReceipt>> | undefined} */
@@ -369,6 +404,11 @@ try {
           });
         const submittedAt = performance.now();
         const prePushChallenges = remote.state.authChallenges;
+        if (redirectSink) {
+          remote.state.redirectReceiveStatus = redirectStatus;
+          assert.notEqual(new URL(remote.url).port, String(redirectSink.port));
+          remote.state.redirectNextReceiveTo = `http://127.0.0.1:${redirectSink.port}/repo.git/git-receive-pack`;
+        }
         if (mode === "basic-post-refused")
           remote.state.refuseReceiveAuthentication = true;
         if (mode === "basic-push-refused")
@@ -498,6 +538,7 @@ try {
               hasText: [
                 "unknown",
                 "partial-upload",
+                "post-redirect",
                 "basic-post-refused",
               ].includes(mode)
                 ? "Remote outcome is unknown."
@@ -552,9 +593,11 @@ try {
           checks.push(
             mode === "basic-push-refused"
               ? "credentials accepted during review but real401 refuses worker after confirmation: bounded attempts, zero receive-pack POST/remote ref absent, error omits credential and private Send/full state preserved"
-              : mode === "basic-post-refused"
-                ? "real Basic-auth review/worker discovery succeeds; receive-pack POST credentials refused before server Git execution, full state/private Send retained"
-                : "real Basic-auth challenge during product review/worker discovery and authenticated receive-pack POST: exact pinned public commit accepted without private Send/full state mutation",
+              : redirectSink
+                ? "authenticated product review/worker discovery and original-origin POST receives redirect; no server Git execution/full live state-private Send mutation"
+                : mode === "basic-post-refused"
+                  ? "real Basic-auth review/worker discovery succeeds; receive-pack POST credentials refused before server Git execution, full state/private Send retained"
+                  : "real Basic-auth challenge during product review/worker discovery and authenticated receive-pack POST: exact pinned public commit accepted without private Send/full state mutation",
           );
         }
         assert.equal(
@@ -563,6 +606,7 @@ try {
             ? x.newOid
             : [
                   "partial-upload",
+                  "post-redirect",
                   "basic-push-refused",
                   "basic-post-refused",
                   "rejected",
@@ -583,6 +627,7 @@ try {
           );
         } else if (
           ![
+            "post-redirect",
             "basic-push-refused",
             "basic-post-refused",
             "partial-upload",
@@ -607,6 +652,20 @@ try {
           "receipt.json",
         );
         const nativeReceipt = JSON.parse(await readFile(receiptPath, "utf8"));
+        if (redirectSink) {
+          assert.equal(nativeReceipt.phase, "finished");
+          assert.equal(nativeReceipt.result.outcome, "unknown");
+          assert.equal(remote.state.redirectedReceives, 1);
+          assert.deepEqual(redirectEvidence, {
+            requests: 0,
+            posts: 0,
+            credentialRequests: 0,
+            bytes: 0,
+          });
+          checks.push(
+            `actual authenticated receive-pack${redirectStatus} to second owned origin: target receives no request/credential/PACK, original server executes no Git/ref update, durable unknown receipt retained`,
+          );
+        }
         if (mode === "basic-post-refused") {
           assert.equal(nativeReceipt.phase, "finished");
           assert.equal(nativeReceipt.result.outcome, "unknown");
@@ -713,12 +772,15 @@ try {
                               mode,
                             )
                           ? "auth-refused Push retains durable pending receipt/snapshot and exact whole live state except saved intent; held Send remains active"
-                          : "confirmed public Push: pinned actual server tree and full live snapshot except exact saved intent; held Send stays active",
+                          : redirectSink
+                            ? "redirected Push retains durable finished/unknown receipt and owned snapshot; remote absent/full live state except exact saved intent/private Send preserved"
+                            : "confirmed public Push: pinned actual server tree and full live snapshot except exact saved intent; held Send stays active",
         );
 
         if (
           [
             "unknown",
+            "post-redirect",
             "basic-push-refused",
             "basic-post-refused",
             "partial-upload",
@@ -751,7 +813,9 @@ try {
                     ? "actual finished-receipt write refusal survives reload with original submitted receipt/intent; no automatic second POST or full-data rewrite"
                     : partial
                       ? "actual partial-upload disconnect survives reload as pending Push; no second proxy POST, server upload or full-data rewrite"
-                      : "real completed-server HTTP503 survives reload as pending Push; no automatic upload or full-data rewrite",
+                      : redirectSink
+                        ? "actual POST redirect survives reload as pending Push; no repeat POST, redirected request or full-data rewrite"
+                        : "real completed-server HTTP503 survives reload as pending Push; no automatic upload or full-data rewrite",
           );
         }
 
@@ -1091,6 +1155,13 @@ try {
         assert.deepEqual(retired.result, nativeReceipt.result);
         if (outgoing) await assert.rejects(stat(outgoing), { code: "ENOENT" });
         assert.equal(remote.state.receivePosts, expectedPosts);
+        if (redirectSink)
+          assert.deepEqual(redirectEvidence, {
+            requests: 0,
+            posts: 0,
+            credentialRequests: 0,
+            bytes: 0,
+          });
         if (basicAuth)
           assert.equal(remote.state.authenticatedPosts, expectedPosts);
         if (mode === "basic-post-refused")
@@ -1102,6 +1173,7 @@ try {
             ? x.newOid
             : [
                   "partial-upload",
+                  "post-redirect",
                   "basic-push-refused",
                   "basic-post-refused",
                   "rejected",
@@ -1125,6 +1197,9 @@ try {
           JSON.stringify(
             {
               checks,
+              redirect: redirectSink
+                ? { status: redirectStatus, ...redirectEvidence }
+                : undefined,
               ownerFault: ownerFault
                 ? {
                     mode,
@@ -1151,6 +1226,7 @@ try {
         );
         console.log(JSON.stringify({ passed: checks.length, checks }));
       } finally {
+        redirectSink?.stop(true);
         if (ownerBytes) await Bun.write(ownerPath, ownerBytes);
         receiptLock?.release();
         await partial?.close();

@@ -27,6 +27,9 @@ export async function serveReceivePack(output, options = {}) {
     refuseAuthentication: false,
     refuseReceiveAuthentication: false,
     refusedAuthPosts: 0,
+    redirectNextReceiveTo: "",
+    redirectedReceives: 0,
+    redirectReceiveStatus: 307,
     advertisements: 0,
     failNextAdvertisement: false,
     failedAdvertisements: 0,
@@ -166,6 +169,21 @@ export async function serveReceivePack(output, options = {}) {
       if (command === "receive-pack") state.receivePosts++;
       else state.uploadPosts++;
       const input = new Uint8Array(await request.arrayBuffer());
+      if (command === "receive-pack" && state.redirectNextReceiveTo) {
+        const target = new URL(state.redirectNextReceiveTo);
+        assert.equal(target.protocol, "http:");
+        assert.equal(target.hostname, "127.0.0.1");
+        assert.ok(target.port && !target.username && !target.password);
+        state.redirectNextReceiveTo = "";
+        state.redirectedReceives++;
+        assert.ok(
+          [301, 302, 303, 307, 308].includes(state.redirectReceiveStatus),
+        );
+        return new Response("", {
+          status: state.redirectReceiveStatus,
+          headers: { Location: target.href },
+        });
+      }
       if (command === "receive-pack" && state.holdNextPush) {
         state.holdNextPush = false;
         return heldResponse(false);
