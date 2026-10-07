@@ -88,6 +88,10 @@ fn handle(
     );
     let response = if first[1] == "/redirect" {
         format!("HTTP/1.1 302 Found\r\nLocation: {redirect}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+    } else if first[1] == "/sse" {
+        let body =
+            "id: owned-mtls-event\nevent: authenticated\ndata: owned mutual TLS SSE event\n\n";
+        format!("HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len())
     } else {
         let body = "owned mTLS response";
         format!("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len())

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { withNativeApp, poll } from "./helpers/native-app.js";
 import { clientCertificateFixture } from "./helpers/client-certificate.js";
+import { tlsPreferences } from "./helpers/tls-preferences.js";
 
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-recovery-copy-probe/build-state.json";
@@ -14,49 +15,7 @@ await withNativeApp(
     const payload = "owned native mutual TLS payload " + crypto.randomUUID();
     const checks = [];
     /** @type {Array<Record<string,any>>} */ const cases = [];
-    const setTls = async (
-      /** @type {string} */ ca,
-      /** @type {string} */ host,
-      /** @type {string} */ identity,
-      validate = true,
-    ) => {
-      await page
-        .getByRole("button", { name: "Preferences", exact: true })
-        .first()
-        .click();
-      const preferences = page.getByRole("region", {
-        name: "Preferences",
-        exact: true,
-      });
-      await preferences
-        .getByRole("tab", { name: "Network", exact: true })
-        .click();
-      await preferences
-        .getByLabel("Validate TLS certificates", { exact: true })
-        .setChecked(validate);
-      for (const [label, value] of [
-        ["Custom CA (PEM)", ca],
-        ["Client certificate host", host],
-        ["Client certificate and private key (PEM)", identity],
-      ]) {
-        const control = preferences.getByLabel(label, { exact: true });
-        await control.fill(value);
-        await control.blur();
-      }
-      await poll(async () => {
-        const settings = (await invoke("load_workspace")).settings;
-        return (
-          settings.caPem === ca &&
-          settings.identityHost === host &&
-          settings.identityPem === identity &&
-          settings.validateCertificates === validate
-        );
-      }, "Client certificate settings persisted");
-      await preferences
-        .getByRole("button", { name: "Close Preferences", exact: true })
-        .click();
-      await preferences.waitFor({ state: "detached" });
-    };
+    const setTls = tlsPreferences(page, invoke);
     try {
       await fixture.verifyFixture();
       checks.push(
