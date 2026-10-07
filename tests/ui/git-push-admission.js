@@ -240,6 +240,59 @@ await withNativeApp("git-push-admission", async (context) => {
     checks.push(
       `real non-fast-forward rewind: ${rejected.result.outcome} receipt, no force/no POST, independent server branch stays advanced; Inspect/retire never upload`,
     );
+    const tree = await fixtureGit(x.repo, ["rev-parse", x.newOid + "^{tree}"]);
+    const localNext = await fixtureGit(
+      x.repo,
+      ["commit-tree", tree, "-p", x.newOid],
+      "Pinned local next commit\n",
+    );
+    const concurrent = await fixtureGit(
+      remote.repo,
+      ["commit-tree", tree, "-p", x.newOid],
+      "Independent server advertisement race\n",
+    );
+    await fixtureGit(x.repo, [
+      "update-ref",
+      "refs/heads/main",
+      localNext,
+      x.f.oid,
+    ]);
+    const negotiationRace = await prepare(localNext, x.newOid);
+    const advertisementsBeforeRace = remote.state.advertisements;
+    remote.afterNextReceiveAdvertisement(async () => {
+      assert.equal(await remote.tip(), x.newOid);
+      await fixtureGit(remote.repo, [
+        "update-ref",
+        "refs/heads/main",
+        concurrent,
+        x.newOid,
+      ]);
+    });
+    const staleNegotiation = await unchanged(() =>
+      context.invoke("git_remote_push", { request: negotiationRace }),
+    );
+    assert.equal(
+      staleNegotiation.result.advertisedRemoteOid,
+      x.newOid,
+      "Initial worker advertisement must still contain the pinned old ref",
+    );
+    assert.equal(staleNegotiation.result.outcome, "stale");
+    assert.ok(
+      remote.state.advertisements >= advertisementsBeforeRace + 2,
+      "Actual Push negotiation must read a second independent advertisement",
+    );
+    assert.equal(
+      remote.state.receivePosts,
+      1,
+      "Negotiation pin refuses before a second receive POST",
+    );
+    assert.equal(await remote.tip(), concurrent);
+    await retire(negotiationRace);
+    assert.equal(await remote.tip(), concurrent);
+    assert.equal(remote.state.receivePosts, 1);
+    checks.push(
+      "actual server ref changes after captured worker advertisement: fresh negotiation old-OID pin refuses stale before POST, independent concurrent ref/full local state preserved",
+    );
     await Bun.write(
       join(context.output, "acceptance.json"),
       JSON.stringify(

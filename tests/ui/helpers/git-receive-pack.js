@@ -61,6 +61,8 @@ export async function serveReceivePack(output) {
   }
   /** @type {null | (() => Promise<void>)} */
   let beforeReceive = null;
+  /** @type {null | (() => Promise<void>)} */
+  let afterAdvertisement = null;
   const server = Bun.serve({
     hostname: "127.0.0.1",
     port: 0,
@@ -83,6 +85,13 @@ export async function serveReceivePack(output) {
           "--advertise-refs",
           ".",
         ]);
+        if (command === "receive-pack" && afterAdvertisement) {
+          const action = afterAdvertisement;
+          afterAdvertisement = null;
+          // Actual Git advertised bytes are already captured. Move the owned
+          // server ref before returning them; negotiation must recheck its pin.
+          await action();
+        }
         const line = `# service=${service}\n`;
         const header = Buffer.from(
           (Buffer.byteLength(line) + 4).toString(16).padStart(4, "0") +
@@ -154,6 +163,15 @@ export async function serveReceivePack(output) {
   return {
     repo,
     state,
+    /** @param {() => Promise<void>} action */
+    afterNextReceiveAdvertisement(action) {
+      assert.equal(
+        afterAdvertisement,
+        null,
+        "Only one advertisement gate may be armed",
+      );
+      afterAdvertisement = action;
+    },
     releaseHeldPushes() {
       // Controlled EOF only: no Git execution or fabricated report-status.
       for (const controller of heldControllers) {
