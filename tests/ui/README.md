@@ -1,5 +1,9 @@
 # UI scenarios (Playwright + Bun)
 
+## Collection runner
+
+`bun tests/ui/runner-lifecycle.js` uses the successful `artifacts/native-ui-ownership-probe/build-state.json` by default (or the shared `INSOMNIUM_UI_BUILD_STATE` override). It covers real native HTTP for direct/detached/delegated callbacks, passing/failing assertions, single-test result selection, persisted reload, Stop with observed server connection close and no cancelled result/history, a fresh run after Stop, and dark/light widths1440/900/760. It uses the existing owned-collection/native-app helpers and a loopback HTTP fixture. Run sequentially with other native scenarios; never use production data. Nested suite/script/import/provider/OS-close compatibility remains separate.
+
 ## Shared controls and Nocturne theme
 
 - `bun tests/ui/git-diff.js` checks the production unified diff component: YAML syntax, old/new line markers, red/green backgrounds, read-only behavior, gutter bounds, and switching modified/added/deleted/unchanged in dark/light at1440/900/760. `git-source-control.js` and `nocturne-native-theme.js` now default to `artifacts/native-unified-diff-probe/build-state.json`; await that build before running native scenarios. Source-control acceptance checks the real native change baseline, staging/commit and simplified local branch actions.

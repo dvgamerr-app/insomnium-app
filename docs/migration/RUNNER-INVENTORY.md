@@ -1,5 +1,20 @@
 # Collection Runner migration inventory
 
+## Saved native runner lifecycle acceptance — 2026-10-07
+
+`tests/ui/runner-lifecycle.js` now makes the earlier callback/Stop acceptance reproducible using the existing native-app and owned-collection fixtures plus a loopback HTTP server. It passed on the fresh native-ui-ownership-probe build at `artifacts/playwright/runner-lifecycle-1791349076305/{acceptance,result}.json`; the owned app exited0. Check passes0 errors/0 warnings.
+
+- Direct `insomnia.sendRequest`, detached callback and replacement/delegation through `insomnia.send` cause exactly three real native HTTP sends with status/body/header assertions.
+- A full suite persists two passing assertions and one deliberate failing assertion; a single-test run persists its exact test ID/count and does not run the callback test.
+- A fresh document retains result history and displays the saved single-test result.
+- Stop during a held native HTTP send closes the server-side connection, displays Run cancelled and leaves persisted result records and response history unchanged, including after reload.
+- A fresh callback run after Stop succeeds through a new worker/native send (four successful fixture requests total).
+- Runner layout has no workspace overflow in dark/light at1440/900/760; the dark760 screenshot was inspected.
+
+Run with Bun: `bun tests/ui/runner-lifecycle.js`. The default build record is `artifacts/native-ui-ownership-probe/build-state.json`; `INSOMNIUM_UI_BUILD_STATE` may select another successful isolated build allowed by the shared native helper. Run sequentially with other native scenarios. No production app/data or external provider is used.
+
+Remaining gates include original script/import/result compatibility, nested suites, deleted resources during execution, OAuth/cookie/dependent-request combinations, OS-close/crash/provider and other-platform acceptance. This saved scenario supplements the earlier cookie/script evidence; it does not establish full Runner or migration parity.
+
 2026-09-29 checkpoint: Isolated native release build and real WebView Runner flow passed: cookie round-trip, passing/failing assertions, Stop without late saved result and fresh-document reload (2 results/3 history/4 fixture requests). Dark Runner screenshots inspected. Probe closed and fixture stopped. Native paste import gap found; full parity remains pending. See NATIVE-RUNNER-ACCEPTANCE.md.
 
 Updated: 2026-09-29

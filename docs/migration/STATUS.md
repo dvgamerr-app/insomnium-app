@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Saved Collection runner lifecycle acceptance — 2026-10-07
+
+- Added the missing reusable runner-lifecycle.js scenario using existing shared native/collection helpers and a held loopback HTTP server. Native success proves direct/detached/delegated callbacks (three wire sends), full-suite 2pass/1fail, exact single-test result identity/count, persisted reload, Stop→server connection close without new result/history, and a successful fresh run after Stop (four successful sends total). Both themes at1440/900/760 show no workspace overflow; dark760 screenshot inspected.
+- Passed on native-ui-ownership-probe: artifacts/playwright/runner-lifecycle-1791349076305/{acceptance,result}.json, owned app exit0. Current bun run check0 errors/0 warnings; no application/backend code or dependency change for this acceptance milestone. Scenario follows the owner's explicit saved Playwright exception and uses Bun only. Command: bun tests/ui/runner-lifecycle.js. RUNNER-INVENTORY, PARITY and UI README now reflect this bounded evidence; full Runner parity remains open.
+- Latest source-control1791349172542 and unix-socket-tls1791349188110 regressions also pass on this new build, verifying current Preferences Git author path, unified diff, locked recovery behavior and shared selected Timeline. No native build/test process remains running. Remaining migration gates include Git restore/remote workflows, template/plugin compatibility, advanced networking/provider/platform/CI and the scoped CSS remediation documented in UI-DESIGN-SYSTEM-DEBT.
+
 ## One application CSS entry and scoped-owner audit — 2026-10-07
 
 - Found the remaining duplicate application import (`styles.css` plus ui/controls.css) despite the README's earlier single-entry claim. Removed the duplicate route import, standalone ui/controls.css and unused button-config.css wrappers. Current application styling enters only through styles.css → styles/index.css. Compiled application stylesheet decreased from 57,787 to 54,038 bytes. UI README now matches source.
