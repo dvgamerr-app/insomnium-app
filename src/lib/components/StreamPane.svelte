@@ -12,6 +12,7 @@
   import SplitPane from "./ui/SplitPane.svelte";
   import Icon from "./Icon.svelte";
   import { download } from "../import-export.js";
+  import { jsonPrettify } from "../json-prettify.js";
   /** @type {{ response: Record<string, any> | undefined, running: boolean, history: Record<string, any>[], onhistory: (response: Record<string, any>) => void }} */
   let { response, running, history, onhistory } = $props();
   let tab = $state("Events"),
@@ -43,7 +44,9 @@
     )
       return selected.data;
     try {
-      return JSON.stringify(JSON.parse(selected.data), null, 2);
+      // Validate syntax, then format original tokens without converting numbers.
+      JSON.parse(selected.data);
+      return jsonPrettify(selected.data, "  ");
     } catch {
       return selected.data;
     }

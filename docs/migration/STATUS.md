@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Lossless stream JSON display — 2026-10-07
+
+- Fixed review R3: StreamPane validates JSON syntax, then formats original tokens with the existing shared jsonPrettify. Large integers, negative integers, decimal trailing zeroes and exponent spelling remain exact. Invalid JSON and binary/ping/pong retain raw fallback. Copy/save still use original event data.
+- Saved nocturne-stream-theme passes against the fresh native-completion-probe build for WebSocket and SSE in dark/light at 1440/900/760: exact 9007199254740993, -9007199254740995, 1.2300 and 1e400 display; Copy receives the unchanged raw JSON; ordinary/invalid JSON fallback; actual binary WebSocket frame displays unchanged base64; connect/headers/disconnect/error retained. Evidence: artifacts/playwright/nocturne-stream-theme-1791348127026/{acceptance,result}.json; owned app exit0. Inspected light WebSocket 760 screenshot. Save dialog and ping/pong were not newly exercised; their raw-data paths were preserved in source.
+- bun run check 0 errors/0 warnings and production frontend build pass; saved theme/workspace and design-system regressions pass. No new dependency/subsystem. Commands: bun run check; bun run build; INSOMNIUM_UI_BUILD_STATE=artifacts/native-completion-probe/build-state.json bun tests/ui/nocturne-stream-theme.js. Original stream/platform/full migration parity remains open.
+
 ## gRPC terminal acknowledgement and pending sender cleanup — 2026-10-07
 
 - Fixed review R1: terminal status closes the sender and marks its phase completed without aborting the transport controller inside the Channel callback. connectGrpc can acknowledge status and settle its native invoke before final cleanup aborts pending renders. A sender interrupted by terminal completion no longer overwrites the successful result with its cleanup error; active Cancel still cancels native transport.
