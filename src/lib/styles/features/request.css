@@ -9,6 +9,11 @@
   min-width: 0;
 }
 
+.payload-options > .ui-select-shell {
+  flex: none;
+  width: auto;
+}
+
 .workspace-main {
   container: workspace / inline-size;
   flex: 1;

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { poll } from "./native-app.js";
+import { payloadOptionsLayout } from "./payload-options-layout.js";
 
 /** @param {Pick<import("./native-app.js").ScenarioContext,"page"|"invoke"|"output">} context
  * @param {Awaited<ReturnType<import("./client-certificate.js").clientCertificateFixture>>} fixture */
@@ -79,6 +80,7 @@ export async function wssLiveCertificate({ page, invoke, output }, fixture) {
     "Live WSS URL persisted",
   );
   /** @type {Array<Record<string,any>>} */ const cycles = [];
+  const layout = await payloadOptionsLayout(page, output);
   for (let cycle = 0; cycle < 2; cycle++) {
     const before = await invoke("load_workspace");
     const requestsBefore = fixture.requests.length;
@@ -261,6 +263,7 @@ export async function wssLiveCertificate({ page, invoke, output }, fixture) {
   return {
     id: "live-text-binary-ping-disconnect-reconnect",
     cycles,
+    layout,
     independentReceived: received,
   };
 }
