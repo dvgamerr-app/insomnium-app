@@ -1,5 +1,12 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Native Timeline TLS and latest UI acceptance — 2026-10-07
+
+- Expanded existing unix-socket-tls scenario to check the native Timeline log: attempted GET, network settings, actual certificate subject/issuer/SAN, HTTP/1.1 200, trusted-chain verification and explicit validation-off status. Wrong hostname and untrusted issuer logs retain the native failure cause without claiming an established TLS connection. Active/aria-selected tab assertions confirm Timeline selection. Native success/failure body, persisted settings/reload and fixture handshake checks retained; original settings restored.
+- Final scenario passes four cases on artifacts/native-completion-probe/build-state.json: artifacts/playwright/unix-socket-tls-1791348342014/{acceptance,result}.json, owned app exit0; trusted TLS Timeline screenshot inspected. Earlier run1791348258201 also passed before adding selected-tab assertions. HTTP/2, redirects, DNS/refused failures and other platforms still need their own native log acceptance.
+- Current native source-control and theme regressions pass at artifacts/playwright/git-source-control-1791348146907 and nocturne-native-theme-1791348206599 (owned exit0), including current Preferences Git author navigation, unified diff, remote/recovery dialogs and completion popup. Current frontend theme/workspace/design-system checks pass. App/assets/config input audit records 268 SHA256/size entries with modification times preceding the build start: artifacts/native-completion-probe/verified-inputs.json. This isolated probe is not a production installer.
+- Commands: bun x --bun prettier --write tests/ui/unix-socket-tls.js; bun run check (0 errors/0 warnings); INSOMNIUM_UI_BUILD_STATE=artifacts/native-completion-probe/build-state.json bun tests/ui/unix-socket-tls.js; same prefix for git-source-control.js and nocturne-native-theme.js. Full migration, CSS ownership audit and remaining platform/provider/CI gates remain open.
+
 ## Lossless stream JSON display — 2026-10-07
 
 - Fixed review R3: StreamPane validates JSON syntax, then formats original tokens with the existing shared jsonPrettify. Large integers, negative integers, decimal trailing zeroes and exponent spelling remain exact. Invalid JSON and binary/ping/pong retain raw fallback. Copy/save still use original event data.

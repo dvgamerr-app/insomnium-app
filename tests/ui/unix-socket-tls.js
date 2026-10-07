@@ -298,7 +298,49 @@ try {
           assert.equal(event.httpBytes, 0);
           assert.match(text, /error sending request/i);
         }
-        cases.push({ id, trusted, validate: valid, success, event });
+        const tabs = page.getByRole("tablist", {
+          name: "Response view",
+          exact: true,
+        });
+        await tabs.getByRole("tab", { name: "Timeline", exact: true }).click();
+        assert.equal(
+          await tabs.locator('[aria-selected="true"]').innerText(),
+          "Timeline",
+        );
+        assert.equal(await tabs.locator(".active").innerText(), "Timeline");
+        const log = await page
+          .getByRole("log", { name: "Connection log", exact: true })
+          .innerText();
+        assert.match(log, /\* Settings:.*validate certificates/);
+        assert.match(log, /> GET \/tls/);
+        if (success) {
+          assert.match(log, /TLS connection established; server certificate:/);
+          assert.match(log, /subject:.*uds-only\.invalid/);
+          assert.match(log, /issuer:.*Insomnium local UDS fixture CA/);
+          assert.match(log, /SAN:.*uds-only\.invalid/);
+          assert.match(log, /< HTTP\/1\.1 200 OK/);
+          assert.match(
+            log,
+            valid
+              ? /verification: chain and host name checked/
+              : /verification: skipped/,
+          );
+        } else {
+          assert.match(log, /Request connection failed.*error sending request/);
+          assert.ok(!log.includes("TLS connection established"));
+        }
+        await page.screenshot({
+          path: join(output, `tls-${id}-${trusted}-${valid}-timeline.png`),
+        });
+        await tabs.getByRole("tab", { name: "Preview", exact: true }).click();
+        cases.push({
+          id,
+          trusted,
+          validate: valid,
+          success,
+          event,
+          connectionLogVerified: true,
+        });
       }
       const saved = (await invoke("load_workspace")).resources.find(
         (/** @type {any} */ r) => r.name === name + " good",
