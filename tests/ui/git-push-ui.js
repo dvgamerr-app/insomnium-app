@@ -34,6 +34,8 @@ assert.ok(
     "equal",
     "fast-forward",
     "basic-auth",
+    "github-token",
+    "gitlab-token",
     "post-redirect",
     "discovery-redirect",
     "basic-push-refused",
@@ -68,6 +70,8 @@ try {
       const x = await advanceFixture(context);
       const basicAuth = [
         "basic-auth",
+        "github-token",
+        "gitlab-token",
         "tls-untrusted",
         "post-redirect",
         "discovery-redirect",
@@ -79,6 +83,9 @@ try {
         username: "owned-push-probe",
         password: "owned-push-" + crypto.randomUUID(),
       };
+      if (mode === "github-token")
+        fixtureCredential.username = "x-access-token";
+      if (mode === "gitlab-token") fixtureCredential.username = "oauth2";
       const remote = await serveReceivePack(
         output,
         basicAuth ? { basic: fixtureCredential } : {},
@@ -271,10 +278,17 @@ try {
         if (basicAuth) {
           await panel
             .getByRole("combobox", { name: /^Remote authentication/ })
-            .selectOption("basic");
-          await panel
-            .getByLabel("Git username", { exact: true })
-            .fill(fixtureCredential.username);
+            .selectOption(
+              mode === "github-token"
+                ? "github"
+                : mode === "gitlab-token"
+                  ? "gitlab"
+                  : "basic",
+            );
+          if (!["github-token", "gitlab-token"].includes(mode))
+            await panel
+              .getByLabel("Git username", { exact: true })
+              .fill(fixtureCredential.username);
           await panel
             .getByLabel("Git password or token", { exact: true })
             .fill(fixtureCredential.password);
@@ -290,6 +304,16 @@ try {
           .getByLabel("Push destination branch", { exact: true })
           .fill("main");
         let baseline = await invoke("load_workspace");
+        if (["github-token", "gitlab-token"].includes(mode)) {
+          const saved = baseline.resources.find(
+            (/** @type {any} */ row) => row._id === x.f.repositoryId,
+          ).credentials;
+          assert.equal(
+            saved.oauth2format,
+            mode === "github-token" ? "github" : "gitlab",
+          );
+          assert.equal(saved.token, fixtureCredential.password);
+        }
         let bytes = await readFile(x.workspace);
         const sourceRefs = await fixtureGit(x.repo, ["show-ref"]);
         let expectedSourceRefs = sourceRefs;
@@ -891,6 +915,8 @@ try {
         if (
           [
             "unknown",
+            "github-token",
+            "gitlab-token",
             "post-redirect",
             "discovery-redirect",
             "basic-push-refused",
@@ -914,22 +940,41 @@ try {
           assert.equal(remote.state.receivePosts, expectedPosts);
           if (partial) assert.equal(partial.state.receivePosts, 1);
           assert.deepEqual(await invoke("load_workspace"), after);
+          if (["github-token", "gitlab-token"].includes(mode)) {
+            assert.equal(
+              await panel
+                .getByRole("combobox", { name: /^Remote authentication/ })
+                .inputValue(),
+              mode === "github-token" ? "github" : "gitlab",
+            );
+            assert.equal(
+              await panel
+                .getByLabel("Git password or token", { exact: true })
+                .inputValue(),
+              fixtureCredential.password,
+            );
+            checks.push(
+              "provider token selector/legacy token resource survives reload unchanged; native challenge/POST used documented username-token password pair and no automatic second upload",
+            );
+          }
           checks.push(
             ["stop", "timeout", "completed-stop"].includes(mode)
               ? "stopped submitted Push survives reload; fresh Inspect does not resend or rewrite full data"
-              : ["basic-push-refused", "basic-post-refused"].includes(mode)
-                ? "real authentication refusal remains pending after reload; no automatic second upload or full state rewrite"
-                : ownerFault
-                  ? "ownership mismatch survives reload as pending Push with no automatic upload or snapshot cleanup"
-                  : mode === "receipt-write-failed"
-                    ? "actual finished-receipt write refusal survives reload with original submitted receipt/intent; no automatic second POST or full-data rewrite"
-                    : partial
-                      ? "actual partial-upload disconnect survives reload as pending Push; no second proxy POST, server upload or full-data rewrite"
-                      : mode === "discovery-redirect"
-                        ? "persistent discovery redirect survives reload with no upload or target credential exposure; fixture restores original endpoint before fresh explicit Inspect"
-                        : redirectSink
-                          ? "actual POST redirect survives reload as pending Push; no repeat POST, redirected request or full-data rewrite"
-                          : "real completed-server HTTP503 survives reload as pending Push; no automatic upload or full-data rewrite",
+              : ["github-token", "gitlab-token"].includes(mode)
+                ? "accepted token Push survives reload with exact persisted provider credentials/full snapshot and no resend"
+                : ["basic-push-refused", "basic-post-refused"].includes(mode)
+                  ? "real authentication refusal remains pending after reload; no automatic second upload or full state rewrite"
+                  : ownerFault
+                    ? "ownership mismatch survives reload as pending Push with no automatic upload or snapshot cleanup"
+                    : mode === "receipt-write-failed"
+                      ? "actual finished-receipt write refusal survives reload with original submitted receipt/intent; no automatic second POST or full-data rewrite"
+                      : partial
+                        ? "actual partial-upload disconnect survives reload as pending Push; no second proxy POST, server upload or full-data rewrite"
+                        : mode === "discovery-redirect"
+                          ? "persistent discovery redirect survives reload with no upload or target credential exposure; fixture restores original endpoint before fresh explicit Inspect"
+                          : redirectSink
+                            ? "actual POST redirect survives reload as pending Push; no repeat POST, redirected request or full-data rewrite"
+                            : "real completed-server HTTP503 survives reload as pending Push; no automatic upload or full-data rewrite",
           );
         }
 
