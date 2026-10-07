@@ -172,7 +172,13 @@ export async function clientCertificateFixture(output) {
     "-o",
     executable,
   ];
-  for (const name of ["rustls", "sha2", "serde_json", "x509_parser"]) {
+  for (const name of [
+    "rustls",
+    "sha2",
+    "serde_json",
+    "x509_parser",
+    "tungstenite",
+  ]) {
     const files = await Array.fromAsync(
       new Bun.Glob("lib" + name + "-*.rlib").scan(deps),
     );

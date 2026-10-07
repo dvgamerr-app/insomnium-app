@@ -86,6 +86,42 @@ fn handle(
         serde_json::json!({"event":"request","role":role,"url":first[1],"method":first[0],
         "body":String::from_utf8(body).map_err(|e| e.to_string())?,"authorized":true,"cn":cn,"fingerprint":fingerprint})
     );
+    if first[1] == "/ws" {
+        let key = header
+            .lines()
+            .filter_map(|line| line.split_once(':'))
+            .find(|(name, _)| name.eq_ignore_ascii_case("sec-websocket-key"))
+            .map(|(_, value)| value.trim())
+            .ok_or("Missing WebSocket key")?;
+        let accept = tungstenite::handshake::derive_accept_key(key.as_bytes());
+        stream.write_all(format!("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}\r\n\r\n").as_bytes())
+            .map_err(|e| e.to_string())?;
+        stream.flush().map_err(|e| e.to_string())?;
+        let mut socket = tungstenite::WebSocket::from_raw_socket(
+            stream,
+            tungstenite::protocol::Role::Server,
+            None,
+        );
+        socket
+            .send(tungstenite::Message::Text(
+                "owned mutual TLS WSS message".into(),
+            ))
+            .map_err(|e| e.to_string())?;
+        socket
+            .close(Some(tungstenite::protocol::CloseFrame {
+                code: tungstenite::protocol::frame::coding::CloseCode::Normal,
+                reason: "Owned WSS complete".into(),
+            }))
+            .map_err(|e| e.to_string())?;
+        socket.flush().map_err(|e| e.to_string())?;
+        loop {
+            match socket.read() {
+                Err(tungstenite::Error::ConnectionClosed) => return Ok(()),
+                Err(error) => return Err(error.to_string()),
+                Ok(_) => {}
+            }
+        }
+    }
     let response = if first[1] == "/redirect" {
         format!("HTTP/1.1 302 Found\r\nLocation: {redirect}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
     } else if first[1] == "/sse" {
