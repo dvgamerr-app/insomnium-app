@@ -1,4 +1,5 @@
-//! Recovery of a versioned local checkout journal. Never guesses from journal age.
+//! Recovery of versioned checkout and same-branch advancement journals.
+//! Never guesses from journal age or from a successful transport reply.
 use crate::{git, storage};
 use serde::Deserialize;
 use serde_json::Value;
@@ -19,6 +20,30 @@ struct Journal {
     target_oid: String,
     before_workspace: Value,
     after_workspace: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    advance: Option<Advance>,
+}
+
+#[derive(Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct Advance {
+    kind: AdvanceKind,
+    incoming_oid: String,
+    merge_base_oid: String,
+}
+
+#[derive(Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+enum AdvanceKind {
+    FastForward,
+    Merge,
+}
+
+fn journal_oid(value: &str) -> Result<git2::Oid, String> {
+    if value.len() != 40 || !value.bytes().all(|c| c.is_ascii_hexdigit()) {
+        return Err("Invalid full journal commit ID".into());
+    }
+    git2::Oid::from_str(value).map_err(|e| e.message().to_owned())
 }
 
 fn valid_id(id: &str, max: usize) -> bool {
@@ -341,12 +366,27 @@ fn read_journal(directory: &Path) -> Result<Option<(Journal, Vec<u8>)>, String> 
 }
 
 fn validate_journal(journal: &Journal) -> Result<(), String> {
-    if journal.schema_version != 1
+    if !matches!(journal.schema_version, 1 | 2)
         || !valid_id(&journal.operation_id, 100)
         || !valid_id(&journal.repository_id, 100)
         || !valid_id(&journal.workspace_id, 200)
     {
         return Err("Invalid checkout journal version or IDs".into());
+    }
+    git::branch_reference(&journal.source_branch)?;
+    git::branch_reference(&journal.target_branch)?;
+    let old = journal_oid(&journal.source_oid)?;
+    let new = journal_oid(&journal.target_oid)?;
+    match (journal.schema_version, &journal.advance) {
+        (1, None)
+            if !journal
+                .source_branch
+                .eq_ignore_ascii_case(&journal.target_branch) => {}
+        (2, Some(advance)) if journal.source_branch == journal.target_branch && old != new => {
+            journal_oid(&advance.incoming_oid)?;
+            journal_oid(&advance.merge_base_oid)?;
+        }
+        _ => return Err("Invalid journal operation or branch/OID relationship".into()),
     }
     validate_pair(journal)?;
     Ok(())
@@ -371,6 +411,9 @@ fn recover_inner(directory: &Path) -> Result<Option<CheckoutResult>, String> {
     let target = git::branch_reference(&journal.target_branch)?;
     let path = git::managed_path(&directory.join("git-v1"), &journal.repository_id)?;
     let repo = git::open_managed(&path)?;
+    if journal.schema_version == 2 {
+        return recover_advance(directory, &repo, &journal, &bytes).map(Some);
+    }
     let _transaction = lock_refs(&repo, &journal)?;
     let error = |e: git2::Error| e.message().to_owned();
     let head = repo.find_reference("HEAD").map_err(error)?;
@@ -421,6 +464,151 @@ fn recover_inner(directory: &Path) -> Result<Option<CheckoutResult>, String> {
     }))
 }
 
+/// Validate the complete committed resource tree and its collection identity.
+/// Working edits may differ from either commit; validate_pair protects private,
+/// local and foreign data while the collection planner reconciles those edits.
+fn validate_commit(
+    repo: &git2::Repository,
+    oid: git2::Oid,
+    workspace_id: &str,
+) -> Result<(), String> {
+    let error = |e: git2::Error| e.message().to_owned();
+    git::committed_resources(repo, &oid.to_string())?;
+    let commit = repo.find_commit(oid).map_err(error)?;
+    let tree = commit.tree().map_err(error)?;
+    let entry = tree
+        .get_path(Path::new(".insomnium/Workspace"))
+        .map_err(error)?;
+    if entry.kind() != Some(git2::ObjectType::Tree) {
+        return Err("Recorded commit has no workspace tree".into());
+    }
+    let roots = repo.find_tree(entry.id()).map_err(error)?;
+    if roots.len() != 1 {
+        return Err("Recorded commit must contain exactly one workspace".into());
+    }
+    let root = roots.get(0).ok_or("Missing committed workspace")?;
+    let yml = format!("{workspace_id}.yml");
+    let json = format!("{workspace_id}.json");
+    if !matches!(root.filemode(), 0o100644 | 0o100755)
+        || !matches!(root.name(), Ok(name) if name == yml || name == json)
+    {
+        return Err("Recorded commit belongs to a different workspace".into());
+    }
+    Ok(())
+}
+
+fn validate_advance_graph(repo: &git2::Repository, journal: &Journal) -> Result<(), String> {
+    let advance = journal
+        .advance
+        .as_ref()
+        .ok_or("Missing advance operation")?;
+    let old = journal_oid(&journal.source_oid)?;
+    let new = journal_oid(&journal.target_oid)?;
+    let incoming = journal_oid(&advance.incoming_oid)?;
+    let base = journal_oid(&advance.merge_base_oid)?;
+    for oid in std::collections::HashSet::from([old, new, incoming, base]) {
+        validate_commit(repo, oid, &journal.workspace_id)?;
+    }
+    let error = |e: git2::Error| e.message().to_owned();
+    match advance.kind {
+        AdvanceKind::FastForward => {
+            if incoming != new
+                || base != old
+                || !repo.graph_descendant_of(new, old).map_err(error)?
+            {
+                return Err("Recorded fast-forward inputs do not match the commit graph".into());
+            }
+        }
+        AdvanceKind::Merge => {
+            let commit = repo.find_commit(new).map_err(error)?;
+            if commit.parent_count() != 2
+                || commit.parent_id(0).map_err(error)? != old
+                || commit.parent_id(1).map_err(error)? != incoming
+                || old == incoming
+                || repo.graph_descendant_of(old, incoming).map_err(error)?
+                || repo.graph_descendant_of(incoming, old).map_err(error)?
+                || repo.merge_base(old, incoming).map_err(error)? != base
+            {
+                return Err("Recorded merge inputs do not match the pinned parents/base".into());
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Schema2 recovery never moves a ref. It only finishes the workspace side of
+/// a proven old/new tip and retains every ambiguous or contradictory state.
+fn recover_advance(
+    directory: &Path,
+    repo: &git2::Repository,
+    journal: &Journal,
+    bytes: &[u8],
+) -> Result<CheckoutResult, String> {
+    let reference = git::branch_reference(&journal.source_branch)?;
+    let mut locks = crate::git_ref_lock::RestoreRefLocks::new(repo)?;
+    // These are read-only locks even though the recorded operation mutates a ref.
+    // The mutation writer requires separate operation-specific crash ownership.
+    locks.lock_ref("HEAD")?;
+    locks.lock_ref(&reference)?;
+    if repo.state() != git2::RepositoryState::Clean {
+        return Err("Repository has an unfinished Git operation".into());
+    }
+    let error = |e: git2::Error| e.message().to_owned();
+    if repo
+        .find_reference("HEAD")
+        .map_err(error)?
+        .symbolic_target()
+        .map_err(error)?
+        != Some(reference.as_str())
+    {
+        return Err("Advance HEAD changed or is detached; journal retained".into());
+    }
+    validate_advance_graph(repo, journal)?;
+    let tip = repo.find_reference(&reference).map_err(error)?.target();
+    let old = journal_oid(&journal.source_oid)?;
+    let new = journal_oid(&journal.target_oid)?;
+    let current = storage::read_workspace_file(directory)?.ok_or("Workspace file is missing")?;
+    let expected = if tip == Some(old) && current == journal.before_workspace {
+        &journal.before_workspace
+    } else if tip == Some(new)
+        && (current == journal.before_workspace || current == journal.after_workspace)
+    {
+        &journal.after_workspace
+    } else {
+        return Err("Advance tip/workspace do not match an unambiguous recorded state".into());
+    };
+    // Check the original journal before any workspace write, and again before
+    // cleanup. A read-only recovery must not authorize a replaced candidate.
+    let unchanged = || -> Result<(), String> {
+        if read_journal(directory)?
+            .map(|(_, latest)| latest)
+            .as_deref()
+            != Some(bytes)
+        {
+            return Err("Advance journal changed during recovery; retained".into());
+        }
+        Ok(())
+    };
+    unchanged()?;
+    if current != *expected {
+        if storage::read_workspace_file(directory)?.as_ref() != Some(&current) {
+            return Err("Workspace changed before advance recovery; retained".into());
+        }
+        storage::write_workspace_file(directory, expected)?;
+    }
+    unchanged()?;
+    if storage::read_workspace_file(directory)?.as_ref() != Some(expected) {
+        return Err("Workspace changed during advance recovery; retained".into());
+    }
+    fs::remove_file(directory.join(storage::GIT_TRANSITION_FILE)).map_err(|e| e.to_string())?;
+    Ok(CheckoutResult {
+        operation_id: journal.operation_id.clone(),
+        branch: journal.source_branch.clone(),
+        head_oid: tip.ok_or("Missing advance tip")?.to_string(),
+        workspace: expected.clone(),
+    })
+}
+
 fn lock_refs<'repo>(
     repo: &'repo git2::Repository,
     journal: &Journal,
@@ -430,14 +618,8 @@ fn lock_refs<'repo>(
     if source.eq_ignore_ascii_case(&target) {
         return Err("Journal branches must differ".into());
     }
-    let parse_oid = |value: &str| {
-        if value.len() != 40 || !value.bytes().all(|c| c.is_ascii_hexdigit()) {
-            return Err("Invalid full journal commit ID".to_owned());
-        }
-        git2::Oid::from_str(value).map_err(|e| e.message().to_owned())
-    };
-    let source_oid = parse_oid(&journal.source_oid)?;
-    let target_oid = parse_oid(&journal.target_oid)?;
+    let source_oid = journal_oid(&journal.source_oid)?;
+    let target_oid = journal_oid(&journal.target_oid)?;
     let error = |e: git2::Error| e.message().to_owned();
     let mut transaction = repo.transaction().map_err(error)?;
     transaction.lock_ref("HEAD").map_err(error)?;
@@ -453,27 +635,7 @@ fn lock_refs<'repo>(
         if repo.find_reference(name).map_err(error)?.target() != Some(expected) {
             return Err("Recorded branch moved or is no longer a direct reference".into());
         }
-        git::committed_resources(repo, &expected.to_string())?;
-        let commit = repo.find_commit(expected).map_err(error)?;
-        let tree = commit.tree().map_err(error)?;
-        let roots_entry = tree
-            .get_path(Path::new(".insomnium/Workspace"))
-            .map_err(error)?;
-        if roots_entry.kind() != Some(git2::ObjectType::Tree) {
-            return Err("Recorded commit has no workspace tree".into());
-        }
-        let roots = repo.find_tree(roots_entry.id()).map_err(error)?;
-        if roots.len() != 1 {
-            return Err("Recorded commit must contain exactly one workspace".into());
-        }
-        let root = roots.get(0).ok_or("Missing committed workspace")?;
-        let yml = format!("{}.yml", journal.workspace_id);
-        let json = format!("{}.json", journal.workspace_id);
-        if !matches!(root.filemode(), 0o100644 | 0o100755)
-            || !matches!(root.name(), Ok(name) if name == yml || name == json)
-        {
-            return Err("Recorded commit belongs to a different workspace".into());
-        }
+        validate_commit(repo, expected, &journal.workspace_id)?;
     }
     Ok(transaction)
 }
@@ -505,6 +667,9 @@ pub(crate) fn checkout(
     storage::ensure_no_pending_transition(directory)?;
     session.require_loaded()?;
     let journal = input.journal;
+    if journal.schema_version != 1 {
+        return Err("Checkout requires a version-1 branch-switch journal".into());
+    }
     validate_journal(&journal)?;
     for value in [&input.author_name, &input.author_email] {
         if value.trim().is_empty() || value.len() > 4096 || value.chars().any(char::is_control) {
@@ -644,6 +809,7 @@ pub(crate) fn restore(
         target_oid: input.head_oid,
         before_workspace: input.before_workspace,
         after_workspace: input.after_workspace,
+        advance: None,
     };
     // Reuse collection ownership/privacy/topology and envelope protection only.
     // This is NOT a version-1 branch-switch journal; do not persist it.

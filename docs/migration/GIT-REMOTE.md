@@ -51,9 +51,9 @@ Legacy clone also preserves files outside .insomnium through its routed filesyst
 
 ## Confirmed journal gap
 
-src-tauri/src/git_journal.rs currently accepts schema version 1. lock_refs rejects equal source/target branches and requires both tips to remain at their recorded OIDs. recover_inner distinguishes before/after by symbolic HEAD branch identity.
+2026-10-07 implementation in progress: src-tauri/src/git_journal.rs now reads schema1 checkout and schema2 same-branch advancement recovery records. Version1 lock_refs still rejects equal source/target branches and requires both tips to remain at their recorded OIDs; its recovery distinguishes before/after by symbolic HEAD branch identity. The checkout command explicitly rejects schema2. Schema2 reader validates exact old/new OIDs, pinned graph inputs and collection trees, then classifies recovery by branch tip plus whole workspace. Saved native git-advance-recovery1791359060983 passes20 synthetic-state/refusal/actual Windows write-failure checks and schema1 compatibility; no advancement writer/public pull/merge command is implemented yet.
 
-Therefore this journal **cannot** represent pull/merge advancing the current branch: symbolic HEAD stays on the same branch while its OID changes. Removing the equal-branch guard would make recovery ambiguous. Add a versioned advance-ref operation and explicit OID-based recovery before wiring pull/merge to workspace writes. Preserve support for recovering existing version-1 checkout journals.
+Version1 **cannot** represent pull/merge advancing the current branch: symbolic HEAD stays on the same branch while its OID changes. Removing its equal-branch guard would make recovery ambiguous. Finish the versioned advance-ref writer and verify explicit OID-based recovery before wiring pull/merge to workspace writes. Preserve support for recovering existing version-1 checkout journals.
 
 Proposed advance-ref record: operation/repository/workspace IDs, exact branch reference, old/new OIDs, before/after workspace, and pinned merge inputs. Native validates candidate resources and complete commit tree. Under GitState then StorageState, lock HEAD and the branch, require symbolic HEAD/name and old OID, persist journal, then compare-and-update ref. Recovery uses:
 
@@ -64,7 +64,7 @@ Proposed advance-ref record: operation/repository/workspace IDs, exact branch re
 | new        | after                                                            | Verify and finish cleanup                                    |
 | old        | after, unrelated tip, detached/changed HEAD, unrelated workspace | Refuse overwrite; retain journal for recovery                |
 
-These are proposed rules, not implemented guarantees. Lost replies re-enter recovery and inspect recorded state; they do not trigger an automatic second pull, merge commit or push.
+These rules are implemented and accepted for synthetic states in the schema2 reader, but the journal-producing writer and its actual interruption/outcome acceptance are still pending. Schema2 retains the existing envelope fields with equal sourceBranch/targetBranch and distinct sourceOid/targetOid; its required advance field contains kind (fastForward or merge), incomingOid and mergeBaseOid. Fast-forward pins incoming=new/base=old and proves ancestry; merge pins exact ordered old/incoming parents and their base, requiring divergent inputs. No shape allows schema1 to be reinterpreted as advancement. Lost replies must re-enter recovery and inspect recorded state; they must not trigger an automatic second pull, merge commit or push.
 
 ## Implementation sequence and exit evidence
 
