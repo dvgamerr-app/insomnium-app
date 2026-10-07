@@ -20,10 +20,10 @@ await withNativeApp("git-merge-prepare", async (context) => {
   const bytes = await readFile(x.workspace);
   const indexPath = join(x.repo, ".git", "index");
   const indexBefore = await Bun.file(indexPath).exists() ? await readFile(indexPath) : null;
-  /** @param {string} old @param {string} incoming */
-  async function prepare(old, incoming) {
+  /** @param {string} old @param {string} incoming @param {any} [options] */
+  async function prepare(old, incoming, options = {}) {
     const result = await invoke("git_repository_prepare_merge", {
-      input: { ...input, sourceOid: old, incomingOid: incoming },
+      input: { ...input, sourceOid: old, incomingOid: incoming, ...options },
     });
     assert.equal(result.sourceOid, old);
     assert.equal(result.incomingOid, incoming);
@@ -98,6 +98,30 @@ await withNativeApp("git-merge-prepare", async (context) => {
   assert.equal(conflict.conflicts[0].theirs.oid, conflictTheirs.blob);
   assert.equal(new TextDecoder().decode(Uint8Array.from(conflict.conflicts[0].ours.path)), "conflict.bin");
   checks.push("binary-add-add-conflict-no-partial-candidate-no-ref-workspace-index-change");
+  const reviewed = conflict.conflicts[0];
+  /** @param {string} choice @param {any} [extra] */
+  async function resolve(choice, extra = {}) {
+    const result = await prepare(conflictOurs.commit, conflictTheirs.commit, {
+      expectedMergeBaseOid: conflict.mergeBaseOid,
+      resolutions: [{ conflict: reviewed, choice, ...extra }],
+    });
+    assert.deepEqual(result.conflicts, []);
+    assert.match(result.targetOid, /^[0-9a-f]{40}$/);
+    assert.equal(await fixtureGit(x.repo, ["show", "-s", "--format=%P", result.targetOid]), conflictOurs.commit + " " + conflictTheirs.commit);
+    return result;
+  }
+  const useOurs = await resolve("ours");
+  assert.equal(await fixtureGit(x.repo, ["rev-parse", useOurs.targetOid + ":conflict.bin"]), conflictOurs.blob);
+  const useTheirs = await resolve("theirs");
+  assert.equal(await fixtureGit(x.repo, ["rev-parse", useTheirs.targetOid + ":conflict.bin"]), conflictTheirs.blob);
+  const deleted = await resolve("delete");
+  assert.equal(await fixtureGit(x.repo, ["ls-tree", deleted.targetOid, "--", "conflict.bin"]), "");
+  const customContent = new TextEncoder().encode("Reviewed\0binary resolution\n");
+  const custom = await resolve("custom", { path: reviewed.ours.path, mode: 0o100755, content: Array.from(customContent) });
+  const customBlob = await fixtureGit(x.repo, ["hash-object", "--stdin"], new TextDecoder().decode(customContent));
+  assert.equal(await fixtureGit(x.repo, ["rev-parse", custom.targetOid + ":conflict.bin"]), customBlob);
+  assert.match(await fixtureGit(x.repo, ["ls-tree", custom.targetOid, "--", "conflict.bin"]), /^100755 blob /);
+  checks.push("reviewed-binary-ours-theirs-delete-custom-resolutions-no-application");
   /** @param {any} override @param {RegExp} expected */
   async function refuses(override, expected) {
     let message = "";
@@ -105,6 +129,8 @@ await withNativeApp("git-merge-prepare", async (context) => {
     catch (error) { message = String(error); }
     assert.match(message, expected);
     assert.equal(await fixtureGit(x.repo, ["rev-parse", main]), conflictOurs.commit);
+    assert.equal(await fixtureGit(x.repo, ["symbolic-ref", "HEAD"]), main);
+    assert.deepEqual(await Bun.file(indexPath).exists() ? await readFile(indexPath) : null, indexBefore);
     assert.deepEqual(await readFile(x.workspace), bytes);
     await assertAdvanceCleanup(x);
   }
@@ -112,6 +138,19 @@ await withNativeApp("git-merge-prepare", async (context) => {
   await refuses({ sourceOid: conflictOurs.commit, incomingOid: "HEAD" }, /full 40/);
   await refuses({ sourceOid: conflictOurs.commit, workspaceId: "wrk_foreign" }, /different workspace/);
   checks.push("stale-source-revspec-foreign-collection-refusals-preserve-state");
+  const resolutionInput = { sourceOid: conflictOurs.commit, incomingOid: conflictTheirs.commit,
+    expectedMergeBaseOid: conflict.mergeBaseOid,
+    resolutions: [{ conflict: reviewed, choice: "ours" }] };
+  await refuses({ ...resolutionInput, expectedMergeBaseOid: x.newOid }, /exact reviewed merge base/);
+  await refuses({ ...resolutionInput, resolutions: [] }, /every current merge conflict/);
+  await refuses({ ...resolutionInput, resolutions: [...resolutionInput.resolutions, ...resolutionInput.resolutions] }, /Duplicate/);
+  const changed = structuredClone(reviewed);
+  changed.ours.oid = x.f.oid;
+  await refuses({ ...resolutionInput, resolutions: [{ conflict: changed, choice: "ours" }] }, /conflicts changed|choice is missing/);
+  await refuses({ ...resolutionInput, resolutions: [{ conflict: reviewed, choice: "ours", content: [] }] }, /must not contain custom fields/);
+  await refuses({ ...resolutionInput, resolutions: [{ conflict: reviewed, choice: "custom", path: [46, 46, 47, 120], mode: 0o100644, content: [] }] }, /outside the reviewed conflict/);
+  await refuses({ ...resolutionInput, resolutions: [{ conflict: reviewed, choice: "custom", path: reviewed.ours.path, mode: 0o120000, content: [] }] }, /regular file/);
+  checks.push("base-conflict-choice-custom-path-mode-guards-preserve-state");
   const shallow = join(x.repo, ".git", "shallow");
   const shallowBytes = x.f.oid + "\n";
   await writeFile(shallow, shallowBytes, { flag: "wx" });
@@ -122,6 +161,20 @@ await withNativeApp("git-merge-prepare", async (context) => {
     await rm(shallow);
   }
   checks.push("shallow-history-never-misclassified");
+  const journal = { ...structuredClone(x.journal), operationId: crypto.randomUUID(),
+    sourceOid: conflictOurs.commit, targetOid: custom.targetOid, afterWorkspace: x.before,
+    advance: { kind: "merge", incomingOid: conflictTheirs.commit, mergeBaseOid: x.f.oid } };
+  const applied = await invoke("git_repository_advance", { input: {
+    journal, authorName: x.f.author.name, authorEmail: x.f.author.email,
+  } });
+  assert.equal(applied.operationId, journal.operationId);
+  assert.equal(applied.headOid, custom.targetOid);
+  assert.deepEqual(applied.workspace, x.before);
+  assert.deepEqual(await invoke("load_workspace"), x.before);
+  assert.equal(await fixtureGit(x.repo, ["rev-parse", main]), custom.targetOid);
+  assert.equal(await fixtureGit(x.repo, ["rev-parse", custom.targetOid + ":conflict.bin"]), customBlob);
+  await assertAdvanceCleanup(x);
+  checks.push("reviewed-custom-candidate-applied-by-native-journal-preserves-local-workspace");
   await Bun.write(join(output, "acceptance.json"), JSON.stringify({ passed: true, checks, merged, conflict,
-    scope: "Native candidate preparation only; no public Pull/Merge UI, conflict resolution, or network endpoint admission claim." }, null, 2));
+    scope: "Native candidate preparation/resolution and journaled apply only; no public Pull/Merge UI or network endpoint admission claim." }, null, 2));
 });

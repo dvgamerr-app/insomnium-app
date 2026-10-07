@@ -16,6 +16,10 @@ pub struct MergeInput {
     author_name: String,
     author_email: String,
     message: String,
+    #[serde(default)]
+    expected_merge_base_oid: Option<String>,
+    #[serde(default)]
+    resolutions: Option<Vec<crate::git_merge_resolution::Resolution>>,
 }
 
 #[derive(Serialize)]
@@ -29,19 +33,36 @@ pub struct MergeCandidate {
     conflicts: Vec<MergeConflict>,
 }
 
-#[derive(Serialize)]
-struct MergeConflict {
-    ancestor: Option<ConflictEntry>,
-    ours: Option<ConflictEntry>,
-    theirs: Option<ConflictEntry>,
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct MergeConflict {
+    pub(crate) ancestor: Option<ConflictEntry>,
+    pub(crate) ours: Option<ConflictEntry>,
+    pub(crate) theirs: Option<ConflictEntry>,
 }
 
-#[derive(Serialize)]
-struct ConflictEntry {
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ConflictEntry {
     // Git paths are bytes. Never collapse non-UTF8 paths or rename sides.
-    path: Vec<u8>,
-    oid: String,
-    mode: u32,
+    pub(crate) path: Vec<u8>,
+    pub(crate) oid: String,
+    pub(crate) mode: u32,
+}
+
+pub(crate) fn describe_conflict(value: &git2::IndexConflict) -> MergeConflict {
+    let entry = |item: &Option<git2::IndexEntry>| {
+        item.as_ref().map(|item| ConflictEntry {
+            path: item.path.clone(),
+            oid: item.id.to_string(),
+            mode: item.mode,
+        })
+    };
+    MergeConflict {
+        ancestor: entry(&value.ancestor),
+        ours: entry(&value.our),
+        theirs: entry(&value.their),
+    }
 }
 
 fn oid(value: &str) -> Result<Oid, String> {
@@ -97,6 +118,10 @@ pub(crate) fn prepare(repo: &Repository, input: &MergeInput) -> Result<MergeCand
         conflicts: Vec::new(),
     };
     if old == incoming {
+        if input.resolutions.is_some() {
+            return Err("No divergent merge conflicts to resolve".into());
+        }
+        check_head(repo, &branch, old)?;
         return Ok(candidate);
     }
     // Missing shallow ancestors must not be mistaken for divergence/unrelated history.
@@ -104,10 +129,16 @@ pub(crate) fn prepare(repo: &Repository, input: &MergeInput) -> Result<MergeCand
         return Err("Expand fetched history before classifying this merge".into());
     }
     if repo.graph_descendant_of(old, incoming).map_err(error)? {
+        if input.resolutions.is_some() {
+            return Err("No divergent merge conflicts to resolve".into());
+        }
         check_head(repo, &branch, old)?;
         return Ok(candidate);
     }
     if repo.graph_descendant_of(incoming, old).map_err(error)? {
+        if input.resolutions.is_some() {
+            return Err("No divergent merge conflicts to resolve".into());
+        }
         candidate.kind = "fastForward";
         candidate.merge_base_oid = Some(old.to_string());
         candidate.target_oid = Some(incoming.to_string());
@@ -121,6 +152,16 @@ pub(crate) fn prepare(repo: &Repository, input: &MergeInput) -> Result<MergeCand
         return Err("Merge requires a supported single common ancestor".into());
     }
     let base = bases[0];
+    if input.resolutions.is_some()
+        && input
+            .expected_merge_base_oid
+            .as_deref()
+            .map(oid)
+            .transpose()?
+            != Some(base)
+    {
+        return Err("Conflict resolution requires the exact reviewed merge base".into());
+    }
     git_journal::validate_commit(repo, base, &input.workspace_id)?;
     let ours = repo.find_commit(old).map_err(error)?;
     let theirs = repo.find_commit(incoming).map_err(error)?;
@@ -136,24 +177,16 @@ pub(crate) fn prepare(repo: &Repository, input: &MergeInput) -> Result<MergeCand
     candidate.kind = "merge";
     candidate.merge_base_oid = Some(base.to_string());
     candidate.target_oid = None;
+    if let Some(resolutions) = &input.resolutions {
+        index = crate::git_merge_resolution::resolve(repo, &index, resolutions)?;
+    }
     if index.has_conflicts() {
-        let entry = |item: Option<git2::IndexEntry>| {
-            item.map(|item| ConflictEntry {
-                path: item.path,
-                oid: item.id.to_string(),
-                mode: item.mode,
-            })
-        };
         for conflict in index.conflicts().map_err(error)? {
             let conflict = conflict.map_err(error)?;
             if candidate.conflicts.len() >= 10000 {
                 return Err("Merge exceeds 10000 conflicting paths".into());
             }
-            candidate.conflicts.push(MergeConflict {
-                ancestor: entry(conflict.ancestor),
-                ours: entry(conflict.our),
-                theirs: entry(conflict.their),
-            });
+            candidate.conflicts.push(describe_conflict(&conflict));
         }
     } else {
         if input.author_name.trim().is_empty()

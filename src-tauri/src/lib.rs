@@ -10,6 +10,7 @@ mod git_fetch_journal;
 mod git_fetch_snapshot;
 mod git_journal;
 mod git_merge;
+mod git_merge_resolution;
 mod git_ref_lock;
 mod git_remote;
 mod git_remote_job;
