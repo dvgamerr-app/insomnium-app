@@ -25,6 +25,9 @@ assert.ok(
     "retire-save-failed",
     "retire-save-lost",
     "retire-state-replaced",
+    "history-before-confirm",
+    "inspect-failed",
+    "inspect-stop",
     "stop",
     "completed-stop",
     "timeout",
@@ -138,7 +141,7 @@ try {
         await panel
           .getByLabel("Push destination branch", { exact: true })
           .fill("main");
-        const baseline = await invoke("load_workspace");
+        let baseline = await invoke("load_workspace");
         const bytes = await readFile(x.workspace);
         const sourceRefs = await fixtureGit(x.repo, ["show-ref"]);
         let expectedSourceRefs = sourceRefs;
@@ -168,6 +171,74 @@ try {
         dialog = page.getByRole("dialog", { name: "Review Push", exact: true });
         await dialog.waitFor();
         await page.screenshot({ path: join(output, "push-review.png") });
+        if (mode === "history-before-confirm") {
+          const beforeHistory = structuredClone(baseline);
+          assert.equal(http.completeHeld(), 1);
+          /** @type {any} */ let completedData;
+          await poll(async () => {
+            completedData = await invoke("load_workspace");
+            return completedData.history.some(
+              (/** @type {any} */ row) =>
+                row.requestId === held._id &&
+                row.status === 200 &&
+                !beforeHistory.history.some(
+                  (/** @type {any} */ old) => old._id === row._id,
+                ),
+            );
+          }, "Actual background native Send completes and persists200 while Push review is open");
+          const expectedCompletion = structuredClone(beforeHistory);
+          expectedCompletion.history = completedData.history;
+          assert.deepEqual(
+            completedData,
+            expectedCompletion,
+            "Only completed native response history changes full baseline",
+          );
+          const response = completedData.history.find(
+            (/** @type {any} */ row) =>
+              row.requestId === held._id && row.status === 200,
+          );
+          assert.equal(response.body, "fixture response");
+          const completedBytes = await readFile(x.workspace);
+          const refused = await withIpcFailure(
+            page,
+            "git_remote_push",
+            false,
+            async () => {
+              await dialog
+                .getByRole("button", { name: "Confirm Push", exact: true })
+                .click();
+              await panel
+                .getByRole("alert")
+                .filter({ hasText: "Workspace changed since Push review." })
+                .waitFor();
+            },
+          );
+          assert.equal(
+            refused.calls,
+            0,
+            "Stale review must never invoke native Push",
+          );
+          assert.equal(refused.completed, 0);
+          assert.deepEqual(await invoke("load_workspace"), completedData);
+          assert.deepEqual(await readFile(x.workspace), completedBytes);
+          assert.equal(remote.state.receivePosts, 0);
+          assert.equal(await remote.tip(), null);
+          assert.equal(http.cancelled, 0);
+          assert.equal(http.completed, 1);
+          checks.push(
+            "real private Send/history200 completes while Push review is open; stale confirmation consumes review before native IPC with full history/bytes/refs retained and no upload",
+          );
+          baseline = completedData;
+          await panel
+            .getByRole("button", { name: "Review Push", exact: true })
+            .click();
+          dialog = page.getByRole("dialog", {
+            name: "Review Push",
+            exact: true,
+          });
+          await dialog.waitFor();
+          assert.ok((await dialog.innerText()).includes(x.f.oid));
+        }
         remote.state.dropNextReply = mode === "unknown";
         remote.state.rejectNextPush = mode === "rejected";
         remote.state.holdNextPush = ["stop", "timeout"].includes(mode);
@@ -343,7 +414,9 @@ try {
                   ? "local branch actually advanced after worker pack submission: server receives only reviewed immutable commit/tree; later source ref/full workspace/held Send preserved"
                   : mode === "source-before-confirm"
                     ? "source tip moved after product review before confirmation: actionable inspection error, no POST/stage, full state/changed ref/held Send preserved"
-                    : "confirmed public Push: pinned actual server tree and full live snapshot except exact saved intent; held Send stays active",
+                    : mode === "history-before-confirm"
+                      ? "fresh review confirms pinned public commit/tree, retaining completed private Send/history200 and exact full live data except saved intent"
+                      : "confirmed public Push: pinned actual server tree and full live snapshot except exact saved intent; held Send stays active",
         );
 
         if (["unknown", "stop", "timeout", "completed-stop"].includes(mode)) {
@@ -363,6 +436,55 @@ try {
           );
         }
 
+        if (["inspect-failed", "inspect-stop"].includes(mode)) {
+          const beforeFailedInspect = await readFile(x.workspace);
+          const advertisements = remote.state.advertisements;
+          remote.state.failNextAdvertisement = mode === "inspect-failed";
+          remote.state.holdNextAdvertisement = mode === "inspect-stop";
+          await panel
+            .getByRole("button", { name: "Inspect pending Push", exact: true })
+            .click();
+          if (mode === "inspect-stop") {
+            await poll(
+              async () => remote.state.heldAdvertisements === 1,
+              "Actual independent Inspect advertisement response held",
+            );
+            await panel
+              .getByRole("button", { name: "Stop remote request", exact: true })
+              .click();
+            await poll(
+              async () => remote.state.abortedAdvertisements === 1,
+              "Stop native Inspect disconnects actual held advertisement",
+            );
+          }
+          await panel.getByRole("alert").waitFor();
+          assert.ok((await panel.getByRole("alert").innerText()).length > 0);
+          assert.equal(
+            remote.state.failedAdvertisements,
+            mode === "inspect-failed" ? 1 : 0,
+          );
+          assert.equal(remote.state.advertisements, advertisements + 1);
+          assert.equal(
+            await page
+              .getByRole("dialog", { name: "Inspect Push result", exact: true })
+              .count(),
+            0,
+          );
+          assert.deepEqual(await invoke("load_workspace"), after);
+          assert.deepEqual(await readFile(x.workspace), beforeFailedInspect);
+          assert.deepEqual(
+            JSON.parse(await readFile(receiptPath, "utf8")),
+            nativeReceipt,
+          );
+          assert.equal(remote.state.receivePosts, 1);
+          assert.equal(await remote.tip(), x.f.oid);
+          assert.equal(http.cancelled, 0);
+          checks.push(
+            mode === "inspect-failed"
+              ? "real remote discovery HTTP503 during Inspect: no observation review, exact receipt/intent/full bytes/data retained and no upload; fresh explicit inspection remains required"
+              : "Stop during real independent Inspect/held advertisement disconnects discovery worker; no observation/receipt/intent/full bytes/data/server mutation or upload, fresh explicit inspection required",
+          );
+        }
         await panel
           .getByRole("button", { name: "Inspect pending Push", exact: true })
           .click();
@@ -543,7 +665,11 @@ try {
             {
               checks,
               server: remote.state,
-              held: { started: http.held, cancelled: http.cancelled },
+              held: {
+                started: http.held,
+                cancelled: http.cancelled,
+                completed: http.completed,
+              },
             },
             null,
             2,

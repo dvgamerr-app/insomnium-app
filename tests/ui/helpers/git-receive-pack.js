@@ -21,6 +21,11 @@ export async function serveReceivePack(output) {
   await fixtureGit(repo, ["init", "--bare", "--initial-branch=main", "."]);
   const state = {
     advertisements: 0,
+    failNextAdvertisement: false,
+    failedAdvertisements: 0,
+    holdNextAdvertisement: false,
+    heldAdvertisements: 0,
+    abortedAdvertisements: 0,
     receivePosts: 0,
     uploadPosts: 0,
     dropNextReply: false,
@@ -79,6 +84,30 @@ export async function serveReceivePack(output) {
         service === "git-receive-pack" ? "receive-pack" : "upload-pack";
       if (request.method === "GET") {
         state.advertisements++;
+        if (state.failNextAdvertisement) {
+          state.failNextAdvertisement = false;
+          state.failedAdvertisements++;
+          return new Response("", { status: 503 });
+        }
+        if (state.holdNextAdvertisement) {
+          state.holdNextAdvertisement = false;
+          return new Response(
+            new ReadableStream({
+              start() {
+                state.heldAdvertisements++;
+              },
+              cancel() {
+                state.abortedAdvertisements++;
+              },
+            }),
+            {
+              headers: {
+                "Content-Type": `application/x-${service}-advertisement`,
+                "Cache-Control": "no-cache",
+              },
+            },
+          );
+        }
         const actual = await fixtureGitBytes(repo, [
           command,
           "--stateless-rpc",

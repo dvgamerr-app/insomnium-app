@@ -8,10 +8,15 @@ export async function heldHttp(options = {}) {
   let held = 0;
   let cancelled = 0;
   let echoes = 0;
+  let completed = 0;
+  /** @type {Set<import('node:http').ServerResponse>} */
+  const pending = new Set();
   const server = createServer((request, response) => {
     if (request.url === "/held") {
       held++;
+      pending.add(response);
       response.once("close", () => {
+        pending.delete(response);
         if (!response.writableEnded) cancelled++;
       });
       return;
@@ -38,6 +43,23 @@ export async function heldHttp(options = {}) {
     },
     get echoes() {
       return echoes;
+    },
+    get completed() {
+      return completed;
+    },
+    completeHeld() {
+      let count = 0;
+      for (const response of pending) {
+        response.writeHead(200, {
+          "Content-Type": "text/plain",
+          ...options.headers,
+        });
+        response.end(options.body || "fixture response");
+        completed++;
+        count++;
+      }
+      pending.clear();
+      return count;
     },
     async close() {
       server.closeAllConnections();
