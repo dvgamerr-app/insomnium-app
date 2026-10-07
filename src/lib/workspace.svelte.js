@@ -6,6 +6,7 @@ import {
 import { createGitBranchWorkflow } from "./git-create.js";
 import { createGitCheckout } from "./git-checkout.js";
 import { createGitRestore } from "./git-restore.js";
+import { createGitMerge } from "./git-merge.js";
 import { createRunDrain } from "./run-drain.js";
 import { isTauri, invoke } from "@tauri-apps/api/core";
 import { createGitClient, nativeGitBinding } from "./git-client.js";
@@ -98,7 +99,7 @@ export const workspace = $state({
   ready: false,
   saving: false,
   draining: false,
-  gitRecoveryKind: /** @type {'checkout'|'restore'} */ ("checkout"),
+  gitRecoveryKind: /** @type {'checkout'|'restore'|'merge'} */ ("checkout"),
   persistencePhase:
     /** @type {import("./persistence-queue.js").PersistencePhase} */ ("idle"),
   saveFailed: false,
@@ -289,6 +290,36 @@ export async function confirmGitRestore(review) {
 export function cancelGitRestore(review) {
   restoreGitWorkspace.cancel(review);
 }
+const mergeGitWorkspace = createGitMerge({
+  getData: () => workspace.data, apply: applyGitWorkspace,
+  quiesce: withWorkspaceRunsPaused, save: saveData,
+  transition: (operation) => {
+    workspace.gitRecoveryKind = "merge";
+    return runWorkspaceTransition(operation);
+  },
+  recover: recoverWorkspaceTransition, load: loadData, client: gitClient, invoke,
+  operationId: () => id("merge"),
+});
+/** Review a pinned local branch or previously fetched remote snapshot.
+ * @param {string} workspaceId @param {any} input */
+export function reviewGitMerge(workspaceId, input) {
+  if (!workspace.ready || !isTauri() || !canEditWorkspace())
+    return Promise.reject(new Error("Merge requires an available desktop workspace."));
+  return mergeGitWorkspace.review(workspaceId, input);
+}
+/** @param {object} review @param {any} choices */
+export function resolveGitMerge(review, choices) {
+  return mergeGitWorkspace.resolve(review, choices);
+}
+/** Confirmation owns quiescence; never register it as work awaited by drain.
+ * @param {object} review */
+export async function confirmGitMerge(review) {
+  try { return await mergeGitWorkspace.confirm(review); }
+  finally { if (workspace.persistencePhase === "idle") workspace.gitRecoveryKind = "checkout"; }
+}
+/** @param {object} review */
+export function cancelGitMerge(review) { mergeGitWorkspace.cancel(review); }
+
 const createGitWorkspace = createGitBranchWorkflow({
   getData: () => workspace.data,
   apply: (data) => {
@@ -329,6 +360,11 @@ export function checkoutGit(workspaceId, targetBranch, author) {
 }
 /** @param {Record<string,any>|null} [reviewedWorkspace] */
 export function recoverGitCheckout(reviewedWorkspace = null) {
+  if (workspace.gitRecoveryKind === "merge")
+    return mergeGitWorkspace.recover(reviewedWorkspace).then((result) => {
+      workspace.gitRecoveryKind = "checkout";
+      return result;
+    });
   if (workspace.gitRecoveryKind === "restore")
     return restoreGitWorkspace.recover(reviewedWorkspace).then((result) => {
       workspace.gitRecoveryKind = "checkout";
@@ -337,6 +373,8 @@ export function recoverGitCheckout(reviewedWorkspace = null) {
   return checkoutGitWorkspace.recover(reviewedWorkspace);
 }
 export function retainedGitCheckoutWorkspace() {
+  if (workspace.gitRecoveryKind === "merge")
+    return mergeGitWorkspace.retainedWorkspace();
   if (workspace.gitRecoveryKind === "restore")
     return restoreGitWorkspace.retainedWorkspace();
   return checkoutGitWorkspace.retainedWorkspace();

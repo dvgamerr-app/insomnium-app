@@ -20,6 +20,7 @@
   import { graphRows } from "../git-graph.js";
   import { isTauri } from "@tauri-apps/api/core";
   import GitRemotePanel from "./GitRemotePanel.svelte";
+  import GitMergeReview from "./GitMergeReview.svelte";
   import { onDestroy, untrack } from "svelte";
   import {
     workspace,
@@ -28,6 +29,10 @@
     reviewGitRestore,
     confirmGitRestore,
     cancelGitRestore,
+    reviewGitMerge,
+    resolveGitMerge,
+    confirmGitMerge,
+    cancelGitMerge,
     createAndSwitchGit,
     forgetGitCreation,
     persist,
@@ -71,6 +76,53 @@
   let restoreReview = $state.raw(
     /** @type {Awaited<ReturnType<typeof reviewGitRestore>>|null} */ (null),
   );
+  let mergeReview = $state.raw(/** @type {any} */ (null));
+  async function reviewMerge() {
+    const branch = session?.info.branchTips?.find((item) => item.name === targetBranch);
+    if (!branch?.headOid || branch.symbolic || pendingCreation || pendingFetchAtLoad) return;
+    const review = await reviewGitMerge(workspaceId, {
+      incomingOid: branch.headOid, source: { kind: "localBranch", branch: branch.name, expectedOid: branch.headOid },
+      author: { name, email, message: `Merge ${branch.name} into ${session?.info.branch}` },
+    });
+    if (!current()) { cancelGitMerge(review); return; }
+    settings = "";
+    mergeReview = review;
+  }
+  function cancelMerge() {
+    if (busy || !mergeReview) return;
+    cancelGitMerge(mergeReview);
+    mergeReview = null;
+  }
+  /** @param {any} choices */
+  async function resolveMerge(choices) {
+    const previous = mergeReview;
+    mergeReview = null;
+    const review = await resolveGitMerge(previous, choices);
+    if (!current()) { cancelGitMerge(review); return; }
+    mergeReview = review;
+  }
+  // Merge owns the run drain; registering confirmation with run() would await itself.
+  async function confirmMerge() {
+    const review = mergeReview;
+    if (busy || !current() || !review) return;
+    busy = true;
+    error = "";
+    if (session) client.close(session);
+    session = null;
+    let failure = "";
+    try {
+      const result = await confirmGitMerge(review);
+      if (current()) { notice = result.upToDate ? "Already up to date" : "Merged into " + result.branch; drafts.delete(workspaceId); }
+    } catch (cause) {
+      failure = String(cause);
+      if (current()) error = failure;
+      workspace.error = failure;
+    } finally { mergeReview = null; if (!disposed) busy = false; }
+    if (current() && workspace.persistencePhase === "idle") {
+      await run(load);
+      if (current() && failure) error = failure;
+    }
+  }
   /** @param {string[]} paths */
   async function reviewRestore(paths) {
     if (pendingCreation || pendingFetchAtLoad || !paths.length) return;
@@ -372,6 +424,7 @@
     nextOffset = result.nextOffset;
   }
   onDestroy(() => {
+    if (mergeReview) cancelGitMerge(mergeReview);
     if (restoreReview) cancelGitRestore(restoreReview);
     rememberDraft();
     disposed = true;
@@ -715,6 +768,12 @@
     >
   </div>
 {/snippet}
+{#if mergeReview}
+  {#key mergeReview}
+  <GitMergeReview review={mergeReview} {busy} oncancel={cancelMerge} onconfirm={confirmMerge}
+    onresolve={(choices) => run(() => resolveMerge(choices))} />
+  {/key}
+{/if}
 {#if restoreReview}
   <DialogShell
     title="Restore selected changes"
@@ -786,6 +845,8 @@
               !email.trim()}
             onclick={switchBranch}>Switch branch</Button
           >
+          <Button disabled={busy || !!pendingCreation || pendingFetchAtLoad || !targetBranch || !session?.info.headOid || !name.trim() || !email.trim()}
+            onclick={() => run(reviewMerge)}>Review merge</Button>
         </div>
         <p class="hint">
           Uses your commit author. Non-conflicting local edits are kept;

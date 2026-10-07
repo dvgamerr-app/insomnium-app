@@ -2,6 +2,8 @@
 
 ## Owner goal workflow — 2026-10-07
 
+Latest step5 mounted milestone: local-branch merge UI/workspace wiring passes3 native groups for working conflict review/cancel/incoming resolution/second review/schema2 fast-forward/privacy-metadata/up-to-date. Current Source Control13 and restore17 regressions pass, existing merge contract7 passes; STATUS records corrected helper loading race/Svelte undefined binding failures and fresh build evidence. Full Pull/Merge still needs pinned content/mode/diffs, divergent conflict and merge-specific drain/recovery/retained-copy/close, real network/history/multiple-base acceptance. Continue this feature; topic commits do not mark its completion or compact boundary.
+
 Latest step5 frontend milestone: private-session prepareMerge and single-use review/working-conflict choices/drain-baseline/source-proof transition/recovery coordinator pass7 saved injected browser contract groups and frontend check/build. Mounted workspace/Git UI integration, actual native coordinator/drain/recovery, pinned conflict content, real network/history/multiple-base/full Pull/Merge remain pending; continue this feature before compact.
 
 Latest step5 source milestone: native local-branch/fetch-snapshot/binding admission and required-proof apply_merge pass5 saved native groups including actual Windows post-ref write refusal/recovery after snapshot change/no duplicate. Current-build merge resolution10/writer8/reader20 regressions pass. Frontend source/working-conflict review/reconciliation/quiescence/recovery, blob loading, public Pull/Merge/real network/history/multiple-base/full parity remain open; continue the same feature.
