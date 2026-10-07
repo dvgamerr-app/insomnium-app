@@ -71,7 +71,7 @@
       onclick={saveCopy}>Save recovery copy</Button
     >
     {#if saved}
-      <Field layout="inline" class="recovery-choice"
+      <Field layout="inline" align="start" class="recovery-choice"
         ><Checkbox bind:checked={reviewed} disabled={busy} />
         I have saved my edits and want to load the recovered workspace.</Field
       >
@@ -95,13 +95,7 @@
 
 <style>
   :global(.recovery-choice.ui-field) {
-    display: flex;
     gap: var(--space-8);
-    align-items: start;
     margin-top: var(--space-14);
-  }
-  :global(.recovery-choice .ui-checkbox) {
-    width: auto;
-    margin: var(--space-3) 0 0;
   }
 </style>

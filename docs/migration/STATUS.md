@@ -1,5 +1,10 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Recovery choice uses shared alignment — 2026-10-07
+
+- GitRecovery now uses Field inline align=start instead of owning checkbox dimensions/margins. Feature styles keep row gap and top margin. Existing recovery lock, save-copy and reviewed-snapshot guards remain intact. Shared wrapped-choice geometry passes in dark/light; inspected light contract screenshot. Fresh native-theme1791349856978 also verifies locked recovery/retry, with owned exit0.
+- The actual OS save picker and retained-edits checkbox path were not newly exercised by this native scenario; their acceptance remains open. This separate recovery-adoption commit does not claim complete recovery or migration parity.
+
 ## Protocol layout and shared hints native acceptance — 2026-10-07
 
 - Fresh native-protocol-controls-probe finished exit0 in5m42s. Saved nocturne-native-theme1791349856978 passes the formerly failing proto-name flexGrow1 assertion and full-surface hover, plus dark/light source/removal and locked recovery dialogs. Saved nocturne-grpc-theme1791349879499 passes current hints and unary/streaming/error/Cancel/pending-prompt flows at1440/900/760. Both owned app exits0. Inspected light proto-source screenshot.
