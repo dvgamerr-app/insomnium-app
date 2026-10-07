@@ -6,9 +6,8 @@ import { launchUiBrowser } from "./preview-app.js";
 
 /** Compile the real UI components into a saved, isolated contract fixture using Bun.
  * @param {string} name
- * @param {(page:import('playwright-core').Page, output:string)=>Promise<void>} run
  */
-export async function withComponentFixture(name, run) {
+export async function buildComponentFixture(name) {
   const output = resolve("artifacts/playwright", name);
   const root = resolve(output, "bundle");
   await mkdir(root, { recursive: true });
@@ -41,6 +40,13 @@ export async function withComponentFixture(name, run) {
     ],
   });
   assert.equal(bundle.success, true, bundle.logs.map(String).join("\n"));
+  return { output, root };
+}
+
+/** @param {string} name
+ * @param {(page:import('playwright-core').Page, output:string)=>Promise<void>} run */
+export async function withComponentFixture(name, run) {
+  const { output, root } = await buildComponentFixture(name);
   const server = Bun.serve({
     hostname: "127.0.0.1",
     port: 0,

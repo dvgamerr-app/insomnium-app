@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 
 /** @typedef {import("playwright-core").Page} Page */
 /** @typedef {(command:string,args?:Record<string,any>)=>Promise<any>} NativeInvoke */
-/** @typedef {{page:Page,output:string,invoke:NativeInvoke,requestNativeClose:(action?:()=>Promise<void>)=>Promise<any>,terminateParent:()=>Promise<{pid:number,exit:any}>}} ScenarioContext */
+/** @typedef {{page:Page,pid:number,output:string,invoke:NativeInvoke,requestNativeClose:(action?:()=>Promise<void>)=>Promise<any>,terminateParent:()=>Promise<{pid:number,exit:any}>}} ScenarioContext */
 export const probeIdentifier = "app.insomnium.probe.checkout20260929";
 
 /** Only launch the isolated artifact described by a successful build record.
@@ -91,6 +91,7 @@ export async function withNativeApp(scenario, run, options = {}) {
     await page.locator(".app-shell").waitFor();
     await run({
       page,
+      pid: /** @type {number} */ (child.pid),
       output,
       requestNativeClose: async (action) => {
         assert.equal(
