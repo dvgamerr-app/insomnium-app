@@ -11,6 +11,11 @@ their corner radius uses `--radius-group`. These shared values preserve the exis
 engine DOM, completion placement and syntax behavior remain the editor adapter's
 responsibility.
 
+Completion popup padding uses `--space-2`, option padding uses `--space-4`, and
+`--editor-completion-shadow` retains CodeMirror's original 2px/3px/5px shadow at
+20% black opacity. The engine adapter retains completion placement, bounds,
+relative 90% font size and 3px/2px popup/option radii.
+
 Single-choice `Select` and `Dropdown` use the same Lucide SVG chevron by default, including collection, environment, body type/JSON, response history, authentication and redirects. `styles/select.css` owns the arrow; `styles/variants.css` owns layout variants and full-surface hover. Method/protocol values have equal left/right padding and centered horizontal/vertical alignment. Consumers must not replace the arrow or paint hover on a text child. Native `multiple`/`size` listboxes have no dropdown arrow. `svgArrow={false}` is an explicit opt-out, not an application default.
 
 `SplitPane` accepts `collapsedPane="first"` or `"second"` (default) to choose which side disappears when collapsed. The workspace uses the first pane for Collections on the left and the second for the main view.

@@ -2,6 +2,27 @@
 
 Owner requires Bun-only reusable Playwright JavaScript scenarios with shared helpers and headless execution. Browser-use and ad-hoc browser automation remain prohibited.
 
+Completion token capability1a73fad reuses `bun tests/ui/graphql-editor.js` with
+the current INSOMNIUM_UI_BUILD_STATE below. Old-artifact1791412214638 terminal1
+reproduces padding2!=6. Production builder45124 terminal0 creates release
+1791412265664/1791412618347/result0/hash7496115646056370522. Final GraphQL79785 /
+1791412775289 terminal0 passes17: initial real network-schema completion padding
+2px/options0-4px/shadow2-3-5/.2, overrides6px/0-9px/custom shadow and restoration;
+existing local SDL import checks both persisted themes/backgrounds and the same
+token contract, with popup/option radii3/2 and relative font retained. Theme
+settings invalidate fetched-schema identity, so themes use local SDL rather than
+assuming network cache remains valid. Earlier51921/59031 failures are excluded;
+STATUS records their investigation. Original native16 groups and2 authenticated
+HTTP events retained. Current Source Control43659/1791412792492 passes14. Exact
+tools terminal0, result/acceptance/current build/app exit0/owned hidden hosts
+inspected; cropped completion light/dark screenshots inspected. Final compiler,
+Prettier and whitespace checks pass; no live handles. Commands include
+`bun tests/ui/build-recovery-copy-probe.js`, `bun run check`, saved scenarios above.
+Official CSS variables and upstream completion styles consulted before edits:
+https://www.w3.org/TR/css-variables-1/#using-variables and
+https://raw.githubusercontent.com/codemirror/codemirror5/master/addon/hint/show-hint.css.
+Full migration/UX/editor/platform/release gates remain open.
+
 Source Control token capabilityc4ad941 reuses `bun tests/ui/git-source-control.js`
 with INSOMNIUM_UI_BUILD_STATE=artifacts/native-recovery-copy-probe/build-state.json.
 Old-artifact1791411647568 fails at status11!=14; current production release
