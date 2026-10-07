@@ -68,8 +68,16 @@ export async function withNativeApp(scenario, run, options = {}) {
   let exit;
   let intentionalParentTermination = false;
   let nativeCloseRequested = false;
+  let hiddenWindow = /** @type {{pid:number,window:string,visible:boolean}|null} */ (null);
   const startedAt = new Date().toISOString();
   try {
+    const { hideOwnedWindow } = await import("./native-window-close.js");
+    await poll(async () => {
+      assert.ok(child.pid && child.exitCode === null && child.signalCode === null,
+        "Owned probe must be running before hiding its window");
+      hiddenWindow = hideOwnedWindow(child.pid);
+      return !!hiddenWindow;
+    }, "Owned native test window hidden");
     await poll(async () => {
       if (child.exitCode !== null)
         throw Error("Probe exited before WebView was ready");
@@ -208,6 +216,8 @@ export async function withNativeApp(scenario, run, options = {}) {
           buildPath,
           intentionalParentTermination,
           nativeCloseRequested,
+          renderingMode: "native-hidden",
+          hiddenWindow,
           limits: intentionalParentTermination
             ? "Deliberate owned parent process termination; not power-loss or OS-close acceptance."
             : nativeCloseRequested

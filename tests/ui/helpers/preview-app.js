@@ -62,6 +62,8 @@ export async function withPreview(name, run) {
 }
 
 export function launchUiBrowser() {
+  // Every saved browser scenario is headless. Native WebView2 host visibility
+  // is handled separately by native-app.js when attaching over CDP.
   return chromium.launch({
     executablePath:
       process.env.INSOMNIUM_EDGE_PATH ||
