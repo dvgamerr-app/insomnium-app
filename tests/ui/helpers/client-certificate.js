@@ -109,6 +109,7 @@ export async function clientCertificateFixture(output) {
   const otherCa = await Bun.file(join(directory, "other-ca.pem")).text();
   /** @type {Array<{url:string,method:string,body:string,authorized:boolean,cn:string,fingerprint:string}>} */
   const requests = [];
+  /** @type {Array<Record<string,any>>} */ const socketEvents = [];
   /** @type {Array<{url:string,method:string}>} */ const sinkRequests = [];
   assert.equal(
     process.platform,
@@ -241,6 +242,8 @@ export async function clientCertificateFixture(output) {
           if (event.role === "sink") connections.sink++;
           else connections.primary++;
         } else if (event.event === "rejected") rejected.push(event);
+        else if (["socket-message", "socket-close"].includes(event.event))
+          socketEvents.push(event);
       }
     }
   })();
@@ -248,7 +251,7 @@ export async function clientCertificateFixture(output) {
     await Bun.write(
       join(directory, "fixture-observations.json"),
       JSON.stringify(
-        { requests, sinkRequests, connections, rejected },
+        { requests, sinkRequests, connections, rejected, socketEvents },
         null,
         2,
       ),
@@ -288,6 +291,7 @@ export async function clientCertificateFixture(output) {
     primary,
     sink,
     requests,
+    socketEvents,
     sinkRequests,
     connections,
     rejected,

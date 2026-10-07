@@ -86,7 +86,7 @@ fn handle(
         serde_json::json!({"event":"request","role":role,"url":first[1],"method":first[0],
         "body":String::from_utf8(body).map_err(|e| e.to_string())?,"authorized":true,"cn":cn,"fingerprint":fingerprint})
     );
-    if first[1] == "/ws" {
+    if matches!(first[1], "/ws" | "/ws-live") {
         let key = header
             .lines()
             .filter_map(|line| line.split_once(':'))
@@ -107,6 +107,44 @@ fn handle(
                 "owned mutual TLS WSS message".into(),
             ))
             .map_err(|e| e.to_string())?;
+        if first[1] == "/ws-live" {
+            socket
+                .get_mut()
+                .sock
+                .set_read_timeout(Some(Duration::from_secs(15)))
+                .map_err(|e| e.to_string())?;
+            loop {
+                let message = socket.read().map_err(|e| e.to_string())?;
+                let (format, bytes) = match &message {
+                    tungstenite::Message::Text(text) => ("text", text.as_bytes()),
+                    tungstenite::Message::Binary(bytes) => ("binary", bytes.as_ref()),
+                    tungstenite::Message::Ping(bytes) => ("ping", bytes.as_ref()),
+                    tungstenite::Message::Close(frame) => {
+                        println!(
+                            "{}",
+                            serde_json::json!({"event":"socket-close","role":role,
+                            "code":frame.as_ref().map(|f|u16::from(f.code)),
+                            "reason":frame.as_ref().map(|f|f.reason.to_string())})
+                        );
+                        match socket.flush() {
+                            Ok(()) | Err(tungstenite::Error::ConnectionClosed) => return Ok(()),
+                            Err(error) => return Err(error.to_string()),
+                        }
+                    }
+                    _ => continue,
+                };
+                println!(
+                    "{}",
+                    serde_json::json!({"event":"socket-message","role":role,
+                    "format":format,"bytes":bytes})
+                );
+                if format == "ping" {
+                    socket.flush().map_err(|e| e.to_string())?;
+                } else {
+                    socket.send(message).map_err(|e| e.to_string())?;
+                }
+            }
+        }
         socket
             .close(Some(tungstenite::protocol::CloseFrame {
                 code: tungstenite::protocol::frame::coding::CloseCode::Normal,

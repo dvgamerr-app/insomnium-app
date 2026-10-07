@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { withNativeApp, poll } from "./native-app.js";
 import { clientCertificateFixture } from "./client-certificate.js";
 import { tlsPreferences } from "./tls-preferences.js";
+import { wssLiveCertificate } from "./wss-live-certificate.js";
 
 /** @param {"sse" | "websocket"} protocol */
 export async function streamClientCertificate(protocol) {
@@ -349,6 +350,9 @@ export async function streamClientCertificate(protocol) {
           await page.locator(".stream-event-body").innerText(),
           message,
         );
+        const live = websocket
+          ? await wssLiveCertificate({ page, invoke, output }, fixture)
+          : null;
         await Bun.write(
           join(output, "acceptance.json"),
           JSON.stringify(
@@ -358,12 +362,14 @@ export async function streamClientCertificate(protocol) {
                 "independent authenticated " + label + " fixture check",
                 ...cases.map((c) => c.id),
                 "saved event survives reload",
+                ...(live ? [live.id] : []),
               ],
               cases,
+              live,
               limits:
                 "Real Windows native " +
                 label +
-                " through persisted Preferences and Connect. Mandatory client verification, pinned peer identity and one exact received event/message; server finishes normally. No trust-store modification/TLS bypass. Client send/disconnect, redirect, gRPC/provider/proxy/platform parity remain separate.",
+                " through persisted Preferences and Connect. Mandatory client verification, pinned peer identity and exact received event/message. WSS additionally checks live text/binary/ping-pong, client Disconnect and reconnect. No trust-store modification/TLS bypass. Live SSE disconnect, redirects, gRPC/provider/proxy/platform parity remain separate.",
             },
             null,
             2,
