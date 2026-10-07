@@ -2,6 +2,8 @@
 
 ## Owner goal workflow — 2026-10-07
 
+Latest step5 frontend milestone: private-session prepareMerge and single-use review/working-conflict choices/drain-baseline/source-proof transition/recovery coordinator pass7 saved injected browser contract groups and frontend check/build. Mounted workspace/Git UI integration, actual native coordinator/drain/recovery, pinned conflict content, real network/history/multiple-base/full Pull/Merge remain pending; continue this feature before compact.
+
 Latest step5 source milestone: native local-branch/fetch-snapshot/binding admission and required-proof apply_merge pass5 saved native groups including actual Windows post-ref write refusal/recovery after snapshot change/no duplicate. Current-build merge resolution10/writer8/reader20 regressions pass. Frontend source/working-conflict review/reconciliation/quiescence/recovery, blob loading, public Pull/Merge/real network/history/multiple-base/full parity remain open; continue the same feature.
 
 Current step5: native complete-tree merge candidate preparation passes7 saved native checks plus current-build advancement writer8/reader20 regressions. Public Pull/Merge, conflict resolution, endpoint pinning, workspace reconciliation/quiescence/recovery and original parity remain open; continue the same unfinished feature. Prior feature compact boundary was satisfied by actual context compaction before this resumed work. See STATUS/GIT-REMOTE.

@@ -352,6 +352,60 @@ export function createGitClient({ call = nativeCall } = {}) {
     };
   }
 
+  /** Prepare one pinned complete-tree merge and reconcile working resources.
+   * @param {object} session @param {()=>Resource[]} getResources @param {any} input */
+  async function prepareMerge(session, getResources, input) {
+    const saved = sessions.get(session);
+    if (!saved?.info.branch || !saved.info.headOid)
+      throw new Error("Merge requires a fresh committed branch session.");
+    const captured = JSON.stringify(getResources());
+    const binding = nativeGitBinding(getResources(), saved.workspaceId);
+    if (binding?._id !== saved.bindingId || binding?.nativeRepositoryId !== saved.repositoryId ||
+        resourceVersion(getResources(), saved.workspaceId) !== saved.version)
+      throw new Error("Collection changed since Git opened. Reload changes.");
+    const request = JSON.parse(JSON.stringify(input));
+    if (typeof request.author?.name !== "string" || !request.author.name.trim() ||
+        typeof request.author?.email !== "string" || !request.author.email.trim())
+      throw new Error("Enter a merge author name and email.");
+    if (!request.source || !/^[0-9a-fA-F]{40}$/.test(request.incomingOid || ""))
+      throw new Error("Choose a pinned incoming branch or fetch snapshot.");
+    const candidate = await call("git_repository_prepare_merge", { input: {
+      repositoryId: saved.repositoryId, workspaceId: saved.workspaceId,
+      sourceBranch: saved.info.branch, sourceOid: saved.info.headOid,
+      incomingOid: request.incomingOid, source: request.source,
+      authorName: request.author?.name || "", authorEmail: request.author?.email || "",
+      message: request.author?.message || "",
+      ...(request.resolutions !== undefined ? { resolutions: request.resolutions, expectedMergeBaseOid: request.expectedMergeBaseOid } : {}),
+    } });
+    const fullOid = (/** @type {any} */ value) => typeof value === "string" && /^[0-9a-f]{40}$/.test(value);
+    if (candidate?.sourceOid !== saved.info.headOid || candidate?.incomingOid !== request.incomingOid.toLowerCase() ||
+        !["upToDate", "fastForward", "merge"].includes(candidate?.kind) || !Array.isArray(candidate?.conflicts) ||
+        candidate.conflicts.length > 10000 ||
+        (candidate.targetOid !== null && !fullOid(candidate.targetOid)) ||
+        (candidate.kind !== "upToDate" && !fullOid(candidate.mergeBaseOid)) ||
+        (candidate.conflicts.length ? candidate.kind !== "merge" || candidate.targetOid !== null : !fullOid(candidate.targetOid)) ||
+        (candidate.kind === "upToDate" && candidate.targetOid !== saved.info.headOid) ||
+        (candidate.kind === "fastForward" && (candidate.targetOid !== candidate.incomingOid || candidate.mergeBaseOid !== saved.info.headOid)))
+      throw new Error("Native merge returned an invalid pinned candidate.");
+    let plan = null;
+    if (!candidate.conflicts.length && candidate.kind !== "upToDate") {
+      const committed = await call("git_repository_read_commit", { repositoryId: saved.repositoryId, commitOid: candidate.targetOid });
+      if (committed.commitOid !== candidate.targetOid)
+        throw new Error("Merge candidate revision does not match.");
+      plan = planGitCollectionUpdate(JSON.parse(captured), saved.workspaceId, saved.baseFiles, committed.files,
+        { resolutions: request.workspaceResolutions || [] });
+    }
+    const fresh = await call("git_repository_info", { repositoryId: saved.repositoryId });
+    if (fresh.branch !== saved.info.branch || fresh.headOid !== saved.info.headOid ||
+        sessions.get(session) !== saved || JSON.stringify(getResources()) !== captured)
+      throw new Error("Workspace or Git source changed while preparing merge.");
+    return {
+      workspaceId: saved.workspaceId, repositoryId: saved.repositoryId,
+      sourceBranch: saved.info.branch, sourceOid: saved.info.headOid,
+      source: request.source, candidate: structuredClone(candidate), plan,
+    };
+  }
+
   /** Consume the displayed session before deleting a single inactive branch.
    * @param {object} session @param {()=>Resource[]} getResources @param {string} name */
   async function deleteBranch(session, getResources, name) {
@@ -404,6 +458,7 @@ export function createGitClient({ call = nativeCall } = {}) {
     history,
     prepareSwitch,
     prepareRestore,
+    prepareMerge,
     deleteBranch,
     close,
   };

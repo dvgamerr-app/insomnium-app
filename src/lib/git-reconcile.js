@@ -44,13 +44,24 @@ function owner(records, id) {
  * durable app-state commit/rollback. This function is not that transaction.
  * @param {Resource[]} resources @param {string} workspaceId
  * @param {GitFile[]} baseFiles @param {GitFile[]} incomingFiles
+ * @param {{resolutions?:{id:string,choice:"local"|"incoming"}[]}} [options]
  */
 export function planGitCollectionUpdate(
   resources,
   workspaceId,
   baseFiles,
   incomingFiles,
+  { resolutions = [] } = {},
 ) {
+  if (!Array.isArray(resolutions))
+    throw new Error("Invalid working-resource conflict choices.");
+  const choices = new Map();
+  for (const item of resolutions) {
+    if (!item || typeof item.id !== "string" || !["local", "incoming"].includes(item.choice) || choices.has(item.id))
+      throw new Error("Invalid or duplicate working-resource conflict choice.");
+    choices.set(item.id, item.choice);
+  }
+  const usedChoices = new Set();
   const snapshot = snapshotGitCollection(resources, workspaceId);
   const current = index(
     readGitCollection(snapshot.files, { workspaceId }).resources,
@@ -89,8 +100,13 @@ export function planGitCollectionUpdate(
       continue;
     }
     if (!same(now, previous) && !same(now, next)) {
-      conflicts.push({ id, reason: "local-and-incoming-changed" });
-      continue;
+      const choice = choices.get(id);
+      if (!choice) {
+        conflicts.push({ id, reason: "local-and-incoming-changed" });
+        continue;
+      }
+      usedChoices.add(id);
+      if (choice === "local") continue;
     }
     if (same(now, next)) continue;
     if (!next) {
@@ -113,6 +129,8 @@ export function planGitCollectionUpdate(
       replacement.parentId = existing?.parentId ?? null;
     updates.set(id, replacement);
   }
+  if ([...choices.keys()].some((id) => !usedChoices.has(id)))
+    throw new Error("Working-resource conflict changed or cannot be resolved by that choice.");
   if (conflicts.length)
     return { workspaceId, conflicts, changes: [], resources: null };
   const candidate = resources.flatMap((resource) => {
