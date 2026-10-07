@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Playwright headless request reverified — 2026-10-08
+
+- Current application checkpoint a1da0b4. All saved browser launches use tests/ui/helpers/preview-app.js → launchUiBrowser with headless: true; repository search finds no headed override or other browser launch. Existing native scenarios attach through connectOverCDP and use native-hidden; they are not browser headless. No implementation change was needed.
+- Verification: bun tests/ui/git-merge-contract.js exited 0; artifacts/playwright/git-merge-contract/result.json reports passed and acceptance.json contains all 9 passing contract groups. This verifies the saved browser scenario, not native IPC acceptance. Browser and loopback server close in finally; no live task handles remain.
+- Topic commit records this verification. Remaining migration/UX and PLAN/PARITY gates stay unchanged. This interface cannot invoke /compact; handoff is the current checkpoint, passing evidence and closed handles above. No compaction is claimed; do not start another feature in this turn.
+
 ## Native HTTP client-certificate acceptance verified and committed — 2026-10-08
 
 - Previous turn completed caption/picker typography555b317/docs6dc9461. Full goal retained. Git transport review confirms detached/isolated libgit2 remotes retain default trust and receive no HTTP workspace CA/identity settings; legacy Git axios adapter also supplies no CA setting. Git authenticated trusted HTTPS/provider/proxy remains required; no workspace-CA support/trust-store change added to Git based on assumption.
