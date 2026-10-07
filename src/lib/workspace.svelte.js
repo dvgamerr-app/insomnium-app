@@ -4,6 +4,7 @@ import {
   validateGitRemoteSettings,
 } from "./git-remote-settings.js";
 import { createGitBranchWorkflow } from "./git-create.js";
+import { createRemoteCheckout } from "./git-remote-checkout.js";
 import { createGitCheckout } from "./git-checkout.js";
 import { createGitRestore } from "./git-restore.js";
 import { createGitMerge } from "./git-merge.js";
@@ -270,6 +271,8 @@ const restoreGitWorkspace = createGitRestore({
 });
 /** @param {string} workspaceId @param {string[]} paths */
 export function reviewGitRestore(workspaceId, paths) {
+  if (nativeGitBinding(workspace.data.resources, workspaceId)?.nativeRemoteCheckoutIntent)
+    return Promise.reject(new Error("Resolve the pending remote checkout first."));
   if (!workspace.ready || !isTauri())
     return Promise.reject(
       new Error("Restore requires a loaded desktop workspace."),
@@ -303,6 +306,8 @@ const mergeGitWorkspace = createGitMerge({
 /** Review a pinned local branch or previously fetched remote snapshot.
  * @param {string} workspaceId @param {any} input */
 export function reviewGitMerge(workspaceId, input) {
+  if (nativeGitBinding(workspace.data.resources, workspaceId)?.nativeRemoteCheckoutIntent)
+    return Promise.reject(new Error("Resolve the pending remote checkout first."));
   if (!workspace.ready || !isTauri() || !canEditWorkspace())
     return Promise.reject(new Error("Merge requires an available desktop workspace."));
   return mergeGitWorkspace.review(workspaceId, input);
@@ -359,6 +364,61 @@ export async function confirmGitMerge(review) {
 /** @param {object} review */
 export function cancelGitMerge(review) { mergeGitWorkspace.cancel(review); }
 
+const remoteCheckout = createRemoteCheckout({
+  getData: () => workspace.data,
+  apply: (data) => { workspace.data = data; workspace.saveFailed = false; },
+  quiesce: withWorkspaceRunsPaused, save: saveData, invoke,
+  checkoutPaused: checkoutGitWorkspace.checkoutPaused, operationId: () => id("remote_branch"),
+});
+/** Full Fetch outside the run drain, then a read-only pinned checkout review.
+ * @param {string} workspaceId
+ * @param {()=>import('./git-remote-client.js').RemoteInput} getInput
+ * @param {AbortSignal} signal @param {string} branch @param {string} name
+ * @param {{name:string,email:string}} author */
+export async function reviewRemoteGitCheckout(workspaceId, getInput, signal, branch, name, author) {
+  const selected = normalizeFetchBranch(branch);
+  if (!selected) throw new Error("Choose an exact remote branch to check out.");
+  if (!name || normalizeFetchBranch(name) !== name || !author.name.trim() || !author.email.trim())
+    throw new Error("Choose a local branch name and checkout author.");
+  const settings = JSON.stringify(validateGitRemoteSettings(getInput()));
+  const binding = nativeGitBinding(workspace.data.resources, workspaceId);
+  if (!binding || binding.nativeRemoteCheckoutIntent || binding.nativeCreateIntent || binding.nativeFetchIntent)
+    throw new Error("Resolve the saved Git operation before remote checkout.");
+  const initial = await invoke("git_repository_info", { repositoryId: binding.nativeRepositoryId });
+  if (!initial.branch || !initial.headOid) throw new Error("Remote checkout needs a committed local branch.");
+  if (initial.branches.some((/** @type {string} */ branchName) => branchName.toLowerCase() === name.toLowerCase()))
+    throw new Error("Local branch already exists. Choose another name or switch the existing branch.");
+  const result = await fetchGitRemote(workspaceId, getInput, signal, selected, null);
+  if (signal.aborted || !result.current || !result.intentCleared ||
+      JSON.stringify(validateGitRemoteSettings(getInput())) !== settings)
+    throw new Error("Fetch was not confirmed for remote checkout. Inspect its result before reviewing again.");
+  const incoming = result.snapshot.manifest.branches.find((/** @type {any} */ row) => row.name === selected);
+  if (!incoming) throw new Error("Selected remote branch is absent from the fetched snapshot.");
+  return remoteCheckout.review(workspaceId, { name, author: { ...author }, url: JSON.parse(settings).url,
+    snapshotOid: result.snapshot.oid, remoteBranch: selected, targetOid: incoming.oid,
+    expectedSource: { branch: initial.branch, oid: initial.headOid } });
+}
+/** @param {object} review */
+export function confirmRemoteGitCheckout(review) {
+  workspace.gitRecoveryKind = "checkout";
+  return remoteCheckout.confirm(review);
+}
+/** @param {object} review */
+export function cancelRemoteGitCheckout(review) { remoteCheckout.cancel(review); }
+/** @param {string} workspaceId */
+export function resumeRemoteGitCheckout(workspaceId) {
+  if (!workspace.ready || !isTauri() || !canEditWorkspace())
+    return Promise.reject(new Error("Remote checkout requires an available desktop workspace."));
+  workspace.gitRecoveryKind = "checkout";
+  return remoteCheckout.resume(workspaceId);
+}
+/** Forget intent only; the created branch is kept. @param {string} workspaceId */
+export function forgetRemoteGitCheckout(workspaceId) {
+  if (!workspace.ready || !isTauri() || !canEditWorkspace())
+    return Promise.reject(new Error("Remote checkout requires an available desktop workspace."));
+  return remoteCheckout.forget(workspaceId);
+}
+
 const createGitWorkspace = createGitBranchWorkflow({
   getData: () => workspace.data,
   apply: (data) => {
@@ -373,6 +433,8 @@ const createGitWorkspace = createGitBranchWorkflow({
 });
 /** @param {string} workspaceId @param {string} name @param {{name:string,email:string}} author */
 export function createAndSwitchGit(workspaceId, name, author) {
+  if (nativeGitBinding(workspace.data.resources, workspaceId)?.nativeRemoteCheckoutIntent)
+    return Promise.reject(new Error("Resolve the pending remote checkout first."));
   if (!workspace.ready || !isTauri())
     return Promise.reject(
       new Error("Branch creation requires a loaded desktop workspace."),
@@ -391,6 +453,8 @@ export function forgetGitCreation(workspaceId) {
  * @param {string} workspaceId @param {string} targetBranch
  * @param {{name:string,email:string}} author */
 export function checkoutGit(workspaceId, targetBranch, author) {
+  if (nativeGitBinding(workspace.data.resources, workspaceId)?.nativeRemoteCheckoutIntent)
+    return Promise.reject(new Error("Resolve the pending remote checkout first."));
   if (!workspace.ready || !isTauri())
     return Promise.reject(
       new Error("Checkout requires a loaded desktop workspace."),
@@ -2380,6 +2444,8 @@ export async function saveGitRemoteSettings(workspaceId, input) {
     throw new Error("Collection changed. Reopen Git settings.");
   const binding = nativeGitBinding(workspace.data.resources, workspaceId);
   if (!binding) throw new Error("Collection has no native Git binding.");
+  if (binding.nativeRemoteCheckoutIntent)
+    throw new Error("Resolve the pending remote checkout before changing remote settings.");
   if (binding.nativeFetchIntent)
     throw new Error(
       "Inspect the pending fetch before changing saved remote settings.",
@@ -2420,6 +2486,8 @@ export async function fetchGitRemote(
   const binding = nativeGitBinding(data.resources, workspaceId);
   if (!binding || data.activeWorkspaceId !== workspaceId)
     throw new Error("Open the active collection's Git settings first.");
+  if (binding.nativeRemoteCheckoutIntent)
+    throw new Error("Resolve the pending remote checkout before fetching.");
   if (binding.nativeFetchIntent)
     throw new Error("Inspect the pending fetch before starting another.");
   const draft = JSON.stringify(validateGitRemoteSettings(getInput()));

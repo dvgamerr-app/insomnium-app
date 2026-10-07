@@ -44,6 +44,7 @@
     "allow-git-repository-history",
     "allow-git-repository-commit",
     "allow-git-repository-create-branch",
+    "allow-git-repository-create-remote-branch",
     "allow-git-repository-checkout",
     "allow-git-repository-advance",
     "allow-git-repository-apply-merge",

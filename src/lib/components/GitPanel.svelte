@@ -21,6 +21,7 @@
   import { isTauri } from "@tauri-apps/api/core";
   import GitRemotePanel from "./GitRemotePanel.svelte";
   import GitMergeReview from "./GitMergeReview.svelte";
+  import GitRemoteCheckoutReview from "./GitRemoteCheckoutReview.svelte";
   import { onDestroy, untrack } from "svelte";
   import {
     workspace,
@@ -33,6 +34,10 @@
     resolveGitMerge,
     confirmGitMerge,
     cancelGitMerge,
+    confirmRemoteGitCheckout,
+    cancelRemoteGitCheckout,
+    resumeRemoteGitCheckout,
+    forgetRemoteGitCheckout,
     createAndSwitchGit,
     forgetGitCreation,
     persist,
@@ -77,9 +82,41 @@
     /** @type {Awaited<ReturnType<typeof reviewGitRestore>>|null} */ (null),
   );
   let mergeReview = $state.raw(/** @type {any} */ (null));
+  let remoteReview = $state.raw(/** @type {any} */ (null));
+  const pendingRemote = $derived(!!nativeGitBinding(workspace.data.resources, workspaceId)?.nativeRemoteCheckoutIntent);
+  /** @param {any} review */
+  function acceptRemoteReview(review) {
+    if (!current()) { cancelRemoteGitCheckout(review); return; }
+    settings = ""; remoteReview = review;
+  }
+  function cancelRemoteReview() {
+    if (busy || !remoteReview) return;
+    cancelRemoteGitCheckout(remoteReview); remoteReview = null;
+  }
+  /** Confirmation owns the drain; never wrap it in run(). @param {string} [action] */
+  async function actRemoteCheckout(action = "confirm") {
+    if (busy || !current()) return;
+    busy = true; error = "";
+    if (session) client.close(session);
+    session = null; settings = "";
+    let failure = "";
+    try {
+      if (action === "forget") {
+        await forgetRemoteGitCheckout(workspaceId);
+        if (current()) notice = "Remote checkout intent forgotten. Existing branches were kept.";
+      } else {
+        const result = action === "resume" ? await resumeRemoteGitCheckout(workspaceId) : await confirmRemoteGitCheckout(remoteReview);
+        if (current()) { notice = "Switched to " + result.branch; drafts.delete(workspaceId); }
+      }
+    } catch (cause) { failure = String(cause); if (current()) error = failure; workspace.error = failure; }
+    finally { remoteReview = null; if (!disposed) busy = false; }
+    if (current() && workspace.persistencePhase === "idle") {
+      await run(load); if (current() && failure) error = failure;
+    }
+  }
   async function reviewMerge() {
     const branch = session?.info.branchTips?.find((item) => item.name === targetBranch);
-    if (!branch?.headOid || branch.symbolic || pendingCreation || pendingFetchAtLoad) return;
+    if (!branch?.headOid || branch.symbolic || pendingCreation || pendingRemote || pendingFetchAtLoad) return;
     const review = await reviewGitMerge(workspaceId, {
       incomingOid: branch.headOid, source: { kind: "localBranch", branch: branch.name, expectedOid: branch.headOid },
       author: { name, email, message: `Merge ${branch.name} into ${session?.info.branch}` },
@@ -131,7 +168,7 @@
   }
   /** @param {string[]} paths */
   async function reviewRestore(paths) {
-    if (pendingCreation || pendingFetchAtLoad || !paths.length) return;
+    if (pendingCreation || pendingRemote || pendingFetchAtLoad || !paths.length) return;
     const review = await reviewGitRestore(workspaceId, paths);
     if (!current()) {
       cancelGitRestore(review);
@@ -365,6 +402,7 @@
   }
 
   async function createBranch(forget = false) {
+    if (pendingRemote) return;
     if (busy || !current()) return;
     busy = true;
     error = "";
@@ -404,7 +442,7 @@
   async function deleteSelectedBranch() {
     const opened = session,
       target = targetBranch;
-    if (!opened || !target || pendingCreation) return;
+    if (!opened || !target || pendingCreation || pendingRemote) return;
     notice = "";
     let failure;
     try {
@@ -430,6 +468,7 @@
     nextOffset = result.nextOffset;
   }
   onDestroy(() => {
+    if (remoteReview) cancelRemoteGitCheckout(remoteReview);
     if (mergeReview) cancelGitMerge(mergeReview);
     if (restoreReview) cancelGitRestore(restoreReview);
     rememberDraft();
@@ -524,6 +563,7 @@
                   type="submit"
                   disabled={busy ||
                     !!pendingCreation ||
+                    pendingRemote ||
                     !selected.length ||
                     !session?.info.branch ||
                     !message.trim() ||
@@ -780,6 +820,9 @@
     onresolve={(choices) => run(() => resolveMerge(choices))} />
   {/key}
 {/if}
+{#if remoteReview}
+  <GitRemoteCheckoutReview review={remoteReview} {busy} oncancel={cancelRemoteReview} onconfirm={() => actRemoteCheckout()} />
+{/if}
 {#if restoreReview}
   <DialogShell
     title="Restore selected changes"
@@ -822,6 +865,8 @@
         disabled={busy || !!pendingCreation}
         author={{ name, email }}
         onpullreview={session?.info.headOid ? acceptPullReview : undefined}
+        oncheckoutreview={session?.info.headOid ? acceptRemoteReview : undefined}
+        oncheckoutaction={(action) => actRemoteCheckout(action)}
       />
     {:else if settings === "branches" && session}
       {#if (session.info.branches?.length ?? 0) > 1 || !session.info.branch}

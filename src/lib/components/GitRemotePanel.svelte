@@ -11,6 +11,8 @@
     advertiseGitRemote,
     fetchGitRemote,
     reviewGitPull,
+    reviewRemoteGitCheckout,
+    cancelRemoteGitCheckout,
     cancelGitMerge,
     inspectGitRemoteFetch,
     retireGitRemoteFetch,
@@ -18,12 +20,14 @@
     saveGitRemoteSettings,
   } from "../workspace.svelte.js";
   import { nativeGitBinding } from "../git-client.js";
+  import { pendingRemoteCheckout } from "../git-remote-checkout.js";
   import {
     readGitRemoteSettings,
     validateGitRemoteSettings,
   } from "../git-remote-settings.js";
-  /** @type {{workspaceId:string,disabled?:boolean,author?:{name:string,email:string},onpullreview?:(review:any)=>void}} */
-  let { workspaceId, disabled = false, author, onpullreview } = $props();
+  /** @type {{workspaceId:string,disabled?:boolean,author?:{name:string,email:string},onpullreview?:(review:any)=>void,
+   * oncheckoutreview?:(review:any)=>void,oncheckoutaction?:(action:string)=>void}} */
+  let { workspaceId, disabled = false, author, onpullreview, oncheckoutreview, oncheckoutaction } = $props();
   let url = $state(""),
     kind = $state("anonymous"),
     username = $state(""),
@@ -31,6 +35,11 @@
   let cleaning = $state(false);
   let recoveryAvailable = $state(false);
   let fetchBranch = $state("");
+  let localBranch = $state("");
+  const pendingCheckout = $derived.by(() => {
+    try { return pendingRemoteCheckout(workspace.data.resources, workspaceId); }
+    catch { return { name: "(invalid saved remote checkout)", phase: "invalid" }; }
+  });
   let fetchDepth = $state(/** @type {number|undefined} */ (undefined));
   let fetching = $state(false),
     inspecting = $state(false);
@@ -72,6 +81,10 @@
       fetchBranch = binding.nativeFetchIntent.branch || "";
     if (binding.nativeFetchIntent?.version === 3)
       fetchDepth = binding.nativeFetchIntent.depth ?? undefined;
+    if (binding.nativeRemoteCheckoutIntent) {
+      fetchBranch = binding.nativeRemoteCheckoutIntent.remoteBranch || "";
+      localBranch = binding.nativeRemoteCheckoutIntent.name || "";
+    }
     const saved = readGitRemoteSettings(binding),
       c = saved.credentials;
     url = saved.url;
@@ -204,6 +217,21 @@
     } catch (cause) {
       if (current()) error = fetchError(cause);
     } finally {
+      if (controller === active) controller = null;
+      if (!disposed) { busy = false; fetching = false; }
+    }
+  }
+
+  async function checkoutRemote() {
+    if (busy || saving || disabled || pendingCheckout || !current() || !oncheckoutreview || !author) return;
+    error = ""; notice = ""; result = null;
+    const active = new AbortController(); controller = active; busy = true; fetching = true;
+    try {
+      const review = await reviewRemoteGitCheckout(workspaceId, input, active.signal, fetchBranch, localBranch, author);
+      if (!current() || active.signal.aborted) cancelRemoteGitCheckout(review);
+      else oncheckoutreview(review);
+    } catch (cause) { if (current()) error = fetchError(cause); }
+    finally {
       if (controller === active) controller = null;
       if (!disposed) { busy = false; fetching = false; }
     }
@@ -346,6 +374,11 @@
         /></Field
       >{/if}
   </FormPanel>
+  {#if oncheckoutreview}
+    <Field>Local checkout branch
+      <Input aria-label="Local checkout branch" bind:value={localBranch} disabled={busy || saving || disabled || !!pendingCheckout} />
+    </Field>
+  {/if}
   <FormPanel class="form-panel resource-form">
     <Field
       >Fetch branch (optional)<Input
@@ -373,7 +406,7 @@
     <Button
       variant="secondary"
       class="secondary-button"
-      disabled={busy || saving || disabled || !!pendingFetch || !url.trim()}
+      disabled={busy || saving || disabled || !!pendingFetch || !!pendingCheckout || !url.trim()}
       onclick={saveSettings}>Save remote settings</Button
     >
     <Button
@@ -385,13 +418,23 @@
     <Button
       variant="secondary"
       class="secondary-button"
-      disabled={busy || saving || disabled || !!pendingFetch || !url.trim()}
+      disabled={busy || saving || disabled || !!pendingFetch || !!pendingCheckout || !url.trim()}
       onclick={fetchRemote}>Fetch remote branches</Button
     >
     {#if onpullreview}
       <Button variant="secondary" class="secondary-button"
-        disabled={busy || saving || disabled || !!pendingFetch || !url.trim() || !fetchBranch || !author?.name.trim() || !author?.email.trim()}
+        disabled={busy || saving || disabled || !!pendingFetch || !!pendingCheckout || !url.trim() || !fetchBranch || !author?.name.trim() || !author?.email.trim()}
         onclick={pullRemote}>Review pull</Button>
+    {/if}
+    {#if oncheckoutreview}
+      <Button variant="secondary" class="secondary-button"
+        disabled={busy || saving || disabled || !!pendingFetch || !!pendingCheckout || !localBranch || !fetchBranch || !author?.name.trim() || !author?.email.trim()}
+        onclick={checkoutRemote}>Review remote checkout</Button>
+    {/if}
+    {#if pendingCheckout && oncheckoutaction}
+      <p>Pending remote checkout: <strong>{pendingCheckout.name}</strong>. Continue verifies the saved creation without recreating an unconfirmed branch.</p>
+      <Button disabled={busy || saving || disabled || pendingCheckout.phase === "invalid"} onclick={() => oncheckoutaction?.("resume")}>Continue remote checkout</Button>
+      <Button disabled={busy || saving || disabled} onclick={() => oncheckoutaction?.("forget")}>Forget remote checkout intent</Button>
     {/if}
     {#if pendingFetch}
       <Button

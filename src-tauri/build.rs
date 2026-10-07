@@ -36,6 +36,7 @@ fn main() {
             "git_repository_history",
             "git_repository_commit",
             "git_repository_create_branch",
+            "git_repository_create_remote_branch",
             "git_repository_delete_branch",
             "git_repository_checkout",
             "git_repository_advance",

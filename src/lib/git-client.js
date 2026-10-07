@@ -143,6 +143,8 @@ export function createGitClient({ call = nativeCall } = {}) {
    * @param {{name:string,email:string,message:string}} author */
   async function commit(session, getResources, selectedPaths, author) {
     const saved = sessions.get(session);
+    if (saved && nativeGitBinding(getResources(), saved.workspaceId)?.nativeRemoteCheckoutIntent)
+      throw new Error("Resolve the pending remote checkout before committing.");
     if (!saved) throw new Error("Git staging session expired. Reload changes.");
     if (busy.has(saved.repositoryId))
       throw new Error("A Git commit is already in progress.");
@@ -428,7 +430,7 @@ export function createGitClient({ call = nativeCall } = {}) {
       binding?.nativeRepositoryId !== saved.repositoryId
     )
       throw new Error("Git binding changed. Reload branches.");
-    if (binding.nativeCreateIntent)
+    if (binding.nativeCreateIntent || binding.nativeRemoteCheckoutIntent)
       throw new Error("Resolve pending branch creation first.");
     const target = saved.info.branchTips?.find((item) => item.name === name);
     if (

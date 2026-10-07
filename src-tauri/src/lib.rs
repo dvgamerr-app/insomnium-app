@@ -15,6 +15,7 @@ mod git_merge_resolution;
 mod git_merge_source;
 mod git_ref_lock;
 mod git_remote;
+mod git_remote_checkout;
 mod git_remote_job;
 mod grpc;
 mod grpc_example;
@@ -108,6 +109,7 @@ pub fn run() {
             git_merge::git_repository_prepare_merge,
             git::git_repository_history,
             git::git_repository_create_branch,
+            git_remote_checkout::git_repository_create_remote_branch,
             git::git_repository_delete_branch,
             git::git_repository_commit,
             git_journal::git_repository_checkout,
