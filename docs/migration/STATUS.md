@@ -1,5 +1,10 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Connection log for failed requests — 2026-10-07
+
+- A failed or cancelled send now fills the Timeline tab with the same connection log (settings, the request that was attempted, the failure reason with its cause chain, time). The raw error text is shown only on the Preview tab; Headers/Cookies show their empty state.
+- Native send_http returns { message, networkLog } on failure (HttpFailure); transport.js turns it into a NetworkError that keeps the log. Browser preview builds a short failure log. Verified with cargo check --locked, bun run check, nocturne-theme (failure log + Preview error). Native failure output (DNS, refused, TLS errors) was not exercised.
+
 ## Response Timeline as a connection log — 2026-10-07
 
 - The response Timeline tab is now curl -v style text instead of three timing rows. Native send_http builds it (src-tauri/src/network_log.rs): settings, connected address, HTTP version, peer certificate subject/issuer/validity/SAN, request and response headers, redirects, size and time. Authorization, Proxy-Authorization and Cookie request values are masked. reqwest does not expose DNS/TCP/TLS handshake steps, TLS version/cipher or per-phase timing, so those are not shown.

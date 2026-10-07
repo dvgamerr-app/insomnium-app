@@ -108,6 +108,24 @@ pub struct HttpResponse {
     network_log: Vec<String>,
 }
 
+/// A failed send keeps the partial connection log for the Timeline tab.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HttpFailure {
+    message: String,
+    network_log: Vec<String>,
+}
+
+impl HttpFailure {
+    fn early(message: impl Into<String>) -> Self {
+        let message = message.into();
+        Self {
+            network_log: vec![format!("* Request failed before it was sent: {message}")],
+            message,
+        }
+    }
+}
+
 #[tauri::command]
 pub fn cancel_http(id: String, state: tauri::State<'_, NetworkState>) -> Result<(), String> {
     if let Some(sender) = state.running.lock().map_err(|e| e.to_string())?.get(&id) {
@@ -122,35 +140,39 @@ pub async fn send_http(
     request: HttpRequest,
     state: tauri::State<'_, NetworkState>,
     cookie_state: tauri::State<'_, crate::cookies::CookieState>,
-) -> Result<HttpResponse, String> {
-    let url = Url::parse(&request.url).map_err(|e| format!("Invalid URL: {e}"))?;
+) -> Result<HttpResponse, HttpFailure> {
+    let url = Url::parse(&request.url)
+        .map_err(|e| HttpFailure::early(format!("Invalid URL: {e}")))?;
     if !matches!(url.scheme(), "http" | "https") {
-        return Err("Only HTTP and HTTPS URLs can be sent as HTTP requests".into());
+        return Err(HttpFailure::early(
+            "Only HTTP and HTTPS URLs can be sent as HTTP requests",
+        ));
     }
-    let mut cancelled = state.begin(&request.id)?;
+    let mut cancelled = state.begin(&request.id).map_err(HttpFailure::early)?;
     let mut jar = None;
+    let requested_url = url.clone();
+    let overall = Instant::now();
+    let log = std::sync::Arc::new(Mutex::new(crate::network_log::preface(
+        &request.method,
+        &url,
+        &crate::network_log::Settings {
+            proxy: request.proxy.as_deref().filter(|p| !p.is_empty()),
+            validate_certificates: request.validate_certificates,
+            follow_redirects: request.follow_redirects,
+            custom_ca: request.ca_pem.as_ref().is_some_and(|p| !p.is_empty()),
+            client_certificate: request
+                .identity_pem
+                .as_ref()
+                .is_some_and(|p| !p.is_empty()),
+        },
+    )));
+    let hops = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let result = async {
         if request.use_cookies && (request.send_cookies || request.store_cookies) {
             jar = Some(cookie_state.jar(&app, request.workspace_id.clone()).await?);
         }
         let started = Instant::now();
-        let requested_url = url.clone();
         let client = build_client(&request, &url, jar.as_ref(), false, false)?;
-        let log = std::sync::Arc::new(Mutex::new(crate::network_log::preface(
-            &request.method,
-            &url,
-            &crate::network_log::Settings {
-                proxy: request.proxy.as_deref().filter(|p| !p.is_empty()),
-                validate_certificates: request.validate_certificates,
-                follow_redirects: request.follow_redirects,
-                custom_ca: request.ca_pem.as_ref().is_some_and(|p| !p.is_empty()),
-                client_certificate: request
-                    .identity_pem
-                    .as_ref()
-                    .is_some_and(|p| !p.is_empty()),
-            },
-        )));
-        let hops = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let outgoing = build_request(&client, &request, url)?
             .build()
             .map_err(|e| e.to_string())?;
@@ -168,8 +190,21 @@ pub async fn send_http(
                 async move {
                     let sent = crate::network_log::Outgoing::capture(&outgoing);
                     let hop_started = Instant::now();
-                    let response = client.execute(outgoing).await.map_err(|e| e.to_string())?;
                     let number = hops.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+                    let response = match client.execute(outgoing).await {
+                        Ok(response) => response,
+                        Err(error) => {
+                            if let Ok(mut log) = log.lock() {
+                                log.extend(crate::network_log::failed_hop(
+                                    number,
+                                    sent,
+                                    &error,
+                                    hop_started.elapsed().as_millis(),
+                                ));
+                            }
+                            return Err(error.to_string());
+                        }
+                    };
                     if let Ok(mut log) = log.lock() {
                         log.extend(crate::network_log::hop(
                             number,
@@ -246,8 +281,18 @@ pub async fn send_http(
             }
         }
     }
-    state.finish(&request.id)?;
-    response
+    state.finish(&request.id).map_err(HttpFailure::early)?;
+    response.map_err(|message| {
+        let mut network_log = log.lock().map(|log| log.clone()).unwrap_or_default();
+        network_log.push(format!(
+            "* Request failed after {} ms: {message}",
+            overall.elapsed().as_millis()
+        ));
+        HttpFailure {
+            message,
+            network_log,
+        }
+    })
 }
 
 #[tauri::command]

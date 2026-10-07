@@ -54,6 +54,10 @@ export function buildNetworkLog(entry) {
 
 /** @param {Record<string, any>} response */
 export function responseNetworkLog(response) {
+  if (response.error)
+    return response.networkLog?.length
+      ? response.networkLog
+      : [`* Request failed before it was sent: ${response.error}`];
   return (
     response.networkLog ||
     buildNetworkLog({
@@ -165,13 +169,52 @@ export function tokenizeLine(line) {
         : [{ t: m[4], k: bad ? "bad" : "value" }]),
     ];
   }
-  const tone = /not encrypted|not exposed|not available|no connection/i.test(
-    body,
-  )
-    ? "bad"
-    : "meta";
+  const tone =
+    /not encrypted|not exposed|not available|no connection|failed|timed out/i.test(
+      body,
+    )
+      ? "bad"
+      : "meta";
   return [
     ...out,
     ...inline(body).map((t) => (t.k === "plain" ? { ...t, k: tone } : t)),
   ];
+}
+
+/** An HTTP send failure that keeps the partial connection log. */
+export class NetworkError extends Error {
+  /** @param {string} message @param {string[]} networkLog */
+  constructor(message, networkLog) {
+    super(message);
+    this.networkLog = networkLog;
+  }
+  toString() {
+    return this.message;
+  }
+}
+
+/**
+ * Log for a failed browser-preview send.
+ * @param {Record<string, any>} request
+ * @param {string} message
+ */
+export function failureLog(request, message) {
+  const lines = [`* ${request.method || "GET"} ${request.url}`];
+  /** @type {URL|null} */ let target = null;
+  try {
+    target = new URL(request.url);
+  } catch {
+    // The URL itself is the failure.
+  }
+  if (target) {
+    lines.push(
+      `> ${request.method || "GET"} ${target.pathname}${target.search}`,
+      `> host: ${target.host}`,
+    );
+    for (const [name, value] of request.headers || [])
+      lines.push(`> ${name}: ${masked(name, value)}`);
+    lines.push(">");
+  }
+  lines.push(`* Request failed: ${message}`);
+  return lines;
 }

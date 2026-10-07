@@ -1066,6 +1066,7 @@ export async function execute(
         error: String(error),
         created: Date.now(),
         requestId,
+        networkLog: /** @type {any} */ (error)?.networkLog,
       };
   } finally {
     settleInitial(

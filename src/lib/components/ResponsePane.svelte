@@ -278,7 +278,7 @@
     ><div class="response-content">
       {#if copyError}<Feedback as="p" class="inline-error">{copyError}</Feedback
         >{/if}
-      {#if response?.error}<div class="error-state">
+      {#if response?.error && tab === "Preview"}<div class="error-state">
           <h3>Could not send request</h3>
           <pre>{response.error}</pre>
         </div>

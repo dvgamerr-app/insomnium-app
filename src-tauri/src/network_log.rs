@@ -226,3 +226,40 @@ pub(crate) fn finish(
     lines.push(format!("* Finished in {elapsed_ms} ms"));
     lines
 }
+
+/// A hop whose connection or exchange failed before a response arrived.
+pub(crate) fn failed_hop(
+    number: usize,
+    sent: Outgoing,
+    error: &reqwest::Error,
+    elapsed_ms: u128,
+) -> Vec<String> {
+    let mut lines = Vec::new();
+    if number > 1 {
+        lines.push(format!("* ---- Request {number} ----"));
+    }
+    lines.push(format!("* Connecting to {} ...", host_port(&sent.url)));
+    let path = match sent.url.query() {
+        Some(query) => format!("{}?{query}", sent.url.path()),
+        None => sent.url.path().to_string(),
+    };
+    lines.push(format!("> {} {path}", sent.method));
+    lines.push(format!("> host: {}", sent.url.host_str().unwrap_or("")));
+    lines.extend(sent.headers.iter().map(|(n, v)| format!("> {n}: {v}")));
+    lines.push(">".into());
+    let mut reason = error.to_string();
+    let mut source = std::error::Error::source(error);
+    while let Some(cause) = source {
+        reason.push_str(&format!(": {cause}"));
+        source = cause.source();
+    }
+    let kind = if error.is_timeout() {
+        "timed out"
+    } else if error.is_connect() {
+        "connection failed"
+    } else {
+        "failed"
+    };
+    lines.push(format!("* Request {kind} after {elapsed_ms} ms: {reason}"));
+    lines
+}

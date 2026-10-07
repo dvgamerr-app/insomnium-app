@@ -1,4 +1,4 @@
-import { buildNetworkLog } from "./network-log.js";
+import { buildNetworkLog, failureLog, NetworkError } from "./network-log.js";
 import {
   smartEncodeUrl,
   buildQueryParameter,
@@ -541,7 +541,19 @@ async function readPreviewBody(response, signal) {
 
 /** @param {Record<string, any>} request @param {AbortSignal} signal */
 export async function send(request, signal) {
-  if (isTauri()) return invoke("send_http", { request });
+  if (isTauri()) {
+    try {
+      return await invoke("send_http", { request });
+    } catch (/** @type {any} */ error) {
+      // Native failures arrive as { message, networkLog }; keep the log.
+      if (error && typeof error === "object" && "message" in error)
+        throw new NetworkError(
+          String(error.message),
+          Array.isArray(error.networkLog) ? error.networkLog : [],
+        );
+      throw error;
+    }
+  }
   if (request.socketPath)
     throw new Error("Unix socket requests require the desktop app.");
   if (request.digest)
@@ -608,15 +620,23 @@ export async function send(request, signal) {
     signal,
     AbortSignal.timeout(request.timeoutMs),
   ]);
-  const response = await fetch(request.url, {
-    method: request.method,
-    headers: request.headers,
-    body: ["GET", "HEAD"].includes(request.method) ? null : body,
-    signal: fetchSignal,
-    redirect: request.followRedirects ? "follow" : "manual",
-  });
-  const headersMs = Math.round(performance.now() - started);
-  const bytes = await readPreviewBody(response, fetchSignal);
+  /** @type {Response} */ let response;
+  /** @type {Uint8Array} */ let bytes;
+  let headersMs = 0;
+  try {
+    response = await fetch(request.url, {
+      method: request.method,
+      headers: request.headers,
+      body: ["GET", "HEAD"].includes(request.method) ? null : body,
+      signal: fetchSignal,
+      redirect: request.followRedirects ? "follow" : "manual",
+    });
+    headersMs = Math.round(performance.now() - started);
+    bytes = await readPreviewBody(response, fetchSignal);
+  } catch (error) {
+    const message = String(error instanceof Error ? error.message : error);
+    throw new NetworkError(message, failureLog(request, message));
+  }
   const elapsedMs = Math.round(performance.now() - started);
   return {
     status: response.status,

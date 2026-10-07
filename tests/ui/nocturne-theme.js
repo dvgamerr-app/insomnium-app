@@ -599,6 +599,20 @@ await withPreview("nocturne-theme", async (page, output) => {
       .getByRole("textbox", { name: "Request URL", exact: true })
       .fill(new URL("/__theme-failure", page.url()).href);
     await page.getByRole("button", { name: "Send", exact: true }).click();
+    // The error text belongs to Preview; Timeline shows the connection log.
+    const responseTabs = page.getByRole("tablist", { name: "Response view" });
+    await responseTabs
+      .getByRole("tab", { name: "Timeline", exact: true })
+      .click();
+    const failureLog = page.getByRole("log", { name: "Connection log" });
+    await failureLog.getByText(/Request failed/).waitFor();
+    assert.equal(await page.locator(".error-state").count(), 0);
+    await page.screenshot({
+      path: output + "/" + theme + "-response-failure-log.png",
+    });
+    await responseTabs
+      .getByRole("tab", { name: "Preview", exact: true })
+      .click();
     await page
       .getByRole("heading", { name: "Could not send request", exact: true })
       .waitFor();
