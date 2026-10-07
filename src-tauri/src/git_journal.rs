@@ -467,7 +467,7 @@ fn recover_inner(directory: &Path) -> Result<Option<CheckoutResult>, String> {
 /// Validate the complete committed resource tree and its collection identity.
 /// Working edits may differ from either commit; validate_pair protects private,
 /// local and foreign data while the collection planner reconciles those edits.
-fn validate_commit(
+pub(crate) fn validate_commit(
     repo: &git2::Repository,
     oid: git2::Oid,
     workspace_id: &str,

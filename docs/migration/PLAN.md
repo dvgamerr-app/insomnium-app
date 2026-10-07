@@ -2,6 +2,8 @@
 
 ## Owner goal workflow — 2026-10-07
 
+Current step5: native complete-tree merge candidate preparation passes7 saved native checks plus current-build advancement writer8/reader20 regressions. Public Pull/Merge, conflict resolution, endpoint pinning, workspace reconciliation/quiescence/recovery and original parity remain open; continue the same unfinished feature. Prior feature compact boundary was satisfied by actual context compaction before this resumed work. See STATUS/GIT-REMOTE.
+
 - Complete and verify each feature, then commit its changes by topic with the relevant migration status and evidence.
 - After every completed feature, compact the session with `/compact` before starting the next feature. Save the current state, validation results and next action in STATUS first.
 - This session exposes no callable `/compact` tool, and the goal API cannot edit an active objective. These instructions extend the existing migration goal through this durable plan; do not claim compaction ran when it did not. If unavailable, hand off at the feature boundary for the owner to run `/compact`.

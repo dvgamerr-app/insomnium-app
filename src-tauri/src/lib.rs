@@ -9,6 +9,7 @@ mod git_fetch_command;
 mod git_fetch_journal;
 mod git_fetch_snapshot;
 mod git_journal;
+mod git_merge;
 mod git_ref_lock;
 mod git_remote;
 mod git_remote_job;
@@ -101,6 +102,7 @@ pub fn run() {
             git::git_repository_init,
             git::git_repository_info,
             git::git_repository_read_commit,
+            git_merge::git_repository_prepare_merge,
             git::git_repository_history,
             git::git_repository_create_branch,
             git::git_repository_delete_branch,

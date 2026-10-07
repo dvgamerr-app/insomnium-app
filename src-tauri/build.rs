@@ -32,6 +32,7 @@ fn main() {
             "git_repository_init",
             "git_repository_info",
             "git_repository_read_commit",
+            "git_repository_prepare_merge",
             "git_repository_history",
             "git_repository_commit",
             "git_repository_create_branch",

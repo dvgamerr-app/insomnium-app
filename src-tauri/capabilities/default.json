@@ -40,6 +40,7 @@
     "allow-git-repository-init",
     "allow-git-repository-info",
     "allow-git-repository-read-commit",
+    "allow-git-repository-prepare-merge",
     "allow-git-repository-history",
     "allow-git-repository-commit",
     "allow-git-repository-create-branch",
