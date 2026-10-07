@@ -8,6 +8,9 @@ import { serveReceivePack } from "./helpers/git-receive-pack.js";
 import { heldHttp } from "./helpers/held-http.js";
 import { withIpcFailure } from "./helpers/ipc-failure.js";
 import { buildComponentFixture } from "./helpers/component-fixture.js";
+import { servePartialReceive } from "./helpers/git-partial-receive.js";
+import { snapshotGitCollection } from "../../src/lib/git-collection.js";
+import { randomBytes } from "node:crypto";
 
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-recovery-copy-probe/build-state.json";
@@ -17,6 +20,7 @@ assert.ok(
   [
     "normal",
     "unknown",
+    "partial-upload",
     "rejected",
     "non-fast-forward",
     "source-advanced",
@@ -41,7 +45,30 @@ try {
       const x = await advanceFixture(context);
       const remote = await serveReceivePack(output);
       const checks = [];
+      /** @type {Awaited<ReturnType<typeof servePartialReceive>> | undefined} */
+      let partial;
       try {
+        if (mode === "partial-upload") {
+          const committed = structuredClone(await invoke("load_workspace"));
+          committed.resources.find(
+            (/** @type {any} */ row) => row._id === x.f.requestId,
+          ).description = randomBytes(2 * 1024 * 1024).toString("base64");
+          const result = await invoke("git_repository_commit", {
+            repositoryId: x.f.repositoryId,
+            input: {
+              branch: "main",
+              expectedHeadOid: x.f.oid,
+              workspaceId: x.f.workspaceId,
+              files: snapshotGitCollection(committed.resources, x.f.workspaceId)
+                .files,
+              authorName: x.f.author.name,
+              authorEmail: x.f.author.email,
+              message: "Owned incompressible partial-upload fixture",
+            },
+          });
+          x.f.oid = result;
+          partial = await servePartialReceive(remote, output);
+        }
         if (mode === "non-fast-forward") {
           // Seed an independently advanced owned server using real Git objects.
           await fixtureGit(remote.repo, [
@@ -130,7 +157,7 @@ try {
         });
         await panel
           .getByLabel("Repository URL", { exact: true })
-          .fill(remote.url);
+          .fill(partial?.url || remote.url);
         await panel
           .getByRole("button", { name: "Save remote settings", exact: true })
           .click();
@@ -314,30 +341,52 @@ try {
           await panel
             .getByRole("status")
             .filter({
-              hasText:
-                mode === "unknown"
-                  ? "Remote outcome is unknown."
-                  : mode === "rejected"
-                    ? "Server rejected the Push. Local data is unchanged."
-                    : mode === "non-fast-forward"
-                      ? "Push needs the remote history. No update was sent."
-                      : "Server accepted the reviewed Push.",
+              hasText: ["unknown", "partial-upload"].includes(mode)
+                ? "Remote outcome is unknown."
+                : mode === "rejected"
+                  ? "Server rejected the Push. Local data is unchanged."
+                  : mode === "non-fast-forward"
+                    ? "Push needs the remote history. No update was sent."
+                    : "Server accepted the reviewed Push.",
             })
             .waitFor();
         const expectedPosts = [
+          "partial-upload",
           "non-fast-forward",
           "source-before-confirm",
         ].includes(mode)
           ? 0
           : 1;
+        if (partial) {
+          await poll(async () => {
+            assert.equal(partial?.state.error, "");
+            return partial?.state.validationFinished === true;
+          }, "Real Git refuses the captured incomplete receive-pack input");
+          assert.equal(partial.state.receivePosts, 1);
+          assert.equal(partial.state.completeBodies, 0);
+          assert.equal(partial.state.destroyedConnections, 1);
+          assert.ok(partial.state.packOffset >= 0);
+          assert.ok(partial.state.receivedBytes > 0);
+          if (partial.state.expectedBytes)
+            assert.ok(
+              partial.state.receivedBytes < partial.state.expectedBytes,
+            );
+          checks.push(
+            "actual upload socket destroyed at bounded PACK prefix; real Git refuses exactly captured incomplete input and remote ref remains absent",
+          );
+        }
         assert.equal(remote.state.receivePosts, expectedPosts);
         assert.equal(
           await remote.tip(),
           mode === "non-fast-forward"
             ? x.newOid
-            : ["rejected", "stop", "timeout", "source-before-confirm"].includes(
-                  mode,
-                )
+            : [
+                  "partial-upload",
+                  "rejected",
+                  "stop",
+                  "timeout",
+                  "source-before-confirm",
+                ].includes(mode)
               ? null
               : x.f.oid,
         );
@@ -351,6 +400,7 @@ try {
           );
         } else if (
           ![
+            "partial-upload",
             "stop",
             "timeout",
             "non-fast-forward",
@@ -372,6 +422,10 @@ try {
           "receipt.json",
         );
         const nativeReceipt = JSON.parse(await readFile(receiptPath, "utf8"));
+        if (partial) {
+          assert.equal(nativeReceipt.phase, "finished");
+          assert.equal(nativeReceipt.result.outcome, "unknown");
+        }
         if (["stop", "timeout", "completed-stop"].includes(mode)) {
           assert.equal(nativeReceipt.phase, "submitted");
           assert.equal(nativeReceipt.result, null);
@@ -416,10 +470,20 @@ try {
                     ? "source tip moved after product review before confirmation: actionable inspection error, no POST/stage, full state/changed ref/held Send preserved"
                     : mode === "history-before-confirm"
                       ? "fresh review confirms pinned public commit/tree, retaining completed private Send/history200 and exact full live data except saved intent"
-                      : "confirmed public Push: pinned actual server tree and full live snapshot except exact saved intent; held Send stays active",
+                      : partial
+                        ? "partial streaming upload leaves remote absent and durable unknown result; exact full live snapshot except saved intent/local refs/private held Send preserved"
+                        : "confirmed public Push: pinned actual server tree and full live snapshot except exact saved intent; held Send stays active",
         );
 
-        if (["unknown", "stop", "timeout", "completed-stop"].includes(mode)) {
+        if (
+          [
+            "unknown",
+            "partial-upload",
+            "stop",
+            "timeout",
+            "completed-stop",
+          ].includes(mode)
+        ) {
           await page.reload();
           await page.getByRole("button", { name: "Git", exact: true }).click();
           await openGitRemote(page);
@@ -427,12 +491,15 @@ try {
             .getByRole("region", { name: "Git remote", exact: true })
             .getByRole("button", { name: "Inspect pending Push", exact: true })
             .waitFor();
-          assert.equal(remote.state.receivePosts, 1);
+          assert.equal(remote.state.receivePosts, expectedPosts);
+          if (partial) assert.equal(partial.state.receivePosts, 1);
           assert.deepEqual(await invoke("load_workspace"), after);
           checks.push(
             ["stop", "timeout", "completed-stop"].includes(mode)
               ? "stopped submitted Push survives reload; fresh Inspect does not resend or rewrite full data"
-              : "real completed-server HTTP503 survives reload as pending Push; no automatic upload or full-data rewrite",
+              : partial
+                ? "actual partial-upload disconnect survives reload as pending Push; no second proxy POST, server upload or full-data rewrite"
+                : "real completed-server HTTP503 survives reload as pending Push; no automatic upload or full-data rewrite",
           );
         }
 
@@ -500,6 +567,7 @@ try {
         assert.equal(await clear.isDisabled(), true);
         assert.ok((await inspected.innerText()).includes(x.f.oid));
         assert.equal(remote.state.receivePosts, expectedPosts);
+        if (partial) assert.equal(partial.state.receivePosts, 1);
         const acknowledgment = inspected.getByRole("checkbox", {
           name: "I have reviewed the observed remote state.",
           exact: true,
@@ -641,13 +709,18 @@ try {
         assert.deepEqual(retired.result, nativeReceipt.result);
         if (outgoing) await assert.rejects(stat(outgoing), { code: "ENOENT" });
         assert.equal(remote.state.receivePosts, expectedPosts);
+        if (partial) assert.equal(partial.state.receivePosts, 1);
         assert.equal(
           await remote.tip(),
           mode === "non-fast-forward"
             ? x.newOid
-            : ["rejected", "stop", "timeout", "source-before-confirm"].includes(
-                  mode,
-                )
+            : [
+                  "partial-upload",
+                  "rejected",
+                  "stop",
+                  "timeout",
+                  "source-before-confirm",
+                ].includes(mode)
               ? null
               : x.f.oid,
         );
@@ -664,6 +737,10 @@ try {
           JSON.stringify(
             {
               checks,
+              partial: partial?.state,
+              partialScope: partial
+                ? "Actual owned socket destruction during upload and real Git validation of captured incomplete input; not provider, physical power-loss or all upload boundaries."
+                : undefined,
               server: remote.state,
               held: {
                 started: http.held,
@@ -677,7 +754,8 @@ try {
         );
         console.log(JSON.stringify({ passed: checks.length, checks }));
       } finally {
-        remote.close();
+        await partial?.close();
+        await remote.close();
       }
     },
   );

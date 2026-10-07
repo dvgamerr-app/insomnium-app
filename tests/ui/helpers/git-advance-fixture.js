@@ -14,6 +14,14 @@ export async function fixtureGit(repo, args, input) {
 /** Exact bytes for NUL-delimited tree paths and object bodies in owned fixtures.
  * @param {string} repo @param {string[]} args @param {string|Uint8Array} [input] */
 export async function fixtureGitBytes(repo, args, input) {
+  const result = await fixtureGitResult(repo, args, input);
+  assert.equal(result.code, 0, result.stderr);
+  return result.stdout;
+}
+
+/** Real Git result for owned scenarios that intentionally submit damaged input.
+ * @param {string} repo @param {string[]} args @param {string|Uint8Array} [input] */
+export async function fixtureGitResult(repo, args, input) {
   const env = { ...process.env };
   for (const name of Object.keys(env))
     if (name.startsWith("GIT_")) delete env[name];
@@ -27,7 +35,12 @@ export async function fixtureGitBytes(repo, args, input) {
   });
   const child = Bun.spawn(["git", "-C", repo, ...args], {
     env,
-    stdin: input === undefined ? "ignore" : typeof input === "string" ? new TextEncoder().encode(input) : input,
+    stdin:
+      input === undefined
+        ? "ignore"
+        : typeof input === "string"
+          ? new TextEncoder().encode(input)
+          : input,
     stdout: "pipe",
     stderr: "pipe",
     windowsHide: true,
@@ -37,8 +50,7 @@ export async function fixtureGitBytes(repo, args, input) {
     new Response(child.stderr).text(),
     child.exited,
   ]);
-  assert.equal(code, 0, stderr);
-  return Buffer.from(stdout);
+  return { code, stderr, stdout: Buffer.from(stdout) };
 }
 
 /** @param {import('./native-app.js').ScenarioContext} context */
