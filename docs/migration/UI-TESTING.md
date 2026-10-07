@@ -2,6 +2,27 @@
 
 Owner requires Bun-only reusable Playwright JavaScript scenarios with shared helpers and headless execution. Browser-use and ad-hoc browser automation remain prohibited.
 
+Payload name sizingfc5f9d3 extends the existing WSS live helper with reusable
+payload-options-layout.js: both themes,1440/900/760 and text/JSON/binary/ping,
+readable name width≥120px, row containment/no overlap/overflow, name→native type
+select keyboard focus, screenshots for Binary (with file control), and finally
+theme/type/viewport restoration. Old native4677/1791416503085 terminal1 proves
+name24px even at1440; settings/app cleanup0. Shared Select shell width100% took
+the flex row. Feature-local request.css shell flex:none/width:auto fixes it;
+shared select/input styling unchanged. Flex sizing reference consulted:
+https://www.w3.org/TR/css-flexbox-1/#flex-basis-property.
+Compiler0/0, all3 touched files Prettier/whitespace pass; fresh exact production
+builder38607 terminal0/release1791416542018/1791416894400/result0. Static headless
+theme28218 terminal0 passes existing surfaces/typography at both themes/three
+widths. Current native `bun tests/ui/wss-client-certificate.js`6642/1791416905052
+terminal0 passes all12 TLS/send lifecycle groups plus24 geometry cases, minimum
+name129.203125px. Result/acceptance/layout/restoration/fixture observations and
+dark760/light1440 Binary images inspected. Native-hidden PID82392/visiblefalse/
+exit0, fixture close0 and no live task processes. Four TLS settings restored.
+Binary FilePicker label and native file input are both visible in images and
+need separate shared-style investigation. Full CSS/UX/protocol/platform parity
+remains open; no claim that every layout or native scenario has been reverified.
+
 Authenticated WSS live capability4a1593f extends `bun tests/ui/wss-client-certificate.js`
 with helpers/wss-live-certificate.js and /ws-live in the existing mandatory-auth
 fixture. Server records exact text/binary/ping bytes and received close frame in

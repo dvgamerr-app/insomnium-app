@@ -1,5 +1,7 @@
 # Insomnium → Tauri migration
 
+Payload name sizingfc5f9d3 fixes the actual24px field by making the feature-local Select shell intrinsic in its flex row. Current production release1791416542018/1791416894400/result0 and native WSS1791416905052/tool6642 pass24 dark/light1440/900/760 geometry/keyboard cases (minimum name129.203125px) plus existing12 TLS/send lifecycle groups. Static headless themes pass. Full migration/UX/CSS and other gates stay required; STATUS records FilePicker follow-up and handoff.
+
 Authenticated WSS send/disconnect4a1593f: final1791416234346/tool47547 terminal0 passes12, including two explicit native connections with exact text/binary/ping-pong/server-observed close1000, full saved connection reload and no automatic reconnect. SSE11/HTTP12 regressions pass on unchanged release. Remaining migration/UX/CSS and redirect/SSE/gRPC/provider/platform gates retained; STATUS records failed waiter corrections, final evidence and handoff.
 
 Native WSS mTLS acceptance7034378: saved1791415792844/tool86663 terminal0 passes11 groups, with actual authenticated peer/HTTP101/text/normal1000 close and persisted reload. CA bundle/recovery and TLS refusals pass. Shared runner SSE1791415824881 passes11; shared fixture HTTP1791415861141 passes12. Production release unchanged. Remaining full migration/UX, client-send/disconnect/redirect, gRPC/provider/platform gates retained; STATUS pins evidence/handoff.

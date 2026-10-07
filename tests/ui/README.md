@@ -15,6 +15,10 @@ text/binary/ping-pong send/Disconnect/reconnect cycles. Original TLS
 preferences are restored; run sequentially against the current native build.
 Redirect and gRPC acceptance remain separate.
 
+The WSS live helper also checks Payload options in24 combinations (dark/light,
+1440/900/760, text/JSON/binary/ping): readable name width, containment/no overlap,
+no row overflow and keyboard name→type select. Theme/type/viewport are restored.
+
 `bun tests/ui/sse-client-certificate.js` uses the same current native build and
 mandatory-auth TLS fixture, with shared Network Preferences setup. Eleven groups
 check real SSE authentication/bundle/refusals/recovery, exact finite event/id/data
