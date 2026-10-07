@@ -84,7 +84,10 @@
       onclick={onclose}><Icon name="close" /></Button
     >
   </header>
+  <div class="settings-body">
   <TabList
+    class="settings-nav"
+    aria-orientation="vertical"
     panelId="settings-panel-content"
     bind:activeId={activeTab}
     aria-label="Preference pages"
@@ -365,6 +368,7 @@
       </div>
     </div>
   </TabPanel>
+  </div>
 </section>
 
 <style>
@@ -381,6 +385,21 @@
     flex: 1;
     flex-direction: column;
     min-height: 0;
+    min-width: 0;
+  }
+  .settings-body {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+  }
+  .settings-body :global(.settings-nav) {
+    flex: 0 0 220px;
+  }
+  @media (max-width: 760px) {
+    .settings-body :global(.settings-nav) {
+      flex-basis: 150px;
+    }
   }
   .settings-heading {
     display: flex;
@@ -426,7 +445,7 @@
   }
   .settings-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
     gap: var(--space-12);
     align-items: start;
   }

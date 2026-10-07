@@ -7,6 +7,7 @@
     panelId,
     activeId = $bindable(""),
     class: className = "",
+    "aria-orientation": orientation = "horizontal",
     onkeydown,
     ...rest
   } = $props();
@@ -24,6 +25,7 @@
   {...rest}
   class={`editor-tabs ${className}`}
   role="tablist"
+  aria-orientation={orientation}
   onkeydown={(event) => {
     onkeydown?.(event);
     if (
@@ -32,7 +34,9 @@
       event.target.getAttribute("role") !== "tab"
     )
       return;
-    const keys = ["ArrowLeft", "ArrowRight", "Home", "End"];
+    const forward = orientation === "vertical" ? "ArrowDown" : "ArrowRight";
+    const backward = orientation === "vertical" ? "ArrowUp" : "ArrowLeft";
+    const keys = [backward, forward, "Home", "End"];
     if (!keys.includes(event.key)) return;
     const tabs = Array.from(
       event.currentTarget.querySelectorAll("button[role=tab]:not(:disabled)"),
@@ -44,7 +48,7 @@
         ? 0
         : event.key === "End"
           ? tabs.length - 1
-          : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) %
+          : (index + (event.key === forward ? 1 : -1) + tabs.length) %
             tabs.length;
     const target = /** @type {HTMLButtonElement} */ (tabs[next]);
     event.preventDefault();

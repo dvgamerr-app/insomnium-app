@@ -350,6 +350,21 @@ await withPreview("nocturne-theme", async (page, output) => {
       .first()
       .click();
     await preferences.waitFor();
+    const preferenceMenu = preferences.getByRole("tablist", {
+      name: "Preference pages",
+    });
+    assert.equal(await preferenceMenu.getAttribute("aria-orientation"), "vertical");
+    await preferences.getByRole("tab", { name: "General", exact: true }).focus();
+    await page.keyboard.press("ArrowDown");
+    assert.equal(
+      await preferences.getByRole("tab", { name: "Editor", exact: true }).getAttribute("aria-selected"),
+      "true",
+    );
+    await page.keyboard.press("ArrowUp");
+    assert.equal(
+      await preferences.getByRole("tab", { name: "General", exact: true }).getAttribute("aria-selected"),
+      "true",
+    );
     for (const section of ["General", "Editor", "Requests", "Network", "Git"]) {
       await preferences
         .getByRole("tab", { name: section, exact: true })
@@ -365,6 +380,16 @@ await withPreview("nocturne-theme", async (page, output) => {
     await preferences
       .getByRole("tab", { name: "General", exact: true })
       .click();
+    for (const width of [1440, 900, 760]) {
+      await page.setViewportSize({ width, height: 960 });
+      const menuBounds = await preferenceMenu.boundingBox();
+      const panelBounds = await preferences.getByRole("tabpanel").boundingBox();
+      assert.ok(menuBounds && panelBounds && menuBounds.x + menuBounds.width <= panelBounds.x + 1,
+        "Preferences menu stays on the left at " + width);
+      assert.equal(await preferences.evaluate((el) => el.scrollWidth <= el.clientWidth), true);
+      await page.screenshot({ path: output + "/" + theme + "-preferences-" + width + ".png" });
+    }
+    await page.setViewportSize({ width: 1440, height: 960 });
     await page.screenshot({
       path: output + "/" + theme + "-preferences.png",
     });

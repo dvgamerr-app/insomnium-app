@@ -1,5 +1,16 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Goal execution and commits — 2026-10-07
+
+- Owner instruction: continue the full migration and UI/UX/CSS objective, and commit completed work by topic after verification. Keep migration parity open until every original gate is proved or explicitly removed by the owner. Existing Settings navigation work is the first separate commit; gRPC completion and stream JSON fidelity follow as separate topics.
+- Revalidated Settings navigation: bun run check (0 errors/0 warnings), bun run build, bun tests/ui/nocturne-theme.js and bun tests/ui/nocturne-workspace.js all pass on the current worktree.
+
+## Restore Settings left menu — 2026-10-07
+
+- Owner requested returning Settings navigation to the left. Preferences now places General, Editor, Requests, Network and Git in a vertical menu beside the active content, using the earlier 220px sidebar (150px at widths up to 760px). Existing settings persistence and Git author entry remain available.
+- Shared TabList supports vertical orientation and Up/Down navigation; horizontal consumers retain Left/Right navigation. Shared navigation CSS owns vertical tab presentation. Official reference consulted before implementation: https://www.w3.org/WAI/ARIA/apg/patterns/tabs/ (vertical orientation and keyboard interaction); no new subsystem or generator needed.
+- Verified: bun run check (0 errors/0 warnings), bun run build, bun tests/ui/nocturne-theme.js and bun tests/ui/nocturne-workspace.js. Updated the existing theme scenario to verify menu position at 1440/900/760 in dark/light and Up/Down selection; inspected the dark 760px screenshot. Evidence: artifacts/playwright/nocturne-theme/result.json and artifacts/playwright/nocturne-workspace/result.json. Native executable was not rebuilt; full migration parity remains open.
+
 ## Connection log for failed requests — 2026-10-07
 
 - A failed or cancelled send now fills the Timeline tab with the same connection log (settings, the request that was attempted, the failure reason with its cause chain, time). The raw error text is shown only on the Preview tab; Headers/Cookies show their empty state.

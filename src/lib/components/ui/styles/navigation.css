@@ -26,6 +26,32 @@
   color: var(--text);
 }
 
+.editor-tabs[aria-orientation="vertical"] {
+  flex-direction: column;
+  align-items: stretch;
+  height: auto;
+  min-height: 0;
+  gap: var(--space-4);
+  padding: var(--space-12);
+  border-bottom: 0;
+  border-right: 1px solid var(--line);
+  overflow: auto;
+}
+
+.editor-tabs[aria-orientation="vertical"] > button:not(.icon-button) {
+  flex-shrink: 0;
+  height: var(--button-height);
+  justify-content: flex-start;
+  text-align: left;
+  padding: var(--space-8) var(--space-12);
+  border-bottom: 0;
+}
+
+.editor-tabs[aria-orientation="vertical"] > button.active {
+  background: var(--selected);
+  color: var(--text);
+}
+
 .count {
   font-size: 9px;
   background: var(--raised);
