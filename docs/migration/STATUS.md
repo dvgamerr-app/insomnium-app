@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Committed advancement handoff revalidated — 2026-10-07
+
+- Previous turn made progress: native foundation81e66c6 and saved split helper239eb87 committed; starting worktree clean. No next feature started before required compact. Verified current manifest/build identity and frozen successful probe; no callable compaction tool appears in the current tool inventory.
+- Reran the existing Source Control scenario once on the exact committed helper, including its final PointerEvent narrowing added after the earlier replay. Current-build git-source-control1791360993760 passes full UI/branch workflow and both pointer axes with saved event evidence, owned app exit0/session50564 terminal. No source/helper change or rebuild. This closes the exact-helper replay gap without broad redundant testing.
+- Read-only metadata confirms the original unowned restore reproduction repo-git_pw_1791355496181_6530be42 still retains empty HEAD.lock and refs/heads/main.lock. Neither was deleted or opened as an app repository. Original/full parity remains pending and the compact boundary still requires an actual owner/system compaction before GIT-REMOTE step5. No live owned build/app/scenario/file handle remains.
+
 ## Versioned advancement journal foundation verified; compact handoff — 2026-10-07
 
 - Completed the native schema2 journal writer/recovery foundation for same-branch prepared fast-forward and divergent merge inputs; schema1 checkout remains supported. Registered command/build manifest/generated allow+deny permission/default capability agree. Persisted workspace, pinned HEAD/OIDs/graph/full resource tree/collection preservation and pending intent admission run under GitState→StorageState. Journal is durable before branch mutation; every uncertain post-journal error routes to authoritative load, with no automatic second advance.
