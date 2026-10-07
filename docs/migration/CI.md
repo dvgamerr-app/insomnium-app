@@ -12,6 +12,17 @@ Linux installs Tauri native prerequisites plus dpkg-dev, rpm and libgles2. macOS
 
 ## Verification and remaining gates
 
+Artifact retention investigation (2026-10-08): the official @actions/artifact SDK
+requires ACTIONS_RUNTIME_TOKEN and ACTIONS_RESULTS_URL. The runner's
+[NodeScriptActionHandler](https://github.com/actions/runner/blob/main/src/Runner.Worker/Handlers/NodeScriptActionHandler.cs)
+injects these, while
+[ScriptHandler](https://github.com/actions/runner/blob/main/src/Runner.Worker/Handlers/ScriptHandler.cs)
+does not inject them into ordinary shell steps. Running the SDK through Bun in a
+plain run step therefore cannot by itself provide artifact upload. No credential
+workaround, broken upload step or external publication was added. The experimental
+SDK dependency/lock changes were restored. Downloadable artifacts remain required;
+choose a runner-supported Bun/native transport before implementing retention.
+
 ### Bun-only Qlty runtime boundary — 2026-10-08
 
 Capability5e0f11f replaces enabled default Prettier/Node and zizmor/Python package
