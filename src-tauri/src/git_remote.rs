@@ -44,7 +44,7 @@ pub struct RemoteAdvertisement {
     pub(crate) default_branch: Option<String>,
     head_oid: Option<String>,
     // No refs advertised is different from no branches (e.g. a tags-only repo).
-    empty: bool,
+    pub(crate) empty: bool,
     #[serde(default)]
     pub(crate) shallow_boundaries: Vec<String>,
 }

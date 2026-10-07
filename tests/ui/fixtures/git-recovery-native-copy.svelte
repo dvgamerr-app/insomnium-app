@@ -14,8 +14,16 @@
   import { sameWorkspace } from "../../../src/lib/git-workspace.js";
   /** @type {{seed:Record<string,any>}} */
   let { seed } = $props();
-  const command = untrack(() => seed.recoveryCommand || "git_repository_restore");
-  if (!["git_repository_restore", "git_repository_apply_merge"].includes(command))
+  const command = untrack(
+    () => seed.recoveryCommand || "git_repository_restore",
+  );
+  if (
+    ![
+      "git_repository_restore",
+      "git_repository_apply_merge",
+      "git_clone_install",
+    ].includes(command)
+  )
     throw new Error("Unsupported saved recovery fixture command");
   let transitions = $state(0);
   let calls = $state(0);

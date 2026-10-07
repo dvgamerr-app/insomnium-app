@@ -1,5 +1,7 @@
 # Insomnium → Tauri migration
 
+Step6 Windows Clone is implemented and verified: owned Stage/Inspect/List, private review, exclusive managed install/full-snapshot journal/write fence/startup recovery, collection-entry shared UI, complete empty/design/collection/existing/collision/multiple/malformed-parent/network-failure/uncertainty/admission/restart and real OS retained-copy acceptance. Final fixture build1791385088355/1791385681535/result0; Clone retained-copy1791385692539 and restore/merge-copy/Source Control/remote checkout/Pull/Fetch+restart regressions pass, current check0/0 and Clippy pass. See STATUS/GIT-CLONE for all exact artifacts and unverified boundaries. Commit by topic and use the requested feature compact handoff before step7 non-force Push. No callable compact tool exists; do not claim it ran. Full Git/provider/platform/fault/CI/release/PARITY and authorized shared-input/UX scope remain required.
+
 ## Owner goal workflow — 2026-10-07
 
 Owner requires verified commits separated by topic, and `/compact` after every completed feature before starting the next. Preserve the active migration/UX goal and remaining scope in STATUS at each boundary. The active goal API cannot edit its objective and no callable compact tool is exposed; record this workflow here, save a truthful handoff, and never claim either operation ran when unavailable.

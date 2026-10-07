@@ -5,6 +5,7 @@ import {
 } from "./git-remote-settings.js";
 import { createGitBranchWorkflow } from "./git-create.js";
 import { createRemoteCheckout } from "./git-remote-checkout.js";
+import { createGitClone } from "./git-clone.js";
 import { createGitCheckout } from "./git-checkout.js";
 import { createGitRestore } from "./git-restore.js";
 import { createGitMerge } from "./git-merge.js";
@@ -100,7 +101,7 @@ export const workspace = $state({
   ready: false,
   saving: false,
   draining: false,
-  gitRecoveryKind: /** @type {'checkout'|'restore'|'merge'} */ ("checkout"),
+  gitRecoveryKind: /** @type {'checkout'|'restore'|'merge'|'clone'} */ ("checkout"),
   persistencePhase:
     /** @type {import("./persistence-queue.js").PersistencePhase} */ ("idle"),
   saveFailed: false,
@@ -254,6 +255,19 @@ const checkoutGitWorkspace = createGitCheckout({
   invoke,
   operationId: () => id("checkout"),
 });
+const cloneGitWorkspace = createGitClone({ getData: () => workspace.data, apply: applyGitWorkspace,
+  quiesce: withWorkspaceRunsPaused, save: saveData, transition: runWorkspaceTransition,
+  recover: recoverWorkspaceTransition, load: loadData, invoke });
+/** @param {any} preview @param {Parameters<ReturnType<typeof createGitClone>['review']>[1]} input */
+export function reviewGitClone(preview, input) { return cloneGitWorkspace.review(preview, input); }
+/** @param {object} review */
+export function cancelGitClone(review) { cloneGitWorkspace.cancel(review); }
+/** @param {object} review */
+export async function confirmGitClone(review) {
+  workspace.gitRecoveryKind = "clone";
+  try { return await cloneGitWorkspace.confirm(review); }
+  finally { if (workspace.persistencePhase === "idle") workspace.gitRecoveryKind = "checkout"; }
+}
 const restoreGitWorkspace = createGitRestore({
   getData: () => workspace.data,
   apply: applyGitWorkspace,
@@ -463,6 +477,10 @@ export function checkoutGit(workspaceId, targetBranch, author) {
 }
 /** @param {Record<string,any>|null} [reviewedWorkspace] */
 export function recoverGitCheckout(reviewedWorkspace = null) {
+  if (workspace.gitRecoveryKind === "clone")
+    return cloneGitWorkspace.recover(reviewedWorkspace).then((result) => {
+      workspace.gitRecoveryKind = "checkout"; return result;
+    });
   if (workspace.gitRecoveryKind === "merge")
     return mergeGitWorkspace.recover(reviewedWorkspace).then((result) => {
       workspace.gitRecoveryKind = "checkout";
@@ -476,6 +494,7 @@ export function recoverGitCheckout(reviewedWorkspace = null) {
   return checkoutGitWorkspace.recover(reviewedWorkspace);
 }
 export function retainedGitCheckoutWorkspace() {
+  if (workspace.gitRecoveryKind === "clone") return cloneGitWorkspace.retainedWorkspace();
   if (workspace.gitRecoveryKind === "merge")
     return mergeGitWorkspace.retainedWorkspace();
   if (workspace.gitRecoveryKind === "restore")

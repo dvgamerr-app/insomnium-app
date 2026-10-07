@@ -21,6 +21,8 @@ const asset = "build/__saved-recovery-fixture.js";
 let fixtureHash;
 let code = 1;
 try {
+  // A shorter new build must not leave a previous success line in the log.
+  await Bun.write(join(dir, "frontend.log"), "");
   const frontend = Bun.spawn(["bun", "run", "build"], {
     stdout: Bun.file(join(dir, "frontend.log")),
     stderr: "inherit",
@@ -44,6 +46,8 @@ try {
     INCLUDE: `${msvc}/include;${sdk}/Include/10.0.19041.0/ucrt;${sdk}/Include/10.0.19041.0/shared;${sdk}/Include/10.0.19041.0/um`,
     LIB: `${msvc}/lib/x64;${sdk}/Lib/10.0.19041.0/ucrt/x64;${sdk}/Lib/10.0.19041.0/um/x64`,
   };
+  await Bun.write(join(dir, "build.log"), "");
+  await Bun.write(join(dir, "build-error.log"), "");
   const native = Bun.spawn(
     [
       "bun",

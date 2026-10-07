@@ -52,6 +52,12 @@ pub(crate) fn validate(value: &Value) -> Result<(), String> {
 /// files, directories and links. Recovery will validate its contents under both locks.
 /// Call while holding StorageState for workspace I/O or GitState for Git mutations.
 pub(crate) fn ensure_no_pending_transition(directory: &Path) -> Result<(), String> {
+    let clone = directory.join(crate::git_clone::install::JOURNAL);
+    match fs::symlink_metadata(&clone) {
+        Ok(_) => return Err("Clone installation recovery is required before writing; journal retained".into()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {},
+        Err(error) => return Err(format!("Cannot inspect Clone recovery journal: {error}")),
+    }
     let path = directory.join(GIT_TRANSITION_FILE);
     match fs::symlink_metadata(&path) {
         Ok(_) => Err(format!(
@@ -161,6 +167,7 @@ pub async fn load_workspace(
     tauri::async_runtime::spawn_blocking(move || {
         let _git_guard = git_lock.lock().map_err(|e| e.to_string())?;
         let mut session = session.lock().map_err(|e| e.to_string())?;
+        crate::git_clone::install::recover(&directory)?;
         crate::git_journal::recover(&directory)?;
         session.load(&directory)
     })

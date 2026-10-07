@@ -17,6 +17,7 @@
   import Button from "$lib/components/ui/Button.svelte";
   import GitRecovery from "$lib/components/GitRecovery.svelte";
   import GitPanel from "$lib/components/GitPanel.svelte";
+  import GitCloneDialog from "$lib/components/GitCloneDialog.svelte";
   import RunnerSidebar from "$lib/components/RunnerSidebar.svelte";
   import RunnerPane from "$lib/components/RunnerPane.svelte";
   import TemplatePromptDialog from "$lib/components/TemplatePromptDialog.svelte";
@@ -75,6 +76,7 @@
   );
   const importWork = createWorkspaceWorkScope();
   onDestroy(importWork.dispose);
+  let cloneOpen = $state(false);
   let modal = $state(""),
     name = $state(""),
     modalError = $state(""),
@@ -377,6 +379,7 @@
       title="New collection"
       onclick={() => showModal("new-collection")}
       ><Icon name="plus" size={15} /></Button
+    ><Button variant="ghost" disabled={!isTauri()} title="Clone repository" aria-label="Clone repository" onclick={() => { cloneOpen = true; }}>Clone</Button
     ><Button
       variant="ghost"
       class="icon-button subtle"
@@ -882,6 +885,9 @@
 </div>
 {#if app.persistencePhase === "recovery" || app.persistencePhase === "recovering"}
   <GitRecovery />
+{/if}
+{#if cloneOpen && app.persistencePhase !== "recovery" && app.persistencePhase !== "recovering"}
+  <GitCloneDialog onclose={() => { cloneOpen = false; }} />
 {/if}
 {#if modal}
   <Modal

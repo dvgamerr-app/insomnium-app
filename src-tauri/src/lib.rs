@@ -3,6 +3,7 @@ mod aws;
 mod cookies;
 mod digest;
 mod git;
+mod git_clone;
 mod git_advance_lock;
 mod git_fetch_cleanup;
 mod git_fetch_command;
@@ -110,6 +111,10 @@ pub fn run() {
             git::git_repository_history,
             git::git_repository_create_branch,
             git_remote_checkout::git_repository_create_remote_branch,
+            git_clone::git_clone_stage,
+            git_clone::git_clone_inspect,
+            git_clone::git_clone_list,
+            git_clone::install::git_clone_install,
             git::git_repository_delete_branch,
             git::git_repository_commit,
             git_journal::git_repository_checkout,

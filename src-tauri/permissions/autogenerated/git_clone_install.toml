@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-git-clone-install"
+description = "Enables the git_clone_install command without any pre-configured scope."
+commands.allow = ["git_clone_install"]
+
+[[permission]]
+identifier = "deny-git-clone-install"
+description = "Denies the git_clone_install command without any pre-configured scope."
+commands.deny = ["git_clone_install"]
