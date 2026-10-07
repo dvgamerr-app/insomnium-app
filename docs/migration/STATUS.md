@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Playwright headless request verified — 2026-10-08
+
+- Owner requested headless Playwright. Repository audit confirms the sole browser launch is shared launchUiBrowser in tests/ui/helpers/preview-app.js with explicit headless:true; no headed override or additional browser launch exists in saved JavaScript scenarios. Configuration already satisfies the request; tests/ui/README.md now states this execution rule and distinguishes existing native-hidden WebView2 attachment.
+- Verification: bun tests/ui/git-merge-contract.js terminal0; artifacts/playwright/git-merge-contract/result.json passed and acceptance.json all9 groups passed. This verifies the saved browser fixture, not native IPC or mounted application acceptance. No production source changed, no native rebuild needed. No live process/server/app handles remain.
+- Current implementation checkpoint62ca782; this headless verification/documentation is committed separately by topic. Qlty runtime audit remains unfinished; all PLAN/PARITY migration and UX gates remain open. This interface cannot invoke /compact; no compaction claimed. Handoff: continue the Qlty runtime audit from62ca782 after this documentation commit, with current accepted native build and remaining gates recorded below.
+
 ## Bun PR frontend gate and clean preparation committed — 2026-10-08
 
 - Capabilityd1adba5 adds actual PR frontend check/production build beside Qlty: native Git checkout of event SHA, pinned Bun1.4.2, frozen install with --ignore-scripts, explicit project prepare. Desktop matrix uses the same install/prepare boundary before checks/packages. PR tokens now scope only to checkout steps; fetch header is Git process environment configuration, not stored Git config or CLI credential arguments. Contents permission remains read, no JS actions/pull_request_target added. CI.md corrected stale claim that desktop matrix triggers on PRs (actual main/master push/manual only).
