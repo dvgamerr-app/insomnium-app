@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { dlopen, ptr } from "bun:ffi";
+import { dlopen, ptr, JSCallback } from "bun:ffi";
 import { resolve, sep } from "node:path";
 
 /** Control only the owned probe's Windows file dialog. Never type into the
@@ -15,7 +15,7 @@ export async function respondToOwnedSaveDialog(pid, output, path) {
     assert.equal(await Bun.file(path).exists(), false, "Refuse overwrite");
   }
   const library = dlopen("user32.dll", {
-    GetTopWindow: { args: ["u64"], returns: "u64" },
+    EnumWindows: { args: ["ptr", "i64"], returns: "i32" },
     GetWindow: { args: ["u64", "u32"], returns: "u64" },
     GetParent: { args: ["u64"], returns: "u64" },
     GetWindowThreadProcessId: { args: ["u64", "ptr"], returns: "u32" },
@@ -46,14 +46,27 @@ export async function respondToOwnedSaveDialog(pid, output, path) {
     const deadline = Date.now() + 15000;
     while (!dialog && Date.now() < deadline) {
       const candidates = [];
-      const seen = new Set();
-      for (
-        let handle = api.GetTopWindow(0n);
-        handle !== 0n;
-        handle = api.GetWindow(handle, 2)
-      ) {
-        assert.ok(seen.size < 10000 && !seen.has(handle));
-        seen.add(handle);
+      // GetWindow traversal can repeat handles when the dialog changes Z-order.
+      // Collect a bounded native enumeration, then inspect only owned windows.
+      const handles = /** @type {bigint[]} */ ([]);
+      const enumerate = new JSCallback(
+        (handle) => {
+          handles.push(handle);
+          return handles.length < 10000 ? 1 : 0;
+        },
+        { args: ["u64", "i64"], returns: "i32" },
+      );
+      let complete;
+      try {
+        complete = api.EnumWindows(enumerate.ptr, 0n);
+      } finally {
+        enumerate.close();
+      }
+      assert.ok(
+        complete && handles.length < 10000,
+        "Window enumeration failed",
+      );
+      for (const handle of handles) {
         if (
           owned(handle) &&
           api.IsWindowVisible(handle) &&
