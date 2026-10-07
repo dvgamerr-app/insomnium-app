@@ -1,5 +1,12 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## One application CSS entry and scoped-owner audit — 2026-10-07
+
+- Found the remaining duplicate application import (`styles.css` plus ui/controls.css) despite the README's earlier single-entry claim. Removed the duplicate route import, standalone ui/controls.css and unused button-config.css wrappers. Current application styling enters only through styles.css → styles/index.css. Compiled application stylesheet decreased from 57,787 to 54,038 bytes. UI README now matches source.
+- Inspected all twelve scoped feature/editor CSS blocks and documented retained owners plus concrete surface/token/layout cleanup in UI-DESIGN-SYSTEM-DEBT. The audit identified ProtoManager button surface overrides, recovery checkbox alignment and repeated hint/font/radius metrics as remaining remediation. This inventory does not close the full CSS debt.
+- Check passes 0 errors/0 warnings, production frontend build passes, and saved design-system/theme/workspace scenarios pass. Inspected the light vertical-tab contract screenshot. Fresh native-ui-ownership-probe build finished exit0 in5m28s (artifacts/native-ui-ownership-probe/build-state.json). Native gRPC1791349101660, stream1791349118592 and native-theme1791349131364 regressions pass, owned exits0. This verifies shared-tab selection and the final CSS entry on the newly built Windows WebView; no production package/full migration claim.
+- Official reference consulted before cleanup: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/At-rules/@import. Commands: bun run check; bun run build; bun tests/ui/design-system.js; bun tests/ui/nocturne-theme.js; bun tests/ui/nocturne-workspace.js; INSOMNIUM_UI_BUILD_STATE=artifacts/native-ui-ownership-probe/build-state.json bun tests/ui/nocturne-{grpc,stream,native}-theme.js (each real scenario run sequentially). No generator/dependency/native backend change required.
+
 ## Shared tab selection owns presentation — 2026-10-07
 
 - Saved design-system scenario reproduced a selected shared tab with no active class/presentation when its consumer supplied only aria-selected. TabButton now derives active class, roving tabindex and active-ID publication from one selected value, correctly interpreting boolean and native string true/false values. Removed ten duplicate active-class expressions from HTTP request/response, stream, Preferences, gRPC body/sent/response and API Design consumers. Existing navigation CSS keeps the same visual treatment.

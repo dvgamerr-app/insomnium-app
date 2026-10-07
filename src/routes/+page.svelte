@@ -68,7 +68,6 @@
   import "@fontsource-variable/inter";
   import "@fontsource-variable/roboto-mono";
   import "$lib/styles.css";
-  import "$lib/components/ui/controls.css";
   import SettingsPanel from "$lib/components/SettingsPanel.svelte";
   import Dropdown from "$lib/components/ui/Dropdown.svelte";
   const editingBlocked = $derived(

@@ -1,8 +1,8 @@
 # Nocturne controls
 
-The application imports `src/lib/styles.css` once; it forwards to `styles/index.css`, which orders foundation/theme, layout and UI styles. Do not additionally import `controls.css` in the application. It remains a standalone entry for UI-only consumers. UI styles own control surfaces, borders, focus, disabled states and dialog presentation; feature styles own layout.
+The application imports `src/lib/styles.css` once; it forwards to `styles/index.css`, which orders foundation/theme, layout and UI styles. Use that entry for application and component fixtures. The redundant `ui/controls.css` and unused `button-config.css` entry files have been removed. UI styles own control surfaces, borders, focus, disabled states and dialog presentation; feature styles own layout.
 
-`src/lib/styles/tokens/foundation.css` owns shared spacing, typography, sizes and shape; `button-config.css` is a compatibility entry importing that foundation. Button corners use `--button-radius: 0px`. Percentage widths and fill-parent heights remain layout rules. Input and dialog radii are separate from button shape.
+`src/lib/styles/tokens/foundation.css` owns shared spacing, typography, sizes and shape. Button corners use `--button-radius: 0px`. Percentage widths and fill-parent heights remain layout rules. Input and dialog radii are separate from button shape.
 
 Single-choice `Select` and `Dropdown` use the same Lucide SVG chevron by default, including collection, environment, body type/JSON, response history, authentication and redirects. `styles/select.css` owns the arrow; `styles/variants.css` owns layout variants and full-surface hover. Method/protocol values have equal left/right padding and centered horizontal/vertical alignment. Consumers must not replace the arrow or paint hover on a text child. Native `multiple`/`size` listboxes have no dropdown arrow. `svgArrow={false}` is an explicit opt-out, not an application default.
 
