@@ -8,6 +8,12 @@ import { snapshotGitCollection } from "../../../src/lib/git-collection.js";
 /** Git plumbing for owned synthetic objects only, with ambient Git config removed.
  * @param {string} repo @param {string[]} args @param {string|Uint8Array} [input] */
 export async function fixtureGit(repo, args, input) {
+  return (await fixtureGitBytes(repo, args, input)).toString("utf8").trim();
+}
+
+/** Exact bytes for NUL-delimited tree paths and object bodies in owned fixtures.
+ * @param {string} repo @param {string[]} args @param {string|Uint8Array} [input] */
+export async function fixtureGitBytes(repo, args, input) {
   const env = { ...process.env };
   for (const name of Object.keys(env))
     if (name.startsWith("GIT_")) delete env[name];
@@ -27,12 +33,12 @@ export async function fixtureGit(repo, args, input) {
     windowsHide: true,
   });
   const [stdout, stderr, code] = await Promise.all([
-    new Response(child.stdout).text(),
+    new Response(child.stdout).arrayBuffer(),
     new Response(child.stderr).text(),
     child.exited,
   ]);
   assert.equal(code, 0, stderr);
-  return stdout.trim();
+  return Buffer.from(stdout);
 }
 
 /** @param {import('./native-app.js').ScenarioContext} context */

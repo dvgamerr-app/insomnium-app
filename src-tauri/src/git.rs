@@ -33,6 +33,8 @@ struct BranchTip {
 #[serde(rename_all = "camelCase")]
 struct GitChange {
     path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    path_bytes: Option<Vec<u8>>,
     status: u32,
     conflicted: bool,
 }
@@ -195,9 +197,28 @@ fn inspect(repo: &Repository) -> Result<RepositoryInfo, String> {
     }
     let mut changes = Vec::new();
     for entry in statuses.iter() {
-        let path = entry.path().map_err(|e| e.message().to_owned())?.to_owned();
+        // Status covers the complete tree, including external byte names which
+        // cannot be decoded as UTF-8. Do not disable collection Git operations
+        // because an unrelated filename is non-UTF8. Preserve identity as bytes;
+        // the hex label is display data, never a pathname to pass back to Git.
+        let bytes = entry.path_bytes();
+        let (path, path_bytes) = match std::str::from_utf8(bytes) {
+            Ok(path) => (path.to_owned(), None),
+            Err(_) => (
+                format!(
+                    "Path bytes: {}",
+                    bytes
+                        .iter()
+                        .map(|byte| format!("{byte:02x}"))
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                ),
+                Some(bytes.to_vec()),
+            ),
+        };
         changes.push(GitChange {
             path,
+            path_bytes,
             status: entry.status().bits(),
             conflicted: entry.status().is_conflicted(),
         });
