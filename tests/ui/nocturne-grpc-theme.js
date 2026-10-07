@@ -141,6 +141,25 @@ try {
           await page.locator(".grpc-response .status-badge").innerText(),
           "0 OK",
         );
+        const message = page.locator(".grpc-message").first();
+        assert.equal(
+          await message.evaluate((el) => getComputedStyle(el).fontSize),
+          "12px",
+        );
+        await page.evaluate(() =>
+          document.documentElement.style.setProperty("--font-size-12", "14px"),
+        );
+        try {
+          assert.equal(
+            await message.evaluate((el) => getComputedStyle(el).fontSize),
+            "14px",
+            "gRPC message typography must follow the shared font scale",
+          );
+        } finally {
+          await page.evaluate(() =>
+            document.documentElement.style.removeProperty("--font-size-12"),
+          );
+        }
         await page.setViewportSize({ width: 1440, height: 960 });
         await exerciseSplit(page, "gRPC request and response size");
         for (const width of [1440, 900, 760]) {

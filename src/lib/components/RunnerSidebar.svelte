@@ -68,7 +68,6 @@
   }
   nav > div {
     display: flex;
-    border-radius: var(--button-radius);
   }
   nav > div.active {
     background: var(--selected);

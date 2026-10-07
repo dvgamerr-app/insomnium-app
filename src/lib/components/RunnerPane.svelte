@@ -328,9 +328,6 @@
     min-width: 0;
     min-height: 0;
   }
-  .test-list {
-    flex: 1;
-  }
   article {
     border-bottom: 1px solid var(--line);
   }

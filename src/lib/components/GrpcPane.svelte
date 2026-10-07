@@ -542,7 +542,7 @@
     margin: 0;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
-    font: 12px/1.6 var(--font-mono, monospace);
+    font: var(--font-size-12)/1.6 var(--font-mono);
   }
   .grpc-message-time {
     font-size: var(--font-size-11);

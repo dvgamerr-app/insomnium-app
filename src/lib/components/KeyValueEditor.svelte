@@ -175,13 +175,12 @@
 
 <style>
   .multipart-options {
-    margin: 0.25rem 0 0.75rem 2rem;
+    margin: var(--space-3) 0 var(--space-9) var(--space-24);
   }
   .multipart-options summary {
     cursor: pointer;
   }
   .multipart-options :global(.ui-field) {
-    display: block;
-    margin-top: 0.5rem;
+    margin-top: var(--space-6);
   }
 </style>

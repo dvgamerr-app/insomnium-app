@@ -328,6 +328,82 @@ await withPreview("nocturne-theme", async (page, output) => {
     ]) {
       await page.getByLabel("Body type", { exact: true }).selectOption(body);
       await page.setViewportSize({ width: 900, height: 960 });
+      if (body === "multipart/form-data") {
+        if (!(await page.locator(".multipart-options").count()))
+          await page
+            .getByRole("button", { name: "Add parameter", exact: true })
+            .click();
+        const options = page.locator(".multipart-options").first();
+        if (
+          !(await options.evaluate(
+            (el) => /** @type {HTMLDetailsElement} */ (el).open,
+          ))
+        )
+          await options.locator("summary").click();
+        const override = options.getByRole("checkbox", {
+          name: "Override sent filename",
+          exact: true,
+        });
+        assert.equal(
+          await override.evaluate((el) => {
+            const field = el.closest(".ui-field");
+            if (!field) throw new Error("Multipart inline Field missing");
+            return getComputedStyle(field).display;
+          }),
+          "flex",
+          "Multipart must preserve shared inline Field layout",
+        );
+        const contentType = options.getByRole("textbox", {
+          name: /^Content-Type for/,
+        });
+        assert.equal(
+          await contentType.evaluate((el) => {
+            const field = el.closest(".ui-field");
+            if (!field) throw new Error("Multipart stacked Field missing");
+            return getComputedStyle(field).display;
+          }),
+          "grid",
+          "Multipart must preserve shared stacked Field layout",
+        );
+        assert.deepEqual(
+          await options.evaluate((el) => {
+            const css = getComputedStyle(el);
+            return [
+              css.marginTop,
+              css.marginRight,
+              css.marginBottom,
+              css.marginLeft,
+            ];
+          }),
+          ["3px", "0px", "9px", "24px"],
+        );
+        await page.evaluate(() =>
+          document.documentElement.style.setProperty("--space-24", "31px"),
+        );
+        try {
+          assert.equal(
+            await options.evaluate((el) => getComputedStyle(el).marginLeft),
+            "31px",
+            "Multipart placement must follow the shared spacing token",
+          );
+        } finally {
+          await page.evaluate(() =>
+            document.documentElement.style.removeProperty("--space-24"),
+          );
+        }
+        await override.focus();
+        if (!(await override.isChecked())) await override.press("Space");
+        await options
+          .getByRole("textbox", { name: /^Sent filename for/ })
+          .fill("owned-form.txt");
+        await override.press("Space");
+        assert.equal(
+          await options
+            .getByRole("textbox", { name: /^Sent filename for/ })
+            .count(),
+          0,
+        );
+      }
       assert.equal(
         await page
           .locator(".request-editor")
@@ -353,16 +429,25 @@ await withPreview("nocturne-theme", async (page, output) => {
     const preferenceMenu = preferences.getByRole("tablist", {
       name: "Preference pages",
     });
-    assert.equal(await preferenceMenu.getAttribute("aria-orientation"), "vertical");
-    await preferences.getByRole("tab", { name: "General", exact: true }).focus();
+    assert.equal(
+      await preferenceMenu.getAttribute("aria-orientation"),
+      "vertical",
+    );
+    await preferences
+      .getByRole("tab", { name: "General", exact: true })
+      .focus();
     await page.keyboard.press("ArrowDown");
     assert.equal(
-      await preferences.getByRole("tab", { name: "Editor", exact: true }).getAttribute("aria-selected"),
+      await preferences
+        .getByRole("tab", { name: "Editor", exact: true })
+        .getAttribute("aria-selected"),
       "true",
     );
     await page.keyboard.press("ArrowUp");
     assert.equal(
-      await preferences.getByRole("tab", { name: "General", exact: true }).getAttribute("aria-selected"),
+      await preferences
+        .getByRole("tab", { name: "General", exact: true })
+        .getAttribute("aria-selected"),
       "true",
     );
     for (const section of ["General", "Editor", "Requests", "Network", "Git"]) {
@@ -384,10 +469,19 @@ await withPreview("nocturne-theme", async (page, output) => {
       await page.setViewportSize({ width, height: 960 });
       const menuBounds = await preferenceMenu.boundingBox();
       const panelBounds = await preferences.getByRole("tabpanel").boundingBox();
-      assert.ok(menuBounds && panelBounds && menuBounds.x + menuBounds.width <= panelBounds.x + 1,
-        "Preferences menu stays on the left at " + width);
-      assert.equal(await preferences.evaluate((el) => el.scrollWidth <= el.clientWidth), true);
-      await page.screenshot({ path: output + "/" + theme + "-preferences-" + width + ".png" });
+      assert.ok(
+        menuBounds &&
+          panelBounds &&
+          menuBounds.x + menuBounds.width <= panelBounds.x + 1,
+        "Preferences menu stays on the left at " + width,
+      );
+      assert.equal(
+        await preferences.evaluate((el) => el.scrollWidth <= el.clientWidth),
+        true,
+      );
+      await page.screenshot({
+        path: output + "/" + theme + "-preferences-" + width + ".png",
+      });
     }
     await page.setViewportSize({ width: 1440, height: 960 });
     await page.screenshot({

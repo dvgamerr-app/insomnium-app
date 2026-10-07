@@ -65,6 +65,38 @@ try {
         "Imported paths are not read implicitly",
       );
       const file = page.locator(".kv-editor input[type=file]").nth(0);
+      const options = page.locator(".multipart-options").first();
+      await options.locator("summary").click();
+      for (const label of [
+        "Send file contents without a filename",
+        "Override sent filename",
+      ]) {
+        assert.equal(
+          await options
+            .getByRole("checkbox", { name: label, exact: true })
+            .evaluate((el) => {
+              const field = el.closest(".ui-field");
+              if (!field) throw new Error("Multipart inline Field missing");
+              return getComputedStyle(field).display;
+            }),
+          "flex",
+          "Native multipart uses shared inline Field layout",
+        );
+      }
+      assert.equal(
+        await options
+          .getByRole("textbox", {
+            name: "Content-Type for upload",
+            exact: true,
+          })
+          .evaluate((el) => {
+            const field = el.closest(".ui-field");
+            if (!field) throw new Error("Multipart stacked Field missing");
+            return getComputedStyle(field).display;
+          }),
+        "grid",
+      );
+      await page.screenshot({ path: output + "/multipart-shared-fields.png" });
       await file.setInputFiles({
         name: "first.bin",
         mimeType: "application/octet-stream",
@@ -185,6 +217,7 @@ try {
               "Actual input file selection and replacement preserve explicit MIME/filename",
               "Reload persists exact binary bytes",
               "Native multipart preserves file bytes, text MIME, empty filename and form-string literal",
+              "Actual native multipart part options retain shared inline checkbox and stacked input Field layouts",
               "File-content fields omit filename despite modifier, preserve exact bytes and explicit MIME",
               "Second reload preserves multipart body",
             ],
