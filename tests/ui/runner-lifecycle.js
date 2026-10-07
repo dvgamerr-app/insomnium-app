@@ -1,33 +1,14 @@
 import assert from "node:assert/strict";
-import { createServer } from "node:http";
+import { heldHttp } from "./helpers/held-http.js";
 import { withNativeApp, poll } from "./helpers/native-app.js";
 import { gitCollection } from "./helpers/git-fixture.js";
 
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-ui-ownership-probe/build-state.json";
-let echoes = 0;
-let held = 0;
-let cancelled = 0;
-const server = createServer((request, response) => {
-  if (request.url === "/held") {
-    held++;
-    response.once("close", () => {
-      if (!response.writableEnded) cancelled++;
-    });
-    return;
-  }
-  echoes++;
-  response.writeHead(200, {
-    "Content-Type": "text/plain",
-    "X-Runner": "fixture",
-  });
-  response.end("runner fixture response");
+const fixtureHttp = await heldHttp({
+  body: "runner fixture response",
+  headers: { "X-Runner": "fixture" },
 });
-await new Promise((resolve) =>
-  server.listen(0, "127.0.0.1", () => resolve(null)),
-);
-const address = server.address();
-assert.ok(address && typeof address === "object");
 try {
   await withNativeApp("runner-lifecycle", async ({ page, invoke, output }) => {
     const pageErrors = /** @type {string[]} */ ([]);
@@ -39,7 +20,7 @@ try {
     const request = data.resources.find(
       (/** @type {any} */ item) => item._id === fixture.requestId,
     );
-    request.url = `http://127.0.0.1:${address.port}/echo`;
+    request.url = `http://127.0.0.1:${fixtureHttp.port}/echo`;
     data.resources.push(
       {
         _id: suiteId,
@@ -115,7 +96,7 @@ expect(delegated).to.equal(1);`,
       "runner result persisted",
     );
     assert.equal(
-      echoes,
+      fixtureHttp.echoes,
       3,
       "direct, detached and delegated sends reach native HTTP",
     );
@@ -142,7 +123,11 @@ expect(delegated).to.equal(1);`,
     assert.ok(single);
     assert.equal(single.results.stats.tests, 1);
     assert.equal(single.results.stats.failures, 1);
-    assert.equal(echoes, 3, "single test does not run callback test");
+    assert.equal(
+      fixtureHttp.echoes,
+      3,
+      "single test does not run callback test",
+    );
     // Persisted history and result counts must survive a new WebView document.
     await page.reload();
     await page.getByRole("button", { name: "Tests", exact: true }).click();
@@ -169,14 +154,17 @@ expect(delegated).to.equal(1);`,
     const heldData = await invoke("load_workspace");
     heldData.resources.find(
       (/** @type {any} */ item) => item._id === fixture.requestId,
-    ).url = `http://127.0.0.1:${address.port}/held`;
+    ).url = `http://127.0.0.1:${fixtureHttp.port}/held`;
     await invoke("save_workspace", { data: heldData });
     await page.reload();
     await page.getByRole("button", { name: "Tests", exact: true }).click();
     await runner
       .getByRole("button", { name: "Run Callback contract", exact: true })
       .click();
-    await poll(async () => held === 1, "runner request reached held server");
+    await poll(
+      async () => fixtureHttp.held === 1,
+      "runner request reached held server",
+    );
     assert.equal(
       await runner
         .getByRole("textbox", { name: "Test name", exact: true })
@@ -188,7 +176,10 @@ expect(delegated).to.equal(1);`,
     await runner
       .getByRole("button", { name: "Run Tests", exact: true })
       .waitFor();
-    await poll(async () => cancelled === 1, "Stop closes native held request");
+    await poll(
+      async () => fixtureHttp.cancelled === 1,
+      "Stop closes native held request",
+    );
     assert.match(await runner.getByRole("alert").innerText(), /Run cancelled/);
     assert.equal(JSON.stringify(await savedResults()), originalResults);
     assert.equal(
@@ -209,7 +200,7 @@ expect(delegated).to.equal(1);`,
     const resumedData = await invoke("load_workspace");
     resumedData.resources.find(
       (/** @type {any} */ item) => item._id === fixture.requestId,
-    ).url = `http://127.0.0.1:${address.port}/echo`;
+    ).url = `http://127.0.0.1:${fixtureHttp.port}/echo`;
     await invoke("save_workspace", { data: resumedData });
     await page.reload();
     await page.getByRole("button", { name: "Tests", exact: true }).click();
@@ -220,7 +211,7 @@ expect(delegated).to.equal(1);`,
       async () => (await savedResults()).length === 3,
       "fresh run succeeds after cancellation",
     );
-    assert.equal(echoes, 4);
+    assert.equal(fixtureHttp.echoes, 4);
     assert.match(await results.innerText(), /1 passed/);
     assert.match(await results.innerText(), /0 failed/);
     for (const theme of ["dark", "light"]) {
@@ -247,8 +238,8 @@ expect(delegated).to.equal(1);`,
       JSON.stringify(
         {
           passed: true,
-          nativeHttpSends: echoes,
-          cancelledHeldCalls: cancelled,
+          nativeHttpSends: fixtureHttp.echoes,
+          cancelledHeldCalls: fixtureHttp.cancelled,
           states: [
             "direct/detached/delegated callback",
             "passing/failing assertions",
@@ -266,6 +257,5 @@ expect(delegated).to.equal(1);`,
     );
   });
 } finally {
-  server.closeAllConnections();
-  server.close();
+  await fixtureHttp.close();
 }

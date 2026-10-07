@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Restore active-run drain acceptance — 2026-10-07
+
+- Expanded existing git-restore scenario with a real held native HTTP request. Restore confirmation closes the server connection, restores selected request, preserves exact history without cancelled entry, and admits a new successful native send afterward. Saved git-restore1791351033422 passes these plus earlier refusal/selected-resource/recovery cases on native-restore-layout-probe, owned exit0. Shared held-http helper now serves restore and runner; runner-lifecycle1791351058954 regression passes (owned exit0).
+- First expanded run1791350978945 failed the scenario's aggregate history+1 assumption, while screenshot showed200 and expected body; app correctly retains only maxHistory entries. Corrected to require a new persisted200 entry for this request with a previously unseen response ID. Exact no-history-after-cancel assertion remains. Current check0/0 and targeted formatting pass; no application changes for this acceptance topic.
+- Remaining restore gates: actual disk fault and retained-copy OS save/review workflow, plus other-platform lifecycle. Full Git remote/pull/push/clone/merge, compatibility/platform/CI and remaining CSS debt remain required. Do not mark full migration complete.
+
 ## Git toolbar wrapping verified — 2026-10-07
 
 - Fresh native-restore-layout-probe finished exit0 in5m43s. Saved source-control1791350959259 passes action bounds against inner sidebar form at1440/900/760 in both themes; owned app exit0. Inspected light760 screenshot: restore action retains its label and Branches/Remote remain within the sidebar on the next line. This repairs the reproduced760 overflow from1791350572487.

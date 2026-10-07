@@ -2,7 +2,9 @@
 
 ## Selected Git restore
 
-`bun tests/ui/git-restore.js` uses `artifacts/native-restore-ui-probe/build-state.json` or `INSOMNIUM_UI_BUILD_STATE`. Wait for that build to finish successfully. It exercises real native selected restore with review/cancel, modified/deleted/added resources, preserved unselected/protected records, unchanged HEAD, reload and lost-success reply recovery without resubmission. Review captures dark/light at900/760. Run sequentially with other native scenarios on the isolated identity. Native stale-HEAD/save refusal, disk faults and retained-copy OS picker acceptance remain separate.
+`bun tests/ui/git-restore.js` uses `artifacts/native-restore-ui-probe/build-state.json` or `INSOMNIUM_UI_BUILD_STATE`. Wait for that build to finish successfully. It exercises real native selected restore with review/cancel, modified/deleted/added resources, preserved unselected/protected records, unchanged HEAD, reload and lost-success reply recovery without resubmission. Review captures dark/light at900/760. Run sequentially with other native scenarios on the isolated identity. Actual disk faults and retained-copy OS picker acceptance remain separate.
+
+The scenario also verifies native stale-HEAD/unselected-write/stale-workspace refusals, restore during a held HTTP request with observed connection close and unchanged history, and a fresh persisted200 afterward. It shares the owned loopback held-http helper with runner-lifecycle. Latest successful build override: artifacts/native-restore-layout-probe/build-state.json. Actual disk faults and retained-copy OS picker remain separate. Source-control scenario verifies each toolbar action against the sidebar form's inner bounds at1440/900/760 in both themes.
 
 ## Collection runner
 

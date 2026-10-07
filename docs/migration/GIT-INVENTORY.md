@@ -1,5 +1,7 @@
 # Git sync migration inventory
 
+2026-10-07 acceptance update: fresh native-restore-layout-probe verifies narrow toolbar bounds and selected restore while a real HTTP request is held. Connection closes, cancelled send leaves history unchanged and fresh native send persists200. Evidence git-restore1791351033422/source-control1791350959259; owned exits0. Shared held-http helper also passes Runner1791351058954. Actual disk fault/retained-copy picker and platform/full parity remain open.
+
 ## Selected restore workspace/UI and native acceptance — 2026-10-07
 
 - Existing planner/coordinator now has workspace and GitPanel callers. Review individual or staged paths; explicit confirmation uses its own drain and durable baseline/revalidation. Cancel/disposal consumes review without write. Authoritative apply resets stale protocol/schema state. Locked recovery routes restore to its own authoritative load and retained-copy coordinator rather than checkout.
