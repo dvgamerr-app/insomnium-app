@@ -1,5 +1,12 @@
 # Git remote migration contract
 
+2026-10-08 transport review: native Git detached/isolated libgit2 inputs include
+endpoint/credentials and retain default certificate validation; they do not
+receive HTTP workspace caPem/identityPem settings. The legacy Git axios adapter
+also supplies no explicit CA/identity settings. HTTP mTLS acceptance997f0a7 does
+not establish Git TLS upload/trust/provider behavior. Authenticated trusted Git
+HTTPS/proxy/provider/platform gates remain required; no Git trust policy changed.
+
 2026-10-08 capabilityf30e195: saved git-remote-lifecycle.js opt-in public TLS mode
 accepts anonymous actual native HTTPS advertisement matching independent Git CLI
 refs/default HEAD. Native wrong-host and expired-certificate refusals are independently

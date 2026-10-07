@@ -6,6 +6,18 @@ Native Tauri scenarios attach to WebView2 through CDP and hide their own host
 window; their rendering mode is `native-hidden`, rather than browser headless.
 See `docs/migration/UI-TESTING.md` for the native host and OS dialog limitations.
 
+## Native HTTP client certificate
+
+Run `bun tests/ui/http-client-certificate.js` against a successful current
+native-recovery-copy-probe build. Windows fixture prerequisites are the existing
+Git OpenSSL, Rust compiler/MSVC/SDK paths and cached native release rlibs; the
+shared helper records those exact paths. Per-run CA/identities stay under the
+owned artifact directory. Rustls requires client authentication and records
+actual peer CN/fingerprint/body; both listeners are checked independently first.
+Nine groups cover native Preferences/reload/Send, TLS refusals/recovery and
+cross-origin destination TCP/HTTP0. All four TLS preferences are restored and
+verified before cleanup. Scope, evidence and commands: docs/migration/UI-TESTING.md.
+
 ## Selected Git restore
 
 The restore scenario defaults to `artifacts/native-restore-recovery-probe/build-state.json`. Its success-hook helper preserves native execution/replies while acquiring the OS file handle after successful baseline save, so the next real restore replacement fails deterministically. It verifies locked recovery, unchanged authoritative baseline, no recovery write and automatic mounted Source Control session reload followed by another restore. Native source-control/theme regressions use the shared build-state override for this same executable.

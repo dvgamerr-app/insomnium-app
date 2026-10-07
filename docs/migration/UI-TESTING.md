@@ -2,6 +2,51 @@
 
 Owner requires Bun-only reusable Playwright JavaScript scenarios with shared helpers and headless execution. Browser-use and ad-hoc browser automation remain prohibited.
 
+HTTP mTLS capability997f0a7: `bun tests/ui/http-client-certificate.js` reuses the
+current successful artifacts/native-recovery-copy-probe/build-state.json by
+default. Production app/release1791413164927/1791413519384 unchanged; fixture Rust
+is compiled separately from saved fixtures/client-certificate.rs against cached
+release rustls/sha2/serde_json/x509_parser rlibs. Windows helper uses the existing
+Git OpenSSL, D:/home/.cargo rustc, VS2017 MSVC14.16 and SDK10.0.19041 paths.
+No new package/native application dependency; no Node/Python/browser-use.
+
+Per-run private CA/server/client and wrong-issuer client keys stay in the owned
+artifact directory. Rustls WebPkiClientVerifier requires client authentication;
+actual peer DER provides CN/SHA256 fingerprint, exact POST body is observed.
+Independent Bun TLS client validates both listeners and TCP/HTTP counters before
+reset. Real Preferences save/reload/Send checks missing identity, trusted client,
+hostname mismatch, untrusted client, untrusted server, malformed PEM, successful
+recovery and cross-origin redirect. Missing/mismatched identity yields no peer
+certificate; wrong issuer UnknownIssuer; client rejects server with UnknownCA.
+Malformed PEM has zero TCP attempts. Trusted/recovered sends each reach one
+authenticated POST/200 with pinned identity/body. Redirect source receives one
+POST; destination TCP/HTTP0 and native Timeline shows its blocked-origin reason.
+All request resources unchanged; failures preserve exact saved history; success
+uses a fresh response ID even when history stays20/limit20. Finally restores and
+verifies CA/identityHost/identityPem/validateCertificates and closes native server.
+
+Final88017/1791414644939 terminal0 passes9; initial65018/1791414550560 also passes9.
+Final result/acceptance/settings-restored/fixture observations and trusted-client /
+redirect Timeline images inspected: current buildPath, hidden owned PID51024,
+visiblefalse/app exit0. Compiler0/0, Bun Prettier, Rustfmt and whitespace pass;
+all task processes closed. Earlier Bun observer failure/typing/history waiters
+are excluded and explained in STATUS. Scope is exact IPv4 hostname/private-CA
+Windows HTTP mTLS; Git/provider/proxy/other protocol/legacy certificate/platform
+and full migration/UX remain open. No TLS bypass or OS trust-store modification.
+
+Official sources consulted for the fixture/verifier and existing native identity:
+https://docs.rs/rustls/latest/rustls/server/struct.WebPkiClientVerifier.html,
+https://docs.rs/rustls/latest/rustls/server/struct.ServerConnection.html,
+https://docs.rs/x509-parser/latest/x509_parser/certificate/struct.X509Certificate.html,
+https://bun.sh/reference/node/https/createServer,
+https://bun.sh/reference/node/tls/TLSSocket/getPeerCertificate,
+https://docs.rs/reqwest/latest/reqwest/tls/struct.Identity.html,
+https://docs.openssl.org/3.4/man1/openssl-req/ and
+https://docs.openssl.org/3.4/man1/openssl-x509/.
+Bun's request.socket peer API was absent in actual fixture execution, so the
+accepted observer uses Rustls. Native vendor/reqwest/src/tls.rs and http.rs
+were inspected for PEM identity semantics; an initial versioned docs URL failed.
+
 Typography capability555b317 shares helpers/typography.js between existing
 `bun tests/ui/nocturne-theme.js` and `bun tests/ui/nocturne-native-theme.js`.
 All matching caption nodes must retain9px, follow font-size-9→13px, then restore;
