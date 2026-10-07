@@ -892,6 +892,8 @@
   }
   .git-tools {
     display: flex;
+    flex-wrap: wrap;
+    min-width: 0;
     gap: var(--space-8);
   }
   .git-group-heading {

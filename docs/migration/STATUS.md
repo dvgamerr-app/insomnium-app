@@ -1,5 +1,15 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Git toolbar wrapping verified — 2026-10-07
+
+- Fresh native-restore-layout-probe finished exit0 in5m43s. Saved source-control1791350959259 passes action bounds against inner sidebar form at1440/900/760 in both themes; owned app exit0. Inspected light760 screenshot: restore action retains its label and Branches/Remote remain within the sidebar on the next line. This repairs the reproduced760 overflow from1791350572487.
+- Current check0 errors/0 warnings and frontend build pass. Application source is unchanged since this successful build. Layout repair is a separate topic commit; full migration remains open. No native build remains live.
+
+## Git toolbar wrapping repair in progress — 2026-10-07
+
+- Strengthened existing source-control scenario to compare each toolbar action against the commit form's inner bounds, not the toolbar's own potentially expanded width. The first weaker assertion passed incorrectly; corrected assertion reproduces the native760 overflow: git-source-control1791350572487, owned exit0. Feature toolbar now wraps with min-width0. Check0 errors/0 warnings and frontend build pass.
+- Fresh native-restore-layout-probe is live at artifacts/native-restore-layout-probe/build-state.json (exec session88402). Continue the same build, then sequentially rerun git-source-control and git-restore with INSOMNIUM_UI_BUILD_STATE pointing there; inspect760 screenshot before the separate layout commit. Source frozen for build; layout acceptance pending. Official reference: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/flex-wrap. Full migration and disk-fault/retained-copy/active-drain restore gates remain open.
+
 ## Selected restore native acceptance — 2026-10-07
 
 - Fresh native-restore-ui-probe finished exit0 in5m28s. Saved git-restore1791350420282 passes actual native stale HEAD/unselected-write/stale-workspace refusal with unchanged records; read-only review/cancel; selected modify and delete/add batch; unselected environment/protected record preservation; unchanged HEAD; persisted reload; lost-success reply and locked restore recovery without resubmission (one completed native call). Owned app exit0. Light760 review screenshot inspected.

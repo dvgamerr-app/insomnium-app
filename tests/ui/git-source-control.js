@@ -215,6 +215,22 @@ await withNativeApp("git-source-control", async ({ page, invoke, output }) => {
     for (const width of [1440, 900, 760]) {
       await page.setViewportSize({ width, height: 960 });
       assert.equal(
+        await panel.locator(".git-tools").evaluate((el) => {
+          const form = el.closest("form");
+          if (!form) return false;
+          const bounds = form.getBoundingClientRect();
+          const style = getComputedStyle(form);
+          const left = bounds.left + parseFloat(style.paddingLeft);
+          const right = bounds.right - parseFloat(style.paddingRight);
+          return [...el.querySelectorAll("button")].every((button) => {
+            const box = button.getBoundingClientRect();
+            return box.left >= left - 1 && box.right <= right + 1;
+          });
+        }),
+        true,
+        `Git toolbar actions stay within sidebar at ${width}`,
+      );
+      assert.equal(
         await panel.evaluate((el) => el.scrollWidth <= el.clientWidth),
         true,
       );
