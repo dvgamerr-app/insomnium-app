@@ -8,6 +8,12 @@ See `docs/migration/UI-TESTING.md` for the native host and OS dialog limitations
 
 ## Native HTTP client certificate
 
+`bun tests/ui/sse-client-certificate.js` uses the same current native build and
+mandatory-auth TLS fixture, with shared Network Preferences setup. Eleven groups
+check real SSE authentication/bundle/refusals/recovery, exact finite event/id/data
+and persistence after reload; original TLS settings are restored. Run sequentially
+with HTTP/native scenarios. Live disconnect/redirect and WSS/gRPC remain separate.
+
 Run `bun tests/ui/http-client-certificate.js` against a successful current
 native-recovery-copy-probe build. Windows fixture prerequisites are the existing
 Git OpenSSL, Rust compiler/MSVC/SDK paths and cached native release rlibs; the

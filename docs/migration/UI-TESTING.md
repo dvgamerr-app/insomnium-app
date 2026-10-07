@@ -2,6 +2,28 @@
 
 Owner requires Bun-only reusable Playwright JavaScript scenarios with shared helpers and headless execution. Browser-use and ad-hoc browser automation remain prohibited.
 
+SSE mTLS acceptance557222e: `bun tests/ui/sse-client-certificate.js` uses the same
+successful current native-recovery-copy-probe record and mandatory-auth Rust TLS
+fixture as HTTP. Shared tls-preferences.js drives actual Network Preferences,
+waits for persistence and preserves the existing HTTP setup behavior. Fixture
+/sse sends a finite UTF-8 text/event-stream with one named event/id/data and normal
+close; framing follows https://html.spec.whatwg.org/multipage/server-sent-events.html#event-stream-interpretation.
+Independent explicit-CA/client TLS fetch checks that route before native tests.
+Final16330/1791415540725 terminal0 passes11: trusted client, required root second
+bundle and recovery each one actual authenticated GET/200 and one exact SSE event;
+missing/host-mismatched/untrusted-client/server/malformed inputs have HTTP/event0,
+malformed CA/identity also TCP0. Peer CN/SHA256 fingerprint comes from server DER.
+Successful finite stream closes normally; event name/id/data survive persisted
+reload. One explicit connection saves one row including failures, bounded retained
+prior rows and all request resources remain exact. Four TLS settings restored and
+checked; native-hidden app85928 exit0 and fixture close0. HTTP shared-helper
+regression62844/1791415570542 terminal0 passes12/app64568 exit0. Both result,
+acceptance, restoration and fixture observations inspected; SSE success screenshot
+inspected. Compiler0/0, JS Prettier, fixture Rustfmt and whitespace pass. No task
+processes remain; no production/dependency/rebuild changes. No OS trust changes
+or TLS bypass. WSS/gRPC/live disconnect/redirect/legacy/provider/proxy/Git/platform
+and full migration/UX remain separate gates.
+
 CA bundle acceptance75477b8 extends the existing HTTP mTLS scenario with unrelated
 root first / required root second, reversed order, and invalid base64 CA PEM.
 Pinned reqwest0.12.28 uses rustls-tls (Cargo.toml); its upstream vendored
