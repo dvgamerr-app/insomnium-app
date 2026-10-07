@@ -12,6 +12,7 @@ import { servePartialReceive } from "./helpers/git-partial-receive.js";
 import { snapshotGitCollection } from "../../src/lib/git-collection.js";
 import { randomBytes } from "node:crypto";
 import { lockProbePushReceipt } from "./helpers/windows-workspace-lock.js";
+import { serveUntrustedGitTls } from "./helpers/git-untrusted-tls.js";
 
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-recovery-copy-probe/build-state.json";
@@ -29,6 +30,7 @@ const ownerFault = [
 assert.ok(
   [
     "normal",
+    "tls-untrusted",
     "equal",
     "fast-forward",
     "basic-auth",
@@ -66,6 +68,7 @@ try {
       const x = await advanceFixture(context);
       const basicAuth = [
         "basic-auth",
+        "tls-untrusted",
         "post-redirect",
         "discovery-redirect",
         "basic-inspect-refused",
@@ -80,6 +83,9 @@ try {
         output,
         basicAuth ? { basic: fixtureCredential } : {},
       );
+      /** @type {Awaited<ReturnType<typeof serveUntrustedGitTls>> | undefined} */
+      let untrustedTls;
+      let tlsError = "";
       /** @type {string | null} */
       let expectedRemoteOid = null;
       const checks = [];
@@ -126,6 +132,8 @@ try {
       /** @type {Buffer | undefined} */
       let ownerBytes;
       try {
+        if (mode === "tls-untrusted")
+          untrustedTls = await serveUntrustedGitTls(output);
         if (["equal", "fast-forward"].includes(mode)) {
           expectedRemoteOid = x.f.oid;
           await fixtureGit(remote.repo, [
@@ -259,7 +267,7 @@ try {
         });
         await panel
           .getByLabel("Repository URL", { exact: true })
-          .fill(partial?.url || remote.url);
+          .fill(untrustedTls?.url || partial?.url || remote.url);
         if (basicAuth) {
           await panel
             .getByRole("combobox", { name: /^Remote authentication/ })
@@ -282,9 +290,51 @@ try {
           .getByLabel("Push destination branch", { exact: true })
           .fill("main");
         let baseline = await invoke("load_workspace");
-        const bytes = await readFile(x.workspace);
+        let bytes = await readFile(x.workspace);
         const sourceRefs = await fixtureGit(x.repo, ["show-ref"]);
         let expectedSourceRefs = sourceRefs;
+        if (untrustedTls) {
+          await panel
+            .getByRole("button", { name: "Review Push", exact: true })
+            .click();
+          await panel.getByRole("alert").waitFor();
+          const error = await panel.getByRole("alert").innerText();
+          tlsError = error;
+          assert.match(error, /ssl|certificate/i);
+          assert.ok(!error.includes(fixtureCredential.password));
+          assert.equal(
+            await page
+              .getByRole("dialog", { name: "Review Push", exact: true })
+              .count(),
+            0,
+          );
+          assert.deepEqual(await invoke("load_workspace"), baseline);
+          assert.deepEqual(await readFile(x.workspace), bytes);
+          assert.equal(await fixtureGit(x.repo, ["show-ref"]), sourceRefs);
+          assert.equal(remote.state.receivePosts, 0);
+          assert.equal(await remote.tip(), null);
+          assert.deepEqual(untrustedTls.state, {
+            requests: 0,
+            posts: 0,
+            credentialRequests: 0,
+          });
+          assert.equal(http.cancelled, 0);
+          checks.push(
+            "real untrusted HTTPS certificate refuses product Review Push before any HTTP request/credential/upload or intent; exact full bytes/data/local refs/private Send preserved",
+          );
+          await panel
+            .getByLabel("Repository URL", { exact: true })
+            .fill(remote.url);
+          await panel
+            .getByRole("button", { name: "Save remote settings", exact: true })
+            .click();
+          await panel
+            .getByRole("status")
+            .filter({ hasText: "Remote settings saved." })
+            .waitFor();
+          baseline = await invoke("load_workspace");
+          bytes = await readFile(x.workspace);
+        }
         await panel
           .getByRole("button", { name: "Review Push", exact: true })
           .click();
@@ -1272,6 +1322,14 @@ try {
           JSON.stringify(
             {
               checks,
+              tls: untrustedTls
+                ? {
+                    ...untrustedTls.state,
+                    error: tlsError,
+                    scope:
+                      "Per-run self-signed leaf with matching IP SAN; no trust-store change or TLS bypass. Explicit URL correction to owned HTTP fixture then fresh review; not trusted TLS/provider/mTLS/expiry/proxy/platform proof.",
+                  }
+                : undefined,
               redirect: redirectSink
                 ? { stage: mode, status: redirectStatus, ...redirectEvidence }
                 : undefined,
@@ -1301,6 +1359,7 @@ try {
         );
         console.log(JSON.stringify({ passed: checks.length, checks }));
       } finally {
+        await untrustedTls?.close();
         redirectSink?.stop(true);
         if (ownerBytes) await Bun.write(ownerPath, ownerBytes);
         receiptLock?.release();
