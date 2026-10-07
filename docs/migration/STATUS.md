@@ -1,5 +1,14 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Source Control shared status typography verified — 2026-10-08
+
+- Exact production builder29341 terminal0; release1791411683590/1791412037242/result0/hash14189652431715471952. Current native Source Control1780 terminal0/evidence1791412051562 passes14 groups: status mono11 and shared row radius0 defaults, font11→14/radius0→7 propagation and restoration initially/in both themes, existing actual native diff/stage/commit/author/branch/remote/split contracts and dark/light1440/900/760. Result/acceptance inspected: current buildPath, owned native-hidden PID17800/visiblefalse/app exit0. Dark760/light1440 images inspected; defaults/layout retained. No live builder/app/scenario/server handles. Source/test topic commit follows; full migration/UX/debt/platform/provider/HTTPS-Push/mTLS/proxy/fault/CI/artifact/signing/install-upgrade gates remain required.
+
+- Saved native Source Control scenario1791411647568 terminal1 reproduces Git status11!=14 after changing shared font-size-11 on current accepted artifact. Default mono font11 and square row Buttons verified before reproduction; finally restores tokens and owned app exits0. No failed-run acceptance claimed. GitPanel now uses font-size-11 for status and removes2 radius declarations already owned by shared native Button styles; default layout/sizes retained.
+- Capability commitc4ad941 contains the3 CSS declaration changes and saved scenario expansion. Previous goal turn verified the specific live builder29341; this turn finishes that exact build and accepts the current native replay. Full migration/UX scope remains active. No live build/app/server/scenario handles remain.
+
+- Compiler0 errors0 warnings; saved scenario formatting and diff whitespace pass. GitPanel whole-file Prettier warning exists before/after this patch; extracted style block passes in both versions. No whole-file formatting claim or unrelated markup rewrite. Source remained frozen through production build and current native acceptance. Interface cannot invoke /compact; no compaction claimed. Handoff before next feature: commitc4ad941, exact evidence/current release/closed handles above, remaining full PLAN/PARITY/UI debt and workflow/provider/platform/release gates unchanged.
+
 ## Native public TLS discovery and certificate refusals committed — 2026-10-08
 
 - Capabilityf30e195 extends saved git-remote-lifecycle.js with opt-in INSOMNIUM_REMOTE_PUBLIC_TLS=1. Actual anonymous native HTTPS discovery of public octocat/Hello-World matches independent Git CLI branch/OID/default-HEAD data. Exact full workspace bytes/data, local refs/repository info and WebView page count unchanged. No remote Push/credential submission; ambient certificate/bypass overrides refused and trust stores/production TLS unchanged.

@@ -2,6 +2,22 @@
 
 Owner requires Bun-only reusable Playwright JavaScript scenarios with shared helpers and headless execution. Browser-use and ad-hoc browser automation remain prohibited.
 
+Source Control token capabilityc4ad941 reuses `bun tests/ui/git-source-control.js`
+with INSOMNIUM_UI_BUILD_STATE=artifacts/native-recovery-copy-probe/build-state.json.
+Old-artifact1791411647568 fails at status11!=14; current production release
+1791411683590/1791412037242/result0/hash14189652431715471952 accepts1791412051562,
+exact tool1780 terminal0/app exit0/current buildPath/owned native-hidden. All14
+groups pass, including initial/dark-light mono11px/radius0px defaults, shared
+font-size-11→14px/button-radius→7px propagation/restoration and existing native
+diff/stage/commit/author/branch/remote/split/dark-light1440/900/760. Dark760 and
+light1440 screenshots inspected. Compiler0/0, saved scenario format and whitespace
+checks pass; whole GitPanel formatting warning predates this change. CSS variable
+and scoped ownership documentation reused:
+https://www.w3.org/TR/css-variables-1/#using-variables and
+https://svelte.dev/docs/svelte/scoped-styles. Build command:
+`bun tests/ui/build-recovery-copy-probe.js`. This acceptance covers the3 changed
+declarations; full migration/UX/debt/platform/provider/release gates stay open.
+
 Git TLS discovery capabilityf30e195 reuses `bun tests/ui/git-remote-lifecycle.js`.
 Set INSOMNIUM_REMOTE_PUBLIC_TLS=1 and the current INSOMNIUM_UI_BUILD_STATE to opt
 into read-only public network checks; default execution remains local. It reads
