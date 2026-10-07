@@ -1,5 +1,11 @@
 # Git sync migration inventory
 
+## Selected restore workspace/UI and native acceptance — 2026-10-07
+
+- Existing planner/coordinator now has workspace and GitPanel callers. Review individual or staged paths; explicit confirmation uses its own drain and durable baseline/revalidation. Cancel/disposal consumes review without write. Authoritative apply resets stale protocol/schema state. Locked recovery routes restore to its own authoritative load and retained-copy coordinator rather than checkout.
+- Saved git-restore1791350420282 passes native stale HEAD/unselected-write/stale-workspace refusals, read-only review/cancel, selected modify/delete/add, preserved unselected environment/protected records, unchanged HEAD/reload, and successful-native/lost-reply recovery with no resend. Fresh native-restore-ui-probe exit0; owned scenario exit0. Current check/build and native source-control regression pass. Narrow toolbar crowding was found in screenshot review and requires wrapping repair/fresh acceptance.
+- This closes the missing UI caller, not full Git parity. Actual disk fault, retained-copy OS picker/review and active-run drain remain unverified; remote pull/push/clone/merge and original parity gates remain required. Official docs: https://v2.tauri.app/develop/calling-rust/ and https://svelte.dev/docs/svelte/$state. Saved scenario: bun tests/ui/git-restore.js.
+
 ## Guarded selected Git restore save and coordinator — 2026-10-03
 
 - Added git_repository_restore in git_journal.rs and registered command/generated ACL. Under GitState→StorageState it requires loaded session/no checkout journal, validates IDs/unique nonempty selection, reuses collection privacy/ownership/topology/envelope guards, rejects unselected resource changes and pending create/fetch intent, locks HEAD+branch, verifies exact symbolic branch/OID and clean repository, compares persisted before-workspace twice, backs up and atomically writes one workspace file. Git refs/index/worktree are unchanged. No version1 checkout journal is written for this single-file operation.

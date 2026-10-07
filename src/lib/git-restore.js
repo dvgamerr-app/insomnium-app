@@ -59,7 +59,17 @@ export function createGitRestore(options) {
         workspaceId,
         branch: prepared.sourceBranch,
         headOid: prepared.sourceOid,
-        changes: structuredClone(prepared.plan.changes),
+        changes: prepared.plan.changes.map((change) => ({
+          ...structuredClone(change),
+          name: String(
+            before.resources.find((/** @type {any} */ r) => r._id === change.id)
+              ?.name ||
+              after.resources.find(
+                (/** @type {any} */ r) => r._id === change.id,
+              )?.name ||
+              change.id,
+          ),
+        })),
         selectedPaths: [...paths],
       });
       reviews.set(handle, { before, after, prepared, paths });

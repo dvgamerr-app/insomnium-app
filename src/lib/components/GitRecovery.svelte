@@ -23,7 +23,7 @@
     try {
       const snapshot = JSON.parse(JSON.stringify(retained));
       const path = await save({
-        defaultPath: "insomnium-checkout-recovery.json",
+        defaultPath: `insomnium-${workspace.gitRecoveryKind}-recovery.json`,
         filters: [{ name: "Workspace recovery JSON", extensions: ["json"] }],
       });
       if (!path) return;
@@ -51,10 +51,14 @@
   }
 </script>
 
-<DialogShell title="Recover checkout" size="recovery" dismissible={false}>
+<DialogShell
+  title={`Recover ${workspace.gitRecoveryKind}`}
+  size="recovery"
+  dismissible={false}
+>
   <p>
-    Checkout could not finish. Editing is paused until the saved workspace is
-    recovered.
+    The Git {workspace.gitRecoveryKind} could not finish. Editing is paused until
+    the saved workspace is recovered.
   </p>
   {#if workspace.error}<Feedback as="p" class="inline-error"
       >{workspace.error}</Feedback

@@ -5,6 +5,7 @@ import {
 } from "./git-remote-settings.js";
 import { createGitBranchWorkflow } from "./git-create.js";
 import { createGitCheckout } from "./git-checkout.js";
+import { createGitRestore } from "./git-restore.js";
 import { createRunDrain } from "./run-drain.js";
 import { isTauri, invoke } from "@tauri-apps/api/core";
 import { createGitClient, nativeGitBinding } from "./git-client.js";
@@ -97,6 +98,7 @@ export const workspace = $state({
   ready: false,
   saving: false,
   draining: false,
+  gitRecoveryKind: /** @type {'checkout'|'restore'} */ ("checkout"),
   persistencePhase:
     /** @type {import("./persistence-queue.js").PersistencePhase} */ ("idle"),
   saveFailed: false,
@@ -218,26 +220,29 @@ const runDrain = createRunDrain({
   },
 });
 
+/** Apply an authoritative Git transition without retaining stale protocol state.
+ * @param {any} data */
+function applyGitWorkspace(data) {
+  workspace.data = data;
+  workspace.responses = {};
+  for (const response of [...data.history].reverse()) {
+    const restored = { ...response };
+    if (restored.protocol) restored.connectionState = "closed";
+    workspace.responses[restored.requestId] = restored;
+  }
+  workspace.schemas = {};
+  workspace.grpcSchemas = {};
+  workspace.grpcErrors = {};
+  workspace.schemaErrors = {};
+  workspace.oauthErrors = {};
+  workspace.oauthProgress = {};
+  workspace.runnerErrors = {};
+  workspace.saveFailed = false;
+  workspace.error = "";
+}
 const checkoutGitWorkspace = createGitCheckout({
   getData: () => workspace.data,
-  apply: (data) => {
-    workspace.data = data;
-    workspace.responses = {};
-    for (const response of [...data.history].reverse()) {
-      const restored = { ...response };
-      if (restored.protocol) restored.connectionState = "closed";
-      workspace.responses[restored.requestId] = restored;
-    }
-    workspace.schemas = {};
-    workspace.grpcSchemas = {};
-    workspace.grpcErrors = {};
-    workspace.schemaErrors = {};
-    workspace.oauthErrors = {};
-    workspace.oauthProgress = {};
-    workspace.runnerErrors = {};
-    workspace.saveFailed = false;
-    workspace.error = "";
-  },
+  apply: applyGitWorkspace,
   quiesce: withWorkspaceRunsPaused,
   save: saveData,
   transition: runWorkspaceTransition,
@@ -247,6 +252,43 @@ const checkoutGitWorkspace = createGitCheckout({
   invoke,
   operationId: () => id("checkout"),
 });
+const restoreGitWorkspace = createGitRestore({
+  getData: () => workspace.data,
+  apply: applyGitWorkspace,
+  quiesce: withWorkspaceRunsPaused,
+  save: saveData,
+  transition: (operation) => {
+    workspace.gitRecoveryKind = "restore";
+    return runWorkspaceTransition(operation);
+  },
+  recover: recoverWorkspaceTransition,
+  load: loadData,
+  client: gitClient,
+  invoke,
+  operationId: () => id("restore"),
+});
+/** @param {string} workspaceId @param {string[]} paths */
+export function reviewGitRestore(workspaceId, paths) {
+  if (!workspace.ready || !isTauri())
+    return Promise.reject(
+      new Error("Restore requires a loaded desktop workspace."),
+    );
+  return restoreGitWorkspace.review(workspaceId, paths);
+}
+/** Confirmation owns its drain; do not register it with beginWorkspaceWork.
+ * @param {object} review */
+export async function confirmGitRestore(review) {
+  try {
+    return await restoreGitWorkspace.confirm(review);
+  } finally {
+    if (workspace.persistencePhase === "idle")
+      workspace.gitRecoveryKind = "checkout";
+  }
+}
+/** @param {object} review */
+export function cancelGitRestore(review) {
+  restoreGitWorkspace.cancel(review);
+}
 const createGitWorkspace = createGitBranchWorkflow({
   getData: () => workspace.data,
   apply: (data) => {
@@ -287,9 +329,16 @@ export function checkoutGit(workspaceId, targetBranch, author) {
 }
 /** @param {Record<string,any>|null} [reviewedWorkspace] */
 export function recoverGitCheckout(reviewedWorkspace = null) {
+  if (workspace.gitRecoveryKind === "restore")
+    return restoreGitWorkspace.recover(reviewedWorkspace).then((result) => {
+      workspace.gitRecoveryKind = "checkout";
+      return result;
+    });
   return checkoutGitWorkspace.recover(reviewedWorkspace);
 }
 export function retainedGitCheckoutWorkspace() {
+  if (workspace.gitRecoveryKind === "restore")
+    return restoreGitWorkspace.retainedWorkspace();
   return checkoutGitWorkspace.retainedWorkspace();
 }
 /** Stops tracked network/Runner/proto work; does not lock direct UI/resource edits.

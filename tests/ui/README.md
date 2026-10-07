@@ -1,5 +1,9 @@
 # UI scenarios (Playwright + Bun)
 
+## Selected Git restore
+
+`bun tests/ui/git-restore.js` uses `artifacts/native-restore-ui-probe/build-state.json` or `INSOMNIUM_UI_BUILD_STATE`. Wait for that build to finish successfully. It exercises real native selected restore with review/cancel, modified/deleted/added resources, preserved unselected/protected records, unchanged HEAD, reload and lost-success reply recovery without resubmission. Review captures dark/light at900/760. Run sequentially with other native scenarios on the isolated identity. Native stale-HEAD/save refusal, disk faults and retained-copy OS picker acceptance remain separate.
+
 ## Collection runner
 
 `bun tests/ui/runner-lifecycle.js` uses the successful `artifacts/native-ui-ownership-probe/build-state.json` by default (or the shared `INSOMNIUM_UI_BUILD_STATE` override). It covers real native HTTP for direct/detached/delegated callbacks, passing/failing assertions, single-test result selection, persisted reload, Stop with observed server connection close and no cancelled result/history, a fresh run after Stop, and dark/light widths1440/900/760. It uses the existing owned-collection/native-app helpers and a loopback HTTP fixture. Run sequentially with other native scenarios; never use production data. Nested suite/script/import/provider/OS-close compatibility remains separate.

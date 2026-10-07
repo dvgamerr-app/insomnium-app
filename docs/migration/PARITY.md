@@ -1,5 +1,7 @@
 # Feature parity tracker
 
+2026-10-07 checkpoint: selected Git restore wired into workspace/review/confirm/cancel/recovery UI; fresh native modify/delete/add, read-only/cancel, stale HEAD/workspace/unselected-write refusal and lost-success reply recovery pass. Narrow toolbar repair, disk faults, retained-copy picker and active-run drain acceptance remain; full parity open. See STATUS/GIT-INVENTORY.
+
 2026-10-03 checkpoint: guarded native Git restore save and single-use review/recovery coordinator added; Cargo check/clippy and Svelte check pass,11 injected coordinator checks pass. Native runtime/UI integration still pending. See STATUS.
 
 2026-10-03 checkpoint: selected Git restore planner/client added;17 read-only assertions and check/build pass. Durable apply/review UI/native acceptance next; full parity remains open. See STATUS.

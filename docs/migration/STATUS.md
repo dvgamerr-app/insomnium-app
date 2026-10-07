@@ -1,5 +1,18 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Selected restore native acceptance — 2026-10-07
+
+- Fresh native-restore-ui-probe finished exit0 in5m28s. Saved git-restore1791350420282 passes actual native stale HEAD/unselected-write/stale-workspace refusal with unchanged records; read-only review/cancel; selected modify and delete/add batch; unselected environment/protected record preservation; unchanged HEAD; persisted reload; lost-success reply and locked restore recovery without resubmission (one completed native call). Owned app exit0. Light760 review screenshot inspected.
+- Source-control regression1791350438074 passes real staging/commit/branch and dark/light widths, owned exit0. Screenshot review identified narrow Git toolbar crowding/clipped Remote after the new restore action; this is a remaining layout repair, not closed UI acceptance. Current check0/0, frontend build and theme/workspace scenarios pass. Native disk fault, retained-copy OS picker and real active-operation drain still need acceptance. Full Git/migration parity remains open.
+- Commit this user-accessible selected-restore integration as its own topic; fix toolbar wrapping and strengthen its saved layout assertions next. Commands: bun tests/ui/git-restore.js; INSOMNIUM_UI_BUILD_STATE=artifacts/native-restore-ui-probe/build-state.json bun tests/ui/git-source-control.js.
+
+## Selected Git restore integration in progress — 2026-10-07
+
+- Wired the existing single-use restore coordinator into workspace and GitPanel: review individual or staged paths, explicit confirm/cancel, cancellation on disposal, and confirmation outside tracked component work to avoid drain self-wait. Authoritative apply shares checkout's response/schema reset; uncertain restore uses the locked recovery dialog with restore-specific coordinator/load and retained-copy routing. Review shows resource names and captured branch/revision.
+- Added reusable saved tests/ui/git-restore.js using existing native/fixture/fault helpers: read-only/cancel, selected modify/delete/add and unselected/protected preservation, unchanged HEAD/reload, lost-success reply recovery with one native submission, and dark/light review widths. Native acceptance pending; scenario is authorized by the owner's saved Playwright exception. Initial compiler check found preview kind misnamed status; corrected and current check0 errors/0 warnings, frontend build and workspace scenario pass.
+- Fresh isolated build live: artifacts/native-restore-ui-probe/build-state.json, exec session98084. Poll the same build; do not restart on an observation timeout. Source is frozen for this build. Actual native stale-HEAD/save refusal, disk faults, retained-copy OS picker and broader parity remain open.
+- Official docs consulted before integration: https://v2.tauri.app/develop/calling-rust/ and https://svelte.dev/docs/svelte/$state. Existing subsystem extended; no generator/dependency change. Commands: bun x --bun prettier --write (modified JS/Svelte); bun run check; bun run build; bun tests/ui/nocturne-workspace.js; bun artifacts/build-restore-ui-probe.mjs. No production executable/data used.
+
 ## Recovery choice uses shared alignment — 2026-10-07
 
 - GitRecovery now uses Field inline align=start instead of owning checkbox dimensions/margins. Feature styles keep row gap and top margin. Existing recovery lock, save-copy and reviewed-snapshot guards remain intact. Shared wrapped-choice geometry passes in dark/light; inspected light contract screenshot. Fresh native-theme1791349856978 also verifies locked recovery/retry, with owned exit0.

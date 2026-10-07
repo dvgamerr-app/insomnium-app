@@ -13,6 +13,7 @@
   import Textarea from "./ui/Textarea.svelte";
   import Field from "./ui/Field.svelte";
   import Modal from "./ui/Modal.svelte";
+  import DialogShell from "./ui/DialogShell.svelte";
   import SplitPane from "./ui/SplitPane.svelte";
   import UnifiedDiff from "./ui/UnifiedDiff.svelte";
   import Icon from "./Icon.svelte";
@@ -24,6 +25,9 @@
     workspace,
     setupGit,
     checkoutGit,
+    reviewGitRestore,
+    confirmGitRestore,
+    cancelGitRestore,
     createAndSwitchGit,
     forgetGitCreation,
     persist,
@@ -64,6 +68,52 @@
   let busy = $state(false),
     error = $state(""),
     notice = $state("");
+  let restoreReview = $state.raw(
+    /** @type {Awaited<ReturnType<typeof reviewGitRestore>>|null} */ (null),
+  );
+  /** @param {string[]} paths */
+  async function reviewRestore(paths) {
+    if (pendingCreation || pendingFetchAtLoad || !paths.length) return;
+    const review = await reviewGitRestore(workspaceId, paths);
+    if (!current()) {
+      cancelGitRestore(review);
+      return;
+    }
+    restoreReview = review;
+  }
+  function cancelRestore() {
+    if (busy || !restoreReview) return;
+    cancelGitRestore(restoreReview);
+    restoreReview = null;
+  }
+  // Restore owns quiescence, so registering it with run() would wait for itself.
+  async function confirmRestore() {
+    const review = restoreReview;
+    if (busy || !current() || !review) return;
+    busy = true;
+    notice = "";
+    if (session) client.close(session);
+    session = null;
+    let failure = "";
+    try {
+      await confirmGitRestore(review);
+      if (current()) {
+        notice = `Restored ${review.selectedPaths.length} selected changes`;
+        drafts.delete(workspaceId);
+      }
+    } catch (cause) {
+      failure = String(cause);
+      if (current()) error = failure;
+      workspace.error = failure;
+    } finally {
+      restoreReview = null;
+      if (!disposed) busy = false;
+    }
+    if (current() && workspace.persistencePhase === "idle") {
+      await run(load);
+      if (current() && failure) error = failure;
+    }
+  }
   let name = $state(""),
     email = $state(""),
     message = $state("");
@@ -309,6 +359,7 @@
     if (isTauri()) void run(load);
   });
   onDestroy(() => {
+    if (restoreReview) cancelGitRestore(restoreReview);
     rememberDraft();
     disposed = true;
     activeWork?.cancel();
@@ -409,10 +460,22 @@
                   ><Icon name="check" size={15} />Commit staged ({selected.length})</Button
                 >
                 <div class="git-tools">
+                  <Button
+                    variant="ghost"
+                    disabled={busy ||
+                      !!pendingCreation ||
+                      pendingFetchAtLoad ||
+                      !session?.info.headOid ||
+                      !selected.length}
+                    onclick={() => run(() => reviewRestore([...selected]))}
+                    >Restore staged changes</Button
+                  >
                   {#if branchActionsNeeded}<Button
                       variant="ghost"
                       onclick={() => (settings = "branches")}>Branches</Button
-                    >{/if}<Button variant="ghost" onclick={() => (settings = "remote")}
+                    >{/if}<Button
+                    variant="ghost"
+                    onclick={() => (settings = "remote")}
                     >{remoteConfigured ? "Remote" : "Set up remote"}</Button
                   >
                   {#if !branchActionsNeeded}<Button
@@ -616,6 +679,17 @@
     >
     <Button
       variant="ghost"
+      aria-label={"Restore " + (row.name || row.id)}
+      title="Review restoring this change"
+      disabled={busy ||
+        !!pendingCreation ||
+        pendingFetchAtLoad ||
+        !session?.info.headOid}
+      onclick={() => run(() => reviewRestore([row.path]))}
+      ><Icon name="refresh" size={14} /></Button
+    >
+    <Button
+      variant="ghost"
       aria-label={(isStaged ? "Unstage " : "Stage ") + (row.name || row.id)}
       title={row.required
         ? "Required collection resource"
@@ -628,11 +702,37 @@
     >
   </div>
 {/snippet}
+{#if restoreReview}
+  <DialogShell
+    title="Restore selected changes"
+    dismissible={!busy}
+    onrequestclose={cancelRestore}
+  >
+    <p>
+      Restore these changes to {restoreReview.branch} at {restoreReview.headOid?.slice(
+        0,
+        12,
+      )}. Local additions in this selection will be removed. Other changes will
+      be kept.
+    </p>
+    <ul>
+      {#each restoreReview.changes as change (change.id)}
+        <li>{change.name || change.id}: {change.kind}</li>
+      {/each}
+    </ul>
+    <div class="modal-actions">
+      <Button variant="secondary" disabled={busy} onclick={cancelRestore}
+        >Cancel restore</Button
+      >
+      <Button variant="primary" disabled={busy} onclick={confirmRestore}
+        >{busy ? "Restoring…" : "Restore selected changes"}</Button
+      >
+    </div>
+  </DialogShell>
+{/if}
 {#if settings}
   <Modal
-    title={settings === "branches"
-      ? "Branches"
-      : "Remote"}
+    title={settings === "branches" ? "Branches" : "Remote"}
     onclose={() => (settings = "")}
   >
     {#if error}<Feedback as="p" class="inline-error" role="alert"
