@@ -31,6 +31,8 @@ Single-choice `Select` and `Dropdown` use the same Lucide SVG chevron by default
 | Feedback       | Shared error/hint presentation; `as="p\|pre\|div"`, `tone="error\|hint"`; supply alert/live semantics when the workflow needs them |
 | DialogShell    | Shared native dialog heading, containment, focus restoration and Escape policy; `dismissible={false}` locks dismissal; feature owns queue, abort and recovery decisions |
 
+`Field` supplies its ID, description/error association, invalid, required, disabled/loading and supported read-only state through reactive context. Input, Textarea, Select, Checkbox and FilePicker inherit native `required`; a control's explicit `required={false}` opts out. Native HTML validity and form submission apply, including checkbox/file value requirements; feature handlers still own domain validation. FilePicker inherits the Field error's `aria-invalid`. Keep `resetAfterChange={false}` for file inputs that must retain their selected file for form submission; its default reset is for repeated action-style imports. Git author Preferences uses Field as the owner of ID, required and busy state.
+
 `UnifiedDiff` uses the existing `CodeEditor`, which exposes optional `lineDecorations` (`line`, `className`, `gutterText`, `gutterLabel`). Decorations are reset when content changes; ordinary editors retain their normal line numbers/folding. The diff preserves source text, highlights YAML directly, and uses CodeMirror's viewport rendering. It does not deserialize or rewrite resources. Diff styles belong to `styles/diff.css`.
 
 ```svelte

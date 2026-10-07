@@ -23,6 +23,82 @@ await withNativeApp(
         verifyOnly: false,
       },
     });
+    const authorBaseline = await invoke("load_workspace");
+    await page
+      .getByRole("navigation", { name: "Main navigation" })
+      .getByRole("button", { name: "Preferences", exact: true })
+      .click();
+    const preferences = page.getByRole("region", {
+      name: "Preferences",
+      exact: true,
+    });
+    await preferences
+      .getByRole("tablist", { name: "Preference pages", exact: true })
+      .getByRole("tab", { name: "Git", exact: true })
+      .click();
+    const name = preferences.getByRole("textbox", {
+      name: "Author name",
+      exact: true,
+    });
+    const email = preferences.getByRole("textbox", {
+      name: "Author email",
+      exact: true,
+    });
+    for (const [control, id] of [
+      [name, "git-author-name"],
+      [email, "git-author-email"],
+    ]) {
+      assert.equal(await control.getAttribute("id"), id);
+      assert.equal(
+        await control.evaluate(
+          (el) => /** @type {HTMLInputElement} */ (el).required,
+        ),
+        true,
+      );
+    }
+    const originalName = await name.inputValue();
+    const originalEmail = await email.inputValue();
+    await name.fill("");
+    assert.equal(
+      await name.evaluate(
+        (el) => /** @type {HTMLInputElement} */ (el).validity.valueMissing,
+      ),
+      true,
+    );
+    assert.equal(
+      await preferences
+        .getByRole("button", { name: "Save author", exact: true })
+        .isDisabled(),
+      true,
+    );
+    await name.fill(originalName);
+    await email.fill("invalid-email");
+    assert.equal(
+      await email.evaluate(
+        (el) => /** @type {HTMLInputElement} */ (el).validity.typeMismatch,
+      ),
+      true,
+    );
+    const invalidSave = await withIpcFailure(
+      page,
+      "save_workspace",
+      false,
+      async () => {
+        await preferences
+          .getByRole("button", { name: "Save author", exact: true })
+          .click();
+      },
+    );
+    assert.equal(
+      invalidSave.calls,
+      0,
+      "Native browser validation must stop invalid author before persistence IPC",
+    );
+    assert.deepEqual(await invoke("load_workspace"), authorBaseline);
+    await email.fill(originalEmail);
+    await preferences
+      .getByRole("button", { name: "Close Preferences", exact: true })
+      .click();
     const captures = [];
     for (const theme of ["dark", "light"]) {
       if ((await page.locator("html").getAttribute("data-theme")) !== theme)
@@ -291,6 +367,8 @@ await withNativeApp(
           captures,
           fonts: "loaded native",
           gitHeadUnchanged: true,
+          authorFieldContext:
+            "inherited IDs/required, empty-name refusal and malformed-email native validation before persistence IPC, exact full workspace preserved",
         },
         null,
         2,

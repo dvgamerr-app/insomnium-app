@@ -20,6 +20,7 @@
   bind:indeterminate
   id={rest.id ?? field?.id}
   disabled={rest.disabled ?? field?.disabled}
+  required={rest.required ?? field?.required}
   aria-describedby={rest["aria-describedby"] ?? field?.describedBy}
   aria-invalid={invalid || field?.invalid || rest["aria-invalid"] || undefined}
   class={`ui-checkbox ${className}`}

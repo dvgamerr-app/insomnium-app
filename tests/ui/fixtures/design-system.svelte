@@ -28,9 +28,42 @@
   let fileName = $state("");
   let dialog = $state(false);
   let locked = $state(false);
+  let required = $state(true);
+  let submitted = $state(0);
 </script>
 
 <main style="padding:24px;overflow:auto;height:100vh">
+  <form
+    aria-label="Required field contract"
+    onsubmit={(event) => {
+      event.preventDefault();
+      submitted++;
+    }}
+  >
+    <Field label="Required text" {required}><Input /></Field>
+    <Field label="Required notes" {required}><Textarea /></Field>
+    <Field label="Required selection" {required}
+      ><Select value=""
+        ><option value="">Choose</option><option value="chosen">Chosen</option
+        ></Select
+      ></Field
+    >
+    <Field label="Required consent" {required} layout="inline"
+      ><Checkbox /></Field
+    >
+    <Field label="Required attachment" {required} error="Attachment validation"
+      ><FilePicker resetAfterChange={false}>Select attachment</FilePicker
+      ></Field
+    >
+    <Field label="Optional override" {required}
+      ><Input required={false} /></Field
+    >
+    <Button type="submit">Submit required fields</Button>
+    <Button onclick={() => (required = !required)}
+      >Toggle required fields</Button
+    >
+    <output aria-label="Required submissions">{submitted}</output>
+  </form>
   <Field
     id="contract-text"
     label="Contract text"

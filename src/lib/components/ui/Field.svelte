@@ -34,6 +34,9 @@
     get invalid() {
       return !!error;
     },
+    get required() {
+      return required;
+    },
     get disabled() {
       return disabled || busy;
     },

@@ -15,6 +15,7 @@
   {...rest}
   id={rest.id ?? field?.id}
   disabled={rest.disabled ?? field?.disabled}
+  required={rest.required ?? field?.required}
   aria-describedby={rest["aria-describedby"] ?? field?.describedBy}
   {value}
   readonly={rest.readonly ?? field?.readOnly}

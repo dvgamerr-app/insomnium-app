@@ -23,6 +23,8 @@
     type="file"
     bind:this={element}
     disabled={rest.disabled ?? field?.disabled}
+    required={rest.required ?? field?.required}
+    aria-invalid={field?.invalid || rest["aria-invalid"] || undefined}
     aria-describedby={rest["aria-describedby"] ?? field?.describedBy}
     onchange={async (event) => {
       // Keep the native element/event available until async feature processing ends.

@@ -4,6 +4,130 @@ import { withComponentFixture } from "./helpers/component-fixture.js";
 await withComponentFixture("design-system", async (page, output) => {
   const errors = /** @type {string[]} */ ([]);
   page.on("pageerror", (error) => errors.push(error.message));
+  const requiredForm = page.getByRole("form", {
+    name: "Required field contract",
+    exact: true,
+  });
+  const requiredControls = [
+    "Required text",
+    "Required notes",
+    "Required selection",
+    "Required consent",
+    "Required attachment",
+  ];
+  for (const name of requiredControls) {
+    const control = requiredForm.getByLabel(name, { exact: false });
+    assert.equal(
+      await control.evaluate(
+        (el) => /** @type {HTMLInputElement} */ (el).required,
+      ),
+      true,
+      name + " must inherit required",
+    );
+    assert.equal(
+      await control.evaluate(
+        (el) => /** @type {HTMLInputElement} */ (el).validity.valueMissing,
+      ),
+      true,
+      name + " must reject an empty value",
+    );
+  }
+  assert.equal(
+    await requiredForm
+      .getByLabel("Optional override", { exact: false })
+      .evaluate((el) => /** @type {HTMLInputElement} */ (el).required),
+    false,
+  );
+  await requiredForm
+    .getByRole("button", { name: "Submit required fields", exact: true })
+    .click();
+  assert.equal(
+    await requiredForm.getByLabel("Required submissions").innerText(),
+    "0",
+  );
+  await requiredForm
+    .getByLabel("Required text", { exact: false })
+    .fill("value");
+  await requiredForm
+    .getByLabel("Required notes", { exact: false })
+    .fill("notes");
+  await requiredForm
+    .getByLabel("Required selection", { exact: false })
+    .selectOption("chosen");
+  await requiredForm.getByLabel("Required consent", { exact: false }).check();
+  await requiredForm
+    .getByLabel("Required attachment", { exact: false })
+    .setInputFiles({
+      name: "required.json",
+      mimeType: "application/json",
+      buffer: Buffer.from("{}"),
+    });
+  await requiredForm
+    .getByRole("button", { name: "Submit required fields", exact: true })
+    .click();
+  assert.equal(
+    await requiredForm.getByLabel("Required submissions").innerText(),
+    "1",
+  );
+  await requiredForm
+    .getByRole("button", { name: "Toggle required fields", exact: true })
+    .click();
+  for (const name of requiredControls) {
+    assert.equal(
+      await requiredForm
+        .getByLabel(name, { exact: false })
+        .evaluate((el) => /** @type {HTMLInputElement} */ (el).required),
+      false,
+      name + " must react to optional state",
+    );
+  }
+  await requiredForm.getByLabel("Required text", { exact: false }).fill("");
+  await requiredForm.getByLabel("Required notes", { exact: false }).fill("");
+  await requiredForm
+    .getByLabel("Required selection", { exact: false })
+    .selectOption("");
+  await requiredForm.getByLabel("Required consent", { exact: false }).uncheck();
+  await requiredForm
+    .getByLabel("Required attachment", { exact: false })
+    .setInputFiles([]);
+  for (const name of requiredControls) {
+    assert.equal(
+      await requiredForm
+        .getByLabel(name, { exact: false })
+        .evaluate(
+          (el) => /** @type {HTMLInputElement} */ (el).validity.valueMissing,
+        ),
+      false,
+      name + " permits an empty optional value",
+    );
+  }
+  await requiredForm
+    .getByRole("button", { name: "Submit required fields", exact: true })
+    .click();
+  assert.equal(
+    await requiredForm.getByLabel("Required submissions").innerText(),
+    "2",
+  );
+  await requiredForm
+    .getByRole("button", { name: "Toggle required fields", exact: true })
+    .click();
+  for (const name of requiredControls) {
+    assert.equal(
+      await requiredForm
+        .getByLabel(name, { exact: false })
+        .evaluate(
+          (el) => /** @type {HTMLInputElement} */ (el).validity.valueMissing,
+        ),
+      true,
+      name + " becomes required again",
+    );
+  }
+  assert.equal(
+    await requiredForm
+      .getByLabel("Required attachment", { exact: false })
+      .getAttribute("aria-invalid"),
+    "true",
+  );
   const text = page.getByRole("textbox", {
     name: "Contract text",
     exact: true,
@@ -20,7 +144,13 @@ await withComponentFixture("design-system", async (page, output) => {
     await text.getAttribute("aria-describedby"),
     "contract-text-description contract-text-error",
   );
-  assert.equal(await page.getByRole("alert").innerText(), "Shared error");
+  assert.equal(
+    await page
+      .getByRole("alert")
+      .filter({ hasText: "Shared error" })
+      .innerText(),
+    "Shared error",
+  );
   await page
     .getByRole("button", { name: "Toggle disabled", exact: true })
     .click();
