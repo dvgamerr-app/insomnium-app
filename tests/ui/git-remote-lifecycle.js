@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
-import { writeFile } from "node:fs/promises";
+import { readFile, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { withNativeApp, poll } from "./helpers/native-app.js";
+import { withNativeApp, poll, probeIdentifier } from "./helpers/native-app.js";
 import { gitCollection } from "./helpers/git-fixture.js";
+import { fixtureGit } from "./helpers/git-advance-fixture.js";
 
 // This scenario covers native IPC plus the existing UI remaining usable.
-// Remote settings/Stop controls do not exist yet and are not claimed here.
+// Remote settings/Stop UI is covered by the separate saved settings scenario.
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-remote-ui-probe/build-state.json";
 
@@ -43,10 +44,11 @@ const server = Bun.serve({
   },
 });
 const base = "http://127.0.0.1:" + server.port;
+const publicTls = process.env.INSOMNIUM_REMOTE_PUBLIC_TLS === "1";
 
 try {
   await withNativeApp(
-    "git-remote-lifecycle",
+    publicTls ? "git-remote-lifecycle-public-tls" : "git-remote-lifecycle",
     async ({ page, output, invoke }) => {
       const fixture = await gitCollection({ page, invoke });
       const originalPages = page.context().pages().length;
@@ -57,6 +59,130 @@ try {
       assert.equal(result.defaultBranch, "main");
       assert.equal(result.branches[0].oid, oid);
       assert.equal(page.context().pages().length, originalPages);
+
+      let tlsEvidence;
+      if (publicTls) {
+        // Anonymous discovery only: this scenario never submits a public Push.
+        const url = "https://github.com/octocat/Hello-World.git";
+        assert.ok(process.env.APPDATA);
+        const directory = join(process.env.APPDATA, probeIdentifier);
+        assert.equal(
+          (await realpath(directory)).toLowerCase(),
+          directory.toLowerCase(),
+        );
+        const repo = join(directory, "git-v1", "repo-" + fixture.repositoryId);
+        assert.equal((await realpath(repo)).toLowerCase(), repo.toLowerCase());
+        const workspace = join(directory, "workspace-v1.json");
+        const data = await invoke("load_workspace");
+        const bytes = await readFile(workspace);
+        const localRefs = await fixtureGit(repo, ["show-ref"]);
+        const localInfo = await invoke("git_repository_info", {
+          repositoryId: fixture.repositoryId,
+        });
+        for (const name of [
+          "GIT_SSL_NO_VERIFY",
+          "GIT_SSL_CAINFO",
+          "SSL_CERT_FILE",
+          "SSL_CERT_DIR",
+          "CURL_CA_BUNDLE",
+          "NODE_TLS_REJECT_UNAUTHORIZED",
+        ])
+          assert.equal(
+            process.env[name],
+            undefined,
+            "Public TLS evidence requires unchanged default trust: " + name,
+          );
+        // Independently read refs through Git CLI (not the native worker parser).
+        const expected = await fixtureGit(repo, ["ls-remote", "--symref", url]);
+        const branches = expected
+          .split("\n")
+          .flatMap((line) => {
+            const match = /^([a-f0-9]{40})\t(refs\/heads\/(.+))$/.exec(line);
+            return match
+              ? [{ name: match[3], reference: match[2], oid: match[1] }]
+              : [];
+          })
+          .sort((a, b) => a.name.localeCompare(b.name));
+        assert.ok(branches.length > 0);
+        const defaultBranch = /^ref: refs\/heads\/(.+)\tHEAD$/m.exec(
+          expected,
+        )?.[1];
+        const headOid = /^([a-f0-9]{40})\tHEAD$/m.exec(expected)?.[1];
+        assert.ok(defaultBranch && headOid);
+        const discovered = await invoke("git_remote_advertise", {
+          requestId: crypto.randomUUID(),
+          input: { url, credentials: { kind: "anonymous" } },
+        });
+        assert.equal(discovered.url, url);
+        assert.deepEqual(discovered.branches, branches);
+        assert.equal(discovered.defaultBranch, defaultBranch);
+        assert.equal(discovered.headOid, headOid);
+        assert.deepEqual(await invoke("load_workspace"), data);
+        assert.deepEqual(await readFile(workspace), bytes);
+        assert.equal(await fixtureGit(repo, ["show-ref"]), localRefs);
+        assert.deepEqual(
+          await invoke("git_repository_info", {
+            repositoryId: fixture.repositoryId,
+          }),
+          localInfo,
+        );
+        assert.equal(page.context().pages().length, originalPages);
+        const failures = [];
+        for (const [host, expectedCode] of [
+          ["wrong.host.badssl.com", "ERR_TLS_CERT_ALTNAME_INVALID"],
+          ["expired.badssl.com", "CERT_HAS_EXPIRED"],
+        ]) {
+          const endpoint = "https://" + host + "/";
+          let independentCode = "";
+          try {
+            await fetch(endpoint, {
+              redirect: "error",
+              signal: AbortSignal.timeout(15000),
+            });
+          } catch (error) {
+            independentCode = /** @type {any} */ (error).code;
+          }
+          assert.equal(
+            independentCode,
+            expectedCode,
+            "Independent TLS failure classification",
+          );
+          let nativeError = "";
+          try {
+            await invoke("git_remote_advertise", {
+              requestId: crypto.randomUUID(),
+              input: { url: endpoint, credentials: { kind: "anonymous" } },
+            });
+          } catch (error) {
+            nativeError = String(error);
+          }
+          assert.match(
+            nativeError,
+            /Certificate/,
+            "Native certificate refusal, not HTTP/not-a-Git-repo failure",
+          );
+          assert.deepEqual(await invoke("load_workspace"), data);
+          assert.deepEqual(await readFile(workspace), bytes);
+          assert.equal(await fixtureGit(repo, ["show-ref"]), localRefs);
+          assert.deepEqual(
+            await invoke("git_repository_info", {
+              repositoryId: fixture.repositoryId,
+            }),
+            localInfo,
+          );
+          failures.push({ endpoint, independentCode, nativeError });
+        }
+        tlsEvidence = {
+          url,
+          defaultBranch,
+          headOid,
+          branches,
+          failures,
+          credentials: "anonymous",
+          scope:
+            "Actual Windows native worker public HTTPS discovery with default certificate validation and independent Git refs; native hostname/expired-certificate refusal independently classified by Bun. No public Push, credential challenge, server-side negative request counters, mTLS/proxy or other-platform acceptance.",
+        };
+      }
 
       const requestId = crypto.randomUUID();
       const pending = invoke("git_remote_advertise", {
@@ -140,6 +266,7 @@ try {
           {
             status: "passed",
             timeoutMs,
+            tls: tlsEvidence,
             checks: [
               "Native worker advertisement result",
               "No extra WebView page from worker dispatch",
@@ -148,9 +275,15 @@ try {
               "Pre-cancel prevents network admission",
               "Actual 30-second native timeout",
               "Local HEAD and workspace unchanged",
+              ...(publicTls
+                ? [
+                    "Actual native public HTTPS anonymous discovery matches independent Git refs and preserves exact full workspace bytes/data/local refs/info",
+                    "Native hostname and expired-certificate refusals independently classified by Bun, preserving exact full workspace bytes/data/local refs/info",
+                  ]
+                : []),
             ],
             limits:
-              "IPC and existing UI responsiveness; not remote settings/Stop UI, provider or OS-close acceptance",
+              "IPC and existing UI responsiveness; optional public TLS discovery only, not provider authentication, remote settings/Stop UI, public Push or OS-close acceptance",
           },
           null,
           2,
