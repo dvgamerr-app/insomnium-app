@@ -106,7 +106,8 @@ jobs:
         run: |
           bun --version
           rustc --version
-          bun install --frozen-lockfile
+          bun install --frozen-lockfile --ignore-scripts
+          bun run prepare
           bun run check
 
       - name: Build desktop packages

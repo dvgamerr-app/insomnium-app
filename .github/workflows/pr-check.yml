@@ -1,4 +1,4 @@
-name: PR check (Qlty)
+name: PR checks (Bun and Qlty)
 
 on:
   pull_request:
@@ -11,24 +11,65 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CI: "true"
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout pull request commit with native Git
+        env:
+          CHECKOUT_TOKEN: ${{ github.token }}
+        run: |
+          git init source
+          cd source
+          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+          auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$CHECKOUT_TOKEN" | base64 -w0)"
+          GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="http.$GITHUB_SERVER_URL/.extraHeader" GIT_CONFIG_VALUE_0="$auth" git fetch --depth=1 --no-tags origin "$GITHUB_SHA"
+          git checkout --detach "$GITHUB_SHA"
+
+      - name: Install pinned Bun
+        env:
+          BUN_INSTALL: ${{ runner.temp }}/insomnium-bun
+        run: |
+          curl -fsSL https://bun.com/install | bash -s "bun-v1.4.2"
+          echo "$BUN_INSTALL/bin" >> "$GITHUB_PATH"
+
+      - name: Install locked dependencies without lifecycle scripts
+        working-directory: source
+        run: |
+          test "$(bun --version)" = "1.4.2"
+          bun install --frozen-lockfile --ignore-scripts
+          bun run prepare
+
+      - name: Check Svelte and build production frontend
+        working-directory: source
+        run: |
+          bun run check
+          bun run build
+
   qlty:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
       QLTY_TELEMETRY: "off"
-      CHECKOUT_TOKEN: ${{ github.token }}
       BASE_REF: ${{ github.base_ref }}
     steps:
       # Native Git checkout, matching desktop-build.yml: no JavaScript actions.
       # Full objects and history: qlty reads blobs through libgit2, which cannot
       # fetch from a partial clone, and needs the merge base for --upstream.
       - name: Checkout pull request commit
+        env:
+          CHECKOUT_TOKEN: ${{ github.token }}
         run: |
           git init source
           cd source
           git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
           auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$CHECKOUT_TOKEN" | base64 -w0)"
-          git -c "http.$GITHUB_SERVER_URL/.extraHeader=$auth" fetch --no-tags origin "$GITHUB_SHA" "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
+          GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="http.$GITHUB_SERVER_URL/.extraHeader" GIT_CONFIG_VALUE_0="$auth" git fetch --no-tags origin "$GITHUB_SHA" "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
           git checkout --detach "$GITHUB_SHA"
 
       - name: Install Qlty
