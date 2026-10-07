@@ -21,6 +21,15 @@ Single-choice `Select` and `Dropdown` use the same Lucide SVG chevron by default
 | Modal          | Native dialog focus containment, Escape/cancel, focus restoration; `title` or heading snippet, children, `onclose`                                            |
 | SplitPane      | Resizable first/second snippets; see `docs/migration/NOCTURNE-WORKSPACE.md`                                                                                   |
 | UnifiedDiff    | One read-only YAML/JSON change view; `identity`, nullable `before`/`after`, `mode`; old/new line numbers, minus/plus markers and themed red/green backgrounds |
+| Checkbox       | Bindable `checked`, `indeterminate`, native `element`; native change/currentTarget and Field disabled/invalid/description context |
+| FilePicker     | Native file input with `compact\|inline\|dropzone` presentation; native attributes including `multiple`, `accept`, `webkitdirectory`; resets after awaited change by default |
+| TabList / TabButton / TabPanel | Shared tab/panel IDs, selected tab focus and keyboard navigation; `aria-orientation="vertical"` enables Up/Down, horizontal uses Left/Right; Home/End skip disabled tabs |
+| SegmentedControl | Bindable string/boolean `value`, `options`, `label`, `onchange`; native pressed buttons in a labelled group |
+| Toolbar        | Shared toolbar placement and spacing; feature owns actions and accessible naming |
+| EmptyState     | Shared empty/loading presentation with feature-owned content and actions |
+| FormPanel      | Shared form layout container; does not create a form or change submission/validation policy |
+| Feedback       | Shared error/hint presentation; `as="p\|pre\|div"`, `tone="error\|hint"`; supply alert/live semantics when the workflow needs them |
+| DialogShell    | Shared native dialog heading, containment, focus restoration and Escape policy; `dismissible={false}` locks dismissal; feature owns queue, abort and recovery decisions |
 
 `UnifiedDiff` uses the existing `CodeEditor`, which exposes optional `lineDecorations` (`line`, `className`, `gutterText`, `gutterLabel`). Decorations are reset when content changes; ordinary editors retain their normal line numbers/folding. The diff preserves source text, highlights YAML directly, and uses CodeMirror's viewport rendering. It does not deserialize or rewrite resources. Diff styles belong to `styles/diff.css`.
 
@@ -60,6 +69,12 @@ Single-choice `Select` and `Dropdown` use the same Lucide SVG chevron by default
 ```
 
 Native DOM events retain `event.currentTarget` (for example `valueAsNumber`, form validation and file-free text input). Number/range bindings produce a number, or undefined for an empty field. Checkbox/radio/file inputs retain their native specialized bindings; CodeMirror owns its editor textarea. Specialized tabs/tree rows with class directives retain their existing interaction implementation.
+
+`Field` provides control IDs, description/error associations, disabled/busy and read-only context. An explicit control prop overrides context. `required` displays the marker; set the native control's `required` attribute when browser validation is required. Use one control per Field. `FilePicker` keeps its native element available while an async change handler runs, then clears the value so selecting the same file fires another change. Set `resetAfterChange={false}` only when the feature intentionally retains the native file selection. File size/type limits belong to the feature.
+
+Application adoption inventory (2026-10-07, static markup outside `ui`, excluding generated outputs): Button 173 sites/24 files; Input 70/22; Select 44/17; Textarea 16/13; Checkbox 22/9; FilePicker 12/8; Field 109/20; TabList and TabPanel 9/6 each; SegmentedControl 2/2; Toolbar and EmptyState 16/9 each; FormPanel 7/4; Feedback 29/21; direct DialogShell 2/2 and Modal 2/2. The only raw input/select/textarea/button markup outside `ui` is CodeEditor's textarea, required by CodeMirror. Native summaries, links and domain data tables retain their native semantics. These counts show adoption, not full workflow acceptance.
+
+`native.css` owns browser resets and default native interaction, `controls.css` primitive surfaces/states, `select.css` picker/chevron, `variants.css` placement variants, `forms.css` Field/FormPanel composition, `navigation.css` tabs/segmented presentation, and `dialog.css` dialog presentation. Component-owned layout remains in SplitPane/EditableName/WindowControls. Feature scoped styles still require the remaining ownership audit in `docs/migration/UI-DESIGN-SYSTEM-DEBT.md`; this inventory does not close that debt.
 
 Dropdown pickers use `appearance: base-select` under `@supports`, with themed options, checkmarks, keyboard selection and top-layer placement. Older engines fall back to native select behavior. There is no custom listbox keyboard implementation to maintain. Actual adoption covers request composition, authentication editors, preferences, imports, environments/resources, Git, runner, protocols and response filtering: 253 additional input/select/button sites and 15 textarea sites now use the shared controls.
 

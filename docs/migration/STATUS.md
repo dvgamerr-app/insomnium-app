@@ -1,5 +1,10 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Shared UI contract and adoption inventory — 2026-10-07
+
+- Updated the UI README for Checkbox, FilePicker, tabs, segmented choices, Toolbar, EmptyState, FormPanel, Feedback and DialogShell, including actual Field/native validation and awaited file reset contracts. Recorded current consumer counts and style owners. Static scan finds only the CodeMirror-owned textarea as raw form/button markup outside ui; feature scoped CSS/token/alias audit remains open.
+- bun tests/ui/design-system.js passes on this worktree. Current bun run check passes 0 errors/0 warnings. Added evidence to UI-DESIGN-SYSTEM-DEBT without closing unverified gates. No product styling/layout changed in this documentation milestone.
+
 ## Goal execution and commits — 2026-10-07
 
 - Owner instruction: continue the full migration and UI/UX/CSS objective, and commit completed work by topic after verification. Keep migration parity open until every original gate is proved or explicitly removed by the owner. Existing Settings navigation work is the first separate commit; gRPC completion and stream JSON fidelity follow as separate topics.

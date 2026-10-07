@@ -189,6 +189,8 @@ src/lib/components/ui/
 
 ## Checklist สำหรับปิด debt
 
+2026-10-07 evidence update: current application has one ordered style entry (`src/lib/styles.css` → `styles/index.css`) and the shared-control consumer inventory/API/ownership is now recorded in `src/lib/components/ui/README.md`. Static scan finds only CodeEditor's engine-owned textarea as raw form/button markup outside `ui`. Current `bun tests/ui/design-system.js` passes shared field associations, numeric/checkbox bindings, file reselect and dialog/tab contracts. Settings theme/workspace scenarios also pass. Historical counts above remain the original review snapshot. Scoped feature CSS audit, remaining token/alias cleanup and broader native/workflow acceptance remain open; do not mark all checklist items complete from these narrower checks.
+
 - [ ] มี inventory และ owner สำหรับ tokens, primitives, compositions และ feature exceptions
 - [ ] Application style entry มีลำดับชัดเจน; styles ของแต่ละส่วนอยู่กับ owner ที่ตรงหน้าที่
 - [ ] ลบ shared control declarations ที่ซ้ำกับ legacy/global styles และไม่มี variant colors/states ที่ feature แอบกำหนดเอง
