@@ -7,6 +7,7 @@ import { openGitRemote } from "./helpers/git-panel.js";
 import { serveReceivePack } from "./helpers/git-receive-pack.js";
 import { heldHttp } from "./helpers/held-http.js";
 import { withIpcFailure } from "./helpers/ipc-failure.js";
+import { buildComponentFixture } from "./helpers/component-fixture.js";
 
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-recovery-copy-probe/build-state.json";
@@ -23,6 +24,7 @@ assert.ok(
     "retire-lost",
     "retire-save-failed",
     "retire-save-lost",
+    "retire-state-replaced",
     "stop",
     "completed-stop",
     "timeout",
@@ -68,6 +70,50 @@ try {
         data.openTabs = [...data.openTabs, held._id];
         await invoke("save_workspace", { data });
         await page.reload();
+        if (mode === "retire-state-replaced") {
+          const { root } = await buildComponentFixture(
+            "git-recovery-native-copy",
+            { minify: true },
+          );
+          const buildState = process.env.INSOMNIUM_UI_BUILD_STATE;
+          assert.ok(buildState);
+          const build = await Bun.file(buildState).json();
+          assert.equal(
+            build.fixtureHash,
+            Bun.hash(
+              await Bun.file(join(root, "git-recovery-native-copy.js")).text(),
+            ).toString(),
+            "Rebuild native fixture after source changes",
+          );
+          await page.evaluate(
+            (seed) => {
+              /** @type {any} */ (window).__recoveryNativeSeed = seed;
+            },
+            {
+              ...x.f,
+              requestId: held._id,
+              recoveryCommand: "git_remote_push_retire",
+            },
+          );
+          await page.addScriptTag({
+            url: new URL("/__saved-recovery-fixture.js", page.url()).href,
+            type: "module",
+          });
+          await page
+            .getByLabel("Native recovery fixture evidence")
+            .evaluate((element) => {
+              /** @type {HTMLElement} */ (element).hidden = true;
+            });
+          await poll(
+            async () =>
+              JSON.parse(
+                (await page
+                  .getByLabel("Native recovery fixture evidence")
+                  .textContent()) || "{}",
+              ).ready,
+            "Mounted production App for actual retirement state replacement",
+          );
+        }
         await page.getByRole("button", { name: "Send", exact: true }).click();
         await poll(
           async () => http.held === 1,
@@ -449,7 +495,23 @@ try {
             .filter({ hasText: "Reviewed Push tracking cleared." })
             .waitFor();
         }
-        assert.deepEqual(await invoke("load_workspace"), baseline);
+        const clearedBaseline = structuredClone(baseline);
+        if (mode === "retire-state-replaced") {
+          clearedBaseline.resources.find(
+            (/** @type {any} */ row) => row._id === held._id,
+          ).description = "Unexpected retained native fixture edit";
+          const fixtureEvidence = JSON.parse(
+            (await page
+              .getByLabel("Native recovery fixture evidence")
+              .textContent()) || "{}",
+          );
+          assert.equal(fixtureEvidence.calls, 1);
+          assert.deepEqual(fixtureEvidence.current, clearedBaseline);
+          checks.push(
+            "real native retirement reply followed by whole live Svelte state replacement: latest private edit retained/current intent cleared/exact live snapshot persisted without resend",
+          );
+        }
+        assert.deepEqual(await invoke("load_workspace"), clearedBaseline);
         const retired = JSON.parse(await readFile(receiptPath, "utf8"));
         assert.equal(retired.phase, "retired");
         assert.equal(retired.stageName, null);
@@ -473,7 +535,7 @@ try {
           expectedSourceRefs,
         );
         checks.push(
-          "fresh Inspect: required unchecked acknowledgment, durable native retirement/owned snapshot removed without resend or remote undo, exact original full snapshot after tracking clear",
+          "fresh Inspect: required unchecked acknowledgment, durable native retirement/owned snapshot absent without resend or remote undo, exact expected live full snapshot after tracking clear",
         );
         await Bun.write(
           join(output, "acceptance.json"),

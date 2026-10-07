@@ -340,19 +340,24 @@ export function createGitPush({ getData, persist, invoke, advertise, begin }) {
         throw new Error(
           "Push cleanup is unconfirmed. Keep tracking and Inspect again.",
         );
-      if (
-        !sameWorkspace(
-          bindingFor(saved.intent.workspaceId),
-          saved.expectedBinding,
-        )
-      )
+      const currentBinding = bindingFor(saved.intent.workspaceId);
+      if (!sameWorkspace(currentBinding, saved.expectedBinding))
         throw new Error(
           "Git binding changed during Push cleanup. Inspect again.",
         );
-      delete binding.nativePushIntent;
+      // Async cleanup may outlive a whole-state replacement. Mutate the
+      // revalidated live binding rather than the object captured before IPC.
+      delete currentBinding.nativePushIntent;
+      const clearedBinding = copy(currentBinding);
       if (!(await persist())) {
-        if (!binding.nativePushIntent)
-          binding.nativePushIntent = copy(saved.intent);
+        // A failed save may also replace state. Restore only the unchanged
+        // current cleared binding; never adopt a changed binding/new operation.
+        const latest = nativeGitBinding(
+          getData().resources,
+          saved.intent.workspaceId,
+        );
+        if (latest && sameWorkspace(latest, clearedBinding))
+          latest.nativePushIntent = copy(saved.intent);
         throw new Error(
           "Push tracking could not be cleared. Save and Inspect again.",
         );

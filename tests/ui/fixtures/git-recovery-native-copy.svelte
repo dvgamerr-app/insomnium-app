@@ -22,6 +22,7 @@
       "git_repository_restore",
       "git_repository_apply_merge",
       "git_clone_install",
+      "git_remote_push_retire",
     ].includes(command)
   )
     throw new Error("Unsupported saved recovery fixture command");
