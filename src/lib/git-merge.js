@@ -22,12 +22,19 @@ export function createGitMerge(options) {
     const captured = JSON.parse(JSON.stringify(input));
     const session = await client.open(() => getData().resources, workspaceId);
     try {
+      if (captured.expectedSource && (session.info.branch !== captured.expectedSource.branch ||
+          session.info.headOid !== captured.expectedSource.oid))
+        throw new Error("Local branch changed while fetching. Review pull again.");
       const prepared = await client.prepareMerge(session, () => getData().resources, captured);
       if (!sameWorkspace(getData(), before))
         throw new Error("Workspace changed while reviewing merge.");
       const after = prepared.plan?.resources ? checkoutWorkspace(before, prepared.plan.resources) : null;
       const handle = Object.freeze({ workspaceId, branch: prepared.sourceBranch,
         sourceOid: prepared.sourceOid, incomingOid: prepared.candidate.incomingOid,
+        incomingSource: prepared.source.kind === "fetchSnapshot"
+          ? { kind: "fetchSnapshot", url: prepared.source.url, branch: prepared.source.branch,
+              snapshotOid: prepared.source.snapshotOid }
+          : { kind: "localBranch", branch: prepared.source.branch },
         targetOid: prepared.candidate.targetOid, kind: prepared.candidate.kind,
         gitConflicts: structuredClone(prepared.candidate.conflicts),
         conflictContents: structuredClone(prepared.candidate.conflictContents),

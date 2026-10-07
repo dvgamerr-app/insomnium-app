@@ -3,6 +3,7 @@ import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { withNativeApp, poll } from "./helpers/native-app.js";
 import { gitCollection } from "./helpers/git-fixture.js";
+import { openGitRemote } from "./helpers/git-panel.js";
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-remote-settings-ui-probe/build-state.json";
 /** @param {string} s */
@@ -57,6 +58,7 @@ try {
     async ({ page, output, invoke }) => {
       const f = await gitCollection({ page, invoke });
       await page.getByRole("button", { name: "Git", exact: true }).click();
+      await openGitRemote(page);
       let panel = page.getByRole("region", { name: "Git remote", exact: true });
       await panel
         .getByLabel("Repository URL", { exact: true })
@@ -112,6 +114,7 @@ try {
       );
       await page.reload();
       await page.getByRole("button", { name: "Git", exact: true }).click();
+      await openGitRemote(page);
       panel = page.getByRole("region", { name: "Git remote", exact: true });
       await panel.getByLabel("Repository URL", { exact: true }).waitFor();
       assert.equal(
@@ -182,7 +185,7 @@ try {
         async () => aborted === 3,
         "closing dialog cancels native connection",
       );
-      await page.getByRole("button", { name: "Git", exact: true }).click();
+      await openGitRemote(page);
       panel = page.getByRole("region", { name: "Git remote", exact: true });
       await panel.getByLabel("Repository URL", { exact: true }).waitFor();
       assert.equal(

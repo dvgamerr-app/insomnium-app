@@ -10,6 +10,8 @@
     workspace,
     advertiseGitRemote,
     fetchGitRemote,
+    reviewGitPull,
+    cancelGitMerge,
     inspectGitRemoteFetch,
     retireGitRemoteFetch,
     cleanupGitFetchStaging,
@@ -20,8 +22,8 @@
     readGitRemoteSettings,
     validateGitRemoteSettings,
   } from "../git-remote-settings.js";
-  /** @type {{workspaceId:string,disabled?:boolean}} */
-  let { workspaceId, disabled = false } = $props();
+  /** @type {{workspaceId:string,disabled?:boolean,author?:{name:string,email:string},onpullreview?:(review:any)=>void}} */
+  let { workspaceId, disabled = false, author, onpullreview } = $props();
   let url = $state(""),
     kind = $state("anonymous"),
     username = $state(""),
@@ -181,6 +183,26 @@
         busy = false;
         fetching = false;
       }
+    }
+  }
+  async function pullRemote() {
+    if (busy || saving || disabled || !current() || !onpullreview || !author) return;
+    error = "";
+    notice = "";
+    result = null;
+    const active = new AbortController();
+    controller = active;
+    busy = true;
+    fetching = true;
+    try {
+      const review = await reviewGitPull(workspaceId, input, active.signal, fetchBranch, author);
+      if (!current() || active.signal.aborted) cancelGitMerge(review);
+      else onpullreview(review);
+    } catch (cause) {
+      if (current()) error = String(cause);
+    } finally {
+      if (controller === active) controller = null;
+      if (!disposed) { busy = false; fetching = false; }
     }
   }
 
@@ -363,6 +385,11 @@
       disabled={busy || saving || disabled || !!pendingFetch || !url.trim()}
       onclick={fetchRemote}>Fetch remote branches</Button
     >
+    {#if onpullreview}
+      <Button variant="secondary" class="secondary-button"
+        disabled={busy || saving || disabled || !!pendingFetch || !url.trim() || !fetchBranch || !author?.name.trim() || !author?.email.trim()}
+        onclick={pullRemote}>Review pull</Button>
+    {/if}
     {#if pendingFetch}
       <Button
         variant="secondary"
@@ -413,6 +440,8 @@
     for complete history, or enter a positive commit depth for the updated
     branches. Cleanup removes unused temporary downloads across collections;
     active downloads and saved snapshots are kept.
+    {#if onpullreview}Review pull fetches the exact branch with complete history,
+      then reviews its changes before applying them to your current branch.{/if}
   </p>
   {#if pendingFetch}<p class="hint">
       Pending fetch: <code>{pendingFetch.operationId}</code>

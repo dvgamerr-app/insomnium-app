@@ -97,6 +97,20 @@ button.onclick = async () => {
     x = fixture(); review = await x.review(); x.data().settings.theme = "light";
     await rejects(() => x.coordinator.confirm(review), /changed after/);
     check(!x.calls.includes("save"), "Stale review saved data");
+    x = fixture();
+    /** @type {any} */ (x.input).expectedSource = { branch: "other", oid: "a".repeat(40) };
+    await rejects(() => x.review(), /Local branch changed while fetching/);
+    check(!x.calls.includes("git_repository_prepare_merge") && !x.calls.includes("save"), "Changed target branch reached preparation/save");
+    /** @type {any} */ (x.input).expectedSource = { branch: "main", oid: "c".repeat(40) };
+    await rejects(() => x.review(), /Local branch changed while fetching/);
+    check(!x.calls.includes("git_repository_prepare_merge"), "Changed target revision reached preparation");
+    /** @type {any} */ (x.input).expectedSource = { branch: "main", oid: "a".repeat(40) };
+    /** @type {any} */ (x.input).source = { kind: "fetchSnapshot", url: "https://example.invalid/repo",
+      branch: "main", snapshotOid: "d".repeat(40), expectedBinding: { credentialSentinel: "must remain private" } };
+    review = await x.review();
+    check(!JSON.stringify(review).includes("must remain private"), "Pull review exposed private binding");
+    check(review.incomingSource.branch === "main" && review.incomingSource.url === "https://example.invalid/repo", "Pull source display missing");
+    x.coordinator.cancel(review);
     checks.push("cancel-and-full-workspace-stale-review-no-save-or-submit");
     x = fixture({ localEdit: true }); review = await x.review();
     check(review.workingConflicts.length === 1, "Working conflict missing");

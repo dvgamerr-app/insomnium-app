@@ -307,6 +307,45 @@ export function reviewGitMerge(workspaceId, input) {
     return Promise.reject(new Error("Merge requires an available desktop workspace."));
   return mergeGitWorkspace.review(workspaceId, input);
 }
+/** Fetch an explicit branch before reviewing its immutable receipt. Network
+ * work ends before merge confirmation owns the request drain/transition.
+ * @param {string} workspaceId
+ * @param {()=>import("./git-remote-client.js").RemoteInput} getInput
+ * @param {AbortSignal} signal
+ * @param {string} branch
+ * @param {{name:string,email:string}} author */
+export async function reviewGitPull(workspaceId, getInput, signal, branch, author) {
+  const selected = normalizeFetchBranch(branch);
+  if (!selected) throw new Error("Choose an exact remote branch to pull.");
+  if (!author?.name?.trim() || !author?.email?.trim())
+    throw new Error("Enter a merge author name and email.");
+  const capturedAuthor = { name: author.name, email: author.email };
+  const settings = JSON.stringify(validateGitRemoteSettings(getInput()));
+  const endpoint = JSON.parse(settings).url;
+  const session = await gitClient.open(() => workspace.data.resources, workspaceId);
+  let expectedSource;
+  try {
+    if (!session.info.branch || !session.info.headOid)
+      throw new Error("Pull requires a committed local branch.");
+    expectedSource = { branch: session.info.branch, oid: session.info.headOid };
+  } finally { gitClient.close(session); }
+  const result = await fetchGitRemote(workspaceId, getInput, signal, selected, null);
+  if (signal.aborted || !result.current || !result.intentCleared)
+    throw new Error("Fetch was not confirmed for this pull. Inspect its result before reviewing again.");
+  const binding = nativeGitBinding(workspace.data.resources, workspaceId);
+  if (!binding || binding.uri !== endpoint || binding.nativeFetchIntent || binding.nativeCreateIntent ||
+      JSON.stringify(validateGitRemoteSettings(getInput())) !== settings)
+    throw new Error("Remote settings changed after fetching. Review pull again.");
+  const incoming = result.snapshot.manifest.branches.find((/** @type {any} */ row) => row.name === selected);
+  if (!incoming) throw new Error("The selected remote branch is missing from the fetched snapshot.");
+  return reviewGitMerge(workspaceId, {
+    expectedSource,
+    incomingOid: incoming.oid,
+    source: { kind: "fetchSnapshot", url: endpoint, snapshotOid: result.snapshot.oid,
+      branch: selected, expectedBinding: JSON.parse(JSON.stringify(binding)) },
+    author: { ...capturedAuthor, message: `Pull ${selected}` },
+  });
+}
 /** @param {object} review @param {any} choices */
 export function resolveGitMerge(review, choices) {
   return mergeGitWorkspace.resolve(review, choices);

@@ -93,6 +93,12 @@
     cancelGitMerge(mergeReview);
     mergeReview = null;
   }
+  /** @param {any} review */
+  function acceptPullReview(review) {
+    if (!current()) { cancelGitMerge(review); return; }
+    settings = "";
+    mergeReview = review;
+  }
   /** @param {any} choices */
   async function resolveMerge(choices) {
     const previous = mergeReview;
@@ -814,6 +820,8 @@
     {#if settings === "remote"}<GitRemotePanel
         {workspaceId}
         disabled={busy || !!pendingCreation}
+        author={{ name, email }}
+        onpullreview={session?.info.headOid ? acceptPullReview : undefined}
       />
     {:else if settings === "branches" && session}
       {#if (session.info.branches?.length ?? 0) > 1 || !session.info.branch}

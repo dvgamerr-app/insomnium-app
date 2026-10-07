@@ -2,6 +2,8 @@
 
 ## Owner goal workflow — 2026-10-07
 
+Latest step5 network Pull milestone: Review pull performs explicit complete-history Fetch then pinned endpoint/snapshot/local-source review using existing merge workflow. Final loopback native scenario1791371338822 passes6 groups including actual pack downloads, cancel/full preservation, confirmed fast-forward/drain, up-to-date preserving held HTTP and real gated source-ref race refusal; merge5/remote8/Source Control13/contract8/check/build pass. Actual divergent/network recovery/shallow-history/multiple-base/remaining choices/platform/full parity remain open; continue same feature before compact. See STATUS/GIT-REMOTE.
+
 Latest step5 close/restart milestone: saved Windows WM_CLOSE/refusal/recovery/normal close4, reopen2, known pending-journal parent termination1/startup recovery2 checks pass on unchanged current successful build; full workspace/ref/journal/lock cleanup and fresh persisted200 verified. Compiler passes. Continue same unfinished Pull/Merge (remaining choices/network/history/multiple-base/mid-write/platform/full parity) before compact; new Claude instruction discovery applied, none found in relevant paths. See STATUS.
 
 Latest step5 retained-copy milestone: saved mounted merge1791369799995 and restore1791369869235 pass real HTTP drain/guards, actual Windows picker cancellation/write refusal/exact full retained copy/required review/authoritative recovery/no resubmission/fresh persisted200 on fresh native fixture build1791369032699/1791369738849/result0. Full Pull/Merge remains unfinished (remaining choices/OS-close/faults/network/history/multiple bases/platform/full parity); continue same feature before compact. See STATUS.

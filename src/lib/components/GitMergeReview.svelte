@@ -49,6 +49,9 @@
 <DialogShell title="Review merge" dismissible={!busy} onrequestclose={oncancel}>
   <p>Merge into <strong>{review.branch}</strong>: {review.sourceOid.slice(0, 10)} → {review.targetOid?.slice(0, 10) || "Resolve conflicts"}</p>
   <p class="hint">Incoming revision: {review.incomingOid.slice(0, 10)}</p>
+  {#if review.incomingSource?.kind === "fetchSnapshot"}
+    <p class="hint">Pull from {review.incomingSource.url} · {review.incomingSource.branch}</p>
+  {/if}
   {#if review.kind === "upToDate"}
     <p>The current branch already includes this revision.</p>
   {:else if conflicts}
