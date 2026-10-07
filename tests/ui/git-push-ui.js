@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile, stat } from "node:fs/promises";
+import { readFile, stat, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { withNativeApp, poll } from "./helpers/native-app.js";
 import { advanceFixture, fixtureGit } from "./helpers/git-advance-fixture.js";
@@ -17,12 +17,18 @@ process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-recovery-copy-probe/build-state.json";
 const http = await heldHttp();
 const mode = process.env.INSOMNIUM_PUSH_UI_CASE || "normal";
+const ownerFault = [
+  "snapshot-owner-changed",
+  "snapshot-owner-missing",
+].includes(mode);
 assert.ok(
   [
     "normal",
     "unknown",
     "partial-upload",
     "receipt-write-failed",
+    "snapshot-owner-changed",
+    "snapshot-owner-missing",
     "rejected",
     "non-fast-forward",
     "source-advanced",
@@ -54,6 +60,10 @@ try {
       /** @type {Buffer | undefined} */
       let lockedReceiptBytes;
       const receiptErrors = [];
+      const ownerErrors = [];
+      let ownerPath = "";
+      /** @type {Buffer | undefined} */
+      let ownerBytes;
       try {
         if (mode === "partial-upload") {
           const committed = structuredClone(await invoke("load_workspace"));
@@ -301,14 +311,39 @@ try {
             assert.notEqual(expectedSourceRefs, sourceRefs);
           });
         const submittedAt = performance.now();
-        if (mode === "receipt-write-failed") {
+        if (mode === "receipt-write-failed" || ownerFault) {
           remote.beforeNextReceive(async () => {
             const current = await invoke("load_workspace");
             const intent = current.resources.find(
               (/** @type {any} */ row) => row._id === x.f.repositoryId,
             ).nativePushIntent;
-            receiptLock = await lockProbePushReceipt(intent.operationId);
-            lockedReceiptBytes = await readFile(receiptLock.path);
+            if (mode === "receipt-write-failed") {
+              receiptLock = await lockProbePushReceipt(intent.operationId);
+              lockedReceiptBytes = await readFile(receiptLock.path);
+            } else {
+              const receipt = await Bun.file(
+                join(
+                  x.directory,
+                  "git-push-v1",
+                  "push-" + intent.operationId,
+                  "receipt.json",
+                ),
+              ).json();
+              assert.equal(receipt.phase, "submitted");
+              assert.match(receipt.stageName, /^fetch-[a-f0-9-]{36}$/);
+              ownerPath = join(
+                x.directory,
+                "git-fetch-v1",
+                receipt.stageName,
+                ".insomnium-fetch-owner",
+              );
+              ownerBytes = await readFile(ownerPath);
+              assert.equal(ownerBytes.toString("utf8"), receipt.stageMarker);
+              const changed = Buffer.from(ownerBytes);
+              changed[0] = changed[0] === 65 ? 66 : 65;
+              if (mode === "snapshot-owner-missing") await unlink(ownerPath);
+              else await Bun.write(ownerPath, changed);
+            }
           });
         }
         await dialog
@@ -345,6 +380,16 @@ try {
             remote.state.completedHeldReceives,
             mode === "completed-stop" ? 1 : 0,
           );
+        } else if (ownerFault) {
+          await panel
+            .getByRole("alert")
+            .filter({ hasText: "Inspect pending Push" })
+            .waitFor();
+          assert.match(
+            await panel.getByRole("alert").innerText(),
+            /ownership changed|Missing Git staging ownership/i,
+          );
+          ownerErrors.push(await panel.getByRole("alert").innerText());
         } else if (mode === "receipt-write-failed") {
           await panel
             .getByRole("alert")
@@ -474,6 +519,13 @@ try {
             "actual Windows receipt replacement denied after real server acceptance: original submitted receipt bytes retained, no false durable success; independent server commit/tree preserved",
           );
         }
+        if (ownerFault) {
+          assert.equal(nativeReceipt.phase, "submitted");
+          assert.equal(nativeReceipt.result, null);
+          checks.push(
+            "actual snapshot owner changed or removed after upload negotiation: accepted server commit retained but completion refuses receipt promotion; full local state/intent retained",
+          );
+        }
         const outgoing = nativeReceipt.stageName
           ? join(x.directory, "git-fetch-v1", nativeReceipt.stageName)
           : null;
@@ -524,6 +576,8 @@ try {
             "unknown",
             "partial-upload",
             "receipt-write-failed",
+            "snapshot-owner-changed",
+            "snapshot-owner-missing",
             "stop",
             "timeout",
             "completed-stop",
@@ -542,11 +596,13 @@ try {
           checks.push(
             ["stop", "timeout", "completed-stop"].includes(mode)
               ? "stopped submitted Push survives reload; fresh Inspect does not resend or rewrite full data"
-              : mode === "receipt-write-failed"
-                ? "actual finished-receipt write refusal survives reload with original submitted receipt/intent; no automatic second POST or full-data rewrite"
-                : partial
-                  ? "actual partial-upload disconnect survives reload as pending Push; no second proxy POST, server upload or full-data rewrite"
-                  : "real completed-server HTTP503 survives reload as pending Push; no automatic upload or full-data rewrite",
+              : ownerFault
+                ? "ownership mismatch survives reload as pending Push with no automatic upload or snapshot cleanup"
+                : mode === "receipt-write-failed"
+                  ? "actual finished-receipt write refusal survives reload with original submitted receipt/intent; no automatic second POST or full-data rewrite"
+                  : partial
+                    ? "actual partial-upload disconnect survives reload as pending Push; no second proxy POST, server upload or full-data rewrite"
+                    : "real completed-server HTTP503 survives reload as pending Push; no automatic upload or full-data rewrite",
           );
         }
 
@@ -597,6 +653,66 @@ try {
             mode === "inspect-failed"
               ? "real remote discovery HTTP503 during Inspect: no observation review, exact receipt/intent/full bytes/data retained and no upload; fresh explicit inspection remains required"
               : "Stop during real independent Inspect/held advertisement disconnects discovery worker; no observation/receipt/intent/full bytes/data/server mutation or upload, fresh explicit inspection required",
+          );
+        }
+        if (ownerFault) {
+          assert.ok(outgoing);
+          const advertisements = remote.state.advertisements;
+          const retained = await readFile(x.workspace);
+          await panel
+            .getByRole("button", { name: "Inspect pending Push", exact: true })
+            .click();
+          await panel
+            .getByRole("alert")
+            .filter({
+              hasText: /ownership changed|Missing Git staging ownership/i,
+            })
+            .waitFor();
+          ownerErrors.push(await panel.getByRole("alert").innerText());
+          assert.equal(
+            await page
+              .getByRole("dialog", { name: "Inspect Push result", exact: true })
+              .count(),
+            0,
+          );
+          await assert.rejects(
+            invoke("git_remote_push_retire", {
+              request: {
+                push: {
+                  intent: actualBinding.nativePushIntent,
+                  expectedBinding: actualBinding,
+                },
+                attemptId: crypto.randomUUID(),
+                expectedReceipt: nativeReceipt,
+              },
+            }),
+            (error) => {
+              ownerErrors.push(String(error));
+              assert.match(
+                String(error),
+                mode === "snapshot-owner-missing"
+                  ? /Cannot inspect fetch staging/
+                  : /Unsupported fetch staging owner/,
+              );
+              return true;
+            },
+          );
+          assert.equal(remote.state.advertisements, advertisements);
+          assert.equal(remote.state.receivePosts, 1);
+          assert.equal(await remote.tip(), x.f.oid);
+          assert.deepEqual(await invoke("load_workspace"), after);
+          assert.deepEqual(await readFile(x.workspace), retained);
+          assert.deepEqual(
+            JSON.parse(await readFile(receiptPath, "utf8")),
+            nativeReceipt,
+          );
+          assert.equal((await stat(outgoing)).isDirectory(), true);
+          assert.equal(http.cancelled, 0);
+          assert.ok(ownerBytes);
+          await Bun.write(ownerPath, ownerBytes);
+          ownerBytes = undefined;
+          checks.push(
+            "ownership-mismatched Inspect refuses before discovery and creates no cleanup review; direct native retirement also refuses, exact receipt/intent/full bytes/snapshot retained; fixture restores original owner bytes before fresh explicit inspection",
           );
         }
         await panel
@@ -823,6 +939,14 @@ try {
           JSON.stringify(
             {
               checks,
+              ownerFault: ownerFault
+                ? {
+                    mode,
+                    errors: ownerErrors,
+                    scope:
+                      "Controlled modification/removal and byte-exact fixture restoration of an owned filesystem marker during real native Push; not spontaneous disk failure, malicious replacement or power-loss proof.",
+                  }
+                : undefined,
               receiptErrors: receiptErrors.length ? receiptErrors : undefined,
               partial: partial?.state,
               partialScope: partial
@@ -841,6 +965,7 @@ try {
         );
         console.log(JSON.stringify({ passed: checks.length, checks }));
       } finally {
+        if (ownerBytes) await Bun.write(ownerPath, ownerBytes);
         receiptLock?.release();
         await partial?.close();
         await remote.close();
