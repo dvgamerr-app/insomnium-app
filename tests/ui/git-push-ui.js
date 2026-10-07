@@ -24,6 +24,8 @@ const ownerFault = [
 assert.ok(
   [
     "normal",
+    "equal",
+    "fast-forward",
     "unknown",
     "partial-upload",
     "receipt-write-failed",
@@ -52,6 +54,8 @@ try {
       const { page, invoke, output } = context;
       const x = await advanceFixture(context);
       const remote = await serveReceivePack(output);
+      /** @type {string | null} */
+      let expectedRemoteOid = null;
       const checks = [];
       /** @type {Awaited<ReturnType<typeof servePartialReceive>> | undefined} */
       let partial;
@@ -65,6 +69,29 @@ try {
       /** @type {Buffer | undefined} */
       let ownerBytes;
       try {
+        if (["equal", "fast-forward"].includes(mode)) {
+          expectedRemoteOid = x.f.oid;
+          await fixtureGit(remote.repo, [
+            "fetch",
+            "--no-tags",
+            x.repo,
+            x.f.oid,
+          ]);
+          await fixtureGit(remote.repo, [
+            "update-ref",
+            "refs/heads/main",
+            x.f.oid,
+          ]);
+          if (mode === "fast-forward") {
+            await fixtureGit(x.repo, [
+              "update-ref",
+              "refs/heads/main",
+              x.newOid,
+              x.f.oid,
+            ]);
+            x.f.oid = x.newOid;
+          }
+        }
         if (mode === "partial-upload") {
           const committed = structuredClone(await invoke("load_workspace"));
           committed.resources.find(
@@ -87,6 +114,7 @@ try {
           partial = await servePartialReceive(remote, output);
         }
         if (mode === "non-fast-forward") {
+          expectedRemoteOid = x.newOid;
           // Seed an independently advanced owned server using real Git objects.
           await fixtureGit(remote.repo, [
             "fetch",
@@ -427,12 +455,15 @@ try {
                 ? "Remote outcome is unknown."
                 : mode === "rejected"
                   ? "Server rejected the Push. Local data is unchanged."
-                  : mode === "non-fast-forward"
-                    ? "Push needs the remote history. No update was sent."
-                    : "Server accepted the reviewed Push.",
+                  : mode === "equal"
+                    ? "The remote already had this commit."
+                    : mode === "non-fast-forward"
+                      ? "Push needs the remote history. No update was sent."
+                      : "Server accepted the reviewed Push.",
             })
             .waitFor();
         const expectedPosts = [
+          "equal",
           "partial-upload",
           "non-fast-forward",
           "source-before-confirm",
@@ -504,6 +535,30 @@ try {
           "receipt.json",
         );
         const nativeReceipt = JSON.parse(await readFile(receiptPath, "utf8"));
+        if (["equal", "fast-forward"].includes(mode)) {
+          assert.equal(nativeReceipt.phase, "finished");
+          assert.equal(
+            nativeReceipt.result.outcome,
+            mode === "equal" ? "unchanged" : "accepted",
+          );
+          assert.equal(
+            nativeReceipt.intent.expectedRemoteOid,
+            expectedRemoteOid,
+          );
+          assert.equal(
+            await fixtureGit(remote.repo, [
+              "merge-base",
+              expectedRemoteOid || "",
+              x.f.oid,
+            ]),
+            expectedRemoteOid,
+          );
+          checks.push(
+            mode === "equal"
+              ? "product reports remote already has commit: durable unchanged receipt and zero upload, independent exact remote commit/tree unchanged"
+              : "product fast-forward from independently seeded remote: durable accepted receipt, exactly one upload, pinned complete remote commit/tree and original remote ancestor preserved",
+          );
+        }
         if (partial) {
           assert.equal(nativeReceipt.phase, "finished");
           assert.equal(nativeReceipt.result.outcome, "unknown");
@@ -543,7 +598,7 @@ try {
         assert.equal(actualBinding.nativePushIntent.destinationBranch, "main");
         assert.equal(
           actualBinding.nativePushIntent.expectedRemoteOid,
-          mode === "non-fast-forward" ? x.newOid : null,
+          expectedRemoteOid,
         );
         assert.deepEqual(after, expected);
         assert.equal(
