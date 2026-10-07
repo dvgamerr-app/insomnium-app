@@ -1,17 +1,25 @@
 import { exerciseSplit } from "./helpers/split-pane.js";
 import assert from "node:assert/strict";
 import { createServer } from "node:http2";
-import { withNativeApp } from "./helpers/native-app.js";
+import { withNativeApp, poll } from "./helpers/native-app.js";
 import { gitCollection } from "./helpers/git-fixture.js";
 
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-nocturne-controls-probe/build-state.json";
 let fail = false;
+let heldCalls = 0;
+let cancelledCalls = 0;
+const gate = { release: /** @type {null|(()=>void)} */ (null) };
 const server = createServer();
 server.on(
   "stream",
-  (/** @type {import('node:http2').ServerHttp2Stream} */ stream) => {
+  (/** @type {import('node:http2').ServerHttp2Stream} */ stream, headers) => {
     stream.on("error", () => {});
+    if (headers[":path"] === "/theme.Sample/Hold") {
+      heldCalls++;
+      stream.once("close", () => cancelledCalls++);
+      return;
+    }
     let received = Buffer.alloc(0);
     let responded = false;
     stream.on("data", (chunk) => {
@@ -26,26 +34,37 @@ server.on(
       )
         return;
       responded = true;
-      stream.respond(
-        {
-          ":status": 200,
-          "content-type": "application/grpc",
-          "theme-metadata": "sample",
-        },
-        { waitForTrailers: true },
-      );
-      stream.on("wantTrailers", () =>
-        stream.sendTrailers({
-          "grpc-status": fail ? "13" : "0",
-          "theme-trailer": "complete",
-          ...(fail ? { "grpc-message": "Theme fixture error" } : {}),
-        }),
-      );
-      const text = Buffer.from("Theme response");
-      const payload = Buffer.concat([Buffer.from([10, text.length]), text]);
-      const frame = Buffer.alloc(5);
-      frame.writeUInt32BE(payload.length, 1);
-      stream.end(fail ? undefined : Buffer.concat([frame, payload]));
+      const respond = () => {
+        stream.respond(
+          {
+            ":status": 200,
+            "content-type": "application/grpc",
+            "theme-metadata": "sample",
+          },
+          { waitForTrailers: true },
+        );
+        stream.on("wantTrailers", () =>
+          stream.sendTrailers({
+            "grpc-status": fail ? "13" : "0",
+            "theme-trailer": "complete",
+            ...(fail ? { "grpc-message": "Theme fixture error" } : {}),
+          }),
+        );
+        const text = Buffer.from("Theme response");
+        const payload = Buffer.concat([Buffer.from([10, text.length]), text]);
+        const frame = Buffer.alloc(5);
+        frame.writeUInt32BE(payload.length, 1);
+        const message = Buffer.concat([frame, payload]);
+        stream.end(
+          fail
+            ? undefined
+            : headers[":path"] === "/theme.Sample/Watch"
+              ? Buffer.concat([message, message])
+              : message,
+        );
+      };
+      if (headers[":path"] === "/theme.Sample/Gate") gate.release = respond;
+      else respond();
     });
   },
 );
@@ -73,7 +92,7 @@ try {
         name: "theme-response.proto",
         mimeType: "text/plain",
         buffer: Buffer.from(
-          'syntax = "proto3"; package theme; message Input { string name = 1; } service Sample { rpc Echo (Input) returns (Input); }',
+          'syntax = "proto3"; package theme; message Input { string name = 1; } service Sample { rpc Echo (Input) returns (Input); rpc Watch (Input) returns (stream Input); rpc Collect (stream Input) returns (Input); rpc Chat (stream Input) returns (stream Input); rpc Hold (Input) returns (stream Input); rpc Gate (stream Input) returns (stream Input); }',
         ),
       });
       await page
@@ -115,6 +134,13 @@ try {
           .locator(".grpc-message")
           .filter({ hasText: "Theme response" })
           .waitFor();
+        // Wait for native invoke completion, not just the terminal Channel event.
+        await page.getByRole("button", { name: "Send", exact: true }).waitFor();
+        assert.equal(await page.locator(".inline-error").count(), 0);
+        assert.equal(
+          await page.locator(".grpc-response .status-badge").innerText(),
+          "0 OK",
+        );
         await page.setViewportSize({ width: 1440, height: 960 });
         await exerciseSplit(page, "gRPC request and response size");
         for (const width of [1440, 900, 760]) {
@@ -141,7 +167,135 @@ try {
         fail = true;
         await page.getByRole("button", { name: "Send", exact: true }).click();
         await page.locator(".grpc-response .status-badge.failure").waitFor();
+        await page.getByRole("button", { name: "Send", exact: true }).waitFor();
+        assert.equal(await page.locator(".inline-error").count(), 0);
+        assert.ok(
+          (
+            await page.locator(".grpc-response .status-badge").innerText()
+          ).startsWith("13 "),
+        );
         await page.screenshot({ path: `${output}/${theme}-grpc-error.png` });
+        fail = false;
+        for (const [name, mode, clientStreaming] of [
+          ["Watch", "Server streaming", false],
+          ["Collect", "Client streaming", true],
+          ["Chat", "Bidirectional", true],
+        ]) {
+          await page
+            .getByRole("combobox", { name: "gRPC method", exact: true })
+            .selectOption({ label: `/Sample/${name} · ${mode}` });
+          await page
+            .getByRole("tablist", { name: "gRPC request editor", exact: true })
+            .getByRole("tab", { name: "Body", exact: true })
+            .click();
+          await page
+            .getByRole("button", {
+              name: clientStreaming ? "Connect" : "Send",
+              exact: true,
+            })
+            .click();
+          if (clientStreaming) {
+            await page
+              .getByRole("button", { name: "Send message", exact: true })
+              .waitFor({ state: "visible" });
+            await page
+              .getByRole("button", { name: "Send message", exact: true })
+              .click();
+          }
+          await page
+            .locator(".grpc-response .status-badge")
+            .filter({ hasText: "0 OK" })
+            .waitFor();
+          await page
+            .getByRole("button", {
+              name: clientStreaming ? "Connect" : "Send",
+              exact: true,
+            })
+            .waitFor();
+          assert.equal(
+            await page.locator(".inline-error").count(),
+            0,
+            `${mode} has no spurious cancellation`,
+          );
+          await page
+            .getByRole("tablist", { name: "gRPC response tabs", exact: true })
+            .getByRole("tab", { name: "Response", exact: true })
+            .click();
+          assert.equal(
+            await page.locator(".grpc-message").count(),
+            name === "Watch" ? 2 : 1,
+          );
+        }
+        gate.release = null;
+        await page
+          .getByRole("combobox", { name: "gRPC method", exact: true })
+          .selectOption({ label: "/Sample/Gate · Bidirectional" });
+        await page
+          .getByRole("button", { name: "Connect", exact: true })
+          .click();
+        await page
+          .getByRole("button", { name: "Send message", exact: true })
+          .click();
+        await poll(
+          async () => gate.release !== null,
+          "first Gate message received",
+        );
+        await page
+          .locator(".CodeMirror")
+          .first()
+          .evaluate((el) => {
+            /** @type {any} */ (el).CodeMirror.setValue(
+              "{\"name\":\"{% prompt 'Pending gRPC sender', 'Value', 'queued' %}\"}",
+            );
+          });
+        await page
+          .getByRole("button", { name: "Send message", exact: true })
+          .click();
+        const pending = page.getByRole("dialog", {
+          name: "Pending gRPC sender",
+          exact: true,
+        });
+        await pending.waitFor();
+        const release = /** @type {null|(()=>void)} */ (gate.release);
+        assert.ok(release);
+        release();
+        await pending.waitFor({ state: "hidden" });
+        await page
+          .getByRole("button", { name: "Connect", exact: true })
+          .waitFor();
+        assert.equal(
+          await page.locator(".grpc-response .status-badge").innerText(),
+          "0 OK",
+        );
+        assert.equal(
+          await page.locator(".inline-error").count(),
+          0,
+          "completed call cancels pending prompt without an error",
+        );
+        await page
+          .locator(".CodeMirror")
+          .first()
+          .evaluate((el) => {
+            /** @type {any} */ (el).CodeMirror.setValue("{}");
+          });
+        const before = heldCalls;
+        const closedBefore = cancelledCalls;
+        await page
+          .getByRole("combobox", { name: "gRPC method", exact: true })
+          .selectOption({ label: "/Sample/Hold · Server streaming" });
+        await page.getByRole("button", { name: "Send", exact: true }).click();
+        await poll(async () => heldCalls > before, "held gRPC reached server");
+        await page.getByRole("button", { name: "Cancel", exact: true }).click();
+        await page.getByRole("button", { name: "Send", exact: true }).waitFor();
+        await poll(
+          async () => cancelledCalls > closedBefore,
+          "gRPC cancellation closes transport",
+        );
+        assert.ok(
+          (await page.locator(".inline-error").allTextContents())
+            .join(" ")
+            .includes("cancelled"),
+        );
       }
       assert.deepEqual(errors, []);
       await Bun.write(
@@ -151,7 +305,17 @@ try {
             passed: true,
             themes: ["dark", "light"],
             widths: [1440, 900, 760],
-            states: ["response", "sent", "metadata", "trailers", "error"],
+            states: [
+              "response",
+              "sent",
+              "metadata",
+              "trailers",
+              "error",
+              "server-streaming",
+              "client-streaming",
+              "bidirectional",
+              "cancel",
+            ],
           },
           null,
           2,

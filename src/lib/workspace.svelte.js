@@ -1265,9 +1265,9 @@ export async function executeGrpc(requestId, discoveryOnly = false) {
           live.trailers = event.trailers;
           live.connectionState = "closed";
           run.senderClosed = true;
-          controller.abort(
-            new DOMException("gRPC call completed", "AbortError"),
-          );
+          // Let connectGrpc acknowledge the terminal status and detach its
+          // cancellation listener before the finally block aborts pending sends.
+          run.phase = "completed";
         }
         if (event.kind === "message")
           live.size += new TextEncoder().encode(event.text).length;
@@ -1385,7 +1385,10 @@ export async function sendGrpc(requestId, finish = false) {
     else if (workspace.responses[requestId]?._id === running.id)
       appendStreamEvent(workspace.responses[requestId], { kind: "sent", text });
   } catch (error) {
-    if (workspace.running[requestId]?.id === running.id)
+    if (
+      workspace.running[requestId]?.id === running.id &&
+      run.phase !== "completed"
+    )
       workspace.grpcErrors[requestId] = String(error);
   } finally {
     run.sending = false;

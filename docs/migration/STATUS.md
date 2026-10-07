@@ -1,5 +1,17 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## gRPC terminal acknowledgement and pending sender cleanup — 2026-10-07
+
+- Fixed review R1: terminal status closes the sender and marks its phase completed without aborting the transport controller inside the Channel callback. connectGrpc can acknowledge status and settle its native invoke before final cleanup aborts pending renders. A sender interrupted by terminal completion no longer overwrites the successful result with its cleanup error; active Cancel still cancels native transport.
+- Fresh native build artifacts/native-completion-probe/build-state.json completed exit0 (8m16s). Saved nocturne-grpc-theme passes unary, server streaming (two responses), client streaming, bidirectional, non-OK 13, held-call Cancel with server-side close, and terminal completion while a second message waits in a real prompt dialog. Both themes and widths 1440/900/760 pass; dark 760 screenshot inspected. Evidence: artifacts/playwright/nocturne-grpc-theme-1791348103242/{acceptance,result}.json, owned app exit0.
+- bun run check passes 0 errors/0 warnings; bun run build and theme/workspace regressions pass. The first expanded native scenario used Send instead of Connect for client streams, was corrected and rerun. Native git-source-control also passes on this build: artifacts/playwright/git-source-control-1791348146907, including Preferences > Git author path and current unified diff.
+- Official references consulted before this lifecycle repair: https://v2.tauri.app/develop/calling-frontend/ (Channels) and https://developer.mozilla.org/en-US/docs/Web/API/AbortController/abort. Existing subsystem extended; no generator/dependency required. Commands: bun run check; bun run build; INSOMNIUM_UI_BUILD_STATE=artifacts/native-completion-probe/build-state.json bun tests/ui/nocturne-grpc-theme.js. Remaining gRPC/provider/platform and original full migration gates stay open.
+
+## Native protocol regression work in progress — 2026-10-07
+
+- Fresh isolated native build completed exit0 in 8m16s: artifacts/native-completion-probe/build-state.json. gRPC unary/non-OK and server-streaming checks reached their completed state, but the expanded saved scenario stopped because its client-streaming action incorrectly looked for Send rather than the existing Connect button. Corrected the scenario's action/completion names; rerun pending. Owned probe exited0. This failure is scenario coverage, not a proven product failure.
+- Stream JSON formatter now preserves original number tokens after syntax validation. Expanded saved stream scenario covers large integers/decimals/exponents, raw Copy, ordinary/invalid JSON and WebSocket binary fallback; native acceptance pending. No full parity completion claim.
+
 ## Shared UI contract and adoption inventory — 2026-10-07
 
 - Updated the UI README for Checkbox, FilePicker, tabs, segmented choices, Toolbar, EmptyState, FormPanel, Feedback and DialogShell, including actual Field/native validation and awaited file reset contracts. Recorded current consumer counts and style owners. Static scan finds only the CodeMirror-owned textarea as raw form/button markup outside ui; feature scoped CSS/token/alias audit remains open.
