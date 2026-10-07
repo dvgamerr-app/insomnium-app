@@ -10,11 +10,15 @@ const dir = "artifacts/native-recovery-copy-probe";
 await mkdir(dir, { recursive: true });
 const started = Date.now();
 const statePath = join(dir, "build-state.json");
+const lowMemory = process.env.INSOMNIUM_UI_LOW_MEMORY === "1";
 const state = {
   status: "running",
   started,
   identifier: probeIdentifier,
   artifact: join(dir, "insomnium-recovery-copy-probe.exe"),
+  compilerProfile: lowMemory
+    ? "release with probe-only insomnium opt-level=1/codegen-units=16"
+    : "production release profile",
 };
 await Bun.write(statePath, JSON.stringify(state, null, 2));
 const asset = "build/__saved-recovery-fixture.js";
@@ -29,7 +33,9 @@ try {
     windowsHide: true,
   });
   assert.equal(await frontend.exited, 0, "Frontend build failed");
-  const { root } = await buildComponentFixture("git-recovery-native-copy");
+  const { root } = await buildComponentFixture("git-recovery-native-copy", {
+    minify: true,
+  });
   const bundle = await Bun.file(
     join(root, "git-recovery-native-copy.js"),
   ).text();
@@ -61,6 +67,15 @@ try {
         identifier: probeIdentifier,
         build: { beforeBuildCommand: null },
       }),
+      ...(lowMemory
+        ? [
+            "--",
+            "--config",
+            "profile.release.package.insomnium.opt-level=1",
+            "--config",
+            "profile.release.package.insomnium.codegen-units=16",
+          ]
+        : []),
     ],
     {
       env,
@@ -69,6 +84,14 @@ try {
       windowsHide: true,
     },
   );
+  // Persist launcher identity and embedded input hash before waiting. If the
+  // wrapper is interrupted, the next turn can audit its exact child ancestry.
+  Object.assign(state, {
+    nativePid: native.pid,
+    fixtureHash,
+    nativeStarted: Date.now(),
+  });
+  await Bun.write(statePath, JSON.stringify(state, null, 2));
   code = await native.exited;
   if (code === 0)
     await copyFile("src-tauri/target/release/insomnium.exe", state.artifact);

@@ -25,7 +25,9 @@ export async function runNativeRecoveryCopy(kind) {
 
   process.env.INSOMNIUM_UI_BUILD_STATE ||=
     "artifacts/native-recovery-copy-probe/build-state.json";
-  const { root } = await buildComponentFixture("git-recovery-native-copy");
+  const { root } = await buildComponentFixture("git-recovery-native-copy", {
+    minify: true,
+  });
   const build = await Bun.file(process.env.INSOMNIUM_UI_BUILD_STATE).json();
   assert.equal(
     build.fixtureHash,
@@ -104,7 +106,12 @@ export async function runNativeRecoveryCopy(kind) {
           return (await evidence()).ready;
         }, "Mounted production App initialization");
         if (kind === "clone") {
-          await page.keyboard.press("Control+s");
+          // The hidden bootstrap and mounted fixture have separate window
+          // shortcut handlers. Use the fixture's own selection control so only
+          // its live workspace creates/persists the baseline metadata.
+          await page
+            .getByRole("combobox", { name: "Active environment", exact: true })
+            .selectOption(fixture.data.activeEnvironmentId);
           await poll(
             async () =>
               (await invoke("load_workspace")).resources.some(
@@ -456,8 +463,10 @@ export async function runNativeRecoveryCopy(kind) {
           null,
         );
         if (kind === "clone") {
-          await page.getByRole("dialog", { name: "Clone repository", exact: true })
-            .getByRole("button", { name: "Cancel Clone", exact: true }).click();
+          await page
+            .getByRole("dialog", { name: "Clone repository", exact: true })
+            .getByRole("button", { name: "Cancel Clone", exact: true })
+            .click();
         }
         await page
           .getByRole("button", { name: "Collections", exact: true })

@@ -6,8 +6,9 @@ import { launchUiBrowser } from "./preview-app.js";
 
 /** Compile the real UI components into a saved, isolated contract fixture using Bun.
  * @param {string} name
+ * @param {{minify?:boolean}} [options]
  */
-export async function buildComponentFixture(name) {
+export async function buildComponentFixture(name, options = {}) {
   const output = resolve("artifacts/playwright", name);
   const root = resolve(output, "bundle");
   await mkdir(root, { recursive: true });
@@ -15,6 +16,7 @@ export async function buildComponentFixture(name) {
     entrypoints: ["tests/ui/fixtures/" + name + ".js"],
     outdir: root,
     target: "browser",
+    minify: options.minify ?? false,
     conditions: ["browser", "svelte"],
     plugins: [
       {
