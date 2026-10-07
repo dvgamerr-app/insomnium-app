@@ -128,9 +128,18 @@ pub(crate) fn prepare(repo: &Repository, input: &MergeInput) -> Result<MergeCand
         check_head(repo, &branch, old)?;
         return Ok(candidate);
     }
-    // Missing shallow ancestors must not be mistaken for divergence/unrelated history.
+    // Only the selected histories govern graph classification. A retained
+    // snapshot for another endpoint may still have a valid unrelated cut.
+    // Honor declared cuts even when parent objects happen to exist; Fetch owns
+    // expanding/reconciling shallow metadata, never merge preparation.
     if repo.is_shallow() {
-        return Err("Expand fetched history before classifying this merge".into());
+        let boundaries = crate::git_remote::read_shallow_boundaries(repo.path())?;
+        for tip in [old, incoming] {
+            let history = crate::git_remote::history_view_while(repo, tip, &boundaries, || Ok(()))?;
+            if !history.shallow_boundaries.is_empty() {
+                return Err("Expand fetched history before classifying this merge".into());
+            }
+        }
     }
     if repo.graph_descendant_of(old, incoming).map_err(error)? {
         if input.resolutions.is_some() {
