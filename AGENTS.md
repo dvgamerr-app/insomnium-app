@@ -1,5 +1,7 @@
 # Project instructions
 
+- Owner instruction (2026-10-07): After completing each feature, commit verified work by topic and compact the session with `/compact` before starting the next feature. Record the current commit, evidence, remaining gates and any live process handles in docs/migration/STATUS.md first. If this agent interface cannot invoke `/compact`, explicitly report that limitation and provide the handoff instead of claiming compaction occurred.
+
 - Owner follow-up (2026-09-30): After the current migration goal is fully complete, build reusable input components in src/lib/components/ui with centralized styling/behavior and redesign UX, using https://hoppscotch.io as a possible reference. Deferred scope and sequence: docs/migration/POST-MIGRATION-UX.md. Preserve the existing Insomnium UI during the current migration; the redesign is the subsequent phase. Browser-use remains prohibited.
 
 - Owner instruction (2026-09-30): Never use browser-use tools (the owner prohibits them because of token cost). For UI testing, do not use ad-hoc browser automation; use saved Playwright scenarios. Write and maintain reusable Playwright JavaScript UI test files, separated by feature/scenario, with shared fixtures/helpers. Rerun or edit the existing scenario for the same behavior instead of repeating interactive browser steps. Run tooling/scripts with Bun only; do not launch Node/npm/yarn. The owner explicitly authorizes these UI test scripts as an exception to the general no-new-test-scripts rule.

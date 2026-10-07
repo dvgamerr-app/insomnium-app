@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Feature boundary and compaction handoff — 2026-10-07
+
+- Owner requires `/compact` after every completed feature before starting the next. Persisted the instruction in AGENTS.md alongside topic commits and evidence handoff. This interface exposes no session-compaction callable tool; never claim compaction from a chat message or shell command. Official command reference: https://developers.openai.com/blog/mastering-codex-remote-for-engineering (section7/9).
+- Completed current selected-restore integration/toolbar/active-HTTP acceptance batch: functionality435b63b, toolbar03ec000; latest acceptance commit is immediately before this workflow-instruction commit (git log). Successful build: artifacts/native-restore-layout-probe/build-state.json. Saved native results: git-source-control1791350959259, git-restore1791351033422, runner-lifecycle1791351058954, all owned exits0. Check0/0. No live build/test handle remains.
+- Full goal remains active. Next restore work is actual disk-failure and retained-copy OS picker/review acceptance; remote/pull/push/clone/merge and all original compatibility/platform/CI/CSS gates remain. Resume by reading STATUS/PLAN/PARITY and checking worktree/evidence. Do not start another feature before the requested compaction boundary.
+
 ## Restore active-run drain acceptance — 2026-10-07
 
 - Expanded existing git-restore scenario with a real held native HTTP request. Restore confirmation closes the server connection, restores selected request, preserves exact history without cancelled entry, and admits a new successful native send afterward. Saved git-restore1791351033422 passes these plus earlier refusal/selected-resource/recovery cases on native-restore-layout-probe, owned exit0. Shared held-http helper now serves restore and runner; runner-lifecycle1791351058954 regression passes (owned exit0).
