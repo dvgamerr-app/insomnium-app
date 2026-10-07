@@ -5,8 +5,9 @@ import { join } from "node:path";
 import { withNativeApp, poll } from "./helpers/native-app.js";
 import { gitCollection } from "./helpers/git-fixture.js";
 import { gitPackFixture } from "./helpers/git-pack-fixture.js";
+import { openGitRemote } from "./helpers/git-panel.js";
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
-  "artifacts/native-fetch-retire-ui-probe/build-state.json";
+  "artifacts/native-recovery-copy-probe/build-state.json";
 const fixture = gitPackFixture();
 let requests = 0,
   stalls = 0,
@@ -63,6 +64,7 @@ try {
     const scope = { signal: new AbortController().signal, current: () => true };
     const f = await gitCollection({ page, invoke });
     await page.getByRole("button", { name: "Git", exact: true }).click();
+    await openGitRemote(page);
     const panel = page.getByRole("region", { name: "Git remote", exact: true });
     const url = panel.getByLabel("Repository URL", { exact: true });
     const fetchButton = panel.getByRole("button", {
@@ -199,6 +201,7 @@ try {
     await invoke("save_workspace", { data: pendingData });
     await page.reload();
     await page.getByRole("button", { name: "Git", exact: true }).click();
+    await openGitRemote(page);
     const inspectButton = panel.getByRole("button", {
       name: "Inspect pending fetch",
       exact: true,
@@ -262,6 +265,7 @@ try {
     assert.equal(requests, stoppedCount);
     await page.reload();
     await page.getByRole("button", { name: "Git", exact: true }).click();
+    await openGitRemote(page);
     await inspectButton.waitFor();
     assert.equal(await fetchButton.isEnabled(), false);
     assert.equal(
@@ -322,6 +326,7 @@ try {
     );
     await page.reload();
     await page.getByRole("button", { name: "Git", exact: true }).click();
+    await openGitRemote(page);
     assert.equal(
       await panel
         .getByRole("button", { name: "Inspect pending fetch", exact: true })
