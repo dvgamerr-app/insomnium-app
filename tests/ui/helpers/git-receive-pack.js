@@ -30,6 +30,9 @@ export async function serveReceivePack(output, options = {}) {
     redirectNextReceiveTo: "",
     redirectedReceives: 0,
     redirectReceiveStatus: 307,
+    redirectNextAdvertisementTo: "",
+    redirectAllAdvertisementsTo: "",
+    redirectedAdvertisements: 0,
     advertisements: 0,
     failNextAdvertisement: false,
     failedAdvertisements: 0,
@@ -115,6 +118,27 @@ export async function serveReceivePack(output, options = {}) {
         service === "git-receive-pack" ? "receive-pack" : "upload-pack";
       if (request.method === "GET") {
         state.advertisements++;
+        if (
+          state.redirectNextAdvertisementTo ||
+          state.redirectAllAdvertisementsTo
+        ) {
+          const target = new URL(
+            state.redirectAllAdvertisementsTo ||
+              state.redirectNextAdvertisementTo,
+          );
+          assert.equal(target.protocol, "http:");
+          assert.equal(target.hostname, "127.0.0.1");
+          assert.ok(target.port && !target.username && !target.password);
+          state.redirectNextAdvertisementTo = "";
+          state.redirectedAdvertisements++;
+          assert.ok(
+            [301, 302, 303, 307, 308].includes(state.redirectReceiveStatus),
+          );
+          return new Response("", {
+            status: state.redirectReceiveStatus,
+            headers: { Location: target.href },
+          });
+        }
         if (state.failNextAdvertisement) {
           state.failNextAdvertisement = false;
           state.failedAdvertisements++;

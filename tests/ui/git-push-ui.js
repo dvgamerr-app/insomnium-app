@@ -33,6 +33,7 @@ assert.ok(
     "fast-forward",
     "basic-auth",
     "post-redirect",
+    "discovery-redirect",
     "basic-push-refused",
     "basic-post-refused",
     "basic-inspect-refused",
@@ -66,6 +67,7 @@ try {
       const basicAuth = [
         "basic-auth",
         "post-redirect",
+        "discovery-redirect",
         "basic-inspect-refused",
         "basic-push-refused",
         "basic-post-refused",
@@ -87,28 +89,29 @@ try {
         credentialRequests: 0,
         bytes: 0,
       };
-      const redirectSink =
-        mode === "post-redirect"
-          ? Bun.serve({
-              hostname: "127.0.0.1",
-              port: 0,
-              async fetch(request) {
-                redirectEvidence.requests++;
-                if (request.method === "POST") redirectEvidence.posts++;
-                if (request.headers.has("Authorization"))
-                  redirectEvidence.credentialRequests++;
-                redirectEvidence.bytes += (
-                  await request.arrayBuffer()
-                ).byteLength;
-                return new Response("", {
-                  status: 401,
-                  headers: {
-                    "WWW-Authenticate": 'Basic realm="owned-redirect-sink"',
-                  },
-                });
-              },
-            })
-          : undefined;
+      const redirectSink = ["post-redirect", "discovery-redirect"].includes(
+        mode,
+      )
+        ? Bun.serve({
+            hostname: "127.0.0.1",
+            port: 0,
+            async fetch(request) {
+              redirectEvidence.requests++;
+              if (request.method === "POST") redirectEvidence.posts++;
+              if (request.headers.has("Authorization"))
+                redirectEvidence.credentialRequests++;
+              redirectEvidence.bytes += (
+                await request.arrayBuffer()
+              ).byteLength;
+              return new Response("", {
+                status: 401,
+                headers: {
+                  "WWW-Authenticate": 'Basic realm="owned-redirect-sink"',
+                },
+              });
+            },
+          })
+        : undefined;
       /** @type {Awaited<ReturnType<typeof servePartialReceive>> | undefined} */
       let partial;
       /** @type {Awaited<ReturnType<typeof lockProbePushReceipt>> | undefined} */
@@ -118,6 +121,7 @@ try {
       const receiptErrors = [];
       const ownerErrors = [];
       let refusedPostsAfterPush = 0;
+      let redirectedRequestsAfterPush = 0;
       let ownerPath = "";
       /** @type {Buffer | undefined} */
       let ownerBytes;
@@ -407,7 +411,10 @@ try {
         if (redirectSink) {
           remote.state.redirectReceiveStatus = redirectStatus;
           assert.notEqual(new URL(remote.url).port, String(redirectSink.port));
-          remote.state.redirectNextReceiveTo = `http://127.0.0.1:${redirectSink.port}/repo.git/git-receive-pack`;
+          if (mode === "discovery-redirect")
+            remote.state.redirectAllAdvertisementsTo = `http://127.0.0.1:${redirectSink.port}/repo.git/info/refs?service=git-receive-pack`;
+          else
+            remote.state.redirectNextReceiveTo = `http://127.0.0.1:${redirectSink.port}/repo.git/git-receive-pack`;
         }
         if (mode === "basic-post-refused")
           remote.state.refuseReceiveAuthentication = true;
@@ -482,6 +489,33 @@ try {
             remote.state.completedHeldReceives,
             mode === "completed-stop" ? 1 : 0,
           );
+        } else if (mode === "discovery-redirect") {
+          await poll(
+            async () =>
+              remote.state.redirectedAdvertisements > 0 &&
+              (await panel
+                .getByRole("button", {
+                  name: "Stop remote request",
+                  exact: true,
+                })
+                .count()) === 0,
+            "Actual redirect completion or explicit pending error",
+          );
+          await Bun.write(
+            join(output, "discovery-redirect-observed.json"),
+            JSON.stringify(
+              {
+                server: remote.state,
+                sink: redirectEvidence,
+                text: await panel.innerText(),
+              },
+              null,
+              2,
+            ),
+          );
+          assert.ok(
+            !(await panel.innerText()).includes(fixtureCredential.password),
+          );
         } else if (mode === "basic-push-refused") {
           await panel
             .getByRole("alert")
@@ -539,6 +573,7 @@ try {
                 "unknown",
                 "partial-upload",
                 "post-redirect",
+                "discovery-redirect",
                 "basic-post-refused",
               ].includes(mode)
                 ? "Remote outcome is unknown."
@@ -552,6 +587,7 @@ try {
             })
             .waitFor();
         const expectedPosts = [
+          "discovery-redirect",
           "basic-push-refused",
           "basic-post-refused",
           "equal",
@@ -588,16 +624,24 @@ try {
           assert.ok(remote.state.authenticatedGets >= 2);
           assert.equal(
             remote.state.authenticatedPosts,
-            ["basic-push-refused", "basic-post-refused"].includes(mode) ? 0 : 1,
+            [
+              "basic-push-refused",
+              "basic-post-refused",
+              "discovery-redirect",
+            ].includes(mode)
+              ? 0
+              : 1,
           );
           checks.push(
             mode === "basic-push-refused"
               ? "credentials accepted during review but real401 refuses worker after confirmation: bounded attempts, zero receive-pack POST/remote ref absent, error omits credential and private Send/full state preserved"
-              : redirectSink
-                ? "authenticated product review/worker discovery and original-origin POST receives redirect; no server Git execution/full live state-private Send mutation"
-                : mode === "basic-post-refused"
-                  ? "real Basic-auth review/worker discovery succeeds; receive-pack POST credentials refused before server Git execution, full state/private Send retained"
-                  : "real Basic-auth challenge during product review/worker discovery and authenticated receive-pack POST: exact pinned public commit accepted without private Send/full state mutation",
+              : mode === "discovery-redirect"
+                ? "authenticated review succeeds, persistent worker discovery redirect refuses before receive-pack POST; full live state/private Send retained"
+                : redirectSink
+                  ? "authenticated product review/worker discovery and original-origin POST receives redirect; no server Git execution/full live state-private Send mutation"
+                  : mode === "basic-post-refused"
+                    ? "real Basic-auth review/worker discovery succeeds; receive-pack POST credentials refused before server Git execution, full state/private Send retained"
+                    : "real Basic-auth challenge during product review/worker discovery and authenticated receive-pack POST: exact pinned public commit accepted without private Send/full state mutation",
           );
         }
         assert.equal(
@@ -607,6 +651,7 @@ try {
             : [
                   "partial-upload",
                   "post-redirect",
+                  "discovery-redirect",
                   "basic-push-refused",
                   "basic-post-refused",
                   "rejected",
@@ -628,6 +673,7 @@ try {
         } else if (
           ![
             "post-redirect",
+            "discovery-redirect",
             "basic-push-refused",
             "basic-post-refused",
             "partial-upload",
@@ -652,7 +698,20 @@ try {
           "receipt.json",
         );
         const nativeReceipt = JSON.parse(await readFile(receiptPath, "utf8"));
-        if (redirectSink) {
+        if (mode === "discovery-redirect") {
+          assert.ok(redirectSink);
+          assert.equal(nativeReceipt.phase, "submitted");
+          assert.equal(nativeReceipt.result, null);
+          assert.ok(remote.state.redirectedAdvertisements > 0);
+          assert.ok(redirectEvidence.requests <= 4);
+          assert.equal(redirectEvidence.posts, 0);
+          assert.equal(redirectEvidence.credentialRequests, 0);
+          assert.equal(redirectEvidence.bytes, 0);
+          redirectedRequestsAfterPush = redirectEvidence.requests;
+          checks.push(
+            `actual persistent initial discovery${redirectStatus} refuses before upload: measured target requests with zero Authorization/PACK/POST, submitted-resultnull preserved`,
+          );
+        } else if (redirectSink) {
           assert.equal(nativeReceipt.phase, "finished");
           assert.equal(nativeReceipt.result.outcome, "unknown");
           assert.equal(remote.state.redirectedReceives, 1);
@@ -772,15 +831,18 @@ try {
                               mode,
                             )
                           ? "auth-refused Push retains durable pending receipt/snapshot and exact whole live state except saved intent; held Send remains active"
-                          : redirectSink
-                            ? "redirected Push retains durable finished/unknown receipt and owned snapshot; remote absent/full live state except exact saved intent/private Send preserved"
-                            : "confirmed public Push: pinned actual server tree and full live snapshot except exact saved intent; held Send stays active",
+                          : mode === "discovery-redirect"
+                            ? "discovery redirect retains durable submitted/resultnull receipt and owned snapshot; remote absent/full live data except exact intent/private Send preserved"
+                            : redirectSink
+                              ? "redirected Push retains durable finished/unknown receipt and owned snapshot; remote absent/full live state except exact saved intent/private Send preserved"
+                              : "confirmed public Push: pinned actual server tree and full live snapshot except exact saved intent; held Send stays active",
         );
 
         if (
           [
             "unknown",
             "post-redirect",
+            "discovery-redirect",
             "basic-push-refused",
             "basic-post-refused",
             "partial-upload",
@@ -813,9 +875,11 @@ try {
                     ? "actual finished-receipt write refusal survives reload with original submitted receipt/intent; no automatic second POST or full-data rewrite"
                     : partial
                       ? "actual partial-upload disconnect survives reload as pending Push; no second proxy POST, server upload or full-data rewrite"
-                      : redirectSink
-                        ? "actual POST redirect survives reload as pending Push; no repeat POST, redirected request or full-data rewrite"
-                        : "real completed-server HTTP503 survives reload as pending Push; no automatic upload or full-data rewrite",
+                      : mode === "discovery-redirect"
+                        ? "persistent discovery redirect survives reload with no upload or target credential exposure; fixture restores original endpoint before fresh explicit Inspect"
+                        : redirectSink
+                          ? "actual POST redirect survives reload as pending Push; no repeat POST, redirected request or full-data rewrite"
+                          : "real completed-server HTTP503 survives reload as pending Push; no automatic upload or full-data rewrite",
           );
         }
 
@@ -892,6 +956,11 @@ try {
                 : "Stop during real independent Inspect/held advertisement disconnects discovery worker; no observation/receipt/intent/full bytes/data/server mutation or upload, fresh explicit inspection required",
           );
           remote.state.refuseAuthentication = false;
+        }
+        if (mode === "discovery-redirect") {
+          remote.state.redirectAllAdvertisementsTo = "";
+          assert.equal(remote.state.receivePosts, 0);
+          assert.equal(await remote.tip(), null);
         }
         if (["basic-push-refused", "basic-post-refused"].includes(mode)) {
           remote.state.refuseAuthentication = false;
@@ -1155,7 +1224,12 @@ try {
         assert.deepEqual(retired.result, nativeReceipt.result);
         if (outgoing) await assert.rejects(stat(outgoing), { code: "ENOENT" });
         assert.equal(remote.state.receivePosts, expectedPosts);
-        if (redirectSink)
+        if (mode === "discovery-redirect") {
+          assert.equal(redirectEvidence.requests, redirectedRequestsAfterPush);
+          assert.equal(redirectEvidence.posts, 0);
+          assert.equal(redirectEvidence.credentialRequests, 0);
+          assert.equal(redirectEvidence.bytes, 0);
+        } else if (redirectSink)
           assert.deepEqual(redirectEvidence, {
             requests: 0,
             posts: 0,
@@ -1174,6 +1248,7 @@ try {
             : [
                   "partial-upload",
                   "post-redirect",
+                  "discovery-redirect",
                   "basic-push-refused",
                   "basic-post-refused",
                   "rejected",
@@ -1198,7 +1273,7 @@ try {
             {
               checks,
               redirect: redirectSink
-                ? { status: redirectStatus, ...redirectEvidence }
+                ? { stage: mode, status: redirectStatus, ...redirectEvidence }
                 : undefined,
               ownerFault: ownerFault
                 ? {
