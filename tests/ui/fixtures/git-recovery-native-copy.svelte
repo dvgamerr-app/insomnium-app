@@ -1,5 +1,5 @@
 <script>
-  import { onMount, onDestroy } from "svelte";
+  import { onMount, onDestroy, untrack } from "svelte";
   import { convertFileSrc } from "@tauri-apps/api/core";
   import App from "../../../src/routes/+page.svelte";
   import {
@@ -14,9 +14,13 @@
   import { sameWorkspace } from "../../../src/lib/git-workspace.js";
   /** @type {{seed:Record<string,any>}} */
   let { seed } = $props();
-  let restores = $state(0);
+  const command = untrack(() => seed.recoveryCommand || "git_repository_restore");
+  if (!["git_repository_restore", "git_repository_apply_merge"].includes(command))
+    throw new Error("Unsupported saved recovery fixture command");
+  let transitions = $state(0);
+  let calls = $state(0);
   let complete = $derived(
-    restores === 1 &&
+    transitions === 1 &&
       workspace.persistencePhase === "idle" &&
       workspace.gitRecoveryKind === "checkout",
   );
@@ -35,13 +39,15 @@
           : input instanceof URL
             ? input.href
             : input.url;
+      const matching = url === convertFileSrc(command, "ipc");
+      if (matching) calls++;
       const response = await original.call(window, input, init);
       if (
-        url === convertFileSrc("git_repository_restore", "ipc") &&
+        matching &&
         response.headers.get("Tauri-Response") === "ok" &&
-        !restores
+        !transitions
       ) {
-        restores++;
+        transitions++;
         const changed = $state.snapshot(workspace.data);
         const request = changed.resources.find((r) => r._id === seed.requestId);
         if (!request)
@@ -82,7 +88,9 @@
     draining: workspace.draining,
     current: workspace.data,
     retained: retainedGitCheckoutWorkspace(),
-    restores,
+    restores: command === "git_repository_restore" ? transitions : 0,
+    merges: command === "git_repository_apply_merge" ? transitions : 0,
+    calls,
   })}</output
 >
 <App />

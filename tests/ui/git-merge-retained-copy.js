@@ -1,3 +1,3 @@
 import { runNativeRecoveryCopy } from "./helpers/native-recovery-copy.js";
 
-await runNativeRecoveryCopy("restore");
+await runNativeRecoveryCopy("merge");
