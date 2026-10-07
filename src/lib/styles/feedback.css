@@ -31,7 +31,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-6);
-  font-size: 9px;
+  font-size: var(--font-size-9);
 }
 
 .save-dot {
@@ -46,7 +46,7 @@
 }
 
 .version {
-  font-size: 9px;
+  font-size: var(--font-size-9);
   color: var(--faint);
 }
 

@@ -1,6 +1,7 @@
 /* Global button metrics. All native and shared buttons consume this scale.
    Keep layout percentages (full-width rows/tabs) in their owning layout. */
 :root {
+  --font-size-9: 9px;
   --font-size-18: 18px;
   --font-size-16: 16px;
   --font-size-15: 15px;

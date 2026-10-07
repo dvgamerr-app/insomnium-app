@@ -62,7 +62,7 @@
     box-shadow: var(--ui-shadow);
     max-height: min(360px, 60vh);
     min-width: anchor-size(width);
-    font: 12px/1.5 var(--font-sans);
+    font: var(--font-size-12)/1.5 var(--font-sans);
   }
   .ui-select::picker-icon {
     color: var(--muted);

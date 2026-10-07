@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { withPreview } from "./helpers/preview-app.js";
 import { assertSvgDropdowns, assertControlHover } from "./helpers/select.js";
+import {
+  assertCaptionTypography,
+  assertPickerTypography,
+} from "./helpers/typography.js";
 
 await withPreview("nocturne-theme", async (page, output) => {
   await page
@@ -76,6 +80,12 @@ await withPreview("nocturne-theme", async (page, output) => {
     );
     for (const width of [1440, 900, 760]) {
       await page.setViewportSize({ width, height: 960 });
+      await assertCaptionTypography(page, [
+        ".status-save",
+        ".version",
+        ".search-input kbd",
+      ]);
+      await assertPickerTypography(page);
       await assertSvgDropdowns(page);
       assert.ok(await page.locator(".send-button").isVisible());
       for (const name of ["Edit environment", "Cookies"]) {
@@ -270,6 +280,7 @@ await withPreview("nocturne-theme", async (page, output) => {
     await page
       .getByRole("button", { name: "Fetch schema", exact: true })
       .waitFor();
+    await assertCaptionTypography(page, [".graphql-editor-column"]);
     await page
       .locator(".CodeMirror")
       .first()
@@ -837,6 +848,8 @@ await withPreview("nocturne-theme", async (page, output) => {
           "response-timeline",
         ],
         persistence: true,
+        typography:
+          "dense shell/GraphQL captions and actual select picker token override/restore in both themes; shell at1440/900/760",
       },
       null,
       2,

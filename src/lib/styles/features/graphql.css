@@ -62,7 +62,7 @@
   min-width: 0;
   padding: var(--space-10);
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--font-size-9);
   gap: var(--space-6);
 }
 

@@ -3,6 +3,10 @@ import { withNativeApp, poll } from "./helpers/native-app.js";
 import { withIpcFailure } from "./helpers/ipc-failure.js";
 import { gitCollection } from "./helpers/git-fixture.js";
 import { assertSurfaceHover } from "./helpers/select.js";
+import {
+  assertCaptionTypography,
+  assertPickerTypography,
+} from "./helpers/typography.js";
 
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-unified-diff-probe/build-state.json";
@@ -128,6 +132,13 @@ await withNativeApp(
         .getByLabel("Body type", { exact: true })
         .selectOption("application/graphql");
       await page.locator(".CodeMirror").first().waitFor();
+      await assertPickerTypography(page);
+      await assertCaptionTypography(page, [
+        ".status-save",
+        ".version",
+        ".search-input kbd",
+        ".graphql-editor-column",
+      ]);
       await page
         .locator(".CodeMirror")
         .first()
@@ -163,6 +174,7 @@ await withNativeApp(
           exact: true,
         });
         await panel.getByRole("heading", { name: /^Changes/ }).waitFor();
+        await assertCaptionTypography(page, [".git-panel .count"]);
         assert.equal(
           await panel.evaluate((el) => el.scrollWidth <= el.clientWidth),
           true,
@@ -368,6 +380,8 @@ await withNativeApp(
           passed: true,
           captures,
           fonts: "loaded native",
+          typography:
+            "dense shell/GraphQL/Git captions and actual select picker token propagation/restoration in both themes",
           gitHeadUnchanged: true,
           authorFieldContext:
             "inherited IDs/required, empty-name refusal and malformed-email native validation before persistence IPC, exact full workspace preserved",
