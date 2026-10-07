@@ -1,5 +1,7 @@
 # Insomnium → Tauri migration
 
+Current CI capabilityd1adba5 adds PR Bun frontend check/build and explicit script-free install/project preparation to frontend/desktop jobs. Native actionlint/YAML scope checks, warm and clean Windows checkout installation/prepare/check/build pass; actual GitHub runner/fork/native matrix/artifacts/signing/distribution remain unverified. Production app/current native artifact unchanged. Full migration/UX scope remains; exact evidence/closed handles/no compact-tool handoff in STATUS/CI.md.
+
 Current CSS capabilityb909b48 fixes multipart feature override of shared Field layout and centralizes margins/gRPC fonts/removes Runner duplicate style. Static dark/light/width/layout/token/keyboard and fresh production release1791408489150/1791408847193 native gRPC/Runner/multipart byte-wire/native-theme regressions pass. Author scenario tuple typing corrected3f382a2; final compiler0/0. Full migration/UX/debt/workflow/platform/provider/fault/CI/release scope retained; exact evidence and closed handles/no compact tool handoff in STATUS.
 
 Current UI capability820aee4 closes shared Field native required propagation/FilePicker error semantics and actual author Preferences context adoption. Saved native form component contract, static theme, fresh production release1791407772794/1791408129110 and native author/Source Control/Push regressions pass. Full debt/UX/workflow and migration provider/TLS/proxy/fault/platform/CI/release/PLAN/PARITY gates remain; exact evidence/closed handles/no compact tool handoff in STATUS.
