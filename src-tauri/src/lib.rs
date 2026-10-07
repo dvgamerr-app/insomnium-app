@@ -18,6 +18,7 @@ mod grpc_transport;
 mod hawk;
 mod http;
 mod netrc;
+mod network_log;
 mod ntlm;
 mod oauth;
 mod oauth1;

@@ -11,6 +11,7 @@
   import Button from "./ui/Button.svelte";
   import Input from "./ui/Input.svelte";
   import { jsonPrettify } from "../json-prettify.js";
+  import { responseNetworkLog } from "../network-log.js";
   import CodeEditor from "./CodeEditor.svelte";
   import { workspace, setResponseFilter } from "../workspace.svelte.js";
   import { requestMeta } from "../request-meta.js";
@@ -412,24 +413,9 @@
               No {tab.toLowerCase()} in this response.
             </p>{/each}
         </div>
-      {:else}<div class="timeline">
-          <div>
-            <span class="timeline-dot"></span><span>Request started</span><code
-              >0 ms</code
-            >
-          </div>
-          <div>
-            <span class="timeline-dot"></span><span
-              >Response headers received</span
-            ><code>{response.headersMs} ms</code>
-          </div>
-          <div>
-            <span class="timeline-dot"></span><span
-              >Response downloaded · {response.size} bytes</span
-            ><code>{response.elapsedMs} ms</code>
-          </div>
-          <p class="hint">{response.method} {response.url}</p>
-        </div>{/if}
+      {:else}<pre class="network-log" aria-label="Connection log">{responseNetworkLog(
+            response,
+          ).join("\n")}</pre>{/if}
     </div></TabPanel
   >
 </section>

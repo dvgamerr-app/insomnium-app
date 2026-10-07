@@ -81,37 +81,15 @@
   font-size: var(--font-size-11);
 }
 
-.timeline {
-  padding: var(--space-20);
-}
-
-.timeline > div {
-  display: flex;
-  gap: var(--space-15);
-  align-items: center;
-  padding: var(--space-14) 0;
-  border-bottom: 1px solid var(--line);
+.network-log {
+  margin: 0;
+  padding: var(--space-16) var(--space-20);
+  overflow: auto;
+  font-family: var(--font-mono, ui-monospace, monospace);
   font-size: var(--font-size-12);
-}
-
-.timeline > div > span:nth-child(2) {
-  flex: 1;
-}
-
-.timeline-dot {
-  height: 7px;
-  width: 7px;
-  border-radius: 50%;
-  background: var(--accent-text);
-}
-
-.timeline code {
-  color: var(--muted);
-  font-size: var(--font-size-11);
-}
-
-.timeline p {
-  overflow-wrap: anywhere;
+  line-height: 1.6;
+  white-space: pre;
+  user-select: text;
 }
 
 .error-state {

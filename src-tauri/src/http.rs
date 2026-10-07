@@ -105,6 +105,7 @@ pub struct HttpResponse {
     elapsed_ms: u128,
     headers_ms: u128,
     warnings: Vec<String>,
+    network_log: Vec<String>,
 }
 
 #[tauri::command]
@@ -133,7 +134,23 @@ pub async fn send_http(
             jar = Some(cookie_state.jar(&app, request.workspace_id.clone()).await?);
         }
         let started = Instant::now();
+        let requested_url = url.clone();
         let client = build_client(&request, &url, jar.as_ref(), false, false)?;
+        let log = std::sync::Arc::new(Mutex::new(crate::network_log::preface(
+            &request.method,
+            &url,
+            &crate::network_log::Settings {
+                proxy: request.proxy.as_deref().filter(|p| !p.is_empty()),
+                validate_certificates: request.validate_certificates,
+                follow_redirects: request.follow_redirects,
+                custom_ca: request.ca_pem.as_ref().is_some_and(|p| !p.is_empty()),
+                client_certificate: request
+                    .identity_pem
+                    .as_ref()
+                    .is_some_and(|p| !p.is_empty()),
+            },
+        )));
+        let hops = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let outgoing = build_request(&client, &request, url)?
             .build()
             .map_err(|e| e.to_string())?;
@@ -145,7 +162,26 @@ pub async fn send_http(
                 .identity_pem
                 .as_ref()
                 .is_some_and(|pem| !pem.is_empty()),
-            |outgoing| async { client.execute(outgoing).await.map_err(|e| e.to_string()) },
+            |outgoing| {
+                let (client, log, hops) = (&client, log.clone(), hops.clone());
+                let validate = request.validate_certificates;
+                async move {
+                    let sent = crate::network_log::Outgoing::capture(&outgoing);
+                    let hop_started = Instant::now();
+                    let response = client.execute(outgoing).await.map_err(|e| e.to_string())?;
+                    let number = hops.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+                    if let Ok(mut log) = log.lock() {
+                        log.extend(crate::network_log::hop(
+                            number,
+                            sent,
+                            &response,
+                            hop_started.elapsed().as_millis(),
+                            validate,
+                        ));
+                    }
+                    Ok(response)
+                }
+            },
         )
         .await?;
         let headers_ms = started.elapsed().as_millis();
@@ -171,6 +207,15 @@ pub async fn send_http(
             }
             bytes.extend_from_slice(&chunk);
         }
+        let elapsed_ms = started.elapsed().as_millis();
+        let mut network_log = log.lock().map(|log| log.clone()).unwrap_or_default();
+        network_log.extend(crate::network_log::finish(
+            &requested_url,
+            &final_url,
+            bytes.len(),
+            elapsed_ms,
+            hops.load(std::sync::atomic::Ordering::SeqCst),
+        ));
         Ok(HttpResponse {
             status: status.as_u16(),
             status_text: status.canonical_reason().unwrap_or("").into(),
@@ -179,9 +224,10 @@ pub async fn send_http(
             body: String::from_utf8_lossy(&bytes).into_owned(),
             body_base64: STANDARD.encode(&bytes),
             size: bytes.len(),
-            elapsed_ms: started.elapsed().as_millis(),
+            elapsed_ms,
             headers_ms,
             warnings: Vec::new(),
+            network_log,
         })
     };
     let mut response: Result<HttpResponse, String> = tokio::select! {
@@ -302,6 +348,7 @@ pub(crate) fn build_client(
                 Policy::none()
             },
         )
+        .tls_info(true)
         .danger_accept_invalid_certs(!request.validate_certificates);
     if !request.suppress_user_agent {
         builder = builder.user_agent(concat!("Insomnium/", env!("CARGO_PKG_VERSION")));

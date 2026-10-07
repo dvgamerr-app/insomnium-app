@@ -1,3 +1,4 @@
+import { buildNetworkLog } from "./network-log.js";
 import {
   smartEncodeUrl,
   buildQueryParameter,
@@ -616,6 +617,7 @@ export async function send(request, signal) {
   });
   const headersMs = Math.round(performance.now() - started);
   const bytes = await readPreviewBody(response, fetchSignal);
+  const elapsedMs = Math.round(performance.now() - started);
   return {
     status: response.status,
     statusText: response.statusText,
@@ -624,8 +626,20 @@ export async function send(request, signal) {
     body: new TextDecoder().decode(bytes),
     bodyBase64: encodeBase64(bytes),
     size: bytes.byteLength,
-    elapsedMs: Math.round(performance.now() - started),
+    elapsedMs,
     headersMs,
+    networkLog: buildNetworkLog({
+      method: request.method,
+      url: response.url || request.url,
+      requestHeaders: request.headers,
+      status: response.status,
+      statusText: response.statusText,
+      headers: [...response.headers.entries()],
+      size: bytes.byteLength,
+      headersMs,
+      elapsedMs,
+      note: "Browser preview: DNS, connection and TLS details are not exposed by fetch()",
+    }),
   };
 }
 /** @param {string} id */

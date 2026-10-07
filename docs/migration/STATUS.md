@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Response Timeline as a connection log — 2026-10-07
+
+- The response Timeline tab is now curl -v style text instead of three timing rows. Native send_http builds it (src-tauri/src/network_log.rs): settings, connected address, HTTP version, peer certificate subject/issuer/validity/SAN, request and response headers, redirects, size and time. Authorization, Proxy-Authorization and Cookie request values are masked. reqwest does not expose DNS/TCP/TLS handshake steps, TLS version/cipher or per-phase timing, so those are not shown.
+- Browser preview and responses saved earlier get a shorter JS-built log (src/lib/network-log.js). Failed requests still show only the error text.
+- Verified: cargo check --locked, bun run check, and the static-preview theme scenario. Native runtime output (certificate lines, redirects, HTTP/2) was not exercised.
+
 ## Preferences tabs and Git author — 2026-10-07
 
 - Preferences is split into General, Editor, Requests, Network and Git tabs (shared TabList/TabPanel) instead of one scrolling page of sections.
