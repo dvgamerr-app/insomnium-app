@@ -210,6 +210,23 @@ pub(crate) fn prepare(repo: &Repository, input: &MergeInput) -> Result<MergeCand
         candidate.merge_base_oid = Some(bases[0].to_string());
     }
     candidate.target_oid = None;
+    let ancestor_tree = if multiple {
+        None
+    } else {
+        Some(
+            repo.find_commit(bases[0])
+                .map_err(error)?
+                .tree()
+                .map_err(error)?,
+        )
+    };
+    index = crate::git_merge_resolution::expose_path_collisions(
+        repo,
+        &index,
+        &ours.tree().map_err(error)?,
+        &theirs.tree().map_err(error)?,
+        ancestor_tree.as_ref(),
+    )?;
     if let Some(resolutions) = &input.resolutions {
         index = crate::git_merge_resolution::resolve(repo, &index, resolutions)?;
     }

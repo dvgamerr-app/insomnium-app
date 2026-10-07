@@ -1,7 +1,7 @@
 //! Rebuild a reviewed merge in a fresh in-memory index. Never alter the disk
 //! index or silently replace an unconflicted path while applying choices.
 use crate::git_merge::{describe_conflict, MergeConflict};
-use git2::{Index, IndexEntry, Repository};
+use git2::{Index, IndexEntry, Repository, Tree};
 use serde::Deserialize;
 use std::collections::{BTreeSet, HashMap};
 
@@ -45,6 +45,90 @@ fn key(conflict: &MergeConflict) -> Result<String, String> {
         }
     }
     serde_json::to_string(conflict).map_err(|e| e.to_string())
+}
+
+/// libgit2 can leave a directory child at stage0 beside a conflicted parent
+/// file. Expose every structurally colliding path to review instead of silently
+/// deleting that child or making the file side impossible to choose.
+pub(crate) fn expose_path_collisions(
+    repo: &Repository,
+    merged: &Index,
+    ours: &Tree<'_>,
+    theirs: &Tree<'_>,
+    ancestor: Option<&Tree<'_>>,
+) -> Result<Index, String> {
+    let paths: BTreeSet<_> = merged
+        .iter()
+        .filter(|entry| entry.flags & 0x3000 != 0)
+        .map(|entry| entry.path)
+        .collect();
+    let mut result = Index::new().map_err(error)?;
+    for (position, entry) in merged.iter().enumerate() {
+        let path = &entry.path;
+        let mut prefix = path.clone();
+        prefix.push(b'/');
+        let collision = entry.flags & 0x3000 == 0
+            && (paths.contains(path)
+                || path
+                    .iter()
+                    .enumerate()
+                    .any(|(offset, byte)| *byte == b'/' && paths.contains(&path[..offset]))
+                || paths
+                    .range(prefix.clone()..)
+                    .next()
+                    .is_some_and(|candidate| candidate.starts_with(&prefix)));
+        if !collision {
+            result.add(&entry).map_err(error)?;
+            continue;
+        }
+        let mut exposed = false;
+        for (stage, tree) in [(1, ancestor), (2, Some(ours)), (3, Some(theirs))] {
+            let Some(tree) = tree else {
+                continue;
+            };
+            let Some((id, mode)) = file_at(repo, tree, path)? else {
+                continue;
+            };
+            let mut side = merged
+                .get(position)
+                .ok_or("Merge index entry disappeared")?;
+            side.id = id;
+            side.mode = mode;
+            side.flags = (side.flags & !0x3000) | (stage << 12);
+            side.flags_extended = 0;
+            result.add(&side).map_err(error)?;
+            exposed = true;
+        }
+        if !exposed {
+            return Err("Colliding merge path has no pinned file side".into());
+        }
+    }
+    Ok(result)
+}
+
+fn file_at(
+    repo: &Repository,
+    tree: &Tree<'_>,
+    path: &[u8],
+) -> Result<Option<(git2::Oid, u32)>, String> {
+    let mut current = repo.find_tree(tree.id()).map_err(error)?;
+    let mut parts = path.split(|byte| *byte == b'/').peekable();
+    while let Some(part) = parts.next() {
+        let Some(entry) = current.get_name_bytes(part) else {
+            return Ok(None);
+        };
+        let id = entry.id();
+        let mode = entry.filemode() as u32;
+        if parts.peek().is_none() {
+            return Ok((mode != 0o040000).then_some((id, mode)));
+        }
+        if mode != 0o040000 {
+            return Ok(None);
+        }
+        drop(entry);
+        current = repo.find_tree(id).map_err(error)?;
+    }
+    Ok(None)
 }
 
 pub(crate) fn resolve(

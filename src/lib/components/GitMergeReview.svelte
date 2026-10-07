@@ -59,7 +59,7 @@
       {#each [["ancestor", "Base"], ["ours", "Current branch"], ["theirs", "Incoming branch"]] as [side, label]}
         {@const entry = conflict[side]}
         <details>
-          <summary>{label}: {entry ? path({ours:entry}) : "File absent"}</summary>
+          <summary>{label}: {entry ? path({ours:entry}) : side === "ancestor" ? "No ancestor entry" : "File absent"}</summary>
           {#if entry}
             {@const blob = content(entry)}
             <p class="hint">{modeName(entry.mode)} · {blob.size === null ? "Commit" : `${blob.size} bytes`} · {entry.oid.slice(0,10)}</p>
