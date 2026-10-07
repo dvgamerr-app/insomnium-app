@@ -11,7 +11,7 @@
   import Button from "./ui/Button.svelte";
   import Input from "./ui/Input.svelte";
   import { jsonPrettify } from "../json-prettify.js";
-  import { responseNetworkLog } from "../network-log.js";
+  import { responseNetworkLog, tokenizeLine } from "../network-log.js";
   import CodeEditor from "./CodeEditor.svelte";
   import { workspace, setResponseFilter } from "../workspace.svelte.js";
   import { requestMeta } from "../request-meta.js";
@@ -413,9 +413,12 @@
               No {tab.toLowerCase()} in this response.
             </p>{/each}
         </div>
-      {:else}<pre class="network-log" aria-label="Connection log">{responseNetworkLog(
-            response,
-          ).join("\n")}</pre>{/if}
+      {:else}<div class="network-log" role="log" aria-label="Connection log">{#each responseNetworkLog(response) as line}<div class="nl-line">{#each tokenizeLine(line) as token}<span
+              class={"nl-" + token.k}
+              style={token.k === "method"
+                ? "color: var(--method-" + token.t.toLowerCase() + ", var(--syntax-keyword))"
+                : undefined}>{token.t}</span
+            >{/each}</div>{/each}</div>{/if}
     </div></TabPanel
   >
 </section>

@@ -63,3 +63,115 @@ export function responseNetworkLog(response) {
     })
   );
 }
+
+/**
+ * @typedef {{t:string,k:string,m?:string}} Token
+ * Kinds: marker, plain, meta, key, value, secret, method, path, version,
+ * status-<class>, url, num, ok, off, bad, step.
+ */
+
+/** @param {string} text @returns {Token[]} */
+function inline(text) {
+  /** @type {Token[]} */ const out = [];
+  const pattern =
+    /(https?:\/\/[^\s,)]+)|(\*\*\*)|(\[NOT CURRENTLY VALID\])|(\b\d+(?:\.\d+){0,3}\b)/g;
+  let last = 0;
+  for (let m; (m = pattern.exec(text));) {
+    if (m.index > last) out.push({ t: text.slice(last, m.index), k: "plain" });
+    out.push({
+      t: m[0],
+      k: m[1] ? "url" : m[2] ? "secret" : m[3] ? "bad" : "num",
+    });
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) out.push({ t: text.slice(last), k: "plain" });
+  return out;
+}
+
+/** @param {string} name @param {string} value @returns {Token[]} */
+function header(name, value) {
+  return [
+    { t: name, k: "key" },
+    { t: ": ", k: "meta" },
+    ...(/\*\*\*/.test(value)
+      ? inline(value).map((x) => (x.k === "plain" ? { ...x, k: "value" } : x))
+      : [{ t: value, k: "value" }]),
+  ];
+}
+
+/** @param {string} line @returns {Token[]} */
+export function tokenizeLine(line) {
+  const marker = line[0];
+  if (!["*", ">", "<"].includes(marker)) return inline(line);
+  const rest = line.slice(1);
+  /** @type {Token[]} */ const out = [{ t: marker, k: "marker", m: marker }];
+  if (!rest.trim()) return out;
+  const body = rest.replace(/^ /, "");
+  out.push({ t: " ", k: "plain" });
+  let m;
+  if (marker === ">") {
+    if ((m = body.match(/^([A-Za-z]+) (\S+)(?: (HTTP\/[\d.]+))?$/))) {
+      out.push({ t: m[1], k: "method", m: m[1].toUpperCase() });
+      out.push({ t: " ", k: "plain" }, { t: m[2], k: "path" });
+      if (m[3]) out.push({ t: " ", k: "plain" }, { t: m[3], k: "version" });
+      return out;
+    }
+  } else if (marker === "<") {
+    if ((m = body.match(/^(?:(HTTP\/[\d.]+) )?(\d{3})(.*?)(\s+\[.*\])?$/))) {
+      const cls = "status-" + m[2][0];
+      if (m[1]) out.push({ t: m[1], k: "version" }, { t: " ", k: "plain" });
+      out.push({ t: m[2] + m[3], k: cls });
+      if (m[4]) out.push({ t: m[4], k: "meta" });
+      return out;
+    }
+  }
+  if (marker !== "*" && (m = body.match(/^([^\s:]+): ?(.*)$/)))
+    return [...out, ...header(m[1], m[2])];
+  // Informational lines.
+  if (/^-{4} .* -{4}$/.test(body)) return [...out, { t: body, k: "step" }];
+  if ((m = body.match(/^Settings: (.*)$/))) {
+    out.push({ t: "Settings:", k: "key" }, { t: " ", k: "plain" });
+    m[1].split(", ").forEach((item, i, all) => {
+      const cut = item.lastIndexOf(" ");
+      const state = item.slice(cut + 1);
+      out.push(
+        { t: item.slice(0, cut + 1), k: "meta" },
+        {
+          t: state,
+          k: state === "on" ? "ok" : state === "off" ? "off" : "value",
+        },
+      );
+      if (i < all.length - 1) out.push({ t: ", ", k: "meta" });
+    });
+    return out;
+  }
+  if (
+    (m = body.match(/^(\s+)(subject|issuer|valid|SAN|verification):(\s+)(.*)$/))
+  ) {
+    const bad = /skipped|NOT CURRENTLY VALID/.test(m[4]);
+    return [
+      ...out.slice(0, 1),
+      { t: " " + m[1] + " ", k: "plain" },
+      { t: m[2], k: "key" },
+      { t: ":" + m[3], k: "meta" },
+      ...(m[2] === "valid"
+        ? m[4]
+            .split(/(\s+\[NOT CURRENTLY VALID\])/)
+            .filter(Boolean)
+            .map((part) => ({
+              t: part,
+              k: /NOT CURRENTLY/.test(part) ? "bad" : "num",
+            }))
+        : [{ t: m[4], k: bad ? "bad" : "value" }]),
+    ];
+  }
+  const tone = /not encrypted|not exposed|not available|no connection/i.test(
+    body,
+  )
+    ? "bad"
+    : "meta";
+  return [
+    ...out,
+    ...inline(body).map((t) => (t.k === "plain" ? { ...t, k: tone } : t)),
+  ];
+}
