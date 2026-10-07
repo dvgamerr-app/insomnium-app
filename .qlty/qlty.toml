@@ -70,16 +70,89 @@ file_patterns = ["src-tauri/Cargo.lock"]
 [[plugin]]
 name = "actionlint"
 
+# Keep native shell linting; the optional pyflakes hook would start Python.
+[plugins.definitions.actionlint.drivers.lint]
+script = 'actionlint -pyflakes= -format "{{json .}}" ${target}'
+
 [[plugin]]
 name = "osv-scanner"
 
 [[plugin]]
-name = "prettier"
-package_file = "package.json"
-package_filters = ["prettier"]
+name = "prettier-bun"
+version = "3.9.9"
 
 [[plugin]]
 name = "trufflehog"
 
 [[plugin]]
-name = "zizmor"
+name = "zizmor-native"
+version = "1.16.3"
+
+# Use the locked project formatter through Bun; never bootstrap Node.
+[plugins.definitions.prettier-bun]
+file_types = ["css", "graphql", "html", "javascript", "json", "markdown", "sass", "tsx", "typescript", "yaml"]
+config_files = [".prettierrc.cjs", ".prettierrc.js", ".prettierrc.json", ".prettierrc.json5", ".prettierrc.toml", ".prettierrc.yaml", ".prettierrc.yml", ".prettierrc", "prettier.config.cjs", "prettier.config.js"]
+affects_cache = ["package.json", "bun.lock", ".editorconfig", ".prettierignore", "scripts/check-quality.mjs", "scripts/qlty-prettier.mjs"]
+
+[plugins.definitions.prettier-bun.drivers.format]
+script = '"${env.INSOMNIUM_QLTY_BUN}" "${env.INSOMNIUM_QLTY_FORMATTER}" ${config_file} ${target}'
+runs_from = { type = "root" }
+batch_by = "config_file"
+success_codes = [0]
+cache_results = true
+output = "rewrite"
+batch = true
+driver_type = "formatter"
+suggested = "config"
+
+# zizmor is a native Rust binary; avoid its Python package installer.
+[plugins.definitions.zizmor-native]
+downloads = ["zizmor-native"]
+file_types = ["github-workflow"]
+config_files = ["zizmor.yml"]
+version_command = "zizmor --version"
+security = true
+
+[plugins.definitions.zizmor-native.drivers.lint]
+script = "zizmor --format=sarif ${target}"
+success_codes = [0, 10, 11, 12, 13, 14]
+output = "stdout"
+output_format = "sarif"
+output_category = "vulnerability"
+cache_results = true
+batch = true
+suggested = "targets"
+output_missing = "parse"
+
+[[plugins.definitions.zizmor-native.environment]]
+name = "ZIZMOR_OFFLINE"
+value = "true"
+
+[plugins.downloads.zizmor-native]
+binary_name = "zizmor"
+strip_components = 0
+
+[[plugins.downloads.zizmor-native.system]]
+cpu = "x86_64"
+os = "linux"
+url = "https://github.com/zizmorcore/zizmor/releases/download/v${version}/zizmor-x86_64-unknown-linux-gnu.tar.gz"
+
+[[plugins.downloads.zizmor-native.system]]
+cpu = "aarch64"
+os = "linux"
+url = "https://github.com/zizmorcore/zizmor/releases/download/v${version}/zizmor-aarch64-unknown-linux-gnu.tar.gz"
+
+[[plugins.downloads.zizmor-native.system]]
+cpu = "x86_64"
+os = "macos"
+url = "https://github.com/zizmorcore/zizmor/releases/download/v${version}/zizmor-x86_64-apple-darwin.tar.gz"
+
+[[plugins.downloads.zizmor-native.system]]
+cpu = "aarch64"
+os = "macos"
+url = "https://github.com/zizmorcore/zizmor/releases/download/v${version}/zizmor-aarch64-apple-darwin.tar.gz"
+
+[[plugins.downloads.zizmor-native.system]]
+cpu = "x86_64"
+os = "windows"
+url = "https://github.com/zizmorcore/zizmor/releases/download/v${version}/zizmor-x86_64-pc-windows-msvc.zip"

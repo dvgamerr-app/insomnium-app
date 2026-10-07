@@ -72,6 +72,19 @@ jobs:
           GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="http.$GITHUB_SERVER_URL/.extraHeader" GIT_CONFIG_VALUE_0="$auth" git fetch --no-tags origin "$GITHUB_SHA" "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
           git checkout --detach "$GITHUB_SHA"
 
+      - name: Install pinned Bun for formatter
+        env:
+          BUN_INSTALL: ${{ runner.temp }}/insomnium-bun
+        run: |
+          curl -fsSL https://bun.com/install | bash -s "bun-v1.4.2"
+          echo "$BUN_INSTALL/bin" >> "$GITHUB_PATH"
+
+      - name: Install locked formatter dependencies without lifecycle scripts
+        working-directory: source
+        run: |
+          test "$(bun --version)" = "1.4.2"
+          bun install --frozen-lockfile --ignore-scripts
+
       - name: Install Qlty
         run: |
           curl -fsSL https://qlty.sh | bash
@@ -79,8 +92,8 @@ jobs:
 
       - name: Qlty check
         working-directory: source
-        run: qlty check --upstream "origin/$BASE_REF" --no-upgrade-check
+        run: bun run quality check --upstream "origin/$BASE_REF" --no-upgrade-check
 
       - name: Qlty smells
         working-directory: source
-        run: qlty smells --upstream "origin/$BASE_REF" --no-snippets --no-upgrade-check
+        run: bun run quality smells --upstream "origin/$BASE_REF" --no-snippets --no-upgrade-check

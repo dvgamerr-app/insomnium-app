@@ -15,6 +15,7 @@
     "prepare": "bun run generate:openapi && bun x --bun svelte-kit sync",
     "check": "bun x --bun svelte-kit sync && bun x --bun svelte-check --tsconfig ./jsconfig.json --config ./svelte.config.js --fail-on-warnings",
     "check:watch": "bun run check --watch",
+    "quality": "bun scripts/check-quality.mjs",
     "tauri": "bun x --bun tauri",
     "desktop": "bun run tauri dev",
     "desktop:build": "bun scripts/build-desktop.mjs",
