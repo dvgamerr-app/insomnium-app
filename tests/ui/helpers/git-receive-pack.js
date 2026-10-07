@@ -25,6 +25,8 @@ export async function serveReceivePack(output, options = {}) {
     authenticatedGets: 0,
     authenticatedPosts: 0,
     refuseAuthentication: false,
+    refuseReceiveAuthentication: false,
+    refusedAuthPosts: 0,
     advertisements: 0,
     failNextAdvertisement: false,
     failedAdvertisements: 0,
@@ -86,9 +88,11 @@ export async function serveReceivePack(output, options = {}) {
           ).toString("base64");
         if (
           state.refuseAuthentication ||
+          (state.refuseReceiveAuthentication && request.method === "POST") ||
           request.headers.get("Authorization") !== expected
         ) {
           state.authChallenges++;
+          if (request.method === "POST") state.refusedAuthPosts++;
           return new Response("", {
             status: 401,
             headers: { "WWW-Authenticate": 'Basic realm="owned-git-fixture"' },

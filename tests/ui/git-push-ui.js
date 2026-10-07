@@ -27,6 +27,8 @@ assert.ok(
     "equal",
     "fast-forward",
     "basic-auth",
+    "basic-push-refused",
+    "basic-post-refused",
     "basic-inspect-refused",
     "unknown",
     "partial-upload",
@@ -55,7 +57,12 @@ try {
     async (context) => {
       const { page, invoke, output } = context;
       const x = await advanceFixture(context);
-      const basicAuth = ["basic-auth", "basic-inspect-refused"].includes(mode);
+      const basicAuth = [
+        "basic-auth",
+        "basic-inspect-refused",
+        "basic-push-refused",
+        "basic-post-refused",
+      ].includes(mode);
       const fixtureCredential = {
         username: "owned-push-probe",
         password: "owned-push-" + crypto.randomUUID(),
@@ -75,6 +82,7 @@ try {
       let lockedReceiptBytes;
       const receiptErrors = [];
       const ownerErrors = [];
+      let refusedPostsAfterPush = 0;
       let ownerPath = "";
       /** @type {Buffer | undefined} */
       let ownerBytes;
@@ -360,6 +368,11 @@ try {
             assert.notEqual(expectedSourceRefs, sourceRefs);
           });
         const submittedAt = performance.now();
+        const prePushChallenges = remote.state.authChallenges;
+        if (mode === "basic-post-refused")
+          remote.state.refuseReceiveAuthentication = true;
+        if (mode === "basic-push-refused")
+          remote.state.refuseAuthentication = true;
         if (mode === "receipt-write-failed" || ownerFault) {
           remote.beforeNextReceive(async () => {
             const current = await invoke("load_workspace");
@@ -429,6 +442,16 @@ try {
             remote.state.completedHeldReceives,
             mode === "completed-stop" ? 1 : 0,
           );
+        } else if (mode === "basic-push-refused") {
+          await panel
+            .getByRole("alert")
+            .filter({ hasText: "Inspect pending Push" })
+            .waitFor();
+          const message = await panel.getByRole("alert").innerText();
+          assert.match(message, /credentials|authentication/i);
+          assert.ok(!message.includes(fixtureCredential.password));
+          assert.ok(remote.state.authChallenges > prePushChallenges);
+          assert.ok(remote.state.authChallenges - prePushChallenges <= 4);
         } else if (ownerFault) {
           await panel
             .getByRole("alert")
@@ -472,7 +495,11 @@ try {
           await panel
             .getByRole("status")
             .filter({
-              hasText: ["unknown", "partial-upload"].includes(mode)
+              hasText: [
+                "unknown",
+                "partial-upload",
+                "basic-post-refused",
+              ].includes(mode)
                 ? "Remote outcome is unknown."
                 : mode === "rejected"
                   ? "Server rejected the Push. Local data is unchanged."
@@ -484,6 +511,8 @@ try {
             })
             .waitFor();
         const expectedPosts = [
+          "basic-push-refused",
+          "basic-post-refused",
           "equal",
           "partial-upload",
           "non-fast-forward",
@@ -516,9 +545,16 @@ try {
             "Actual credential challenge handled",
           );
           assert.ok(remote.state.authenticatedGets >= 2);
-          assert.equal(remote.state.authenticatedPosts, 1);
+          assert.equal(
+            remote.state.authenticatedPosts,
+            ["basic-push-refused", "basic-post-refused"].includes(mode) ? 0 : 1,
+          );
           checks.push(
-            "real Basic-auth challenge during product review/worker discovery and authenticated receive-pack POST: exact pinned public commit accepted without private Send/full state mutation",
+            mode === "basic-push-refused"
+              ? "credentials accepted during review but real401 refuses worker after confirmation: bounded attempts, zero receive-pack POST/remote ref absent, error omits credential and private Send/full state preserved"
+              : mode === "basic-post-refused"
+                ? "real Basic-auth review/worker discovery succeeds; receive-pack POST credentials refused before server Git execution, full state/private Send retained"
+                : "real Basic-auth challenge during product review/worker discovery and authenticated receive-pack POST: exact pinned public commit accepted without private Send/full state mutation",
           );
         }
         assert.equal(
@@ -527,6 +563,8 @@ try {
             ? x.newOid
             : [
                   "partial-upload",
+                  "basic-push-refused",
+                  "basic-post-refused",
                   "rejected",
                   "stop",
                   "timeout",
@@ -545,6 +583,8 @@ try {
           );
         } else if (
           ![
+            "basic-push-refused",
+            "basic-post-refused",
             "partial-upload",
             "stop",
             "timeout",
@@ -567,6 +607,20 @@ try {
           "receipt.json",
         );
         const nativeReceipt = JSON.parse(await readFile(receiptPath, "utf8"));
+        if (mode === "basic-post-refused") {
+          assert.equal(nativeReceipt.phase, "finished");
+          assert.equal(nativeReceipt.result.outcome, "unknown");
+          assert.ok(remote.state.refusedAuthPosts > 0);
+          assert.ok(remote.state.refusedAuthPosts <= 4);
+          refusedPostsAfterPush = remote.state.refusedAuthPosts;
+          checks.push(
+            "real authenticated discovery succeeds but receive-pack POST returns401: no Git execution/ref update, durable finished/unknown receipt, bounded refused POST attempts and no blind retry",
+          );
+        }
+        if (mode === "basic-push-refused") {
+          assert.equal(nativeReceipt.phase, "submitted");
+          assert.equal(nativeReceipt.result, null);
+        }
         if (["equal", "fast-forward"].includes(mode)) {
           assert.equal(nativeReceipt.phase, "finished");
           assert.equal(
@@ -655,12 +709,18 @@ try {
                       ? "fresh review confirms pinned public commit/tree, retaining completed private Send/history200 and exact full live data except saved intent"
                       : partial
                         ? "partial streaming upload leaves remote absent and durable unknown result; exact full live snapshot except saved intent/local refs/private held Send preserved"
-                        : "confirmed public Push: pinned actual server tree and full live snapshot except exact saved intent; held Send stays active",
+                        : ["basic-push-refused", "basic-post-refused"].includes(
+                              mode,
+                            )
+                          ? "auth-refused Push retains durable pending receipt/snapshot and exact whole live state except saved intent; held Send remains active"
+                          : "confirmed public Push: pinned actual server tree and full live snapshot except exact saved intent; held Send stays active",
         );
 
         if (
           [
             "unknown",
+            "basic-push-refused",
+            "basic-post-refused",
             "partial-upload",
             "receipt-write-failed",
             "snapshot-owner-changed",
@@ -683,13 +743,15 @@ try {
           checks.push(
             ["stop", "timeout", "completed-stop"].includes(mode)
               ? "stopped submitted Push survives reload; fresh Inspect does not resend or rewrite full data"
-              : ownerFault
-                ? "ownership mismatch survives reload as pending Push with no automatic upload or snapshot cleanup"
-                : mode === "receipt-write-failed"
-                  ? "actual finished-receipt write refusal survives reload with original submitted receipt/intent; no automatic second POST or full-data rewrite"
-                  : partial
-                    ? "actual partial-upload disconnect survives reload as pending Push; no second proxy POST, server upload or full-data rewrite"
-                    : "real completed-server HTTP503 survives reload as pending Push; no automatic upload or full-data rewrite",
+              : ["basic-push-refused", "basic-post-refused"].includes(mode)
+                ? "real authentication refusal remains pending after reload; no automatic second upload or full state rewrite"
+                : ownerFault
+                  ? "ownership mismatch survives reload as pending Push with no automatic upload or snapshot cleanup"
+                  : mode === "receipt-write-failed"
+                    ? "actual finished-receipt write refusal survives reload with original submitted receipt/intent; no automatic second POST or full-data rewrite"
+                    : partial
+                      ? "actual partial-upload disconnect survives reload as pending Push; no second proxy POST, server upload or full-data rewrite"
+                      : "real completed-server HTTP503 survives reload as pending Push; no automatic upload or full-data rewrite",
           );
         }
 
@@ -766,6 +828,12 @@ try {
                 : "Stop during real independent Inspect/held advertisement disconnects discovery worker; no observation/receipt/intent/full bytes/data/server mutation or upload, fresh explicit inspection required",
           );
           remote.state.refuseAuthentication = false;
+        }
+        if (["basic-push-refused", "basic-post-refused"].includes(mode)) {
+          remote.state.refuseAuthentication = false;
+          remote.state.refuseReceiveAuthentication = false;
+          assert.equal(remote.state.receivePosts, 0);
+          assert.equal(await remote.tip(), null);
         }
         if (ownerFault) {
           assert.ok(outgoing);
@@ -1023,6 +1091,10 @@ try {
         assert.deepEqual(retired.result, nativeReceipt.result);
         if (outgoing) await assert.rejects(stat(outgoing), { code: "ENOENT" });
         assert.equal(remote.state.receivePosts, expectedPosts);
+        if (basicAuth)
+          assert.equal(remote.state.authenticatedPosts, expectedPosts);
+        if (mode === "basic-post-refused")
+          assert.equal(remote.state.refusedAuthPosts, refusedPostsAfterPush);
         if (partial) assert.equal(partial.state.receivePosts, 1);
         assert.equal(
           await remote.tip(),
@@ -1030,6 +1102,8 @@ try {
             ? x.newOid
             : [
                   "partial-upload",
+                  "basic-push-refused",
+                  "basic-post-refused",
                   "rejected",
                   "stop",
                   "timeout",
