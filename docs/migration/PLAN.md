@@ -2,6 +2,8 @@
 
 ## Owner goal workflow — 2026-10-07
 
+Latest step5 close/restart milestone: saved Windows WM_CLOSE/refusal/recovery/normal close4, reopen2, known pending-journal parent termination1/startup recovery2 checks pass on unchanged current successful build; full workspace/ref/journal/lock cleanup and fresh persisted200 verified. Compiler passes. Continue same unfinished Pull/Merge (remaining choices/network/history/multiple-base/mid-write/platform/full parity) before compact; new Claude instruction discovery applied, none found in relevant paths. See STATUS.
+
 Latest step5 retained-copy milestone: saved mounted merge1791369799995 and restore1791369869235 pass real HTTP drain/guards, actual Windows picker cancellation/write refusal/exact full retained copy/required review/authoritative recovery/no resubmission/fresh persisted200 on fresh native fixture build1791369032699/1791369738849/result0. Full Pull/Merge remains unfinished (remaining choices/OS-close/faults/network/history/multiple bases/platform/full parity); continue same feature before compact. See STATUS.
 
 Latest step5 actual drain/recovery milestone: saved mounted git-merge-recovery1791368419860 passes6 groups for real Windows baseline/post-ref write refusal, durable locked authoritative recovery/full candidate, completed-native-success lost reply/no resend, actual held native HTTP drain/no cancelled history/fresh200, and up-to-date preserving active connection/full data/ref until explicit Cancel. Final check passes on unchanged previous successful build. STATUS records exact legacy marker expectation/failures. Retained-copy/OS-close/fault/platform, remaining Git-choice UI and real network/history/multiple-base/full Pull/Merge still open; continue same feature before compact.
