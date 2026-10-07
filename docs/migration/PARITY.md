@@ -1,5 +1,7 @@
 # Feature parity tracker
 
+2026-10-07 restore interruption update: saved native parent termination/restart passes after successful baseline save before restore, and after successful native restore before UI reply, with exact durable bytes/full workspace/selection/unchanged HEAD/new-save admission. Parent-boundary/restart artifacts1791355072935/1791355076254/1791355077878/1791355081643. Explicit completed-command Windows interruption; mid-write crash/power-loss/disk-full/other-platform/full parity remain open. See STATUS.
+
 2026-10-07 mounted retained-copy acceptance: full production App/workspace/drain/persistence saved native fixture passes actual held Send cancellation/no history, defensive retained edits after native restore, refusal guards, OS picker cancel/native write refusal/exact copy/review, authoritative recovery and fresh persisted200 (git-recovery-native-copy1791354794724). Windows with explicit fixture-only unexpected-edit injection; disk-full/crash/other-platform and original full parity remain open. See STATUS.
 
 2026-10-07 retained-copy update: saved production recovery component and real restore coordinator/client/native IPC fixture pass actual Windows OS picker cancel/save, native copy-write sharing refusal (os error32), exact copied snapshot, required review and authoritative recovery without saved-data overwrite (git-recovery-native-copy1791353940793). Main mounted workspace unexpected-edit admission/drain/persistence remains unverified by this isolated fixture; disk-full/crash/other-platform/full parity remain open. See STATUS.

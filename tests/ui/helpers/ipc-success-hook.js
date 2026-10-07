@@ -5,8 +5,16 @@
  * @param {import('playwright-core').Page} page
  * @param {string} command
  * @param {()=>Promise<void>} hook
- * @param {()=>Promise<T>} run */
-export async function withIpcSuccessHook(page, command, hook, run) {
+ * @param {()=>Promise<T>} run
+ * @param {{allowPageClosure?:boolean}} [options] Only for scenarios that explicitly
+ * terminate their owned probe; ordinary hooks must still clean up and read counts. */
+export async function withIpcSuccessHook(
+  page,
+  command,
+  hook,
+  run,
+  options = {},
+) {
   // Installed Playwright has no removeExposedFunction; bindings live until the
   // owned Page is disposed. A unique name prevents reuse and the global is deleted below.
   const binding =
@@ -50,19 +58,32 @@ export async function withIpcSuccessHook(page, command, hook, run) {
       { command, binding },
     );
     const value = await run();
-    const counts = await page.evaluate(() => {
-      const state = /** @type {any} */ (window).__ipcSuccessFixture;
-      return { calls: state.calls, hooks: state.hooks };
-    });
-    return { value, ...counts };
+    const counts = await page
+      .evaluate(() => {
+        const state = /** @type {any} */ (window).__ipcSuccessFixture;
+        return { calls: state.calls, hooks: state.hooks };
+      })
+      .catch((error) => {
+        if (options.allowPageClosure && page.isClosed()) return null;
+        throw error;
+      });
+    return {
+      value,
+      calls: counts?.calls ?? null,
+      hooks: counts?.hooks ?? null,
+    };
   } finally {
-    await page.evaluate((binding) => {
-      const host = /** @type {any} */ (window);
-      if (host.__ipcSuccessFixture?.owner === binding) {
-        window.fetch = host.__ipcSuccessFixture.original;
-        delete host.__ipcSuccessFixture;
-      }
-      delete host[binding];
-    }, binding);
+    await page
+      .evaluate((binding) => {
+        const host = /** @type {any} */ (window);
+        if (host.__ipcSuccessFixture?.owner === binding) {
+          window.fetch = host.__ipcSuccessFixture.original;
+          delete host.__ipcSuccessFixture;
+        }
+        delete host[binding];
+      }, binding)
+      .catch((error) => {
+        if (!(options.allowPageClosure && page.isClosed())) throw error;
+      });
   }
 }
