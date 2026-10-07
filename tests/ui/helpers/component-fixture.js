@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { resolve, sep } from "node:path";
-import { compile } from "svelte/compiler";
+import { compile, compileModule } from "svelte/compiler";
 import { launchUiBrowser } from "./preview-app.js";
 
 /** Compile the real UI components into a saved, isolated contract fixture using Bun.
@@ -21,6 +21,13 @@ export async function withComponentFixture(name, run) {
       {
         name: "svelte-ui-fixture",
         setup(build) {
+          build.onLoad({ filter: /\.svelte\.js$/ }, async ({ path }) => ({
+            contents: compileModule(await Bun.file(path).text(), {
+              filename: path,
+              generate: "client",
+            }).js.code,
+            loader: "js",
+          }));
           build.onLoad({ filter: /\.svelte$/ }, async ({ path }) => ({
             contents: compile(await Bun.file(path).text(), {
               filename: path,

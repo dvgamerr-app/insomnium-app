@@ -1,5 +1,7 @@
 # Feature parity tracker
 
+2026-10-07 recovery update: reproduced/fixed stale retained-copy review after changed retained snapshots and during copy writing. Saved production-component callback fixture passes cancellation/write failure/exact snapshots/fresh review and retry; fresh native restore/recovery regressions pass (git-restore1791353071166). Actual retained-copy OS picker/native write/review, disk-full/crash/platform/full parity remain open. See STATUS.
+
 2026-10-07 acceptance update: actual restore transition save refusal after baseline success, mounted locked recovery and authoritative baseline load pass; fixed Source Control's stale closed session after recovery and verified automatic reload/next restore without navigation (git-restore1791352130010). Fresh native regression passes. Disk-full/crash/retained-copy picker/platform/full parity remain open. See STATUS.
 
 2026-10-07 acceptance update: selected restore native Windows file-sharing replacement refusal and mounted baseline-save refusal preserve exact original bytes/resources and successfully retry after release (git-restore1791351439885). This verifies one actual I/O failure; disk-full/crash, mounted transition-failure recovery, retained-copy picker/platform/full parity remain open. See STATUS.

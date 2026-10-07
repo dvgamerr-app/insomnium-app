@@ -1,4 +1,5 @@
 <script>
+  import { untrack } from "svelte";
   import Feedback from "./ui/Feedback.svelte";
   import Field from "./ui/Field.svelte";
   import Checkbox from "./ui/Checkbox.svelte";
@@ -6,33 +7,49 @@
   import DialogShell from "./ui/DialogShell.svelte";
   import { save } from "@tauri-apps/plugin-dialog";
   import { writeTextFile } from "@tauri-apps/plugin-fs";
+  import { sameWorkspace } from "../git-workspace.js";
   import {
     workspace,
     recoverGitCheckout,
     retainedGitCheckoutWorkspace,
   } from "../workspace.svelte.js";
+  /** @type {{getRetained?:typeof retainedGitCheckoutWorkspace,recoverWorkspace?:typeof recoverGitCheckout,pickCopy?:typeof save,writeCopy?:typeof writeTextFile}} */
+  let {
+    getRetained = retainedGitCheckoutWorkspace,
+    recoverWorkspace = recoverGitCheckout,
+    pickCopy = save,
+    writeCopy = writeTextFile,
+  } = $props();
   let busy = $state(false);
   let error = $state("");
-  let retained = $state.raw(retainedGitCheckoutWorkspace());
+  let retained = $state.raw(untrack(() => getRetained()));
   let saved = $state.raw(/** @type {Record<string,any>|null} */ (null));
   let reviewed = $state(false);
+  function refreshRetained() {
+    retained = getRetained();
+    if (saved && !sameWorkspace(saved, retained)) {
+      saved = null;
+      reviewed = false;
+    }
+  }
   async function saveCopy() {
     if (busy || !retained) return;
     busy = true;
     error = "";
     try {
       const snapshot = JSON.parse(JSON.stringify(retained));
-      const path = await save({
+      const path = await pickCopy({
         defaultPath: `insomnium-${workspace.gitRecoveryKind}-recovery.json`,
         filters: [{ name: "Workspace recovery JSON", extensions: ["json"] }],
       });
       if (!path) return;
-      await writeTextFile(path, JSON.stringify(snapshot, null, 2));
+      await writeCopy(path, JSON.stringify(snapshot, null, 2));
       saved = snapshot;
       reviewed = false;
     } catch (cause) {
       error = String(cause);
     } finally {
+      refreshRetained();
       busy = false;
     }
   }
@@ -41,11 +58,11 @@
     busy = true;
     error = "";
     try {
-      await recoverGitCheckout(retained ? saved : null);
+      await recoverWorkspace(retained ? saved : null);
     } catch (cause) {
       error = String(cause);
     } finally {
-      retained = retainedGitCheckoutWorkspace();
+      refreshRetained();
       busy = false;
     }
   }
