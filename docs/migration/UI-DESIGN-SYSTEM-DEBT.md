@@ -1,5 +1,7 @@
 # UI/UX: รวม components และ design system ให้ใช้ร่วมกัน
 
+2026-10-08 capability820aee4: fixed Field required context (previously decorative star only), native required inherited by5 controls/reactive optional/explicit false override, FilePicker Field error semantics, and actual Git author Preferences adoption of Field ID/required/busy ownership. Design-system native form submission contract and static dark/light1440/900/760 pass; fresh Windows production release1791407772794/1791408129110/result0 accepts native-theme1791408164309 (actual author browser validation before persistence IPC/full data preservation), Source Control and Push regressions. Current raw native-control inventory finds only specialized CodeEditor fallback outside primitives. This is one verified field semantics/adoption improvement; CSS tokens/literals/unused declaration and remaining workflow/interaction/full debt gates stay open. Exact evidence/limits/checkpoint in STATUS.
+
 วันที่: 2026-10-05  
 สถานะ: **บันทึกปัญหาและแผนแก้; ยังไม่ปิด debt**  
 ฐานโค้ดของหลักฐานเดิม: `48030b1cffbd8ccb009992c306c81592dc18c92c`
