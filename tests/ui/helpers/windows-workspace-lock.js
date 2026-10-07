@@ -45,6 +45,33 @@ export async function lockScenarioCopyWrite(output, selectedPath) {
   return openReadLock(path, 1);
 }
 
+/** Deny deletion of one existing payload file in the exact owned Push snapshot.
+ * @param {string} stageName @param {string} operationId */
+export async function lockProbePushPayload(stageName, operationId) {
+  assert.equal(process.platform, "win32");
+  assert.ok(process.env.APPDATA);
+  assert.match(stageName, /^fetch-[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/);
+  assert.match(operationId, /^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/);
+  const expected = resolve(
+    process.env.APPDATA,
+    probeIdentifier,
+    "git-fetch-v1",
+    stageName,
+  );
+  assert.equal(
+    (await realpath(expected)).toLowerCase(),
+    expected.toLowerCase(),
+  );
+  assert.equal(
+    await Bun.file(resolve(expected, ".insomnium-push-snapshot")).text(),
+    operationId,
+  );
+  const selected = resolve(expected, "repository", "config");
+  const path = await realpath(selected);
+  assert.equal(path.toLowerCase(), selected.toLowerCase());
+  return openReadLock(path, 3); // Reads/writes allowed; delete sharing denied.
+}
+
 /** @param {string} path @param {number} sharing */
 function openReadLock(path, sharing) {
   const library = dlopen("kernel32.dll", {
