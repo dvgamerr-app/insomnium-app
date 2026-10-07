@@ -6,7 +6,7 @@ import { probeIdentifier } from "./native-app.js";
 import { snapshotGitCollection } from "../../../src/lib/git-collection.js";
 
 /** Git plumbing for owned synthetic objects only, with ambient Git config removed.
- * @param {string} repo @param {string[]} args @param {string} [input] */
+ * @param {string} repo @param {string[]} args @param {string|Uint8Array} [input] */
 export async function fixtureGit(repo, args, input) {
   const env = { ...process.env };
   for (const name of Object.keys(env))
@@ -21,7 +21,7 @@ export async function fixtureGit(repo, args, input) {
   });
   const child = Bun.spawn(["git", "-C", repo, ...args], {
     env,
-    stdin: input === undefined ? "ignore" : new TextEncoder().encode(input),
+    stdin: input === undefined ? "ignore" : typeof input === "string" ? new TextEncoder().encode(input) : input,
     stdout: "pipe",
     stderr: "pipe",
     windowsHide: true,

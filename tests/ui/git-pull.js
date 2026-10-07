@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { withNativeApp, poll } from "./helpers/native-app.js";
 import { advanceFixture, fixtureGit, assertAdvanceCleanup } from "./helpers/git-advance-fixture.js";
 import { gitRepositoryPack } from "./helpers/git-repository-pack.js";
+import { serveGitPack } from "./helpers/git-smart-http.js";
 import { heldHttp } from "./helpers/held-http.js";
 import { openGitRemote } from "./helpers/git-panel.js";
 
@@ -13,28 +14,8 @@ try {
     const { page, invoke, output } = context;
     const fixture = await advanceFixture(context);
     const pack = await gitRepositoryPack(fixture);
-    let gets = 0, posts = 0;
-    let holdNextAdvertisement = false;
-    let gated = false;
-    let releaseAdvertisement = /** @type {(()=>void)|undefined} */ (undefined);
-    const server = Bun.serve({ hostname: "127.0.0.1", port: 0, async fetch(request) {
-      if (request.method === "POST") {
-        posts++;
-        await request.arrayBuffer();
-        return new Response(Buffer.concat([Buffer.from("0008NAK\n"), pack.pack]), {
-          headers: { "Content-Type": "application/x-git-upload-pack-result" },
-        });
-      }
-      gets++;
-      if (holdNextAdvertisement) {
-        holdNextAdvertisement = false;
-        gated = true;
-        await new Promise(resolve => { releaseAdvertisement = () => resolve(undefined); });
-      }
-      return new Response(pack.advertisement, {
-        headers: { "Content-Type": "application/x-git-upload-pack-advertisement" },
-      });
-    } });
+    const network = serveGitPack(pack);
+    const { server, state } = network;
     const errors = /** @type {string[]} */ ([]);
     page.on("pageerror", error => errors.push(error.message));
     try {
@@ -57,7 +38,7 @@ try {
       await branch.fill("main");
       await pull.click();
       await remote.getByRole("alert").filter({ hasText: "Save remote settings before fetching" }).waitFor();
-      assert.equal(gets + posts, 0);
+      assert.equal(state.gets + state.posts, 0);
       await remote.getByRole("button", { name: "Save remote settings", exact: true }).click();
       await remote.getByText("Remote settings saved.", { exact: true }).waitFor();
       const baseline = await invoke("load_workspace");
@@ -65,7 +46,7 @@ try {
       const review = page.getByRole("dialog", { name: "Review merge", exact: true });
       await review.waitFor();
       await review.getByText(`Pull from http://127.0.0.1:${server.port}/repo · main`, { exact: true }).waitFor();
-      assert.ok(gets > 0 && posts > 0, "Actual native smart-HTTP advertisement and pack download");
+      assert.ok(state.gets > 0 && state.posts > 0, "Actual native smart-HTTP advertisement and pack download");
       assert.equal(http.cancelled, 0, "Network fetch/review must not drain active Send");
       assert.deepEqual(await invoke("load_workspace"), baseline);
       assert.equal(await fixtureGit(fixture.repo, ["rev-parse", "refs/heads/main"]), fixture.f.oid);
@@ -116,11 +97,11 @@ try {
       // Exact owned fixture rewind is test setup, never an application rollback.
       await openGitRemote(page);
       await branch.fill("main");
-      holdNextAdvertisement = true;
+      state.holdNextAdvertisement = true;
       await pull.click();
-      await poll(async () => gated, "Actual remote advertisement held for source race");
+      await poll(async () => state.gated, "Actual remote advertisement held for source race");
       await fixtureGit(fixture.repo, ["update-ref", "refs/heads/main", fixture.f.oid, fixture.newOid]);
-      releaseAdvertisement?.();
+      state.releaseAdvertisement?.();
       await remote.getByRole("alert").filter({ hasText: "Local branch changed while fetching" }).waitFor();
       assert.equal(await review.count(), 0);
       assert.deepEqual(await invoke("load_workspace"), upToDate);
@@ -133,12 +114,12 @@ try {
       await page.getByRole("button", { name: "Cancel", exact: true }).click();
       await poll(async () => http.cancelled === 2, "Explicit Cancel ends preserved Send after source-race refusal");
       assert.deepEqual(errors, []);
-      await Bun.write(join(output, "acceptance.json"), JSON.stringify({ gets, posts,
+      await Bun.write(join(output, "acceptance.json"), JSON.stringify({ gets: state.gets, posts: state.posts,
         checks: ["unsaved endpoint prevents network pull", "real smart-HTTP complete-history fetch pins remote review",
           "fetch/review/cancel preserve full workspace/ref and active native Send", "confirmed pull drains Send and fast-forwards full reviewed workspace/ref with cleanup",
           "up-to-date network Pull preserves full workspace/ref and active Send", "local ref changed during actual gated Fetch refuses review without merge or drain"],
         scope: "Windows loopback smart-HTTP fast-forward/local working conflict; divergent/history/multiple-base/provider/fault acceptance remains pending",
       }, null, 2));
-    } finally { releaseAdvertisement?.(); server.stop(true); }
+    } finally { network.close(); }
   });
 } finally { await http.close(); }
