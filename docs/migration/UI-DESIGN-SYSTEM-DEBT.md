@@ -203,16 +203,16 @@ All twelve feature/editor scoped style blocks were inspected. Their remaining ow
 | GitPanel | Change/history/commit graph layout and selection of domain rows. Keep graph geometry and row layout; remove redundant button-radius declarations and tokenize mono status font. |
 | GitRecovery | Recovery-choice alignment. Checkbox width/margin override still needs a shared alignment contract and regression coverage of the locked recovery dialog. |
 | GitRemotePanel | Remote sections and bounded advertisement list layout; no primitive interaction override found. |
-| GrpcPane | Method placement, response log/time/metadata layout. Retain content geometry; move repeated hint type/color treatment to Feedback and tokenize mono message font. |
+| GrpcPane | Method placement, response log/time/metadata layout. Hints now use shared compact Feedback; fresh native dark/light streaming/error acceptance passes. Mono message font token cleanup remains. |
 | KeyValueEditor | Multipart details layout; remaining rem spacing literals require mapping to foundation tokens while retaining current computed sizes. |
 | OAuthEditor | Token panel/action layout and long-text wrapping; retain domain layout. |
-| ProtoManager | Proto tree/source/preview/remove-confirm layout. `.proto-name` still overrides shared button background/border; remove that surface override and verify full-surface hover. Consolidate duplicated hint type/color. |
+| ProtoManager | Proto tree/source/preview/remove-confirm layout. Fixed scoped layout reaching shared Button (native flexGrow0 before,1 after); removed redundant background/border and adopted compact Feedback. Fresh native full-surface hover/source/removal acceptance passes. Baseline hover already passed; no reproduced hover defect claimed. |
 | ResponsePane | Filter-row sizing and history placement; only control layout overrides found. |
 | RunnerPane | Suite/test/result layout and domain pass/fail colors. Retain result status presentation; review duplicated flex declaration and shared Field/Select placement. |
 | RunnerSidebar | Suite row layout and parent selection surface; redundant button-radius declaration remains. |
 | SettingsPanel | Settings view, sidebar, section/grid layout; selected tab presentation is now shared, sidebar width remains a domain layout contract. |
 
-Next implementation order for this debt: ProtoManager surface override and Feedback adoption, shared checkbox alignment, remaining token/literal/unused declaration cleanup, then remaining interaction/validation/native workflow coverage. Keep CodeMirror and domain graphs/tables as explicit adapters rather than forcing them into generic primitives. Native acceptance for the single-entry/tab repair is tracked in STATUS.
+Next implementation order for this debt: finish recovery checkbox adoption, remaining token/literal/unused declaration cleanup, then remaining interaction/validation/native workflow coverage. Keep CodeMirror and domain graphs/tables as explicit adapters rather than forcing them into generic primitives. Native acceptance is tracked in STATUS; full migration priority also includes the missing selected Git restore UI.
 
 2026-10-07 evidence update: current application has one ordered style entry (`src/lib/styles.css` → `styles/index.css`) and the shared-control consumer inventory/API/ownership is now recorded in `src/lib/components/ui/README.md`. Static scan finds only CodeEditor's engine-owned textarea as raw form/button markup outside `ui`. Current `bun tests/ui/design-system.js` passes shared field associations, numeric/checkbox bindings, file reselect and dialog/tab contracts. Settings theme/workspace scenarios also pass. Historical counts above remain the original review snapshot. Scoped feature CSS audit, remaining token/alias cleanup and broader native/workflow acceptance remain open; do not mark all checklist items complete from these narrower checks.
 

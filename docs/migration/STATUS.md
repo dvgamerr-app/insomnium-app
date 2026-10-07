@@ -1,5 +1,10 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Protocol layout and shared hints native acceptance — 2026-10-07
+
+- Fresh native-protocol-controls-probe finished exit0 in5m42s. Saved nocturne-native-theme1791349856978 passes the formerly failing proto-name flexGrow1 assertion and full-surface hover, plus dark/light source/removal and locked recovery dialogs. Saved nocturne-grpc-theme1791349879499 passes current hints and unary/streaming/error/Cancel/pending-prompt flows at1440/900/760. Both owned app exits0. Inspected light proto-source screenshot.
+- Proto tree layout now reaches the shared Button; removed redundant button surface declarations. Proto/gRPC hints use shared compact Feedback with domain margins retained. Baseline hover already passed; only tree-name flex layout was reproduced as broken. Full protocol/platform/migration and remaining CSS debt stay open.
+
 ## Shared hint density and wrapped choice contracts — 2026-10-07
 
 - Shared Feedback supports compact density and semantic list items; Field supports first-line alignment for wrapped inline checkbox choices, with nonshrinking checkbox dimensions. Added contract documentation and expanded the existing design-system fixture/scenario. Theme is applied before each geometry/density assertion; both dark/light checks pass. Current bun run check reports0 errors/0 warnings; frontend build and saved theme/workspace regressions previously passed with these application changes.

@@ -354,9 +354,9 @@
               label="Metadata"
               onchange={(metadata) => update(request._id, { metadata })}
             />
-            <p class="grpc-hint">
+            <Feedback tone="hint" density="compact" class="grpc-hint">
               Use base64 values for metadata names ending in -bin.
-            </p>
+            </Feedback>
           {:else if tab === "Proto Files"}
             <ProtoManager {request} />
           {:else if tab === "Docs"}<Textarea
@@ -377,16 +377,16 @@
                 ></Select
               ></Field
             >
-            <p class="grpc-hint">
+            <Feedback tone="hint" density="compact" class="grpc-hint">
               Legacy keeps the original object fields, defaults and oneof names.
               ProtoJSON uses standard timestamp strings and base64 bytes.
               Changing format does not rewrite the body.
-            </p>
-            <p class="grpc-hint">
+            </Feedback>
+            <Feedback tone="hint" density="compact" class="grpc-hint">
               grpcs:// validates server certificates. Global custom CA and
               matching-host client identity apply. HTTP proxy, cookie and HTTP
               auth settings do not apply; use metadata for authentication.
-            </p>
+            </Feedback>
           {/if}
         </section></TabPanel
       >
@@ -443,17 +443,25 @@
             ><Checkbox bind:checked={follow} /> Auto-scroll</Field
           >{/if}
       </TabList>
-      {#if response?.dropped}<p class="grpc-hint">
+      {#if response?.dropped}<Feedback
+          tone="hint"
+          density="compact"
+          class="grpc-hint"
+        >
           {response.dropped} older events were removed from the bounded response log.
-        </p>{/if}
+        </Feedback>{/if}
       <TabPanel id="grpc-response-panel" labelledBy={activeTab1}
         ><div class="grpc-log" bind:this={log}>
           {#if responseTab === "Response"}
-            {#if !messages.length}<p class="grpc-hint">
+            {#if !messages.length}<Feedback
+                tone="hint"
+                density="compact"
+                class="grpc-hint"
+              >
                 {running
                   ? "Waiting for a response…"
                   : "Send a request to see the response."}
-              </p>
+              </Feedback>
             {:else if response?.serverStreaming}{#each messages as message (message._id)}<div
                   class="grpc-message-time"
                 >
@@ -512,10 +520,7 @@
     flex: 1;
   }
   :global(.grpc-hint) {
-    font-size: var(--font-size-12);
-    color: var(--muted);
     margin: var(--space-8) var(--space-12);
-    line-height: 1.5;
   }
   .request-editor :global(.grpc-body) {
     width: 100%;

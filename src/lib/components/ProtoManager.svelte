@@ -209,21 +209,26 @@
 {#if error || tree.error}<Feedback as="p" class="inline-error" role="alert">
     {error || tree.error}
   </Feedback>{/if}
-{#if notice}<p class="hint" role="status">{notice}</p>{/if}
-{#if reading}<p class="hint">
+{#if notice}<Feedback
+    tone="hint"
+    density="compact"
+    class="proto-hint"
+    role="status">{notice}</Feedback
+  >{/if}
+{#if reading}<Feedback tone="hint" density="compact" class="proto-hint">
     Reading selected files… <Button variant="ghost" onclick={discard}
       >Cancel</Button
     >
-  </p>{/if}
+  </Feedback>{/if}
 {#if pending.length}
   <div class="preview">
-    <p class="hint">
+    <Feedback tone="hint" density="compact" class="proto-hint">
       {targetId
         ? `Update ${target?.name || "missing saved proto"}`
         : "Import new protos"}: review {pending.length} relative paths. {targetId
         ? "Existing IDs and files absent from this selection will be kept. Every file in the affected proto root is validated before saving."
         : "Existing saved files will be kept."}
-    </p>
+    </Feedback>
     {#each pending as item, i}<Input
         aria-label={`Proto path ${i + 1}`}
         disabled={running}
@@ -300,7 +305,9 @@
         ><Icon name="trash" size={14} /></Button
       >
     </li>
-  {:else}<li class="hint">No saved proto files in this collection.</li>{/each}
+  {:else}<Feedback as="li" tone="hint" density="compact" class="proto-hint"
+      >No saved proto files in this collection.</Feedback
+    >{/each}
 </ul>
 {#if removal}
   <div class="remove-confirm">
@@ -336,10 +343,10 @@
     value={file.protoText}
     oninput={(e) => update(file._id, { protoText: e.currentTarget.value })}
   ></Textarea>
-{:else}<p class="hint">
+{:else}<Feedback tone="hint" density="compact" class="proto-hint">
     Select a saved file to edit its source. Use Server reflection when no local
     proto is needed.
-  </p>{/if}
+  </Feedback>{/if}
 
 <style>
   .proto-tree {
@@ -361,25 +368,21 @@
   .proto-tree li.selected {
     background: var(--selected);
   }
-  .proto-name {
+  .proto-tree :global(.proto-name) {
     flex: 1;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     text-align: left;
+    justify-content: flex-start;
   }
   .proto-tree :global(button.proto-name) {
-    border: 0;
-    background: transparent;
     padding: var(--space-6) 0;
   }
 
-  .hint {
+  :global(.proto-hint) {
     margin: var(--space-10) var(--space-12);
-    color: var(--muted);
-    font-size: var(--font-size-12);
-    line-height: 1.5;
   }
   .preview {
     padding: var(--space-8);

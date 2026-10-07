@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { withNativeApp, poll } from "./helpers/native-app.js";
 import { withIpcFailure } from "./helpers/ipc-failure.js";
 import { gitCollection } from "./helpers/git-fixture.js";
+import { assertSurfaceHover } from "./helpers/select.js";
 
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-unified-diff-probe/build-state.json";
@@ -184,6 +185,17 @@ await withNativeApp(
       await page
         .getByRole("textbox", { name: "Proto source", exact: true })
         .waitFor();
+      await assertSurfaceHover(
+        page,
+        page.getByRole("button", { name: "theme.proto", exact: true }),
+      );
+      assert.equal(
+        await page
+          .getByRole("button", { name: "theme.proto", exact: true })
+          .evaluate((el) => getComputedStyle(el).flexGrow),
+        "1",
+        "proto name fills the tree row",
+      );
       await page.screenshot({
         path: output + "/" + theme + "-proto-source.png",
       });

@@ -57,21 +57,29 @@ export async function assertControlHover(page) {
     page.locator(".activity-bar button").first(),
     page.locator(".ui-button.text-button:visible").first(),
   ]) {
-    await page.mouse.move(0, 0);
-    await page.waitForTimeout(160);
-    const before = await control.evaluate(
-      (el) => getComputedStyle(el).backgroundColor,
-    );
-    await control.hover({ position: { x: 3, y: 3 } });
-    await page.waitForTimeout(160);
-    const after = await control.evaluate(
-      (el) => getComputedStyle(el).backgroundColor,
-    );
-    assert.notEqual(
-      after,
-      before,
-      "hover at the padded corner paints the whole control",
-    );
+    await assertSurfaceHover(page, control);
   }
+  await page.mouse.move(0, 0);
+}
+
+/** Hover the padded corner and verify that the entire native control paints.
+ * @param {import('playwright-core').Page} page
+ * @param {import('playwright-core').Locator} control */
+export async function assertSurfaceHover(page, control) {
+  await page.mouse.move(0, 0);
+  await page.waitForTimeout(160);
+  const before = await control.evaluate(
+    (el) => getComputedStyle(el).backgroundColor,
+  );
+  await control.hover({ position: { x: 3, y: 3 } });
+  await page.waitForTimeout(160);
+  const after = await control.evaluate(
+    (el) => getComputedStyle(el).backgroundColor,
+  );
+  assert.notEqual(
+    after,
+    before,
+    "hover at the padded corner paints the whole control",
+  );
   await page.mouse.move(0, 0);
 }
