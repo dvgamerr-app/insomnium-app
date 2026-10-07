@@ -4,6 +4,11 @@ The application imports `src/lib/styles.css` once; it forwards to `styles/index.
 
 `src/lib/styles/tokens/foundation.css` owns shared spacing, typography, sizes and shape. Button corners use `--button-radius: 0px`. Percentage widths and fill-parent heights remain layout rules. Input and dialog radii are separate from button shape.
 
+Dense captions (save/version status, search shortcut, GraphQL column labels and
+count badges) use `--font-size-9`. The customizable select picker uses
+`--font-size-12` with a 1.5 line height, following the same typography scale as
+its consumers. Brand image fallback typography retains its image-specific sizes.
+
 CodeEditor's text and lint tooltips use `--font-size-12` and `--font-mono`.
 GraphQL schema information and lint popup shadows use `--editor-popup-shadow`;
 their corner radius uses `--radius-group`. These shared values preserve the existing

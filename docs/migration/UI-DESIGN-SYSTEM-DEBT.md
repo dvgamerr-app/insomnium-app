@@ -191,6 +191,20 @@ src/lib/components/ui/
 
 ## Checklist สำหรับปิด debt
 
+### Dense-caption and picker typography audit — 2026-10-08
+
+Capability555b317 moves all5 hardcoded9px caption declarations (save/version,
+search shortcut, GraphQL columns and shared count badges) to foundation
+font-size-9. Select picker uses font-size-12/1.5 rather than a separate12px
+shorthand. Old native failures reproduce both missing token contracts; static
+headless themes1440/900/760 and current production native theme1791413525045
+accept default sizes, token override/restoration for all matching captions and
+actual ::picker(select), including both GraphQL columns/all Git count badges.
+Existing native workflows/HEAD preservation and images pass; see STATUS.
+Current font-pixel scan across styles/components leaves20px/48px on brand image
+fallback typography. Those image-specific declarations are retained; this audit
+does not close remaining spacing/geometry/aliases/workflow/platform/full debt.
+
 ### Current source audit — 2026-10-07
 
 The earlier single-entry claim was contradicted by `+page.svelte`: it imported both `styles.css` and the standalone `ui/controls.css`. The second import and both obsolete wrapper entries (`ui/controls.css`, unused `ui/button-config.css`) are now removed. Application styling follows `styles.css` → `styles/index.css`; the saved component fixture already uses that same ordered entry. Compiled application CSS decreased from 57,787 to 54,038 bytes. This size comparison is supporting evidence of the removed entry, not visual acceptance by itself.

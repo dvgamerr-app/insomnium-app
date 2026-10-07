@@ -2,6 +2,30 @@
 
 Owner requires Bun-only reusable Playwright JavaScript scenarios with shared helpers and headless execution. Browser-use and ad-hoc browser automation remain prohibited.
 
+Typography capability555b317 shares helpers/typography.js between existing
+`bun tests/ui/nocturne-theme.js` and `bun tests/ui/nocturne-native-theme.js`.
+All matching caption nodes must retain9px, follow font-size-9→13px, then restore;
+actual ::picker(select) metrics must retain12px/18px, follow font-size-12→14px
+with21px line height, then restore. Both use finally cleanup. Old native
+1791413059784/1791413071792 terminal1 reproduce caption/picker refusal separately,
+with app exit0; neither is acceptance. Static88374 passes, then final all-matching
+71172 terminal0/result passed covers dark/light1440/900/760 and both GraphQL
+columns. Current production builder65005 terminal0/release1791413164927 /
+1791413519384/result0/hash7496115646056370522 accepts native26643 /
+1791413525045 terminal0. Native result/acceptance inspected: current buildPath,
+owned hidden PID93548/visiblefalse/app exit0, all caption/picker contracts in both
+themes, all Git count badges and existing12 surface/workflow captures, native
+author validation/full preservation and unchanged HEAD. Static dark GraphQL/
+light760 and native dark completion/light Git900 images inspected. Final check0/0,
+Prettier and whitespace pass; all handles closed. Commands: bun run check/build,
+`bun tests/ui/build-recovery-copy-probe.js`, both saved scenarios above with
+INSOMNIUM_UI_BUILD_STATE=artifacts/native-recovery-copy-probe/build-state.json
+for native. Sources consulted:
+https://www.w3.org/TR/css-variables-1/#using-variables and
+https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Selectors/::picker.
+Static evidence is result.json (no acceptance.json); native uses both. This does
+not close full migration/UX/style/workflow/provider/platform/release gates.
+
 Completion token capability1a73fad reuses `bun tests/ui/graphql-editor.js` with
 the current INSOMNIUM_UI_BUILD_STATE below. Old-artifact1791412214638 terminal1
 reproduces padding2!=6. Production builder45124 terminal0 creates release
