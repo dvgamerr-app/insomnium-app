@@ -26,6 +26,8 @@ assert.ok(
     "normal",
     "equal",
     "fast-forward",
+    "basic-auth",
+    "basic-inspect-refused",
     "unknown",
     "partial-upload",
     "receipt-write-failed",
@@ -53,7 +55,15 @@ try {
     async (context) => {
       const { page, invoke, output } = context;
       const x = await advanceFixture(context);
-      const remote = await serveReceivePack(output);
+      const basicAuth = ["basic-auth", "basic-inspect-refused"].includes(mode);
+      const fixtureCredential = {
+        username: "owned-push-probe",
+        password: "owned-push-" + crypto.randomUUID(),
+      };
+      const remote = await serveReceivePack(
+        output,
+        basicAuth ? { basic: fixtureCredential } : {},
+      );
       /** @type {string | null} */
       let expectedRemoteOid = null;
       const checks = [];
@@ -203,6 +213,17 @@ try {
         await panel
           .getByLabel("Repository URL", { exact: true })
           .fill(partial?.url || remote.url);
+        if (basicAuth) {
+          await panel
+            .getByRole("combobox", { name: /^Remote authentication/ })
+            .selectOption("basic");
+          await panel
+            .getByLabel("Git username", { exact: true })
+            .fill(fixtureCredential.username);
+          await panel
+            .getByLabel("Git password or token", { exact: true })
+            .fill(fixtureCredential.password);
+        }
         await panel
           .getByRole("button", { name: "Save remote settings", exact: true })
           .click();
@@ -489,6 +510,17 @@ try {
           );
         }
         assert.equal(remote.state.receivePosts, expectedPosts);
+        if (basicAuth) {
+          assert.ok(
+            remote.state.authChallenges > 0,
+            "Actual credential challenge handled",
+          );
+          assert.ok(remote.state.authenticatedGets >= 2);
+          assert.equal(remote.state.authenticatedPosts, 1);
+          checks.push(
+            "real Basic-auth challenge during product review/worker discovery and authenticated receive-pack POST: exact pinned public commit accepted without private Send/full state mutation",
+          );
+        }
         assert.equal(
           await remote.tip(),
           mode === "non-fast-forward"
@@ -661,9 +693,15 @@ try {
           );
         }
 
-        if (["inspect-failed", "inspect-stop"].includes(mode)) {
+        if (
+          ["inspect-failed", "inspect-stop", "basic-inspect-refused"].includes(
+            mode,
+          )
+        ) {
           const beforeFailedInspect = await readFile(x.workspace);
           const advertisements = remote.state.advertisements;
+          const challenges = remote.state.authChallenges;
+          remote.state.refuseAuthentication = mode === "basic-inspect-refused";
           remote.state.failNextAdvertisement = mode === "inspect-failed";
           remote.state.holdNextAdvertisement = mode === "inspect-stop";
           await panel
@@ -688,7 +726,23 @@ try {
             remote.state.failedAdvertisements,
             mode === "inspect-failed" ? 1 : 0,
           );
-          assert.equal(remote.state.advertisements, advertisements + 1);
+          assert.equal(
+            remote.state.advertisements,
+            advertisements + (mode === "basic-inspect-refused" ? 0 : 1),
+          );
+          if (mode === "basic-inspect-refused") {
+            assert.ok(remote.state.authChallenges > challenges);
+            assert.ok(
+              remote.state.authChallenges - challenges <= 4,
+              "Inspect credential attempts must remain bounded",
+            );
+            assert.equal(remote.state.authenticatedPosts, 1);
+            assert.ok(
+              !(await panel.getByRole("alert").innerText()).includes(
+                fixtureCredential.password,
+              ),
+            );
+          }
           assert.equal(
             await page
               .getByRole("dialog", { name: "Inspect Push result", exact: true })
@@ -705,10 +759,13 @@ try {
           assert.equal(await remote.tip(), x.f.oid);
           assert.equal(http.cancelled, 0);
           checks.push(
-            mode === "inspect-failed"
-              ? "real remote discovery HTTP503 during Inspect: no observation review, exact receipt/intent/full bytes/data retained and no upload; fresh explicit inspection remains required"
-              : "Stop during real independent Inspect/held advertisement disconnects discovery worker; no observation/receipt/intent/full bytes/data/server mutation or upload, fresh explicit inspection required",
+            mode === "basic-inspect-refused"
+              ? "real repeated HTTP401 during independent Inspect: bounded auth failure, no observed-state review/extra upload/credential in error; exact receipt/intent/full bytes/server retained, fresh explicit inspection after fixture auth recovery"
+              : mode === "inspect-failed"
+                ? "real remote discovery HTTP503 during Inspect: no observation review, exact receipt/intent/full bytes/data retained and no upload; fresh explicit inspection remains required"
+                : "Stop during real independent Inspect/held advertisement disconnects discovery worker; no observation/receipt/intent/full bytes/data/server mutation or upload, fresh explicit inspection required",
           );
+          remote.state.refuseAuthentication = false;
         }
         if (ownerFault) {
           assert.ok(outgoing);

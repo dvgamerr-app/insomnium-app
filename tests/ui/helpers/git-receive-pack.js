@@ -11,8 +11,9 @@ import { resolve, relative, join } from "node:path";
 import { fixtureGit, fixtureGitBytes } from "./git-advance-fixture.js";
 
 /** Real Git smart-HTTP server confined to this saved scenario's output.
- * @param {string} output */
-export async function serveReceivePack(output) {
+ * @param {string} output
+ * @param {{basic?:{username:string,password:string}}} [options] */
+export async function serveReceivePack(output, options = {}) {
   const root = await realpath(output);
   const relation = relative(resolve("artifacts/playwright"), root);
   assert.ok(relation && !relation.startsWith("..") && !relation.includes(":"));
@@ -20,6 +21,10 @@ export async function serveReceivePack(output) {
   await mkdir(repo); // Exclusive scenario-owned directory; never delete/replace.
   await fixtureGit(repo, ["init", "--bare", "--initial-branch=main", "."]);
   const state = {
+    authChallenges: 0,
+    authenticatedGets: 0,
+    authenticatedPosts: 0,
+    refuseAuthentication: false,
     advertisements: 0,
     failNextAdvertisement: false,
     failedAdvertisements: 0,
@@ -73,6 +78,25 @@ export async function serveReceivePack(output) {
     port: 0,
     idleTimeout: 0,
     async fetch(request) {
+      if (options.basic) {
+        const expected =
+          "Basic " +
+          Buffer.from(
+            options.basic.username + ":" + options.basic.password,
+          ).toString("base64");
+        if (
+          state.refuseAuthentication ||
+          request.headers.get("Authorization") !== expected
+        ) {
+          state.authChallenges++;
+          return new Response("", {
+            status: 401,
+            headers: { "WWW-Authenticate": 'Basic realm="owned-git-fixture"' },
+          });
+        }
+        if (request.method === "GET") state.authenticatedGets++;
+        if (request.method === "POST") state.authenticatedPosts++;
+      }
       const url = new URL(request.url);
       const service =
         request.method === "GET"
