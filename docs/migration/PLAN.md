@@ -1,5 +1,7 @@
 # Insomnium → Tauri migration
 
+Authenticated WSS send/disconnect4a1593f: final1791416234346/tool47547 terminal0 passes12, including two explicit native connections with exact text/binary/ping-pong/server-observed close1000, full saved connection reload and no automatic reconnect. SSE11/HTTP12 regressions pass on unchanged release. Remaining migration/UX/CSS and redirect/SSE/gRPC/provider/platform gates retained; STATUS records failed waiter corrections, final evidence and handoff.
+
 Native WSS mTLS acceptance7034378: saved1791415792844/tool86663 terminal0 passes11 groups, with actual authenticated peer/HTTP101/text/normal1000 close and persisted reload. CA bundle/recovery and TLS refusals pass. Shared runner SSE1791415824881 passes11; shared fixture HTTP1791415861141 passes12. Production release unchanged. Remaining full migration/UX, client-send/disconnect/redirect, gRPC/provider/platform gates retained; STATUS pins evidence/handoff.
 
 Native SSE mTLS acceptance557222e: saved1791415540725/tool16330 terminal0 passes11 groups through real Preferences/reload/Connect, mandatory server client verification and exact persisted event/id/data after reload. CA bundle/recovery succeed; missing/mismatched/untrusted/malformed refuse. Shared Preferences helper HTTP regression1791415570542/tool62844 passes12. Production release unchanged; full migration/UX/remaining protocols/platform gates stay required. STATUS records evidence and handoff.

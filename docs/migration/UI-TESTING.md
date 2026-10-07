@@ -2,6 +2,28 @@
 
 Owner requires Bun-only reusable Playwright JavaScript scenarios with shared helpers and headless execution. Browser-use and ad-hoc browser automation remain prohibited.
 
+Authenticated WSS live capability4a1593f extends `bun tests/ui/wss-client-certificate.js`
+with helpers/wss-live-certificate.js and /ws-live in the existing mandatory-auth
+fixture. Server records exact text/binary/ping bytes and received close frame in
+socketEvents. Tungstenite automatic pong and close flushing follow
+https://docs.rs/tungstenite/latest/tungstenite/protocol/struct.WebSocket.html#method.read;
+existing cached0.27 APIs are used. Independent Bun authenticated echo/close check
+precedes native operations. Final47547/1791416234346 terminal0 passes12 groups:
+two explicit Connect cycles, actual pinned client CN/fingerprint/GET/HTTP101,
+one sent/received exact text and binary0/255/128/10 per cycle, Ping input AQID
+as UTF-8 bytes65/81/73/68 with sent ping/received pong displayed QVFJRA==.
+Client Disconnect gives server-observed1000/Disconnected by client; one closed
+saved connection/no error, all resources unchanged by Send/Disconnect, exact
+full connection after reload and no automatic reconnect. Original TLS settings
+restored and verified. Initial ping-decoding and history-wss URL waiter failures
+are excluded in STATUS; production behavior unchanged (history records HTTPS
+handshake URL). Shared SSE2677/1791416277611 passes11; HTTP9132/1791416309689
+passes12. All result/acceptance/restoration/fixture observations and live-send-1
+image inspected. Compiler0/0/JS Prettier/Rustfmt/whitespace pass; owned native-hidden
+apps90660/82624/92940 exit0, fixtures close0 and no live task handles. Release
+unchanged. Redirects/live SSE/gRPC/legacy/provider/proxy/Git/platform and full
+migration/UX remain open. Payload-options name/type sizing needs CSS follow-up.
+
 WSS mTLS acceptance7034378: `bun tests/ui/wss-client-certificate.js` and the
 existing SSE entry point use helpers/stream-client-certificate.js, preserving
 feature-separated commands and shared setup/assertions. The existing Rust fixture
