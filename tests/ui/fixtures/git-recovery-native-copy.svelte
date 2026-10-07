@@ -1,71 +1,88 @@
 <script>
-  import { onMount, untrack } from "svelte";
-  import { invoke } from "@tauri-apps/api/core";
-  import GitRecovery from "../../../src/lib/components/GitRecovery.svelte";
-  import { workspace } from "../../../src/lib/workspace.svelte.js";
-  import { createGitRestore } from "../../../src/lib/git-restore.js";
-  import { createGitClient } from "../../../src/lib/git-client.js";
-  import { encodeGitResource } from "../../../src/lib/git-resources.js";
+  import { onMount, onDestroy } from "svelte";
+  import { convertFileSrc } from "@tauri-apps/api/core";
+  import App from "../../../src/routes/+page.svelte";
+  import {
+    workspace,
+    retainedGitCheckoutWorkspace,
+    canEditWorkspace,
+    update,
+    updateSettings,
+    execute,
+    persist,
+  } from "../../../src/lib/workspace.svelte.js";
+  import { sameWorkspace } from "../../../src/lib/git-workspace.js";
   /** @type {{seed:Record<string,any>}} */
   let { seed } = $props();
-  let current = $state.raw(untrack(() => structuredClone(seed.data)));
-  let ready = $state(false);
-  let complete = $state(false);
-  let failure = $state("");
-  const coordinator = createGitRestore({
-    getData: () => current,
-    apply: (data) => {
-      current = data;
-      complete = true;
-    },
-    quiesce: (operation) => operation(),
-    save: (data) => invoke("save_workspace", { data }),
-    transition: (operation) => operation(),
-    recover: (operation) => operation(),
-    load: () => invoke("load_workspace"),
-    client: createGitClient(),
-    invoke: async (command, args) => {
-      const result = await invoke(command, args);
-      // Isolated fixture only: arrange unexpected live edits after the actual
-      // native restore succeeds. The production coordinator must retain them.
-      current = structuredClone(current);
-      current.resources.find(
-        (/** @type {any} */ r) => r._id === seed.requestId,
-      ).description = "Unexpected retained native fixture edit";
-      return result;
-    },
-    operationId: () => "pw_copy_" + crypto.randomUUID().replaceAll("-", ""),
+  let restores = $state(0);
+  let complete = $derived(
+    restores === 1 &&
+      workspace.persistencePhase === "idle" &&
+      workspace.gitRecoveryKind === "checkout",
+  );
+  let original = window.fetch;
+  let hooked = /** @type {typeof window.fetch|any} */ (original);
+  onMount(() => {
+    // Fault injection exists only in this packaged saved fixture. All UI,
+    // drain, persistence and recovery paths belong to the production App.
+    hooked = async (
+      /** @type {RequestInfo|URL} */ input,
+      /** @type {RequestInit|undefined} */ init,
+    ) => {
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.href
+            : input.url;
+      const response = await original.call(window, input, init);
+      if (
+        url === convertFileSrc("git_repository_restore", "ipc") &&
+        response.headers.get("Tauri-Response") === "ok" &&
+        !restores
+      ) {
+        restores++;
+        const changed = $state.snapshot(workspace.data);
+        const request = changed.resources.find((r) => r._id === seed.requestId);
+        if (!request)
+          throw new Error("Fixture request disappeared before fault injection");
+        request.description = "Unexpected retained native fixture edit";
+        workspace.data = changed;
+      }
+      return response;
+    };
+    window.fetch = hooked;
+    /** @type {any} */ (window).__nativeRecoveryGuards = async () => {
+      const before = $state.snapshot(workspace.data);
+      const editable = canEditWorkspace();
+      update(seed.requestId, { name: "Must be refused" });
+      updateSettings({ theme: "dark" });
+      await execute(seed.requestId);
+      const saved = await persist();
+      return {
+        editable,
+        saved,
+        unchanged: sameWorkspace(before, workspace.data),
+        running: Object.keys(workspace.running).length,
+        phase: workspace.persistencePhase,
+      };
+    };
   });
-  onMount(async () => {
-    workspace.gitRecoveryKind = "restore";
-    try {
-      const request = current.resources.find(
-        (/** @type {any} */ r) => r._id === seed.requestId,
-      );
-      const review = await coordinator.review(seed.workspaceId, [
-        encodeGitResource(request).path,
-      ]);
-      await coordinator.confirm(review);
-      failure = "Fixture failed to retain edits";
-    } catch (cause) {
-      if (coordinator.retainedWorkspace()) ready = true;
-      else failure = String(cause);
-    }
+  onDestroy(() => {
+    if (window.fetch === hooked) window.fetch = original;
+    delete (/** @type {any} */ (window).__nativeRecoveryGuards);
   });
 </script>
 
 <output aria-label="Native recovery fixture evidence"
   >{JSON.stringify({
-    ready,
+    ready: workspace.ready,
     complete,
-    failure,
-    current,
-    retained: coordinator.retainedWorkspace(),
+    phase: workspace.persistencePhase,
+    draining: workspace.draining,
+    current: workspace.data,
+    retained: retainedGitCheckoutWorkspace(),
+    restores,
   })}</output
 >
-{#if ready && !complete}
-  <GitRecovery
-    getRetained={coordinator.retainedWorkspace}
-    recoverWorkspace={coordinator.recover}
-  />
-{/if}
+<App />

@@ -20,6 +20,9 @@ export async function buildComponentFixture(name) {
       {
         name: "svelte-ui-fixture",
         setup(build) {
+          build.onResolve({ filter: /^\$lib\// }, ({ path }) => ({
+            path: resolve("src/lib", path.slice(5)),
+          }));
           build.onLoad({ filter: /\.svelte\.js$/ }, async ({ path }) => ({
             contents: compileModule(await Bun.file(path).text(), {
               filename: path,

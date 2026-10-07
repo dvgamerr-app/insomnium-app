@@ -1,5 +1,7 @@
 # Insomnium → Tauri migration
 
+2026-10-07 checkpoint: mounted production App/workspace retained-copy recovery passes Windows native held-request drain/admission/persistence guards, actual OS picker/write refusal/exact copy/review and fresh Send after recovery. Explicit saved-fixture unexpected-edit injection; disk-full/crash/other-platform/full parity remain open. See STATUS/PARITY.
+
 2026-10-07 checkpoint: selected Git restore workspace/review/confirm/cancel/recovery UI and native refusal/modify/delete/add/active-HTTP drain/lost-success reply acceptance pass. Narrow toolbar wrapping verified on fresh native build. Disk faults/retained-copy picker/platform and full parity remain open. See STATUS/GIT-INVENTORY.
 
 2026-10-03 checkpoint: guarded native Git restore save and single-use review/recovery coordinator added; Cargo check/clippy and Svelte check pass,11 injected coordinator checks pass. Native runtime/UI integration still pending. See STATUS.

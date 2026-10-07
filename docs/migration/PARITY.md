@@ -1,5 +1,7 @@
 # Feature parity tracker
 
+2026-10-07 mounted retained-copy acceptance: full production App/workspace/drain/persistence saved native fixture passes actual held Send cancellation/no history, defensive retained edits after native restore, refusal guards, OS picker cancel/native write refusal/exact copy/review, authoritative recovery and fresh persisted200 (git-recovery-native-copy1791354794724). Windows with explicit fixture-only unexpected-edit injection; disk-full/crash/other-platform and original full parity remain open. See STATUS.
+
 2026-10-07 retained-copy update: saved production recovery component and real restore coordinator/client/native IPC fixture pass actual Windows OS picker cancel/save, native copy-write sharing refusal (os error32), exact copied snapshot, required review and authoritative recovery without saved-data overwrite (git-recovery-native-copy1791353940793). Main mounted workspace unexpected-edit admission/drain/persistence remains unverified by this isolated fixture; disk-full/crash/other-platform/full parity remain open. See STATUS.
 
 2026-10-07 recovery update: reproduced/fixed stale retained-copy review after changed retained snapshots and during copy writing. Saved production-component callback fixture passes cancellation/write failure/exact snapshots/fresh review and retry; fresh native restore/recovery regressions pass (git-restore1791353071166). Actual retained-copy OS picker/native write/review, disk-full/crash/platform/full parity remain open. See STATUS.
