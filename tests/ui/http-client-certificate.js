@@ -120,6 +120,27 @@ await withNativeApp(
           false,
         ],
         [
+          "ca-bundle-required-root-second",
+          fixture.otherCa + "\n" + fixture.ca,
+          "127.0.0.1",
+          fixture.client.identity,
+          true,
+        ],
+        [
+          "ca-bundle-required-root-first",
+          fixture.ca + "\n" + fixture.otherCa,
+          "127.0.0.1",
+          fixture.client.identity,
+          true,
+        ],
+        [
+          "malformed-ca",
+          "-----BEGIN CERTIFICATE-----\n%%%\n-----END CERTIFICATE-----",
+          "127.0.0.1",
+          fixture.client.identity,
+          false,
+        ],
+        [
           "untrusted-client",
           fixture.ca,
           "127.0.0.1",
@@ -251,7 +272,7 @@ await withNativeApp(
               .slice(rejectedBefore)
               .some((event) => /peer sent no certificates/i.test(event.detail)),
           );
-        if (id === "malformed-identity")
+        if (["malformed-identity", "malformed-ca"].includes(String(id)))
           assert.equal(
             fixture.connections.primary,
             connectionsBefore,
