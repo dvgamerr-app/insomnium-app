@@ -41,9 +41,54 @@ try {
       assert.equal(state.gets + state.posts, 0);
       await remote.getByRole("button", { name: "Save remote settings", exact: true }).click();
       await remote.getByText("Remote settings saved.", { exact: true }).waitFor();
-      const baseline = await invoke("load_workspace");
-      await pull.click();
+      let baseline = await invoke("load_workspace");
       const review = page.getByRole("dialog", { name: "Review merge", exact: true });
+      // Actual incomplete pack and stopped native download must retain the
+      // durable Fetch intent, without entering merge confirmation/draining Send.
+      for (const fault of ["truncated", "stopped"]) {
+        const before = await invoke("load_workspace");
+        if (fault === "truncated") state.truncateNextPack = true;
+        else state.holdNextPack = true;
+        await pull.click();
+        if (fault === "stopped") {
+          await poll(async () => state.packGated, "Native upload-pack held before response");
+          await remote.getByRole("button", { name: "Stop remote request", exact: true }).click();
+          await poll(async () => state.packAborted === 1, "Stop closes actual native pack connection");
+          state.releasePack?.();
+        }
+        const inspect = remote.getByRole("button", { name: "Inspect pending fetch", exact: true });
+        await poll(() => inspect.isEnabled(), "Failed Pull settles with saved Fetch intent");
+        await remote.getByRole("alert").waitFor();
+        assert.equal(await review.count(), 0);
+        const failed = await invoke("load_workspace");
+        const binding = failed.resources.find((/** @type {any} */ row) => row._id === fixture.f.repositoryId);
+        assert.ok(binding.nativeFetchIntent?.operationId);
+        const expectedFailure = structuredClone(before);
+        expectedFailure.resources.find((/** @type {any} */ row) => row._id === fixture.f.repositoryId).nativeFetchIntent = binding.nativeFetchIntent;
+        assert.deepEqual(failed, expectedFailure, "Only explicit persisted Fetch intent may change");
+        assert.equal(await fixtureGit(fixture.repo, ["rev-parse", "refs/heads/main"]), fixture.f.oid);
+        assert.equal(http.cancelled, 0);
+        await assertAdvanceCleanup(fixture);
+        assert.equal(await pull.isEnabled(), false);
+        const requests = state.gets + state.posts;
+        await inspect.click();
+        await remote.getByText("Fetch completion is not confirmed. The operation remains saved; no new download was started.", { exact: true }).waitFor();
+        assert.deepEqual(await invoke("load_workspace"), failed);
+        await remote.getByRole("button", { name: "Stop tracking pending fetch", exact: true }).click();
+        await remote.getByText("Pending fetch tracking stopped. Existing snapshots were kept. You can fetch again.", { exact: true }).waitFor();
+        const retired = await invoke("load_workspace");
+        const retiredBinding = retired.resources.find((/** @type {any} */ row) => row._id === fixture.f.repositoryId);
+        assert.equal(retiredBinding.nativeFetchIntent, undefined);
+        assert.equal(retiredBinding.nativeFetchRetired.operationId, binding.nativeFetchIntent.operationId);
+        const expectedRetired = structuredClone(before);
+        expectedRetired.resources.find((/** @type {any} */ row) => row._id === fixture.f.repositoryId).nativeFetchRetired = retiredBinding.nativeFetchRetired;
+        assert.deepEqual(retired, expectedRetired);
+        assert.equal(state.gets + state.posts, requests, "Inspect/retire never retry network");
+        assert.equal(http.cancelled, 0);
+        assert.equal(await pull.isEnabled(), true);
+        baseline = retired;
+      }
+      await pull.click();
       await review.waitFor();
       await review.getByText(`Pull from http://127.0.0.1:${server.port}/repo · main`, { exact: true }).waitFor();
       assert.ok(state.gets > 0 && state.posts > 0, "Actual native smart-HTTP advertisement and pack download");
@@ -115,7 +160,8 @@ try {
       await poll(async () => http.cancelled === 2, "Explicit Cancel ends preserved Send after source-race refusal");
       assert.deepEqual(errors, []);
       await Bun.write(join(output, "acceptance.json"), JSON.stringify({ gets: state.gets, posts: state.posts,
-        checks: ["unsaved endpoint prevents network pull", "real smart-HTTP complete-history fetch pins remote review",
+        checks: ["unsaved endpoint prevents network pull", "truncated actual pack refuses merge and preserves full workspace/ref/active Send with explicit pending intent",
+          "Stop closes actual pack connection; inspection/retirement preserve data without network before successful retry", "real smart-HTTP complete-history fetch pins remote review",
           "fetch/review/cancel preserve full workspace/ref and active native Send", "confirmed pull drains Send and fast-forwards full reviewed workspace/ref with cleanup",
           "up-to-date network Pull preserves full workspace/ref and active Send", "local ref changed during actual gated Fetch refuses review without merge or drain"],
         scope: "Windows loopback smart-HTTP fast-forward/local working conflict; divergent/history/multiple-base/provider/fault acceptance remains pending",
