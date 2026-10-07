@@ -134,6 +134,16 @@
     }
   }
 
+  /** Fetch publication may have succeeded even when its reply was lost.
+   * Both Fetch and Pull must direct users to the saved operation's inspection.
+   * @param {unknown} cause */
+  function fetchError(cause) {
+    let message = String(cause);
+    if (cause && typeof cause === "object" && "requestId" in cause)
+      message += " Operation: " + String(cause.requestId) +
+        ". Completion was not confirmed; do not assume the fetch was rolled back. Inspect pending fetch before trying again.";
+    return message;
+  }
   async function fetchRemote() {
     if (busy || saving || disabled || !current()) return;
     error = "";
@@ -169,14 +179,7 @@
           };
       }
     } catch (cause) {
-      if (current()) {
-        error = String(cause);
-        if (cause && typeof cause === "object" && "requestId" in cause)
-          error +=
-            " Operation: " +
-            String(cause.requestId) +
-            ". Completion was not confirmed; do not assume the fetch was rolled back.";
-      }
+      if (current()) error = fetchError(cause);
     } finally {
       if (controller === active) controller = null;
       if (!disposed) {
@@ -199,7 +202,7 @@
       if (!current() || active.signal.aborted) cancelGitMerge(review);
       else onpullreview(review);
     } catch (cause) {
-      if (current()) error = String(cause);
+      if (current()) error = fetchError(cause);
     } finally {
       if (controller === active) controller = null;
       if (!disposed) { busy = false; fetching = false; }

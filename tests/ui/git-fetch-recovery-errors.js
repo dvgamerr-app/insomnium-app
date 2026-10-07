@@ -5,8 +5,9 @@ import { withNativeApp } from "./helpers/native-app.js";
 import { gitCollection } from "./helpers/git-fixture.js";
 import { gitPackFixture } from "./helpers/git-pack-fixture.js";
 import { withIpcFailure } from "./helpers/ipc-failure.js";
+import { openGitRemote } from "./helpers/git-panel.js";
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
-  "artifacts/native-fetch-retire-ui-probe/build-state.json";
+  "artifacts/native-recovery-copy-probe/build-state.json";
 const fixture = gitPackFixture();
 let requests = 0;
 const server = Bun.serve({
@@ -35,6 +36,7 @@ try {
     async ({ page, output, invoke }) => {
       const f = await gitCollection({ page, invoke });
       await page.getByRole("button", { name: "Git", exact: true }).click();
+      await openGitRemote(page);
       const panel = page.getByRole("region", {
         name: "Git remote",
         exact: true,
@@ -77,6 +79,10 @@ try {
         intent?.operationId,
         "Unconsumed native success keeps durable intent",
       );
+      const alert = await panel.getByRole("alert").innerText();
+      assert.ok(alert.includes(intent.operationId));
+      assert.match(alert, /Completion was not confirmed/);
+      assert.match(alert, /Inspect pending fetch/);
       const requestCount = requests;
       const observed = await invoke("git_remote_fetch_inspect", {
         request: {
@@ -94,6 +100,7 @@ try {
       );
       await page.reload();
       await page.getByRole("button", { name: "Git", exact: true }).click();
+      await openGitRemote(page);
       await panel
         .getByRole("button", { name: "Inspect pending fetch", exact: true })
         .click();
@@ -164,6 +171,7 @@ try {
         await invoke("save_workspace", { data });
         await page.reload();
         await page.getByRole("button", { name: "Git", exact: true }).click();
+        await openGitRemote(page);
         const panel = page.getByRole("region", {
           name: "Git remote",
           exact: true,
@@ -213,6 +221,7 @@ try {
         } else assert.deepEqual(stored.resources, data.resources);
         await page.reload();
         await page.getByRole("button", { name: "Git", exact: true }).click();
+        await openGitRemote(page);
         if (!afterNativeSuccess) {
           await panel
             .getByRole("button", { name: "Inspect pending fetch", exact: true })
