@@ -1,5 +1,12 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Remaining Git scope audit at compact boundary — 2026-10-07
+
+- Previous goal turn made progress: committed native restore orphan-lock repair and saved-dialog helper, with verified runtime regressions. Current worktree started clean; no new feature implementation was started before compact. Revalidated no callable compaction tool is exposed.
+- Reread current journal/registered commands/remote UI and historical real Git/public Fetch restart artifacts. Fetch is implemented/accepted on its recorded build; pull/push/clone/merge are absent from current registered commands. Journal still schema1/equal-branch refusal/symbolic-HEAD recovery; same-branch OID advancement is the next required subsystem, not covered by restore or Fetch.
+- Recorded exact uninstrumented commit/create/delete/checkout/fetch ref transaction sites and constraints of restore-only ownership in GIT-INVENTORY.md. Corrected stale Git foundations description in PARITY. No application/test/native source changes or redundant builds/tests. Existing restore probe/build remains current; all original scope retained.
+- Compact boundary still pending because this session cannot invoke `/compact`; after compaction follow the concrete versioned advance-ref journal/recovery next action in GIT-INVENTORY/GIT-REMOTE, preserving schema1 and operation-specific crash ownership. Goal remains active.
+
 ## Owned restore ref-lock recovery verified; compact handoff — 2026-10-07
 
 - Fixed the reproduced restore crash before atomic workspace replacement: durable bounded ownership record, actual OS lease and ref-file identity/digest permit cleanup only of proven matching orphan locks. Live owner/changed lease/replaced ref file refuse without deleting recovery material. Original unowned reproduction repo-git_pw_1791355496181_6530be42 remains preserved; no blanket lock removal.
