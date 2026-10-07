@@ -187,6 +187,56 @@ try {
       exact: true,
     });
     await info.waitFor();
+    assert.equal(
+      await info.evaluate((el) => getComputedStyle(el).borderRadius),
+      "4px",
+    );
+    assert.equal(
+      await info.evaluate((el) => getComputedStyle(el).boxShadow),
+      "rgba(0, 0, 0, 0.333) 0px 4px 18px 0px",
+    );
+    try {
+      await page.evaluate(() => {
+        document.documentElement.style.setProperty("--radius-group", "9px");
+        document.documentElement.style.setProperty(
+          "--editor-popup-shadow",
+          "0px 2px 6px rgb(1, 2, 3)",
+        );
+        document.documentElement.style.setProperty("--font-size-12", "14px");
+      });
+      assert.equal(
+        await info.evaluate((el) => getComputedStyle(el).borderRadius),
+        "9px",
+      );
+      assert.equal(
+        await info.evaluate((el) => getComputedStyle(el).boxShadow),
+        "rgb(1, 2, 3) 0px 2px 6px 0px",
+      );
+      assert.equal(
+        await editor("GraphQL query")
+          .locator(".CodeMirror")
+          .evaluate((el) => getComputedStyle(el).fontSize),
+        "14px",
+      );
+    } finally {
+      await page.evaluate(() => {
+        for (const token of [
+          "--radius-group",
+          "--editor-popup-shadow",
+          "--font-size-12",
+        ])
+          document.documentElement.style.removeProperty(token);
+      });
+    }
+    // Restoring typography changes the hover target's geometry. Reopen the real
+    // documentation popup before capturing its final, restored appearance.
+    await editor("GraphQL query")
+      .locator(".CodeMirror-code")
+      .getByText("users", { exact: true })
+      .hover();
+    await info.waitFor();
+    await info.screenshot({ path: join(output, "editor-popup-tokens.png") });
+    checks.push("native editor and schema popup foundation token propagation");
     await info.getByRole("link", { name: "User", exact: true }).click();
     await panel.getByLabel("Schema types", { exact: true }).waitFor();
     assert.equal(

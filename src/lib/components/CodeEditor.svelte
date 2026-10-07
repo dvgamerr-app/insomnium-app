@@ -418,10 +418,10 @@
     overflow: auto;
     padding: var(--space-12);
     border: 1px solid var(--line);
-    border-radius: 4px;
+    border-radius: var(--radius-group);
     background: var(--raised);
     color: var(--text);
-    box-shadow: 0 4px 18px #0005;
+    box-shadow: var(--editor-popup-shadow);
     font-size: var(--font-size-12);
     white-space: pre-wrap;
   }
@@ -441,9 +441,9 @@
     color: var(--text);
     border: 1px solid var(--line);
     border-radius: var(--radius-group);
-    font: 12px/1.6 var(--font-mono);
+    font: var(--font-size-12)/1.6 var(--font-mono);
     padding: var(--space-8) var(--space-12);
-    box-shadow: 0 4px 18px #0005;
+    box-shadow: var(--editor-popup-shadow);
     max-width: min(600px, calc(100vw - 24px));
   }
   :global(body .CodeMirror-hints) {
@@ -479,7 +479,7 @@
     min-height: 180px;
     background: var(--bg);
     color: var(--text);
-    font: 12px/1.6 var(--font-mono);
+    font: var(--font-size-12)/1.6 var(--font-mono);
   }
   .shared-code-editor :global(.CodeMirror-gutters) {
     background: var(--bg);

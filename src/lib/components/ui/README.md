@@ -4,6 +4,13 @@ The application imports `src/lib/styles.css` once; it forwards to `styles/index.
 
 `src/lib/styles/tokens/foundation.css` owns shared spacing, typography, sizes and shape. Button corners use `--button-radius: 0px`. Percentage widths and fill-parent heights remain layout rules. Input and dialog radii are separate from button shape.
 
+CodeEditor's text and lint tooltips use `--font-size-12` and `--font-mono`.
+GraphQL schema information and lint popup shadows use `--editor-popup-shadow`;
+their corner radius uses `--radius-group`. These shared values preserve the existing
+12px text, 1.6 editor line height, 4px radius and popup shadow defaults. CodeMirror
+engine DOM, completion placement and syntax behavior remain the editor adapter's
+responsibility.
+
 Single-choice `Select` and `Dropdown` use the same Lucide SVG chevron by default, including collection, environment, body type/JSON, response history, authentication and redirects. `styles/select.css` owns the arrow; `styles/variants.css` owns layout variants and full-surface hover. Method/protocol values have equal left/right padding and centered horizontal/vertical alignment. Consumers must not replace the arrow or paint hover on a text child. Native `multiple`/`size` listboxes have no dropdown arrow. `svgArrow={false}` is an explicit opt-out, not an application default.
 
 `SplitPane` accepts `collapsedPane="first"` or `"second"` (default) to choose which side disappears when collapsed. The workspace uses the first pane for Collections on the left and the second for the main view.

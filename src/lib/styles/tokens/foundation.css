@@ -49,6 +49,7 @@
     "Inter Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "Roboto Mono Variable", Consolas, monospace;
   --radius-group: 4px;
+  --editor-popup-shadow: 0 var(--space-4) var(--space-18) #0005;
   --radius-control: 8px;
   --control-height: 34px;
 }

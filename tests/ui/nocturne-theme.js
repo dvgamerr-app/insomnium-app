@@ -287,6 +287,59 @@ await withPreview("nocturne-theme", async (page, output) => {
       theme === "dark" ? "rgb(38, 38, 38)" : "rgb(243, 244, 246)",
     );
     await page.screenshot({ path: output + "/" + theme + "-syntax-error.png" });
+    const editorMetrics = await page
+      .locator(".CodeMirror")
+      .first()
+      .evaluate((el) => ({
+        font: getComputedStyle(el).fontSize,
+        line: getComputedStyle(el).lineHeight,
+      }));
+    assert.equal(editorMetrics.font, "12px");
+    assert.equal(editorMetrics.line, "19.2px");
+    const lintMetrics = await page
+      .locator(".CodeMirror-lint-tooltip")
+      .evaluate((el) => ({
+        font: getComputedStyle(el).fontSize,
+        shadow: getComputedStyle(el).boxShadow,
+      }));
+    assert.equal(lintMetrics.font, "12px");
+    assert.equal(lintMetrics.shadow, "rgba(0, 0, 0, 0.333) 0px 4px 18px 0px");
+    try {
+      await page.evaluate(() => {
+        document.documentElement.style.setProperty("--font-size-12", "14px");
+        document.documentElement.style.setProperty(
+          "--editor-popup-shadow",
+          "0px 2px 6px rgb(1, 2, 3)",
+        );
+      });
+      assert.equal(
+        await page
+          .locator(".CodeMirror")
+          .first()
+          .evaluate((el) => getComputedStyle(el).fontSize),
+        "14px",
+        "Editor must follow shared typography",
+      );
+      assert.equal(
+        await page
+          .locator(".CodeMirror-lint-tooltip")
+          .evaluate((el) => getComputedStyle(el).fontSize),
+        "14px",
+        "Lint must follow shared typography",
+      );
+      assert.equal(
+        await page
+          .locator(".CodeMirror-lint-tooltip")
+          .evaluate((el) => getComputedStyle(el).boxShadow),
+        "rgb(1, 2, 3) 0px 2px 6px 0px",
+        "Lint must follow popup shadow token",
+      );
+    } finally {
+      await page.evaluate(() => {
+        document.documentElement.style.removeProperty("--font-size-12");
+        document.documentElement.style.removeProperty("--editor-popup-shadow");
+      });
+    }
     await page
       .locator(".CodeMirror")
       .first()
