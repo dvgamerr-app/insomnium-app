@@ -2,6 +2,23 @@
 
 Owner requires Bun-only reusable Playwright JavaScript scenarios with shared helpers and headless execution. Browser-use and ad-hoc browser automation remain prohibited.
 
+Git TLS discovery capabilityf30e195 reuses `bun tests/ui/git-remote-lifecycle.js`.
+Set INSOMNIUM_REMOTE_PUBLIC_TLS=1 and the current INSOMNIUM_UI_BUILD_STATE to opt
+into read-only public network checks; default execution remains local. It reads
+octocat/Hello-World anonymously through native IPC and independent Git ls-remote,
+then checks native certificate refusal at wrong.host.badssl.com/expired.badssl.com,
+classified independently by Bun as ERR_TLS_CERT_ALTNAME_INVALID/CERT_HAS_EXPIRED.
+Full workspace bytes/data/local refs/info are preserved after each case; no Push,
+token, TLS bypass or trust installation. The existing native cancel/pre-cancel/UI
+responsiveness/30s timeout cases still run. Final1791411327755/tool40451 passes9;
+untrusted mounted Push regression1791411376365/tool85139 passes5, all terminal0.
+Public endpoints require network access and can change; native provider-auth/HTTPS
+upload/mTLS/proxy/other-platform and server-side negative counters remain unproven.
+Sources consulted before implementation: https://git-scm.com/docs/http-protocol,
+https://docs.rs/git2/latest/git2/struct.RemoteCallbacks.html#method.certificate_check,
+https://badssl.com/ and https://github.com/chromium/badssl.com. No Node/browser-use
+invoked; native source/artifact unchanged by these outer saved scenario changes.
+
 Editor token capabilityf0fae8e: saved `bun tests/ui/nocturne-theme.js` reproduces
 fixed12px editor text ignoring a shared font change, then passes after adoption of
 font-size-12 and editor-popup-shadow. Both themes check original12px/19.2px line

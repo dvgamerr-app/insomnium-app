@@ -1,5 +1,16 @@
 # Git remote migration contract
 
+2026-10-08 capabilityf30e195: saved git-remote-lifecycle.js opt-in public TLS mode
+accepts anonymous actual native HTTPS advertisement matching independent Git CLI
+refs/default HEAD. Native wrong-host and expired-certificate refusals are independently
+classified by Bun; exact full workspace bytes/data/local refs/repository info remain
+unchanged. Final1791411327755 passes9 with existing cancel/pre-cancel/real30s timeout;
+same current release mounted self-signed Push refusal1791411376365 passes5.
+No trust-store/production configuration change or public Push. Public endpoints may
+change; this does not prove server-side negative request counts, authenticated HTTPS
+upload, provider refresh, mTLS, proxy or other platforms. Those and full migration/UX
+remain required. Sources/commands in UI-TESTING; exact artifact/handles in STATUS.
+
 2026-10-07 Pull completed-Fetch reply uncertainty: shared operation-aware Fetch/Pull error and explicit inspection instruction. Fixed saved1791377578393 passes5 with real native pack publication and controlled lost-success IPC acknowledgement: exact pending intent/full workspace/local ref/index and held Send preserved, no automatic merge; reload and Inspect avoid network and clear only confirmed intent; later explicit Pull requires second review and applies once/fresh200. Current Fetch5+4+4/Pull8/divergent5/retained-copy/headless/native-close regressions pass, fresh build/check pass. Exact scope in [GIT-PULL-UNCERTAINTY.md](GIT-PULL-UNCERTAINTY.md); test modes in [UI-TESTING.md](UI-TESTING.md). Remaining network/process uncertainty and full original parity stay required.
 
 2026-10-07 rename/file-directory review: stage0 children colliding with conflict paths are promoted to explicit pinned file-side conflicts. Native paths1791376467375 passes5; actual smart-HTTP Pull1791376482685 passes7/7 download rounds, verifying pinned paths/content, cancel, mixed refusal/retry, both complete side confirmations and exact complete trees/modes/parents/full workspace/index. Full descriptor/choice and final collision guards retained. Contract and remaining scope in [GIT-PATH-CONFLICTS.md](GIT-PATH-CONFLICTS.md); full migration remains open.
