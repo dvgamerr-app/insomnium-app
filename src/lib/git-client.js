@@ -377,14 +377,20 @@ export function createGitClient({ call = nativeCall } = {}) {
       incomingOid: request.incomingOid, source: request.source,
       authorName: request.author?.name || "", authorEmail: request.author?.email || "",
       message: request.author?.message || "",
-      ...(request.resolutions !== undefined ? { resolutions: request.resolutions, expectedMergeBaseOid: request.expectedMergeBaseOid } : {}),
+      ...(request.resolutions !== undefined ? { resolutions: request.resolutions, expectedMergeBaseOid: request.expectedMergeBaseOid,
+        expectedMergeBaseOids: request.expectedMergeBaseOids } : {}),
     } });
     const fullOid = (/** @type {any} */ value) => typeof value === "string" && /^[0-9a-f]{40}$/.test(value);
+    const recursiveBases = candidate?.mergeBaseOids;
+    const validRecursive = candidate?.kind === "merge" && candidate.mergeBaseOid === null &&
+      Array.isArray(recursiveBases) && recursiveBases.length >= 2 && recursiveBases.length <= 64 &&
+      recursiveBases.every((/** @type {any} */ id, /** @type {number} */ i) => fullOid(id) && (!i || recursiveBases[i - 1] < id));
     if (candidate?.sourceOid !== saved.info.headOid || candidate?.incomingOid !== request.incomingOid.toLowerCase() ||
         !["upToDate", "fastForward", "merge"].includes(candidate?.kind) || !Array.isArray(candidate?.conflicts) ||
         candidate.conflicts.length > 10000 ||
         (candidate.targetOid !== null && !fullOid(candidate.targetOid)) ||
-        (candidate.kind !== "upToDate" && !fullOid(candidate.mergeBaseOid)) ||
+        (candidate.kind !== "upToDate" && !fullOid(candidate.mergeBaseOid) && !validRecursive) ||
+        (recursiveBases !== undefined && !validRecursive) ||
         (candidate.conflicts.length ? candidate.kind !== "merge" || candidate.targetOid !== null : !fullOid(candidate.targetOid)) ||
         (candidate.kind === "upToDate" && candidate.targetOid !== saved.info.headOid) ||
         (candidate.kind === "fastForward" && (candidate.targetOid !== candidate.incomingOid || candidate.mergeBaseOid !== saved.info.headOid)))

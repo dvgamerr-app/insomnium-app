@@ -29,7 +29,10 @@ struct Journal {
 struct Advance {
     kind: AdvanceKind,
     incoming_oid: String,
-    merge_base_oid: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    merge_base_oid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    merge_base_oids: Option<Vec<String>>,
 }
 
 #[derive(Deserialize, serde::Serialize)]
@@ -366,7 +369,7 @@ fn read_journal(directory: &Path) -> Result<Option<(Journal, Vec<u8>)>, String> 
 }
 
 fn validate_journal(journal: &Journal) -> Result<(), String> {
-    if !matches!(journal.schema_version, 1 | 2)
+    if !matches!(journal.schema_version, 1..=3)
         || !valid_id(&journal.operation_id, 100)
         || !valid_id(&journal.repository_id, 100)
         || !valid_id(&journal.workspace_id, 200)
@@ -384,7 +387,32 @@ fn validate_journal(journal: &Journal) -> Result<(), String> {
                 .eq_ignore_ascii_case(&journal.target_branch) => {}
         (2, Some(advance)) if journal.source_branch == journal.target_branch && old != new => {
             journal_oid(&advance.incoming_oid)?;
-            journal_oid(&advance.merge_base_oid)?;
+            journal_oid(
+                advance
+                    .merge_base_oid
+                    .as_deref()
+                    .ok_or("Missing merge base")?,
+            )?;
+            if advance.merge_base_oids.is_some() {
+                return Err("Version-2 advance requires one actual merge base".into());
+            }
+        }
+        (3, Some(advance)) if journal.source_branch == journal.target_branch && old != new => {
+            journal_oid(&advance.incoming_oid)?;
+            let bases = advance
+                .merge_base_oids
+                .as_ref()
+                .ok_or("Missing recursive merge bases")?;
+            if !matches!(advance.kind, AdvanceKind::Merge)
+                || advance.merge_base_oid.is_some()
+                || !(2..=64).contains(&bases.len())
+                || bases.windows(2).any(|pair| pair[0] >= pair[1])
+            {
+                return Err("Invalid version-3 recursive merge bases".into());
+            }
+            for base in bases {
+                journal_oid(base)?;
+            }
         }
         _ => return Err("Invalid journal operation or branch/OID relationship".into()),
     }
@@ -411,7 +439,7 @@ fn recover_inner(directory: &Path) -> Result<Option<CheckoutResult>, String> {
     let target = git::branch_reference(&journal.target_branch)?;
     let path = git::managed_path(&directory.join("git-v1"), &journal.repository_id)?;
     let repo = git::open_managed(&path)?;
-    if journal.schema_version == 2 {
+    if matches!(journal.schema_version, 2 | 3) {
         return recover_advance(directory, &repo, &journal, &bytes).map(Some);
     }
     let _transaction = lock_refs(&repo, &journal)?;
@@ -497,6 +525,23 @@ pub(crate) fn validate_commit(
     Ok(())
 }
 
+/// Canonical actual base identities, never a heuristic single ancestor.
+pub(crate) fn merge_bases(
+    repo: &git2::Repository,
+    old: git2::Oid,
+    incoming: git2::Oid,
+) -> Result<Vec<git2::Oid>, String> {
+    let result = repo
+        .merge_bases(old, incoming)
+        .map_err(|e| e.message().to_owned())?;
+    if result.is_empty() || result.len() > 64 {
+        return Err("Merge requires between 1 and 64 complete common ancestors".into());
+    }
+    let mut bases: Vec<_> = result.iter().copied().collect();
+    bases.sort_unstable();
+    Ok(bases)
+}
+
 fn validate_advance_graph(repo: &git2::Repository, journal: &Journal) -> Result<(), String> {
     let advance = journal
         .advance
@@ -505,15 +550,34 @@ fn validate_advance_graph(repo: &git2::Repository, journal: &Journal) -> Result<
     let old = journal_oid(&journal.source_oid)?;
     let new = journal_oid(&journal.target_oid)?;
     let incoming = journal_oid(&advance.incoming_oid)?;
-    let base = journal_oid(&advance.merge_base_oid)?;
-    for oid in std::collections::HashSet::from([old, new, incoming, base]) {
+    let bases: Vec<_> = match journal.schema_version {
+        2 => vec![journal_oid(
+            advance
+                .merge_base_oid
+                .as_deref()
+                .ok_or("Missing merge base")?,
+        )?],
+        3 => advance
+            .merge_base_oids
+            .as_ref()
+            .ok_or("Missing recursive merge bases")?
+            .iter()
+            .map(|id| journal_oid(id))
+            .collect::<Result<_, _>>()?,
+        _ => return Err("Invalid advance version".into()),
+    };
+    for oid in std::collections::HashSet::<_>::from_iter(
+        [old, new, incoming]
+            .into_iter()
+            .chain(bases.iter().copied()),
+    ) {
         validate_commit(repo, oid, &journal.workspace_id)?;
     }
     let error = |e: git2::Error| e.message().to_owned();
     match advance.kind {
         AdvanceKind::FastForward => {
             if incoming != new
-                || base != old
+                || bases != [old]
                 || !repo.graph_descendant_of(new, old).map_err(error)?
             {
                 return Err("Recorded fast-forward inputs do not match the commit graph".into());
@@ -527,7 +591,7 @@ fn validate_advance_graph(repo: &git2::Repository, journal: &Journal) -> Result<
                 || old == incoming
                 || repo.graph_descendant_of(old, incoming).map_err(error)?
                 || repo.graph_descendant_of(incoming, old).map_err(error)?
-                || repo.merge_base(old, incoming).map_err(error)? != base
+                || merge_bases(repo, old, incoming)? != bases
             {
                 return Err("Recorded merge inputs do not match the pinned parents/base".into());
             }
@@ -774,8 +838,8 @@ pub(crate) fn advance(
     storage::ensure_no_pending_transition(directory)?;
     session.require_loaded()?;
     let journal = input.journal;
-    if journal.schema_version != 2 {
-        return Err("Advance requires a version-2 same-branch journal".into());
+    if !matches!(journal.schema_version, 2 | 3) {
+        return Err("Advance requires a version-2 or version-3 same-branch journal".into());
     }
     validate_journal(&journal)?;
     for value in [&input.author_name, &input.author_email] {

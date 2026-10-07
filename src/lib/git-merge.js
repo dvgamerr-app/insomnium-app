@@ -57,7 +57,9 @@ export function createGitMerge(options) {
     const input = structuredClone(previous.input);
     if (previous.prepared.candidate.conflicts.length) {
       input.resolutions = structuredClone(choices.gitResolutions || []);
-      input.expectedMergeBaseOid = previous.prepared.candidate.mergeBaseOid;
+      if (previous.prepared.candidate.mergeBaseOids) {
+        input.expectedMergeBaseOids = structuredClone(previous.prepared.candidate.mergeBaseOids);
+      } else input.expectedMergeBaseOid = previous.prepared.candidate.mergeBaseOid;
     } else if (choices.gitResolutions?.length) {
       throw new Error("No reviewed Git conflicts to resolve.");
     }
@@ -91,13 +93,14 @@ export function createGitMerge(options) {
       if (!sameWorkspace(getData(), before)) throw new Error("Workspace changed after merge review.");
       await save(before);
       if (!sameWorkspace(getData(), before)) throw new Error("Workspace changed while saving merge baseline.");
-      const journal = { schemaVersion: 2, operationId: operationId(),
+      const recursiveBases = prepared.candidate.mergeBaseOids;
+      const journal = { schemaVersion: recursiveBases ? 3 : 2, operationId: operationId(),
         repositoryId: prepared.repositoryId, workspaceId: prepared.workspaceId,
         sourceBranch: prepared.sourceBranch, targetBranch: prepared.sourceBranch,
         sourceOid: prepared.sourceOid, targetOid: prepared.candidate.targetOid,
         beforeWorkspace: before, afterWorkspace: after,
         advance: { kind: prepared.candidate.kind, incomingOid: prepared.candidate.incomingOid,
-          mergeBaseOid: prepared.candidate.mergeBaseOid },
+          ...(recursiveBases ? { mergeBaseOids: structuredClone(recursiveBases) } : { mergeBaseOid: prepared.candidate.mergeBaseOid }) },
       };
       return transition(async () => {
         baseline = before;

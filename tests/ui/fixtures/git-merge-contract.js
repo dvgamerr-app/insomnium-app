@@ -41,6 +41,7 @@ function fixture(options = {}) {
   if (options.workingBudget) for (const row of data.resources) if (row._id.startsWith("req_budget_")) row.url = "https://example.invalid/local";
   let durable = structuredClone(data);
   /** @type {string[]} */ const calls = [];
+  let submittedJournal = /** @type {any} */ (null);
   let locked = false;
   const call = async (/** @type {string} */ command, /** @type {any} */ args) => {
     calls.push(command);
@@ -48,11 +49,14 @@ function fixture(options = {}) {
     if (command === "git_repository_read_commit") return { commitOid: args.commitOid, files: snapshotGitCollection(args.commitOid === old ? base : next, root._id).files };
     if (command === "git_repository_prepare_merge") {
       if (options.previewReply) return structuredClone(options.previewReply);
+      if (options.recursive) return { sourceOid: old, incomingOid: incoming, kind: "merge", targetOid: incoming,
+        mergeBaseOid: null, mergeBaseOids: ["c".repeat(40), "d".repeat(40)], conflicts: [], conflictContents: [] };
       if (options.badReply) return { sourceOid: old, incomingOid: incoming, kind: "fastForward", targetOid: old, mergeBaseOid: old, conflicts: [] };
       return { sourceOid: old, incomingOid: incoming, kind: options.upToDate ? "upToDate" : "fastForward",
         targetOid: options.upToDate ? old : incoming, mergeBaseOid: options.upToDate ? null : old, conflicts: [], conflictContents: options.badContents || [] };
     }
     if (command === "git_repository_apply_merge") {
+      submittedJournal = structuredClone(args.input.journal);
       check(locked, "Apply submitted outside exclusive transition");
       check(sameWorkspace(durable, args.input.journal.beforeWorkspace), "Exact baseline not saved before submit");
       durable = structuredClone(args.input.journal.afterWorkspace);
@@ -72,7 +76,7 @@ function fixture(options = {}) {
   });
   const input = { incomingOid: incoming, source: { kind: "localBranch", branch: "incoming", expectedOid: incoming },
     author: { name: "Contract fixture", email: "fixture@example.invalid", message: "Contract merge" } };
-  return { coordinator, input, calls, data: () => data, durable: () => durable,
+  return { coordinator, input, calls, journal: () => submittedJournal, data: () => data, durable: () => durable,
     review: () => coordinator.review(root._id, input) };
 }
 button.onclick = async () => {
@@ -175,6 +179,21 @@ button.onclick = async () => {
     x = fixture({ badContents: [{}] }); await rejects(() => x.review(), /invalid conflict content/);
     check(!x.calls.includes("git_repository_apply_merge"), "Malformed conflict display admitted mutation");
     checks.push("up-to-date-no-save-and-malformed-native-candidate-refusal");
+    x = fixture({ recursive: true }); review = await x.review(); await x.coordinator.confirm(review);
+    check(x.journal().schemaVersion === 3, "Recursive merge did not use schema3");
+    check(x.journal().advance.mergeBaseOid === undefined &&
+      JSON.stringify(x.journal().advance.mergeBaseOids) === JSON.stringify(["c".repeat(40), "d".repeat(40)]), "Recursive journal lost or collapsed actual bases");
+    check(sameWorkspace(x.data(), x.durable()), "Recursive confirmation lost full workspace");
+    const recursive = { sourceOid: "a".repeat(40), incomingOid: "b".repeat(40), kind: "merge", targetOid: "b".repeat(40),
+      mergeBaseOid: null, mergeBaseOids: ["c".repeat(40), "d".repeat(40)], conflicts: [], conflictContents: [] };
+    for (const bases of [[], ["c".repeat(40)], ["d".repeat(40), "c".repeat(40)], ["c".repeat(40), "c".repeat(40)], ["c".repeat(40), "bad"]]) {
+      x = fixture({ previewReply: { ...recursive, mergeBaseOids: bases } });
+      await rejects(() => x.review(), /invalid pinned candidate/);
+      check(!x.calls.includes("save"), "Malformed recursive bases saved state");
+    }
+    x = fixture({ previewReply: { ...recursive, mergeBaseOid: "c".repeat(40) } });
+    await rejects(() => x.review(), /invalid pinned candidate/);
+    checks.push("recursive-native-candidate-full-base-validation-and-schema3-coordinator-journal");
     const preview = { sourceOid: "a".repeat(40), incomingOid: "b".repeat(40), kind: "merge",
       targetOid: null, mergeBaseOid: "a".repeat(40),
       conflicts: [{ ancestor:null, ours:{oid:"c".repeat(40),path:[120],mode:0o100755},theirs:null }],

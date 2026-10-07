@@ -19,6 +19,8 @@ pub struct MergeInput {
     #[serde(default)]
     expected_merge_base_oid: Option<String>,
     #[serde(default)]
+    expected_merge_base_oids: Option<Vec<String>>,
+    #[serde(default)]
     resolutions: Option<Vec<crate::git_merge_resolution::Resolution>>,
     #[serde(default)]
     source: Option<crate::git_merge_source::MergeSource>,
@@ -31,6 +33,8 @@ pub struct MergeCandidate {
     incoming_oid: String,
     kind: &'static str,
     merge_base_oid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    merge_base_oids: Option<Vec<String>>,
     target_oid: Option<String>,
     conflicts: Vec<MergeConflict>,
     conflict_contents: Vec<crate::git_merge_preview::ConflictContent>,
@@ -117,6 +121,7 @@ pub(crate) fn prepare(repo: &Repository, input: &MergeInput) -> Result<MergeCand
         incoming_oid: incoming.to_string(),
         kind: "upToDate",
         merge_base_oid: None,
+        merge_base_oids: None,
         target_oid: Some(old.to_string()),
         conflicts: Vec::new(),
         conflict_contents: Vec::new(),
@@ -158,37 +163,52 @@ pub(crate) fn prepare(repo: &Repository, input: &MergeInput) -> Result<MergeCand
         check_head(repo, &branch, old)?;
         return Ok(candidate);
     }
-    let bases = repo.merge_bases(old, incoming).map_err(error)?;
-    // The current schema2 journal pins one actual base. Recursive virtual bases
-    // require an explicit extension rather than silently choosing one ancestor.
-    if bases.len() != 1 {
-        return Err("Merge requires a supported single common ancestor".into());
+    let bases = crate::git_journal::merge_bases(repo, old, incoming)?;
+    let multiple = bases.len() > 1;
+    let base_ids: Vec<String> = bases.iter().map(ToString::to_string).collect();
+    if input.resolutions.is_some() {
+        let exact = if multiple {
+            input.expected_merge_base_oid.is_none()
+                && input.expected_merge_base_oids.as_ref() == Some(&base_ids)
+        } else {
+            input.expected_merge_base_oids.is_none()
+                && input
+                    .expected_merge_base_oid
+                    .as_deref()
+                    .map(oid)
+                    .transpose()?
+                    == Some(bases[0])
+        };
+        if !exact {
+            return Err("Conflict resolution requires the exact reviewed merge base".into());
+        }
     }
-    let base = bases[0];
-    if input.resolutions.is_some()
-        && input
-            .expected_merge_base_oid
-            .as_deref()
-            .map(oid)
-            .transpose()?
-            != Some(base)
-    {
-        return Err("Conflict resolution requires the exact reviewed merge base".into());
+    for base in &bases {
+        git_journal::validate_commit(repo, *base, &input.workspace_id)?;
     }
-    git_journal::validate_commit(repo, base, &input.workspace_id)?;
     let ours = repo.find_commit(old).map_err(error)?;
     let theirs = repo.find_commit(incoming).map_err(error)?;
-    let ancestor = repo.find_commit(base).map_err(error)?;
-    let mut index = repo
-        .merge_trees(
+    let mut index = if multiple {
+        // Default recursive behavior consolidates ALL actual common ancestors,
+        // including conflicts in the virtual base. Do not set a recursion limit:
+        // libgit2 falls back to selecting one ancestor when that limit is hit.
+        repo.merge_commits(&ours, &theirs, None).map_err(error)?
+    } else {
+        let ancestor = repo.find_commit(bases[0]).map_err(error)?;
+        repo.merge_trees(
             &ancestor.tree().map_err(error)?,
             &ours.tree().map_err(error)?,
             &theirs.tree().map_err(error)?,
             None,
         )
-        .map_err(error)?;
+        .map_err(error)?
+    };
     candidate.kind = "merge";
-    candidate.merge_base_oid = Some(base.to_string());
+    if multiple {
+        candidate.merge_base_oids = Some(base_ids);
+    } else {
+        candidate.merge_base_oid = Some(bases[0].to_string());
+    }
     candidate.target_oid = None;
     if let Some(resolutions) = &input.resolutions {
         index = crate::git_merge_resolution::resolve(repo, &index, resolutions)?;
