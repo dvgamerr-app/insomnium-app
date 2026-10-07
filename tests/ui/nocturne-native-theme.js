@@ -44,10 +44,12 @@ await withNativeApp(
       name: "Author email",
       exact: true,
     });
-    for (const [control, id] of [
-      [name, "git-author-name"],
-      [email, "git-author-email"],
-    ]) {
+    const authorControls =
+      /** @type {[import('playwright-core').Locator,string][]} */ ([
+        [name, "git-author-name"],
+        [email, "git-author-email"],
+      ]);
+    for (const [control, id] of authorControls) {
       assert.equal(await control.getAttribute("id"), id);
       assert.equal(
         await control.evaluate(
