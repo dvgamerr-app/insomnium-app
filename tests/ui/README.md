@@ -15,8 +15,7 @@ cover an independent authenticated HTTP/2 self-check, actual native unary Send,
 CA bundles in both root positions, missing/mismatched/untrusted/malformed TLS
 settings, recovery and exact response reload without resend. Server evidence
 records the verified peer CN/fingerprint and exact protobuf bytes; four original
-TLS settings are restored. Run native scenarios sequentially. Reflection TLS,
-provider/proxy/legacy/platform parity remain separate.
+TLS settings are restored. Run native scenarios sequentially.
 
 The same saved entry now also runs `helpers/grpc-stream-certificate.js`:
 server-streaming receives two distinct responses; client-streaming sends two
@@ -25,8 +24,18 @@ each echo while its sender is still open before Commit. Cancel for all three
 shapes must produce actual server-observed HTTP/2 RST_STREAM CANCEL. All seven
 streaming cases preserve resources/retained history and full response after
 reload, without automatic reconnect; final Chat explicitly reconnects and sends
-again. The complete entry has19 groups. Reflection TLS and remaining provider/
-proxy/legacy/platform parity are still separate gates.
+again. These unary/TLS/streaming checks account for19 groups.
+
+`helpers/grpc-reflection-certificate.js` adds11 reflection groups: actual v1
+list-services/file-containing-symbol discovery through Server reflection and Load
+methods, exact five methods/shapes and native Send using the cached reflected
+schema. CA bundles work in both positions; missing/mismatched/untrusted/malformed
+TLS settings refuse discovery. A second mandatory-auth endpoint supports only
+v1alpha, proving actual v1 UNIMPLEMENTED fallback. Discovery preserves all
+resources/history before explicit method selection; Send and reload preserve
+complete responses without automatic discovery/resend. The complete saved entry
+has30 groups. Arbitrary reflection graphs/errors, provider/proxy/legacy/platform
+parity remain separate gates.
 
 ## Native HTTP client certificate
 

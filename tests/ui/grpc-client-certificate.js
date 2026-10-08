@@ -6,6 +6,7 @@ import { gitCollection } from "./helpers/git-fixture.js";
 import { clientCertificateFixture } from "./helpers/client-certificate.js";
 import { tlsPreferences } from "./helpers/tls-preferences.js";
 import { grpcStreamCertificate } from "./helpers/grpc-stream-certificate.js";
+import { grpcReflectionCertificate } from "./helpers/grpc-reflection-certificate.js";
 
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-recovery-copy-probe/build-state.json";
@@ -333,6 +334,11 @@ await withNativeApp(
         fixture,
         requestId,
       );
+      const reflection = await grpcReflectionCertificate(
+        { page, invoke, output },
+        fixture,
+        requestId,
+      );
       await Bun.write(
         join(output, "acceptance.json"),
         JSON.stringify(
@@ -343,12 +349,14 @@ await withNativeApp(
               ...cases.map((c) => c.id),
               "full response reload without resend",
               ...streaming.map((c) => c.id),
+              ...reflection.map((c) => c.id),
             ],
             independent,
             cases,
             streaming,
+            reflection,
             limits:
-              "Actual Windows native unary/server/client/bidirectional gRPC through persisted Preferences and Send/Connect, HTTP2 ALPN, server-observed peer fingerprint and exact protobuf bytes. Explicit Commit EOF, all three Cancel shapes produce actual RST_STREAM CANCEL, saved response/reconnect observed. No trust-store modification/TLS bypass. Reflection TLS, provider/proxy/legacy/platform remain separate gates.",
+              "Actual Windows native unary/server/client/bidirectional gRPC and reflection v1/v1alpha fallback through persisted Preferences and UI, HTTP2 ALPN, server-observed peer fingerprint and exact protobuf bytes. Explicit Commit EOF, all three Cancel shapes produce actual RST_STREAM CANCEL, saved response/reconnect observed. Reflection TLS refusals and discovery-to-Send verified. No trust-store modification/TLS bypass. Arbitrary reflection graphs/errors, provider/proxy/legacy/platform remain separate gates.",
           },
           null,
           2,

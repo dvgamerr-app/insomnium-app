@@ -180,6 +180,7 @@ fn handle(
 async fn grpc_connection(
     socket: tokio::net::TcpStream,
     config: Arc<ServerConfig>,
+    alpha_only: bool,
 ) -> Result<(), String> {
     let stream = tokio_rustls::TlsAcceptor::from(config)
         .accept(socket)
@@ -216,7 +217,7 @@ async fn grpc_connection(
         let cn = cn.clone();
         let fingerprint = fingerprint.clone();
         tokio::spawn(async move {
-            if let Err(error) = grpc_request(request, respond, cn, fingerprint).await {
+            if let Err(error) = grpc_request(request, respond, cn, fingerprint, alpha_only).await {
                 println!(
                     "{}",
                     serde_json::json!({"event":"rejected","role":"grpc-stream","detail":error})
@@ -242,14 +243,33 @@ async fn grpc_request(
     mut respond: h2::server::SendResponse<tungstenite::Bytes>,
     cn: String,
     fingerprint: String,
+    alpha_only: bool,
 ) -> Result<(), String> {
     let path = request.uri().path().to_owned();
     let method = request.method().to_string();
     let mut incoming = request.into_body();
+    let reflection = path.starts_with("/grpc.reflection.");
     let duplex = path.ends_with("/Chat");
     let collect = path.ends_with("/Collect");
     let hold = path.ends_with("/Hold");
     let watch = path.ends_with("/Watch");
+    if alpha_only && path.starts_with("/grpc.reflection.v1.") {
+        let response = tungstenite::http::Response::builder()
+            .status(200)
+            .header("content-type", "application/grpc")
+            .header("grpc-status", "12")
+            .header("grpc-message", "Owned fixture supports v1alpha only")
+            .body(())
+            .map_err(|e| e.to_string())?;
+        respond
+            .send_response(response, true)
+            .map_err(|e| e.to_string())?;
+        println!(
+            "{}",
+            serde_json::json!({"event":"grpc-reflection-unimplemented","url":path,"authorized":true,"cn":cn,"fingerprint":fingerprint,"alpn":"h2"})
+        );
+        return Ok(());
+    }
     let response = tungstenite::http::Response::builder()
         .status(200)
         .header("content-type", "application/grpc")
@@ -317,7 +337,14 @@ async fn grpc_request(
                 "{}",
                 serde_json::json!({"event":"grpc-message","url":path,"sequence":frames,"bytes":frame})
             );
-            if duplex {
+            if reflection {
+                let payload = grpc_reflection(&frame[5..], &path)?;
+                let mut encoded = vec![0];
+                encoded.extend_from_slice(&(payload.len() as u32).to_be_bytes());
+                encoded.extend_from_slice(&payload);
+                send.send_data(encoded.into(), false)
+                    .map_err(|e| e.to_string())?;
+            } else if duplex {
                 send.send_data(frame.into(), false)
                     .map_err(|e| e.to_string())?;
             } else if !collect {
@@ -365,7 +392,95 @@ fn grpc_trailers(send: &mut h2::SendStream<tungstenite::Bytes>) -> Result<(), St
 }
 
 #[cfg(grpc_fixture)]
-fn grpc_listener(config: Arc<ServerConfig>) -> String {
+fn grpc_reflection(bytes: &[u8], path: &str) -> Result<Vec<u8>, String> {
+    use prost::Message;
+    use tonic_reflection::pb::v1::{
+        server_reflection_request::MessageRequest, server_reflection_response::MessageResponse,
+        FileDescriptorResponse, ListServiceResponse, ServerReflectionRequest,
+        ServerReflectionResponse, ServiceResponse,
+    };
+    let query = ServerReflectionRequest::decode(bytes).map_err(|e| e.to_string())?;
+    let (kind, value, response) = match query.message_request.as_ref() {
+        Some(MessageRequest::ListServices(value)) => (
+            "list-services",
+            value.clone(),
+            MessageResponse::ListServicesResponse(ListServiceResponse {
+                service: vec![ServiceResponse {
+                    name: "owned.Sample".into(),
+                }],
+            }),
+        ),
+        Some(MessageRequest::FileContainingSymbol(value)) if value == "owned.Sample" => (
+            "file-containing-symbol",
+            value.clone(),
+            MessageResponse::FileDescriptorResponse(FileDescriptorResponse {
+                file_descriptor_proto: vec![grpc_descriptor()],
+            }),
+        ),
+        _ => return Err("Unexpected owned reflection query".into()),
+    };
+    println!(
+        "{}",
+        serde_json::json!({"event":"grpc-reflection","url":path,"kind":kind,"value":value})
+    );
+    Ok(ServerReflectionResponse {
+        valid_host: String::new(),
+        original_request: Some(query),
+        message_response: Some(response),
+    }
+    .encode_to_vec())
+}
+
+#[cfg(grpc_fixture)]
+fn grpc_descriptor() -> Vec<u8> {
+    use prost::Message;
+    use prost_types::{
+        DescriptorProto, FieldDescriptorProto, FileDescriptorProto, MethodDescriptorProto,
+        ServiceDescriptorProto,
+    };
+    FileDescriptorProto {
+        name: Some("owned-reflection.proto".into()),
+        package: Some("owned".into()),
+        syntax: Some("proto3".into()),
+        message_type: vec![DescriptorProto {
+            name: Some("Input".into()),
+            field: vec![FieldDescriptorProto {
+                name: Some("name".into()),
+                number: Some(1),
+                label: Some(1),
+                r#type: Some(9),
+                ..Default::default()
+            }],
+            ..Default::default()
+        }],
+        service: vec![ServiceDescriptorProto {
+            name: Some("Sample".into()),
+            method: [
+                ("Echo", false, false),
+                ("Watch", false, true),
+                ("Collect", true, false),
+                ("Chat", true, true),
+                ("Hold", false, true),
+            ]
+            .into_iter()
+            .map(|(name, client, server)| MethodDescriptorProto {
+                name: Some(name.into()),
+                input_type: Some(".owned.Input".into()),
+                output_type: Some(".owned.Input".into()),
+                client_streaming: Some(client),
+                server_streaming: Some(server),
+                ..Default::default()
+            })
+            .collect(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    }
+    .encode_to_vec()
+}
+
+#[cfg(grpc_fixture)]
+fn grpc_listener(config: Arc<ServerConfig>, alpha_only: bool) -> String {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let url = format!("https://{}", listener.local_addr().unwrap());
     listener.set_nonblocking(true).unwrap();
@@ -386,7 +501,7 @@ fn grpc_listener(config: Arc<ServerConfig>) -> String {
                 tokio::spawn(async move {
                     let result = tokio::time::timeout(
                         Duration::from_secs(15),
-                        grpc_connection(socket, config),
+                        grpc_connection(socket, config, alpha_only),
                     )
                     .await;
                     if let Err(error) =
@@ -431,7 +546,11 @@ fn main() {
     let sink_url = format!("https://{}", sink.local_addr().unwrap());
     let redirect = format!("{sink_url}/destination");
     #[cfg(grpc_fixture)]
-    let grpc_url = grpc_listener(config.clone());
+    let grpc_url = grpc_listener(config.clone(), false);
+    #[cfg(grpc_fixture)]
+    let grpc_alpha_url = grpc_listener(config.clone(), true);
+    #[cfg(not(grpc_fixture))]
+    let grpc_alpha_url = "";
     #[cfg(not(grpc_fixture))]
     let grpc_url = "";
     for (role, listener) in [("primary", primary), ("sink", sink)] {
@@ -452,7 +571,7 @@ fn main() {
     }
     println!(
         "{}",
-        serde_json::json!({"event":"ready","primary":primary_url,"sink":sink_url,"grpc":grpc_url})
+        serde_json::json!({"event":"ready","primary":primary_url,"sink":sink_url,"grpc":grpc_url,"grpcAlpha":grpc_alpha_url})
     );
     let mut stop = String::new();
     let _ = std::io::stdin().read_line(&mut stop);

@@ -180,7 +180,16 @@ export async function clientCertificateFixture(output, options = {}) {
     "serde_json",
     "x509_parser",
     "tungstenite",
-    ...(options.grpc ? ["tokio", "tokio_rustls", "h2"] : []),
+    ...(options.grpc
+      ? [
+          "tokio",
+          "tokio_rustls",
+          "h2",
+          "prost",
+          "prost_types",
+          "tonic_reflection",
+        ]
+      : []),
   ]) {
     const files = await Array.fromAsync(
       new Bun.Glob("lib" + name + "-*.rlib").scan(deps),
@@ -242,9 +251,14 @@ export async function clientCertificateFixture(output, options = {}) {
         else if (event.event === "grpc-request") grpcRequests.push(event);
         else if (event.event === "grpc-connection") grpcConnections.count++;
         else if (
-          ["grpc-open", "grpc-message", "grpc-end", "grpc-cancelled"].includes(
-            event.event,
-          )
+          [
+            "grpc-open",
+            "grpc-message",
+            "grpc-end",
+            "grpc-cancelled",
+            "grpc-reflection",
+            "grpc-reflection-unimplemented",
+          ].includes(event.event)
         )
           grpcEvents.push(event);
         else if (event.event === "request") {
@@ -318,6 +332,7 @@ export async function clientCertificateFixture(output, options = {}) {
     connections,
     rejected,
     grpc: { url: String(state.ready.grpc) },
+    grpcAlpha: { url: String(state.ready.grpcAlpha) },
     grpcRequests,
     grpcConnections,
     grpcEvents,

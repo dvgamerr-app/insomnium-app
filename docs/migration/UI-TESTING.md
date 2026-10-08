@@ -2,6 +2,52 @@
 
 Owner requires Bun-only reusable Playwright JavaScript scenarios with shared helpers and headless execution. Browser-use and ad-hoc browser automation remain prohibited.
 
+## Native reflection gRPC mutual TLS — 2026-10-08
+
+Saved `bun tests/ui/grpc-client-certificate.js` now includes reusable
+`helpers/grpc-reflection-certificate.js`. Owned h2 fixture uses existing generated
+Tonic0.14.6 reflection protobuf types and Prost descriptor types, with separate
+mandatory-client-auth v1 and v1alpha-only listeners. It returns an owned five-method
+descriptor and records actual list-services/file-containing-symbol queries and
+v1 UNIMPLEMENTED responses. Cached prost/prost-types/tonic-reflection rlibs are
+linked only into the fixture; no app dependency/rebuild/trust-store change.
+
+Final48711/evidence1791419491037 terminal0 passes30 groups: prior19 unary/TLS/
+streaming plus11 reflection cases. Native Server reflection/Load methods observes
+exact Echo/Watch/Collect/Chat/Hold paths and shapes with actual authenticated
+peer CN/SHA256 fingerprint/ALPNh2; trusted/both CA bundle positions/recovered each
+discover via v1. Each successful case sends one exact application RPC using the
+cached reflected schema, with exact protobuf request bytes/decoded response and
+status0. v1alpha-only endpoint first receives authenticated v1 and replies
+UNIMPLEMENTED, then receives v1alpha discovery and the successful application RPC.
+Missing identity, mismatched identity host, untrusted client/server refuse with
+reflection query/RPC0 and disabled methods; malformed CA/identity also TCP0.
+
+Discovery preserves exact resources and complete history before explicit method
+selection. Send preserves its current resources and all retained old history;
+one application RPC saves one response. Final full response after reload is exact,
+with no automatic reflection/resend. Original four TLS settings restored/verified;
+native-hidden app64540 visiblefalse/exit0, fixture close0. Initial corrected96479/1791419299994 also passes30 before explicit shape-label assertions. Shared non-grpc HTTP90021/1791419393411 terminal0 passes12/app76908 exit0/settings restored/fixture close0. Result/acceptance/
+reflection-cases/settings/fixture observations and v1alpha screenshot inspected.
+Compiler0 errors0 warnings/three JS Prettier/Rustfmt/whitespace pass.
+
+Failed attempts excluded:96669/1791419165035 compared resources after explicit
+method selection while ignoring its intentional modified timestamp; full exact
+comparison moved before selection.97039/1791419234644 used ambiguous Body tab
+after streaming; scoped to gRPC request editor. Both apps82588/82572 exit0 and
+TLS settings restored; no production defect inferred from those scenario failures.
+
+Official documentation/protocol consulted before implementation:
+https://grpc.io/docs/guides/reflection/,
+https://docs.rs/tonic-reflection/latest/tonic_reflection/,
+https://github.com/grpc/grpc-proto/blob/master/grpc/reflection/v1/reflection.proto;
+cached generated v1/v1alpha wire types and native reflection request correlation
+also inspected. Two initial obsolete/inaccessible web API URLs were corrected
+using the official guide/crate index and cached source. This proves controlled
+Windows native reflection TLS and fallback, not arbitrary transitive/conflicting/
+malformed descriptor graphs, server errors/network faults, provider/proxy/legacy/
+other-platform or full migration/UX/CSS parity.
+
 ## Native streaming gRPC mutual TLS — 2026-10-08
 
 The same `bun tests/ui/grpc-client-certificate.js` now imports the reusable
