@@ -1,5 +1,12 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Playwright headless verification and current handoff — 2026-10-09
+
+- Owner headless request verified against current checkout: the only browser launch is tests/ui/helpers/preview-app.js launchUiBrowser with headless:true and no headed override. Saved fixture/preview/reference scenarios use this shared helper. Native scenarios use tests/ui/helpers/native-app.js, hide the owned host window before connectOverCDP, and report native-hidden. Existing implementation is committed in cccf507; no duplicate implementation needed.
+- Saved design-system session92370 completed with terminal0 and result.json status passed. Current key-value-help evidence covers6 profiles with10 rows each, including original parameterized JSON media guidance. No live handle remains from this run. This browser result is headless acceptance, not fresh native acceptance.
+- Current feature base is3e3803d/topic8e3537c. Separate JSON media work remains uncommitted in src/lib/openapi-content.js, openapi-form.js, openapi.js and five saved scenario/fixture files. Inline419 generation/wire,419 full-field Git round trips,52 refusals and24 parser controls passed; last compiler0errors0warnings preceded latest fixture changes. Native release1791492118810 belongs to previous feature. Fresh final compiler/build and sequential native form/content/signing acceptance remain pending; do not claim this media feature complete or include its files in the headless checkpoint commit.
+- Full active migration/UX goal and all PLAN/PARITY gates remain required. No new feature started by this verification. This interface exposes no callable /compact operation; compaction has not been invoked. This entry is the handoff, with no current feature-owned live process handles.
+
 ## Versioned JSON-array form content — committed handoff — 2026-10-09
 
 - Current topic commit8e3537c (fix(openapi): encode older JSON form arrays as whole values) contains verified generation metadata, independent versioned goldens, whole-array OAuth1 saved coverage and corrected documentation. Topic worktree was clean; this entry is the documentation checkpoint.
