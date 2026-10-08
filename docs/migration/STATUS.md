@@ -1,5 +1,12 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## OAS3.2 form style array items — committed handoff — 2026-10-09
+
+- Current topic commit `4e3db68` (`fix(openapi): apply 3.2 form styles to array items`) contains verified generation/serialization, lexical numeric edits, linked guidance, reusable cases/signature coverage and documentation. Worktree clean after topic commit; this section is the documentation checkpoint.
+- Evidence: production release1791485710424/finished1791486088181/result0/hash3674864577700837266; form1791486095526/102 (20/34/48), query1791487015175/44, URL1791487423309/41targets38signatures including4per-item/4content/4earlier-style form cases. All terminal passed/native-hidden/visiblefalse/exit0 (47024/4972/8168); sequence6943 terminal0. Compiler0/0/headless1939/48help6profiles/inline76wire76Git1numeric edit/format/diff pass; current3.2.1 light760 item-editor image inspected. No feature-owned build/compiler/native/scenario processes or live handles remain. Commands/primary references/interpretation/limits: OPENAPI-FORM-STYLE-ITEMS.md/UI-TESTING.
+- Full original migration/UX goal remains active; all original gates in PLAN/PARITY and verified-acceptance section below remain required. No full migration/UX/OpenAPI completion or scope reduction. Concrete next original gate is OAS3.0 default form serialization; saved generated3.2 resource policy and broader schema/media/provider/platform/raw interoperability still require evidence. Revalidate HEAD/worktree and read STATUS/PLAN/PARITY plus applicable Claude instructions before continuing.
+- Tool inventory has no callable session-compaction operation. This interface cannot invoke `/compact`; compaction is not claimed. Handoff recorded before another feature; no next feature started. Browser scenarios remain headless:true, and native WebView2 hosts hide before CDP and report native-hidden.
+
 ## OAS3.2 form style array items — verified acceptance — 2026-10-09
 
 - Production release1791485710424/finished1791486088181/result0/hash3674864577700837266 accepts form1791486095526/102 groups (3.0.3/20,3.1.2/34,3.2.1/48), query1791487015175/44 and URL1791487423309/41raw targets38independent signatures including4per-item/4content/4earlier-style form cases. All terminal results independently audited passed/native-hidden/visiblefalse/native47024/4972/8168exit0. Sequence6943 terminal0; owned listeners/processes released. No feature-owned live handles remain. Earlier pending entries below are historical.
