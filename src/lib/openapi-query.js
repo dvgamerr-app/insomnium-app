@@ -1,4 +1,4 @@
-import { readOpenApiValue } from "./openapi-value.js";
+import { serializeOpenApiStyle } from "./openapi-style.js";
 import {
   serializeOpenApiContent,
   encodeOpenApiContent,
@@ -9,7 +9,6 @@ import {
 export function serializeOpenApiQuery(name, text, options) {
   if (options.style === "content")
     return `${encodeOpenApiContent(name)}=${encodeOpenApiContent(serializeOpenApiContent(name, text, options, "Query"))}`;
-  const { style, explode, kind } = options;
   const atom = (/** @type {unknown} */ value) => {
     if (
       value !== null &&
@@ -30,45 +29,12 @@ export function serializeOpenApiQuery(name, text, options) {
       )
       .join("");
   };
-  const key = encodeOpenApiContent(name);
-  const value = readOpenApiValue(name, text, options, "Query");
-  if (
-    !["form", "spaceDelimited", "pipeDelimited", "deepObject"].includes(style)
-  )
-    throw new Error(`Unsupported query style ${style}.`);
-  if (value === null) {
-    if (style === "form") return "";
-    throw new Error(`Review undefined query values for ${style}.`);
-  }
-  if (style === "deepObject") {
-    if (kind !== "object" || !explode)
-      throw new Error("deepObject requires an exploded flat object.");
-    return Object.entries(value)
-      .map(([property, item]) => `${key}%5B${atom(property)}%5D=${atom(item)}`)
-      .join("&");
-  }
-  if (
-    style !== "form" &&
-    (kind === "scalar" || kind === "scalar-json" || explode)
-  )
-    throw new Error(`${style} requires a non-exploded array or flat object.`);
-  if (kind === "scalar" || kind === "scalar-json")
-    return `${key}=${atom(value)}`;
-  if (Array.isArray(value)) {
-    const items = value
-      .filter(
-        (/** @type {unknown} */ item) => style !== "form" || item !== null,
-      )
-      .map(atom);
-    if (style === "form" && !items.length) return "";
-    if (explode) return items.map((item) => `${key}=${item}`).join("&");
-    return `${key}=${items.join(style === "spaceDelimited" ? "%20" : style === "pipeDelimited" ? "%7C" : ",")}`;
-  }
-  const entries = Object.entries(value)
-    .filter(([, item]) => style !== "form" || item !== null)
-    .map(([property, item]) => [atom(property), atom(item)]);
-  if (style === "form" && !entries.length) return "";
-  if (explode)
-    return entries.map(([property, item]) => `${property}=${item}`).join("&");
-  return `${key}=${entries.flat().join(style === "spaceDelimited" ? "%20" : style === "pipeDelimited" ? "%7C" : ",")}`;
+  return serializeOpenApiStyle(
+    name,
+    text,
+    options,
+    atom,
+    encodeOpenApiContent,
+    "Query",
+  );
 }

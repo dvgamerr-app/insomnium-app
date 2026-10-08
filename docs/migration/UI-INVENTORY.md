@@ -1,5 +1,13 @@
 # Current shared UI source inventory
 
+2026-10-09 explicit form help: UI source SHA256
+`9de439001ad6449ee61015114c28eae0fabf6e2a9819cf2cd93374f9eda02cfc`.
+KeyValueEditor reuses its existing linked Feedback/help grid for generated form
+rows and supplies destination-specific guidance. Counts remain663 shared sites/
+118 tokens/1719 declarations; no CSS ownership or declaration changes.
+Headless6 profiles/36 help rows pass; current native acceptance is tracked in
+STATUS/OPENAPI-FORM-BODY.md. Earlier inventory snapshots remain historical.
+
 2026-10-09 raw binary body editor: source SHA256
 `16ec60b7d991920a1a24bdef929c4a515b132e2b2f759da2e3df88d18fa2487c`.
 The existing binary picker is reused; one shared Feedback displays its retained

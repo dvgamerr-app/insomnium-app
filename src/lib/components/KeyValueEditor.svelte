@@ -95,6 +95,7 @@
               aria-label={`Value ${index + 1}`}
               aria-describedby={[
                 row._openapiSerialization?.nullable ||
+                row._openapiSerialization?.formBody ||
                 row._openapiSerialization?.style === "content"
                   ? `${editorId}-value-${index}-help`
                   : "",
@@ -130,9 +131,9 @@
         onclick={() => onchange(rows.filter((_, i) => i !== index))}
         ><Icon name="close" size={14} /></Button
       >
-      {#if row._openapiSerialization?.nullable || row._openapiSerialization?.allowReserved || row._openapiSerialization?.style === "content"}
+      {#if row._openapiSerialization?.nullable || row._openapiSerialization?.formBody || row._openapiSerialization?.allowReserved || row._openapiSerialization?.style === "content"}
         <div class="kv-help">
-          {#if row._openapiSerialization?.nullable || row._openapiSerialization?.style === "content"}<Feedback
+          {#if row._openapiSerialization?.nullable || row._openapiSerialization?.formBody || row._openapiSerialization?.style === "content"}<Feedback
               id={`${editorId}-value-${index}-help`}
               tone="hint"
               density="compact"
@@ -140,18 +141,24 @@
                 ? "Serialization requires review. Disable this row and supply a manually serialized value."
                 : row._openapiSerialization?.nullable
                   ? "Use JSON values, including null."
-                  : "Use JSON values."}</Feedback
+                  : row._openapiSerialization?.formBody
+                    ? `${["array", "object", "scalar-json"].includes(row._openapiSerialization.kind) ? "Use JSON values. " : ""}Values use ${row._openapiSerialization.style} form encoding.`
+                    : "Use JSON values."}</Feedback
             >{/if}
           {#if row._openapiSerialization?.allowReserved}<Feedback
               id={`${editorId}-value-${index}-reserved-help`}
               tone="hint"
               density="compact"
-              >{["array", "object"].includes(row._openapiSerialization.kind)
-                ? "Use JSON values. "
-                : ""}Reserved characters and valid %xx escapes are preserved.
-              Pre-encode data delimiters such as &amp;, =, + and commas when
-              they are literal. Query-invalid # and brackets are encoded; HTTP
-              URLs also encode apostrophes.</Feedback
+              >{#if row._openapiSerialization.formBody}Reserved characters and
+                valid %xx escapes are preserved. Literal &amp;, = and + are
+                encoded for the form body.{:else}{["array", "object"].includes(
+                  row._openapiSerialization.kind,
+                )
+                  ? "Use JSON values. "
+                  : ""}Reserved characters and valid %xx escapes are preserved.
+                Pre-encode data delimiters such as &amp;, =, + and commas when
+                they are literal. Query-invalid # and brackets are encoded; HTTP
+                URLs also encode apostrophes.{/if}</Feedback
             >{/if}
         </div>
       {/if}

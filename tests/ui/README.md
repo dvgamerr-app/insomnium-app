@@ -1,5 +1,15 @@
 # UI scenarios (Playwright + Bun)
 
+`openapi-form-body.js` verifies explicit Encoding Object styles across form,
+spaceDelimited, pipeDelimited and deepObject, with flat compounds, scalar/null/
+empty/reserved/name controls. Reusable `openapi-form-cases.js` supplies15 generation
+cases per version;5 edit/refusal/disable controls give60 native groups across
+3.0.3/3.1.2/3.2.1. The existing shared help helper checks actual editor geometry.
+Use the current recovery-copy build, run native scenarios sequentially and see
+OPENAPI-FORM-BODY.md/STATUS for terminal acceptance and remaining body gates.
+The existing URL/signature scenario adds four generated/manual form-body OAuth1
+MAC controls to its26 cases and reads full Content-Length bodies before replying.
+
 `openapi-binary-body.js` verifies 15 generated raw file media cases across
 OAS 3.0.3/3.1.2/3.2.1, plus three manual Content-Type and three Text-mode
 transition cases. Actual worker generation, file selection, byte-for-byte wire,

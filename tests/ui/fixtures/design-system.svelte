@@ -60,6 +60,18 @@
           allowReserved: true,
         },
       },
+      {
+        name: "form",
+        value: '["x + y", "z"]',
+        disabled: false,
+        _openapiSerialization: {
+          formBody: true,
+          style: "form",
+          kind: "array",
+          explode: true,
+          allowReserved: true,
+        },
+      },
     ]),
   );
   let multipartRows = $state(

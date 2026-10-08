@@ -1,5 +1,6 @@
 import { serializeOpenApiCookie } from "./openapi-cookie.js";
 import { isBinaryBody } from "./binary-body.js";
+import { serializeOpenApiForm } from "./openapi-form.js";
 import { buildNetworkLog, failureLog, NetworkError } from "./network-log.js";
 import {
   smartEncodeUrl,
@@ -458,10 +459,21 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
         "application/graphql-response+json, application/json",
       ]);
   } else if (mime === "application/x-www-form-urlencoded") {
-    const form = new URLSearchParams();
-    for (const p of body.params ?? [])
-      if (!p.disabled && p.name) form.append(resolve(p.name), resolve(p.value));
-    text = form.toString();
+    text = (body.params ?? [])
+      .filter((/** @type {any} */ p) => !p.disabled && p.name)
+      .map((/** @type {any} */ p) =>
+        p._openapiSerialization?.formBody
+          ? serializeOpenApiForm(
+              resolve(p.name),
+              resolve(p.value),
+              p._openapiSerialization,
+            )
+          : new URLSearchParams([
+              [resolve(p.name), resolve(p.value)],
+            ]).toString(),
+      )
+      .filter(Boolean)
+      .join("&");
     setHeader("Content-Type", mime);
   } else if (mime === "multipart/form-data") {
     multipart = (body.params ?? [])

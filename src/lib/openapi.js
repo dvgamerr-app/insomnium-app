@@ -8,6 +8,7 @@ import { id, newRequest } from "./model.js";
 import { serializeOpenApiQuery } from "./openapi-query.js";
 import { serializeOpenApiHeader } from "./openapi-header.js";
 import { serializeOpenApiPath } from "./openapi-path.js";
+import { serializeOpenApiForm } from "./openapi-form.js";
 
 import { parseSpec, methods } from "./openapi-document.js";
 
@@ -469,21 +470,58 @@ export function generateRequests(
           ) {
             request.body = {
               mimeType: mime,
-              params: Object.entries(value || {}).map(([name, value]) => ({
-                name,
-                value:
-                  typeof value === "object"
-                    ? JSON.stringify(value)
-                    : String(value),
-                ...(media.schema?.properties?.[name]?.format === "binary"
-                  ? { type: "file" }
-                  : {}),
-              })),
+              params: Object.entries(value || {}).map(([name, value]) => {
+                const property = media.schema?.properties?.[name] || {};
+                const encoding = media.encoding?.[name] || {};
+                if (
+                  mime === "application/x-www-form-urlencoded" &&
+                  ["style", "explode", "allowReserved"].some((key) =>
+                    Object.hasOwn(encoding, key),
+                  )
+                ) {
+                  const descriptor = describeOpenApiValue(
+                    value,
+                    property,
+                    true,
+                  );
+                  const style = encoding.style || "form";
+                  const serialization = {
+                    formBody: true,
+                    style,
+                    explode: encoding.explode ?? style === "form",
+                    kind: descriptor.kind,
+                    ...(descriptor.nullable ? { nullable: true } : {}),
+                    ...(encoding.allowReserved ? { allowReserved: true } : {}),
+                  };
+                  try {
+                    serializeOpenApiForm(name, descriptor.text, serialization);
+                  } catch (error) {
+                    issues.push(`Form field ${name}: ${error}`);
+                  }
+                  return {
+                    name,
+                    value: descriptor.text,
+                    _openapiSerialization: serialization,
+                  };
+                }
+                return {
+                  name,
+                  value:
+                    typeof value === "object"
+                      ? JSON.stringify(value)
+                      : String(value),
+                  ...(property.format === "binary" ? { type: "file" } : {}),
+                };
+              }),
             };
             if (
-              media.encoding ||
-              Object.values(value || {}).some(
-                (value) => value && typeof value === "object",
+              (mime === "multipart/form-data" && media.encoding) ||
+              request.body.params.some(
+                (/** @type {any} */ row) =>
+                  !row._openapiSerialization?.formBody &&
+                  ((value?.[row.name] && typeof value[row.name] === "object") ||
+                    (mime === "application/x-www-form-urlencoded" &&
+                      media.encoding?.[row.name]?.contentType)),
               )
             )
               issues.push("Review form field encoding before sending.");

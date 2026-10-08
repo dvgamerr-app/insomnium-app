@@ -8,18 +8,39 @@ process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-url-encoding-ui-probe/build-state.json";
 /** @type {string[]} */ const received = [];
 /** @type {string[][]} */ const wireHeaders = [];
+/** @type {string[]} */ const wireBodies = [];
 const server = createServer((socket) => {
   let buffered = Buffer.alloc(0);
+  let recorded = false;
   socket.on("data", (chunk) => {
+    if (recorded) return;
     buffered = Buffer.concat([
       buffered,
       typeof chunk === "string" ? Buffer.from(chunk) : chunk,
     ]);
-    if (buffered.includes("\r\n\r\n")) {
+    const headerEnd = buffered.indexOf("\r\n\r\n");
+    if (headerEnd >= 0) {
+      const lines = buffered
+        .subarray(0, headerEnd)
+        .toString("latin1")
+        .split("\r\n");
+      const length = Number(
+        lines
+          .find((line) => /^content-length:/i.test(line))
+          ?.split(":")[1]
+          ?.trim() || 0,
+      );
+      if (buffered.length < headerEnd + 4 + length) return;
+      recorded = true;
       received.push(
         buffered.subarray(0, buffered.indexOf("\r\n")).toString("latin1"),
       );
-      wireHeaders.push(buffered.toString("latin1").split("\r\n").slice(1));
+      wireHeaders.push(lines.slice(1));
+      wireBodies.push(
+        buffered
+          .subarray(headerEnd + 4, headerEnd + 4 + length)
+          .toString("utf8"),
+      );
       socket.end(
         "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nOK",
       );
@@ -166,6 +187,41 @@ try {
       28,
       "Original20 and reserved6 signing cases",
     );
+    for (const source of resources
+      .slice(2)
+      .filter(
+        (r) =>
+          r.authentication.type === "oauth1" &&
+          r.settingEncodeUrl === true &&
+          !r._id.endsWith("_reserved"),
+      ))
+      resources.push({
+        ...source,
+        _id: source._id + "_form",
+        name: source.name + " form style body",
+        method: "POST",
+        body: {
+          mimeType: "application/x-www-form-urlencoded",
+          params: [
+            {
+              name: "color",
+              value: '["a +","b&="]',
+              _openapiSerialization: {
+                formBody: true,
+                style: "form",
+                explode: true,
+                kind: "array",
+              },
+            },
+            { name: "color", value: "manual +" },
+          ],
+        },
+      });
+    assert.equal(
+      resources.length,
+      32,
+      "Four form-body OAuth1 signing regressions",
+    );
     await page
       .getByRole("button", { name: "Import collection", exact: true })
       .click();
@@ -235,12 +291,18 @@ try {
     for (const signed of resources.slice(2)) {
       await page
         .getByRole("complementary", { name: "Collections" })
-        .getByRole("button", { name: "GET " + signed.name, exact: true })
+        .getByRole("button", {
+          name: signed.method + " " + signed.name,
+          exact: true,
+        })
         .click();
       await page.reload();
       await page
         .getByRole("complementary", { name: "Collections" })
-        .getByRole("button", { name: "GET " + signed.name, exact: true })
+        .getByRole("button", {
+          name: signed.method + " " + signed.name,
+          exact: true,
+        })
         .click();
       const count = received.length;
       await page.getByRole("button", { name: "Send", exact: true }).click();
@@ -256,6 +318,12 @@ try {
         "Hawk Send settled",
       );
       const [method, target] = received[count].split(" ");
+      assert.equal(
+        wireBodies[count],
+        signed.body.mimeType === "application/x-www-form-urlencoded"
+          ? "color=a%20%2B&color=b%26%3D&color=manual+%2B"
+          : "",
+      );
       // Only the first ? starts the query; RFC3986 permits ? inside query data.
       const queryStart = target.indexOf("?");
       const wirePath = queryStart < 0 ? target : target.slice(0, queryStart);
@@ -413,6 +481,10 @@ try {
           );
         const params = [
           ...new URLSearchParams(wireQuery).entries(),
+          ...(signed.authentication.bodyMode === "standard" &&
+          signed.body.mimeType === "application/x-www-form-urlencoded"
+            ? new URLSearchParams(wireBodies[count]).entries()
+            : []),
           ...Object.entries(oauth).filter(
             ([k]) => k !== "realm" && k !== "oauth_signature",
           ),
@@ -525,6 +597,8 @@ try {
               (/** @type {any} */ p) =>
                 p._openapiSerialization?.allowReserved === true,
             ),
+            formStyleBody:
+              r.body.mimeType === "application/x-www-form-urlencoded",
           })),
         },
         null,
