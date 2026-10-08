@@ -1,5 +1,14 @@
 # UI scenarios (Playwright + Bun)
 
+`bun tests/ui/editable-name.js` verifies 18 shared inline-name cases: unchanged,
+trim-equivalent, changed, blank, Unicode, Escape, imported whitespace/empty names
+and parent-prop updates, with exact callback counts. `editable-name-native.js`
+reuses 15 cases across HTTP/GraphQL/SSE/WebSocket (60 groups) and audits real
+save_workspace IPC, exact workspace/timestamps/reload, Git snapshots and zero
+request dispatch. Build the current recovery-copy probe successfully first and
+run native scenarios sequentially with INSOMNIUM_UI_BUILD_STATE set to its
+build-state.json. These scenarios follow the shared headless/native-hidden policy.
+
 `design-system.js` verifies outline-free focus surfaces in12 paired horizontal/vertical dark/light1440/900/760 profiles (18 enabled controls each). Shared `helpers/focus-surface.js` seeds keyboard modality inside the control scope, hovers focused controls, and checks six semantic tokens/defaults/restoration/no shadows/outlines/geometry change. `focus-surfaces.json` records evidence. `nocturne-native-theme.js` measures18 actual Preferences/HTTP URL/Cookie profiles, explicitly selects the owned HTTP request per theme, and compares the entire workspace including timestamps. Use a successfully rebuilt current probe and run native scenarios sequentially. OS/high-contrast/native picker/full accessibility coverage remains separate.
 
 `bun tests/ui/openapi-content-serialization.js` covers OpenAPI3.0/3.1/3.2 JSON

@@ -5,10 +5,12 @@
   let { value, onchange } = $props();
   let editing = $state(false);
   let draft = $state("");
+  let original = $state("");
   let input = $state(/** @type {HTMLInputElement|undefined} */ (undefined));
   async function edit() {
     if (editing) return;
     draft = value;
+    original = value;
     editing = true;
     await tick();
     input?.focus();
@@ -17,7 +19,10 @@
   function save() {
     if (!editing) return;
     editing = false;
-    onchange(draft.trim() || "Untitled Request");
+    // An untouched draft must preserve exact legacy spacing and newer parent props.
+    if (draft === original) return;
+    const next = draft.trim() || "Untitled Request";
+    if (next !== value) onchange(next);
   }
 </script>
 
@@ -35,7 +40,8 @@
       }
       if (event.key === "Escape") {
         event.preventDefault();
-        draft = value;
+        // Disable the blur commit before dismissing, regardless of draft contents.
+        editing = false;
         input?.blur();
       }
     }}
@@ -45,7 +51,7 @@
     class="request-name-display"
     aria-label="Edit request name"
     onfocus={edit}
-    onclick={edit}>{value}</button
+    onclick={edit}>{value || "Untitled Request"}</button
   >
 {/if}
 
