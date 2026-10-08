@@ -1,5 +1,15 @@
 # UI scenarios (Playwright + Bun)
 
+`openapi-binary-body.js` verifies 15 generated raw file media cases across
+OAS 3.0.3/3.1.2/3.2.1, plus three manual Content-Type and three Text-mode
+transition cases. Actual worker generation, file selection, byte-for-byte wire,
+empty-selection refusal, resource preservation and reload without resend run
+against an owned loopback server. The helper `openapi-body-cases.js` supplies
+reusable documents; `INSOMNIUM_OPENAPI_VERSIONS` can select a comma-separated
+version list. Use the successful current recovery-copy build and run native
+scenarios sequentially. Scope and pending/accepted evidence are in
+`docs/migration/OPENAPI-BINARY-BODY.md` and STATUS.
+
 `design-system.js` checks compact Feedback across p/pre/div/li/small and both
 hint/error tones, normal paragraph and feature-placement regressions, reactive
 Field message ownership and exact KeyValueEditor help padding/gaps. Shared

@@ -451,51 +451,63 @@ export function generateRequests(
         : Object.keys(content)[0];
       try {
         const media = content[mime];
-        const value = example(media, schema);
-        if (
-          mime === "multipart/form-data" ||
-          mime === "application/x-www-form-urlencoded"
-        ) {
-          request.body = {
-            mimeType: mime,
-            params: Object.entries(value || {}).map(([name, value]) => ({
-              name,
-              value:
-                typeof value === "object"
-                  ? JSON.stringify(value)
-                  : String(value),
-              ...(media.schema?.properties?.[name]?.format === "binary"
-                ? { type: "file" }
-                : {}),
-            })),
-          };
+        const rawBinary =
+          (String(schema.openapi).startsWith("3.0.") &&
+            media.schema?.format === "binary") ||
+          (/^3\.[12]\./.test(String(schema.openapi)) &&
+            !Object.hasOwn(media, "schema") &&
+            !/^(?:text\/|(?:application\/(?:[\w.-]+\+)?(?:json|xml)|application\/graphql|application\/x-www-form-urlencoded|multipart\/form-data)(?:;|$))/i.test(
+              mime || "",
+            ));
+        if (rawBinary) {
+          request.body = { mimeType: mime, binary: true };
+        } else {
+          const value = example(media, schema);
           if (
-            media.encoding ||
-            Object.values(value || {}).some(
-              (value) => value && typeof value === "object",
+            mime === "multipart/form-data" ||
+            mime === "application/x-www-form-urlencoded"
+          ) {
+            request.body = {
+              mimeType: mime,
+              params: Object.entries(value || {}).map(([name, value]) => ({
+                name,
+                value:
+                  typeof value === "object"
+                    ? JSON.stringify(value)
+                    : String(value),
+                ...(media.schema?.properties?.[name]?.format === "binary"
+                  ? { type: "file" }
+                  : {}),
+              })),
+            };
+            if (
+              media.encoding ||
+              Object.values(value || {}).some(
+                (value) => value && typeof value === "object",
+              )
             )
+              issues.push("Review form field encoding before sending.");
+          } else
+            request.body = {
+              mimeType: mime || "application/json",
+              text:
+                typeof value === "string" && !mime?.includes("json")
+                  ? value
+                  : JSON.stringify(value, null, 2),
+            };
+          if (
+            !mime?.includes("json") &&
+            ![
+              "multipart/form-data",
+              "application/x-www-form-urlencoded",
+            ].includes(mime) &&
+            typeof value !== "string" &&
+            media.schema?.format !== "binary"
           )
-            issues.push("Review form field encoding before sending.");
-        } else if (media.schema?.format === "binary")
-          request.body = { mimeType: "application/octet-stream" };
-        else
-          request.body = {
-            mimeType: mime || "application/json",
-            text:
-              typeof value === "string" && !mime?.includes("json")
-                ? value
-                : JSON.stringify(value, null, 2),
-          };
-        if (
-          !mime?.includes("json") &&
-          ![
-            "multipart/form-data",
-            "application/x-www-form-urlencoded",
-          ].includes(mime) &&
-          typeof value !== "string" &&
-          media.schema?.format !== "binary"
-        )
-          issues.push("Review the non-JSON body serialization before sending.");
+            issues.push(
+              "Review the non-JSON body serialization before sending.",
+            );
+        }
       } catch (error) {
         issues.push(`Request body needs an example: ${error}`);
       }

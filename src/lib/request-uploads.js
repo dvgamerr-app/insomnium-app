@@ -1,4 +1,5 @@
 import { checkTemplateValue } from "./template-object.js";
+import { isBinaryBody } from "./binary-body.js";
 const MAX_BYTES = 20 * 1024 * 1024;
 /** Keep known binary upload fields outside template text accounting/rendering.
  * Other strings (even fields named base64) retain the ordinary text limits.
@@ -35,7 +36,7 @@ export function separateRequestUploads(request) {
     !Array.isArray(request.body)
   ) {
     input.body = { ...request.body };
-    if (input.body.mimeType === "application/octet-stream") {
+    if (isBinaryBody(input.body)) {
       input.body = separate(input.body, null, null);
       if (Array.isArray(input.body.curlSegments))
         input.body.curlSegments = input.body.curlSegments.map(

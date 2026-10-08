@@ -1,5 +1,12 @@
 # Current shared UI source inventory
 
+2026-10-09 raw binary body editor: source SHA256
+`16ec60b7d991920a1a24bdef929c4a515b132e2b2f759da2e3df88d18fa2487c`.
+The existing binary picker is reused; one shared Feedback displays its retained
+Content-Type. Counts are663 external shared sites/118 tokens/1719 declarations,
+with no CSS changes. Runtime build/scenario acceptance is tracked in STATUS and
+OPENAPI-BINARY-BODY.md; the earlier compact snapshot remains historical.
+
 2026-10-08 final compact feedback source: SHA256 `a5dfa28c0bcfad8067157dd458a3c87cd0518641ee3e2daa3f774edaf0fa56e3`.
 The explicit compound-hint separator adds no markup/style/token declarations;
 counts remain662/118/1719. Earlier compact snapshot below is historical; final

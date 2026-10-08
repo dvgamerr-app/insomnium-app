@@ -1,4 +1,5 @@
 import { serializeOpenApiCookie } from "./openapi-cookie.js";
+import { isBinaryBody } from "./binary-body.js";
 import { buildNetworkLog, failureLog, NetworkError } from "./network-log.js";
 import {
   smartEncodeUrl,
@@ -405,7 +406,17 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
   let multipart = null;
   let bodyBase64 = null;
   const mime = protocol === "websocket" ? "" : body.mimeType || "";
-  if (mime === "application/graphql") {
+  if (mime && isBinaryBody(body) && body.curlQuery !== true) {
+    if (body.curlSegments)
+      bodyBase64 = encodeBase64(composeCurlBody(body, resolve));
+    else {
+      if (typeof body.base64 !== "string")
+        throw new Error("Select a binary file before sending");
+      bodyBase64 = body.base64;
+    }
+    if (!headers.some(([name]) => name.toLowerCase() === "content-type"))
+      headers.push(["Content-Type", mime]);
+  } else if (mime === "application/graphql") {
     const graphql = JSON.parse(body.text || "{}");
     if (!graphql || typeof graphql !== "object" || Array.isArray(graphql))
       throw new Error("GraphQL body must be a JSON object.");
@@ -487,16 +498,6 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
     // Native client supplies the multipart boundary; remove all manual copies.
     for (let i = headers.length - 1; i >= 0; i--)
       if (headers[i][0].toLowerCase() === "content-type") headers.splice(i, 1);
-  } else if (mime === "application/octet-stream" && body.curlQuery !== true) {
-    if (body.curlSegments)
-      bodyBase64 = encodeBase64(composeCurlBody(body, resolve));
-    else {
-      if (typeof body.base64 !== "string")
-        throw new Error("Select a binary file before sending");
-      bodyBase64 = body.base64;
-    }
-    if (!headers.some(([name]) => name.toLowerCase() === "content-type"))
-      headers.push(["Content-Type", mime]);
   } else if (mime && body.curlQuery !== true) {
     text = resolve(body.text || "");
     if (!headers.some((h) => h[0].toLowerCase() === "content-type"))

@@ -33,9 +33,11 @@
   import Icon from "./Icon.svelte";
   import WebSocketMessageEditor from "./WebSocketMessageEditor.svelte";
   import { readCurrentBodyUpload } from "../uploads.js";
+  import { isBinaryBody } from "../binary-body.js";
   /** @type {{ request: Record<string, any>, onchange: (patch: Record<string, any>) => void }} */
   let { request, onchange } = $props();
   let tab = $state("Body");
+  const binaryBody = $derived(isBinaryBody(request.body));
   const headerRows = $derived([
     ...(request.headers || []),
     ...(Array.isArray(request.cookieParameters)
@@ -187,10 +189,13 @@
       <Toolbar variant="editor" class="editor-toolbar">
         <Select
           aria-label="Body type"
-          value={request.body?.mimeType || ""}
+          value={binaryBody
+            ? "application/octet-stream"
+            : request.body?.mimeType || ""}
           onchange={(event) =>
             body({
               mimeType: event.currentTarget.value,
+              binary: undefined,
               ...(request.body?.curlFileMode || request.body?.curlSegments
                 ? {
                     curlFileMode: undefined,
@@ -211,11 +216,11 @@
               value={request.body.mimeType}>{request.body.mimeType}</option
             >{/if}</Select
         ><span class="spacer"
-        ></span>{#if request.body?.mimeType === "application/json"}<Button
+        ></span>{#if !binaryBody && request.body?.mimeType === "application/json"}<Button
             variant="ghost"
             class="text-button"
             onclick={format}><Icon name="code" size={14} /> Format JSON</Button
-          >{:else if xmlBody}<Button
+          >{:else if !binaryBody && xmlBody}<Button
             variant="ghost"
             class="text-button"
             disabled={formatting}
@@ -234,15 +239,11 @@
           <p>This request has no body</p>
           <span>Choose a body type above to add one.</span>
         </EmptyState>
-      {:else if request.body.mimeType === "application/graphql"}
-        {#key request._id}<GraphqlEditor {request} onchange={body} />{/key}
-      {:else if ["application/x-www-form-urlencoded", "multipart/form-data"].includes(request.body.mimeType)}<KeyValueEditor
-          rows={request.body.params || []}
-          label="Parameter"
-          files={request.body.mimeType === "multipart/form-data"}
-          onchange={(params) => body({ params })}
-        />
-      {:else if request.body.mimeType === "application/octet-stream"}
+      {:else if binaryBody}
+        {#if request.body.mimeType !== "application/octet-stream"}<Feedback
+            tone="hint"
+            density="compact">Content-Type: {request.body.mimeType}</Feedback
+          >{/if}
         {#if request.body.curlSegments}
           {#key request._id}<CurlBodyEditor {request} onchange={body} />{/key}
         {:else}
@@ -301,6 +302,14 @@
               "Select a file to send"}</FilePicker
           >
         {/if}
+      {:else if request.body.mimeType === "application/graphql"}
+        {#key request._id}<GraphqlEditor {request} onchange={body} />{/key}
+      {:else if ["application/x-www-form-urlencoded", "multipart/form-data"].includes(request.body.mimeType)}<KeyValueEditor
+          rows={request.body.params || []}
+          label="Parameter"
+          files={request.body.mimeType === "multipart/form-data"}
+          onchange={(params) => body({ params })}
+        />
       {:else}<CodeEditor
           identity={request._id + ":body"}
           value={request.body.text || ""}

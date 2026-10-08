@@ -1,4 +1,5 @@
 import { encodeBase64 } from "./transport.js";
+import { isBinaryBody } from "./binary-body.js";
 
 export const maxUploadBytes = 20 * 1024 * 1024;
 /** @param {File} file */
@@ -83,7 +84,7 @@ export async function readCurrentBodyUpload(
     !currentSelection() ||
     current._id !== requestId ||
     current.body !== originalBody ||
-    current.body?.mimeType !== "application/octet-stream"
+    !isBinaryBody(current.body)
   )
     throw new Error(
       "The request or file selection changed while reading. Select the file again.",
