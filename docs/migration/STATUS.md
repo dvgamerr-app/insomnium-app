@@ -1,5 +1,10 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Shared form geometry — committed handoff — 2026-10-08
+
+- Current topic commit5fe5122: refactor(ui): centralize shared form geometry tokens. Verified eight-token default/override/restoration with headless6/native12 profiles and unchanged explicit variant padding; production release1791450919839/1791451297762/result0/hash17249403414435695136, native1791451311699 includes6 Button/6 Select profiles/12 workflows/10 dialogs/fonts/author validation/locked recovery/unchanged HEAD/exact workspace preservation. Compiler0/0/headless actual theme/format/diff pass; restored native cookie images inspected. Terminal0/native-hidden/native38740exit0, no live owned process/tool handles; worktree clean after topic commit. Exact failed baseline/current evidence/limits recorded below.
+- Full original migration/UX goal remains active. Every remaining PLAN/PARITY/OpenAPI/Git/TLS/recovery/provider/CI/release/distribution requirement plus CSS literal/alias/unused declaration/ownership/adoption/validation/interaction/OS/fallback/platform/workflow debt remains required. Native file/OS-dialog workflows not claimed from fixture geometry. Revalidate current commit/state before selecting next gate. /compact cannot be invoked through this interface; manual compaction not claimed. Handoff recorded instead; no next feature started.
+
 ## Shared form geometry — verified acceptance — 2026-10-08
 
 - Base d099518; topic commit follows. Eight semantic foundation tokens now own Input/Select/Textarea padding+line-height, checkbox size, stacked/inline Field gaps and inline/dropzone FilePicker padding+inline width. Existing shared styling owners consume tokens; defaults remain8/11/1.4,13px,7/10px,8/10px+130px respectively. Explicit URL/inline/toolbar/compact variants retain padding ownership and Select retains shared arrow room. No backend/dependency/feature layout changes. Official MDN custom-properties source and actual old-source Input override failure8/11vs6/17 recorded below; this addresses one coherent form metric ownership gap, not all UI debt.
