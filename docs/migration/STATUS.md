@@ -1,5 +1,10 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## OpenAPI nullable values — committed handoff — 2026-10-08
+
+- Current topic commit7b01170: feat(openapi): preserve nullable parameter values. Controlled native50/header17/query18/path48/URL5+23targets+20signatures and compiler/headless/inline/Git/format acceptance verified below. Successful release1791444668712/1791445297377/result0/hash7097472769694788617. Worktree clean after topic commit; no live owned process/tool handles. This checkpoint records the current commit/evidence/remaining gates before any next feature.
+- Full original migration/UX goal remains active. All remaining PLAN/PARITY/OpenAPI advanced schemas/cookie/content/allowReserved/Swagger2/body/lint/names/platform/version interop, Git/TLS/recovery/provider/CI/distribution and shared-input/UX/CSS gates retained. Next work must revalidate current state and select an outstanding gate. /compact cannot be invoked through this interface; manual compaction has not occurred. Handoff recorded instead; no next feature started.
+
 ## OpenAPI nullable values — verified acceptance — 2026-10-08
 
 - Base a8e49ce; topic commit follows. Newly generated OpenAPI3 query/header/path nullable values retain JSON text/metadata and linked shared Feedback help, distinguishing null from empty/string-null/false/zero. Shared parser preserves editable scalar/array/object kind and refuses invalid JSON/type; RFC-derived form/simple/label/matrix omit undefined roots/composites/members, preserve defined empty values and exploded non-form empty properties. Header omission participates in manual Authorization precedence; ordinary empty manual headers retain precedence. No backend/dependency/layout/new feature CSS changes.
