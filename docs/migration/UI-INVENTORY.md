@@ -1,5 +1,12 @@
 # Current shared UI source inventory
 
+2026-10-08 hover-border update, base `7b614af`: controls.css owns generic and
+Select-shell hover borders with low-specificity eligibility; variants.css retains
+only the shell hover surface. Re-running the same audit yields 1,713 declarations
+and source SHA256 `d43de90766af4839561b03e6817a96e81550312c763a69897c5408056bd99572`.
+All adoption, token, import-graph and exception counts below remain unchanged.
+The previous snapshot's 1,714 declarations/hash below are historical evidence.
+
 2026-10-08, production source at `56aed5e`. This replaces the old markup counts
 for planning; the historical design-system debt report remains an accurate record
 of its earlier snapshot.

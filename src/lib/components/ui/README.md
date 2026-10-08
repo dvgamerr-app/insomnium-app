@@ -1,5 +1,13 @@
 # Nocturne controls
 
+Standard Input/Select/Textarea error borders retain `--danger` during pointer
+hover and keyboard focus. `controls.css` owns their hover borders, including
+Select-shell hover; low-specificity `:where()` eligibility lets validation win.
+`variants.css` owns the full Select-shell hover surface, without a competing
+border declaration. Field error/invalid controls keep their ARIA association;
+features still own validation decisions. Owner policy remains no outlines or
+replacement shadow rings.
+
 Current adoption and style ownership can be inventoried with
 `bun scripts/ui-inventory.js`. It parses production Svelte/CSS ASTs and writes
 consumer paths/lines, primitive owners, native exceptions, ordered CSS imports

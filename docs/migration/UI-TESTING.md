@@ -1,5 +1,22 @@
 # Saved UI test execution
 
+2026-10-08 standard validation border precedence: old actual hover rgb98,98,110
+instead of error rgb251,113,133 reproduced and retained in invalid-hover-baseline-failure.json.
+Saved design-system6 dark/light1440/900/760 profiles accepts18 invalid and18 cleared-valid
+Input/Select/Textarea controls with108 rest/real-pointer-hover/keyboard-focus measurements,
+unchanged values/geometry/no outlines/shadows and exactly3 associated Field errors.
+Pointermove coordinates/type/hit and valid hover color independently prove actual
+interaction; Edge pseudo-class diagnostics are retained. Shared controls.css owns
+hover borders using :where() eligibility; variants.css keeps the Select shell surface.
+Compiler23580 terminal0/0errors0warnings, actual headless theme/workspace, format/diff pass.
+Current production release1791465306610/1791465787117/result0/hash6891138143277866925
+native1791465798904 accepts18 focus/12 form/6 Button/6 Select/10 dialogs/12 workflow
+profiles, fonts/author validation/locked recovery/retry/unchanged HEAD. Native46212
+hidden/visiblefalse/exit0; no live handles. This native run is theme/workflow regression,
+while validation states are actual reactive Field errors in the headless component
+fixture. Variant-specific/domain validation/OS/platform/full debt and migration gates
+remain separate. See STATUS/UI-INVENTORY for exact scope and superseded failures.
+
 2026-10-08 inline request names: `bun tests/ui/editable-name.js` accepts18 callback/parent-prop cases. `bun tests/ui/editable-name-native.js` accepts60 HTTP/GraphQL/SSE/WebSocket cases on production release1791462919153/1791463339714/result0/hash6891138143277866925; set INSOMNIUM_UI_BUILD_STATE to artifacts/native-recovery-copy-probe/build-state.json and run native entries sequentially. Evidence1791463347437 verifies real save_workspace calls0 for no-op/Escape and1 for changed names, exact full workspace/timestamps/reload/Git snapshot checks, network0 and unchanged HEAD. Native2748 hidden/visiblefalse/exit0. Component18/workspace regression/compiler0/0/format/diff pass. gRPC uses a separate editor; broader concurrent edits, workflows/platform and all original parity gates remain separate.
 
 2026-10-08 shared focus surfaces: owner outline-free policy retained. One focus.css owner and six semantic theme tokens centralize native/shared surface and valid-control border feedback, primary/Send/secondary/danger variants, visible file wrapper and URL composition. Hover and selected vertical-tab styling no longer override keyboard focus; invalid borders preserved. Headless design-system12 horizontal/vertical dark/light1440/900/760 profiles ×18 enabled controls verifies combined hover/focus/default/six overrides/restoration/no outlines/shadows/geometry change, with existing field/file/tab/dialog contracts. Actual headless application theme85167 passes unchanged no-outline URL contract. Production release1791460819509/1791461231950/result0/hash14143658787539048835/native1791461477780 accepts18 actual Preferences/HTTP URL/Cookie focus profiles with exact full workspace guards, plus12 workflows/10 dialogs/6 Button/6 Select/12 form geometry profiles/fonts/author validation/locked recovery/unchanged HEAD. Compiler66452 terminal0/0errors0warnings, format/diff pass; native-hidden/native43356exit0/no live handles, dark/light760 URL PNGs inspected. This does not close full UI debt/WCAG/high-contrast/native picker/OS/provider/platform/full migration gates. Original owner no-outline source, superseded failures and exact handoff in STATUS.

@@ -107,8 +107,10 @@
   <Field label="Contract number"
     ><Input type="number" bind:value={number} /></Field
   >
-  <Field label="Contract textarea"><Textarea value="body" /></Field>
-  <Field label="Contract select"
+  <Field label="Contract textarea" {error} {disabled} {readOnly} {busy}
+    ><Textarea value="body" /></Field
+  >
+  <Field label="Contract select" {error} {disabled} {busy}
     ><Select><option>One</option><option>Two</option></Select></Field
   >
   <Feedback tone="hint" aria-label="Normal feedback">Shared hint</Feedback>

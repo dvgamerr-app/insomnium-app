@@ -162,7 +162,6 @@
 }
 .ui-select-shell:hover > .ui-select:not(:disabled):not(:focus-visible) {
   background-color: var(--hover);
-  border-color: var(--ui-border-hover);
 }
 .ui-select-shell:hover:has(> .ui-select:not(:disabled):not(:focus-visible))
   > .select-arrow {

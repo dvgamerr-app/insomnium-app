@@ -14,9 +14,13 @@
     background 120ms;
 }
 
-.ui-input:hover:not(:disabled):not(:focus-visible),
-.ui-select:hover:not(:disabled):not(:focus-visible),
-.ui-textarea:hover:not(:disabled):not(:focus-visible) {
+/* Hover eligibility must not outweigh validation; shell hover ties the
+   error selector below, which wins by source order. */
+.ui-input:where(:hover:not(:disabled):not(:focus-visible)),
+.ui-select:where(:hover:not(:disabled):not(:focus-visible)),
+.ui-textarea:where(:hover:not(:disabled):not(:focus-visible)),
+.ui-select-shell:where(:hover)
+  > .ui-select:where(:not(:disabled):not(:focus-visible)) {
   border-color: var(--ui-border-hover);
 }
 

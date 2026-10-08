@@ -1,5 +1,14 @@
 # UI scenarios (Playwright + Bun)
 
+`design-system.js` additionally verifies6 dark/light1440/900/760 profiles of
+actual Field errors and cleared-valid Input/Select/Textarea states:18 controls
+per state,108 rest/pointer-hover/keyboard-focus measurements, unchanged values
+and geometry, no outlines/shadows and exactly3 associated error messages.
+`helpers/invalid-hover.js` records real pointermove/hit-test evidence and checks
+valid hover color independently; Edge pseudo-class query diagnostics remain in
+the JSON rather than substituting for actual pointer interaction. This is shared
+component styling acceptance, not broad domain-validation/OS/platform coverage.
+
 `bun tests/ui/editable-name.js` verifies 18 shared inline-name cases: unchanged,
 trim-equivalent, changed, blank, Unicode, Escape, imported whitespace/empty names
 and parent-prop updates, with exact callback counts. `editable-name-native.js`

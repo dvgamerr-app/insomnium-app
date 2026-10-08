@@ -1,5 +1,13 @@
 # Feature parity tracker
 
+2026-10-08 shared validation hover capability: actual Field error borders on
+standard Input/Select/Textarea survive hover and keyboard focus; clearing errors
+restores normal border states. Headless6 profiles/108 color/geometry/pointer
+measurements plus current production native theme/workflow regression pass,
+with compiler0/0 and unchanged original scope. Standard component styling is
+verified; broader domain validation, variants, OS/platform/full debt/migration
+remain open. Exact evidence and limits in STATUS/UI-TESTING.
+
 2026-10-08 inline name persistence capability: unchanged/normalized-equivalent drafts and Escape cause no save; genuine edits save once with existing trimming/blank fallback. Headless18 and production native60 HTTP/GraphQL/SSE/WebSocket groups verify callback/real IPC counts, exact workspace/timestamps/reload/Git snapshots/network0/unchanged HEAD. Native-hidden/terminal0/exit0, compiler0/0 and workspace regression accepted; see STATUS/UI-TESTING for evidence. No full migration, gRPC rename or broad concurrency/platform completion claim.
 
 2026-10-08 shared focus surfaces: owner outline-free policy retained. One focus.css owner and six semantic theme tokens centralize native/shared surface and valid-control border feedback, primary/Send/secondary/danger variants, visible file wrapper and URL composition. Hover and selected vertical-tab styling no longer override keyboard focus; invalid borders preserved. Headless design-system12 horizontal/vertical dark/light1440/900/760 profiles ×18 enabled controls verifies combined hover/focus/default/six overrides/restoration/no outlines/shadows/geometry change, with existing field/file/tab/dialog contracts. Actual headless application theme85167 passes unchanged no-outline URL contract. Production release1791460819509/1791461231950/result0/hash14143658787539048835/native1791461477780 accepts18 actual Preferences/HTTP URL/Cookie focus profiles with exact full workspace guards, plus12 workflows/10 dialogs/6 Button/6 Select/12 form geometry profiles/fonts/author validation/locked recovery/unchanged HEAD. Compiler66452 terminal0/0errors0warnings, format/diff pass; native-hidden/native43356exit0/no live handles, dark/light760 URL PNGs inspected. This does not close full UI debt/WCAG/high-contrast/native picker/OS/provider/platform/full migration gates. Original owner no-outline source, superseded failures and exact handoff in STATUS.

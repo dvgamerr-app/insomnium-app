@@ -1,5 +1,13 @@
 # Insomnium → Tauri migration
 
+2026-10-08 standard validation hover borders: shared controls.css owns generic
+and Select-shell hover borders with low-specificity eligibility; semantic error
+borders now survive hover/focus, while valid hover and geometry remain verified.
+Headless6 profiles/108 measurements, compiler0/0, actual headless application and
+current production native theme/workflow regression accepted. Exact source/build,
+baseline failures and remaining variant/domain/OS/platform/full migration/UX
+gates remain in STATUS/UI-TESTING; this closes only the demonstrated defect.
+
 2026-10-08 inline request names: verified no-op/trim-equivalent/Escape preserve stored names and timestamps; changed drafts save once. Saved headless18/native60 cases across HTTP/GraphQL/SSE/WebSocket accepted on current production recovery-copy build, with exact workspace/reload/Git guards and zero dispatch. See STATUS/UI-TESTING. This closes only the demonstrated inline rename persistence bug; full original migration/UX/CSS scope remains required.
 
 2026-10-08 shared focus surfaces: owner outline-free policy retained. One focus.css owner and six semantic theme tokens centralize native/shared surface and valid-control border feedback, primary/Send/secondary/danger variants, visible file wrapper and URL composition. Hover and selected vertical-tab styling no longer override keyboard focus; invalid borders preserved. Headless design-system12 horizontal/vertical dark/light1440/900/760 profiles ×18 enabled controls verifies combined hover/focus/default/six overrides/restoration/no outlines/shadows/geometry change, with existing field/file/tab/dialog contracts. Actual headless application theme85167 passes unchanged no-outline URL contract. Production release1791460819509/1791461231950/result0/hash14143658787539048835/native1791461477780 accepts18 actual Preferences/HTTP URL/Cookie focus profiles with exact full workspace guards, plus12 workflows/10 dialogs/6 Button/6 Select/12 form geometry profiles/fonts/author validation/locked recovery/unchanged HEAD. Compiler66452 terminal0/0errors0warnings, format/diff pass; native-hidden/native43356exit0/no live handles, dark/light760 URL PNGs inspected. This does not close full UI debt/WCAG/high-contrast/native picker/OS/provider/platform/full migration gates. Original owner no-outline source, superseded failures and exact handoff in STATUS.

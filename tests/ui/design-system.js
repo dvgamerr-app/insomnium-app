@@ -1,6 +1,7 @@
 import { assertButtonPadding } from "./helpers/button-padding.js";
 import { assertFormGeometry } from "./helpers/form-geometry.js";
 import { assertFocusSurface } from "./helpers/focus-surface.js";
+import { assertInvalidHover } from "./helpers/invalid-hover.js";
 import assert from "node:assert/strict";
 import { withComponentFixture } from "./helpers/component-fixture.js";
 import { assertDialogTokens } from "./helpers/dialog-theme.js";
@@ -198,17 +199,55 @@ await withComponentFixture("design-system", async (page, output) => {
     "contract-text-description",
   );
   await page.getByRole("button", { name: "Toggle error", exact: true }).click();
+  const invalidHover = [];
+  const validationControls = [
+    text,
+    page.getByRole("textbox", { name: "Contract textarea", exact: true }),
+    page.getByRole("combobox", { name: "Contract select", exact: true }),
+  ];
+  const leave = page.getByRole("button", { name: "Toggle error", exact: true });
+  for (const theme of ["dark", "light"]) {
+    await page.evaluate(
+      (theme) => (document.documentElement.dataset.theme = theme),
+      theme,
+    );
+    for (const width of [1440, 900, 760]) {
+      await page.setViewportSize({ width, height: 960 });
+      const controls = await assertInvalidHover(
+        page,
+        validationControls,
+        leave,
+      );
+      await leave.click();
+      const valid = await assertInvalidHover(
+        page,
+        validationControls,
+        leave,
+        false,
+      );
+      await leave.click();
+      invalidHover.push({ theme, width, controls, valid });
+    }
+  }
+  await Bun.write(
+    output + "/invalid-hover.json",
+    JSON.stringify(
+      { count: invalidHover.length, profiles: invalidHover },
+      null,
+      2,
+    ),
+  );
   assert.equal(await text.getAttribute("aria-invalid"), "true");
   assert.equal(
     await text.getAttribute("aria-describedby"),
     "contract-text-description contract-text-error",
   );
-  assert.equal(
+  assert.deepEqual(
     await page
       .getByRole("alert")
       .filter({ hasText: "Shared error" })
-      .innerText(),
-    "Shared error",
+      .allTextContents(),
+    ["Shared error", "Shared error", "Shared error"],
   );
   await page
     .getByRole("button", { name: "Toggle disabled", exact: true })

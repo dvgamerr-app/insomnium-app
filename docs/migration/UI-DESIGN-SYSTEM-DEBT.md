@@ -1,5 +1,15 @@
 # UI/UX: รวม components และ design system ให้ใช้ร่วมกัน
 
+2026-10-08 validation hover ownership: generic and Select-shell hover border rules
+previously overrode actual Field errors; baseline failure retained. controls.css
+now owns both with :where() eligibility so semantic error states win, and the
+variants.css competing border declaration is removed while surface hover remains.
+Headless6 profiles/108 invalid+valid interaction measurements, compiler0/0,
+actual headless application and current production native theme/workflow regression
+pass; exact evidence/limits in STATUS/UI-TESTING. Declaration count is1713 with
+unchanged adoption/token/import graph inventory. This closes the demonstrated
+standard-control hover border defect, not the remaining full debt checklist.
+
 2026-10-08 current AST inventory is in [UI-INVENTORY.md](UI-INVENTORY.md), generated
 with `bun scripts/ui-inventory.js`:57 production Svelte files/661 direct shared
 markup sites, only CodeEditor textarea outside primitives,14 feature scoped
