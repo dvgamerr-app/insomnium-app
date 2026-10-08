@@ -115,7 +115,7 @@
     </Select>
     {#if payload.mode === "binary"}<FilePicker
         class="file-picker"
-        variant="inline"
+        variant="compact"
         onchange={async (event) => {
           const file = event.currentTarget.files?.[0];
           const selectedId = payload._id;

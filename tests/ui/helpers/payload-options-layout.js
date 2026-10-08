@@ -78,10 +78,47 @@ export async function payloadOptionsLayout(page, output) {
             true,
             "Keyboard moves from name to native type select",
           );
-          if (mode === "binary")
+          if (mode === "binary") {
+            const file = page.locator(".payload-options input[type=file]");
+            const picker = await file.evaluate((el) => {
+              const input = el.getBoundingClientRect();
+              const label = el.parentElement?.getBoundingClientRect();
+              const style = getComputedStyle(el);
+              return {
+                opacity: style.opacity,
+                position: style.position,
+                width: input.width,
+                height: input.height,
+                labelWidth: label?.width,
+                labelHeight: label?.height,
+              };
+            });
+            await Bun.write(
+              join(output, "payload-picker.json"),
+              JSON.stringify(
+                { theme, viewportWidth: width, ...picker },
+                null,
+                2,
+              ),
+            );
+            assert.equal(
+              picker.opacity,
+              "0",
+              "One painted picker surface; native input remains transparent and interactive",
+            );
+            assert.equal(picker.position, "absolute");
+            assert.ok(Math.abs(picker.width - (picker.labelWidth || 0)) < 1);
+            assert.ok(Math.abs(picker.height - (picker.labelHeight || 0)) < 1);
+            await type.press("Tab");
+            assert.equal(
+              await file.evaluate((el) => el === document.activeElement),
+              true,
+              "File input stays in keyboard tab order",
+            );
             await page.screenshot({
               path: join(output, `payload-${theme}-${width}.png`),
             });
+          }
         }
       }
     }

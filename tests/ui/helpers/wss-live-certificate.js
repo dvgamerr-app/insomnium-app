@@ -82,6 +82,7 @@ export async function wssLiveCertificate({ page, invoke, output }, fixture) {
   /** @type {Array<Record<string,any>>} */ const cycles = [];
   const layout = await payloadOptionsLayout(page, output);
   for (let cycle = 0; cycle < 2; cycle++) {
+    const fileSelections = [];
     const before = await invoke("load_workspace");
     const requestsBefore = fixture.requests.length;
     const eventsBefore = fixture.socketEvents.length;
@@ -116,9 +117,52 @@ export async function wssLiveCertificate({ page, invoke, output }, fixture) {
       await page
         .getByLabel("Payload type", { exact: true })
         .selectOption(payload.mode);
-      await page
-        .getByRole("textbox", { name: "WebSocket message", exact: true })
-        .fill(payload.data);
+      if (payload.format === "binary") {
+        const input = page.locator(".payload-options input[type=file]");
+        // Intercept the native WebView chooser through saved Playwright; no OS-dialog acceptance claim.
+        for (let selection = 0; selection < 2; selection++) {
+          const choosing = page.waitForEvent("filechooser");
+          await input.click();
+          const chooser = await choosing;
+          assert.equal(chooser.isMultiple(), false);
+          await chooser.setFiles({
+            name: "owned-wss.bin",
+            mimeType: "application/octet-stream",
+            buffer: Buffer.from(payload.bytes),
+          });
+          await poll(
+            async () =>
+              (await page
+                .getByRole("textbox", {
+                  name: "WebSocket message",
+                  exact: true,
+                })
+                .inputValue()) === payload.data &&
+              (await input.inputValue()) === "",
+            "File bytes loaded and picker reset",
+          );
+          await poll(
+            async () =>
+              (await invoke("load_workspace")).resources.some(
+                (/** @type {any} */ r) =>
+                  r._type === "websocket_payload" &&
+                  r.value === payload.data &&
+                  r.fileName === "owned-wss.bin",
+              ),
+            "Selected filename and bytes persisted",
+          );
+          fileSelections.push({
+            selection,
+            name: "owned-wss.bin",
+            bytes: payload.bytes,
+            reset: true,
+          });
+        }
+      } else {
+        await page
+          .getByRole("textbox", { name: "WebSocket message", exact: true })
+          .fill(payload.data);
+      }
       await poll(
         async () =>
           (await invoke("load_workspace")).resources.some(
@@ -237,7 +281,7 @@ export async function wssLiveCertificate({ page, invoke, output }, fixture) {
     assert.equal(requests[0].cn, fixture.clientName);
     assert.equal(requests[0].fingerprint, fixture.client.fingerprint);
     assert.equal(requests[0].url, "/ws-live");
-    cycles.push({ cycle, requests, observed, response });
+    cycles.push({ cycle, fileSelections, requests, observed, response });
     const responseId = response._id;
     await page.reload();
     await poll(
