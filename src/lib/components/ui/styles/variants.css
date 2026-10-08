@@ -58,10 +58,6 @@
   padding: var(--space-9) var(--space-10);
 }
 
-.ui-input[data-ui-variant="inline"]:focus-visible {
-  background: var(--selected);
-}
-
 .ui-select[data-ui-variant="inline"] {
   font-size: var(--font-size-10);
   border: 0;
@@ -164,18 +160,19 @@
 .design-toolbar .ui-select-shell {
   max-width: 250px;
 }
-.ui-select-shell:hover > .ui-select:not(:disabled) {
+.ui-select-shell:hover > .ui-select:not(:disabled):not(:focus-visible) {
   background-color: var(--hover);
   border-color: var(--ui-border-hover);
 }
-.ui-select-shell:hover:has(> .ui-select:not(:disabled)) > .select-arrow {
+.ui-select-shell:hover:has(> .ui-select:not(:disabled):not(:focus-visible))
+  > .select-arrow {
   color: var(--text);
 }
-.ui-button.text-button:hover:not(:disabled),
-.ui-button.ui-button-plain:hover:not(:disabled) {
+.ui-button.text-button:hover:not(:disabled):not(:focus-visible),
+.ui-button.ui-button-plain:hover:not(:disabled):not(:focus-visible) {
   background-color: var(--hover);
 }
-.ui-button.send-button:hover:not(:disabled) {
+.ui-button.send-button:hover:not(:disabled):not(:focus-visible) {
   background-color: var(--accent-hover);
 }
 @media (max-width: 1050px) {

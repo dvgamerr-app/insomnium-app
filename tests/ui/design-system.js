@@ -1,12 +1,40 @@
 import { assertButtonPadding } from "./helpers/button-padding.js";
 import { assertFormGeometry } from "./helpers/form-geometry.js";
+import { assertFocusSurface } from "./helpers/focus-surface.js";
 import assert from "node:assert/strict";
 import { withComponentFixture } from "./helpers/component-fixture.js";
 import { assertDialogTokens } from "./helpers/dialog-theme.js";
 
 await withComponentFixture("design-system", async (page, output) => {
+  const send = page.getByRole("button", { name: "Send padding", exact: true });
+  const plain = await send.evaluate(
+    (el) => getComputedStyle(el).backgroundColor,
+  );
+  await page.keyboard.press("Tab");
+  await send.focus();
+  const focused = await send.evaluate(
+    (el) => getComputedStyle(el).backgroundColor,
+  );
+  const expected = await page.evaluate(() => {
+    const probe = document.createElement("span");
+    probe.style.backgroundColor = "var(--accent-hover)";
+    document.body.append(probe);
+    const result = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return result;
+  });
+  await Bun.write(
+    output + "/send-focus.json",
+    JSON.stringify({ plain, focused, expected }, null, 2),
+  );
+  assert.equal(
+    focused,
+    expected,
+    "Send keeps the shared filled-action focus surface",
+  );
   const buttonPadding = /** @type {Array<Record<string,any>>} */ ([]);
   const formGeometry = /** @type {Array<Record<string,any>>} */ ([]);
+  const focusSurfaces = /** @type {Array<Record<string,any>>} */ ([]);
   for (const theme of ["dark", "light"]) {
     await page.evaluate(
       (theme) => (document.documentElement.dataset.theme = theme),
@@ -16,6 +44,20 @@ await withComponentFixture("design-system", async (page, output) => {
       await page.setViewportSize({ width, height: 960 });
       buttonPadding.push(await assertButtonPadding(page));
       formGeometry.push(await assertFormGeometry(page));
+      focusSurfaces.push(await assertFocusSurface(page));
+      await page
+        .getByRole("button", { name: "Toggle tab orientation", exact: true })
+        .click();
+      focusSurfaces.push(await assertFocusSurface(page));
+      await page
+        .getByRole("button", { name: "Toggle tab orientation", exact: true })
+        .click();
+      await page
+        .getByRole("button", { name: "Primary padding", exact: true })
+        .focus();
+      await page.screenshot({
+        path: output + "/focus-" + theme + "-" + width + ".png",
+      });
     }
   }
   await page.setViewportSize({ width: 1440, height: 960 });
@@ -457,4 +499,12 @@ await withComponentFixture("design-system", async (page, output) => {
     ),
   );
   assert.deepEqual(errors, []);
+  await Bun.write(
+    output + "/focus-surfaces.json",
+    JSON.stringify(
+      { count: focusSurfaces.length, profiles: focusSurfaces },
+      null,
+      2,
+    ),
+  );
 });

@@ -5,10 +5,6 @@
   overflow: hidden;
   color: var(--muted);
 }
-.ui-file-picker:focus-within {
-  outline: none;
-  background-color: var(--selected);
-}
 .ui-file-picker-compact {
   display: inline-flex;
   align-items: center;

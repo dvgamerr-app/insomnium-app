@@ -48,8 +48,11 @@
 }
 
 .editor-tabs[aria-orientation="vertical"] > button.active {
-  background: var(--selected);
   color: var(--text);
+}
+
+.editor-tabs[aria-orientation="vertical"] > button.active:not(:focus-visible) {
+  background: var(--selected);
 }
 
 .count {

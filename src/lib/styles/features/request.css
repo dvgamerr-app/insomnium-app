@@ -108,15 +108,6 @@
   overflow: hidden;
 }
 
-.request-url-fields:has(:focus-visible) {
-  outline: none;
-  background-color: var(--selected);
-}
-
-.request-url-fields :is(.ui-input, .ui-select):focus-visible {
-  outline: none;
-}
-
 .request-compose {
   flex: 1;
   min-height: 0;

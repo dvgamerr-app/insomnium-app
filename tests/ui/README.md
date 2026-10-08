@@ -1,5 +1,7 @@
 # UI scenarios (Playwright + Bun)
 
+`design-system.js` verifies outline-free focus surfaces in12 paired horizontal/vertical dark/light1440/900/760 profiles (18 enabled controls each). Shared `helpers/focus-surface.js` seeds keyboard modality inside the control scope, hovers focused controls, and checks six semantic tokens/defaults/restoration/no shadows/outlines/geometry change. `focus-surfaces.json` records evidence. `nocturne-native-theme.js` measures18 actual Preferences/HTTP URL/Cookie profiles, explicitly selects the owned HTTP request per theme, and compares the entire workspace including timestamps. Use a successfully rebuilt current probe and run native scenarios sequentially. OS/high-contrast/native picker/full accessibility coverage remains separate.
+
 `bun tests/ui/openapi-content-serialization.js` covers OpenAPI3.0/3.1/3.2 JSON
 parameter content through actual API Design generation and native Send. The 203
 groups compare exact raw targets/header/Cookie fields, nested values, JSON null,

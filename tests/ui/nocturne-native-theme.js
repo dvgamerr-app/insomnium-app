@@ -1,5 +1,6 @@
 import { assertButtonPadding } from "./helpers/button-padding.js";
 import { assertFormGeometry } from "./helpers/form-geometry.js";
+import { assertFocusSurface } from "./helpers/focus-surface.js";
 import { assertSelectGeometry } from "./helpers/select-geometry.js";
 import assert from "node:assert/strict";
 import { withNativeApp, poll } from "./helpers/native-app.js";
@@ -19,6 +20,7 @@ await withNativeApp(
   async ({ page, invoke, output }) => {
     const buttonPadding = /** @type {Array<Record<string,any>>} */ ([]);
     const formGeometry = /** @type {Array<Record<string,any>>} */ ([]);
+    const focusSurfaces = /** @type {Array<Record<string,any>>} */ ([]);
     const selectGeometry = /** @type {Array<Record<string,any>>} */ ([]);
     await page.emulateMedia({ reducedMotion: "reduce" });
     const fixture = await gitCollection({ page, invoke });
@@ -125,6 +127,13 @@ await withNativeApp(
       );
       await page.evaluate(() => document.fonts.ready);
       await page
+        .getByRole("complementary", { name: "Collections", exact: true })
+        .getByRole("button", {
+          name: "GET Preserved local request",
+          exact: true,
+        })
+        .click();
+      await page
         .getByRole("navigation", { name: "Main navigation" })
         .getByRole("button", { name: "Preferences", exact: true })
         .click();
@@ -143,6 +152,12 @@ await withNativeApp(
             "inline",
           ]),
         );
+        focusSurfaces.push(
+          await assertFocusSurface(
+            page,
+            ".settings-panel :is(input,select,button)",
+          ),
+        );
       }
       assert.deepEqual(
         await invoke("load_workspace"),
@@ -152,6 +167,25 @@ await withNativeApp(
       await preferences
         .getByRole("button", { name: "Close Preferences", exact: true })
         .click();
+      const urlFocusBaseline = await invoke("load_workspace");
+      for (const width of [1440, 900, 760]) {
+        await page.setViewportSize({ width, height: 900 });
+        focusSurfaces.push(
+          await assertFocusSurface(
+            page,
+            ".request-url-fields :is(input,select), .send-button",
+          ),
+        );
+        await page.locator(".request-url-fields .ui-input").focus();
+        await page.screenshot({
+          path: output + "/" + theme + "-url-focus-" + width + ".png",
+        });
+      }
+      assert.deepEqual(
+        await invoke("load_workspace"),
+        urlFocusBaseline,
+        "Focus measurement preserves full request/workspace state",
+      );
       await page.setViewportSize({ width: 1440, height: 900 });
       assert.equal(
         await page.evaluate(() =>
@@ -257,6 +291,7 @@ await withNativeApp(
       await page.setViewportSize({ width: 900, height: 900 });
       await page.getByRole("button", { name: "Cookies", exact: true }).click();
       const dialog = page.getByRole("dialog");
+      const cookieFocusBaseline = await invoke("load_workspace");
       for (const width of [1440, 900, 760]) {
         await page.setViewportSize({ width, height: 900 });
         buttonPadding.push(
@@ -273,7 +308,18 @@ await withNativeApp(
             "stacked",
           ]),
         );
+        focusSurfaces.push(
+          await assertFocusSurface(
+            page,
+            "dialog.modal :is(input,textarea,button)",
+          ),
+        );
       }
+      assert.deepEqual(
+        await invoke("load_workspace"),
+        cookieFocusBaseline,
+        "Cookie focus measurement preserves all workspace data",
+      );
       await page.setViewportSize({ width: 900, height: 900 });
       const cookieGeometry = await assertDialogTokens(dialog);
       dialogCases.push({ theme, kind: "cookie", ...cookieGeometry });
@@ -459,6 +505,7 @@ await withNativeApp(
           selectGeometry,
           buttonPadding,
           formGeometry,
+          focusSurfaces,
           authorFieldContext:
             "inherited IDs/required, empty-name refusal and malformed-email native validation before persistence IPC, exact full workspace preserved",
         },

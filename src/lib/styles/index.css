@@ -24,4 +24,5 @@
 @import "../components/ui/styles/toolbar.css";
 @import "../components/ui/styles/empty-state.css";
 @import "../components/ui/styles/variants.css";
+@import "../components/ui/styles/focus.css";
 @import "../components/ui/styles/diff.css";

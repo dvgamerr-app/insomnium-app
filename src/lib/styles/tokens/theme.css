@@ -13,6 +13,12 @@
   --success-fill: #059669;
   --accent-text: #818cf8;
   --selected: #262626;
+  --focus-surface: var(--selected);
+  --focus-border: var(--accent-text);
+  --focus-primary-surface: var(--accent-hover);
+  --focus-secondary-surface: var(--raised);
+  --focus-danger-surface: var(--danger-fill);
+  --focus-danger-text: #fff;
   --green: #10b981;
   --code: #34d399;
   --syntax-type: #a78bfa;

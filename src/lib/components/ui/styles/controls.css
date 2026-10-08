@@ -14,22 +14,10 @@
     background 120ms;
 }
 
-.ui-input:hover:not(:disabled),
-.ui-select:hover:not(:disabled),
-.ui-textarea:hover:not(:disabled) {
+.ui-input:hover:not(:disabled):not(:focus-visible),
+.ui-select:hover:not(:disabled):not(:focus-visible),
+.ui-textarea:hover:not(:disabled):not(:focus-visible) {
   border-color: var(--ui-border-hover);
-}
-
-.ui-input:focus-visible,
-.ui-select:focus-visible,
-.ui-textarea:focus-visible,
-.ui-button:focus-visible {
-  outline: none;
-  border-color: var(--accent-text);
-}
-
-.ui-button:focus-visible {
-  background-color: var(--selected);
 }
 
 .ui-input[aria-invalid="true"],
@@ -55,7 +43,7 @@
   background: var(--ui-surface);
 }
 
-.ui-button.secondary-button:hover:not(:disabled) {
+.ui-button.secondary-button:hover:not(:disabled):not(:focus-visible) {
   border-color: var(--ui-border-hover);
   background: var(--raised);
 }
@@ -65,16 +53,8 @@
   color: #fff;
 }
 
-.ui-button.primary-button:hover:not(:disabled) {
+.ui-button.primary-button:hover:not(:disabled):not(:focus-visible) {
   background: var(--accent-hover);
-}
-
-.ui-button.primary-button:focus-visible {
-  background: var(--accent-hover);
-}
-
-.ui-button.secondary-button:focus-visible {
-  background: var(--raised);
 }
 
 .ui-button.danger-button {
@@ -82,7 +62,7 @@
   color: var(--danger);
 }
 
-.ui-button.danger-button:hover:not(:disabled) {
+.ui-button.danger-button:hover:not(:disabled):not(:focus-visible) {
   background: var(--danger-fill);
   color: #fff;
 }

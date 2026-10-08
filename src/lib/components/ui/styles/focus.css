@@ -1,0 +1,35 @@
+/* Owner policy: surface/border feedback, no outlines or replacement shadow rings.
+   One shared focus owner follows native keyboard modality without changing layout. */
+:is(button, input, select, textarea, summary, a, [tabindex]):focus-visible,
+.ui-file-picker:has(input:focus-visible),
+.request-url-fields:has(:focus-visible) {
+  outline: none;
+  background-color: var(--focus-surface);
+}
+
+.ui-input:focus-visible,
+.ui-select:focus-visible,
+.ui-textarea:focus-visible,
+.ui-button:focus-visible {
+  background-color: var(--focus-surface);
+}
+
+.ui-input:focus-visible:not([aria-invalid="true"]),
+.ui-select:focus-visible:not([aria-invalid="true"]),
+.ui-textarea:focus-visible:not([aria-invalid="true"]) {
+  border-color: var(--focus-border);
+}
+
+.ui-button.secondary-button:focus-visible {
+  background-color: var(--focus-secondary-surface);
+}
+
+.ui-button.primary-button:focus-visible,
+.ui-button.send-button:focus-visible {
+  background-color: var(--focus-primary-surface);
+}
+
+.ui-button.danger-button:focus-visible {
+  background-color: var(--focus-danger-surface);
+  color: var(--focus-danger-text);
+}

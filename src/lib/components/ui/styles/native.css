@@ -26,24 +26,13 @@ button {
   border-radius: var(--button-radius);
 }
 
-button:hover:not(:disabled) {
+button:hover:not(:disabled):not(:focus-visible) {
   background: var(--hover);
 }
 
 button:disabled {
   opacity: 0.4;
   cursor: default;
-}
-
-button:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible,
-summary:focus-visible,
-a:focus-visible,
-[tabindex]:focus-visible {
-  outline: none;
-  background-color: var(--selected);
 }
 
 input:disabled,
