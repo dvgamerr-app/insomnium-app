@@ -207,7 +207,50 @@ export async function streamClientCertificate(protocol) {
             })
             .click();
         await select();
+        /** @type {Array<{id:string,cert?:string,key?:string,pfx?:string,password?:string,success:boolean,preTcp?:boolean,disabled?:boolean,host?:string,ca?:string}>} */
         const fileCases = protocolCertificateCases(fixture);
+        // Keep the existing successful recovery last for reload/redirect proof.
+        fileCases.splice(
+          fileCases.length - 1,
+          0,
+          {
+            id: "collection-pfx-extra-ca",
+            pfx: fixture.identityFiles.pfx,
+            password: fixture.identityFiles.password,
+            ca: fixture.otherCa,
+            success: websocket,
+          },
+          {
+            id: "collection-legacy-pfx-extra-ca",
+            pfx: fixture.identityFiles.legacyPfx,
+            password: fixture.identityFiles.password,
+            ca: fixture.otherCa,
+            success: websocket,
+          },
+          {
+            id: "collection-pem-no-extra-trust",
+            cert: fixture.identityFiles.cert,
+            key: fixture.identityFiles.key,
+            ca: fixture.otherCa,
+            success: false,
+          },
+          {
+            id: "collection-disabled-pfx-no-extra-trust",
+            pfx: fixture.identityFiles.pfx,
+            password: fixture.identityFiles.password,
+            disabled: true,
+            ca: fixture.otherCa,
+            success: false,
+          },
+          {
+            id: "collection-host-pfx-no-extra-trust",
+            pfx: fixture.identityFiles.pfx,
+            password: fixture.identityFiles.password,
+            host: "other.invalid:*",
+            ca: fixture.otherCa,
+            success: false,
+          },
+        );
         for (const [id, ca, host, identity, success] of [
           ["missing-identity", fixture.ca, "127.0.0.1", "", false],
           [
@@ -275,7 +318,7 @@ export async function streamClientCertificate(protocol) {
           ],
           ...fileCases.map((entry) => [
             entry.id,
-            fixture.ca,
+            entry.ca || fixture.ca,
             "127.0.0.1",
             entry.preTcp ? fixture.client.identity : "",
             entry.success,
@@ -446,6 +489,23 @@ export async function streamClientCertificate(protocol) {
               connections,
               "Malformed PEM refuses before TCP",
             );
+          if (fileCase?.ca && !success) {
+            assert.ok(
+              fixture.connections.primary > connections,
+              "Root-trust control reaches native TLS",
+            );
+            await poll(
+              async () =>
+                fixture.rejected
+                  .slice(rejected)
+                  .some(
+                    (event) =>
+                      event.role === "primary" &&
+                      event.detail === "received fatal alert: UnknownCA",
+                  ),
+              "Explicit unrelated CA rejects server without PFX trust",
+            );
+          }
           if (["missing-identity", "host-mismatch"].includes(String(id)))
             assert.ok(
               fixture.rejected
@@ -518,7 +578,7 @@ export async function streamClientCertificate(protocol) {
               limits:
                 "Real Windows native " +
                 label +
-                " through persisted Preferences and Connect. Mandatory client verification, pinned peer identity and exact received event/message. WSS additionally checks live text/binary/ping-pong; SSE checks fragmented UTF8/multiline/id/retry/incomplete-event framing. Both observe client Disconnect, persisted full response and explicit reconnect. CA-signed hostname/expired/future server refusal and successful recovery verified. No trust-store modification or network TLS-validation bypass; offline OpenSSL no_check_time isolates chain validity only. Eight owned redirect cases per protocol verify same-origin chains, host/port/scheme refusal, explicit follow disable and bounded loop. Other redirect layouts/protocol/provider/proxy/platform parity remain separate.",
+                " through persisted Preferences and Connect. Mandatory client verification, pinned peer identity and exact received event/message. WSS additionally checks live text/binary/ping-pong; SSE checks fragmented UTF8/multiline/id/retry/incomplete-event framing. Both observe client Disconnect, persisted full response and explicit reconnect. CA-signed hostname/expired/future server refusal and successful recovery verified. No OS trust-store modification or network TLS-validation bypass; offline OpenSSL no_check_time isolates chain validity only. Eight owned redirect cases per protocol verify same-origin chains, host/port/scheme refusal, explicit follow disable and bounded loop. Other redirect layouts/protocol/provider/proxy/platform parity remain separate.",
             },
             null,
             2,

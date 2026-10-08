@@ -277,6 +277,52 @@ export async function clientCertificateFixture(output, options = {}) {
     password,
   };
   if (options.fileIdentities) {
+    if (secondClient) {
+      run([
+        "pkcs12",
+        "-export",
+        "-in",
+        join(directory, "second-client.pem"),
+        "-inkey",
+        join(directory, "second-client.key"),
+        "-out",
+        join(directory, "second-client-leaf-only.pfx"),
+        "-passout",
+        "pass:" + password,
+      ]);
+      const certificates = join(
+        directory,
+        "second-client-leaf-only-certificates.pem",
+      );
+      run([
+        "pkcs12",
+        "-in",
+        join(directory, "second-client-leaf-only.pfx"),
+        "-nokeys",
+        "-passin",
+        "pass:" + password,
+        "-out",
+        certificates,
+      ]);
+      const pem = await Bun.file(certificates).text();
+      assert.equal(
+        (pem.match(/-----BEGIN CERTIFICATE-----/g) || []).length,
+        1,
+        "Independent OpenSSL decode proves leaf-only PFX has no extra CA",
+      );
+      assert.equal(
+        new X509Certificate(pem).fingerprint256,
+        secondClient.fingerprint,
+      );
+      await Bun.write(
+        join(directory, "leaf-only-pfx-baseline.json"),
+        JSON.stringify({
+          certificateCount: 1,
+          fingerprint: secondClient.fingerprint,
+          extraCertificates: 0,
+        }),
+      );
+    }
     if (rsaClient)
       run([
         "pkcs12",
@@ -611,6 +657,7 @@ export async function clientCertificateFixture(output, options = {}) {
     secondFiles: {
       cert: join(directory, "second-client.pem"),
       key: join(directory, "second-client.key"),
+      pfx: join(directory, "second-client-leaf-only.pfx"),
     },
     algorithmServers:
       /** @type {Array<{id:string,url:string,scheme:string,version:string,emptyHints:boolean}>} */ (

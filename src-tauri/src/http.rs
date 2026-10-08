@@ -411,10 +411,16 @@ pub(crate) fn build_client(
         );
     }
     let identity = if websocket {
-        crate::client_certificates::websocket_identity(
+        let material = crate::client_certificates::websocket_identity(
             &request.client_certificates,
             request.identity_pem.as_deref(),
-        )?
+        )?;
+        for certificate in material.extra_certificates {
+            builder = builder.add_root_certificate(
+                reqwest::Certificate::from_der(certificate.as_ref()).map_err(|e| e.to_string())?,
+            );
+        }
+        material.identity
     } else {
         crate::client_certificates::load_identity(
             &request.client_certificates,

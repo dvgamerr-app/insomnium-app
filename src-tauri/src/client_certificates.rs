@@ -72,15 +72,24 @@ fn certificate_algorithm(chain: &[CertificateDer<'static>]) -> Result<SignatureA
 /// Legacy WSS supplies independent certificate/key arrays, matched by algorithm,
 /// with later entries replacing earlier entries of that algorithm. PFX is loaded
 /// after the PEM arrays. HTTP/SSE retain Curl's last populated field selection.
+pub(crate) struct WebSocketIdentity {
+    pub identity: Option<reqwest::Identity>,
+    pub extra_certificates: Vec<CertificateDer<'static>>,
+}
+
 pub(crate) fn websocket_identity(
     sources: &[ClientCertificateSource],
     fallback: Option<&str>,
-) -> Result<Option<reqwest::Identity>, String> {
+) -> Result<WebSocketIdentity, String> {
     if sources.is_empty() {
-        return fallback
+        let identity = fallback
             .filter(|pem| !pem.is_empty())
             .map(|pem| reqwest::Identity::from_pem(pem.as_bytes()).map_err(|e| e.to_string()))
-            .transpose();
+            .transpose()?;
+        return Ok(WebSocketIdentity {
+            identity,
+            extra_certificates: Vec::new(),
+        });
     }
     if sources.len() > 32 {
         return Err("More than 32 client certificates match this destination.".into());
@@ -88,6 +97,7 @@ pub(crate) fn websocket_identity(
     let provider = rustls::crypto::ring::default_provider();
     let mut chains: Vec<(SignatureAlgorithm, Vec<CertificateDer<'static>>)> = Vec::new();
     let mut keys: Vec<Arc<dyn SigningKey>> = Vec::new();
+    let mut extra_certificates = Vec::new();
     let mut add_chain = |value: &str| -> Result<(), String> {
         let chain = CertificateDer::pem_slice_iter(value.as_bytes())
             .collect::<Result<Vec<_>, _>>()
@@ -132,7 +142,6 @@ pub(crate) fn websocket_identity(
             add_chain(&certificate_chain(&value)?)?;
         }
     }
-    drop(add_chain);
     // Node loads every certificate first, then checks each key immediately.
     // An earlier mismatched key must not be hidden by a later valid key.
     for source in sources {
@@ -170,6 +179,14 @@ pub(crate) fn websocket_identity(
                     .collect::<Result<Vec<_>, _>>()
                     .map_err(|_| "Invalid WebSocket client certificate PEM.")?;
                 let algorithm = certificate_algorithm(&chain)?;
+                // Node LoadPKCS12 trusts every extra certificate from each PFX,
+                // including containers whose signing identity is replaced later.
+                // PEM chains and the selected PFX leaf do not grant this trust.
+                for certificate in chain.iter().skip(1) {
+                    if !extra_certificates.contains(certificate) {
+                        extra_certificates.push(certificate.clone());
+                    }
+                }
                 chains.retain(|(existing, _)| *existing != algorithm);
                 chains.push((algorithm, chain));
                 add_key(&value, "", &chains, &mut keys)?;
@@ -202,11 +219,17 @@ pub(crate) fn websocket_identity(
         if !chains.is_empty() {
             return Err("WebSocket client certificate has no private key.".into());
         }
-        return Ok(None);
+        return Ok(WebSocketIdentity {
+            identity: None,
+            extra_certificates,
+        });
     }
-    Ok(Some(reqwest::Identity::from_rustls_resolver(Arc::new(
-        WebSocketIdentities(candidates),
-    ))))
+    Ok(WebSocketIdentity {
+        identity: Some(reqwest::Identity::from_rustls_resolver(Arc::new(
+            WebSocketIdentities(candidates),
+        ))),
+        extra_certificates,
+    })
 }
 
 #[derive(Clone, Deserialize)]

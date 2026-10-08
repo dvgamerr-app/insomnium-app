@@ -35,3 +35,9 @@ pre-TCP refusals are checked by the saved scenarios. See docs/migration/STATUS.m
 for exact artifacts and build evidence. Actual archived Electron runtime,
 arbitrary algorithms/providers/platforms and extra-certificate trust-store
 behavior remain separate parity gates; this patch does not claim full parity.
+
+The WSS caller additionally loads extra PFX certificates into that connection's
+root store, following Node LoadPKCS12. Modern/legacy CA bundles, earlier-container
+CA retention after key replacement and selected/disabled/host/leaf-only controls
+have native acceptance. HTTP/SSE/gRPC retain their own trust policy; OS stores are
+unchanged. Exact archived-runtime and broader chain/trust behavior remain gates.

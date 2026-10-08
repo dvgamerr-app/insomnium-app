@@ -73,7 +73,10 @@ await withNativeApp(
         key: fixture.identityFiles.key,
       };
       const rsa = { cert: fixture.rsaFiles.cert, key: fixture.rsaFiles.key };
-      const second = fixture.secondFiles;
+      const second = {
+        cert: fixture.secondFiles.cert,
+        key: fixture.secondFiles.key,
+      };
       const pfx = {
         pfx: fixture.identityFiles.pfx,
         passphrase: fixture.identityFiles.password,
@@ -82,7 +85,7 @@ await withNativeApp(
         pfx: fixture.rsaFiles.pfx,
         passphrase: fixture.identityFiles.password,
       };
-      /** @type {Array<{id:string,server:string,rows:Array<Record<string,any>>,fingerprint?:string,preTcp?:boolean,route?:string}>} */
+      /** @type {Array<{id:string,server:string,rows:Array<Record<string,any>>,fingerprint?:string,preTcp?:boolean,route?:string,ca?:string}>} */
       const matrix = [];
       for (const server of fixture.algorithmServers) {
         for (const reverse of [false, true])
@@ -175,7 +178,52 @@ await withNativeApp(
           route: "/ws-redirect-port",
         },
       );
+      assert.ok(fixture.secondClient);
+      const secondPfx = {
+        pfx: fixture.secondFiles.pfx,
+        passphrase: fixture.identityFiles.password,
+      };
+      matrix.push(
+        {
+          id: "earlier-pfx-ca-survives-key-replacement",
+          server: "ec13",
+          rows: [pfx, secondPfx],
+          ca: fixture.otherCa,
+          fingerprint: fixture.secondClient.fingerprint,
+        },
+        {
+          id: "leaf-only-pfx-no-extra-trust",
+          server: "ec13",
+          rows: [secondPfx],
+          ca: fixture.otherCa,
+        },
+        {
+          id: "disabled-earlier-pfx-no-extra-trust",
+          server: "ec13",
+          rows: [{ ...pfx, disabled: true }, secondPfx],
+          ca: fixture.otherCa,
+        },
+        {
+          id: "host-mismatched-earlier-pfx-no-extra-trust",
+          server: "ec13",
+          rows: [{ ...pfx, host: "other.invalid:*" }, secondPfx],
+          ca: fixture.otherCa,
+        },
+        {
+          id: "earlier-pfx-ca-with-rsa-identity",
+          server: "rsa13",
+          rows: [pfx, rsaPfx],
+          ca: fixture.otherCa,
+          fingerprint: fixture.rsaClient.fingerprint,
+        },
+      );
+      let configuredCa = fixture.ca;
       for (const entry of matrix) {
+        const ca = entry.ca || fixture.ca;
+        if (ca !== configuredCa) {
+          await setTls(ca, "127.0.0.1", fixture.client.identity);
+          configuredCa = ca;
+        }
         const server = fixture.algorithmServers.find(
           (row) => row.id === entry.server,
         );
@@ -309,6 +357,16 @@ await withNativeApp(
             "Selected identity error refuses before TCP, despite valid global PEM",
           );
         else assert.ok(connections > 0);
+        if (entry.ca && !success)
+          await poll(
+            async () =>
+              fixture.rejected
+                .slice(rejectionCount)
+                .some(
+                  (row) => row.detail === "received fatal alert: UnknownCA",
+                ),
+            "Unselected or leaf-only PFX grants no server trust",
+          );
         if (
           ["issuer-hint-mismatch", "unsupported-requested-algorithm"].includes(
             entry.id,
