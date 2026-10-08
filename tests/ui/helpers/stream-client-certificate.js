@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
-import { join } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { withNativeApp, poll } from "./native-app.js";
 import { clientCertificateFixture } from "./client-certificate.js";
 import { tlsPreferences } from "./tls-preferences.js";
 import { wssLiveCertificate } from "./wss-live-certificate.js";
+import { sseLiveCertificate } from "./sse-live-certificate.js";
 
 /** @param {"sse" | "websocket"} protocol */
 export async function streamClientCertificate(protocol) {
@@ -18,12 +19,64 @@ export async function streamClientCertificate(protocol) {
   await withNativeApp(
     websocket ? "wss-client-certificate" : "sse-client-certificate",
     async ({ page, invoke, output }) => {
+      const recoveryPath = process.env.INSOMNIUM_UI_TLS_RECOVERY;
+      const recoveryRelative = recoveryPath
+        ? relative(resolve("artifacts/playwright"), resolve(recoveryPath))
+        : "";
+      if (recoveryPath)
+        assert.ok(
+          recoveryRelative &&
+            !recoveryRelative.startsWith("..") &&
+            !recoveryRelative.includes(":"),
+          "TLS recovery evidence must be in owned Playwright artifacts",
+        );
+      const recovery = recoveryPath
+        ? await Bun.file(recoveryPath).json()
+        : null;
       const fixture = await clientCertificateFixture(output);
-      const original = (await invoke("load_workspace")).settings;
+      const original =
+        recovery?.settings || (await invoke("load_workspace")).settings;
       const setTls = tlsPreferences(page, invoke);
       const name = label + " client certificate " + Date.now();
       /** @type {Array<Record<string,any>>} */ const cases = [];
       try {
+        const keys = [
+          "caPem",
+          "identityHost",
+          "identityPem",
+          "validateCertificates",
+        ];
+        await Bun.write(
+          join(output, "tls-original.json"),
+          JSON.stringify({
+            settings: Object.fromEntries(
+              keys.map((key) => [key, original[key]]),
+            ),
+          }),
+        );
+        if (recovery) {
+          await setTls(
+            original.caPem || "",
+            original.identityHost || "",
+            original.identityPem || "",
+            original.validateCertificates,
+          );
+          const restored = (await invoke("load_workspace")).settings;
+          for (const key of keys)
+            assert.equal(
+              restored[key],
+              original[key],
+              "Recover crashed probe TLS " + key,
+            );
+          await Bun.write(
+            join(output, "crash-settings-restored.json"),
+            JSON.stringify({
+              restored: true,
+              keys,
+              provenance: recovery.provenance,
+            }),
+          );
+        }
         await fixture.verifyFixture();
         if (websocket) {
           // Bun's constructor supports TLS options; DOM typings expose only protocols.
@@ -352,7 +405,7 @@ export async function streamClientCertificate(protocol) {
         );
         const live = websocket
           ? await wssLiveCertificate({ page, invoke, output }, fixture)
-          : null;
+          : await sseLiveCertificate({ page, invoke, output }, fixture);
         await Bun.write(
           join(output, "acceptance.json"),
           JSON.stringify(
@@ -369,7 +422,7 @@ export async function streamClientCertificate(protocol) {
               limits:
                 "Real Windows native " +
                 label +
-                " through persisted Preferences and Connect. Mandatory client verification, pinned peer identity and exact received event/message. WSS additionally checks live text/binary/ping-pong, client Disconnect and reconnect. No trust-store modification/TLS bypass. Live SSE disconnect, redirects, gRPC/provider/proxy/platform parity remain separate.",
+                " through persisted Preferences and Connect. Mandatory client verification, pinned peer identity and exact received event/message. WSS additionally checks live text/binary/ping-pong; SSE checks fragmented UTF8/multiline/id/retry/incomplete-event framing. Both observe client Disconnect, persisted full response and explicit reconnect. No trust-store modification/TLS bypass. Redirects/other protocol/provider/proxy/platform parity remain separate.",
             },
             null,
             2,

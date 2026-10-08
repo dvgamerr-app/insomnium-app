@@ -86,6 +86,54 @@ fn handle(
         serde_json::json!({"event":"request","role":role,"url":first[1],"method":first[0],
         "body":String::from_utf8(body).map_err(|e| e.to_string())?,"authorized":true,"cn":cn,"fingerprint":fingerprint})
     );
+    if first[1] == "/sse-live" {
+        stream
+            .sock
+            .set_read_timeout(Some(Duration::from_secs(15)))
+            .map_err(|e| e.to_string())?;
+        stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nTransfer-Encoding: chunked\r\nConnection: keep-alive\r\n\r\n").map_err(|e|e.to_string())?;
+        let body = "\u{feff}: owned heartbeat\r\nid: owned-live-1\r\nevent: authenticated\r\nretry: 1234\r\ndata: owned first\r\ndata: live สวัสดี\r\n\r\n: ignored\nid: owned-live-2\nevent: update\ndata: owned second\n\nid: unfinished\nevent: incomplete\ndata: never dispatched";
+        let mut fragments = 0;
+        let mut utf8_split = false;
+        for chunk in body.as_bytes().chunks(7) {
+            fragments += 1;
+            utf8_split |= chunk[0] & 0xc0 == 0x80;
+            stream
+                .write_all(format!("{:X}\r\n", chunk.len()).as_bytes())
+                .map_err(|e| e.to_string())?;
+            stream.write_all(chunk).map_err(|e| e.to_string())?;
+            stream.write_all(b"\r\n").map_err(|e| e.to_string())?;
+            stream.flush().map_err(|e| e.to_string())?;
+        }
+        println!(
+            "{}",
+            serde_json::json!({"event":"sse-written","role":role,"fragments":fragments,"bytes":body.len(),"utf8Split":utf8_split})
+        );
+        let mut byte = [0];
+        match stream.read(&mut byte) {
+            Ok(0) => println!(
+                "{}",
+                serde_json::json!({"event":"sse-close","role":role,"kind":"eof"})
+            ),
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    std::io::ErrorKind::UnexpectedEof
+                        | std::io::ErrorKind::ConnectionReset
+                        | std::io::ErrorKind::ConnectionAborted
+                        | std::io::ErrorKind::BrokenPipe
+                ) =>
+            {
+                println!(
+                    "{}",
+                    serde_json::json!({"event":"sse-close","role":role,"kind":format!("{:?}",error.kind()),"detail":error.to_string()})
+                )
+            }
+            Err(error) => return Err(error.to_string()),
+            Ok(_) => return Err("Unexpected client data on owned SSE stream".into()),
+        }
+        return Ok(());
+    }
     if matches!(first[1], "/ws" | "/ws-live") {
         let key = header
             .lines()

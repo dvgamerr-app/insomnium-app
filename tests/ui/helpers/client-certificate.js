@@ -233,6 +233,7 @@ export async function clientCertificateFixture(output, options = {}) {
   const grpcRequests = /** @type {Array<Record<string,any>>} */ ([]);
   const grpcConnections = { count: 0 };
   const grpcEvents = /** @type {Array<Record<string,any>>} */ ([]);
+  const sseEvents = /** @type {Array<Record<string,any>>} */ ([]);
   const drain = (async () => {
     const reader = child.stdout.getReader();
     const decoder = new TextDecoder();
@@ -248,6 +249,8 @@ export async function clientCertificateFixture(output, options = {}) {
         if (!line) continue;
         const event = JSON.parse(line);
         if (event.event === "ready") state.ready = event;
+        else if (["sse-written", "sse-close"].includes(event.event))
+          sseEvents.push(event);
         else if (event.event === "grpc-request") grpcRequests.push(event);
         else if (event.event === "grpc-connection") grpcConnections.count++;
         else if (
@@ -287,6 +290,7 @@ export async function clientCertificateFixture(output, options = {}) {
           grpcRequests,
           grpcConnections,
           grpcEvents,
+          sseEvents,
         },
         null,
         2,
@@ -336,6 +340,7 @@ export async function clientCertificateFixture(output, options = {}) {
     grpcRequests,
     grpcConnections,
     grpcEvents,
+    sseEvents,
     async verifyFixture() {
       for (const endpoint of [primary, sink]) {
         const response = await fetch(endpoint.url + "/fixture-check", {

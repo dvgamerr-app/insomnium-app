@@ -78,6 +78,7 @@ strip = true
 [patch.crates-io]
 reqwest = { path = "vendor/reqwest" }
 http-auth = { path = "vendor/http-auth" }
+eventsource-stream = { path = "vendor/eventsource-stream" }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2"
