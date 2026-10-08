@@ -10,13 +10,23 @@ See `docs/migration/UI-TESTING.md` for the native host and OS dialog limitations
 
 Run `bun tests/ui/grpc-client-certificate.js` against the successful current
 native-recovery-copy-probe build. The saved scenario opts into an owned Rust
-HTTP/2 listener with ALPN h2 and mandatory client verification. Twelve groups
+HTTP/2 listener with ALPN h2 and mandatory client verification. Twelve unary/TLS groups
 cover an independent authenticated HTTP/2 self-check, actual native unary Send,
 CA bundles in both root positions, missing/mismatched/untrusted/malformed TLS
 settings, recovery and exact response reload without resend. Server evidence
 records the verified peer CN/fingerprint and exact protobuf bytes; four original
-TLS settings are restored. Run native scenarios sequentially. Reflection and
-streaming TLS acceptance, provider/proxy/legacy/platform parity remain separate.
+TLS settings are restored. Run native scenarios sequentially. Reflection TLS,
+provider/proxy/legacy/platform parity remain separate.
+
+The same saved entry now also runs `helpers/grpc-stream-certificate.js`:
+server-streaming receives two distinct responses; client-streaming sends two
+exact frames then Commit produces server-observed EOF; bidirectional receives
+each echo while its sender is still open before Commit. Cancel for all three
+shapes must produce actual server-observed HTTP/2 RST_STREAM CANCEL. All seven
+streaming cases preserve resources/retained history and full response after
+reload, without automatic reconnect; final Chat explicitly reconnects and sends
+again. The complete entry has19 groups. Reflection TLS and remaining provider/
+proxy/legacy/platform parity are still separate gates.
 
 ## Native HTTP client certificate
 

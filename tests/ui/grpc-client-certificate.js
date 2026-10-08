@@ -5,6 +5,7 @@ import { withNativeApp, poll } from "./helpers/native-app.js";
 import { gitCollection } from "./helpers/git-fixture.js";
 import { clientCertificateFixture } from "./helpers/client-certificate.js";
 import { tlsPreferences } from "./helpers/tls-preferences.js";
+import { grpcStreamCertificate } from "./helpers/grpc-stream-certificate.js";
 
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-recovery-copy-probe/build-state.json";
@@ -90,7 +91,7 @@ await withNativeApp(
         name: "owned-mtls.proto",
         mimeType: "text/plain",
         buffer: Buffer.from(
-          'syntax = "proto3"; package owned; message Input { string name = 1; } service Sample { rpc Echo (Input) returns (Input); }',
+          'syntax = "proto3"; package owned; message Input { string name = 1; } service Sample { rpc Echo (Input) returns (Input); rpc Watch (Input) returns (stream Input); rpc Collect (stream Input) returns (Input); rpc Chat (stream Input) returns (stream Input); rpc Hold (Input) returns (stream Input); }',
         ),
       });
       await page
@@ -327,6 +328,11 @@ await withNativeApp(
         count,
         "Reload does not send another RPC",
       );
+      const streaming = await grpcStreamCertificate(
+        { page, invoke, output },
+        fixture,
+        requestId,
+      );
       await Bun.write(
         join(output, "acceptance.json"),
         JSON.stringify(
@@ -336,11 +342,13 @@ await withNativeApp(
               "independent mandatory-mTLS HTTP2 check",
               ...cases.map((c) => c.id),
               "full response reload without resend",
+              ...streaming.map((c) => c.id),
             ],
             independent,
             cases,
+            streaming,
             limits:
-              "Actual Windows native unary gRPC through persisted Preferences and Send, HTTP2 ALPN, server-observed peer fingerprint and exact protobuf bytes. No trust-store modification/TLS bypass. Reflection/streaming TLS, provider/proxy/legacy/platform remain separate gates.",
+              "Actual Windows native unary/server/client/bidirectional gRPC through persisted Preferences and Send/Connect, HTTP2 ALPN, server-observed peer fingerprint and exact protobuf bytes. Explicit Commit EOF, all three Cancel shapes produce actual RST_STREAM CANCEL, saved response/reconnect observed. No trust-store modification/TLS bypass. Reflection TLS, provider/proxy/legacy/platform remain separate gates.",
           },
           null,
           2,

@@ -2,6 +2,46 @@
 
 Owner requires Bun-only reusable Playwright JavaScript scenarios with shared helpers and headless execution. Browser-use and ad-hoc browser automation remain prohibited.
 
+## Native streaming gRPC mutual TLS — 2026-10-08
+
+The same `bun tests/ui/grpc-client-certificate.js` now imports the reusable
+`helpers/grpc-stream-certificate.js`. Owned opt-in h2 fixture records bounded
+individual protobuf frames, authenticated stream opening, explicit sender EOF
+and HTTP/2 reset reason. Its shared unary path retains exact previous behavior;
+HTTP/WSS/SSE remain on the existing non-gRPC listeners. No production app or
+dependency changes, and the successful release1791417162756/1791417516283/result0
+is reused.
+
+Final handle27809/evidence1791418806011 terminal0 passes19 groups (prior12 unary/
+TLS plus7 streaming). Each native stream has one actual authenticated POST with
+ALPNh2 and pinned peer CN/fingerprint. Server streaming receives two different
+messages; client streaming sends two exact ordered frames and only Commit sends
+EOF before the collected response. Bidirectional receives each exact echo while
+its sender remains open, then Commit sends EOF and normal status0/trailers.
+Server/client/bidirectional Cancel each follows an observed request frame and
+produces actual server-observed RST_STREAM CANCEL, with exact retained received/
+sent events and a cancellation error. First successful run accepted reset/closed
+transport; after inspecting all three actual CANCEL reasons, the final assertion
+requires CANCEL specifically. Final Chat explicitly reconnects after cancellation
+and reload, sends two new frames and closes normally.
+
+Every case creates one saved response, preserves resources except explicit body/
+method edits, preserves all retained old history rows, and retains the complete
+response after reload without automatic reconnect. Four original TLS settings
+restored/verified; owned native-hidden app52680 visiblefalse/exit0, fixture close0.
+Initial handle45921/evidence1791418695234 terminal0 also passes19/app71772 exit0.
+Shared non-GRPC fixture regression HTTP81395/1791418755326 terminal0 passes12/
+app82016 exit0/restored settings. Compiler0 errors0 warnings/three JS Prettier/
+fixture Rustfmt/whitespace pass; bidirectional and cancellation screenshots
+inspected. Initial JSDoc helper-context mismatch corrected before native runs.
+
+Official h2 APIs consulted before fixture extension:
+https://docs.rs/h2/latest/h2/struct.RecvStream.html#method.data,
+https://docs.rs/h2/latest/h2/struct.SendStream.html#method.poll_reset.
+This is real Windows native streaming mTLS and controlled owned-server lifecycle
+acceptance, not reflection TLS, arbitrary server errors/timeouts/network faults,
+provider/proxy/legacy/other-platform or full migration/UX/CSS acceptance.
+
 ## Native unary gRPC mutual TLS — 2026-10-08
 
 Saved `bun tests/ui/grpc-client-certificate.js` uses the successful current

@@ -212,70 +212,11 @@ async fn grpc_connection(
         .await
         .map_err(|e| e.to_string())?;
     while let Some(request) = connection.accept().await {
-        let (request, mut respond) = request.map_err(|e| e.to_string())?;
+        let (request, respond) = request.map_err(|e| e.to_string())?;
         let cn = cn.clone();
         let fingerprint = fingerprint.clone();
         tokio::spawn(async move {
-            let result = async move {
-            let path = request.uri().path().to_owned();
-            let method = request.method().to_string();
-            let mut incoming = request.into_body();
-            let mut body = Vec::new();
-            while let Some(chunk) = incoming.data().await {
-                let chunk = chunk.map_err(|e| e.to_string())?;
-                if body.len() + chunk.len() > 65536 {
-                    return Err("gRPC fixture body limit".to_owned());
-                }
-                body.extend_from_slice(&chunk);
-                incoming
-                    .flow_control()
-                    .release_capacity(chunk.len())
-                    .map_err(|e| e.to_string())?;
-                // The native dispatcher uses streaming for every method shape;
-                // respond to its complete first frame without waiting for sender EOF.
-                if body.len() >= 5 {
-                    let length = u32::from_be_bytes(body[1..5].try_into().unwrap()) as usize;
-                    if length > 65531 || body[0] != 0 {
-                        return Err("Invalid gRPC fixture frame".to_owned());
-                    }
-                    if body.len() >= length + 5 {
-                        break;
-                    }
-                }
-            }
-            println!(
-                "{}",
-                serde_json::json!({"event":"grpc-request","url":path,"method":method,"bodyBytes":body,"authorized":true,"cn":cn,"fingerprint":fingerprint,"alpn":"h2"})
-            );
-            let response = tungstenite::http::Response::builder()
-                .status(200)
-                .header("content-type", "application/grpc")
-                .header("owned-metadata", "authenticated")
-                .body(())
-                .map_err(|e| e.to_string())?;
-            let mut send = respond
-                .send_response(response, false)
-                .map_err(|e| e.to_string())?;
-            let text = b"owned mutual TLS gRPC response";
-            let mut frame = vec![0];
-            frame.extend_from_slice(&((text.len() + 2) as u32).to_be_bytes());
-            frame.extend_from_slice(&[10, text.len() as u8]);
-            frame.extend_from_slice(text);
-            send.send_data(tungstenite::Bytes::from(frame), false)
-                .map_err(|e| e.to_string())?;
-            let mut trailers = tungstenite::http::HeaderMap::new();
-            trailers.insert(
-                "grpc-status",
-                tungstenite::http::HeaderValue::from_static("0"),
-            );
-            trailers.insert(
-                "owned-trailer",
-                tungstenite::http::HeaderValue::from_static("complete"),
-            );
-            send.send_trailers(trailers).map_err(|e| e.to_string())?;
-            Ok::<(), String>(())
-            }.await;
-            if let Err(error) = result {
+            if let Err(error) = grpc_request(request, respond, cn, fingerprint).await {
                 println!(
                     "{}",
                     serde_json::json!({"event":"rejected","role":"grpc-stream","detail":error})
@@ -284,6 +225,143 @@ async fn grpc_connection(
         });
     }
     Ok(())
+}
+
+#[cfg(grpc_fixture)]
+fn grpc_frame(text: &[u8]) -> tungstenite::Bytes {
+    let mut frame = vec![0];
+    frame.extend_from_slice(&((text.len() + 2) as u32).to_be_bytes());
+    frame.extend_from_slice(&[10, text.len() as u8]);
+    frame.extend_from_slice(text);
+    frame.into()
+}
+
+#[cfg(grpc_fixture)]
+async fn grpc_request(
+    request: tungstenite::http::Request<h2::RecvStream>,
+    mut respond: h2::server::SendResponse<tungstenite::Bytes>,
+    cn: String,
+    fingerprint: String,
+) -> Result<(), String> {
+    let path = request.uri().path().to_owned();
+    let method = request.method().to_string();
+    let mut incoming = request.into_body();
+    let duplex = path.ends_with("/Chat");
+    let collect = path.ends_with("/Collect");
+    let hold = path.ends_with("/Hold");
+    let watch = path.ends_with("/Watch");
+    let response = tungstenite::http::Response::builder()
+        .status(200)
+        .header("content-type", "application/grpc")
+        .header("owned-metadata", "authenticated")
+        .body(())
+        .map_err(|e| e.to_string())?;
+    let mut send = respond
+        .send_response(response, false)
+        .map_err(|e| e.to_string())?;
+    println!(
+        "{}",
+        serde_json::json!({"event":"grpc-open","url":path,"authorized":true,"cn":cn,"fingerprint":fingerprint,"alpn":"h2"})
+    );
+    let mut pending = Vec::new();
+    let mut frames = 0;
+    let mut total = 0;
+    loop {
+        match incoming.data().await {
+            Some(Ok(chunk)) => {
+                total += chunk.len();
+                if total > 65536 {
+                    return Err("gRPC fixture body limit".into());
+                }
+                pending.extend_from_slice(&chunk);
+                incoming
+                    .flow_control()
+                    .release_capacity(chunk.len())
+                    .map_err(|e| e.to_string())?;
+            }
+            Some(Err(error)) => {
+                println!(
+                    "{}",
+                    serde_json::json!({"event":"grpc-cancelled","url":path,"frames":frames,"reason":error.reason().map(|r|format!("{r:?}")),"error":error.to_string()})
+                );
+                return Ok(());
+            }
+            None => {
+                if !pending.is_empty() {
+                    return Err("Incomplete gRPC fixture frame".into());
+                }
+                println!(
+                    "{}",
+                    serde_json::json!({"event":"grpc-end","url":path,"frames":frames})
+                );
+                break;
+            }
+        }
+        while pending.len() >= 5 {
+            let length = u32::from_be_bytes(pending[1..5].try_into().unwrap()) as usize;
+            if length > 65531 || pending[0] != 0 || frames >= 128 {
+                return Err("Invalid gRPC fixture frame".into());
+            }
+            if pending.len() < length + 5 {
+                break;
+            }
+            let frame: Vec<_> = pending.drain(..length + 5).collect();
+            frames += 1;
+            if frames == 1 {
+                println!(
+                    "{}",
+                    serde_json::json!({"event":"grpc-request","url":path,"method":method,"bodyBytes":frame,"authorized":true,"cn":cn,"fingerprint":fingerprint,"alpn":"h2"})
+                );
+            }
+            println!(
+                "{}",
+                serde_json::json!({"event":"grpc-message","url":path,"sequence":frames,"bytes":frame})
+            );
+            if duplex {
+                send.send_data(frame.into(), false)
+                    .map_err(|e| e.to_string())?;
+            } else if !collect {
+                if hold {
+                    let reset = std::future::poll_fn(|cx| send.poll_reset(cx)).await;
+                    println!(
+                        "{}",
+                        serde_json::json!({"event":"grpc-cancelled","url":path,"frames":frames,"reason":reset.as_ref().ok().map(|r|format!("{r:?}")),"error":reset.err().map(|e|e.to_string())})
+                    );
+                    return Ok(());
+                }
+                send.send_data(grpc_frame(b"owned mutual TLS gRPC response"), false)
+                    .map_err(|e| e.to_string())?;
+                if watch {
+                    send.send_data(grpc_frame(b"owned mutual TLS gRPC second response"), false)
+                        .map_err(|e| e.to_string())?;
+                }
+                grpc_trailers(&mut send)?;
+                return Ok(());
+            }
+        }
+    }
+    if collect {
+        send.send_data(
+            grpc_frame(b"owned mutual TLS gRPC collected response"),
+            false,
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    grpc_trailers(&mut send)
+}
+
+#[cfg(grpc_fixture)]
+fn grpc_trailers(send: &mut h2::SendStream<tungstenite::Bytes>) -> Result<(), String> {
+    let mut trailers = tungstenite::http::HeaderMap::new();
+    trailers.insert(
+        "grpc-status",
+        tungstenite::http::HeaderValue::from_static("0"),
+    );
+    trailers.insert(
+        "owned-trailer",
+        tungstenite::http::HeaderValue::from_static("complete"),
+    );
+    send.send_trailers(trailers).map_err(|e| e.to_string())
 }
 
 #[cfg(grpc_fixture)]
