@@ -1,5 +1,17 @@
 # UI scenarios (Playwright + Bun)
 
+`bun tests/ui/openapi-nullable-serialization.js` checks OpenAPI3.0 nullable and
+OpenAPI3.1 type unions through actual worker generation and native Send. Fifty
+groups compare exact TCP targets/headers, null vs empty/string-null/false/zero,
+undefined composite members, persistence/reload, linked JSON editor help and
+query/header/path edits with malformed/type refusal before network/history.
+Build the current recovery-copy probe first and run native scenarios sequentially.
+Nullable values use JSON editor syntax; nonnullable plain scalars retain text.
+Undefined form/simple/label/matrix values follow RFC6570/AppendixC omission;
+non-RFC root-null query styles require review. Advanced schema/type validation
+and provider/platform/version interoperability remain separate gates.
+
+
 `bun tests/ui/openapi-path-serialization.js` generates owned simple/label/matrix
 path requests through actual API Design and checks 42 independent raw TCP targets
 plus six edit/disabled/malformed/nested/dot-normalization/removed-row controls

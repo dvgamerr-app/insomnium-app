@@ -1,7 +1,9 @@
+import { readOpenApiValue } from "./openapi-value.js";
 /** RFC6570-derived OpenAPI path styles, keeping delimiters separate from data.
  * @param {string} name @param {string} text
- * @param {{style:string,explode:boolean,kind:string}} options */
-export function serializeOpenApiPath(name, text, { style, explode, kind }) {
+ * @param {{style:string,explode:boolean,kind:string,nullable?:boolean}} options */
+export function serializeOpenApiPath(name, text, options) {
+  const { style, explode, kind } = options;
   if (!["simple", "label", "matrix"].includes(style))
     throw new Error(`Unsupported path style ${style}.`);
   const atom = (/** @type {unknown} */ value) => {
@@ -15,27 +17,14 @@ export function serializeOpenApiPath(name, text, { style, explode, kind }) {
       (char) => "%" + char.charCodeAt(0).toString(16).toUpperCase(),
     );
   };
-  let value = /** @type {any} */ (text);
-  if (kind !== "scalar") {
-    try {
-      value = JSON.parse(text);
-    } catch {
-      throw new Error(`Path parameter ${name} requires valid JSON ${kind}.`);
-    }
-    if (
-      kind === "array"
-        ? !Array.isArray(value)
-        : kind !== "object" ||
-          !value ||
-          typeof value !== "object" ||
-          Array.isArray(value)
-    )
-      throw new Error(`Path parameter ${name} requires a JSON ${kind}.`);
-  }
+  const value = readOpenApiValue(name, text, options, "Path");
+  if (value === null) return "";
   const key = atom(name);
   const prefix = style === "label" ? "." : style === "matrix" ? `;${key}=` : "";
-  if (kind === "scalar")
-    return style === "matrix" && text === "" ? `;${key}` : prefix + atom(value);
+  if (kind === "scalar" || kind === "scalar-json")
+    return style === "matrix" && value === ""
+      ? `;${key}`
+      : prefix + atom(value);
   const delimiter = explode && style === "label" ? "." : ",";
   if (Array.isArray(value)) {
     const items = value

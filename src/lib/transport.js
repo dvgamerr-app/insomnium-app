@@ -49,7 +49,13 @@ export function hasManualAuthorization(data, request) {
   return (request.headers || []).some(
     (/** @type {Record<string, any>} */ header) =>
       !header.disabled &&
-      render(header.name, environment).toLowerCase() === "authorization",
+      render(header.name, environment).toLowerCase() === "authorization" &&
+      (!header._openapiSerialization ||
+        serializeOpenApiHeader(
+          "Authorization",
+          render(header.value, environment),
+          header._openapiSerialization,
+        ) !== null),
   );
 }
 /** @param {Record<string, any>} data @param {Record<string, any>} request @param {string} runId */
@@ -214,15 +220,13 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
   /** @type {string[][]} */
   const headers = (request.headers ?? [])
     .filter((/** @type {any} */ h) => !h.disabled && h.name)
-    .map((/** @type {any} */ h) => {
+    .flatMap((/** @type {any} */ h) => {
       const name = resolve(h.name);
       const value = resolve(h.value);
-      return [
-        name,
-        h._openapiSerialization
-          ? serializeOpenApiHeader(name, value, h._openapiSerialization)
-          : value,
-      ];
+      const serialized = h._openapiSerialization
+        ? serializeOpenApiHeader(name, value, h._openapiSerialization)
+        : value;
+      return serialized === null ? [] : [[name, serialized]];
     });
   const setHeader = (
     /** @type {string} */ name,

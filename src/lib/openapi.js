@@ -1,6 +1,7 @@
 import { dereference } from "@scalar/openapi-parser";
 import { validatePathParameters } from "@scalar/openapi-validator";
 import { validateApiDocument } from "./openapi-validation.js";
+import { describeOpenApiValue } from "./openapi-value.js";
 import { sample } from "openapi-sampler";
 import { id, newRequest } from "./model.js";
 import { serializeOpenApiQuery } from "./openapi-query.js";
@@ -243,9 +244,15 @@ export function generateRequests(
         value = "";
       }
       const compound = value != null && typeof value === "object";
+      const descriptor = describeOpenApiValue(
+        value,
+        parameter.schema || {},
+        schema.swagger !== "2.0" &&
+          ["query", "header", "path"].includes(parameter.in),
+      );
       const row = /** @type {Record<string,any>} */ ({
         name: parameter.name,
-        value: compound ? JSON.stringify(value) : String(value ?? ""),
+        value: descriptor.text,
         disabled: false,
       });
       if (parameter.in === "query" || parameter.in === "header") {
@@ -260,11 +267,8 @@ export function generateRequests(
           const serialization = {
             style,
             explode: parameter.explode ?? style === "form",
-            kind: compound
-              ? Array.isArray(value)
-                ? "array"
-                : "object"
-              : "scalar",
+            kind: descriptor.kind,
+            ...(descriptor.nullable ? { nullable: true } : {}),
           };
           try {
             (parameter.in === "query"
@@ -293,11 +297,8 @@ export function generateRequests(
           const serialization = {
             style: parameter.style || "simple",
             explode: parameter.explode ?? false,
-            kind: compound
-              ? Array.isArray(value)
-                ? "array"
-                : "object"
-              : "scalar",
+            kind: descriptor.kind,
+            ...(descriptor.nullable ? { nullable: true } : {}),
           };
           try {
             serializeOpenApiPath(row.name, row.value, serialization);

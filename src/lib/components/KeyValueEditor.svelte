@@ -12,6 +12,7 @@
   import { readUpload } from "../uploads.js";
   /** @type {{ rows: Record<string, any>[], onchange: (rows: Record<string, any>[]) => void, label?: string, files?: boolean }} */
   let { rows = [], onchange, label = "Header", files = false } = $props();
+  const editorId = $props.id();
   let error = $state("");
   let alive = true;
   const fileWork = createWorkspaceWorkScope();
@@ -91,6 +92,9 @@
         {:else}<Input
             variant="inline"
             aria-label={`Value ${index + 1}`}
+            aria-describedby={row._openapiSerialization?.nullable
+              ? `${editorId}-value-${index}-help`
+              : undefined}
             placeholder="Value"
             value={row.value}
             oninput={(event) =>
@@ -99,6 +103,11 @@
                 noValue: false,
               })}
           />{/if}
+        {#if row._openapiSerialization?.nullable}<Feedback
+            id={`${editorId}-value-${index}-help`}
+            tone="hint"
+            density="compact">Use JSON values, including null.</Feedback
+          >{/if}
         {#if files}<Select
             variant="inline"
             aria-label="Field type"

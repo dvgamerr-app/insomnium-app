@@ -1,6 +1,6 @@
 /** Independent expected simple-style header values from OAS examples. */
 export const openApiHeaderCases =
-  /** @type {Array<{id:string,value:any,explode?:boolean,expected:string}>} */ ([
+  /** @type {Array<{id:string,value:any,explode?:boolean,expected:string|null}>} */ ([
     {
       id: "default-array",
       value: ["blue", "black", "brown"],
@@ -42,8 +42,8 @@ export const openApiHeaderCases =
     { id: "scalar-false", value: false, expected: "false" },
     { id: "scalar-zero", value: 0, expected: "0" },
     { id: "scalar-empty", value: "", expected: "" },
-    { id: "empty-array", value: [], expected: "" },
-    { id: "empty-object", value: {}, explode: true, expected: "" },
+    { id: "empty-array", value: [], expected: null },
+    { id: "empty-object", value: {}, explode: true, expected: null },
   ]);
 
 /** @param {string} server */

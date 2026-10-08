@@ -94,7 +94,7 @@ await withNativeApp(
         assert.equal(received[count].target, "/" + entry.id);
         assert.deepEqual(
           received[count].headers.filter(([key]) => key === "x-owned"),
-          [["x-owned", entry.expected]],
+          entry.expected === null ? [] : [["x-owned", entry.expected]],
           "Exact wire header " + entry.id,
         );
         assert.ok(

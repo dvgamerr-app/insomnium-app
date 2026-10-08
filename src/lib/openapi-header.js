@@ -1,7 +1,9 @@
+import { readOpenApiValue } from "./openapi-value.js";
 /** Serialize OpenAPI simple header values without URI encoding or automatic quoting.
  * @param {string} name @param {string} text
- * @param {{style:string,explode:boolean,kind:string}} options */
-export function serializeOpenApiHeader(name, text, { style, explode, kind }) {
+ * @param {{style:string,explode:boolean,kind:string,nullable?:boolean}} options */
+export function serializeOpenApiHeader(name, text, options) {
+  const { style, explode, kind } = options;
   if (style !== "simple") throw new Error(`Unsupported header style ${style}.`);
   const atom = (/** @type {unknown} */ value) => {
     if (
@@ -16,28 +18,24 @@ export function serializeOpenApiHeader(name, text, { style, explode, kind }) {
       );
     return result;
   };
-  if (kind === "scalar") return atom(text);
-  let value;
-  try {
-    value = JSON.parse(text);
-  } catch {
-    throw new Error(`Header parameter ${name} requires valid JSON ${kind}.`);
+  const value = readOpenApiValue(name, text, options, "Header");
+  if (value === null) return null;
+  if (kind === "scalar" || kind === "scalar-json") return atom(value);
+  if (Array.isArray(value)) {
+    const items = value
+      .filter((/** @type {unknown} */ item) => item !== null)
+      .map(atom);
+    return items.length ? items.join(",") : null;
   }
-  if (kind === "array") {
-    if (!Array.isArray(value))
-      throw new Error(`Header parameter ${name} requires a JSON array.`);
-    return value.map(atom).join(",");
-  }
-  if (
-    kind !== "object" ||
-    !value ||
-    typeof value !== "object" ||
-    Array.isArray(value)
-  )
-    throw new Error(`Header parameter ${name} requires a JSON object.`);
-  return Object.entries(value)
+  const entries = Object.entries(value).filter(([, item]) => item !== null);
+  if (!entries.length) return null;
+  return entries
     .map(([key, item]) =>
-      explode ? `${atom(key)}=${atom(item)}` : `${atom(key)},${atom(item)}`,
+      explode
+        ? item === ""
+          ? atom(key)
+          : atom(key) + "=" + atom(item)
+        : atom(key) + "," + atom(item),
     )
     .join(",");
 }

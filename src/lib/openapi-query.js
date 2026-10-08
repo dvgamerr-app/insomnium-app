@@ -1,6 +1,7 @@
+import { readOpenApiValue } from "./openapi-value.js";
 /** Serialize flat OpenAPI 3 query values; delimiters remain distinct from encoded data.
  * @param {string} name @param {string} text
- * @param {{style:string,explode:boolean,kind:string}} options */
+ * @param {{style:string,explode:boolean,kind:string,nullable?:boolean}} options */
 export function serializeOpenApiQuery(name, text, options) {
   const { style, explode, kind } = options;
   const atom = (/** @type {unknown} */ value) => {
@@ -15,27 +16,15 @@ export function serializeOpenApiQuery(name, text, options) {
     );
   };
   const key = atom(name);
-  let value = /** @type {any} */ (text);
-  if (kind !== "scalar") {
-    try {
-      value = JSON.parse(text);
-    } catch {
-      throw new Error(`Query parameter ${name} requires valid JSON ${kind}.`);
-    }
-    if (
-      kind === "array"
-        ? !Array.isArray(value)
-        : kind !== "object" ||
-          !value ||
-          typeof value !== "object" ||
-          Array.isArray(value)
-    )
-      throw new Error(`Query parameter ${name} requires a JSON ${kind}.`);
-  }
+  const value = readOpenApiValue(name, text, options, "Query");
   if (
     !["form", "spaceDelimited", "pipeDelimited", "deepObject"].includes(style)
   )
     throw new Error(`Unsupported query style ${style}.`);
+  if (value === null) {
+    if (style === "form") return "";
+    throw new Error(`Review undefined query values for ${style}.`);
+  }
   if (style === "deepObject") {
     if (kind !== "object" || !explode)
       throw new Error("deepObject requires an exploded flat object.");
@@ -43,18 +32,27 @@ export function serializeOpenApiQuery(name, text, options) {
       .map(([property, item]) => `${key}[${atom(property)}]=${atom(item)}`)
       .join("&");
   }
-  if (style !== "form" && (kind === "scalar" || explode))
+  if (
+    style !== "form" &&
+    (kind === "scalar" || kind === "scalar-json" || explode)
+  )
     throw new Error(`${style} requires a non-exploded array or flat object.`);
-  if (kind === "scalar") return `${key}=${atom(value)}`;
+  if (kind === "scalar" || kind === "scalar-json")
+    return `${key}=${atom(value)}`;
   if (Array.isArray(value)) {
-    const items = value.map(atom);
+    const items = value
+      .filter(
+        (/** @type {unknown} */ item) => style !== "form" || item !== null,
+      )
+      .map(atom);
+    if (style === "form" && !items.length) return "";
     if (explode) return items.map((item) => `${key}=${item}`).join("&");
     return `${key}=${items.join(style === "spaceDelimited" ? "%20" : style === "pipeDelimited" ? "|" : ",")}`;
   }
-  const entries = Object.entries(value).map(([property, item]) => [
-    atom(property),
-    atom(item),
-  ]);
+  const entries = Object.entries(value)
+    .filter(([, item]) => style !== "form" || item !== null)
+    .map(([property, item]) => [atom(property), atom(item)]);
+  if (style === "form" && !entries.length) return "";
   if (explode)
     return entries.map(([property, item]) => `${property}=${item}`).join("&");
   return `${key}=${entries.flat().join(style === "spaceDelimited" ? "%20" : style === "pipeDelimited" ? "|" : ",")}`;
