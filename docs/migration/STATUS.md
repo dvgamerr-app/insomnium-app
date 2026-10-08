@@ -1,5 +1,12 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Playwright headless policy / compact handoff — 2026-10-08
+
+- Owner requested headless Playwright execution. Existing shared tests/ui/helpers/preview-app.js already sets headless:true, with no headed override. Repository scan of saved JS tooling found one browser launch, shared by preview and component fixtures; native-app.js connects to WebView2 after hiding its owned window (native-hidden, not browser headless). Added the explicit owner policy to AGENTS.md.
+- Verified bun tests/ui/design-system.js terminal0; artifacts/playwright/design-system/result.json status:passed. Shared fixture closes its browser and server in finally. No live process handles from this verification. No native scenario rerun was required for this policy-only change.
+- Base commit8175924; this topic's documentation commit follows. Collection CA implementation remains uncommitted and incomplete in src/lib, src-tauri/src and tests/ui/helpers: production loader/transport/Preferences changes plus initial saved fixtures exist, but scenario integration and fresh native build/acceptance remain pending. These changes are excluded from the headless-policy commit. Full PLAN/PARITY migration gates and subsequent UX redesign remain open.
+- This interface cannot invoke /compact. Handoff recorded here; manual compaction has not occurred. Resume the collection CA feature from its uncommitted files after compaction, completing shared HTTP/SSE/WSS/gRPC scenario integration and compiler/build/native verification before committing that feature.
+
 ## Commit / compact handoff — WSS PFX trust — 2026-10-08
 
 - Current topic commit1a10352: fix(wss): retain PFX extra certificates as connection trust anchors. Final production release1791433186292/1791433608432/result0 accepts226 checks: WSS43/multi30/SSE43/HTTP43/gRPC67; exact artifacts/failed runs/source corrections below. Settings restored, all owned apps/fixtures/build/compilers terminal0 except explicitly recorded failed/cancelled attempts, no live process handles. Worktree checkpoint follows this commit.

@@ -1,5 +1,7 @@
 # Project instructions
 
+- Owner instruction (2026-10-08): Run every saved Playwright browser scenario headless through the shared `launchUiBrowser` helper (`headless: true`), with no headed override. Native Tauri scenarios attach to WebView2 and must hide their owned host window before CDP attachment; report these as `native-hidden`.
+
 - Owner instruction (2026-10-07): After completing each feature, commit verified work by topic and compact the session with `/compact` before starting the next feature. Record the current commit, evidence, remaining gates and any live process handles in docs/migration/STATUS.md first. If this agent interface cannot invoke `/compact`, explicitly report that limitation and provide the handoff instead of claiming compaction occurred.
 
 - Owner follow-up (2026-09-30): After the current migration goal is fully complete, build reusable input components in src/lib/components/ui with centralized styling/behavior and redesign UX, using https://hoppscotch.io as a possible reference. Deferred scope and sequence: docs/migration/POST-MIGRATION-UX.md. Preserve the existing Insomnium UI during the current migration; the redesign is the subsequent phase. Browser-use remains prohibited.
