@@ -9,6 +9,15 @@ See `docs/migration/UI-TESTING.md` for the native host and OS dialog limitations
 Reverified 2026-10-08 with `bun tests/ui/design-system.js` (passed). There is one
 shared browser launch and it explicitly enables headless mode.
 
+All four client-certificate entries now cover CA-signed server SAN mismatch,
+expired and future certificates through real native settings/Send/Connect.
+The shared fixture records independently checked signatures/dates/OpenSSL error
+codes, Bun TLS classifications and actual native certificate alerts with zero
+HTTP/RPC/event delivery. Valid-server recovery and four-setting restoration pass.
+Current totals: HTTP15, SSE23, WSS23, gRPC36 including unary and reflection cases.
+No network TLS-validation bypass or trust-store change. See STATUS/UI-TESTING for
+exact evidence and remaining certificate/provider/platform gates.
+
 SSE/WSS client-certificate scenarios also reuse
 `helpers/stream-redirect-certificate.js`: eight native redirect cases per protocol
 cover same-origin chains, host/port/scheme refusal before destination TCP, explicit

@@ -2,6 +2,46 @@
 
 Owner requires Bun-only reusable Playwright JavaScript scenarios with shared helpers and headless execution. Browser-use and ad-hoc browser automation remain prohibited.
 
+2026-10-08 owned server hostname/validity acceptance reuses the four existing
+client-certificate entries. Shared fixture creates three CA-signed server leaves:
+SAN DNS:owned.invalid while connecting to127.0.0.1; expired notAfter; future
+notBefore. Explicit UTC dates use `openssl ca -batch -notext -config ... -startdate
+... -enddate ... -extfile ... -extensions leaf`. The failed initial precheck caught
+missing external extension selection before fixture/settings mutation; corrected
+explicit leaf section retained. Keys/index/serial/config stay inside the exclusively
+created owned-client-certificates directory.
+
+OpenSSL `verify -CAfile ... -purpose sslserver -verify_ip 127.0.0.1 ...` proves
+errors64/10/9. X509 signature/metadata and an offline `-no_check_time` chain-only
+verification distinguish each intended defect from invalid signature/issuer.
+This offline check does not change network TLS validation. Independent Bun fetch
+with explicit CA/client/rejectUnauthorized true reports ERR_TLS_CERT_ALTNAME_INVALID,
+CERT_HAS_EXPIRED and CERT_NOT_YET_VALID, recorded with server fingerprints/SAN/dates.
+Rust listeners retain the same mandatory client verifier; only server cert/key vary.
+Opt-in h2 endpoints serve the same invalid identities for unary and reflection.
+
+Actual native cases require attempted TLS handshakes, server-observed BadCertificate
+or CertificateExpired alerts, no delivered HTTP/RPC/SSE/WSS message/reflection query,
+preserved resources/history and usable recovery on the valid server. Both expired
+and future Rustls refusals send CertificateExpired; independent codes/dates distinguish
+the two defects. Unary failed response and reflection discovery state follow their
+existing distinct contracts. Final original TLS settings are restored and verified.
+
+Final saved runs: HTTP8425/evidence1791422033630 terminal0 passes15; SSE84570/
+1791421961145 passes23; WSS59478/1791421889592 passes23; gRPC5369/1791421811399
+passes36 (three new unary plus three reflection cases). Prior live/redirect/streaming/
+reflection v1alpha contracts still pass. Native-hidden owned apps exit0, fixtures
+close0; compiler0/0/touched JS Prettier/Rustfmt/whitespace pass. Current production
+release1791420051210/1791420404492/result0 reused, no production/dependency/rebuild/
+trust-store change. Controlled IPv4 Windows evidence does not prove arbitrary DNS/
+wildcards/IDNA/intermediates/revocation, legacy certificate models, providers/proxies/
+platforms/network faults or full migration/UX. Exact failure/commit/handoff in STATUS.
+
+Official references consulted before extension: [openssl ca](https://docs.openssl.org/3.0/man1/openssl-ca/),
+[openssl verify](https://docs.openssl.org/3.0/man1/openssl-verify/). Existing saved Rust
+compiler and Rustls ServerConfig client-verifier construction reused; no initializer
+or new package required.
+
 2026-10-08 SSE/WSS client-certificate redirect acceptance: same saved entries now
 reuse `helpers/stream-redirect-certificate.js` and the owned mandatory-auth Rust
 fixture. Eight cases each: relative same-origin redirect/two-hop chain, hostname,
