@@ -24,6 +24,8 @@ pub struct Connection {
     pub timeout_ms: u64,
     pub ca_pem: Option<String>,
     pub identity_pem: Option<String>,
+    #[serde(default)]
+    pub(crate) client_certificates: Vec<crate::client_certificates::ClientCertificateSource>,
 }
 
 pub(crate) fn metadata(rows: &[(String, String)]) -> Result<MetadataMap, String> {
@@ -145,11 +147,14 @@ pub(crate) async fn channel(config: &Connection) -> Result<Channel, String> {
             }
             tls = tls.ca_certificate(Certificate::from_pem(pem));
         }
-        if let Some(pem) = config.identity_pem.as_ref().filter(|p| !p.is_empty()) {
+        if let Some(pem) = crate::client_certificates::load_identity(
+            &config.client_certificates,
+            config.identity_pem.as_deref(),
+        )? {
             if pem.len() > 1024 * 1024 {
                 return Err("gRPC identity exceeds 1 MiB.".into());
             }
-            tls = tls.identity(Identity::from_pem(pem, pem));
+            tls = tls.identity(Identity::from_pem(&pem, &pem));
         }
         endpoint = endpoint
             .tls_config(tls)

@@ -372,10 +372,7 @@ async fn websocket_session(
         outgoing,
         request.signing(),
         request.follow_redirects,
-        request
-            .identity_pem
-            .as_ref()
-            .is_some_and(|pem| !pem.is_empty()),
+        request.has_identity(),
         |outgoing| {
             let builder = reqwest::RequestBuilder::from_parts(client.clone(), outgoing)
                 .upgrade()
@@ -455,10 +452,7 @@ async fn sse_session(
         outgoing,
         request.signing(),
         request.follow_redirects,
-        request
-            .identity_pem
-            .as_ref()
-            .is_some_and(|pem| !pem.is_empty()),
+        request.has_identity(),
         |outgoing| async { client.execute(outgoing).await.map_err(|e| e.to_string()) },
     );
     let response = tokio::select! {

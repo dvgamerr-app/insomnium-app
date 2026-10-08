@@ -1,6 +1,7 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import { environmentFor, render, workspaceFor, id } from "./model.js";
+import { collectionCertificateContext } from "./client-certificates.js";
 
 export const tokenGrants = [
   "authorization_code",
@@ -106,6 +107,7 @@ export function oauthContext(data, request, options = {}) {
     settings.caPem,
     settings.identityHost,
     settings.identityPem,
+    collectionCertificateContext(data, request),
     settings.useCookies,
     request.settingSendCookies,
     request.settingStoreCookies,

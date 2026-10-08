@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { poll } from "./native-app.js";
 import { tlsPreferences } from "./tls-preferences.js";
+import {
+  certificateSettings,
+  protocolCertificateCases,
+} from "./certificate-settings.js";
 
 /** @param {Pick<import('./native-app.js').ScenarioContext, 'page'|'invoke'|'output'>} context
  * @param {Awaited<ReturnType<typeof import('./client-certificate.js').clientCertificateFixture>>} fixture
@@ -13,6 +17,7 @@ export async function grpcReflectionCertificate(
 ) {
   const setTls = tlsPreferences(page, invoke);
   const cases = /** @type {Array<Record<string,any>>} */ ([]);
+  const fileCases = protocolCertificateCases(fixture);
   try {
     for (const [id, ca, host, identity, success, alpha] of [
       [
@@ -111,6 +116,22 @@ export async function grpcReflectionCertificate(
         true,
         true,
       ],
+      ...fileCases.map((entry) => [
+        "reflection-" + entry.id,
+        fixture.ca,
+        "127.0.0.1",
+        entry.preTcp ? fixture.client.identity : "",
+        entry.success,
+        false,
+      ]),
+      [
+        "reflection-collection-v1alpha",
+        fixture.ca,
+        "127.0.0.1",
+        "",
+        true,
+        true,
+      ],
     ]) {
       const label = String(id);
       const server = fixture.invalidServers.find(
@@ -136,6 +157,15 @@ export async function grpcReflectionCertificate(
         return request.url === url && request.protoFileId === "";
       }, "reflection source persisted");
       await setTls(String(ca), String(host), String(identity));
+      const fileCase = fileCases.find(
+        (entry) => "reflection-" + entry.id === id,
+      );
+      if (fileCase) await certificateSettings(page, invoke, fileCase);
+      if (id === "reflection-collection-v1alpha")
+        await certificateSettings(page, invoke, {
+          pfx: fixture.identityFiles.pfx,
+          password: fixture.identityFiles.password,
+        });
       await page.reload();
       const before = await invoke("load_workspace");
       const requestsBefore = fixture.grpcRequests.length;
@@ -340,7 +370,7 @@ export async function grpcReflectionCertificate(
             "Native reflection certificate alert " + server.id,
           );
         }
-        if (label.includes("malformed"))
+        if (label.includes("malformed") || fileCase?.preTcp)
           assert.equal(
             fixture.grpcConnections.count,
             tcpBefore,

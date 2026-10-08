@@ -2,6 +2,7 @@ import { requestDataScope } from "./request-scope.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import { environmentFor, render, workspaceFor, id } from "./model.js";
+import { clientCertificateSelection } from "./client-certificates.js";
 
 /** @typedef {Record<string, any>} Resource */
 export const protoFileLimit = 2 * 1024 * 1024;
@@ -231,6 +232,10 @@ export function grpcConnection(data, request, options = {}) {
       "Enter a gRPC host and port without a path, query or credentials.",
     );
   const settings = data.settings || {};
+  const clientCertificates =
+    url.protocol === "https:"
+      ? clientCertificateSelection(data, request, url.toString())
+      : [];
   return {
     url: url.toString(),
     metadata: (request.metadata || [])
@@ -244,8 +249,11 @@ export function grpcConnection(data, request, options = {}) {
       Math.min(3600000, Number(settings.timeout) || 30000),
     ),
     caPem: url.protocol === "https:" ? settings.caPem || null : null,
+    clientCertificates,
     identityPem:
-      url.protocol === "https:" && settings.identityHost === url.hostname
+      url.protocol === "https:" &&
+      !clientCertificates.length &&
+      settings.identityHost === url.hostname
         ? settings.identityPem || null
         : null,
   };
@@ -356,6 +364,7 @@ export function grpcSourceContext(data, request) {
         "request",
         "websocket_request",
         "grpc_request",
+        "client_certificate",
       ].includes(r._type),
     )
     .map((r) => (r._id === request._id ? source : r));

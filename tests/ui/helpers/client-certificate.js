@@ -5,7 +5,7 @@ import { poll } from "./native-app.js";
 import { X509Certificate } from "node:crypto";
 
 /** Per-run private CA, server and client identities. Trust stays inside the owned fixture/app.
- * @param {string} output @param {{grpc?:boolean}} [options] */
+ * @param {string} output @param {{grpc?:boolean,fileIdentities?:boolean}} [options] */
 export async function clientCertificateFixture(output, options = {}) {
   const root = await realpath(output);
   const relation = relative(resolve("artifacts/playwright"), root);
@@ -15,7 +15,12 @@ export async function clientCertificateFixture(output, options = {}) {
   const openssl = "C:/Program Files/Git/usr/bin/openssl.exe";
   /** @param {string[]} args */
   const run = (args) => {
-    const result = Bun.spawnSync([openssl, ...args], { windowsHide: true });
+    // The MSYS executable cannot load the MinGW legacy provider DLL.
+    const executable =
+      args[0] === "pkcs12"
+        ? "C:/Program Files/Git/mingw64/bin/openssl.exe"
+        : openssl;
+    const result = Bun.spawnSync([executable, ...args], { windowsHide: true });
     assert.equal(result.exitCode, 0, result.stderr.toString());
   };
   /** @param {string} name */
@@ -240,12 +245,89 @@ export async function clientCertificateFixture(output, options = {}) {
   const clientExtensions =
     "basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=clientAuth\n";
   const client = await leaf("client", clientName, "ca", clientExtensions);
+  const password = "owned-PFX-" + crypto.randomUUID();
+  const identityFiles = {
+    cert: join(directory, "client.pem"),
+    key: join(directory, "client.key"),
+    pfx: join(directory, "client.pfx"),
+    legacyPfx: join(directory, "client-legacy.pfx"),
+    encryptedKey: join(directory, "client-encrypted.key"),
+    combined: join(directory, "client-combined.pem"),
+    combinedWrongKey: join(directory, "client-wrong-combined.pem"),
+    legacyKeys: ["aes128", "aes192", "aes256", "des3"].map((cipher) => ({
+      cipher,
+      path: join(directory, "client-" + cipher + ".key"),
+    })),
+    password,
+  };
+  if (options.fileIdentities) {
+    for (const legacy of [false, true]) {
+      run([
+        "pkcs12",
+        "-export",
+        ...(legacy
+          ? [
+              "-legacy",
+              "-provider-path",
+              "C:/Program Files/Git/mingw64/lib/ossl-modules",
+            ]
+          : []),
+        "-in",
+        identityFiles.cert,
+        "-inkey",
+        identityFiles.key,
+        "-certfile",
+        join(directory, "ca.pem"),
+        "-name",
+        "owned-client",
+        "-out",
+        legacy ? identityFiles.legacyPfx : identityFiles.pfx,
+        "-passout",
+        "pass:" + password,
+      ]);
+    }
+    run([
+      "pkcs8",
+      "-topk8",
+      "-v2",
+      "aes-256-cbc",
+      "-iter",
+      "2048",
+      "-in",
+      identityFiles.key,
+      "-out",
+      identityFiles.encryptedKey,
+      "-passout",
+      "pass:" + password,
+    ]);
+    await Bun.write(
+      identityFiles.combined,
+      client.certificate + (await Bun.file(identityFiles.encryptedKey).text()),
+    );
+    for (const entry of identityFiles.legacyKeys) {
+      run([
+        "ec",
+        "-in",
+        identityFiles.key,
+        "-" + entry.cipher,
+        "-out",
+        entry.path,
+        "-passout",
+        "pass:" + password,
+      ]);
+    }
+  }
   const wrongClient = await leaf(
     "wrong-client",
     "owned-untrusted-client",
     "other-ca",
     clientExtensions,
   );
+  if (options.fileIdentities)
+    await Bun.write(
+      identityFiles.combinedWrongKey,
+      client.certificate + wrongClient.key,
+    );
   const ca = await Bun.file(join(directory, "ca.pem")).text();
   const otherCa = await Bun.file(join(directory, "other-ca.pem")).text();
   /** @type {Array<{url:string,method:string,body:string,authorized:boolean,cn:string,fingerprint:string}>} */
@@ -476,6 +558,7 @@ export async function clientCertificateFixture(output, options = {}) {
   const primary = { url: String(state.ready.primary) };
   const sink = { url: String(state.ready.sink) };
   return {
+    identityFiles,
     ca,
     otherCa,
     client,

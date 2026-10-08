@@ -25,6 +25,7 @@ mod grpc_legacy;
 mod grpc_schema;
 mod grpc_transport;
 mod hawk;
+mod client_certificates;
 mod http;
 mod netrc;
 mod network_log;

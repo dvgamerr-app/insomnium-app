@@ -1,3 +1,7 @@
+import {
+  certificateSettings,
+  protocolCertificateCases,
+} from "./helpers/certificate-settings.js";
 import assert from "node:assert/strict";
 import { connect } from "node:http2";
 import { join } from "node:path";
@@ -14,7 +18,10 @@ const message = "owned mutual TLS gRPC response";
 await withNativeApp(
   "grpc-client-certificate",
   async ({ page, invoke, output }) => {
-    const fixture = await clientCertificateFixture(output, { grpc: true });
+    const fixture = await clientCertificateFixture(output, {
+      grpc: true,
+      fileIdentities: true,
+    });
     const original = (await invoke("load_workspace")).settings;
     const setTls = tlsPreferences(page, invoke);
     const cases = /** @type {Array<Record<string,any>>} */ ([]);
@@ -102,6 +109,7 @@ await withNativeApp(
         .getByRole("button", { name: "owned-mtls.proto", exact: true })
         .waitFor();
       const requestId = (await invoke("load_workspace")).activeRequestId;
+      const fileCases = protocolCertificateCases(fixture);
       for (const [id, ca, host, identity, success] of [
         ["missing-identity", fixture.ca, "127.0.0.1", "", false],
         [
@@ -174,8 +182,17 @@ await withNativeApp(
           fixture.client.identity,
           true,
         ],
+        ...fileCases.map((entry) => [
+          entry.id,
+          fixture.ca,
+          "127.0.0.1",
+          entry.preTcp ? fixture.client.identity : "",
+          entry.success,
+        ]),
       ]) {
         await setTls(String(ca), String(host), String(identity));
+        const fileCase = fileCases.find((entry) => entry.id === id);
+        if (fileCase) await certificateSettings(page, invoke, fileCase);
         await page.reload();
         const server = fixture.invalidServers.find(
           (server) => id === "server-" + server.id,
@@ -330,7 +347,10 @@ await withNativeApp(
             ),
           );
         }
-        if (["malformed-ca", "malformed-identity"].includes(String(id)))
+        if (
+          ["malformed-ca", "malformed-identity"].includes(String(id)) ||
+          fileCase?.preTcp
+        )
           assert.equal(
             fixture.grpcConnections.count,
             connections,
@@ -380,11 +400,18 @@ await withNativeApp(
         count,
         "Reload does not send another RPC",
       );
+      await certificateSettings(page, invoke, {
+        pfx: fixture.identityFiles.pfx,
+        password: fixture.identityFiles.password,
+      });
+      await setTls(fixture.ca, "127.0.0.1", "");
       const streaming = await grpcStreamCertificate(
         { page, invoke, output },
         fixture,
         requestId,
       );
+      await certificateSettings(page, invoke, { disabled: true });
+      await setTls(fixture.ca, "127.0.0.1", fixture.client.identity);
       const reflection = await grpcReflectionCertificate(
         { page, invoke, output },
         fixture,

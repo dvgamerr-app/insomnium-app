@@ -880,6 +880,31 @@ export function addFolder(name, parentId = workspace.data.activeWorkspaceId) {
   });
   void persist();
 }
+/** @param {string} collectionId */
+export function addClientCertificate(collectionId) {
+  if (!canEditWorkspace()) return;
+  const collection = workspace.data.resources.find(
+    (r) => r._id === collectionId,
+  );
+  if (collection?._type !== "workspace")
+    throw new Error("Select a collection before adding a client certificate.");
+  const now = Date.now();
+  workspace.data.resources.push({
+    _id: id("crt"),
+    _type: "client_certificate",
+    parentId: collectionId,
+    host: "",
+    cert: null,
+    key: null,
+    pfx: null,
+    passphrase: null,
+    disabled: true,
+    isPrivate: false,
+    created: now,
+    modified: now,
+  });
+  void persist();
+}
 /** @param {string} resourceId */
 export function duplicate(resourceId) {
   if (!canEditWorkspace()) return;

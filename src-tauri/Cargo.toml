@@ -65,6 +65,12 @@ ryu-js = "1.0.3"
 libuv-sys2 = { version = "~1.53.0", features = ["skip-pkg-config"] }
 git2 = { version = "0.21.0", features = ["https", "ssh"] }
 time = "0.3"
+p12-keystore = "=0.3.2"
+pkcs8 = { version = "=0.11.0", features = ["encryption", "pem"] }
+aes = "=0.9.3"
+cbc = "=0.2.1"
+des = "=0.9.0"
+md-5 = "=0.11.0"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

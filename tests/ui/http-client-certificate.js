@@ -3,13 +3,16 @@ import { join } from "node:path";
 import { withNativeApp, poll } from "./helpers/native-app.js";
 import { clientCertificateFixture } from "./helpers/client-certificate.js";
 import { tlsPreferences } from "./helpers/tls-preferences.js";
+import { collectionClientCertificate } from "./helpers/collection-client-certificate.js";
 
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-recovery-copy-probe/build-state.json";
 await withNativeApp(
   "http-client-certificate",
   async ({ page, invoke, output }) => {
-    const fixture = await clientCertificateFixture(output);
+    const fixture = await clientCertificateFixture(output, {
+      fileIdentities: true,
+    });
     const original = (await invoke("load_workspace")).settings;
     const name = "Client certificate " + Date.now();
     const payload = "owned native mutual TLS payload " + crypto.randomUUID();
@@ -17,6 +20,23 @@ await withNativeApp(
     /** @type {Array<Record<string,any>>} */ const cases = [];
     const setTls = tlsPreferences(page, invoke);
     try {
+      await Bun.write(
+        join(output, "tls-original.json"),
+        JSON.stringify(
+          {
+            settings: Object.fromEntries(
+              [
+                "caPem",
+                "identityHost",
+                "identityPem",
+                "validateCertificates",
+              ].map((key) => [key, original[key]]),
+            ),
+          },
+          null,
+          2,
+        ),
+      );
       await fixture.verifyFixture();
       checks.push(
         "independent fixture client verifies server trust and server observes authorized pinned client CN/fingerprint",
@@ -47,6 +67,37 @@ await withNativeApp(
                 headers: [],
                 parameters: [],
                 body: { mimeType: "text/plain", text: payload },
+              },
+              {
+                _id: "crt_mtls",
+                _type: "client_certificate",
+                parentId: "wrk_mtls",
+                host: "127.0.0.1:*",
+                cert: null,
+                key: null,
+                pfx: null,
+                passphrase: null,
+                disabled: true,
+                isPrivate: true,
+              },
+              {
+                _id: "wrk_other_mtls",
+                _type: "workspace",
+                parentId: null,
+                name: name + " isolation",
+                scope: "collection",
+              },
+              {
+                _id: "crt_other_mtls",
+                _type: "client_certificate",
+                parentId: "wrk_other_mtls",
+                host: "127.0.0.1:*",
+                cert: fixture.identityFiles.cert + ".missing",
+                key: null,
+                pfx: null,
+                passphrase: null,
+                disabled: false,
+                isPrivate: true,
               },
             ],
           }),
@@ -325,6 +376,22 @@ await withNativeApp(
             ": native TLS outcome, request resources preserved and no implicit duplicate Send",
         );
       }
+      await setTls(fixture.ca, "127.0.0.1", "");
+      const collectionCases = await collectionClientCertificate(
+        page,
+        invoke,
+        fixture,
+        name,
+        payload,
+        output,
+      );
+      checks.push(
+        ...collectionCases.map(
+          (entry) =>
+            entry.id +
+            ": imported collection file identity/native peer/state preservation",
+        ),
+      );
       await Bun.write(
         join(output, "acceptance.json"),
         JSON.stringify(

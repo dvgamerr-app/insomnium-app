@@ -1,5 +1,6 @@
 <script>
   import Icon from "./Icon.svelte";
+  import ClientCertificates from "./ClientCertificates.svelte";
   import Button from "./ui/Button.svelte";
   import Checkbox from "./ui/Checkbox.svelte";
   import Dropdown from "./ui/Dropdown.svelte";
@@ -287,7 +288,7 @@
               >
               <Field
                 label="Client certificate host"
-                description="Client identity applies only to matching hostnames."
+                description="Fallback identity when no enabled collection certificate matches this hostname."
                 ><Input
                   placeholder="api.example.com"
                   value={settings.identityHost}
@@ -304,6 +305,12 @@
                 ></Textarea></Field
               >
             </section>
+            {#if collection}
+              <ClientCertificates
+                collectionId={collection._id}
+                collectionName={collection.name || "this collection"}
+              />
+            {/if}
           {:else if tab === "Git"}
             <section
               class="settings-section"
@@ -409,14 +416,17 @@
   }
   h2,
   h3,
-  p {
+  p,
+  .settings-panel :global(.settings-section h3),
+  .settings-panel :global(.settings-section p) {
     margin: 0;
   }
   h2 {
     font-size: var(--font-size-15);
     font-weight: 600;
   }
-  h3 {
+  h3,
+  .settings-panel :global(.settings-section h3) {
     font-size: var(--font-size-13);
     font-weight: 600;
   }
@@ -432,13 +442,13 @@
     gap: var(--space-20);
     padding: var(--space-20);
   }
-  .settings-section,
+  .settings-panel :global(.settings-section),
   .settings-form {
     display: flex;
     flex-direction: column;
     gap: var(--space-12);
   }
-  .settings-section {
+  .settings-panel :global(.settings-section) {
     padding: var(--space-18);
     border: 1px solid var(--line);
   }

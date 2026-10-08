@@ -8,6 +8,7 @@ import { composeCurlBody, appendCurlFileQuery } from "./curl-body.js";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { environmentFor, render, workspaceFor, protocolFor } from "./model.js";
 import { oauthHeader } from "./oauth-model.js";
+import { clientCertificateSelection } from "./client-certificates.js";
 import { prepareOAuth1 } from "./oauth1-model.js";
 import { prepareHawk } from "./hawk-model.js";
 import { prepareAsap } from "./asap-model.js";
@@ -453,6 +454,11 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
     Number(settings.timeout) > 3600000
   )
     throw new Error("Set a timeout between 1 and 3,600,000 ms in Preferences.");
+  const clientCertificates = clientCertificateSelection(
+    data,
+    request,
+    url.toString(),
+  );
   return {
     id: runId,
     workspaceId: workspaceFor(data.resources, request._id),
@@ -491,8 +497,9 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
     storeCookies: request.settingStoreCookies !== false,
     proxy: settings.proxy || null,
     caPem: settings.caPem || null,
+    clientCertificates,
     identityPem:
-      settings.identityHost === url.hostname
+      !clientCertificates.length && settings.identityHost === url.hostname
         ? settings.identityPem || null
         : null,
   };

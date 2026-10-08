@@ -1,5 +1,11 @@
 # Saved UI test execution
 
+2026-10-08 collection file client certificates: final production release1791424397215/1791424847416/result0 accepts HTTP34 (1791424863060), SSE29 (1791424954973), WSS29 (1791425036395) and gRPC49 (1791425141937), all terminal0/native-hidden/exit0/four settings restored. Existing saved entries now edit collection certificate fields through Preferences and reload before sends. Shared native loader is exercised with PEM, encrypted PKCS8, modern/legacy PFX and traditional AES/3DES PEM; HTTP verifies separate-key precedence, bad passwords/missing files before TCP despite valid global fallback, disabled/host/port mismatch, remapped import/other-collection isolation, redirect destinationTCP0, Add/Remove and Git exclusion with Private off. SSE/WSS/unary/reflection share six collection identity cases. gRPC streaming uses collection PFX with global identity empty; reflection v1/v1alpha discovery-to-Send is accepted.
+
+Mounted Browse cancel/selection is verified with a controlled dialog IPC reply, preserving actual workspace persistence/native sends. This does not prove the OS file-dialog surface. Native Preferences screenshot confirms section spacing/heading inheritance and path/Browse layout after the CSS correction. Shared browser launcher remains headless:true; actual Tauri WebView2 hosts are native-hidden.
+
+Fixture generates owned keys only through documented OpenSSL pkcs12 -export/-legacy, pkcs8 -topk8 -v2 aes-256-cbc and ec -aes128/-aes192/-aes256/-des3. Git MinGW OpenSSL is required for its legacy provider; initial MSYS/provider failures were fixture-only and occurred before settings/network mutation. Official references and exact failed/accepted handles are recorded in STATUS. Full arbitrary/multi-key/multiple-match/provider/platform/fault/CSS/OS-dialog parity remains open.
+
 Owner requires Bun-only reusable Playwright JavaScript scenarios with shared helpers and headless execution. Browser-use and ad-hoc browser automation remain prohibited.
 
 2026-10-08 owned server hostname/validity acceptance reuses the four existing

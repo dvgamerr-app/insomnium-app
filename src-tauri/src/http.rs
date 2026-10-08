@@ -57,6 +57,8 @@ pub struct HttpRequest {
     pub(crate) proxy: Option<String>,
     pub(crate) ca_pem: Option<String>,
     pub(crate) identity_pem: Option<String>,
+    #[serde(default)]
+    pub(crate) client_certificates: Vec<crate::client_certificates::ClientCertificateSource>,
     pub(crate) digest: Option<crate::digest::DigestCredentials>,
     pub(crate) oauth1: Option<crate::oauth1::OAuth1Credentials>,
     pub(crate) aws: Option<crate::aws::AwsCredentials>,
@@ -68,6 +70,11 @@ pub struct HttpRequest {
 }
 
 impl HttpRequest {
+    pub(crate) fn has_identity(&self) -> bool {
+        !self.client_certificates.is_empty()
+            || self.identity_pem.as_ref().is_some_and(|p| !p.is_empty())
+    }
+
     pub(crate) fn signing(&self) -> crate::digest::Auth<'_> {
         crate::digest::Auth {
             digest: self.digest.as_ref(),
@@ -141,8 +148,8 @@ pub async fn send_http(
     state: tauri::State<'_, NetworkState>,
     cookie_state: tauri::State<'_, crate::cookies::CookieState>,
 ) -> Result<HttpResponse, HttpFailure> {
-    let url = Url::parse(&request.url)
-        .map_err(|e| HttpFailure::early(format!("Invalid URL: {e}")))?;
+    let url =
+        Url::parse(&request.url).map_err(|e| HttpFailure::early(format!("Invalid URL: {e}")))?;
     if !matches!(url.scheme(), "http" | "https") {
         return Err(HttpFailure::early(
             "Only HTTP and HTTPS URLs can be sent as HTTP requests",
@@ -160,10 +167,7 @@ pub async fn send_http(
             validate_certificates: request.validate_certificates,
             follow_redirects: request.follow_redirects,
             custom_ca: request.ca_pem.as_ref().is_some_and(|p| !p.is_empty()),
-            client_certificate: request
-                .identity_pem
-                .as_ref()
-                .is_some_and(|p| !p.is_empty()),
+            client_certificate: request.has_identity(),
         },
     )));
     let hops = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
@@ -180,10 +184,7 @@ pub async fn send_http(
             outgoing,
             request.signing(),
             request.follow_redirects,
-            request
-                .identity_pem
-                .as_ref()
-                .is_some_and(|pem| !pem.is_empty()),
+            request.has_identity(),
             |outgoing| {
                 let (client, log, hops) = (&client, log.clone(), hops.clone());
                 let validate = request.validate_certificates;
@@ -352,11 +353,7 @@ pub(crate) fn build_client(
     websocket: bool,
 ) -> Result<Client, String> {
     // An identity belongs to this origin; a redirect must not offer it to a different server.
-    let identity_origin = request
-        .identity_pem
-        .as_ref()
-        .filter(|p| !p.is_empty())
-        .map(|_| url.origin());
+    let identity_origin = request.has_identity().then(|| url.origin());
     let manual_authorization = request
         .headers
         .iter()
@@ -413,7 +410,10 @@ pub(crate) fn build_client(
             reqwest::Certificate::from_pem(pem.as_bytes()).map_err(|e| e.to_string())?,
         );
     }
-    if let Some(pem) = request.identity_pem.as_ref().filter(|p| !p.is_empty()) {
+    if let Some(pem) = crate::client_certificates::load_identity(
+        &request.client_certificates,
+        request.identity_pem.as_deref(),
+    )? {
         builder = builder
             .identity(reqwest::Identity::from_pem(pem.as_bytes()).map_err(|e| e.to_string())?);
     }

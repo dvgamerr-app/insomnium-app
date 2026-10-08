@@ -1,3 +1,7 @@
+import {
+  certificateSettings,
+  protocolCertificateCases,
+} from "./certificate-settings.js";
 import assert from "node:assert/strict";
 import { join, relative, resolve } from "node:path";
 import { withNativeApp, poll } from "./native-app.js";
@@ -34,7 +38,9 @@ export async function streamClientCertificate(protocol) {
       const recovery = recoveryPath
         ? await Bun.file(recoveryPath).json()
         : null;
-      const fixture = await clientCertificateFixture(output);
+      const fixture = await clientCertificateFixture(output, {
+        fileIdentities: true,
+      });
       const original =
         recovery?.settings || (await invoke("load_workspace")).settings;
       const setTls = tlsPreferences(page, invoke);
@@ -201,6 +207,7 @@ export async function streamClientCertificate(protocol) {
             })
             .click();
         await select();
+        const fileCases = protocolCertificateCases(fixture);
         for (const [id, ca, host, identity, success] of [
           ["missing-identity", fixture.ca, "127.0.0.1", "", false],
           [
@@ -266,8 +273,17 @@ export async function streamClientCertificate(protocol) {
             fixture.client.identity,
             true,
           ],
+          ...fileCases.map((entry) => [
+            entry.id,
+            fixture.ca,
+            "127.0.0.1",
+            entry.preTcp ? fixture.client.identity : "",
+            entry.success,
+          ]),
         ]) {
           await setTls(String(ca), String(host), String(identity));
+          const fileCase = fileCases.find((entry) => entry.id === id);
+          if (fileCase) await certificateSettings(page, invoke, fileCase);
           await page.reload();
           await select();
           const server = fixture.invalidServers.find(
@@ -421,7 +437,10 @@ export async function streamClientCertificate(protocol) {
             );
             await page.locator(".stream-pane .status-badge.failure").waitFor();
           }
-          if (["malformed-ca", "malformed-identity"].includes(String(id)))
+          if (
+            ["malformed-ca", "malformed-identity"].includes(String(id)) ||
+            fileCase?.preTcp
+          )
             assert.equal(
               fixture.connections.primary,
               connections,
@@ -476,6 +495,8 @@ export async function streamClientCertificate(protocol) {
           fixture,
           protocol,
         );
+        await certificateSettings(page, invoke, { disabled: true });
+        await setTls(fixture.ca, "127.0.0.1", fixture.client.identity);
         const live = websocket
           ? await wssLiveCertificate({ page, invoke, output }, fixture)
           : await sseLiveCertificate({ page, invoke, output }, fixture);
