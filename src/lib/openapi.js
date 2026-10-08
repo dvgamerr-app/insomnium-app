@@ -5,6 +5,7 @@ import { sample } from "openapi-sampler";
 import { id, newRequest } from "./model.js";
 import { serializeOpenApiQuery } from "./openapi-query.js";
 import { serializeOpenApiHeader } from "./openapi-header.js";
+import { serializeOpenApiPath } from "./openapi-path.js";
 
 import { parseSpec, methods } from "./openapi-document.js";
 
@@ -287,6 +288,30 @@ export function generateRequests(
           row,
         );
       } else if (parameter.in === "path") {
+        if (schema.swagger !== "2.0" && !parameter.content) {
+          request._openapiPath = true;
+          const serialization = {
+            style: parameter.style || "simple",
+            explode: parameter.explode ?? false,
+            kind: compound
+              ? Array.isArray(value)
+                ? "array"
+                : "object"
+              : "scalar",
+          };
+          try {
+            serializeOpenApiPath(row.name, row.value, serialization);
+            row._openapiSerialization = serialization;
+          } catch (error) {
+            issues.push(`Parameter ${parameter.name}: ${error}`);
+          }
+          request.pathParameters.push(row);
+          continue;
+        }
+        if (parameter.content)
+          issues.push(
+            `Review content serialization for path parameter ${parameter.name}.`,
+          );
         if (compound || (parameter.style && parameter.style !== "simple"))
           issues.push(
             `Review serialization for path parameter ${parameter.name}.`,

@@ -1,5 +1,13 @@
 # UI scenarios (Playwright + Bun)
 
+`bun tests/ui/openapi-path-serialization.js` generates owned simple/label/matrix
+path requests through actual API Design and checks 42 independent raw TCP targets
+plus six edit/disabled/malformed/nested/dot-normalization/removed-row controls
+(48 groups). Includes embedded/repeated placeholders, static colons, encoded
+Unicode/slash/percent/delimiter data, empty/false/zero and RFC6570 empty/undefined
+composite members. Invalid required path values cannot dispatch or mutate history;
+resources/reload stay preserved. Build recovery-copy probe first; run sequentially.
+
 `bun tests/ui/openapi-header-serialization.js` uses actual owned native API Design
 generation and Send to check 12 raw TCP header values plus edited/disabled/invalid
 JSON/nested/control-character cases (17 groups). It checks simple array/object

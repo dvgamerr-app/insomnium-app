@@ -7,6 +7,7 @@ import {
 import { composeCurlBody, appendCurlFileQuery } from "./curl-body.js";
 import { serializeOpenApiQuery } from "./openapi-query.js";
 import { serializeOpenApiHeader } from "./openapi-header.js";
+import { expandOpenApiPath } from "./openapi-path.js";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { environmentFor, render, workspaceFor, protocolFor } from "./model.js";
 import { oauthHeader } from "./oauth-model.js";
@@ -170,17 +171,24 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
       throw new Error("Enter a ws:// or wss:// URL");
   } else if (!["http:", "https:"].includes(url.protocol))
     throw new Error("Enter an HTTP or HTTPS URL");
-  if (Array.isArray(request.pathParameters)) {
-    url.pathname = url.pathname.replace(
-      /(^|\/):([^/]+)(?=\/|$)/g,
-      (_, prefix, name) => {
-        const parameter = request.pathParameters.find(
-          (/** @type {any} */ p) => p.name === name && !p.disabled,
-        );
-        if (!parameter) throw new Error(`Path variable not found: ${name}`);
-        return prefix + encodeURIComponent(resolve(parameter.value));
-      },
+  if (Array.isArray(request.pathParameters) || request._openapiPath) {
+    expandOpenApiPath(
+      url,
+      request.pathParameters ?? [],
+      resolve,
+      request._openapiPath === true,
     );
+    if (!request._openapiPath)
+      url.pathname = url.pathname.replace(
+        /(^|\/):([^/]+)(?=\/|$)/g,
+        (_, prefix, name) => {
+          const parameter = request.pathParameters.find(
+            (/** @type {any} */ p) => p.name === name && !p.disabled,
+          );
+          if (!parameter) throw new Error(`Path variable not found: ${name}`);
+          return prefix + encodeURIComponent(resolve(parameter.value));
+        },
+      );
   }
   if (protocol !== "websocket" && request.body?.curlQuery === true) {
     const queryUrl = appendCurlFileQuery(
