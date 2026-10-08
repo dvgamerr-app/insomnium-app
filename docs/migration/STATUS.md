@@ -1,5 +1,12 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## JSON media recognition — committed handoff — 2026-10-09
+
+- Current topic commit5006da0 (fix(openapi): recognize valid JSON media type variants) contains the verified shared classifier, generation/serialization metadata, saved scenarios and current evidence documentation. Topic worktree was clean; this entry is the documentation checkpoint.
+- Production release1791496205618/finished1791496581659/result0/hash16164581620064366542 accepts form1791496588035/208 actual56/56/41/55, content1791499051682/239 actual66×3versions+41controls with36new media groups, and URL1791501791897/45raw targets42independent signatures. Form25193/content82566/URL13405 all terminal0/passed/native-hidden/visiblefalse/native50240/46316/52788exit0; owned scenario/profile processes and servers released. Compiler0/0, selected format/diff, inline419wire419Git52refusals24parser4quoted-pair36versioned-array controls, headless60editor rows6profiles and all4versions quoted-media760 images pass. No feature-owned live process handles remain.
+- Full original migration/UX goal remains active. Next concrete media gates: whole request-body MIME selection, text media parameters/non-UTF8, structured suffixes/ranges/lists, older text-array/provider/raw interoperability and saved-generated-resource migration/regeneration policy. Every original PLAN/PARITY broader OpenAPI/schema, TLS/Git/storage/CI/release/desktop/platform and UX/CSS ownership/adoption/validation/interaction gate remains required. No scope reduction/full completion; no next feature started. Exact rules/primary sources/commands/limits: OPENAPI-JSON-MEDIA.md and verified acceptance below.
+- Current tool inventory exposes no callable compaction operation. This interface cannot invoke /compact; compaction is not claimed. Handoff recorded before another feature. Revalidate current HEAD/worktree, applicable Claude instructions and STATUS/PLAN/PARITY on continuation. Saved browser scenarios use headless:true through launchUiBrowser; native hosts hide before CDP and report native-hidden. Bun-only tooling and existing UI/layout preservation remain required; redesign remains the subsequent phase.
+
 ## JSON media recognition — verified acceptance — 2026-10-09
 
 - Final selected format check initially found two pre-existing extra blank lines in saved UI README; normalized only those lines and reran selected format/diff checks successfully. No production changes after native verification.
