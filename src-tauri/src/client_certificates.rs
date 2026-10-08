@@ -2,10 +2,212 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use cbc::cipher::{block_padding::Pkcs7, BlockModeDecrypt, KeyIvInit};
 use md5::{Digest, Md5};
 use p12_keystore::{KeyStore, KeyStoreEntry, Pkcs12ImportPolicy};
+use rustls::{
+    client::ResolvesClientCert,
+    pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer},
+    sign::{CertifiedKey, SigningKey},
+    SignatureAlgorithm, SignatureScheme,
+};
 use serde::Deserialize;
+use std::sync::Arc;
 use std::{fs::File, io::Read};
 
 const MAX_FILE: usize = 1024 * 1024;
+
+struct Candidate {
+    key: Arc<CertifiedKey>,
+    issuers: Vec<Vec<u8>>,
+}
+
+struct WebSocketIdentities(Vec<Candidate>);
+
+impl std::fmt::Debug for WebSocketIdentities {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WebSocketIdentities")
+            .field("count", &self.0.len())
+            .finish()
+    }
+}
+
+impl ResolvesClientCert for WebSocketIdentities {
+    fn resolve(&self, hints: &[&[u8]], schemes: &[SignatureScheme]) -> Option<Arc<CertifiedKey>> {
+        for scheme in schemes {
+            for candidate in &self.0 {
+                if candidate.key.key.choose_scheme(&[*scheme]).is_some()
+                    && (hints.is_empty()
+                        || candidate
+                            .issuers
+                            .iter()
+                            .any(|issuer| hints.contains(&issuer.as_slice())))
+                {
+                    return Some(candidate.key.clone());
+                }
+            }
+        }
+        None
+    }
+    fn has_certs(&self) -> bool {
+        !self.0.is_empty()
+    }
+}
+
+fn certificate_algorithm(chain: &[CertificateDer<'static>]) -> Result<SignatureAlgorithm, String> {
+    let leaf = chain.first().ok_or("Client certificate chain is empty.")?;
+    let (_, cert) = x509_parser::parse_x509_certificate(leaf.as_ref())
+        .map_err(|_| "Invalid client certificate DER.")?;
+    match cert
+        .public_key()
+        .algorithm
+        .algorithm
+        .to_id_string()
+        .as_str()
+    {
+        "1.2.840.113549.1.1.1" | "1.2.840.113549.1.1.10" => Ok(SignatureAlgorithm::RSA),
+        "1.2.840.10045.2.1" => Ok(SignatureAlgorithm::ECDSA),
+        "1.3.101.112" => Ok(SignatureAlgorithm::ED25519),
+        _ => Err("Unsupported WebSocket client certificate key algorithm.".into()),
+    }
+}
+
+/// Legacy WSS supplies independent certificate/key arrays, matched by algorithm,
+/// with later entries replacing earlier entries of that algorithm. PFX is loaded
+/// after the PEM arrays. HTTP/SSE retain Curl's last populated field selection.
+pub(crate) fn websocket_identity(
+    sources: &[ClientCertificateSource],
+    fallback: Option<&str>,
+) -> Result<Option<reqwest::Identity>, String> {
+    if sources.is_empty() {
+        return fallback
+            .filter(|pem| !pem.is_empty())
+            .map(|pem| reqwest::Identity::from_pem(pem.as_bytes()).map_err(|e| e.to_string()))
+            .transpose();
+    }
+    if sources.len() > 32 {
+        return Err("More than 32 client certificates match this destination.".into());
+    }
+    let provider = rustls::crypto::ring::default_provider();
+    let mut chains: Vec<(SignatureAlgorithm, Vec<CertificateDer<'static>>)> = Vec::new();
+    let mut keys: Vec<Arc<dyn SigningKey>> = Vec::new();
+    let mut add_chain = |value: &str| -> Result<(), String> {
+        let chain = CertificateDer::pem_slice_iter(value.as_bytes())
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|_| "Invalid WebSocket client certificate PEM.")?;
+        let algorithm = certificate_algorithm(&chain)?;
+        chains.retain(|(existing, _)| *existing != algorithm);
+        chains.push((algorithm, chain));
+        Ok(())
+    };
+    let add_key = |value: &str,
+                   password: &str,
+                   chains: &[(SignatureAlgorithm, Vec<CertificateDer<'static>>)],
+                   keys: &mut Vec<Arc<dyn SigningKey>>|
+     -> Result<(), String> {
+        let pem = key_material(value, password)?;
+        let der = PrivateKeyDer::from_pem_slice(pem.as_bytes())
+            .map_err(|_| "Invalid WebSocket client private key PEM.")?;
+        let key = provider
+            .key_provider
+            .load_private_key(der)
+            .map_err(|_| "Unsupported WebSocket client private key.")?;
+        if let Some((_, chain)) = chains
+            .iter()
+            .find(|(algorithm, _)| *algorithm == key.algorithm())
+        {
+            CertifiedKey::new(chain.clone(), key.clone())
+                .keys_match()
+                .map_err(|_| "WebSocket client certificate and private key do not match.")?;
+        }
+        keys.retain(|existing| existing.algorithm() != key.algorithm());
+        keys.push(key);
+        Ok(())
+    };
+    for source in sources {
+        let password = source.passphrase.as_deref().unwrap_or("");
+        if password.len() > 32768 {
+            return Err("Client certificate passphrase exceeds 32 KiB.".into());
+        }
+        if let Some(path) = source.cert.as_deref().filter(|path| !path.is_empty()) {
+            let value = String::from_utf8(read_file(path)?)
+                .map_err(|_| "Client certificate PEM must be UTF-8.")?;
+            add_chain(&certificate_chain(&value)?)?;
+        }
+    }
+    drop(add_chain);
+    // Node loads every certificate first, then checks each key immediately.
+    // An earlier mismatched key must not be hidden by a later valid key.
+    for source in sources {
+        let password = source.passphrase.as_deref().unwrap_or("");
+        if let Some(path) = source.cert.as_deref().filter(|path| !path.is_empty()) {
+            let value = String::from_utf8(read_file(path)?)
+                .map_err(|_| "Client certificate PEM must be UTF-8.")?;
+            if source
+                .key
+                .as_deref()
+                .filter(|path| !path.is_empty())
+                .is_none()
+                && value.contains("PRIVATE KEY-----")
+            {
+                add_key(&value, password, &chains, &mut keys)?;
+            }
+        }
+        if let Some(path) = source.key.as_deref().filter(|path| !path.is_empty()) {
+            let value = String::from_utf8(read_file(path)?)
+                .map_err(|_| "Client private key PEM must be UTF-8.")?;
+            add_key(&value, password, &chains, &mut keys)?;
+        }
+    }
+    // Node's secure-context initialization adds PFX after its certificate/key arrays.
+    for source in sources {
+        if source.pfx.as_deref().is_some_and(|path| !path.is_empty()) {
+            let pfx = ClientCertificateSource {
+                cert: None,
+                key: None,
+                pfx: source.pfx.clone(),
+                passphrase: source.passphrase.clone(),
+            };
+            if let Some(value) = load_identity(&[pfx], None)? {
+                let chain = CertificateDer::pem_slice_iter(value.as_bytes())
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(|_| "Invalid WebSocket client certificate PEM.")?;
+                let algorithm = certificate_algorithm(&chain)?;
+                chains.retain(|(existing, _)| *existing != algorithm);
+                chains.push((algorithm, chain));
+                add_key(&value, "", &chains, &mut keys)?;
+            }
+        }
+    }
+    let mut candidates = Vec::new();
+    for key in keys {
+        let chain = chains
+            .iter()
+            .find(|(algorithm, _)| *algorithm == key.algorithm())
+            .map(|(_, chain)| chain.clone())
+            .ok_or("WebSocket private key has no matching certificate algorithm.")?;
+        let certified = CertifiedKey::new(chain, key);
+        certified
+            .keys_match()
+            .map_err(|_| "WebSocket client certificate and private key do not match.")?;
+        let mut issuers = Vec::new();
+        for cert in &certified.cert {
+            let (_, parsed) = x509_parser::parse_x509_certificate(cert.as_ref())
+                .map_err(|_| "Invalid client certificate DER.")?;
+            issuers.push(parsed.issuer().as_raw().to_vec());
+        }
+        candidates.push(Candidate {
+            key: Arc::new(certified),
+            issuers,
+        });
+    }
+    if candidates.is_empty() {
+        if !chains.is_empty() {
+            return Err("WebSocket client certificate has no private key.".into());
+        }
+        return Ok(None);
+    }
+    Ok(Some(reqwest::Identity::from_rustls_resolver(Arc::new(
+        WebSocketIdentities(candidates),
+    ))))
+}
 
 #[derive(Clone, Deserialize)]
 pub(crate) struct ClientCertificateSource {

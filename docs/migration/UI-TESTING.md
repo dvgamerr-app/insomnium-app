@@ -1,5 +1,22 @@
 # Saved UI test execution
 
+WSS multiple collection identities: `bun tests/ui/wss-multiple-client-certificates.js`
+uses the production native probe and owned RSA/ECDSA CA-signed client identities.
+Five mandatory-verification servers restrict client CertificateVerify schemes to
+RSA-PSS-SHA256 or ECDSA-P256-SHA256 under TLS1.2/TLS1.3; one advertises no CA hints.
+Independent Bun requests first prove each server's identity/scheme/version contract.
+The 25-case native matrix covers both PEM/PFX orders, independent cert/key arrays,
+same-algorithm certificate replacement and earlier/final key mismatch, overwritten
+missing files, disabled rows, unsupported requested algorithm, PFX-after-PEM and
+issuer-hint mismatch and cross-origin refusal. Each Connect checks pinned actual peer identity, received
+message or no payload, full resources/retained history, reload preservation and
+error badge. Selected-file errors require TCP0 even with a valid global PEM.
+Settings and fixture processes are restored in finally. Fresh native replay
+1791427428309/session31770 terminal0 passes25 after fixing reload's unconditional
+error-to-closed normalization; build1791426939853/1791427419116/result0. Exact
+failed/accepted evidence is recorded in STATUS. This does not establish multi-key
+PFX containers, all signature algorithms or exact legacy TLS preference parity.
+
 2026-10-08 collection file client certificates: final production release1791424397215/1791424847416/result0 accepts HTTP34 (1791424863060), SSE29 (1791424954973), WSS29 (1791425036395) and gRPC49 (1791425141937), all terminal0/native-hidden/exit0/four settings restored. Existing saved entries now edit collection certificate fields through Preferences and reload before sends. Shared native loader is exercised with PEM, encrypted PKCS8, modern/legacy PFX and traditional AES/3DES PEM; HTTP verifies separate-key precedence, bad passwords/missing files before TCP despite valid global fallback, disabled/host/port mismatch, remapped import/other-collection isolation, redirect destinationTCP0, Add/Remove and Git exclusion with Private off. SSE/WSS/unary/reflection share six collection identity cases. gRPC streaming uses collection PFX with global identity empty; reflection v1/v1alpha discovery-to-Send is accepted.
 
 Mounted Browse cancel/selection is verified with a controlled dialog IPC reply, preserving actual workspace persistence/native sends. This does not prove the OS file-dialog surface. Native Preferences screenshot confirms section spacing/heading inheritance and path/Browse layout after the CSS correction. Shared browser launcher remains headless:true; actual Tauri WebView2 hosts are native-hidden.

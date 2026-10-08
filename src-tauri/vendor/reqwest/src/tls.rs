@@ -90,6 +90,8 @@ pub struct Identity {
 }
 
 enum ClientCert {
+    #[cfg(feature = "__rustls")]
+    Resolver(std::sync::Arc<dyn rustls::client::ResolvesClientCert>),
     #[cfg(feature = "native-tls")]
     Pkcs12(native_tls_crate::Identity),
     #[cfg(feature = "native-tls")]
@@ -104,6 +106,8 @@ enum ClientCert {
 impl Clone for ClientCert {
     fn clone(&self) -> Self {
         match self {
+            #[cfg(feature = "__rustls")]
+            Self::Resolver(resolver) => Self::Resolver(resolver.clone()),
             #[cfg(feature = "native-tls")]
             Self::Pkcs8(i) => Self::Pkcs8(i.clone()),
             #[cfg(feature = "native-tls")]
@@ -239,6 +243,17 @@ impl Certificate {
 }
 
 impl Identity {
+    /// Use an application resolver for multiple client identities while retaining
+    /// reqwest's normal trust roots, verification, ALPN and connector setup.
+    /// Insomnium vendored extension; requires the Rustls backend.
+    #[cfg(feature = "__rustls")]
+    pub fn from_rustls_resolver(
+        resolver: std::sync::Arc<dyn rustls::client::ResolvesClientCert>,
+    ) -> Self {
+        Self {
+            inner: ClientCert::Resolver(resolver),
+        }
+    }
     /// Parses a DER-formatted PKCS #12 archive, using the specified password to decrypt the key.
     ///
     /// The archive should contain a leaf certificate and its private key, as well any intermediate
@@ -393,7 +408,9 @@ impl Identity {
                 Ok(())
             }
             #[cfg(feature = "__rustls")]
-            ClientCert::Pem { .. } => Err(crate::error::builder("incompatible TLS identity type")),
+            ClientCert::Pem { .. } | ClientCert::Resolver(..) => {
+                Err(crate::error::builder("incompatible TLS identity type"))
+            }
         }
     }
 
@@ -407,6 +424,9 @@ impl Identity {
         >,
     ) -> crate::Result<rustls::ClientConfig> {
         match self.inner {
+            ClientCert::Resolver(resolver) => {
+                Ok(config_builder.with_client_cert_resolver(resolver))
+            }
             ClientCert::Pem { key, certs } => config_builder
                 .with_client_auth_cert(certs, key)
                 .map_err(crate::error::builder),

@@ -5,7 +5,7 @@ import { poll } from "./native-app.js";
 import { X509Certificate } from "node:crypto";
 
 /** Per-run private CA, server and client identities. Trust stays inside the owned fixture/app.
- * @param {string} output @param {{grpc?:boolean,fileIdentities?:boolean}} [options] */
+ * @param {string} output @param {{grpc?:boolean,fileIdentities?:boolean,multipleIdentities?:boolean}} [options] */
 export async function clientCertificateFixture(output, options = {}) {
   const root = await realpath(output);
   const relation = relative(resolve("artifacts/playwright"), root);
@@ -24,14 +24,12 @@ export async function clientCertificateFixture(output, options = {}) {
     assert.equal(result.exitCode, 0, result.stderr.toString());
   };
   /** @param {string} name */
-  const authority = (name) => {
+  const authority = (name, rsa = false) => {
     run([
       "req",
       "-x509",
       "-newkey",
-      "ec",
-      "-pkeyopt",
-      "ec_paramgen_curve:P-256",
+      ...(rsa ? ["rsa:2048"] : ["ec", "-pkeyopt", "ec_paramgen_curve:P-256"]),
       "-noenc",
       "-keyout",
       join(directory, name + ".key"),
@@ -49,6 +47,7 @@ export async function clientCertificateFixture(output, options = {}) {
   };
   authority("ca");
   authority("other-ca");
+  if (options.multipleIdentities) authority("rsa-ca", true);
   const configPath = join(directory, "validity-ca.cnf");
   const configFile = (/** @type {string} */ name) =>
     join(directory, name).replaceAll("\\", "/");
@@ -60,7 +59,7 @@ export async function clientCertificateFixture(output, options = {}) {
   );
   const clientName = "owned-client-" + crypto.randomUUID();
   /** @param {string} name @param {string} cn @param {string} issuer @param {string} extensions @param {{start:string,end:string}} [dates] */
-  const leaf = async (name, cn, issuer, extensions, dates) => {
+  const leaf = async (name, cn, issuer, extensions, dates, rsa = false) => {
     await Bun.write(
       join(directory, name + ".extensions"),
       (dates ? "[leaf]\n" : "") + extensions,
@@ -69,9 +68,7 @@ export async function clientCertificateFixture(output, options = {}) {
       "req",
       "-new",
       "-newkey",
-      "ec",
-      "-pkeyopt",
-      "ec_paramgen_curve:P-256",
+      ...(rsa ? ["rsa:2048"] : ["ec", "-pkeyopt", "ec_paramgen_curve:P-256"]),
       "-noenc",
       "-keyout",
       join(directory, name + ".key"),
@@ -245,6 +242,24 @@ export async function clientCertificateFixture(output, options = {}) {
   const clientExtensions =
     "basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=clientAuth\n";
   const client = await leaf("client", clientName, "ca", clientExtensions);
+  const rsaClient = options.multipleIdentities
+    ? await leaf(
+        "rsa-client",
+        "owned-rsa-client",
+        "rsa-ca",
+        clientExtensions,
+        undefined,
+        true,
+      )
+    : null;
+  const secondClient = options.multipleIdentities
+    ? await leaf("second-client", "owned-second-client", "ca", clientExtensions)
+    : null;
+  const rsaFiles = {
+    cert: join(directory, "rsa-client.pem"),
+    key: join(directory, "rsa-client.key"),
+    pfx: join(directory, "rsa-client.pfx"),
+  };
   const password = "owned-PFX-" + crypto.randomUUID();
   const identityFiles = {
     cert: join(directory, "client.pem"),
@@ -261,6 +276,21 @@ export async function clientCertificateFixture(output, options = {}) {
     password,
   };
   if (options.fileIdentities) {
+    if (rsaClient)
+      run([
+        "pkcs12",
+        "-export",
+        "-in",
+        rsaFiles.cert,
+        "-inkey",
+        rsaFiles.key,
+        "-certfile",
+        join(directory, "rsa-ca.pem"),
+        "-out",
+        rsaFiles.pfx,
+        "-passout",
+        "pass:" + password,
+      ]);
     for (const legacy of [false, true]) {
       run([
         "pkcs12",
@@ -343,6 +373,9 @@ export async function clientCertificateFixture(output, options = {}) {
     ["server.der", serverIdentity.certificate],
     ["server-key.der", serverIdentity.key],
     ["ca.der", ca],
+    ...(options.multipleIdentities
+      ? [["rsa-ca.der", await Bun.file(join(directory, "rsa-ca.pem")).text()]]
+      : []),
     ...serverVariants.flatMap((variant) => [
       [variant.id + ".der", variant.identity.certificate],
       [variant.id + "-key.der", variant.identity.key],
@@ -401,6 +434,7 @@ export async function clientCertificateFixture(output, options = {}) {
     executable,
   ];
   if (options.grpc) args.push("--cfg", "grpc_fixture");
+  if (options.multipleIdentities) args.push("--cfg", "multiple_identities");
   for (const name of [
     "rustls",
     "sha2",
@@ -464,6 +498,8 @@ export async function clientCertificateFixture(output, options = {}) {
     future: 0,
   };
   const rejected = /** @type {Array<Record<string,any>>} */ ([]);
+  const signatures = /** @type {Array<Record<string,any>>} */ ([]);
+  const algorithmConnections = /** @type {Record<string,number>} */ ({});
   const grpcRequests = /** @type {Array<Record<string,any>>} */ ([]);
   const grpcConnections = { count: 0 };
   const grpcEvents = /** @type {Array<Record<string,any>>} */ ([]);
@@ -483,6 +519,7 @@ export async function clientCertificateFixture(output, options = {}) {
         if (!line) continue;
         const event = JSON.parse(line);
         if (event.event === "ready") state.ready = event;
+        else if (event.event === "client-signature") signatures.push(event);
         else if (["sse-written", "sse-close"].includes(event.event))
           sseEvents.push(event);
         else if (event.event === "grpc-request") grpcRequests.push(event);
@@ -503,6 +540,8 @@ export async function clientCertificateFixture(output, options = {}) {
             sinkRequests.push({ url: event.url, method: event.method });
           else requests.push(event);
         } else if (event.event === "connection") {
+          algorithmConnections[event.role] =
+            (algorithmConnections[event.role] || 0) + 1;
           if (event.role === "sink") connections.sink++;
           else if (event.role in connections)
             connections[/** @type {keyof typeof connections} */ (event.role)]++;
@@ -526,6 +565,8 @@ export async function clientCertificateFixture(output, options = {}) {
           grpcConnections,
           grpcEvents,
           sseEvents,
+          signatures,
+          algorithmConnections,
         },
         null,
         2,
@@ -559,6 +600,19 @@ export async function clientCertificateFixture(output, options = {}) {
   const sink = { url: String(state.ready.sink) };
   return {
     identityFiles,
+    rsaClient,
+    rsaFiles,
+    secondClient,
+    secondFiles: {
+      cert: join(directory, "second-client.pem"),
+      key: join(directory, "second-client.key"),
+    },
+    algorithmServers:
+      /** @type {Array<{id:string,url:string,scheme:string,version:string,emptyHints:boolean}>} */ (
+        state.ready.algorithmServers
+      ),
+    signatures,
+    algorithmConnections,
     ca,
     otherCa,
     client,

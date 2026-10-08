@@ -11,6 +11,73 @@ use std::{
     time::Duration,
 };
 
+#[cfg(multiple_identities)]
+#[derive(Debug)]
+struct AlgorithmVerifier {
+    inner: Arc<dyn rustls::server::danger::ClientCertVerifier>,
+    scheme: rustls::SignatureScheme,
+    role: &'static str,
+    empty_hints: bool,
+}
+
+#[cfg(multiple_identities)]
+impl rustls::server::danger::ClientCertVerifier for AlgorithmVerifier {
+    fn root_hint_subjects(&self) -> &[rustls::DistinguishedName] {
+        if self.empty_hints {
+            &[]
+        } else {
+            self.inner.root_hint_subjects()
+        }
+    }
+    fn verify_client_cert(
+        &self,
+        cert: &CertificateDer<'_>,
+        chain: &[CertificateDer<'_>],
+        now: rustls::pki_types::UnixTime,
+    ) -> Result<rustls::server::danger::ClientCertVerified, rustls::Error> {
+        self.inner.verify_client_cert(cert, chain, now)
+    }
+    fn verify_tls12_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        signature: &rustls::DigitallySignedStruct,
+    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+        if signature.scheme != self.scheme {
+            return Err(rustls::Error::General("Unexpected client signature".into()));
+        }
+        let result = self
+            .inner
+            .verify_tls12_signature(message, cert, signature)?;
+        println!(
+            "{}",
+            serde_json::json!({"event":"client-signature","role":self.role,"scheme":format!("{:?}", signature.scheme),"version":"TLS12"})
+        );
+        Ok(result)
+    }
+    fn verify_tls13_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        signature: &rustls::DigitallySignedStruct,
+    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+        if signature.scheme != self.scheme {
+            return Err(rustls::Error::General("Unexpected client signature".into()));
+        }
+        let result = self
+            .inner
+            .verify_tls13_signature(message, cert, signature)?;
+        println!(
+            "{}",
+            serde_json::json!({"event":"client-signature","role":self.role,"scheme":format!("{:?}", signature.scheme),"version":"TLS13"})
+        );
+        Ok(result)
+    }
+    fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
+        vec![self.scheme]
+    }
+}
+
 fn handle(
     socket: TcpStream,
     config: Arc<ServerConfig>,
@@ -602,6 +669,12 @@ fn main() {
     roots
         .add(CertificateDer::from(std::fs::read(&args[3]).unwrap()))
         .unwrap();
+    #[cfg(multiple_identities)]
+    roots
+        .add(CertificateDer::from(
+            std::fs::read(std::path::Path::new(&args[4]).join("rsa-ca.der")).unwrap(),
+        ))
+        .unwrap();
     let verifier = rustls::server::WebPkiClientVerifier::builder(Arc::new(roots))
         .build()
         .unwrap();
@@ -650,6 +723,72 @@ fn main() {
     let primary_url = format!("https://{}", primary.local_addr().unwrap());
     let sink_url = format!("https://{}", sink.local_addr().unwrap());
     let redirect = format!("{sink_url}/destination");
+    #[cfg(multiple_identities)]
+    let mut algorithm_servers = Vec::<serde_json::Value>::new();
+    #[cfg(not(multiple_identities))]
+    let algorithm_servers = Vec::<serde_json::Value>::new();
+    #[cfg(multiple_identities)]
+    for (role, scheme, version, empty_hints) in [
+        (
+            "rsa13",
+            rustls::SignatureScheme::RSA_PSS_SHA256,
+            &rustls::version::TLS13,
+            false,
+        ),
+        (
+            "ec13",
+            rustls::SignatureScheme::ECDSA_NISTP256_SHA256,
+            &rustls::version::TLS13,
+            false,
+        ),
+        (
+            "rsa12",
+            rustls::SignatureScheme::RSA_PSS_SHA256,
+            &rustls::version::TLS12,
+            false,
+        ),
+        (
+            "ec12",
+            rustls::SignatureScheme::ECDSA_NISTP256_SHA256,
+            &rustls::version::TLS12,
+            false,
+        ),
+        (
+            "rsa13empty",
+            rustls::SignatureScheme::RSA_PSS_SHA256,
+            &rustls::version::TLS13,
+            true,
+        ),
+    ] {
+        let restricted = AlgorithmVerifier {
+            inner: verifier.clone(),
+            scheme,
+            role,
+            empty_hints,
+        };
+        let restricted = ServerConfig::builder_with_protocol_versions(&[version])
+            .with_client_cert_verifier(Arc::new(restricted))
+            .with_single_cert(
+                vec![CertificateDer::from(std::fs::read(&args[1]).unwrap())],
+                PrivateKeyDer::Pkcs8(std::fs::read(&args[2]).unwrap().into()),
+            )
+            .unwrap();
+        let restricted = Arc::new(restricted);
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        algorithm_servers.push(serde_json::json!({"id":role,"url":format!("wss://{}",listener.local_addr().unwrap()),"scheme":format!("{scheme:?}"),"version":if version == &rustls::version::TLS13 {"TLS13"} else {"TLS12"},"emptyHints":empty_hints}));
+        let redirect = redirect.clone();
+        std::thread::spawn(move || {
+            for socket in listener.incoming() {
+                println!("{}", serde_json::json!({"event":"connection","role":role}));
+                if let Err(error) = handle(socket.unwrap(), restricted.clone(), role, &redirect) {
+                    println!(
+                        "{}",
+                        serde_json::json!({"event":"rejected","role":role,"detail":error})
+                    );
+                }
+            }
+        });
+    }
     #[cfg(grpc_fixture)]
     let grpc_url = grpc_listener(config.clone(), false);
     #[cfg(grpc_fixture)]
@@ -676,7 +815,7 @@ fn main() {
     }
     println!(
         "{}",
-        serde_json::json!({"event":"ready","primary":primary_url,"sink":sink_url,"grpc":grpc_url,"grpcAlpha":grpc_alpha_url,"invalidServers":invalid_servers})
+        serde_json::json!({"event":"ready","primary":primary_url,"sink":sink_url,"grpc":grpc_url,"grpcAlpha":grpc_alpha_url,"invalidServers":invalid_servers,"algorithmServers":algorithm_servers})
     );
     let mut stop = String::new();
     let _ = std::io::stdin().read_line(&mut stop);

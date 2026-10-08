@@ -410,12 +410,21 @@ pub(crate) fn build_client(
             reqwest::Certificate::from_pem(pem.as_bytes()).map_err(|e| e.to_string())?,
         );
     }
-    if let Some(pem) = crate::client_certificates::load_identity(
-        &request.client_certificates,
-        request.identity_pem.as_deref(),
-    )? {
-        builder = builder
-            .identity(reqwest::Identity::from_pem(pem.as_bytes()).map_err(|e| e.to_string())?);
+    let identity = if websocket {
+        crate::client_certificates::websocket_identity(
+            &request.client_certificates,
+            request.identity_pem.as_deref(),
+        )?
+    } else {
+        crate::client_certificates::load_identity(
+            &request.client_certificates,
+            request.identity_pem.as_deref(),
+        )?
+        .map(|pem| reqwest::Identity::from_pem(pem.as_bytes()).map_err(|e| e.to_string()))
+        .transpose()?
+    };
+    if let Some(identity) = identity {
+        builder = builder.identity(identity);
     }
     if !streaming {
         builder = builder.timeout(Duration::from_millis(
