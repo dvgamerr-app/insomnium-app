@@ -1,5 +1,14 @@
 # UI scenarios (Playwright + Bun)
 
+`bun tests/ui/openapi-header-serialization.js` uses actual owned native API Design
+generation and Send to check 12 raw TCP header values plus edited/disabled/invalid
+JSON/nested/control-character cases (17 groups). It checks simple array/object
+syntax, empty/false/zero values, unchanged spaces/percent/quotes, case-insensitive
+operation override, ignored reserved header declarations and preserved reload.
+Build the current recovery-copy probe first; run native scenarios sequentially.
+Both header/query scenarios reuse `helpers/openapi-generation.js` for the actual
+Import/New document/Validate/worker Generate flow; rerun query after helper edits.
+
 `bun tests/ui/openapi-query-serialization.js` generates an owned OpenAPI3 document
 through actual native API Design, then verifies15 raw TCP query targets plus
 editable JSON/disabled/malformed controls (18 groups). Its fixture covers flat

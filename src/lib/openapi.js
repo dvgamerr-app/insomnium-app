@@ -4,6 +4,7 @@ import { validateApiDocument } from "./openapi-validation.js";
 import { sample } from "openapi-sampler";
 import { id, newRequest } from "./model.js";
 import { serializeOpenApiQuery } from "./openapi-query.js";
+import { serializeOpenApiHeader } from "./openapi-header.js";
 
 import { parseSpec, methods } from "./openapi-document.js";
 
@@ -220,8 +221,19 @@ export function generateRequests(
       ...(item.parameters || []),
       ...(operation.parameters || []),
     ])
-      parameters.set(`${parameter.in}:${parameter.name}`, parameter);
+      parameters.set(
+        `${parameter.in}:${parameter.in === "header" ? String(parameter.name).toLowerCase() : parameter.name}`,
+        parameter,
+      );
     for (const parameter of parameters.values()) {
+      if (
+        schema.swagger !== "2.0" &&
+        parameter.in === "header" &&
+        ["accept", "content-type", "authorization"].includes(
+          String(parameter.name).toLowerCase(),
+        )
+      )
+        continue;
       let value;
       try {
         value = example(parameter, schema);
@@ -237,12 +249,13 @@ export function generateRequests(
       });
       if (parameter.in === "query" || parameter.in === "header") {
         if (
-          parameter.in === "query" &&
+          (parameter.in === "query" || parameter.in === "header") &&
           schema.swagger !== "2.0" &&
           !parameter.content &&
           !parameter.allowReserved
         ) {
-          const style = parameter.style || "form";
+          const style =
+            parameter.style || (parameter.in === "query" ? "form" : "simple");
           const serialization = {
             style,
             explode: parameter.explode ?? style === "form",
@@ -253,7 +266,9 @@ export function generateRequests(
               : "scalar",
           };
           try {
-            serializeOpenApiQuery(row.name, row.value, serialization);
+            (parameter.in === "query"
+              ? serializeOpenApiQuery
+              : serializeOpenApiHeader)(row.name, row.value, serialization);
             row._openapiSerialization = serialization;
           } catch (error) {
             issues.push(`Parameter ${parameter.name}: ${error}`);

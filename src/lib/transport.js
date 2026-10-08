@@ -6,6 +6,7 @@ import {
 } from "./template-url.js";
 import { composeCurlBody, appendCurlFileQuery } from "./curl-body.js";
 import { serializeOpenApiQuery } from "./openapi-query.js";
+import { serializeOpenApiHeader } from "./openapi-header.js";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { environmentFor, render, workspaceFor, protocolFor } from "./model.js";
 import { oauthHeader } from "./oauth-model.js";
@@ -205,7 +206,16 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
   /** @type {string[][]} */
   const headers = (request.headers ?? [])
     .filter((/** @type {any} */ h) => !h.disabled && h.name)
-    .map((/** @type {any} */ h) => [resolve(h.name), resolve(h.value)]);
+    .map((/** @type {any} */ h) => {
+      const name = resolve(h.name);
+      const value = resolve(h.value);
+      return [
+        name,
+        h._openapiSerialization
+          ? serializeOpenApiHeader(name, value, h._openapiSerialization)
+          : value,
+      ];
+    });
   const setHeader = (
     /** @type {string} */ name,
     /** @type {string} */ value,

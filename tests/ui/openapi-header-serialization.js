@@ -1,18 +1,19 @@
-import { generateOwnedOpenApi } from "./helpers/openapi-generation.js";
 import assert from "node:assert/strict";
 import { createServer } from "node:net";
 import { withNativeApp, poll } from "./helpers/native-app.js";
+import { generateOwnedOpenApi } from "./helpers/openapi-generation.js";
 import {
-  openApiQueryCases,
-  openApiQueryDocument,
-} from "./helpers/openapi-query-cases.js";
+  openApiHeaderCases,
+  openApiHeaderDocument,
+} from "./helpers/openapi-header-cases.js";
 
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-recovery-copy-probe/build-state.json";
 await withNativeApp(
-  "openapi-query-serialization",
+  "openapi-header-serialization",
   async ({ page, invoke, output }) => {
-    const received = /** @type {string[]} */ ([]);
+    const received =
+      /** @type {Array<{target:string,headers:Array<[string,string]>}>} */ ([]);
     const server = createServer((socket) => {
       let buffered = Buffer.alloc(0),
         handled = false;
@@ -24,10 +25,20 @@ await withNativeApp(
         ]);
         if (!buffered.includes("\r\n\r\n")) return;
         handled = true;
-        const line = buffered
-          .subarray(0, buffered.indexOf("\r\n"))
-          .toString("latin1");
-        received.push(base + line.split(" ")[1]);
+        const lines = buffered
+          .subarray(0, buffered.indexOf("\r\n\r\n"))
+          .toString("utf8")
+          .split("\r\n");
+        received.push({
+          target: lines[0].split(" ")[1],
+          headers: lines.slice(1).map((line) => {
+            const colon = line.indexOf(":");
+            return [
+              line.slice(0, colon).toLowerCase(),
+              line.slice(colon + 1).trim(),
+            ];
+          }),
+        });
         socket.end(
           "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nOK",
         );
@@ -43,11 +54,11 @@ await withNativeApp(
     try {
       const sourceSpecId = await generateOwnedOpenApi(
         { page, invoke },
-        openApiQueryDocument(base),
-        openApiQueryCases.length,
-        "Owned OpenAPI queries",
+        openApiHeaderDocument(base),
+        openApiHeaderCases.length,
+        "Owned OpenAPI headers",
       );
-      for (const entry of openApiQueryCases) {
+      for (const entry of openApiHeaderCases) {
         await page
           .getByRole("complementary", { name: "Collections" })
           .getByRole("button", { name: "GET " + entry.id, exact: true })
@@ -55,12 +66,17 @@ await withNativeApp(
         const before = await invoke("load_workspace");
         const request = before.resources.find(
           (/** @type {any} */ r) =>
-            r.name === entry.id &&
             r._type === "request" &&
-            r.sourceSpecId === sourceSpecId,
+            r.sourceSpecId === sourceSpecId &&
+            r.name === entry.id,
         );
         assert.deepEqual(request._openapiIssues, []);
-        assert.ok(request.parameters[0]._openapiSerialization);
+        assert.equal(
+          request.headers.length,
+          1,
+          "Case-insensitive override and ignored reserved declarations",
+        );
+        assert.equal(request.headers[0]._openapiSerialization.style, "simple");
         const count = received.length;
         await page.getByRole("button", { name: "Send", exact: true }).click();
         await poll(
@@ -72,68 +88,83 @@ await withNativeApp(
                   (/** @type {any} */ old) => old._id === r._id,
                 ),
             ),
-          "Native generated Send persisted " + entry.id,
+          "Native header response persisted " + entry.id,
+        );
+        assert.equal(received.length, count + 1);
+        assert.equal(received[count].target, "/" + entry.id);
+        assert.deepEqual(
+          received[count].headers.filter(([key]) => key === "x-owned"),
+          [["x-owned", entry.expected]],
+          "Exact wire header " + entry.id,
+        );
+        assert.ok(
+          !received[count].headers.some(
+            ([, value]) => value === "ignored-declaration",
+          ),
         );
         assert.deepEqual(
-          received.slice(count),
-          [`${base}/${entry.id}?${entry.expected}`],
-          "Actual server request target " + entry.id,
+          (await invoke("load_workspace")).resources,
+          before.resources,
         );
-        const after = await invoke("load_workspace");
-        assert.deepEqual(after.resources, before.resources);
         await page.reload();
         assert.deepEqual(
           (await invoke("load_workspace")).resources,
-          after.resources,
+          before.resources,
         );
         assert.equal(received.length, count + 1, "Reload cannot resend");
         cases.push({
           id: entry.id,
-          url: received[count],
-          resourcesPreserved: true,
+          header: entry.expected,
+          override: true,
+          ignoredReserved: true,
           reloadWithoutResend: true,
         });
       }
       await page
         .getByRole("complementary", { name: "Collections" })
-        .getByRole("button", { name: "GET form-default-array", exact: true })
+        .getByRole("button", { name: "GET default-array", exact: true })
         .click();
       await page
         .getByRole("tablist", { name: "Request editor", exact: true })
-        .getByRole("tab", { name: /^Query/ })
+        .getByRole("tab", { name: /^Headers/ })
         .click();
-      const queryEditor = page.getByRole("region", {
-        name: "Query editor",
-        exact: true,
-      });
-      const input = queryEditor.getByRole("textbox", {
-        name: "Value 1",
-        exact: true,
-      });
-      const toggle = queryEditor.getByRole("checkbox", {
-        name: "Enable color",
+      const input = page.getByRole("textbox", { name: "Value 1", exact: true });
+      const toggle = page.getByRole("checkbox", {
+        name: "Enable X-Owned",
         exact: true,
       });
       const requestId = (await invoke("load_workspace")).resources.find(
         (/** @type {any} */ r) =>
-          r.sourceSpecId === sourceSpecId && r.name === "form-default-array",
+          r.sourceSpecId === sourceSpecId && r.name === "default-array",
       )._id;
       for (const control of [
         {
           id: "edited-array",
           text: '["one","two"]',
           enabled: true,
-          expected: "?color=one&color=two",
+          expected: "one,two",
         },
         {
           id: "disabled-array",
           text: '["one","two"]',
           enabled: false,
-          expected: "",
+          expected: undefined,
         },
         {
           id: "malformed-array",
           text: "not JSON",
+          enabled: true,
+          expected: null,
+        },
+        {
+          id: "nested-array",
+          text: '[{"nested":1}]',
+          enabled: true,
+          expected: null,
+        },
+        {
+          id: "invalid-control",
+          text: '["a\\r\\nInjected: yes"]',
           enabled: true,
           expected: null,
         },
@@ -145,34 +176,30 @@ await withNativeApp(
             (/** @type {any} */ r) => r._id === requestId,
           );
           return (
-            r.parameters[0].value === control.text &&
-            r.parameters[0].disabled === !control.enabled
+            r.headers[0].value === control.text &&
+            r.headers[0].disabled === !control.enabled
           );
-        }, "Edited query persisted " + control.id);
-        const before = await invoke("load_workspace");
+        }, "Edited header persisted " + control.id);
+        const before = await invoke("load_workspace"),
+          count = received.length;
         assert.equal(
           before.resources.find((/** @type {any} */ r) => r._id === requestId)
-            .parameters[0]._openapiSerialization.kind,
+            .headers[0]._openapiSerialization.kind,
           "array",
         );
-        const count = received.length;
         await page.getByRole("button", { name: "Send", exact: true }).click();
         if (control.expected === null) {
           await page.locator(".error-state").waitFor();
+          assert.equal(
+            received.length,
+            count,
+            "Invalid structured header refuses before network",
+          );
           assert.deepEqual(
             (await invoke("load_workspace")).history,
             before.history,
           );
-          assert.equal(
-            received.length,
-            count,
-            "Malformed edited array refuses before network",
-          );
         } else {
-          await poll(
-            async () => received.length === count + 1,
-            "Edited native query target",
-          );
           await poll(
             async () =>
               (await invoke("load_workspace")).history.some(
@@ -182,11 +209,14 @@ await withNativeApp(
                     (/** @type {any} */ old) => old._id === r._id,
                   ),
               ),
-            "Edited response persisted",
+            "Edited header response persisted",
           );
-          assert.equal(
-            received[count],
-            `${base}/form-default-array${control.expected}`,
+          assert.equal(received.length, count + 1);
+          assert.deepEqual(
+            received[count].headers.filter(([key]) => key === "x-owned"),
+            control.expected === undefined
+              ? []
+              : [["x-owned", control.expected]],
           );
         }
         assert.deepEqual(
@@ -195,7 +225,7 @@ await withNativeApp(
         );
         cases.push({
           id: control.id,
-          target: received.slice(count),
+          headers: received.slice(count),
           serializationPreserved: true,
         });
       }
@@ -206,7 +236,7 @@ await withNativeApp(
             passed: true,
             cases,
             limits:
-              "Actual owned Windows native OpenAPI worker generation and HTTP target; no external services. Other parameter locations/content/allowReserved/Swagger2/platform/lint remain separate gates.",
+              "Actual owned Windows native worker generation and raw TCP headers. Other parameter locations/content/Swagger2/body encoding/lint/platform remain separate gates.",
           },
           null,
           2,
