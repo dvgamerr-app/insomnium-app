@@ -94,7 +94,7 @@ export const openApiFormCases = /** @type {Array<Record<string,any>>} */ ([
 
 /** @param {string} version @param {string} base */
 export function openApiFormDocument(version, base) {
-  return {
+  const document = {
     openapi: version,
     info: { title: "Owned form style bodies", version: "1" },
     servers: [{ url: base }],
@@ -159,12 +159,23 @@ export function openApiFormDocument(version, base) {
       }),
     ),
   };
+  for (const entry of openApiFormCasesFor(version)) {
+    if (entry.omitEncoding) {
+      const media = /** @type {Record<string,any>} */ (
+        document.paths["/" + entry.id].post.requestBody.content[
+          "application/x-www-form-urlencoded"
+        ]
+      );
+      delete media.encoding;
+    }
+  }
+  return document;
 }
 
 /** @param {string} version */
 export function openApiFormCasesFor(version) {
   const cases = version.startsWith("3.0.")
-    ? openApiFormCases
+    ? [...openApiFormCases, ...openApiFormDefaultCases]
     : [...openApiFormCases, ...openApiFormContentCases];
   if (!version.startsWith("3.2.")) return cases;
   return [
@@ -183,4 +194,5 @@ export function openApiFormCasesFor(version) {
   ];
 }
 import { openApiFormContentCases } from "./openapi-form-content-cases.js";
+import { openApiFormDefaultCases } from "./openapi-form-default-cases.js";
 import { openApiFormStyleItemCases } from "./openapi-form-style-item-cases.js";

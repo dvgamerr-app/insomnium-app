@@ -477,11 +477,17 @@ export function generateRequests(
               params: Object.entries(value || {}).map(([name, value]) => {
                 const property = media.schema?.properties?.[name] || {};
                 const encoding = media.encoding?.[name] || {};
+                const legacyDefaultStyle =
+                  String(schema.openapi).startsWith("3.0.") &&
+                  !["style", "explode", "allowReserved", "contentType"].some(
+                    (key) => Object.hasOwn(encoding, key),
+                  );
                 if (
                   mime === "application/x-www-form-urlencoded" &&
-                  ["style", "explode", "allowReserved"].some((key) =>
-                    Object.hasOwn(encoding, key),
-                  )
+                  (legacyDefaultStyle ||
+                    ["style", "explode", "allowReserved"].some((key) =>
+                      Object.hasOwn(encoding, key),
+                    ))
                 ) {
                   const descriptor = describeOpenApiValue(
                     value,
@@ -494,6 +500,11 @@ export function generateRequests(
                     style,
                     explode: encoding.explode ?? style === "form",
                     kind: descriptor.kind,
+                    ...(legacyDefaultStyle &&
+                    (property.format === "binary" ||
+                      property.items?.format === "binary")
+                      ? { review: true }
+                      : {}),
                     ...(descriptor.nullable ? { nullable: true } : {}),
                     ...(encoding.allowReserved ? { allowReserved: true } : {}),
                     ...(String(schema.openapi).startsWith("3.2.") &&

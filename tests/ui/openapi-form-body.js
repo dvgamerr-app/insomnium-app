@@ -138,6 +138,10 @@ try {
         }
         if (entry.id === "array-exploded")
           await page.screenshot({ path: output + `/form-${version}-760.png` });
+        if (entry.id === "default-flat-object")
+          await page.screenshot({
+            path: output + `/form-default-${version}-760.png`,
+          });
         if (entry.id === "default-nested-object")
           await page.screenshot({
             path: output + `/form-content-${version}-760.png`,

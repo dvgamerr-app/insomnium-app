@@ -1,5 +1,13 @@
 # UI scenarios (Playwright + Bun)
 
+OAS3.0 default form cases are in `helpers/openapi-form-default-cases.js`, including
+empty/absent encoding, arrays/flat objects/scalars/null, unsupported nested/binary
+review/runtime refusal and disable recovery. The saved full scenario defines117
+groups; `INSOMNIUM_OPENAPI_VERSIONS=3.0.3` selects the changed35-group subset.
+Current release1791488156977 accepts the35-group3.0.3 subset, terminal
+passed/native-hidden/visiblefalse/exit0; exact evidence and remaining scope:
+STATUS/OPENAPI-FORM-DEFAULTS.md. Modern native counts below are earlier milestones.
+
 OAS3.2 explicit-style form arrays now have per-item metadata and saved cases in
 `helpers/openapi-form-style-item-cases.js`. The saved form scenario covers76
 generation cases (including2 review/runtime refusals) plus26 controls, with an
