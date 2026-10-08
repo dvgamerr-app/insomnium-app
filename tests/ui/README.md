@@ -6,6 +6,18 @@ Native Tauri scenarios attach to WebView2 through CDP and hide their own host
 window; their rendering mode is `native-hidden`, rather than browser headless.
 See `docs/migration/UI-TESTING.md` for the native host and OS dialog limitations.
 
+Reverified 2026-10-08 with `bun tests/ui/design-system.js` (passed). There is one
+shared browser launch and it explicitly enables headless mode.
+
+The saved `bun tests/ui/sse-client-certificate.js` now includes two live mutual
+TLS Connect/Disconnect cycles, fragmented UTF8/BOM/multiline/id/retry framing,
+actual server-observed closure and exact persisted response reload. Run it only
+after the production probe build finishes successfully. `bun tests/ui/sse-bom.js`
+checks every byte chunk width against the compiled release parser. For recovery
+from an interrupted TLS scenario, `INSOMNIUM_UI_TLS_RECOVERY` may point to an
+owned `artifacts/playwright` JSON record of the four original settings; the saved
+runner restores and verifies them through Preferences before testing.
+
 ## Native gRPC client certificate
 
 Run `bun tests/ui/grpc-client-certificate.js` against the successful current

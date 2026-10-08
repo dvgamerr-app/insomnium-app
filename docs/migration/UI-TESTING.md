@@ -2,6 +2,35 @@
 
 Owner requires Bun-only reusable Playwright JavaScript scenarios with shared helpers and headless execution. Browser-use and ad-hoc browser automation remain prohibited.
 
+2026-10-08 headless follow-up: saved `bun tests/ui/design-system.js` terminal0,
+result.json passed; all browser launch sites still route through explicit
+`headless: true` in launchUiBrowser. Native SSE1791420476431 records native-hidden,
+owned PID84052/visible false/exit0; native CDP attaches to a hidden WebView2 host.
+
+Live SSE acceptance uses the saved `bun tests/ui/sse-client-certificate.js` entry
+with the existing mandatory client-auth Rust fixture. `/sse-live` writes35 chunks
+containing a leading BOM, split UTF8, comments, multiline Thai data, event/id/retry
+and an unterminated final event, then waits for actual client closure. Independent
+authenticated fetch checks exact243 wire bytes; two native cycles check exact
+events, client Disconnect/server EOF, one history row each, retained state and
+exact reload without automatic reconnect. Twelve groups pass1791420476431 on
+production release1791420051210/1791420404492/result0. No trust-store change or TLS
+bypass. Redirects/provider/proxy/platform/full parity remain separate gates.
+
+The prior native BOM crash1791419834363/exit9 exposed upstream
+eventsource-stream0.2.3 slicing a UTF8 Rust string at byte1. Its local Cargo patch
+uses the BOM encoded length; lockfile only changes that package's source. Saved
+`bun tests/ui/sse-bom.js` uses compiled release libraries and passes23 chunk widths,
+initial empty chunk/interior BOM preservation. Upstream cfg-test added but not
+separately run. The recovery replay reads preserved pre-crash settings/provenance
+under artifacts/playwright via INSOMNIUM_UI_TLS_RECOVERY, restores all four through
+Preferences before testing and verifies final restoration again.
+Commands: `cargo update --manifest-path src-tauri/Cargo.toml -p eventsource-stream
+--precise 0.2.3 --offline`; `bun tests/ui/build-recovery-copy-probe.js`, require exact
+terminal0 before saved UI replay. References: [Cargo patches](https://doc.rust-lang.org/cargo/reference/overriding-dependencies.html#the-patch-section),
+[SSE parsing](https://html.spec.whatwg.org/multipage/server-sent-events.html#parsing-an-event-stream),
+[eventsource-stream](https://docs.rs/eventsource-stream/0.2.3/eventsource_stream/).
+
 ## Native reflection gRPC mutual TLS — 2026-10-08
 
 Saved `bun tests/ui/grpc-client-certificate.js` now includes reusable
