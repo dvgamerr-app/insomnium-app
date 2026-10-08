@@ -1,5 +1,12 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Commit / compact handoff — WSS PFX trust — 2026-10-08
+
+- Current topic commit1a10352: fix(wss): retain PFX extra certificates as connection trust anchors. Final production release1791433186292/1791433608432/result0 accepts226 checks: WSS43/multi30/SSE43/HTTP43/gRPC67; exact artifacts/failed runs/source corrections below. Settings restored, all owned apps/fixtures/build/compilers terminal0 except explicitly recorded failed/cancelled attempts, no live process handles. Worktree checkpoint follows this commit.
+- Next concrete feature: collection-scoped CA certificate files. Read archived models/ca-certificate.ts and Curl/WSS consumers plus current resources/import/TLS transport mapping; establish disabled/private/selection/error/fallback and root-replacement semantics before implementing bounded native file loading and existing Preferences integration. Preserve layout, original data and transport-specific behavior; use saved reusable headless/native-hidden scenarios and current documentation. Do not treat global caPem support as collection-file parity.
+- Full original migration/UX objective retained and incomplete: actual archived runtime/TLS preference, broader container/chain/trust/algorithm/provider/proxy/platform/fault/OS-dialog/Git/CI/distribution/CSS/PLAN/PARITY gates and subsequent reusable-input/UX redesign remain required. No scope removal or full-completion claim.
+- Interface cannot invoke /compact. Handoff recorded instead of claiming manual compaction; no next feature begins in this turn. This documentation checkpoint follows1a10352.
+
 ## WSS PFX extra-certificate trust — verified — 2026-10-08
 
 - Previous goal turn made verified progress e64f711/checkpoint640eb45; full objective unchanged. Current milestone closes per-connection PFX trust gap: archived websocket.ts supplies PFX arrays to Node SecureContext, whose LoadPKCS12 adds every extra certificate (excluding selected leaf) from each container to the connection cert store, including replaced identities. Confirmed official source through Bun fetch after web cache miss: https://raw.githubusercontent.com/nodejs/node/v22.0.0/src/crypto/crypto_context.cc and reqwest documented add_root_certificate https://docs.rs/reqwest/0.12.28/reqwest/struct.ClientBuilder.html. Archived binary-as-UTF8 PFX file read is a separate legacy defect/runtime-comparison caveat, not a desired preservation of corruption.
