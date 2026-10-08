@@ -1,5 +1,15 @@
 # UI/UX: รวม components และ design system ให้ใช้ร่วมกัน
 
+2026-10-08 current AST inventory is in [UI-INVENTORY.md](UI-INVENTORY.md), generated
+with `bun scripts/ui-inventory.js`:57 production Svelte files/661 direct shared
+markup sites, only CodeEditor textarea outside primitives,14 feature scoped
+style files/118 tokens/1714 declarations. The local application CSS graph has no
+duplicate imports; no custom property has multiple owner files. Three no-var
+reference token candidates and dynamic method colors are explicitly documented.
+Use this source inventory instead of the historical A4 counts below for planning.
+Runtime semantics, property-level duplication/literals and the full checklist
+remain unclosed; this inventory does not relabel old runtime checks as new passes.
+
 2026-10-08 shared form geometry: eight foundation tokens centralize standard control padding/line-height, Checkbox size, Field gaps and inline/dropzone FilePicker metrics, preserving defaults and explicit variant padding. Old Input override8/11vs6/17 failure retained; compiler0/0/headless design-system6 and actual theme regression pass. Fresh production release1791450919839/1791451297762/result0/native1791451311699 accepts12 actual Editor Preferences/cookie profiles (dark/light1440/900/760),6 Button/6 Select profiles,12 workflows/10 dialogs, exact no-workspace-mutation/fonts/locked recovery/unchanged HEAD; native-hidden/terminal0/exit0/no handles. Native restored cookie images inspected. Headless file geometry is not native OS-dialog acceptance; full UI debt/workflow/platform and original migration/UX gates remain required. Exact evidence and compact handoff in STATUS.
 
 2026-10-08 shared Button padding ownership: actual old primary override failure7/12vs5/19 reproduced; shared controls now consume existing foundation button-padding with unchanged defaults, explicit Icon/Send/toolbar overrides preserved. Headless6 and fresh production release1791446220301/1791446646549/result0/native1791446699449 accept6 dark/light1440/900/760 profiles (three actual variants each),12 workflows/10 dialogs/6 Select profiles/fonts/locked recovery/unchanged Git HEAD; native-hidden/terminal0/exit0. Compiler0/0/frontend/headless application/format/diff pass; restored native dark/light900px cookie images inspected. Full debt and original migration/UX gates remain required; exact evidence/failure/compact handoff in STATUS.
