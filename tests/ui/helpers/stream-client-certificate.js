@@ -207,7 +207,7 @@ export async function streamClientCertificate(protocol) {
             })
             .click();
         await select();
-        /** @type {Array<{id:string,cert?:string,key?:string,pfx?:string,password?:string,success:boolean,preTcp?:boolean,disabled?:boolean,host?:string,ca?:string}>} */
+        /** @type {ReturnType<typeof protocolCertificateCases>} */
         const fileCases = protocolCertificateCases(fixture);
         // Keep the existing successful recovery last for reload/redirect proof.
         fileCases.splice(
@@ -489,7 +489,7 @@ export async function streamClientCertificate(protocol) {
               connections,
               "Malformed PEM refuses before TCP",
             );
-          if (fileCase?.ca && !success) {
+          if (fileCase?.ca && !success && !fileCase.preTcp) {
             assert.ok(
               fixture.connections.primary > connections,
               "Root-trust control reaches native TLS",

@@ -81,11 +81,28 @@ await withNativeApp(
                 isPrivate: true,
               },
               {
+                _id: "ca_mtls",
+                _type: "ca_certificate",
+                parentId: "wrk_mtls",
+                path: fixture.caFiles.trusted,
+                disabled: true,
+                isPrivate: false,
+                legacyMetadata: { note: "owned imported CA metadata" },
+              },
+              {
                 _id: "wrk_other_mtls",
                 _type: "workspace",
                 parentId: null,
                 name: name + " isolation",
                 scope: "collection",
+              },
+              {
+                _id: "ca_other_mtls",
+                _type: "ca_certificate",
+                parentId: "wrk_other_mtls",
+                path: fixture.caFiles.missing,
+                disabled: false,
+                isPrivate: false,
               },
               {
                 _id: "crt_other_mtls",

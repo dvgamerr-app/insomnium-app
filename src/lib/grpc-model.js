@@ -2,7 +2,10 @@ import { requestDataScope } from "./request-scope.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import { environmentFor, render, workspaceFor, id } from "./model.js";
-import { clientCertificateSelection } from "./client-certificates.js";
+import {
+  clientCertificateSelection,
+  collectionCaCertificatePath,
+} from "./client-certificates.js";
 
 /** @typedef {Record<string, any>} Resource */
 export const protoFileLimit = 2 * 1024 * 1024;
@@ -249,6 +252,10 @@ export function grpcConnection(data, request, options = {}) {
       Math.min(3600000, Number(settings.timeout) || 30000),
     ),
     caPem: url.protocol === "https:" ? settings.caPem || null : null,
+    caFile:
+      url.protocol === "https:"
+        ? collectionCaCertificatePath(data, request)
+        : null,
     clientCertificates,
     identityPem:
       url.protocol === "https:" &&
@@ -365,6 +372,7 @@ export function grpcSourceContext(data, request) {
         "websocket_request",
         "grpc_request",
         "client_certificate",
+        "ca_certificate",
       ].includes(r._type),
     )
     .map((r) => (r._id === request._id ? source : r));

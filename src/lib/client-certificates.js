@@ -62,7 +62,22 @@ export function collectionCertificateContext(data, request) {
   const collectionId = workspaceFor(data.resources, request._id);
   return data.resources.filter(
     (/** @type {Record<string,any>} */ resource) =>
-      resource._type === "client_certificate" &&
+      ["client_certificate", "ca_certificate"].includes(resource._type) &&
       resource.parentId === collectionId,
   );
+}
+
+/** Legacy singleton selection stays collection-local, including folder requests.
+ * Disabled/empty entries use global preferences; selected-file errors are native.
+ * @param {Record<string,any>} data @param {Record<string,any>} request */
+export function collectionCaCertificatePath(data, request) {
+  const collectionId = workspaceFor(data.resources, request._id);
+  const certificate = data.resources.find(
+    (/** @type {Record<string,any>} */ resource) =>
+      resource._type === "ca_certificate" && resource.parentId === collectionId,
+  );
+  if (!certificate || certificate.disabled || !certificate.path) return null;
+  if (typeof certificate.path !== "string")
+    throw new Error("Invalid collection CA certificate file path.");
+  return certificate.path;
 }

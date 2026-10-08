@@ -11,6 +11,19 @@ export async function grpcStreamCertificate(
   requestId,
 ) {
   const cases = /** @type {Array<Record<string,any>>} */ ([]);
+  const initial = await invoke("load_workspace");
+  const collectionCa = initial.resources.find(
+    (/** @type {any} */ row) =>
+      row._type === "ca_certificate" &&
+      row.parentId === initial.activeWorkspaceId,
+  );
+  assert.equal(collectionCa?.path, fixture.caFiles.trusted);
+  assert.equal(collectionCa?.disabled, false);
+  assert.equal(
+    initial.settings.caPem,
+    fixture.otherCa,
+    "Streaming must use collection CA instead of unrelated global trust",
+  );
   /** @param {string} name */
   const body = async (name) => {
     const text = JSON.stringify({ name });
@@ -259,7 +272,14 @@ export async function grpcStreamCertificate(
         count,
         "Reload does not reconnect stream",
       );
-      cases.push({ id: label, response, requests, events });
+      cases.push({
+        id: label,
+        response,
+        requests,
+        events,
+        collectionCaFile: collectionCa.path,
+        unrelatedGlobalCa: true,
+      });
       await page
         .getByRole("button", { name: "Load methods", exact: true })
         .click();

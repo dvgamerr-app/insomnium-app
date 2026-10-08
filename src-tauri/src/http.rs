@@ -56,6 +56,7 @@ pub struct HttpRequest {
     pub(crate) store_cookies: bool,
     pub(crate) proxy: Option<String>,
     pub(crate) ca_pem: Option<String>,
+    pub(crate) ca_file: Option<String>,
     pub(crate) identity_pem: Option<String>,
     #[serde(default)]
     pub(crate) client_certificates: Vec<crate::client_certificates::ClientCertificateSource>,
@@ -166,7 +167,8 @@ pub async fn send_http(
             proxy: request.proxy.as_deref().filter(|p| !p.is_empty()),
             validate_certificates: request.validate_certificates,
             follow_redirects: request.follow_redirects,
-            custom_ca: request.ca_pem.as_ref().is_some_and(|p| !p.is_empty()),
+            custom_ca: request.ca_pem.as_ref().is_some_and(|p| !p.is_empty())
+                || request.ca_file.as_ref().is_some_and(|p| !p.is_empty()),
             client_certificate: request.has_identity(),
         },
     )));
@@ -405,7 +407,14 @@ pub(crate) fn build_client(
     if let Some(proxy) = request.proxy.as_ref().filter(|p| !p.is_empty()) {
         builder = builder.proxy(reqwest::Proxy::all(proxy).map_err(|e| e.to_string())?);
     }
-    if let Some(pem) = request.ca_pem.as_ref().filter(|p| !p.is_empty()) {
+    let ca = crate::client_certificates::load_ca_certificate(
+        request.ca_file.as_deref(),
+        request.ca_pem.as_deref(),
+    )?;
+    if ca.replace_roots {
+        builder = builder.tls_built_in_root_certs(false);
+    }
+    if let Some(pem) = ca.pem {
         builder = builder.add_root_certificate(
             reqwest::Certificate::from_pem(pem.as_bytes()).map_err(|e| e.to_string())?,
         );

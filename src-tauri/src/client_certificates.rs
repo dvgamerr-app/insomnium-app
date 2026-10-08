@@ -241,24 +241,70 @@ pub(crate) struct ClientCertificateSource {
 }
 
 fn read_file(path: &str) -> Result<Vec<u8>, String> {
+    read_certificate_file(path, "client certificate", "Client certificate")
+}
+
+fn read_certificate_file(path: &str, name: &str, title: &str) -> Result<Vec<u8>, String> {
     if path.is_empty() || path.len() > 32768 || path.contains('\0') {
-        return Err("Invalid client certificate file path.".into());
+        return Err(format!("Invalid {name} file path."));
     }
-    let file = File::open(path).map_err(|_| "Cannot open client certificate file.")?;
+    let file = File::open(path).map_err(|_| format!("Cannot open {name} file."))?;
     let metadata = file
         .metadata()
-        .map_err(|_| "Cannot inspect client certificate file.")?;
+        .map_err(|_| format!("Cannot inspect {name} file."))?;
     if !metadata.is_file() || metadata.len() > MAX_FILE as u64 {
-        return Err("Client certificate files must be regular files of at most 1 MiB.".into());
+        return Err(format!(
+            "{title} files must be regular files of at most 1 MiB."
+        ));
     }
     let mut bytes = Vec::new();
     file.take((MAX_FILE + 1) as u64)
         .read_to_end(&mut bytes)
-        .map_err(|_| "Cannot read client certificate file.")?;
+        .map_err(|_| format!("Cannot read {name} file."))?;
     if bytes.len() > MAX_FILE {
-        return Err("Client certificate file exceeds 1 MiB.".into());
+        return Err(format!("{title} file exceeds 1 MiB."));
     }
     Ok(bytes)
+}
+
+pub(crate) struct CaCertificates {
+    pub pem: Option<String>,
+    pub replace_roots: bool,
+}
+
+/// A selected nonempty collection file replaces default roots, as legacy CAINFO/
+/// Node ca does. Empty files retain the existing global/default fallback policy.
+pub(crate) fn load_ca_certificate(
+    path: Option<&str>,
+    fallback: Option<&str>,
+) -> Result<CaCertificates, String> {
+    let fallback = || CaCertificates {
+        pem: fallback.filter(|p| !p.is_empty()).map(str::to_owned),
+        replace_roots: false,
+    };
+    let Some(path) = path.filter(|p| !p.is_empty()) else {
+        return Ok(fallback());
+    };
+    let bytes = read_certificate_file(path, "CA certificate", "CA certificate")?;
+    if bytes.is_empty() {
+        return Ok(fallback());
+    }
+    let pem =
+        String::from_utf8(bytes).map_err(|_| "CA certificate file must contain UTF-8 PEM.")?;
+    let certificates = CertificateDer::pem_slice_iter(pem.as_bytes())
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|_| "Invalid CA certificate PEM file.")?;
+    if certificates.is_empty() {
+        return Err("CA certificate file contains no certificates.".into());
+    }
+    for certificate in certificates {
+        x509_parser::parse_x509_certificate(certificate.as_ref())
+            .map_err(|_| "Invalid CA certificate DER in PEM file.")?;
+    }
+    Ok(CaCertificates {
+        pem: Some(pem),
+        replace_roots: true,
+    })
 }
 
 fn pem(label: &str, bytes: &[u8]) -> String {

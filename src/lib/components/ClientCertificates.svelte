@@ -9,6 +9,7 @@
   import {
     workspace,
     addClientCertificate,
+    addCaCertificate,
     editResource,
     remove,
   } from "../workspace.svelte.js";
@@ -37,6 +38,19 @@
     },
   ];
   let picking = $state(false);
+  const caField = {
+    key: "path",
+    label: "CA certificate file (PEM)",
+    extensions: ["pem", "crt", "cer"],
+    description: "",
+  };
+  const caCertificates = $derived(
+    workspace.data.resources.filter(
+      (resource) =>
+        resource._type === "ca_certificate" &&
+        resource.parentId === collectionId,
+    ),
+  );
   let error = $state("");
   const certificates = $derived(
     workspace.data.resources.filter(
@@ -83,6 +97,56 @@
     }
   }
 </script>
+
+<section class="settings-section" aria-label="Collection CA certificate">
+  <h3>CA certificate for {collectionName}</h3>
+  <p class="hint">
+    An enabled PEM file supplies the trusted certificates for this collection.
+    File paths stay on this device and are excluded from Git sync.
+  </p>
+  <Button
+    disabled={caCertificates.length > 0}
+    onclick={() => addCaCertificate(collectionId)}>Add CA certificate</Button
+  >
+  {#if caCertificates.length > 1}<p class="hint">
+      The first entry controls this collection. Remove duplicate entries to use
+      a different one.
+    </p>{/if}
+  {#each caCertificates as certificate (certificate._id)}
+    <Field label={caField.label}>
+      <div class="certificate-file">
+        <Input
+          value={certificate.path || ""}
+          onchange={(event) =>
+            change(certificate, "path", event.currentTarget.value || null)}
+        />
+        <Button
+          disabled={!native || picking}
+          aria-label={`Choose ${caField.label}`}
+          onclick={() => chooseFile(certificate, caField)}>Browse</Button
+        >
+      </div>
+    </Field>
+    <Field layout="inline" label="Enable CA certificate"
+      ><Checkbox
+        checked={!certificate.disabled}
+        onchange={(event) =>
+          change(certificate, "disabled", !event.currentTarget.checked)}
+      /></Field
+    >
+    <Field layout="inline" label="Private CA certificate"
+      ><Checkbox
+        checked={!!certificate.isPrivate}
+        onchange={(event) =>
+          change(certificate, "isPrivate", event.currentTarget.checked)}
+      /></Field
+    >
+    <Button onclick={() => remove(certificate._id)}
+      >Remove CA certificate</Button
+    >
+  {/each}
+  {#if error}<Feedback as="p" role="alert">{error}</Feedback>{/if}
+</section>
 
 <section class="settings-section" aria-label="Collection client certificates">
   <h3>Client certificates for {collectionName}</h3>

@@ -881,6 +881,17 @@ export function addFolder(name, parentId = workspace.data.activeWorkspaceId) {
   void persist();
 }
 /** @param {string} collectionId */
+export function addCaCertificate(collectionId) {
+  if (!canEditWorkspace()) return;
+  if (!workspace.data.resources.some(r => r._id === collectionId && r._type === "workspace"))
+    throw new Error("Select a collection before adding a CA certificate.");
+  if (workspace.data.resources.some(r => r._type === "ca_certificate" && r.parentId === collectionId)) return;
+  const now = Date.now();
+  workspace.data.resources.push({ _id: id("crt"), _type: "ca_certificate", parentId: collectionId,
+    path: null, disabled: false, isPrivate: false, created: now, modified: now });
+  void persist();
+}
+/** @param {string} collectionId */
 export function addClientCertificate(collectionId) {
   if (!canEditWorkspace()) return;
   const collection = workspace.data.resources.find(

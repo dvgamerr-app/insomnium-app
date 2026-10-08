@@ -1,10 +1,15 @@
 import { poll } from "./native-app.js";
+import {
+  caCertificateSettings,
+  collectionCaCases,
+} from "./ca-certificate-settings.js";
 
 /** Configure the active collection through actual Preferences; no workspace IPC mutation.
  * @param {import('playwright-core').Page} page
  * @param {import('./native-app.js').NativeInvoke} invoke
  * @param {Record<string,any>} config */
 export async function certificateSettings(page, invoke, config) {
+  await caCertificateSettings(page, invoke, config);
   await page
     .getByRole("button", { name: "Preferences", exact: true })
     .first()
@@ -59,7 +64,8 @@ export async function certificateSettings(page, invoke, config) {
     .click();
 }
 
-/** @param {Awaited<ReturnType<import('./client-certificate.js').clientCertificateFixture>>} fixture */
+/** @param {Awaited<ReturnType<import('./client-certificate.js').clientCertificateFixture>>} fixture
+ * @returns {Array<{id:string,cert?:string,key?:string,pfx?:string,password?:string,success:boolean,preTcp?:boolean,disabled?:boolean,host?:string,ca?:string,caFile?:string,caDisabled?:boolean}>} */
 export function protocolCertificateCases(fixture) {
   const files = fixture.identityFiles;
   return [
@@ -98,6 +104,7 @@ export function protocolCertificateCases(fixture) {
       success: false,
       preTcp: true,
     },
+    ...collectionCaCases(fixture),
     {
       id: "collection-recovery",
       pfx: files.legacyPfx,

@@ -3,6 +3,11 @@ import { join } from "node:path";
 import { poll } from "./native-app.js";
 import { withDialogSelection } from "./dialog-selection.js";
 import { snapshotGitCollection } from "../../../src/lib/git-collection.js";
+import {
+  caCertificateSettings,
+  collectionCaCases,
+  verifyCaCertificateControls,
+} from "./ca-certificate-settings.js";
 
 /** Actual Preferences edits and saved/reloaded native HTTP sends for imported local certificates.
  * @param {import('playwright-core').Page} page
@@ -83,7 +88,10 @@ export async function collectionClientCertificate(
     disabledByDefault: true,
     resourcesRestored: true,
   });
-  /** @type {Array<{id:string,cert?:string,key?:string,pfx?:string,password?:string,host?:string,disabled?:boolean,redirect?:boolean,success:boolean,preTcp?:boolean}>} */
+  results.push(
+    await verifyCaCertificateControls(page, invoke, fixture, output),
+  );
+  /** @type {Array<{id:string,cert?:string,key?:string,pfx?:string,password?:string,host?:string,disabled?:boolean,redirect?:boolean,success:boolean,preTcp?:boolean,ca?:string,caFile?:string,caDisabled?:boolean}>} */
   const identities = [
     {
       id: "collection-pem",
@@ -180,6 +188,7 @@ export async function collectionClientCertificate(
       host: "127.0.0.1:1",
       success: false,
     },
+    ...collectionCaCases(fixture),
     {
       id: "collection-recovery",
       cert: files.cert,
@@ -195,6 +204,7 @@ export async function collectionClientCertificate(
     },
   ];
   for (const entry of identities) {
+    await caCertificateSettings(page, invoke, entry);
     await page
       .getByRole("button", { name: "Preferences", exact: true })
       .first()
@@ -208,6 +218,9 @@ export async function collectionClientCertificate(
     );
     await fallback.fill(entry.preTcp ? fixture.client.identity : "");
     await fallback.blur();
+    const caInput = preferences.getByLabel("Custom CA (PEM)", { exact: true });
+    await caInput.fill(entry.ca || fixture.ca);
+    await caInput.blur();
     const group = preferences.getByRole("region", {
       name: "Collection client certificates",
       exact: true,
@@ -273,6 +286,8 @@ export async function collectionClientCertificate(
         (/** @type {any} */ row) => row._id === imported._id,
       );
       return (
+        (await invoke("load_workspace")).settings.caPem ===
+          (entry.ca || fixture.ca) &&
         (await invoke("load_workspace")).settings.identityPem ===
           (entry.preTcp ? fixture.client.identity : "") &&
         saved.host === (entry.host || "127.0.0.1:*") &&
@@ -313,6 +328,7 @@ export async function collectionClientCertificate(
     const before = await invoke("load_workspace");
     const count = fixture.requests.length,
       tcp = fixture.connections.primary;
+    const rejectionsBefore = fixture.rejected.length;
     await page.getByRole("button", { name: "Send", exact: true }).click();
     if (entry.success)
       await poll(
@@ -348,6 +364,23 @@ export async function collectionClientCertificate(
       !JSON.stringify(snapshot.files).includes(files.password),
       "Git snapshot must not contain certificate passphrase",
     );
+    const caResource = after.resources.find(
+      (/** @type {any} */ row) =>
+        row._type === "ca_certificate" && row.parentId === request.parentId,
+    );
+    assert.ok(
+      snapshot.excluded.some(
+        (row) =>
+          row.id === caResource._id &&
+          row.reason === "local-only-or-unsupported",
+      ),
+      "Nonprivate CA remains excluded from Git",
+    );
+    if (caResource.path)
+      assert.ok(
+        !JSON.stringify(snapshot.files).includes(caResource.path),
+        "CA file path must not leak into Git snapshot",
+      );
     const fresh = after.history.filter(
       (/** @type {any} */ row) =>
         !before.history.some((/** @type {any} */ old) => old._id === row._id),
@@ -371,6 +404,23 @@ export async function collectionClientCertificate(
         tcp,
         "Invalid selected identity must fail before TCP",
       );
+    if (entry.caFile && !entry.success && !entry.preTcp) {
+      assert.ok(
+        fixture.connections.primary > tcp,
+        "Untrusted collection CA reaches HTTP TLS handshake",
+      );
+      await poll(
+        async () =>
+          fixture.rejected
+            .slice(rejectionsBefore)
+            .some(
+              (event) =>
+                event.role === "primary" &&
+                event.detail.includes("received fatal alert: UnknownCA"),
+            ),
+        "Native HTTP collection CA trust refusal",
+      );
+    }
     assert.equal(
       fixture.connections.sink,
       0,

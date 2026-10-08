@@ -8,7 +8,10 @@ import { composeCurlBody, appendCurlFileQuery } from "./curl-body.js";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { environmentFor, render, workspaceFor, protocolFor } from "./model.js";
 import { oauthHeader } from "./oauth-model.js";
-import { clientCertificateSelection } from "./client-certificates.js";
+import {
+  clientCertificateSelection,
+  collectionCaCertificatePath,
+} from "./client-certificates.js";
 import { prepareOAuth1 } from "./oauth1-model.js";
 import { prepareHawk } from "./hawk-model.js";
 import { prepareAsap } from "./asap-model.js";
@@ -497,6 +500,7 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
     storeCookies: request.settingStoreCookies !== false,
     proxy: settings.proxy || null,
     caPem: settings.caPem || null,
+    caFile: collectionCaCertificatePath(data, request),
     clientCertificates,
     identityPem:
       !clientCertificates.length && settings.identityHost === url.hostname

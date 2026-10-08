@@ -118,7 +118,7 @@ export async function grpcReflectionCertificate(
       ],
       ...fileCases.map((entry) => [
         "reflection-" + entry.id,
-        fixture.ca,
+        entry.ca || fixture.ca,
         "127.0.0.1",
         entry.preTcp ? fixture.client.identity : "",
         entry.success,
@@ -351,6 +351,23 @@ export async function grpcReflectionCertificate(
       } else {
         assert.equal(requests.length, 0);
         assert.equal(queries.length, 0);
+        if (fileCase?.caFile && !fileCase.preTcp) {
+          assert.ok(
+            fixture.grpcConnections.count > tcpBefore,
+            "Untrusted collection CA reaches reflection TLS handshake",
+          );
+          await poll(
+            async () =>
+              fixture.rejected
+                .slice(rejectionsBefore)
+                .some(
+                  (event) =>
+                    event.role === "grpc" &&
+                    event.detail.includes("received fatal alert: UnknownCA"),
+                ),
+            "Native reflection collection CA trust refusal",
+          );
+        }
         if (server) {
           assert.ok(
             fixture.grpcConnections.count > tcpBefore,

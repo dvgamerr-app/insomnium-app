@@ -184,7 +184,7 @@ await withNativeApp(
         ],
         ...fileCases.map((entry) => [
           entry.id,
-          fixture.ca,
+          entry.ca || fixture.ca,
           "127.0.0.1",
           entry.preTcp ? fixture.client.identity : "",
           entry.success,
@@ -362,6 +362,23 @@ await withNativeApp(
               .slice(rejected)
               .some((event) => /peer sent no certificates/i.test(event.detail)),
           );
+        if (fileCase?.caFile && !success && !fileCase.preTcp) {
+          assert.ok(
+            fixture.grpcConnections.count > connections,
+            "Untrusted collection CA reaches TLS handshake",
+          );
+          await poll(
+            async () =>
+              fixture.rejected
+                .slice(rejected)
+                .some(
+                  (event) =>
+                    event.role === "grpc" &&
+                    event.detail.includes("received fatal alert: UnknownCA"),
+                ),
+            "Native unary collection CA trust refusal",
+          );
+        }
         assert.ok(!JSON.stringify(response).includes("BEGIN PRIVATE KEY"));
         assert.equal(fixture.sinkRequests.length, 0);
         assert.equal(fixture.connections.sink, 0);
@@ -403,8 +420,9 @@ await withNativeApp(
       await certificateSettings(page, invoke, {
         pfx: fixture.identityFiles.pfx,
         password: fixture.identityFiles.password,
+        caFile: fixture.caFiles.trusted,
       });
-      await setTls(fixture.ca, "127.0.0.1", "");
+      await setTls(fixture.otherCa, "127.0.0.1", "");
       const streaming = await grpcStreamCertificate(
         { page, invoke, output },
         fixture,

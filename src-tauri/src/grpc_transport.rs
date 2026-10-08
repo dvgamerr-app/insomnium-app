@@ -23,6 +23,7 @@ pub struct Connection {
     pub metadata: Vec<(String, String)>,
     pub timeout_ms: u64,
     pub ca_pem: Option<String>,
+    pub ca_file: Option<String>,
     pub identity_pem: Option<String>,
     #[serde(default)]
     pub(crate) client_certificates: Vec<crate::client_certificates::ClientCertificateSource>,
@@ -140,12 +141,19 @@ pub(crate) async fn channel(config: &Connection) -> Result<Channel, String> {
         .user_agent(concat!("Insomnium/", env!("CARGO_PKG_VERSION")))
         .map_err(|_| "Invalid gRPC user agent.")?;
     if url.scheme() == "https" {
-        let mut tls = ClientTlsConfig::new().with_webpki_roots();
-        if let Some(pem) = config.ca_pem.as_ref().filter(|p| !p.is_empty()) {
+        let ca = crate::client_certificates::load_ca_certificate(
+            config.ca_file.as_deref(),
+            config.ca_pem.as_deref(),
+        )?;
+        let mut tls = ClientTlsConfig::new();
+        if !ca.replace_roots {
+            tls = tls.with_webpki_roots();
+        }
+        if let Some(pem) = ca.pem {
             if pem.len() > 1024 * 1024 {
                 return Err("gRPC CA exceeds 1 MiB.".into());
             }
-            tls = tls.ca_certificate(Certificate::from_pem(pem));
+            tls = tls.ca_certificate(Certificate::from_pem(&pem));
         }
         if let Some(pem) = crate::client_certificates::load_identity(
             &config.client_certificates,

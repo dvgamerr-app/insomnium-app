@@ -1,5 +1,17 @@
 # UI scenarios (Playwright + Bun)
 
+Collection CA files are covered by the existing HTTP/SSE/WSS/gRPC entries and
+`helpers/ca-certificate-settings.js`. Fifteen shared cases cover both bundle
+orders, collection trust replacing unrelated global CA, wrong-root TLS refusal,
+bounded invalid-file refusal before TCP, disabled/empty/cleared-path fallback and
+recovery. HTTP also imports active/foreign CA records and verifies preserved
+metadata, singleton Add, Browse cancel/select, remove/add and nonprivate Git
+exclusion. gRPC streams use collection CA with unrelated global trust for all
+seven stream/EOF/Cancel/reconnect cases. Browse replies are controlled native IPC;
+actual OS dialogs remain a separate gate. Native entries run sequentially after
+`bun tests/ui/build-recovery-copy-probe.js` finishes successfully. Latest verified
+totals: HTTP59, SSE58, WSS58, gRPC97; exact evidence is in migration STATUS.
+
 All browser scenarios use `launchUiBrowser` in `helpers/preview-app.js`, with
 `headless: true` and no headed override. Run saved scenarios with Bun.
 Native Tauri scenarios attach to WebView2 through CDP and hide their own host

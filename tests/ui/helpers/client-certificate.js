@@ -409,6 +409,38 @@ export async function clientCertificateFixture(output, options = {}) {
     ? await pfxContainers(directory, password)
     : [];
   const ca = await Bun.file(join(directory, "ca.pem")).text();
+  const caFiles = {
+    trusted: join(directory, "ca.pem"),
+    other: join(directory, "other-ca.pem"),
+    bundleFirst: join(directory, "ca-root-first.pem"),
+    bundleLast: join(directory, "ca-root-last.pem"),
+    empty: join(directory, "ca-empty.pem"),
+    malformed: join(directory, "ca-malformed.pem"),
+    noCertificates: join(directory, "ca-no-certificates.pem"),
+    invalidDer: join(directory, "ca-invalid-der.pem"),
+    invalidUtf8: join(directory, "ca-invalid-utf8.pem"),
+    oversized: join(directory, "ca-oversized.pem"),
+    directory,
+    missing: join(directory, "ca-missing.pem"),
+  };
+  const otherCaContents = await Bun.file(caFiles.other).text();
+  for (const [path, value] of [
+    [caFiles.bundleFirst, ca + otherCaContents],
+    [caFiles.bundleLast, otherCaContents + ca],
+    [caFiles.empty, ""],
+    [
+      caFiles.malformed,
+      "-----BEGIN CERTIFICATE-----\n%%%\n-----END CERTIFICATE-----",
+    ],
+    [caFiles.noCertificates, "owned CA fixture without PEM certificates"],
+    [
+      caFiles.invalidDer,
+      "-----BEGIN CERTIFICATE-----\nBAEBAA==\n-----END CERTIFICATE-----",
+    ],
+    [caFiles.oversized, " ".repeat(1024 * 1024 + 1)],
+  ])
+    await Bun.write(path, value);
+  await Bun.write(caFiles.invalidUtf8, new Uint8Array([255, 254, 253]));
   const otherCa = await Bun.file(join(directory, "other-ca.pem")).text();
   /** @type {Array<{url:string,method:string,body:string,authorized:boolean,cn:string,fingerprint:string}>} */
   const requests = [];
@@ -650,6 +682,7 @@ export async function clientCertificateFixture(output, options = {}) {
   const sink = { url: String(state.ready.sink) };
   return {
     identityFiles,
+    caFiles,
     containers,
     rsaClient,
     rsaFiles,

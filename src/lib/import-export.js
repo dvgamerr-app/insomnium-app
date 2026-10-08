@@ -279,6 +279,7 @@ export function parseImport(text) {
     "websocket_request",
     "websocket_payload",
     "client_certificate",
+    "ca_certificate",
   ]);
   return {
     resources,
