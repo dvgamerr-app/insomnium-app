@@ -175,7 +175,20 @@ export function openApiFormDocument(version, base) {
 /** @param {string} version */
 export function openApiFormCasesFor(version) {
   const cases = version.startsWith("3.0.")
-    ? [...openApiFormCases, ...openApiFormDefaultCases]
+    ? [
+        ...openApiFormCases,
+        ...openApiFormDefaultCases,
+        ...openApiFormContentCases
+          .filter(
+            (entry) =>
+              !openApiFormDefaultCases.some((row) => row.id === entry.id),
+          )
+          .map((entry) =>
+            entry.id === "json-null"
+              ? { ...entry, schema: { type: "string", nullable: true } }
+              : entry,
+          ),
+      ]
     : [...openApiFormCases, ...openApiFormContentCases];
   if (!version.startsWith("3.2.")) return cases;
   return [

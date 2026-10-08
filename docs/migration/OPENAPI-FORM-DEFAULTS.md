@@ -1,5 +1,9 @@
 # OAS 3.0 default form style
 
+This is a historical milestone. Its default-style behavior is superseded by the
+3.0.4 clarification adopted in [OPENAPI-FORM-LEGACY-CONTENT.md](OPENAPI-FORM-LEGACY-CONTENT.md).
+The original evidence below is retained; it does not describe current generation.
+
 Newly generated OAS 3.0 form requests without explicit encoding fields now keep
 editable style metadata. Primitive arrays produce repeated field names, flat
 objects expand member names, and represented null/empty containers are omitted.

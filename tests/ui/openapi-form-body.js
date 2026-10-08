@@ -26,6 +26,7 @@ try {
     const cases = [];
     const versions = process.env.INSOMNIUM_OPENAPI_VERSIONS?.split(",") || [
       "3.0.3",
+      "3.0.4",
       "3.1.2",
       "3.2.1",
     ];
@@ -132,6 +133,13 @@ try {
         const help = await assertKeyValueHelp(editor, [
           entry.allowReserved ? 2 : 1,
         ]);
+        if (entry.id === "json-null") {
+          assert.ok(help[0].help[0].text.includes("including null"));
+          assert.ok(help[0].help[0].text.includes("application/json"));
+          await page.screenshot({
+            path: output + `/form-nullable-content-${version}-760.png`,
+          });
+        }
         if (entry.allowReserved) {
           assert.ok(help[0].help[1].text.includes("encoded for the form body"));
           assert.ok(!help[0].help[1].text.includes("HTTP URLs"));
@@ -286,7 +294,11 @@ try {
       );
       await send(request, "");
       cases.push({ version, id: "disable-invalid", expected: "" });
-      if (!version.startsWith("3.0.")) {
+      if (
+        generated.some(
+          (/** @type {any} */ row) => row.name === "json-mixed-array",
+        )
+      ) {
         const contentRequest = generated.find(
           (/** @type {any} */ row) => row.name === "json-mixed-array",
         );

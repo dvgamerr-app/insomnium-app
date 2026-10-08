@@ -1,12 +1,17 @@
 # UI scenarios (Playwright + Bun)
 
-OAS3.0 default form cases are in `helpers/openapi-form-default-cases.js`, including
-empty/absent encoding, arrays/flat objects/scalars/null, unsupported nested/binary
-review/runtime refusal and disable recovery. The saved full scenario defines117
-groups; `INSOMNIUM_OPENAPI_VERSIONS=3.0.3` selects the changed35-group subset.
-Current release1791488156977 accepts the35-group3.0.3 subset, terminal
-passed/native-hidden/visiblefalse/exit0; exact evidence and remaining scope:
-STATUS/OPENAPI-FORM-DEFAULTS.md. Modern native counts below are earlier milestones.
+The3.0.4 contentType clarification now applies to3.0 generation, superseding the
+earlier default-style behavior. Empty/absent encoding now selects JSON/text
+content, explicit styles stay RFC6570, and nullable media help remains visible.
+Saved form defaults cover3.0.3/3.0.4/3.1.2/3.2.1 with180 groups (49/49/34/48).
+Current legacy98 native acceptance passes on release1791489924836 (49 per legacy
+version), native-hidden/visiblefalse/exit0. Prior108/190 estimates were incorrect. Byte/binary/media/schema and all
+original migration/UX gates remain required; exact primary rules and evidence:
+STATUS/OPENAPI-FORM-LEGACY-CONTENT.md. Counts below are historical milestones.
+
+Earlier3.0 default-style acceptance used35 groups on release1791488156977.
+That behavior is superseded by the clarification above; historical evidence:
+STATUS/OPENAPI-FORM-DEFAULTS.md. The default case helper now uses content goldens.
 
 OAS3.2 explicit-style form arrays now have per-item metadata and saved cases in
 `helpers/openapi-form-style-item-cases.js`. The saved form scenario covers76

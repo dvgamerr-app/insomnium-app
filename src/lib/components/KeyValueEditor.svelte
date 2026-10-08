@@ -140,7 +140,10 @@
               >{row._openapiSerialization?.review
                 ? "Serialization requires review. Disable this row and supply a manually serialized value."
                 : row._openapiSerialization?.nullable
-                  ? "Use JSON values, including null."
+                  ? row._openapiSerialization?.formBody &&
+                    row._openapiSerialization.style === "content"
+                    ? `Use JSON values, including null. Values use ${row._openapiSerialization.mediaType} form encoding.`
+                    : "Use JSON values, including null."
                   : row._openapiSerialization?.formBody &&
                       row._openapiSerialization.style === "content"
                     ? `${row._openapiSerialization.kind === "scalar" ? "" : "Use JSON values. "}Values use ${row._openapiSerialization.mediaType} form encoding.`

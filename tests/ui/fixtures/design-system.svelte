@@ -96,6 +96,18 @@
           itemKind: "object",
         },
       },
+      {
+        name: "nullable-form-content",
+        value: "null",
+        disabled: false,
+        _openapiSerialization: {
+          formBody: true,
+          style: "content",
+          kind: "scalar-json",
+          nullable: true,
+          mediaType: "application/json",
+        },
+      },
     ]),
   );
   let multipartRows = $state(

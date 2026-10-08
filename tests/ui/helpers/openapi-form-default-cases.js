@@ -1,4 +1,4 @@
-/** OAS3.0 default form style goldens, independent of production serialization. */
+/** OAS3.0 default content goldens following the 3.0.4 clarification. */
 export const openApiFormDefaultCases =
   /** @type {Array<Record<string,any>>} */ ([
     {
@@ -6,7 +6,7 @@ export const openApiFormDefaultCases =
       content: true,
       schema: { type: "array", items: { type: "string" } },
       value: ["a +", "b&="],
-      expected: "color=a%20%2B&color=b%26%3D",
+      expected: "color=a+%2B&color=b%26%3D",
     },
     {
       id: "default-flat-object",
@@ -14,7 +14,7 @@ export const openApiFormDefaultCases =
       omitEncoding: true,
       schema: { type: "object" },
       value: { R: 100, G: 200 },
-      expected: "R=100&G=200",
+      expected: "color=%7B%22R%22%3A100%2C%22G%22%3A200%7D",
     },
     {
       id: "default-string",
@@ -22,7 +22,7 @@ export const openApiFormDefaultCases =
       omitEncoding: true,
       schema: { type: "string" },
       value: "a +",
-      expected: "color=a%20%2B",
+      expected: "color=a+%2B",
     },
     {
       id: "default-boolean",
@@ -57,7 +57,7 @@ export const openApiFormDefaultCases =
       content: true,
       schema: { type: "object" },
       value: {},
-      expected: "",
+      expected: "color=%7B%7D",
     },
     {
       id: "default-empty-string",
@@ -71,22 +71,37 @@ export const openApiFormDefaultCases =
       content: true,
       schema: { type: "object" },
       value: { nested: { x: 1 } },
-      expected: null,
-      refusal: "requires flat scalar values",
+      expected: "color=%7B%22nested%22%3A%7B%22x%22%3A1%7D%7D",
     },
     {
       id: "default-object-array",
       content: true,
       schema: { type: "array", items: { type: "object" } },
       value: [{ x: 1 }],
-      expected: null,
-      refusal: "requires flat scalar values",
+      expected: "color=%7B%22x%22%3A1%7D",
     },
     {
       id: "default-binary",
       content: true,
       schema: { type: "string", format: "binary" },
       value: "owned-file-placeholder",
+      expected: null,
+      refusal: "Review form serialization for color",
+    },
+    {
+      id: "legacy-byte-media",
+      content: true,
+      contentType: "image/png",
+      schema: { type: "string", format: "byte" },
+      value: "aGVsbG8=",
+      expected: null,
+      refusal: "Review form serialization for color",
+    },
+    {
+      id: "legacy-binary-array",
+      content: true,
+      schema: { type: "array", items: { type: "string", format: "binary" } },
+      value: ["owned-file-placeholder"],
       expected: null,
       refusal: "Review form serialization for color",
     },

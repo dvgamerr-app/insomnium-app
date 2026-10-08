@@ -34,8 +34,14 @@ export function describeOpenApiFormStyleItems(property) {
 }
 
 /** Content mode applies a property's media type to each array item.
- * @param {any} value @param {Record<string,any>} schema @param {Record<string,any>} encoding */
-export function describeOpenApiFormContent(value, schema, encoding) {
+ * @param {any} value @param {Record<string,any>} schema @param {Record<string,any>} encoding
+ * @param {boolean} [legacyFormats] */
+export function describeOpenApiFormContent(
+  value,
+  schema,
+  encoding,
+  legacyFormats = false,
+) {
   const descriptor = describeOpenApiValue(value, schema, true);
   const array = descriptor.kind === "array";
   const itemSchema = array ? schema.items || {} : schema;
@@ -43,12 +49,15 @@ export function describeOpenApiFormContent(value, schema, encoding) {
     ? itemSchema.type
     : [itemSchema.type];
   const type = types.find((/** @type {string} */ type) => type !== "null");
+  const binary =
+    legacyFormats && ["binary", "byte"].includes(itemSchema.format);
   const mediaType =
     encoding.contentType ||
     (["object", "array"].includes(type)
       ? "application/json"
       : ["string", "number", "integer", "boolean"].includes(type) &&
-          !itemSchema.contentEncoding
+          !itemSchema.contentEncoding &&
+          !binary
         ? "text/plain"
         : "application/octet-stream");
   const serialization = {
@@ -68,7 +77,8 @@ export function describeOpenApiFormContent(value, schema, encoding) {
           itemNullable: itemSchema.nullable === true || types.includes("null"),
         }
       : {}),
-    ...(!["application/json", "text/plain"].includes(mediaType) ||
+    ...(binary ||
+    !["application/json", "text/plain"].includes(mediaType) ||
     (mediaType === "text/plain" && ["object", "array"].includes(type)) ||
     itemSchema.contentEncoding ||
     encoding.encoding ||

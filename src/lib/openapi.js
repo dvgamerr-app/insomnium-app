@@ -477,17 +477,11 @@ export function generateRequests(
               params: Object.entries(value || {}).map(([name, value]) => {
                 const property = media.schema?.properties?.[name] || {};
                 const encoding = media.encoding?.[name] || {};
-                const legacyDefaultStyle =
-                  String(schema.openapi).startsWith("3.0.") &&
-                  !["style", "explode", "allowReserved", "contentType"].some(
-                    (key) => Object.hasOwn(encoding, key),
-                  );
                 if (
                   mime === "application/x-www-form-urlencoded" &&
-                  (legacyDefaultStyle ||
-                    ["style", "explode", "allowReserved"].some((key) =>
-                      Object.hasOwn(encoding, key),
-                    ))
+                  ["style", "explode", "allowReserved"].some((key) =>
+                    Object.hasOwn(encoding, key),
+                  )
                 ) {
                   const descriptor = describeOpenApiValue(
                     value,
@@ -500,11 +494,6 @@ export function generateRequests(
                     style,
                     explode: encoding.explode ?? style === "form",
                     kind: descriptor.kind,
-                    ...(legacyDefaultStyle &&
-                    (property.format === "binary" ||
-                      property.items?.format === "binary")
-                      ? { review: true }
-                      : {}),
                     ...(descriptor.nullable ? { nullable: true } : {}),
                     ...(encoding.allowReserved ? { allowReserved: true } : {}),
                     ...(String(schema.openapi).startsWith("3.2.") &&
@@ -529,12 +518,13 @@ export function generateRequests(
                 }
                 if (
                   mime === "application/x-www-form-urlencoded" &&
-                  /^3\.[12]\./.test(String(schema.openapi))
+                  /^3\.[012]\./.test(String(schema.openapi))
                 ) {
                   const row = describeOpenApiFormContent(
                     value,
                     property,
                     encoding,
+                    String(schema.openapi).startsWith("3.0."),
                   );
                   row.name = name;
                   try {
