@@ -2,6 +2,29 @@
 
 Owner requires Bun-only reusable Playwright JavaScript scenarios with shared helpers and headless execution. Browser-use and ad-hoc browser automation remain prohibited.
 
+WebSocket FilePickera55dbf3 switches its call site from inline to existing compact;
+inline intentionally presents a native input and remains available to other
+callers. Saved WSS layout helper checks six Binary theme/width cases for native
+input opacity0/absolute/full label hit area and type→file keyboard focus, alongside
+24 prior geometry cases. HTML file-input semantics consulted:
+https://html.spec.whatwg.org/multipage/input.html#file-upload-state-(type=file).
+Saved live helper intercepts Playwright filechooser and sets the same owned binary
+file twice per cycle. Input resets after async handling; exact name/base64 bytes
+persist. Real native authenticated WSS Send proves server0/255/128/10 and exact
+binary echo; no OS file-dialog acceptance claim. Old13165/1791417114946 terminal1
+proves opacity1 duplicate presentation, settings/app cleanup0. Initial compiler
+metadata collision corrected; no failed-check-pass claim.
+Final compiler0/0/all3 files Prettier/whitespace pass; shared design-system contract
+5985c1 terminal0/result passed. Exact production builder41022 terminal0/release
+1791417162756/1791417516283/result0. Initial current85732/1791417521495 passes;
+final `bun tests/ui/wss-client-certificate.js`22889/1791417593761 terminal0 passes12
+with24 geometry cases/minimum name242.859375px and4 chooser selections explicitly
+recorded in live.cycles.fileSelections. Both live Send/disconnect/reconnect cycles
+and prior TLS refusals/reload pass. Result/acceptance/layout/picker/restoration/
+fixture observations and final dark760/light1440 Binary images inspected. Four
+TLS settings restored; native-hidden owned app84204 exit0, fixture close0 and no
+live task processes. Full migration/UX/CSS/other protocol/platform parity open.
+
 Payload name sizingfc5f9d3 extends the existing WSS live helper with reusable
 payload-options-layout.js: both themes,1440/900/760 and text/JSON/binary/ping,
 readable name width≥120px, row containment/no overlap/overflow, name→native type

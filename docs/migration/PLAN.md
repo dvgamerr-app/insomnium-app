@@ -1,5 +1,7 @@
 # Insomnium → Tauri migration
 
+WebSocket FilePickera55dbf3 uses existing compact variant instead of duplicate inline/native controls. Final native1791417593761/tool22889 terminal0 on release1791417162756/1791417516283/result0 passes12 groups plus24 layout cases, native keyboard/hit surface and4 same-file chooser selections with persisted exact binary Send. Shared design-system regression passes. Other inline/dropzone callers unchanged; OS-dialog/full migration/UX/protocol/platform gates remain required. STATUS records handoff.
+
 Payload name sizingfc5f9d3 fixes the actual24px field by making the feature-local Select shell intrinsic in its flex row. Current production release1791416542018/1791416894400/result0 and native WSS1791416905052/tool6642 pass24 dark/light1440/900/760 geometry/keyboard cases (minimum name129.203125px) plus existing12 TLS/send lifecycle groups. Static headless themes pass. Full migration/UX/CSS and other gates stay required; STATUS records FilePicker follow-up and handoff.
 
 Authenticated WSS send/disconnect4a1593f: final1791416234346/tool47547 terminal0 passes12, including two explicit native connections with exact text/binary/ping-pong/server-observed close1000, full saved connection reload and no automatic reconnect. SSE11/HTTP12 regressions pass on unchanged release. Remaining migration/UX/CSS and redirect/SSE/gRPC/provider/platform gates retained; STATUS records failed waiter corrections, final evidence and handoff.

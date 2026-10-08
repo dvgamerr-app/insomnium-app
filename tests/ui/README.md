@@ -19,6 +19,12 @@ The WSS live helper also checks Payload options in24 combinations (dark/light,
 1440/900/760, text/JSON/binary/ping): readable name width, containment/no overlap,
 no row overflow and keyboard name→type select. Theme/type/viewport are restored.
 
+Binary picker checks also verify one painted compact surface, full interactive
+native input area and type→file tab focus. Each live connection selects the same
+owned binary file twice through Playwright's intercepted WebView chooser, checks
+async reset/persisted filename/bytes and sends the exact payload to the server.
+This does not verify the OS file dialog.
+
 `bun tests/ui/sse-client-certificate.js` uses the same current native build and
 mandatory-auth TLS fixture, with shared Network Preferences setup. Eleven groups
 check real SSE authentication/bundle/refusals/recovery, exact finite event/id/data
