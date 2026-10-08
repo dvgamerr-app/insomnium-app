@@ -2,6 +2,37 @@
 
 Owner requires Bun-only reusable Playwright JavaScript scenarios with shared helpers and headless execution. Browser-use and ad-hoc browser automation remain prohibited.
 
+2026-10-08 SSE/WSS client-certificate redirect acceptance: same saved entries now
+reuse `helpers/stream-redirect-certificate.js` and the owned mandatory-auth Rust
+fixture. Eight cases each: relative same-origin redirect/two-hop chain, hostname,
+port and HTTPS-to-HTTP scheme changes, explicit request-level disabled follow for
+same/cross-port redirects, and loop limited to10 followed hops (11 observed
+requests including initial). Independent authenticated manual fetch proves302 and
+exact Location. Actual native Settings/URL/Connect proves exact peer CN/fingerprint,
+ordered GET paths/TCP counts, expected events/normal close or visible error, one
+persisted response, resources/retained history and exact reload without reconnect.
+Foreign destinations receive no TCP connection or HTTP request. SSE uses generic
+reqwest error-following-redirect text; WSS retains the detailed blocked-origin
+cause. No production/dependency/rebuild/trust-store change.
+
+Final `bun tests/ui/sse-client-certificate.js`63125/evidence1791421179139 and
+`bun tests/ui/wss-client-certificate.js`53539/evidence1791421121617 terminal0 pass20
+groups each, including prior TLS/live acceptance. HTTP shared-fixture regression
+15733/evidence1791421229302 terminal0 passes12. All four original TLS settings
+restored/verified, hidden owned apps exit0 and fixtures close0. Compiler0/0,
+touched JS Prettier/Rustfmt/whitespace pass. Failed selector/diagnostic assertions
+and corrected intermediate evidence retained in STATUS; final screenshots inspected.
+Current production release1791420051210/1791420404492/result0 reused. Arbitrary
+redirect statuses/credentials/legacy/proxy/provider/platform/hostname-expiry and
+full migration/UX gates remain open. These controlled302 cases do not prove them.
+
+References consulted: [reqwest Policy](https://docs.rs/reqwest/latest/reqwest/redirect/struct.Policy.html),
+[reqwest-websocket](https://docs.rs/reqwest-websocket/latest/reqwest_websocket/),
+plus pinned local reqwest0.12.28 redirect.rs/native build_client/streaming.rs and
+cached reqwest-websocket0.5.1 native.rs (WSS→HTTPS normalization). First versioned
+web URLs were inaccessible; local pinned sources govern actual behavior. Existing
+saved fixture/compiler pattern reused; no new dependency or initializer.
+
 2026-10-08 headless follow-up: saved `bun tests/ui/design-system.js` terminal0,
 result.json passed; all browser launch sites still route through explicit
 `headless: true` in launchUiBrowser. Native SSE1791420476431 records native-hidden,

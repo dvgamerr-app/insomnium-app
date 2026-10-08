@@ -9,6 +9,14 @@ See `docs/migration/UI-TESTING.md` for the native host and OS dialog limitations
 Reverified 2026-10-08 with `bun tests/ui/design-system.js` (passed). There is one
 shared browser launch and it explicitly enables headless mode.
 
+SSE/WSS client-certificate scenarios also reuse
+`helpers/stream-redirect-certificate.js`: eight native redirect cases per protocol
+cover same-origin chains, host/port/scheme refusal before destination TCP, explicit
+disabled follow and the10-hop loop limit. Each validates actual peer/path/event
+history, exact persisted reload and no automatic reconnect. Final20 groups per
+protocol pass; HTTP shared-fixture regression passes12. See UI-TESTING/STATUS for
+exact artifacts and remaining gates. Run native scenarios sequentially.
+
 The saved `bun tests/ui/sse-client-certificate.js` now includes two live mutual
 TLS Connect/Disconnect cycles, fragmented UTF8/BOM/multiline/id/retry framing,
 actual server-observed closure and exact persisted response reload. Run it only
