@@ -5,8 +5,8 @@ import { poll } from "./native-app.js";
 import { X509Certificate } from "node:crypto";
 
 /** Per-run private CA, server and client identities. Trust stays inside the owned fixture/app.
- * @param {string} output */
-export async function clientCertificateFixture(output) {
+ * @param {string} output @param {{grpc?:boolean}} [options] */
+export async function clientCertificateFixture(output, options = {}) {
   const root = await realpath(output);
   const relation = relative(resolve("artifacts/playwright"), root);
   assert.ok(relation && !relation.startsWith("..") && !relation.includes(":"));
@@ -173,12 +173,14 @@ export async function clientCertificateFixture(output) {
     "-o",
     executable,
   ];
+  if (options.grpc) args.push("--cfg", "grpc_fixture");
   for (const name of [
     "rustls",
     "sha2",
     "serde_json",
     "x509_parser",
     "tungstenite",
+    ...(options.grpc ? ["tokio", "tokio_rustls", "h2"] : []),
   ]) {
     const files = await Array.fromAsync(
       new Bun.Glob("lib" + name + "-*.rlib").scan(deps),
@@ -219,6 +221,8 @@ export async function clientCertificateFixture(output) {
   };
   const connections = { primary: 0, sink: 0 };
   const rejected = /** @type {Array<Record<string,any>>} */ ([]);
+  const grpcRequests = /** @type {Array<Record<string,any>>} */ ([]);
+  const grpcConnections = { count: 0 };
   const drain = (async () => {
     const reader = child.stdout.getReader();
     const decoder = new TextDecoder();
@@ -234,6 +238,8 @@ export async function clientCertificateFixture(output) {
         if (!line) continue;
         const event = JSON.parse(line);
         if (event.event === "ready") state.ready = event;
+        else if (event.event === "grpc-request") grpcRequests.push(event);
+        else if (event.event === "grpc-connection") grpcConnections.count++;
         else if (event.event === "request") {
           if (event.role === "sink")
             sinkRequests.push({ url: event.url, method: event.method });
@@ -251,7 +257,15 @@ export async function clientCertificateFixture(output) {
     await Bun.write(
       join(directory, "fixture-observations.json"),
       JSON.stringify(
-        { requests, sinkRequests, connections, rejected, socketEvents },
+        {
+          requests,
+          sinkRequests,
+          connections,
+          rejected,
+          socketEvents,
+          grpcRequests,
+          grpcConnections,
+        },
         null,
         2,
       ),
@@ -295,6 +309,9 @@ export async function clientCertificateFixture(output) {
     sinkRequests,
     connections,
     rejected,
+    grpc: { url: String(state.ready.grpc) },
+    grpcRequests,
+    grpcConnections,
     async verifyFixture() {
       for (const endpoint of [primary, sink]) {
         const response = await fetch(endpoint.url + "/fixture-check", {

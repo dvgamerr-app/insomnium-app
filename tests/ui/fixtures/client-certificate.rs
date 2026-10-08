@@ -176,6 +176,156 @@ fn handle(
     stream.flush().map_err(|e| e.to_string())
 }
 
+#[cfg(grpc_fixture)]
+async fn grpc_connection(
+    socket: tokio::net::TcpStream,
+    config: Arc<ServerConfig>,
+) -> Result<(), String> {
+    let stream = tokio_rustls::TlsAcceptor::from(config)
+        .accept(socket)
+        .await
+        .map_err(|e| e.to_string())?;
+    let session = stream.get_ref().1;
+    if session.alpn_protocol() != Some(b"h2") {
+        return Err("HTTP/2 ALPN missing".into());
+    }
+    let peer = session
+        .peer_certificates()
+        .and_then(|chain| chain.first())
+        .ok_or("Client certificate missing")?;
+    let (_, certificate) =
+        x509_parser::parse_x509_certificate(peer.as_ref()).map_err(|e| e.to_string())?;
+    let cn = certificate
+        .subject()
+        .iter_common_name()
+        .next()
+        .ok_or("Client CN missing")?
+        .as_str()
+        .map_err(|e| e.to_string())?
+        .to_owned();
+    let fingerprint = Sha256::digest(peer.as_ref())
+        .iter()
+        .map(|byte| format!("{byte:02X}"))
+        .collect::<Vec<_>>()
+        .join(":");
+    let mut connection = h2::server::handshake(stream)
+        .await
+        .map_err(|e| e.to_string())?;
+    while let Some(request) = connection.accept().await {
+        let (request, mut respond) = request.map_err(|e| e.to_string())?;
+        let cn = cn.clone();
+        let fingerprint = fingerprint.clone();
+        tokio::spawn(async move {
+            let result = async move {
+            let path = request.uri().path().to_owned();
+            let method = request.method().to_string();
+            let mut incoming = request.into_body();
+            let mut body = Vec::new();
+            while let Some(chunk) = incoming.data().await {
+                let chunk = chunk.map_err(|e| e.to_string())?;
+                if body.len() + chunk.len() > 65536 {
+                    return Err("gRPC fixture body limit".to_owned());
+                }
+                body.extend_from_slice(&chunk);
+                incoming
+                    .flow_control()
+                    .release_capacity(chunk.len())
+                    .map_err(|e| e.to_string())?;
+                // The native dispatcher uses streaming for every method shape;
+                // respond to its complete first frame without waiting for sender EOF.
+                if body.len() >= 5 {
+                    let length = u32::from_be_bytes(body[1..5].try_into().unwrap()) as usize;
+                    if length > 65531 || body[0] != 0 {
+                        return Err("Invalid gRPC fixture frame".to_owned());
+                    }
+                    if body.len() >= length + 5 {
+                        break;
+                    }
+                }
+            }
+            println!(
+                "{}",
+                serde_json::json!({"event":"grpc-request","url":path,"method":method,"bodyBytes":body,"authorized":true,"cn":cn,"fingerprint":fingerprint,"alpn":"h2"})
+            );
+            let response = tungstenite::http::Response::builder()
+                .status(200)
+                .header("content-type", "application/grpc")
+                .header("owned-metadata", "authenticated")
+                .body(())
+                .map_err(|e| e.to_string())?;
+            let mut send = respond
+                .send_response(response, false)
+                .map_err(|e| e.to_string())?;
+            let text = b"owned mutual TLS gRPC response";
+            let mut frame = vec![0];
+            frame.extend_from_slice(&((text.len() + 2) as u32).to_be_bytes());
+            frame.extend_from_slice(&[10, text.len() as u8]);
+            frame.extend_from_slice(text);
+            send.send_data(tungstenite::Bytes::from(frame), false)
+                .map_err(|e| e.to_string())?;
+            let mut trailers = tungstenite::http::HeaderMap::new();
+            trailers.insert(
+                "grpc-status",
+                tungstenite::http::HeaderValue::from_static("0"),
+            );
+            trailers.insert(
+                "owned-trailer",
+                tungstenite::http::HeaderValue::from_static("complete"),
+            );
+            send.send_trailers(trailers).map_err(|e| e.to_string())?;
+            Ok::<(), String>(())
+            }.await;
+            if let Err(error) = result {
+                println!(
+                    "{}",
+                    serde_json::json!({"event":"rejected","role":"grpc-stream","detail":error})
+                );
+            }
+        });
+    }
+    Ok(())
+}
+
+#[cfg(grpc_fixture)]
+fn grpc_listener(config: Arc<ServerConfig>) -> String {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = format!("https://{}", listener.local_addr().unwrap());
+    listener.set_nonblocking(true).unwrap();
+    let mut config = (*config).clone();
+    config.alpn_protocols = vec![b"h2".to_vec()];
+    let config = Arc::new(config);
+    std::thread::spawn(move || {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        runtime.block_on(async move {
+            let listener = tokio::net::TcpListener::from_std(listener).unwrap();
+            loop {
+                let (socket, _) = listener.accept().await.unwrap();
+                println!("{}", serde_json::json!({"event":"grpc-connection"}));
+                let config = config.clone();
+                tokio::spawn(async move {
+                    let result = tokio::time::timeout(
+                        Duration::from_secs(15),
+                        grpc_connection(socket, config),
+                    )
+                    .await;
+                    if let Err(error) =
+                        result.unwrap_or_else(|_| Err("gRPC fixture timeout".into()))
+                    {
+                        println!(
+                            "{}",
+                            serde_json::json!({"event":"rejected","role":"grpc","detail":error})
+                        );
+                    }
+                });
+            }
+        });
+    });
+    url
+}
+
 fn main() {
     rustls::crypto::ring::default_provider()
         .install_default()
@@ -202,6 +352,10 @@ fn main() {
     let primary_url = format!("https://{}", primary.local_addr().unwrap());
     let sink_url = format!("https://{}", sink.local_addr().unwrap());
     let redirect = format!("{sink_url}/destination");
+    #[cfg(grpc_fixture)]
+    let grpc_url = grpc_listener(config.clone());
+    #[cfg(not(grpc_fixture))]
+    let grpc_url = "";
     for (role, listener) in [("primary", primary), ("sink", sink)] {
         let config = config.clone();
         let redirect = redirect.clone();
@@ -220,7 +374,7 @@ fn main() {
     }
     println!(
         "{}",
-        serde_json::json!({"event":"ready","primary":primary_url,"sink":sink_url})
+        serde_json::json!({"event":"ready","primary":primary_url,"sink":sink_url,"grpc":grpc_url})
     );
     let mut stop = String::new();
     let _ = std::io::stdin().read_line(&mut stop);

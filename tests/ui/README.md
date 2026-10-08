@@ -6,6 +6,18 @@ Native Tauri scenarios attach to WebView2 through CDP and hide their own host
 window; their rendering mode is `native-hidden`, rather than browser headless.
 See `docs/migration/UI-TESTING.md` for the native host and OS dialog limitations.
 
+## Native gRPC client certificate
+
+Run `bun tests/ui/grpc-client-certificate.js` against the successful current
+native-recovery-copy-probe build. The saved scenario opts into an owned Rust
+HTTP/2 listener with ALPN h2 and mandatory client verification. Twelve groups
+cover an independent authenticated HTTP/2 self-check, actual native unary Send,
+CA bundles in both root positions, missing/mismatched/untrusted/malformed TLS
+settings, recovery and exact response reload without resend. Server evidence
+records the verified peer CN/fingerprint and exact protobuf bytes; four original
+TLS settings are restored. Run native scenarios sequentially. Reflection and
+streaming TLS acceptance, provider/proxy/legacy/platform parity remain separate.
+
 ## Native HTTP client certificate
 
 `bun tests/ui/wss-client-certificate.js` shares the stream TLS runner with SSE.

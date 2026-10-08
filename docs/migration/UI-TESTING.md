@@ -2,6 +2,46 @@
 
 Owner requires Bun-only reusable Playwright JavaScript scenarios with shared helpers and headless execution. Browser-use and ad-hoc browser automation remain prohibited.
 
+## Native unary gRPC mutual TLS — 2026-10-08
+
+Saved `bun tests/ui/grpc-client-certificate.js` uses the successful current
+recovery-copy probe and shared native-app/tls-preferences helpers. The existing
+owned CA fixture has an opt-in `--cfg grpc_fixture` HTTP/2 listener, compiled
+against cached release tokio/tokio-rustls/h2 dependencies. HTTP/WSS/SSE listener
+behavior stays unchanged. Rustls verifies client certificates before h2 ALPN
+handshake; observations pin actual peer CN/SHA256 fingerprint, method/path and
+exact protobuf request bytes. A separate Bun HTTP/2 client first verifies the
+response framing/status and server-observed identity. No production dependency
+or app rebuild/trust-store/TLS-validation change.
+
+Final handle20110/evidence1791418245930 terminal0 passes12 groups: independent
+mandatory-auth HTTP/2 check; native unary trusted client, CA bundles with required
+root first/second and recovery produce one exact RPC/decoded response/status0/
+metadata/trailers; missing identity, mismatched identity host, untrusted client
+and untrusted server have RPC0. Malformed CA/identity have TCP0 too. Missing/
+mismatched/wrong-issuer identity may settle as Tonic status2/closed, while server
+trust/PEM failures settle as error; both paths retain explicit failure. No received
+message is accepted on failures. One Send saves one history row, all resources
+and retained prior history are exact; recovered complete response survives reload
+without another RPC. Four TLS settings restored and verified; owned native-hidden
+app85276 visiblefalse/exit0, fixture close0. Trusted response screenshot inspected.
+
+Failed attempts are excluded: initial cached http/bytes compilation identities
+did not match h2; use its compatible tungstenite reexports. Next waiter expected
+error instead of actual status2. Next fixture waited for sender EOF; native uses
+streaming for every shape, so fixture now responds after the complete first
+protobuf frame, like the saved cleartext scenario. All failed apps exited0 and
+mutated settings were restored. Exact handles/artifacts in STATUS.
+
+Official APIs consulted before implementation:
+https://docs.rs/h2/latest/h2/server/index.html,
+https://docs.rs/h2/latest/h2/struct.SendStream.html#method.send_trailers,
+https://docs.rs/tokio-rustls/latest/tokio_rustls/;
+pinned Tonic0.14.6 source confirms PEM bundle iteration and h2 ALPN requirement.
+Run with Bun only, sequentially with other owned native scenarios. This verifies
+Windows native unary mTLS, not reflection/streaming TLS, provider/proxy/legacy
+certificate models, other platforms or full migration/UX/CSS parity.
+
 WebSocket FilePickera55dbf3 switches its call site from inline to existing compact;
 inline intentionally presents a native input and remains available to other
 callers. Saved WSS layout helper checks six Binary theme/width cases for native
