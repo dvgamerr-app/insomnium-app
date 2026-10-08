@@ -238,8 +238,10 @@ export function generateRequests(
       )
         continue;
       let value;
+      const contentEntries = Object.entries(parameter.content || {});
+      const [mediaType, contentMedia] = contentEntries[0] || [];
       try {
-        value = example(parameter.content?.["text/plain"] || parameter, schema);
+        value = example(contentMedia || parameter, schema);
       } catch (error) {
         issues.push(`Parameter ${parameter.name}: ${error}`);
         value = "";
@@ -247,15 +249,76 @@ export function generateRequests(
       const compound = value != null && typeof value === "object";
       const descriptor = describeOpenApiValue(
         value,
-        parameter.schema || parameter.content?.["text/plain"]?.schema || {},
+        parameter.schema || contentMedia?.schema || {},
         schema.swagger !== "2.0" &&
           ["query", "header", "path", "cookie"].includes(parameter.in),
       );
+      if (mediaType === "application/json") {
+        if (descriptor.kind === "scalar") descriptor.kind = "scalar-json";
+        const mediaTypes = Array.isArray(contentMedia?.schema?.type)
+          ? contentMedia.schema.type
+          : [contentMedia?.schema?.type];
+        if (
+          mediaTypes.filter(
+            (/** @type {any} */ type) => type && type !== "null",
+          ).length !== 1
+        )
+          descriptor.kind = "json";
+        descriptor.text = JSON.stringify(value ?? null);
+      }
       const row = /** @type {Record<string,any>} */ ({
         name: parameter.name,
         value: descriptor.text,
         disabled: false,
       });
+      if (
+        parameter.content &&
+        !(
+          parameter.in === "cookie" &&
+          contentEntries.length === 1 &&
+          mediaType === "text/plain"
+        )
+      ) {
+        const serialization = {
+          style: "content",
+          explode: false,
+          kind: descriptor.kind,
+          mediaType,
+          ...(descriptor.nullable ? { nullable: true } : {}),
+          ...(schema.swagger === "2.0" ||
+          parameter.allowReserved ||
+          contentEntries.length !== 1 ||
+          mediaType !== "application/json"
+            ? { review: true }
+            : {}),
+        };
+        row._openapiSerialization = serialization;
+        const serializers = {
+          query: serializeOpenApiQuery,
+          header: serializeOpenApiHeader,
+          path: serializeOpenApiPath,
+          cookie: serializeOpenApiCookie,
+        };
+        const location = /** @type {keyof typeof serializers} */ (parameter.in);
+        try {
+          serializers[location]?.(row.name, row.value, serialization);
+        } catch (error) {
+          issues.push(`Parameter ${parameter.name}: ${error}`);
+        }
+        if (parameter.in === "path") request._openapiPath = true;
+        const fields = /** @type {Record<string,string>} */ ({
+          query: "parameters",
+          header: "headers",
+          path: "pathParameters",
+          cookie: "cookieParameters",
+        });
+        const field = fields[parameter.in];
+        if (field) {
+          request[field] ||= [];
+          request[field].push(row);
+          continue;
+        }
+      }
       if (parameter.in === "query" || parameter.in === "header") {
         if (
           (parameter.in === "query" || parameter.in === "header") &&

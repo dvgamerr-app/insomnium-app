@@ -92,7 +92,8 @@
         {:else}<Input
             variant="inline"
             aria-label={`Value ${index + 1}`}
-            aria-describedby={row._openapiSerialization?.nullable
+            aria-describedby={row._openapiSerialization?.nullable ||
+            row._openapiSerialization?.style === "content"
               ? `${editorId}-value-${index}-help`
               : undefined}
             placeholder="Value"
@@ -103,10 +104,15 @@
                 noValue: false,
               })}
           />{/if}
-        {#if row._openapiSerialization?.nullable}<Feedback
+        {#if row._openapiSerialization?.nullable || row._openapiSerialization?.style === "content"}<Feedback
             id={`${editorId}-value-${index}-help`}
             tone="hint"
-            density="compact">Use JSON values, including null.</Feedback
+            density="compact"
+            >{row._openapiSerialization?.review
+              ? "Serialization requires review. Disable this row and supply a manually serialized value."
+              : row._openapiSerialization?.nullable
+                ? "Use JSON values, including null."
+                : "Use JSON values."}</Feedback
           >{/if}
         {#if files}<Select
             variant="inline"

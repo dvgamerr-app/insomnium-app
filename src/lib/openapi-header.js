@@ -1,8 +1,11 @@
 import { readOpenApiValue } from "./openapi-value.js";
+import { serializeOpenApiContent } from "./openapi-content.js";
 /** Serialize OpenAPI simple header values without URI encoding or automatic quoting.
  * @param {string} name @param {string} text
- * @param {{style:string,explode:boolean,kind:string,nullable?:boolean}} options */
+ * @param {{style:string,explode:boolean,kind:string,nullable?:boolean,mediaType?:string,review?:boolean}} options */
 export function serializeOpenApiHeader(name, text, options) {
+  if (options.style === "content")
+    return serializeOpenApiContent(name, text, options, "Header");
   const { style, explode, kind } = options;
   if (style !== "simple") throw new Error(`Unsupported header style ${style}.`);
   const atom = (/** @type {unknown} */ value) => {

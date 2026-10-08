@@ -1,8 +1,16 @@
 import { readOpenApiValue } from "./openapi-value.js";
+import {
+  serializeOpenApiContent,
+  encodeOpenApiContent,
+} from "./openapi-content.js";
 /** RFC6570-derived OpenAPI path styles, keeping delimiters separate from data.
  * @param {string} name @param {string} text
- * @param {{style:string,explode:boolean,kind:string,nullable?:boolean}} options */
+ * @param {{style:string,explode:boolean,kind:string,nullable?:boolean,mediaType?:string,review?:boolean}} options */
 export function serializeOpenApiPath(name, text, options) {
+  if (options.style === "content")
+    return encodeOpenApiContent(
+      serializeOpenApiContent(name, text, options, "Path"),
+    );
   const { style, explode, kind } = options;
   if (!["simple", "label", "matrix"].includes(style))
     throw new Error(`Unsupported path style ${style}.`);

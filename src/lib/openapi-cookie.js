@@ -1,9 +1,20 @@
 import { readOpenApiValue } from "./openapi-value.js";
+import { serializeOpenApiContent } from "./openapi-content.js";
 
 /** Cookie schema/content serialization, with RFC6265 delimiters and octets.
  * @param {string} name @param {string} text
- * @param {{style:string,explode:boolean,kind:string,nullable?:boolean,review?:boolean}} options */
+ * @param {{style:string,explode:boolean,kind:string,nullable?:boolean,review?:boolean,mediaType?:string}} options */
 export function serializeOpenApiCookie(name, text, options) {
+  if (options.style === "content")
+    return serializeOpenApiCookie(
+      name,
+      serializeOpenApiContent(name, text, options, "Cookie"),
+      {
+        style: "text/plain",
+        explode: true,
+        kind: "scalar",
+      },
+    );
   if (options.review)
     throw new Error(
       `Review cookie serialization for ${name}. Disable this row and add an explicitly serialized Cookie header.`,
