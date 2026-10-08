@@ -83,37 +83,36 @@
         oninput={(event) => change(index, { name: event.currentTarget.value })}
       />
       <div class="kv-value">
-        {#if files && row.type === "file"}<FilePicker
-            class="file-picker"
-            variant="inline"
-            onchange={(event) => fileChanged(index, event)}
-            >{row.fileName || "Choose file"}</FilePicker
-          >
-        {:else}<Input
-            variant="inline"
-            aria-label={`Value ${index + 1}`}
-            aria-describedby={row._openapiSerialization?.nullable ||
-            row._openapiSerialization?.style === "content"
-              ? `${editorId}-value-${index}-help`
-              : undefined}
-            placeholder="Value"
-            value={row.value}
-            oninput={(event) =>
-              change(index, {
-                value: event.currentTarget.value,
-                noValue: false,
-              })}
-          />{/if}
-        {#if row._openapiSerialization?.nullable || row._openapiSerialization?.style === "content"}<Feedback
-            id={`${editorId}-value-${index}-help`}
-            tone="hint"
-            density="compact"
-            >{row._openapiSerialization?.review
-              ? "Serialization requires review. Disable this row and supply a manually serialized value."
-              : row._openapiSerialization?.nullable
-                ? "Use JSON values, including null."
-                : "Use JSON values."}</Feedback
-          >{/if}
+        <div class="kv-value-field">
+          {#if files && row.type === "file"}<FilePicker
+              class="file-picker"
+              variant="inline"
+              onchange={(event) => fileChanged(index, event)}
+              >{row.fileName || "Choose file"}</FilePicker
+            >
+          {:else}<Input
+              variant="inline"
+              aria-label={`Value ${index + 1}`}
+              aria-describedby={[
+                row._openapiSerialization?.nullable ||
+                row._openapiSerialization?.style === "content"
+                  ? `${editorId}-value-${index}-help`
+                  : "",
+                row._openapiSerialization?.allowReserved
+                  ? `${editorId}-value-${index}-reserved-help`
+                  : "",
+              ]
+                .filter(Boolean)
+                .join(" ") || undefined}
+              placeholder="Value"
+              value={row.value}
+              oninput={(event) =>
+                change(index, {
+                  value: event.currentTarget.value,
+                  noValue: false,
+                })}
+            />{/if}
+        </div>
         {#if files}<Select
             variant="inline"
             aria-label="Field type"
@@ -131,6 +130,31 @@
         onclick={() => onchange(rows.filter((_, i) => i !== index))}
         ><Icon name="close" size={14} /></Button
       >
+      {#if row._openapiSerialization?.nullable || row._openapiSerialization?.allowReserved || row._openapiSerialization?.style === "content"}
+        <div class="kv-help">
+          {#if row._openapiSerialization?.nullable || row._openapiSerialization?.style === "content"}<Feedback
+              id={`${editorId}-value-${index}-help`}
+              tone="hint"
+              density="compact"
+              >{row._openapiSerialization?.review
+                ? "Serialization requires review. Disable this row and supply a manually serialized value."
+                : row._openapiSerialization?.nullable
+                  ? "Use JSON values, including null."
+                  : "Use JSON values."}</Feedback
+            >{/if}
+          {#if row._openapiSerialization?.allowReserved}<Feedback
+              id={`${editorId}-value-${index}-reserved-help`}
+              tone="hint"
+              density="compact"
+              >{#if ["array", "object"].includes(row._openapiSerialization.kind)}Use
+                JSON values.
+              {/if}Reserved characters and valid %xx escapes are preserved.
+              Pre-encode data delimiters such as &amp;, =, + and commas when
+              they are literal. Query-invalid # and brackets are encoded; HTTP
+              URLs also encode apostrophes.</Feedback
+            >{/if}
+        </div>
+      {/if}
     </div>
     {#if files}<details class="multipart-options">
         <summary>Part options</summary>

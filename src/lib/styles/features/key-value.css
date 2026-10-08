@@ -26,10 +26,26 @@
   opacity: 0.45;
 }
 
+.kv-value,
+.kv-help {
+  border-left: 1px solid var(--line);
+}
+
 .kv-value {
   display: flex;
-  border-left: 1px solid var(--line);
   min-height: 35px;
+}
+
+.kv-value-field {
+  display: contents;
+}
+
+.kv-help {
+  display: flex;
+  flex-direction: column;
+  grid-column: 3;
+  gap: var(--field-gap);
+  padding: var(--field-gap) var(--space-10) var(--space-9);
 }
 
 .add-row {

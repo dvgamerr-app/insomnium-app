@@ -324,7 +324,7 @@ export function generateRequests(
           (parameter.in === "query" || parameter.in === "header") &&
           schema.swagger !== "2.0" &&
           !parameter.content &&
-          !parameter.allowReserved
+          (parameter.in === "query" || !parameter.allowReserved)
         ) {
           const style =
             parameter.style || (parameter.in === "query" ? "form" : "simple");
@@ -332,6 +332,9 @@ export function generateRequests(
             style,
             explode: parameter.explode ?? style === "form",
             kind: descriptor.kind,
+            ...(parameter.in === "query" && parameter.allowReserved === true
+              ? { allowReserved: true }
+              : {}),
             ...(descriptor.nullable ? { nullable: true } : {}),
           };
           try {

@@ -130,6 +130,42 @@ try {
             service,
           },
         });
+    for (const source of resources
+      .slice(2)
+      .filter(
+        (r) =>
+          (r.authentication.type === "hawk" &&
+            r.authentication.algorithm === "sha256" &&
+            r.authentication.bodyMode === "standard") ||
+          (r.authentication.type === "oauth1" &&
+            r.authentication.signatureMethod === "HMAC-SHA256" &&
+            r.authentication.bodyMode === "standard") ||
+          (r.authentication.type === "iam" &&
+            r.authentication.service === "execute-api"),
+      ))
+      resources.push({
+        ...source,
+        _id: source._id + "_reserved",
+        name: source.name + " reserved query",
+        parameters: [
+          ...source.parameters,
+          {
+            name: "color",
+            value: ":/?[]#@!$&'()*+,;=%2f%GG",
+            _openapiSerialization: {
+              style: "form",
+              explode: true,
+              kind: "scalar",
+              allowReserved: true,
+            },
+          },
+        ],
+      });
+    assert.equal(
+      resources.length,
+      28,
+      "Original20 and reserved6 signing cases",
+    );
     await page
       .getByRole("button", { name: "Import collection", exact: true })
       .click();
@@ -220,11 +256,34 @@ try {
         "Hawk Send settled",
       );
       const [method, target] = received[count].split(" ");
+      // Only the first ? starts the query; RFC3986 permits ? inside query data.
+      const queryStart = target.indexOf("?");
+      const wirePath = queryStart < 0 ? target : target.slice(0, queryStart);
+      const wireQuery = queryStart < 0 ? "" : target.slice(queryStart + 1);
+      await Bun.write(
+        output + "/wire-signature-progress.json",
+        JSON.stringify(
+          {
+            name: signed.name,
+            received,
+            wireHeaders,
+            limits:
+              "Owned local fixture credentials only; partial evidence, not scenario acceptance.",
+          },
+          null,
+          2,
+        ),
+      );
       assert.equal(
         target,
-        signed.settingEncodeUrl
+        (signed.settingEncodeUrl
           ? "/100%25/a%20b?empty&x=%2F&q=a%20b%2B"
-          : "/100%/a%20b?empty=&x=%2f&q=a%20b%2B",
+          : "/100%/a%20b?empty=&x=%2f&q=a%20b%2B") +
+          (signed.parameters.some(
+            (/** @type {any} */ p) => p._openapiSerialization?.allowReserved,
+          )
+            ? "&color=:/?%5B%5D%23@!$&%27()*+,;=%2f%25GG"
+            : ""),
       );
       const header = wireHeaders[count].find((line) =>
         /^authorization:/i.test(line),
@@ -267,9 +326,10 @@ try {
             /[!'()*]/g,
             (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase(),
           );
-        const query = [...new URLSearchParams(target.split("?")[1] || "")].map(
-          ([k, v]) => [encode(k), encode(v)],
-        );
+        const query = [...new URLSearchParams(wireQuery)].map(([k, v]) => [
+          encode(k),
+          encode(v),
+        ]);
         query.sort((a, b) =>
           a[0] < b[0]
             ? -1
@@ -281,7 +341,7 @@ try {
                   ? 1
                   : 0,
         );
-        const path = target.split("?")[0];
+        const path = wirePath;
         const canonicalPath =
           service === "s3" ? path : path.split("/").map(encode).join("/");
         const signedHeaders = match[2].split(";");
@@ -352,7 +412,7 @@ try {
             (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase(),
           );
         const params = [
-          ...new URLSearchParams(target.split("?")[1] || "").entries(),
+          ...new URLSearchParams(wireQuery).entries(),
           ...Object.entries(oauth).filter(
             ([k]) => k !== "realm" && k !== "oauth_signature",
           ),
@@ -372,7 +432,7 @@ try {
         const normalized = pairs.map((pair) => pair.join("=")).join("&");
         const base = [
           method,
-          "http://127.0.0.1:" + address.port + target.split("?")[0],
+          "http://127.0.0.1:" + address.port + wirePath,
           normalized,
         ]
           .map(encode)
@@ -461,6 +521,10 @@ try {
               r.authentication.service,
             mode: r.authentication.bodyMode,
             encoding: r.settingEncodeUrl,
+            reservedQuery: r.parameters.some(
+              (/** @type {any} */ p) =>
+                p._openapiSerialization?.allowReserved === true,
+            ),
           })),
         },
         null,

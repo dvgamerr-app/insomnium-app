@@ -2,6 +2,7 @@ import { assertButtonPadding } from "./helpers/button-padding.js";
 import { assertFormGeometry } from "./helpers/form-geometry.js";
 import { assertFocusSurface } from "./helpers/focus-surface.js";
 import { assertInvalidHover } from "./helpers/invalid-hover.js";
+import { assertKeyValueHelp } from "./helpers/key-value-help.js";
 import assert from "node:assert/strict";
 import { withComponentFixture } from "./helpers/component-fixture.js";
 import { assertDialogTokens } from "./helpers/dialog-theme.js";
@@ -35,6 +36,7 @@ await withComponentFixture("design-system", async (page, output) => {
   );
   const buttonPadding = /** @type {Array<Record<string,any>>} */ ([]);
   const formGeometry = /** @type {Array<Record<string,any>>} */ ([]);
+  const keyValueHelp = /** @type {Array<Record<string,any>>} */ ([]);
   const focusSurfaces = /** @type {Array<Record<string,any>>} */ ([]);
   for (const theme of ["dark", "light"]) {
     await page.evaluate(
@@ -43,6 +45,70 @@ await withComponentFixture("design-system", async (page, output) => {
     );
     for (const width of [1440, 900, 760]) {
       await page.setViewportSize({ width, height: 960 });
+      const rows = await assertKeyValueHelp(
+        page.getByRole("region", { name: "Help contract editor", exact: true }),
+        [0, 1, 1, 1, 2],
+      );
+      const multipart = page.getByRole("region", {
+        name: "Multipart contract editor",
+        exact: true,
+      });
+      const pair = await multipart.locator(".kv-value").evaluate((el) => {
+        const input = el.querySelector(".ui-input"),
+          select = el.querySelector(".ui-select-shell"),
+          wrapper = el.querySelector(".kv-value-field");
+        if (!input || !select || !wrapper)
+          throw Error("Actual multipart pair missing");
+        const a = input.getBoundingClientRect(),
+          b = select.getBoundingClientRect(),
+          v = el.getBoundingClientRect();
+        return {
+          inputRight: a.right,
+          inputY: a.y,
+          selectX: b.x,
+          selectY: b.y,
+          valueWidth: v.width,
+          inputWidth: a.width,
+          selectWidth: b.width,
+          wrapper: getComputedStyle(wrapper).display,
+        };
+      });
+      assert.equal(pair.wrapper, "contents");
+      assert.ok(Math.abs(pair.inputRight - pair.selectX) <= 1);
+      assert.ok(Math.abs(pair.inputY - pair.selectY) <= 1);
+      assert.ok(pair.inputWidth + pair.selectWidth >= pair.valueWidth - 2);
+      await multipart
+        .getByRole("combobox", { name: "Field type", exact: true })
+        .selectOption("file");
+      const filePair = await multipart.locator(".kv-value").evaluate((el) => {
+        const picker = el.querySelector(".ui-file-picker"),
+          select = el.querySelector(".ui-select-shell"),
+          wrapper = el.querySelector(".kv-value-field");
+        if (!picker || !select || !wrapper)
+          throw Error("Actual file/type pair missing");
+        const a = picker.getBoundingClientRect(),
+          b = select.getBoundingClientRect();
+        return {
+          pickerRight: a.right,
+          pickerY: a.y,
+          selectX: b.x,
+          selectY: b.y,
+          wrapper: getComputedStyle(wrapper).display,
+        };
+      });
+      assert.equal(filePair.wrapper, "contents");
+      assert.ok(filePair.pickerRight <= filePair.selectX + 1);
+      assert.ok(Math.abs(filePair.pickerY - filePair.selectY) <= 1);
+      await multipart
+        .getByRole("combobox", { name: "Field type", exact: true })
+        .selectOption("text");
+      assert.equal(
+        await multipart
+          .getByRole("textbox", { name: "Value 1", exact: true })
+          .inputValue(),
+        "body",
+      );
+      keyValueHelp.push({ theme, width, rows, multipart: pair, filePair });
       buttonPadding.push(await assertButtonPadding(page));
       formGeometry.push(await assertFormGeometry(page));
       focusSurfaces.push(await assertFocusSurface(page));
@@ -538,6 +604,14 @@ await withComponentFixture("design-system", async (page, output) => {
     ),
   );
   assert.deepEqual(errors, []);
+  await Bun.write(
+    output + "/key-value-help.json",
+    JSON.stringify(
+      { profiles: keyValueHelp, count: keyValueHelp.length },
+      null,
+      2,
+    ),
+  );
   await Bun.write(
     output + "/focus-surfaces.json",
     JSON.stringify(

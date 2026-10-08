@@ -11,6 +11,62 @@
   import TabList from "../../../src/lib/components/ui/TabList.svelte";
   import TabPanel from "../../../src/lib/components/ui/TabPanel.svelte";
   import Textarea from "../../../src/lib/components/ui/Textarea.svelte";
+  import KeyValueEditor from "../../../src/lib/components/KeyValueEditor.svelte";
+  let helpRows = $state(
+    /** @type {Record<string,any>[]} */ ([
+      { name: "ordinary", value: "plain", disabled: false },
+      {
+        name: "nullable",
+        value: '""',
+        disabled: false,
+        _openapiSerialization: {
+          style: "form",
+          kind: "scalar-json",
+          explode: true,
+          nullable: true,
+        },
+      },
+      {
+        name: "content",
+        value: '{"key":"value"}',
+        disabled: false,
+        _openapiSerialization: {
+          style: "content",
+          kind: "json",
+          explode: false,
+          mediaType: "application/json",
+        },
+      },
+      {
+        name: "reserved",
+        value: "x/y%2f",
+        disabled: false,
+        _openapiSerialization: {
+          style: "form",
+          kind: "scalar",
+          explode: true,
+          allowReserved: true,
+        },
+      },
+      {
+        name: "combined",
+        value: '"x/y%2f"',
+        disabled: false,
+        _openapiSerialization: {
+          style: "form",
+          kind: "scalar-json",
+          explode: true,
+          nullable: true,
+          allowReserved: true,
+        },
+      },
+    ]),
+  );
+  let multipartRows = $state(
+    /** @type {Record<string,any>[]} */ ([
+      { name: "part", value: "body", disabled: false, type: "text" },
+    ]),
+  );
   let error = $state("");
   let disabled = $state(false);
   let readOnly = $state(false);
@@ -201,4 +257,21 @@
       ><Button onclick={() => (locked = false)}>Finish locked dialog</Button
       ></DialogShell
     >{/if}
+  <section aria-label="Key value help geometry contract">
+    <section aria-label="Help contract editor">
+      <KeyValueEditor
+        label="Help contract"
+        rows={helpRows}
+        onchange={(rows) => (helpRows = rows)}
+      />
+    </section>
+    <section aria-label="Multipart contract editor">
+      <KeyValueEditor
+        label="Multipart contract"
+        files
+        rows={multipartRows}
+        onchange={(rows) => (multipartRows = rows)}
+      />
+    </section>
+  </section>
 </main>

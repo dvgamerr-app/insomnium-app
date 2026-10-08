@@ -1,5 +1,19 @@
 # Current shared UI source inventory
 
+2026-10-08 final reserved-help layout, base `3550494`: source SHA256
+`345e4e9a6c39955ba672864a5cb9b3a44ac6e7b2ba776badea737aa9091df599`.
+There are662 shared sites/118 tokens/1719 CSS declarations. Six additional
+feature layout declarations keep help in the Value grid column and continue its
+divider; ordinary/multipart controls retain their row layout. Prior snapshot
+hashes/counts below are historical; runtime acceptance stays in STATUS.
+
+2026-10-08 query reserved-value help, base `3550494`: refreshed source audit
+SHA256 `16d142f2854f46b80e140fd23e3099663605486c616b3f648c47a3ba9e83ffe0`.
+KeyValueEditor adds one conditional shared Feedback site:662 shared markup
+sites across57 Svelte files,118 tokens and1713 CSS declarations. Existing
+exceptions/debt/import-graph gates remain unchanged. Runtime help acceptance is
+tracked in STATUS/OPENAPI-ALLOW-RESERVED; this audit is source evidence only.
+
 2026-10-08 query delimiter correction, base `14535e9`: refreshed audit accepts
 source SHA256 `159e4f6db0ca9d95a0039de4491894bb6925cc9084fd9f800fcfa69bafbd4056`.
 The change is in query serialization; shared markup remains661 sites, tokens118

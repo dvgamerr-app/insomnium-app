@@ -1,13 +1,21 @@
 # UI scenarios (Playwright + Bun)
 
-`openapi-query-serialization.js` verifies URI-encoded pipe/deepObject delimiters,
-literal/pre-encoded data and names, edits/disable/malformed refusal and reload
-without resend against a raw TCP fixture. Set INSOMNIUM_OPENAPI_VERSION to3.0.3,
-3.1.2 or3.2.1 (default3.0.3);21 groups per run. Require a successful current
+`openapi-query-serialization.js` verifies regular and allowReserved query schema
+rows: URI-encoded pipe/deepObject delimiters, literal/pre-encoded data and names,
+malformed-percent/Unicode/control/nullable cases, edits/disable/pre-network
+refusal, linked help/focus and reload without resend against a raw TCP fixture.
+Set INSOMNIUM_OPENAPI_VERSION to3.0.3,3.1.2 or3.2.1 (default3.0.3);44 groups/run.
+Query-invalid #/[] and HTTP apostrophes are encoded; raw data delimiters keep
+their query syntax. Require a successful current
 recovery-copy build, set INSOMNIUM_UI_BUILD_STATE to its build-state.json and run
 native entries sequentially. These wire expectations supersede the older raw
 pipe/bracket style-table examples. Exact evidence/limits in migration STATUS and
-OPENAPI-QUERY-URI-ENCODING.md; broader allowReserved/schema/provider parity remains.
+OPENAPI-QUERY-URI-ENCODING.md/OPENAPI-ALLOW-RESERVED.md; broader location/content/
+body/schema/provider/platform parity remains.
+
+`url-encoding.js` extends its20 independent Hawk/OAuth1/AWS signing cases with6
+reserved-query cases, using encoding on/off and actual raw TCP targets. Native
+acceptance and current build/evidence are recorded in migration STATUS.
 
 `design-system.js` additionally verifies6 dark/light1440/900/760 profiles of
 actual Field errors and cleared-valid Input/Select/Textarea states:18 controls

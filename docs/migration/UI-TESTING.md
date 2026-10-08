@@ -1,5 +1,7 @@
 # Saved UI test execution
 
+2026-10-08 query schema allowReserved: generator/serializer retain reserved syntax and valid percent triples, encode query-invalid/control/malformed data, and preserve strict root names. Shared KeyValueEditor now stacks linked help below full-width values with aligned row controls. Final production release1791471551768 accepts query44x3 versions (132), nullable50, and URL29 targets/26 independent Hawk/OAuth1/AWS signature cases; headless design-system6 profiles/30 rows/12 multipart pairs and compiler0/0 pass. Saved signing verifier separates query at the first question mark. Exact evidence, retained failures and unchanged remaining full migration/UX/OpenAPI gates: STATUS and OPENAPI-ALLOW-RESERVED.md. Browser scenarios remain headless:true; native hosts remain native-hidden.
+
 2026-10-08 query URI delimiters: old native1791466263026 reproduces raw pipe
 instead of encoded structural %7C. openapi-query.js now emits %7C separators and
 %5B/%5D deepObject brackets; ordinary queries/metadata/UI/backend unchanged.
