@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Playwright headless policy — verified handoff — 2026-10-09
+
+- Owner request reverified: every saved browser launch uses launchUiBrowser in tests/ui/helpers/preview-app.js with headless:true and no headed override. Repository search found one browser launch and no headless:false/--headed/launchPersistentContext bypass. Native Tauri helper hides its owned host before CDP and reports native-hidden. Existing implementation commit: cccf507.
+- Saved command bun tests/ui/design-system.js finished with exit0; artifacts/playwright/design-system/result.json reports passed. Verification handle54892 is terminal; no live handle from this headless check. Existing OpenAPI work remains separate and uncommitted. Its previously recorded native run1791490308816 now has terminal passed/native-hidden/visiblefalse/exit0 evidence; its broader acceptance/documentation/commit gate remains for that feature.
+- Continue committing verified work by topic. This interface exposes no callable /compact operation; compaction is not claimed. This handoff precedes any next feature. Original active migration/UX goal and all PLAN/PARITY gates remain required.
+
 ## OAS3.0 default form style — committed handoff — 2026-10-09
 
 - Current topic commit `8da8474` (`fix(openapi): serialize default 3.0 form fields`) contains verified absent/empty encoding defaults, editable form metadata, unsupported nested/binary guards, reusable scenarios and documentation. Worktree clean after topic commit; this section is the documentation checkpoint.
