@@ -83,7 +83,8 @@ export async function collectionClientCertificate(
     disabledByDefault: true,
     resourcesRestored: true,
   });
-  for (const entry of [
+  /** @type {Array<{id:string,cert?:string,key?:string,pfx?:string,password?:string,host?:string,disabled?:boolean,redirect?:boolean,success:boolean,preTcp?:boolean}>} */
+  const identities = [
     {
       id: "collection-pem",
       cert: files.cert,
@@ -91,6 +92,13 @@ export async function collectionClientCertificate(
       host: "127.0.0.1:*",
       success: true,
     },
+    ...fixture.containers.map((entry) => ({
+      id: "collection-multi-" + entry.id,
+      pfx: entry.path,
+      password: entry.password,
+      success: entry.success,
+      preTcp: entry.preTcp,
+    })),
     {
       id: "collection-pfx",
       pfx: files.pfx,
@@ -185,7 +193,8 @@ export async function collectionClientCertificate(
       success: false,
       redirect: true,
     },
-  ]) {
+  ];
+  for (const entry of identities) {
     await page
       .getByRole("button", { name: "Preferences", exact: true })
       .first()
@@ -271,7 +280,8 @@ export async function collectionClientCertificate(
         saved.key === (entry.key || null) &&
         saved.pfx === (entry.pfx || null) &&
         saved.passphrase === (entry.password || null) &&
-        saved.disabled === !!entry.disabled
+        saved.disabled === !!entry.disabled &&
+        (entry.id !== "collection-pem" || saved.isPrivate === false)
       );
     }, "Collection certificate settings persisted " + entry.id);
     if (entry.id === "collection-pem") {

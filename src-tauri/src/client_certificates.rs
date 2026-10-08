@@ -1,7 +1,7 @@
 use base64::{engine::general_purpose::STANDARD, Engine};
 use cbc::cipher::{block_padding::Pkcs7, BlockModeDecrypt, KeyIvInit};
 use md5::{Digest, Md5};
-use p12_keystore::{KeyStore, KeyStoreEntry, Pkcs12ImportPolicy};
+use p12_keystore::KeyStore;
 use rustls::{
     client::ResolvesClientCert,
     pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer},
@@ -453,26 +453,33 @@ pub(crate) fn load_identity(
     };
     let bytes = read_file(path)?;
     let value = if pfx {
-        let store = KeyStore::from_pkcs12(&bytes, password, Pkcs12ImportPolicy::Strict)
+        let (key, certs) = KeyStore::first_tls_identity(&bytes, password)
             .map_err(|_| "Cannot decode PFX client certificate; check its password and format.")?;
-        let chains: Vec<_> = store
-            .entries()
-            .filter_map(|(_, entry)| match entry {
-                KeyStoreEntry::PrivateKeyChain(chain) => Some(chain),
-                _ => None,
+        let provider = rustls::crypto::ring::default_provider();
+        let signing_key = provider
+            .key_provider
+            .load_private_key(PrivateKeyDer::Pkcs8(key.as_der().to_vec().into()))
+            .map_err(|_| "Unsupported PFX private key.")?;
+        let leaf = certs
+            .iter()
+            .position(|cert| {
+                CertifiedKey::new(
+                    vec![CertificateDer::from(cert.as_der().to_vec())],
+                    signing_key.clone(),
+                )
+                .keys_match()
+                .is_ok()
             })
-            .collect();
-        if chains.len() != 1 || chains[0].certs().is_empty() {
-            return Err(
-                "PFX must contain exactly one private key with its certificate chain.".into(),
-            );
-        }
-        let chain = chains[0];
+            .ok_or("First PFX private key has no matching certificate.")?;
         let mut output = String::new();
-        for cert in chain.certs() {
+        output.push_str(&pem("CERTIFICATE", certs[leaf].as_der()));
+        for (index, cert) in certs.iter().enumerate() {
+            if index == leaf {
+                continue;
+            }
             output.push_str(&pem("CERTIFICATE", cert.as_der()));
         }
-        output.push_str(&pem("PRIVATE KEY", chain.key().as_der()));
+        output.push_str(&pem("PRIVATE KEY", key.as_der()));
         output
     } else {
         let certificate =

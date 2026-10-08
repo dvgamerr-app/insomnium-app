@@ -3,6 +3,7 @@ import { mkdir, realpath, stat } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
 import { poll } from "./native-app.js";
 import { X509Certificate } from "node:crypto";
+import { pfxContainers } from "./pfx-containers.js";
 
 /** Per-run private CA, server and client identities. Trust stays inside the owned fixture/app.
  * @param {string} output @param {{grpc?:boolean,fileIdentities?:boolean,multipleIdentities?:boolean}} [options] */
@@ -358,6 +359,9 @@ export async function clientCertificateFixture(output, options = {}) {
       identityFiles.combinedWrongKey,
       client.certificate + wrongClient.key,
     );
+  const containers = options.fileIdentities
+    ? await pfxContainers(directory, password)
+    : [];
   const ca = await Bun.file(join(directory, "ca.pem")).text();
   const otherCa = await Bun.file(join(directory, "other-ca.pem")).text();
   /** @type {Array<{url:string,method:string,body:string,authorized:boolean,cn:string,fingerprint:string}>} */
@@ -600,6 +604,7 @@ export async function clientCertificateFixture(output, options = {}) {
   const sink = { url: String(state.ready.sink) };
   return {
     identityFiles,
+    containers,
     rsaClient,
     rsaFiles,
     secondClient,

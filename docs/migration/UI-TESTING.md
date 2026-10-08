@@ -1,5 +1,8 @@
 # Saved UI test execution
 
+2026-10-08 multi-key PFX first-key selection: production release1791430496662/1791430957497/result0 accepts HTTP43 (1791431072211), SSE38 (1791431180578), WSS38 (1791431392969), gRPC67 (1791431504693) and unchanged WSS multi-identity regression25 (1791431690716), all terminal0/native-hidden/exit0/four TLS settings restored. Nine containers independently built/parsed with OpenSSL3.5.7 prove first encoded key/first matching leaf, absent or contradictory attributes, nested/split Safes, later-key bad-password skipping and first-key bad-password/no-match refusal before TCP despite valid fallback. Bun FFI is saved fixture tooling only; production reuses selectively vendored p12-keystore0.3.2 upstream crypto with unchanged dependency versions. Headless scan finds every browser launch centralized with headless:true; native hosts are hidden before CDP attachment. Exact legacy Electron/TLS preferences, arbitrary containers/algorithms/providers/platforms, extra-cert trust-store behavior and all other full migration/UX gates remain required. See STATUS and vendor patch documentation for exact evidence.
+
+
 WSS multiple collection identities: `bun tests/ui/wss-multiple-client-certificates.js`
 uses the production native probe and owned RSA/ECDSA CA-signed client identities.
 Five mandatory-verification servers restrict client CertificateVerify schemes to

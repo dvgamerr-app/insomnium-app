@@ -63,6 +63,13 @@ export async function certificateSettings(page, invoke, config) {
 export function protocolCertificateCases(fixture) {
   const files = fixture.identityFiles;
   return [
+    ...fixture.containers.map((entry) => ({
+      id: "collection-multi-" + entry.id,
+      pfx: entry.path,
+      password: entry.password,
+      success: entry.success,
+      preTcp: entry.preTcp,
+    })),
     { id: "collection-pem", cert: files.cert, key: files.key, success: true },
     {
       id: "collection-pfx",

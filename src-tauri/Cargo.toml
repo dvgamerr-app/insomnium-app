@@ -86,6 +86,7 @@ strip = true
 reqwest = { path = "vendor/reqwest" }
 http-auth = { path = "vendor/http-auth" }
 eventsource-stream = { path = "vendor/eventsource-stream" }
+p12-keystore = { path = "vendor/p12-keystore" }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2"
