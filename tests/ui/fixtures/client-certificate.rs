@@ -86,6 +86,32 @@ fn handle(
         serde_json::json!({"event":"request","role":role,"url":first[1],"method":first[0],
         "body":String::from_utf8(body).map_err(|e| e.to_string())?,"authorized":true,"cn":cn,"fingerprint":fingerprint})
     );
+    let stream_redirect = ["sse", "ws"].into_iter().find_map(|protocol| {
+        let prefix = format!("/{protocol}-redirect-");
+        let mode = first[1].strip_prefix(&prefix)?;
+        match mode {
+            "same" => Some(format!("/{protocol}")),
+            "chain" => Some(format!("/{protocol}-redirect-same")),
+            "loop" => Some(format!("/{protocol}-redirect-loop")),
+            "port" => Some(format!(
+                "{}/{protocol}",
+                redirect.trim_end_matches("/destination")
+            )),
+            "host" => Some(format!(
+                "https://localhost:{}/{protocol}",
+                stream.sock.local_addr().ok()?.port()
+            )),
+            "scheme" => Some(format!(
+                "http://127.0.0.1:{}/{protocol}",
+                stream.sock.local_addr().ok()?.port()
+            )),
+            _ => None,
+        }
+    });
+    if let Some(location) = stream_redirect {
+        stream.write_all(format!("HTTP/1.1 302 Found\r\nLocation: {location}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").as_bytes()).map_err(|e|e.to_string())?;
+        return stream.flush().map_err(|e| e.to_string());
+    }
     if first[1] == "/sse-live" {
         stream
             .sock

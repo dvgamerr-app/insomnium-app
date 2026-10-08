@@ -5,6 +5,7 @@ import { clientCertificateFixture } from "./client-certificate.js";
 import { tlsPreferences } from "./tls-preferences.js";
 import { wssLiveCertificate } from "./wss-live-certificate.js";
 import { sseLiveCertificate } from "./sse-live-certificate.js";
+import { streamRedirectCertificate } from "./stream-redirect-certificate.js";
 
 /** @param {"sse" | "websocket"} protocol */
 export async function streamClientCertificate(protocol) {
@@ -403,6 +404,11 @@ export async function streamClientCertificate(protocol) {
           await page.locator(".stream-event-body").innerText(),
           message,
         );
+        const redirects = await streamRedirectCertificate(
+          { page, invoke, output },
+          fixture,
+          protocol,
+        );
         const live = websocket
           ? await wssLiveCertificate({ page, invoke, output }, fixture)
           : await sseLiveCertificate({ page, invoke, output }, fixture);
@@ -415,14 +421,16 @@ export async function streamClientCertificate(protocol) {
                 "independent authenticated " + label + " fixture check",
                 ...cases.map((c) => c.id),
                 "saved event survives reload",
+                ...redirects.map((c) => "redirect-" + c.id),
                 ...(live ? [live.id] : []),
               ],
               cases,
+              redirects,
               live,
               limits:
                 "Real Windows native " +
                 label +
-                " through persisted Preferences and Connect. Mandatory client verification, pinned peer identity and exact received event/message. WSS additionally checks live text/binary/ping-pong; SSE checks fragmented UTF8/multiline/id/retry/incomplete-event framing. Both observe client Disconnect, persisted full response and explicit reconnect. No trust-store modification/TLS bypass. Redirects/other protocol/provider/proxy/platform parity remain separate.",
+                " through persisted Preferences and Connect. Mandatory client verification, pinned peer identity and exact received event/message. WSS additionally checks live text/binary/ping-pong; SSE checks fragmented UTF8/multiline/id/retry/incomplete-event framing. Both observe client Disconnect, persisted full response and explicit reconnect. No trust-store modification/TLS bypass. Eight owned redirect cases per protocol verify same-origin chains, host/port/scheme refusal, explicit follow disable and bounded loop. Other redirect layouts/protocol/provider/proxy/platform parity remain separate.",
             },
             null,
             2,
