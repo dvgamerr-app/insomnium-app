@@ -1,5 +1,12 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Commit / compact handoff — 2026-10-08
+
+- Current feature commit: e883fd1 — fix(tls): preserve first-key selection in multi-key PFX containers. Verified HTTP43/SSE38/WSS38/gRPC67/WSS regression25 on release1791430496662/1791430957497/result0; exact evidence and earlier failures below. All settings restored, owned apps/fixtures exited0; no live process handles.
+- Headless owner request verified across repository: only browser launcher tests/ui/helpers/preview-app.js uses headless:true, and native-app.js hides owned WebView2 window before CDP attachment. Every final native result records native-hidden/visiblefalse. Existing headless implementation was already committed before this feature; no duplicate behavior change required.
+- Full migration and subsequent UX goal remain active/incomplete. Remaining gates include actual archived Electron/TLS preference, arbitrary containers/algorithms/providers/platforms/trust-store, Git error-history transition, all PLAN/PARITY fault/provider/proxy/OS-dialog/CI/release/CSS gates and post-migration reusable-input redesign. No owner scope removals.
+- This interface has no callable /compact. Handoff recorded instead; manual compaction is not claimed. Start no next feature in this turn. This documentation checkpoint follows the feature commit.
+
 ## Multi-key PFX first-key selection — native acceptance complete — 2026-10-08
 
 - Previous goal turn made progress: source45772b0/history3d5a269/checkpointa758cb8 accepted WSS multi-file resolver and preserved terminal error history. Full migration/UX objective retained. Current milestone addresses multi-key containers using actual OpenSSL/Node selection semantics; no owner scope removal or full migration claim.
