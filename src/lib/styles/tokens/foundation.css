@@ -61,6 +61,14 @@
   --dialog-max-height: 88vh;
   --dialog-shadow: 0 var(--space-24) 80px #0006;
   --control-height: 34px;
+  --control-padding-block: var(--space-8);
+  --control-padding-inline: var(--space-11);
+  --control-line-height: 1.4;
+  --checkbox-size: 13px;
+  --field-gap: var(--space-7);
+  --field-inline-gap: var(--space-10);
+  --file-control-padding: var(--space-8) var(--space-10);
+  --file-control-max-width: 130px;
   --select-picker-radius: 10px;
   --select-option-radius: 6px;
   --select-arrow-offset: var(--space-9);

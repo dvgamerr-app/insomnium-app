@@ -1,5 +1,13 @@
 # Nocturne controls
 
+Form geometry is owned by foundation tokens: `--control-padding-block`,
+`--control-padding-inline`, `--control-line-height`, `--checkbox-size`,
+`--field-gap`, `--field-inline-gap`, `--file-control-padding` and
+`--file-control-max-width`. Input/Select/Textarea, Field, Checkbox and native
+inline/dropzone FilePicker consume these in their shared styling owners.
+Defaults preserve the existing layout; explicit URL/inline/toolbar and compact
+picker padding belongs to those variants. Select keeps room for its shared arrow.
+
 The application imports `src/lib/styles.css` once; it forwards to `styles/index.css`, which orders foundation/theme, layout and UI styles. Use that entry for application and component fixtures. The redundant `ui/controls.css` and unused `button-config.css` entry files have been removed. UI styles own control surfaces, borders, focus, disabled states and dialog presentation; feature styles own layout.
 
 `src/lib/styles/tokens/foundation.css` owns shared spacing, typography, sizes and shape. Button corners use `--button-radius: 0px`. Percentage widths and fill-parent heights remain layout rules. Input and dialog radii are separate from button shape.

@@ -1,5 +1,14 @@
 # UI scenarios (Playwright + Bun)
 
+`bun tests/ui/design-system.js` verifies shared form geometry in six dark/light
+1440/900/760 profiles: ordinary Input/Select/Textarea, Checkbox, stacked/inline
+Field, inline/dropzone FilePicker, default/overridden/restored root tokens and
+unchanged explicit variant padding. `form-geometry.json` records actual metrics.
+`nocturne-native-theme.js` reuses the helper for actual Editor Preferences and
+cookie forms (12 profiles), asserting no workspace mutation from measurement.
+Native file/OS dialog workflows and broader adoption/platform coverage remain
+separate; run native theme only after a successful current recovery-copy build.
+
 `bun tests/ui/openapi-cookie-serialization.js` covers OpenAPI3.0/3.1 scalar
 form/raw text/plain and OpenAPI3.2 cookie-style flat arrays/objects through owned
 API Design generation and actual native Send. Fifty-five groups check exact TCP

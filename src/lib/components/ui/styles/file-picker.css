@@ -32,7 +32,7 @@
   font-size: var(--font-size-10);
 }
 .ui-file-picker-inline input {
-  max-width: 130px;
+  max-width: var(--file-control-max-width);
 }
 .ui-file-picker-dropzone {
   margin: var(--space-20);
@@ -56,6 +56,6 @@
   background: var(--ui-surface);
   border: 1px solid var(--ui-border);
   border-radius: var(--radius-control);
-  padding: var(--space-8) var(--space-10);
+  padding: var(--file-control-padding);
   min-width: 0;
 }

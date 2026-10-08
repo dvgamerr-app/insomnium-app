@@ -7,8 +7,8 @@
   border: 1px solid var(--ui-border);
   border-radius: var(--radius-control);
   background: var(--ui-surface);
-  padding: var(--space-8) var(--space-11);
-  line-height: 1.4;
+  padding: var(--control-padding-block) var(--control-padding-inline);
+  line-height: var(--control-line-height);
   transition:
     border-color 120ms,
     background 120ms;

@@ -1,4 +1,5 @@
 import { assertButtonPadding } from "./helpers/button-padding.js";
+import { assertFormGeometry } from "./helpers/form-geometry.js";
 import { assertSelectGeometry } from "./helpers/select-geometry.js";
 import assert from "node:assert/strict";
 import { withNativeApp, poll } from "./helpers/native-app.js";
@@ -17,6 +18,7 @@ await withNativeApp(
   "nocturne-native-theme",
   async ({ page, invoke, output }) => {
     const buttonPadding = /** @type {Array<Record<string,any>>} */ ([]);
+    const formGeometry = /** @type {Array<Record<string,any>>} */ ([]);
     const selectGeometry = /** @type {Array<Record<string,any>>} */ ([]);
     await page.emulateMedia({ reducedMotion: "reduce" });
     const fixture = await gitCollection({ page, invoke });
@@ -122,6 +124,35 @@ await withNativeApp(
         theme,
       );
       await page.evaluate(() => document.fonts.ready);
+      await page
+        .getByRole("navigation", { name: "Main navigation" })
+        .getByRole("button", { name: "Preferences", exact: true })
+        .click();
+      await preferences
+        .getByRole("tab", { name: "Editor", exact: true })
+        .click();
+      const formBaseline = await invoke("load_workspace");
+      for (const width of [1440, 900, 760]) {
+        await page.setViewportSize({ width, height: 900 });
+        formGeometry.push(
+          await assertFormGeometry(page, ".settings-panel", [
+            "input",
+            "select",
+            "checkbox",
+            "stacked",
+            "inline",
+          ]),
+        );
+      }
+      assert.deepEqual(
+        await invoke("load_workspace"),
+        formBaseline,
+        "Geometry measurement must preserve all workspace data",
+      );
+      await preferences
+        .getByRole("button", { name: "Close Preferences", exact: true })
+        .click();
+      await page.setViewportSize({ width: 1440, height: 900 });
       assert.equal(
         await page.evaluate(() =>
           [...document.fonts].some(
@@ -234,6 +265,13 @@ await withNativeApp(
             "dialog.modal .resource-tools > button.ui-button, dialog.modal .modal-actions > button.ui-button",
             ".send-button, .icon-button",
           ),
+        );
+        formGeometry.push(
+          await assertFormGeometry(page, "dialog.modal", [
+            "input",
+            "textarea",
+            "stacked",
+          ]),
         );
       }
       await page.setViewportSize({ width: 900, height: 900 });
@@ -420,6 +458,7 @@ await withNativeApp(
             "Default/override/restored radius, variant width, viewport gutter, height cap and shadow on mounted remote/cookie/branch/recovery dialogs in both themes; remote at1440/900.",
           selectGeometry,
           buttonPadding,
+          formGeometry,
           authorFieldContext:
             "inherited IDs/required, empty-name refusal and malformed-email native validation before persistence IPC, exact full workspace preserved",
         },

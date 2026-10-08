@@ -74,6 +74,24 @@
     >
     <output aria-label="Required submissions">{submitted}</output>
   </form>
+  <section aria-label="File geometry contract">
+    <FilePicker variant="inline" aria-label="Inline geometry file"
+      >Inline file</FilePicker
+    >
+    <FilePicker variant="dropzone" aria-label="Dropzone geometry file"
+      >Dropzone file</FilePicker
+    >
+    <Input
+      variant="url"
+      aria-label="URL geometry variant"
+      value="https://example.invalid/"
+    />
+    <Input
+      variant="inline"
+      aria-label="Inline geometry variant"
+      value="inline"
+    />
+  </section>
   <Field
     id="contract-text"
     label="Contract text"

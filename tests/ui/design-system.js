@@ -1,10 +1,12 @@
 import { assertButtonPadding } from "./helpers/button-padding.js";
+import { assertFormGeometry } from "./helpers/form-geometry.js";
 import assert from "node:assert/strict";
 import { withComponentFixture } from "./helpers/component-fixture.js";
 import { assertDialogTokens } from "./helpers/dialog-theme.js";
 
 await withComponentFixture("design-system", async (page, output) => {
   const buttonPadding = /** @type {Array<Record<string,any>>} */ ([]);
+  const formGeometry = /** @type {Array<Record<string,any>>} */ ([]);
   for (const theme of ["dark", "light"]) {
     await page.evaluate(
       (theme) => (document.documentElement.dataset.theme = theme),
@@ -13,6 +15,7 @@ await withComponentFixture("design-system", async (page, output) => {
     for (const width of [1440, 900, 760]) {
       await page.setViewportSize({ width, height: 960 });
       buttonPadding.push(await assertButtonPadding(page));
+      formGeometry.push(await assertFormGeometry(page));
     }
   }
   await page.setViewportSize({ width: 1440, height: 960 });
@@ -441,6 +444,14 @@ await withComponentFixture("design-system", async (page, output) => {
     output + "/button-padding.json",
     JSON.stringify(
       { profiles: buttonPadding, count: buttonPadding.length },
+      null,
+      2,
+    ),
+  );
+  await Bun.write(
+    output + "/form-geometry.json",
+    JSON.stringify(
+      { profiles: formGeometry, count: formGeometry.length },
       null,
       2,
     ),

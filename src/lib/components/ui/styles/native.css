@@ -59,8 +59,8 @@ button:disabled:hover {
 
 input[type="checkbox"] {
   accent-color: var(--accent-text);
-  width: 13px;
-  height: 13px;
+  width: var(--checkbox-size);
+  height: var(--checkbox-size);
   margin: auto;
 }
 

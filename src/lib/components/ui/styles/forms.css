@@ -23,7 +23,7 @@
 
 .ui-field {
   display: grid;
-  gap: var(--space-7);
+  gap: var(--field-gap);
   min-width: 0;
   color: var(--muted);
   font-size: var(--font-size-12);
@@ -33,7 +33,7 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: var(--space-10);
+  gap: var(--field-inline-gap);
 }
 .ui-field-inline .ui-checkbox {
   margin: 0;
