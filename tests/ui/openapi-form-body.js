@@ -307,8 +307,9 @@ try {
           {
             id: "content-lexemes",
             text: '[9007199254740993,1e+400,"\\u0061",{"nested":[1,2]}]',
-            expected:
-              "color=9007199254740993&color=1e%2B400&color=%22%5Cu0061%22&color=%7B%22nested%22%3A%5B1%2C2%5D%7D",
+            expected: version.startsWith("3.2.")
+              ? "color=9007199254740993&color=1e%2B400&color=%22%5Cu0061%22&color=%7B%22nested%22%3A%5B1%2C2%5D%7D"
+              : "color=%5B9007199254740993%2C1e%2B400%2C%22%5Cu0061%22%2C%7B%22nested%22%3A%5B1%2C2%5D%7D%5D",
             refusal: "",
           },
           {

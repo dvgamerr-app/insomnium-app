@@ -33,15 +33,16 @@ export function describeOpenApiFormStyleItems(property) {
   };
 }
 
-/** Content mode applies a property's media type to each array item.
+/** OAS3.2 applies content encoding per array item; earlier JSON content encodes the whole value.
  * @param {any} value @param {Record<string,any>} schema @param {Record<string,any>} encoding
- * @param {boolean} [legacyFormats] */
+ * @param {string} [version] */
 export function describeOpenApiFormContent(
   value,
   schema,
   encoding,
-  legacyFormats = false,
+  version = "3.2.1",
 ) {
+  const legacyFormats = version.startsWith("3.0.");
   const descriptor = describeOpenApiValue(value, schema, true);
   const array = descriptor.kind === "array";
   const itemSchema = array ? schema.items || {} : schema;
@@ -70,7 +71,8 @@ export function describeOpenApiFormContent(
         ? jsonKind(schema)
         : descriptor.kind,
     ...(descriptor.nullable ? { nullable: true } : {}),
-    ...(array
+    ...(array &&
+    (mediaType !== "application/json" || version.startsWith("3.2."))
       ? {
           formArrayItems: true,
           itemKind: jsonKind(itemSchema),

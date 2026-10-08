@@ -190,7 +190,21 @@ export function openApiFormCasesFor(version) {
           ),
       ]
     : [...openApiFormCases, ...openApiFormContentCases];
-  if (!version.startsWith("3.2.")) return cases;
+  if (!version.startsWith("3.2.")) {
+    const wholeJson = /** @type {Record<string,string>} */ ({
+      "default-object-array": version.startsWith("3.0.")
+        ? "color=%5B%7B%22x%22%3A1%7D%5D"
+        : "color=%5B%7B%22x%22%3A%22a+b%22%7D%2C%7B%22x%22%3A%22%2B%22%7D%5D",
+      "json-mixed-array": "color=%5B0%2Cfalse%2C%22%22%2Cnull%5D",
+      "default-nested-array": "color=%5B%5B1%2C2%5D%2C%5B%5D%5D",
+      "json-empty-array": "color=%5B%5D",
+    });
+    return cases.map((entry) =>
+      Object.hasOwn(wholeJson, entry.id)
+        ? { ...entry, expected: wholeJson[entry.id] }
+        : entry,
+    );
+  }
   return [
     ...cases.map((entry) =>
       entry.id === "array-list"

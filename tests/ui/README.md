@@ -1,5 +1,14 @@
 # UI scenarios (Playwright + Bun)
 
+Versioned JSON array content is accepted:3.0/3.1 retain the whole
+JSON value including empty arrays;3.2 retains per-item encoding. Saved form180
+uses independent versioned literal goldens. Production release1791492118810
+finished successfully; all-version native run1791492503995 passes180 cases.
+URL1791494391567 passes45raw targets42independent signatures, including4whole-array
+OAuth1 cases. Both native-hidden/visiblefalse/exit0; no live handles remain.
+Earlier affected JSON-array acceptance below is historical. Sources/limits/live
+handles: STATUS/OPENAPI-FORM-JSON-ARRAY.md.
+
 The3.0.4 contentType clarification now applies to3.0 generation, superseding the
 earlier default-style behavior. Empty/absent encoding now selects JSON/text
 content, explicit styles stay RFC6570, and nullable media help remains visible.

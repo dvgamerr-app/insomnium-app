@@ -276,6 +276,34 @@ try {
       40,
       "Four per-item form signing regressions",
     );
+    for (const source of resources.filter((r) =>
+      r._id.endsWith("_form_content"),
+    ))
+      resources.push({
+        ...source,
+        _id: source._id + "_whole",
+        name: source.name + " whole array",
+        body: {
+          ...source.body,
+          params: [
+            {
+              ...source.body.params[0],
+              _openapiSerialization: {
+                formBody: true,
+                style: "content",
+                kind: "array",
+                mediaType: "application/json",
+              },
+            },
+            source.body.params[1],
+          ],
+        },
+      });
+    assert.equal(
+      resources.length,
+      44,
+      "Four whole JSON-array signing regressions",
+    );
     await page
       .getByRole("button", { name: "Import collection", exact: true })
       .click();
@@ -376,7 +404,9 @@ try {
         wireBodies[count],
         signed.body.mimeType === "application/x-www-form-urlencoded"
           ? signed.body.params[0]._openapiSerialization.style === "content"
-            ? "color=%22a+%2B%22&color=%22b%26%3D%22&color=manual+%2B"
+            ? signed.body.params[0]._openapiSerialization.formArrayItems
+              ? "color=%22a+%2B%22&color=%22b%26%3D%22&color=manual+%2B"
+              : "color=%5B%22a+%2B%22%2C%22b%26%3D%22%5D&color=manual+%2B"
             : "color=a%20%2B&color=b%26%3D&color=manual+%2B"
           : "",
       );
@@ -663,6 +693,10 @@ try {
               r.body.mimeType === "application/x-www-form-urlencoded" &&
               r.body.params[0]._openapiSerialization.style !== "content" &&
               r.body.params[0]._openapiSerialization.formArrayItems === true,
+            formWholeContentBody:
+              r.body.mimeType === "application/x-www-form-urlencoded" &&
+              r.body.params[0]._openapiSerialization.style === "content" &&
+              !r.body.params[0]._openapiSerialization.formArrayItems,
           })),
         },
         null,

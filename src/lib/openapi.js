@@ -524,7 +524,7 @@ export function generateRequests(
                     value,
                     property,
                     encoding,
-                    String(schema.openapi).startsWith("3.0."),
+                    String(schema.openapi),
                   );
                   row.name = name;
                   try {

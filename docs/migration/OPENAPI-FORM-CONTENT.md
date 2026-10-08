@@ -1,5 +1,10 @@
 # OpenAPI form content/default values
 
+JSON-array mapping update accepted: OPENAPI-FORM-JSON-ARRAY.md distinguishes
+whole JSON values in3.0/3.1 from3.2 per-item content. The earlier shared-array
+convention and native evidence below are historical for affected JSON arrays;
+current fresh-build180 native and45targets42signatures acceptance is in STATUS.
+
 Modern form properties without explicit style/explode/allowReserved now carry
 editable content metadata. Their JSON or text/plain representation is produced
 before WHATWG form encoding. An explicit JSON string includes its quotation

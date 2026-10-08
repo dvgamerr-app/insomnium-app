@@ -1,5 +1,10 @@
 # OAS 3.0 form contentType clarification
 
+JSON-array mapping update accepted: OPENAPI-FORM-JSON-ARRAY.md distinguishes
+whole JSON values in3.0/3.1 from3.2 per-item content. The earlier shared-array
+convention and native evidence below are historical for affected JSON arrays;
+current fresh-build180 native and45targets42signatures acceptance is in STATUS.
+
 Generation now adopts the OAS 3.0.4 clarification for the 3.0 family. Without
 explicit style/explode/allowReserved, form fields use contentType and its defaults:
 JSON objects retain their parent field name, JSON strings include quotation marks,
