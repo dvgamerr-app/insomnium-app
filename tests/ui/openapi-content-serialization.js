@@ -398,7 +398,7 @@ await withNativeApp(
       cases.push({ id: "unsupported-review-help" });
       assert.equal(
         cases.length,
-        203,
+        239,
         "Complete JSON parameter content coverage",
       );
       await Bun.write(

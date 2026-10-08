@@ -1,6 +1,34 @@
 /** Content-mode wire goldens; no expected value is produced by the serializer. */
 export const openApiFormContentCases =
   /** @type {Array<Record<string,any>>} */ ([
+    ...[
+      { id: "json-media-case", contentType: "Application/JSON" },
+      {
+        id: "json-media-charset",
+        contentType: 'application/json; charset="UTF-8"',
+      },
+      {
+        id: "json-media-quoted",
+        contentType: 'application/json; note="a,b;c"',
+      },
+    ].map((entry) => ({
+      ...entry,
+      content: true,
+      schema: { type: "string" },
+      value: "a +",
+      expected: "color=%22a+%2B%22",
+    })),
+    ...[
+      { id: "json-media-malformed", contentType: "application/json; charset=" },
+      { id: "json-media-list", contentType: "application/json, text/plain" },
+    ].map((entry) => ({
+      ...entry,
+      content: true,
+      schema: { type: "string" },
+      value: "a +",
+      expected: null,
+      refusal: "Review form serialization for color",
+    })),
     {
       id: "default-nested-object",
       content: true,

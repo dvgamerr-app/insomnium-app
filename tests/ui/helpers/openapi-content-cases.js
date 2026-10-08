@@ -16,6 +16,18 @@ const jsonValues = [
   { id: "empty-array", value: [] },
 ];
 export const openApiContentCases = /** @type {Array<Record<string,any>>} */ ([
+  ...["query", "header", "path", "cookie"].flatMap((location) =>
+    [
+      { id: "media-case", mediaType: "Application/JSON" },
+      { id: "media-charset", mediaType: 'application/json; charset="UTF-8"' },
+      { id: "media-quoted", mediaType: 'application/json; note="a,b;c"' },
+    ].map((entry) => ({
+      ...entry,
+      location,
+      id: location + "-" + entry.id,
+      value: "blue",
+    })),
+  ),
   ...["query", "header", "path"].flatMap((location) =>
     jsonValues.map((entry) => ({
       ...entry,

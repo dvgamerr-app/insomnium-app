@@ -2,6 +2,7 @@ import { serializeOpenApiStyle } from "./openapi-style.js";
 import {
   encodeOpenApiContent,
   serializeOpenApiContent,
+  isOpenApiJsonMediaType,
 } from "./openapi-content.js";
 import { describeOpenApiValue, readOpenApiValue } from "./openapi-value.js";
 
@@ -61,18 +62,14 @@ export function describeOpenApiFormContent(
           !binary
         ? "text/plain"
         : "application/octet-stream");
+  const json = isOpenApiJsonMediaType(mediaType);
   const serialization = {
     formBody: true,
     style: "content",
     mediaType,
-    kind: array
-      ? "array"
-      : mediaType === "application/json"
-        ? jsonKind(schema)
-        : descriptor.kind,
+    kind: array ? "array" : json ? jsonKind(schema) : descriptor.kind,
     ...(descriptor.nullable ? { nullable: true } : {}),
-    ...(array &&
-    (mediaType !== "application/json" || version.startsWith("3.2."))
+    ...(array && (!json || version.startsWith("3.2."))
       ? {
           formArrayItems: true,
           itemKind: jsonKind(itemSchema),
@@ -80,7 +77,7 @@ export function describeOpenApiFormContent(
         }
       : {}),
     ...(binary ||
-    !["application/json", "text/plain"].includes(mediaType) ||
+    (!json && mediaType !== "text/plain") ||
     (mediaType === "text/plain" && ["object", "array"].includes(type)) ||
     itemSchema.contentEncoding ||
     encoding.encoding ||
@@ -91,10 +88,7 @@ export function describeOpenApiFormContent(
   };
   return {
     name: "",
-    value:
-      mediaType === "application/json" || array
-        ? JSON.stringify(value ?? null)
-        : descriptor.text,
+    value: json || array ? JSON.stringify(value ?? null) : descriptor.text,
     _openapiSerialization: serialization,
   };
 }
@@ -128,13 +122,14 @@ function arrayItems(text) {
 
 /** @param {string} name @param {string} text @param {Record<string,any>} options */
 function serializeFormContent(name, text, options) {
+  const json = isOpenApiJsonMediaType(options.mediaType);
   const pair = (/** @type {string} */ value) =>
     new URLSearchParams([[name, value]]).toString();
   const serialize = (
     /** @type {string} */ value,
     /** @type {Record<string,any>} */ descriptor,
   ) => {
-    if (options.mediaType === "application/json")
+    if (json)
       return serializeOpenApiContent(
         name,
         value,
@@ -170,8 +165,7 @@ function serializeFormContent(name, text, options) {
     { ...options, mediaType: "application/json", kind: "array" },
     "Form",
   );
-  if (compact === "null")
-    return options.mediaType === "application/json" ? pair("null") : "";
+  if (compact === "null") return json ? pair("null") : "";
   return arrayItems(compact)
     .map((item) => {
       const value = serialize(item, {

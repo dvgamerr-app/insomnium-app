@@ -1,5 +1,11 @@
 # OpenAPI form content/default values
 
+JSON media recognition supports legal case variants and parameters. Fresh native
+form acceptance covers208 groups across3.0.3/3.0.4/3.1.2/3.2.1; see
+OPENAPI-JSON-MEDIA.md for exact evidence and limits. Parameter content also passes
+239 groups; current signing regression accepts45 raw targets/42 independent
+signatures. Earlier native results below do not cover these new media variants.
+
 JSON-array mapping update accepted: OPENAPI-FORM-JSON-ARRAY.md distinguishes
 whole JSON values in3.0/3.1 from3.2 per-item content. The earlier shared-array
 convention and native evidence below are historical for affected JSON arrays;

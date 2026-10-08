@@ -1,5 +1,13 @@
 # UI scenarios (Playwright + Bun)
 
+Current JSON media variants acceptance: saved native form208 across4versions,
+content239 across3versions and URL45raw targets42independent signatures pass on
+release1791496205618; all native-hidden/visiblefalse/exit0 with cleanup. Headless
+design-system60help rows across6profiles and all4versions light760 quoted-media
+images preserve original media guidance. Exact commands/artifacts/remaining full
+gates: docs/migration/STATUS.md and OPENAPI-JSON-MEDIA.md. Browser scenarios always
+use headless:true through launchUiBrowser; full migration/UX scope remains open.
+
 Versioned JSON array content is accepted:3.0/3.1 retain the whole
 JSON value including empty arrays;3.2 retains per-item encoding. Saved form180
 uses independent versioned literal goldens. Production release1791492118810
@@ -142,7 +150,6 @@ raw cookie values must already satisfy RFC6265 octets, including refusal of a lo
 quote. Build the current recovery
 copy probe successfully first; run native entries sequentially.
 
-
 `bun tests/ui/openapi-nullable-serialization.js` checks OpenAPI3.0 nullable and
 OpenAPI3.1 type unions through actual worker generation and native Send. Fifty
 groups compare exact TCP targets/headers, null vs empty/string-null/false/zero,
@@ -153,7 +160,6 @@ Nullable values use JSON editor syntax; nonnullable plain scalars retain text.
 Undefined form/simple/label/matrix values follow RFC6570/AppendixC omission;
 non-RFC root-null query styles require review. Advanced schema/type validation
 and provider/platform/version interoperability remain separate gates.
-
 
 `bun tests/ui/openapi-path-serialization.js` generates owned simple/label/matrix
 path requests through actual API Design and checks 42 independent raw TCP targets

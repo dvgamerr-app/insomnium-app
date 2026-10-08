@@ -108,6 +108,17 @@
           mediaType: "application/json",
         },
       },
+      {
+        name: "parameterized-json-content",
+        value: '"a +"',
+        disabled: false,
+        _openapiSerialization: {
+          formBody: true,
+          style: "content",
+          kind: "scalar-json",
+          mediaType: 'APPLICATION/JSON; charset="UTF-8"; note="a,b;c"',
+        },
+      },
     ]),
   );
   let multipartRows = $state(

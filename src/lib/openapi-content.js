@@ -1,9 +1,58 @@
+/** RFC9110 media-type syntax and RFC8259's parameter-free JSON registration.
+ * Preserve metadata while recognizing one JSON media type, not a media list.
+ * @param {unknown} value */
+export function isOpenApiJsonMediaType(value) {
+  if (typeof value !== "string" || /[\r\n]/.test(value)) return false;
+  const base = /^[ \t]*application\/json(?=[ \t;]|$)/i.exec(value);
+  if (!base) return false;
+  let index = base[0].length;
+  const token = /[!#$%&'*+.^_`|~0-9A-Za-z-]+/y;
+  const whitespace = () => {
+    while (value[index] === " " || value[index] === "\t") index++;
+  };
+  const readToken = () => {
+    token.lastIndex = index;
+    if (!token.exec(value)) return false;
+    index = token.lastIndex;
+    return true;
+  };
+  const quotedChar = (/** @type {number} */ code) =>
+    code === 9 || (code >= 32 && code <= 126) || (code >= 128 && code <= 255);
+  while (index < value.length) {
+    whitespace();
+    if (index === value.length) return true;
+    if (value[index++] !== ";") return false;
+    whitespace();
+    // RFC9110 parameters permits empty semicolon sections.
+    if (index === value.length || value[index] === ";") continue;
+    if (!readToken() || value[index++] !== "=") return false;
+    if (value[index] !== '"') {
+      if (!readToken()) return false;
+      continue;
+    }
+    index++;
+    let closed = false;
+    while (index < value.length) {
+      const char = value[index++];
+      if (char === '"') {
+        closed = true;
+        break;
+      }
+      if (char === "\\") {
+        if (!quotedChar(value.charCodeAt(index++))) return false;
+      } else if (!quotedChar(char.charCodeAt(0))) return false;
+    }
+    if (!closed) return false;
+  }
+  return true;
+}
+
 /** Media serialization precedes location encoding; JSON null is a represented value.
  * @param {string} name @param {string} text
  * @param {{mediaType?:string,kind:string,nullable?:boolean,review?:boolean}} options
  * @param {string} location */
 export function serializeOpenApiContent(name, text, options, location) {
-  if (options.review || options.mediaType !== "application/json")
+  if (options.review || !isOpenApiJsonMediaType(options.mediaType))
     throw new Error(
       `Review ${location.toLowerCase()} content serialization for ${name}. Disable this row and supply an explicitly serialized value.`,
     );

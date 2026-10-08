@@ -15,6 +15,7 @@ import {
 } from "./openapi-form.js";
 
 import { parseSpec, methods } from "./openapi-document.js";
+import { isOpenApiJsonMediaType } from "./openapi-content.js";
 
 /** @param {Record<string, any>} spec */
 export function analyzeSpec(spec) {
@@ -258,7 +259,7 @@ export function generateRequests(
         schema.swagger !== "2.0" &&
           ["query", "header", "path", "cookie"].includes(parameter.in),
       );
-      if (mediaType === "application/json") {
+      if (isOpenApiJsonMediaType(mediaType)) {
         if (descriptor.kind === "scalar") descriptor.kind = "scalar-json";
         const mediaTypes = Array.isArray(contentMedia?.schema?.type)
           ? contentMedia.schema.type
@@ -293,7 +294,7 @@ export function generateRequests(
           ...(schema.swagger === "2.0" ||
           parameter.allowReserved ||
           contentEntries.length !== 1 ||
-          mediaType !== "application/json"
+          !isOpenApiJsonMediaType(mediaType)
             ? { review: true }
             : {}),
         };

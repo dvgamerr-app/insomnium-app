@@ -133,6 +133,17 @@ try {
         const help = await assertKeyValueHelp(editor, [
           entry.allowReserved ? 2 : 1,
         ]);
+        if (entry.contentType && entry.content && !entry.refusal) {
+          assert.equal(
+            request.body.params[0]._openapiSerialization.mediaType,
+            entry.contentType,
+          );
+          assert.ok(help[0].help[0].text.includes(entry.contentType));
+        }
+        if (entry.id === "json-media-quoted")
+          await page.screenshot({
+            path: output + `/form-json-media-${version}-760.png`,
+          });
         if (entry.id === "json-null") {
           assert.ok(help[0].help[0].text.includes("including null"));
           assert.ok(help[0].help[0].text.includes("application/json"));
