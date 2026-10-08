@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Owner-requested Playwright headless recheck — 2026-10-08
+
+- Base/current production checkpoint86cdd7b; existing headless/native-hidden topiccccf507 remains committed. Rechecked saved browser launch sites: only helpers/preview-app.js launches Chromium, with fixed headless:true and no headed override. Native helper hides its owned host before CDP attachment and reports native-hidden; this is not a headless WebView2 runtime claim. No source change required.
+- Reran bun tests/ui/design-system.js through the shared headless helper: session58649 terminal0; artifacts/playwright/design-system/result.json passed. Fixture cleanup completed; no live process handle from this verification. Full original PLAN/PARITY/migration/UX gates remain unchanged and open as recorded below.
+- /compact cannot be invoked through this agent interface; manual compaction not claimed. This verification checkpoint is the handoff; no next feature started.
+
 ## Query URI delimiters — committed handoff — 2026-10-08
 
 - Current topic a7c230c: fix(openapi): encode query style delimiters. Supported pipe/deepObject separators now URI encoded after independent data/name encoding; metadata/UI/backend unchanged. Existing native query scenario accepts21×3 versions (63 groups):3.0.3/1791467115683,3.1.2/1791467246960,3.2.1/1791467383520. Original native raw-pipe failure1791466263026 retained and superseded, not acceptance.
