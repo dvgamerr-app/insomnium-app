@@ -3,6 +3,7 @@ import { validatePathParameters } from "@scalar/openapi-validator";
 import { validateApiDocument } from "./openapi-validation.js";
 import { sample } from "openapi-sampler";
 import { id, newRequest } from "./model.js";
+import { serializeOpenApiQuery } from "./openapi-query.js";
 
 import { parseSpec, methods } from "./openapi-document.js";
 
@@ -229,13 +230,35 @@ export function generateRequests(
         value = "";
       }
       const compound = value != null && typeof value === "object";
-      const row = {
+      const row = /** @type {Record<string,any>} */ ({
         name: parameter.name,
         value: compound ? JSON.stringify(value) : String(value ?? ""),
         disabled: false,
-      };
+      });
       if (parameter.in === "query" || parameter.in === "header") {
         if (
+          parameter.in === "query" &&
+          schema.swagger !== "2.0" &&
+          !parameter.content &&
+          !parameter.allowReserved
+        ) {
+          const style = parameter.style || "form";
+          const serialization = {
+            style,
+            explode: parameter.explode ?? style === "form",
+            kind: compound
+              ? Array.isArray(value)
+                ? "array"
+                : "object"
+              : "scalar",
+          };
+          try {
+            serializeOpenApiQuery(row.name, row.value, serialization);
+            row._openapiSerialization = serialization;
+          } catch (error) {
+            issues.push(`Parameter ${parameter.name}: ${error}`);
+          }
+        } else if (
           compound ||
           parameter.content ||
           parameter.allowReserved ||

@@ -1,5 +1,14 @@
 # UI scenarios (Playwright + Bun)
 
+`bun tests/ui/openapi-query-serialization.js` generates an owned OpenAPI3 document
+through actual native API Design, then verifies15 raw TCP query targets plus
+editable JSON/disabled/malformed controls (18 groups). Its fixture covers flat
+form/spaceDelimited/pipeDelimited/deepObject syntax and encoded data delimiters,
+Unicode, false, zero and empty values. Build the current recovery-copy probe
+first; run native scenarios sequentially. Existing `url-encoding.js` regression
+can use that artifact by setting INSOMNIUM_UI_BUILD_STATE explicitly. Other
+OpenAPI parameter/body/lint/platform gates remain open; see migration STATUS.
+
 Collection CA files are covered by the existing HTTP/SSE/WSS/gRPC entries and
 `helpers/ca-certificate-settings.js`. Fifteen shared cases cover both bundle
 orders, collection trust replacing unrelated global CA, wrong-root TLS refusal,

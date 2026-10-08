@@ -5,6 +5,7 @@ import {
   joinUrlAndQueryString,
 } from "./template-url.js";
 import { composeCurlBody, appendCurlFileQuery } from "./curl-body.js";
+import { serializeOpenApiQuery } from "./openapi-query.js";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { environmentFor, render, workspaceFor, protocolFor } from "./model.js";
 import { oauthHeader } from "./oauth-model.js";
@@ -109,6 +110,7 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
     for (const parameter of request.parameters ?? []) {
       if (parameter.disabled || (!parameter.name && !parameter.sendEmptyName))
         continue;
+      if (parameter._openapiSerialization) continue;
       query.push(
         buildQueryParameter(
           {
@@ -186,15 +188,19 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
     );
     url.href = queryUrl.href;
   }
-  for (const param of legacyQuery ? [] : (request.parameters ?? []))
+  for (const param of (request.parameters ?? []).filter(
+    (/** @type {any} */ p) => p._openapiSerialization || !legacyQuery,
+  ))
     if (!param.disabled && (param.name || param.sendEmptyName)) {
-      const encoded = new URLSearchParams([
-        [resolve(param.name), resolve(param.value)],
-      ]).toString();
-      const query = param.noValue
-        ? encoded.slice(0, encoded.indexOf("="))
-        : encoded;
-      url.search += (url.search ? "&" : "?") + query;
+      const name = resolve(param.name);
+      const value = resolve(param.value);
+      const encoded = new URLSearchParams([[name, value]]).toString();
+      const query = param._openapiSerialization
+        ? serializeOpenApiQuery(name, value, param._openapiSerialization)
+        : param.noValue
+          ? encoded.slice(0, encoded.indexOf("="))
+          : encoded;
+      if (query) url.search += (url.search ? "&" : "?") + query;
     }
   /** @type {string[][]} */
   const headers = (request.headers ?? [])
