@@ -1,3 +1,4 @@
+import { assertSelectGeometry } from "./helpers/select-geometry.js";
 import assert from "node:assert/strict";
 import { withNativeApp, poll } from "./helpers/native-app.js";
 import { assertDialogTokens } from "./helpers/dialog-theme.js";
@@ -14,6 +15,7 @@ process.env.INSOMNIUM_UI_BUILD_STATE ||=
 await withNativeApp(
   "nocturne-native-theme",
   async ({ page, invoke, output }) => {
+    const selectGeometry = /** @type {Array<Record<string,any>>} */ ([]);
     await page.emulateMedia({ reducedMotion: "reduce" });
     const fixture = await gitCollection({ page, invoke });
     const recoveryBranch = "theme-visual-recovery";
@@ -135,6 +137,11 @@ await withNativeApp(
         .selectOption("application/graphql");
       await page.locator(".CodeMirror").first().waitFor();
       await assertPickerTypography(page);
+      for (const width of [1440, 900, 760]) {
+        await page.setViewportSize({ width, height: 900 });
+        selectGeometry.push(await assertSelectGeometry(page));
+      }
+      await page.setViewportSize({ width: 1440, height: 900 });
       await assertCaptionTypography(page, [
         ".status-save",
         ".version",
@@ -398,6 +405,7 @@ await withNativeApp(
           dialogCases,
           dialogGeometry:
             "Default/override/restored radius, variant width, viewport gutter, height cap and shadow on mounted remote/cookie/branch/recovery dialogs in both themes; remote at1440/900.",
+          selectGeometry,
           authorFieldContext:
             "inherited IDs/required, empty-name refusal and malformed-email native validation before persistence IPC, exact full workspace preserved",
         },

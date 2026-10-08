@@ -22,7 +22,7 @@
 
 .select-arrow {
   position: absolute;
-  inset-inline-end: 9px;
+  inset-inline-end: var(--select-arrow-offset);
   top: 50%;
   transform: translateY(-50%);
   display: flex;
@@ -56,11 +56,14 @@
     background: var(--ui-popup);
     color: var(--text);
     border: 1px solid var(--ui-border);
-    border-radius: 10px;
+    border-radius: var(--select-picker-radius);
     padding: var(--space-5);
     margin-block: var(--space-6);
     box-shadow: var(--ui-shadow);
-    max-height: min(360px, 60vh);
+    max-height: min(
+      var(--select-picker-max-height),
+      var(--select-picker-viewport-limit)
+    );
     min-width: anchor-size(width);
     font: var(--font-size-12)/1.5 var(--font-sans);
   }
@@ -73,7 +76,7 @@
   }
   .ui-select option {
     padding: var(--space-9) var(--space-11);
-    border-radius: 6px;
+    border-radius: var(--select-option-radius);
     gap: var(--space-10);
     white-space: normal;
     overflow-wrap: anywhere;

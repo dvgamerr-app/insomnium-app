@@ -61,4 +61,9 @@
   --dialog-max-height: 88vh;
   --dialog-shadow: 0 var(--space-24) 80px #0006;
   --control-height: 34px;
+  --select-picker-radius: 10px;
+  --select-option-radius: 6px;
+  --select-arrow-offset: var(--space-9);
+  --select-picker-max-height: 360px;
+  --select-picker-viewport-limit: 60vh;
 }

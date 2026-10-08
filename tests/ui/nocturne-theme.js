@@ -1,3 +1,4 @@
+import { assertSelectGeometry } from "./helpers/select-geometry.js";
 import assert from "node:assert/strict";
 import { withPreview } from "./helpers/preview-app.js";
 import { assertDialogTokens } from "./helpers/dialog-theme.js";
@@ -8,6 +9,7 @@ import {
 } from "./helpers/typography.js";
 
 await withPreview("nocturne-theme", async (page, output) => {
+  const selectGeometry = /** @type {Array<Record<string,any>>} */ ([]);
   await page
     .getByRole("button", { name: "Toggle theme", exact: true })
     .waitFor();
@@ -87,6 +89,7 @@ await withPreview("nocturne-theme", async (page, output) => {
         ".search-input kbd",
       ]);
       await assertPickerTypography(page);
+      selectGeometry.push(await assertSelectGeometry(page));
       await assertSvgDropdowns(page);
       assert.ok(await page.locator(".send-button").isVisible());
       for (const name of ["Edit environment", "Cookies"]) {
@@ -850,6 +853,7 @@ await withPreview("nocturne-theme", async (page, output) => {
           "response-timeline",
         ],
         persistence: true,
+        selectGeometry,
         typography:
           "dense shell/GraphQL captions and actual select picker token override/restore in both themes; shell at1440/900/760",
       },

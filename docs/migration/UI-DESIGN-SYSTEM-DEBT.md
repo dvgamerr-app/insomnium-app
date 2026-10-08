@@ -258,6 +258,17 @@ Next implementation order for this debt: remaining token/literal/unused declarat
 - [ ] ไม่เหลือ scaffolds ที่ไม่มี adoption, obsolete CSS หรือ compatibility aliases ที่พ้นช่วงย้ายแล้ว
 - [ ] UI README และ STATUS ตรงกับ source และระบุ remaining gaps โดยไม่ทำเครื่องหมาย full migration complete
 
+2026-10-08 Select geometry evidence: shared select.css now consumes five foundation
+tokens for picker/option radius, chevron offset and picker cap/viewport limit,
+preserving10/6/9px/360px/60vh defaults. Actual old-CSS radius override fails10vs7;
+saved headless6/current native6 dark/light1440/900/760 profiles check five mounted
+controls each with all overrides/tighter viewport/restoration. Current native
+release1791442836440/1791443403642/result0/evidence1791443414373 also accepts12
+workflows/10 dialogs/fonts/locked recovery/unchanged HEAD, terminal0/hidden/exit0.
+UI README records token ownership/API. These computed CSS metrics do not close
+all popup/fallback/platform/adoption/interaction/alias/literal/full-debt gates;
+the broader checklist remains open. Exact evidence and handoff in STATUS.
+
 ## การตรวจในงานบันทึกเดิม
 
 อ่าน source ของ shared primitives, styles และ feature consumers; ใช้ `rg` และ inline `bun -e` เพื่อทำ markup inventory ไม่มีการแก้ source, สร้าง components, เปลี่ยน CSS, รันทดสอบ UI หรือ build ใหม่ ตัวเลขและตำแหน่งเป็น static snapshot ไม่ใช่ usability measurement

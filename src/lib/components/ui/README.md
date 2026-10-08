@@ -108,6 +108,15 @@ Application adoption inventory (2026-10-07, static markup outside `ui`, excludin
 
 Dropdown pickers use `appearance: base-select` under `@supports`, with themed options, checkmarks, keyboard selection and top-layer placement. Older engines fall back to native select behavior. There is no custom listbox keyboard implementation to maintain. Actual adoption covers request composition, authentication editors, preferences, imports, environments/resources, Git, runner, protocols and response filtering: 253 additional input/select/button sites and 15 textarea sites now use the shared controls.
 
+Select geometry is owned by foundation tokens: `--select-picker-radius` (10px),
+`--select-option-radius` (6px), `--select-arrow-offset` (space-9),
+`--select-picker-max-height` (360px) and `--select-picker-viewport-limit` (60vh).
+The shared picker height uses the smaller of its cap and viewport limit. Feature
+styles retain placement/width responsibility; change these geometry tokens once
+instead of overriding picker/option/chevron selectors per feature. Saved theme
+scenarios check actual mounted customizable-picker CSS, overrides and restoration;
+older engine/OS popup behavior remains a separate platform acceptance gate.
+
 The saved workspace scenario checks picker rendering in both themes, keyboard selection, Escape ordering, numeric persistence and modal focus restoration. The broader Nocturne scenario covers request/auth/body/import/editor/protocol controls.
 
 References consulted: [MDN customizable select](https://developer.mozilla.org/en-US/docs/Learn_web_development/Extensions/Forms/Customizable_select), [MDN Popover API](https://developer.mozilla.org/en-US/docs/Web/API/Popover_API/Using), [Svelte bindable props](https://svelte.dev/docs/svelte/$bindable).
