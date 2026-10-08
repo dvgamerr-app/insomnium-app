@@ -231,7 +231,7 @@ function applyGitWorkspace(data) {
   workspace.responses = {};
   for (const response of [...data.history].reverse()) {
     const restored = { ...response };
-    if (restored.protocol) restored.connectionState = "closed";
+    if (restored.protocol && !["closed", "error"].includes(restored.connectionState)) restored.connectionState = "closed";
     workspace.responses[restored.requestId] = restored;
   }
   workspace.schemas = {};
@@ -557,7 +557,7 @@ export async function initialize() {
     const data = await loadData();
     if (data) workspace.data = data;
     for (const response of [...workspace.data.history].reverse()) {
-      if (response.protocol) response.connectionState = "closed";
+      if (response.protocol && !["closed", "error"].includes(response.connectionState)) response.connectionState = "closed";
       workspace.responses[response.requestId] = response;
     }
     workspace.ready = true;
