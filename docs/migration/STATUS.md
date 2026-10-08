@@ -1,5 +1,12 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Inline request names — committed handoff — 2026-10-08
+
+- Current topic d46d3c7: fix(ui): avoid spurious inline name saves. Headless18 and native60 accepted, actual workspace regression/compiler0/0/format/diff pass. Production release1791462919153/1791463339714/result0/hash6891138143277866925; native evidence1791463347437, PID2748 native-hidden/visiblefalse/exit0. No live owned build/native/compiler/scenario handles; worktree clean after topic commit. This docs checkpoint records the current commit and evidence.
+- Shared browser headless policy remains committed at60bda71 with checkpointcccf507: launchUiBrowser always headless:true/no headed override; native hosts hidden before CDP and reported native-hidden.
+- Full original goal remains active/unbounded. Every original PLAN/PARITY TLS/platform/proxy/fault, Git/network/recovery/OAuth, storage/power-loss/receipts, CI/signing/install/upgrade/distribution/updater, desktop/plugin/environment/assets, OpenAPI media/body/schema/refs/version/provider and centralized UX/CSS adoption/ownership/validation/interaction/accessibility/OS/workflow gate remains required. This handoff closes only the demonstrated shared inline-name bug; separate gRPC editor and broader concurrent edit semantics remain unproven.
+- /compact cannot be invoked through this agent interface; manual compaction not claimed. Handoff provided per AGENTS.md. No next feature started; revalidate current commit/worktree and full original docs gates on continuation. No handles to resume.
+
 ## Inline request name saves — verified acceptance — 2026-10-08
 
 - Base dfe599e. EditableName now skips unchanged/normalized-equivalent drafts and cancels Escape without invoking onchange. Untouched imported spacing/empty values and newer parent props are preserved; empty names display Untitled Request without changing stored data. Changed drafts retain trimming/blank fallback behavior. No workspace/backend/style changes.
