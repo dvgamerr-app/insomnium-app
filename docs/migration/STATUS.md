@@ -1,5 +1,12 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## OAS3.0 contentType clarification — committed handoff — 2026-10-09
+
+- Current topic commit4dbe920 (fix(openapi): apply legacy form contentType clarification) contains production generation/media guards, nullable JSON guidance, reusable saved scenarios and corrected evidence. Topic worktree was clean; this entry is the documentation checkpoint.
+- Evidence: release1791489924836/finished1791490302230/result0/hash9617389091871754207; form1791490308816 actual98 cases49/49, passed/native-hidden/visiblefalse/native52400exit0; six binary/byte reviewed rows retain runtime guards. Compiler0/0/inline135generation135Git8refusals1edit4omitted-encoding/headless54help6profiles/format/diff pass. No feature-owned live handles remain. Source inventory663sites118tokens1719CSS declarations; no CSS/backend/dependency change. Legacy nullable3.0.4 light760 image inspected. Historical planned108/190 counts are superseded; full saved scenario is180, current native acceptance98 only.
+- Original migration/UX goal remains active with every PLAN/PARITY gate and full remaining scope in verified acceptance below. Next concrete original gate: verify older3.0/3.1 content-array formal mapping/provider/raw behavior using primary specification and independent wire expectations; saved-generated-resource migration/regeneration policy remains open. No next feature started.
+- Tool inventory has no callable compaction operation. This interface cannot invoke /compact; compaction is not claimed. Handoff recorded before next feature. Continue with applicable Claude instructions, STATUS/PLAN/PARITY and current HEAD/worktree revalidation. Browser scenarios stay headless:true; native hosts hide before CDP and report native-hidden.
+
 ## OAS3.0 contentType clarification — verified acceptance — 2026-10-09
 
 - Previous goal turn was progress: bfa1b3b records reverified headless policy and saved design-system54892 terminal0. Revalidated worktree/instructions/STATUS/PLAN/PARITY; no applicable Claude files found. Native form1791490308816 is terminal passed, count98 equals98 artifact records (49each3.0.3/3.0.4), six reviewed binary/byte rows plus disable recovery, exact edited JSON lexemes, help/resource/history/reload controls. Final release1791489924836/finished1791490302230/result0/hash9617389091871754207; native52400exit0/hiddenWindow.visiblefalse/renderingMode native-hidden. Owned scenario46600/native52400/build53072 and matching profile processes are absent. Earlier live/pending entries below are historical.
