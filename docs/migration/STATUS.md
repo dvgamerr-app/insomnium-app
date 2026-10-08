@@ -1,5 +1,12 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Current UI inventory — committed handoff — 2026-10-08
+
+- Current topic f3d23dc: chore(ui): inventory shared consumers and style ownership. Reproducible Bun/Svelte AST source audit and UI-INVENTORY.md record57 Svelte files/661 shared sites/14 scoped feature files/118 tokens/1714 declarations, sourceSHA256734cfee8ef5a4359797efd8288db718604ed070da4a337de9eae84eb3bbe3a3f. CodeEditor/native, Feedback/dynamic, method-color interpolation and CodeMirror/vendor exceptions documented. Audit terminal0/compiler70727 terminal0/0errors0warnings/format/diff pass; no new runtime acceptance or application source/style/backend change.
+- Worktree clean after topic commit; this checkpoint records its handoff. No live owned audit/compiler/scenario/build/native handles. Next UI work should use actual declaration/consumer paths to resolve remaining primitive overrides/literals with existing saved headless/native verification; broader adoption/validation/interactions/OS/platform/workflows remain open.
+- Full original migration/UX/CSS goal remains active/unbounded: all PLAN/PARITY TLS/platform/proxy/fault, Git/network/recovery/OAuth, storage/power-loss/receipts, CI/signing/install/upgrade/distribution/updater, desktop/plugin/environment/assets, OpenAPI media/body/schema/refs/version/provider and centralized UX/CSS gates remain required. No whole-debt/migration completion claim.
+- /compact cannot be invoked through this agent interface; manual compaction not claimed. Handoff provided per AGENTS.md, no next feature started. Revalidate current commit/worktree and original gates on continuation; no handles to resume.
+
 ## Current UI adoption and styling inventory — verified source audit — 2026-10-08
 
 - Base56aed5e; previous inline-name topic was concrete progress with committed acceptance, not a blocker. Full original migration/UX/CSS goal remains active/unbounded. No live previous build/native/compiler/scenario handles. No Claude instruction files found at ancestors/root/relevant src/docs/scripts scopes.
