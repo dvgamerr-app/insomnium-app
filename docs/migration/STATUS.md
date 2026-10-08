@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Commit / compact handoff — stream history — 2026-10-08
+
+- Current topic commit e64f711: test(git): verify native stream errors survive workspace checkout. Final native1791432332235/session68753 terminal0 passes5 original groups+6 stream groups, observes one real native checkout, preserves exact retained history/error badges after checkout/reload and TCP0/no reconnect. Native32160 hidden/visiblefalse/exit0, loopback closed, four TLS preferences restored; no owned process/live handles. Earlier accepted1791432233188 and failed modal/view runs retained below.
+- This closes mounted create-and-switch terminal SSE/WSS error-history acceptance, not every Git transition or full migration. Next inspect remaining legacy TLS preference/runtime/trust-store and protocol/container/provider/proxy/platform gates alongside current PLAN/PARITY, then continue their implementation/acceptance. All fault/OS-dialog/CI/distribution/CSS and subsequent reusable-input/UX redesign scope retained; no scope removals or full-completion claim.
+- Interface cannot invoke /compact. Handoff recorded instead of claiming manual compaction; no next feature starts in this turn. This documentation checkpoint follows e64f711.
+
 ## Native stream-error history Git transition — verified — 2026-10-08
 
 - Previous goal turn was progress: multi-key PFX feature e883fd1 and checkpoint bb9d4f4 verified HTTP43/SSE38/WSS38/gRPC67/regression25 with no owned processes. Full migration/subsequent UX objective unchanged. Current native artifact release1791430496662/1791430957497/result0 is authoritative and production code unchanged.
