@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Owner headless follow-up verified — 2026-10-08
+
+- At current commit057455f, all saved browser launches use tests/ui/helpers/preview-app.js with explicit headless:true; no headed override exists in tests/scripts. Native scenarios use CDP after hiding their owned Tauri window. Existing settings already satisfy the request; no source change was necessary.
+- Reran bun tests/ui/design-system.js: terminal0; artifacts/playwright/design-system/result.json reports passed. Whitespace check passes. This documentation commit records the headless verification separately from the pending WSS feature.
+- Handoff: uncommitted WSS multi-identity resolver changes remain in Cargo.toml/Cargo.lock, client_certificates.rs, http.rs and vendored reqwest tls.rs. Cargo check session47920 finished terminal0; real multi-identity TLS acceptance and vendor patch documentation remain required before committing that feature. No live owned build/test process handle remains. Full migration/UX gates remain open. This interface cannot invoke /compact; this entry supplies the handoff without claiming compaction.
+
 ## Collection file client certificates verified — 2026-10-08
 
 - Previous turn made progress with Browse/legacy encrypted PEM/separate-key precedence and saved protocol scenarios. Full original migration/UX objective retained. Verified capability commit b635808; documentation handoff follows. This milestone implements collection-scoped single-key file identities, not full migration or arbitrary legacy TLS parity.
