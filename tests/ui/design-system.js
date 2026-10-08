@@ -1,8 +1,21 @@
+import { assertButtonPadding } from "./helpers/button-padding.js";
 import assert from "node:assert/strict";
 import { withComponentFixture } from "./helpers/component-fixture.js";
 import { assertDialogTokens } from "./helpers/dialog-theme.js";
 
 await withComponentFixture("design-system", async (page, output) => {
+  const buttonPadding = /** @type {Array<Record<string,any>>} */ ([]);
+  for (const theme of ["dark", "light"]) {
+    await page.evaluate(
+      (theme) => (document.documentElement.dataset.theme = theme),
+      theme,
+    );
+    for (const width of [1440, 900, 760]) {
+      await page.setViewportSize({ width, height: 960 });
+      buttonPadding.push(await assertButtonPadding(page));
+    }
+  }
+  await page.setViewportSize({ width: 1440, height: 960 });
   const errors = /** @type {string[]} */ ([]);
   page.on("pageerror", (error) => errors.push(error.message));
   const requiredForm = page.getByRole("form", {
@@ -424,5 +437,13 @@ await withComponentFixture("design-system", async (page, output) => {
       .click();
     await page.screenshot({ path: output + "/" + theme + ".png" });
   }
+  await Bun.write(
+    output + "/button-padding.json",
+    JSON.stringify(
+      { profiles: buttonPadding, count: buttonPadding.length },
+      null,
+      2,
+    ),
+  );
   assert.deepEqual(errors, []);
 });

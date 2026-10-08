@@ -45,7 +45,7 @@
 
 .ui-button:where(:not(.ui-button-plain)) {
   min-height: var(--button-height);
-  padding: var(--space-7) var(--space-12);
+  padding: var(--button-padding);
   border-radius: var(--button-radius);
   font-weight: 500;
 }

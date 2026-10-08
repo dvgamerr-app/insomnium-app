@@ -34,6 +34,15 @@
 </script>
 
 <main style="padding:24px;overflow:auto;height:100vh">
+  <section class="button-padding-contract" aria-label="Button padding contract">
+    <Button variant="primary" data-padding-standard>Primary padding</Button>
+    <Button variant="secondary" data-padding-standard>Secondary padding</Button>
+    <Button variant="danger" data-padding-standard>Danger padding</Button>
+    <Button class="icon-button" data-padding-fixed aria-label="Icon padding"
+      >+</Button
+    >
+    <Button class="send-button" data-padding-fixed>Send padding</Button>
+  </section>
   <form
     aria-label="Required field contract"
     onsubmit={(event) => {

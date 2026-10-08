@@ -1,5 +1,8 @@
 # Saved UI test execution
 
+2026-10-08 shared Button padding ownership: actual old primary override failure7/12vs5/19 reproduced; shared controls now consume existing foundation button-padding with unchanged defaults, explicit Icon/Send/toolbar overrides preserved. Headless6 and fresh production release1791446220301/1791446646549/result0/native1791446699449 accept6 dark/light1440/900/760 profiles (three actual variants each),12 workflows/10 dialogs/6 Select profiles/fonts/locked recovery/unchanged Git HEAD; native-hidden/terminal0/exit0. Compiler0/0/frontend/headless application/format/diff pass; restored native dark/light900px cookie images inspected. Full debt and original migration/UX gates remain required; exact evidence/failure/compact handoff in STATUS.
+
+
 2026-10-08 OpenAPI nullable values: fresh production release1791444668712/1791445297377/result0 accepts50 saved native groups across3.0.3/3.1.2: distinct null/empty/string-null/false/zero and undefined composites, JSON metadata/help/edit/type refusal/persistence/reload. Header17/query18/path48/URL5+23targets+20signatures regressions pass on the same build; terminal0/native-hidden/exit0/listeners closed. Compiler0/0/headless design-system/62 inline+69 regressions/12 Git metadata/format/diff pass. RFC6570/AppendixC omission chosen over conflicting table examples; non-RFC root-null remains review-gated. Advanced schema constraints/nullable unions/version interop and other OpenAPI/full migration/UX gates remain open. Exact evidence and compact handoff in STATUS.
 
 

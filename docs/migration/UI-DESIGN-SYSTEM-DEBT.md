@@ -1,5 +1,8 @@
 # UI/UX: รวม components และ design system ให้ใช้ร่วมกัน
 
+2026-10-08 shared Button padding ownership: actual old primary override failure7/12vs5/19 reproduced; shared controls now consume existing foundation button-padding with unchanged defaults, explicit Icon/Send/toolbar overrides preserved. Headless6 and fresh production release1791446220301/1791446646549/result0/native1791446699449 accept6 dark/light1440/900/760 profiles (three actual variants each),12 workflows/10 dialogs/6 Select profiles/fonts/locked recovery/unchanged Git HEAD; native-hidden/terminal0/exit0. Compiler0/0/frontend/headless application/format/diff pass; restored native dark/light900px cookie images inspected. Full debt and original migration/UX gates remain required; exact evidence/failure/compact handoff in STATUS.
+
+
 2026-10-08 capability820aee4: fixed Field required context (previously decorative star only), native required inherited by5 controls/reactive optional/explicit false override, FilePicker Field error semantics, and actual Git author Preferences adoption of Field ID/required/busy ownership. Design-system native form submission contract and static dark/light1440/900/760 pass; fresh Windows production release1791407772794/1791408129110/result0 accepts native-theme1791408164309 (actual author browser validation before persistence IPC/full data preservation), Source Control and Push regressions. Current raw native-control inventory finds only specialized CodeEditor fallback outside primitives. This is one verified field semantics/adoption improvement; CSS tokens/literals/unused declaration and remaining workflow/interaction/full debt gates stay open. Exact evidence/limits/checkpoint in STATUS.
 
 วันที่: 2026-10-05  

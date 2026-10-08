@@ -1,3 +1,4 @@
+import { assertButtonPadding } from "./helpers/button-padding.js";
 import { assertSelectGeometry } from "./helpers/select-geometry.js";
 import assert from "node:assert/strict";
 import { withNativeApp, poll } from "./helpers/native-app.js";
@@ -15,6 +16,7 @@ process.env.INSOMNIUM_UI_BUILD_STATE ||=
 await withNativeApp(
   "nocturne-native-theme",
   async ({ page, invoke, output }) => {
+    const buttonPadding = /** @type {Array<Record<string,any>>} */ ([]);
     const selectGeometry = /** @type {Array<Record<string,any>>} */ ([]);
     await page.emulateMedia({ reducedMotion: "reduce" });
     const fixture = await gitCollection({ page, invoke });
@@ -224,6 +226,17 @@ await withNativeApp(
       await page.setViewportSize({ width: 900, height: 900 });
       await page.getByRole("button", { name: "Cookies", exact: true }).click();
       const dialog = page.getByRole("dialog");
+      for (const width of [1440, 900, 760]) {
+        await page.setViewportSize({ width, height: 900 });
+        buttonPadding.push(
+          await assertButtonPadding(
+            page,
+            "dialog.modal .resource-tools > button.ui-button, dialog.modal .modal-actions > button.ui-button",
+            ".send-button, .icon-button",
+          ),
+        );
+      }
+      await page.setViewportSize({ width: 900, height: 900 });
       const cookieGeometry = await assertDialogTokens(dialog);
       dialogCases.push({ theme, kind: "cookie", ...cookieGeometry });
       await dialog
@@ -406,6 +419,7 @@ await withNativeApp(
           dialogGeometry:
             "Default/override/restored radius, variant width, viewport gutter, height cap and shadow on mounted remote/cookie/branch/recovery dialogs in both themes; remote at1440/900.",
           selectGeometry,
+          buttonPadding,
           authorFieldContext:
             "inherited IDs/required, empty-name refusal and malformed-email native validation before persistence IPC, exact full workspace preserved",
         },

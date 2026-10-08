@@ -120,3 +120,9 @@ older engine/OS popup behavior remains a separate platform acceptance gate.
 The saved workspace scenario checks picker rendering in both themes, keyboard selection, Escape ordering, numeric persistence and modal focus restoration. The broader Nocturne scenario covers request/auth/body/import/editor/protocol controls.
 
 References consulted: [MDN customizable select](https://developer.mozilla.org/en-US/docs/Learn_web_development/Extensions/Forms/Customizable_select), [MDN Popover API](https://developer.mozilla.org/en-US/docs/Web/API/Popover_API/Using), [Svelte bindable props](https://svelte.dev/docs/svelte/$bindable).
+
+Standard Button primary/secondary/danger padding uses `--button-padding`
+(default `var(--space-7) var(--space-12)`). Native baseline and shared standard
+controls consume the same foundation token. Icon, Send and toolbar/list variants
+retain their explicit composition padding in shared style owners. Override the
+token once for standard buttons; feature CSS must not duplicate that default.
