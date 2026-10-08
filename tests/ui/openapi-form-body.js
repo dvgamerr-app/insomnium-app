@@ -112,7 +112,13 @@ try {
           (/** @type {any} */ row) => row.name === entry.id,
         );
         assert.ok(request);
-        assert.deepEqual(request._openapiIssues, []);
+        if (entry.refusal)
+          assert.ok(
+            request._openapiIssues.some((/** @type {string} */ issue) =>
+              issue.includes(entry.refusal),
+            ),
+          );
+        else assert.deepEqual(request._openapiIssues, []);
         assert.equal(
           request.body.params[0]._openapiSerialization.formBody,
           true,
@@ -136,6 +142,54 @@ try {
           await page.screenshot({
             path: output + `/form-content-${version}-760.png`,
           });
+        if (entry.id === "item-object-list")
+          await page.screenshot({
+            path: output + `/form-style-items-${version}-760.png`,
+          });
+        if (entry.refusal) {
+          await send(request, null, "Review this generated request");
+          await select(entry.id);
+          await page
+            .getByRole("tablist", { name: "Request editor", exact: true })
+            .getByRole("tab", { name: "Settings", exact: true })
+            .click();
+          await page
+            .getByRole("button", {
+              name: "I have corrected these request fields",
+              exact: true,
+            })
+            .click();
+          await poll(
+            async () =>
+              (await invoke("load_workspace")).resources.find(
+                (/** @type {any} */ row) => row._id === request._id,
+              )?._openapiIssues?.length === 0,
+            "Explicit request review persisted",
+          );
+          await select(entry.id);
+          await send(request, null, entry.refusal);
+          cases.push({
+            version,
+            id: entry.id,
+            refusal: entry.refusal,
+            reviewed: true,
+            expected: null,
+          });
+          await select(entry.id);
+          await page
+            .getByRole("checkbox", { name: "Enable color", exact: true })
+            .uncheck();
+          await poll(
+            async () =>
+              (await invoke("load_workspace")).resources.find(
+                (/** @type {any} */ row) => row._id === request._id,
+              )?.body?.params[0]?.disabled === true,
+            "Disabled unsupported item style persisted",
+          );
+          await send(request, "");
+          cases.push({ version, id: "disable-" + entry.id, expected: "" });
+          continue;
+        }
         await send(request, entry.expected);
         cases.push({
           version,
@@ -144,6 +198,25 @@ try {
           help: true,
           reload: true,
         });
+        if (entry.editText) {
+          await select(entry.id);
+          await page
+            .getByRole("textbox", { name: "Value 1", exact: true })
+            .fill(entry.editText);
+          await poll(
+            async () =>
+              (await invoke("load_workspace")).resources.find(
+                (/** @type {any} */ row) => row._id === request._id,
+              )?.body?.params[0]?.value === entry.editText,
+            "Numeric form item edit persisted",
+          );
+          await send(request, entry.editExpected);
+          cases.push({
+            version,
+            id: entry.id + "-edit",
+            expected: entry.editExpected,
+          });
+        }
       }
       const request = generated.find(
         (/** @type {any} */ row) => row.name === "array-exploded",
@@ -166,7 +239,9 @@ try {
           id: "nested",
           text: '[{"key":"value"}]',
           expected: null,
-          refusal: "requires flat scalar values",
+          refusal: version.startsWith("3.2.")
+            ? "requires a JSON scalar"
+            : "requires flat scalar values",
         },
         {
           id: "wrong-kind",

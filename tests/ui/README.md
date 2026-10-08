@@ -1,5 +1,14 @@
 # UI scenarios (Playwright + Bun)
 
+OAS3.2 explicit-style form arrays now have per-item metadata and saved cases in
+`helpers/openapi-form-style-item-cases.js`. The saved form scenario covers76
+generation cases (including2 review/runtime refusals) plus26 controls, with an
+edited numeric item preserving integer/exponent spelling. Native102 acceptance
+passes on release1791485710424, alongside query44 and URL41targets/38signatures
+(four new per-item form cases); see STATUS/OPENAPI-FORM-STYLE-ITEMS.md. The shared headless
+design-system scenario passes48 linked-help rows across6 profiles. The content
+and style counts below describe their earlier accepted milestones.
+
 `openapi-form-body.js` now includes modern default/content-based JSON and text
 properties, repeated primitive/object/nested-array items and exact edited JSON
 integer/exponent/escape lexemes. Shared content case goldens are in

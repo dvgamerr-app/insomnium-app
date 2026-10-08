@@ -163,8 +163,24 @@ export function openApiFormDocument(version, base) {
 
 /** @param {string} version */
 export function openApiFormCasesFor(version) {
-  return version.startsWith("3.0.")
+  const cases = version.startsWith("3.0.")
     ? openApiFormCases
     : [...openApiFormCases, ...openApiFormContentCases];
+  if (!version.startsWith("3.2.")) return cases;
+  return [
+    ...cases.map((entry) =>
+      entry.id === "array-list"
+        ? { ...entry, expected: "color=blue&color=black" }
+        : ["space-array", "pipe-array"].includes(entry.id)
+          ? {
+              ...entry,
+              expected: null,
+              refusal: `${entry.style} requires a non-exploded array or flat object.`,
+            }
+          : entry,
+    ),
+    ...openApiFormStyleItemCases,
+  ];
 }
 import { openApiFormContentCases } from "./openapi-form-content-cases.js";
+import { openApiFormStyleItemCases } from "./openapi-form-style-item-cases.js";

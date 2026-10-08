@@ -250,6 +250,32 @@ try {
       36,
       "Four JSON form-content signing regressions",
     );
+    for (const source of resources.filter((r) => r._id.endsWith("_form")))
+      resources.push({
+        ...source,
+        _id: source._id + "_items",
+        name: source.name + " 3.2 array items",
+        body: {
+          ...source.body,
+          params: [
+            {
+              ...source.body.params[0],
+              _openapiSerialization: {
+                ...source.body.params[0]._openapiSerialization,
+                explode: false,
+                formArrayItems: true,
+                itemKind: "scalar-json",
+              },
+            },
+            source.body.params[1],
+          ],
+        },
+      });
+    assert.equal(
+      resources.length,
+      40,
+      "Four per-item form signing regressions",
+    );
     await page
       .getByRole("button", { name: "Import collection", exact: true })
       .click();
@@ -633,6 +659,10 @@ try {
             formContentBody:
               r.body.mimeType === "application/x-www-form-urlencoded" &&
               r.body.params[0]._openapiSerialization.style === "content",
+            formStyleItemBody:
+              r.body.mimeType === "application/x-www-form-urlencoded" &&
+              r.body.params[0]._openapiSerialization.style !== "content" &&
+              r.body.params[0]._openapiSerialization.formArrayItems === true,
           })),
         },
         null,

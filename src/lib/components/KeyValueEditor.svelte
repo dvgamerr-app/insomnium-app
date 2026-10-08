@@ -145,7 +145,7 @@
                       row._openapiSerialization.style === "content"
                     ? `${row._openapiSerialization.kind === "scalar" ? "" : "Use JSON values. "}Values use ${row._openapiSerialization.mediaType} form encoding.`
                     : row._openapiSerialization?.formBody
-                      ? `${["array", "object", "scalar-json"].includes(row._openapiSerialization.kind) ? "Use JSON values. " : ""}Values use ${row._openapiSerialization.style} form encoding.`
+                      ? `${["array", "object", "scalar-json"].includes(row._openapiSerialization.kind) ? "Use JSON values. " : ""}${row._openapiSerialization.formArrayItems ? "Each array item uses" : "Values use"} the ${row._openapiSerialization.style} style for form encoding.`
                       : "Use JSON values."}</Feedback
             >{/if}
           {#if row._openapiSerialization?.allowReserved}<Feedback

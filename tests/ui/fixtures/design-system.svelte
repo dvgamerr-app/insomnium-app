@@ -83,6 +83,19 @@
           mediaType: "application/json",
         },
       },
+      {
+        name: "form-style-items",
+        value: '[{"R":100},{"G":200}]',
+        disabled: false,
+        _openapiSerialization: {
+          formBody: true,
+          style: "form",
+          kind: "array",
+          explode: false,
+          formArrayItems: true,
+          itemKind: "object",
+        },
+      },
     ]),
   );
   let multipartRows = $state(

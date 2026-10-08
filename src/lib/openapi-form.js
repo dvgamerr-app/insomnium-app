@@ -5,6 +5,34 @@ import {
 } from "./openapi-content.js";
 import { describeOpenApiValue, readOpenApiValue } from "./openapi-value.js";
 
+/** @param {Record<string,any>} property */
+function jsonKind(property) {
+  const declared = Array.isArray(property.type)
+    ? property.type
+    : [property.type];
+  return declared.includes("object")
+    ? "object"
+    : declared.includes("array")
+      ? "array"
+      : declared.some((/** @type {string} */ type) =>
+            ["string", "number", "integer", "boolean"].includes(type),
+          )
+        ? "scalar-json"
+        : "json";
+}
+
+/** OAS3.2 maps an array property's Encoding Object to each item.
+ * @param {Record<string,any>} property */
+export function describeOpenApiFormStyleItems(property) {
+  const item = property.items || {};
+  const types = Array.isArray(item.type) ? item.type : [item.type];
+  return {
+    formArrayItems: true,
+    itemKind: jsonKind(item),
+    itemNullable: item.nullable === true || types.includes("null"),
+  };
+}
+
 /** Content mode applies a property's media type to each array item.
  * @param {any} value @param {Record<string,any>} schema @param {Record<string,any>} encoding */
 export function describeOpenApiFormContent(value, schema, encoding) {
@@ -23,20 +51,6 @@ export function describeOpenApiFormContent(value, schema, encoding) {
           !itemSchema.contentEncoding
         ? "text/plain"
         : "application/octet-stream");
-  const jsonKind = (/** @type {Record<string,any>} */ property) => {
-    const declared = Array.isArray(property.type)
-      ? property.type
-      : [property.type];
-    return declared.includes("object")
-      ? "object"
-      : declared.includes("array")
-        ? "array"
-        : declared.some((/** @type {string} */ type) =>
-              ["string", "number", "integer", "boolean"].includes(type),
-            )
-          ? "scalar-json"
-          : "json";
-  };
   const serialization = {
     formBody: true,
     style: "content",
@@ -161,7 +175,7 @@ function serializeFormContent(name, text, options) {
 
 /** Explicit Encoding Object styles use RFC6570, with form delimiters protected.
  * @param {string} name @param {string} text
- * @param {Record<string,any>} options */
+ * @param {Record<string,any>} options @returns {string} */
 export function serializeOpenApiForm(name, text, options) {
   if (options.review)
     throw new Error(
@@ -169,6 +183,53 @@ export function serializeOpenApiForm(name, text, options) {
     );
   if (options.style === "content")
     return serializeFormContent(name, text, options);
+  if (options.formArrayItems) {
+    const compact = serializeOpenApiContent(
+      name,
+      text,
+      {
+        kind: "array",
+        nullable: options.nullable,
+        mediaType: "application/json",
+      },
+      "Form",
+    );
+    if (compact !== "null")
+      return arrayItems(compact)
+        .map((item) => {
+          const value = JSON.parse(item);
+          let kind =
+            options.itemKind === "json"
+              ? Array.isArray(value)
+                ? "array"
+                : value !== null && typeof value === "object"
+                  ? "object"
+                  : "scalar-json"
+              : options.itemKind;
+          if (
+            kind === "scalar-json" &&
+            ["number", "boolean"].includes(typeof value)
+          ) {
+            serializeOpenApiContent(
+              name,
+              item,
+              { kind, mediaType: "application/json" },
+              "Form",
+            );
+            kind = "scalar";
+          }
+          return serializeOpenApiForm(name, item, {
+            ...options,
+            formArrayItems: false,
+            kind,
+            nullable:
+              options.itemNullable ||
+              (options.itemKind === "json" && value === null),
+          });
+        })
+        .filter(Boolean)
+        .join("&");
+  }
   const atom = (/** @type {string} */ value) => {
     if (!options.allowReserved) return encodeOpenApiContent(value);
     return (value.match(/%[\da-f]{2}|[\s\S]/giu) ?? [])
@@ -184,7 +245,9 @@ export function serializeOpenApiForm(name, text, options) {
     text,
     {
       style: options.style,
-      explode: options.explode === true,
+      explode:
+        options.explode === true ||
+        (options.ignoreDeepObjectExplode && options.style === "deepObject"),
       kind: options.kind,
       nullable: options.nullable,
     },

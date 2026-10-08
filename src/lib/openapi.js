@@ -10,6 +10,7 @@ import { serializeOpenApiHeader } from "./openapi-header.js";
 import { serializeOpenApiPath } from "./openapi-path.js";
 import {
   describeOpenApiFormContent,
+  describeOpenApiFormStyleItems,
   serializeOpenApiForm,
 } from "./openapi-form.js";
 
@@ -495,6 +496,14 @@ export function generateRequests(
                     kind: descriptor.kind,
                     ...(descriptor.nullable ? { nullable: true } : {}),
                     ...(encoding.allowReserved ? { allowReserved: true } : {}),
+                    ...(String(schema.openapi).startsWith("3.2.") &&
+                    descriptor.kind === "array"
+                      ? describeOpenApiFormStyleItems(property)
+                      : {}),
+                    ...(String(schema.openapi).startsWith("3.2.") &&
+                    style === "deepObject"
+                      ? { ignoreDeepObjectExplode: true }
+                      : {}),
                   };
                   try {
                     serializeOpenApiForm(name, descriptor.text, serialization);
