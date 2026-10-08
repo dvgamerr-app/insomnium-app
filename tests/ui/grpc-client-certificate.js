@@ -160,6 +160,13 @@ await withNativeApp(
           "invalid client identity",
           false,
         ],
+        ...fixture.invalidServers.map((server) => [
+          "server-" + server.id,
+          fixture.ca,
+          "127.0.0.1",
+          fixture.client.identity,
+          false,
+        ]),
         [
           "recovered-client",
           fixture.ca,
@@ -170,6 +177,26 @@ await withNativeApp(
       ]) {
         await setTls(String(ca), String(host), String(identity));
         await page.reload();
+        const server = fixture.invalidServers.find(
+          (server) => id === "server-" + server.id,
+        );
+        const url = (server ? server.grpcUrl : fixture.grpc.url).replace(
+          "https:",
+          "grpcs:",
+        );
+        const input = page.getByRole("textbox", {
+          name: "gRPC server URL",
+          exact: true,
+        });
+        await input.fill(url);
+        await input.blur();
+        await poll(
+          async () =>
+            (await invoke("load_workspace")).resources.find(
+              (/** @type {any} */ resource) => resource._id === requestId,
+            )?.url === url,
+          "Unary server certificate URL persisted",
+        );
         await page
           .getByRole("button", { name: "Load methods", exact: true })
           .click();
@@ -231,6 +258,25 @@ await withNativeApp(
             ),
           );
         const reached = fixture.grpcRequests.slice(count);
+        if (server) {
+          assert.ok(
+            fixture.grpcConnections.count > connections,
+            "Native attempts invalid server TLS handshake",
+          );
+          const alert =
+            server.id === "hostname" ? "BadCertificate" : "CertificateExpired";
+          await poll(
+            async () =>
+              fixture.rejected
+                .slice(rejected)
+                .some(
+                  (event) =>
+                    event.role === "grpc" &&
+                    event.detail.includes("received fatal alert: " + alert),
+                ),
+            "Native gRPC certificate alert " + server.id,
+          );
+        }
         const received = response.events.filter(
           (/** @type {any} */ event) => event.kind === "message",
         );
@@ -307,6 +353,11 @@ await withNativeApp(
           requests: reached,
           connections: fixture.grpcConnections.count - connections,
           rejections: fixture.rejected.slice(rejected),
+          serverCertificate: server
+            ? fixture.serverCertificates.find(
+                (certificate) => certificate.id === server.id,
+              )
+            : undefined,
         });
       }
       const saved = (await invoke("load_workspace")).history.find(
@@ -356,7 +407,7 @@ await withNativeApp(
             streaming,
             reflection,
             limits:
-              "Actual Windows native unary/server/client/bidirectional gRPC and reflection v1/v1alpha fallback through persisted Preferences and UI, HTTP2 ALPN, server-observed peer fingerprint and exact protobuf bytes. Explicit Commit EOF, all three Cancel shapes produce actual RST_STREAM CANCEL, saved response/reconnect observed. Reflection TLS refusals and discovery-to-Send verified. No trust-store modification/TLS bypass. Arbitrary reflection graphs/errors, provider/proxy/legacy/platform remain separate gates.",
+              "Actual Windows native unary/server/client/bidirectional gRPC and reflection v1/v1alpha fallback through persisted Preferences and UI, HTTP2 ALPN, server-observed peer fingerprint and exact protobuf bytes. Explicit Commit EOF, all three Cancel shapes produce actual RST_STREAM CANCEL, saved response/reconnect observed. Reflection TLS refusals and discovery-to-Send verified. CA-signed hostname/expired/future server refusal and successful recovery verified. No trust-store modification or network TLS-validation bypass; offline OpenSSL no_check_time isolates chain validity only. Arbitrary reflection graphs/errors, provider/proxy/legacy/platform remain separate gates.",
           },
           null,
           2,

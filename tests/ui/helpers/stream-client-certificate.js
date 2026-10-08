@@ -252,6 +252,13 @@ export async function streamClientCertificate(protocol) {
             "invalid client identity",
             false,
           ],
+          ...fixture.invalidServers.map((server) => [
+            "server-" + server.id,
+            fixture.ca,
+            "127.0.0.1",
+            fixture.client.identity,
+            false,
+          ]),
           [
             "recovered-client",
             fixture.ca,
@@ -263,9 +270,35 @@ export async function streamClientCertificate(protocol) {
           await setTls(String(ca), String(host), String(identity));
           await page.reload();
           await select();
+          const server = fixture.invalidServers.find(
+            (server) => id === "server-" + server.id,
+          );
+          const url =
+            (server ? server.httpUrl : fixture.primary.url).replace(
+              "https:",
+              websocket ? "wss:" : "https:",
+            ) + route;
+          const input = page.getByRole("textbox", {
+            name: "Request URL",
+            exact: true,
+          });
+          await input.fill(url);
+          await input.blur();
+          await poll(
+            async () =>
+              (await invoke("load_workspace")).resources.some(
+                (/** @type {any} */ resource) =>
+                  resource.name === name && resource.url === url,
+              ),
+            "Finite certificate endpoint persisted",
+          );
           const before = await invoke("load_workspace");
           const count = fixture.requests.length;
-          const connections = fixture.connections.primary;
+          const connections = server
+            ? fixture.connections[
+                /** @type {keyof typeof fixture.connections} */ (server.id)
+              ]
+            : fixture.connections.primary;
           const rejected = fixture.rejected.length;
           await page
             .getByRole("button", { name: "Connect", exact: true })
@@ -308,6 +341,30 @@ export async function streamClientCertificate(protocol) {
               ),
             );
           const reached = fixture.requests.slice(count);
+          if (server) {
+            assert.ok(
+              fixture.connections[
+                /** @type {keyof typeof fixture.connections} */ (server.id)
+              ] > connections,
+              "Native attempts invalid server TLS handshake",
+            );
+            assert.equal(reached.length, 0);
+            const alert =
+              server.id === "hostname"
+                ? "BadCertificate"
+                : "CertificateExpired";
+            await poll(
+              async () =>
+                fixture.rejected
+                  .slice(rejected)
+                  .some(
+                    (event) =>
+                      event.role === server.id &&
+                      event.detail === "received fatal alert: " + alert,
+                  ),
+              "Native stream certificate alert " + server.id,
+            );
+          }
           const events = response.events.filter(
             (/** @type {any} */ event) =>
               event.kind === (websocket ? "message" : "sse"),
@@ -389,7 +446,17 @@ export async function streamClientCertificate(protocol) {
             connectionState: response.connectionState,
             events,
             requests: reached,
-            connections: fixture.connections.primary - connections,
+            connections:
+              (server
+                ? fixture.connections[
+                    /** @type {keyof typeof fixture.connections} */ (server.id)
+                  ]
+                : fixture.connections.primary) - connections,
+            serverCertificate: server
+              ? fixture.serverCertificates.find(
+                  (certificate) => certificate.id === server.id,
+                )
+              : undefined,
             rejections: fixture.rejected.slice(rejected),
           });
         }
@@ -430,7 +497,7 @@ export async function streamClientCertificate(protocol) {
               limits:
                 "Real Windows native " +
                 label +
-                " through persisted Preferences and Connect. Mandatory client verification, pinned peer identity and exact received event/message. WSS additionally checks live text/binary/ping-pong; SSE checks fragmented UTF8/multiline/id/retry/incomplete-event framing. Both observe client Disconnect, persisted full response and explicit reconnect. No trust-store modification/TLS bypass. Eight owned redirect cases per protocol verify same-origin chains, host/port/scheme refusal, explicit follow disable and bounded loop. Other redirect layouts/protocol/provider/proxy/platform parity remain separate.",
+                " through persisted Preferences and Connect. Mandatory client verification, pinned peer identity and exact received event/message. WSS additionally checks live text/binary/ping-pong; SSE checks fragmented UTF8/multiline/id/retry/incomplete-event framing. Both observe client Disconnect, persisted full response and explicit reconnect. CA-signed hostname/expired/future server refusal and successful recovery verified. No trust-store modification or network TLS-validation bypass; offline OpenSSL no_check_time isolates chain validity only. Eight owned redirect cases per protocol verify same-origin chains, host/port/scheme refusal, explicit follow disable and bounded loop. Other redirect layouts/protocol/provider/proxy/platform parity remain separate.",
             },
             null,
             2,

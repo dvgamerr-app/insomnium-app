@@ -607,13 +607,44 @@ fn main() {
         .unwrap();
     let config = Arc::new(
         ServerConfig::builder()
-            .with_client_cert_verifier(verifier)
+            .with_client_cert_verifier(verifier.clone())
             .with_single_cert(
                 vec![CertificateDer::from(std::fs::read(&args[1]).unwrap())],
                 PrivateKeyDer::Pkcs8(std::fs::read(&args[2]).unwrap().into()),
             )
             .unwrap(),
     );
+    let mut invalid_servers = Vec::new();
+    for role in ["hostname", "expired", "future"] {
+        let cert = std::path::Path::new(&args[4]).join(format!("{role}.der"));
+        let key = std::path::Path::new(&args[4]).join(format!("{role}-key.der"));
+        let invalid_config = ServerConfig::builder()
+            .with_client_cert_verifier(verifier.clone())
+            .with_single_cert(
+                vec![CertificateDer::from(std::fs::read(cert).unwrap())],
+                PrivateKeyDer::Pkcs8(std::fs::read(key).unwrap().into()),
+            )
+            .unwrap();
+        let invalid_config = Arc::new(invalid_config);
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let http_url = format!("https://{}", listener.local_addr().unwrap());
+        #[cfg(grpc_fixture)]
+        let grpc_url = grpc_listener(invalid_config.clone(), false);
+        #[cfg(not(grpc_fixture))]
+        let grpc_url = "";
+        invalid_servers.push(serde_json::json!({"id":role,"httpUrl":http_url,"grpcUrl":grpc_url}));
+        std::thread::spawn(move || {
+            for socket in listener.incoming() {
+                println!("{}", serde_json::json!({"event":"connection","role":role}));
+                if let Err(error) = handle(socket.unwrap(), invalid_config.clone(), role, "") {
+                    println!(
+                        "{}",
+                        serde_json::json!({"event":"rejected","role":role,"detail":error})
+                    );
+                }
+            }
+        });
+    }
     let primary = TcpListener::bind("127.0.0.1:0").unwrap();
     let sink = TcpListener::bind("127.0.0.1:0").unwrap();
     let primary_url = format!("https://{}", primary.local_addr().unwrap());
@@ -645,7 +676,7 @@ fn main() {
     }
     println!(
         "{}",
-        serde_json::json!({"event":"ready","primary":primary_url,"sink":sink_url,"grpc":grpc_url,"grpcAlpha":grpc_alpha_url})
+        serde_json::json!({"event":"ready","primary":primary_url,"sink":sink_url,"grpc":grpc_url,"grpcAlpha":grpc_alpha_url,"invalidServers":invalid_servers})
     );
     let mut stop = String::new();
     let _ = std::io::stdin().read_line(&mut stop);

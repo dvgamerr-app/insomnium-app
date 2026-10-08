@@ -87,6 +87,14 @@ export async function grpcReflectionCertificate(
         false,
         false,
       ],
+      ...fixture.invalidServers.map((server) => [
+        "reflection-server-" + server.id,
+        fixture.ca,
+        "127.0.0.1",
+        fixture.client.identity,
+        false,
+        false,
+      ]),
       [
         "reflection-recovered-client",
         fixture.ca,
@@ -105,10 +113,16 @@ export async function grpcReflectionCertificate(
       ],
     ]) {
       const label = String(id);
-      const url = (alpha ? fixture.grpcAlpha.url : fixture.grpc.url).replace(
-        "https:",
-        "grpcs:",
+      const server = fixture.invalidServers.find(
+        (server) => label === "reflection-server-" + server.id,
       );
+      const url = (
+        server
+          ? server.grpcUrl
+          : alpha
+            ? fixture.grpcAlpha.url
+            : fixture.grpc.url
+      ).replace("https:", "grpcs:");
       await page
         .getByRole("textbox", { name: "gRPC server URL", exact: true })
         .fill(url);
@@ -127,6 +141,7 @@ export async function grpcReflectionCertificate(
       const requestsBefore = fixture.grpcRequests.length;
       const eventsBefore = fixture.grpcEvents.length;
       const tcpBefore = fixture.grpcConnections.count;
+      const rejectionsBefore = fixture.rejected.length;
       await page
         .getByRole("button", { name: "Load methods", exact: true })
         .click();
@@ -306,13 +321,42 @@ export async function grpcReflectionCertificate(
       } else {
         assert.equal(requests.length, 0);
         assert.equal(queries.length, 0);
+        if (server) {
+          assert.ok(
+            fixture.grpcConnections.count > tcpBefore,
+            "Reflection attempts invalid server TLS handshake",
+          );
+          const alert =
+            server.id === "hostname" ? "BadCertificate" : "CertificateExpired";
+          await poll(
+            async () =>
+              fixture.rejected
+                .slice(rejectionsBefore)
+                .some(
+                  (event) =>
+                    event.role === "grpc" &&
+                    event.detail.includes("received fatal alert: " + alert),
+                ),
+            "Native reflection certificate alert " + server.id,
+          );
+        }
         if (label.includes("malformed"))
           assert.equal(
             fixture.grpcConnections.count,
             tcpBefore,
             "Malformed reflection TLS refuses before TCP",
           );
-        cases.push({ id: label, success, requests, events });
+        cases.push({
+          id: label,
+          success,
+          requests,
+          events,
+          serverCertificate: server
+            ? fixture.serverCertificates.find(
+                (certificate) => certificate.id === server.id,
+              )
+            : undefined,
+        });
       }
       assert.equal(fixture.sinkRequests.length, 0);
       await page.screenshot({ path: join(output, label + ".png") });

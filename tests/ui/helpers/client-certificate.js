@@ -44,10 +44,22 @@ export async function clientCertificateFixture(output, options = {}) {
   };
   authority("ca");
   authority("other-ca");
+  const configPath = join(directory, "validity-ca.cnf");
+  const configFile = (/** @type {string} */ name) =>
+    join(directory, name).replaceAll("\\", "/");
+  await Bun.write(join(directory, "validity-index"), "");
+  await Bun.write(join(directory, "validity-serial"), "1000\n");
+  await Bun.write(
+    configPath,
+    `[ca]\ndefault_ca = owned\n[owned]\ndatabase = "${configFile("validity-index")}"\nserial = "${configFile("validity-serial")}"\nnew_certs_dir = "${directory.replaceAll("\\", "/")}"\ncertificate = "${configFile("ca.pem")}"\nprivate_key = "${configFile("ca.key")}"\ndefault_md = sha256\ndefault_days = 1\nunique_subject = no\npolicy = owned_policy\nx509_extensions = leaf\n[owned_policy]\ncommonName = supplied\n`,
+  );
   const clientName = "owned-client-" + crypto.randomUUID();
-  /** @param {string} name @param {string} cn @param {string} issuer @param {string} extensions */
-  const leaf = async (name, cn, issuer, extensions) => {
-    await Bun.write(join(directory, name + ".extensions"), extensions);
+  /** @param {string} name @param {string} cn @param {string} issuer @param {string} extensions @param {{start:string,end:string}} [dates] */
+  const leaf = async (name, cn, issuer, extensions, dates) => {
+    await Bun.write(
+      join(directory, name + ".extensions"),
+      (dates ? "[leaf]\n" : "") + extensions,
+    );
     run([
       "req",
       "-new",
@@ -63,24 +75,46 @@ export async function clientCertificateFixture(output, options = {}) {
       "-subj",
       "/CN=" + cn,
     ]);
-    run([
-      "x509",
-      "-req",
-      "-in",
-      join(directory, name + ".csr"),
-      "-CA",
-      join(directory, issuer + ".pem"),
-      "-CAkey",
-      join(directory, issuer + ".key"),
-      "-set_serial",
-      "0x" + crypto.randomUUID().replaceAll("-", ""),
-      "-out",
-      join(directory, name + ".pem"),
-      "-days",
-      "1",
-      "-extfile",
-      join(directory, name + ".extensions"),
-    ]);
+    run(
+      dates
+        ? [
+            "ca",
+            "-batch",
+            "-notext",
+            "-config",
+            configPath,
+            "-in",
+            join(directory, name + ".csr"),
+            "-out",
+            join(directory, name + ".pem"),
+            "-startdate",
+            dates.start,
+            "-enddate",
+            dates.end,
+            "-extfile",
+            join(directory, name + ".extensions"),
+            "-extensions",
+            "leaf",
+          ]
+        : [
+            "x509",
+            "-req",
+            "-in",
+            join(directory, name + ".csr"),
+            "-CA",
+            join(directory, issuer + ".pem"),
+            "-CAkey",
+            join(directory, issuer + ".key"),
+            "-set_serial",
+            "0x" + crypto.randomUUID().replaceAll("-", ""),
+            "-out",
+            join(directory, name + ".pem"),
+            "-days",
+            "1",
+            "-extfile",
+            join(directory, name + ".extensions"),
+          ],
+    );
     const certificate = await Bun.file(join(directory, name + ".pem")).text();
     const key = await Bun.file(join(directory, name + ".key")).text();
     return {
@@ -95,6 +129,113 @@ export async function clientCertificateFixture(output, options = {}) {
     "localhost",
     "ca",
     "basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=serverAuth\nsubjectAltName=IP:127.0.0.1,DNS:localhost\n",
+  );
+  const serverExtensions =
+    "basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=serverAuth\nsubjectAltName=IP:127.0.0.1,DNS:localhost\n";
+  const now = Date.now();
+  const date = (/** @type {number} */ offset) =>
+    new Date(now + offset * 3600000)
+      .toISOString()
+      .replaceAll(/[-:]/g, "")
+      .replace(/\.\d{3}Z$/, "Z")
+      .replace("T", "");
+  const serverVariants = [
+    {
+      id: "hostname",
+      identity: await leaf(
+        "hostname",
+        "localhost",
+        "ca",
+        serverExtensions.replace(
+          "IP:127.0.0.1,DNS:localhost",
+          "DNS:owned.invalid",
+        ),
+      ),
+      code: 64,
+    },
+    {
+      id: "expired",
+      identity: await leaf("expired", "localhost", "ca", serverExtensions, {
+        start: date(-2),
+        end: date(-1),
+      }),
+      code: 10,
+    },
+    {
+      id: "future",
+      identity: await leaf("future", "localhost", "ca", serverExtensions, {
+        start: date(1),
+        end: date(2),
+      }),
+      code: 9,
+    },
+  ];
+  const serverCertificates = [];
+  for (const variant of serverVariants) {
+    const certificate = new X509Certificate(variant.identity.certificate);
+    assert.equal(
+      certificate.verify(
+        new X509Certificate(await Bun.file(join(directory, "ca.pem")).text())
+          .publicKey,
+      ),
+      true,
+    );
+    const result = Bun.spawnSync(
+      [
+        openssl,
+        "verify",
+        "-no-CApath",
+        "-no-CAfile",
+        "-CAfile",
+        join(directory, "ca.pem"),
+        "-purpose",
+        "sslserver",
+        "-verify_ip",
+        "127.0.0.1",
+        join(directory, variant.id + ".pem"),
+      ],
+      { windowsHide: true },
+    );
+    assert.notEqual(result.exitCode, 0);
+    const verification = result.stderr.toString() + result.stdout.toString();
+    assert.match(
+      verification,
+      new RegExp("error " + variant.code + " at 0 depth"),
+    );
+    const chain = Bun.spawnSync(
+      [
+        openssl,
+        "verify",
+        "-no-CApath",
+        "-no-CAfile",
+        "-CAfile",
+        join(directory, "ca.pem"),
+        "-purpose",
+        "sslserver",
+        "-no_check_time",
+        join(directory, variant.id + ".pem"),
+      ],
+      { windowsHide: true },
+    );
+    assert.equal(chain.exitCode, 0, chain.stderr.toString());
+    if (variant.id === "hostname")
+      assert.equal(certificate.checkIP("127.0.0.1"), undefined);
+    if (variant.id === "expired")
+      assert.ok(Date.parse(certificate.validTo) < now);
+    if (variant.id === "future")
+      assert.ok(Date.parse(certificate.validFrom) > now);
+    serverCertificates.push({
+      id: variant.id,
+      fingerprint: certificate.fingerprint256,
+      validFrom: certificate.validFrom,
+      validTo: certificate.validTo,
+      subjectAltName: certificate.subjectAltName,
+      verification,
+    });
+  }
+  await Bun.write(
+    join(directory, "server-certificate-validation.json"),
+    JSON.stringify(serverCertificates, null, 2),
   );
   const clientExtensions =
     "basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=clientAuth\n";
@@ -120,6 +261,10 @@ export async function clientCertificateFixture(output, options = {}) {
     ["server.der", serverIdentity.certificate],
     ["server-key.der", serverIdentity.key],
     ["ca.der", ca],
+    ...serverVariants.flatMap((variant) => [
+      [variant.id + ".der", variant.identity.certificate],
+      [variant.id + "-key.der", variant.identity.key],
+    ]),
   ]) {
     await Bun.write(
       join(directory, name),
@@ -221,6 +366,7 @@ export async function clientCertificateFixture(output, options = {}) {
       join(directory, "server.der"),
       join(directory, "server-key.der"),
       join(directory, "ca.der"),
+      directory,
     ],
     { stdin: "pipe", stdout: "pipe", stderr: "pipe", windowsHide: true },
   );
@@ -228,7 +374,13 @@ export async function clientCertificateFixture(output, options = {}) {
   const state = {
     ready: /** @type {Record<string,any>|undefined} */ (undefined),
   };
-  const connections = { primary: 0, sink: 0 };
+  const connections = {
+    primary: 0,
+    sink: 0,
+    hostname: 0,
+    expired: 0,
+    future: 0,
+  };
   const rejected = /** @type {Array<Record<string,any>>} */ ([]);
   const grpcRequests = /** @type {Array<Record<string,any>>} */ ([]);
   const grpcConnections = { count: 0 };
@@ -270,7 +422,8 @@ export async function clientCertificateFixture(output, options = {}) {
           else requests.push(event);
         } else if (event.event === "connection") {
           if (event.role === "sink") connections.sink++;
-          else connections.primary++;
+          else if (event.role in connections)
+            connections[/** @type {keyof typeof connections} */ (event.role)]++;
         } else if (event.event === "rejected") rejected.push(event);
         else if (["socket-message", "socket-close"].includes(event.event))
           socketEvents.push(event);
@@ -330,6 +483,11 @@ export async function clientCertificateFixture(output, options = {}) {
     clientName,
     primary,
     sink,
+    invalidServers:
+      /** @type {Array<{id:string,httpUrl:string,grpcUrl:string}>} */ (
+        state.ready.invalidServers
+      ),
+    serverCertificates,
     requests,
     socketEvents,
     sinkRequests,
@@ -342,6 +500,46 @@ export async function clientCertificateFixture(output, options = {}) {
     grpcEvents,
     sseEvents,
     async verifyFixture() {
+      const independentFailures = [];
+      for (const server of /** @type {Array<{id:string,httpUrl:string}>} */ (
+        state.ready?.invalidServers || []
+      )) {
+        let failure;
+        try {
+          await fetch(server.httpUrl + "/fixture-check", {
+            signal: AbortSignal.timeout(5000),
+            tls: {
+              ca,
+              cert: client.certificate,
+              key: client.key,
+              rejectUnauthorized: true,
+            },
+          });
+        } catch (error) {
+          failure = /** @type {Error & {code?:string}} */ (error);
+        }
+        assert.ok(
+          failure,
+          "Independent client must refuse invalid " + server.id,
+        );
+        const evidence = {
+          id: server.id,
+          code: failure.code,
+          message: failure.message,
+        };
+        const expected =
+          server.id === "hostname"
+            ? /hostname|ip address|altname/i
+            : server.id === "expired"
+              ? /expired/i
+              : /not.yet.valid/i;
+        assert.match(evidence.code + " " + evidence.message, expected);
+        independentFailures.push(evidence);
+      }
+      await Bun.write(
+        join(directory, "independent-server-refusals.json"),
+        JSON.stringify(independentFailures, null, 2),
+      );
       for (const endpoint of [primary, sink]) {
         const response = await fetch(endpoint.url + "/fixture-check", {
           method: "POST",

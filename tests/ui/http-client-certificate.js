@@ -120,6 +120,13 @@ await withNativeApp(
           "invalid client identity",
           false,
         ],
+        ...fixture.invalidServers.map((server) => [
+          "server-" + server.id,
+          fixture.ca,
+          "127.0.0.1",
+          fixture.client.identity,
+          false,
+        ]),
         [
           "recovered-client",
           fixture.ca,
@@ -138,8 +145,12 @@ await withNativeApp(
         await setTls(String(ca), String(host), String(identity));
         await page.reload();
         await select();
-        const url =
-          id === "cross-origin-redirect"
+        const server = fixture.invalidServers.find(
+          (server) => id === "server-" + server.id,
+        );
+        const url = server
+          ? server.httpUrl + "/success"
+          : id === "cross-origin-redirect"
             ? fixture.primary.url + "/redirect"
             : fixture.primary.url + "/success";
         const urlInput = page.getByRole("textbox", {
@@ -158,7 +169,11 @@ await withNativeApp(
         );
         const before = await invoke("load_workspace");
         const count = fixture.requests.length;
-        const connectionsBefore = fixture.connections.primary;
+        const connectionsBefore = server
+          ? fixture.connections[
+              /** @type {keyof typeof fixture.connections} */ (server.id)
+            ]
+          : fixture.connections.primary;
         const rejectedBefore = fixture.rejected.length;
         await page.getByRole("button", { name: "Send", exact: true }).click();
         if (success)
@@ -198,6 +213,28 @@ await withNativeApp(
           "Successful Send persists once; connection failures preserve history",
         );
         const reached = fixture.requests.slice(count);
+        if (server) {
+          assert.ok(
+            fixture.connections[
+              /** @type {keyof typeof fixture.connections} */ (server.id)
+            ] > connectionsBefore,
+            "Native connects to invalid server before certificate refusal",
+          );
+          assert.equal(reached.length, 0);
+          const alert =
+            server.id === "hostname" ? "BadCertificate" : "CertificateExpired";
+          await poll(
+            async () =>
+              fixture.rejected
+                .slice(rejectedBefore)
+                .some(
+                  (event) =>
+                    event.role === server.id &&
+                    event.detail === "received fatal alert: " + alert,
+                ),
+            "Native certificate alert observed " + server.id,
+          );
+        }
         if (success || id === "cross-origin-redirect") {
           assert.equal(reached.length, 1);
           assert.equal(reached[0].authorized, true);
@@ -267,7 +304,17 @@ await withNativeApp(
           requests: reached,
           sinkRequests: fixture.sinkRequests.length,
           sinkConnections: fixture.connections.sink,
-          connections: fixture.connections.primary - connectionsBefore,
+          connections:
+            (server
+              ? fixture.connections[
+                  /** @type {keyof typeof fixture.connections} */ (server.id)
+                ]
+              : fixture.connections.primary) - connectionsBefore,
+          serverCertificate: server
+            ? fixture.serverCertificates.find(
+                (certificate) => certificate.id === server.id,
+              )
+            : undefined,
           rejections: fixture.rejected.slice(rejectedBefore),
           historyBefore: before.history.length,
           historyAfter: after.history.length,
@@ -285,7 +332,7 @@ await withNativeApp(
             checks,
             cases,
             limits:
-              "Owned Windows native HTTP mTLS fixture and custom app CA; no OS trust-store changes/TLS bypass. Independent positive checks validate both listeners; cross-origin destination has zero observed TCP connections/HTTP requests. Git/provider/proxy/other-platform TLS remain separate gates.",
+              "Owned Windows native HTTP mTLS fixture and custom app CA; CA-signed hostname/expired/future server refusal and successful recovery verified; no OS trust-store changes or network TLS-validation bypass. Offline OpenSSL no_check_time isolates chain validity only. Independent positive checks validate both listeners; cross-origin destination has zero observed TCP connections/HTTP requests. Git/provider/proxy/other-platform TLS remain separate gates.",
           },
           null,
           2,
