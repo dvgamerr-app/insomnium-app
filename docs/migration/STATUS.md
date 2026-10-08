@@ -1,5 +1,13 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Playwright headless request — verified checkpoint — 2026-10-09
+
+- Current base commit4fe392e. Existing shared browser launch in tests/ui/helpers/preview-app.js fixes headless:true with no headed override; all saved browser scenarios use launchUiBrowser. Native helper hides only its owned Tauri host before connectOverCDP and reports native-hidden. No duplicate code change needed; existing policy implementation includes commitcccf507.
+- Reran saved bun tests/ui/design-system.js: session25445 terminal0, artifacts/playwright/design-system/result.json status passed. During execution, owned Playwright Edge processes40696/31324 carried --headless; qualified cleanup audit found both absent. No process handles remain from this verification. Native behavior was inspected, not rerun against uncommitted body source.
+- Commit verified work by topic after each feature and record evidence/current commit/remaining gates/live handles before /compact. This interface exposes no callable /compact operation; compaction was not invoked. This checkpoint is the handoff before further feature work.
+- Full migration/UX goal remains active with every PLAN/PARITY gate retained. Separate uncommitted JSON body work remains in RequestEditor.svelte, editor-state.js, openapi-content.js, openapi.js, media-type.js and two saved JSON-body fixture/scenario files; it is excluded from this checkpoint. Its compiler/build/native acceptance remains pending. No feature-owned build/native/check process found at this checkpoint.
+
+
 ## JSON media recognition — committed handoff — 2026-10-09
 
 - Current topic commit5006da0 (fix(openapi): recognize valid JSON media type variants) contains the verified shared classifier, generation/serialization metadata, saved scenarios and current evidence documentation. Topic worktree was clean; this entry is the documentation checkpoint.
