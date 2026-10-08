@@ -1,5 +1,10 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## OpenAPI cookie parameters — committed handoff — 2026-10-08
+
+- Current topic commit44d6133: feat(openapi): generate and send cookie parameters. Final production release1791449496842/1791449868620/result0/hash17249403414435695136 accepts saved native cookie55 (1791449875115), nullable50 (1791450065374), cURL Cookie6checks/5sends (1791450200759), URL5checks/23targets/20signatures (1791450216609); compiler0/0/headless design-system/current generator45/raw quote18/Git/format checks pass. All terminal0/native-hidden/exit0/owned jar cleared/listeners closed. Worktree clean after topic commit; no live owned process/tool handles. Exact baseline failures and superseded52 evidence retained below.
+- Full original migration/UX goal remains active. All remaining PLAN/PARITY/OpenAPI unsupported content/allowReserved/compound form/Swagger/body/lint/advanced schemas/refs/names/duplicate cookie/server/version/provider/platform, Git/TLS/recovery/CI/release/distribution and shared-input/UX/CSS ownership/adoption/debt/workflow gates remain required. Revalidate current commit/state before selecting next gate. /compact cannot be invoked through this interface; manual compaction not claimed. Handoff recorded instead; no next feature started.
+
 ## OpenAPI cookie parameters — verified acceptance — 2026-10-08
 
 - Base0167e5f; topic commit follows. Newly generated OpenAPI cookie rows retain editable nullable JSON/serialization metadata, Headers count/help and remove/re-add controls. Supports3.0/3.1/3.2 form scalars, explicit raw text/plain and3.2 cookie-style exploded flat arrays/objects; exact RFC6265 pair delimiters/octets and complete quoted wrappers, no implicit decoding/quoting. Null/disabled/undefined collections omit; manual/generated/API-key Cookies compose with existing explicit-header precedence over collection jar. Unsupported compound form/content/allowReserved/version/style/nested values retain explicit review/refusal, including Git-persisted row flags. Non-cookie saved resources keep existing layout; snapshot cookie rows are transient. No backend/dependency/new CSS changes.
