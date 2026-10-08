@@ -1,3 +1,4 @@
+import { serializeOpenApiCookie } from "./openapi-cookie.js";
 import { dereference } from "@scalar/openapi-parser";
 import { validatePathParameters } from "@scalar/openapi-validator";
 import { validateApiDocument } from "./openapi-validation.js";
@@ -238,7 +239,7 @@ export function generateRequests(
         continue;
       let value;
       try {
-        value = example(parameter, schema);
+        value = example(parameter.content?.["text/plain"] || parameter, schema);
       } catch (error) {
         issues.push(`Parameter ${parameter.name}: ${error}`);
         value = "";
@@ -246,9 +247,9 @@ export function generateRequests(
       const compound = value != null && typeof value === "object";
       const descriptor = describeOpenApiValue(
         value,
-        parameter.schema || {},
+        parameter.schema || parameter.content?.["text/plain"]?.schema || {},
         schema.swagger !== "2.0" &&
-          ["query", "header", "path"].includes(parameter.in),
+          ["query", "header", "path", "cookie"].includes(parameter.in),
       );
       const row = /** @type {Record<string,any>} */ ({
         name: parameter.name,
@@ -329,6 +330,37 @@ export function generateRequests(
           )
           .join("/");
         request.pathParameters.push(row);
+      } else if (parameter.in === "cookie") {
+        const media = parameter.content;
+        const serialization = {
+          style: media ? "text/plain" : parameter.style || "form",
+          explode: parameter.explode ?? true,
+          kind: descriptor.kind,
+          ...(descriptor.nullable ? { nullable: true } : {}),
+        };
+        row._openapiSerialization = serialization;
+        if (
+          (serialization.style === "cookie" &&
+            !String(schema.openapi).startsWith("3.2.")) ||
+          schema.swagger === "2.0" ||
+          parameter.allowReserved ||
+          (media && (Object.keys(media).length !== 1 || !media["text/plain"]))
+        ) {
+          row._openapiSerialization.review = true;
+          issues.push(
+            "Review cookie content/allowReserved serialization for " +
+              parameter.name +
+              ".",
+          );
+        } else {
+          try {
+            serializeOpenApiCookie(row.name, row.value, serialization);
+          } catch (error) {
+            issues.push("Parameter " + parameter.name + ": " + error);
+          }
+        }
+        request.cookieParameters ||= [];
+        request.cookieParameters.push(row);
       } else if (parameter.in === "body") {
         request.body = {
           mimeType: (operation.consumes ||

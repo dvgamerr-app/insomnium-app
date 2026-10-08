@@ -65,7 +65,7 @@ export async function renderRequestSnapshot(session, request, options = {}) {
       String(header.name).toLowerCase() === "user-agent" &&
       header.disabled === true,
   );
-  for (const key of ["headers", "parameters"]) {
+  for (const key of ["headers", "parameters", "cookieParameters"]) {
     if (rendered[key] == null) rendered[key] = [];
     else if (Array.isArray(rendered[key]))
       rendered[key] = rendered[key].filter(

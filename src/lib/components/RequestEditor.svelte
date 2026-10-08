@@ -36,6 +36,12 @@
   /** @type {{ request: Record<string, any>, onchange: (patch: Record<string, any>) => void }} */
   let { request, onchange } = $props();
   let tab = $state("Body");
+  const headerRows = $derived([
+    ...(request.headers || []),
+    ...(Array.isArray(request.cookieParameters)
+      ? request.cookieParameters
+      : []),
+  ]);
   let error = $state("");
   const fileWork = createWorkspaceWorkScope();
   let fileSelection = 0;
@@ -162,8 +168,8 @@
       >{name === "Body" && request._type === "websocket_request"
         ? "Message"
         : name}
-      {#if name === "Headers" && request.headers?.length}<span class="count"
-          >{request.headers.filter((/** @type {any} */ h) => !h.disabled)
+      {#if name === "Headers" && headerRows.length}<span class="count"
+          >{headerRows.filter((/** @type {any} */ h) => !h.disabled)
             .length}</span
         >{/if}
       {#if name === "Query" && request.parameters?.length}<span class="count"
@@ -313,6 +319,21 @@
         rows={request.headers || []}
         onchange={(headers) => onchange({ headers })}
       />
+      {#if Array.isArray(request.cookieParameters)}<div
+          role="group"
+          aria-label="Cookie parameters"
+        >
+          <p class="hint padded">Cookie parameters</p>
+          <KeyValueEditor
+            rows={request.cookieParameters}
+            label="Cookie"
+            onchange={(cookieParameters) => onchange({ cookieParameters })}
+          />
+          <p class="hint padded">
+            These cookies are sent with explicit Cookie headers and take
+            precedence over collection cookies.
+          </p>
+        </div>{/if}
     {:else if tab === "Query"}
       {#if request.pathParameters?.length}
         <p class="hint padded">Path variables</p>

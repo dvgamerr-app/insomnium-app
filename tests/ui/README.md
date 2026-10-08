@@ -1,5 +1,16 @@
 # UI scenarios (Playwright + Bun)
 
+`bun tests/ui/openapi-cookie-serialization.js` covers OpenAPI3.0/3.1 scalar
+form/raw text/plain and OpenAPI3.2 cookie-style flat arrays/objects through owned
+API Design generation and actual native Send. Fifty-five groups check exact TCP
+Cookie fields, JSON editing/disabled/refusal/help/count, resource/reload, collection
+jar fallback/toggle, manual/API-key composition and remove/re-add behavior. Form
+compound and unsupported content/allowReserved require explicit mapping/review;
+raw cookie values must already satisfy RFC6265 octets, including refusal of a lone
+quote. Build the current recovery
+copy probe successfully first; run native entries sequentially.
+
+
 `bun tests/ui/openapi-nullable-serialization.js` checks OpenAPI3.0 nullable and
 OpenAPI3.1 type unions through actual worker generation and native Send. Fifty
 groups compare exact TCP targets/headers, null vs empty/string-null/false/zero,

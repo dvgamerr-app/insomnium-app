@@ -1,3 +1,4 @@
+import { serializeOpenApiCookie } from "./openapi-cookie.js";
 import { buildNetworkLog, failureLog, NetworkError } from "./network-log.js";
 import {
   smartEncodeUrl,
@@ -237,6 +238,29 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
         headers.splice(i, 1);
     headers.push([name, value]);
   };
+  const cookiePairs = (request.cookieParameters || [])
+    .filter((/** @type {any} */ row) => !row.disabled)
+    .map((/** @type {any} */ row) =>
+      serializeOpenApiCookie(
+        resolve(row.name),
+        resolve(row.value),
+        row._openapiSerialization || {
+          style: "form",
+          explode: true,
+          kind: "scalar",
+        },
+      ),
+    )
+    .filter((/** @type {string|null} */ pair) => pair !== null);
+  if (cookiePairs.length) {
+    const existing = headers
+      .filter(([name]) => name.toLowerCase() === "cookie")
+      .map(([, value]) => value);
+    setHeader(
+      "Cookie",
+      [...existing, ...cookiePairs].filter(Boolean).join("; "),
+    );
+  }
   const auth = request.authentication ?? {};
   const manualAuthorization = headers.some(
     ([name]) => name.toLowerCase() === "authorization",
