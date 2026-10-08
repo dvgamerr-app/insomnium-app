@@ -1,13 +1,12 @@
 # UI scenarios (Playwright + Bun)
 
 `bun tests/ui/openapi-content-serialization.js` covers OpenAPI3.0/3.1/3.2 JSON
-parameter content through actual API Design generation and native Send. The203
+parameter content through actual API Design generation and native Send. The 203
 groups compare exact raw targets/header/Cookie fields, nested values, JSON null,
 empty containers/strings, Unicode and escaped controls; unsupported media/illegal
-Cookie octets refuse before dispatch/history. Editing/help/disable/type refusal
+Cookie octets refuse before dispatch/history. Editing, linked help, disable/type refusal,
 unrestricted schema edits, numeric lexemes beyond integer precision and wide
-exponents are verified with resource/reload
-preservation. JSON whitespace is removed outside strings while original escapes
+exponents are verified with resource/reload preservation. JSON whitespace is removed outside strings while original escapes
 and numeric lexemes remain; schema kind guards are not full Schema validation.
 Build the current recovery-copy probe successfully first and run native entries
 sequentially. Additional media types, request-body encoding, external examples,
