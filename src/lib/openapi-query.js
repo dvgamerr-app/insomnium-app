@@ -35,7 +35,7 @@ export function serializeOpenApiQuery(name, text, options) {
     if (kind !== "object" || !explode)
       throw new Error("deepObject requires an exploded flat object.");
     return Object.entries(value)
-      .map(([property, item]) => `${key}[${atom(property)}]=${atom(item)}`)
+      .map(([property, item]) => `${key}%5B${atom(property)}%5D=${atom(item)}`)
       .join("&");
   }
   if (
@@ -53,7 +53,7 @@ export function serializeOpenApiQuery(name, text, options) {
       .map(atom);
     if (style === "form" && !items.length) return "";
     if (explode) return items.map((item) => `${key}=${item}`).join("&");
-    return `${key}=${items.join(style === "spaceDelimited" ? "%20" : style === "pipeDelimited" ? "|" : ",")}`;
+    return `${key}=${items.join(style === "spaceDelimited" ? "%20" : style === "pipeDelimited" ? "%7C" : ",")}`;
   }
   const entries = Object.entries(value)
     .filter(([, item]) => style !== "form" || item !== null)
@@ -61,5 +61,5 @@ export function serializeOpenApiQuery(name, text, options) {
   if (style === "form" && !entries.length) return "";
   if (explode)
     return entries.map(([property, item]) => `${property}=${item}`).join("&");
-  return `${key}=${entries.flat().join(style === "spaceDelimited" ? "%20" : style === "pipeDelimited" ? "|" : ",")}`;
+  return `${key}=${entries.flat().join(style === "spaceDelimited" ? "%20" : style === "pipeDelimited" ? "%7C" : ",")}`;
 }

@@ -1,5 +1,21 @@
 # Saved UI test execution
 
+2026-10-08 query URI delimiters: old native1791466263026 reproduces raw pipe
+instead of encoded structural %7C. openapi-query.js now emits %7C separators and
+%5B/%5D deepObject brackets; ordinary queries/metadata/UI/backend unchanged.
+Existing saved query scenario supports INSOMNIUM_OPENAPI_VERSION3.0.3/3.1.2/3.2.1
+(default3.0.3). Current production release1791466592294/1791467057064/result0/
+hash5977586194741203322 accepts21 groups each at1791467115683/1791467246960/
+1791467383520 (63 total): exact raw TCP targets, literal/pre-encoded data/name,
+editing/disabled/malformed refusal and resources/reload without resend.
+Same-release nullable1791467572020 accepts50; URL1791467870516 accepts5 checks/
+23 targets/20 independent Hawk MAC cases. All terminal0/native-hidden/visiblefalse/
+parent exit0/listeners closed; no live handles. Inline54 generation/54 Git URL+row
+round trips/108 encoding-off and existing-query controls, compiler0/0/format/diff pass.
+See OPENAPI-QUERY-URI-ENCODING.md/STATUS for exact commands and superseded baseline.
+allowReserved/content/body/Schema/refs/Swagger/lint/provider/platform/full original
+migration and UX gates remain required; no universal inverse decoder claim.
+
 2026-10-08 standard validation border precedence: old actual hover rgb98,98,110
 instead of error rgb251,113,133 reproduced and retained in invalid-hover-baseline-failure.json.
 Saved design-system6 dark/light1440/900/760 profiles accepts18 invalid and18 cleared-valid

@@ -9,6 +9,8 @@ import {
 
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-recovery-copy-probe/build-state.json";
+const version = process.env.INSOMNIUM_OPENAPI_VERSION || "3.0.3";
+assert.ok(["3.0.3", "3.1.2", "3.2.1"].includes(version));
 await withNativeApp(
   "openapi-query-serialization",
   async ({ page, invoke, output }) => {
@@ -43,7 +45,7 @@ await withNativeApp(
     try {
       const sourceSpecId = await generateOwnedOpenApi(
         { page, invoke },
-        openApiQueryDocument(base),
+        openApiQueryDocument(base, version),
         openApiQueryCases.length,
         "Owned OpenAPI queries",
       );
@@ -199,14 +201,21 @@ await withNativeApp(
           serializationPreserved: true,
         });
       }
+      assert.equal(
+        cases.length,
+        21,
+        "All generated and edited query groups ran",
+      );
       await Bun.write(
         output + "/acceptance.json",
         JSON.stringify(
           {
             passed: true,
+            version,
+            count: cases.length,
             cases,
             limits:
-              "Actual owned Windows native OpenAPI worker generation and HTTP target; no external services. Other parameter locations/content/allowReserved/Swagger2/platform/lint remain separate gates.",
+              "Actual owned Windows native OpenAPI worker generation and raw TCP HTTP target, including percent-encoded pipe/deepObject delimiters; no external services. allowReserved/content/body/Swagger2/schema/provider/platform/lint remain separate gates.",
           },
           null,
           2,

@@ -1,5 +1,13 @@
 # Insomnium → Tauri migration
 
+2026-10-08 query URI delimiter correction: pipe/deepObject structural delimiters
+now percent encoded, with independent name/data encoding. Current production
+native query21×3 versions, nullable50 and URL5checks/23targets/20Hawk regressions
+pass; compiler0/0/inline54+Git54+compose108/format/diff accepted. Exact baseline,
+release/evidence/remaining gates in STATUS/OPENAPI-QUERY-URI-ENCODING/UI-TESTING.
+Earlier raw pipe/bracket expectations are superseded; allowReserved/content/body/
+schema/ref/provider/platform and full original migration/UX scope remain required.
+
 2026-10-08 standard validation hover borders: shared controls.css owns generic
 and Select-shell hover borders with low-specificity eligibility; semantic error
 borders now survive hover/focus, while valid hover and geometry remain verified.

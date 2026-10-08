@@ -1,5 +1,13 @@
 # Feature parity tracker
 
+2026-10-08 query wire conformance correction: supported pipe/deepObject styles
+encode URI-illegal structural delimiters; names/data and persisted metadata kept.
+Production native21 groups×3 versions, nullable50 and URL5checks/23targets/20Hawk
+regressions accept actual raw wire/resource/reload behavior; compiler/inline/Git/
+composition/format pass. Previous raw style examples are historical, not current
+conformance evidence. See STATUS/OPENAPI-QUERY-URI-ENCODING/UI-TESTING; every
+remaining original OpenAPI/provider/platform/migration/UX gate stays required.
+
 2026-10-08 shared validation hover capability: actual Field error borders on
 standard Input/Select/Textarea survive hover and keyboard focus; clearing errors
 restores normal border states. Headless6 profiles/108 color/geometry/pointer

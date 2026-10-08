@@ -1,5 +1,10 @@
 # Current shared UI source inventory
 
+2026-10-08 query delimiter correction, base `14535e9`: refreshed audit accepts
+source SHA256 `159e4f6db0ca9d95a0039de4491894bb6925cc9084fd9f800fcfa69bafbd4056`.
+The change is in query serialization; shared markup remains661 sites, tokens118
+and CSS declarations1713. Previous snapshot hashes below remain historical.
+
 2026-10-08 hover-border update, base `7b614af`: controls.css owns generic and
 Select-shell hover borders with low-specificity eligibility; variants.css retains
 only the shell hover surface. Re-running the same audit yields 1,713 declarations

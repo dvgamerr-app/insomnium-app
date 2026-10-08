@@ -1,5 +1,14 @@
 # UI scenarios (Playwright + Bun)
 
+`openapi-query-serialization.js` verifies URI-encoded pipe/deepObject delimiters,
+literal/pre-encoded data and names, edits/disable/malformed refusal and reload
+without resend against a raw TCP fixture. Set INSOMNIUM_OPENAPI_VERSION to3.0.3,
+3.1.2 or3.2.1 (default3.0.3);21 groups per run. Require a successful current
+recovery-copy build, set INSOMNIUM_UI_BUILD_STATE to its build-state.json and run
+native entries sequentially. These wire expectations supersede the older raw
+pipe/bracket style-table examples. Exact evidence/limits in migration STATUS and
+OPENAPI-QUERY-URI-ENCODING.md; broader allowReserved/schema/provider parity remains.
+
 `design-system.js` additionally verifies6 dark/light1440/900/760 profiles of
 actual Field errors and cleared-valid Input/Select/Textarea states:18 controls
 per state,108 rest/pointer-hover/keyboard-focus measurements, unchanged values
