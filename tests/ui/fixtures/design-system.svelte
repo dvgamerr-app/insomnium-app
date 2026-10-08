@@ -72,6 +72,17 @@
           allowReserved: true,
         },
       },
+      {
+        name: "form-content",
+        value: '{"nested":{"zip":"99999+1234"}}',
+        disabled: false,
+        _openapiSerialization: {
+          formBody: true,
+          style: "content",
+          kind: "object",
+          mediaType: "application/json",
+        },
+      },
     ]),
   );
   let multipartRows = $state(

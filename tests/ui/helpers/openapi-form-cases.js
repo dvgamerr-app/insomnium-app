@@ -99,21 +99,23 @@ export function openApiFormDocument(version, base) {
     info: { title: "Owned form style bodies", version: "1" },
     servers: [{ url: base }],
     paths: Object.fromEntries(
-      openApiFormCases.map((entry) => {
+      openApiFormCasesFor(version).map((entry) => {
         const name = entry.name || "color";
-        const property = Array.isArray(entry.value)
-          ? { type: "array", items: { type: "string" } }
-          : entry.value && typeof entry.value === "object"
-            ? { type: "object", additionalProperties: {} }
-            : {
-                type:
-                  entry.nullable && !version.startsWith("3.0.")
-                    ? ["string", "null"]
-                    : "string",
-                ...(entry.nullable && version.startsWith("3.0.")
-                  ? { nullable: true }
-                  : {}),
-              };
+        const property =
+          entry.schema ||
+          (Array.isArray(entry.value)
+            ? { type: "array", items: { type: "string" } }
+            : entry.value && typeof entry.value === "object"
+              ? { type: "object", additionalProperties: {} }
+              : {
+                  type:
+                    entry.nullable && !version.startsWith("3.0.")
+                      ? ["string", "null"]
+                      : "string",
+                  ...(entry.nullable && version.startsWith("3.0.")
+                    ? { nullable: true }
+                    : {}),
+                });
         return [
           "/" + entry.id,
           {
@@ -129,15 +131,23 @@ export function openApiFormDocument(version, base) {
                     },
                     example: { [name]: entry.value },
                     encoding: {
-                      [name]: {
-                        style: entry.style,
-                        ...(entry.explode === undefined
-                          ? {}
-                          : { explode: entry.explode }),
-                        ...(entry.allowReserved ? { allowReserved: true } : {}),
-                        // RFC6570 fields supersede this otherwise unsupported media type.
-                        contentType: "application/xml",
-                      },
+                      ...(entry.content
+                        ? entry.contentType
+                          ? { [name]: { contentType: entry.contentType } }
+                          : {}
+                        : {
+                            [name]: {
+                              style: entry.style,
+                              ...(entry.explode === undefined
+                                ? {}
+                                : { explode: entry.explode }),
+                              ...(entry.allowReserved
+                                ? { allowReserved: true }
+                                : {}),
+                              // RFC6570 fields supersede this otherwise unsupported media type.
+                              contentType: "application/xml",
+                            },
+                          }),
                     },
                   },
                 },
@@ -150,3 +160,11 @@ export function openApiFormDocument(version, base) {
     ),
   };
 }
+
+/** @param {string} version */
+export function openApiFormCasesFor(version) {
+  return version.startsWith("3.0.")
+    ? openApiFormCases
+    : [...openApiFormCases, ...openApiFormContentCases];
+}
+import { openApiFormContentCases } from "./openapi-form-content-cases.js";

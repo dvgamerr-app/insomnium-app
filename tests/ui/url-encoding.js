@@ -222,6 +222,34 @@ try {
       32,
       "Four form-body OAuth1 signing regressions",
     );
+    for (const source of resources.filter((r) => r._id.endsWith("_form")))
+      resources.push({
+        ...source,
+        _id: source._id + "_content",
+        name: source.name + " JSON content",
+        body: {
+          ...source.body,
+          params: [
+            {
+              ...source.body.params[0],
+              _openapiSerialization: {
+                formBody: true,
+                style: "content",
+                kind: "array",
+                mediaType: "application/json",
+                formArrayItems: true,
+                itemKind: "scalar-json",
+              },
+            },
+            source.body.params[1],
+          ],
+        },
+      });
+    assert.equal(
+      resources.length,
+      36,
+      "Four JSON form-content signing regressions",
+    );
     await page
       .getByRole("button", { name: "Import collection", exact: true })
       .click();
@@ -321,7 +349,9 @@ try {
       assert.equal(
         wireBodies[count],
         signed.body.mimeType === "application/x-www-form-urlencoded"
-          ? "color=a%20%2B&color=b%26%3D&color=manual+%2B"
+          ? signed.body.params[0]._openapiSerialization.style === "content"
+            ? "color=%22a+%2B%22&color=%22b%26%3D%22&color=manual+%2B"
+            : "color=a%20%2B&color=b%26%3D&color=manual+%2B"
           : "",
       );
       // Only the first ? starts the query; RFC3986 permits ? inside query data.
@@ -598,7 +628,11 @@ try {
                 p._openapiSerialization?.allowReserved === true,
             ),
             formStyleBody:
-              r.body.mimeType === "application/x-www-form-urlencoded",
+              r.body.mimeType === "application/x-www-form-urlencoded" &&
+              r.body.params[0]._openapiSerialization.style !== "content",
+            formContentBody:
+              r.body.mimeType === "application/x-www-form-urlencoded" &&
+              r.body.params[0]._openapiSerialization.style === "content",
           })),
         },
         null,

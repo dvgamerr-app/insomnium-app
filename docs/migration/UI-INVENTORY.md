@@ -1,5 +1,12 @@
 # Current shared UI source inventory
 
+2026-10-09 form content media help: current sourceSHA256
+`8c0c26467da06652318db79b0e42a55d39011ba59c27f9f20baa87b58af63829`.
+Existing KeyValueEditor linked Feedback/grid now explains JSON/text form content.
+Counts remain663shared sites/118tokens/1719declarations; no CSS owner changes.
+Headless6 profiles/42 help rows pass; native acceptance remains tracked in
+STATUS/OPENAPI-FORM-CONTENT.md. Earlier hashes are historical.
+
 2026-10-09 explicit form help: UI source SHA256
 `9de439001ad6449ee61015114c28eae0fabf6e2a9819cf2cd93374f9eda02cfc`.
 KeyValueEditor reuses its existing linked Feedback/help grid for generated form

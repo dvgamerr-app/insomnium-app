@@ -141,9 +141,12 @@
                 ? "Serialization requires review. Disable this row and supply a manually serialized value."
                 : row._openapiSerialization?.nullable
                   ? "Use JSON values, including null."
-                  : row._openapiSerialization?.formBody
-                    ? `${["array", "object", "scalar-json"].includes(row._openapiSerialization.kind) ? "Use JSON values. " : ""}Values use ${row._openapiSerialization.style} form encoding.`
-                    : "Use JSON values."}</Feedback
+                  : row._openapiSerialization?.formBody &&
+                      row._openapiSerialization.style === "content"
+                    ? `${row._openapiSerialization.kind === "scalar" ? "" : "Use JSON values. "}Values use ${row._openapiSerialization.mediaType} form encoding.`
+                    : row._openapiSerialization?.formBody
+                      ? `${["array", "object", "scalar-json"].includes(row._openapiSerialization.kind) ? "Use JSON values. " : ""}Values use ${row._openapiSerialization.style} form encoding.`
+                      : "Use JSON values."}</Feedback
             >{/if}
           {#if row._openapiSerialization?.allowReserved}<Feedback
               id={`${editorId}-value-${index}-reserved-help`}

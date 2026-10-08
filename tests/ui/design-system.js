@@ -112,7 +112,7 @@ await withComponentFixture("design-system", async (page, output) => {
       compactFeedback.push({ theme, width, feedback, placed, normal });
       const rows = await assertKeyValueHelp(
         page.getByRole("region", { name: "Help contract editor", exact: true }),
-        [0, 1, 1, 1, 2, 2],
+        [0, 1, 1, 1, 2, 2, 1],
       );
       const multipart = page.getByRole("region", {
         name: "Multipart contract editor",

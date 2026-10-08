@@ -3,7 +3,7 @@ import { withNativeApp, poll } from "./helpers/native-app.js";
 import { generateOwnedOpenApi } from "./helpers/openapi-generation.js";
 import { assertKeyValueHelp } from "./helpers/key-value-help.js";
 import {
-  openApiFormCases,
+  openApiFormCasesFor,
   openApiFormDocument,
 } from "./helpers/openapi-form-cases.js";
 
@@ -85,10 +85,11 @@ try {
       );
     };
     for (const version of versions) {
+      const generationCases = openApiFormCasesFor(version);
       const specId = await generateOwnedOpenApi(
         { page, invoke },
         openApiFormDocument(version, `http://127.0.0.1:${server.port}`),
-        openApiFormCases.length,
+        generationCases.length,
         "Forms " + version,
       );
       const generated = (await invoke("load_workspace")).resources.filter(
@@ -106,7 +107,7 @@ try {
           .getByRole("tab", { name: "Body", exact: true })
           .click();
       };
-      for (const entry of openApiFormCases) {
+      for (const entry of generationCases) {
         const request = generated.find(
           (/** @type {any} */ row) => row.name === entry.id,
         );
@@ -131,6 +132,10 @@ try {
         }
         if (entry.id === "array-exploded")
           await page.screenshot({ path: output + `/form-${version}-760.png` });
+        if (entry.id === "default-nested-object")
+          await page.screenshot({
+            path: output + `/form-content-${version}-760.png`,
+          });
         await send(request, entry.expected);
         cases.push({
           version,
@@ -202,6 +207,65 @@ try {
       );
       await send(request, "");
       cases.push({ version, id: "disable-invalid", expected: "" });
+      if (!version.startsWith("3.0.")) {
+        const contentRequest = generated.find(
+          (/** @type {any} */ row) => row.name === "json-mixed-array",
+        );
+        assert.ok(contentRequest);
+        for (const control of [
+          {
+            id: "content-lexemes",
+            text: '[9007199254740993,1e+400,"\\u0061",{"nested":[1,2]}]',
+            expected:
+              "color=9007199254740993&color=1e%2B400&color=%22%5Cu0061%22&color=%7B%22nested%22%3A%5B1%2C2%5D%7D",
+            refusal: "",
+          },
+          {
+            id: "content-malformed",
+            text: "not JSON",
+            expected: null,
+            refusal: "requires valid JSON array",
+          },
+          {
+            id: "content-wrong-kind",
+            text: '{"x":1}',
+            expected: null,
+            refusal: "requires a JSON array",
+          },
+        ]) {
+          await select(contentRequest.name);
+          await page
+            .getByRole("textbox", { name: "Value 1", exact: true })
+            .fill(control.text);
+          await poll(
+            async () =>
+              (await invoke("load_workspace")).resources.find(
+                (/** @type {any} */ row) => row._id === contentRequest._id,
+              )?.body?.params[0]?.value === control.text,
+            "Edited content form persisted",
+          );
+          await send(contentRequest, control.expected, control.refusal);
+          cases.push({
+            version,
+            id: control.id,
+            expected: control.expected,
+            refusal: control.refusal,
+          });
+        }
+        await select(contentRequest.name);
+        await page
+          .getByRole("checkbox", { name: "Enable color", exact: true })
+          .uncheck();
+        await poll(
+          async () =>
+            (await invoke("load_workspace")).resources.find(
+              (/** @type {any} */ row) => row._id === contentRequest._id,
+            )?.body?.params[0]?.disabled === true,
+          "Disabled content form persisted",
+        );
+        await send(contentRequest, "");
+        cases.push({ version, id: "disable-invalid-content", expected: "" });
+      }
     }
     await Bun.write(
       output + "/acceptance.json",

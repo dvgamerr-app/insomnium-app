@@ -1,14 +1,30 @@
 # UI scenarios (Playwright + Bun)
 
+`openapi-form-body.js` now includes modern default/content-based JSON and text
+properties, repeated primitive/object/nested-array items and exact edited JSON
+integer/exponent/escape lexemes. Shared content case goldens are in
+`helpers/openapi-form-content-cases.js`;65 generation plus23 controls yield88
+groups across3.0.3/3.1.2/3.2.1. The3.0 case set retains explicit styles; modern
+content cases run only3.1/3.2. Actual linked media help, content editor760 images,
+refusal state/resource/history guards and reload reuse the existing scenario.
+Require the successful current recovery-copy build and sequential native runs.
+Exact pending/accepted evidence and unresolved version/media gates:
+OPENAPI-FORM-CONTENT.md/STATUS.
+The URL scenario also checks four JSON form-content OAuth1 cases in legacy/RFC
+modes; its total is37raw targets/34independent signatures, including4content
+and4explicit-style form cases with generated/manual duplicate names.
+
 `openapi-form-body.js` verifies explicit Encoding Object styles across form,
 spaceDelimited, pipeDelimited and deepObject, with flat compounds, scalar/null/
-empty/reserved/name controls. Reusable `openapi-form-cases.js` supplies15 generation
-cases per version;5 edit/refusal/disable controls give60 native groups across
-3.0.3/3.1.2/3.2.1. The existing shared help helper checks actual editor geometry.
+empty/reserved/name controls. Its original explicit-style subset has15 generation
+cases and5 edit/refusal/disable controls per version (60 base groups across
+3.0.3/3.1.2/3.2.1); the content cases above raise the current total to88.
+The existing shared help helper checks actual editor geometry.
 Use the current recovery-copy build, run native scenarios sequentially and see
 OPENAPI-FORM-BODY.md/STATUS for terminal acceptance and remaining body gates.
 The existing URL/signature scenario adds four generated/manual form-body OAuth1
-MAC controls to its26 cases and reads full Content-Length bodies before replying.
+MAC controls to its26 original cases, plus the four content cases above, and
+reads full Content-Length bodies before replying.
 
 `openapi-binary-body.js` verifies 15 generated raw file media cases across
 OAS 3.0.3/3.1.2/3.2.1, plus three manual Content-Type and three Text-mode

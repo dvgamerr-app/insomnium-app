@@ -8,7 +8,10 @@ import { id, newRequest } from "./model.js";
 import { serializeOpenApiQuery } from "./openapi-query.js";
 import { serializeOpenApiHeader } from "./openapi-header.js";
 import { serializeOpenApiPath } from "./openapi-path.js";
-import { serializeOpenApiForm } from "./openapi-form.js";
+import {
+  describeOpenApiFormContent,
+  serializeOpenApiForm,
+} from "./openapi-form.js";
 
 import { parseSpec, methods } from "./openapi-document.js";
 
@@ -503,6 +506,27 @@ export function generateRequests(
                     value: descriptor.text,
                     _openapiSerialization: serialization,
                   };
+                }
+                if (
+                  mime === "application/x-www-form-urlencoded" &&
+                  /^3\.[12]\./.test(String(schema.openapi))
+                ) {
+                  const row = describeOpenApiFormContent(
+                    value,
+                    property,
+                    encoding,
+                  );
+                  row.name = name;
+                  try {
+                    serializeOpenApiForm(
+                      name,
+                      row.value,
+                      row._openapiSerialization,
+                    );
+                  } catch (error) {
+                    issues.push(`Form field ${name}: ${error}`);
+                  }
+                  return row;
                 }
                 return {
                   name,
