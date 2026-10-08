@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Playwright headless setting reconfirmed — 2026-10-08
+
+- Owner requested headless Playwright. At HEAD31e106f, every saved browser launch already goes through tests/ui/helpers/preview-app.js with headless:true; no headed launch or override found in scripts/tests. Native scenarios attach to real WebView2 via CDP and hide the owned native window; this is native-hidden, not a headless browser launch. No source adjustment was needed.
+- Verification: bun tests/ui/design-system.js exited0; artifacts/playwright/design-system/result.json reports passed. No live tool/process handles from this run.
+- Handoff: collection client-certificate feature remains unverified/in progress in seven source/dependency files and one new helper; excluded from this documentation-only topic commit. Full migration/UX and existing parity gates remain open. This interface cannot invoke /compact; compaction has not been claimed. Resume the certificate feature from the existing worktree after handoff.
+
 ## Native server hostname/validity verified and committed — 2026-10-08
 
 - Previous goal turn is progress: capability996534a/docs705de02 proves native SSE/WSS redirect boundaries. Full original migration/UX objective retained. Worktree was clean and no scoped CLAUDE files found. Current production release1791420051210/1791420404492/result0 reused; production source/dependencies unchanged, no rebuild/trust-store change.
