@@ -39,11 +39,11 @@
       },
       {
         name: "reserved",
-        value: "x/y%2f",
+        value: '["x/y%2f"]',
         disabled: false,
         _openapiSerialization: {
           style: "form",
-          kind: "scalar",
+          kind: "array",
           explode: true,
           allowReserved: true,
         },
@@ -87,6 +87,13 @@
   let locked = $state(false);
   let required = $state(true);
   let submitted = $state(0);
+  const feedbackTags = /** @type {('p'|'pre'|'div'|'small')[]} */ ([
+    "p",
+    "pre",
+    "div",
+    "small",
+  ]);
+  const feedbackTones = /** @type {('hint'|'error')[]} */ (["hint", "error"]);
 </script>
 
 <main style="padding:24px;overflow:auto;height:100vh">
@@ -172,6 +179,33 @@
   <Feedback tone="hint" aria-label="Normal feedback">Shared hint</Feedback>
   <Feedback tone="hint" density="compact" aria-label="Compact feedback"
     >Compact shared hint</Feedback
+  >
+  <section aria-label="Compact feedback contract">
+    {#each feedbackTags as tag}
+      {#each feedbackTones as tone}
+        <Feedback
+          as={tag}
+          {tone}
+          density="compact"
+          aria-label={`${tag} ${tone} compact feedback`}
+          >First line{tone === "error" ? "\nSecond line" : ""}</Feedback
+        >
+      {/each}
+    {/each}
+    <ul>
+      {#each feedbackTones as tone}<Feedback
+          as="li"
+          {tone}
+          density="compact"
+          aria-label={`li ${tone} compact feedback`}>List message</Feedback
+        >{/each}
+    </ul>
+  </section>
+  <Feedback
+    tone="hint"
+    density="compact"
+    class="feedback-placement-contract"
+    aria-label="Feature placed feedback">Feature owns its placement</Feedback
   >
   <Field label="Contract checkbox" layout="inline"
     ><Checkbox bind:checked bind:indeterminate /></Field
@@ -275,3 +309,9 @@
     </section>
   </section>
 </main>
+
+<style>
+  :global(.feedback-placement-contract) {
+    margin: var(--space-8) var(--space-12);
+  }
+</style>

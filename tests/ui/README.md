@@ -1,5 +1,12 @@
 # UI scenarios (Playwright + Bun)
 
+`design-system.js` checks compact Feedback across p/pre/div/li/small and both
+hint/error tones, normal paragraph and feature-placement regressions, reactive
+Field message ownership and exact KeyValueEditor help padding/gaps. Shared
+field-feedback.js and key-value-help.js verify mounted descriptions/geometry;
+native Preferences and query scenarios reuse them. Exact acceptance and limits
+are recorded in migration COMPACT-FEEDBACK.md/STATUS.
+
 `openapi-query-serialization.js` verifies regular and allowReserved query schema
 rows: URI-encoded pipe/deepObject delimiters, literal/pre-encoded data and names,
 malformed-percent/Unicode/control/nullable cases, edits/disable/pre-network

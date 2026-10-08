@@ -146,9 +146,9 @@
               id={`${editorId}-value-${index}-reserved-help`}
               tone="hint"
               density="compact"
-              >{#if ["array", "object"].includes(row._openapiSerialization.kind)}Use
-                JSON values.
-              {/if}Reserved characters and valid %xx escapes are preserved.
+              >{["array", "object"].includes(row._openapiSerialization.kind)
+                ? "Use JSON values. "
+                : ""}Reserved characters and valid %xx escapes are preserved.
               Pre-encode data delimiters such as &amp;, =, + and commas when
               they are literal. Query-invalid # and brackets are encoded; HTTP
               URLs also encode apostrophes.</Feedback

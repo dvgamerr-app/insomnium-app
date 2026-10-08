@@ -1,3 +1,4 @@
+import { assertFieldFeedback } from "./helpers/field-feedback.js";
 import { assertButtonPadding } from "./helpers/button-padding.js";
 import { assertFormGeometry } from "./helpers/form-geometry.js";
 import { assertFocusSurface } from "./helpers/focus-surface.js";
@@ -37,6 +38,7 @@ await withComponentFixture("design-system", async (page, output) => {
   const buttonPadding = /** @type {Array<Record<string,any>>} */ ([]);
   const formGeometry = /** @type {Array<Record<string,any>>} */ ([]);
   const keyValueHelp = /** @type {Array<Record<string,any>>} */ ([]);
+  const compactFeedback = [];
   const focusSurfaces = /** @type {Array<Record<string,any>>} */ ([]);
   for (const theme of ["dark", "light"]) {
     await page.evaluate(
@@ -45,6 +47,69 @@ await withComponentFixture("design-system", async (page, output) => {
     );
     for (const width of [1440, 900, 760]) {
       await page.setViewportSize({ width, height: 960 });
+      const feedback = await page
+        .getByRole("region", { name: "Compact feedback contract", exact: true })
+        .locator(".ui-feedback")
+        .evaluateAll((elements) =>
+          elements.map((el) => {
+            const style = getComputedStyle(el);
+            return {
+              tag: el.tagName.toLowerCase(),
+              tone: el.classList.contains("hint") ? "hint" : "error",
+              density: el.getAttribute("data-ui-density"),
+              margins: [
+                style.marginTop,
+                style.marginRight,
+                style.marginBottom,
+                style.marginLeft,
+              ],
+              fontSize: style.fontSize,
+              lineHeight: style.lineHeight,
+              whiteSpace: style.whiteSpace,
+              text: el.textContent,
+            };
+          }),
+        );
+      assert.equal(feedback.length, 10);
+      for (const row of feedback) {
+        assert.equal(row.density, "compact");
+        assert.deepEqual(row.margins, ["0px", "0px", "0px", "0px"]);
+        assert.equal(row.fontSize, "12px");
+        assert.equal(row.lineHeight, "18px");
+        if (row.tone === "error") assert.equal(row.whiteSpace, "pre-wrap");
+      }
+      const placed = await page
+        .getByLabel("Feature placed feedback", { exact: true })
+        .evaluate((el) => {
+          const style = getComputedStyle(el);
+          return [
+            style.marginTop,
+            style.marginRight,
+            style.marginBottom,
+            style.marginLeft,
+          ];
+        });
+      assert.deepEqual(
+        placed,
+        ["8px", "12px", "8px", "12px"],
+        "Feature placement can override compact defaults",
+      );
+      const normal = await page
+        .getByLabel("Normal feedback", { exact: true })
+        .evaluate((el) => {
+          const style = getComputedStyle(el);
+          return {
+            top: style.marginTop,
+            bottom: style.marginBottom,
+            lineHeight: style.lineHeight,
+          };
+        });
+      assert.deepEqual(
+        normal,
+        { top: "12px", bottom: "12px", lineHeight: "20.4px" },
+        "Normal feedback retains its paragraph presentation",
+      );
+      compactFeedback.push({ theme, width, feedback, placed, normal });
       const rows = await assertKeyValueHelp(
         page.getByRole("region", { name: "Help contract editor", exact: true }),
         [0, 1, 1, 1, 2],
@@ -272,6 +337,7 @@ await withComponentFixture("design-system", async (page, output) => {
     page.getByRole("combobox", { name: "Contract select", exact: true }),
   ];
   const leave = page.getByRole("button", { name: "Toggle error", exact: true });
+  const fieldFeedback = [];
   for (const theme of ["dark", "light"]) {
     await page.evaluate(
       (theme) => (document.documentElement.dataset.theme = theme),
@@ -284,7 +350,15 @@ await withComponentFixture("design-system", async (page, output) => {
         validationControls,
         leave,
       );
+      const invalidMessages = await assertFieldFeedback(
+        validationControls,
+        [2, 1, 1],
+      );
       await leave.click();
+      const validMessages = await assertFieldFeedback(
+        validationControls,
+        [1, 0, 0],
+      );
       const valid = await assertInvalidHover(
         page,
         validationControls,
@@ -293,6 +367,7 @@ await withComponentFixture("design-system", async (page, output) => {
       );
       await leave.click();
       invalidHover.push({ theme, width, controls, valid });
+      fieldFeedback.push({ theme, width, invalidMessages, validMessages });
     }
   }
   await Bun.write(
@@ -604,6 +679,18 @@ await withComponentFixture("design-system", async (page, output) => {
     ),
   );
   assert.deepEqual(errors, []);
+  await Bun.write(
+    output + "/compact-feedback.json",
+    JSON.stringify(
+      {
+        profiles: compactFeedback,
+        fieldProfiles: fieldFeedback,
+        count: compactFeedback.length,
+      },
+      null,
+      2,
+    ),
+  );
   await Bun.write(
     output + "/key-value-help.json",
     JSON.stringify(

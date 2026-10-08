@@ -28,7 +28,8 @@
   line-height: 1.7;
 }
 
-.ui-feedback[data-ui-density="compact"] {
+.ui-feedback:where([data-ui-density="compact"]) {
+  margin: 0;
   line-height: 1.5;
 }
 

@@ -1,6 +1,7 @@
 <script>
   import { setContext } from "svelte";
   import { FIELD_CONTEXT } from "./field-context.js";
+  import Feedback from "./Feedback.svelte";
   /** @type {{id?:string,label?:string,description?:string,error?:string,required?:boolean,disabled?:boolean,readOnly?:boolean,busy?:boolean,layout?:'stacked'|'inline',align?:'center'|'start',class?:string,for?:string,children:import('svelte').Snippet}} */
   let {
     id,
@@ -47,11 +48,17 @@
 </script>
 
 {#snippet messages()}
-  {#if description}<small id={`${controlId}-description`} class="hint"
-      >{description}</small
+  {#if description}<Feedback
+      as="small"
+      id={`${controlId}-description`}
+      tone="hint"
+      density="compact">{description}</Feedback
     >{/if}
-  {#if error}<small id={`${controlId}-error`} class="inline-error" role="alert"
-      >{error}</small
+  {#if error}<Feedback
+      as="small"
+      id={`${controlId}-error`}
+      density="compact"
+      role="alert">{error}</Feedback
     >{/if}
 {/snippet}
 

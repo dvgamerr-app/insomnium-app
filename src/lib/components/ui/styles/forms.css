@@ -54,7 +54,3 @@
   font-size: var(--font-size-12);
   font-weight: 500;
 }
-
-.ui-field small {
-  line-height: 1.5;
-}

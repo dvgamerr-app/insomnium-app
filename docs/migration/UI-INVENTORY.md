@@ -1,5 +1,18 @@
 # Current shared UI source inventory
 
+2026-10-08 final compact feedback source: SHA256 `a5dfa28c0bcfad8067157dd458a3c87cd0518641ee3e2daa3f774edaf0fa56e3`.
+The explicit compound-hint separator adds no markup/style/token declarations;
+counts remain662/118/1719. Earlier compact snapshot below is historical; final
+native acceptance uses a fresh source build recorded in STATUS.
+
+2026-10-08 compact feedback ownership, base `542c30c`: source SHA256
+`78e101c491bee44b87299d9ddb3658bafab3f92dd739285aff05046f431ee136`.
+Counts remain662 feature shared sites/118 tokens/1719 declarations. Field now
+uses Feedback internally for SMALL description/error messages, so external
+consumer counts do not change. One compact margin declaration replaces one
+redundant Field line-height declaration. Feedback dynamic presentation now
+includes small as well as p/pre/div/li. Runtime acceptance is tracked in STATUS.
+
 2026-10-08 final reserved-help layout, base `3550494`: source SHA256
 `345e4e9a6c39955ba672864a5cb9b3a44ac6e7b2ba776badea737aa9091df599`.
 There are662 shared sites/118 tokens/1719 CSS declarations. Six additional
@@ -78,7 +91,7 @@ fails. Replacing it with an ordinary field is not adoption work. UI primitives
 own the other native input/select/textarea/button/dialog sites, including
 EditableName's display button and DialogShell's native dialog.
 
-The sole `svelte:element` site is Feedback, with the documented p/pre/div/li
+The sole `svelte:element` site is Feedback, with the documented p/pre/div/li/small
 presentation contract. This is a presentation exception, not a missing input
 primitive. Counts do not prove label associations, keyboard behavior, domain
 validation, imported-state compatibility or runtime focus behavior.

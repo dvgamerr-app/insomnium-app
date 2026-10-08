@@ -1,5 +1,6 @@
 import { assertButtonPadding } from "./helpers/button-padding.js";
 import { assertFormGeometry } from "./helpers/form-geometry.js";
+import { assertFieldFeedback } from "./helpers/field-feedback.js";
 import { assertFocusSurface } from "./helpers/focus-surface.js";
 import { assertSelectGeometry } from "./helpers/select-geometry.js";
 import assert from "node:assert/strict";
@@ -22,6 +23,7 @@ await withNativeApp(
     const formGeometry = /** @type {Array<Record<string,any>>} */ ([]);
     const focusSurfaces = /** @type {Array<Record<string,any>>} */ ([]);
     const selectGeometry = /** @type {Array<Record<string,any>>} */ ([]);
+    const fieldFeedback = [];
     await page.emulateMedia({ reducedMotion: "reduce" });
     const fixture = await gitCollection({ page, invoke });
     const recoveryBranch = "theme-visual-recovery";
@@ -143,6 +145,17 @@ await withNativeApp(
       const formBaseline = await invoke("load_workspace");
       for (const width of [1440, 900, 760]) {
         await page.setViewportSize({ width, height: 900 });
+        const messages = await assertFieldFeedback(
+          [
+            preferences.getByRole("spinbutton", {
+              name: "Autocomplete delay (ms)",
+              exact: true,
+            }),
+          ],
+          [1],
+        );
+        assert.equal(messages[0][0].text, "0 disables automatic suggestions.");
+        fieldFeedback.push({ theme, width, messages });
         formGeometry.push(
           await assertFormGeometry(page, ".settings-panel", [
             "input",
@@ -508,6 +521,7 @@ await withNativeApp(
           focusSurfaces,
           authorFieldContext:
             "inherited IDs/required, empty-name refusal and malformed-email native validation before persistence IPC, exact full workspace preserved",
+          fieldFeedback,
         },
         null,
         2,
