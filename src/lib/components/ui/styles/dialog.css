@@ -2,12 +2,12 @@
   color: var(--text);
   background: var(--panel);
   border: 1px solid var(--ui-border);
-  border-radius: 14px;
-  width: 660px;
-  max-width: calc(100vw - 32px);
-  max-height: 88vh;
+  border-radius: var(--dialog-radius);
+  width: var(--dialog-width);
+  max-width: calc(100vw - var(--dialog-viewport-gutter));
+  max-height: var(--dialog-max-height);
   padding: 0;
-  box-shadow: 0 24px 80px #0006;
+  box-shadow: var(--dialog-shadow);
 }
 
 .modal::backdrop {
@@ -33,10 +33,13 @@
 }
 
 .ui-modal-compact {
-  width: 480px;
+  width: var(--dialog-compact-width);
 }
 .ui-modal-recovery {
-  max-width: 620px;
+  max-width: min(
+    var(--dialog-recovery-width),
+    calc(100vw - var(--dialog-viewport-gutter))
+  );
 }
 
 .modal-content {

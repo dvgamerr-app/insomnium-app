@@ -4,6 +4,13 @@ The application imports `src/lib/styles.css` once; it forwards to `styles/index.
 
 `src/lib/styles/tokens/foundation.css` owns shared spacing, typography, sizes and shape. Button corners use `--button-radius: 0px`. Percentage widths and fill-parent heights remain layout rules. Input and dialog radii are separate from button shape.
 
+DialogShell/Modal geometry uses foundation `--dialog-radius`, `--dialog-width`,
+`--dialog-compact-width`, `--dialog-recovery-width`, `--dialog-viewport-gutter`,
+`--dialog-max-height` and `--dialog-shadow`. Defaults retain 14px radius,
+660px normal/480px compact/620px recovery, 32px viewport gutter, 88vh height and
+the existing shadow. Recovery also respects the viewport gutter. Features use
+the public size variant; keep lifecycle and backdrop presentation in shared UI.
+
 Dense captions (save/version status, search shortcut, GraphQL column labels and
 count badges) use `--font-size-9`. The customizable select picker uses
 `--font-size-12` with a 1.5 line height, following the same typography scale as

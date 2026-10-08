@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { withComponentFixture } from "./helpers/component-fixture.js";
+import { assertDialogTokens } from "./helpers/dialog-theme.js";
 
 await withComponentFixture("design-system", async (page, output) => {
   const errors = /** @type {string[]} */ ([]);
@@ -260,10 +261,32 @@ await withComponentFixture("design-system", async (page, output) => {
     name: "Open shared dialog",
     exact: true,
   });
+  /** @type {Array<Awaited<ReturnType<typeof assertDialogTokens>> & {theme:string,width:number}>} */
+  const dialogCases = [];
+  /** @param {import('playwright-core').Locator} dialog */
+  const dialogMatrix = async (dialog) => {
+    for (const theme of ["dark", "light"]) {
+      await page.evaluate((mode) => {
+        document.documentElement.dataset.theme = mode;
+      }, theme);
+      for (const width of [1440, 900, 760, 480]) {
+        await page.setViewportSize({ width, height: 960 });
+        dialogCases.push({
+          theme,
+          width,
+          ...(await assertDialogTokens(dialog)),
+        });
+      }
+    }
+    await page.setViewportSize({ width: 1440, height: 960 });
+  };
   await open.click();
   await page
     .getByRole("dialog", { name: "Shared dialog", exact: true })
     .waitFor();
+  await dialogMatrix(
+    page.getByRole("dialog", { name: "Shared dialog", exact: true }),
+  );
   await page.keyboard.press("Escape");
   assert.equal(await page.getByRole("dialog").count(), 0);
   assert.equal(
@@ -271,8 +294,18 @@ await withComponentFixture("design-system", async (page, output) => {
     true,
   );
   await page
+    .getByRole("button", { name: "Open compact dialog", exact: true })
+    .click();
+  await dialogMatrix(
+    page.getByRole("dialog", { name: "Shared dialog", exact: true }),
+  );
+  await page.keyboard.press("Escape");
+  await page
     .getByRole("button", { name: "Open locked dialog", exact: true })
     .click();
+  await dialogMatrix(
+    page.getByRole("dialog", { name: "Locked dialog", exact: true }),
+  );
   await page.keyboard.press("Escape");
   assert.equal(
     await page
@@ -283,6 +316,10 @@ await withComponentFixture("design-system", async (page, output) => {
   await page
     .getByRole("button", { name: "Finish locked dialog", exact: true })
     .click();
+  await Bun.write(
+    output + "/dialog-token-contract.json",
+    JSON.stringify(dialogCases, null, 2),
+  );
   for (const theme of ["dark", "light"]) {
     await page.evaluate((mode) => {
       document.documentElement.dataset.theme = mode;

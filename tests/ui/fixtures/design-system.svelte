@@ -27,6 +27,7 @@
   let fileCount = $state(0);
   let fileName = $state("");
   let dialog = $state(false);
+  let dialogSize = $state(/** @type {'normal'|'compact'} */ ("normal"));
   let locked = $state(false);
   let required = $state(true);
   let submitted = $state(0);
@@ -111,7 +112,18 @@
   <Button onclick={() => (disabled = !disabled)}>Toggle disabled</Button>
   <Button onclick={() => (readOnly = !readOnly)}>Toggle read only</Button>
   <Button onclick={() => (busy = !busy)}>Toggle loading</Button>
-  <Button onclick={() => (dialog = true)}>Open shared dialog</Button>
+  <Button
+    onclick={() => {
+      dialogSize = "normal";
+      dialog = true;
+    }}>Open shared dialog</Button
+  >
+  <Button
+    onclick={() => {
+      dialogSize = "compact";
+      dialog = true;
+    }}>Open compact dialog</Button
+  >
   <Button onclick={() => (locked = true)}>Open locked dialog</Button>
   <FilePicker
     aria-label="Contract file"
@@ -149,10 +161,14 @@
   >
   {#if dialog}<DialogShell
       title="Shared dialog"
+      size={dialogSize}
       onrequestclose={() => (dialog = false)}
       ><Input aria-label="Dialog value" /></DialogShell
     >{/if}
-  {#if locked}<DialogShell title="Locked dialog" dismissible={false}
+  {#if locked}<DialogShell
+      title="Locked dialog"
+      dismissible={false}
+      size="recovery"
       ><Button onclick={() => (locked = false)}>Finish locked dialog</Button
       ></DialogShell
     >{/if}

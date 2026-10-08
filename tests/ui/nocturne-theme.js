@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { withPreview } from "./helpers/preview-app.js";
+import { assertDialogTokens } from "./helpers/dialog-theme.js";
 import { assertSvgDropdowns, assertControlHover } from "./helpers/select.js";
 import {
   assertCaptionTypography,
@@ -564,6 +565,7 @@ await withPreview("nocturne-theme", async (page, output) => {
     ]) {
       await page.getByRole("button", { name, exact: true }).first().click();
       await page.getByRole("dialog").waitFor();
+      await assertDialogTokens(page.getByRole("dialog"));
       if (name === "Import collection") {
         const input = page.getByRole("textbox", {
           name: "Import collection or cURL commands",

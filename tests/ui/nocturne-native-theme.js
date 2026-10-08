@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { withNativeApp, poll } from "./helpers/native-app.js";
+import { assertDialogTokens } from "./helpers/dialog-theme.js";
 import { withIpcFailure } from "./helpers/ipc-failure.js";
 import { gitCollection } from "./helpers/git-fixture.js";
 import { assertSurfaceHover } from "./helpers/select.js";
@@ -106,6 +107,7 @@ await withNativeApp(
       .getByRole("button", { name: "Close Preferences", exact: true })
       .click();
     const captures = [];
+    const dialogCases = /** @type {Array<Record<string,any>>} */ ([]);
     for (const theme of ["dark", "light"]) {
       if ((await page.locator("html").getAttribute("data-theme")) !== theme)
         await page
@@ -187,6 +189,8 @@ await withNativeApp(
           .getByRole("button", { name: /^(Set up remote|Remote)$/ })
           .click();
         const dialog = page.getByRole("dialog");
+        const remoteGeometry = await assertDialogTokens(dialog);
+        dialogCases.push({ theme, kind: "remote", ...remoteGeometry });
         await dialog
           .getByRole("combobox", { name: /^Remote authentication/ })
           .selectOption("basic");
@@ -213,6 +217,8 @@ await withNativeApp(
       await page.setViewportSize({ width: 900, height: 900 });
       await page.getByRole("button", { name: "Cookies", exact: true }).click();
       const dialog = page.getByRole("dialog");
+      const cookieGeometry = await assertDialogTokens(dialog);
+      dialogCases.push({ theme, kind: "cookie", ...cookieGeometry });
       await dialog
         .getByLabel("Cookie URL", { exact: true })
         .fill("https://theme.example.invalid/");
@@ -310,6 +316,10 @@ await withNativeApp(
       await page
         .getByRole("combobox", { name: /^Switch branch/ })
         .selectOption(recoveryBranch);
+      const branchGeometry = await assertDialogTokens(
+        page.getByRole("dialog", { name: "Branches", exact: true }),
+      );
+      dialogCases.push({ theme, kind: "branch", ...branchGeometry });
       const fault = await withIpcFailure(
         page,
         "git_repository_checkout",
@@ -323,6 +333,8 @@ await withNativeApp(
             exact: true,
           });
           await recovery.waitFor();
+          const recoveryGeometry = await assertDialogTokens(recovery);
+          dialogCases.push({ theme, kind: "recovery", ...recoveryGeometry });
           await page.keyboard.press("Escape");
           assert.equal(
             await recovery.isVisible(),
@@ -383,6 +395,9 @@ await withNativeApp(
           typography:
             "dense shell/GraphQL/Git captions and actual select picker token propagation/restoration in both themes",
           gitHeadUnchanged: true,
+          dialogCases,
+          dialogGeometry:
+            "Default/override/restored radius, variant width, viewport gutter, height cap and shadow on mounted remote/cookie/branch/recovery dialogs in both themes; remote at1440/900.",
           authorFieldContext:
             "inherited IDs/required, empty-name refusal and malformed-email native validation before persistence IPC, exact full workspace preserved",
         },

@@ -191,6 +191,22 @@ src/lib/components/ui/
 
 ## Checklist สำหรับปิด debt
 
+### Shared dialog geometry ownership — 2026-10-08
+
+Current dialog.css still hardcoded radius, normal/compact/recovery widths,
+viewport gutter, height cap and shadow. Saved design-system reproduction failed
+with an unchanged14px radius after a7px override. These seven metrics now live
+in foundation.css and apply through DialogShell/Modal size variants. Defaults
+remain the existing desktop geometry; recovery also honors the viewport gutter.
+The shared headless fixture accepts24 dark/light1440/900/760/480 profiles across
+all three variants, with exact overrides/restoration and Escape/focus/locked
+lifecycle. Actual headless application dialogs pass in both themes. Fresh native
+build/theme acceptance1791437863369 passes10 actual remote/cookie/branch/recovery
+geometry profiles and12 existing workflow captures in both themes, with loaded
+fonts, locked recovery/retry and unchanged Git HEAD. Exact release and process
+handoff is in STATUS; other backdrop/typography/spacing,
+workflow/platform/alias/debt/full migration/UX gates remain open.
+
 ### Dense-caption and picker typography audit — 2026-10-08
 
 Capability555b317 moves all5 hardcoded9px caption declarations (save/version,
