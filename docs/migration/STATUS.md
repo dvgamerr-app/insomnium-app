@@ -1,5 +1,12 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Playwright headless — latest owner-request verification — 2026-10-10 05:15 +07:00
+
+- Current base commit274e319. Rechecked saved JavaScript scenarios under tests/scripts: the sole browser launch remains launchUiBrowser in tests/ui/helpers/preview-app.js with explicit headless:true and no headed/persistent-launch override. Native helper hides its owned host before connectOverCDP; native runs are reported native-hidden. Existing implementation topiccccf507 already covers the requested behavior; no browser source change needed.
+- bun tests/ui/git-merge-contract.js completed with actual exit0; artifacts/playwright/git-merge-contract/result.json is passed and acceptance.json contains all9 passing groups. This is controlled browser contract evidence, not new native acceptance. No live process handle from this run.
+- Preserve the existing uncommitted dynamic-schema work in src/lib/openapi-references.js: incomplete and unverified, excluded from this headless verification commit. Dynamic-scope integration/verification and every remaining migration/UX/CSS gate remain open; previous static-resource acceptance does not cover that working diff.
+- Commit verified work by topic and record handoff before the next feature. This interface has no callable /compact command; no compaction claimed. Current documentation checkpoint SHA is available through git log -1.
+
 ## Static schema resources — committed verified checkpoint — 2026-10-10
 
 - Previous goal turn made progress: literal-reference topic1778f9e/checkpointabbe3ae committed four-version native acceptance and owned cleanup; clean/no live handles. Full migration/UX/CSS goal remains active. This turn reproduces canonical$id lookup failure in openapi-schema-resource-before.json, implements static resource/anchor indexing in typed traversal and saves headless evidence. Dynamic-scope evaluation is still REQUIRED, not replaced by static support.
