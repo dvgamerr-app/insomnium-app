@@ -1,5 +1,13 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Playwright headless — owner request verified — 2026-10-09
+
+- Base b3fbe33; implementation already committed in cccf507. All saved browser scenarios launch through launchUiBrowser with fixed headless:true and no headed override. Tests/scripts source audit finds one browser launch site. Native scenarios hide their owned host before CDP and report native-hidden; no new native run claimed here.
+- bun tests/ui/design-system.js: actual session42410 terminal exit0; artifacts/playwright/design-system/result.json status passed. Shared helper closes the browser and fixture server in finally. No live handle remains from this verification.
+- This documentation checkpoint commits only headless verification. Existing uncommitted OpenAPI external-example work remains pending; the full migration/UX/CSS goal and its remaining gates remain active.
+- Handoff: current checkpoint is git log -1 after commit. This interface cannot invoke /compact; no compaction claimed. Resume pending OpenAPI work from its recorded evidence and refresh its stale in-progress status before further implementation.
+
+
 ## FilePicker concurrent reset — committed verified checkpoint — 2026-10-09
 
 - Implementation topicc149075 fix(ui): preserve newer file selection during async callbacks. Documentation checkpoint carrying this record is current HEAD after commit (git log -1). Selected source/scenario/new-doc formatting and staged diff checks pass; no uncommitted feature work or live handles.
