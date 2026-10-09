@@ -10,6 +10,86 @@ import { withComponentFixture } from "./helpers/component-fixture.js";
 import { assertDialogTokens } from "./helpers/dialog-theme.js";
 
 await withComponentFixture("design-system", async (page, output) => {
+  const concurrentFiles = [];
+  const concurrent = page.getByRole("region", {
+    name: "Concurrent file contract",
+  });
+  const concurrentInput = concurrent.getByLabel("Concurrent file", {
+    exact: true,
+  });
+  for (const theme of ["dark", "light"]) {
+    await page.evaluate(
+      (theme) => (document.documentElement.dataset.theme = theme),
+      theme,
+    );
+    for (const width of [1440, 900, 760]) {
+      await page.setViewportSize({ width, height: 960 });
+      for (const reset of [true, false]) {
+        for (const name of ["first.txt", "second.txt"]) {
+          await concurrentInput.setInputFiles({
+            name,
+            mimeType: "text/plain",
+            buffer: Buffer.from(name),
+          });
+        }
+        assert.equal(
+          await concurrent.getByLabel("Concurrent started").innerText(),
+          "2",
+        );
+        await concurrent
+          .getByRole("button", { name: "Finish first file", exact: true })
+          .click();
+        await page.waitForFunction(
+          () =>
+            document.querySelector('[aria-label="Concurrent finished"]')
+              ?.textContent === "1:first.txt;",
+        );
+        const afterFirst = await concurrentInput.evaluate(
+          (el) => /** @type {HTMLInputElement} */ (el).files?.[0]?.name,
+        );
+        await Bun.write(
+          output + "/concurrent-file-progress.json",
+          JSON.stringify({ theme, width, reset, afterFirst }),
+        );
+        assert.equal(
+          afterFirst,
+          "second.txt",
+          "Older callback completion must preserve newer pending selection",
+        );
+        await concurrent
+          .getByRole("button", { name: "Finish second file", exact: true })
+          .click();
+        await page.waitForFunction(
+          () =>
+            document.querySelector('[aria-label="Concurrent finished"]')
+              ?.textContent === "1:first.txt;2:second.txt;",
+        );
+        const afterSecond = await concurrentInput.evaluate(
+          (el) => /** @type {HTMLInputElement} */ (el).files?.[0]?.name || "",
+        );
+        assert.equal(
+          afterSecond,
+          reset ? "" : "second.txt",
+          "Latest selection follows resetAfterChange",
+        );
+        concurrentFiles.push({ theme, width, reset, afterFirst, afterSecond });
+        await concurrentInput.evaluate((el) => {
+          const input = /** @type {HTMLInputElement} */ (el);
+          input.value = "";
+        });
+        await concurrent
+          .getByRole("button", {
+            name: "Reset concurrent contract",
+            exact: true,
+          })
+          .click();
+      }
+    }
+  }
+  await Bun.write(
+    output + "/concurrent-file-acceptance.json",
+    JSON.stringify({ passed: true, profiles: concurrentFiles }),
+  );
   const filledForeground = [];
   for (const theme of ["dark", "light"]) {
     await page.evaluate(

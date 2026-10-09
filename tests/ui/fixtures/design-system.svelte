@@ -177,6 +177,10 @@
   );
   let fileCount = $state(0);
   let fileName = $state("");
+  let concurrentCount = $state(0);
+  let concurrentFinished = $state("");
+  let concurrentReset = $state(true);
+  const concurrentPending = new Map();
   let dialog = $state(false);
   let dialogSize = $state(/** @type {'normal'|'compact'} */ ("normal"));
   let locked = $state(false);
@@ -192,6 +196,36 @@
 </script>
 
 <main style="padding:24px;overflow:auto;height:100vh">
+  <section aria-label="Concurrent file contract">
+    <FilePicker
+      aria-label="Concurrent file"
+      resetAfterChange={concurrentReset}
+      onchange={async (event) => {
+        const name = event.currentTarget.files?.[0]?.name || "empty";
+        const sequence = ++concurrentCount;
+        await new Promise((resolve) =>
+          concurrentPending.set(sequence, resolve),
+        );
+        concurrentPending.delete(sequence);
+        concurrentFinished += `${sequence}:${name};`;
+      }}>Choose concurrent file</FilePicker
+    >
+    <output aria-label="Concurrent started">{concurrentCount}</output>
+    <output aria-label="Concurrent finished">{concurrentFinished}</output>
+    <Button onclick={() => concurrentPending.get(1)?.()}
+      >Finish first file</Button
+    >
+    <Button onclick={() => concurrentPending.get(2)?.()}
+      >Finish second file</Button
+    >
+    <Button
+      onclick={() => {
+        concurrentCount = 0;
+        concurrentFinished = "";
+        concurrentReset = !concurrentReset;
+      }}>Reset concurrent contract</Button
+    >
+  </section>
   <section class="button-padding-contract" aria-label="Button padding contract">
     <Button variant="primary" data-padding-standard>Primary padding</Button>
     <Button variant="secondary" data-padding-standard>Secondary padding</Button>

@@ -1,5 +1,15 @@
 # UI/UX: รวม components และ design system ให้ใช้ร่วมกัน
 
+2026-10-09 FilePicker concurrent reset: older async callback completion no longer
+erases a newer pending file. Saved controlled headless12 (six theme/width profiles
+with both reset policies), retained full design-system and fresh native16/20MiB
+selection/persistence/reload/wire checks pass. Compiler0/0, native-hidden/terminal0,
+source/build/expected-hash audit and owned process/listener cleanup pass. Exact
+retained baseline/native action timeout, corrected waits and scope limitations:
+[FILE-PICKER-CONCURRENCY.md](FILE-PICKER-CONCURRENCY.md). Original migration and
+full UI/CSS/workflow/platform/provider gates remain required.
+
+
 2026-10-09 unused internal tokens: removed declaration-only code/font-size-14/space-30
 (four declarations across theme/foundation). Current sourceSHA256
 e15f0182538b7592d0946bfe335976989466235bee72a25479379dc7ab63d6ce:

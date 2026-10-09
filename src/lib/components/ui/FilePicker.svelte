@@ -13,6 +13,7 @@
   const field = fieldContext();
   const generatedId = $props.id();
   const id = $derived(rest.id ?? field?.id ?? generatedId);
+  let selection = 0;
 </script>
 
 <label for={id} class={`ui-file-picker ui-file-picker-${variant} ${className}`}>
@@ -32,10 +33,13 @@
     onchange={async (event) => {
       // Keep the native element/event available until async feature processing ends.
       const input = event.currentTarget;
+      const currentSelection = ++selection;
       try {
         await onchange?.(event);
       } finally {
-        if (resetAfterChange) input.value = "";
+        // An older async callback must not erase a newer pending selection.
+        if (resetAfterChange && currentSelection === selection)
+          input.value = "";
       }
     }}
   />

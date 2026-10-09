@@ -21,6 +21,9 @@ const server = Bun.serve({
 });
 try {
   await withNativeApp("upload-size", async ({ page, invoke, output }) => {
+    // Hidden WebView2 actions can acknowledge after the shared15s default.
+    page.setDefaultTimeout(60000);
+    page.setDefaultNavigationTimeout(60000);
     const url = "http://127.0.0.1:" + server.port + "/upload";
     const before = await invoke("load_workspace");
     await page

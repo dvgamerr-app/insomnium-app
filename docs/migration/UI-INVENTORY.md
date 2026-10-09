@@ -1,5 +1,12 @@
 # Current shared UI source inventory
 
+2026-10-09 FilePicker concurrency fix: current sourceSHA256
+63fe2aa95337d367e20931144143646ae9d7228e4d8536158794cd308f8b8000.
+Counts remain664shared/117tokens/1718declarations; no styling ownership change.
+Exact acceptance and limits: [FILE-PICKER-CONCURRENCY.md](FILE-PICKER-CONCURRENCY.md).
+Older source inventories below are historical.
+
+
 2026-10-09 unused internal tokens: removed declaration-only code/font-size-14/space-30
 (four declarations across theme/foundation). Current sourceSHA256
 e15f0182538b7592d0946bfe335976989466235bee72a25479379dc7ab63d6ce:
