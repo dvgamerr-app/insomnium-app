@@ -1,5 +1,22 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Playwright headless policy — reverified owner request — 2026-10-09
+
+- Current implementation/checkpoint base b89c530. Browser scenarios already share launchUiBrowser in tests/ui/helpers/preview-app.js with fixed headless:true and no options/headed override. Source search across tests/scripts finds one browser launch site and one native CDP attachment site. Native helper hides only its owned Tauri window and verifies visible:false before CDP; report native-hidden, not browser headless. Implementation includes cccf507; prior policy checkpoint00e1a0f.
+- Latest saved design-system result status:passed; filled foreground evidence profiles:6/rows:66. Original handle69043 is no longer available; this turn confirms artifact status only and does not invent a terminal exit.
+- Pending unrelated filled-foreground work stays uncommitted. Actual frontend71292 terminal1: brand-mark is hidden in narrow viewport; inspect failure artifact before scenario repair. Native build21437 remains live (started1791558859119/native wrapper59400), repoll same handle; native acceptance has not started. Six app CSS sources remain frozen. Full original goal and all remaining migration/UX/CSS gates remain required.
+- Topic commits and checkpoint/handoff after each feature remain mandatory. This interface has no callable /compact; no compaction claimed. This headless verification checkpoint commits documentation only; in-progress CSS/test source is excluded.
+
+
+## Filled surface foreground tokens — verification in progress — 2026-10-09
+
+- Base b89c530; previous goal turn progressed by independently auditing/committing Field topic e03a109 and checkpoint b89c530. Full original migration/UX/CSS objective remains active. No Claude files discovered. Prior handoff provided; /compact unavailable.
+- Inspected current debt checklist/source: hardcoded white foregrounds remain across Primary/Send, Danger hover, branding and success/failure badges. Six CSS files now use centralized on-accent/on-danger/on-success defaults white; Danger focus retains explicit focus-danger-text override with on-danger fallback, including scoped token overrides. No default color/layout change claimed beyond measured acceptance. Official source consulted: https://www.w3.org/TR/css-variables-1/ .
+- Saved design-system baseline first helper attempt failed waiting for nonexistent focused element; corrected optional focus capture before product evidence. Valid baseline fails Primary token propagation (white vs rgb1,2,3), original progress/result/PNG retained in filled-foreground-baseline.
+- Corrected saved headless65412 terminal0 passes6 profiles/66 measured cases with global/scoped override, exact restoration and unchanged background/geometry, plus retained whole scenario. Compiler initially found3 missing find-result guards in the new saved helper; guard corrected after terminal acceptance and compiler0/0 passes. Saved frontend/native theme scenarios now measure actual Send/brand/cookie actions and owned HTTP200/500 response badges; these enhancements are not yet executed.
+- Six app CSS hashes frozen in filled-foreground-source-freeze.json. Fresh native build, rerun corrected helper/full headless design-system, actual frontend/native regressions, source audit/images/cleanup and topic commit remain required. All original migration/UX/CSS/provider/platform gates remain required; no feature completion claimed.
+
+
 ## Shared Field descriptions — committed verified checkpoint — 2026-10-09
 
 - 2026-10-09 shared Field descriptions: Input/Textarea/Select/Checkbox/FilePicker compose caller aria-describedby with reactive Field description/error IDs through one helper; stable reading order, deduplication and empty caller help retain validation feedback. Saved headless130 across5 controls/4 states/6 profiles and caller removal/replacement pass; independent120 raw-row audit and7 source hashes match. Native theme1791557144758 passes12workflows/10dialogs/6 Field+12 form profiles, terminal0/native-hidden/visiblefalse, unchanged Git HEAD and owned cleanup; relevant dark/light images inspected. Compiler0/0 and formatting pass. Body/Git dependency committed separately in a752707. Exact scope/commands/failures/limits: FIELD-DESCRIPTIONS.md/STATUS.md. Full migration/UX/CSS and remaining accessibility/platform/adoption/ownership gates stay required.
