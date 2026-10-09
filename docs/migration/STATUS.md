@@ -1,6 +1,8 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
-## OpenAPI external byte assets — current verified feature, topic commit pending — 2026-10-10
+## OpenAPI external byte assets — committed verified checkpoint — 2026-10-10
+
+- Verified implementation topic0c2b79e feat(openapi): load byte-preserving external examples. Documentation checkpoint carrying this record is current HEAD after commit (git log -1). Selected source/scenario/new-doc formatting and staged diff checks pass; implementation worktree clean after topic commit. No live feature process handles. /compact unavailable; this is the explicit feature handoff before starting the next topic.
 
 - Previous goal turn made progress: completed and independently audited3.1.0, confirmed headless policy and recorded handoff. This continuation completes saved3.0.3, final four-version source/build/Git/payload audit and owned cleanup. Full original migration/UX/CSS objective remains ACTIVE; no scope removed and no full migration completion claim.
 - Topic base953c8b4; explicit local/HTTP(S) example bytes, cancellation/document-switch guards, rename/restore/remove/reattach, persisted example assets, binary/JSON bodies and UTF-8 query representation. Typed OpenAPI Object traversal follows actual fields and structural/Example refs while preserving extensions/Link/schema/literal data. Source/reference text remains authored. Official documentation and limits: OPENAPI-EXTERNAL-EXAMPLES.md.
