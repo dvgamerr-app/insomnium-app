@@ -1,5 +1,13 @@
 # Nocturne controls
 
+Filled surfaces use --on-accent (Primary/Send/brand), --on-danger (Danger hover/
+focus fallback and failed response badges), and --on-success (successful response
+badges), defaulting to white. Optional --focus-danger-text overrides Danger focus
+explicitly; otherwise the consuming rule falls back to --on-danger, including
+component-local overrides. The optional property has no root default declaration.
+See [filled foreground contract](../../../../docs/migration/FILLED-FOREGROUND.md).
+
+
 Input/Select/Textarea/Checkbox/FilePicker merge explicit aria-describedby with
 reactive Field description/error IDs. Caller references come first and duplicate
 IDs are removed. Empty caller help retains Field feedback. See

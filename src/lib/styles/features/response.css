@@ -17,7 +17,7 @@
 
 .status-badge {
   background: var(--success-fill);
-  color: white;
+  color: var(--on-success);
   font-size: var(--font-size-12);
   padding: var(--space-5) var(--space-8);
   border-radius: 3px;
@@ -26,6 +26,7 @@
 
 .status-badge.failure {
   background: var(--danger-fill);
+  color: var(--on-danger);
 }
 
 .metric {

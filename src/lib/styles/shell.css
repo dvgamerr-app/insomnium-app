@@ -33,7 +33,7 @@
 .large-brand {
   display: grid;
   place-items: center;
-  color: white;
+  color: var(--on-accent);
   background: var(--accent);
   font-family: var(--font-sans);
   border-radius: 8px;

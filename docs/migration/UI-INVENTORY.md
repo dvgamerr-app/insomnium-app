@@ -1,5 +1,15 @@
 # Current shared UI source inventory
 
+2026-10-09 filled foreground source inventory: sourceSHA256
+60e841406d173995f8247dc7109c78fba7770945eae3d858cf4a375d8c2e8fbe,
+57 production Svelte files/664 shared markup sites/14 feature scoped style files/
+120 tokens/1722 CSS declarations. No multiple-owner token files or duplicate
+local CSS imports. Unresolved --focus-danger-text is intentionally optional with
+an explicit on-danger fallback, retained visibly in the report; three no-var
+reference candidates and dynamic method colors remain. Runtime evidence/limits:
+[FILLED-FOREGROUND.md](FILLED-FOREGROUND.md). Older inventory entries below are historical.
+
+
 2026-10-09 form content media help: current sourceSHA256
 `8c0c26467da06652318db79b0e42a55d39011ba59c27f9f20baa87b58af63829`.
 Existing KeyValueEditor linked Feedback/grid now explains JSON/text form content.

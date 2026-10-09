@@ -1,3 +1,4 @@
+import { assertFilledForeground } from "./helpers/filled-foreground.js";
 import { assertButtonPadding } from "./helpers/button-padding.js";
 import { assertFormGeometry } from "./helpers/form-geometry.js";
 import { assertFieldFeedback } from "./helpers/field-feedback.js";
@@ -22,6 +23,7 @@ await withNativeApp(
     // Hidden native CDP actions can finish after the previous15s observation limit.
     page.setDefaultTimeout(60000);
     page.setDefaultNavigationTimeout(60000);
+    const filledForeground = [];
     const buttonPadding = /** @type {Array<Record<string,any>>} */ ([]);
     const formGeometry = /** @type {Array<Record<string,any>>} */ ([]);
     const focusSurfaces = /** @type {Array<Record<string,any>>} */ ([]);
@@ -192,6 +194,30 @@ await withNativeApp(
             ".request-url-fields :is(input,select), .send-button",
           ),
         );
+        assert.equal(
+          await page.locator(".brand-mark").isVisible(),
+          width > 800,
+          "Responsive branding hides the mark only below the existing breakpoint",
+        );
+        filledForeground.push({
+          theme,
+          width,
+          context: "shell",
+          rows: await assertFilledForeground(
+            page,
+            [
+              {
+                selector: ".send-button",
+                token: "--on-accent",
+                states: ["default", "hover", "focus"],
+              },
+              ...(width > 800
+                ? [{ selector: ".brand-mark", token: "--on-accent" }]
+                : []),
+            ],
+            output,
+          ),
+        });
         await page.locator(".request-url-fields .ui-input").focus();
         await page.screenshot({
           path: output + "/" + theme + "-url-focus-" + width + ".png",
@@ -349,6 +375,37 @@ await withNativeApp(
         .getByRole("button", { name: "Add cookie", exact: true })
         .click();
       await dialog.getByText("Cookies saved.", { exact: true }).waitFor();
+      const foregroundBaseline = await invoke("load_workspace");
+      for (const width of [1440, 900, 760]) {
+        await page.setViewportSize({ width, height: 900 });
+        filledForeground.push({
+          theme,
+          width,
+          context: "cookie",
+          rows: await assertFilledForeground(
+            page,
+            [
+              {
+                selector: "dialog.modal .primary-button",
+                token: "--on-accent",
+                states: ["default", "hover", "focus"],
+              },
+              {
+                selector: "dialog.modal .danger-button:not(:disabled)",
+                token: "--on-danger",
+                states: ["hover", "focus"],
+              },
+            ],
+            output,
+          ),
+        });
+      }
+      assert.deepEqual(
+        await invoke("load_workspace"),
+        foregroundBaseline,
+        "Foreground measurements preserve workspace state",
+      );
+      await page.setViewportSize({ width: 900, height: 900 });
       await dialog
         .getByRole("button", { name: new RegExp("^theme_" + theme) })
         .click();
@@ -525,6 +582,7 @@ await withNativeApp(
           authorFieldContext:
             "inherited IDs/required, empty-name refusal and malformed-email native validation before persistence IPC, exact full workspace preserved",
           fieldFeedback,
+          filledForeground,
         },
         null,
         2,

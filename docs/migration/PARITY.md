@@ -1,5 +1,16 @@
 # Feature parity tracker
 
+2026-10-09 filled foreground tokens: Primary/Send/brand, Danger hover/focus and
+success/failure badges consume centralized on-accent/on-danger/on-success.
+Optional focus-danger-text retains explicit override priority with scoped fallback.
+Headless66/actual frontend26/native52 measured global/scoped/restoration rows pass;
+native1791559328466 is terminal0/native-hidden/visiblefalse, with12 workflows/
+10dialogs, unchanged Git HEAD, independent source/build audit and owned cleanup.
+Compiler0/0. Exact corrected responsive-brand test failure, artifacts and limits:
+[FILLED-FOREGROUND.md](FILLED-FOREGROUND.md). All original migration/UX/CSS and
+remaining adoption/ownership/provider/platform gates stay required.
+
+
 2026-10-09 shared Field descriptions: Input/Textarea/Select/Checkbox/FilePicker compose caller aria-describedby with reactive Field description/error IDs through one helper; stable reading order, deduplication and empty caller help retain validation feedback. Saved headless130 across5 controls/4 states/6 profiles and caller removal/replacement pass; independent120 raw-row audit and7 source hashes match. Native theme1791557144758 passes12workflows/10dialogs/6 Field+12 form profiles, terminal0/native-hidden/visiblefalse, unchanged Git HEAD and owned cleanup; relevant dark/light images inspected. Compiler0/0 and formatting pass. Body/Git dependency committed separately in a752707. Exact scope/commands/failures/limits: FIELD-DESCRIPTIONS.md/STATUS.md. Full migration/UX/CSS and remaining accessibility/platform/adoption/ownership gates stay required.
 
 2026-10-09 RequestEditor Body type/Git fix: clearing optional body properties now deletes keys rather than retaining undefined in live state, so immediate Git snapshots succeed without reload; unrelated fields remain and codec stays strict. Mounted ordinary/serialized/cURL to Text/GraphQL6 and retained168+11+8 pass, independent Git audit preserves rejection of unknown undefined values, compiler0/0. Fresh native theme1791557144758 passes12workflows/10dialogs with Git HEAD unchanged, terminal0/native-hidden/visiblefalse and owned cleanup; seven-source audit passes. Tested release includes pending Field composition topic; exact source/failures/commands/limits: REQUEST-BODY-GIT.md/STATUS.md. Every original migration/UX/CSS gate remains required.

@@ -1,3 +1,4 @@
+import { assertFilledForeground } from "./helpers/filled-foreground.js";
 import { assertFieldFeedback } from "./helpers/field-feedback.js";
 import { assertButtonPadding } from "./helpers/button-padding.js";
 import { assertFormGeometry } from "./helpers/form-geometry.js";
@@ -9,6 +10,45 @@ import { withComponentFixture } from "./helpers/component-fixture.js";
 import { assertDialogTokens } from "./helpers/dialog-theme.js";
 
 await withComponentFixture("design-system", async (page, output) => {
+  const filledForeground = [];
+  for (const theme of ["dark", "light"]) {
+    await page.evaluate(
+      (theme) => (document.documentElement.dataset.theme = theme),
+      theme,
+    );
+    for (const width of [1440, 900, 760]) {
+      await page.setViewportSize({ width, height: 960 });
+      const rows = await assertFilledForeground(
+        page,
+        [
+          {
+            selector: ".button-padding-contract .primary-button",
+            token: "--on-accent",
+            states: ["default", "hover", "focus"],
+          },
+          {
+            selector: ".button-padding-contract .send-button",
+            token: "--on-accent",
+            states: ["default", "hover", "focus"],
+          },
+          {
+            selector: ".button-padding-contract .danger-button",
+            token: "--on-danger",
+            states: ["hover", "focus"],
+          },
+          { selector: ".large-brand", token: "--on-accent" },
+          { selector: ".status-badge:not(.failure)", token: "--on-success" },
+          { selector: ".status-badge.failure", token: "--on-danger" },
+        ],
+        output,
+      );
+      filledForeground.push({ theme, width, rows });
+    }
+  }
+  await Bun.write(
+    output + "/filled-foreground-acceptance.json",
+    JSON.stringify({ passed: true, profiles: filledForeground }),
+  );
   const descriptionEvidence = [];
   const descriptionRegion = page.getByRole("region", {
     name: "Merged field descriptions contract",

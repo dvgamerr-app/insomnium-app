@@ -10,6 +10,9 @@
   --faint: #737373;
   --accent: #6366f1;
   --accent-hover: #4f46e5;
+  --on-accent: #fff;
+  --on-danger: #fff;
+  --on-success: #fff;
   --success-fill: #059669;
   --accent-text: #818cf8;
   --selected: #262626;
@@ -18,7 +21,6 @@
   --focus-primary-surface: var(--accent-hover);
   --focus-secondary-surface: var(--raised);
   --focus-danger-surface: var(--danger-fill);
-  --focus-danger-text: #fff;
   --green: #10b981;
   --code: #34d399;
   --syntax-type: #a78bfa;

@@ -444,6 +444,10 @@
       </Field>
     {/each}
   </section>
+  <section aria-label="Filled foreground contract">
+    <span class="large-brand">I</span><span class="status-badge">200 OK</span
+    ><span class="status-badge failure">500 Error</span>
+  </section>
 </main>
 
 <style>

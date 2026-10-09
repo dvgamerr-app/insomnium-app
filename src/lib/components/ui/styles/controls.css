@@ -54,7 +54,7 @@
 
 .ui-button.primary-button {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .ui-button.primary-button:hover:not(:disabled):not(:focus-visible) {
@@ -68,7 +68,7 @@
 
 .ui-button.danger-button:hover:not(:disabled):not(:focus-visible) {
   background: var(--danger-fill);
-  color: #fff;
+  color: var(--on-danger);
 }
 
 .ui-button.icon-button {

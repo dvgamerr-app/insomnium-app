@@ -31,5 +31,5 @@
 
 .ui-button.danger-button:focus-visible {
   background-color: var(--focus-danger-surface);
-  color: var(--focus-danger-text);
+  color: var(--focus-danger-text, var(--on-danger));
 }

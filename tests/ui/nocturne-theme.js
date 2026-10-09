@@ -1,3 +1,4 @@
+import { assertFilledForeground } from "./helpers/filled-foreground.js";
 import { assertSelectGeometry } from "./helpers/select-geometry.js";
 import assert from "node:assert/strict";
 import { withPreview } from "./helpers/preview-app.js";
@@ -9,6 +10,7 @@ import {
 } from "./helpers/typography.js";
 
 await withPreview("nocturne-theme", async (page, output) => {
+  const filledForeground = [];
   const selectGeometry = /** @type {Array<Record<string,any>>} */ ([]);
   await page
     .getByRole("button", { name: "Toggle theme", exact: true })
@@ -83,6 +85,30 @@ await withPreview("nocturne-theme", async (page, output) => {
     );
     for (const width of [1440, 900, 760]) {
       await page.setViewportSize({ width, height: 960 });
+      assert.equal(
+        await page.locator(".brand-mark").isVisible(),
+        width > 800,
+        "Responsive branding hides the mark only below the existing breakpoint",
+      );
+      filledForeground.push({
+        theme,
+        width,
+        context: "shell",
+        rows: await assertFilledForeground(
+          page,
+          [
+            {
+              selector: ".send-button",
+              token: "--on-accent",
+              states: ["default", "hover", "focus"],
+            },
+            ...(width > 800
+              ? [{ selector: ".brand-mark", token: "--on-accent" }]
+              : []),
+          ],
+          output,
+        ),
+      });
       await assertCaptionTypography(page, [
         ".status-save",
         ".version",
@@ -747,6 +773,15 @@ await withPreview("nocturne-theme", async (page, output) => {
     await page.getByRole("button", { name: "Send", exact: true }).click();
     await page.locator(".status-badge").waitFor();
     assert.match(await page.locator(".status-badge").innerText(), /200/);
+    filledForeground.push({
+      theme,
+      context: "success",
+      rows: await assertFilledForeground(
+        page,
+        [{ selector: ".status-badge:not(.failure)", token: "--on-success" }],
+        output,
+      ),
+    });
     for (const name of ["Preview", "Headers", "Cookies", "Timeline"]) {
       await page
         .getByRole("region", { name: "Response", exact: true })
@@ -758,6 +793,32 @@ await withPreview("nocturne-theme", async (page, output) => {
       });
     }
     await page.unroute("**/__theme-response");
+    await page.route("**/__theme-http-error", (route) =>
+      route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: '{"error":"Owned HTTP error"}',
+      }),
+    );
+    await page
+      .getByRole("textbox", { name: "Request URL", exact: true })
+      .fill(new URL("/__theme-http-error", page.url()).href);
+    await page.getByRole("button", { name: "Send", exact: true }).click();
+    await page.locator(".status-badge.failure").waitFor();
+    assert.match(
+      await page.locator(".status-badge.failure").innerText(),
+      /500/,
+    );
+    filledForeground.push({
+      theme,
+      context: "failure",
+      rows: await assertFilledForeground(
+        page,
+        [{ selector: ".status-badge.failure", token: "--on-danger" }],
+        output,
+      ),
+    });
+    await page.unroute("**/__theme-http-error");
     let release = () => {};
     const gate = new Promise((resolve) => {
       release = () => resolve(null);
@@ -854,6 +915,7 @@ await withPreview("nocturne-theme", async (page, output) => {
         ],
         persistence: true,
         selectGeometry,
+        filledForeground,
         typography:
           "dense shell/GraphQL captions and actual select picker token override/restore in both themes; shell at1440/900/760",
       },
