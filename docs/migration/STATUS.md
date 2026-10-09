@@ -1,6 +1,8 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
-## API Design attachment layout — verified feature, topic commit pending — 2026-10-10
+## API Design attachment layout — committed verified checkpoint — 2026-10-10
+
+- Verified implementation topic37d49f4 fix(ui): keep API Design panes usable with attachments. Documentation checkpoint carrying this record is current HEAD after commit (git log -1). Headless24/native12, retained byte workflow, compiler0/0, source/build/geometry/byte/Git/cleanup audits, selected formatting and staged whitespace checks pass. Worktree clean after implementation commit; no live feature process handles. /compact unavailable: this is the explicit handoff before the next feature. Full original goal remains ACTIVE.
 
 - Previous goal turn made progress: reproduced clipping, fixed bounded setup/cascade/short-height focus, accepted24 headless profiles, compiler/formatting/audit and fresh build12655, launched native23669. This continuation polls SAME23669 to terminal0, accepts12 native profiles plus retained byte workflow, audits source/build/geometry/bytes/Git and owned cleanup, inspects actual images and updates docs. Full original migration/UX/CSS objective stays ACTIVE; no scope removed/full migration completion claim.
 - Topic base0723d8b. App wraps filename/validation/loading/examples/refs in named scroll region capped min(240px,25vh), keeps its bounded height, retains top/footer toolbar heights and fills preview. API-only sizing selectors override scoped SplitPane defaults with min-height240px horizontal/366px stacked; root scrolls in shorter hosts. Shared SplitPane/control behavior unchanged. Detailed commands/official links/evidence/limits: API-DESIGN-LAYOUT.md.
