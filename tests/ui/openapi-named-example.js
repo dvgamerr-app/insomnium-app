@@ -76,6 +76,30 @@ if (modern) {
       responses: { 200: { description: "OK" } },
     },
   };
+  document.paths["/root-level"] = {
+    get: {
+      parameters: [
+        {
+          name: "j",
+          in: "query",
+          examples: {
+            first: { dataValue: false },
+            second: { dataValue: false },
+          },
+          content: {
+            "application/json": {
+              schema: { type: "boolean" },
+              examples: {
+                first: { serializedValue: "true" },
+                second: { serializedValue: "true" },
+              },
+            },
+          },
+        },
+      ],
+      responses: { 200: { description: "OK" } },
+    },
+  };
 }
 try {
   await withNativeApp(
@@ -90,7 +114,7 @@ try {
       const specId = await generateOwnedOpenApi(
         { page, invoke, output },
         document,
-        modern ? 6 : 4,
+        modern ? 7 : 4,
         "Named examples",
         {
           beforeCheck: async ({ design, specId }) => {
@@ -126,10 +150,18 @@ try {
                 .getByLabel(label, { exact: true })
                 .selectOption(JSON.stringify(["parameter", "second"]));
             await operations.selectOption("3");
+            if (modern)
+              await design
+                .getByLabel("Query j example", { exact: true })
+                .selectOption(JSON.stringify(["parameter", "second"]));
             await design
               .getByLabel("Query j example", { exact: true })
               .selectOption(JSON.stringify(["media", "second"]));
             if (modern) {
+              await operations.selectOption("6");
+              await design
+                .getByLabel("Query j example", { exact: true })
+                .selectOption(JSON.stringify(["parameter", "second"]));
               await operations.selectOption("4");
               await design
                 .getByLabel("Body example", { exact: true })
@@ -194,7 +226,7 @@ try {
         (/** @type {any} */ r) => r._id === specId,
       );
       assert.equal(spec.contents, JSON.stringify(document, null, 2));
-      assert.equal(Object.keys(spec.exampleSelections).length, modern ? 8 : 6);
+      assert.equal(Object.keys(spec.exampleSelections).length, modern ? 9 : 6);
       const specFile = encodeGitResource(spec),
         specRoundtrip = decodeGitResource(specFile.path, specFile.content);
       assert.deepEqual(
@@ -237,6 +269,12 @@ try {
                 path: "/whole",
                 method: "GET",
                 target: "/whole?chosen=a%20b&chosen=%2f",
+                text: "",
+              },
+              {
+                path: "/root-level",
+                method: "GET",
+                target: "/root-level?j=false",
                 text: "",
               },
             ]
@@ -325,6 +363,164 @@ try {
           .inputValue(),
         "application/json",
       );
+      const editedDocument = structuredClone(document);
+      delete editedDocument.paths["/body"].post.requestBody.content[
+        "application/json"
+      ].examples.second;
+      const editedContents = JSON.stringify(editedDocument, null, 2);
+      await design
+        .locator(".CodeMirror")
+        .first()
+        .evaluate(
+          (el, value) => /** @type {any} */ (el).CodeMirror.setValue(value),
+          editedContents,
+        );
+      await poll(
+        async () =>
+          (await invoke("load_workspace")).resources.find(
+            (/** @type {any} */ r) => r._id === specId,
+          )?.contents === editedContents,
+        "Author source edit persisted",
+      );
+      assert.equal(
+        await design
+          .getByRole("button", { name: /^Generate\s+requests$/ })
+          .isDisabled(),
+        true,
+      );
+      await design
+        .getByRole("button", { name: "Validate & preview", exact: true })
+        .click();
+      const generate = design.getByRole("button", {
+        name: `Generate ${cases.length} requests`,
+        exact: true,
+      });
+      await generate.waitFor();
+      await design
+        .getByLabel("API operations", { exact: true })
+        .selectOption("2");
+      const bodyChoice = design.getByLabel("Body example", { exact: true });
+      assert.equal(await bodyChoice.getAttribute("aria-invalid"), "true");
+      await design
+        .getByText(
+          "Saved choice is unavailable. Choose another example or reset choices.",
+          { exact: true },
+        )
+        .waitFor();
+      const beforeRefusal = (await invoke("load_workspace")).resources;
+      await generate.click();
+      await design
+        .getByText(
+          "Error: Body example: Saved choice is unavailable. Choose another example or reset choices.",
+          { exact: true },
+        )
+        .waitFor();
+      assert.deepEqual(
+        (await invoke("load_workspace")).resources,
+        beforeRefusal,
+        "Refused worker generation must not write resources",
+      );
+      await bodyChoice.selectOption(JSON.stringify("first"));
+      assert.notEqual(await bodyChoice.getAttribute("aria-invalid"), "true");
+      await generate.click();
+      await poll(
+        async () =>
+          (await invoke("load_workspace")).resources.filter(
+            (/** @type {any} */ r) =>
+              r._type === "request" && r.sourceSpecId === specId,
+          ).length ===
+          cases.length * 2,
+        "Corrected choice generated one additional set",
+        60000,
+      );
+      const regeneratedData = await invoke("load_workspace");
+      const originalIds = new Set(
+        requests.map((/** @type {any} */ r) => r._id),
+      );
+      assert.deepEqual(
+        regeneratedData.resources.filter((/** @type {any} */ r) =>
+          originalIds.has(r._id),
+        ),
+        beforeRefusal.filter((/** @type {any} */ r) => originalIds.has(r._id)),
+      );
+      const regenerated = regeneratedData.resources.filter(
+        (/** @type {any} */ r) =>
+          r._type === "request" &&
+          r.sourceSpecId === specId &&
+          !originalIds.has(r._id),
+      );
+      const regeneratedBody = regenerated.find(
+        (/** @type {any} */ r) => r.sourceOperation.path === "/body",
+      );
+      assert.ok(regeneratedBody);
+      assert.equal(regeneratedBody.body.text, '"first"');
+      const editedSpec = regeneratedData.resources.find(
+        (/** @type {any} */ r) => r._id === specId,
+      );
+      assert.equal(editedSpec.contents, editedContents);
+      const editedFile = encodeGitResource(editedSpec),
+        editedGit = decodeGitResource(editedFile.path, editedFile.content);
+      assert.deepEqual(editedGit, { ...editedSpec, type: "ApiSpec" });
+      await page
+        .getByRole("button", { name: "Collections", exact: true })
+        .click();
+      await page
+        .getByRole("complementary", { name: "Collections" })
+        .getByRole("button", {
+          name: regeneratedBody.method + " " + regeneratedBody.name,
+          exact: true,
+        })
+        .last()
+        .click();
+      await poll(
+        async () =>
+          (await invoke("load_workspace")).activeRequestId ===
+          regeneratedBody._id,
+        "Actual corrected request selected",
+      );
+      const beforeSend = received.length;
+      await page.getByRole("button", { name: "Send", exact: true }).click();
+      await poll(
+        async () => received.length === beforeSend + 1,
+        "Corrected first example received",
+        60000,
+      );
+      const correctedReceived = received.at(-1);
+      assert.ok(correctedReceived);
+      assert.equal(correctedReceived.target, "/body");
+      assert.equal(correctedReceived.method, "POST");
+      assert.equal(
+        correctedReceived.base64,
+        Buffer.from('"first"').toString("base64"),
+      );
+      assert.equal(
+        correctedReceived.sha256,
+        createHash("sha256").update('"first"').digest("hex"),
+      );
+      await poll(
+        async () =>
+          !(await page
+            .getByRole("button", { name: "Cancel", exact: true })
+            .count()),
+        "Corrected send settled",
+        60000,
+      );
+      await page
+        .getByRole("button", { name: "API Design", exact: true })
+        .click();
+      await design
+        .getByLabel("API document", { exact: true })
+        .selectOption(specId);
+      await design
+        .getByRole("button", { name: "Validate & preview", exact: true })
+        .click();
+      await design
+        .getByLabel("API operations", { exact: true })
+        .selectOption("2");
+      assert.equal(
+        await design.getByLabel("Body example", { exact: true }).inputValue(),
+        JSON.stringify("first"),
+      );
       await design
         .getByRole("button", { name: "Reset example choices", exact: true })
         .click();
@@ -345,7 +541,7 @@ try {
         (await invoke("load_workspace")).resources.find(
           (/** @type {any} */ r) => r._id === specId,
         ).contents,
-        spec.contents,
+        editedContents,
       );
       await Bun.write(
         output + "/acceptance.json",
@@ -363,6 +559,17 @@ try {
             specGitRoundtrip: specRoundtrip,
             requests,
             resetPersisted: true,
+            staleRecovery: {
+              refusedWithoutWrites: true,
+              originalIds: [...originalIds],
+              originalResourcesUnchanged: true,
+              correctedReceived,
+              regenerated,
+              editedSpec,
+              editedGit,
+              editedContents,
+              originalContents: spec.contents,
+            },
           },
           null,
           2,

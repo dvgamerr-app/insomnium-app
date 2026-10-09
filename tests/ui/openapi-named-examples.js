@@ -14,7 +14,7 @@ await withComponentFixture("openapi-named-examples", async (page, output) => {
     true,
     evidence.error || "Chosen named example must be used",
   );
-  assert.equal(evidence.checks.length, 84);
+  assert.equal(evidence.checks.length, 108);
   assert.equal(evidence.controls.length, 28);
   const profiles = [];
   const region = page.getByRole("region", { name: "Named example controls" });
@@ -38,6 +38,17 @@ await withComponentFixture("openapi-named-examples", async (page, output) => {
           .getByLabel(label, { exact: true })
           .first()
           .selectOption(JSON.stringify(["parameter", "second"]));
+      await region
+        .getByLabel("Query j example", { exact: true })
+        .selectOption(JSON.stringify(["parameter", "second"]));
+      assert.deepEqual(
+        JSON.parse(
+          await page.getByLabel("Named example selections").innerText(),
+        )[
+          JSON.stringify(["/content", "get", false, "parameter", "query", "j"])
+        ],
+        { level: "parameter", name: "second" },
+      );
       await region
         .getByLabel("Query j example", { exact: true })
         .selectOption(JSON.stringify(["media", "second"]));

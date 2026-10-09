@@ -1,5 +1,18 @@
 # Insomnium → Tauri migration
 
+2026-10-10 named-example levels/source recovery: saved headless108checks/28controls
+and6control profiles pass, including24 modern root/media data/serialized/external
+cases with same-named refs/source preservation. Four current native versions
+pass26Sends/44generated requests/24profiles/4worker refusals without writes,
+then correction/regeneration preserves original resources and sends exact JSON.
+Source edit/Git/reset, current668 app/scenario hashes, exact executable SHA and
+owned cleanup audits pass; all actual handles terminal0/native-hidden. App/CSS
+unchanged from3cdbd18; accepted production release reused with proven hash identity.
+Compiler0/0, formatting/whitespace pass. Exact artifacts, retained first fixture
+Git-metadata failure, commands and limits:
+[NAMED-EXAMPLE-RECOVERY.md](NAMED-EXAMPLE-RECOVERY.md).
+All original migration/OpenAPI/UX/CSS/provider/platform gates remain required.
+
 2026-10-10 OpenAPI named examples: operation-scoped parameter/body choices and
 body MIME selection use shared controls, persist with the document and retain
 request provenance without modifying authored source/shared refs. Headless84

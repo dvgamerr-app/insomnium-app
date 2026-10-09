@@ -118,6 +118,14 @@ export function namedExampleDocument(version, base) {
             {
               name: "j",
               in: "query",
+              ...(version.startsWith("3.2.")
+                ? {
+                    examples: {
+                      first: { dataValue: false },
+                      second: { dataValue: false },
+                    },
+                  }
+                : {}),
               content: {
                 "application/json": {
                   schema: { type: "boolean" },
@@ -530,6 +538,116 @@ export function namedExampleEvidence() {
       JSON.stringify(analysis.schema),
       before,
     );
+  }
+  for (const version of ["3.2.0", "3.2.1"]) {
+    const mediaText = ' { "n":9007199254740993 }\n';
+    const mediaTarget = "?j=%20%7B%20%22n%22%3A9007199254740993%20%7D%0A";
+    for (const kind of ["data", "serialized", "external"]) {
+      const rootExample =
+        kind === "data"
+          ? { dataValue: false }
+          : kind === "serialized"
+            ? { serializedValue: "j=root%2f" }
+            : { externalValue: "root.txt" };
+      const mediaExample =
+        kind === "data"
+          ? { dataValue: true }
+          : kind === "serialized"
+            ? { serializedValue: mediaText }
+            : { externalValue: "media.json" };
+      const parameter = {
+        name: "j",
+        in: "query",
+        examples: { same: { $ref: "#/components/examples/Root" } },
+        content: {
+          "application/json": {
+            schema: { type: kind === "data" ? "boolean" : "object" },
+            examples: { same: { $ref: "#/components/examples/Media" } },
+          },
+        },
+      };
+      const spec = {
+        contents: JSON.stringify({
+          openapi: version,
+          info: { title: "Dual examples", version: "1" },
+          servers: [{ url: "http://127.0.0.1:55555" }],
+          components: { examples: { Root: rootExample, Media: mediaExample } },
+          paths: {
+            "/dual": {
+              get: {
+                parameters: [parameter],
+                responses: { 200: { description: "OK" } },
+              },
+            },
+          },
+        }),
+        exampleFiles: [
+          { name: "root.txt", base64: btoa("j=root%2f") },
+          { name: "media.json", base64: btoa(mediaText) },
+        ],
+      };
+      const analysis = analyzeSpec(spec);
+      if (!analysis.valid) throw Error(JSON.stringify(analysis.diagnostics));
+      const before = [JSON.stringify(spec), JSON.stringify(analysis.schema)];
+      for (const level of ["default", "parameter", "media"]) {
+        const choices =
+          level === "default"
+            ? {}
+            : {
+                [JSON.stringify([
+                  "/dual",
+                  "get",
+                  false,
+                  "parameter",
+                  "query",
+                  "j",
+                ])]: { level, name: "same" },
+              };
+        const resources = generateRequests(
+          analysis,
+          "wrk_owned",
+          "spc_owned",
+          "",
+          choices,
+        );
+        const request = resources.find((r) => r._type === "request");
+        if (!request) throw Error("Missing dual-level request");
+        const prepared = prepareRenderedRequest(
+          {
+            ...initialData(),
+            resources: [
+              {
+                _id: "wrk_owned",
+                _type: "workspace",
+                parentId: null,
+                name: "Owned",
+              },
+              ...resources,
+            ],
+          },
+          request,
+          "run_dual",
+        );
+        const expected =
+          kind === "data"
+            ? level === "parameter"
+              ? "?j=false"
+              : "?j=true"
+            : level === "media"
+              ? mediaTarget
+              : "?j=root%2f";
+        check(
+          version + " dual " + kind + " " + level,
+          new URL(prepared.url).search,
+          expected,
+        );
+      }
+      check(
+        version + " dual " + kind + " source",
+        [JSON.stringify(spec), JSON.stringify(analysis.schema)],
+        before,
+      );
+    }
   }
   return { passed: true, checks, controls };
 }

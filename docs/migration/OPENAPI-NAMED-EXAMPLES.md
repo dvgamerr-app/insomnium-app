@@ -99,9 +99,10 @@ and viewport bounds. The actual failure image and light760 controls were inspect
 
 These fixtures do not prove arbitrary viewport or all OpenAPI precision/media/
 schema/resource handling. Additional/custom selection identity is verified in
-headless generation; native custom-selection/stale-source and simultaneous
-parameter/media example precedence cases still need further acceptance, alongside
-further external locations,
+headless generation; native custom-selection still needs acceptance. The later
+[NAMED-EXAMPLE-RECOVERY.md](NAMED-EXAMPLE-RECOVERY.md) verifies3.2 simultaneous
+parameter/media data/serialized/external choices and four-version native stale
+source/refusal/correction/reset, without changing the application. Further external locations,
 non-UTF8, URI/base/fragment policy and broader original parity/UX/CSS/provider/
 platform/distribution gates remain required until separately evidenced. No full
 migration completion claim.
