@@ -112,7 +112,7 @@ await withComponentFixture("design-system", async (page, output) => {
       compactFeedback.push({ theme, width, feedback, placed, normal });
       const rows = await assertKeyValueHelp(
         page.getByRole("region", { name: "Help contract editor", exact: true }),
-        [0, 1, 1, 1, 2, 2, 1, 1, 1, 1, 1],
+        [0, 1, 1, 1, 2, 2, 1, 1, 1, 1, 1, 1, 1],
       );
       assert.ok(
         rows[8].help[0].text.includes("application/json"),
@@ -130,6 +130,33 @@ await withComponentFixture("design-system", async (page, output) => {
         ),
         "Text media guidance preserves original parameters",
       );
+      assert.equal(
+        rows[11].help[0].text,
+        "Values use Text/Plain text encoding.",
+      );
+      assert.equal(
+        rows[12].help[0].text,
+        'Use JSON values, including null. Scalars use text/plain; charset="UTF-8" text encoding; null omits this parameter.',
+      );
+      await page
+        .getByRole("region", { name: "Help contract editor", exact: true })
+        .screenshot({ path: output + "/help-" + theme + "-" + width + ".png" });
+      for (const index of [11, 12])
+        await page
+          .getByRole("region", { name: "Help contract editor", exact: true })
+          .locator(".kv-row")
+          .nth(index)
+          .screenshot({
+            path:
+              output +
+              "/text-help-" +
+              theme +
+              "-" +
+              width +
+              "-" +
+              index +
+              ".png",
+          });
       const multipart = page.getByRole("region", {
         name: "Multipart contract editor",
         exact: true,

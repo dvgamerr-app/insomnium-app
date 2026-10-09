@@ -7,8 +7,12 @@ import {
  * @param {string} name @param {string} text
  * @param {{style:string,explode:boolean,kind:string,nullable?:boolean,mediaType?:string,review?:boolean,allowReserved?:boolean}} options */
 export function serializeOpenApiQuery(name, text, options) {
-  if (options.style === "content")
-    return `${encodeOpenApiContent(name)}=${encodeOpenApiContent(serializeOpenApiContent(name, text, options, "Query"))}`;
+  if (options.style === "content") {
+    const value = serializeOpenApiContent(name, text, options, "Query");
+    return value === null
+      ? ""
+      : `${encodeOpenApiContent(name)}=${encodeOpenApiContent(value)}`;
+  }
   const atom = (/** @type {unknown} */ value) => {
     if (
       value !== null &&

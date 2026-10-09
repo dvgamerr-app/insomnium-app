@@ -113,6 +113,16 @@ await withNativeApp(
               r.sourceSpecId === lastSpec && r.name === entry.id,
           );
           assert.equal(request.cookieParameters.length, 1);
+          if (entry.content) {
+            assert.equal(
+              request.cookieParameters[0]._openapiSerialization.style,
+              "content",
+            );
+            assert.equal(
+              request.cookieParameters[0]._openapiSerialization.mediaType,
+              "text/plain",
+            );
+          }
           assert.match(
             (await page
               .getByRole("tablist", { name: "Request editor", exact: true })

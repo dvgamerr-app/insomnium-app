@@ -130,6 +130,27 @@
           mediaType: 'TEXT/PLAIN; CHARSET="uTf-8"; note="a,b;c"',
         },
       },
+      {
+        name: "text-parameter",
+        value: "a +",
+        disabled: false,
+        _openapiSerialization: {
+          style: "content",
+          kind: "scalar",
+          mediaType: "Text/Plain",
+        },
+      },
+      {
+        name: "nullable-text-parameter",
+        value: '"a +"',
+        disabled: false,
+        _openapiSerialization: {
+          style: "content",
+          kind: "scalar-json",
+          nullable: true,
+          mediaType: 'text/plain; charset="UTF-8"',
+        },
+      },
     ]),
   );
   let multipartRows = $state(

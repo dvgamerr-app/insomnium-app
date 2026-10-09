@@ -5,16 +5,15 @@ import { serializeOpenApiContent } from "./openapi-content.js";
  * @param {string} name @param {string} text
  * @param {{style:string,explode:boolean,kind:string,nullable?:boolean,review?:boolean,mediaType?:string}} options */
 export function serializeOpenApiCookie(name, text, options) {
-  if (options.style === "content")
-    return serializeOpenApiCookie(
-      name,
-      serializeOpenApiContent(name, text, options, "Cookie"),
-      {
-        style: "text/plain",
-        explode: true,
-        kind: "scalar",
-      },
-    );
+  if (options.style === "content") {
+    const value = serializeOpenApiContent(name, text, options, "Cookie");
+    if (value === null) return null;
+    return serializeOpenApiCookie(name, value, {
+      style: "text/plain",
+      explode: true,
+      kind: "scalar",
+    });
+  }
   if (options.review)
     throw new Error(
       `Review cookie serialization for ${name}. Disable this row and add an explicitly serialized Cookie header.`,

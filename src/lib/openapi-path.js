@@ -7,10 +7,10 @@ import {
  * @param {string} name @param {string} text
  * @param {{style:string,explode:boolean,kind:string,nullable?:boolean,mediaType?:string,review?:boolean}} options */
 export function serializeOpenApiPath(name, text, options) {
-  if (options.style === "content")
-    return encodeOpenApiContent(
-      serializeOpenApiContent(name, text, options, "Path"),
-    );
+  if (options.style === "content") {
+    const value = serializeOpenApiContent(name, text, options, "Path");
+    return value === null ? "" : encodeOpenApiContent(value);
+  }
   const { style, explode, kind } = options;
   if (!["simple", "label", "matrix"].includes(style))
     throw new Error(`Unsupported path style ${style}.`);

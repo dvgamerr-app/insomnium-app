@@ -333,6 +333,53 @@ try {
       48,
       "Four parameterized text form-content signing regressions",
     );
+    for (const source of resources.filter(
+      (r) => r._id.startsWith("req_oauth_") && r._id.endsWith("true"),
+    ))
+      resources.push({
+        ...source,
+        _id: source._id + "_text_query",
+        name: source.name + " UTF-8 text query",
+        parameters: [
+          ...source.parameters,
+          {
+            name: "color",
+            value: '"a + ไทย/🌙"',
+            _openapiSerialization: {
+              style: "content",
+              kind: "scalar-json",
+              nullable: true,
+              mediaType: 'Text/Plain; charset="UTF-8"',
+            },
+          },
+          {
+            name: "count",
+            value: "false",
+            _openapiSerialization: {
+              style: "content",
+              kind: "scalar-json",
+              nullable: true,
+              mediaType: "text/plain",
+            },
+          },
+          {
+            name: "omitted",
+            value: "null",
+            _openapiSerialization: {
+              style: "content",
+              kind: "scalar-json",
+              nullable: true,
+              mediaType: "text/plain",
+            },
+          },
+          { name: "color", value: "manual +" },
+        ],
+      });
+    assert.equal(
+      resources.length,
+      52,
+      "Four text query content signing regressions",
+    );
     await page
       .getByRole("button", { name: "Import collection", exact: true })
       .click();
@@ -343,13 +390,55 @@ try {
     await dialog
       .getByRole("button", { name: "Review import", exact: true })
       .click();
-    await dialog.getByRole("button", { name: "Import", exact: true }).click();
-    await dialog.waitFor({ state: "detached" });
-    const select = () =>
-      page
+    await dialog
+      .getByRole("button", { name: "Import", exact: true })
+      .click({ timeout: 60000 });
+    await dialog.waitFor({ state: "detached", timeout: 60000 });
+    await poll(
+      async () => {
+        const data = await invoke("load_workspace");
+        const owned = data.resources.find(
+          (/** @type {any} */ r) => r._type === "workspace" && r.name === name,
+        );
+        return (
+          owned &&
+          data.activeWorkspaceId === owned._id &&
+          data.resources.filter(
+            (/** @type {any} */ r) =>
+              r._type === "request" && r.parentId === owned._id,
+          ).length === resources.filter((r) => r._type === "request").length
+        );
+      },
+      "Owned signing fixture persisted",
+      60000,
+    );
+    const select = async (requestName = name, method = "GET") => {
+      const button = page
         .getByRole("complementary", { name: "Collections" })
-        .getByRole("button", { name: "GET " + name, exact: true })
-        .click();
+        .getByRole("button", {
+          name: method + " " + requestName,
+          exact: true,
+        });
+      await button.waitFor();
+      const data = await invoke("load_workspace");
+      const owned = data.resources.find(
+        (/** @type {any} */ r) =>
+          r._type === "request" && r.name === requestName,
+      );
+      assert.ok(owned);
+      assert.equal(owned.method, method);
+      // Import/reload can already restore the exact request. Verify both
+      // persisted and rendered selection instead of clicking it again.
+      if (data.activeRequestId !== owned._id) await button.click();
+      await poll(
+        async () =>
+          (await invoke("load_workspace")).activeRequestId === owned._id &&
+          /(?:^|\s)active(?:\s|$)/.test(
+            (await button.getAttribute("class")) || "",
+          ),
+        "Owned URL request selected",
+      );
+    };
     await select();
     await page.getByRole("tab", { name: "Settings", exact: true }).click();
     const checkbox = page.getByRole("checkbox", {
@@ -400,21 +489,9 @@ try {
       assert.deepEqual(saved.segmentParams, resources[1].segmentParams);
     }
     for (const signed of resources.slice(2)) {
-      await page
-        .getByRole("complementary", { name: "Collections" })
-        .getByRole("button", {
-          name: signed.method + " " + signed.name,
-          exact: true,
-        })
-        .click();
+      await select(signed.name, signed.method);
       await page.reload();
-      await page
-        .getByRole("complementary", { name: "Collections" })
-        .getByRole("button", {
-          name: signed.method + " " + signed.name,
-          exact: true,
-        })
-        .click();
+      await select(signed.name, signed.method);
       const count = received.length;
       await page.getByRole("button", { name: "Send", exact: true }).click();
       await poll(
@@ -429,6 +506,14 @@ try {
         "Hawk Send settled",
       );
       const [method, target] = received[count].split(" ");
+      if (signed._id.endsWith("_text_query")) {
+        assert.equal(
+          target,
+          "/100%25/a%20b?empty&x=%2F&q=a%20b%2B&color=manual%20%2B&color=a%20%2B%20%E0%B9%84%E0%B8%97%E0%B8%A2%2F%F0%9F%8C%99&count=false",
+          "Text query values, duplicates and null omission match current ordinary-before-generated wire order",
+        );
+        assert.ok(!target.includes("omitted="));
+      }
       assert.equal(
         wireBodies[count],
         signed.body.mimeType === "application/x-www-form-urlencoded"
@@ -460,17 +545,20 @@ try {
           2,
         ),
       );
-      assert.equal(
-        target,
-        (signed.settingEncodeUrl
-          ? "/100%25/a%20b?empty&x=%2F&q=a%20b%2B"
-          : "/100%/a%20b?empty=&x=%2f&q=a%20b%2B") +
-          (signed.parameters.some(
-            (/** @type {any} */ p) => p._openapiSerialization?.allowReserved,
-          )
-            ? "&color=:/?%5B%5D%23@!$&%27()*+,;=%2f%25GG"
-            : ""),
-      );
+      // Text cases already assert their complete target above; retain this
+      // older plain/reserved-query golden for the original signing cases.
+      if (!signed._id.endsWith("_text_query"))
+        assert.equal(
+          target,
+          (signed.settingEncodeUrl
+            ? "/100%25/a%20b?empty&x=%2F&q=a%20b%2B"
+            : "/100%/a%20b?empty=&x=%2f&q=a%20b%2B") +
+            (signed.parameters.some(
+              (/** @type {any} */ p) => p._openapiSerialization?.allowReserved,
+            )
+              ? "&color=:/?%5B%5D%23@!$&%27()*+,;=%2f%25GG"
+              : ""),
+        );
       const header = wireHeaders[count].find((line) =>
         /^authorization:/i.test(line),
       );
@@ -711,6 +799,10 @@ try {
               r.authentication.service,
             mode: r.authentication.bodyMode,
             encoding: r.settingEncodeUrl,
+            textContentQuery: r._id.endsWith("_text_query"),
+            textContentQueryOrder: r._id.endsWith("_text_query")
+              ? "ordinary-before-generated"
+              : undefined,
             reservedQuery: r.parameters.some(
               (/** @type {any} */ p) =>
                 p._openapiSerialization?.allowReserved === true,

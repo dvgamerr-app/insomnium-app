@@ -1,4 +1,5 @@
-import { mediaTypeName } from "./media-type.js";
+import { mediaTypeName, isUtf8PlainTextMediaType } from "./media-type.js";
+import { readOpenApiValue } from "./openapi-value.js";
 
 /** RFC8259 application/json recognition for content parameters/form fields.
  * @param {unknown} value */
@@ -11,6 +12,26 @@ export function isOpenApiJsonMediaType(value) {
  * @param {{mediaType?:string,kind:string,nullable?:boolean,review?:boolean}} options
  * @param {string} location */
 export function serializeOpenApiContent(name, text, options, location) {
+  if (!options.review && isUtf8PlainTextMediaType(options.mediaType)) {
+    const value = readOpenApiValue(name, text, options, location);
+    if (value === null) return null;
+    if (typeof value === "object")
+      throw new Error(
+        `${location} parameter ${name} requires scalar text content.`,
+      );
+    const result =
+      typeof value === "number" || typeof value === "boolean"
+        ? text
+        : String(value);
+    if (
+      location === "Header" &&
+      /[\u0000-\u0008\u000a-\u001f\u007f]/.test(result)
+    )
+      throw new Error(
+        `Header parameter ${name} contains invalid control characters.`,
+      );
+    return result;
+  }
   if (options.review || !isOpenApiJsonMediaType(options.mediaType))
     throw new Error(
       `Review ${location.toLowerCase()} content serialization for ${name}. Disable this row and supply an explicitly serialized value.`,

@@ -10,6 +10,7 @@
   import Icon from "./Icon.svelte";
   import { createWorkspaceWorkScope } from "../workspace.svelte.js";
   import { readUpload } from "../uploads.js";
+  import { isUtf8PlainTextMediaType } from "../media-type.js";
   /** @type {{ rows: Record<string, any>[], onchange: (rows: Record<string, any>[]) => void, label?: string, files?: boolean }} */
   let { rows = [], onchange, label = "Header", files = false } = $props();
   const editorId = $props.id();
@@ -143,13 +144,23 @@
                   ? row._openapiSerialization?.formBody &&
                     row._openapiSerialization.style === "content"
                     ? `Use JSON values, including null. Values use ${row._openapiSerialization.mediaType} form encoding.`
-                    : "Use JSON values, including null."
+                    : row._openapiSerialization.style === "content" &&
+                        isUtf8PlainTextMediaType(
+                          row._openapiSerialization.mediaType,
+                        )
+                      ? `Use JSON values, including null. Scalars use ${row._openapiSerialization.mediaType} text encoding; null omits this parameter.`
+                      : "Use JSON values, including null."
                   : row._openapiSerialization?.formBody &&
                       row._openapiSerialization.style === "content"
                     ? `${row._openapiSerialization.kind === "scalar" ? "" : "Use JSON values. "}Values use ${row._openapiSerialization.mediaType} form encoding.`
                     : row._openapiSerialization?.formBody
                       ? `${["array", "object", "scalar-json"].includes(row._openapiSerialization.kind) ? "Use JSON values. " : ""}${row._openapiSerialization.formArrayItems ? "Each array item uses" : "Values use"} the ${row._openapiSerialization.style} style for form encoding.`
-                      : "Use JSON values."}</Feedback
+                      : row._openapiSerialization.style === "content" &&
+                          isUtf8PlainTextMediaType(
+                            row._openapiSerialization.mediaType,
+                          )
+                        ? `Values use ${row._openapiSerialization.mediaType} text encoding.`
+                        : "Use JSON values."}</Feedback
             >{/if}
           {#if row._openapiSerialization?.allowReserved}<Feedback
               id={`${editorId}-value-${index}-reserved-help`}

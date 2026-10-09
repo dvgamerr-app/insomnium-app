@@ -16,7 +16,7 @@ import {
 
 import { parseSpec, methods } from "./openapi-document.js";
 import { isOpenApiJsonMediaType } from "./openapi-content.js";
-import { isJsonBodyMediaType } from "./media-type.js";
+import { isJsonBodyMediaType, isUtf8PlainTextMediaType } from "./media-type.js";
 
 /** @param {Record<string, any>} spec */
 export function analyzeSpec(spec) {
@@ -278,14 +278,7 @@ export function generateRequests(
         value: descriptor.text,
         disabled: false,
       });
-      if (
-        parameter.content &&
-        !(
-          parameter.in === "cookie" &&
-          contentEntries.length === 1 &&
-          mediaType === "text/plain"
-        )
-      ) {
+      if (parameter.content) {
         const serialization = {
           style: "content",
           explode: false,
@@ -295,7 +288,9 @@ export function generateRequests(
           ...(schema.swagger === "2.0" ||
           parameter.allowReserved ||
           contentEntries.length !== 1 ||
-          !isOpenApiJsonMediaType(mediaType)
+          (!isOpenApiJsonMediaType(mediaType) &&
+            (!isUtf8PlainTextMediaType(mediaType) ||
+              ["array", "object"].includes(descriptor.kind)))
             ? { review: true }
             : {}),
         };

@@ -18,6 +18,71 @@ const jsonValues = [
 export const openApiContentCases = /** @type {Array<Record<string,any>>} */ ([
   ...["query", "header", "path", "cookie"].flatMap((location) =>
     [
+      { id: "canonical", value: "blue", mediaType: "text/plain" },
+      {
+        id: "raw",
+        value: "blue",
+        nullable: false,
+        mediaType: 'Text/Plain; charset="UTF-8"',
+      },
+      { id: "case", value: "blue", mediaType: "Text/Plain" },
+      {
+        id: "charset",
+        value: "blue",
+        mediaType: 'Text/Plain; charset="UTF-8"; note="a,b;c"',
+      },
+      { id: "empty", value: "" },
+      { id: "zero", value: 0 },
+      { id: "false", value: false },
+      { id: "null", value: null },
+      {
+        id: "unicode",
+        value: "ไทย/🌙",
+        ...(location === "cookie"
+          ? { refusal: "invalid cookie characters" }
+          : {}),
+      },
+      {
+        id: "charset-unsupported",
+        value: "blue",
+        mediaType: "text/plain; charset=ISO-8859-1",
+        refusal: "Review " + location + " content serialization",
+      },
+      {
+        id: "charset-malformed",
+        value: "blue",
+        mediaType: "text/plain; charset=",
+        refusal: "Review " + location + " content serialization",
+      },
+      {
+        id: "array",
+        value: ["blue"],
+        refusal: "Review " + location + " content serialization",
+      },
+      {
+        id: "object",
+        value: { x: "blue" },
+        refusal: "Review " + location + " content serialization",
+      },
+      {
+        id: "controls",
+        value: "\r\n",
+        ...(location === "header"
+          ? { refusal: "invalid control characters" }
+          : location === "cookie"
+            ? { refusal: "invalid cookie characters" }
+            : {}),
+      },
+    ].map((entry) => ({
+      mediaType: "text/plain",
+      ...entry,
+      textContent: true,
+      location,
+      id: location + "-text-" + entry.id,
+    })),
+  ),
+  ...["query", "header", "path", "cookie"].flatMap((location) =>
+    [
       { id: "media-case", mediaType: "Application/JSON" },
       { id: "media-charset", mediaType: 'application/json; charset="UTF-8"' },
       { id: "media-quoted", mediaType: 'application/json; note="a,b;c"' },
@@ -153,17 +218,18 @@ function uriData(text) {
 
 /** @param {Record<string,any>} entry @param {any} [value] */
 export function contentWireExpectation(entry, value = entry.value) {
-  const json = JSON.stringify(value);
+  const omitted = entry.textContent && value === null;
+  const json = entry.textContent ? String(value ?? "") : JSON.stringify(value);
   return {
     target:
       "/" +
       entry.id +
-      (entry.location === "query"
+      (entry.location === "query" && !omitted
         ? "?color=" + uriData(json)
         : entry.location === "path"
           ? "/pre-" + uriData(json) + "-" + uriData(json) + ":tail"
           : ""),
-    header: entry.location === "header" ? json : null,
-    cookie: entry.location === "cookie" ? "color=" + json : null,
+    header: entry.location === "header" && !omitted ? json : null,
+    cookie: entry.location === "cookie" && !omitted ? "color=" + json : null,
   };
 }

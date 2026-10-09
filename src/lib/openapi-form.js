@@ -168,7 +168,7 @@ function serializeFormContent(name, text, options) {
     { ...options, mediaType: "application/json", kind: "array" },
     "Form",
   );
-  if (compact === "null") return json ? pair("null") : "";
+  if (compact === null || compact === "null") return json ? pair("null") : "";
   return arrayItems(compact)
     .map((item) => {
       const value = serialize(item, {
@@ -202,7 +202,7 @@ export function serializeOpenApiForm(name, text, options) {
       },
       "Form",
     );
-    if (compact !== "null")
+    if (compact !== null && compact !== "null")
       return arrayItems(compact)
         .map((item) => {
           const value = JSON.parse(item);
