@@ -9,6 +9,99 @@ import { withComponentFixture } from "./helpers/component-fixture.js";
 import { assertDialogTokens } from "./helpers/dialog-theme.js";
 
 await withComponentFixture("design-system", async (page, output) => {
+  const descriptionEvidence = [];
+  const descriptionRegion = page.getByRole("region", {
+    name: "Merged field descriptions contract",
+    exact: true,
+  });
+  for (const theme of ["dark", "light"]) {
+    await page.evaluate(
+      (theme) => (document.documentElement.dataset.theme = theme),
+      theme,
+    );
+    for (const width of [1440, 900, 760]) {
+      await page.setViewportSize({ width, height: 960 });
+      for (let state = 0; state < 4; state++) {
+        for (const kind of [
+          "input",
+          "textarea",
+          "select",
+          "checkbox",
+          "file",
+        ]) {
+          const locator = page.locator("#merged-" + kind);
+          const actual = await locator.evaluate((el) => ({
+            refs: el.getAttribute("aria-describedby")?.split(/\s+/),
+            invalid: el.getAttribute("aria-invalid"),
+            texts: (
+              el.getAttribute("aria-describedby")?.split(/\s+/) || []
+            ).map((id) => document.getElementById(id)?.textContent),
+          }));
+          const expected = [
+            "description-extra",
+            "description-second",
+            ...(state < 2 ? ["merged-" + kind + "-description"] : []),
+            ...(state % 2 === 0 ? ["merged-" + kind + "-error"] : []),
+          ];
+          await Bun.write(
+            output + "/field-description-progress.json",
+            JSON.stringify({
+              theme,
+              width,
+              state,
+              kind,
+              actual,
+              expected,
+              verified: descriptionEvidence.length,
+            }),
+          );
+          assert.deepEqual(
+            actual.refs,
+            expected,
+            "Caller help must retain current Field description/error without duplicate IDs",
+          );
+          assert.equal(actual.invalid, state % 2 === 0 ? "true" : null);
+          assert.ok(
+            actual.texts.every(Boolean),
+            "Every reference resolves to mounted description text",
+          );
+          descriptionEvidence.push({ theme, width, state, kind, ...actual });
+        }
+        await descriptionRegion
+          .getByRole("button", { name: "Cycle descriptions", exact: true })
+          .click();
+      }
+    }
+  }
+  for (const caller of ["", "description-extra"]) {
+    await descriptionRegion
+      .getByRole("button", { name: "Toggle caller descriptions", exact: true })
+      .click();
+    for (const kind of ["input", "textarea", "select", "checkbox", "file"]) {
+      const actual = await page
+        .locator("#merged-" + kind)
+        .getAttribute("aria-describedby");
+      const expected = [
+        ...(caller ? [caller] : []),
+        "merged-" + kind + "-description",
+        "merged-" + kind + "-error",
+      ];
+      assert.deepEqual(
+        actual?.split(/\s+/),
+        expected,
+        "Caller removal/replacement retains Field feedback",
+      );
+      descriptionEvidence.push({ caller, kind, refs: expected });
+    }
+  }
+  await Bun.write(
+    output + "/field-description-acceptance.json",
+    JSON.stringify({
+      passed: true,
+      checks: descriptionEvidence.length,
+      evidence: descriptionEvidence,
+    }),
+  );
   const send = page.getByRole("button", { name: "Send padding", exact: true });
   const plain = await send.evaluate(
     (el) => getComputedStyle(el).backgroundColor,

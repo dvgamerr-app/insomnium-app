@@ -1,5 +1,5 @@
 <script>
-  import { fieldContext } from "./field-context.js";
+  import { fieldContext, fieldDescriptions } from "./field-context.js";
   /** @type {Omit<import('svelte/elements').HTMLInputAttributes, 'type'|'children'> & {children?:import('svelte').Snippet, variant?:'compact'|'inline'|'dropzone', element?:HTMLInputElement, webkitdirectory?:boolean, resetAfterChange?:boolean}} */
   let {
     children,
@@ -25,7 +25,10 @@
     disabled={rest.disabled ?? field?.disabled}
     required={rest.required ?? field?.required}
     aria-invalid={field?.invalid || rest["aria-invalid"] || undefined}
-    aria-describedby={rest["aria-describedby"] ?? field?.describedBy}
+    aria-describedby={fieldDescriptions(
+      rest["aria-describedby"],
+      field?.describedBy,
+    )}
     onchange={async (event) => {
       // Keep the native element/event available until async feature processing ends.
       const input = event.currentTarget;

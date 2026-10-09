@@ -1,5 +1,5 @@
 <script>
-  import { fieldContext } from "./field-context.js";
+  import { fieldContext, fieldDescriptions } from "./field-context.js";
   /** @type {Omit<import('svelte/elements').HTMLInputAttributes, 'type'> & {checked?:boolean, indeterminate?:boolean, invalid?:boolean, element?:HTMLInputElement}} */
   let {
     checked = $bindable(false),
@@ -21,7 +21,10 @@
   id={rest.id ?? field?.id}
   disabled={rest.disabled ?? field?.disabled}
   required={rest.required ?? field?.required}
-  aria-describedby={rest["aria-describedby"] ?? field?.describedBy}
+  aria-describedby={fieldDescriptions(
+    rest["aria-describedby"],
+    field?.describedBy,
+  )}
   aria-invalid={invalid || field?.invalid || rest["aria-invalid"] || undefined}
   class={`ui-checkbox ${className}`}
 />

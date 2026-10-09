@@ -1,5 +1,5 @@
 <script>
-  import { fieldContext } from "./field-context.js";
+  import { fieldContext, fieldDescriptions } from "./field-context.js";
   import Icon from "../Icon.svelte";
   /** @type {Omit<import('svelte/elements').HTMLSelectAttributes, 'value'> & {value?:string|number, children?:import('svelte').Snippet, variant?:'default'|'inline'|'toolbar'|'history'|'method'|'protocol'|'workspace'|'environment', invalid?:boolean, svgArrow?:boolean}} */
   let {
@@ -22,7 +22,10 @@
     id={rest.id ?? field?.id}
     disabled={rest.disabled ?? field?.disabled}
     required={rest.required ?? field?.required}
-    aria-describedby={rest["aria-describedby"] ?? field?.describedBy}
+    aria-describedby={fieldDescriptions(
+      rest["aria-describedby"],
+      field?.describedBy,
+    )}
     {value}
     aria-invalid={invalid ||
       field?.invalid ||

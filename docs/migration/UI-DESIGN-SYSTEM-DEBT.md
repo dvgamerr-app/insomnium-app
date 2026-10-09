@@ -1,5 +1,7 @@
 # UI/UX: รวม components และ design system ให้ใช้ร่วมกัน
 
+2026-10-09 shared Field descriptions: Input/Textarea/Select/Checkbox/FilePicker compose caller aria-describedby with reactive Field description/error IDs through one helper; stable reading order, deduplication and empty caller help retain validation feedback. Saved headless130 across5 controls/4 states/6 profiles and caller removal/replacement pass; independent120 raw-row audit and7 source hashes match. Native theme1791557144758 passes12workflows/10dialogs/6 Field+12 form profiles, terminal0/native-hidden/visiblefalse, unchanged Git HEAD and owned cleanup; relevant dark/light images inspected. Compiler0/0 and formatting pass. Body/Git dependency committed separately in a752707. Exact scope/commands/failures/limits: FIELD-DESCRIPTIONS.md/STATUS.md. Full migration/UX/CSS and remaining accessibility/platform/adoption/ownership gates stay required.
+
 2026-10-08 validation hover ownership: generic and Select-shell hover border rules
 previously overrode actual Field errors; baseline failure retained. controls.css
 now owns both with :where() eligibility so semantic error states win, and the

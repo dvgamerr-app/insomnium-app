@@ -1,5 +1,5 @@
 <script>
-  import { fieldContext } from "./field-context.js";
+  import { fieldContext, fieldDescriptions } from "./field-context.js";
   /** @type {import('svelte/elements').HTMLTextareaAttributes & {invalid?:boolean}} */
   let {
     value = $bindable(""),
@@ -16,7 +16,10 @@
   id={rest.id ?? field?.id}
   disabled={rest.disabled ?? field?.disabled}
   required={rest.required ?? field?.required}
-  aria-describedby={rest["aria-describedby"] ?? field?.describedBy}
+  aria-describedby={fieldDescriptions(
+    rest["aria-describedby"],
+    field?.describedBy,
+  )}
   {value}
   readonly={rest.readonly ?? field?.readOnly}
   aria-invalid={invalid || field?.invalid || rest["aria-invalid"] || undefined}

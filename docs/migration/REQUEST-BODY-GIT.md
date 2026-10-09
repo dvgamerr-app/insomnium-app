@@ -1,6 +1,6 @@
 # Request body clearing and Git snapshots
 
-Status: body clearing fix verified; separate topic commit pending.
+Status: verified and committed in a752707; checkpoint ff3d051. Field composition is a separate topic using the same tested release.
 
 Changing Body type passed binary/serialized/cURL properties as undefined, then
 merged them into the live body object. Persistence JSON omitted these keys,

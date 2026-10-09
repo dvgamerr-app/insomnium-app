@@ -12,6 +12,10 @@
   import TabPanel from "../../../src/lib/components/ui/TabPanel.svelte";
   import Textarea from "../../../src/lib/components/ui/Textarea.svelte";
   import KeyValueEditor from "../../../src/lib/components/KeyValueEditor.svelte";
+  let descriptionState = $state(0);
+  let externalDescription = $state(
+    "description-extra description-extra\t description-second",
+  );
   let helpRows = $state(
     /** @type {Record<string,any>[]} */ ([
       { name: "ordinary", value: "plain", disabled: false },
@@ -398,6 +402,47 @@
         onchange={(rows) => (multipartRows = rows)}
       />
     </section>
+  </section>
+  <section aria-label="Merged field descriptions contract">
+    <p id="description-extra">Caller help.</p>
+    <p id="description-second">Caller details.</p>
+    <Button
+      onclick={() => {
+        descriptionState = (descriptionState + 1) % 4;
+      }}>Cycle descriptions</Button
+    >
+    <Button
+      onclick={() => {
+        externalDescription = externalDescription ? "" : "description-extra";
+      }}>Toggle caller descriptions</Button
+    >
+    {#each ["input", "textarea", "select", "checkbox", "file"] as kind}
+      <Field
+        id={"merged-" + kind}
+        label={"Merged " + kind}
+        description={descriptionState < 2 ? "Field help." : ""}
+        error={descriptionState % 2 === 0 ? "Field error." : ""}
+      >
+        {#if kind === "input"}<Input
+            aria-describedby={externalDescription +
+              (externalDescription && descriptionState < 2
+                ? " merged-input-description"
+                : "")}
+          />
+        {:else if kind === "textarea"}<Textarea
+            aria-describedby={externalDescription}
+          />
+        {:else if kind === "select"}<Select
+            aria-describedby={externalDescription}><option>One</option></Select
+          >
+        {:else if kind === "checkbox"}<Checkbox
+            aria-describedby={externalDescription}
+          />
+        {:else}<FilePicker aria-describedby={externalDescription}
+            >Choose attachment</FilePicker
+          >{/if}
+      </Field>
+    {/each}
   </section>
 </main>
 

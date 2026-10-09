@@ -1,5 +1,10 @@
 # Nocturne controls
 
+Input/Select/Textarea/Checkbox/FilePicker merge explicit aria-describedby with
+reactive Field description/error IDs. Caller references come first and duplicate
+IDs are removed. Empty caller help retains Field feedback. See
+[Field descriptions](../../../../docs/migration/FIELD-DESCRIPTIONS.md) for scope/evidence.
+
 Standard Input/Select/Textarea error borders retain `--danger` during pointer
 hover and keyboard focus. `controls.css` owns their hover borders, including
 Select-shell hover; low-specificity `:where()` eligibility lets validation win.
