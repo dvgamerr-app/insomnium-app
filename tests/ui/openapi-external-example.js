@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { withNativeApp, poll } from "./helpers/native-app.js";
 import { generateOwnedOpenApi } from "./helpers/openapi-generation.js";
+import {
+  apiDesignLayoutMetrics,
+  assertApiDesignLayout,
+  assertApiDesignAttachmentFocus,
+} from "./helpers/api-design-layout.js";
 
 const version = process.env.INSOMNIUM_OPENAPI_VERSION || "3.2.1";
 assert.ok(["3.0.3", "3.1.0", "3.2.0", "3.2.1"].includes(version));
@@ -430,6 +435,7 @@ try {
                 2,
               ),
             );
+            const layouts = [];
             for (const theme of ["dark", "light"]) {
               if (
                 (await page.locator("html").getAttribute("data-theme")) !==
@@ -439,18 +445,60 @@ try {
                   .getByRole("button", { name: "Toggle theme", exact: true })
                   .click();
               for (const width of [1440, 900, 760]) {
-                await page.setViewportSize({ width, height: 960 });
-                assert.equal(
+                for (const height of [960, 600]) {
+                  await page.setViewportSize({ width, height });
+                  for (const details of await design
+                    .locator(".design-references")
+                    .all()) {
+                    if ((await details.getAttribute("open")) === null)
+                      await details.locator("summary").click();
+                  }
+                  await page.waitForTimeout(150);
+                  const metrics = await apiDesignLayoutMetrics(design);
+                  await Bun.write(
+                    output + "/latest-layout.json",
+                    JSON.stringify(
+                      { theme, width, height, ...metrics },
+                      null,
+                      2,
+                    ),
+                  );
+                  assertApiDesignLayout(metrics);
+                  await assertApiDesignAttachmentFocus(design, 3, 2);
                   await design
-                    .getByLabel("Example file 1 name", { exact: true })
-                    .isVisible(),
-                  true,
-                );
-                await page.screenshot({
-                  path: output + "/" + theme + "-assets-" + width + ".png",
-                });
+                    .locator(".design-preview h2")
+                    .scrollIntoViewIfNeeded();
+                  layouts.push({
+                    theme,
+                    width,
+                    height,
+                    ...metrics,
+                    finalInputsAccessible: true,
+                  });
+                  assert.equal(
+                    await design
+                      .getByLabel("Example file 1 name", { exact: true })
+                      .isVisible(),
+                    true,
+                  );
+                  await page.screenshot({
+                    path:
+                      output +
+                      "/" +
+                      theme +
+                      "-assets-" +
+                      width +
+                      "-" +
+                      height +
+                      ".png",
+                  });
+                }
               }
             }
+            await Bun.write(
+              output + "/layout-acceptance.json",
+              JSON.stringify({ passed: true, layouts }, null, 2),
+            );
             await page.setViewportSize({ width: 1440, height: 960 });
           },
           afterCheck: async ({ design }) => {

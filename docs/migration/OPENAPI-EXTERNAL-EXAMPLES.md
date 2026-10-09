@@ -47,7 +47,7 @@ itemSchema and standalone Schema custom vocabulary, requestBody/pathItem/paramet
 pointers, response/nested-encoding Header names, root Example documents, escaped
 JSON Pointer keys, chains and component names matching literal field names.
 
-## Current verified evidence
+## Verified byte-feature release (0c2b79e)
 
 `bun tests/ui/openapi-serialized-contract.js` passes headless, exit0:
 8 body/composer/Git byte checks and30 controls, retaining168 serialized checks,
@@ -141,6 +141,8 @@ external parameter-location/native coverage and schema/example precision.
 Byte checks do not prove HTTP framing/header fidelity or arbitrary providers.
 Download buffering and metadata expansion need bounded-resource review.
 
-The760px panel layout fix and every original migration/UX/CSS/provider/platform
-requirement remain required. The full migration is incomplete. `/compact` is
+The760px panel compression is resolved by the subsequent
+[API Design layout topic](API-DESIGN-LAYOUT.md), with fresh geometry/byte evidence.
+Every original migration/UX/CSS/provider/platform requirement remains required.
+The full migration is incomplete. `/compact` is
 unavailable in this agent interface; STATUS records the handoff and actual handles.

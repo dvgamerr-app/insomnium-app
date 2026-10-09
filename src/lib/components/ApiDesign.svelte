@@ -429,146 +429,148 @@
     >{/if}
   {#if notice}<p class="hint padded" role="status">{notice}</p>{/if}
   {#if spec}
-    <Toolbar variant="design" class="design-toolbar">
-      <Input
-        aria-label="Specification file name"
-        value={spec.fileName || ""}
-        oninput={(event) =>
-          update(spec._id, { fileName: event.currentTarget.value })}
-      />
-      <Button
-        variant="primary"
-        class="primary-button"
-        disabled={busy}
-        onclick={() => check()}>Validate & preview</Button
-      >
-      {#if busy}<Button
+    <section class="design-setup" aria-label="API document setup">
+      <Toolbar variant="design" class="design-toolbar">
+        <Input
+          aria-label="Specification file name"
+          value={spec.fileName || ""}
+          oninput={(event) =>
+            update(spec._id, { fileName: event.currentTarget.value })}
+        />
+        <Button
+          variant="primary"
+          class="primary-button"
+          disabled={busy}
+          onclick={() => check()}>Validate & preview</Button
+        >
+        {#if busy}<Button
+            variant="secondary"
+            class="secondary-button"
+            onclick={cancel}
+            >Cancel {generating ? "generation" : "validation"}</Button
+          >{/if}
+        <Button
           variant="secondary"
           class="secondary-button"
-          onclick={cancel}
-          >Cancel {generating ? "generation" : "validation"}</Button
-        >{/if}
-      <Button
-        variant="secondary"
-        class="secondary-button"
-        onclick={async () => {
-          try {
-            await download(
-              spec.contents || "",
-              spec.fileName || "openapi.yaml",
-            );
-          } catch (e) {
-            error = String(e);
-          }
-        }}>Export source</Button
-      >
-      <FilePicker
-        class="schema-import"
-        variant="compact"
-        multiple
-        accept=".json,.yaml,.yml"
-        onchange={(event) => loadFile(event, true)}
-        disabled={busy}>Attach $ref files</FilePicker
-      >
-    </Toolbar>
-    <Toolbar variant="design" class="design-toolbar">
-      <FilePicker
-        multiple
-        disabled={busy || loadingExamples}
-        onchange={(event) => loadExamples(event)}
-        >Attach example files</FilePicker
-      >
-      <Input
-        aria-label="Example download URL"
-        type="url"
-        bind:value={exampleUrl}
-        placeholder="https://example.com/example.bin"
-        disabled={busy || loadingExamples}
-      />
-      <Button
-        variant="secondary"
-        disabled={busy || loadingExamples || !exampleUrl}
-        busy={loadingExamples}
-        onclick={() => loadExamples()}>Load example URL</Button
-      >
-      {#if loadingExamples}
-        <Button variant="secondary" onclick={() => exampleWork?.cancel()}
-          >Cancel example load</Button
+          onclick={async () => {
+            try {
+              await download(
+                spec.contents || "",
+                spec.fileName || "openapi.yaml",
+              );
+            } catch (e) {
+              error = String(e);
+            }
+          }}>Export source</Button
         >
-      {/if}
-    </Toolbar>
-    {#if spec.exampleFiles?.length}<details class="design-references">
-        <summary>{spec.exampleFiles.length} example files</summary>
-        <p class="hint">
-          Names match externalValue URIs. Bytes stay separate from JSON/YAML
-          references; only loaded examples are used.
-        </p>
-        {#each spec.exampleFiles as file, index}<Toolbar
-            variant="design"
-            class="design-toolbar"
+        <FilePicker
+          class="schema-import"
+          variant="compact"
+          multiple
+          accept=".json,.yaml,.yml"
+          onchange={(event) => loadFile(event, true)}
+          disabled={busy}>Attach $ref files</FilePicker
+        >
+      </Toolbar>
+      <Toolbar variant="design" class="design-toolbar">
+        <FilePicker
+          multiple
+          disabled={busy || loadingExamples}
+          onchange={(event) => loadExamples(event)}
+          >Attach example files</FilePicker
+        >
+        <Input
+          aria-label="Example download URL"
+          type="url"
+          bind:value={exampleUrl}
+          placeholder="https://example.com/example.bin"
+          disabled={busy || loadingExamples}
+        />
+        <Button
+          variant="secondary"
+          disabled={busy || loadingExamples || !exampleUrl}
+          busy={loadingExamples}
+          onclick={() => loadExamples()}>Load example URL</Button
+        >
+        {#if loadingExamples}
+          <Button variant="secondary" onclick={() => exampleWork?.cancel()}
+            >Cancel example load</Button
           >
-            <Input
-              aria-label={`Example file ${index + 1} name`}
-              value={file.name}
-              disabled={busy || loadingExamples}
-              oninput={(event) =>
-                update(spec._id, {
-                  exampleFiles: spec.exampleFiles.map(
-                    (/** @type {any} */ item, /** @type {number} */ i) =>
-                      i === index
-                        ? { ...item, name: event.currentTarget.value }
-                        : item,
-                  ),
-                })}
-            />
-            <Button
-              variant="ghost"
-              disabled={busy || loadingExamples}
-              onclick={() =>
-                update(spec._id, {
-                  exampleFiles: spec.exampleFiles.filter(
-                    (/** @type {any} */ _, /** @type {number} */ i) =>
-                      i !== index,
-                  ),
-                })}>Remove example</Button
+        {/if}
+      </Toolbar>
+      {#if spec.exampleFiles?.length}<details class="design-references">
+          <summary>{spec.exampleFiles.length} example files</summary>
+          <p class="hint">
+            Names match externalValue URIs. Bytes stay separate from JSON/YAML
+            references; only loaded examples are used.
+          </p>
+          {#each spec.exampleFiles as file, index}<Toolbar
+              variant="design"
+              class="design-toolbar"
             >
-          </Toolbar>{/each}
-      </details>{/if}
-    {#if spec.files?.length}<details class="design-references">
-        <summary>{spec.files.length} reference files</summary>
-        <p class="hint">
-          Names match relative $ref paths (for example schemas/pet.yaml). Only
-          attached files are resolved.
-        </p>
-        {#each spec.files as file, index}<Toolbar
-            variant="design"
-            class="design-toolbar"
-          >
-            <Input
-              aria-label={`Reference file ${index + 1} name`}
-              value={file.name}
-              oninput={(event) =>
-                update(spec._id, {
-                  files: spec.files.map(
-                    (/** @type {any} */ item, /** @type {number} */ i) =>
-                      i === index
-                        ? { ...item, name: event.currentTarget.value }
-                        : item,
-                  ),
-                })}
-            /><Button
-              variant="ghost"
-              class="text-button"
-              onclick={() =>
-                update(spec._id, {
-                  files: spec.files.filter(
-                    (/** @type {any} */ _, /** @type {number} */ i) =>
-                      i !== index,
-                  ),
-                })}>Remove reference</Button
+              <Input
+                aria-label={`Example file ${index + 1} name`}
+                value={file.name}
+                disabled={busy || loadingExamples}
+                oninput={(event) =>
+                  update(spec._id, {
+                    exampleFiles: spec.exampleFiles.map(
+                      (/** @type {any} */ item, /** @type {number} */ i) =>
+                        i === index
+                          ? { ...item, name: event.currentTarget.value }
+                          : item,
+                    ),
+                  })}
+              />
+              <Button
+                variant="ghost"
+                disabled={busy || loadingExamples}
+                onclick={() =>
+                  update(spec._id, {
+                    exampleFiles: spec.exampleFiles.filter(
+                      (/** @type {any} */ _, /** @type {number} */ i) =>
+                        i !== index,
+                    ),
+                  })}>Remove example</Button
+              >
+            </Toolbar>{/each}
+        </details>{/if}
+      {#if spec.files?.length}<details class="design-references">
+          <summary>{spec.files.length} reference files</summary>
+          <p class="hint">
+            Names match relative $ref paths (for example schemas/pet.yaml). Only
+            attached files are resolved.
+          </p>
+          {#each spec.files as file, index}<Toolbar
+              variant="design"
+              class="design-toolbar"
             >
-          </Toolbar>{/each}
-      </details>{/if}
+              <Input
+                aria-label={`Reference file ${index + 1} name`}
+                value={file.name}
+                oninput={(event) =>
+                  update(spec._id, {
+                    files: spec.files.map(
+                      (/** @type {any} */ item, /** @type {number} */ i) =>
+                        i === index
+                          ? { ...item, name: event.currentTarget.value }
+                          : item,
+                    ),
+                  })}
+              /><Button
+                variant="ghost"
+                class="text-button"
+                onclick={() =>
+                  update(spec._id, {
+                    files: spec.files.filter(
+                      (/** @type {any} */ _, /** @type {number} */ i) =>
+                        i !== index,
+                    ),
+                  })}>Remove reference</Button
+              >
+            </Toolbar>{/each}
+        </details>{/if}
+    </section>
     <SplitPane
       class="design-columns"
       storageKey="design"

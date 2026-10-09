@@ -1,6 +1,18 @@
 # Insomnium → Tauri migration
 
-2026-10-10 OpenAPI external example byte assets: explicit local/HTTP(S) loading
+2026-10-10 API Design attachment layout: bounded setup scrolling and API-only
+minimum split sizing preserve usable source/preview with expanded examples/refs.
+Saved headless24 count/theme/width/height profiles and fresh native12 geometry/
+keyboard-focus profiles pass, including600px height and760px width. Native
+3.2.1 retains3byte request groups/4loading controls/management/refs/worker literals/
+reload/Git; terminal0/native-hidden/visiblefalse, source/build/bytes/geometry
+audits and owned cleanup pass. Compiler0/0; shared sites/tokens unchanged672/117,
+feature CSS declarations+10 (1728total). Source preserved throughout fresh build
+and native acceptance. Failures, exact artifacts, viewport scope and commands:
+[API-DESIGN-LAYOUT.md](API-DESIGN-LAYOUT.md).
+Full original migration/OpenAPI/UX/CSS/provider/platform gates remain required.
+
+2026-10-10 OpenAPI external example byte assets (release0c2b79e): explicit local/HTTP(S) loading
 preserves body bytes and UTF-8 query representation, with cancellation and
 document-switch guards. Current typed-Object source and saved scenario are
 accepted on production-profile build2203 across3.2.1/3.2.0/3.1.0/3.0.3:
@@ -11,8 +23,8 @@ Headless8+30 plus retained168+11+8/editor/body-Git pass; compiler0/0.
 Static inventory57Svelte/672shared/117tokens/1718declarations; no new feature CSS.
 Exact source/build/artifacts, failures, commands and limits:
 [OPENAPI-EXTERNAL-EXAMPLES.md](OPENAPI-EXTERNAL-EXAMPLES.md).
-Required next UI/CSS topic: expanded attachments at760px compress editor/preview
-and clip its heading. Full OpenAPI parity and every original
+The760px attachment compression recorded for that release is resolved by the
+subsequent layout topic linked above. Full OpenAPI parity and every original
 migration/UX/CSS/provider/platform gate remain required.
 
 2026-10-09 FilePicker concurrent reset: older async callback completion no longer
