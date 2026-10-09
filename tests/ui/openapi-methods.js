@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:net";
+import {
+  encodeGitResource,
+  decodeGitResource,
+} from "../../src/lib/git-resources.js";
 import { withNativeApp, poll } from "./helpers/native-app.js";
 import { generateOwnedOpenApi } from "./helpers/openapi-generation.js";
 import {
@@ -9,6 +13,8 @@ import {
 
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-recovery-copy-probe/build-state.json";
+const version = process.env.INSOMNIUM_OPENAPI_VERSION || "3.2.1";
+assert.ok(["3.2.0", "3.2.1"].includes(version));
 const received =
   /** @type {{method:string,target:string,body:string,type:string|null}[]} */ ([]);
 // Raw TCP preserves method capitalization, including lowercase get and token punctuation.
@@ -46,11 +52,77 @@ assert.ok(address && typeof address !== "string");
 const base = `http://127.0.0.1:${address.port}`;
 try {
   await withNativeApp("openapi-methods", async ({ page, invoke, output }) => {
+    const document = openApiMethodDocument(base, version, true);
+    const sourceContents = JSON.stringify(document, null, 2);
+    const selectedChoices = /** @type {Record<string,any>} */ ({});
+    await Bun.write(
+      output + "/fixture.json",
+      JSON.stringify({ version, base, port: address.port }, null, 2),
+    );
     const sourceSpecId = await generateOwnedOpenApi(
-      { page, invoke },
-      openApiMethodDocument(base),
+      { page, invoke, output },
+      document,
       openApiMethodCases.length,
       "Owned OpenAPI methods",
+      {
+        afterCheck: async ({ design }) => {
+          const operations = design.getByLabel("API operations", {
+            exact: true,
+          });
+          const labels = (
+            await operations.locator("option").allTextContents()
+          ).map((label) => label.replace(/\s+/g, " ").trim());
+          for (const entry of openApiMethodCases) {
+            const index = labels.indexOf(
+              entry.method + " /method/{id} · " + entry.id,
+            );
+            assert.ok(index >= 0);
+            await operations.selectOption(String(index));
+            const additional = entry.id.startsWith("custom-");
+            const name = entry.id === "custom-lower-get" ? "first" : "second";
+            for (const [location, field, label] of [
+              ["path", "id", "Path id example"],
+              ["query", "scope", "Query scope example"],
+            ]) {
+              await design
+                .getByLabel(label, { exact: true })
+                .selectOption(JSON.stringify(["parameter", name]));
+              selectedChoices[
+                JSON.stringify([
+                  "/method/{id}",
+                  entry.key,
+                  additional,
+                  "parameter",
+                  location,
+                  field,
+                ])
+              ] = { level: "parameter", name };
+            }
+            if (entry.body) {
+              await design
+                .getByLabel("Body example", { exact: true })
+                .selectOption(JSON.stringify("second"));
+              selectedChoices[
+                JSON.stringify(["/method/{id}", entry.key, additional, "body"])
+              ] = { mediaType: "application/json", name: "second" };
+            }
+          }
+        },
+      },
+    );
+    const initialData = await invoke("load_workspace");
+    const sourceSpec = initialData.resources.find(
+      (/** @type {any} */ r) => r._id === sourceSpecId,
+    );
+    assert.equal(sourceSpec.contents, sourceContents);
+    assert.equal(Object.keys(selectedChoices).length, 17);
+    assert.deepEqual(sourceSpec.exampleSelections, selectedChoices);
+    const specFile = encodeGitResource(sourceSpec);
+    const specGit = decodeGitResource(specFile.path, specFile.content);
+    assert.deepEqual(specGit, { ...sourceSpec, type: "ApiSpec" });
+    const generatedRequests = initialData.resources.filter(
+      (/** @type {any} */ r) =>
+        r._type === "request" && r.sourceSpecId === sourceSpecId,
     );
     const cases = [];
     await page.getByRole("button", { name: "API Design", exact: true }).click();
@@ -148,7 +220,10 @@ try {
       );
       const expected = {
         method: entry.method,
-        target: "/method/row%20%2B?scope=" + entry.query,
+        target:
+          entry.id === "custom-lower-get"
+            ? "/method/first?scope=first"
+            : "/method/row%20%2B?scope=" + entry.query,
         body: entry.body,
         type: entry.body ? "application/json" : null,
       };
@@ -166,6 +241,7 @@ try {
       cases.push({
         id: entry.id,
         sourceOperation: request.sourceOperation,
+        sourceExampleChoices: request.sourceExampleChoices,
         ...received[count],
         resourcesPreserved: true,
         reloadWithoutResend: true,
@@ -185,7 +261,12 @@ try {
       JSON.stringify(
         {
           passed: true,
-          version: "3.2.1",
+          version,
+          sourceContents,
+          sourceSpec,
+          specGit,
+          selectedChoices,
+          generatedRequests,
           count: cases.length,
           cases,
           previewLabels: labels,

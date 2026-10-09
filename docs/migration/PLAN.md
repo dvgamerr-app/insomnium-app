@@ -1,5 +1,17 @@
 # Insomnium → Tauri migration
 
+2026-10-10 native custom-method named examples: saved raw-TCP scenario passes
+12cases/34operation-scoped choices across3.2.0/3.2.1. Fixed GET and additional
+lowercase get independently select same-named path/query examples; QUERY/COPY/
+custom-METHOD/M!x retain exact methods and selected JSON bodies. Source/preferences,
+canonical Git/provenance, resource preservation/reload-without-resend, current
+668source/executable hashes and owned cleanup audits pass. Both handles terminal0/
+native-hidden/visible:false; app/CSS unchanged, production build explicitly reused.
+Compiler0/0. Actual760 images show method headings; no new control geometry/full
+layout claim. Exact commands/artifacts/limits: [NAMED-METHOD-EXAMPLES.md](NAMED-METHOD-EXAMPLES.md).
+All original external/URI/charset/schema/resource/provider/platform/migration/UX/CSS
+gates remain required.
+
 2026-10-10 named-example levels/source recovery: saved headless108checks/28controls
 and6control profiles pass, including24 modern root/media data/serialized/external
 cases with same-named refs/source preservation. Four current native versions

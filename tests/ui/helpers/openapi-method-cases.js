@@ -42,8 +42,12 @@ export const openApiMethodCases = [
     body: '{\n  "kind": "custom-token"\n}',
   },
 ];
-/** @param {string} base @param {string} [version] */
-export function openApiMethodDocument(base, version = "3.2.1") {
+/** @param {string} base @param {string} [version] @param {boolean} [namedExamples] */
+export function openApiMethodDocument(
+  base,
+  version = "3.2.1",
+  namedExamples = false,
+) {
   const item = /** @type {Record<string,any>} */ ({
     parameters: [
       {
@@ -51,13 +55,27 @@ export function openApiMethodDocument(base, version = "3.2.1") {
         name: "id",
         required: true,
         schema: { type: "string" },
-        example: "row +",
+        ...(namedExamples
+          ? {
+              examples: {
+                first: { dataValue: "first" },
+                second: { dataValue: "row +" },
+              },
+            }
+          : { example: "row +" }),
       },
       {
         in: "query",
         name: "scope",
         schema: { type: "string" },
-        example: "inherited",
+        ...(namedExamples
+          ? {
+              examples: {
+                first: { dataValue: "first" },
+                second: { dataValue: "inherited" },
+              },
+            }
+          : { example: "inherited" }),
       },
     ],
     additionalOperations: {},
@@ -73,7 +91,14 @@ export function openApiMethodDocument(base, version = "3.2.1") {
         content: {
           "application/json": {
             schema: { type: "object" },
-            example: { kind: entry.id },
+            ...(namedExamples
+              ? {
+                  examples: {
+                    first: { dataValue: { kind: "wrong" } },
+                    second: { dataValue: { kind: entry.id } },
+                  },
+                }
+              : { example: { kind: entry.id } }),
           },
         },
       };
@@ -83,7 +108,14 @@ export function openApiMethodDocument(base, version = "3.2.1") {
           in: "query",
           name: "scope",
           schema: { type: "string" },
-          example: "override",
+          ...(namedExamples
+            ? {
+                examples: {
+                  first: { dataValue: "first" },
+                  second: { dataValue: "override" },
+                },
+              }
+            : { example: "override" }),
         },
       ];
     if (entry.id.startsWith("fixed-")) item[entry.key] = operation;
