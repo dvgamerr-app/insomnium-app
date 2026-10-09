@@ -1,5 +1,12 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Playwright headless — renewed owner-request verification — 2026-10-10
+
+- Current implementation/checkpoint HEAD before this documentation commit: 52a493a. Existing headless/native-hidden topic: cccf507. Source audit of tests/scripts finds exactly one browser launch, through launchUiBrowser with fixed headless:true; no headed override or persistent browser launch. Native helper hides its owned window before connectOverCDP and records native-hidden/visible:false. No fresh native run claimed for this verification.
+- bun tests/ui/git-merge-contract.js completed terminal0; artifacts/playwright/git-merge-contract/result.json passed and acceptance.json passed all9 groups. Shared component fixture uses launchUiBrowser and closes its browser/server in finally. No live process handle remains from this run.
+- Topic commits and feature handoff remain required. This interface exposes no callable /compact; compaction was not invoked. Current documentation commit is available through git log -1 after commit.
+- Handoff: named-example selection is currently uncommitted/incomplete in ApiDesign.svelte, openapi.js, openapi.worker.js, new ApiExampleChoices.svelte/openapi-example-choices.js and saved named-example fixture/scenario/helper. The latest expanded helper/provenance patch still requires inspection, compiler/headless/native verification and its own topic commit. Preserve this work; it is not accepted by the headless-policy check. Full original migration/UX/CSS goal and every remaining gate stay ACTIVE.
+
 ## API Design attachment layout — committed verified checkpoint — 2026-10-10
 
 - Verified implementation topic37d49f4 fix(ui): keep API Design panes usable with attachments. Documentation checkpoint carrying this record is current HEAD after commit (git log -1). Headless24/native12, retained byte workflow, compiler0/0, source/build/geometry/byte/Git/cleanup audits, selected formatting and staged whitespace checks pass. Worktree clean after implementation commit; no live feature process handles. /compact unavailable: this is the explicit handoff before the next feature. Full original goal remains ACTIVE.
