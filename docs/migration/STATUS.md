@@ -1,5 +1,14 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Requested headless verification — 2026-10-09
+
+- Browser scenarios already use the single shared launchUiBrowser with fixed headless: true and no headed override. Native Tauri hides its owned host before CDP and reports native-hidden. No browser launch source change was necessary.
+- Fresh saved check: bun tests/ui/git-merge-contract.js exited0; result.json is passed and acceptance.json contains9 passing groups. Previous policy checkpoint: ce8f587. This verification does not close native or full migration gates.
+- Existing UTF-8 text feature remains uncommitted. Raw retry artifact1791515819305 has live Bun PID52112 at this checkpoint; its terminal result is still required, followed by cookie/URL gates. Do not restart or run another native scenario concurrently. No live handle remains from the headless check.
+- This interface has no callable /compact operation; compaction was not invoked. This checkpoint is the handoff before another feature; original migration/UX/CSS scope remains active.
+
+
+
 ## Headless request — verified handoff — 2026-10-09
 
 - Browser policy is already implemented: the only saved browser launch is `launchUiBrowser` in `tests/ui/helpers/preview-app.js`, with fixed `headless: true` and no headed override. Native `withNativeApp` hides its owned host before `connectOverCDP` and records `native-hidden`; this is not a WebView2 headless claim.
