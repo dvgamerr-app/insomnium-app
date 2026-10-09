@@ -483,12 +483,15 @@
                   onchange={(event) =>
                     (operationIndex = Number(event.currentTarget.value))}
                   >{#each operations as item, index}<option value={index}
-                      >{item.method.toUpperCase()}
+                      >{item.httpMethod || item.method.toUpperCase()}
                       {item.path} · {item.summary}</option
                     >{/each}</Select
                 >
                 {#if operation}<div class="operation-docs">
-                    <h3>{operation.method.toUpperCase()} {operation.path}</h3>
+                    <h3>
+                      {operation.httpMethod || operation.method.toUpperCase()}
+                      {operation.path}
+                    </h3>
                     <p>
                       {operation.operation.description || operation.summary}
                     </p>

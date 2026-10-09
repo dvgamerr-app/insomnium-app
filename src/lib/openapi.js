@@ -112,16 +112,56 @@ export function analyzeSpec(spec) {
   const identifiers = new Set();
   for (const [path, item] of Object.entries(schema?.paths || {})) {
     if (!item || typeof item !== "object") continue;
-    if (item.query || item.additionalOperations)
-      add(
-        "error",
-        "OpenAPI 3.2 QUERY/additionalOperations generation is not supported yet.",
-        ["paths", path],
-      );
-    for (const method of methods)
-      if (item[method] && typeof item[method] === "object") {
-        const operation = item[method];
-        const location = ["paths", path, method];
+    const entries = methods.map((method) => ({
+      method,
+      httpMethod: method.toUpperCase(),
+      operation: item[method],
+      location: ["paths", path, method],
+    }));
+    if (String(schema.openapi || "").startsWith("3.2.")) {
+      const additional = [
+        {
+          method: "query",
+          httpMethod: "QUERY",
+          operation: item.query,
+          location: ["paths", path, "query"],
+        },
+        ...Object.entries(item.additionalOperations || {}).map(
+          ([method, operation]) => ({
+            method,
+            httpMethod: method,
+            operation,
+            location: ["paths", path, "additionalOperations", method],
+          }),
+        ),
+      ];
+      // The installed path validator only visits the eight original methods.
+      // Project each extra operation into GET, then restore its diagnostic path.
+      if (strict.valid && !(resolved.errors || []).length)
+        for (const entry of additional)
+          if (entry.operation && typeof entry.operation === "object")
+            for (const error of validatePathParameters({
+              paths: {
+                [path]: { parameters: item.parameters, get: entry.operation },
+              },
+            })) {
+              const errorPath = Array.isArray(error.path)
+                ? error.path
+                : String(error.path || "")
+                    .split("/")
+                    .filter(Boolean);
+              add(
+                "error",
+                error.message || "Invalid path parameter",
+                errorPath[2] === "get"
+                  ? [...entry.location, ...errorPath.slice(3)]
+                  : errorPath,
+              );
+            }
+      entries.push(...additional);
+    }
+    for (const { method, httpMethod, operation, location } of entries)
+      if (operation && typeof operation === "object") {
         if (!operation.summary)
           add("warning", "Operation has no summary.", location);
         if (!operation.operationId)
@@ -135,6 +175,10 @@ export function analyzeSpec(spec) {
         operations.push({
           path,
           method,
+          httpMethod,
+          ...(location[2] === "additionalOperations"
+            ? { additional: true }
+            : {}),
           summary: operation.summary || operation.operationId || path,
           operation,
           item,
@@ -186,7 +230,14 @@ export function generateRequests(
       modified: Date.now(),
     },
   ];
-  for (const { path, method, operation, item } of analysis.operations) {
+  for (const {
+    path,
+    method,
+    httpMethod,
+    additional,
+    operation,
+    item,
+  } of analysis.operations) {
     /** @type {string[]} */
     const issues = [];
     let server = serverOverride;
@@ -218,12 +269,16 @@ export function generateRequests(
       name:
         operation.summary ||
         operation.operationId ||
-        `${method.toUpperCase()} ${path}`,
-      method: method.toUpperCase(),
+        `${httpMethod || method.toUpperCase()} ${path}`,
+      method: httpMethod || method.toUpperCase(),
       url: `${server.replace(/\/$/, "")}${path}`,
       description: operation.description || "",
       sourceSpecId: specId,
-      sourceOperation: { path, method },
+      sourceOperation: {
+        path,
+        method,
+        ...(additional ? { additional: true } : {}),
+      },
       pathParameters: [],
     });
     const parameters = new Map();
