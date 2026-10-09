@@ -304,6 +304,35 @@ try {
       44,
       "Four whole JSON-array signing regressions",
     );
+    for (const source of resources.filter((r) => r._id.endsWith("_form")))
+      resources.push({
+        ...source,
+        _id: source._id + "_text_content",
+        name: source.name + " UTF-8 text content",
+        body: {
+          ...source.body,
+          params: [
+            {
+              ...source.body.params[0],
+              value: '["a +","ไทย/🌙",0,false]',
+              _openapiSerialization: {
+                formBody: true,
+                style: "content",
+                kind: "array",
+                mediaType: 'Text/Plain; charset="UTF-8"; note="a,b;c"',
+                formArrayItems: true,
+                itemKind: "json",
+              },
+            },
+            source.body.params[1],
+          ],
+        },
+      });
+    assert.equal(
+      resources.length,
+      48,
+      "Four parameterized text form-content signing regressions",
+    );
     await page
       .getByRole("button", { name: "Import collection", exact: true })
       .click();
@@ -404,9 +433,12 @@ try {
         wireBodies[count],
         signed.body.mimeType === "application/x-www-form-urlencoded"
           ? signed.body.params[0]._openapiSerialization.style === "content"
-            ? signed.body.params[0]._openapiSerialization.formArrayItems
-              ? "color=%22a+%2B%22&color=%22b%26%3D%22&color=manual+%2B"
-              : "color=%5B%22a+%2B%22%2C%22b%26%3D%22%5D&color=manual+%2B"
+            ? signed.body.params[0]._openapiSerialization.mediaType ===
+              'Text/Plain; charset="UTF-8"; note="a,b;c"'
+              ? "color=a+%2B&color=%E0%B9%84%E0%B8%97%E0%B8%A2%2F%F0%9F%8C%99&color=0&color=false&color=manual+%2B"
+              : signed.body.params[0]._openapiSerialization.formArrayItems
+                ? "color=%22a+%2B%22&color=%22b%26%3D%22&color=manual+%2B"
+                : "color=%5B%22a+%2B%22%2C%22b%26%3D%22%5D&color=manual+%2B"
             : "color=a%20%2B&color=b%26%3D&color=manual+%2B"
           : "",
       );
@@ -697,6 +729,10 @@ try {
               r.body.mimeType === "application/x-www-form-urlencoded" &&
               r.body.params[0]._openapiSerialization.style === "content" &&
               !r.body.params[0]._openapiSerialization.formArrayItems,
+            formTextContentBody:
+              r.body.mimeType === "application/x-www-form-urlencoded" &&
+              r.body.params[0]._openapiSerialization.mediaType ===
+                'Text/Plain; charset="UTF-8"; note="a,b;c"',
           })),
         },
         null,

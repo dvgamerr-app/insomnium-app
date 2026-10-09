@@ -2,6 +2,64 @@
 export const openApiFormContentCases =
   /** @type {Array<Record<string,any>>} */ ([
     ...[
+      { id: "text-media-case", contentType: "Text/Plain" },
+      { id: "text-media-charset", contentType: 'TEXT/PLAIN; CHARSET="uTf-8"' },
+      { id: "text-media-quoted", contentType: 'text/plain; note="a,b;c"' },
+    ].map((entry) => ({
+      ...entry,
+      content: true,
+      schema: { type: "string" },
+      value: "a +",
+      expected: "color=a+%2B",
+    })),
+    {
+      id: "text-media-array",
+      content: true,
+      contentType: 'Text/Plain; charset="UTF-8"',
+      schema: { type: "array", items: {} },
+      value: ["a +", "ไทย/🌙", 0, false],
+      expected:
+        "color=a+%2B&color=%E0%B9%84%E0%B8%97%E0%B8%A2%2F%F0%9F%8C%99&color=0&color=false",
+      editText: '[9007199254740993,1e+2,"\\u0061"]',
+      editExpected: "color=9007199254740993&color=1e%2B2&color=a",
+    },
+    {
+      id: "text-media-empty-array",
+      content: true,
+      contentType: "Text/Plain; charset=UTF-8",
+      schema: { type: "array", items: {} },
+      value: [],
+      expected: "",
+    },
+    ...[
+      {
+        id: "text-media-non-utf8",
+        contentType: "text/plain; charset=ISO-8859-1",
+      },
+      { id: "text-media-malformed", contentType: "text/plain; charset=" },
+      { id: "text-media-list", contentType: "text/plain, application/json" },
+      {
+        id: "text-media-duplicate",
+        contentType: "text/plain; charset=UTF-8; charset=UTF-8",
+      },
+    ].map((entry) => ({
+      ...entry,
+      content: true,
+      schema: { type: "string" },
+      value: "a +",
+      expected: null,
+      refusal: "Review form serialization for color",
+    })),
+    {
+      id: "text-media-object",
+      content: true,
+      contentType: "Text/Plain; charset=UTF-8",
+      schema: { type: "object" },
+      value: { x: "a +" },
+      expected: null,
+      refusal: "Review form serialization for color",
+    },
+    ...[
       { id: "json-media-case", contentType: "Application/JSON" },
       {
         id: "json-media-charset",

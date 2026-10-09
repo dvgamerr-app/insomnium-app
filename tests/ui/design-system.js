@@ -112,7 +112,7 @@ await withComponentFixture("design-system", async (page, output) => {
       compactFeedback.push({ theme, width, feedback, placed, normal });
       const rows = await assertKeyValueHelp(
         page.getByRole("region", { name: "Help contract editor", exact: true }),
-        [0, 1, 1, 1, 2, 2, 1, 1, 1, 1],
+        [0, 1, 1, 1, 2, 2, 1, 1, 1, 1, 1],
       );
       assert.ok(
         rows[8].help[0].text.includes("application/json"),
@@ -123,6 +123,12 @@ await withComponentFixture("design-system", async (page, output) => {
           'APPLICATION/JSON; charset="UTF-8"; note="a,b;c"',
         ),
         "JSON media guidance preserves original parameters",
+      );
+      assert.ok(
+        rows[10].help[0].text.includes(
+          'TEXT/PLAIN; CHARSET="uTf-8"; note="a,b;c"',
+        ),
+        "Text media guidance preserves original parameters",
       );
       const multipart = page.getByRole("region", {
         name: "Multipart contract editor",

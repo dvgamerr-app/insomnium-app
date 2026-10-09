@@ -5,6 +5,7 @@ import {
   isOpenApiJsonMediaType,
 } from "./openapi-content.js";
 import { describeOpenApiValue, readOpenApiValue } from "./openapi-value.js";
+import { isUtf8PlainTextMediaType } from "./media-type.js";
 
 /** @param {Record<string,any>} property */
 function jsonKind(property) {
@@ -63,6 +64,7 @@ export function describeOpenApiFormContent(
         ? "text/plain"
         : "application/octet-stream");
   const json = isOpenApiJsonMediaType(mediaType);
+  const text = isUtf8PlainTextMediaType(mediaType);
   const serialization = {
     formBody: true,
     style: "content",
@@ -77,8 +79,8 @@ export function describeOpenApiFormContent(
         }
       : {}),
     ...(binary ||
-    (!json && mediaType !== "text/plain") ||
-    (mediaType === "text/plain" && ["object", "array"].includes(type)) ||
+    (!json && !text) ||
+    (text && ["object", "array"].includes(type)) ||
     itemSchema.contentEncoding ||
     encoding.encoding ||
     encoding.prefixEncoding ||
@@ -123,6 +125,7 @@ function arrayItems(text) {
 /** @param {string} name @param {string} text @param {Record<string,any>} options */
 function serializeFormContent(name, text, options) {
   const json = isOpenApiJsonMediaType(options.mediaType);
+  const plainText = isUtf8PlainTextMediaType(options.mediaType);
   const pair = (/** @type {string} */ value) =>
     new URLSearchParams([[name, value]]).toString();
   const serialize = (
@@ -140,7 +143,7 @@ function serializeFormContent(name, text, options) {
         },
         "Form",
       );
-    if (options.mediaType !== "text/plain")
+    if (!plainText)
       throw new Error(`Review form content serialization for ${name}.`);
     const parsed = readOpenApiValue(
       name,
@@ -169,8 +172,7 @@ function serializeFormContent(name, text, options) {
   return arrayItems(compact)
     .map((item) => {
       const value = serialize(item, {
-        kind:
-          options.mediaType === "text/plain" ? "scalar-json" : options.itemKind,
+        kind: plainText ? "scalar-json" : options.itemKind,
         nullable: options.itemNullable,
       });
       return value === null ? "" : pair(value);

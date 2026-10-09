@@ -24,6 +24,7 @@ const server = Bun.serve({
 try {
   await withNativeApp("openapi-form-body", async ({ page, invoke, output }) => {
     const cases = [];
+    const casePrefix = process.env.INSOMNIUM_OPENAPI_CASE_PREFIX || "";
     const versions = process.env.INSOMNIUM_OPENAPI_VERSIONS?.split(",") || [
       "3.0.3",
       "3.0.4",
@@ -108,7 +109,14 @@ try {
           .getByRole("tab", { name: "Body", exact: true })
           .click();
       };
-      for (const entry of generationCases) {
+      const selectedCases = generationCases.filter((entry) =>
+        entry.id.startsWith(casePrefix),
+      );
+      assert.ok(
+        selectedCases.length,
+        "Saved case prefix must match fixture cases",
+      );
+      for (const entry of selectedCases) {
         const request = generated.find(
           (/** @type {any} */ row) => row.name === entry.id,
         );
@@ -140,6 +148,10 @@ try {
           );
           assert.ok(help[0].help[0].text.includes(entry.contentType));
         }
+        if (entry.id === "text-media-quoted")
+          await page.screenshot({
+            path: output + `/form-text-media-${version}-760.png`,
+          });
         if (entry.id === "json-media-quoted")
           await page.screenshot({
             path: output + `/form-json-media-${version}-760.png`,
@@ -370,9 +382,26 @@ try {
         cases.push({ version, id: "disable-invalid-content", expected: "" });
       }
     }
+    if (casePrefix === "text-media-") {
+      for (const version of versions)
+        assert.equal(
+          cases.filter((entry) => entry.version === version).length,
+          25,
+          "Focused text media coverage includes generation, edit, guards and existing runtime controls",
+        );
+    }
     await Bun.write(
       output + "/acceptance.json",
-      JSON.stringify({ passed: true, cases, count: cases.length }, null, 2),
+      JSON.stringify(
+        {
+          passed: true,
+          casePrefix: casePrefix || null,
+          cases,
+          count: cases.length,
+        },
+        null,
+        2,
+      ),
     );
   });
 } finally {
