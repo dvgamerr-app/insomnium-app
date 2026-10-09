@@ -72,6 +72,15 @@ source/preferences/assets/Git/provenance/reset and frozen source/build identity.
 Final `openapi-named-final-audit.json` passedtrue combines these with headless
 84/28/6 and retained serialized and layout24 acceptance. No live feature handles.
 
+Implementation committed in3cdbd18. Post-acceptance documentation added the
+summary to tests/ui/README.md, which the broad freeze also includes. The final
+audit initially refused this documentation hash change. Corrected per-run/final
+audits verify the original README against the base0b2b435 Git blob and report
+that one documentationChanges entry; all executable/app hashes still must match.
+Historical freeze/build records are preserved, and all four audits/final
+aggregate passed again. Final cleanup aggregate is openapi-named-cleanup-audit.json.
+No callable /compact is exposed; STATUS contains the explicit feature handoff.
+
 Inspected actual native3.2.1 light760/dark1440 and3.2.0/3.1.0/3.0.3 dark760 images,
 plus controlled light760. This verifies those images, not every UI surface or
 arbitrary viewport. Static inventory sourcec3f9e7b599843b9a3e308b0abe137e96831b7783c003556ab1138201335817dd:
