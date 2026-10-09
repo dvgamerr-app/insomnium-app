@@ -19,6 +19,9 @@ process.env.INSOMNIUM_UI_BUILD_STATE ||=
 await withNativeApp(
   "nocturne-native-theme",
   async ({ page, invoke, output }) => {
+    // Hidden native CDP actions can finish after the previous15s observation limit.
+    page.setDefaultTimeout(60000);
+    page.setDefaultNavigationTimeout(60000);
     const buttonPadding = /** @type {Array<Record<string,any>>} */ ([]);
     const formGeometry = /** @type {Array<Record<string,any>>} */ ([]);
     const focusSurfaces = /** @type {Array<Record<string,any>>} */ ([]);

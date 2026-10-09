@@ -91,6 +91,7 @@ export async function gitCollection({ page, invoke }) {
         document.querySelector('[aria-label="Collection"]')
       )?.value === id,
     workspaceId,
+    { timeout: 60000 },
   );
   return { workspaceId, repositoryId, requestId, author, oid, data };
 }

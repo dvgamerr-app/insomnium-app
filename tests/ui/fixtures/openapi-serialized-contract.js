@@ -1,3 +1,4 @@
+import RequestBodyGit from "./request-body-git.svelte";
 import { analyzeSpec, generateRequests } from "../../../src/lib/openapi.js";
 import { mount } from "svelte";
 import KeyValueEditor from "../../../src/lib/components/KeyValueEditor.svelte";
@@ -247,3 +248,7 @@ mount(KeyValueEditor, {
     },
   },
 });
+
+const bodyHost = document.createElement("section");
+document.body.append(bodyHost);
+mount(RequestBodyGit, { target: bodyHost });

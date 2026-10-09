@@ -52,5 +52,63 @@ await withComponentFixture(
       output + "/editor-acceptance.json",
       JSON.stringify({ passed: true, edits, widths: [1440, 760] }, null, 2),
     );
+    const bodyRegion = page.getByRole("region", {
+      name: "Request body Git compatibility",
+      exact: true,
+    });
+    const bodyChecks = [];
+    for (const kind of ["ordinary", "serialized", "curl"])
+      for (const mimeType of ["text/plain", "application/graphql"]) {
+        await bodyRegion
+          .getByRole("button", { name: "Seed " + kind + " body", exact: true })
+          .click();
+        await bodyRegion
+          .getByLabel("Body type", { exact: true })
+          .selectOption(mimeType);
+        const result = JSON.parse(
+          await bodyRegion
+            .getByLabel("Body Git evidence", { exact: true })
+            .innerText(),
+        );
+        await Bun.write(
+          output + "/body-git-progress.json",
+          JSON.stringify({ kind, mimeType, ...result }),
+        );
+        assert.equal(result.passed, true, result.error);
+        assert.deepEqual(result.undefinedKeys, []);
+        for (const key of [
+          "binary",
+          "_openapiSerialization",
+          ...(kind === "curl"
+            ? [
+                "curlFileMode",
+                "curlSegments",
+                "curlJoin",
+                "curlQuery",
+                "curlFilePrefix",
+                "base64",
+                "fileName",
+              ]
+            : []),
+        ])
+          assert.ok(
+            !result.keys.includes(key),
+            "Cleared " + key + " must be absent in memory",
+          );
+        assert.equal(result.body.mimeType, mimeType);
+        assert.equal(
+          result.body.text,
+          mimeType === "application/graphql"
+            ? '{"query":"","variables":"{}"}'
+            : '{"query":"query { owned }","variables":"{}"}',
+        );
+        assert.deepEqual(result.body.extra, { retained: 42 });
+        assert.deepEqual(result.restored.body, result.body);
+        bodyChecks.push({ kind, mimeType, ...result });
+      }
+    await Bun.write(
+      output + "/body-git-acceptance.json",
+      JSON.stringify({ passed: true, checks: bodyChecks }),
+    );
   },
 );

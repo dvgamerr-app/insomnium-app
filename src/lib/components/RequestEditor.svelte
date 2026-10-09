@@ -83,7 +83,12 @@
     ["application/octet-stream", "Binary File"],
   ];
   function body(/** @type {Record<string, any>} */ patch) {
-    onchange({ body: { ...request.body, ...patch } });
+    const next = { ...request.body };
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === undefined) delete next[key];
+      else next[key] = value;
+    }
+    onchange({ body: next });
   }
   function auth(/** @type {Record<string, any>} */ patch) {
     onchange({ authentication: { ...request.authentication, ...patch } });
