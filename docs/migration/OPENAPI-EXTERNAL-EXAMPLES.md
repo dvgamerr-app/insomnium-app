@@ -9,8 +9,8 @@ do not require loading before request generation.
 
 Request bodies retain base64 bytes, including JSON whitespace, unsafe-integer
 spelling and non-UTF8 binary data. Parameter examples currently require UTF-8 and
-use the existing serialized parameter metadata. The first named example is used;
-choosing another named example remains required work. Example assets persist in
+use the existing serialized parameter metadata. Operation-scoped named choices are implemented and verified in
+[the named-example topic](OPENAPI-NAMED-EXAMPLES.md). Example assets persist in
 API specifications and round trip through the Git resource codec.
 
 Loaded assets require canonical base64 and distinct resolved URI names, with at
@@ -135,9 +135,11 @@ cancellation, document switching during download and oversized local attachment.
 
 ## Remaining gates
 
-Full OpenAPI parity remains required: named-example selection, non-UTF8 parameter
+Full OpenAPI parity remains required: non-UTF8 parameter
 semantics, URI/base/fragment policies, compound media/charset semantics, broader
 external parameter-location/native coverage and schema/example precision.
+Root/attached OpenAPI3.2 declared bases are implemented and verified in
+[the $self topic](OPENAPI-SELF-BASE.md); this does not close every URI/fragment policy.
 Byte checks do not prove HTTP framing/header fidelity or arbitrary providers.
 Download buffering and metadata expansion need bounded-resource review.
 

@@ -11,6 +11,22 @@ export const methods = [
   "patch",
   "trace",
 ];
+/** OpenAPI 3.2 description URIs use the declared document identity. API server
+ * URLs have a separate retrieval-base rule and must not use this helper.
+ * @param {Record<string,any>} document @param {string} retrievalUri */
+export function apiDocumentBaseUri(document, retrievalUri) {
+  const uri = new URL(
+    String(document.openapi || "").startsWith("3.2.") &&
+      typeof document.$self === "string"
+      ? document.$self
+      : retrievalUri,
+    retrievalUri,
+  );
+  // The filesystem identifies complete resources; reference fragments select
+  // targets within them and are resolved separately.
+  uri.hash = "";
+  return uri.href;
+}
 /** @param {string} text */
 export function parseSpec(text) {
   if (new TextEncoder().encode(text).byteLength > specLimit)

@@ -19,7 +19,7 @@ import {
   serializeOpenApiForm,
 } from "./openapi-form.js";
 
-import { parseSpec, methods } from "./openapi-document.js";
+import { parseSpec, methods, apiDocumentBaseUri } from "./openapi-document.js";
 import { isOpenApiJsonMediaType } from "./openapi-content.js";
 import { isJsonBodyMediaType, isUtf8PlainTextMediaType } from "./media-type.js";
 import {
@@ -71,13 +71,18 @@ export function analyzeSpec(spec) {
         .slice(1)
         .map((part) => part.replaceAll("~1", "/").replaceAll("~0", "~")),
     );
-  const rootName = new URL(spec.fileName || "openapi.yaml", "memory:///").href;
+  const retrievalUri = new URL(spec.fileName || "openapi.yaml", "memory:///")
+    .href;
+  const rootName = apiDocumentBaseUri(parsed.value, retrievalUri);
   const files = [
     { name: rootName, value: parsed.value },
-    ...(spec.files || []).map((/** @type {any} */ file) => ({
-      name: new URL(file.name, rootName).href,
-      value: parseSpec(file.contents).value,
-    })),
+    ...(spec.files || []).map((/** @type {any} */ file) => {
+      const value = parseSpec(file.contents).value;
+      return {
+        name: apiDocumentBaseUri(value, new URL(file.name, rootName).href),
+        value,
+      };
+    }),
   ];
   if (files.length > 33) throw new Error("Attach at most 32 reference files.");
   if (new Set(files.map((file) => file.name)).size !== files.length)
@@ -89,7 +94,7 @@ export function analyzeSpec(spec) {
     8 * 1024 * 1024
   )
     throw new Error("Combined specification files exceed 8 MiB.");
-  const assets = exampleAssetIndex(spec);
+  const assets = exampleAssetIndex(spec, parsed.value);
   const filesystem = files.map((file, index) => {
     const value = structuredClone(file.value);
     const stack = [{ value, depth: 0 }];

@@ -65,7 +65,7 @@ try {
       const literalPayload = {
         examples: { owned: { externalValue: "literal.txt" } },
       };
-      const referenceDocument = {
+      let referenceDocument = /** @type {Record<string,any>} */ ({
         value: {
           content: { "application/octet-stream": example("local.bin") },
         },
@@ -75,7 +75,7 @@ try {
           schema: { type: "string" },
           ...example("query.txt"),
         },
-      };
+      });
       const document = /** @type {Record<string,any>} */ ({
         openapi: version,
         info: { title: "Owned external examples", version: "1" },
@@ -120,6 +120,34 @@ try {
       document.paths["/query"].get.parameters = [
         { $ref: "objects.json#/parameter" },
       ];
+      if (version.startsWith("3.2.")) {
+        document.$self = base + "/shared/api.yaml";
+        referenceDocument.value.content["application/octet-stream"] = example(
+          "../shared/local.bin",
+        );
+        referenceDocument.parameter.examples = example(
+          "../shared/query.txt",
+        ).examples;
+        referenceDocument = {
+          openapi: version,
+          $self: "../components/objects.json",
+          info: { title: "Declared component base", version: "1" },
+          components: {
+            requestBodies: { Value: referenceDocument.value },
+            parameters: { Owned: referenceDocument.parameter },
+          },
+        };
+        document.paths["/binary"].post.requestBody = {
+          $ref:
+            base + "/components/objects.json#/components/requestBodies/Value",
+        };
+        document.paths["/query"].get.parameters = [
+          {
+            $ref:
+              base + "/components/objects.json#/components/parameters/Owned",
+          },
+        ];
+      }
       document.paths["/query"].get.operationId = "ownedQuery";
       document.paths["/json"].post.requestBody.content[
         "application/json"
@@ -637,6 +665,9 @@ try {
             exampleFiles: spec.exampleFiles,
             referenceFiles: spec.files,
             sourceUnchanged: true,
+            sourceSpec: spec,
+            sourceContents: JSON.stringify(document, null, 2),
+            requests,
           },
           null,
           2,

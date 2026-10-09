@@ -1,5 +1,17 @@
 # Saved UI test execution
 
+2026-10-10 OpenAPI3.2 declared document bases: root and attached complete
+OpenAPI documents resolve description references/external examples through $self;
+asset lookup/refresh share that base and canonical document collisions refuse.
+Authored source/ref text stays intact; incomplete-source attachment preparation
+remains available. Headless8byte/44controls plus retained168/11/8 and named108/28/6
+pass. Fresh frozen production native3.2.0/3.2.1 passes6wire groups/24layout profiles/
+8loading8management4worker literals, canonical Git/source/build/byte audits and
+owned cleanup; both handles terminal0/native-hidden/visible:false. No CSS changes
+or broader URI/platform/full migration claim. Exact commands/evidence/limits:
+[OPENAPI-SELF-BASE.md](OPENAPI-SELF-BASE.md). Schema IDs/anchors/dynamic refs, broader
+URI/fragment/charset/resource and every original migration/UX/CSS gate remain required.
+
 2026-10-10 native custom-method named examples: saved raw-TCP scenario passes
 12cases/34operation-scoped choices across3.2.0/3.2.1. Fixed GET and additional
 lowercase get independently select same-named path/query examples; QUERY/COPY/

@@ -1,9 +1,22 @@
+import { apiDocumentBaseUri, parseSpec } from "./openapi-document.js";
+
 export const exampleAssetLimit = 2 * 1024 * 1024;
 const totalLimit = 8 * 1024 * 1024;
 
-/** Validate persisted example bytes independently of JSON/YAML reference files.
+/** Attachments may be prepared while the author is repairing incomplete source.
+ * Analysis still parses and validates the document before generation.
  * @param {Record<string,any>} spec */
-export function exampleAssetIndex(spec) {
+function assetDocument(spec) {
+  try {
+    return spec.contents ? parseSpec(spec.contents).value : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Validate persisted example bytes independently of JSON/YAML reference files.
+ * @param {Record<string,any>} spec @param {Record<string,any>} [document] */
+export function exampleAssetIndex(spec, document = assetDocument(spec)) {
   const files = spec.exampleFiles || [];
   if (!Array.isArray(files) || files.length > 32)
     throw new Error("Attach at most 32 example files.");
@@ -20,7 +33,10 @@ export function exampleAssetIndex(spec) {
     throw new Error(
       "Combined specification, references and examples exceed 8 MiB.",
     );
-  const base = new URL(spec.fileName || "openapi.yaml", "memory:///").href;
+  const base = apiDocumentBaseUri(
+    document,
+    new URL(spec.fileName || "openapi.yaml", "memory:///").href,
+  );
   const index = new Map();
   for (const file of files) {
     if (
@@ -56,7 +72,11 @@ export function exampleAssetIndex(spec) {
 /** Add/refresh explicitly loaded examples without changing the source document.
  * @param {Record<string,any>} spec @param {Record<string,any>[]} additions */
 export function addExampleAssets(spec, additions) {
-  const base = new URL(spec.fileName || "openapi.yaml", "memory:///").href;
+  const document = assetDocument(spec);
+  const base = apiDocumentBaseUri(
+    document,
+    new URL(spec.fileName || "openapi.yaml", "memory:///").href,
+  );
   const next = [...(spec.exampleFiles || [])];
   for (const file of additions) {
     const uri = new URL(file.name, base).href;
@@ -64,7 +84,7 @@ export function addExampleAssets(spec, additions) {
     if (at < 0) next.push(file);
     else next[at] = file;
   }
-  exampleAssetIndex({ ...spec, exampleFiles: next });
+  exampleAssetIndex({ ...spec, exampleFiles: next }, document);
   return next;
 }
 

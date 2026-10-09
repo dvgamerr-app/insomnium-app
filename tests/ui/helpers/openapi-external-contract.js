@@ -571,5 +571,145 @@ export function externalContractEvidence() {
       });
     }
   }
+  for (const version of ["3.2.0", "3.2.1"]) {
+    for (const mode of [
+      "absolute",
+      "relative",
+      "referenced",
+      "referenced-relative",
+    ]) {
+      const retrieval = "https://retrieval.example/root/api.yaml";
+      const rootBase =
+        mode === "relative"
+          ? "https://retrieval.example/canonical/api.yaml"
+          : "https://canonical.example/root/api.yaml";
+      const childBase =
+        mode === "referenced-relative"
+          ? "https://canonical.example/shared/defs.yaml"
+          : "https://components.example/docs/defs.yaml";
+      const referenced = mode.startsWith("referenced");
+      const body = {
+        content: {
+          "application/octet-stream": {
+            examples: { owned: { externalValue: "bytes.bin" } },
+          },
+        },
+      };
+      const document = {
+        openapi: version,
+        $self: mode === "relative" ? "../canonical/api.yaml" : rootBase,
+        info: { title: "Declared base", version: "1" },
+        servers: [{ url: "http://127.0.0.1:55555" }],
+        paths: {
+          "/body": {
+            post: {
+              requestBody: referenced
+                ? { $ref: childBase + "#/components/requestBodies/Body" }
+                : body,
+              responses: { 200: { description: "OK" } },
+            },
+          },
+        },
+      };
+      const child = {
+        openapi: version,
+        $self:
+          mode === "referenced-relative" ? "../shared/defs.yaml" : childBase,
+        info: { title: "Referenced base", version: "1" },
+        components: { requestBodies: { Body: body } },
+      };
+      const source = {
+        fileName: retrieval,
+        contents: JSON.stringify(document),
+        files: referenced
+          ? [{ name: "defs.yaml", contents: JSON.stringify(child) }]
+          : [],
+        exampleFiles: [
+          {
+            name: new URL("bytes.bin", referenced ? childBase : rootBase).href,
+            base64: "AP+A",
+          },
+          { name: new URL("bytes.bin", retrieval).href, base64: "d3Jvbmc=" },
+        ],
+      };
+      const original = JSON.stringify(source);
+      const analysis = analyzeSpec(source);
+      if (!analysis.valid)
+        throw Error(mode + ": " + JSON.stringify(analysis.diagnostics));
+      const generated = generateRequests(analysis, workspace._id, "spc_self");
+      const request = generated.find((r) => r._type === "request");
+      if (
+        !request ||
+        request.body.base64 !== "AP+A" ||
+        request._openapiIssues?.length
+      )
+        throw Error(mode + ": canonical bytes missing");
+      const encoded = encodeGitResource(request),
+        restored = decodeGitResource(encoded.path, encoded.content);
+      const prepared = prepareRenderedRequest(
+        { ...initialData(), resources: [workspace, ...generated] },
+        request,
+        "self_contract",
+      );
+      if (
+        restored?.body.base64 !== "AP+A" ||
+        prepared.bodyBase64 !== "AP+A" ||
+        JSON.stringify(source) !== original
+      )
+        throw Error(mode + ": source/Git/transport changed");
+      controls.push({
+        name: version + " self base " + mode,
+        passed: true,
+        base: rootBase,
+        childBase: referenced ? childBase : null,
+        base64: request.body.base64,
+        sourceUnchanged: true,
+      });
+    }
+    const collisionRoot = {
+      openapi: version,
+      $self: "https://canonical.example/api.yaml",
+      info: { title: "Collision", version: "1" },
+      paths: {},
+    };
+    refuse(version + " duplicate declared document identities", () =>
+      analyzeSpec({
+        contents: JSON.stringify(collisionRoot),
+        files: [{ name: "defs.yaml", contents: JSON.stringify(collisionRoot) }],
+      }),
+    );
+    const relativeSource = {
+      contents: JSON.stringify({
+        ...collisionRoot,
+        $self: "https://canonical.example/docs/api.yaml",
+      }),
+      exampleFiles: [{ name: "bytes.bin", base64: "YQ==" }],
+    };
+    const updated = addExampleAssets(relativeSource, [
+      { name: "https://canonical.example/docs/bytes.bin", base64: "Yg==" },
+    ]);
+    if (updated.length !== 1 || updated[0].base64 !== "Yg==")
+      throw Error("Declared-base refresh duplicated asset");
+    controls.push({ name: version + " self asset refresh", passed: true });
+  }
+  const incomplete = { fileName: "api.yaml", contents: "{", exampleFiles: [] };
+  const attached = addExampleAssets(incomplete, [
+    { name: "bytes.bin", base64: "AP+A" },
+  ]);
+  if (
+    attached.length !== 1 ||
+    attached[0].base64 !== "AP+A" ||
+    incomplete.contents !== "{"
+  )
+    throw Error("Incomplete-source attachment changed");
+  controls.push({ name: "attach while repairing source", passed: true });
+  const literalSelf = exampleAssetIndex({
+    fileName: "api.yaml",
+    contents: JSON.stringify({ $self: "https://literal.example/" }),
+    exampleFiles: [{ name: "bytes.bin", base64: "AP+A" }],
+  });
+  if (!literalSelf.has("memory:///bytes.bin"))
+    throw Error("Non-OpenAPI self field changed asset identity");
+  controls.push({ name: "literal self outside OpenAPI Object", passed: true });
   return { passed: true, checks, controls };
 }
