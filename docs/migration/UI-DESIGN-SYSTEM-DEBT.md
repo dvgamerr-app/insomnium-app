@@ -1,5 +1,16 @@
 # UI/UX: รวม components และ design system ให้ใช้ร่วมกัน
 
+2026-10-09 unused internal tokens: removed declaration-only code/font-size-14/space-30
+(four declarations across theme/foundation). Current sourceSHA256
+e15f0182538b7592d0946bfe335976989466235bee72a25479379dc7ab63d6ce:
+117tokens/1718declarations, unused-var candidates0. Adoption/import/owner/raw
+exception/dynamic-reference inventory unchanged; optional focus-danger-text
+fallback remains visible. Compiler0/0, build0 and saved full design-system71649
+terminal0/passed including66 filled foreground rows. Exact scope and remaining
+gates: [UNUSED-UI-TOKENS.md](UNUSED-UI-TOKENS.md). Older source inventories below
+are historical; full UI debt/migration remains required.
+
+
 2026-10-09 filled foreground tokens: Primary/Send/brand, Danger hover/focus and
 success/failure badges consume centralized on-accent/on-danger/on-success.
 Optional focus-danger-text retains explicit override priority with scoped fallback.

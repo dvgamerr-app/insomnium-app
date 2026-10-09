@@ -22,7 +22,6 @@
   --focus-secondary-surface: var(--raised);
   --focus-danger-surface: var(--danger-fill);
   --green: #10b981;
-  --code: #34d399;
   --syntax-type: #a78bfa;
   --syntax-name: #60a5fa;
   --syntax-operator: #818cf8;
@@ -63,7 +62,6 @@
   --accent-text: #4f46e5;
   --selected: #f3f4f6;
   --green: #15803d;
-  --code: #059669;
   --syntax-type: #7c3aed;
   --syntax-name: #dc2626;
   --syntax-operator: #4f46e5;

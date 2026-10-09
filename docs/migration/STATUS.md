@@ -1,5 +1,21 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Unused internal tokens — verified topic ready to commit — 2026-10-09
+
+- Base0ab97fe; previous goal turn progressed by committing verified foreground topic14c62f8/checkpoint0ab97fe. This turn removes three declaration-only internal tokens/four lines, verifies compiler/build/saved full design-system, independently compares before/after inventories and records remaining scope. Full original migration/UX/CSS objective unchanged.
+- Compiler86490 terminal0/0errors0warnings; production build terminal0; full saved design-system71649 terminal0/result passed, including6profiles66foreground rows and retained Field/form/keyboard/control contracts. Independent unused-token-final-audit.json proves117tokens/1718declarations/unused-var candidates0 and unchanged adoption/owner/import/dynamic/reference inventory. SourceSHA256e15f0182538b7592d0946bfe335976989466235bee72a25479379dc7ab63d6ce. Baseline inventory retained.
+- Final application diff exactly four deleted declarations; initial line-ending change corrected before acceptance. No fresh native run claimed for unused declarations, no live handles. Prior frozen native evidence belongs to its own source. No unknown external CSS consumer acceptance claimed. Exact command/evidence/limits: UNUSED-UI-TOKENS.md.
+- Handoff: three unused-token candidates closed; review remaining property-level literals/duplicate declarations/aliases/shared compositions and original PLAN/PARITY requirements before next feature. Full migration/UX/CSS/workflow/platform/distribution/provider/plugin/tooling gates stay required. /compact cannot be invoked in this interface; no compaction claimed, current commit/evidence/remaining gates/no live handles recorded.
+
+
+## Unused internal tokens — verification in progress — 2026-10-09
+
+- Base0ab97fe. Previous goal turn progressed by committing audited filled foreground feature14c62f8/checkpoint0ab97fe with no handles. Full original migration/UX/CSS objective unchanged. Root/subdirectory/ancestor Claude discovery remains empty; PLAN/PARITY read.
+- Current AST inventory and tracked source/tool/scenario search show --code, --font-size-14, --space-30 have declarations only. No dynamic consumer found; method-color dynamic prefix stays unchanged. Removing four internal declarations (code appears in two themes) closes these three unused-token candidates. No theme syntax token removed. Baseline inventory preserved in unused-token-baseline-inventory.json.
+- Compiler86490 terminal0/0errors0warnings, bun run build terminal0. Initial edit changed foundation line endings; restored original Git line-ending convention before acceptance; final source diff is exactly four deleted lines. Current AST117tokens/1718declarations, no unused-var candidates or additional unresolved vars; optional focus-danger-text remains reported.
+- Saved full design-system71649 running, app/source frozen. Required: terminal result, independent token inventory/control acceptance audit, final docs/topic commit/checkpoint. No native behavior change or fresh native acceptance claimed for unused declarations. All full migration/UX/CSS remaining gates stay required. /compact unavailable; handoff required before next feature.
+
+
 ## Filled foreground tokens — committed verified checkpoint — 2026-10-09
 
 - Implementation topic14c62f8 refactor(ui): centralize filled surface foreground tokens. Documentation checkpoint containing this record is current HEAD after commit (git log -1). Selected source/scenario/new-doc formatting and staged diff checks pass; no live feature handles or uncommitted app work.

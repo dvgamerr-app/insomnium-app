@@ -1,5 +1,16 @@
 # Current shared UI source inventory
 
+2026-10-09 unused internal tokens: removed declaration-only code/font-size-14/space-30
+(four declarations across theme/foundation). Current sourceSHA256
+e15f0182538b7592d0946bfe335976989466235bee72a25479379dc7ab63d6ce:
+117tokens/1718declarations, unused-var candidates0. Adoption/import/owner/raw
+exception/dynamic-reference inventory unchanged; optional focus-danger-text
+fallback remains visible. Compiler0/0, build0 and saved full design-system71649
+terminal0/passed including66 filled foreground rows. Exact scope and remaining
+gates: [UNUSED-UI-TOKENS.md](UNUSED-UI-TOKENS.md). Older source inventories below
+are historical; full UI debt/migration remains required.
+
+
 2026-10-09 filled foreground source inventory: sourceSHA256
 60e841406d173995f8247dc7109c78fba7770945eae3d858cf4a375d8c2e8fbe,
 57 production Svelte files/664 shared markup sites/14 feature scoped style files/
