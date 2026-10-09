@@ -1,5 +1,12 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Playwright headless policy — verified — 2026-10-09
+
+- Inspected clean base 5bdb1cb. The existing shared launchUiBrowser in tests/ui/helpers/preview-app.js already fixes headless: true with no headed override. Repository JavaScript/config search found no other browser launch; component fixtures, previews and the saved reference scenario use this helper. No application or helper change was necessary.
+- Native scenarios remain native-hidden: withNativeApp hides and verifies its owned Tauri window before chromium.connectOverCDP, then records renderingMode and hiddenWindow. This check inspected source; no new native execution is claimed.
+- Fresh saved command bun tests/ui/openapi-querystring-contract.js completed with exit 0. artifacts/playwright/openapi-querystring-contract/result.json reports passed; acceptance.json verifies 60 composer checks and 4 validation controls through the headless shared helper. Browser and fixture server cleanup completed; no live process handles remain.
+- Owner workflow retained: verified changes committed by topic; all original migration/UX/CSS gates in PLAN/PARITY remain open as recorded below. This interface has no callable /compact; this checkpoint is the handoff, and session compaction is not claimed.
+
 ## OpenAPI dataValue — verified feature — 2026-10-09
 
 - Current implementation commit d20283f (fix(openapi): honor dataValue examples), based on9132519; verified data-form selection, saved scenarios and evidence are committed by topic. Frozen release1791545416430/finished1791545802407/result0/hash3874512605060655374; all five source hashes match.
