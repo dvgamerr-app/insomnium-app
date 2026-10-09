@@ -1,7 +1,8 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
-## Unused internal tokens — verified topic ready to commit — 2026-10-09
+## Unused internal tokens — committed verified checkpoint — 2026-10-09
 
+- Implementation topic5d622a8 refactor(ui): remove unused internal theme and scale tokens. Documentation checkpoint carrying this record is current HEAD after commit (git log -1). Source/new-doc formatting and staged diff checks pass; no uncommitted work or live feature handles.
 - Base0ab97fe; previous goal turn progressed by committing verified foreground topic14c62f8/checkpoint0ab97fe. This turn removes three declaration-only internal tokens/four lines, verifies compiler/build/saved full design-system, independently compares before/after inventories and records remaining scope. Full original migration/UX/CSS objective unchanged.
 - Compiler86490 terminal0/0errors0warnings; production build terminal0; full saved design-system71649 terminal0/result passed, including6profiles66foreground rows and retained Field/form/keyboard/control contracts. Independent unused-token-final-audit.json proves117tokens/1718declarations/unused-var candidates0 and unchanged adoption/owner/import/dynamic/reference inventory. SourceSHA256e15f0182538b7592d0946bfe335976989466235bee72a25479379dc7ab63d6ce. Baseline inventory retained.
 - Final application diff exactly four deleted declarations; initial line-ending change corrected before acceptance. No fresh native run claimed for unused declarations, no live handles. Prior frozen native evidence belongs to its own source. No unknown external CSS consumer acceptance claimed. Exact command/evidence/limits: UNUSED-UI-TOKENS.md.
