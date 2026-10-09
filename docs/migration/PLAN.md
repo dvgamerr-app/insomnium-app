@@ -1,5 +1,19 @@
 # Insomnium → Tauri migration
 
+2026-10-10 OpenAPI named examples: operation-scoped parameter/body choices and
+body MIME selection use shared controls, persist with the document and retain
+request provenance without modifying authored source/shared refs. Headless84
+checks/28specific refusal controls/6control profiles and frozen production-profile
+native20requests/24profiles across3.0.3/3.1.0/3.2.0/3.2.1 pass. Native includes
+worker/persistence/reload/reset/Git/exact payload capture; modern versions also
+send selected serialized JSON/whole-query. Independent source/build/bytes/Git
+and owned cleanup audits pass, every scenario handle terminal0/native-hidden.
+Compiler0/0; retained serialized/layout24 and formatting/whitespace pass.
+Static inventory58Svelte/681shared/117tokens/1728CSS declarations (+9shared sites,
+no new raw/style owner). Exact commands/artifacts/failures/limits:
+[OPENAPI-NAMED-EXAMPLES.md](OPENAPI-NAMED-EXAMPLES.md).
+All original migration/OpenAPI/UX/CSS/provider/platform gates remain required.
+
 2026-10-10 API Design attachment layout: bounded setup scrolling and API-only
 minimum split sizing preserve usable source/preview with expanded examples/refs.
 Saved headless24 count/theme/width/height profiles and fresh native12 geometry/

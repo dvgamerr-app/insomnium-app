@@ -8,6 +8,7 @@ self.onmessage = (event) => {
           event.data.workspaceId,
           event.data.spec._id,
           event.data.serverOverride,
+          event.data.exampleSelections,
         )
       : null;
     self.postMessage({ analysis, resources });

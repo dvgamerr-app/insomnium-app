@@ -27,6 +27,13 @@ import {
   applyExampleAssets,
   selectedExternalExample,
 } from "./openapi-example-assets.js";
+import {
+  effectiveParameters,
+  selectedParameterExamples,
+  selectedBodyExample,
+  validateExampleChoices,
+  operationExampleGroups,
+} from "./openapi-example-choices.js";
 
 /** @param {Record<string, any>} spec */
 export function analyzeSpec(spec) {
@@ -270,15 +277,18 @@ function example(node, schema, fallback) {
   );
 }
 
-/** @param {ReturnType<typeof analyzeSpec>} analysis @param {string} workspaceId @param {string} specId @param {string} [serverOverride] */
+/** @param {ReturnType<typeof analyzeSpec>} analysis @param {string} workspaceId @param {string} specId @param {string} [serverOverride]
+ * @param {Record<string,import('./openapi-example-choices.js').ExampleChoice>} [exampleSelections] */
 export function generateRequests(
   analysis,
   workspaceId,
   specId,
   serverOverride = "",
+  exampleSelections = {},
 ) {
   if (!analysis.valid)
     throw new Error("Resolve specification errors before generating requests.");
+  validateExampleChoices(analysis, exampleSelections);
   const { schema } = analysis;
   const groupId = id("fld");
   /** @type {Record<string, any>[]} */
@@ -292,14 +302,9 @@ export function generateRequests(
       modified: Date.now(),
     },
   ];
-  for (const {
-    path,
-    method,
-    httpMethod,
-    additional,
-    operation,
-    item,
-  } of analysis.operations) {
+  for (const operationDescriptor of analysis.operations) {
+    const { path, method, httpMethod, additional, operation, item } =
+      operationDescriptor;
     /** @type {string[]} */
     const issues = [];
     let server = serverOverride;
@@ -343,16 +348,22 @@ export function generateRequests(
       },
       pathParameters: [],
     });
-    const parameters = new Map();
-    for (const parameter of [
-      ...(item.parameters || []),
-      ...(operation.parameters || []),
-    ])
-      parameters.set(
-        `${parameter.in}:${parameter.in === "header" ? String(parameter.name).toLowerCase() : parameter.name}`,
-        parameter,
+    const selectedExamples = Object.fromEntries(
+      operationExampleGroups(operationDescriptor, schema)
+        .filter((group) => Object.hasOwn(exampleSelections, group.key))
+        .map((group) => [
+          group.key,
+          structuredClone(exampleSelections[group.key]),
+        ]),
+    );
+    if (Object.keys(selectedExamples).length)
+      request.sourceExampleChoices = selectedExamples;
+    for (const rawParameter of effectiveParameters(operationDescriptor)) {
+      const parameter = selectedParameterExamples(
+        operationDescriptor,
+        rawParameter,
+        exampleSelections,
       );
-    for (const parameter of parameters.values()) {
       if (
         schema.swagger !== "2.0" &&
         parameter.in === "header" &&
@@ -645,15 +656,12 @@ export function generateRequests(
       } else issues.push(`Review ${parameter.in} parameter ${parameter.name}.`);
     }
     if (operation.requestBody) {
-      const content = operation.requestBody.content || {};
-      const mime = Object.hasOwn(content, "application/json")
-        ? "application/json"
-        : Object.keys(content).find(isOpenApiJsonMediaType) ||
-          Object.keys(content).find(isJsonBodyMediaType) ||
-          Object.keys(content)[0];
+      const { mime, media } = selectedBodyExample(
+        operationDescriptor,
+        exampleSelections,
+      );
       const json = isJsonBodyMediaType(mime);
       try {
-        const media = content[mime];
         const external = selectedExternalExample(media);
         const serialized = external
           ? null

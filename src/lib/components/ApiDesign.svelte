@@ -13,6 +13,8 @@
   import Input from "./ui/Input.svelte";
   import SplitPane from "./ui/SplitPane.svelte";
   import CodeEditor from "./CodeEditor.svelte";
+  import ApiExampleChoices from "./ApiExampleChoices.svelte";
+  import { operationExampleGroups } from "../openapi-example-choices.js";
   import { onDestroy } from "svelte";
   import {
     workspace,
@@ -85,6 +87,11 @@
     ),
   );
   let operation = $derived(operations[operationIndex] || operations[0]);
+  let exampleGroups = $derived(
+    operation && current
+      ? operationExampleGroups(operation, current.schema)
+      : [],
+  );
   let editor = $state(
     /** @type {{focus:()=>void,setSelectionRange:(start:number,end:number)=>void} | undefined} */ (
       undefined
@@ -206,6 +213,7 @@
     if (!spec || busy || disposed) return;
     if (generate && !current?.valid) return;
     const snapshot = input;
+    const choiceSnapshot = JSON.stringify(spec.exampleSelections || {});
     /** @type {ReturnType<typeof beginWorkspaceWork>} */ let work;
     try {
       work = beginWorkspaceWork();
@@ -245,6 +253,8 @@
         work.signal.throwIfAborted();
         if (
           snapshot !== input ||
+          (generate &&
+            choiceSnapshot !== JSON.stringify(spec?.exampleSelections || {})) ||
           workspace.data.activeWorkspaceId !== workspaceId
         ) {
           notice =
@@ -284,6 +294,7 @@
         workspaceId,
         generate,
         serverOverride,
+        exampleSelections: JSON.parse(choiceSnapshot),
       });
     } catch (e) {
       cancel();
@@ -300,6 +311,15 @@
       Math.max(0, diagnostic.column - 1);
     editor.focus();
     editor.setSelectionRange(offset, offset);
+  }
+
+  /** @param {string} key @param {import('../openapi-example-choices.js').ExampleChoice|null} choice */
+  function chooseExample(key, choice) {
+    if (!spec || busy || disposed) return;
+    const selections = { ...(spec.exampleSelections || {}) };
+    if (choice) selections[key] = choice;
+    else delete selections[key];
+    update(spec._id, { exampleSelections: selections });
   }
 
   /** Load byte assets only on an explicit file/HTTP action; analysis never fetches.
@@ -472,6 +492,16 @@
           disabled={busy}>Attach $ref files</FilePicker
         >
       </Toolbar>
+      {#if Object.keys(spec.exampleSelections || {}).length}
+        <Toolbar variant="design" class="design-toolbar">
+          <Button
+            variant="ghost"
+            disabled={busy}
+            onclick={() => update(spec._id, { exampleSelections: {} })}
+            >Reset example choices</Button
+          >
+        </Toolbar>
+      {/if}
       <Toolbar variant="design" class="design-toolbar">
         <FilePicker
           multiple
@@ -663,6 +693,12 @@
                     <p>
                       {operation.operation.description || operation.summary}
                     </p>
+                    <ApiExampleChoices
+                      groups={exampleGroups}
+                      selections={spec.exampleSelections || {}}
+                      disabled={busy}
+                      onchange={chooseExample}
+                    />
                     {#each ["parameters", "requestBody", "responses", "security"] as field}<details
                       >
                         <summary>{field}</summary>
