@@ -2,12 +2,12 @@
 
 ## OpenAPI dataValue — verified feature — 2026-10-09
 
-- Current precommit base9132519; verified data-form selection is ready for its topic commit. Frozen release1791545416430/finished1791545802407/result0/hash3874512605060655374; all five source hashes match.
+- Current implementation commit d20283f (fix(openapi): honor dataValue examples), based on9132519; verified data-form selection, saved scenarios and evidence are committed by topic. Frozen release1791545416430/finished1791545802407/result0/hash3874512605060655374; all five source hashes match.
 - Native3.2.1 handle54000/artifact1791545851817 is terminal0/passed,11:37:32.233Z–11:49:52.985Z; native3.2.0 handle97865/artifact1791546686546 is terminal0/passed,11:51:26.558Z–12:04:05.513Z. Each accepts20 literal raw targets/bodies/owned header fields and persistence/reload groups. Both independent-data-value-audit.json files pass, generation recovery1 each tied to accepted source identity, selection recoveries0 each.
 - Native55384/43992 exit0/native-hidden/visiblefalse. Owned Bun56360/50120 and native processes gone, both scoped WebView profiles0, actual fixtures60698/58149 listeners0. No passing run restarted. No feature-owned live handles remain.
 - Direct body selection12, preflight160 across20cases/two versions/both URL/cURL modes, actual Git round trips40 and legacy value24 pass. Compiler0errors0warnings and selected source/scenario/new-doc formatting/diff checks pass. Previous goal turn made progress with implementation/direct evidence/build/native launch; this turn completed both native acceptances/audits/recovery evidence and owned cleanup.
 - Exact behavior/standards/commands/artifacts/harness corrections/limits: OPENAPI-DATA-VALUE.md. This topic selects data-form values; serializedValue wire, external examples, example selection UI, precision/full schemas/media/bytes/saved-resource/provider/platform and every original PLAN/PARITY/UX/CSS gate remain required. Full original goal remains active.
-- Record the implementation commit in the committed handoff before the next feature. This interface cannot invoke /compact; no compaction is claimed.
+- Feature checkpoint: implementation d20283f committed, evidence/current commit/remaining full migration/UX/CSS gates and terminal/live-handle state recorded above. No callable /compact exists in this interface; this documentation checkpoint is the committed handoff, and compaction is not claimed. No next feature was started in this turn. Continue from PLAN/PARITY/POST-MIGRATION-UX with the full original objective intact.
 
 ### Implementation and acceptance history
 
