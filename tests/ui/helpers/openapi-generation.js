@@ -3,12 +3,14 @@ import { poll } from "./native-app.js";
 
 /** Actual owned collection import and API Design worker generation.
  * @param {Pick<import('./native-app.js').ScenarioContext,'page'|'invoke'> & Partial<Pick<import('./native-app.js').ScenarioContext,'output'>>} context
- * @param {Record<string,any>} document @param {number} count @param {string} label */
+ * @param {Record<string,any>} document @param {number} count @param {string} label
+ * @param {{beforeCheck?:(context:{design:import('playwright-core').Locator,specId:string})=>Promise<void>,afterCheck?:(context:{design:import('playwright-core').Locator,specId:string})=>Promise<void>}} [options] */
 export async function generateOwnedOpenApi(
   { page, invoke, output },
   document,
   count,
   label,
+  options = {},
 ) {
   const ownedName = label + " " + Date.now();
   const dialog = page.getByRole("dialog");
@@ -180,6 +182,7 @@ export async function generateOwnedOpenApi(
     createdSpecId,
     "Edited source is the document from the actual click",
   );
+  await options.beforeCheck?.({ design, specId: spec._id });
   await design
     .getByRole("button", { name: "Validate & preview", exact: true })
     .click();
@@ -188,6 +191,7 @@ export async function generateOwnedOpenApi(
     exact: true,
   });
   await generate.waitFor();
+  await options.afterCheck?.({ design, specId: spec._id });
   await generate.click();
   await poll(
     async () =>

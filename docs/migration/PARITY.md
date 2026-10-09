@@ -1,5 +1,20 @@
 # Feature parity tracker
 
+2026-10-10 OpenAPI external example byte assets: explicit local/HTTP(S) loading
+preserves body bytes and UTF-8 query representation, with cancellation and
+document-switch guards. Current typed-Object source and saved scenario are
+accepted on production-profile build2203 across3.2.1/3.2.0/3.1.0/3.0.3:
+12 request groups,16 loading controls,16 asset-management actions and8 worker
+literal assertions. Independent bytes/SHA/source/reference/Git/build audits pass;
+all scenario handles terminal0/native-hidden, owned processes/listeners gone.
+Headless8+30 plus retained168+11+8/editor/body-Git pass; compiler0/0.
+Static inventory57Svelte/672shared/117tokens/1718declarations; no new feature CSS.
+Exact source/build/artifacts, failures, commands and limits:
+[OPENAPI-EXTERNAL-EXAMPLES.md](OPENAPI-EXTERNAL-EXAMPLES.md).
+Required next UI/CSS topic: expanded attachments at760px compress editor/preview
+and clip its heading. Full OpenAPI parity and every original
+migration/UX/CSS/provider/platform gate remain required.
+
 2026-10-09 FilePicker concurrent reset: older async callback completion no longer
 erases a newer pending file. Saved controlled headless12 (six theme/width profiles
 with both reset policies), retained full design-system and fresh native16/20MiB

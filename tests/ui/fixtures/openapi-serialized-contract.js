@@ -1,4 +1,5 @@
 import RequestBodyGit from "./request-body-git.svelte";
+import { externalContractEvidence } from "../helpers/openapi-external-contract.js";
 import { analyzeSpec, generateRequests } from "../../../src/lib/openapi.js";
 import { mount } from "svelte";
 import KeyValueEditor from "../../../src/lib/components/KeyValueEditor.svelte";
@@ -252,3 +253,7 @@ mount(KeyValueEditor, {
 const bodyHost = document.createElement("section");
 document.body.append(bodyHost);
 mount(RequestBodyGit, { target: bodyHost });
+const external = document.createElement("pre");
+external.setAttribute("aria-label", "External example contract evidence");
+external.textContent = JSON.stringify(externalContractEvidence());
+document.body.append(external);

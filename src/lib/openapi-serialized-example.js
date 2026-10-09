@@ -1,18 +1,25 @@
 import { parseMediaType } from "./media-type.js";
 import { encodeOpenApiContent } from "./openapi-content.js";
+import {
+  selectedExternalExample,
+  externalExampleText,
+} from "./openapi-example-assets.js";
 
 /** Select authored HTTP representation before sampling or data-value serialization.
  * @param {Record<string,any>|undefined} parameter @param {Record<string,any>|undefined} media @param {string} version */
 export function selectSerializedExample(parameter, media, version) {
-  if (!version.startsWith("3.2.")) return null;
   const candidates = /** @type {[Record<string,any>|undefined,string][]} */ ([
     [parameter, "parameter"],
     [media, "media"],
   ]);
   for (const [node, level] of candidates) {
+    const external = selectedExternalExample(node);
+    if (external)
+      return { text: externalExampleText(external), level: String(level) };
     const first = Object.values(node?.examples || {})[0];
     if (
       first &&
+      version.startsWith("3.2.") &&
       typeof first === "object" &&
       Object.hasOwn(first, "serializedValue")
     )

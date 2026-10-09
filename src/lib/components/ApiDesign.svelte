@@ -22,7 +22,17 @@
     update,
     selectRequest,
   } from "../workspace.svelte.js";
-  import { id } from "../model.js";
+  import { id, newRequest } from "../model.js";
+  import {
+    addExampleAssets,
+    exampleAssetLimit,
+  } from "../openapi-example-assets.js";
+  import {
+    encodeBase64,
+    prepareRenderedRequest,
+    send,
+    cancel as cancelHttp,
+  } from "../transport.js";
   import { previewJson, specLimit } from "../openapi-document.js";
   import { download } from "../import-export.js";
   /** @type {{ workspaceId: string, onrequests: () => void }} */
@@ -51,6 +61,10 @@
     generating = $state(false),
     previewTab = $state("Operations");
   let checkedInput = $state("");
+  let exampleUrl = $state("");
+  let loadingExamples = $state(false);
+  /** @type {ReturnType<typeof beginWorkspaceWork>|null} */
+  let exampleWork = null;
   let input = $derived(
     spec
       ? JSON.stringify({
@@ -58,6 +72,7 @@
           fileName: spec.fileName,
           contents: spec.contents,
           files: spec.files || [],
+          exampleFiles: spec.exampleFiles || [],
         })
       : "",
   );
@@ -286,6 +301,94 @@
     editor.focus();
     editor.setSelectionRange(offset, offset);
   }
+
+  /** Load byte assets only on an explicit file/HTTP action; analysis never fetches.
+   * @param {Event & {currentTarget:HTMLInputElement}} [event] */
+  async function loadExamples(event) {
+    if (!spec || busy || loadingExamples || disposed) return;
+    const target = spec;
+    const snapshot = input;
+    const selected = Array.from(event?.currentTarget.files || []);
+    let work;
+    let runId = "";
+    const abort = () => {
+      if (runId) void cancelHttp(runId).catch(() => {});
+    };
+    try {
+      work = beginWorkspaceWork();
+      fileWork.add(work);
+      work.signal.addEventListener("abort", abort, { once: true });
+      exampleWork = work;
+      loadingExamples = true;
+      const loaded = [];
+      if (event) {
+        for (const file of selected) {
+          if (file.size > exampleAssetLimit)
+            throw new Error(`${file.name} exceeds 2 MiB.`);
+          work.signal.throwIfAborted();
+          const bytes = new Uint8Array(await file.arrayBuffer());
+          work.signal.throwIfAborted();
+          loaded.push({
+            name: file.name,
+            base64: encodeBase64(bytes),
+            contentType: file.type,
+          });
+        }
+      } else {
+        const url = new URL(exampleUrl);
+        if (!["http:", "https:"].includes(url.protocol))
+          throw new Error("Example downloads require an HTTP(S) URL.");
+        runId = id("example");
+        const request = newRequest(workspaceId, {
+          url: url.href,
+          settingSendCookies: false,
+          settingStoreCookies: false,
+        });
+        const data = {
+          ...workspace.data,
+          resources: [...workspace.data.resources, request],
+        };
+        const prepared = prepareRenderedRequest(data, request, runId);
+        work.signal.throwIfAborted();
+        const response = await send(prepared, work.signal);
+        work.signal.throwIfAborted();
+        if (response.status < 200 || response.status >= 300)
+          throw new Error(`Example download returned HTTP ${response.status}.`);
+        loaded.push({
+          name: url.href,
+          base64: response.bodyBase64,
+          contentType:
+            response.headers.find(
+              (/** @type {string[]} */ h) =>
+                h[0].toLowerCase() === "content-type",
+            )?.[1] || "",
+        });
+      }
+      work.signal.throwIfAborted();
+      if (
+        disposed ||
+        workspace.data.activeWorkspaceId !== workspaceId ||
+        input !== snapshot
+      )
+        throw new Error(
+          "Document or collection changed while loading examples. Load them again.",
+        );
+      update(target._id, { exampleFiles: addExampleAssets(target, loaded) });
+      error = "";
+      notice = `${loaded.length} example file(s) loaded. Check the document again.`;
+    } catch (e) {
+      if (!disposed)
+        error = work?.signal.aborted ? "Example loading cancelled." : String(e);
+    } finally {
+      if (work) {
+        work.signal.removeEventListener("abort", abort);
+        fileWork.delete(work);
+        work.finish();
+      }
+      loadingExamples = false;
+      exampleWork = null;
+    }
+  }
 </script>
 
 <section class="api-design" aria-label="API Design">
@@ -368,6 +471,69 @@
         disabled={busy}>Attach $ref files</FilePicker
       >
     </Toolbar>
+    <Toolbar variant="design" class="design-toolbar">
+      <FilePicker
+        multiple
+        disabled={busy || loadingExamples}
+        onchange={(event) => loadExamples(event)}
+        >Attach example files</FilePicker
+      >
+      <Input
+        aria-label="Example download URL"
+        type="url"
+        bind:value={exampleUrl}
+        placeholder="https://example.com/example.bin"
+        disabled={busy || loadingExamples}
+      />
+      <Button
+        variant="secondary"
+        disabled={busy || loadingExamples || !exampleUrl}
+        busy={loadingExamples}
+        onclick={() => loadExamples()}>Load example URL</Button
+      >
+      {#if loadingExamples}
+        <Button variant="secondary" onclick={() => exampleWork?.cancel()}
+          >Cancel example load</Button
+        >
+      {/if}
+    </Toolbar>
+    {#if spec.exampleFiles?.length}<details class="design-references">
+        <summary>{spec.exampleFiles.length} example files</summary>
+        <p class="hint">
+          Names match externalValue URIs. Bytes stay separate from JSON/YAML
+          references; only loaded examples are used.
+        </p>
+        {#each spec.exampleFiles as file, index}<Toolbar
+            variant="design"
+            class="design-toolbar"
+          >
+            <Input
+              aria-label={`Example file ${index + 1} name`}
+              value={file.name}
+              disabled={busy || loadingExamples}
+              oninput={(event) =>
+                update(spec._id, {
+                  exampleFiles: spec.exampleFiles.map(
+                    (/** @type {any} */ item, /** @type {number} */ i) =>
+                      i === index
+                        ? { ...item, name: event.currentTarget.value }
+                        : item,
+                  ),
+                })}
+            />
+            <Button
+              variant="ghost"
+              disabled={busy || loadingExamples}
+              onclick={() =>
+                update(spec._id, {
+                  exampleFiles: spec.exampleFiles.filter(
+                    (/** @type {any} */ _, /** @type {number} */ i) =>
+                      i !== index,
+                  ),
+                })}>Remove example</Button
+            >
+          </Toolbar>{/each}
+      </details>{/if}
     {#if spec.files?.length}<details class="design-references">
         <summary>{spec.files.length} reference files</summary>
         <p class="hint">

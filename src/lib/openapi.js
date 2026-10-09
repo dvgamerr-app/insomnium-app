@@ -22,6 +22,11 @@ import {
 import { parseSpec, methods } from "./openapi-document.js";
 import { isOpenApiJsonMediaType } from "./openapi-content.js";
 import { isJsonBodyMediaType, isUtf8PlainTextMediaType } from "./media-type.js";
+import {
+  exampleAssetIndex,
+  applyExampleAssets,
+  selectedExternalExample,
+} from "./openapi-example-assets.js";
 
 /** @param {Record<string, any>} spec */
 export function analyzeSpec(spec) {
@@ -77,6 +82,7 @@ export function analyzeSpec(spec) {
     8 * 1024 * 1024
   )
     throw new Error("Combined specification files exceed 8 MiB.");
+  const assets = exampleAssetIndex(spec);
   const filesystem = files.map((file, index) => {
     const value = structuredClone(file.value);
     const stack = [{ value, depth: 0 }];
@@ -106,6 +112,15 @@ export function analyzeSpec(spec) {
       references: [],
     };
   });
+  const documents = new Map(
+    filesystem.map((file) => [file.filename, file.specification]),
+  );
+  applyExampleAssets(
+    filesystem[0].specification,
+    filesystem[0].filename,
+    assets,
+    documents,
+  );
   const resolved = dereference(filesystem);
   for (const error of resolved.errors || [])
     add("error", error.message || "Unresolved reference");
@@ -639,11 +654,14 @@ export function generateRequests(
       const json = isJsonBodyMediaType(mime);
       try {
         const media = content[mime];
-        const serialized = selectSerializedExample(
-          undefined,
-          media,
-          String(schema.openapi || ""),
-        );
+        const external = selectedExternalExample(media);
+        const serialized = external
+          ? null
+          : selectSerializedExample(
+              undefined,
+              media,
+              String(schema.openapi || ""),
+            );
         const rawBinary =
           (String(schema.openapi).startsWith("3.0.") &&
             media.schema?.format === "binary") ||
@@ -653,7 +671,14 @@ export function generateRequests(
             !/^(?:text\/|(?:application\/(?:[\w.-]+\+)?(?:json|xml)|application\/graphql|application\/x-www-form-urlencoded|multipart\/form-data)(?:;|$))/i.test(
               mime || "",
             ));
-        if (serialized) {
+        if (external) {
+          request.body = {
+            mimeType: mime,
+            binary: true,
+            base64: external.base64,
+            fileName: String(external.name).split("/").at(-1) || "example.bin",
+          };
+        } else if (serialized) {
           const serialization = {
             style: "serialized",
             serializedLevel: "media",

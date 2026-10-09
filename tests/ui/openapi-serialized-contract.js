@@ -4,6 +4,18 @@ import { withComponentFixture } from "./helpers/component-fixture.js";
 await withComponentFixture(
   "openapi-serialized-contract",
   async (page, output) => {
+    const external = JSON.parse(
+      await page
+        .getByLabel("External example contract evidence", { exact: true })
+        .innerText(),
+    );
+    assert.equal(external.passed, true);
+    assert.equal(external.checks.length, 8);
+    assert.equal(external.controls.length, 30);
+    await Bun.write(
+      output + "/external-acceptance.json",
+      JSON.stringify(external, null, 2),
+    );
     const evidence = page.getByLabel("Serialized example composer evidence", {
       exact: true,
     });
