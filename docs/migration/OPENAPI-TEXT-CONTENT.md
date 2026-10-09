@@ -1,6 +1,6 @@
 # UTF-8 text content parameters
 
-Verified, 2026-10-09. Scalar UTF-8 text content parameter coverage, cookie regression and URL signing are accepted on the same frozen production build. Helper topic e5b4cbb is committed; the final app/text topic commit and handoff follow these checks. Full migration/UX/CSS remains incomplete.
+Verified, 2026-10-09. Scalar UTF-8 text content parameter coverage, cookie regression and URL signing are accepted on the same frozen production build. Implementation topic b02386b and supporting helper e5b4cbb are committed; STATUS records the verified handoff. Full migration/UX/CSS remains incomplete.
 
 ## Behavior
 
