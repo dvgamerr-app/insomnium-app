@@ -1,5 +1,13 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Playwright headless — owner follow-up verified — 2026-10-09
+
+- Current implementation checkpoint: 5f411b9. Rechecked every saved JavaScript browser launch for the owner's headless request: the only launch is `launchUiBrowser` in `tests/ui/helpers/preview-app.js`, with fixed `headless: true` and no headed override. No browser launch code change was needed.
+- Native scenarios hide the owned Tauri host before `connectOverCDP` in `tests/ui/helpers/native-app.js` and report `native-hidden`; this is distinct from a headless browser. This follow-up inspected the native helper; it did not rerun native scenarios.
+- `bun tests/ui/git-merge-contract.js` completed with terminal exit0. `artifacts/playwright/git-merge-contract/result.json` is passed; `acceptance.json` confirms all9 checks. Scope: headless production client/planner/coordinator with controlled adapters, not native IPC or mounted application acceptance. No live process handle remains from this verification.
+- Uncommitted OpenAPI querystring source work remains pending and is excluded from this documentation commit. It has direct/compiler evidence but no fresh native acceptance; the advanced boundary check still needs its form-style-array expectation reviewed. All original migration/UX/CSS gates remain required and the full goal remains active.
+- This status records the current commit, evidence, remaining gates and live-handle state. This interface has no callable `/compact`; this committed handoff is the fallback, and compaction is not claimed.
+
 ## OpenAPI 3.2 methods — verified feature — 2026-10-09
 
 - Current implementation commite8a8d59 (feat(openapi): generate QUERY and custom HTTP operations), based on6df8848. Worktree was clean after the topic commit; this documentation checkpoint records the verified feature before the next feature. Previous turn made progress with native methods6 acceptance; this turn completed fresh query44 acceptance, independent audit, visual review and owned cleanup. Applicable Claude discovery empty; STATUS/PLAN/PARITY reviewed. Full original migration/UX/CSS objective stays active.
