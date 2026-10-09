@@ -1,7 +1,12 @@
 import { sample } from "openapi-sampler";
 import { schemaReferenceFields } from "./openapi-references.js";
+import {
+  sampleBooleanSchema,
+  validateBooleanSample,
+  prepareBooleanSample,
+} from "./openapi-boolean-schema.js";
 
-/** @typedef {{nodes:Record<string,any>[],ids:Map<Record<string,any>,number>,bases:(string|undefined)[],references:Map<number,{keyword:string,target:number|undefined,dynamicName:string|undefined}[]>,anchors:Map<string,Map<string,number>>,bindings:Map<Record<string,any>,number>}} SchemaEvaluation */
+/** @typedef {{nodes:Record<string,any>[],ids:Map<Record<string,any>,number>,bases:(string|undefined)[],references:Map<number,{keyword:string,target:number|undefined,dynamicName:string|undefined}[]>,anchors:Map<string,Map<string,number>>,booleans:Map<number|undefined,boolean>,bindings:Map<Record<string,any>,number>}} SchemaEvaluation */
 
 const annotations = new Set([
   "$id",
@@ -27,7 +32,7 @@ function put(target, key, value) {
  * @param {number} entry @param {SchemaEvaluation} graph */
 export function expandDynamicSchema(entry, graph) {
   const cache =
-    /** @type {Map<string,{value:Record<string,any>,pending:boolean,referenced:boolean}>} */ (
+    /** @type {Map<string,{value:Record<string,any>|boolean,pending:boolean,referenced:boolean}>} */ (
       new Map()
     );
   let count = 0;
@@ -41,8 +46,10 @@ export function expandDynamicSchema(entry, graph) {
       );
     return structuredClone(value);
   }
-  /** @param {number} id @param {Map<string,number>} inherited @param {number} depth @returns {Record<string,any>} */
+  /** @param {number} id @param {Map<string,number>} inherited @param {number} depth @returns {Record<string,any>|boolean} */
   function visit(id, inherited, depth) {
+    if (graph.booleans.has(id))
+      return /** @type {boolean} */ (graph.booleans.get(id));
     const node = graph.nodes[id];
     if (!node) throw Error("Dynamic schema reference target is unavailable.");
     const scope = new Map(inherited);
@@ -61,7 +68,7 @@ export function expandDynamicSchema(entry, graph) {
     if (++count > 10000 || depth > 100)
       throw Error("Dynamic schema sampling exceeds the processing limit.");
     const state = {
-      value: /** @type {Record<string,any>} */ ({}),
+      value: /** @type {Record<string,any>|boolean} */ ({}),
       pending: true,
       referenced: false,
     };
@@ -101,7 +108,7 @@ export function expandDynamicSchema(entry, graph) {
         expanded = value.map(childSchema);
       else if (role) expanded = childSchema(value);
       else expanded = copyLiteral(value);
-      put(state.value, field, expanded);
+      put(/** @type {Record<string,any>} */ (state.value), field, expanded);
     }
     const targets = references.map((reference) => {
       const target =
@@ -119,15 +126,20 @@ export function expandDynamicSchema(entry, graph) {
       const target = targets[0];
       if (target === state.value)
         throw Error("Schema reference cycle has no finite sample shape.");
-      if (state.referenced) {
-        for (const field of Object.keys(state.value)) delete state.value[field];
+      if (state.referenced && typeof target !== "boolean") {
+        for (const field of Object.keys(state.value))
+          delete (/** @type {Record<string,any>} */ (state.value)[field]);
         for (const [field, value] of Object.entries(target))
-          put(state.value, field, value);
+          put(/** @type {Record<string,any>} */ (state.value), field, value);
       } else state.value = target;
     } else if (targets.length) {
-      const siblings = { ...state.value };
-      for (const field of Object.keys(state.value)) delete state.value[field];
-      put(state.value, "allOf", [...targets, siblings]);
+      const siblings = { .../** @type {Record<string,any>} */ (state.value) };
+      for (const field of Object.keys(state.value))
+        delete (/** @type {Record<string,any>} */ (state.value)[field]);
+      put(/** @type {Record<string,any>} */ (state.value), "allOf", [
+        ...targets,
+        siblings,
+      ]);
     }
     state.pending = false;
     return state.value;
@@ -135,13 +147,51 @@ export function expandDynamicSchema(entry, graph) {
   return visit(entry, new Map(), 0);
 }
 
-/** @param {Record<string,any>} definition @param {Record<string,any>} root
+/** @param {Record<string,any>|boolean} definition @param {Record<string,any>} root
  * @param {SchemaEvaluation|undefined} evaluation */
 export function sampleApiSchema(definition, root, evaluation) {
-  const entry = evaluation?.bindings.get(definition);
+  const entry =
+    typeof definition === "object"
+      ? evaluation?.bindings.get(definition)
+      : undefined;
   const schema =
     entry === undefined || !evaluation
       ? definition
       : expandDynamicSchema(entry, evaluation);
+  if (typeof schema === "boolean" || evaluation?.booleans.size)
+    return sampleBooleanSchema(schema, root);
   return sample(schema, { skipReadOnly: true, quiet: true }, root);
+}
+
+/** @param {Record<string,any>|boolean} definition @param {any} value @param {SchemaEvaluation|undefined} evaluation */
+export function validateApiSchemaSample(definition, value, evaluation) {
+  if (typeof definition !== "boolean" && !evaluation?.booleans.size)
+    return value;
+  const entry =
+    typeof definition === "object"
+      ? evaluation?.bindings.get(definition)
+      : undefined;
+  return validateBooleanSample(
+    entry === undefined || !evaluation
+      ? definition
+      : expandDynamicSchema(entry, evaluation),
+    value,
+  );
+}
+
+/** @param {Record<string,any>|boolean} definition @param {SchemaEvaluation|undefined} evaluation */
+export function isImpossibleApiSchema(definition, evaluation) {
+  if (typeof definition !== "boolean" && !evaluation?.booleans.size)
+    return false;
+  const entry =
+    typeof definition === "object"
+      ? evaluation?.bindings.get(definition)
+      : undefined;
+  return (
+    prepareBooleanSample(
+      entry === undefined || !evaluation
+        ? definition
+        : expandDynamicSchema(entry, evaluation),
+    ) === false
+  );
 }

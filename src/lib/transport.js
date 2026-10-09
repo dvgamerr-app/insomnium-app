@@ -107,9 +107,15 @@ export function prepareRenderedRequest(data, request, runId, options = {}) {
 /** @param {Record<string,any>} data @param {Record<string,any>} request @param {string} runId
  * @param {(value:unknown)=>string} resolve @param {()=>string} resolvedOAuthHeader */
 function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
-  if (request._openapiIssues?.length)
+  const openapiIssues = [
+    ...new Set([
+      ...(request._openapiIssues || []),
+      ...(request._openapiSchemaIssues || []),
+    ]),
+  ];
+  if (openapiIssues.length)
     throw new Error(
-      `Review this generated request in Settings before sending:\n${request._openapiIssues.join("\n")}`,
+      `Review this generated request in Settings before sending:\n${openapiIssues.join("\n")}`,
     );
   if (request._migrationIssues?.length)
     throw new Error(request._migrationIssues.join("\n"));

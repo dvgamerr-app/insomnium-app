@@ -330,12 +330,14 @@ export function schemaResourceEvidence() {
       make(version, { $dynamicRef: "#owned" }),
       "Reference target is missing",
     );
+    const booleanBody = make(version, {}, { False: false });
+    booleanBody.paths["/body"].post.requestBody = ref(
+      "#/components/schemas/False",
+    );
     refuse(
-      name("boolean reference pending"),
-      make(version, ref("#/components/schemas/Root/$defs/False"), {
-        Root: { $defs: { False: false } },
-      }),
-      "not an object schema",
+      name("boolean target outside Schema Object"),
+      booleanBody,
+      "Reference target is missing",
     );
     refuse(
       name("unknown resource dialect"),

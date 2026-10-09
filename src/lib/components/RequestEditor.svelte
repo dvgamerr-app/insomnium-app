@@ -37,6 +37,12 @@
   import { isJsonBodyMediaType } from "../media-type.js";
   /** @type {{ request: Record<string, any>, onchange: (patch: Record<string, any>) => void }} */
   let { request, onchange } = $props();
+  const openapiIssues = $derived([
+    ...new Set([
+      ...(request._openapiIssues || []),
+      ...(request._openapiSchemaIssues || []),
+    ]),
+  ]);
   let tab = $state("Body");
   const binaryBody = $derived(isBinaryBody(request.body));
   const headerRows = $derived([
@@ -571,13 +577,10 @@
       </FormPanel>
     {:else if tab === "Settings"}
       <FormPanel class="form-panel">
-        {#if request._openapiIssues?.length}<Feedback
-            as="div"
-            class="inline-error"
-          >
+        {#if openapiIssues.length}<Feedback as="div" class="inline-error">
             <p>This generated request needs manual corrections:</p>
             <ul>
-              {#each request._openapiIssues as issue}<li>{issue}</li>{/each}
+              {#each openapiIssues as issue}<li>{issue}</li>{/each}
             </ul>
             <Button
               variant="secondary"
@@ -585,6 +588,7 @@
               onclick={() =>
                 onchange({
                   _openapiIssues: [],
+                  _openapiSchemaIssues: [],
                   _openapiReviewedAt: Date.now(),
                 })}>I have corrected these request fields</Button
             >

@@ -27,8 +27,8 @@ export function apiDocumentBaseUri(document, retrievalUri) {
   uri.hash = "";
   return uri.href;
 }
-/** @param {string} text */
-export function parseSpec(text) {
+/** @param {string} text @param {{allowBoolean?:boolean}} [options] */
+export function parseSpec(text, options = {}) {
   if (new TextEncoder().encode(text).byteLength > specLimit)
     throw new Error("Each specification file is limited to 2 MiB.");
   const lines = new LineCounter();
@@ -39,6 +39,8 @@ export function parseSpec(text) {
   if (document.errors.length)
     throw new Error(document.errors.map((error) => error.message).join("\n"));
   const value = document.toJS({ maxAliasCount: 100 });
+  if (options.allowBoolean && typeof value === "boolean")
+    return { value, document, lines };
   if (!value || typeof value !== "object" || Array.isArray(value))
     throw new Error("Expected a JSON/YAML object.");
   // YAML graph aliases may be cyclic; persisted specifications and OpenAPI documents must be JSON-compatible.

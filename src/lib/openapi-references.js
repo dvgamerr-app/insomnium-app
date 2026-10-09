@@ -158,11 +158,39 @@ export function prepareApiReferences(files) {
   while (
     keys.has(marker) ||
     keys.has(marker + "_origin") ||
-    keys.has(marker + "_schema")
+    keys.has(marker + "_schema") ||
+    keys.has(marker + "_boolean")
   )
     marker += "_";
   const origin = marker + "_origin";
   const binding = marker + "_schema";
+  const booleanMarker = marker + "_boolean";
+  const booleans = /** @type {Map<Record<string,any>,boolean>} */ (new Map());
+  /** @param {boolean} value @param {Record<string,any>} parent @param {string} key @param {{file:string,path:string[]}} location */
+  function boxBoolean(value, parent, key, location) {
+    const box = { [booleanMarker]: value };
+    Object.defineProperty(parent, key, {
+      value: box,
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
+    booleans.set(box, value);
+    all.push(box);
+    locations.set(box, location);
+    return box;
+  }
+  for (const file of files)
+    if (
+      typeof file.specification === "boolean" &&
+      /^3\.[12]\./.test(String(files[0].specification.openapi || ""))
+    ) {
+      const box = boxBoolean(file.specification, file, "specification", {
+        file: file.filename,
+        path: [],
+      });
+      documents.set(file.filename, box);
+    }
   const allowed = new WeakSet();
   const references =
     /** @type {{node:Record<string,any>,base:string,kind:string,keyword:string,followed:boolean}[]} */ ([]);
@@ -218,26 +246,47 @@ export function prepareApiReferences(files) {
     uri.hash = "";
     let target =
       kind === "schema" ? resources.get(uri.href) : documents.get(uri.href);
+    const resource = target;
+    let parent = /** @type {Record<string,any>|undefined} */ (undefined);
+    let lastKey = "";
     if (fragment && !fragment.startsWith("/"))
       return kind === "schema"
         ? anchors.get(uri.href + "#" + fragment)
         : undefined;
     for (const part of fragment ? fragment.slice(1).split("/") : []) {
       const key = part.replaceAll("~1", "/").replaceAll("~0", "~");
+      parent = target;
+      lastKey = key;
       target = target && Object.hasOwn(target, key) ? target[key] : undefined;
     }
+    if (kind === "schema" && typeof target === "boolean" && parent) {
+      const location = locations.get(parent);
+      const dialect =
+        dialects.get(resource || {}) ||
+        (location && fileDialects.get(location.file)) ||
+        defaultDialect;
+      if (location && supportedDialect(dialect))
+        return boxBoolean(target, parent, lastKey, {
+          file: location.file,
+          path: [...location.path, lastKey],
+        });
+    }
+    if (kind !== "schema" && target && booleans.has(target)) return undefined;
     return target;
   };
   const seen = /** @type {WeakMap<object,Set<string>>} */ (new WeakMap());
-  const pending = files.map((file) => ({
-    node: file.specification,
-    base: file.filename,
-    dialect: fileDialects.get(file.filename) || defaultDialect,
-    kind:
-      file.specification.openapi || file.specification.swagger
-        ? "openapi"
-        : "schema",
-  }));
+  const pending =
+    /** @type {{node:any,base:string,dialect:string,kind:string,parent?:Record<string,any>,key?:string}[]} */ (
+      files.map((file) => ({
+        node: file.specification,
+        base: file.filename,
+        dialect: fileDialects.get(file.filename) || defaultDialect,
+        kind:
+          file.specification.openapi || file.specification.swagger
+            ? "openapi"
+            : "schema",
+      }))
+    );
   // Discover lexical resources first, then follow references to detached typed
   // fragments. Repeat only when a reference reveals another schema resource.
   let pass = 0;
@@ -247,20 +296,42 @@ export function prepareApiReferences(files) {
     while (pending.length) {
       const current = pending.pop();
       if (!current) continue;
-      const { node } = current;
+      let { node } = current;
       let { base, dialect } = current;
       let { kind } = current;
-      if (!node || typeof node !== "object") continue;
       if (kind === "schemaOrArray")
         kind = Array.isArray(node) ? "array:schema" : "schema";
+      if (
+        kind === "schema" &&
+        typeof node === "boolean" &&
+        current.parent &&
+        current.key !== undefined
+      ) {
+        const location = locations.get(current.parent);
+        if (location && supportedDialect(dialect))
+          node = boxBoolean(node, current.parent, current.key, {
+            file: location.file,
+            path: [...location.path, current.key],
+          });
+        else if (dialect !== "legacy")
+          errors.push("Schema resource dialect is not supported: " + dialect);
+      }
+      if (!node || typeof node !== "object") continue;
       const roles = seen.get(node) || new Set();
       if (roles.has(kind)) continue;
       roles.add(kind);
       seen.set(node, roles);
       if (kind.startsWith("array:")) {
         if (Array.isArray(node))
-          for (const child of node)
-            pending.push({ node: child, base, dialect, kind: kind.slice(6) });
+          for (const [index, child] of node.entries())
+            pending.push({
+              node: child,
+              base,
+              dialect,
+              kind: kind.slice(6),
+              parent: node,
+              key: String(index),
+            });
         continue;
       }
       if (
@@ -275,7 +346,14 @@ export function prepareApiReferences(files) {
             : "pathItem";
         for (const [key, child] of Object.entries(node)) {
           if (!kind.startsWith("map:") && key.startsWith("x-")) continue;
-          pending.push({ node: child, base, dialect, kind: childKind });
+          pending.push({
+            node: child,
+            base,
+            dialect,
+            kind: childKind,
+            parent: node,
+            key,
+          });
         }
         continue;
       }
@@ -349,8 +427,18 @@ export function prepareApiReferences(files) {
       for (const [key, childKind] of Object.entries(
         fields[/** @type {keyof typeof fields} */ (kind)] || {},
       ))
-        if (node[key] && typeof node[key] === "object")
-          pending.push({ node: node[key], base, dialect, kind: childKind });
+        if (
+          typeof node[key] === "boolean" ||
+          (node[key] && typeof node[key] === "object")
+        )
+          pending.push({
+            node: node[key],
+            base,
+            dialect,
+            kind: childKind,
+            parent: node,
+            key,
+          });
     }
     for (const reference of references) {
       if (reference.followed) continue;
@@ -386,7 +474,10 @@ export function prepareApiReferences(files) {
   // Retain authored schemas before parser rewriting. Maps remain structured-
   // cloneable across the worker boundary; no private keys enter saved resources.
   let evaluation = undefined;
-  if (references.some((reference) => reference.keyword === "$dynamicRef")) {
+  if (
+    booleans.size ||
+    references.some((reference) => reference.keyword === "$dynamicRef")
+  ) {
     const nodes = all.filter((node) => schemaBases.has(node));
     const ids = new Map(nodes.map((node, index) => [node, index]));
     const nodeReferences = new Map();
@@ -429,6 +520,9 @@ export function prepareApiReferences(files) {
       bases: nodes.map((node) => schemaBases.get(node)),
       references: nodeReferences,
       anchors: scopeAnchors,
+      booleans: new Map(
+        [...booleans].map(([node, value]) => [ids.get(node), value]),
+      ),
     });
     for (const [node, id] of ids) node[binding] = id;
   }
@@ -471,13 +565,26 @@ export function prepareApiReferences(files) {
     node.$ref = uri.href;
     if (uri.href !== original) node[origin] = original;
   }
-  return { marker, origin, binding, evaluation, errors: [...new Set(errors)] };
+  return {
+    marker,
+    origin,
+    binding,
+    booleanMarker,
+    evaluation,
+    errors: [...new Set(errors)],
+  };
 }
 
 /** Restore payload members after parser cloning/resolution, including cyclic schemas.
- * @param {Record<string,any>} root @param {{marker:string,origin:string,binding:string}} protection */
-export function restoreApiReferences(root, { marker, origin, binding }) {
+ * @param {Record<string,any>} root @param {{marker:string,origin:string,binding:string,booleanMarker:string}} protection */
+export function restoreApiReferences(
+  root,
+  { marker, origin, binding, booleanMarker },
+) {
   const bindings = /** @type {Map<Record<string,any>,number>} */ (new Map());
+  const replacements = /** @type {Map<Record<string,any>,boolean>} */ (
+    new Map()
+  );
   const pending = [root],
     seen = new WeakSet();
   while (pending.length) {
@@ -493,8 +600,35 @@ export function restoreApiReferences(root, { marker, origin, binding }) {
       if (Object.hasOwn(node, "$ref")) node.$ref = node[origin];
       delete node[origin];
     }
+    if (Object.hasOwn(node, booleanMarker)) {
+      const value = node[booleanMarker];
+      delete node[booleanMarker];
+      if (!Object.keys(node).length) replacements.set(node, value);
+      else if (!value) {
+        const siblings = { ...node };
+        for (const key of Object.keys(node)) delete node[key];
+        node.allOf = [false, siblings];
+      }
+    }
     for (const child of Object.values(node))
       if (child && typeof child === "object") pending.push(child);
+  }
+  const replace = [root],
+    visited = new WeakSet();
+  while (replace.length) {
+    const node = replace.pop();
+    if (!node || typeof node !== "object" || visited.has(node)) continue;
+    visited.add(node);
+    for (const [key, child] of Object.entries(node)) {
+      if (replacements.has(child))
+        Object.defineProperty(node, key, {
+          value: replacements.get(child),
+          enumerable: true,
+          writable: true,
+          configurable: true,
+        });
+      else if (child && typeof child === "object") replace.push(child);
+    }
   }
   return bindings;
 }

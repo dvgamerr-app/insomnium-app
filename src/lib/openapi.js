@@ -7,7 +7,11 @@ import { dereference } from "@scalar/openapi-parser";
 import { validatePathParameters } from "@scalar/openapi-validator";
 import { validateApiDocument } from "./openapi-validation.js";
 import { describeOpenApiValue } from "./openapi-value.js";
-import { sampleApiSchema } from "./openapi-dynamic-schema.js";
+import {
+  sampleApiSchema,
+  validateApiSchemaSample,
+  isImpossibleApiSchema,
+} from "./openapi-dynamic-schema.js";
 import { id, newRequest } from "./model.js";
 import { serializeOpenApiQuery } from "./openapi-query.js";
 import { querystringOptions } from "./openapi-querystring.js";
@@ -81,7 +85,7 @@ export function analyzeSpec(spec) {
   const files = [
     { name: rootName, value: parsed.value },
     ...(spec.files || []).map((/** @type {any} */ file) => {
-      const value = parseSpec(file.contents).value;
+      const value = parseSpec(file.contents, { allowBoolean: true }).value;
       return {
         name: apiDocumentBaseUri(value, new URL(file.name, rootName).href),
         value,
@@ -263,20 +267,23 @@ export function analyzeSpec(spec) {
  * @param {Record<string, any>|undefined} [fallback]
  * @param {import('./openapi-dynamic-schema.js').SchemaEvaluation|undefined} [evaluation] */
 function example(node, schema, fallback, evaluation) {
+  const definition = Object.hasOwn(node, "schema") ? node.schema : node;
+  const checked = (/** @type {any} */ value) =>
+    validateApiSchemaSample(definition, value, evaluation);
   for (const candidate of [node, fallback]) {
     if (!candidate) continue;
-    if (Object.hasOwn(candidate, "example")) return candidate.example;
+    if (Object.hasOwn(candidate, "example")) return checked(candidate.example);
     const first = Object.values(candidate.examples || {})[0];
     if (first && typeof first === "object") {
       if (
         String(schema.openapi || "").startsWith("3.2.") &&
         Object.hasOwn(first, "dataValue")
       )
-        return first.dataValue;
-      if (Object.hasOwn(first, "value")) return first.value;
+        return checked(first.dataValue);
+      if (Object.hasOwn(first, "value")) return checked(first.value);
     }
   }
-  return sampleApiSchema(node.schema || node, schema, evaluation);
+  return sampleApiSchema(definition, schema, evaluation);
 }
 
 /** @param {ReturnType<typeof analyzeSpec>} analysis @param {string} workspaceId @param {string} specId @param {string} [serverOverride]
@@ -377,6 +384,31 @@ export function generateRequests(
       let value;
       const contentEntries = Object.entries(parameter.content || {});
       const [mediaType, contentMedia] = contentEntries[0] || [];
+      try {
+        if (
+          isImpossibleApiSchema(
+            (contentMedia || parameter).schema ?? {},
+            analysis.schemaEvaluation,
+          )
+        ) {
+          if (
+            parameter.required ||
+            [parameter, contentMedia].some(
+              (candidate) =>
+                candidate &&
+                (Object.hasOwn(candidate, "example") ||
+                  Object.keys(candidate.examples || {}).length),
+            )
+          )
+            issues.push(
+              `Parameter ${parameter.name}: Schema accepts no value for the requested parameter sample.`,
+            );
+          continue;
+        }
+      } catch (error) {
+        issues.push(`Parameter ${parameter.name}: ${error}`);
+        continue;
+      }
       const serialized = selectSerializedExample(
         parameter,
         contentMedia,
@@ -665,167 +697,218 @@ export function generateRequests(
       );
       const json = isJsonBodyMediaType(mime);
       try {
-        const external = selectedExternalExample(media);
-        const serialized = external
-          ? null
-          : selectSerializedExample(
-              undefined,
-              media,
-              String(schema.openapi || ""),
-            );
-        const rawBinary =
-          (String(schema.openapi).startsWith("3.0.") &&
-            media.schema?.format === "binary") ||
-          (/^3\.[12]\./.test(String(schema.openapi)) &&
-            !Object.hasOwn(media, "schema") &&
-            !json &&
-            !/^(?:text\/|(?:application\/(?:[\w.-]+\+)?(?:json|xml)|application\/graphql|application\/x-www-form-urlencoded|multipart\/form-data)(?:;|$))/i.test(
-              mime || "",
-            ));
-        if (external) {
-          request.body = {
-            mimeType: mime,
-            binary: true,
-            base64: external.base64,
-            fileName: String(external.name).split("/").at(-1) || "example.bin",
-          };
-        } else if (serialized) {
-          const serialization = {
-            style: "serialized",
-            serializedLevel: "media",
-            mediaType: mime,
-          };
-          request.body = {
-            mimeType: mime,
-            text: serialized.text,
-            _openapiSerialization: serialization,
-          };
-          serializeOpenApiSerialized(
-            "body",
-            serialized.text,
-            serialization,
-            "body",
+        const impossible = isImpossibleApiSchema(
+          media.schema ?? {},
+          analysis.schemaEvaluation,
+        );
+        if (
+          impossible &&
+          (operation.requestBody.required ||
+            Object.hasOwn(media, "example") ||
+            Object.keys(media.examples || {}).length)
+        )
+          throw Error(
+            "Schema accepts no value for the requested request body sample.",
           );
-        } else if (rawBinary) {
-          request.body = { mimeType: mime, binary: true };
-        } else {
-          const value = example(
-            media,
-            schema,
-            undefined,
-            analysis.schemaEvaluation,
-          );
-          if (
-            mime === "multipart/form-data" ||
-            mime === "application/x-www-form-urlencoded"
-          ) {
+        if (!impossible) {
+          const external = selectedExternalExample(media);
+          const serialized = external
+            ? null
+            : selectSerializedExample(
+                undefined,
+                media,
+                String(schema.openapi || ""),
+              );
+          const rawBinary =
+            (String(schema.openapi).startsWith("3.0.") &&
+              media.schema?.format === "binary") ||
+            (/^3\.[12]\./.test(String(schema.openapi)) &&
+              !Object.hasOwn(media, "schema") &&
+              !json &&
+              !/^(?:text\/|(?:application\/(?:[\w.-]+\+)?(?:json|xml)|application\/graphql|application\/x-www-form-urlencoded|multipart\/form-data)(?:;|$))/i.test(
+                mime || "",
+              ));
+          if (external) {
+            if (
+              json &&
+              Object.hasOwn(media, "schema") &&
+              (typeof media.schema === "boolean" ||
+                analysis.schemaEvaluation?.booleans.size)
+            )
+              validateApiSchemaSample(
+                media.schema,
+                JSON.parse(
+                  new TextDecoder().decode(
+                    Uint8Array.from(atob(external.base64), (character) =>
+                      character.charCodeAt(0),
+                    ),
+                  ),
+                ),
+                analysis.schemaEvaluation,
+              );
             request.body = {
               mimeType: mime,
-              params: Object.entries(value || {}).map(([name, value]) => {
-                const property = media.schema?.properties?.[name] || {};
-                const encoding = media.encoding?.[name] || {};
-                if (
-                  mime === "application/x-www-form-urlencoded" &&
-                  ["style", "explode", "allowReserved"].some((key) =>
-                    Object.hasOwn(encoding, key),
-                  )
-                ) {
-                  const descriptor = describeOpenApiValue(
-                    value,
-                    property,
-                    true,
-                  );
-                  const style = encoding.style || "form";
-                  const serialization = {
-                    formBody: true,
-                    style,
-                    explode: encoding.explode ?? style === "form",
-                    kind: descriptor.kind,
-                    ...(descriptor.nullable ? { nullable: true } : {}),
-                    ...(encoding.allowReserved ? { allowReserved: true } : {}),
-                    ...(String(schema.openapi).startsWith("3.2.") &&
-                    descriptor.kind === "array"
-                      ? describeOpenApiFormStyleItems(property)
-                      : {}),
-                    ...(String(schema.openapi).startsWith("3.2.") &&
-                    style === "deepObject"
-                      ? { ignoreDeepObjectExplode: true }
-                      : {}),
-                  };
-                  try {
-                    serializeOpenApiForm(name, descriptor.text, serialization);
-                  } catch (error) {
-                    issues.push(`Form field ${name}: ${error}`);
+              binary: true,
+              base64: external.base64,
+              fileName:
+                String(external.name).split("/").at(-1) || "example.bin",
+            };
+          } else if (serialized) {
+            if (
+              json &&
+              Object.hasOwn(media, "schema") &&
+              (typeof media.schema === "boolean" ||
+                analysis.schemaEvaluation?.booleans.size)
+            )
+              validateApiSchemaSample(
+                media.schema,
+                JSON.parse(serialized.text),
+                analysis.schemaEvaluation,
+              );
+            const serialization = {
+              style: "serialized",
+              serializedLevel: "media",
+              mediaType: mime,
+            };
+            request.body = {
+              mimeType: mime,
+              text: serialized.text,
+              _openapiSerialization: serialization,
+            };
+            serializeOpenApiSerialized(
+              "body",
+              serialized.text,
+              serialization,
+              "body",
+            );
+          } else if (rawBinary) {
+            request.body = { mimeType: mime, binary: true };
+          } else {
+            const value = example(
+              media,
+              schema,
+              undefined,
+              analysis.schemaEvaluation,
+            );
+            if (
+              mime === "multipart/form-data" ||
+              mime === "application/x-www-form-urlencoded"
+            ) {
+              request.body = {
+                mimeType: mime,
+                params: Object.entries(value || {}).map(([name, value]) => {
+                  const property = media.schema?.properties?.[name] || {};
+                  const encoding = media.encoding?.[name] || {};
+                  if (
+                    mime === "application/x-www-form-urlencoded" &&
+                    ["style", "explode", "allowReserved"].some((key) =>
+                      Object.hasOwn(encoding, key),
+                    )
+                  ) {
+                    const descriptor = describeOpenApiValue(
+                      value,
+                      property,
+                      true,
+                    );
+                    const style = encoding.style || "form";
+                    const serialization = {
+                      formBody: true,
+                      style,
+                      explode: encoding.explode ?? style === "form",
+                      kind: descriptor.kind,
+                      ...(descriptor.nullable ? { nullable: true } : {}),
+                      ...(encoding.allowReserved
+                        ? { allowReserved: true }
+                        : {}),
+                      ...(String(schema.openapi).startsWith("3.2.") &&
+                      descriptor.kind === "array"
+                        ? describeOpenApiFormStyleItems(property)
+                        : {}),
+                      ...(String(schema.openapi).startsWith("3.2.") &&
+                      style === "deepObject"
+                        ? { ignoreDeepObjectExplode: true }
+                        : {}),
+                    };
+                    try {
+                      serializeOpenApiForm(
+                        name,
+                        descriptor.text,
+                        serialization,
+                      );
+                    } catch (error) {
+                      issues.push(`Form field ${name}: ${error}`);
+                    }
+                    return {
+                      name,
+                      value: descriptor.text,
+                      _openapiSerialization: serialization,
+                    };
+                  }
+                  if (
+                    mime === "application/x-www-form-urlencoded" &&
+                    /^3\.[012]\./.test(String(schema.openapi))
+                  ) {
+                    const row = describeOpenApiFormContent(
+                      value,
+                      property,
+                      encoding,
+                      String(schema.openapi),
+                    );
+                    row.name = name;
+                    try {
+                      serializeOpenApiForm(
+                        name,
+                        row.value,
+                        row._openapiSerialization,
+                      );
+                    } catch (error) {
+                      issues.push(`Form field ${name}: ${error}`);
+                    }
+                    return row;
                   }
                   return {
                     name,
-                    value: descriptor.text,
-                    _openapiSerialization: serialization,
+                    value:
+                      typeof value === "object"
+                        ? JSON.stringify(value)
+                        : String(value),
+                    ...(property.format === "binary" ? { type: "file" } : {}),
                   };
-                }
-                if (
-                  mime === "application/x-www-form-urlencoded" &&
-                  /^3\.[012]\./.test(String(schema.openapi))
-                ) {
-                  const row = describeOpenApiFormContent(
-                    value,
-                    property,
-                    encoding,
-                    String(schema.openapi),
-                  );
-                  row.name = name;
-                  try {
-                    serializeOpenApiForm(
-                      name,
-                      row.value,
-                      row._openapiSerialization,
-                    );
-                  } catch (error) {
-                    issues.push(`Form field ${name}: ${error}`);
-                  }
-                  return row;
-                }
-                return {
-                  name,
-                  value:
-                    typeof value === "object"
-                      ? JSON.stringify(value)
-                      : String(value),
-                  ...(property.format === "binary" ? { type: "file" } : {}),
-                };
-              }),
-            };
-            if (
-              (mime === "multipart/form-data" && media.encoding) ||
-              request.body.params.some(
-                (/** @type {any} */ row) =>
-                  !row._openapiSerialization?.formBody &&
-                  ((value?.[row.name] && typeof value[row.name] === "object") ||
-                    (mime === "application/x-www-form-urlencoded" &&
-                      media.encoding?.[row.name]?.contentType)),
+                }),
+              };
+              if (
+                (mime === "multipart/form-data" && media.encoding) ||
+                request.body.params.some(
+                  (/** @type {any} */ row) =>
+                    !row._openapiSerialization?.formBody &&
+                    ((value?.[row.name] &&
+                      typeof value[row.name] === "object") ||
+                      (mime === "application/x-www-form-urlencoded" &&
+                        media.encoding?.[row.name]?.contentType)),
+                )
               )
+                issues.push("Review form field encoding before sending.");
+            } else
+              request.body = {
+                mimeType: mime || "application/json",
+                text:
+                  typeof value === "string" && !json
+                    ? value
+                    : JSON.stringify(value, null, 2),
+              };
+            if (
+              !json &&
+              ![
+                "multipart/form-data",
+                "application/x-www-form-urlencoded",
+              ].includes(mime) &&
+              typeof value !== "string" &&
+              media.schema?.format !== "binary"
             )
-              issues.push("Review form field encoding before sending.");
-          } else
-            request.body = {
-              mimeType: mime || "application/json",
-              text:
-                typeof value === "string" && !json
-                  ? value
-                  : JSON.stringify(value, null, 2),
-            };
-          if (
-            !json &&
-            ![
-              "multipart/form-data",
-              "application/x-www-form-urlencoded",
-            ].includes(mime) &&
-            typeof value !== "string" &&
-            media.schema?.format !== "binary"
-          )
-            issues.push(
-              "Review the non-JSON body serialization before sending.",
-            );
+              issues.push(
+                "Review the non-JSON body serialization before sending.",
+              );
+          }
         }
       } catch (error) {
         issues.push(`Request body needs an example: ${error}`);
@@ -877,6 +960,8 @@ export function generateRequests(
         );
     }
     request._openapiIssues = issues;
+    if (analysis.schemaEvaluation?.booleans.size)
+      request._openapiSchemaIssues = [...issues];
     resources.push(request);
   }
   return resources;
