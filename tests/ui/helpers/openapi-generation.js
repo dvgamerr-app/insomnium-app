@@ -11,10 +11,42 @@ export async function generateOwnedOpenApi(
   label,
 ) {
   const ownedName = label + " " + Date.now();
-  await page
-    .getByRole("button", { name: "Import collection", exact: true })
-    .click();
   const dialog = page.getByRole("dialog");
+  try {
+    await page
+      .getByRole("button", { name: "Import collection", exact: true })
+      .click({ timeout: 60000 });
+  } catch (cause) {
+    if (!String(cause).includes("Timeout")) throw cause;
+    if (
+      (await dialog.count()) !== 1 ||
+      !(await dialog
+        .getByLabel("Import collection or cURL commands", { exact: true })
+        .isVisible()) ||
+      !(await dialog
+        .getByRole("button", { name: "Review import", exact: true })
+        .isVisible())
+    )
+      throw cause;
+    if (output)
+      await Bun.write(
+        output + "/openapi-import-dialog-recovery.json",
+        JSON.stringify(
+          {
+            action: "Import collection",
+            oneMountedInputDialog: true,
+            duplicateClick: false,
+            reason:
+              "Click acknowledgment timed out after the import input dialog mounted",
+          },
+          null,
+          2,
+        ),
+      );
+  }
+  await dialog
+    .getByLabel("Import collection or cURL commands", { exact: true })
+    .waitFor({ timeout: 60000 });
   await dialog
     .getByLabel("Import collection or cURL commands", { exact: true })
     .fill(

@@ -97,7 +97,9 @@
               aria-describedby={[
                 row._openapiSerialization?.nullable ||
                 row._openapiSerialization?.formBody ||
-                row._openapiSerialization?.style === "content"
+                ["content", "serialized"].includes(
+                  row._openapiSerialization?.style,
+                )
                   ? `${editorId}-value-${index}-help`
                   : "",
                 row._openapiSerialization?.allowReserved
@@ -132,37 +134,41 @@
         onclick={() => onchange(rows.filter((_, i) => i !== index))}
         ><Icon name="close" size={14} /></Button
       >
-      {#if row._openapiSerialization?.nullable || row._openapiSerialization?.formBody || row._openapiSerialization?.allowReserved || row._openapiSerialization?.style === "content"}
+      {#if row._openapiSerialization?.nullable || row._openapiSerialization?.formBody || row._openapiSerialization?.allowReserved || ["content", "serialized"].includes(row._openapiSerialization?.style)}
         <div class="kv-help">
-          {#if row._openapiSerialization?.nullable || row._openapiSerialization?.formBody || row._openapiSerialization?.style === "content"}<Feedback
+          {#if row._openapiSerialization?.nullable || row._openapiSerialization?.formBody || ["content", "serialized"].includes(row._openapiSerialization?.style)}<Feedback
               id={`${editorId}-value-${index}-help`}
               tone="hint"
               density="compact"
               >{row._openapiSerialization?.review
                 ? "Serialization requires review. Disable this row and supply a manually serialized value."
-                : row._openapiSerialization?.querystring
-                  ? `This row supplies the whole query; its name is only a label. ${row._openapiSerialization.kind === "scalar" && isUtf8PlainTextMediaType(row._openapiSerialization.mediaType) ? "Enter query text; valid percent escapes and query delimiters are preserved." : "Use JSON values."} Values use ${row._openapiSerialization.mediaType} encoding.`
-                  : row._openapiSerialization?.nullable
-                    ? row._openapiSerialization?.formBody &&
-                      row._openapiSerialization.style === "content"
-                      ? `Use JSON values, including null. Values use ${row._openapiSerialization.mediaType} form encoding.`
-                      : row._openapiSerialization.style === "content" &&
-                          isUtf8PlainTextMediaType(
-                            row._openapiSerialization.mediaType,
-                          )
-                        ? `Use JSON values, including null. Scalars use ${row._openapiSerialization.mediaType} text encoding; null omits this parameter.`
-                        : "Use JSON values, including null."
-                    : row._openapiSerialization?.formBody &&
+                : row._openapiSerialization?.style === "serialized"
+                  ? row._openapiSerialization.serializedLevel === "parameter"
+                    ? `Already serialized ${row._openapiSerialization.serializedLocation} text is sent as written. ${["query", "cookie"].includes(row._openapiSerialization.serializedLocation) ? "The name is only a label; keep names and separators in the value." : "Keep any required escaping in the value."}`
+                    : `Already serialized ${row._openapiSerialization.mediaType} text. ${row._openapiSerialization.querystring ? "The name is only a label. " : ""}The destination's outer encoding is applied when sending.`
+                  : row._openapiSerialization?.querystring
+                    ? `This row supplies the whole query; its name is only a label. ${row._openapiSerialization.kind === "scalar" && isUtf8PlainTextMediaType(row._openapiSerialization.mediaType) ? "Enter query text; valid percent escapes and query delimiters are preserved." : "Use JSON values."} Values use ${row._openapiSerialization.mediaType} encoding.`
+                    : row._openapiSerialization?.nullable
+                      ? row._openapiSerialization?.formBody &&
                         row._openapiSerialization.style === "content"
-                      ? `${row._openapiSerialization.kind === "scalar" ? "" : "Use JSON values. "}Values use ${row._openapiSerialization.mediaType} form encoding.`
-                      : row._openapiSerialization?.formBody
-                        ? `${["array", "object", "scalar-json"].includes(row._openapiSerialization.kind) ? "Use JSON values. " : ""}${row._openapiSerialization.formArrayItems ? "Each array item uses" : "Values use"} the ${row._openapiSerialization.style} style for form encoding.`
+                        ? `Use JSON values, including null. Values use ${row._openapiSerialization.mediaType} form encoding.`
                         : row._openapiSerialization.style === "content" &&
                             isUtf8PlainTextMediaType(
                               row._openapiSerialization.mediaType,
                             )
-                          ? `Values use ${row._openapiSerialization.mediaType} text encoding.`
-                          : "Use JSON values."}</Feedback
+                          ? `Use JSON values, including null. Scalars use ${row._openapiSerialization.mediaType} text encoding; null omits this parameter.`
+                          : "Use JSON values, including null."
+                      : row._openapiSerialization?.formBody &&
+                          row._openapiSerialization.style === "content"
+                        ? `${row._openapiSerialization.kind === "scalar" ? "" : "Use JSON values. "}Values use ${row._openapiSerialization.mediaType} form encoding.`
+                        : row._openapiSerialization?.formBody
+                          ? `${["array", "object", "scalar-json"].includes(row._openapiSerialization.kind) ? "Use JSON values. " : ""}${row._openapiSerialization.formArrayItems ? "Each array item uses" : "Values use"} the ${row._openapiSerialization.style} style for form encoding.`
+                          : row._openapiSerialization.style === "content" &&
+                              isUtf8PlainTextMediaType(
+                                row._openapiSerialization.mediaType,
+                              )
+                            ? `Values use ${row._openapiSerialization.mediaType} text encoding.`
+                            : "Use JSON values."}</Feedback
             >{/if}
           {#if row._openapiSerialization?.allowReserved}<Feedback
               id={`${editorId}-value-${index}-reserved-help`}

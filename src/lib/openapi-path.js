@@ -1,4 +1,5 @@
 import { readOpenApiValue } from "./openapi-value.js";
+import { serializeOpenApiSerialized } from "./openapi-serialized-example.js";
 import {
   serializeOpenApiContent,
   encodeOpenApiContent,
@@ -7,6 +8,8 @@ import {
  * @param {string} name @param {string} text
  * @param {{style:string,explode:boolean,kind:string,nullable?:boolean,mediaType?:string,review?:boolean}} options */
 export function serializeOpenApiPath(name, text, options) {
+  if (options.style === "serialized")
+    return serializeOpenApiSerialized(name, text, options, "path");
   if (options.style === "content") {
     const value = serializeOpenApiContent(name, text, options, "Path");
     return value === null ? "" : encodeOpenApiContent(value);

@@ -1,3 +1,5 @@
+import { parseMediaType } from "./media-type.js";
+
 const fields = [
   "consumerKey",
   "consumerSecret",
@@ -50,6 +52,15 @@ export function prepareOAuth1(auth, body, resolve) {
       );
   /** @type {Record<string, string> | null} */
   let data = null;
+  if (
+    config.bodyMode === "legacy" &&
+    includeBodyHash &&
+    body._openapiSerialization?.style === "serialized" &&
+    parseMediaType(body.mimeType)?.name === "application/x-www-form-urlencoded"
+  )
+    throw new Error(
+      "An already serialized form has no legacy OAuth1 field object to hash. Choose RFC 5849 explicitly in Auth.",
+    );
   if (
     config.bodyMode === "legacy" &&
     includeBodyHash &&

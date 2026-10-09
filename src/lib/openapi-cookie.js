@@ -1,10 +1,13 @@
 import { readOpenApiValue } from "./openapi-value.js";
+import { serializeOpenApiSerialized } from "./openapi-serialized-example.js";
 import { serializeOpenApiContent } from "./openapi-content.js";
 
 /** Cookie schema/content serialization, with RFC6265 delimiters and octets.
  * @param {string} name @param {string} text
  * @param {{style:string,explode:boolean,kind:string,nullable?:boolean,review?:boolean,mediaType?:string}} options */
 export function serializeOpenApiCookie(name, text, options) {
+  if (options.style === "serialized")
+    return serializeOpenApiSerialized(name, text, options, "cookie");
   if (options.style === "content") {
     const value = serializeOpenApiContent(name, text, options, "Cookie");
     if (value === null) return null;

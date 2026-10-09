@@ -1,4 +1,8 @@
 import { serializeOpenApiCookie } from "./openapi-cookie.js";
+import {
+  selectSerializedExample,
+  serializeOpenApiSerialized,
+} from "./openapi-serialized-example.js";
 import { dereference } from "@scalar/openapi-parser";
 import { validatePathParameters } from "@scalar/openapi-validator";
 import { validateApiDocument } from "./openapi-validation.js";
@@ -345,6 +349,59 @@ export function generateRequests(
       let value;
       const contentEntries = Object.entries(parameter.content || {});
       const [mediaType, contentMedia] = contentEntries[0] || [];
+      const serialized = selectSerializedExample(
+        parameter,
+        contentMedia,
+        String(schema.openapi || ""),
+      );
+      if (
+        serialized &&
+        ["query", "querystring", "header", "path", "cookie"].includes(
+          parameter.in,
+        )
+      ) {
+        const location =
+          parameter.in === "querystring" ? "query" : parameter.in;
+        const serialization = {
+          style: "serialized",
+          kind: "scalar",
+          explode: false,
+          serializedLevel: serialized.level,
+          serializedLocation: location,
+          ...(mediaType ? { mediaType } : {}),
+          ...(parameter.in === "querystring" ? { querystring: true } : {}),
+          ...(parameter.content && contentEntries.length !== 1
+            ? { review: true }
+            : {}),
+        };
+        const row = {
+          name: parameter.name,
+          value: serialized.text,
+          disabled: false,
+          _openapiSerialization: serialization,
+          ...(location === "query" &&
+          (serialized.level === "parameter" || parameter.in === "querystring")
+            ? { sendEmptyName: true }
+            : {}),
+          ...(location === "path" ? { _openapiPath: true } : {}),
+        };
+        try {
+          serializeOpenApiSerialized(
+            row.name,
+            row.value,
+            serialization,
+            location,
+          );
+        } catch (error) {
+          issues.push(`Parameter ${parameter.name}: ${error}`);
+        }
+        if (location === "path") (request.pathParameters ||= []).push(row);
+        else if (location === "cookie")
+          (request.cookieParameters ||= []).push(row);
+        else if (location === "header") request.headers.push(row);
+        else request.parameters.push(row);
+        continue;
+      }
       try {
         value = example(
           contentMedia || parameter,
@@ -582,6 +639,11 @@ export function generateRequests(
       const json = isJsonBodyMediaType(mime);
       try {
         const media = content[mime];
+        const serialized = selectSerializedExample(
+          undefined,
+          media,
+          String(schema.openapi || ""),
+        );
         const rawBinary =
           (String(schema.openapi).startsWith("3.0.") &&
             media.schema?.format === "binary") ||
@@ -591,7 +653,24 @@ export function generateRequests(
             !/^(?:text\/|(?:application\/(?:[\w.-]+\+)?(?:json|xml)|application\/graphql|application\/x-www-form-urlencoded|multipart\/form-data)(?:;|$))/i.test(
               mime || "",
             ));
-        if (rawBinary) {
+        if (serialized) {
+          const serialization = {
+            style: "serialized",
+            serializedLevel: "media",
+            mediaType: mime,
+          };
+          request.body = {
+            mimeType: mime,
+            text: serialized.text,
+            _openapiSerialization: serialization,
+          };
+          serializeOpenApiSerialized(
+            "body",
+            serialized.text,
+            serialization,
+            "body",
+          );
+        } else if (rawBinary) {
           request.body = { mimeType: mime, binary: true };
         } else {
           const value = example(media, schema);

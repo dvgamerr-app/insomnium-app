@@ -1,4 +1,5 @@
 import { serializeOpenApiCookie } from "./openapi-cookie.js";
+import { serializeOpenApiSerialized } from "./openapi-serialized-example.js";
 import { isBinaryBody } from "./binary-body.js";
 import { serializeOpenApiForm } from "./openapi-form.js";
 import { buildNetworkLog, failureLog, NetworkError } from "./network-log.js";
@@ -446,7 +447,16 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
   let multipart = null;
   let bodyBase64 = null;
   const mime = protocol === "websocket" ? "" : body.mimeType || "";
-  if (mime && isBinaryBody(body) && body.curlQuery !== true) {
+  if (mime && body._openapiSerialization?.style === "serialized") {
+    text = serializeOpenApiSerialized(
+      "body",
+      resolve(body.text ?? ""),
+      body._openapiSerialization,
+      "body",
+    );
+    if (!headers.some(([name]) => name.toLowerCase() === "content-type"))
+      headers.push(["Content-Type", mime]);
+  } else if (mime && isBinaryBody(body) && body.curlQuery !== true) {
     if (body.curlSegments)
       bodyBase64 = encodeBase64(composeCurlBody(body, resolve));
     else {

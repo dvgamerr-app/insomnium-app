@@ -197,6 +197,7 @@
             body({
               mimeType: event.currentTarget.value,
               binary: undefined,
+              _openapiSerialization: undefined,
               ...(request.body?.curlFileMode || request.body?.curlSegments
                 ? {
                     curlFileMode: undefined,
@@ -303,15 +304,20 @@
               "Select a file to send"}</FilePicker
           >
         {/if}
-      {:else if request.body.mimeType === "application/graphql"}
+      {:else if request.body.mimeType === "application/graphql" && request.body._openapiSerialization?.style !== "serialized"}
         {#key request._id}<GraphqlEditor {request} onchange={body} />{/key}
-      {:else if ["application/x-www-form-urlencoded", "multipart/form-data"].includes(request.body.mimeType)}<KeyValueEditor
+      {:else if ["application/x-www-form-urlencoded", "multipart/form-data"].includes(request.body.mimeType) && request.body._openapiSerialization?.style !== "serialized"}<KeyValueEditor
           rows={request.body.params || []}
           label="Parameter"
           files={request.body.mimeType === "multipart/form-data"}
           onchange={(params) => body({ params })}
         />
-      {:else}<CodeEditor
+      {:else}{#if request.body._openapiSerialization?.style === "serialized"}<Feedback
+            density="compact"
+            tone="hint"
+            >Already serialized body; sent as written using {request.body
+              .mimeType}.</Feedback
+          >{/if}<CodeEditor
           identity={request._id + ":body"}
           value={request.body.text || ""}
           mode={request.body.mimeType}
