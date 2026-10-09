@@ -1,5 +1,12 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Headless request — verified handoff — 2026-10-09
+
+- Browser policy is already implemented: the only saved browser launch is `launchUiBrowser` in `tests/ui/helpers/preview-app.js`, with fixed `headless: true` and no headed override. Native `withNativeApp` hides its owned host before `connectOverCDP` and records `native-hidden`; this is not a WebView2 headless claim.
+- Fresh verification: `bun tests/ui/git-merge-contract.js` completed with exit0; `artifacts/playwright/git-merge-contract/result.json` reports passed and acceptance.json confirms all9 existing contract groups. This proves the shared headless browser path and these controlled coordinator contracts, not fresh native or full migration acceptance. The fixture closes its browser and server in finally; no live command handles remain.
+- Current completed topic base is f3be00b. This documentation checkpoint records the headless verification only. Six existing uncommitted OpenAPI source files belong to the in-progress UTF-8 text content parameter feature and are excluded from this commit. That feature passed compiler0errors0warnings after correcting nullable serializer type propagation, but still requires saved scenarios, wire/metadata evidence and fresh native acceptance before a topic commit.
+- Continue committing verified work by topic and recording evidence, remaining gates and live handles before each feature handoff. The full migration/UX goal and all PLAN/PARITY gates remain active. No callable `/compact` tool is available in this interface; compaction was not invoked. This entry is the handoff before resuming the pending feature.
+
 ## Plain-text form media — committed handoff — 2026-10-09
 
 - Current topic commitaf68f5f (fix(openapi): recognize UTF-8 text form media variants) contains verified parameter parser/form recognition, literal fixtures, focused saved scenario support, text signing coverage and scoped evidence. Topic worktree clean; this entry is the documentation checkpoint.
