@@ -1,12 +1,15 @@
 import { serializeOpenApiStyle } from "./openapi-style.js";
+import { serializeOpenApiQuerystring } from "./openapi-querystring.js";
 import {
   serializeOpenApiContent,
   encodeOpenApiContent,
 } from "./openapi-content.js";
 /** Serialize flat OpenAPI 3 query values; delimiters remain distinct from encoded data.
  * @param {string} name @param {string} text
- * @param {{style:string,explode:boolean,kind:string,nullable?:boolean,mediaType?:string,review?:boolean,allowReserved?:boolean}} options */
+ * @param {{style:string,explode:boolean,kind:string,nullable?:boolean,mediaType?:string,review?:boolean,allowReserved?:boolean,querystring?:boolean}} options */
 export function serializeOpenApiQuery(name, text, options) {
+  if (options.querystring)
+    return serializeOpenApiQuerystring(name, text, options);
   if (options.style === "content") {
     const value = serializeOpenApiContent(name, text, options, "Query");
     return value === null

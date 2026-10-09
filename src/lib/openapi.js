@@ -6,6 +6,7 @@ import { describeOpenApiValue } from "./openapi-value.js";
 import { sample } from "openapi-sampler";
 import { id, newRequest } from "./model.js";
 import { serializeOpenApiQuery } from "./openapi-query.js";
+import { querystringOptions } from "./openapi-querystring.js";
 import { serializeOpenApiHeader } from "./openapi-header.js";
 import { serializeOpenApiPath } from "./openapi-path.js";
 import {
@@ -162,6 +163,38 @@ export function analyzeSpec(spec) {
     }
     for (const { method, httpMethod, operation, location } of entries)
       if (operation && typeof operation === "object") {
+        if (String(schema.openapi || "").startsWith("3.2.")) {
+          const effective = new Map(
+            [
+              ...(Array.isArray(item.parameters) ? item.parameters : []),
+              ...(Array.isArray(operation.parameters)
+                ? operation.parameters
+                : []),
+            ]
+              // The strict validator reports malformed entries; inheritance
+              // checks must not throw while presenting those diagnostics.
+              .filter((parameter) => parameter && typeof parameter === "object")
+              .map((parameter) => [
+                `${parameter.in}:${parameter.name}`,
+                parameter,
+              ]),
+          );
+          const whole = [...effective.values()].filter(
+            (parameter) => parameter.in === "querystring",
+          );
+          if (
+            whole.length > 1 ||
+            (whole.length &&
+              [...effective.values()].some(
+                (parameter) => parameter.in === "query",
+              ))
+          )
+            add(
+              "error",
+              "Use at most one querystring parameter and do not mix it with query parameters, including inherited parameters.",
+              [...location, "parameters"],
+            );
+        }
         if (!operation.summary)
           add("warning", "Operation has no summary.", location);
         if (!operation.operationId)
@@ -313,7 +346,9 @@ export function generateRequests(
         value,
         parameter.schema || contentMedia?.schema || {},
         schema.swagger !== "2.0" &&
-          ["query", "header", "path", "cookie"].includes(parameter.in),
+          ["query", "querystring", "header", "path", "cookie"].includes(
+            parameter.in,
+          ),
       );
       if (isOpenApiJsonMediaType(mediaType)) {
         if (descriptor.kind === "scalar") descriptor.kind = "scalar-json";
@@ -333,6 +368,26 @@ export function generateRequests(
         value: descriptor.text,
         disabled: false,
       });
+      if (parameter.in === "querystring") {
+        const serialization = {
+          ...querystringOptions(contentMedia || {}, String(schema.openapi)),
+          mediaType,
+          kind: descriptor.kind,
+          nullable: descriptor.nullable,
+          ...(contentEntries.length !== 1 ? { review: true } : {}),
+        };
+        if (!isUtf8PlainTextMediaType(mediaType))
+          row.value = JSON.stringify(value ?? null);
+        row.sendEmptyName = true;
+        row._openapiSerialization = serialization;
+        try {
+          serializeOpenApiQuery(row.name, row.value, serialization);
+        } catch (error) {
+          issues.push(`Parameter ${parameter.name}: ${error}`);
+        }
+        request.parameters.push(row);
+        continue;
+      }
       if (parameter.content) {
         const serialization = {
           style: "content",

@@ -8,6 +8,7 @@ import { createServer } from "node:net";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { withNativeApp, poll } from "./helpers/native-app.js";
+import { openApiQuerystringCases } from "./helpers/openapi-querystring-cases.js";
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-url-encoding-ui-probe/build-state.json";
 /** @type {string[]} */ const received = [];
@@ -355,6 +356,59 @@ try {
       80,
       "32 ordered query signing cases retain all46 original signing cases",
     );
+    for (const source of resources.filter(
+      (r) =>
+        ["hawk", "oauth1"].includes(r.authentication?.type) &&
+        r.authentication.bodyMode === "standard" &&
+        /(?:true|false)$/.test(r._id),
+    ))
+      for (const curl of [false, true])
+        for (const entry of [
+          ...openApiQuerystringCases.slice(0, 3),
+          openApiQuerystringCases[3],
+          openApiQuerystringCases[6],
+        ])
+          resources.push({
+            ...source,
+            _id: source._id + "_whole_query_" + entry.id + "_" + curl,
+            name: source.name + " " + entry.id + " cURL " + curl,
+            _curlSource: curl,
+            _wholeQueryMedia: entry.id,
+            _wholeQueryExpected: entry.expected,
+            _wholeQueryEmpty: entry.expected === "?",
+            url:
+              entry.expected === "?"
+                ? new URL("/whole-empty-signing", url).href
+                : source.url,
+            parameters: [
+              {
+                name: "label",
+                sendEmptyName: true,
+                value: entry.media.startsWith("text/plain")
+                  ? entry.value
+                  : JSON.stringify(entry.value),
+                _openapiSerialization: {
+                  querystring: true,
+                  style: "content",
+                  explode: false,
+                  version: "3.2.1",
+                  kind: entry.media.startsWith("text/plain")
+                    ? "scalar"
+                    : "object",
+                  mediaType: entry.media,
+                  formProperties:
+                    "properties" in entry.schema ? entry.schema.properties : {},
+                  formEncoding: {},
+                  formAdditional: {},
+                },
+              },
+            ],
+          });
+    assert.equal(
+      resources.length,
+      160,
+      "80 whole-query signing cases retain all78 original signing cases",
+    );
     const signedResources = resources.slice(2);
     const initialSigningModes = new Map(
       signedResources.map((r) => [r._id, r.authentication.bodyMode]),
@@ -592,6 +646,18 @@ try {
         "Hawk Send settled",
       );
       const [method, target] = received[count].split(" ");
+      if (signed._id.includes("_whole_query_"))
+        assert.equal(
+          target,
+          signed._wholeQueryEmpty
+            ? "/whole-empty-signing?"
+            : (signed.settingEncodeUrl
+                ? "/100%25/a%20b?empty&x=%2F"
+                : "/100%/a%20b?empty=&x=%2f") +
+                "&" +
+                signed._wholeQueryExpected.slice(1),
+          "Whole-query media retains its literal encoding through auth signing and source query composition",
+        );
       if (signed._id.includes("_text_query")) {
         assert.equal(
           target,
@@ -638,7 +704,10 @@ try {
       );
       // Text cases already assert their complete target above; retain this
       // older plain/reserved-query golden for the original signing cases.
-      if (!signed._id.includes("_text_query"))
+      if (
+        !signed._id.includes("_text_query") &&
+        !signed._id.includes("_whole_query_")
+      )
         assert.equal(
           target,
           (signed.settingEncodeUrl
@@ -897,6 +966,7 @@ try {
             "Independent Hawk SHA1/SHA256 MAC from raw TCP URL in legacy/standard modes with encoding on/off; modified target produces a different MAC",
             "Ordered manual/generated query rows in all encoding/cURL contexts, four API-key targets and32 independent signing cases; reordered pairs change Hawk MAC",
             "Eight ambiguous legacy OAuth1 queries refuse before network and recover only after explicit persisted RFC 5849 selection",
+            "80 whole-query JSON/text/form and represented-empty Hawk/OAuth1 signatures in both URL encoding and cURL contexts retain literal wire targets",
           ],
           received,
           legacyQueryRefusals,
@@ -914,6 +984,9 @@ try {
             initialMode: initialSigningModes.get(r._id),
             encoding: r.settingEncodeUrl,
             textContentQuery: r._id.includes("_text_query"),
+            wholeQueryMedia: r._wholeQueryMedia,
+            wholeQueryExpected: r._wholeQueryExpected,
+            wholeQueryEmpty: r._wholeQueryEmpty,
             curl: !!r._curlSource,
             textContentQueryOrder: r._id.includes("_text_query")
               ? "enabled-row-order"

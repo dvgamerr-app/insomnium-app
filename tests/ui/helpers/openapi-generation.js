@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { poll } from "./native-app.js";
 
 /** Actual owned collection import and API Design worker generation.
- * @param {Pick<import('./native-app.js').ScenarioContext,'page'|'invoke'>} context
+ * @param {Pick<import('./native-app.js').ScenarioContext,'page'|'invoke'> & Partial<Pick<import('./native-app.js').ScenarioContext,'output'>>} context
  * @param {Record<string,any>} document @param {number} count @param {string} label */
 export async function generateOwnedOpenApi(
-  { page, invoke },
+  { page, invoke, output },
   document,
   count,
   label,
@@ -55,9 +55,70 @@ export async function generateOwnedOpenApi(
   assert.ok(workspaceId);
   await page.getByRole("button", { name: "API Design", exact: true }).click();
   const design = page.getByRole("region", { name: "API Design", exact: true });
-  await design
-    .getByRole("button", { name: "New document", exact: true })
-    .click();
+  const beforeCreate = new Set(
+    (await invoke("load_workspace")).resources
+      .filter((/** @type {any} */ r) => r._type === "api_spec")
+      .map((/** @type {any} */ r) => r._id),
+  );
+  let creationTimedOut = false;
+  try {
+    await design
+      .getByRole("button", { name: "New document", exact: true })
+      .click();
+  } catch (cause) {
+    if (!String(cause).includes("Timeout")) throw cause;
+    creationTimedOut = true;
+  }
+  let createdSpecId = "";
+  await poll(
+    async () => {
+      const data = await invoke("load_workspace");
+      const created = data.resources.filter(
+        (/** @type {any} */ r) =>
+          r._type === "api_spec" &&
+          r.parentId === workspaceId &&
+          !beforeCreate.has(r._id),
+      );
+      assert.ok(
+        created.length <= 1,
+        "One click must not create duplicate documents",
+      );
+      const owned = created[0];
+      if (!owned || data.activeWorkspaceId !== workspaceId) return false;
+      if (
+        (await design
+          .getByLabel("API document", { exact: true })
+          .inputValue()) !== owned._id
+      )
+        return false;
+      const mounted = await design
+        .locator(".CodeMirror")
+        .first()
+        .evaluate((el) => /** @type {any} */ (el).CodeMirror?.getValue());
+      if (mounted !== owned.contents) return false;
+      createdSpecId = owned._id;
+      return true;
+    },
+    "Exactly one new owned document persisted and selected in the editor",
+    60000,
+  );
+  if (creationTimedOut && output)
+    await Bun.write(
+      output + "/openapi-generation-recovery.json",
+      JSON.stringify(
+        {
+          action: "New document",
+          workspaceId,
+          specId: createdSpecId,
+          persistedAndRendered: true,
+          reason:
+            "Click timed out after exactly one owned document was created and selected",
+          duplicateClick: false,
+        },
+        null,
+        2,
+      ),
+    );
   const text = JSON.stringify(document, null, 2);
   await design
     .locator(".CodeMirror")
@@ -82,6 +143,11 @@ export async function generateOwnedOpenApi(
       r.contents === text,
   );
   assert.ok(spec);
+  assert.equal(
+    spec._id,
+    createdSpecId,
+    "Edited source is the document from the actual click",
+  );
   await design
     .getByRole("button", { name: "Validate & preview", exact: true })
     .click();

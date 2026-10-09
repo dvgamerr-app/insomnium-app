@@ -235,7 +235,20 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
           : param.noValue
             ? encoded.slice(0, encoded.indexOf("="))
             : encoded;
-      if (query) url.search += (url.search ? "&" : "?") + query;
+      if (
+        query === "" &&
+        param._openapiSerialization?.querystring &&
+        !url.search
+      ) {
+        // Chromium's search setter drops a bare ?; parsing href preserves it.
+        // An explicitly empty whole query remains distinct from nullable omission.
+        if (!url.href.split("#", 1)[0].includes("?"))
+          url.href = url.href.replace(/(#|$)/, "?$1");
+      } else if (
+        query ||
+        (param._openapiSerialization?.querystring && query !== null)
+      )
+        url.search += (url.search ? "&" : "?") + query;
     }
   /** @type {string[][]} */
   const headers = (request.headers ?? [])

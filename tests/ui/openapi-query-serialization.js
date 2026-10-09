@@ -62,7 +62,7 @@ await withNativeApp(
       );
     try {
       const sourceSpecId = await generateOwnedOpenApi(
-        { page, invoke },
+        { page, invoke, output },
         openApiQueryDocument(base, version),
         openApiQueryCases.length,
         "Owned OpenAPI queries",
