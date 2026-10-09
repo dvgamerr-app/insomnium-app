@@ -1,5 +1,28 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## OpenAPI dataValue — verified feature — 2026-10-09
+
+- Current precommit base9132519; verified data-form selection is ready for its topic commit. Frozen release1791545416430/finished1791545802407/result0/hash3874512605060655374; all five source hashes match.
+- Native3.2.1 handle54000/artifact1791545851817 is terminal0/passed,11:37:32.233Z–11:49:52.985Z; native3.2.0 handle97865/artifact1791546686546 is terminal0/passed,11:51:26.558Z–12:04:05.513Z. Each accepts20 literal raw targets/bodies/owned header fields and persistence/reload groups. Both independent-data-value-audit.json files pass, generation recovery1 each tied to accepted source identity, selection recoveries0 each.
+- Native55384/43992 exit0/native-hidden/visiblefalse. Owned Bun56360/50120 and native processes gone, both scoped WebView profiles0, actual fixtures60698/58149 listeners0. No passing run restarted. No feature-owned live handles remain.
+- Direct body selection12, preflight160 across20cases/two versions/both URL/cURL modes, actual Git round trips40 and legacy value24 pass. Compiler0errors0warnings and selected source/scenario/new-doc formatting/diff checks pass. Previous goal turn made progress with implementation/direct evidence/build/native launch; this turn completed both native acceptances/audits/recovery evidence and owned cleanup.
+- Exact behavior/standards/commands/artifacts/harness corrections/limits: OPENAPI-DATA-VALUE.md. This topic selects data-form values; serializedValue wire, external examples, example selection UI, precision/full schemas/media/bytes/saved-resource/provider/platform and every original PLAN/PARITY/UX/CSS gate remain required. Full original goal remains active.
+- Record the implementation commit in the committed handoff before the next feature. This interface cannot invoke /compact; no compaction is claimed.
+
+### Implementation and acceptance history
+
+
+- Continuation classification: previous goal turn made progress with dataValue source/direct evidence, fresh terminal build and native launch. This turn completed3.2.1 acceptance/audit/recovery evidence/owned cleanup on the same frozen release. Full original migration/UX/CSS goal stays active.
+- Current base9132519. Previous goal turn made progress by accepting/committing whole-query b23eefd and handoff9132519. /compact is unavailable and the committed handoff was reported before this topic. Applicable Claude discovery empty; STATUS/PLAN/PARITY and relevant scope reviewed. Full original migration/UX/CSS objective remains active.
+- Corrected baseline12 shows3.2 dataValue ignored for schema defaults. Generator now selects own dataValue with a3.2 guard, retains older value/shorthand behavior and uses parameter-level fallback for3.2 content when media has no explicit value. Existing UI/layout and serializers remain.
+- Direct selection12, fixture preflight160 (20cases/two versions/both URL/cURL modes), Git40 and legacy24 pass. Inline generator-array/composer-text harness assumptions were corrected; no product failure claimed from these. Compiler0errors0warnings and selected formatting/diff checks pass.
+- Saved native20 scenario/fixture added with shared native-hidden helper, actual worker generation and literal raw TCP wire. Both native versions, independent audits and owned cleanup remain pending. No feature acceptance/commit yet. Fresh build follows; record the exact handle/state.
+- Sequential native3.2.0/20 started only after3.2.1 terminal/audit/cleanup: actual handle97865/artifact1791546686546, owned Bun50120/native43992, actual fixture58149, on frozen release1791545416430. Re-poll this handle to terminal; no restart on quiet output. Independent audit/owned cleanup/final docs/topic commit remain pending.
+- Native3.2.1/20 handle54000/artifact1791545851817 is terminal0/passed,11:37:32.233Z–11:49:52.985Z. Independent literal audit verifies20 targets/bodies/owned header fields/persistence/reload and frozen source. New document timeout recovery1 is now exercised and checked against accepted sourceSpecId; selection recoveries0. Native55384 exit0/native-hidden/visiblefalse; Bun56360/native gone, scoped profile0 and actual fixture60698 listeners0. No passing run restarted. Sequential3.2.0/20/audit/cleanup remains required before topic commit.
+- Build5030 is terminal0: release1791545416430/finished1791545802407/result0/hash3874512605060655374. Five frozen source hashes match. Source remains unchanged through native acceptance. Both native20 runs, independent audits/cleanup and topic commit remain pending; no native acceptance claimed.
+- Fresh production build started via actual handle5030/start1791545416430; source is frozen. Five SHA256 application hashes recorded in openapi-data-value-source-freeze.json. Poll the same handle to terminal before any native launch. Native3.2.1/20 and3.2.0/20, independent audits/owned cleanup/topic commit remain pending. No native acceptance claimed.
+- Topic scope: data-form selection only. serializedValue/external examples/example precision/full schemas/media/bytes/saved-resource/provider/platform and every original PLAN/PARITY/UX/CSS gate remain required. Standards/commands/limits: OPENAPI-DATA-VALUE.md.
+
 ## OpenAPI querystring — verified feature — 2026-10-09
 
 - Current implementation commit b23eefd (feat(openapi): support whole-query parameters), based on fc75aa2. Release1791535554156/finished1791535923874/result0 is frozen; all five recorded application hashes match. Verified source, saved scenarios and feature documentation are committed by topic.

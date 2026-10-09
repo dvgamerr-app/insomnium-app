@@ -228,12 +228,22 @@ export function analyzeSpec(spec) {
   };
 }
 
-/** @param {Record<string, any>} node @param {Record<string, any>} schema */
-function example(node, schema) {
-  if (Object.hasOwn(node, "example")) return node.example;
-  const first = Object.values(node.examples || {})[0];
-  if (first && typeof first === "object" && Object.hasOwn(first, "value"))
-    return first.value;
+/** @param {Record<string, any>} node @param {Record<string, any>} schema
+ * @param {Record<string, any>|undefined} [fallback] */
+function example(node, schema, fallback) {
+  for (const candidate of [node, fallback]) {
+    if (!candidate) continue;
+    if (Object.hasOwn(candidate, "example")) return candidate.example;
+    const first = Object.values(candidate.examples || {})[0];
+    if (first && typeof first === "object") {
+      if (
+        String(schema.openapi || "").startsWith("3.2.") &&
+        Object.hasOwn(first, "dataValue")
+      )
+        return first.dataValue;
+      if (Object.hasOwn(first, "value")) return first.value;
+    }
+  }
   return sample(
     node.schema || node,
     { skipReadOnly: true, quiet: true },
@@ -336,7 +346,13 @@ export function generateRequests(
       const contentEntries = Object.entries(parameter.content || {});
       const [mediaType, contentMedia] = contentEntries[0] || [];
       try {
-        value = example(contentMedia || parameter, schema);
+        value = example(
+          contentMedia || parameter,
+          schema,
+          contentMedia && String(schema.openapi || "").startsWith("3.2.")
+            ? parameter
+            : undefined,
+        );
       } catch (error) {
         issues.push(`Parameter ${parameter.name}: ${error}`);
         value = "";
