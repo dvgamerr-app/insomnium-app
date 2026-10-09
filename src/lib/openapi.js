@@ -111,6 +111,7 @@ export function analyzeSpec(spec) {
     };
   });
   const referenceProtection = prepareApiReferences(filesystem);
+  for (const error of referenceProtection.errors) add("error", error);
   const documents = new Map(
     filesystem.map((file) => [file.filename, file.specification]),
   );

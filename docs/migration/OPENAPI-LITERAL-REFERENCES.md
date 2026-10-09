@@ -75,3 +75,5 @@ migration/UX/CSS requirement. This does not prove all schema or URI semantics.
 /compact is unavailable; STATUS records accepted handles, no live feature processes and the next required gate.
 
 The installed Scalar JSON Pointer resolver still uses inherited-property lookup. Full own-property/resource policies, boolean/nonobject reference targets and unknown schema vocabulary/resource indexing remain required alongside schema IDs/anchors/dynamic refs. This feature does not establish complete reference compliance.
+
+2026-10-10 follow-up: static schema-resource traversal now validates own-property targets before calling Scalar. The installed Scalar implementation itself is unchanged. Static resource/anchor acceptance and the remaining dynamic/boolean/dialect/vocabulary/URI gates are recorded in OPENAPI-SCHEMA-RESOURCES.md.

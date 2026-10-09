@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { withNativeApp, poll } from "./helpers/native-app.js";
 import { generateOwnedOpenApi } from "./helpers/openapi-generation.js";
+import { schemaResourceDocument } from "./helpers/openapi-schema-resource-contract.js";
 import {
   apiDesignLayoutMetrics,
   assertApiDesignLayout,
@@ -188,10 +189,44 @@ try {
       };
       document.components = { "x-literal": { nested: literalPayload } };
       document.paths["x-literal"] = literalPayload;
+      const schemaResources = /^3\.[12]\./.test(version);
+      if (schemaResources) {
+        const authored = schemaResourceDocument(version, base);
+        document.jsonSchemaDialect = authored.jsonSchemaDialect;
+        const attached = {
+          $id: "https://schemas.example.test/attached/root",
+          type: "object",
+          properties: { external: { $ref: "#owned" } },
+          $defs: {
+            Value: { $anchor: "owned", type: "string", default: "attached" },
+          },
+        };
+        const pointer = version.startsWith("3.2.")
+          ? base + "/components/objects.json#/components/schemas/Attached"
+          : "objects.json#/schemaResource";
+        if (version.startsWith("3.2."))
+          referenceDocument.components.schemas = { Attached: attached };
+        else referenceDocument.schemaResource = attached;
+        document.components.schemas = {
+          ...authored.components.schemas,
+          Attached: { $ref: pointer },
+        };
+        document.paths["/schema"] = authored.paths["/schema"];
+        document.paths["/schema-attached"] = {
+          post: {
+            requestBody: {
+              content: {
+                "application/json": { schema: { $ref: attached.$id } },
+              },
+            },
+            responses: response,
+          },
+        };
+      }
       const specId = await generateOwnedOpenApi(
         { page, invoke, output },
         document,
-        4,
+        schemaResources ? 6 : 4,
         "External examples",
         {
           beforeCheck: async ({ design, specId }) => {
@@ -633,6 +668,29 @@ try {
         ["/query", Buffer.alloc(0)],
         ["/literal", Buffer.from(JSON.stringify(literalReference, null, 2))],
       ]);
+      if (schemaResources)
+        cases.push(
+          [
+            "/schema",
+            Buffer.from(
+              JSON.stringify(
+                {
+                  owned: "resolved",
+                  child: "nested",
+                  escaped: "escaped",
+                  named: "named property",
+                  $ref: "named property",
+                },
+                null,
+                2,
+              ),
+            ),
+          ],
+          [
+            "/schema-attached",
+            Buffer.from(JSON.stringify({ external: "attached" }, null, 2)),
+          ],
+        );
       for (const [path, bytes] of cases) {
         const request = requests.find(
           (/** @type {any} */ r) => new URL(r.url).pathname === path,
