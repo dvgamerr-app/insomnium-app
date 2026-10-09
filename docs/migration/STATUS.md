@@ -1,5 +1,12 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Playwright headless — owner request verified — 2026-10-09
+
+- Current commit before this checkpoint: 4dfebfa. All saved browser launch sites use launchUiBrowser with fixed headless:true and no headed override. Native helper hides its owned host before connectOverCDP and reports native-hidden.
+- Re-ran bun tests/ui/git-merge-contract.js: terminal exit0, acceptance.json passed with9 checks. No live process handle remains from this verification. Headless implementation already exists; no additional browser launch code change was necessary.
+- Existing mixed-query source work remains uncommitted and its native acceptance gate remains open; this checkpoint does not accept it or close the full migration/UX/CSS goal. This interface cannot invoke /compact; this committed status is the handoff and compaction is not claimed.
+
+
 ## UTF-8 text content parameters — verified feature, commit handoff — 2026-10-09
 
 - Previous goal turn was a verified wait on live77518/Bun23344. That exact handle is now terminal0/passed: URL artifact1791519298954 started04:14:58.965Z/finished04:35:46.629Z,53raw targets50independent runtime signatures5checks. Saved-wire audit verifies all counts/modes/full text targets and independently recomputes4text-query OAuth1 signatures plus modified-message rejection. Native42636 exit0/native-hidden/visiblefalse; owned scenario/native/profile processes count0 and fixture listener55826 count0.
