@@ -711,5 +711,199 @@ export function externalContractEvidence() {
   if (!literalSelf.has("memory:///bytes.bin"))
     throw Error("Non-OpenAPI self field changed asset identity");
   controls.push({ name: "literal self outside OpenAPI Object", passed: true });
+  for (const version of ["3.0.3", "3.1.0", "3.2.0", "3.2.1"]) {
+    const payload = Object.fromEntries([
+      ["10", "numeric"],
+      ["before", 1],
+      ["$ref", "unattached.json#/literal"],
+      ["after", { $ref: "#/components/schemas/Payload", falseValue: false }],
+      ["__proto__", { $ref: 44 }],
+      ["__insomnium_literal_ref__", "authored marker name"],
+    ]);
+    const declared = {
+      type: "object",
+      properties: {
+        $ref: { type: "string", default: "named property" },
+        keep: { type: "boolean", default: false },
+      },
+    };
+    for (const mode of ["example", "default", "schema-ref", "property-ref"]) {
+      const media =
+        mode === "example"
+          ? {
+              examples: {
+                owned: version.startsWith("3.2.")
+                  ? { dataValue: payload }
+                  : { value: payload },
+              },
+            }
+          : mode === "default"
+            ? { schema: { type: "object", default: payload } }
+            : {
+                schema: {
+                  $ref:
+                    mode === "schema-ref"
+                      ? "#/components/schemas/Payload"
+                      : "#/components/schemas/Payload/properties/$ref",
+                },
+              };
+      const document = {
+        openapi: version,
+        info: { title: "Literal reference roles", version: "1" },
+        servers: [{ url: "http://127.0.0.1:55555" }],
+        components: { schemas: { Payload: declared }, "x-literal": payload },
+        paths: {
+          "/body": {
+            post: {
+              requestBody: { content: { "application/json": media } },
+              responses: { 200: { description: "OK" } },
+            },
+          },
+          "x-literal": payload,
+        },
+      };
+      const source = { contents: JSON.stringify(document) };
+      const original = JSON.stringify(source);
+      const analysis = analyzeSpec(source);
+      if (!analysis.valid)
+        throw Error(
+          mode + " " + version + ": " + JSON.stringify(analysis.diagnostics),
+        );
+      const generated = generateRequests(
+        analysis,
+        workspace._id,
+        "spc_literal_ref",
+      );
+      const request = generated.find((r) => r._type === "request");
+      const expected =
+        mode === "schema-ref"
+          ? { $ref: "named property", keep: false }
+          : mode === "property-ref"
+            ? "named property"
+            : payload;
+      if (!request || request.body.text !== JSON.stringify(expected, null, 2))
+        throw Error(
+          mode +
+            " literal/member order changed: " +
+            JSON.stringify(request?.body),
+        );
+      if (
+        JSON.stringify(analysis.schema.components["x-literal"]) !==
+          JSON.stringify(payload) ||
+        JSON.stringify(analysis.schema.paths["x-literal"]) !==
+          JSON.stringify(payload) ||
+        JSON.stringify(source) !== original
+      )
+        throw Error("Literal extensions/source changed");
+      const file = encodeGitResource(request),
+        restored = decodeGitResource(file.path, file.content);
+      if (restored?.body.text !== request.body.text)
+        throw Error("Literal reference Git body changed");
+      controls.push({
+        name: version + " literal reference " + mode,
+        passed: true,
+        text: request.body.text,
+        sourceUnchanged: true,
+      });
+    }
+  }
+  for (const version of ["3.0.3", "3.1.0", "3.2.0", "3.2.1"]) {
+    const text = [
+      "openapi: " + version,
+      "info: {title: Alias roles, version: '1'}",
+      "servers: [{url: 'http://127.0.0.1:55555'}]",
+      "components:",
+      "  schemas:",
+      "    Actual: {type: object, properties: {x: {type: string, default: resolved}}}",
+      "    Template: &target",
+      "      $ref: '#/components/schemas/Actual'",
+      "paths:",
+      "  /body:",
+      "    post:",
+      "      requestBody:",
+      "        content:",
+      "          application/json:",
+      "            examples:",
+      "              owned:",
+      "                " +
+        (version.startsWith("3.2.") ? "dataValue" : "value") +
+        ": *target",
+      "      responses: {'200': {description: OK}}",
+      "  /real:",
+      "    post:",
+      "      requestBody:",
+      "        content:",
+      "          application/json:",
+      "            schema: {$ref: '#/components/schemas/Template'}",
+      "      responses: {'200': {description: OK}}",
+    ].join("\n");
+    const source = { contents: text };
+    const analysis = analyzeSpec(source);
+    if (!analysis.valid)
+      throw Error(
+        version + " alias roles: " + JSON.stringify(analysis.diagnostics),
+      );
+    const requests = generateRequests(
+      analysis,
+      workspace._id,
+      "spc_alias",
+    ).filter((r) => r._type === "request");
+    const literal = requests.find((r) => r.sourceOperation.path === "/body"),
+      real = requests.find((r) => r.sourceOperation.path === "/real");
+    if (
+      literal?.body.text !==
+        JSON.stringify({ $ref: "#/components/schemas/Actual" }, null, 2) ||
+      real?.body.text !== JSON.stringify({ x: "resolved" }, null, 2) ||
+      source.contents !== text
+    )
+      throw Error("YAML literal/Schema alias roles mixed");
+    controls.push({
+      name: version + " YAML alias reference roles",
+      passed: true,
+      literal: literal.body.text,
+      real: real.body.text,
+      sourceUnchanged: true,
+    });
+  }
+  for (const version of ["3.0.3", "3.1.0", "3.2.0", "3.2.1"]) {
+    const document = {
+      openapi: version,
+      info: { title: "Missing reference target", version: "1" },
+      components: {
+        schemas: {
+          Payload: { type: "object", properties: { $ref: { type: "string" } } },
+        },
+      },
+      paths: {
+        "/body": {
+          post: {
+            requestBody: {
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/Payload/properties/$ref/absent",
+                  },
+                },
+              },
+            },
+            responses: { 200: { description: "OK" } },
+          },
+        },
+      },
+    };
+    const analysis = analyzeSpec({ contents: JSON.stringify(document) });
+    const errors = analysis.diagnostics.filter((d) => d.severity === "error");
+    if (
+      analysis.valid ||
+      !errors.length ||
+      errors.some((d) => d.message.includes("__insomnium_literal_ref__"))
+    )
+      throw Error("Missing target/private marker diagnostic changed");
+    controls.push({
+      name: version + " missing target behind ref-named property",
+      passed: true,
+      errors,
+    });
+  }
   return { passed: true, checks, controls };
 }

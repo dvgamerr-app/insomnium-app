@@ -62,9 +62,9 @@ try {
         examples: { owned: { externalValue } },
       });
       const response = { 200: { description: "OK" } };
-      const literalPayload = {
+      const literalPayload = /** @type {Record<string,any>} */ ({
         examples: { owned: { externalValue: "literal.txt" } },
-      };
+      });
       let referenceDocument = /** @type {Record<string,any>} */ ({
         value: {
           content: { "application/octet-stream": example("local.bin") },
@@ -148,6 +148,31 @@ try {
           },
         ];
       }
+      const literalReference = Object.fromEntries([
+        ["10", "numeric"],
+        ["before", 1],
+        ["$ref", "unattached.json#/payload"],
+        ["after", { $ref: "#/components/schemas/Absent", falseValue: false }],
+        ["__proto__", { $ref: 44 }],
+        ["__insomnium_literal_ref__", "authored marker name"],
+      ]);
+      literalPayload.$ref = "unattached.json#/extension";
+      document.paths["/literal"] = {
+        post: {
+          requestBody: {
+            content: {
+              "application/json": {
+                examples: {
+                  owned: version.startsWith("3.2.")
+                    ? { dataValue: literalReference }
+                    : { value: literalReference },
+                },
+              },
+            },
+          },
+          responses: response,
+        },
+      };
       document.paths["/query"].get.operationId = "ownedQuery";
       document.paths["/json"].post.requestBody.content[
         "application/json"
@@ -166,7 +191,7 @@ try {
       const specId = await generateOwnedOpenApi(
         { page, invoke, output },
         document,
-        3,
+        4,
         "External examples",
         {
           beforeCheck: async ({ design, specId }) => {
@@ -606,6 +631,7 @@ try {
         ["/binary", binary],
         ["/json", json],
         ["/query", Buffer.alloc(0)],
+        ["/literal", Buffer.from(JSON.stringify(literalReference, null, 2))],
       ]);
       for (const [path, bytes] of cases) {
         const request = requests.find(
@@ -665,6 +691,8 @@ try {
             exampleFiles: spec.exampleFiles,
             referenceFiles: spec.files,
             sourceUnchanged: true,
+            literalReference,
+            literalPayload,
             sourceSpec: spec,
             sourceContents: JSON.stringify(document, null, 2),
             requests,

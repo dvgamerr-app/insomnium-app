@@ -11,7 +11,7 @@ await withComponentFixture(
     );
     assert.equal(external.passed, true);
     assert.equal(external.checks.length, 8);
-    assert.equal(external.controls.length, 44);
+    assert.equal(external.controls.length, 68);
     await Bun.write(
       output + "/external-acceptance.json",
       JSON.stringify(external, null, 2),

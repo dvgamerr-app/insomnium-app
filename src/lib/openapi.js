@@ -20,6 +20,10 @@ import {
 } from "./openapi-form.js";
 
 import { parseSpec, methods, apiDocumentBaseUri } from "./openapi-document.js";
+import {
+  prepareApiReferences,
+  restoreApiReferences,
+} from "./openapi-references.js";
 import { isOpenApiJsonMediaType } from "./openapi-content.js";
 import { isJsonBodyMediaType, isUtf8PlainTextMediaType } from "./media-type.js";
 import {
@@ -96,26 +100,8 @@ export function analyzeSpec(spec) {
     throw new Error("Combined specification files exceed 8 MiB.");
   const assets = exampleAssetIndex(spec, parsed.value);
   const filesystem = files.map((file, index) => {
-    const value = structuredClone(file.value);
-    const stack = [{ value, depth: 0 }];
-    let count = 0;
-    while (stack.length) {
-      const current = stack.pop();
-      if (!current || !current.value || typeof current.value !== "object")
-        continue;
-      if (++count > 200000 || current.depth > 100)
-        throw new Error(
-          "Specification structure exceeds the processing limit.",
-        );
-      if (
-        typeof current.value.$ref === "string" &&
-        !current.value.$ref.startsWith("#")
-      )
-        current.value.$ref = new URL(current.value.$ref, file.name).href;
-      for (const child of Object.values(current.value))
-        if (child && typeof child === "object")
-          stack.push({ value: child, depth: current.depth + 1 });
-    }
+    // Parse already bounded JSON to separate YAML aliases used in different roles.
+    const value = JSON.parse(JSON.stringify(file.value));
     return {
       isEntrypoint: index === 0,
       filename: file.name,
@@ -124,6 +110,7 @@ export function analyzeSpec(spec) {
       references: [],
     };
   });
+  const referenceProtection = prepareApiReferences(filesystem);
   const documents = new Map(
     filesystem.map((file) => [file.filename, file.specification]),
   );
@@ -134,8 +121,16 @@ export function analyzeSpec(spec) {
     documents,
   );
   const resolved = dereference(filesystem);
+  if (resolved.schema)
+    restoreApiReferences(resolved.schema, referenceProtection);
   for (const error of resolved.errors || [])
-    add("error", error.message || "Unresolved reference");
+    add(
+      "error",
+      (error.message || "Unresolved reference").replaceAll(
+        referenceProtection.marker,
+        "$ref",
+      ),
+    );
   const schema = /** @type {Record<string, any>} */ (resolved.schema);
   if (strict.valid && !(resolved.errors || []).length)
     for (const error of validatePathParameters(schema))

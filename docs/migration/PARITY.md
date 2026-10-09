@@ -1,5 +1,7 @@
 # Feature parity tracker
 
+2026-10-10 literal $ref payloads: typed OpenAPI/Schema traversal protects literal members, preserves JSON order and YAML alias roles, and still resolves genuine references/property names. Headless8byte/68controls (+24 literal-role cases) and retained168/11/8 plus named108/28/6 pass; compiler0/0. Fresh frozen production native four versions pass16wire groups/48layout profiles/16loading/16management/8worker literal checks, with independent source/full-field canonical Git/build/byte audits and owned cleanup. Every handle terminal0/native-hidden/visible:false. No CSS change or broad schema/resource/platform/full migration claim. Exact commands/evidence/limits: [OPENAPI-LITERAL-REFERENCES.md](OPENAPI-LITERAL-REFERENCES.md). Schema IDs/anchors/dynamic refs, broader URI/fragment/charset/resource and every original migration/UX/CSS gate remain required.
+
 2026-10-10 OpenAPI3.2 declared document bases: root and attached complete
 OpenAPI documents resolve description references/external examples through $self;
 asset lookup/refresh share that base and canonical document collisions refuse.
