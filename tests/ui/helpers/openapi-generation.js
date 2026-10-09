@@ -10,6 +10,7 @@ export async function generateOwnedOpenApi(
   count,
   label,
 ) {
+  const ownedName = label + " " + Date.now();
   await page
     .getByRole("button", { name: "Import collection", exact: true })
     .click();
@@ -23,7 +24,7 @@ export async function generateOwnedOpenApi(
             _id: "wrk_owned_openapi",
             _type: "workspace",
             parentId: null,
-            name: label + " " + Date.now(),
+            name: ownedName,
             scope: "collection",
           },
         ],
@@ -32,8 +33,26 @@ export async function generateOwnedOpenApi(
   await dialog
     .getByRole("button", { name: "Review import", exact: true })
     .click();
-  await dialog.getByRole("button", { name: "Import", exact: true }).click();
-  await dialog.waitFor({ state: "detached" });
+  await dialog
+    .getByRole("button", { name: "Import", exact: true })
+    .click({ timeout: 60000 });
+  await dialog.waitFor({ state: "detached", timeout: 60000 });
+  let workspaceId = "";
+  await poll(
+    async () => {
+      const data = await invoke("load_workspace");
+      const owned = data.resources.find(
+        (/** @type {any} */ r) =>
+          r._type === "workspace" && r.name === ownedName,
+      );
+      if (!owned || data.activeWorkspaceId !== owned._id) return false;
+      workspaceId = owned._id;
+      return true;
+    },
+    "Owned collection import persisted",
+    60000,
+  );
+  assert.ok(workspaceId);
   await page.getByRole("button", { name: "API Design", exact: true }).click();
   const design = page.getByRole("region", { name: "API Design", exact: true });
   await design
@@ -49,12 +68,18 @@ export async function generateOwnedOpenApi(
   await poll(
     async () =>
       (await invoke("load_workspace")).resources.some(
-        (/** @type {any} */ r) => r._type === "api_spec" && r.contents === text,
+        (/** @type {any} */ r) =>
+          r._type === "api_spec" &&
+          r.parentId === workspaceId &&
+          r.contents === text,
       ),
     "Owned OpenAPI source persisted",
   );
   const spec = (await invoke("load_workspace")).resources.find(
-    (/** @type {any} */ r) => r._type === "api_spec" && r.contents === text,
+    (/** @type {any} */ r) =>
+      r._type === "api_spec" &&
+      r.parentId === workspaceId &&
+      r.contents === text,
   );
   assert.ok(spec);
   await design
