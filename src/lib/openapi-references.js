@@ -98,6 +98,7 @@ const fields = {
     contentSchema: "schema",
   },
 };
+export const schemaReferenceFields = Object.freeze(fields.schema);
 
 /** Rename in place without changing JSON member order or invoking __proto__ setters.
  * @param {Record<string,any>} node @param {string} from @param {string} to */
@@ -154,14 +155,23 @@ export function prepareApiReferences(files) {
     }
   }
   let marker = "__insomnium_literal_ref__";
-  while (keys.has(marker) || keys.has(marker + "_origin")) marker += "_";
+  while (
+    keys.has(marker) ||
+    keys.has(marker + "_origin") ||
+    keys.has(marker + "_schema")
+  )
+    marker += "_";
   const origin = marker + "_origin";
+  const binding = marker + "_schema";
   const allowed = new WeakSet();
   const references =
-    /** @type {{node:Record<string,any>,base:string,kind:string,followed:boolean}[]} */ ([]);
+    /** @type {{node:Record<string,any>,base:string,kind:string,keyword:string,followed:boolean}[]} */ ([]);
   const errors = /** @type {string[]} */ ([]);
   const resources = new Map(documents);
   const anchors = /** @type {Map<string,Record<string,any>>} */ (new Map());
+  const dynamicAnchors = /** @type {Map<string,Record<string,any>>} */ (
+    new Map()
+  );
   const schemaBases = /** @type {WeakMap<object,string>} */ (new WeakMap());
   const dialects = /** @type {WeakMap<object,string>} */ (new WeakMap());
   const modern = /^3\.[12]\./.test(
@@ -276,7 +286,8 @@ export function prepareApiReferences(files) {
         if (
           Object.hasOwn(node, "$id") ||
           Object.hasOwn(node, "$anchor") ||
-          Object.hasOwn(node, "$dynamicAnchor")
+          Object.hasOwn(node, "$dynamicAnchor") ||
+          Object.hasOwn(node, "$dynamicRef")
         ) {
           if (!supportedDialect(dialect))
             errors.push("Schema resource dialect is not supported: " + dialect);
@@ -309,19 +320,31 @@ export function prepareApiReferences(files) {
                       keyword +
                       " must be a valid plain-name identifier.",
                   );
-                else register(anchors, base + "#" + node[keyword], node);
+                else {
+                  register(anchors, base + "#" + node[keyword], node);
+                  if (keyword === "$dynamicAnchor")
+                    register(dynamicAnchors, base + "#" + node[keyword], node);
+                }
               }
           }
         }
         schemaBases.set(node, base);
         dialects.set(node, dialect);
-        if (Object.hasOwn(node, "$dynamicRef"))
-          errors.push(
-            "Dynamic schema references require dynamic-scope evaluation and are not yet supported.",
-          );
+        if (Object.hasOwn(node, "$dynamicRef")) {
+          if (typeof node.$dynamicRef !== "string")
+            errors.push("Schema $dynamicRef must be a URI-reference string.");
+          else
+            references.push({
+              node,
+              base,
+              kind,
+              keyword: "$dynamicRef",
+              followed: false,
+            });
+        }
       }
       if (typeof node.$ref === "string") {
-        references.push({ node, base, kind, followed: false });
+        references.push({ node, base, kind, keyword: "$ref", followed: false });
       }
       for (const [key, childKind] of Object.entries(
         fields[/** @type {keyof typeof fields} */ (kind)] || {},
@@ -332,7 +355,7 @@ export function prepareApiReferences(files) {
     for (const reference of references) {
       if (reference.followed) continue;
       const target = lookup(
-        reference.node.$ref,
+        reference.node[reference.keyword],
         reference.base,
         reference.kind,
       );
@@ -357,15 +380,64 @@ export function prepareApiReferences(files) {
   const targets = new Map(
     references.map((reference) => [
       reference,
-      lookup(reference.node.$ref, reference.base, reference.kind),
+      lookup(reference.node[reference.keyword], reference.base, reference.kind),
     ]),
   );
+  // Retain authored schemas before parser rewriting. Maps remain structured-
+  // cloneable across the worker boundary; no private keys enter saved resources.
+  let evaluation = undefined;
+  if (references.some((reference) => reference.keyword === "$dynamicRef")) {
+    const nodes = all.filter((node) => schemaBases.has(node));
+    const ids = new Map(nodes.map((node, index) => [node, index]));
+    const nodeReferences = new Map();
+    const scopeAnchors = /** @type {Map<string,Map<string,number>>} */ (
+      new Map()
+    );
+    for (const [uri, node] of dynamicAnchors) {
+      const id = ids.get(node);
+      if (id === undefined) continue;
+      const address = new URL(uri),
+        name = decodeURIComponent(address.hash.slice(1));
+      address.hash = "";
+      const values = scopeAnchors.get(address.href) || new Map();
+      values.set(name, id);
+      scopeAnchors.set(address.href, values);
+    }
+    for (const reference of references.filter(
+      (reference) => reference.kind === "schema",
+    )) {
+      const resolvedTarget = targets.get(reference);
+      const id = ids.get(reference.node),
+        target = resolvedTarget ? ids.get(resolvedTarget) : undefined;
+      if (id === undefined) continue;
+      const uri = new URL(reference.node[reference.keyword], reference.base);
+      const name = decodeURIComponent(uri.hash.slice(1));
+      uri.hash = name;
+      const dynamicName =
+        reference.keyword === "$dynamicRef" &&
+        dynamicAnchors.has(uri.href) &&
+        dynamicAnchors.get(uri.href) === targets.get(reference)
+          ? name
+          : undefined;
+      const entries = nodeReferences.get(id) || [];
+      entries.push({ keyword: reference.keyword, target, dynamicName });
+      nodeReferences.set(id, entries);
+    }
+    evaluation = structuredClone({
+      nodes,
+      ids,
+      bases: nodes.map((node) => schemaBases.get(node)),
+      references: nodeReferences,
+      anchors: scopeAnchors,
+    });
+    for (const [node, id] of ids) node[binding] = id;
+  }
   for (const node of all)
     if (!allowed.has(node) && Object.hasOwn(node, "$ref"))
       rename(node, "$ref", marker);
   for (const reference of references) {
     const { node, base } = reference;
-    const uri = new URL(node.$ref, base);
+    const uri = new URL(node[reference.keyword], base);
     const original = uri.href;
     const resolved = targets.get(reference);
     if (!resolved || typeof resolved !== "object" || Array.isArray(resolved)) {
@@ -373,9 +445,11 @@ export function prepareApiReferences(files) {
         "Reference target is missing or is not an object schema/resource: " +
           original,
       );
-      rename(node, "$ref", marker);
+      if (reference.keyword === "$ref") rename(node, "$ref", marker);
       continue;
     }
+    // Dynamic targets are selected separately for each sampling path.
+    if (reference.keyword === "$dynamicRef") continue;
     const location = locations.get(resolved);
     if (location) {
       uri.href = location.file;
@@ -397,18 +471,23 @@ export function prepareApiReferences(files) {
     node.$ref = uri.href;
     if (uri.href !== original) node[origin] = original;
   }
-  return { marker, origin, errors: [...new Set(errors)] };
+  return { marker, origin, binding, evaluation, errors: [...new Set(errors)] };
 }
 
 /** Restore payload members after parser cloning/resolution, including cyclic schemas.
- * @param {Record<string,any>} root @param {{marker:string,origin:string}} protection */
-export function restoreApiReferences(root, { marker, origin }) {
+ * @param {Record<string,any>} root @param {{marker:string,origin:string,binding:string}} protection */
+export function restoreApiReferences(root, { marker, origin, binding }) {
+  const bindings = /** @type {Map<Record<string,any>,number>} */ (new Map());
   const pending = [root],
     seen = new WeakSet();
   while (pending.length) {
     const node = pending.pop();
     if (!node || typeof node !== "object" || seen.has(node)) continue;
     seen.add(node);
+    if (Object.hasOwn(node, binding)) {
+      bindings.set(node, node[binding]);
+      delete node[binding];
+    }
     if (Object.hasOwn(node, marker)) rename(node, marker, "$ref");
     if (Object.hasOwn(node, origin)) {
       if (Object.hasOwn(node, "$ref")) node.$ref = node[origin];
@@ -417,4 +496,5 @@ export function restoreApiReferences(root, { marker, origin }) {
     for (const child of Object.values(node))
       if (child && typeof child === "object") pending.push(child);
   }
+  return bindings;
 }

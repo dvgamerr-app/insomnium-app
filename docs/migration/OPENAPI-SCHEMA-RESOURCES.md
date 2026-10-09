@@ -1,5 +1,7 @@
 # Static schema resource identities
 
+2026-10-10 follow-up: dynamic target selection for generated samples is implemented and verified in [OPENAPI-DYNAMIC-SCHEMA.md](OPENAPI-DYNAMIC-SCHEMA.md). The dynamic refusal below describes the prior static-only checkpoint. Full schema validation and the other documented parity gates remain open.
+
 Canonical schema$id and scoped anchors now drive generated request samples, including schemas in attached files. Implementation, headless and fresh four-version native acceptance pass. Full migration/UX/CSS remains active; dynamic-scope reference evaluation is required next and explicitly refused until supported.
 
 Official references consulted:

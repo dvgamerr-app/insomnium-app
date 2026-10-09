@@ -7,7 +7,7 @@ import { dereference } from "@scalar/openapi-parser";
 import { validatePathParameters } from "@scalar/openapi-validator";
 import { validateApiDocument } from "./openapi-validation.js";
 import { describeOpenApiValue } from "./openapi-value.js";
-import { sample } from "openapi-sampler";
+import { sampleApiSchema } from "./openapi-dynamic-schema.js";
 import { id, newRequest } from "./model.js";
 import { serializeOpenApiQuery } from "./openapi-query.js";
 import { querystringOptions } from "./openapi-querystring.js";
@@ -122,8 +122,9 @@ export function analyzeSpec(spec) {
     documents,
   );
   const resolved = dereference(filesystem);
-  if (resolved.schema)
-    restoreApiReferences(resolved.schema, referenceProtection);
+  const bindings = resolved.schema
+    ? restoreApiReferences(resolved.schema, referenceProtection)
+    : new Map();
   for (const error of resolved.errors || [])
     add(
       "error",
@@ -248,6 +249,9 @@ export function analyzeSpec(spec) {
   return {
     schema,
     original: parsed.value,
+    schemaEvaluation: referenceProtection.evaluation
+      ? { ...referenceProtection.evaluation, bindings }
+      : undefined,
     diagnostics: diagnostics.slice(0, 500),
     diagnosticCount: diagnostics.length,
     operations,
@@ -256,8 +260,9 @@ export function analyzeSpec(spec) {
 }
 
 /** @param {Record<string, any>} node @param {Record<string, any>} schema
- * @param {Record<string, any>|undefined} [fallback] */
-function example(node, schema, fallback) {
+ * @param {Record<string, any>|undefined} [fallback]
+ * @param {import('./openapi-dynamic-schema.js').SchemaEvaluation|undefined} [evaluation] */
+function example(node, schema, fallback, evaluation) {
   for (const candidate of [node, fallback]) {
     if (!candidate) continue;
     if (Object.hasOwn(candidate, "example")) return candidate.example;
@@ -271,11 +276,7 @@ function example(node, schema, fallback) {
       if (Object.hasOwn(first, "value")) return first.value;
     }
   }
-  return sample(
-    node.schema || node,
-    { skipReadOnly: true, quiet: true },
-    schema,
-  );
+  return sampleApiSchema(node.schema || node, schema, evaluation);
 }
 
 /** @param {ReturnType<typeof analyzeSpec>} analysis @param {string} workspaceId @param {string} specId @param {string} [serverOverride]
@@ -436,6 +437,7 @@ export function generateRequests(
           contentMedia && String(schema.openapi || "").startsWith("3.2.")
             ? parameter
             : undefined,
+          analysis.schemaEvaluation,
         );
       } catch (error) {
         issues.push(`Parameter ${parameter.name}: ${error}`);
@@ -707,7 +709,12 @@ export function generateRequests(
         } else if (rawBinary) {
           request.body = { mimeType: mime, binary: true };
         } else {
-          const value = example(media, schema);
+          const value = example(
+            media,
+            schema,
+            undefined,
+            analysis.schemaEvaluation,
+          );
           if (
             mime === "multipart/form-data" ||
             mime === "application/x-www-form-urlencoded"

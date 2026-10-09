@@ -326,9 +326,9 @@ export function schemaResourceEvidence() {
       "Reference target is missing",
     );
     refuse(
-      name("dynamic scope pending"),
+      name("missing dynamic target"),
       make(version, { $dynamicRef: "#owned" }),
-      "dynamic-scope evaluation",
+      "Reference target is missing",
     );
     refuse(
       name("boolean reference pending"),

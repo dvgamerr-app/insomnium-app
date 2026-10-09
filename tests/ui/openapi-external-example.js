@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { withNativeApp, poll } from "./helpers/native-app.js";
 import { generateOwnedOpenApi } from "./helpers/openapi-generation.js";
 import { schemaResourceDocument } from "./helpers/openapi-schema-resource-contract.js";
+import { dynamicSchemaDocument } from "./helpers/openapi-dynamic-schema-contract.js";
 import {
   apiDesignLayoutMetrics,
   assertApiDesignLayout,
@@ -223,10 +224,15 @@ try {
           },
         };
       }
+      if (schemaResources) {
+        const dynamic = dynamicSchemaDocument(version);
+        Object.assign(document.components.schemas, dynamic.components.schemas);
+        Object.assign(document.paths, dynamic.paths);
+      }
       const specId = await generateOwnedOpenApi(
         { page, invoke, output },
         document,
-        schemaResources ? 6 : 4,
+        schemaResources ? 12 : 4,
         "External examples",
         {
           beforeCheck: async ({ design, specId }) => {
@@ -691,6 +697,27 @@ try {
             Buffer.from(JSON.stringify({ external: "attached" }, null, 2)),
           ],
         );
+      if (schemaResources) {
+        const reader = (/** @type {string} */ owned) => ({
+          owned,
+          static: "static",
+          pointer: "pointer",
+          root: "base",
+        });
+        const expected = [
+          reader("A"),
+          reader("B"),
+          reader("base"),
+          reader("outer"),
+          { a: reader("A"), b: reader("B"), plain: reader("base") },
+          { $dynamicRef: "missing.json#literal", $ref: "literal" },
+        ];
+        for (const [index, value] of expected.entries())
+          cases.push([
+            "/case-" + index,
+            Buffer.from(JSON.stringify(value, null, 2)),
+          ]);
+      }
       for (const [path, bytes] of cases) {
         const request = requests.find(
           (/** @type {any} */ r) => new URL(r.url).pathname === path,
