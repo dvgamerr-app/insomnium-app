@@ -2,13 +2,13 @@
 
 ## OpenAPI querystring — verified feature — 2026-10-09
 
-- Current precommit base fc75aa2; accepted whole-query work is ready for its topic commit. Release1791535554156/finished1791535923874/result0 is frozen; all five recorded application hashes match.
+- Current implementation commit b23eefd (feat(openapi): support whole-query parameters), based on fc75aa2. Release1791535554156/finished1791535923874/result0 is frozen; all five recorded application hashes match. Verified source, saved scenarios and feature documentation are committed by topic.
 - Native3.2.1/25 (68209/artifact1791535934518) and3.2.0/25 (63902/artifact1791536829429), signing165targets/158signatures/8checks (23182/artifact1791537744405) and named-query3.2.1/44 (75394/artifact1791542745015) are terminal0/passed. Independent audits pass. All ten actual760px images inspected.
 - Latest named-query evidence:10:45:45.027Z–11:09:57.317Z,33generated/11edits/5refusals, two help layouts/760px PNG checks, source frozen and generation/selection recoveries0. Native51400 exit0/native-hidden/visiblefalse; Bun51196/native gone, scoped WebView processes0, actual fixture58767 listeners0. Earlier failed80355 is retained and documented; its saved-helper correction did not change application source.
 - Previous goal turn made progress with signing terminal/audits/cleanup and named-query launch. This turn reviewed the actual named-query failure, repaired the saved helper, completed fresh44 acceptance/audit/visual review and owned cleanup. Compiler0errors0warnings and selected formatting/diff checks pass. No passing scenario was restarted.
 - Final format scope: all five application files, saved scenarios/helpers/fixture and OPENAPI-QUERYSTRING.md pass Prettier. STATUS/PLAN/PARITY/UI-TESTING/scenario README retain pre-existing formatting warnings, reproduced directly from HEAD with the same format-size deltas; no broad historical-document reformat was included. git diff --check passes.
 - No feature-owned live process handles remain. Exact standards/commands/evidence/failures/limits: OPENAPI-QUERYSTRING.md. Full original migration/UX/CSS objective remains active; modern examples/bytes/media/full schemas/saved-resource/provider/platform and every remaining PLAN/PARITY gate are required. Redesign follows full migration.
-- After the topic commit, record its hash and provide the committed handoff. No callable /compact exists in this interface; do not claim compaction or begin the next feature without this handoff.
+- Feature checkpoint: implementation b23eefd is committed; evidence, remaining original migration/UX/CSS gates and terminal/live-handle state are recorded above. No callable /compact exists in this interface (tool inventory checked); this documentation checkpoint is the committed handoff, and compaction is not claimed. No next feature was started in this turn. Continue the full original goal from PLAN/PARITY/POST-MIGRATION-UX, preserving the existing UI until full migration gates close.
 
 ### Progress history
 
