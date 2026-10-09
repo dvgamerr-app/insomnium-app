@@ -34,6 +34,7 @@
   import WebSocketMessageEditor from "./WebSocketMessageEditor.svelte";
   import { readCurrentBodyUpload } from "../uploads.js";
   import { isBinaryBody } from "../binary-body.js";
+  import { isJsonBodyMediaType } from "../media-type.js";
   /** @type {{ request: Record<string, any>, onchange: (patch: Record<string, any>) => void }} */
   let { request, onchange } = $props();
   let tab = $state("Body");
@@ -216,7 +217,7 @@
               value={request.body.mimeType}>{request.body.mimeType}</option
             >{/if}</Select
         ><span class="spacer"
-        ></span>{#if !binaryBody && request.body?.mimeType === "application/json"}<Button
+        ></span>{#if !binaryBody && isJsonBodyMediaType(request.body?.mimeType)}<Button
             variant="ghost"
             class="text-button"
             onclick={format}><Icon name="code" size={14} /> Format JSON</Button

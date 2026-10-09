@@ -1,5 +1,7 @@
 # UI scenarios (Playwright + Bun)
 
+2026-10-09 JSON request-body media: shared validated MIME recognition preserves application/json case/parameters, generic +json and legacy text/json body representation while field content rules remain strict application/json. Canonical/variant/suffix JSON preference, editor mode/Format JSON and schema-free text handling agree; misleading json substrings remain non-JSON. Fresh release1791503770124 accepts saved native JSON body84 groups across4versions (21each), terminal0/native-hidden/visiblefalse/exit0 with cleanup; all8 quoted/suffix760 images inspected. Compiler0/0, inline80body419fields52refusals, full-field Git499 and parser68strict10body pass. Fresh binary21 groups and URL45raw targets42independent signatures pass on the same release, terminal0/native-hidden/visiblefalse/exit0 with cleanup. All feature-owned handles are terminal. Saved command: bun tests/ui/openapi-json-body.js after the shared fresh build. Exact sources/commands/limits: docs/migration/OPENAPI-JSON-BODY.md and STATUS.md. Every original full migration/UX/CSS gate remains required.
+
 Current JSON media variants acceptance: saved native form208 across4versions,
 content239 across3versions and URL45raw targets42independent signatures pass on
 release1791496205618; all native-hidden/visiblefalse/exit0 with cleanup. Headless

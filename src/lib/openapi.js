@@ -16,6 +16,7 @@ import {
 
 import { parseSpec, methods } from "./openapi-document.js";
 import { isOpenApiJsonMediaType } from "./openapi-content.js";
+import { isJsonBodyMediaType } from "./media-type.js";
 
 /** @param {Record<string, any>} spec */
 export function analyzeSpec(spec) {
@@ -439,7 +440,7 @@ export function generateRequests(
             schema.consumes || ["application/json"])[0],
           text: JSON.stringify(value, null, 2),
         };
-        if (!request.body.mimeType.includes("json"))
+        if (!isJsonBodyMediaType(request.body.mimeType))
           issues.push("Review the non-JSON body serialization before sending.");
       } else if (parameter.in === "formData") {
         request.body.mimeType = (operation.consumes ||
@@ -454,7 +455,10 @@ export function generateRequests(
       const content = operation.requestBody.content || {};
       const mime = Object.hasOwn(content, "application/json")
         ? "application/json"
-        : Object.keys(content)[0];
+        : Object.keys(content).find(isOpenApiJsonMediaType) ||
+          Object.keys(content).find(isJsonBodyMediaType) ||
+          Object.keys(content)[0];
+      const json = isJsonBodyMediaType(mime);
       try {
         const media = content[mime];
         const rawBinary =
@@ -462,6 +466,7 @@ export function generateRequests(
             media.schema?.format === "binary") ||
           (/^3\.[12]\./.test(String(schema.openapi)) &&
             !Object.hasOwn(media, "schema") &&
+            !json &&
             !/^(?:text\/|(?:application\/(?:[\w.-]+\+)?(?:json|xml)|application\/graphql|application\/x-www-form-urlencoded|multipart\/form-data)(?:;|$))/i.test(
               mime || "",
             ));
@@ -564,12 +569,12 @@ export function generateRequests(
             request.body = {
               mimeType: mime || "application/json",
               text:
-                typeof value === "string" && !mime?.includes("json")
+                typeof value === "string" && !json
                   ? value
                   : JSON.stringify(value, null, 2),
             };
           if (
-            !mime?.includes("json") &&
+            !json &&
             ![
               "multipart/form-data",
               "application/x-www-form-urlencoded",

@@ -1,4 +1,5 @@
 // In-memory only. Never persist response content or undo history to disk.
+import { isJsonBodyMediaType } from "./media-type.js";
 /** @type {Map<string, {value: any, size: number}>} */
 const states = new Map();
 const MAX_BYTES = 4 * 1024 * 1024;
@@ -29,7 +30,7 @@ export function saveEditorState(key, value) {
 export function editorMode(mime) {
   const value = mime.split(";")[0].toLowerCase();
   if (value === "graphql" || value === "application/graphql") return "graphql";
-  if (value.includes("json")) return "application/json";
+  if (isJsonBodyMediaType(mime)) return "application/json";
   if (value.includes("yaml")) return "yaml";
   if (value.includes("xml")) return "application/xml";
   if (value.includes("html")) return "text/html";
