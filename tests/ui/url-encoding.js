@@ -1,4 +1,8 @@
 import assert from "node:assert/strict";
+import {
+  queryOrderParameters,
+  queryOrderTarget,
+} from "./helpers/query-order-cases.js";
 import { createHmac, createHash } from "node:crypto";
 import { createServer } from "node:net";
 import { writeFile } from "node:fs/promises";
@@ -334,52 +338,40 @@ try {
       "Four parameterized text form-content signing regressions",
     );
     for (const source of resources.filter(
-      (r) => r._id.startsWith("req_oauth_") && r._id.endsWith("true"),
+      (r) =>
+        ["hawk", "oauth1"].includes(r.authentication?.type) &&
+        /(?:true|false)$/.test(r._id),
     ))
-      resources.push({
-        ...source,
-        _id: source._id + "_text_query",
-        name: source.name + " UTF-8 text query",
-        parameters: [
-          ...source.parameters,
-          {
-            name: "color",
-            value: '"a + ไทย/🌙"',
-            _openapiSerialization: {
-              style: "content",
-              kind: "scalar-json",
-              nullable: true,
-              mediaType: 'Text/Plain; charset="UTF-8"',
-            },
-          },
-          {
-            name: "count",
-            value: "false",
-            _openapiSerialization: {
-              style: "content",
-              kind: "scalar-json",
-              nullable: true,
-              mediaType: "text/plain",
-            },
-          },
-          {
-            name: "omitted",
-            value: "null",
-            _openapiSerialization: {
-              style: "content",
-              kind: "scalar-json",
-              nullable: true,
-              mediaType: "text/plain",
-            },
-          },
-          { name: "color", value: "manual +" },
-        ],
-      });
+      for (const curl of [false, true])
+        resources.push({
+          ...source,
+          _id: source._id + "_text_query" + (curl ? "_curl" : ""),
+          name: source.name + " ordered UTF-8 query" + (curl ? " cURL" : ""),
+          _curlSource: curl,
+          parameters: queryOrderParameters(),
+        });
     assert.equal(
       resources.length,
-      52,
-      "Four text query content signing regressions",
+      80,
+      "32 ordered query signing cases retain all46 original signing cases",
     );
+    const signedResources = resources.slice(2);
+    const initialSigningModes = new Map(
+      signedResources.map((r) => [r._id, r.authentication.bodyMode]),
+    );
+    const legacyQueryRefusals = [];
+    const apiKeyResources = [];
+    for (const curl of [false, true])
+      for (const encoding of [false, true])
+        apiKeyResources.push({
+          ...resources[1],
+          _id: "req_query_order_api_" + curl + encoding,
+          name: name + " ordered API key " + curl + " " + encoding,
+          _curlSource: curl,
+          settingEncodeUrl: encoding,
+          parameters: queryOrderParameters(),
+        });
+    resources.push(...apiKeyResources);
     await page
       .getByRole("button", { name: "Import collection", exact: true })
       .click();
@@ -415,11 +407,15 @@ try {
     const select = async (requestName = name, method = "GET") => {
       const button = page
         .getByRole("complementary", { name: "Collections" })
-        .getByRole("button", {
-          name: method + " " + requestName,
-          exact: true,
+        .getByRole("button")
+        .filter({
+          has: page.getByText(requestName, { exact: true }),
         });
-      await button.waitFor();
+      // Native reload can restore the row while the composite accessible
+      // name is still unavailable. Match its exact visible name descendant;
+      // method, ownership and rendered selection are independently checked.
+      await button.waitFor({ timeout: 60000 });
+      assert.equal(await button.count(), 1, "One owned request row");
       const data = await invoke("load_workspace");
       const owned = data.resources.find(
         (/** @type {any} */ r) =>
@@ -488,11 +484,101 @@ try {
       assert.equal(saved.url, url);
       assert.deepEqual(saved.segmentParams, resources[1].segmentParams);
     }
-    for (const signed of resources.slice(2)) {
+    for (const request of apiKeyResources) {
+      await select(request.name);
+      await page.reload();
+      await select(request.name);
+      const count = received.length;
+      await page.getByRole("button", { name: "Send", exact: true }).click();
+      await poll(
+        async () => received.length === count + 1,
+        "Ordered API-key wire target",
+      );
+      await poll(
+        async () =>
+          !(await page
+            .getByRole("button", { name: "Cancel", exact: true })
+            .count()),
+        "API-key Send settled",
+      );
+      assert.equal(
+        received[count],
+        "GET " +
+          queryOrderTarget(
+            request.settingEncodeUrl,
+            request._curlSource,
+            true,
+          ) +
+          " HTTP/1.1",
+      );
+      const persisted = (await invoke("load_workspace")).resources.find(
+        (/** @type {any} */ r) => r.name === request.name,
+      );
+      assert.deepEqual(persisted.parameters, request.parameters);
+      assert.equal(persisted.url, url);
+    }
+    for (const signed of signedResources) {
       await select(signed.name, signed.method);
       await page.reload();
       await select(signed.name, signed.method);
       const count = received.length;
+      if (
+        signed._id.includes("_text_query") &&
+        signed.authentication.type === "oauth1" &&
+        signed.authentication.bodyMode === "legacy"
+      ) {
+        await page.getByRole("button", { name: "Send", exact: true }).click();
+        const message =
+          "This query uses ambiguous legacy OAuth1 encoding. Review it and select RFC 5849 explicitly in Auth.";
+        await page
+          .getByText(message, { exact: true })
+          .waitFor({ timeout: 60000 });
+        await poll(
+          async () =>
+            !(await page
+              .getByRole("button", { name: "Cancel", exact: true })
+              .count()),
+          "Ambiguous legacy OAuth1 refusal settled",
+        );
+        assert.equal(
+          received.length,
+          count,
+          "Legacy ambiguity refused before TCP delivery",
+        );
+        await page.getByRole("tab", { name: "Auth", exact: true }).click();
+        await page.getByLabel(/^Body signing/).selectOption("standard");
+        await poll(async () => {
+          const persisted = (await invoke("load_workspace")).resources.find(
+            (/** @type {any} */ r) => r.name === signed.name,
+          );
+          return persisted?.authentication.bodyMode === "standard";
+        }, "Explicit RFC signing choice persisted");
+        legacyQueryRefusals.push({
+          name: signed.name,
+          method: signed.authentication.signatureMethod,
+          encoding: signed.settingEncodeUrl,
+          curl: !!signed._curlSource,
+          message,
+          beforeNetwork: true,
+          recoveredMode: "standard",
+        });
+        signed.authentication = {
+          ...signed.authentication,
+          bodyMode: "standard",
+        };
+        await page.reload();
+        await select(signed.name, signed.method);
+        const persisted = (await invoke("load_workspace")).resources.find(
+          (/** @type {any} */ r) => r.name === signed.name,
+        );
+        assert.equal(persisted.authentication.bodyMode, "standard");
+        assert.deepEqual(persisted.parameters, signed.parameters);
+        assert.equal(
+          received.length,
+          count,
+          "RFC selection/reload causes no send",
+        );
+      }
       await page.getByRole("button", { name: "Send", exact: true }).click();
       await poll(
         async () => received.length === count + 1,
@@ -506,13 +592,17 @@ try {
         "Hawk Send settled",
       );
       const [method, target] = received[count].split(" ");
-      if (signed._id.endsWith("_text_query")) {
+      if (signed._id.includes("_text_query")) {
         assert.equal(
           target,
-          "/100%25/a%20b?empty&x=%2F&q=a%20b%2B&color=manual%20%2B&color=a%20%2B%20%E0%B9%84%E0%B8%97%E0%B8%A2%2F%F0%9F%8C%99&count=false",
-          "Text query values, duplicates and null omission match current ordinary-before-generated wire order",
+          queryOrderTarget(signed.settingEncodeUrl, !!signed._curlSource),
+          "Enabled manual/generated rows, duplicate expansions and empty values retain row order",
         );
-        assert.ok(!target.includes("omitted="));
+        assert.ok(
+          !target.includes("omitted=") &&
+            !target.includes("ignored=") &&
+            !target.includes("disabled="),
+        );
       }
       assert.equal(
         wireBodies[count],
@@ -538,6 +628,7 @@ try {
             name: signed.name,
             received,
             wireHeaders,
+            legacyQueryRefusals,
             limits:
               "Owned local fixture credentials only; partial evidence, not scenario acceptance.",
           },
@@ -547,7 +638,7 @@ try {
       );
       // Text cases already assert their complete target above; retain this
       // older plain/reserved-query golden for the original signing cases.
-      if (!signed._id.endsWith("_text_query"))
+      if (!signed._id.includes("_text_query"))
         assert.equal(
           target,
           (signed.settingEncodeUrl
@@ -771,6 +862,21 @@ try {
         expected,
         "Independent MAC from exact raw TCP target",
       );
+      if (signed._id.includes("_text_query")) {
+        const reordered = wireQuery.split("&");
+        // Same decoded pairs, different enabled-row order: Hawk signs the
+        // exact target, unlike OAuth's sorted query normalization.
+        [reordered[2], reordered[3]] = [reordered[3], reordered[2]];
+        const changedTarget = wirePath + "?" + reordered.join("&");
+        assert.notEqual(changedTarget, target);
+        assert.notEqual(
+          fields.mac,
+          createHmac(signed.authentication.algorithm, "local-fixture-key")
+            .update(normalized.replace(target, changedTarget))
+            .digest("base64"),
+          "Changing only row order changes the Hawk MAC",
+        );
+      }
       assert.notEqual(
         fields.mac,
         createHmac(signed.authentication.algorithm, "local-fixture-key")
@@ -789,19 +895,28 @@ try {
             "Raw TCP request target includes segment/query/API-key exactly once",
             "Send leaves saved source URL unchanged",
             "Independent Hawk SHA1/SHA256 MAC from raw TCP URL in legacy/standard modes with encoding on/off; modified target produces a different MAC",
+            "Ordered manual/generated query rows in all encoding/cURL contexts, four API-key targets and32 independent signing cases; reordered pairs change Hawk MAC",
+            "Eight ambiguous legacy OAuth1 queries refuse before network and recover only after explicit persisted RFC 5849 selection",
           ],
           received,
-          signatureCases: resources.slice(2).map((r) => ({
+          legacyQueryRefusals,
+          apiKeyQueryOrderCases: apiKeyResources.map((r) => ({
+            encoding: r.settingEncodeUrl,
+            curl: r._curlSource,
+          })),
+          signatureCases: signedResources.map((r) => ({
             type: r.authentication.type,
             method:
               r.authentication.signatureMethod ||
               r.authentication.algorithm ||
               r.authentication.service,
             mode: r.authentication.bodyMode,
+            initialMode: initialSigningModes.get(r._id),
             encoding: r.settingEncodeUrl,
-            textContentQuery: r._id.endsWith("_text_query"),
-            textContentQueryOrder: r._id.endsWith("_text_query")
-              ? "ordinary-before-generated"
+            textContentQuery: r._id.includes("_text_query"),
+            curl: !!r._curlSource,
+            textContentQueryOrder: r._id.includes("_text_query")
+              ? "enabled-row-order"
               : undefined,
             reservedQuery: r.parameters.some(
               (/** @type {any} */ p) =>

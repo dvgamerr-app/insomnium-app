@@ -98,6 +98,7 @@ export async function generateOwnedOpenApi(
           r._type === "request" && r.sourceSpecId === spec._id,
       ).length === count,
     "Actual worker generated requests",
+    60000,
   );
   await page.getByRole("button", { name: "Collections", exact: true }).click();
   return spec._id;

@@ -100,6 +100,18 @@ export const deconstructQueryStringToParams = (qs, strict) => {
   }
   return pairs;
 };
+/** Keep the legacy query codec available for individual ordered row fragments.
+ * @param {string} query @param {boolean} [encode] @param {boolean} [strict] */
+export const smartEncodeQueryString = (query, encode = true, strict = true) => {
+  if (!encode || !query) return query;
+  const encoded = deconstructQueryStringToParams(query, strict).map(
+    ({ name, value }) => ({
+      name: flexibleEncodeComponent(name),
+      value: flexibleEncodeComponent(value),
+    }),
+  );
+  return buildQueryStringFromParams(encoded, strict);
+};
 /** @param {string} url @param {boolean} [encode] */
 export const smartEncodeUrl = (url, encode) => {
   encode = encode === undefined ? true : encode;
@@ -117,15 +129,7 @@ export const smartEncodeUrl = (url, encode) => {
         .join("/");
     }
     if (parsedUrl.query) {
-      const qsParams = deconstructQueryStringToParams(parsedUrl.query);
-      const encodedQsParams = [];
-      for (const { name, value } of qsParams) {
-        encodedQsParams.push({
-          name: flexibleEncodeComponent(name),
-          value: flexibleEncodeComponent(value),
-        });
-      }
-      parsedUrl.query = buildQueryStringFromParams(encodedQsParams);
+      parsedUrl.query = smartEncodeQueryString(parsedUrl.query);
       parsedUrl.search = `?${parsedUrl.query}`;
     }
     return urlFormat(parsedUrl);

@@ -4,6 +4,7 @@ import { serializeOpenApiForm } from "./openapi-form.js";
 import { buildNetworkLog, failureLog, NetworkError } from "./network-log.js";
 import {
   smartEncodeUrl,
+  smartEncodeQueryString,
   buildQueryParameter,
   joinUrlAndQueryString,
 } from "./template-url.js";
@@ -115,8 +116,14 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
   // use Insomnium's legacy automatic encoding unless the owner disables it.
   const encodeUrl = request.settingEncodeUrl ?? !request._curlSource;
   const legacyQuery = !request._curlSource || encodeUrl;
+  const orderedQuery = (request.parameters ?? []).some(
+    (/** @type {any} */ p) =>
+      !p.disabled &&
+      (p._openapiSerialization || p.sendEmptyName) &&
+      (p.name || p.sendEmptyName),
+  );
   let sourceUrl = resolve(request.url);
-  if (legacyQuery) {
+  if (legacyQuery && !orderedQuery) {
     const query = [];
     for (const parameter of request.parameters ?? []) {
       if (parameter.disabled || (!parameter.name && !parameter.sendEmptyName))
@@ -207,7 +214,8 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
     url.href = queryUrl.href;
   }
   for (const param of (request.parameters ?? []).filter(
-    (/** @type {any} */ p) => p._openapiSerialization || !legacyQuery,
+    (/** @type {any} */ p) =>
+      p._openapiSerialization || !legacyQuery || orderedQuery,
   ))
     if (!param.disabled && (param.name || param.sendEmptyName)) {
       const name = resolve(param.name);
@@ -215,9 +223,18 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
       const encoded = new URLSearchParams([[name, value]]).toString();
       const query = param._openapiSerialization
         ? serializeOpenApiQuery(name, value, param._openapiSerialization)
-        : param.noValue
-          ? encoded.slice(0, encoded.indexOf("="))
-          : encoded;
+        : legacyQuery
+          ? smartEncodeQueryString(
+              buildQueryParameter(
+                { name, value: param.noValue ? undefined : value },
+                !param.sendEmptyName,
+              ),
+              encodeUrl,
+              !param.sendEmptyName,
+            )
+          : param.noValue
+            ? encoded.slice(0, encoded.indexOf("="))
+            : encoded;
       if (query) url.search += (url.search ? "&" : "?") + query;
     }
   /** @type {string[][]} */
@@ -382,8 +399,17 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
             `API key destination “${auth.addTo}” has not been migrated yet.`,
           );
         if (auth.addTo === "queryParams") {
-          if (!legacyQuery)
-            url.searchParams.append(resolve(auth.key), resolve(auth.value));
+          if (!legacyQuery || orderedQuery) {
+            const name = resolve(auth.key);
+            const value = resolve(auth.value);
+            const query = legacyQuery
+              ? smartEncodeQueryString(
+                  buildQueryParameter({ name, value }),
+                  encodeUrl,
+                )
+              : new URLSearchParams([[name, value]]).toString();
+            if (query) url.search += (url.search ? "&" : "?") + query;
+          }
         } else if (!manualAuthorization) {
           if (auth.addTo === "cookie") {
             // Cookie is an explicit header, separate from the collection jar.

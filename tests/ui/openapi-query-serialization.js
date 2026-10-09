@@ -43,6 +43,7 @@ await withNativeApp(
     assert.ok(address && typeof address !== "string");
     const base = `http://127.0.0.1:${address.port}`;
     const cases = /** @type {Array<Record<string,any>>} */ ([]);
+    const selectionRecoveries = /** @type {Array<Record<string,any>>} */ ([]);
     const recordProgress = () =>
       Bun.write(
         output + "/progress.json",
@@ -51,6 +52,7 @@ await withNativeApp(
             version,
             verifiedGroups: cases.length,
             lastCase: cases.at(-1)?.id,
+            selectionRecoveries,
             limits:
               "Partial group evidence; acceptance.json and terminal result.json are required for scenario acceptance.",
           },
@@ -65,11 +67,50 @@ await withNativeApp(
         openApiQueryCases.length,
         "Owned OpenAPI queries",
       );
-      for (const entry of openApiQueryCases) {
-        await page
+      const selectOwnedRequest = async (/** @type {string} */ name) => {
+        const data = await invoke("load_workspace");
+        const requests = data.resources.filter(
+          (/** @type {any} */ r) =>
+            r._type === "request" &&
+            r.sourceSpecId === sourceSpecId &&
+            r.name === name,
+        );
+        assert.equal(
+          requests.length,
+          1,
+          "One request for the exact owned source/name",
+        );
+        const request = requests[0];
+        assert.equal(request.method, "GET");
+        const button = page
           .getByRole("complementary", { name: "Collections" })
-          .getByRole("button", { name: "GET " + entry.id, exact: true })
-          .click();
+          .getByRole("button")
+          .filter({ has: page.getByText(name, { exact: true }) });
+        await button.waitFor({ timeout: 60000 });
+        assert.equal(await button.count(), 1);
+        const selected = async () =>
+          (await invoke("load_workspace")).activeRequestId === request._id &&
+          /(?:^|\s)active(?:\s|$)/.test(
+            (await button.getAttribute("class")) || "",
+          );
+        if (data.activeRequestId !== request._id) {
+          try {
+            await button.click({ timeout: 60000 });
+          } catch (cause) {
+            if (!String(cause).includes("Timeout") || !(await selected()))
+              throw cause;
+            selectionRecoveries.push({
+              name,
+              requestId: request._id,
+              reason:
+                "Click timed out after exact persisted/rendered selection succeeded",
+            });
+          }
+        }
+        await poll(selected, "Owned generated request selected", 60000);
+      };
+      for (const entry of openApiQueryCases) {
+        await selectOwnedRequest(entry.id);
         const before = await invoke("load_workspace");
         const request = before.resources.find(
           (/** @type {any} */ r) =>
@@ -214,13 +255,7 @@ await withNativeApp(
           ],
         },
       ]) {
-        await page
-          .getByRole("complementary", { name: "Collections" })
-          .getByRole("button", {
-            name: "GET " + group.requestName,
-            exact: true,
-          })
-          .click();
+        await selectOwnedRequest(group.requestName);
         await page
           .getByRole("tablist", { name: "Request editor", exact: true })
           .getByRole("tab", { name: /^Query/ })
@@ -359,13 +394,7 @@ await withNativeApp(
           );
           // Reload restores the request but starts with its default editor tab.
           // Reopen Query through the actual saved UI before the next edit.
-          await page
-            .getByRole("complementary", { name: "Collections" })
-            .getByRole("button", {
-              name: "GET " + group.requestName,
-              exact: true,
-            })
-            .click();
+          await selectOwnedRequest(group.requestName);
           await page
             .getByRole("tablist", { name: "Request editor", exact: true })
             .getByRole("tab", { name: /^Query/ })
@@ -386,6 +415,7 @@ await withNativeApp(
             version,
             count: cases.length,
             cases,
+            selectionRecoveries,
             limits:
               "Actual owned Windows native OpenAPI worker generation and raw TCP HTTP target: regular and reserved query expansion, valid percent triples, malformed-percent/Unicode/name/style controls, edit/disable/pre-network refusal and linked help. Query-invalid #/[] are encoded; WHATWG HTTP URL parsing encodes apostrophes. Raw delimiters keep their query syntax. No external services or full URI/provider interop claim; other locations/content/body/Swagger2/schema/provider/platform/lint remain separate gates.",
           },
