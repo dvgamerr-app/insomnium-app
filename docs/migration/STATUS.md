@@ -1,5 +1,13 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Playwright headless — owner request rechecked — 2026-10-10
+
+- Existing implementation cccf507 remains in place: all saved browser scenarios use launchUiBrowser with fixed headless:true and no headed override. Source search of tests/scripts found one browser launch and no persistent-context launch.
+- Native helper hides its owned Tauri window before connectOverCDP and records native-hidden/visible:false. This recheck did not launch a new native scenario.
+- bun tests/ui/git-merge-contract.js finished exit0; result.json passed, acceptance.json passed all9 groups. Shared helper closes the browser and fixture server in finally; no live handle remains.
+- This documentation topic is the current commit after git log -1. Preserve pending named-example recovery work separately; full migration and UX/CSS gates remain open.
+- /compact has no callable tool in this interface. Handoff recorded; compaction was not invoked.
+
 ## OpenAPI named examples — committed verified checkpoint — 2026-10-10
 
 - Verified implementation topic3cdbd18 feat(openapi): select named request examples by operation. Documentation checkpoint carrying this record is current HEAD after commit (git log -1). Worktree clean after topic commit; no live feature handles. /compact is unavailable in this interface: explicit handoff recorded here, no compaction claimed. Full original goal remains ACTIVE.
