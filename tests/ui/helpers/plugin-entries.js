@@ -6,8 +6,10 @@ import { withDialogSelection } from "./dialog-selection.js";
 
 /** @param {{page:import('playwright-core').Page,invoke:import('./native-app.js').NativeInvoke,output:string}} context */
 export async function pluginEntriesScenario({ page, invoke, output }) {
+  const formatsMode = process.env.INSOMNIUM_PLUGIN_FORMATS === "1";
   const root = join(output, "entries");
   const marker = join(root, "executed-marker.txt");
+  /** @type {{id:string,main?:string|null,files:string[],entry?:string,status?:string,nested?:Record<string,any>,link?:boolean,type?:string,format?:string,malformedScope?:boolean,oversizedScope?:boolean,deepScope?:boolean}[]} */
   const cases = [
     {
       id: "internal-parent",
@@ -107,6 +109,96 @@ export async function pluginEntriesScenario({ page, invoke, output }) {
       link: true,
     },
   ];
+  if (formatsMode)
+    cases.push(
+      {
+        id: "nested-module",
+        main: "lib/index.js",
+        files: ["lib/index.js"],
+        entry: "lib/index.js",
+        type: "commonjs",
+        nested: { type: "module" },
+        format: "module",
+      },
+      {
+        id: "nested-commonjs",
+        main: "lib/index.js",
+        files: ["lib/index.js"],
+        entry: "lib/index.js",
+        type: "module",
+        nested: { type: "commonjs" },
+        format: "commonjs",
+      },
+      {
+        id: "nested-untyped",
+        main: "lib/index.js",
+        files: ["lib/index.js"],
+        entry: "lib/index.js",
+        type: "module",
+        nested: {},
+        format: "commonjs",
+      },
+      {
+        id: "inherited-module",
+        main: "lib/index.js",
+        files: ["lib/index.js"],
+        entry: "lib/index.js",
+        type: "module",
+        format: "module",
+      },
+      {
+        id: "nested-cjs",
+        main: "lib/index.cjs",
+        files: ["lib/index.cjs"],
+        entry: "lib/index.cjs",
+        type: "module",
+        nested: { type: "module" },
+        format: "commonjs",
+      },
+      {
+        id: "nested-mjs",
+        main: "lib/index.mjs",
+        files: ["lib/index.mjs"],
+        entry: "lib/index.mjs",
+        type: "commonjs",
+        nested: { type: "commonjs" },
+        format: "module",
+      },
+      {
+        id: "nested-malformed",
+        main: "lib/index.js",
+        files: ["lib/index.js", "lib/package.json"],
+        entry: "lib/index.js",
+        status: "invalid",
+        malformedScope: true,
+      },
+      {
+        id: "nested-oversized",
+        main: "lib/index.js",
+        files: ["lib/index.js", "lib/package.json"],
+        entry: "lib/index.js",
+        status: "invalid",
+        oversizedScope: true,
+      },
+      {
+        id: "dependency-boundary",
+        main: "node_modules/library/index.js",
+        files: ["node_modules/library/index.js"],
+        entry: "node_modules/library/index.js",
+        type: "module",
+        format: "commonjs",
+      },
+      {
+        id: "nearest-scope",
+        main: "lib/deep/index.js",
+        files: ["lib/deep/index.js", "lib/deep/package.json"],
+        entry: "lib/deep/index.js",
+        type: "module",
+        nested: { type: "module" },
+        deepScope: true,
+        format: "commonjs",
+      },
+    );
   await mkdir(root, { recursive: true });
   const external = join(output, "outside");
   await mkdir(external, { recursive: true });
@@ -123,6 +215,7 @@ export async function pluginEntriesScenario({ page, invoke, output }) {
         insomnia: {},
         version: "1.0.0",
         ...("main" in item ? { main: item.main } : {}),
+        ...("type" in item ? { type: item.type } : {}),
       }),
     );
     for (const file of item.files) {
@@ -135,6 +228,15 @@ export async function pluginEntriesScenario({ page, invoke, output }) {
         join(directory, "lib/package.json"),
         JSON.stringify(item.nested),
       );
+    if (item.malformedScope)
+      await Bun.write(join(directory, "lib/package.json"), "{broken");
+    if (item.oversizedScope)
+      await Bun.write(
+        join(directory, "lib/package.json"),
+        JSON.stringify({ description: "x".repeat(256 * 1024) }),
+      );
+    if (item.deepScope)
+      await Bun.write(join(directory, "lib/deep/package.json"), "{}");
     if (item.link)
       await symlink(external, join(directory, "linked"), "junction");
   }
@@ -156,6 +258,7 @@ export async function pluginEntriesScenario({ page, invoke, output }) {
     );
     assert.ok(pkg, item.id);
     assert.equal(pkg.status, item.status ?? "execution-pending", item.id);
+    if (item.format) assert.equal(pkg.format, item.format, item.id);
     if (item.entry)
       assert.equal(
         normalize(pkg.entry),
@@ -197,6 +300,7 @@ export async function pluginEntriesScenario({ page, invoke, output }) {
     JSON.stringify(
       {
         passed: true,
+        formatsMode,
         cases,
         report,
         before,

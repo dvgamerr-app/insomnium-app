@@ -179,6 +179,55 @@ fn entry_index(base: &Path, root: &Path) -> Result<Option<PathBuf>, String> {
     Ok(None)
 }
 
+fn entry_format(root: &Path, entry: &Path, manifest: &Value) -> Result<String, String> {
+    match entry.extension().and_then(|value| value.to_str()) {
+        Some("mjs") => return Ok("module".into()),
+        Some("cjs") => return Ok("commonjs".into()),
+        _ => {}
+    }
+    let mut scope = entry
+        .parent()
+        .ok_or("Package entry has no parent directory.")?;
+    for _ in 0..128 {
+        if scope == root {
+            return Ok(
+                if manifest.get("type").and_then(Value::as_str) == Some("module") {
+                    "module"
+                } else {
+                    "commonjs"
+                }
+                .into(),
+            );
+        }
+        if !scope.starts_with(root) {
+            return Err("Package scope resolves outside the package directory.".into());
+        }
+        // A dependency with no manifest does not inherit the outer package type.
+        if scope.file_name().is_some_and(|name| name == "node_modules") {
+            return Ok("commonjs".into());
+        }
+        if scope
+            .join("package.json")
+            .try_exists()
+            .map_err(|e| e.to_string())?
+        {
+            let nested = read_manifest(scope)?;
+            return Ok(
+                if nested.get("type").and_then(Value::as_str) == Some("module") {
+                    "module"
+                } else {
+                    "commonjs"
+                }
+                .into(),
+            );
+        }
+        scope = scope
+            .parent()
+            .ok_or("Package scope has no parent directory.")?;
+    }
+    Err("Package scope exceeds the 128-directory inspection limit.".into())
+}
+
 fn inspect_package(report: &mut PluginDiscovery, directory: &Path) {
     if report
         .packages
@@ -269,10 +318,14 @@ fn inspect_package(report: &mut PluginDiscovery, directory: &Path) {
         if !matches!(extension, "js" | "cjs" | "mjs") {
             package.status = "unsupported-entry".into();
             package.message = "The package entry is not a JavaScript module. Native and JSON entries cannot register plugin contributions.".into();
-        } else if extension == "mjs" {
-            package.format = "module".into();
-        } else if extension == "cjs" {
-            package.format = "commonjs".into();
+        } else {
+            match entry_format(directory, Path::new(entry), &manifest) {
+                Ok(format) => package.format = format,
+                Err(error) => {
+                    package.status = "invalid".into();
+                    package.message = error;
+                }
+            }
         }
     }
     report.packages.push(package);

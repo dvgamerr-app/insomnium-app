@@ -1,5 +1,17 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Plugin formats — verified — 2026-10-10
+
+- Production75695 terminal0/551bbbce/current713source/originalf30d baseline binding passes. Formats1791631021497/native56080 accepts31path/status cases/eight declared formats/two invalid scopes/76unchanged files/external bytes/absent marker/full workspace preservation/mounted read-only UI with independent audit. Retained discovery1791631036088/native34272 accepts13packages/2errors/28files/six profiles. Sources1791631050683/native54348+actual restart1791631054632/native64648 accept seven checkpoints/home/max14packages/30files/six profiles/exact persisted workspace values/restoration. All hosts exit0/native-hidden/visible:false; independent retained/link/source/build/file/layout audits pass. Compiler55797 0/0/targeted Rust/diff pass. Formats/source760dark-light/restarted images inspected; no UI/CSS changes. Exact name/ID/profile cleanup empty; all sessions terminal/no live handles.
+- Topic commit/actual-SHA handoff pending. Full package/dependency admission/install, isolated module lifecycle/custom tags/PluginData/store/ordered hooks/actions/eight contributions/six contexts, syntax/fault/provider/platform/accessibility/CI/shared adoption/ownership/full migration/UX/CSS gates remain required. PLUGIN-FORMATS.md; no scope removed. Interface cannot invoke /compact; no compaction claimed.
+
+## Plugin formats — implementation prepared — 2026-10-10
+
+- Final compiler55797 terminal0/0errors0warnings and targeted Rust/diff pass. Production75695 started1791630624901 after current713source freeze, launcher70336/cargo15816→70624/rustc61476 confirmed live. App/scenario frozen; poll exact75695/current descendants until terminal. Originalf30d346f baseline retained in artifacts/native-plugin-formats-baseline. Current source/build/formats/discovery/source-restart audits prepared; native runtime/images/cleanup/topic commit remain pending.
+
+- Previous goal turn made progress: entryad072e7/checkpointf09371b verified/committed and clean. Scoped Claude discovery found none; current STATUS/PLAN/PARITY/native scanner/saved helper and primary package type docs inspected. New declared entry format uses nearest bounded package scope/node_modules boundary/explicit cjs-mjs precedence; malformed scope errors retain the resolved entry with invalid status. Syntax detection/execution not claimed; full custom runtime remains required.
+- Saved existing entry helper extended to31cases via formats mode. Compiler11991 failed6fixture-shape annotations, fixed explicit JSDoc. Fresh production/source binding/native modes/audits/images/cleanup/topic commit remain. Details: PLUGIN-FORMATS.md. All original migration/UX/CSS/plugin contexts/contributions/provider/platform/accessibility/CI/shared adoption/ownership gates remain. Interface cannot invoke /compact; no compaction claimed.
+
 ## Plugin entries — committed handoff — 2026-10-10
 
 - Topic commit `ad072e753731b4ea2629c8a6badbdf4fea37e78d` (`fix(plugins): preserve package entry resolution order`) contains native resolution corrections, saved21case mode/shared corpus and scoped evidence. Productionf30d346f/current713source; entry50924/discovery12240/source59712/restart66236 native-hidden/visible:false/exit0. Literal entry/file/workspace/source/build and linked restart audits pass; compiler19917 0/0/targeted Rust formatting/diff pass. Entry/source760dark-light/restart images inspected. Exact expected name/ID/profile cleanup empty; all feature sessions terminal and no live handles. Worktree clean after topic commit.

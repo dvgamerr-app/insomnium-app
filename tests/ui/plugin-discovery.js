@@ -13,18 +13,21 @@ import {
 import { pluginEntriesScenario } from "./helpers/plugin-entries.js";
 
 const sourcesMode = process.env.INSOMNIUM_PLUGIN_SOURCES === "1";
-const entriesMode = process.env.INSOMNIUM_PLUGIN_ENTRIES === "1";
+const formatsMode = process.env.INSOMNIUM_PLUGIN_FORMATS === "1";
+const entriesMode = formatsMode || process.env.INSOMNIUM_PLUGIN_ENTRIES === "1";
 assert.ok(!(sourcesMode && entriesMode), "Choose one plugin scenario mode");
 /** @type {{original:any,expected:any,parentOutput:string}|undefined} */
 let sourceContinuation;
 let sourceRestored = false;
 try {
   await withNativeApp(
-    entriesMode
-      ? "plugin-entries"
-      : sourcesMode
-        ? "plugin-sources"
-        : "plugin-discovery",
+    formatsMode
+      ? "plugin-formats"
+      : entriesMode
+        ? "plugin-entries"
+        : sourcesMode
+          ? "plugin-sources"
+          : "plugin-discovery",
     async ({ page, invoke, output }) => {
       if (entriesMode) {
         await pluginEntriesScenario({ page, invoke, output });
