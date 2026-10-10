@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## SSE response-template timeout fix — committed handoff — 2026-10-10
+
+- Topic `a0583f6d55923475a01c5230dbb44618be861993` (`fix(http): preserve native timeout errors during response reads`) commits native reqwest timeout classification, saved SSE mode/shared initial-chunk fixture and scoped docs. Fresh production21161 terminal0/optimized6m55s/c2fbaa43/current703source/probe/baseline binding passes. SSE59161/artifact1791617973562 terminal0/4groups/3wire/4workers/native67880 exit0 and HTTP25579/artifact1791618102468 terminal0/19groups/43workers/20wire plus held dependency/native68164 exit0, both native-hidden/visible:false. Independent source/build/literal/body/base64/history/EOF/Cancel/actual timeout/stopped-worker audits, compiler83371 zero errors/warnings, targeted Rust/scenario formatting, headless workspace11 and staged review pass. Evidence/commands/retained failures: TEMPLATE-RESPONSE-SSE.md.
+- Exact owned56568/69328/67880/68164 and four WebView2 profiles absent; no live feature process/session handles. Frontend/CSS unchanged; only http.rs changes among468 app paths. Full migration/UX/CSS goal remains active: live SSE history/body bounds/provider/cycles/protocol/platform/accessibility/OS transfer/full XPath and every original parity/shared UI adoption/ownership gate remain required.
+- Owner requires `/compact` after each feature. This interface has no callable `/compact`; no compaction occurred. Actual topic SHA/evidence/remaining gates/no-live-handles handoff is recorded instead. No next feature started. Current documentation checkpoint SHA is `git log -1`.
+
 ## SSE response-template timeout fix — verified — 2026-10-10
 
 - Fresh optimized build21161 terminal0/6m55s/productionc2fbaa43/current703source/probe identity/baseline preservation verified. SSE59161/artifact1791617973562 terminal0 accepts4groups/3wire/4workers/native67880 exit0; HTTP regression25579/artifact1791618102468 terminal0 accepts19groups/43workers/20wire plus one held dependency/native68164 exit0. Both native-hidden/visible:false. Independent source/build/literal/body/base64/history/selection/EOF/native Cancel/actual timeout/stopped-worker audits pass. Exact owned56568/69328/67880/68164 and four WebView profiles absent; no live feature handles.
