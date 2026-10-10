@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 
 /** Native cancellation fixture: /held stays open until its client disconnects.
  * Other paths return a finite response. Every scenario owns its server.
- * @param {{body?:string,headers?:Record<string,string>}} [options] */
+ * @param {{body?:string,headers?:Record<string,string>,initialChunk?:string}} [options] */
 export async function heldHttp(options = {}) {
   let held = 0;
   let cancelled = 0;
@@ -19,6 +19,13 @@ export async function heldHttp(options = {}) {
         pending.delete(response);
         if (!response.writableEnded) cancelled++;
       });
+      if (options.initialChunk !== undefined) {
+        response.writeHead(200, {
+          "Content-Type": "text/plain",
+          ...options.headers,
+        });
+        response.write(options.initialChunk);
+      }
       return;
     }
     echoes++;
@@ -50,10 +57,11 @@ export async function heldHttp(options = {}) {
     completeHeld() {
       let count = 0;
       for (const response of pending) {
-        response.writeHead(200, {
-          "Content-Type": "text/plain",
-          ...options.headers,
-        });
+        if (!response.headersSent)
+          response.writeHead(200, {
+            "Content-Type": "text/plain",
+            ...options.headers,
+          });
         response.end(options.body || "fixture response");
         completed++;
         count++;

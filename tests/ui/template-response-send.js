@@ -19,9 +19,17 @@ const jsonBody =
 const xmlBody = '<r><item id="a">alpha</item><item id="b"><b>β</b></item></r>';
 const wire = /** @type {Record<string,any>[]} */ ([]);
 const environmentMode = process.env.INSOMNIUM_TEMPLATE_ENVIRONMENTS === "1";
+const sseMode = process.env.INSOMNIUM_TEMPLATE_SSE === "1";
+assert.ok(!(environmentMode && sseMode), "Choose one template scenario mode");
+const sseFirst = ": keepalive\nid: first\ndata: α\n\n";
+const sseLast = "event: done\ndata: final\ndata: β\n\n";
 const held = await heldHttp({
-  body: jsonBody,
-  headers: { "Content-Type": "application/json" },
+  body: sseMode ? sseLast : jsonBody,
+  headers: {
+    "Content-Type": sseMode ? "text/event-stream" : "application/json",
+    "X-Owned-Token": "owned-header",
+  },
+  ...(sseMode ? { initialChunk: sseFirst } : {}),
 });
 const server = Bun.serve({
   hostname: "127.0.0.1",
@@ -41,19 +49,23 @@ const server = Bun.serve({
     return new Response(
       url.pathname === "/root"
         ? "root-accepted"
-        : xml
-          ? xmlBody
-          : environmentMode
-            ? JSON.stringify({ token: url.searchParams.get("scope") })
-            : jsonBody,
+        : url.pathname === "/sse"
+          ? sseFirst + sseLast
+          : xml
+            ? xmlBody
+            : environmentMode
+              ? JSON.stringify({ token: url.searchParams.get("scope") })
+              : jsonBody,
       {
         headers: {
           "Content-Type":
             url.pathname === "/root"
               ? "text/plain"
-              : xml
-                ? "application/xml"
-                : "application/json",
+              : url.pathname === "/sse"
+                ? "text/event-stream"
+                : xml
+                  ? "application/xml"
+                  : "application/json",
           "X-Owned-Token": "owned-header",
         },
       },
@@ -62,9 +74,11 @@ const server = Bun.serve({
 });
 try {
   await withNativeApp(
-    environmentMode
-      ? "template-response-environments"
-      : "template-response-send",
+    sseMode
+      ? "template-response-sse"
+      : environmentMode
+        ? "template-response-environments"
+        : "template-response-send",
     async ({ page, invoke, output }) => {
       page.setDefaultTimeout(60000);
       const suffix = Date.now(),
@@ -227,6 +241,135 @@ try {
           Buffer.from(response.body).toString("base64"),
         );
         return response;
+      }
+      if (sseMode) {
+        const setup = await invoke("load_workspace");
+        setup.settings.timeout = 30000;
+        for (const id of [ids.fresh, ids.held]) {
+          const request = setup.resources.find(
+            (/** @type {any} */ r) => r._id === id,
+          );
+          request.headers = [{ name: "Accept", value: "text/event-stream" }];
+          if (id === ids.fresh)
+            request.url = `http://127.0.0.1:${server.port}/sse`;
+        }
+        await invoke("save_workspace", { data: setup });
+        await configure("sse-finite", tag("raw", ids.fresh, "", "always"));
+        await send(ids.root);
+        assert.deepEqual(
+          wire.map((e) => e.path),
+          ["/sse", "/root"],
+        );
+        assert.equal(wire[0].headers.accept, "text/event-stream");
+        assert.equal(wire[1].body, sseFirst + sseLast);
+        assert.equal(
+          (await latestResponse(ids.fresh)).body,
+          sseFirst + sseLast,
+        );
+        checks.push({ kind: "finite-raw", state: await state() });
+        await progress();
+        await configure(
+          "sse-header-eof",
+          tag("header", ids.held, "X-Owned-Token", "always"),
+        );
+        const count = wire.length;
+        const before = await state();
+        const pending = send(ids.root);
+        await poll(async () => held.held === 1, "SSE first chunk sent", 60000);
+        await page.waitForTimeout(1000);
+        assert.equal(wire.length, count);
+        assert.deepEqual((await state()).history, before.history);
+        assert.equal(
+          await page
+            .getByRole("button", { name: "Cancel", exact: true })
+            .count(),
+          1,
+        );
+        const pendingEvidence = {
+          held: held.held,
+          wireCount: wire.length,
+          state: await state(),
+        };
+        assert.equal(held.completeHeld(), 1);
+        await pending;
+        assert.equal(wire.at(-1)?.body, "owned-header");
+        assert.equal((await latestResponse(ids.held)).body, sseFirst + sseLast);
+        checks.push({
+          kind: "header-awaits-eof",
+          pending: pendingEvidence,
+          completed: held.completed,
+          state: await state(),
+        });
+        await progress();
+        for (const name of ["cancel", "timeout"]) {
+          if (name === "timeout") {
+            const latest = await invoke("load_workspace");
+            latest.settings.timeout = 1500;
+            await invoke("save_workspace", { data: latest });
+          }
+          await configure("sse-" + name, tag("raw", ids.held, "", "always"));
+          const before = await state(),
+            start = wire.length,
+            expectedHeld = held.held + 1;
+          await page.getByRole("button", { name: "Send", exact: true }).click();
+          await poll(
+            async () => held.held === expectedHeld,
+            "SSE pending " + name,
+            60000,
+          );
+          if (name === "cancel")
+            await page
+              .getByRole("button", { name: "Cancel", exact: true })
+              .click();
+          await poll(
+            async () => held.cancelled === (name === "cancel" ? 1 : 2),
+            "SSE disconnect " + name,
+            60000,
+          );
+          await poll(
+            async () =>
+              (await page
+                .getByRole("button", { name: "Cancel", exact: true })
+                .count()) === 0,
+            "SSE settles " + name,
+            60000,
+          );
+          assert.equal(wire.length, start);
+          assert.deepEqual((await state()).history, before.history);
+          const responseText = await page
+            .getByRole("region", { name: "Response", exact: true })
+            .innerText();
+          if (name === "timeout")
+            assert.match(responseText, /timed out|timeout/i);
+          checks.push({
+            kind: name,
+            held: held.held,
+            cancelled: held.cancelled,
+            responseText,
+            state: await state(),
+          });
+          await progress();
+        }
+        await Bun.write(
+          output + "/acceptance.json",
+          JSON.stringify(
+            {
+              passed: true,
+              checks,
+              workers,
+              wire,
+              ids,
+              workspaceId,
+              sseFirst,
+              sseLast,
+              limits:
+                "Finite SSE dependency raw framing/header EOF and native Cancel/timeout; live SSE history/provider/platform/body-bound cases remain.",
+            },
+            null,
+            2,
+          ),
+        );
+        return;
       }
       if (environmentMode) {
         const selectedId = "env_trs_selected_" + suffix;

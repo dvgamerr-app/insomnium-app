@@ -205,7 +205,11 @@ pub async fn send_http(
                                     hop_started.elapsed().as_millis(),
                                 ));
                             }
-                            return Err(error.to_string());
+                            return Err(if error.is_timeout() {
+                                "Request timed out".into()
+                            } else {
+                                error.to_string()
+                            });
                         }
                     };
                     if let Ok(mut log) = log.lock() {
@@ -236,7 +240,13 @@ pub async fn send_http(
             })
             .collect();
         let mut bytes = Vec::new();
-        while let Some(chunk) = response.chunk().await.map_err(|e| e.to_string())? {
+        while let Some(chunk) = response.chunk().await.map_err(|error| {
+            if error.is_timeout() {
+                "Request timed out".into()
+            } else {
+                error.to_string()
+            }
+        })? {
             if bytes.len() + chunk.len() > 20 * 1024 * 1024 {
                 return Err(
                     "Response exceeds the current 20 MiB limit. No partial response was saved."
