@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Playwright headless — owner-requested recheck — 2026-10-10
+
+- Browser scenarios already use the shared `launchUiBrowser` in `tests/ui/helpers/preview-app.js`, with fixed `headless: true` and no headed override. Static search of saved JavaScript scenarios finds only that browser launch. Native Tauri scenarios hide their owned window before CDP attachment and report `native-hidden`; this is separate from browser headless mode.
+- Reverified `bun tests/ui/nocturne-workspace.js`: actual exit 0, `artifacts/playwright/nocturne-workspace/result.json` reports passed with 11 workflow/layout checks. Existing implementation remains unchanged; this checkpoint records the requested verification. Base commit: b4d388e; headless implementation/verification history is recorded by Git. No live handles remain from this recheck. Two untracked JSON response-filter scenario files remain unfinished and are excluded from this topic.
+- All remaining migration/UX gates remain open as previously recorded. This interface cannot invoke `/compact`; no compaction occurred. This STATUS entry and the documentation checkpoint commit provide the handoff before further feature work.
+
 ## Collection ancestry index — committed handoff — 2026-10-10
 
 - Verified topic ccddf8811d83c5b9624fe0c7b0d7c9cf46410946 (fix(workspace): index collection ancestry for bulk lookups) commits16source/scenario/doc files. Worktree clean after topic commit. Saved316model/10reactive/11preview/compiler0/0, fresh production6610/nativeXML83428 all18groups/6workers and Runner30305 twochoices/eightstates/fourSends/oneheld cancellation pass. Independent current688/full-field Git/timer/destination/retained-baseline/build89bbb511 audit and owned cleanup pass. Local8316resource workspace cancellation1357.2ms meets3000ms budget versus34970.5ms baseline. UI/CSS retained; actual760px images inspected. No live handles or owned probe/profile/listener processes. Exact failures, commands, source evolution and limits: COLLECTION-INDEX.md. Documentation checkpoint is current HEAD from git log -1.
