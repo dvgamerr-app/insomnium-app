@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Shared tab panel native acceptance — committed handoff — 2026-10-10
+
+- Topic `5bd1ec17461aeba9831edb95b6b7000fe106ac25` (`test(ui): verify native tab panel keyboard and layout`) commits saved native assertions/evidence; implementation is8372053. Fresh production build42964 terminal0/82102013/current703source/probe/baseline binding passes. Native75462/artifact1791621431860 terminal0/native64136 exit0/native-hidden/visible:false;6keyboard/geometry profiles plus12retained workflow/10dialog captures/Git HEAD unchanged. Independent audit/compiler0/0/formatting/staged review/owned cleanup pass;760dark/light images inspected. No live feature handles; full migration/UX/CSS still active.
+- Covered Windows native tab-panel gate is accepted. Remaining other panel content/scrolling/assistive/platform and every original PARITY/shared UI adoption/ownership gate stay required. Existing release now contains the shared panel implementation; subsequent saved native scenarios must bind to82102013/current source rather than oldc2fbaa43. Exact evidence/commands/limits: TAB-PANEL-KEYBOARD.md.
+- Owner-required `/compact` is unavailable in this interface; no compaction occurred. Actual commit/evidence/remaining gates/no-live-handles handoff recorded before the next feature. Documentation checkpoint SHA is `git log -1`.
+
 ## Shared tab panel native acceptance — verified — 2026-10-10
 
 - Build42964 terminal0/production82102013/current703source/probe/baselinec2fbaa43 binding passes. Native75462/artifact1791621431860 terminal0/native64136 exit0/native-hidden/visible:false accepts6actual Tab/Shift+Tab/label/viewport-bound profiles plus12retained workflow/10dialog captures/Git HEAD unchanged. Independent source/executable/baseline/geometry audit and exact owned process/profile cleanup pass; both actual760dark/light images inspected. Compiler94405 zero errors/warnings, formatting/diff checks pass. No live feature handles.
