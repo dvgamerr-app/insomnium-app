@@ -358,6 +358,10 @@ See `docs/migration/UI-TESTING.md` for the native host and OS dialog limitations
 Reverified 2026-10-08 with `bun tests/ui/design-system.js` (passed). There is one
 shared browser launch and it explicitly enables headless mode.
 
+Reverified 2026-10-10 with `bun tests/ui/nocturne-workspace.js`: all 11 checks
+passed. Static inspection confirms the only browser launch is the shared helper,
+with fixed `headless: true`; native host hiding remains a separate CDP path.
+
 All four client-certificate entries now cover CA-signed server SAN mismatch,
 expired and future certificates through real native settings/Send/Connect.
 The shared fixture records independently checked signatures/dates/OpenSSL error
