@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Response-template cycles — committed handoff — 2026-10-10
+
+- Topic `44738ce516714bc1db2254a4c62387fda0a35ce5` (`test(ui): verify native response dependency cycles`) commits cycle mode in the existing saved scenario and scoped docs. Compiler59998 terminal0/0errors0warnings, formatting and staged diff pass. Native18909/artifact1791618775431 terminal0/5groups/6wire/12workers/native53620 exit0/native-hidden/visible:false. Independent703source/productionc2fbaa43/literal/body/base64/method/header/history/root-reentry/selection audit passes. Missing histories refuse without dispatch/mutation; real B HTTP seed enables inner A→B→outer A and self inner/outer A with six unique durable entries. No mocked response/worker/transport. Evidence/commands/limits: TEMPLATE-RESPONSE-CYCLES.md.
+- Exact owned53620 and its WebView2 profile absent; no live feature process/session handles. Application/CSS/backend unchanged;468app source identity proves accepted production reuse. Full migration/UX/CSS remains active: provider/concurrency/chain/send limits/protocol/platform/accessibility/live SSE history/body bounds/OS transfer/full XPath and every original parity/shared UI adoption/ownership gate remain required.
+- Owner requires `/compact` after each feature. This interface has no callable `/compact`; no compaction occurred. Actual topic SHA/evidence/remaining gates/no-live-handles handoff is recorded instead. No next feature started. Current documentation checkpoint SHA is `git log -1`.
+
 ## Response-template cycles — verified — 2026-10-10
 
 - Native18909/artifact1791618775431 terminal0 accepts5groups/6wire/12workers; native53620 exit0/native-hidden/visible:false. Independent703source/productionc2fbaa43/literal/body/base64/method/header/history/root-reentry/selection audit passes: missing self/mutual histories refuse without wire/history mutation, actual B HTTP seed enables inner A→B→outer A and self inner/outer A, six unique durable entries. No mocked response/worker/transport. Exact owned53620/profile absent; no live feature handles. Compiler59998 terminal0/0errors0warnings and formatting/diff pass.
