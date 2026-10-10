@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Plugin registry — committed handoff — 2026-10-10
+
+- Topic commit `1e0e084e663d5a298cf732dc385fa6662d042449` (`feat(plugins): own admitted session lifecycle in application`) contains product registry/Preferences/root ownership, saved real-worker native lifecycle/restart scenario and acceptance documentation. Final8c3c04f6/current736source native4groups/6initialized terminated workers/8files/six profiles/0store IPC/full persisted workspace+original restoration and every retained values/session/store/runtime/formats/discovery/sources+restart audit pass. Compiler85040 0/0/headless workspace12/diff pass; actual dark/light760 loaded controls and corrected text inspected.
+- Worktree clean after topic commit. All feature handles terminal; no live owned process/profile handles remain, `plugin-registry-cleanup.json`. Next required: tag declared arguments/collision registration and resource/callback contexts before custom Send/menu dispatch, complete context adapters/legacy Buffer-stream/PluginData import/ordered hooks/actions/themes/dependency-assets-links-TLA admission/duplicate-winner compatibility/provider/platform/accessibility/CI/shared adoption and every original migration/UX/UI/CSS gate. No scope removed; explicit Load prepares metadata and retained state, contributions are still inactive.
+- This interface cannot invoke `/compact`; no compaction occurred. Actual topic SHA/evidence/remaining gates/no-live-handles are recorded as the required handoff before another feature. Documentation checkpoint SHA is available with `git log -1`.
+
 ## Plugin registry — verified — 2026-10-10
 
 - Previous turn made progress through real native lifecycle acceptance, stronger Loaded waits, and actual image review/message correction. Final production56718 now terminal0; executable `8c3c04f6e65b956873201283e2d9a141352ae92952c114e39a14ef86c51bdbce` binds current736 frozen source paths. Saved native registry1791642195351/PID67660+restart1791642199467/PID65880 and independent audit pass4groups/6initialized-and-terminated genuine workers/8unchanged files/6profiles/0store IPC/full persisted workspace equality+original restoration. Loaded/failed messages no longer contradict discovery; actual760 dark/light images inspected with loaded controls visible.
