@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Clone author form validation — committed handoff — 2026-10-10
+
+- Topic `c92d75d9672d28cdf85e20c75a1f7bd7ec613393` (`fix(git): validate Clone author before native operations`) commits dialog validation, saved normal Clone scenario and scoped evidence. Compiler75871 terminal0/0errors0warnings; production82761 terminal0/9fc6a4b7/current703source/probe/baseline82102013 binding passes. Native50542/artifact1791622322184 terminal0/native66276 exit0/native-hidden/visible:false accepts6checks/1GET+1POST; refused malformed author has zero staging/inspect IPC/network additions and preserves full workspace bytes, corrected valid workflow retains actual review/install/existing navigation/fresh200/reload. Independent audit/staged diff/exact owned cleanup pass. No live feature handles; work is verified by covered Windows scope only.
+- Full migration/UX/CSS remains active: other Clone faults/provider/platform/assistive/keyboard submission, all original PARITY and shared UI adoption/ownership requirements remain. Current production executable is9fc6a4b7; next saved native work must bind current source/build. Commands/evidence/limits: GIT-CLONE.md author validation section.
+- Owner-required `/compact` cannot be invoked in this interface; no compaction occurred. Actual commit/evidence/remaining gates/no-live-handles handoff recorded before next feature. Documentation checkpoint SHA is `git log -1`.
+
 ## Clone author form validation — verified — 2026-10-10
 
 - Build82761 terminal0/production9fc6a4b7/current703source/probe/preserved82102013 binding passes. Saved native50542/artifact1791622322184 terminal0/native66276 exit0/native-hidden/visible:false accepts6checks: required/empty author + malformed email staging refusal, malformed retained-inspect refusal without IPC/network/workspace writes, followed by retained real download/review/install/existing navigation/fresh200/reload flows. Actual1advertisement GET/1pack POST. Source/build/result/command/network audit and exact owned cleanup pass; compiler75871 terminal0/0errors0warnings/diff checks pass. No live feature handles.
