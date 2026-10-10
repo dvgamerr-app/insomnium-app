@@ -20,7 +20,11 @@ const xmlBody = '<r><item id="a">alpha</item><item id="b"><b>β</b></item></r>';
 const wire = /** @type {Record<string,any>[]} */ ([]);
 const environmentMode = process.env.INSOMNIUM_TEMPLATE_ENVIRONMENTS === "1";
 const sseMode = process.env.INSOMNIUM_TEMPLATE_SSE === "1";
-assert.ok(!(environmentMode && sseMode), "Choose one template scenario mode");
+const cycleMode = process.env.INSOMNIUM_TEMPLATE_CYCLES === "1";
+assert.ok(
+  [environmentMode, sseMode, cycleMode].filter(Boolean).length <= 1,
+  "Choose one template scenario mode",
+);
 const sseFirst = ": keepalive\nid: first\ndata: α\n\n";
 const sseLast = "event: done\ndata: final\ndata: β\n\n";
 const held = await heldHttp({
@@ -74,11 +78,13 @@ const server = Bun.serve({
 });
 try {
   await withNativeApp(
-    sseMode
-      ? "template-response-sse"
-      : environmentMode
-        ? "template-response-environments"
-        : "template-response-send",
+    cycleMode
+      ? "template-response-cycles"
+      : sseMode
+        ? "template-response-sse"
+        : environmentMode
+          ? "template-response-environments"
+          : "template-response-send",
     async ({ page, invoke, output }) => {
       page.setDefaultTimeout(60000);
       const suffix = Date.now(),
@@ -241,6 +247,110 @@ try {
           Buffer.from(response.body).toString("base64"),
         );
         return response;
+      }
+      if (cycleMode) {
+        async function refuse(/** @type {string} */ name) {
+          const before = await state(),
+            count = wire.length;
+          await page.getByRole("button", { name: "Send", exact: true }).click();
+          await page
+            .getByRole("region", { name: "Response", exact: true })
+            .getByText("No responses", { exact: false })
+            .waitFor();
+          await poll(
+            async () =>
+              (await page
+                .getByRole("button", { name: "Cancel", exact: true })
+                .count()) === 0,
+            "Cycle refusal settles",
+            60000,
+          );
+          assert.equal(wire.length, count);
+          assert.deepEqual((await state()).history, before.history);
+          checks.push({ kind: name, state: await state() });
+          await progress();
+        }
+        await configure("self-missing", tag("raw", ids.root, "", "always"));
+        await refuse("self-missing");
+        const setup = await invoke("load_workspace");
+        setup.resources.find(
+          (/** @type {any} */ r) => r._id === ids.nested,
+        ).headers = [
+          { name: "X-Cycle", value: tag("raw", ids.root, "", "always") },
+        ];
+        await invoke("save_workspace", { data: setup });
+        await configure(
+          "mutual-missing",
+          tag("body", ids.nested, "$.token", "always"),
+        );
+        await refuse("mutual-missing");
+        const seed = await invoke("load_workspace");
+        seed.resources.find(
+          (/** @type {any} */ r) => r._id === ids.nested,
+        ).headers = [];
+        await invoke("save_workspace", { data: seed });
+        await select(ids.nested);
+        const seeded = await send(ids.nested);
+        assert.equal(seeded.body, jsonBody);
+        checks.push({
+          kind: "real-history-seed",
+          response: seeded,
+          state: await state(),
+        });
+        await progress();
+        const cyclic = await invoke("load_workspace");
+        cyclic.resources.find(
+          (/** @type {any} */ r) => r._id === ids.nested,
+        ).headers = [
+          { name: "X-Cycle", value: tag("raw", ids.root, "", "always") },
+        ];
+        await invoke("save_workspace", { data: cyclic });
+        await configure(
+          "mutual-history",
+          tag("body", ids.nested, "$.token", "always"),
+        );
+        let start = wire.length;
+        await send(ids.root);
+        let events = wire.slice(start);
+        assert.deepEqual(
+          events.map((e) => e.path),
+          ["/root", "/json", "/root"],
+        );
+        assert.equal(events[0].body, "owned-token");
+        assert.equal(events[1].headers["x-cycle"], "root-accepted");
+        assert.equal(events[2].body, "owned-token");
+        assert.equal((await state()).activeRequestId, ids.root);
+        checks.push({ kind: "mutual-history", events, state: await state() });
+        await progress();
+        await configure("self-history", tag("raw", ids.root, "", "always"));
+        start = wire.length;
+        await send(ids.root);
+        events = wire.slice(start);
+        assert.deepEqual(
+          events.map((e) => e.path),
+          ["/root", "/root"],
+        );
+        for (const e of events) assert.equal(e.body, "root-accepted");
+        checks.push({ kind: "self-history", events, state: await state() });
+        await progress();
+        await Bun.write(
+          output + "/acceptance.json",
+          JSON.stringify(
+            {
+              passed: true,
+              checks,
+              workers,
+              wire,
+              ids,
+              workspaceId,
+              limits:
+                "Self/mutual cycles with actual HTTP history, native root reentry and missing-history refusals; provider/concurrency/bounds/protocol/platform/full migration remain.",
+            },
+            null,
+            2,
+          ),
+        );
+        return;
       }
       if (sseMode) {
         const setup = await invoke("load_workspace");
