@@ -1,5 +1,12 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## XPath/XML response — committed handoff — 2026-10-10
+
+- Verified topic `6e8bb226c0df3702d05e11d8acf122d9b56d6d61` (`test(ui): verify mounted XPath and XML response lifecycle`) commits the separate saved scenario/literal fixture and scoped documentation. Compiler0/0, scenario/fixture/doc formatting and staged diff checks pass; worktree clean after topic commit. Documentation checkpoint SHA is current HEAD from `git log -1`.
+- Evidence: native4106 actualterminal0/artifact1791603846571/native67632 exit0/native-hidden/visible:false,36groups/58real bundled workers/22HTTP Sends/six layouts. Current694source/executable20458ce2/payload/base64/meta/history/generation/deadline/geometry audit and owned cleanup pass; actual760dark/light screenshots inspected. App/CSS unchanged; prior production build reused with full application/executable identity. Initial20185 match-limit fixture failure and diagnostic limits remain in XML-RESPONSE-FILTER.md.
+- No live feature session/process handles or owned probe/profile processes. Full original migration/UX/CSS goal remains active. Next: investigate and correct XPath flat-sibling traversal performance, retaining literal/order/namespace/bounded-worker behavior, then XML Copy/Save boundaries, namespace mapping UI, accessibility/streaming/OS/platform and every original migration/shared adoption/ownership gate. Native3s refusal does not accept performance; Bun diagnostic84222.954ms remains evidence of the gap.
+- Owner requires `/compact` before the next feature. This interface cannot invoke `/compact`; no compaction occurred. Handoff records actual commit/evidence/remaining gates/no live handles; no next feature started.
+
 ## XPath/XML response — verified acceptance ready to commit — 2026-10-10
 
 - Corrected native4106 actual terminal0/artifact1791603846571/native67632 exit0/native-hidden/visible:false passes36groups/58real bundled workers/22HTTP Sends: Pretty/Raw, seven literal selections, reload/Clear, four classifications, namespace/mixed-content protection, four real refusals, four cancellation boundaries, six faults and six theme/width profiles. Grouped match-count and flat-sibling real deadline refusals are separately asserted. Initial20185 failure is retained.
