@@ -1,4 +1,6 @@
 import { resolvePluginModule, pluginModuleFormat } from "./plugin-modules.js";
+import { createPluginTagMetadata } from "./plugin-tag-metadata.js";
+import { createPluginValueCodec } from "./plugin-values.js";
 
 /** Load a package in its own bounded VM; caller owns the returned context.
  * @param {import('quickjs-emscripten-core').QuickJSWASMModule} engine
@@ -96,7 +98,13 @@ export function createPluginVm(engine, snapshot) {
 /** @param {ReturnType<typeof createPluginVm>} loaded @param {string} name */
 export function inspectPluginVm(loaded, name) {
   const { vm, evaluate } = loaded;
-  const result = evaluate(`JSON.stringify((() => {
+  evaluate(
+    `globalThis.__pluginTagMetadata=(${createPluginTagMetadata.toString()})();`,
+  ).dispose();
+  evaluate(
+    `globalThis.__pluginMetadataCodec=(${createPluginValueCodec.toString()})();`,
+  ).dispose();
+  const result = evaluate(`__pluginMetadataCodec.encode((() => {
       const exports = globalThis.__pluginExports;
       if (!exports || (typeof exports !== 'object' && typeof exports !== 'function')) throw Error('Plugin exports must be an object');
       const names = ['templateTags','requestHooks','responseHooks','themes','requestGroupActions','requestActions','workspaceActions','documentActions'];
@@ -108,7 +116,12 @@ export function inspectPluginVm(loaded, name) {
         const items = values.map((value, index) => {
           if (kind.endsWith('Hooks')) { if (typeof value !== 'function') throw Error('Hook must be a function: ' + kind); return { index }; }
           if (!value || typeof value !== 'object') throw Error('Invalid contribution: ' + kind);
-          if (kind === 'templateTags' && (typeof value.name !== 'string' || typeof value.run !== 'function')) throw Error('Template tag requires name and run');
+          if (kind === 'templateTags') {
+            const definition=__pluginTagMetadata.inspect(value);
+            const name=definition.name,label=definition.displayName??definition.label??name;
+            if(label.length>1024)throw Error('Contribution label exceeds its limit');
+            return {index,name,label,definition};
+          }
           if (kind.endsWith('Actions') && typeof value.action !== 'function') throw Error('Action requires an action function: ' + kind);
           const name = typeof value.name === 'string' ? value.name : '';
           const label = typeof value.displayName === 'string' ? value.displayName : typeof value.label === 'string' ? value.label : name;
@@ -123,7 +136,7 @@ export function inspectPluginVm(loaded, name) {
     const json = vm.getString(result);
     if (json.length > 256 * 1024)
       throw Error("Plugin metadata exceeds the 256 KiB limit");
-    return { name, ...JSON.parse(json) };
+    return { name, ...createPluginValueCodec().decode(json) };
   } finally {
     result.dispose();
   }

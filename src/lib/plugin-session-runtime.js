@@ -10,6 +10,7 @@ export function createPluginCallbackRuntime(engine, snapshot, storeCall) {
     { vm, evaluate } = loaded;
   let closed = false,
     running = false,
+    storeAllowed = false,
     calls = 0;
   const pending = new Set();
   const codec = createPluginValueCodec();
@@ -22,6 +23,8 @@ export function createPluginCallbackRuntime(engine, snapshot, storeCall) {
   }
   const bridge = vm.newFunction("store", (request) => {
     if (closed || !running) throw Error("Plugin callback is not active");
+    if (!storeAllowed)
+      throw Error("Plugin store is unavailable during metadata evaluation");
     if (++calls > 256 || pending.size >= 64)
       throw Error("Plugin store call limit exceeded");
     const json = vm.getString(request);
@@ -100,6 +103,7 @@ export function createPluginCallbackRuntime(engine, snapshot, storeCall) {
       if (running) throw Error("Plugin callback is already running");
       const kinds = [
         "templateTags",
+        "templateTagMetadata",
         "requestHooks",
         "responseHooks",
         "requestGroupActions",
@@ -119,16 +123,22 @@ export function createPluginCallbackRuntime(engine, snapshot, storeCall) {
       if (!Array.isArray(codec.decode(args)))
         throw Error("Invalid plugin callback arguments");
       running = true;
+      storeAllowed = kind !== "templateTagMetadata";
       calls = 0;
       loaded.resetDeadline();
       let handle;
       const deadline = performance.now() + 5000;
       try {
         handle = evaluate(`(async()=>{
-          const kind=${JSON.stringify(kind)},item=__pluginExports[kind]?.[${index}];
+          const kind=${JSON.stringify(kind)},item=__pluginExports[kind==='templateTagMetadata'?'templateTags':kind]?.[${index}];
+          const args=__pluginValueCodec.decode(${JSON.stringify(args)});
+          if(kind==='templateTagMetadata') {
+            if(args.length<1||args.length>3)throw Error('Invalid metadata query');
+            return __pluginValueCodec.encode(__pluginTagMetadata.resolve(item,...args));
+          }
           const fn=kind.endsWith('Hooks')?item:kind==='templateTags'?item?.run:item?.action;
           if(typeof fn!=='function')throw Error('Plugin callback is unavailable');
-          const value=await fn.call(item,__pluginContext,...__pluginValueCodec.decode(${JSON.stringify(args)}));
+          const value=await fn.call(item,__pluginContext,...args);
           return __pluginValueCodec.encode(value);
         })()`);
         while (!closed) {
@@ -173,6 +183,7 @@ export function createPluginCallbackRuntime(engine, snapshot, storeCall) {
       } finally {
         handle?.dispose();
         running = false;
+        storeAllowed = false;
         if (closed) vm.dispose();
       }
     },
