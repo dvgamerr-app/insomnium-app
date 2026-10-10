@@ -47,6 +47,13 @@ DialogShell/Modal geometry uses foundation `--dialog-radius`, `--dialog-width`,
 the existing shadow. Recovery also respects the viewport gutter. Features use
 the public size variant; keep lifecycle and backdrop presentation in shared UI.
 
+Dialog backdrop color uses theme `--dialog-backdrop` (existing `#0a0a1466`),
+and its effect uses foundation `--dialog-backdrop-filter` (existing `blur(6px)`).
+Shared `dialog.css` owns both pseudo-element properties for every Modal and
+DialogShell variant. Set the filter token to `none` to retain tint without blur.
+Saved dialog-token contracts check default/override/unfiltered/restored values;
+current native acceptance is tracked in STATUS and DIALOG-BACKDROP.md.
+
 Dense captions (save/version status, search shortcut, GraphQL column labels and
 count badges) use `--font-size-9`. The customizable select picker uses
 `--font-size-12` with a 1.5 line height, following the same typography scale as

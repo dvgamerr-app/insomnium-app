@@ -304,6 +304,10 @@ src/lib/components/ui/
 
 ## Checklist สำหรับปิด debt
 
+### Shared dialog backdrop ownership — 2026-10-10
+
+Theme dialog-backdrop and foundation dialog-backdrop-filter now own the two remaining shared backdrop literals, retaining the existing tint and6px blur. Saved pre-fix override reproduction50492 failed; current design-system48320 accepts24 normal/compact/locked dark/light1440/900/760/480 profiles, application theme99740 accepts10actual dialogs and compiler27067 passes0/0. Production build8123/native theme34598 accept10mounted remote/cookie/branch/recovery profiles plus12retained workflow captures, default/override/filter:none/restoration, fonts/locked Escape/retry/unchanged HEAD. Independent current682/executable/results audit and owned cleanup pass. Exact source, artifacts, commands and limits: [DIALOG-BACKDROP.md](DIALOG-BACKDROP.md). Other literals/aliases, adoption/ownership, platform/browser fallback, accessibility and full UX/CSS/migration requirements remain open; the checklist below is unchanged.
+
 ### Shared dialog geometry ownership — 2026-10-08
 
 Current dialog.css still hardcoded radius, normal/compact/recovery widths,

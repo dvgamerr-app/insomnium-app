@@ -574,7 +574,7 @@ await withNativeApp(
           gitHeadUnchanged: true,
           dialogCases,
           dialogGeometry:
-            "Default/override/restored radius, variant width, viewport gutter, height cap and shadow on mounted remote/cookie/branch/recovery dialogs in both themes; remote at1440/900.",
+            "Default/override/restored radius, variant width, viewport gutter, height cap, shadow, backdrop tint/filter and blur opt-out on mounted remote/cookie/branch/recovery dialogs in both themes; remote at1440/900.",
           selectGeometry,
           buttonPadding,
           formGeometry,

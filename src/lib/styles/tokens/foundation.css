@@ -58,6 +58,7 @@
   --dialog-viewport-gutter: var(--space-32);
   --dialog-max-height: 88vh;
   --dialog-shadow: 0 var(--space-24) 80px #0006;
+  --dialog-backdrop-filter: blur(6px);
   --control-height: 34px;
   --control-padding-block: var(--space-8);
   --control-padding-inline: var(--space-11);

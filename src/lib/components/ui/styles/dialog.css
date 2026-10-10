@@ -11,8 +11,8 @@
 }
 
 .modal::backdrop {
-  background: #0a0a1466;
-  backdrop-filter: blur(6px);
+  background: var(--dialog-backdrop);
+  backdrop-filter: var(--dialog-backdrop-filter);
 }
 
 .modal-heading {

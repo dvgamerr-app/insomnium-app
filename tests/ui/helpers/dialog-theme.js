@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-/** Check actual mounted dialog geometry and shared token propagation, restoring all overrides.
+/** Check mounted dialog/backdrop tokens and blur opt-out, restoring all overrides.
  * @param {import('playwright-core').Locator} dialog */
 export async function assertDialogTokens(dialog) {
   const result = await dialog.evaluate((el) => {
@@ -13,6 +13,8 @@ export async function assertDialogTokens(dialog) {
       "--dialog-viewport-gutter": "80px",
       "--dialog-max-height": "70vh",
       "--dialog-shadow": "0px 2px 8px rgba(0, 0, 0, 0.2)",
+      "--dialog-backdrop": "rgba(24, 36, 48, 0.6)",
+      "--dialog-backdrop-filter": "blur(2px)",
     };
     const prior = Object.keys(values).map((key) => ({
       key,
@@ -21,6 +23,7 @@ export async function assertDialogTokens(dialog) {
     }));
     const measure = () => {
       const style = getComputedStyle(el);
+      const backdrop = getComputedStyle(el, "::backdrop");
       const rect = el.getBoundingClientRect();
       return {
         radius: style.borderRadius,
@@ -29,16 +32,21 @@ export async function assertDialogTokens(dialog) {
         shadow: style.boxShadow,
         left: rect.left,
         right: rect.right,
+        backdrop: backdrop.backgroundColor,
+        backdropFilter: backdrop.backdropFilter,
       };
     };
     const compact = el.classList.contains("ui-modal-compact");
     const recovery = el.classList.contains("ui-modal-recovery");
     const baseline = measure();
     let overridden;
+    let unfiltered;
     try {
       for (const [key, value] of Object.entries(values))
         root.style.setProperty(key, value);
       overridden = measure();
+      root.style.setProperty("--dialog-backdrop-filter", "none");
+      unfiltered = measure();
     } finally {
       for (const { key, value, priority } of prior) {
         if (value) root.style.setProperty(key, value, priority);
@@ -48,6 +56,7 @@ export async function assertDialogTokens(dialog) {
     return {
       baseline,
       overridden,
+      unfiltered,
       restored: measure(),
       compact,
       recovery,
@@ -56,6 +65,23 @@ export async function assertDialogTokens(dialog) {
     };
   });
   assert.equal(result.baseline.radius, "14px");
+  assert.equal(result.baseline.backdrop, "rgba(10, 10, 20, 0.4)");
+  assert.equal(result.baseline.backdropFilter, "blur(6px)");
+  assert.equal(
+    result.overridden.backdrop,
+    "rgba(24, 36, 48, 0.6)",
+    "Mounted dialog backdrop must follow its shared color token",
+  );
+  assert.equal(
+    result.overridden.backdropFilter,
+    "blur(2px)",
+    "Mounted dialog backdrop must follow its shared filter token",
+  );
+  assert.deepEqual(
+    result.unfiltered,
+    { ...result.overridden, backdropFilter: "none" },
+    "Disabling backdrop blur must retain its tint and dialog geometry",
+  );
   assert.ok(
     Math.abs(
       result.baseline.width -
