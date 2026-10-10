@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Template response Send — committed handoff — 2026-10-10
+
+- Topic `ed2f66625206ecbce39a2a31699d679831efe33e` (`test(ui): verify native response template Send ownership`) commits the saved scenario and scoped evidence. Compiler8091 terminal0/0errors0warnings, formatting and staged diff pass. Native82773/artifact1791611900475 terminal0/native70584 exit0/native-hidden/visible:false:19groups/43workers/20wire plus one held dependency. Independent703source/production01515fc0/literal/body/base64/history/order/foreign Base/socket Cancel/stopped generation audit passes; first selector failure retained. Exact evidence/commands/limits: TEMPLATE-RESPONSE-SEND.md.
+- Both owned native PIDs69748/70584 and their profile processes are absent. No live feature process/session handles. Application/CSS/backend unchanged; full migration/UX/CSS remains active. Remaining gates include selected foreign environments/OAuth/provider/cycles/SSE/protocol/platform/accessibility, actual OS transfer/non-UTF-8/binary XML/full XPath and every original parity/shared adoption/ownership item. Redesign follows full migration.
+- Owner requires `/compact` after each feature. This interface has no callable `/compact`; no compaction occurred. Actual topic SHA/evidence/remaining-gates/no-live-handles handoff is recorded instead. No next feature started. Current documentation checkpoint SHA is `git log -1`.
+
 ## Template response Send — verified acceptance — 2026-10-10
 
 - Corrected native82773/artifact1791611900475 terminal0 accepts19groups/43workers/20wire plus one held dependency; native70584 exit0/native-hidden/visible:false. Independent703source/production01515fc0/literal body/base64/history/trigger order/foreign Base environment/socket cancellation/worker generation audit passes. Compiler8091 terminal0/0errors0warnings and formatting pass. Both attempts' exact owned PIDs/profiles absent; no live feature handles. Initial selector failure retained in TEMPLATE-RESPONSE-SEND.md.
