@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Plugin entries — committed handoff — 2026-10-10
+
+- Topic commit `ad072e753731b4ea2629c8a6badbdf4fea37e78d` (`fix(plugins): preserve package entry resolution order`) contains native resolution corrections, saved21case mode/shared corpus and scoped evidence. Productionf30d346f/current713source; entry50924/discovery12240/source59712/restart66236 native-hidden/visible:false/exit0. Literal entry/file/workspace/source/build and linked restart audits pass; compiler19917 0/0/targeted Rust formatting/diff pass. Entry/source760dark-light/restart images inspected. Exact expected name/ID/profile cleanup empty; all feature sessions terminal and no live handles. Worktree clean after topic commit.
+- Remaining next: closest-scope module-format reporting and package/dependency admission, complete isolated execution/install/custom tags/PluginData/ordered hooks/actions/eight contributions/six contexts, broader admission/fault/provider/platform/accessibility/CI/shared adoption/ownership/full migration/UX/CSS gates. No scope removed; see PLUGIN-ENTRIES.md and PLUGIN-COMPATIBILITY.md.
+- This interface cannot invoke `/compact`; no compaction occurred. Current commit/evidence/remaining gates/no-live-handles handoff is recorded before another feature. Documentation checkpoint SHA is available through `git log -1`.
+
 ## Plugin entries — verified — 2026-10-10
 
 - Production1913 terminal0/f30d346f/current713source/original5b baseline binding passes. Saved entries1791630309344/native50924 accepts21literal path/status cases/47unchanged files/external bytes/absent execution marker/full workspace preservation/mounted read-only results and independent audit. Retained discovery1791630322146/native12240 accepts13packages/2errors/28files/six profiles; source1791630339308/native59712+actual restart1791630343709/native66236 accept seven checkpoints/home/max14packages/30files/six profiles/full workspace values/restoration and linked audit. All hosts exit0/native-hidden/visible:false. Compiler19917 passes0/0, targeted Rust/diff pass. Entry/source760dark-light/restart images inspected; no UI/CSS change. Exact name/ID/profile cleanup empty; no live handles.
