@@ -2,8 +2,8 @@ import { DOMParser, XMLSerializer, onErrorStopParsing } from "@xmldom/xmldom";
 import { selectXmlPath } from "./xpath-select.js";
 
 /** XPath 1.0 response preview, following the legacy element/attribute/text selection.
- * @param {string} body @param {string} path */
-export function filterXmlResponse(body, path) {
+ * @param {string} body @param {string} path @param {unknown} [namespaces] */
+export function filterXmlResponse(body, path, namespaces) {
   if (body.length > 20 * 1024 * 1024)
     throw new Error("XML response exceeds 20 Mi characters");
   if (!path.trim() || path.length > 4096)
@@ -11,7 +11,7 @@ export function filterXmlResponse(body, path) {
   const document = new DOMParser({
     onError: onErrorStopParsing,
   }).parseFromString(body, "text/xml");
-  const selected = selectXmlPath(path, document);
+  const selected = selectXmlPath(path, document, namespaces);
   const serializer = new XMLSerializer();
   /** @type {string[]} */ const fragments = [];
   let size = 19;

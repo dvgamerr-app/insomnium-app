@@ -1,4 +1,5 @@
 import { id } from "./model.js";
+import { xpathNamespaces } from "./xpath-namespaces.js";
 
 /** @param {Record<string, any>[]} resources @param {string} requestId */
 export function requestMeta(resources, requestId) {
@@ -27,5 +28,15 @@ export function withResponseFilter(meta, requestId, filter) {
     modified: Date.now(),
     responseFilter: filter,
     responseFilterHistory: addToHistory ? recent : history,
+  };
+}
+
+/** @param {Record<string,any>|undefined} meta @param {string} requestId @param {unknown} namespaces @returns {Record<string,any>} */
+export function withResponseNamespaces(meta, requestId, namespaces) {
+  const mappings = xpathNamespaces(namespaces);
+  return {
+    ...(meta || withResponseFilter(undefined, requestId, "")),
+    modified: Date.now(),
+    responseXPathNamespaces: mappings,
   };
 }

@@ -383,7 +383,12 @@ try {
         assert.equal(records[0].deadlineFired, false);
         assert.equal(typeof records[0].deadlineClearedAt, "number");
         assert.deepEqual(records[0].posts, [
-          { body: source, path: "$.items[*].name", kind: "json" },
+          {
+            body: source,
+            path: "$.items[*].name",
+            kind: "json",
+            namespaces: undefined,
+          },
         ]);
         if (name === "path") {
           assert.equal(records.length, 2);

@@ -5,13 +5,15 @@ import { xmlPrettify } from "./xml-prettify.js";
 
 self.onmessage = (event) => {
   try {
-    const { body, path, kind } = event.data;
+    const { body, path, kind, namespaces } = event.data;
     if (kind === "template") {
       self.postMessage({ text: filterTemplateResponse(body, path) });
       return;
     }
     if (kind === "xml") {
-      const selected = path.trim() ? filterXmlResponse(body, path) : body;
+      const selected = path.trim()
+        ? filterXmlResponse(body, path, namespaces)
+        : body;
       try {
         self.postMessage({ text: xmlPrettify(selected) });
       } catch (error) {

@@ -1,4 +1,5 @@
 import xpath from "xpath";
+import { xpathNamespaceResolver } from "./xpath-namespaces.js";
 
 /** Evaluate a read-only parsed XML document with constant-time tree ordering.
  * xmldom's native comparison scans siblings for every XPath tree comparison.
@@ -6,8 +7,13 @@ import xpath from "xpath";
  * and foreign nodes retain the native comparison. Restore every
  * own descriptor in finally, including when XPath rejects the expression.
  * @param {string} path
- * @param {import('@xmldom/xmldom').Document} document */
-export function selectXmlPath(path, document) {
+ * @param {import('@xmldom/xmldom').Document} document
+ * @param {unknown} [namespaces] */
+export function selectXmlPath(path, document, namespaces) {
+  const select =
+    namespaces === undefined
+      ? xpath.select
+      : xpath.useNamespaces(xpathNamespaceResolver(namespaces));
   /** @typedef {import('@xmldom/xmldom').Node} XmlNode */
   const order = new Map();
   let next = 0;
@@ -81,7 +87,7 @@ export function selectXmlPath(path, document) {
         writable: true,
         value: compare,
       });
-    return xpath.select(
+    return select(
       path,
       /** @type {Node} */ (/** @type {unknown} */ (document)),
     );

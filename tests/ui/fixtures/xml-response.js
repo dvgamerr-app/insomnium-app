@@ -18,6 +18,10 @@ export const mixed = "<p>Hello <b>β</b> world</p>";
 export const namespaced =
   '<r xmlns="urn:fixture"><item id="n">namespaced</item></r>';
 export const documents = {
+  "/mapped": {
+    body: '<r xmlns="urn:one" xmlns:p="urn:two"><item id="a">one</item><p:item p:id="b">two</p:item><item xmlns="urn:two">other</item></r>',
+    type: "application/xml",
+  },
   "/document": { body: source, type: "application/xml; charset=utf-8" },
   "/text": { body: source, type: "text/xml; charset=utf-8" },
   "/suffix": { body: source, type: "application/soap+xml; charset=utf-8" },

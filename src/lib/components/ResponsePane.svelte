@@ -11,10 +11,15 @@
   import Select from "./ui/Select.svelte";
   import Button from "./ui/Button.svelte";
   import Input from "./ui/Input.svelte";
+  import ResponseNamespaces from "./ResponseNamespaces.svelte";
   import { jsonPrettify } from "../json-prettify.js";
   import { responseNetworkLog, tokenizeLine } from "../network-log.js";
   import CodeEditor from "./CodeEditor.svelte";
-  import { workspace, setResponseFilter } from "../workspace.svelte.js";
+  import {
+    workspace,
+    setResponseFilter,
+    setResponseNamespaces,
+  } from "../workspace.svelte.js";
   import { requestMeta } from "../request-meta.js";
   import Icon from "./Icon.svelte";
   import { download } from "../import-export.js";
@@ -35,8 +40,14 @@
   );
   let filterDraft = $state("");
   let filterHelp = $state(false);
+  let namespaceOpen = $state(false);
+  const namespaces = $derived(meta?.responseXPathNamespaces);
+  $effect(() => {
+    requestId;
+    namespaceOpen = false;
+  });
   let filtered = $state(
-    /** @type {{requestId:string, source:string, path:string, text:string, error:string, busy:boolean} | undefined} */ (
+    /** @type {{requestId:string, source:string, path:string, namespaceKey:string|undefined, text:string, error:string, busy:boolean} | undefined} */ (
       undefined
     ),
   );
@@ -60,6 +71,9 @@
         /^\s*<\?xml\s/.test(response.body)),
   );
   const filterKind = $derived(xmlResponse ? "xml" : "json");
+  const namespaceKey = $derived(
+    xmlResponse ? JSON.stringify(namespaces) : undefined,
+  );
   const filtering = $derived(
     !raw && (jsonResponse || xmlResponse) && !!filter.trim(),
   );
@@ -67,7 +81,8 @@
   const currentResult = $derived(
     filtered?.requestId === requestId &&
       filtered.source === response?.body &&
-      filtered.path === filter
+      filtered.path === filter &&
+      filtered.namespaceKey === namespaceKey
       ? filtered
       : undefined,
   );
@@ -89,6 +104,9 @@
     const source = String(response?.body || "");
     const path = filter;
     const kind = filterKind;
+    const selectedNamespaces =
+      kind === "xml" ? $state.snapshot(namespaces) : undefined;
+    const selectedNamespaceKey = namespaceKey;
     const empty = kind === "xml" ? (path.trim() ? "<error/>" : source) : "[]";
     const selectedRequest = requestId;
     let active = true;
@@ -98,6 +116,7 @@
       requestId: selectedRequest,
       source,
       path,
+      namespaceKey: selectedNamespaceKey,
       text: "",
       error: "",
       busy: true,
@@ -114,6 +133,7 @@
         requestId: selectedRequest,
         source,
         path,
+        namespaceKey: selectedNamespaceKey,
         text,
         error,
         busy: false,
@@ -137,7 +157,12 @@
         () => finish(empty, "Response filter exceeded 3 seconds"),
         3000,
       );
-      worker.postMessage({ body: source, path, kind });
+      worker.postMessage({
+        body: source,
+        path,
+        kind,
+        namespaces: selectedNamespaces,
+      });
     } catch (error) {
       finish(empty, String(error));
     }
@@ -400,12 +425,18 @@
               aria-expanded={filterHelp}
               onclick={() => (filterHelp = !filterHelp)}>Help</Button
             >
+            {#if xmlResponse}<Button
+                type="button"
+                variant="ghost"
+                onclick={() => (namespaceOpen = true)}>Namespaces</Button
+              >{/if}
           </form>
           {#if filterHelp}<p class="hint padded">
               {#if xmlResponse}XPath 1.0: <code>//item</code> selects elements,
                 <code>//item/@id</code>
                 selects attributes, and <code>count(//item)</code> counts
-                matches. For namespaces, use
+                matches. Map a prefix with Namespaces and use
+                <code>//n:item</code>, or use
                 <code>//*[local-name()='item']</code>.{:else}JSONPath: <code
                   >$</code
                 >
@@ -454,15 +485,29 @@
               No {tab.toLowerCase()} in this response.
             </p>{/each}
         </div>
-      {:else}<div class="network-log" role="log" aria-label="Connection log">{#each responseNetworkLog(response) as line}<div class="nl-line">{#each tokenizeLine(line) as token}<span
-              class={"nl-" + token.k}
-              style={token.k === "method"
-                ? "color: var(--method-" + token.t.toLowerCase() + ", var(--syntax-keyword))"
-                : undefined}>{token.t}</span
-            >{/each}</div>{/each}</div>{/if}
+      {:else}<div class="network-log" role="log" aria-label="Connection log">
+          {#each responseNetworkLog(response) as line}<div class="nl-line">
+              {#each tokenizeLine(line) as token}<span
+                  class={"nl-" + token.k}
+                  style={token.k === "method"
+                    ? "color: var(--method-" +
+                      token.t.toLowerCase() +
+                      ", var(--syntax-keyword))"
+                    : undefined}>{token.t}</span
+                >{/each}
+            </div>{/each}
+        </div>{/if}
     </div></TabPanel
   >
 </section>
+
+{#if namespaceOpen && xmlResponse}
+  {#key requestId}<ResponseNamespaces
+      {namespaces}
+      onclose={() => (namespaceOpen = false)}
+      onsave={(value) => setResponseNamespaces(requestId, value)}
+    />{/key}
+{/if}
 
 <style>
   .response-filter {
@@ -470,6 +515,7 @@
     gap: var(--space-6);
     padding: var(--space-6) var(--space-12);
     align-items: center;
+    flex-wrap: wrap;
   }
   .response-filter :global(input) {
     flex: 1;

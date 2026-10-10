@@ -3,6 +3,7 @@ import { withNativeApp, poll } from "./helpers/native-app.js";
 import { initialData, newRequest } from "../../src/lib/model.js";
 import { verifyXmlResponsePerformance } from "./helpers/xml-response-performance.js";
 import { verifyXmlResponseTransfer } from "./helpers/xml-response-transfer.js";
+import { verifyXmlResponseNamespaces } from "./helpers/xml-response-namespaces.js";
 import {
   installResponseWorkerControl,
   responseWorkerRecords,
@@ -184,6 +185,22 @@ try {
       );
       checks.push({ kind: "preview", source, pretty, state: await saved() });
       await progress();
+      if (process.env.INSOMNIUM_XML_RESPONSE_NAMESPACES === "1") {
+        await verifyXmlResponseNamespaces({
+          page,
+          pane,
+          input,
+          value,
+          reset,
+          saved,
+          output,
+          workers,
+          wire,
+          invoke,
+          requestId,
+        });
+        return;
+      }
       if (process.env.INSOMNIUM_XML_RESPONSE_TRANSFER === "1") {
         await verifyXmlResponseTransfer({
           page,
@@ -410,7 +427,7 @@ try {
         assert.equal(records[0].deadlineFired, false);
         assert.equal(typeof records[0].deadlineClearedAt, "number");
         assert.deepEqual(records[0].posts, [
-          { body: source, path: "//item", kind: "xml" },
+          { body: source, path: "//item", kind: "xml", namespaces: undefined },
         ]);
         checks.push({
           kind: "cancellation",
@@ -511,7 +528,13 @@ try {
           });
           assert.ok(metrics.scroll <= metrics.client + 1);
           assert.equal(metrics.appOverflow, false);
-          assert.equal(metrics.controls.length, 5);
+          assert.equal(metrics.controls.length, 6);
+          assert.equal(
+            await pane
+              .getByRole("button", { name: "Namespaces", exact: true })
+              .count(),
+            1,
+          );
           for (const r of metrics.controls)
             assert.ok(
               r.width >= 24 &&

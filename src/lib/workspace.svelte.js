@@ -52,7 +52,7 @@ import {
   workspacePersistencePhase,
   subscribeWorkspacePersistence,
 } from "./persistence.js";
-import { requestMeta, withResponseFilter } from "./request-meta.js";
+import { requestMeta, withResponseFilter, withResponseNamespaces } from "./request-meta.js";
 import { prepareRenderedRequest, send, cancel } from "./transport.js";
 import { connectStream, sendMessage, appendStreamEvent } from "./streaming.js";
 import { loadGrpcSchema, connectGrpc, sendGrpcMessage } from "./grpc.js";
@@ -612,6 +612,22 @@ export function setResponseFilter(requestId, filter) {
   if (meta) Object.assign(meta, next);
   else workspace.data.resources.push(next);
   void persist();
+}
+/** @param {string} requestId @param {unknown} namespaces */
+export function setResponseNamespaces(requestId, namespaces) {
+  if (
+    !canEditWorkspace() ||
+    !workspace.data.resources.some(
+      (r) => r._id === requestId && r._type === "request",
+    )
+  )
+    return false;
+  const meta = requestMeta(workspace.data.resources, requestId);
+  const next = withResponseNamespaces(meta, requestId, namespaces);
+  if (meta) Object.assign(meta, next);
+  else workspace.data.resources.push(next);
+  void persist();
+  return true;
 }
 /** @param {string} requestId */
 export function selectRequest(requestId) {
