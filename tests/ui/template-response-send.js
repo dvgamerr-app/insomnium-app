@@ -21,7 +21,9 @@ const wire = /** @type {Record<string,any>[]} */ ([]);
 const environmentMode = process.env.INSOMNIUM_TEMPLATE_ENVIRONMENTS === "1";
 const sseMode = process.env.INSOMNIUM_TEMPLATE_SSE === "1";
 const cycleMode = process.env.INSOMNIUM_TEMPLATE_CYCLES === "1";
-const oauthMode = process.env.INSOMNIUM_TEMPLATE_OAUTH === "1";
+const oauthGraphMode = process.env.INSOMNIUM_TEMPLATE_OAUTH_GRAPH === "1";
+const oauthMode =
+  process.env.INSOMNIUM_TEMPLATE_OAUTH === "1" || oauthGraphMode;
 assert.ok(
   [environmentMode, sseMode, cycleMode, oauthMode].filter(Boolean).length <= 1,
   "Choose one template scenario mode",
@@ -87,15 +89,17 @@ const server = Bun.serve({
 });
 try {
   await withNativeApp(
-    oauthMode
-      ? "template-response-oauth"
-      : cycleMode
-        ? "template-response-cycles"
-        : sseMode
-          ? "template-response-sse"
-          : environmentMode
-            ? "template-response-environments"
-            : "template-response-send",
+    oauthGraphMode
+      ? "template-response-oauth-graph"
+      : oauthMode
+        ? "template-response-oauth"
+        : cycleMode
+          ? "template-response-cycles"
+          : sseMode
+            ? "template-response-sse"
+            : environmentMode
+              ? "template-response-environments"
+              : "template-response-send",
     async ({ page, invoke, output }) => {
       page.setDefaultTimeout(60000);
       const suffix = Date.now(),
@@ -224,6 +228,7 @@ try {
       async function configure(
         /** @type {string} */ name,
         /** @type {string} */ body,
+        /** @type {Record<string,any>[]} */ extraHeaders = [],
       ) {
         const latest = await invoke("load_workspace");
         const root = latest.resources.find(
@@ -232,7 +237,7 @@ try {
         root.method = "POST";
         root.url = `http://127.0.0.1:${server.port}/root?case=${name}`;
         root.body = { mimeType: "text/plain", text: body };
-        root.headers = [{ name: "X-Owned-Case", value: name }];
+        root.headers = [{ name: "X-Owned-Case", value: name }, ...extraHeaders];
         latest.activeWorkspaceId = workspaceId;
         latest.activeRequestId = ids.root;
         latest.activeEnvironmentId = "";
@@ -291,6 +296,103 @@ try {
           credentialsInBody: true,
         };
         await invoke("save_workspace", { data: setup });
+        if (oauthGraphMode) {
+          for (const name of [
+            "shared-acquire",
+            "shared-refresh",
+            "nested-acquire",
+          ]) {
+            if (name !== "shared-acquire") {
+              const latest = await invoke("load_workspace");
+              if (name === "shared-refresh") {
+                const token = latest.resources.find(
+                  (/** @type {any} */ r) =>
+                    r._type === "oauth2_token" && r.parentId === ids.foreign,
+                );
+                assert.ok(
+                  token,
+                  "Actual acquired token exists before expiry fixture",
+                );
+                token.expiresAt = Date.now() - 1000;
+              } else {
+                latest.resources = latest.resources.filter(
+                  (/** @type {any} */ r) =>
+                    !(r._type === "oauth2_token" && r.parentId === ids.foreign),
+                );
+                latest.resources.find(
+                  (/** @type {any} */ r) => r._id === ids.nested,
+                ).headers = [
+                  {
+                    name: "X-Nested",
+                    value: tag("body", ids.foreign, "$.token", "always"),
+                  },
+                ];
+              }
+              await invoke("save_workspace", { data: latest });
+            }
+            await configure(
+              "oauth-" + name,
+              tag(
+                "body",
+                name === "nested-acquire" ? ids.nested : ids.foreign,
+                "$.token",
+                "always",
+              ),
+              [
+                {
+                  name: "X-Graph",
+                  value: tag("body", ids.foreign, "$.token", "always"),
+                },
+              ],
+            );
+            const start = wire.length;
+            await send(ids.root);
+            const events = wire.slice(start),
+              current = await state();
+            assert.deepEqual(
+              events.map((e) => e.path),
+              name === "nested-acquire"
+                ? ["/token", "/json", "/json", "/json", "/root"]
+                : ["/token", "/json", "/json", "/root"],
+            );
+            const expected = "Bearer owned-access-" + tokenCount;
+            for (const e of events.filter(
+              (e) => e.path === "/json" && e.query === "?scope=foreign",
+            ))
+              assert.equal(e.headers.authorization, expected);
+            assert.equal(events.filter((e) => e.path === "/token").length, 1);
+            assert.equal(events.at(-1)?.body, "owned-token");
+            assert.equal(events.at(-1)?.headers["x-graph"], "owned-token");
+            assert.equal(current.oauthTokens?.length, 1);
+            if (name === "nested-acquire") {
+              assert.equal(events[2].query, "");
+              assert.equal(events[2].headers["x-nested"], "owned-token");
+              assert.equal(events[2].headers.authorization, undefined);
+            }
+            checks.push({ kind: name, events, state: current });
+            await progress();
+          }
+          await Bun.write(
+            output + "/acceptance.json",
+            JSON.stringify(
+              {
+                passed: true,
+                checks,
+                workers,
+                wire,
+                ids,
+                workspaceId,
+                foreignId,
+                tokenCount,
+                limits:
+                  "Sequential within-root body/header and nested OAuth snapshot sharing; concurrent coalescing/public providers/source races/platform/full migration remain.",
+              },
+              null,
+              2,
+            ),
+          );
+          return;
+        }
         for (const name of ["acquire", "reuse", "refresh"]) {
           if (name === "refresh") {
             const latest = await invoke("load_workspace");
