@@ -1,5 +1,10 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Response tools — committed handoff — 2026-10-10
+
+- Verified topic 8dbb3dedb471e4506021fd499341f49cc1c7be83 (`test(ui): verify response tools and responsive filter layout`) commits9scenario/doc files. Worktree clean after topic commit. Current native94277 terminal0/9groups/3HTTP Sends, six dark-light geometry profiles/current760images, compiler0/0, formatting/current691/executable/body/meta/history/timer/payload/restoration audit and owned cleanup pass. No live handles or owned probe/profile processes; app/CSS unchanged. Exact commands/failures/limits: JSON-RESPONSE-TOOLS.md. Documentation checkpoint is current HEAD from git log -1.
+- Full migration/UX/CSS remains active. Next: response Copy/Save feedback recovery and late request/response ownership, keyboard/accessibility/OS boundaries, XPath/XML response and all original migration/shared UI gates. Source evidence: ResponsePane catch handlers set copyError but successful operations have no corresponding reset; require saved native confirmation and correction before closing recovery. Owner requires /compact before next feature; interface cannot invoke it, no compaction occurred. Handoff records topic SHA/evidence/remaining gates/no live processes; no next feature started.
+
 ## JSON response tools — verified scoped acceptance ready to commit — 2026-10-10
 
 - Current native94277 actualterminal0/artifact1791599769200/native60352 exit0/native-hidden/visible:false passes9groups/3native Sends: body replacement2531ms before actual deadline, both workers terminated/stale callbacks ignored, displayed filtered/Raw/Pretty Copy and original152byte Save/cancel/refusal boundaries, imported12/new11 history/selection/Clear/reload and six dark-light1440/900/760 geometry/Help profiles. Adapter restoration passes; only necessary payload headers retained. Actual760images inspected; no app/CSS correction established.
