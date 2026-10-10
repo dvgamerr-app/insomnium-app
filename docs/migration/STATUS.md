@@ -1,5 +1,19 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Template response Send — verified acceptance — 2026-10-10
+
+- Corrected native82773/artifact1791611900475 terminal0 accepts19groups/43workers/20wire plus one held dependency; native70584 exit0/native-hidden/visible:false. Independent703source/production01515fc0/literal body/base64/history/trigger order/foreign Base environment/socket cancellation/worker generation audit passes. Compiler8091 terminal0/0errors0warnings and formatting pass. Both attempts' exact owned PIDs/profiles absent; no live feature handles. Initial selector failure retained in TEMPLATE-RESPONSE-SEND.md.
+- Existing application/CSS/backend unchanged. Saved scenario uses actual HTTP Cancel action and shared native-hidden helpers. Topic commit pending. Full migration/UX/CSS remains active: selected foreign environments, OAuth/provider/cycle/SSE/protocol/platform/accessibility, actual OS transfer/non-UTF-8/binary XML/full XPath and every original parity/shared adoption/ownership gate. Redesign follows full migration. This interface cannot invoke `/compact`; no compaction occurred. Record actual topic SHA and handoff before next feature.
+
+## Template response Send — saved native acceptance prepared — 2026-10-10
+
+- First native21533/artifact1791611378363 terminal1 after17groups/41workers/20wire: new scenario searched for Stop while actual HTTP cancellation button is Cancel. Native69748 exit0/native-hidden. Corrected only saved scenario selectors; unchanged468app/production01515fc0/refreshed703binding passes. Compiler8091 terminal0/0errors0warnings. Corrected native82773 launched; exact terminal/audit/cleanup/commit remain pending.
+
+- Binding468app/235scenario703paths and unchanged optimized production01515fc0 passes. Saved native template Send21533/artifact1791611378363/owned69748 confirmed live; poll exact handle, app/scenario frozen. No current acceptance claimed before terminal; independent wire/history/generation audits, owned cleanup and topic commit remain required.
+
+- Previous goal turn made progress: namespace topic30ae88b/checkpoint421c38b committed with focused20/defaultXML36/JSON26/native-hidden/source audits/owned cleanup; worktree clean/no live handles. Current instructions/STATUS/PLAN/PARITY and DEPENDENT-RESPONSES.md plus actual Send/resolver/filter/session code inspected; no applicable Claude files found. Official async Nunjucks/AbortSignal docs consulted. Existing Send integration needs actual saved native evidence, replacing the old inline/mock-only acceptance gap; no app/CSS/backend edits established.
+- Added separate saved template-response-send.js with19planned groups: real source HTTP, literal JSONPath/XPath/header/url/raw, four no-root refusals, six trigger policies, nested wire order, foreign environment routing, actual held-native Stop and controlled worker Stop/late callbacks/manual edit preservation. Shared native-hidden/held HTTP/response-worker helpers retained. Compiler95402 terminal0/0errors0warnings and scenario formatting pass; source/executable binding then exact native runtime/audits/cleanup/topic commit remain required. Full migration/UX/CSS remains active; detailed commands/scope/remaining gates in TEMPLATE-RESPONSE-SEND.md.
+
 ## XPath namespace mappings — committed handoff — 2026-10-10
 
 - Verified topic `30ae88b02fc7dbe91df9547875656087030b22f1` (`feat(response): add persistent XPath namespace mappings`) commits validated local request mappings, bounded worker resolver/snapshot/generation identity, shared-component Namespaces dialog/responsive toolbar, saved focused namespace scenario and six-control/payload regressions plus scoped docs. Compiler0/0, formatting and staged diff pass; worktree clean after topic commit. Current documentation checkpoint SHA is `git log -1`.
