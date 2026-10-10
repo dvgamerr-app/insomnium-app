@@ -98,6 +98,27 @@ try {
       await dialog.getByLabel("Clone author email", { exact: true }).fill("clone@example.invalid");
       const before = await invoke("load_workspace");
       const bytes = await readFile(x.workspace);
+      if (mode === "normal") {
+        const authorName = dialog.getByLabel("Clone author name", { exact: true });
+        const authorEmail = dialog.getByLabel("Clone author email", { exact: true });
+        const download = dialog.getByRole("button", { name: "Download Clone for review", exact: true });
+        assert.equal(await authorName.evaluate(element => /** @type {HTMLInputElement} */ (element).required), true);
+        assert.equal(await authorEmail.getAttribute("type"), "email");
+        assert.equal(await authorEmail.evaluate(element => /** @type {HTMLInputElement} */ (element).required), true);
+        await authorName.fill("");
+        assert.equal(await download.isDisabled(), true);
+        assert.equal(await authorName.evaluate(element => /** @type {HTMLInputElement} */ (element).validity.valueMissing), true);
+        await authorName.fill("Clone owner");
+        await authorEmail.fill("invalid-email");
+        assert.equal(await authorEmail.evaluate(element => /** @type {HTMLInputElement} */ (element).validity.typeMismatch), true);
+        const rejected = await withIpcFailure(page, "git_clone_stage", false, async () => { await download.click(); });
+        assert.equal(rejected.calls, 0, "Native form validation blocks Clone staging");
+        assert.equal(network.state.gets + network.state.posts, 0);
+        assert.deepEqual(await invoke("load_workspace"), before);
+        assert.deepEqual(await readFile(x.workspace), bytes);
+        await authorEmail.fill("clone@example.invalid");
+        checks.push("required-author-and-malformed-email-refuse-before-stage-network-or-workspace-write");
+      }
       if (mode === "truncated" || mode === "stop") {
         network.state.truncateNextPack = mode === "truncated";
         network.state.holdNextPack = mode === "stop";
@@ -171,6 +192,18 @@ try {
       assert.equal(http.cancelled, 0);
       assert.equal(commands.includes("git_clone_install"), false);
       const requests = network.state.gets + network.state.posts;
+      if (mode === "normal") {
+        await dialog.getByLabel("Clone author email", { exact: true }).fill("invalid-email");
+        const rejected = await withIpcFailure(page, "git_clone_inspect", false, async () => {
+          await dialog.getByRole("button", { name: "Inspect Clone " + stage.operationId, exact: true }).click();
+        });
+        assert.equal(rejected.calls, 0, "Retained Clone inspection validates author before IPC");
+        assert.equal(network.state.gets + network.state.posts, requests);
+        assert.deepEqual(await invoke("load_workspace"), before);
+        assert.deepEqual(await readFile(x.workspace), bytes);
+        await dialog.getByLabel("Clone author email", { exact: true }).fill("clone@example.invalid");
+        checks.push("malformed-author-refuses-retained-inspection-without-network-or-workspace-write");
+      }
       await dialog.getByRole("button", { name: "Inspect Clone " + stage.operationId, exact: true }).click();
       if (mode === "collision" || mode === "multiple" || mode === "invalid-parent") {
         await dialog.getByRole("alert").filter({ hasText: mode === "collision" ? "collide" : mode === "multiple" ? "Multiple collection workspaces" : "Invalid or missing parent" }).waitFor();

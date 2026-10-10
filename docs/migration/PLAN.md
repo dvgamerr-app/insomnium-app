@@ -1,5 +1,7 @@
 # Insomnium → Tauri migration
 
+2026-10-10 Clone author validation: required shared name/email and native form/email validation refuse malformed author before staging/retained inspection IPC/network; saved normal Clone6 checks retain real review/install/existing navigation/fresh200/reload. Production9fc6a4b7/current703source/native-hidden/visible:false/exit0, compiler0/0 and owned cleanup pass. Other historical fault/provider/platform/assistive and full migration/UX/CSS gates remain. [GIT-CLONE.md](GIT-CLONE.md).
+
 2026-10-10 shared tab panel native acceptance: fresh production82102013/current703source accepts six actual Tab/Shift+Tab/label/viewport-bound profiles plus retained12workflow/10dialog captures, unchanged Git HEAD; native-hidden/visible:false/exit0. Independent source/build/baseline/geometry audit/compiler0/0/formatting/owned cleanup pass;760dark/light images inspected. Other content/scrolling/assistive/platform/full migration/UX/CSS gates remain. [TAB-PANEL-KEYBOARD.md](TAB-PANEL-KEYBOARD.md).
 
 2026-10-10 shared tab panel keyboard entry: shared TabPanel has a real flex box/tabindex0; actual Tab/Shift+Tab and selected labels pass six headless theme/width profiles, retained design-system and fresh workspace12 pass with bounded request/response layout. Compiler0/0/build0;760image inspected. Native executable predates this change; broader content/platform/assistive/full migration/UX/CSS gates remain. [TAB-PANEL-KEYBOARD.md](TAB-PANEL-KEYBOARD.md).

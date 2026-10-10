@@ -1,5 +1,7 @@
 # Feature parity tracker
 
+2026-10-10 Clone author form normal Windows acceptance: native6checks/1real advertisement GET+pack POST verifies required/malformed-author refusal before IPC/network/full workspace bytes, corrected valid staging/review/install/existing navigation/fresh200/reload; production9fc6a4b7/current703source/native-hidden/visible:false/exit0. Compiler0/0/source-build audit/owned cleanup pass. Other fault modes/providers/platform/assistive/shared ownership/adoption/full migration/UX/CSS remain required. [GIT-CLONE.md](GIT-CLONE.md).
+
 2026-10-10 shared tab panels verified on fresh Windows native production82102013/current703source:6keyboard/label/geometry profiles, retained12workflow/10dialog captures/Git HEAD unchanged, native-hidden/visible:false/exit0. Independent source/build/baseline/geometry audit/compiler0/0/owned cleanup pass,760images inspected. Every other panel content/scrolling/assistive/platform/shared adoption/ownership/full migration/UX/CSS gate remains required. [TAB-PANEL-KEYBOARD.md](TAB-PANEL-KEYBOARD.md).
 
 2026-10-10 shared tab panel keyboard entry verified in headless Chromium: six Tab/Shift+Tab/selected-label profiles, full retained design-system and workspace12 with positive bounded pane dimensions, compiler0/0/build0. First display:contents focus failure corrected with shared flexible panel box. Packaged native/other content/assistive/platform/full migration/UX/CSS acceptance remains required. [TAB-PANEL-KEYBOARD.md](TAB-PANEL-KEYBOARD.md).

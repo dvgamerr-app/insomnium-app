@@ -1,5 +1,28 @@
 # Staged Clone — Windows implementation and acceptance
 
+## Author form validation — 2026-10-10
+
+Clone author name/email now use required shared inputs, email type and a native form submit action. Previously, malformed author email could begin a download. Native form validation blocks staging before IPC/network work; retained-stage Inspect uses reportValidity before invoking native inspection. Existing trim checks, remote validation, review/install/source guards and backend author/storage policy remain. No credential/storage/native change or new dependency.
+
+Consulted before implementation: [MDN HTML constraint validation](https://developer.mozilla.org/en-US/docs/Web/HTML/Guides/Constraint_validation). This reuses documented required/email/form submission/reportValidity behavior and existing shared controls; no generator needed.
+
+```powershell
+bun run check
+$env:LIBCLANG_PATH='E:/.dvgamerr-app/insomnium-app/artifacts/tools/llvm-20.1.8/bin'
+Remove-Item Env:INSOMNIUM_UI_LOW_MEMORY -ErrorAction SilentlyContinue
+bun tests/ui/build-recovery-copy-probe.js
+$env:INSOMNIUM_UI_BUILD_STATE='artifacts/native-recovery-copy-probe/build-state.json'
+$env:INSOMNIUM_CLONE_CASE='normal'
+Remove-Item Env:INSOMNIUM_CLONE_EXPLICIT_BRANCH -ErrorAction SilentlyContinue
+bun tests/ui/git-clone.js
+```
+
+Compiler75871 exited0/zero errors/warnings. Production build82761 exited0 (started1791621895023/finished1791622312109), executable SHA256 `9fc6a4b756255a9cc5e8901d387f1f3d6f52b4e449c5cb5a8f1b004217c5c838`. Frozen468app/235scenario703paths differ from the accepted tab-panel baseline only in GitCloneDialog and git-clone scenario. Preserved baseline82102013 executable/build state: `artifacts/native-clone-form-baseline`; source/build binding: `artifacts/playwright/clone-form-source-freeze.json` and `clone-form-bind.mjs`.
+
+Native50542/artifact `artifacts/playwright/git-clone-1791622322184` exited0/passed6 checks; native66276 exited0, `native-hidden`, visible:false. New negatives cover required/empty author name and malformed email before staging/retained inspection, zero refused IPC calls/network additions, unchanged full workspace snapshot/bytes; valid corrections then retain lost-stage-success inspection/review Cancel, one additive install, existing-ID navigation and fresh200/persisted reload with complete remote HEAD. Actual smart HTTP download totals1advertisement GET/1pack POST. `bun artifacts/clone-form-audit.mjs artifacts/playwright/git-clone-1791622322184` independently verifies703hashes/executable/preserved baseline/native result/reported six checks/real command and network records. Exact owned PID/profile processes absent, recorded in `artifacts/playwright/clone-form-cleanup.json`; no live feature handles. Diff checks pass.
+
+This accepts the covered Windows normal Clone/author form workflow. It does not rerun every historical fault mode or prove every email/address/provider/platform/assistive/keyboard submission case. Full Git/migration/shared UI/UX/CSS gates remain required. Browser scenarios remain headless; native scenarios hide the owned host before CDP.
+
 Clone installs a newly owned managed repository and validates/imports its collection additively after explicit review. Windows stage/review/install/recovery acceptance is recorded below. Fetch or remote checkout of an already installed collection is not a replacement. Full Git/migration/provider/platform/release parity remains open.
 
 ## Current implementation

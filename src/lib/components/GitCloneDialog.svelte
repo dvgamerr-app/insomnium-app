@@ -16,6 +16,7 @@
   let review = $state.raw(/** @type {any} */ (null));
   let stages = $state.raw(/** @type {any[]} */ ([]));
   let disposed = false; let stopped = false;
+  let form = $state(/** @type {HTMLFormElement|null} */ (null));
   function remoteInput() {
     return validateGitRemoteSettings({ url, credentials: auth === "anonymous" ? { kind: "anonymous" }
       : auth === "basic" ? { kind: "basic", username, password: secret }
@@ -44,6 +45,7 @@
   }
   /** @param {any} stage */
   async function inspect(stage) {
+    if (!form?.reportValidity()) return;
     if (busy) return;
     busy = true; error = ""; operation = stage.operationId;
     try { url = stage.url; const preview = await invoke("git_clone_inspect", { operationId: operation }); if (!disposed) showReview(preview); }
@@ -85,6 +87,7 @@
       </div>
     </section>
   {:else}
+    <form bind:this={form} onsubmit={(event) => { event.preventDefault(); void download(); }}>
     <Field label="Repository URL"><Input bind:value={url} disabled={busy} aria-label="Clone repository URL" /></Field>
     <Field label="Branch (optional)"><Input bind:value={branch} disabled={busy} aria-label="Clone branch (optional)" /></Field>
     <Field label="Authentication"><Select bind:value={auth} disabled={busy} aria-label="Clone authentication">
@@ -93,11 +96,11 @@
     </Select></Field>
     {#if auth === "basic"}<Field label="Username"><Input bind:value={username} disabled={busy} aria-label="Clone username" /></Field>{/if}
     {#if auth !== "anonymous"}<Field label="Password/token"><Input type="password" bind:value={secret} disabled={busy} aria-label="Clone password/token" /></Field>{/if}
-    <Field label="Author name"><Input bind:value={authorName} disabled={busy} aria-label="Clone author name" /></Field>
-    <Field label="Author email"><Input bind:value={authorEmail} disabled={busy} aria-label="Clone author email" /></Field>
+    <Field label="Author name"><Input bind:value={authorName} required disabled={busy} aria-label="Clone author name" /></Field>
+    <Field label="Author email"><Input type="email" bind:value={authorEmail} required disabled={busy} aria-label="Clone author email" /></Field>
     <div class="resource-tools">
       <Button disabled={busy} onclick={close}>Cancel Clone</Button>
-      <Button variant="primary" disabled={busy || !url.trim() || !authorName.trim() || !authorEmail.trim()} onclick={download}>Download Clone for review</Button>
+      <Button type="submit" variant="primary" disabled={busy || !url.trim() || !authorName.trim() || !authorEmail.trim()}>Download Clone for review</Button>
       {#if busy}<Button onclick={stop}>Stop Clone download</Button>{/if}
     </div>
     {#if stages.length}<section aria-label="Retained Clone candidates"><p>Retained candidates</p>
@@ -105,5 +108,6 @@
         <Button disabled={busy || !authorName.trim() || !authorEmail.trim()} onclick={() => inspect(stage)}>Inspect Clone {stage.operationId}</Button>
       </div>{/each}
     </section>{/if}
+    </form>
   {/if}
 </DialogShell>
