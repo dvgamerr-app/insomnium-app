@@ -1,5 +1,7 @@
 # Legacy plugin compatibility inventory
 
+Covered callback data transport now preserves undefined/nonfinite/-0/bigint/sparse/cyclic/shared/Date/Map/Set/binary views/RegExp through a bounded graph codec; native48checks and retained session/store/package/restart audits pass on corrected production3a34fbbf/current734source. Unsupported values explicitly refuse. Legacy Buffer/stream compatibility, product admission/registries/other contexts/lifecycle and full plugin/migration/UX/CSS scope stay required. [PLUGIN-VALUES.md](PLUGIN-VALUES.md).
+
 Retained callback core now executes seven contribution kinds in owned isolated sessions with all six durable context.store methods. Production9e3c459d native/restart and retained regressions pass independent audits. This is a callable core with a required live-owner guard; product registries/Send hooks/action menus/themes, full argument/value encoding beyond JSON-only, admission/disable/reload ownership and other context adapters remain required. [PLUGIN-SESSION.md](PLUGIN-SESSION.md).
 
 2026-10-10 inventory from the read-only archive and current source. This is an implementation inventory, not completed custom-plugin parity. No archive files or installed user plugins are changed.
@@ -28,7 +30,7 @@ The six archived context namespaces are independent requirements:
 | network | context/network.ts: sendRequest uses target environment, rendering, request hooks, transport, response hooks and saved history | Owned dependent sender exists; no general plugin network adapter |
 | request | context/request.ts: ID/name/URL/method/environment, cookie/settings/header/parameter/authentication/body/text access and mutations, readOnly behavior | Detached Send snapshots exist; no plugin facade |
 | response | context/response.ts: request ID/status/message/bytes/time/body/body stream/headers and body replacement | Product response tools exist; no plugin facade or Node Buffer/stream compatibility |
-| store | context/store.ts and models/plugin-data.ts: plugin-scoped hasItem/setItem/getItem/removeItem/clear/all; PluginData is local-only/non-sync | Durable six-method native/host facade accepted with real restart/fault/isolation controls; guest binding and legacy PluginData import remain required. [PLUGIN-STORE.md](PLUGIN-STORE.md) |
+| store | context/store.ts and models/plugin-data.ts: plugin-scoped hasItem/setItem/getItem/removeItem/clear/all; PluginData is local-only/non-sync | Durable six-method native/host/isolated guest bridge accepted with actual restart/fault/isolation and core live-owner controls; product lifecycle ownership and legacy PluginData import remain required. [PLUGIN-STORE.md](PLUGIN-STORE.md), [PLUGIN-SESSION.md](PLUGIN-SESSION.md) |
 
 Current isolation lives in template-runtime.js/template.worker.js/template-client.js: fresh QuickJS VM and disposable worker, trusted bundled Nunjucks source, explicit host tag allowlist and JSON bridge. Guest templates have no module/file/network APIs. Do not broaden that boundary by executing imported JavaScript in the Svelte renderer, exposing raw invoke, or reviving Node/Electron. A custom-plugin implementation must define a separate package admission/execution contract while preserving the existing template bounds and owner Bun-only rule. Unsupported dependencies/contributions must be reported explicitly, with package/store bytes preserved.
 

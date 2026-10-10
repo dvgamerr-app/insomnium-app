@@ -1,4 +1,5 @@
 import { createPluginStore } from "./plugin-store.js";
+import { createPluginValueCodec } from "./plugin-values.js";
 
 /** A retained, serialized plugin worker with an explicit live-owner guard.
  * @param {{name:string,entry:string,format:string,files:Record<string,string>}} snapshot
@@ -10,6 +11,7 @@ export async function openPluginSession(snapshot, options) {
     throw Error("Plugin execution requires a live-owner guard");
   if (options.signal?.aborted || !options.isCurrent()) throw aborted();
   const store = createPluginStore(snapshot.name);
+  const codec = createPluginValueCodec();
   const worker =
     options.createWorker?.() ??
     new Worker(new URL("./plugin.worker.js", import.meta.url), {
@@ -155,9 +157,16 @@ export async function openPluginSession(snapshot, options) {
       return;
     }
     clearTimeout(active.timer);
-    const resolve = active.resolve;
+    const resolve = active.resolve,
+      reject = active.reject;
     active = undefined;
-    resolve(message.result);
+    try {
+      resolve(message.id === 0 ? message.result : codec.decode(message.result));
+    } catch (error) {
+      // The callback is already detached from active; reject it explicitly.
+      reject(error instanceof Error ? error : new Error(String(error)));
+      close();
+    }
   };
   let metadata;
   try {
@@ -180,10 +189,8 @@ export async function openPluginSession(snapshot, options) {
         );
       let detached;
       try {
-        const json = JSON.stringify(args);
-        if (!Array.isArray(args) || json.length > 1024 * 1024)
-          throw Error("Invalid or oversized plugin arguments");
-        detached = JSON.parse(json);
+        if (!Array.isArray(args)) throw Error("Invalid plugin arguments");
+        detached = codec.encode(args);
       } catch (error) {
         return Promise.reject(error);
       }

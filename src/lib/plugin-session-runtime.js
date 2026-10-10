@@ -1,4 +1,5 @@
 import { createPluginVm, inspectPluginVm } from "./plugin-runtime.js";
+import { createPluginValueCodec } from "./plugin-values.js";
 
 /** Retained guest module, with only the six-method store capability.
  * @param {import('quickjs-emscripten-core').QuickJSWASMModule} engine
@@ -11,6 +12,7 @@ export function createPluginCallbackRuntime(engine, snapshot, storeCall) {
     running = false,
     calls = 0;
   const pending = new Set();
+  const codec = createPluginValueCodec();
   let metadata;
   try {
     metadata = inspectPluginVm(loaded, snapshot.name);
@@ -70,6 +72,9 @@ export function createPluginCallbackRuntime(engine, snapshot, storeCall) {
   });
   try {
     vm.setProp(vm.global, "__pluginStoreCall", bridge);
+    evaluate(
+      `globalThis.__pluginValueCodec=(${createPluginValueCodec.toString()})();`,
+    ).dispose();
     evaluate(`globalThis.__pluginContext=Object.freeze({store:Object.freeze(Object.fromEntries(
       ['hasItem','getItem','setItem','removeItem','clear','all'].map(method=>[method,(...args)=>{
         const count=method==='setItem'?2:['hasItem','getItem','removeItem'].includes(method)?1:0;
@@ -89,8 +94,8 @@ export function createPluginCallbackRuntime(engine, snapshot, storeCall) {
 
   return {
     metadata,
-    /** @param {string} kind @param {number} index @param {any[]} [args] */
-    async invoke(kind, index, args = []) {
+    /** @param {string} kind @param {number} index @param {string} args */
+    async invoke(kind, index, args) {
       if (closed) throw Error("Plugin session is closed");
       if (running) throw Error("Plugin callback is already running");
       const kinds = [
@@ -107,12 +112,12 @@ export function createPluginCallbackRuntime(engine, snapshot, storeCall) {
         !Number.isInteger(index) ||
         index < 0 ||
         index > 63 ||
-        !Array.isArray(args)
+        typeof args !== "string"
       )
         throw Error("Invalid plugin callback");
-      const json = JSON.stringify(args);
-      if (json.length > 1024 * 1024)
-        throw Error("Plugin callback arguments exceed the 1 MiB limit");
+      // Validate the internal envelope before entering the guest.
+      if (!Array.isArray(codec.decode(args)))
+        throw Error("Invalid plugin callback arguments");
       running = true;
       calls = 0;
       loaded.resetDeadline();
@@ -123,10 +128,8 @@ export function createPluginCallbackRuntime(engine, snapshot, storeCall) {
           const kind=${JSON.stringify(kind)},item=__pluginExports[kind]?.[${index}];
           const fn=kind.endsWith('Hooks')?item:kind==='templateTags'?item?.run:item?.action;
           if(typeof fn!=='function')throw Error('Plugin callback is unavailable');
-          const value=await fn.call(item,__pluginContext,...JSON.parse(${JSON.stringify(json)}));
-          const result=JSON.stringify({value});
-          if(result.length>1048576)throw Error('Plugin callback result exceeds the 1 MiB limit');
-          return result;
+          const value=await fn.call(item,__pluginContext,...__pluginValueCodec.decode(${JSON.stringify(args)}));
+          return __pluginValueCodec.encode(value);
         })()`);
         while (!closed) {
           if (performance.now() > deadline)
@@ -145,7 +148,7 @@ export function createPluginCallbackRuntime(engine, snapshot, storeCall) {
           if (state.type === "fulfilled") {
             try {
               if (!pending.size && !vm.runtime.hasPendingJob())
-                return JSON.parse(vm.getString(state.value)).value;
+                return vm.getString(state.value);
             } finally {
               state.value.dispose();
             }
