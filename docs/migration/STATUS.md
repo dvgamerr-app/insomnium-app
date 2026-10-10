@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Within-root OAuth graph — committed handoff — 2026-10-10
+
+- Topic `527255c142c65e66a104a4f97b3982fd4267be3e` (`test(ui): verify OAuth resources across response graphs`) commits the saved scenario and evidence docs. Native artifact1791620109619/native63420 exit0/native-hidden/visible:false; independent3groups/13wire/3exchanges/38workers/703source/productionc2fbaa43/token forms/headers/identity/ten histories/selection audit passes. Compiler89124 terminal0/0errors0warnings, formatting/staged diff and exact owned cleanup pass. Application/CSS/backend unchanged. No live feature handles.
+- Full migration/UX/CSS stays active. Concurrent exchanges/public providers/source races/late-provider/protocol/platform/accessibility and every original parity/shared UI adoption/ownership gate remain required. Scope, command and expiry/deletion fixture details: TEMPLATE-OAUTH-GRAPH.md.
+- This interface cannot invoke owner-required `/compact`; no compaction occurred. Current commit/evidence/remaining gates/no-live-handles handoff recorded before the next feature. Current documentation checkpoint SHA is `git log -1`.
+
 ## Within-root OAuth graph — verified — 2026-10-10
 
 - Previous goal turn made progress: saved headless workspace11 passed and verification topic727fbf5 committed. Current source/result/process state revalidated; no Claude instruction files found. OAuth graph artifact1791620109619 passed/native63420 exit0/native-hidden/visible:false. Independent audit accepts3groups/13wire/3exchanges/38workers,703source/productionc2fbaa43/literal forms/foreign scope/Bearer/nested headers/root body/token context/identity/rotation/ten durable histories/selection. Exact owned PID/profile processes absent; cleanup recorded. Compiler89124 terminal0/0errors0warnings, formatting and diff checks pass. No live feature handles.
