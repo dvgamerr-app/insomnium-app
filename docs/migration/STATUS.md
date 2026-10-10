@@ -1,5 +1,21 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Shared tab panel native acceptance — verified — 2026-10-10
+
+- Build42964 terminal0/production82102013/current703source/probe/baselinec2fbaa43 binding passes. Native75462/artifact1791621431860 terminal0/native64136 exit0/native-hidden/visible:false accepts6actual Tab/Shift+Tab/label/viewport-bound profiles plus12retained workflow/10dialog captures/Git HEAD unchanged. Independent source/executable/baseline/geometry audit and exact owned process/profile cleanup pass; both actual760dark/light images inspected. Compiler94405 zero errors/warnings, formatting/diff checks pass. No live feature handles.
+- Only existing saved native-theme scenario/docs change this turn; application/native/CSS implementation is committed topic8372053. Exact commands, prior failure, profile/source/executable evidence and limits: TAB-PANEL-KEYBOARD.md. Topic commit pending. Other panel content/scrolling/assistive/platform/shared ownership/adoption and every original migration/UX/CSS gate remain required. Interface cannot invoke `/compact`; record actual SHA/handoff after commit.
+
+## Shared tab panel native acceptance — running — 2026-10-10
+
+- Previous goal turn made progress and verified a wait: native scenario assertions/source freeze/baseline preservation/compiler prepared, exact42964 live polled. Current build42964 now terminal0 (started1791621031750/finished1791621420119), production profile. Independent binding accepts703current source hashes/probe identity/baselinec2fbaa43 and new executable82102013b54c056c38f306bfa7ae67c53d61fdd235027e6db766377b9d1e54b6. Saved native-theme75462 launched on explicit current build state; app/scenario remain frozen.
+- Poll exact75462; after terminal inspect newest nocturne-native-theme artifact, run tab-panel-native-audit.mjs, verify exact owned process/profile cleanup and inspect current760images. Topic commit/handoff remain. Compiler94405 zero errors/warnings already accepted; no broader migration/UX/platform/assistive completion claimed.
+
+## Shared tab panel native acceptance — building — 2026-10-10
+
+- Previous goal turn made progress: shared panel topic8372053/checkpoint1dfd6e8 committed with headless keyboard/layout/compiler/build evidence. Current worktree/STATUS/PLAN/PARITY/build helper/native-theme scenario revalidated; no scoped Claude files found. Existing saved native-theme scenario now checks actual Tab/Shift+Tab, selected labels and positive viewport-bounded pane dimensions in six dark/light width profiles, preserving its full workspace/Git checks. Compiler94405 terminal0/0errors0warnings, formatting pass.
+- Frozen468app/235scenario703paths differ from accepted OAuth graph baseline only in TabPanel/navigation CSS/UI README and three saved UI scenarios. Initial freeze assertion exposed omitted UI README; corrected expected list after inspecting that committed documentation change. Baseline c2fbaa43 executable/build-state preserved and hash-verified under artifacts/native-tab-panel-baseline. Current source freeze: artifacts/playwright/tab-panel-native-source-freeze.json.
+- Fresh production build42964 is live: launcher54396/cargo68772→64116/rustc46940 confirmed by process inspection, state started1791621031750. Correct LIBCLANG_PATH=E:/.dvgamerr-app/insomnium-app/artifacts/tools/llvm-20.1.8/bin; low-memory override absent. App/scenario frozen. Poll exact42964, then run tab-panel-native-bind.mjs and saved nocturne-native-theme.js with INSOMNIUM_UI_BUILD_STATE=artifacts/native-recovery-copy-probe/build-state.json; independent audit/owned cleanup/topic commit remain. Vendor eventsource-stream warnings retained; build not terminal yet. Full migration/UX/CSS/other content/assistive/platform/original parity gates stay required; no native acceptance or compaction claimed.
+
 ## Shared tab panel keyboard entry — committed frontend handoff — 2026-10-10
 
 - Topic `8372053319c28fc06a1d3ddba83acb6e63b7a39e` (`fix(ui): make shared tab panels keyboard focusable`) commits shared focusable flex panels, saved scenario checks and scoped docs. Compiler2359 zero errors/warnings, frontend build0, design-system57782 terminal0/six keyboard profiles and workspace12/bounded three-width pane geometry pass; actual760image inspected. No live feature handles. Full migration/UX/CSS remains active.

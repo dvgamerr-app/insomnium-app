@@ -1,5 +1,7 @@
 # Feature parity tracker
 
+2026-10-10 shared tab panels verified on fresh Windows native production82102013/current703source:6keyboard/label/geometry profiles, retained12workflow/10dialog captures/Git HEAD unchanged, native-hidden/visible:false/exit0. Independent source/build/baseline/geometry audit/compiler0/0/owned cleanup pass,760images inspected. Every other panel content/scrolling/assistive/platform/shared adoption/ownership/full migration/UX/CSS gate remains required. [TAB-PANEL-KEYBOARD.md](TAB-PANEL-KEYBOARD.md).
+
 2026-10-10 shared tab panel keyboard entry verified in headless Chromium: six Tab/Shift+Tab/selected-label profiles, full retained design-system and workspace12 with positive bounded pane dimensions, compiler0/0/build0. First display:contents focus failure corrected with shared flexible panel box. Packaged native/other content/assistive/platform/full migration/UX/CSS acceptance remains required. [TAB-PANEL-KEYBOARD.md](TAB-PANEL-KEYBOARD.md).
 
 2026-10-10 within-root OAuth resource sharing verified for sequential body/header and nested dependencies:3groups/13wire/3exchanges/38workers, independent703source/productionc2fbaa43/form/header/record/history/selection audit, compiler0/0 and owned cleanup pass; native-hidden/visible:false/exit0. Concurrent exchange coalescing/provider/source-race/platform/accessibility and every original migration/shared UI/UX/CSS gate remain required. [TEMPLATE-OAUTH-GRAPH.md](TEMPLATE-OAUTH-GRAPH.md).

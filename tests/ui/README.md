@@ -1,5 +1,7 @@
 # UI scenarios (Playwright + Bun)
 
+Shared tab panels: fresh native-theme scenario accepts6actual Tab/Shift+Tab/label/pane geometry profiles plus12retained workflow/10dialog captures on production82102013; native-hidden/visible:false/exit0/current703source/independent audit/owned cleanup. Commands and remaining content/platform/assistive/full migration gates: [TAB-PANEL-KEYBOARD.md](../../docs/migration/TAB-PANEL-KEYBOARD.md). Use the explicit current build-state path documented there.
+
 OAuth graph: set `INSOMNIUM_TEMPLATE_OAUTH_GRAPH=1`, remove other template mode variables and run `bun tests/ui/template-response-send.js`. Three sequential body/header/refresh/nested groups pass13wire/3exchanges/38workers with native-hidden/visible:false. Commands, source binding, independent token/history audit and remaining gates: [TEMPLATE-OAUTH-GRAPH.md](../../docs/migration/TEMPLATE-OAUTH-GRAPH.md).
 
 XPath namespaces: set `INSOMNIUM_XML_RESPONSE_NAMESPACES=1` then run `bun tests/ui/xml-response-filter.js` (PowerShell sets the variable separately). Focused20groups/20workers/3Sends/six dialog profiles, default XML36/58/22/six pane profiles and JSON26/11/21 pass on bound production01515fc0/current702paths. Validation/reload/request isolation/real prefix resolution and controlled before-deadline mapping replacement have separate assertions. Native hosts remain hidden; browser previews remain headless. Evidence, failures and limits: [XPATH-NAMESPACES.md](../../docs/migration/XPATH-NAMESPACES.md).

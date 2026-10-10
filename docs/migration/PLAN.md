@@ -1,5 +1,7 @@
 # Insomnium → Tauri migration
 
+2026-10-10 shared tab panel native acceptance: fresh production82102013/current703source accepts six actual Tab/Shift+Tab/label/viewport-bound profiles plus retained12workflow/10dialog captures, unchanged Git HEAD; native-hidden/visible:false/exit0. Independent source/build/baseline/geometry audit/compiler0/0/formatting/owned cleanup pass;760dark/light images inspected. Other content/scrolling/assistive/platform/full migration/UX/CSS gates remain. [TAB-PANEL-KEYBOARD.md](TAB-PANEL-KEYBOARD.md).
+
 2026-10-10 shared tab panel keyboard entry: shared TabPanel has a real flex box/tabindex0; actual Tab/Shift+Tab and selected labels pass six headless theme/width profiles, retained design-system and fresh workspace12 pass with bounded request/response layout. Compiler0/0/build0;760image inspected. Native executable predates this change; broader content/platform/assistive/full migration/UX/CSS gates remain. [TAB-PANEL-KEYBOARD.md](TAB-PANEL-KEYBOARD.md).
 
 2026-10-10 within-root OAuth graph acceptance: three sequential body/header/refresh/nested groups,13wire/3exchanges/38workers pass on unchanged productionc2fbaa43/current703source. Independent literal/source/token/history/selection audit, compiler0/0, formatting and owned cleanup pass; native-hidden/visible:false/exit0. Concurrent exchanges/public providers/source races/platform/accessibility and every original migration/UX/CSS gate remain. [TEMPLATE-OAUTH-GRAPH.md](TEMPLATE-OAUTH-GRAPH.md).

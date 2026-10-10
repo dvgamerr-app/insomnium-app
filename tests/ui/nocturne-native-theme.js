@@ -29,6 +29,7 @@ await withNativeApp(
     const focusSurfaces = /** @type {Array<Record<string,any>>} */ ([]);
     const selectGeometry = /** @type {Array<Record<string,any>>} */ ([]);
     const fieldFeedback = [];
+    const tabPanels = [];
     await page.emulateMedia({ reducedMotion: "reduce" });
     const fixture = await gitCollection({ page, invoke });
     const recoveryBranch = "theme-visual-recovery";
@@ -188,6 +189,51 @@ await withNativeApp(
       const urlFocusBaseline = await invoke("load_workspace");
       for (const width of [1440, 900, 760]) {
         await page.setViewportSize({ width, height: 900 });
+        const selectedTab = page
+          .getByRole("tablist", { name: "Request editor", exact: true })
+          .locator('[aria-selected="true"]');
+        const requestPanel = page.locator("#request-editor-panel");
+        await selectedTab.focus();
+        await selectedTab.press("Tab");
+        assert.equal(
+          await requestPanel.evaluate(
+            (element) => element === document.activeElement,
+          ),
+          true,
+          "Native Tab enters the shared request panel",
+        );
+        assert.equal(
+          await requestPanel.getAttribute("aria-labelledby"),
+          await selectedTab.getAttribute("id"),
+        );
+        await requestPanel.press("Shift+Tab");
+        assert.equal(
+          await selectedTab.evaluate(
+            (element) => element === document.activeElement,
+          ),
+          true,
+        );
+        const panels = await page
+          .getByRole("tabpanel")
+          .evaluateAll((elements) =>
+            elements.map((element) => {
+              const bounds = element.getBoundingClientRect();
+              return {
+                id: element.id,
+                width: bounds.width,
+                height: bounds.height,
+                right: bounds.right,
+                bottom: bounds.bottom,
+                tabindex: element.getAttribute("tabindex"),
+              };
+            }),
+          );
+        for (const panel of panels) {
+          assert.equal(panel.tabindex, "0", panel.id);
+          assert.ok(panel.width > 0 && panel.height > 0, panel.id);
+          assert.ok(panel.right <= width + 1 && panel.bottom <= 901, panel.id);
+        }
+        tabPanels.push({ theme, width, panels, keyboardPassed: true });
         focusSurfaces.push(
           await assertFocusSurface(
             page,
@@ -582,6 +628,7 @@ await withNativeApp(
           authorFieldContext:
             "inherited IDs/required, empty-name refusal and malformed-email native validation before persistence IPC, exact full workspace preserved",
           fieldFeedback,
+          tabPanels,
           filledForeground,
         },
         null,
