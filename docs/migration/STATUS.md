@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Plugin runtime — committed handoff — 2026-10-10
+
+- Topic commit `85b26bb207d1e4b2db6cc84822d943d376df88e4` (`feat(plugins): inspect exports in an isolated module runtime`) contains bounded native snapshots, actual separate CJS/ESM worker/export metadata, Preferences Check exports with corrected layout/copy, saved14package scenario and scoped evidence. Corrected production6321d47e/current721source; runtime64808/formats72320/discovery71228/source49716/restart50104 all native-hidden/visible:false/exit0. Independent source/build/fixture/full-workspace/linked restart audits pass; compiler67861 0/0/targeted Rust/diff pass; six final runtime images inspected. Exact expected PID/name/profile checks empty; all jobs terminal/no live handles. Worktree clean after topic commit.
+- Next required: complete custom module admission/dependencies/assets/links/async lifecycle; tag argument/collision registration and durable PluginData/six context adapters; ordered hooks/actions/eight contribution activation with reload/disable/cancel/mutation ownership. Provider/platform/accessibility/CI/shared adoption/full migration/UX/CSS gates remain. Export inspection does not activate plugins. See PLUGIN-RUNTIME.md and PLUGIN-COMPATIBILITY.md; no scope removed.
+- This interface cannot invoke `/compact`; no compaction occurred. This current-commit/evidence/remaining-gates/no-live-handles handoff is recorded before starting another feature. Documentation checkpoint SHA is available through `git log -1`.
+
 ## Plugin runtime — verified — 2026-10-10
 
 - Corrected production started1791632679079/finished1791633123735 terminal0/6321d47e/current721source/original551baseline binding passes. Runtime1791633138250/native64808 accepts14packages/11real terminated workers/eight contribution metadata/34unchanged files/external bytes/absent marker/full workspace preservation and restoration/six profiles. Independent audit passes; all six runtime images inspected with readable two-column labels/compact buttons/checked-failed status/single error text/no horizontal overflow.
