@@ -15,7 +15,7 @@
     addUnitTest,
   } from "../workspace.svelte.js";
   import { selectedRunnerSuite, latestRunnerResult } from "../runner-model.js";
-  import { workspaceFor } from "../model.js";
+  import { indexWorkspaces } from "../model.js";
   import CodeEditor from "./CodeEditor.svelte";
   import Icon from "./Icon.svelte";
   /** @type {{collectionId:string}} */ let { collectionId } = $props();
@@ -27,11 +27,11 @@
       (r) => r._type === "unit_test" && r.parentId === suite?._id,
     ),
   );
+  const collectionIndex = $derived(indexWorkspaces(workspace.data.resources));
   const requests = $derived(
     workspace.data.resources.filter(
       (r) =>
-        r._type === "request" &&
-        workspaceFor(workspace.data.resources, r._id) === collectionId,
+        r._type === "request" && collectionIndex.get(r._id) === collectionId,
     ),
   );
   const running = $derived(!!suite && !!workspace.running[suite._id]);

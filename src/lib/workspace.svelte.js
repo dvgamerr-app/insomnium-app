@@ -38,6 +38,7 @@ import {
   newRequest,
   descendants,
   workspaceFor,
+  indexWorkspaces,
   historyLimit,
   protocolFor,
   environmentFor,
@@ -658,11 +659,12 @@ export function selectWorkspace(workspaceId) {
   )
     return;
   activateCollection(workspaceId);
+  const collectionIndex = indexWorkspaces(workspace.data.resources);
   workspace.data.activeRequestId =
     workspace.data.resources.find(
       (r) =>
         requestTypes.includes(r._type) &&
-        workspaceFor(workspace.data.resources, r._id) === workspaceId,
+        collectionIndex.get(r._id) === workspaceId,
     )?._id || "";
   if (
     workspace.data.activeRequestId &&

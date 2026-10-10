@@ -6,6 +6,7 @@ import {
 } from "./helpers/xml-worker-control.js";
 import { withNativeApp, poll } from "./helpers/native-app.js";
 import { initialData, newRequest } from "../../src/lib/model.js";
+import { startCpuProfile } from "./helpers/cpu-profile.js";
 import {
   encodeGitResource,
   decodeGitResource,
@@ -17,8 +18,17 @@ const source = '<root><item id="owned">value</item><empty/></root>';
 const formatted =
   '<root>\n  <item id="owned">value</item>\n  <empty/>\n</root>';
 const caseSet = process.env.INSOMNIUM_XML_CASE_SET || "all";
-assert.ok(["all", "cancellation"].includes(caseSet));
-const cancellationOnly = caseSet === "cancellation";
+assert.ok(["all", "cancellation", "workspace"].includes(caseSet));
+const cancellationOnly = caseSet !== "all";
+const profileWorkspace = process.env.INSOMNIUM_XML_PROFILE === "1";
+assert.ok(!profileWorkspace || caseSet === "workspace");
+const workspaceBudgetMs = process.env.INSOMNIUM_XML_WORKSPACE_BUDGET_MS
+  ? Number(process.env.INSOMNIUM_XML_WORKSPACE_BUDGET_MS)
+  : null;
+assert.ok(
+  workspaceBudgetMs === null ||
+    (Number.isFinite(workspaceBudgetMs) && workspaceBudgetMs > 0),
+);
 
 await withNativeApp("xml-request-format", async ({ page, invoke, output }) => {
   page.setDefaultTimeout(60000);
@@ -32,6 +42,15 @@ await withNativeApp("xml-request-format", async ({ page, invoke, output }) => {
     if (worker.url().includes("xml-format.worker")) workers.push(worker.url());
   });
   const initial = (await invoke("load_workspace")) || initialData();
+  const resourceStats = {
+    count: initial.resources.length,
+    historyCount: initial.history.length,
+    jsonBytes: Buffer.byteLength(JSON.stringify(initial)),
+    byType: /** @type {Record<string,number>} */ ({}),
+  };
+  for (const resource of initial.resources)
+    resourceStats.byType[resource._type] =
+      (resourceStats.byType[resource._type] || 0) + 1;
   const previousWorkspaceId = initial.activeWorkspaceId;
   const otherRequestId = requestId + "_other";
   let otherOriginal = /** @type {Record<string,any>|undefined} */ (undefined);
@@ -175,7 +194,7 @@ await withNativeApp("xml-request-format", async ({ page, invoke, output }) => {
     "request",
     "unmount",
     "workspace",
-  ]) {
+  ].filter((name) => caseSet !== "workspace" || name === "workspace")) {
     const original = await seed("application/xml", source);
     await installXmlWorkerControl(page);
     await page.getByRole("button", { name: "Format XML", exact: true }).click();
@@ -185,6 +204,9 @@ await withNativeApp("xml-request-format", async ({ page, invoke, output }) => {
         .isDisabled(),
       true,
     );
+    const stopProfile = profileWorkspace
+      ? await startCpuProfile(page, output)
+      : null;
     if (name === "edit") {
       await editor.evaluate((el) =>
         /** @type {any} */ (el).CodeMirror.setValue("<edited/>"),
@@ -218,6 +240,7 @@ await withNativeApp("xml-request-format", async ({ page, invoke, output }) => {
       "XML worker terminated on " + name,
       60000,
     );
+    const cpuProfile = stopProfile ? await stopProfile() : null;
     const records = await xmlWorkerRecords(page);
     assert.equal(records.length, 1);
     assert.equal(records[0].posts.length, 1);
@@ -227,6 +250,11 @@ await withNativeApp("xml-request-format", async ({ page, invoke, output }) => {
       JSON.stringify({ name, records, elapsedMs }, null, 2),
     );
     assert.ok(Number.isFinite(elapsedMs) && elapsedMs >= 0);
+    if (name === "workspace" && workspaceBudgetMs !== null)
+      assert.ok(
+        elapsedMs < workspaceBudgetMs,
+        "Workspace cancellation exceeds explicit responsiveness budget",
+      );
     assert.equal(typeof records[0].deadlineTimer, "number");
     assert.equal(
       records[0].deadlineFired,
@@ -273,6 +301,7 @@ await withNativeApp("xml-request-format", async ({ page, invoke, output }) => {
     );
     checks.push({
       kind: "controlled-cancellation",
+      cpuProfile,
       name,
       original,
       saved,
@@ -371,6 +400,8 @@ await withNativeApp("xml-request-format", async ({ page, invoke, output }) => {
         workers,
         requestId,
         workspaceId,
+        resourceStats,
+        workspaceBudgetMs,
         limits:
           "Real bundled XML worker, mounted Undo/Redo/persistence and rejection controls. Lifecycle delays/faults use an explicit Worker adapter; no real hung-worker simulation or request Send, OS-close, other platform or full migration acceptance is claimed.",
       },

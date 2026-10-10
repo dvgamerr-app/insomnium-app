@@ -79,6 +79,33 @@ expect(delegated).to.equal(1);`,
         .inputValue(),
       "Runner lifecycle",
     );
+    const requestChoice = runner.getByLabel("Request for Callback contract", {
+      exact: true,
+    });
+    const requestChoices = await requestChoice
+      .locator("option")
+      .evaluateAll((options) =>
+        options.map((option) => ({
+          value: /** @type {HTMLOptionElement} */ (option).value,
+          label: (option.textContent || "").replace(/\s+/g, " ").trim(),
+        })),
+      );
+    await Bun.write(
+      output + "/request-choices.json",
+      JSON.stringify(requestChoices, null, 2),
+    );
+    assert.deepEqual(
+      requestChoices.map((option) => option.value),
+      ["", fixture.requestId],
+      "Runner offers only the current collection's HTTP request",
+    );
+    assert.equal(requestChoices[0].label, "No request selected");
+    assert.equal(
+      requestChoices[1].label,
+      "GET · Preserved local request",
+      "Owned request is available rather than an unavailable fallback",
+    );
+    assert.equal(await requestChoice.inputValue(), fixture.requestId);
     const results = page.getByRole("region", {
       name: "Test results",
       exact: true,
@@ -238,6 +265,8 @@ expect(delegated).to.equal(1);`,
       JSON.stringify(
         {
           passed: true,
+          requestChoices,
+          selectedRequestId: fixture.requestId,
           nativeHttpSends: fixtureHttp.echoes,
           cancelledHeldCalls: fixtureHttp.cancelled,
           states: [

@@ -62,7 +62,7 @@
     createWorkspaceWorkScope,
     cancelChangedGrpcCalls,
   } from "$lib/workspace.svelte.js";
-  import { id, workspaceFor, protocolFor } from "$lib/model.js";
+  import { id, indexWorkspaces, protocolFor } from "$lib/model.js";
   import { orderedChildren } from "$lib/resources.js";
   import { curlRequestPatch, isCurlImport } from "$lib/curl-import.js";
   import { pickImport, parseImport, exportData } from "$lib/import-export.js";
@@ -113,18 +113,19 @@
     app.data.resources.find((r) => r._id === app.data.activeWorkspaceId),
   );
   const collections = $derived(orderedChildren(app.data.resources, null));
+  const collectionIndex = $derived(indexWorkspaces(app.data.resources));
   const requests = $derived(
     app.data.resources.filter(
       (r) =>
         ["request", "grpc_request", "websocket_request"].includes(r._type) &&
-        workspaceFor(app.data.resources, r._id) === app.data.activeWorkspaceId,
+        collectionIndex.get(r._id) === app.data.activeWorkspaceId,
     ),
   );
   const environments = $derived(
     app.data.resources.filter(
       (r) =>
         r._type === "environment" &&
-        workspaceFor(app.data.resources, r._id) === app.data.activeWorkspaceId,
+        collectionIndex.get(r._id) === app.data.activeWorkspaceId,
     ),
   );
   const baseEnvironment = $derived(

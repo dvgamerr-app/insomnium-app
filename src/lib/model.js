@@ -187,6 +187,50 @@ export function workspaceFor(resources, resourceId) {
   }
   return "";
 }
+/** Index collection ancestry once for bulk selection/filtering. Read all topology
+ * fields eagerly so a Svelte derived index tracks reparenting and type changes.
+ * Missing parents and cycles retain workspaceFor's empty-string policy; duplicate
+ * IDs retain its first-resource policy. No mutable-array identity cache.
+ * @param {Resource[]} resources @returns {Map<string,string>} */
+export function indexWorkspaces(resources) {
+  const topology =
+    /** @type {Map<string,{type:string,parentId:string|null|undefined}>} */ (
+      new Map()
+    );
+  for (const resource of resources) {
+    if (!topology.has(resource._id))
+      topology.set(resource._id, {
+        type: resource._type,
+        parentId: resource.parentId,
+      });
+  }
+  const result = /** @type {Map<string,string>} */ (new Map());
+  for (const resourceId of topology.keys()) {
+    if (result.has(resourceId)) continue;
+    const path = /** @type {string[]} */ ([]);
+    const visited = new Set();
+    let current = /** @type {string|null|undefined} */ (resourceId);
+    while (
+      typeof current === "string" &&
+      topology.has(current) &&
+      !result.has(current) &&
+      !visited.has(current)
+    ) {
+      const node = topology.get(current);
+      if (node?.type === "workspace") {
+        result.set(current, current);
+        break;
+      }
+      path.push(current);
+      visited.add(current);
+      current = node?.parentId;
+    }
+    const workspaceId =
+      (typeof current === "string" && result.get(current)) || "";
+    for (const id of path) result.set(id, workspaceId);
+  }
+  return result;
+}
 /** @param {Resource[]} resources @param {string} parentId */
 export function descendants(resources, parentId) {
   const selected = new Set([parentId]);
