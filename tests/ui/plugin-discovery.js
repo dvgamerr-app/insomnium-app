@@ -11,24 +11,36 @@ import {
   pluginSourcesRestart,
 } from "./helpers/plugin-sources.js";
 import { pluginEntriesScenario } from "./helpers/plugin-entries.js";
+import { pluginRuntimeScenario } from "./helpers/plugin-runtime.js";
 
 const sourcesMode = process.env.INSOMNIUM_PLUGIN_SOURCES === "1";
+const runtimeMode = process.env.INSOMNIUM_PLUGIN_RUNTIME === "1";
 const formatsMode = process.env.INSOMNIUM_PLUGIN_FORMATS === "1";
 const entriesMode = formatsMode || process.env.INSOMNIUM_PLUGIN_ENTRIES === "1";
 assert.ok(!(sourcesMode && entriesMode), "Choose one plugin scenario mode");
+assert.ok(
+  !(runtimeMode && (sourcesMode || entriesMode)),
+  "Choose one plugin scenario mode",
+);
 /** @type {{original:any,expected:any,parentOutput:string}|undefined} */
 let sourceContinuation;
 let sourceRestored = false;
 try {
   await withNativeApp(
-    formatsMode
-      ? "plugin-formats"
-      : entriesMode
-        ? "plugin-entries"
-        : sourcesMode
-          ? "plugin-sources"
-          : "plugin-discovery",
+    runtimeMode
+      ? "plugin-runtime"
+      : formatsMode
+        ? "plugin-formats"
+        : entriesMode
+          ? "plugin-entries"
+          : sourcesMode
+            ? "plugin-sources"
+            : "plugin-discovery",
     async ({ page, invoke, output }) => {
+      if (runtimeMode) {
+        await pluginRuntimeScenario({ page, invoke, output });
+        return;
+      }
       if (entriesMode) {
         await pluginEntriesScenario({ page, invoke, output });
         return;

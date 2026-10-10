@@ -4,6 +4,7 @@
   import { open } from "@tauri-apps/plugin-dialog";
   import Button from "./ui/Button.svelte";
   import Feedback from "./ui/Feedback.svelte";
+  import { inspectPluginExports } from "$lib/plugin-client.js";
   import {
     canEditWorkspace,
     persist,
@@ -26,6 +27,20 @@
   let busy = $state(false),
     error = $state("");
   let mounted = false;
+  /** @type {Record<string,any>} */
+  let exportReports = $state({});
+  /** @type {AbortController|undefined} */
+  let exportController;
+  const contributionLabels = /** @type {Record<string,string>} */ ({
+    templateTags: "Template tags",
+    requestHooks: "Request hooks",
+    responseHooks: "Response hooks",
+    themes: "Themes",
+    requestGroupActions: "Request group actions",
+    requestActions: "Request actions",
+    workspaceActions: "Workspace actions",
+    documentActions: "Document actions",
+  });
   // Each component owns its result; a closed Preferences page cannot accept a
   // late native inspection or launch another inspection from a picker reply.
   onMount(() => {
@@ -33,6 +48,7 @@
     void reload();
     return () => {
       mounted = false;
+      exportController?.abort();
     };
   });
 
@@ -42,6 +58,7 @@
     error = "";
     report = null;
     sources = [];
+    exportReports = {};
     try {
       if (directory) {
         const result = await invoke("discover_plugins", { directory });
@@ -145,10 +162,67 @@
 
   /** @param {Record<string,any>} plugin */
   function label(plugin) {
+    if (exportReports[plugin.directory]?.error) return "Export check failed";
+    if (exportReports[plugin.directory]?.result) return "Exports checked";
     if (plugin.status === "duplicate") return "Duplicate name";
     if (plugin.status === "invalid") return "Invalid package";
     if (plugin.status === "unsupported-entry") return "Unsupported entry";
     return "Execution pending";
+  }
+
+  /** @param {Record<string,any>} plugin */
+  async function checkExports(plugin) {
+    if (
+      !mounted ||
+      busy ||
+      plugin.status !== "execution-pending" ||
+      settings.pluginConfig?.[plugin.name]?.disabled === true
+    )
+      return;
+    busy = true;
+    const owner = workspace.data.settings;
+    const controller = new AbortController();
+    exportController = controller;
+    try {
+      const snapshot =
+        /** @type {{name:string,entry:string,format:string,files:Record<string,string>}} */ (
+          await invoke("read_plugin_package", { directory: plugin.directory })
+        );
+      if (
+        !mounted ||
+        controller.signal.aborted ||
+        workspace.data.settings !== owner
+      )
+        return;
+      if (snapshot.name !== plugin.name)
+        throw Error(
+          "Plugin package changed. Reload plugins before checking it.",
+        );
+      const result = await inspectPluginExports(snapshot, {
+        signal: controller.signal,
+      });
+      if (
+        mounted &&
+        workspace.data.settings === owner &&
+        !controller.signal.aborted
+      )
+        exportReports = { ...exportReports, [plugin.directory]: { result } };
+    } catch (failure) {
+      if (
+        mounted &&
+        workspace.data.settings === owner &&
+        !controller.signal.aborted
+      )
+        exportReports = {
+          ...exportReports,
+          [plugin.directory]: {
+            error: failure instanceof Error ? failure.message : String(failure),
+          },
+        };
+    } finally {
+      if (exportController === controller) exportController = undefined;
+      if (mounted) busy = false;
+    }
   }
 </script>
 
@@ -158,8 +232,8 @@
     Inspect installed plugin packages and their loading status.
   </p>
   <Feedback as="p" tone="hint"
-    >Detected packages are not active yet. Plugin execution is currently
-    unavailable.</Feedback
+    >Plugin contributions are not active yet. Check exports to inspect a package
+    in isolation.</Feedback
   >
   {#if !isTauri()}
     <p class="hint" role="status">
@@ -276,7 +350,28 @@
             {#if plugin.description}<p class="hint">
                 {plugin.description}
               </p>{/if}
-            <p>{plugin.message}</p>
+            {#if exportReports[plugin.directory]?.result}
+              <p class="hint" role="status">
+                Exports inspected in isolation. Contributions are not active.
+              </p>
+              <ul
+                class="plugin-contributions"
+                aria-label="Inspected plugin contributions"
+              >
+                {#each exportReports[plugin.directory].result.contributions as contribution}
+                  <li>
+                    {contributionLabels[contribution.kind] ??
+                      contribution.kind}: {contribution.count}
+                  </li>
+                {/each}
+              </ul>
+            {:else if exportReports[plugin.directory]?.error}
+              <Feedback as="p" tone="error" role="alert"
+                >{exportReports[plugin.directory].error}</Feedback
+              >
+            {:else}
+              <p>{plugin.message}</p>
+            {/if}
             <code>{plugin.directory}</code>
             {#if plugin.dependencies.length}
               <p class="hint">
@@ -286,6 +381,14 @@
                   ? ` (+${plugin.dependencies.length - 8} more)`
                   : ""}
               </p>
+            {/if}
+            {#if plugin.status === "execution-pending"}
+              <Button
+                disabled={busy ||
+                  settings.pluginConfig?.[plugin.name]?.disabled === true}
+                aria-label={`Check exports for ${plugin.name}`}
+                onclick={() => void checkExports(plugin)}>Check exports</Button
+              >
             {/if}
           </li>
         {/each}
@@ -333,6 +436,17 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-12);
+  }
+  .plugin-contributions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-4) var(--space-12);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .plugin-card :global(.ui-button) {
+    align-self: flex-start;
   }
   .plugin-card {
     display: flex;

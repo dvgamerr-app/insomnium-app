@@ -24,6 +24,7 @@ fn main() {
             "save_workspace",
             "discover_plugins",
             "discover_plugin_sources",
+            "read_plugin_package",
             "git_remote_advertise",
             "git_clone_stage",
             "git_clone_inspect",

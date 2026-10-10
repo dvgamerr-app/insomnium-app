@@ -50,7 +50,7 @@ fn issue(report: &mut PluginDiscovery, path: &Path, message: impl ToString) {
     });
 }
 
-fn read_manifest(directory: &Path) -> Result<Value, String> {
+pub(crate) fn read_manifest(directory: &Path) -> Result<Value, String> {
     let path = directory.join("package.json");
     let canonical = fs::canonicalize(&path).map_err(|e| e.to_string())?;
     if !canonical.starts_with(directory) {
@@ -75,7 +75,7 @@ fn read_manifest(directory: &Path) -> Result<Value, String> {
     Ok(manifest)
 }
 
-fn valid_name(name: &str) -> bool {
+pub(crate) fn valid_name(name: &str) -> bool {
     fn part(value: &str) -> bool {
         !value.is_empty()
             && value != "."
@@ -95,7 +95,7 @@ fn valid_name(name: &str) -> bool {
     }
 }
 
-fn resolve_entry(directory: &Path, manifest: &Value) -> Result<PathBuf, String> {
+pub(crate) fn resolve_entry(directory: &Path, manifest: &Value) -> Result<PathBuf, String> {
     let main = match manifest.get("main") {
         None | Some(Value::Null) => {
             return entry_index(directory, directory)?
@@ -179,7 +179,7 @@ fn entry_index(base: &Path, root: &Path) -> Result<Option<PathBuf>, String> {
     Ok(None)
 }
 
-fn entry_format(root: &Path, entry: &Path, manifest: &Value) -> Result<String, String> {
+pub(crate) fn entry_format(root: &Path, entry: &Path, manifest: &Value) -> Result<String, String> {
     match entry.extension().and_then(|value| value.to_str()) {
         Some("mjs") => return Ok("module".into()),
         Some("cjs") => return Ok("commonjs".into()),
