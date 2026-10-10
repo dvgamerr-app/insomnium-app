@@ -1,5 +1,12 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## DEFAULT_HEADERS — committed handoff — 2026-10-10
+
+- Feature commit `b6567800971babdf2a4e7dd4733986eb5ea14ccf` restores the legacy built-in hook and commits its saved scenario/evidence. Plugin inventory is separate commit `81bcf792b64d54b3f9e470b4abe0a6a926981823`; headless verification checkpoint is `629d0e1`. This goal turn made progress by checking current source/build-bound audits and completing the feature commit.
+- Revalidated defaults acceptance3groups/4wire/5workers and HTTP regression19groups/20wire/43workers plus held dependency against704 current source hashes and production executable `f7c8655031ecc4030071678cd50f99e33e4697a77f3e72b5ee46a5e5889f834f`. Both saved native results are native-hidden/visible:false/exit0. Retained differential16/compiler0errors0warnings and current headless workspace12 provide the documented additional evidence. Commands/artifacts/limitations: [DEFAULT-HEADERS.md](DEFAULT-HEADERS.md).
+- Rechecked exact owned PID69248/57656/70288 and each WebView profile against current Win32 process inventory: none remain. No live feature process or session handles. Next work includes custom package admission/compatibility reporting, isolated custom tag/store lifecycle, ordered hooks/actions and six context namespaces per [PLUGIN-COMPATIBILITY.md](PLUGIN-COMPATIBILITY.md). All original protocol/provider/platform/accessibility/CI artifact/shared component adoption/full migration/UX/CSS gates remain required.
+- This interface cannot invoke `/compact`; no compaction occurred. Current commit/evidence/remaining gates/live-handle handoff is recorded here before another feature. Documentation checkpoint SHA is available with `git log -1`.
+
 ## Playwright headless request — verified handoff — 2026-10-10
 
 - Browser scenarios already use the sole launchUiBrowser helper with fixed headless: true and no headed override (implementation commit 1e9ecab7). Native helper hides its owned host window before CDP attachment and reports native-hidden; static inspection confirms this path, without a fresh native run.
