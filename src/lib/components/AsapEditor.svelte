@@ -3,8 +3,8 @@
   import Textarea from "./ui/Textarea.svelte";
   import Input from "./ui/Input.svelte";
   import Select from "./ui/Select.svelte";
-  /** @type {{ authentication: Record<string, any>, onchange: (patch: Record<string, any>) => void }} */
-  let { authentication: auth, onchange } = $props();
+  /** @type {{ authentication: Record<string, any>, onchange: (patch: Record<string, any>) => void, templateEditor?:()=>ReturnType<import('../template-editor-session.svelte.js').createTemplateEditorSession> }} */
+  let { authentication: auth, onchange, templateEditor } = $props();
   const algorithms = [
     "RS256",
     "RS384",
@@ -26,6 +26,7 @@
 {#each fields as [key, label]}
   <Field
     >{label}<Input
+      {templateEditor}
       value={auth[key] || ""}
       oninput={(event) => onchange({ [key]: event.currentTarget.value })}
       autocomplete="off"
@@ -35,6 +36,7 @@
 {/each}
 <Field
   >Audience (aud; string or JSON array)<Input
+    {templateEditor}
     value={Array.isArray(auth.audience)
       ? JSON.stringify(auth.audience)
       : auth.audience || ""}
@@ -45,6 +47,7 @@
 >
 <Field
   >Additional claims (JSON)<Textarea
+    {templateEditor}
     value={typeof auth.additionalClaims === "string"
       ? auth.additionalClaims
       : JSON.stringify(auth.additionalClaims || {}, null, 2)}
@@ -56,6 +59,7 @@
 >
 <Field
   >Private key (PEM, base64 DER/PEM or PKCS8 data URI)<Textarea
+    {templateEditor}
     value={auth.privateKey || ""}
     oninput={(event) => onchange({ privateKey: event.currentTarget.value })}
     rows={7}
@@ -98,6 +102,7 @@
   >
   <Field
     >Expiry (seconds; default 3600)<Input
+      {templateEditor}
       value={auth.expirySeconds || ""}
       oninput={(event) =>
         onchange({ expirySeconds: event.currentTarget.value })}

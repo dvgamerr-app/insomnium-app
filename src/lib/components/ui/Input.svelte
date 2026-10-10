@@ -1,6 +1,10 @@
 <script>
   import { fieldContext, fieldDescriptions } from "./field-context.js";
-  /** @type {Omit<import('svelte/elements').HTMLInputAttributes, 'value'> & {value?:string|number, variant?:'default'|'inline'|'url'|'search', invalid?:boolean, element?:HTMLInputElement}} */
+  import {
+    templateField,
+    templateFieldKeydown,
+  } from "../../template-field-dialog.svelte.js";
+  /** @type {Omit<import('svelte/elements').HTMLInputAttributes, 'value'> & {value?:string|number, variant?:'default'|'inline'|'url'|'search', invalid?:boolean, element?:HTMLInputElement, templateEditor?:()=>ReturnType<import('../../template-editor-session.svelte.js').createTemplateEditorSession>}} */
   let {
     value = $bindable(),
     element = $bindable(),
@@ -9,6 +13,7 @@
     variant = "default",
     class: className = "",
     oninput,
+    templateEditor,
     ...rest
   } = $props();
   const field = fieldContext();
@@ -16,6 +21,12 @@
 
 <input
   bind:this={element}
+  use:templateField={{
+    value,
+    factory: templateEditor,
+    disabled: rest.disabled ?? field?.disabled,
+    readOnly: rest.readonly ?? field?.readOnly,
+  }}
   {...rest}
   data-ui-variant={variant}
   id={rest.id ?? field?.id}
@@ -30,6 +41,14 @@
   readonly={rest.readonly ?? field?.readOnly}
   aria-invalid={invalid || field?.invalid || rest["aria-invalid"] || undefined}
   class={`ui-input ${className}`}
+  title={rest.title ??
+    (templateEditor
+      ? "Insert or edit template tag (Ctrl+Alt+Space)"
+      : undefined)}
+  onkeydown={(event) => {
+    rest.onkeydown?.(event);
+    templateFieldKeydown(event, templateEditor, value);
+  }}
   oninput={(event) => {
     value =
       type === "number" || type === "range"

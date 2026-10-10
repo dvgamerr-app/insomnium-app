@@ -13,6 +13,7 @@
   import SplitPane from "./ui/SplitPane.svelte";
   import { untrack, onDestroy } from "svelte";
   import CodeEditor from "./CodeEditor.svelte";
+  import { createTemplateEditorSession } from "../template-editor-session.svelte.js";
   import {
     graphqlVariableTypes,
     graphqlReferenceType,
@@ -309,6 +310,7 @@
       class="code-editor body-text"
       aria-label="Invalid GraphQL body JSON"
       value={request.body?.text || ""}
+      templateEditor={() => createTemplateEditorSession(request._id)}
       oninput={(event) =>
         onchange({ ...request.body, text: event.currentTarget.value })}
     ></Textarea>
@@ -318,6 +320,7 @@
         aria-label="GraphQL operation name"
         list={`graphql-operations-${request._id}`}
         value={content.body.operationName || ""}
+        templateEditor={() => createTemplateEditorSession(request._id)}
         placeholder="Automatic for a single operation"
         oninput={(event) =>
           change({ operationName: event.currentTarget.value })}
@@ -339,6 +342,7 @@
       {#snippet first()}
         <div class="graphql-editor-column">
           QUERY<CodeEditor
+            templateEditor={() => createTemplateEditorSession(request._id)}
             identity={request._id + ":graphql-query"}
             mode="graphql"
             onnavigate={navigate}
@@ -358,6 +362,7 @@
       {/snippet}{#snippet second()}
         <div class="graphql-editor-column">
           VARIABLES<CodeEditor
+            templateEditor={() => createTemplateEditorSession(request._id)}
             identity={request._id + ":graphql-variables"}
             mode="graphql-variables"
             variableToType={variableTypes}

@@ -13,7 +13,7 @@ import { capturePluginTemplateTags } from "./plugin-template-tags.js";
 /** Snapshot one request's render inputs and own all child workers/interactions.
  * Caller must dispose the session after rendering its fields.
  * @param {Record<string, any>} context
- * @param {{purpose:'preview'|'send', requestId:string, workspaceId?:string,
+ * @param {{purpose:'preview'|'send', requestId:string, sourceResourceId?:string, workspaceId?:string,
  * resources:Record<string,any>[], history?:Record<string,any>[], environmentId?:string|null,
  * signal:AbortSignal, ask?:typeof askTemplatePrompt,
  * responseResolver?:(args:any[],signal:AbortSignal)=>any|Promise<any>,
@@ -28,6 +28,7 @@ export function createRequestRenderSession(context, options) {
     context,
     environmentLayers: options.environmentLayers,
     requestId: options.requestId,
+    sourceResourceId: options.sourceResourceId,
     workspaceId: options.workspaceId,
     resources: options.resources,
     history: options.history || [],

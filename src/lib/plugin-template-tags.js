@@ -6,7 +6,7 @@ import {
   isTemplateTagName,
 } from "./template-registration.js";
 export { builtinTemplateNames } from "./template-registration.js";
-/** @typedef {{definition:Record<string,any>,plugin:string,index:number,isCurrent:()=>boolean,invoke:(args:any[],operation:{isCurrent:()=>boolean,signal:AbortSignal,context:Record<string,any>})=>Promise<any>}} CapturedTag */
+/** @typedef {{definition:Record<string,any>,plugin:string,index:number,isCurrent:()=>boolean,invoke:(args:any[],operation:{isCurrent:()=>boolean,signal:AbortSignal,context:Record<string,any>})=>Promise<any>,queryMetadata?:(args:any[],operation:{isCurrent:()=>boolean,signal:AbortSignal})=>Promise<any>,runAction?:(index:number,operation:{isCurrent:()=>boolean,signal:AbortSignal})=>Promise<any>}} CapturedTag */
 /** @type {(snapshot:Record<string,any>)=>{tags:CapturedTag[],isCurrent:()=>boolean}} */
 let provider = () => ({ tags: [], isCurrent: () => true });
 /** Match the exact request, collection and inherited environment inputs consumed
@@ -62,6 +62,40 @@ export function capturePluginTemplateTags(snapshot) {
       plugin: tag.plugin,
       priority: tag.priority,
     })),
+    /** Query the same collision winner used for rendering. No helper capabilities
+     * are supplied, and both catalog/resource and dialog-operation owners apply.
+     * @param {string} name @param {any[]} args
+     * @param {{signal:AbortSignal,isCurrent:()=>boolean}} operation */
+    async queryMetadata(name, args, operation) {
+      const tag = tags.find((item) => item.definition.name === name);
+      const live = () =>
+        !operation.signal.aborted && current() && operation.isCurrent();
+      if (!tag || !live())
+        throw new DOMException("Plugin editor owner changed", "AbortError");
+      if (!tag.queryMetadata)
+        throw Error("Plugin metadata query is unavailable");
+      const result = await tag.queryMetadata(args, {
+        signal: operation.signal,
+        isCurrent: live,
+      });
+      if (!live())
+        throw new DOMException("Plugin editor owner changed", "AbortError");
+      return { ...result, plugin: tag.plugin, priority: tag.priority };
+    },
+    /** The legacy action contract supplies only the namespaced store facade.
+     * @param {string} name @param {number} index
+     * @param {{signal:AbortSignal,isCurrent:()=>boolean}} operation */
+    async runAction(name, index, operation) {
+      const tag = tags.find((item) => item.definition.name === name);
+      const live = () =>
+        !operation.signal.aborted && current() && operation.isCurrent();
+      if (!tag || !live())
+        throw new DOMException("Plugin editor owner changed", "AbortError");
+      if (!tag.runAction) throw Error("Template tag action is unavailable");
+      await tag.runAction(index, { signal: operation.signal, isCurrent: live });
+      if (!live())
+        throw new DOMException("Plugin editor owner changed", "AbortError");
+    },
     /** @param {Record<string,any>} context @param {AbortSignal} signal @param {'preview'|'send'} purpose @param {()=>boolean} isCurrent */
     handlers(context, signal, purpose, isCurrent) {
       return Object.fromEntries(

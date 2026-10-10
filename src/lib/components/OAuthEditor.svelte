@@ -4,6 +4,7 @@
   import Checkbox from "./ui/Checkbox.svelte";
   import Select from "./ui/Select.svelte";
   import Input from "./ui/Input.svelte";
+  import { createTemplateEditorSession } from "../template-editor-session.svelte.js";
   import Button from "./ui/Button.svelte";
   import { onMount } from "svelte";
   import { requestDataScope } from "../request-scope.js";
@@ -138,6 +139,7 @@
   >
   <Field
     >Authorization URL<Input
+      templateEditor={() => createTemplateEditorSession(request._id)}
       value={auth.authorizationUrl || ""}
       oninput={(event) => change("authorizationUrl", event.currentTarget.value)}
       autocomplete="off"
@@ -146,6 +148,7 @@
   >
   <Field
     >Redirect URL<Input
+      templateEditor={() => createTemplateEditorSession(request._id)}
       value={auth.redirectUrl || ""}
       oninput={(event) => change("redirectUrl", event.currentTarget.value)}
       placeholder={auth.browserMode === "embedded"
@@ -251,6 +254,7 @@
     <summary>Authorization response options</summary>
     <Field
       >State<Input
+        templateEditor={() => createTemplateEditorSession(request._id)}
         value={auth.state || ""}
         placeholder="Generate randomly for each login"
         oninput={(event) => change("state", event.currentTarget.value)}
@@ -259,6 +263,7 @@
     >
     <Field
       >Expected issuer (optional)<Input
+        templateEditor={() => createTemplateEditorSession(request._id)}
         value={auth.issuer || ""}
         oninput={(event) => change("issuer", event.currentTarget.value)}
       /></Field
@@ -282,6 +287,7 @@
 {#each fields as [key, label, secret]}
   <Field
     >{label}<Input
+      templateEditor={() => createTemplateEditorSession(request._id)}
       type={secret ? "password" : "text"}
       value={auth[String(key)] || ""}
       oninput={(event) => change(String(key), event.currentTarget.value)}
@@ -293,6 +299,7 @@
 {#if auth.grantType === "password"}
   <Field
     >Username<Input
+      templateEditor={() => createTemplateEditorSession(request._id)}
       value={auth.username || ""}
       oninput={(event) => change("username", event.currentTarget.value)}
       autocomplete="off"
@@ -300,6 +307,7 @@
   >
   <Field
     >Password<Input
+      templateEditor={() => createTemplateEditorSession(request._id)}
       type="password"
       value={auth.password || ""}
       oninput={(event) => change("password", event.currentTarget.value)}
@@ -344,24 +352,28 @@
   {/if}
   <Field
     >Audience<Input
+      templateEditor={() => createTemplateEditorSession(request._id)}
       value={auth.audience || ""}
       oninput={(event) => change("audience", event.currentTarget.value)}
     /></Field
   >
   <Field
     >Resource<Input
+      templateEditor={() => createTemplateEditorSession(request._id)}
       value={auth.resource || ""}
       oninput={(event) => change("resource", event.currentTarget.value)}
     /></Field
   >
   <Field
     >Origin header<Input
+      templateEditor={() => createTemplateEditorSession(request._id)}
       value={auth.origin || ""}
       oninput={(event) => change("origin", event.currentTarget.value)}
     /></Field
   >
   <Field
     >Token prefix (NO_PREFIX sends only the token)<Input
+      templateEditor={() => createTemplateEditorSession(request._id)}
       value={auth.tokenPrefix ?? auth.headerPrefix ?? ""}
       placeholder="Bearer"
       oninput={(event) => change("tokenPrefix", event.currentTarget.value)}
@@ -369,6 +381,7 @@
   >
   <Field
     >Initial refresh token<Input
+      templateEditor={() => createTemplateEditorSession(request._id)}
       type="password"
       value={auth.refreshToken || ""}
       oninput={(event) => change("refreshToken", event.currentTarget.value)}
@@ -377,6 +390,7 @@
   >
   <Field
     >Manual access token override<Input
+      templateEditor={() => createTemplateEditorSession(request._id)}
       type="password"
       value={auth.accessToken || ""}
       oninput={(event) => change("accessToken", event.currentTarget.value)}

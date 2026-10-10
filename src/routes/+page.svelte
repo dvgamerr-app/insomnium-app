@@ -21,6 +21,8 @@
   import RunnerSidebar from "$lib/components/RunnerSidebar.svelte";
   import RunnerPane from "$lib/components/RunnerPane.svelte";
   import TemplatePromptDialog from "$lib/components/TemplatePromptDialog.svelte";
+  import TemplateFieldDialogHost from "$lib/components/TemplateFieldDialogHost.svelte";
+  import { createTemplateEditorSession, createEnvironmentTemplateEditorSession } from "$lib/template-editor-session.svelte.js";
   import {
     templatePrompt,
     cancelAllTemplatePrompts,
@@ -358,6 +360,7 @@
 </script>
 
 <TemplatePromptDialog />
+<TemplateFieldDialogHost />
 <svelte:window onkeydown={keyboard} />
 <svelte:head
   ><title>{collection?.name || "Insomnium"} · Insomnium</title></svelte:head
@@ -691,6 +694,7 @@
                   >{/if}<Input
                   variant="url"
                   class="url-input"
+                  templateEditor={() => createTemplateEditorSession(request._id)}
                   aria-label="Request URL"
                   placeholder={protocol === "websocket"
                     ? "wss://api.example.com/socket"
@@ -994,6 +998,7 @@
           identity={environmentId + ":environment"}
           mode="application/json"
           label="Environment JSON"
+          templateEditor={() => createEnvironmentTemplateEditorSession(environmentId)}
           value={environmentText}
           settings={app.data.settings}
           onchange={(text) => (environmentText = text)}

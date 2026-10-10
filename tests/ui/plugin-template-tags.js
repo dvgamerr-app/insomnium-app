@@ -18,6 +18,13 @@ import {
   restorePluginWorkerProbe,
 } from "./helpers/plugin-worker-probe.js";
 import { withIpcSuccessHook } from "./helpers/ipc-success-hook.js";
+import {
+  editorTagSource,
+  editorTemplate,
+  exerciseTemplateTagEditorNative,
+} from "./helpers/template-tag-editor-native.js";
+
+const editorMode = process.env.INSOMNIUM_TEMPLATE_TAG_EDITOR === "1";
 
 const readyText =
   "Plugin loaded in isolation. Custom template tags are available to request rendering. Hooks and actions are not connected yet.";
@@ -70,7 +77,7 @@ const server = Bun.serve({
 });
 try {
   await withNativeApp(
-    "plugin-template-tags",
+    editorMode ? "plugin-template-editor" : "plugin-template-tags",
     async ({ page, invoke, output }) => {
       const original = await invoke("load_workspace"),
         collection = "wrk_plugin_render_" + Date.now(),
@@ -91,14 +98,15 @@ try {
       {name:'value',run(c,kind){switch(kind){case 'false':return false;case 'zero':return 0;case 'null':return null;case 'undefined':return undefined;case 'bigint':return 12345678901234567890n;case 'nan':return NaN;case 'infinity':return Infinity;case 'array':return ['a',null,'b'];case 'object':return {a:1};case 'regex':return /owned/gi;case 'map':return new Map([['a',1]]);case 'set':return new Set([1]);case 'bytes':return new Uint8Array([1,2,255]);}}},
       ...${JSON.stringify(builtinTemplateNames)}.map(name=>({name,run(){throw Error('built-in collision callback must not run');}}))
     ];`;
-      const sourceB = `exports.templateTags=[
+      const sourceB =
+        `exports.templateTags=[
       {name:'dup',priority:-999,run(){return 'B';}},
       ...${JSON.stringify(publicNames)}.map(name=>({name,run(){return name;}})),
       {name:'not callable',run(){throw Error('unparseable declaration must not break other tags');}},
       {name:'persist',async run(c){await c.store.setItem('value','stored');return await c.store.getItem('value');}},
       {name:'hold',async run(c){await c.store.getItem('gate');await c.store.setItem('forbidden','leaked');return 'held';}},
       {name:'throwing',run(){throw Error('owned plugin failure');}}
-    ];`;
+    ];` + (editorMode ? editorTagSource : "");
       for (const [index, source] of [sourceA, sourceB].entries()) {
         const directory = join(root, index === 0 ? "a" : "b");
         await mkdir(directory, { recursive: true });
@@ -131,7 +139,11 @@ try {
           _type: "environment",
           parentId: collection,
           name: "Base Environment",
-          data: { scope: "base", derived: "{% dup %}" },
+          data: {
+            scope: "base",
+            derived: "{% dup %}",
+            ...(editorMode ? { tag: editorTemplate } : {}),
+          },
         },
         newRequest(collection, {
           _id: requestId,
@@ -241,163 +253,183 @@ try {
         await load(names[1]);
         await load(names[0]);
         await closePreferences();
-        await body(
-          ["dup", "internal", ...publicNames]
-            .map((name) => "{% " + name + " %}")
-            .join("|"),
-        );
-        await send(["B", "internal-last", ...publicNames].join("|"));
-        checks.push(
-          "discovery order wins over reversed Load and priority; internal duplicate and Unicode/symbol names",
-        );
-        await body('{% context false, 0, "", _.scope %}');
-        await send(
-          JSON.stringify({
-            args: [false, 0, "", "base"],
-            scope: "base",
-            alias: "base",
-            derived: "B",
-            meta: { requestId, workspaceId: collection },
-            purpose: "send",
-          }),
-        );
-        checks.push(
-          "actual inherited environment and legacy helper context/meta/purpose",
-        );
-        await body("{% args -0, 0/0, 1/0, missing %}");
-        await send(
-          '{"negativeZero":true,"nan":true,"infinity":true,"undefined":true}',
-        );
-        checks.push(
-          "bounded argument codec preserves signed zero, nonfinite and undefined through both real workers",
-        );
-        await body(
-          [
-            "false",
-            "zero",
-            "null",
-            "undefined",
-            "bigint",
-            "nan",
-            "infinity",
-            "array",
-            "object",
-            "regex",
-            "map",
-            "set",
-            "bytes",
-          ]
-            .map((kind) => `{% value "${kind}" %}`)
-            .join("|"),
-        );
-        await send(
-          "false|0|||12345678901234567890|NaN|Infinity|a,,b|[object Object]|/owned/gi|[object Map]|[object Set]|1,2,255",
-        );
-        checks.push(
-          "Nunjucks output coercion preserves non-JSON callback values",
-        );
-        await body(
-          '{% base64 "encode", "normal", "hello" %}|{% request "name" %}|{% persist %}',
-        );
-        await send("aGVsbG8=|Plugin render request|stored");
-        checks.push(
-          "built-in local/native collisions protected and real durable store bridge",
-        );
-        await preferences();
-        await card(names[1])
-          .getByRole("button", { name: "Unload plugin", exact: true })
-          .click();
-        await closePreferences();
-        await body("{% dup %}");
-        await send("A-last");
-        checks.push(
-          "Unload removes winner and uses remaining loaded definition",
-        );
-        await preferences();
-        await card(names[0])
-          .getByRole("button", { name: "Disable plugin", exact: true })
-          .click();
-        await closePreferences();
-        await send(null);
-        checks.push("Disabled/unloaded definitions cannot dispatch or send");
-        await preferences();
-        await card(names[0])
-          .getByRole("button", { name: "Enable plugin", exact: true })
-          .click();
-        await load(names[0]);
-        await load(names[1]);
-        await closePreferences();
-        for (const mode of ["cancel", "request-edit", "unload", "disable"]) {
-          await body("{% hold %}");
-          const before = wire.length;
-          const boundary = await withIpcSuccessHook(
+        if (editorMode) {
+          const editor = await exerciseTemplateTagEditorNative({
             page,
-            "plugin_store",
-            async () => {
-              if (mode === "cancel")
-                await page
-                  .getByRole("button", { name: "Cancel", exact: true })
-                  .click();
-              else if (mode === "request-edit")
-                await page
-                  .getByLabel("Request URL", { exact: true })
-                  .fill(`http://127.0.0.1:${server.port}/edited`);
-              else {
-                await preferences();
-                await card(names[1])
-                  .getByRole("button", {
-                    name:
-                      mode === "unload" ? "Unload plugin" : "Disable plugin",
-                    exact: true,
-                  })
-                  .click();
-                await closePreferences();
-              }
-            },
-            async () => {
-              await send(null);
-            },
-          );
-          assert.equal(boundary.calls, 1);
-          assert.equal(boundary.hooks, 1);
-          assert.equal(wire.length, before);
-          const forbidden = await invoke("plugin_store", {
+            invoke,
+            output,
+            requestId,
+            collection,
             plugin: names[1],
-            operation: { action: "hasItem", key: "forbidden" },
+            body,
+            send,
+            reload: async () => {
+              await preferences();
+              await load(names[1]);
+              await closePreferences();
+            },
           });
-          assert.equal(forbidden, false);
-          observations.at(-1).boundary = {
-            mode,
-            calls: boundary.calls,
-            hooks: boundary.hooks,
-            forbidden,
-          };
+          checks.push(...editor.checks);
+          observations.push(...editor.observations);
+        } else {
+          await body(
+            ["dup", "internal", ...publicNames]
+              .map((name) => "{% " + name + " %}")
+              .join("|"),
+          );
+          await send(["B", "internal-last", ...publicNames].join("|"));
           checks.push(
-            "held native reply " +
-              mode +
-              " prevents result/network and subsequent write",
+            "discovery order wins over reversed Load and priority; internal duplicate and Unicode/symbol names",
+          );
+          await body('{% context false, 0, "", _.scope %}');
+          await send(
+            JSON.stringify({
+              args: [false, 0, "", "base"],
+              scope: "base",
+              alias: "base",
+              derived: "B",
+              meta: { requestId, workspaceId: collection },
+              purpose: "send",
+            }),
+          );
+          checks.push(
+            "actual inherited environment and legacy helper context/meta/purpose",
+          );
+          await body("{% args -0, 0/0, 1/0, missing %}");
+          await send(
+            '{"negativeZero":true,"nan":true,"infinity":true,"undefined":true}',
+          );
+          checks.push(
+            "bounded argument codec preserves signed zero, nonfinite and undefined through both real workers",
+          );
+          await body(
+            [
+              "false",
+              "zero",
+              "null",
+              "undefined",
+              "bigint",
+              "nan",
+              "infinity",
+              "array",
+              "object",
+              "regex",
+              "map",
+              "set",
+              "bytes",
+            ]
+              .map((kind) => `{% value "${kind}" %}`)
+              .join("|"),
+          );
+          await send(
+            "false|0|||12345678901234567890|NaN|Infinity|a,,b|[object Object]|/owned/gi|[object Map]|[object Set]|1,2,255",
+          );
+          checks.push(
+            "Nunjucks output coercion preserves non-JSON callback values",
+          );
+          await body(
+            '{% base64 "encode", "normal", "hello" %}|{% request "name" %}|{% persist %}',
+          );
+          await send("aGVsbG8=|Plugin render request|stored");
+          checks.push(
+            "built-in local/native collisions protected and real durable store bridge",
           );
           await preferences();
-          if (mode === "disable")
-            await card(names[1])
-              .getByRole("button", { name: "Enable plugin", exact: true })
-              .click();
+          await card(names[1])
+            .getByRole("button", { name: "Unload plugin", exact: true })
+            .click();
+          await closePreferences();
+          await body("{% dup %}");
+          await send("A-last");
+          checks.push(
+            "Unload removes winner and uses remaining loaded definition",
+          );
+          await preferences();
+          await card(names[0])
+            .getByRole("button", { name: "Disable plugin", exact: true })
+            .click();
+          await closePreferences();
+          await send(null);
+          checks.push("Disabled/unloaded definitions cannot dispatch or send");
+          await preferences();
+          await card(names[0])
+            .getByRole("button", { name: "Enable plugin", exact: true })
+            .click();
+          await load(names[0]);
           await load(names[1]);
           await closePreferences();
+          for (const mode of ["cancel", "request-edit", "unload", "disable"]) {
+            await body("{% hold %}");
+            const before = wire.length;
+            const boundary = await withIpcSuccessHook(
+              page,
+              "plugin_store",
+              async () => {
+                if (mode === "cancel")
+                  await page
+                    .getByRole("button", { name: "Cancel", exact: true })
+                    .click();
+                else if (mode === "request-edit")
+                  await page
+                    .getByLabel("Request URL", { exact: true })
+                    .fill(`http://127.0.0.1:${server.port}/edited`);
+                else {
+                  await preferences();
+                  await card(names[1])
+                    .getByRole("button", {
+                      name:
+                        mode === "unload" ? "Unload plugin" : "Disable plugin",
+                      exact: true,
+                    })
+                    .click();
+                  await closePreferences();
+                }
+              },
+              async () => {
+                await send(null);
+              },
+            );
+            assert.equal(boundary.calls, 1);
+            assert.equal(boundary.hooks, 1);
+            assert.equal(wire.length, before);
+            const forbidden = await invoke("plugin_store", {
+              plugin: names[1],
+              operation: { action: "hasItem", key: "forbidden" },
+            });
+            assert.equal(forbidden, false);
+            observations.at(-1).boundary = {
+              mode,
+              calls: boundary.calls,
+              hooks: boundary.hooks,
+              forbidden,
+            };
+            checks.push(
+              "held native reply " +
+                mode +
+                " prevents result/network and subsequent write",
+            );
+            await preferences();
+            if (mode === "disable")
+              await card(names[1])
+                .getByRole("button", { name: "Enable plugin", exact: true })
+                .click();
+            await load(names[1]);
+            await closePreferences();
+          }
+          await body("{% throwing %}");
+          await send(null);
+          await preferences();
+          await card(names[1])
+            .getByText("owned plugin failure", { exact: true })
+            .waitFor();
+          await load(names[1]);
+          await closePreferences();
+          await body("{% dup %}");
+          await send("B");
+          checks.push(
+            "Guest callback error marks closed registry session and explicit Reload recovers",
+          );
         }
-        await body("{% throwing %}");
-        await send(null);
-        await preferences();
-        await card(names[1])
-          .getByText("owned plugin failure", { exact: true })
-          .waitFor();
-        await load(names[1]);
-        await closePreferences();
-        await body("{% dup %}");
-        await send("B");
-        checks.push(
-          "Guest callback error marks closed registry session and explicit Reload recovers",
-        );
         await preferences();
         for (const name of names)
           await card(name)

@@ -11,8 +11,14 @@
   import { createWorkspaceWorkScope } from "../workspace.svelte.js";
   import { readUpload } from "../uploads.js";
   import { isUtf8PlainTextMediaType } from "../media-type.js";
-  /** @type {{ rows: Record<string, any>[], onchange: (rows: Record<string, any>[]) => void, label?: string, files?: boolean }} */
-  let { rows = [], onchange, label = "Header", files = false } = $props();
+  /** @type {{ rows: Record<string, any>[], onchange: (rows: Record<string, any>[]) => void, label?: string, files?: boolean, templateEditor?:()=>ReturnType<import('../template-editor-session.svelte.js').createTemplateEditorSession> }} */
+  let {
+    rows = [],
+    onchange,
+    label = "Header",
+    files = false,
+    templateEditor,
+  } = $props();
   const editorId = $props.id();
   let error = $state("");
   let alive = true;
@@ -80,6 +86,7 @@
         variant="inline"
         aria-label={`${label} ${index + 1}`}
         placeholder={label}
+        {templateEditor}
         value={row.name}
         oninput={(event) => change(index, { name: event.currentTarget.value })}
       />
@@ -94,6 +101,7 @@
           {:else}<Input
               variant="inline"
               aria-label={`Value ${index + 1}`}
+              {templateEditor}
               aria-describedby={[
                 row._openapiSerialization?.nullable ||
                 row._openapiSerialization?.formBody ||

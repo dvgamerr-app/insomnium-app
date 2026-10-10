@@ -1,5 +1,9 @@
 # UI scenarios (Playwright + Bun)
 
+Environment template editor: `bun tests/ui/template-tag-environment.js` runs the actual built application through the shared headless helper. Four groups verify environment Apply/Save with JSON escaping, base64 preview, active-request folder context and collection fallback without a request;12genuine template workers observed, no preview adapter. Current editor scenario also asserts folder labels/order. Browser preparation does not prove native/custom action/Prompt/per-field/Send acceptance. Current33path/compiled-worker audit and JSON/model23controls: [TEMPLATE-TAG-EDITOR.md](../../docs/migration/TEMPLATE-TAG-EDITOR.md).
+
+Template tag editor: `bun tests/ui/template-tag-editor.js` mounts actual CodeEditor/Input/Textarea/shared dialogs/built-in metadata through the shared headless helper. Six full dark/light1440/900/760 profiles measure150control widths;20groups cover8types/defaults/signed zero, exact range/raw fallback, Unicode/escaping, metadata validation/hide/disablePreview, keyboard/focus, stale parent edit, exactly1held-preview abort, scalar one-input/range/focus/parent replacement, CRLF textarea identity and abort/reopen. Custom metadata/preview/file/actions are controlled adapters; this does not prove native/genuine plugin/action/Send/per-field behavior. Current audit binds28paths. Source/audit/failures/remaining gates: [TEMPLATE-TAG-EDITOR.md](../../docs/migration/TEMPLATE-TAG-EDITOR.md).
+
 Plugin operation ownership: `bun tests/ui/plugin-operations.js` with the successful shared native probe build checks14preflight refusals plus detached helper identity/-0, queued abort/stale/replaced guard and active abort/stale across held native store replies. Production282341ff/current741source accepts20checks/3terminated workers/5reads/0writes/2unchanged files/full workspace and exact probe-store restoration, with independent audits and all retained plugin regressions. Browser launches remain headless; native-hidden/visible:false/exit0/owned cleanup. Product resource/tag/Send/hooks/actions integration remains required. Commands/evidence/limits: [PLUGIN-OPERATIONS.md](../../docs/migration/PLUGIN-OPERATIONS.md).
 
 2026-10-10 custom tag definitions: all eight argument types, typed defaults/options/file filters/actions and dynamic metadata callbacks preserved in isolated sessions; initial metadata value codec retains signed zero. Productione10918eb/current739source/native18refusals/20workers/40files/0store IPC/full workspace plus registry+restart/values/session/store/runtime/formats/discovery/sources+restart audits pass; compiler0/0/headless12/owned cleanup/native-hidden/visible:false/exit0. This accepts descriptor/query capability; product collision/priority registration/tag editor/resource contexts/Send/menu integration and every original migration/UX/UI/CSS gate remain required. [PLUGIN-TAG-METADATA.md](../../docs/migration/PLUGIN-TAG-METADATA.md).
@@ -379,6 +383,20 @@ totals: HTTP59, SSE58, WSS58, gRPC97; exact evidence is in migration STATUS.
 
 All browser scenarios use `launchUiBrowser` in `helpers/preview-app.js`, with
 `headless: true` and no headed override. Run saved scenarios with Bun.
+
+`bun tests/ui/template-tag-fields.js` verifies12 actual-built-app field entry
+points with genuine bundled template previews, exact surrounding text, Apply
+and exact saved values: URL, header/query names and values, Basic credentials,
+GraphQL query/variables, gRPC URL/JSON and WebSocket payload. It uses isolated
+browser storage and does not establish native per-field or transport acceptance.
+
+Set `INSOMNIUM_TEMPLATE_TAG_FIELDS_NATIVE=1` to run the same saved field scenario
+against the current native-template-editor probe. It restores the exact original
+workspace, verifies native saved values and reports `native-hidden`. Both modes
+measure six dark/light1440/900/760 dialog profiles. Final native12fields/24workers
+and custom editor5groups/4wire/4workers/2held boundaries pass on production48bc;
+source/build/restoration/compiler/geometry evidence is in
+[TEMPLATE-TAG-EDITOR.md](../../docs/migration/TEMPLATE-TAG-EDITOR.md).
 Native Tauri scenarios attach to WebView2 through CDP and hide their own host
 window; their rendering mode is `native-hidden`, rather than browser headless.
 See `docs/migration/UI-TESTING.md` for the native host and OS dialog limitations.

@@ -101,22 +101,28 @@ export function createPluginRegistry(adapters) {
           (/** @type {any} */ item) => item.kind === "templateTags",
         );
         return (contribution?.items ?? []).map(
-          (/** @type {any} */ item, /** @type {number} */ index) => ({
-            plugin: name,
-            index,
-            definition: structuredClone(item.definition),
-            isCurrent: current,
-            /** @param {any[]} args @param {{isCurrent:()=>boolean,signal:AbortSignal,context:Record<string,any>}} operation */
-            invoke(args, operation) {
+          (/** @type {any} */ item, /** @type {number} */ index) => {
+            /** @param {'templateTags'|'templateTagMetadata'|'templateTagAction'} kind @param {any[]} args
+             * @param {{isCurrent:()=>boolean,signal:AbortSignal,context?:Record<string,any>}} operation */
+            function dispatch(kind, args, operation) {
               if (!current()) return Promise.reject(aborted());
               return record.session
-                .invoke("templateTags", index, args, {
+                .invoke(kind, index, args, {
                   ...operation,
                   isCurrent: () => current() && operation.isCurrent(),
                 })
+                .then((/** @type {any} */ result) => {
+                  if (
+                    !current() ||
+                    operation.signal.aborted ||
+                    !operation.isCurrent()
+                  )
+                    throw aborted();
+                  return result;
+                })
                 .catch((/** @type {any} */ error) => {
-                  // Active cancellation/errors close a retained guest. It must be
-                  // explicitly reloaded rather than left advertised as ready.
+                  // Only a closed guest requires explicit Load recovery. A queued
+                  // refusal must not fail an otherwise live session.
                   if (
                     record.current() &&
                     record.session.isClosed?.() === true
@@ -132,8 +138,44 @@ export function createPluginRegistry(adapters) {
                   }
                   throw error;
                 });
-            },
-          }),
+            }
+            return {
+              plugin: name,
+              index,
+              definition: structuredClone(item.definition),
+              isCurrent: current,
+              /** @param {any[]} args @param {{isCurrent:()=>boolean,signal:AbortSignal,context:Record<string,any>}} operation */
+              invoke(args, operation) {
+                return dispatch("templateTags", args, operation);
+              },
+              /** Metadata evaluation has no render/helper/store context.
+               * @param {any[]} args @param {{isCurrent:()=>boolean,signal:AbortSignal}} operation */
+              queryMetadata(args, operation) {
+                return dispatch("templateTagMetadata", args, {
+                  isCurrent: operation.isCurrent,
+                  signal: operation.signal,
+                });
+              },
+              /** @param {number} actionIndex @param {{isCurrent:()=>boolean,signal:AbortSignal}} operation */
+              runAction(actionIndex, operation) {
+                if (
+                  !Number.isInteger(actionIndex) ||
+                  actionIndex < 0 ||
+                  !item.definition.actions?.some(
+                    (/** @type {Record<string,any>} */ action) =>
+                      action.index === actionIndex,
+                  )
+                )
+                  return Promise.reject(
+                    new Error("Template tag action is unavailable"),
+                  );
+                return dispatch("templateTagAction", [actionIndex], {
+                  isCurrent: operation.isCurrent,
+                  signal: operation.signal,
+                });
+              },
+            };
+          },
         );
       });
     },

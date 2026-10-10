@@ -18,6 +18,7 @@
   import { jsonPrettify } from "../json-prettify.js";
   import { environmentFor, workspaceFor } from "../model.js";
   import CodeEditor from "./CodeEditor.svelte";
+  import { createTemplateEditorSession } from "../template-editor-session.svelte.js";
   import CurlBodyEditor from "./CurlBodyEditor.svelte";
   import {
     workspace as app,
@@ -37,6 +38,7 @@
   import { isJsonBodyMediaType } from "../media-type.js";
   /** @type {{ request: Record<string, any>, onchange: (patch: Record<string, any>) => void }} */
   let { request, onchange } = $props();
+  let bodyCodeEditor = $state(/** @type {CodeEditor|undefined} */ (undefined));
   const openapiIssues = $derived([
     ...new Set([
       ...(request._openapiIssues || []),
@@ -199,6 +201,13 @@
       <WebSocketMessageEditor {request} />
     {:else if tab === "Body"}
       <Toolbar variant="editor" class="editor-toolbar">
+        {#if bodyCodeEditor}<Button
+            variant="secondary"
+            type="button"
+            title="Insert or edit a template tag (Ctrl+Alt+Space)"
+            onclick={() => bodyCodeEditor?.editTemplateTag()}
+            >Template tag</Button
+          >{/if}
         <Select
           aria-label="Body type"
           value={binaryBody
@@ -319,6 +328,7 @@
         {#key request._id}<GraphqlEditor {request} onchange={body} />{/key}
       {:else if ["application/x-www-form-urlencoded", "multipart/form-data"].includes(request.body.mimeType) && request.body._openapiSerialization?.style !== "serialized"}<KeyValueEditor
           rows={request.body.params || []}
+          templateEditor={() => createTemplateEditorSession(request._id)}
           label="Parameter"
           files={request.body.mimeType === "multipart/form-data"}
           onchange={(params) => body({ params })}
@@ -329,6 +339,8 @@
             >Already serialized body; sent as written using {request.body
               .mimeType}.</Feedback
           >{/if}<CodeEditor
+          bind:this={bodyCodeEditor}
+          templateEditor={() => createTemplateEditorSession(request._id)}
           identity={request._id + ":body"}
           value={request.body.text || ""}
           mode={request.body.mimeType}
@@ -344,6 +356,7 @@
         />{/if}
     {:else if tab === "Headers"}<KeyValueEditor
         rows={request.headers || []}
+        templateEditor={() => createTemplateEditorSession(request._id)}
         onchange={(headers) => onchange({ headers })}
       />
       {#if Array.isArray(request.cookieParameters)}<div
@@ -353,6 +366,7 @@
           <p class="hint padded">Cookie parameters</p>
           <KeyValueEditor
             rows={request.cookieParameters}
+            templateEditor={() => createTemplateEditorSession(request._id)}
             label="Cookie"
             onchange={(cookieParameters) => onchange({ cookieParameters })}
           />
@@ -366,6 +380,7 @@
         <p class="hint padded">Path variables</p>
         <KeyValueEditor
           rows={request.pathParameters}
+          templateEditor={() => createTemplateEditorSession(request._id)}
           label="Path variable"
           onchange={(pathParameters) => onchange({ pathParameters })}
         />
@@ -373,6 +388,7 @@
       {/if}
       <KeyValueEditor
         rows={request.parameters || []}
+        templateEditor={() => createTemplateEditorSession(request._id)}
         label="Parameter"
         onchange={(parameters) => onchange({ parameters })}
       />
@@ -435,18 +451,22 @@
             onchange={auth}
           />
         {:else if request.authentication?.type === "oauth1"}<OAuth1Editor
+            templateEditor={() => createTemplateEditorSession(request._id)}
             authentication={request.authentication}
             onchange={auth}
           />
         {:else if request.authentication?.type === "iam"}<AwsEditor
+            templateEditor={() => createTemplateEditorSession(request._id)}
             authentication={request.authentication}
             onchange={auth}
           />
         {:else if request.authentication?.type === "hawk"}<HawkEditor
+            templateEditor={() => createTemplateEditorSession(request._id)}
             authentication={request.authentication}
             onchange={auth}
           />
         {:else if request.authentication?.type === "asap"}<AsapEditor
+            templateEditor={() => createTemplateEditorSession(request._id)}
             authentication={request.authentication}
             onchange={auth}
           />
@@ -461,6 +481,7 @@
             >Username<Input
               autocomplete="off"
               value={request.authentication.username || ""}
+              templateEditor={() => createTemplateEditorSession(request._id)}
               oninput={(event) => auth({ username: event.currentTarget.value })}
             /></Field
           ><Field
@@ -468,6 +489,7 @@
               type="password"
               autocomplete="off"
               value={request.authentication.password || ""}
+              templateEditor={() => createTemplateEditorSession(request._id)}
               oninput={(event) => auth({ password: event.currentTarget.value })}
             /></Field
           >
@@ -475,6 +497,7 @@
             <Field
               >Domain (optional)<Input
                 value={request.authentication.domain || ""}
+                templateEditor={() => createTemplateEditorSession(request._id)}
                 oninput={(event) => auth({ domain: event.currentTarget.value })}
                 autocomplete="off"
               /></Field
@@ -482,6 +505,7 @@
             <Field
               >Workstation (Type 1 negotiation only)<Input
                 value={request.authentication.workstation || ""}
+                templateEditor={() => createTemplateEditorSession(request._id)}
                 oninput={(event) =>
                   auth({ workstation: event.currentTarget.value })}
                 autocomplete="off"
@@ -514,6 +538,7 @@
               type="password"
               autocomplete="off"
               value={request.authentication.token || ""}
+              templateEditor={() => createTemplateEditorSession(request._id)}
               oninput={(event) => auth({ token: event.currentTarget.value })}
               placeholder={"{{ _.access_token }}"}
             /></Field
@@ -521,6 +546,7 @@
           <Field
             >Header prefix<Input
               value={request.authentication.prefix || ""}
+              templateEditor={() => createTemplateEditorSession(request._id)}
               placeholder="Bearer"
               oninput={(event) => auth({ prefix: event.currentTarget.value })}
             /></Field
@@ -528,12 +554,14 @@
         {:else if request.authentication?.type === "apikey"}<Field
             >Key<Input
               value={request.authentication.key || ""}
+              templateEditor={() => createTemplateEditorSession(request._id)}
               oninput={(event) => auth({ key: event.currentTarget.value })}
             /></Field
           ><Field
             >Value<Input
               type="password"
               value={request.authentication.value || ""}
+              templateEditor={() => createTemplateEditorSession(request._id)}
               oninput={(event) => auth({ value: event.currentTarget.value })}
             /></Field
           ><Field

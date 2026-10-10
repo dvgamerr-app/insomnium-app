@@ -3,7 +3,7 @@ import { createRequestRenderSession } from "./template-session.js";
 
 /** Preview orchestration never prompts or sends dependent requests.
  * @param {string} text @param {Record<string,any>} context
- * @param {{requestId:string, workspaceId?:string, resources:Record<string,any>[], history?:Record<string,any>[], environmentId?:string|null, signal:AbortSignal}} options
+ * @param {{requestId:string, sourceResourceId?:string, workspaceId?:string, resources:Record<string,any>[], history?:Record<string,any>[], environmentId?:string|null, signal:AbortSignal}} options
  */
 export async function renderRequestPreview(text, context, options) {
   const session = createRequestRenderSession(context, {
@@ -11,7 +11,7 @@ export async function renderRequestPreview(text, context, options) {
     purpose: "preview",
     environmentLayers: requestEnvironmentLayers(
       options.resources,
-      options.requestId,
+      options.sourceResourceId ?? options.requestId,
       options.environmentId,
     ) ?? [{ data: context }],
   });

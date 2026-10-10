@@ -2,8 +2,8 @@
   import Field from "./ui/Field.svelte";
   import Input from "./ui/Input.svelte";
   import Button from "./ui/Button.svelte";
-  /** @type {{ authentication: Record<string, any>, onchange: (patch: Record<string, any>) => void }} */
-  let { authentication: auth, onchange } = $props();
+  /** @type {{ authentication: Record<string, any>, onchange: (patch: Record<string, any>) => void, templateEditor?:()=>ReturnType<import('../template-editor-session.svelte.js').createTemplateEditorSession> }} */
+  let { authentication: auth, onchange, templateEditor } = $props();
   const fields = [
     ["accessKeyId", "Access key ID", false],
     ["secretAccessKey", "Secret access key", true],
@@ -16,6 +16,7 @@
 {#each fields as [key, label, secret]}
   <Field
     >{label}<Input
+      {templateEditor}
       type={secret ? "password" : "text"}
       value={auth[String(key)] || ""}
       oninput={(event) =>

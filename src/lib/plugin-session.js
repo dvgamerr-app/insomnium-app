@@ -238,6 +238,17 @@ export async function openPluginSession(snapshot, options) {
           throw Error("Plugin callback context requires an operation guard");
         if (kind === "templateTagMetadata" && Object.keys(helper).length)
           throw Error("Metadata queries do not accept callback context");
+        if (kind === "templateTagAction") {
+          if (Object.keys(helper).length)
+            throw Error("Template tag actions accept only their store context");
+          if (
+            args.length !== 1 ||
+            !Number.isInteger(args[0]) ||
+            args[0] < 0 ||
+            args[0] > 63
+          )
+            throw Error("Invalid template tag action index");
+        }
       } catch (error) {
         return Promise.reject(error);
       }

@@ -22,6 +22,7 @@
   import Icon from "./Icon.svelte";
   import ProtoManager from "./ProtoManager.svelte";
   import KeyValueEditor from "./KeyValueEditor.svelte";
+  import { createTemplateEditorSession } from "../template-editor-session.svelte.js";
   import {
     workspace as app,
     update,
@@ -151,6 +152,7 @@
       aria-label="gRPC server URL"
       placeholder="grpc://localhost:50051"
       value={request.url}
+      templateEditor={() => createTemplateEditorSession(request._id)}
       spellcheck="false"
       oninput={(e) => update(request._id, { url: e.currentTarget.value })}
     />
@@ -336,6 +338,7 @@
                 </div>
                 <pre class="grpc-message">{pretty(selectedSent.text)}</pre>
               {:else}<CodeEditor
+                  templateEditor={() => createTemplateEditorSession(request._id)}
                   identity={request._id + ":grpc-body"}
                   value={request.body?.text || ""}
                   mode="application/json"
@@ -350,6 +353,7 @@
                 />{/if}</TabPanel
             >
           {:else if tab === "Metadata"}<KeyValueEditor
+              templateEditor={() => createTemplateEditorSession(request._id)}
               rows={request.metadata || []}
               label="Metadata"
               onchange={(metadata) => update(request._id, { metadata })}

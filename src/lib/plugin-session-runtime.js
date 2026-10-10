@@ -108,6 +108,7 @@ export function createPluginCallbackRuntime(engine, snapshot, storeCall) {
       const kinds = [
         "templateTags",
         "templateTagMetadata",
+        "templateTagAction",
         "requestHooks",
         "responseHooks",
         "requestGroupActions",
@@ -137,6 +138,17 @@ export function createPluginCallbackRuntime(engine, snapshot, storeCall) {
         throw Error("Invalid plugin callback arguments");
       if (kind === "templateTagMetadata" && Object.keys(helper).length)
         throw Error("Metadata queries do not accept callback context");
+      if (kind === "templateTagAction") {
+        if (Object.keys(helper).length)
+          throw Error("Template tag actions accept only their store context");
+        if (
+          callArgs.length !== 1 ||
+          !Number.isInteger(callArgs[0]) ||
+          callArgs[0] < 0 ||
+          callArgs[0] > 63
+        )
+          throw Error("Invalid template tag action index");
+      }
       running = true;
       storeAllowed = kind !== "templateTagMetadata";
       calls = 0;
@@ -145,13 +157,21 @@ export function createPluginCallbackRuntime(engine, snapshot, storeCall) {
       const deadline = performance.now() + 5000;
       try {
         handle = evaluate(`(async()=>{
-          const kind=${JSON.stringify(kind)},item=__pluginExports[kind==='templateTagMetadata'?'templateTags':kind]?.[${index}];
+          const kind=${JSON.stringify(kind)},item=__pluginExports[kind==='templateTagMetadata'||kind==='templateTagAction'?'templateTags':kind]?.[${index}];
           const payload=__pluginValueCodec.decode(${JSON.stringify(args)});
           const args=Array.isArray(payload)?payload:payload.args;
           const helper=__validatePluginCallContext(Array.isArray(payload)?{}:payload.context);
           if(kind==='templateTagMetadata') {
             if(args.length<1||args.length>3)throw Error('Invalid metadata query');
             return __pluginValueCodec.encode(__pluginTagMetadata.resolve(item,...args));
+          }
+          if(kind==='templateTagAction') {
+            if(args.length!==1||!Number.isInteger(args[0])||args[0]<0||args[0]>63||Object.keys(helper).length)
+              throw Error('Invalid template tag action');
+            const action=item?.actions?.[args[0]];
+            if(typeof action?.run!=='function')throw Error('Template tag action is unavailable');
+            const value=await action.run.call(action,Object.freeze({store:__pluginContext.store}));
+            return __pluginValueCodec.encode(value);
           }
           const fn=kind.endsWith('Hooks')?item:kind==='templateTags'?item?.run:item?.action;
           if(typeof fn!=='function')throw Error('Plugin callback is unavailable');

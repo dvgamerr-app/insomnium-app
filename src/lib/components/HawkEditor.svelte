@@ -3,8 +3,8 @@
   import Checkbox from "./ui/Checkbox.svelte";
   import Input from "./ui/Input.svelte";
   import Select from "./ui/Select.svelte";
-  /** @type {{ authentication: Record<string, any>, onchange: (patch: Record<string, any>) => void }} */
-  let { authentication: auth, onchange } = $props();
+  /** @type {{ authentication: Record<string, any>, onchange: (patch: Record<string, any>) => void, templateEditor?:()=>ReturnType<import('../template-editor-session.svelte.js').createTemplateEditorSession> }} */
+  let { authentication: auth, onchange, templateEditor } = $props();
   const fields = [
     ["id", "Auth ID", false],
     ["key", "Auth key", true],
@@ -19,6 +19,7 @@
 {#each fields as [key, label, secret]}
   <Field
     >{label}<Input
+      {templateEditor}
       type={secret ? "password" : "text"}
       value={auth[String(key)] || ""}
       oninput={(event) =>

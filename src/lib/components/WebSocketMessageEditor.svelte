@@ -7,6 +7,7 @@
   import Select from "./ui/Select.svelte";
   import Button from "./ui/Button.svelte";
   import Input from "./ui/Input.svelte";
+  import { createTemplateEditorSession } from "../template-editor-session.svelte.js";
   import { onDestroy } from "svelte";
   import {
     workspace as app,
@@ -153,6 +154,7 @@
     aria-label="WebSocket message"
     spellcheck="false"
     value={payload.value}
+    templateEditor={() => createTemplateEditorSession(request._id)}
     oninput={(event) =>
       update(payload._id, { value: event.currentTarget.value })}
     placeholder={payload.mode === "binary"

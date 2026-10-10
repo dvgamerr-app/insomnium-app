@@ -1,5 +1,8 @@
 <script>
   import Feedback from "./ui/Feedback.svelte";
+  import TemplateTagDialog from "./TemplateTagDialog.svelte";
+  import { templateEditorRange } from "../template-authoring.js";
+  import { isJsonBodyMediaType } from "../media-type.js";
   import { onMount } from "svelte";
   import { attachGraphqlHover } from "../editor-hover.js";
   import { loadEditorKeymap } from "../editor-keymaps.js";
@@ -9,7 +12,7 @@
     saveEditorState,
     takeEditorState,
   } from "../editor-state.js";
-  /** @type {{identity:string,value?:string,mode?:string,label?:string,placeholder?:string,readOnly?:boolean,lineDecorations?:{line:number,className:string,gutterText:string,gutterLabel:string}[],maxBytes?:number,onlimit?:()=>void,settings?:Record<string,any>,environment?:Record<string,any>,schema?:import('graphql').GraphQLSchema|null,variableToType?:Record<string,import('graphql').GraphQLInputType>,onnavigate?:(reference:any)=>void,onchange?:(value:string)=>void}} */
+  /** @type {{identity:string,value?:string,mode?:string,label?:string,placeholder?:string,readOnly?:boolean,lineDecorations?:{line:number,className:string,gutterText:string,gutterLabel:string}[],maxBytes?:number,onlimit?:()=>void,settings?:Record<string,any>,environment?:Record<string,any>,schema?:import('graphql').GraphQLSchema|null,variableToType?:Record<string,import('graphql').GraphQLInputType>,onnavigate?:(reference:any)=>void,templateEditor?:()=>ReturnType<typeof import('../template-editor-session.svelte.js').createTemplateEditorSession>,onchange?:(value:string)=>void}} */
   let {
     identity,
     value = "",
@@ -25,6 +28,7 @@
     schema = null,
     variableToType,
     onnavigate,
+    templateEditor,
     onchange = () => {},
   } = $props();
   let textarea = $state(
@@ -37,6 +41,69 @@
     ),
   );
   let failure = $state("");
+  let editingTag = $state(
+    /** @type {{session:ReturnType<typeof import('../template-editor-session.svelte.js').createTemplateEditorSession>,identity:string,source:string,start:number,end:number,text:string,jsonString:boolean}|null} */ (
+      null
+    ),
+  );
+  function closeTemplateTag() {
+    const opening = editingTag;
+    const editorIdentity = opening?.identity;
+    editingTag = null;
+    opening?.session.close();
+    queueMicrotask(() => {
+      if (identity === editorIdentity) focus();
+    });
+  }
+  export function editTemplateTag() {
+    if (!templateEditor || readOnly || editingTag) return;
+    try {
+      const source = cm?.getValue() ?? textarea?.value ?? value;
+      const start = cm
+        ? cm.indexFromPos(cm.getCursor("from"))
+        : (textarea?.selectionStart ?? 0);
+      const end = cm
+        ? cm.indexFromPos(cm.getCursor("to"))
+        : (textarea?.selectionEnd ?? start);
+      const range = templateEditorRange(source, start, end, isJsonBodyMediaType(mode) || mode === "graphql-variables");
+      cm?.closeHint();
+      editingTag = { session: templateEditor(), identity, source, ...range };
+    } catch (error) {
+      failure = String(error);
+    }
+  }
+  function tagEditorCurrent() {
+    return (
+      !!editingTag &&
+      !readOnly &&
+      identity === editingTag.identity &&
+      (cm?.getValue() ?? textarea?.value ?? value) === editingTag.source &&
+      editingTag.session.isCurrent()
+    );
+  }
+  /** @param {string} replacement */
+  function applyTemplateTag(replacement) {
+    if (!editingTag || !tagEditorCurrent()) return;
+    if (editingTag.jsonString) replacement = JSON.stringify(replacement).slice(1,-1);
+    const { start, end, source } = editingTag;
+    const next = source.slice(0, start) + replacement + source.slice(end);
+    if (maxBytes && new TextEncoder().encode(next).byteLength > maxBytes) {
+      onlimit();
+      return;
+    }
+    if (cm)
+      cm.replaceRange(
+        replacement,
+        cm.posFromIndex(start),
+        cm.posFromIndex(end),
+        "+input",
+      );
+    else {
+      if (textarea) textarea.value = next;
+      onchange(next);
+    }
+    closeTemplateTag();
+  }
   let active = "";
   let synchronizing = false;
   /** @type {{handle:import('codemirror').LineHandle,className:string}[]} */
@@ -167,6 +234,14 @@
           screenReaderLabel: label,
           extraKeys: {
             "Ctrl-Space": () => complete(true),
+            "Ctrl-Alt-Space": () => {
+              if (templateEditor) editTemplateTag();
+              else return CodeMirror.Pass;
+            },
+            "Cmd-Alt-Space": () => {
+              if (templateEditor) editTemplateTag();
+              else return CodeMirror.Pass;
+            },
             "Ctrl-F": "findPersistent",
             "Cmd-F": "findPersistent",
             "Ctrl-Q": "foldCode",
@@ -225,6 +300,8 @@
       });
     return () => {
       disposed = true;
+      editingTag?.session.close();
+      editingTag = null;
       observer?.disconnect();
       hover?.destroy();
       clearTimeout(hintTimer);
@@ -376,6 +453,15 @@
     if (cm) cm.closeHint();
   });
   $effect(() => {
+    if (
+      editingTag &&
+      (identity !== editingTag.identity ||
+        value !== editingTag.source ||
+        readOnly)
+    )
+      closeTemplateTag();
+  });
+  $effect(() => {
     if (cm)
       /** @type {any} */ (cm).setOption(
         "jump",
@@ -408,6 +494,16 @@
       } else onchange(event.currentTarget.value);
     }}></textarea>
 </div>
+
+{#if editingTag}
+  <TemplateTagDialog
+    {...editingTag.session}
+    initialValue={editingTag.text}
+    isCurrent={tagEditorCurrent}
+    onapply={applyTemplateTag}
+    onclose={closeTemplateTag}
+  />
+{/if}
 
 <style>
   :global(.graphql-editor-info) {

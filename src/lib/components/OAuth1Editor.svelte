@@ -4,8 +4,8 @@
   import Textarea from "./ui/Textarea.svelte";
   import Select from "./ui/Select.svelte";
   import Input from "./ui/Input.svelte";
-  /** @type {{ authentication: Record<string, any>, onchange: (patch: Record<string, any>) => void }} */
-  let { authentication: auth, onchange } = $props();
+  /** @type {{ authentication: Record<string, any>, onchange: (patch: Record<string, any>) => void, templateEditor?:()=>ReturnType<import('../template-editor-session.svelte.js').createTemplateEditorSession> }} */
+  let { authentication: auth, onchange, templateEditor } = $props();
   const methods = ["HMAC-SHA1", "HMAC-SHA256", "RSA-SHA1", "PLAINTEXT"];
   const fields = [
     ["consumerKey", "Consumer key", false],
@@ -38,6 +38,7 @@
 {#each fields as [key, label, secret]}
   <Field
     >{label}<Input
+      {templateEditor}
       type={secret ? "password" : "text"}
       value={auth[String(key)] || ""}
       oninput={(event) =>
@@ -49,6 +50,7 @@
 {/each}
 {#if auth.signatureMethod === "RSA-SHA1"}<Field
     >RSA private key (PEM)<Textarea
+      {templateEditor}
       value={auth.privateKey || ""}
       oninput={(event) => onchange({ privateKey: event.currentTarget.value })}
       rows={7}

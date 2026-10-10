@@ -157,18 +157,19 @@ const removePluginTemplateProvider = installPluginTemplateProvider(
   (snapshot) => {
     const tags = pluginRegistry.captureTemplateTags();
     if (!tags.length) return { tags, isCurrent: () => true };
+    const sourceId = snapshot.sourceResourceId ?? snapshot.requestId;
     const expected = pluginRenderSourceKey(
       snapshot.resources,
-      snapshot.requestId,
+      sourceId,
       snapshot.environmentId,
     );
     const current = () => {
       try {
-        const data = requestDataScope(workspace.data, snapshot.requestId);
+        const data = requestDataScope(workspace.data, sourceId);
         return (
           pluginRenderSourceKey(
             data.resources,
-            snapshot.requestId,
+            sourceId,
             data.activeEnvironmentId,
           ) === expected
         );
