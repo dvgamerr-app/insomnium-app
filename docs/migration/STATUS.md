@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Playwright headless request — verified handoff — 2026-10-10
+
+- Browser scenarios already use the sole launchUiBrowser helper with fixed headless: true and no headed override (implementation commit 1e9ecab7). Native helper hides its owned host window before CDP attachment and reports native-hidden; static inspection confirms this path, without a fresh native run.
+- Reran bun tests/ui/nocturne-workspace.js: terminal0, passed12 checks; evidence artifacts/playwright/nocturne-workspace/result.json. Current prior HEAD 81bcf792b64d54b3f9e470b4abe0a6a926981823. No live handles from this verification; unrelated pending DEFAULT_HEADERS work remains separate. Full migration/UX/CSS and existing parity gates remain open.
+- This interface cannot invoke /compact; no compaction occurred. This handoff records the evidence and remaining work. Verification checkpoint SHA is available through git log -1.
+
 ## Clone author form validation — committed handoff — 2026-10-10
 
 - Topic `c92d75d9672d28cdf85e20c75a1f7bd7ec613393` (`fix(git): validate Clone author before native operations`) commits dialog validation, saved normal Clone scenario and scoped evidence. Compiler75871 terminal0/0errors0warnings; production82761 terminal0/9fc6a4b7/current703source/probe/baseline82102013 binding passes. Native50542/artifact1791622322184 terminal0/native66276 exit0/native-hidden/visible:false accepts6checks/1GET+1POST; refused malformed author has zero staging/inspect IPC/network additions and preserves full workspace bytes, corrected valid workflow retains actual review/install/existing navigation/fresh200/reload. Independent audit/staged diff/exact owned cleanup pass. No live feature handles; work is verified by covered Windows scope only.
