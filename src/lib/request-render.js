@@ -5,6 +5,7 @@ import { requestEnvironmentLayers } from "./template-environment.js";
 import { workspaceFor } from "./model.js";
 import { setDefaultProtocol } from "./template-url.js";
 import { checkTemplateValue } from "./template-object.js";
+import { applyDefaultRequestHeaders } from "./request-default-headers.js";
 
 /** @param {Record<string,any>} data @param {Record<string,any>} request */
 async function requestCookieSnapshot(data, request) {
@@ -124,6 +125,7 @@ export async function renderSendRequest(data, request, signal, options = {}) {
       ...options,
       cookieJar,
     });
+    applyDefaultRequestHeaders(result.request, result.context);
     // Generation is native ownership metadata, not a template field.
     result.request.cookieSnapshot = cookieJar
       ? { ...result.cookieJar, generation: cookieJar.generation }

@@ -1,5 +1,7 @@
 # UI scenarios (Playwright + Bun)
 
+DEFAULT_HEADERS: set `INSOMNIUM_TEMPLATE_DEFAULT_HEADERS=1`, remove other template modes, then run existing `bun tests/ui/template-response-send.js`. Native3groups4wire5workers verifies direct/absent/foreign defaults, precedence, disabled replacement and source preservation. Remove the variable for retained19group HTTP regression. Both pass on productionf7c86550/current704source/native-hidden/visible:false; commands/failure/audits/limits: [DEFAULT-HEADERS.md](../../docs/migration/DEFAULT-HEADERS.md).
+
 Shared tab panels: fresh native-theme scenario accepts6actual Tab/Shift+Tab/label/pane geometry profiles plus12retained workflow/10dialog captures on production82102013; native-hidden/visible:false/exit0/current703source/independent audit/owned cleanup. Commands and remaining content/platform/assistive/full migration gates: [TAB-PANEL-KEYBOARD.md](../../docs/migration/TAB-PANEL-KEYBOARD.md). Use the explicit current build-state path documented there.
 
 OAuth graph: set `INSOMNIUM_TEMPLATE_OAUTH_GRAPH=1`, remove other template mode variables and run `bun tests/ui/template-response-send.js`. Three sequential body/header/refresh/nested groups pass13wire/3exchanges/38workers with native-hidden/visible:false. Commands, source binding, independent token/history audit and remaining gates: [TEMPLATE-OAUTH-GRAPH.md](../../docs/migration/TEMPLATE-OAUTH-GRAPH.md).

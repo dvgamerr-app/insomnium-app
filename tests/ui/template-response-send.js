@@ -19,13 +19,15 @@ const jsonBody =
 const xmlBody = '<r><item id="a">alpha</item><item id="b"><b>β</b></item></r>';
 const wire = /** @type {Record<string,any>[]} */ ([]);
 const environmentMode = process.env.INSOMNIUM_TEMPLATE_ENVIRONMENTS === "1";
+const defaultsMode = process.env.INSOMNIUM_TEMPLATE_DEFAULT_HEADERS === "1";
 const sseMode = process.env.INSOMNIUM_TEMPLATE_SSE === "1";
 const cycleMode = process.env.INSOMNIUM_TEMPLATE_CYCLES === "1";
 const oauthGraphMode = process.env.INSOMNIUM_TEMPLATE_OAUTH_GRAPH === "1";
 const oauthMode =
   process.env.INSOMNIUM_TEMPLATE_OAUTH === "1" || oauthGraphMode;
 assert.ok(
-  [environmentMode, sseMode, cycleMode, oauthMode].filter(Boolean).length <= 1,
+  [environmentMode, defaultsMode, sseMode, cycleMode, oauthMode].filter(Boolean)
+    .length <= 1,
   "Choose one template scenario mode",
 );
 const sseFirst = ": keepalive\nid: first\ndata: α\n\n";
@@ -89,17 +91,19 @@ const server = Bun.serve({
 });
 try {
   await withNativeApp(
-    oauthGraphMode
-      ? "template-response-oauth-graph"
-      : oauthMode
-        ? "template-response-oauth"
-        : cycleMode
-          ? "template-response-cycles"
-          : sseMode
-            ? "template-response-sse"
-            : environmentMode
-              ? "template-response-environments"
-              : "template-response-send",
+    defaultsMode
+      ? "template-default-headers"
+      : oauthGraphMode
+        ? "template-response-oauth-graph"
+        : oauthMode
+          ? "template-response-oauth"
+          : cycleMode
+            ? "template-response-cycles"
+            : sseMode
+              ? "template-response-sse"
+              : environmentMode
+                ? "template-response-environments"
+                : "template-response-send",
     async ({ page, invoke, output }) => {
       page.setDefaultTimeout(60000);
       const suffix = Date.now(),
@@ -272,6 +276,119 @@ try {
           Buffer.from(response.body).toString("base64"),
         );
         return response;
+      }
+      if (defaultsMode) {
+        const defaults = {
+          "X-Default": "{{ scope }}",
+          "X-Override": "fallback",
+          "X-Enabled": "default-after-disabled",
+          "X-Skip": "null",
+          "X-Keep": "null",
+          "X-Zero": 0,
+          "X-False": false,
+          Authorization: "Fixture caller",
+        };
+        for (const name of ["direct", "absent", "foreign"]) {
+          const setup = await invoke("load_workspace");
+          setup.settings.timeout = 30000;
+          if (
+            !setup.resources.some(
+              (/** @type {any} */ r) => r._id === "env_trs_caller_" + suffix,
+            )
+          )
+            setup.resources.push({
+              _id: "env_trs_caller_" + suffix,
+              _type: "environment",
+              parentId: workspaceId,
+              name: "Base Environment",
+              data: {},
+            });
+          setup.resources.find(
+            (/** @type {any} */ r) => r._id === "env_trs_caller_" + suffix,
+          ).data = {
+            scope: "caller",
+            DEFAULT_HEADERS: name === "absent" ? false : defaults,
+          };
+          setup.resources.find(
+            (/** @type {any} */ r) => r._id === "env_trs_" + suffix,
+          ).data = {
+            scope: "foreign",
+            DEFAULT_HEADERS: {
+              "X-Default": "{{ scope }}",
+              Authorization: "Fixture foreign",
+            },
+          };
+          await invoke("save_workspace", { data: setup });
+          await configure(
+            "defaults-" + name,
+            name === "foreign"
+              ? tag("body", ids.foreign, "$.token", "always")
+              : "literal",
+            [
+              { name: "x-override", value: "explicit" },
+              { name: "x-keep", value: "keep-explicit" },
+              { name: "X-Enabled", value: "disabled", disabled: true },
+            ],
+          );
+          const start = wire.length;
+          await send(ids.root);
+          const events = wire.slice(start),
+            current = await state();
+          assert.deepEqual(
+            events.map((e) => e.path),
+            name === "foreign" ? ["/json", "/root"] : ["/root"],
+          );
+          const root = events.at(-1);
+          assert.equal(root?.headers["x-override"], "explicit");
+          assert.equal(root?.headers["x-keep"], "keep-explicit");
+          assert.equal(root?.headers["x-skip"], undefined);
+          assert.equal(
+            root?.headers["x-default"],
+            name === "absent" ? undefined : "caller",
+          );
+          assert.equal(
+            root?.headers["x-enabled"],
+            name === "absent" ? undefined : "default-after-disabled",
+          );
+          assert.equal(
+            root?.headers.authorization,
+            name === "absent" ? undefined : "Fixture caller",
+          );
+          if (name !== "absent") {
+            assert.equal(root?.headers["x-zero"], "0");
+            assert.equal(root?.headers["x-false"], "false");
+          }
+          if (name === "foreign") {
+            assert.equal(events[0].headers["x-default"], "foreign");
+            assert.equal(events[0].headers.authorization, "Fixture foreign");
+            assert.equal(root?.body, "owned-token");
+          }
+          assert.equal(
+            current.resources
+              .find((/** @type {any} */ r) => r._id === ids.root)
+              .headers.some((/** @type {any} */ h) => h.name === "X-Default"),
+            false,
+          );
+          checks.push({ kind: name, events, state: current });
+          await progress();
+        }
+        await Bun.write(
+          output + "/acceptance.json",
+          JSON.stringify(
+            {
+              passed: true,
+              checks,
+              wire,
+              workers,
+              ids,
+              workspaceId,
+              foreignId,
+            },
+            null,
+            2,
+          ),
+        );
+        return;
       }
       if (oauthMode) {
         const setup = await invoke("load_workspace");
