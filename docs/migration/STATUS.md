@@ -1,5 +1,12 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Response feedback — committed handoff — 2026-10-10
+
+- Verified topic `da55f99475cd9f7881bf56e2c1d0c3148f7580aa` (`fix(ui): scope response copy and save feedback to current operation`) commits the application correction, saved scenario/helper and scoped evidence documentation. Final compiler0/0, scenario/helper/new-document formatting and staged diff checks pass; worktree was clean after topic commit. This documentation checkpoint's SHA is current HEAD from `git log -1`.
+- Evidence: fresh production executable20458ce2; feedback11095 terminal0/23groups/47controlled boundaries/5HTTP Sends, tools60210 terminal0/9groups/6profiles and corrected default55009 terminal0/26groups/11real workers/21Sends. All native results exit0/native-hidden/visible:false. Current692-source/build/payload/destination/timer/restoration audits, headless workspace11 and exact owned-process/profile cleanup pass. Original feedback/tools harness freeze and later default-only fixture correction are distinguished in RESPONSE-FEEDBACK.md; earlier rejected destination audit is retained.
+- No live feature process/session handles or owned probe/profile processes remain. Full original migration/UX/CSS goal remains active. Next response work: XPath/XML mounted acceptance, then remaining keyboard/assistive technology, actual OS clipboard/picker/file writes and mutable streaming-body cases, alongside every original migration/provider/platform/plugin/Git/recovery/CI/distribution/shared adoption/ownership requirement. See PLAN/PARITY and POST-MIGRATION-UX.md for full scope and redesign sequence.
+- Owner requires `/compact` before the next feature. This interface cannot invoke `/compact`; no compaction occurred. Handoff records actual commit/evidence/remaining gates/no live handles; no next feature started.
+
 ## Response feedback — verified acceptance ready to commit — 2026-10-10
 
 - Previous goal turn made progress: headless workspace11 verified and checkpoint0069405 committed. Corrected default session55009 now actual terminal0; artifact1791602462836/native60868 exit0/native-hidden/visible:false passes26groups/11real workers/21HTTP Sends. Destination worker completes before old callbacks; exact before/after workspace/request/response/meta and late preview equality pass. Retain earlier91664 runtime pass and independent audit rejection below.
