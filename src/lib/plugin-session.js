@@ -189,6 +189,7 @@ export async function openPluginSession(snapshot, options) {
   }
   return {
     metadata,
+    isClosed: () => closed,
     /** @param {string} kind @param {number} index @param {any[]} [args]
      * @param {{isCurrent?:()=>boolean,signal?:AbortSignal,context?:Record<string,any>}} [operation] */
     invoke(kind, index, args = [], operation = {}) {

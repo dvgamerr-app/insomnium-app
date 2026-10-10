@@ -8,6 +8,7 @@ import { createTemplateInteraction } from "./template-interaction.js";
 import { buildTemplateEnvironment } from "./template-environment.js";
 import { renderTemplateValue, TemplateLimitError } from "./template-object.js";
 import { PROMPT_TOTAL_MS } from "./template-deadline.js";
+import { capturePluginTemplateTags } from "./plugin-template-tags.js";
 
 /** Snapshot one request's render inputs and own all child workers/interactions.
  * Caller must dispose the session after rendering its fields.
@@ -34,6 +35,7 @@ export function createRequestRenderSession(context, options) {
   });
   options.signal.throwIfAborted();
   const native = nativeTemplateTags(snapshot);
+  const plugins = capturePluginTemplateTags(snapshot);
   const cookie = native?.cookie;
   const ask = options.ask || askTemplatePrompt;
   const controller = new AbortController();
@@ -81,9 +83,16 @@ export function createRequestRenderSession(context, options) {
     try {
       return await renderTemplate(input, renderContext, {
         signal,
+        customTagNames: plugins.names,
         interactivePrompts: purpose === "send",
         interaction: purpose === "send" ? interaction : undefined,
         tags: {
+          ...plugins.handlers(
+            renderContext,
+            controller.signal,
+            purpose,
+            () => !controller.signal.aborted,
+          ),
           ...native,
           prompt: (args, childSignal) =>
             promptTemplateTag(args, {
@@ -177,6 +186,8 @@ export function createRequestRenderSession(context, options) {
       controller.signal.throwIfAborted();
       const result = await action();
       controller.signal.throwIfAborted();
+      if (plugins.names.length && !plugins.isCurrent())
+        throw new DOMException("Plugin render owner changed", "AbortError");
       return result;
     } catch (error) {
       const reason = controller.signal.aborted

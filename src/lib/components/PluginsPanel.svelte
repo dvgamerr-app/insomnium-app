@@ -461,8 +461,8 @@
             <code>{plugin.directory}</code>
             {#if sessionReports[plugin.name]?.status === "ready" && !directory}
               <p class="hint" role="status">
-                Plugin loaded in isolation. Hooks and actions are not connected
-                yet.
+                Plugin loaded in isolation. Custom template tags are available to
+                request rendering. Hooks and actions are not connected yet.
               </p>
             {:else if sessionReports[plugin.name]?.error && !directory}
               <Feedback as="p" tone="error" role="alert"

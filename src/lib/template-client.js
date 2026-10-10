@@ -3,13 +3,19 @@ import {
   RENDER_ACTIVE_MS,
   PROMPT_TOTAL_MS,
 } from "./template-deadline.js";
+import {
+  builtinTemplateNames,
+  nativeTemplateNames,
+  isTemplateTagName,
+} from "./template-registration.js";
+import { createPluginValueCodec } from "./plugin-values.js";
 /**
  * One disposable worker per render. Native handlers stay on the application side;
  * only explicitly registered native tag names and structured values cross it.
  * @param {string} text @param {Record<string, any>} context
  * @param {{interaction?:{subscribe:(listener:(waiting:boolean)=>void)=>()=>void}, interactivePrompts?:boolean, mode?: 'all'|'variables'|'tags', signal?: AbortSignal,
- * tags?: Partial<Record<'os'|'file'|'cookie'|'prompt'|'response'|'request',
- * (args: any[], signal: AbortSignal) => any | Promise<any>>>}} [options]
+ * customTagNames?:string[], tags?: Record<string,
+ * (args: any[], signal: AbortSignal) => any | Promise<any>>}} [options]
  * @returns {Promise<string>}
  */
 export function renderTemplate(text, context, options = {}) {
@@ -21,15 +27,33 @@ export function renderTemplate(text, context, options = {}) {
     /** @type {Record<string, (args: any[], signal: AbortSignal) => any>} */
     const handlers = { ...options.tags };
     const names = Object.keys(handlers);
+    const customNames = options.customTagNames ?? [];
+    const argumentCodec = createPluginValueCodec();
+    if (
+      !Array.isArray(customNames) ||
+      customNames.length > 53 ||
+      new Set(customNames).size !== customNames.length ||
+      customNames.some(
+        (name) =>
+          !isTemplateTagName(name) || builtinTemplateNames.includes(name),
+      )
+    ) {
+      reject(new Error("Invalid custom template tag registration"));
+      return;
+    }
     if (
       names.some(
         (name) =>
-          !["os", "file", "cookie", "prompt", "response", "request"].includes(
-            name,
-          ) || typeof handlers[name] !== "function",
+          (!nativeTemplateNames.includes(name) &&
+            !customNames.includes(name)) ||
+          typeof handlers[name] !== "function",
       )
     ) {
       reject(new Error("Invalid native template tag registration"));
+      return;
+    }
+    if (customNames.some((name) => !Object.hasOwn(handlers, name))) {
+      reject(new Error("Missing custom template tag handler"));
       return;
     }
     if (
@@ -114,7 +138,19 @@ export function renderTemplate(text, context, options = {}) {
           return;
         }
         if (message?.type === "tag") {
-          const { id, name, args } = message;
+          const { id, name } = message;
+          let args;
+          try {
+            args = customNames.includes(name)
+              ? argumentCodec.decode(message.argsWire)
+              : message.args;
+          } catch {
+            finish(
+              undefined,
+              new Error("Invalid custom template tag arguments"),
+            );
+            return;
+          }
           if (
             !Number.isSafeInteger(id) ||
             id < 1 ||
@@ -223,6 +259,7 @@ export function renderTemplate(text, context, options = {}) {
         context,
         mode: options.mode || "all",
         tags: names,
+        customTagNames: customNames,
         interactivePrompts: options.interactivePrompts || false,
       });
       unsubscribeInteraction = options.interaction?.subscribe((waiting) => {

@@ -14,6 +14,10 @@ import { createRunDrain } from "./run-drain.js";
 import { isTauri, invoke } from "@tauri-apps/api/core";
 import { createPluginRegistry } from "./plugin-registry.js";
 import { openPluginSession } from "./plugin-session.js";
+import {
+  installPluginTemplateProvider,
+  pluginRenderSourceKey,
+} from "./plugin-template-tags.js";
 import { createGitClient, nativeGitBinding } from "./git-client.js";
 import {
   createGitRemoteClient,
@@ -149,6 +153,33 @@ export const pluginRegistry = createPluginRegistry({
   openSession: openPluginSession,
 });
 if (import.meta.hot) import.meta.hot.dispose(() => pluginRegistry.dispose());
+const removePluginTemplateProvider = installPluginTemplateProvider(
+  (snapshot) => {
+    const tags = pluginRegistry.captureTemplateTags();
+    if (!tags.length) return { tags, isCurrent: () => true };
+    const expected = pluginRenderSourceKey(
+      snapshot.resources,
+      snapshot.requestId,
+      snapshot.environmentId,
+    );
+    const current = () => {
+      try {
+        const data = requestDataScope(workspace.data, snapshot.requestId);
+        return (
+          pluginRenderSourceKey(
+            data.resources,
+            snapshot.requestId,
+            data.activeEnvironmentId,
+          ) === expected
+        );
+      } catch {
+        return false;
+      }
+    };
+    return { tags, isCurrent: current };
+  },
+);
+if (import.meta.hot) import.meta.hot.dispose(removePluginTemplateProvider);
 if (import.meta.hot) import.meta.hot.dispose(unsubscribePersistence);
 const gitClient = createGitClient();
 const setupGitBinding = createGitSetup({

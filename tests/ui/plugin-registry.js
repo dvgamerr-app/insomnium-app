@@ -118,7 +118,7 @@ try {
         .click();
       await ready
         .getByText(
-          "Plugin loaded in isolation. Hooks and actions are not connected yet.",
+          "Plugin loaded in isolation. Custom template tags are available to request rendering. Hooks and actions are not connected yet.",
           { exact: true },
         )
         .waitFor();
@@ -133,7 +133,7 @@ try {
       await preferences(page);
       await ready
         .getByText(
-          "Plugin loaded in isolation. Hooks and actions are not connected yet.",
+          "Plugin loaded in isolation. Custom template tags are available to request rendering. Hooks and actions are not connected yet.",
           { exact: true },
         )
         .waitFor();
@@ -200,7 +200,7 @@ try {
         .click();
       await ready
         .getByText(
-          "Plugin loaded in isolation. Hooks and actions are not connected yet.",
+          "Plugin loaded in isolation. Custom template tags are available to request rendering. Hooks and actions are not connected yet.",
           { exact: true },
         )
         .waitFor();
@@ -240,7 +240,7 @@ try {
       .click();
     await ready
       .getByText(
-        "Plugin loaded in isolation. Hooks and actions are not connected yet.",
+        "Plugin loaded in isolation. Custom template tags are available to request rendering. Hooks and actions are not connected yet.",
         { exact: true },
       )
       .waitFor();
@@ -256,7 +256,7 @@ try {
       .click();
     await ready
       .getByText(
-        "Plugin loaded in isolation. Hooks and actions are not connected yet.",
+        "Plugin loaded in isolation. Custom template tags are available to request rendering. Hooks and actions are not connected yet.",
         { exact: true },
       )
       .waitFor();
@@ -357,7 +357,7 @@ try {
           .click();
         await ready
           .getByText(
-            "Plugin loaded in isolation. Hooks and actions are not connected yet.",
+            "Plugin loaded in isolation. Custom template tags are available to request rendering. Hooks and actions are not connected yet.",
             { exact: true },
           )
           .waitFor();

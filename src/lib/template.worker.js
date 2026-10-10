@@ -9,6 +9,12 @@ import release from "@jitl/quickjs-wasmfile-release-sync";
 import wasmUrl from "@jitl/quickjs-wasmfile-release-sync/wasm?url";
 import engineSource from "nunjucks/browser/nunjucks.js?raw";
 import { renderTemplateIsolated } from "./template-runtime.js";
+import { createPluginValueCodec } from "./plugin-values.js";
+import {
+  builtinTemplateNames,
+  nativeTemplateNames,
+  isTemplateTagName,
+} from "./template-registration.js";
 
 let started = false;
 let finished = false;
@@ -16,6 +22,7 @@ let sequence = 0;
 let promptWaits = 0;
 let interactiveAllowed = false;
 let sharedWaiting = false;
+const argumentCodec = createPluginValueCodec();
 /** @type {Set<(waiting:boolean)=>void>} */
 const interactionListeners = new Set();
 /** @type {ReturnType<typeof setInterval> | undefined} */
@@ -61,22 +68,33 @@ self.onmessage = async (event) => {
       context,
       mode,
       tags = [],
+      customTagNames = [],
       interactivePrompts = false,
     } = message;
     if (typeof interactivePrompts !== "boolean")
       throw new Error("Invalid interactive template policy");
     if (
+      !Array.isArray(customTagNames) ||
+      customTagNames.length > 53 ||
+      new Set(customTagNames).size !== customTagNames.length ||
+      customTagNames.some(
+        (name) =>
+          !isTemplateTagName(name) || builtinTemplateNames.includes(name),
+      )
+    )
+      throw new Error("Invalid custom template tag registration");
+    if (
       !Array.isArray(tags) ||
-      tags.length > 6 ||
+      tags.length > 59 ||
       new Set(tags).size !== tags.length ||
       tags.some(
         (name) =>
-          !["os", "file", "cookie", "prompt", "response", "request"].includes(
-            name,
-          ),
+          !nativeTemplateNames.includes(name) && !customTagNames.includes(name),
       )
     )
       throw new Error("Invalid native template tag registration");
+    if (customTagNames.some((name) => !tags.includes(name)))
+      throw new Error("Missing custom template tag handler");
     interactiveAllowed = interactivePrompts;
     const extensions = Object.fromEntries(
       tags.map((name) => [
@@ -95,7 +113,9 @@ self.onmessage = async (event) => {
                 type: "tag",
                 id,
                 name,
-                args: args.map(decodeArgument),
+                ...(customTagNames.includes(name)
+                  ? { argsWire: argumentCodec.encode(args.map(decodeArgument)) }
+                  : { args: args.map(decodeArgument) }),
               });
             });
             return name === "os"
@@ -121,6 +141,7 @@ self.onmessage = async (event) => {
       mode,
       extensions,
       {
+        customTagNames,
         interactivePrompts,
         subscribeInteraction: interactivePrompts
           ? (listener) => {

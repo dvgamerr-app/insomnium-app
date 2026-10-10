@@ -8,6 +8,7 @@ export function createPluginRegistry(adapters) {
     generation = 0;
   /** @type {object|undefined} */ let owner;
   let paths = "";
+  let catalogRevision = 0;
   /** @type {Promise<any>|undefined} */ let discovery;
   const aborted = () =>
     new DOMException("Plugin loading is no longer current", "AbortError");
@@ -37,6 +38,7 @@ export function createPluginRegistry(adapters) {
     );
   }
   function emit() {
+    catalogRevision++;
     const state = read();
     for (const listener of listeners) listener(state);
   }
@@ -81,6 +83,60 @@ export function createPluginRegistry(adapters) {
     read,
     synchronize,
     invalidate,
+    /** Capture only explicitly loaded sessions. No discovery/module execution.
+     * The returned closures cannot outlive this exact catalog or its owners. */
+    captureTemplateTags() {
+      if (disposed) throw aborted();
+      const context = synchronize();
+      if (!context.ready) return [];
+      const revision = catalogRevision;
+      const ready = Array.from(records.entries())
+        .filter(([, record]) => record.status === "ready")
+        .sort((a, b) => a[1].order - b[1].order);
+      const current = () =>
+        catalogRevision === revision &&
+        ready.every(([, record]) => record.current());
+      return ready.flatMap(([name, record]) => {
+        const contribution = record.session.metadata.contributions.find(
+          (/** @type {any} */ item) => item.kind === "templateTags",
+        );
+        return (contribution?.items ?? []).map(
+          (/** @type {any} */ item, /** @type {number} */ index) => ({
+            plugin: name,
+            index,
+            definition: structuredClone(item.definition),
+            isCurrent: current,
+            /** @param {any[]} args @param {{isCurrent:()=>boolean,signal:AbortSignal,context:Record<string,any>}} operation */
+            invoke(args, operation) {
+              if (!current()) return Promise.reject(aborted());
+              return record.session
+                .invoke("templateTags", index, args, {
+                  ...operation,
+                  isCurrent: () => current() && operation.isCurrent(),
+                })
+                .catch((/** @type {any} */ error) => {
+                  // Active cancellation/errors close a retained guest. It must be
+                  // explicitly reloaded rather than left advertised as ready.
+                  if (
+                    record.current() &&
+                    record.session.isClosed?.() === true
+                  ) {
+                    record.status = "error";
+                    record.error = String(error.message ?? error).slice(
+                      0,
+                      8192,
+                    );
+                    record.controller.abort();
+                    record.session.close();
+                    emit();
+                  }
+                  throw error;
+                });
+            },
+          }),
+        );
+      });
+    },
     /** @param {(state:Record<string,any>)=>void} listener */
     subscribe(listener) {
       listeners.add(listener);
@@ -137,6 +193,7 @@ export function createPluginRegistry(adapters) {
           return false;
         }
       };
+      record.current = current;
       record.promise = (async () => {
         try {
           if (!discovery) {
@@ -171,6 +228,7 @@ export function createPluginRegistry(adapters) {
             );
           const plugin = matches[0],
             snapshot = await adapters.readPackage(plugin.directory);
+          record.order = report.packages.indexOf(plugin);
           if (!current()) throw aborted();
           const manifest = JSON.parse(
             snapshot.files?.["package.json"] ?? "null",

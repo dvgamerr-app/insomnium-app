@@ -4,6 +4,11 @@ import {
   PROMPT_TOTAL_MS,
 } from "./template-deadline.js";
 import { localTagNames, runLocalTag } from "./template-tags.js";
+import {
+  isTemplateTagName,
+  builtinTemplateNames,
+} from "./template-registration.js";
+import { createPluginValueCodec } from "./plugin-values.js";
 
 /**
  * Run trusted bundled Nunjucks in a fresh VM. Extensions are registered by the
@@ -14,7 +19,7 @@ import { localTagNames, runLocalTag } from "./template-tags.js";
  * @param {Record<string, any>} context
  * @param {'all'|'variables'|'tags'} [mode]
  * @param {Record<string, (args: any[]) => any | Promise<any>>} [extensions]
- * @param {{interactivePrompts?:boolean, subscribeInteraction?:(listener:(waiting:boolean)=>void)=>()=>void}} [options]
+ * @param {{customTagNames?:string[], interactivePrompts?:boolean, subscribeInteraction?:(listener:(waiting:boolean)=>void)=>()=>void}} [options]
  */
 export async function renderTemplateIsolated(
   engine,
@@ -40,10 +45,24 @@ export async function renderTemplateIsolated(
   if (!["all", "variables", "tags"].includes(mode))
     throw new Error("Unknown template render mode");
   const names = [...localTagNames, ...Object.keys(extensions)];
+  const customNames = options.customTagNames ?? [];
+  if (
+    !Array.isArray(customNames) ||
+    customNames.length > 53 ||
+    new Set(customNames).size !== customNames.length ||
+    customNames.some(
+      (name) =>
+        !isTemplateTagName(name) ||
+        !names.includes(name) ||
+        builtinTemplateNames.includes(name),
+    )
+  )
+    throw new Error("Invalid custom template tag registration");
+  const argumentCodec = createPluginValueCodec();
   if (
     names.length > 64 ||
     new Set(names).size !== names.length ||
-    names.some((name) => !/^[a-z][a-z0-9_]*$/.test(name)) ||
+    names.some((name) => !isTemplateTagName(name)) ||
     Object.values(extensions).some((handler) => typeof handler !== "function")
   )
     throw new Error("Invalid template extension registration");
@@ -195,18 +214,26 @@ export async function renderTemplateIsolated(
         const serialized = vm.getString(argsHandle);
         if (serialized.length > limit)
           throw new Error("Template tag arguments exceed 20 Mi characters");
-        const envelopes = JSON.parse(serialized);
-        if (
-          !Array.isArray(envelopes) ||
-          envelopes.length > 32 ||
-          envelopes.some(
-            (entry) => !entry || typeof entry.defined !== "boolean",
+        let args;
+        if (customNames.includes(name)) {
+          args = argumentCodec.decode(serialized);
+          if (!Array.isArray(args) || args.length > 32)
+            throw new Error("Invalid template tag argument list");
+        } else {
+          const envelopes = JSON.parse(serialized);
+          if (
+            !Array.isArray(envelopes) ||
+            envelopes.length > 32 ||
+            envelopes.some(
+              (/** @type {any} */ entry) =>
+                !entry || typeof entry.defined !== "boolean",
+            )
           )
-        )
-          throw new Error("Invalid template tag argument list");
-        const args = envelopes.map((entry) =>
-          entry.defined ? entry.value : undefined,
-        );
+            throw new Error("Invalid template tag argument list");
+          args = envelopes.map((/** @type {any} */ entry) =>
+            entry.defined ? entry.value : undefined,
+          );
+        }
         const retained = callback.dup();
         callbacks.add(retained);
         const resume =
@@ -275,14 +302,22 @@ export async function renderTemplateIsolated(
     } finally {
       input.dispose();
     }
+    if (customNames.length)
+      evaluate(
+        `globalThis.__templateArgumentCodec=(${createPluginValueCodec.toString()})();`,
+      );
     evaluate(`(() => {
+      const customNames = ${JSON.stringify(customNames)};
       const input = JSON.parse(__templateInput);
       const tags = { blockStart: '{%', blockEnd: '%}', variableStart: '{{', variableEnd: '}}', commentStart: '{#', commentEnd: '#}' };
       if (input.mode === 'variables') { tags.blockStart = '<[{[{[{[{[$%'; tags.blockEnd = '%$]}]}]}]}]>'; }
       if (input.mode === 'tags') { tags.variableStart = '<[{[{[{[{[$%'; tags.variableEnd = '%$]}]}]}]}]>'; }
       const env = new nunjucks.Environment([], { autoescape: false, throwOnUndefined: true, tags });
+      let extensionIndex = 0;
       for (const name of ${JSON.stringify(names)}) {
-        env.addExtension(name, {
+        // Nunjucks embeds the extension key in generated code without escaping.
+        // Public plugin names remain tags/data; only generated keys reach it.
+        env.addExtension('insomnium_extension_' + extensionIndex++, {
           tags: [name],
           parse(parser, nodes, lexer) {
             const token = parser.nextToken();
@@ -294,7 +329,9 @@ export async function renderTemplateIsolated(
           },
           run(context, ...args) {
             const callback = args.pop();
-            __runTag(name, JSON.stringify(args.filter(value => value !== '__EMPTY_NUNJUCKS_ARG__').map(value => ({ defined: value !== undefined, value }))),
+            const values = args.filter(value => value !== '__EMPTY_NUNJUCKS_ARG__');
+            __runTag(name, customNames.includes(name) ? __templateArgumentCodec.encode(values) :
+              JSON.stringify(values.map(value => ({ defined: value !== undefined, value }))),
               (error, result) => {
                 if (error) callback(error);
                 else callback(null, JSON.parse(result).value);
