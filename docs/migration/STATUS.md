@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Dependent OAuth native exchange — committed handoff — 2026-10-10
+
+- Topic `b7a1dc569020d52921829a77afaba4a3c601cd3c` (`test(ui): verify native OAuth response dependencies`) commits OAuth mode in the existing saved scenario and scoped docs. Final compiler30564 terminal0/0errors0warnings, formatting and staged review pass. Final native54969/artifact1791619533021 terminal0/5groups/10main wire/29workers plus held token exchange/native65112 exit0/native-hidden/visible:false. Independent703source/productionc2fbaa43/literal token forms/foreign credentials-scope/Bearer/manual bypass/token persistence-identity-rotation/history/selection/socket Cancel audit passes. Initial accepted run retained; final fixture explicitly sets30000ms timeout. Evidence/commands/limits: TEMPLATE-RESPONSE-OAUTH.md.
+- Exact owned64004/65112 and both WebView2 profiles absent; no live feature process/session handles. Application/CSS/backend unchanged;468app identity proves accepted production reuse. Full migration/UX/CSS remains active: interactive/public providers/concurrency/source races/within-root shared tokens/late-provider success/protocol/platform/accessibility and every original parity/shared UI adoption/ownership gate remain required.
+- Owner requires `/compact` after each feature. This interface has no callable `/compact`; no compaction occurred. Actual topic SHA/evidence/remaining gates/no-live-handles handoff is recorded instead. No next feature started. Current documentation checkpoint SHA is `git log -1`.
+
 ## Dependent OAuth native exchange — verified — 2026-10-10
 
 - Final native54969/artifact1791619533021 terminal0 accepts5groups/10main wire/29workers plus held token exchange; native65112 exit0/native-hidden/visible:false. Independent703source/productionc2fbaa43/token forms/foreign credentials-scope/Bearer/manual bypass/token persistence-identity-rotation/history/selection/socket Cancel audit passes. First native70311/artifact1791619289509 also terminal0; final fixture explicitly uses30000ms timeout. Exact owned64004/65112 and both WebView profiles absent; no live feature handles. Compiler30564 terminal0/0errors0warnings and formatting/diff review pass.
