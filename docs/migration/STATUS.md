@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Plugin values — committed handoff — 2026-10-10
+
+- Current topic commit `e4aa645a96866489446156e162b0169b60adf0af` (`fix(plugins): preserve callback data across isolated sessions`) commits the shared bounded data codec, client/guest wire integration, saved real-worker value controls and acceptance documentation. Corrected production3a34fbbf/current734source/native48checks/12round trips/12input+5result refusals/six genuine terminated workers/0store IPC, retained session/store/runtime/formats/discovery/sources+actual restarts and independent audits all pass. Compiler55176 0/0, current headless workspace12/diff pass; current760dark/light images inspected. PLUGIN-VALUES.md preserves exact commands/evidence/first65d1 build/review corrections/limits.
+- Worktree was clean after topic commit. All feature jobs terminal; no owned host/build/process/profile handles remain, plugin-values-cleanup.json. Next required: actual product admission/registry/tag argument/collision/disable/reload/resource ownership before Send/menu integration; other context adapters/legacy Buffer-stream compatibility/PluginData import/themes/dependency/assets/links/TLA/provider/platform/accessibility/CI/shared adoption and every original migration/UX/CSS gate remain active. No scope removed.
+- This interface cannot invoke `/compact`; no compaction occurred. Actual commit/evidence/remaining gates/no-live-handles are recorded here as the required handoff before starting another feature. Documentation checkpoint SHA is available through `git log -1`.
+
 ## Plugin values — verified — 2026-10-10
 
 - Previous goal turn made progress: data codec/native first candidate plus review fixes and corrected build live handoff. Corrected production36258 now terminal0/3a34fbbf/current734source with original9e3c459d/first65d1bb16 preserved. Native1791639290928/PID38376 passes48checks/12round trips/12input+5result refusals/six genuine terminated workers/0store IPC; independent literal/source/build/worker-byte/exact UTF-8/graph/detachment/prototype/named-property/package/full-workspace audit passes. Supported data types retain identity and literal values; Buffer/stream/browser-only/class/proxy compatibility is explicitly not complete.
