@@ -8,6 +8,7 @@
   import {
     canEditWorkspace,
     persist,
+    pluginRegistry,
     workspace,
   } from "$lib/workspace.svelte.js";
 
@@ -31,6 +32,9 @@
   let exportReports = $state({});
   /** @type {AbortController|undefined} */
   let exportController;
+  let sessionReports = $state(/** @type {Record<string,any>} */ ({}));
+  let configBusy = $state(false);
+  let configSaveFailed = $state(false);
   const contributionLabels = /** @type {Record<string,string>} */ ({
     templateTags: "Template tags",
     requestHooks: "Request hooks",
@@ -45,9 +49,13 @@
   // late native inspection or launch another inspection from a picker reply.
   onMount(() => {
     mounted = true;
+    const unsubscribe = pluginRegistry.subscribe((state) => {
+      sessionReports = state;
+    });
     void reload();
     return () => {
       mounted = false;
+      unsubscribe();
       exportController?.abort();
     };
   });
@@ -113,6 +121,7 @@
         workspace.data.settings
       );
       currentSettings.pluginDirectories = unique;
+      pluginRegistry.invalidate();
       if (migrate) currentSettings.pluginPathMigrationVersion = 1;
       if (!(await persist()))
         throw new Error("Plugin folders could not be saved. Try saving again.");
@@ -139,6 +148,66 @@
     void saveFolders([...folders, ...legacy], true);
   }
 
+  /** @param {Record<string,any>} plugin */
+  async function loadPlugin(plugin) {
+    if (!mounted || busy || directory || !canEditWorkspace()) return;
+    error = "";
+    const owner = workspace.data;
+    try {
+      await pluginRegistry.prepare(plugin.name);
+    } catch (failure) {
+      if (
+        mounted &&
+        workspace.data === owner &&
+        !(failure instanceof DOMException && failure.name === "AbortError") &&
+        sessionReports[plugin.name]?.status === "error"
+      )
+        error = String(failure);
+    }
+  }
+  /** @param {Record<string,any>} plugin */
+  async function toggleDisabled(plugin) {
+    if (!mounted || configBusy || !workspace.ready || !canEditWorkspace())
+      return;
+    const settingsOwner = /** @type {Record<string,any>} */ (
+      workspace.data.settings
+    );
+    pluginRegistry.invalidate(plugin.name);
+    exportController?.abort();
+    const config = settingsOwner.pluginConfig ?? {};
+    settingsOwner.pluginConfig = {
+      ...config,
+      [plugin.name]: {
+        ...config[plugin.name],
+        disabled: config[plugin.name]?.disabled !== true,
+      },
+    };
+    error = "";
+    await savePluginSettings();
+  }
+  async function savePluginSettings() {
+    if (!mounted || configBusy || !canEditWorkspace()) return;
+    configBusy = true;
+    const owner = workspace.data.settings;
+    try {
+      const saved = await persist();
+      if (mounted && workspace.data.settings === owner) {
+        configSaveFailed = !saved;
+        if (!saved)
+          error =
+            "Plugin settings could not be saved. Retry saving before closing the app.";
+        else error = "";
+      }
+    } catch (failure) {
+      if (mounted && workspace.data.settings === owner) {
+        configSaveFailed = true;
+        error = String(failure);
+      }
+    } finally {
+      if (mounted) configBusy = false;
+    }
+  }
+
   async function inspectFolder() {
     if (!isTauri() || !mounted || busy) return;
     busy = true;
@@ -162,6 +231,12 @@
 
   /** @param {Record<string,any>} plugin */
   function label(plugin) {
+    if (!directory) {
+      const state = sessionReports[plugin.name]?.status;
+      if (state === "ready") return "Loaded in isolation";
+      if (state === "loading") return "Loading plugin";
+      if (state === "error") return "Plugin load failed";
+    }
     if (exportReports[plugin.directory]?.error) return "Export check failed";
     if (exportReports[plugin.directory]?.result) return "Exports checked";
     if (plugin.status === "duplicate") return "Duplicate name";
@@ -191,7 +266,8 @@
       if (
         !mounted ||
         controller.signal.aborted ||
-        workspace.data.settings !== owner
+        workspace.data.settings !== owner ||
+        settings.pluginConfig?.[plugin.name]?.disabled === true
       )
         return;
       if (snapshot.name !== plugin.name)
@@ -204,7 +280,8 @@
       if (
         mounted &&
         workspace.data.settings === owner &&
-        !controller.signal.aborted
+        !controller.signal.aborted &&
+        settings.pluginConfig?.[plugin.name]?.disabled !== true
       )
         exportReports = { ...exportReports, [plugin.directory]: { result } };
     } catch (failure) {
@@ -244,8 +321,12 @@
       <Button disabled={busy} onclick={() => void inspectFolder()}
         >Inspect folder</Button
       >
-      <Button disabled={busy} onclick={() => void reload()}
-        >Reload plugins</Button
+      <Button
+        disabled={busy}
+        onclick={() => {
+          pluginRegistry.invalidate();
+          void reload();
+        }}>Reload plugins</Button
       >
       {#if directory && report?.exists}
         <Button
@@ -298,6 +379,11 @@
     {/if}
     {#if busy}<p class="hint" role="status">Inspecting plugin packages…</p>{/if}
     {#if error}<Feedback as="p" tone="error" role="alert">{error}</Feedback
+      >{/if}
+    {#if configSaveFailed}<Button
+        disabled={configBusy}
+        onclick={() => void savePluginSettings()}
+        >Retry saving plugin settings</Button
       >{/if}
     {#if report}
       <h4>Detected plugins ({report.packages.length})</h4>
@@ -369,10 +455,41 @@
               <Feedback as="p" tone="error" role="alert"
                 >{exportReports[plugin.directory].error}</Feedback
               >
-            {:else}
+            {:else if directory || !sessionReports[plugin.name]}
               <p>{plugin.message}</p>
             {/if}
             <code>{plugin.directory}</code>
+            {#if sessionReports[plugin.name]?.status === "ready" && !directory}
+              <p class="hint" role="status">
+                Plugin loaded in isolation. Hooks and actions are not connected
+                yet.
+              </p>
+            {:else if sessionReports[plugin.name]?.error && !directory}
+              <Feedback as="p" tone="error" role="alert"
+                >{sessionReports[plugin.name].error}</Feedback
+              >
+            {/if}
+            {#if plugin.status === "execution-pending" && !directory}
+              <div class="plugin-actions">
+                <Button
+                  disabled={busy ||
+                    sessionReports[plugin.name]?.status === "loading" ||
+                    settings.pluginConfig?.[plugin.name]?.disabled === true}
+                  onclick={() => void loadPlugin(plugin)}>Load plugin</Button
+                >
+                {#if sessionReports[plugin.name]}<Button
+                    onclick={() => pluginRegistry.invalidate(plugin.name)}
+                    >Unload plugin</Button
+                  >{/if}
+                <Button
+                  disabled={configBusy}
+                  onclick={() => void toggleDisabled(plugin)}
+                  >{settings.pluginConfig?.[plugin.name]?.disabled === true
+                    ? "Enable plugin"
+                    : "Disable plugin"}</Button
+                >
+              </div>
+            {/if}
             {#if plugin.dependencies.length}
               <p class="hint">
                 Dependencies: {plugin.dependencies

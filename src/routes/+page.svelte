@@ -70,12 +70,15 @@
   import "@fontsource-variable/roboto-mono";
   import "$lib/styles.css";
   import SettingsPanel from "$lib/components/SettingsPanel.svelte";
+  import { pluginRegistry } from "$lib/workspace.svelte.js";
   import Dropdown from "$lib/components/ui/Dropdown.svelte";
   const editingBlocked = $derived(
     app.draining || app.persistencePhase !== "idle",
   );
   const importWork = createWorkspaceWorkScope();
   onDestroy(importWork.dispose);
+  onDestroy(() => pluginRegistry.dispose());
+  $effect(() => { pluginRegistry.synchronize(); });
   let cloneOpen = $state(false);
   let modal = $state(""),
     name = $state(""),

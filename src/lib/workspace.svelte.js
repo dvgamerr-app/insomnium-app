@@ -12,6 +12,8 @@ import { createGitRestore } from "./git-restore.js";
 import { createGitMerge } from "./git-merge.js";
 import { createRunDrain } from "./run-drain.js";
 import { isTauri, invoke } from "@tauri-apps/api/core";
+import { createPluginRegistry } from "./plugin-registry.js";
+import { openPluginSession } from "./plugin-session.js";
 import { createGitClient, nativeGitBinding } from "./git-client.js";
 import {
   createGitRemoteClient,
@@ -125,6 +127,28 @@ export const workspace = $state({
 const unsubscribePersistence = subscribeWorkspacePersistence((phase) => {
   workspace.persistencePhase = phase;
 });
+export const pluginRegistry = createPluginRegistry({
+  getContext: () => ({
+    owner: workspace.data,
+    settings: workspace.data.settings,
+    ready:
+      workspace.ready &&
+      isTauri() &&
+      !workspace.draining &&
+      workspace.persistencePhase === "idle",
+  }),
+  discover: (settings) =>
+    invoke("discover_plugin_sources", {
+      directories: settings.pluginDirectories ?? [],
+      legacyPath:
+        settings.pluginPathMigrationVersion === 1
+          ? null
+          : (settings.pluginPath ?? null),
+    }),
+  readPackage: (directory) => invoke("read_plugin_package", { directory }),
+  openSession: openPluginSession,
+});
+if (import.meta.hot) import.meta.hot.dispose(() => pluginRegistry.dispose());
 if (import.meta.hot) import.meta.hot.dispose(unsubscribePersistence);
 const gitClient = createGitClient();
 const setupGitBinding = createGitSetup({
