@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Selected foreign response-template environment — committed handoff — 2026-10-10
+
+- Topic `1f1f572d561c3a58448df01a2f15d7a93f35dc0c` (`test(ui): verify selected foreign template environments`) commits the existing saved scenario's environment mode and scoped docs. Compiler2443 terminal0/0errors0warnings, formatting and staged diff pass. Corrected native52641/artifact1791616642560 terminal0/4groups/5wire/9workers; native68356 exit0/native-hidden/visible:false. Independent703source/production01515fc0/literal wire/body/base64/history/selection audit passes, including durable explicit caller seed. Initial fixture-retention audit failure preserved. Evidence/commands/limits: TEMPLATE-RESPONSE-ENVIRONMENTS.md.
+- Exact owned51688/68356 and both WebView2 profile processes absent; no live feature process/session handles. Application/CSS/backend unchanged. Full migration/UX/CSS goal remains active: broader environment transitions/OAuth/provider/cycles/SSE/protocol/platform/accessibility/OS transfer and every original parity/shared adoption/ownership gate remain required.
+- Owner requires `/compact` after each feature. This interface has no callable `/compact`; no compaction occurred. Actual topic SHA/evidence/remaining gates/no-live-handles handoff is recorded instead. No next feature started. Current documentation checkpoint SHA is `git log -1`.
+
 ## Selected foreign response-template environment — verified — 2026-10-10
 
 - Corrected native52641/artifact1791616642560 terminal0 accepts4groups/5wire/9workers; native68356 exit0/native-hidden/visible:false. Independent703source/production01515fc0/wire/order/body/base64/history/selection audit passes, including durable caller seed. Compiler2443 terminal0/0errors0warnings and formatting pass. First audit-only fixture retention failure preserved in TEMPLATE-RESPONSE-ENVIRONMENTS.md. Exact owned51688/68356 and both WebView2 profiles absent; no live feature handles.
