@@ -13,6 +13,8 @@ import {
 import { prepareRenderedRequest } from "../../src/lib/transport.js";
 
 const version = process.env.INSOMNIUM_OPENAPI_VERSION || "3.2.1";
+const readOnlyOnly = process.env.INSOMNIUM_OPENAPI_CASE_SET === "readonly";
+assert.ok(!process.env.INSOMNIUM_OPENAPI_CASE_SET || readOnlyOnly);
 assert.ok(["3.1.0", "3.2.0", "3.2.1"].includes(version));
 const received = /** @type {Record<string,any>[]} */ ([]);
 const server = Bun.serve({
@@ -225,11 +227,16 @@ try {
         })),
       ]);
       const checks = [];
-      for (const entry of cases) {
+      for (const entry of cases.filter(
+        (entry) => !readOnlyOnly || entry.readOnlyContract,
+      )) {
         const request = requests.find(
           (/** @type {any} */ r) => new URL(r.url).pathname === entry.target,
         );
         assert.ok(request);
+        if (readOnlyOnly && entry.name === "readonly direct false branch") {
+          await page.setViewportSize({ width: 760, height: 960 });
+        }
         const encoded = encodeGitResource(request),
           restored = decodeGitResource(encoded.path, encoded.content);
         assert.ok(restored);
@@ -329,6 +336,13 @@ try {
             assert.equal(request.body.text, wanted);
             assert.equal(restored.body.text, wanted);
           }
+          if (readOnlyOnly && entry.name === "readonly direct false branch") {
+            await page
+              .getByRole("tablist", { name: "Request editor", exact: true })
+              .getByRole("tab", { name: "Body", exact: true })
+              .click();
+            await page.screenshot({ path: output + "/readonly-body-760.png" });
+          }
           await page.getByRole("button", { name: "Send", exact: true }).click();
           await poll(
             async () => received.length === count + 1,
@@ -360,6 +374,11 @@ try {
           refusal: !!entry.refusal,
           passed: true,
         });
+        if (readOnlyOnly)
+          await Bun.write(
+            output + "/readonly-progress.json",
+            JSON.stringify({ version, checks, received }, null, 2),
+          );
       }
       const persisted = await invoke("load_workspace");
       await page.reload();
@@ -373,6 +392,7 @@ try {
           {
             passed: true,
             version,
+            caseSet: readOnlyOnly ? "readonly" : "all",
             checks,
             received,
             sourceSpec: spec,

@@ -9,6 +9,103 @@ const ref = (/** @type {string} */ name) => ({
   $ref: "#/components/schemas/" + name,
 });
 const text = { type: "string", default: "allowed" };
+const property = (/** @type {any} */ serverOnly) => ({
+  type: "object",
+  required: ["serverOnly"],
+  properties: { serverOnly, name: text },
+});
+export const readOnlySchemaCases = [
+  {
+    name: "readonly direct false branch",
+    schema: property({ readOnly: true, allOf: [false] }),
+    expected: { name: "allowed" },
+  },
+  {
+    name: "readonly allOf annotation",
+    schema: property({ allOf: [false, { readOnly: true }] }),
+    expected: { name: "allowed" },
+  },
+  {
+    name: "readonly false reference siblings",
+    schema: property({ ...ref("False"), readOnly: true }),
+    expected: { name: "allowed" },
+  },
+  {
+    name: "readonly false dynamic reference siblings",
+    schema: property({
+      $dynamicRef: "#/components/schemas/False",
+      readOnly: true,
+    }),
+    expected: { name: "allowed" },
+  },
+  {
+    name: "readonly nested required property",
+    schema: {
+      type: "object",
+      properties: { profile: property({ readOnly: true, allOf: [false] }) },
+    },
+    expected: { profile: { name: "allowed" } },
+  },
+  {
+    name: "readonly writable false sibling",
+    schema: {
+      ...property({ readOnly: true, allOf: [false] }),
+      required: ["serverOnly", "writable"],
+      properties: {
+        serverOnly: { readOnly: true, allOf: [false] },
+        writable: false,
+        name: text,
+      },
+    },
+    refusal: true,
+  },
+  {
+    name: "readonly false annotation stays writable",
+    schema: property({ readOnly: false, allOf: [false] }),
+    refusal: true,
+  },
+  {
+    name: "readonly invalid alternative is not unconditional",
+    schema: property({ anyOf: [{ readOnly: true, allOf: [false] }, text] }),
+    expected: { serverOnly: "allowed", name: "allowed" },
+  },
+  {
+    name: "readonly negated annotation is not unconditional",
+    schema: property({ ...text, not: { readOnly: true, allOf: [false] } }),
+    expected: { serverOnly: "allowed", name: "allowed" },
+  },
+  {
+    name: "readonly explicit omission",
+    schema: property({ allOf: [false, { readOnly: true }] }),
+    example: { name: "explicit" },
+    expected: { name: "explicit" },
+  },
+  {
+    name: "readonly explicit prohibited value",
+    schema: property({ readOnly: true, allOf: [false] }),
+    example: { serverOnly: "no", name: "explicit" },
+    refusal: true,
+  },
+  {
+    name: "readonly composed nonboolean property",
+    schema: property({ allOf: [text, { readOnly: true }] }),
+    expected: { name: "allowed" },
+  },
+  {
+    name: "readonly literal annotation stays data",
+    schema: {
+      type: "object",
+      required: ["payload"],
+      properties: {
+        payload: {
+          type: "object",
+          default: { readOnly: true, allOf: [false] },
+        },
+      },
+    },
+    expected: { payload: { readOnly: true, allOf: [false] } },
+  },
+].map((entry) => ({ ...entry, readOnlyContract: true }));
 export const booleanSchemaCases = [
   { name: "direct true", schema: true, expected: null },
   { name: "referenced true", schema: ref("True"), expected: null },
@@ -114,6 +211,7 @@ export const booleanSchemaCases = [
     },
     expected: { true: true, false: false, $ref: false, $dynamicRef: true },
   },
+  ...readOnlySchemaCases,
 ];
 
 /** @param {string} version @param {string} server */

@@ -11,7 +11,7 @@ await withComponentFixture("openapi-boolean-schema", async (page, output) => {
     JSON.stringify(evidence, null, 2),
   );
   assert.equal(evidence.passed, true, evidence.error);
-  assert.equal(evidence.checks.length, 175);
+  assert.equal(evidence.checks.length, 253);
   const fixture = page.getByRole("region", {
     name: "Boolean schema review fixture",
     exact: true,

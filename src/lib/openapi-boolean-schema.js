@@ -34,6 +34,32 @@ function put(target, key, value) {
   });
 }
 
+/** Request sampling skips read-only properties. An allOf/ref expansion can
+ * carry that annotation below the property root; alternatives and conditionals
+ * are not unconditional annotations and must not be flattened here.
+ * @param {any} schema */
+function readOnlyProperty(schema) {
+  const pending = [schema];
+  const seen = new Set();
+  while (pending.length) {
+    const node = pending.pop();
+    if (
+      !node ||
+      typeof node !== "object" ||
+      Array.isArray(node) ||
+      seen.has(node)
+    )
+      continue;
+    seen.add(node);
+    if (seen.size > 10000)
+      throw Error("Read-only schema sampling exceeds the processing limit.");
+    if (node.readOnly === true) return true;
+    if (Array.isArray(node.allOf))
+      for (const branch of node.allOf) pending.push(branch);
+  }
+  return false;
+}
+
 /** Turn a resolved, possibly cyclic graph into local references for the
  * interpreter. Resource identities already resolved on the actual sampling path.
  * @param {Record<string,any>|boolean} schema */
@@ -88,7 +114,7 @@ export function booleanSchemaValidator(schema) {
     // OpenAPI request sampling intentionally excludes read-only properties.
     if (Array.isArray(result.required))
       result.required = result.required.filter(
-        (name) => !node.properties?.[name]?.readOnly,
+        (name) => !readOnlyProperty(node.properties?.[name]),
       );
     definitions["s" + index] = result;
   }
@@ -128,8 +154,10 @@ export function prepareBooleanSample(schema) {
         !Array.isArray(value)
       ) {
         const map = {};
-        for (const [name, child] of Object.entries(value))
+        for (const [name, child] of Object.entries(value)) {
+          if (key === "properties" && readOnlyProperty(child)) continue;
           put(map, name, visit(child));
+        }
         put(result, key, map);
       } else if (
         (role === "array:schema" || role === "schemaOrArray") &&
@@ -143,6 +171,10 @@ export function prepareBooleanSample(schema) {
       seen.set(node, false);
       return false;
     };
+    if (Array.isArray(result.required))
+      result.required = result.required.filter(
+        (name) => !readOnlyProperty(node.properties?.[name]),
+      );
     if (result.allOf?.includes(false)) return impossible();
     for (const keyword of ["anyOf", "oneOf"])
       if (Array.isArray(result[keyword])) {
