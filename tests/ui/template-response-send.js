@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { withNativeApp, poll } from "./helpers/native-app.js";
 import { heldHttp } from "./helpers/held-http.js";
-import { initialData, newRequest } from "../../src/lib/model.js";
+import {
+  initialData,
+  newRequest,
+  rememberEnvironment,
+} from "../../src/lib/model.js";
 import {
   installResponseWorkerControl,
   responseWorkerRecords,
@@ -14,6 +18,7 @@ const jsonBody =
   '{"token":"owned-token","names":["alpha","β"],"false":false,"zero":0,"nil":null,"empty":""}';
 const xmlBody = '<r><item id="a">alpha</item><item id="b"><b>β</b></item></r>';
 const wire = /** @type {Record<string,any>[]} */ ([]);
+const environmentMode = process.env.INSOMNIUM_TEMPLATE_ENVIRONMENTS === "1";
 const held = await heldHttp({
   body: jsonBody,
   headers: { "Content-Type": "application/json" },
@@ -34,7 +39,13 @@ const server = Bun.serve({
     });
     const xml = url.pathname === "/xml";
     return new Response(
-      url.pathname === "/root" ? "root-accepted" : xml ? xmlBody : jsonBody,
+      url.pathname === "/root"
+        ? "root-accepted"
+        : xml
+          ? xmlBody
+          : environmentMode
+            ? JSON.stringify({ token: url.searchParams.get("scope") })
+            : jsonBody,
       {
         headers: {
           "Content-Type":
@@ -51,7 +62,9 @@ const server = Bun.serve({
 });
 try {
   await withNativeApp(
-    "template-response-send",
+    environmentMode
+      ? "template-response-environments"
+      : "template-response-send",
     async ({ page, invoke, output }) => {
       page.setDefaultTimeout(60000);
       const suffix = Date.now(),
@@ -144,6 +157,7 @@ try {
         return {
           activeWorkspaceId: latest.activeWorkspaceId,
           activeRequestId: latest.activeRequestId,
+          activeEnvironmentId: latest.activeEnvironmentId,
           resources,
           history: latest.history.filter((/** @type {any} */ r) =>
             Object.values(ids).includes(r.requestId),
@@ -213,6 +227,118 @@ try {
           Buffer.from(response.body).toString("base64"),
         );
         return response;
+      }
+      if (environmentMode) {
+        const selectedId = "env_trs_selected_" + suffix;
+        const setup = await invoke("load_workspace");
+        setup.resources.push({
+          _id: selectedId,
+          _type: "environment",
+          parentId: "env_trs_" + suffix,
+          name: "Foreign selected",
+          data: { scope: "selected" },
+        });
+        rememberEnvironment(setup, foreignId, selectedId);
+        setup.resources.find(
+          (/** @type {any} */ r) => r._id === ids.foreign,
+        ).url = `http://127.0.0.1:${server.port}/json?scope={{ scope }}`;
+        await invoke("save_workspace", { data: setup });
+        for (const name of ["selected-first", "selected-again"]) {
+          await configure(
+            name,
+            tag("body", ids.foreign, "$.token", "no-history"),
+          );
+          const start = wire.length;
+          await send(ids.root);
+          const events = wire.slice(start),
+            current = await state();
+          assert.deepEqual(
+            events.map((e) => e.path),
+            ["/json", "/root"],
+          );
+          assert.equal(events[0].query, "?scope=selected");
+          assert.equal(events[1].body, "selected");
+          assert.equal(
+            (await latestResponse(ids.foreign)).environmentId,
+            selectedId,
+          );
+          assert.equal(current.activeWorkspaceId, workspaceId);
+          assert.equal(current.activeRequestId, ids.root);
+          assert.equal(current.activeEnvironmentId, "");
+          checks.push({ kind: name, events, state: current });
+          await progress();
+        }
+        await configure("selected-never", tag("body", ids.foreign, "$.token"));
+        const count = wire.length,
+          before = await state();
+        await page.getByRole("button", { name: "Send", exact: true }).click();
+        await page
+          .getByRole("region", { name: "Response", exact: true })
+          .getByText("No responses", { exact: false })
+          .waitFor();
+        await poll(
+          async () =>
+            (await page
+              .getByRole("button", { name: "Cancel", exact: true })
+              .count()) === 0,
+          "Selected environment refusal settles",
+          60000,
+        );
+        assert.equal(wire.length, count);
+        assert.deepEqual((await state()).history, before.history);
+        checks.push({ kind: "caller-history-refusal", state: await state() });
+        await progress();
+        const seed = await invoke("load_workspace");
+        const response = await latestResponse(ids.foreign);
+        seed.history.unshift({
+          ...response,
+          _id: "res_trs_caller_" + suffix,
+          environmentId: null,
+          created: Date.now(),
+          body: '{"token":"caller-history"}',
+          bodyBase64: Buffer.from('{"token":"caller-history"}').toString(
+            "base64",
+          ),
+        });
+        await invoke("save_workspace", { data: seed });
+        await configure(
+          "caller-history",
+          tag("body", ids.foreign, "$.token", "no-history"),
+        );
+        const start = wire.length;
+        await send(ids.root);
+        const events = wire.slice(start);
+        assert.deepEqual(
+          events.map((e) => e.path),
+          ["/root"],
+        );
+        assert.equal(events[0].body, "caller-history");
+        checks.push({
+          kind: "caller-history-reuse",
+          events,
+          state: await state(),
+        });
+        await progress();
+        await Bun.write(
+          output + "/acceptance.json",
+          JSON.stringify(
+            {
+              passed: true,
+              checks,
+              workers,
+              wire,
+              ids,
+              workspaceId,
+              foreignId,
+              selectedId,
+              limits:
+                "Selected foreign environment and caller-scoped history; OAuth/cycles/SSE/protocol/platform/full migration remain required.",
+            },
+            null,
+            2,
+          ),
+        );
+        return;
       }
       for (const id of [ids.json, ids.xml]) {
         await select(id);

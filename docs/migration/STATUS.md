@@ -1,5 +1,17 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Selected foreign response-template environment — verified — 2026-10-10
+
+- Corrected native52641/artifact1791616642560 terminal0 accepts4groups/5wire/9workers; native68356 exit0/native-hidden/visible:false. Independent703source/production01515fc0/wire/order/body/base64/history/selection audit passes, including durable caller seed. Compiler2443 terminal0/0errors0warnings and formatting pass. First audit-only fixture retention failure preserved in TEMPLATE-RESPONSE-ENVIRONMENTS.md. Exact owned51688/68356 and both WebView2 profiles absent; no live feature handles.
+- Added mode in existing saved scenario; application/CSS/backend unchanged. Topic commit pending. Full migration/UX/CSS remains active: broader environment transitions/OAuth/provider/cycles/SSE/protocol/platform/accessibility/OS transfer and every original parity/shared adoption/ownership gate. Interface cannot invoke `/compact`; record actual topic SHA and handoff after commit.
+
+## Selected foreign response-template environment — acceptance prepared — 2026-10-10
+
+- First native8023/artifact1791616465601 terminal0/4groups/5wire/native51688 exit0/native-hidden. Independent audit found seeded caller history appended at the end is evicted by existing bounded history when the next response is recorded; root body correctly used caller-history but durable seed assertion failed. Corrected only saved fixture insertion from push to unshift after terminal; unchanged468app/production01515fc0/refreshed703binding passes. Corrected native52641 launched; poll exact handle, keep app/scenario frozen. Compiler2443 terminal0/0errors0warnings and formatting pass. No full acceptance claimed before corrected terminal/audit/cleanup.
+
+- Resumed active migration after pause; clean HEAD79d637b and current instructions/status/plan/parity inspected, no Claude files found. Added environment mode to the existing saved template-response-send scenario: selected foreign sub-environment actual wire/history, repeated no-history target-versus-caller behavior, never refusal and explicitly seeded caller-history reuse. Application/CSS/backend unchanged; all468 application paths and production01515fc0 identity verified against prior freeze. Shared native-hidden helper retained.
+- Native scenario launched; exact terminal outcome, compiler2443, independent acceptance/source/build/cleanup audit and topic commit remain required. Source/scenario frozen while native runs. Full migration/UX/CSS remains active; OAuth/cycles/SSE/protocol/platform/accessibility/OS transfer and original parity gates remain. Redesign follows full migration. Interface cannot invoke `/compact`; record actual topic SHA and handoff when complete.
+
 ## Template response Send — committed handoff — 2026-10-10
 
 - Topic `ed2f66625206ecbce39a2a31699d679831efe33e` (`test(ui): verify native response template Send ownership`) commits the saved scenario and scoped evidence. Compiler8091 terminal0/0errors0warnings, formatting and staged diff pass. Native82773/artifact1791611900475 terminal0/native70584 exit0/native-hidden/visible:false:19groups/43workers/20wire plus one held dependency. Independent703source/production01515fc0/literal/body/base64/history/order/foreign Base/socket Cancel/stopped generation audit passes; first selector failure retained. Exact evidence/commands/limits: TEMPLATE-RESPONSE-SEND.md.
