@@ -1,9 +1,9 @@
 import { resolvePluginModule, pluginModuleFormat } from "./plugin-modules.js";
 
-/** Execute a package in a fresh VM and retain only declarative export metadata.
+/** Load a package in its own bounded VM; caller owns the returned context.
  * @param {import('quickjs-emscripten-core').QuickJSWASMModule} engine
  * @param {{name:string,entry:string,format:string,files:Record<string,string>}} snapshot */
-export function inspectPluginExportsIsolated(engine, snapshot) {
+export function createPluginVm(engine, snapshot) {
   if (
     !snapshot ||
     typeof snapshot.name !== "string" ||
@@ -25,7 +25,7 @@ export function inspectPluginExportsIsolated(engine, snapshot) {
   const vm = engine.newContext();
   vm.runtime.setMemoryLimit(128 * 1024 * 1024);
   vm.runtime.setMaxStackSize(512 * 1024);
-  const deadline = performance.now() + 2000;
+  let deadline = performance.now() + 2000;
   vm.runtime.setInterruptHandler(() => performance.now() >= deadline);
   /** @param {string} source @param {string} [filename] @param {import('quickjs-emscripten-core').ContextEvalOptions} [options] */
   const evaluate = (source, filename = "plugin-bootstrap.js", options = {}) => {
@@ -80,7 +80,23 @@ export function inspectPluginExportsIsolated(engine, snapshot) {
         `globalThis.__pluginExports=globalThis.__requirePluginModule(${JSON.stringify(snapshot.entry)});`,
       ).dispose();
     }
-    const result = evaluate(`JSON.stringify((() => {
+    return {
+      vm,
+      evaluate,
+      resetDeadline: () => {
+        deadline = performance.now() + 2000;
+      },
+    };
+  } catch (error) {
+    vm.dispose();
+    throw error;
+  }
+}
+
+/** @param {ReturnType<typeof createPluginVm>} loaded @param {string} name */
+export function inspectPluginVm(loaded, name) {
+  const { vm, evaluate } = loaded;
+  const result = evaluate(`JSON.stringify((() => {
       const exports = globalThis.__pluginExports;
       if (!exports || (typeof exports !== 'object' && typeof exports !== 'function')) throw Error('Plugin exports must be an object');
       const names = ['templateTags','requestHooks','responseHooks','themes','requestGroupActions','requestActions','workspaceActions','documentActions'];
@@ -103,15 +119,24 @@ export function inspectPluginExportsIsolated(engine, snapshot) {
       }
       return { contributions, unknownExports: Object.keys(exports).filter(name => !names.includes(name)).slice(0,64) };
     })())`);
-    try {
-      const json = vm.getString(result);
-      if (json.length > 256 * 1024)
-        throw Error("Plugin metadata exceeds the 256 KiB limit");
-      return { name: snapshot.name, ...JSON.parse(json) };
-    } finally {
-      result.dispose();
-    }
+  try {
+    const json = vm.getString(result);
+    if (json.length > 256 * 1024)
+      throw Error("Plugin metadata exceeds the 256 KiB limit");
+    return { name, ...JSON.parse(json) };
   } finally {
-    vm.dispose();
+    result.dispose();
+  }
+}
+
+/** Execute a package and retain metadata only; inspection never invokes callbacks.
+ * @param {import('quickjs-emscripten-core').QuickJSWASMModule} engine
+ * @param {{name:string,entry:string,format:string,files:Record<string,string>}} snapshot */
+export function inspectPluginExportsIsolated(engine, snapshot) {
+  const loaded = createPluginVm(engine, snapshot);
+  try {
+    return inspectPluginVm(loaded, snapshot.name);
+  } finally {
+    loaded.vm.dispose();
   }
 }

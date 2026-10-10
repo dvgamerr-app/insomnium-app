@@ -1,5 +1,7 @@
 # Legacy plugin compatibility inventory
 
+Retained callback core now executes seven contribution kinds in owned isolated sessions with all six durable context.store methods. Production9e3c459d native/restart and retained regressions pass independent audits. This is a callable core with a required live-owner guard; product registries/Send hooks/action menus/themes, full argument/value encoding beyond JSON-only, admission/disable/reload ownership and other context adapters remain required. [PLUGIN-SESSION.md](PLUGIN-SESSION.md).
+
 2026-10-10 inventory from the read-only archive and current source. This is an implementation inventory, not completed custom-plugin parity. No archive files or installed user plugins are changed.
 
 The first admission milestones now have covered Windows native acceptance: read-only package metadata/Preferences status reporting, persistent custom paths/explicit legacy import/actual restart, bounded entry normalization/file-index-fallback lookup, nearest-scope format and isolated CJS/ESM export inspection. See [PLUGIN-DISCOVERY.md](PLUGIN-DISCOVERY.md), [PLUGIN-FOLDERS.md](PLUGIN-FOLDERS.md), [PLUGIN-ENTRIES.md](PLUGIN-ENTRIES.md), [PLUGIN-FORMATS.md](PLUGIN-FORMATS.md) and [PLUGIN-RUNTIME.md](PLUGIN-RUNTIME.md). All eight contribution arrays have metadata inspection; their activation, complete module admission/lifecycle, duplicate-winner policy, package installation and the six custom context namespaces remain required.
