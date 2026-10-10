@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { withNativeApp, poll } from "./helpers/native-app.js";
 import { initialData, newRequest } from "../../src/lib/model.js";
+import { verifyResponsePreviewTools } from "./helpers/response-preview-tools.js";
 import {
   installResponseWorkerControl,
   responseWorkerRecords,
@@ -190,6 +191,29 @@ try {
         state.response.bodyBase64,
         Buffer.from(source).toString("base64"),
       );
+      if (process.env.INSOMNIUM_JSON_RESPONSE_TOOLS === "1") {
+        await verifyResponsePreviewTools({
+          page,
+          invoke,
+          output,
+          pane,
+          value,
+          input,
+          apply,
+          saved,
+          send,
+          reset,
+          requestId,
+          metaId,
+          source,
+          pretty,
+          alternate,
+          names,
+          serverPort: server.port,
+          wire,
+        });
+        return;
+      }
       await pane.getByRole("button", { name: "Raw", exact: true }).click();
       assert.equal(await value(), source);
       await pane.getByRole("button", { name: "Pretty", exact: true }).click();
