@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Plugin session — committed handoff — 2026-10-10
+
+- Current topic commit `5168bddcba60fbb06590fe7fe97a860d1a88dae2` (`feat(plugins): retain isolated callback sessions and bridge local stores`) contains verified retained VM/client/production-worker store bridge, saved actual native/restart scenario and documentation. Evidence: production9e3c459d/current732source/session6groups/7callback kinds/6store methods/14terminated workers, retained store/runtime/formats/discovery/sources+restart audits, compiler0/0 and headless workspace12. PLUGIN-SESSION.md and verified checkpoint below retain exact artifacts, failures, corrections and limitations.
+- All feature jobs terminal; exact expected host/build PID names and owned WebView profiles absent, plugin-session-cleanup.json. No live process handles. Next feature must address full argument/value encoding beyond JSON-only and/or actual product admission/registry lifecycle before contribution integration; all remaining context/legacy import/Send/action/theme/package/provider/platform/accessibility/CI/shared adoption/full migration/UX/CSS gates stay active.
+- This interface cannot invoke `/compact`; no compaction occurred. Actual commit/evidence/remaining gates/no-live-handles are recorded here as the required handoff before another feature. Documentation checkpoint SHA is available through `git log -1`.
+
 ## Plugin session — verified — 2026-10-10
 
 - Previous turn yielded fresh headless workspace12 verification. Current retained session milestone passes production9e3c459d/current732source: native1791637356081/PID72400 +actual restart1791637365143/PID71192, six groups/seven callback kinds/six store methods/14terminated workers/26unchanged files. Independent literal/source/build/worker-byte/zero-forged-and-stale-IPC/cancellation/late-committed-mutation/store-restoration/full-workspace audit passes. Core live-owner seam accepted; automatic product registry ownership remains required.
