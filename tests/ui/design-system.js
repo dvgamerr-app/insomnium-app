@@ -751,6 +751,39 @@ await withComponentFixture("design-system", async (page, output) => {
   assert.equal(await second.getAttribute("aria-selected"), "true");
   await second.press("ArrowRight");
   assert.equal(await first.getAttribute("aria-selected"), "true");
+  const panel = page.getByRole("tabpanel");
+  const panelFocus = [];
+  for (const theme of ["dark", "light"]) {
+    await page.evaluate(
+      (mode) => (document.documentElement.dataset.theme = mode),
+      theme,
+    );
+    for (const width of [1440, 900, 760]) {
+      await page.setViewportSize({ width, height: 960 });
+      await first.focus();
+      await first.press("Tab");
+      assert.equal(await panel.getAttribute("tabindex"), "0");
+      assert.equal(
+        await panel.evaluate((el) => el === document.activeElement),
+        true,
+        "Tab reaches the text-only selected panel",
+      );
+      assert.equal(
+        await panel.getAttribute("aria-labelledby"),
+        await first.getAttribute("id"),
+      );
+      await panel.press("Shift+Tab");
+      assert.equal(
+        await first.evaluate((el) => el === document.activeElement),
+        true,
+      );
+      panelFocus.push({ theme, width, passed: true });
+    }
+  }
+  await Bun.write(
+    output + "/tab-panel-focus.json",
+    JSON.stringify(panelFocus, null, 2),
+  );
   const open = page.getByRole("button", {
     name: "Open shared dialog",
     exact: true,

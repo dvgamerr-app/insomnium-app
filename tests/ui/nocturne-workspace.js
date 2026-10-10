@@ -226,6 +226,29 @@ await withPreview("nocturne-workspace", async (page, output) => {
     .click();
   for (const width of [1440, 900, 760]) {
     await page.setViewportSize({ width, height: 960 });
+    const panels = await page.getByRole("tabpanel").evaluateAll((elements) =>
+      elements.map((element) => {
+        const bounds = element.getBoundingClientRect();
+        return {
+          id: element.id,
+          width: bounds.width,
+          height: bounds.height,
+          right: bounds.right,
+          bottom: bounds.bottom,
+          tabindex: element.getAttribute("tabindex"),
+        };
+      }),
+    );
+    assert.ok(panels.length > 0, "Application renders shared tab panels");
+    for (const panel of panels) {
+      assert.equal(panel.tabindex, "0", panel.id);
+      assert.ok(panel.width > 0 && panel.height > 0, panel.id);
+      assert.ok(panel.right <= width + 1 && panel.bottom <= 961, panel.id);
+    }
+    await Bun.write(
+      output + "/tab-panels-" + width + ".json",
+      JSON.stringify(panels, null, 2),
+    );
     assert.equal(
       await page
         .locator(".app-shell")
@@ -251,6 +274,7 @@ await withPreview("nocturne-workspace", async (page, output) => {
         "shared numeric input persistence",
         "Git left tab and preview empty state",
         "1440/900/760 widths",
+        "shared tab panel focus targets and bounded layout",
       ],
     }),
   );

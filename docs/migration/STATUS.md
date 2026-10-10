@@ -1,5 +1,17 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Shared tab panel keyboard entry — verified frontend — 2026-10-10
+
+- Corrected display:contents after saved scenario76256 terminal1 exposed tabindex-only focus failure. Same saved scenario57782 terminal0/passed, six actual Tab/Shift+Tab/selected-label dark/light width profiles. Fresh build0 and workspace12 pass; positive viewport-bounded request/response panel geometry at1440/900/760, actual760image inspected. Compiler2359 terminal0/0errors0warnings, formatting/diff checks pass. No live feature handles. Existing artifact path now holds passing rerun; initial assertion retained in this log.
+- Shared TabPanel/tabindex override and centralized navigation CSS change; no application data/native/backend/dependency changes. Production executable predates frontend change; native/other content/scrolling/assistive/platform/full accessibility/adoption/ownership and every original migration/UX/CSS gate remain. Exact command/evidence/scope: TAB-PANEL-KEYBOARD.md. Topic commit pending; interface cannot invoke `/compact`, handoff will record actual SHA.
+
+## Shared tab panel keyboard entry — in verification — 2026-10-10
+
+- First headless design-system76256 terminal1 exposed display:contents: tabindex alone cannot focus a boxless panel. Retained failure artifact/result. Shared navigation CSS now gives panels a column flex box with flexible sizing/zero minima so child editor/response scrolling remains owned by existing children. Rerun same saved scenario and application layout regression on a fresh frontend build; no acceptance claimed yet.
+
+- Previous goal turn made progress: OAuth graph topic527255c/checkpoint254eca5 committed with independent acceptance and clean worktree. Current STATUS/PLAN/PARITY/original execution criteria/UI debt/POST-MIGRATION-UX and shared components inspected; no scoped Claude files found. Owner's documented shared UI authorization remains applicable; full migration/UX scope unchanged.
+- W3C APG Tabs pattern consulted before editing (https://www.w3.org/WAI/ARIA/apg/patterns/tabs/): text-only tab panels should enter the page tab order. Shared TabPanel now defaults tabindex0 with explicit numeric override; existing common focus surface owns presentation, no CSS/layout changes. Existing saved design-system scenario adds actual Tab/Shift+Tab entry/return and selected-label checks in six dark/light width profiles. Compiler70758 terminal0/0errors0warnings and formatting pass. Saved headless design-system76256 is live; poll exact session, do not relaunch on timeout. Browser/native release validation and topic commit pending; existing production executable predates this frontend change.
+
 ## Within-root OAuth graph — committed handoff — 2026-10-10
 
 - Topic `527255c142c65e66a104a4f97b3982fd4267be3e` (`test(ui): verify OAuth resources across response graphs`) commits the saved scenario and evidence docs. Native artifact1791620109619/native63420 exit0/native-hidden/visible:false; independent3groups/13wire/3exchanges/38workers/703source/productionc2fbaa43/token forms/headers/identity/ten histories/selection audit passes. Compiler89124 terminal0/0errors0warnings, formatting/staged diff and exact owned cleanup pass. Application/CSS/backend unchanged. No live feature handles.
