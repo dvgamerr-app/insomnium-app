@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { withNativeApp, poll } from "./helpers/native-app.js";
 import { initialData, newRequest } from "../../src/lib/model.js";
+import { verifyXmlResponsePerformance } from "./helpers/xml-response-performance.js";
 import {
   installResponseWorkerControl,
   responseWorkerRecords,
@@ -182,6 +183,20 @@ try {
       );
       checks.push({ kind: "preview", source, pretty, state: await saved() });
       await progress();
+      if (process.env.INSOMNIUM_XML_RESPONSE_PERFORMANCE === "1") {
+        await verifyXmlResponsePerformance({
+          page,
+          pane,
+          input,
+          value,
+          reset,
+          saved,
+          output,
+          workers,
+          wire,
+        });
+        return;
+      }
       for (const [path, expected] of selections) {
         const count = workers.length,
           state = await apply(path, expected);
@@ -288,7 +303,7 @@ try {
         ["/document", "//item[", /XPath|expression|parse/i],
         ["/invalid", "//item", /parse|tag|end|invalid/i],
         ["/many", "//item", /10000 matches/],
-        ["/wide", "//item", /Response filter exceeded 3 seconds/],
+        ["/wide", "//item", /10000 matches/],
       ])) {
         await reset(route);
         await input().fill(path);

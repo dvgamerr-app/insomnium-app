@@ -44,4 +44,14 @@ export const documents = {
     body: "<root>" + "<item/>".repeat(10001) + "</root>",
     type: "application/xml",
   },
+  "/wide-ok": {
+    body:
+      "<root>" +
+      Array.from(
+        { length: 4000 },
+        (_, i) => `<item id="${i}">v${i}</item>`,
+      ).join("") +
+      "</root>",
+    type: "application/xml",
+  },
 };

@@ -2,6 +2,14 @@
 
 Status: scoped native acceptance verified (2026-10-10).
 
+Follow-up [XPATH-PERFORMANCE.md](XPATH-PERFORMANCE.md) corrects repeated sibling
+ordering scans. Fresh release6f744927 verifies4000sibling element/attribute/
+scalar/union/reverse-axis outputs within the worker deadline and10001flat
+match-count refusal, plus retained36XML/26JSON regressions. The earlier84.223s
+Bun diagnostic and old native deadline below remain historical evidence; broader
+expression/tree-shape performance and all remaining gates stay required. The
+old20458ce2 executable is preserved in `artifacts/native-xpath-baseline`.
+
 Corrected native session4106 finishes with actual exit0. Artifact:
 `artifacts/playwright/xml-response-filter-1791603846571`; native67632 exits0,
 `native-hidden`, visible:false. All36groups/58real bundled workers/22HTTP Sends

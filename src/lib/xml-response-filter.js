@@ -1,5 +1,5 @@
 import { DOMParser, XMLSerializer, onErrorStopParsing } from "@xmldom/xmldom";
-import xpath from "xpath";
+import { selectXmlPath } from "./xpath-select.js";
 
 /** XPath 1.0 response preview, following the legacy element/attribute/text selection.
  * @param {string} body @param {string} path */
@@ -11,10 +11,7 @@ export function filterXmlResponse(body, path) {
   const document = new DOMParser({
     onError: onErrorStopParsing,
   }).parseFromString(body, "text/xml");
-  const selected = xpath.select(
-    path,
-    /** @type {Node} */ (/** @type {unknown} */ (document)),
-  );
+  const selected = selectXmlPath(path, document);
   const serializer = new XMLSerializer();
   /** @type {string[]} */ const fragments = [];
   let size = 19;

@@ -1,6 +1,6 @@
 import { filterJsonResponse } from "./response-filter.js";
 import { DOMParser, XMLSerializer, onErrorStopParsing } from "@xmldom/xmldom";
-import xpath from "xpath";
+import { selectXmlPath } from "./xpath-select.js";
 
 /** Legacy response-tag values differ from the response panel's result wrapper.
  * Execute only in a disposable worker.
@@ -26,10 +26,7 @@ export function filterTemplateResponse(body, path) {
     const document = new DOMParser({
       onError: onErrorStopParsing,
     }).parseFromString(body, "text/xml");
-    const selected = xpath.select(
-      path,
-      /** @type {Node} */ (/** @type {unknown} */ (document)),
-    );
+    const selected = selectXmlPath(path, document);
     if (!Array.isArray(selected)) {
       // XPath scalar functions return their textual value.
       value = String(selected);
