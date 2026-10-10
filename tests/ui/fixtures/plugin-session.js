@@ -2,8 +2,10 @@ import { openPluginSession } from "../../../src/lib/plugin-session.js";
 import { createPluginValueCodec } from "../../../src/lib/plugin-values.js";
 
 const sessions = new Map(),
+  operations = new Map(),
   records = /** @type {any[]} */ ([]);
 let nextId = 0;
+let nextOperation = 0;
 /** @type {any} */ (window).__pluginSessionFixture = {
   records,
   /** @param {any} snapshot @param {string} url @param {string} [mode] */
@@ -42,6 +44,138 @@ let nextId = 0;
   /** @param {number} id @param {string} kind @param {number} index @param {any[]} [args] */
   invoke: (id, kind, index, args = []) =>
     sessions.get(id).session.invoke(kind, index, args),
+  /** @param {number} id @param {string} kind @param {number} index @param {any[]} args @param {any} [context] */
+  startOperation(id, kind, index, args, context) {
+    const owner = { alive: true },
+      controller = new AbortController(),
+      options = {
+        isCurrent: () => owner.alive,
+        signal: controller.signal,
+        context,
+      },
+      operation = ++nextOperation;
+    const promise = sessions
+      .get(id)
+      .session.invoke(kind, index, args, options)
+      .then(
+        (/** @type {any} */ value) => ({ value }),
+        (/** @type {any} */ error) => ({
+          error: String(error),
+          name: error.name,
+        }),
+      );
+    operations.set(operation, { owner, controller, context, options, promise });
+    return operation;
+  },
+  /** @param {number} id */
+  operationResult: (id) => operations.get(id).promise,
+  /** Preflight refusals must not enter the guest or close its live session.
+   * @param {number} id */
+  async operationControls(id) {
+    const session = sessions.get(id).session;
+    let getters = 0;
+    const accessor = Object.defineProperty({}, "meta", {
+      enumerable: true,
+      get() {
+        getters++;
+        return {};
+      },
+    });
+    const aborted = new AbortController();
+    aborted.abort();
+    const cases = [
+      ["missing owner", { context: { meta: {} } }, "operation guard"],
+      [
+        "store injection",
+        { isCurrent: () => true, context: { store: {} } },
+        "callback context",
+      ],
+      [
+        "app injection",
+        { isCurrent: () => true, context: { app: {} } },
+        "callback context",
+      ],
+      [
+        "array meta",
+        { isCurrent: () => true, context: { meta: [] } },
+        "callback context",
+      ],
+      [
+        "array context",
+        { isCurrent: () => true, context: { context: [] } },
+        "callback context",
+      ],
+      [
+        "unknown purpose",
+        { isCurrent: () => true, context: { renderPurpose: "preview" } },
+        "render purpose",
+      ],
+      [
+        "accessor",
+        { isCurrent: () => true, context: accessor },
+        "Unsupported or invalid plugin value",
+      ],
+      [
+        "function",
+        { isCurrent: () => true, context: { meta: { callback() {} } } },
+        "Unsupported or invalid plugin value",
+      ],
+      ["invalid signal", { signal: { aborted: false } }, "operation signal"],
+      ["invalid guard", { isCurrent: true }, "operation guard"],
+      ["undefined owner result", { isCurrent: () => undefined }, "AbortError"],
+      [
+        "throwing owner",
+        {
+          isCurrent() {
+            throw Error("stale");
+          },
+        },
+        "AbortError",
+      ],
+      ["preaborted", { signal: aborted.signal }, "AbortError"],
+    ];
+    const checks = [];
+    for (const [name, options, expected] of cases) {
+      let error;
+      try {
+        await session.invoke("templateTags", 0, [], options);
+      } catch (cause) {
+        error = String(cause);
+      }
+      if (!error?.toLowerCase().includes(String(expected).toLowerCase()))
+        throw Error("Missing preflight refusal: " + name + ":" + error);
+      checks.push(name);
+    }
+    let metadataError;
+    try {
+      await session.invoke("templateTagMetadata", 0, [[]], {
+        isCurrent: () => true,
+        context: { meta: {} },
+      });
+    } catch (cause) {
+      metadataError = String(cause);
+    }
+    if (!metadataError?.includes("Metadata queries do not accept"))
+      throw Error("Metadata context must refuse");
+    checks.push("metadata context");
+    if (getters !== 0) throw Error("Preflight invoked accessor");
+    if ((await session.invoke("templateTags", 1)) !== 0)
+      throw Error("Preflight dispatched a refused guest callback");
+    return { checks, getters };
+  },
+  /** @param {number} id @param {string} mode */
+  changeOperation(id, mode) {
+    const op = operations.get(id);
+    if (mode === "abort") op.controller.abort();
+    else if (mode === "stale") op.owner.alive = false;
+    else if (mode === "replace-guard") {
+      op.options.isCurrent = () => true;
+      op.owner.alive = false;
+    } else if (mode === "mutate-context") {
+      op.context.meta.requestId = "changed";
+      op.context.context.shared.value = "changed";
+    }
+  },
   /** @param {number} id */
   close: (id) => sessions.get(id).session.close(),
   /** @param {number} id */

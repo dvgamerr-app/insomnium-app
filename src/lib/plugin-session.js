@@ -1,5 +1,6 @@
 import { createPluginStore } from "./plugin-store.js";
 import { createPluginValueCodec } from "./plugin-values.js";
+import { validatePluginCallContext } from "./plugin-call-context.js";
 
 /** A retained, serialized plugin worker with an explicit live-owner guard.
  * @param {{name:string,entry:string,format:string,files:Record<string,string>}} snapshot
@@ -22,7 +23,7 @@ export async function openPluginSession(snapshot, options) {
     storeId = 0,
     queued = 0;
   let queue = Promise.resolve();
-  /** @type {{id:number,resolve:(value:any)=>void,reject:(error:Error)=>void,timer:ReturnType<typeof setTimeout>}|undefined} */
+  /** @type {{id:number,resolve:(value:any)=>void,reject:(error:Error)=>void,timer:ReturnType<typeof setTimeout>,current:()=>boolean,frame?:object}|undefined} */
   let active;
   const close = (/** @type {Error} */ error = aborted()) => {
     if (closed) return;
@@ -45,14 +46,18 @@ export async function openPluginSession(snapshot, options) {
   };
   const cancel = () => close();
   const ownerTimer = setInterval(() => {
-    if (!current()) close();
+    if (!current() || (active && !active.current())) close();
   }, 100);
   options.signal?.addEventListener("abort", cancel, { once: true });
-  /** @param {Record<string,any>} message */
-  const send = (message) =>
+  /** @param {Record<string,any>} message @param {()=>boolean} [operationCurrent] @param {object} [frame] */
+  const send = (message, operationCurrent = () => true, frame) =>
     new Promise((resolve, reject) => {
       if (!current()) {
         close();
+        reject(aborted());
+        return;
+      }
+      if (!operationCurrent()) {
         reject(aborted());
         return;
       }
@@ -61,6 +66,8 @@ export async function openPluginSession(snapshot, options) {
         id,
         resolve,
         reject,
+        current: operationCurrent,
+        frame,
         timer: setTimeout(
           () => close(new Error("Plugin operation exceeded 5 seconds")),
           5000,
@@ -78,7 +85,7 @@ export async function openPluginSession(snapshot, options) {
   };
   worker.onmessage = async (event) => {
     const message = event.data;
-    if (!current()) {
+    if (!current() || (active && !active.current())) {
       close();
       return;
     }
@@ -125,7 +132,12 @@ export async function openPluginSession(snapshot, options) {
           )
         )
           throw Error("Invalid plugin store arguments");
-        if (!current() || active?.id !== message.callbackId) throw aborted();
+        if (
+          !current() ||
+          !active?.current() ||
+          active.id !== message.callbackId
+        )
+          throw aborted();
         const method =
           /** @type {Record<string,(...args:any[])=>Promise<any>>} */ (store)[
             operation.method
@@ -137,7 +149,7 @@ export async function openPluginSession(snapshot, options) {
           8192,
         );
       }
-      if (current() && active?.id === message.callbackId)
+      if (current() && active?.current() && active.id === message.callbackId)
         worker.postMessage({
           type: "store-result",
           id: message.id,
@@ -177,8 +189,9 @@ export async function openPluginSession(snapshot, options) {
   }
   return {
     metadata,
-    /** @param {string} kind @param {number} index @param {any[]} [args] */
-    invoke(kind, index, args = []) {
+    /** @param {string} kind @param {number} index @param {any[]} [args]
+     * @param {{isCurrent?:()=>boolean,signal?:AbortSignal,context?:Record<string,any>}} [operation] */
+    invoke(kind, index, args = [], operation = {}) {
       if (!current()) {
         close();
         return Promise.reject(aborted());
@@ -188,23 +201,78 @@ export async function openPluginSession(snapshot, options) {
           new Error("Plugin callback queue limit exceeded"),
         );
       let detached;
+      const frame = {},
+        operationSignal = operation.signal,
+        operationGuard = operation.isCurrent,
+        operationCurrent = () => {
+          try {
+            return (
+              !operationSignal?.aborted &&
+              (!operationGuard || operationGuard() === true)
+            );
+          } catch {
+            return false;
+          }
+        };
       try {
+        if (
+          operationGuard !== undefined &&
+          typeof operationGuard !== "function"
+        )
+          throw Error("Invalid plugin operation guard");
+        if (
+          operationSignal !== undefined &&
+          !(operationSignal instanceof AbortSignal)
+        )
+          throw Error("Invalid plugin operation signal");
+        if (!operationCurrent()) return Promise.reject(aborted());
         if (!Array.isArray(args)) throw Error("Invalid plugin arguments");
-        detached = codec.encode(args);
+        // Encode first so accessor/function/prototype refusals cannot execute
+        // getters during context validation, and detach before queueing.
+        detached = codec.encode({ args, context: operation.context ?? {} });
+        const helper = validatePluginCallContext(
+          codec.decode(detached).context,
+        );
+        if (Object.keys(helper).length && typeof operationGuard !== "function")
+          throw Error("Plugin callback context requires an operation guard");
+        if (kind === "templateTagMetadata" && Object.keys(helper).length)
+          throw Error("Metadata queries do not accept callback context");
       } catch (error) {
         return Promise.reject(error);
       }
       queued++;
-      const job = queue.then(() =>
-        send({ type: "invoke", kind, index, args: detached }),
-      );
+      let cancelled = false;
+      /** @type {(error:Error)=>void} */ let rejectCancellation = () => {};
+      const cancellation = new Promise((_, reject) => {
+        rejectCancellation = reject;
+      });
+      const cancelOperation = () => {
+        cancelled = true;
+        if (active?.frame === frame) close();
+        rejectCancellation(aborted());
+      };
+      operationSignal?.addEventListener("abort", cancelOperation, {
+        once: true,
+      });
+      const job = queue.then(() => {
+        if (cancelled || !operationCurrent()) throw aborted();
+        return send(
+          { type: "invoke", kind, index, args: detached },
+          operationCurrent,
+          frame,
+        );
+      });
       queue = job.then(
         () => {},
         () => {},
       );
-      return job.finally(() => {
-        queued--;
-      });
+      void job
+        .finally(() => {
+          queued--;
+          operationSignal?.removeEventListener("abort", cancelOperation);
+        })
+        .catch(() => {});
+      return Promise.race([job, cancellation]);
     },
     close: () => close(),
   };

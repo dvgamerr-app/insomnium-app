@@ -1,5 +1,6 @@
 import { createPluginVm, inspectPluginVm } from "./plugin-runtime.js";
 import { createPluginValueCodec } from "./plugin-values.js";
+import { validatePluginCallContext } from "./plugin-call-context.js";
 
 /** Retained guest module, with only the six-method store capability.
  * @param {import('quickjs-emscripten-core').QuickJSWASMModule} engine
@@ -78,6 +79,9 @@ export function createPluginCallbackRuntime(engine, snapshot, storeCall) {
     evaluate(
       `globalThis.__pluginValueCodec=(${createPluginValueCodec.toString()})();`,
     ).dispose();
+    evaluate(
+      `globalThis.__validatePluginCallContext=(${validatePluginCallContext.toString()});`,
+    ).dispose();
     evaluate(`globalThis.__pluginContext=Object.freeze({store:Object.freeze(Object.fromEntries(
       ['hasItem','getItem','setItem','removeItem','clear','all'].map(method=>[method,(...args)=>{
         const count=method==='setItem'?2:['hasItem','getItem','removeItem'].includes(method)?1:0;
@@ -120,8 +124,19 @@ export function createPluginCallbackRuntime(engine, snapshot, storeCall) {
       )
         throw Error("Invalid plugin callback");
       // Validate the internal envelope before entering the guest.
-      if (!Array.isArray(codec.decode(args)))
+      const payload = codec.decode(args),
+        callArgs = Array.isArray(payload) ? payload : payload?.args,
+        helper = validatePluginCallContext(
+          Array.isArray(payload) ? {} : payload?.context,
+        );
+      if (
+        !Array.isArray(callArgs) ||
+        (!Array.isArray(payload) &&
+          Object.keys(payload).sort().join(",") !== "args,context")
+      )
         throw Error("Invalid plugin callback arguments");
+      if (kind === "templateTagMetadata" && Object.keys(helper).length)
+        throw Error("Metadata queries do not accept callback context");
       running = true;
       storeAllowed = kind !== "templateTagMetadata";
       calls = 0;
@@ -131,14 +146,17 @@ export function createPluginCallbackRuntime(engine, snapshot, storeCall) {
       try {
         handle = evaluate(`(async()=>{
           const kind=${JSON.stringify(kind)},item=__pluginExports[kind==='templateTagMetadata'?'templateTags':kind]?.[${index}];
-          const args=__pluginValueCodec.decode(${JSON.stringify(args)});
+          const payload=__pluginValueCodec.decode(${JSON.stringify(args)});
+          const args=Array.isArray(payload)?payload:payload.args;
+          const helper=__validatePluginCallContext(Array.isArray(payload)?{}:payload.context);
           if(kind==='templateTagMetadata') {
             if(args.length<1||args.length>3)throw Error('Invalid metadata query');
             return __pluginValueCodec.encode(__pluginTagMetadata.resolve(item,...args));
           }
           const fn=kind.endsWith('Hooks')?item:kind==='templateTags'?item?.run:item?.action;
           if(typeof fn!=='function')throw Error('Plugin callback is unavailable');
-          const value=await fn.call(item,__pluginContext,...args);
+          const context=Object.freeze({...helper,store:__pluginContext.store});
+          const value=await fn.call(item,context,...args);
           return __pluginValueCodec.encode(value);
         })()`);
         while (!closed) {
