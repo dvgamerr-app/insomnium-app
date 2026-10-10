@@ -1,5 +1,10 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Collection ancestry index — committed handoff — 2026-10-10
+
+- Verified topic ccddf8811d83c5b9624fe0c7b0d7c9cf46410946 (fix(workspace): index collection ancestry for bulk lookups) commits16source/scenario/doc files. Worktree clean after topic commit. Saved316model/10reactive/11preview/compiler0/0, fresh production6610/nativeXML83428 all18groups/6workers and Runner30305 twochoices/eightstates/fourSends/oneheld cancellation pass. Independent current688/full-field Git/timer/destination/retained-baseline/build89bbb511 audit and owned cleanup pass. Local8316resource workspace cancellation1357.2ms meets3000ms budget versus34970.5ms baseline. UI/CSS retained; actual760px images inspected. No live handles or owned probe/profile/listener processes. Exact failures, commands, source evolution and limits: COLLECTION-INDEX.md. Documentation checkpoint is current HEAD from git log -1.
+- Full original migration/UX/CSS remains active. Arbitrary-size/platform/first-paint/storage/renderer performance and all original XML/editor/template/provider/transport/plugin/Git/recovery/CI/distribution/shared component adoption/ownership/accessibility/UX/CSS gates retained. Owner requires /compact before next feature; this interface cannot invoke /compact, no compaction occurred. Handoff records topic SHA/evidence/remaining gates/no live processes; no next feature started.
+
 ## Collection index — verified acceptance ready to commit — 2026-10-10
 
 - Current native full XML83428 actualterminal0/artifact1791596301797/native49908/exit0/native-hidden/visible:false accepts18groups/6real workers;8316resources/9209710bytes, workspace cancellation1357.2ms vs34970.5ms unprofiled baseline, meets3000ms budget with timer callback absent/data/destination preserved. Corrected Runner30305 actualterminal0/artifact1791597154206/native62912/exit0/native-hidden/visible:false accepts2exact choices/8lifecycle-layout states/4HTTP Sends/1held cancellation/durable history/results/dark-light3widths. Headless316model/10reactive/11preview checks/compiler0/0 pass; new pure iterative index fixes identified95.305% baseline CPU ancestry cost.
