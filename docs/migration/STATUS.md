@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Headless request — reverified — 2026-10-10
+
+- Browser execution already uses the sole saved Chromium launch in tests/ui/helpers/preview-app.js: launchUiBrowser fixes headless:true with no headed override. Repository JavaScript/JSON scan found no other launch or headed option. Shared native-app.js hides its owned Tauri host before connectOverCDP and reports native-hidden/visible:false; this is separate from browser headless execution.
+- Reran existing saved scenario `bun tests/ui/git-merge-contract.js`: actual terminal0; artifacts/playwright/git-merge-contract/result.json passed and acceptance.json passed all9 groups. No application or scenario source change was necessary. This request has no live process handles. Existing XML work remains uncommitted and its timing acceptance remains pending; no full migration completion claim.
+- Commit this verification by topic. Before starting another feature, owner requires /compact; this interface has no callable /compact API, so no compaction is claimed. Handoff: current base9b2fb82, headless verification above, existing XML timing gate and every remaining migration/UX/CSS gate retained.
+
 ## Shared dialog backdrop — committed handoff — 2026-10-10
 
 - Verified topic37cf402162208d404937d4d59bbd41b13970f303 (refactor(ui): centralize shared dialog backdrop tokens) commits13source/scenario/doc files; worktree clean after topic commit. Saved headless24fixture/10actual dialogs/compiler0/0, fresh production build8123/native34598 actualterminal0/10dialog profiles/12retained workflow captures/fonts/locked recovery/unchanged HEAD pass. Independent current682/executable/default-override-none-restored and final aggregate audits plus owned cleanup pass. No live handles or owned native/WebView profile processes. Source/commands/failure/evidence/limits: DIALOG-BACKDROP.md. Documentation checkpoint is current HEAD after git log -1.
