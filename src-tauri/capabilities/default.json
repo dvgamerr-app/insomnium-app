@@ -25,6 +25,7 @@
     "allow-discover-plugins",
     "allow-discover-plugin-sources",
     "allow-read-plugin-package",
+    "allow-plugin-store",
     "core:default",
     "core:window:allow-destroy",
     "core:window:allow-close",

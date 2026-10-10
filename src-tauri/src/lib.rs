@@ -41,6 +41,7 @@ mod storage;
 mod plugins;
 mod plugin_sources;
 mod plugin_package;
+mod plugin_store;
 mod streaming;
 mod template;
 mod template_os;
@@ -78,6 +79,7 @@ pub fn run() {
         .manage(streaming::StreamState::default())
         .manage(grpc::GrpcState::default())
         .manage(storage::StorageState::default())
+        .manage(plugin_store::PluginStoreState::default())
         .manage(git::GitState::default())
         .manage(git_remote_job::RemoteJobState::default())
         .invoke_handler(tauri::generate_handler![
@@ -105,6 +107,7 @@ pub fn run() {
             plugins::discover_plugins,
             plugin_sources::discover_plugin_sources,
             plugin_package::read_plugin_package,
+            plugin_store::plugin_store,
             git_remote_job::git_remote_advertise,
             git_fetch_command::git_remote_fetch,
             git_push::git_remote_push,

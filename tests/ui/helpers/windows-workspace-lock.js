@@ -4,6 +4,17 @@ import { realpath } from "node:fs/promises";
 import { resolve, sep } from "node:path";
 import { probeIdentifier } from "./native-app.js";
 
+/** Deny atomic replacement of this isolated probe's existing PluginData file.
+ * Allows reads/writes, never creates/truncates/deletes. Release in finally. */
+export async function lockProbePluginStoreReplacement() {
+  assert.equal(process.platform, "win32");
+  assert.ok(process.env.APPDATA);
+  const expected = resolve(process.env.APPDATA, probeIdentifier, "plugin-data-v1.json");
+  const path = await realpath(expected);
+  assert.equal(path.toLowerCase(), expected.toLowerCase(), "Refuse redirected probe PluginData");
+  return openReadLock(path, 3);
+}
+
 /** Allows reads/writes but denies replacement of the existing probe workspace.
  * Release in finally. Never creates/truncates/deletes a file. */
 export async function lockProbeWorkspaceReplacement() {

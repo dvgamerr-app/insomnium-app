@@ -25,6 +25,7 @@ fn main() {
             "discover_plugins",
             "discover_plugin_sources",
             "read_plugin_package",
+            "plugin_store",
             "git_remote_advertise",
             "git_clone_stage",
             "git_clone_inspect",
