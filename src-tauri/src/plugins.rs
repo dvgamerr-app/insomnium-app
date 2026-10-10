@@ -14,33 +14,33 @@ const PACKAGE_LIMIT: usize = 128;
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginPackage {
-    name: String,
+    pub(crate) name: String,
     version: String,
     description: String,
-    directory: String,
+    pub(crate) directory: String,
     entry: Option<String>,
     format: String,
     dependencies: Vec<String>,
-    status: String,
-    message: String,
+    pub(crate) status: String,
+    pub(crate) message: String,
 }
 
 #[derive(Serialize)]
 pub struct DiscoveryIssue {
-    directory: String,
-    message: String,
+    pub(crate) directory: String,
+    pub(crate) message: String,
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginDiscovery {
-    directory: String,
-    exists: bool,
-    complete: bool,
-    packages: Vec<PluginPackage>,
-    issues: Vec<DiscoveryIssue>,
+    pub(crate) directory: String,
+    pub(crate) exists: bool,
+    pub(crate) complete: bool,
+    pub(crate) packages: Vec<PluginPackage>,
+    pub(crate) issues: Vec<DiscoveryIssue>,
     #[serde(skip)]
-    visited: usize,
+    pub(crate) visited: usize,
 }
 
 fn issue(report: &mut PluginDiscovery, path: &Path, message: impl ToString) {

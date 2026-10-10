@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-discover-plugin-sources"
+description = "Enables the discover_plugin_sources command without any pre-configured scope."
+commands.allow = ["discover_plugin_sources"]
+
+[[permission]]
+identifier = "deny-discover-plugin-sources"
+description = "Denies the discover_plugin_sources command without any pre-configured scope."
+commands.deny = ["discover_plugin_sources"]

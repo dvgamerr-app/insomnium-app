@@ -23,6 +23,7 @@
     "allow-load-workspace",
     "allow-save-workspace",
     "allow-discover-plugins",
+    "allow-discover-plugin-sources",
     "core:default",
     "core:window:allow-destroy",
     "core:window:allow-close",
