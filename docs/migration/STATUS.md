@@ -1,5 +1,12 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## XPath sibling performance — committed handoff — 2026-10-10
+
+- Verified topic `273ff0a2e0118ff12810f08ae8a7baa43fda930e` (`fix(xpath): index document order for wide XML responses`) commits shared ordering, XML/template callers, bug regression and saved native performance extension plus scoped docs. Compiler0/0, formatting and staged diff checks pass; worktree clean after topic commit. Documentation checkpoint SHA is current HEAD from `git log -1`.
+- Evidence: fresh production6f744927 bound to697current paths; old20458ce2/native4000timeout retained. Current performance35348 terminal0/6groups/12workers/3Sends measures1506–1882ms for4000nodes and1774.5ms for10001-match refusal. XML80452 terminal0/36groups/58workers/22Sends/six layouts and JSON62554 terminal0/26groups/11workers/21Sends pass. All native results exit0/native-hidden/visible:false. Differential296results/1matching upstream refusal/14709position comparisons/11restoration fixtures/4template checks, headless workspace11, independent source/build/literal/metadata/order/destination/timer/geometry audits and owned cleanup pass. Current760images inspected; exact commands/limits in XPATH-PERFORMANCE.md.
+- No live feature process/session handles or owned native/profile processes. Full original migration/UX/CSS remains active. Next response gates: XML Copy/Save boundaries and namespace mapping UI, full accessibility/OS/streaming/provider/platform, template Send integration, broader XPath expressions/tree shapes and every original migration/shared adoption/ownership requirement. Known4000sibling workflow and10001refusal are accepted; UI/CDP timing is not pure CPU/universal performance. Layout/CSS preserved.
+- Owner requires `/compact` before the next feature. This interface cannot invoke `/compact`; no compaction occurred. Handoff records actual commit/evidence/remaining gates/no live handles; no next feature started.
+
 ## XPath sibling performance — verified acceptance ready to commit — 2026-10-10
 
 - Current JSON62554 actualterminal0/artifact1791606363642/native54024 exit0/native-hidden/visible:false passes26groups/11real bundled workers/21HTTP Sends. Independent current697source/fresh6f744927/literal numeric/body/base64/meta/history/destination/generation/deadline audit passes. Current performance6 and default XML36/six layouts remain accepted on the same release; old native4000timeout baseline retained. Exact metrics, artifacts, commands and limits: XPATH-PERFORMANCE.md.
