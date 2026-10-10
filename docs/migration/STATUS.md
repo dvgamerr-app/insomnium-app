@@ -1,5 +1,21 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## JSON response filter — verified scoped acceptance ready to commit — 2026-10-10
+
+- Native 33624 actual terminal 0/artifact json-response-filter-1791598329340/native 54624 exit 0/native-hidden/visible:false passes 26 groups, 11 actual bundled JSONPath workers and 21 HTTP Sends. Literal Pretty/Raw numeric spelling/body/base64, predicates/missing/falsy roots, metadata/history/reload/clear, two real refusals, seven cancellation and six controlled fault branches pass. Independent audit verifies current 465 app/225 scenario hashes, executable 89bbb511, exact selected values, retained metadata/history, cancelled timers/stale callbacks and actual controlled deadline. Compiler final 0/0; initial scenario tuple type diagnostics corrected before launch. No application/CSS changes or native runtime failure.
+- Owned Bun/native/exact WebView profile processes are absent; cleanup.json passes and no live handles remain. JSON-RESPONSE-FILTER.md records commands/evidence/limits. Body replacement, copy/download/history-capacity/theme-width geometry, actual hung workers, OS clipboard/save, XPath/XML and every original migration/editor/provider/platform/shared adoption/ownership/accessibility/UX/CSS gate remain required. Commit this verified topic separately. Interface cannot invoke /compact; no compaction occurred; prepare commit/evidence/remaining-gates handoff before next feature.
+
+## JSON response filter — saved native acceptance prepared — 2026-10-10
+
+- Same live 33624 progress now accepts all seven cancellation boundaries (20 cumulative groups/15 Sends): owned workers terminated, scheduled deadlines cleared before callback, explicit stale-generation replies ignored. Six controlled fault branches and final audit/cleanup/topic commit remain pending. Frozen source/build unchanged.
+
+- Live 33624 progress records 13 real-worker groups plus Raw cancellation; 11 actual bundled worker URLs and 9 HTTP Sends so far. Pretty/Raw/literal numeric text, selection/predicates/missing/falsy roots, reload/clear and real syntax/match-limit refusals pass. Seven cancellation/six fault groups still require full terminal result and independent audit; no broad acceptance claimed.
+
+- Final compiler 0/0 after annotating mixed refusal fixture tuples (initial final check had five scenario-only type diagnostics, corrected before runtime). Freeze passes 465 unchanged app/225 scenario files and executable 89bbb5113131162b58a4d16b11586a90cc5efadb2c3839ec834939181f14cd18. Native handle 33624 is confirmed live: owned Bun 61496/native 54624/artifact json-response-filter-1791598329340. Poll this exact handle; do not edit frozen app/scenario files while it runs. Native acceptance remains pending.
+
+- Previous goal turn made progress: verified saved headless scenario/11 checks and committed checkpoint 0cb3774. No recheck handles remain. Resumed the two unfinished JSON response scenario files after reading current plan/parity and actual filter/meta/component sources. Added fresh response ID/wire/body/base64 checks and durable metadata polling; real syntax/match-count refusals and controlled cancellation/fault callbacks remain explicitly separate. Application source/CSS unchanged; reuse current production only after full prior source/executable identity checks.
+- Compiler initially passes 0 errors/0 warnings. Final scenario check, freeze and native runtime outcome still pending; JSON-RESPONSE-FILTER.md records scope/commands/official references/limits. No feature commit or compaction claimed. Full migration and deferred UX/CSS remain active.
+
 ## Playwright headless — owner-requested recheck — 2026-10-10
 
 - Browser scenarios already use the shared `launchUiBrowser` in `tests/ui/helpers/preview-app.js`, with fixed `headless: true` and no headed override. Static search of saved JavaScript scenarios finds only that browser launch. Native Tauri scenarios hide their owned window before CDP attachment and report `native-hidden`; this is separate from browser headless mode.
