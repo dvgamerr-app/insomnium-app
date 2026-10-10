@@ -1,5 +1,12 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## XML response transfer — committed handoff — 2026-10-10
+
+- Topic `e7687218b08279228b7ff3753516bb9234cf5482` (`test(ui): verify XML response copy and save boundaries`) commits saved XML transfer mode/shared JSON adapter and scoped docs. Compiler0/0, formatting/staged diff pass; worktree clean after topic commit. Current documentation checkpoint SHA is `git log -1`.
+- XML61262/artifact1791607405462/native32968 and JSON tools93753/artifact1791607507000/native53076 actual terminal0/exit0/native-hidden/visible:false. XML8groups/8workers/1Send and JSON9groups/3Sends/six layouts pass. Independent699source/production6f744927/literal/original68and152byte/body/base64/meta/restoration/geometry audits and exact owned cleanup pass. Current760dark/light images inspected. Evidence/commands/audit-only corrections: XML-RESPONSE-TRANSFER.md.
+- No live feature process/session handles or owned native/profile processes. Application/CSS unchanged. Full migration/UX/CSS remains active: next namespace mapping UI, actual OS transfer, non-UTF-8/binary XML, accessibility/streaming/provider/platform, template Send integration and every original parity/shared adoption/ownership gate remain required. Redesign remains subsequent to full migration per owner scope.
+- Owner requires `/compact` after each feature. This interface has no callable `/compact`; no compaction occurred. This commit/evidence/remaining-gates/no-live-handles handoff is provided instead. No next feature started.
+
 ## XML response transfer — verified acceptance ready to commit — 2026-10-10
 
 - XML61262 and JSON tools93753 actual terminal0; artifacts1791607405462/1791607507000/native32968/53076 exit0/native-hidden/visible:false. XML8groups/8workers/1Send covers four XPath kinds, Raw/Pretty, original68byte Save, cancel/refusal/recovery. JSON9groups/3Sends/six layouts retains original152byte payloads/history/body replacement. Independent699source/executable/literal/body/base64/meta/restoration/geometry audits pass; current760dark/light images inspected and owned cleanup confirms both PIDs/profiles absent. Compiler0errors0warnings. Details and audit-only corrections: XML-RESPONSE-TRANSFER.md.
