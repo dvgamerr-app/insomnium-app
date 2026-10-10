@@ -1,5 +1,10 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Mounted XML formatter — committed handoff — 2026-10-10
+
+- Verified topic a4e52f4456e9a0d506244e3c07fe27049f93f3c4 (test(ui): verify mounted XML formatter lifecycle) commits8scenario/doc files. Worktree clean after topic commit. Native full67897 and causal focused57655 actualterminal0; composite18scoped groups/real6workers/current684source/build8123/executableca5d0a8f/full-field Git/owned cleanup/compiler0/0/formatting pass. No live feature handles or owned probe/profile processes. Exact evidence, retained failures and controlled/real limits: XML-REQUEST-FORMAT.md. Documentation checkpoint is current HEAD from git log -1.
+- Full migration/UX/CSS remains active. Collection-switch responsiveness is REQUIRED after34970.5ms cancellation diagnostic; source snapshot/persistence is only an unproven candidate. Remaining XML documents/MIME/platform/OS-close/Send/hung-worker/response/provider/editor and every original migration/shared UI gate retained. Owner requires /compact before next feature; interface cannot invoke /compact, no compaction occurred. This handoff records topic SHA/evidence/remaining gates/no live handles; no next feature started.
+
 ## Mounted XML formatter — verified topic ready to commit — 2026-10-10
 
 - This turn progressed from headless checkpointd355edf: final focused57655 actualterminal0/artifact1791594698016/native39976/exit0/native-hidden/visible:false. Six cancellation boundaries clear actual3000ms timer before callback, retain primary body/extra fields and preserve complete secondary request/current editor despite late callbacks. Combined with original full67897's retained12real/fault/refusal groups, independent XML audit passes18scoped groups, full literal/YAML Git fields/current465app+219scenario684 hashes/build8123/executableca5d0a8f. No current-source full18run claim. Compiler0/0 and formatting/diff checks pass; product/CSS/build unchanged.
