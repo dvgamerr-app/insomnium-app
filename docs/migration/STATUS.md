@@ -1,5 +1,10 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## JSON response filter — committed handoff — 2026-10-10
+
+- Verified topic b9890d30d8321232cd0819ebc023ee69681b81dd (`test(ui): verify mounted JSON response filter lifecycle`) commits 8 scenario/doc files. Worktree clean after topic commit. Native 33624 terminal0/26 groups/11 real workers/21 Sends, compiler0/0, formatting/current690 source/executable/body/meta/timer audit and owned cleanup pass. No live handles or owned probe/profile processes. Application/CSS unchanged; exact evidence/limits: JSON-RESPONSE-FILTER.md. Documentation checkpoint is current HEAD from `git log -1`.
+- Next retained response gates: body replacement during processing, displayed Copy/original-byte download, bounded history and dark/light responsive filter geometry, then XPath/XML response and remaining editor/provider/platform/shared UI/UX/CSS migration scope. Full goal remains active. Owner requires /compact before next feature; interface cannot invoke /compact, no compaction occurred. This handoff records actual topic SHA/evidence/remaining gates/no live processes; no next feature started.
+
 ## JSON response filter — verified scoped acceptance ready to commit — 2026-10-10
 
 - Native 33624 actual terminal 0/artifact json-response-filter-1791598329340/native 54624 exit 0/native-hidden/visible:false passes 26 groups, 11 actual bundled JSONPath workers and 21 HTTP Sends. Literal Pretty/Raw numeric spelling/body/base64, predicates/missing/falsy roots, metadata/history/reload/clear, two real refusals, seven cancellation and six controlled fault branches pass. Independent audit verifies current 465 app/225 scenario hashes, executable 89bbb511, exact selected values, retained metadata/history, cancelled timers/stale callbacks and actual controlled deadline. Compiler final 0/0; initial scenario tuple type diagnostics corrected before launch. No application/CSS changes or native runtime failure.
