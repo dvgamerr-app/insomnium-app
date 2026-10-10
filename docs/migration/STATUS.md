@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Shared tab panel keyboard entry — committed frontend handoff — 2026-10-10
+
+- Topic `8372053319c28fc06a1d3ddba83acb6e63b7a39e` (`fix(ui): make shared tab panels keyboard focusable`) commits shared focusable flex panels, saved scenario checks and scoped docs. Compiler2359 zero errors/warnings, frontend build0, design-system57782 terminal0/six keyboard profiles and workspace12/bounded three-width pane geometry pass; actual760image inspected. No live feature handles. Full migration/UX/CSS remains active.
+- Next: preserve accepted c2fbaa43 executable/build evidence, build a fresh native probe with valid workspace LIBCLANG_PATH, then run existing saved native-theme scenario to verify shared panel geometry/workflows on the changed frontend; add reusable scenario assertions where needed. Packaged native, other panel content/scrolling, assistive/platform and all original parity/adoption/ownership gates remain required. No native validation claimed for this commit.
+- Owner-required `/compact` cannot be invoked by this interface; no compaction occurred. Actual commit/evidence/remaining gates/no-live-handles handoff is recorded before further feature work. Current documentation checkpoint SHA is `git log -1`.
+
 ## Shared tab panel keyboard entry — verified frontend — 2026-10-10
 
 - Corrected display:contents after saved scenario76256 terminal1 exposed tabindex-only focus failure. Same saved scenario57782 terminal0/passed, six actual Tab/Shift+Tab/selected-label dark/light width profiles. Fresh build0 and workspace12 pass; positive viewport-bounded request/response panel geometry at1440/900/760, actual760image inspected. Compiler2359 terminal0/0errors0warnings, formatting/diff checks pass. No live feature handles. Existing artifact path now holds passing rerun; initial assertion retained in this log.
