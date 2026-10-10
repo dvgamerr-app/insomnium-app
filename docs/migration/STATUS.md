@@ -1,5 +1,17 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## XML response transfer — verified acceptance ready to commit — 2026-10-10
+
+- XML61262 and JSON tools93753 actual terminal0; artifacts1791607405462/1791607507000/native32968/53076 exit0/native-hidden/visible:false. XML8groups/8workers/1Send covers four XPath kinds, Raw/Pretty, original68byte Save, cancel/refusal/recovery. JSON9groups/3Sends/six layouts retains original152byte payloads/history/body replacement. Independent699source/executable/literal/body/base64/meta/restoration/geometry audits pass; current760dark/light images inspected and owned cleanup confirms both PIDs/profiles absent. Compiler0errors0warnings. Details and audit-only corrections: XML-RESPONSE-TRANSFER.md.
+- Application/CSS unchanged; shared adapter plus saved XML mode are final. Topic commit/formatting review remain. No live feature handles. Full migration/UX/CSS stays active: actual OS transfer, non-UTF-8/binary XML, namespace mapping UI, accessibility/streaming/platform/provider, template Send integration and every original parity/shared adoption/ownership gate remain. Interface cannot invoke `/compact`; record actual commit/evidence/remaining gates before handoff; no next feature started.
+
+## XML response transfer — saved acceptance running — 2026-10-10
+
+- XML61262 actual terminal0/artifact1791607405462/native32968 exit0/native-hidden/visible:false passes8groups/8real workers/1HTTP Send. Independent699source/executable/literal/body/base64/meta/restoration audit passes8copies/7dialogs/6write payloads with exact original68UTF8bytes. Initial audit-only counts were corrected from9groups/5workers to actual8groups/8workers; scenario did not fail or rerun. Sequential shared JSON tools93753/artifact1791607507000 is live; poll exact handle. JSON audit, owned cleanup, documentation and commit remain pending.
+
+- Previous headless request verified shared launchUiBrowser/headless:true/no headed override and saved workspace11 terminal0; no application changes. Migration continues with XML Copy/Save boundaries. Shared clipboard/dialog/write adapter extracted from existing JSON tools; XML extension covers four XPath outputs, Raw/Pretty, original UTF-8 byte Save, cancel and refusal/recovery. OS clipboard/dialog/file-write acceptance remains required.
+- Compiler terminal0/0errors0warnings; current freeze466app/233scenario699paths verifies application unchanged and production executable6f744927. Saved native XML transfer session61262/artifact1791607405462 launched; poll exact handle, keep app/scenario frozen. Terminal XML outcome, shared JSON tools regression, independent byte/source/restoration audit, owned cleanup and topic commit remain required. Full migration/UX/CSS remains active.
+
 ## XPath sibling performance — committed handoff — 2026-10-10
 
 - Verified topic `273ff0a2e0118ff12810f08ae8a7baa43fda930e` (`fix(xpath): index document order for wide XML responses`) commits shared ordering, XML/template callers, bug regression and saved native performance extension plus scoped docs. Compiler0/0, formatting and staged diff checks pass; worktree clean after topic commit. Documentation checkpoint SHA is current HEAD from `git log -1`.

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { withNativeApp, poll } from "./helpers/native-app.js";
 import { initialData, newRequest } from "../../src/lib/model.js";
 import { verifyXmlResponsePerformance } from "./helpers/xml-response-performance.js";
+import { verifyXmlResponseTransfer } from "./helpers/xml-response-transfer.js";
 import {
   installResponseWorkerControl,
   responseWorkerRecords,
@@ -183,6 +184,19 @@ try {
       );
       checks.push({ kind: "preview", source, pretty, state: await saved() });
       await progress();
+      if (process.env.INSOMNIUM_XML_RESPONSE_TRANSFER === "1") {
+        await verifyXmlResponseTransfer({
+          page,
+          pane,
+          value,
+          apply,
+          saved,
+          output,
+          workers,
+          wire,
+        });
+        return;
+      }
       if (process.env.INSOMNIUM_XML_RESPONSE_PERFORMANCE === "1") {
         await verifyXmlResponsePerformance({
           page,
