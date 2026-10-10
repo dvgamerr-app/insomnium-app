@@ -22,6 +22,7 @@
     "allow-import-legacy-cookies",
     "allow-load-workspace",
     "allow-save-workspace",
+    "allow-discover-plugins",
     "core:default",
     "core:window:allow-destroy",
     "core:window:allow-close",

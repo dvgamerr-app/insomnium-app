@@ -1,6 +1,7 @@
 <script>
   import Icon from "./Icon.svelte";
   import ClientCertificates from "./ClientCertificates.svelte";
+  import PluginsPanel from "./PluginsPanel.svelte";
   import Button from "./ui/Button.svelte";
   import Checkbox from "./ui/Checkbox.svelte";
   import Dropdown from "./ui/Dropdown.svelte";
@@ -16,7 +17,7 @@
 
   /** @type {{settings:Record<string, any>,tab?:string,onclose?:()=>void}} */
   let { settings, tab = $bindable("General"), onclose = () => {} } = $props();
-  const tabs = ["General", "Editor", "Requests", "Network", "Git"];
+  const tabs = ["General", "Editor", "Requests", "Network", "Git", "Plugins"];
   let activeTab = $state("");
   /** @param {Event & {currentTarget:HTMLInputElement}} event */
   const optionalNumber = (event) =>
@@ -101,7 +102,9 @@
     <TabPanel id="settings-panel-content" labelledBy={activeTab}>
       <div class="settings-scroll">
         <div class="settings-content">
-          {#if tab === "General"}
+          {#if tab === "Plugins"}
+            <PluginsPanel {settings} />
+          {:else if tab === "General"}
             <section
               class="settings-section"
               aria-labelledby="settings-appearance-title"

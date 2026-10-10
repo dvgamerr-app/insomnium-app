@@ -22,6 +22,7 @@ fn main() {
             "read_template_os",
             "load_workspace",
             "save_workspace",
+            "discover_plugins",
             "git_remote_advertise",
             "git_clone_stage",
             "git_clone_inspect",

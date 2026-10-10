@@ -38,6 +38,7 @@ mod oauth_embedded;
 mod oauth_implicit;
 mod oauth_navigation;
 mod storage;
+mod plugins;
 mod streaming;
 mod template;
 mod template_os;
@@ -99,6 +100,7 @@ pub fn run() {
             template::read_template_os,
             storage::load_workspace,
             storage::save_workspace,
+            plugins::discover_plugins,
             git_remote_job::git_remote_advertise,
             git_fetch_command::git_remote_fetch,
             git_push::git_remote_push,
