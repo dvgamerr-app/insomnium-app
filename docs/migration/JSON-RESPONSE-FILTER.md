@@ -4,8 +4,11 @@ Status: scoped native acceptance verified (2026-10-10).
 
 Follow-up [JSON-RESPONSE-TOOLS.md](JSON-RESPONSE-TOOLS.md) now verifies body
 replacement, controlled displayed Copy/original Save byte boundaries, history
-capacity/selection/reload and six dark/light responsive profiles. OS boundaries,
-feedback recovery/ownership, XPath and remaining editor/UX gates stay required.
+capacity/selection/reload and six dark/light responsive profiles.
+[RESPONSE-FEEDBACK.md](RESPONSE-FEEDBACK.md) subsequently verifies feedback
+recovery/operation ownership and the retained26filter groups on a fresh release.
+OS boundaries, keyboard/assistive technology, mutable streaming-body cases,
+XPath and remaining editor/UX gates stay required.
 
 Saved native handle 33624 finished with actual exit 0. Artifact:
 `artifacts/playwright/json-response-filter-1791598329340`. Native PID 54624

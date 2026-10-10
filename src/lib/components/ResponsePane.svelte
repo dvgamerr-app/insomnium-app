@@ -1,4 +1,5 @@
 <script>
+  import { onDestroy } from "svelte";
   import TabPanel from "./ui/TabPanel.svelte";
   let activeTab0 = $state("");
   import SegmentedControl from "./ui/SegmentedControl.svelte";
@@ -21,8 +22,6 @@
   let { requestId, response, running, history, onhistory } = $props();
   let tab = $state("Preview");
   let raw = $state(false);
-  let copied = $state(false);
-  let copyError = $state("");
   const meta = $derived(requestMeta(workspace.data.resources, requestId));
   const filter = $derived(
     typeof meta?.responseFilter === "string" ? meta.responseFilter : "",
@@ -77,11 +76,12 @@
     filterDraft = filter;
   });
   function applyFilter(/** @type {string} */ value) {
+    const finish = beginFeedback();
     try {
       setResponseFilter(requestId, value);
       filterDraft = value;
     } catch (error) {
-      copyError = String(error);
+      finish(false, String(error));
     }
   }
   $effect(() => {
@@ -163,6 +163,45 @@
     }
   });
 
+  const feedbackOwner = $derived({
+    requestId,
+    responseId: response?._id ?? response?.created,
+    body: response?.body,
+    bytes: response?.bodyBase64,
+    display: body,
+  });
+  let feedback = $state.raw(
+    /** @type {{owner:typeof feedbackOwner, operation:number, copied:boolean, error:string}|undefined} */ (
+      undefined
+    ),
+  );
+  let feedbackGeneration = 0;
+  let feedbackDisposed = false;
+  onDestroy(() => {
+    feedbackDisposed = true;
+    feedbackGeneration++;
+  });
+  const currentFeedback = $derived(
+    feedback?.owner === feedbackOwner ? feedback : undefined,
+  );
+  const copied = $derived(currentFeedback?.copied || false);
+  const copyError = $derived(currentFeedback?.error || "");
+
+  function beginFeedback() {
+    const owner = feedbackOwner;
+    const operation = ++feedbackGeneration;
+    feedback = { owner, operation, copied: false, error: "" };
+    return (copied = false, error = "") => {
+      if (
+        feedbackDisposed ||
+        operation !== feedbackGeneration ||
+        owner !== feedbackOwner
+      )
+        return false;
+      feedback = { owner, operation, copied, error };
+      return true;
+    };
+  }
   let graphqlErrors = $derived.by(() => {
     if (!response?.graphql || !response.body) return [];
     try {
@@ -245,12 +284,12 @@
         disabled={processing && (!currentResult || currentResult.busy)}
         title="Copy response"
         onclick={async () => {
+          const finish = beginFeedback();
           try {
             await navigator.clipboard.writeText(body);
-            copied = true;
-            setTimeout(() => (copied = false), 1500);
+            if (finish(true)) setTimeout(() => finish(), 1500);
           } catch (e) {
-            copyError = String(e);
+            finish(false, String(e));
           }
         }}><Icon name={copied ? "check" : "copy"} size={15} /></Button
       ><Button
@@ -259,6 +298,7 @@
         aria-label="Save response"
         title="Save response"
         onclick={async () => {
+          const finish = beginFeedback();
           try {
             await download(
               Uint8Array.from(atob(response.bodyBase64), (c) =>
@@ -267,15 +307,17 @@
               "response.bin",
               "application/octet-stream",
             );
+            finish();
           } catch (e) {
-            copyError = String(e);
+            finish(false, String(e));
           }
         }}><Icon name="download" size={15} /></Button
       >{/if}
   </TabList>
   <TabPanel id="response-view-panel" labelledBy={activeTab0}
     ><div class="response-content">
-      {#if copyError}<Feedback as="p" class="inline-error">{copyError}</Feedback
+      {#if copyError}<Feedback as="p" role="alert" class="inline-error"
+          >{copyError}</Feedback
         >{/if}
       {#if response?.error && tab === "Preview"}<div class="error-state">
           <h3>Could not send request</h3>

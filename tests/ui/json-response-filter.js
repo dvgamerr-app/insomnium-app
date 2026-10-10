@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { withNativeApp, poll } from "./helpers/native-app.js";
 import { initialData, newRequest } from "../../src/lib/model.js";
 import { verifyResponsePreviewTools } from "./helpers/response-preview-tools.js";
+import { verifyResponseFeedback } from "./helpers/response-feedback.js";
 import {
   installResponseWorkerControl,
   responseWorkerRecords,
@@ -191,6 +192,21 @@ try {
         state.response.bodyBase64,
         Buffer.from(source).toString("base64"),
       );
+      if (process.env.INSOMNIUM_RESPONSE_FEEDBACK === "1") {
+        await verifyResponseFeedback({
+          page,
+          output,
+          pane,
+          value,
+          saved,
+          send,
+          requestId,
+          source,
+          pretty,
+          wire,
+        });
+        return;
+      }
       if (process.env.INSOMNIUM_JSON_RESPONSE_TOOLS === "1") {
         await verifyResponsePreviewTools({
           page,
@@ -380,6 +396,41 @@ try {
             60000,
           );
         }
+        if (name === "workspace" && records.length === 2) {
+          await emitResponseWorker(page, 1, "message", {
+            text: "CURRENT WORKSPACE PREVIEW",
+          });
+          await poll(
+            async () => (await value()) === "CURRENT WORKSPACE PREVIEW",
+            "Destination workspace worker completed",
+            60000,
+          );
+        }
+        async function destinationState() {
+          let latest = /** @type {any} */ (undefined);
+          await poll(
+            async () => {
+              latest = await invoke("load_workspace");
+              return latest.activeWorkspaceId === previousWorkspaceId;
+            },
+            "Destination workspace persisted",
+            60000,
+          );
+          return {
+            workspaceId: latest.activeWorkspaceId,
+            requestId: latest.activeRequestId,
+            response: latest.history.find(
+              (/** @type {any} */ r) => r.requestId === latest.activeRequestId,
+            ),
+            meta: latest.resources.find(
+              (/** @type {any} */ r) =>
+                r._type === "request_meta" &&
+                r.parentId === latest.activeRequestId,
+            ),
+          };
+        }
+        const destinationBefore =
+          name === "workspace" ? await destinationState() : undefined;
         const values = () =>
           pane
             .locator(".CodeMirror")
@@ -400,12 +451,21 @@ try {
         );
         state = await saved();
         assert.equal(state.response.body, source);
+        const destinationAfter =
+          name === "workspace" ? await destinationState() : undefined;
+        if (name === "workspace") {
+          assert.deepEqual(destinationAfter, destinationBefore);
+          assert.equal(destinationAfter?.workspaceId, previousWorkspaceId);
+          assert.notEqual(destinationAfter?.requestId, requestId);
+        }
         checks.push({
           kind: "controlled-cancellation",
           name,
           records,
           before,
           after: await values(),
+          destinationBefore,
+          destinationAfter,
           state,
         });
         await Bun.write(

@@ -64,11 +64,12 @@ Independent command: `bun artifacts/playwright/audit-response-tools.mjs artifact
 Audit and cleanup records are in the accepted artifact directory. Freeze:
 `artifacts/playwright/response-tools-source-freeze.json`.
 
-Remaining response UX gates include success-after-refusal feedback recovery,
-late Copy/Save ownership after request/response changes, keyboard/accessibility
-and OS clipboard/picker/file writes. Current ResponsePane only sets copyError in
-catch handlers, so recovery and cross-request feedback behavior still need a
-saved scenario and correction if confirmed. XPath/XML response and every original
+Follow-up [RESPONSE-FEEDBACK.md](RESPONSE-FEEDBACK.md) reproduces and corrects
+success-after-refusal recovery and verifies late Copy/Save ownership with23
+groups on a fresh release, plus retained9tools/26filter regressions. The original
+catch-only behavior described at this topic's checkpoint is superseded.
+Keyboard/assistive technology, actual OS clipboard/picker/file writes, mutable
+streaming-body cases, XPath/XML response and every remaining original
 migration/shared UI/UX/CSS requirement remain active.
 
 Official references consulted: [Playwright Page](https://playwright.dev/docs/api/class-page#page-evaluate),

@@ -1,5 +1,12 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Response feedback — verified acceptance ready to commit — 2026-10-10
+
+- Previous goal turn made progress: headless workspace11 verified and checkpoint0069405 committed. Corrected default session55009 now actual terminal0; artifact1791602462836/native60868 exit0/native-hidden/visible:false passes26groups/11real workers/21HTTP Sends. Destination worker completes before old callbacks; exact before/after workspace/request/response/meta and late preview equality pass. Retain earlier91664 runtime pass and independent audit rejection below.
+- Combined tools9/filter26 audit passes current692 source hashes, executable20458ce2, literal payload/base64/meta/history, causal cancellation/deadlines/faults, destination equality, adapter restoration and six responsive profiles. Feedback23/47boundaries/5Sends remains accepted at its prior freeze; only the default scenario changed afterward, with explicit acceptance freeze and unchanged app/feedback helper/executable. Exact evidence/commands/limits: RESPONSE-FEEDBACK.md.
+- Final compiler session72532 actual terminal0/0errors0warnings. Saved headless workspace11 passed. All feature build/scenario handles terminal; fresh owned cleanup checks native64284/51684/23580/67120/60868 and exact profiles absent, without terminating unrelated processes. Topic commit remains to be recorded after formatting/diff review.
+- Full migration/UX/CSS remains active. Actual OS clipboard/picker/write, full keyboard/assistive technology, mutable streaming-body cases, XPath/XML response and every remaining original provider/editor/platform/plugin/Git/recovery/CI/distribution/shared adoption/ownership/accessibility gate remain required. No next feature started. Interface cannot invoke `/compact`; record final topic SHA/evidence/remaining gates/no live handles before handoff, without claiming compaction.
+
 ## Playwright headless — owner follow-up verified — 2026-10-10
 
 - Existing implementation topic `cccf507` already centralizes browser scenarios through `tests/ui/helpers/preview-app.js:launchUiBrowser`, with fixed `headless: true` and no headed override. Source scan of tests/scripts finds only that browser launch and no `headless: false`, `--headed` or HEADLESS switch. Native scenarios hide their owned Tauri window before CDP attachment and report `native-hidden` / `visible: false`.
