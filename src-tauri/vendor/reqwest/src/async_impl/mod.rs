@@ -11,4 +11,5 @@ pub mod h3_client;
 pub mod multipart;
 pub(crate) mod request;
 mod response;
+mod download_meter;
 mod upgrade;

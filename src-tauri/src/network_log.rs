@@ -8,7 +8,7 @@ use x509_parser::{extensions::GeneralName, parse_x509_certificate};
 
 const SECRET_HEADERS: [&str; 3] = ["authorization", "proxy-authorization", "cookie"];
 
-fn version_label(version: reqwest::Version) -> &'static str {
+pub(crate) fn version_label(version: reqwest::Version) -> &'static str {
     match version {
         reqwest::Version::HTTP_09 => "HTTP/0.9",
         reqwest::Version::HTTP_10 => "HTTP/1.0",

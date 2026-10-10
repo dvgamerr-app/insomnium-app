@@ -33,6 +33,13 @@ pub struct Response {
 }
 
 impl Response {
+    /// Insomnium extension: payload bytes consumed before content decompression.
+    /// The count is live until the body is drained, excludes headers/framing,
+    /// and is absent for synthetic responses built outside the client service.
+    pub fn downloaded_body_bytes(&self) -> Option<u64> {
+        self.res.extensions().get::<super::download_meter::DownloadCount>().map(|count| count.bytes())
+    }
+
     pub(super) fn new(
         res: hyper::Response<ResponseBody>,
         url: Url,

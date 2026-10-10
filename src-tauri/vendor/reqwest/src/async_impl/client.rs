@@ -1029,6 +1029,7 @@ impl ClientBuilder {
         #[cfg(feature = "cookies")]
         let svc = CookieService::new(svc, config.cookie_store.clone());
         let hyper = FollowRedirect::with_policy(svc, redirect_policy.clone());
+        let hyper = super::download_meter::DownloadMeter(hyper);
         #[cfg(any(
             feature = "gzip",
             feature = "brotli",
@@ -1066,6 +1067,7 @@ impl ClientBuilder {
                         #[cfg(feature = "cookies")]
                         let svc = CookieService::new(svc, config.cookie_store);
                         let svc = FollowRedirect::with_policy(svc, redirect_policy);
+                        let svc = super::download_meter::DownloadMeter(svc);
                         #[cfg(any(
                             feature = "gzip",
                             feature = "brotli",
@@ -2906,10 +2908,10 @@ type MaybeDecompression<T> = T;
 type MaybeDecompression<T> = Decompression<T>;
 
 type LayeredService<T> = MaybeDecompression<
-    FollowRedirect<
+    super::download_meter::DownloadMeter<FollowRedirect<
         MaybeCookieService<tower::retry::Retry<crate::retry::Policy, T>>,
         TowerRedirectPolicy,
-    >,
+    >>,
 >;
 type LayeredFuture<T> = <LayeredService<T> as Service<http::Request<Body>>>::Future;
 

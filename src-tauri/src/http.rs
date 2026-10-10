@@ -104,6 +104,8 @@ pub struct FormPart {
 #[serde(rename_all = "camelCase")]
 pub struct HttpResponse {
     status: u16,
+    http_version: String,
+    bytes_read: u64,
     status_text: String,
     url: String,
     headers: Vec<(String, String)>,
@@ -228,6 +230,7 @@ pub async fn send_http(
         .await?;
         let headers_ms = started.elapsed().as_millis();
         let status = response.status();
+        let http_version = crate::network_log::version_label(response.version()).to_string();
         let final_url = response.url().to_string();
         let headers = response
             .headers()
@@ -266,6 +269,8 @@ pub async fn send_http(
         ));
         Ok(HttpResponse {
             status: status.as_u16(),
+            http_version,
+            bytes_read: response.downloaded_body_bytes().ok_or_else(|| "Native response download counter missing".to_string())?,
             status_text: status.canonical_reason().unwrap_or("").into(),
             url: final_url,
             headers,
