@@ -21,12 +21,14 @@ const wire = /** @type {Record<string,any>[]} */ ([]);
 const environmentMode = process.env.INSOMNIUM_TEMPLATE_ENVIRONMENTS === "1";
 const sseMode = process.env.INSOMNIUM_TEMPLATE_SSE === "1";
 const cycleMode = process.env.INSOMNIUM_TEMPLATE_CYCLES === "1";
+const oauthMode = process.env.INSOMNIUM_TEMPLATE_OAUTH === "1";
 assert.ok(
-  [environmentMode, sseMode, cycleMode].filter(Boolean).length <= 1,
+  [environmentMode, sseMode, cycleMode, oauthMode].filter(Boolean).length <= 1,
   "Choose one template scenario mode",
 );
 const sseFirst = ": keepalive\nid: first\ndata: α\n\n";
 const sseLast = "event: done\ndata: final\ndata: β\n\n";
+let tokenCount = 0;
 const held = await heldHttp({
   body: sseMode ? sseLast : jsonBody,
   headers: {
@@ -49,6 +51,13 @@ const server = Bun.serve({
       bodyBase64: Buffer.from(body).toString("base64"),
       headers: Object.fromEntries(request.headers),
     });
+    if (oauthMode && url.pathname === "/token")
+      return Response.json({
+        access_token: "owned-access-" + ++tokenCount,
+        token_type: "Bearer",
+        expires_in: 3600,
+        refresh_token: "owned-refresh-" + tokenCount,
+      });
     const xml = url.pathname === "/xml";
     return new Response(
       url.pathname === "/root"
@@ -78,13 +87,15 @@ const server = Bun.serve({
 });
 try {
   await withNativeApp(
-    cycleMode
-      ? "template-response-cycles"
-      : sseMode
-        ? "template-response-sse"
-        : environmentMode
-          ? "template-response-environments"
-          : "template-response-send",
+    oauthMode
+      ? "template-response-oauth"
+      : cycleMode
+        ? "template-response-cycles"
+        : sseMode
+          ? "template-response-sse"
+          : environmentMode
+            ? "template-response-environments"
+            : "template-response-send",
     async ({ page, invoke, output }) => {
       page.setDefaultTimeout(60000);
       const suffix = Date.now(),
@@ -178,6 +189,15 @@ try {
           activeWorkspaceId: latest.activeWorkspaceId,
           activeRequestId: latest.activeRequestId,
           activeEnvironmentId: latest.activeEnvironmentId,
+          ...(oauthMode
+            ? {
+                oauthTokens: latest.resources.filter(
+                  (/** @type {any} */ r) =>
+                    r._type === "oauth2_token" &&
+                    Object.values(ids).includes(r.parentId),
+                ),
+              }
+            : {}),
           resources,
           history: latest.history.filter((/** @type {any} */ r) =>
             Object.values(ids).includes(r.requestId),
@@ -247,6 +267,155 @@ try {
           Buffer.from(response.body).toString("base64"),
         );
         return response;
+      }
+      if (oauthMode) {
+        const setup = await invoke("load_workspace");
+        setup.settings.timeout = 30000;
+        Object.assign(
+          setup.resources.find(
+            (/** @type {any} */ r) => r._id === "env_trs_" + suffix,
+          ).data,
+          { client: "owned-client", secret: "owned-secret" },
+        );
+        const child = setup.resources.find(
+          (/** @type {any} */ r) => r._id === ids.foreign,
+        );
+        child.url = `http://127.0.0.1:${server.port}/json?scope={{ scope }}`;
+        child.authentication = {
+          type: "oauth2",
+          grantType: "client_credentials",
+          accessTokenUrl: `http://127.0.0.1:${server.port}/token`,
+          clientId: "{{ client }}",
+          clientSecret: "{{ secret }}",
+          scope: "{{ scope }}",
+          credentialsInBody: true,
+        };
+        await invoke("save_workspace", { data: setup });
+        for (const name of ["acquire", "reuse", "refresh"]) {
+          if (name === "refresh") {
+            const latest = await invoke("load_workspace");
+            const token = latest.resources.find(
+              (/** @type {any} */ r) =>
+                r._type === "oauth2_token" && r.parentId === ids.foreign,
+            );
+            assert.ok(token, "Actual token exists before expiry fixture");
+            token.expiresAt = Date.now() - 1000;
+            await invoke("save_workspace", { data: latest });
+          }
+          await configure(
+            "oauth-" + name,
+            tag("body", ids.foreign, "$.token", "always"),
+          );
+          const start = wire.length;
+          await send(ids.root);
+          const events = wire.slice(start),
+            current = await state();
+          assert.deepEqual(
+            events.map((e) => e.path),
+            name === "reuse"
+              ? ["/json", "/root"]
+              : ["/token", "/json", "/root"],
+          );
+          assert.equal(
+            events.at(-2)?.headers.authorization,
+            name === "refresh"
+              ? "Bearer owned-access-2"
+              : "Bearer owned-access-1",
+          );
+          assert.equal(events.at(-2)?.query, "?scope=foreign");
+          assert.equal(events.at(-1)?.body, "owned-token");
+          assert.equal(current.oauthTokens?.length, 1);
+          checks.push({ kind: name, events, state: current });
+          await progress();
+        }
+        const manual = await invoke("load_workspace");
+        const manualChild = manual.resources.find(
+          (/** @type {any} */ r) => r._id === ids.foreign,
+        );
+        manualChild.authentication.accessTokenUrl = `http://127.0.0.1:${held.port}/held`;
+        manualChild.headers = [
+          { name: "Authorization", value: "Fixture manual" },
+        ];
+        await invoke("save_workspace", { data: manual });
+        await configure(
+          "oauth-manual",
+          tag("body", ids.foreign, "$.token", "always"),
+        );
+        let start = wire.length;
+        const beforeManual = await state();
+        await send(ids.root);
+        const events = wire.slice(start);
+        assert.deepEqual(
+          events.map((e) => e.path),
+          ["/json", "/root"],
+        );
+        assert.equal(events[0].headers.authorization, "Fixture manual");
+        assert.equal(held.held, 0);
+        assert.deepEqual((await state()).oauthTokens, beforeManual.oauthTokens);
+        checks.push({ kind: "manual", events, state: await state() });
+        await progress();
+        const pending = await invoke("load_workspace");
+        pending.resources.find(
+          (/** @type {any} */ r) => r._id === ids.foreign,
+        ).headers = [];
+        await invoke("save_workspace", { data: pending });
+        await configure(
+          "oauth-cancel",
+          tag("body", ids.foreign, "$.token", "always"),
+        );
+        start = wire.length;
+        const before = await state();
+        await page.getByRole("button", { name: "Send", exact: true }).click();
+        await poll(
+          async () => held.held === 1,
+          "Native OAuth exchange pending",
+          60000,
+        );
+        await page.getByRole("button", { name: "Cancel", exact: true }).click();
+        await poll(
+          async () => held.cancelled === 1,
+          "Native OAuth exchange disconnected",
+          60000,
+        );
+        await poll(
+          async () =>
+            (await page
+              .getByRole("button", { name: "Cancel", exact: true })
+              .count()) === 0,
+          "OAuth dependency settles",
+          60000,
+        );
+        const after = await state();
+        assert.equal(wire.length, start);
+        assert.deepEqual(after.history, before.history);
+        assert.deepEqual(after.oauthTokens, before.oauthTokens);
+        checks.push({
+          kind: "cancel",
+          held: held.held,
+          cancelled: held.cancelled,
+          state: after,
+        });
+        await progress();
+        await Bun.write(
+          output + "/acceptance.json",
+          JSON.stringify(
+            {
+              passed: true,
+              checks,
+              workers,
+              wire,
+              ids,
+              workspaceId,
+              foreignId,
+              tokenCount,
+              limits:
+                "Local controlled native client-credentials/refresh/reuse/manual header/Cancel; interactive/public providers/concurrency/source races/platform/full migration remain.",
+            },
+            null,
+            2,
+          ),
+        );
+        return;
       }
       if (cycleMode) {
         async function refuse(/** @type {string} */ name) {
