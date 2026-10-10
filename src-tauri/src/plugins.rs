@@ -97,38 +97,86 @@ fn valid_name(name: &str) -> bool {
 
 fn resolve_entry(directory: &Path, manifest: &Value) -> Result<PathBuf, String> {
     let main = match manifest.get("main") {
-        None => "index.js",
+        None | Some(Value::Null) => {
+            return entry_index(directory, directory)?
+                .ok_or_else(|| "Package index entry was not found.".into())
+        }
+        Some(Value::String(value)) if value.is_empty() => {
+            return entry_index(directory, directory)?
+                .ok_or_else(|| "Package index entry was not found.".into())
+        }
         Some(Value::String(value)) if !value.is_empty() => value,
         _ => return Err("Package main must be a non-empty relative path.".into()),
     };
-    let relative = Path::new(main);
-    if relative
-        .components()
-        .any(|part| !matches!(part, Component::Normal(_) | Component::CurDir))
-    {
-        return Err("Package main must stay inside its package directory.".into());
+    let base = entry_path(directory, directory, main)?;
+    if let Some(file) = entry_file(&base, directory)? {
+        return Ok(file);
     }
-    let base = directory.join(relative);
-    let mut candidates = vec![base.clone()];
-    if base.extension().is_none() {
-        for suffix in ["js", "json", "node"] {
-            candidates.push(base.with_extension(suffix));
+    if base.is_dir() {
+        let canonical = fs::canonicalize(&base).map_err(|e| e.to_string())?;
+        if !canonical.starts_with(directory) {
+            return Err("Package entry resolves outside the package directory.".into());
+        }
+        if let Some(file) = entry_index(&canonical, directory)? {
+            return Ok(file);
         }
     }
+    // Legacy CommonJS falls back to the package's index when main is missing.
+    if let Some(file) = entry_index(directory, directory)? {
+        return Ok(file);
+    }
+    Err(format!("Package entry was not found: {main}"))
+}
+
+fn entry_path(root: &Path, base: &Path, value: &str) -> Result<PathBuf, String> {
+    let mut relative = base
+        .strip_prefix(root)
+        .map_err(|e| e.to_string())?
+        .to_path_buf();
+    for component in Path::new(value).components() {
+        match component {
+            Component::Normal(part) => relative.push(part),
+            Component::CurDir => {}
+            Component::ParentDir if relative.pop() => {}
+            _ => return Err("Package main must stay inside its package directory.".into()),
+        }
+    }
+    Ok(root.join(relative))
+}
+
+fn entry_file(base: &Path, root: &Path) -> Result<Option<PathBuf>, String> {
+    let mut candidates = vec![base.to_path_buf()];
     for suffix in ["js", "json", "node"] {
-        candidates.push(base.join(format!("index.{suffix}")));
+        let mut name = base.as_os_str().to_os_string();
+        name.push(format!(".{suffix}"));
+        candidates.push(PathBuf::from(name));
     }
     for candidate in candidates {
         if !candidate.is_file() {
             continue;
         }
         let canonical = fs::canonicalize(&candidate).map_err(|e| e.to_string())?;
-        if !canonical.starts_with(directory) {
+        if !canonical.starts_with(root) {
             return Err("Package entry resolves outside the package directory.".into());
         }
-        return Ok(canonical);
+        return Ok(Some(canonical));
     }
-    Err(format!("Package entry was not found: {main}"))
+    Ok(None)
+}
+
+fn entry_index(base: &Path, root: &Path) -> Result<Option<PathBuf>, String> {
+    // LOAD_INDEX does not load a bare index file or recurse into directories.
+    for suffix in ["js", "json", "node"] {
+        let path = base.join(format!("index.{suffix}"));
+        if path.is_file() {
+            let canonical = fs::canonicalize(path).map_err(|e| e.to_string())?;
+            if !canonical.starts_with(root) {
+                return Err("Package entry resolves outside the package directory.".into());
+            }
+            return Ok(Some(canonical));
+        }
+    }
+    Ok(None)
 }
 
 fn inspect_package(report: &mut PluginDiscovery, directory: &Path) {

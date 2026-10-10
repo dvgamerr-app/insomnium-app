@@ -2,7 +2,7 @@
 
 2026-10-10 inventory from the read-only archive and current source. This is an implementation inventory, not completed custom-plugin parity. No archive files or installed user plugins are changed.
 
-The first admission milestone now has covered Windows native acceptance: read-only package metadata/Preferences status reporting,13packages/2manifest failures/six theme-width profiles, independent package-byte/source/build audit and owned cleanup. See [PLUGIN-DISCOVERY.md](PLUGIN-DISCOVERY.md). It does not load module exports, select a duplicate winner, activate tags/hooks/actions, persist custom paths, install packages or provide any of the six custom context namespaces. Those capabilities remain required.
+The first admission milestones now have covered Windows native acceptance: read-only package metadata/Preferences status reporting, persistent custom paths/explicit legacy import/actual restart and bounded entry normalization/file-index-fallback lookup. See [PLUGIN-DISCOVERY.md](PLUGIN-DISCOVERY.md), [PLUGIN-FOLDERS.md](PLUGIN-FOLDERS.md) and [PLUGIN-ENTRIES.md](PLUGIN-ENTRIES.md). Module exports, duplicate-winner policy, tag/hook/action activation, package installation and the six custom context namespaces remain required.
 
 The archived `packages/insomnia/src/plugins/index.ts` loads directories with package.json containing an `insomnia` field, traverses scoped package directories, clears CommonJS require caches and evaluates the module through global.require. Settings supports install/reload/disable/configuration. The archived installer uses Electron/child_process and a package-manager flow; those mechanisms cannot be copied into the Bun-only Tauri runtime.
 
