@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Plugin formats — committed handoff — 2026-10-10
+
+- Topic commit `427fe3d121aaca608fb08ea1903b6a00f31e6a74` (`fix(plugins): report entry format from nearest package scope`) commits verified native declared-scope reporting, shared31case saved scenario and scoped evidence. Production551bbbce/current713source; formats56080/discovery34272/source54348/restart64648 native-hidden/visible:false/exit0. Independent literal/source/build/76file and retained discovery/linked restart audits pass. Compiler55797 0/0/targeted Rust/diff pass. Formats/source760dark-light/restart images inspected. Exact expected name/ID/profile cleanup empty; all feature sessions terminal/no live handles. Worktree clean after topic commit.
+- Next required: full package/dependency admission/install and isolated custom module lifecycle/registration, PluginData/local store, ordered hooks/actions/eight contributions/six contexts; syntax/fault/provider/platform/accessibility/CI/shared adoption/ownership/full migration/UX/CSS gates remain. No scope removed. See PLUGIN-FORMATS.md and PLUGIN-COMPATIBILITY.md.
+- This interface cannot invoke `/compact`; no compaction occurred. Current commit/evidence/remaining gates/no-live-handles handoff is recorded before another feature. Documentation checkpoint SHA is available through `git log -1`.
+
 ## Plugin formats — verified — 2026-10-10
 
 - Production75695 terminal0/551bbbce/current713source/originalf30d baseline binding passes. Formats1791631021497/native56080 accepts31path/status cases/eight declared formats/two invalid scopes/76unchanged files/external bytes/absent marker/full workspace preservation/mounted read-only UI with independent audit. Retained discovery1791631036088/native34272 accepts13packages/2errors/28files/six profiles. Sources1791631050683/native54348+actual restart1791631054632/native64648 accept seven checkpoints/home/max14packages/30files/six profiles/exact persisted workspace values/restoration. All hosts exit0/native-hidden/visible:false; independent retained/link/source/build/file/layout audits pass. Compiler55797 0/0/targeted Rust/diff pass. Formats/source760dark-light/restarted images inspected; no UI/CSS changes. Exact name/ID/profile cleanup empty; all sessions terminal/no live handles.
