@@ -1,5 +1,30 @@
 # Native gRPC plugin helper acceptance
 
+## Metadata and streaming accepted — 2026-10-11
+
+Native28073/1791685588503/restoration1791685587968 terminal0 passes32 checks,
+14 terminated workers,45 actual HTTP requests and retained WS/OAuth/Cancel cases.
+Six actual gRPC calls carry seven protobuf input messages (cancelled Collect
+carries zero). New Watch receives one helper-derived input and emits two actual
+responses displayed by the native UI. Chat independently renders two helper
+inputs and displays each actual response before Commit, then finishes status0.
+Both transport headers carry `owned-helper: plugin-render-accepted`, with the
+metadata name and value each resolved by a separate genuine saved-ID HTTP helper.
+Twenty-three gRPC childHTTP requests: ten URL, seven body, three metadata-name,
+three metadata-value renders (including local schema reload). These counts and
+the actual per-transport metadata/path/message/end state pass the independent
+63-source audit, along with retained cancellation/OAuth/history/model/cookie/
+worker/native hidden exit0/visiblefalse and exact original two-buffer/store/all653
+cookie preservation. Same20ab757e product reused, bounded-manifest limits apply.
+Compiler32391 terminal0/zero errors/warnings. First native2960/1791685527612
+failed only at the new metadata field's accessible label (`Metadata 1`, not
+`Name 1`); first63 snapshots preserved and owned state restored. Corrected saved
+selector rerun passes. No product source changes or headed browser launch.
+
+This test topic still excludes main scenario/helper production integration,
+which remains uncommitted with the wider helper feature. Reflection and broader
+provider/concurrency/platform parity remain open; this does not complete migration.
+
 ## Owner cancellation and automatic recovery accepted — 2026-10-11
 
 Saved native29237 /1791685319112/restoration1791685318560 terminal0 passes
@@ -82,8 +107,8 @@ first-live-source-freeze.json. Both runs restore the original owned-profile file
 
 ## Remaining gates
 
-gRPC reflection discovery, late native/provider completion policies, metadata,
-server streaming/bidirectional methods, concurrent owners, ancestry/deadline and
+gRPC reflection discovery, late native/provider completion policies,
+concurrent owners, ancestry/deadline and
 other provider/platform cases still need their own helper acceptance. Broader
 preview, synchronous app facade, DOM/events/onHide/private compatibility,
 clipboard restoration, native chooser platforms and all original migration items

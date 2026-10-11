@@ -8,6 +8,7 @@ export async function createPluginGrpcFixture() {
   const wire = /** @type {any[]} */ ([]);
   const errors = /** @type {string[]} */ ([]);
   const closed = /** @type {any[]} */ ([]);
+  const metadata = /** @type {any[]} */ ([]);
   const sessions = new Set();
   const server = createServer();
   server.on("session", session => {
@@ -18,6 +19,7 @@ export async function createPluginGrpcFixture() {
   server.on("stream", (/** @type {import('node:http2').ServerHttp2Stream} */ stream, headers) => {
     const row = { path: String(headers[":path"]), messages: /** @type {string[]} */ ([]), ended: false };
     wire.push(row);
+    metadata.push({ index: wire.length - 1, value: headers["owned-helper"] ?? null });
     stream.on("close", () => closed.push({ path: row.path, messages: row.messages.length, rstCode: stream.rstCode }));
     let bytes = Buffer.alloc(0);
     let responded = false;
@@ -31,7 +33,8 @@ export async function createPluginGrpcFixture() {
       frame.writeUInt32BE(payload.length, 1);
       stream.respond({ ":status": 200, "content-type": "application/grpc" }, { waitForTrailers: true });
       stream.on("wantTrailers", () => stream.sendTrailers({ "grpc-status": "0" }));
-      stream.end(Buffer.concat([frame, payload]));
+      const message = Buffer.concat([frame, payload]);
+      stream.end(row.path === "/helper.Sample/Watch" ? Buffer.concat([message,message]) : message);
     };
     stream.on("error", error => { if (stream.rstCode !== 8) errors.push(String(error)); });
     stream.on("data", chunk => {
@@ -44,12 +47,23 @@ export async function createPluginGrpcFixture() {
         assert.equal(payload[1], payload.length - 2);
         row.messages.push(payload.subarray(2).toString());
         bytes = bytes.subarray(length + 5);
-        if (row.path === "/helper.Sample/Echo") respond();
+        if (row.path === "/helper.Sample/Echo" || row.path === "/helper.Sample/Watch") respond();
+        if (row.path === "/helper.Sample/Chat") {
+          if (!responded) {
+            responded = true;
+            stream.respond({ ":status": 200, "content-type": "application/grpc" }, {waitForTrailers:true});
+            stream.on("wantTrailers", () => stream.sendTrailers({"grpc-status":"0"}));
+          }
+          const frame = Buffer.alloc(5);
+          frame.writeUInt32BE(payload.length,1);
+          stream.write(Buffer.concat([frame,payload]));
+        }
       }
     });
     stream.on("end", () => {
       row.ended = true;
       assert.equal(bytes.length, 0);
+      if (row.path === "/helper.Sample/Chat" && responded) { stream.end(); return; }
       if (row.messages.length && !stream.destroyed) respond();
     });
   });
@@ -61,7 +75,7 @@ export async function createPluginGrpcFixture() {
     stop() { for (const session of sessions) session.destroy(); server.close(); },
     /** @param {string} helper @param {string} collection */
     source(helper, collection) {
-      return `exports.templateTags.push(...['grpcurl','grpcbody'].map(name=>({name,async run(c){
+      return `exports.templateTags.push(...['grpcurl','grpcbody','grpcmetakey','grpcmetavalue'].map(name=>({name,async run(c){
         const workspace=await c.util.models.workspace.getById(${JSON.stringify(collection)});
         if(workspace._id!==${JSON.stringify(collection)}) throw Error('Wrong gRPC workspace');
         const saved=await c.util.models.request.getById(${JSON.stringify(helper)});
@@ -71,7 +85,7 @@ export async function createPluginGrpcFixture() {
         if(latest._id!==sent._id) throw Error('Missing gRPC helper history');
         const body=c.util.models.response.getBodyBuffer(sent).toString();
         if(body!=='plugin-render-accepted') throw Error('Wrong gRPC helper body');
-        return name==='grpcurl'?${JSON.stringify(url)}:body;
+        return name==='grpcurl'?${JSON.stringify(url)}:name==='grpcmetakey'?'owned-helper':body;
       }})));
       exports.templateTags.push({name:'grpcprompt',async run(c){
         return await c.app.prompt('Owned gRPC helper cancellation',{defaultValue:'must-not-send'});
@@ -92,7 +106,7 @@ export async function createPluginGrpcFixture() {
           .getByRole("button", { name: "gRPC Plugin helper gRPC", exact: true }).click();
         await page.getByRole("tab", { name: "Proto Files", exact: true }).click();
         await page.getByLabel("Import files", { exact: true }).setInputFiles({ name: "plugin-helper.proto", mimeType: "text/plain",
-          buffer: Buffer.from('syntax = "proto3"; package helper; message Input { string name = 1; } service Sample { rpc Echo (Input) returns (Input); rpc Collect (stream Input) returns (Input); }') });
+          buffer: Buffer.from('syntax = "proto3"; package helper; message Input { string name = 1; } service Sample { rpc Echo (Input) returns (Input); rpc Collect (stream Input) returns (Input); rpc Watch (Input) returns (stream Input); rpc Chat (stream Input) returns (stream Input); }') });
         await page.getByRole("button", { name: "Import 1 files", exact: true }).click();
         await page.getByRole("button", { name: "plugin-helper.proto", exact: true }).waitFor();
         await page.getByRole("button", { name: "Load methods", exact: true }).click();
@@ -175,16 +189,50 @@ export async function createPluginGrpcFixture() {
         assert.equal(wire[3].path,"/helper.Sample/Echo");
         assert.deepEqual(wire[3].messages,["plugin-render-accepted"]);
         checks.push("Fresh unary after both gRPC owner cancellations recovers admitted plugin tags without Load");
+        const tabs = page.getByRole("tablist", {name:"gRPC request editor",exact:true});
+        await tabs.getByRole("tab",{name:"Metadata",exact:true}).click();
+        await page.getByRole("button",{name:"Add metadata",exact:true}).click();
+        await page.getByRole("textbox",{name:"Metadata 1",exact:true}).fill("{% grpcmetakey %}");
+        await page.getByRole("textbox",{name:"Value 1",exact:true}).fill("{% grpcmetavalue %}");
+        await poll(async () => (await invoke("load_workspace")).resources.find((/** @type {any} */ row) => row._id===id)?.metadata?.[0]?.value === "{% grpcmetavalue %}", "Saved gRPC metadata helper");
+        await page.getByRole("button",{name:"Load methods",exact:true}).click();
+        for (const [name,mode,clientStreaming,index] of /** @type {[string,string,boolean,number][]} */ ([
+          ["Watch","Server streaming",false,4],["Chat","Bidirectional",true,5],
+        ])) {
+          await methods.selectOption({label:`/Sample/${name} · ${mode}`});
+          await tabs.getByRole("tab",{name:"Body",exact:true}).click();
+          await page.getByRole("button",{name:clientStreaming?"Connect":"Send",exact:true}).click();
+          if (clientStreaming) {
+            await send.waitFor();
+            for (let count=1;count<=2;count++) {
+              await send.click();
+              await poll(async () => wire[index]?.messages.length===count,"Bidirectional helper message reaches native server");
+              await poll(async () => await page.locator(".grpc-message").count()===count,"Bidirectional response arrives before sender Commit");
+            }
+            await page.getByRole("button",{name:"Commit",exact:true}).click();
+          }
+          await page.locator(".grpc-response .status-badge").filter({hasText:"0 OK"}).waitFor();
+          await page.getByRole("button",{name:clientStreaming?"Connect":"Send",exact:true}).waitFor();
+          await poll(async () => wire[index]?.ended===true,"Streaming request sender closes");
+          assert.equal(wire[index].path,`/helper.Sample/${name}`);
+          assert.deepEqual(wire[index].messages,clientStreaming?["plugin-render-accepted","plugin-render-accepted"]:["plugin-render-accepted"]);
+          assert.equal(await page.locator(".grpc-message").count(),2);
+          for (const message of await page.locator(".grpc-message").allTextContents()) assert.equal(JSON.parse(message).name,"plugin-render-accepted");
+          assert.equal(metadata[index].value,"plugin-render-accepted");
+          checks.push(`Native ${mode.toLowerCase()} renders real helpers and displays two actual protobuf responses`);
+        }
+        assert.ok(metadata.slice(0,4).every(row=>row.value===null));
+        checks.push("Native gRPC metadata name/value helpers reach both streaming transports after actual saved-ID child sends");
         const helpers = mainWire.slice(helperStart).filter(row => new URL(row.url).pathname === "/helper");
         assert.ok(helpers.filter(row => row.body === "grpcurl").length >= 3);
-        assert.equal(helpers.filter(row => row.body === "grpcbody").length, 4);
+        assert.equal(helpers.filter(row => row.body === "grpcbody").length, 7);
         assert.ok(helpers.every(row => row.method === "POST"));
         assert.deepEqual(errors, []);
-        const evidence = { status: "passed", checks, controls, closed, wire, helpers: helpers.map(row => ({url:row.url,method:row.method,body:row.body})), errors };
+        const evidence = { status: "passed", checks, controls, closed, metadata, wire, helpers: helpers.map(row => ({url:row.url,method:row.method,body:row.body})), errors };
         await Bun.write(output + "/grpc-helper-acceptance.json", JSON.stringify(evidence, null, 2));
         return evidence;
       } finally {
-        await Bun.write(output + "/grpc-helper-wire.json", JSON.stringify({wire,closed,errors}, null, 2));
+        await Bun.write(output + "/grpc-helper-wire.json", JSON.stringify({wire,closed,metadata,errors}, null, 2));
       }
     },
   };
