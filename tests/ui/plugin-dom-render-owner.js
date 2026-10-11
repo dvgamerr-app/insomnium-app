@@ -18,7 +18,7 @@ await withPreview("plugin-dom-render-owner",async(page,output)=>{
   const call=(/** @type {string} */ method,/** @type {any[]} */ args=[])=>page.evaluate(({method,args})=>{
     const value=/** @type {any} */(window).__pluginDomRenderOwner[method];return typeof value==="function"?value(...args):value;
   },{method,args});
-  const dialog=()=>page.getByRole("dialog",{name:"Render lifetime dialog",exact:true}),checks=[];
+  const dialog=()=>page.getByRole("dialog",{name:"Render lifetime dialog",exact:true}),checks=[],streamControls=[];
   try {
     await call("open",[urls]);assert.equal(await call("render"),"prepared");assert.equal(await call("renderClosed"),true);
     await dialog().waitFor();await dialog().getByRole("button",{name:"Retained renderer event"}).click();
@@ -68,11 +68,26 @@ await withPreview("plugin-dom-render-owner",async(page,output)=>{
     await dialog().waitFor();await dialog().getByRole("button",{name:"Retained renderer event"}).click();await dialog().getByRole("status").filter({hasText:"captured:true:true:1"}).waitFor();
     await call("cancelRoot");await dialog().waitFor({state:"detached"});assert.deepEqual(await call("rootSettled"),{running:false,aborted:true,completed:false});
     checks.push("Actual workspace Cancel revokes completed field/dependency dialog descendants while the root transport is held; cancellation is never promoted to completion");
+    for(const protocol of ["websocket","sse"]){
+      await call("sendStreamWorkspace",[protocol]);await poll(async()=>await call("streamOpened"),"Controlled native stream opens after genuine plugin render");await dialog().waitFor();
+      await call("streamClosed");await page.waitForTimeout(200);assert.equal(await dialog().count(),1);
+      await call("streamFinish");const success=await call("streamSettled");assert.equal(success.running,false);assert.equal(success.completed,true);assert.equal(success.state,"closed");
+      await dialog().getByRole("button",{name:"Retained renderer event"}).click();await dialog().getByRole("status").filter({hasText:"captured:true:true:1"}).waitFor();
+      await call("changeWorkspaceSource");await dialog().waitFor({state:"detached"});
+      checks.push(protocol+": real workspace/channel frontend retains genuine guest dialog/helper across closed event and successful command/persistence; idle source loss revokes it (controlled native IPC)");
+      await call("sendStreamWorkspace",[protocol]);await poll(async()=>await call("streamOpened"),"Cancel stream opened");await dialog().waitFor();
+      await call("cancelRoot");await dialog().waitFor({state:"detached"});await call("streamClosed");await call("streamFinish");const cancelled=await call("streamSettled");assert.equal(cancelled.completed,false);assert.equal(cancelled.aborted,true);assert.ok(cancelled.calls.includes("cancel_http"));
+      checks.push(protocol+": actual workspace Cancel followed by late closed/success command stays revoked (controlled native IPC)");
+      await call("sendStreamWorkspace",[protocol]);await poll(async()=>await call("streamOpened"),"Error stream opened");await dialog().waitFor();
+      await call("streamClosed");await call("streamFail");await dialog().waitFor({state:"detached"});const failed=await call("streamSettled");assert.equal(failed.completed,false);assert.equal(failed.state,"error");
+      checks.push(protocol+": closed event followed by command rejection revokes dialog and keeps error state (controlled native IPC)");
+      streamControls.push({protocol,success,cancelled,failed});
+    }
     await call("close");await dialog().waitFor({state:"detached"});
     checks.push("Actual catalog unload closes owned roots; explicit reload creates fresh usable VM; app registry disposal closes final dialog");
     const workers=await call("records");assert.ok(workers.length>2&&workers.every((/** @type {any} */ row)=>row.terminated));
     assert.equal(workers.filter((/** @type {any} */ row)=>row.kind==="plugin").length,3);
-    await Bun.write(output+"/result.json",JSON.stringify({status:"passed",headless:true,checks,workers,hashes,limits:"Actual registry/render/DOM/workspace execute/builtin response/dependent browser HTTP with controlled package discovery and held root transport for Cancel; fresh native nested response-tag/stream terminal acceptance and ordered onHide before Abort/unload remain required."},null,2));
-  }catch(error){await Bun.write(output+"/diagnostics.json",JSON.stringify({workers:await call("records"),dialogs:await page.getByRole("dialog").allTextContents()},null,2));throw error;}
+    await Bun.write(output+"/result.json",JSON.stringify({status:"passed",headless:true,checks,workers,hashes,streamControls,limits:"Actual registry/render/DOM/workspace execute/builtin response/dependent browser HTTP; WebSocket/SSE frontend uses documented mockIPC with controlled command/channel/persistence. Fresh native stream terminal acceptance and ordered onHide before Abort/unload remain required."},null,2));
+  }catch(error){await Bun.write(output+"/diagnostics.json",JSON.stringify({workers:await call("records"),dialogs:await page.getByRole("dialog").allTextContents(),stream:await call("streamDiagnostics")},null,2));throw error;}
   finally{await call("close").catch(()=>{});}
 },{headers:{"Cross-Origin-Opener-Policy":"same-origin","Cross-Origin-Embedder-Policy":"require-corp"}});

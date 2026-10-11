@@ -1,5 +1,12 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Stream dialog completion frontend fix verified — 2026-10-12
+
+- Previous goal turn is progress38ecf33/native nested acceptance committed. Current HEAD before this topic commit is38ecf33. Actual workspace stream callback previously aborts at closed notification before command settlement. Saved genuine plugin/dialog/workspace/channel frontend reproduces missing dialog0instead1; exact negative product/fixture/scenario/result/diagnostics preserved before fix.
+- WebSocket/SSE now record closed state without premature root abort. Successful command, cancellation check and persistence grant host-only completion; Cancel and command/persistence errors revoke normally. Six added controls in existing owner scenario verify closed-before-settlement/helper continuation after successful completion/idle source loss, actual workspace Cancel+late success never promoted, and closed+command rejection retains error. Stream IPC/cookies/persistence use installed documented mockIPC adapter; native transport acceptance is not claimed.
+- Compiler73261/65889 terminal0/0errors/0warnings; build exit0/6.73s. Final owner20fixed-headless groups/41terminated real workers (3plugin/38template), Cancel recovery and callback-session regressions all exit0. Independent audit613exact source/config/scripts/frontend/generated/three results/negative source+result/both worker hashes/protocol signal+state+IPC controls passes. Initial3428/1951 fixture timeouts lacked cookie snapshot adapter; not accepted bug proof. PLUGIN-DOM-STREAM-OWNER.md and artifacts/plugin-dom-stream-owner-proof record commands/evidence.
+- NEXT fresh native WebSocket/SSE completion/Cancel/error/source-loss acceptance: oldd2c20319/45checks predates this changed host code. Ordered terminal onHide/full DOM/private/clipboard/save platform/provider/all original migration then shared-input UX/UI/CSS remain open. All current handles terminal; retained Linux infrastructure untouched. Unrelated pending UI/CSS/docs preserved. Interface cannot invoke `/compact`; this is handoff, not a compaction or full migration claim.
+
 ## Native nested response dialog acceptance verified — 2026-10-12
 
 - Previous goal turn is progress: fixed-headless evidence verified and builder79345 observed terminal0. Current HEAD before this topic commit isc990049. Fresh native executable SHA d2c20319f7bfa305f43d6a6f7d4406601e39284e826cab43304b71711c8a1641 verifies the changed field/source lifetime code, superseding old427cf713 for this gate.

@@ -1315,9 +1315,6 @@ export async function execute(
         }
         if (event.kind === "closed") {
           response.connectionState = "closed";
-          controller.abort(
-            new DOMException("Stream connection closed", "AbortError"),
-          );
         }
         if (event.kind === "warning") workspace.notice = event.message;
         response.elapsedMs = Date.now() - response.created;
@@ -1332,12 +1329,16 @@ export async function execute(
           void persist();
         }
       });
+      // A closed notification can precede command failure or late cancellation.
+      // Only a successful transport and persistence may retain plugin UI.
+      controller.signal.throwIfAborted();
       response.connectionState = "closed";
       response.elapsedMs = Date.now() - response.created;
       if (workspace.data.resources.some((r) => r._id === requestId)) {
         remember(response);
         await persist();
       }
+      runCompleted = true;
       return;
     }
     const response = await send(prepared, controller.signal);

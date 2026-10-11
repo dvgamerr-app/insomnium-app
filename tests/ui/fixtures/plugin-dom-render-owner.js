@@ -7,6 +7,7 @@ import {installPluginTemplateProvider,pluginRenderSourceKey} from "../../../src/
 import {completePluginRequest,linkPluginRequestSignal,pluginRequestIsCurrent,pluginRequestCompleted} from "../../../src/lib/plugin-request-lifetime.js";
 import {workspace,execute,stop} from "../../../src/lib/workspace.svelte.js";
 import {initialData,newRequest} from "../../../src/lib/model.js";
+import {mockIPC,clearMocks} from "@tauri-apps/api/mocks";
 const target=document.body.appendChild(document.createElement("div"));mount(PluginDomDialogHost,{target});
 const name="insomnia-plugin-dom-lifetime";
 const source=`let state={hides:0};exports.templateTags=[{name:'lifetimedialog',run(c){
@@ -28,6 +29,12 @@ let renderClosed=false;
 /** @type {(()=>void)|undefined} */let restoreFetch;
 /** @type {AbortSignal|undefined} */let heldSignal;
 let rootHeld=false;
+/** @type {import('@tauri-apps/api/core').Channel<Record<string,any>>|undefined} */let streamChannel;
+/** @type {(()=>void)|undefined} */let resolveStream;
+/** @type {((error:Error)=>void)|undefined} */let rejectStream;
+/** @type {AbortSignal|undefined} */let streamSignal;
+let streamOpened=false;
+const streamCalls=/** @type {string[]} */([]);
 const records=/** @type {{kind:string,terminated:boolean,messages:any[]}[]} */([]);
 /** @type {any} */(window).__pluginDomRenderOwner={
   records,
@@ -105,7 +112,35 @@ const records=/** @type {{kind:string,terminated:boolean,messages:any[]}[]} */([
   cancelRoot(){return stop("r");},
   async rootSettled(){await pendingRoot;return{running:!!workspace.running.r,aborted:heldSignal?.aborted,completed:heldSignal?pluginRequestCompleted(heldSignal):false};},
   changeChildSource(){const child=workspace.data.resources.find(row=>row._id==="child");if(child)child.name+=" edited";},
+  sendStreamWorkspace(/** @type {'websocket'|'sse'} */ protocol){
+    const request={...newRequest("w"),_id:"r",name:"Stream owner",_type:protocol==="websocket"?"websocket_request":"request",responseMode:protocol==="sse"?"sse":undefined,url:(protocol==="websocket"?"ws://127.0.0.1":"http://127.0.0.1")+"/stream?dialog={% lifetimedialog %}"};
+    data.resources=[data.resources[0],request,{_id:"env",_type:"environment",parentId:"w",name:"Base Environment",data:{ownerValue:"captured"}}];
+    workspace.data={...initialData(),resources:data.resources,activeWorkspaceId:"w",activeRequestId:"r"};workspace.ready=true;
+    streamOpened=false;streamChannel=undefined;streamCalls.length=0;
+    /** @type {any} */(window).isTauri=true;
+    mockIPC((command,args)=>{
+      streamCalls.push(command);
+      if(command==="snapshot_request_cookies")return {cookies:[]};
+      if(command==="save_workspace"||command==="acknowledge_stream")return null;
+      if(command==="cancel_http")return null;
+      if(command!=="connect_stream")throw Error("Unexpected fixture IPC "+command);
+      const payload=/** @type {any} */(args);streamChannel=payload.onEvent;
+      streamSignal=workspace.running.r.controller.signal;
+      streamChannel?.onmessage({event:{kind:"started"}});
+      streamChannel?.onmessage({event:{kind:"open",protocol,status:protocol==="websocket"?101:200}});
+      streamOpened=true;
+      return new Promise((resolve,reject)=>{resolveStream=()=>resolve(null);rejectStream=reject;});
+    });
+    pendingRoot=execute("r").finally(()=>{clearMocks();delete /** @type {any} */(window).isTauri;});
+    return "started";
+  },
+  streamOpened:()=>streamOpened,
+  streamDiagnostics:()=>({response:workspace.responses.r,error:workspace.error,calls:streamCalls}),
+  streamClosed(){streamChannel?.onmessage({event:{kind:"closed",code:1000,reason:"Server finished"}});},
+  streamFinish(){resolveStream?.();},
+  streamFail(){rejectStream?.(new Error("Controlled native stream failure"));},
+  async streamSettled(){await pendingRoot;return{running:!!workspace.running.r,aborted:streamSignal?.aborted,completed:streamSignal?pluginRequestCompleted(streamSignal):false,state:workspace.responses.r?.connectionState,calls:[...streamCalls]};},
   unload(){registry?.invalidate(name);},
   load(){return registry?.prepare(name);},
-  close(){void stop("r");restoreFetch?.();registry?.dispose();remove?.();if(originalWorker)window.Worker=originalWorker;},
+  close(){void stop("r");resolveStream?.();restoreFetch?.();registry?.dispose();remove?.();if(originalWorker)window.Worker=originalWorker;},
 };
