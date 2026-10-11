@@ -13,11 +13,55 @@ fresh native process. The pinned cookie_store 0.22.1 serializer documents that
 entries. Primary API: <https://docs.rs/cookie_store/0.22.1/cookie_store/serde/json/fn.load_all.html>.
 The installed crate source was consulted; the web fetch was unavailable.
 
-This does not change persistence pruning: `PersistentJar::save` still serializes
-`iter_unexpired`. Preserving expired model entries through subsequent writes,
-broader cookie editing policy, and actual request-header/provider parity remain
-required migration gates. Cookie-provider matching remains independent of the
-model snapshot option.
+`PersistentJar::save` also serializes `iter_any`, retaining session and expired
+entries through subsequent writes. This follows legacy `common/cookies.ts` and
+`network/set-cookie-util.ts`, which serialize `store.getAllCookies` after adding
+response cookies. The request snapshot and provider continue filtering expired
+cookies independently. Broader cookie editing and actual request-header/provider
+parity remain required migration gates.
+
+## Subsequent-write persistence acceptance
+
+The saved restart scenario supports `INSOMNIUM_COOKIE_RESTART_WRITE=1`: load the
+controlled three-entry file, add an unrelated cookie through native `change_cookie`,
+inspect the resulting file and model, then launch a second fresh native process.
+
+- Prior production `4d956946` fails at the disk assertion: live model four,
+  request snapshot three, persisted file three. Native `1791678025285`, restoration
+  `1791678025154`, and `artifacts/plugin-cookie-write-negative-1791678025285`
+  preserve the negative control and exact 54-source/harness snapshots.
+- New production `05b8f4ad4821ad5f201b4772766dc5a5c190b403ad26c86c124e54d55d4d3dfd`
+  passes native `1791678453748`, subsequent restart `1791678454838`, restoration
+  `1791678453617`: persisted/model four, request three, original expired timestamp
+  unchanged through the unrelated write and fresh process.
+- Independent audit verifies the initial backup bytes, written file, both native
+  results and hidden hosts, current/exact 54-source snapshots, original plugin
+  store and both workspace files, plus all 653 original cookie files. It removes
+  only the two absent-before, scenario-owned cookie files after owned native exit.
+- Compiler passes with zero errors/warnings; Windows release build exits zero.
+  Linux locked Cargo check passes in 18.27s with 275 actual source files matching
+  the host, excluding four generated schemas explicitly. Evidence lives under
+  `artifacts/native-plugin-cookie-persistence-probe` and
+  `artifacts/linux-cookie-model-persistence-*`.
+- Genuine guest helper rerun `1791678473871` / restoration `1791678473356`
+  passes 13 checks, nine terminated workers and nine native requests, with
+  populated cookie attributes, live expiry and exact owned-state restoration.
+- Retained H2/metadata/history/restart `1791678513193` / `1791678521334` /
+  restoration `1791678513011` passes nine cases, 27 workers and 30 native requests.
+  Both suites have independent current/exact 54-source audits.
+- Isolated staged-topic Linux locked check passes in 18.76s with 272 source files
+  bound to the checkout before Cargo generates platform schemas. The pre-check
+  manifest contains no generated schema files. The
+  isolated Windows check was not rerun after the preceding topic's libclang
+  discovery failure; full candidate Windows release/runtime evidence is separate.
+
+The library documents `iter_any` for all retained entries and `matches` for
+unexpired request-compatible entries:
+<https://docs.rs/cookie_store/0.22.1/cookie_store/struct.CookieStore.html>.
+The legacy model read matches the store's all-cookie operation:
+<https://github.com/salesforce/tough-cookie/blob/master/api/docs/tough-cookie.store.getallcookies.md>.
+Explicit clear/delete/replacement, response-driven writes, actual provider headers
+and broader platform/migration/helper parity still require their own acceptance.
 
 ## Verification on 2026-10-11
 

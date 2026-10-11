@@ -91,8 +91,9 @@ impl PersistentJar {
             }
             data.backed_up = true;
         }
-        // Preserve session cookies for API-client sessions, discard expired entries.
-        let cookies: Vec<_> = store.iter_unexpired().collect();
+        // Model persistence retains session and expired entries, as legacy
+        // getAllCookies does. Request snapshots/providers filter expiry separately.
+        let cookies: Vec<_> = store.iter_any().collect();
         crate::storage::atomic_write(
             &self.path,
             &serde_json::to_vec(&cookies).map_err(|e| e.to_string())?,
