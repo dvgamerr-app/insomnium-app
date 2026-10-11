@@ -1,11 +1,15 @@
 import { separateRequestUploads } from "./request-uploads.js";
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import { createRequestRenderSession } from "./template-session.js";
+import {
+  createRequestRenderSession,
+  capturePluginRenderOptions,
+} from "./template-session.js";
 import { requestEnvironmentLayers } from "./template-environment.js";
 import { workspaceFor } from "./model.js";
 import { setDefaultProtocol } from "./template-url.js";
 import { checkTemplateValue } from "./template-object.js";
 import { applyDefaultRequestHeaders } from "./request-default-headers.js";
+/** @typedef {import('./template-session.js').PluginRenderOptions} PluginRenderOptions */
 
 /** @param {Record<string,any>} data @param {Record<string,any>} request */
 async function requestCookieSnapshot(data, request) {
@@ -95,10 +99,11 @@ export async function renderRequestSnapshot(session, request, options = {}) {
 
 /** Own the renderer only while preparing one Send snapshot; network cancellation remains caller-owned.
  * @param {Record<string,any>} data @param {Record<string,any>} request @param {AbortSignal} signal
- * @param {{skipBody?:boolean,responseResolver?:(args:any[],signal:AbortSignal)=>any|Promise<any>}} [options]
+ * @param {{skipBody?:boolean,responseResolver?:(args:any[],signal:AbortSignal)=>any|Promise<any>}&PluginRenderOptions} [options]
  */
 export async function renderSendRequest(data, request, signal, options = {}) {
   signal.throwIfAborted();
+  const helperOptions = capturePluginRenderOptions(options);
   const cookieJar = await requestCookieSnapshot(data, request);
   signal.throwIfAborted();
   const session = createRequestRenderSession(
@@ -106,6 +111,7 @@ export async function renderSendRequest(data, request, signal, options = {}) {
     {
       purpose: "send",
       responseResolver: options.responseResolver,
+      ...helperOptions,
       requestId: request._id,
       workspaceId: workspaceFor(data.resources, request._id),
       resources: data.resources,
@@ -138,10 +144,11 @@ export async function renderSendRequest(data, request, signal, options = {}) {
 
 /** Resolve explicit OAuth actions without evaluating unrelated request bodies/headers.
  * @param {Record<string,any>} data @param {Record<string,any>} request @param {AbortSignal} signal
- * @param {{purpose?:"send"|"preview",includeCookies?:boolean,responseResolver?:(args:any[],signal:AbortSignal)=>any|Promise<any>}} [options]
+ * @param {{purpose?:"send"|"preview",includeCookies?:boolean,responseResolver?:(args:any[],signal:AbortSignal)=>any|Promise<any>}&PluginRenderOptions} [options]
  */
 export async function renderOAuthRequest(data, request, signal, options = {}) {
   signal.throwIfAborted();
+  const helperOptions = capturePluginRenderOptions(options);
   const cookieJar =
     options.includeCookies && options.purpose !== "preview"
       ? await requestCookieSnapshot(data, request)
@@ -151,6 +158,7 @@ export async function renderOAuthRequest(data, request, signal, options = {}) {
     {},
     {
       purpose: options.purpose || "send",
+      ...helperOptions,
       requestId: request._id,
       workspaceId: workspaceFor(data.resources, request._id),
       resources: data.resources,
@@ -191,18 +199,23 @@ export async function renderOAuthRequest(data, request, signal, options = {}) {
 
 /** Render one message with the connection owner's cancellation signal.
  * @param {Record<string,any>} data @param {Record<string,any>} request @param {string} value @param {AbortSignal} signal
- * @param {(args:any[],signal:AbortSignal)=>any|Promise<any>} responseResolver */
+ * @param {(args:any[],signal:AbortSignal)=>any|Promise<any>} responseResolver
+ * @param {PluginRenderOptions} [options] */
 export async function renderMessageValue(
   data,
   request,
   value,
   signal,
   responseResolver,
+  options = {},
 ) {
+  signal.throwIfAborted();
+  const helperOptions = capturePluginRenderOptions(options);
   const session = createRequestRenderSession(
     {},
     {
       purpose: "send",
+      ...helperOptions,
       requestId: request._id,
       workspaceId: workspaceFor(data.resources, request._id),
       resources: data.resources,
@@ -227,17 +240,22 @@ export async function renderMessageValue(
 
 /** Render gRPC connection fields; messages are rendered only when sent.
  * @param {Record<string,any>} data @param {Record<string,any>} request @param {AbortSignal} signal
- * @param {(args:any[],signal:AbortSignal)=>any|Promise<any>} responseResolver */
+ * @param {(args:any[],signal:AbortSignal)=>any|Promise<any>} responseResolver
+ * @param {PluginRenderOptions} [options] */
 export async function renderGrpcRequest(
   data,
   request,
   signal,
   responseResolver,
+  options = {},
 ) {
+  signal.throwIfAborted();
+  const helperOptions = capturePluginRenderOptions(options);
   const session = createRequestRenderSession(
     {},
     {
       purpose: "send",
+      ...helperOptions,
       requestId: request._id,
       workspaceId: workspaceFor(data.resources, request._id),
       resources: data.resources,

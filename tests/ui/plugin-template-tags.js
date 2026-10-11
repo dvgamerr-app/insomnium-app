@@ -18,6 +18,10 @@ import {
   restorePluginWorkerProbe,
 } from "./helpers/plugin-worker-probe.js";
 import { withIpcSuccessHook } from "./helpers/ipc-success-hook.js";
+import { createPluginOAuthFixture } from "./helpers/plugin-oauth-native.js";
+import { createPluginGrpcFixture } from "./helpers/plugin-grpc-native.js";
+import { pluginAppInfoSource, exercisePluginAppInfoNative } from "./helpers/plugin-app-info-native.js";
+import {pluginDomOwnerNativeSource,exercisePluginDomOwnerHttpNative} from "./helpers/plugin-dom-owner-native.js";
 import {
   editorTagSource,
   editorTemplate,
@@ -25,6 +29,16 @@ import {
 } from "./helpers/template-tag-editor-native.js";
 
 const editorMode = process.env.INSOMNIUM_TEMPLATE_TAG_EDITOR === "1";
+const helperMode = process.env.INSOMNIUM_PLUGIN_HELPERS === "1";
+const cookieMode = helperMode && process.env.INSOMNIUM_PLUGIN_HELPER_COOKIES === "1";
+const protocolMode = helperMode && process.env.INSOMNIUM_PLUGIN_HELPER_PROTOCOLS === "1";
+const oauthMode = helperMode && process.env.INSOMNIUM_PLUGIN_HELPER_OAUTH === "1";
+const oauthFixture = oauthMode ? createPluginOAuthFixture() : undefined;
+const appInfoMode = helperMode && process.env.INSOMNIUM_PLUGIN_APP_INFO === "1";
+const domOwnerMode = helperMode && process.env.INSOMNIUM_PLUGIN_DOM_OWNER === "1";
+const grpcFixture = helperMode && process.env.INSOMNIUM_PLUGIN_HELPER_GRPC === "1" ? await createPluginGrpcFixture() : undefined;
+const socketMessages = /** @type {string[]} */ ([]);
+let socketConnections = 0;
 
 const readyText =
   "Plugin loaded in isolation. Custom template tags are available to request rendering. Hooks and actions are not connected yet.";
@@ -63,7 +77,8 @@ const wire = /** @type {any[]} */ ([]);
 const server = Bun.serve({
   hostname: "127.0.0.1",
   port: 0,
-  async fetch(request) {
+  async fetch(request, server) {
+    if (protocolMode && new URL(request.url).pathname === "/ws" && server.upgrade(request)) return;
     wire.push({
       url: request.url,
       method: request.method,
@@ -74,6 +89,10 @@ const server = Bun.serve({
       headers: { "Content-Type": "text/plain" },
     });
   },
+  websocket: {
+    open() {socketConnections++;},
+    message(socket,message) {const text=String(message);socketMessages.push(text);socket.send(text);},
+  },
 });
 try {
   await withNativeApp(
@@ -82,23 +101,29 @@ try {
       const original = await invoke("load_workspace"),
         collection = "wrk_plugin_render_" + Date.now(),
         requestId = "req_plugin_render_" + Date.now(),
+        helperRequestId = requestId + "_helper",
+        socketRequestId = requestId + "_socket",
+        socketPayloadId = requestId + "_payload",
+        oauthRequestId = requestId + "_oauth",
         root = join(output, "packages"),
         files = /** @type {{path:string,text:string}[]} */ ([]),
         checks = /** @type {string[]} */ ([]),
         observations = /** @type {any[]} */ ([]),
         records = /** @type {any[]} */ ([]),
         directories = [];
+      let expiredCookieExpiry = "";
       const sourceA = `exports.templateTags=[
       {name:'dup',priority:-100,run(){return 'A-first';}},
       {name:'dup',priority:100,run(){return 'A-last';}},
       {name:'internal',run(){return 'internal-first';}},
       {name:'internal',run(){return 'internal-last';}},
+      ${helperMode ? "{name:'extrainfo',run(c){return c.context.getExtraInfo('payload');}}," : ""}
       {name:'context',run(c,...args){return JSON.stringify({args,scope:c.context.scope,alias:c.context._.scope,derived:c.context.derived,meta:c.meta,purpose:c.renderPurpose});}},
       {name:'args',run(c,zero,nan,infinity,missing){return JSON.stringify({negativeZero:Object.is(zero,-0),nan:Number.isNaN(nan),infinity:infinity===Infinity,undefined:missing===undefined});}},
       {name:'value',run(c,kind){switch(kind){case 'false':return false;case 'zero':return 0;case 'null':return null;case 'undefined':return undefined;case 'bigint':return 12345678901234567890n;case 'nan':return NaN;case 'infinity':return Infinity;case 'array':return ['a',null,'b'];case 'object':return {a:1};case 'regex':return /owned/gi;case 'map':return new Map([['a',1]]);case 'set':return new Set([1]);case 'bytes':return new Uint8Array([1,2,255]);}}},
       ...${JSON.stringify(builtinTemplateNames)}.map(name=>({name,run(){throw Error('built-in collision callback must not run');}}))
     ];`;
-      const sourceB =
+      let sourceB =
         `exports.templateTags=[
       {name:'dup',priority:-999,run(){return 'B';}},
       ...${JSON.stringify(publicNames)}.map(name=>({name,run(){return name;}})),
@@ -106,7 +131,28 @@ try {
       {name:'persist',async run(c){await c.store.setItem('value','stored');return await c.store.getItem('value');}},
       {name:'hold',async run(c){await c.store.getItem('gate');await c.store.setItem('forbidden','leaked');return 'held';}},
       {name:'throwing',run(){throw Error('owned plugin failure');}}
-    ];` + (editorMode ? editorTagSource : "");
+    ];` + (helperMode ? `exports.templateTags.push({name:'workspacehelper',async run(c){
+      const saved=await c.util.models.request.getById(${JSON.stringify(helperRequestId)});
+      const w=await c.util.models.workspace.getById(${JSON.stringify(collection)});
+      const jar=await c.util.models.cookieJar.getOrCreateForWorkspace(w);
+      const again=await c.util.models.cookieJar.getOrCreateForWorkspace(w);
+      ${cookieMode ? "jar.cookies[0].value='guest-edit';" : ""}
+      const prompted=await c.app.prompt('Plugin workspace helper',{defaultValue:'accepted'});
+      saved.url='http://invalid.example/guest-edit';
+      const sent=await c.network.sendRequest(saved,[{name:'payload',value:'from-extra'}]);
+      const latest=await c.util.models.response.getLatestForRequestId(saved._id);
+      return JSON.stringify({prompted,jarId:jar._id,jarStable:again._id===jar._id,
+        parentId:jar.parentId,cookies:jar.cookies.length,version:sent.httpVersion,
+        bytes:sent.bytesRead,body:c.util.models.response.getBodyBuffer(sent).toString(),
+        latestMatches:latest._id===sent._id,latestBody:c.util.models.response.getBodyBuffer(latest).toString()
+        ${cookieMode ? ",cookieModels:again.cookies" : ""}});
+    }});` : "") + (protocolMode ? `exports.templateTags.push(
+      {name:'messagehelper',async run(c){const saved=await c.util.models.request.getById(${JSON.stringify(helperRequestId)});const response=await c.network.sendRequest(saved,[{name:'payload',value:'from-extra'}]);return 'payload:'+c.util.models.response.getBodyBuffer(response).toString();}},
+      {name:'payloadprompt',async run(c){return await c.app.prompt('Plugin payload cancellation',{defaultValue:'must-not-send'});}});` : "") + (editorMode ? editorTagSource : "");
+      sourceB += oauthFixture?.source(helperRequestId, collection) ?? "";
+      sourceB += grpcFixture?.source(helperRequestId, collection) ?? "";
+      if (appInfoMode) sourceB += pluginAppInfoSource;
+      if (domOwnerMode) sourceB += pluginDomOwnerNativeSource(helperRequestId);
       for (const [index, source] of [sourceA, sourceB].entries()) {
         const directory = join(root, index === 0 ? "a" : "b");
         await mkdir(directory, { recursive: true });
@@ -156,7 +202,22 @@ try {
         }),
       );
       seed.activeWorkspaceId = collection;
+      if (helperMode) seed.resources.push(newRequest(collection, {
+        _id: helperRequestId, name: "Helper saved request", method: "POST",
+        url: `http://127.0.0.1:${server.port}/helper`,
+        body: { mimeType: "text/plain", text: "{% extrainfo %}" },
+        settingSendCookies: false, settingStoreCookies: false,
+      }));
+      if (protocolMode) seed.resources.push(
+        newRequest(collection,{_id:socketRequestId,_type:"websocket_request",name:"Plugin helper socket",
+          url:`ws://127.0.0.1:${server.port}/ws`,activePayloadId:socketPayloadId,
+          settingSendCookies:false,settingStoreCookies:false}),
+        {_id:socketPayloadId,_type:"websocket_payload",parentId:socketRequestId,name:"Helper payload",
+          mode:"text/plain",value:"{% messagehelper %}"},
+      );
       seed.activeRequestId = requestId;
+      if (oauthFixture) seed.resources.push(...oauthFixture.resources(collection, oauthRequestId));
+      if (grpcFixture) seed.resources.push(...grpcFixture.resources(collection, requestId + "_grpc"));
       seed.activeEnvironmentId = "";
       seed.openTabs = [requestId];
       seed.settings.pluginDirectories = directories;
@@ -245,6 +306,48 @@ try {
         });
       };
       try {
+        if (cookieMode) {
+          const cookieFiles = [collection + ".json", collection + ".previous.json"];
+          for (const name of cookieFiles)
+            assert.equal(await Bun.file(join(storeRoot, "cookies", name)).exists(), false,
+              "Owned fixture cookie file must not pre-exist");
+          await Bun.write(join(output, "cookie-fixture.json"), JSON.stringify({ collection, cookieFiles }, null, 2));
+          await invoke("change_cookie", {
+            workspaceId: collection, url: "https://api.example.test/cookie/child",
+            raw: "owned_host=host-value; Secure; HttpOnly", previous: null, clear: false,
+          });
+          await invoke("change_cookie", {
+            workspaceId: collection, url: "https://api.example.test/cookie/child",
+            raw: "owned_suffix=suffix-value; Domain=example.test; Path=/explicit; Expires=Wed, 21 Oct 2037 07:28:00 GMT",
+            previous: null, clear: false,
+          });
+          await invoke("change_cookie", {
+            workspaceId: collection, url: "https://api.example.test/cookie/child",
+            raw: "owned_expiry=expired-value; Max-Age=1", previous: null, clear: false,
+          });
+          const initialCookies = await invoke("snapshot_request_cookies", { workspaceId: collection, includeExpired: true });
+          expiredCookieExpiry = initialCookies.cookies.find((/** @type {any} */ item) => item.key === "owned_expiry")?.expires?.AtUtc;
+          assert.equal(typeof expiredCookieExpiry, "string");
+          assert.ok(Number.isFinite(Date.parse(expiredCookieExpiry)));
+          await page.waitForTimeout(Math.max(0, Date.parse(expiredCookieExpiry) - Date.now()) + 250);
+          const expiryProbes = /** @type {{at:number,cookies:number,includesExpired:boolean}[]} */ ([]);
+          try {
+            await poll(async () => {
+              const observed = await invoke("snapshot_request_cookies", { workspaceId: collection });
+              const includesExpired = observed.cookies.some((/** @type {any} */ item) => item.key === "owned_expiry");
+              expiryProbes.push({ at: Date.now(), cookies: observed.cookies.length, includesExpired });
+              return !includesExpired;
+            }, "Native cookie expiry observed", 5000);
+          } finally {
+            await Bun.write(join(output, "cookie-expiry-probes.json"), JSON.stringify(expiryProbes, null, 2));
+          }
+          const normal = await invoke("snapshot_request_cookies", { workspaceId: collection });
+          const model = await invoke("snapshot_request_cookies", { workspaceId: collection, includeExpired: true });
+          assert.equal(normal.cookies.length, 2);
+          assert.equal(normal.cookies.some((/** @type {any} */ item) => item.key === "owned_expiry"), false);
+          assert.equal(model.cookies.length, 3);
+          await Bun.write(join(output, "cookie-expiry-control.json"), JSON.stringify({ expiredCookieExpiry, observedAt: Date.now(), normal, model, expiryProbes }, null, 2));
+        }
         await invoke("save_workspace", { data: seed });
         await page.reload();
         await page.locator(".app-shell").waitFor();
@@ -272,12 +375,101 @@ try {
           checks.push(...editor.checks);
           observations.push(...editor.observations);
         } else {
+          if (helperMode) {
+            await body("{% workspacehelper %}");
+            const before = wire.length;
+            await page.getByRole("button", { name: "Send", exact: true }).click();
+            const dialog = page.getByRole("dialog", { name: "Plugin workspace helper", exact: true });
+            await dialog.waitFor();
+            await dialog.getByRole("button", { name: "Submit", exact: true }).click();
+            await poll(() => Promise.resolve(wire.length === before + 2), "Actual helper and root native wire", 60000);
+            await settled();
+            const sent = wire.slice(before);
+            assert.equal(new URL(sent[0].url).pathname, "/helper");
+            assert.equal(sent[0].body, "from-extra");
+            const summary = JSON.parse(sent[1].body);
+            assert.equal(summary.prompted, "accepted");
+            assert.equal(summary.jarStable, true);
+            assert.equal(summary.parentId, collection);
+            assert.equal(summary.cookies, cookieMode ? 3 : 0);
+            if (cookieMode) {
+              assert.deepEqual([...summary.cookieModels].sort((a, b) => a.key.localeCompare(b.key)), [
+                { key: "owned_expiry", value: "expired-value", domain: "api.example.test", path: "/cookie",
+                  pathIsDefault: true, hostOnly: true, expires: expiredCookieExpiry, secure: false, httpOnly: false },
+                { key: "owned_host", value: "host-value", domain: "api.example.test", path: "/cookie",
+                  pathIsDefault: true, hostOnly: true, expires: "Infinity", secure: true, httpOnly: true },
+                { key: "owned_suffix", value: "suffix-value", domain: "example.test", path: "/explicit",
+                  pathIsDefault: false, hostOnly: false, expires: "2037-10-21T07:28:00Z", secure: false, httpOnly: false },
+              ]);
+            }
+            assert.equal(summary.version, "HTTP/1.1");
+            assert.equal(summary.bytes, Buffer.byteLength("plugin-render-accepted"));
+            assert.equal(summary.body, "plugin-render-accepted");
+            assert.equal(summary.latestMatches, true);
+            assert.equal(summary.latestBody, summary.body);
+            const persisted = await invoke("load_workspace");
+            const jars = persisted.resources.filter((/** @type {any} */ item) => item._type === "cookie_jar" && item.parentId === collection);
+            assert.equal(jars.length, 1);
+            assert.equal(jars[0]._id, summary.jarId);
+            assert.ok(persisted.history.some((/** @type {any} */ entry) => entry.requestId === helperRequestId && entry.httpVersion === "HTTP/1.1"));
+            checks.push("Actual workspace helpers: saved-ID native send/extra info/model/body/history/cookie jar/genuine Prompt");
+            observations.push({ helper: summary, nativeWire: sent });
+          }
+          if (protocolMode) {
+            await page.getByRole("complementary",{name:"Collections"})
+              .getByRole("button",{name:"WS Plugin helper socket",exact:true}).click();
+            const before=wire.length;
+            await page.getByRole("button",{name:"Connect and send",exact:true}).click();
+            await poll(async()=>socketMessages.length===1 ||
+              (await page.locator(".inline-error").filter({hasText:"TemplateRenderError"}).count())>0,
+              "Initial payload helper native WebSocket",60000);
+            if(socketMessages.length!==1) throw Error("Initial plugin payload failed: "+
+              await page.locator(".inline-error").filter({hasText:"TemplateRenderError"}).first().innerText());
+            assert.equal(socketMessages[0],"payload:plugin-render-accepted");
+            assert.equal(wire.length,before+1);assert.equal(wire.at(-1).body,"from-extra");
+            checks.push("WebSocket initial payload captures actual workspace helper/native nested HTTP/extra info/body");
+            await page.getByRole("button",{name:"Send message",exact:true}).click();
+            await poll(()=>Promise.resolve(socketMessages.length===2),"Connected payload helper native WebSocket",60000);
+            assert.equal(socketMessages[1],socketMessages[0]);assert.equal(wire.length,before+2);
+            assert.equal(wire.at(-1).body,"from-extra");
+            checks.push("Connected WebSocket payload retains root owner and actual workspace helpers");
+            await Bun.write(join(output,"protocol-intermediate.json"),JSON.stringify({socketMessages:[...socketMessages],socketConnections,nativeHttp:wire.slice(before)},null,2));
+            await page.getByRole("textbox",{name:"WebSocket message",exact:true}).fill("{% payloadprompt %}");
+            await poll(async()=>(await invoke("load_workspace")).resources.find((/** @type {any} */ r)=>r._id===socketPayloadId)?.value==="{% payloadprompt %}","Saved prompt payload");
+            await page.getByRole("button",{name:"Send message",exact:true}).click();
+            const prompt=page.getByRole("dialog",{name:"Plugin payload cancellation",exact:true});
+            await prompt.waitFor();
+            // showModal makes the underlying UI inert. Dispatch the actual
+            // button handler to exercise owner Abort while its dialog is open.
+            await page.locator("button.send-button").filter({hasText:"Disconnect"})
+              .evaluate(element=>/** @type {HTMLButtonElement} */ (element).click());
+            await prompt.waitFor({state:"detached"});
+            await page.getByRole("button",{name:"Connect",exact:true}).waitFor();
+            assert.equal(socketMessages.length,2);assert.equal(wire.length,before+2);assert.equal(socketConnections,1);
+            checks.push("Disconnect cancels real plugin payload prompt without wire leakage");
+            const protocolEvidence={socketMessages:[...socketMessages],socketConnections,nativeHttp:wire.slice(before),
+              cancellationMethod:"Programmatic real Disconnect button handler while showModal blocks pointer input",
+              automaticCatalogRecoveryProven:false};
+            await Bun.write(join(output,"protocol-cancellation.json"),JSON.stringify(protocolEvidence,null,2));
+            observations.push({pluginProtocols:protocolEvidence});
+            // The next ordinary native Send must work without reloading plugins.
+            // Abort retires the worker, while its admitted catalog stays available.
+            await page.getByRole("complementary",{name:"Collections"})
+              .getByRole("button",{name:"POST Plugin render request",exact:true}).click();
+          }
           await body(
             ["dup", "internal", ...publicNames]
               .map((name) => "{% " + name + " %}")
               .join("|"),
           );
           await send(["B", "internal-last", ...publicNames].join("|"));
+          if (protocolMode) {
+            const evidence = observations.find(row => row.pluginProtocols)?.pluginProtocols;
+            assert.ok(evidence);
+            evidence.automaticCatalogRecoveryProven = true;
+            evidence.recoveryResponse = ["B", "internal-last", ...publicNames].join("|");
+            await Bun.write(join(output,"protocol-cancellation.json"),JSON.stringify(evidence,null,2));
+          }
           checks.push(
             "discovery order wins over reversed Load and priority; internal duplicate and Unicode/symbol names",
           );
@@ -430,6 +622,29 @@ try {
             "Guest callback error marks closed registry session and explicit Reload recovers",
           );
         }
+        if (grpcFixture) {
+          const evidence = await grpcFixture.exercise({page,invoke,id:requestId+"_grpc",output,mainWire:wire,domOwner:domOwnerMode});
+          checks.push(...evidence.checks);
+          observations.push({pluginGrpc:evidence});
+          await page.getByRole("complementary",{name:"Collections"}).getByRole("button",{name:"POST Plugin render request",exact:true}).click();
+        }
+        if (oauthFixture) {
+          const evidence = await oauthFixture.exercise({page,invoke,output,id:oauthRequestId,helper:helperRequestId,mainWire:wire});
+          checks.push(...evidence.checks);
+          observations.push({pluginOAuth:evidence});
+          await page.getByRole("complementary",{name:"Collections"}).getByRole("button",{name:"POST Plugin render request",exact:true}).click();
+        }
+        if (appInfoMode) {
+          const evidence=await exercisePluginAppInfoNative({invoke,output,body,send,wire});
+          checks.push(...evidence.checks);
+          observations.push({pluginAppInfo:evidence});
+          await body("{% dup %}");
+        }
+        if (domOwnerMode) {
+          const evidence=await exercisePluginDomOwnerHttpNative({page,wire,output,body,send});
+          checks.push(...evidence.checks);observations.push({pluginDomOwner:evidence});
+          await body("{% dup %}");
+        }
         await preferences();
         for (const name of names)
           await card(name)
@@ -507,6 +722,8 @@ try {
   );
 } finally {
   server.stop(true);
+  oauthFixture?.stop();
+  grpcFixture?.stop();
   if (originalStore) {
     await writeFile(storePath, originalStore);
     assert.deepEqual(await readFile(storePath), originalStore);

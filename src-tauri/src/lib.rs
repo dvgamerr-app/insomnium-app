@@ -42,6 +42,7 @@ mod plugins;
 mod plugin_sources;
 mod plugin_package;
 mod plugin_store;
+mod plugin_save;
 mod streaming;
 mod template;
 mod template_os;
@@ -53,6 +54,7 @@ pub fn run() {
         return;
     }
     tauri::Builder::default()
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.unminimize();
@@ -82,6 +84,14 @@ pub fn run() {
         .manage(plugin_store::PluginStoreState::default())
         .manage(git::GitState::default())
         .manage(git_remote_job::RemoteJobState::default())
+        .manage(plugin_save::SaveState::default())
+        .on_window_event(|window, event| {
+            if window.label() == "main" && matches!(event, tauri::WindowEvent::Destroyed) {
+                if let Some(state) = window.try_state::<plugin_save::SaveState>() {
+                    plugin_save::cancel_all(&state);
+                }
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             http::send_http,
             http::cancel_http,
@@ -102,6 +112,9 @@ pub fn run() {
             cookies::import_legacy_cookies,
             template::read_template_file,
             template::read_template_os,
+            plugin_save::reserve_plugin_save,
+            plugin_save::show_plugin_save,
+            plugin_save::cancel_plugin_save,
             storage::load_workspace,
             storage::save_workspace,
             plugins::discover_plugins,

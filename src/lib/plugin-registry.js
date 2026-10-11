@@ -135,6 +135,8 @@ export function createPluginRegistry(adapters) {
               )
                 throw aborted();
               const session = record.session;
+              const domOwner=/** @type {any} */(operation).domOwner;
+              domOwner?.bindSession?.(()=>current()&&record.session===session&&session.isClosed?.()!==true);
               return session
                 .invoke(kind, index, args, {
                   ...operation,
@@ -176,7 +178,7 @@ export function createPluginRegistry(adapters) {
               index,
               definition: structuredClone(item.definition),
               isCurrent: current,
-              /** @param {any[]} args @param {{isCurrent:()=>boolean,signal:AbortSignal,context:Record<string,any>}} operation */
+              /** @param {any[]} args @param {{isCurrent:()=>boolean,signal:AbortSignal,context:Record<string,any>,helperCall?:(call:{method:string,args:any[]})=>Promise<any>,interaction?:import('./plugin-session.js').PluginInteraction,syncCall?:(call:{method:string,args:any[]})=>Promise<any>}} operation */
               invoke(args, operation) {
                 return dispatch("templateTags", args, operation);
               },

@@ -10,7 +10,7 @@ export function validatePluginCallContext(value) {
   if (
     !record(value) ||
     Object.keys(value).some(
-      (key) => !["context", "meta", "renderPurpose"].includes(key),
+      (key) => !["context", "meta", "renderPurpose", "extraInfo"].includes(key),
     )
   )
     throw Error("Invalid plugin callback context");
@@ -25,5 +25,9 @@ export function validatePluginCallContext(value) {
     !["send", "general", "no-render"].includes(value.renderPurpose)
   )
     throw Error("Invalid plugin render purpose");
+  if (value.extraInfo !== undefined && (!Array.isArray(value.extraInfo) ||
+    value.extraInfo.some((/** @type {any} */ item) => !record(item) ||
+      typeof item.name !== "string" || !Object.hasOwn(item, "value"))))
+    throw Error("Invalid plugin extra render information");
   return value;
 }

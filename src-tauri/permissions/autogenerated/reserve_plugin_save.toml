@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-reserve-plugin-save"
+description = "Enables the reserve_plugin_save command without any pre-configured scope."
+commands.allow = ["reserve_plugin_save"]
+
+[[permission]]
+identifier = "deny-reserve-plugin-save"
+description = "Denies the reserve_plugin_save command without any pre-configured scope."
+commands.deny = ["reserve_plugin_save"]

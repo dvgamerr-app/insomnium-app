@@ -2,8 +2,9 @@ import { chromium } from "playwright-core";
 import { mkdir } from "node:fs/promises";
 import { resolve, sep } from "node:path";
 
-/** @param {string} name @param {(page: import('playwright-core').Page, output: string) => Promise<void>} run */
-export async function withPreview(name, run) {
+/** @param {string} name @param {(page: import('playwright-core').Page, output: string) => Promise<void>} run
+ * @param {{beforeNavigate?:(page:import('playwright-core').Page)=>Promise<void>,headers?:Record<string,string>}} [options] */
+export async function withPreview(name, run, options = {}) {
   const root = resolve("build");
   const server = Bun.serve({
     hostname: "127.0.0.1",
@@ -16,6 +17,7 @@ export async function withPreview(name, run) {
       const file = Bun.file(target);
       return new Response(
         (await file.exists()) ? file : Bun.file(resolve(root, "index.html")),
+        { headers: options.headers },
       );
     },
   });
@@ -34,6 +36,7 @@ export async function withPreview(name, run) {
     page.on("console", (message) => {
       if (message.type() === "error") startupErrors.push(message.text());
     });
+    await options.beforeNavigate?.(page);
     await page.goto(`http://127.0.0.1:${server.port}`);
     await Bun.write(
       output + "/result.json",

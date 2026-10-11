@@ -4,6 +4,34 @@ import { resolve, sep } from "node:path";
 import { compile, compileModule } from "svelte/compiler";
 import { launchUiBrowser } from "./preview-app.js";
 
+/** Reuse the same component compilation for saved built-app worker fixtures.
+ * @returns {import('bun').BunPlugin} */
+export function createSvelteUiFixturePlugin() {
+  return {
+    name: "svelte-ui-fixture",
+    setup(build) {
+      build.onResolve({ filter: /^\$lib\// }, ({ path }) => ({
+        path: resolve("src/lib", path.slice(5)),
+      }));
+      build.onLoad({ filter: /\.svelte\.js$/ }, async ({ path }) => ({
+        contents: compileModule(await Bun.file(path).text(), {
+          filename: path,
+          generate: "client",
+        }).js.code,
+        loader: "js",
+      }));
+      build.onLoad({ filter: /\.svelte$/ }, async ({ path }) => ({
+        contents: compile(await Bun.file(path).text(), {
+          filename: path,
+          generate: "client",
+          css: "injected",
+        }).js.code,
+        loader: "js",
+      }));
+    },
+  };
+}
+
 /** Compile the real UI components into a saved, isolated contract fixture using Bun.
  * @param {string} name
  * @param {{minify?:boolean}} [options]
@@ -18,31 +46,7 @@ export async function buildComponentFixture(name, options = {}) {
     target: "browser",
     minify: options.minify ?? false,
     conditions: ["browser", "svelte"],
-    plugins: [
-      {
-        name: "svelte-ui-fixture",
-        setup(build) {
-          build.onResolve({ filter: /^\$lib\// }, ({ path }) => ({
-            path: resolve("src/lib", path.slice(5)),
-          }));
-          build.onLoad({ filter: /\.svelte\.js$/ }, async ({ path }) => ({
-            contents: compileModule(await Bun.file(path).text(), {
-              filename: path,
-              generate: "client",
-            }).js.code,
-            loader: "js",
-          }));
-          build.onLoad({ filter: /\.svelte$/ }, async ({ path }) => ({
-            contents: compile(await Bun.file(path).text(), {
-              filename: path,
-              generate: "client",
-              css: "injected",
-            }).js.code,
-            loader: "js",
-          }));
-        },
-      },
-    ],
+    plugins: [createSvelteUiFixturePlugin()],
   });
   assert.equal(bundle.success, true, bundle.logs.map(String).join("\n"));
   return { output, root };

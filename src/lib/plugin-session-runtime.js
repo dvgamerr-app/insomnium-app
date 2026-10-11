@@ -1,27 +1,122 @@
 import { createPluginVm, inspectPluginVm } from "./plugin-runtime.js";
 import { createPluginValueCodec } from "./plugin-values.js";
 import { validatePluginCallContext } from "./plugin-call-context.js";
+import { PROMPT_TOTAL_MS } from "./template-deadline.js";
+import { createPluginAppSyncHelpers, validatePluginAppSyncCall } from "./plugin-app-sync.js";
+import { createPluginAppAsyncHelpers } from "./plugin-app-async.js";
+import { createPluginDomCallbackLeases } from "./plugin-dom-callback-leases.js";
+import {createPluginGuestDom,validatePluginDomCall} from "./plugin-guest-dom.js";
+import {
+  createPluginRunHelpers,
+  validatePluginHelperCall,
+} from "./plugin-run-helpers.js";
 
-/** Retained guest module, with only the six-method store capability.
+/** Retained guest module with store and explicitly activated run-helper RPC.
  * @param {import('quickjs-emscripten-core').QuickJSWASMModule} engine
  * @param {{name:string,entry:string,format:string,files:Record<string,string>}} snapshot
- * @param {(operation:{method:string,args:string[]})=>Promise<any>} storeCall */
-export function createPluginCallbackRuntime(engine, snapshot, storeCall) {
+ * @param {(operation:{method:string,args:string[]})=>Promise<any>} storeCall
+ * @param {(operation:{method:string,args:any[]})=>Promise<any>} [helperCall]
+ * @param {(operation:{method:string,args:any[]})=>string} [syncCall]
+ * @param {(id:number)=>void} [onRetainDomCallback] */
+export function createPluginCallbackRuntime(
+  engine,
+  snapshot,
+  storeCall,
+  helperCall,
+  syncCall,
+  onRetainDomCallback,
+) {
   const loaded = createPluginVm(engine, snapshot),
     { vm, evaluate } = loaded;
   let closed = false,
     running = false,
     storeAllowed = false,
+    helperAllowed = false,
+    syncAllowed = false,
+    generation = 0,
+    activeGeneration = 0,
     calls = 0;
   const pending = new Set();
   const codec = createPluginValueCodec();
   let metadata;
+  /** @type {Error|undefined} */ let syncFailure;
+  let interactive = false,
+    waitingSince = 0,
+    waited = 0;
+  let domAllowed = false;
+  let domTransport = false;
   try {
     metadata = inspectPluginVm(loaded, snapshot.name);
   } catch (error) {
     vm.dispose();
     throw error;
   }
+  const domOwners = new Map(/** @type {[number,{controller:AbortController,generation:number,helpers:boolean,synchronous:boolean,interactive:boolean,domTransport:boolean}][]} */([]));
+  const domLeases = createPluginDomCallbackLeases(loaded, {
+    onFatal: () => { closed = true; },
+    isIdle: () => pending.size === 0,
+    deadlineExpired: elapsed => elapsed>PROMPT_TOTAL_MS ||
+      elapsed-waited-(waitingSince?performance.now()-waitingSince:0)>5000,
+  });
+  const retainDomCallback = vm.newFunction("retainDomCallback", handle => {
+    if (closed || !running || !helperAllowed || !domAllowed || !onRetainDomCallback)
+      throw Error("DOM callback retention is unavailable for this operation");
+    const controller = new AbortController();
+    const id = domLeases.retain(handle,{signal:controller.signal,current:()=>!closed});
+    domOwners.set(id,{controller,generation:activeGeneration,helpers:helperAllowed,synchronous:syncAllowed,interactive,domTransport});
+    try { onRetainDomCallback(id); }
+    catch(error) {domLeases.release(id);domOwners.delete(id);throw error;}
+    return vm.newNumber(id);
+  });
+  const helperCurrent = vm.newFunction("helperCurrent", (value) =>
+    !closed && running && helperAllowed && vm.getNumber(value) === activeGeneration
+      ? vm.true
+      : vm.false,
+  );
+  const domBridge=vm.newFunction("domCall",request=>{
+    if(closed || !running || !helperAllowed || !domAllowed || !domTransport || !syncCall)
+      throw Error("Plugin DOM transport is unavailable for this operation");
+    if(++calls>256 || pending.size>=64)throw Error("Plugin helper call limit exceeded");
+    const wire=vm.getString(request);if(wire.length>16*1024*1024)throw Error("Plugin DOM request exceeds its limit");
+    const call=validatePluginDomCall(codec.decode(wire)),started=performance.now();
+    try {return vm.newString(syncCall(call));}
+    catch(error) {
+      if(error instanceof Error&&error.name==="TimeoutError"){syncFailure=error;closed=true;loaded.abortExecution();}
+      throw error;
+    } finally {loaded.accountHostWait(performance.now()-started);}
+  });
+  const syncBridge = vm.newFunction("syncApp", (request) => {
+    if (closed || !running || !helperAllowed || !syncAllowed || !syncCall)
+      throw Error(
+        "Synchronous plugin app helpers are unavailable for this callback",
+      );
+    if (++calls > 256 || pending.size >= 64)
+      throw Error("Plugin helper call limit exceeded");
+    const wire = vm.getString(request);
+    if (wire.length > 16 * 1024 * 1024)
+      throw Error("Plugin synchronous request exceeds its limit");
+    const envelope = JSON.parse(wire);
+    if (
+      Object.keys(envelope).sort().join(",") !== "call,generation" ||
+      envelope.generation !== activeGeneration
+    )
+      throw Error("Synchronous plugin app helper is no longer current");
+    const call = validatePluginAppSyncCall(codec.decode(envelope.call));
+    const started = performance.now();
+    try {
+      return vm.newString(syncCall(call));
+    } catch (error) {
+      if (error instanceof Error && error.name === "TimeoutError") {
+        // The host may still be awaiting an external reply; never reuse this VM.
+        syncFailure = error;
+        closed = true;
+        loaded.abortExecution();
+      }
+      throw error;
+    } finally {
+      loaded.accountHostWait(performance.now() - started);
+    }
+  });
   const bridge = vm.newFunction("store", (request) => {
     if (closed || !running) throw Error("Plugin callback is not active");
     if (!storeAllowed)
@@ -31,23 +126,46 @@ export function createPluginCallbackRuntime(engine, snapshot, storeCall) {
     const json = vm.getString(request);
     if (json.length > 16 * 1024 * 1024)
       throw Error("Plugin store request exceeds its limit");
-    const operation = JSON.parse(json),
-      deferred = vm.newPromise();
+    const operation = JSON.parse(json);
+    const helper =
+      Object.keys(operation).sort().join(",") === "generation,helper";
+    const requestData = helper
+      ? validatePluginHelperCall(codec.decode(operation.helper))
+      : operation;
+    if (
+      helper &&
+      (!helperAllowed || !helperCall || operation.generation !== activeGeneration)
+    )
+      throw Error("Plugin run helpers are unavailable for this callback");
+    const deferred = vm.newPromise();
     pending.add(deferred);
     Promise.resolve()
       .then(() => {
         if (closed) throw Error("Plugin session is closed");
-        return storeCall(operation);
+        return helper ? helperCall?.(requestData) : storeCall(operation);
       })
       .then((value) => {
         if (closed) return;
-        const json = JSON.stringify(value ?? null);
+        const bodyChunk =
+          helper && requestData.method === "models.response.readBodyChunk";
+        if (bodyChunk && (typeof value !== "string" || value.length > 262144))
+          throw Error("Invalid plugin response chunk");
+        const json = bodyChunk
+          ? ""
+          : helper
+            ? codec.encode(value)
+            : JSON.stringify(value ?? null);
         if (json.length > 16 * 1024 * 1024)
           throw Error("Plugin store result exceeds its limit");
-        const result =
-          value === undefined
-            ? vm.undefined
-            : evaluate(`JSON.parse(${JSON.stringify(json)})`);
+        const result = bodyChunk
+          ? vm.newArrayBuffer(
+              Uint8Array.from(atob(value), (c) => c.charCodeAt(0)).buffer,
+            )
+          : helper
+            ? vm.newString(json)
+            : value === undefined
+              ? vm.undefined
+              : evaluate(`JSON.parse(${JSON.stringify(json)})`);
         try {
           deferred.resolve(result);
         } finally {
@@ -75,12 +193,38 @@ export function createPluginCallbackRuntime(engine, snapshot, storeCall) {
     return deferred.handle.dup();
   });
   try {
+    vm.setProp(vm.global,"__pluginDomSync",domBridge);
+    evaluate(`Object.defineProperty(globalThis,'__pluginDomSync',{writable:false,configurable:false});
+      globalThis.__pluginGuestDom=(${createPluginGuestDom.toString()})((method,args)=>__pluginValueCodec.decode(__pluginDomSync(__pluginValueCodec.encode({method,args}))),callback=>__pluginRetainDomCallback(callback));
+      for(const key of ['document','Node','HTMLElement'])Object.defineProperty(globalThis,key,{value:__pluginGuestDom[key],writable:false,configurable:false});`).dispose();
+    vm.setProp(vm.global,"__pluginRetainDomCallback",retainDomCallback);
+    evaluate('Object.defineProperty(globalThis,"__pluginRetainDomCallback",{writable:false,configurable:false});').dispose();
     vm.setProp(vm.global, "__pluginStoreCall", bridge);
+    vm.setProp(vm.global, "__pluginSyncCall", syncBridge);
+    evaluate(
+      'Object.defineProperty(globalThis,"__pluginSyncCall",{writable:false,configurable:false});',
+    ).dispose();
+    vm.setProp(vm.global, "__pluginHelperCurrent", helperCurrent);
+    evaluate(
+      'Object.defineProperty(globalThis,"__pluginHelperCurrent",{writable:false,configurable:false});',
+    ).dispose();
     evaluate(
       `globalThis.__pluginValueCodec=(${createPluginValueCodec.toString()})();`,
     ).dispose();
     evaluate(
       `globalThis.__validatePluginCallContext=(${validatePluginCallContext.toString()});`,
+    ).dispose();
+    evaluate(
+      `Object.defineProperty(globalThis,'__createPluginRunHelpers',{value:((create)=>{
+        const cache={bodies:new Map(),retained:0};
+        return (call,buffer,current)=>create(call,buffer,current,cache);
+      })((${createPluginRunHelpers.toString()})),writable:false,configurable:false});`,
+    ).dispose();
+    evaluate(
+      `Object.defineProperty(globalThis,'__createPluginAppAsyncHelpers',{value:(${createPluginAppAsyncHelpers.toString()}),writable:false,configurable:false});`,
+    ).dispose();
+    evaluate(
+      `Object.defineProperty(globalThis,'__createPluginAppSyncHelpers',{value:(${createPluginAppSyncHelpers.toString()}),writable:false,configurable:false});`,
     ).dispose();
     evaluate(`globalThis.__pluginContext=Object.freeze({store:Object.freeze(Object.fromEntries(
       ['hasItem','getItem','setItem','removeItem','clear','all'].map(method=>[method,(...args)=>{
@@ -92,19 +236,94 @@ export function createPluginCallbackRuntime(engine, snapshot, storeCall) {
       }])
     ))});`).dispose();
   } catch (error) {
+    domBridge.dispose();
+    retainDomCallback.dispose();
     bridge.dispose();
+    helperCurrent.dispose();
+    syncBridge.dispose();
+    domLeases.dispose();
     vm.dispose();
     throw error;
   } finally {
+    if(domBridge.alive)domBridge.dispose();
+    if (retainDomCallback.alive) retainDomCallback.dispose();
     if (bridge.alive) bridge.dispose();
+    if (helperCurrent.alive) helperCurrent.dispose();
+    if (syncBridge.alive) syncBridge.dispose();
   }
 
   return {
     metadata,
-    /** @param {string} kind @param {number} index @param {string} args */
-    async invoke(kind, index, args) {
+    /** Host releases only handles admitted for an owned operation. @param {number} id */
+    releaseDomCallback(id) {
+      const owner=domOwners.get(id);
+      if(!owner)return false;
+      domOwners.delete(id);owner.controller.abort();
+      return true;
+    },
+    /** Serialized by the same host/worker queue as ordinary callbacks.
+     * @param {number} id @param {string} args */
+    async invokeDomCallback(id,args) {
+      if(closed)throw Error("Plugin session is closed");
+      if(running)throw Error("Plugin callback is already running");
+      const owner=domOwners.get(id);
+      if(!owner)throw Error("DOM callback lease is no longer current");
+      const values=codec.decode(args);
+      if(!Array.isArray(values))throw Error("Invalid DOM callback arguments");
+      running=true;storeAllowed=true;helperAllowed=owner.helpers;syncAllowed=owner.synchronous;
+      activeGeneration=owner.generation;interactive=owner.interactive;domAllowed=true;domTransport=owner.domTransport;calls=0;syncFailure=undefined;
+      try {return codec.encode(await domLeases.invoke(id,values));}
+      finally {
+        loaded.setInteractionWaiting(false);running=false;storeAllowed=false;helperAllowed=false;syncAllowed=false;
+        activeGeneration=0;interactive=false;domAllowed=false;domTransport=false;waitingSince=0;waited=0;
+        if(closed) {
+          domLeases.dispose();domOwners.clear();
+          for(const deferred of pending)deferred.dispose();pending.clear();
+          vm.dispose();
+        }
+      }
+    },
+    /** Host control is separate from the guest RPC/value codec.
+     * @param {boolean} waiting */
+    setInteractionWaiting(waiting) {
+      if (
+        !running ||
+        !helperAllowed ||
+        !interactive ||
+        typeof waiting !== "boolean"
+      )
+        throw Error("Plugin interaction requires a current trusted callback");
+      if (waiting && !waitingSince) waitingSince = performance.now();
+      else if (!waiting && waitingSince) {
+        waited += performance.now() - waitingSince;
+        waitingSince = 0;
+      }
+      loaded.setInteractionWaiting(waiting);
+    },
+    /** @param {string} kind @param {number} index @param {string} args @param {boolean} [helpers] @param {boolean} [interaction] @param {boolean} [synchronous] */
+    async invoke(
+      kind,
+      index,
+      args,
+      helpers = false,
+      interaction = false,
+      synchronous = false,
+      retainDom = false,
+      transportDom = false,
+    ) {
       if (closed) throw Error("Plugin session is closed");
       if (running) throw Error("Plugin callback is already running");
+      if (
+        typeof helpers !== "boolean" ||
+        (helpers && (kind !== "templateTags" || !helperCall)) ||
+        typeof interaction !== "boolean" ||
+        (interaction && !helpers) ||
+        typeof synchronous !== "boolean" ||
+        (synchronous && (!helpers || !syncCall)) ||
+        typeof retainDom !== "boolean" || (retainDom && (!helpers || !onRetainDomCallback)) ||
+        typeof transportDom!=="boolean" || transportDom&&(!retainDom || !syncCall)
+      )
+        throw Error("Invalid plugin run helper activation");
       const kinds = [
         "templateTags",
         "templateTagMetadata",
@@ -151,10 +370,21 @@ export function createPluginCallbackRuntime(engine, snapshot, storeCall) {
       }
       running = true;
       storeAllowed = kind !== "templateTagMetadata";
+      helperAllowed = helpers;
+      syncAllowed = synchronous;
+      syncFailure = undefined;
+      interactive = interaction;
+      waitingSince = 0;
+      waited = 0;
+      generation++;
+      activeGeneration = generation;
+      domAllowed = retainDom;
+      domTransport = transportDom;
       calls = 0;
       loaded.resetDeadline();
       let handle;
-      const deadline = performance.now() + 5000;
+      /** @type {Error|undefined} */ let failure;
+      const started = performance.now();
       try {
         handle = evaluate(`(async()=>{
           const kind=${JSON.stringify(kind)},item=__pluginExports[kind==='templateTagMetadata'||kind==='templateTagAction'?'templateTags':kind]?.[${index}];
@@ -175,14 +405,29 @@ export function createPluginCallbackRuntime(engine, snapshot, storeCall) {
           }
           const fn=kind.endsWith('Hooks')?item:kind==='templateTags'?item?.run:item?.action;
           if(typeof fn!=='function')throw Error('Plugin callback is unavailable');
-          const context=Object.freeze({...helper,store:__pluginContext.store});
+          const runHelpers=${helpers ? `__createPluginRunHelpers((method,args)=>__pluginStoreCall(JSON.stringify({helper:__pluginValueCodec.encode({method,args}),generation:${generation}})).then(value=>method==='models.response.readBodyChunk'?__pluginBuffer.from(value):__pluginValueCodec.decode(value)),__pluginBuffer,()=>__pluginHelperCurrent(${generation}))` : "{}"};
+          const app=${helpers ? `Object.freeze({...__createPluginAppAsyncHelpers((method,args)=>__pluginStoreCall(JSON.stringify({helper:__pluginValueCodec.encode({method,args}),generation:${generation}})).then(value=>__pluginValueCodec.decode(value)),()=>__pluginHelperCurrent(${generation})),...${synchronous ? `__createPluginAppSyncHelpers((method,args)=>__pluginValueCodec.decode(__pluginSyncCall(JSON.stringify({generation:${generation},call:__pluginValueCodec.encode({method,args})}))),()=>__pluginHelperCurrent(${generation}))` : "{}"},...${transportDom?`__pluginGuestDom.app(()=>__pluginHelperCurrent(${generation}))`:"{}"}})` : "undefined"};
+          const {extraInfo,...helperData}=helper;
+          const renderContext=helper.context?{...helper.context,getExtraInfo:(key)=>{
+            const pair=extraInfo?.find(item=>item.name===key);
+            return pair?__pluginValueCodec.decode(__pluginValueCodec.encode(pair.value)):null;
+          }}:undefined;
+          const context=Object.freeze({...helperData,...(renderContext?{context:renderContext}:{}),...runHelpers,...(app?{app}:{}),store:__pluginContext.store});
           const value=await fn.call(item,context,...args);
+          if(kind==='templateTags' && Object.getPrototypeOf(value??{})===__pluginBuffer.prototype)
+            return __pluginValueCodec.encode(value.toString());
           return __pluginValueCodec.encode(value);
         })()`);
         while (!closed) {
-          if (performance.now() > deadline)
+          const now = performance.now();
+          if (now - started > PROMPT_TOTAL_MS)
+            throw Error("Plugin interaction exceeded 10 minutes");
+          if (
+            now - started - waited - (waitingSince ? now - waitingSince : 0) >
+            5000
+          )
             throw Error("Plugin callback exceeded 5 seconds");
-          const jobs = vm.runtime.executePendingJobs(64);
+          const jobs = loaded.executePendingJobs(64);
           if (jobs.error) {
             try {
               throw Error(
@@ -212,22 +457,51 @@ export function createPluginCallbackRuntime(engine, snapshot, storeCall) {
           }
           await new Promise((resolve) => setTimeout(resolve, 1));
         }
-        throw Error("Plugin session is closed");
+        throw syncFailure ?? Error("Plugin session is closed");
       } catch (error) {
+        failure =
+          syncFailure ??
+          (error instanceof Error ? error : new Error(String(error)));
         closed = true;
         for (const deferred of pending) deferred.dispose();
         pending.clear();
-        throw error;
+        throw failure;
       } finally {
         handle?.dispose();
+        loaded.setInteractionWaiting(false);
+        interactive = false;
+        waitingSince = 0;
+        waited = 0;
         running = false;
         storeAllowed = false;
-        if (closed) vm.dispose();
+        helperAllowed = false;
+        syncAllowed = false;
+        activeGeneration = 0;
+        domAllowed = false;
+        domTransport = false;
+        if (closed) {
+          domLeases.dispose();domOwners.clear();
+          try {
+            vm.dispose();
+          } catch (cleanup) {
+            // A terminal runtime must never be reused. QuickJS 0.32 can assert
+            // during disposal after allocation in a promise job (upstream #269).
+            // Preserve the callback failure; the host closes its owned worker.
+            if (!failure) throw cleanup;
+            Object.defineProperty(failure, "cleanupError", {
+              value: (cleanup instanceof Error
+                ? cleanup.message
+                : String(cleanup)
+              ).slice(0, 8192),
+            });
+          }
+        }
       }
     },
     dispose() {
       if (closed) return;
       closed = true;
+      domLeases.dispose();domOwners.clear();
       for (const deferred of pending) deferred.dispose();
       pending.clear();
       if (!running) vm.dispose();

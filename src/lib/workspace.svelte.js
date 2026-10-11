@@ -14,6 +14,7 @@ import { createRunDrain } from "./run-drain.js";
 import { isTauri, invoke } from "@tauri-apps/api/core";
 import { createPluginRegistry } from "./plugin-registry.js";
 import { openPluginSession } from "./plugin-session.js";
+import {completePluginRequest,pluginRequestCompleted} from "./plugin-request-lifetime.js";
 import {
   installPluginTemplateProvider,
   pluginRenderSourceKey,
@@ -29,6 +30,7 @@ import { runSuiteInWorker } from "./runner-client.js";
 import { runnerSuite, runnerResponse } from "./runner-model.js";
 import { requestDataScope } from "./request-scope.js";
 import { createResponseTemplateResolver } from "./template-response-send.js";
+import { pluginCookieJarId, pluginJarCookies } from "./plugin-cookie-jar.js";
 import {
   renderSendRequest,
   renderOAuthRequest,
@@ -894,6 +896,7 @@ export async function sendPayload(requestId, payloadId) {
             String(snapshot.value || ""),
             run.controller.signal,
             resolveResponse,
+            {pluginServices:workspacePluginServices(data,{requestId,runId:run.id},resolveResponse)},
           );
     run.controller.signal.throwIfAborted();
     if (
@@ -1129,6 +1132,7 @@ export async function execute(
   if (initialPayload)
     controller.signal.addEventListener("abort", abortInitial, { once: true });
   let protocol = introspection ? "http" : protocolFor(request);
+  let runCompleted = false;
   if (introspection) workspace.schemaErrors[requestId] = "";
   try {
     const dataSnapshot = requestDataScope(
@@ -1180,6 +1184,7 @@ export async function execute(
                 String(payload.value || ""),
                 controller.signal,
                 resolveResponse,
+                {pluginServices:workspacePluginServices(dataSnapshot,{requestId,runId},resolveResponse)},
               );
         if (payload.mode === "application/json") JSON.parse(value);
         controller.signal.throwIfAborted();
@@ -1189,7 +1194,10 @@ export async function execute(
         dataSnapshot,
         requestSnapshot,
         controller.signal,
-        { responseResolver: resolveResponse },
+        {
+          responseResolver: resolveResponse,
+          pluginServices: workspacePluginServices(dataSnapshot, { requestId, runId }, resolveResponse),
+        },
       );
       requestSnapshot = rendered.request;
       protocol = protocolFor(requestSnapshot);
@@ -1350,6 +1358,7 @@ export async function execute(
         context,
         "Endpoint",
       );
+      runCompleted = true;
       return;
     }
     const entry = {
@@ -1364,6 +1373,7 @@ export async function execute(
     workspace.responses[requestId] = entry;
     remember(entry);
     await persist();
+    runCompleted = true;
   } catch (error) {
     if (!workspace.data.resources.some((r) => r._id === requestId)) return;
     settleInitial(error);
@@ -1393,7 +1403,9 @@ export async function execute(
       new Error("WebSocket connection ended before the message was sent."),
     );
     controller.signal.removeEventListener("abort", abortInitial);
-    controller.abort(new DOMException("Request completed", "AbortError"));
+    const reason = new DOMException("Request completed", "AbortError");
+    if (runCompleted) completePluginRequest(controller, reason);
+    else controller.abort(reason);
     delete workspace.running[requestId];
     clearOAuthProgress(requestId);
     completions.delete(requestId);
@@ -1413,6 +1425,7 @@ export async function executeGrpc(requestId, discoveryOnly = false) {
     controller = new AbortController();
   workspace.running[requestId] = { id: runId, controller };
   workspace.grpcErrors[requestId] = "";
+  let runCompleted = false;
   /** @type {()=>void} */ let completed = () => {};
   completions.set(
     requestId,
@@ -1442,6 +1455,7 @@ export async function executeGrpc(requestId, discoveryOnly = false) {
       original,
       controller.signal,
       resolveResponse,
+      {pluginServices:workspacePluginServices(data,{requestId,runId},resolveResponse)},
     );
     controller.signal.throwIfAborted();
     if (grpcContext(workspace.data, request) !== context)
@@ -1499,7 +1513,7 @@ export async function executeGrpc(requestId, discoveryOnly = false) {
       };
       workspace.grpcSchemas[requestId] = cached;
     }
-    if (discoveryOnly) return;
+    if (discoveryOnly) {runCompleted = true;return;}
     if (controller.signal.aborted) throw new Error("gRPC call cancelled.");
     const method = cached.schema.methods.find(
       (/** @type {Record<string,any>} */ m) =>
@@ -1522,6 +1536,7 @@ export async function executeGrpc(requestId, discoveryOnly = false) {
                 String(snapshot.body?.text ?? "{}"),
                 controller.signal,
                 resolveResponse,
+                {pluginServices:workspacePluginServices(data,{requestId,runId},resolveResponse)},
               ),
             },
           },
@@ -1604,6 +1619,7 @@ export async function executeGrpc(requestId, discoveryOnly = false) {
     if (!workspace.data.resources.some((r) => r._id === requestId)) return;
     remember(live);
     await persist();
+    runCompleted = true;
   } catch (error) {
     if (!workspace.data.resources.some((r) => r._id === requestId)) return;
     workspace.grpcErrors[requestId] = String(error);
@@ -1615,7 +1631,9 @@ export async function executeGrpc(requestId, discoveryOnly = false) {
       await persist();
     }
   } finally {
-    controller.abort(new DOMException("gRPC call completed", "AbortError"));
+    const reason = new DOMException("gRPC call completed", "AbortError");
+    if (runCompleted) completePluginRequest(controller, reason);
+    else controller.abort(reason);
     delete workspace.running[requestId];
     delete workspace.grpcRuns[requestId];
     completions.delete(requestId);
@@ -1692,6 +1710,7 @@ export async function sendGrpc(requestId, finish = false) {
         String(snapshot.body?.text ?? "{}"),
         running.controller.signal,
         resolveResponse,
+        {pluginServices:workspacePluginServices(data,{requestId,runId:running.id},resolveResponse)},
       );
       text = grpcBody(
         data,
@@ -1968,7 +1987,8 @@ export async function authorizeOAuth(requestId, action = "fetch") {
       data,
       snapshot,
       controller.signal,
-      { responseResolver: resolveResponse, includeCookies: true },
+      { responseResolver: resolveResponse, includeCookies: true,
+        pluginServices:workspacePluginServices(data,{requestId,runId},resolveResponse) },
     );
     controller.signal.throwIfAborted();
     await ensureOAuth(data, rendered, runId, controller.signal, action, {
@@ -2102,7 +2122,8 @@ export async function useSavedOAuth(requestId, tokenId) {
       data,
       request,
       controller.signal,
-      { responseResolver: resolveResponse },
+      { responseResolver: resolveResponse,
+        pluginServices:workspacePluginServices(data,{requestId,runId},resolveResponse) },
     );
     controller.signal.throwIfAborted();
     if (rendered.authentication?.accessToken)
@@ -2231,10 +2252,98 @@ export async function shutdown() {
   }
 }
 
+/** @typedef {{requestId:string,runId:string,isCurrent?:()=>boolean,onHistory?:(history:Record<string,any>[])=>void}} PluginWorkspaceOwner */
+/** Preview helpers own a registered editor lease while using real saved-ID
+ * native transport/history and the same model/cookie services as Send.
+ * @param {ReturnType<typeof initialData>} data @param {string} requestId
+ * @param {AbortSignal} signal @param {()=>boolean} isCurrent
+ * @param {(history:Record<string,any>[])=>void} onHistory */
+export function createWorkspacePluginPreviewServices(data, requestId, signal, isCurrent, onHistory) {
+  const owner = {requestId,runId:id("plugin-preview"),isCurrent:()=>!signal.aborted&&isCurrent(),onHistory};
+  const resolveResponse = createResponseTemplateResolver(data.resources,data.history || [],data.activeEnvironmentId,
+    (dependency,chain,childSignal)=>sendDependentRequest(data,dependency,chain,childSignal,resolveResponse,owner),
+    dependency=>requestDataScope(data,dependency._id).activeEnvironmentId);
+  return workspacePluginServices(data,owner,resolveResponse);
+}
+/** Capture actual workspace services for one root Send and all nested guests.
+ * @param {ReturnType<typeof initialData>} data
+ * @param {PluginWorkspaceOwner} owner
+ * @param {ReturnType<typeof createResponseTemplateResolver>} resolveResponse
+ * @param {string[]} [chain]
+ * @returns {NonNullable<import('./template-session.js').PluginRenderOptions['pluginServices']>} */
+function workspacePluginServices(data, owner, resolveResponse, chain = [owner.requestId]) {
+  const ownedRun = workspace.running[owner.requestId];
+  const sourceKey = pluginRenderSourceKey(data.resources, owner.requestId, data.activeEnvironmentId);
+  const workspaceData = workspace.data;
+  const collectionId = workspace.data.activeWorkspaceId;
+  const checkOwner = () => {
+    const retained = ownedRun?.id === owner.runId && pluginRequestCompleted(ownedRun.controller.signal)
+      && workspace.data === workspaceData && workspace.data.activeWorkspaceId === collectionId
+      && pluginRenderSourceKey(workspace.data.resources, owner.requestId,
+        requestDataScope(workspace.data, owner.requestId).activeEnvironmentId) === sourceKey;
+    if (!workspace.ready || !(owner.isCurrent ? owner.isCurrent() : workspace.running[owner.requestId]?.id === owner.runId || retained))
+      throw new DOMException("Plugin workspace owner changed", "AbortError");
+  };
+  const check = (/** @type {AbortSignal} */ signal) => {signal.throwIfAborted();checkOwner();};
+  const nestedOwner = {...owner,isCurrent:()=>{try{checkOwner();return true;}catch{return false;}}};
+  return {
+    getData: () => {checkOwner();return ({
+      resources: data.resources,
+      history: $state.snapshot(workspace.data.history),
+      settings: data.settings,
+    });},
+    send: async (request, extra, signal, path) => {
+      check(signal);
+      // Legacy network helpers use the ID to reload the saved request; guest
+      // edits to URL/auth/body are not an alternate privileged send endpoint.
+      const saved = data.resources.find(item => item._id === request._id && item._type === "request");
+      if (!saved) throw Error("Plugin network helper requires a saved HTTP request");
+      const response = await sendDependentRequest(data, saved,
+        [...chain, saved._id], signal, resolveResponse, nestedOwner, {
+          pluginHelperPath: path,
+          pluginExtraInfo: extra ?? [],
+        });
+      check(signal);
+      return response;
+    },
+    cookieJar: async (collection, signal) => {
+      check(signal);
+      if (!data.resources.some(item => item._id === collection._id && item._type === "workspace"))
+        throw Error("Plugin cookie collection no longer exists");
+      if (!isTauri()) throw Error("Plugin cookie storage requires Tauri");
+      const snapshot = await invoke("snapshot_request_cookies", {
+        workspaceId: collection._id, includeExpired: true,
+      });
+      check(signal);
+      const cookies = pluginJarCookies(snapshot);
+      const deterministicId = await pluginCookieJarId(collection._id);
+      check(signal);
+      const existing = data.resources.find(item => item._type === "cookie_jar" && item.parentId === collection._id);
+      const jar = { ...existing, _id: existing?._id ?? deterministicId,
+        _type: "cookie_jar", parentId: collection._id,
+        name: existing?.name ?? "Default Jar", created: existing?.created ?? Date.now(),
+        modified: existing?.modified ?? Date.now(), cookies };
+      if (!existing || JSON.stringify(existing.cookies) !== JSON.stringify(cookies)) {
+        jar.modified = Date.now();
+        const live = workspace.data.resources.findIndex(item => item._id === jar._id);
+        if (live < 0) workspace.data.resources.push(jar);
+        else workspace.data.resources[live] = jar;
+        const local = data.resources.findIndex(item => item._id === jar._id);
+        if (local < 0) data.resources.push(structuredClone(jar));
+        else data.resources[local] = structuredClone(jar);
+        if (!(await persist())) throw Error("Plugin cookie jar could not be saved");
+        check(signal);
+      }
+      return structuredClone(jar);
+    },
+  };
+}
+
 /** A dependency uses its own native ID while remaining owned by the root Send.
  * @param {ReturnType<typeof initialData>} data @param {Record<string,any>} request @param {string[]} chain
  * @param {AbortSignal} signal @param {ReturnType<import('./template-response-send.js').createResponseTemplateResolver>} resolveResponse
- * @param {{requestId:string,runId:string}} owner
+ * @param {PluginWorkspaceOwner} owner
+ * @param {import('./template-session.js').PluginRenderOptions} [pluginOptions]
  */
 async function sendDependentRequest(
   data,
@@ -2243,6 +2352,7 @@ async function sendDependentRequest(
   signal,
   resolveResponse,
   owner,
+  pluginOptions = {},
 ) {
   signal.throwIfAborted();
   data = requestDataScope(data, request._id);
@@ -2255,6 +2365,8 @@ async function sendDependentRequest(
   try {
     const rendered = (
       await renderSendRequest(data, request, signal, {
+        ...pluginOptions,
+        pluginServices: workspacePluginServices(data, owner, resolveResponse, chain),
         responseResolver: (args, childSignal) =>
           resolveResponse(args, childSignal, chain, data.activeEnvironmentId),
       })
@@ -2294,8 +2406,10 @@ async function sendDependentRequest(
           }
         : {},
     );
+    if (owner.isCurrent && !owner.isCurrent()) throw new DOMException("Plugin preview owner changed", "AbortError");
     const response = await send(prepared, signal);
     signal.throwIfAborted();
+    if (owner.isCurrent && !owner.isCurrent()) throw new DOMException("Plugin preview owner changed", "AbortError");
     const entry = {
       ...response,
       _id: runId,
@@ -2312,6 +2426,7 @@ async function sendDependentRequest(
       )
         workspace.responses[request._id] = entry;
       remember(entry);
+      owner.onHistory?.($state.snapshot(workspace.data.history));
       await persist();
     }
     return entry;

@@ -6,7 +6,7 @@ import {
   isTemplateTagName,
 } from "./template-registration.js";
 export { builtinTemplateNames } from "./template-registration.js";
-/** @typedef {{definition:Record<string,any>,plugin:string,index:number,isCurrent:()=>boolean,invoke:(args:any[],operation:{isCurrent:()=>boolean,signal:AbortSignal,context:Record<string,any>})=>Promise<any>,queryMetadata?:(args:any[],operation:{isCurrent:()=>boolean,signal:AbortSignal})=>Promise<any>,runAction?:(index:number,operation:{isCurrent:()=>boolean,signal:AbortSignal})=>Promise<any>}} CapturedTag */
+/** @typedef {{definition:Record<string,any>,plugin:string,index:number,isCurrent:()=>boolean,invoke:(args:any[],operation:{isCurrent:()=>boolean,signal:AbortSignal,context:Record<string,any>,helperCall?:(call:{method:string,args:any[]})=>Promise<any>,interaction?:import('./plugin-session.js').PluginInteraction,syncCall?:(call:{method:string,args:any[]})=>Promise<any>,domCall?:import('./plugin-session.js').PluginDomOwner['domCall'],domCallbacks?:import('./plugin-session.js').PluginDomRetention,domOwner?:import('./plugin-session.js').PluginDomOwner})=>Promise<any>,queryMetadata?:(args:any[],operation:{isCurrent:()=>boolean,signal:AbortSignal})=>Promise<any>,runAction?:(index:number,operation:{isCurrent:()=>boolean,signal:AbortSignal})=>Promise<any>}} CapturedTag */
 /** @type {(snapshot:Record<string,any>)=>{tags:CapturedTag[],isCurrent:()=>boolean}} */
 let provider = () => ({ tags: [], isCurrent: () => true });
 /** Match the exact request, collection and inherited environment inputs consumed
@@ -96,8 +96,12 @@ export function capturePluginTemplateTags(snapshot) {
       if (!live())
         throw new DOMException("Plugin editor owner changed", "AbortError");
     },
-    /** @param {Record<string,any>} context @param {AbortSignal} signal @param {'preview'|'send'} purpose @param {()=>boolean} isCurrent */
-    handlers(context, signal, purpose, isCurrent) {
+    /** @param {Record<string,any>} context @param {AbortSignal} signal @param {'preview'|'send'} purpose @param {()=>boolean} isCurrent
+     * @param {(plugin:string,signal:AbortSignal,isCurrent:()=>boolean)=>(call:{method:string,args:any[]})=>Promise<any>} [helpers]
+     * @param {import('./plugin-session.js').PluginInteraction} [interaction]
+     * @param {(plugin:string,signal:AbortSignal,isCurrent:()=>boolean)=>(call:{method:string,args:any[]})=>Promise<any>} [syncHelpers]
+     * @param {(plugin:string,current:()=>boolean)=>ReturnType<import('./plugin-dom-render-owner.js').createPluginDomRenderOwner>} [domOwners] */
+    handlers(context, signal, purpose, isCurrent, helpers, interaction, syncHelpers,domOwners) {
       return Object.fromEntries(
         tags.map((tag) => [
           tag.definition.name,
@@ -115,10 +119,17 @@ export function capturePluginTemplateTags(snapshot) {
                 "Plugin render owner changed",
                 "AbortError",
               );
-            return tag
-              .invoke(args, {
+            // The dialog factory owns its separate root signal. Do not capture
+            // the field renderer's short-lived isCurrent/signal in that frame.
+            const domOwner=domOwners?.(tag.plugin,()=>current()&&tag.isCurrent());
+            let succeeded=false,result;
+            try {result=tag.invoke(args, {
                 isCurrent: live,
                 signal: childSignal,
+                helperCall: helpers?.(tag.plugin, childSignal, live),
+                syncCall: syncHelpers?.(tag.plugin, childSignal, live),
+                interaction,
+                domCall:domOwner?.domCall,domCallbacks:domOwner?.domCallbacks,domOwner,
                 context: {
                   context: { ...context, _: context },
                   meta: {
@@ -126,9 +137,10 @@ export function capturePluginTemplateTags(snapshot) {
                     workspaceId: snapshot.workspaceId ?? "n/a",
                   },
                   renderPurpose: purpose === "send" ? "send" : "general",
+                  extraInfo: snapshot.extraInfo ?? [],
                 },
-              })
-              .then((/** @type {any} */ value) => {
+              });}catch(error){domOwner?.dispose();throw error;}
+            return result.then((/** @type {any} */ value) => {
                 if (!live())
                   throw new DOMException(
                     "Plugin render owner changed",
@@ -136,8 +148,9 @@ export function capturePluginTemplateTags(snapshot) {
                   );
                 // CallExtensionAsync concatenates suppressValue with autoescape
                 // disabled: preserve that coercion before the JSON worker bridge.
+                succeeded=true;
                 return value == null ? "" : String(value);
-              });
+              }).finally(()=>{if(succeeded)domOwner?.finish();else domOwner?.dispose();});
           },
         ]),
       );

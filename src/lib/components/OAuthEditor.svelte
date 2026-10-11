@@ -6,7 +6,7 @@
   import Input from "./ui/Input.svelte";
   import { createTemplateEditorSession } from "../template-editor-session.svelte.js";
   import Button from "./ui/Button.svelte";
-  import { onMount } from "svelte";
+  import { onMount, onDestroy, untrack } from "svelte";
   import { requestDataScope } from "../request-scope.js";
   import { renderOAuthRequest } from "../request-render.js";
   import {
@@ -17,12 +17,16 @@
     clearOAuth,
     completeOAuth,
     resetOAuthBrowserSession,
+    createWorkspaceWorkScope,
+    createWorkspacePluginPreviewServices,
   } from "../workspace.svelte.js";
   import {
     currentOAuthToken,
     savedOAuthTokens,
     tokenExpired,
     tokenGrants,
+    oauthSourceContext,
+    createOAuthPreviewHistoryGuard,
   } from "../oauth-model.js";
   /** @type {{ request: Record<string, any>, onchange: (patch: Record<string, any>) => void }} */
   let { request, onchange } = $props();
@@ -56,32 +60,84 @@
       pending: false,
     }),
   );
-  $effect(() => {
-    const dataSnapshot = $state.snapshot(workspace.data);
+  const previewScope = createWorkspaceWorkScope();
+  const previewHistory = createOAuthPreviewHistoryGuard();
+  onDestroy(() => previewScope.dispose());
+  let resolvedPreview = $state(
+    /** @type {{key:string,request:Record<string,any>|null,error:string}} */ ({
+      key: "",
+      request: null,
+      error: "",
+    }),
+  );
+  let previewKey = $derived.by(() => {
+    const data = $state.snapshot(workspace.data);
     const snapshot = $state.snapshot(request);
+    return JSON.stringify([
+      oauthSourceContext(requestDataScope(data, snapshot._id), snapshot),
+      previewHistory.key(data.history || []),
+    ]);
+  });
+  $effect(() => {
+    const key = previewKey;
+    // Explicit acquisition/adoption owns the guest while the editor is running.
+    // Resume general rendering only after that owner has finished.
+    if (running) return;
+    if (
+      untrack(
+        () => resolvedPreview.key === key && resolvedPreview.request !== null,
+      )
+    )
+      return;
+    const dataSnapshot = untrack(() => $state.snapshot(workspace.data));
+    const snapshot = untrack(() => $state.snapshot(request));
     const controller = new AbortController();
     status = { token: null, error: "", pending: true };
     const timer = setTimeout(async () => {
+      /** @type {ReturnType<typeof previewScope.begin>|undefined} */ let work;
       try {
+        work = previewScope.begin();
+        const signal = AbortSignal.any([controller.signal, work.signal]);
+        const current = () =>
+          !signal.aborted && work?.current() === true && previewKey === key;
         const data = requestDataScope(dataSnapshot, snapshot._id);
-        const rendered = await renderOAuthRequest(
-          data,
-          snapshot,
-          controller.signal,
-          { purpose: "preview" },
-        );
-        const token = currentOAuthToken(data, rendered, { resolved: true });
-        if (!controller.signal.aborted)
-          status = { token, error: "", pending: false };
+        const rendered = await renderOAuthRequest(data, snapshot, signal, {
+          purpose: "preview",
+          pluginServices: createWorkspacePluginPreviewServices(
+            data,
+            snapshot._id,
+            signal,
+            current,
+            (history) => previewHistory.record(history, JSON.parse(key)[1]),
+          ),
+        });
+        if (current()) resolvedPreview = { key, request: rendered, error: "" };
       } catch (error) {
         if (!controller.signal.aborted)
-          status = { token: null, error: String(error), pending: false };
+          resolvedPreview = { key, request: null, error: String(error) };
+      } finally {
+        work?.finish();
       }
     }, 150);
     return () => {
       clearTimeout(timer);
       controller.abort();
     };
+  });
+  $effect(() => {
+    if (resolvedPreview.key !== previewKey) return;
+    try {
+      const data = requestDataScope(
+        $state.snapshot(workspace.data),
+        request._id,
+      );
+      const token = resolvedPreview.request
+        ? currentOAuthToken(data, resolvedPreview.request, { resolved: true })
+        : null;
+      status = { token, error: resolvedPreview.error, pending: false };
+    } catch (error) {
+      status = { token: null, error: String(error), pending: false };
+    }
   });
   let saved = $derived(tokens.find((token) => token._id === selected));
   let expired = $derived(

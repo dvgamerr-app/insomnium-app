@@ -14,7 +14,7 @@ import {
   validateSchema,
 } from "graphql";
 import { prepareRequest, prepareRenderedRequest } from "./transport.js";
-import { createRequestRenderSession } from "./template-session.js";
+import { createRequestRenderSession, capturePluginRenderOptions } from "./template-session.js";
 import { requestEnvironmentLayers } from "./template-environment.js";
 
 export const schemaLimit = 20 * 1024 * 1024;
@@ -42,9 +42,11 @@ export function formatQuery(query) {
 /** Resolve only the GraphQL body using a noninteractive preview session.
  * No request dispatch, OAuth acquisition or prompt dialog is available here.
  * @param {ReturnType<import('./model.js').initialData>} data @param {Record<string, any>} request
- * @param {AbortSignal} signal */
-export async function resolveQuery(data, request, signal) {
+ * @param {AbortSignal} signal
+ * @param {import('./template-session.js').PluginRenderOptions} [options] */
+export async function resolveQuery(data, request, signal, options = {}) {
   signal.throwIfAborted();
+  const helperOptions = capturePluginRenderOptions(options);
   const scope = requestDataScope(data, request._id);
   const body = readGraphqlBody(request.body?.text || "{}");
   if (typeof body.query === "string")
@@ -53,6 +55,7 @@ export async function resolveQuery(data, request, signal) {
     {},
     {
       purpose: "preview",
+      ...helperOptions,
       requestId: request._id,
       workspaceId: scope.activeWorkspaceId,
       resources: scope.resources,

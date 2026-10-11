@@ -1,7 +1,7 @@
 import { writable } from "svelte/store";
 
 export const MAX_PROMPT_VALUE = 4 * 1024 * 1024;
-/** @typedef {{id:number, title:string, label:string, defaultValue:string, inputType:'text'|'password'}} PromptRequest */
+/** @typedef {{id:number, title:string, kind:'prompt'|'alert', message:string, label:string, defaultValue:string, submitName:string, inputType:string}} PromptRequest */
 /** @typedef {{request:PromptRequest, signal:AbortSignal, abort:()=>void, resolve:(value:string)=>void, reject:(error:Error)=>void}} PendingPrompt */
 const state = writable(/** @type {PromptRequest | null} */ (null));
 export const templatePrompt = { subscribe: state.subscribe };
@@ -20,7 +20,7 @@ function settle(id, value, error) {
   const index = pending.findIndex((item) => item.request.id === id);
   if (index < 0) return false;
   const [item] = pending.splice(index, 1);
-  storedCharacters -= item.request.defaultValue.length;
+  storedCharacters -= item.request.defaultValue.length + item.request.message.length;
   item.signal.removeEventListener("abort", item.abort);
   if (index === 0) state.set(pending[0]?.request || null);
   if (error) item.reject(error);
@@ -70,7 +70,7 @@ export function attachTemplatePromptHost() {
 
 /** Queue a prompt without persisting or logging entered values.
  * @param {string} title
- * @param {{label?:any, defaultValue?:any, inputType?:'text'|'password'}} options
+ * @param {{kind?:'prompt'|'alert',message?:string,label?:any, defaultValue?:any, submitName?:string, inputType?:string}} options
  * @param {AbortSignal} signal
  * @returns {Promise<string>}
  */
@@ -81,28 +81,44 @@ export async function askTemplatePrompt(title, options, signal) {
     throw new Error("Prompt title must be text of at most 4096 characters");
   const label = String(options.label || "");
   const defaultValue = String(options.defaultValue || "");
+  const message = options.message || "";
+  if (typeof message !== "string" || message.length > MAX_PROMPT_VALUE)
+    throw new Error("Alert message exceeds its text limit");
+  const submitName = options.submitName || "Submit";
+  const inputType = options.inputType || "text";
+  if (typeof inputType !== "string" || inputType.length > 100)
+    throw new Error("Prompt input type must be text of at most 100 characters");
+  if (typeof submitName !== "string" || submitName.length > 4096)
+    throw new Error("Prompt submit name must be text of at most 4096 characters");
   if (label.length > 4096)
     throw new Error("Prompt label exceeds 4096 characters");
   if (
     pending.length >= 32 ||
-    storedCharacters + defaultValue.length > MAX_PROMPT_VALUE
+    storedCharacters + defaultValue.length + message.length > MAX_PROMPT_VALUE
   )
     throw new Error("Too many pending template prompts");
   const request = Object.freeze({
     id: ++sequence,
     title,
+    kind: options.kind === "alert" ? "alert" : "prompt",
+    message,
     label,
     defaultValue,
-    inputType: /** @type {'text'|'password'} */ (
-      options.inputType === "password" ? "password" : "text"
-    ),
+    submitName,
+    inputType,
   });
   signal.throwIfAborted();
   return new Promise((resolve, reject) => {
     const abort = () => cancelTemplatePrompt(request.id);
     pending.push({ request, signal, abort, resolve, reject });
-    storedCharacters += defaultValue.length;
+    storedCharacters += defaultValue.length + message.length;
     signal.addEventListener("abort", abort, { once: true });
     if (pending.length === 1) state.set(request);
   });
+}
+
+/** Owned alerts share the mounted dialog queue and Abort cleanup.
+ * @param {string} title @param {string} message @param {AbortSignal} signal */
+export async function askTemplateAlert(title, message, signal) {
+  await askTemplatePrompt(title || "Uh Oh!", { kind: "alert", message, submitName: "Ok" }, signal);
 }

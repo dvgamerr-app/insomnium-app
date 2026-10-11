@@ -72,6 +72,7 @@ cbc = "=0.2.1"
 des = "=0.9.0"
 md-5 = "=0.11.0"
 rustls = { version = "=0.23.45", default-features = false, features = ["ring", "std", "tls12"] }
+tauri-plugin-clipboard-manager = "2"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
@@ -94,3 +95,7 @@ tauri-plugin-window-state = "2"
 
 [target."cfg(windows)".dependencies]
 uds_windows = "1.2.1"
+windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_System_Com", "Win32_System_LibraryLoader", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Gdi", "Win32_System_Ole"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk = "0.18.2"

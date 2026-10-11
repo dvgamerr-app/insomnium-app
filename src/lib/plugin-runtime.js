@@ -1,6 +1,7 @@
 import { resolvePluginModule, pluginModuleFormat } from "./plugin-modules.js";
 import { createPluginTagMetadata } from "./plugin-tag-metadata.js";
 import { createPluginValueCodec } from "./plugin-values.js";
+import { pluginBufferSource } from "./generated/plugin-buffer.js";
 
 /** Load a package in its own bounded VM; caller owns the returned context.
  * @param {import('quickjs-emscripten-core').QuickJSWASMModule} engine
@@ -28,10 +29,33 @@ export function createPluginVm(engine, snapshot) {
   vm.runtime.setMemoryLimit(128 * 1024 * 1024);
   vm.runtime.setMaxStackSize(512 * 1024);
   let deadline = performance.now() + 2000;
-  vm.runtime.setInterruptHandler(() => performance.now() >= deadline);
+  /** @type {number|undefined} */ let pausedAt;
+  /** @type {number|undefined} */ let executingAt;
+  let pausedExecution = 0;
+  // Exclude trusted idle waiting, never time spent executing guest jobs.
+  vm.runtime.setInterruptHandler(
+    () =>
+      performance.now() >=
+      deadline +
+        (pausedAt === undefined
+          ? 0
+          : (executingAt ?? pausedAt) - pausedAt - pausedExecution),
+  );
+  /** @template T @param {()=>T} run @returns {T} */
+  const execute = (run) => {
+    if (executingAt !== undefined) return run();
+    executingAt = performance.now();
+    try {
+      return run();
+    } finally {
+      if (pausedAt !== undefined)
+        pausedExecution += performance.now() - executingAt;
+      executingAt = undefined;
+    }
+  };
   /** @param {string} source @param {string} [filename] @param {import('quickjs-emscripten-core').ContextEvalOptions} [options] */
   const evaluate = (source, filename = "plugin-bootstrap.js", options = {}) => {
-    const result = vm.evalCode(source, filename, options);
+    const result = execute(() => vm.evalCode(source, filename, options));
     if (result.error) {
       try {
         throw Error(vm.dump(result.error)?.message || "Plugin module failed");
@@ -42,6 +66,7 @@ export function createPluginVm(engine, snapshot) {
     return result.value;
   };
   try {
+    evaluate(pluginBufferSource, "plugin-buffer.js").dispose();
     vm.runtime.setModuleLoader(
       (name) => {
         const format = pluginModuleFormat(files, name);
@@ -87,6 +112,34 @@ export function createPluginVm(engine, snapshot) {
       evaluate,
       resetDeadline: () => {
         deadline = performance.now() + 2000;
+        pausedAt = undefined;
+        pausedExecution = 0;
+      },
+      /** Only the worker's trusted callback owner may control idle waiting.
+       * @param {boolean} waiting */
+      setInteractionWaiting(waiting) {
+        if (waiting && pausedAt === undefined) {
+          pausedAt = performance.now();
+          pausedExecution = 0;
+        } else if (!waiting && pausedAt !== undefined) {
+          deadline += performance.now() - pausedAt - pausedExecution;
+          pausedAt = undefined;
+          pausedExecution = 0;
+        }
+      },
+      /** @param {number} count */
+      executePendingJobs: (count) =>
+        execute(() => vm.runtime.executePendingJobs(count)),
+      /** Bounded host waiting is not guest execution; this hook stays in worker.
+       * @param {number} milliseconds */
+      accountHostWait(milliseconds) {
+        if (!Number.isFinite(milliseconds) || milliseconds < 0)
+          throw Error("Invalid plugin host wait accounting");
+        if (pausedAt === undefined) deadline += milliseconds;
+        else pausedExecution -= milliseconds;
+      },
+      abortExecution() {
+        deadline = -Infinity;
       },
     };
   } catch (error) {
