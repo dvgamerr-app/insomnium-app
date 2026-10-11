@@ -1,3 +1,9 @@
+## Headless Playwright verification — 2026-10-12
+
+- Baseline commit: `76c89a9`. All saved browser launches use `launchUiBrowser` with fixed `headless: true`; source scan finds one shared browser launch and one native CDP attachment, with no headed override or persistent context. Existing implementation already satisfies the requested setting; no launcher change needed.
+- `bun tests/ui/plugin-dom-dialog.js` exits 0; all ten saved lifecycle groups pass and `artifacts/playwright/plugin-dom-dialog/result.json` reports `headless: true`. Native hiding before CDP and `native-hidden` reporting verified in source only; no new native run claimed. Process a88093 is terminal; no new live processes remain.
+- Remaining collections descriptor/native acceptance and all original migration/UX/UI gates remain open. This topic commits only verification documentation; pending feature/UI work stays separate. This interface cannot invoke `/compact`; this checkpoint is the handoff before the next feature.
+
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
 ## Native terminal dialog cleanup accepted — 2026-10-12
