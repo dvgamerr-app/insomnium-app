@@ -71,7 +71,7 @@ export function createPluginDomBridge(owner) {
       if(cleanup){if(disposed)throw Error("Plugin DOM cleanup already finished");}
       else check();
       const {method,args}=validatePluginDomCall(operation);
-      if(cleanup && (closing || owner.signal.aborted || !owner.current()) && !["dom.get","dom.set","dom.node","dom.attribute","dom.style","dom.query"].includes(method))throw Error("Plugin DOM cleanup cannot create UI or callbacks");
+      if(cleanup && (closing || owner.signal.aborted || !owner.current()) && !["dom.get","dom.set","dom.node","dom.attribute","dom.style","dom.query","dom.collection"].includes(method))throw Error("Plugin DOM cleanup cannot create UI or callbacks");
       if(method==="dom.create") {
         if(args.length!==2 || typeof args[1]!=="string")throw Error("Invalid DOM creation");
         if(args[0]==="text"){charge(args[1]);return describe(document.createTextNode(args[1]),true);}
@@ -91,6 +91,17 @@ export function createPluginDomBridge(owner) {
         return undefined;
       }
       const target=/** @type {any} */(node(args[0]));
+      if(method==='dom.collection'){
+        if(args.length!==3)throw Error('Invalid DOM collection');
+        const [_,kind,filter]=args;
+        if(!['children','childNodes','tag','class'].includes(kind)||(['tag','class'].includes(kind)?typeof filter!=='string':filter!==null))throw Error('Invalid DOM collection filter');
+        if(kind!=='childNodes'&&!(target instanceof Element))throw Error('Element collection requires an owned element');
+        const values=kind==='tag'?target.getElementsByTagName(filter):kind==='class'?target.getElementsByClassName(filter):target[kind];
+        return Array.from(values).map(value=>{
+          const descriptor=describe(/** @type {Node} */(value),true);
+          return kind==='childNodes'?descriptor:{...descriptor,elementId:/** @type {Element} */(value).id,name:/** @type {Element} */(value).getAttribute('name')||''};
+        });
+      }
       if(method==="dom.get") {
         if(args.length!==2)throw Error("Invalid DOM read");
         const key=args[1];if(reads.has(key))return target[key];

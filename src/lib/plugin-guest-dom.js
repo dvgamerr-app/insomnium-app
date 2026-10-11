@@ -5,6 +5,86 @@
 export function createPluginGuestDom(call,retain) {
   const ids=new WeakMap(),nodes=new Map(),listeners=new WeakMap(),styleObjects=new WeakMap();
   const secret=Symbol("owned DOM node");
+  const domString=(/** @type {any} */ value)=>{if(typeof value==='symbol')throw new TypeError('Invalid DOM string');return String(value);};
+  const collectionData=new WeakMap(),liveCollections=new WeakMap();
+  const intrinsicDefine=Reflect.defineProperty,objectDefine=Object.defineProperty,objectDefines=Object.defineProperties;
+  const ownKeys=Reflect.ownKeys,getDescriptor=Reflect.getOwnPropertyDescriptor;
+  // A JS Proxy cannot implement legacy platform objects' ignored nonconfigurable
+  // index definitions. Keep this compatibility private to owned collections;
+  // all ordinary targets go straight to the captured realm intrinsic.
+  /** @param {any} value @returns {PropertyDescriptor} */
+  function descriptorOf(value){
+    if(value===null||(typeof value!=='object'&&typeof value!=='function'))throw new TypeError('Invalid property descriptor');
+    const descriptor=/** @type {any} */(Object.create(null));
+    for(const key of ['enumerable','configurable','value','writable','get','set']){
+      if(!(key in value))continue;
+      const field=value[key];
+      if((key==='get'||key==='set')&&field!==undefined&&typeof field!=='function')throw new TypeError('Invalid accessor');
+      descriptor[key]=['enumerable','configurable','writable'].includes(key)?!!field:field;
+    }
+    if(('get' in descriptor||'set' in descriptor)&&('value' in descriptor||'writable' in descriptor))throw new TypeError('Mixed property descriptor');
+    return descriptor;
+  }
+  /** @param {any} target @param {any} key @param {PropertyDescriptor} descriptor @param {boolean} [throwing] */
+  function defineOwned(target,key,descriptor,throwing=false){
+    const data=collectionData.get(target);
+    if(data.readOnly(key)){
+      // Browser platform objects reject throwing definitions, while Reflect's
+      // nonthrowing operation reports success without replacing membership.
+      if(throwing)throw new TypeError('Cannot redefine collection member');
+      return true;
+    }
+    return intrinsicDefine(data.target,key,descriptor);
+  }
+  const indexKey=(/** @type {any} */ key)=>typeof key==='string'&&/^(0|[1-9][0-9]*)$/.test(key)&&Number(key)<4294967295;
+  const state=(/** @type {any} */ value,/** @type {string} */ kind)=>{
+    const data=collectionData.get(value);if(!data||data.kind!==kind)throw new TypeError('Illegal collection receiver');return data;
+  };
+  class GuestNodeList {
+    /** @param {symbol} token */constructor(token){if(token!==secret)throw new TypeError('Illegal constructor');}
+  }
+  class GuestHTMLCollection {
+    /** @param {symbol} token */constructor(token){if(token!==secret)throw new TypeError('Illegal constructor');}
+  }
+  /** @param {string} kind @param {()=>any[]} read */
+  function collection(kind,read){
+    const target=kind==='NodeList'?new GuestNodeList(secret):new GuestHTMLCollection(secret);
+    const named=(/** @type {any} */ key,/** @type {any[]} */ rows)=>kind==='HTMLCollection'&&typeof key==='string'&&key!==''?rows.find(row=>row.elementId===key||row.name===key):undefined;
+    const property=(/** @type {any} */ key,/** @type {any[]} */ rows)=>indexKey(key)?rows[Number(key)]:Reflect.has(target,key)?undefined:named(key,rows);
+    const data={kind,read,target,readOnly:(/** @type {any} */ key)=>indexKey(key)||!!property(key,read())};
+    const proxy=new Proxy(target,{
+      get:(_,key,receiver)=>Reflect.has(target,key)?Reflect.get(target,key,receiver):wrap(property(key,read())??null)??undefined,
+      has:(_,key)=>Reflect.has(target,key)||!!property(key,read()),
+      ownKeys:()=>{const rows=read(),keys=rows.map((_,index)=>String(index));
+        if(kind==='HTMLCollection')for(const row of rows)for(const name of [row.elementId,row.name])if(name&&!Reflect.has(target,name)&&!keys.includes(name))keys.push(name);
+        return [...new Set([...keys,...Reflect.ownKeys(target)])];},
+      getOwnPropertyDescriptor:(_,key)=>{const own=Reflect.getOwnPropertyDescriptor(target,key);if(own)return own;
+        const row=property(key,read());return row?{value:wrap(row),writable:false,enumerable:indexKey(key),configurable:true}:undefined;},
+      // Native indexed/named getters ignore assignment without replacing nodes.
+      set:(_,key,value)=>indexKey(key)||!!property(key,read())?true:Reflect.set(target,key,value),
+      deleteProperty:(_,key)=>property(key,read())?false:Reflect.deleteProperty(target,key),
+      defineProperty:(_,key,descriptor)=>data.readOnly(key)?true:intrinsicDefine(target,key,descriptor),
+      preventExtensions:()=>false,
+    });
+    collectionData.set(target,data);collectionData.set(proxy,data);return proxy;
+  }
+  for(const [kind,prototype] of /** @type {[string,any][]} */([['NodeList',GuestNodeList.prototype],['HTMLCollection',GuestHTMLCollection.prototype]])){
+    Object.defineProperty(prototype,'length',{get(){return state(this,kind).read().length;},enumerable:true,configurable:true});
+    Object.defineProperty(prototype,'item',{value:/** @this {any} */function(/** @type {any} */ index){
+      const data=state(this,kind);if(!arguments.length||typeof index==='bigint')throw new TypeError('Invalid collection index');
+      return wrap(data.read()[Number(index)>>>0]??null);
+    },writable:true,enumerable:true,configurable:true});
+    Object.defineProperty(prototype,Symbol.toStringTag,{value:kind,configurable:true});
+  }
+  Object.defineProperty(GuestHTMLCollection.prototype,'namedItem',{value:/** @this {any} */function(/** @type {any} */ name){
+    const data=state(this,'HTMLCollection');if(!arguments.length||typeof name==='symbol')throw new TypeError('Invalid collection name');
+    const key=String(name);return wrap(key===''?null:data.read().find((/** @type {any} */ row)=>row.elementId===key||row.name===key)??null);
+  },writable:true,enumerable:true,configurable:true});
+  for(const method of ['keys','values','entries','forEach'])Object.defineProperty(GuestNodeList.prototype,method,{value:/** @this {any} */function(/** @type {any[]} */ ...args){
+    state(this,'NodeList');return /** @type {any} */(Array.prototype)[method].apply(this,args);
+  },writable:true,enumerable:true,configurable:true});
+  Object.defineProperty(GuestNodeList.prototype,Symbol.iterator,{value:/** @type {any} */(GuestNodeList.prototype).values,writable:true,configurable:true});
+  Object.defineProperty(GuestHTMLCollection.prototype,Symbol.iterator,{value:Array.prototype.values,writable:true,configurable:true});
   const idOf=(/** @type {any} */ node)=>{
     const id=ids.get(node);if(!id)throw Error("An owned DOM node is required");return id;
   };
@@ -46,7 +126,9 @@ export function createPluginGuestDom(call,retain) {
     /** @param {string} name */removeAttribute(name){call("dom.attribute",[idOf(this),"removeAttribute",name]);}
     /** @param {string} name */hasAttribute(name){return call("dom.attribute",[idOf(this),"hasAttribute",name]);}
     /** @param {string} query */querySelector(query){return wrap(call("dom.query",[idOf(this),query,false]));}
-    /** @param {string} query */querySelectorAll(query){return call("dom.query",[idOf(this),query,true]).map(wrap);}
+    /** @param {string} query */querySelectorAll(query){const rows=call("dom.query",[idOf(this),query,true]);return collection('NodeList',()=>rows);}
+    /** @param {string} name */getElementsByTagName(name){if(!arguments.length)throw new TypeError('Missing tag name');const filter=domString(name);return collection('HTMLCollection',()=>call('dom.collection',[idOf(this),'tag',filter]));}
+    /** @param {string} name */getElementsByClassName(name){if(!arguments.length)throw new TypeError('Missing class names');const filter=domString(name);return collection('HTMLCollection',()=>call('dom.collection',[idOf(this),'class',filter]));}
     focus(){call("dom.node",[idOf(this),"focus",[]]);}
     blur(){call("dom.node",[idOf(this),"blur",[]]);}
     click(){call("dom.node",[idOf(this),"click",[]]);}
@@ -68,7 +150,11 @@ export function createPluginGuestDom(call,retain) {
   for(const key of ["parentNode","parentElement","firstChild","lastChild","nextSibling","previousSibling"])
     Object.defineProperty(GuestNode.prototype,key,{get(){return wrap(call("dom.get",[idOf(this),key]));}});
   for(const key of ["children","childNodes"])
-    Object.defineProperty(GuestNode.prototype,key,{get(){return call("dom.get",[idOf(this),key]).map(wrap);}});
+    Object.defineProperty(key==='children'?GuestElement.prototype:GuestNode.prototype,key,{get(){
+      let cache=liveCollections.get(this);if(!cache){cache=new Map();liveCollections.set(this,cache);}
+      if(!cache.has(key))cache.set(key,collection(key==='children'?'HTMLCollection':'NodeList',()=>call('dom.collection',[idOf(this),key,null])));
+      return cache.get(key);
+    }});
   const document=Object.freeze({
     createElement:(/** @type {string} */ tag)=>wrap(call("dom.create",["element",tag])),
     createTextNode:(/** @type {string} */ text)=>wrap(call("dom.create",["text",String(text)])),
@@ -76,7 +162,27 @@ export function createPluginGuestDom(call,retain) {
   Object.defineProperty(GuestNode.prototype,"ownerDocument",{get(){return document;}});
   for(const key of ["innerHTML","outerHTML"])
     Object.defineProperty(GuestElement.prototype,key,{get(){throw Error("HTML content is not bridged yet");},set(){throw Error("HTML content is not bridged yet");}});
-  return Object.freeze({document,Node:GuestNode,HTMLElement:GuestElement,
+  objectDefine(Reflect,'defineProperty',{value:({defineProperty(/** @type {any} */ target,/** @type {any} */ key,/** @type {any} */ descriptor){
+    if(!collectionData.has(target))return intrinsicDefine(target,key,descriptor);
+    const propertyKey=ownKeys({[key]:0})[0];
+    return defineOwned(target,propertyKey,descriptorOf(descriptor));
+  }}).defineProperty});
+  objectDefine(Object,'defineProperty',{value:({defineProperty(/** @type {any} */ target,/** @type {any} */ key,/** @type {any} */ descriptor){
+    if(!collectionData.has(target))return objectDefine(target,key,descriptor);
+    const propertyKey=ownKeys({[key]:0})[0];
+    if(!defineOwned(target,propertyKey,descriptorOf(descriptor),true))throw new TypeError('Cannot define property');
+    return target;
+  }}).defineProperty});
+  objectDefine(Object,'defineProperties',{value:({defineProperties(/** @type {any} */ target,/** @type {any} */ properties){
+    if(!collectionData.has(target))return objectDefines(target,properties);
+    if(properties===null||properties===undefined)throw new TypeError('Invalid properties');
+    const props=Object(properties),definitions=/** @type {[string|symbol,PropertyDescriptor][]} */([]);
+    // Convert every enumerable descriptor before applying any definition.
+    for(const key of ownKeys(props))if(getDescriptor(props,key)?.enumerable)definitions.push([key,descriptorOf(props[key])]);
+    for(const [key,descriptor] of definitions)if(!defineOwned(target,key,descriptor,true))throw new TypeError('Cannot define property');
+    return target;
+  }}).defineProperties});
+  return Object.freeze({document,Node:GuestNode,HTMLElement:GuestElement,NodeList:GuestNodeList,HTMLCollection:GuestHTMLCollection,
     /** @param {()=>boolean} current */app(current){return Object.freeze({
       /** @param {string} title @param {any} body @param {any} [options] */
       dialog(title,body,options={}) {
@@ -98,7 +204,7 @@ export function createPluginGuestDom(call,retain) {
  * @param {any} value @returns {{method:string,args:any[]}} */
 export function validatePluginDomCall(value) {
   if(!value || Object.keys(value).sort().join(",")!=="args,method" || !Array.isArray(value.args) ||
-      !["dom.create","dom.get","dom.set","dom.node","dom.attribute","dom.query","dom.style","dom.listen","dom.unlisten","dom.dialog"].includes(value.method) ||
+      !["dom.create","dom.get","dom.set","dom.node","dom.attribute","dom.query","dom.collection","dom.style","dom.listen","dom.unlisten","dom.dialog"].includes(value.method) ||
       value.args.length>4)throw Error("Invalid plugin DOM call");
   return value;
 }

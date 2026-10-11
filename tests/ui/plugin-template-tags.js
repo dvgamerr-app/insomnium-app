@@ -25,6 +25,7 @@ import {pluginDomOwnerNativeSource,exercisePluginDomOwnerHttpNative} from "./hel
 import {exercisePluginDomNestedOwnerNative} from "./helpers/plugin-dom-nested-owner-native.js";
 import {createPluginDomStreamFixture,exercisePluginDomStreamOwnerNative} from "./helpers/plugin-dom-stream-owner-native.js";
 import {pluginDomTerminalNativeSource,exercisePluginDomTerminalOwnerNative} from "./helpers/plugin-dom-terminal-owner-native.js";
+import {pluginDomCollectionsNativeSource,exercisePluginDomCollectionsNative} from "./helpers/plugin-dom-collections-native.js";
 import {
   editorTagSource,
   editorTemplate,
@@ -42,6 +43,7 @@ const domOwnerMode = helperMode && process.env.INSOMNIUM_PLUGIN_DOM_OWNER === "1
 const domNestedMode=domOwnerMode&&process.env.INSOMNIUM_PLUGIN_DOM_NESTED_OWNER==="1";
 const domStreamMode=domNestedMode&&process.env.INSOMNIUM_PLUGIN_DOM_STREAM_OWNER==="1";
 const domTerminalMode=domStreamMode&&process.env.INSOMNIUM_PLUGIN_DOM_TERMINAL_OWNER==="1";
+const domCollectionsMode=domTerminalMode&&process.env.INSOMNIUM_PLUGIN_DOM_COLLECTIONS==="1";
 const domStreamFixture=domStreamMode?createPluginDomStreamFixture():undefined;
 const grpcFixture = helperMode && process.env.INSOMNIUM_PLUGIN_HELPER_GRPC === "1" ? await createPluginGrpcFixture() : undefined;
 const socketMessages = /** @type {string[]} */ ([]);
@@ -168,6 +170,7 @@ try {
       if (appInfoMode) sourceB += pluginAppInfoSource;
       if (domOwnerMode) sourceB += pluginDomOwnerNativeSource(helperRequestId);
       if (domTerminalMode) sourceB += pluginDomTerminalNativeSource(requestId+'_terminal_helper');
+      if (domCollectionsMode) sourceB += pluginDomCollectionsNativeSource();
       for (const [index, source] of [sourceA, sourceB].entries()) {
         const directory = join(root, index === 0 ? "a" : "b");
         await mkdir(directory, { recursive: true });
@@ -674,6 +677,10 @@ try {
         if(domTerminalMode){
           const evidence=await exercisePluginDomTerminalOwnerNative({page,invoke,output,wire,requestId,plugin:names[1],baseUrl:`http://127.0.0.1:${server.port}`,body,releaseHeld:()=>heldRoots.forEach(release=>release())});
           checks.push(...evidence.checks);observations.push({pluginDomTerminal:evidence});await body('{% dup %}');
+        }
+        if(domCollectionsMode){
+          const evidence=await exercisePluginDomCollectionsNative({page,output,wire,body,send});
+          checks.push(...evidence.checks);observations.push({pluginDomCollections:evidence});await body('{% dup %}');
         }
         await preferences();
         for (const name of names)

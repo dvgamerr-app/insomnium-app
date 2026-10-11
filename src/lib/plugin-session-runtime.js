@@ -5,7 +5,7 @@ import { PROMPT_TOTAL_MS } from "./template-deadline.js";
 import { createPluginAppSyncHelpers, validatePluginAppSyncCall } from "./plugin-app-sync.js";
 import { createPluginAppAsyncHelpers } from "./plugin-app-async.js";
 import { createPluginDomCallbackLeases } from "./plugin-dom-callback-leases.js";
-import {createPluginGuestDom,validatePluginDomCall} from "./plugin-guest-dom.js";
+import {validatePluginDomCall} from "./plugin-guest-dom.js";
 import {
   createPluginRunHelpers,
   validatePluginHelperCall,
@@ -196,9 +196,7 @@ export function createPluginCallbackRuntime(
   });
   try {
     vm.setProp(vm.global,"__pluginDomSync",domBridge);
-    evaluate(`Object.defineProperty(globalThis,'__pluginDomSync',{writable:false,configurable:false});
-      globalThis.__pluginGuestDom=(${createPluginGuestDom.toString()})((method,args)=>__pluginValueCodec.decode(__pluginDomSync(__pluginValueCodec.encode({method,args}))),callback=>__pluginRetainDomCallback(callback));
-      for(const key of ['document','Node','HTMLElement'])Object.defineProperty(globalThis,key,{value:__pluginGuestDom[key],writable:false,configurable:false});`).dispose();
+    evaluate(`Object.defineProperty(globalThis,'__pluginDomSync',{writable:false,configurable:false});`).dispose();
     vm.setProp(vm.global,"__pluginRetainDomCallback",retainDomCallback);
     evaluate('Object.defineProperty(globalThis,"__pluginRetainDomCallback",{writable:false,configurable:false});').dispose();
     vm.setProp(vm.global, "__pluginStoreCall", bridge);

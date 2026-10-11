@@ -2,6 +2,7 @@ import { resolvePluginModule, pluginModuleFormat } from "./plugin-modules.js";
 import { createPluginTagMetadata } from "./plugin-tag-metadata.js";
 import { createPluginValueCodec } from "./plugin-values.js";
 import { pluginBufferSource } from "./generated/plugin-buffer.js";
+import { createPluginGuestDom } from "./plugin-guest-dom.js";
 
 /** Load a package in its own bounded VM; caller owns the returned context.
  * @param {import('quickjs-emscripten-core').QuickJSWASMModule} engine
@@ -66,6 +67,14 @@ export function createPluginVm(engine, snapshot) {
     return result.value;
   };
   try {
+    // Install realm-local collection reflection before modules can capture it.
+    // These closures grant no DOM access until the callback runtime binds its
+    // guarded transport; initialization itself performs no host operations.
+    evaluate(`(() => {
+      const dom=(${createPluginGuestDom.toString()})((method,args)=>__pluginValueCodec.decode(__pluginDomSync(__pluginValueCodec.encode({method,args}))),callback=>__pluginRetainDomCallback(callback));
+      Object.defineProperty(globalThis,'__pluginGuestDom',{value:dom,writable:false,configurable:false});
+      for(const key of ['document','Node','HTMLElement','NodeList','HTMLCollection'])Object.defineProperty(globalThis,key,{value:dom[key],writable:false,configurable:false});
+    })();`, "plugin-dom-bootstrap.js").dispose();
     evaluate(pluginBufferSource, "plugin-buffer.js").dispose();
     vm.runtime.setModuleLoader(
       (name) => {
