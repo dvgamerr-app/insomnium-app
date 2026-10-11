@@ -22,6 +22,7 @@ import { createPluginOAuthFixture } from "./helpers/plugin-oauth-native.js";
 import { createPluginGrpcFixture } from "./helpers/plugin-grpc-native.js";
 import { pluginAppInfoSource, exercisePluginAppInfoNative } from "./helpers/plugin-app-info-native.js";
 import {pluginDomOwnerNativeSource,exercisePluginDomOwnerHttpNative} from "./helpers/plugin-dom-owner-native.js";
+import {exercisePluginDomNestedOwnerNative} from "./helpers/plugin-dom-nested-owner-native.js";
 import {
   editorTagSource,
   editorTemplate,
@@ -36,6 +37,7 @@ const oauthMode = helperMode && process.env.INSOMNIUM_PLUGIN_HELPER_OAUTH === "1
 const oauthFixture = oauthMode ? createPluginOAuthFixture() : undefined;
 const appInfoMode = helperMode && process.env.INSOMNIUM_PLUGIN_APP_INFO === "1";
 const domOwnerMode = helperMode && process.env.INSOMNIUM_PLUGIN_DOM_OWNER === "1";
+const domNestedMode=domOwnerMode&&process.env.INSOMNIUM_PLUGIN_DOM_NESTED_OWNER==="1";
 const grpcFixture = helperMode && process.env.INSOMNIUM_PLUGIN_HELPER_GRPC === "1" ? await createPluginGrpcFixture() : undefined;
 const socketMessages = /** @type {string[]} */ ([]);
 let socketConnections = 0;
@@ -74,6 +76,7 @@ try {
   if (/** @type {any} */ (error).code !== "ENOENT") throw error;
 }
 const wire = /** @type {any[]} */ ([]);
+const heldRoots=/** @type {(()=>void)[]} */([]);
 const server = Bun.serve({
   hostname: "127.0.0.1",
   port: 0,
@@ -84,6 +87,9 @@ const server = Bun.serve({
       method: request.method,
       body: await request.text(),
       headers: Object.fromEntries(request.headers),
+    });
+    if(domNestedMode&&new URL(request.url).pathname==="/dom-owner-held")return new Promise(resolve=>{
+      let released=false;heldRoots.push(()=>{if(released)return;released=true;resolve(new Response("late-owned-response",{headers:{"Content-Type":"text/plain"}}));});
     });
     return new Response("plugin-render-accepted", {
       headers: { "Content-Type": "text/plain" },
@@ -208,6 +214,7 @@ try {
         body: { mimeType: "text/plain", text: "{% extrainfo %}" },
         settingSendCookies: false, settingStoreCookies: false,
       }));
+      if(domNestedMode)seed.resources.push(newRequest(collection,{_id:requestId+"_dialog_child",name:"Dialog dependent request",method:"POST",url:`http://127.0.0.1:${server.port}/dialog-child`,body:{mimeType:"text/plain",text:"{% ownednativedialog %}"},settingSendCookies:false,settingStoreCookies:false}));
       if (protocolMode) seed.resources.push(
         newRequest(collection,{_id:socketRequestId,_type:"websocket_request",name:"Plugin helper socket",
           url:`ws://127.0.0.1:${server.port}/ws`,activePayloadId:socketPayloadId,
@@ -645,6 +652,10 @@ try {
           checks.push(...evidence.checks);observations.push({pluginDomOwner:evidence});
           await body("{% dup %}");
         }
+        if(domNestedMode){
+          const evidence=await exercisePluginDomNestedOwnerNative({page,invoke,output,body,send,wire,requestId,childId:requestId+"_dialog_child",baseUrl:`http://127.0.0.1:${server.port}`,releaseHeld:()=>heldRoots.forEach(release=>release())});
+          checks.push(...evidence.checks);observations.push({pluginDomNested:evidence});await body("{% dup %}");
+        }
         await preferences();
         for (const name of names)
           await card(name)
@@ -721,6 +732,7 @@ try {
     },
   );
 } finally {
+  heldRoots.forEach(release=>release());
   server.stop(true);
   oauthFixture?.stop();
   grpcFixture?.stop();
