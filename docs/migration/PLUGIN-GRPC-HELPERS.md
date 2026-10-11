@@ -1,5 +1,36 @@
 # Native gRPC plugin helper acceptance
 
+## Owner cancellation and automatic recovery accepted — 2026-10-11
+
+Saved native29237 /1791685319112/restoration1791685318560 terminal0 passes
+29 checks /14 terminated workers /33 actual HTTP requests, retained WS/OAuth
+cases, and four gRPC calls/four messages. Client-stream prompt Cancel detaches
+the real dialog, closes the zero-message Collect transport with RST8 and observes
+750ms without any new child HTTP or gRPC message. Connection rendering through
+Load methods is cancelled during its real prompt, with 750ms without a new child
+HTTP request or native connection. A fresh unary resolves the real helper and
+finishes status0 after both owner cancellations, without plugin Load or Reload.
+Changing the URL requires normal schema loading before Send; this is distinct
+from reloading a plugin.
+
+Both Cancel operations dispatch the actual gRPC Cancel handler programmatically
+while showModal blocks pointer input. This does not claim pointer interaction
+through a modal. Eleven gRPC child requests carry seven connection and four body
+values; all use actual saved-ID HTTP/models/history/body/ExtraRenderInfo services.
+The independent63source/current/snapshot/wire/transport/worker/OAuth/history/
+cookie/store/two-buffer audit passes, all653 original cookie files restored.
+Same20ab757e executable reused with identical previously frozen application
+sources; bounded manifest limits below still apply. Compiler73938 terminal0,
+zero errors and warnings. No live build/native/compiler handles from this run.
+
+First cancellation run76334/1791685136445 passed zero-message client transport
+reset but attempted disabled Send after URL invalidated schema. Second91290/
+1791685208034 reached both cancellations but recovery retained the old body when
+editing the CodeMirror textarea. Saved fixture now uses the same CodeMirror
+setValue and native persisted-body polling as the root scenario. First/second63
+snapshots preserve both failed harness versions; all three native runs restore
+original workspace/store/cookies. No product source changed for this topic.
+
 The reusable `tests/ui/helpers/plugin-grpc-native.js` fixture owns a Bun HTTP/2
 server and genuine plugin tags. Both tags read the actual workspace and saved
 HTTP request, modify only the detached guest URL, send by saved ID with
@@ -51,7 +82,7 @@ first-live-source-freeze.json. Both runs restore the original owned-profile file
 
 ## Remaining gates
 
-gRPC reflection discovery, prompt Cancel/late send refusal/recovery, metadata,
+gRPC reflection discovery, late native/provider completion policies, metadata,
 server streaming/bidirectional methods, concurrent owners, ancestry/deadline and
 other provider/platform cases still need their own helper acceptance. Broader
 preview, synchronous app facade, DOM/events/onHide/private compatibility,

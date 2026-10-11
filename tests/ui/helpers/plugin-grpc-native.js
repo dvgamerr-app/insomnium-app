@@ -7,6 +7,7 @@ import { poll } from "./native-app.js";
 export async function createPluginGrpcFixture() {
   const wire = /** @type {any[]} */ ([]);
   const errors = /** @type {string[]} */ ([]);
+  const closed = /** @type {any[]} */ ([]);
   const sessions = new Set();
   const server = createServer();
   server.on("session", session => {
@@ -17,6 +18,7 @@ export async function createPluginGrpcFixture() {
   server.on("stream", (/** @type {import('node:http2').ServerHttp2Stream} */ stream, headers) => {
     const row = { path: String(headers[":path"]), messages: /** @type {string[]} */ ([]), ended: false };
     wire.push(row);
+    stream.on("close", () => closed.push({ path: row.path, messages: row.messages.length, rstCode: stream.rstCode }));
     let bytes = Buffer.alloc(0);
     let responded = false;
     const respond = () => {
@@ -31,7 +33,7 @@ export async function createPluginGrpcFixture() {
       stream.on("wantTrailers", () => stream.sendTrailers({ "grpc-status": "0" }));
       stream.end(Buffer.concat([frame, payload]));
     };
-    stream.on("error", error => errors.push(String(error)));
+    stream.on("error", error => { if (stream.rstCode !== 8) errors.push(String(error)); });
     stream.on("data", chunk => {
       bytes = Buffer.concat([bytes, Buffer.from(chunk)]);
       while (bytes.length >= 5 && bytes.length >= bytes.readUInt32BE(1) + 5) {
@@ -48,7 +50,7 @@ export async function createPluginGrpcFixture() {
     stream.on("end", () => {
       row.ended = true;
       assert.equal(bytes.length, 0);
-      respond();
+      if (row.messages.length && !stream.destroyed) respond();
     });
   });
   await new Promise(resolve => server.listen(0, "127.0.0.1", () => resolve(null)));
@@ -70,7 +72,10 @@ export async function createPluginGrpcFixture() {
         const body=c.util.models.response.getBodyBuffer(sent).toString();
         if(body!=='plugin-render-accepted') throw Error('Wrong gRPC helper body');
         return name==='grpcurl'?${JSON.stringify(url)}:body;
-      }})));`;
+      }})));
+      exports.templateTags.push({name:'grpcprompt',async run(c){
+        return await c.app.prompt('Owned gRPC helper cancellation',{defaultValue:'must-not-send'});
+      }});`;
     },
     /** @param {string} collection @param {string} id */
     resources(collection, id) {
@@ -78,8 +83,8 @@ export async function createPluginGrpcFixture() {
         url: "{% grpcurl %}", body: { text: '{"name":"{% grpcbody %}"}' },
         settingSendCookies: false, settingStoreCookies: false })];
     },
-    /** @param {{page:import('playwright-core').Page,output:string,mainWire:any[]}} context */
-    async exercise({ page, output, mainWire }) {
+    /** @param {{page:import('playwright-core').Page,invoke:import('./native-app.js').NativeInvoke,id:string,output:string,mainWire:any[]}} context */
+    async exercise({ page, invoke, id, output, mainWire }) {
       const checks = [];
       const helperStart = mainWire.length;
       try {
@@ -117,17 +122,69 @@ export async function createPluginGrpcFixture() {
         assert.equal(wire[1].path, "/helper.Sample/Collect");
         assert.deepEqual(wire[1].messages, ["plugin-render-accepted", "plugin-render-accepted"]);
         assert.equal(wire[1].ended, true);
+        checks.push("Native connected client-stream messages independently render real helpers and finish successfully");
+        const controls = [];
+        const editBody = async (/** @type {string} */ text) => {
+          await page.locator(".request-editor .CodeMirror").first().evaluate((element,text) => /** @type {any} */ (element).CodeMirror.setValue(text),text);
+          await poll(async () => (await invoke("load_workspace")).resources.find((/** @type {any} */ row) => row._id === id)?.body?.text === text, "Saved gRPC body edit");
+        };
+        const urlInput = page.getByRole("textbox", { name: "gRPC server URL", exact: true });
+        const prompt = page.getByRole("dialog", { name: "Owned gRPC helper cancellation", exact: true });
+        const cancel = async () => {
+          await page.locator(".send-button").filter({hasText:"Cancel"}).evaluate(element => /** @type {HTMLButtonElement} */ (element).click());
+          await prompt.waitFor({state:"detached"});
+        };
+        await page.getByRole("button", { name: "Connect", exact: true }).waitFor();
+        await editBody('{"name":"{% grpcprompt %}"}');
+        await page.getByRole("button", { name: "Connect", exact: true }).click();
+        await send.waitFor();
+        await poll(async () => wire.length === 3, "Owned connected gRPC transport starts");
+        await send.click();
+        await prompt.waitFor();
+        const beforeStreamCancel = mainWire.length;
+        await cancel();
+        await page.getByRole("button", { name: "Connect", exact: true }).waitFor();
+        await poll(async () => closed.some(row => row.path === "/helper.Sample/Collect" && row.messages === 0 && row.rstCode === 8), "Cancel closes owned gRPC transport with reset code eight");
+        await page.waitForTimeout(750);
+        assert.equal(mainWire.length, beforeStreamCancel);
+        assert.deepEqual(wire[2].messages, []);
+        controls.push({action:"client-stream",noHelperWire:true,noMessageWire:true,transportCancelled:true,stableForMs:750,
+          cancellationMethod:"Programmatic real gRPC Cancel handler while showModal blocks pointer input"});
+        checks.push("Cancel during connected gRPC helper prompt detaches dialog and resets transport without helper/message leakage");
+        await methods.selectOption({label:"/Sample/Echo · Unary"});
+        await editBody('{"name":"{% grpcbody %}"}');
+        await urlInput.fill("{% grpcprompt %}");
+        await page.getByRole("button", { name: "Load methods", exact: true }).click();
+        await prompt.waitFor();
+        const beforeConnectionCancel = {helper:mainWire.length,grpc:wire.length};
+        await cancel();
+        await page.getByRole("button", { name: "Load methods", exact: true }).waitFor();
+        await page.waitForTimeout(750);
+        assert.equal(mainWire.length,beforeConnectionCancel.helper);
+        assert.equal(wire.length,beforeConnectionCancel.grpc);
+        controls.push({action:"connection",noHelperWire:true,noMessageWire:true,noConnectionWire:true,stableForMs:750,
+          cancellationMethod:"Programmatic real gRPC Cancel handler while showModal blocks pointer input"});
+        checks.push("Cancel during gRPC connection helper prompt prevents native connection and child request");
+        await urlInput.fill("{% grpcurl %}");
+        await page.getByRole("button", { name: "Load methods", exact: true }).click();
+        await methods.selectOption({label:"/Sample/Echo · Unary"});
+        await page.getByRole("button", { name: "Send", exact: true }).click();
+        await page.locator(".grpc-response .status-badge").filter({hasText:"0 OK"}).waitFor();
+        await page.getByRole("button", { name: "Send", exact: true }).waitFor();
+        await poll(async () => wire[3]?.ended === true, "Recovered unary closes owned request sender");
+        assert.equal(wire[3].path,"/helper.Sample/Echo");
+        assert.deepEqual(wire[3].messages,["plugin-render-accepted"]);
+        checks.push("Fresh unary after both gRPC owner cancellations recovers admitted plugin tags without Load");
         const helpers = mainWire.slice(helperStart).filter(row => new URL(row.url).pathname === "/helper");
         assert.ok(helpers.filter(row => row.body === "grpcurl").length >= 3);
-        assert.equal(helpers.filter(row => row.body === "grpcbody").length, 3);
+        assert.equal(helpers.filter(row => row.body === "grpcbody").length, 4);
         assert.ok(helpers.every(row => row.method === "POST"));
         assert.deepEqual(errors, []);
-        checks.push("Native connected client-stream messages independently render real helpers and finish successfully");
-        const evidence = { status: "passed", checks, wire, helpers: helpers.map(row => ({url:row.url,method:row.method,body:row.body})), errors };
+        const evidence = { status: "passed", checks, controls, closed, wire, helpers: helpers.map(row => ({url:row.url,method:row.method,body:row.body})), errors };
         await Bun.write(output + "/grpc-helper-acceptance.json", JSON.stringify(evidence, null, 2));
         return evidence;
       } finally {
-        await Bun.write(output + "/grpc-helper-wire.json", JSON.stringify({wire,errors}, null, 2));
+        await Bun.write(output + "/grpc-helper-wire.json", JSON.stringify({wire,closed,errors}, null, 2));
       }
     },
   };
