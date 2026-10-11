@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile, lstat, realpath, unlink, readdir } from "no
 import { join, resolve, relative } from "node:path";
 import { createHash } from "node:crypto";
 import { withNativeApp, probeIdentifier } from "./helpers/native-app.js";
+import { assertCookieProviderCases } from "./helpers/cookie-provider-cases.js";
 
 const hash = (/** @type {Uint8Array} */ bytes) => createHash("sha256").update(bytes).digest("hex");
 assert.ok(process.env.APPDATA);
@@ -23,6 +24,8 @@ const workspaceId = "wrk_plugin_cookie_restart_" + Date.now();
 const target = resolve(cookieRoot, workspaceId + ".json");
 const previousTarget = resolve(cookieRoot, workspaceId + ".previous.json");
 const verifyWrite = process.env.INSOMNIUM_COOKIE_RESTART_WRITE === "1";
+const verifyProvider = process.env.INSOMNIUM_COOKIE_RESTART_PROVIDER === "1";
+assert.ok(!(verifyWrite && verifyProvider), "Run persistence and provider scenarios separately");
 assert.equal(relative(cookieRoot, target), workspaceId + ".json");
 assert.equal(await Bun.file(target).exists(), false);
 assert.equal(relative(cookieRoot, previousTarget), workspaceId + ".previous.json");
@@ -56,7 +59,7 @@ const errors = /** @type {string[]} */ ([]), restored = /** @type {any[]} */ ([]
 process.env.INSOMNIUM_UI_BUILD_STATE ||= "artifacts/native-plugin-workspace-helper-probe/build-state.json";
 try {
   await writeFile(target, bytes);
-  await withNativeApp("plugin-cookie-restart-native", async ({ invoke, output: native }) => {
+  await withNativeApp("plugin-cookie-restart-native", async ({ page, invoke, output: native }) => {
     nativeOutput = native;
     nativeOutputs.push(native);
     const normal = await invoke("snapshot_request_cookies", { workspaceId });
@@ -68,6 +71,7 @@ try {
     assert.equal(normal.cookies.some((/** @type {any} */ item) => item.key === "owned_expiry"), false);
     assert.equal(model.cookies.length, 3, "Model snapshot must retain expired file entries after a fresh native launch");
     assert.equal(model.cookies.find((/** @type {any} */ item) => item.key === "owned_expiry")?.expires?.AtUtc, expired.expires.AtUtc);
+    if (verifyProvider) await assertCookieProviderCases({page,invoke,output:native,workspaceId,target});
     if (verifyWrite) {
       await invoke("change_cookie", { workspaceId, url: "https://api.example.test/cookie/child",
         raw: "owned_write=write-value; Path=/cookie; Secure", previous: null, clear: false });
@@ -96,6 +100,15 @@ try {
       assert.ok(!normal.cookies.some((/** @type {any} */ item) => item.key === "owned_expiry"));
       assert.equal(model.cookies.length, 4);
       assert.equal(model.cookies.find((/** @type {any} */ item) => item.key === "owned_expiry")?.expires?.AtUtc, expired.expires.AtUtc);
+    });
+  }
+  if (verifyProvider) {
+    await withNativeApp("plugin-cookie-provider-restart-native", async ({invoke,output:native}) => {
+      nativeOutput=native;nativeOutputs.push(native);
+      const normal=await invoke("snapshot_request_cookies",{workspaceId});
+      const model=await invoke("snapshot_request_cookies",{workspaceId,includeExpired:true});
+      await Bun.write(join(native,"cookie-provider-restart-observations.json"),JSON.stringify({workspaceId,normal,model},null,2));
+      assert.deepEqual(normal.cookies,[]);assert.deepEqual(model.cookies,[]);
     });
   }
 } finally {
@@ -131,7 +144,7 @@ try {
   const storeAfter = await Bun.file(store).exists() ? hash(await readFile(store)) : null;
   if (storeBefore !== storeAfter) errors.push("Original plugin store changed");
   await Bun.write(join(output, "result.json"), JSON.stringify({ status: errors.length ? "failed" : "passed",
-    nativeOutput, nativeOutputs, verifyWrite, workspaceId, fixtureSha256: hash(bytes), originalCookieFiles: before,
+    nativeOutput, nativeOutputs, verifyWrite, verifyProvider, workspaceId, fixtureSha256: hash(bytes), originalCookieFiles: before,
     restored, storeBefore, storeAfter, errors }, null, 2));
   console.log(JSON.stringify({ restoration: output, workspaceRestored: restored.length, errors }));
   if (errors.length) throw Error(errors.join("\n"));

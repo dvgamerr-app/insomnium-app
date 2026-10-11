@@ -60,8 +60,51 @@ unexpired request-compatible entries:
 <https://docs.rs/cookie_store/0.22.1/cookie_store/struct.CookieStore.html>.
 The legacy model read matches the store's all-cookie operation:
 <https://github.com/salesforce/tough-cookie/blob/master/api/docs/tough-cookie.store.getallcookies.md>.
-Explicit clear/delete/replacement, response-driven writes, actual provider headers
-and broader platform/migration/helper parity still require their own acceptance.
+The next section records separate acceptance for clear/delete/replacement,
+response-driven writes and actual provider headers. Broader platform/migration/helper
+parity remains required.
+
+## Native provider acceptance
+
+`INSOMNIUM_COOKIE_RESTART_PROVIDER=1` runs the existing saved restart scenario
+with reusable `tests/ui/helpers/cookie-provider-cases.js`. Run it separately from
+the write mode. It uses an owned loopback Bun HTTP fixture and the same unique
+collection/main/previous files already protected by the restoration wrapper.
+
+Production `05b8f4ad` passes 11 groups and 12 real native HTTP requests:
+
+- Expiry, foreign-host and exact path-boundary filtering; expired entries remain
+  visible to the model but absent from native Cookie headers, including when an
+  explicitly supplied model snapshot contains them.
+- Send off/store on, store off, cookies entirely disabled, actual response cookie
+  persistence with HttpOnly, redirect-local cookies without model persistence,
+  and explicit Cookie header precedence.
+- Replace an existing cookie, refuse a stale snapshot generation before any wire
+  request, delete an expired model entry, and clear the model/file/header. A
+  second fresh native process confirms clear remains empty on disk.
+
+Evidence: native `1791678832786`, fresh restart `1791678834794`, restoration
+`1791678832680`. Independent audit checks all wire header pairs, snapshots,
+persisted bytes, stale native error, original backup, both hidden/exit-zero
+processes, both workspace files, plugin store and all 653 original cookie files.
+The 55-source snapshot explicitly binds the two changed harness files to the
+unchanged production source/binary. Compiler reports zero errors/warnings.
+Retained write/restart regression `1791678872082` / `1791678872964` / restoration
+`1791678871974` also passes with an independent 55-source audit.
+
+Initial scenario `1791678749004` incorrectly expected Secure exclusion on
+loopback HTTP. Pinned cookie_store `utils::is_secure` explicitly treats localhost
+and loopback IPs as secure, so the corrected fixture expects Secure transmission
+there. Subsequent `1791678796739` reached stale-generation rejection but failed
+because Playwright flattened the native structured rejection to `evaluate: Object`;
+the saved fixture now captures that native error inside the page and asserts its
+actual message plus absence of a wire request. Both failures preserve owned-state
+restoration and their source snapshots; neither is claimed as a product fix.
+
+These gates are accepted for the controlled Windows loopback fixture only.
+Non-loopback insecure exclusion, HTTPS transmission, actual domain suffix
+matching across subdomains, equal-path ordering, concurrent/provider/proxy/platform
+cases, import/edit UI and full helper/migration parity remain required.
 
 ## Verification on 2026-10-11
 
