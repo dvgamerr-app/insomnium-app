@@ -1,3 +1,5 @@
+import { createPluginValueCodec } from "./plugin-values.js";
+
 /** Application-owned admission and retained-session lifetime. Discovery never
  * executes packages; only explicit prepare does. Callback integration is separate.
  * @param {{getContext:()=>{owner:object,ready:boolean,settings:Record<string,any>},discover:(settings:Record<string,any>)=>Promise<any>,readPackage:(directory:string)=>Promise<any>,openSession:(snapshot:any,options:{isCurrent:()=>boolean,signal:AbortSignal})=>Promise<any>}} adapters */
@@ -104,9 +106,36 @@ export function createPluginRegistry(adapters) {
           (/** @type {any} */ item, /** @type {number} */ index) => {
             /** @param {'templateTags'|'templateTagMetadata'|'templateTagAction'} kind @param {any[]} args
              * @param {{isCurrent:()=>boolean,signal:AbortSignal,context?:Record<string,any>}} operation */
-            function dispatch(kind, args, operation) {
-              if (!current()) return Promise.reject(aborted());
-              return record.session
+            async function dispatch(kind, args, operation) {
+              if (
+                !current() ||
+                operation.signal.aborted ||
+                !operation.isCurrent()
+              )
+                throw aborted();
+              operation = { ...operation };
+              if (
+                record.session.isClosed?.() === true &&
+                record.session.wasCancelled?.() === true
+              ) {
+                // Recovery waits must not expose mutable caller data to a new VM.
+                const codec = createPluginValueCodec();
+                const detached = codec.decode(
+                  codec.encode({ args, context: operation.context ?? {} }),
+                );
+                args = detached.args;
+                if (operation.context !== undefined)
+                  operation.context = detached.context;
+                await record.recoverSession();
+              }
+              if (
+                !current() ||
+                operation.signal.aborted ||
+                !operation.isCurrent()
+              )
+                throw aborted();
+              const session = record.session;
+              return session
                 .invoke(kind, index, args, {
                   ...operation,
                   isCurrent: () => current() && operation.isCurrent(),
@@ -121,11 +150,14 @@ export function createPluginRegistry(adapters) {
                   return result;
                 })
                 .catch((/** @type {any} */ error) => {
-                  // Only a closed guest requires explicit Load recovery. A queued
-                  // refusal must not fail an otherwise live session.
+                  // Cancellation retires only this VM, retaining the admitted
+                  // catalog for a fresh callback. Failed/over-budget guests stay
+                  // quarantined until explicit Load. Ignore late retired replies.
                   if (
                     record.current() &&
-                    record.session.isClosed?.() === true
+                    record.session === session &&
+                    session.isClosed?.() === true &&
+                    session.wasCancelled?.() !== true
                   ) {
                     record.status = "error";
                     record.error = String(error.message ?? error).slice(
@@ -302,6 +334,45 @@ export function createPluginRegistry(adapters) {
             throw aborted();
           }
           record.session = session;
+          const admittedSnapshot = structuredClone(snapshot);
+          const admittedMetadata = JSON.stringify(session.metadata);
+          record.recoverSession = () => {
+            if (record.recovery) return record.recovery;
+            record.recovery = (async () => {
+              let replacement;
+              try {
+                if (!current()) throw aborted();
+                // Never reread changed source or replay the cancelled callback.
+                replacement = await adapters.openSession(
+                  structuredClone(admittedSnapshot),
+                  {
+                    isCurrent: current,
+                    signal: controller.signal,
+                  },
+                );
+                if (!current()) throw aborted();
+                if (JSON.stringify(replacement.metadata) !== admittedMetadata)
+                  throw Error(
+                    "Plugin catalog changed during recovery. Reload the plugin.",
+                  );
+                record.session = replacement;
+              } catch (error) {
+                replacement?.close();
+                if (current()) {
+                  controller.abort();
+                  record.status = "error";
+                  record.error = (
+                    error instanceof Error ? error.message : String(error)
+                  ).slice(0, 8192);
+                  emit();
+                }
+                throw error;
+              } finally {
+                record.recovery = undefined;
+              }
+            })();
+            return record.recovery;
+          };
           record.status = "ready";
           emit();
           return structuredClone(session.metadata);

@@ -22,12 +22,14 @@ export async function openPluginSession(snapshot, options) {
     nextId = 0,
     storeId = 0,
     queued = 0;
+  /** @type {Error|undefined} */ let closeReason;
   let queue = Promise.resolve();
   /** @type {{id:number,resolve:(value:any)=>void,reject:(error:Error)=>void,timer:ReturnType<typeof setTimeout>,current:()=>boolean,frame?:object}|undefined} */
   let active;
   const close = (/** @type {Error} */ error = aborted()) => {
     if (closed) return;
     closed = true;
+    closeReason = error;
     clearInterval(ownerTimer);
     options.signal?.removeEventListener("abort", cancel);
     worker.terminate();
@@ -190,6 +192,7 @@ export async function openPluginSession(snapshot, options) {
   return {
     metadata,
     isClosed: () => closed,
+    wasCancelled: () => closed && closeReason?.name === "AbortError",
     /** @param {string} kind @param {number} index @param {any[]} [args]
      * @param {{isCurrent?:()=>boolean,signal?:AbortSignal,context?:Record<string,any>}} [operation] */
     invoke(kind, index, args = [], operation = {}) {
