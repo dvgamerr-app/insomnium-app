@@ -9,6 +9,7 @@ import {
   isTemplateTagName,
 } from "./template-registration.js";
 import { createPluginValueCodec } from "./plugin-values.js";
+import {completePluginRequest,linkPluginRequestSignal} from "./plugin-request-lifetime.js";
 /**
  * One disposable worker per render. Native handlers stay on the application side;
  * only explicitly registered native tag names and structured values cross it.
@@ -72,6 +73,7 @@ export function renderTemplate(text, context, options = {}) {
       return;
     }
     const controller = new AbortController();
+    if(options.signal)linkPluginRequestSignal(controller.signal,options.signal);
     const seen = new Set();
     /** @type {Worker | undefined} */ let worker;
     /** @type {ReturnType<typeof createRenderDeadline> | undefined} */ let deadline;
@@ -94,7 +96,8 @@ export function renderTemplate(text, context, options = {}) {
       clearTimeout(hardTimeout);
       options.signal?.removeEventListener("abort", abort);
       worker?.terminate();
-      controller.abort();
+      if(error)controller.abort(error);
+      else completePluginRequest(controller);
       if (error) reject(error);
       else resolve(value || "");
     };

@@ -2285,8 +2285,10 @@ function workspacePluginServices(data, owner, resolveResponse, chain = [owner.re
       throw new DOMException("Plugin workspace owner changed", "AbortError");
   };
   const check = (/** @type {AbortSignal} */ signal) => {signal.throwIfAborted();checkOwner();};
-  const nestedOwner = {...owner,isCurrent:()=>{try{checkOwner();return true;}catch{return false;}}};
+  const isCurrent=()=>{try{checkOwner();return true;}catch{return false;}};
+  const nestedOwner = {...owner,isCurrent};
   return {
+    isCurrent,
     getData: () => {checkOwner();return ({
       resources: data.resources,
       history: $state.snapshot(workspace.data.history),

@@ -27,6 +27,7 @@ export function capturePluginRenderOptions(options) {
         getData: options.pluginServices.getData,
         send: options.pluginServices.send,
         cookieJar: options.pluginServices.cookieJar,
+        isCurrent: options.pluginServices.isCurrent === undefined ? (()=>true) : options.pluginServices.isCurrent,
       })
     : undefined;
   if (
@@ -59,7 +60,7 @@ export function capturePluginRenderOptions(options) {
  * environmentLayers?:{data:Record<string,any>,order?:Record<string,any>|null}[],
  * pluginHelperPath?:string[],
  * pluginExtraInfo?:{name:string,value:any}[],
- * pluginServices?:{getData:()=>{resources:Record<string,any>[],history?:Record<string,any>[],settings?:Record<string,any>},
+ * pluginServices?:{isCurrent?:()=>boolean,getData:()=>{resources:Record<string,any>[],history?:Record<string,any>[],settings?:Record<string,any>},
  * send:(request:Record<string,any>,extra:any,signal:AbortSignal,path:string[])=>Promise<any>,
  * cookieJar:(workspace:Record<string,any>,signal:AbortSignal)=>Promise<any>}}} options
  */
@@ -186,7 +187,7 @@ export function createRequestRenderSession(context, options) {
             services ? (_plugin,childSignal,current) => createPluginNativeAppEndpoint({signal:childSignal,current}) : undefined,
             services ? (plugin,current)=>{
               const owner=createPluginDomRenderOwner({
-              purpose,signal:options.signal,current,
+              purpose,signal:options.signal,current:()=>current()&&services.isCurrent?.()===true,
               synchronous:(signal,current)=>createPluginNativeAppEndpoint({signal,current}),
               helpers:(signal,current,uiInteraction)=>createPluginHelperDispatcher({
                 plugin,ancestors:pluginPath,signal,isCurrent:current,getData:()=>services.getData(),

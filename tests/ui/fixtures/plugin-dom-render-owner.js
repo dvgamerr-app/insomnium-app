@@ -1,11 +1,11 @@
 import {mount,tick} from "svelte";
 import PluginDomDialogHost from "../../../src/lib/components/PluginDomDialogHost.svelte";
-import {createRequestRenderSession} from "../../../src/lib/template-session.js";
+import {createRequestRenderSession,capturePluginRenderOptions} from "../../../src/lib/template-session.js";
 import {createPluginRegistry} from "../../../src/lib/plugin-registry.js";
 import {openPluginSession} from "../../../src/lib/plugin-session.js";
 import {installPluginTemplateProvider,pluginRenderSourceKey} from "../../../src/lib/plugin-template-tags.js";
 import {completePluginRequest,linkPluginRequestSignal,pluginRequestIsCurrent,pluginRequestCompleted} from "../../../src/lib/plugin-request-lifetime.js";
-import {workspace,execute} from "../../../src/lib/workspace.svelte.js";
+import {workspace,execute,stop} from "../../../src/lib/workspace.svelte.js";
 import {initialData,newRequest} from "../../../src/lib/model.js";
 const target=document.body.appendChild(document.createElement("div"));mount(PluginDomDialogHost,{target});
 const name="insomnia-plugin-dom-lifetime";
@@ -24,6 +24,10 @@ const data={resources:/** @type {Record<string,any>[]} */([{_id:"w",_type:"works
 /** @type {AbortController|undefined} */let renderOwner;
 /** @type {AbortController|undefined} */let parentOwner;
 let renderClosed=false;
+/** @type {Promise<void>|undefined} */let pendingRoot;
+/** @type {(()=>void)|undefined} */let restoreFetch;
+/** @type {AbortSignal|undefined} */let heldSignal;
+let rootHeld=false;
 const records=/** @type {{kind:string,terminated:boolean,messages:any[]}[]} */([]);
 /** @type {any} */(window).__pluginDomRenderOwner={
   records,
@@ -43,8 +47,8 @@ const records=/** @type {{kind:string,terminated:boolean,messages:any[]}[]} */([
       openSession:(snapshot,options)=>openPluginSession(snapshot,{...options,createWorker:()=>new Worker(urls.plugin,{type:"module"})}),
     });
     remove=installPluginTemplateProvider(snapshot=>{
-      const expected=pluginRenderSourceKey(snapshot.resources,"r",null);
-      return {tags:registry?.captureTemplateTags()||[],isCurrent:()=>pluginRenderSourceKey(data.resources,"r",null)===expected};
+      const requestId=snapshot.requestId||"r",expected=pluginRenderSourceKey(snapshot.resources,requestId,null);
+      return {tags:registry?.captureTemplateTags()||[],isCurrent:()=>pluginRenderSourceKey(workspace.ready?workspace.data.resources:data.resources,requestId,null)===expected};
     });
     await registry.prepare(name);
   },
@@ -67,6 +71,13 @@ const records=/** @type {{kind:string,terminated:boolean,messages:any[]}[]} */([
     let cycle=false;try{linkPluginRequestSignal(parent.signal,child.signal);}catch{cycle=true;}
     return {cancelledCurrent:pluginRequestIsCurrent(cancelled.signal),cancelledCompleted:pluginRequestCompleted(cancelled.signal),childBefore:before,childAfter:pluginRequestIsCurrent(child.signal),cycle};
   },
+  guardControls(){
+    const services={getData:()=>data,send:async()=>null,cookieJar:async()=>null,isCurrent:()=>true};
+    const captured=capturePluginRenderOptions({pluginServices:services});services.isCurrent=()=>false;
+    const absent=capturePluginRenderOptions({pluginServices:{getData:services.getData,send:services.send,cookieJar:services.cookieJar}});
+    let rejected=0;for(const value of [null,false,"",5])try{capturePluginRenderOptions({pluginServices:/** @type {any} */({...services,isCurrent:value})});}catch{rejected++;}
+    return{captured:captured.pluginServices?.isCurrent?.(),default:absent.pluginServices?.isCurrent?.(),rejected};
+  },
   async sendWorkspace(){
     const request={...newRequest("w"),_id:"r",name:"Request",url:location.origin+"/?dialog={% lifetimedialog %}"};
     data.resources=[data.resources[0],request,{_id:"env",_type:"environment",parentId:"w",name:"Base Environment",data:{ownerValue:"captured",derived:"{% lifetimeconstant %}"}}];
@@ -75,7 +86,26 @@ const records=/** @type {{kind:string,terminated:boolean,messages:any[]}[]} */([
     return {running:!!workspace.running.r,status:workspace.responses.r?.status,error:workspace.responses.r?.error};
   },
   changeWorkspaceSource(){workspace.data.resources[1].name+=" edited after Send";},
+  async sendResponseWorkspace(/** @type {boolean} */ hold=false){
+    const request={...newRequest("w"),_id:"r",name:"Response owner",method:"POST",url:location.origin+(hold?"/root-held":"/root"),body:{mimeType:"text/plain",text:"{% response 'url', 'child', '', 'always', 0 %}"}};
+    const child={...newRequest("w"),_id:"child",name:"Dialog dependency",url:location.origin+"/child?dialog={% lifetimedialog %}"};
+    data.resources=[data.resources[0],request,{_id:"env",_type:"environment",parentId:"w",name:"Base Environment",data:{ownerValue:"captured",derived:"{% lifetimeconstant %}"}},child];
+    workspace.data={...initialData(),resources:data.resources,activeWorkspaceId:"w",activeRequestId:"r"};workspace.ready=true;
+    rootHeld=false;heldSignal=undefined;
+    if(hold){const original=window.fetch;restoreFetch=()=>{window.fetch=original;restoreFetch=undefined;};
+      window.fetch=/** @type {typeof window.fetch} */((input,init)=>{if(new URL(String(input),location.href).pathname!=="/root-held")return original(input,init);
+        const signal=init?.signal;if(!signal)throw Error("Missing root Send signal");heldSignal=signal;rootHeld=true;
+        return new Promise((_resolve,reject)=>{signal.addEventListener("abort",()=>reject(signal.reason),{once:true});if(signal.aborted)reject(signal.reason);});});
+    }
+    pendingRoot=execute("r").finally(()=>restoreFetch?.());
+    if(hold)return "started";
+    await pendingRoot;return {running:!!workspace.running.r,status:workspace.responses.r?.status,error:workspace.responses.r?.error,childStatus:workspace.data.history.find(row=>row.requestId==="child")?.status};
+  },
+  rootHeld:()=>rootHeld,
+  cancelRoot(){return stop("r");},
+  async rootSettled(){await pendingRoot;return{running:!!workspace.running.r,aborted:heldSignal?.aborted,completed:heldSignal?pluginRequestCompleted(heldSignal):false};},
+  changeChildSource(){const child=workspace.data.resources.find(row=>row._id==="child");if(child)child.name+=" edited";},
   unload(){registry?.invalidate(name);},
   load(){return registry?.prepare(name);},
-  close(){registry?.dispose();remove?.();if(originalWorker)window.Worker=originalWorker;},
+  close(){void stop("r");restoreFetch?.();registry?.dispose();remove?.();if(originalWorker)window.Worker=originalWorker;},
 };

@@ -28,6 +28,7 @@ await withPreview("plugin-dom-render-owner",async(page,output)=>{
     await dialog().getByRole("button",{name:"Retained renderer event"}).click();
     await dialog().getByRole("status").filter({hasText:"captured:true:true:2"}).waitFor();
     assert.deepEqual(await call("completionControls"),{cancelledCurrent:false,cancelledCompleted:false,childBefore:true,childAfter:false,cycle:true});
+    assert.deepEqual(await call("guardControls"),{captured:true,default:true,rejected:4});
     checks.push("Explicit host completion aborts ordinary work while retaining real UI/helper callbacks; matching reason cannot promote Cancel and completed child cannot escape parent revocation");
     await dialog().getByRole("button",{name:"Close plugin dialog",exact:true}).click();await dialog().waitFor({state:"detached"});
     await poll(async()=>(await call("state")).hides===1,"Retained onHide finishes before dialog owner disposal");
@@ -55,13 +56,23 @@ await withPreview("plugin-dom-render-owner",async(page,output)=>{
     await dialog().waitFor();await dialog().getByRole("button",{name:"Retained renderer event"}).click();
     await dialog().getByRole("status").filter({hasText:"captured:true:true:1"}).waitFor();
     checks.push("Actual workspace execute, request rendering, browser HTTP transport and persistence complete; retained dialog helper still reads original workspace services after running entry deletion");
-    await call("changeWorkspaceSource");await dialog().getByRole("button",{name:"Retained renderer event"}).click();await dialog().waitFor({state:"detached"});
-    checks.push("Actual completed workspace services reject later request edits and retire the retained VM/dialog instead of reading stale authority");
+    await dialog().getByRole("button",{name:"Close plugin dialog",exact:true}).click();await dialog().waitFor({state:"detached"});
+    const nested=await call("sendResponseWorkspace");assert.deepEqual(nested,{running:false,status:200,error:undefined,childStatus:200});
+    await dialog().waitFor();await dialog().getByRole("button",{name:"Retained renderer event"}).click();await dialog().getByRole("status").filter({hasText:"captured:true:true:1"}).waitFor();
+    checks.push("Actual builtin response tag sends a dependent request whose dialog/helper survives dependent field, root field, render-session and HTTP completion");
+    await call("changeWorkspaceSource");await dialog().waitFor({state:"detached"});
+    checks.push("Actual root request source loss closes the child dialog while idle, without waiting for a helper call");
+    await call("sendResponseWorkspace");await dialog().waitFor();await call("changeChildSource");await dialog().waitFor({state:"detached"});
+    checks.push("Actual dependent request source loss closes its dialog while the completed root source remains unchanged");
+    assert.equal(await call("sendResponseWorkspace",[true]),"started");await poll(async()=>await call("rootHeld"),"Actual root transport starts after response dependency completes");
+    await dialog().waitFor();await dialog().getByRole("button",{name:"Retained renderer event"}).click();await dialog().getByRole("status").filter({hasText:"captured:true:true:1"}).waitFor();
+    await call("cancelRoot");await dialog().waitFor({state:"detached"});assert.deepEqual(await call("rootSettled"),{running:false,aborted:true,completed:false});
+    checks.push("Actual workspace Cancel revokes completed field/dependency dialog descendants while the root transport is held; cancellation is never promoted to completion");
     await call("close");await dialog().waitFor({state:"detached"});
     checks.push("Actual catalog unload closes owned roots; explicit reload creates fresh usable VM; app registry disposal closes final dialog");
     const workers=await call("records");assert.ok(workers.length>2&&workers.every((/** @type {any} */ row)=>row.terminated));
     assert.equal(workers.filter((/** @type {any} */ row)=>row.kind==="plugin").length,3);
-    await Bun.write(output+"/result.json",JSON.stringify({status:"passed",headless:true,checks,workers,hashes,limits:"Actual registry/render/DOM/workspace execute and browser HTTP transport with controlled package discovery; native HTTP/gRPC Send, nested response-tag lifetimes, stream terminal lifetimes and ordered onHide before Abort/unload revocation remain required."},null,2));
+    await Bun.write(output+"/result.json",JSON.stringify({status:"passed",headless:true,checks,workers,hashes,limits:"Actual registry/render/DOM/workspace execute/builtin response/dependent browser HTTP with controlled package discovery and held root transport for Cancel; fresh native nested response-tag/stream terminal acceptance and ordered onHide before Abort/unload remain required."},null,2));
   }catch(error){await Bun.write(output+"/diagnostics.json",JSON.stringify({workers:await call("records"),dialogs:await page.getByRole("dialog").allTextContents()},null,2));throw error;}
   finally{await call("close").catch(()=>{});}
 },{headers:{"Cross-Origin-Opener-Policy":"same-origin","Cross-Origin-Embedder-Policy":"require-corp"}});
