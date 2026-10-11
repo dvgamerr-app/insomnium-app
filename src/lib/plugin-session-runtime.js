@@ -36,6 +36,7 @@ export function createPluginCallbackRuntime(
     generation = 0,
     activeGeneration = 0,
     calls = 0;
+  let retiring=false,cleanupMode=false,onHideRunning=false;
   const pending = new Set();
   const codec = createPluginValueCodec();
   let metadata;
@@ -55,11 +56,12 @@ export function createPluginCallbackRuntime(
   const domLeases = createPluginDomCallbackLeases(loaded, {
     onFatal: () => { closed = true; },
     isIdle: () => pending.size === 0,
+    isRetiring:()=>retiring,
     deadlineExpired: elapsed => elapsed>PROMPT_TOTAL_MS ||
       elapsed-waited-(waitingSince?performance.now()-waitingSince:0)>5000,
   });
   const retainDomCallback = vm.newFunction("retainDomCallback", handle => {
-    if (closed || !running || !helperAllowed || !domAllowed || !onRetainDomCallback)
+    if (closed || cleanupMode || !running || !helperAllowed || !domAllowed || !onRetainDomCallback)
       throw Error("DOM callback retention is unavailable for this operation");
     const controller = new AbortController();
     const id = domLeases.retain(handle,{signal:controller.signal,current:()=>!closed});
@@ -254,6 +256,12 @@ export function createPluginCallbackRuntime(
 
   return {
     metadata,
+    beginCleanup(){
+      retiring=true;storeAllowed=false;syncAllowed=false;
+      if(onHideRunning){cleanupMode=true;helperAllowed=true;}
+      else helperAllowed=false;
+      loaded.setInteractionWaiting(false);
+    },
     /** Host releases only handles admitted for an owned operation. @param {number} id */
     releaseDomCallback(id) {
       const owner=domOwners.get(id);
@@ -262,20 +270,23 @@ export function createPluginCallbackRuntime(
       return true;
     },
     /** Serialized by the same host/worker queue as ordinary callbacks.
-     * @param {number} id @param {string} args */
-    async invokeDomCallback(id,args) {
+     * @param {number} id @param {string} args @param {boolean} [cleanup] @param {boolean} [onHide] */
+    async invokeDomCallback(id,args,cleanup=false,onHide=false) {
       if(closed)throw Error("Plugin session is closed");
       if(running)throw Error("Plugin callback is already running");
       const owner=domOwners.get(id);
       if(!owner)throw Error("DOM callback lease is no longer current");
       const values=codec.decode(args);
       if(!Array.isArray(values))throw Error("Invalid DOM callback arguments");
-      running=true;storeAllowed=true;helperAllowed=owner.helpers;syncAllowed=owner.synchronous;
+      cleanupMode=cleanup||retiring;
+      onHideRunning=onHide;
+      running=true;storeAllowed=!cleanupMode;helperAllowed=owner.helpers;syncAllowed=!cleanupMode&&owner.synchronous;
       activeGeneration=owner.generation;interactive=owner.interactive;domAllowed=true;domTransport=owner.domTransport;calls=0;syncFailure=undefined;
       try {return codec.encode(await domLeases.invoke(id,values));}
       finally {
         loaded.setInteractionWaiting(false);running=false;storeAllowed=false;helperAllowed=false;syncAllowed=false;
         activeGeneration=0;interactive=false;domAllowed=false;domTransport=false;waitingSince=0;waited=0;
+        cleanupMode=false;onHideRunning=false;
         if(closed) {
           domLeases.dispose();domOwners.clear();
           for(const deferred of pending)deferred.dispose();pending.clear();

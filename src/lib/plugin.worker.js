@@ -15,6 +15,9 @@ let session;
 let callbackId = 0,
   storeId = 0,
   helperId = 0;
+let retiring=false;
+let callbackDone=Promise.resolve();
+/** @type {()=>void} */let finishCallback=()=>{};
 const codec = createPluginValueCodec();
 const callSync = createPluginSyncCaller(
   (message) => self.postMessage(message),
@@ -26,6 +29,12 @@ const helperCalls = new Map();
 const storeCalls = new Map();
 self.onmessage = async (event) => {
   const message = event.data;
+  if(message?.type==="prepare-dom-cleanup"){
+    retiring=true;session?.beginCleanup();
+    for(const call of helperCalls.values())call.reject(new Error("Plugin owner retired"));helperCalls.clear();
+    for(const call of storeCalls.values())call.reject(new Error("Plugin owner retired"));storeCalls.clear();
+    return;
+  }
   if(message?.type==="release-dom-callback") {
     session?.releaseDomCallback(message.leaseId);
     return;
@@ -60,11 +69,13 @@ self.onmessage = async (event) => {
     return;
   }
   if (["invoke","invoke-dom-callback"].includes(message?.type)) {
+    if(message.type==="invoke-dom-callback" && message.cleanup===true)await callbackDone;
     if (!session || callbackId) return;
     callbackId = message.id;
+    callbackDone=new Promise(resolve=>{finishCallback=resolve;});
     try {
       const result = message.type==="invoke-dom-callback"
-        ? await session.invokeDomCallback(message.leaseId,message.args)
+        ? await session.invokeDomCallback(message.leaseId,message.args,message.cleanupLocal===true,message.cleanup===true)
         : await session.invoke(
         message.kind,
         message.index,
@@ -88,10 +99,10 @@ self.onmessage = async (event) => {
             ? /** @type {any} */ (error).cleanupError.slice(0, 8192)
             : undefined,
       });
-      session.dispose();
-      session = undefined;
+      if(!retiring){session.dispose();session=undefined;}
     } finally {
       callbackId = 0;
+      finishCallback();
     }
     return;
   }

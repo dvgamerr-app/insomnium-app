@@ -20,10 +20,12 @@ export function createPluginDomRenderOwner(options) {
   };
   /** @type {ReturnType<typeof createPluginDomBridge>|undefined} */let bridge;
   /** @type {ReturnType<typeof setInterval>|undefined} */let timer;
+  /** @type {Promise<void>|undefined} */let disposal;
   const dispose=()=>{
-    if(disposed)return;
+    if(disposed)return disposal||Promise.resolve();
     disposed=true;clearInterval(timer);options.signal.removeEventListener("abort",abort);
-    bridge?.dispose();controller.abort();interaction.dispose();
+    controller.abort();interaction.dispose();
+    disposal=bridge?.dispose()||Promise.resolve();return disposal;
   };
   const abort=()=>{if(!current())dispose();};
   try {

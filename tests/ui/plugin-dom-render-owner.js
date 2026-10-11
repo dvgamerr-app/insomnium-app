@@ -85,6 +85,7 @@ await withPreview("plugin-dom-render-owner",async(page,output)=>{
     }
     await call("close");await dialog().waitFor({state:"detached"});
     checks.push("Actual catalog unload closes owned roots; explicit reload creates fresh usable VM; app registry disposal closes final dialog");
+    await poll(async()=>(await call("records")).every((/** @type {any} */ row)=>row.terminated),"Owned workers retire after admitted dialog cleanup");
     const workers=await call("records");assert.ok(workers.length>2&&workers.every((/** @type {any} */ row)=>row.terminated));
     assert.equal(workers.filter((/** @type {any} */ row)=>row.kind==="plugin").length,3);
     await Bun.write(output+"/result.json",JSON.stringify({status:"passed",headless:true,checks,workers,hashes,streamControls,limits:"Actual registry/render/DOM/workspace execute/builtin response/dependent browser HTTP; WebSocket/SSE frontend uses documented mockIPC with controlled command/channel/persistence. Fresh native stream terminal acceptance and ordered onHide before Abort/unload remain required."},null,2));

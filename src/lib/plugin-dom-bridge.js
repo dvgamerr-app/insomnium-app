@@ -20,7 +20,9 @@ export function createPluginDomBridge(owner) {
   const nodes=new Map(/** @type {[number,Node][]} */([])),ids=new WeakMap(/** @type {[Node,number][]} */([]));
   const callbacks=new Map(/** @type {[number,import('./plugin-session.js').PluginDomCallback][]} */([]));
   const listeners=/** @type {{node:Node,type:string,id:number,capture:boolean,listener:EventListener}[]} */([]);
-  let disposed=false;
+  let disposed=false,closing=false;
+  let hideDone=Promise.resolve();
+  /** @type {Promise<void>|undefined} */let disposal;
   let textBytes=0;
   /** Conservative cumulative write budget also bounds orphaned text retained by IDs.
    * @param {string} value */
@@ -30,7 +32,7 @@ export function createPluginDomBridge(owner) {
     if(total>8*1024*1024)throw Error("Plugin DOM text limit exceeded");
     textBytes=total;
   };
-  const check=()=>{owner.signal.throwIfAborted();if(disposed || !owner.current())throw Error("Plugin DOM owner changed");};
+  const check=()=>{owner.signal.throwIfAborted();if(disposed || closing || !owner.current())throw Error("Plugin DOM owner changed");};
   const node=(/** @type {number} */ id)=>{const value=nodes.get(id);if(!value)throw Error("Unknown owned DOM node");return value;};
   /** @param {Node|null} value @param {boolean} [admit] */
   const describe=(value,admit=false)=>{
@@ -46,23 +48,30 @@ export function createPluginDomBridge(owner) {
   const callback=(/** @type {number} */ id)=>{const value=callbacks.get(id);if(!value)throw Error("Unknown owned DOM callback");return value;};
   const report=(/** @type {unknown} */ error)=>{if(!disposed&&!owner.signal.aborted)owner.onError(error);};
   const dispose=()=>{
-    if(disposed)return;
+    if(disposal)return disposal;
+    closing=true;clearInterval(timer);owner.signal.removeEventListener("abort",dispose);
+    for(const row of listeners)row.node.removeEventListener(row.type,row.listener,row.capture);
     const active=get(pluginDomDialog);
     if(active && ids.has(active.body))closePluginDomDialog(active.id);
-    disposed=true;clearInterval(timer);owner.signal.removeEventListener("abort",dispose);
-    for(const row of listeners)row.node.removeEventListener(row.type,row.listener,row.capture);
-    for(const value of callbacks.values())value.release();
-    callbacks.clear();nodes.clear();listeners.length=0;textBytes=0;
+    disposal=hideDone.finally(()=>{
+      disposed=true;
+      for(const value of callbacks.values())value.release();
+      callbacks.clear();nodes.clear();listeners.length=0;textBytes=0;
+    });
+    return disposal;
   };
   const timer=setInterval(()=>{try{check();}catch{dispose();}},100);
   owner.signal.addEventListener("abort",dispose,{once:true});
-  return Object.freeze({
+  const result=Object.freeze({
     dispose,
     hasDialog(){const active=get(pluginDomDialog);return !!active&&ids.has(active.body);},
     domCallbacks:Object.freeze({retain(/** @type {import('./plugin-session.js').PluginDomCallback} */ value,/** @type {number} */ id){check();callbacks.set(id,value);}}),
     /** @param {{method:string,args:any[]}} operation */
-    call(operation) {
-      check();const {method,args}=validatePluginDomCall(operation);
+    call(operation,cleanup=false) {
+      if(cleanup){if(disposed)throw Error("Plugin DOM cleanup already finished");}
+      else check();
+      const {method,args}=validatePluginDomCall(operation);
+      if(cleanup && (closing || owner.signal.aborted || !owner.current()) && !["dom.get","dom.set","dom.node","dom.attribute","dom.style","dom.query"].includes(method))throw Error("Plugin DOM cleanup cannot create UI or callbacks");
       if(method==="dom.create") {
         if(args.length!==2 || typeof args[1]!=="string")throw Error("Invalid DOM creation");
         if(args[0]==="text"){charge(args[1]);return describe(document.createTextNode(args[1]),true);}
@@ -75,8 +84,8 @@ export function createPluginDomBridge(owner) {
         const {onHide,...flags}=args[2];const hidden=onHide===null?undefined:callback(onHide);
         endpoint.dialog(args[0],body,{...flags,onHide:()=>{
           callbacks.delete(onHide);
-          const done=hidden?hidden.invoke().catch(report).finally(()=>hidden.release()):Promise.resolve();
-          void done.finally(()=>owner.onClosed?.());
+          hideDone=hidden?(hidden.invokeOnHide?hidden.invokeOnHide(operation=>result.call(operation,true)):hidden.invoke()).catch(error=>owner.onError(error)).finally(()=>{hidden.release();}):Promise.resolve();
+          void hideDone.finally(()=>owner.onClosed?.());
         }});
         if(owner.purpose==="preview" && hidden){callbacks.delete(onHide);hidden.release();}
         return undefined;
@@ -146,4 +155,5 @@ export function createPluginDomBridge(owner) {
       throw Error("Unsupported plugin DOM operation");
     },
   });
+  return result;
 }

@@ -4,7 +4,7 @@ import { createPluginValueCodec } from "./plugin-values.js";
  * One lease manager must share the VM's exclusive operation queue when integrated.
  * The caller owns the VM and must close it after a terminal execution failure.
  * @param {ReturnType<import('./plugin-runtime.js').createPluginVm>} loaded
- * @param {{onFatal:(error:Error)=>void,isIdle?:()=>boolean,deadlineExpired?:(elapsed:number)=>boolean}} options */
+ * @param {{onFatal:(error:Error)=>void,isIdle?:()=>boolean,isRetiring?:()=>boolean,deadlineExpired?:(elapsed:number)=>boolean}} options */
 export function createPluginDomCallbackLeases(loaded, options) {
   if (!options || typeof options.onFatal !== "function")
     throw Error("DOM callback leases require a terminal VM cleanup handler");
@@ -90,6 +90,7 @@ export function createPluginDomCallbackLeases(loaded, options) {
         executing = id;
         loaded.resetDeadline();
         let result;
+        let rejected=false;
         /** @type {Error|undefined} */ let fatal;
         const started = performance.now();
         try {
@@ -113,6 +114,7 @@ export function createPluginDomCallbackLeases(loaded, options) {
               finally { state.value.dispose(); }
             }
             if (state.type === "rejected") {
+              rejected=true;
               try { throw Error(vm.dump(state.error)?.message || "DOM callback failed"); }
               finally { state.error.dispose(); }
             }
@@ -122,8 +124,11 @@ export function createPluginDomCallbackLeases(loaded, options) {
           // Unsettled jobs may retain guest state after cancellation/failure.
           // Never reuse a possibly interrupted or partially active VM.
           const failure = error instanceof Error ? error : Error(String(error));
-          dispose();
-          fatal = failure;
+          // A settled owner-cancellation rejection can drain before admitted
+          // onHide. CPU interruption or unsettled jobs remain terminal.
+          if(!(rejected&&options.isRetiring?.()===true&&!vm.runtime.hasPendingJob())){
+            dispose();fatal = failure;
+          }
           throw failure;
         } finally {
           result?.dispose();

@@ -12,9 +12,9 @@ import {
 
 /** Trusted host state, never accepted from guest data.
  * @typedef {{subscribe:(listener:(waiting:boolean)=>void)=>()=>void}} PluginInteraction */
-/** @typedef {{invoke:(args?:any[])=>Promise<any>,release:()=>boolean}} PluginDomCallback */
+/** @typedef {{invoke:(args?:any[])=>Promise<any>,invokeOnHide?:(domCall:(operation:{method:string,args:any[]})=>any)=>Promise<any>,release:()=>boolean}} PluginDomCallback */
 /** @typedef {{retain:(callback:PluginDomCallback,id:number)=>void}} PluginDomRetention */
-/** @typedef {{current:()=>boolean,frame?:object,helperCall?:(operation:{method:string,args:any[]})=>Promise<any>,syncCall?:(operation:{method:string,args:any[]})=>Promise<any>,subscribeInteraction?:PluginInteraction['subscribe'],domCallbacks?:PluginDomRetention,domCall?:(operation:{method:string,args:any[]})=>any,dispose?:()=>void,bindSession?:(current:()=>boolean)=>void}} PluginDomOwner */
+/** @typedef {{current:()=>boolean,frame?:object,helperCall?:(operation:{method:string,args:any[]})=>Promise<any>,syncCall?:(operation:{method:string,args:any[]})=>Promise<any>,subscribeInteraction?:PluginInteraction['subscribe'],domCallbacks?:PluginDomRetention,domCall?:(operation:{method:string,args:any[]})=>any,dispose?:()=>void|Promise<void>,bindSession?:(current:()=>boolean)=>void}} PluginDomOwner */
 
 /** A retained, serialized plugin worker with an explicit live-owner guard.
  * @param {{name:string,entry:string,format:string,files:Record<string,string>}} snapshot
@@ -32,7 +32,7 @@ export async function openPluginSession(snapshot, options) {
     new Worker(new URL("./plugin.worker.js", import.meta.url), {
       type: "module",
     });
-  let closed = false,
+  let closed = false,terminated=false,
     nextId = 0,
     storeId = 0,
     helperId = 0,
@@ -40,10 +40,17 @@ export async function openPluginSession(snapshot, options) {
     queued = 0;
   /** @type {Error|undefined} */ let closeReason;
   let queue = Promise.resolve();
-  /** @type {(PluginDomOwner & {id:number,resolve:(value:any)=>void,reject:(error:Error)=>void,deadline:ReturnType<typeof createRenderDeadline>,totalTimer:ReturnType<typeof setTimeout>,unsubscribe?:()=>void,resume?:()=>void,retentionOwner?:PluginDomOwner})|undefined} */
+  /** @type {(PluginDomOwner & {id:number,cleanup:boolean,resolve:(value:any)=>void,reject:(error:Error)=>void,deadline:ReturnType<typeof createRenderDeadline>,totalTimer:ReturnType<typeof setTimeout>,unsubscribe?:()=>void,resume?:()=>void,retentionOwner?:PluginDomOwner})|undefined} */
   let active;
   const domCallbacks=new Map(/** @type {[number,PluginDomOwner][]} */([]));
   const domOwners=new Set(/** @type {PluginDomOwner[]} */([]));
+  const syncMailboxes=new Map(/** @type {[number,{buffer:SharedArrayBuffer,owner:NonNullable<typeof active>,id:number}][]} */([]));
+  const cancelSync=(/** @type {PluginDomOwner|undefined} */ retained=undefined)=>{
+    for(const [id,mailbox] of syncMailboxes){
+      if(retained && mailbox.owner.retentionOwner!==retained && mailbox.owner!==retained)continue;
+      replyPluginSyncMailbox(mailbox.buffer,mailbox.owner.id,mailbox.id,"Plugin owner retired",true);syncMailboxes.delete(id);
+    }
+  };
   let domId=0;
   /** @param {NonNullable<typeof active>} owner */
   const disposeOperation = (owner) => {
@@ -52,20 +59,30 @@ export async function openPluginSession(snapshot, options) {
     owner.unsubscribe?.();
     owner.resume = undefined;
   };
+  const terminateWorker=(/** @type {Error} */ error)=>{
+    if(terminated)return;terminated=true;worker.terminate();domCallbacks.clear();domOwners.clear();
+    if(active){disposeOperation(active);active.reject(error);active=undefined;}
+  };
   const close = (/** @type {Error} */ error = aborted()) => {
     if (closed) return;
     closed = true;
-    for(const owner of domOwners){try{owner.dispose?.();}catch{/* Retire the worker even if UI cleanup fails. */}}domOwners.clear();
     closeReason = error;
     clearInterval(ownerTimer);
     options.signal?.removeEventListener("abort", cancel);
-    worker.terminate();
-    domCallbacks.clear();
-    if (active) {
+    worker.postMessage({type:"prepare-dom-cleanup"});
+    cancelSync();
+    if (active && !active.cleanup) {
       disposeOperation(active);
       active.reject(error);
       active = undefined;
     }
+    const finish=(forced=false)=>{
+      clearTimeout(limit);
+      terminateWorker(forced?new Error("Plugin DOM cleanup exceeded 5 seconds"):error);
+    };
+    const limit=setTimeout(()=>finish(true),5000),pending=[];
+    for(const owner of domOwners){try{pending.push(Promise.resolve(owner.dispose?.()));}catch{/* Finish other owners before hard retirement. */}}
+    void Promise.allSettled(pending).then(()=>finish());
   };
   const current = () => {
     try {
@@ -75,15 +92,22 @@ export async function openPluginSession(snapshot, options) {
     }
   };
   const cancel = () => close();
+  const transportCurrent=(/** @type {NonNullable<typeof active>|undefined} */ owner)=>!terminated&&!!owner&&owner.current()&&(owner.cleanup||current());
+  const privilegedCurrent=(/** @type {NonNullable<typeof active>|undefined} */ owner)=>transportCurrent(owner)&&current()&&(!owner?.cleanup||owner.retentionOwner?.current()===true);
   const releaseDomCallback=(/** @type {number} */ id)=>{
     if(!domCallbacks.delete(id))return false;
-    if(!closed)worker.postMessage({type:"release-dom-callback",leaseId:id});
+    if(!terminated)worker.postMessage({type:"release-dom-callback",leaseId:id});
     return true;
   };
   const ownerTimer = setInterval(() => {
-    if (!current() || (active && !active.current())) close();
-    for(const [id,owner] of domCallbacks)if(!owner.current())releaseDomCallback(id);
-    for(const owner of domOwners)if(!owner.current()){owner.dispose?.();domOwners.delete(owner);}
+    const activeOwnerLost = active && (active.cleanup
+      ? active.retentionOwner?.current() === false
+      : !active.current());
+    if (!current() || activeOwnerLost) close();
+    for(const owner of domOwners)if(!owner.current()){
+      cancelSync(owner);
+      void Promise.resolve(owner.dispose?.()).finally(()=>domOwners.delete(owner));
+    }
   }, 100);
   options.signal?.addEventListener("abort", cancel, { once: true });
   /** @param {Record<string,any>} message @param {()=>boolean} [operationCurrent] @param {object} [frame] @param {(operation:{method:string,args:any[]})=>Promise<any>} [helperCall] @param {PluginInteraction['subscribe']} [subscribeInteraction] @param {(operation:{method:string,args:any[]})=>Promise<any>} [syncCall] @param {PluginDomRetention} [domRetention] @param {PluginDomOwner} [retentionOwner] @param {PluginDomOwner['domCall']} [domCall] */
@@ -97,9 +121,10 @@ export async function openPluginSession(snapshot, options) {
     domRetention,
     retentionOwner,
     domCall,
+    cleanup=false,
   ) =>
     new Promise((resolve, reject) => {
-      if (!current()) {
+      if (terminated || (!cleanup && !current())) {
         close();
         reject(aborted());
         return;
@@ -115,6 +140,7 @@ export async function openPluginSession(snapshot, options) {
       const id = message.type === "init" ? 0 : ++nextId;
       active = {
         id,
+        cleanup,
         resolve,
         reject,
         current: operationCurrent,
@@ -126,7 +152,7 @@ export async function openPluginSession(snapshot, options) {
         retentionOwner,
         domCall,
         deadline: createRenderDeadline(5000, () =>
-          close(new Error("Plugin operation exceeded 5 seconds")),
+          {if(closed)terminateWorker(new Error("Plugin cleanup exceeded 5 seconds"));else close(new Error("Plugin operation exceeded 5 seconds"));},
         ),
         totalTimer: setTimeout(
           () => close(new Error("Plugin interaction exceeded 10 minutes")),
@@ -141,6 +167,8 @@ export async function openPluginSession(snapshot, options) {
           synchronous: !!syncCall,
           retainDom: !!domRetention,
           domTransport: !!domCall,
+          cleanup,
+          cleanupLocal:cleanup&&!privilegedCurrent(active),
         });
         if (subscribeInteraction) {
           const owner = active;
@@ -176,7 +204,7 @@ export async function openPluginSession(snapshot, options) {
   };
   worker.onmessage = async (event) => {
     const message = event.data;
-    if (!current() || (active && !active.current())) {
+    if (!(active?.cleanup && transportCurrent(active)) && (!current() || (active && !active.current()))) {
       close();
       return;
     }
@@ -206,6 +234,17 @@ export async function openPluginSession(snapshot, options) {
           queue=job.then(()=>{},()=>{});
           return job;
         },
+        invokeOnHide:(/** @type {(operation:{method:string,args:any[]})=>any} */ domCall)=>{
+          if(terminated || domCallbacks.get(id)!==owner)return Promise.reject(aborted());
+          queued++;
+          const job=queue.then(()=>{
+            const owned=()=>!terminated&&domCallbacks.get(id)===owner;
+            if(!owned())throw aborted();
+            return send({type:"invoke-dom-callback",leaseId:id,args:codec.encode([])},owned,owner.frame,
+              owner.helperCall,undefined,owner.syncCall,owner.domCallbacks,owner,domCall,true);
+          }).finally(()=>{queued--;});
+          queue=job.then(()=>{},()=>{});return job;
+        },
         release:()=>releaseDomCallback(id),
       });
       try {owner.domCallbacks?.retain(callback,id);}
@@ -233,17 +272,19 @@ export async function openPluginSession(snapshot, options) {
           message.id,
         );
         if (Atomics.load(control, 0) !== 0) return; // Already timed out; never dispatch.
+        syncMailboxes.set(message.id,{buffer:message.buffer,owner,id:message.id});
         const decoded=codec.decode(message.operation),dom=decoded?.method?.startsWith("dom.");
         const call = dom?validatePluginDomCall(decoded):validatePluginAppSyncCall(decoded);
         const dispatch=dom?owner.domCall:owner.syncCall;
         if(!dispatch || dom&&!owner.domCallbacks)throw Error("Plugin DOM/native synchronous capability is unavailable");
-        if (!current() || !owner.current() || active !== owner) throw aborted();
+        if (!(dom?transportCurrent(owner):privilegedCurrent(owner)) || active !== owner) throw aborted();
         const result = codec.encode(await dispatch(call));
-        if (current() && owner.current() && active === owner)
+        if (!(dom?transportCurrent(owner):privilegedCurrent(owner)) || active !== owner)throw aborted();
+        if (transportCurrent(owner) && active === owner)
           replyPluginSyncMailbox(message.buffer, owner.id, message.id, result);
         else close();
       } catch (cause) {
-        if (!current() || !owner.current() || active !== owner) {
+        if (!transportCurrent(owner) || active !== owner) {
           close();
           return;
         }
@@ -261,6 +302,8 @@ export async function openPluginSession(snapshot, options) {
         } catch (error) {
           close(error instanceof Error ? error : new Error(String(error)));
         }
+      } finally {
+        syncMailboxes.delete(message.id);
       }
       return;
     }
@@ -282,15 +325,17 @@ export async function openPluginSession(snapshot, options) {
       let value, error;
       try {
         const call = validatePluginHelperCall(codec.decode(message.operation));
-        if (!current() || !owner.current() || active !== owner) throw aborted();
+        if (!privilegedCurrent(owner) || active !== owner) throw aborted();
         value = codec.encode(await dispatch(call));
+        if(!privilegedCurrent(owner) || active!==owner)throw aborted();
       } catch (cause) {
+        value=undefined;
         error = (cause instanceof Error ? cause.message : String(cause)).slice(
           0,
           8192,
         );
       }
-      if (current() && owner.current() && active === owner)
+      if (transportCurrent(owner) && active === owner)
         worker.postMessage({
           type: "helper-result",
           id: message.id,
@@ -344,8 +389,7 @@ export async function openPluginSession(snapshot, options) {
         )
           throw Error("Invalid plugin store arguments");
         if (
-          !current() ||
-          !active?.current() ||
+          !privilegedCurrent(active) ||
           active.id !== message.callbackId
         )
           throw aborted();
@@ -354,13 +398,15 @@ export async function openPluginSession(snapshot, options) {
             operation.method
           ];
         value = await method(...operation.args);
+        if(!privilegedCurrent(active) || active?.id!==message.callbackId)throw aborted();
       } catch (cause) {
+        value=undefined;
         error = (cause instanceof Error ? cause.message : String(cause)).slice(
           0,
           8192,
         );
       }
-      if (current() && active?.current() && active.id === message.callbackId)
+      if (transportCurrent(active) && active?.id === message.callbackId)
         worker.postMessage({
           type: "store-result",
           id: message.id,
@@ -377,6 +423,7 @@ export async function openPluginSession(snapshot, options) {
         Object.defineProperty(error, "cleanupError", {
           value: message.cleanupError.slice(0, 8192),
         });
+      if(active.cleanup){disposeOperation(active);active.reject(error);active=undefined;}
       close(error);
       return;
     }
