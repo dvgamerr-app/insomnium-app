@@ -49,7 +49,9 @@ impl CookieState {
                 return Ok(jar.clone());
             }
             let store = match fs::read(&path) {
-                Ok(bytes) => cookie_store::serde::json::load(bytes.as_slice()).map_err(|e| {
+                // Preserve model entries across restart; request/header views
+                // independently filter expired cookies when reading the jar.
+                Ok(bytes) => cookie_store::serde::json::load_all(bytes.as_slice()).map_err(|e| {
                     format!(
                         "Cookie file could not be loaded: {e}. Original retained at {}",
                         path.display()
@@ -205,6 +207,7 @@ pub async fn snapshot_request_cookies(
     window: tauri::WebviewWindow,
     state: tauri::State<'_, CookieState>,
     workspace_id: String,
+    include_expired: Option<bool>,
 ) -> Result<CookieSnapshot, String> {
     if window.label() != "main" {
         return Err("Request cookies are only available in the main window".into());
@@ -215,7 +218,8 @@ pub async fn snapshot_request_cookies(
         generation: data.generation,
         cookies: data
             .store
-            .iter_unexpired()
+            .iter_any()
+            .filter(|cookie| include_expired.unwrap_or(false) || !cookie.is_expired())
             .map(SnapshotCookie::from_cookie)
             .collect(),
     };
