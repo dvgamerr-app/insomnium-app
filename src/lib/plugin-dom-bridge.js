@@ -71,7 +71,7 @@ export function createPluginDomBridge(owner) {
       if(cleanup){if(disposed)throw Error("Plugin DOM cleanup already finished");}
       else check();
       const {method,args}=validatePluginDomCall(operation);
-      if(cleanup && (closing || owner.signal.aborted || !owner.current()) && !["dom.get","dom.set","dom.node","dom.attribute","dom.style","dom.query","dom.collection","dom.tokens"].includes(method))throw Error("Plugin DOM cleanup cannot create UI or callbacks");
+      if(cleanup && (closing || owner.signal.aborted || !owner.current()) && !["dom.get","dom.set","dom.node","dom.attribute","dom.style","dom.query","dom.collection","dom.tokens","dom.dataset"].includes(method))throw Error("Plugin DOM cleanup cannot create UI or callbacks");
       if(method==="dom.create") {
         if(args.length!==2 || typeof args[1]!=="string")throw Error("Invalid DOM creation");
         if(args[0]==="text"){charge(args[1]);return describe(document.createTextNode(args[1]),true);}
@@ -91,6 +91,16 @@ export function createPluginDomBridge(owner) {
         return undefined;
       }
       const target=/** @type {any} */(node(args[0]));
+      if(method==='dom.dataset'){
+        if(args.length!==3||!(target instanceof HTMLElement)||!Array.isArray(args[2]))throw Error('Invalid DOM dataset call');
+        const [_,action,values]=args;
+        if(action==='read'&&values.length===0)return Object.entries(target.dataset);
+        if(action==='delete'&&values.length===1&&typeof values[0]==='string'){delete target.dataset[values[0]];return undefined;}
+        if(action!=='set'||values.length!==2||values.some(value=>typeof value!=='string'))throw Error('Unsupported DOM dataset action');
+        charge(values[0]+values[1]);
+        try{target.dataset[values[0]]=values[1];return undefined;}
+        catch(error){if(error instanceof DOMException)return {exception:{name:error.name,message:error.message}};throw error;}
+      }
       if(method==='dom.tokens'){
         if(args.length!==3||!(target instanceof Element)||!Array.isArray(args[2])||args[2].length>4096)throw Error('Invalid DOM token call');
         const [_,action,values]=args,list=target.classList;
@@ -142,7 +152,7 @@ export function createPluginDomBridge(owner) {
       }
       if(method==="dom.attribute") {
         const [_,name,key,value]=args;
-        if(typeof key!=="string" || !/^(aria-[a-z-]+|data-[a-z-]+|id|class|type|value|name|title|placeholder|disabled|checked|role|tabindex)$/i.test(key))throw Error("Unsupported DOM attribute");
+        if(typeof key!=="string" || !(key.toLowerCase().startsWith('data-') || /^(aria-[a-z-]+|id|class|type|value|name|title|placeholder|disabled|checked|role|tabindex)$/i.test(key)))throw Error("Unsupported DOM attribute");
         if(name==="setAttribute"&&args.length===4&&typeof value==="string"){charge(value);return target.setAttribute(key,value);}
         if(["getAttribute","removeAttribute","hasAttribute"].includes(name)&&args.length===3)return target[name](key);
         throw Error("Invalid DOM attribute call");

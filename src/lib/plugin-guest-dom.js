@@ -6,7 +6,7 @@ export function createPluginGuestDom(call,retain) {
   const ids=new WeakMap(),nodes=new Map(),listeners=new WeakMap(),styleObjects=new WeakMap();
   const secret=Symbol("owned DOM node");
   const domString=(/** @type {any} */ value)=>{if(typeof value==='symbol')throw new TypeError('Invalid DOM string');return String(value);};
-  const collectionData=new WeakMap(),liveCollections=new WeakMap();
+  const collectionData=new WeakMap(),liveCollections=new WeakMap(),datasetData=new WeakMap(),datasetObjects=new WeakMap(),elements=new WeakSet();
   const intrinsicDefine=Reflect.defineProperty,objectDefine=Object.defineProperty,objectDefines=Object.defineProperties;
   const ownKeys=Reflect.ownKeys,getDescriptor=Reflect.getOwnPropertyDescriptor;
   // A JS Proxy cannot implement legacy platform objects' ignored nonconfigurable
@@ -27,6 +27,12 @@ export function createPluginGuestDom(call,retain) {
   }
   /** @param {any} target @param {any} key @param {PropertyDescriptor} descriptor @param {boolean} [throwing] */
   function defineOwned(target,key,descriptor,throwing=false){
+    const dataset=datasetData.get(target);
+    if(dataset){
+      if(typeof key==='symbol')return intrinsicDefine(dataset.target,key,descriptor);
+      if('get' in descriptor||'set' in descriptor){if(throwing)throw new TypeError('Cannot define dataset accessor');return true;}
+      dataset.set(key,descriptor.value);return true;
+    }
     const data=collectionData.get(target);
     if(data.readOnly(key)){
       // Browser platform objects reject throwing definitions, while Reflect's
@@ -83,6 +89,41 @@ export function createPluginGuestDom(call,retain) {
   }
   class GuestHTMLCollection {
     /** @param {symbol} token */constructor(token){if(token!==secret)throw new TypeError('Illegal constructor');}
+  }
+  class GuestDOMStringMap {
+    /** @param {symbol} token */constructor(token){if(token!==secret)throw new TypeError('Illegal constructor');}
+  }
+  Object.defineProperty(GuestDOMStringMap.prototype,Symbol.toStringTag,{value:'DOMStringMap',configurable:true});
+  /** @param {number} id */
+  function dataset(id){
+    const target=new GuestDOMStringMap(secret),read=()=>new Map(call('dom.dataset',[id,'read',[]]));
+    const set=(/** @type {string} */ key,/** @type {any} */ value)=>{
+      const text=domString(value);
+      if(/-[a-z]/.test(key))throw new DOMException('Invalid dataset property name','SyntaxError');
+      const result=call('dom.dataset',[id,'set',[key,text]]);
+      if(result?.exception)throw new DOMException(result.exception.message,result.exception.name);
+    };
+    const data={target,set};
+    const proxy=new Proxy(target,{
+      get:(_,key,receiver)=>{const rows=typeof key==='string'?read():null;return rows?.has(key)?rows.get(key):Reflect.get(target,key,receiver);},
+      has:(_,key)=>typeof key==='string'&&read().has(key)||Reflect.has(target,key),
+      ownKeys:()=>[...read().keys(),...Reflect.ownKeys(target)],
+      getOwnPropertyDescriptor:(_,key)=>{const rows=typeof key==='string'?read():null;return rows?.has(key)?{value:rows.get(key),writable:true,enumerable:true,configurable:true}:Reflect.getOwnPropertyDescriptor(target,key);},
+      set:(_,key,value,receiver)=>{
+        if(receiver!==proxy){
+          if(typeof key==='string'&&read().has(key)){
+            const ordinary=Object.create(null);intrinsicDefine(ordinary,key,{value:read().get(key),writable:true,enumerable:true,configurable:true});
+            return Reflect.set(ordinary,key,value,receiver);
+          }
+          return Reflect.set(target,key,value,receiver);
+        }
+        if(typeof key==='symbol')return Reflect.set(target,key,value);set(key,value);return true;
+      },
+      deleteProperty:(_,key)=>{if(typeof key==='symbol')return Reflect.deleteProperty(target,key);call('dom.dataset',[id,'delete',[key]]);return true;},
+      defineProperty:(_,key,descriptor)=>defineOwned(target,key,descriptor),
+      preventExtensions:()=>false,
+    });
+    datasetData.set(target,data);datasetData.set(proxy,data);return proxy;
   }
   /** @param {string} kind @param {()=>any[]} read */
   function collection(kind,read){
@@ -162,6 +203,7 @@ export function createPluginGuestDom(call,retain) {
     }
   }
   class GuestElement extends GuestNode {
+    get dataset(){if(!elements.has(this))throw new TypeError('Illegal dataset receiver');if(!datasetObjects.has(this))datasetObjects.set(this,dataset(idOf(this)));return datasetObjects.get(this);}
     get classList(){
       if(!tokenObjects.has(this)){
         const id=idOf(this),value=collection('DOMTokenList',()=>call('dom.tokens',[id,'read',[]]));
@@ -191,7 +233,7 @@ export function createPluginGuestDom(call,retain) {
     if(descriptor===null)return null;
     const {id,nodeType}=descriptor;
     if(nodes.has(id))return nodes.get(id);
-    const node=new (nodeType===1?GuestElement:GuestNode)(secret,id);nodes.set(id,node);return node;
+    const node=new (nodeType===1?GuestElement:GuestNode)(secret,id);if(nodeType===1)elements.add(node);nodes.set(id,node);return node;
   }
   for(const key of ["textContent","nodeValue","value","checked","disabled","className","id","type","placeholder","title","name","tabIndex","tagName","nodeType","isConnected"]) {
     Object.defineProperty(GuestNode.prototype,key,{get(){return call("dom.get",[idOf(this),key]);},set(value){call("dom.set",[idOf(this),key,value]);}});
@@ -211,22 +253,22 @@ export function createPluginGuestDom(call,retain) {
   Object.defineProperty(GuestNode.prototype,"ownerDocument",{get(){return document;}});
   for(const key of ["innerHTML","outerHTML"])
     Object.defineProperty(GuestElement.prototype,key,{get(){throw Error("HTML content is not bridged yet");},set(){throw Error("HTML content is not bridged yet");}});
-  for(const [constructor,name] of /** @type {[any,string][]} */([[GuestNode,'Node'],[GuestElement,'HTMLElement'],[GuestNodeList,'NodeList'],[GuestHTMLCollection,'HTMLCollection'],[GuestDOMTokenList,'DOMTokenList'],[DOMException,'DOMException']])){
+  for(const [constructor,name] of /** @type {[any,string][]} */([[GuestNode,'Node'],[GuestElement,'HTMLElement'],[GuestNodeList,'NodeList'],[GuestHTMLCollection,'HTMLCollection'],[GuestDOMTokenList,'DOMTokenList'],[GuestDOMStringMap,'DOMStringMap'],[DOMException,'DOMException']])){
     objectDefine(constructor,'name',{value:name});objectDefine(constructor,'length',{value:0});
   }
   objectDefine(Reflect,'defineProperty',{value:({defineProperty(/** @type {any} */ target,/** @type {any} */ key,/** @type {any} */ descriptor){
-    if(!collectionData.has(target))return intrinsicDefine(target,key,descriptor);
+    if(!collectionData.has(target)&&!datasetData.has(target))return intrinsicDefine(target,key,descriptor);
     const propertyKey=ownKeys({[key]:0})[0];
     return defineOwned(target,propertyKey,descriptorOf(descriptor));
   }}).defineProperty});
   objectDefine(Object,'defineProperty',{value:({defineProperty(/** @type {any} */ target,/** @type {any} */ key,/** @type {any} */ descriptor){
-    if(!collectionData.has(target))return objectDefine(target,key,descriptor);
+    if(!collectionData.has(target)&&!datasetData.has(target))return objectDefine(target,key,descriptor);
     const propertyKey=ownKeys({[key]:0})[0];
     if(!defineOwned(target,propertyKey,descriptorOf(descriptor),true))throw new TypeError('Cannot define property');
     return target;
   }}).defineProperty});
   objectDefine(Object,'defineProperties',{value:({defineProperties(/** @type {any} */ target,/** @type {any} */ properties){
-    if(!collectionData.has(target))return objectDefines(target,properties);
+    if(!collectionData.has(target)&&!datasetData.has(target))return objectDefines(target,properties);
     if(properties===null||properties===undefined)throw new TypeError('Invalid properties');
     const props=Object(properties),definitions=/** @type {[string|symbol,PropertyDescriptor][]} */([]);
     // Convert every enumerable descriptor before applying any definition.
@@ -234,7 +276,7 @@ export function createPluginGuestDom(call,retain) {
     for(const [key,descriptor] of definitions)if(!defineOwned(target,key,descriptor,true))throw new TypeError('Cannot define property');
     return target;
   }}).defineProperties});
-  return Object.freeze({document,Node:GuestNode,HTMLElement:GuestElement,NodeList:GuestNodeList,HTMLCollection:GuestHTMLCollection,DOMTokenList:GuestDOMTokenList,DOMException,
+  return Object.freeze({document,Node:GuestNode,HTMLElement:GuestElement,NodeList:GuestNodeList,HTMLCollection:GuestHTMLCollection,DOMTokenList:GuestDOMTokenList,DOMStringMap:GuestDOMStringMap,DOMException,
     /** @param {()=>boolean} current */app(current){return Object.freeze({
       /** @param {string} title @param {any} body @param {any} [options] */
       dialog(title,body,options={}) {
@@ -256,7 +298,7 @@ export function createPluginGuestDom(call,retain) {
  * @param {any} value @returns {{method:string,args:any[]}} */
 export function validatePluginDomCall(value) {
   if(!value || Object.keys(value).sort().join(",")!=="args,method" || !Array.isArray(value.args) ||
-      !["dom.create","dom.get","dom.set","dom.node","dom.attribute","dom.query","dom.collection","dom.tokens","dom.style","dom.listen","dom.unlisten","dom.dialog"].includes(value.method) ||
+      !["dom.create","dom.get","dom.set","dom.node","dom.attribute","dom.query","dom.collection","dom.tokens","dom.dataset","dom.style","dom.listen","dom.unlisten","dom.dialog"].includes(value.method) ||
       value.args.length>4)throw Error("Invalid plugin DOM call");
   return value;
 }

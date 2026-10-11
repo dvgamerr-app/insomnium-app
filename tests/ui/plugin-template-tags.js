@@ -27,6 +27,7 @@ import {createPluginDomStreamFixture,exercisePluginDomStreamOwnerNative} from ".
 import {pluginDomTerminalNativeSource,exercisePluginDomTerminalOwnerNative} from "./helpers/plugin-dom-terminal-owner-native.js";
 import {pluginDomCollectionsNativeSource,exercisePluginDomCollectionsNative} from "./helpers/plugin-dom-collections-native.js";
 import {pluginDomTokensNativeSource,exercisePluginDomTokensNative} from "./helpers/plugin-dom-tokens-native.js";
+import {pluginDomDatasetNativeSource,exercisePluginDomDatasetNative} from "./helpers/plugin-dom-dataset-native.js";
 import {
   editorTagSource,
   editorTemplate,
@@ -46,6 +47,7 @@ const domStreamMode=domNestedMode&&process.env.INSOMNIUM_PLUGIN_DOM_STREAM_OWNER
 const domTerminalMode=domStreamMode&&process.env.INSOMNIUM_PLUGIN_DOM_TERMINAL_OWNER==="1";
 const domCollectionsMode=domTerminalMode&&process.env.INSOMNIUM_PLUGIN_DOM_COLLECTIONS==="1";
 const domTokensMode=domCollectionsMode&&process.env.INSOMNIUM_PLUGIN_DOM_TOKENS==="1";
+const domDatasetMode=domTokensMode&&process.env.INSOMNIUM_PLUGIN_DOM_DATASET==="1";
 const domStreamFixture=domStreamMode?createPluginDomStreamFixture():undefined;
 const grpcFixture = helperMode && process.env.INSOMNIUM_PLUGIN_HELPER_GRPC === "1" ? await createPluginGrpcFixture() : undefined;
 const socketMessages = /** @type {string[]} */ ([]);
@@ -174,6 +176,7 @@ try {
       if (domTerminalMode) sourceB += pluginDomTerminalNativeSource(requestId+'_terminal_helper');
       if (domCollectionsMode) sourceB += pluginDomCollectionsNativeSource();
       if (domTokensMode) sourceB += pluginDomTokensNativeSource();
+      if (domDatasetMode) sourceB += pluginDomDatasetNativeSource();
       for (const [index, source] of [sourceA, sourceB].entries()) {
         const directory = join(root, index === 0 ? "a" : "b");
         await mkdir(directory, { recursive: true });
@@ -688,6 +691,10 @@ try {
         if(domTokensMode){
           const evidence=await exercisePluginDomTokensNative({page,output,wire,body,send});
           checks.push(...evidence.checks);observations.push({pluginDomTokens:evidence});await body('{% dup %}');
+        }
+        if(domDatasetMode){
+          const evidence=await exercisePluginDomDatasetNative({page,output,wire,body,send});
+          checks.push(...evidence.checks);observations.push({pluginDomDataset:evidence});await body('{% dup %}');
         }
         await preferences();
         for (const name of names)
