@@ -23,6 +23,7 @@ import { createPluginGrpcFixture } from "./helpers/plugin-grpc-native.js";
 import { pluginAppInfoSource, exercisePluginAppInfoNative } from "./helpers/plugin-app-info-native.js";
 import {pluginDomOwnerNativeSource,exercisePluginDomOwnerHttpNative} from "./helpers/plugin-dom-owner-native.js";
 import {exercisePluginDomNestedOwnerNative} from "./helpers/plugin-dom-nested-owner-native.js";
+import {createPluginDomStreamFixture,exercisePluginDomStreamOwnerNative} from "./helpers/plugin-dom-stream-owner-native.js";
 import {
   editorTagSource,
   editorTemplate,
@@ -38,6 +39,8 @@ const oauthFixture = oauthMode ? createPluginOAuthFixture() : undefined;
 const appInfoMode = helperMode && process.env.INSOMNIUM_PLUGIN_APP_INFO === "1";
 const domOwnerMode = helperMode && process.env.INSOMNIUM_PLUGIN_DOM_OWNER === "1";
 const domNestedMode=domOwnerMode&&process.env.INSOMNIUM_PLUGIN_DOM_NESTED_OWNER==="1";
+const domStreamMode=domNestedMode&&process.env.INSOMNIUM_PLUGIN_DOM_STREAM_OWNER==="1";
+const domStreamFixture=domStreamMode?createPluginDomStreamFixture():undefined;
 const grpcFixture = helperMode && process.env.INSOMNIUM_PLUGIN_HELPER_GRPC === "1" ? await createPluginGrpcFixture() : undefined;
 const socketMessages = /** @type {string[]} */ ([]);
 let socketConnections = 0;
@@ -215,6 +218,7 @@ try {
         settingSendCookies: false, settingStoreCookies: false,
       }));
       if(domNestedMode)seed.resources.push(newRequest(collection,{_id:requestId+"_dialog_child",name:"Dialog dependent request",method:"POST",url:`http://127.0.0.1:${server.port}/dialog-child`,body:{mimeType:"text/plain",text:"{% ownednativedialog %}"},settingSendCookies:false,settingStoreCookies:false}));
+      if(domStreamFixture)for(const protocol of /** @type {const} */(["websocket","sse"]))seed.resources.push(newRequest(collection,{_id:requestId+"_dialog_"+protocol,name:protocol==="websocket"?"Dialog stream socket":"Dialog event stream",_type:protocol==="websocket"?"websocket_request":"request",method:"GET",responseMode:protocol==="sse"?"sse":undefined,url:domStreamFixture.url(protocol),settingSendCookies:false,settingStoreCookies:false}));
       if (protocolMode) seed.resources.push(
         newRequest(collection,{_id:socketRequestId,_type:"websocket_request",name:"Plugin helper socket",
           url:`ws://127.0.0.1:${server.port}/ws`,activePayloadId:socketPayloadId,
@@ -656,6 +660,10 @@ try {
           const evidence=await exercisePluginDomNestedOwnerNative({page,invoke,output,body,send,wire,requestId,childId:requestId+"_dialog_child",baseUrl:`http://127.0.0.1:${server.port}`,releaseHeld:()=>heldRoots.forEach(release=>release())});
           checks.push(...evidence.checks);observations.push({pluginDomNested:evidence});await body("{% dup %}");
         }
+        if(domStreamFixture){
+          const evidence=await exercisePluginDomStreamOwnerNative({page,invoke,output,wire,fixture:domStreamFixture,ids:{websocket:requestId+"_dialog_websocket",sse:requestId+"_dialog_sse"},rootId:requestId});
+          checks.push(...evidence.checks);observations.push({pluginDomStream:evidence});await body("{% dup %}");
+        }
         await preferences();
         for (const name of names)
           await card(name)
@@ -733,6 +741,7 @@ try {
   );
 } finally {
   heldRoots.forEach(release=>release());
+  domStreamFixture?.stop();
   server.stop(true);
   oauthFixture?.stop();
   grpcFixture?.stop();
