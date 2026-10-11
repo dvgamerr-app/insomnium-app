@@ -12,8 +12,9 @@ const styles=new Set("color backgroundColor padding display fontSize fontWeight 
 
 /** Actual DOM graph with an explicit trusted owner and retained guest functions.
  * No app-document/window capability or host executable HTML is exposed.
- * @param {{purpose:'preview'|'send'|'action',signal:AbortSignal,current:()=>boolean,onError:(error:unknown)=>void}} owner */
+ * @param {{purpose:'preview'|'send'|'action',signal:AbortSignal,current:()=>boolean,onError:(error:unknown)=>void,onClosed?:()=>void}} owner */
 export function createPluginDomBridge(owner) {
+  owner=Object.freeze({...owner});
   const endpoint=createPluginDomDialogEndpoint(owner);
   owner.signal.throwIfAborted();if(!owner.current())throw Error("Plugin DOM owner changed");
   const nodes=new Map(/** @type {[number,Node][]} */([])),ids=new WeakMap(/** @type {[Node,number][]} */([]));
@@ -57,7 +58,8 @@ export function createPluginDomBridge(owner) {
   owner.signal.addEventListener("abort",dispose,{once:true});
   return Object.freeze({
     dispose,
-    domCallbacks:{retain(/** @type {import('./plugin-session.js').PluginDomCallback} */ value,/** @type {number} */ id){check();callbacks.set(id,value);}},
+    hasDialog(){const active=get(pluginDomDialog);return !!active&&ids.has(active.body);},
+    domCallbacks:Object.freeze({retain(/** @type {import('./plugin-session.js').PluginDomCallback} */ value,/** @type {number} */ id){check();callbacks.set(id,value);}}),
     /** @param {{method:string,args:any[]}} operation */
     call(operation) {
       check();const {method,args}=validatePluginDomCall(operation);
@@ -71,10 +73,11 @@ export function createPluginDomBridge(owner) {
         if(args.length!==3 || typeof args[0]!=="string" || !args[2] || typeof args[2]!=="object")throw Error("Invalid DOM dialog");
         const body=node(args[1]);if(!(body instanceof HTMLElement))throw Error("Dialog requires an HTML element");
         const {onHide,...flags}=args[2];const hidden=onHide===null?undefined:callback(onHide);
-        endpoint.dialog(args[0],body,{...flags,onHide:hidden?()=>{
+        endpoint.dialog(args[0],body,{...flags,onHide:()=>{
           callbacks.delete(onHide);
-          void hidden.invoke().catch(report).finally(()=>hidden.release());
-        }:undefined});
+          const done=hidden?hidden.invoke().catch(report).finally(()=>hidden.release()):Promise.resolve();
+          void done.finally(()=>owner.onClosed?.());
+        }});
         if(owner.purpose==="preview" && hidden){callbacks.delete(onHide);hidden.release();}
         return undefined;
       }

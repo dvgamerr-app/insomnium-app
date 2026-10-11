@@ -22,6 +22,7 @@
   import RunnerPane from "$lib/components/RunnerPane.svelte";
   import TemplatePromptDialog from "$lib/components/TemplatePromptDialog.svelte";
   import TemplateFieldDialogHost from "$lib/components/TemplateFieldDialogHost.svelte";
+  import PluginDomDialogHost from "$lib/components/PluginDomDialogHost.svelte";
   import { createTemplateEditorSession, createEnvironmentTemplateEditorSession } from "$lib/template-editor-session.svelte.js";
   import {
     templatePrompt,
@@ -361,6 +362,7 @@
 
 <TemplatePromptDialog />
 <TemplateFieldDialogHost />
+<PluginDomDialogHost />
 <svelte:window onkeydown={keyboard} />
 <svelte:head
   ><title>{collection?.name || "Insomnium"} · Insomnium</title></svelte:head
