@@ -5,7 +5,15 @@ export async function installPluginWorkerProbe(page) {
     const scope = /** @type {any} */ (window);
     const NativeWorker = window.Worker;
     const records = /** @type {any[]} */ ([]);
-    scope.__pluginWorkerProbe = { records, original: NativeWorker };
+    const terminalNodes = new Map();
+    scope.__pluginWorkerProbe = { records, original: NativeWorker,
+      trackTerminalNode(/** @type {HTMLElement} */ body) {
+        const record=records.filter(row=>!row.terminated).at(-1);
+        if(!record)throw Error('No owned plugin worker for terminal node');
+        const nodes=terminalNodes.get(record)||[];nodes.push(body);terminalNodes.set(record,nodes);
+        return records.indexOf(record);
+      },
+    };
     scope.Worker = function (
       /** @type {string|URL} */ url,
       /** @type {WorkerOptions|undefined} */ options,
@@ -17,6 +25,7 @@ export async function installPluginWorkerProbe(page) {
           terminated: false,
           result: null,
           error: null,
+          terminalCleanup: /** @type {any[]} */ ([]),
         };
         records.push(record);
         worker.addEventListener("message", (event) => {
@@ -25,6 +34,7 @@ export async function installPluginWorkerProbe(page) {
         });
         const terminate = worker.terminate.bind(worker);
         worker.terminate = () => {
+          record.terminalCleanup=(terminalNodes.get(record)||[]).map((/** @type {HTMLElement} */ body)=>({text:body.textContent,count:body.getAttribute('data-cleanup-count'),connected:body.isConnected,mode:body.getAttribute('data-cleanup-mode')}));
           record.terminated = true;
           terminate();
         };

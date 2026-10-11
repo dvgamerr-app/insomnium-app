@@ -24,6 +24,7 @@ import { pluginAppInfoSource, exercisePluginAppInfoNative } from "./helpers/plug
 import {pluginDomOwnerNativeSource,exercisePluginDomOwnerHttpNative} from "./helpers/plugin-dom-owner-native.js";
 import {exercisePluginDomNestedOwnerNative} from "./helpers/plugin-dom-nested-owner-native.js";
 import {createPluginDomStreamFixture,exercisePluginDomStreamOwnerNative} from "./helpers/plugin-dom-stream-owner-native.js";
+import {pluginDomTerminalNativeSource,exercisePluginDomTerminalOwnerNative} from "./helpers/plugin-dom-terminal-owner-native.js";
 import {
   editorTagSource,
   editorTemplate,
@@ -40,6 +41,7 @@ const appInfoMode = helperMode && process.env.INSOMNIUM_PLUGIN_APP_INFO === "1";
 const domOwnerMode = helperMode && process.env.INSOMNIUM_PLUGIN_DOM_OWNER === "1";
 const domNestedMode=domOwnerMode&&process.env.INSOMNIUM_PLUGIN_DOM_NESTED_OWNER==="1";
 const domStreamMode=domNestedMode&&process.env.INSOMNIUM_PLUGIN_DOM_STREAM_OWNER==="1";
+const domTerminalMode=domStreamMode&&process.env.INSOMNIUM_PLUGIN_DOM_TERMINAL_OWNER==="1";
 const domStreamFixture=domStreamMode?createPluginDomStreamFixture():undefined;
 const grpcFixture = helperMode && process.env.INSOMNIUM_PLUGIN_HELPER_GRPC === "1" ? await createPluginGrpcFixture() : undefined;
 const socketMessages = /** @type {string[]} */ ([]);
@@ -93,6 +95,9 @@ const server = Bun.serve({
     });
     if(domNestedMode&&new URL(request.url).pathname==="/dom-owner-held")return new Promise(resolve=>{
       let released=false;heldRoots.push(()=>{if(released)return;released=true;resolve(new Response("late-owned-response",{headers:{"Content-Type":"text/plain"}}));});
+    });
+    if(domTerminalMode&&new URL(request.url).pathname==='/dom-terminal-helper-held')return new Promise(resolve=>{
+      let released=false;heldRoots.push(()=>{if(released)return;released=true;resolve(new Response('late-terminal-helper',{headers:{'Content-Type':'text/plain'}}));});
     });
     return new Response("plugin-render-accepted", {
       headers: { "Content-Type": "text/plain" },
@@ -162,6 +167,7 @@ try {
       sourceB += grpcFixture?.source(helperRequestId, collection) ?? "";
       if (appInfoMode) sourceB += pluginAppInfoSource;
       if (domOwnerMode) sourceB += pluginDomOwnerNativeSource(helperRequestId);
+      if (domTerminalMode) sourceB += pluginDomTerminalNativeSource(requestId+'_terminal_helper');
       for (const [index, source] of [sourceA, sourceB].entries()) {
         const directory = join(root, index === 0 ? "a" : "b");
         await mkdir(directory, { recursive: true });
@@ -218,6 +224,7 @@ try {
         settingSendCookies: false, settingStoreCookies: false,
       }));
       if(domNestedMode)seed.resources.push(newRequest(collection,{_id:requestId+"_dialog_child",name:"Dialog dependent request",method:"POST",url:`http://127.0.0.1:${server.port}/dialog-child`,body:{mimeType:"text/plain",text:"{% ownednativedialog %}"},settingSendCookies:false,settingStoreCookies:false}));
+      if(domTerminalMode)seed.resources.push(newRequest(collection,{_id:requestId+'_terminal_helper',name:'Terminal held helper',method:'POST',url:`http://127.0.0.1:${server.port}/dom-terminal-helper-held`,body:{mimeType:'text/plain',text:'terminal-helper'},settingSendCookies:false,settingStoreCookies:false}));
       if(domStreamFixture)for(const protocol of /** @type {const} */(["websocket","sse"]))seed.resources.push(newRequest(collection,{_id:requestId+"_dialog_"+protocol,name:protocol==="websocket"?"Dialog stream socket":"Dialog event stream",_type:protocol==="websocket"?"websocket_request":"request",method:"GET",responseMode:protocol==="sse"?"sse":undefined,url:domStreamFixture.url(protocol),settingSendCookies:false,settingStoreCookies:false}));
       if (protocolMode) seed.resources.push(
         newRequest(collection,{_id:socketRequestId,_type:"websocket_request",name:"Plugin helper socket",
@@ -663,6 +670,10 @@ try {
         if(domStreamFixture){
           const evidence=await exercisePluginDomStreamOwnerNative({page,invoke,output,wire,fixture:domStreamFixture,ids:{websocket:requestId+"_dialog_websocket",sse:requestId+"_dialog_sse"},rootId:requestId});
           checks.push(...evidence.checks);observations.push({pluginDomStream:evidence});await body("{% dup %}");
+        }
+        if(domTerminalMode){
+          const evidence=await exercisePluginDomTerminalOwnerNative({page,invoke,output,wire,requestId,plugin:names[1],baseUrl:`http://127.0.0.1:${server.port}`,body,releaseHeld:()=>heldRoots.forEach(release=>release())});
+          checks.push(...evidence.checks);observations.push({pluginDomTerminal:evidence});await body('{% dup %}');
         }
         await preferences();
         for (const name of names)
