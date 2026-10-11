@@ -71,7 +71,7 @@ export function createPluginDomBridge(owner) {
       if(cleanup){if(disposed)throw Error("Plugin DOM cleanup already finished");}
       else check();
       const {method,args}=validatePluginDomCall(operation);
-      if(cleanup && (closing || owner.signal.aborted || !owner.current()) && !["dom.get","dom.set","dom.node","dom.attribute","dom.style","dom.query","dom.collection"].includes(method))throw Error("Plugin DOM cleanup cannot create UI or callbacks");
+      if(cleanup && (closing || owner.signal.aborted || !owner.current()) && !["dom.get","dom.set","dom.node","dom.attribute","dom.style","dom.query","dom.collection","dom.tokens"].includes(method))throw Error("Plugin DOM cleanup cannot create UI or callbacks");
       if(method==="dom.create") {
         if(args.length!==2 || typeof args[1]!=="string")throw Error("Invalid DOM creation");
         if(args[0]==="text"){charge(args[1]);return describe(document.createTextNode(args[1]),true);}
@@ -91,6 +91,19 @@ export function createPluginDomBridge(owner) {
         return undefined;
       }
       const target=/** @type {any} */(node(args[0]));
+      if(method==='dom.tokens'){
+        if(args.length!==3||!(target instanceof Element)||!Array.isArray(args[2])||args[2].length>4096)throw Error('Invalid DOM token call');
+        const [_,action,values]=args,list=target.classList;
+        if(['read','value'].includes(action)&&values.length===0)return action==='read'?Array.from(list):list.value;
+        if(action==='set'&&values.length===1&&typeof values[0]==='string'){charge(values[0]);list.value=values[0];return undefined;}
+        const valid=(['add','remove'].includes(action)&&values.every(value=>typeof value==='string'))||
+          action==='contains'&&values.length===1&&typeof values[0]==='string'||
+          action==='replace'&&values.length===2&&values.every(value=>typeof value==='string')||
+          action==='toggle'&&(values.length===1||values.length===2)&&typeof values[0]==='string'&&(values.length===1||typeof values[1]==='boolean');
+        if(!valid)throw Error('Unsupported DOM token action');
+        if(action!=='contains')charge(list.value+' '+values.filter(value=>typeof value==='string').join(' '));
+        return /** @type {any} */(list)[action](...values);
+      }
       if(method==='dom.collection'){
         if(args.length!==3)throw Error('Invalid DOM collection');
         const [_,kind,filter]=args;

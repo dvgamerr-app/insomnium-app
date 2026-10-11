@@ -40,6 +40,44 @@ export function createPluginGuestDom(call,retain) {
   const state=(/** @type {any} */ value,/** @type {string} */ kind)=>{
     const data=collectionData.get(value);if(!data||data.kind!==kind)throw new TypeError('Illegal collection receiver');return data;
   };
+  const tokenData=new WeakMap(),tokenObjects=new WeakMap(),exceptionData=new WeakMap();
+  const exceptionNames='IndexSizeError - HierarchyRequestError WrongDocumentError InvalidCharacterError - NoModificationAllowedError NotFoundError NotSupportedError InUseAttributeError InvalidStateError SyntaxError InvalidModificationError NamespaceError InvalidAccessError - TypeMismatchError SecurityError NetworkError AbortError URLMismatchError QuotaExceededError TimeoutError InvalidNodeTypeError DataCloneError'.split(' ');
+  const constructError=Reflect.construct,intrinsicError=Error;
+  class DOMException {
+    /** @param {any} [message] @param {any} [name] */constructor(message='',name='Error'){
+      const data={message:domString(message),name:domString(name)},value=constructError(intrinsicError,[],new.target);
+      exceptionData.set(value,data);return value;
+    }
+  }
+  Object.setPrototypeOf(DOMException.prototype,Error.prototype);
+  for(const key of ['name','message','code'])Object.defineProperty(DOMException.prototype,key,{get(){const data=exceptionData.get(this);if(!data)throw new TypeError('Illegal DOMException receiver');return key==='code'?(data.name==='-'?0:Math.max(0,exceptionNames.indexOf(data.name)+1)):data[key];},enumerable:true,configurable:true});
+  Object.defineProperty(DOMException.prototype,Symbol.toStringTag,{value:'DOMException',configurable:true});
+  const constants='INDEX_SIZE_ERR DOMSTRING_SIZE_ERR HIERARCHY_REQUEST_ERR WRONG_DOCUMENT_ERR INVALID_CHARACTER_ERR NO_DATA_ALLOWED_ERR NO_MODIFICATION_ALLOWED_ERR NOT_FOUND_ERR NOT_SUPPORTED_ERR INUSE_ATTRIBUTE_ERR INVALID_STATE_ERR SYNTAX_ERR INVALID_MODIFICATION_ERR NAMESPACE_ERR INVALID_ACCESS_ERR VALIDATION_ERR TYPE_MISMATCH_ERR SECURITY_ERR NETWORK_ERR ABORT_ERR URL_MISMATCH_ERR QUOTA_EXCEEDED_ERR TIMEOUT_ERR INVALID_NODE_TYPE_ERR DATA_CLONE_ERR'.split(' ');
+  constants.forEach((key,index)=>{for(const target of [DOMException,DOMException.prototype])Object.defineProperty(target,key,{value:index+1,enumerable:true});});
+  /** @param {any} receiver @param {string} method @param {any[]} args @param {number} required */
+  function tokenCall(receiver,method,args,required){
+    state(receiver,'DOMTokenList');if(args.length<required)throw new TypeError('Missing token argument');
+    const values=args.map((value,index)=>method==='toggle'&&index===1?!!value:domString(value));
+    if(method==='supports')throw new TypeError('classList has no supported tokens');
+    if(['add','remove','toggle','replace'].includes(method))for(const value of values){
+      if(typeof value!=='string')continue;
+      if(value==='')throw new DOMException('The token is empty','SyntaxError');
+      if(/[\t\n\f\r ]/.test(value))throw new DOMException('The token contains ASCII whitespace','InvalidCharacterError');
+    }
+    return call('dom.tokens',[tokenData.get(receiver),method,values]);
+  }
+  class GuestDOMTokenList {
+    /** @param {symbol} token */constructor(token){if(token!==secret)throw new TypeError('Illegal constructor');}
+    /** @param {any[]} tokens */add(...tokens){return tokenCall(this,'add',tokens,0);}
+    /** @param {any[]} tokens */remove(...tokens){return tokenCall(this,'remove',tokens,0);}
+    /** @param {any} token */contains(token){return tokenCall(this,'contains',Array.from(arguments).slice(0,1),1);}
+    /** @param {any} token @param {any} [force] */toggle(token,force=undefined){return tokenCall(this,'toggle',Array.from(arguments).slice(0,force===undefined?1:2),1);}
+    /** @param {any} token @param {any} replacement */replace(token,replacement){return tokenCall(this,'replace',Array.from(arguments).slice(0,2),2);}
+    /** @param {any} token */supports(token){return tokenCall(this,'supports',Array.from(arguments).slice(0,1),1);}
+    get value(){state(this,'DOMTokenList');return call('dom.tokens',[tokenData.get(this),'value',[]]);}
+    set value(value){state(this,'DOMTokenList');call('dom.tokens',[tokenData.get(this),'set',[domString(value)]]);}
+    toString(){state(this,'DOMTokenList');return call('dom.tokens',[tokenData.get(this),'value',[]]);}
+  }
   class GuestNodeList {
     /** @param {symbol} token */constructor(token){if(token!==secret)throw new TypeError('Illegal constructor');}
   }
@@ -48,18 +86,19 @@ export function createPluginGuestDom(call,retain) {
   }
   /** @param {string} kind @param {()=>any[]} read */
   function collection(kind,read){
-    const target=kind==='NodeList'?new GuestNodeList(secret):new GuestHTMLCollection(secret);
+    const target=kind==='NodeList'?new GuestNodeList(secret):kind==='DOMTokenList'?new GuestDOMTokenList(secret):new GuestHTMLCollection(secret);
+    const convert=(/** @type {any} */ value)=>kind==='DOMTokenList'?value:wrap(value??null)??undefined;
     const named=(/** @type {any} */ key,/** @type {any[]} */ rows)=>kind==='HTMLCollection'&&typeof key==='string'&&key!==''?rows.find(row=>row.elementId===key||row.name===key):undefined;
     const property=(/** @type {any} */ key,/** @type {any[]} */ rows)=>indexKey(key)?rows[Number(key)]:Reflect.has(target,key)?undefined:named(key,rows);
     const data={kind,read,target,readOnly:(/** @type {any} */ key)=>indexKey(key)||!!property(key,read())};
     const proxy=new Proxy(target,{
-      get:(_,key,receiver)=>Reflect.has(target,key)?Reflect.get(target,key,receiver):wrap(property(key,read())??null)??undefined,
+      get:(_,key,receiver)=>Reflect.has(target,key)?Reflect.get(target,key,receiver):convert(property(key,read())),
       has:(_,key)=>Reflect.has(target,key)||!!property(key,read()),
       ownKeys:()=>{const rows=read(),keys=rows.map((_,index)=>String(index));
         if(kind==='HTMLCollection')for(const row of rows)for(const name of [row.elementId,row.name])if(name&&!Reflect.has(target,name)&&!keys.includes(name))keys.push(name);
         return [...new Set([...keys,...Reflect.ownKeys(target)])];},
       getOwnPropertyDescriptor:(_,key)=>{const own=Reflect.getOwnPropertyDescriptor(target,key);if(own)return own;
-        const row=property(key,read());return row?{value:wrap(row),writable:false,enumerable:indexKey(key),configurable:true}:undefined;},
+        const row=property(key,read());return row?{value:convert(row),writable:false,enumerable:indexKey(key),configurable:true}:undefined;},
       // Native indexed/named getters ignore assignment without replacing nodes.
       set:(_,key,value)=>indexKey(key)||!!property(key,read())?true:Reflect.set(target,key,value),
       deleteProperty:(_,key)=>property(key,read())?false:Reflect.deleteProperty(target,key),
@@ -68,11 +107,11 @@ export function createPluginGuestDom(call,retain) {
     });
     collectionData.set(target,data);collectionData.set(proxy,data);return proxy;
   }
-  for(const [kind,prototype] of /** @type {[string,any][]} */([['NodeList',GuestNodeList.prototype],['HTMLCollection',GuestHTMLCollection.prototype]])){
+  for(const [kind,prototype] of /** @type {[string,any][]} */([['NodeList',GuestNodeList.prototype],['HTMLCollection',GuestHTMLCollection.prototype],['DOMTokenList',GuestDOMTokenList.prototype]])){
     Object.defineProperty(prototype,'length',{get(){return state(this,kind).read().length;},enumerable:true,configurable:true});
     Object.defineProperty(prototype,'item',{value:/** @this {any} */function(/** @type {any} */ index){
       const data=state(this,kind);if(!arguments.length||typeof index==='bigint')throw new TypeError('Invalid collection index');
-      return wrap(data.read()[Number(index)>>>0]??null);
+      const value=data.read()[Number(index)>>>0]??null;return kind==='DOMTokenList'?value:wrap(value);
     },writable:true,enumerable:true,configurable:true});
     Object.defineProperty(prototype,Symbol.toStringTag,{value:kind,configurable:true});
   }
@@ -85,6 +124,8 @@ export function createPluginGuestDom(call,retain) {
   },writable:true,enumerable:true,configurable:true});
   Object.defineProperty(GuestNodeList.prototype,Symbol.iterator,{value:/** @type {any} */(GuestNodeList.prototype).values,writable:true,configurable:true});
   Object.defineProperty(GuestHTMLCollection.prototype,Symbol.iterator,{value:Array.prototype.values,writable:true,configurable:true});
+  for(const method of ['keys','values','entries','forEach'])Object.defineProperty(GuestDOMTokenList.prototype,method,{value:/** @type {any} */(Array.prototype)[method],writable:true,enumerable:true,configurable:true});
+  Object.defineProperty(GuestDOMTokenList.prototype,Symbol.iterator,{value:Array.prototype.values,writable:true,configurable:true});
   const idOf=(/** @type {any} */ node)=>{
     const id=ids.get(node);if(!id)throw Error("An owned DOM node is required");return id;
   };
@@ -121,6 +162,14 @@ export function createPluginGuestDom(call,retain) {
     }
   }
   class GuestElement extends GuestNode {
+    get classList(){
+      if(!tokenObjects.has(this)){
+        const id=idOf(this),value=collection('DOMTokenList',()=>call('dom.tokens',[id,'read',[]]));
+        tokenData.set(value,id);tokenData.set(state(value,'DOMTokenList').target,id);tokenObjects.set(this,value);
+      }
+      return tokenObjects.get(this);
+    }
+    /** @param {any} value */set classList(value){this.classList.value=domString(value);}
     /** @param {string} name @param {string} value */setAttribute(name,value){call("dom.attribute",[idOf(this),"setAttribute",name,String(value)]);}
     /** @param {string} name */getAttribute(name){return call("dom.attribute",[idOf(this),"getAttribute",name]);}
     /** @param {string} name */removeAttribute(name){call("dom.attribute",[idOf(this),"removeAttribute",name]);}
@@ -162,6 +211,9 @@ export function createPluginGuestDom(call,retain) {
   Object.defineProperty(GuestNode.prototype,"ownerDocument",{get(){return document;}});
   for(const key of ["innerHTML","outerHTML"])
     Object.defineProperty(GuestElement.prototype,key,{get(){throw Error("HTML content is not bridged yet");},set(){throw Error("HTML content is not bridged yet");}});
+  for(const [constructor,name] of /** @type {[any,string][]} */([[GuestNode,'Node'],[GuestElement,'HTMLElement'],[GuestNodeList,'NodeList'],[GuestHTMLCollection,'HTMLCollection'],[GuestDOMTokenList,'DOMTokenList'],[DOMException,'DOMException']])){
+    objectDefine(constructor,'name',{value:name});objectDefine(constructor,'length',{value:0});
+  }
   objectDefine(Reflect,'defineProperty',{value:({defineProperty(/** @type {any} */ target,/** @type {any} */ key,/** @type {any} */ descriptor){
     if(!collectionData.has(target))return intrinsicDefine(target,key,descriptor);
     const propertyKey=ownKeys({[key]:0})[0];
@@ -182,7 +234,7 @@ export function createPluginGuestDom(call,retain) {
     for(const [key,descriptor] of definitions)if(!defineOwned(target,key,descriptor,true))throw new TypeError('Cannot define property');
     return target;
   }}).defineProperties});
-  return Object.freeze({document,Node:GuestNode,HTMLElement:GuestElement,NodeList:GuestNodeList,HTMLCollection:GuestHTMLCollection,
+  return Object.freeze({document,Node:GuestNode,HTMLElement:GuestElement,NodeList:GuestNodeList,HTMLCollection:GuestHTMLCollection,DOMTokenList:GuestDOMTokenList,DOMException,
     /** @param {()=>boolean} current */app(current){return Object.freeze({
       /** @param {string} title @param {any} body @param {any} [options] */
       dialog(title,body,options={}) {
@@ -204,7 +256,7 @@ export function createPluginGuestDom(call,retain) {
  * @param {any} value @returns {{method:string,args:any[]}} */
 export function validatePluginDomCall(value) {
   if(!value || Object.keys(value).sort().join(",")!=="args,method" || !Array.isArray(value.args) ||
-      !["dom.create","dom.get","dom.set","dom.node","dom.attribute","dom.query","dom.collection","dom.style","dom.listen","dom.unlisten","dom.dialog"].includes(value.method) ||
+      !["dom.create","dom.get","dom.set","dom.node","dom.attribute","dom.query","dom.collection","dom.tokens","dom.style","dom.listen","dom.unlisten","dom.dialog"].includes(value.method) ||
       value.args.length>4)throw Error("Invalid plugin DOM call");
   return value;
 }

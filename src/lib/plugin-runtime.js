@@ -73,7 +73,7 @@ export function createPluginVm(engine, snapshot) {
     evaluate(`(() => {
       const dom=(${createPluginGuestDom.toString()})((method,args)=>__pluginValueCodec.decode(__pluginDomSync(__pluginValueCodec.encode({method,args}))),callback=>__pluginRetainDomCallback(callback));
       Object.defineProperty(globalThis,'__pluginGuestDom',{value:dom,writable:false,configurable:false});
-      for(const key of ['document','Node','HTMLElement','NodeList','HTMLCollection'])Object.defineProperty(globalThis,key,{value:dom[key],writable:false,configurable:false});
+      for(const key of ['document','Node','HTMLElement','NodeList','HTMLCollection','DOMTokenList','DOMException'])Object.defineProperty(globalThis,key,{value:dom[key],writable:false,configurable:false});
     })();`, "plugin-dom-bootstrap.js").dispose();
     evaluate(pluginBufferSource, "plugin-buffer.js").dispose();
     vm.runtime.setModuleLoader(
