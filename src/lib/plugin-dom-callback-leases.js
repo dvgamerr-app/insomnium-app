@@ -4,7 +4,7 @@ import { createPluginValueCodec } from "./plugin-values.js";
  * One lease manager must share the VM's exclusive operation queue when integrated.
  * The caller owns the VM and must close it after a terminal execution failure.
  * @param {ReturnType<import('./plugin-runtime.js').createPluginVm>} loaded
- * @param {{onFatal:(error:Error)=>void}} options */
+ * @param {{onFatal:(error:Error)=>void,isIdle?:()=>boolean,deadlineExpired?:(elapsed:number)=>boolean}} options */
 export function createPluginDomCallbackLeases(loaded, options) {
   if (!options || typeof options.onFatal !== "function")
     throw Error("DOM callback leases require a terminal VM cleanup handler");
@@ -96,7 +96,9 @@ export function createPluginDomCallbackLeases(loaded, options) {
           result = evaluate(`(async()=>__pluginDomCallbackCodec.encode(await __pluginDomCallbackDispatch(${id},...__pluginDomCallbackCodec.decode(${JSON.stringify(wire)}))))()`);
           while (true) {
             if (!leases.has(id) || !current(lease)) throw Error("DOM callback lease is no longer current");
-            if (performance.now() - started > 5000) throw Error("DOM callback exceeded 5 seconds");
+            const elapsed=performance.now()-started;
+            if (options.deadlineExpired ? options.deadlineExpired(elapsed) : elapsed>5000)
+              throw Error("DOM callback exceeded its deadline");
             const jobs = loaded.executePendingJobs(64);
             if (jobs.error) {
               try { throw Error(vm.dump(jobs.error)?.message || "DOM callback promise job failed"); }
@@ -105,7 +107,8 @@ export function createPluginDomCallbackLeases(loaded, options) {
             const state = vm.getPromiseState(result);
             if (state.type === "fulfilled") {
               try {
-                if (!vm.runtime.hasPendingJob()) return codec.decode(vm.getString(state.value));
+                if (!vm.runtime.hasPendingJob() && (!options.isIdle || options.isIdle()))
+                  return codec.decode(vm.getString(state.value));
               }
               finally { state.value.dispose(); }
             }

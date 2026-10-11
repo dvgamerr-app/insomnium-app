@@ -1,5 +1,11 @@
 # Retained guest callback leases for DOM dialogs
 
+Current working session integration is documented in [PLUGIN-DOM-SESSION.md](PLUGIN-DOM-SESSION.md).
+Its actual production worker/client scenario adds capability-frame, queue and
+trusted interaction acceptance. Runtime assembly remains uncommitted; the initial
+standalone acceptance below is historical. The pump now accepts trusted idle and
+deadline predicates so host RPC drain/prompt waiting obey the runtime's policy.
+
 DOM event listeners and onHide must survive the callback that opens a dialog.
 The existing callback runtime removes helper privileges on return; directly
 reusing that operation would make retained callbacks stale or close UI as soon
