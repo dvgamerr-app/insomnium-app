@@ -10,6 +10,24 @@ export const tokenGrants = [
   "password",
   "refresh_token",
 ];
+/** Exact preview-owned history writes retain their input key, including eviction.
+ * External response changes still produce a different key and rerender. */
+export function createOAuthPreviewHistoryGuard() {
+  /** @type {{after:string,origin:string}|undefined} */ let owned;
+  const hash = (/** @type {Record<string,any>[]} */ history) =>
+    bytesToHex(sha256(new TextEncoder().encode(JSON.stringify(history))));
+  return {
+    /** @param {Record<string,any>[]} history */
+    key(history) {
+      const value = hash(history);
+      return value === owned?.after ? owned.origin : value;
+    },
+    /** @param {Record<string,any>[]} history @param {string} origin */
+    record(history, origin) {
+      owned = { after: hash(history), origin };
+    },
+  };
+}
 const textFields = [
   "grantType",
   "accessTokenUrl",
