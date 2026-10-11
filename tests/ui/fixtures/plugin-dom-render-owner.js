@@ -15,7 +15,7 @@ const source=`let state={hides:0};exports.templateTags=[{name:'lifetimedialog',r
   body.appendChild(button);body.appendChild(status);
   let clicks=0;button.addEventListener('click',async function(event){status.textContent=(await c.util.render('{{ ownerValue }}'))+':'+(this===button)+':'+(event.target===button)+':'+(++clicks);});
   c.app.dialog('Render lifetime dialog',body,{onHide(){state={hides:state.hides+1,detached:!body.isConnected};}});return 'prepared';
-}},{name:'lifetimestate',run(){return state;}},{name:'lifetimefail',run(){throw Error('owned field failure');}}];`;
+}},{name:'lifetimestate',run(){return state;}},{name:'lifetimeconstant',run(){return 'resolved';}},{name:'lifetimefail',run(){throw Error('owned field failure');}}];`;
 const owner={},settings={pluginDirectories:["fixture"],pluginPathMigrationVersion:1};
 const data={resources:/** @type {Record<string,any>[]} */([{_id:"w",_type:"workspace",name:"Workspace"},{_id:"r",_type:"request",parentId:"w",name:"Request",url:"http://127.0.0.1/owned"}]),history:[],settings};
 /** @type {ReturnType<typeof createPluginRegistry>|undefined} */let registry;
@@ -69,7 +69,7 @@ const records=/** @type {{kind:string,terminated:boolean,messages:any[]}[]} */([
   },
   async sendWorkspace(){
     const request={...newRequest("w"),_id:"r",name:"Request",url:location.origin+"/?dialog={% lifetimedialog %}"};
-    data.resources=[data.resources[0],request,{_id:"env",_type:"environment",parentId:"w",name:"Base Environment",data:{ownerValue:"captured"}}];
+    data.resources=[data.resources[0],request,{_id:"env",_type:"environment",parentId:"w",name:"Base Environment",data:{ownerValue:"captured",derived:"{% lifetimeconstant %}"}}];
     workspace.data={...initialData(),resources:data.resources,activeWorkspaceId:"w",activeRequestId:"r"};workspace.ready=true;
     await execute("r");
     return {running:!!workspace.running.r,status:workspace.responses.r?.status,error:workspace.responses.r?.error};

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import {exerciseRetainedNativeDialog} from "./plugin-dom-owner-native.js";
 import { createServer } from "node:http2";
 import { newRequest } from "../../../src/lib/model.js";
 import { poll } from "./native-app.js";
@@ -113,8 +114,8 @@ export async function createPluginGrpcFixture() {
         url: "{% grpcurl %}", body: { text: '{"name":"{% grpcbody %}"}' },
         settingSendCookies: false, settingStoreCookies: false })];
     },
-    /** @param {{page:import('playwright-core').Page,invoke:import('./native-app.js').NativeInvoke,id:string,output:string,mainWire:any[]}} context */
-    async exercise({ page, invoke, id, output, mainWire }) {
+    /** @param {{page:import('playwright-core').Page,invoke:import('./native-app.js').NativeInvoke,id:string,output:string,mainWire:any[],domOwner?:boolean}} context */
+    async exercise({ page, invoke, id, output, mainWire,domOwner=false }) {
       const checks = [];
       const helperStart = mainWire.length;
       try {
@@ -260,6 +261,23 @@ export async function createPluginGrpcFixture() {
         const helpers = mainWire.slice(helperStart).filter(row => new URL(row.url).pathname === "/helper");
         assert.ok(helpers.filter(row => row.body === "grpcurl").length >= 3);
         assert.equal(helpers.filter(row => row.body === "grpcbody").length, 8);
+        if(domOwner) {
+          await editBody('{"name":"{% ownednativedialog %}"}');
+          await page.getByRole("button",{name:"Send",exact:true}).click();
+          await page.locator(".grpc-response .status-badge").filter({hasText:"0 OK"}).waitFor();
+          await page.getByRole("button",{name:"Send",exact:true}).waitFor();
+          await poll(async()=>wire[7]?.ended===true,"Native dialog gRPC sender completes");
+          assert.equal(wire[7].path,"/helper.Sample/Echo");assert.deepEqual(wire[7].messages,["native-dialog-value"]);
+          const dialog=await exerciseRetainedNativeDialog({page,wire:mainWire});
+          await editBody('{"name":"{% ownednativedialoghides %}"}');
+          await page.getByRole("button",{name:"Send",exact:true}).click();
+          await page.locator(".grpc-response .status-badge").filter({hasText:"0 OK"}).waitFor();
+          await page.getByRole("button",{name:"Send",exact:true}).waitFor();
+          await poll(async()=>wire[8]?.ended===true,"Native gRPC observes guest onHide");
+          assert.deepEqual(wire[8].messages,["1:true"]);
+          await Bun.write(output+"/dom-owner-grpc-acceptance.json",JSON.stringify({status:"passed",wire:wire[7],onHide:wire[8],dialog},null,2));
+          checks.push("Actual native gRPC status zero and completed sender retain usable dialog/environment/model/native HTTP helpers after the gRPC running entry ends");
+        }
         assert.ok(helpers.every(row => row.method === "POST"));
         assert.deepEqual(errors, []);
         await poll(async()=>reflection.every(row=>row.closed),"Owned reflection transport closes after successful descriptor discovery");
