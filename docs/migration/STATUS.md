@@ -1,5 +1,11 @@
 # Migration status — อ่านไฟล์นี้ก่อนทำต่อ
 
+## Playwright headless policy reconfirmed — 2026-10-12
+
+- Owner requested headless Playwright. Existing committed shared launchUiBrowser in tests/ui/helpers/preview-app.js fixes headless:true with no override. Search of all saved tests/ui JavaScript finds one launch (this helper), no launchPersistentContext or headless:false; native-app.js hides the owned window before connectOverCDP and reports native-hidden. No launcher changes are necessary.
+- Saved verification command bun tests/ui/plugin-save-client.js launches headless but exits1 during application startup: Cannot read properties of undefined (reading 'data'), before scenario assertions. artifacts/playwright/plugin-save-client/result.json records the failure. This run is not scenario acceptance. The command is terminal, with browser/server cleanup in withPreview finally; no live process handle from this verification. Existing terminal-onHide implementation and unrelated UI/docs edits remain pending and are not included in this checkpoint.
+- Next resolve the preview startup failure and continue pending terminal-onHide verification; all migration/UX gates remain open. The interface cannot invoke /compact. This checkpoint is the handoff, not a claim of compaction.
+
 ## Native stream dialog ownership accepted — 2026-10-12
 
 - Previous goal turn is progress8a02bc3/frontend stream lifetime fix committed. Current HEAD before this native scenario topic commit is8a02bc3. Fresh builder9779 exit0/Cargo6m45s produces237f89d3b674bb32e297f80891efaa5ea71433f37c109b8e4b858ee6490a42ab executable with current host fix; oldd2c20319/45checks remains historical for changed workspace code.
