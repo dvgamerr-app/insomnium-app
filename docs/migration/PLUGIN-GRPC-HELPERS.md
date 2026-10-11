@@ -1,5 +1,49 @@
 # Native gRPC plugin helper acceptance
 
+## Reflection fixture contract
+
+Accepted native55259/1791685937788/restoration1791685937267 terminal0:
+34checks/14terminated workers/52HTTP, retained WS/OAuth/Cancel/streaming and seven
+ordinary gRPC calls/eight inputs plus one reflection RPC/two actual queries.
+Thirty gRPC childHTTP requests carry12URL/8body/5metadata-key/5metadata-value.
+v1 list-services and file-containing-symbol(helper.Sample) reach the server with
+owned-helper=plugin-render-accepted; the actual descriptor loads Echo, unary
+response appears in native UI/status0, and unchanged resolved context uses the
+loaded schema with no second reflection RPC. Reflection stream closesRST8 after
+discovery; any associated completed-session ECONNRESET is separately recorded.
+Independent64current/exact/live/wire/query/metadata/descriptor-backed unary/
+history/cookie/OAuth/native hidden exit0/visiblefalse/state restoration audit
+passes. All653original cookie files, plugin store and both workspace buffers
+restored. Compiler25008 terminal0/zero errors/warnings. Original62production
+bounded-manifest limits apply; same20ab757e executable reused unchanged.
+
+First31534/1791685799445 fails the generic error assertion on completed reflection
+session retirement after successful discovery/unary; first64snapshots preserved
+and exact restoration passes. Second28361/1791685871582 native passes but
+compiler17759 finds optional stream.session type; second64snapshots preserved.
+Explicit owned-session assertion fixes the compiler; the final rerun binds the
+committed fixture to exact native evidence. No product source changes or plugin
+Load workaround. v1alpha fallback/dependencies/refusal/cancellation policy and
+other provider/ownership/parity still remain; accepted v1 positive scope only.
+
+`tests/ui/helpers/grpc-reflection-wire.js` answers the canonical v1 service-list
+and file-containing-symbol queries on the owned HTTP/2 server. It returns an
+actual FileDescriptorProto for helper.Sample/Echo and echoes original_request
+for native response matching. The saved native case changes Proto source to
+Server reflection, loads methods through real helper URL/metadata rendering,
+then sends unary through the reflected descriptor and checks UI protobuf output
+and absence of redundant discovery.
+
+The fixture records completed reflection transport retirement separately from
+errors: only ECONNRESET on its exact session after both validated queries qualifies;
+other session errors still fail. Stream closure/RST code and the retirement event
+are retained as evidence. This does not waive early reset, malformed descriptor,
+unrelated session failure or any failed native/UI assertion.
+
+Official protocol sources consulted before implementation:
+[canonical gRPC reflection v1](https://github.com/grpc/grpc-proto/blob/master/grpc/reflection/v1/reflection.proto)
+and [protobuf descriptor](https://github.com/protocolbuffers/protobuf/blob/main/src/google/protobuf/descriptor.proto).
+
 ## Metadata and streaming accepted — 2026-10-11
 
 Native28073/1791685588503/restoration1791685587968 terminal0 passes32 checks,
@@ -107,7 +151,7 @@ first-live-source-freeze.json. Both runs restore the original owned-profile file
 
 ## Remaining gates
 
-gRPC reflection discovery, late native/provider completion policies,
+gRPC reflection v1alpha fallback/dependency/refusal/owner policy, late native/provider completion policies,
 concurrent owners, ancestry/deadline and
 other provider/platform cases still need their own helper acceptance. Broader
 preview, synchronous app facade, DOM/events/onHide/private compatibility,

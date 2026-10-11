@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http2";
 import { newRequest } from "../../../src/lib/model.js";
 import { poll } from "./native-app.js";
+import { handleGrpcReflection } from "./grpc-reflection-wire.js";
 
 /** Real loopback gRPC transport for the saved plugin helper scenario. */
 export async function createPluginGrpcFixture() {
@@ -9,14 +10,29 @@ export async function createPluginGrpcFixture() {
   const errors = /** @type {string[]} */ ([]);
   const closed = /** @type {any[]} */ ([]);
   const metadata = /** @type {any[]} */ ([]);
+  const reflection = /** @type {any[]} */ ([]);
+  const reflectionSessions = new WeakMap();
+  const reflectionShutdowns = /** @type {any[]} */ ([]);
   const sessions = new Set();
   const server = createServer();
   server.on("session", session => {
     sessions.add(session);
-    session.on("error", error => errors.push(String(error)));
+    session.on("error", error => {
+      const row=reflectionSessions.get(session);
+      if (/** @type {any} */ (error).code === "ECONNRESET" && row?.queries.length === 2 &&
+          row.queries[0].kind === "list-services" && row.queries[1].value === "helper.Sample") {
+        reflectionShutdowns.push({path:row.path,code:"ECONNRESET",completedQueries:2});
+      } else errors.push(String(error));
+    });
     session.on("close", () => sessions.delete(session));
   });
   server.on("stream", (/** @type {import('node:http2').ServerHttp2Stream} */ stream, headers) => {
+    if (handleGrpcReflection(stream,headers,reflection,errors)) {
+      const session=stream.session;
+      assert.ok(session,"Reflection stream must retain its owned session during attachment");
+      reflectionSessions.set(session,reflection.at(-1));
+      return;
+    }
     const row = { path: String(headers[":path"]), messages: /** @type {string[]} */ ([]), ended: false };
     wire.push(row);
     metadata.push({ index: wire.length - 1, value: headers["owned-helper"] ?? null });
@@ -223,16 +239,35 @@ export async function createPluginGrpcFixture() {
         }
         assert.ok(metadata.slice(0,4).every(row=>row.value===null));
         checks.push("Native gRPC metadata name/value helpers reach both streaming transports after actual saved-ID child sends");
+        await page.getByRole("combobox",{name:"Proto source",exact:true}).selectOption("");
+        await page.getByRole("button",{name:"Load methods",exact:true}).click();
+        await methods.selectOption({label:"/Sample/Echo · Unary"});
+        assert.equal(reflection.length,1);
+        assert.equal(reflection[0].metadata,"plugin-render-accepted");
+        assert.deepEqual(reflection[0].queries,[{kind:"list-services",value:""},{kind:"file-containing-symbol",value:"helper.Sample"}]);
+        checks.push("Actual native v1 reflection lists service and loads descriptors with real helper connection metadata");
+        await page.getByRole("button",{name:"Send",exact:true}).click();
+        await page.locator(".grpc-response .status-badge").filter({hasText:"0 OK"}).waitFor();
+        await page.getByRole("button",{name:"Send",exact:true}).waitFor();
+        await poll(async () => wire[6]?.ended===true,"Reflected unary sender closes");
+        assert.equal(wire[6].path,"/helper.Sample/Echo");
+        assert.deepEqual(wire[6].messages,["plugin-render-accepted"]);
+        assert.equal(metadata[6].value,"plugin-render-accepted");
+        assert.equal(reflection.length,1,"Unchanged resolved reflection context reuses loaded schema");
+        assert.equal(await page.locator(".grpc-message").count(),1);
+        assert.equal(JSON.parse(await page.locator(".grpc-message").innerText()).name,"plugin-render-accepted");
+        checks.push("Reflected schema executes actual helper unary without redundant discovery");
         const helpers = mainWire.slice(helperStart).filter(row => new URL(row.url).pathname === "/helper");
         assert.ok(helpers.filter(row => row.body === "grpcurl").length >= 3);
-        assert.equal(helpers.filter(row => row.body === "grpcbody").length, 7);
+        assert.equal(helpers.filter(row => row.body === "grpcbody").length, 8);
         assert.ok(helpers.every(row => row.method === "POST"));
         assert.deepEqual(errors, []);
-        const evidence = { status: "passed", checks, controls, closed, metadata, wire, helpers: helpers.map(row => ({url:row.url,method:row.method,body:row.body})), errors };
+        await poll(async()=>reflection.every(row=>row.closed),"Owned reflection transport closes after successful descriptor discovery");
+        const evidence = { status: "passed", checks, controls, closed, metadata, reflection, reflectionShutdowns, wire, helpers: helpers.map(row => ({url:row.url,method:row.method,body:row.body})), errors };
         await Bun.write(output + "/grpc-helper-acceptance.json", JSON.stringify(evidence, null, 2));
         return evidence;
       } finally {
-        await Bun.write(output + "/grpc-helper-wire.json", JSON.stringify({wire,closed,metadata,errors}, null, 2));
+        await Bun.write(output + "/grpc-helper-wire.json", JSON.stringify({wire,closed,metadata,reflection,reflectionShutdowns,errors}, null, 2));
       }
     },
   };
