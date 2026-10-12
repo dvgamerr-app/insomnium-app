@@ -13,3 +13,5 @@ vite.config.ts.timestamp-*
 /.migration-scaffold/
 /artifacts/
 /src/lib/generated/
+/tools/spectral-linter/dist/
+/src-tauri/binaries/spectral-linter-*

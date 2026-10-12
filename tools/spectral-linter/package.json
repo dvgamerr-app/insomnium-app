@@ -1,0 +1,14 @@
+{
+  "name": "insomnium-spectral-linter",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.2",
+  "scripts": { "bundle": "bun build.mjs" },
+  "dependencies": {
+    "@stoplight/spectral-core": "1.24.0",
+    "@stoplight/spectral-parsers": "1.0.5",
+    "@stoplight/spectral-ref-resolver": "1.0.5",
+    "@stoplight/spectral-ruleset-bundler": "1.8.0",
+    "@stoplight/spectral-rulesets": "1.23.0"
+  }
+}
