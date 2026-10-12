@@ -1,3 +1,7 @@
+## Current certificate native/TLS and cancellation boundary — 2026-10-13
+
+Actual7fa8/ea21 native-hidden16573 plus independent root audit verify59checks/14TLS+44collection cases/4real ownedchooser cancellations and full protected profile/Git/current+legacy layout restoration. Fresh actual emitted noticecopy1954/private767/source1022 closure passes; sourcecorpus notice coverage/linkage remains incomplete. Cancellation is authenticated WM_CLOSE/owned-list absence/actual settlement, not physicaluser/selection/IsWindow destruction/zero flash/otherplatform. CoalescedABA/save settlement/AT/otherworkflow/installedsigned/fullnotice/fullmigration/UX and all original scope remain open.
+
 ## Proto keyboard cancellation measurement boundary — 2026-10-13
 
 Independent285-file/102-receipt audit reproduces12 focused Cancel removals leaving BODY after Playwright Enter in actual keyed-parent component fixture. Data/persistence/stale owned-read checks pass; product correction awaits isolated preparation/root verification. Native schema replacement/physical OS selection/AT/full GrpcPane and field validation diagnostics remain open. Fresh combined certificate/ea21 native build94563 is LIVE and has no runtime acceptance yet; do not reuse olde567 as current product/resource evidence. Every original migration/UX/platform/private/distribution/fullnotice gate retained.

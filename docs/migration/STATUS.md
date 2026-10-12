@@ -1,3 +1,9 @@
+## Current certificate native workflow accepted — 2026-10-13
+
+Fresh release94563 terminal0/independent13631closure0 verifies7fa8b7a2/a5ec/1022sources/49assets/1954emitted notices/767private/ea21 authority. Saved native-hidden16573 terminal0, host31676 exited0; independent certificate-combined-native-root-run/root-audit.json accepts original59checks/14TLS+44collection cases and4actual owned chooser cancellations. Exact654-cookie file-set/bytes/buffers/store/43resources20history/current3+legacy2layout/full13783Git prestartup-postexit restored; profile released/livehandles:none. Preserved prototype999 and cancellation05e263 replay; initial log-parent spawn negative retained. See CERTIFICATE-COMBINED-NATIVE-ROOT-ACCEPTANCE.md.
+
+Cancellation proves owned-list absence/actual Promise settlement/no alerts or mutations only; no IsWindow destruction/selection/physicaluser/zeroflash claim. Other workflows/coalescedABA/save settlement/AT/platform/installedsigned/fullnotice/fullmigration/UX and every original gate remain OPEN. Proto focus4eef/290files138receipts and AUTHORS9e73/13140files70+57 await serial root integration; agents remain isolated. Topic commit and compact-unavailable handoff required before next feature.
+
 ## Parallel checkpoint: fresh native build and reviewed Proto negative — 2026-10-13
 
 Current verified product topic bebd3c7/handoff3bab42c; certificate combined native preparation999ebd52 independently reviewed and guards reproduce exact manifest. Fresh release build session94563 LIVE, driver41292/child44340; frontend actual hook complete, Rust compiling. Candidate certificate-combined-native-root-candidate remains unaccepted until authoritative terminal and independent closure audit. No native host/profile claim; current1016 source inputs/ea21bd83 authority frozen. Poll same session; do not restart.

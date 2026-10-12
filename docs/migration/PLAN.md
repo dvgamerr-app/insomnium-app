@@ -1,3 +1,7 @@
+## Fresh certificate native checkpoint; next serial topics — 2026-10-13
+
+Current7fa8/ea21 actual saved native-hidden certificate workflow and4owned cancellation cases pass fullprofile/Git/layout restoration. Root handlesnone/profile released. Preserve exact compiled/source/emitted/private closure; further Proto or AUTHORS source changes make this generation historical for those deltas. Next independently review/adopt/replay Proto focus-only correction (same138 cases/exactCSSgeometry), then exact-two AUTHORS collector policy with deliberate new collection/current71/bundle verification. Nativeagent prepares actual file-selection helper in isolation; no launch before independent concrete review. Keep all original gates/perfeature topiccommit/STATUS/compact-unavailable handoff.
+
 ## Current parallel work and root integration order — 2026-10-13
 
 Root owns fresh combined release build94563, authoritative terminal/closure audit, then exclusively preserved saved native-hidden certificate scenario. Preserve ea21 notice generation and current source freeze until native topic resolves. native_provider prepares exact-owned dialog cancellation-only saved coverage without launching; shared_ui corrects independently reproduced12 Proto Cancel focus losses with owner-guarded restoration and same102-case scenario; event_api prepares reviewed exact-two r-efi AUTHORS policy and strict old47/57/current58 proof preservation in isolation. No cross-worktree source/profile/cache mutation or native launch by agents.
