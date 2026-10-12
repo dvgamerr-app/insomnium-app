@@ -10,6 +10,69 @@ import { withComponentFixture } from "./helpers/component-fixture.js";
 import { assertDialogTokens } from "./helpers/dialog-theme.js";
 
 await withComponentFixture("design-system", async (page, output) => {
+  const childRows = [];
+  const child = page.getByRole("button", {
+    name: "Owned button text",
+    exact: true,
+  });
+  const toggle = page.getByRole("button", {
+    name: "Toggle child busy",
+    exact: true,
+  });
+  for (const theme of ["dark", "light"]) {
+    await page.evaluate(
+      (theme) => (document.documentElement.dataset.theme = theme),
+      theme,
+    );
+    for (const width of [1440, 900, 760]) {
+      await page.setViewportSize({ width, height: 960 });
+      const before = Number(
+        await page.getByLabel("Child callbacks", { exact: true }).textContent(),
+      );
+      await child.focus();
+      assert.equal(
+        await child.evaluate((el) => el === document.activeElement),
+        true,
+      );
+      for (const busy of [true, false]) {
+        await toggle.click();
+        assert.equal(
+          await child.textContent(),
+          "  Owned Ω child  ",
+          "Shared Button must preserve exact caller text in both busy states",
+        );
+        assert.equal(await child.isDisabled(), busy);
+        assert.equal(await child.locator("svg").count(), busy ? 1 : 0);
+        await child.focus();
+        assert.equal(
+          await child.evaluate((el) => el === document.activeElement),
+          !busy,
+          "Busy disabled button cannot steal focus; restored button can focus",
+        );
+        childRows.push({
+          theme,
+          width,
+          busy,
+          exactText: true,
+          disabled: busy,
+          focus: !busy,
+        });
+      }
+      await child.press("Enter");
+      assert.equal(
+        Number(
+          await page
+            .getByLabel("Child callbacks", { exact: true })
+            .textContent(),
+        ),
+        before + 1,
+      );
+    }
+  }
+  await Bun.write(
+    output + "/button-child-text.json",
+    JSON.stringify({ passed: true, rows: childRows }, null, 2),
+  );
   const concurrentFiles = [];
   const concurrent = page.getByRole("region", {
     name: "Concurrent file contract",

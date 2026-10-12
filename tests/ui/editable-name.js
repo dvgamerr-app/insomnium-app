@@ -43,6 +43,13 @@ await withComponentFixture("editable-name", async (page, output) => {
       row.id,
     );
     assert.equal(
+      await page
+        .getByRole("button", { name: "Edit request name", exact: true })
+        .textContent(),
+      expected || "Untitled Request",
+      row.id + " exact displayed text",
+    );
+    assert.equal(
       Number(
         await page
           .getByLabel("Rename callbacks", { exact: true })

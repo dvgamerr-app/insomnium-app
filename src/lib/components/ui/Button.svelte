@@ -20,7 +20,9 @@
   disabled={disabled || busy}
   aria-busy={busy || undefined}
   class={`ui-button ${variant === "plain" ? "ui-button-plain" : variant === "ghost" ? "text-button" : variant + "-button"} ${className}`}
+  >{#if busy}<Icon
+      name="loader"
+      size={13}
+      class="spinner"
+    />{/if}{@render children?.()}</button
 >
-  {#if busy}<Icon name="loader" size={13} class="spinner" />{/if}
-  {@render children?.()}
-</button>

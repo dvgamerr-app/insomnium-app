@@ -13,6 +13,8 @@
   import Textarea from "../../../src/lib/components/ui/Textarea.svelte";
   import KeyValueEditor from "../../../src/lib/components/KeyValueEditor.svelte";
   let descriptionState = $state(0);
+  let childBusy = $state(false);
+  let childClicks = $state(0);
   let externalDescription = $state(
     "description-extra description-extra\t description-second",
   );
@@ -225,6 +227,15 @@
         concurrentReset = !concurrentReset;
       }}>Reset concurrent contract</Button
     >
+  </section>
+  <section aria-label="Button child text contract">
+    <Button
+      aria-label="Owned button text"
+      busy={childBusy}
+      onclick={() => childClicks++}>{"  Owned Ω child  "}</Button
+    >
+    <Button onclick={() => (childBusy = !childBusy)}>Toggle child busy</Button>
+    <output aria-label="Child callbacks">{childClicks}</output>
   </section>
   <section class="button-padding-contract" aria-label="Button padding contract">
     <Button variant="primary" data-padding-standard>Primary padding</Button>
