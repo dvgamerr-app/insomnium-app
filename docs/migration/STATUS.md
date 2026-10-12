@@ -1,3 +1,8 @@
+## Accepted Spectral source catalog utility — 2026-10-12
+
+- Guarded two NEW paths; root independently rehashes complete agent output/dependency snapshot and repeats SAME manual eval31checks with actual pinnedSDK identity. Detached frozen full diagnostics/code0/ranges and catalog; captured-only main/attached hydration, returned-only external contents, exact URI/name/origin/duplicate validation, unknown-source nonnavigation, canonical LF UTF16 offsets preserve rawBOM/CRLF/astral. Compiler1256 terminal0errors/0warnings. Proof artifacts/spectral-sources-root-proof/root-audit.json.
+- Parent ApiDesign source/semantic join is uncommitted/in verification; this utility checkpoint does not accept UI/native/process/repository generation. Native original tree gap repaired for observed descendants but quota replay still RED; packaging build agent live42612 at last report. Allroot handles terminal. Fullmigration/SDK/Event/FIFO/platform/UX scope retained. Topic commit pending. /compact unavailable; explicit handoff.
+
 ## Owned Spectral frontend client checkpoint — 2026-10-12
 
 - New client captures input before awaits, reserves server UUID, keeps cancellation/result settlement owned and waits RUN/CANCEL before caller completion. Every unsuccessful known reservation retires, including worker-capacity refusal. Raw result JSON preserves Unicode; fixed failure messages, UUID/size/top-level guards and independent job ownership pass13manual Bun cases. Compiler81104 terminal0errors/0warnings. Proof artifacts/spectral-client-proof/final/audit.json. No actual native/host claim or parent wiring yet.
