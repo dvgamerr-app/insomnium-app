@@ -1,3 +1,7 @@
+## Actual scripted Cookie UI-await boundary — 2026-10-13
+
+Native V4 independently verifies12 scripted pending New/close actions before observed passive scheme response, unchanged jar/disk/previous keys and stale-feedback suppression, retaining24originalcases/25mapped replies (37total). Full profile/Git/currentlayout restoration and compiler0/0 pass. Physical Rust entry/reply production, trusted keyboard race, OS/AT/platform and other full workflows remain open. V3 negative retained; no full migration/UX/notice/platform/distribution claim.
+
 ## Cache admission boundary — 2026-10-13
 
 Exact recovered three Cargo archives are now present and independently checksum-verified. This is cache data admission only: old762 notice collection/private authority is unchanged and bundle validation passes. New765 collection/text counts, target linkage and complete notices remain unverified. Historical negative and successful proofs remain immutable; all original migration/UX/platform/distribution/SDK/Event/FIFO/private scope remains open.
