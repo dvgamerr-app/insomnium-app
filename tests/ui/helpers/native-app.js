@@ -4,15 +4,22 @@ import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { openSync, closeSync } from "node:fs";
 import { resolve, join } from "node:path";
 import assert from "node:assert/strict";
+import {resourceCrudProbeIdentifier,reserveCrudProfileLaunch,bindCrudProfileLaunch,recordCrudProfileExit} from './native-profile-ownership.js';
+export {resourceCrudProbeIdentifier} from './native-profile-ownership.js';
 
 /** @typedef {import("playwright-core").Page} Page */
 /** @typedef {(command:string,args?:Record<string,any>)=>Promise<any>} NativeInvoke */
 /** @typedef {{page:Page,pid:number,output:string,invoke:NativeInvoke,requestNativeClose:(action?:()=>Promise<void>)=>Promise<any>,terminateParent:()=>Promise<{pid:number,exit:any}>}} ScenarioContext */
 export const probeIdentifier = "app.insomnium.probe.checkout20260929";
+/** @param {string} actual @param {string} [expected] */
+export function assertNativeProbeIdentity(actual,expected=probeIdentifier){
+  assert.ok([probeIdentifier,resourceCrudProbeIdentifier].includes(expected),'Refuse non-allowlisted expected probe identity');
+  assert.equal(actual,expected,'Refuse unexpected probe app identity');
+}
 
 /** Only launch the isolated artifact described by a successful build record.
  * No production executable, external browser session, shell, or Node worker. */
-/** @param {string} scenario @param {(context:ScenarioContext)=>Promise<void>} run @param {{allowParentTermination?:boolean,allowNativeClose?:boolean}} [options] */
+/** @param {string} scenario @param {(context:ScenarioContext)=>Promise<void>} run @param {{allowParentTermination?:boolean,allowNativeClose?:boolean,expectedIdentifier?:string,profileOwnershipPath?:string}} [options] */
 export async function withNativeApp(scenario, run, options = {}) {
   const buildPath =
     process.env.INSOMNIUM_UI_BUILD_STATE ||
@@ -20,11 +27,8 @@ export async function withNativeApp(scenario, run, options = {}) {
   const build = JSON.parse(await readFile(buildPath, "utf8"));
   assert.equal(build.status, "finished", "Native build must finish first");
   assert.equal(build.result?.code, 0, "Native build failed");
-  assert.equal(
-    build.identifier,
-    probeIdentifier,
-    "Refuse non-probe app identity",
-  );
+  const expectedIdentifier=options.expectedIdentifier??probeIdentifier;
+  assertNativeProbeIdentity(build.identifier,expectedIdentifier);
   const exe = resolve(build.artifact);
   assert.ok(
     exe.startsWith(resolve("artifacts") + "\\"),
@@ -35,9 +39,10 @@ export async function withNativeApp(scenario, run, options = {}) {
     "Stale probe executable",
   );
   assert.ok(
-    (await readFile(exe)).includes(Buffer.from(probeIdentifier)),
+    (await readFile(exe)).includes(Buffer.from(expectedIdentifier)),
     "Probe identity missing",
   );
+  if(expectedIdentifier===resourceCrudProbeIdentifier){assert.ok(options.profileOwnershipPath,'CRUD probe requires owned new profile proof');await reserveCrudProfileLaunch(options.profileOwnershipPath,buildPath,exe);}
   const output = resolve("artifacts/playwright", scenario + "-" + Date.now());
   await mkdir(output, { recursive: true });
   const reservation = Bun.serve({
@@ -97,6 +102,10 @@ export async function withNativeApp(scenario, run, options = {}) {
     const activePage = page;
     page.setDefaultTimeout(15000);
     await page.locator(".app-shell").waitFor();
+    if(expectedIdentifier===resourceCrudProbeIdentifier){
+      const nativePath=await invoke(activePage,'plugin:path|resolve_directory',{directory:14,path:null});assert.equal(typeof nativePath,'string');
+      await bindCrudProfileLaunch(/** @type {string} */(options.profileOwnershipPath),/** @type {number} */(child.pid),nativePath);
+    }
     await run({
       page,
       pid: /** @type {number} */ (child.pid),
@@ -198,6 +207,9 @@ export async function withNativeApp(scenario, run, options = {}) {
       exit = await exited;
       error ||= "Probe required forced cleanup";
     }
+    if(expectedIdentifier===resourceCrudProbeIdentifier){
+      try{await recordCrudProfileExit(/** @type {string} */(options.profileOwnershipPath),/** @type {number} */(child.pid),exit);}catch(reason){error||='Owned CRUD exit proof failed: '+String(reason);}
+    }
     await browser?.close().catch(() => {});
     closeSync(fd);
     if (!intentionalParentTermination && exit.code !== 0)
@@ -214,6 +226,7 @@ export async function withNativeApp(scenario, run, options = {}) {
           pid: child.pid,
           exit,
           buildPath,
+          ...(expectedIdentifier===resourceCrudProbeIdentifier?{expectedIdentifier,profileOwnershipPath:options.profileOwnershipPath}:{}),
           intentionalParentTermination,
           nativeCloseRequested,
           renderingMode: "native-hidden",

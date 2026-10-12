@@ -1,0 +1,13 @@
+# Isolated native CRUD profile foundation
+
+2026-10-12. Saved native harness only; no product identity, backend, permission or dependency changes.
+
+`withNativeApp` retains the default exact `app.insomnium.probe.checkout20260929` identity. One explicit alternative, `app.insomnium.probe.resourcecrud20261012`, requires an external ownership record, an audited executable/build-record binding, an initially absent Windows KnownFolder profile, and the actual native app_data_dir before the scenario callback can mutate resources. The allowlist admits exactly these two identifiers; no arbitrary probe prefix or production identifier is allowed.
+
+The ownership helper gets Windows ApplicationData through .NET GetFolderPath, never an APPDATA override. It checks directory realpaths and rejects symbolic links. It creates its proof outside the profile and never recursively deletes/moves app_data_dir. First launch reserves an absent profile. A restart requires a recorded exit for the exact previously spawned PID; live/bound or exit-missing records refuse reuse. The native helper records that exit only after observing its child terminate. Host hiding before CDP and native-hidden output remain required.
+
+Root integration guarded the original native-app.js SHA256 `5ce9179543e8b23ec27c2d8b47eb4de2caf88eb88a305d14ccb8148b5d3bd9c4` and all three supplied file hashes before writing. Root `bun tests/ui/native-probe-identity-guards.js` passes17 checks with no native launch/profile mutation. Root `bun run check` session85268 exits0, zero errors/warnings. Agent independently passed the same guards, compiler32473/973a9a, provider16 and Event subclass4 regressions.
+
+The agent's original742-source CRUD candidate/prelaunch audit is immutable and **unlaunched**: executable `4e6c8099d8043b7f574c4434504ca2e0280bce492f1c73d962207964219719ac`, worker54e274cc,51 copied frontend inputs. Restart changes are a separate frozen test-harness supplement. The candidate contains the old Button whitespace defect exposed by native rename and cannot accept the eventual fixed UI. A fresh candidate and the full saved CRUD scenario, including actual native last-collection behavior, remain required. No native CRUD/profile restart/full migration acceptance is claimed here.
+
+References: [Tauri Path API](https://v2.tauri.app/reference/javascript/api/namespacepath/), [Rust PathResolver](https://docs.rs/tauri/latest/tauri/path/struct.PathResolver.html), [.NET GetFolderPath](https://learn.microsoft.com/en-us/dotnet/api/system.environment.getfolderpath). The native agent consulted official path documentation before implementation. Commands use Bun and Cargo only. Root handles are terminal. `/compact` is unavailable; STATUS records the explicit handoff.
