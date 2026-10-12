@@ -1,40 +1,25 @@
 import { resolve } from "node:path";
+import {elfAbi,elfInputs} from './linux-elf-inputs.mjs';
+import {inspectElfClosure} from './linux-elf-closure.mjs';
+export {elfAbi} from './linux-elf-inputs.mjs';
 
 // WebKit loads GLES with dlopen(), so ldd/linuxdeploy cannot discover it.
 // Match the built ELF rather than selecting the first host library.
-export async function elfAbi(path) {
-  const bytes = new Uint8Array(await Bun.file(path).slice(0, 20).arrayBuffer());
-  if (
-    bytes.length < 20 ||
-    bytes[0] !== 127 ||
-    bytes[1] !== 69 ||
-    bytes[2] !== 76 ||
-    bytes[3] !== 70 ||
-    ![1, 2].includes(bytes[4]) ||
-    ![1, 2].includes(bytes[5])
-  )
-    throw new Error("Not a supported ELF: " + path);
-  const machine = new DataView(bytes.buffer).getUint16(18, bytes[5] === 1);
-  return [bytes[4], bytes[5], machine].join(":");
-}
 
 export async function main(args = Bun.argv.slice(2)) {
   const [binaryArgument, outputArgument, ...extra] = args;
   if (
     process.platform !== "linux" ||
     !binaryArgument ||
-    !outputArgument ||
-    extra.length
+    !outputArgument
   ) {
     throw new Error(
-      "Usage (Linux): bun scripts/generate-appimage-config.mjs <built-ELF> <output.json>",
+      "Usage (Linux): bun scripts/generate-appimage-config.mjs <built-ELF> <output.json> [sidecar-ELF...]",
     );
   }
-  const binary = resolve(binaryArgument),
-    output = resolve(outputArgument);
-  if (binary === output)
-    throw new Error("Output must differ from the executable");
-  const abi = await elfAbi(binary);
+  const {binaries,output,abi}=await elfInputs(binaryArgument,outputArgument,extra);
+  const closure=await inspectElfClosure(binaries);
+  await Bun.write(output+'.dependencies.json',JSON.stringify(closure,null,2));
   const command = Bun.which("ldconfig") ?? "/sbin/ldconfig";
   const child = Bun.spawn([command, "-p"], { stdout: "pipe", stderr: "pipe" });
   const [stdout, stderr, code] = await Promise.all([

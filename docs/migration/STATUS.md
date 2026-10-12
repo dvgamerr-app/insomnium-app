@@ -1,3 +1,9 @@
+## Target-specific Spectral packaging integrated — 2026-10-12
+
+- Root independently rehashes82frozen files/prereqs/10guarded deltas. externalBin logical name and stricttarget build/dev/bundle hooks; producer before frontend, standalone bundle freshness identity check. Linux main+sidecar ABI/transitive dependency inspection preservesoriginal CLI/overlays/GLESnotice convention. CSP/appidentity/permissions unchanged by this topic.
+- Six SAMEartifact audit groups pass (Linuxmocked), actualrootWindows hook16806 exit0/sourceimmutable/standalonevalidation pass; compiler18732 0errors0warnings. Rootproducer stillbyteexact6231e95d/93486080bytes; ownworktree95d isseparate. Proof artifacts/spectral-packaging-root-proof/root-audit.json. No nativeapp/install/sign/update/Linux/mac acceptance.
+- Notices/runtimecoverage, actualcurrentTauriIPC/producer/UI/private/repository receipts/unobservedbirth/platform/fullmigration/SDK/Event/FIFO/deferredUX gates remain OPEN. ParentApiDesign3b84 uncommitted awaitingactualproducer savedUI; pendingstatus bug needsfixbeforefinalscenario. Allroot handles terminal; agentscontinue separateUI/receipt work. Topic commit pending. /compact unavailable; explicit handoff.
+
 ## Owned native Spectral job component integrated — 2026-10-12
 
 - Root independently rehashes10backend/26evidence inputs and guards existing native baseline. Closed RESERVE/RUN/CANCEL, immediate UUID/flags, active8/running2, idle30s expiry, bounded no-body tombstones, owned workers/watch completion, absolute15s budget, IO failure, atomic cancel/success settlement and exit ownership integrated. Windows original job8processes/512MiB unchanged; verified observed descendant process handles wait after accounting0. Sixteen bookkeeping entries support transient quota-refused objects without changing process quota.

@@ -1,6 +1,8 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import {validateSpectralArtifact} from './spectral-artifact.mjs';
+import {elfAbi} from './linux-elf-inputs.mjs';
 
 export function linuxOptions(args) {
   const bundleArgs = [];
@@ -193,6 +195,14 @@ export async function main(args = Bun.argv.slice(2)) {
     throw new Error(
       "Tauri did not report the built executable path; refusing stale packaging metadata",
     );
+  const sidecars=[];
+  if(config.bundle?.externalBin?.includes('binaries/spectral-linter')){
+    let target;
+    for(let i=0;i<options.bundleArgs.length;i++)if(['--target','-t'].includes(options.bundleArgs[i]))target=options.bundleArgs[i+1];
+    // The completed ELF, rather than the build host, selects cross-build ABI.
+    if(!target)target={'2:1:62':'x86_64-unknown-linux-gnu','2:1:183':'aarch64-unknown-linux-gnu'}[await elfAbi(binary)];
+    sidecars.push((await validateSpectralArtifact(target)).binary);
+  }
   const directory = await mkdtemp(join(tmpdir(), "insomnium-packaging-"));
   try {
     const overlay = join(directory, "dependencies.json");
@@ -203,6 +213,7 @@ export async function main(args = Bun.argv.slice(2)) {
         "scripts/generate-deb-config.mjs",
         binary,
         overlay,
+        ...sidecars,
       ]);
       generated = await Bun.file(overlay).json();
       const additional = config.bundle?.linux?.deb?.depends ?? [];
@@ -216,6 +227,7 @@ export async function main(args = Bun.argv.slice(2)) {
         "scripts/generate-rpm-config.mjs",
         binary,
         overlay,
+        ...sidecars,
       ]);
       generated = mergeConfig(generated, await Bun.file(overlay).json());
       const additional = config.bundle?.linux?.rpm?.depends ?? [];
@@ -230,6 +242,7 @@ export async function main(args = Bun.argv.slice(2)) {
         "scripts/generate-appimage-config.mjs",
         binary,
         appimageOverlay,
+        ...sidecars,
       ]);
       const appimage = await Bun.file(appimageOverlay).json();
       const customFiles = config.bundle?.linux?.appimage?.files ?? {};

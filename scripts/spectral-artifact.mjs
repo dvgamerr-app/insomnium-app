@@ -1,0 +1,25 @@
+import {resolve} from 'node:path';
+import {createHash} from 'node:crypto';
+const root=resolve(import.meta.dir,'..');
+const targets={
+ 'x86_64-pc-windows-msvc':'bun-windows-x64',
+ 'x86_64-unknown-linux-gnu':'bun-linux-x64-baseline',
+ 'aarch64-unknown-linux-gnu':'bun-linux-arm64',
+ 'x86_64-apple-darwin':'bun-darwin-x64',
+ 'aarch64-apple-darwin':'bun-darwin-arm64',
+};
+const inputs=['scripts/build-spectral-linter.mjs','tools/spectral-linter/build.mjs','tools/spectral-linter/host.js','tools/spectral-linter/protocol.js','tools/spectral-linter/package.json','tools/spectral-linter/bun.lock'];
+export function spectralPaths(target,projectRoot=root){
+ if(typeof target!=='string'||!Object.hasOwn(targets,target))throw Error('Unsupported or missing TAURI_ENV_TARGET_TRIPLE for Spectral packaging');
+ const filename='spectral-linter-'+target+(target.includes('windows')?'.exe':'');
+ const binary=resolve(projectRoot,'src-tauri/binaries',filename);
+ return {target,bunTarget:targets[target],binary,manifest:binary+'.manifest.json',provenance:binary+'.packaging.json'};
+}
+const sha256=bytes=>createHash('sha256').update(bytes).digest('hex');
+async function sourceIdentity(projectRoot){const rows=[];for(const path of inputs)rows.push({path,sha256:sha256(await Bun.file(resolve(projectRoot,path)).bytes())});return rows;}
+async function producerArtifact(target,projectRoot){const paths=spectralPaths(target,projectRoot),manifest=await Bun.file(paths.manifest).json(),bytes=await Bun.file(paths.binary).bytes(),lock=await Bun.file(resolve(projectRoot,'tools/spectral-linter/bun.lock')).bytes();
+ if(manifest.target!==target||manifest.bunTarget!==paths.bunTarget||manifest.bunVersion!==Bun.version||manifest.bytes!==bytes.length||manifest.sha256!==sha256(bytes)||manifest.lockSHA256!==sha256(lock))throw Error('Spectral producer artifact/provenance mismatch');
+ return {paths,manifest};
+}
+export async function recordSpectralBuild(target,projectRoot=root){const {paths,manifest}=await producerArtifact(target,projectRoot);await Bun.write(paths.provenance,JSON.stringify({target,binarySHA256:manifest.sha256,producerInputs:await sourceIdentity(projectRoot)},null,2));}
+export async function validateSpectralArtifact(target,projectRoot=root){const {paths,manifest}=await producerArtifact(target,projectRoot),stamp=await Bun.file(paths.provenance).json();if(stamp.target!==target||stamp.binarySHA256!==manifest.sha256||JSON.stringify(stamp.producerInputs)!==JSON.stringify(await sourceIdentity(projectRoot)))throw Error('Spectral artifact is stale; run the target-specific Tauri build hook before bundling');return paths;}

@@ -1,34 +1,23 @@
-import { resolve } from "node:path";
+import {elfInputs} from './linux-elf-inputs.mjs';
+import {inspectElfClosure} from './linux-elf-closure.mjs';
 
 // Run after the native build, before Tauri's bundle command. The ELF determines
 // architecture and symbol requirements; do not hardcode host-specific sonames.
-const [binaryArgument, outputArgument, ...extra] = Bun.argv.slice(2);
+export async function main(args=Bun.argv.slice(2)){
+const [binaryArgument, outputArgument, ...extra] = args;
 if (
   process.platform !== "linux" ||
   !binaryArgument ||
-  !outputArgument ||
-  extra.length
+  !outputArgument
 ) {
   throw new Error(
-    "Usage (Linux): bun scripts/generate-rpm-config.mjs <built-ELF> <output.json>",
+    "Usage (Linux): bun scripts/generate-rpm-config.mjs <built-ELF> <output.json> [sidecar-ELF...]",
   );
 }
-const binary = resolve(binaryArgument);
-const output = resolve(outputArgument);
-if (binary === output)
-  throw new Error("Output must differ from the executable");
-const magic = new Uint8Array(await Bun.file(binary).slice(0, 4).arrayBuffer());
-if (
-  magic.length !== 4 ||
-  magic[0] !== 0x7f ||
-  magic[1] !== 69 ||
-  magic[2] !== 76 ||
-  magic[3] !== 70
-) {
-  throw new Error("The input must be a built Linux ELF executable");
-}
+const {binaries,output}=await elfInputs(binaryArgument,outputArgument,extra);
+await Bun.write(output+'.dependencies.json',JSON.stringify(await inspectElfClosure(binaries),null,2));
 const rpmdeps = Bun.which("rpmdeps") ?? "/usr/lib/rpm/rpmdeps";
-const child = Bun.spawn([rpmdeps, "--requires", binary], {
+const child = Bun.spawn([rpmdeps, "--requires", ...binaries], {
   stdout: "pipe",
   stderr: "pipe",
 });
@@ -56,3 +45,5 @@ await Bun.write(
   JSON.stringify({ bundle: { linux: { rpm: { depends } } } }, null, 2) + "\n",
 );
 console.log("Wrote " + depends.length + " ELF requirements to " + output);
+}
+if(import.meta.main)await main();

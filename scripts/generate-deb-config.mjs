@@ -1,25 +1,22 @@
 import { copyFile, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { elfAbi } from "./generate-appimage-config.mjs";
+import { join } from "node:path";
+import { elfInputs } from "./linux-elf-inputs.mjs";
+import {inspectElfClosure} from './linux-elf-closure.mjs';
 
 export async function main(args = Bun.argv.slice(2)) {
   const [binaryArgument, outputArgument, ...extra] = args;
   if (
     process.platform !== "linux" ||
     !binaryArgument ||
-    !outputArgument ||
-    extra.length
+    !outputArgument
   ) {
     throw new Error(
-      "Usage (Debian/Ubuntu): bun scripts/generate-deb-config.mjs <built-ELF> <output.json>",
+      "Usage (Debian/Ubuntu): bun scripts/generate-deb-config.mjs <built-ELF> <output.json> [sidecar-ELF...]",
     );
   }
-  const binary = resolve(binaryArgument),
-    output = resolve(outputArgument);
-  if (binary === output)
-    throw new Error("Output must differ from the executable");
-  await elfAbi(binary);
+  const {binaries,output} = await elfInputs(binaryArgument,outputArgument,extra);
+  await Bun.write(output+'.dependencies.json',JSON.stringify(await inspectElfClosure(binaries),null,2));
   const command = Bun.which("dpkg-shlibdeps");
   if (!command) throw new Error("Install dpkg-dev before Debian packaging");
   const directory = await mkdtemp(join(tmpdir(), "insomnium-shlibdeps-"));
@@ -33,11 +30,13 @@ export async function main(args = Bun.argv.slice(2)) {
     await mkdir(join(directory, "debian/insomnium/DEBIAN"), {
       recursive: true,
     });
-    const staged = join(directory, "debian/insomnium/usr/bin/insomnium");
-    await Bun.write(staged, "");
-    await copyFile(binary, staged);
+    const executableArgs=[];
+    for(const [index,binary] of binaries.entries()){
+      const relative="debian/insomnium/usr/bin/"+(index===0?"insomnium":"sidecar-"+index),staged=join(directory,relative);
+      await Bun.write(staged, "");await copyFile(binary, staged);executableArgs.push("-e"+relative);
+    }
     const child = Bun.spawn(
-      [command, "-O", "-edebian/insomnium/usr/bin/insomnium"],
+      [command, "-O", ...executableArgs],
       {
         cwd: directory,
         stdout: "pipe",
