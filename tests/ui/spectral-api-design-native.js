@@ -98,6 +98,9 @@ await withResourceProbePreserved(async () => {
         const layoutKeys = [
             "insomnium.requestResponseSplit.v1",
             "insomnium.apiSourcePreviewSplit.v1",
+            "nocturne:split:workspace-left",
+            "nocturne:split:request-response",
+            "nocturne:split:design",
           ],
           layout = await page.evaluate(
             (keys) =>

@@ -67,6 +67,15 @@ assert.ok(
 assert.ok(
   trace.includes("No rule edits until actual native process settlement"),
 );
+for (const key of [
+  "nocturne:split:workspace-left",
+  "nocturne:split:request-response",
+  "nocturne:split:design",
+])
+  assert.ok(
+    entry.includes('"' + key + '"'),
+    "Capture and finally restore actual SplitPane key " + key,
+  );
 const oracle = await Bun.file("tests/ui/helpers/spectral-api-design.js").text();
 assert.equal((oracle.match(/assert\.\w+\(/g) || []).length, 73);
 const output =
