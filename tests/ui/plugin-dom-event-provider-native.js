@@ -17,8 +17,10 @@ await withNativeApp('plugin-dom-event-production',async({page,output})=>{
  const call=(/** @type {string} */ method,/** @type {any[]} */ args=[])=>page.evaluate(({method,args})=>/** @type {any} */(window).__pluginDomRenderOwner[method](...args),{method,args});
  const checks=[],observations=/** @type {any[]} */([]);
  try{
-  if(process.env.INSOMNIUM_NATIVE_PROVIDER_PENDING==='1'){
-   const path='artifacts/native-provider-pending-current-20261012/native-provider-pending-fixture.js';await page.evaluate(await Bun.file(path).text());
+  if(['1','embedded'].includes(process.env.INSOMNIUM_NATIVE_PROVIDER_PENDING??'')){
+   const path=process.env.INSOMNIUM_NATIVE_PROVIDER_PENDING==='embedded'?'build/event-probe/native-provider-pending-fixture.js':'artifacts/native-provider-pending-current-20261012/native-provider-pending-fixture.js';
+   if(process.env.INSOMNIUM_NATIVE_PROVIDER_PENDING==='embedded'){assets[path]=hash(await Bun.file(path).bytes());const served=await page.evaluate(async()=>Array.from(new Uint8Array(await(await fetch('/event-probe/native-provider-pending-fixture.js')).arrayBuffer())));assert.equal(hash(Uint8Array.from(served)),assets[path]);}
+   await page.evaluate(await Bun.file(path).text());
    const pending=await page.evaluate(()=>/** @type {any} */(window).__nativeProviderPending.run());await Bun.write(output+'/native-provider-pending.json',JSON.stringify(pending,null,2));
    assert.equal(pending.aborted.length,10);assert.ok(pending.aborted.every((/** @type {any} */row)=>row.pendingBeforeAbort&&row.rejectedExactly&&!row.published));
    assert.ok(pending.aborted.every((/** @type {any} */row)=>row.activeAbortListeners===0),'Retired native owner must not retain the lease Abort listener');
