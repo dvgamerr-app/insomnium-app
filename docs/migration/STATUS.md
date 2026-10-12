@@ -1,3 +1,9 @@
+## Exact-version MIT gap audit integrated — 2026-10-13
+
+Root independently rehashes73 frozen inputs and verifies three tarball SHA512 against current lock/registry plus SHA1,19 tar headers/entry hashes,34 complete untruncated tree Git-object blobs and all exact version tags. Only AGENT-MIT-TEXT-GAPS.md adopted; no authentic corresponding full text found in examined published tarballs/source commits. tr46 unprefixed0.0.3 matchesa8009f, prefixed404 retained. Three full-text/copyright gaps remain unknown; no collector/product/dependency/native change or fabricated notices. Root proof artifacts/mit-text-gap-root-proof/root-audit.json; handles:none; topic commit pending. /compact unavailable, explicit handoff. Full notice/redistribution/platform/migration/UX remain OPEN.
+
+Structural V2 source-freeze3365976f/676 hashes and SAME32contracts independently pass root pre-review; initial review importer relative path failed then corrected to absolute fileURL, no source changes. Agent topic39e4ac4/audit91202664 now terminal: compiler0/0, schema83+32, fullUI61closed/7cancel54HTTPreads, baseline83analyses/46generations, budgets/build/original73assertions pass. Root guarded adoption/replay and freshnative still pending. shared_ui continues authorized EnvironmentName measurement-only; event_api audit terminal/no handles.
+
 ## Namespace Field validation and removal focus integrated — 2026-10-13
 
 Root independently verifies792 frozen agent inputs and11 exact guarded source/test paths plus report before integration. Namespace uses opt-in compact Field with6px gap/normal captions; default Field attribute/styles unchanged. Typed row errors retain original validation/messages/trimmed mappings, associate affected fields and clear corrected errors; callback refusals remain form-level. Keyboard removal focuses surviving same-index/previous Remove or Add. Original native assertions preserved; no native run claimed.

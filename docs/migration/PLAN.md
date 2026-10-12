@@ -1,3 +1,7 @@
+## Structural acceptance next after exact MIT gap audit — 2026-10-13
+
+Read-only authentic exact-version MIT examination accepted on root73input/3archiveintegrity/19header/34Gitblob/tag proof (artifacts/mit-text-gap-root-proof/root-audit.json); examined-source gaps retained, no collector adoption justified. Root next guards15 structural source/test deltas plus report from terminal39e4ac4/V2manifest91202664 against current root, preserves namespace/Resource/ownedPOST/foreignsentinel, repeats compiler/SAMEsaved schema+UI/build/equality/budgets/ranges. After product acceptance build fresh native generation and restore exclusive owned profile. shared_ui measures EnvironmentName before product changes. Keep all original parity/UX/fullnotice/repository/private/platform/distribution/SDK/Event/FIFO scope; topiccommit/STATUS/explicit compact-unavailable handoff per feature.
+
 ## Parallel assignments and acceptance order — 2026-10-13
 
 Owner's three agents plus root remain active in isolated worktrees. Each verified feature gets a topic commit and STATUS evidence/gates/process handles, then /compact or explicit unavailable handoff before the next feature. Saved browser Playwright uses launchUiBrowser headless:true without override; native owned host hides before CDP and is reported native-hidden. Bun-only tooling; preserve current Insomnium layout.
