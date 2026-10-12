@@ -9,6 +9,7 @@
   import TabList from "./ui/TabList.svelte";
   import TabButton from "./ui/TabButton.svelte";
   import Select from "./ui/Select.svelte";
+  import ResponseHistoryMenu from "./ResponseHistoryMenu.svelte";
   import Button from "./ui/Button.svelte";
   import Input from "./ui/Input.svelte";
   import ResponseNamespaces from "./ResponseNamespaces.svelte";
@@ -271,21 +272,11 @@
       >
     {:else}<span class="hint">Response</span>{/if}
     <span class="spacer"></span>
-    {#if history.length}<Select
-        class="history-select"
-        variant="history"
-        aria-label="Response history"
-        value={response?._id || ""}
-        onchange={(event) => {
-          const entry = history.find(
-            (h) => h._id === event.currentTarget.value,
-          );
-          if (entry) onhistory(entry);
-        }}
-        >{#each history as entry}<option value={entry._id}
-            >{new Date(entry.created).toLocaleTimeString()} · {entry.status}</option
-          >{/each}</Select
-      >{/if}
+    {#if history.length}<ResponseHistoryMenu
+        {history}
+        currentId={response?._id || ""}
+        onselect={onhistory}
+      />{/if}
   </div>
   <TabList
     panelId="response-view-panel"

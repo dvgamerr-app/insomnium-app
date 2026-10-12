@@ -12,6 +12,7 @@
 @import "features/graphql.css";
 @import "features/key-value.css";
 @import "features/response.css";
+@import "features/response-history.css";
 @import "features/environments.css";
 @import "features/resources.css";
 @import "feedback.css";
