@@ -1,0 +1,13 @@
+# Current native structural source-range acceptance
+
+2026-10-13. Fresh root product generation after Environment c54efd4 and source ranges18cb285, native adaptersceb72ee. This is actual compiled ApiDesign component and real Rust IPC/registered repository/packaged sidecar acceptance, not full production shell or complete migration.
+
+Fresh locked Windows release25960 exits0 in7m07s. App SHA256 bf5e866ccf306cfee3f0c365d1e35a1448cbbd26c4f4e8fb0a115cbac3dda3c3; adjacent sidecar f5690ce1dc4136c9604964cdf2b2e490442581437db453b14c1f340c2a8d962a. Independent990source inputs include all four local Cargo patches, native icons, permissions, raw notice candidate inputs and generated validators/Buffer;52frontend/fixture/worker assets bind actual compiled generation. Producer→notices→provenance→frontend hook and saved native fixture/worker run before Cargo. Original historical a00/d478 proofs untouched.
+
+Saved native-hidden26453 exits0, owned host hidden before CDP and physically exits0. Original48jobs/7entered cancellations/12externalprofiles/36HTTPreads/73oracle checkpoint passes before additive12structural profiles+unknown13jobs/18reads; total61realRustjobs/54reads. Every producer physically observed and settled, cancellations publish no result. Capacity41/attached precedence retained. Trusted Enter selects full BOM/CRLF/astral raw main/foreign ranges with focus, foreign readonly, resources/history unchanged; unknown origin disabled. Same-task stale workspace control is explicitly synthetic wiring, not trusted native admission;760 width is CDP CSS viewport, not physical host width. Browser fallback/parser controls remain separate headless evidence.
+
+Full original43resources/20history/two workspace buffers/store/654cookies/Git directory set/layout restored. Registered initially absent repository archived and individually retired after exact host exit, no recursive deletion; exclusive profile claim released. Root independently checks all source/asset/exe/sidecar/harness/output/process/HTTP/restoration bytes in artifacts/spectral-native-structural-root-candidate/root-audit.json. No live handles/profile claim.
+
+Current native Environment/namespace/Resource full workflows and assistive technology, consumed repository-read receipts/generation/inflight ABA, full production shell, hard filesystem/unobserved process birth/restart/platform/private/distribution/signing/install/updater/notice coverage, SDK/Event/FIFO and every original migration/shared UI/UX requirement remain open. Shipping new code in this executable is not proof those other workflows passed. Source/file snapshots and passed tests are bounded evidence only.
+
+Topic checkpoint recorded in STATUS. Interface cannot invoke /compact; explicit handoff, no compaction claimed.

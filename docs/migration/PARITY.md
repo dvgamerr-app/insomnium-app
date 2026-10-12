@@ -1,3 +1,7 @@
+## Actual current native structural component boundary — 2026-10-13
+
+Fresh locked990input/52asset/appbf5e866ccf30+f569 saved native-hidden26453 proves original48 checkpoint then61realRustjobs/7entered physical cancels/54HTTPreads/12structural profiles/full raw range navigation/readonly/focus/unknown, original43resources20history/two buffers/store/654cookies/Git/layout and managedrepo archival/retirement restored (artifacts/spectral-native-structural-root-candidate/root-audit.json). This supersedes pending-current-native wording for ApiDesign structural component only. Full production shell/current other UI workflows/AT/consumedread-generation-ABA/hardFS/birth/restart/private/platform/distribution/SDK/Event/FIFO/fullnotice/migration/UX remain OPEN. No broad or historicalgeneration relabeling.
+
 ## Current Environment Name association boundary — 2026-10-13
 
 Name-only localField.error/explicit label/correction/modal lifecycle now validated on current root; JSON-first and unrelatedglobal feedback unchanged. Root732agent/3rawguards/compiler0/0/build/SAMEtemplate+Name/sixprofiles12JSONrefusals/exactcontrols/colors/captioncolors/fullDialog/708sourcefreeze/49assets pass (artifacts/environment-name-root-proof/root-audit.json); only approved captionweight500. Browser storage/component proof does not prove currentnative persistence/AT/platform or full migration/UX. Original all repository/private/distribution/SDK/Event/FIFO/native/fullnotice/UX gates remain OPEN.
