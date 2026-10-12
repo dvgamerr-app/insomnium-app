@@ -2,20 +2,65 @@
   import ApiDesign from "../../../src/lib/components/ApiDesign.svelte";
   import Button from "../../../src/lib/components/ui/Button.svelte";
   import { workspace } from "../../../src/lib/workspace.svelte.js";
+  import {
+    structuralFiles,
+    structuralSource,
+  } from "../helpers/structural-source-fixture.js";
 
   const native = /** @type {any} */ (window).__spectralNativeSeed;
-  if (!native?.saved || !native?.fixture) throw new Error("Native saved seed required");
-  let workspaceId = $state(native.fixture.workspaceId), shown = $state(true);
-  const specId = native.fixture.specId, otherWorkspace = native.fixture.otherWorkspaceId;
+  if (!native?.saved || !native?.fixture)
+    throw new Error("Native saved seed required");
+  let workspaceId = $state(native.fixture.workspaceId),
+    shown = $state(true);
+  const specId = native.fixture.specId,
+    otherWorkspace = native.fixture.otherWorkspaceId;
   function seed(repository = false) {
     workspaceId = native.fixture.workspaceId;
     workspace.data = structuredClone(native.saved);
-    if (!repository) workspace.data.resources = workspace.data.resources.filter((row) => row._id !== native.fixture.repositoryId);
+    if (!repository)
+      workspace.data.resources = workspace.data.resources.filter(
+        (row) => row._id !== native.fixture.repositoryId,
+      );
     workspace.data.activeWorkspaceId = workspaceId;
     workspace.ready = true;
     shown = true;
   }
   seed();
+  function structural(remote = false) {
+    seed(true);
+    const spec = current();
+    if (!spec) return;
+    spec.contents = structuralSource(
+      remote ? native.referenceOrigin + "/references/" : "../",
+    );
+    spec.files = remote
+      ? []
+      : Object.entries(structuralFiles).map(([name, contents]) => ({
+          name: "../" + name,
+          contents,
+        }));
+  }
+  function ambiguous() {
+    seed(true);
+    const spec = current();
+    if (!spec) return;
+    spec.files = [];
+    spec.contents = JSON.stringify(
+      {
+        openapi: "3.1.0",
+        info: { title: "Unknown origin", version: "1" },
+        paths: {},
+        components: {
+          schemas: {
+            A: { $id: "memory:///collision", type: "string" },
+            B: { $id: "memory:///collision", type: "string" },
+          },
+        },
+      },
+      null,
+      2,
+    );
+  }
   function current() {
     return workspace.data.resources.find((r) => r._id === specId);
   }
@@ -85,6 +130,9 @@
 </script>
 
 <div class="fixture-controls">
+  <Button onclick={() => structural(false)}>Structural attached fixture</Button>
+  <Button onclick={() => structural(true)}>Structural HTTP fixture</Button>
+  <Button onclick={ambiguous}>Structural ambiguous fixture</Button>
   <Button onclick={attachedPrecedence}>Attached precedence fixture</Button>
   <Button onclick={manyExternal}>External capacity fixture</Button>
   <Button onclick={() => external(false)}>External repository fixture</Button>
@@ -150,4 +198,3 @@
     padding: var(--space-16);
   }
 </style>
-

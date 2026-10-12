@@ -1,3 +1,9 @@
+## Native adapter checkpoint; fresh product generation next — 2026-10-13
+
+Six test-only native structural adapter paths accepted with747agent outputs/10baseline/18+9guards/currentcompiler0/0/headless61closed7cancel54reads/nativefixturecompile/707sourcefreeze (artifacts/native-structural-root-proof/root-audit.json). Preserve original48/7/12/36 and whole73oracle checkpoint, then additive13jobs18reads/physicalall61. Native execution remains unproved; browserfallback stays preview-only.
+
+Next root adopts terminal EnvironmentName Name-only Field.error/correction after exact guarded source/geometry/data/template replay, commits separately and records handoff. Then refresh current compiler/source receipt and use NEW structuralnative wrapper to produce exact current exe/frontend/worker/fixture/adjacentf569/currentnotice/source closure with vendor/icons captured. Exclusive saved native-hidden run must prove original48 then61/54, physical alljobs, buffers/store/allcookies/Git/layout restoration and ownedrepo retirement afterhostexit. Keep namespace/Resource/currentfullproductionUI/AT/platform, all original migration/UX/repository/private/distribution/SDK/Event/FIFO/fullnotice scope; no historical a00 relabel. Topiccommit/STATUS/compact-unavailable handoff per feature.
+
 ## Current structural acceptance and next native/UI gates — 2026-10-13
 
 Source-aware full ranges accepted on current root676agent/808outputs/15baseline guards, compiler0/0,706frozen rootinputs/SAMEschema83+32/serialized/fullUI61closed7cancel54reads/build0, fulloriginal73body/equality83analyses46Generate/near8MiB (artifacts/structural-source-range-root-proof/root-audit.json). Public aliases/Boolean origins/wideV8 correction are included, unknown stays unknown. No broad completion claim.

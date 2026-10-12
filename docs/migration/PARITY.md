@@ -1,3 +1,7 @@
+## Native structural preparation boundary — 2026-10-13
+
+Current saved native adapter retains original48checkpoint and adds realRust structural navigation cases with explicit loopback/closedrepresentation/nativeIPC preserved; fresh native run still pending. Root747outputs/10baseline/6testpaths/compiler0/0/18+9guards/headless61/7/54/fixturecompile/707sourcefreeze audited (artifacts/native-structural-root-proof/root-audit.json), no app/profile/build launch. This proves preparation only; native physical settlement/full profile restoration/current product generation and every original migration/UX/parity gate remain OPEN.
+
 ## Current source-aware structural component boundary — 2026-10-13
 
 Current-root diagnostics now retain proven raw source/full AST ranges including known YAML anchors and actual restored Boolean target origins; metadata stripped before validators/schemaEvaluation/generation, iterative strip accepts measured wide browser input. Unknown/pathless/ambiguous sources stay unresolved. Root676/808handoff/15guards/compiler0/0/706sourcefreeze/SAMEschema83+32/serialized/fullheadless61jobs7cancel54reads/build/full73oracle/equality83analyses46Generate/near8MiB pass (artifacts/structural-source-range-root-proof/root-audit.json). Current native/Rust structural parent/worker integration, namespace/Resource persistence/AT, broader dialect/error classes and all original migration/UX/private/platform/distribution/notice/repository/SDK/Event/FIFO remain OPEN; no historical native relabeling.
