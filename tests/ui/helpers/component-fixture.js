@@ -36,7 +36,7 @@ export function createSvelteUiFixturePlugin() {
 
 /** Compile the real UI components into a saved, isolated contract fixture using Bun.
  * @param {string} name
- * @param {{minify?:boolean}} [options]
+ * @param {{minify?:boolean,plugins?:import('bun').BunPlugin[]}} [options]
  */
 export async function buildComponentFixture(name, options = {}) {
   const output = resolve("artifacts/playwright", name);
@@ -48,16 +48,17 @@ export async function buildComponentFixture(name, options = {}) {
     target: "browser",
     minify: options.minify ?? false,
     conditions: ["browser", "svelte"],
-    plugins: [createSvelteUiFixturePlugin()],
+    plugins: [...(options.plugins ?? []), createSvelteUiFixturePlugin()],
   });
   assert.equal(bundle.success, true, bundle.logs.map(String).join("\n"));
   return { output, root };
 }
 
 /** @param {string} name
- * @param {(page:import('playwright-core').Page, output:string)=>Promise<void>} run */
-export async function withComponentFixture(name, run) {
-  const { output, root } = await buildComponentFixture(name);
+ * @param {(page:import('playwright-core').Page, output:string)=>Promise<void>} run
+ * @param {{minify?:boolean,plugins?:import('bun').BunPlugin[]}} [options] */
+export async function withComponentFixture(name, run, options = {}) {
+  const { output, root } = await buildComponentFixture(name, options);
   const server = Bun.serve({
     hostname: "127.0.0.1",
     port: 0,
