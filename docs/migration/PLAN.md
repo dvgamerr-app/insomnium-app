@@ -1,3 +1,14 @@
+## Current parallel execution plan — 2026-10-13
+
+| Owner | Next concrete work | Acceptance boundary |
+| --- | --- | --- |
+| shared_ui | Multipart row-owned limit/read feedback, scope/callback classification and removal focus using measured existing Field composition | Isolated candidate; exact six-profile geometry, retained negative proofs and saved scenarios before root review |
+| native_provider | Held-rule A-to-B negative preparation with real SplitPane restoration keys | Test-only; retain original61 workflow and ownership guards; actual native negative waits exclusive root execution |
+| event_api | Native notice collector closed schema/fixture acceptance checklist | Documentation-only pending root review of original proposal; source corpus and actual target linkage remain distinct |
+| root | Audit frozen handoffs, integrate verified topics and run exclusive native acceptance | Serial source freezes, exact preservation, current app generation and separate topic commits |
+
+Each completed feature must record commit/evidence/remaining gates/live handles in STATUS and compact before the next feature. Interface lacks /compact, so provide explicit handoff and never claim compaction. Saved browser scenarios always use shared headless launchUiBrowser; native scenarios hide the owned host before CDP and report native-hidden. Native namespace current-layout-v3 is now accepted within its documented boundary. Preserve all original migration and subsequent UX scope.
+
 ## Next production workflow and repository/UI gates — 2026-10-13
 
 Fresh current native structural component accepted with990inputs/52assets/newappbf5e866ccf30/f569/build0/native-hidden26453 original48 then61/7/54/fullranges/physicalalljobs/fulloriginalrestoration (artifacts/spectral-native-structural-root-candidate/root-audit.json). Historical proof generations unchanged; full production shell/currentEnvironment/namespace/Resource workflows/AT/platform/distribution still unproved.

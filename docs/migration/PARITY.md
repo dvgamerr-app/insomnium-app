@@ -1,3 +1,7 @@
+## Current native namespace boundary — 2026-10-13
+
+Saved native-hidden90664 on unchanged bf5e/f569 closure independently passes namespace persistence/reload/clear/remove/isolation, three HTTP requests, twenty workers, fifteen refusals, six layouts and full profile/current SplitPane-key restoration (current-layout-v3/root-audit.json; NATIVE-NAMESPACE-ACCEPTANCE.md). Native field-association/focused-row-removal/AT remain unverified. Earlier542e177 and preservation-v2 layout proofs cover obsolete keys only; no current-key claim from those proofs. Full production shell, remaining native/platform/private/distribution/repository/SDK/Event/FIFO/notices/migration/UX remain open.
+
 ## Actual current native structural component boundary — 2026-10-13
 
 Fresh locked990input/52asset/appbf5e866ccf30+f569 saved native-hidden26453 proves original48 checkpoint then61realRustjobs/7entered physical cancels/54HTTPreads/12structural profiles/full raw range navigation/readonly/focus/unknown, original43resources20history/two buffers/store/654cookies/Git/layout and managedrepo archival/retirement restored (artifacts/spectral-native-structural-root-candidate/root-audit.json). This supersedes pending-current-native wording for ApiDesign structural component only. Full production shell/current other UI workflows/AT/consumedread-generation-ABA/hardFS/birth/restart/private/platform/distribution/SDK/Event/FIFO/fullnotice/migration/UX remain OPEN. No broad or historicalgeneration relabeling.

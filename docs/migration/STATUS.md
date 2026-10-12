@@ -1,3 +1,9 @@
+## Native namespace and parallel handoff — 2026-10-13
+
+Compiler66233 0/0; native-hidden90664 terminal0; independent current-layout-v3/root-audit.json verifies unchanged bf5e/f569/990sources/52assets, three HTTP requests/twenty workers/fifteen refusals/six layouts and full original profile restoration. Actual three nocturne:split keys plus two legacy keys captured/restored. Prior542e177 and preservation-v2 layout guards cover legacy keys only; current-key claim corrected, original evidence retained. First44479 pre-save failure retained. See NATIVE-NAMESPACE-ACCEPTANCE.md. No root live handles/profile claim.
+
+Goal workflow includes verified topic commits and a STATUS evidence/gates/process handoff after every feature. /compact cannot be invoked by this interface; explicit handoff provided before further feature work. Three existing agents reactivated in isolated worktrees: shared_ui multipart correction, native_provider held-rule preparation with actual layout keys, event_api documentation-only native collector acceptance checklist. Root independently reviews frozen baselines/evidence and integrates serially; only root may own native profile. All original migration/UX/parity gates remain open.
+
 ## Fresh native structural component accepted — 2026-10-13
 
 New locked release25960 terminal0 in7m07s captures990inputs including all localCargo patches/vendor icons/current permissions/generatedmodules/currentnotice candidates;52assets/nativefixture/exactworker/appbf5e866ccf30+adjacentf569. Complete closure independently rehashed/current source unchanged; actual producer→notice→provenance→frontend hook valid. Old a00/d478 proofs untouched.

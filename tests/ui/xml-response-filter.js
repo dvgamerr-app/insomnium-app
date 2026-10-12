@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { withNativeApp, poll } from "./helpers/native-app.js";
+import { withResourceProbePreserved, registerResourceProbeCollection } from "./helpers/resource-manager-cases.js";
 if (process.argv.includes("--namespace-component")) {
   const { withComponentFixture } = await import("./helpers/component-fixture.js");
   const { measureNamespaceComponent } = await import("./helpers/xml-response-namespaces.js");
@@ -40,9 +41,13 @@ const server = Bun.serve({
   },
 });
 try {
+  await withResourceProbePreserved(async () => {
   await withNativeApp(
     "xml-response-filter",
     async ({ page, invoke, output }) => {
+      const layoutKeys = ["nocturne:split:workspace-left", "nocturne:split:request-response", "nocturne:split:design", "insomnium.requestResponseSplit.v1", "insomnium.apiSourcePreviewSplit.v1"];
+      const layout = await page.evaluate(keys => Object.fromEntries(keys.map(key => [key, localStorage.getItem(key)])), layoutKeys);
+      try {
       page.setDefaultTimeout(60000);
       const suffix = Date.now(),
         workspaceId = "wrk_xrf_" + suffix,
@@ -75,6 +80,7 @@ try {
       data.activeRequestId = requestId;
       data.activeEnvironmentId = "";
       data.openTabs = [requestId];
+      registerResourceProbeCollection(workspaceId, "XML response " + suffix);
       await invoke("save_workspace", { data });
       await page.reload();
       const pane = page.getByRole("region", { name: "Response", exact: true });
@@ -579,8 +585,15 @@ try {
           2,
         ),
       );
+      } finally {
+        const after = await page.evaluate(keys => Object.fromEntries(keys.map(key => [key, localStorage.getItem(key)])), layoutKeys);
+        await page.evaluate(values => { for (const [key,value] of Object.entries(values)) { if (value === null) localStorage.removeItem(key); else localStorage.setItem(key,value); } },layout);
+        assert.deepEqual(await page.evaluate(keys => Object.fromEntries(keys.map(key => [key, localStorage.getItem(key)])),layoutKeys),layout);
+        await Bun.write(output + "/xml-layout-restoration.json", JSON.stringify({passed:true,layout,after,currentKeys:layoutKeys.slice(0,3),legacyKeys:layoutKeys.slice(3)},null,2));
+      }
     },
   );
+  });
 } finally {
   server.stop(true);
 }
