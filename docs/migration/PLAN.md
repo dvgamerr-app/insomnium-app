@@ -1,3 +1,18 @@
+## Parallel execution — owner instruction 2026-10-12
+
+Owner explicitly authorizes agents to accelerate the remaining migration and UI work. Four lanes run against the same captured working-tree baseline, in isolated worktrees:
+
+| Lane | Owner | Deliverable | Integration gate |
+| --- | --- | --- | --- |
+| Event interfaces | event-api agent | Browser-compatible Event subclasses and owned event serialization; saved differential scenarios | Actual production worker, browser oracle, existing Event regressions |
+| Native cancellation | native-provider agent | Prompt native endpoint Abort/late-result and renewal fix; investigate the held synchronous cancellation gate without weakening assertions | Original terminal-owner scenario, native-hidden acceptance where applicable |
+| Shared UI/CSS | shared-ui agent | One concrete shared-input adoption/ownership fix selected from the UI debt inventory, preserving current layout | Existing relevant saved UI scenario, keyboard/theme checks and compiler/build |
+| Integration and lifecycle | root | Finish listener lifecycle evidence, review and integrate isolated deltas, run cross-lane regressions | Full original parity scope remains active; fresh native acceptance before claiming full Event completion |
+
+Each agent reads applicable AGENTS/CLAUDE instructions and migration docs. Dependencies and legacy reference may be shared read-only; source, builds and artifacts are isolated. Agent handoffs include changed files relative to the captured baseline, evidence, unresolved gates and process handles. Agents do not stage pre-existing baseline work. Root commits verified features separately by topic after integration; no bulk commit of unrelated work.
+
+No source edits during a lane's live compiler/build/scenario. Integration waits for that lane's source freeze to end. Shared instructions and STATUS/PLAN/PARITY are coordinated by root; agents write separate lane reports. After each completed feature, record commit/evidence/gates/handles in STATUS and invoke `/compact` if supported; this interface cannot invoke it and must provide an explicit handoff. Historical evidence remains immutable. Headless browser scenarios use launchUiBrowser; native hosts are hidden before CDP and reported native-hidden. Bun-only and no browser-use remain mandatory.
+
 # Insomnium → Tauri migration
 
 2026-10-12 owned HTMLElement.dataset/DOMStringMap slice accepted:18browser groups/23headless checks/CommonJS+ES/captured definitions/receiver reflection/retained host+guest mutation/detached async cleanup/eight graph refusals/8MiBquota atomicity,108regressions/compiler0errors/0warnings/build0 and632positive/three627negative/690source audits pass. Fresh native1b697418 accepts75checks/26terminated workers/107HTTP plus gRPC/reflection/WS/SSE, two dataset Send/oracle cases/retained/cleanup plus original tokens/collections/12terminal cases;690source/49frontend/exe/workers/two-buffer/store/653cookie audits pass. Two quota failures preserved; saved cases split without dropping assertions or increasing quota. Full DOM/event/private/clipboard/platform/provider/all migration and shared-input UX/UI/CSS remain required. STATUS/PLUGIN-DOM-DATASET.md records evidence and unavailable /compact handoff.
