@@ -531,9 +531,9 @@ export function createPluginGuestDom(call,retain,now) {
     dispatchEvent(event){
       if(!ids.has(this))throw new TypeError('Illegal EventTarget invocation');
       const data=eventState(event);if(data.dispatching||data.active)throw new DOMException('Event is already being dispatched','InvalidStateError');
-      const id=++syntheticSequence,packet=/** @type {Record<string,any>} */ ({syntheticId:id,interface:['PointerEvent','MouseEvent','KeyboardEvent','CustomEvent','UIEvent'].find(name=>data.brands?.includes(name))||'Event',type:data.type,bubbles:data.bubbles,cancelable:data.cancelable,composed:data.composed,defaultPrevented:data.prevented,stopped:data.stopped,immediate:data.immediate,viewOwned:data.view===guestWindow});
+      const id=++syntheticSequence,packet=/** @type {Record<string,any>} */ ({syntheticId:id,interface:['PointerEvent','MouseEvent','KeyboardEvent','FocusEvent','InputEvent','CustomEvent','UIEvent'].find(name=>data.brands?.includes(name))||'Event',type:data.type,bubbles:data.bubbles,cancelable:data.cancelable,composed:data.composed,defaultPrevented:data.prevented,stopped:data.stopped,immediate:data.immediate,viewOwned:data.view===guestWindow});
       // Never serialize CustomEvent.detail: it can contain VM-local functions/cycles.
-      for(const kind of ['UIEvent','MouseEvent','KeyboardEvent','PointerEvent'])if(data.brands?.includes(kind))for(const key of Object.keys(fields[kind]))if(key!=='view'&&key!=='relatedTarget')packet[key]=data[key];
+      for(const kind of ['UIEvent','MouseEvent','KeyboardEvent','PointerEvent','FocusEvent','InputEvent'])if(data.brands?.includes(kind))for(const key of Object.keys(fields[kind]))if(key!=='view'&&key!=='relatedTarget')packet[key]=data[key];
       if(data.relatedTarget)packet.relatedTarget=idOf(data.relatedTarget);
       syntheticEvents.set(id,event);data.dispatching=true;
       try{const result=call('dom.dispatch',[idOf(this),packet]);data.target=this;data.trusted=false;data.prevented=result.defaultPrevented;return result.result;}

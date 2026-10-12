@@ -165,8 +165,9 @@ export function createPluginDomBridge(owner) {
       if(method==='dom.dispatch'){
         if(cleanup||closing)throw Error('Plugin DOM cleanup cannot dispatch events');
         if(args.length!==2||!args[1]||typeof args[1]!=='object')throw Error('Invalid owned synthetic Event');
-        const packet=args[1],constructors=/** @type {Record<string,any>} */ ({Event,UIEvent,MouseEvent,KeyboardEvent,PointerEvent,CustomEvent});
+        const packet=args[1],constructors=/** @type {Record<string,any>} */ ({Event,UIEvent,MouseEvent,KeyboardEvent,PointerEvent,FocusEvent,InputEvent,CustomEvent});
         if(!Number.isSafeInteger(packet.syntheticId)||packet.syntheticId<=0||typeof packet.type!=='string'||packet.type.length>1024||!Object.hasOwn(constructors,packet.interface)||!['bubbles','cancelable','composed','defaultPrevented','stopped','immediate','viewOwned'].every(key=>typeof packet[key]==='boolean'))throw Error('Invalid owned synthetic Event');
+        if(packet.interface==='InputEvent'&&(!(packet.data===null||typeof packet.data==='string')||typeof packet.inputType!=='string'||typeof packet.isComposing!=='boolean'||packet.dataTransfer!==null||packet.targetRanges!==undefined))throw Error('Invalid owned synthetic InputEvent');
         charge(JSON.stringify(packet));const init={...packet,view:packet.viewOwned?target.ownerDocument.defaultView:null,relatedTarget:packet.relatedTarget===undefined?null:node(packet.relatedTarget)};
         delete init.syntheticId;delete init.interface;delete init.type;
         const event=new constructors[packet.interface](packet.type,init);syntheticTokens.set(event,packet.syntheticId);

@@ -1,3 +1,16 @@
+## Current parallel execution and integration order — 2026-10-12
+
+Owner-authorized agents work in isolated worktrees. Current verified baseline includes native collapse/actions1d46ebc and owned Focus/Input constructorsbf77519; owned synthetic Focus/Input now passes99 current-root groups. Full original migration scope is retained.
+
+| Lane | Agent | Current responsibility | Next gate |
+| --- | --- | --- | --- |
+| Event API | event_api | Owned Focus/Input synthetic delivery; review next full Event/FIFO work | Root guarded integration and99-group replay; provider/protocol flagged work stays read-only pending reviewed architecture |
+| Native Tauri | native_provider | Prepare fresh final-HEAD constructor/synthetic/GraphQL acceptance | Wait for both product topics committed, then capture exact source/assets/executable and run saved native-hidden scenarios with exclusive profile claim and exact restoration |
+| Shared UI | shared_ui | GraphQL caret clipping fix and responsive resize evidence | Integrate only3 guarded CSS/test paths, preserve newer Event runtime, rerun saved workspace/theme; next measure actual API/Test content/scroll/caret before choosing changes |
+| Integration | root | Audit deltas, compiler/build/scenarios, topic commits and remaining subsystem architecture | Update STATUS with commit/evidence/open gates/live handles after each feature; explicit handoff because /compact is unavailable |
+
+Saved browser scenarios always use shared launchUiBrowser with headless:true and no headed override. Native hosts hide before CDP and report native-hidden. Bun only. All immutable negative proofs and unrelated WIP remain preserved. Commit by topic after verification. Broader UX follows migration; no full completion until all parity requirements are verified or explicitly removed by owner.
+
 ## Parallel execution — owner instruction 2026-10-12
 
 Current root a97dfcd integrates verified native-heavy3dc6bdd, collectionhover549ed54 and captured-drag collapsea97dfcd. Full migration and later broader UX retain all original requirements. Isolated worktrees keep mutable compiler/build/scenario inputs separate.
