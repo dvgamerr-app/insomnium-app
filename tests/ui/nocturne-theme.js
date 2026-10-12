@@ -1,8 +1,15 @@
+import {
+  startLintTooltipDiagnostics,
+  saveLintTooltipFailure,
+  stopLintTooltipDiagnostics,
+} from "./helpers/lint-tooltip-diagnostics.js";
+import { exerciseLintTooltipOwnership } from "./helpers/lint-tooltip-cases.js";
 import { assertFilledForeground } from "./helpers/filled-foreground.js";
 import { assertGraphqlSegmented } from "./helpers/graphql-segmented.js";
 import { assertSelectGeometry } from "./helpers/select-geometry.js";
 import assert from "node:assert/strict";
-import { withPreview } from "./helpers/preview-app.js";
+import { withLintThemePreview as withPreview } from "./helpers/lint-theme-preview.js";
+import { withComponentFixture } from "./helpers/component-fixture.js";
 import { assertDialogTokens } from "./helpers/dialog-theme.js";
 import { assertSvgDropdowns, assertControlHover } from "./helpers/select.js";
 import {
@@ -320,76 +327,103 @@ await withPreview("nocturne-theme", async (page, output) => {
       output + "/graphql-segmented.json",
       JSON.stringify(graphqlSegmented, null, 2),
     );
-    await page
-      .locator(".CodeMirror")
-      .first()
-      .evaluate((el) => /** @type {any} */ (el).CodeMirror.setValue("query {"));
-    await page.locator(".CodeMirror-lint-marker-error").first().hover();
-    await page.locator(".CodeMirror-lint-tooltip[style*=\"opacity: 1\"]").waitFor();
-    await page.waitForFunction(() => {
-      const tooltip = document.querySelector(".CodeMirror-lint-tooltip[style*=\"opacity: 1\"]");
-      return tooltip && getComputedStyle(tooltip).opacity === "1";
-    });
-    assert.equal(
-      await page
-        .locator(".CodeMirror-lint-tooltip[style*=\"opacity: 1\"]")
-        .evaluate((el) => getComputedStyle(el).backgroundColor),
-      theme === "dark" ? "rgb(38, 38, 38)" : "rgb(243, 244, 246)",
-    );
-    await page.screenshot({ path: output + "/" + theme + "-syntax-error.png" });
-    const editorMetrics = await page
-      .locator(".CodeMirror")
-      .first()
-      .evaluate((el) => ({
-        font: getComputedStyle(el).fontSize,
-        line: getComputedStyle(el).lineHeight,
-      }));
-    assert.equal(editorMetrics.font, "12px");
-    assert.equal(editorMetrics.line, "19.2px");
-    const lintMetrics = await page
-      .locator(".CodeMirror-lint-tooltip[style*=\"opacity: 1\"]")
-      .evaluate((el) => ({
-        font: getComputedStyle(el).fontSize,
-        shadow: getComputedStyle(el).boxShadow,
-      }));
-    assert.equal(lintMetrics.font, "12px");
-    assert.equal(lintMetrics.shadow, "rgba(0, 0, 0, 0.333) 0px 4px 18px 0px");
+    await startLintTooltipDiagnostics(page);
     try {
-      await page.evaluate(() => {
-        document.documentElement.style.setProperty("--font-size-12", "14px");
-        document.documentElement.style.setProperty(
-          "--editor-popup-shadow",
-          "0px 2px 6px rgb(1, 2, 3)",
+      await page
+        .locator(".CodeMirror")
+        .first()
+        .evaluate((el) =>
+          /** @type {any} */ (el).CodeMirror.setValue("query {"),
         );
+      await page.locator(".CodeMirror-lint-marker-error").first().hover();
+      await page
+        .locator('.CodeMirror-lint-tooltip[style*="opacity: 1"]')
+        .waitFor();
+      await page.waitForFunction(() => {
+        const tooltip = document.querySelector(
+          '.CodeMirror-lint-tooltip[style*="opacity: 1"]',
+        );
+        return tooltip && getComputedStyle(tooltip).opacity === "1";
       });
       assert.equal(
         await page
-          .locator(".CodeMirror")
-          .first()
-          .evaluate((el) => getComputedStyle(el).fontSize),
-        "14px",
-        "Editor must follow shared typography",
+          .locator('.CodeMirror-lint-tooltip[style*="opacity: 1"]')
+          .evaluate((el) => getComputedStyle(el).backgroundColor),
+        theme === "dark" ? "rgb(38, 38, 38)" : "rgb(243, 244, 246)",
       );
-      assert.equal(
-        await page
-          .locator(".CodeMirror-lint-tooltip[style*=\"opacity: 1\"]")
-          .evaluate((el) => getComputedStyle(el).fontSize),
-        "14px",
-        "Lint must follow shared typography",
-      );
-      assert.equal(
-        await page
-          .locator(".CodeMirror-lint-tooltip[style*=\"opacity: 1\"]")
-          .evaluate((el) => getComputedStyle(el).boxShadow),
-        "rgb(1, 2, 3) 0px 2px 6px 0px",
-        "Lint must follow popup shadow token",
-      );
+      await page.screenshot({
+        path: output + "/" + theme + "-syntax-error.png",
+      });
+      const editorMetrics = await page
+        .locator(".CodeMirror")
+        .first()
+        .evaluate((el) => ({
+          font: getComputedStyle(el).fontSize,
+          line: getComputedStyle(el).lineHeight,
+        }));
+      assert.equal(editorMetrics.font, "12px");
+      assert.equal(editorMetrics.line, "19.2px");
+      const lintMetrics = await page
+        .locator('.CodeMirror-lint-tooltip[style*="opacity: 1"]')
+        .evaluate((el) => ({
+          font: getComputedStyle(el).fontSize,
+          shadow: getComputedStyle(el).boxShadow,
+        }));
+      assert.equal(lintMetrics.font, "12px");
+      assert.equal(lintMetrics.shadow, "rgba(0, 0, 0, 0.333) 0px 4px 18px 0px");
+      try {
+        await page.evaluate(() => {
+          document.documentElement.style.setProperty("--font-size-12", "14px");
+          document.documentElement.style.setProperty(
+            "--editor-popup-shadow",
+            "0px 2px 6px rgb(1, 2, 3)",
+          );
+        });
+        await page.evaluate(
+          () =>
+            new Promise((resolve) =>
+              requestAnimationFrame(() =>
+                requestAnimationFrame(() => resolve(undefined)),
+              ),
+            ),
+        );
+        assert.equal(
+          await page
+            .locator(".CodeMirror")
+            .first()
+            .evaluate((el) => getComputedStyle(el).fontSize),
+          "14px",
+          "Editor must follow shared typography",
+        );
+        assert.equal(
+          await page
+            .locator('.CodeMirror-lint-tooltip[style*="opacity: 1"]')
+            .evaluate((el) => getComputedStyle(el).fontSize),
+          "14px",
+          "Lint must follow shared typography",
+        );
+        assert.equal(
+          await page
+            .locator('.CodeMirror-lint-tooltip[style*="opacity: 1"]')
+            .evaluate((el) => getComputedStyle(el).boxShadow),
+          "rgb(1, 2, 3) 0px 2px 6px 0px",
+          "Lint must follow popup shadow token",
+        );
+      } finally {
+        await page.evaluate(() => {
+          document.documentElement.style.removeProperty("--font-size-12");
+          document.documentElement.style.removeProperty(
+            "--editor-popup-shadow",
+          );
+        });
+      }
+    } catch (error) {
+      await saveLintTooltipFailure(page, output, error);
+      throw error;
     } finally {
-      await page.evaluate(() => {
-        document.documentElement.style.removeProperty("--font-size-12");
-        document.documentElement.style.removeProperty("--editor-popup-shadow");
-      });
+      await stopLintTooltipDiagnostics(page);
     }
+    await exerciseLintTooltipOwnership(page, output, theme);
     await page
       .locator(".CodeMirror")
       .first()
@@ -933,3 +967,18 @@ await withPreview("nocturne-theme", async (page, output) => {
     ),
   );
 });
+
+if (!process.env.INSOMNIUM_UI_THEME_DEV) {
+  await withComponentFixture("lint-tooltip", async (page, output) => {
+    await page.locator(".CodeMirror").first().waitFor();
+    await exerciseLintTooltipOwnership(page, output, "bun-fixture");
+    await Bun.write(
+      output + "/result.json",
+      JSON.stringify({
+        passed: true,
+        patchPath: "Bun Svelte fixture",
+        renderingMode: "headless",
+      }),
+    );
+  });
+}

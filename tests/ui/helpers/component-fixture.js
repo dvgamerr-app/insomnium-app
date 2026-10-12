@@ -3,6 +3,7 @@ import { mkdir } from "node:fs/promises";
 import { resolve, sep } from "node:path";
 import { compile, compileModule } from "svelte/compiler";
 import { launchUiBrowser } from "./preview-app.js";
+import { registerLintOwnershipBuild } from "../../../scripts/codemirror-lint-ownership.mjs";
 
 /** Reuse the same component compilation for saved built-app worker fixtures.
  * @returns {import('bun').BunPlugin} */
@@ -10,6 +11,7 @@ export function createSvelteUiFixturePlugin() {
   return {
     name: "svelte-ui-fixture",
     setup(build) {
+      registerLintOwnershipBuild(build);
       build.onResolve({ filter: /^\$lib\// }, ({ path }) => ({
         path: resolve("src/lib", path.slice(5)),
       }));

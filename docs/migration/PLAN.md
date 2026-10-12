@@ -1,3 +1,16 @@
+## Current agent assignments and topic gates — 2026-10-12
+
+User authorizes three agents plus root, working in isolated worktrees. This table supersedes older assignment tables while preserving their evidence and every original parity requirement.
+
+| Owner | Work | Integration gate |
+| --- | --- | --- |
+| shared_ui | CodeMirror lint popup ownership; next inspect remaining substantial UI parity | Root reviews pinned build adapter and verifies production/dev/Bun fixture plus workspace regressions; preserve current Wheel/Runner changes |
+| native_provider | Closed Spectral reservation/run/cancel backend, private memory input, registered Git binding, process-tree termination | Agree producer contract first; Rust checks and exact frozen native candidate before saved native-hidden acceptance; no flagged provider changes |
+| event_api | Artifact-only module initialization/TLA ownership and unchanged strong FIFO/helper250 measurement | Keep stock budgets and original assertions; no default provider adoption from partial evidence |
+| root | Guarded integration, Spectral producer/package/frontend, current-root verification | Commit each verified topic separately; record commit, evidence, remaining gates and process handles in STATUS before the next feature |
+
+Browser scenarios always use shared launchUiBrowser with headless:true and no headed override. Owned native windows hide before CDP and report native-hidden. Bun only; native builds use Cargo. Native profile ownership is exclusive. This interface cannot invoke /compact, so every feature checkpoint supplies an explicit handoff without claiming compaction occurred.
+
 ## Spectral implementation direction — measured2026-10-12
 
 Develop the complete owned Bun host route described in SPECTRAL-HOST-DESIGN.md. Actual standalone Windows default/custom/ref/version/fallback results and entered-operation kill/reap are proven; browserCSP stays unchanged. Next implement pinned target-specific packaging and Rust-owned bounded job transport, then source/workspace lifecycle, private in-memory/attached references, registered Git ruleset loading and complete diagnostic/UI/native/platform acceptance. Current structural validation remains; no full Spectral completion claim or narrowed custom-function contract. The measured89MiB executable/startup cost must be included in release validation.
