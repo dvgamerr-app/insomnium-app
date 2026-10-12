@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { withPreview } from "./helpers/preview-app.js";
-import { exerciseSplit } from "./helpers/split-pane.js";
+import { exerciseSplit, exerciseSplitCollapse } from "./helpers/split-pane.js";
 import { assertRequestResponseSplit } from "./helpers/request-response-split.js";
 
 await withPreview(
@@ -277,6 +277,7 @@ await withPreview(
       );
       await page.screenshot({ path: output + "/panels-" + width + ".png" });
     }
+    await exerciseSplitCollapse(page, output);
     await assertRequestResponseSplit(page, output);
     assert.deepEqual(errors, []);
     await Bun.write(

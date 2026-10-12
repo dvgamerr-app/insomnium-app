@@ -71,6 +71,11 @@
       save();
     }
   }
+  // The captured handle is removed on collapse; lostpointercapture may target
+  // document instead. End the drag before content remains pointer-disabled.
+  $effect(() => {
+    if (collapsed) stop();
+  });
   /** @param {KeyboardEvent} event */
   function key(event) {
     const negative = vertical ? "ArrowUp" : "ArrowLeft",
