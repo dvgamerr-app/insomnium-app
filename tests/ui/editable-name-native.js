@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { withNativeApp, poll } from "./helpers/native-app.js";
 import { gitCollection } from "./helpers/git-fixture.js";
 import { withIpcAudit } from "./helpers/ipc-audit.js";
-import { renameCases, editName } from "./helpers/editable-name-cases.js";
+import {
+  renameCases,
+  editName,
+  assertRenameKeyboard,
+} from "./helpers/editable-name-cases.js";
 import { newRequest } from "../../src/lib/model.js";
 import { snapshotGitCollection } from "../../src/lib/git-collection.js";
 
@@ -21,6 +25,7 @@ await withNativeApp(
     try {
       const fixture = await gitCollection({ page, invoke });
       const cases = [];
+      const keyboard = [];
       for (const protocol of ["http", "graphql", "sse", "websocket"]) {
         const resource = newRequest(fixture.workspaceId, {
           _type: protocol === "websocket" ? "websocket_request" : "request",
@@ -145,8 +150,32 @@ await withNativeApp(
             modified: changed.modified,
           });
         }
+        const beforeKeyboard = await invoke("load_workspace");
+        const audit = await withIpcAudit(page, "save_workspace", async () => {
+          const rows = await assertRenameKeyboard(
+            page,
+            page.getByRole("button", {
+              name: "Move or manage request",
+              exact: true,
+            }),
+          );
+          return { rows, workspace: await invoke("load_workspace") };
+        });
+        assert.equal(
+          audit.calls,
+          0,
+          "No-op keyboard profiles must not persist a rename",
+        );
+        assert.equal(audit.completed, 0);
+        assert.deepEqual(
+          audit.value.workspace,
+          beforeKeyboard,
+          "Keyboard profiles preserve exact workspace",
+        );
+        keyboard.push(...audit.value.rows.map((row) => ({ protocol, ...row })));
       }
       assert.equal(cases.length, 60);
+      assert.equal(keyboard.length, 32);
       assert.equal(
         (
           await invoke("git_repository_info", {
@@ -164,6 +193,7 @@ await withNativeApp(
             network: received,
             gitHeadUnchanged: true,
             cases,
+            keyboard,
           },
           null,
           2,

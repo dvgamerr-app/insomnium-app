@@ -4,6 +4,7 @@ import {
   renameCases,
   parentRenameCases,
   editName,
+  assertRenameKeyboard,
 } from "./helpers/editable-name-cases.js";
 
 await withComponentFixture("editable-name", async (page, output) => {
@@ -53,92 +54,10 @@ await withComponentFixture("editable-name", async (page, output) => {
     cases.push({ id: row.id, changed: !!changed, expected });
   }
   assert.equal(cases.length, 18);
-  const keyboard = [];
-  for (const theme of ["dark", "light"]) {
-    await page.evaluate((theme) => {
-      document.documentElement.dataset.theme = theme;
-    }, theme);
-    for (const width of [1440, 760]) {
-      await page.setViewportSize({ width, height: 960 });
-      const display = page.getByRole("button", {
-        name: "Edit request name",
-        exact: true,
-      });
-      const leave = page.getByRole("button", {
-        name: "Leave rename",
-        exact: true,
-      });
-      for (const finish of ["Enter", "Escape"]) {
-        await leave.focus();
-        await display.focus();
-        const input = page.getByRole("textbox", {
-          name: "Request name",
-          exact: true,
-        });
-        await input.waitFor();
-        await input.press(finish);
-        await display.waitFor();
-        assert.equal(
-          await display.evaluate((el) => el === document.activeElement),
-          true,
-          `${theme}/${width}/${finish} restores focus`,
-        );
-        assert.equal(
-          await input.count(),
-          0,
-          "Restoring focus must not reopen editing",
-        );
-        assert.equal(
-          await display.evaluate((el) => el.matches(":focus-visible")),
-          true,
-          "Keyboard completion retains visible focus feedback",
-        );
-        await page.evaluate(() =>
-          document.documentElement.style.setProperty(
-            "--focus-surface",
-            "rgb(42, 57, 71)",
-          ),
-        );
-        await page.waitForFunction(() => {
-          const active = document.activeElement;
-          return (
-            active?.matches(".request-name-display") &&
-            getComputedStyle(active).backgroundColor === "rgb(42, 57, 71)"
-          );
-        });
-        await page.evaluate(() =>
-          document.documentElement.style.removeProperty("--focus-surface"),
-        );
-        await display.press("Enter");
-        await input.waitFor();
-        await input.press("Tab");
-        assert.equal(
-          await leave.evaluate((el) => el === document.activeElement),
-          true,
-          "Tab completion preserves the next control",
-        );
-        await display.click();
-        await input.waitFor();
-        await input.press("Escape");
-        await display.waitFor();
-        assert.equal(
-          await display.evaluate((el) => el === document.activeElement),
-          true,
-          "Pointer rename can still dismiss to its trigger",
-        );
-        keyboard.push({
-          theme,
-          width,
-          finish,
-          restored: true,
-          reopened: true,
-          tabDestination: true,
-          pointerRename: true,
-          sharedFocusToken: true,
-        });
-      }
-    }
-  }
+  const keyboard = await assertRenameKeyboard(
+    page,
+    page.getByRole("button", { name: "Leave rename", exact: true }),
+  );
   await Bun.write(
     output + "/acceptance.json",
     JSON.stringify(

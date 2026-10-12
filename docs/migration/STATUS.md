@@ -1,8 +1,14 @@
+## Shared rename keyboard contract and native gates — 2026-10-12
+
+- Integrated the shared rename helper refactor: original18component cases now also assert completion focus/no reopen; the8keyboard/theme/width contracts are reused by existing native rename scenario across HTTP/GraphQL/SSE/WebSocket. Native script prepares32no-op profiles with zero save calls/exact workspace, retaining60original persistence/Git/no-network cases. No product behavior changed in this topic.
+- Root saved headless rename340be4 exits0 (18original+8profiles); root compiler33548/ea6d7a exits0/0errors/0warnings. Agent independently replayed same headless contract. Native scenarios have NOT run on a current UI candidate; actual native60+32 and GraphQL token gates remain open. AGENT-SHARED-UI-NATIVE.md records exact script hashes and limits.
+- Topic commit follows. Root process handles all terminal. Native agent's initial build failed on missing LIBCLANG_PATH; exact corrected build71827 finished0, but source audit found a regenerated permission hash mismatch. Agent-owned restoration87916 was launched before that audit was resolved; outputs are provisional pending source-generation proof and cleanup. No further native launch authorized until audit resolves. Event API review found real initializer/dictionary/which mismatches and agent is fixing them. Full goal remains active; `/compact` unavailable, this checkpoint is the explicit handoff.
+
 ## GraphQL shared selected foreground — integrated 2026-10-12
 
 - Removed the competing4line GraphQL toolbar selected-color rule. Query/Schema now inherit shared SegmentedControl --accent-text instead of feature CSS overriding it with --accent; existing layout is unchanged. Shared saved helper verifies actual view switching, keyboard/focus, semantic selected foreground and focus/selected token propagation across dark/light and1440/760widths.
 - Root production build3ddeb6 exits0, compiler9317/242971 reports0errors/0warnings, full actual-app headless nocturne-theme6930/4b4f91 exits0 with16raw GraphQL rows passing. Native graphql-editor scenario uses the same reusable helper but fresh native replay remains required. AGENT-SHARED-UI-GRAPHQL.md records exact source/negative-rule/selector-failure evidence and limits.
-- Topic commit follows; only CSS rule/helper/two existing scenarios/agent handoff/checkpoint included. All root handles terminal. Event API and isolated native provider build continue; no broad UI/migration completion. `/compact` unavailable; this checkpoint is the explicit handoff.
+- Topic committed38a98fb; only CSS rule/helper/two existing scenarios/agent handoff/checkpoint included. All root handles terminal. Event API and isolated native provider build continue; no broad UI/migration completion. `/compact` unavailable; this checkpoint is the explicit handoff.
 
 ## Owned Event browser and listener lifecycle checkpoint — 2026-10-12
 

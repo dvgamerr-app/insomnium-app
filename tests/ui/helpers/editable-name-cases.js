@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 /** @typedef {{id:string,finish:string,initial?:string,draft?:string,expected?:string,changed?:boolean,external?:string}} RenameCase */
 /** @type {RenameCase[]} */
 export const renameCases = [
@@ -91,4 +92,118 @@ export async function editName(page, row, blurTarget, externalUpdate) {
   await page
     .getByRole("button", { name: "Edit request name", exact: true })
     .waitFor();
+  assert.equal(
+    await input.count(),
+    0,
+    "Completion must not immediately reopen editing",
+  );
+  const destination =
+    row.finish === "blur"
+      ? blurTarget
+      : page.getByRole("button", { name: "Edit request name", exact: true });
+  assert.equal(
+    await destination.evaluate((el) => el === document.activeElement),
+    true,
+    row.id + " completion focus destination",
+  );
+}
+
+/** The same keyboard/focus/token contract in component and native workflows.
+ * @param {import("playwright-core").Page} page
+ * @param {import("playwright-core").Locator} leave */
+export async function assertRenameKeyboard(page, leave) {
+  const viewport = page.viewportSize();
+  const originalTheme = await page.locator("html").getAttribute("data-theme");
+  try {
+    const keyboard = [];
+    for (const theme of ["dark", "light"]) {
+      await page.evaluate((theme) => {
+        document.documentElement.dataset.theme = theme;
+      }, theme);
+      for (const width of [1440, 760]) {
+        await page.setViewportSize({ width, height: 960 });
+        const display = page.getByRole("button", {
+          name: "Edit request name",
+          exact: true,
+        });
+        for (const finish of ["Enter", "Escape"]) {
+          await leave.focus();
+          await display.focus();
+          const input = page.getByRole("textbox", {
+            name: "Request name",
+            exact: true,
+          });
+          await input.waitFor();
+          await input.press(finish);
+          await display.waitFor();
+          assert.equal(
+            await display.evaluate((el) => el === document.activeElement),
+            true,
+            `${theme}/${width}/${finish} restores focus`,
+          );
+          assert.equal(
+            await input.count(),
+            0,
+            "Restoring focus must not reopen editing",
+          );
+          assert.equal(
+            await display.evaluate((el) => el.matches(":focus-visible")),
+            true,
+            "Keyboard completion retains visible focus feedback",
+          );
+          await page.evaluate(() =>
+            document.documentElement.style.setProperty(
+              "--focus-surface",
+              "rgb(42, 57, 71)",
+            ),
+          );
+          await page.waitForFunction(() => {
+            const active = document.activeElement;
+            return (
+              active?.matches(".request-name-display") &&
+              getComputedStyle(active).backgroundColor === "rgb(42, 57, 71)"
+            );
+          });
+          await page.evaluate(() =>
+            document.documentElement.style.removeProperty("--focus-surface"),
+          );
+          await display.press("Enter");
+          await input.waitFor();
+          await input.press("Tab");
+          assert.equal(
+            await leave.evaluate((el) => el === document.activeElement),
+            true,
+            "Tab completion preserves the next control",
+          );
+          await display.click();
+          await input.waitFor();
+          await input.press("Escape");
+          await display.waitFor();
+          assert.equal(
+            await display.evaluate((el) => el === document.activeElement),
+            true,
+            "Pointer rename can still dismiss to its trigger",
+          );
+          keyboard.push({
+            theme,
+            width,
+            finish,
+            restored: true,
+            reopened: true,
+            tabDestination: true,
+            pointerRename: true,
+            sharedFocusToken: true,
+          });
+        }
+      }
+    }
+
+    return keyboard;
+  } finally {
+    if (viewport) await page.setViewportSize(viewport);
+    await page.evaluate((theme) => {
+      if (theme === null) delete document.documentElement.dataset.theme;
+      else document.documentElement.dataset.theme = theme;
+    }, originalTheme);
+  }
 }
