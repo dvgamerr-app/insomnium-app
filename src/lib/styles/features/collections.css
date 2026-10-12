@@ -15,18 +15,28 @@
   padding-right: var(--space-8);
 }
 
+.tree-request-row:hover,
+.tree-folder:hover {
+  background: var(--hover);
+}
+
+.tree-request-row .ui-button.tree-request:hover:not(:disabled):not(:focus-visible) {
+  background: transparent;
+}
+
 .tree-request-row.active {
   background: var(--selected);
 }
 
 .tree-actions {
-  opacity: 0.45;
+  opacity: 0;
   flex-shrink: 0;
 }
 
 .tree-request-row:hover .tree-actions,
 .tree-folder:hover .tree-actions,
-.tree-actions:focus-visible {
+.tree-actions:focus-visible,
+.tree-actions[aria-expanded="true"] {
   opacity: 1;
 }
 
