@@ -1,6 +1,335 @@
 import assert from "node:assert/strict";
 import { initialData } from "../../../src/lib/model.js";
 
+/** Current GraphqlEditor contract: stackAt=640 uses the split's own width.
+ * @param {import('playwright-core').Page} page @param {string} output */
+export async function exerciseGraphqlResponsiveSplit(page, output) {
+  const viewport = page.viewportSize();
+  const themeBefore = await page.locator("html").getAttribute("data-theme");
+  const panel = page.locator(".graphql-panel");
+  const handle = panel.getByRole("separator", {
+    name: "GraphQL query and variables size",
+    exact: true,
+  });
+  const outer = page.getByRole("separator", {
+    name: "Request and response size",
+    exact: true,
+  });
+  const rows = /** @type {Array<Record<string,any>>} */ ([]);
+  const transitions = /** @type {Array<Record<string,any>>} */ ([]);
+  const editors = panel.locator(".CodeMirror");
+  const original = await editors.evaluateAll((els) =>
+    els.map((el) => /** @type {any} */ (el).CodeMirror.getValue()),
+  );
+  const bodies = [
+    Array.from({ length: 40 }, (_, i) => `# query line ${i}`).join("\n") +
+      "\nquery Probe { viewer { id } }",
+    JSON.stringify(
+      {
+        rows: Array.from({ length: 40 }, (_, i) => ({
+          id: i,
+          text: "GraphQL responsive fixture",
+        })),
+      },
+      null,
+      2,
+    ),
+  ];
+  const metrics = () =>
+    handle.evaluate((el) => {
+      const root = /** @type {HTMLElement} */ (el.parentElement),
+        box = root.getBoundingClientRect();
+      return {
+        width: root.clientWidth,
+        height: box.height,
+        axis: root.dataset.axis,
+        orientation: el.getAttribute("aria-orientation"),
+        min: Number(el.getAttribute("aria-valuemin")),
+        max: Number(el.getAttribute("aria-valuemax")),
+        value: Number(el.getAttribute("aria-valuenow")),
+        dragging: root.classList.contains("dragging"),
+        pointerEvents: getComputedStyle(root.children[0]).pointerEvents,
+        tracks:
+          getComputedStyle(root).gridTemplateColumns +
+          "/" +
+          getComputedStyle(root).gridTemplateRows,
+        focused: el === document.activeElement,
+      };
+    });
+  const settle = () =>
+    page.waitForFunction(() => {
+      const root = /** @type {HTMLElement|null} */ (
+        document.querySelector(".graphql-editors")
+      );
+      return (
+        !!root &&
+        root.getAttribute("data-axis") === (root.clientWidth < 640 ? "y" : "x")
+      );
+    });
+  /** @param {Awaited<ReturnType<typeof metrics>>} m @param {string} message */
+  const check = (m, message) => {
+    assert.equal(m.axis, m.width < 640 ? "y" : "x", message);
+    assert.equal(m.orientation, m.axis === "y" ? "horizontal" : "vertical");
+    assert.ok(
+      [m.min, m.max, m.value, m.width, m.height].every(Number.isFinite),
+    );
+    assert.ok(m.value >= m.min && m.value <= m.max);
+  };
+  try {
+    for (let i = 0; i < 2; i++) {
+      await editors.nth(i).click();
+      await page.keyboard.press("Control+A");
+      await page.keyboard.insertText(bodies[i]);
+      await page.keyboard.press("Escape");
+    }
+    for (const theme of ["dark", "light"]) {
+      if ((await page.locator("html").getAttribute("data-theme")) !== theme)
+        await page
+          .getByRole("button", { name: "Toggle theme", exact: true })
+          .click();
+      for (const width of [1440, 900, 760]) {
+        await page.setViewportSize({ width, height: 600 });
+        await outer.focus();
+        await outer.press("End");
+        await settle();
+        await handle.focus();
+        await handle.press("Enter");
+        const before = await metrics();
+        check(before, "Own width controls responsive axis");
+        await handle.press(before.axis === "y" ? "ArrowLeft" : "ArrowUp");
+        assert.equal(
+          (await metrics()).value,
+          before.value,
+          "Other-axis arrow cannot resize this split",
+        );
+        await handle.press(before.axis === "y" ? "ArrowUp" : "ArrowLeft");
+        const decreased = await metrics();
+        if (before.min === before.max)
+          assert.equal(
+            decreased.value,
+            before.value,
+            "Exhausted pane minima clamp both arrow directions",
+          );
+        else assert.ok(decreased.value < before.value);
+        assert.equal(decreased.focused, true);
+        await handle.press(before.axis === "y" ? "ArrowDown" : "ArrowRight");
+        const restored = await metrics();
+        assert.equal(restored.value, before.value);
+        for (const label of ["GraphQL query", "GraphQL variables"]) {
+          const editor = panel
+            .locator(".shared-code-editor")
+            .filter({
+              has: page.locator('textarea[aria-label="' + label + '"]'),
+            })
+            .locator(".CodeMirror");
+          await editor.click();
+          await page.keyboard.press("Control+End");
+          const caret = await editor.evaluate((el) => {
+            const cm = /** @type {import('codemirror').Editor} */ (
+                /** @type {any} */ (el).CodeMirror
+              ),
+              position = cm.getCursor(),
+              r = cm.cursorCoords(position, "window"),
+              failures = [];
+            let p = /** @type {HTMLElement|null} */ (el);
+            while (p) {
+              const s = getComputedStyle(p),
+                b = p.getBoundingClientRect();
+              if (
+                /auto|scroll|hidden/.test(s.overflowY) &&
+                (r.top < b.top - 1 || r.bottom > b.bottom + 1)
+              )
+                failures.push({
+                  class: p.className,
+                  top: b.top,
+                  bottom: b.bottom,
+                });
+              p = p.parentElement;
+            }
+            return {
+              owned: cm.getInputField() === document.activeElement,
+              line: position.line,
+              lastLine: cm.lastLine(),
+              top: r.top,
+              bottom: r.bottom,
+              failures,
+            };
+          });
+          rows.push({
+            theme,
+            width,
+            height: 600,
+            label,
+            before,
+            decreased,
+            restored,
+            caret,
+          });
+          await Bun.write(
+            output + "/graphql-responsive-progress.json",
+            JSON.stringify({ rows, transitions }, null, 2),
+          );
+          assert.equal(
+            caret.owned,
+            true,
+            "Real content click focuses actual editor input",
+          );
+          assert.equal(caret.line, caret.lastLine);
+          assert.deepEqual(
+            caret.failures,
+            [],
+            "Actual final caret remains visible through all clipping ancestors",
+          );
+          assert.ok(caret.top >= 0 && caret.bottom <= 601);
+        }
+      }
+      for (const [from, to] of [
+        [1440, 760],
+        [760, 1440],
+      ]) {
+        await page.setViewportSize({ width: from, height: 600 });
+        await outer.focus();
+        await outer.press("End");
+        await settle();
+        await handle.focus();
+        await handle.press("Enter");
+        const before = await metrics(),
+          box = await handle.boundingBox();
+        assert.ok(box);
+        check(before, "Capture starting axis");
+        await handle.evaluate((el) =>
+          el.addEventListener(
+            "pointerdown",
+            (event) => {
+              /** @type {any} */ (el).__graphqlPointer =
+                /** @type {PointerEvent} */ (event).pointerId;
+            },
+            { once: true },
+          ),
+        );
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        await page.mouse.down();
+        const capture = await handle.evaluate((el) => {
+          const root = el.parentElement;
+          return {
+            dragging: root?.classList.contains("dragging"),
+            focused: el === document.activeElement,
+            pointerId: /** @type {any} */ (el).__graphqlPointer,
+            captured: el.hasPointerCapture(
+              /** @type {any} */ (el).__graphqlPointer,
+            ),
+          };
+        });
+        assert.equal(capture.dragging, true);
+        assert.equal(capture.focused, true);
+        assert.equal(
+          capture.captured,
+          true,
+          "Actual trusted mouse pointer is captured before viewport change",
+        );
+        await page.setViewportSize({ width: to, height: 600 });
+        await settle();
+        const resized = await metrics();
+        check(resized, "Captured resize uses actual current axis");
+        assert.notEqual(
+          resized.axis,
+          before.axis,
+          "Fixture must cross actual stackAt boundary",
+        );
+        const current = await handle.boundingBox();
+        assert.ok(current);
+        await page.mouse.move(
+          current.x + current.width / 2 + (resized.axis === "x" ? 12 : 0),
+          current.y + current.height / 2 + (resized.axis === "y" ? 12 : 0),
+          { steps: 3 },
+        );
+        await page.mouse.up();
+        assert.equal(
+          await handle.evaluate((el) =>
+            el.hasPointerCapture(/** @type {any} */ (el).__graphqlPointer),
+          ),
+          false,
+        );
+        await handle.evaluate((el) => {
+          delete (/** @type {any} */ (el).__graphqlPointer);
+        });
+        const released = await metrics();
+        check(released, "Released bounds");
+        assert.equal(released.dragging, false);
+        assert.notEqual(released.pointerEvents, "none");
+        assert.equal(released.focused, true);
+        await page.mouse.move(0, 0);
+        await page.mouse.move(
+          current.x + current.width / 2,
+          current.y + current.height / 2,
+        );
+        const hover = await metrics();
+        assert.equal(
+          hover.tracks,
+          released.tracks,
+          "Unpressed hover cannot resize after viewport drag release",
+        );
+        await editors.first().click();
+        assert.equal(
+          await editors
+            .first()
+            .evaluate(
+              (el) =>
+                /** @type {any} */ (el).CodeMirror.getInputField() ===
+                document.activeElement,
+            ),
+          true,
+        );
+        transitions.push({
+          theme,
+          from,
+          to,
+          before,
+          capture,
+          resized,
+          released,
+          hover,
+        });
+        await Bun.write(
+          output + "/graphql-responsive-progress.json",
+          JSON.stringify({ rows, transitions }, null, 2),
+        );
+      }
+    }
+    await Bun.write(
+      output + "/graphql-responsive.json",
+      JSON.stringify(
+        {
+          rows,
+          transitions,
+          stackAt: 640,
+          contract:
+            "Stop saves last drag geometry; no rollback policy introduced",
+        },
+        null,
+        2,
+      ),
+    );
+  } finally {
+    await page.mouse.up();
+    for (let i = 0; i < 2; i++) {
+      await editors.nth(i).click();
+      await page.keyboard.press("Control+A");
+      await page.keyboard.insertText(original[i]);
+      await page.keyboard.press("Escape");
+    }
+    if ((await page.locator("html").getAttribute("data-theme")) !== themeBefore)
+      await page
+        .getByRole("button", { name: "Toggle theme", exact: true })
+        .click();
+    if (viewport) await page.setViewportSize(viewport);
+    await outer.focus();
+    await outer.press("Enter");
+    await handle.focus();
+    await handle.press("Enter");
+  }
+}
+
 /** @param {string} value */
 export function assertSplitPreviewOrigin(value) {
   const url = new URL(value);

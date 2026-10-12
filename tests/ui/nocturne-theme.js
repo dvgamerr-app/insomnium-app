@@ -325,14 +325,14 @@ await withPreview("nocturne-theme", async (page, output) => {
       .first()
       .evaluate((el) => /** @type {any} */ (el).CodeMirror.setValue("query {"));
     await page.locator(".CodeMirror-lint-marker-error").first().hover();
-    await page.locator(".CodeMirror-lint-tooltip").waitFor();
+    await page.locator(".CodeMirror-lint-tooltip[style*=\"opacity: 1\"]").waitFor();
     await page.waitForFunction(() => {
-      const tooltip = document.querySelector(".CodeMirror-lint-tooltip");
+      const tooltip = document.querySelector(".CodeMirror-lint-tooltip[style*=\"opacity: 1\"]");
       return tooltip && getComputedStyle(tooltip).opacity === "1";
     });
     assert.equal(
       await page
-        .locator(".CodeMirror-lint-tooltip")
+        .locator(".CodeMirror-lint-tooltip[style*=\"opacity: 1\"]")
         .evaluate((el) => getComputedStyle(el).backgroundColor),
       theme === "dark" ? "rgb(38, 38, 38)" : "rgb(243, 244, 246)",
     );
@@ -347,7 +347,7 @@ await withPreview("nocturne-theme", async (page, output) => {
     assert.equal(editorMetrics.font, "12px");
     assert.equal(editorMetrics.line, "19.2px");
     const lintMetrics = await page
-      .locator(".CodeMirror-lint-tooltip")
+      .locator(".CodeMirror-lint-tooltip[style*=\"opacity: 1\"]")
       .evaluate((el) => ({
         font: getComputedStyle(el).fontSize,
         shadow: getComputedStyle(el).boxShadow,
@@ -372,14 +372,14 @@ await withPreview("nocturne-theme", async (page, output) => {
       );
       assert.equal(
         await page
-          .locator(".CodeMirror-lint-tooltip")
+          .locator(".CodeMirror-lint-tooltip[style*=\"opacity: 1\"]")
           .evaluate((el) => getComputedStyle(el).fontSize),
         "14px",
         "Lint must follow shared typography",
       );
       assert.equal(
         await page
-          .locator(".CodeMirror-lint-tooltip")
+          .locator(".CodeMirror-lint-tooltip[style*=\"opacity: 1\"]")
           .evaluate((el) => getComputedStyle(el).boxShadow),
         "rgb(1, 2, 3) 0px 2px 6px 0px",
         "Lint must follow popup shadow token",

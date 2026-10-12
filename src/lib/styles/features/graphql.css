@@ -66,6 +66,17 @@
   gap: var(--space-6);
 }
 
+/* GraphQL panes can be shorter than the shared editor's default minimum. */
+.graphql-editors .graphql-editor-column .shared-code-editor,
+.graphql-editors .graphql-editor-column .shared-code-editor > .CodeMirror,
+.graphql-editors .graphql-editor-column .shared-code-editor > textarea {
+  min-height: 0;
+}
+
+.graphql-editors[data-axis="y"] .graphql-editor-column {
+  padding: var(--space-4);
+}
+
 .graphql-response-errors {
   padding: var(--space-8) var(--space-14);
   border-bottom: 1px solid var(--line);

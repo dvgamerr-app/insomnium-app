@@ -5,6 +5,7 @@ import {
   exerciseSplitCollapse,
   exerciseSplitRelease,
   exerciseSplitStorage,
+  exerciseGraphqlResponsiveSplit,
 } from "./helpers/split-pane.js";
 import { assertRequestResponseSplit } from "./helpers/request-response-split.js";
 
@@ -176,6 +177,7 @@ await withPreview(
       .getByLabel("Body type", { exact: true })
       .selectOption("application/graphql");
     await exerciseSplit(page, "GraphQL query and variables size");
+    await exerciseGraphqlResponsiveSplit(page, output);
     const preferences = page
       .getByRole("navigation", { name: "Main navigation" })
       .getByRole("button", { name: "Preferences", exact: true });
