@@ -1,3 +1,7 @@
+## Current compiled XML workflow boundary — 2026-10-13
+
+Native-hidden3330 full22HTTP58workers/7selections/6layouts,19395 five4000sibling selections+10001matchrefusal actualworkers under3000ms,46451 controlled transfer/refusal/recovery all pass. Independent native-xml-current-proof three root-audits prove unchangedbf5e/f569/990source52asset closure and exact profile/Git/currentSplitPane restoration. No actual hungworker/OS clipboard-dialog-write/AT/allprovider-platform/fullmigration claim. Every other original repository/native/private/distribution/SDK/Event/FIFO/notices/UX gate stays open.
+
 ## Actual held ruleset content mismatch remains open — 2026-10-13
 
 Native-hidden69504 reproduces A finding and1 UI row after owned ruleset becomesB, actual62nd normal job following original61/7cancel/54read checkpoint. Independent held-rule-root-proof/native-negative-v1/root-audit.json proves physical settlement/full restoration/currentSplitPane keys; expectedRED remains unresolved product defect. Consumed-read/binding freshness correction in isolated preparation, not accepted yet. No universalABA/complete ambientread/fullshell/private/platform/distribution/notice/migration/UX claim.

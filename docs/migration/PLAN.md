@@ -1,3 +1,7 @@
+## Current XML native workflow checkpoint — 2026-10-13
+
+Original full/performance/transfer saved modes passed3330/19395/46451 with root exact compiled/harness/profile/current-layout audits. XML performance and controlled transfer mode gates now have currentbf5e proof; actualOS transfer/AT/hungworkers/allplatform remain separate. Next root guards/integrates multipart finalcandidate and repeats compiler/fullsaved suite/build before topic commit, preserving raw controls/negative evidence. Native ruleset freshness and native-notice collector continue isolated. Preserve full original migration/UX/parity; topic commits and compact-unavailable handoffs perfeature.
+
 ## Reproduced repository freshness defect: next correction — 2026-10-13
 
 Root native69504 proves actual62nd A-result/current-B publication after unchanged61 checkpoint; full restoration independently audited. Native agent now implements bounded consumed managed-read receipts and post-run binding/content freshness, preserving custom JS and opaque resultJson. YAML/extends/import/functions/failed fallback/mixed refs need honest observed coverage; universalexternalABA/ambient external authority remain distinct. Product correction requires isolated saved guards/equivalence and root fresh native build+old61/new62 verification. UI multipart and native-notice collector candidates proceed in separate worktrees; root accepts serially with frozen inputs and topic commits. /compact unavailable explicit handoff remains mandatory.
