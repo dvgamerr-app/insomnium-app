@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
 import { withNativeApp, poll } from "./helpers/native-app.js";
+if (process.argv.includes("--namespace-component")) {
+  const { withComponentFixture } = await import("./helpers/component-fixture.js");
+  const { measureNamespaceComponent } = await import("./helpers/xml-response-namespaces.js");
+  await withComponentFixture("xml-response-namespaces", measureNamespaceComponent);
+  process.exit(0);
+}
 import { initialData, newRequest } from "../../src/lib/model.js";
 import { verifyXmlResponsePerformance } from "./helpers/xml-response-performance.js";
 import { verifyXmlResponseTransfer } from "./helpers/xml-response-transfer.js";

@@ -46,10 +46,44 @@ export function namespaceRows(rows) {
   for (const row of entries) {
     const prefix = row.prefix.trim();
     if (Object.hasOwn(result, prefix))
-      throw Error("Namespace prefixes must be unique");
+      throw new NamespaceRowError("Namespace prefixes must be unique", rows.flatMap((row,index)=>(row.prefix.trim() || row.uri.trim()) && row.prefix.trim()===prefix?[{row:index,fields:["prefix"]}]:[]));
     result[prefix] = row.uri.trim();
   }
-  return xpathNamespaces(result);
+  try {
+    return xpathNamespaces(result);
+  } catch (cause) {
+    if (!(cause instanceof Error) || Object.keys(result).length > 32) throw cause;
+    for (const [prefix,uri] of Object.entries(result)) {
+      try { xpathNamespaces({[prefix]:uri}); } catch (single) {
+        if (!(single instanceof Error) || single.message !== cause.message) throw cause;
+        const fields = prefix.length > 128 || !prefixName.test(prefix) ? ["prefix"]
+          : !uri || uri.length > 4096 || /\s|[\u0000-\u001f\u007f]/u.test(uri) ? ["uri"] : ["prefix","uri"];
+        throw new NamespaceRowError(cause.message, rows.flatMap((row,index)=>(row.prefix.trim() || row.uri.trim()) && row.prefix.trim()===prefix?[{row:index,fields}]:[]));
+      }
+    }
+    throw cause;
+  }
+}
+
+export class NamespaceRowError extends Error {
+  /** @param {string} message @param {{row:number,fields:string[]}[]} issues */
+  constructor(message, issues) {
+    super(message);
+    this.name = "NamespaceRowError";
+    this.issues = issues;
+  }
+}
+
+/** Independently recheck already-displayed fields without hiding another invalid
+ * field behind the validator's first-error precedence.
+ * @param {{prefix:string,uri:string}[]} rows @param {number} index @param {string} field */
+export function namespaceFieldInvalid(rows, index, field) {
+  const row = rows[index];
+  if (!row || (!row.prefix.trim() && !row.uri.trim())) return false;
+  const prefix = row.prefix.trim(), uri = row.uri.trim();
+  if (field === "prefix" && (prefix.length > 128 || !prefixName.test(prefix) || rows.some((other,i)=>i!==index && other.prefix.trim()===prefix))) return true;
+  if (field === "uri" && (!uri || uri.length > 4096 || /\s|[\u0000-\u001f\u007f]/u.test(uri))) return true;
+  return prefix === "xmlns" || uri === xmlnsNamespace || (prefix === "xml" && uri !== xmlNamespace) || (prefix !== "xml" && uri === xmlNamespace);
 }
 
 /** @param {unknown} value */

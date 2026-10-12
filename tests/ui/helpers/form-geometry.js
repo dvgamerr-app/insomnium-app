@@ -40,7 +40,8 @@ export async function assertFormGeometry(
       textarea: ".ui-textarea",
       select: '.ui-select[data-ui-variant="default"]',
       checkbox: ".ui-checkbox",
-      stacked: ".ui-field-stacked",
+      stacked: '.ui-field-stacked:not([data-ui-density="compact"])',
+      compact: '.ui-field-stacked[data-ui-density="compact"]',
       inline: ".ui-field-inline",
       file: ".ui-file-picker-inline input, .ui-file-picker-dropzone input",
       fileInline: ".ui-file-picker-inline input",
@@ -143,6 +144,8 @@ export async function assertFormGeometry(
       );
     for (const el of values.stacked)
       assert.equal(el.gap, gap, el.name + " " + state + " field gap");
+    for (const el of values.compact)
+      assert.equal(el.gap, "6px", el.name + " " + state + " compact field gap");
     for (const el of values.inline)
       assert.equal(
         el.gap,

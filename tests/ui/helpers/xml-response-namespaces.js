@@ -14,6 +14,157 @@ import {
   emitResponseWorker,
 } from "./response-worker-control.js";
 
+/** Saved headless component measurement; no native transport or persisted workspace.
+ * @param {import('playwright-core').Page} page @param {string} output */
+export async function measureNamespaceComponent(page, output) {
+  const checks = /** @type {Record<string,any>[]} */ ([]);
+  const failures = /** @type {Record<string,any>[]} */ ([]);
+  const snapshot = async () => JSON.parse(/** @type {string} */ (
+    await page.locator("output[data-namespace-snapshot]").getAttribute("data-namespace-snapshot")));
+  const trigger = page.getByRole("button", {name:"Namespaces",exact:true});
+  const open = async () => {
+    await trigger.click();
+    const dialog = page.getByRole("dialog", {name:"XPath namespaces",exact:true});
+    await dialog.waitFor();
+    return dialog;
+  };
+  const setRows = async (/** @type {{prefix:string,uri:string}[]} */ rows) => {
+    const dialog = await open();
+    for(let i=await dialog.getByRole("button",{name:/^Remove namespace /}).count();i>0;i--)
+      await dialog.getByRole("button",{name:"Remove namespace "+i,exact:true}).click();
+    for(let i=0;i<rows.length;i++) {
+      await dialog.getByRole("button",{name:"Add namespace",exact:true}).click();
+      await dialog.getByLabel("Namespace prefix "+(i+1),{exact:true}).fill(rows[i].prefix);
+      await dialog.getByLabel("Namespace URI "+(i+1),{exact:true}).fill(rows[i].uri);
+    }
+    return dialog;
+  };
+  for(const theme of ["dark","light"]) for(const width of [1440,900,760,560]) {
+    await page.setViewportSize({width,height:600});
+    await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
+    const initial=await snapshot();
+    let dialog=await open();
+    await dialog.locator(".hint").click();
+    await page.mouse.move(0,0);
+    const metrics=await dialog.evaluate(el=>{
+      const r=el.getBoundingClientRect();
+      return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,scroll:el.scrollWidth,client:el.clientWidth,
+        rows:[...el.querySelectorAll(".namespace-row")].map(row=>({columns:getComputedStyle(row).gridTemplateColumns,gap:getComputedStyle(row).gap})),
+        labels:[...el.querySelectorAll("label")].map(label=>({text:label.childNodes[0]?.textContent?.trim(),gap:getComputedStyle(label.parentElement?.classList.contains("ui-field")?label.parentElement:label).gap,font:getComputedStyle(label).font})),
+        controls:[...el.querySelectorAll("input,button")].map(c=>{const b=c.getBoundingClientRect(),s=getComputedStyle(c);return {name:c.getAttribute("aria-label")||c.textContent,x:b.x,y:b.y,width:b.width,height:b.height,color:s.color,background:s.backgroundColor,font:s.font};})};
+    });
+    assert.ok(metrics.left>=0&&metrics.right<=width);
+    assert.ok(metrics.scroll<=metrics.client+1);
+    for(const label of metrics.labels) assert.equal(label.gap,"6px");
+    for(const row of metrics.rows) {
+      assert.equal(row.gap,"6px");
+      assert.equal(row.columns.split(" ").length,width<=600?1:3);
+    }
+    checks.push({kind:"geometry",theme,width,metrics});
+    await dialog.locator(".namespace-row").nth(0).locator("label").nth(0).click();
+    assert.equal(await dialog.getByRole("textbox",{name:"Namespace prefix 1",exact:true}).evaluate(el=>el===document.activeElement),true,"Compact label click focuses exact numbered input");
+    await dialog.getByLabel("Namespace URI 1",{exact:true}).fill("urn:cancelled");
+    await dialog.press("Escape");
+    await dialog.waitFor({state:"detached"});
+    assert.deepEqual(await snapshot(),initial);
+    assert.equal(await trigger.evaluate(el=>el===document.activeElement),true);
+    checks.push({kind:"escape-no-save-focus",theme,width});
+    for(const [rows,message,target] of [
+      [[{prefix:"n",uri:"urn:one"},{prefix:"n",uri:"urn:two"}],"unique","Namespace prefix 2"],
+      [[{prefix:"bad:name",uri:"urn:x"}],"without a colon","Namespace prefix 1"],
+      [[{prefix:"n",uri:""}],"Namespace URI","Namespace URI 1"],
+      [[{prefix:"xml",uri:"urn:x"}],"reserved","Namespace prefix 1"],
+    ]) {
+      dialog=await setRows(/** @type {{prefix:string,uri:string}[]} */(rows));
+      const submit=dialog.getByRole("button",{name:"Save namespaces",exact:true});
+      await submit.focus(); await submit.press("Enter");
+      await poll(async()=>await dialog.getByRole("alert").filter({hasText:/** @type {string} */(message)}).count()>0,"Authoritative namespace field error");
+      assert.deepEqual(await snapshot(),initial);
+      const control=dialog.getByRole("textbox",{name:/** @type {string} */(target),exact:true});
+      const state=await control.evaluate(el=>({id:el.id,invalid:el.getAttribute("aria-invalid"),describedby:el.getAttribute("aria-describedby"),focus:document.activeElement?.getAttribute("aria-label")||document.activeElement?.textContent}));
+      const row={kind:"association",theme,width,message,target,state,aria:await control.ariaSnapshot()};
+      checks.push(row);
+      if(state.invalid!=="true"||!state.describedby) failures.push(row);
+      if(state.invalid === "true") {
+        assert.ok(state.id);
+        assert.equal(state.describedby,state.id+"-error");
+        const affected = message === "unique" ? ["Namespace prefix 1","Namespace prefix 2"]
+          : message === "reserved" ? ["Namespace prefix 1","Namespace URI 1"] : [target];
+        assert.equal(await dialog.getByRole("alert").count(),affected.length,"Only authoritative local field alerts");
+        const errorIds=[];
+        for(const name of affected) {
+          const field=dialog.getByRole("textbox",{name:/** @type {string} */(name),exact:true});
+          const id=await field.getAttribute("id");
+          assert.equal(await field.getAttribute("aria-invalid"),"true");
+          assert.equal(await field.getAttribute("aria-describedby"),id+"-error");
+          errorIds.push(id+"-error");
+          assert.ok((await dialog.locator('[id="'+id+'-error"]').innerText()).includes(/** @type {string} */(message)));
+        }
+        assert.equal(new Set(errorIds).size,affected.length,"Each affected field has a distinct exact error ID");
+        if(message === "Namespace URI") {
+          await dialog.getByLabel("Namespace prefix 1",{exact:true}).fill("bad:name");
+          assert.equal(await control.getAttribute("aria-invalid"),"true","An independently invalid URI survives another field correction");
+        }
+        const count=await dialog.getByRole("button",{name:/^Remove namespace /}).count();
+        for(let i=1;i<=count;i++) {
+          await dialog.getByLabel("Namespace prefix "+i,{exact:true}).fill("corrected"+i);
+          await dialog.getByLabel("Namespace URI "+i,{exact:true}).fill("urn:corrected:"+i);
+        }
+        assert.equal(await dialog.getByRole("alert").count(),0,"Corrected fields remove their descriptions");
+        assert.equal(await dialog.locator('[aria-invalid="true"]').count(),0);
+        assert.equal(await dialog.locator('input[aria-describedby]').count(),0);
+        assert.deepEqual(await snapshot(),initial,"Correction alone does not save");
+      }
+      await dialog.getByRole("button",{name:"Cancel",exact:true}).click();
+    }
+    dialog=await open();
+    for(const [index,key] of [[2,"Enter"],[2,"Space"],[1,"Enter"]]) {
+      const remove=dialog.getByRole("button",{name:"Remove namespace "+index,exact:true});
+      await remove.focus(); await remove.press(/** @type {string} */(key));
+      const active=await page.evaluate(()=>({tag:document.activeElement?.tagName,name:document.activeElement?.getAttribute("aria-label")||document.activeElement?.textContent?.trim(),inDialog:!!document.activeElement?.closest("dialog")}));
+      const row={kind:"focused-removal",theme,width,index,key,remaining:await dialog.getByRole("button",{name:/^Remove namespace /}).count(),active};
+      checks.push(row);
+      if(!active.inDialog) failures.push(row);
+      if(active.inDialog) assert.equal(active.name,row.remaining?"Remove namespace "+Math.min(Number(index),row.remaining):"Add namespace");
+    }
+    assert.equal(await dialog.getByRole("button",{name:/^Remove namespace /}).count(),0);
+    await dialog.getByRole("button",{name:"Cancel",exact:true}).click();
+    dialog=await setRows(Array.from({length:32},(_,i)=>({prefix:"n"+i,uri:"urn:"+i})));
+    assert.equal(await dialog.getByRole("button",{name:"Add namespace",exact:true}).isDisabled(),true);
+    assert.equal(await dialog.getByRole("textbox").count(),64);
+    for(let i=1;i<=32;i++) {
+      assert.equal(await dialog.getByRole("textbox",{name:"Namespace prefix "+i,exact:true}).count(),1);
+      assert.equal(await dialog.getByRole("textbox",{name:"Namespace URI "+i,exact:true}).count(),1);
+    }
+    checks.push({kind:"32-cap",theme,width,controls:64});
+    await dialog.getByRole("button",{name:"Cancel",exact:true}).click();
+    assert.deepEqual(await snapshot(),initial);
+    await page.getByRole("button",{name:"Toggle owned save rejection",exact:true}).click();
+    dialog=await open();
+    await dialog.getByLabel("Namespace prefix 1",{exact:true}).fill(" "+Object.keys(initial.namespaces)[0]+" ");
+    await dialog.getByLabel("Namespace URI 1",{exact:true}).fill(" urn:corrected:"+theme+":"+width+" ");
+    await dialog.getByRole("button",{name:"Save namespaces",exact:true}).press("Enter");
+    await dialog.getByRole("alert").filter({hasText:"This request cannot be edited right now"}).waitFor();
+    assert.equal(await dialog.locator('input[aria-invalid="true"]').count(),0,"Callback failure is form-level");
+    assert.equal(await dialog.locator('input[aria-describedby]').count(),0);
+    assert.deepEqual(await snapshot(),initial);
+    await dialog.getByRole("button",{name:"Cancel",exact:true}).click();
+    await page.getByRole("button",{name:"Toggle owned save rejection",exact:true}).click();
+    dialog=await open();
+    await dialog.getByLabel("Namespace prefix 1",{exact:true}).fill(" "+Object.keys(initial.namespaces)[0]+" ");
+    await dialog.getByLabel("Namespace URI 1",{exact:true}).fill(" urn:corrected:"+theme+":"+width+" ");
+    await dialog.getByRole("button",{name:"Save namespaces",exact:true}).press("Enter");
+    await dialog.waitFor({state:"detached"});
+    const accepted=await snapshot();
+    assert.deepEqual(accepted.namespaces,{...initial.namespaces,[Object.keys(initial.namespaces)[0]]:"urn:corrected:"+theme+":"+width});
+    assert.equal(accepted.saves,initial.saves+1);
+    assert.equal(accepted.rawResponse,initial.rawResponse);
+    checks.push({kind:"callback-refusal-corrected-save",theme,width,accepted});
+  }
+  await Bun.write(output+"/namespace-component-measurements.json",JSON.stringify({native:false,checks,failures},null,2));
+  assert.deepEqual(failures,[],"Namespace local attribution and focused removal remain associated with usable controls");
+}
+
 /** @param {Record<string,any>} context */
 export async function verifyXmlResponseNamespaces(context) {
   const {
@@ -219,6 +370,7 @@ export async function verifyXmlResponseNamespaces(context) {
     await dialog
       .getByRole("alert")
       .filter({ hasText: /** @type {string} */ (message) })
+      .first()
       .waitFor();
     assert.deepEqual(await saved(), preserved);
     await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
