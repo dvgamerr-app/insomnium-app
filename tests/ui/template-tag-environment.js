@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { initialData } from "../../src/lib/model.js";
 import { withPreview } from "./helpers/preview-app.js";
+import { measureEnvironmentName } from "./helpers/environment-name.js";
 
 // Actual built application and bundled template workers; browser storage only.
 await withPreview("template-tag-environment", async (page, output) => {
@@ -157,4 +158,5 @@ await withPreview("template-tag-environment", async (page, output) => {
       2,
     ) + "\n",
   );
-});
+  await measureEnvironmentName(page, output);
+}, {buildRoot:process.env.INSOMNIUM_UI_BUILD_ROOT || undefined});
