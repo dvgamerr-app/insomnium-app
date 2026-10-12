@@ -56,12 +56,16 @@ export async function runEventSubclassScenario(page,output,options={}){
         const peer=document.querySelector('[aria-label="Guest subclass peer"]');
         const status=element.parentElement?.querySelector('[role="status"]');
         if(status instanceof HTMLElement){status.style.position='absolute';status.style.pointerEvents='none';}
-        for (const type of ["click", "keydown", "keyup","focus","blur","focusin","focusout","beforeinput","input"])
+        for (const type of ["click", "keydown", "keyup","wheel","focus","blur","focusin","focusout","beforeinput","input"])
           element.addEventListener(type, (event) =>
             /** @type {any} */ (window).__subclassOracle.push(observe(event, globalThis,[element,peer])),
           );
       }, observeNativeSubclass.toString());
       await input.click();
+      await input.hover();
+      await page.mouse.wheel(23.5,-45.5);
+      await page.waitForFunction(()=>/** @type {any} */(window).__subclassOracle.some((/** @type {any} */ row)=>row.wheel));
+      await dialog.getByRole('status').filter({hasText:'WheelEvent'}).waitFor();
       await input.press("Shift+K");
       await dialog.getByRole('textbox',{name:'Guest subclass peer'}).click();
       await input.click();
@@ -75,6 +79,7 @@ export async function runEventSubclassScenario(page,output,options={}){
       );
       assert.deepEqual(guestNative, nativeOracle);
       assert.ok(guestNative.some((/** @type {any} */ row) => row.pointer && row.trusted));
+      assert.ok(guestNative.some((/** @type {any} */ row)=>row.wheel&&row.trusted&&row.deltaX===23.5&&row.deltaY===-45.5));
       assert.ok(guestNative.some((/** @type {any} */ row)=>row.focus&&row.relatedOwnedIndex===1&&row.trusted));
       assert.ok(guestNative.some((/** @type {any} */ row)=>row.input&&row.data==='K'&&row.inputType==='insertText'&&row.trusted));
       assert.ok(
@@ -95,8 +100,9 @@ export async function runEventSubclassScenario(page,output,options={}){
             headless: !options.nativeFixturePath,
             renderingMode:options.nativeFixturePath?"native-hidden":"headless",
             checks: [
-              "Seven constructor surfaces match browser in CommonJS",
-              "Seven constructor surfaces match browser in ES module",
+              "Eight constructor surfaces match browser in CommonJS",
+              "Eight constructor surfaces match browser in ES module",
+              "Actual trusted Wheel fields and inherited Mouse brand match browser",
               "Actual trusted owned Focus relatedTarget matches browser",
               "Owned Focus constructor identity and legacy UI initialization match browser",
               "Actual trusted Input data and inputType match browser",

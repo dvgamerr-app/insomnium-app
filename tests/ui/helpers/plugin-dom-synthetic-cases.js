@@ -46,6 +46,17 @@ export function installSyntheticFocusInput(realm,body,box,trigger,status){
  }};
 }
 
+/** Same owned Wheel program in browser oracle and production retained guest.
+ * @param {any} realm @param {any} body @param {any} box @param {any} trigger @param {any} status */
+export function installSyntheticWheel(realm,body,box,trigger,status){
+ const rows=/** @type {any[]} */([]),names=new Map([[body,'body'],[box,'box'],[trigger,'trigger']]),originals=new Set();
+ const record=(/** @type {string} */ at,/** @type {any} */ event,/** @type {any} */ extra={})=>{rows.push({at,type:event.type,tag:Object.prototype.toString.call(event),wheel:event instanceof realm.WheelEvent,mouse:event instanceof realm.MouseEvent,ui:event instanceof realm.UIEvent,same:originals.has(event),viewOwned:event.view===realm.window,related:names.get(event.relatedTarget)??null,phase:event.eventPhase,target:names.get(event.target)??null,current:names.get(event.currentTarget)??null,path:event.composedPath().filter((/** @type {any} */ node)=>names.has(node)).map((/** @type {any} */ node)=>names.get(node)),trusted:event.isTrusted,cancelable:event.cancelable,prevented:event.defaultPrevented,deltaX:event.deltaX,deltaY:event.deltaY,deltaZ:event.deltaZ,negativeZ:Object.is(event.deltaZ,-0),deltaMode:event.deltaMode,momentum:event.momentum,wheelDelta:event.wheelDelta,wheelDeltaX:event.wheelDeltaX,wheelDeltaY:event.wheelDeltaY,which:event.which,button:event.button,control:event.getModifierState('Control'),...extra});status.textContent=JSON.stringify(rows);};
+ body.addEventListener('wheel',/** @this {any} */ function(/** @type {any} */ event){record('typed-capture',event,{thisBody:this===body});try{box.dispatchEvent(event);rows.push({at:'typed-recursion',name:'leaked'});}catch(error){rows.push({at:'typed-recursion',name:/** @type {any} */(error).name});}},true);
+ box.addEventListener('wheel',/** @this {any} */ function(/** @type {any} */ event){event.preventDefault();record('typed-target',event,{thisBox:this===box});Promise.resolve().then(()=>record('typed-late',event));});
+ body.addEventListener('wheel',/** @this {any} */ function(/** @type {any} */ event){record('typed-bubble',event,{thisBody:this===body});});
+ return {rows,run(){const events=[new realm.WheelEvent('wheel',{deltaX:1.5,deltaY:-2.25,deltaZ:-0,deltaMode:0,momentum:true,relatedTarget:trigger,view:realm.window,ctrlKey:true,bubbles:true,cancelable:true}),new realm.WheelEvent('wheel',{deltaX:-0,deltaY:7.75,deltaZ:2.5,deltaMode:2,bubbles:true,cancelable:false,button:2,view:realm.window}),new realm.WheelEvent('wheel'),new realm.WheelEvent('wheel',{wheelDeltaX:120,wheelDeltaY:-240,bubbles:true,cancelable:true})];for(const event of events){originals.add(event);record('typed-before',event);record('typed-after',event,{result:box.dispatchEvent(event),checked:box.checked});}const same=events[0];record('typed-redispatch-before',same);record('typed-redispatch-after',same,{result:box.dispatchEvent(same),checked:box.checked});}};
+}
+
 /** Exact same owning Window program around native oracle and production callbacks.
  * @param {any} trigger @param {any} status @param {boolean} fifo */
 export function exerciseWindowOuter(trigger,status,fifo){

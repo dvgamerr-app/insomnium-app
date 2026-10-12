@@ -6,6 +6,7 @@ export function exerciseEventSubclasses(realm) {
     UIEvent: { detail: 7.9 },
     FocusEvent: { relatedTarget: null, detail: 2 },
     InputEvent: { data: "typed", inputType: "insertText", isComposing: true },
+    WheelEvent: { deltaX: 2.5, deltaY: -3.25, deltaZ: 4.75, deltaMode: 4294967297, clientX: 14.9, clientY: -4.8, ctrlKey: true, button: 2, momentum: true },
     MouseEvent: {
       clientX: 14.9,
       clientY: -4.8,
@@ -42,6 +43,7 @@ export function exerciseEventSubclasses(realm) {
     UIEvent: ["detail", "view"],
     FocusEvent: ["relatedTarget"],
     InputEvent: ["data", "dataTransfer", "inputType", "isComposing"],
+    WheelEvent: ["deltaX", "deltaY", "deltaZ", "deltaMode", "momentum", "wheelDeltaX", "wheelDeltaY", "wheelDelta"],
     MouseEvent: [
       "clientX",
       "clientY",
@@ -121,6 +123,13 @@ export function exerciseEventSubclasses(realm) {
       row.nullDictionaryDefaults=new ctor('null',null).dataTransfer===null&&new ctor('empty',{dataTransfer:null,targetRanges:[]}).getTargetRanges().length===0;
       row.transferReceiverRejected=false;try{Object.getOwnPropertyDescriptor(ctor.prototype,'dataTransfer')?.get?.call(new realm.UIEvent('wrong'));}catch(error){row.transferReceiverRejected=error instanceof realm.TypeError;}
     }
+    if(name==='WheelEvent'){
+      row.inherited={clientX:event.clientX,clientY:event.clientY,which:event.which,button:event.button,control:event.getModifierState('Control')};
+      row.prototypeChain={constructor:Object.getPrototypeOf(ctor)===realm.MouseEvent,prototype:Object.getPrototypeOf(ctor.prototype)===realm.MouseEvent.prototype};
+      row.wheelGetterReceivers=keys.WheelEvent.map(key=>{try{Object.getOwnPropertyDescriptor(ctor.prototype,key)?.get?.call(new realm.MouseEvent('wrong'));return false;}catch(error){return error instanceof realm.TypeError;}});
+      row.momentumSupported='momentum' in event;
+      row.constants=['DOM_DELTA_PIXEL','DOM_DELTA_LINE','DOM_DELTA_PAGE'].map(key=>({key,constructor:ctor[key],prototype:ctor.prototype[key],instance:event[key],constructorWrite:Reflect.set(ctor,key,9),prototypeWrite:Reflect.set(ctor.prototype,key,9),constructorDescriptor:Object.getOwnPropertyDescriptor(ctor,key),prototypeDescriptor:Object.getOwnPropertyDescriptor(ctor.prototype,key)}));
+    }
     if (name === "MouseEvent" || name === "KeyboardEvent")
       row.modifiers = ["Control", "Shift", "Alt", "Meta", "unknown"].map((key) =>
         event.getModifierState(key),
@@ -145,6 +154,11 @@ export function exerciseEventSubclasses(realm) {
     }
   });
   result.dictionaryReads={};
+  result.wheelInvalid=[()=>new realm.WheelEvent(),()=>new realm.WheelEvent(Symbol()),()=>new realm.WheelEvent('x',5),...['deltaX','deltaY','deltaZ'].flatMap(key=>[Infinity,-Infinity,NaN,Symbol(),1n].map(value=>()=>new realm.WheelEvent('x',{[key]:value}))),()=>new realm.WheelEvent('x',{deltaMode:1n}),()=>new realm.WheelEvent('x',{wheelDeltaX:1n}),()=>new realm.WheelEvent('x',{relatedTarget:{}}),()=>new realm.WheelEvent('x',{view:{}})].map(run=>{try{run();return false;}catch(error){return error instanceof realm.TypeError;}});
+  result.wheelConversions=[undefined,null,false,true,'2.75',{},-0,-2.25].map(deltaX=>{try{const event=new realm.WheelEvent('wheel',{deltaX});return {deltaX:event.deltaX,negativeZero:Object.is(event.deltaX,-0)};}catch(error){return {error:error instanceof realm.TypeError};}});
+  result.wheelModes=[-1,0,1,2,3,4294967297,Infinity,NaN,2.9].map(deltaMode=>new realm.WheelEvent('wheel',{deltaMode}).deltaMode);
+  result.wheelSignedZero=['deltaX','deltaY','deltaZ'].map(key=>({key,negative:Object.is(new realm.WheelEvent('wheel',{[key]:-0})[key],-0)}));
+  result.wheelLegacy=[{deltaX:2.5,deltaY:-3.25},{wheelDeltaX:120,wheelDeltaY:-240},{deltaX:2.5,deltaY:-3.25,wheelDeltaX:120,wheelDeltaY:-240},{deltaX:-0,deltaY:0},{wheelDeltaX:Infinity},{wheelDeltaX:3.75,wheelDeltaY:-4.5},{wheelDeltaX:120},{deltaX:1e30,deltaY:-1e30},{wheelDeltaX:-2147483648},{deltaX:0,deltaY:-0,wheelDeltaX:3,wheelDeltaY:-5}].map(init=>{const event=new realm.WheelEvent('wheel',init);return {deltaX:event.deltaX,deltaY:event.deltaY,wheelDelta:event.wheelDelta,wheelDeltaX:event.wheelDeltaX,wheelDeltaY:event.wheelDeltaY};});
   result.focusInputErrors=[()=>new realm.FocusEvent(),()=>new realm.InputEvent(),()=>new realm.FocusEvent('x',{relatedTarget:{}}),()=>new realm.FocusEvent('x',{relatedTarget:1}),()=>new realm.FocusEvent('x',{relatedTarget:Symbol()}),()=>new realm.InputEvent('x',{data:Symbol()}),()=>new realm.InputEvent('x',{inputType:Symbol()}),()=>new realm.InputEvent('x',4),()=>new realm.InputEvent('x',{dataTransfer:{}}),()=>new realm.InputEvent('x',{targetRanges:[{}]})].map(run=>{try{run();return false;}catch(error){return error instanceof realm.TypeError;}});
   result.inputConversions=[null,undefined,12,'\ud800','\udc00','a\ud800b','😀'].map(data=>{const event=new realm.InputEvent('x',{data,inputType:12,isComposing:1});return {data:event.data,inputType:event.inputType,isComposing:event.isComposing};});
   result.inputTypes=['insertText','insertLineBreak','insertParagraph','insertOrderedList','insertUnorderedList','insertHorizontalRule','insertFromYank','insertFromDrop','insertFromPaste','insertFromPasteAsQuotation','insertTranspose','insertCompositionText','insertReplacementText','insertLink','deleteWordBackward','deleteWordForward','deleteSoftLineBackward','deleteSoftLineForward','deleteEntireSoftLine','deleteHardLineBackward','deleteHardLineForward','deleteByDrag','deleteByCut','deleteContent','deleteContentBackward','deleteContentForward','historyUndo','historyRedo','formatBold','formatItalic','formatUnderline','formatStrikeThrough','formatSuperscript','formatSubscript','formatJustifyFull','formatJustifyCenter','formatJustifyRight','formatJustifyLeft','formatIndent','formatOutdent','formatRemove','formatSetBlockTextDirection','formatSetInlineTextDirection','formatBackColor','formatFontColor','formatFontName','insertFromComposition','deleteCompositionText','unknown','INSERTTEXT',''].map(inputType=>({supplied:inputType,actual:new realm.InputEvent('x',{inputType}).inputType}));
@@ -183,12 +197,21 @@ export function observeNativeSubclass(event, realm, ownedNodes=[]) {
     keyboard: event instanceof realm.KeyboardEvent,
     focus: event instanceof realm.FocusEvent,
     input: event instanceof realm.InputEvent,
+    wheel: event instanceof realm.WheelEvent,
     trusted: event.isTrusted,
     own: Object.keys(event),
   });
   if(event instanceof realm.FocusEvent)out.relatedOwnedIndex=ownedNodes.indexOf(event.relatedTarget);
   for (const key of [
     "detail",
+    "deltaX",
+    "deltaY",
+    "deltaZ",
+    "deltaMode",
+    "momentum",
+    "wheelDelta",
+    "wheelDeltaX",
+    "wheelDeltaY",
     "data",
     "inputType",
     "screenX",

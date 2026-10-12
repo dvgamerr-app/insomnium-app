@@ -110,6 +110,7 @@ export function createPluginGuestDom(call,retain,now) {
       pointerType: ["string", ""],
       isPrimary: ["bool", false],
     },
+    WheelEvent: { deltaX: ["double", 0], deltaY: ["double", 0], deltaZ: ["double", 0], deltaMode: ["ulong", 0], momentum: ["bool", false], wheelDeltaX: ["long", 0], wheelDeltaY: ["long", 0] },
     FocusEvent: { relatedTarget: ["node", null] },
     InputEvent: { data: ["nullableString", null], dataTransfer: ["any", null], inputType: ["string", ""], isComposing: ["bool", false] },
     CustomEvent: { detail: ["any", null] },
@@ -149,9 +150,9 @@ export function createPluginGuestDom(call,retain,now) {
   const initialize=(/** @type {any} */ value,/** @type {string} */ kind,/** @type {any} */ init)=>{
     const data=eventState(value);data.brands??=[];data.brands.push(kind);
     if(kind==='MouseEvent'||kind==='KeyboardEvent')for(const key of modifierKeys){const supplied=init?.[key];data[key]=!!supplied;}
-    for(const key of (kind==='FocusEvent'?['relatedTarget']:kind==='InputEvent'?['data','dataTransfer','inputType','isComposing','targetRanges']:dictionaryKeys[kind])){
+    for(const key of (kind==='WheelEvent'?['deltaMode','deltaX','deltaY','deltaZ','momentum','wheelDeltaX','wheelDeltaY']:kind==='FocusEvent'?['relatedTarget']:kind==='InputEvent'?['data','dataTransfer','inputType','isComposing','targetRanges']:dictionaryKeys[kind])){
       const supplied=init?.[key],field=fields[kind][key];
-      if(field){if(kind==='InputEvent'&&key==='dataTransfer'&&supplied!=null)throw new TypeError('An owned DataTransfer is required');const [type,fallback]=field;data[key]=convert(supplied===undefined?fallback:supplied,['screenX','screenY','clientX','clientY'].includes(key)?'double':type);}
+      if(field){if(kind==='MouseEvent'&&key==='relatedTarget'&&value instanceof GuestWheelEvent&&supplied!=null&&!ids.has(supplied))throw new TypeError('An owned related target is required');if(kind==='InputEvent'&&key==='dataTransfer'&&supplied!=null)throw new TypeError('An owned DataTransfer is required');const [type,fallback]=field;data[key]=convert(supplied===undefined?fallback:supplied,['screenX','screenY','clientX','clientY'].includes(key)?'double':type);}
       else if(key==='targetRanges'){if(supplied!==undefined&&Array.from(supplied).length)throw new TypeError('Owned target ranges are required');}
       else if(key==='sourceCapabilities'){if(supplied!=null)throw new TypeError('An owned input capability is required');data.sourceCapabilities=null;}
       else if(key==='region')data.region=supplied==null?null:domString(supplied);
@@ -250,6 +251,12 @@ export function createPluginGuestDom(call,retain,now) {
 
     }
   }
+  class GuestWheelEvent extends GuestMouseEvent {
+    /** @param {any} type @param {any} [init] */
+    constructor(type,init={}){if(!arguments.length)throw new TypeError('Event type is required');super(type,init);initialize(this,'WheelEvent',init);const data=eventState(this),clamp=(/** @type {number} */ value)=>Math.max(-2147483648,Math.min(2147483647,Math.trunc(value)))||0;for(const axis of ['X','Y']){const legacy=data['wheelDelta'+axis],delta=data['delta'+axis];data['wheelDelta'+axis]=legacy||clamp(delta);data['delta'+axis]=delta||clamp(-legacy);}}
+    get wheelDelta(){const data=subclassState(this,'WheelEvent');return data.wheelDeltaY||data.wheelDeltaX;}
+  }
+  for(const [name,value] of [['DOM_DELTA_PIXEL',0],['DOM_DELTA_LINE',1],['DOM_DELTA_PAGE',2]])for(const target of [GuestWheelEvent,GuestWheelEvent.prototype])Object.defineProperty(target,name,{value,enumerable:true});
   class GuestFocusEvent extends GuestUIEvent {
     /** @param {any} type @param {any} [init] */
     constructor(type,init={}){if(!arguments.length)throw new TypeError('Event type is required');super(type,init);initialize(this,'FocusEvent',init);}
@@ -281,6 +288,7 @@ export function createPluginGuestDom(call,retain,now) {
     MouseEvent: GuestMouseEvent,
     KeyboardEvent: GuestKeyboardEvent,
     PointerEvent: GuestPointerEvent,
+    WheelEvent: GuestWheelEvent,
     FocusEvent: GuestFocusEvent,
     InputEvent: GuestInputEvent,
     CustomEvent: GuestCustomEvent,
@@ -333,7 +341,7 @@ export function createPluginGuestDom(call,retain,now) {
       eventData.set(value,{});
     }
     Object.assign(eventState(value),{type:packet.type,bubbles:packet.bubbles,cancelable:packet.cancelable,composed:!!packet.composed,timeStamp:synthetic?eventState(value).timeStamp:packet.timeStamp,trusted:!!packet.isTrusted,target:wrap(packet.target),currentTarget:wrap(packet.currentTarget),phase:packet.eventPhase,prevented:packet.defaultPrevented,stopped:!!packet.cancelBubble,immediate:false,active:true,passive:!!packet.passive,path:(packet.path||[]).map(wrap),id:packet.eventId});
-    const data=eventState(value);data.brands=[];for(const name of ['UIEvent','MouseEvent','KeyboardEvent','PointerEvent','FocusEvent','InputEvent','CustomEvent'])if(value instanceof eventClasses[name]&&!((synthetic||customCached)&&name==='CustomEvent'))initialize(value,name,{...packet,view:packet.ownedView?guestWindow:null,relatedTarget:packet.relatedTarget?wrap(packet.relatedTarget):null});if((synthetic||customCached)&&value instanceof GuestCustomEvent)data.brands.push('CustomEvent');if('which' in packet)data.which=packet.which;if(value instanceof GuestPointerEvent)for(const key of ['screenX','screenY','clientX','clientY'])if(key in packet)data[key]=packet[key];if(value instanceof GuestMouseEvent)for(const key of ['pageX','pageY'])if(key in packet)data[key]=packet[key];
+    const data=eventState(value);data.brands=[];for(const name of ['UIEvent','MouseEvent','KeyboardEvent','PointerEvent','WheelEvent','FocusEvent','InputEvent','CustomEvent'])if(value instanceof eventClasses[name]&&!((synthetic||customCached)&&name==='CustomEvent'))initialize(value,name,{...packet,view:packet.ownedView?guestWindow:null,relatedTarget:packet.relatedTarget?wrap(packet.relatedTarget):null});if((synthetic||customCached)&&value instanceof GuestCustomEvent)data.brands.push('CustomEvent');if('which' in packet)data.which=packet.which;if(value instanceof GuestPointerEvent)for(const key of ['screenX','screenY','clientX','clientY'])if(key in packet)data[key]=packet[key];if(value instanceof GuestMouseEvent)for(const key of ['pageX','pageY'])if(key in packet)data[key]=packet[key];
     return value;
   };
   const collectionData=new WeakMap(),liveCollections=new WeakMap(),datasetData=new WeakMap(),datasetObjects=new WeakMap(),elements=new WeakSet();
@@ -531,9 +539,9 @@ export function createPluginGuestDom(call,retain,now) {
     dispatchEvent(event){
       if(!ids.has(this))throw new TypeError('Illegal EventTarget invocation');
       const data=eventState(event);if(data.dispatching||data.active)throw new DOMException('Event is already being dispatched','InvalidStateError');
-      const id=++syntheticSequence,packet=/** @type {Record<string,any>} */ ({syntheticId:id,interface:['PointerEvent','MouseEvent','KeyboardEvent','FocusEvent','InputEvent','CustomEvent','UIEvent'].find(name=>data.brands?.includes(name))||'Event',type:data.type,bubbles:data.bubbles,cancelable:data.cancelable,composed:data.composed,defaultPrevented:data.prevented,stopped:data.stopped,immediate:data.immediate,viewOwned:data.view===guestWindow});
+      const id=++syntheticSequence,packet=/** @type {Record<string,any>} */ ({syntheticId:id,interface:['PointerEvent','WheelEvent','MouseEvent','KeyboardEvent','FocusEvent','InputEvent','CustomEvent','UIEvent'].find(name=>data.brands?.includes(name))||'Event',type:data.type,bubbles:data.bubbles,cancelable:data.cancelable,composed:data.composed,defaultPrevented:data.prevented,stopped:data.stopped,immediate:data.immediate,viewOwned:data.view===guestWindow});
       // Never serialize CustomEvent.detail: it can contain VM-local functions/cycles.
-      for(const kind of ['UIEvent','MouseEvent','KeyboardEvent','PointerEvent','FocusEvent','InputEvent'])if(data.brands?.includes(kind))for(const key of Object.keys(fields[kind]))if(key!=='view'&&key!=='relatedTarget')packet[key]=data[key];
+      for(const kind of ['UIEvent','MouseEvent','KeyboardEvent','PointerEvent','WheelEvent','FocusEvent','InputEvent'])if(data.brands?.includes(kind))for(const key of Object.keys(fields[kind]))if(key!=='view'&&key!=='relatedTarget')packet[key]=data[key];
       if(data.relatedTarget)packet.relatedTarget=idOf(data.relatedTarget);
       syntheticEvents.set(id,event);data.dispatching=true;
       try{const result=call('dom.dispatch',[idOf(this),packet]);data.target=this;data.trusted=false;data.prevented=result.defaultPrevented;return result.result;}
