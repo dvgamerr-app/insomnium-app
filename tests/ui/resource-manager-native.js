@@ -84,6 +84,7 @@ await withResourceProbePreserved(
             .click();
           await lastDialog.waitFor({ state: "detached" });
           await resourceSaved(page);
+          await Bun.write(output + "/cold-last-collection.json", JSON.stringify({passed:true,collections:1,deleteDisabled:true,title:"Keep at least one collection",keyboard:"Tab skips disabled Delete",beforeFixtures:true},null,2));
           await capture();
           const original =
             /** @type {ReturnType<import('../../src/lib/model.js').initialData>} */ (
@@ -160,6 +161,13 @@ await withResourceProbePreserved(
               .click();
             await dialog.waitFor({ state: "detached" });
             await resourceSaved(page);
+          };
+          const locationControl = async () => {
+            const control=page.getByRole("dialog").getByLabel("Location",{exact:false});
+            await control.waitFor();
+            assert.equal(await control.count(),1);
+            assert.equal(await control.evaluate(el=>{const label=/** @type {HTMLSelectElement} */(el).labels?.[0];return label?Array.from(label.childNodes).filter(node=>node.nodeType===Node.TEXT_NODE).map(node=>node.textContent).join("").trim():"";}),"Location","Location label's own text exact; nested option text is not field name");
+            return control;
           };
           await page
             .getByRole("button", { name: "New folder", exact: true })
@@ -280,14 +288,18 @@ await withResourceProbePreserved(
           await dialog
             .getByLabel("Folder variables (JSON)", { exact: true })
             .fill("{}");
-          const locations = await dialog
-            .getByLabel("Location", { exact: true })
+          await Bun.write(output+"/location-label-dom.json",JSON.stringify(await dialog.locator("select").evaluateAll(els=>els.map(el=>({html:el.outerHTML,labels:Array.from(/** @type {HTMLSelectElement} */(el).labels??[]).map(label=>label.textContent)}))),null,2));
+          const location = await locationControl();
+          await poll(async()=>await location.locator("option").count()===3,"All original/source/foreign destination options rendered");
+          const locationEvidence = await location
             .locator("option")
             .evaluateAll((options) =>
               options.map(
-                (option) => /** @type {HTMLOptionElement} */ (option).value,
+                (option) => ({value:/** @type {HTMLOptionElement} */ (option).value,logicalValue:/** @type {any} */(option).__value,label:option.textContent}),
               ),
             );
+          await Bun.write(output + "/location-options.json",JSON.stringify({destinationId,sourceId:workspaceId,outerId:outer._id,innerId:inner._id,options:locationEvidence},null,2));
+          const locations = locationEvidence.map(option=>option.value);
           assert.ok(
             !locations.includes(outer._id) && !locations.includes(inner._id),
             "Self/child cycles excluded before selection",
@@ -394,9 +406,8 @@ await withResourceProbePreserved(
             "Owned held native Send entered",
           );
           dialog = await manageResource(page, outer.name);
-          await dialog
-            .getByLabel("Location", { exact: true })
-            .selectOption(destinationId);
+          await (await locationControl()).selectOption(destinationId);
+          assert.equal(await (await locationControl()).inputValue(),destinationId);
           await dialog
             .getByRole("button", { name: "Save changes", exact: true })
             .click();
@@ -416,9 +427,8 @@ await withResourceProbePreserved(
           release?.();
           await resourceSaved(page);
           dialog = await manageResource(page, outer.name);
-          await dialog
-            .getByLabel("Location", { exact: true })
-            .selectOption(destinationId);
+          await (await locationControl()).selectOption(destinationId);
+          assert.equal(await (await locationControl()).inputValue(),destinationId);
           await save(dialog);
           assert.equal((await resource(outer.name)).parentId, destinationId);
           assert.equal((await resource(inner.name)).parentId, outer._id);
