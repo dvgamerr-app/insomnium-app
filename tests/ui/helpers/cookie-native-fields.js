@@ -14,6 +14,33 @@ export const cookieNativeLargeRaw = "owned=" + "é".repeat(4094);
 const scheme = "Cookie URL must use HTTP or HTTPS", limit = "Cookie exceeds the 8 KiB editor limit";
 const hash = (/** @type {Uint8Array} */ bytes) => createHash("sha256").update(bytes).digest("hex");
 
+/** Pure receipt validation; scripted initiation is not trusted keyboard evidence.
+ * @param {any} receipt @param {'new'|'close'} kind */
+export function assertCookiePendingUiReceipt(receipt,kind){
+  assert.equal(receipt.initiation,"scripted-requestSubmit-and-click");
+  assert.equal(receipt.kind,kind);assert.equal(receipt.submitCount,1);
+  assert.equal(receipt.submitDefaultPrevented,true);assert.equal(typeof receipt.submitTrusted,"boolean");
+  assert.equal(receipt.actionCount,1);assert.equal(receipt.actionTrusted,false);
+  assert.equal(receipt.pending.urlDisabled,true);assert.equal(receipt.pending.rawDisabled,true);
+  assert.equal(receipt.pending.saveDisabled,true);assert.equal(receipt.pending.saveText,"Saving…");
+  assert.equal(receipt.pending.alerts,0);
+  if(kind==="new"){
+    assert.equal(receipt.after.connected,true);assert.equal(receipt.after.url,"");assert.equal(receipt.after.raw,"");
+    assert.equal(receipt.after.urlDisabled,true);assert.equal(receipt.after.rawDisabled,true);
+    assert.equal(receipt.after.saveDisabled,true);assert.equal(receipt.after.saveText,"Saving…");assert.equal(receipt.after.alerts,0);
+  }else assert.equal(receipt.after.connected,false,"Actual modal subtree removed before reply publication");
+}
+
+/** Host-observed passive event order; no physical Rust entry/timing inference.
+ * @param {any[]} events @param {string} id */
+export function assertCookiePendingUiOrder(events,id){
+  const selected=events.filter(event=>event.id===id);
+  for(const phase of ["pending-ui","post-action","protocol-response"])assert.equal(selected.filter(event=>event.phase===phase).length,1);
+  const order=(/** @type {string} */ phase)=>selected.find(event=>event.phase===phase).order;
+  assert.ok(order("pending-ui")<order("post-action"));
+  assert.ok(order("post-action")<order("protocol-response"),"Require observed checkpoint before passive protocol reply; no timing fallback");
+}
+
 /** Read-only filesystem evidence; never adopts/deletes unknown files.
  * @param {string} root */
 async function inventory(root) {
@@ -72,6 +99,14 @@ export async function runCookieNativeFields() {
       }
       const rows=/** @type {Record<string,any>[]} */ ([]);
       const pending=/** @type {Promise<void>[]} */ ([]), traceErrors=/** @type {string[]} */ ([]);
+      const pendingUiRows=/** @type {Record<string,any>[]} */ ([]),pendingUiEvents=/** @type {Record<string,any>[]} */ ([]);
+      const pendingUiRequests=/** @type {WeakMap<import('playwright-core').Request,string>} */(new WeakMap());
+      let pendingUiId="";
+      const checkpointName="__cookiePendingUi_"+crypto.randomUUID().replaceAll("-","");
+      await page.exposeFunction(checkpointName,(/** @type {any} */ event)=>{
+        if(!pendingUiId||event.id!==pendingUiId||!["pending-ui","post-action"].includes(event.phase)){traceErrors.push("Unowned pending UI checkpoint");return;}
+        pendingUiEvents.push({...event,order:pendingUiEvents.length});
+      });
       const requests=/** @type {Map<import('playwright-core').Request,Record<string,any>>} */ (new Map());
       let commandUrl="";
       const onRequest=(/** @type {import('playwright-core').Request} */ request)=>{
@@ -82,6 +117,13 @@ export async function runCookieNativeFields() {
       const onResponse=(/** @type {import('playwright-core').Response} */ response)=>{
         const row=requests.get(response.request());if(!row)return;
         pending.push((async()=>{try{row.ok=(await response.headerValue("Tauri-Response"))==="ok";row.value=await response.json();row.settled=Date.now();}catch(error){traceErrors.push(String(error));}})());
+      };
+      const onPendingUiRequest=(/** @type {import('playwright-core').Request} */ request)=>{
+        if(pendingUiId&&request.url()===commandUrl)pendingUiRequests.set(request,pendingUiId);
+      };
+      const onPendingUiResponse=(/** @type {import('playwright-core').Response} */ response)=>{
+        const id=pendingUiRequests.get(response.request());
+        if(id&&response.url()===commandUrl&&requests.has(response.request()))pendingUiEvents.push({id,phase:"protocol-response",order:pendingUiEvents.length});
       };
       const dialog=page.getByRole("dialog",{name:"Cookies",exact:true});
       const url=()=>dialog.getByRole("textbox",{name:"Cookie URL",exact:true});
@@ -115,6 +157,8 @@ export async function runCookieNativeFields() {
         assert.equal(key.name,"owned");
         commandUrl=await page.evaluate(()=>/** @type {any} */(window).__TAURI_INTERNALS__.convertFileSrc("change_cookie","ipc"));
         page.on("request",onRequest);page.on("response",onResponse);
+        page.on("response",onPendingUiResponse);
+        page.on("request",onPendingUiRequest);
         // Fail closed if WebView2/custom protocol lacks passive request evidence.
         const probeCount=requests.size;
         await invoke("change_cookie",{workspaceId,url:"ftp://cookie-field.example.invalid/",raw:"owned=probe; Path=/",previous:key,clear:false}).then(()=>assert.fail("Real scheme must reject"),error=>assert.equal(String(error).includes(scheme),true));
@@ -166,11 +210,67 @@ export async function runCookieNativeFields() {
             await page.keyboard.press("Escape");assert.equal(await dialog.count(),0);
             assert.equal(await page.getByRole("button",{name:"Cookies",exact:true}).evaluate(el=>el===document.activeElement),true);
             rows.push({theme,width,kind:"HTML-Enter-New-Escape",htmlNoInvoke:true,inputEnter:1,geometry});
+            // Additive cases: actual command, no sleeps/spins/response interception.
+            for(const kind of /** @type {('new'|'close')[]} */(["new","close"])){
+              await open();await dialog.locator(".cookie-detail").filter({hasText:"owned"}).click();
+              const origin="ftp://cookie-field.example.invalid/",value="owned=pending-ui; Path=/";
+              await url().fill(origin);await raw().fill(value);
+              const before={jar:await snapshot(),disk:await disk()},count=requests.size;
+              pendingUiId=theme+"-"+width+"-"+kind;
+              const actualReply=page.waitForResponse(response=>response.url()===commandUrl&&response.request().postDataJSON()?.workspaceId===workspaceId&&response.request().postDataJSON()?.raw===value,{timeout:60000});
+              void actualReply.catch(()=>{}); // Retain cleanup on an earlier strict-check failure.
+              const receipt=await dialog.evaluate(async(el,{kind,id,name})=>{
+                const input=/** @type {HTMLInputElement} */(el.querySelector('.cookie-form input[type="url"]'));
+                const textarea=/** @type {HTMLTextAreaElement} */(el.querySelector(".cookie-form textarea"));
+                const form=input.form,save=/** @type {HTMLButtonElement} */(el.querySelector('button[type="submit"]'));
+                const action=/** @type {HTMLButtonElement} */(kind==="new"?[...el.querySelectorAll("button")].find(button=>button.textContent?.trim()==="New cookie"):el.querySelector('[aria-label="Close dialog"]'));
+                if(!form||!save||!action||action.disabled||save.disabled||!form.checkValidity())throw Error("Actual valid owned edit required");
+                let submit=/** @type {SubmitEvent|null} */(null),click=/** @type {MouseEvent|null} */(null),submitCount=0,actionCount=0;
+                const onSubmit=(/** @type {SubmitEvent} */ event)=>{submit=event;submitCount++;};
+                const onClick=(/** @type {MouseEvent} */ event)=>{click=event;actionCount++;};
+                form.addEventListener("submit",onSubmit);action.addEventListener("click",onClick);
+                const state=()=>({connected:el.isConnected,url:input.value,raw:textarea.value,urlDisabled:input.disabled,rawDisabled:textarea.disabled,saveDisabled:save.disabled,saveText:save.textContent?.trim(),alerts:el.querySelectorAll('[role="alert"]').length});
+                try{
+                  form.requestSubmit(save);
+                  await Promise.resolve(); // One existing Svelte render checkpoint, no macrotask delay.
+                  const pending=state();
+                  if(!pending.urlDisabled||!pending.rawDisabled||!pending.saveDisabled||pending.saveText!=="Saving…")throw Error("No observed pending UI; refuse race acceptance: "+JSON.stringify(pending));
+                  const host=/** @type {any} */(window);void host[name]({id,phase:"pending-ui",pending});
+                  action.click();
+                  await Promise.resolve(); // One checkpoint for actual reset/unmount.
+                  const after=state();void host[name]({id,phase:"post-action",after});
+                  return {id,kind,initiation:"scripted-requestSubmit-and-click",submitCount,submitDefaultPrevented:(/** @type {SubmitEvent|null} */(submit))?.defaultPrevented,submitTrusted:(/** @type {SubmitEvent|null} */(submit))?.isTrusted,actionCount,actionTrusted:(/** @type {MouseEvent|null} */(click))?.isTrusted,pending,after};
+                }finally{form.removeEventListener("submit",onSubmit);action.removeEventListener("click",onClick);}
+              },{kind,id:pendingUiId,name:checkpointName});
+              await Bun.write(output+"/cookie-pending-ui-progress.json",JSON.stringify({receipt,events:pendingUiEvents,rows:pendingUiRows},null,2));
+              assertCookiePendingUiReceipt(receipt,kind);
+              await actualReply;
+              await Promise.all(pending);assert.deepEqual(traceErrors,[]);
+              assert.equal(requests.size,count+1);assert.ok([...requests.values()][count]?.settled,"Actual native refusal body settled");
+              assertCookiePendingUiOrder(pendingUiEvents,pendingUiId);
+              const actual=[...requests.values()][count];assert.equal(actual.ok,false);assert.equal(actual.value,scheme);
+              assert.deepEqual(actual.args,{workspaceId,url:origin,raw:value,previous:key,clear:false});
+              assert.deepEqual({jar:await snapshot(),disk:await disk()},before,"Pending UI action cannot commit jar/disk on real refusal");
+              if(kind==="new")await dialog.locator('.cookie-form input[type="url"]:not([disabled])').waitFor({state:"visible"});else await open();
+              assert.equal(await url().inputValue(),"");assert.equal(await raw().inputValue(),"");
+              for(const control of [url(),raw()])assert.notEqual(await control.getAttribute("aria-invalid"),"true");
+              assert.equal(await dialog.getByRole("alert").count(),0);assert.equal(await dialog.getByRole("status").count(),0);
+              pendingUiRows.push({theme,width,kind,receipt,request:actual,jarUnchanged:true,diskUnchanged:true,staleFeedbackSuppressed:true,physicalRustEntryObserved:false});
+              pendingUiId="";await page.keyboard.press("Escape");assert.equal(await dialog.count(),0);
+            }
           }
         }
         await Promise.all(pending);assert.deepEqual(traceErrors,[]);
         await Bun.write(output+"/cookie-native-fields.json",JSON.stringify({native:true,renderingMode:"native-hidden",workspaceId,key,rows,requests:[...requests.values()],unexecuted:["entered-response New-owner race","entered-response modal-disposal race"],limits:"No response delay/replacement. Deterministic entered race needs separately reviewed real transport timing mechanism; controlled component proof does not close native race."},null,2));
+        assert.equal(pendingUiRows.length,12);
+        const originalReplies=[...requests].filter(([request])=>!pendingUiRequests.has(request)).map(([,row])=>row);
+        assert.equal(rows.length,24);assert.equal(originalReplies.length,25);assert.equal(requests.size,37);
+        await Bun.write(output+"/cookie-native-pending-ui.json",JSON.stringify({native:true,initiation:"scripted",rows:pendingUiRows,events:pendingUiEvents,originalCaseCount:rows.length,originalReplies,supplementalReplyCount:12,limits:"Observed UI await and checkpoint-before-passive-reply/publication only; physical Rust entry/reply production and trusted keyboard race remain unobserved."},null,2));
       } finally {
+        page.off("response",onPendingUiResponse);
+        page.off("request",onPendingUiRequest);
+        await Bun.write(output+"/cookie-native-pending-ui-trace.json",JSON.stringify({rows:pendingUiRows,events:pendingUiEvents,complete:pendingUiRows.length===12,active:pendingUiId},null,2));
+        await page.removeExposedFunction(checkpointName);
         await Promise.all(pending);page.off("request",onRequest);page.off("response",onResponse);
         await Bun.write(output+"/cookie-native-trace.json",JSON.stringify({workspaceId,rows,requests:[...requests.values()],traceErrors,complete:rows.length===24,nativeExecuted:true},null,2));
         if(await dialog.count())await page.keyboard.press("Escape");
