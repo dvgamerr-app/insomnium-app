@@ -1,3 +1,9 @@
+## Cache admission checked Windows volume spelling correction — 2026-10-13
+
+- Topic779b59965043acb9032e3f31e4cc85b40e915f80 changes only ordinaryDirectory to admit literal realpath D: for the known checked absolute D:\ root after ordinary directory/non-symlink checks. Other bare drive realpaths refuse before normalization; all other canonical checks retained. Revised source66d353b8ba023405ef9e4067d67ce60c6fab661d33f09f39ae4299b14676956d/14889bytes; report token/commands updated.
+- Root prior46d1 dry-run PID56128 terminal1 failed on D:\ before cache/stages; verbatim failure captured. Syntax-only passed exit0; manual narrow cases and exact inverse to46d1 source recorded. Old23+8 frozen proof files unchanged. Evidence artifacts/cargo-recovered-admission-tool-volume-root-proof. No own tool execution/dry-run/cache/root writes, collection/build/native/profile action.
+- Root repeated dry-run and eventual admission/partial publication remain pending. Coverage/linkage/gaps unchanged; own handles:none. /compact unavailable; STATUS and frozen evidence provide handoff.
+
 ## Cache admission tool reliability correction — 2026-10-13
 
 - Topic c24fa83 changes only the SHA helper to node:crypto createHash under Bun and renames HOME to CARGO_CACHE_ROOT. Revised source46d1e59320a865084695bebff39676fbc7dfd74c26162a9c1856d66f9f583af5/14560bytes; report commands/token reflect exact bytes. Exact inverse reproduces originale1b7/14422bytes, preserving all23 frozen files and previous crash negative.
