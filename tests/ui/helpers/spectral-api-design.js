@@ -593,7 +593,8 @@ export async function exerciseSpectralApiDesign(page, output, origin, adapters =
   );
   const capacityRequest = (await snapshot()).resources.find(
     (/** @type {any} */ resource) =>
-      resource._type === "request" && resource.method === "POST",
+      resource._type === "request" && resource.method === "POST" &&
+      resource.sourceSpecId === specId,
   );
   assert.deepEqual(JSON.parse(capacityRequest.body.text), { label: "many-0" });
   await page
@@ -617,7 +618,8 @@ export async function exerciseSpectralApiDesign(page, output, origin, adapters =
   const afterPrecedence = await snapshot(),
     precedenceRequest = afterPrecedence.resources.find(
       (/** @type {any} */ resource) =>
-        resource._type === "request" && resource.method === "POST",
+        resource._type === "request" && resource.method === "POST" &&
+        resource.sourceSpecId === specId,
     );
   assert.deepEqual(
     JSON.parse(precedenceRequest.body.text),

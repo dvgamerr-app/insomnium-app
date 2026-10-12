@@ -1,3 +1,11 @@
+## Native captured external references accepted — 2026-10-13
+
+Fresh locked build3943 captures820inputs/52assets/appa00e1ff8 +f569 sidecar. Initial11241 negative retained: unscoped POST lookup selected original foreign request after46actualjobs; actual many-0 generation and full restoration correct. Only two sourceSpecId lookup predicates fixed, all73assertions retained; foreignPOST sentinel, compiler69577 0/0, saved71guards and SAMEheadless8230/48 pass. Declared runtime-test-only supplement preserves compiled app/frontend and original compile provenance.
+
+Saved native-hidden37495 terminal0:6retained+12externalprofiles/48realRust jobs/7entered-cancelled physical object retirements/36HTTPreads/catalog41 actualGenerate/attachedprecedence; no cancelled result. Independent complete source/asset/harness/output/process/restoration audit artifacts/spectral-native-external-root-candidate/runs/owned-post-v1/root-audit.json. Original43resources/20history/two buffers/immutablestore+654cookies/layout/Gitnames restored; registeredrepo archived/individually retired. Root handles:none/profileclaimreleased. Topic commit pending; /compact unavailable, explicit handoff before next feature.
+
+Next integrate independently reviewed license406/six-path handoff c67fa817; UI257b inventory and Bun57 report await review/integration, isolated field-validation/source-range agents continue. Full production-shell/futuregeneration/consumedread/inflight/private/platform/distribution/SDK/Event/FIFO/alloriginalmigration/UX remain OPEN.
+
 ## Parallel work restarted by owner — 2026-10-13
 
 Latest verified feature commit: 2849148 (captured external structural preview/Generate), root audit artifacts/spectral-external-root-proof/root-audit.json; compiler/build/saved headless/regressions passed. Root handles:none; native profile unclaimed. Previous frozen native and runtime-license handoffs remain immutable. Owner requests three agents plus root: native preparation reconciliation, exact runtime-license override, and read-only shared-input/CSS adoption inventory in fresh isolated worktrees. Root owns integration, serial builds and exclusive native-hidden acceptance. PLAN records assignments and acceptance gates.

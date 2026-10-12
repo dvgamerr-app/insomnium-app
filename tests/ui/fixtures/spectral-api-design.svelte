@@ -17,6 +17,15 @@
       resources: [
         ...structuredClone(initial.resources),
         {
+          _id: "req_spectral_foreign",
+          _type: "request",
+          parentId: initial.activeWorkspaceId,
+          name: "Existing foreign POST",
+          method: "POST",
+          body: { mimeType: "text/plain", text: "literal foreign request" },
+          sourceSpecId: "spc_spectral_foreign",
+        },
+        {
           _id: otherWorkspace,
           _type: "workspace",
           name: "Owned other collection",

@@ -4,7 +4,7 @@ import {watchSpectralNativeProducer} from './spectral-native-process.js';
 
 /** Passive saved trace forwards original native fetch/replies unchanged.
  * No IPC stand-in, injected result, producer spawn, PID telemetry command or release gate.
- * @param {{page:import('playwright-core').Page,pid:number,output:string,sidecar:string,sidecarSha256:string,fixture:any,configureCase:(mode:string)=>Promise<any>}} context */
+ * @param {{page:import('playwright-core').Page,pid:number,output:string,sidecar:string,sidecarSha256:string,fixture:any,configureCase:(mode:string,options?:{revision?:string})=>Promise<any>}} context */
 export async function installSpectralNativeTrace({page,pid,output,sidecar,sidecarSha256,fixture,configureCase}){
  /** @type {Map<string,any>} */
  const jobs=new Map();
@@ -53,7 +53,7 @@ export async function installSpectralNativeTrace({page,pid,output,sidecar,sideca
   };
  },{name});
  return{
-  /** @param {string} mode */async configureCase(mode){assert.equal(observers.size,0,'No rule edits until actual native process settlement');current=await configureCase(mode);return current;},
+  /** @param {string} mode @param {{revision?:string}} [options] */async configureCase(mode,options){assert.equal(observers.size,0,'No rule edits until actual native process settlement');current=await configureCase(mode,options);return current;},
   async state(){for(const [id,observer]of observers){const job=jobs.get(id),observed=await observer.observed();if(observed)job.pid=observed.pid;if(job.mode==='held'&&await Bun.file(job.marker).exists()){const marker=await Bun.file(job.marker).json();assert.equal(marker.pid,observed?.pid,'Entered function must belong to retained actual native producer');assert.ok(marker.entered>=job.reserved);job.entered=marker.entered;}}
    assert.deepEqual(errors,[],'Native passive trace must observe every actual command/process');return{native:true,jobs:[...jobs.values()],events,lastSave};},
   async close(){try{assert.equal(observers.size,0,'No owned producer observer may remain on adapter completion');assert.deepEqual(errors,[]);await Bun.write(join(output,'spectral-native-ipc-trace.json'),JSON.stringify({native:true,jobs:[...jobs.values()],events,errors,lastSave:lastSave?{ownedResources:lastSave.resources.filter((/** @type {any} */row)=>!fixture.originalIds.includes(row._id)),originalResourceCount:fixture.originalIds.length,historyCount:lastSave.history.length}:null},null,2));}finally{for(const observer of observers.values())observer.close();observers.clear();await page.evaluate(name=>{const host=/** @type {any} */(window),trace=host.__spectralNativeFetchTrace;if(trace?.name===name){window.fetch=trace.original;delete host.__spectralNativeFetchTrace;}delete host[name];},name);}}

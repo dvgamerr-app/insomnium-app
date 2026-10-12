@@ -19,9 +19,76 @@
   function current() {
     return workspace.data.resources.find((r) => r._id === specId);
   }
+  function external(remote = false) {
+    seed(true);
+    const base = remote ? native.referenceOrigin + "/references/" : "../";
+    const spec = current();
+    if (!spec) return;
+    spec.files = [];
+    spec.contents =
+      "\uFEFFopenapi: 3.2.0\r\n$self: memory:///design/openapi.yaml\r\ninfo:\r\n  title: External 😀\r\n  version: '1'\r\npaths:\r\n  /payload:\r\n    post:\r\n      requestBody:\r\n        content:\r\n          application/json:\r\n            schema:\r\n              $ref: '" +
+      base +
+      "a/shared.yaml'\r\n      responses:\r\n        '200':\r\n          description: OK\r\ncomponents:\r\n  schemas:\r\n    A:\r\n      $ref: '" +
+      base +
+      "a/shared.yaml'\r\n    B:\r\n      $ref: '" +
+      base +
+      "b/shared.yaml'\r\n";
+  }
+  function manyExternal() {
+    seed(true);
+    const spec = current();
+    if (!spec) return;
+    spec.files = [];
+    spec.contents = JSON.stringify(
+      {
+        openapi: "3.1.0",
+        info: { title: "External capacity", version: "1" },
+        paths: {
+          "/payload": {
+            post: {
+              requestBody: {
+                content: {
+                  "application/json": {
+                    schema: { $ref: "./many/schema-0.yaml" },
+                  },
+                },
+              },
+              responses: { "200": { description: "OK" } },
+            },
+          },
+        },
+        components: {
+          schemas: Object.fromEntries(
+            Array.from({ length: 40 }, (_, i) => [
+              "R" + i,
+              { $ref: "./many/schema-" + i + ".yaml" },
+            ]),
+          ),
+        },
+      },
+      null,
+      2,
+    );
+  }
+  function attachedPrecedence() {
+    external(false);
+    const spec = current();
+    if (spec)
+      spec.files = [
+        {
+          name: "../a/shared.yaml",
+          contents:
+            "type: object\nproperties:\n  label:\n    type: string\n    enum: ['attached😀']\n",
+        },
+      ];
+  }
 </script>
 
 <div class="fixture-controls">
+  <Button onclick={attachedPrecedence}>Attached precedence fixture</Button>
+  <Button onclick={manyExternal}>External capacity fixture</Button>
+  <Button onclick={() => external(false)}>External repository fixture</Button>
+  <Button onclick={() => external(true)}>External HTTP fixture</Button>
   <Button onclick={() => seed(false)}>Default fixture</Button>
   <Button onclick={() => seed(true)}>Repository fixture</Button>
   <Button
