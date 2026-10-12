@@ -1,3 +1,8 @@
+## Owned Spectral frontend client checkpoint — 2026-10-12
+
+- New client captures input before awaits, reserves server UUID, keeps cancellation/result settlement owned and waits RUN/CANCEL before caller completion. Every unsuccessful known reservation retires, including worker-capacity refusal. Raw result JSON preserves Unicode; fixed failure messages, UUID/size/top-level guards and independent job ownership pass13manual Bun cases. Compiler81104 terminal0errors/0warnings. Proof artifacts/spectral-client-proof/final/audit.json. No actual native/host claim or parent wiring yet.
+- Native exact executor replay leaves original descendant tree oracle RED: ActiveProcesses0/root exit does not prove all descendant process objects signaled. Agent investigates bounded race-safe descendant handle ownership; manager11/check/clippy separately pass. Repository/ruleset generation token remains OPEN; no backend integration until reviewed physical settlement. Packaging and accepted-catalog agents continue isolated. Full migration/SDK/Event/FIFO/private/platform/deferredUX requirements retained. Root handles terminal. Topic commit pending. /compact unavailable; explicit handoff.
+
 ## Accepted semantic editor annotations — 2026-10-12
 
 - Guarded five-path integration preserves current Wheel/Runner/native factory/Vite/dependencies; independent complete agent hash audit and original saved theme-body equality pass. Optional accepted-source annotations retain complete numeric severities/code0/ranges, parser coexistence and immediate stale clearing; measured local info/hint glyphs use existing theme tokens.
