@@ -78,7 +78,11 @@ export async function exerciseHeldRuleMutationNegative(
     settled?.exited && settled.observedProcessObject,
     "Exact native process physically retired before verdict",
   );
-  assert.equal(settled.cancelled, undefined);
+  assert.notEqual(
+    settled.cancelled,
+    true,
+    "No accepted cancellation may replace normal process completion",
+  );
   assert.equal((await trace.state()).jobs.length, stateBefore.jobs.length + 1);
   await page.waitForFunction(() =>
     [...document.querySelectorAll(".api-design button")].some(
@@ -105,6 +109,14 @@ export async function exerciseHeldRuleMutationNegative(
     .locator(".diagnostic-row")
     .filter({ hasText: "Owned delayed finding" })
     .count();
+  if (!stalePublished) {
+    assert.equal(
+      settled.runError,
+      "binding",
+      "Green requires actual managed read freshness refusal, not protocol/process failure",
+    );
+    assert.equal(uiPublished, 0);
+  }
   await Bun.write(
     output + "/held-rule-mutation-negative.json",
     JSON.stringify(
@@ -120,7 +132,9 @@ export async function exerciseHeldRuleMutationNegative(
         uiPublished,
         sourceBindingWorkspaceUnchanged: true,
         physicalSettlement: true,
-        noCancellation: true,
+        noCancellation: settled.cancelled !== true,
+        cleanupCancelAfterSettlement: settled.cancelled === false,
+        freshnessRefused: !stalePublished && settled.runError === "binding",
         original61Preserved: true,
       },
       null,
