@@ -1,6 +1,9 @@
 fn main() {
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(
         tauri_build::AppManifest::new().commands(&[
+            "reserve_spectral_lint",
+            "run_spectral_lint",
+            "cancel_spectral_lint",
             "begin_plugin_event_transport",
             "end_plugin_event_transport",
             "send_http",

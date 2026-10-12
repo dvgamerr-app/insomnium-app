@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-cancel-spectral-lint"
+description = "Enables the cancel_spectral_lint command without any pre-configured scope."
+commands.allow = ["cancel_spectral_lint"]
+
+[[permission]]
+identifier = "deny-cancel-spectral-lint"
+description = "Denies the cancel_spectral_lint command without any pre-configured scope."
+commands.deny = ["cancel_spectral_lint"]

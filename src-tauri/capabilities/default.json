@@ -4,6 +4,9 @@
   "description": "Capability for the main window",
   "windows": ["main"],
   "permissions": [
+    "allow-reserve-spectral-lint",
+    "allow-run-spectral-lint",
+    "allow-cancel-spectral-lint",
     "allow-begin-plugin-event-transport",
     "allow-end-plugin-event-transport",
     "allow-send-http",

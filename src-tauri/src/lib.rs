@@ -45,6 +45,9 @@ mod plugin_store;
 mod plugin_event_transport;
 mod plugin_save;
 mod streaming;
+mod spectral;
+mod spectral_jobs;
+mod spectral_process;
 mod template;
 mod template_os;
 use tauri::Manager;
@@ -88,8 +91,10 @@ pub fn run() {
         .manage(git::GitState::default())
         .manage(git_remote_job::RemoteJobState::default())
         .manage(plugin_save::SaveState::default())
+        .manage(spectral::SpectralState::default())
         .on_window_event(|window, event| {
             if window.label() == "main" && matches!(event, tauri::WindowEvent::Destroyed) {
+                if let Some(state) = window.try_state::<spectral::SpectralState>() { spectral::cancel_all(&state); }
                 if let Some(state) = window.try_state::<plugin_event_transport::EventTransportState>() { plugin_event_transport::cancel_all(&state); }
                 if let Some(state) = window.try_state::<plugin_save::SaveState>() {
                     plugin_save::cancel_all(&state);
@@ -97,6 +102,9 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            spectral::reserve_spectral_lint,
+            spectral::run_spectral_lint,
+            spectral::cancel_spectral_lint,
             plugin_event_transport::begin_plugin_event_transport,
             plugin_event_transport::end_plugin_event_transport,
             http::send_http,
@@ -155,6 +163,26 @@ pub fn run() {
             git_journal::git_repository_apply_merge,
             git_journal::git_repository_restore
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            if let Some(state) = app.try_state::<spectral::SpectralState>() {
+                match event {
+                    tauri::RunEvent::ExitRequested { code, api, .. } if !spectral::exit_ready(&state) => {
+                        // Tauri ignores prevent_exit for its restart sentinel.
+                        if code == Some(tauri::RESTART_EXIT_CODE) {
+                            spectral::drain(&state);
+                        } else {
+                            api.prevent_exit();
+                            if spectral::shutdown_then_exit(&state, app.clone(), code.unwrap_or(0)).is_err() {
+                                spectral::drain(&state);
+                                app.exit(code.unwrap_or(0));
+                            }
+                        }
+                    }
+                    tauri::RunEvent::Exit if !spectral::exit_ready(&state) => spectral::drain(&state),
+                    _ => {}
+                }
+            }
+        });
 }

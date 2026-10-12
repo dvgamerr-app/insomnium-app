@@ -1,3 +1,9 @@
+## Owned native Spectral job component integrated — 2026-10-12
+
+- Root independently rehashes10backend/26evidence inputs and guards existing native baseline. Closed RESERVE/RUN/CANCEL, immediate UUID/flags, active8/running2, idle30s expiry, bounded no-body tombstones, owned workers/watch completion, absolute15s budget, IO failure, atomic cancel/success settlement and exit ownership integrated. Windows original job8processes/512MiB unchanged; verified observed descendant process handles wait after accounting0. Sixteen bookkeeping entries support transient quota-refused objects without changing process quota.
+- Actual root Cargo test26316 terminal0:11manager tests pass,30.31s realexpiry; existing57LFpermissions/Cargo.lock byte-exact,3newcommands only. Agent sameexactexecutor11/Clippy pass; earlier tree/IO/quota negatives retained. Proof artifacts/spectral-native-root-proof/root-audit.json. No native app/profile/packagedproducer claim.
+- Root handles terminal. Native currentIPC/windowdestroy/restart/hardFS/unobservedbirth/repository declared-read receipts/platform gates remain OPEN; parent source join uncommitted pending actualproducer savedUI. Packaging frozenhandoff stillpending integration. Original migration/SDK/Event/FIFO/private/distribution/deferredUX scope preserved. Topic commit pending. /compact unavailable; explicit handoff.
+
 ## Accepted Spectral source catalog utility — 2026-10-12
 
 - Guarded two NEW paths; root independently rehashes complete agent output/dependency snapshot and repeats SAME manual eval31checks with actual pinnedSDK identity. Detached frozen full diagnostics/code0/ranges and catalog; captured-only main/attached hydration, returned-only external contents, exact URI/name/origin/duplicate validation, unknown-source nonnavigation, canonical LF UTF16 offsets preserve rawBOM/CRLF/astral. Compiler1256 terminal0errors/0warnings. Proof artifacts/spectral-sources-root-proof/root-audit.json.
