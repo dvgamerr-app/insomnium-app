@@ -1,3 +1,7 @@
+## Additional authentic Cargo inputs ready for later deliberate recollection — 2026-10-13
+
+Three former cache-miss archive identities now have independent lock-checksum/rawmanifest/five-text recovery proof; no sharedcache or currentcollection changed. Preserve immutable historical source-unavailable receipts. After archive/admission authority fix is rootverified, intentionally admit these exact bytes in a NEW collection; do not promote availability during frozen checks. Keep43discovery/localpatch/nested/per-file/build-condition/system/toolchain/actualtarget/fullnotice gaps separate and all original migration/UX scope. Commit topic handoffs; /compact unavailable.
+
 ## Multipart component accepted; remaining native and archive authority gates — 2026-10-13
 
 Current root multipart713input/49asset/compiler0/0/fullsavedheadless+build0 proves row-ownedfeedback/focus and exactvalid/errorcontrol geometry within component boundary. Preserve previous nativebf5e evidence as its immutable generation; fresh native picker/OS/AT acceptance requires future compiledproduct. Native consumed-read correction and native notice immutablearchive authority fix continue isolated; root integration/build acceptance stays serial. shared_ui next read-only remaininginput/workflow debt inventory before another measured feature. Full original migration/UX/SDK/Event/FIFO/private/platform/distribution scope remains intact. Topiccommits/compact-unavailable evidence handoff after eachfeature.

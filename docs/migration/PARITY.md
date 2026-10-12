@@ -1,3 +1,7 @@
+## Recovered source availability is separate from current packaged notices — 2026-10-13
+
+Three exact Cargo archive checksums/five source-text candidates now verified in cargo-missing-source-root-proof/root-audit.json, cache/currentcollection untouched. Historical762/three-missing corpus remains its immutable generation; currentnotice gaps not yetclosed by recollection. Targetlinkage/fullnotice/localpatch/nested/per-file/platform/distribution/migration/UX scope staysopen.
+
 ## Current multipart shared Field boundary — 2026-10-13
 
 Root compiler2641 0/0/serial16983 fullheadless+build0/713sourcefreeze49assets independently audited. Sixprofiles clear original24defects, preserve fullvalid geometry/styles, actualerror control sizes and bounds; row-ownedread/limit, otherrow retention/correction/proxyclone/externalreset, globaladmission/caller errors, disposal/stale and keyboard next/previous/Add pass. Nativebf5e predatesdelta; OS picker/readfailure/AT/platform/full migration/UX remain open. Collector coherenttext-tamper fix and repository freshness correction are not yet rootaccepted. See MULTIPART-FIELDS-ROOT-ACCEPTANCE.md; all original gates retained.
