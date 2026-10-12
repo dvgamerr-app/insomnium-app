@@ -270,7 +270,7 @@ export async function runCookieNativeFields() {
         page.off("response",onPendingUiResponse);
         page.off("request",onPendingUiRequest);
         await Bun.write(output+"/cookie-native-pending-ui-trace.json",JSON.stringify({rows:pendingUiRows,events:pendingUiEvents,complete:pendingUiRows.length===12,active:pendingUiId},null,2));
-        await page.removeExposedFunction(checkpointName);
+        // The unique exposeFunction binding ends with the existing owned page/context close.
         await Promise.all(pending);page.off("request",onRequest);page.off("response",onResponse);
         await Bun.write(output+"/cookie-native-trace.json",JSON.stringify({workspaceId,rows,requests:[...requests.values()],traceErrors,complete:rows.length===24,nativeExecuted:true},null,2));
         if(await dialog.count())await page.keyboard.press("Escape");
