@@ -6,6 +6,7 @@ import {
   exerciseSplitRelease,
   exerciseSplitStorage,
   exerciseGraphqlResponsiveSplit,
+  exerciseWorkspaceEditorContent,
 } from "./helpers/split-pane.js";
 import { assertRequestResponseSplit } from "./helpers/request-response-split.js";
 
@@ -165,11 +166,13 @@ await withPreview(
       .getByRole("button", { name: "New document", exact: true })
       .click();
     await exerciseSplit(page, "API source and preview size");
+    await exerciseWorkspaceEditorContent(page, output, "api");
     await page.getByRole("button", { name: "Tests", exact: true }).click();
     await page
       .getByRole("button", { name: "New Test Suite", exact: true })
       .click();
     await exerciseSplit(page, "Test editor and results size");
+    await exerciseWorkspaceEditorContent(page, output, "tests");
     await page
       .getByRole("button", { name: "Collections", exact: true })
       .click();

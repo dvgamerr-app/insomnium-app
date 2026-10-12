@@ -1,6 +1,281 @@
 import assert from "node:assert/strict";
 import { initialData } from "../../../src/lib/model.js";
 
+/** Actual API/Test content access; no native/executor acceptance.
+ * @param {import('playwright-core').Page} page @param {string} output @param {'api'|'tests'} kind */
+export async function exerciseWorkspaceEditorContent(page, output, kind) {
+  const viewport = page.viewportSize(),
+    themeBefore = await page.locator("html").getAttribute("data-theme"),
+    scope = page.locator(kind === "api" ? ".api-design" : ".runner"),
+    name =
+      kind === "api"
+        ? "API source and preview size"
+        : "Test editor and results size",
+    handle = scope.getByRole("separator", { name, exact: true });
+  if (kind === "tests" && (await scope.locator(".CodeMirror").count()) === 0)
+    await scope
+      .getByRole("button", { name: "New Test", exact: true })
+      .first()
+      .click();
+  const editor = scope.locator(".CodeMirror").first(),
+    original = await editor.evaluate((el) =>
+      /** @type {any} */ (el).CodeMirror.getValue(),
+    ),
+    rows = /** @type {Array<Record<string,any>>} */ ([]);
+  const body =
+    kind === "api"
+      ? JSON.stringify(
+          {
+            openapi: "3.0.3",
+            info: { title: "Resize fixture", version: "1" },
+            paths: Object.fromEntries(
+              Array.from({ length: 12 }, (_, i) => [
+                "/probe/" + i,
+                {
+                  get: {
+                    summary: "Probe " + i,
+                    responses: { 200: { description: "OK" } },
+                  },
+                },
+              ]),
+            ),
+          },
+          null,
+          2,
+        )
+      : Array.from({ length: 40 }, (_, i) => "// Fixture code line " + i).join(
+          "\n",
+        ) + "\nassert.equal(1,1);";
+  try {
+    await editor.click();
+    await page.keyboard.press("Control+A");
+    await page.keyboard.insertText(body);
+    await page.keyboard.press("Escape");
+    if (kind === "api") {
+      await scope
+        .getByRole("button", { name: "Validate & preview", exact: true })
+        .click();
+      await scope.getByLabel("API operations", { exact: true }).waitFor();
+    }
+    for (const theme of ["dark", "light"]) {
+      if ((await page.locator("html").getAttribute("data-theme")) !== theme)
+        await page
+          .getByRole("button", { name: "Toggle theme", exact: true })
+          .click();
+      for (const width of [1440, 900, 760]) {
+        await page.setViewportSize({ width, height: 600 });
+        await page.waitForFunction((name) => {
+          const h = Array.from(
+              document.querySelectorAll('[role="separator"]'),
+            ).find((el) => el.getAttribute("aria-label") === name),
+            root = /** @type {HTMLElement|null} */ (h?.parentElement ?? null);
+          return (
+            !!root && root.dataset.axis === (root.clientWidth < 640 ? "y" : "x")
+          );
+        }, name);
+        for (const key of ["Home", "End", "Enter"]) {
+          await handle.focus();
+          await handle.press(key);
+          const metrics = await handle.evaluate((el) => {
+            const root = /** @type {HTMLElement} */ (el.parentElement),
+              b = root.getBoundingClientRect();
+            return {
+              width: root.clientWidth,
+              height: b.height,
+              axis: root.dataset.axis,
+              orientation: el.getAttribute("aria-orientation"),
+              min: Number(el.getAttribute("aria-valuemin")),
+              max: Number(el.getAttribute("aria-valuemax")),
+              value: Number(el.getAttribute("aria-valuenow")),
+              focused: el === document.activeElement,
+              children: Array.from(root.children).map((child) => ({
+                class: child.className,
+                width: child.getBoundingClientRect().width,
+                height: child.getBoundingClientRect().height,
+              })),
+            };
+          });
+          assert.equal(metrics.axis, metrics.width < 640 ? "y" : "x");
+          assert.equal(
+            metrics.orientation,
+            metrics.axis === "y" ? "horizontal" : "vertical",
+          );
+          assert.equal(metrics.focused, true);
+          assert.ok(
+            [metrics.min, metrics.max, metrics.value].every(Number.isFinite),
+          );
+          assert.ok(
+            metrics.value >= metrics.min && metrics.value <= metrics.max,
+          );
+          await editor.click();
+          await page.keyboard.press("Control+End");
+          const caret = await editor.evaluate((el) => {
+            const cm = /** @type {import('codemirror').Editor} */ (
+                /** @type {any} */ (el).CodeMirror
+              ),
+              pos = cm.getCursor(),
+              r = cm.cursorCoords(pos, "window"),
+              failures = [],
+              ancestors = [];
+            let p = /** @type {HTMLElement|null} */ (el);
+            while (p) {
+              const s = getComputedStyle(p),
+                b = p.getBoundingClientRect();
+              if (/auto|scroll|hidden/.test(s.overflowY)) {
+                ancestors.push({
+                  class: p.className,
+                  top: b.top,
+                  bottom: b.bottom,
+                  scrollTop: p.scrollTop,
+                  clientHeight: p.clientHeight,
+                  scrollHeight: p.scrollHeight,
+                });
+                if (r.top < b.top - 1 || r.bottom > b.bottom + 1)
+                  failures.push({
+                    class: p.className,
+                    top: b.top,
+                    bottom: b.bottom,
+                  });
+              }
+              p = p.parentElement;
+            }
+            const list = el.closest(".test-list"),
+              code = el.closest(".test-code"),
+              sizing =
+                list && code
+                  ? {
+                      containerType: getComputedStyle(list).containerType,
+                      paneHeight: list.getBoundingClientRect().height,
+                      codeHeight: code.getBoundingClientRect().height,
+                      maxHeight: getComputedStyle(code).maxHeight,
+                      editorMinimum: getComputedStyle(el).minHeight,
+                      sizeSupported: CSS.supports("container-type", "size"),
+                      unitSupported: CSS.supports("max-height", "100cqh"),
+                    }
+                  : null;
+            return {
+              owned: cm.getInputField() === document.activeElement,
+              line: pos.line,
+              lastLine: cm.lastLine(),
+              top: r.top,
+              bottom: r.bottom,
+              ancestors,
+              failures,
+              sizing,
+            };
+          });
+          rows.push({ kind, theme, width, height: 600, key, metrics, caret });
+          await Bun.write(
+            output + "/" + kind + "-content-progress.json",
+            JSON.stringify(rows, null, 2),
+          );
+          assert.equal(caret.owned, true);
+          assert.equal(caret.line, caret.lastLine);
+          assert.deepEqual(
+            caret.failures,
+            [],
+            kind +
+              " final caret must be visible through actual clipping/scroll ancestors",
+          );
+          assert.ok(caret.top >= 0 && caret.bottom <= 601);
+          if (kind === "tests") {
+            assert.ok(caret.sizing);
+            assert.equal(caret.sizing.containerType, "size");
+            assert.equal(caret.sizing.sizeSupported, true);
+            assert.equal(caret.sizing.unitSupported, true);
+            assert.equal(caret.sizing.editorMinimum, "180px");
+            assert.ok(caret.sizing.codeHeight <= caret.sizing.paneHeight + 1);
+            if (caret.sizing.paneHeight >= 220)
+              assert.equal(
+                caret.sizing.codeHeight,
+                220,
+                "Roomy test panes retain original220px editor policy",
+              );
+          }
+          if (kind === "api") {
+            const operations = scope.getByLabel("API operations", {
+              exact: true,
+            });
+            await operations.focus();
+            await operations.press("End");
+            assert.equal(await operations.inputValue(), "11");
+            await scope
+              .locator(".operation-docs h3")
+              .filter({ hasText: "/probe/11" })
+              .waitFor();
+          } else {
+            await scope
+              .getByRole("textbox", { name: "Test name", exact: true })
+              .first()
+              .click();
+            assert.equal(
+              await scope
+                .getByRole("textbox", { name: "Test name", exact: true })
+                .first()
+                .evaluate((el) => el === document.activeElement),
+              true,
+            );
+            assert.match(
+              await scope
+                .getByRole("region", { name: "Test results", exact: true })
+                .innerText(),
+              /No Results/,
+            );
+          }
+        }
+      }
+    }
+    await Bun.write(
+      output + "/" + kind + "-content.json",
+      JSON.stringify(
+        {
+          rows,
+          resultWorkflow:
+            kind === "tests"
+              ? "Empty results UI only; executor/content-heavy results remain open"
+              : "Validated real12-operation preview",
+        },
+        null,
+        2,
+      ),
+    );
+  } finally {
+    await editor.click();
+    await page.keyboard.press("Control+A");
+    await page.keyboard.press("Backspace");
+    await page.keyboard.insertText(original);
+    await page.keyboard.press("Escape");
+    assert.equal(
+      await editor.evaluate((el) =>
+        /** @type {any} */ (el).CodeMirror.getValue(),
+      ),
+      original,
+      "Original editor text restored even when empty",
+    );
+    await Bun.write(
+      output + "/" + kind + "-content-restoration.json",
+      JSON.stringify(
+        {
+          passed: true,
+          original,
+          restored: await editor.evaluate((el) =>
+            /** @type {any} */ (el).CodeMirror.getValue(),
+          ),
+        },
+        null,
+        2,
+      ),
+    );
+    if ((await page.locator("html").getAttribute("data-theme")) !== themeBefore)
+      await page
+        .getByRole("button", { name: "Toggle theme", exact: true })
+        .click();
+    if (viewport) await page.setViewportSize(viewport);
+    await handle.focus();
+    await handle.press("Enter");
+  }
+}
+
 /** Current GraphqlEditor contract: stackAt=640 uses the split's own width.
  * @param {import('playwright-core').Page} page @param {string} output */
 export async function exerciseGraphqlResponsiveSplit(page, output) {

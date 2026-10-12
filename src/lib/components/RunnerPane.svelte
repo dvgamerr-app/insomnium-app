@@ -328,6 +328,9 @@
     min-width: 0;
     min-height: 0;
   }
+  .test-list {
+    container-type: size;
+  }
   article {
     border-bottom: 1px solid var(--line);
   }
@@ -343,6 +346,7 @@
   }
   .test-code {
     height: 220px;
+    max-height: 100cqh;
     display: flex;
     min-height: 150px;
     resize: vertical;
