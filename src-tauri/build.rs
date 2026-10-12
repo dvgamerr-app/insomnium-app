@@ -1,6 +1,8 @@
 fn main() {
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(
         tauri_build::AppManifest::new().commands(&[
+            "begin_plugin_event_transport",
+            "end_plugin_event_transport",
             "send_http",
             "cancel_http",
             "fetch_oauth_token",

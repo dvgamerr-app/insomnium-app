@@ -42,6 +42,7 @@ mod plugins;
 mod plugin_sources;
 mod plugin_package;
 mod plugin_store;
+mod plugin_event_transport;
 mod plugin_save;
 mod streaming;
 mod template;
@@ -54,6 +55,7 @@ pub fn run() {
         return;
     }
     tauri::Builder::default()
+        .register_asynchronous_uri_scheme_protocol("insomnium-event", plugin_event_transport::handle)
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(window) = app.get_webview_window("main") {
@@ -82,17 +84,21 @@ pub fn run() {
         .manage(grpc::GrpcState::default())
         .manage(storage::StorageState::default())
         .manage(plugin_store::PluginStoreState::default())
+        .manage(plugin_event_transport::EventTransportState::default())
         .manage(git::GitState::default())
         .manage(git_remote_job::RemoteJobState::default())
         .manage(plugin_save::SaveState::default())
         .on_window_event(|window, event| {
             if window.label() == "main" && matches!(event, tauri::WindowEvent::Destroyed) {
+                if let Some(state) = window.try_state::<plugin_event_transport::EventTransportState>() { plugin_event_transport::cancel_all(&state); }
                 if let Some(state) = window.try_state::<plugin_save::SaveState>() {
                     plugin_save::cancel_all(&state);
                 }
             }
         })
         .invoke_handler(tauri::generate_handler![
+            plugin_event_transport::begin_plugin_event_transport,
+            plugin_event_transport::end_plugin_event_transport,
             http::send_http,
             http::cancel_http,
             http::fetch_oauth_token,

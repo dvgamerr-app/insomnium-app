@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-begin-plugin-event-transport"
+description = "Enables the begin_plugin_event_transport command without any pre-configured scope."
+commands.allow = ["begin_plugin_event_transport"]
+
+[[permission]]
+identifier = "deny-begin-plugin-event-transport"
+description = "Denies the begin_plugin_event_transport command without any pre-configured scope."
+commands.deny = ["begin_plugin_event_transport"]

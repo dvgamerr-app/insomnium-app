@@ -4,6 +4,8 @@
   "description": "Capability for the main window",
   "windows": ["main"],
   "permissions": [
+    "allow-begin-plugin-event-transport",
+    "allow-end-plugin-event-transport",
     "allow-send-http",
     "allow-cancel-http",
     "allow-fetch-oauth-token",

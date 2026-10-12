@@ -1,8 +1,14 @@
+## Native provider lease and consumer cancellation — integrated 2026-10-12
+
+- Root integrated native-provider agent endpoint: owner Abort rejects pending IPC consumer immediately with exact reason (including0/false/empty string), observes both eventual native outcomes without republishing and removes per-call listeners. Renewal rechecks owner after previous lease retirement and cannot resurrect a timer. Saved controlled headless scenario83e681 passes16groups; no OS clipboard access or native binary acceptance is claimed by this scenario.
+- Include the existing independent native Event provider transport in this topic so the committed prepareEvent API has its Rust commands, permissions and CSP. All seven backend/config/permission sources exactly match the immutable d6152898 native clipboard probe source-freeze; that historical native-hidden proof covers live clipboard/info/Desktop operations, not the newly changed frontend owner cancellation. Root Cargo check59384/da3bd7 exits0 (five existing vendor eventsource-stream warnings); root Svelte41719/bc1ab7 exits0/0errors/0warnings and production build21c7eb exits0.
+- Topic commit follows; source scope is native endpoint/backend wiring and dedicated provider owner scenario/handoff. Existing Event worker/facade/session and unrelated response UI WIP remain separate. All root task handles terminal. Original held-sync main-Window Promise gate remains RED; independently held native cancellation/current native frontend acceptance and full Event/migration/UI parity remain required. `/compact` unavailable; this checkpoint is the explicit handoff.
+
 ## Request rename keyboard focus — integrated 2026-10-12
 
 - Shared UI agent delta integrated: Enter saves and Escape cancels while restoring focus to the request-name trigger without reopening; Tab/blur preserve their chosen destination. EditableName uses shared plain Button with optional native element binding. Layout is preserved.
 - Root reran saved headless editable-name (18original cases plus8keyboard/theme/width profiles) and broad design-system scenario: both exit0. Root compiler25863/a69523 reports0errors/0warnings; production build07e2ae exits0. Agent independently verified the same feature and isolated build. Evidence and exact source hashes: AGENT-SHARED-UI.md. Native keyboard acceptance remains unverified; no broad UX/migration completion claim.
-- Topic commit follows, limited to four owned source/scenario/doc paths and agent handoff plus this checkpoint. No root compiler/build/scenario handles remain live. Event/native-provider work remains separate. `/compact` cannot be invoked here; this checkpoint is the explicit handoff before another feature.
+- Topic committedaf49d71, limited to four owned source/scenario/doc paths and agent handoff plus this checkpoint. No root compiler/build/scenario handles remain live. Event/native-provider work remains separate. `/compact` cannot be invoked here; this checkpoint is the explicit handoff before another feature.
 
 ## Parallel execution requested — 2026-10-12
 

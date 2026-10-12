@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-end-plugin-event-transport"
+description = "Enables the end_plugin_event_transport command without any pre-configured scope."
+commands.allow = ["end_plugin_event_transport"]
+
+[[permission]]
+identifier = "deny-end-plugin-event-transport"
+description = "Denies the end_plugin_event_transport command without any pre-configured scope."
+commands.deny = ["end_plugin_event_transport"]
