@@ -1,3 +1,9 @@
+## Real Cookie backend checkpoint and next independent work — 2026-10-13
+
+Currente567 native-hidden34526 independently accepts24Cookie rows/25realprotocol replies, scheme/8194UTF8/actualbyteprecedence/jar-generation-disk preservation/Field correction/keyboard and full13783Git/654cookies/profile/currentlayout restoration. Preserve V1bounded-reader refusal and exact metadata-pin correction; savedentry+twohelpers are nowreusable/currentcompiler0/0. Entered-response ownership/disposal/OS/AT/platform/fullproduction workflows remainseparate.
+
+Next independentlyreview certificate controlledmeasurement before any UI/product change; same savednative/network body preserved. Review recovered3 closedcachetool reliability8proof/old23proof, runread-only dryrun before later separate deliberatecache admission/newcollection. No cache mutation during frozen app/profile checks. Preserve original migration/UX/SDK/Event/FIFO/private/distribution/fullnotice scope; topiccommit and compact-unavailablehandoff perfeature.
+
 ## Fresh native content-coherence checkpoint; actual Cookie next — 2026-10-13
 
 New e567/a5ec/1013source52asset1946resource764private closure and saved native-hidden42258 original61+actual62 bindingrefusal/UI0/fixed4s/allphysical/fullprotectedprofile+currentlayout restoration independentlyaccepted. PrioractualA→B RED preserved. Managedread measuredruleset publicationgate nowclosed; universalambient/externalABA/hardFS/birth/restart/platform/fullshell remainseparate.

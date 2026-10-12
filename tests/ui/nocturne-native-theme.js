@@ -21,6 +21,12 @@ if (process.argv.includes("--cookie-component")) {
   process.exit(0);
 }
 
+if (process.argv.includes("--cookie-native-fields")) {
+  const { runCookieNativeFields } = await import("./helpers/cookie-native-fields.js");
+  await runCookieNativeFields();
+  process.exit(0);
+}
+
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-unified-diff-probe/build-state.json";
 await withNativeApp(
