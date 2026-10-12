@@ -1,3 +1,11 @@
+## Pinned Bun runtime coverage evidence reviewed — 2026-10-13
+
+Root independently rehashes57 frozen primary/source/release/license files and exact report1b3d2c47. Integrated read-only AGENT-BUN-RUNTIME-NOTICE-COVERAGE.md binds Bun1.4.2 source744846f8, declared source pins/Windows defaults and four authentic libuv/uSockets+uWS/JSC/ICU text candidates, with exact ICU symlink resolution and retained404. No product/generated-notice/code/dependency/build/profile changes in this topic.
+
+Actual local compiler public version1.4.2/revision744846f844374847c902b5e7fd59b4342a51ef99 and executable15277c59 independently captured: source revision agrees, but official release archive byte identity/embedded runtime variants/linker map/full coverage remain unproven. Proof artifacts/bun-notice-coverage-root-proof/root-audit.json. Root handles:none; topic commit pending, /compact unavailable explicit handoff. Agent next probes only bounded standalone f569 public runtime identity via existing saved producer helpers; not native/profile or SDK/provider work.
+
+Structural source-range agent retains full original48+new UI/schema/equality cases and build/typing negatives, repairs own dependency isolation before final freeze. Namespace agent runs saved headless43507 measurement-only matrix after original native entry preserved; dense6px/focused removal/validation/32cap evidence must precede product/shared-Field changes. All prior native/current CRUD/private/platform/distribution/consumed-read/generation/SDK/Event/FIFO/full migration/UX gates OPEN.
+
 ## Resource field validation integrated — 2026-10-13
 
 Name and folder JSON refusals now use existing Field.error; local explicit label props keep exact accessible names while errors become descriptions. Corrected valid input clears its local error; topology/synchronous callback failures stay form-level, successful retry clears stale feedback. No CSS/global Field/native/dependency/CRUD policy changes. UI inventory257b and guarded resource-field handoff eb755a42/reporta33610fc integrated.

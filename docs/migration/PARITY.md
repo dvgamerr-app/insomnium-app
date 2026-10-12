@@ -1,3 +1,7 @@
+## Bun source evidence boundary — 2026-10-13
+
+Exact pinned Bun1.4.2 source/release/build-condition and four authentic candidate license texts independently reviewed across57 frozen inputs; local CLI revision744846f8 corroborates source identity (artifacts/bun-notice-coverage-root-proof/root-audit.json). No embedded variant/link-map/official archive byte identity/full coverage/native packaging or redistribution acceptance proved; no product or generated notice changes. Existing three MIT full-text and Bun dependency/Rust/polyfill/per-file gaps plus all original migration/UX requirements remain open.
+
 ## Verified ResourceManager field association boundary — 2026-10-13
 
 Current component uses shared Field.error for name/folder JSON failures with stable exact accessible labels, described error IDs, correction and callback-retry feedback. Root775frozen-input audit/compiler0/0/build/SAMEsaved resource+design-system pass;24refusals/sixprofiles/12exactcontrol geometry/style comparisons, captionweight500 existing API. Proof artifacts/resource-field-root-proof/root-audit.json. Component proof does not establish current native CRUD/persistence/AT/platform or full design-system/UX/migration parity. Original all native/private/distribution/SDK/Event/FIFO/Spectral/repository/source-range requirements remain open.

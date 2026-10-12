@@ -1,3 +1,9 @@
+## Current parallel gates after Bun source audit — 2026-10-13
+
+Pinned Bun57-file read-only source/license report accepted with local compiler revision corroboration (artifacts/bun-notice-coverage-root-proof/root-audit.json); no compiled-binary linkage or full-text completeness claim. event_api uses existing bounded standalone Spectral helper to measure actual f569 public embedded runtime identity before any candidate notice additions.
+
+Root next accepts structural source/range handoff only after isolated deps/compiler/build/SAMEwhole UI/schema/equality/runtime-marker/raw/stale/unknown guards pass; current owned-POST filters and foreign sentinel remain. shared_ui first measures namespace dense6px/validation/keyboard removal/32cap in explicit SAMEsaved component mode; original native path retained, no product/globalstyle change until review. Commit verified topics, record STATUS/gates/handles and /compact unavailable handoff. Preserve all original repository/native/full production-shell/platform/private/distribution/SDK/Event/FIFO/migration/shared-input UX work.
+
 ## Next integrations after ResourceManager validation — 2026-10-13
 
 Bounded ResourceManager shared Field validation accepted on current root component/compiler/build/SAMEsaved scenarios; exact12control geometry and24refusals preserved. Proof artifacts/resource-field-root-proof/root-audit.json. Native current-generation CRUD/persistence and actual assistive technology remain separate gates; old a00 native not relabeled.
