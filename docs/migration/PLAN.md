@@ -1,3 +1,9 @@
+## Next integrations after ResourceManager validation — 2026-10-13
+
+Bounded ResourceManager shared Field validation accepted on current root component/compiler/build/SAMEsaved scenarios; exact12control geometry and24refusals preserved. Proof artifacts/resource-field-root-proof/root-audit.json. Native current-generation CRUD/persistence and actual assistive technology remain separate gates; old a00 native not relabeled.
+
+Review faithful structural source-range handoff against current owned-POST oracle/sentinel and source-generation guards; preserve real origin/complete range, rawbytes/budgets/no markers in schema/evaluator/resources and unresolved unknown sources. Review Bun57 pinned source-license coverage with actual link-map unknowns retained. Next UI namespace work must measure dense6px composition, validation attribution and removal focus before a shared Field change. Keep all original full production shell/repository consumed-read/inflight/platform/private/distribution/SDK/Event/FIFO/migration/shared-input UX requirements. Separate verified topic commits and STATUS evidence/handles; /compact unavailable explicit handoff.
+
 ## Next integrations after runtime license checkpoint — 2026-10-13
 
 Exact runtime-license six-path406file handoff independently integrated; actual root producer→notices→provenance→frontend and standalone bundle validation pass, raw three-file Git checkout preservation passes. Proof artifacts/spectral-runtime-license-root-proof/root-audit.json; f569 unchanged, prior a00 native packaged notices historical for this new notice generation. Do not relabel as native installation/signing/distribution acceptance.

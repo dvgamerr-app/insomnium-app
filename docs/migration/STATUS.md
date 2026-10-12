@@ -1,3 +1,11 @@
+## Resource field validation integrated — 2026-10-13
+
+Name and folder JSON refusals now use existing Field.error; local explicit label props keep exact accessible names while errors become descriptions. Corrected valid input clears its local error; topology/synchronous callback failures stay form-level, successful retry clears stale feedback. No CSS/global Field/native/dependency/CRUD policy changes. UI inventory257b and guarded resource-field handoff eb755a42/reporta33610fc integrated.
+
+Root independently rehashes775 proof files; first raw baseline guard refuses before mutation, then complete frozen baseline text equality proves only CRLF difference, both raw hashes retained. Compiler55249 0errors/0warnings on existing root preview WIP (unchanged); SAMEsaved resource-manager/design-system/build38066 all terminal0.24validation refusals/six profiles/exact names+associations/correction/callback retry/keyboard/focus/danger-state pass. Twelve controls match original geometry/colors/background/fonts exactly; caption400→500 is approved existing explicit Field.label default, no CSS override. Source bytes unchanged; complete output/assets archived in artifacts/resource-field-root-proof/root-audit.json.
+
+Root handles:none/profileuntouched; native:false component proof. Topic commit pending; /compact unavailable, explicit handoff. Prior a00 native executable does not embed this ResourceManager change. Native/current realCRUD/persistence/AT/platform, namespace ownership/deferred UX and all original migration/Spectral/source-range/repository/SDK/Event/FIFO/private/distribution gates remain OPEN. Structural agent continues isolated; Bun57 authentic source/license report awaits root review.
+
 ## Exact runtime license recovery integrated — 2026-10-13
 
 Root independently rehashes406 frozen handoff files/six guarded paths and integrates exact published-commit Spectral-runtime1.1.6 repository license (10760bytes/d45c17f7), byte-identical published package metadata709bytes/b2e2446a, closed version/integrity/gitHead/source URLs and collector. Label repository-license-at-published-commit retained. Narrow -text attributes preserve existing Bun notice plus both new raw files; root actual Git index/checkout hashes match all three authentic inputs.

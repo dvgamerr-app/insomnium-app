@@ -1,3 +1,7 @@
+## Verified ResourceManager field association boundary — 2026-10-13
+
+Current component uses shared Field.error for name/folder JSON failures with stable exact accessible labels, described error IDs, correction and callback-retry feedback. Root775frozen-input audit/compiler0/0/build/SAMEsaved resource+design-system pass;24refusals/sixprofiles/12exactcontrol geometry/style comparisons, captionweight500 existing API. Proof artifacts/resource-field-root-proof/root-audit.json. Component proof does not establish current native CRUD/persistence/AT/platform or full design-system/UX/migration parity. Original all native/private/distribution/SDK/Event/FIFO/Spectral/repository/source-range requirements remain open.
+
 ## Exact-version runtime notice boundary — 2026-10-13
 
 Spectral-runtime1.1.6 authentic repository LICENSE at its published gitHead now included with closed metadata/hash/integrity/source provenance and raw-byte preservation through Git checkout. Root406file/sixdelta audit, determinism/rawtext/6tamper/6provenance guards and actual build+bundle freshness pass (artifacts/spectral-runtime-license-root-proof/root-audit.json); producer f569 unchanged. Remaining three MIT full-text gaps and Bun linked-library/platform/redistribution coverage explicitly incomplete; no full compliance or native-installed notice generation claim. Original full migration/Spectral/native/private/platform/distribution/SDK/Event/FIFO/UX gates remain open.
