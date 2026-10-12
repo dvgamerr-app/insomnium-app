@@ -1,3 +1,16 @@
+## Current delegated work after API Design checkpoint — 2026-10-12
+
+Owner authorizes three agents plus root, using isolated worktrees and guarded handoffs. This table supersedes older assignments; every original parity requirement remains.
+
+| Owner | Work | Gate |
+| --- | --- | --- |
+| native_provider | Prepare saved native-hidden Spectral adapter and exact process observations | No host/profile launch until fresh root candidate and exclusive profile assignment; retain every UI assertion and actual Rust IPC |
+| event_api | Deterministic pinned Spectral license/notices inventory and packaging resources | Root independently reviews eight deltas/417 frozen files; unresolved full-text and Bun coverage explicitly recorded |
+| shared_ui | Read-only review of remaining structural/external-reference generation parity | Concrete next-feature plan; preserve production/tests and frozen accepted evidence |
+| root | Integrate verified topic handoffs, current-root checks and fresh native candidate | Commit by topic; STATUS records commit/evidence/open gates/live handles; never reuse historical native executable |
+
+Saved browser scenarios use launchUiBrowser headless:true with no override. Native owned hosts hide before CDP and report native-hidden. Bun-only JavaScript tooling; Cargo native. After each feature provide handoff because this interface cannot invoke /compact. Full migration precedes deferred reusable-input UX redesign.
+
 ## Current Spectral agent split and acceptance order — 2026-10-12
 
 This owner-authorized three-agent plus root plan supersedes earlier assignment tables without removing any parity requirement. Separate worktrees and guarded file handoffs avoid overlapping edits.

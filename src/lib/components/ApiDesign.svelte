@@ -15,7 +15,13 @@
   import CodeEditor from "./CodeEditor.svelte";
   import ApiExampleChoices from "./ApiExampleChoices.svelte";
   import { operationExampleGroups } from "../openapi-example-choices.js";
-  import { onDestroy } from "svelte";
+  import { onDestroy, tick } from "svelte";
+  import { spectralClient } from "../spectral-client.js";
+  import { nativeGitBinding } from "../git-client.js";
+  import {
+    createSpectralSourceCatalog,
+    spectralRangeOffsets,
+  } from "../spectral-sources.js";
   import {
     workspace,
     beginWorkspaceWork,
@@ -63,6 +69,19 @@
     generating = $state(false),
     previewTab = $state("Operations");
   let checkedInput = $state("");
+  let checkedData = $state.raw(/** @type {any} */ (null));
+  let checkedWorkspace = $state("");
+  let displayUri = $state("");
+  let semantic = $state.raw(/** @type {{input:string,binding:string,data:any,workspaceId:string,catalog:ReturnType<typeof createSpectralSourceCatalog>,fallback:boolean}|null} */ (null));
+  const severityNames = ["error", "warning", "info", "hint"];
+  let repository = $derived.by(() => {
+    try {
+      const binding = nativeGitBinding(workspace.data.resources, workspaceId);
+      return { binding, key: JSON.stringify(binding), error: "" };
+    } catch {
+      return { binding: null, key: "invalid", error: "The collection's repository binding is invalid." };
+    }
+  });
   let exampleUrl = $state("");
   let loadingExamples = $state(false);
   /** @type {ReturnType<typeof beginWorkspaceWork>|null} */
@@ -78,7 +97,32 @@
         })
       : "",
   );
-  let current = $derived(checkedInput === input ? result : null);
+  let current = $derived(
+    checkedInput === input && checkedData === workspace.data &&
+    checkedWorkspace === workspaceId && workspace.data.activeWorkspaceId === workspaceId
+      ? result : null,
+  );
+  let semanticCurrent = $derived(
+    semantic?.input === input && semantic.data === workspace.data &&
+    semantic.workspaceId === workspaceId && workspace.data.activeWorkspaceId === workspaceId &&
+    semantic.binding === repository.key ? semantic : null,
+  );
+  let generationReady = $derived(
+    !!current?.valid && (!spectralClient.available() ||
+      !!semanticCurrent && !semanticCurrent.catalog.diagnostics.some((d) => d.severity === 0)),
+  );
+  let source = $derived(
+    semanticCurrent?.catalog.lookup(displayUri || semanticCurrent.catalog.mainUri) || {
+      uri: "", origin: "main", name: spec?.fileName || "openapi.yaml", contents: spec?.contents || "",
+    },
+  );
+  let sourceIdentity = $derived(
+    (spec?._id || "") + ":source" + (source.origin === "main" ? "" : ":" + source.uri),
+  );
+  let sourceAnnotations = $derived(semanticCurrent ? {
+    identity: sourceIdentity, source: source.contents,
+    diagnostics: [...semanticCurrent.catalog.diagnosticsFor(source.uri)],
+  } : undefined);
   let operations = $derived(
     (current?.operations || []).filter((/** @type {any} */ operation) =>
       `${operation.method} ${operation.path} ${operation.summary}`
@@ -101,12 +145,23 @@
   let worker = null;
   /** @type {ReturnType<typeof setTimeout> | undefined} */
   let timeout;
-  /** @type {ReturnType<typeof beginWorkspaceWork>|null} */
-  let workerWork = null;
+  let workerWork = $state.raw(
+    /** @type {ReturnType<typeof beginWorkspaceWork>|null} */ (null),
+  );
   /** @type {Set<ReturnType<typeof beginWorkspaceWork>>} */
   const fileWork = new Set();
   let disposed = false;
   let applying = false;
+  let runningInput = "";
+  let runningBinding = "";
+  let runningData = /** @type {any} */ (null);
+  let runningWorkspace = "";
+  $effect(() => {
+    if (workerWork && (runningInput !== input || runningBinding !== repository.key ||
+        runningData !== workspace.data || runningWorkspace !== workspaceId ||
+        workspace.data.activeWorkspaceId !== workspaceId)) cancel();
+    if (!semanticCurrent && displayUri) displayUri = "";
+  });
   function stopWorker() {
     worker?.terminate();
     worker = null;
@@ -127,6 +182,7 @@
     if (!work) return;
     work.signal.removeEventListener("abort", cancel);
     work.cancel();
+    if (notice === "Checking semantic rules…") notice = "";
     stopWorker();
     // An already accepted resource save must settle before releasing the task.
     if (!applying) finishWorker(work);
@@ -211,12 +267,20 @@
   }
   function check(/** @type {boolean} */ generate = false) {
     if (!spec || busy || disposed) return;
-    if (generate && !current?.valid) return;
+    if (generate && !generationReady) return;
     const snapshot = input;
+    const dataSnapshot = workspace.data;
+    const workspaceSnapshot = workspaceId;
+    const bindingSnapshot = repository.key;
     const choiceSnapshot = JSON.stringify(spec.exampleSelections || {});
+    const serverSnapshot = serverOverride;
     /** @type {ReturnType<typeof beginWorkspaceWork>} */ let work;
     try {
       work = beginWorkspaceWork();
+      runningInput = snapshot;
+      runningBinding = bindingSnapshot;
+      runningData = dataSnapshot;
+      runningWorkspace = workspaceSnapshot;
       workerWork = work;
       work.signal.addEventListener("abort", cancel, { once: true });
       worker = new Worker(new URL("../openapi.worker.js", import.meta.url), {
@@ -231,6 +295,7 @@
     generating = generate;
     error = "";
     notice = "";
+    if (!generate) semantic = null;
     const activeWorker = worker;
     const valid = () =>
       !disposed && workerWork === work && !work.signal.aborted;
@@ -256,6 +321,8 @@
           (generate &&
             choiceSnapshot !== JSON.stringify(spec?.exampleSelections || {})) ||
           workspace.data.activeWorkspaceId !== workspaceId
+          || workspace.data !== dataSnapshot || workspaceId !== workspaceSnapshot
+          || repository.key !== bindingSnapshot
         ) {
           notice =
             "Document or collection changed while processing. Validate again.";
@@ -263,12 +330,50 @@
         }
         if (event.data.error) {
           error = event.data.error;
-          return;
+          if (generate || !spectralClient.available()) return;
         }
-        result = event.data.analysis;
+        result = event.data.analysis || {
+          schema: {}, original: {}, schemaEvaluation: undefined,
+          diagnostics: [], diagnosticCount: 0, operations: [], valid: false,
+        };
         checkedInput = snapshot;
+        checkedData = dataSnapshot;
+        checkedWorkspace = workspaceSnapshot;
         operationIndex = 0;
+        if (spectralClient.available()) {
+          if (repository.error) throw new Error(repository.error);
+          const captured = JSON.parse(snapshot);
+          const sourceInput = {
+            fileName: captured.fileName || "openapi.yaml",
+            contents: captured.contents || "",
+            files: captured.files.map((/** @type {any} */ file) => ({ name: file.name, contents: file.contents })),
+          };
+          const binding = JSON.parse(bindingSnapshot);
+          notice = "Checking semantic rules…";
+          const job = spectralClient.start({
+            workspaceId: workspaceSnapshot, specId: captured._id,
+            sourceJson: JSON.stringify(sourceInput),
+            repositoryId: binding?.nativeRepositoryId || null,
+            expectedBinding: binding,
+          }, work.signal);
+          const lint = await job.result;
+          if (!valid() || snapshot !== input || workspace.data !== dataSnapshot ||
+              workspaceId !== workspaceSnapshot || workspace.data.activeWorkspaceId !== workspaceSnapshot ||
+              repository.key !== bindingSnapshot) return;
+          let catalog;
+          try { catalog = createSpectralSourceCatalog(sourceInput, lint.sources, lint.diagnostics); }
+          catch { throw new Error("Specification diagnostics could not be matched to their source. Validate again."); }
+          semantic = { input: snapshot, binding: bindingSnapshot, data: dataSnapshot,
+            workspaceId: workspaceSnapshot, catalog, fallback: lint.fallback };
+          notice = lint.fallback
+            ? "Custom rules could not be loaded. Default OpenAPI rules were applied."
+            : "";
+        }
         if (event.data.resources) {
+          if (choiceSnapshot !== JSON.stringify(spec?.exampleSelections || {}) || serverOverride !== serverSnapshot)
+            throw new Error("Generation options changed. Generate again with the current options.");
+          if (spectralClient.available() && !generationReady)
+            throw new Error("Resolve semantic errors before generating requests.");
           workspace.data.resources.push(...event.data.resources);
           const first = event.data.resources.find(
             (/** @type {any} */ resource) => resource._type === "request",
@@ -277,13 +382,17 @@
           const saved = await persist();
           if (!valid()) return;
           if (saved)
-            notice = `Generated ${event.data.resources.length - 1} requests in a new folder. Review sample values and authentication before sending.`;
+            notice = `Generated ${event.data.resources.length - 1} requests in a new folder. Review sample values and authentication before sending.${semanticCurrent?.fallback ? " Custom rules could not be loaded; default OpenAPI rules were applied." : ""}`;
           else
             error =
               "Requests were added in memory but saving failed. Export the workspace before closing.";
         }
       } catch (e) {
-        if (valid()) error = String(e);
+        if (valid()) {
+          error = String(e);
+          if (notice === "Checking semantic rules…") notice = "";
+          if (spectralClient.available()) semantic = null;
+        }
       } finally {
         finishWorker(work);
       }
@@ -293,7 +402,7 @@
         spec: JSON.parse(snapshot),
         workspaceId,
         generate,
-        serverOverride,
+        serverOverride: serverSnapshot,
         exampleSelections: JSON.parse(choiceSnapshot),
       });
     } catch (e) {
@@ -301,16 +410,27 @@
       error = String(e);
     }
   }
-  function jump(/** @type {{ line: number, column: number }} */ diagnostic) {
+  async function jump(/** @type {{ line: number, column: number }} */ diagnostic) {
     if (!editor) return;
-    const lines = String(spec?.contents || "").split("\n");
-    const offset =
-      lines
-        .slice(0, Math.max(0, diagnostic.line - 1))
-        .reduce((sum, line) => sum + line.length + 1, 0) +
-      Math.max(0, diagnostic.column - 1);
-    editor.focus();
-    editor.setSelectionRange(offset, offset);
+    const snapshot = input;
+    const point = { line: Math.max(0, diagnostic.line - 1), character: Math.max(0, diagnostic.column - 1) };
+    const offsets = spectralRangeOffsets(String(spec?.contents || ""), { start: point, end: point });
+    displayUri = "";
+    await tick();
+    if (disposed || input !== snapshot) return;
+    editor?.focus();
+    editor?.setSelectionRange(offsets.start, offsets.end);
+  }
+  async function jumpSemantic(/** @type {Record<string,any>} */ diagnostic) {
+    const accepted = semanticCurrent;
+    const target = accepted?.catalog.lookup(diagnostic.source);
+    if (!target) return;
+    const offsets = spectralRangeOffsets(target.contents, diagnostic.range);
+    displayUri = target.uri;
+    await tick();
+    if (disposed || semanticCurrent !== accepted || source.uri !== target.uri) return;
+    editor?.focus();
+    editor?.setSelectionRange(offsets.start, offsets.end);
   }
 
   /** @param {string} key @param {import('../openapi-example-choices.js').ExampleChoice|null} choice */
@@ -610,19 +730,29 @@
       minSecond={220}
     >
       {#snippet first()}
+        {#if source.origin !== "main"}
+          <Toolbar variant="design" class="design-toolbar">
+            <Input aria-label="Displayed reference source" value={source.name} readonly />
+            <Button variant="ghost" onclick={() => (displayUri = "")}>Back to OpenAPI</Button>
+          </Toolbar>
+        {/if}
         <CodeEditor
           bind:this={editor}
-          identity={spec._id + ":source"}
-          label="OpenAPI source"
-          value={spec.contents || ""}
-          mode={spec.fileName?.toLowerCase().endsWith(".json")
+          identity={sourceIdentity}
+          label={source.origin === "main" ? "OpenAPI source" : "Referenced API source"}
+          value={source.contents}
+          readOnly={source.origin !== "main"}
+          semanticAnnotations={sourceAnnotations}
+          mode={source.name?.toLowerCase().split(/[?#]/)[0].endsWith(".json")
             ? "application/json"
             : "yaml"}
           settings={workspace.data.settings}
           maxBytes={specLimit}
           onlimit={() =>
             (error = "Document exceeds 2 MiB. The last saved source was kept.")}
-          onchange={(contents) => update(spec._id, { contents })}
+          onchange={(contents) => {
+            if (source.origin === "main") update(spec._id, { contents });
+          }}
         />
       {/snippet}{#snippet second()}
         <div class="design-preview">
@@ -637,7 +767,7 @@
                   aria-selected={previewTab === tab}
                   onclick={() => (previewTab = tab)}
                   >{tab}{tab === "Diagnostics"
-                    ? ` (${current.diagnosticCount})`
+                    ? ` (${current.diagnosticCount + (semanticCurrent?.catalog.diagnostics.length || 0)})`
                     : ""}</TabButton
                 >{/each}
             </TabList>
@@ -655,9 +785,22 @@
                       ><span>{diagnostic.message}</span><small
                         >{diagnostic.path}</small
                       ></Button
-                    >{:else}<p class="hint padded">
+                    >{/each}
+                  {#each semanticCurrent?.catalog.diagnostics || [] as diagnostic}
+                    <Button
+                      variant="ghost"
+                      class="diagnostic-row"
+                      disabled={!semanticCurrent?.catalog.lookup(diagnostic.source)}
+                      onclick={() => jumpSemantic(diagnostic)}
+                    ><strong class:error-label={diagnostic.severity === 0}
+                        >{severityNames[diagnostic.severity]} · {diagnostic.range.start.line + 1}:{diagnostic.range.start.character + 1}</strong
+                      ><span>{diagnostic.code === undefined ? "" : `${diagnostic.code} · `}{diagnostic.message}</span
+                      ><small>{semanticCurrent?.catalog.lookup(diagnostic.source)?.name || diagnostic.source || "Source unavailable"} · {JSON.stringify(diagnostic.path || [])}</small
+                    ></Button>
+                  {/each}
+                  {#if !current.diagnostics.length && !semanticCurrent?.catalog.diagnostics.length}<p class="hint padded">
                       No validation errors or built-in style warnings.
-                    </p>{/each}
+                    </p>{/if}
                 </div>
               {:else if previewTab === "Schemas"}<pre
                   class="schema-definition">{previewJson(
@@ -733,7 +876,7 @@
       /><Button
         variant="primary"
         class="primary-button"
-        disabled={busy || !current?.valid || !current?.operations?.length}
+        disabled={busy || !generationReady || !current?.operations?.length}
         onclick={() => check(true)}
         >Generate {current?.operations?.length || ""} requests</Button
       ><span class="hint"

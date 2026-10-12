@@ -1,3 +1,9 @@
+## Spectral API Design integration verified — 2026-10-12
+
+- Captured diagnostics/source catalog join the existing structural preview; full-range inline/navigation and readonly captured references preserve main editor. Native Generate requires fresh accepted lint with no severity0 and unchanged workspace/source/repository/options. Reactive active work cancels stale jobs and waits settlement before releasing workspace work.
+- Root compiler73350 terminal0/0; SAME saved headless scenario23389 terminal0: six profiles, seven lifecycle cancellations, twenty real6231 producer hosts all closed, no cancelled publication or owned live process. Original workspace/layout99049 and frontend build e2233e passed. Frozen source/assets independently rehashed and archived in artifacts/spectral-parent-root-proof-v2/root-audit.json. Browser fixture explicitly native:false. Earlier negative cancellation evidence retained.
+- Current root handles: none. native_provider prepares native-hidden adapter without app/profile launch; event_api notices eight-path frozen handoff awaits review; shared_ui reviews external-reference generation gaps. Actual Rust IPC/current native candidate/repository consumed-read receipts/unobserved process births/platform/distribution/full original parity and deferred UX remain OPEN. Topic commit pending. /compact unavailable; explicit handoff before next feature.
+
 ## Target-specific Spectral packaging integrated — 2026-10-12
 
 - Root independently rehashes82frozen files/prereqs/10guarded deltas. externalBin logical name and stricttarget build/dev/bundle hooks; producer before frontend, standalone bundle freshness identity check. Linux main+sidecar ABI/transitive dependency inspection preservesoriginal CLI/overlays/GLESnotice convention. CSP/appidentity/permissions unchanged by this topic.
