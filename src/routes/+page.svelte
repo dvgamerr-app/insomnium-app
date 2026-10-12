@@ -90,6 +90,9 @@
     environmentName = $state(""),
     environmentText = $state("{}"),
     importText = $state("");
+  let environmentNameError = $state(
+    /** @type {{environmentId:string,message:string}|null} */ (null),
+  );
   let importBusy = $state(false);
   let importRevision = 0;
   let managedId = $state("");
@@ -198,6 +201,7 @@
     modal = type;
     name = "";
     modalError = "";
+    environmentNameError = null;
   }
   function openSettings(/** @type {string} */ tab = "") {
     if (!canEditWorkspace()) return;
@@ -220,6 +224,7 @@
     importBusy = false;
     modalElement?.close();
     modal = "";
+    environmentNameError = null;
     pendingImport = null;
   }
   function editEnvironment(
@@ -249,11 +254,19 @@
     showModal("environment");
   }
   function saveEnvironment() {
+    modalError = "";
+    environmentNameError = null;
     try {
       const data = JSON.parse(environmentText);
       if (!data || Array.isArray(data) || typeof data !== "object")
         throw new Error("Environment must be a JSON object");
-      if (!environmentName.trim()) throw new Error("Enter an environment name");
+      if (!environmentName.trim()) {
+        environmentNameError = {
+          environmentId,
+          message: String(new Error("Enter an environment name")),
+        };
+        return;
+      }
       update(environmentId, { data, name: environmentName.trim() });
       closeModal();
     } catch (e) {
@@ -989,8 +1002,21 @@
             onclick={() => showModal("delete-environment")}>Delete…</Button
           >
         </div>
-        <Field class="name-label environment-name"
-          >Name<Input bind:value={environmentName} /></Field
+        <Field
+          class="name-label environment-name"
+          label="Name"
+          error={environmentNameError?.environmentId === environmentId
+            ? environmentNameError.message
+            : ""}
+          ><Input
+            bind:value={environmentName}
+            oninput={(event) => {
+              if (
+                environmentNameError?.environmentId === environmentId &&
+                event.currentTarget.value.trim()
+              ) environmentNameError = null;
+            }}
+          /></Field
         >
         <p class="hint">
           Use <code>{"{{ _.base_url }}"}</code> in URLs, headers, bodies, and authentication.
