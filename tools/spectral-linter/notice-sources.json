@@ -1,5 +1,20 @@
 {
   "schemaVersion": 1,
+  "recoveredPackage": {
+    "id": "@stoplight/spectral-runtime@1.1.6",
+    "kind": "repository-license-at-published-commit",
+    "gitHead": "a06d7b8f878d578bb37189ba76b1d1e136608e4d",
+    "integrity": "sha512-Y8rEDyMN4bSMJCrDs2shdcVHYyCnH3FvXRP4dBhha4Z8iJv+JPp7KqOV/hwVB/hWFC209upiwj2oDmLfR0qCDg==",
+    "source": "https://raw.githubusercontent.com/stoplightio/spectral/a06d7b8f878d578bb37189ba76b1d1e136608e4d/LICENSE",
+    "path": "tools/spectral-linter/notice-sources/spectral-runtime-1.1.6-repository-LICENSE",
+    "sha256": "d45c17f7ecc80e0deab3372ff352c7d00b7d573755c3c672088c21a376673698",
+    "packageJSONSource": "https://raw.githubusercontent.com/stoplightio/spectral/a06d7b8f878d578bb37189ba76b1d1e136608e4d/packages/runtime/package.json",
+    "packageJSONPath": "tools/spectral-linter/notice-sources/spectral-runtime-1.1.6-package.json",
+    "packageJSONSHA256": "b2e2446abb1ee3987c1433fec7dc3976a2b7ccdb3ac791d61bc4d3e7c15bb74a",
+    "metadataSource": "https://registry.npmjs.org/%40stoplight%2Fspectral-runtime/1.1.6",
+    "tarballSource": "https://registry.npmjs.org/@stoplight/spectral-runtime/-/spectral-runtime-1.1.6.tgz",
+    "tarballSHA256": "9e60c71278b8792f4357f53c7f6ca51d0fd8a5b834bde3bfb9c3dca8f3b9e257"
+  },
   "bun": {
     "version": "1.4.2",
     "path": "tools/spectral-linter/notice-sources/bun-1.4.2-LICENSE.md",

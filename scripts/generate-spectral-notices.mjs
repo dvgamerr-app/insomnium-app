@@ -7,6 +7,16 @@ const root = resolve(import.meta.dir, '..');
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const order = (a, b) => a < b ? -1 : a > b ? 1 : 0;
 const posix = path => path.replaceAll('\\', '/');
+const recoveredRuntime = {
+  id: '@stoplight/spectral-runtime@1.1.6',
+  gitHead: 'a06d7b8f878d578bb37189ba76b1d1e136608e4d',
+  integrity: 'sha512-Y8rEDyMN4bSMJCrDs2shdcVHYyCnH3FvXRP4dBhha4Z8iJv+JPp7KqOV/hwVB/hWFC209upiwj2oDmLfR0qCDg==',
+  sha256: 'd45c17f7ecc80e0deab3372ff352c7d00b7d573755c3c672088c21a376673698',
+  packageJSONSHA256: 'b2e2446abb1ee3987c1433fec7dc3976a2b7ccdb3ac791d61bc4d3e7c15bb74a',
+  metadataSource: 'https://registry.npmjs.org/%40stoplight%2Fspectral-runtime/1.1.6',
+  tarballSource: 'https://registry.npmjs.org/@stoplight/spectral-runtime/-/spectral-runtime-1.1.6.tgz',
+  tarballSHA256: '9e60c71278b8792f4357f53c7f6ca51d0fd8a5b834bde3bfb9c3dca8f3b9e257',
+};
 export async function parseNoticeLock(text, projectRoot = root) {
   const { parse } = await import(pathToFileURL(resolve(projectRoot, 'tools/spectral-linter/node_modules/jsonc-parser/lib/umd/main.js')).href);
   const errors = [], lock = parse(text, errors, { allowTrailingComma: true });
@@ -32,6 +42,9 @@ export async function collectSpectralNotices(projectRoot = root) {
   const locked = await parseNoticeLock(Buffer.from(await bytes('tools/spectral-linter/bun.lock')).toString(), projectRoot);
   const sources = JSON.parse(Buffer.from(await bytes('tools/spectral-linter/notice-sources.json')).toString());
   if (sources.schemaVersion !== 1 || sources.bun?.version !== Bun.version || sources.bun.version !== '1.4.2') throw Error('Spectral runtime notice version mismatch');
+  const recovered = sources.recoveredPackage;
+  const sourceRoot = 'https://raw.githubusercontent.com/stoplightio/spectral/' + recoveredRuntime.gitHead + '/';
+  if (!recovered || Object.entries(recoveredRuntime).some(([key, value]) => recovered[key] !== value) || recovered.kind !== 'repository-license-at-published-commit' || recovered.source !== sourceRoot + 'LICENSE' || recovered.packageJSONSource !== sourceRoot + 'packages/runtime/package.json' || recovered.path !== 'tools/spectral-linter/notice-sources/spectral-runtime-1.1.6-repository-LICENSE' || recovered.packageJSONPath !== 'tools/spectral-linter/notice-sources/spectral-runtime-1.1.6-package.json') throw Error('Recovered Spectral notice provenance mismatch');
   await bytes('scripts/generate-spectral-notices.mjs');
   const installed = new Map();
   async function modules(dir) {
@@ -76,6 +89,12 @@ export async function collectSpectralNotices(projectRoot = root) {
       if (!data.length) throw Error('Empty Spectral notice source: ' + path);
       files.push({ path, bytes: data.length, sha256 });
       if (!emitted.has(sha256)) { chunks.push(Buffer.from('\n=== ' + row.id + ' / ' + posix(relative(copy.path, path)) + ' ===\n'), Buffer.from(data), Buffer.from('\n')); emitted.add(sha256); }
+    }
+    if (row.id === recovered.id) {
+      const evidence = await bytes(recovered.packageJSONPath), data = await bytes(recovered.path), metadata = JSON.parse(Buffer.from(evidence).toString());
+      if (row.integrity !== recovered.integrity || hash(evidence) !== recovered.packageJSONSHA256 || metadata.name + '@' + metadata.version !== row.id || metadata.license !== license || copies.some(copy => inputs.get(copy.path + '/package.json').sha256 !== recovered.packageJSONSHA256) || hash(data) !== recovered.sha256) throw Error('Recovered Spectral notice content/version mismatch');
+      files.push({ path: recovered.path, bytes: data.length, sha256: hash(data), provenance: recovered });
+      chunks.push(Buffer.from('\n=== ' + row.id + ' / repository LICENSE at published commit ' + recovered.gitHead + ' (not npm-packaged license) ===\n'), Buffer.from(data), Buffer.from('\n'));
     }
     packages.push({ ...row, state: 'installed', license, installPaths: copies.map(x => x.path), fullTextAvailable: files.length > 0, files, ...(files.length ? {} : { reason: 'Published installed package has no full LICENSE/NOTICE/COPYING file; metadata alone is not license text.' }) });
   }
