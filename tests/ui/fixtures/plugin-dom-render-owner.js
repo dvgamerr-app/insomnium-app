@@ -8,18 +8,30 @@ import {completePluginRequest,linkPluginRequestSignal,pluginRequestIsCurrent,plu
 import {workspace,execute,stop} from "../../../src/lib/workspace.svelte.js";
 import {initialData,newRequest} from "../../../src/lib/model.js";
 import {mockIPC,clearMocks} from "@tauri-apps/api/mocks";
+import {createPluginNativeAppEndpoint} from '../../../src/lib/plugin-app-native.js';
 import {get} from "svelte/store";
 import {pluginDomDialog,closePluginDomDialog} from "../../../src/lib/plugin-dom-dialog.js";
 const target=document.body.appendChild(document.createElement("div"));mount(PluginDomDialogHost,{target});
 const name="insomnia-plugin-dom-lifetime";
-const source=`let state={hides:0};exports.templateTags=[{name:'lifetimedialog',run(c){
+const clipboardFixture='native-clipboard ไทย😀 '+crypto.randomUUID();
+const source=`const clipboardFixture=${JSON.stringify(clipboardFixture)};let state={hides:0};exports.templateTags=[{name:'lifetimedialog',run(c){
   const body=document.createElement('div'),button=document.createElement('button'),status=document.createElement('span');
   button.textContent='Retained renderer event';status.setAttribute('role','status');status.textContent='waiting';
   body.appendChild(button);body.appendChild(status);
   let clicks=0;button.addEventListener('click',async function(event){status.textContent=(await c.util.render('{{ ownerValue }}'))+':'+(this===button)+':'+(event.target===button)+':'+(++clicks);});
   c.app.dialog('Render lifetime dialog',body,{onHide(){state={hides:state.hides+1,detached:!body.isConnected};}});return 'prepared';
 }},{name:'lifetimestate',run(){return state;}},{name:'lifetimeconstant',run(){return 'resolved';}},{name:'lifetimefail',run(){throw Error('owned field failure');}},
-{name:'lifetimeterminal',run(c,mode='plain'){
+{name:'lifetimeterminal',run(c,mode='plain',seed=''){
+  if(mode==='native-clipboard'){
+    const body=document.createElement('div'),box=document.createElement('input'),status=document.createElement('span');box.type='checkbox';box.setAttribute('aria-label','Native clipboard event checkbox');status.setAttribute('role','status');body.appendChild(box);body.appendChild(status);
+    box.addEventListener('click',event=>{const before=c.app.clipboard.readText(),write=c.app.clipboard.writeText(clipboardFixture),after=c.app.clipboard.readText(),clear=c.app.clipboard.clear(),empty=c.app.clipboard.readText();event.preventDefault();status.textContent=JSON.stringify({beforeMatchesSeed:before===seed,afterMatchesFixture:after===clipboardFixture,empty:empty==='',write:typeof write,clear:typeof clear,prevented:event.defaultPrevented});});
+    c.app.dialog('Native clipboard event dialog',body);return 'terminal prepared';
+  }
+  if(mode==='native-event'){
+    const body=document.createElement('div'),box=document.createElement('input'),status=document.createElement('span');box.type='checkbox';box.setAttribute('aria-label','Native app event checkbox');status.setAttribute('role','status');body.appendChild(box);body.appendChild(status);
+    box.addEventListener('click',function(event){const info=c.app.getInfo(),desktop=c.app.getPath('Desktop');event.preventDefault();status.textContent=JSON.stringify({info,desktop,prevented:event.defaultPrevented,current:event.currentTarget===box,trusted:event.isTrusted});});
+    c.app.dialog('Native app event dialog',body);return 'terminal prepared';
+  }
   const body=document.createElement('div'),button=document.createElement('button');body.textContent='cleanup waiting';button.textContent='Hold terminal helper';body.appendChild(button);
   let syncValue='denied';button.addEventListener('click',async()=>{if(mode==='held-sync'){try{syncValue=c.app.clipboard.readText();}catch{}return;}if(mode==='uncaught'){const request=await c.util.models.request.getById('child');await c.network.sendRequest(request);return;}try{const request=await c.util.models.request.getById('child');await c.network.sendRequest(request);}catch{}});
   let hidden=0;c.app.dialog('Terminal lifetime dialog',body,{async onHide(){
@@ -70,6 +82,9 @@ const streamCalls=/** @type {string[]} */([]);
 const records=/** @type {{kind:string,terminated:boolean,messages:any[]}[]} */([]);
 /** @type {any} */(window).__pluginDomRenderOwner={
   records,
+  clipboardFixture:()=>clipboardFixture,
+  async seedClipboard(/** @type {string} */ text){const signal=new AbortController(),endpoint=createPluginNativeAppEndpoint({signal:signal.signal,current:()=>true});try{await endpoint({method:'app.clipboard.writeText',args:[text]});return (await endpoint({method:'app.clipboard.readText',args:[]}))===text;}finally{signal.abort();}},
+  async nativeExpected(){const signal=new AbortController(),endpoint=createPluginNativeAppEndpoint({signal:signal.signal,current:()=>true});try{return{info:await endpoint({method:'app.getInfo',args:[]}),desktop:await endpoint({method:'app.getPath',args:['desktop']})};}finally{signal.abort();}},
   async open(/** @type {Record<string,string>} */ urls) {
     await tick();const NativeWorker=Worker;originalWorker=NativeWorker;
     window.Worker=class extends NativeWorker {
@@ -97,7 +112,7 @@ const records=/** @type {{kind:string,terminated:boolean,messages:any[]}[]} */([
       pluginServices:{getData:()=>data,send:async()=>{throw Error("Unexpected network call");},cookieJar:async()=>{throw Error("Unexpected cookie call");}}});
     try{return await renderer.render(fail?"{% lifetimedialog %}:{% lifetimefail %}":"{% lifetimedialog %}");}finally{renderer.dispose();renderClosed=renderer.signal.aborted;}
   },
-  async renderTerminal(/** @type {string} */ mode="plain"){
+  async renderTerminal(/** @type {string} */ mode="plain",/** @type {string} */ seed=''){
     data.resources=[data.resources[0],{...newRequest("w"),_id:"r",name:"Terminal request",url:"http://127.0.0.1/terminal"},{...newRequest("w"),_id:"child",name:"Terminal child",url:"http://127.0.0.1/held-helper"}];
     workspace.ready=false;terminalHelperStarted=false;terminalHelperSignal=undefined;terminalHelperCount=0;
     terminalStoreStarted=false;terminalStoreCount=0;
@@ -114,7 +129,8 @@ const records=/** @type {{kind:string,terminated:boolean,messages:any[]}[]} */([
     parentOwner=new AbortController();renderOwner=new AbortController();linkPluginRequestSignal(renderOwner.signal,parentOwner.signal);
     const renderer=createRequestRenderSession({},{purpose:"send",signal:renderOwner.signal,requestId:"r",workspaceId:"w",resources:data.resources,
       pluginServices:{getData:()=>data,cookieJar:async()=>null,send:async(_request,_extra,signal)=>{terminalHelperSignal=signal;terminalHelperStarted=true;terminalHelperCount++;return new Promise((_resolve,reject)=>{signal.addEventListener("abort",()=>reject(signal.reason),{once:true});if(signal.aborted)reject(signal.reason);});}}});
-    try{const result=await renderer.render("{% lifetimeterminal '"+mode+"' %}");
+    if(seed&&!/^owned-clipboard-[0-9a-f-]{36}$/.test(seed))throw Error('Invalid owned clipboard fixture seed');
+    try{const result=await renderer.render("{% lifetimeterminal '"+mode+"'"+(mode==='native-clipboard'?", '"+seed+"'":"")+" %}");
       const record=records.filter(row=>row.kind==="plugin"&&!row.terminated).at(-1),body=get(pluginDomDialog)?.body;
       if(record&&body){const nodes=terminalNodes.get(record)||[];nodes.push(body);terminalNodes.set(record,nodes);}return result;
     }finally{renderer.dispose();}

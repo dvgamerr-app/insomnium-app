@@ -33,6 +33,7 @@ export function createPluginDomRenderOwner(options) {
       onClosed:()=>{if(!bridge?.hasDialog())dispose();}});
     options.signal.addEventListener("abort",abort,{once:true});
     timer=setInterval(()=>{if(!current())dispose();},100);
+    const syncCall=options.synchronous(controller.signal,current);
     const result=Object.freeze({
       current,dispose,
       /** Bind once to the exact retained VM selected after catalog recovery.
@@ -40,7 +41,8 @@ export function createPluginDomRenderOwner(options) {
       bindSession(guard){if(bound)throw Error("Dialog owner is already bound");bound=true;peer=guard;if(!current())dispose();},
       finish(){if(!bridge?.hasDialog())dispose();},
       helperCall:options.helpers(controller.signal,current,interaction),
-      syncCall:options.synchronous(controller.signal,current),
+      syncCall,
+      prepareEvent:async()=>{if(!current())throw new DOMException('Plugin dialog owner changed','AbortError');await /** @type {any} */(syncCall).prepareEvent?.();if(!current())throw new DOMException('Plugin dialog owner changed','AbortError');},
       subscribeInteraction:interaction.subscribe.bind(interaction),
       domCallbacks:bridge.domCallbacks,domCall:bridge.call,
     });

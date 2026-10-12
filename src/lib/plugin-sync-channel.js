@@ -51,7 +51,7 @@ export function replyPluginSyncMailbox(
 /** Only call inside a dedicated worker. The UI thread remains asynchronous.
  * @param {(message:any)=>void} post @param {()=>number} owner
  * @returns {(operation:string)=>string} */
-export function createPluginSyncCaller(post, owner) {
+export function createPluginSyncCaller(post, owner, options=/** @type {{poll?:()=>void}} */({})) {
   let sequence = 0;
   return (operation) => {
     if (
@@ -71,6 +71,7 @@ export function createPluginSyncCaller(post, owner) {
     post({ type: "sync-helper", callbackId, id, operation, buffer });
     const end = performance.now() + 4000;
     while (Atomics.load(control, 0) === 0) {
+      options.poll?.();
       const left = end - performance.now();
       if (left <= 0) {
         if (Atomics.compareExchange(control, 0, 0, 3) === 0)
@@ -80,7 +81,7 @@ export function createPluginSyncCaller(post, owner) {
           );
         break;
       }
-      Atomics.wait(control, 0, 0, left);
+      Atomics.wait(control, 0, 0, options.poll?Math.min(left,1):left);
     }
     const state = Atomics.load(control, 0),
       length = Atomics.load(control, 1);

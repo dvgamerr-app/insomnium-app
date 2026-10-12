@@ -5,8 +5,23 @@ import PluginDomDialogHost from "../../../src/lib/components/PluginDomDialogHost
 import {exerciseDomCollections} from '../helpers/plugin-dom-collection-cases.js';
 import {exerciseDomTokens} from '../helpers/plugin-dom-token-cases.js';
 import {exerciseDomDataset,exerciseDomDatasetEdges} from '../helpers/plugin-dom-dataset-cases.js';
+import {exerciseEventSurface} from '../helpers/plugin-dom-event-cases.js';
+import {installEventCheckpoint} from '../helpers/plugin-dom-event-checkpoint-cases.js';
+import {installEventHostWait} from '../helpers/plugin-dom-event-host-wait-cases.js';
+import {installEventNesting} from '../helpers/plugin-dom-event-nesting-cases.js';
+import {installListenerLifecycle} from '../helpers/plugin-dom-listener-lifecycle-cases.js';
 const target=document.body.appendChild(document.createElement("div"));mount(PluginDomDialogHost,{target});
 const source=`let snapshot={hides:0};
+let checkpointState;
+let retainedState;
+const initializedSurface=(${exerciseEventSurface.toString()})(Event);
+const initializedEvent=new Event('module-load',{cancelable:true});
+initializedEvent.preventDefault();
+const initializedStamp=initializedEvent.timeStamp;
+let initializationDomBlocked=false;
+try{document.createElement('div');}catch{initializationDomBlocked=true;}
+const privateClockHidden=!Object.hasOwn(globalThis,'__pluginEventClock');
+const privateCheckpointsHidden=!Object.hasOwn(globalThis,'__pluginInstallEventCheckpoints')&&!Object.hasOwn(__pluginGuestDom,'beginEventCheckpoint')&&!Object.hasOwn(__pluginGuestDom,'finishEventCheckpoint');
 const captured={define:Object.defineProperty,defines:Object.defineProperties,reflect:Reflect.defineProperty};
 exports.templateTags=[{name:'dom',run(c,label){
   const body=document.createElement('div'),button=document.createElement('button'),input=document.createElement('input'),status=document.createElement('span');
@@ -45,19 +60,105 @@ for(const fn of [()=>document.createElement('script'),()=>new HTMLElement(),()=>
  const data=body.dataset;button.textContent='Read retained dataset';status.setAttribute('role','status');body.appendChild(button);body.appendChild(status);
  button.addEventListener('click',()=>{data.callback='guest';status.textContent=JSON.stringify({identity:data===body.dataset,original:data.original,late:data.late,callback:data.callback});});
  c.app.dialog('Retained dataset dialog',body,{onHide:async()=>{await Promise.resolve();data.cleanup='done';body.setAttribute('data-dataset-cleanup',JSON.stringify({detached:!body.isConnected,original:data.original,late:data.late,callback:data.callback,cleanup:data.cleanup}));}});return 'prepared';
+}}, {name:'eventcancelbaseline',run(c){
+ const body=document.createElement('div'),checkbox=document.createElement('input'),status=document.createElement('span');checkbox.type='checkbox';checkbox.setAttribute('aria-label','Baseline event checkbox');status.setAttribute('role','status');body.appendChild(checkbox);body.appendChild(status);
+ checkbox.addEventListener('click',event=>{try{event.preventDefault();status.textContent='cancelled';}catch(error){status.textContent=error.message;}});
+ c.app.dialog('Baseline event cancellation',body);return 'prepared';
+}}, {name:'clipboardevent',run(c,text){
+ const body=document.createElement('div'),box=document.createElement('input'),status=document.createElement('span');box.type='checkbox';box.setAttribute('aria-label','Clipboard event checkbox');status.setAttribute('role','status');body.appendChild(box);body.appendChild(status);
+ box.addEventListener('click',event=>{const before=c.app.clipboard.readText(),write=c.app.clipboard.writeText(text),after=c.app.clipboard.readText(),clear=c.app.clipboard.clear();event.preventDefault();status.textContent=JSON.stringify({before,after,write:typeof write,clear:typeof clear,prevented:event.defaultPrevented});});
+ c.app.dialog('Clipboard event dialog',body);return 'prepared';
+}}, {name:'eventsurface',run(c,initialized=false){if(initialized)return {surface:initializedSurface,stamp:initializedStamp,retained:initializedEvent instanceof Event&&initializedEvent.defaultPrevented&&initializedEvent.timeStamp===initializedStamp,initializationDomBlocked,privateClockHidden,privateCheckpointsHidden,later:new Event('callback').timeStamp};return (${exerciseEventSurface.toString()})(Event);}}, {name:'eventretained',run(c,read=false){
+ if(read)return retainedState();
+ const body=document.createElement('div'),box=document.createElement('input'),status=document.createElement('span');box.type='checkbox';box.setAttribute('aria-label','Retained Event checkbox');status.setAttribute('role','status');body.appendChild(box);body.appendChild(status);
+ box.addEventListener('click',async function(event){
+   const during={instance:event instanceof Event,tag:Object.prototype.toString.call(event),thisTarget:this===box,target:event.target===box,current:event.currentTarget===box,phase:event.eventPhase,trusted:event.isTrusted,composed:event.composed,own:Object.keys(event),targetWrite:Reflect.set(event,'target',body),phaseWrite:Reflect.set(event,'eventPhase',99),trustedWrite:Reflect.set(event,'isTrusted',false),path:event.composedPath().map(node=>node===box?'box':node===body?'body':'foreign')};event.preventDefault();during.prevented=event.defaultPrevented;during.returnValue=event.returnValue;await Promise.resolve();retainedState=()=>({current:event.currentTarget,phase:event.eventPhase,path:event.composedPath(),prevented:event.defaultPrevented,returnValue:event.returnValue,target:event.target===box});status.textContent=JSON.stringify({during});
+ });c.app.dialog('Retained Event dialog',body);return 'prepared';
+}}, {name:'eventidentity',run(c){
+ const body=document.createElement('div'),box=document.createElement('input'),status=document.createElement('span');box.type='checkbox';box.setAttribute('aria-label','Shared Event checkbox');status.setAttribute('role','status');body.appendChild(box);body.appendChild(status);
+ let first;const observations=[];
+ box.addEventListener('click',event=>{const previous=first;first=event;event.ownerMark='first listener';event.preventDefault();observations.push({listener:'first',prevented:event.defaultPrevented,current:event.currentTarget===box,...(previous?{previousSame:event===previous}:{})});status.textContent=JSON.stringify(observations);});
+ box.addEventListener('click',event=>{observations.push({listener:'second',same:event===first,mark:event.ownerMark,prevented:event.defaultPrevented,current:event.currentTarget===box});status.textContent=JSON.stringify(observations);});
+ body.addEventListener('click',event=>{observations.push({listener:'parent',same:event===first,mark:event.ownerMark,prevented:event.defaultPrevented,current:event.currentTarget===body,target:event.target===box,phase:event.eventPhase});status.textContent=JSON.stringify(observations);});
+ c.app.dialog('Shared Event identity dialog',body);return 'prepared';
+}}, {name:'eventcheckpoint',run(c,read=false){
+ if(read)return checkpointState();
+ const body=document.createElement('div'),box=document.createElement('input'),status=document.createElement('span');box.type='checkbox';box.setAttribute('aria-label','Guest checkpoint checkbox');status.setAttribute('role','status');body.appendChild(box);body.appendChild(status);
+ checkpointState=(${installEventCheckpoint.toString()})(body,box,status);c.app.dialog('Event checkpoint dialog',body);return 'prepared';
+}}, {name:'eventhostwait',run(c){
+ const body=document.createElement('div'),box=document.createElement('input'),status=document.createElement('span');box.type='checkbox';box.setAttribute('aria-label','Guest host wait checkbox');status.setAttribute('role','status');body.appendChild(box);body.appendChild(status);
+ (${installEventHostWait.toString()})(body,box,status,()=>c.app.prompt('Held Event host provider'));
+ const cpu=document.createElement('button'),budget=document.createElement('button'),asyncGuard=document.createElement('button');cpu.textContent='Waiting owner CPU guard';budget.textContent='Waiting owner helper guard';asyncGuard.textContent='Waiting owner async guard';body.appendChild(cpu);body.appendChild(budget);body.appendChild(asyncGuard);cpu.addEventListener('click',()=>{while(true){}});budget.addEventListener('click',()=>{for(let index=0;index<260;index++)c.app.getInfo();});asyncGuard.addEventListener('click',async()=>{await c.app.prompt('Held Event host provider');});
+ c.app.dialog('Event host wait dialog',body);return 'prepared';
+}}, {name:'eventforeignowner',run(){
+ const button=document.createElement('button'),status=document.createElement('span');button.addEventListener('click',()=>{status.textContent='foreign executed';});return 'prepared';
+}}, {name:'eventnesting',run(c,afterWait=false,duringInvoke=false){
+ const body=document.createElement('div'),outer=document.createElement('input'),inner=document.createElement('input'),deep=document.createElement('input'),status=document.createElement('span');
+ for(const [node,label] of [[outer,'outer'],[inner,'inner'],[deep,'deep']]){node.type='checkbox';node.setAttribute('aria-label','Guest nested '+label);body.appendChild(node);}status.setAttribute('role','status');body.appendChild(status);
+ (${installEventNesting.toString()})(body,outer,inner,deep,status,afterWait?()=>c.app.prompt('Held Event host provider'):undefined);if(duringInvoke)outer.click();c.app.dialog('Event nesting dialog',body);return 'prepared';
+}}, {name:'eventnestingguard',run(c,kind){
+ const body=document.createElement('div'),outer=document.createElement('button'),inner=document.createElement('button'),status=document.createElement('span');outer.textContent='Nested guard outer';inner.textContent='Nested guard inner';status.setAttribute('role','status');body.appendChild(outer);body.appendChild(inner);body.appendChild(status);
+ if(kind==='cpu'){
+  inner.addEventListener('click',()=>{const before=new Event('clock').timeStamp;while(new Event('clock').timeStamp-before<1100){}status.textContent='inner-work-completed';});
+  outer.addEventListener('click',()=>{inner.click();while(true){}});
+ }else{
+  const controls=[outer,...Array.from({length:8},()=>document.createElement('button'))];let count=0;
+  for(let index=0;index<controls.length;index++){const node=controls[index];if(index)body.appendChild(node);node.textContent='Nested guard depth '+index;node.addEventListener('click',()=>{status.textContent=String(++count);controls[index+1]?.click();});}
+ }
+ c.app.dialog('Event nesting guard dialog',body);return 'prepared';
+}}, {name:'listenerlifecycle',run(c,mode){
+ const body=document.createElement('div'),box=document.createElement('input'),sibling=document.createElement('input'),status=document.createElement('span');box.type='checkbox';sibling.type='checkbox';box.setAttribute('aria-label','Guest lifecycle checkbox');sibling.setAttribute('aria-label','Guest lifecycle sibling');status.setAttribute('role','status');body.appendChild(box);body.appendChild(sibling);body.appendChild(status);
+ (${installListenerLifecycle.toString()})(body,box,sibling,status,mode,mode==='self-host-wait'?()=>c.app.prompt('Held Event host provider'):undefined);c.app.dialog('Listener lifecycle dialog',body);return 'prepared';
 }}];`;
 /** @type {Awaited<ReturnType<typeof openPluginSession>>|undefined} */let session;
 const controller=new AbortController(),errors=/** @type {string[]} */([]),records=/** @type {{terminated:boolean}[]} */([]);
 const bridges=/** @type {ReturnType<typeof createPluginDomBridge>[]} */([]);
+/** @type {{read:string,write:string,clear:string}|undefined} */let eventClipboard;
+/** @type {ReturnType<typeof operation>|undefined} */let checkpointOperation;
+/** @type {((value:any)=>void)|undefined} */let releasePrompt;
+let heldPromptCalls=0;
+let foreignMutations=0;
+let eventInfoCalls=0;
+const eventEntryErrors=/** @type {string[]} */([]);
+const nestedForeignGuards=/** @type {{error:string,mutations:number}[]} */([]);
+const retainedCallbacks=/** @type {{label:string,callback:import('../../../src/lib/plugin-session.js').PluginDomCallback}[]} */([]);
 /** @param {string} label @param {'send'|'preview'} [purpose] */
 function operation(label,purpose="send") {
   const bridge=createPluginDomBridge({purpose,signal:controller.signal,current:()=>!!session&&!session.isClosed(),onError:error=>errors.push(String(error))});bridges.push(bridge);
-  const current=()=>!controller.signal.aborted&&!!session&&!session.isClosed(),helperCall=async()=>{throw Error('Unexpected helper call');},syncCall=async()=>({version:label,platform:'win32'});
-  return {signal:controller.signal,isCurrent:current,helperCall,syncCall,domCallbacks:bridge.domCallbacks,domCall:bridge.call,
-    domOwner:{current,helperCall,syncCall,domCallbacks:bridge.domCallbacks,domCall:bridge.call,dispose:bridge.dispose}};
+  const current=()=>!controller.signal.aborted&&!!session&&!session.isClosed(),helperCall=async(/** @type {{method:string,args:any[]}} */ call)=>{if(label==='event-host-wait'&&call.method==='app.prompt'&&call.args[0]==='Held Event host provider'&&current()){heldPromptCalls++;return new Promise(resolve=>{releasePrompt=resolve;});}throw Error('Unexpected helper call');},syncCall=Object.assign(async()=>({version:label,platform:'win32'}),{eventCall:(/** @type {{method:string,args:any[]}} */ call)=>{if(!current())throw Error('Invalid controlled live event provider');if(call.method==='app.getInfo'){if(label==='event-host-wait')eventInfoCalls++;return {kind:'value',value:{version:label,platform:'win32'}};}const key=call.method==='app.clipboard.readText'?'read':call.method==='app.clipboard.writeText'?'write':call.method==='app.clipboard.clear'?'clear':undefined;if(!key||!eventClipboard)throw Error('Invalid controlled live event provider');return {kind:'native',url:eventClipboard[key],method:key==='read'?'GET':'POST'};}});
+  const domCallbacks={retain(/** @type {import('../../../src/lib/plugin-session.js').PluginDomCallback} */ callback,/** @type {number} */ id){retainedCallbacks.push({label,callback});bridge.domCallbacks.retain(Object.freeze({...callback,invokeEvent:(/** @type {any[]} */ args)=>{if(!callback.invokeEvent)throw Error('Missing real native callback');try{return callback.invokeEvent(args);}catch(error){eventEntryErrors.push(String(error));throw error;}}}),id);}};
+  const domCall=(/** @type {Parameters<typeof bridge.call>[0]} */ call)=>{
+    if(['event-nesting','event-host-wait'].includes(label)&&call.method==='dom.node'&&call.args[1]==='click'){
+      const foreign=retainedCallbacks.find(row=>row.label==='foreign-event-owner')?.callback;
+      if(foreign?.invokeEvent){try{foreign.invokeEvent([]);nestedForeignGuards.push({error:'leaked',mutations:foreignMutations});}catch(error){nestedForeignGuards.push({error:String(error),mutations:foreignMutations});}}
+    }
+    const result=bridge.call(call);if(label==='foreign-event-owner'&&call.method==='dom.set'&&call.args[2]==='foreign executed')foreignMutations++;return result;
+  };
+  return {signal:controller.signal,isCurrent:current,helperCall,syncCall,domCallbacks,domCall,
+    domOwner:{current,helperCall,syncCall,domCallbacks,domCall,dispose:bridge.dispose}};
 }
 /** @type {any} */(window).__pluginGuestDom={
   errors,records,
+  eventSurface(){return session?.invoke('templateTags',12,[],operation('event-surface'));},
+  eventInitialized(){return session?.invoke('templateTags',12,[true],operation('event-initialized'));},
+  eventRetained(){return session?.invoke('templateTags',13,[],operation('event-retained'));},
+  eventRetainedAfter(){return session?.invoke('templateTags',13,[true],operation('event-retained-after'));},
+  eventIdentity(){return session?.invoke('templateTags',14,[],operation('event-identity'));},
+  eventCheckpoint(){checkpointOperation=operation('event-checkpoint');return session?.invoke('templateTags',15,[],checkpointOperation);},
+  eventCheckpointState(){return session?.invoke('templateTags',15,[true],checkpointOperation);},
+  eventHostWait(){return session?.invoke('templateTags',16,[],operation('event-host-wait'));},
+  promptState(){return {calls:heldPromptCalls,waiting:!!releasePrompt};},
+  releasePrompt(){const release=releasePrompt;releasePrompt=undefined;release?.('owned provider result');},
+  prepareForeignEventOwner(){return session?.invoke('templateTags',17,[],operation('foreign-event-owner'));},
+  attemptForeignEventEntry(){const callback=retainedCallbacks.find(row=>row.label==='foreign-event-owner')?.callback;if(!callback?.invokeEvent)throw Error('Missing retained foreign owner callback');try{callback.invokeEvent([]);return {error:'leaked',mutations:foreignMutations};}catch(error){return {error:String(error),mutations:foreignMutations};}},
+  eventGuardState(){return {infoCalls:eventInfoCalls,entryErrors:eventEntryErrors,closed:session?.isClosed()??false};},
+  nestedForeignGuards(){return nestedForeignGuards;},
+  eventNesting(/** @type {boolean} */ afterWait=false,/** @type {boolean} */ duringInvoke=false){return session?.invoke('templateTags',18,[afterWait,duringInvoke],operation(afterWait?'event-host-wait':'event-nesting'));},
+  eventNestingGuard(/** @type {string} */ kind){return session?.invoke('templateTags',19,[kind],operation('event-nesting-guard'));},
+  listenerLifecycle(/** @type {string} */ mode){return session?.invoke('templateTags',20,[mode],operation(mode==='self-host-wait'?'event-host-wait':'listener-lifecycle'));},
+  staleLifecycleCallback(/** @type {string} */ mode){const rows=retainedCallbacks.filter(row=>row.label===(mode==='self-host-wait'?'event-host-wait':'listener-lifecycle')),callback=rows[mode==='remove-peer'?1:0]?.callback;if(!callback?.invokeEvent)throw Error('Missing lifecycle callback');try{callback.invokeEvent([]);return 'leaked';}catch(error){return String(error);}},
+  clipboardProvider(/** @type {{read:string,write:string,clear:string}} */ urls){eventClipboard={...urls};},
+  clipboardEvent(/** @type {string} */ text){return session?.invoke('templateTags',11,[text],operation('clipboard-event'));},
   async open(/** @type {string} */ url,/** @type {'commonjs'|'module'} */ format='commonjs'){
     session?.close();await tick();const entry=format==='module'?'main.mjs':'main.cjs';
     session=await openPluginSession({name:"owned-guest-dom",entry,format,files:{[entry]:format==='module'?source.replace('exports.templateTags=','export const templateTags='):source}},
@@ -75,6 +176,7 @@ function operation(label,purpose="send") {
   datasetEdgesOracle(){return exerciseDomDatasetEdges(document,DOMStringMap);},
   datasetEdges(){return session?.invoke('templateTags',8,[],operation('dataset edges'));},
   datasetDialog(){return session?.invoke('templateTags',9,[],operation('retained dataset'));},
+  eventCancelBaseline(){return session?.invoke('templateTags',10,[],operation('event cancellation baseline'));},
   datasetGuards(){
     const one=operation('dataset guards'),two=operation('foreign dataset guards'),owned=one.domCall({method:'dom.create',args:['element','div']}),text=one.domCall({method:'dom.create',args:['text','text']});
     const errors=[];

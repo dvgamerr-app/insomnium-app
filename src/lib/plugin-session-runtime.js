@@ -17,7 +17,8 @@ import {
  * @param {(operation:{method:string,args:string[]})=>Promise<any>} storeCall
  * @param {(operation:{method:string,args:any[]})=>Promise<any>} [helperCall]
  * @param {(operation:{method:string,args:any[]})=>string} [syncCall]
- * @param {(id:number)=>void} [onRetainDomCallback] */
+ * @param {(id:number)=>void} [onRetainDomCallback]
+ * @param {number} [eventTimeOrigin] */
 export function createPluginCallbackRuntime(
   engine,
   snapshot,
@@ -25,8 +26,9 @@ export function createPluginCallbackRuntime(
   helperCall,
   syncCall,
   onRetainDomCallback,
+  eventTimeOrigin,
 ) {
-  const loaded = createPluginVm(engine, snapshot),
+  const loaded = createPluginVm(engine, snapshot, eventTimeOrigin),
     { vm, evaluate } = loaded;
   let closed = false,
     running = false,
@@ -66,8 +68,10 @@ export function createPluginCallbackRuntime(
     const controller = new AbortController();
     const id = domLeases.retain(handle,{signal:controller.signal,current:()=>!closed});
     domOwners.set(id,{controller,generation:activeGeneration,helpers:helperAllowed,synchronous:syncAllowed,interactive,domTransport});
+    const wait=loaded.beginHostWait();
     try { onRetainDomCallback(id); }
     catch(error) {domLeases.release(id);domOwners.delete(id);throw error;}
+    finally{loaded.accountHostWait(wait);}
     return vm.newNumber(id);
   });
   const helperCurrent = vm.newFunction("helperCurrent", (value) =>
@@ -80,12 +84,12 @@ export function createPluginCallbackRuntime(
       throw Error("Plugin DOM transport is unavailable for this operation");
     if(++calls>256 || pending.size>=64)throw Error("Plugin helper call limit exceeded");
     const wire=vm.getString(request);if(wire.length>16*1024*1024)throw Error("Plugin DOM request exceeds its limit");
-    const call=validatePluginDomCall(codec.decode(wire)),started=performance.now();
+    const call=validatePluginDomCall(codec.decode(wire)),wait=loaded.beginHostWait();
     try {return vm.newString(syncCall(call));}
     catch(error) {
       if(error instanceof Error&&error.name==="TimeoutError"){syncFailure=error;closed=true;loaded.abortExecution();}
       throw error;
-    } finally {loaded.accountHostWait(performance.now()-started);}
+    } finally {loaded.accountHostWait(wait);}
   });
   const syncBridge = vm.newFunction("syncApp", (request) => {
     if (closed || !running || !helperAllowed || !syncAllowed || !syncCall)
@@ -104,7 +108,7 @@ export function createPluginCallbackRuntime(
     )
       throw Error("Synchronous plugin app helper is no longer current");
     const call = validatePluginAppSyncCall(codec.decode(envelope.call));
-    const started = performance.now();
+    const wait = loaded.beginHostWait();
     try {
       return vm.newString(syncCall(call));
     } catch (error) {
@@ -116,7 +120,7 @@ export function createPluginCallbackRuntime(
       }
       throw error;
     } finally {
-      loaded.accountHostWait(performance.now() - started);
+      loaded.accountHostWait(wait);
     }
   });
   const bridge = vm.newFunction("store", (request) => {
@@ -264,12 +268,32 @@ export function createPluginCallbackRuntime(
     releaseDomCallback(id) {
       const owner=domOwners.get(id);
       if(!owner)return false;
-      domOwners.delete(id);owner.controller.abort();
+      domOwners.delete(id);domLeases.release(id);
       return true;
+    },
+    /** Same capability owner, entered only between outer callback job turns.
+     * @param {number} id @param {string} args */
+    invokeDomCallbackWhileWaiting(id,args){
+      const owner=domOwners.get(id);
+      if(closed||!running||cleanupMode||!owner||owner.generation!==activeGeneration||
+        owner.helpers!==helperAllowed||owner.synchronous!==syncAllowed||owner.interactive!==interactive||owner.domTransport!==domTransport)
+        throw Error('Waiting DOM callback capability owner differs');
+      const values=codec.decode(args);if(!Array.isArray(values))throw Error('Invalid waiting DOM callback arguments');
+      return codec.encode(domLeases.invokeWhileWaiting(id,values));
+    },
+    /** Host has already proved the same retained owner and shared native frame.
+     * @param {number} id @param {string} args */
+    invokeDomCallbackNativeNested(id,args){
+      const owner=domOwners.get(id);
+      if(closed||!running||cleanupMode||!owner||owner.generation!==activeGeneration||
+        owner.helpers!==helperAllowed||owner.synchronous!==syncAllowed||owner.interactive!==interactive||owner.domTransport!==domTransport)
+        throw Error('Nested DOM callback capability owner differs');
+      const values=codec.decode(args);if(!Array.isArray(values))throw Error('Invalid nested DOM callback arguments');
+      domLeases.invokeNativeNested(id,values);return codec.encode(undefined);
     },
     /** Serialized by the same host/worker queue as ordinary callbacks.
      * @param {number} id @param {string} args @param {boolean} [cleanup] @param {boolean} [onHide] */
-    async invokeDomCallback(id,args,cleanup=false,onHide=false) {
+    async invokeDomCallback(id,args,cleanup=false,onHide=false,onPrefix=/** @type {(()=>void)|undefined} */(undefined)) {
       if(closed)throw Error("Plugin session is closed");
       if(running)throw Error("Plugin callback is already running");
       const owner=domOwners.get(id);
@@ -280,7 +304,7 @@ export function createPluginCallbackRuntime(
       onHideRunning=onHide;
       running=true;storeAllowed=!cleanupMode;helperAllowed=owner.helpers;syncAllowed=!cleanupMode&&owner.synchronous;
       activeGeneration=owner.generation;interactive=owner.interactive;domAllowed=true;domTransport=owner.domTransport;calls=0;syncFailure=undefined;
-      try {return codec.encode(await domLeases.invoke(id,values));}
+      try {return codec.encode(await domLeases.invoke(id,values,onPrefix));}
       finally {
         loaded.setInteractionWaiting(false);running=false;storeAllowed=false;helperAllowed=false;syncAllowed=false;
         activeGeneration=0;interactive=false;domAllowed=false;domTransport=false;waitingSince=0;waited=0;

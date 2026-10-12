@@ -18,6 +18,7 @@ await withPreview("plugin-dom-terminal-owner",async(page,output)=>{
     await page.evaluate(urls=>/** @type {any} */(window).__pluginDomRenderOwner.open(urls),urls);
     for(const action of ["abort","changeSource","unload","active-abort","active-uncaught","queued-abort","close-unload","active-close-unload","normal-close"]){
       const mode=action==="active-close-unload"?"held-hide":action==="active-uncaught"?"uncaught":"permissions";
+      await Bun.write(output+'/progress.json',JSON.stringify({action,mode,phase:'render',observations,reported},null,2));
       assert.equal(await call("renderTerminal",[mode]),"terminal prepared");
       const dialog=page.getByRole("dialog",{name:"Terminal lifetime dialog",exact:true});await dialog.waitFor();
       const body=await dialog.locator(".plugin-dom-body > div").elementHandle();assert.ok(body);
@@ -51,6 +52,7 @@ await withPreview("plugin-dom-terminal-owner",async(page,output)=>{
     assert.equal(await storeBody.getAttribute('data-cleanup-count'),'1');await storeBody.dispose();await call('clearTerminalStore');
     checks.push('Valid normal onHide store read followed by owner Abort suppresses controlled late privileged value and still completes local detached cleanup');
     observations.push({action:'late-store',privilegedValueSuppressed:true,storeCalls:1,cleanupFinished:true,nativeReplyHeldUntilCleanup:true});
+    await Bun.write(output+'/progress.json',JSON.stringify({phase:'held-sync',observations,reported,hashes},null,2));
     await call('renderTerminal',['held-sync']);const syncDialog=page.getByRole('dialog',{name:'Terminal lifetime dialog',exact:true});await syncDialog.waitFor();
     const syncBody=await syncDialog.locator('.plugin-dom-body > div').elementHandle();assert.ok(syncBody);
     await syncDialog.getByRole('button',{name:'Hold terminal helper',exact:true}).click();

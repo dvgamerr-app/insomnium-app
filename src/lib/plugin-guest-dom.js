@@ -1,11 +1,73 @@
 /** Synchronous references to actual host-owned DOM nodes, not a DOM model.
  * This function is injected into the isolated VM without module dependencies.
  * @param {(method:string,args:any[])=>any} call
- * @param {(callback:(event:any)=>any)=>number} retain */
-export function createPluginGuestDom(call,retain) {
+ * @param {(callback:(event:any)=>any)=>number} retain
+ * @param {()=>number} now */
+export function createPluginGuestDom(call,retain,now) {
   const ids=new WeakMap(),nodes=new Map(),listeners=new WeakMap(),styleObjects=new WeakMap();
   const secret=Symbol("owned DOM node");
   const domString=(/** @type {any} */ value)=>{if(typeof value==='symbol')throw new TypeError('Invalid DOM string');return String(value);};
+  const eventData=new WeakMap();
+  const eventCheckpoints=/** @type {Set<any>[]} */([]);
+  const beginEventCheckpoint=()=>{eventCheckpoints.push(new Set());};
+  const finishEventCheckpoint=()=>{
+    const checkpoint=eventCheckpoints.pop();if(!checkpoint)return;
+    for(const data of checkpoint){data.active=false;data.passive=false;data.currentTarget=null;data.phase=0;data.path=[];data.stopped=false;data.immediate=false;}
+  };
+  const eventState=(/** @type {any} */ value)=>{const data=eventData.get(value);if(!data)throw new TypeError('Illegal invocation');return data;};
+  const trust=(/** @type {any} */ value)=>Object.defineProperty(value,'isTrusted',{get(){return eventState(this).trusted;},enumerable:true,configurable:false});
+  class GuestEvent {
+    /** @param {any} type @param {any} [init] */
+    constructor(type,init={}){
+      if(!arguments.length)throw new TypeError('Event type is required');
+      if(init!==null&&(typeof init!=='object'&&typeof init!=='function'))throw new TypeError('EventInit must be a dictionary');
+      eventData.set(this,{type:domString(type),bubbles:!!init?.bubbles,cancelable:!!init?.cancelable,composed:!!init?.composed,timeStamp:now(),trusted:false,target:null,currentTarget:null,phase:0,prevented:false,stopped:false,immediate:false,active:false,passive:false,path:[]});trust(this);
+    }
+    get type(){return eventState(this).type;}
+    get target(){return eventState(this).target;}
+    get srcElement(){return eventState(this).target;}
+    get currentTarget(){return eventState(this).currentTarget;}
+    get eventPhase(){return eventState(this).phase;}
+    get bubbles(){return eventState(this).bubbles;}
+    get cancelable(){return eventState(this).cancelable;}
+    get composed(){return eventState(this).composed;}
+    get timeStamp(){return eventState(this).timeStamp;}
+    get defaultPrevented(){return eventState(this).prevented;}
+    get cancelBubble(){return eventState(this).stopped;}
+    set cancelBubble(value){if(value)this.stopPropagation();else eventState(this);}
+    get returnValue(){return !eventState(this).prevented;}
+    set returnValue(value){if(!value)this.preventDefault();else eventState(this);}
+    preventDefault(){const data=eventState(this);if(data.cancelable&&(!data.active||!data.passive))data.prevented=data.active?!!call('dom.event',[data.id,'preventDefault']):true;}
+    stopPropagation(){const data=eventState(this);data.stopped=true;if(data.active)call('dom.event',[data.id,'stopPropagation']);}
+    stopImmediatePropagation(){const data=eventState(this);data.stopped=true;data.immediate=true;if(data.active)call('dom.event',[data.id,'stopImmediatePropagation']);}
+    composedPath(){return eventState(this).path.slice();}
+    /** @param {any} type @param {any} [bubbles] @param {any} [cancelable] */
+    initEvent(type,bubbles=false,cancelable=false){const data=eventState(this);if(!arguments.length)throw new TypeError('Event type is required');if(data.active)return;data.type=domString(type);data.bubbles=!!bubbles;data.cancelable=!!cancelable;data.trusted=false;data.prevented=false;data.stopped=false;data.immediate=false;data.target=null;}
+  }
+  Object.defineProperty(GuestEvent,'name',{value:'Event'});
+  Object.defineProperty(GuestEvent,'length',{value:1});
+  for(const name of Object.getOwnPropertyNames(GuestEvent.prototype))if(name!=='constructor'){const descriptor=Object.getOwnPropertyDescriptor(GuestEvent.prototype,name);Object.defineProperty(GuestEvent.prototype,name,{...descriptor,enumerable:true});}
+  Object.defineProperty(GuestEvent.prototype,Symbol.toStringTag,{value:'Event',configurable:true});
+  for(const [name,value] of [['NONE',0],['CAPTURING_PHASE',1],['AT_TARGET',2],['BUBBLING_PHASE',3]])for(const target of [GuestEvent,GuestEvent.prototype])Object.defineProperty(target,name,{value,enumerable:true});
+  const nativeEvents=new Map(),EventWeakRef=WeakRef;
+  const dereference=Function.call.bind(WeakRef.prototype.deref);
+  const eventFinalizer=new FinalizationRegistry(({id,reference})=>{
+    if(nativeEvents.get(id)===reference)nativeEvents.delete(id);
+  });
+  const registerEvent=eventFinalizer.register.bind(eventFinalizer);
+  const nativeEvent=(/** @type {any} */ packet)=>{
+    const reference=nativeEvents.get(packet.eventId);
+    let value=reference&&dereference(reference);
+    if(!value){
+      value=Object.create(GuestEvent.prototype);trust(value);
+      const reference=new EventWeakRef(value);nativeEvents.set(packet.eventId,reference);
+      registerEvent(value,{id:packet.eventId,reference});
+      eventData.set(value,{});
+    }
+    Object.assign(eventState(value),{type:packet.type,bubbles:packet.bubbles,cancelable:packet.cancelable,composed:!!packet.composed,timeStamp:packet.timeStamp,trusted:!!packet.isTrusted,target:wrap(packet.target),currentTarget:wrap(packet.currentTarget),phase:packet.eventPhase,prevented:packet.defaultPrevented,stopped:!!packet.cancelBubble,immediate:false,active:true,passive:!!packet.passive,path:(packet.path||[]).map(wrap),id:packet.eventId});
+    for(const key of ['key','code','ctrlKey','altKey','metaKey','shiftKey'])if(key in packet)Object.defineProperty(value,key,{value:packet[key],enumerable:true,configurable:true});
+    return value;
+  };
   const collectionData=new WeakMap(),liveCollections=new WeakMap(),datasetData=new WeakMap(),datasetObjects=new WeakMap(),elements=new WeakSet();
   const intrinsicDefine=Reflect.defineProperty,objectDefine=Object.defineProperty,objectDefines=Object.defineProperties;
   const ownKeys=Reflect.ownKeys,getDescriptor=Reflect.getOwnPropertyDescriptor;
@@ -187,11 +249,12 @@ export function createPluginGuestDom(call,retain) {
       const list=listeners.get(this)||[];
       if(list.some((/** @type {any} */ row)=>row.type===type&&row.listener===listener&&row.capture===capture))return;
       const id=retain(event=>{
-        const value={...event,target:wrap(event.target),currentTarget:wrap(event.currentTarget)};
-        value.preventDefault=value.stopPropagation=()=>{throw Error("Synchronous event cancellation is not bridged yet");};
-        return typeof listener==="function"?listener.call(this,value):listener.handleEvent(value);
+        const value=nativeEvent(event),data=eventState(value);
+        if(typeof options==='object'&&options.once){const index=list.findIndex((/** @type {any} */ row)=>row.id===id);if(index>=0)list.splice(index,1);}
+        try{return typeof listener==="function"?listener.call(this,value):listener.handleEvent(value);}
+        finally{eventCheckpoints.at(-1)?.add(data);}
       });
-      call("dom.listen",[idOf(this),type,id,{capture,once:typeof options==="object"&&!!options.once}]);
+      call("dom.listen",[idOf(this),type,id,{capture,once:typeof options==="object"&&!!options.once,passive:typeof options==='object'&&!!options.passive}]);
       list.push({type,listener,capture,id});listeners.set(this,list);
     }
     /** @param {string} type @param {any} listener @param {any} [options] */
@@ -276,7 +339,7 @@ export function createPluginGuestDom(call,retain) {
     for(const [key,descriptor] of definitions)if(!defineOwned(target,key,descriptor,true))throw new TypeError('Cannot define property');
     return target;
   }}).defineProperties});
-  return Object.freeze({document,Node:GuestNode,HTMLElement:GuestElement,NodeList:GuestNodeList,HTMLCollection:GuestHTMLCollection,DOMTokenList:GuestDOMTokenList,DOMStringMap:GuestDOMStringMap,DOMException,
+  return Object.freeze({document,Event:GuestEvent,Node:GuestNode,HTMLElement:GuestElement,NodeList:GuestNodeList,HTMLCollection:GuestHTMLCollection,DOMTokenList:GuestDOMTokenList,DOMStringMap:GuestDOMStringMap,DOMException,beginEventCheckpoint,finishEventCheckpoint,
     /** @param {()=>boolean} current */app(current){return Object.freeze({
       /** @param {string} title @param {any} body @param {any} [options] */
       dialog(title,body,options={}) {
@@ -298,7 +361,7 @@ export function createPluginGuestDom(call,retain) {
  * @param {any} value @returns {{method:string,args:any[]}} */
 export function validatePluginDomCall(value) {
   if(!value || Object.keys(value).sort().join(",")!=="args,method" || !Array.isArray(value.args) ||
-      !["dom.create","dom.get","dom.set","dom.node","dom.attribute","dom.query","dom.collection","dom.tokens","dom.dataset","dom.style","dom.listen","dom.unlisten","dom.dialog"].includes(value.method) ||
+      !["dom.create","dom.get","dom.set","dom.node","dom.attribute","dom.query","dom.collection","dom.tokens","dom.dataset","dom.style","dom.listen","dom.unlisten","dom.dialog","dom.event"].includes(value.method) ||
       value.args.length>4)throw Error("Invalid plugin DOM call");
   return value;
 }

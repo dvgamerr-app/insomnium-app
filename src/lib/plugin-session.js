@@ -5,6 +5,7 @@ import { validatePluginHelperCall } from "./plugin-run-helpers.js";
 import { createRenderDeadline, PROMPT_TOTAL_MS } from "./template-deadline.js";
 import { validatePluginAppSyncCall } from "./plugin-app-sync.js";
 import {validatePluginDomCall} from "./plugin-guest-dom.js";
+import {createPluginEventMailbox,pumpPluginEventMailbox,publishPluginEventInvocation} from './plugin-dom-event-channel.js';
 import {
   validatePluginSyncMailbox,
   replyPluginSyncMailbox,
@@ -12,9 +13,9 @@ import {
 
 /** Trusted host state, never accepted from guest data.
  * @typedef {{subscribe:(listener:(waiting:boolean)=>void)=>()=>void}} PluginInteraction */
-/** @typedef {{invoke:(args?:any[])=>Promise<any>,invokeOnHide?:(domCall:(operation:{method:string,args:any[]})=>any)=>Promise<any>,release:()=>boolean}} PluginDomCallback */
+/** @typedef {{invoke:(args?:any[])=>Promise<any>,invokeEvent?:(args:any[])=>Promise<any>,invokeOnHide?:(domCall:(operation:{method:string,args:any[]})=>any)=>Promise<any>,release:()=>boolean}} PluginDomCallback */
 /** @typedef {{retain:(callback:PluginDomCallback,id:number)=>void}} PluginDomRetention */
-/** @typedef {{current:()=>boolean,frame?:object,helperCall?:(operation:{method:string,args:any[]})=>Promise<any>,syncCall?:(operation:{method:string,args:any[]})=>Promise<any>,subscribeInteraction?:PluginInteraction['subscribe'],domCallbacks?:PluginDomRetention,domCall?:(operation:{method:string,args:any[]})=>any,dispose?:()=>void|Promise<void>,bindSession?:(current:()=>boolean)=>void}} PluginDomOwner */
+/** @typedef {{current:()=>boolean,frame?:object,helperCall?:(operation:{method:string,args:any[]})=>Promise<any>,syncCall?:(operation:{method:string,args:any[]})=>Promise<any>,prepareEvent?:()=>Promise<void>,subscribeInteraction?:PluginInteraction['subscribe'],domCallbacks?:PluginDomRetention,domCall?:(operation:{method:string,args:any[]})=>any,dispose?:()=>void|Promise<void>,bindSession?:(current:()=>boolean)=>void}} PluginDomOwner */
 
 /** A retained, serialized plugin worker with an explicit live-owner guard.
  * @param {{name:string,entry:string,format:string,files:Record<string,string>}} snapshot
@@ -40,8 +41,16 @@ export async function openPluginSession(snapshot, options) {
     queued = 0;
   /** @type {Error|undefined} */ let closeReason;
   let queue = Promise.resolve();
-  /** @type {(PluginDomOwner & {id:number,cleanup:boolean,resolve:(value:any)=>void,reject:(error:Error)=>void,deadline:ReturnType<typeof createRenderDeadline>,totalTimer:ReturnType<typeof setTimeout>,unsubscribe?:()=>void,resume?:()=>void,retentionOwner?:PluginDomOwner})|undefined} */
+  /** @type {(PluginDomOwner & {id:number,leaseId?:number,cleanup:boolean,resolve:(value:any)=>void,reject:(error:Error)=>void,deadline:ReturnType<typeof createRenderDeadline>,totalTimer:ReturnType<typeof setTimeout>,unsubscribe?:()=>void,resume?:()=>void,retentionOwner?:PluginDomOwner})|undefined} */
   let active;
+  const waitingEventFrames=new WeakSet();
+  /** @type {WeakMap<object,{frames:SharedArrayBuffer[],owner:number,depth:number,servicing:boolean,dispatch:(wire:string)=>string}>} */
+  const sharedNativeFrames=new WeakMap();
+  /** @param {number} id @param {SharedArrayBuffer[]} frames @param {(wire:string)=>string} dispatch */
+  const rememberNativeFrames=(id,frames,dispatch)=>{
+    if(!active||active.id!==id)throw Error('Native frame operation changed');
+    const context={frames,owner:id,depth:0,servicing:false,dispatch};sharedNativeFrames.set(active,context);return context;
+  };
   const domCallbacks=new Map(/** @type {[number,PluginDomOwner][]} */([]));
   const domOwners=new Set(/** @type {PluginDomOwner[]} */([]));
   const syncMailboxes=new Map(/** @type {[number,{buffer:SharedArrayBuffer,owner:NonNullable<typeof active>,id:number}][]} */([]));
@@ -140,6 +149,7 @@ export async function openPluginSession(snapshot, options) {
       const id = message.type === "init" ? 0 : ++nextId;
       active = {
         id,
+        leaseId:message.leaseId,
         cleanup,
         resolve,
         reject,
@@ -160,9 +170,32 @@ export async function openPluginSession(snapshot, options) {
         ),
       };
       try {
+        const genericFrames=domCall&&domRetention&&message.type==='invoke'?[...Array.from({length:7},()=>createPluginEventMailbox(id,4*1024*1024))]:undefined;
+        if(genericFrames){
+          const frameOwner=active;
+          const context=rememberNativeFrames(id,genericFrames,wire=>{
+            if(!privilegedCurrent(frameOwner)||active!==frameOwner)throw aborted();
+            const raw=codec.decode(wire);
+            if(raw?.method==='event.retain-callback')return retainFromNativeFrame(raw,id);
+            if(raw?.method==='event.native-complete'){
+              if(Object.keys(raw).sort().join(',')!=='args,method'||!Array.isArray(raw.args)||raw.args.length)throw Error('Invalid native event completion');
+              return codec.encode(undefined);
+            }
+            if(raw?.method?.startsWith('app.')){
+              const operation=validatePluginAppSyncCall(raw),endpoint=/** @type {any} */(frameOwner.syncCall);
+              if(typeof endpoint?.eventCall!=='function')throw Error('Independent native event provider is unavailable');
+              const reply=endpoint.eventCall(operation);
+              if(!reply||!['value','native'].includes(reply.kind)||reply.kind==='native'&&typeof reply.url!=='string')throw Error('Invalid native event provider reply');
+              return codec.encode(reply);
+            }
+            const operation=validatePluginDomCall(raw),wasServicing=context.servicing;context.servicing=true;
+            try{return codec.encode(frameOwner.domCall?.(operation));}finally{context.servicing=wasServicing;}
+          });
+        }
         worker.postMessage({
           ...message,
           id,
+          ...(genericFrames?{eventFrames:genericFrames}:{}),
           interactive: !!subscribeInteraction,
           synchronous: !!syncCall,
           retainDom: !!domRetention,
@@ -198,17 +231,25 @@ export async function openPluginSession(snapshot, options) {
         close(error instanceof Error ? error : new Error(String(error)));
       }
     });
+  /** Complete only the exact synchronously drained event frame.
+   * @param {number} id @param {string} wire */
+  const completeOwnedEvent=(id,wire)=>{
+    if(wire==='prefix'){
+      if(!active||active.id!==id)throw Error('Invalid waiting owned event frame');
+      waitingEventFrames.add(active);return;
+    }
+    const reply=codec.decode(wire),finished=active;
+    if(reply?.kind!=='complete'||typeof reply.result!=='string'||!finished||finished.id!==id)throw Error('Invalid owned event completion');
+    const value=codec.decode(reply.result);
+    disposeOperation(finished);active=undefined;finished.resolve(value);
+  };
   worker.onerror = (event) => {
     event.preventDefault();
     close(new Error(event.message || "Plugin worker failed"));
   };
-  worker.onmessage = async (event) => {
-    const message = event.data;
-    if (!(active?.cleanup && transportCurrent(active)) && (!current() || (active && !active.current()))) {
-      close();
-      return;
-    }
-    if(message?.type==="dom-retain") {
+  /** Shared by ordinary worker messages and synchronous native frame admission.
+   * @param {{callbackId:number,leaseId:number}} message */
+  const retainOwnedDomCallback=message=>{
       if(!active?.domCallbacks || !active.helperCall || active.id!==message.callbackId ||
           !Number.isSafeInteger(message.leaseId) || message.leaseId<=domId || domCallbacks.size>=128) {
         close(Error("Invalid DOM callback retention ownership"));return;
@@ -216,6 +257,56 @@ export async function openPluginSession(snapshot, options) {
       const owner=active.retentionOwner??active;
       const id=message.leaseId;domId=id;domCallbacks.set(id,owner);
       const callback=Object.freeze({
+        invokeEvent:(/** @type {any[]} */ args)=>{
+          const owned=()=>current()&&owner.current();
+          if(!owned()||domCallbacks.get(id)!==owner)throw aborted();
+          const suspended=active;
+          const nested=suspended&&sharedNativeFrames.get(suspended);
+          if(suspended&&nested?.servicing){
+            if(suspended.retentionOwner!==owner)throw Error('Nested native callback owner differs');
+            if(nested.depth+1>=nested.frames.length)throw Error('Native callback nesting depth exceeded');
+            const frame=nested.frames[++nested.depth];
+            try{
+              publishPluginEventInvocation(frame,nested.owner,codec.encode({leaseId:id,args:codec.encode(args)}));
+              const reply=codec.decode(pumpPluginEventMailbox(frame,nested.owner,{current:owned,timeout:5000,dispatch:nested.dispatch}));
+              if(reply?.kind!=='complete'||typeof reply.result!=='string')throw Error('Invalid nested native completion');
+              return Promise.resolve(codec.decode(reply.result));
+            }catch(error){close(error instanceof Error?error:Error(String(error)));throw error;}
+            finally{nested.depth--;}
+          }
+          if(queued||suspended&&(!waitingEventFrames.has(suspended)||suspended.retentionOwner!==owner||suspended.leaseId===id))throw Error('Synchronous DOM event requires an idle owned callback queue');
+          if(!owner.domCall)throw Error('Owned event DOM transport is unavailable');
+          const eventId=nextId+1,buffer=createPluginEventMailbox(eventId,4*1024*1024);
+          const frames=[buffer,...Array.from({length:6},()=>createPluginEventMailbox(eventId,4*1024*1024))];
+          const job=send({type:suspended?'invoke-dom-while-waiting':'invoke-dom-callback',parentId:suspended?.id,leaseId:id,args:codec.encode(args),eventBuffer:buffer,eventFrames:frames},owned,owner.frame,
+            owner.helperCall,owner.subscribeInteraction,owner.syncCall,owner.domCallbacks,owner,owner.domCall);
+          // Attach rejection handling before pumping, including a failed prefix.
+          const handled=job.then(()=>{},()=>{});if(!suspended)queue=handled;
+          try{const context=rememberNativeFrames(eventId,frames,wire=>{
+            const raw=codec.decode(wire);
+            if(raw?.method==='event.retain-callback')return retainFromNativeFrame(raw,eventId);
+            if(raw?.method==='event.native-complete'){
+              if(Object.keys(raw).sort().join(',')!=='args,method'||!Array.isArray(raw.args)||raw.args.length)throw Error('Invalid native event completion');
+              if(!owned())throw aborted();return codec.encode(undefined);
+            }
+            if(raw?.method?.startsWith('app.')){
+              const operation=validatePluginAppSyncCall(raw),endpoint=/** @type {any} */(owner.syncCall);
+              if(typeof endpoint?.eventCall!=='function')throw Error('Independent native event provider is unavailable');
+              const reply=endpoint.eventCall(operation);
+              if(!reply||!['value','native'].includes(reply.kind)||reply.kind==='native'&&typeof reply.url!=='string')throw Error('Invalid native event provider reply');
+              return codec.encode(reply);
+            }
+            const operation=validatePluginDomCall(raw);
+            const wasServicing=context.servicing;context.servicing=true;
+            try{return codec.encode(owner.domCall?.(operation));}finally{context.servicing=wasServicing;}
+          });
+            const completion=pumpPluginEventMailbox(buffer,eventId,{current:owned,timeout:5000,dispatch:context.dispatch});
+            if(suspended&&completion==='prefix')throw Error('Waiting DOM callback needs an additional asynchronous frame');
+            if(!owned())throw aborted();completeOwnedEvent(eventId,completion);
+          }catch(error){close(error instanceof Error?error:Error(String(error)));throw error;}
+          finally{if(suspended){if(closed||terminated){disposeOperation(suspended);suspended.reject(closeReason??aborted());}else active=suspended;}}
+          return job;
+        },
         invoke:(/** @type {any[]} */ args=[])=>{
           let detached;
           try {
@@ -250,7 +341,21 @@ export async function openPluginSession(snapshot, options) {
       try {owner.domCallbacks?.retain(callback,id);}
       catch(error) {close(error instanceof Error?error:Error(String(error)));}
       return;
+  };
+  /** @param {any} raw @param {number} callbackId */
+  const retainFromNativeFrame=(raw,callbackId)=>{
+    if(!raw||Object.keys(raw).sort().join(',')!=='args,method'||!Array.isArray(raw.args)||raw.args.length!==1||!Number.isSafeInteger(raw.args[0])||raw.args[0]<=0)throw Error('Invalid synchronous DOM callback retention');
+    const leaseId=raw.args[0];retainOwnedDomCallback({callbackId,leaseId});
+    if(!active||active.id!==callbackId||domCallbacks.get(leaseId)!==(active.retentionOwner??active))throw Error('Owned DOM callback retention failed');
+    return codec.encode(undefined);
+  };
+  worker.onmessage = async (event) => {
+    const message = event.data;
+    if (!(active?.cleanup && transportCurrent(active)) && (!current() || (active && !active.current()))) {
+      close();
+      return;
     }
+    if(message?.type==='dom-retain'){retainOwnedDomCallback(message);return;}
     if (message?.type === "sync-helper") {
       const owner = active;
       if (
@@ -278,7 +383,11 @@ export async function openPluginSession(snapshot, options) {
         const dispatch=dom?owner.domCall:owner.syncCall;
         if(!dispatch || dom&&!owner.domCallbacks)throw Error("Plugin DOM/native synchronous capability is unavailable");
         if (!(dom?transportCurrent(owner):privilegedCurrent(owner)) || active !== owner) throw aborted();
-        const result = codec.encode(await dispatch(call));
+        const context=dom?sharedNativeFrames.get(owner):undefined;
+        let dispatched;
+        if(context){const wasServicing=context.servicing;context.servicing=true;try{dispatched=dispatch(call);}finally{context.servicing=wasServicing;}}
+        else dispatched=dispatch(call);
+        const result = codec.encode(await dispatched);
         if (!(dom?transportCurrent(owner):privilegedCurrent(owner)) || active !== owner)throw aborted();
         if (transportCurrent(owner) && active === owner)
           replyPluginSyncMailbox(message.buffer, owner.id, message.id, result);
@@ -445,7 +554,7 @@ export async function openPluginSession(snapshot, options) {
   };
   let metadata;
   try {
-    metadata = await send({ type: "init", snapshot });
+    metadata = await send({ type: "init", snapshot, eventTimeOrigin: performance.timeOrigin });
   } catch (error) {
     close();
     throw error;
@@ -569,8 +678,10 @@ export async function openPluginSession(snapshot, options) {
       operationSignal?.addEventListener("abort", cancelOperation, {
         once: true,
       });
-      const job = queue.then(() => {
+      const job = queue.then(async () => {
         if (cancelled || !operationCurrent()) throw aborted();
+        await domOwner?.prepareEvent?.();
+        if(cancelled||!operationCurrent())throw aborted();
         return send(
           {
             type: "invoke",

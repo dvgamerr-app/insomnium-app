@@ -6,8 +6,11 @@ import { createPluginGuestDom } from "./plugin-guest-dom.js";
 
 /** Load a package in its own bounded VM; caller owns the returned context.
  * @param {import('quickjs-emscripten-core').QuickJSWASMModule} engine
- * @param {{name:string,entry:string,format:string,files:Record<string,string>}} snapshot */
-export function createPluginVm(engine, snapshot) {
+ * @param {{name:string,entry:string,format:string,files:Record<string,string>}} snapshot
+ * @param {number} [eventTimeOrigin] Owning Window origin; inspection uses this worker's origin. */
+export function createPluginVm(engine, snapshot, eventTimeOrigin = performance.timeOrigin) {
+  if (!Number.isFinite(eventTimeOrigin) || eventTimeOrigin < 0)
+    throw Error("Invalid plugin Event time origin");
   if (
     !snapshot ||
     typeof snapshot.name !== "string" ||
@@ -27,6 +30,11 @@ export function createPluginVm(engine, snapshot) {
   )
     throw Error("Plugin source snapshot exceeds its bounds");
   const vm = engine.newContext();
+  let beginCheckpoint=/** @type {import('quickjs-emscripten-core').QuickJSHandle|undefined} */(undefined);
+  let finishCheckpoint=/** @type {import('quickjs-emscripten-core').QuickJSHandle|undefined} */(undefined);
+  const disposeVm=vm.dispose.bind(vm);
+  vm.dispose=()=>{if(beginCheckpoint?.alive)beginCheckpoint.dispose();if(finishCheckpoint?.alive)finishCheckpoint.dispose();disposeVm();};
+  let nestedCpu=0,creditedWait=0;
   vm.runtime.setMemoryLimit(128 * 1024 * 1024);
   vm.runtime.setMaxStackSize(512 * 1024);
   let deadline = performance.now() + 2000;
@@ -67,13 +75,29 @@ export function createPluginVm(engine, snapshot) {
     return result.value;
   };
   try {
+    const installCheckpoints=vm.newFunction('installEventCheckpoints',(begin,finish)=>{
+      if(beginCheckpoint||finishCheckpoint||vm.typeof(begin)!=='function'||vm.typeof(finish)!=='function')throw Error('Invalid Event checkpoint hooks');
+      beginCheckpoint=begin.dup();finishCheckpoint=finish.dup();
+      return vm.undefined;
+    });
+    try{vm.setProp(vm.global,'__pluginInstallEventCheckpoints',installCheckpoints);}finally{installCheckpoints.dispose();}
+    // Capture a clock-only host primitive before package code runs. The private
+    // closure performs no RPC and grants no DOM/helper access during loading.
+    const eventClock = vm.newFunction("eventClock", () =>
+      vm.newNumber(Math.max(0, performance.timeOrigin - eventTimeOrigin + performance.now())),
+    );
+    try { vm.setProp(vm.global, "__pluginEventClock", eventClock); }
+    finally { eventClock.dispose(); }
     // Install realm-local collection reflection before modules can capture it.
     // These closures grant no DOM access until the callback runtime binds its
     // guarded transport; initialization itself performs no host operations.
     evaluate(`(() => {
-      const dom=(${createPluginGuestDom.toString()})((method,args)=>__pluginValueCodec.decode(__pluginDomSync(__pluginValueCodec.encode({method,args}))),callback=>__pluginRetainDomCallback(callback));
-      Object.defineProperty(globalThis,'__pluginGuestDom',{value:dom,writable:false,configurable:false});
-      for(const key of ['document','Node','HTMLElement','NodeList','HTMLCollection','DOMTokenList','DOMStringMap','DOMException'])Object.defineProperty(globalThis,key,{value:dom[key],writable:false,configurable:false});
+      const now=globalThis.__pluginEventClock;delete globalThis.__pluginEventClock;
+      const dom=(${createPluginGuestDom.toString()})((method,args)=>__pluginValueCodec.decode(__pluginDomSync(__pluginValueCodec.encode({method,args}))),callback=>__pluginRetainDomCallback(callback),now);
+      const {beginEventCheckpoint,finishEventCheckpoint,...publicDom}=dom;
+      __pluginInstallEventCheckpoints(beginEventCheckpoint,finishEventCheckpoint);delete globalThis.__pluginInstallEventCheckpoints;
+      Object.defineProperty(globalThis,'__pluginGuestDom',{value:Object.freeze(publicDom),writable:false,configurable:false});
+      for(const key of ['document','Event','Node','HTMLElement','NodeList','HTMLCollection','DOMTokenList','DOMStringMap','DOMException'])Object.defineProperty(globalThis,key,{value:dom[key],writable:false,configurable:false});
     })();`, "plugin-dom-bootstrap.js").dispose();
     evaluate(pluginBufferSource, "plugin-buffer.js").dispose();
     vm.runtime.setModuleLoader(
@@ -119,6 +143,12 @@ export function createPluginVm(engine, snapshot) {
     return {
       vm,
       evaluate,
+      beginDomEventCheckpoint(){const hook=beginCheckpoint;if(!hook)throw Error('Event checkpoint is unavailable');execute(()=>vm.unwrapResult(vm.callFunction(hook,vm.undefined))).dispose();},
+      finishDomEventCheckpoint(){const hook=finishCheckpoint;if(!hook)throw Error('Event checkpoint is unavailable');execute(()=>vm.unwrapResult(vm.callFunction(hook,vm.undefined))).dispose();},
+      /** Keep reentered guest execution charged even inside an outer host wait.
+       * @template T @param {()=>T} run @returns {T} */
+      executeNativeNested(run){const started=performance.now(),beforeCpu=nestedCpu,beforeWait=creditedWait;try{return run();}finally{nestedCpu+=Math.max(0,performance.now()-started-(creditedWait-beforeWait)-(nestedCpu-beforeCpu));}},
+      beginHostWait:()=>({started:performance.now(),nestedCpu,creditedWait}),
       resetDeadline: () => {
         deadline = performance.now() + 2000;
         pausedAt = undefined;
@@ -140,10 +170,12 @@ export function createPluginVm(engine, snapshot) {
       executePendingJobs: (count) =>
         execute(() => vm.runtime.executePendingJobs(count)),
       /** Bounded host waiting is not guest execution; this hook stays in worker.
-       * @param {number} milliseconds */
-      accountHostWait(milliseconds) {
-        if (!Number.isFinite(milliseconds) || milliseconds < 0)
+       * @param {{started:number,nestedCpu:number,creditedWait:number}} wait */
+      accountHostWait(wait) {
+        if (!wait||Object.values(wait).some(value=>!Number.isFinite(value)||value<0))
           throw Error("Invalid plugin host wait accounting");
+        const milliseconds=Math.max(0,performance.now()-wait.started-(nestedCpu-wait.nestedCpu)-(creditedWait-wait.creditedWait));
+        creditedWait+=milliseconds;
         if (pausedAt === undefined) deadline += milliseconds;
         else pausedExecution -= milliseconds;
       },

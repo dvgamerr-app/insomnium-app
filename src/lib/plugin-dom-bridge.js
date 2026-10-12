@@ -3,6 +3,9 @@ import {createPluginDomDialogEndpoint,closePluginDomDialog,pluginDomDialog} from
 import {validatePluginDomCall} from "./plugin-guest-dom.js";
 
 let nodeSequence=0;
+let eventSequence=0;
+// Native identity survives listener callbacks/redispatch without retaining Events.
+const nativeEventIds=new WeakMap(/** @type {[Event,number][]} */([]));
 const tags=new Set("div span button input textarea label select option p ul ol li pre code strong em small section article header footer h1 h2 h3 table thead tbody tr td th br hr".split(" "));
 const strings=new Set("textContent nodeValue value className id type placeholder title name".split(" "));
 const booleans=new Set(["checked","disabled"]),numbers=new Set(["tabIndex"]);
@@ -19,6 +22,7 @@ export function createPluginDomBridge(owner) {
   owner.signal.throwIfAborted();if(!owner.current())throw Error("Plugin DOM owner changed");
   const nodes=new Map(/** @type {[number,Node][]} */([])),ids=new WeakMap(/** @type {[Node,number][]} */([]));
   const callbacks=new Map(/** @type {[number,import('./plugin-session.js').PluginDomCallback][]} */([]));
+  const events=new Map(/** @type {[number,Event][]} */([]));
   const listeners=/** @type {{node:Node,type:string,id:number,capture:boolean,listener:EventListener}[]} */([]);
   let disposed=false,closing=false;
   let hideDone=Promise.resolve();
@@ -71,6 +75,11 @@ export function createPluginDomBridge(owner) {
       if(cleanup){if(disposed)throw Error("Plugin DOM cleanup already finished");}
       else check();
       const {method,args}=validatePluginDomCall(operation);
+      if(method==='dom.event'){
+        const [id,control]=args,event=events.get(id);
+        if(args.length!==2||!event||!['preventDefault','stopPropagation','stopImmediatePropagation'].includes(control))throw Error('Unknown or retired owned DOM event');
+        /** @type {any} */(event)[control]();return event.defaultPrevented;
+      }
       if(cleanup && (closing || owner.signal.aborted || !owner.current()) && !["dom.get","dom.set","dom.node","dom.attribute","dom.style","dom.query","dom.collection","dom.tokens","dom.dataset"].includes(method))throw Error("Plugin DOM cleanup cannot create UI or callbacks");
       if(method==="dom.create") {
         if(args.length!==2 || typeof args[1]!=="string")throw Error("Invalid DOM creation");
@@ -176,8 +185,14 @@ export function createPluginDomBridge(owner) {
         row.listener=event=>{
           try{check();}catch{dispose();return;}
           const keyboard=event instanceof KeyboardEvent?{key:event.key,code:event.code,ctrlKey:event.ctrlKey,altKey:event.altKey,metaKey:event.metaKey,shiftKey:event.shiftKey}:{};
-          const packet={type:event.type,target:describe(/** @type {Node} */(event.target),true),currentTarget:describe(target),bubbles:event.bubbles,cancelable:event.cancelable,defaultPrevented:event.defaultPrevented,...keyboard};
-          void fn.invoke([packet]).catch(report).finally(()=>{if(options.once){callbacks.delete(id);fn.release();const index=listeners.indexOf(row);if(index>=0)listeners.splice(index,1);}});
+          let eventId=nativeEventIds.get(event);
+          if(eventId===undefined){eventId=++eventSequence;nativeEventIds.set(event,eventId);}
+          const packet={eventId,type:event.type,target:describe(/** @type {Node} */(event.target),true),currentTarget:describe(target),bubbles:event.bubbles,cancelable:event.cancelable,composed:event.composed,defaultPrevented:event.defaultPrevented,cancelBubble:event.cancelBubble,eventPhase:event.eventPhase,isTrusted:event.isTrusted,timeStamp:event.timeStamp,path:event.composedPath().filter(node=>node instanceof Node&&ids.has(node)).map(node=>describe(/** @type {Node} */(node))),passive:!!options.passive,...keyboard};
+          const release=()=>{if(options.once){callbacks.delete(id);fn.release();const index=listeners.indexOf(row);if(index>=0)listeners.splice(index,1);}};
+          events.set(eventId,event);
+          try{void (fn.invokeEvent?fn.invokeEvent([packet]):fn.invoke([packet])).catch(report).finally(release);}
+          catch(error){report(error);release();}
+          finally{events.delete(eventId);}
         };
         target.addEventListener(type,row.listener,options);listeners.push(row);return undefined;
       }

@@ -8,6 +8,8 @@ import { inspectPluginExportsIsolated } from "./plugin-runtime.js";
 import { createPluginCallbackRuntime } from "./plugin-session-runtime.js";
 import { createPluginValueCodec } from "./plugin-values.js";
 import { createPluginSyncCaller } from "./plugin-sync-channel.js";
+import {createPluginEventCaller,takePluginEventInvocation} from './plugin-dom-event-channel.js';
+import {validatePluginAppSyncCall} from './plugin-app-sync.js';
 
 let started = false;
 /** @type {ReturnType<typeof createPluginCallbackRuntime>|undefined} */
@@ -19,9 +21,31 @@ let retiring=false;
 let callbackDone=Promise.resolve();
 /** @type {()=>void} */let finishCallback=()=>{};
 const codec = createPluginValueCodec();
+/** @type {ReturnType<typeof createPluginEventCaller>|undefined} */let eventCaller;
+/** @type {{frames:SharedArrayBuffer[],owner:number,depth:number}|undefined} */let nativeContext;
+/** @param {any} message */
+const nativeContextOf=message=>{
+  if(!Array.isArray(message.eventFrames)||message.eventFrames.length!==7||message.eventBuffer&&message.eventFrames[0]!==message.eventBuffer)throw Error('Invalid shared native event frames');
+  for(const frame of message.eventFrames)createPluginEventCaller(frame,message.id);
+  return {frames:message.eventFrames,owner:message.id,depth:0};
+};
+const enterNativeNested=()=>{
+  const context=nativeContext;if(!context||!session||context.depth+1>=context.frames.length)return;
+  const frame=context.frames[context.depth+1],wire=takePluginEventInvocation(frame,context.owner);if(wire===undefined)return;
+  const parentCaller=eventCaller;context.depth++;
+  const nestedCaller=createPluginEventCaller(frame,context.owner,{timeout:4000,poll:enterNativeNested});eventCaller=nestedCaller;
+  try{
+    const command=codec.decode(wire);
+    if(!command||Object.keys(command).sort().join(',')!=='args,leaseId'||!Number.isSafeInteger(command.leaseId)||command.leaseId<=0||typeof command.args!=='string')throw Error('Invalid shared native invocation');
+    const result=session.invokeDomCallbackNativeNested(command.leaseId,command.args);
+    nestedCaller.finish(codec.encode({kind:'complete',result}));
+  }catch(error){nestedCaller.finish(String(error),true);}
+  finally{context.depth--;eventCaller=parentCaller;}
+};
 const callSync = createPluginSyncCaller(
   (message) => self.postMessage(message),
   () => callbackId,
+  {poll:enterNativeNested},
 );
 /** @type {Map<number,{resolve:(value:any)=>void,reject:(error:Error)=>void}>} */
 const helperCalls = new Map();
@@ -68,14 +92,30 @@ self.onmessage = async (event) => {
     else call.resolve(message.value);
     return;
   }
+  if(message?.type==='invoke-dom-while-waiting'){
+    const parentId=callbackId,parentCaller=eventCaller,parentContext=nativeContext;
+    const nestedCaller=createPluginEventCaller(message.eventBuffer,message.id,{timeout:4000,poll:enterNativeNested});
+    try{
+      if(!session||!parentId||message.parentId!==parentId||parentCaller)throw Error('Invalid waiting native callback parent frame');
+      callbackId=message.id;eventCaller=nestedCaller;nativeContext=nativeContextOf(message);
+      const result=session.invokeDomCallbackWhileWaiting(message.leaseId,message.args);
+      callbackId=parentId;eventCaller=parentCaller;nativeContext=parentContext;
+      nestedCaller.finish(codec.encode({kind:'complete',result}));
+    }catch(error){nestedCaller.finish(String(error),true);}
+    finally{callbackId=parentId;eventCaller=parentCaller;nativeContext=parentContext;}
+    return;
+  }
   if (["invoke","invoke-dom-callback"].includes(message?.type)) {
     if(message.type==="invoke-dom-callback" && message.cleanup===true)await callbackDone;
     if (!session || callbackId) return;
     callbackId = message.id;
+    if(message.eventFrames)nativeContext=nativeContextOf(message);
+    if(message.eventBuffer)eventCaller=createPluginEventCaller(message.eventBuffer,message.id,{timeout:4000,poll:enterNativeNested});
     callbackDone=new Promise(resolve=>{finishCallback=resolve;});
+    let eventCompletion;
     try {
       const result = message.type==="invoke-dom-callback"
-        ? await session.invokeDomCallback(message.leaseId,message.args,message.cleanupLocal===true,message.cleanup===true)
+        ? await session.invokeDomCallback(message.leaseId,message.args,message.cleanupLocal===true,message.cleanup===true,message.eventBuffer?()=>{eventCaller?.finish('prefix');eventCaller=undefined;}:undefined)
         : await session.invoke(
         message.kind,
         message.index,
@@ -86,8 +126,10 @@ self.onmessage = async (event) => {
         message.retainDom === true,
         message.domTransport === true,
       );
+      eventCompletion={kind:'complete',result};
       self.postMessage({ id: message.id, result });
     } catch (error) {
+      eventCaller?.finish(String(error),true);eventCaller=undefined;
       self.postMessage({
         id: message.id,
         error: (error instanceof Error ? error.message : String(error)).slice(
@@ -101,8 +143,11 @@ self.onmessage = async (event) => {
       });
       if(!retiring){session.dispose();session=undefined;}
     } finally {
+      const completedCaller=eventCaller;eventCaller=undefined;
+      nativeContext=undefined;
       callbackId = 0;
       finishCallback();
+      if(eventCompletion)completedCaller?.finish(codec.encode(eventCompletion));
     }
     return;
   }
@@ -141,8 +186,24 @@ self.onmessage = async (event) => {
               reject(error);
             }
           }),
-        (operation) => callSync(codec.encode(operation)),
-        leaseId=>self.postMessage({type:"dom-retain",callbackId,leaseId}),
+        (operation) => {
+          if(!eventCaller)return callSync(codec.encode(operation));
+          const response=eventCaller.call(codec.encode(operation));
+          if(!operation.method.startsWith('app.'))return response;
+          validatePluginAppSyncCall(operation);const envelope=codec.decode(response);
+          if(envelope?.kind==='value')return codec.encode(envelope.value);
+          if(envelope?.kind!=='native'||typeof envelope.url!=='string')throw Error('Invalid native event capability');
+          const method=envelope.method??'GET';if(!['GET','POST'].includes(method))throw Error('Invalid native event method');
+          const body=operation.method==='app.clipboard.writeText'?JSON.stringify({text:operation.args[0]}):operation.method==='app.clipboard.clear'?'{}':undefined;
+          const xhr=new XMLHttpRequest();xhr.open(method,envelope.url,false);xhr.timeout=4000;xhr.send(body);
+          if(xhr.status!==200)throw Error('Native event transport refused');
+          let value=JSON.parse(xhr.responseText);
+          if(['app.clipboard.writeText','app.clipboard.clear'].includes(operation.method)){if(value!==null)throw Error('Invalid native clipboard mutation reply');value=undefined;}
+          eventCaller.call(codec.encode({method:'event.native-complete',args:[]}));
+          return codec.encode(value);
+        },
+        leaseId=>{if(eventCaller)eventCaller.call(codec.encode({method:'event.retain-callback',args:[leaseId]}));else self.postMessage({type:"dom-retain",callbackId,leaseId});},
+        message.eventTimeOrigin,
       );
       self.postMessage({ id: 0, result: session.metadata });
     }
