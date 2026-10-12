@@ -1,3 +1,9 @@
+## Parallel assignments and serial root acceptance — 2026-10-13
+
+Root plus the existing three agents work in isolated worktrees. event_api prepares exact closed-three saved native-notices data-transition support and deliberate recollection; root measures the new collection. shared_ui prepares additive actual Cookie UI-pending New/close cases, preserving all existing cases; root alone launches native-hidden and restores the profile. native_provider has frozen the certificate measurement (six headless profiles/156 cases, duplicate alerts and24 stale persisted writes); root independently reviews before assigning a minimal operation-ownership correction. Agents do not mutate root/cache/profile or launch native.
+
+Root integrates and verifies each topic serially, commits by topic, and records commit/evidence/remaining gates/live handles in STATUS before the next feature. /compact is unavailable in this interface; provide an explicit handoff. Every saved browser scenario uses launchUiBrowser with headless:true, without a headed override; owned native windows hide before CDP and report native-hidden. Cache-only admission is accepted; old762 notice authority remains unchanged pending intentional recollection. Preserve all original migration/UX/SDK/Event/FIFO/private/platform/distribution/fullnotice scope.
+
 ## Real Cookie backend checkpoint and next independent work — 2026-10-13
 
 Currente567 native-hidden34526 independently accepts24Cookie rows/25realprotocol replies, scheme/8194UTF8/actualbyteprecedence/jar-generation-disk preservation/Field correction/keyboard and full13783Git/654cookies/profile/currentlayout restoration. Preserve V1bounded-reader refusal and exact metadata-pin correction; savedentry+twohelpers are nowreusable/currentcompiler0/0. Entered-response ownership/disposal/OS/AT/platform/fullproduction workflows remainseparate.

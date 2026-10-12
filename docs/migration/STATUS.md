@@ -1,3 +1,9 @@
+## Recovered Cargo cache admission accepted — 2026-10-13
+
+Exact three archives/72660 bytes admitted without overwrite; independent cargo-recovered-admission-root-review/root-audit.json passes. All2714 protected notice inputs unchanged; old700b4383/762 generation and actual bundle-only validation remain accepted. Postdry all existing-equal; owned stages removed. Initial canonical-root refusal retained; narrow source66d353b8 adapter reviewed. No collection/native/profile mutation or live handles. See CARGO-RECOVERED-CACHE-ADMISSION.md. New recollection and saved exact-three transition remain OPEN, as do all original migration/UX/fullnotice/platform/distribution gates.
+
+Current verified topic commit:483ef41 (real nativeCookie24 acceptance and saved scenario). Root evidence:cookie-native-current-root-v2/root-audit.json; root handles:none/profile released. Enteredraces and otherremaininggates retained. /compact unavailable; explicit feature handoff recorded.
+
 ## Actual native Cookie fields accepted — 2026-10-13
 
 Saved native-hidden34526 on currente567 passes24rows/25unmodifiedpassiveprotocol replies:18 realRust scheme/8194UTF8/combinedbyte-precedence refusals with exact previous/livejar-generation/disk unchanged, authoritativeField association/correction/default7px, six HTMLnoIPC/trustedInputEnter1/New/Escape rows. Rootbeforestartup+afterexit full13783Git bytehashes match;13783files15865dirs8504236bytes metadatafdcb53ab exactpinned/64KiBstream/fullunknown-missing refusal. OriginalV1 25200 prefixture10000count-bound negative retained, restored/no mutation. Independent cookie-native-current-root-v2/root-audit.json verifies full protected43resources20history/twobuffers/store654cookies/3current2legacylayout/hostexit0/profile release/handles:none.

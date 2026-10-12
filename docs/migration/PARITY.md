@@ -1,3 +1,7 @@
+## Cache admission boundary — 2026-10-13
+
+Exact recovered three Cargo archives are now present and independently checksum-verified. This is cache data admission only: old762 notice collection/private authority is unchanged and bundle validation passes. New765 collection/text counts, target linkage and complete notices remain unverified. Historical negative and successful proofs remain immutable; all original migration/UX/platform/distribution/SDK/Event/FIFO/private scope remains open.
+
 ## Actual native Cookie validation boundary — 2026-10-13
 
 Native-hidden34526 e567 validates18realRust URLscheme/8194UTF8/combinedbyte-precedence failures+six keyboard/reset/close rows,25unalteredprotocol replies, exactprevious identity/livejar-generation/disk preservation/Field association-correction/default7px. Independent full13783Git prestartup-postexit bytes/654protectedcookie files/buffers/store/43resources20history/3current2legacylayout/profile release pass. V1countbound failure retained; exactmetadata-pin streamcorrected, current savedtest compiler53258 0/0/1010inputs. Enteredresponse New/disposal/OS/AT/platform/otherproduction workflows and all SDK/Event/FIFO/private/distribution/fullnotice/migration/UX remainOPEN; no fullscope claim.
