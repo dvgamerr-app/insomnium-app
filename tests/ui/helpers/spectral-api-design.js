@@ -5,7 +5,7 @@ import { assertSelectGeometry } from "./select-geometry.js";
 /** Actual producer → saved IPC stand-in → real parent UI; native=false.
  * Optional adapters supply actual native state/cases without replacing assertions.
  * @param {import('playwright-core').Page} page @param {string} output @param {string} origin
- * @param {{state?:()=>Promise<any>,snapshot?:()=>Promise<any>,configureCase?:(mode:string)=>Promise<any>,setCase?:(mode:string)=>Promise<any>,native?:boolean}} [adapters] */
+ * @param {{state?:()=>Promise<any>,snapshot?:()=>Promise<any>,configureCase?:(mode:string,options?:{revision?:string})=>Promise<any>,setCase?:(mode:string)=>Promise<any>,native?:boolean,specId?:string}} [adapters] */
 export async function exerciseSpectralApiDesign(page, output, origin, adapters = {}) {
   /** @type {string[]} */ const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -20,7 +20,8 @@ export async function exerciseSpectralApiDesign(page, output, origin, adapters =
     assert.equal(typeof value, "string");
     return JSON.parse(/** @type {string} */ (value));
   });
-  const configureCase = adapters.configureCase ?? (async (/** @type {string} */ mode) => page.request.post(origin + "/__case", { data: { mode } }));
+  const configureCase = adapters.configureCase ?? (async (/** @type {string} */ mode, /** @type {{revision?:string}} */ options = {}) => page.request.post(origin + "/__case", { data: { mode, ...options } }));
+  const specId = adapters.specId ?? "spc_spectral_owned";
   const setCase = adapters.setCase ?? (async (/** @type {string} */ mode) => {
     await configureCase(mode);
     await page
@@ -455,6 +456,182 @@ export async function exerciseSpectralApiDesign(page, output, origin, adapters =
     await progress();
   }
   assert.deepEqual(errors, []);
+  const externalRows = [];
+  for (const mode of ["external-repo", "external-http"]) {
+    for (const theme of ["dark", "light"])
+      for (const width of [1440, 900, 760]) {
+        await page
+          .locator("html")
+          .evaluate((el, theme) => el.setAttribute("data-theme", theme), theme);
+        await page.setViewportSize({ width, height: 600 });
+        await configureCase(mode, { revision: "one" });
+        await page
+          .getByRole("button", {
+            name:
+              mode === "external-repo"
+                ? "External repository fixture"
+                : "External HTTP fixture",
+            exact: true,
+          })
+          .click();
+        const original = await snapshot();
+        const httpBefore = (await state()).events.filter(
+          (/** @type {any} */ event) => event.type === "reference-http",
+        ).length;
+        const accepted = await validate();
+        assert.ok(
+          accepted.result.sources.some(
+            (/** @type {any} */ source) =>
+              source.origin ===
+              (mode === "external-repo" ? "repository" : "remote"),
+          ),
+        );
+        assert.equal(
+          await generate().isDisabled(),
+          false,
+          "Accepted actual external catalog enables structural generation",
+        );
+        for (const name of [
+          "a/shared.yaml",
+          "b/shared.yaml",
+          "nested/value.yaml",
+        ]) {
+          const source = accepted.result.sources.find(
+            (/** @type {any} */ source) => source.uri.endsWith("/" + name),
+          );
+          assert.ok(source);
+          const diagnostic = accepted.result.diagnostics.find(
+            (/** @type {any} */ d) => d.source === source.uri,
+          );
+          assert.ok(diagnostic, "Actual external diagnostic " + name);
+          await selectFinding(accepted, diagnostic);
+        }
+        assert.deepEqual(
+          (await snapshot()).resources,
+          original.resources,
+          "External navigation never persists fetched source",
+        );
+        await configureCase(mode, { revision: "two" });
+        const count = (await state()).jobs.length;
+        await generate().click();
+        await page.waitForFunction(() =>
+          Array.from(
+            document.querySelectorAll(".api-design [role=status]"),
+          ).some((el) => el.textContent?.includes("Generated")),
+        );
+        const fresh = (await state()).jobs.at(-1),
+          after = await snapshot();
+        assert.equal((await state()).jobs.length, count + 1);
+        assert.ok(
+          fresh.result.sources.some((/** @type {any} */ source) =>
+            source.contents?.includes("two😀"),
+          ),
+        );
+        const request = after.resources.find(
+          (/** @type {any} */ resource) =>
+            resource._type === "request" &&
+            !original.resources.some(
+              (/** @type {any} */ item) => item._id === resource._id,
+            ),
+        );
+        assert.ok(request);
+        assert.deepEqual(
+          JSON.parse(request.body.text),
+          { label: "two😀" },
+          "Generate uses fresh external bytes, not validation snapshot",
+        );
+        assert.deepEqual(
+          after.resources.find(
+            (/** @type {any} */ r) => r._id === specId,
+          ),
+          original.resources.find(
+            (/** @type {any} */ r) => r._id === specId,
+          ),
+        );
+        assert.deepEqual(after.history, original.history);
+        assert.equal(
+          (await state()).events.filter(
+            (/** @type {any} */ event) => event.type === "reference-http",
+          ).length - httpBefore,
+          mode === "external-http" ? 6 : 0,
+          "Only two actual producer jobs fetch three references each; worker never fetches",
+        );
+        externalRows.push({
+          theme,
+          width,
+          mode,
+          acceptedJob: accepted.jobId,
+          freshJob: fresh.jobId,
+          request,
+        });
+        await Bun.write(
+          output + "/external-progress.json",
+          JSON.stringify(externalRows, null, 2),
+        );
+      }
+  }
+  await configureCase("external-repo", { revision: "one" });
+  await page
+    .getByRole("button", { name: "External capacity fixture", exact: true })
+    .click();
+  const capacity = await validate();
+  assert.equal(
+    capacity.result.sources.length,
+    41,
+    "Actual returned catalog supports main +40 external references",
+  );
+  assert.equal(
+    await generate().isDisabled(),
+    false,
+    "32 attached-file quota is not an external-source quota",
+  );
+  await generate().click();
+  await page.waitForFunction(() =>
+    Array.from(document.querySelectorAll(".api-design [role=status]")).some(
+      (el) => el.textContent?.includes("Generated"),
+    ),
+  );
+  const capacityRequest = (await snapshot()).resources.find(
+    (/** @type {any} */ resource) =>
+      resource._type === "request" && resource.method === "POST",
+  );
+  assert.deepEqual(JSON.parse(capacityRequest.body.text), { label: "many-0" });
+  await page
+    .getByRole("button", { name: "Attached precedence fixture", exact: true })
+    .click();
+  const beforePrecedence = await snapshot(),
+    precedence = await validate();
+  assert.equal(
+    precedence.result.sources.find(
+      (/** @type {any} */ source) => source.uri === "memory:///a/shared.yaml",
+    ).origin,
+    "attached",
+  );
+  assert.equal(await generate().isDisabled(), false);
+  await generate().click();
+  await page.waitForFunction(() =>
+    Array.from(document.querySelectorAll(".api-design [role=status]")).some(
+      (el) => el.textContent?.includes("Generated"),
+    ),
+  );
+  const afterPrecedence = await snapshot(),
+    precedenceRequest = afterPrecedence.resources.find(
+      (/** @type {any} */ resource) =>
+        resource._type === "request" && resource.method === "POST",
+    );
+  assert.deepEqual(
+    JSON.parse(precedenceRequest.body.text),
+    { label: "attached😀" },
+    "Captured attached source overrides actual repository file for structural generation",
+  );
+  assert.deepEqual(
+    afterPrecedence.resources.find(
+      (/** @type {any} */ resource) => resource._id === specId,
+    ),
+    beforePrecedence.resources.find(
+      (/** @type {any} */ resource) => resource._id === specId,
+    ),
+  );
   await Bun.write(
     output + "/acceptance.json",
     JSON.stringify(
@@ -466,6 +643,9 @@ export async function exerciseSpectralApiDesign(page, output, origin, adapters =
           (/** @type {any} */ d) => String(d.code) === "0",
         ).code,
         rows,
+        externalRows,
+        capacityJobId: capacity.jobId,
+        precedenceJobId: precedence.jobId,
         defaultJobId: defaultJob.jobId,
         fallbackJobId: fallback.jobId,
         warningsJobId: warning.jobId,

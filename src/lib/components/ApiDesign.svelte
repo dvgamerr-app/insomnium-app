@@ -320,9 +320,10 @@
           snapshot !== input ||
           (generate &&
             choiceSnapshot !== JSON.stringify(spec?.exampleSelections || {})) ||
-          workspace.data.activeWorkspaceId !== workspaceId
-          || workspace.data !== dataSnapshot || workspaceId !== workspaceSnapshot
-          || repository.key !== bindingSnapshot
+          workspace.data.activeWorkspaceId !== workspaceId ||
+          workspace.data !== dataSnapshot ||
+          workspaceId !== workspaceSnapshot ||
+          repository.key !== bindingSnapshot
         ) {
           notice =
             "Document or collection changed while processing. Validate again.";
@@ -333,47 +334,30 @@
           if (generate || !spectralClient.available()) return;
         }
         result = event.data.analysis || {
-          schema: {}, original: {}, schemaEvaluation: undefined,
-          diagnostics: [], diagnosticCount: 0, operations: [], valid: false,
+          schema: {},
+          original: {},
+          schemaEvaluation: undefined,
+          diagnostics: [],
+          diagnosticCount: 0,
+          operations: [],
+          valid: false,
         };
         checkedInput = snapshot;
         checkedData = dataSnapshot;
         checkedWorkspace = workspaceSnapshot;
         operationIndex = 0;
-        if (spectralClient.available()) {
-          if (repository.error) throw new Error(repository.error);
-          const captured = JSON.parse(snapshot);
-          const sourceInput = {
-            fileName: captured.fileName || "openapi.yaml",
-            contents: captured.contents || "",
-            files: captured.files.map((/** @type {any} */ file) => ({ name: file.name, contents: file.contents })),
-          };
-          const binding = JSON.parse(bindingSnapshot);
-          notice = "Checking semantic rules…";
-          const job = spectralClient.start({
-            workspaceId: workspaceSnapshot, specId: captured._id,
-            sourceJson: JSON.stringify(sourceInput),
-            repositoryId: binding?.nativeRepositoryId || null,
-            expectedBinding: binding,
-          }, work.signal);
-          const lint = await job.result;
-          if (!valid() || snapshot !== input || workspace.data !== dataSnapshot ||
-              workspaceId !== workspaceSnapshot || workspace.data.activeWorkspaceId !== workspaceSnapshot ||
-              repository.key !== bindingSnapshot) return;
-          let catalog;
-          try { catalog = createSpectralSourceCatalog(sourceInput, lint.sources, lint.diagnostics); }
-          catch { throw new Error("Specification diagnostics could not be matched to their source. Validate again."); }
-          semantic = { input: snapshot, binding: bindingSnapshot, data: dataSnapshot,
-            workspaceId: workspaceSnapshot, catalog, fallback: lint.fallback };
-          notice = lint.fallback
-            ? "Custom rules could not be loaded. Default OpenAPI rules were applied."
-            : "";
-        }
         if (event.data.resources) {
-          if (choiceSnapshot !== JSON.stringify(spec?.exampleSelections || {}) || serverOverride !== serverSnapshot)
-            throw new Error("Generation options changed. Generate again with the current options.");
+          if (
+            choiceSnapshot !== JSON.stringify(spec?.exampleSelections || {}) ||
+            serverOverride !== serverSnapshot
+          )
+            throw new Error(
+              "Generation options changed. Generate again with the current options.",
+            );
           if (spectralClient.available() && !generationReady)
-            throw new Error("Resolve semantic errors before generating requests.");
+            throw new Error(
+              "Resolve semantic errors before generating requests.",
+            );
           workspace.data.resources.push(...event.data.resources);
           const first = event.data.resources.find(
             (/** @type {any} */ resource) => resource._type === "request",
@@ -397,19 +381,92 @@
         finishWorker(work);
       }
     };
-    try {
-      activeWorker.postMessage({
-        spec: JSON.parse(snapshot),
-        workspaceId,
-        generate,
-        serverOverride: serverSnapshot,
-        exampleSelections: JSON.parse(choiceSnapshot),
-      });
-    } catch (e) {
-      cancel();
-      error = String(e);
-    }
+    void (async () => {
+      let dispatched = false;
+      /** @type {readonly Record<string,any>[]|undefined} */ let capturedSources;
+      try {
+        if (spectralClient.available()) {
+          applying = true;
+          if (repository.error) throw new Error(repository.error);
+          const captured = JSON.parse(snapshot);
+          const sourceInput = {
+            fileName: captured.fileName || "openapi.yaml",
+            contents: captured.contents || "",
+            files: captured.files.map((/** @type {any} */ file) => ({
+              name: file.name,
+              contents: file.contents,
+            })),
+          };
+          const binding = JSON.parse(bindingSnapshot);
+          notice = "Checking semantic rules…";
+          const job = spectralClient.start(
+            {
+              workspaceId: workspaceSnapshot,
+              specId: captured._id,
+              sourceJson: JSON.stringify(sourceInput),
+              repositoryId: binding?.nativeRepositoryId || null,
+              expectedBinding: binding,
+            },
+            work.signal,
+          );
+          const lint = await job.result;
+          if (
+            !valid() ||
+            snapshot !== input ||
+            workspace.data !== dataSnapshot ||
+            workspaceId !== workspaceSnapshot ||
+            workspace.data.activeWorkspaceId !== workspaceSnapshot ||
+            repository.key !== bindingSnapshot
+          )
+            return;
+          let catalog;
+          try {
+            catalog = createSpectralSourceCatalog(
+              sourceInput,
+              lint.sources,
+              lint.diagnostics,
+            );
+          } catch {
+            throw new Error(
+              "Specification diagnostics could not be matched to their source. Validate again.",
+            );
+          }
+          capturedSources = catalog.sources;
+          semantic = {
+            input: snapshot,
+            binding: bindingSnapshot,
+            data: dataSnapshot,
+            workspaceId: workspaceSnapshot,
+            catalog,
+            fallback: lint.fallback,
+          };
+          notice = lint.fallback
+            ? "Custom rules could not be loaded. Default OpenAPI rules were applied."
+            : "";
+        }
+        if (!valid()) return;
+        applying = false;
+        activeWorker.postMessage({
+          spec: JSON.parse(snapshot),
+          workspaceId: workspaceSnapshot,
+          generate,
+          serverOverride: serverSnapshot,
+          exampleSelections: JSON.parse(choiceSnapshot),
+          capturedSources,
+        });
+        dispatched = true;
+      } catch (e) {
+        if (valid()) {
+          semantic = null;
+          notice = "";
+          error = String(e);
+        }
+      } finally {
+        if (!dispatched) finishWorker(work);
+      }
+    })();
   }
+
   async function jump(/** @type {{ line: number, column: number }} */ diagnostic) {
     if (!editor) return;
     const snapshot = input;

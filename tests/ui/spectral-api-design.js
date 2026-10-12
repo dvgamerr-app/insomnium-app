@@ -62,6 +62,7 @@ await Bun.write(
       native: false,
       sourceGeneration: "local closure with four exact root baselines",
       rootBaselines,
+      deliberateFixtureMutations: host.mutableSources,
       hashes: Object.fromEntries(pinned),
     },
     null,
@@ -102,10 +103,21 @@ try {
   for (const [path, before] of pinned) {
     if (path.endsWith("/jobs.json")) continue;
     const bytes = new Uint8Array(await Bun.file(path).arrayBuffer());
-    assert.equal(
-      createHash("sha256").update(bytes).digest("hex"),
-      before.sha256,
-      "Frozen input " + path,
+    const actualHash = createHash("sha256").update(bytes).digest("hex");
+    const mutable = host.mutableSources.find(
+      (source) => source.path === resolve(path),
     );
+    if (mutable) {
+      assert.ok(
+        mutable.hashes.includes(before.sha256),
+        "Fixed fixture original revision " + path,
+      );
+      assert.ok(
+        mutable.hashes.includes(actualHash),
+        "Fixed fixture final revision " + path,
+      );
+      continue;
+    }
+    assert.equal(actualHash, before.sha256, "Frozen input " + path);
   }
 }

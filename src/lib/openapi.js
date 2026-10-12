@@ -4,6 +4,7 @@ import {
   serializeOpenApiSerialized,
 } from "./openapi-serialized-example.js";
 import { dereference } from "@scalar/openapi-parser";
+import { capturedApiDocuments } from "./openapi-captured-sources.js";
 import { validatePathParameters } from "@scalar/openapi-validator";
 import { validateApiDocument } from "./openapi-validation.js";
 import { describeOpenApiValue } from "./openapi-value.js";
@@ -43,8 +44,8 @@ import {
   operationExampleGroups,
 } from "./openapi-example-choices.js";
 
-/** @param {Record<string, any>} spec */
-export function analyzeSpec(spec) {
+/** @param {Record<string, any>} spec @param {Record<string,any>[]} [capturedSources] */
+export function analyzeSpec(spec, capturedSources) {
   const parsed = parseSpec(spec.contents || "");
   /** @type {{ severity: string, message: string, path: string, line: number, column: number }[]} */
   const diagnostics = [];
@@ -82,17 +83,26 @@ export function analyzeSpec(spec) {
   const retrievalUri = new URL(spec.fileName || "openapi.yaml", "memory:///")
     .href;
   const rootName = apiDocumentBaseUri(parsed.value, retrievalUri);
-  const files = [
-    { name: rootName, value: parsed.value },
-    ...(spec.files || []).map((/** @type {any} */ file) => {
-      const value = parseSpec(file.contents, { allowBoolean: true }).value;
-      return {
-        name: apiDocumentBaseUri(value, new URL(file.name, rootName).href),
-        value,
-      };
-    }),
-  ];
-  if (files.length > 33) throw new Error("Attach at most 32 reference files.");
+  const files =
+    capturedSources === undefined
+      ? [
+          { name: rootName, value: parsed.value },
+          ...(spec.files || []).map((/** @type {any} */ file) => {
+            const value = parseSpec(file.contents, {
+              allowBoolean: true,
+            }).value;
+            return {
+              name: apiDocumentBaseUri(
+                value,
+                new URL(file.name, rootName).href,
+              ),
+              value,
+            };
+          }),
+        ]
+      : capturedApiDocuments(spec, capturedSources);
+  if ((spec.files || []).length > 32)
+    throw new Error("Attach at most 32 reference files.");
   if (new Set(files.map((file) => file.name)).size !== files.length)
     throw new Error(
       "Reference file names must be unique and differ from the main file.",

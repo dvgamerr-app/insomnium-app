@@ -6,7 +6,15 @@ import { spawn } from "node:child_process";
 
 export const spectralFixtureExeSHA =
   "f5690ce1dc4136c9604964cdf2b2e490442581437db453b14c1f340c2a8d962a";
-const modes = new Set(["default", "custom", "warnings", "fallback", "held"]);
+const modes = new Set([
+  "default",
+  "custom",
+  "warnings",
+  "fallback",
+  "held",
+  "external-repo",
+  "external-http",
+]);
 const hash = (/** @type {Uint8Array} */ bytes) =>
   createHash("sha256").update(bytes).digest("hex");
 
@@ -25,7 +33,7 @@ export async function createSpectralFixtureHost(output, bundleRoot) {
   await Bun.write(executable, bytes);
   /** @type {Record<string,string>} */ const repositories = {};
   const common = "extends: []\nrules:\n";
-  const rules = {
+  /** @type {Record<string,string>} */ const rules = {
     custom:
       common +
       [0, 1, 2, 3]
@@ -43,6 +51,10 @@ export async function createSpectralFixtureHost(output, bundleRoot) {
       common +
       "  entered-owned-function:\n    severity: warn\n    given: '$'\n    then:\n      function: pause\nfunctions: [pause]\nfunctionsDir: ./functions\n",
   };
+  rules["external-repo"] =
+    rules.warnings +
+    "  attached-warning:\n    severity: warn\n    given: '$.components.schemas.*'\n    then:\n      field: description\n      function: truthy\n  nested-warning:\n    severity: warn\n    given: '$.paths.*.*.requestBody.content.*.schema.properties.*'\n    then:\n      field: description\n      function: truthy\n";
+  rules["external-http"] = rules["external-repo"];
   for (const [name, body] of Object.entries(rules)) {
     const repository = resolve(proof, name);
     await mkdir(resolve(repository, "other/functions"), { recursive: true });
@@ -53,6 +65,36 @@ export async function createSpectralFixtureHost(output, bundleRoot) {
         'export default async function(){console.info("SPECTRAL_UI_ENTERED");await new Promise(resolve=>setTimeout(resolve,4000));return [{message:"Owned delayed finding",path:["info","title"]}];}\n',
       );
     repositories[name] = repository;
+  }
+  let revision = "one";
+  /** @type {(version?:string)=>Record<string,string>} */ const externalFiles =
+    (version = revision) => ({
+      "a/shared.yaml":
+        "\uFEFFtype: object\r\nproperties:\r\n  label:\r\n    $ref: '../nested/value.yaml'\r\n",
+      "b/shared.yaml": "type: integer\r\nenum: [11]\r\n",
+      "nested/value.yaml": "type: string\r\nenum: ['" + version + "😀']\r\n",
+    });
+  const writeReferences = async () => {
+    for (const [name, contents] of Object.entries(externalFiles())) {
+      const path = resolve(repositories["external-repo"], name);
+      await mkdir(resolve(path, ".."), { recursive: true });
+      await Bun.write(path, contents);
+    }
+  };
+  await writeReferences();
+  for (let i = 0; i < 40; i++) {
+    const path = resolve(
+      repositories["external-repo"],
+      "many",
+      "schema-" + i + ".yaml",
+    );
+    await mkdir(resolve(path, ".."), { recursive: true });
+    await Bun.write(
+      path,
+      "type: object\nproperties:\n  label:\n    type: string\n    enum: ['many-" +
+        i +
+        "']\n",
+    );
   }
   /** @type {Map<string,any>} */ const jobs = new Map();
   /** @type {any[]} */ const events = [];
@@ -216,7 +258,27 @@ export async function createSpectralFixtureHost(output, bundleRoot) {
         const next = await request.json();
         assert.ok(modes.has(next.mode));
         mode = next.mode;
+        if (next.revision !== undefined) {
+          assert.ok(["one", "two"].includes(next.revision));
+          revision = next.revision;
+          await writeReferences();
+        }
         return Response.json({ mode });
+      }
+      if (url.pathname.startsWith("/references/")) {
+        const name = url.pathname.slice("/references/".length);
+        const contents = externalFiles()[name];
+        if (contents === undefined)
+          return new Response("Unknown owned reference", { status: 404 });
+        events.push({
+          type: "reference-http",
+          name,
+          revision,
+          time: Date.now(),
+        });
+        return new Response(contents, {
+          headers: { "Content-Type": "application/yaml" },
+        });
       }
       if (url.pathname === "/__state")
         return Response.json({
@@ -246,6 +308,20 @@ export async function createSpectralFixtureHost(output, bundleRoot) {
     origin: "http://127.0.0.1:" + server.port,
     proof,
     executable,
+    // Only this fixed owned fixture resource is deliberately changed by /__case.
+    // Every other source, ruleset, executable and emitted asset remains frozen.
+    mutableSources: [
+      {
+        path: resolve(repositories["external-repo"], "nested/value.yaml"),
+        hashes: ["one", "two"].map((version) =>
+          hash(
+            new TextEncoder().encode(
+              externalFiles(version)["nested/value.yaml"],
+            ),
+          ),
+        ),
+      },
+    ],
     async close() {
       for (const job of jobs.values()) {
         if (job.process) {

@@ -1,7 +1,7 @@
 import { analyzeSpec, generateRequests } from "./openapi.js";
 self.onmessage = (event) => {
   try {
-    const analysis = analyzeSpec(event.data.spec);
+    const analysis = analyzeSpec(event.data.spec, event.data.capturedSources);
     const resources = event.data.generate
       ? generateRequests(
           analysis,
