@@ -1,5 +1,7 @@
 # Spectral integration investigation — 2026-10-12
 
+Latest measured direction: [SPECTRAL-HOST-DESIGN.md](./SPECTRAL-HOST-DESIGN.md). An isolated93,478,400-byte Windows Bun executable now proves12 successful default/custom/reference/parser/version/fallback executions plus entered-operation kill/reap and a clean subsequent job. It runs without a local Spectral package installation in its owned runtime directory. These architecture measurements supersede the earlier unresolved host feasibility question; native/app/platform/full semantic integration remains missing. Earlier browser CSP failures and their source/results stay immutable.
+
 API Design currently uses generated structural validators in openapi-validation.js and an owned 15-second module worker; Spectral/default semantic rules and custom rules are still missing. This review keeps that complete requirement active. No app dependency, CSP, permission or production source changes.
 
 ## Legacy and official contract

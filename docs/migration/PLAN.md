@@ -1,3 +1,9 @@
+## Spectral implementation direction — measured2026-10-12
+
+Develop the complete owned Bun host route described in SPECTRAL-HOST-DESIGN.md. Actual standalone Windows default/custom/ref/version/fallback results and entered-operation kill/reap are proven; browserCSP stays unchanged. Next implement pinned target-specific packaging and Rust-owned bounded job transport, then source/workspace lifecycle, private in-memory/attached references, registered Git ruleset loading and complete diagnostic/UI/native/platform acceptance. Current structural validation remains; no full Spectral completion claim or narrowed custom-function contract. The measured89MiB executable/startup cost must be included in release validation.
+
+Parallel lanes continue: native_provider accepts capturedbb75 Focus/Input/GraphQL; shared_ui fixes measuredactive-tooltip ownership after committedRunner; event_api supplies Wheel handoff and audits completeWindowFIFO build prerequisites under Bun-only constraints. Root reviews/integrates by topic, retains full original parity and records exact commits/evidence/open gates/handles before handoff. /compact cannot be invoked by this interface.
+
 ## Current parallel execution and integration order — 2026-10-12
 
 Owner-authorized agents work in isolated worktrees. Current verified baseline includes native collapse/actions1d46ebc and owned Focus/Input constructorsbf77519; owned synthetic Focus/Input now passes99 current-root groups. Full original migration scope is retained.
