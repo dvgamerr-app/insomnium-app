@@ -1,11 +1,23 @@
 import { chromium } from "playwright-core";
-import { mkdir } from "node:fs/promises";
+import { mkdir, lstat, realpath } from "node:fs/promises";
+import assert from "node:assert/strict";
 import { resolve, sep } from "node:path";
 
 /** @param {string} name @param {(page: import('playwright-core').Page, output: string) => Promise<void>} run
- * @param {{beforeNavigate?:(page:import('playwright-core').Page)=>Promise<void>,headers?:Record<string,string>}} [options] */
+ * @param {{buildRoot?:string,beforeNavigate?:(page:import('playwright-core').Page)=>Promise<void>,headers?:Record<string,string>}} [options] */
 export async function withPreview(name, run, options = {}) {
-  const root = resolve("build");
+  const root = resolve(options.buildRoot ?? "build");
+  assert.ok(
+    root === resolve("build") || root.startsWith(resolve("artifacts") + sep),
+    "Preview build must be own build or contained artifact",
+  );
+  const info = await lstat(root);
+  assert.ok(info.isDirectory() && !info.isSymbolicLink());
+  assert.equal(
+    (await realpath(root)).toLowerCase(),
+    root.toLowerCase(),
+    "Refuse linked preview build",
+  );
   const server = Bun.serve({
     hostname: "127.0.0.1",
     port: 0,
