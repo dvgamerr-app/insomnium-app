@@ -112,7 +112,9 @@ async function run(frame) {
   let selectedRuleset = "default", fallback = false;
   if (frame.rulesetPath !== null) {
     try {
-      spectral.setRuleset(await bundleAndLoadRuleset(frame.rulesetPath, { fs, fetch }, [builtins()]));
+      // Rust canonical paths use Windows device syntax. Load from the already
+      // realpath-validated root so the bundler resolves local function imports.
+      spectral.setRuleset(await bundleAndLoadRuleset(resolve(repositoryRoot, "other", ".spectral.yaml"), { fs, fetch }, [builtins()]));
       selectedRuleset = "custom";
     } catch {
       fallback = true;

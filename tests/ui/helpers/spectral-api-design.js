@@ -3,22 +3,26 @@ import { assertSvgDropdowns } from "./select.js";
 import { assertSelectGeometry } from "./select-geometry.js";
 
 /** Actual producer → saved IPC stand-in → real parent UI; native=false.
- * @param {import('playwright-core').Page} page @param {string} output @param {string} origin */
-export async function exerciseSpectralApiDesign(page, output, origin) {
+ * Optional adapters supply actual native state/cases without replacing assertions.
+ * @param {import('playwright-core').Page} page @param {string} output @param {string} origin
+ * @param {{state?:()=>Promise<any>,snapshot?:()=>Promise<any>,configureCase?:(mode:string)=>Promise<any>,setCase?:(mode:string)=>Promise<any>,native?:boolean}} [adapters] */
+export async function exerciseSpectralApiDesign(page, output, origin, adapters = {}) {
   /** @type {string[]} */ const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   const api = page.getByRole("region", { name: "API Design", exact: true });
-  const state = async () =>
-    (await page.request.get(origin + "/__state")).json();
-  const snapshot = async () => {
+  const native = adapters.native === true;
+  const state = adapters.state ?? (async () =>
+    (await page.request.get(origin + "/__state")).json());
+  const snapshot = adapters.snapshot ?? (async () => {
     const value = await page
       .locator("output[data-fixture-snapshot]")
       .getAttribute("data-fixture-snapshot");
     assert.equal(typeof value, "string");
     return JSON.parse(/** @type {string} */ (value));
-  };
-  const setCase = async (/** @type {string} */ mode) => {
-    await page.request.post(origin + "/__case", { data: { mode } });
+  });
+  const configureCase = adapters.configureCase ?? (async (/** @type {string} */ mode) => page.request.post(origin + "/__case", { data: { mode } }));
+  const setCase = adapters.setCase ?? (async (/** @type {string} */ mode) => {
+    await configureCase(mode);
     await page
       .getByRole("button", {
         name: mode === "default" ? "Default fixture" : "Repository fixture",
@@ -26,7 +30,7 @@ export async function exerciseSpectralApiDesign(page, output, origin) {
       })
       .click();
     await api.waitFor();
-  };
+  });
   const validate = async () => {
     const count = (await state()).jobs.length;
     await api
@@ -55,7 +59,7 @@ export async function exerciseSpectralApiDesign(page, output, origin) {
   const progress = async () =>
     Bun.write(
       output + "/progress.json",
-      JSON.stringify({ native: false, rows }, null, 2),
+      JSON.stringify({ native, rows }, null, 2),
     );
   const selectFinding = async (
     /** @type {any} */ job,
@@ -307,7 +311,7 @@ export async function exerciseSpectralApiDesign(page, output, origin) {
   assert.equal(await generate().isDisabled(), false);
   const beforeChangedRules = await snapshot(),
     beforeChangedCount = (await state()).jobs.length;
-  await page.request.post(origin + "/__case", { data: { mode: "custom" } });
+  await configureCase("custom");
   await generate().click();
   await page.waitForFunction(() => {
     const button = Array.from(
@@ -456,7 +460,7 @@ export async function exerciseSpectralApiDesign(page, output, origin) {
     JSON.stringify(
       {
         passed: true,
-        native: false,
+        native,
         actualProducer: true,
         codeZeroType: typeof rows[0].diagnostics.find(
           (/** @type {any} */ d) => String(d.code) === "0",

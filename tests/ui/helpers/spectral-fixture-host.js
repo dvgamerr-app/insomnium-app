@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 
 export const spectralFixtureExeSHA =
-  "6231e95ddd20cd9122edea33f342bba52feef3c16dd832849118eb714bca6e78";
+  "f5690ce1dc4136c9604964cdf2b2e490442581437db453b14c1f340c2a8d962a";
 const modes = new Set(["default", "custom", "warnings", "fallback", "held"]);
 const hash = (/** @type {Uint8Array} */ bytes) =>
   createHash("sha256").update(bytes).digest("hex");

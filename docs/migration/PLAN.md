@@ -1,3 +1,9 @@
+## Next integration after native Spectral checkpoint — 2026-10-13
+
+Verified current native component uses d478 app plus new f569 external sidecar; source-aware structural external-reference join is the next feature, not part of that accepted generation. Guarded shared_ui handoff5df64fd2/doc1b7af6e9: four product/four saved paths plus report,12external profiles/40-reference actualGenerate/attached precedence/manual13/schema83/serialization regressions. Merge its efa5-based helper patch onto current9943 native callback adapter and preserve new f569 executable pin; rerun the whole merged saved scenario and root compiler/build before topic commit. Future native external cases need a fresh captured app/frontend and extended adapter; never relabel current native20 as external acceptance.
+
+Remaining lanes retain consumed repository/ruleset read receipts, missing authentic license texts/Bun coverage, production-shell/native/platform/installer/sign/update/private/all original parity and broad shared-input UX. SDK/provider investigation remains stopped after automatic review rejection. Agents have frozen terminal handoffs; root owns integration/commits/exclusive native profile. Saved browser headless:true/no overrides; native-owned host hidden before CDP/native-hidden. After each feature record commit/evidence/gates/handles and provide explicit handoff because /compact cannot be invoked here.
+
 ## Current delegated work after API Design checkpoint — 2026-10-12
 
 Owner authorizes three agents plus root, using isolated worktrees and guarded handoffs. This table supersedes older assignments; every original parity requirement remains.
