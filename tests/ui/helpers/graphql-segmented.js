@@ -64,8 +64,13 @@ export async function assertGraphqlSegmented(page, panel) {
           });
           try {
             await page.waitForFunction(
-              (element) =>
-                getComputedStyle(element).backgroundColor === "rgb(71, 82, 93)",
+              (element) => {
+                const style = getComputedStyle(element);
+                return (
+                  style.backgroundColor === "rgb(71, 82, 93)" &&
+                  style.color === "rgb(101, 132, 163)"
+                );
+              },
               await button.elementHandle(),
             );
             assert.equal(
