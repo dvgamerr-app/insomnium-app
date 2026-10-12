@@ -1,3 +1,8 @@
+## Native notice collector read-only proposal — 2026-10-13
+
+- Report topic5d6e070 pins root542e177 and existing verified Cargo2870 inventory. Proposes closed source-candidate schema/raw blobs/immutable preparation snapshot/separate native stamp/Tauri resource mapping and saved provenance, tamper, unknown, byte and hook-order gates. No implementation or adoption; no new completeness blocker or target-linkage claim. Three cache misses/43 discovery gaps/local patches/nested libraries/conditions/system/toolchain/target-linkage remain open.
+- Evidence artifacts/native-notice-proposal-proof captures current root inputs; prior2870 and all earlier proofs preserved. No collector/product/backend/source/deps/Cargo execution/build/native/profile/browser/SDK/provider changes or launches. Handles:none. Root reviews policy/implementation separately. /compact unavailable; explicit handoff.
+
 ## Read-only native Cargo notice inventory — 2026-10-13
 
 - Report topic4371c19 against currentroot70b4485/lock5156ae8f.770lock identities/765registry/fourlocalpatches/workspace;762cached archives matchlock and all762manifest+1331candidate text bytes matcharchive entries.1335total candidate files includingfourlocalvendor texts; three cache misses/43registry filename-declaration gaps/two localpatch gaps/workspace licensefield context recorded, not full-text absence/compliance claims. Target linkage/system/toolchain/perfile coverage unknown; current resource mapping isSpectralonly.
