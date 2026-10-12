@@ -1,3 +1,9 @@
+## Current production source inventory — 2026-10-13
+
+Saved AST inventory script completed0 against current source44ecea959aa84ac4ce6836abc3a1aad4d5c5528ecc6424222a15ae268cec2e2a:65 Svelte files,745 shared markup sites,119 tokens and1894 CSS declarations across18 feature scoped style files. No duplicate CSS imports, multiple-owner token files or tokens without var references. The one feature raw control is CodeEditor's native textarea (line575), retaining its editor/fallback engine contract; Feedback owns the single dynamic element. Optional --focus-danger-text has the documented on-danger fallback; ResponsePane's --method- dynamic family remains explicit.
+
+Evidence: artifacts/ui-current-root-inventory-20261013/{report.json,execution.json}. The original scripts/ui-inventory.js ran in an artifact copy with only its output directory changed; exact reverse comparison preserves all AST inventory logic and the older inventory report. Static launch inspection also finds only the shared launchUiBrowser chromium.launch with fixed headless:true, plus native-app's CDP attachment after hideOwnedWindow. No headed override was found in saved tests/scripts. These are source checks, not new runtime/OS/AT acceptance. No product/style edits, browser/native launch or rebuild. Remaining property-level CSS ownership, validation/lifecycle/keyboard/platform/fullworkflow and all original migration/UX gates stay open.
+
 # Current shared UI source inventory
 
 2026-10-09 FilePicker concurrency fix: current sourceSHA256
