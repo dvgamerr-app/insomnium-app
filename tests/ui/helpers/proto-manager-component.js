@@ -97,7 +97,7 @@ export async function runProtoComponentMeasurement(){
         else if(kind.startsWith("data-replacement"))await control(page,"replaceData");
         else if(kind.startsWith("unmount")){await control(page,"show",[false]);assert.equal(await picker().count(),0);await control(page,"show",[true]);assert.notEqual(await picker().getAttribute("id"),inputId);}
         else if(kind.startsWith("tab-removal")){await control(page,"switchTab",[false]);assert.equal(await picker().count(),0);await control(page,"switchTab",[true]);assert.notEqual(await picker().getAttribute("id"),inputId);}
-        else if(kind.startsWith("cancel")){const cancel=panel.getByRole("button",{name:"Cancel",exact:true});await cancel.focus();assert.equal(await cancel.evaluate(el=>el===document.activeElement),true);await cancel.press("Enter");cancellationFocus=await page.evaluate(()=>({tag:document.activeElement?.tagName,id:document.activeElement?.id,label:document.activeElement?.getAttribute("aria-label")}));if(cancellationFocus?.tag==="BODY")failures.push({theme,width,kind:"cancel-keyboard-focus",action:kind,actual:cancellationFocus,expected:"connected surviving control after focused Cancel removal"});}
+        else if(kind.startsWith("cancel")){const cancel=panel.getByRole("button",{name:"Cancel",exact:true});await cancel.focus();assert.equal(await cancel.evaluate(el=>el===document.activeElement),true);await cancel.press("Enter");cancellationFocus=await page.evaluate(()=>({tag:document.activeElement?.tagName,id:document.activeElement?.id,label:document.activeElement?.getAttribute("aria-label")}));assert.equal(cancellationFocus?.id,inputId,"Keyboard Cancel restores exact originating picker");if(cancellationFocus?.tag==="BODY")failures.push({theme,width,kind:"cancel-keyboard-focus",action:kind,actual:cancellationFocus,expected:"connected surviving control after focused Cancel removal"});}
         const beforeRelease=await snap();
         await settled(token,reject);
         await picker().waitFor({state:"attached"});
@@ -107,6 +107,31 @@ export async function runProtoComponentMeasurement(){
           const feedback=panel.getByRole("alert");await feedback.waitFor();const actual=await feedback.innerText();assert.equal(actual,"Error: Owned File.text rejection "+token);
           await record({theme,width,kind,visibleOwnedError:actual,description:await picker().getAttribute("aria-describedby"),invalid:await picker().getAttribute("aria-invalid"),fieldVsGlobal:"feature-global current File read error"});
         }else{await quiet();await record({theme,width,kind,staleSuppressed:true,controlledReadRejected:reject,inputReset:await picker().inputValue()==="",resourcesUnchanged:true,persistedUnchanged:true,cancellationFocus});}
+      }
+      // Same-task controlled retirement happens before discard's tick resolves.
+      // Actual DOM click, no transport substitution; these are scripted race controls.
+      for (const retirement of ["elsewhere","request","data","unmount","tab","new-operation"]) {
+        await reset();const token=theme+"-"+width+"-retire-"+retirement;
+        const {state:baseline,inputId}=await held(token);assert.ok(inputId,"Originating picker has stable ID");
+        const cancel=panel.getByRole("button",{name:"Cancel",exact:true});await cancel.focus();
+        await cancel.evaluate((el,{retirement,source,token,inputId})=>{
+          const host=/** @type {any} */(window),input=document.getElementById(inputId);
+          /** @type {HTMLElement} */(el).click();
+          if(retirement==="elsewhere")/** @type {HTMLElement} */(document.querySelector("header button")).focus();
+          else if(retirement==="request")void host.__protoMeasurement.select("req_proto_measure_b");
+          else if(retirement==="data")void host.__protoMeasurement.replaceData();
+          else if(retirement==="unmount")void host.__protoMeasurement.show(false);
+          else if(retirement==="tab")void host.__protoMeasurement.switchTab(false);
+
+          else {const next=host.__protoMeasurement.hold(new File([source],"next.proto"),token+"-next"),transfer=new DataTransfer();transfer.items.add(next);const file=/** @type {HTMLInputElement} */(input);file.files=transfer.files;file.dispatchEvent(new Event("change",{bubbles:true}));}
+        },{retirement,source,token,inputId});
+        const focus=await page.evaluate(()=>({id:document.activeElement?.id,tag:document.activeElement?.tagName,text:document.activeElement?.textContent}));
+        assert.notEqual(focus.id,inputId,"Retired/disabled/new-owner operation must not restore old picker");
+        if(retirement==="elsewhere")assert.equal(focus.text,"Select request A");
+        await settled(token,true);
+        if(retirement==="new-operation"){assert.equal(await panel.getByRole("button",{name:"Cancel",exact:true}).count(),1);await settled(token+"-next",false);await panel.getByRole("textbox",{name:"Proto path 1",exact:true}).waitFor();assert.equal(await panel.getByRole("textbox",{name:"Proto path 1",exact:true}).inputValue(),"next.proto");}
+        const after=await snap();assert.deepEqual(after.data.resources,baseline.data.resources);assert.deepEqual(after.data.history,baseline.data.history);
+        await record({theme,width,kind:"cancel-focus-retirement",retirement,focus,scriptedSameTask:true,oldPickerNotFocused:true,resourcesUnchanged:true});
       }
     }
     assert.deepEqual(errors,[]);
