@@ -72,14 +72,22 @@
   let checkedData = $state.raw(/** @type {any} */ (null));
   let checkedWorkspace = $state("");
   let displayUri = $state("");
-  let semantic = $state.raw(/** @type {{input:string,binding:string,data:any,workspaceId:string,catalog:ReturnType<typeof createSpectralSourceCatalog>,fallback:boolean}|null} */ (null));
+  let semantic = $state.raw(
+    /** @type {{input:string,binding:string,data:any,workspaceId:string,catalog:ReturnType<typeof createSpectralSourceCatalog>,fallback:boolean}|null} */ (
+      null
+    ),
+  );
   const severityNames = ["error", "warning", "info", "hint"];
   let repository = $derived.by(() => {
     try {
       const binding = nativeGitBinding(workspace.data.resources, workspaceId);
       return { binding, key: JSON.stringify(binding), error: "" };
     } catch {
-      return { binding: null, key: "invalid", error: "The collection's repository binding is invalid." };
+      return {
+        binding: null,
+        key: "invalid",
+        error: "The collection's repository binding is invalid.",
+      };
     }
   });
   let exampleUrl = $state("");
@@ -98,31 +106,66 @@
       : "",
   );
   let current = $derived(
-    checkedInput === input && checkedData === workspace.data &&
-    checkedWorkspace === workspaceId && workspace.data.activeWorkspaceId === workspaceId
-      ? result : null,
+    checkedInput === input &&
+      checkedData === workspace.data &&
+      checkedWorkspace === workspaceId &&
+      workspace.data.activeWorkspaceId === workspaceId
+      ? result
+      : null,
   );
   let semanticCurrent = $derived(
-    semantic?.input === input && semantic.data === workspace.data &&
-    semantic.workspaceId === workspaceId && workspace.data.activeWorkspaceId === workspaceId &&
-    semantic.binding === repository.key ? semantic : null,
+    semantic?.input === input &&
+      semantic.data === workspace.data &&
+      semantic.workspaceId === workspaceId &&
+      workspace.data.activeWorkspaceId === workspaceId &&
+      semantic.binding === repository.key
+      ? semantic
+      : null,
   );
   let generationReady = $derived(
-    !!current?.valid && (!spectralClient.available() ||
-      !!semanticCurrent && !semanticCurrent.catalog.diagnostics.some((d) => d.severity === 0)),
+    !!current?.valid &&
+      (!spectralClient.available() ||
+        (!!semanticCurrent &&
+          !semanticCurrent.catalog.diagnostics.some((d) => d.severity === 0))),
   );
   let source = $derived(
-    semanticCurrent?.catalog.lookup(displayUri || semanticCurrent.catalog.mainUri) || {
-      uri: "", origin: "main", name: spec?.fileName || "openapi.yaml", contents: spec?.contents || "",
-    },
+    semanticCurrent?.catalog.lookup(
+      displayUri || semanticCurrent.catalog.mainUri,
+    ) ||
+      current?.sources?.find((entry) => entry.uri === displayUri) ||
+      current?.sources?.find((entry) => entry.origin === "main") || {
+        uri: "",
+        origin: "main",
+        name: spec?.fileName || "openapi.yaml",
+        contents: spec?.contents || "",
+      },
   );
   let sourceIdentity = $derived(
-    (spec?._id || "") + ":source" + (source.origin === "main" ? "" : ":" + source.uri),
+    (spec?._id || "") +
+      ":source" +
+      (source.origin === "main" ? "" : ":" + source.uri),
   );
-  let sourceAnnotations = $derived(semanticCurrent ? {
-    identity: sourceIdentity, source: source.contents,
-    diagnostics: [...semanticCurrent.catalog.diagnosticsFor(source.uri)],
-  } : undefined);
+  let sourceAnnotations = $derived(
+    current || semanticCurrent
+      ? {
+          identity: sourceIdentity,
+          source: source.contents,
+          diagnostics: [
+            ...(semanticCurrent?.catalog.diagnosticsFor(source.uri) || []),
+            ...(current?.diagnostics || [])
+              .filter(
+                (diagnostic) =>
+                  diagnostic.source === source.uri && diagnostic.range,
+              )
+              .map((diagnostic) => ({
+                ...diagnostic,
+                code: "structural",
+                severity: diagnostic.severity === "error" ? 0 : 1,
+              })),
+          ],
+        }
+      : undefined,
+  );
   let operations = $derived(
     (current?.operations || []).filter((/** @type {any} */ operation) =>
       `${operation.method} ${operation.path} ${operation.summary}`
@@ -157,10 +200,16 @@
   let runningData = /** @type {any} */ (null);
   let runningWorkspace = "";
   $effect(() => {
-    if (workerWork && (runningInput !== input || runningBinding !== repository.key ||
-        runningData !== workspace.data || runningWorkspace !== workspaceId ||
-        workspace.data.activeWorkspaceId !== workspaceId)) cancel();
-    if (!semanticCurrent && displayUri) displayUri = "";
+    if (
+      workerWork &&
+      (runningInput !== input ||
+        runningBinding !== repository.key ||
+        runningData !== workspace.data ||
+        runningWorkspace !== workspaceId ||
+        workspace.data.activeWorkspaceId !== workspaceId)
+    )
+      cancel();
+    if (!semanticCurrent && !current && displayUri) displayUri = "";
   });
   function stopWorker() {
     worker?.terminate();
@@ -331,7 +380,8 @@
         }
         if (event.data.error) {
           error = event.data.error;
-          if (generate || !spectralClient.available()) return;
+          if (generate) return;
+          if (!spectralClient.available() && !event.data.analysis) return;
         }
         result = event.data.analysis || {
           schema: {},
@@ -467,14 +517,23 @@
     })();
   }
 
-  async function jump(/** @type {{ line: number, column: number }} */ diagnostic) {
-    if (!editor) return;
+  async function jump(/** @type {Record<string,any>} */ diagnostic) {
+    const accepted = current;
+    const target = accepted?.sources?.find(
+      (entry) => entry.uri === diagnostic.source,
+    );
+    if (!editor || !target || !diagnostic.range) return;
     const snapshot = input;
-    const point = { line: Math.max(0, diagnostic.line - 1), character: Math.max(0, diagnostic.column - 1) };
-    const offsets = spectralRangeOffsets(String(spec?.contents || ""), { start: point, end: point });
-    displayUri = "";
+    const offsets = spectralRangeOffsets(target.contents, diagnostic.range);
+    displayUri = target.uri;
     await tick();
-    if (disposed || input !== snapshot) return;
+    if (
+      disposed ||
+      input !== snapshot ||
+      current !== accepted ||
+      source.uri !== target.uri
+    )
+      return;
     editor?.focus();
     editor?.setSelectionRange(offsets.start, offsets.end);
   }
@@ -485,7 +544,8 @@
     const offsets = spectralRangeOffsets(target.contents, diagnostic.range);
     displayUri = target.uri;
     await tick();
-    if (disposed || semanticCurrent !== accepted || source.uri !== target.uri) return;
+    if (disposed || semanticCurrent !== accepted || source.uri !== target.uri)
+      return;
     editor?.focus();
     editor?.setSelectionRange(offsets.start, offsets.end);
   }
@@ -789,14 +849,22 @@
       {#snippet first()}
         {#if source.origin !== "main"}
           <Toolbar variant="design" class="design-toolbar">
-            <Input aria-label="Displayed reference source" value={source.name} readonly />
-            <Button variant="ghost" onclick={() => (displayUri = "")}>Back to OpenAPI</Button>
+            <Input
+              aria-label="Displayed reference source"
+              value={source.name}
+              readonly
+            />
+            <Button variant="ghost" onclick={() => (displayUri = "")}
+              >Back to OpenAPI</Button
+            >
           </Toolbar>
         {/if}
         <CodeEditor
           bind:this={editor}
           identity={sourceIdentity}
-          label={source.origin === "main" ? "OpenAPI source" : "Referenced API source"}
+          label={source.origin === "main"
+            ? "OpenAPI source"
+            : "Referenced API source"}
           value={source.contents}
           readOnly={source.origin !== "main"}
           semanticAnnotations={sourceAnnotations}
@@ -835,27 +903,50 @@
                   {#each current.diagnostics as diagnostic}<Button
                       variant="ghost"
                       class="diagnostic-row"
+                      disabled={!current.sources?.some(
+                        (entry) => entry.uri === diagnostic.source,
+                      ) || !diagnostic.range}
                       onclick={() => jump(diagnostic)}
                       ><strong
                         class:error-label={diagnostic.severity === "error"}
-                        >{diagnostic.severity} · {diagnostic.line}:{diagnostic.column}</strong
+                        >{diagnostic.severity} · {diagnostic.range
+                          ? `${diagnostic.line}:${diagnostic.column}`
+                          : "Source unavailable"}</strong
                       ><span>{diagnostic.message}</span><small
-                        >{diagnostic.path}</small
+                        >{current.sources?.find(
+                          (entry) => entry.uri === diagnostic.source,
+                        )?.name || "Source unavailable"} · {diagnostic.path}</small
                       ></Button
                     >{/each}
                   {#each semanticCurrent?.catalog.diagnostics || [] as diagnostic}
                     <Button
                       variant="ghost"
                       class="diagnostic-row"
-                      disabled={!semanticCurrent?.catalog.lookup(diagnostic.source)}
+                      disabled={!semanticCurrent?.catalog.lookup(
+                        diagnostic.source,
+                      )}
                       onclick={() => jumpSemantic(diagnostic)}
-                    ><strong class:error-label={diagnostic.severity === 0}
-                        >{severityNames[diagnostic.severity]} · {diagnostic.range.start.line + 1}:{diagnostic.range.start.character + 1}</strong
-                      ><span>{diagnostic.code === undefined ? "" : `${diagnostic.code} · `}{diagnostic.message}</span
-                      ><small>{semanticCurrent?.catalog.lookup(diagnostic.source)?.name || diagnostic.source || "Source unavailable"} · {JSON.stringify(diagnostic.path || [])}</small
-                    ></Button>
+                      ><strong class:error-label={diagnostic.severity === 0}
+                        >{severityNames[diagnostic.severity]} · {diagnostic
+                          .range.start.line + 1}:{diagnostic.range.start
+                          .character + 1}</strong
+                      ><span
+                        >{diagnostic.code === undefined
+                          ? ""
+                          : `${diagnostic.code} · `}{diagnostic.message}</span
+                      ><small
+                        >{semanticCurrent?.catalog.lookup(diagnostic.source)
+                          ?.name ||
+                          diagnostic.source ||
+                          "Source unavailable"} · {JSON.stringify(
+                          diagnostic.path || [],
+                        )}</small
+                      ></Button
+                    >
                   {/each}
-                  {#if !current.diagnostics.length && !semanticCurrent?.catalog.diagnostics.length}<p class="hint padded">
+                  {#if !current.diagnostics.length && !semanticCurrent?.catalog.diagnostics.length}<p
+                      class="hint padded"
+                    >
                       No validation errors or built-in style warnings.
                     </p>{/if}
                 </div>

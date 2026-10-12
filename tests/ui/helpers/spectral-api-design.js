@@ -1,37 +1,53 @@
 import assert from "node:assert/strict";
 import { assertSvgDropdowns } from "./select.js";
 import { assertSelectGeometry } from "./select-geometry.js";
+import { exerciseStructuralSources } from "./structural-source-cases.js";
 
 /** Actual producer → saved IPC stand-in → real parent UI; native=false.
  * Optional adapters supply actual native state/cases without replacing assertions.
  * @param {import('playwright-core').Page} page @param {string} output @param {string} origin
  * @param {{state?:()=>Promise<any>,snapshot?:()=>Promise<any>,configureCase?:(mode:string,options?:{revision?:string})=>Promise<any>,setCase?:(mode:string)=>Promise<any>,native?:boolean,specId?:string}} [adapters] */
-export async function exerciseSpectralApiDesign(page, output, origin, adapters = {}) {
+export async function exerciseSpectralApiDesign(
+  page,
+  output,
+  origin,
+  adapters = {},
+) {
   /** @type {string[]} */ const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   const api = page.getByRole("region", { name: "API Design", exact: true });
   const native = adapters.native === true;
-  const state = adapters.state ?? (async () =>
-    (await page.request.get(origin + "/__state")).json());
-  const snapshot = adapters.snapshot ?? (async () => {
-    const value = await page
-      .locator("output[data-fixture-snapshot]")
-      .getAttribute("data-fixture-snapshot");
-    assert.equal(typeof value, "string");
-    return JSON.parse(/** @type {string} */ (value));
-  });
-  const configureCase = adapters.configureCase ?? (async (/** @type {string} */ mode, /** @type {{revision?:string}} */ options = {}) => page.request.post(origin + "/__case", { data: { mode, ...options } }));
+  const state =
+    adapters.state ??
+    (async () => (await page.request.get(origin + "/__state")).json());
+  const snapshot =
+    adapters.snapshot ??
+    (async () => {
+      const value = await page
+        .locator("output[data-fixture-snapshot]")
+        .getAttribute("data-fixture-snapshot");
+      assert.equal(typeof value, "string");
+      return JSON.parse(/** @type {string} */ (value));
+    });
+  const configureCase =
+    adapters.configureCase ??
+    (async (
+      /** @type {string} */ mode,
+      /** @type {{revision?:string}} */ options = {},
+    ) => page.request.post(origin + "/__case", { data: { mode, ...options } }));
   const specId = adapters.specId ?? "spc_spectral_owned";
-  const setCase = adapters.setCase ?? (async (/** @type {string} */ mode) => {
-    await configureCase(mode);
-    await page
-      .getByRole("button", {
-        name: mode === "default" ? "Default fixture" : "Repository fixture",
-        exact: true,
-      })
-      .click();
-    await api.waitFor();
-  });
+  const setCase =
+    adapters.setCase ??
+    (async (/** @type {string} */ mode) => {
+      await configureCase(mode);
+      await page
+        .getByRole("button", {
+          name: mode === "default" ? "Default fixture" : "Repository fixture",
+          exact: true,
+        })
+        .click();
+      await api.waitFor();
+    });
   const validate = async () => {
     const count = (await state()).jobs.length;
     await api
@@ -541,12 +557,8 @@ export async function exerciseSpectralApiDesign(page, output, origin, adapters =
           "Generate uses fresh external bytes, not validation snapshot",
         );
         assert.deepEqual(
-          after.resources.find(
-            (/** @type {any} */ r) => r._id === specId,
-          ),
-          original.resources.find(
-            (/** @type {any} */ r) => r._id === specId,
-          ),
+          after.resources.find((/** @type {any} */ r) => r._id === specId),
+          original.resources.find((/** @type {any} */ r) => r._id === specId),
         );
         assert.deepEqual(after.history, original.history);
         assert.equal(
@@ -593,7 +605,8 @@ export async function exerciseSpectralApiDesign(page, output, origin, adapters =
   );
   const capacityRequest = (await snapshot()).resources.find(
     (/** @type {any} */ resource) =>
-      resource._type === "request" && resource.method === "POST" &&
+      resource._type === "request" &&
+      resource.method === "POST" &&
       resource.sourceSpecId === specId,
   );
   assert.deepEqual(JSON.parse(capacityRequest.body.text), { label: "many-0" });
@@ -618,7 +631,8 @@ export async function exerciseSpectralApiDesign(page, output, origin, adapters =
   const afterPrecedence = await snapshot(),
     precedenceRequest = afterPrecedence.resources.find(
       (/** @type {any} */ resource) =>
-        resource._type === "request" && resource.method === "POST" &&
+        resource._type === "request" &&
+        resource.method === "POST" &&
         resource.sourceSpecId === specId,
     );
   assert.deepEqual(
@@ -634,6 +648,16 @@ export async function exerciseSpectralApiDesign(page, output, origin, adapters =
       (/** @type {any} */ resource) => resource._id === specId,
     ),
   );
+  // New structural navigation fixtures are preview-only until a separately
+  // reviewed native adapter/candidate proves them; retain native48 unchanged.
+  const structuralRows = native
+    ? []
+    : await exerciseStructuralSources(page, output, {
+        configureCase,
+        snapshot,
+        state,
+        native,
+      });
   await Bun.write(
     output + "/acceptance.json",
     JSON.stringify(
@@ -646,6 +670,7 @@ export async function exerciseSpectralApiDesign(page, output, origin, adapters =
         ).code,
         rows,
         externalRows,
+        structuralRows,
         capacityJobId: capacity.jobId,
         precedenceJobId: precedence.jobId,
         defaultJobId: defaultJob.jobId,

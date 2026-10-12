@@ -1,3 +1,7 @@
+## Current source-aware structural component boundary — 2026-10-13
+
+Current-root diagnostics now retain proven raw source/full AST ranges including known YAML anchors and actual restored Boolean target origins; metadata stripped before validators/schemaEvaluation/generation, iterative strip accepts measured wide browser input. Unknown/pathless/ambiguous sources stay unresolved. Root676/808handoff/15guards/compiler0/0/706sourcefreeze/SAMEschema83+32/serialized/fullheadless61jobs7cancel54reads/build/full73oracle/equality83analyses46Generate/near8MiB pass (artifacts/structural-source-range-root-proof/root-audit.json). Current native/Rust structural parent/worker integration, namespace/Resource persistence/AT, broader dialect/error classes and all original migration/UX/private/platform/distribution/notice/repository/SDK/Event/FIFO remain OPEN; no historical native relabeling.
+
 ## Three MIT full-text gaps examined, still unresolved — 2026-10-13
 
 Root independently verifies73 frozen inputs/3exacttarballs/19tarheaders/34complete sourceblobs/currentlock and publishedversiontags (artifacts/mit-text-gap-root-proof/root-audit.json). No corresponding authentic full MIT text in examined snapshots; three fullTextAvailable=false rows stay unresolved. Report-only adoption; no generic text/copyright inference or full legal/distribution/notice coverage claim. All original migration/UX gates retained.
