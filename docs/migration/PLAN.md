@@ -1,3 +1,18 @@
+## Current Spectral agent split and acceptance order — 2026-10-12
+
+This owner-authorized three-agent plus root plan supersedes earlier assignment tables without removing any parity requirement. Separate worktrees and guarded file handoffs avoid overlapping edits.
+
+| Owner | Current deliverable | Acceptance gate |
+| --- | --- | --- |
+| native_provider | Bounded reservation/run/cancel manager: active8/running2, idle expiry, immediate cancel, absolute run budget, physical reap, exit ownership | Preserve V6 proof; new manager bug-fix checks/frozen source; cancel-before-settle refuses result. Normal exit drains off Wry; forced restart/noninterruptible filesystem limits remain explicit. Repository/ruleset generation acceptance still required. |
+| shared_ui | Pure accepted source catalog and raw full-range mapping in spectral-sources.js | Main/attached data hydrate only captured source; external data only returned catalog; exact URI/source match, no implicit fetch/open, malformed/duplicate refusal; manual Bun proof. Editor topic2f2746a separately accepted. |
+| event_api | Read-only standalone producer packaging/build review | Primary Tauri/Bun docs; target-suffixed externalBin, dev/release paths and build ordering; no SDK/provider investigation or adoption. |
+| root | Native client, ApiDesign structural+semantic join, readonly captured-source pane, generation guards and guarded integration | Successful same-generation lint with no severity0 before Generate; stale source/workspace/repository suppression; wait native reap before releasing workspace work; fresh saved headless/native-hidden scenarios and exact restoration. |
+
+Producer9326928 is verified in17 standalone executions; editor2f2746a passes compiler/build and saved theme/workspace. These are component checkpoints, not full Spectral/native/platform acceptance. Integrate packaging and new backend only after independent review; capture new current-root frontend/native executable before native-hidden tests. Historical588/bb75 executable predates current work and cannot be relabeled. SDK cleanup investigation stopped after automatic review rejection for unspecified possible cybersecurity risk; full unresolved SDK/Event/FIFO/provider gates remain open.
+
+Commit verified work separately by topic. Record commit/evidence/remaining gates/live handles in STATUS before starting another feature. This interface cannot invoke /compact: provide explicit handoff, never claim it occurred. Browser scenarios use saved launchUiBrowser headless:true without overrides; native owned windows hide before CDP and report native-hidden. Bun-only JS tooling, Cargo native, no browser-use. Preserve all legacy/reference data and unrelated WIP. Full migration precedes deferred UX redesign.
+
 ## Current agent assignments and topic gates — 2026-10-12
 
 User authorizes three agents plus root, working in isolated worktrees. This table supersedes older assignment tables while preserving their evidence and every original parity requirement.
