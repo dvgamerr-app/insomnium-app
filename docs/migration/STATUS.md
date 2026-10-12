@@ -1,3 +1,9 @@
+## Parallel work restarted by owner — 2026-10-13
+
+Latest verified feature commit: 2849148 (captured external structural preview/Generate), root audit artifacts/spectral-external-root-proof/root-audit.json; compiler/build/saved headless/regressions passed. Root handles:none; native profile unclaimed. Previous frozen native and runtime-license handoffs remain immutable. Owner requests three agents plus root: native preparation reconciliation, exact runtime-license override, and read-only shared-input/CSS adoption inventory in fresh isolated worktrees. Root owns integration, serial builds and exclusive native-hidden acceptance. PLAN records assignments and acceptance gates.
+
+Topic commits and saved headless/native-hidden rules remain mandatory. /compact cannot be invoked in this interface; this is the explicit handoff from the completed 2849148 feature before the next feature. Native external48, structural source ranges, repository consumed-read/generation, platform/private/distribution, SDK/Event/FIFO and every original migration/UX gate remain open. Plan commit recorded by root after commit; no full completion claim.
+
 ## Captured external structural preview and Generate integrated — 2026-10-13
 
 - Desktop Validate/Generate now await fresh accepted native semantic lint, then structural worker analyzes/generates against that exact validated captured catalog. Main/attached raw equality, returned-only external bytes, no worker fetch or raw-source/attachment mutation; original browser fallback and workspace/source/repository/options/cancel settlement guards preserved.32attachment/2MiBdoc/8MiBraw+parsed limits retained; no new total-external33cap.

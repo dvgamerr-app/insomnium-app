@@ -1,3 +1,16 @@
+## Active parallel assignments — 2026-10-13
+
+Owner requests faster progress through three agents plus root. This table supersedes older assignment tables without removing any migration or UX gate. Fresh isolated worktrees start from current root; previous frozen handoffs stay immutable.
+
+| Owner | Independent work | Acceptance and ownership |
+| --- | --- | --- |
+| native_provider | Reconcile the frozen native external-reference preparation with root 2849148; prepare guarded saved native-hidden adapter and fresh-candidate capture recipe | Preserve all 73 assertions, current f569 sidecar and exact root helper callbacks. No app/profile launch or native build; root exclusively owns these. |
+| event_api | Rebase and verify the exact published-commit Spectral runtime license override against current packaging | Preserve authentic provenance, remaining three MIT and Bun coverage gaps; no producer/backend/UI changes or SDK/provider investigation. |
+| shared_ui | Inventory remaining shared-input/CSS ownership and workflow adoption; propose small independently verifiable UI fixes | Read-only product review first, concrete file-level plan and saved headless scenario mapping; preserve current Insomnium layout and Nocturne decisions. No speculative redesign or native profile use. |
+| root | Review and integrate topic handoffs; fresh native external-reference acceptance; order subsequent structural diagnostic and repository-generation work | Serial source freeze/build/scenario gates, exclusive profile restoration, independent evidence and topic commits. |
+
+Agents report exact paths/hashes, checks, open gates and live handles. No overlapping root edits, dependency changes or native-profile concurrency. Root integrates only verified topics; parallel preparation does not imply feature acceptance. Every browser scenario uses launchUiBrowser headless:true without override; native-owned host hidden before CDP and reported native-hidden. Bun-only JS tooling; Cargo native; no browser-use. After every feature commit, record commit/evidence/remaining gates/live handles in STATUS and provide handoff: this interface cannot invoke /compact. Full migration and authorized shared-input UX/CSS scope remain active.
+
 ## Native external-reference acceptance is next — 2026-10-13
 
 Current captured-source structural join passes root headless48/ref capacity/serialization/schema/build/guards; this does not establish native acceptance of the new parent/worker. Guarded native preparation bf28f0560132930c70966eea65dbaa0d0c8122b169e0f9a6d84ddc2028bd29e7 supplies eight exact test/fixture/helper paths plus report c661cd57,71guards/73assertions preserved, no launch. Merge against current callbacks and actual registered spec identity; inspect exact allowlisted repo directories/files and ownership cleanup, owned3-route loopback requests with byte/revision hashes, and passive original Rust IPC/physical object observations. Capture a fresh app/frontend/worker/exe/permissions/sidecar f569 closure; root exclusively owns profile and saved native-hidden48jobs/7cancels/36HTTPreads/full original buffer/store/cookie/Git/layout restoration. Prior d478 may not launch for this new feature.
