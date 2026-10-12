@@ -1,3 +1,7 @@
+## Proto keyboard cancellation measurement boundary — 2026-10-13
+
+Independent285-file/102-receipt audit reproduces12 focused Cancel removals leaving BODY after Playwright Enter in actual keyed-parent component fixture. Data/persistence/stale owned-read checks pass; product correction awaits isolated preparation/root verification. Native schema replacement/physical OS selection/AT/full GrpcPane and field validation diagnostics remain open. Fresh combined certificate/ea21 native build94563 is LIVE and has no runtime acceptance yet; do not reuse olde567 as current product/resource evidence. Every original migration/UX/platform/private/distribution/fullnotice gate retained.
+
 ## Certificate controlled UI ownership boundary — 2026-10-13
 
 Actual root222 headless cases/compiler/fullshared/build independently verify one owning generic alert and suppression of24 historical stale picker writes after observed-flushed collection/data/resource/component changes. ExactCSS/normalgeometry/realbrowser persistence preserved. This is actual component/workspace evidence with two consumer-only picker aliases; OS dialog/native save/coalesced same-turnABA/AT/platform/fullshell and all original migration/UX/private/distribution/SDK/Event/FIFO/fullnotice gates remain open.

@@ -1,8 +1,14 @@
+## Current parallel work and root integration order — 2026-10-13
+
+Root owns fresh combined release build94563, authoritative terminal/closure audit, then exclusively preserved saved native-hidden certificate scenario. Preserve ea21 notice generation and current source freeze until native topic resolves. native_provider prepares exact-owned dialog cancellation-only saved coverage without launching; shared_ui corrects independently reproduced12 Proto Cancel focus losses with owner-guarded restoration and same102-case scenario; event_api prepares reviewed exact-two r-efi AUTHORS policy and strict old47/57/current58 proof preservation in isolation. No cross-worktree source/profile/cache mutation or native launch by agents.
+
+Root independently reviews/replays/integrates each topic serially and commits verified work by topic. Record commit/evidence/open gates/live handles in STATUS, then /compact when available; this interface requires an explicit compact-unavailable handoff. Browser scenarios use fixed-headless shared helper; owned native window hidden before CDP. Keep all original scope and deferred redesign sequence.
+
 ## Certificate UI checkpoint and fresh native requirements — 2026-10-13
 
 Root ClientCertificates correction now passes compiler0/0/SAME222headless/fullshared/build with exactnormalgeometry/CSS/1016inputs49assets; product lifetime/data/resource/observedcollection ownership and one owning operationfeedback accepted. Generic failures never invalidate certificate data. Same-turn coalescedABA/OSpicker/native save/AT/platform remain required; current compiled e567 cannot accept this product delta. Next prepare a guarded fresh combined app/source/frontend/sidecar/1954notice/ea21private closure and saved native acceptance with exclusive fullprofile restoration; root owns all launches.
 
-Independently review r-efi AUTHO​RS raw-source omissions before small collector policy proposals; retain all old47/closed-three/current58 proofs and fullnotice linkage gates. ProtoManager lane measures actual keyed-parent lifecycle rather than inventing unkeyed behavior. Keep all original scope and perfeature topic commits/STATUS/compact-unavailable handoff.
+Independently review r-efi AUTHORS raw-source omissions before small collector policy proposals; retain all old47/closed-three/current58 proofs and fullnotice linkage gates. ProtoManager lane measures actual keyed-parent lifecycle rather than inventing unkeyed behavior. Keep all original scope and perfeature topic commits/STATUS/compact-unavailable handoff.
 
 ## Actual765 notice checkpoint; certificate UI next — 2026-10-13
 
