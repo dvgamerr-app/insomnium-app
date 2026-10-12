@@ -18,6 +18,7 @@ export function createPluginGuestDom(call,retain,now) {
   const trust=(/** @type {any} */ value)=>Object.defineProperty(value,'isTrusted',{get(){return eventState(this).trusted;},enumerable:true,configurable:false});
   class GuestEvent {
     /** @param {any} type @param {any} [init] */
+    /** @param {any} type @param {any} [init] */
     constructor(type,init={}){
       if(!arguments.length)throw new TypeError('Event type is required');
       if(init!==null&&(typeof init!=='object'&&typeof init!=='function'))throw new TypeError('EventInit must be a dictionary');
@@ -49,6 +50,252 @@ export function createPluginGuestDom(call,retain,now) {
   for(const name of Object.getOwnPropertyNames(GuestEvent.prototype))if(name!=='constructor'){const descriptor=Object.getOwnPropertyDescriptor(GuestEvent.prototype,name);Object.defineProperty(GuestEvent.prototype,name,{...descriptor,enumerable:true});}
   Object.defineProperty(GuestEvent.prototype,Symbol.toStringTag,{value:'Event',configurable:true});
   for(const [name,value] of [['NONE',0],['CAPTURING_PHASE',1],['AT_TARGET',2],['BUBBLING_PHASE',3]])for(const target of [GuestEvent,GuestEvent.prototype])Object.defineProperty(target,name,{value,enumerable:true});
+
+  const guestWindow = Object.create(null);
+  Object.defineProperties(guestWindow, {
+    window: { get: () => guestWindow, enumerable: true },
+    self: { get: () => guestWindow, enumerable: true },
+    document: { get: () => document, enumerable: true },
+    [Symbol.toStringTag]: { value: "Window" },
+  });
+  Object.freeze(guestWindow);
+  // Subclass data remains private; native packets never expose host Window objects.
+  const integer = (/** @type {any} */ value, bits = 32, signed = true) => {
+    const n = +value;
+    if (!Number.isFinite(n) || n === 0) return 0;
+    const modulus = 2 ** bits;
+    let result = ((Math.trunc(n) % modulus) + modulus) % modulus;
+    if (signed && result >= modulus / 2) result -= modulus;
+    return result;
+  };
+  const fields = /** @type {Record<string,Record<string,[string,any]>>} */ ({
+    UIEvent: { detail: ["long", 0], view: ["view", null], which: ["long", 0] },
+    MouseEvent: {
+      screenX: ["long", 0],
+      screenY: ["long", 0],
+      clientX: ["long", 0],
+      clientY: ["long", 0],
+      ctrlKey: ["bool", false],
+      altKey: ["bool", false],
+      shiftKey: ["bool", false],
+      metaKey: ["bool", false],
+      button: ["short", 0],
+      buttons: ["ushort", 0],
+      relatedTarget: ["node", null],
+      movementX: ["long", 0],
+      movementY: ["long", 0],
+    },
+    KeyboardEvent: {
+      key: ["string", ""],
+      code: ["string", ""],
+      location: ["ulong", 0],
+      ctrlKey: ["bool", false],
+      altKey: ["bool", false],
+      shiftKey: ["bool", false],
+      metaKey: ["bool", false],
+      repeat: ["bool", false],
+      isComposing: ["bool", false],
+      charCode: ["ulong", 0],
+      keyCode: ["ulong", 0],
+    },
+    PointerEvent: {
+      pointerId: ["long", 0],
+      width: ["double", 1],
+      height: ["double", 1],
+      pressure: ["float", 0],
+      tangentialPressure: ["float", 0],
+      tiltX: ["long", 0],
+      tiltY: ["long", 0],
+      twist: ["long", 0],
+      pointerType: ["string", ""],
+      isPrimary: ["bool", false],
+    },
+    CustomEvent: { detail: ["any", null] },
+  });
+  const convert = (/** @type {any} */ value, /** @type {string} */ kind) =>
+    kind === "bool"
+      ? !!value
+      : kind === "string"
+        ? domString(value)
+        : kind === "long"
+          ? integer(value)
+          : kind === "ulong"
+            ? integer(value, 32, false)
+            : kind === "short"
+              ? integer(value, 16)
+              : kind === "ushort"
+                ? integer(value, 16, false)
+                : kind === "float"
+                  ? Math.fround(finiteNumber(value))
+                  : kind === "double"
+                    ? finiteNumber(value)
+                    : value;
+  const subclassState = (/** @type {any} */ value, /** @type {string} */ brand) => {
+    const data = eventState(value);
+    if (!data.brands?.includes(brand)) throw new TypeError("Illegal invocation");
+    return data;
+  };
+  const finiteNumber = (/** @type {any} */ value) => {
+    const result = +value;
+    if (!Number.isFinite(result)) throw new TypeError("A finite number is required");
+    return result;
+  };
+  const modifierKeys=['altKey','ctrlKey','metaKey','modifierAltGraph','modifierCapsLock','modifierFn','modifierNumLock','modifierScrollLock','modifierSymbol','shiftKey'];
+  const dictionaryKeys=/** @type {Record<string,string[]>} */ ({UIEvent:['detail','sourceCapabilities','view'],MouseEvent:['button','buttons','clientX','clientY','movementX','movementY','region','relatedTarget','screenX','screenY'],KeyboardEvent:['charCode','code','isComposing','key','keyCode','location','repeat'],PointerEvent:['altitudeAngle','azimuthAngle','coalescedEvents','height','isPrimary','persistentDeviceId','pointerId','pointerType','predictedEvents','pressure','tangentialPressure','tiltX','tiltY','twist','width'],CustomEvent:['detail']});
+  const initialize=(/** @type {any} */ value,/** @type {string} */ kind,/** @type {any} */ init)=>{
+    const data=eventState(value);data.brands??=[];data.brands.push(kind);
+    if(kind==='MouseEvent'||kind==='KeyboardEvent')for(const key of modifierKeys){const supplied=init?.[key];data[key]=!!supplied;}
+    for(const key of dictionaryKeys[kind]){
+      const supplied=init?.[key],field=fields[kind][key];
+      if(field){const [type,fallback]=field;data[key]=convert(supplied===undefined?fallback:supplied,['screenX','screenY','clientX','clientY'].includes(key)?'double':type);}
+      else if(key==='sourceCapabilities'){if(supplied!=null)throw new TypeError('An owned input capability is required');data.sourceCapabilities=null;}
+      else if(key==='region')data.region=supplied==null?null:domString(supplied);
+      else if(key==='altitudeAngle'||key==='azimuthAngle')data[key]=finiteNumber(supplied===undefined?(key==='altitudeAngle'?Math.PI/2:0):supplied);
+      else if(key==='persistentDeviceId')data[key]=integer(supplied??0);
+      else if(key==='coalescedEvents'||key==='predictedEvents'){const samples=supplied===undefined?[]:Array.from(supplied);for(const sample of samples)subclassState(sample,'PointerEvent');data[key]=samples;}
+    }
+    if(kind==='UIEvent'){data.which=0;if(data.view!==null&&data.view!==guestWindow)throw new TypeError('An owned Window view is required');}
+    if(kind==='MouseEvent'&&data.relatedTarget!==null)idOf(data.relatedTarget);
+  };
+  const initializeLegacyEvent=(/** @type {any} */ value,/** @type {any} */ type,/** @type {any} */ bubbles,/** @type {any} */ cancelable)=>{const data=eventState(value);const converted=domString(type);if(data.active)return;data.type=converted;data.bubbles=!!bubbles;data.cancelable=!!cancelable;data.trusted=false;data.prevented=false;data.stopped=false;data.immediate=false;data.target=null;};
+  class GuestUIEvent extends GuestEvent {
+    /** @param {any} type @param {any} [init] */
+    constructor(type, init = {}) {
+      if (!arguments.length) throw new TypeError("Event type is required");
+      super(type, init);
+      initialize(this, "UIEvent", init);
+    }
+    /** @param {any} type @param {any} [view] */
+    initUIEvent(type, bubbles = false, cancelable = false, view = null, detail = 0) {
+      if (!arguments.length) throw new TypeError("Event type is required");
+      const data = subclassState(this,'UIEvent');
+      if (data.active) return;
+      initializeLegacyEvent(this,type,bubbles,cancelable);
+      initialize(this, "UIEvent", { view, detail });
+    }
+  }
+  class GuestMouseEvent extends GuestUIEvent {
+    /** @param {any} type @param {any} [init] */
+    constructor(type, init = {}) {
+      if (!arguments.length) throw new TypeError("Event type is required");
+      super(type, init);
+      initialize(this, "MouseEvent", init);
+      const data = eventState(this);
+      for (const key of ["screenX", "screenY", "clientX", "clientY"])
+        if(!(new.target===GuestPointerEvent||new.target.prototype instanceof GuestPointerEvent))data[key]=integer(Math.floor(data[key]));
+      data.which=data.button+1;if(data.button===-1)data.button=0;
+    }
+    get x() {
+      return subclassState(this, "MouseEvent").clientX;
+    }
+    get y() {
+      return subclassState(this, "MouseEvent").clientY;
+    }
+    get pageX() {
+      const data = subclassState(this, "MouseEvent");
+      return data.pageX ?? data.clientX;
+    }
+    get pageY() {
+      const data = subclassState(this, "MouseEvent");
+      return data.pageY ?? data.clientY;
+    }
+    /** @param {any} key */
+    getModifierState(key) {
+      if (!arguments.length) throw new TypeError("Modifier key is required");
+      const data = subclassState(this, "MouseEvent");
+      return !!data[
+        /** @type {Record<string,string>} */ ({
+          Control: "ctrlKey",
+          Alt: "altKey",AltGraph:'modifierAltGraph',CapsLock:'modifierCapsLock',Fn:'modifierFn',NumLock:'modifierNumLock',ScrollLock:'modifierScrollLock',Symbol:'modifierSymbol',
+          Shift: "shiftKey",
+          Meta: "metaKey",
+        })[domString(key)]
+      ];
+    }
+  }
+  class GuestKeyboardEvent extends GuestUIEvent {
+    /** @param {any} type @param {any} [init] */
+    constructor(type, init = {}) {
+      if (!arguments.length) throw new TypeError("Event type is required");
+      super(type, init);
+      initialize(this, "KeyboardEvent", init);const data=eventState(this);data.which=data.keyCode;
+    }
+    /** @param {any} key */
+    getModifierState(key) {
+      if (!arguments.length) throw new TypeError("Modifier key is required");
+      const data = subclassState(this, "KeyboardEvent");
+      return !!data[
+        /** @type {Record<string,string>} */ ({
+          Control: "ctrlKey",
+          Alt: "altKey",AltGraph:'modifierAltGraph',CapsLock:'modifierCapsLock',Fn:'modifierFn',NumLock:'modifierNumLock',ScrollLock:'modifierScrollLock',Symbol:'modifierSymbol',
+          Shift: "shiftKey",
+          Meta: "metaKey",
+        })[domString(key)] ?? ""
+      ];
+    }
+  }
+  class GuestPointerEvent extends GuestMouseEvent {
+    /** @param {any} type @param {any} [init] */
+    constructor(type, init = {}) {
+      if (!arguments.length) throw new TypeError("Event type is required");
+      super(type, init);
+      initialize(this, "PointerEvent", init);
+
+    }
+  }
+  class GuestCustomEvent extends GuestEvent {
+    /** @param {any} type @param {any} [init] */
+    constructor(type, init = {}) {
+      if (!arguments.length) throw new TypeError("Event type is required");
+      super(type, init);
+      initialize(this, "CustomEvent", init);
+    }
+    /** @param {any} type @param {any} [detail] */
+    initCustomEvent(type, bubbles = false, cancelable = false, detail = null) {
+      if (!arguments.length) throw new TypeError("Event type is required");
+      const data = subclassState(this,'CustomEvent');
+      if (data.active) return;
+      initializeLegacyEvent(this,type,bubbles,cancelable);
+      data.detail = detail;
+    }
+  }
+  const eventClasses = /** @type {Record<string,any>} */ ({
+    Event: GuestEvent,
+    UIEvent: GuestUIEvent,
+    MouseEvent: GuestMouseEvent,
+    KeyboardEvent: GuestKeyboardEvent,
+    PointerEvent: GuestPointerEvent,
+    CustomEvent: GuestCustomEvent,
+  });
+  for (const [name, ctor] of Object.entries(eventClasses)) {
+    if (name === "Event") continue;
+    Object.defineProperty(ctor, "name", { value: name });
+    Object.defineProperty(ctor, "length", { value: 1 });
+    Object.defineProperty(ctor.prototype, Symbol.toStringTag, { value: name, configurable: true });
+    for (const key of Object.keys(fields[name]))
+      Object.defineProperty(ctor.prototype, key, {
+        get() {
+          const data = eventState(this);
+          if (!data.brands?.includes(name)) throw new TypeError("Illegal invocation");
+          return data[key];
+        },
+        enumerable: true,
+        configurable: true,
+      });
+    for (const key of Object.getOwnPropertyNames(ctor.prototype)) {
+      if (key === "constructor") continue;
+      const descriptor = Object.getOwnPropertyDescriptor(ctor.prototype, key);
+      Object.defineProperty(ctor.prototype, key, { ...descriptor, enumerable: true });
+    }
+  }
+  for (const [name, value] of [
+    ["DOM_KEY_LOCATION_STANDARD", 0],
+    ["DOM_KEY_LOCATION_LEFT", 1],
+    ["DOM_KEY_LOCATION_RIGHT", 2],
+    ["DOM_KEY_LOCATION_NUMPAD", 3],
+  ])
+    for (const target of [GuestKeyboardEvent, GuestKeyboardEvent.prototype])
+      Object.defineProperty(target, name, { value, enumerable: true });
   const nativeEvents=new Map(),EventWeakRef=WeakRef;
   const dereference=Function.call.bind(WeakRef.prototype.deref);
   const eventFinalizer=new FinalizationRegistry(({id,reference})=>{
@@ -59,13 +306,13 @@ export function createPluginGuestDom(call,retain,now) {
     const reference=nativeEvents.get(packet.eventId);
     let value=reference&&dereference(reference);
     if(!value){
-      value=Object.create(GuestEvent.prototype);trust(value);
+      value=Object.create((eventClasses[packet.interface]||GuestEvent).prototype);trust(value);
       const reference=new EventWeakRef(value);nativeEvents.set(packet.eventId,reference);
       registerEvent(value,{id:packet.eventId,reference});
       eventData.set(value,{});
     }
     Object.assign(eventState(value),{type:packet.type,bubbles:packet.bubbles,cancelable:packet.cancelable,composed:!!packet.composed,timeStamp:packet.timeStamp,trusted:!!packet.isTrusted,target:wrap(packet.target),currentTarget:wrap(packet.currentTarget),phase:packet.eventPhase,prevented:packet.defaultPrevented,stopped:!!packet.cancelBubble,immediate:false,active:true,passive:!!packet.passive,path:(packet.path||[]).map(wrap),id:packet.eventId});
-    for(const key of ['key','code','ctrlKey','altKey','metaKey','shiftKey'])if(key in packet)Object.defineProperty(value,key,{value:packet[key],enumerable:true,configurable:true});
+    const data=eventState(value);data.brands=[];for(const name of ['UIEvent','MouseEvent','KeyboardEvent','PointerEvent','CustomEvent'])if(value instanceof eventClasses[name])initialize(value,name,{...packet,view:packet.ownedView?guestWindow:null,relatedTarget:packet.relatedTarget?wrap(packet.relatedTarget):null});if('which' in packet)data.which=packet.which;if(value instanceof GuestPointerEvent)for(const key of ['screenX','screenY','clientX','clientY'])if(key in packet)data[key]=packet[key];if(value instanceof GuestMouseEvent)for(const key of ['pageX','pageY'])if(key in packet)data[key]=packet[key];
     return value;
   };
   const collectionData=new WeakMap(),liveCollections=new WeakMap(),datasetData=new WeakMap(),datasetObjects=new WeakMap(),elements=new WeakSet();
@@ -339,7 +586,7 @@ export function createPluginGuestDom(call,retain,now) {
     for(const [key,descriptor] of definitions)if(!defineOwned(target,key,descriptor,true))throw new TypeError('Cannot define property');
     return target;
   }}).defineProperties});
-  return Object.freeze({document,Event:GuestEvent,Node:GuestNode,HTMLElement:GuestElement,NodeList:GuestNodeList,HTMLCollection:GuestHTMLCollection,DOMTokenList:GuestDOMTokenList,DOMStringMap:GuestDOMStringMap,DOMException,beginEventCheckpoint,finishEventCheckpoint,
+  return Object.freeze({document,window:guestWindow,self:guestWindow,...eventClasses,Node:GuestNode,HTMLElement:GuestElement,NodeList:GuestNodeList,HTMLCollection:GuestHTMLCollection,DOMTokenList:GuestDOMTokenList,DOMStringMap:GuestDOMStringMap,DOMException,beginEventCheckpoint,finishEventCheckpoint,
     /** @param {()=>boolean} current */app(current){return Object.freeze({
       /** @param {string} title @param {any} body @param {any} [options] */
       dialog(title,body,options={}) {

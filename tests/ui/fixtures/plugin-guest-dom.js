@@ -1,3 +1,4 @@
+import {exerciseEventSubclasses,observeNativeSubclass} from '../helpers/plugin-dom-event-subclass-cases.js';
 import {mount,tick} from "svelte";
 import {openPluginSession} from "../../../src/lib/plugin-session.js";
 import {createPluginDomBridge} from "../../../src/lib/plugin-dom-bridge.js";
@@ -14,6 +15,7 @@ const target=document.body.appendChild(document.createElement("div"));mount(Plug
 const source=`let snapshot={hides:0};
 let checkpointState;
 let retainedState;
+const initializedSubclasses=(${exerciseEventSubclasses.toString()})(globalThis);
 const initializedSurface=(${exerciseEventSurface.toString()})(Event);
 const initializedEvent=new Event('module-load',{cancelable:true});
 initializedEvent.preventDefault();
@@ -109,7 +111,7 @@ for(const fn of [()=>document.createElement('script'),()=>new HTMLElement(),()=>
 }}, {name:'listenerlifecycle',run(c,mode){
  const body=document.createElement('div'),box=document.createElement('input'),sibling=document.createElement('input'),status=document.createElement('span');box.type='checkbox';sibling.type='checkbox';box.setAttribute('aria-label','Guest lifecycle checkbox');sibling.setAttribute('aria-label','Guest lifecycle sibling');status.setAttribute('role','status');body.appendChild(box);body.appendChild(sibling);body.appendChild(status);
  (${installListenerLifecycle.toString()})(body,box,sibling,status,mode,mode==='self-host-wait'?()=>c.app.prompt('Held Event host provider'):undefined);c.app.dialog('Listener lifecycle dialog',body);return 'prepared';
-}}];`;
+}}, {name:'eventsubclasses',run(c,mode){if(mode==='initialized')return initializedSubclasses;if(mode==='surface')return (${exerciseEventSubclasses.toString()})(globalThis);const body=document.createElement('div'),input=document.createElement('input'),status=document.createElement('span');input.setAttribute('aria-label','Guest subclass input');status.setAttribute('role','status');body.appendChild(input);body.appendChild(status);const rows=[];for(const type of ['click','keydown','keyup'])input.addEventListener(type,event=>{rows.push((${observeNativeSubclass.toString()})(event,globalThis));status.textContent=JSON.stringify(rows);});c.app.dialog('Event subclass dialog',body);return 'prepared';}}];`;
 /** @type {Awaited<ReturnType<typeof openPluginSession>>|undefined} */let session;
 const controller=new AbortController(),errors=/** @type {string[]} */([]),records=/** @type {{terminated:boolean}[]} */([]);
 const bridges=/** @type {ReturnType<typeof createPluginDomBridge>[]} */([]);
@@ -155,6 +157,7 @@ function operation(label,purpose="send") {
   nestedForeignGuards(){return nestedForeignGuards;},
   eventNesting(/** @type {boolean} */ afterWait=false,/** @type {boolean} */ duringInvoke=false){return session?.invoke('templateTags',18,[afterWait,duringInvoke],operation(afterWait?'event-host-wait':'event-nesting'));},
   eventNestingGuard(/** @type {string} */ kind){return session?.invoke('templateTags',19,[kind],operation('event-nesting-guard'));},
+  eventSubclasses(/** @type {string} */ mode){return session?.invoke('templateTags',21,[mode],operation('event-subclasses'));},
   listenerLifecycle(/** @type {string} */ mode){return session?.invoke('templateTags',20,[mode],operation(mode==='self-host-wait'?'event-host-wait':'listener-lifecycle'));},
   staleLifecycleCallback(/** @type {string} */ mode){const rows=retainedCallbacks.filter(row=>row.label===(mode==='self-host-wait'?'event-host-wait':'listener-lifecycle')),callback=rows[mode==='remove-peer'?1:0]?.callback;if(!callback?.invokeEvent)throw Error('Missing lifecycle callback');try{callback.invokeEvent([]);return 'leaked';}catch(error){return String(error);}},
   clipboardProvider(/** @type {{read:string,write:string,clear:string}} */ urls){eventClipboard={...urls};},
