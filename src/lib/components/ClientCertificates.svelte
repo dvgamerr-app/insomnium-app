@@ -1,4 +1,5 @@
 <script>
+  import { onDestroy, untrack } from "svelte";
   import Button from "./ui/Button.svelte";
   import Checkbox from "./ui/Checkbox.svelte";
   import Field from "./ui/Field.svelte";
@@ -12,11 +13,30 @@
     addCaCertificate,
     editResource,
     remove,
+    createWorkspaceWorkScope,
   } from "../workspace.svelte.js";
 
   /** @type {{collectionId:string,collectionName:string}} */
   let { collectionId, collectionName } = $props();
   const native = isTauri();
+  const pickerWork = createWorkspaceWorkScope();
+  let alive = true;
+  let ownerGeneration = $state(0);
+  $effect(() => {
+    workspace.data;
+    workspace.data.activeWorkspaceId;
+    collectionId;
+    untrack(() => {
+      ownerGeneration++;
+      failure = null;
+      pickerWork.cancel();
+    });
+  });
+  onDestroy(() => {
+    alive = false;
+    ownerGeneration++;
+    pickerWork.dispose();
+  });
   const fileFields = [
     {
       key: "cert",
@@ -51,7 +71,25 @@
         resource.parentId === collectionId,
     ),
   );
-  let error = $state("");
+  /** @type {{data:typeof workspace.data,collection:string,generation:number,resource:Record<string,any>,resourceId:string,modified:any,surface:string,message:string}|null} */
+  let failure = $state.raw(null);
+  const error = $derived.by(() => {
+    if (
+      !failure ||
+      failure.data !== workspace.data ||
+      failure.collection !== collectionId ||
+      failure.generation !== ownerGeneration
+    )
+      return null;
+    const resource = workspace.data.resources.find(
+      (r) => r._id === failure?.resourceId,
+    );
+    return resource === failure.resource &&
+      resource?.parentId === collectionId &&
+      resource.modified === failure.modified
+      ? failure
+      : null;
+  });
   const certificates = $derived(
     workspace.data.resources.filter(
       (resource) =>
@@ -65,12 +103,34 @@
   }
   /** @param {Record<string,any>} certificate @param {typeof fileFields[number]} field */
   async function chooseFile(certificate, field) {
-    if (picking || !native) return;
+    if (picking || !native || workspace.data.activeWorkspaceId !== collectionId)
+      return;
     const originalCollection = collectionId;
+    const originalData = workspace.data;
+    const generation = ownerGeneration;
     const modified = certificate.modified;
+    /** @type {import("../workspace.svelte.js").ScopedWorkspaceWork|undefined} */
+    let work;
+    const isCurrent = () => {
+      const resource = workspace.data.resources.find(
+        (r) => r._id === certificate._id,
+      );
+      return (
+        alive &&
+        (!work || work.current()) &&
+        ownerGeneration === generation &&
+        workspace.data === originalData &&
+        workspace.data.activeWorkspaceId === originalCollection &&
+        collectionId === originalCollection &&
+        resource === certificate &&
+        resource.parentId === originalCollection &&
+        resource.modified === modified
+      );
+    };
     picking = true;
-    error = "";
+    failure = null;
     try {
+      work = pickerWork.begin();
       const path = await open({
         directory: false,
         multiple: false,
@@ -83,6 +143,7 @@
       );
       if (
         typeof path === "string" &&
+        isCurrent() &&
         current &&
         current.modified === modified &&
         collectionId === originalCollection &&
@@ -91,8 +152,19 @@
         change(current, field.key, path);
       }
     } catch (cause) {
-      error = String(cause);
+      if (isCurrent())
+        failure = {
+          data: originalData,
+          collection: originalCollection,
+          generation,
+          resourceId: certificate._id,
+          resource: certificate,
+          modified,
+          surface: certificate._type,
+          message: String(cause),
+        };
     } finally {
+      work?.finish();
       picking = false;
     }
   }
@@ -145,7 +217,9 @@
       >Remove CA certificate</Button
     >
   {/each}
-  {#if error}<Feedback as="p" role="alert">{error}</Feedback>{/if}
+  {#if error?.surface === "ca_certificate"}<Feedback as="p" role="alert"
+      >{error.message}</Feedback
+    >{/if}
 </section>
 
 <section class="settings-section" aria-label="Collection client certificates">
@@ -157,7 +231,9 @@
   <Button onclick={() => addClientCertificate(collectionId)}
     >Add client certificate</Button
   >
-  {#if error}<Feedback as="p" role="alert">{error}</Feedback>{/if}
+  {#if error?.surface === "client_certificate"}<Feedback as="p" role="alert"
+      >{error.message}</Feedback
+    >{/if}
   {#each certificates as certificate (certificate._id)}
     <section
       class="settings-section"

@@ -7,7 +7,7 @@ import { collectionClientCertificate } from "./helpers/collection-client-certifi
 import { runCertificateComponent } from "./helpers/certificate-component.js";
 
 if (process.argv.includes("--certificate-component")) {
-  await runCertificateComponent();
+  await runCertificateComponent({ corrected: process.argv.includes("--certificate-corrected") });
   process.exit(0);
 }
 
