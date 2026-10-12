@@ -8,8 +8,10 @@ import { assertKeyValueHelp } from "./helpers/key-value-help.js";
 import assert from "node:assert/strict";
 import { withComponentFixture } from "./helpers/component-fixture.js";
 import { assertDialogTokens } from "./helpers/dialog-theme.js";
+import { assertFieldSelectNames } from "./helpers/field-select-names.js";
 
 await withComponentFixture("design-system", async (page, output) => {
+  await assertFieldSelectNames(page,output);
   const childRows = [];
   const child = page.getByRole("button", {
     name: "Owned button text",

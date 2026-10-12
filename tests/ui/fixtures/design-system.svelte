@@ -12,6 +12,39 @@
   import TabPanel from "../../../src/lib/components/ui/TabPanel.svelte";
   import Textarea from "../../../src/lib/components/ui/Textarea.svelte";
   import KeyValueEditor from "../../../src/lib/components/KeyValueEditor.svelte";
+  import ResourceManager from "../../../src/lib/components/ResourceManager.svelte";
+  import AsapEditor from "../../../src/lib/components/AsapEditor.svelte";
+  let selectionFeedback = $state(false);
+  let selectionExtra = $state(false);
+  let selectionValue = $state("first");
+  let selectionParent = $state("");
+  let selectionAuth = $state({ claimsMode: "postman", algorithm: "RS256" });
+  const selectionResource = {
+    _id: "fld_selection",
+    _type: "request_group",
+    parentId: "wrk_selection",
+    name: "Owned selection folder",
+    environment: {},
+  };
+  const selectionResources = $derived([
+    selectionResource,
+    {
+      _id: "wrk_selection",
+      _type: "workspace",
+      name: "Source collection",
+      parentId: null,
+    },
+    ...(selectionExtra
+      ? [
+          {
+            _id: "wrk_other",
+            _type: "workspace",
+            name: "Other collection",
+            parentId: null,
+          },
+        ]
+      : []),
+  ]);
   let descriptionState = $state(0);
   let childBusy = $state(false);
   let childClicks = $state(0);
@@ -492,6 +525,56 @@
   <section aria-label="Filled foreground contract">
     <span class="large-brand">I</span><span class="status-badge">200 OK</span
     ><span class="status-badge failure">500 Error</span>
+  </section>
+  <section aria-label="Composed select names">
+    <Button
+      onclick={() => {
+        selectionExtra = !selectionExtra;
+        selectionFeedback = !selectionFeedback;
+      }}>Cycle composed selection</Button
+    >
+    <div role="region" aria-label="Named select comparison">
+      <Field
+        label="Stable destination"
+        description={selectionFeedback ? "Selection help" : ""}
+        error={selectionFeedback ? "Selection error" : ""}
+      >
+        <Select bind:value={selectionValue}
+          ><option value="first">First choice</option><option value="second"
+            >Second choice</option
+          >{#if selectionExtra}<option value="extra">Extra choice</option
+            >{/if}</Select
+        >
+      </Field>
+      <output aria-label="Named selection value">{selectionValue}</output>
+    </div>
+    <div role="region" aria-label="Resource selection consumer">
+      <ResourceManager
+        resource={selectionResource}
+        resources={selectionResources}
+        onsave={(_patch, parentId) => {
+          selectionParent = parentId;
+        }}
+        onduplicate={() => {}}
+        ondelete={() => {}}
+        onreorder={() => {}}
+        onrequest={() => {}}
+        onfolder={() => {}}
+        onclose={() => {}}
+      />
+      <output aria-label="Resource selected parent">{selectionParent}</output>
+    </div>
+    <div role="region" aria-label="ASAP selection consumer">
+      <AsapEditor
+        authentication={selectionAuth}
+        onchange={(patch) => {
+          selectionAuth = { ...selectionAuth, ...patch };
+        }}
+      />
+      <output aria-label="ASAP selected algorithm"
+        >{selectionAuth.algorithm}</output
+      >
+    </div>
   </section>
 </main>
 
