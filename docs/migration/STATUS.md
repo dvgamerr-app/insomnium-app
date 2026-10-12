@@ -1,3 +1,8 @@
+## Read-only Bun runtime notice coverage — 2026-10-13
+
+- Report topic commit3c0cd5d (verified local Git output before handoff) documents Bun1.4.2 exact744846f8 release/source inputs,21dependency revisions plus Windowslibuv1.51.1, SQLite3.53.2, WebKit2e2aa/ICU78.3 and conditional defaults. Authentic libuv/uSockets-uWS/JSC/ICU text hashes are future additions only, not product/source changes or binary/compliance proof. Full linked/per-file/Rust/polyfill/data coverage remains incomplete.
+- Evidence artifacts/bun-notice-coverage-audit; guarded report proof artifacts/bun-notice-coverage-proof. Original406 proof independently rehashed unchanged. No producer/backend/UI/scripts/locks/dependencies/SDK/provider changes or builds/apps/profile/native launches; all own handles terminal. Root owns review/integration and native profile.
+- Exact compiler/embedded-runtime release identity, CI variant/object/link receipts and redistribution/full text coverage remain open, along with original migration gates. /compact unavailable; explicit read-only handoff. Local report commit hash is finalized in the committed entry.
 ## Isolated runtime-license reconciliation — 2026-10-13
 
 - Verified topic commit03ce4da on agent/runtime-license-20261013, fresh b95c089 worktree. Six paths: exact published-commit repository license recovery plus three narrowly scoped raw-byte attributes; no producer/backend/UI/SDK/provider/native changes. Original399-file proof rehashed unchanged. Authentic source/package/lock provenance, three unresolved MIT texts and incomplete Bun coverage preserved; no completeness blocker/compliance claim.
@@ -7092,4 +7097,6 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - Boolean native3.2.1 first63706 terminal1, artifact1791587673246/native55472 exited0/native-hidden/visible:false. Actual worker generated34requests; first Collections exact button name selector failed before any send. Failure screenshot retained. Saved scenario now selects the exact rendered request-name child in button.tree-request and records ARIA/generated persistence snapshots; compiler0/0. App465 hashes remain identical to successful build49406; acceptance freeze records the one changed scenario hash separately, preserving original build freeze. Native acceptance not claimed.
 
 - Read-only fresh build14976 is now live: start1791590079335/native59960/nativeStart1791590083688/fixtureHash14354716479451147127. Frontend build succeeded with existing chunk advisory; Rust compilinginsomnium with existing5eventsource-stream warnings. Poll same handle; no source/scenario edits and no native scenario started yet. FixtureHash identifies only injected fixture, not full application source.
+
+
 
