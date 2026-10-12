@@ -1,3 +1,7 @@
+## Certificate controlled UI ownership boundary — 2026-10-13
+
+Actual root222 headless cases/compiler/fullshared/build independently verify one owning generic alert and suppression of24 historical stale picker writes after observed-flushed collection/data/resource/component changes. ExactCSS/normalgeometry/realbrowser persistence preserved. This is actual component/workspace evidence with two consumer-only picker aliases; OS dialog/native save/coalesced same-turnABA/AT/platform/fullshell and all original migration/UX/private/distribution/SDK/Event/FIFO/fullnotice gates remain open.
+
 ## Recovered notice availability verified in actual root generation — 2026-10-13
 
 Actual hook/current58/bundle/compiler and independent raw765archive audit verify exact recovered-three promotion,1336registry/1341total origins/422texts and0cachemiss. Current admissionea21bd83 replaces700b intentionally; oldproof retained. Registry43/local2 discovery gaps remain, coverage incomplete/target linkage unproven. New generated resources/frontend are archived but no new native emitted-resource/installed/signed/platform/fullnotice/fullmigration claim is made. All original migration/UX/SDK/Event/FIFO/private/distribution scope remains open.

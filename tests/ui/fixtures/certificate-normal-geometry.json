@@ -1,0 +1,5306 @@
+[
+  {
+    "theme": "dark",
+    "width": 1440,
+    "geometry": {
+      "alerts": [],
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "text": "Switch owned collection",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 16,
+            "width": 157.65625,
+            "height": 34,
+            "top": 16,
+            "right": 443.65625,
+            "bottom": 50,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Close owned certificate editor",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 443.65625,
+            "y": 16,
+            "width": 188.765625,
+            "height": 34,
+            "top": 16,
+            "right": 632.421875,
+            "bottom": 50,
+            "left": 443.65625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Add CA certificate",
+          "id": "",
+          "label": null,
+          "disabled": true,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 131.515625,
+            "width": 124.71875,
+            "height": 34,
+            "top": 131.515625,
+            "right": 410.71875,
+            "bottom": 165.515625,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "CA certificate file (PEM)",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 165.515625,
+            "width": 868,
+            "height": 18,
+            "top": 165.515625,
+            "right": 1154,
+            "bottom": 183.515625,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(163, 163, 163)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(163, 163, 163)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c11",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 190.515625,
+            "width": 794.625,
+            "height": 34.796875,
+            "top": 190.515625,
+            "right": 1080.625,
+            "bottom": 225.3125,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Browse",
+          "id": "",
+          "label": "Choose CA certificate file (PEM)",
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 1088.625,
+            "y": 190.515625,
+            "width": 65.375,
+            "height": 34.796875,
+            "top": 190.515625,
+            "right": 1154,
+            "bottom": 225.3125,
+            "left": 1088.625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Enable CA certificate",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 225.3125,
+            "width": 112.421875,
+            "height": 18,
+            "top": 225.3125,
+            "right": 398.421875,
+            "bottom": 243.3125,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(163, 163, 163)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(163, 163, 163)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c12",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 408.421875,
+            "y": 227.8125,
+            "width": 13,
+            "height": 13,
+            "top": 227.8125,
+            "right": 421.421875,
+            "bottom": 240.8125,
+            "left": 408.421875
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(250, 250, 250)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Private CA certificate",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 243.3125,
+            "width": 113.59375,
+            "height": 18,
+            "top": 243.3125,
+            "right": 399.59375,
+            "bottom": 261.3125,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(163, 163, 163)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(163, 163, 163)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c13",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 409.59375,
+            "y": 245.8125,
+            "width": 13,
+            "height": 13,
+            "top": 245.8125,
+            "right": 422.59375,
+            "bottom": 258.8125,
+            "left": 409.59375
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(250, 250, 250)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Remove CA certificate",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 261.3125,
+            "width": 145.90625,
+            "height": 34,
+            "top": 261.3125,
+            "right": 431.90625,
+            "bottom": 295.3125,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Add client certificate",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 376.828125,
+            "width": 138.84375,
+            "height": 34,
+            "top": 376.828125,
+            "right": 424.84375,
+            "bottom": 410.828125,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Host and port",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 410.828125,
+            "width": 868,
+            "height": 18,
+            "top": 410.828125,
+            "right": 1154,
+            "bottom": 428.828125,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(163, 163, 163)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(163, 163, 163)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c14",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": "c14-description",
+          "rect": {
+            "x": 286,
+            "y": 435.828125,
+            "width": 868,
+            "height": 34.796875,
+            "top": 435.828125,
+            "right": 1154,
+            "bottom": 470.625,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Enabled",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 495.625,
+            "width": 43.453125,
+            "height": 18,
+            "top": 495.625,
+            "right": 329.453125,
+            "bottom": 513.625,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(163, 163, 163)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(163, 163, 163)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c15",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 339.453125,
+            "y": 498.125,
+            "width": 13,
+            "height": 13,
+            "top": 498.125,
+            "right": 352.453125,
+            "bottom": 511.125,
+            "left": 339.453125
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(250, 250, 250)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Certificate file (PEM)",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 513.625,
+            "width": 868,
+            "height": 18,
+            "top": 513.625,
+            "right": 1154,
+            "bottom": 531.625,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(163, 163, 163)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(163, 163, 163)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c16",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 538.625,
+            "width": 794.625,
+            "height": 34.796875,
+            "top": 538.625,
+            "right": 1080.625,
+            "bottom": 573.421875,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Browse",
+          "id": "",
+          "label": "Choose Certificate file (PEM)",
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 1088.625,
+            "y": 538.625,
+            "width": 65.375,
+            "height": 34.796875,
+            "top": 538.625,
+            "right": 1154,
+            "bottom": 573.421875,
+            "left": 1088.625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(38, 38, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Private key file (PEM)",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 573.421875,
+            "width": 868,
+            "height": 18,
+            "top": 573.421875,
+            "right": 1154,
+            "bottom": 591.421875,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(163, 163, 163)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(163, 163, 163)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c17",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 598.421875,
+            "width": 794.625,
+            "height": 34.796875,
+            "top": 598.421875,
+            "right": 1080.625,
+            "bottom": 633.21875,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Browse",
+          "id": "",
+          "label": "Choose Private key file (PEM)",
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 1088.625,
+            "y": 598.421875,
+            "width": 65.375,
+            "height": 34.796875,
+            "top": 598.421875,
+            "right": 1154,
+            "bottom": 633.21875,
+            "left": 1088.625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Certificate file (PFX/P12)",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 633.21875,
+            "width": 868,
+            "height": 18,
+            "top": 633.21875,
+            "right": 1154,
+            "bottom": 651.21875,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(163, 163, 163)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(163, 163, 163)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c18",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": "c18-description",
+          "rect": {
+            "x": 286,
+            "y": 658.21875,
+            "width": 794.625,
+            "height": 34.796875,
+            "top": 658.21875,
+            "right": 1080.625,
+            "bottom": 693.015625,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Browse",
+          "id": "",
+          "label": "Choose Certificate file (PFX/P12)",
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 1088.625,
+            "y": 658.21875,
+            "width": 65.375,
+            "height": 34.796875,
+            "top": 658.21875,
+            "right": 1154,
+            "bottom": 693.015625,
+            "left": 1088.625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Certificate passphrase",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 718.015625,
+            "width": 868,
+            "height": 18,
+            "top": 718.015625,
+            "right": 1154,
+            "bottom": 736.015625,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(163, 163, 163)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(163, 163, 163)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c19",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 743.015625,
+            "width": 868,
+            "height": 34.796875,
+            "top": 743.015625,
+            "right": 1154,
+            "bottom": 777.8125,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Private",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 777.8125,
+            "width": 37.390625,
+            "height": 18,
+            "top": 777.8125,
+            "right": 323.390625,
+            "bottom": 795.8125,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(163, 163, 163)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(163, 163, 163)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c20",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 333.390625,
+            "y": 780.3125,
+            "width": 13,
+            "height": 13,
+            "top": 780.3125,
+            "right": 346.390625,
+            "bottom": 793.3125,
+            "left": 333.390625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(250, 250, 250)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Remove client certificate",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 795.8125,
+            "width": 160.015625,
+            "height": 34,
+            "top": 795.8125,
+            "right": 446.015625,
+            "bottom": 829.8125,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        }
+      ],
+      "active": {
+        "tag": "BUTTON",
+        "id": "",
+        "text": "Browse"
+      }
+    }
+  },
+  {
+    "theme": "dark",
+    "width": 900,
+    "geometry": {
+      "alerts": [],
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "text": "Switch owned collection",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 16,
+            "width": 157.65625,
+            "height": 34,
+            "top": 16,
+            "right": 173.65625,
+            "bottom": 50,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Close owned certificate editor",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 173.65625,
+            "y": 16,
+            "width": 188.765625,
+            "height": 34,
+            "top": 16,
+            "right": 362.421875,
+            "bottom": 50,
+            "left": 173.65625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Add CA certificate",
+          "id": "",
+          "label": null,
+          "disabled": true,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 131.515625,
+            "width": 124.71875,
+            "height": 34,
+            "top": 131.515625,
+            "right": 140.71875,
+            "bottom": 165.515625,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "CA certificate file (PEM)",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 165.515625,
+            "width": 868,
+            "height": 18,
+            "top": 165.515625,
+            "right": 884,
+            "bottom": 183.515625,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(163, 163, 163)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(163, 163, 163)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c401",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 190.515625,
+            "width": 794.625,
+            "height": 34.796875,
+            "top": 190.515625,
+            "right": 810.625,
+            "bottom": 225.3125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Browse",
+          "id": "",
+          "label": "Choose CA certificate file (PEM)",
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 818.625,
+            "y": 190.515625,
+            "width": 65.375,
+            "height": 34.796875,
+            "top": 190.515625,
+            "right": 884,
+            "bottom": 225.3125,
+            "left": 818.625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Enable CA certificate",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 225.3125,
+            "width": 112.421875,
+            "height": 18,
+            "top": 225.3125,
+            "right": 128.421875,
+            "bottom": 243.3125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(163, 163, 163)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(163, 163, 163)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c402",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 138.421875,
+            "y": 227.8125,
+            "width": 13,
+            "height": 13,
+            "top": 227.8125,
+            "right": 151.421875,
+            "bottom": 240.8125,
+            "left": 138.421875
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(250, 250, 250)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Private CA certificate",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 243.3125,
+            "width": 113.59375,
+            "height": 18,
+            "top": 243.3125,
+            "right": 129.59375,
+            "bottom": 261.3125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(163, 163, 163)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(163, 163, 163)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c403",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 139.59375,
+            "y": 245.8125,
+            "width": 13,
+            "height": 13,
+            "top": 245.8125,
+            "right": 152.59375,
+            "bottom": 258.8125,
+            "left": 139.59375
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(250, 250, 250)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Remove CA certificate",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 261.3125,
+            "width": 145.90625,
+            "height": 34,
+            "top": 261.3125,
+            "right": 161.90625,
+            "bottom": 295.3125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Add client certificate",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 376.828125,
+            "width": 138.84375,
+            "height": 34,
+            "top": 376.828125,
+            "right": 154.84375,
+            "bottom": 410.828125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Host and port",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 410.828125,
+            "width": 868,
+            "height": 18,
+            "top": 410.828125,
+            "right": 884,
+            "bottom": 428.828125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(163, 163, 163)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(163, 163, 163)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c404",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": "c404-description",
+          "rect": {
+            "x": 16,
+            "y": 435.828125,
+            "width": 868,
+            "height": 34.796875,
+            "top": 435.828125,
+            "right": 884,
+            "bottom": 470.625,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Enabled",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 495.625,
+            "width": 43.453125,
+            "height": 18,
+            "top": 495.625,
+            "right": 59.453125,
+            "bottom": 513.625,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(163, 163, 163)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(163, 163, 163)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c405",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 69.453125,
+            "y": 498.125,
+            "width": 13,
+            "height": 13,
+            "top": 498.125,
+            "right": 82.453125,
+            "bottom": 511.125,
+            "left": 69.453125
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(250, 250, 250)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Certificate file (PEM)",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 513.625,
+            "width": 868,
+            "height": 18,
+            "top": 513.625,
+            "right": 884,
+            "bottom": 531.625,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(163, 163, 163)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(163, 163, 163)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c406",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 538.625,
+            "width": 794.625,
+            "height": 34.796875,
+            "top": 538.625,
+            "right": 810.625,
+            "bottom": 573.421875,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Browse",
+          "id": "",
+          "label": "Choose Certificate file (PEM)",
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 818.625,
+            "y": 538.625,
+            "width": 65.375,
+            "height": 34.796875,
+            "top": 538.625,
+            "right": 884,
+            "bottom": 573.421875,
+            "left": 818.625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(38, 38, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Private key file (PEM)",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 573.421875,
+            "width": 868,
+            "height": 18,
+            "top": 573.421875,
+            "right": 884,
+            "bottom": 591.421875,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(163, 163, 163)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(163, 163, 163)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c407",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 598.421875,
+            "width": 794.625,
+            "height": 34.796875,
+            "top": 598.421875,
+            "right": 810.625,
+            "bottom": 633.21875,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Browse",
+          "id": "",
+          "label": "Choose Private key file (PEM)",
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 818.625,
+            "y": 598.421875,
+            "width": 65.375,
+            "height": 34.796875,
+            "top": 598.421875,
+            "right": 884,
+            "bottom": 633.21875,
+            "left": 818.625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Certificate file (PFX/P12)",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 633.21875,
+            "width": 868,
+            "height": 18,
+            "top": 633.21875,
+            "right": 884,
+            "bottom": 651.21875,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(163, 163, 163)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(163, 163, 163)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c408",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": "c408-description",
+          "rect": {
+            "x": 16,
+            "y": 658.21875,
+            "width": 794.625,
+            "height": 34.796875,
+            "top": 658.21875,
+            "right": 810.625,
+            "bottom": 693.015625,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Browse",
+          "id": "",
+          "label": "Choose Certificate file (PFX/P12)",
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 818.625,
+            "y": 658.21875,
+            "width": 65.375,
+            "height": 34.796875,
+            "top": 658.21875,
+            "right": 884,
+            "bottom": 693.015625,
+            "left": 818.625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Certificate passphrase",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 718.015625,
+            "width": 868,
+            "height": 18,
+            "top": 718.015625,
+            "right": 884,
+            "bottom": 736.015625,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(163, 163, 163)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(163, 163, 163)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c409",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 743.015625,
+            "width": 868,
+            "height": 34.796875,
+            "top": 743.015625,
+            "right": 884,
+            "bottom": 777.8125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Private",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 777.8125,
+            "width": 37.390625,
+            "height": 18,
+            "top": 777.8125,
+            "right": 53.390625,
+            "bottom": 795.8125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(163, 163, 163)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(163, 163, 163)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c410",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 63.390625,
+            "y": 780.3125,
+            "width": 13,
+            "height": 13,
+            "top": 780.3125,
+            "right": 76.390625,
+            "bottom": 793.3125,
+            "left": 63.390625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(250, 250, 250)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Remove client certificate",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 795.8125,
+            "width": 160.015625,
+            "height": 34,
+            "top": 795.8125,
+            "right": 176.015625,
+            "bottom": 829.8125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        }
+      ],
+      "active": {
+        "tag": "BUTTON",
+        "id": "",
+        "text": "Browse"
+      }
+    }
+  },
+  {
+    "theme": "dark",
+    "width": 760,
+    "geometry": {
+      "alerts": [],
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "text": "Switch owned collection",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 16,
+            "width": 157.65625,
+            "height": 34,
+            "top": 16,
+            "right": 173.65625,
+            "bottom": 50,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Close owned certificate editor",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 173.65625,
+            "y": 16,
+            "width": 188.765625,
+            "height": 34,
+            "top": 16,
+            "right": 362.421875,
+            "bottom": 50,
+            "left": 173.65625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Add CA certificate",
+          "id": "",
+          "label": null,
+          "disabled": true,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 131.515625,
+            "width": 124.71875,
+            "height": 34,
+            "top": 131.515625,
+            "right": 140.71875,
+            "bottom": 165.515625,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "CA certificate file (PEM)",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 165.515625,
+            "width": 728,
+            "height": 18,
+            "top": 165.515625,
+            "right": 744,
+            "bottom": 183.515625,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(163, 163, 163)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(163, 163, 163)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c791",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 190.515625,
+            "width": 654.625,
+            "height": 34.796875,
+            "top": 190.515625,
+            "right": 670.625,
+            "bottom": 225.3125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Browse",
+          "id": "",
+          "label": "Choose CA certificate file (PEM)",
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 678.625,
+            "y": 190.515625,
+            "width": 65.375,
+            "height": 34.796875,
+            "top": 190.515625,
+            "right": 744,
+            "bottom": 225.3125,
+            "left": 678.625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Enable CA certificate",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 225.3125,
+            "width": 112.421875,
+            "height": 18,
+            "top": 225.3125,
+            "right": 128.421875,
+            "bottom": 243.3125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(163, 163, 163)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(163, 163, 163)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c792",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 138.421875,
+            "y": 227.8125,
+            "width": 13,
+            "height": 13,
+            "top": 227.8125,
+            "right": 151.421875,
+            "bottom": 240.8125,
+            "left": 138.421875
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(250, 250, 250)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Private CA certificate",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 243.3125,
+            "width": 113.59375,
+            "height": 18,
+            "top": 243.3125,
+            "right": 129.59375,
+            "bottom": 261.3125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(163, 163, 163)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(163, 163, 163)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c793",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 139.59375,
+            "y": 245.8125,
+            "width": 13,
+            "height": 13,
+            "top": 245.8125,
+            "right": 152.59375,
+            "bottom": 258.8125,
+            "left": 139.59375
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(250, 250, 250)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Remove CA certificate",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 261.3125,
+            "width": 145.90625,
+            "height": 34,
+            "top": 261.3125,
+            "right": 161.90625,
+            "bottom": 295.3125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Add client certificate",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 376.828125,
+            "width": 138.84375,
+            "height": 34,
+            "top": 376.828125,
+            "right": 154.84375,
+            "bottom": 410.828125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Host and port",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 410.828125,
+            "width": 728,
+            "height": 18,
+            "top": 410.828125,
+            "right": 744,
+            "bottom": 428.828125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(163, 163, 163)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(163, 163, 163)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c794",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": "c794-description",
+          "rect": {
+            "x": 16,
+            "y": 435.828125,
+            "width": 728,
+            "height": 34.796875,
+            "top": 435.828125,
+            "right": 744,
+            "bottom": 470.625,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Enabled",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 495.625,
+            "width": 43.453125,
+            "height": 18,
+            "top": 495.625,
+            "right": 59.453125,
+            "bottom": 513.625,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(163, 163, 163)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(163, 163, 163)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c795",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 69.453125,
+            "y": 498.125,
+            "width": 13,
+            "height": 13,
+            "top": 498.125,
+            "right": 82.453125,
+            "bottom": 511.125,
+            "left": 69.453125
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(250, 250, 250)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Certificate file (PEM)",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 513.625,
+            "width": 728,
+            "height": 18,
+            "top": 513.625,
+            "right": 744,
+            "bottom": 531.625,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(163, 163, 163)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(163, 163, 163)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c796",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 538.625,
+            "width": 654.625,
+            "height": 34.796875,
+            "top": 538.625,
+            "right": 670.625,
+            "bottom": 573.421875,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Browse",
+          "id": "",
+          "label": "Choose Certificate file (PEM)",
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 678.625,
+            "y": 538.625,
+            "width": 65.375,
+            "height": 34.796875,
+            "top": 538.625,
+            "right": 744,
+            "bottom": 573.421875,
+            "left": 678.625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(38, 38, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Private key file (PEM)",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 573.421875,
+            "width": 728,
+            "height": 18,
+            "top": 573.421875,
+            "right": 744,
+            "bottom": 591.421875,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(163, 163, 163)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(163, 163, 163)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c797",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 598.421875,
+            "width": 654.625,
+            "height": 34.796875,
+            "top": 598.421875,
+            "right": 670.625,
+            "bottom": 633.21875,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Browse",
+          "id": "",
+          "label": "Choose Private key file (PEM)",
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 678.625,
+            "y": 598.421875,
+            "width": 65.375,
+            "height": 34.796875,
+            "top": 598.421875,
+            "right": 744,
+            "bottom": 633.21875,
+            "left": 678.625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Certificate file (PFX/P12)",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 633.21875,
+            "width": 728,
+            "height": 18,
+            "top": 633.21875,
+            "right": 744,
+            "bottom": 651.21875,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(163, 163, 163)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(163, 163, 163)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c798",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": "c798-description",
+          "rect": {
+            "x": 16,
+            "y": 658.21875,
+            "width": 654.625,
+            "height": 34.796875,
+            "top": 658.21875,
+            "right": 670.625,
+            "bottom": 693.015625,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Browse",
+          "id": "",
+          "label": "Choose Certificate file (PFX/P12)",
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 678.625,
+            "y": 658.21875,
+            "width": 65.375,
+            "height": 34.796875,
+            "top": 658.21875,
+            "right": 744,
+            "bottom": 693.015625,
+            "left": 678.625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Certificate passphrase",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 718.015625,
+            "width": 728,
+            "height": 18,
+            "top": 718.015625,
+            "right": 744,
+            "bottom": 736.015625,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(163, 163, 163)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(163, 163, 163)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c799",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 743.015625,
+            "width": 728,
+            "height": 34.796875,
+            "top": 743.015625,
+            "right": 744,
+            "bottom": 777.8125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Private",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 777.8125,
+            "width": 37.390625,
+            "height": 18,
+            "top": 777.8125,
+            "right": 53.390625,
+            "bottom": 795.8125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(163, 163, 163)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(163, 163, 163)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c800",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 63.390625,
+            "y": 780.3125,
+            "width": 13,
+            "height": 13,
+            "top": 780.3125,
+            "right": 76.390625,
+            "bottom": 793.3125,
+            "left": 63.390625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(250, 250, 250)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Remove client certificate",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 795.8125,
+            "width": 160.015625,
+            "height": 34,
+            "top": 795.8125,
+            "right": 176.015625,
+            "bottom": 829.8125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(250, 250, 250)",
+            "rgb(34, 34, 38)",
+            "rgb(57, 57, 63)"
+          ]
+        }
+      ],
+      "active": {
+        "tag": "BUTTON",
+        "id": "",
+        "text": "Browse"
+      }
+    }
+  },
+  {
+    "theme": "light",
+    "width": 1440,
+    "geometry": {
+      "alerts": [],
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "text": "Switch owned collection",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 16,
+            "width": 157.65625,
+            "height": 34,
+            "top": 16,
+            "right": 443.65625,
+            "bottom": 50,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Close owned certificate editor",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 443.65625,
+            "y": 16,
+            "width": 188.765625,
+            "height": 34,
+            "top": 16,
+            "right": 632.421875,
+            "bottom": 50,
+            "left": 443.65625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Add CA certificate",
+          "id": "",
+          "label": null,
+          "disabled": true,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 131.515625,
+            "width": 124.71875,
+            "height": 34,
+            "top": 131.515625,
+            "right": 410.71875,
+            "bottom": 165.515625,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "CA certificate file (PEM)",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 165.515625,
+            "width": 868,
+            "height": 18,
+            "top": 165.515625,
+            "right": 1154,
+            "bottom": 183.515625,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(107, 114, 128)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(107, 114, 128)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c1181",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 190.515625,
+            "width": 794.625,
+            "height": 34.796875,
+            "top": 190.515625,
+            "right": 1080.625,
+            "bottom": 225.3125,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Browse",
+          "id": "",
+          "label": "Choose CA certificate file (PEM)",
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 1088.625,
+            "y": 190.515625,
+            "width": 65.375,
+            "height": 34.796875,
+            "top": 190.515625,
+            "right": 1154,
+            "bottom": 225.3125,
+            "left": 1088.625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Enable CA certificate",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 225.3125,
+            "width": 112.421875,
+            "height": 18,
+            "top": 225.3125,
+            "right": 398.421875,
+            "bottom": 243.3125,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(107, 114, 128)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(107, 114, 128)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c1182",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 408.421875,
+            "y": 227.8125,
+            "width": 13,
+            "height": 13,
+            "top": 227.8125,
+            "right": 421.421875,
+            "bottom": 240.8125,
+            "left": 408.421875
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(17, 24, 39)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Private CA certificate",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 243.3125,
+            "width": 113.59375,
+            "height": 18,
+            "top": 243.3125,
+            "right": 399.59375,
+            "bottom": 261.3125,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(107, 114, 128)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(107, 114, 128)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c1183",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 409.59375,
+            "y": 245.8125,
+            "width": 13,
+            "height": 13,
+            "top": 245.8125,
+            "right": 422.59375,
+            "bottom": 258.8125,
+            "left": 409.59375
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(17, 24, 39)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Remove CA certificate",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 261.3125,
+            "width": 145.90625,
+            "height": 34,
+            "top": 261.3125,
+            "right": 431.90625,
+            "bottom": 295.3125,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Add client certificate",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 376.828125,
+            "width": 138.84375,
+            "height": 34,
+            "top": 376.828125,
+            "right": 424.84375,
+            "bottom": 410.828125,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Host and port",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 410.828125,
+            "width": 868,
+            "height": 18,
+            "top": 410.828125,
+            "right": 1154,
+            "bottom": 428.828125,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(107, 114, 128)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(107, 114, 128)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c1184",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": "c1184-description",
+          "rect": {
+            "x": 286,
+            "y": 435.828125,
+            "width": 868,
+            "height": 34.796875,
+            "top": 435.828125,
+            "right": 1154,
+            "bottom": 470.625,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Enabled",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 495.625,
+            "width": 43.453125,
+            "height": 18,
+            "top": 495.625,
+            "right": 329.453125,
+            "bottom": 513.625,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(107, 114, 128)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(107, 114, 128)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c1185",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 339.453125,
+            "y": 498.125,
+            "width": 13,
+            "height": 13,
+            "top": 498.125,
+            "right": 352.453125,
+            "bottom": 511.125,
+            "left": 339.453125
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(17, 24, 39)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Certificate file (PEM)",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 513.625,
+            "width": 868,
+            "height": 18,
+            "top": 513.625,
+            "right": 1154,
+            "bottom": 531.625,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(107, 114, 128)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(107, 114, 128)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c1186",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 538.625,
+            "width": 794.625,
+            "height": 34.796875,
+            "top": 538.625,
+            "right": 1080.625,
+            "bottom": 573.421875,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(150, 155, 170)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Browse",
+          "id": "",
+          "label": "Choose Certificate file (PEM)",
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 1088.625,
+            "y": 538.625,
+            "width": 65.375,
+            "height": 34.796875,
+            "top": 538.625,
+            "right": 1154,
+            "bottom": 573.421875,
+            "left": 1088.625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(243, 244, 246)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Private key file (PEM)",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 573.421875,
+            "width": 868,
+            "height": 18,
+            "top": 573.421875,
+            "right": 1154,
+            "bottom": 591.421875,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(107, 114, 128)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(107, 114, 128)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c1187",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 598.421875,
+            "width": 794.625,
+            "height": 34.796875,
+            "top": 598.421875,
+            "right": 1080.625,
+            "bottom": 633.21875,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Browse",
+          "id": "",
+          "label": "Choose Private key file (PEM)",
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 1088.625,
+            "y": 598.421875,
+            "width": 65.375,
+            "height": 34.796875,
+            "top": 598.421875,
+            "right": 1154,
+            "bottom": 633.21875,
+            "left": 1088.625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Certificate file (PFX/P12)",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 633.21875,
+            "width": 868,
+            "height": 18,
+            "top": 633.21875,
+            "right": 1154,
+            "bottom": 651.21875,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(107, 114, 128)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(107, 114, 128)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c1188",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": "c1188-description",
+          "rect": {
+            "x": 286,
+            "y": 658.21875,
+            "width": 794.625,
+            "height": 34.796875,
+            "top": 658.21875,
+            "right": 1080.625,
+            "bottom": 693.015625,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Browse",
+          "id": "",
+          "label": "Choose Certificate file (PFX/P12)",
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 1088.625,
+            "y": 658.21875,
+            "width": 65.375,
+            "height": 34.796875,
+            "top": 658.21875,
+            "right": 1154,
+            "bottom": 693.015625,
+            "left": 1088.625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Certificate passphrase",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 718.015625,
+            "width": 868,
+            "height": 18,
+            "top": 718.015625,
+            "right": 1154,
+            "bottom": 736.015625,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(107, 114, 128)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(107, 114, 128)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c1189",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 743.015625,
+            "width": 868,
+            "height": 34.796875,
+            "top": 743.015625,
+            "right": 1154,
+            "bottom": 777.8125,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Private",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 777.8125,
+            "width": 37.390625,
+            "height": 18,
+            "top": 777.8125,
+            "right": 323.390625,
+            "bottom": 795.8125,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(107, 114, 128)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(107, 114, 128)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c1190",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 333.390625,
+            "y": 780.3125,
+            "width": 13,
+            "height": 13,
+            "top": 780.3125,
+            "right": 346.390625,
+            "bottom": 793.3125,
+            "left": 333.390625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(17, 24, 39)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Remove client certificate",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 286,
+            "y": 795.8125,
+            "width": 160.015625,
+            "height": 34,
+            "top": 795.8125,
+            "right": 446.015625,
+            "bottom": 829.8125,
+            "left": 286
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        }
+      ],
+      "active": {
+        "tag": "BUTTON",
+        "id": "",
+        "text": "Browse"
+      }
+    }
+  },
+  {
+    "theme": "light",
+    "width": 900,
+    "geometry": {
+      "alerts": [],
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "text": "Switch owned collection",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 16,
+            "width": 157.65625,
+            "height": 34,
+            "top": 16,
+            "right": 173.65625,
+            "bottom": 50,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Close owned certificate editor",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 173.65625,
+            "y": 16,
+            "width": 188.765625,
+            "height": 34,
+            "top": 16,
+            "right": 362.421875,
+            "bottom": 50,
+            "left": 173.65625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Add CA certificate",
+          "id": "",
+          "label": null,
+          "disabled": true,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 131.515625,
+            "width": 124.71875,
+            "height": 34,
+            "top": 131.515625,
+            "right": 140.71875,
+            "bottom": 165.515625,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "CA certificate file (PEM)",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 165.515625,
+            "width": 868,
+            "height": 18,
+            "top": 165.515625,
+            "right": 884,
+            "bottom": 183.515625,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(107, 114, 128)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(107, 114, 128)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c1571",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 190.515625,
+            "width": 794.625,
+            "height": 34.796875,
+            "top": 190.515625,
+            "right": 810.625,
+            "bottom": 225.3125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Browse",
+          "id": "",
+          "label": "Choose CA certificate file (PEM)",
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 818.625,
+            "y": 190.515625,
+            "width": 65.375,
+            "height": 34.796875,
+            "top": 190.515625,
+            "right": 884,
+            "bottom": 225.3125,
+            "left": 818.625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Enable CA certificate",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 225.3125,
+            "width": 112.421875,
+            "height": 18,
+            "top": 225.3125,
+            "right": 128.421875,
+            "bottom": 243.3125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(107, 114, 128)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(107, 114, 128)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c1572",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 138.421875,
+            "y": 227.8125,
+            "width": 13,
+            "height": 13,
+            "top": 227.8125,
+            "right": 151.421875,
+            "bottom": 240.8125,
+            "left": 138.421875
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(17, 24, 39)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Private CA certificate",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 243.3125,
+            "width": 113.59375,
+            "height": 18,
+            "top": 243.3125,
+            "right": 129.59375,
+            "bottom": 261.3125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(107, 114, 128)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(107, 114, 128)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c1573",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 139.59375,
+            "y": 245.8125,
+            "width": 13,
+            "height": 13,
+            "top": 245.8125,
+            "right": 152.59375,
+            "bottom": 258.8125,
+            "left": 139.59375
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(17, 24, 39)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Remove CA certificate",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 261.3125,
+            "width": 145.90625,
+            "height": 34,
+            "top": 261.3125,
+            "right": 161.90625,
+            "bottom": 295.3125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Add client certificate",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 376.828125,
+            "width": 138.84375,
+            "height": 34,
+            "top": 376.828125,
+            "right": 154.84375,
+            "bottom": 410.828125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Host and port",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 410.828125,
+            "width": 868,
+            "height": 18,
+            "top": 410.828125,
+            "right": 884,
+            "bottom": 428.828125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(107, 114, 128)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(107, 114, 128)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c1574",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": "c1574-description",
+          "rect": {
+            "x": 16,
+            "y": 435.828125,
+            "width": 868,
+            "height": 34.796875,
+            "top": 435.828125,
+            "right": 884,
+            "bottom": 470.625,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Enabled",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 495.625,
+            "width": 43.453125,
+            "height": 18,
+            "top": 495.625,
+            "right": 59.453125,
+            "bottom": 513.625,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(107, 114, 128)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(107, 114, 128)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c1575",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 69.453125,
+            "y": 498.125,
+            "width": 13,
+            "height": 13,
+            "top": 498.125,
+            "right": 82.453125,
+            "bottom": 511.125,
+            "left": 69.453125
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(17, 24, 39)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Certificate file (PEM)",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 513.625,
+            "width": 868,
+            "height": 18,
+            "top": 513.625,
+            "right": 884,
+            "bottom": 531.625,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(107, 114, 128)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(107, 114, 128)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c1576",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 538.625,
+            "width": 794.625,
+            "height": 34.796875,
+            "top": 538.625,
+            "right": 810.625,
+            "bottom": 573.421875,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Browse",
+          "id": "",
+          "label": "Choose Certificate file (PEM)",
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 818.625,
+            "y": 538.625,
+            "width": 65.375,
+            "height": 34.796875,
+            "top": 538.625,
+            "right": 884,
+            "bottom": 573.421875,
+            "left": 818.625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(243, 244, 246)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Private key file (PEM)",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 573.421875,
+            "width": 868,
+            "height": 18,
+            "top": 573.421875,
+            "right": 884,
+            "bottom": 591.421875,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(107, 114, 128)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(107, 114, 128)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c1577",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 598.421875,
+            "width": 794.625,
+            "height": 34.796875,
+            "top": 598.421875,
+            "right": 810.625,
+            "bottom": 633.21875,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Browse",
+          "id": "",
+          "label": "Choose Private key file (PEM)",
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 818.625,
+            "y": 598.421875,
+            "width": 65.375,
+            "height": 34.796875,
+            "top": 598.421875,
+            "right": 884,
+            "bottom": 633.21875,
+            "left": 818.625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Certificate file (PFX/P12)",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 633.21875,
+            "width": 868,
+            "height": 18,
+            "top": 633.21875,
+            "right": 884,
+            "bottom": 651.21875,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(107, 114, 128)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(107, 114, 128)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c1578",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": "c1578-description",
+          "rect": {
+            "x": 16,
+            "y": 658.21875,
+            "width": 794.625,
+            "height": 34.796875,
+            "top": 658.21875,
+            "right": 810.625,
+            "bottom": 693.015625,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Browse",
+          "id": "",
+          "label": "Choose Certificate file (PFX/P12)",
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 818.625,
+            "y": 658.21875,
+            "width": 65.375,
+            "height": 34.796875,
+            "top": 658.21875,
+            "right": 884,
+            "bottom": 693.015625,
+            "left": 818.625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Certificate passphrase",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 718.015625,
+            "width": 868,
+            "height": 18,
+            "top": 718.015625,
+            "right": 884,
+            "bottom": 736.015625,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(107, 114, 128)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(107, 114, 128)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c1579",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 743.015625,
+            "width": 868,
+            "height": 34.796875,
+            "top": 743.015625,
+            "right": 884,
+            "bottom": 777.8125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Private",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 777.8125,
+            "width": 37.390625,
+            "height": 18,
+            "top": 777.8125,
+            "right": 53.390625,
+            "bottom": 795.8125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(107, 114, 128)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(107, 114, 128)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c1580",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 63.390625,
+            "y": 780.3125,
+            "width": 13,
+            "height": 13,
+            "top": 780.3125,
+            "right": 76.390625,
+            "bottom": 793.3125,
+            "left": 63.390625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(17, 24, 39)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Remove client certificate",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 795.8125,
+            "width": 160.015625,
+            "height": 34,
+            "top": 795.8125,
+            "right": 176.015625,
+            "bottom": 829.8125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        }
+      ],
+      "active": {
+        "tag": "BUTTON",
+        "id": "",
+        "text": "Browse"
+      }
+    }
+  },
+  {
+    "theme": "light",
+    "width": 760,
+    "geometry": {
+      "alerts": [],
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "text": "Switch owned collection",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 16,
+            "width": 157.65625,
+            "height": 34,
+            "top": 16,
+            "right": 173.65625,
+            "bottom": 50,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Close owned certificate editor",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 173.65625,
+            "y": 16,
+            "width": 188.765625,
+            "height": 34,
+            "top": 16,
+            "right": 362.421875,
+            "bottom": 50,
+            "left": 173.65625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Add CA certificate",
+          "id": "",
+          "label": null,
+          "disabled": true,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 131.515625,
+            "width": 124.71875,
+            "height": 34,
+            "top": 131.515625,
+            "right": 140.71875,
+            "bottom": 165.515625,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "CA certificate file (PEM)",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 165.515625,
+            "width": 728,
+            "height": 18,
+            "top": 165.515625,
+            "right": 744,
+            "bottom": 183.515625,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(107, 114, 128)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(107, 114, 128)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c1961",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 190.515625,
+            "width": 654.625,
+            "height": 34.796875,
+            "top": 190.515625,
+            "right": 670.625,
+            "bottom": 225.3125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Browse",
+          "id": "",
+          "label": "Choose CA certificate file (PEM)",
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 678.625,
+            "y": 190.515625,
+            "width": 65.375,
+            "height": 34.796875,
+            "top": 190.515625,
+            "right": 744,
+            "bottom": 225.3125,
+            "left": 678.625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Enable CA certificate",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 225.3125,
+            "width": 112.421875,
+            "height": 18,
+            "top": 225.3125,
+            "right": 128.421875,
+            "bottom": 243.3125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(107, 114, 128)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(107, 114, 128)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c1962",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 138.421875,
+            "y": 227.8125,
+            "width": 13,
+            "height": 13,
+            "top": 227.8125,
+            "right": 151.421875,
+            "bottom": 240.8125,
+            "left": 138.421875
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(17, 24, 39)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Private CA certificate",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 243.3125,
+            "width": 113.59375,
+            "height": 18,
+            "top": 243.3125,
+            "right": 129.59375,
+            "bottom": 261.3125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(107, 114, 128)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(107, 114, 128)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c1963",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 139.59375,
+            "y": 245.8125,
+            "width": 13,
+            "height": 13,
+            "top": 245.8125,
+            "right": 152.59375,
+            "bottom": 258.8125,
+            "left": 139.59375
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(17, 24, 39)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Remove CA certificate",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 261.3125,
+            "width": 145.90625,
+            "height": 34,
+            "top": 261.3125,
+            "right": 161.90625,
+            "bottom": 295.3125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Add client certificate",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 376.828125,
+            "width": 138.84375,
+            "height": 34,
+            "top": 376.828125,
+            "right": 154.84375,
+            "bottom": 410.828125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Host and port",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 410.828125,
+            "width": 728,
+            "height": 18,
+            "top": 410.828125,
+            "right": 744,
+            "bottom": 428.828125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(107, 114, 128)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(107, 114, 128)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c1964",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": "c1964-description",
+          "rect": {
+            "x": 16,
+            "y": 435.828125,
+            "width": 728,
+            "height": 34.796875,
+            "top": 435.828125,
+            "right": 744,
+            "bottom": 470.625,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Enabled",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 495.625,
+            "width": 43.453125,
+            "height": 18,
+            "top": 495.625,
+            "right": 59.453125,
+            "bottom": 513.625,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(107, 114, 128)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(107, 114, 128)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c1965",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 69.453125,
+            "y": 498.125,
+            "width": 13,
+            "height": 13,
+            "top": 498.125,
+            "right": 82.453125,
+            "bottom": 511.125,
+            "left": 69.453125
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(17, 24, 39)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Certificate file (PEM)",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 513.625,
+            "width": 728,
+            "height": 18,
+            "top": 513.625,
+            "right": 744,
+            "bottom": 531.625,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(107, 114, 128)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(107, 114, 128)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c1966",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 538.625,
+            "width": 654.625,
+            "height": 34.796875,
+            "top": 538.625,
+            "right": 670.625,
+            "bottom": 573.421875,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Browse",
+          "id": "",
+          "label": "Choose Certificate file (PEM)",
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 678.625,
+            "y": 538.625,
+            "width": 65.375,
+            "height": 34.796875,
+            "top": 538.625,
+            "right": 744,
+            "bottom": 573.421875,
+            "left": 678.625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(243, 244, 246)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Private key file (PEM)",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 573.421875,
+            "width": 728,
+            "height": 18,
+            "top": 573.421875,
+            "right": 744,
+            "bottom": 591.421875,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(107, 114, 128)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(107, 114, 128)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c1967",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 598.421875,
+            "width": 654.625,
+            "height": 34.796875,
+            "top": 598.421875,
+            "right": 670.625,
+            "bottom": 633.21875,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Browse",
+          "id": "",
+          "label": "Choose Private key file (PEM)",
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 678.625,
+            "y": 598.421875,
+            "width": 65.375,
+            "height": 34.796875,
+            "top": 598.421875,
+            "right": 744,
+            "bottom": 633.21875,
+            "left": 678.625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Certificate file (PFX/P12)",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 633.21875,
+            "width": 728,
+            "height": 18,
+            "top": 633.21875,
+            "right": 744,
+            "bottom": 651.21875,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(107, 114, 128)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(107, 114, 128)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c1968",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": "c1968-description",
+          "rect": {
+            "x": 16,
+            "y": 658.21875,
+            "width": 654.625,
+            "height": 34.796875,
+            "top": 658.21875,
+            "right": 670.625,
+            "bottom": 693.015625,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Browse",
+          "id": "",
+          "label": "Choose Certificate file (PFX/P12)",
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 678.625,
+            "y": 658.21875,
+            "width": 65.375,
+            "height": 34.796875,
+            "top": 658.21875,
+            "right": 744,
+            "bottom": 693.015625,
+            "left": 678.625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Certificate passphrase",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 718.015625,
+            "width": 728,
+            "height": 18,
+            "top": 718.015625,
+            "right": 744,
+            "bottom": 736.015625,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(107, 114, 128)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(107, 114, 128)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c1969",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 743.015625,
+            "width": 728,
+            "height": 34.796875,
+            "top": 743.015625,
+            "right": 744,
+            "bottom": 777.8125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "16.8px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        },
+        {
+          "tag": "LABEL",
+          "text": "Private",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 777.8125,
+            "width": 37.390625,
+            "height": 18,
+            "top": 777.8125,
+            "right": 53.390625,
+            "bottom": 795.8125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(107, 114, 128)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(107, 114, 128)"
+          ]
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "id": "c1970",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 63.390625,
+            "y": 780.3125,
+            "width": 13,
+            "height": 13,
+            "top": 780.3125,
+            "right": 76.390625,
+            "bottom": 793.3125,
+            "left": 63.390625
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgba(0, 0, 0, 0)",
+            "rgb(17, 24, 39)"
+          ]
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Remove client certificate",
+          "id": "",
+          "label": null,
+          "disabled": false,
+          "invalid": null,
+          "described": null,
+          "rect": {
+            "x": 16,
+            "y": 795.8125,
+            "width": 160.015625,
+            "height": 34,
+            "top": 795.8125,
+            "right": 176.015625,
+            "bottom": 829.8125,
+            "left": 16
+          },
+          "font": [
+            "\"Inter Variable\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+            "12px",
+            "18px"
+          ],
+          "colors": [
+            "rgb(17, 24, 39)",
+            "rgb(255, 255, 255)",
+            "rgb(214, 216, 225)"
+          ]
+        }
+      ],
+      "active": {
+        "tag": "BUTTON",
+        "id": "",
+        "text": "Browse"
+      }
+    }
+  }
+]

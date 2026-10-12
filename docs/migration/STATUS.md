@@ -1,3 +1,11 @@
+## Certificate picker ownership correction accepted on root — 2026-10-13
+
+Eight exact source guards/d60e81b82outputs/original18negative bytes reviewed; only ClientCertificates product changes, wholeCSS/native-networkbody retained. Root49574 compiler0/0/SAME156+66headlesscases/fullshared/build all0; independent certificate-picker-fix-root-proof/root-audit.json verifies24retired latewrites now0, one owning generic alert, stale feedback/resource/data/lifetime/observed collection retirement, realbrowser persistence/cancels/normalgeometry/workspace-drain waiting. Source1016/49frontendassets frozen; only exactconsumer two imports aliased, no globalIPC/native flag. See CERTIFICATE-PICKER-ROOT-ACCEPTANCE.md.
+
+UI source01f03cd5 keeps65Svelte/745shared/119tokens/1894declarations/no duplicate imports or multipleowners; native765 admissionea21bd83 unchanged/validated. Same-turn coalescedABA/realOSpicker/native/save settlement/AT/platform/fullshell and all original migration/UX/SDK/Event/FIFO/private/distribution/fullnotice gates remain OPEN. No new native binary; e567 historical. Root handles:none/profile unused. ProtoManager keyed-parent measurement is isolated; r-efi AUTHORS/per-file research awaitingreview. /compact unavailable; explicit topic handoff required.
+
+Current verified topic commit: 911264a (actual recovered Cargo notice transition). Evidence: native-notice-cargo3-root-collection/root-audit.json; current58/hook/bundle/compiler all0. Root handles:none/profile unused. Certificate integration and fullnotice/native/platform/distribution/migration/UX gates remain open. /compact unavailable; explicit feature handoff recorded.
+
 ## Actual recovered Cargo notice generation accepted — 2026-10-13
 
 Guarded saved supplement/root57 session94741 terminal0, actual hook/build→savedcurrent58→bundle wrapper93117 terminal0; independent native-notice-cargo3-root-collection/root-audit.json reparses765archives/exact3package delta/1336registry1341total origins/422texts/0cachemiss. New private admissionea21bd83; old700b/764private/resources retained. All1010 phaseinputs unchanged, Spectral resources/producera5ec unchanged;1954noticefiles/49frontendassets/new765archive authority archived. Compiler68130 0/0. Only saved packaging scenario adopted; no product/CSS/backend/lock changes. See CARGO-RECOVERED-NOTICE-ROOT-ACCEPTANCE.md.

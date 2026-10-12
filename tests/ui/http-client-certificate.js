@@ -4,6 +4,12 @@ import { withNativeApp, poll } from "./helpers/native-app.js";
 import { clientCertificateFixture } from "./helpers/client-certificate.js";
 import { tlsPreferences } from "./helpers/tls-preferences.js";
 import { collectionClientCertificate } from "./helpers/collection-client-certificate.js";
+import { runCertificateComponent } from "./helpers/certificate-component.js";
+
+if (process.argv.includes("--certificate-component")) {
+  await runCertificateComponent({ corrected: process.argv.includes("--certificate-corrected") });
+  process.exit(0);
+}
 
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-recovery-copy-probe/build-state.json";

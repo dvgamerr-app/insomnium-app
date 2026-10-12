@@ -1,3 +1,7 @@
+## Current certificate UI source inventory — 2026-10-13
+
+Source hash01f03cd56053f354707c98417e20de8ae1cd9cf299d6bab7a2909223063231bc:65Svelte/745shared markup sites/119tokens/1894CSS declarations. Counts, CodeEditor raw-textarea exception, single Feedback dynamic owner and18feature scoped styles remain unchanged; no duplicate CSS imports or multi-owner tokens. Exact consumer CSS/normalgeometry and saved222 headless/fullshared/compiler/build acceptance are documented in CERTIFICATE-PICKER-ROOT-ACCEPTANCE.md. Source inventory does not close OS/AT/platform/fullworkflow/debt/migration scope.
+
 ## Current production source inventory — 2026-10-13
 
 Saved AST inventory script completed0 against current source44ecea959aa84ac4ce6836abc3a1aad4d5c5528ecc6424222a15ae268cec2e2a:65 Svelte files,745 shared markup sites,119 tokens and1894 CSS declarations across18 feature scoped style files. No duplicate CSS imports, multiple-owner token files or tokens without var references. The one feature raw control is CodeEditor's native textarea (line575), retaining its editor/fallback engine contract; Feedback owns the single dynamic element. Optional --focus-danger-text has the documented on-danger fallback; ResponsePane's --method- dynamic family remains explicit.

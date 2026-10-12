@@ -1,3 +1,9 @@
+## Certificate UI checkpoint and fresh native requirements — 2026-10-13
+
+Root ClientCertificates correction now passes compiler0/0/SAME222headless/fullshared/build with exactnormalgeometry/CSS/1016inputs49assets; product lifetime/data/resource/observedcollection ownership and one owning operationfeedback accepted. Generic failures never invalidate certificate data. Same-turn coalescedABA/OSpicker/native save/AT/platform remain required; current compiled e567 cannot accept this product delta. Next prepare a guarded fresh combined app/source/frontend/sidecar/1954notice/ea21private closure and saved native acceptance with exclusive fullprofile restoration; root owns all launches.
+
+Independently review r-efi AUTHO​RS raw-source omissions before small collector policy proposals; retain all old47/closed-three/current58 proofs and fullnotice linkage gates. ProtoManager lane measures actual keyed-parent lifecycle rather than inventing unkeyed behavior. Keep all original scope and perfeature topic commits/STATUS/compact-unavailable handoff.
+
 ## Actual765 notice checkpoint; certificate UI next — 2026-10-13
 
 Root exact-three recollection/current58/bundle/currentcompiler pass with ea21bd83 private authority/765archives/1336registry origins/422texts; old700b generation preserved. Use explicit --recovered-cargo3 --verify-current; historical no-arg mode publishes before762 assertions. Full notice/platform/resource-copy/distribution coverage remains separate.
