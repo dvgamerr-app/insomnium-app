@@ -2,7 +2,9 @@
 
 The saved artifact tool `artifacts/cargo-recovered-admission-tool/admit.mjs` is prepared for root review. It has **not been executed**, including dry-run. No cache, root, private admission, resources, profile or build was changed. Parent-owned native build62029 was left untouched. Own live handles: none.
 
-Source SHA256: `e1b7aba2a5d5268b16ae4bc77af59e88bb6b207c1d10753710ecb0117e178b6e` (14422 bytes). The tool admits only the three archives in the accepted recovery receipt: openssl-probe0.1.6, tree_magic_mini3.2.2 and wl-clipboard-rs0.9.4, totaling72660 bytes. No collection or linkage promotion occurs.
+Source SHA256: `46d1e59320a865084695bebff39676fbc7dfd74c26162a9c1856d66f9f583af5` (14560 bytes). The tool admits only the three archives in the accepted recovery receipt: openssl-probe0.1.6, tree_magic_mini3.2.2 and wl-clipboard-rs0.9.4, totaling72660 bytes. No collection or linkage promotion occurs.
+
+The narrow reliability revision replaces only the hash helper with standard `createHash` from `node:crypto` under Bun and renames the script constant to `CARGO_CACHE_ROOT`. Reversing exactly these substitutions reproduces all14422 bytes of the original e1b7 source. The original23-file proof remains byte-identical; source tokens below bind this revised source. Syntax passed without executing the module. The prior Bun0x48 crash remains retained, not reinterpreted as runtime acceptance.
 
 ## Future root commands
 
@@ -10,13 +12,13 @@ After independently reviewing and copying the exact frozen source bytes into the
 
 ```powershell
 $env:CARGO_HOME = 'D:\home\.cargo'
-bun artifacts/cargo-recovered-admission-tool/admit.mjs --dry-run --source-sha256 e1b7aba2a5d5268b16ae4bc77af59e88bb6b207c1d10753710ecb0117e178b6e
+bun artifacts/cargo-recovered-admission-tool/admit.mjs --dry-run --source-sha256 46d1e59320a865084695bebff39676fbc7dfd74c26162a9c1856d66f9f583af5
 ```
 
 Only after the native source freeze is terminal and Cargo/cache writers are stopped, root may deliberately execute:
 
 ```powershell
-bun artifacts/cargo-recovered-admission-tool/admit.mjs --write --source-sha256 e1b7aba2a5d5268b16ae4bc77af59e88bb6b207c1d10753710ecb0117e178b6e --token cargo3:5156ae8fa74230bd84ddf53706b8961a5e4d6c14e7069138394c1ccc5d782873:21d82d6f97c1aae7b878895bc76b116312d649d732c76c9fb8f5788d5a6a48f1:e1b7aba2a5d5268b16ae4bc77af59e88bb6b207c1d10753710ecb0117e178b6e --exclusive-cache-window --after-native-freeze
+bun artifacts/cargo-recovered-admission-tool/admit.mjs --write --source-sha256 46d1e59320a865084695bebff39676fbc7dfd74c26162a9c1856d66f9f583af5 --token cargo3:5156ae8fa74230bd84ddf53706b8961a5e4d6c14e7069138394c1ccc5d782873:21d82d6f97c1aae7b878895bc76b116312d649d732c76c9fb8f5788d5a6a48f1:46d1e59320a865084695bebff39676fbc7dfd74c26162a9c1856d66f9f583af5 --exclusive-cache-window --after-native-freeze
 ```
 
 The two final flags attest root's exclusive window and terminal native build; the tool does not inspect or terminate processes. The intent token is a source/input identity guard, not a secret or authorization system. No other root, home, namespace, archive or destination selector exists.

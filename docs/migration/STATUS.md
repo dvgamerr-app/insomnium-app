@@ -1,3 +1,9 @@
+## Recovered Cargo archive admission tool prepared — 2026-10-13
+
+- Topic ca9e0bd6300e4134417456c8539d1c6033f47e82 adds only saved artifact tool and report. Source e1b7aba2a5d5268b16ae4bc77af59e88bb6b207c1d10753710ecb0117e178b6e guards canonical root/CARGO_HOME, exact3 frozen archives, source/receipt/lock/parser, allnamespace conflicts and non-overwriting same-volume publication. Write intent/exclusive-window/native-terminal attestations required; root executes only after review and terminal native freeze.
+- Isolated Bun syntax passed exit0 without execution. Combined syntax/hash eval crashed0x48/exit1; retained negative and independent PowerShell rehash of35+3181+2741 unchanged files in review.json. Tool and dry-run NOT executed; no cache/root/private admission/resource/profile mutations, collection/build/native/browser launches. Frozen handoff artifacts/cargo-recovered-admission-tool-proof follows; exact frozen source bytes required after Git newline conversion.
+- Runtime dry-run/publication/partial receipts and deliberate new generation remain unverified. Historical3cachemiss, discovery/target-linkage/full redistribution/platform/allmigration gaps remain open. Own handles:none; parent native62029 left untouched. Stale baseline prerequisites unstaged. /compact unavailable; this STATUS and guarded proof provide handoff.
+
 ## Recovered Cargo archive admission read-only proposal — 2026-10-13
 
 - Report topicfc721c8 pins rootd63426d/b61425a acceptedauthority, current11input hashes and recovered16file receipt/archive/parser/rawtexts. Observed CARGO_HOME D:/home/.cargo and single regular index.crates.io-1949cf8c6b5b557f cache namespace; allthree destinationentries absent. Proposes root-owned guarded no-overwrite/exactchecksum staging/publication, then separate explicit existinghook recollection; no operationimplemented orrun.
