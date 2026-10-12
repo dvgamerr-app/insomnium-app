@@ -1,3 +1,8 @@
+## Four authentic runtime source-text candidates — 2026-10-13
+
+- Verified isolated topic57426bd: eight paths collector/separateclosedmetadata/fourauthenticrawfiles/narrowattrs/report. Bun1.4.2/revision744846f8/source pins/conditions/origins/rawcounts+hashes bound; candidate coverage explicitly unproven, not whole-library/license/link-map proof. Existing Bun/NPM texts and incomplete/no-completeness-blocker policy preserved; three MIT gaps remain.
+- SAME saved notice/hook checks pass185/184/threegaps/determinism/rawtexts,10content/output tamper and13candidate+sixrecovery provenance refusals, default/version/malformed/hookfailure/order guards; four Git checkout-index byte exports match. Evidence artifacts/bun-source-text-proof; original16/57/406proofs independently unchanged. Root owns guarded adoption and actual packaging hook/native acceptance.
+- No producer/backend/UI/dependency/protocol/SDK/provider/build/native/app/profile/browser changes/launches; handles:none. Per-file/Rust/polyfill/data/variant/archive/linkmap/redistribution/installed/platform/fullmigration gates OPEN. /compact unavailable, explicit handoff.
 ## Standalone f569 embedded runtime public identity — 2026-10-13
 
 - Report topic commite8e1a99. Existing saved bounded helper ran fixed public Bun.version/revision-only custom function against exact f569 producer:1.4.2/744846f844374847c902b5e7fd59b4342a51ef99. One valid job/closed frame/PID46812 exit0, selectedcustom/no fallback; helper finally stopped server/settled hosts. Initial malformed caller envelope refused/PID32984 exit0 preserved. native:false; no Rust/native/profile acceptance.
@@ -7102,6 +7107,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - Boolean native3.2.1 first63706 terminal1, artifact1791587673246/native55472 exited0/native-hidden/visible:false. Actual worker generated34requests; first Collections exact button name selector failed before any send. Failure screenshot retained. Saved scenario now selects the exact rendered request-name child in button.tree-request and records ARIA/generated persistence snapshots; compiler0/0. App465 hashes remain identical to successful build49406; acceptance freeze records the one changed scenario hash separately, preserving original build freeze. Native acceptance not claimed.
 
 - Read-only fresh build14976 is now live: start1791590079335/native59960/nativeStart1791590083688/fixtureHash14354716479451147127. Frontend build succeeded with existing chunk advisory; Rust compilinginsomnium with existing5eventsource-stream warnings. Poll same handle; no source/scenario edits and no native scenario started yet. FixtureHash identifies only injected fixture, not full application source.
+
 
 
 
