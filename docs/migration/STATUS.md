@@ -1,3 +1,7 @@
+## Read-only native Cargo notice inventory — 2026-10-13
+
+- Report topic4371c19 against currentroot70b4485/lock5156ae8f.770lock identities/765registry/fourlocalpatches/workspace;762cached archives matchlock and all762manifest+1331candidate text bytes matcharchive entries.1335total candidate files includingfourlocalvendor texts; three cache misses/43registry filename-declaration gaps/two localpatch gaps/workspace licensefield context recorded, not full-text absence/compliance claims. Target linkage/system/toolchain/perfile coverage unknown; current resource mapping isSpectralonly.
+- Evidence artifacts/cargo-notice-proof. Initial checksum-map scan toolingnegative corrected/source walk+archivehash checks supersede it; prior73/413/406/57/16proofs preserved. No collector/product/source/deps/backend/API/Cargo/source execution/build/native/app/profile/SDK/provider change; handles:none. Root owns future implementation/adoption; all coverage/distribution/platform/migration gates OPEN. /compact unavailable, explicit handoff.
 ## Remaining MIT text gaps primary audit — 2026-10-13
 
 - Read-only report topic06874a7. Exact estree-walker1.0.1/is-reference1.2.1/tr460.0.3 registry/lock SHA512+SHA1/tarchecksums verified; all19tar entries/34published source blobs captured with Git hashes. All three exact versiontags match gitHeads; tr46 v-prefixed404 retained and unprefixed0.0.3 succeeds. No corresponding full LICENSE/NOTICE/COPYING or full MIT text recovered; author/expression-only data not fabricated into text. Three gaps stay unresolved/incomplete, no new completeness blocker.
@@ -7111,6 +7115,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - Boolean native3.2.1 first63706 terminal1, artifact1791587673246/native55472 exited0/native-hidden/visible:false. Actual worker generated34requests; first Collections exact button name selector failed before any send. Failure screenshot retained. Saved scenario now selects the exact rendered request-name child in button.tree-request and records ARIA/generated persistence snapshots; compiler0/0. App465 hashes remain identical to successful build49406; acceptance freeze records the one changed scenario hash separately, preserving original build freeze. Native acceptance not claimed.
 
 - Read-only fresh build14976 is now live: start1791590079335/native59960/nativeStart1791590083688/fixtureHash14354716479451147127. Frontend build succeeded with existing chunk advisory; Rust compilinginsomnium with existing5eventsource-stream warnings. Poll same handle; no source/scenario edits and no native scenario started yet. FixtureHash identifies only injected fixture, not full application source.
+
 
 
 
