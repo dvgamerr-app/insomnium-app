@@ -1,6 +1,6 @@
 <script>
   import Icon from "../Icon.svelte";
-  /** @type {import('svelte/elements').HTMLButtonAttributes & {variant?: 'primary'|'secondary'|'danger'|'ghost'|'plain', busy?:boolean, children?:import('svelte').Snippet}} */
+  /** @type {import('svelte/elements').HTMLButtonAttributes & {variant?: 'primary'|'secondary'|'danger'|'ghost'|'plain', busy?:boolean, element?:HTMLButtonElement, children?:import('svelte').Snippet}} */
   let {
     variant = "secondary",
     busy = false,
@@ -8,12 +8,14 @@
     type = "button",
     class: className = "",
     children,
+    element = $bindable(),
     ...rest
   } = $props();
 </script>
 
 <button
   {...rest}
+  bind:this={element}
   {type}
   disabled={disabled || busy}
   aria-busy={busy || undefined}

@@ -1,3 +1,9 @@
+## Request rename keyboard focus — integrated 2026-10-12
+
+- Shared UI agent delta integrated: Enter saves and Escape cancels while restoring focus to the request-name trigger without reopening; Tab/blur preserve their chosen destination. EditableName uses shared plain Button with optional native element binding. Layout is preserved.
+- Root reran saved headless editable-name (18original cases plus8keyboard/theme/width profiles) and broad design-system scenario: both exit0. Root compiler25863/a69523 reports0errors/0warnings; production build07e2ae exits0. Agent independently verified the same feature and isolated build. Evidence and exact source hashes: AGENT-SHARED-UI.md. Native keyboard acceptance remains unverified; no broad UX/migration completion claim.
+- Topic commit follows, limited to four owned source/scenario/doc paths and agent handoff plus this checkpoint. No root compiler/build/scenario handles remain live. Event/native-provider work remains separate. `/compact` cannot be invoked here; this checkpoint is the explicit handoff before another feature.
+
 ## Parallel execution requested — 2026-10-12
 
 - Owner explicitly requested plan changes and agents for separate work areas. PLAN now defines Event interfaces, native cancellation, shared UI/CSS and root integration lanes, isolated worktrees and per-topic verification/commits. Original migration parity remains required; existing later owner-authorized shared UI scope remains available without replacing the current layout.

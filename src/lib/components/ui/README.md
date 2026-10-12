@@ -173,3 +173,8 @@ retain their explicit composition padding in shared style owners. Override the
 token once for standard buttons; feature CSS must not duplicate that default.
 
 Focus presentation belongs to `styles/focus.css`, loaded after variants. Preserve the owner’s no-outline/no-shadow-ring policy. Theme tokens `--focus-surface`, `--focus-border`, `--focus-primary-surface`, `--focus-secondary-surface`, `--focus-danger-surface`, and `--focus-danger-text` control focus states centrally. Hover and selected backgrounds must yield to `:focus-visible`; invalid borders keep error priority. FilePicker projects keyboard-visible focus to its visible wrapper. Keep feature CSS responsible for layout. Existing saved design-system/native-theme scenarios cover token propagation/restoration, combined hover and horizontal/vertical selected tabs. Full accessibility/platform/workflow acceptance remains separate.
+
+EditableName uses the shared plain Button and bindable native element. Enter saves
+and Escape cancels, then focus returns to its trigger without reopening editing.
+Blur preserves the user's next focus destination. Button exposes optional
+`bind:element` for native focus management; all existing attributes remain intact.
