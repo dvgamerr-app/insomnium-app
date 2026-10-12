@@ -1,15 +1,17 @@
 ## Parallel execution — owner instruction 2026-10-12
 
-Current checkpoints: historyfe0991d, CRUD73aa81b, native endpointdeef083, composed Field/select9360c82 and embedded native provider/historye3cf1e3 are verified by bounded saved scenarios. Current resize headless12profiles/36states and compiler pass; native resize remains next. Full migration and subsequent broader UX remain active.
+Current root a97dfcd integrates verified native-heavy3dc6bdd, collectionhover549ed54 and captured-drag collapsea97dfcd. Full migration and later broader UX retain all original requirements. Isolated worktrees keep mutable compiler/build/scenario inputs separate.
 
-| Lane | Agent | Current deliverable | Gate |
+| Lane | Agent | Deliverable | Gate |
 | --- | --- | --- | --- |
-| Event runtime | event_api | Audit frozen808 original-owner and25 callback-state instrumentation files; document actual native capability refusal separately from earlier queued-abort rejection | Read-only after automatic safety flag; original held-sync RED, all permissions/CPU/helper/owner/generation guards unchanged; no default engine adoption |
-| Native provider | native_provider | Saved native heavy request/response resize adapter using same assertions and immutable candidate49/52 | Exact source/assets/executable closure, native-hidden host, exclusive default profile, original resources/history/layout and complete restoration |
-| Shared UI | shared_ui | Review remaining resize interruption/collapse/storage-denial scenarios in isolated worktree | Preserve measured layout/contracts, saved headless reusable scenarios, no speculative product changes |
-| Integration | root | Review deltas, verify, commit by topic and maintain STATUS/PLAN/PARITY | Preserve unrelated WIP and immutable negatives; all parity requirements before migration completion |
+| Event/DOM | event_api | Owned Focus/Input interfaces and existing subclass/oracle regressions | No provider/protocol/permission/admission/budget/engine change; unsupported Window/DataTransfer/Range and full Event/FIFO/concurrency remain explicit requirements; flagged provider work stays read-only |
+| Native acceptance | native_provider | Fresh a97dfcd candidate765/768/52; actual collapse6 and collectionactions18 | Resolve generated57TOML before/postcompiler bytes with NEWstrict manifest; exact source/assets/executable/fixtures, native-hidden/exclusive claim/restoration; no oldcandidate relabel |
+| Shared UI | shared_ui | Saved explicit capture release/cancel and scoped split-key storage denial/malformed persistence | Real release evidence; synthetic cancel labels only handler wiring; global workspace unaffected; preserve prior collapse/heavy assertions |
+| Integration/remaining subsystems | root | Review exact deltas, appropriate regressions/topic commits; complete Spectral execution architecture and original parity | Current CSP blocks direct Spectral JS generation; retain custom functions/refs/Git behavior; no narrowed completion definition |
 
-Owner explicitly authorizes these three agents. Worktrees isolate mutable sources/builds. Native default profile requires claim before launch; CRUD profile remains released. Every saved browser scenario uses shared launchUiBrowser fixed headless:true, no override; native hosts hide before CDP and report native-hidden. Bun only, browser-use prohibited. Record commit/evidence/gates/handles after each feature; `/compact` cannot be invoked by this interface, so provide explicit handoff.
+Remaining primary implementation gates include default production full Window FIFO/provider settlement, independent/SAMElease async overlap, full Event/listener/Window/private/React/plugin contexts+contributions+dependencies/TLA, Spectral/custom rules, and all original platform/distribution/native/provider/workflow/UX gates. Covered subclass/lifecycle/synthetic slices are implemented and bounded, not absent; historical blanket missing wording is superseded by current evidence, not scope removal.
+
+Owner explicitly authorizes three agents plus root. Bun only; saved browser scenarios use shared fixed headless:true/no override; native hides before CDP and reports native-hidden. Default/CRUD native profiles require exclusive claim before launch. Preserve legacy read-only and unrelated WIP/immutable negative proofs. After each verified feature commit by topic, record commit/evidence/gates/handles in STATUS and compact; this interface cannot invoke /compact, so give explicit handoff.
 
 # Insomnium → Tauri migration
 
