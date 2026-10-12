@@ -1,3 +1,9 @@
+## Recovered Cargo archive admission read-only proposal — 2026-10-13
+
+- Report topicfc721c8 pins rootd63426d/b61425a acceptedauthority, current11input hashes and recovered16file receipt/archive/parser/rawtexts. Observed CARGO_HOME D:/home/.cargo and single regular index.crates.io-1949cf8c6b5b557f cache namespace; allthree destinationentries absent. Proposes root-owned guarded no-overwrite/exactchecksum staging/publication, then separate explicit existinghook recollection; no operationimplemented orrun.
+- Evidence artifacts/cargo-recovered-admission-proposal-proof. Recovered3 archives72660bytes/fiveorigins are primarylockedbytes; metadata-only delta predicts765verifiedarchives/1336registry+4vendor+1context origins/422unique textblobs afterdeliberatecollection, notcurrentclaim. Cacheinsertionalone mustkeepoldprivate/currentgeneration unchanged. Historical3cachemiss/47/185proofs remainimmutable; 43registry+2localgaps/fulltarget/linkage/nested/perfile/system/toolchain/platform/legalcoverage/allmigration gates OPEN. Rootreviews futureexactdata-transition supplement; no arbitrarycount relaxation.
+- No root/cache/source/profile mutation orcollection/build/native/browser/SDK/provider action; ownhandles:none. Copied earlier baselineprereqs remainunstaged. /compact unavailable; explicit handoff.
+
 ## Native notice authority correction — 2026-10-13
 
 - Verified topic555b570 (seven incremental paths) corrects concretely reproduced originalce9dca7 coherent shlex2.0.1 text/allpublichash acceptance; originalnegative and2741/37proof preserved. Firstarchive-only fix also concretely allowed availabilitydowngrade; private immutable collection receipt/currentmarker nowbindcapturedgeneration, lock-verified privatearchives reparseallselectedbytes, local/workspacebytes compareguardedsources. No archivedsources addedtoTauriresources.
