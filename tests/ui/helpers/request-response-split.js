@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { initialData } from "../../../src/lib/model.js";
 const storageKey = "insomnium-tauri-preview-v1";
-/** @param {import('playwright-core').Page} page @param {string} output */
-export async function assertRequestResponseSplit(page, output) {
+/** @param {import('playwright-core').Page} page @param {string} output
+ * @param {{initialize?:()=>Promise<void>,readPersisted?:()=>Promise<any>,restore?:()=>Promise<void>,requestId?:string,scope?:string}} [adapter] */
+export async function assertRequestResponseSplit(page, output, adapter = {}) {
   const original = await page.evaluate(
       (key) => localStorage.getItem(key),
       storageKey,
@@ -49,7 +50,8 @@ export async function assertRequestResponseSplit(page, output) {
   const rows = [];
   const persistence = [];
   try {
-    await page.evaluate(
+    if (adapter.initialize) await adapter.initialize();
+    else await page.evaluate(
       ({ key, data }) => localStorage.setItem(key, JSON.stringify(data)),
       { key: storageKey, data },
     );
@@ -58,20 +60,21 @@ export async function assertRequestResponseSplit(page, output) {
       .getByRole("button", { name: "Edit request name", exact: true })
       .waitFor();
     await page.keyboard.press("Control+s");
-    await page.waitForFunction((key) => {
+    await page.waitForFunction(({key,native}) => {
       const raw = localStorage.getItem(key);
       return (
-        !!raw &&
+        (native || !!raw) &&
         document
           .querySelector(".status-save")
           ?.textContent?.includes("Local workspace")
       );
-    }, storageKey);
-    const baseline = await page.evaluate(
+    }, {key:storageKey,native:!!adapter.readPersisted});
+    const readPersisted = adapter.readPersisted ?? (() => page.evaluate(
       (key) => JSON.parse(localStorage.getItem(key) ?? "null"),
       storageKey,
-    );
-    assert.equal(baseline.activeRequestId, request._id);
+    ));
+    const baseline = await readPersisted();
+    assert.equal(baseline.activeRequestId, adapter.requestId ?? request._id);
     await Bun.write(
       output + "/heavy-split-baseline.json",
       JSON.stringify(baseline, null, 2),
@@ -332,10 +335,7 @@ export async function assertRequestResponseSplit(page, output) {
                 ?.getAttribute("aria-valuenow") === value,
             saved,
           );
-          const current = await page.evaluate(
-            (key) => JSON.parse(localStorage.getItem(key) ?? "null"),
-            storageKey,
-          );
+          const current = await readPersisted();
           assert.deepEqual(
             current.resources,
             baseline.resources,
@@ -365,14 +365,15 @@ export async function assertRequestResponseSplit(page, output) {
           passed: true,
           rows,
           persistence,
-          scope: "Private preview fixture; native and protocol Send separate",
+          scope: adapter.scope ?? "Private preview fixture; native and protocol Send separate",
         },
         null,
         2,
       ),
     );
   } finally {
-    await page.evaluate(
+    if (adapter.restore) await adapter.restore();
+    else await page.evaluate(
       ({ key, original }) => {
         if (original === null) localStorage.removeItem(key);
         else localStorage.setItem(key, original);
