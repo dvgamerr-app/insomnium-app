@@ -17,6 +17,16 @@ await withNativeApp('plugin-dom-event-production',async({page,output})=>{
  const call=(/** @type {string} */ method,/** @type {any[]} */ args=[])=>page.evaluate(({method,args})=>/** @type {any} */(window).__pluginDomRenderOwner[method](...args),{method,args});
  const checks=[],observations=/** @type {any[]} */([]);
  try{
+  if(process.env.INSOMNIUM_NATIVE_PROVIDER_PENDING==='1'){
+   const path='artifacts/native-provider-pending-current-20261012/native-provider-pending-fixture.js';await page.evaluate(await Bun.file(path).text());
+   const pending=await page.evaluate(()=>/** @type {any} */(window).__nativeProviderPending.run());await Bun.write(output+'/native-provider-pending.json',JSON.stringify(pending,null,2));
+   assert.equal(pending.aborted.length,10);assert.ok(pending.aborted.every((/** @type {any} */row)=>row.pendingBeforeAbort&&row.rejectedExactly&&!row.published));
+   assert.ok(pending.aborted.every((/** @type {any} */row)=>row.activeAbortListeners===0),'Retired native owner must not retain the lease Abort listener');
+   assert.equal(pending.stale.length,2);assert.ok(pending.stale.every((/** @type {any} */row)=>row.rejectedAfterNativeCompletion&&!row.published&&row.activeAbortListeners===0));
+   assert.equal(pending.alreadyAborted,true);assert.equal(pending.eventDenied,true);assert.equal(pending.alreadyAbortedSubscriptions,0);assert.equal(pending.alreadyAbortedListenersAfterCall,0);
+   assert.deepEqual(pending.freshControl,{versionIsString:true,platformIsString:true,desktopIsString:true,activeAbortListeners:0});assert.deepEqual(pending.unhandled,[]);assert.equal(pending.clipboardTouched,false);assert.equal(pending.nativeOperationInterruptionProven,false);
+   checks.push('Actual pending native client promises reject exact five owner reasons without publishing native values','Stale owner generation suppresses actual completed native info/Desktop values','Retired and already-aborted owners retain no native lease/percall Abort subscriptions','Actual native fresh-owner control completes without unhandled late rejection; no Rust interruption claim');
+  }
   if(process.env.INSOMNIUM_NATIVE_PROVIDER_LIFECYCLE==='1'){
    const source='build/event-probe/native-provider-lifecycle.js';assets[source]=hash(await Bun.file(source).bytes());
    const served=await page.evaluate(async()=>Array.from(new Uint8Array(await(await fetch('/event-probe/native-provider-lifecycle.js')).arrayBuffer())));assert.equal(hash(Uint8Array.from(served)),assets[source]);

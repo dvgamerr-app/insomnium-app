@@ -65,7 +65,7 @@ export function createPluginNativeAppEndpoint({ current, signal }) {
   let preparing=/** @type {Promise<void>|undefined} */(undefined),timer=/** @type {ReturnType<typeof setTimeout>|undefined} */(undefined);
   const retire=(/** @type {typeof lease} */ value)=>value?invoke('end_plugin_event_transport',{token:value.token}).catch(()=>{}):Promise.resolve();
   const abort=()=>{clearTimeout(timer);const previous=lease;lease=undefined;expires=0;void retire(previous);};
-  signal.addEventListener('abort',abort,{once:true});
+  if(!signal.aborted)signal.addEventListener('abort',abort,{once:true});
   const prepareEvent=(refresh=false)=>{
     // Preview renderers may expose ordinary controlled services without a
     // native webview. They never acquire a local native protocol capability.
