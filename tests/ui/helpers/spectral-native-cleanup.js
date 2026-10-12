@@ -6,6 +6,7 @@ import {dlopen} from 'bun:ffi';
 import {probeIdentifier} from './native-app.js';
 import {knownWindowsApplicationData} from './native-profile-ownership.js';
 import {assertSpectralFixtureRepositoryId} from './spectral-native-fixture.js';
+import {assertSpectralCleanupPath} from './spectral-native-external.js';
 
 const hash=(/** @type {Uint8Array} */bytes)=>createHash('sha256').update(bytes).digest('hex');
 const canonical=(/** @type {string} */path)=>resolve(path).toLowerCase();
@@ -65,7 +66,7 @@ export async function retireSpectralNativeRepository(bound,output){
  let written=new Map();
  if(latestCase){const last=await Bun.file(join(proof,latestCase)).json();assert.equal(canonical(last.repository),canonical(repository));written=new Map(Object.entries(last.files).map(([path,digest])=>[relative(repository,path),digest]));}
  else assert.deepEqual(final,owner.baseline,'Zero-case cleanup requires exact unchanged native init baseline');
- for(const path of written.keys())assert.ok(['other'+sep+'.spectral.yaml','other'+sep+'functions'+sep+'pause.js'].includes(path),'Closed known fixture file cleanup');
+ for(const path of written.keys())assertSpectralCleanupPath(path);
  for(const file of final.files){const expected=initialGit.get(file.path)??written.get(file.path);assert.equal(file.sha256,expected,'Refuse any unknown/foreign changed repository file');}assert.equal(final.files.length,initialGit.size+written.size);assert.deepEqual([...initialGit.keys()].sort(),final.files.filter(file=>file.path.startsWith('.git'+sep)).map(file=>file.path).sort());
  const archive=join(proof,'spectral-repository-archive');assert.equal(await absent(archive),true);await mkdir(archive);for(const directory of final.directories.filter(Boolean))await mkdir(join(archive,directory),{recursive:true});for(const file of final.files){const raw=await readFile(join(repository,file.path));assert.equal(hash(raw),file.sha256);await Bun.write(join(archive,file.path),raw);assert.equal(hash(await readFile(join(archive,file.path))),file.sha256);}
  await Bun.write(join(proof,'spectral-repository-before-cleanup.json'),JSON.stringify({owner,host,inventory:final,archive,caseCount:cases.length,baselineOnly:cases.length===0,afterExactNativeHostExit:true,recursiveDeletion:false},null,2));assert.deepEqual(await inventory(repository),final,'No mutation between archive and removal');

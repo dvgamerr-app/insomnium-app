@@ -6,10 +6,11 @@ import {initialData} from '../../../src/lib/model.js';
 import {probeIdentifier} from './native-app.js';
 import {knownWindowsApplicationData} from './native-profile-ownership.js';
 import {registerResourceProbeCollection} from './resource-manager-cases.js';
+import {assertSpectralFixturePath,spectralFixtureDirectories,spectralReferenceFiles} from './spectral-native-external.js';
 
 const canonical=(/** @type {string} */path)=>resolve(path).toLowerCase();
 const digest=(/** @type {Uint8Array} */bytes)=>createHash('sha256').update(bytes).digest('hex');
-const modes=new Set(['default','custom','warnings','fallback','held']);
+const modes=new Set(['default','custom','warnings','fallback','held','external-repo','external-http']);
 export const spectralNativeSource='\uFEFFopenapi: 3.1.0\r\ninfo:\r\n  title: Fixture 😀\r\n  version: \'1\'\r\npaths:\r\n  /probe:\r\n    get:\r\n      responses:\r\n        \'200\':\r\n          description: OK\r\ncomponents:\r\n  schemas:\r\n    A:\r\n      $ref: \'./a/shared.yaml\'\r\n    B:\r\n      $ref: \'./b/shared.yaml\'\r\n';
 /** Refuse link/adoption before any closed owned fixture write. @param {string} path */
 async function normalDirectory(path){const info=await lstat(path);assert.ok(info.isDirectory()&&!info.isSymbolicLink(),'Normal owned directory required');assert.equal(canonical(await realpath(path)),canonical(path),'Reparse/alias path refused');}
@@ -45,17 +46,23 @@ export async function initializeSpectralNativeRepository({invoke,output,fixture}
  await Bun.write(join(output,'spectral-repository-before.json'),JSON.stringify({known,profile,root,repository,initiallyAbsent:true,repositoryId:fixture.repositoryId},null,2));
  await invoke('git_repository_init',{repositoryId:fixture.repositoryId});await normalDirectory(root);await normalDirectory(repository);await normalDirectory(join(repository,'.git'));
  const other=join(repository,'other');assert.equal(await absent(other),true,'Fresh native repo other/ must be absent');await mkdir(other);await normalDirectory(other);const functions=join(other,'functions');await mkdir(functions);await normalDirectory(functions);
+ const createdDirectories=['other','other/functions'];
+ for(const name of spectralFixtureDirectories){const path=join(repository,name);assert.equal(await absent(path),true,'Refuse preexisting external fixture directory');await mkdir(path);await normalDirectory(path);createdDirectories.push(name);}
+ await Bun.write(join(output,'spectral-repository-created-directories.json'),JSON.stringify({repository,repositoryId:fixture.repositoryId,createdDirectories,eachInitiallyAbsent:true},null,2));
  const proof=resolve(output);assert.ok(proof.startsWith(resolve('artifacts')+sep),'Entry marker must be in owned artifacts');await normalDirectory(proof);
  /** @type {Map<string,string>} */const prior=new Map();let serial=0;
  return{
   repository,fixture,
-  /** @param {string} mode */async configureCase(mode){assert.ok(modes.has(mode),'Closed Spectral modes only');await normalDirectory(repository);await normalDirectory(other);await normalDirectory(functions);serial++;
+  /** @param {string} mode @param {{revision?:string}} [options] */async configureCase(mode,options={}){assert.ok(modes.has(mode),'Closed Spectral modes only');const revision=options.revision??'one';assert.ok(['one','two'].includes(revision));await normalDirectory(repository);await normalDirectory(other);await normalDirectory(functions);serial++;
    const common='extends: []\nrules:\n';const rules={custom:common+[0,1,2,3].map(severity=>`  '${severity}':\n    description: Fixture severity ${severity}\n    severity: ${severity}\n    given: '$.info'\n    then:\n      field: x-required-${severity}\n      function: truthy\n`).join('')+'  attached-warning:\n    severity: warn\n    given: \'$.components.schemas.*\'\n    then:\n      field: description\n      function: truthy\n',warnings:common+'  warning-only:\n    severity: warn\n    given: \'$.info\'\n    then:\n      field: x-required\n      function: truthy\n',fallback:'extends: [./missing-owned-rules.yaml]\n',held:common+'  entered-owned-function:\n    severity: warn\n    given: \'$\'\n    then:\n      function: pause\nfunctions: [pause]\nfunctionsDir: ./functions\n'};
    const marker=join(proof,'spectral-entered-'+serial+'.json');assert.equal(await absent(marker),true);
-   const writeOwned=async(/** @type {'.spectral.yaml'|'pause.js'} */name,/** @type {string} */text)=>{const path=name==='.spectral.yaml'?join(other,name):join(functions,name);if(prior.has(path)){const info=await lstat(path);assert.ok(info.isFile()&&!info.isSymbolicLink());assert.equal(canonical(await realpath(path)),canonical(path));assert.equal(digest(await readFile(path)),prior.get(path),'Refuse foreign fixture edits');}else assert.equal(await absent(path),true,'Refuse preexisting fixture file');await Bun.write(path,text);prior.set(path,digest(await readFile(path)));};
-   if(mode!=='default')await writeOwned('.spectral.yaml',rules[/** @type {'custom'|'warnings'|'fallback'|'held'} */(mode)]);
-   if(mode==='held')await writeOwned('pause.js',`import{writeFileSync,renameSync}from'node:fs';export default async function(){const marker=${JSON.stringify(marker)};writeFileSync(marker+'.pending',JSON.stringify({pid:process.pid,entered:Date.now()}),{flag:'wx'});renameSync(marker+'.pending',marker);await new Promise(resolve=>setTimeout(resolve,4000));return [{message:'Owned delayed finding',path:['info','title']}];}`);
-   await Bun.write(join(proof,'spectral-case-'+serial+'.json'),JSON.stringify({mode,serial,repository,marker,files:Object.fromEntries(prior)},null,2));return{mode,serial,marker};
+   const writeOwned=async(/** @type {string} */name,/** @type {string} */text)=>{assertSpectralFixturePath(name);const path=join(repository,...name.split('/'));await normalDirectory(join(path,'..'));if(prior.has(path)){const info=await lstat(path);assert.ok(info.isFile()&&!info.isSymbolicLink());assert.equal(canonical(await realpath(path)),canonical(path));assert.equal(digest(await readFile(path)),prior.get(path),'Refuse foreign fixture edits');}else assert.equal(await absent(path),true,'Refuse preexisting fixture file');await Bun.write(path,text);prior.set(path,digest(await readFile(path)));};
+   if(mode.startsWith('external-')){
+    await writeOwned('other/.spectral.yaml',common+'  attached-warning:\n    severity: warn\n    given: \'$.components.schemas.*\'\n    then:\n      field: description\n      function: truthy\n  nested-warning:\n    severity: warn\n    given: \'$.paths.*.*.requestBody.content.*.schema.properties.*\'\n    then:\n      field: description\n      function: truthy\n');
+    for(const[name,text]of Object.entries(spectralReferenceFiles(revision)))await writeOwned(name,text);
+   }else if(mode!=='default')await writeOwned('other/.spectral.yaml',rules[/** @type {'custom'|'warnings'|'fallback'|'held'} */(mode)]);
+   if(mode==='held')await writeOwned('other/functions/pause.js',`import{writeFileSync,renameSync}from'node:fs';export default async function(){const marker=${JSON.stringify(marker)};writeFileSync(marker+'.pending',JSON.stringify({pid:process.pid,entered:Date.now()}),{flag:'wx'});renameSync(marker+'.pending',marker);await new Promise(resolve=>setTimeout(resolve,4000));return [{message:'Owned delayed finding',path:['info','title']}];}`);
+   await Bun.write(join(proof,'spectral-case-'+serial+'.json'),JSON.stringify({mode,revision,serial,repository,marker,files:Object.fromEntries(prior),createdDirectories},null,2));return{mode,revision,serial,marker};
   },
  };
 }
