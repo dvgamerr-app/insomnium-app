@@ -1,3 +1,9 @@
+## Fresh native content-coherence checkpoint; actual Cookie next — 2026-10-13
+
+New e567/a5ec/1013source52asset1946resource764private closure and saved native-hidden42258 original61+actual62 bindingrefusal/UI0/fixed4s/allphysical/fullprotectedprofile+currentlayout restoration independentlyaccepted. PrioractualA→B RED preserved. Managedread measuredruleset publicationgate nowclosed; universalambient/externalABA/hardFS/birth/restart/platform/fullshell remainseparate.
+
+Nextreview saved3path realnativeCookie preparation10fileguards against current source; current product is compiled in this newapp, runtime-only test supplement requires exact declared harness/source guards and exclusive profile restoration. Do not relabel controlledcomponent as Rust/jar proof. Recovered3 archiveproposal35 rehashed; cacheadmissiontool remainsisolated/no writes during frozenproof. EveryoriginalSDK/Event/FIFO/private/platform/distribution/fullnotice/UX/migration gate retained; topiccommit and compact-unavailable handoff perfeature.
+
 ## Current Cookie checkpoint and combined fresh native generation — 2026-10-13
 
 Cookie-only Field association/correction accepted onroot1008input/49asset/compiler0/0/SAMEsixprofile18refusals/fullsharedsuite/build0; controlled component proof doesnot proveactualRust/jar workflow. Nextroot reviews nativeartifactwrappers against this currentgeneration, builds fresh full app/sidecar/emittedSpectral+native/privateadmission/fixtureworker closure and exclusively runs original61+62 actualbindingrefusal/UI0/physicalsettlement/full restoration. Historicalbf5e cannot accept eitherCookie or managedread delta. UIagent prepares saved realnativeCookie branch separately without launch/shim. Recovered3 authenticarchive admissionproposal35files remainsseparate pendingreview; no cache change duringfreeze. Preserve all originalmigration/UX/private/platform/distribution/SDK/Event/FIFO/fullnotice gates and perfeature topiccommit/compact-unavailablehandoff.

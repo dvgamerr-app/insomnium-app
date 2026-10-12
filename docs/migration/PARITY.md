@@ -1,3 +1,7 @@
+## Actual fresh native managed ruleset coherence boundary — 2026-10-13
+
+Release62029 e567/a5ec/1013sources52assets1946emittednotice764privateauthority and native-hidden42258 independentlypass original48/73oracle→61/54reads→actual62normalfixed4s A→B Rustbindingrefusal/UI0/noacceptedcancel/allphysical/restored43resources20history/twobuffers/store654cookies/Gitnames/registeredrepo+3current2legacylayout/profile release. This closes measured69504 stale-rule defect only; historicalRED preserved. Complete actual emittedsource-corpus resourcecopy verified, fulltargetlinkage/legal/distribution completeness stillunproven. NativeCookie/currentotherproductionworkflows/OS/AT/platform/fullshell/ambientpackage-dynamic-remote-resolution/externalABA/hardFS/TOCTOU/birth/restart/private/SDK/Event/FIFO/fullnotice/migration/UX stayOPEN.
+
 ## Current Cookie controlled-component boundary — 2026-10-13
 
 RootCookie-only correction/compiler12430 0/0/serial2219 SAMEsixprofile18knownrefusals/fullshared-control suite/build0 accepted with1008frozen inputs49assets and independent root-audit. Alloriginal36association/correction defects cleared; exactnormalgeometry/default7px/onlyapprovedcaption500/feedbackvisible/globalpreservation/formowner/disposal/HTMLnoinvoke/InputEnter1/rawprevious/nojar mutation verified with controlledoutcomes. ActualnativeRust error/UTF8/scheme/precedence/jar/restoration/OS/AT/platform remainsOPEN, as do freshmanagedread61+62 and everyoriginalmigration/UX/private/distribution/SDK/Event/FIFO/noticelinkage gate. Old724RED preserved; historicalbf5e notcurrent.
