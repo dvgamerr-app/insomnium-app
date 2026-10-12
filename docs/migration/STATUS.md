@@ -1,7 +1,13 @@
+## GraphQL shared selected foreground — integrated 2026-10-12
+
+- Removed the competing4line GraphQL toolbar selected-color rule. Query/Schema now inherit shared SegmentedControl --accent-text instead of feature CSS overriding it with --accent; existing layout is unchanged. Shared saved helper verifies actual view switching, keyboard/focus, semantic selected foreground and focus/selected token propagation across dark/light and1440/760widths.
+- Root production build3ddeb6 exits0, compiler9317/242971 reports0errors/0warnings, full actual-app headless nocturne-theme6930/4b4f91 exits0 with16raw GraphQL rows passing. Native graphql-editor scenario uses the same reusable helper but fresh native replay remains required. AGENT-SHARED-UI-GRAPHQL.md records exact source/negative-rule/selector-failure evidence and limits.
+- Topic commit follows; only CSS rule/helper/two existing scenarios/agent handoff/checkpoint included. All root handles terminal. Event API and isolated native provider build continue; no broad UI/migration completion. `/compact` unavailable; this checkpoint is the explicit handoff.
+
 ## Owned Event browser and listener lifecycle checkpoint — 2026-10-12
 
 - Verified browser checkpoint: native synchronous default cancellation/private Event identity/state, scoped microtask checkpoints, bounded same-owner native nesting, self-removal borrowed-handle continuation and immediate same-stack once re-registration. Seven listener modes pass21groups; retained138groups also pass on worker06d0dab3. Every recorded worker terminates. Original terminal-owner25086/268120 still exits1 at unchanged held-sync clipboard IPC assertion after10owner/store controls; full acceptance remains RED.
-- Independent listener audit60582/5c3802 exits0:789exact frozen current files, all771previous nesting proof files and two729file negative listener snapshots preserved. Compiler0/0/build0/Cargo check0 recorded below. PLUGIN-DOM-LISTENER-LIFECYCLE.md and PLUGIN-DOM-EVENTS.md describe scope and references. Topic commit follows; no full Event/native/migration completion claim.
+- Independent listener audit60582/5c3802 exits0:789exact frozen current files, all771previous nesting proof files and two729file negative listener snapshots preserved. Compiler0/0/build0/Cargo check0 recorded below. PLUGIN-DOM-LISTENER-LIFECYCLE.md and PLUGIN-DOM-EVENTS.md describe scope and references. Topic committed858aef8; no full Event/native/migration completion claim.
 - Root handles all terminal. Isolated Event API, fresh native provider acceptance and GraphQL shared-token agents continue. Multiple async frames/same-lease overlap/synthetic outer-stack/subclasses/property handlers/full options/held-provider/current native/full parity remain required. `/compact` unavailable; this checkpoint is the explicit handoff.
 
 ## Native provider lease and consumer cancellation — integrated 2026-10-12

@@ -1,4 +1,5 @@
 import { exerciseSplit } from "./helpers/split-pane.js";
+import { assertGraphqlSegmented } from "./helpers/graphql-segmented.js";
 import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -88,6 +89,10 @@ try {
     await select();
     const panel = page.locator(".graphql-panel");
     await panel.waitFor();
+    await Bun.write(
+      output + "/graphql-segmented.json",
+      JSON.stringify(await assertGraphqlSegmented(page, panel), null, 2),
+    );
     const saved = async () =>
       (await invoke("load_workspace")).resources.find(
         (/** @type {Record<string, any>} */ r) =>

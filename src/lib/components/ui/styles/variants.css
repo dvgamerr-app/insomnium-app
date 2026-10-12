@@ -96,10 +96,6 @@
   cursor: pointer;
 }
 
-.graphql-toolbar .ui-segmented-choice[aria-pressed="true"] {
-  color: var(--accent);
-}
-
 .preview-toolbar .ui-button {
   font-size: var(--font-size-10);
   padding: var(--space-3) var(--space-8);

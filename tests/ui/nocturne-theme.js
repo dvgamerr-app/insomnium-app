@@ -1,4 +1,5 @@
 import { assertFilledForeground } from "./helpers/filled-foreground.js";
+import { assertGraphqlSegmented } from "./helpers/graphql-segmented.js";
 import { assertSelectGeometry } from "./helpers/select-geometry.js";
 import assert from "node:assert/strict";
 import { withPreview } from "./helpers/preview-app.js";
@@ -11,6 +12,7 @@ import {
 
 await withPreview("nocturne-theme", async (page, output) => {
   const filledForeground = [];
+  const graphqlSegmented = [];
   const selectGeometry = /** @type {Array<Record<string,any>>} */ ([]);
   await page
     .getByRole("button", { name: "Toggle theme", exact: true })
@@ -311,6 +313,13 @@ await withPreview("nocturne-theme", async (page, output) => {
       .getByRole("button", { name: "Fetch schema", exact: true })
       .waitFor();
     await assertCaptionTypography(page, [".graphql-editor-column"]);
+    graphqlSegmented.push(
+      ...(await assertGraphqlSegmented(page, page.locator(".graphql-panel"))),
+    );
+    await Bun.write(
+      output + "/graphql-segmented.json",
+      JSON.stringify(graphqlSegmented, null, 2),
+    );
     await page
       .locator(".CodeMirror")
       .first()
