@@ -1,3 +1,7 @@
+## Actual held ruleset content mismatch remains open — 2026-10-13
+
+Native-hidden69504 reproduces A finding and1 UI row after owned ruleset becomesB, actual62nd normal job following original61/7cancel/54read checkpoint. Independent held-rule-root-proof/native-negative-v1/root-audit.json proves physical settlement/full restoration/currentSplitPane keys; expectedRED remains unresolved product defect. Consumed-read/binding freshness correction in isolated preparation, not accepted yet. No universalABA/complete ambientread/fullshell/private/platform/distribution/notice/migration/UX claim.
+
 ## Current native namespace boundary — 2026-10-13
 
 Saved native-hidden90664 on unchanged bf5e/f569 closure independently passes namespace persistence/reload/clear/remove/isolation, three HTTP requests, twenty workers, fifteen refusals, six layouts and full profile/current SplitPane-key restoration (current-layout-v3/root-audit.json; NATIVE-NAMESPACE-ACCEPTANCE.md). Native field-association/focused-row-removal/AT remain unverified. Earlier542e177 and preservation-v2 layout proofs cover obsolete keys only; no current-key claim from those proofs. Full production shell, remaining native/platform/private/distribution/repository/SDK/Event/FIFO/notices/migration/UX remain open.

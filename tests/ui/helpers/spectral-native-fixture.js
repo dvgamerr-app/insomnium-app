@@ -6,6 +6,7 @@ import { initialData } from "../../../src/lib/model.js";
 import { probeIdentifier } from "./native-app.js";
 import { knownWindowsApplicationData } from "./native-profile-ownership.js";
 import { registerResourceProbeCollection } from "./resource-manager-cases.js";
+import { heldReplacementRule } from "./spectral-held-rule-mutation.js";
 import {
   assertSpectralFixturePath,
   spectralFixtureDirectories,
@@ -268,9 +269,88 @@ export async function initializeSpectralNativeRepository({
   await normalDirectory(proof);
   /** @type {Map<string,string>} */ const prior = new Map();
   let serial = 0;
+  let heldCase = /** @type {any} */ (null);
   return {
     repository,
     fixture,
+    /** Separate closed negative writer; configureCase still refuses active producers.
+     * @param {()=>Promise<any>} authorize */
+    async mutateHeldRule(authorize) {
+      assert.ok(heldCase, "Current owned held case required");
+      const first = await authorize();
+      assert.equal(first.path, heldCase.marker);
+      assert.deepEqual(first.job.input.expectedBinding, fixture.binding);
+      const saved = await invoke("load_workspace"),
+        bindings = saved.resources.filter(
+          (/** @type {any} */ row) =>
+            row._type === "git_repository" &&
+            row.nativeRepositoryId === fixture.repositoryId,
+        );
+      assert.equal(bindings.length, 1);
+      assert.deepEqual(bindings[0], fixture.binding);
+      assert.ok(
+        saved.resources.some(
+          (/** @type {any} */ row) =>
+            row._type === "workspace" && row._id === fixture.workspaceId,
+        ),
+      );
+      for (const path of [known, profile, root, repository, other])
+        await normalDirectory(path);
+      const path = join(other, ".spectral.yaml");
+      assertSpectralFixturePath("other/.spectral.yaml");
+      const info = await lstat(path);
+      assert.ok(info.isFile() && !info.isSymbolicLink());
+      assert.equal(canonical(await realpath(path)), canonical(path));
+      const before = await readFile(path);
+      assert.equal(digest(before), heldCase.sha256);
+      assert.equal(prior.get(path), heldCase.sha256);
+      const final = await authorize();
+      assert.equal(final.jobId, first.jobId);
+      assert.deepEqual(
+        final.process.processIdentity,
+        first.process.processIdentity,
+      );
+      assert.equal(final.path, heldCase.marker);
+      const after = new TextEncoder().encode(heldReplacementRule);
+      assert.notEqual(digest(after), digest(before));
+      await Bun.write(path, after);
+      assert.equal(digest(await readFile(path)), digest(after));
+      prior.set(path, digest(after));
+      serial++;
+      const mutation = {
+        jobId: first.jobId,
+        repository,
+        path,
+        marker: first.path,
+        process: first.process,
+        before: { contents: before.toString("utf8"), sha256: digest(before) },
+        after: { contents: heldReplacementRule, sha256: digest(after) },
+        at: Date.now(),
+        scope:
+          "Owned declared rule content mismatch, not arbitrary external ABA",
+      };
+      await Bun.write(
+        join(proof, "spectral-held-rule-mutation.json"),
+        JSON.stringify(mutation, null, 2),
+      );
+      await Bun.write(
+        join(proof, "spectral-case-" + serial + ".json"),
+        JSON.stringify(
+          {
+            mode: "held-rule-mutation",
+            serial,
+            repository,
+            marker: first.path,
+            files: Object.fromEntries(prior),
+            createdDirectories,
+          },
+          null,
+          2,
+        ),
+      );
+      heldCase = null;
+      return mutation;
+    },
     /** @param {string} mode @param {{revision?:string}} [options] */ async configureCase(
       mode,
       options = {},
@@ -368,6 +448,10 @@ export async function initializeSpectralNativeRepository({
           2,
         ),
       );
+      heldCase =
+        mode === "held"
+          ? { marker, sha256: prior.get(join(other, ".spectral.yaml")) }
+          : null;
       return { mode, revision, serial, marker };
     },
   };

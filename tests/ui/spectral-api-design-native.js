@@ -15,6 +15,7 @@ import {
 } from "./helpers/spectral-native-cleanup.js";
 import { createSpectralReferenceServer } from "./helpers/spectral-native-external.js";
 import { exerciseStructuralSources } from "./helpers/structural-source-cases.js";
+import { exerciseHeldRuleMutationNegative } from "./helpers/spectral-held-rule-mutation.js";
 
 // Preparation alone cannot accidentally run on old588 or any stale native binary.
 assert.ok(
@@ -28,6 +29,12 @@ assert.ok(
 const closure = await Bun.file(
   process.env.INSOMNIUM_SPECTRAL_NATIVE_CLOSURE,
 ).json();
+assert.ok(
+  [undefined, "held-rule-mutation"].includes(
+    process.env.INSOMNIUM_SPECTRAL_NATIVE_NEGATIVE,
+  ),
+  "Closed opt-in native negative",
+);
 assert.equal(closure.status, "verified");
 assert.equal(closure.identifier, probeIdentifier);
 assert.equal(closure.spectralNative, true);
@@ -91,6 +98,9 @@ await withResourceProbePreserved(async () => {
         const layoutKeys = [
             "insomnium.requestResponseSplit.v1",
             "insomnium.apiSourcePreviewSplit.v1",
+            "nocturne:split:workspace-left",
+            "nocturne:split:request-response",
+            "nocturne:split:design",
           ],
           layout = await page.evaluate(
             (keys) =>
@@ -187,6 +197,7 @@ await withResourceProbePreserved(async () => {
           sidecar: closure.sidecar.path,
           sidecarSha256: closure.sidecar.sha256,
           fixture: prepared.fixture,
+          mutateHeldRule: (authorize) => repository.mutateHeldRule(authorize),
           configureCase: async (mode, options) => {
             references.setRevision(options?.revision ?? "one");
             references.setRepresentation(
@@ -356,6 +367,15 @@ await withResourceProbePreserved(async () => {
               2,
             ),
           );
+          if (
+            process.env.INSOMNIUM_SPECTRAL_NATIVE_NEGATIVE ===
+            "held-rule-mutation"
+          )
+            await exerciseHeldRuleMutationNegative(page, output, {
+              trace,
+              invoke,
+              fixture: prepared.fixture,
+            });
         } finally {
           try {
             await trace.close();

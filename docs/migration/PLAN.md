@@ -1,3 +1,7 @@
+## Reproduced repository freshness defect: next correction — 2026-10-13
+
+Root native69504 proves actual62nd A-result/current-B publication after unchanged61 checkpoint; full restoration independently audited. Native agent now implements bounded consumed managed-read receipts and post-run binding/content freshness, preserving custom JS and opaque resultJson. YAML/extends/import/functions/failed fallback/mixed refs need honest observed coverage; universalexternalABA/ambient external authority remain distinct. Product correction requires isolated saved guards/equivalence and root fresh native build+old61/new62 verification. UI multipart and native-notice collector candidates proceed in separate worktrees; root accepts serially with frozen inputs and topic commits. /compact unavailable explicit handoff remains mandatory.
+
 ## Current parallel execution plan — 2026-10-13
 
 | Owner | Next concrete work | Acceptance boundary |
