@@ -43,7 +43,7 @@ export async function openPluginSession(snapshot, options) {
   let queue = Promise.resolve();
   /** @type {(PluginDomOwner & {id:number,leaseId?:number,cleanup:boolean,resolve:(value:any)=>void,reject:(error:Error)=>void,deadline:ReturnType<typeof createRenderDeadline>,totalTimer:ReturnType<typeof setTimeout>,unsubscribe?:()=>void,resume?:()=>void,retentionOwner?:PluginDomOwner})|undefined} */
   let active;
-  const waitingEventFrames=new WeakSet();
+  const waitingEventFrames=new WeakSet(),windowCheckpointFrames=new WeakSet();
   /** @type {WeakMap<object,{frames:SharedArrayBuffer[],owner:number,depth:number,servicing:boolean,dispatch:(wire:string)=>string}>} */
   const sharedNativeFrames=new WeakMap();
   /** @param {number} id @param {SharedArrayBuffer[]} frames @param {(wire:string)=>string} dispatch */
@@ -274,11 +274,11 @@ export async function openPluginSession(snapshot, options) {
             }catch(error){close(error instanceof Error?error:Error(String(error)));throw error;}
             finally{nested.depth--;}
           }
-          if(queued||suspended&&(!waitingEventFrames.has(suspended)||suspended.retentionOwner!==owner||suspended.leaseId===id))throw Error('Synchronous DOM event requires an idle owned callback queue');
+          if(queued||suspended&&(!waitingEventFrames.has(suspended)||suspended.retentionOwner!==owner||suspended.leaseId===id&&!windowCheckpointFrames.has(suspended)))throw Error('Synchronous DOM event requires an idle owned callback queue');
           if(!owner.domCall)throw Error('Owned event DOM transport is unavailable');
           const eventId=nextId+1,buffer=createPluginEventMailbox(eventId,4*1024*1024);
           const frames=[buffer,...Array.from({length:6},()=>createPluginEventMailbox(eventId,4*1024*1024))];
-          const job=send({type:suspended?'invoke-dom-while-waiting':'invoke-dom-callback',parentId:suspended?.id,leaseId:id,args:codec.encode(args),eventBuffer:buffer,eventFrames:frames},owned,owner.frame,
+          const job=send({type:suspended?'invoke-dom-while-waiting':'invoke-dom-callback',parentId:suspended?.id,leaseId:id,args:codec.encode(args),eventBuffer:buffer,eventFrames:frames,windowCheckpoint:suspended?windowCheckpointFrames.has(suspended):args[0]?.windowCheckpoint===true},owned,owner.frame,
             owner.helperCall,owner.subscribeInteraction,owner.syncCall,owner.domCallbacks,owner,owner.domCall);
           // Attach rejection handling before pumping, including a failed prefix.
           const handled=job.then(()=>{},()=>{});if(!suspended)queue=handled;
@@ -302,7 +302,7 @@ export async function openPluginSession(snapshot, options) {
           });
             const completion=pumpPluginEventMailbox(buffer,eventId,{current:owned,timeout:5000,dispatch:context.dispatch});
             if(suspended&&completion==='prefix')throw Error('Waiting DOM callback needs an additional asynchronous frame');
-            if(!owned())throw aborted();completeOwnedEvent(eventId,completion);
+            if(!owned())throw aborted();if(!suspended&&completion==='prefix'&&args[0]?.windowCheckpoint===true&&active){windowCheckpointFrames.add(active);queueMicrotask(()=>{if(current()&&active?.id===eventId&&owned()){windowCheckpointFrames.delete(active);worker.postMessage({type:'resume-dom-checkpoint',id:eventId});}});}completeOwnedEvent(eventId,completion);
           }catch(error){close(error instanceof Error?error:Error(String(error)));throw error;}
           finally{if(suspended){if(closed||terminated){disposeOperation(suspended);suspended.reject(closeReason??aborted());}else active=suspended;}}
           return job;

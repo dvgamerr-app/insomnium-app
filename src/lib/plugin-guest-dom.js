@@ -38,9 +38,9 @@ export function createPluginGuestDom(call,retain,now) {
     set cancelBubble(value){if(value)this.stopPropagation();else eventState(this);}
     get returnValue(){return !eventState(this).prevented;}
     set returnValue(value){if(!value)this.preventDefault();else eventState(this);}
-    preventDefault(){const data=eventState(this);if(data.cancelable&&(!data.active||!data.passive))data.prevented=data.active?!!call('dom.event',[data.id,'preventDefault']):true;}
-    stopPropagation(){const data=eventState(this);data.stopped=true;if(data.active)call('dom.event',[data.id,'stopPropagation']);}
-    stopImmediatePropagation(){const data=eventState(this);data.stopped=true;data.immediate=true;if(data.active)call('dom.event',[data.id,'stopImmediatePropagation']);}
+    preventDefault(){const data=eventState(this);if(data.cancelable&&(!data.active||!data.passive)){if(data.id)call(data.active?'dom.event':'dom.event-late',[data.id,'preventDefault']);data.prevented=true;}}
+    stopPropagation(){const data=eventState(this);data.stopped=true;if(data.id)call(data.active?'dom.event':'dom.event-late',[data.id,'stopPropagation']);}
+    stopImmediatePropagation(){const data=eventState(this);data.stopped=true;data.immediate=true;if(data.id)call(data.active?'dom.event':'dom.event-late',[data.id,'stopImmediatePropagation']);}
     composedPath(){return eventState(this).path.slice();}
     /** @param {any} type @param {any} [bubbles] @param {any} [cancelable] */
     initEvent(type,bubbles=false,cancelable=false){const data=eventState(this);if(!arguments.length)throw new TypeError('Event type is required');if(data.active)return;data.type=domString(type);data.bubbles=!!bubbles;data.cancelable=!!cancelable;data.trusted=false;data.prevented=false;data.stopped=false;data.immediate=false;data.target=null;}
@@ -296,6 +296,7 @@ export function createPluginGuestDom(call,retain,now) {
   ])
     for (const target of [GuestKeyboardEvent, GuestKeyboardEvent.prototype])
       Object.defineProperty(target, name, { value, enumerable: true });
+  const syntheticEvents=new Map();let syntheticSequence=0;
   const nativeEvents=new Map(),EventWeakRef=WeakRef;
   const dereference=Function.call.bind(WeakRef.prototype.deref);
   const eventFinalizer=new FinalizationRegistry(({id,reference})=>{
@@ -303,16 +304,18 @@ export function createPluginGuestDom(call,retain,now) {
   });
   const registerEvent=eventFinalizer.register.bind(eventFinalizer);
   const nativeEvent=(/** @type {any} */ packet)=>{
+    const synthetic=packet.syntheticId!==undefined;
     const reference=nativeEvents.get(packet.eventId);
-    let value=reference&&dereference(reference);
+    let value=synthetic?syntheticEvents.get(packet.syntheticId):reference&&dereference(reference);
+    if(synthetic&&!value)throw new TypeError('Unknown owned synthetic Event');const customCached=!!value&&eventData.get(value)?.brands?.includes('CustomEvent');
     if(!value){
       value=Object.create((eventClasses[packet.interface]||GuestEvent).prototype);trust(value);
       const reference=new EventWeakRef(value);nativeEvents.set(packet.eventId,reference);
       registerEvent(value,{id:packet.eventId,reference});
       eventData.set(value,{});
     }
-    Object.assign(eventState(value),{type:packet.type,bubbles:packet.bubbles,cancelable:packet.cancelable,composed:!!packet.composed,timeStamp:packet.timeStamp,trusted:!!packet.isTrusted,target:wrap(packet.target),currentTarget:wrap(packet.currentTarget),phase:packet.eventPhase,prevented:packet.defaultPrevented,stopped:!!packet.cancelBubble,immediate:false,active:true,passive:!!packet.passive,path:(packet.path||[]).map(wrap),id:packet.eventId});
-    const data=eventState(value);data.brands=[];for(const name of ['UIEvent','MouseEvent','KeyboardEvent','PointerEvent','CustomEvent'])if(value instanceof eventClasses[name])initialize(value,name,{...packet,view:packet.ownedView?guestWindow:null,relatedTarget:packet.relatedTarget?wrap(packet.relatedTarget):null});if('which' in packet)data.which=packet.which;if(value instanceof GuestPointerEvent)for(const key of ['screenX','screenY','clientX','clientY'])if(key in packet)data[key]=packet[key];if(value instanceof GuestMouseEvent)for(const key of ['pageX','pageY'])if(key in packet)data[key]=packet[key];
+    Object.assign(eventState(value),{type:packet.type,bubbles:packet.bubbles,cancelable:packet.cancelable,composed:!!packet.composed,timeStamp:synthetic?eventState(value).timeStamp:packet.timeStamp,trusted:!!packet.isTrusted,target:wrap(packet.target),currentTarget:wrap(packet.currentTarget),phase:packet.eventPhase,prevented:packet.defaultPrevented,stopped:!!packet.cancelBubble,immediate:false,active:true,passive:!!packet.passive,path:(packet.path||[]).map(wrap),id:packet.eventId});
+    const data=eventState(value);data.brands=[];for(const name of ['UIEvent','MouseEvent','KeyboardEvent','PointerEvent','CustomEvent'])if(value instanceof eventClasses[name]&&!((synthetic||customCached)&&name==='CustomEvent'))initialize(value,name,{...packet,view:packet.ownedView?guestWindow:null,relatedTarget:packet.relatedTarget?wrap(packet.relatedTarget):null});if((synthetic||customCached)&&value instanceof GuestCustomEvent)data.brands.push('CustomEvent');if('which' in packet)data.which=packet.which;if(value instanceof GuestPointerEvent)for(const key of ['screenX','screenY','clientX','clientY'])if(key in packet)data[key]=packet[key];if(value instanceof GuestMouseEvent)for(const key of ['pageX','pageY'])if(key in packet)data[key]=packet[key];
     return value;
   };
   const collectionData=new WeakMap(),liveCollections=new WeakMap(),datasetData=new WeakMap(),datasetObjects=new WeakMap(),elements=new WeakSet();
@@ -490,6 +493,7 @@ export function createPluginGuestDom(call,retain,now) {
     /** @param {boolean} [deep] */cloneNode(deep=false){return wrap(call("dom.node",[idOf(this),"cloneNode",[!!deep]]));}
     /** @param {string} type @param {any} listener @param {any} [options] */
     addEventListener(type,listener,options={}) {
+      type=domString(type);options??={};
       if(listener===null)return;
       if(typeof listener!=="function" && typeof listener?.handleEvent!=="function")throw Error("Invalid event listener");
       const capture=typeof options==="boolean"?options:!!options.capture;
@@ -504,8 +508,22 @@ export function createPluginGuestDom(call,retain,now) {
       call("dom.listen",[idOf(this),type,id,{capture,once:typeof options==="object"&&!!options.once,passive:typeof options==='object'&&!!options.passive}]);
       list.push({type,listener,capture,id});listeners.set(this,list);
     }
+    /** Dispatch the actual host-owned Event while preserving the guest Event's local identity.
+     * @param {any} event */
+    dispatchEvent(event){
+      if(!ids.has(this))throw new TypeError('Illegal EventTarget invocation');
+      const data=eventState(event);if(data.dispatching||data.active)throw new DOMException('Event is already being dispatched','InvalidStateError');
+      const id=++syntheticSequence,packet=/** @type {Record<string,any>} */ ({syntheticId:id,interface:['PointerEvent','MouseEvent','KeyboardEvent','CustomEvent','UIEvent'].find(name=>data.brands?.includes(name))||'Event',type:data.type,bubbles:data.bubbles,cancelable:data.cancelable,composed:data.composed,defaultPrevented:data.prevented,stopped:data.stopped,immediate:data.immediate,viewOwned:data.view===guestWindow});
+      // Never serialize CustomEvent.detail: it can contain VM-local functions/cycles.
+      for(const kind of ['UIEvent','MouseEvent','KeyboardEvent','PointerEvent'])if(data.brands?.includes(kind))for(const key of Object.keys(fields[kind]))if(key!=='view'&&key!=='relatedTarget')packet[key]=data[key];
+      if(data.relatedTarget)packet.relatedTarget=idOf(data.relatedTarget);
+      syntheticEvents.set(id,event);data.dispatching=true;
+      try{const result=call('dom.dispatch',[idOf(this),packet]);data.target=this;data.trusted=false;data.prevented=result.defaultPrevented;return result.result;}
+      finally{syntheticEvents.delete(id);data.dispatching=false;data.active=false;data.passive=false;data.currentTarget=null;data.phase=0;data.path=[];data.stopped=false;data.immediate=false;}
+    }
     /** @param {string} type @param {any} listener @param {any} [options] */
     removeEventListener(type,listener,options={}) {
+      type=domString(type);options??={};
       const capture=typeof options==="boolean"?options:!!options.capture,list=listeners.get(this)||[];
       const index=list.findIndex((/** @type {any} */ row)=>row.type===type&&row.listener===listener&&row.capture===capture);
       if(index<0)return;
@@ -563,6 +581,15 @@ export function createPluginGuestDom(call,retain,now) {
   Object.defineProperty(GuestNode.prototype,"ownerDocument",{get(){return document;}});
   for(const key of ["innerHTML","outerHTML"])
     Object.defineProperty(GuestElement.prototype,key,{get(){throw Error("HTML content is not bridged yet");},set(){throw Error("HTML content is not bridged yet");}});
+  const propertyHandlers=new WeakMap();
+  for(const type of ['click','input','change','keydown','keyup','focus','blur'])Object.defineProperty(GuestElement.prototype,'on'+type,{enumerable:true,configurable:true,get(){if(!elements.has(this))throw new TypeError('Illegal event handler receiver');return propertyHandlers.get(this)?.get(type)?.listener??null;},set(listener){
+    if(!elements.has(this))throw new TypeError('Illegal event handler receiver');
+    const value=typeof listener==='function'?listener:null,list=propertyHandlers.get(this)||new Map(),previous=list.get(type);
+    if(!value){call('dom.handler',[idOf(this),type,null]);list.delete(type);propertyHandlers.set(this,list);return;}
+    if(previous){call('dom.handler',[idOf(this),type,previous.id]);previous.listener=value;return;}
+    const row={listener:value,id:0};row.id=retain(packet=>{const event=nativeEvent(packet),data=eventState(event);try{const result=row.listener.call(this,event);if(result===false)event.preventDefault();return undefined;}finally{eventCheckpoints.at(-1)?.add(data);}});
+    call('dom.handler',[idOf(this),type,row.id]);list.set(type,row);propertyHandlers.set(this,list);
+  }});
   for(const [constructor,name] of /** @type {[any,string][]} */([[GuestNode,'Node'],[GuestElement,'HTMLElement'],[GuestNodeList,'NodeList'],[GuestHTMLCollection,'HTMLCollection'],[GuestDOMTokenList,'DOMTokenList'],[GuestDOMStringMap,'DOMStringMap'],[DOMException,'DOMException']])){
     objectDefine(constructor,'name',{value:name});objectDefine(constructor,'length',{value:0});
   }
@@ -608,7 +635,7 @@ export function createPluginGuestDom(call,retain,now) {
  * @param {any} value @returns {{method:string,args:any[]}} */
 export function validatePluginDomCall(value) {
   if(!value || Object.keys(value).sort().join(",")!=="args,method" || !Array.isArray(value.args) ||
-      !["dom.create","dom.get","dom.set","dom.node","dom.attribute","dom.query","dom.collection","dom.tokens","dom.dataset","dom.style","dom.listen","dom.unlisten","dom.dialog","dom.event"].includes(value.method) ||
+      !["dom.create","dom.get","dom.set","dom.node","dom.attribute","dom.query","dom.collection","dom.tokens","dom.dataset","dom.style","dom.listen","dom.unlisten","dom.dialog","dom.event","dom.dispatch","dom.handler","dom.event-late"].includes(value.method) ||
       value.args.length>4)throw Error("Invalid plugin DOM call");
   return value;
 }

@@ -119,8 +119,8 @@ export function createPluginDomCallbackLeases(loaded, options) {
       }finally{if(checkpointOpen)try{loaded.finishDomEventCheckpoint();}catch{/* Terminal failure. */}result?.dispose();activeHandle?.dispose();activeHandle=previousHandle;activeLease=previousLease;executing=previousId;waiting=true;}
     },
     /** Copy arguments before queueing. Late/stale events cannot enter the guest.
-     * @param {number} id @param {any[]} [args] @param {()=>void} [onPrefix] */
-    invoke(id, args = [], onPrefix) {
+     * @param {number} id @param {any[]} [args] @param {()=>void} [onPrefix] @param {Promise<void>} [windowCheckpoint] */
+    invoke(id, args = [], onPrefix,windowCheckpoint) {
       let wire;
       try {
         const lease = leases.get(id);
@@ -147,6 +147,14 @@ export function createPluginDomCallbackLeases(loaded, options) {
         try {
           loaded.beginDomEventCheckpoint();checkpointOpen=true;
           result = evaluate(`(async()=>__pluginDomCallbackCodec.encode(await __pluginDomCallbackDispatch(${id},...__pluginDomCallbackCodec.decode(${JSON.stringify(wire)}))))()`);
+          if(windowCheckpoint){
+            // Window's original JS stack is still present. Publish only the
+            // listener prefix, then retain its original capability/budget frame.
+            loaded.finishDomEventCheckpoint();checkpointOpen=false;
+            prefixPublished=true;waiting=true;onPrefix?.();
+            const wait=loaded.beginHostWait();
+            try{await windowCheckpoint;}finally{loaded.accountHostWait(wait);}
+          }
           // Drain the ready guest checkpoint on the native stack. Only a real
           // asynchronous host wait publishes an unfinished prefix; settled
           // callbacks finish their trusted frame before the next listener.

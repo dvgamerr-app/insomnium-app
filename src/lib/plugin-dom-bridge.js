@@ -22,7 +22,12 @@ export function createPluginDomBridge(owner) {
   owner.signal.throwIfAborted();if(!owner.current())throw Error("Plugin DOM owner changed");
   const nodes=new Map(/** @type {[number,Node][]} */([])),ids=new WeakMap(/** @type {[Node,number][]} */([]));
   const callbacks=new Map(/** @type {[number,import('./plugin-session.js').PluginDomCallback][]} */([]));
+  const syntheticTokens=new WeakMap();
+  const retainedEvents=new Map();
+  const eventFinalizer=new FinalizationRegistry(({id,reference})=>{if(retainedEvents.get(id)===reference)retainedEvents.delete(id);});
+  const rememberEvent=(/** @type {number} */ id,/** @type {Event} */ event)=>{if(retainedEvents.get(id)?.deref()===event)return;const reference=new WeakRef(event);retainedEvents.set(id,reference);eventFinalizer.register(event,{id,reference});};
   const events=new Map(/** @type {[number,Event][]} */([]));
+  const propertyHandlers=new Map();
   const listeners=/** @type {{node:Node,type:string,id:number,capture:boolean,listener:EventListener}[]} */([]);
   let disposed=false,closing=false;
   let hideDone=Promise.resolve();
@@ -55,12 +60,13 @@ export function createPluginDomBridge(owner) {
     if(disposal)return disposal;
     closing=true;clearInterval(timer);owner.signal.removeEventListener("abort",dispose);
     for(const row of listeners)row.node.removeEventListener(row.type,row.listener,row.capture);
+    for(const row of propertyHandlers.values())row.node['on'+row.type]=null;propertyHandlers.clear();
     const active=get(pluginDomDialog);
     if(active && ids.has(active.body))closePluginDomDialog(active.id);
     disposal=hideDone.finally(()=>{
       disposed=true;
       for(const value of callbacks.values())value.release();
-      callbacks.clear();nodes.clear();listeners.length=0;textBytes=0;
+      callbacks.clear();nodes.clear();retainedEvents.clear();listeners.length=0;textBytes=0;
     });
     return disposal;
   };
@@ -75,6 +81,14 @@ export function createPluginDomBridge(owner) {
       if(cleanup){if(disposed)throw Error("Plugin DOM cleanup already finished");}
       else check();
       const {method,args}=validatePluginDomCall(operation);
+      if(method==='dom.event-late'){
+        if(cleanup||closing)throw Error('Owned native Event has retired');
+        const [id,control]=args,event=retainedEvents.get(id)?.deref();
+        if(args.length!==2||!Number.isSafeInteger(id)||!['preventDefault','stopPropagation','stopImmediatePropagation'].includes(control))throw Error('Invalid late owned Event control');
+        if(!event)return undefined;
+        if(event.eventPhase!==0||event.target&&!ids.has(event.target))throw Error('Late Event does not belong to this idle owned graph');
+        event[control]();return event.defaultPrevented;
+      }
       if(method==='dom.event'){
         const [id,control]=args,event=events.get(id);
         if(args.length!==2||!event||!['preventDefault','stopPropagation','stopImmediatePropagation'].includes(control))throw Error('Unknown or retired owned DOM event');
@@ -148,6 +162,17 @@ export function createPluginDomBridge(owner) {
         if(typeof value==="string")charge(value);
         target[key]=value;return undefined;
       }
+      if(method==='dom.dispatch'){
+        if(cleanup||closing)throw Error('Plugin DOM cleanup cannot dispatch events');
+        if(args.length!==2||!args[1]||typeof args[1]!=='object')throw Error('Invalid owned synthetic Event');
+        const packet=args[1],constructors=/** @type {Record<string,any>} */ ({Event,UIEvent,MouseEvent,KeyboardEvent,PointerEvent,CustomEvent});
+        if(!Number.isSafeInteger(packet.syntheticId)||packet.syntheticId<=0||typeof packet.type!=='string'||packet.type.length>1024||!Object.hasOwn(constructors,packet.interface)||!['bubbles','cancelable','composed','defaultPrevented','stopped','immediate','viewOwned'].every(key=>typeof packet[key]==='boolean'))throw Error('Invalid owned synthetic Event');
+        charge(JSON.stringify(packet));const init={...packet,view:packet.viewOwned?target.ownerDocument.defaultView:null,relatedTarget:packet.relatedTarget===undefined?null:node(packet.relatedTarget)};
+        delete init.syntheticId;delete init.interface;delete init.type;
+        const event=new constructors[packet.interface](packet.type,init);syntheticTokens.set(event,packet.syntheticId);
+        if(packet.defaultPrevented)event.preventDefault();if(packet.immediate)event.stopImmediatePropagation();else if(packet.stopped)event.stopPropagation();
+        const result=target.dispatchEvent(event);return {result,defaultPrevented:event.defaultPrevented};
+      }
       if(method==="dom.node") {
         if(args.length!==3 || !Array.isArray(args[2]))throw Error("Invalid DOM method");
         const [_,name,values]=args;let result;
@@ -177,10 +202,21 @@ export function createPluginDomBridge(owner) {
         if(action!=="set" || args.length!==4 || typeof value!=="string" || /url\s*\(|@import|expression\s*\(/i.test(value))throw Error("Unsupported DOM style value");
         charge(value);target.style[key]=value;return undefined;
       }
+      if(method==='dom.handler'){
+        if(args.length!==3||!['click','input','change','keydown','keyup','focus','blur'].includes(args[1])||!(target instanceof HTMLElement))throw Error('Invalid owned property event handler');
+        const key=args[0]+':'+args[1],previous=propertyHandlers.get(key);
+        if(args[2]===null){/** @type {any} */(target)['on'+args[1]]=null;if(previous){callbacks.delete(previous.id);previous.callback.release();propertyHandlers.delete(key);}return undefined;}
+        const handler=callback(args[2]);if(previous?.id===args[2])return undefined;
+        // Reuse exactly the same native packet/lease path as ordinary listeners.
+        result.call({method:'dom.listen',args:[args[0],args[1],args[2],{capture:false,once:false,passive:false}]});
+        const row=listeners.pop();if(!row)throw Error('Missing owned property wrapper');target.removeEventListener(row.type,row.listener,false);
+        if(previous){callbacks.delete(previous.id);previous.callback.release();}
+        /** @type {any} */(target)['on'+args[1]]=row.listener;propertyHandlers.set(key,{node:target,type:args[1],id:args[2],callback:handler});return undefined;
+      }
       if(method==="dom.listen") {
         if(listeners.length>=4096)throw Error("Plugin DOM listener limit exceeded");
         const [_,type,id,options]=args;const fn=callback(id);
-        if(args.length!==4 || !["click","input","change","keydown","keyup","focus","blur"].includes(type) || !options || typeof options.capture!=="boolean" || typeof options.once!=="boolean")throw Error("Invalid DOM listener");
+        if(args.length!==4 || (typeof type!=='string'||type.length>1024) || !options || typeof options.capture!=="boolean" || typeof options.once!=="boolean")throw Error("Invalid DOM listener");
         const row={node:target,type,id,capture:options.capture,listener:/** @type {EventListener} */(()=>{})};
         row.listener=event=>{
           try{check();}catch{dispose();return;}
@@ -190,9 +226,9 @@ export function createPluginDomBridge(owner) {
           if(event instanceof MouseEvent||event instanceof KeyboardEvent)for(const [name,key] of [['AltGraph','modifierAltGraph'],['CapsLock','modifierCapsLock'],['Fn','modifierFn'],['NumLock','modifierNumLock'],['ScrollLock','modifierScrollLock'],['Symbol','modifierSymbol']])subclass[key]=event.getModifierState(name);
           let eventId=nativeEventIds.get(event);
           if(eventId===undefined){eventId=++eventSequence;nativeEventIds.set(event,eventId);}
-          const packet={eventId,type:event.type,target:describe(/** @type {Node} */(event.target),true),currentTarget:describe(target),bubbles:event.bubbles,cancelable:event.cancelable,composed:event.composed,defaultPrevented:event.defaultPrevented,cancelBubble:event.cancelBubble,eventPhase:event.eventPhase,isTrusted:event.isTrusted,timeStamp:event.timeStamp,path:event.composedPath().filter(node=>node instanceof Node&&ids.has(node)).map(node=>describe(/** @type {Node} */(node))),passive:!!options.passive,...subclass};
+          const packet={eventId,windowCheckpoint:!event.isTrusted,...(syntheticTokens.has(event)?{syntheticId:syntheticTokens.get(event)}:{}),type:event.type,target:describe(/** @type {Node} */(event.target),true),currentTarget:describe(target),bubbles:event.bubbles,cancelable:event.cancelable,composed:event.composed,defaultPrevented:event.defaultPrevented,cancelBubble:event.cancelBubble,eventPhase:event.eventPhase,isTrusted:event.isTrusted,timeStamp:event.timeStamp,path:event.composedPath().filter(node=>node instanceof Node&&ids.has(node)).map(node=>describe(/** @type {Node} */(node))),passive:!!options.passive,...subclass};
           const release=()=>{if(options.once){callbacks.delete(id);fn.release();const index=listeners.indexOf(row);if(index>=0)listeners.splice(index,1);}};
-          events.set(eventId,event);
+          rememberEvent(eventId,event);events.set(eventId,event);
           try{void (fn.invokeEvent?fn.invokeEvent([packet]):fn.invoke([packet])).catch(report).finally(release);}
           catch(error){report(error);release();}
           finally{events.delete(eventId);}

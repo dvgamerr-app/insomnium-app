@@ -20,6 +20,7 @@ let callbackId = 0,
 let retiring=false;
 let callbackDone=Promise.resolve();
 /** @type {()=>void} */let finishCallback=()=>{};
+/** @type {{id:number,resume:()=>void}|undefined} */let windowCheckpoint;
 const codec = createPluginValueCodec();
 /** @type {ReturnType<typeof createPluginEventCaller>|undefined} */let eventCaller;
 /** @type {{frames:SharedArrayBuffer[],owner:number,depth:number}|undefined} */let nativeContext;
@@ -54,7 +55,7 @@ const storeCalls = new Map();
 self.onmessage = async (event) => {
   const message = event.data;
   if(message?.type==="prepare-dom-cleanup"){
-    retiring=true;session?.beginCleanup();
+    retiring=true;session?.beginCleanup();windowCheckpoint?.resume();windowCheckpoint=undefined;
     for(const call of helperCalls.values())call.reject(new Error("Plugin owner retired"));helperCalls.clear();
     for(const call of storeCalls.values())call.reject(new Error("Plugin owner retired"));storeCalls.clear();
     return;
@@ -92,13 +93,17 @@ self.onmessage = async (event) => {
     else call.resolve(message.value);
     return;
   }
+  if(message?.type==='resume-dom-checkpoint'){
+    if(windowCheckpoint&&message.id===windowCheckpoint.id&&message.id===callbackId){const checkpoint=windowCheckpoint;windowCheckpoint=undefined;checkpoint.resume();}
+    return;
+  }
   if(message?.type==='invoke-dom-while-waiting'){
     const parentId=callbackId,parentCaller=eventCaller,parentContext=nativeContext;
     const nestedCaller=createPluginEventCaller(message.eventBuffer,message.id,{timeout:4000,poll:enterNativeNested});
     try{
       if(!session||!parentId||message.parentId!==parentId||parentCaller)throw Error('Invalid waiting native callback parent frame');
       callbackId=message.id;eventCaller=nestedCaller;nativeContext=nativeContextOf(message);
-      const result=session.invokeDomCallbackWhileWaiting(message.leaseId,message.args);
+      const result=message.windowCheckpoint===true&&windowCheckpoint?.id===parentId?session.invokeDomCallbackNativeNested(message.leaseId,message.args):session.invokeDomCallbackWhileWaiting(message.leaseId,message.args);
       callbackId=parentId;eventCaller=parentCaller;nativeContext=parentContext;
       nestedCaller.finish(codec.encode({kind:'complete',result}));
     }catch(error){nestedCaller.finish(String(error),true);}
@@ -113,9 +118,10 @@ self.onmessage = async (event) => {
     if(message.eventBuffer)eventCaller=createPluginEventCaller(message.eventBuffer,message.id,{timeout:4000,poll:enterNativeNested});
     callbackDone=new Promise(resolve=>{finishCallback=resolve;});
     let eventCompletion;
+    const checkpoint=message.windowCheckpoint===true?new Promise(/** @param {(value?:any)=>void} resume */ resume=>{windowCheckpoint={id:message.id,resume};}):undefined;
     try {
       const result = message.type==="invoke-dom-callback"
-        ? await session.invokeDomCallback(message.leaseId,message.args,message.cleanupLocal===true,message.cleanup===true,message.eventBuffer?()=>{eventCaller?.finish('prefix');eventCaller=undefined;}:undefined)
+        ? await session.invokeDomCallback(message.leaseId,message.args,message.cleanupLocal===true,message.cleanup===true,message.eventBuffer?()=>{eventCaller?.finish('prefix');eventCaller=undefined;}:undefined,checkpoint)
         : await session.invoke(
         message.kind,
         message.index,
@@ -145,7 +151,7 @@ self.onmessage = async (event) => {
     } finally {
       const completedCaller=eventCaller;eventCaller=undefined;
       nativeContext=undefined;
-      callbackId = 0;
+      windowCheckpoint=undefined;callbackId = 0;
       finishCallback();
       if(eventCompletion)completedCaller?.finish(codec.encode(eventCompletion));
     }

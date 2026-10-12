@@ -293,7 +293,7 @@ export function createPluginCallbackRuntime(
     },
     /** Serialized by the same host/worker queue as ordinary callbacks.
      * @param {number} id @param {string} args @param {boolean} [cleanup] @param {boolean} [onHide] */
-    async invokeDomCallback(id,args,cleanup=false,onHide=false,onPrefix=/** @type {(()=>void)|undefined} */(undefined)) {
+    async invokeDomCallback(id,args,cleanup=false,onHide=false,onPrefix=/** @type {(()=>void)|undefined} */(undefined),windowCheckpoint=/** @type {Promise<void>|undefined} */(undefined)) {
       if(closed)throw Error("Plugin session is closed");
       if(running)throw Error("Plugin callback is already running");
       const owner=domOwners.get(id);
@@ -304,7 +304,7 @@ export function createPluginCallbackRuntime(
       onHideRunning=onHide;
       running=true;storeAllowed=!cleanupMode;helperAllowed=owner.helpers;syncAllowed=!cleanupMode&&owner.synchronous;
       activeGeneration=owner.generation;interactive=owner.interactive;domAllowed=true;domTransport=owner.domTransport;calls=0;syncFailure=undefined;
-      try {return codec.encode(await domLeases.invoke(id,values,onPrefix));}
+      try {return codec.encode(await domLeases.invoke(id,values,onPrefix,windowCheckpoint));}
       finally {
         loaded.setInteractionWaiting(false);running=false;storeAllowed=false;helperAllowed=false;syncAllowed=false;
         activeGeneration=0;interactive=false;domAllowed=false;domTransport=false;waitingSince=0;waited=0;
