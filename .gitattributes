@@ -2,3 +2,7 @@
 tools/spectral-linter/notice-sources/bun-1.4.2-LICENSE.md -text
 tools/spectral-linter/notice-sources/spectral-runtime-1.1.6-repository-LICENSE -text
 tools/spectral-linter/notice-sources/spectral-runtime-1.1.6-package.json -text
+tools/spectral-linter/notice-sources/libuv-802358-LICENSE -text
+tools/spectral-linter/notice-sources/bun-744846-uSockets-uWS-LICENSE -text
+tools/spectral-linter/notice-sources/jsc-2e2aa-COPYING.LIB -text
+tools/spectral-linter/notice-sources/icu-21d1eb-LICENSE -text

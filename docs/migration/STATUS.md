@@ -1,3 +1,8 @@
+## Standalone f569 embedded runtime public identity — 2026-10-13
+
+- Report topic commite8e1a99. Existing saved bounded helper ran fixed public Bun.version/revision-only custom function against exact f569 producer:1.4.2/744846f844374847c902b5e7fd59b4342a51ef99. One valid job/closed frame/PID46812 exit0, selectedcustom/no fallback; helper finally stopped server/settled hosts. Initial malformed caller envelope refused/PID32984 exit0 preserved. native:false; no Rust/native/profile acceptance.
+- Immutable receipt artifacts/bun-embedded-identity-proof binds actual jobs/case/helper/producer. Old57/406 proofs unchanged. No production/API/protocol/source/dependency/build/native app/profile/browser/SDK/provider changes; handles:none. Official archive/variant/component-object/link-map/per-file/Rust/polyfill/full redistribution coverage remain open. Authentic-text integration design is proposed only for root review, not implemented.
+- /compact unavailable; explicit handoff. Root owns integration/native profile and every original migration gate remains active.
 ## Read-only Bun runtime notice coverage — 2026-10-13
 
 - Report topic commit3c0cd5d (verified local Git output before handoff) documents Bun1.4.2 exact744846f8 release/source inputs,21dependency revisions plus Windowslibuv1.51.1, SQLite3.53.2, WebKit2e2aa/ICU78.3 and conditional defaults. Authentic libuv/uSockets-uWS/JSC/ICU text hashes are future additions only, not product/source changes or binary/compliance proof. Full linked/per-file/Rust/polyfill/data coverage remains incomplete.
@@ -7097,6 +7102,7 @@ Probe exited code0 at 2026-09-29T13:04:25.934Z through explicit window destroy.
 - Boolean native3.2.1 first63706 terminal1, artifact1791587673246/native55472 exited0/native-hidden/visible:false. Actual worker generated34requests; first Collections exact button name selector failed before any send. Failure screenshot retained. Saved scenario now selects the exact rendered request-name child in button.tree-request and records ARIA/generated persistence snapshots; compiler0/0. App465 hashes remain identical to successful build49406; acceptance freeze records the one changed scenario hash separately, preserving original build freeze. Native acceptance not claimed.
 
 - Read-only fresh build14976 is now live: start1791590079335/native59960/nativeStart1791590083688/fixtureHash14354716479451147127. Frontend build succeeded with existing chunk advisory; Rust compilinginsomnium with existing5eventsource-stream warnings. Poll same handle; no source/scenario edits and no native scenario started yet. FixtureHash identifies only injected fixture, not full application source.
+
 
 
 

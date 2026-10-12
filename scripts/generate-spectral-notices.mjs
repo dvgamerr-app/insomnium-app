@@ -17,6 +17,13 @@ const recoveredRuntime = {
   tarballSource: 'https://registry.npmjs.org/@stoplight/spectral-runtime/-/spectral-runtime-1.1.6.tgz',
   tarballSHA256: '9e60c71278b8792f4357f53c7f6ca51d0fd8a5b834bde3bfb9c3dca8f3b9e257',
 };
+const runtimeSourceIdentity = { version: '1.4.2', revision: '744846f844374847c902b5e7fd59b4342a51ef99' };
+const runtimeSourceCandidates = [
+  { component: 'libuv', sourcePin: '8023581113b276e7c1aee3f82da57ca0893faab1', declaredBuildCondition: 'Bun dependency enabled when cfg.windows; header version 1.51.1', origins: ['https://raw.githubusercontent.com/oven-sh/libuv/8023581113b276e7c1aee3f82da57ca0893faab1/LICENSE'], path: 'tools/spectral-linter/notice-sources/libuv-802358-LICENSE', bytes: 1079, sha256: '16de0c32b265cb7d46a6d3bd614f259dd4d693a5e26b3407b04aae8d73041f0c' },
+  { component: 'Bun-vendored uSockets and uWS', sourcePin: runtimeSourceIdentity.revision, declaredBuildCondition: 'Bun source glob includes vendored uSockets; uWS inventory source text at the same Bun revision', origins: ['https://raw.githubusercontent.com/oven-sh/bun/744846f844374847c902b5e7fd59b4342a51ef99/packages/bun-usockets/LICENSE', 'https://raw.githubusercontent.com/oven-sh/bun/744846f844374847c902b5e7fd59b4342a51ef99/packages/bun-uws/LICENSE'], path: 'tools/spectral-linter/notice-sources/bun-744846-uSockets-uWS-LICENSE', bytes: 11357, sha256: 'c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4' },
+  { component: 'JavaScriptCore COPYING.LIB', sourcePin: '2e2aa2290fac856d6f451ceacb58f7f5b44dd057', declaredBuildCondition: 'Bun default WebKit source pin; prebuilt variant and linked objects unproven', origins: ['https://raw.githubusercontent.com/oven-sh/WebKit/2e2aa2290fac856d6f451ceacb58f7f5b44dd057/Source/JavaScriptCore/COPYING.LIB'], path: 'tools/spectral-linter/notice-sources/jsc-2e2aa-COPYING.LIB', bytes: 25584, sha256: '5094ecb9c9dcd0eadc34f3c11511d9b5535063032bc150164ecd1a5d5a445547' },
+  { component: 'ICU root LICENSE', sourcePin: '21d1eb0f306e1141c10931e914dfc038c06121da', declaredBuildCondition: 'Pinned WebKit Windows build script references ICU 78.3; release-78.3 resolves this revision; icu4c/LICENSE resolves ../LICENSE', origins: ['https://raw.githubusercontent.com/unicode-org/icu/21d1eb0f306e1141c10931e914dfc038c06121da/LICENSE'], path: 'tools/spectral-linter/notice-sources/icu-21d1eb-LICENSE', bytes: 27718, sha256: 'e55522d81edc687a341a4411e0776e54ca654e90147f354a90458aaced4116af' },
+];
 export async function parseNoticeLock(text, projectRoot = root) {
   const { parse } = await import(pathToFileURL(resolve(projectRoot, 'tools/spectral-linter/node_modules/jsonc-parser/lib/umd/main.js')).href);
   const errors = [], lock = parse(text, errors, { allowTrailingComma: true });
@@ -101,7 +108,18 @@ export async function collectSpectralNotices(projectRoot = root) {
   const runtimeData = await bytes(sources.bun.path);
   if (hash(runtimeData) !== sources.bun.sha256) throw Error('Pinned Bun notice hash mismatch');
   chunks.push(Buffer.from('\n=== Bun ' + sources.bun.version + ' upstream LICENSE.md ===\n'), Buffer.from(runtimeData), Buffer.from('\n'));
-  const inventory = { schemaVersion: 1, coverage: 'incomplete', completenessBlocksBuild: false, lockIdentities: locked.length, installedIdentities: packages.filter(x => x.state === 'installed').length, packages, runtime: { ...sources.bun, coverage: 'incomplete', reason: 'Pinned upstream LICENSE.md inventories linked libraries/polyfills; their full texts and redistribution acceptance remain unverified.' }, sourceInputs: [...inputs.values()].sort((a, b) => order(a.path, b.path)) };
+  const sourceTexts = JSON.parse(Buffer.from(await bytes('tools/spectral-linter/runtime-source-texts.json')).toString());
+  if (Object.keys(sourceTexts).sort().join(',') !== ['schemaVersion', 'evidenceClass', 'embeddedComponentCoverage', 'bun', 'candidates'].sort().join(',') || sourceTexts.schemaVersion !== 1 || sourceTexts.evidenceClass !== 'source-build-candidate' || sourceTexts.embeddedComponentCoverage !== 'unproven' || JSON.stringify(sourceTexts.bun) !== JSON.stringify(runtimeSourceIdentity) || JSON.stringify(sourceTexts.candidates) !== JSON.stringify(runtimeSourceCandidates) || Bun.version !== runtimeSourceIdentity.version || Bun.revision !== runtimeSourceIdentity.revision) throw Error('Bun source-text candidate provenance mismatch');
+  const emittedRuntimeTexts = new Set();
+  for (const candidate of sourceTexts.candidates) {
+    const data = await bytes(candidate.path);
+    if (data.length !== candidate.bytes || hash(data) !== candidate.sha256) throw Error('Bun source-text candidate content mismatch: ' + candidate.component);
+    if (!emittedRuntimeTexts.has(candidate.sha256)) {
+      chunks.push(Buffer.from('\n=== Bun runtime source candidate: ' + candidate.component + ' (embedded component coverage unproven) ===\n'), Buffer.from(data), Buffer.from('\n'));
+      emittedRuntimeTexts.add(candidate.sha256);
+    }
+  }
+  const inventory = { schemaVersion: 1, coverage: 'incomplete', completenessBlocksBuild: false, lockIdentities: locked.length, installedIdentities: packages.filter(x => x.state === 'installed').length, packages, runtime: { ...sources.bun, coverage: 'incomplete', reason: 'Pinned upstream LICENSE.md inventories linked libraries/polyfills; their full texts and redistribution acceptance remain unverified.' }, runtimeSourceTexts: sourceTexts, sourceInputs: [...inputs.values()].sort((a, b) => order(a.path, b.path)) };
   const output = 'src-tauri/notices/spectral/';
   return { inventory, assets: [{ path: output + 'THIRD_PARTY_NOTICES.txt', data: Buffer.concat(chunks) }, { path: output + 'inventory.json', data: Buffer.from(JSON.stringify(inventory, null, 2) + '\n') }] };
 }
