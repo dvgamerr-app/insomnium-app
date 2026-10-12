@@ -10,5 +10,5 @@ for(const rejected of ['app.insomnium.desktop','app.insomnium.probe.arbitrary',p
 assert.throws(()=>assertNativeProbeIdentity(resourceCrudProbeIdentifier));assert.throws(()=>assertNativeProbeIdentity(probeIdentifier,resourceCrudProbeIdentifier));
 assert.throws(()=>assertCrudProfileRestartable({state:'owned',launches:[{pid:process.pid}]}));
 assert.throws(()=>assertCrudProfileRestartable({state:'owned-exited',launches:[{pid:process.pid}]}));
-assert.doesNotThrow(()=>assertCrudProfileRestartable({state:'owned-exited',launches:[{pid:process.pid,observedExit:{code:0,observed:Date.now()}}]}));
+assert.doesNotThrow(()=>assertCrudProfileRestartable({state:'owned-exited',launches:[{pid:process.pid,profileBinding:'native-path-directory',observedExit:{code:0,observed:Date.now()}}]}));
 console.log(JSON.stringify({status:'passed',checks:17,nativeLaunched:false,scope:'Closed identity allowlist/default and live-owned-host restart refusal; no profile or clipboard access'}));
