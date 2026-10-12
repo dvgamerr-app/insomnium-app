@@ -1,3 +1,9 @@
+## Next topics after actual embedded runtime identity — 2026-10-13
+
+Standalone actualf569 public identity independently verified by root SAMEprobe (artifacts/bun-embedded-identity-root-proof/root-audit.json), matching Bun1.4.2/revision744846f8. Future authentic source-text metadata may bind this identity plus exact component source pins/raw bytes/provenance and declared build conditions; remain separate from proven embedded link coverage. No new completeness blocker or generic license substitution.
+
+Prioritize current structural source/range and namespace compact/typed-error/focus handoffs after isolated compiler/build/SAMEsaved/equality/default-style/density/data guards pass. Root serial integration/exclusive native profile needs fresh app generation after product changes; old a00 not relabeled. Keep official runtime artifact/variant/link-map, full per-file/Rust/polyfill/data/library notices and every original full migration/native/private/platform/distribution/repository/SDK/Event/FIFO/shared-input UX gate. Commit topics separately/STATUS handles+evidence; /compact unavailable explicit handoff.
+
 ## Current parallel gates after Bun source audit — 2026-10-13
 
 Pinned Bun57-file read-only source/license report accepted with local compiler revision corroboration (artifacts/bun-notice-coverage-root-proof/root-audit.json); no compiled-binary linkage or full-text completeness claim. event_api uses existing bounded standalone Spectral helper to measure actual f569 public embedded runtime identity before any candidate notice additions.

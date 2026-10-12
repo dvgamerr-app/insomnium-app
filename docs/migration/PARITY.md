@@ -1,3 +1,7 @@
+## Verified public standalone runtime identity boundary — 2026-10-13
+
+Actual compiledf569 producer runs exact bounded existing-helper custom probe and returns public Bun1.4.2/revision744846f8; root16input audit/replay/oneframe/exit0/owned settlement pass (artifacts/bun-embedded-identity-root-proof/root-audit.json). This closes public standalone identity uncertainty, not official archive equivalence, CPU/WebKit/ICU variant/component link-map/full notice or native-installed acceptance. No product/protocol/source change; all other migration/UX gates remain active.
+
 ## Bun source evidence boundary — 2026-10-13
 
 Exact pinned Bun1.4.2 source/release/build-condition and four authentic candidate license texts independently reviewed across57 frozen inputs; local CLI revision744846f8 corroborates source identity (artifacts/bun-notice-coverage-root-proof/root-audit.json). No embedded variant/link-map/official archive byte identity/full coverage/native packaging or redistribution acceptance proved; no product or generated notice changes. Existing three MIT full-text and Bun dependency/Rust/polyfill/per-file gaps plus all original migration/UX requirements remain open.
