@@ -1,3 +1,7 @@
+## Authentic runtime source-text collection boundary — 2026-10-13
+
+Four exact version-pinned libuv/uSockets+uWS/JSC/ICU source texts now collected with closed source/build-candidate provenance and raw byte preservation; root413file/eightdelta/SAMEguards/actual hook+bundle/Gitcheckout audit passes (artifacts/bun-source-texts-root-proof/root-audit.json). Embedded component coverage is still unproven, global coverage incomplete, threeMIT/per-file/Rust/polyfill/data/library/archive/variant/link-map/redistribution/native-installed/platform gaps stay explicit. No full migration/Spectral/UX completion claim.
+
 ## Verified public standalone runtime identity boundary — 2026-10-13
 
 Actual compiledf569 producer runs exact bounded existing-helper custom probe and returns public Bun1.4.2/revision744846f8; root16input audit/replay/oneframe/exit0/owned settlement pass (artifacts/bun-embedded-identity-root-proof/root-audit.json). This closes public standalone identity uncertainty, not official archive equivalence, CPU/WebKit/ICU variant/component link-map/full notice or native-installed acceptance. No product/protocol/source change; all other migration/UX gates remain active.

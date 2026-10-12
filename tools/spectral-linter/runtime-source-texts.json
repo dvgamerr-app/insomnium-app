@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "evidenceClass": "source-build-candidate",
+  "embeddedComponentCoverage": "unproven",
+  "bun": {
+    "version": "1.4.2",
+    "revision": "744846f844374847c902b5e7fd59b4342a51ef99"
+  },
+  "candidates": [
+    {
+      "component": "libuv",
+      "sourcePin": "8023581113b276e7c1aee3f82da57ca0893faab1",
+      "declaredBuildCondition": "Bun dependency enabled when cfg.windows; header version 1.51.1",
+      "origins": [
+        "https://raw.githubusercontent.com/oven-sh/libuv/8023581113b276e7c1aee3f82da57ca0893faab1/LICENSE"
+      ],
+      "path": "tools/spectral-linter/notice-sources/libuv-802358-LICENSE",
+      "bytes": 1079,
+      "sha256": "16de0c32b265cb7d46a6d3bd614f259dd4d693a5e26b3407b04aae8d73041f0c"
+    },
+    {
+      "component": "Bun-vendored uSockets and uWS",
+      "sourcePin": "744846f844374847c902b5e7fd59b4342a51ef99",
+      "declaredBuildCondition": "Bun source glob includes vendored uSockets; uWS inventory source text at the same Bun revision",
+      "origins": [
+        "https://raw.githubusercontent.com/oven-sh/bun/744846f844374847c902b5e7fd59b4342a51ef99/packages/bun-usockets/LICENSE",
+        "https://raw.githubusercontent.com/oven-sh/bun/744846f844374847c902b5e7fd59b4342a51ef99/packages/bun-uws/LICENSE"
+      ],
+      "path": "tools/spectral-linter/notice-sources/bun-744846-uSockets-uWS-LICENSE",
+      "bytes": 11357,
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "component": "JavaScriptCore COPYING.LIB",
+      "sourcePin": "2e2aa2290fac856d6f451ceacb58f7f5b44dd057",
+      "declaredBuildCondition": "Bun default WebKit source pin; prebuilt variant and linked objects unproven",
+      "origins": [
+        "https://raw.githubusercontent.com/oven-sh/WebKit/2e2aa2290fac856d6f451ceacb58f7f5b44dd057/Source/JavaScriptCore/COPYING.LIB"
+      ],
+      "path": "tools/spectral-linter/notice-sources/jsc-2e2aa-COPYING.LIB",
+      "bytes": 25584,
+      "sha256": "5094ecb9c9dcd0eadc34f3c11511d9b5535063032bc150164ecd1a5d5a445547"
+    },
+    {
+      "component": "ICU root LICENSE",
+      "sourcePin": "21d1eb0f306e1141c10931e914dfc038c06121da",
+      "declaredBuildCondition": "Pinned WebKit Windows build script references ICU 78.3; release-78.3 resolves this revision; icu4c/LICENSE resolves ../LICENSE",
+      "origins": [
+        "https://raw.githubusercontent.com/unicode-org/icu/21d1eb0f306e1141c10931e914dfc038c06121da/LICENSE"
+      ],
+      "path": "tools/spectral-linter/notice-sources/icu-21d1eb-LICENSE",
+      "bytes": 27718,
+      "sha256": "e55522d81edc687a341a4411e0776e54ca654e90147f354a90458aaced4116af"
+    }
+  ]
+}

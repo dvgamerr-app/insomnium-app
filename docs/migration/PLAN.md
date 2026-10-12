@@ -1,3 +1,9 @@
+## Next root acceptance after runtime source texts — 2026-10-13
+
+Four authentic source-text candidate additions accepted with root413input/eightdelta audit, SAMEguards, actual packaging hooks and raw Git checkout preservation (artifacts/bun-source-texts-root-proof/root-audit.json); embedded coverage remains unproven. Next guarded namespace compact/shared Field/typed-errors/focus integration from e04b70f/792frozen inputs, followed by root full compiler/component-mode/design-system/resource/build/geometry/default-contract replay. No current native/AT claim from that component proof.
+
+Structural source-range acceptance waits corrected broad-input/alias/Boolean-origin review and exact baseline+worker/UI equivalence; preserve final-v1 and all negatives. After product topics need fresh current app/frontend/source/permission/notice closure before exclusive native profile. Keep archive/variant/link-map/full per-file/Rust/polyfill/data/library/threeMIT texts and all original migration/native/private/platform/distribution/repository/SDK/Event/FIFO/shared-input UX gates. Commit each verified topic/STATUS evidence+handles; /compact unavailable explicit handoff.
+
 ## Next topics after actual embedded runtime identity — 2026-10-13
 
 Standalone actualf569 public identity independently verified by root SAMEprobe (artifacts/bun-embedded-identity-root-proof/root-audit.json), matching Bun1.4.2/revision744846f8. Future authentic source-text metadata may bind this identity plus exact component source pins/raw bytes/provenance and declared build conditions; remain separate from proven embedded link coverage. No new completeness blocker or generic license substitution.
