@@ -4,6 +4,12 @@ import { createServer } from "node:http2";
 import { withNativeApp, poll } from "./helpers/native-app.js";
 import { gitCollection } from "./helpers/git-fixture.js";
 
+if (process.argv.includes("--proto-component")) {
+  const { runProtoComponentMeasurement } = await import("./helpers/proto-manager-component.js");
+  await runProtoComponentMeasurement();
+  process.exit(0);
+}
+
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-nocturne-controls-probe/build-state.json";
 let fail = false;
