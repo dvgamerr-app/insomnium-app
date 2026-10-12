@@ -1,3 +1,7 @@
+## Multipart component accepted; remaining native and archive authority gates — 2026-10-13
+
+Current root multipart713input/49asset/compiler0/0/fullsavedheadless+build0 proves row-ownedfeedback/focus and exactvalid/errorcontrol geometry within component boundary. Preserve previous nativebf5e evidence as its immutable generation; fresh native picker/OS/AT acceptance requires future compiledproduct. Native consumed-read correction and native notice immutablearchive authority fix continue isolated; root integration/build acceptance stays serial. shared_ui next read-only remaininginput/workflow debt inventory before another measured feature. Full original migration/UX/SDK/Event/FIFO/private/platform/distribution scope remains intact. Topiccommits/compact-unavailable evidence handoff after eachfeature.
+
 ## Current XML native workflow checkpoint — 2026-10-13
 
 Original full/performance/transfer saved modes passed3330/19395/46451 with root exact compiled/harness/profile/current-layout audits. XML performance and controlled transfer mode gates now have currentbf5e proof; actualOS transfer/AT/hungworkers/allplatform remain separate. Next root guards/integrates multipart finalcandidate and repeats compiler/fullsaved suite/build before topic commit, preserving raw controls/negative evidence. Native ruleset freshness and native-notice collector continue isolated. Preserve full original migration/UX/parity; topic commits and compact-unavailable handoffs perfeature.

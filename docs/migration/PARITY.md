@@ -1,3 +1,7 @@
+## Current multipart shared Field boundary — 2026-10-13
+
+Root compiler2641 0/0/serial16983 fullheadless+build0/713sourcefreeze49assets independently audited. Sixprofiles clear original24defects, preserve fullvalid geometry/styles, actualerror control sizes and bounds; row-ownedread/limit, otherrow retention/correction/proxyclone/externalreset, globaladmission/caller errors, disposal/stale and keyboard next/previous/Add pass. Nativebf5e predatesdelta; OS picker/readfailure/AT/platform/full migration/UX remain open. Collector coherenttext-tamper fix and repository freshness correction are not yet rootaccepted. See MULTIPART-FIELDS-ROOT-ACCEPTANCE.md; all original gates retained.
+
 ## Current compiled XML workflow boundary — 2026-10-13
 
 Native-hidden3330 full22HTTP58workers/7selections/6layouts,19395 five4000sibling selections+10001matchrefusal actualworkers under3000ms,46451 controlled transfer/refusal/recovery all pass. Independent native-xml-current-proof three root-audits prove unchangedbf5e/f569/990source52asset closure and exact profile/Git/currentSplitPane restoration. No actual hungworker/OS clipboard-dialog-write/AT/allprovider-platform/fullmigration claim. Every other original repository/native/private/distribution/SDK/Event/FIFO/notices/UX gate stays open.

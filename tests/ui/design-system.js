@@ -9,6 +9,8 @@ import assert from "node:assert/strict";
 import { withComponentFixture } from "./helpers/component-fixture.js";
 import { assertDialogTokens } from "./helpers/dialog-theme.js";
 import { assertFieldSelectNames } from "./helpers/field-select-names.js";
+import { measureMultipartFileFields } from "./helpers/multipart-file-fields.js";
+import { measureMultipartComposition } from "./helpers/multipart-file-composition.js";
 
 await withComponentFixture("design-system", async (page, output) => {
   const densityRows = [];
@@ -1085,4 +1087,8 @@ await withComponentFixture("design-system", async (page, output) => {
       2,
     ),
   );
+  const fileFailures=await measureMultipartFileFields(page, output,{deferAggregate:true});
+  const compositionFailures=await measureMultipartComposition(page,output);
+  assert.deepEqual(compositionFailures,[],"Experimental composition preserves dense valid/error controls");
+  assert.deepEqual(fileFailures,[],"File read failures remain associated with their owned row and focused removal stays usable");
 });

@@ -14,6 +14,8 @@
   import KeyValueEditor from "../../../src/lib/components/KeyValueEditor.svelte";
   import ResourceManager from "../../../src/lib/components/ResourceManager.svelte";
   import AsapEditor from "../../../src/lib/components/AsapEditor.svelte";
+  import MultipartFileComposition from "./multipart-file-composition.svelte";
+  import { withWorkspaceRunsPaused, workspace } from "../../../src/lib/workspace.svelte.js";
   let selectionFeedback = $state(false);
   let selectionExtra = $state(false);
   let selectionValue = $state("first");
@@ -228,6 +230,64 @@
     "small",
   ]);
   const feedbackTones = /** @type {('hint'|'error')[]} */ (["hint", "error"]);
+  const fileProbeInitial = () => [
+    { name: "first", value: "", disabled: false, type: "file" },
+    { name: "second", value: "", disabled: false, type: "file" },
+  ];
+  let fileProbeRows = $state(/** @type {Record<string,any>[]} */ (fileProbeInitial()));
+  let fileProbeCalls = $state(0);
+  let failFileProbeCallback = $state(false);
+  function fileProbeChanged(/** @type {Record<string,any>[]} */ rows) {
+    if (failFileProbeCallback) {
+      failFileProbeCallback = false;
+      throw Error("Owned fixture onchange failed.");
+    }
+    fileProbeRows = rows;
+    fileProbeCalls++;
+  }
+  let holdFileProbe = $state(false);
+  let failFileProbe = $state(false);
+  let fileProbeMounted = $state(true);
+  let fileProbeComposition = $state(false);
+  let fileProbePhase = $state("idle");
+  let fileProbeResume = /** @type {(()=>void)|undefined} */ (undefined);
+  let fileProbePending = $state(false);
+  let fileProbeRelease = /** @type {(()=>void)|undefined} */ (undefined);
+  /** Defer only the owned selected File instance, keeping actual bytes and size.
+   * @param {Event} event */
+  function captureFileProbe(event) {
+    const input = /** @type {HTMLInputElement} */ (event.target);
+    const file = input.files?.[0];
+    if ((!holdFileProbe && !failFileProbe) || !file) return;
+    const fail = failFileProbe;
+    failFileProbe = false;
+    holdFileProbe = false;
+    const original = file.arrayBuffer.bind(file);
+    const gate = new Promise((resolve) => {
+      fileProbeRelease = () => resolve(undefined);
+    });
+    Object.defineProperty(file, "arrayBuffer", { value: async () => {
+      fileProbePending = true;
+      try {
+        if (fail) throw Error("Owned fixture file read failed.");
+        await gate;
+        return await original();
+      }
+      finally { fileProbePending = false; }
+    }});
+  }
+  function pauseFileProbe() {
+    if (fileProbePhase !== "idle") return;
+    const notice = workspace.notice;
+    fileProbePhase = "starting";
+    void withWorkspaceRunsPaused(async () => {
+      fileProbePhase = "paused";
+      await new Promise((resolve) => { fileProbeResume = () => resolve(undefined); });
+    }).finally(() => {
+      workspace.notice = notice;
+      fileProbePhase = "idle";
+    });
+  }
 </script>
 
 <main style="padding:24px;overflow:auto;height:100vh">
@@ -579,6 +639,24 @@
   <section aria-label="Field density contract">
     <Field label="Default density contract"><Input value="default" /></Field>
     <Field label="Compact density contract" density="compact"><Input value="compact" /></Field>
+  </section>
+  <section aria-label="Multipart file ownership probe" onchangecapture={captureFileProbe}>
+    <Button onclick={() => {
+      fileProbeRows = fileProbeInitial(); fileProbeCalls = 0;
+    }}>Reset owned multipart files</Button>
+    <Button onclick={() => (holdFileProbe = true)}>Hold next owned file read</Button>
+    <Button onclick={() => (failFileProbe = true)}>Fail next owned file read</Button>
+    <Button onclick={() => (failFileProbeCallback = true)}>Fail next owned file callback</Button>
+    <Button onclick={() => fileProbeRelease?.()}>Release owned file read</Button>
+    <Button onclick={() => (fileProbeMounted = !fileProbeMounted)}>Toggle owned multipart editor</Button>
+    <Button onclick={pauseFileProbe}>Pause owned workspace work</Button>
+    <Button onclick={() => fileProbeResume?.()}>Resume owned workspace work</Button>
+    <Button onclick={() => (fileProbeComposition = !fileProbeComposition)}>Toggle owned file composition</Button>
+    <output data-file-probe={JSON.stringify({rows:fileProbeRows,calls:fileProbeCalls,pending:fileProbePending})}
+      data-file-probe-phase={fileProbePhase} data-file-probe-mounted={String(fileProbeMounted)}></output>
+    {#if fileProbeMounted}{#if fileProbeComposition}<MultipartFileComposition rows={fileProbeRows} onchange={(rows)=>{
+      fileProbeRows=rows;fileProbeCalls++;
+    }}/>{:else}<KeyValueEditor files label="Multipart file contract" rows={fileProbeRows} onchange={fileProbeChanged} />{/if}{/if}
   </section>
 </main>
 

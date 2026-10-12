@@ -6,7 +6,7 @@
   import Input from "./ui/Input.svelte";
   import Select from "./ui/Select.svelte";
   import Button from "./ui/Button.svelte";
-  import { onDestroy } from "svelte";
+  import { onDestroy, tick } from "svelte";
   import Icon from "./Icon.svelte";
   import { createWorkspaceWorkScope } from "../workspace.svelte.js";
   import { readUpload } from "../uploads.js";
@@ -21,9 +21,15 @@
   } = $props();
   const editorId = $props.id();
   let error = $state("");
+  let fileErrors = $state.raw(/** @type {{row:Record<string,any>,message:string}[]} */ ([]));
+  let editor = $state(/** @type {HTMLDivElement|undefined} */ (undefined));
   let alive = true;
   const fileWork = createWorkspaceWorkScope();
   const selections = new WeakMap();
+  $effect(() => {
+    const retained = fileErrors.filter((failure) => rows.includes(failure.row));
+    if (retained.length !== fileErrors.length) fileErrors = retained;
+  });
   onDestroy(() => {
     alive = false;
     fileWork.dispose();
@@ -32,7 +38,28 @@
     /** @type {number} */ index,
     /** @type {Record<string, any>} */ patch,
   ) {
-    onchange(rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
+    const original = rows[index];
+    const updated = { ...original, ...patch };
+    onchange(rows.map((r, i) => (i === index ? updated : r)));
+    const accepted = rows[index];
+    fileErrors = fileErrors.flatMap((failure) =>
+      failure.row !== original ? [failure] : accepted?.type === "file"
+        ? [{ ...failure, row: accepted }] : [],
+    );
+  }
+  /** @param {number} index @param {MouseEvent} event */
+  async function remove(index, event) {
+    const focused = event.currentTarget === document.activeElement;
+    const original = rows[index];
+    onchange(rows.filter((_, i) => i !== index));
+    fileErrors = fileErrors.filter((failure) => failure.row !== original);
+    if (focused) {
+      await tick();
+      if (!alive) return;
+      const controls = editor?.querySelectorAll(".kv-row > button");
+      const target = controls?.[Math.min(index, rows.length - 1)] ?? editor?.querySelector(".add-row");
+      if (target instanceof HTMLElement) target.focus();
+    }
   }
   async function fileChanged(
     /** @type {number} */ index,
@@ -52,12 +79,22 @@
       selections.get(original) === selection;
     try {
       work = fileWork.begin();
-      const upload = await readUpload(file);
+      let upload;
+      try {
+        upload = await readUpload(file);
+      } catch (cause) {
+        if (current()) fileErrors = [
+          ...fileErrors.filter((failure) => failure.row !== original),
+          { row: original, message: String(cause) },
+        ];
+        return;
+      }
       if (!current())
         throw new Error(
           "The field changed while reading the file. Select it again.",
         );
       change(index, { type: "file", ...upload });
+      fileErrors = fileErrors.filter((failure) => failure.row !== rows[index]);
       error = "";
     } catch (e) {
       if (current()) error = String(e);
@@ -67,7 +104,7 @@
   }
 </script>
 
-<div class="kv-editor">
+<div class="kv-editor" bind:this={editor}>
   {#if error}<Feedback as="p" class="inline-error" role="alert"
       >{error}</Feedback
     >{/if}
@@ -91,14 +128,18 @@
         oninput={(event) => change(index, { name: event.currentTarget.value })}
       />
       <div class="kv-value">
-        <div class="kv-value-field">
-          {#if files && row.type === "file"}<FilePicker
+          {#if files && row.type === "file"}<Field
+              label=""
+              class="kv-file-state"
+              error={fileErrors.find((failure) => failure.row === row)?.message || ""}
+            ><div class="kv-value-field"><FilePicker
               class="file-picker"
               variant="inline"
+              aria-label={`File value ${index + 1}`}
               onchange={(event) => fileChanged(index, event)}
               >{row.fileName || "Choose file"}</FilePicker
-            >
-          {:else}<Input
+            ></div></Field>
+          {:else}<div class="kv-value-field"><Input
               variant="inline"
               aria-label={`Value ${index + 1}`}
               {templateEditor}
@@ -123,8 +164,7 @@
                   value: event.currentTarget.value,
                   noValue: false,
                 })}
-            />{/if}
-        </div>
+            /></div>{/if}
         {#if files}<Select
             variant="inline"
             aria-label="Field type"
@@ -139,7 +179,7 @@
         class="icon-button subtle"
         title={`Remove ${label}`}
         aria-label={`Remove ${label} ${index + 1}`}
-        onclick={() => onchange(rows.filter((_, i) => i !== index))}
+        onclick={(event) => remove(index, event)}
         ><Icon name="close" size={14} /></Button
       >
       {#if row._openapiSerialization?.nullable || row._openapiSerialization?.formBody || row._openapiSerialization?.allowReserved || ["content", "serialized"].includes(row._openapiSerialization?.style)}

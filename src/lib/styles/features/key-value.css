@@ -40,6 +40,23 @@
   display: contents;
 }
 
+.kv-value > .kv-file-state {
+  display: contents;
+}
+
+.kv-file-state > label:empty {
+  display: none;
+}
+
+.kv-value:has(> .kv-file-state > .ui-feedback) {
+  flex-wrap: wrap;
+}
+
+.kv-file-state > .ui-feedback {
+  flex: 0 0 100%;
+  order: 1;
+}
+
 .kv-help {
   display: flex;
   flex-direction: column;
