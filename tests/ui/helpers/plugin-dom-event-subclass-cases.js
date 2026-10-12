@@ -4,6 +4,8 @@ export function exerciseEventSubclasses(realm) {
   const result = /** @type {Record<string,any>} */ ({});
   const cases = /** @type {Record<string,any>} */ ({
     UIEvent: { detail: 7.9 },
+    FocusEvent: { relatedTarget: null, detail: 2 },
+    InputEvent: { data: "typed", inputType: "insertText", isComposing: true },
     MouseEvent: {
       clientX: 14.9,
       clientY: -4.8,
@@ -38,6 +40,8 @@ export function exerciseEventSubclasses(realm) {
   });
   const keys = /** @type {Record<string,string[]>} */ ({
     UIEvent: ["detail", "view"],
+    FocusEvent: ["relatedTarget"],
+    InputEvent: ["data", "dataTransfer", "inputType", "isComposing"],
     MouseEvent: [
       "clientX",
       "clientY",
@@ -99,6 +103,7 @@ export function exerciseEventSubclasses(realm) {
     }
     const first = (keys[name] ?? [])[0] ?? "detail";
     row.writeRejected = !Reflect.set(event, first, "forged");
+    row.readonlyProperties=(keys[name]??[]).map(key=>({key,rejected:!Reflect.set(event,key,'forged'),getter:typeof Object.getOwnPropertyDescriptor(ctor.prototype,key)?.get==='function',setter:Object.getOwnPropertyDescriptor(ctor.prototype,key)?.set!==undefined}));
     try {
       Object.getOwnPropertyDescriptor(ctor.prototype, first)?.get?.call(new realm.Event("wrong"));
     } catch {
@@ -108,6 +113,13 @@ export function exerciseEventSubclasses(realm) {
       row.detailIdentity = event.detail === init.detail;
       event.initCustomEvent("changed", false, true, init);
       row.reinitialized = event.type === "changed" && event.detail === init;
+    }
+    if(name==='InputEvent'){
+      const firstRanges=event.getTargetRanges(),secondRanges=event.getTargetRanges();firstRanges.push('local mutation');
+      row.targetRanges={array:Array.isArray(secondRanges),empty:secondRanges.length===0,fresh:firstRanges!==secondRanges,methodName:ctor.prototype.getTargetRanges.name,methodLength:ctor.prototype.getTargetRanges.length,illegalRejected:false};
+      try{ctor.prototype.getTargetRanges.call(new realm.Event('wrong'));}catch(error){row.targetRanges.illegalRejected=error instanceof realm.TypeError;}
+      row.nullDictionaryDefaults=new ctor('null',null).dataTransfer===null&&new ctor('empty',{dataTransfer:null,targetRanges:[]}).getTargetRanges().length===0;
+      row.transferReceiverRejected=false;try{Object.getOwnPropertyDescriptor(ctor.prototype,'dataTransfer')?.get?.call(new realm.UIEvent('wrong'));}catch(error){row.transferReceiverRejected=error instanceof realm.TypeError;}
     }
     if (name === "MouseEvent" || name === "KeyboardEvent")
       row.modifiers = ["Control", "Shift", "Alt", "Meta", "unknown"].map((key) =>
@@ -133,6 +145,9 @@ export function exerciseEventSubclasses(realm) {
     }
   });
   result.dictionaryReads={};
+  result.focusInputErrors=[()=>new realm.FocusEvent(),()=>new realm.InputEvent(),()=>new realm.FocusEvent('x',{relatedTarget:{}}),()=>new realm.FocusEvent('x',{relatedTarget:1}),()=>new realm.FocusEvent('x',{relatedTarget:Symbol()}),()=>new realm.InputEvent('x',{data:Symbol()}),()=>new realm.InputEvent('x',{inputType:Symbol()}),()=>new realm.InputEvent('x',4),()=>new realm.InputEvent('x',{dataTransfer:{}}),()=>new realm.InputEvent('x',{targetRanges:[{}]})].map(run=>{try{run();return false;}catch(error){return error instanceof realm.TypeError;}});
+  result.inputConversions=[null,undefined,12,'\ud800','\udc00','a\ud800b','😀'].map(data=>{const event=new realm.InputEvent('x',{data,inputType:12,isComposing:1});return {data:event.data,inputType:event.inputType,isComposing:event.isComposing};});
+  result.inputTypes=['insertText','insertLineBreak','insertParagraph','insertOrderedList','insertUnorderedList','insertHorizontalRule','insertFromYank','insertFromDrop','insertFromPaste','insertFromPasteAsQuotation','insertTranspose','insertCompositionText','insertReplacementText','insertLink','deleteWordBackward','deleteWordForward','deleteSoftLineBackward','deleteSoftLineForward','deleteEntireSoftLine','deleteHardLineBackward','deleteHardLineForward','deleteByDrag','deleteByCut','deleteContent','deleteContentBackward','deleteContentForward','historyUndo','historyRedo','formatBold','formatItalic','formatUnderline','formatStrikeThrough','formatSuperscript','formatSubscript','formatJustifyFull','formatJustifyCenter','formatJustifyRight','formatJustifyLeft','formatIndent','formatOutdent','formatRemove','formatSetBlockTextDirection','formatSetInlineTextDirection','formatBackColor','formatFontColor','formatFontName','insertFromComposition','deleteCompositionText','unknown','INSERTTEXT',''].map(inputType=>({supplied:inputType,actual:new realm.InputEvent('x',{inputType}).inputType}));
   for(const name of Object.keys(cases)){
     const reads=/** @type {string[]} */ ([]),values=/** @type {Record<string,any>} */ ({bubbles:true,detail:3,view:null,clientX:2.5,key:'K',pressure:0.2,which:88});
     const dictionary=new Proxy(values,{get(target,key){reads.push(String(key));return target[String(key)];}});
@@ -150,8 +165,13 @@ export function exerciseEventSubclasses(realm) {
   for(const type of ['keydown','keyup','keypress','custom']){const event=new realm.KeyboardEvent(type,{keyCode:75,charCode:4});result.whichMatrix.push({type,which:event.which});}
   return result;
 }
-/** @param {any} event @param {any} realm */
-export function observeNativeSubclass(event, realm) {
+/** Same actual owned-node constructor exercise in the browser and guest.
+ * @param {any} realm @param {any[]} nodes */
+export function exerciseOwnedFocus(realm,nodes){
+  return nodes.map(node=>{const event=new realm.FocusEvent('owned',{relatedTarget:node,view:realm.window});const identity=event.relatedTarget===node,viewOwned=event.view===realm.window,readonly=!Reflect.set(event,'relatedTarget',null);event.initUIEvent('changed',true,true,null,5);return {identity,viewOwned,readonly,afterLegacyIdentity:event.relatedTarget===node,type:event.type,detail:event.detail};});
+}
+/** @param {any} event @param {any} realm @param {any[]} [ownedNodes] */
+export function observeNativeSubclass(event, realm, ownedNodes=[]) {
   const out = /** @type {Record<string,any>} */ ({
     viewOwned: event.view === realm.window,
     tag: Object.prototype.toString.call(event),
@@ -161,11 +181,16 @@ export function observeNativeSubclass(event, realm) {
     mouse: event instanceof realm.MouseEvent,
     pointer: event instanceof realm.PointerEvent,
     keyboard: event instanceof realm.KeyboardEvent,
+    focus: event instanceof realm.FocusEvent,
+    input: event instanceof realm.InputEvent,
     trusted: event.isTrusted,
     own: Object.keys(event),
   });
+  if(event instanceof realm.FocusEvent)out.relatedOwnedIndex=ownedNodes.indexOf(event.relatedTarget);
   for (const key of [
     "detail",
+    "data",
+    "inputType",
     "screenX",
     "screenY",
     "clientX",

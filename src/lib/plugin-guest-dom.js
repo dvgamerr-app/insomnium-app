@@ -110,11 +110,15 @@ export function createPluginGuestDom(call,retain,now) {
       pointerType: ["string", ""],
       isPrimary: ["bool", false],
     },
+    FocusEvent: { relatedTarget: ["node", null] },
+    InputEvent: { data: ["nullableString", null], dataTransfer: ["any", null], inputType: ["string", ""], isComposing: ["bool", false] },
     CustomEvent: { detail: ["any", null] },
   });
   const convert = (/** @type {any} */ value, /** @type {string} */ kind) =>
     kind === "bool"
       ? !!value
+      : kind === "nullableString"
+        ? value === null ? null : domString(value)
       : kind === "string"
         ? domString(value)
         : kind === "long"
@@ -145,17 +149,20 @@ export function createPluginGuestDom(call,retain,now) {
   const initialize=(/** @type {any} */ value,/** @type {string} */ kind,/** @type {any} */ init)=>{
     const data=eventState(value);data.brands??=[];data.brands.push(kind);
     if(kind==='MouseEvent'||kind==='KeyboardEvent')for(const key of modifierKeys){const supplied=init?.[key];data[key]=!!supplied;}
-    for(const key of dictionaryKeys[kind]){
+    for(const key of (kind==='FocusEvent'?['relatedTarget']:kind==='InputEvent'?['data','dataTransfer','inputType','isComposing','targetRanges']:dictionaryKeys[kind])){
       const supplied=init?.[key],field=fields[kind][key];
-      if(field){const [type,fallback]=field;data[key]=convert(supplied===undefined?fallback:supplied,['screenX','screenY','clientX','clientY'].includes(key)?'double':type);}
+      if(field){if(kind==='InputEvent'&&key==='dataTransfer'&&supplied!=null)throw new TypeError('An owned DataTransfer is required');const [type,fallback]=field;data[key]=convert(supplied===undefined?fallback:supplied,['screenX','screenY','clientX','clientY'].includes(key)?'double':type);}
+      else if(key==='targetRanges'){if(supplied!==undefined&&Array.from(supplied).length)throw new TypeError('Owned target ranges are required');}
       else if(key==='sourceCapabilities'){if(supplied!=null)throw new TypeError('An owned input capability is required');data.sourceCapabilities=null;}
       else if(key==='region')data.region=supplied==null?null:domString(supplied);
       else if(key==='altitudeAngle'||key==='azimuthAngle')data[key]=finiteNumber(supplied===undefined?(key==='altitudeAngle'?Math.PI/2:0):supplied);
       else if(key==='persistentDeviceId')data[key]=integer(supplied??0);
       else if(key==='coalescedEvents'||key==='predictedEvents'){const samples=supplied===undefined?[]:Array.from(supplied);for(const sample of samples)subclassState(sample,'PointerEvent');data[key]=samples;}
     }
+    if(kind==='InputEvent'&&!['insertText','insertLineBreak','insertParagraph','insertOrderedList','insertUnorderedList','insertHorizontalRule','insertFromYank','insertFromDrop','insertFromPaste','insertTranspose','insertCompositionText','insertReplacementText','insertLink','deleteWordBackward','deleteWordForward','deleteSoftLineBackward','deleteSoftLineForward','deleteHardLineBackward','deleteHardLineForward','deleteByDrag','deleteByCut','deleteContentBackward','deleteContentForward','historyUndo','historyRedo','formatBold','formatItalic','formatUnderline','formatStrikeThrough','formatSuperscript','formatSubscript','formatJustifyFull','formatJustifyCenter','formatJustifyRight','formatJustifyLeft','formatIndent','formatOutdent','formatRemove','formatSetBlockTextDirection'].includes(data.inputType))data.inputType='';
     if(kind==='UIEvent'){data.which=0;if(data.view!==null&&data.view!==guestWindow)throw new TypeError('An owned Window view is required');}
     if(kind==='MouseEvent'&&data.relatedTarget!==null)idOf(data.relatedTarget);
+    if(kind==='FocusEvent'&&data.relatedTarget!==null&&!ids.has(data.relatedTarget))throw new TypeError('An owned related target is required');
   };
   const initializeLegacyEvent=(/** @type {any} */ value,/** @type {any} */ type,/** @type {any} */ bubbles,/** @type {any} */ cancelable)=>{const data=eventState(value);const converted=domString(type);if(data.active)return;data.type=converted;data.bubbles=!!bubbles;data.cancelable=!!cancelable;data.trusted=false;data.prevented=false;data.stopped=false;data.immediate=false;data.target=null;};
   class GuestUIEvent extends GuestEvent {
@@ -243,6 +250,15 @@ export function createPluginGuestDom(call,retain,now) {
 
     }
   }
+  class GuestFocusEvent extends GuestUIEvent {
+    /** @param {any} type @param {any} [init] */
+    constructor(type,init={}){if(!arguments.length)throw new TypeError('Event type is required');super(type,init);initialize(this,'FocusEvent',init);}
+  }
+  class GuestInputEvent extends GuestUIEvent {
+    /** @param {any} type @param {any} [init] */
+    constructor(type,init={}){if(!arguments.length)throw new TypeError('Event type is required');super(type,init);initialize(this,'InputEvent',init);}
+    getTargetRanges(){subclassState(this,'InputEvent');return [];}
+  }
   class GuestCustomEvent extends GuestEvent {
     /** @param {any} type @param {any} [init] */
     constructor(type, init = {}) {
@@ -265,6 +281,8 @@ export function createPluginGuestDom(call,retain,now) {
     MouseEvent: GuestMouseEvent,
     KeyboardEvent: GuestKeyboardEvent,
     PointerEvent: GuestPointerEvent,
+    FocusEvent: GuestFocusEvent,
+    InputEvent: GuestInputEvent,
     CustomEvent: GuestCustomEvent,
   });
   for (const [name, ctor] of Object.entries(eventClasses)) {
@@ -315,7 +333,7 @@ export function createPluginGuestDom(call,retain,now) {
       eventData.set(value,{});
     }
     Object.assign(eventState(value),{type:packet.type,bubbles:packet.bubbles,cancelable:packet.cancelable,composed:!!packet.composed,timeStamp:synthetic?eventState(value).timeStamp:packet.timeStamp,trusted:!!packet.isTrusted,target:wrap(packet.target),currentTarget:wrap(packet.currentTarget),phase:packet.eventPhase,prevented:packet.defaultPrevented,stopped:!!packet.cancelBubble,immediate:false,active:true,passive:!!packet.passive,path:(packet.path||[]).map(wrap),id:packet.eventId});
-    const data=eventState(value);data.brands=[];for(const name of ['UIEvent','MouseEvent','KeyboardEvent','PointerEvent','CustomEvent'])if(value instanceof eventClasses[name]&&!((synthetic||customCached)&&name==='CustomEvent'))initialize(value,name,{...packet,view:packet.ownedView?guestWindow:null,relatedTarget:packet.relatedTarget?wrap(packet.relatedTarget):null});if((synthetic||customCached)&&value instanceof GuestCustomEvent)data.brands.push('CustomEvent');if('which' in packet)data.which=packet.which;if(value instanceof GuestPointerEvent)for(const key of ['screenX','screenY','clientX','clientY'])if(key in packet)data[key]=packet[key];if(value instanceof GuestMouseEvent)for(const key of ['pageX','pageY'])if(key in packet)data[key]=packet[key];
+    const data=eventState(value);data.brands=[];for(const name of ['UIEvent','MouseEvent','KeyboardEvent','PointerEvent','FocusEvent','InputEvent','CustomEvent'])if(value instanceof eventClasses[name]&&!((synthetic||customCached)&&name==='CustomEvent'))initialize(value,name,{...packet,view:packet.ownedView?guestWindow:null,relatedTarget:packet.relatedTarget?wrap(packet.relatedTarget):null});if((synthetic||customCached)&&value instanceof GuestCustomEvent)data.brands.push('CustomEvent');if('which' in packet)data.which=packet.which;if(value instanceof GuestPointerEvent)for(const key of ['screenX','screenY','clientX','clientY'])if(key in packet)data[key]=packet[key];if(value instanceof GuestMouseEvent)for(const key of ['pageX','pageY'])if(key in packet)data[key]=packet[key];
     return value;
   };
   const collectionData=new WeakMap(),liveCollections=new WeakMap(),datasetData=new WeakMap(),datasetObjects=new WeakMap(),elements=new WeakSet();

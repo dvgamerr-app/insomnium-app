@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {readdir} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {createSvelteUiFixturePlugin} from './component-fixture.js';
-import {exerciseEventSubclasses,observeNativeSubclass} from './plugin-dom-event-subclass-cases.js';
+import {exerciseEventSubclasses,observeNativeSubclass,exerciseOwnedFocus} from './plugin-dom-event-subclass-cases.js';
 /** @param {import('playwright-core').Page} page @param {string} output @param {{nativeFixturePath?:string}} [options] */
 export async function runEventSubclassScenario(page,output,options={}){
     const oracle = await page.evaluate(
@@ -43,20 +43,28 @@ export async function runEventSubclassScenario(page,output,options={}){
         assert.deepEqual(guest, oracle);
         initialized.push(format);
       }
-      await call("eventSubclasses", ["native"]);
+      const prepared=await call("eventSubclasses", ["native"]);
       const dialog = page.getByRole("dialog", { name: "Event subclass dialog", exact: true }),
         input = dialog.getByRole("textbox", { name: "Guest subclass input" });
       await input.waitFor();
+      const ownedFocusOracle=await input.evaluate((element,source)=>{const peer=document.querySelector('[aria-label="Guest subclass peer"]');return new Function('return ('+source+')')()(globalThis,[element,peer]);},exerciseOwnedFocus.toString());
+      assert.deepEqual(prepared.ownedFocus,ownedFocusOracle);
+      await Bun.write(output+'/owned-focus.json',JSON.stringify({guest:prepared.ownedFocus,oracle:ownedFocusOracle},null,2));
       await input.evaluate((element, source) => {
         /** @type {any} */ (window).__subclassOracle = [];
         const observe = new Function("return (" + source + ")")();
-        for (const type of ["click", "keydown", "keyup"])
+        const peer=document.querySelector('[aria-label="Guest subclass peer"]');
+        const status=element.parentElement?.querySelector('[role="status"]');
+        if(status instanceof HTMLElement){status.style.position='absolute';status.style.pointerEvents='none';}
+        for (const type of ["click", "keydown", "keyup","focus","blur","focusin","focusout","beforeinput","input"])
           element.addEventListener(type, (event) =>
-            /** @type {any} */ (window).__subclassOracle.push(observe(event, globalThis)),
+            /** @type {any} */ (window).__subclassOracle.push(observe(event, globalThis,[element,peer])),
           );
       }, observeNativeSubclass.toString());
       await input.click();
       await input.press("Shift+K");
+      await dialog.getByRole('textbox',{name:'Guest subclass peer'}).click();
+      await input.click();
       const text = await dialog.getByRole("status").textContent();
       assert.ok(text);
       const guestNative = JSON.parse(text),
@@ -67,6 +75,8 @@ export async function runEventSubclassScenario(page,output,options={}){
       );
       assert.deepEqual(guestNative, nativeOracle);
       assert.ok(guestNative.some((/** @type {any} */ row) => row.pointer && row.trusted));
+      assert.ok(guestNative.some((/** @type {any} */ row)=>row.focus&&row.relatedOwnedIndex===1&&row.trusted));
+      assert.ok(guestNative.some((/** @type {any} */ row)=>row.input&&row.data==='K'&&row.inputType==='insertText'&&row.trusted));
       assert.ok(
         guestNative.some(
           (/** @type {any} */ row) => row.keyboard && row.key === "K" && row.shiftKey,
@@ -85,8 +95,11 @@ export async function runEventSubclassScenario(page,output,options={}){
             headless: !options.nativeFixturePath,
             renderingMode:options.nativeFixturePath?"native-hidden":"headless",
             checks: [
-              "Five constructor surfaces match browser in CommonJS",
-              "Five constructor surfaces match browser in ES module",
+              "Seven constructor surfaces match browser in CommonJS",
+              "Seven constructor surfaces match browser in ES module",
+              "Actual trusted owned Focus relatedTarget matches browser",
+              "Owned Focus constructor identity and legacy UI initialization match browser",
+              "Actual trusted Input data and inputType match browser",
               "Actual trusted pointer brand and serialized values match same browser event",
               "Actual trusted keyboard brands and values match same browser events",
             ],
