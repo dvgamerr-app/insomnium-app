@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "evidenceClass": "cargo-source-corpus-candidate",
   "coverage": "incomplete",
   "completenessBlocksBuild": false,
@@ -19,5 +19,27 @@
     "target-linkage",
     "system-and-toolchain",
     "platform-distribution"
+  ],
+  "additionalCandidates": [
+    {
+      "path": "AUTHORS",
+      "checksum": "69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "name": "r-efi",
+      "sha256": "ff92bed461f50338dd703a9ba9aee496a425957873df1d91192776e4bdf5dda7",
+      "version": "5.3.0",
+      "bytes": 3693,
+      "kind": "authors-license-notice"
+    },
+    {
+      "path": "AUTHORS",
+      "checksum": "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "name": "r-efi",
+      "sha256": "d027e91dbc9cdbb2f1190068e498bd6b61cff022b6a032b191021ba658d96111",
+      "version": "6.0.0",
+      "bytes": 3733,
+      "kind": "authors-license-notice"
+    }
   ]
 }

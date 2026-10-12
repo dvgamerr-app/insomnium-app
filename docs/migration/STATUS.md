@@ -1,3 +1,9 @@
+## Admitted native45 filename-gap source audit — 2026-10-13
+
+- Report-only topice15aec5e2b1110836f883563312f0920051f01c1 inspects43 checksum-pinned registry archives/two admitted local trees under historical700b receipt,5132 source entries; all45 normalized manifests lack license-file and no additional declared path found. Root/collector/policy/cache/native/profile/build/source unchanged. Artifact research commands terminal0, no package/source execution.
+- Authentic omitted r-efi5.3.0/6.0.0 AUTHORS notices3693/3733bytes contain MIT grant/disclaimer+copyright and Apache/LGPL references (not canonical full other texts), hashesff92bed4/d027e91d. Reviewed24 perfile headers (16selectors,4tauri-plugin,4winapi) form four raw blobs; exact fullsource hashes/header ranges/provenance retained separately. README/manifest/master links and copying/API false positives do not establish fulltexts;2799 binary/nonUTF8/large entries explicitly unclassified.
+- Evidence artifacts/native-notice-gap-research includes45 identity/entry ledgers,43 frozen archives/two complete localtrees/raw blobs/headers/publishedVCS data. Proposes only closed pinned two-AUTHORS data selector for future review, no implementation/adoption/fulllicense/linkage claim. Prior105dcc1/57/6268 proof unchanged; independent root765/58/native/distribution/fullmigration gates remain. Own handles:none. /compact unavailable; report/manifest handoff.
+
 ## Exact recovered-three native notice saved supplement — 2026-10-13
 
 - Topic105dcc189cf82fb6fdf1ed6f44b5ea2e52248983 extends SAME saved native-notices scenario with explicit --recovered-cargo3 and optional readonly --verify-current. Historical47 assertions/names/order retained; inverse restores originaldfa37 bytes. Default remains historical762 and publishes BEFORE assertion: do not run default against now765 root. Closed mode generates only owned fixtures, with pinned lock/recovery/old admitted receipt and exact3 archive/entry/rawtext identities.
