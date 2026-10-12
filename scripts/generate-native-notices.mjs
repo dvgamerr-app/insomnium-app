@@ -2,7 +2,7 @@ import {mkdir, rename} from 'node:fs/promises';
 import {resolve, join, dirname} from 'node:path';
 import {homedir} from 'node:os';
 import {spectralPaths} from './spectral-artifact.mjs';
-import {sha256, compare, jsonBytes, fileBytes, optionalBytes, treeFiles, treeDigest, candidates, archiveFiles, registryArchive, relativePath} from './native-notice-sources.mjs';
+import {sha256, compare, jsonBytes, fileBytes, treeFiles, treeDigest, candidates, archiveFiles, registryArchive, relativePath,retainPrivateArchive,retainAdmissionReceipt,publishAdmission} from './native-notice-sources.mjs';
 
 export const nativeRoot=resolve(import.meta.dir,'..');
 const policyPath='tools/native-notices/source-policy.json';
@@ -67,6 +67,7 @@ export async function collectNativeNotices(target, {projectRoot=nativeRoot,cargo
       if(archive===null) {packages.push({...identity,provenance:null,availability:'source-unavailable',availabilityReason:'registry-archive-not-present-in-local-cache',manifest:null,licenseExpression:null,licenseFile:null,repository:null,links:null,vcs:null,texts:[]});continue;}
       if(sha256(archive)!==identity.checksum)throw Error('Native archive lock checksum mismatch: '+identity.name);
       files=archiveFiles(archive,identity.name+'-'+identity.version);
+      await retainPrivateArchive(projectRoot,identity.checksum,archive);
       provenance={kind:'registry',archive:{sha256:identity.checksum,bytes:archive.length},sourceId:identity.source};
     } else if(Object.hasOwn(patchRoots,identity.name)) {
       const logicalRoot='src-tauri/'+patchRoots[identity.name];files=await treeFiles(join(projectRoot,logicalRoot));
@@ -106,11 +107,13 @@ export async function generateNativeNotices(target,options={}) {
   const projectRoot=options.projectRoot??nativeRoot, collected=await collectNativeNotices(target,options), assets=nativeAssets(collected.receipt,collected.blobs);
   const stamp={schemaVersion:1,target,projectInputs:collected.receipt.projectInputs,receiptSHA256:sha256(assets.get('collection-inputs.json')),outputs:[...assets].map(([path,bytes])=>({path,bytes:bytes.length,sha256:sha256(bytes)})).sort((a,b)=>compare(a.path,b.path))};
   assets.set('preparation.json',jsonBytes(stamp));
+  const admissionReceiptSHA256=await retainAdmissionReceipt(projectRoot,assets.get('collection-inputs.json'));
   const stage=resolve(projectRoot,'artifacts/native-notice-stage-'+crypto.randomUUID()), destination=resolve(projectRoot,'src-tauri/notices/native'), backup=resolve(projectRoot,'artifacts/native-notice-prior-'+crypto.randomUUID());
   await mkdir(stage,{recursive:true});for(const [path,bytes] of assets){relativePath(path);await mkdir(dirname(join(stage,path)),{recursive:true});await Bun.write(join(stage,path),bytes);}
-  const {validateNativeNotices}=await import('./native-notice-artifact.mjs');await validateNativeNotices(target,{projectRoot,directory:stage,expectedRecipe:collected.receipt.buildRecipe});
+  const {validateNativeNotices}=await import('./native-notice-artifact.mjs');await validateNativeNotices(target,{projectRoot,directory:stage,expectedRecipe:collected.receipt.buildRecipe,admissionReceiptSHA256});
   await mkdir(dirname(destination),{recursive:true});let moved=false;
-  try {try{await rename(destination,backup);moved=true;}catch(error){if(error.code!=='ENOENT')throw error;}await rename(stage,destination);}catch(error){if(moved)await rename(backup,destination);throw error;}
+  let published=false;
+  try {try{await rename(destination,backup);moved=true;}catch(error){if(error.code!=='ENOENT')throw error;}await rename(stage,destination);published=true;await publishAdmission(projectRoot,target,admissionReceiptSHA256);}catch(error){if(published)await rename(destination,stage);if(moved)await rename(backup,destination);throw error;}
   return {receipt:collected.receipt,inventory:JSON.parse(assets.get('inventory.json').toString()),stamp};
 }
 if(import.meta.main){if(Bun.argv.length!==3)throw Error('Expected one native notice target');const result=await generateNativeNotices(Bun.argv[2]);console.log(JSON.stringify({identities:result.inventory.lockIdentities,texts:result.inventory.texts.length,coverage:'incomplete',targetLinkage:'unproven'}));}

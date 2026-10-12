@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import {mkdir,copyFile,symlink,unlink} from 'node:fs/promises';
 import {join,dirname,resolve} from 'node:path';
-import {collectNativeNotices,generateNativeNotices,projectIdentity,nativeRoot} from '../../scripts/generate-native-notices.mjs';
+import {collectNativeNotices,generateNativeNotices,projectIdentity,nativeRoot,nativeAssets} from '../../scripts/generate-native-notices.mjs';
 import {validateNativeNotices} from '../../scripts/native-notice-artifact.mjs';
-import {archiveFiles,sha256,jsonBytes,treeFiles,registryArchive} from '../../scripts/native-notice-sources.mjs';
+import {archiveFiles,sha256,jsonBytes,treeFiles,registryArchive,compare,privateArchivePath} from '../../scripts/native-notice-sources.mjs';
 import {runHook} from '../../scripts/tauri-spectral-hook.mjs';
 
-const target='x86_64-pc-windows-msvc',output=resolve('artifacts/native-notice-collector-proof'),checks=[];
+const target='x86_64-pc-windows-msvc',output=resolve('artifacts/native-notice-authority-proof'),checks=[];
 async function check(name,fn){await fn();checks.push(name);console.log('PASS '+name);}
 const actual=await collectNativeNotices(target),actualInventory=(await generateNativeNotices(target)).inventory;
 await check('real-corpus-770-762-1331-4-context1-gaps',async()=>{
@@ -38,6 +38,34 @@ await check('ambient-cache-addition-no-promotion',async()=>{assert.deepEqual(awa
 await generateNativeNotices(target,options);const warm=await validateNativeNotices(target,options);
 await check('explicit-recollection-promotes-authentic-source',async()=>{const i=await Bun.file(join(directory,'inventory.json')).json();assert.notEqual(warm.receiptSHA256,cold.receiptSHA256);assert.equal(i.packages.find(p=>p.id===registryRow.id).availability,'available');});
 await check('ambient-cache-eviction-no-stale-snapshot',async()=>{await unlink(archivePath);assert.deepEqual(await validateNativeNotices(target,options),warm);});
+const coherentCases=[];
+async function coherent(rowSelector,label) {
+ const receipt=await Bun.file(join(directory,'collection-inputs.json')).json(),row=receipt.packages.find(rowSelector),text=row.texts[0],original={...text};
+ const changed=Buffer.from('STRUCTURAL COHERENT TAMPER DATA; NOT AUTHENTIC LICENSE TEXT\n');text.sha256=sha256(changed);text.bytes=changed.length;
+ const blobs=new Map();for(const p of receipt.packages)for(const d of [p.manifest,p.vcs,...p.texts].filter(Boolean)){blobs.set(d.sha256,d.sha256===text.sha256?changed:Buffer.from(await Bun.file(join(directory,'blobs',d.sha256)).bytes()));}
+ const assets=nativeAssets(receipt,blobs),stamp={schemaVersion:1,target,projectInputs:receipt.projectInputs,receiptSHA256:sha256(assets.get('collection-inputs.json')),outputs:[...assets].map(([path,b])=>({path,bytes:b.length,sha256:sha256(b)})).sort((a,b)=>compare(a.path,b.path))};assets.set('preparation.json',jsonBytes(stamp));
+ const tampered=join(fixture,'coherent-'+label);for(const [path,b] of assets){await mkdir(dirname(join(tampered,path)),{recursive:true});await Bun.write(join(tampered,path),b);}
+ await assert.rejects(validateNativeNotices(target,{...options,directory:tampered}),/Native text bytes differ from authoritative source/);
+ coherentCases.push({label,name:row.name,version:row.version,lockChecksum:row.checksum,originalText:original,changedText:text,refused:true,allDerivedHashesRecomputed:true,unchangedProjectAndSourceIdentity:true});
+}
+await check('coherent-registry-text-and-all-hashes-refused',()=>coherent(p=>p.source!==null&&p.texts.length,'registry'));
+await check('coherent-local-patch-text-and-all-hashes-refused',()=>coherent(p=>p.provenance?.kind==='local-patch'&&p.texts.length,'local-patch'));
+await check('coherent-workspace-context-text-and-all-hashes-refused',()=>coherent(p=>p.provenance?.kind==='workspace-context','workspace'));
+const privatePath=privateArchivePath(fixture,registryRow.checksum),privateBytes=Buffer.from(await Bun.file(privatePath).bytes());
+await check('declared-private-archive-missing-refused',async()=>{await unlink(privatePath);try{await assert.rejects(validateNativeNotices(target,options));}finally{await Bun.write(privatePath,privateBytes);}assert.deepEqual(await validateNativeNotices(target,options),warm);});
+await check('declared-private-archive-tamper-refused',async()=>{await Bun.write(privatePath,Buffer.concat([privateBytes,Buffer.from('authority-tamper')]));try{await assert.rejects(validateNativeNotices(target,options),/private archive authority/);}finally{await Bun.write(privatePath,privateBytes);}assert.deepEqual(await validateNativeNotices(target,options),warm);});
+await check('private-archive-and-extras-not-packaged',async()=>{assert(![...await treeFiles(directory)].some(([path])=>path.endsWith('.crate')));await Bun.write(join(dirname(privatePath),'unadmitted-extra.crate'),'structural unadmitted data');assert.deepEqual(await validateNativeNotices(target,options),warm);});
+await check('coherent-availability-downgrade-and-old-receipt-rollback-refused',async()=>{
+ const receipt=await Bun.file(join(directory,'collection-inputs.json')).json(),row=receipt.packages.find(p=>p.source!==null&&p.texts.length);row.provenance=null;row.availability='source-unavailable';row.availabilityReason='registry-archive-not-present-in-local-cache';for(const key of ['manifest','licenseExpression','licenseFile','repository','links','vcs'])row[key]=null;row.texts=[];
+ const blobs=new Map();for(const p of receipt.packages)for(const d of [p.manifest,p.vcs,...p.texts].filter(Boolean))blobs.set(d.sha256,Buffer.from(await Bun.file(join(directory,'blobs',d.sha256)).bytes()));
+ const assets=nativeAssets(receipt,blobs),stamp={schemaVersion:1,target,projectInputs:receipt.projectInputs,receiptSHA256:sha256(assets.get('collection-inputs.json')),outputs:[...assets].map(([path,b])=>({path,bytes:b.length,sha256:sha256(b)})).sort((a,b)=>compare(a.path,b.path))};assets.set('preparation.json',jsonBytes(stamp));
+ assert.equal(stamp.receiptSHA256,cold.receiptSHA256);assert(await Bun.file(join(fixture,'artifacts/native-notice-admissions',cold.receiptSHA256+'.json')).exists());
+ const changed=join(fixture,'coherent-admission-downgrade');for(const [path,b] of assets){await mkdir(dirname(join(changed,path)),{recursive:true});await Bun.write(join(changed,path),b);}await assert.rejects(validateNativeNotices(target,{...options,directory:changed}),/admitted generation identity mismatch/);
+});
+const marker=join(fixture,'artifacts/native-notice-admissions','current-'+target+'.json'),markerBytes=Buffer.from(await Bun.file(marker).bytes()),admitted=join(fixture,'artifacts/native-notice-admissions',warm.receiptSHA256+'.json'),admittedBytes=Buffer.from(await Bun.file(admitted).bytes());
+await check('declared-current-admission-missing-refused',async()=>{await unlink(marker);try{await assert.rejects(validateNativeNotices(target,options));}finally{await Bun.write(marker,markerBytes);}assert.deepEqual(await validateNativeNotices(target,options),warm);});
+await check('private-admission-receipt-coherent-independent-authority',async()=>{await Bun.write(admitted,Buffer.concat([admittedBytes,Buffer.from('tamper')]));try{await assert.rejects(validateNativeNotices(target,options),/private admission receipt mismatch/);}finally{await Bun.write(admitted,admittedBytes);}assert.deepEqual(await validateNativeNotices(target,options),warm);});
+await check('failed-admission-publication-restores-old-resources',async()=>{await Bun.write(marker,'{}');try{await assert.rejects(generateNativeNotices(target,options),/Malformed native current admission/);}finally{await Bun.write(marker,markerBytes);}assert.deepEqual(await validateNativeNotices(target,options),warm);});
 async function mutate(path,fn,operation=()=>validateNativeNotices(target,options)) {const full=join(fixture,path),before=Buffer.from(await Bun.file(full).bytes());try{await Bun.write(full,fn(before));await assert.rejects(operation);}finally{await Bun.write(full,before);}await validateNativeNotices(target,options);}
 for(const path of ['src-tauri/notices/native/inventory.json','src-tauri/notices/native/THIRD_PARTY_NOTICES.txt','src-tauri/notices/native/collection-inputs.json','src-tauri/notices/native/preparation.json',...warm.outputs.filter(p=>p.path.startsWith('blobs/')).slice(0,2).map(p=>'src-tauri/notices/native/'+p.path)])await check('output-tamper:'+path,()=>mutate(path,b=>Buffer.concat([b,Buffer.from('mutation')])));
 for(const path of ['src-tauri/Cargo.lock','src-tauri/Cargo.toml','tools/native-notices/source-policy.json','src-tauri/vendor/http-auth/LICENSE-MIT.txt','scripts/generate-native-notices.mjs'])await check('project-freshness:'+path,()=>mutate(path,b=>Buffer.concat([b,Buffer.from('\n# mutation\n')])));
@@ -60,5 +88,5 @@ const hookModes=[];
 await check('hook-native-preparation-order-and-bundle-no-child',async()=>{for(const mode of ['build','dev','bundle']){const calls=[];await runHook(mode,target,{command:async a=>calls.push(a[1]),generate:async()=>calls.push('spectral-generate'),nativeGenerate:async()=>calls.push('native-generate'),record:async()=>calls.push('spectral-record'),validate:async()=>calls.push('spectral-validate'),nativeValidate:async()=>calls.push('native-validate')});assert.deepEqual(calls,mode==='bundle'?['spectral-validate','native-validate']:['scripts/build-spectral-linter.mjs','spectral-generate','native-generate','spectral-record','spectral-validate','native-validate','run']);hookModes.push({mode,calls});}});
 await check('hook-native-correctness-failure-no-frontend',async()=>{const calls=[];await assert.rejects(runHook('dev',target,{command:async a=>calls.push(a[1]),generate:async()=>{},nativeGenerate:async()=>{throw Error('native-correctness-negative');},record:async()=>calls.push('record'),validate:async()=>{},nativeValidate:async()=>{}}),/native-correctness/);assert.deepEqual(calls,['scripts/build-spectral-linter.mjs']);});
 await check('hook-stale-native-bundle-refuses-without-child',async()=>{let child=false;await assert.rejects(runHook('bundle',target,{command:async()=>{child=true;},validate:async()=>{},nativeValidate:async()=>{throw Error('native-stale-negative');}}),/native-stale/);assert(!child);});
-const result={status:'passed',checks,hookModes,realCorpus:{lockIdentities:770,registryArchives:762,registryTextOrigins:1331,localTextOrigins:4,projectContextOrigins:1,uniqueTextBlobs:actualInventory.texts.length,cacheMisses:3,registryDiscoveryGaps:43,localDiscoveryGaps:2},coverage:'incomplete',targetLinkage:'unproven',fixture,hostSourceExecuted:false,builds:[],nativeLaunches:[],handles:[]};
+const result={status:'passed',checks,coherentCases,hookModes,realCorpus:{lockIdentities:770,registryArchives:762,registryTextOrigins:1331,localTextOrigins:4,projectContextOrigins:1,uniqueTextBlobs:actualInventory.texts.length,cacheMisses:3,registryDiscoveryGaps:43,localDiscoveryGaps:2},coverage:'incomplete',targetLinkage:'unproven',fixture,hostSourceExecuted:false,builds:[],nativeLaunches:[],handles:[]};
 await mkdir(output,{recursive:true});await Bun.write(join(output,'standalone-audit.json'),jsonBytes(result));console.log(JSON.stringify(result));

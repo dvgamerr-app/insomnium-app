@@ -1,3 +1,9 @@
+## Native source-text collector candidate — 2026-10-13
+
+- Verified isolated topicce9dca7 against root4c8fb4a2:10paths only, eight root-before nondoc guards plus supplemental projectLICENSE/four vendor tree prerequisites. Actual770 identities/762 archives/1331registry+4vendor+1workspace-context origins/420unique rawtextblobs; incomplete/nonblocking/linkageunproven, original3cachemiss/43registry+2local discovery gaps remain. Separate immutable admitted snapshot and native stamp; additive native resource/ignore and hook preparation-beforefrontend, bundlevalidationonly/nochild.
+- Final saved37 native checks pass (96016 terminal0), SAME retained185/184/3gap/10tamper/13candidate+6recovery/rawbytes/determinism/order/producerfailure passes (52036 terminal0), finalvalidator1943outputs+stamp passes. Current8root/sourceLICENSE/fourvendor guards and prior3855proof files independently unchanged. Evidence artifacts/native-notice-collector-proof; exact10delta/handoff and source/fixtures/generatedbytes frozen for rootreview.
+- Copied baseline-only build-desktop/Cargo/vendor/LICENSE excluded from changes and remain unstaged prerequisites in this stale branch. No rootwrites/producer orfrontend orCargo build/native/app/profile/browser/backend/permission/protocol/dependency/engine/SDK/provider change or launch. Ownhandles:none; root90664 belongs parent and untouched. Target/features/profile/linkmap/nested/perfile/system/toolchain/localprovenance/installed/platform/distribution/signing/update/fullcoverage/migration gates OPEN. /compact unavailable; explicit handoff.
+
 ## Native notice acceptance design — 2026-10-13
 
 - Documentation topic22a00b6 adds concrete closed-schema fixture/checklist and14proof-file role audit:11 historicalroot542e177 input captures plus ownreceipt/report/STATUS, not14currentrootguards. Existing proposal14/Cargo2870 files independently rehashed unchanged. No newrootcapture or implementation; rootnative90664 untouched.

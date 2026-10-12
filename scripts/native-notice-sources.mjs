@@ -1,5 +1,5 @@
-import {lstat, readdir} from 'node:fs/promises';
-import {join, basename, resolve} from 'node:path';
+import {lstat, readdir, mkdir, open, rename} from 'node:fs/promises';
+import {join, basename, resolve, dirname} from 'node:path';
 
 export const sha256 = bytes => new Bun.CryptoHasher('sha256').update(bytes).digest('hex');
 export const compare = (a,b) => a < b ? -1 : a > b ? 1 : 0;
@@ -87,4 +87,68 @@ export async function registryArchive(cargoHome, name, version) {
   if(!found.length)return null;
   if(found.some(b=>!b.equals(found[0])))throw Error('Conflicting native package archives across cache namespaces');
   return found[0];
+}
+export function privateArchivePath(projectRoot,checksum) {
+  if(typeof checksum!=='string'||!/^[a-f0-9]{64}$/.test(checksum))throw Error('Invalid native private archive identity');
+  return resolve(projectRoot,'artifacts/native-notice-source-snapshots',checksum+'.crate');
+}
+async function privateDirectory(projectRoot,leaf,create=false) {
+  const artifacts=resolve(projectRoot,'artifacts'),directory=resolve(artifacts,leaf);
+  if(create)await mkdir(artifacts,{recursive:true});
+  for(const path of [artifacts,directory]) {
+    if(create&&path===directory)await mkdir(path,{recursive:true});
+    const stat=await lstat(path);if(!stat.isDirectory()||stat.isSymbolicLink())throw Error('Native private archive directory must be an owned regular directory');
+  }
+}
+export async function retainPrivateArchive(projectRoot,checksum,bytes) {
+  if(sha256(bytes)!==checksum)throw Error('Native private archive checksum mismatch');
+  await privateDirectory(projectRoot,'native-notice-source-snapshots',true);
+  const path=privateArchivePath(projectRoot,checksum),existing=await optionalBytes(path);
+  if(existing){if(!existing.equals(bytes)||sha256(existing)!==checksum)throw Error('Native private archive snapshot changed');return;}
+  let handle;
+  try {handle=await open(path,'wx');await handle.writeFile(bytes);}catch(error){if(error.code!=='EEXIST')throw error;}finally{await handle?.close();}
+  const actual=await fileBytes(path);if(!actual.equals(bytes)||sha256(actual)!==checksum)throw Error('Native private archive snapshot changed');
+}
+export async function privateArchiveFiles(projectRoot,identity,archiveDigest) {
+  await privateDirectory(projectRoot,'native-notice-source-snapshots');
+  const bytes=await fileBytes(privateArchivePath(projectRoot,identity.checksum));
+  if(bytes.length!==archiveDigest.bytes||sha256(bytes)!==identity.checksum||archiveDigest.sha256!==identity.checksum)throw Error('Native private archive authority mismatch');
+  return archiveFiles(bytes,identity.name+'-'+identity.version);
+}
+function admissionPath(projectRoot,digest) {
+  if(typeof digest!=='string'||!/^[a-f0-9]{64}$/.test(digest))throw Error('Invalid native admission receipt identity');
+  return resolve(projectRoot,'artifacts/native-notice-admissions',digest+'.json');
+}
+export async function retainAdmissionReceipt(projectRoot,bytes) {
+  await privateDirectory(projectRoot,'native-notice-admissions',true);
+  const digest=sha256(bytes),path=admissionPath(projectRoot,digest),existing=await optionalBytes(path);
+  if(existing){if(!existing.equals(bytes))throw Error('Native admission receipt changed');return digest;}
+  let handle;try{handle=await open(path,'wx');await handle.writeFile(bytes);}catch(error){if(error.code!=='EEXIST')throw error;}finally{await handle?.close();}
+  if(!(await fileBytes(path)).equals(bytes))throw Error('Native admission receipt changed');return digest;
+}
+function currentAdmissionPath(projectRoot,target) {
+  if(!['x86_64-pc-windows-msvc','x86_64-unknown-linux-gnu','aarch64-unknown-linux-gnu','x86_64-apple-darwin','aarch64-apple-darwin'].includes(target))throw Error('Invalid native admission target');
+  return resolve(projectRoot,'artifacts/native-notice-admissions','current-'+target+'.json');
+}
+export async function currentAdmissionDigest(projectRoot,target) {
+  await privateDirectory(projectRoot,'native-notice-admissions');
+  const row=JSON.parse((await fileBytes(currentAdmissionPath(projectRoot,target))).toString());
+  if(Object.keys(row).sort(compare).join('|')!=='receiptSHA256|schemaVersion|target'||row.schemaVersion!==1||row.target!==target||typeof row.receiptSHA256!=='string'||!/^[a-f0-9]{64}$/.test(row.receiptSHA256))throw Error('Malformed native current admission');
+  return row.receiptSHA256;
+}
+export async function validateAdmissionReceipt(projectRoot,target,bytes,expectedDigest=null) {
+  await privateDirectory(projectRoot,'native-notice-admissions');
+  const digest=expectedDigest??await currentAdmissionDigest(projectRoot,target);
+  if(sha256(bytes)!==digest)throw Error('Native admitted generation identity mismatch');
+  const admitted=await fileBytes(admissionPath(projectRoot,digest));
+  if(sha256(admitted)!==digest||!admitted.equals(bytes))throw Error('Native private admission receipt mismatch');
+}
+export async function publishAdmission(projectRoot,target,digest) {
+  await privateDirectory(projectRoot,'native-notice-admissions',true);
+  await fileBytes(admissionPath(projectRoot,digest));
+  const path=currentAdmissionPath(projectRoot,target),existing=await optionalBytes(path);
+  if(existing)await currentAdmissionDigest(projectRoot,target);
+  const temporary=path+'.'+crypto.randomUUID()+'.tmp';
+  await Bun.write(temporary,jsonBytes({schemaVersion:1,target,receiptSHA256:digest}));
+  await rename(temporary,path);
 }
