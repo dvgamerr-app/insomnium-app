@@ -1,3 +1,9 @@
+## Cache admission tool reliability correction — 2026-10-13
+
+- Topic c24fa83 changes only the SHA helper to node:crypto createHash under Bun and renames HOME to CARGO_CACHE_ROOT. Revised source46d1e59320a865084695bebff39676fbc7dfd74c26162a9c1856d66f9f583af5/14560bytes; report commands/token reflect exact bytes. Exact inverse reproduces originale1b7/14422bytes, preserving all23 frozen files and previous crash negative.
+- Syntax-only Bun Transpiler passed exit0 without module execution. Manual inverse/byte checks passed; no tool runtime/dry-run/cache/root writes, collection/build/native/profile action. Evidence artifacts/cargo-recovered-admission-tool-reliability-proof. Existing stage/publication/protected-generation guards unchanged. Root runtime dry-run/write/partial-run acceptance pending; all original coverage/linkage gates retained.
+- Own live handles:none. Parent reports native cookie prefixture terminal1 and restored protected654/profile, unrelated to this unexecuted tool. /compact unavailable; frozen proof and STATUS provide handoff.
+
 ## Recovered Cargo archive admission tool prepared — 2026-10-13
 
 - Topic ca9e0bd6300e4134417456c8539d1c6033f47e82 adds only saved artifact tool and report. Source e1b7aba2a5d5268b16ae4bc77af59e88bb6b207c1d10753710ecb0117e178b6e guards canonical root/CARGO_HOME, exact3 frozen archives, source/receipt/lock/parser, allnamespace conflicts and non-overwriting same-volume publication. Write intent/exclusive-window/native-terminal attestations required; root executes only after review and terminal native freeze.

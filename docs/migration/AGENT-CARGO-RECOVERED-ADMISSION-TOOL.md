@@ -1,24 +1,27 @@
 # Exact recovered Cargo archive admission tool
 
-The saved artifact tool `artifacts/cargo-recovered-admission-tool/admit.mjs` is prepared for root review. It has **not been executed**, including dry-run. No cache, root, private admission, resources, profile or build was changed. Parent-owned native build62029 was left untouched. Own live handles: none.
+The revised artifact tool `artifacts/cargo-recovered-admission-tool/admit.mjs` is prepared for root review. This lane has **not executed it**, including dry-run. Root's failed dry-run of the prior46d1 version is retained below. No cache, root, private admission, resources, profile or build was changed by this lane. Parent-owned native build62029 was left untouched during original preparation. Own live handles: none.
 
-Source SHA256: `46d1e59320a865084695bebff39676fbc7dfd74c26162a9c1856d66f9f583af5` (14560 bytes). The tool admits only the three archives in the accepted recovery receipt: openssl-probe0.1.6, tree_magic_mini3.2.2 and wl-clipboard-rs0.9.4, totaling72660 bytes. No collection or linkage promotion occurs.
+Source SHA256: `66d353b8ba023405ef9e4067d67ce60c6fab661d33f09f39ae4299b14676956d` (14889 bytes). The tool admits only the three archives in the accepted recovery receipt: openssl-probe0.1.6, tree_magic_mini3.2.2 and wl-clipboard-rs0.9.4, totaling72660 bytes. No collection or linkage promotion occurs.
 
-The narrow reliability revision replaces only the hash helper with standard `createHash` from `node:crypto` under Bun and renames the script constant to `CARGO_CACHE_ROOT`. Reversing exactly these substitutions reproduces all14422 bytes of the original e1b7 source. The original23-file proof remains byte-identical; source tokens below bind this revised source. Syntax passed without executing the module. The prior Bun0x48 crash remains retained, not reinterpreted as runtime acceptance.
+The earlier reliability revision replaced the hash helper with standard `createHash` from `node:crypto` under Bun and renamed the script constant to `CARGO_CACHE_ROOT`; its46d1 source and8-file proof remain immutable. Root's actual dry-run then failed before cache/stages because Bun returned literal `D:` for the ordinary absolute `D:\` root. That negative receipt is retained verbatim in the new proof.
 
+This revision changes only `ordinaryDirectory`: check directory/non-symlink metadata first, then accept raw `D:` only when the supplied path exactly equals the known absolute `resolve('D:/')`. For every other path, a bare drive-relative realpath is explicitly refused before generic normalization. Normal canonical path checks remain unchanged. There is no drive-relative environment or alias exception. Exact inverse substitution restores all14560 bytes of the46d1 source. Syntax passed without executing this module. The revised source tokens below bind these exact new bytes.
+
+Manual guard cases: ordinary absolute `D:\` plus raw `D:` passes; ordinary `D:\` plus canonical `D:\` uses the original comparison; raw `E:` or `d:` for `D:\` refuses; raw `D:` for a subdirectory, drive-relative supplied `D:`, or alias supplied `D:/` refuses. Non-directory or symbolic-link metadata refuses before any canonical exception. These are source-reviewed cases, not a claim of repeated root runtime acceptance.
 ## Future root commands
 
 After independently reviewing and copying the exact frozen source bytes into the same artifact path in root, root may run this read-only command from canonical `E:\.dvgamerr-app\insomnium-app`. Rehash the destination first: Git checkout newline conversion may change script bytes, and the supplied source guard deliberately refuses any such change. The frozen handoff copy is authoritative for these commands.
 
 ```powershell
 $env:CARGO_HOME = 'D:\home\.cargo'
-bun artifacts/cargo-recovered-admission-tool/admit.mjs --dry-run --source-sha256 46d1e59320a865084695bebff39676fbc7dfd74c26162a9c1856d66f9f583af5
+bun artifacts/cargo-recovered-admission-tool/admit.mjs --dry-run --source-sha256 66d353b8ba023405ef9e4067d67ce60c6fab661d33f09f39ae4299b14676956d
 ```
 
 Only after the native source freeze is terminal and Cargo/cache writers are stopped, root may deliberately execute:
 
 ```powershell
-bun artifacts/cargo-recovered-admission-tool/admit.mjs --write --source-sha256 46d1e59320a865084695bebff39676fbc7dfd74c26162a9c1856d66f9f583af5 --token cargo3:5156ae8fa74230bd84ddf53706b8961a5e4d6c14e7069138394c1ccc5d782873:21d82d6f97c1aae7b878895bc76b116312d649d732c76c9fb8f5788d5a6a48f1:46d1e59320a865084695bebff39676fbc7dfd74c26162a9c1856d66f9f583af5 --exclusive-cache-window --after-native-freeze
+bun artifacts/cargo-recovered-admission-tool/admit.mjs --write --source-sha256 66d353b8ba023405ef9e4067d67ce60c6fab661d33f09f39ae4299b14676956d --token cargo3:5156ae8fa74230bd84ddf53706b8961a5e4d6c14e7069138394c1ccc5d782873:21d82d6f97c1aae7b878895bc76b116312d649d732c76c9fb8f5788d5a6a48f1:66d353b8ba023405ef9e4067d67ce60c6fab661d33f09f39ae4299b14676956d --exclusive-cache-window --after-native-freeze
 ```
 
 The two final flags attest root's exclusive window and terminal native build; the tool does not inspect or terminate processes. The intent token is a source/input identity guard, not a secret or authorization system. No other root, home, namespace, archive or destination selector exists.
