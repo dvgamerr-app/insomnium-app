@@ -27,6 +27,8 @@
   let environment = $state("{}");
   let parentId = $state("");
   let error = $state("");
+  let nameError = $state("");
+  let environmentError = $state("");
   let confirmingDelete = $state(false);
   let initialized = false;
   $effect(() => {
@@ -56,15 +58,26 @@
     isCollection && resources.filter((r) => r._type === "workspace").length < 2,
   );
   function save() {
-    try {
-      if (!name.trim()) throw new Error("Enter a name.");
-      const patch = { name: name.trim(), description };
-      if (isFolder) {
+    error = "";
+    nameError = "";
+    environmentError = "";
+    if (!name.trim()) {
+      nameError = "Enter a name.";
+      return;
+    }
+    const patch = { name: name.trim(), description };
+    if (isFolder) {
+      try {
         const parsed = JSON.parse(environment);
         if (!parsed || Array.isArray(parsed) || typeof parsed !== "object")
           throw new Error("Folder variables must be a JSON object.");
         Object.assign(patch, { environment: parsed });
+      } catch (e) {
+        environmentError = String(e);
+        return;
       }
+    }
+    try {
       onsave(patch, parentId);
     } catch (e) {
       error = String(e);
@@ -107,7 +120,14 @@
     }}
   >
     <FormPanel class="form-panel resource-form">
-      <Field>Name<Input bind:value={name} /></Field>
+      <Field label="Name" error={nameError}
+        ><Input
+          bind:value={name}
+          oninput={(event) => {
+            if (event.currentTarget.value.trim()) nameError = "";
+          }}
+        /></Field
+      >
       <Field
         >Description<Textarea rows={3} bind:value={description}
         ></Textarea></Field
@@ -128,11 +148,25 @@
           </p>{/if}
       {/if}
       {#if isFolder}
-        <Field
-          >Folder variables (JSON)<Textarea
+        <Field label="Folder variables (JSON)" error={environmentError}
+          ><Textarea
             class="code-editor small-editor"
             spellcheck="false"
             bind:value={environment}
+            oninput={(event) => {
+              if (!environmentError) return;
+              try {
+                const parsed = JSON.parse(event.currentTarget.value);
+                if (
+                  parsed &&
+                  !Array.isArray(parsed) &&
+                  typeof parsed === "object"
+                )
+                  environmentError = "";
+              } catch {
+                /* Retain the submitted error until the JSON is corrected. */
+              }
+            }}
           ></Textarea></Field
         >
         <p class="hint">

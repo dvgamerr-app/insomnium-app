@@ -1,3 +1,7 @@
+## Isolated ResourceManager Field checkpoint — 2026-10-13
+
+Own ui-next precedingcommit257b9d1/baseb95c089: local name/JSON Field.error + approved explicit label stability; no CSS/globalField/backend changes. Saved2e8df7 and design-system55204 pass; compiler44662 0/0 ONLY with explicit verification preview supplement (normalbaseline4252 fourpreexistingerrors), build85516 exit0; three negatives/775file audit eb755a42 archived. Preview helper restored/notoffered; ignored generators only. Report AGENT-RESOURCE-FIELD-VALIDATION-20261013.md. Ownhandles:none/nativeprofileunclaimed. Current featurecommit reported in final handoff; root integration/current-root replay/native CRUD/AT/platform/fullmigration remainOPEN. Do not overlay this isolated STATUS onto root. /compact unavailable; explicit handoff.
+
 ## Parallel work restarted by owner — 2026-10-13
 
 Latest verified feature commit: 2849148 (captured external structural preview/Generate), root audit artifacts/spectral-external-root-proof/root-audit.json; compiler/build/saved headless/regressions passed. Root handles:none; native profile unclaimed. Previous frozen native and runtime-license handoffs remain immutable. Owner requests three agents plus root: native preparation reconciliation, exact runtime-license override, and read-only shared-input/CSS adoption inventory in fresh isolated worktrees. Root owns integration, serial builds and exclusive native-hidden acceptance. PLAN records assignments and acceptance gates.
