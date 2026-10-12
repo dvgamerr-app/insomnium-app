@@ -1,3 +1,9 @@
+## Native notice acceptance design — 2026-10-13
+
+- Documentation topic22a00b6 adds concrete closed-schema fixture/checklist and14proof-file role audit:11 historicalroot542e177 input captures plus ownreceipt/report/STATUS, not14currentrootguards. Existing proposal14/Cargo2870 files independently rehashed unchanged. No newrootcapture or implementation; rootnative90664 untouched.
+- Evidence artifacts/native-notice-acceptance-design-proof. Immutable admitted snapshot validates fixedgeneration; ambientcache extras/eviction do not promote or silently stale it. Projectlock/manifest/policy/localtrees/buildcontext and snapshot/output mutation are explicit freshness/correctness failures; incomplete remains nonblocking. All threecachemiss/43discovery/localpatch/nested/conditions/target/system/toolchain/platform/fullcoverage gates remainopen.
+- No collector/product/config/backend/deps/sourceexecution/build/native/profile/browser/SDK/provider change or launch. Ownhandles:none. Root reviews schema/policy/atomicgeneration before implementation. /compact unavailable; explicit handoff.
+
 ## Native notice collector read-only proposal — 2026-10-13
 
 - Report topic5d6e070 pins root542e177 and existing verified Cargo2870 inventory. Proposes closed source-candidate schema/raw blobs/immutable preparation snapshot/separate native stamp/Tauri resource mapping and saved provenance, tamper, unknown, byte and hook-order gates. No implementation or adoption; no new completeness blocker or target-linkage claim. Three cache misses/43 discovery gaps/local patches/nested libraries/conditions/system/toolchain/target-linkage remain open.
