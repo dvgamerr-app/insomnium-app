@@ -1,5 +1,6 @@
 import {resolve} from 'node:path';
 import {createHash} from 'node:crypto';
+import {spectralNoticeIdentity} from './generate-spectral-notices.mjs';
 const root=resolve(import.meta.dir,'..');
 const targets={
  'x86_64-pc-windows-msvc':'bun-windows-x64',
@@ -21,5 +22,5 @@ async function producerArtifact(target,projectRoot){const paths=spectralPaths(ta
  if(manifest.target!==target||manifest.bunTarget!==paths.bunTarget||manifest.bunVersion!==Bun.version||manifest.bytes!==bytes.length||manifest.sha256!==sha256(bytes)||manifest.lockSHA256!==sha256(lock))throw Error('Spectral producer artifact/provenance mismatch');
  return {paths,manifest};
 }
-export async function recordSpectralBuild(target,projectRoot=root){const {paths,manifest}=await producerArtifact(target,projectRoot);await Bun.write(paths.provenance,JSON.stringify({target,binarySHA256:manifest.sha256,producerInputs:await sourceIdentity(projectRoot)},null,2));}
-export async function validateSpectralArtifact(target,projectRoot=root){const {paths,manifest}=await producerArtifact(target,projectRoot),stamp=await Bun.file(paths.provenance).json();if(stamp.target!==target||stamp.binarySHA256!==manifest.sha256||JSON.stringify(stamp.producerInputs)!==JSON.stringify(await sourceIdentity(projectRoot)))throw Error('Spectral artifact is stale; run the target-specific Tauri build hook before bundling');return paths;}
+export async function recordSpectralBuild(target,projectRoot=root){const {paths,manifest}=await producerArtifact(target,projectRoot);await Bun.write(paths.provenance,JSON.stringify({target,binarySHA256:manifest.sha256,producerInputs:await sourceIdentity(projectRoot),notices:await spectralNoticeIdentity(projectRoot)},null,2));}
+export async function validateSpectralArtifact(target,projectRoot=root){const {paths,manifest}=await producerArtifact(target,projectRoot),stamp=await Bun.file(paths.provenance).json();if(stamp.target!==target||stamp.binarySHA256!==manifest.sha256||JSON.stringify(stamp.producerInputs)!==JSON.stringify(await sourceIdentity(projectRoot))||JSON.stringify(stamp.notices)!==JSON.stringify(await spectralNoticeIdentity(projectRoot)))throw Error('Spectral artifact is stale; run the target-specific Tauri build hook before bundling');return paths;}

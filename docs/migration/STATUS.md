@@ -1,3 +1,9 @@
+## Spectral notices packaging integrated — 2026-10-12
+
+- Deterministic generated inventory/text covers185 locked identities/184 Windows-installed identities, excludes unpinned type extras and records four published full-text gaps. Exact pinned Bun1.4.2 LICENSE inventory included; linked-library texts still incomplete. Build/dev order is producer → notices → provenance/validation → frontend; bundle-only validates current source/output hashes. Tauri resource mapping packages generated notices. No fabricated completeness claim or added completeness blocker.
+- Root independently verifies417 frozen files/eight guarded deltas; SAME artifact audit and retained six packaging groups pass (Linux mocked). Actual root hook build/bundle and serial compiler70295 terminal0/0errors/0warnings, source unchanged; producer6231e95d/93486080bytes. All collected notice raw bytes verified in output. Proof artifacts/spectral-notices-root-proof/root-audit.json.
+- Current root handles:none. Native agent27925 was LIVE at last authoritative report preparing saved native-hidden adapter, no native app/profile/build launch. shared_ui read-only review identifies remaining external catalog → structural preview/generation disconnect; no edits. Fresh current native IPC/resource installation/repository consumed-read receipts/unobserved births/hardFS/all-platform/distribution/full original parity and deferred UX remain OPEN. Topic commit pending. /compact unavailable; explicit handoff before next feature.
+
 ## Spectral API Design integration verified — 2026-10-12
 
 - Captured diagnostics/source catalog join the existing structural preview; full-range inline/navigation and readonly captured references preserve main editor. Native Generate requires fresh accepted lint with no severity0 and unchanged workspace/source/repository/options. Reactive active work cancels stale jobs and waits settlement before releasing workspace work.
