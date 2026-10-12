@@ -1,4 +1,5 @@
 import { assertFilledForeground } from "./helpers/filled-foreground.js";
+import { runCookieComponent } from "./helpers/cookie-component.js";
 import { assertButtonPadding } from "./helpers/button-padding.js";
 import { assertFormGeometry } from "./helpers/form-geometry.js";
 import { assertFieldFeedback } from "./helpers/field-feedback.js";
@@ -14,6 +15,11 @@ import {
   assertCaptionTypography,
   assertPickerTypography,
 } from "./helpers/typography.js";
+
+if (process.argv.includes("--cookie-component")) {
+  await runCookieComponent();
+  process.exit(0);
+}
 
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-unified-diff-probe/build-state.json";

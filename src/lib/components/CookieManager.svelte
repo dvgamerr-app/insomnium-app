@@ -21,7 +21,27 @@
   let url = $state(""),
     raw = $state("");
   let previous = $state(/** @type {Record<string, any> | null} */ (null));
+  let fieldError = $state.raw(/** @type {{field:'url'|'raw',message:string}|null} */ (null));
+  let formOwner = 0;
   let confirmClear = $state(false);
+  function resetFields() {
+    formOwner++;
+    fieldError = null;
+    previous = null;
+    raw = "";
+    url = "";
+  }
+  /** @param {Event & {currentTarget:HTMLInputElement}} event */
+  function correctUrl(event) {
+    if (fieldError?.field !== "url" || !event.currentTarget.validity.valid) return;
+    try {
+      if (["http:", "https:"].includes(new URL(event.currentTarget.value).protocol)) fieldError = null;
+    } catch {}
+  }
+  /** @param {Event & {currentTarget:HTMLTextAreaElement}} event */
+  function correctRaw(event) {
+    if (fieldError?.field === "raw" && new TextEncoder().encode(event.currentTarget.value).byteLength <= 8192) fieldError = null;
+  }
   async function refresh() {
     if (!isTauri()) return;
     /** @type {import("../workspace.svelte.js").ScopedWorkspaceWork|undefined} */ let work;
@@ -44,12 +64,17 @@
   });
   async function change(/** @type {Record<string, any>} */ patch) {
     if (busy) return;
+    const formPatch = typeof patch.url === "string" && typeof patch.raw === "string";
+    const owner = formOwner;
+    if (formPatch) fieldError = null;
     /** @type {import("../workspace.svelte.js").ScopedWorkspaceWork|undefined} */ let work;
+    let nativePending = false;
     busy = true;
     error = "";
     notice = "";
     try {
       work = workScope.begin();
+      nativePending = true;
       await invoke("change_cookie", {
         workspaceId,
         url: null,
@@ -58,21 +83,29 @@
         clear: false,
         ...patch,
       });
+      nativePending = false;
       if (!work.current()) return;
-      previous = null;
-      raw = "";
-      url = "";
+      resetFields();
       confirmClear = false;
       await refresh();
       if (work.current()) notice = "Cookies saved.";
     } catch (e) {
-      if (!work || work.current()) error = String(e);
+      if (!work || work.current()) {
+        const message = String(e);
+        const field = message === "Cookie URL must use HTTP or HTTPS" ? "url"
+          : message === "Cookie exceeds the 8 KiB editor limit" ? "raw" : null;
+        if (nativePending && formPatch && field) {
+          if (owner === formOwner && patch.url === url && patch.raw === raw && patch.previous === previous) fieldError = { field, message };
+        } else error = message;
+      }
     } finally {
       work?.finish();
       busy = false;
     }
   }
   function edit(/** @type {Record<string, any>} */ cookie) {
+    formOwner++;
+    fieldError = null;
     previous = { domain: cookie.domain, path: cookie.path, name: cookie.name };
     url = `${cookie.secure ? "https" : "http"}://${cookie.domain}${cookie.path}`;
     raw = cookie.raw;
@@ -157,22 +190,24 @@
     }}
   >
     <FormPanel class="form-panel resource-form cookie-form">
-      <Field
-        >Cookie URL<Input
+      <Field label="Cookie URL" error={fieldError?.field === "url" ? fieldError.message : ""}
+        ><Input
           type="url"
           required
           placeholder="https://api.example.com/"
           bind:value={url}
+          oninput={correctUrl}
           disabled={busy}
         /></Field
       >
-      <Field
-        >Set-Cookie value<Textarea
+      <Field label="Set-Cookie value" error={fieldError?.field === "raw" ? fieldError.message : ""}
+        ><Textarea
           required
           spellcheck="false"
           class="code-editor small-editor"
           placeholder="session=value; Path=/; Secure; HttpOnly"
           bind:value={raw}
+          oninput={correctRaw}
           disabled={busy}
         ></Textarea></Field
       >
@@ -182,11 +217,7 @@
           variant="secondary"
           class="secondary-button"
           type="button"
-          onclick={() => {
-            previous = null;
-            raw = "";
-            url = "";
-          }}>New cookie</Button
+          onclick={resetFields}>New cookie</Button
         >{/if}
       <Button
         variant="primary"
