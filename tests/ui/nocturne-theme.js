@@ -4,6 +4,7 @@ import {
   stopLintTooltipDiagnostics,
 } from "./helpers/lint-tooltip-diagnostics.js";
 import { exerciseLintTooltipOwnership } from "./helpers/lint-tooltip-cases.js";
+import { exerciseSemanticInline } from "./helpers/semantic-inline.js";
 import { assertFilledForeground } from "./helpers/filled-foreground.js";
 import { assertGraphqlSegmented } from "./helpers/graphql-segmented.js";
 import { assertSelectGeometry } from "./helpers/select-geometry.js";
@@ -972,6 +973,7 @@ if (!process.env.INSOMNIUM_UI_THEME_DEV) {
   await withComponentFixture("lint-tooltip", async (page, output) => {
     await page.locator(".CodeMirror").first().waitFor();
     await exerciseLintTooltipOwnership(page, output, "bun-fixture");
+    await exerciseSemanticInline(page, output);
     await Bun.write(
       output + "/result.json",
       JSON.stringify({

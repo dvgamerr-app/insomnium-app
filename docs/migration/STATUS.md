@@ -1,3 +1,9 @@
+## Accepted semantic editor annotations — 2026-10-12
+
+- Guarded five-path integration preserves current Wheel/Runner/native factory/Vite/dependencies; independent complete agent hash audit and original saved theme-body equality pass. Optional accepted-source annotations retain complete numeric severities/code0/ranges, parser coexistence and immediate stale clearing; measured local info/hint glyphs use existing theme tokens.
+- Root compiler72605 0errors/0warnings/build96962 exit0; frozen suite49400 production theme+Bun fixture/workspace exit0, source/assets unchanged throughout. Proof artifacts/semantic-inline-root-proof/root-audit.json. Exact resources/history/localStorage restoration and original Runner/workspace oracles retained. No native or actual Spectral host rendering claim.
+- Allroot handles terminal. Native manager fixes remain agent-owned; parent source/workspace/job acceptance and native repository/ruleset generation token, packaging/native/platform/fullmigration/deferredUX gates remain OPEN. SDK investigation stopped after automatic review rejection for unspecified possible cybersecurity risk. Topic commit pending. /compact unavailable; explicit handoff before next feature.
+
 ## Bounded Spectral producer implemented and verified — 2026-10-12
 
 - New pinned tools/spectral-linter package and target-specific Bun build script produce93,486,080byte Windows executable6231e95d. Root frontend dependencies/CSP unchanged. Opaque sourceJson, bounded UTF8 oneNDJSON+EOF, sanitized errors, private Console, flushedone-shot exit, noimplicit packageinstall/specstaging, attached-first/memory/managedrepo/HTTP sources, OpenAPI3.2$self and complete raw diagnostics/sourcecatalog implemented. Native wiring remains separate.

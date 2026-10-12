@@ -12,7 +12,7 @@
     saveEditorState,
     takeEditorState,
   } from "../editor-state.js";
-  /** @type {{identity:string,value?:string,mode?:string,label?:string,placeholder?:string,readOnly?:boolean,lineDecorations?:{line:number,className:string,gutterText:string,gutterLabel:string}[],maxBytes?:number,onlimit?:()=>void,settings?:Record<string,any>,environment?:Record<string,any>,schema?:import('graphql').GraphQLSchema|null,variableToType?:Record<string,import('graphql').GraphQLInputType>,onnavigate?:(reference:any)=>void,templateEditor?:()=>ReturnType<typeof import('../template-editor-session.svelte.js').createTemplateEditorSession>,onchange?:(value:string)=>void}} */
+  /** @type {{identity:string,value?:string,mode?:string,label?:string,placeholder?:string,readOnly?:boolean,semanticAnnotations?:{identity:string,source:string,diagnostics:Record<string,any>[]},lineDecorations?:{line:number,className:string,gutterText:string,gutterLabel:string}[],maxBytes?:number,onlimit?:()=>void,settings?:Record<string,any>,environment?:Record<string,any>,schema?:import('graphql').GraphQLSchema|null,variableToType?:Record<string,import('graphql').GraphQLInputType>,onnavigate?:(reference:any)=>void,templateEditor?:()=>ReturnType<typeof import('../template-editor-session.svelte.js').createTemplateEditorSession>,onchange?:(value:string)=>void}} */
   let {
     identity,
     value = "",
@@ -21,6 +21,7 @@
     placeholder = "",
     readOnly = false,
     lineDecorations,
+    semanticAnnotations,
     maxBytes = 0,
     onlimit = () => {},
     settings = {},
@@ -65,7 +66,12 @@
       const end = cm
         ? cm.indexFromPos(cm.getCursor("to"))
         : (textarea?.selectionEnd ?? start);
-      const range = templateEditorRange(source, start, end, isJsonBodyMediaType(mode) || mode === "graphql-variables");
+      const range = templateEditorRange(
+        source,
+        start,
+        end,
+        isJsonBodyMediaType(mode) || mode === "graphql-variables",
+      );
       cm?.closeHint();
       editingTag = { session: templateEditor(), identity, source, ...range };
     } catch (error) {
@@ -84,7 +90,8 @@
   /** @param {string} replacement */
   function applyTemplateTag(replacement) {
     if (!editingTag || !tagEditorCurrent()) return;
-    if (editingTag.jsonString) replacement = JSON.stringify(replacement).slice(1,-1);
+    if (editingTag.jsonString)
+      replacement = JSON.stringify(replacement).slice(1, -1);
     const { start, end, source } = editingTag;
     const next = source.slice(0, start) + replacement + source.slice(end);
     if (maxBytes && new TextEncoder().encode(next).byteLength > maxBytes) {
@@ -171,7 +178,7 @@
   }
   // The upstream variables linter assumes an object AST and throws on a valid
   // JSON scalar/list. Keep diagnostics usable while the user repairs the body.
-  function lintText(
+  function parserLintText(
     /** @type {string} */ text,
     /** @type {any} */ options,
     /** @type {any} */ editor,
@@ -207,6 +214,98 @@
         },
       ];
     }
+  }
+  function parserLintEnabled() {
+    return (
+      editorMode(mode).startsWith("graphql") &&
+      !readOnly &&
+      value.length < 1000000 &&
+      !value.includes("{{") &&
+      !value.includes("{%")
+    );
+  }
+  function semanticReady() {
+    return (
+      semanticAnnotations?.identity === identity &&
+      semanticAnnotations?.source === value
+    );
+  }
+  function semanticLintText(
+    /** @type {string} */ text,
+    /** @type {any} */ editor,
+  ) {
+    if (!semanticReady() || text !== value.replace(/\r\n?|\n/g, "\n"))
+      return [];
+    const severityNames = ["error", "warning", "info", "hint"];
+    return (semanticAnnotations?.diagnostics || []).flatMap(
+      (/** @type {any} */ diagnostic) => {
+        const start = diagnostic?.range?.start,
+          end = diagnostic?.range?.end;
+        if (
+          !Number.isInteger(diagnostic?.severity) ||
+          diagnostic.severity < 0 ||
+          diagnostic.severity > 3 ||
+          typeof diagnostic.message !== "string" ||
+          !start ||
+          !end ||
+          ![start.line, start.character, end.line, end.character].every(
+            (n) => Number.isInteger(n) && n >= 0,
+          ) ||
+          start.line > end.line ||
+          (start.line === end.line && start.character > end.character)
+        )
+          return [];
+        const position = (
+          /** @type {{line:number,character:number}} */ point,
+        ) => {
+          const line = Math.min(point.line, editor.lineCount() - 1);
+          return {
+            line,
+            ch: Math.min(point.character, editor.getLine(line).length),
+          };
+        };
+        const from = position(start),
+          to = position(end);
+        if (from.line > to.line || (from.line === to.line && from.ch > to.ch))
+          return [];
+        const code =
+          typeof diagnostic.code === "string" ||
+          (typeof diagnostic.code === "number" &&
+            Number.isFinite(diagnostic.code))
+            ? diagnostic.code
+            : undefined;
+        return [
+          {
+            from,
+            to,
+            severity: severityNames[diagnostic.severity],
+            message: `${severityNames[diagnostic.severity]} · ${
+              code === undefined
+                ? diagnostic.message
+                : `${code} ${diagnostic.message}`
+            }`,
+            code,
+            source: diagnostic.source,
+            path: diagnostic.path,
+            origin: "semantic",
+          },
+        ];
+      },
+    );
+  }
+  function lintText(
+    /** @type {string} */ text,
+    /** @type {any} */ options,
+    /** @type {any} */ editor,
+  ) {
+    const parser = parserLintEnabled()
+      ? parserLintText(text, options, editor)
+      : [];
+    const merge = (/** @type {any[]} */ annotations) => [
+      ...annotations,
+      ...semanticLintText(editor.getValue(), editor),
+    ];
+    return parser?.then ? parser.then(merge) : merge(parser);
   }
   onMount(() => {
     let disposed = false;
@@ -279,6 +378,7 @@
         });
         editor.on("change", () => {
           if (!synchronizing) onchange(editor.getValue());
+          if (semanticAnnotations) editor.performLint();
         });
         editor.on("inputRead", () => {
           clearTimeout(hintTimer);
@@ -389,11 +489,7 @@
       }
       cm.setOption(
         "lint",
-        editorMode(mode).startsWith("graphql") &&
-          !readOnly &&
-          value.length < 1000000 &&
-          !value.includes("{{") &&
-          !value.includes("{%")
+        parserLintEnabled() || semanticReady()
           ? /** @type {any} */ ({
               schema,
               variableToType,
@@ -583,6 +679,33 @@
   .shared-code-editor :global(.CodeMirror-gutters) {
     background: var(--bg);
     border: 0;
+  }
+  .shared-code-editor
+    :global(
+      .CodeMirror-lint-marker-info:not(.CodeMirror-lint-marker-multiple)::before
+    ),
+  .shared-code-editor
+    :global(
+      .CodeMirror-lint-marker-hint:not(.CodeMirror-lint-marker-multiple)::before
+    ) {
+    position: absolute;
+    inset: 0;
+    text-align: center;
+    font: 600 var(--font-size-12)/16px var(--font-mono);
+  }
+  .shared-code-editor
+    :global(
+      .CodeMirror-lint-marker-info:not(.CodeMirror-lint-marker-multiple)::before
+    ) {
+    content: "i";
+    color: var(--accent, var(--text));
+  }
+  .shared-code-editor
+    :global(
+      .CodeMirror-lint-marker-hint:not(.CodeMirror-lint-marker-multiple)::before
+    ) {
+    content: "?";
+    color: var(--muted);
   }
   .shared-code-editor :global(.CodeMirror-linenumber) {
     color: var(--faint);
