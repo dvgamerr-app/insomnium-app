@@ -7,8 +7,20 @@ import {
 /** Same saved real producer/parent workflow, added after every retained oracle.
  * Native adapters cannot opt into this without their explicitly updated fixture.
  * @param {import('playwright-core').Page} page @param {string} output
- * @param {{configureCase:(mode:string)=>Promise<any>,snapshot:()=>Promise<any>,state:()=>Promise<any>,native:boolean}} adapters */
+ * @param {{configureCase:(mode:string)=>Promise<any>,snapshot:()=>Promise<any>,state:()=>Promise<any>,native:boolean,referenceOrigin?:string}} adapters */
 export async function exerciseStructuralSources(page, output, adapters) {
+  const referenceBase = adapters.referenceOrigin
+    ? new URL("/references/", adapters.referenceOrigin).href
+    : new URL("/references/", page.url()).href;
+  if (adapters.native) {
+    assert.ok(
+      adapters.referenceOrigin,
+      "Native requires explicit owned loopback reference origin",
+    );
+    const origin = new URL(adapters.referenceOrigin);
+    assert.equal(origin.protocol, "http:");
+    assert.equal(origin.hostname, "127.0.0.1");
+  }
   const api = page.getByRole("region", { name: "API Design", exact: true }),
     rows = [];
   const validate = async () => {
@@ -191,9 +203,7 @@ export async function exerciseStructuralSources(page, output, adapters) {
         assert.equal(stale.selected, "");
         assert.equal(
           stale.text,
-          structuralSource(
-            remote ? new URL("/references/", page.url()).href : "../",
-          )
+          structuralSource(remote ? referenceBase : "../")
             .split(/\r\n?|\n/)
             .join("\n"),
         );
@@ -228,6 +238,28 @@ export async function exerciseStructuralSources(page, output, adapters) {
   assert.equal(await unknown.count(), 1);
   assert.equal(await unknown.isDisabled(), true);
   assert.ok((await unknown.innerText()).includes("Source unavailable"));
+  if (adapters.native) {
+    await Bun.write(
+      output + "/structural-source-acceptance.json",
+      JSON.stringify(
+        {
+          passed: true,
+          native: true,
+          rows,
+          actualProducer: true,
+          trustedEnterNavigation: true,
+          unknownDisabled: true,
+          browserFallback: false,
+          parserActualRange: false,
+          staleControl:
+            "Explicit same-task synthetic click/workspace-replacement wiring; not trusted native admission",
+        },
+        null,
+        2,
+      ),
+    );
+    return rows;
+  }
   // Real browser fallback has no native IPC or semantic catalog. Restore the
   // original fixture-only IPC object before caller cleanup, never mutate native.
   await page
