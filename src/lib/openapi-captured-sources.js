@@ -4,7 +4,7 @@ import { apiDocumentBaseUri, parseSpec } from "./openapi-document.js";
 /** Validate an ephemeral accepted catalog against the original raw saved input.
  * No resolver, fetch or workspace mutation belongs in structural analysis.
  * @param {Record<string,any>} spec @param {Record<string,any>[]} sources */
-export function capturedApiDocuments(spec, sources) {
+export function capturedApiSources(spec, sources) {
   if (!Array.isArray(sources))
     throw new Error("Invalid captured specification sources.");
   const captured = {
@@ -42,7 +42,12 @@ export function capturedApiDocuments(spec, sources) {
   return [
     main,
     ...catalog.sources.filter((source) => source.uri !== catalog.mainUri),
-  ].map((source) => {
+  ];
+}
+
+/** @param {Record<string,any>} spec @param {Record<string,any>[]} sources */
+export function capturedApiDocuments(spec, sources) {
+  return capturedApiSources(spec, sources).map((source) => {
     const value = parseSpec(source.contents, {
       allowBoolean: source.origin !== "main",
     }).value;

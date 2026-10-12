@@ -195,6 +195,25 @@ export function prepareApiReferences(files) {
   const references =
     /** @type {{node:Record<string,any>,base:string,kind:string,keyword:string,followed:boolean}[]} */ ([]);
   const errors = /** @type {string[]} */ ([]);
+  /** @type {{message:string,source?:string,path?:string[]}[]} */
+  const errorDetails = [];
+  /** Keep existing error strings; locations come only from indexed lexical
+   * nodes, never error-message interpretation.
+   * @param {string} message @param {Record<string,any>|undefined} [node]
+   * @param {string|undefined} [key] */
+  const report = (message, node, key) => {
+    errors.push(message);
+    const location = node ? locations.get(node) : null;
+    errorDetails.push({
+      message,
+      ...(location
+        ? {
+            source: location.file,
+            path: key ? [...location.path, key] : location.path,
+          }
+        : {}),
+    });
+  };
   const resources = new Map(documents);
   const anchors = /** @type {Map<string,Record<string,any>>} */ (new Map());
   const dynamicAnchors = /** @type {Map<string,Record<string,any>>} */ (
@@ -233,7 +252,7 @@ export function prepareApiReferences(files) {
     /** @type {Record<string,any>} */ node,
   ) => {
     if (index.has(uri) && index.get(uri) !== node)
-      errors.push("Ambiguous schema resource identity: " + uri);
+      report("Ambiguous schema resource identity: " + uri);
     else index.set(uri, node);
   };
   const lookup = (
@@ -314,7 +333,11 @@ export function prepareApiReferences(files) {
             path: [...location.path, current.key],
           });
         else if (dialect !== "legacy")
-          errors.push("Schema resource dialect is not supported: " + dialect);
+          report(
+            "Schema resource dialect is not supported: " + dialect,
+            current.parent,
+            current.key,
+          );
       }
       if (!node || typeof node !== "object") continue;
       const roles = seen.get(node) || new Set();
@@ -368,17 +391,27 @@ export function prepareApiReferences(files) {
           Object.hasOwn(node, "$dynamicRef")
         ) {
           if (!supportedDialect(dialect))
-            errors.push("Schema resource dialect is not supported: " + dialect);
+            report(
+              "Schema resource dialect is not supported: " + dialect,
+              node,
+              Object.hasOwn(node, "$schema") ? "$schema" : undefined,
+            );
           else {
             if (Object.hasOwn(node, "$id")) {
               if (typeof node.$id !== "string")
-                errors.push("Schema $id must be a URI-reference string.");
+                report(
+                  "Schema $id must be a URI-reference string.",
+                  node,
+                  "$id",
+                );
               else {
                 const uri = new URL(node.$id, base);
                 if (uri.hash)
-                  errors.push(
+                  report(
                     "Schema $id must not contain a non-empty fragment: " +
                       node.$id,
+                    node,
+                    "$id",
                   );
                 else {
                   uri.hash = "";
@@ -393,10 +426,12 @@ export function prepareApiReferences(files) {
                   typeof node[keyword] !== "string" ||
                   !/^[A-Za-z_][-A-Za-z0-9._]*$/.test(node[keyword])
                 )
-                  errors.push(
+                  report(
                     "Schema " +
                       keyword +
                       " must be a valid plain-name identifier.",
+                    node,
+                    keyword,
                   );
                 else {
                   register(anchors, base + "#" + node[keyword], node);
@@ -410,7 +445,11 @@ export function prepareApiReferences(files) {
         dialects.set(node, dialect);
         if (Object.hasOwn(node, "$dynamicRef")) {
           if (typeof node.$dynamicRef !== "string")
-            errors.push("Schema $dynamicRef must be a URI-reference string.");
+            report(
+              "Schema $dynamicRef must be a URI-reference string.",
+              node,
+              "$dynamicRef",
+            );
           else
             references.push({
               node,
@@ -535,9 +574,11 @@ export function prepareApiReferences(files) {
     const original = uri.href;
     const resolved = targets.get(reference);
     if (!resolved || typeof resolved !== "object" || Array.isArray(resolved)) {
-      errors.push(
+      report(
         "Reference target is missing or is not an object schema/resource: " +
           original,
+        node,
+        reference.keyword,
       );
       if (reference.keyword === "$ref") rename(node, "$ref", marker);
       continue;
@@ -572,6 +613,7 @@ export function prepareApiReferences(files) {
     booleanMarker,
     evaluation,
     errors: [...new Set(errors)],
+    errorDetails,
   };
 }
 

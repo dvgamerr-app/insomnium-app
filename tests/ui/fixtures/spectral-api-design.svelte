@@ -3,6 +3,10 @@
   import Button from "../../../src/lib/components/ui/Button.svelte";
   import { workspace } from "../../../src/lib/workspace.svelte.js";
   import { initialData } from "../../../src/lib/model.js";
+  import {
+    structuralFiles,
+    structuralSource,
+  } from "../helpers/structural-source-fixture.js";
   const initial = initialData();
   let workspaceId = $state(initial.activeWorkspaceId),
     shown = $state(true);
@@ -16,6 +20,15 @@
       ...structuredClone(initial),
       resources: [
         ...structuredClone(initial.resources),
+        {
+          _id: "req_spectral_foreign",
+          _type: "request",
+          parentId: initial.activeWorkspaceId,
+          name: "Existing foreign POST",
+          method: "POST",
+          body: { mimeType: "text/plain", text: "literal foreign request" },
+          sourceSpecId: "spc_spectral_foreign",
+        },
         {
           _id: otherWorkspace,
           _type: "workspace",
@@ -73,6 +86,41 @@
       base +
       "b/shared.yaml'\r\n";
   }
+  function structural(remote = false) {
+    seed(true);
+    const spec = current();
+    if (!spec) return;
+    spec.contents = structuralSource(
+      remote ? window.location.origin + "/references/" : "../",
+    );
+    spec.files = remote
+      ? []
+      : Object.entries(structuralFiles).map(([name, contents]) => ({
+          name: "../" + name,
+          contents,
+        }));
+  }
+  function ambiguous() {
+    seed(true);
+    const spec = current();
+    if (!spec) return;
+    spec.files = [];
+    spec.contents = JSON.stringify(
+      {
+        openapi: "3.1.0",
+        info: { title: "Unknown origin", version: "1" },
+        paths: {},
+        components: {
+          schemas: {
+            A: { $id: "memory:///collision", type: "string" },
+            B: { $id: "memory:///collision", type: "string" },
+          },
+        },
+      },
+      null,
+      2,
+    );
+  }
   function current() {
     return workspace.data.resources.find((r) => r._id === specId);
   }
@@ -127,6 +175,9 @@
 </script>
 
 <div class="fixture-controls">
+  <Button onclick={() => structural(false)}>Structural attached fixture</Button>
+  <Button onclick={() => structural(true)}>Structural HTTP fixture</Button>
+  <Button onclick={ambiguous}>Structural ambiguous fixture</Button>
   <Button onclick={attachedPrecedence}>Attached precedence fixture</Button>
   <Button onclick={manyExternal}>External capacity fixture</Button>
   <Button onclick={() => external(false)}>External repository fixture</Button>

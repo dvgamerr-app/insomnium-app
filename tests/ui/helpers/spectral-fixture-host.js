@@ -3,6 +3,7 @@ import { mkdir, readFile } from "node:fs/promises";
 import { resolve, sep } from "node:path";
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
+import { structuralFiles } from "./structural-source-fixture.js";
 
 export const spectralFixtureExeSHA =
   "f5690ce1dc4136c9604964cdf2b2e490442581437db453b14c1f340c2a8d962a";
@@ -14,6 +15,7 @@ const modes = new Set([
   "held",
   "external-repo",
   "external-http",
+  "structural-http",
 ]);
 const hash = (/** @type {Uint8Array} */ bytes) =>
   createHash("sha256").update(bytes).digest("hex");
@@ -55,6 +57,7 @@ export async function createSpectralFixtureHost(output, bundleRoot) {
     rules.warnings +
     "  attached-warning:\n    severity: warn\n    given: '$.components.schemas.*'\n    then:\n      field: description\n      function: truthy\n  nested-warning:\n    severity: warn\n    given: '$.paths.*.*.requestBody.content.*.schema.properties.*'\n    then:\n      field: description\n      function: truthy\n";
   rules["external-http"] = rules["external-repo"];
+  rules["structural-http"] = rules.warnings;
   for (const [name, body] of Object.entries(rules)) {
     const repository = resolve(proof, name);
     await mkdir(resolve(repository, "other/functions"), { recursive: true });
@@ -267,7 +270,12 @@ export async function createSpectralFixtureHost(output, bundleRoot) {
       }
       if (url.pathname.startsWith("/references/")) {
         const name = url.pathname.slice("/references/".length);
-        const contents = externalFiles()[name];
+        const contents =
+          mode === "structural-http"
+            ? structuralFiles[
+                /** @type {keyof typeof structuralFiles} */ (name)
+              ]
+            : externalFiles()[name];
         if (contents === undefined)
           return new Response("Unknown owned reference", { status: 404 });
         events.push({

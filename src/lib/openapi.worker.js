@@ -13,6 +13,10 @@ self.onmessage = (event) => {
       : null;
     self.postMessage({ analysis, resources });
   } catch (error) {
-    self.postMessage({ error: String(error) });
+    const failure = /** @type {any} */ (error);
+    self.postMessage({
+      error: String(error),
+      ...(failure.analysis ? { analysis: failure.analysis } : {}),
+    });
   }
 };

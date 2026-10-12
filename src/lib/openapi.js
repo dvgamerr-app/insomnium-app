@@ -4,7 +4,9 @@ import {
   serializeOpenApiSerialized,
 } from "./openapi-serialized-example.js";
 import { dereference } from "@scalar/openapi-parser";
-import { capturedApiDocuments } from "./openapi-captured-sources.js";
+import { capturedApiSources } from "./openapi-captured-sources.js";
+import { prepareApiOrigins } from "./openapi-origins.js";
+import { canonicalSpectralUri } from "./spectral-sources.js";
 import { validatePathParameters } from "@scalar/openapi-validator";
 import { validateApiDocument } from "./openapi-validation.js";
 import { describeOpenApiValue } from "./openapi-value.js";
@@ -24,7 +26,12 @@ import {
   serializeOpenApiForm,
 } from "./openapi-form.js";
 
-import { parseSpec, methods, apiDocumentBaseUri } from "./openapi-document.js";
+import {
+  parseSpec,
+  methods,
+  apiDocumentBaseUri,
+  apiSourceLocation,
+} from "./openapi-document.js";
 import {
   prepareApiReferences,
   restoreApiReferences,
@@ -46,28 +53,117 @@ import {
 
 /** @param {Record<string, any>} spec @param {Record<string,any>[]} [capturedSources] */
 export function analyzeSpec(spec, capturedSources) {
-  const parsed = parseSpec(spec.contents || "");
-  /** @type {{ severity: string, message: string, path: string, line: number, column: number }[]} */
+  const retrievalUri = new URL(spec.fileName || "openapi.yaml", "memory:///")
+    .href;
+  /** @param {{uri:string,name:string,contents:string,origin:string}} source */
+  const parseSource = (source) => {
+    try {
+      return parseSpec(source.contents, {
+        allowBoolean: source.origin !== "main",
+      });
+    } catch (error) {
+      const details = /** @type {any} */ (error);
+      if (Array.isArray(details.parseDiagnostics)) {
+        let uri = /** @type {string|undefined} */ (undefined);
+        try {
+          if (details.parseIdentityUnavailable)
+            throw Error("Ambiguous document identity");
+          uri = canonicalSpectralUri(
+            apiDocumentBaseUri(details.parseIdentity || {}, source.uri),
+          );
+        } catch {
+          /* Ambiguous/unsupported identity has no navigation authority. */
+        }
+        details.analysis = {
+          schema: {},
+          original: {},
+          diagnostics: details.parseDiagnostics.map(
+            (/** @type {any} */ diagnostic) => ({
+              ...diagnostic,
+              ...(uri
+                ? { source: uri }
+                : { range: undefined, sourceUnavailable: true }),
+            }),
+          ),
+          sources: uri ? [{ ...source, uri }] : [],
+          diagnosticCount:
+            details.parseDiagnosticCount ?? details.parseDiagnostics.length,
+          operations: [],
+          valid: false,
+        };
+      }
+      throw error;
+    }
+  };
+  const parsed = parseSource({
+    uri: retrievalUri,
+    name: spec.fileName || "openapi.yaml",
+    contents: spec.contents || "",
+    origin: "main",
+  });
+  const rootName = apiDocumentBaseUri(parsed.value, retrievalUri);
+  /** @type {Map<string,{source:any,parsed:ReturnType<typeof parseSpec>}>} */
+  const sourceIndex = new Map([
+    [
+      rootName,
+      {
+        source: {
+          uri: rootName,
+          name: spec.fileName || "openapi.yaml",
+          contents: spec.contents || "",
+          origin: "main",
+        },
+        parsed,
+      },
+    ],
+  ]);
+  /** @type {ReturnType<typeof prepareApiOrigins>|null} */ let origins = null;
+  /** @type {any} */ let resolvedRoot = null;
+  /** @type {Record<string,any>[]} */
   const diagnostics = [];
   const add = (
     /** @type {string} */ severity,
     /** @type {string} */ message,
     /** @type {(string | number)[]} */ path = [],
+    /** @type {{source:string,path:(string|number)[]}|null|undefined} */ explicit = undefined,
   ) => {
-    const node = parsed.document.getIn(path, true);
-    const offset =
-      node && typeof node === "object" && "range" in node
-        ? Array.isArray(node.range)
-          ? node.range[0]
-          : 0
-        : 0;
-    const position = parsed.lines.linePos(offset);
+    const location =
+      explicit === undefined
+        ? origins
+          ? origins.locate(resolvedRoot, path)
+          : { source: rootName, path }
+        : explicit;
+    const entry = location ? sourceIndex.get(location.source) : null;
+    const lexical =
+      entry && location
+        ? apiSourceLocation(entry.parsed.document, location.path)
+        : null;
+    const node = lexical?.node;
+    const rawRange =
+      node &&
+      typeof node === "object" &&
+      "range" in node &&
+      Array.isArray(node.range)
+        ? node.range
+        : null;
+    const start = rawRange ? entry?.parsed.lines.linePos(rawRange[0]) : null;
+    const end = rawRange ? entry?.parsed.lines.linePos(rawRange[1]) : null;
     diagnostics.push({
       severity,
       message,
       path: path.join("/"),
-      line: position.line,
-      column: position.col,
+      line: start?.line ?? 1,
+      column: start?.col ?? 1,
+      ...(entry && start && end
+        ? {
+            source: entry.source.uri,
+            sourcePath: lexical?.path,
+            range: {
+              start: { line: start.line - 1, character: start.col - 1 },
+              end: { line: end.line - 1, character: end.col - 1 },
+            },
+          }
+        : { sourceUnavailable: true }),
     });
   };
   const strict = validateApiDocument(structuredClone(parsed.value));
@@ -80,27 +176,32 @@ export function analyzeSpec(spec, capturedSources) {
         .slice(1)
         .map((part) => part.replaceAll("~1", "/").replaceAll("~0", "~")),
     );
-  const retrievalUri = new URL(spec.fileName || "openapi.yaml", "memory:///")
-    .href;
-  const rootName = apiDocumentBaseUri(parsed.value, retrievalUri);
-  const files =
+  const rawSources =
     capturedSources === undefined
       ? [
-          { name: rootName, value: parsed.value },
+          sourceIndex.get(rootName)?.source,
           ...(spec.files || []).map((/** @type {any} */ file) => {
-            const value = parseSpec(file.contents, {
-              allowBoolean: true,
-            }).value;
+            const source = {
+                uri: new URL(file.name, rootName).href,
+                name: file.name,
+                contents: file.contents,
+                origin: "attached",
+              },
+              attached = parseSource(source);
             return {
-              name: apiDocumentBaseUri(
-                value,
-                new URL(file.name, rootName).href,
-              ),
-              value,
+              ...source,
+              uri: apiDocumentBaseUri(attached.value, source.uri),
             };
           }),
         ]
-      : capturedApiDocuments(spec, capturedSources);
+      : capturedApiSources(spec, capturedSources);
+  for (const source of rawSources)
+    if (source && !sourceIndex.has(source.uri))
+      sourceIndex.set(source.uri, { source, parsed: parseSource(source) });
+  const files = rawSources.map((source) => ({
+    name: source.uri,
+    value: sourceIndex.get(source.uri)?.parsed.value,
+  }));
   if ((spec.files || []).length > 32)
     throw new Error("Attach at most 32 reference files.");
   if (new Set(files.map((file) => file.name)).size !== files.length)
@@ -125,7 +226,13 @@ export function analyzeSpec(spec, capturedSources) {
     };
   });
   const referenceProtection = prepareApiReferences(filesystem);
-  for (const error of referenceProtection.errors) add("error", error);
+  for (const detail of referenceProtection.errorDetails)
+    add(
+      "error",
+      detail.message,
+      detail.path || [],
+      detail.source ? { source: detail.source, path: detail.path || [] } : null,
+    );
   const documents = new Map(
     filesystem.map((file) => [file.filename, file.specification]),
   );
@@ -135,7 +242,18 @@ export function analyzeSpec(spec, capturedSources) {
     assets,
     documents,
   );
-  const resolved = dereference(filesystem);
+  origins = prepareApiOrigins(filesystem, [
+    referenceProtection.marker,
+    referenceProtection.origin,
+    referenceProtection.binding,
+    referenceProtection.booleanMarker,
+  ]);
+  const resolved = dereference(filesystem, {
+    onDereference: origins.onDereference,
+  });
+  origins.strip(resolved.schema);
+  for (const file of filesystem) origins.strip(file.specification);
+  resolvedRoot = resolved.schema;
   const bindings = resolved.schema
     ? restoreApiReferences(resolved.schema, referenceProtection)
     : new Map();
@@ -146,11 +264,17 @@ export function analyzeSpec(spec, capturedSources) {
         referenceProtection.marker,
         "$ref",
       ),
+      [],
+      null,
     );
   const schema = /** @type {Record<string, any>} */ (resolved.schema);
   if (strict.valid && !(resolved.errors || []).length)
     for (const error of validatePathParameters(schema))
-      add("error", error.message || "Invalid path parameter");
+      add(
+        "error",
+        error.message || "Invalid path parameter",
+        Array.isArray(error.path) ? error.path : [],
+      );
   const operations = [];
   const identifiers = new Set();
   for (const [path, item] of Object.entries(schema?.paths || {})) {
@@ -267,6 +391,7 @@ export function analyzeSpec(spec, capturedSources) {
       ? { ...referenceProtection.evaluation, bindings }
       : undefined,
     diagnostics: diagnostics.slice(0, 500),
+    sources: rawSources,
     diagnosticCount: diagnostics.length,
     operations,
     valid: !diagnostics.some((item) => item.severity === "error"),
