@@ -10,6 +10,9 @@ use std::{
     time::Instant,
 };
 use tauri::Manager;
+#[path = "spectral_receipts.rs"]
+mod receipts;
+use receipts::ReadSet;
 
 pub(crate) const INPUT_LIMIT: usize = 24 * 1024 * 1024;
 pub(crate) const WIRE_LIMIT: usize = 48 * 1024 * 1024;
@@ -75,6 +78,21 @@ fn binding(
     input: &Identity,
     token: &Token,
 ) -> Result<Option<PathBuf>, String> {
+    if input.repository_id.is_none() {
+        return binding_locked(Path::new(""), input, token);
+    }
+    let directory = app.path().app_data_dir().map_err(|_| "binding")?;
+    let git = app.state::<crate::git::GitState>();
+    let storage = app.state::<crate::storage::StorageState>();
+    let _git = bounded_lock(&git.0, token)?;
+    let _storage = bounded_lock(&storage.0, token)?;
+    binding_locked(&directory, input, token)
+}
+fn binding_locked(
+    directory: &Path,
+    input: &Identity,
+    token: &Token,
+) -> Result<Option<PathBuf>, String> {
     token.check()?;
     let Some(id) = &input.repository_id else {
         return if input.expected_binding.is_none() {
@@ -87,11 +105,6 @@ fn binding(
     if serde_json::to_vec(expected).map_err(|_| "binding")?.len() > 65536 {
         return Err("input_limit".into());
     }
-    let directory = app.path().app_data_dir().map_err(|_| "binding")?;
-    let git = app.state::<crate::git::GitState>();
-    let storage = app.state::<crate::storage::StorageState>();
-    let _git = bounded_lock(&git.0, token)?;
-    let _storage = bounded_lock(&storage.0, token)?;
     crate::storage::ensure_no_pending_transition(&directory).map_err(|_| "binding")?;
     let data = crate::storage::read_workspace_file(&directory)
         .map_err(|_| "binding")?
@@ -204,6 +217,7 @@ struct Reply {
     job_id: String,
     result_json: Option<String>,
     error: Option<ErrorFrame>,
+    read_set: Option<ReadSet>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -225,20 +239,45 @@ fn allowed_error(code: &str) -> bool {
             | "owner"
     )
 }
-fn parse_reply(bytes: &[u8], id: &str) -> Result<String, String> {
+fn parse_reply(bytes: &[u8], id: &str) -> Result<(String, ReadSet), String> {
+    if bytes.len() > OUTPUT_LIMIT {
+        return Err("output_limit".into());
+    }
     let body = bytes.strip_suffix(b"\n").ok_or("protocol")?;
     if body.contains(&b'\n') {
         return Err("protocol".into());
     }
     let reply: Reply = serde_json::from_slice(body).map_err(|_| "protocol")?;
-    if reply.protocol != 1 || reply.job_id != id {
+    if reply.protocol != 2 || reply.job_id != id {
         return Err("protocol".into());
     }
-    match (reply.result_json, reply.error) {
-        (Some(result), None) if result.len() <= RESULT_LIMIT => Ok(result),
-        (Some(_), None) => Err("output_limit".into()),
-        (None, Some(error)) if allowed_error(&error.code) => Err(error.code),
+    match (reply.result_json, reply.error, reply.read_set) {
+        (Some(result), None, Some(reads)) if result.len() <= RESULT_LIMIT => Ok((result, reads)),
+        (Some(_), None, Some(_)) => Err("output_limit".into()),
+        (None, Some(error), None) if allowed_error(&error.code) => Err(error.code),
         _ => Err("protocol".into()),
+    }
+}
+
+#[cfg(test)]
+mod receipt_protocol_tests {
+    use super::*;
+    #[test]
+    fn opaque_surrogate_escape_and_required_receipts() {
+        let result = r#"{"diagnostics":[{"message":"\ud800"}]}"#;
+        let mut frame = serde_json::to_vec(&serde_json::json!({"protocol":2,"jobId":"owned","resultJson":result,"readSet":{"version":1,"entries":[],"coverage":{"external":false,"remote":false,"ambient":false,"resolution":false}}})).unwrap();
+        frame.push(b'\n');
+        let parsed = parse_reply(&frame, "owned").unwrap();
+        assert_eq!(parsed.0, result);
+        assert!(parsed.1.verify(None, || Ok(())).is_ok());
+        for protocol in [1, 2] {
+            let mut frame = serde_json::to_vec(
+                &serde_json::json!({"protocol":protocol,"jobId":"owned","resultJson":result}),
+            )
+            .unwrap();
+            frame.push(b'\n');
+            assert_eq!(parse_reply(&frame, "owned").err().unwrap(), "protocol");
+        }
     }
 }
 fn executable() -> Result<PathBuf, String> {
@@ -280,7 +319,7 @@ pub async fn run_spectral_lint(
             worker_token.check()?;
             let input = worker_access.take(&worker_token)?;
             let mut wire = serde_json::to_vec(&Envelope {
-                protocol: 1,
+                protocol: 2,
                 job_id: &worker_token.id,
                 source_json: &input.source_json,
                 repository_root: root.as_deref(),
@@ -294,14 +333,32 @@ pub async fn run_spectral_lint(
             }
             wire.push(b'\n');
             let output = crate::spectral_process::execute(&executable, wire, &worker_token)?;
-            let result_json = parse_reply(&output, &worker_token.id)?;
-            Ok(LintResult {
+            let (result_json, reads) = parse_reply(&output, &worker_token.id)?;
+            let result = LintResult {
                 job_id: worker_token.id.clone(),
                 result_json,
-            })
+            };
+            if identity.repository_id.is_some() {
+                let directory = app.path().app_data_dir().map_err(|_| "binding")?;
+                let git = app.state::<crate::git::GitState>();
+                let storage = app.state::<crate::storage::StorageState>();
+                let _git = bounded_lock(&git.0, &worker_token)?;
+                let _storage = bounded_lock(&storage.0, &worker_token)?;
+                let current = binding_locked(&directory, &identity, &worker_token)?;
+                if current != root {
+                    return Err("binding".into());
+                }
+                reads.verify(current.as_deref(), || worker_token.check())?;
+                return Ok(worker_access.settle(&worker_token, Ok(result)));
+            }
+            reads.verify(None, || worker_token.check())?;
+            Ok(worker_access.settle(&worker_token, Ok(result)))
         }))
         .unwrap_or_else(|_| Err("process".into()));
-        let result = worker_access.settle(&worker_token, result);
+        let result = match result {
+            Ok(settled) => settled,
+            Err(code) => worker_access.settle(&worker_token, Err(code)),
+        };
         let _ = send.send(result);
     });
     if let Err(code) = spawned {

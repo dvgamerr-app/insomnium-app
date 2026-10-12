@@ -1,3 +1,9 @@
+## Root managed-read implementation checkpoint — 2026-10-13
+
+Eightguarded managed-read source/test deltas now pass rootcompiler0/0/actualproducercontract/Cargo17/retainedheadless61/native47/Spectral185/sixpackaginggroups with1002frozen phaseinputs. Root exactproducer a5ec393d48c9 is separate fromf50/f569. Savedpackaging fixture explicitlyincludesread-receipts input. Commit implementationtopic with actualnative62 gateOPEN, then create NEW guardedcandidate/build wrappers, full emittedSpectral+native/privateadmission/currentfixture-worker closure and exclusive native-hidden original61+62refusal/UI0/allphysical/fullprofile+3current2legacylayout restoration. Do not reuseoldbf5e/oldreceipts or replace collector.
+
+UI CookieManager-only824file candidate awaits independent guards/savedscenario/currentrootgeometry before separate integration. Noticeagent recovered3 admissionproposal remainsread-only untilreview, no availabilitypromotion duringfreeze. Full originalmigration/UX/SDK/Event/FIFO/private/platform/distribution/targetlinkage scopes stayopen; topiccommits and explicitcompact-unavailable handoffs remain required.
+
 ## Updated three-agent execution and serial acceptance — 2026-10-13
 
 | Owner | Concrete assignment | Acceptance |

@@ -9,25 +9,39 @@ import { Console } from "node:console";
 import { resolve, relative, isAbsolute, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { limits, fail, readRequest, readSource, response } from "./protocol.js";
+import { createReadReceipts } from "./read-receipts.js";
 
 /** The only stdout write retained before any custom module is evaluated. */
 const writeFrame = process.stdout.write.bind(process.stdout);
 // Ordinary custom-function console output is drained privately by the backend.
-globalThis.console = new Console({ stdout: process.stderr, stderr: process.stderr });
+globalThis.console = new Console({
+  stdout: process.stderr,
+  stderr: process.stderr,
+});
 
 async function emit(line) {
-  await new Promise((resolve, reject) => writeFrame(line, (error) => error ? reject(error) : resolve()));
+  await new Promise((resolve, reject) =>
+    writeFrame(line, (error) => (error ? reject(error) : resolve())),
+  );
 }
 
 function inside(root, file) {
   const child = relative(root, file);
-  return child === "" || (!isAbsolute(child) && child !== ".." && !child.startsWith(".." + sep));
+  return (
+    child === "" ||
+    (!isAbsolute(child) && child !== ".." && !child.startsWith(".." + sep))
+  );
 }
 
 function identity(name, base = "memory:///") {
   let url;
-  try { url = new URL(name, base); } catch { fail("protocol"); }
-  if (!["memory:", "http:", "https:", "file:"].includes(url.protocol)) fail("protocol");
+  try {
+    url = new URL(name, base);
+  } catch {
+    fail("protocol");
+  }
+  if (!["memory:", "http:", "https:", "file:"].includes(url.protocol))
+    fail("protocol");
   url.hash = "";
   return url.href;
 }
@@ -36,25 +50,37 @@ function sourceDocument(contents, name, base) {
   const retrieval = identity(name, base);
   const document = new Document(contents, Parsers.Yaml, retrieval);
   // Match the structural worker's OpenAPI 3.2 declared document identity.
-  const declared = String(document.data?.openapi || "").startsWith("3.2.") &&
-    typeof document.data?.$self === "string" ? identity(document.data.$self, retrieval) : retrieval;
-  return declared === retrieval ? document : new Document(contents, Parsers.Yaml, declared);
+  const declared =
+    String(document.data?.openapi || "").startsWith("3.2.") &&
+    typeof document.data?.$self === "string"
+      ? identity(document.data.$self, retrieval)
+      : retrieval;
+  return declared === retrieval
+    ? document
+    : new Document(contents, Parsers.Yaml, declared);
 }
 
-async function textOf(stream) {
+async function textOf(stream, consumed) {
   let bytes = 0;
   const chunks = [];
   for await (const chunk of stream) {
     bytes += chunk.byteLength;
-    if (bytes > limits.source) fail("input_limit", "Referenced specification exceeds 2 MiB.");
+    if (bytes > limits.source)
+      fail("input_limit", "Referenced specification exceeds 2 MiB.");
     chunks.push(chunk);
   }
-  return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(Buffer.concat(chunks, bytes));
+  const raw = Buffer.concat(chunks, bytes);
+  if (consumed) await consumed(raw);
+  return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(raw);
 }
 
 async function run(frame) {
   const source = readSource(frame.sourceJson);
-  const document = sourceDocument(source.contents, source.fileName, "memory:///");
+  const document = sourceDocument(
+    source.contents,
+    source.fileName,
+    "memory:///",
+  );
   const rootUri = identity(document.source);
   const known = new Map();
   const add = (uri, name, contents, origin) => {
@@ -68,9 +94,16 @@ async function run(frame) {
   }
   let repositoryRoot = null;
   if (frame.repositoryRoot !== null) {
-    if (!isAbsolute(frame.repositoryRoot) || frame.rulesetPath !== resolve(frame.repositoryRoot, "other", ".spectral.yaml")) fail("binding");
+    if (
+      !isAbsolute(frame.repositoryRoot) ||
+      frame.rulesetPath !==
+        resolve(frame.repositoryRoot, "other", ".spectral.yaml")
+    )
+      fail("binding");
     repositoryRoot = await fs.promises.realpath(frame.repositoryRoot);
   }
+  const reads =
+    frame.protocol === 2 ? createReadReceipts(repositoryRoot) : null;
   const retrieve = async (ref) => {
     const uri = new URL(ref.href());
     uri.hash = "";
@@ -78,20 +111,34 @@ async function run(frame) {
     if (existing) return existing.contents;
     let contents, origin;
     if (uri.protocol === "http:" || uri.protocol === "https:") {
-      const reply = await fetch(uri);
-      if (!reply.ok || !reply.body) throw new Error("Reference could not be loaded");
+      const reply = await (reads ? reads.fetch(uri) : fetch(uri));
+      if (!reply.ok || !reply.body)
+        throw new Error("Reference could not be loaded");
       contents = await textOf(reply.body);
       origin = "remote";
     } else {
       if (!repositoryRoot) throw new Error("Reference is not attached");
       let path;
-      if (uri.protocol === "memory:") path = resolve(repositoryRoot, "." + decodeURIComponent(uri.pathname));
+      if (uri.protocol === "memory:")
+        path = resolve(repositoryRoot, "." + decodeURIComponent(uri.pathname));
       else if (uri.protocol === "file:") path = fileURLToPath(uri);
       else throw new Error("Unsupported reference source");
-      if (!inside(repositoryRoot, path)) throw new Error("Reference is outside its repository");
-      const real = await fs.promises.realpath(path);
-      if (!inside(repositoryRoot, real)) throw new Error("Reference is outside its repository");
-      contents = await textOf(Bun.file(real).stream());
+      if (!inside(repositoryRoot, path))
+        throw new Error("Reference is outside its repository");
+      let real;
+      try {
+        real = await fs.promises.realpath(path);
+      } catch (error) {
+        if (reads && error?.code === "ENOENT")
+          await reads.missing(path, "reference");
+        throw error;
+      }
+      if (!inside(repositoryRoot, real))
+        throw new Error("Reference is outside its repository");
+      contents = await textOf(
+        Bun.file(real).stream(),
+        reads ? (raw) => reads.reference(path, raw, real) : null,
+      );
       origin = "repository";
     }
     known.set(uri.href, { uri: uri.href, name: uri.href, contents, origin });
@@ -102,21 +149,37 @@ async function run(frame) {
     // Its public hook preserves our in-memory document identity at each level.
     transformRef({ ref, uri }) {
       if (!ref || ref.toString().startsWith("#")) return ref;
-      return ref.clone().href(new URL(ref.toString(), uri.toString() || rootUri).href);
+      return ref
+        .clone()
+        .href(new URL(ref.toString(), uri.toString() || rootUri).href);
     },
     resolvers: Object.fromEntries(
-      ["memory", "file", "http", "https"].map((scheme) => [scheme, { resolve: retrieve }]),
+      ["memory", "file", "http", "https"].map((scheme) => [
+        scheme,
+        { resolve: retrieve },
+      ]),
     ),
   });
   const spectral = new Spectral({ resolver });
-  let selectedRuleset = "default", fallback = false;
+  let selectedRuleset = "default",
+    fallback = false;
   if (frame.rulesetPath !== null) {
     try {
       // Rust canonical paths use Windows device syntax. Load from the already
       // realpath-validated root so the bundler resolves local function imports.
-      spectral.setRuleset(await bundleAndLoadRuleset(resolve(repositoryRoot, "other", ".spectral.yaml"), { fs, fetch }, [builtins()]));
+      spectral.setRuleset(
+        await bundleAndLoadRuleset(
+          resolve(repositoryRoot, "other", ".spectral.yaml"),
+          {
+            fs: reads?.ioFs || fs,
+            fetch: reads ? (...args) => reads.fetch(...args) : fetch,
+          },
+          [builtins(), ...(reads ? [reads.plugin] : [])],
+        ),
+      );
       selectedRuleset = "custom";
-    } catch {
+    } catch (error) {
+      if (["binding", "output_limit"].includes(error?.code)) throw error;
       fallback = true;
       spectral.setRuleset(oas);
     }
@@ -124,17 +187,34 @@ async function run(frame) {
   // YAML also parses JSON, matching legacy spectral.run(string) behavior.
   const diagnostics = await spectral.run(document);
   const sources = [...known.values()].map(({ contents, ...entry }) =>
-    entry.origin === "main" || entry.origin === "attached" ? entry : { ...entry, contents });
-  return { diagnostics, sources, selectedRuleset, fallback };
+    entry.origin === "main" || entry.origin === "attached"
+      ? entry
+      : { ...entry, contents },
+  );
+  return {
+    result: { diagnostics, sources, selectedRuleset, fallback },
+    readSet: reads?.snapshot(),
+  };
 }
 
 let frame;
 try {
   frame = await readRequest(Bun.stdin.stream());
-  await emit(response(frame, await run(frame)));
+  const output = await run(frame);
+  await emit(response(frame, output.result, output.readSet));
 } catch (error) {
-  const code = ["protocol", "binding", "input_limit", "output_limit"].includes(error?.code) ? error.code : "process";
-  await emit(JSON.stringify({ protocol: 1, jobId: frame?.jobId || "", error: { code } }) + "\n");
+  const code = ["protocol", "binding", "input_limit", "output_limit"].includes(
+    error?.code,
+  )
+    ? error.code
+    : "process";
+  await emit(
+    JSON.stringify({
+      protocol: frame?.protocol || 1,
+      jobId: frame?.jobId || "",
+      error: { code },
+    }) + "\n",
+  );
 }
 // A custom function may leave timers alive. The one-shot host retires after
 // flushing its frame; native Job Object retirement also reaps descendants.
