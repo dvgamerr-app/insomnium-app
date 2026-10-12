@@ -36,9 +36,11 @@ export async function lockProbeWorkspaceReplacement() {
 
 /** Deny native writes to an existing scenario-owned recovery artifact. Caller
  * creates the sentinel only after picker selection and releases in finally.
- * @param {string} output @param {string} selectedPath */
-export async function lockScenarioCopyWrite(output, selectedPath) {
+ * @param {string} output @param {string} selectedPath
+ * @param {".json"|".graphql"} [extension] */
+export async function lockScenarioCopyWrite(output, selectedPath, extension = ".json") {
   assert.equal(process.platform, "win32");
+  assert.ok([".json", ".graphql"].includes(extension), "Closed artifact extension allowlist");
   const root = await realpath(resolve(output));
   assert.equal(
     root.toLowerCase(),
@@ -52,7 +54,7 @@ export async function lockScenarioCopyWrite(output, selectedPath) {
     "Refuse redirected recovery artifact",
   );
   assert.ok(path.toLowerCase().startsWith((root + sep).toLowerCase()));
-  assert.ok(path.endsWith(".json"));
+  assert.ok(path.endsWith(extension));
   return openReadLock(path, 1);
 }
 
