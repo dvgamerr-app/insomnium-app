@@ -9,6 +9,7 @@ import {
   exerciseWorkspaceEditorContent,
 } from "./helpers/split-pane.js";
 import { assertRequestResponseSplit } from "./helpers/request-response-split.js";
+import { exerciseRunnerResults } from "./helpers/runner-results.js";
 
 await withPreview(
   "nocturne-workspace",
@@ -173,6 +174,7 @@ await withPreview(
       .click();
     await exerciseSplit(page, "Test editor and results size");
     await exerciseWorkspaceEditorContent(page, output, "tests");
+    await exerciseRunnerResults(page, output);
     await page
       .getByRole("button", { name: "Collections", exact: true })
       .click();

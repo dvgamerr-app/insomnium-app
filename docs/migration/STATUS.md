@@ -1,3 +1,9 @@
+## Runner executed-results interaction accepted — 2026-10-12
+
+- Guarded3path test-only integration independently rehashes693capturedinputs/49assets/sixharness/results; removing onlyimport/call retains originalworkspace bytes. No product CSS/runtime/layout change. Six actual pure-Chai worker tests (1pass/5richfail), exact persisted results/reload, sixdark/light1440/900/760x600profiles, native summary Enter/Space, trustedwheel reaching finalstackline, realcontentclick/focus and entirelocalStorage inventory exactrestore pass.
+- Root compiler58906 terminal0/0errors0warnings and SAMEsavedworkspace12583 terminal0, all retained API18/Runner18/GraphQL12/4/collapse6/release12/storage48/heavy12/36/reloads pass. Proof artifacts/runner-results-root-proof/root-audit.json. Original locator/oversized-pre centering negatives remain immutable; real scrolling proves reachability, no product bug inferred.
+- Allroot handles terminal. Native current Runner/verticalresize/network/cancel/import/provider/platform/fullmigration/UX gates remain OPEN; historical native30305 retains exact960px scope. Spectral backend/producer and stockQuickJS CPUchaincleanup remain active separate work. Topic commit recorded after commit. /compact unavailable; explicit handoff before next feature.
+
 ## Current root lint popup ownership verified — 2026-10-12
 
 - Root independently rehashes agent260source/49asset/21harness snapshots and guards10path integration. Pinned CodeMirror5.65.21 build adapter closes previous popup per editor and detaches mouseout/document-position/poll callbacks; ordinary ESM compilation, preserved MIT notice, no vendor/CSP/provider/runtime change. Current Wheel/Runner source preserved.
