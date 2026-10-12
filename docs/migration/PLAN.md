@@ -1,3 +1,14 @@
+## Updated three-agent execution and serial acceptance — 2026-10-13
+
+| Owner | Concrete assignment | Acceptance |
+| --- | --- | --- |
+| native_provider | Frozen managed-read receipts/post-run binding correction, exact8path handoff | Root guards/current compiler/Cargo/retained contracts and headless61, then fresh native-hidden61+62 with full restoration |
+| shared_ui | CookieManager-only known refusal association/correction/lifecycle | Immutable36failures retained; exact normal geometry, six profiles and SAME saved scenarios before root integration |
+| event_api | Notice collector authority handoff accepted; next read-only recovered3 admission plan | Exact locked archive checksums, deliberate NEW collection; no cache mutation during frozen checks |
+| root | Serial guarded adoption and independent verification | Commit verified work by topic, record commit/evidence/gates/live handles in STATUS, provide compact-unavailable handoff before next feature |
+
+Native collector now passes currentroot47checks/retained185audit/actualproducer+frontendhook/bundle-only with independent private762archive/admission closure. Recovered3 authentic archives remain separate until explicit recollection. Every saved browser scenario uses shared launchUiBrowser headless:true with no headed override; owned native hosts hide before CDP and report native-hidden. Full original migration/UX/platform/distribution/SDK/Event/FIFO/targetlinkage coverage stays open.
+
 ## Additional authentic Cargo inputs ready for later deliberate recollection — 2026-10-13
 
 Three former cache-miss archive identities now have independent lock-checksum/rawmanifest/five-text recovery proof; no sharedcache or currentcollection changed. Preserve immutable historical source-unavailable receipts. After archive/admission authority fix is rootverified, intentionally admit these exact bytes in a NEW collection; do not promote availability during frozen checks. Keep43discovery/localpatch/nested/per-file/build-condition/system/toolchain/actualtarget/fullnotice gaps separate and all original migration/UX scope. Commit topic handoffs; /compact unavailable.

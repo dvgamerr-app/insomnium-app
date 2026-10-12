@@ -1,3 +1,7 @@
+## Native notice collector authority boundary — 2026-10-13
+
+Current root11path adoption passes compiler26100 0/0/47savedchecks/retained185Spectral/actualhook+frontend/bundle-only4675 with937frozen inputs/private762archive+current admission/1943outputs independently audited. Actual coherenttext substitution, availabilitydowngrade and oldreceipt rollback refused. Source corpus770identities/1331registry+4local+1context origins/420texts remains incomplete:3cachemisses/43registry/2local discovery gaps; recovered3 not admitted yet. No targetlinkage/native app/resource-copy/installed/signed/platform/fullnotice claim. Historical nativebf5e predates configdelta. Managed-read62nd-job correction and CookieManager36failure correction remain isolated, awaiting root acceptance. All original migration/UX/repository/SDK/Event/FIFO/private/distribution gates retained.
+
 ## Recovered source availability is separate from current packaged notices — 2026-10-13
 
 Three exact Cargo archive checksums/five source-text candidates now verified in cargo-missing-source-root-proof/root-audit.json, cache/currentcollection untouched. Historical762/three-missing corpus remains its immutable generation; currentnotice gaps not yetclosed by recollection. Targetlinkage/fullnotice/localpatch/nested/per-file/platform/distribution/migration/UX scope staysopen.

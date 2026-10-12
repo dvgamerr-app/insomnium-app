@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "evidenceClass": "cargo-source-corpus-candidate",
+  "coverage": "incomplete",
+  "completenessBlocksBuild": false,
+  "registrySource": "registry+https://github.com/rust-lang/crates.io-index",
+  "patchRoots": {
+    "reqwest": "vendor/reqwest",
+    "http-auth": "vendor/http-auth",
+    "eventsource-stream": "vendor/eventsource-stream",
+    "p12-keystore": "vendor/p12-keystore"
+  },
+  "unresolvedScopes": [
+    "source-unavailable",
+    "filename-declaration-discovery",
+    "local-patch-provenance",
+    "nested-and-per-file",
+    "build-conditions",
+    "target-linkage",
+    "system-and-toolchain",
+    "platform-distribution"
+  ]
+}

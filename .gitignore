@@ -16,3 +16,4 @@ vite.config.ts.timestamp-*
 /tools/spectral-linter/dist/
 /src-tauri/binaries/spectral-linter-*
 /src-tauri/notices/spectral/
+/src-tauri/notices/native/
