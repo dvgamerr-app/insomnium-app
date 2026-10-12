@@ -1,3 +1,11 @@
+## Exact runtime license recovery integrated — 2026-10-13
+
+Root independently rehashes406 frozen handoff files/six guarded paths and integrates exact published-commit Spectral-runtime1.1.6 repository license (10760bytes/d45c17f7), byte-identical published package metadata709bytes/b2e2446a, closed version/integrity/gitHead/source URLs and collector. Label repository-license-at-published-commit retained. Narrow -text attributes preserve existing Bun notice plus both new raw files; root actual Git index/checkout hashes match all three authentic inputs.
+
+SAME saved audit passes185locked/184Windowsinstalled/three remaining MIT texts, determinism/rawAsyncAPI+recovered bytes, malformed/version refusals,6tamper/6provenance checks and retained hook/failure cases. Actual root hook78397 build and bundle-only freshness terminal0; frontend/producer/notices/provenance validated, f569 sidecar unchanged, all six integrated sources byte-exact. Proof artifacts/spectral-runtime-license-root-proof/root-audit.json. No native build/profile/app launch; prior a00 native proof remains its original packaged notice generation. Root handles:none. Topic commit pending; /compact unavailable, explicit handoff before next feature.
+
+Three MIT full-text gaps/Bun linked-library/platform/redistribution coverage stay incomplete; no new completeness blocker or compliance claim. Next guarded UI inventory/resource-validation and faithful structural source-range handoffs, then original repository consumed-read/generation and full production-shell/native/private/platform/distribution/SDK/Event/FIFO/migration/UX gates. Bun57 read-only source/license evidence remains pending review, not actual link-map proof.
+
 ## Native captured external references accepted — 2026-10-13
 
 Fresh locked build3943 captures820inputs/52assets/appa00e1ff8 +f569 sidecar. Initial11241 negative retained: unscoped POST lookup selected original foreign request after46actualjobs; actual many-0 generation and full restoration correct. Only two sourceSpecId lookup predicates fixed, all73assertions retained; foreignPOST sentinel, compiler69577 0/0, saved71guards and SAMEheadless8230/48 pass. Declared runtime-test-only supplement preserves compiled app/frontend and original compile provenance.

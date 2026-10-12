@@ -1,3 +1,7 @@
+## Exact-version runtime notice boundary — 2026-10-13
+
+Spectral-runtime1.1.6 authentic repository LICENSE at its published gitHead now included with closed metadata/hash/integrity/source provenance and raw-byte preservation through Git checkout. Root406file/sixdelta audit, determinism/rawtext/6tamper/6provenance guards and actual build+bundle freshness pass (artifacts/spectral-runtime-license-root-proof/root-audit.json); producer f569 unchanged. Remaining three MIT full-text gaps and Bun linked-library/platform/redistribution coverage explicitly incomplete; no full compliance or native-installed notice generation claim. Original full migration/Spectral/native/private/platform/distribution/SDK/Event/FIFO/UX gates remain open.
+
 ## Verified native captured external component boundary — 2026-10-13
 
 Fresha00 app/f569 sidecar saved native-hidden37495 independently verifies48Rust-owned jobs/7entered-before-cancel physical retirements/12external+6retained profiles/36HTTP reads/catalog41 actualGenerate/attachedprecedence and complete original profile/Git/layout restoration. Initial oracle negative and exact runtime-test-only ownership fix are preserved; compiled app/frontend unchanged. Root headless8230/48, compiler69577 0/0 and71guards pass. Proof artifacts/spectral-native-external-root-candidate/runs/owned-post-v1/root-audit.json. This accepts the compiled ApiDesign component, not full production shell/future structural source-range sources or full Spectral/migration/platform/private/distribution/consumed-read/SDK/Event/FIFO/shared UI/UX parity.
