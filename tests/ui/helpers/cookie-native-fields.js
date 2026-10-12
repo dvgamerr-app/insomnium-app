@@ -6,6 +6,7 @@ import { withNativeApp, poll, probeIdentifier } from "./native-app.js";
 import { knownWindowsApplicationData } from "./native-profile-ownership.js";
 import { withResourceProbePreserved, registerResourceProbeCollection } from "./resource-manager-cases.js";
 import { newRequest } from "../../../src/lib/model.js";
+import { readCookieGitMetadata, inventoryCookieGit, cookieGitMetadataSha256 } from "./cookie-native-git-inventory.js";
 
 export const cookieNativeSourceSha256 = "588d4d2040c2a3fb5772cee0d586ff0ac1066e22a343c18709851fd3568aef87";
 export const cookieNativeLayoutKeys = ["nocturne:split:workspace-left", "nocturne:split:request-response", "nocturne:split:design", "insomnium.requestResponseSplit.v1", "insomnium.apiSourcePreviewSplit.v1"];
@@ -46,13 +47,17 @@ export async function runCookieNativeFields() {
   const exe=resolve(build.artifact); assert.ok(exe.startsWith(resolve("artifacts")+"\\"));
   assert.equal(hash(await readFile(exe)),expectedExe);
   assert.equal(new TextEncoder().encode(cookieNativeLargeRaw).byteLength,8194);
+  assert.ok(process.env.INSOMNIUM_COOKIE_NATIVE_GIT_BASELINE,"Explicit reviewed Git metadata required");
+  assert.equal(process.env.INSOMNIUM_COOKIE_NATIVE_GIT_BASELINE_SHA256,cookieGitMetadataSha256);
   await withResourceProbePreserved(async () => {
     await withNativeApp("cookie-native-fields",async ({page,invoke,output}) => {
       page.setDefaultTimeout(60000);
       const profile=join(knownWindowsApplicationData(),probeIdentifier);
       const originalCookies=await inventory(join(profile,"cookies"));
       assert.equal(Object.keys(originalCookies).length,654,"Bind current full baseline; review any inventory change");
-      const gitBefore=await inventory(join(profile,"git-v1"));
+      assert.ok(process.env.INSOMNIUM_COOKIE_NATIVE_GIT_BASELINE,"Explicit reviewed Git metadata required");
+      const gitRoot=join(profile,"git-v1"),gitPin=await readCookieGitMetadata(gitRoot,/** @type {string} */(process.env.INSOMNIUM_COOKIE_NATIVE_GIT_BASELINE),/** @type {string} */(process.env.INSOMNIUM_COOKIE_NATIVE_GIT_BASELINE_SHA256));
+      const gitBefore=await inventoryCookieGit(gitRoot,gitPin);
       const layout=await page.evaluate(keys=>Object.fromEntries(keys.map(key=>[key,localStorage.getItem(key)])),cookieNativeLayoutKeys);
       const original=await invoke("load_workspace"), suffix=crypto.randomUUID().replaceAll("-","");
       const workspaceId="wrk_cnf_"+suffix, requestId="req_cnf_"+suffix, name="Owned native Cookie "+suffix;
@@ -172,7 +177,7 @@ export async function runCookieNativeFields() {
         const after=await page.evaluate(keys=>Object.fromEntries(keys.map(key=>[key,localStorage.getItem(key)])),cookieNativeLayoutKeys);
         await page.evaluate(values=>{for(const [key,value]of Object.entries(values)){if(value===null)localStorage.removeItem(key);else localStorage.setItem(key,value);}},layout);
         assert.deepEqual(await page.evaluate(keys=>Object.fromEntries(keys.map(key=>[key,localStorage.getItem(key)])),cookieNativeLayoutKeys),layout);
-        assert.deepEqual(await inventory(join(profile,"git-v1")),gitBefore,"No original Git files mutated");
+        assert.deepEqual(await inventoryCookieGit(gitRoot,gitPin),gitBefore,"No original Git files mutated");
         const finalCookies=await inventory(join(profile,"cookies"));for(const [file,sha]of Object.entries(originalCookies))assert.equal(finalCookies[file],sha);
         const current=await invoke("load_workspace"),ids=new Set(original.resources.map((/** @type {any} */row)=>row._id));
         assert.deepEqual(current.resources.filter((/** @type {any} */row)=>ids.has(row._id)),original.resources,"Every original resource payload unchanged");
