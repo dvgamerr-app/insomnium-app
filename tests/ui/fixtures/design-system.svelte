@@ -576,6 +576,10 @@
       >
     </div>
   </section>
+  <section aria-label="Field density contract">
+    <Field label="Default density contract"><Input value="default" /></Field>
+    <Field label="Compact density contract" density="compact"><Input value="compact" /></Field>
+  </section>
 </main>
 
 <style>

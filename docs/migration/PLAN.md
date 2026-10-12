@@ -1,3 +1,16 @@
+## Parallel assignments and acceptance order — 2026-10-13
+
+Owner's three agents plus root remain active in isolated worktrees. Each verified feature gets a topic commit and STATUS evidence/gates/process handles, then /compact or explicit unavailable handoff before the next feature. Saved browser Playwright uses launchUiBrowser headless:true without override; native owned host hides before CDP and is reported native-hidden. Bun-only tooling; preserve current Insomnium layout.
+
+| Agent | Current independent assignment | Root acceptance boundary |
+| --- | --- | --- |
+| native_provider | Correct structural diagnostics wide input, public AST known aliases and Boolean external targets | Whole original + new browser/schema/equality/raw-range/marker-strip guards; immutable negative/final-v1; no native/profile launch |
+| shared_ui | Read-only rank next three shared-input adoptions using actual inventory/code/existing scenarios | Measured contracts before product/style change; namespace handoff now accepted |
+| event_api | Read-only exact-version full-text provenance for three remaining MIT gaps | Authentic published metadata/source/hash or explicit unknown; no SDK/provider/product/dependency changes |
+| root | Independently validate and integrate terminal topic handoffs, then fresh native generation acceptance | Serial source freeze/compiler/headless/build, exclusive native profile and complete restoration |
+
+Namespace compact/typed errors/focus accepted with root792 inputs, compiler0/0, saved3scenarios/build0, exact104controls/48captions and default token restoration (artifacts/namespace-field-root-proof/root-audit.json). Native/AT/current-generation remains open. Structural source-range adoption waits real V8 wide-array correction and faithful known-origin recovery. Fresh product/notice/native closure needed before actual native acceptance; historical a00 remains historical. Preserve all original migration/repository/private/platform/distribution/SDK/Event/FIFO/fullnotice/shared-input UX scope.
+
 ## Next root acceptance after runtime source texts — 2026-10-13
 
 Four authentic source-text candidate additions accepted with root413input/eightdelta audit, SAMEguards, actual packaging hooks and raw Git checkout preservation (artifacts/bun-source-texts-root-proof/root-audit.json); embedded coverage remains unproven. Next guarded namespace compact/shared Field/typed-errors/focus integration from e04b70f/792frozen inputs, followed by root full compiler/component-mode/design-system/resource/build/geometry/default-contract replay. No current native/AT claim from that component proof.

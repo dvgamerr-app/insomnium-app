@@ -1,3 +1,7 @@
+## Namespace compact Field component boundary — 2026-10-13
+
+Namespace editor now has shared opt-in compact6px Field, typed affected-field validation/correction and next/previous/Add keyboard focus after removal. Default shared styles unchanged. Root792 frozen inputs/compiler0/0/SAMEheadless3scenarios/build0/full source freeze/8profiles88checks32refusals24removals/exact104controls48captions/default token restoration pass (artifacts/namespace-field-root-proof/root-audit.json). Native entry/assertions retained but current native persistence/focus/AT/platform not proved; historical a00 does not contain this change. Full migration/UX and every original native/private/distribution/SDK/Event/FIFO/repository/source-range/notice gate stay OPEN.
+
 ## Authentic runtime source-text collection boundary — 2026-10-13
 
 Four exact version-pinned libuv/uSockets+uWS/JSC/ICU source texts now collected with closed source/build-candidate provenance and raw byte preservation; root413file/eightdelta/SAMEguards/actual hook+bundle/Gitcheckout audit passes (artifacts/bun-source-texts-root-proof/root-audit.json). Embedded component coverage is still unproven, global coverage incomplete, threeMIT/per-file/Rust/polyfill/data/library/archive/variant/link-map/redistribution/native-installed/platform gaps stay explicit. No full migration/Spectral/UX completion claim.

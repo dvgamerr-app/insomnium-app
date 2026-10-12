@@ -11,6 +11,30 @@ import { assertDialogTokens } from "./helpers/dialog-theme.js";
 import { assertFieldSelectNames } from "./helpers/field-select-names.js";
 
 await withComponentFixture("design-system", async (page, output) => {
+  const densityRows = [];
+  for(const theme of ["dark","light"]) for(const width of [1440,900,760]) {
+    await page.setViewportSize({width,height:600});
+    await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
+    const metrics = [];
+    for(const density of ["Default","Compact"]) {
+      const field=page.getByRole("textbox",{name:density+" density contract",exact:true});
+      const measured=await field.evaluate(el=>{
+        const parent=el.closest(".ui-field"),label=parent?.querySelector("label");
+        return {gap:parent&&getComputedStyle(parent).gap,weight:label&&getComputedStyle(label).fontWeight,font:label&&getComputedStyle(label).fontSize,line:label&&getComputedStyle(label).lineHeight,height:el.getBoundingClientRect().height,density:parent?.getAttribute("data-ui-density")};
+      });
+      assert.equal(measured.gap,density==="Compact"?"6px":"7px");
+      assert.equal(measured.weight,density==="Compact"?"400":"500");
+      assert.equal(measured.font,"12px");
+      assert.equal(measured.line,"18px");
+      assert.equal(measured.density,density==="Compact"?"compact":null);
+      await field.focus(); await field.press("End");
+      assert.equal(await field.evaluate(el=>el===document.activeElement),true);
+      metrics.push(measured);
+    }
+    assert.equal(metrics[0].height,metrics[1].height);
+    densityRows.push({theme,width,metrics});
+  }
+  await Bun.write(output+"/field-density.json",JSON.stringify(densityRows,null,2));
   await assertFieldSelectNames(page,output);
   const childRows = [];
   const child = page.getByRole("button", {

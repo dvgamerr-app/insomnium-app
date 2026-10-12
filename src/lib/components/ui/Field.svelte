@@ -2,7 +2,7 @@
   import { setContext } from "svelte";
   import { FIELD_CONTEXT } from "./field-context.js";
   import Feedback from "./Feedback.svelte";
-  /** @type {{id?:string,label?:string,description?:string,error?:string,required?:boolean,disabled?:boolean,readOnly?:boolean,busy?:boolean,layout?:'stacked'|'inline',align?:'center'|'start',class?:string,for?:string,children:import('svelte').Snippet}} */
+  /** @type {{id?:string,label?:string,description?:string,error?:string,required?:boolean,disabled?:boolean,readOnly?:boolean,busy?:boolean,layout?:'stacked'|'inline',density?:'default'|'compact',align?:'center'|'start',class?:string,for?:string,children:import('svelte').Snippet}} */
   let {
     id,
     label,
@@ -13,6 +13,7 @@
     readOnly = false,
     busy = false,
     layout = "stacked",
+    density = "default",
     align = "center",
     class: className = "",
     for: forId,
@@ -66,6 +67,7 @@
   <div
     class={`ui-field ui-field-${layout} ${className}`}
     data-ui-align={align}
+    data-ui-density={density === "compact" ? density : undefined}
     aria-busy={busy || undefined}
   >
     <label for={controlId}
@@ -79,6 +81,7 @@
     for={controlId}
     class={`ui-field ui-field-${layout} ${className}`}
     data-ui-align={align}
+    data-ui-density={density === "compact" ? density : undefined}
     aria-busy={busy || undefined}
   >
     {@render children()}

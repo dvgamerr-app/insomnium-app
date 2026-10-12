@@ -1,9 +1,11 @@
 <script>
+  import { tick } from "svelte";
   import Modal from "./ui/Modal.svelte";
   import Input from "./ui/Input.svelte";
   import Button from "./ui/Button.svelte";
   import Feedback from "./ui/Feedback.svelte";
-  import { namespaceRows } from "../xpath-namespaces.js";
+  import Field from "./ui/Field.svelte";
+  import { namespaceRows, NamespaceRowError, namespaceFieldInvalid } from "../xpath-namespaces.js";
   /** @type {{namespaces:unknown,onsave:(value:Record<string,string>)=>boolean,onclose:()=>void}} */
   let { namespaces, onsave, onclose } = $props();
   function initialRows() {
@@ -18,10 +20,39 @@
   }
   let rows = $state(initialRows());
   let error = $state("");
+  let fieldErrors = $state(/** @type {Record<string,string>} */ ({}));
+  let form = $state(/** @type {HTMLFormElement|undefined} */ (undefined));
+  function correct() {
+    fieldErrors = Object.fromEntries(Object.entries(fieldErrors).filter(([key]) => {
+      const [index,field] = key.split(":");
+      return namespaceFieldInvalid(rows, Number(index), field);
+    }));
+  }
+  /** @param {number} index */
+  async function remove(index) {
+    const focused = form?.querySelector(`[aria-label="Remove namespace ${index + 1}"]`) === document.activeElement;
+    rows = rows.filter((_, n) => n !== index);
+    error = ""; fieldErrors = {};
+    if (focused) {
+      await tick();
+      const target = rows.length ? `Remove namespace ${Math.min(index, rows.length - 1) + 1}` : "Add namespace";
+      const control = form?.querySelector(`[aria-label="${target}"]`);
+      if (control instanceof HTMLElement) control.focus();
+    }
+  }
   function save() {
     error = "";
+    fieldErrors = {};
+    let mappings;
     try {
-      const mappings = namespaceRows(rows);
+      mappings = namespaceRows(rows);
+    } catch (cause) {
+      if (cause instanceof NamespaceRowError) {
+        fieldErrors = Object.fromEntries(cause.issues.flatMap(issue => issue.fields.map(field => [`${issue.row}:${field}`,cause.message])));
+      } else error = cause instanceof Error ? cause.message : String(cause);
+      return;
+    }
+    try {
       if (!onsave(mappings))
         throw Error("This request cannot be edited right now");
       onclose();
@@ -33,6 +64,7 @@
 
 <Modal title="XPath namespaces" {onclose}>
   <form
+    bind:this={form}
     onsubmit={(event) => {
       event.preventDefault();
       save();
@@ -46,32 +78,29 @@
     </p>
     {#each rows as row, index}
       <div class="namespace-row">
-        <label
-          >Prefix
+        <Field label="Prefix" density="compact" error={fieldErrors[`${index}:prefix`]}>
           <Input
             aria-label={`Namespace prefix ${index + 1}`}
             maxlength={128}
             bind:value={row.prefix}
             placeholder="n"
+            oninput={correct}
           />
-        </label>
-        <label
-          >Namespace URI
+        </Field>
+        <Field label="Namespace URI" density="compact" error={fieldErrors[`${index}:uri`]}>
           <Input
             aria-label={`Namespace URI ${index + 1}`}
             maxlength={4096}
             bind:value={row.uri}
             placeholder="urn:example"
+            oninput={correct}
           />
-        </label>
+        </Field>
         <Button
           type="button"
           variant="ghost"
           aria-label={`Remove namespace ${index + 1}`}
-          onclick={() => {
-            rows = rows.filter((_, n) => n !== index);
-            error = "";
-          }}>Remove</Button
+          onclick={() => remove(index)}>Remove</Button
         >
       </div>
     {/each}
@@ -80,6 +109,7 @@
       <Button
         type="button"
         variant="ghost"
+        aria-label="Add namespace"
         disabled={rows.length >= 32}
         onclick={() => {
           rows = [...rows, { prefix: "", uri: "" }];
@@ -102,11 +132,6 @@
     grid-template-columns: minmax(80px, 1fr) minmax(120px, 3fr) auto;
     gap: var(--space-6);
     align-items: end;
-  }
-  label {
-    display: grid;
-    gap: var(--space-6);
-    min-width: 0;
   }
   .namespace-actions {
     display: flex;
