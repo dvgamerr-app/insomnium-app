@@ -1,3 +1,7 @@
+## Recovered notice availability verified in actual root generation — 2026-10-13
+
+Actual hook/current58/bundle/compiler and independent raw765archive audit verify exact recovered-three promotion,1336registry/1341total origins/422texts and0cachemiss. Current admissionea21bd83 replaces700b intentionally; oldproof retained. Registry43/local2 discovery gaps remain, coverage incomplete/target linkage unproven. New generated resources/frontend are archived but no new native emitted-resource/installed/signed/platform/fullnotice/fullmigration claim is made. All original migration/UX/SDK/Event/FIFO/private/distribution scope remains open.
+
 ## Actual scripted Cookie UI-await boundary — 2026-10-13
 
 Native V4 independently verifies12 scripted pending New/close actions before observed passive scheme response, unchanged jar/disk/previous keys and stale-feedback suppression, retaining24originalcases/25mapped replies (37total). Full profile/Git/currentlayout restoration and compiler0/0 pass. Physical Rust entry/reply production, trusted keyboard race, OS/AT/platform and other full workflows remain open. V3 negative retained; no full migration/UX/notice/platform/distribution claim.

@@ -1,3 +1,9 @@
+## Actual765 notice checkpoint; certificate UI next — 2026-10-13
+
+Root exact-three recollection/current58/bundle/currentcompiler pass with ea21bd83 private authority/765archives/1336registry origins/422texts; old700b generation preserved. Use explicit --recovered-cargo3 --verify-current; historical no-arg mode publishes before762 assertions. Full notice/platform/resource-copy/distribution coverage remains separate.
+
+Next independently rehash/adopt certificate d60e81b eightpath correction against exactrootbefore guards and replay SAME222 headless cases/fullshared/currentcompiler/build, preserving original24 stale writes and duplicate alerts. Product-only ClientCertificates scope/lifetime/observed transitions and one owning feedback; native OS/coalescedABA remain gates. Notice research identifies omitted pinned r-efi AUTHORS and per-file headers, but no collector expansion before rootreview. UIagent measures ProtoManager using actual keyed parent to avoid false unkeyed lifecycle claims. Commit each verified feature and STATUS/compact-unavailable handoff; all original scope retained.
+
 ## Cookie pending UI checkpoint and next actual notice generation — 2026-10-13
 
 Root V4 native-hidden accepts12 scripted New/close pending UI cases plus original24/37replies/full protected profile restoration; physical Rust-entry and trusted race gates remain open. Saved helper adopted/compiler0/0. Next adopt exact native-notices closed-three supplement after its6268file/current17guard review, intentionally run actual hook/build recollection, then saved58 actualcurrent authority and bundle validation. Preserve old700b/762 compiled/private/resource proofs; never run historical no-arg test against new765 generation. Certificate UI correction awaits final frozen proof/root replay, and notice agent inventories actual43registry/2local discovery gaps read-only. All original scope retained; commit each verified topic/STATUS evidence/compact-unavailable handoff.

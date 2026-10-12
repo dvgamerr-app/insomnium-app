@@ -1,3 +1,11 @@
+## Actual recovered Cargo notice generation accepted — 2026-10-13
+
+Guarded saved supplement/root57 session94741 terminal0, actual hook/build→savedcurrent58→bundle wrapper93117 terminal0; independent native-notice-cargo3-root-collection/root-audit.json reparses765archives/exact3package delta/1336registry1341total origins/422texts/0cachemiss. New private admissionea21bd83; old700b/764private/resources retained. All1010 phaseinputs unchanged, Spectral resources/producera5ec unchanged;1954noticefiles/49frontendassets/new765archive authority archived. Compiler68130 0/0. Only saved packaging scenario adopted; no product/CSS/backend/lock changes. See CARGO-RECOVERED-NOTICE-ROOT-ACCEPTANCE.md.
+
+Registry43/local2 discovery gaps/coverage incomplete/targetlinkage unproven; fresh native resourcecopy/installed/signed/platform/fullcoverage and every original migration/UX/SDK/Event/FIFO/private/distribution gate remain OPEN. Native historicale567 remainsits old762 generation. Root handles:none/profile unused. Certificate eightpath candidate d60e81b ready for guarded integration/replay after this topic handoff; two r-efi AUTHORS/24headers read-only research ready for later review. /compact unavailable; explicit topic handoff required.
+
+Current verified topic commit: afaa594 (actual native Cookie UI-pending saved supplement). Evidence: cookie-native-current-root-v4/root-audit.json and current-compiler.json. Root handles:none/profile released. Actual765 recollection/certificate correction/physicalRust-entry/OS/AT and all original gates stay open. /compact unavailable; explicit feature handoff recorded.
+
 ## Native Cookie UI-pending supplement accepted — 2026-10-13
 
 V4 native-hidden44998 terminal0, independent cookie-native-current-root-v4/root-audit.json passes original24cases/25mapped replies plus12scripted New/close pending cases/36ordered checkpoints/37real replies. Actual UI-await/action-before-passive-reply order, exact previous/jar-generation/disk preservation and no stale feedback pass. Full13783Git start/post-host hashes,654cookies/buffers/store/resources/history/current5layout restored; profile released/handles:none. V3 unsupported cleanup negative and root old/final snapshot-pairing refusal retained.
