@@ -6,3 +6,9 @@ tools/spectral-linter/notice-sources/libuv-802358-LICENSE -text
 tools/spectral-linter/notice-sources/bun-744846-uSockets-uWS-LICENSE -text
 tools/spectral-linter/notice-sources/jsc-2e2aa-COPYING.LIB -text
 tools/spectral-linter/notice-sources/icu-21d1eb-LICENSE -text
+tools/native-notices/repository-sources/a615e325d5acebc64f6553724028cd5e3639397e534cef107f172540cb78d0fd -text
+tools/native-notices/repository-sources/5d0444d55131aa8a4290fc3cd54bd8598e9528577ddf5c3368ee48a02e297f6d -text
+tools/native-notices/repository-sources/0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73 -text
+tools/native-notices/repository-sources/00229c125c597e4f0ddb9e598738ee5b38a9086fd59eea6d2577cdda5f8e5875 -text
+tools/native-notices/repository-sources/86df68bbb014e816ac356a462838914d813ce6aaa1d11b2aa284941701c6c7c2 -text
+tools/native-notices/repository-sources/bee8a11a0f7c152ff835ea5ca64bcb5558e8a6079be56eccc4086dddb383288c -text
