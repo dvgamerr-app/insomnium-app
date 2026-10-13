@@ -1,3 +1,11 @@
+## Isolated original gRPC restoration prototype — 2026-10-13
+
+Topic006bba5d5e75d305bf6c54ec19ccaf209acc115f; onlyreport AGENT-GRPC-RESTORATION-PROTOTYPE-20261013.md tracked/offered SHA62207db6f1e4eae9c5a755872a5c573e2300c9fe37708d6d17c080402d7eb671. Artifact prototype/final/audit.json SHAa18fbc49c3da7c7bbed8984225c14714dae946d4280232e01f100b2c80023f78 rehashes10 files/rootGit9861/rootentry8fc unchanged. Clone optional awaited before-firstsave/init and actualinit/commit observations, originalwholeLF inverse; artifactnativeentry wholeRAW import-only inverse. Pure ownership planning/syntax4/30negative guards pass. Planrunnable:false/bridgeexplicitrefusalonly, no native/profile/build/cache/marker/move/delete executed.
+
+OS GetTempPath2W+canonicalexclusive nonce parent OUTSIDEappdata same actualvolumeC required; Eartifacts no fallback. Exactoriginal13783pin unchanged, candidate-only independently reviewed fullmanifest, nounknownsiblings/alternates/reparse/stalePID/unprovenpartialinit. ActualexclusiveTemp and durablemarker/driver/manifest/archive/quarantine/fullrestore await rootconcrete review. No actualcleanup code authorized or runnable driver supplied; incompleteproof retainsdata/gateOPEN. Accepted36/fb83/040acaa separateimmutable/unexecuted, finalrootbuild unaffected.
+
+Handles:none/profileunclaimed. Originalworkflow/native/fullGit/OS/AT/platform/migration remainOPEN. /compact unavailable; explicit prototypehandoff/no compactionclaim. OwnSTATUS notroot overlay.
+
 ## Original default gRPC restoration read-only proposal — 2026-10-13
 
 Topic0b9eeaf4dd31052a03baf5201e10187edd54500b; only AGENT-GRPC-ORIGINAL-RESTORATION-PROPOSAL-20261013.md offered, SHA8edd62102acf605b9d0eb3ed21289453a85b79797c5b1ad1ea33f4e969687f6b. Root eb70927 raw11 snapshot independently rehashed, manifestd25302f5/auditc461b5ce in artifacts/grpc-original-restoration-proposal. Exact repo path is git-v1/repo-ID; default gitCollection saves/inits/commits before return. Propose optional awaited beforeFirstMutation hook, registered fixture +durable baseline-absent exactrepo marker before firstsave/init; full original13783 pinnedGit unchanged. Guarded samevolume evidence quarantine after host exit proposed, no deletion/filter/cap widening; unknown/unproven/partialinit retains data and fails cleanup. Root review required BEFORE any implementation/cleanup/run.
