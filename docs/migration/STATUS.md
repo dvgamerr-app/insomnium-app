@@ -1,3 +1,10 @@
+## Read-only remaining shared-input inventory — 2026-10-13
+
+Topiccadc382; report AGENT-UI-NEXT-CENTRALIZED-GAPS-20261013.md SHAb6f4da89831fe07b0a6db3397cc321836d925ad481e52a2d098f42e9b92e62ab. artifacts/ui-next-centralized-gaps/final/audit.json SHAaf4592f1f652f326020581aa5cf321c5c7e64c24fac6a59a44950a062cc5960b freezes24 current Rootpublicsource/scenario/docs/report files; no rawprivate/workspace receipts. No AST/property-count or runtime-measured bug claim.
+
+Finite4gate matrix: CurlBodyEditor begin-beforetry and otherrow-success-clearsglobalerror source evidence highestpriority; standalonebinarypicker Fieldassociation missing but robust currentguards retained; auth sharedfields valid,760x600/caret/keyboardscroll unmeasured; scopedCSS/property ownership andremainingGit/resize workflow evidence open. Sameexisting savedscenario mapping,6profiles/geometry/names/ownership/byte assertions exact; historicalinventorycounts notclosed currentUI debt. Broadredesign deferred, preserveInsomnium/Nocturne; existing acceptedtopics notreopened/oldnative notnewgeneration.
+
+Root authorizes next isolated Curl source-only proposal+reusable component branch afterthishandoff; actualheadless negative/geometry/native acceptance Root later, no measuredclaim untilsavedscenario. No product/tests/sourceRoot/build/browser/native/profile/cache changes; handles:none/profileunclaimed. /compact unavailable; explicit reporthandoff before nextfeature. Fullmigration/gRPC/provenance/AT/platform gates retained; ownSTATUS excludedroot overlay.
 ## Future XML role-positive source-only proposal — 2026-10-13
 
 Topic1f77453; report AGENT-XML-ROLE-POSITIVE-SOURCE-20261013.md SHA84e4d47f819479a0de2b9a1f1b4296922f8399b0353dc4b4192b8acf8833f84a. Public artifacts/xml-role-positive-source/final/audit.json SHA1c5afc43958d428e5cd96ac81b7c6f8445cb620296cba229f178d3f29bcf2606 freezes27 source/reference/proof files; seven runtime dependencies exactmap. Runtime89f7e316/policy6fe325ad/auditor4fffee49; inheritedmetadata7200aa90 unchanged. Frozen29 product9afe/script92cc and entrycac479 wholeRAW inverses retain exactlytwo roleassertions/all18/9errors/6cancellations, no additionalUIbehavior.
