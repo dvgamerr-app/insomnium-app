@@ -1,3 +1,7 @@
+## Current edbb native release/resource closure accepted; runtime open — 2026-10-13
+
+ActualCargo0/currentf72/edbbexe/f66eclosure/source1065/assets49/public1963/privateconsumed767 accepted after preservedpublicationfailure/recovery(no rebuild)/independentaudit0/parentrecheck0. No current app/profile launch or Open/Proto/fullgRPC/OS/AT/signing/installed/linkage/fullnotice/fullmigration/UX acceptance. Historicalold32e remains separate; everyoriginalgate retained.
+
 ## Actual policy5 packaging accepted; native embedding and full coverage open — 2026-10-13
 
 Root16376 five stage0+independentrawaudit0+parentcurrent-set recheck acceptsf72/policy5/schema3/project18/closed5origins/tree10 andactual126. 765archives/4localtrees/whole424/header24+4/rawbodydelta +11745; Spectral/public count unchanged. No freshapp/currentOpen/Proto/fullgRPC/installed/signing/linkage/fullcoverage acceptance. Source1319 is runnerclosure only; alloriginalgates retained.
