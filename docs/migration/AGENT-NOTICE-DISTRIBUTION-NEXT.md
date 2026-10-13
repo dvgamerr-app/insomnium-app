@@ -17,7 +17,7 @@ Counts above are measured from current saved inventory/source files, not extrapo
 
 ## Concrete target defect: universal CI cannot enter the packaging hook
 
-Current `.github/workflows/desktop-build.yml:27` declares macOS `universal-apple-darwin` and the build step forwards its matrix target. `scripts/tauri-spectral-hook.mjs:9` calls `spectralPaths(target)` before any child/service. Both existing producer target tables (`scripts/spectral-artifact.mjs:5` and `scripts/build-spectral-linter.mjs:8`) contain five individual architectures and no universal target.
+Current `.github/workflows/desktop-build.yml:26` declares macOS `universal-apple-darwin` and the build step forwards its matrix target. `scripts/tauri-spectral-hook.mjs:9` calls `spectralPaths(target)` before any child/service. Both existing producer target tables (`scripts/spectral-artifact.mjs:5` and `scripts/build-spectral-linter.mjs:8`) contain five individual architectures and no universal target.
 
 The SAME root hook was invoked with mocked services for build/dev/bundle and explicit `universal-apple-darwin`. All three refuse `Unsupported or missing TAURI_ENV_TARGET_TRIPLE for Spectral packaging` with **zero service calls and zero real children**. The five admitted individual target paths remain valid. This is a reproduced compatibility defect, not a failed Mac build or CI runtime observation.
 
@@ -29,7 +29,7 @@ Proposed bounded repair, not implemented:
 2. Add a distinct universal descriptor only after an authentic two-slice producer contract is reviewed. It must bind both actual architecture-specific Bun outputs, source/lock/compiler identity, the assembled target-suffixed binary, exact architecture/slice inspection and tamper/freshness checks. Do not map universal to one architecture, rename a thin binary or assume arbitrary `lipo` preserves standalone Bun embedded data. No build or lipo was executed here.
 3. If root elects immediate individual-architecture CI jobs, declare Darwin x64 and arm64 explicitly and retain universal packaging as a separately required future gate. Two individual bundles do not fulfill the existing universal requirement. Preserve Bun-only CI and every installer/signing/runtime gate. This option is a review decision, not an unapproved scope removal.
 
-Candidate files: new `scripts/spectral-targets.mjs`, the two target consumers, SAME `tests/packaging/spectral-packaging.mjs` or its exact current saved equivalent, and workflow/docs only after the selected architecture policy is explicit. Unknown targets continue to fail before producer/frontend; bundle remains validation-only. Producer/helper pins and current packaged authority intentionally become stale after source adoption and require deliberate new target preparation. No permissions/CSP/provider/backend change is needed.
+Candidate files: new `scripts/spectral-targets.mjs`, the two target consumers, SAME existing `tests/packaging/spectral-notices.mjs`, and workflow/docs only after the selected architecture policy is explicit. Unknown targets continue to fail before producer/frontend; bundle remains validation-only. Producer/helper pins and current packaged authority intentionally become stale after source adoption and require deliberate new target preparation. No permissions/CSP/provider/backend change is needed.
 
 ## Concrete missing notice scope: frontend source corpus
 
