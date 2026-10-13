@@ -1,4 +1,4 @@
-The saved owned Open diagnostic run 75776 terminated with exit 1 before console spawn or file submission. Its guard returned zero from GetWindowThreadProcessId for the supplied dialog during asynchronous pre-spawn authentication. Semantic output is explicitly unavailable; no MSAA result or selection acceptance is claimed.
+The saved owned Open diagnostic run 75776 terminated with exit 1 before console spawn or file submission. Its guard returned zero from GetWindowThreadProcessId for a supplied candidate control in the asynchronous pre-spawn authentication loop (semantic-hook.mjs line12:59). Semantic output is explicitly unavailable; no MSAA result or selection acceptance is claimed.
 
 Raw evidence is artifacts/playwright/http-client-certificate-1791863825079. Native host36340 was hidden and exited0. Seventeen owned descendants were read in9.438ms. Both empty Edit controls1152/1148 have local WS_VISIBLE; CBEM_GETEDITCONTROL resolves Edit1148 through the exact owned ComboBox1148/ComboBoxEx321148/dialog chain. These structural facts do not establish which control is the filename input. The modified baseline is explicitly absent/null.
 

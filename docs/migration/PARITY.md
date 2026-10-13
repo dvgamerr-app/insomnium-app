@@ -1,3 +1,7 @@
+## Dialog identity verified; original failed control still unmeasured — 2026-10-13
+
+Actual9125 phase181/61.1886ms provesdialog IsWindow/thread/PID/owner/class and before+after originaldialogverify, then control-loop refusal. Rootv4 stack interpretation corrected; no exactfailedcandidate/COM/selection claim. Independent64810 fullactualGit/profile/layout/current1046/public-private/runtimecompiled restoration passes/hostexit0/claimreleased. All original migration/UX/native36/Open/fullgRPC/platform/fullnotice/linkage/distribution gates stayOPEN.
+
 ## Actual owned Open structural evidence; semantic unavailable — 2026-10-13
 
 Run75776 proves17controls/bothemptyEdit locallyvisible/CBEM ownedCombo association, notfilenameauthority. Pre-spawn rawthreadquery0 refuses; sameHWND latercleanupauthenticates, causeunmeasured/no COM/selection. Independent12031 fullactualGit/profile/layout/source-public-private/runtimecompiled restoration passes/hostexit0/claimreleased. Open acceptance/Proto36/originalgRPC/platform/fullnotice/linkage/distribution/fullmigration/UX remainOPEN.

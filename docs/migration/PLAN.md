@@ -1,3 +1,7 @@
+## Candidate control identity is the next measured boundary — 2026-10-13
+
+Actualv5 dialog remainsverified across181samples and theexplicit verify-dialog after; failure is candidatecontrol loop, correctingrootv4 interpretation. Nativeprovider NEWdiagnostics captureoriginal verify call once (handle/thread/PID/immediateerror) and explicitlyreadONE verifiedCombo branch via compiledMSAA, no fallback/selectionmatcher/action change. Root reviews/runs serially/currentold32e/fullrestore. In parallel event_api prepares gated125/current126 generation-auditor; shared_ui prepares SAMEdefaultfullgRPC outerpreserver/ownedcleanupplan, notexecutescleanup. Afteroldphasefinish, integrateUI7/license10 with recapturedsource/compiler/headless/currentauthority/freshbuild/actualOpen-Proto36/fullgRPC. All originalscope/topiccommit/STATUS/compact-unavailable handoffs retained.
+
 ## Reviewed source offers ready for ordered adoption — 2026-10-13
 
 Root independently accepted immutableUI752+durable1009 andlicense2869+recipe4 source proofs. Closedoffers:UI7(defaulthelper70e498/localgRPCclip/entry+fixtures+report), license10(policy5/rawtree10/test/collector/validator/attrs/report). No sourceadoption duringold32e phase. Root executes sourceguards→owncompiler/headless/shared→newsource/noticereceipts/actualcurrent126→onefreshbuild→exclusive serialOpen/Proto36/fullrestoration. Recaptureactualsource map/count, neverusevirtual995 asnativeclosure. OriginalgRPC/platform/fullnotice/linkage/fullmigration/UX retained; commitbytopic/STATUS/compact-unavailable handoff.
