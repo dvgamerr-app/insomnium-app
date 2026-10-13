@@ -7295,3 +7295,8 @@ Topic `5f78149`; NEW `artifacts/namespace-outer-current-native-preparation/manif
 - Topic0bc298e. Manifest artifacts/namespace-root-binding-preparation/manifest.json SHA2cef53d0db08547ce91202f1cfc4568fdc685c71d923695a5a4dd18ec952c890; report4ddad3acab481cf68e5285cdb426f753011b88b91c6da087dad9510a90322d64.
 - Actual staged46/runtime temporal overlay, final capture6e2e9b/tools8/currentCommon697/lowerc201/baseline71c3/XML17cf/Gitfdcb pinned. Source-only prepare writes exclusive new Root binding; launcher verifies sources/tools/packages before original bootstrap. Nonliteral collector/guard/pe-version/ledger explicit. Original claim/one-preserver/20+88/physical/fullFS/separate release unchanged.
 - Pure7 refusal/syntax3 pass; no native/profile/Root/cache/build action and no live handles. Actual Root deployment/execution/audit remains pending. Interface cannot invoke /compact; frozen handoff before next feature.
+
+### Independent namespace terminal audit source proposal — 2026-10-13
+- Topic2fc9d8a; immutable manifest artifacts/namespace-independent-fresh-audit/manifest.json b976a3a88ab76d0a91bfe4d2acb60bde6a6d3b8a7e88aa48c6eaada6860b44a4; report8a0b9458ce2712e97457bc84b900cc8caad55919c4490fcd1b53508d5b6513ad.
+- Original temporal audit7247 body whole-inverse preserved: five Root import rebases + fresh independent-filesystem output filename only. CLI refusal8/syntax3 pass. Original terminal/no-failure/held claim/physical/nohosts/package/common/full case/fullFS gates retained; no rewrite/release/retry. Root alone executes after terminal into new wx outputs.
+- No agent native/profile/Root/cache/build actions, no handles; actual audit acceptance pending. /compact interface unavailable; explicit frozen handoff.
