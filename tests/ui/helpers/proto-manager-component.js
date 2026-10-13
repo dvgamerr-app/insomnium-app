@@ -4,6 +4,7 @@ import {lstat,realpath} from "node:fs/promises";
 import {createHash} from "node:crypto";
 import {withComponentFixture} from "./component-fixture.js";
 import {measureProtoPendingFields} from "./proto-pending-fields.js";
+import {assertProtoFilenameGuards} from "./proto-filename-guards.js";
 
 /** Source alias only; no API/transport/provider behavior replacement. */
 async function sourcePlugin(){
@@ -25,6 +26,7 @@ async function control(page,action,args=[]){return page.evaluate(async({action,a
 export async function runProtoComponentMeasurement(){
   const plugin=await sourcePlugin();
   await withComponentFixture("proto-manager-component",async(page,output)=>{
+    await Bun.write(output+"/proto-filename-guards.json",JSON.stringify(assertProtoFilenameGuards(),null,2));
     const errors=/** @type {string[]} */([]);page.on("pageerror",error=>errors.push(String(error)));
     await page.locator('output[data-proto-ready="true"]').waitFor({state:"attached"});
     assert.equal(await page.evaluate(()=>"__TAURI_INTERNALS__" in window),false,"Actual browser fallback, no Tauri alias");
@@ -72,7 +74,7 @@ export async function runProtoComponentMeasurement(){
       assert.deepEqual((await snap()).data.resources,invalidBefore.data.resources);assert.equal((await snap()).persisted,invalidBefore.persisted);
       const association={invalid:await path.getAttribute("aria-invalid"),description:await path.getAttribute("aria-describedby"),id:await path.getAttribute("id"),error:await pathError.innerText()};
       await page.screenshot({path:output+"/proto-"+theme+"-"+width+"-invalid-path.png"});
-      await path.fill("corrected.proto");const correctionNoticePersists=await pathError.count()===1;
+      await path.fill("corrected.proto");const correctionNoticePersists=await pathError.count()===1;assert.equal(correctionNoticePersists,false,"Corrected current filename retires its owned feedback");
       await panel.getByRole("button",{name:"Import 1 files",exact:true}).click();await panel.getByRole("status").filter({hasText:"Proto files imported."}).waitFor();assert.equal(await panel.getByRole("alert").count(),0);
       await record({theme,width,kind:"invalid-preview-path-correction",refusedWithoutSave:true,association,correctionNoticePersists,correctedRetryImports:true});
       await reset();const sizeBefore=await snap();await picker().setInputFiles({name:"large.proto",mimeType:"text/plain",buffer:Buffer.alloc(2*1024*1024+1,120)});

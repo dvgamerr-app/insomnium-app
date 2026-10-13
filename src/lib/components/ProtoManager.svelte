@@ -5,6 +5,7 @@
   import Textarea from "./ui/Textarea.svelte";
   import Button from "./ui/Button.svelte";
   import Input from "./ui/Input.svelte";
+  import Field from "./ui/Field.svelte";
   import { onDestroy, tick } from "svelte";
   import Icon from "./Icon.svelte";
   import {
@@ -17,7 +18,7 @@
     executeGrpc,
     stop,
   } from "../workspace.svelte.js";
-  import { protoFileLimit, protoTotalLimit } from "../grpc-model.js";
+  import { protoFileLimit, protoTotalLimit, validateProtoFiles, protoFilenameIssue } from "../grpc-model.js";
   import {
     protoTree,
     protoRemoval,
@@ -35,6 +36,33 @@
   let pickerOwner = null;
   /** @type {typeof app.data|null} */ let pendingData = null;
   let pendingRequest = "";
+  /** @type {{issue:Readonly<import('../grpc-model.js').ProtoFilenameIssue>,message:string,data:typeof app.data,requestId:string,version:number}|null} */
+  let filenameOwner = $state.raw(null);
+  function currentFilenameOwner() {
+    return filenameOwner && !disposed && filenameOwner.data === app.data &&
+      filenameOwner.requestId === request._id && filenameOwner.version === epoch
+      ? filenameOwner : null;
+  }
+  function filenameFeedback(/** @type {number} */ index) {
+    const owner = currentFilenameOwner();
+    return owner?.issue.rows.includes(index) ? owner.message : "";
+  }
+  function editPending(/** @type {number} */ index, /** @type {string} */ name) {
+    pending[index] = { ...pending[index], name };
+    const owner = currentFilenameOwner();
+    if (!owner) { filenameOwner = null; return; }
+    try {
+      validateProtoFiles(pending);
+      filenameOwner = null;
+    } catch (e) {
+      const issue = protoFilenameIssue(e);
+      if (issue && issue.kind === owner.issue.kind &&
+        issue.rows.length === owner.issue.rows.length &&
+        issue.rows.every((row, i) => row === owner.issue.rows[i])) {
+        filenameOwner = { ...owner, issue, message: String(e) };
+      } else filenameOwner = null;
+    }
+  }
   let error = $state(""),
     notice = $state(""),
     targetId = $state(""),
@@ -72,6 +100,7 @@
     const restore = document.activeElement === event.currentTarget &&
       owner?.version === epoch;
     pickerOwner = null;
+    filenameOwner = null;
     fileWork.cancel();
     pendingData = null;
     epoch++;
@@ -101,6 +130,7 @@
     pickerOwner = { input, data: app.data, collectionId: app.data.activeWorkspaceId, requestId: selectedRequest, version };
     /** @type {import("../workspace.svelte.js").ScopedWorkspaceWork|undefined} */ let work;
     reading = true;
+    filenameOwner = null;
     error = "";
     notice = "";
     pending = [];
@@ -155,6 +185,9 @@
   async function apply() {
     error = "";
     notice = "";
+    filenameOwner = null;
+    const data = app.data, requestId = request._id, version = epoch;
+    const submitted = pending.map((item) => ({ ...item }));
     try {
       if (pendingData !== app.data || pendingRequest !== request._id)
         throw new Error(
@@ -164,21 +197,28 @@
         const result = await replaceGrpcProtos(
           request._id,
           targetId,
-          pending,
+          submitted,
           (done, total) => {
             progress = `Validating ${done}/${total} files…`;
           },
         );
         notice = `Updated ${result.updated} saved items; added ${result.added}. Other saved files were kept.`;
       } else {
-        addGrpcProtos(request._id, pending);
+        addGrpcProtos(request._id, submitted);
         notice = "Proto files imported.";
       }
       pending = [];
       targetId = "";
       void executeGrpc(request._id, true);
     } catch (e) {
-      error = String(e);
+      const issue = protoFilenameIssue(e);
+      if (issue) {
+        if (!disposed && data === app.data && requestId === request._id && version === epoch &&
+          submitted.length === pending.length && submitted.every((item, i) =>
+            item.name === pending[i].name && item.text === pending[i].text)) {
+          filenameOwner = { issue, message: String(e), data, requestId, version };
+        }
+      } else error = String(e);
     } finally {
       progress = "";
     }
@@ -249,12 +289,12 @@
         ? "Existing IDs and files absent from this selection will be kept. Every file in the affected proto root is validated before saving."
         : "Existing saved files will be kept."}
     </Feedback>
-    {#each pending as item, i}<Input
+    {#each pending as item, i}<Field class="proto-preview-field" error={filenameFeedback(i)}><Input
         aria-label={`Proto path ${i + 1}`}
         disabled={running}
         value={item.name}
-        oninput={(e) => (pending[i] = { ...item, name: e.currentTarget.value })}
-      />{/each}
+        oninput={(e) => editPending(i, e.currentTarget.value)}
+      /></Field>{/each}
     <Toolbar variant="editor" class="editor-toolbar">
       <Button
         variant="primary"
@@ -408,7 +448,12 @@
     padding: var(--space-8);
     border-bottom: 1px solid var(--line);
   }
-  .preview > :global(input) {
+  .preview > :global(.proto-preview-field) { display: contents; }
+  .preview :global(.proto-preview-field > .ui-feedback) {
+    display: block;
+    overflow-wrap: anywhere;
+  }
+  .preview :global(.proto-preview-field > input) {
     display: block;
     width: 100%;
     margin: var(--space-5) 0;
