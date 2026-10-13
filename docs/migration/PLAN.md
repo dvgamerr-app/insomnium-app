@@ -1,3 +1,14 @@
+## Updated parallel assignments — 2026-10-13
+
+Owner explicitly requests agents working in parallel. Reuse the three existing isolated agents; their assignments below supersede older assignment lists. Full migration and UX/CSS scope and every original parity gate remain active. Current Open/TLS and Proto36 acceptance is already recorded; current app edbbac32 / closure f66eaa2a remains frozen for original full gRPC acceptance.
+
+1. event_api: freeze authentic matching-PDB linker command, six object-to-image function graphs, selected Cargo fingerprint/features/template and archive-to-rlib relations. Provide immutable manifest and reproducible source-only proof. Root independently reproduces before accepting narrow initializer provenance; full source/legal/link coverage remains open.
+2. native_provider: prepare original inline-HTTP2 gRPC preflight, actual Bun/Playwright/yaml/noble and inherited PowerShell/.NET input recipe. Validate all 42 runtime hashes before importing authority. Preserve original workflow and provenance gates; unrelated Rust TLS peer/OpenSSL inputs are conditional on their separate scenario.
+3. shared_ui: retain frozen local RequestEditor role-alert repair, review the existing XML scenario dependencies and exact error-case expectations, and prepare full-preservation integration. No Root product adoption until current gRPC finishes; current layout is preserved and redesign remains deferred.
+4. Root: independently review and integrate offers, run full original gRPC phase one and guarded same-volume Git fixture quarantine, audit restoration, and release profile explicitly. Root alone owns compiler/build/native/profile/cache. Run these serially, freeze consumed source until the same physical process is terminal, then adopt the next verified feature.
+
+Each agent commits verified work by topic in its own worktree and supplies hashes, evidence, remaining gates and live handles. Root commits accepted integrations by topic. STATUS must record the current commit/evidence/gates/handles after each feature. This interface cannot invoke /compact; provide an explicit handoff instead of claiming compaction. Saved browser scenarios use shared launchUiBrowser headless:true without override; owned native hosts hide before CDP and report native-hidden. Browser-use remains prohibited. Root currently has no live process handles and no profile claim.
+
 ## Current parallel execution plan — 2026-10-13
 
 Goal remains full migration and UX/CSS completion, with every original parity gate retained. Verified work must be committed by topic. After each feature, record the current commit, evidence, remaining gates and live process handles in STATUS before /compact. This interface cannot invoke /compact; report that limitation and provide a concrete handoff. Saved browser scenarios must use launchUiBrowser with headless:true and no headed override. Owned native hosts must hide before CDP attachment and be reported as native-hidden.
