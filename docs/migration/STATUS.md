@@ -1,3 +1,9 @@
+## Fresh current native checkpoint; two negatives retained — 2026-10-13
+
+Root70987 buildterminal0/release7m02 and independent closure audit pass exe32e449/closure9c58/1034core1046total/49assets1963notices767private/currentab928. Open55623 terminal1 strict known filename Edit0!=1 beforeselection; Proto37369 terminal1 strictlongbounds after3dark1440 rows/trace[]; neither fullscenario accepted. Actual hidden hosts34960/58092 exit0. Independent negative-restoration audits pass fullprotected654/Git13783/resources43/history20/layout5/currentsource-private-public closure; claimsreleased/root handlesnone. Original rawfailures retained. See CURRENT-NATIVE-REFUSAL-CHECKPOINT.md.
+
+Nativeagent prepares new bounded authenticated control diagnostics beforeunchangedmatcher; UIagent prepares rawgeometry beforeunchangedassertion, isolatedruntime-only sources. Actualcauseunknown; no silent guardrelaxation, oldproofmutation or rootproductchanges. Read-only license21/gRPCprototype10 independentreview passes; adoption/runtime/move-deletestaypending. All original migration/UX/Open/Proto36/realRust/wholegRPC/OS/AT/platform/private/fullnotice/linkage gates stayOPEN. /compact unavailable; explicit topic handoff.
+
 ## Three parallel deliverables reviewed in sequence — 2026-10-13
 
 native_provider a8d5395/e93a9ad current1034 preparation2a353 passed independent root15-source/core1034/runtime22/receipt/build-reversal/Open byte-exact review; exact artifact sources adopted and fresh prerequisites pass. Evidence: artifacts/repository-native-preparation-root-review/review.json/adoption.json. No fresh build or runtime yet. Root review initially used a nonexistent template key compiledClosureSHA256; preadoption refusal1 preserved in review-repository-native-preparation-root-key-refusal.mjs; corrected to actual closureSHA256, template unchanged.

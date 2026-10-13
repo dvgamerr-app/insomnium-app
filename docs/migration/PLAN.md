@@ -1,3 +1,7 @@
+## Diagnose actual current native guards before implementation changes — 2026-10-13
+
+Fresh release32e449/ab928/current1034 compiler+1046consumed/1963resources is independently verified. Both serial native runs restore full profile/Git/layout and release claims. Retain Open55623 filename-Edit refusal1 and Proto37369 longbounds refusal1/threepartialrows/noRust replies. Nativeprovider now prepares bounded owner-authenticated structural/known-text flag diagnostics BEFORE unchanged strictselection; shared_ui prepares exact rawgeometry BEFORE unchanged bounds assertion. Independently review runtime-only artifact deltas, then root serially reruns SAME scenarios against immutable executable with newly frozen harnesses/full restoration. Source intent or post-finally screenshot cannot establish actual missing control/bounds. No speculative matcher/CSS/oracle relaxation. event_api license research remains independently reviewed future separate package-origin scope; currentab928 unchanged until native freeze ends. OriginalgRPC prototype remains nonrunnable/no move-delete pending concrete ownership/manifest/driver. Topiccommit/STATUS/compact-unavailable handoff and every original scope/gate remain required.
+
 ## Current three-agent plan and root runtime acceptance — 2026-10-13
 
 The owner authorizes three existing agents, each in an isolated worktree. Verified repository topic bff8df7/handoff36c80f4 and current1034 compiler/ab928 authority are the baseline.
