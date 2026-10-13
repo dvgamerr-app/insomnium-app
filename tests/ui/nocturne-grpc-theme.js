@@ -10,6 +10,12 @@ if (process.argv.includes("--proto-component")) {
   process.exit(0);
 }
 
+if (process.argv.includes("--proto-fields-native")) {
+  const { runProtoNativeFields } = await import("./helpers/proto-native-fields.js");
+  await runProtoNativeFields();
+  process.exit(0);
+}
+
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-nocturne-controls-probe/build-state.json";
 let fail = false;
