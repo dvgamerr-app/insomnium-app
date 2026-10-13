@@ -1,3 +1,11 @@
+## Namespace original native failure diagnostics — 2026-10-13
+
+Topicfe5e24d; report218b0279993131a407f5b7b489e234286e613ddbba25a8aa5ef27d2f5b381369. artifacts/namespace-failure-diagnostics/final/audit.json SHAdf54099fe318f5717d52d0ba00e28016dbd0bc084f78e1685464b46436a00c17 freezes7source/metadata/purefiles+report; Rootbeforeca8bccf4/candidate4011e4ac. ExactwholeRAWnativehelperinverse/componentprefix/allassertions/protocol maintained; addedonlyalreadyreadpeer snapshot/preclickcheckpoint/boundedprimaryerror rethrow,7puresyntax pass.
+
+Actualrootfailedleaf67224/hiddenhost63052exit0/restorationpass parentreported.19checks include mapping-generation+remove-map, latestmapnurnone; no workerreplacementfailureclaim. EarliestunknownpeerMeta/peerResponse immediateasserts before originalclick; visiblepeer2 vs laterdiskcorrectmap/history impliespossiblepublish-beforepersist race perworkspace1374-1376, NOT proven. Aggregateerrors nestedcause lost byString,error serializer needed; no retry/assertionrelax/productchange. RawRootworkspace/failuretext/image remainlocalunstaged, publicproof path/hash only.
+
+No Rootwrites/browser/native/build/compiler/profile/cache/network; handlesnone/profileunclaimed. Rootfuturediagnosticruntime requires separatelypinnedsource/importrebase/newoutput/fullnative/preservation gates; currentfailedreceipts/app unchanged. Namespacefullacceptance remainsfailed/open. /compact unavailable explicit handoff; priorCurl/role/allscope retained, ownSTATUS excludedRoot.
+
 ## Curl V2 actual receipts independently accepted — 2026-10-13
 
 Actualreceipt topic d7cf00f; report docs/migration/AGENT-CURL-V2-ACTUAL-REVIEW-20261013.md SHAedc37938846b6b95fc636133f2020b60c466f3ed774f80af4f4b3f3b4b705689. artifacts/curl-v2-actual-receipt-review/audit.json SHAedf6cdd9a0914a4ea871ba0e5598cf00af8b0b4319d93f3fce4023274486693c: sixbaselineRED/36rows/sixlongbounds independentlypass, executedhelper/entry wholeimportinverses andembedded2candidateproducts/overlay exact; all133Rootdeps+threeoriginalrawguards rehashed. Source-bound normalgeometry/data/callback/admission/cancellation/keyboard/bytes assertions passed but no independentcandidategeometry/perphase datasnapshots. Controlledcomponentnative:false/OSchooser:false, no Rust/AT/fullcompiler/build claim. Exactsevenbefore-afterrows inreport/auditeligible; sharedWIP excluded.
