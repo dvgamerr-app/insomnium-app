@@ -1,3 +1,7 @@
+## Current Windows Proto36 workflow verified — 2026-10-13
+
+Current edbb/f66, actual41559/host63144 exit0 native-hidden; all36 unchanged field/schema/persist-reload cases over6theme-width profiles and30Rust replies accepted. Independent caseauditor53736 exit0 verifies source-derived expectedmap/qualifiedmethods/geometry and fullactual654/Git13783/43-20/layout5 restoration; explicitprofile release complete. Evidence: CURRENT-PROTO36-NATIVE-ACCEPTANCE.md. Per-case rawdisk/finalUIoption snapshots absent; original savedsource assertions are bound to passingnative result. No OSchooser/physicalentry/AT/universalplatform/fulloriginalgRPC/fullmigration-UX completion. All original remaininggates retained.
+
 ## Current Windows native Open/TLS workflow verified — 2026-10-13
 
 Current edbb/f66/f72, actual4420/host62168 exit0 native-hidden; independently audited Open4 plus TLS59(14core+44collection/UI), fresh typed branch and physicalprocess exit, full654/Git13783/43-20/layout restoration; explicitprofile release accepted. Evidence: CURRENT-OPEN-TLS-NATIVE-ACCEPTANCE.md. This boundedWindows workflow is verified; no zero-flash/universalplatform/nativecancellation/OSshutdown/fullmigration claim. Proto36/fulloriginalgRPC/allotheroriginalparity/platform/linkage/notice/distribution/UX requirements remainopen.
