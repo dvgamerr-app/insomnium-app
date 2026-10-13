@@ -1,3 +1,14 @@
+## Active parallel assignments — 2026-10-13
+
+Owner requests parallel agents. Reuse the three existing isolated agents; these assignments supersede earlier lists. Preserve every original migration, distribution and UX/CSS gate.
+
+1. native_provider: prepare a new namespace instrumentation offer with independent recorded host/descendant identities and actual post-restoration layout receipts. Preserve frozen21, original20 cases and additive88 groups. Provide exact inverses and pure refusal checks; no native execution.
+2. shared_ui: finish the source-bound role-alert proposal with emitted-error and metadata authority, exact inverses and fresh-app adoption requirements. Inventory centralized input/UX/CSS gaps while preserving the existing layout. Product adoption requires Root review and a new app build.
+3. event_api: prepare closed Root-frame adoption and archive acquisition/admission source for frontend license corpus/publication. Preserve frozen31/206 and rollback invariants. All283 archive inputs remain unavailable until authentic archives are supplied; no network/cache/build or rejected SDK retries by agents.
+4. Root: independently review/hash/replay offers, construct namespace literal source/package closure, then run saved native scenarios serially with complete case, retained-process, filesystem and restoration audits and explicit profile release. Root alone owns compiler/build/native/profile/cache.
+
+Commit verified work by topic. After each feature, record commit, evidence, remaining gates and live handles in STATUS before the next feature. This interface cannot invoke /compact; provide an explicit handoff. Saved Playwright browser scenarios use launchUiBrowser headless:true without headed override; native hosts hide before CDP and are reported native-hidden. Browser-use remains prohibited.
+
 ## Proceed after original current XML acceptance — 2026-10-13
 
 Original XML18 currentedbb/f66 now accepted through separately reviewed emitted-error/owned-metadata remediation and complete independent preservation/release; old operator rejection preserved. Next Root reviews frozen namespace native preparation c090/52b4983, original20 plus additive field/focus/persistence cases, full saved-source/package/physical/FS bindings and bounded fixture history retention. Product role-alert adoption/fresh app and all original distribution/SDK/provider/Git/UX gates remain required. Root alone owns actual build/native/profile/cache; agents isolated source-only. Commit verified topics, STATUS handoff and compact-unavailable report before next feature.
