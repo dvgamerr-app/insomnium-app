@@ -1,16 +1,23 @@
 import { encodeBase64 } from "./transport.js";
 import { isBinaryBody } from "./binary-body.js";
 
+/** @type {WeakMap<object,Readonly<{kind:string}>>} */
+const uploadReadIssues=new WeakMap();
+/** @param {any} error @param {string} kind */
+function ownedReadIssue(error,kind){if(error!==null&&typeof error==='object')uploadReadIssues.set(error,Object.freeze({kind}));return error;}
+/** Read-only identity metadata; callback/config/admission errors are never branded. @param {unknown} error */
+export function uploadReadIssue(error){const issue=error!==null&&typeof error==='object'?uploadReadIssues.get(error):null;return issue?Object.freeze({...issue}):null;}
 export const maxUploadBytes = 20 * 1024 * 1024;
 /** @param {File} file */
 export async function readUpload(file) {
   if (file.size > maxUploadBytes)
-    throw new Error(
+    throw ownedReadIssue(new Error(
       "Files larger than 20 MiB are not supported yet. Select a smaller file.",
-    );
-  const bytes = new Uint8Array(await file.arrayBuffer());
+    ),"size");
+  let buffer;try{buffer=await file.arrayBuffer();}catch(error){throw ownedReadIssue(error,'read');}
+  const bytes = new Uint8Array(buffer);
   if (bytes.length > maxUploadBytes)
-    throw new Error("File exceeds the 20 MiB upload limit.");
+    throw ownedReadIssue(new Error("File exceeds the 20 MiB upload limit."),"size");
   return {
     fileName: file.name,
     contentType: file.type,
@@ -45,10 +52,10 @@ export async function readBodyUpload(file, body) {
     const code = binary.charCodeAt(i);
     length += code === 32 || /[A-Za-z0-9_.~-]/.test(binary[i]) ? 1 : 3;
     if (length > maxUploadBytes)
-      throw new Error("Encoded file exceeds the 20 MiB upload limit.");
+      throw ownedReadIssue(new Error("Encoded file exceeds the 20 MiB upload limit."),"encoded-size");
   }
   if (length > maxUploadBytes)
-    throw new Error("Encoded file exceeds the 20 MiB upload limit.");
+    throw ownedReadIssue(new Error("Encoded file exceeds the 20 MiB upload limit."),"encoded-size");
   const bytes = new Uint8Array(length);
   let offset = 0;
   for (let i = 0; i < prefix.length; i++)

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { withNativeApp, poll } from "./helpers/native-app.js";
+if(process.argv.includes('--curl-component')){assert.deepEqual(process.argv.slice(2),['--curl-component']);const {runCurlFileComponent}=await import('./helpers/curl-file-component.js');await runCurlFileComponent();process.exit(0);}
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-curl-file-content-fix-ui-probe/build-state.json";
 /** @type {{body:Buffer,type:string|null,accept:string|null}[]} */ const received =
