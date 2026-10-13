@@ -1,0 +1,39 @@
+# Original gRPC current-entry source preparation
+
+New artifact-only generation `artifacts/grpc-original-runtime-rebase`; prior49/24/006b/UI7/default70e evidence unchanged. No root/cache/profile/Temp/marker/move/native/build/browser action. Only this report is eligible for tracked adoption; runtime sources remain proposed and require root review/current complete authority before execution. Root owner already authorizes routine owned restoration; no invented user confirmation gate.
+
+## Current entry and source guards
+
+Root current HEAD at capture: `6f501fb7231e13ddfe974923b2140fc2e78ffe02`. Current entry43b is copied byte-for-byte, then only native/Git imports are routed to artifact facade and remaining helper imports rebased to actual root URLs. Reversing these substitutions reproduces **whole current entry RAW SHA43b056f200a1eb28f661bfd2a062305e7f5bc52459c2c7d4bda4be478b68a716**, including the optional grpc-layout-component branch. Original assertions/default gRPC service body stay intact. This supersedes old49's entry8fc binding for a future run, without altering that old proof.
+
+| Proposed source | SHA256 |
+| --- | --- |
+| nocturne-grpc-theme.js | dffa847c49343810ace7eedc25a41589f5b41e50b5b4eb3f74e70acfea3e2d01 |
+| native-preserved.mjs | d24ad46a3dee9b6361a1a2c2bbd37502defcb093a661536aaee72934b74bac59 |
+| driver.mjs | 41489537db9d695ba73693919024ca8ac70c82ca07319d8791df14e077bea852 |
+| initializer-contract.mjs | 9c332ccfbfbf81abbfb0fd00104dafe03ca91f79a4268a5cc2dd7f37cf27f81e |
+| eligibility.mjs | 9790c03da42b2624d4217cd4d2a03a3c537eb65889489ee94b3fabb9c9a420d0 |
+
+`consumed-closure.json` SHA35122109e7756c85cc00008779e2d7ad6933dc8362f37b7f65cd01f5db6a5448 binds 37 exact literal-import/source files. Root imports use actual current raw bytes, including reviewed helpers; no differing shared file is copied/adopted/overwritten. Package/builtin imports are listed. Svelte script imports and JS imports are parsed after Bun removes comments; initial lexical scan mistook a JSDoc type-import for runtime dependency, refused on missing native-app.js, and retained its partial snapshot. Corrected V2 snapshots are separate. This map is closed for declared literal imports, **not** complete package/generated/private/vendor/native authority. Nonliteral fixture loaders and final app authority remain explicit pending prerequisites; no future executable/assets/count fabricated. Preview5493 WIP remains root-owned/unoffered.
+
+## Concrete future-root receipt contract
+
+The facade retains ONE outer ResourcePreserver, prelaunch protected654/full13783Git, registered IDs/fsynced absence marker before first mutation, real init/commit and actual changed data binding, finally layout attempts, owned exit/PID roster, exact postexit graph, root internal receipt review, same-volume exclusive TempC quarantine and full baseline restore. No runtime phase ran here.
+
+New `binding.initializerEvidence` requires `{generatorPath,generatorSHA256,templatePath,provenancePath,provenanceSHA256}` with contained artifact paths. Generator and authenticated internal template hashes are fixed. The provenance JSON must be produced/reviewed by root from authentic final build artifacts with `status:'root-reviewed-compiled-libgit2'`, exact executable/whole closure SHA, Windows MSVC target, vendored1.9.7/no iconv, and exact evidence roles `buildOutput`, `generatedFeatures`, `linkEvidence` each `{path,sha256}`. All evidence bytes/hashes are reread; parser requires vendored cfg/static git2 directive, refuses iconv/other library/target/exe/closure/evidence. Root must review linkage semantics: arbitrary nonempty linkEvidence does not itself prove linkage. Pure tests use synthetic receipt and make no authentic provenance claim.
+
+Before real init, provenance is mandatory and five allowed paths/ten directories come from pinned source. After actual unborn-main init reply, exhaustive ordinary/no-link/single-link metadata is verified **before any candidate contents read**. Read exact four template bytes plus config; full config grammar/order-independent supported-values check generates exact actual config SHA. Store `initializerProposal` in real init-observed receipt, update binding.initializationPolicy from its accepted policy, and validate actual initialized/committed/postexit manifests. Proposal remains `authorized:false/runnable:false`; does not authorize quarantine. Phase2 rereads provenance and requires recorded policy equals generated proposal, then retains original exact marker/sibling/source/destination/exit/layout/fullGit/protected checks. A failed/partial init or unknown file still refuses movement and is retained.
+
+## Read-only executable provenance extraction plan
+
+Consulted [Cargo build scripts](https://doc.rust-lang.org/cargo/reference/build-scripts.html): Cargo stores stdout/stderr beside build-script output, and OUT_DIR persists between builds. Therefore neither newest directory nor matching crate name is sufficient. Root must select the libgit2-sys invocation actually consumed by the frozen final executable from saved Cargo verbose/JSON build logs, package/version/target/features/fingerprint and final artifact paths. Read/copy its exact `target/<configured target>/<profile>/build/libgit2-sys-<fingerprint>/output`, stderr, invocation metadata, OUT_DIR, and applicable fingerprint JSON into a new proof directory without changing the cache/build. Precise path comes from recorded build metadata, never guessed or wildcard-selected by age.
+
+From that selected output, capture `cargo:rustc-cfg=libgit2_vendored`, actual static `git2` linkage and link-search paths, and `cargo:root=<OUT_DIR>`. Capture selected `OUT_DIR/include/git2_features.h` and exact archive named by the toolchain/link directives, archive SHA and compiler/object invocation inputs showing checksum-pinned vendored repository/template/refdb/transaction sources. Windows generated header must omit enabled GIT_USE_ICONV. Bind final rustc/linker invocation or retained linker map/response metadata through libgit2-sys rlib/static archive to final app SHA; absence of this connection stays OPEN. Do not infer static linkage just from PE lacking a git2 DLL or archive presence. Build.rs permits compatible system library before vendored fallback, so Cargo.lock alone is insufficient.
+
+If authentic saved invocation/link metadata is missing, record uncertainty and request root's concrete next verification choice; this agent does not rebuild, issue root-reviewed receipt or claim provenance. Root must pin the selected evidence/raw JSON into the complete final closure, separately from this source map. Runtime filesystem config, real init/commit/object/ref/reflog observation cannot be supplied before a real owned run; fixed initializer grammar and pre-init ownership guards permit collecting them without guessed config SHA.
+
+## Checks and remaining gates
+
+`bun artifacts/grpc-original-runtime-rebase/verify.mjs`: whole43b RAW inverse, nine-module syntax and 13 meaningful provenance/template refusals pass, synthetic valid initialization proposal leaves authorization false. `capture-closure.mjs` captures37 declared source files; final audit independently rehashes them and all offered local sources/report/prior49+24 proof hashes. No compiler/headless/native scenario executed or physical action. Old28/22 pure results remain generation-bound rather than falsely rerun claims.
+
+Root current license phase must finish before adoption/final runtime source freeze. Complete actual source/private/vendor/asset/exe/sidecar/notice authority, authentic linker provenance, real init config and graph, actual original fullgRPC streaming/cancel/persistence, owned-only quarantine and full Git/layout/protected restoration remain OPEN. Sourcecheck-to-use/hardFS/unobserved process birth/physical creator/OS/AT/platform gates remain OPEN. Handles:none/profile unclaimed. `/compact` unavailable; explicit handoff, no compaction claim.
