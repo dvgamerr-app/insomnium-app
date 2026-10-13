@@ -1,3 +1,7 @@
+## Use measured filename authority for explicit Open fix — 2026-10-13
+
+Actual58160/independent17644 prove filenameLabeltrue/role42/state1048580 on exactowned1148branch andfullrestore; strictoldtextmatcher stillrefuses beforeselection. Rootreviewv9 ONLY declaredsemanticidentity/livebranch/state/button/prewriteclosedtext and presence-awaremodified changes, wholeoldsource inverses/allotherassertions retained. RunSAME4fields/TLS serialcurrent32e/fullrestore/independentresultaudit. ThenintegrateUI7/license10/gRPCpreserver proposals aseligible bytopic, recaptureauthority/compiler-headless/current126/newbuild/serialnative36/fullgRPC. Fulloriginalscope/platform/fullnotice/linkage/migration/UX staysrequired; STATUS/compact-unavailable handoff afterfeatures.
+
 ## Correct measured loaded-assembly case predicate; capture worker phase — 2026-10-13
 
 ActualV7 reacheshelperexit1 withall26ownershipqueries valid; no preciseworkerphase/COMproof. SeparatepureCLRprovesknownloadedpaths casevariance withidenticaltrustedSHA andvalidJSONcasts. Reviewv8 exactsource inverse/narrowknownpath ordinalcomparisonPLUSactualloadedfileSHA/nonreparse andclosedworkerphasecapture-beforeexitassert. CompileNEWstage/binding frompinnednormalcsc, preservev3binary/42b3 and allrawnegatives. RootserialSAMEOpen/fullrestore/audit; thenUI7/license10/compiler-headless/currentauthority/freshbuild/native36/fullgRPC. Everyoriginalscope/topiccommits/STATUS/compact-unavailable handoffs retained.

@@ -1,3 +1,7 @@
+## Actual filename semantics; selection remains open — 2026-10-13
+
+V8actual58160 helper0/106B/500.841ms proves exactCBEMbranch Edit1148 filenameLabeltrue/role42/state1048580;31queries/199phases/actualcurrent1046-fullrestore17644 pass. Unchangedstrictmatcher refusesabsenttext BEFOREselection; no4field/Open/TLScurrent workflow claim. Narrowknownloadedcase+actualSHA fix accepted; alloriginalOpen/Proto36/fullgRPC/platform/fullnotice/linkage/distribution/migration/UX remainOPEN.
+
 ## Console execution boundary and pure CLR case proof — 2026-10-13
 
 Actual19309 metadata17/query26/phase189 reachesconsoleexit1; COMentry/semanticresult/selection unproven because rawoutputmissing. Independent39561 fullrestoration passes. PureCLRd145 provesvalidJSONprimitivecasts andloadedknownGACcasevariance/identicalSHA, notactual earliesthelperfailure. Newcase+SHA/phasecapture remedy awaitingcompile/native. All original Open/Proto36/fullgRPC/platform/fullnotice/linkage/distribution/migration/UX remainOPEN.
