@@ -1,3 +1,7 @@
+## Current Windows native Open/TLS workflow verified — 2026-10-13
+
+Current edbb/f66/f72, actual4420/host62168 exit0 native-hidden; independently audited Open4 plus TLS59(14core+44collection/UI), fresh typed branch and physicalprocess exit, full654/Git13783/43-20/layout restoration; explicitprofile release accepted. Evidence: CURRENT-OPEN-TLS-NATIVE-ACCEPTANCE.md. This boundedWindows workflow is verified; no zero-flash/universalplatform/nativecancellation/OSshutdown/fullmigration claim. Proto36/fulloriginalgRPC/allotheroriginalparity/platform/linkage/notice/distribution/UX requirements remainopen.
+
 ## Current edbb native release/resource closure accepted; runtime open — 2026-10-13
 
 ActualCargo0/currentf72/edbbexe/f66eclosure/source1065/assets49/public1963/privateconsumed767 accepted after preservedpublicationfailure/recovery(no rebuild)/independentaudit0/parentrecheck0. No current app/profile launch or Open/Proto/fullgRPC/OS/AT/signing/installed/linkage/fullnotice/fullmigration/UX acceptance. Historicalold32e remains separate; everyoriginalgate retained.
