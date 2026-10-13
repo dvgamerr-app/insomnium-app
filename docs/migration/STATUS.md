@@ -1,3 +1,8 @@
+## Physical fresh native build-state supplement — 2026-10-13
+
+- Topiccece8ff4964d41f242db0c08636ff3b498ed30b6 offers NEW v2 common/build/audit actual child started/finished/PIDs/argv/code and standard build-state.json at spawn/terminal, updated after actual savedexe copy/SHA/mtime. Auditor compares physical times/process/closure/state and savedexe ordinarymtime>=started; no later inventedstart. SAME savedhelper contract preserved. Original10file eb5f8a98 frozen unchanged; frontend/template byteidentical.
+- Syntax4/static sourceguard7/unchanged2/originalmanifest checks0; no child/gate/Root/system/compiler/Cargo/build/cache/native/profile launch or mutation. Candidate actual execution and native acceptance remain Root-owned. All inherited authority/private/source/template/postappbinding and original fullscope gates retained; ownhandles:none;/compact unavailable frozen v2 handoff.
+
 ## NEW source-only policy5 builder/closure auditor implemented — 2026-10-13
 
 - Module topic e0e8238491896bec2a48d207f4c6f8fcf1ef1397 refined by9731b717/29ef941e and final3524a3bea03dea3a3946799a472af37778122c15; common/build/frontend/audit+disabledinput tracked in artifacts/policy5-fresh-native-source. Closed Root/action/token/approval/freeze/profile/source/receipt/private/public/sidecar/toolchain gates, exclusive candidate+childreceipts, exact argv/no-bundle, existinghook order and fresh Bun validator subprocesses; no parentcached validator import. No root-facing function executed.
