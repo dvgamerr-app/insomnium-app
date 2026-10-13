@@ -32,7 +32,7 @@
   "bundle": {
     "active": true,
     "externalBin": ["binaries/spectral-linter"],
-    "resources": {"notices/spectral/": "notices/spectral/", "notices/native/": "notices/native/"},
+    "resources": {"notices/spectral/": "notices/spectral/", "notices/native/": "notices/native/", "notices/frontend/": "notices/frontend/"},
     "targets": "all",
     "icon": [
       "icons/32x32.png",

@@ -16,3 +16,15 @@ tools/native-notices/repository-sources/41b5c8fdd6494e98c73563f5d989dbc3f7418417
 tools/native-notices/repository-sources/f6eab0a90a5ab759040c82f16e9507c1c8425422667ec642eb722c7f973df41d -text
 tools/native-notices/repository-sources/0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594 -text
 tools/native-notices/repository-sources/9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d -text
+scripts/frontend-notice-core/collector.mjs -text
+scripts/frontend-notice-core/parser/LICENSE.md -text
+scripts/frontend-notice-core/parser/README.md -text
+scripts/frontend-notice-core/parser/lib/umd/impl/edit.js -text
+scripts/frontend-notice-core/parser/lib/umd/impl/format.js -text
+scripts/frontend-notice-core/parser/lib/umd/impl/parser.js -text
+scripts/frontend-notice-core/parser/lib/umd/impl/scanner.js -text
+scripts/frontend-notice-core/parser/lib/umd/main.js -text
+scripts/frontend-notice-core/parser/package.json -text
+scripts/frontend-notice-core/tar-parser.mjs -text
+scripts/frontend-notice-core/parser/LICENSE.md whitespace=cr-at-eol
+scripts/frontend-notice-core/parser/README.md whitespace=-blank-at-eol
