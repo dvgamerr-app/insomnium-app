@@ -1,3 +1,7 @@
+## Partial native Proto client-bound and schema evidence — 2026-10-13
+
+Actual root30393/independent58815 prove three compatibleinteger bounds checks,17darkprofile partialrows and14realRust replies (3rejections/11successes with exactside/base methodscope), fullprotected654/Git13783/resources43/history20/layout5/source-private-public restoration, hiddenhostexit0/release. Actual760 ProtoSourceSelect blocksunforcedLoadmethods; no36/light/fullworkflow acceptance. Rootdefaulthelper077 unchanged pendingdurablemigration, productionCSSfix unadopted. Originalmeasurementnegatives/reviewerrefusals retained. All original Open/Grpc/OS/AT/platform/private/fullnotice/linkage/distribution/fullmigration/UX gates remainOPEN.
+
 ## Current native diagnostic boundary — 2026-10-13
 
 Actual93670 ownedcontrol17/twoemptyEdit and59765 rawlongbounds prove specific savedscenario failure causes/remainingidentity uncertainty, not fullruntime acceptance. Proto measuredscroll/client equal1083 with rect1082.796875 and containedparent explainsmixedcoordinateassertion failure; no CSS/productchange claim. Both strictnegative1/original55623-37369 receipts retained, nativehidden hosts exit0/fullprotected654/Git13783/resources43/history20/layout5/source-private-public closure restored/claimsreleased. New compatibleinteger comparison and semantic control identity remain rootreview/runtime gates. Open/Proto36/realRust/originalgrpc/OS/AT/platform/fullnotice/linkage/private/distribution/fullmigration/UX all remainOPEN.
