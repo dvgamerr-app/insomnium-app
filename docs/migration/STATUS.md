@@ -1,3 +1,11 @@
+## Native Proto integer-width oracle correction — 2026-10-13
+
+Topic13e11af62f9d3b3331f1d94d91607a72e03495c3; report06f2411bd6ba6973a2bec08a9febd51d58030804557e46bedb3cdfe2b97af9c5. Actualroot59765 preassertnegativeb92d: rect1082.796875 vs scroll/client1083,DPR1,bothfractionalparentbounds true; onlymixedcoordinate term false. OfficialCSSOM/GeometryIDLconsulted. Minimalartifacthelpercb92e92ef7cc7ba317bb2218d3d79d42f697220062fbab47babe3495976a974b capturesclient andcompares scroll<=client, keepsstrictfractionalparentbounds/all36/Rust/dataassertions andbeforeassertdiagnostic. No tolerance/ceil/crop/CSSproductchange.
+
+Final artifacts/proto-native-clientwidth-fix/final/audit.json SHAe2d76542785b604f3e4e9da78a8a0de4c21dbd745d668b173cf08decf4ac6820 independentlyrehashes29files/current22rootdeps. WholeRAW inversetoaa4 and077 passes; syntax1/wrongcwdguard andsixsyntheticcasesactualfractionalfits/trueoverflow1+50/parentescapes/missingparent pass. Nativeactual36 rerun/fullrestorationrootaudit OPEN, noactualrerun/native/profile/build/cache/root actions. Old077/aa4/fb83/diagnosticnegative/prototype immutable.
+
+Handles:none/profileunclaimed. /compact unavailable; explicit correctionhandoff/no compactionclaim. OwnSTATUS excludedrootoverlay.
+
 ## Actual native Proto long-field diagnostic preparation — 2026-10-13
 
 Topic3796f6aaf501b145a388791430770b2da9807ff7; report AGENT-PROTO-NATIVE-BOUNDS-DIAGNOSTIC-20261013.md SHAe4ca1f3fa5e9e43e75f473846bbd8ae4582d84fd92c047d4c799022a842d6e83. Root37369 actualnegative: firstdark1440 threeFieldrows, trace[], longbounds assertionfailsbeforepersistingbounds, noRustrows/36acceptance. Rootownedhostexit0/fullrestorationreported; screenshot afterfacadelayoutrestore notfailedgeometry. Cannotdetermine actualCSSoverflow vs integer/fractionalrounding withoutvalues.

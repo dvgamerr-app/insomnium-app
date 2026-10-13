@@ -523,6 +523,9 @@
     min-width: 160px;
     flex: 1;
   }
+  :global(.grpc-methods .ui-select-shell > .ui-select) {
+    overflow: hidden;
+  }
   :global(.grpc-hint) {
     margin: var(--space-8) var(--space-12);
   }

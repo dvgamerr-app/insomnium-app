@@ -16,6 +16,12 @@ if (process.argv.includes("--proto-fields-native")) {
   process.exit(0);
 }
 
+if (process.argv.includes("--grpc-layout-component")) {
+  const { runGrpcMethodLayout } = await import("./helpers/grpc-method-layout.js");
+  await runGrpcMethodLayout();
+  process.exit(0);
+}
+
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-nocturne-controls-probe/build-state.json";
 let fail = false;
