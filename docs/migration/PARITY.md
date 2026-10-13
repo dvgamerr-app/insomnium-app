@@ -1,3 +1,7 @@
+## Native Proto harness preparation boundary — 2026-10-13
+
+Four savedharness/report paths onroot passcompiler0/0/syntax3/independent1026 source+22rootdependency+olddefaultbody+current28 notice guards. Actual native36/schema/persistence/fullrestoration remainsunexecuted; parserMessage is statically derived fromlockedcrates, not native evidence. No product delta, physicalchooser/timing/AT/platform/fullworkflow/fullmigration/UX closure. Freshcurrent executable/Open/Proto and everyoriginal gate remainOPEN.
+
 ## Closed24 partial source notices current-root boundary — 2026-10-13
 
 Actual28a86218b1807fd1f3537183a75074b08a4b14bb440a42d651bb48d1f1ce4057 policy3/receipt2/new1961resources independently pass root90/current91/hook/bundle/freshprocess validator/raw765archive/fourlocalpatch/24range/fourblob/fullwholefile bytes/exactprivate-set audit. Wholetext424/1338/1343and41registry2localgaps stay unchanged; partial reference/SPDX/attribution is separate and does not prove canonical full licenses/linkage/fullcoverage. Source1023/frontend49 frozen; native emittedcopy/currentOpen/Grpc/OS/AT/platform/signing/distribution/fullmigration/UX and every original gate remainopen. Historical old352/70/71/57/58/20654negative preserved.

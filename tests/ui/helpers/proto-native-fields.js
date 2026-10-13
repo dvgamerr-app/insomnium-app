@@ -1,0 +1,84 @@
+import assert from "node:assert/strict";
+import {readFile,lstat,realpath} from "node:fs/promises";
+import {resolve,join} from "node:path";
+import {pathToFileURL} from "node:url";
+import {createHash} from "node:crypto";
+import {newRequest} from "../../../src/lib/model.js";
+import {registerResourceProbeCollection} from "./resource-manager-cases.js";
+import {poll} from "./native-app.js";
+
+export const protoNativeSourceHashes={
+  "src/lib/components/ProtoManager.svelte":"8c9a08b4d4c40b60992220afe7290e021c77832f160e71a6e57d52efbe267827",
+  "src/lib/grpc-model.js":"4ee8be93e3caa5eab785ac89baa30b25994ed2b81df86607f09f8b5374b3c5ec",
+};
+const digest=(/** @type {Uint8Array} */ bytes)=>createHash("sha256").update(bytes).digest("hex");
+
+/** Root-only current-artifact scenario; file input uses CDP bytes, not OS selection.
+ * No held File.text, IPC/result override, parser preset, or physical-entry claim. */
+export async function runProtoNativeFields(){
+  assert.equal(resolve(".").toLowerCase(),"e:\\.dvgamerr-app\\insomnium-app","Root-only actual native launch");
+  assert.equal(process.env.INSOMNIUM_PROTO_NATIVE_RUN,"reviewed-current-proto-fields");
+  const facadePath=resolve("artifacts/proto-native-fields-preparation/native-preserved.mjs");
+  const info=await lstat(facadePath);assert.ok(info.isFile()&&!info.isSymbolicLink());assert.equal((await realpath(facadePath)).toLowerCase(),facadePath.toLowerCase());
+  assert.match(process.env.INSOMNIUM_PROTO_NATIVE_FACADE_SHA256??"",/^[a-f0-9]{64}$/);
+  assert.equal(digest(await readFile(facadePath)),process.env.INSOMNIUM_PROTO_NATIVE_FACADE_SHA256,"Exact reviewed preservation façade");
+  for(const [path,sha]of Object.entries(protoNativeSourceHashes))assert.equal(digest(await readFile(path)),sha,"Current accepted Proto/model source");
+  const facade=await import(pathToFileURL(facadePath).href);
+  await facade.withProtoNativePreserved(async(/** @type {import('./native-app.js').ScenarioContext & {original:Record<string,any>,readPersistedWorkspace:()=>Promise<Record<string,any>>}} */ {page,invoke,output,original,readPersistedWorkspace})=>{
+    page.setDefaultTimeout(60000);
+    const suffix=crypto.randomUUID().replaceAll("-",""),workspaceId="wrk_pnf_"+suffix,requestId="req_pnf_"+suffix,name="Owned native Proto "+suffix;
+    const baseName="base_"+suffix+".proto",sideName="side_"+suffix+".proto",protoId="proto_pnf_"+suffix;
+    const source='syntax = "proto3"; package owned_'+suffix+'; message Input { string name = 1; } service Sample { rpc Echo (Input) returns (Input); }';
+    const sideSource='syntax = "proto3"; package side_'+suffix+'; message Extra { string value = 1; }';
+    const replacement=source.replace("string name = 1;","string name = 1; int32 count = 2;");
+    const malformed="invalid";
+    const parserMessage="expected 'enum', 'extend', 'import', 'message', 'option', 'service', 'package' or ';', but found 'invalid'";
+    const oldIds=new Set(original.resources.map((/** @type {any} */ row)=>row._id));
+    assert.ok(!oldIds.has(workspaceId)&&!oldIds.has(requestId)&&!oldIds.has(protoId));
+    const seed=structuredClone(original);
+    seed.resources.push({_id:workspaceId,_type:"workspace",parentId:null,name,scope:"collection"},newRequest(workspaceId,{_id:requestId,_type:"grpc_request",name:"Native Proto fields",url:"grpc://127.0.0.1:1",protoFileId:protoId,protoMethodName:""}),
+      {_id:protoId,_type:"proto_file",parentId:workspaceId,name:baseName,protoText:source,created:1,modified:1,foreign:{preserved:"native-proto"}},
+      {_id:"proto_side_"+suffix,_type:"proto_file",parentId:workspaceId,name:sideName,protoText:sideSource,created:1,modified:1});
+    seed.activeWorkspaceId=workspaceId;seed.activeRequestId=requestId;seed.activeEnvironmentId="";seed.openTabs=[requestId];
+    registerResourceProbeCollection(workspaceId,name); // Before first native save, not inferred after restore.
+    const rows=/** @type {any[]} */([]),errors=/** @type {string[]} */([]),traceErrors=/** @type {string[]} */([]);
+    const trace=/** @type {Map<import('playwright-core').Request,any>} */(new Map()),pending=/** @type {Promise<void>[]} */([]),ownedNames=new Set([baseName,sideName]);
+    let commandUrl="";
+    const onError=(/** @type {Error} */ error)=>errors.push(error.message);
+    const onRequest=(/** @type {import('playwright-core').Request} */ request)=>{
+      if(request.url()!==commandUrl)return;
+      try{const args=request.postDataJSON();if(!ownedNames.has(args?.request?.proto?.entry))return;
+        assert.ok(Array.isArray(args.request.proto.files)&&args.request.proto.files.length>0);
+        assert.ok(args.request.proto.files.every((/** @type {any} */ file)=>ownedNames.has(file.name)));
+        trace.set(request,{args,issued:Date.now(),replyObserved:false});
+      }catch(error){traceErrors.push(String(error));}
+    };
+    const onResponse=(/** @type {import('playwright-core').Response} */ response)=>{const row=trace.get(response.request());if(!row)return;pending.push((async()=>{try{row.ok=(await response.headerValue("Tauri-Response"))==="ok";row.value=await response.json();row.replyObserved=true;row.settled=Date.now();}catch(error){traceErrors.push(String(error));}})());};
+    page.on("pageerror",onError);page.on("request",onRequest);page.on("response",onResponse);
+    const panel=()=>page.getByRole("region",{name:"Proto Files editor",exact:true});
+    const field=(/** @type {number} */ n)=>panel().getByRole("textbox",{name:`Proto path ${n}`,exact:true});
+    const alerts=()=>panel().getByRole("alert");
+    const snapshot=()=>invoke("load_workspace");
+    async function seedCase(/** @type {string} */ theme){const data=structuredClone(seed);data.settings.theme=theme;await invoke("save_workspace",{data});await page.reload();await page.waitForFunction(id=>/** @type {HTMLSelectElement|null} */(document.querySelector('[aria-label="Collection"]'))?.value===id,workspaceId);await page.getByRole("tab",{name:"Proto Files",exact:true}).click();await panel().waitFor();assert.equal(await page.locator("html").getAttribute("data-theme"),theme);commandUrl=await page.evaluate(()=>/** @type {any} */(window).__TAURI_INTERNALS__.convertFileSrc("load_grpc_schema","ipc"));const actual=await snapshot();const physical=await readPersistedWorkspace();assert.deepEqual(physical.resources,actual.resources,"Actual closed-profile persisted store equals native load");assert.deepEqual(physical.history,actual.history);assert.ok(physical.resources.some((/** @type {any} */ row)=>row._id===workspaceId&&row.name===name));assert.deepEqual(actual.resources.filter((/** @type {any} */ row)=>oldIds.has(row._id)),original.resources);assert.deepEqual(actual.history,original.history);return actual;}
+    async function unchanged(/** @type {any} */ before){const after=await snapshot();assert.deepEqual(after.resources,before.resources,"Field refusal/edit cannot persist resources");assert.deepEqual(after.history,before.history);const physical=await readPersistedWorkspace();assert.deepEqual(physical.resources,before.resources);assert.deepEqual(physical.history,before.history);}
+    async function preview(){await panel().getByLabel("Import files",{exact:true}).setInputFiles([{name:"first.proto",mimeType:"text/plain",buffer:Buffer.from(source)},{name:"second.proto",mimeType:"text/plain",buffer:Buffer.from(sideSource)}]);await field(2).waitFor();}
+    async function refused(/** @type {string} */ message,count=1){await panel().getByRole("button",{name:"Import 2 files",exact:true}).click();await alerts().first().waitFor();assert.deepEqual(await alerts().allTextContents(),Array(count).fill(message));}
+    async function marked(/** @type {number} */ n,/** @type {string} */ message){const input=field(n),id=await input.getAttribute("id");assert.ok(id);assert.equal(await input.getAttribute("aria-label"),`Proto path ${n}`);assert.equal(await input.getAttribute("aria-invalid"),"true");assert.equal(await input.getAttribute("aria-describedby"),id+"-error");assert.equal(await panel().locator('[id="'+id+'-error"]').innerText(),message);return {id,errorId:id+"-error",name:`Proto path ${n}`,message};}
+    async function unmarked(/** @type {number} */ n){assert.notEqual(await field(n).getAttribute("aria-invalid"),"true");assert.equal(await field(n).getAttribute("aria-describedby"),null);}
+    async function record(/** @type {any} */ row){rows.push(row);await Bun.write(join(output,"proto-native-fields.json"),JSON.stringify({native:true,renderingMode:"native-hidden",workspaceId,requestId,registeredName:name,rows,trace:[...trace.values()],errors,traceErrors,complete:rows.length===36,fileInput:"CDP-injected bytes + actual File.text; no OS chooser",physicalEntryTiming:false},null,2));}
+    try{
+      await Bun.write(join(output,"registered-collection-before-save.json"),JSON.stringify({workspaceId,name,requestId,protoId,originalIds:[...oldIds],registeredBeforeSave:true,gitResourcesAdded:0},null,2));
+      for(const theme of ["dark","light"])for(const width of [1440,900,760]){
+        await page.setViewportSize({width,height:600});assert.deepEqual(await page.evaluate(()=>({width:innerWidth,height:innerHeight})),{width,height:600});
+        let before=await seedCase(theme),nativeBefore=trace.size;await preview();await field(1).fill("../bad-first.proto");await refused("Error: Invalid or duplicate proto filename: ../bad-first.proto");const first=await marked(1,"Error: Invalid or duplicate proto filename: ../bad-first.proto");await unmarked(2);await field(2).fill("unrelated.proto");assert.equal(await alerts().count(),1);await field(1).fill("corrected.proto");assert.equal(await alerts().count(),0);await unmarked(1);await unchanged(before);assert.equal(trace.size,nativeBefore);await record({theme,width,kind:"first-field-owner-correction",first,noSave:true,nativeSchemaJobs:0});
+        before=await seedCase(theme);await preview();await field(2).fill("../bad-second.proto");await refused("Error: Invalid or duplicate proto filename: ../bad-second.proto");const second=await marked(2,"Error: Invalid or duplicate proto filename: ../bad-second.proto");await unmarked(1);await field(1).fill("../earlier.proto");assert.equal(await alerts().count(),0);await unmarked(1);await unmarked(2);await refused("Error: Invalid or duplicate proto filename: ../earlier.proto");await marked(1,"Error: Invalid or duplicate proto filename: ../earlier.proto");await unchanged(before);await record({theme,width,kind:"second-field-earlier-authority",second,noAutoPublish:true,noSave:true});
+        before=await seedCase(theme);await preview();await field(1).fill("same.proto");await field(2).fill("same.proto");await refused("Error: Invalid or duplicate proto filename: same.proto",2);const a=await marked(1,"Error: Invalid or duplicate proto filename: same.proto"),b=await marked(2,"Error: Invalid or duplicate proto filename: same.proto");assert.notEqual(a.id,b.id);assert.notEqual(a.errorId,b.errorId);await field(2).fill("different.proto");assert.equal(await alerts().count(),0);await unmarked(1);await unmarked(2);await unchanged(before);await record({theme,width,kind:"duplicate-pair-correction",a,b,noSave:true});
+        before=await seedCase(theme);await preview();const long="../"+"a".repeat(900)+".proto",message="Error: Invalid or duplicate proto filename: "+long;await field(1).fill(long);await refused(message);const longField=await marked(1,message),bounds=await alerts().evaluate(el=>{const r=el.getBoundingClientRect(),p=el.closest(".preview")?.getBoundingClientRect();return {left:r.left,right:r.right,width:r.width,height:r.height,scroll:el.scrollWidth,parent:p&&{left:p.left,right:p.right}};});assert.ok(bounds.parent&&bounds.left>=bounds.parent.left&&bounds.right<=bounds.parent.right&&bounds.scroll<=bounds.width);await field(1).fill("short.proto");assert.equal(await alerts().count(),0);await unchanged(before);await record({theme,width,kind:"long-field-wrap",longField,bounds,noSave:true});
+        before=await seedCase(theme);const replace=panel().locator('input[type="file"][title="Replace '+baseName+'"]');await replace.setInputFiles({name:baseName,mimeType:"text/plain",buffer:Buffer.from(malformed)});await field(1).waitFor();nativeBefore=trace.size;await panel().getByRole("button",{name:"Validate and update",exact:true}).click();await alerts().waitFor();await poll(async()=>[...trace.values()].slice(nativeBefore).some(row=>row.replyObserved&&!row.ok),"Actual Rust schema rejection observed");await Promise.all(pending);assert.deepEqual(traceErrors,[]);const rejected=[...trace.values()].slice(nativeBefore).find(row=>row.replyObserved&&!row.ok);assert.ok(rejected&&typeof rejected.value==="string");assert.equal(rejected.args.request.proto.entry,baseName);assert.ok(rejected.args.request.proto.files.some((/** @type {any} */ file)=>file.name===baseName&&file.text===malformed));assert.equal(rejected.value,parserMessage,"Pinned protox0.9.1 actual parser refusal, not arbitrary native error");assert.equal(await alerts().innerText(),String(rejected.value));await unmarked(1);const count=trace.size;await field(1).fill("valid-edited.proto");assert.equal(await alerts().innerText(),String(rejected.value));assert.equal(trace.size,count);await unchanged(before);await record({theme,width,kind:"actual-rust-schema-global-refusal",rejected,fieldUnmarked:true,noSave:true});
+        before=await seedCase(theme);await replace.setInputFiles({name:baseName,mimeType:"text/plain",buffer:Buffer.from(replacement)});await field(1).waitFor();nativeBefore=trace.size;await panel().getByRole("button",{name:"Validate and update",exact:true}).click();await panel().getByRole("status").filter({hasText:"Updated"}).waitFor();await poll(async()=>[...trace.values()].slice(nativeBefore).some(row=>row.replyObserved&&row.ok),"Actual Rust schema success observed");await poll(async()=>{const data=await snapshot();return data.resources.find((/** @type {any} */ row)=>row._id===protoId)?.protoText===replacement;},"Actual native workspace persisted replacement");await Promise.all(pending);const saved=await snapshot(),physical=await readPersistedWorkspace();assert.deepEqual(physical.resources,saved.resources);assert.deepEqual(physical.history,saved.history);const base=saved.resources.find((/** @type {any} */ row)=>row._id===protoId);assert.equal(base.parentId,workspaceId);assert.equal(base.name,baseName);assert.deepEqual(base.foreign,{preserved:"native-proto"});assert.deepEqual(saved.resources.filter((/** @type {any} */ row)=>oldIds.has(row._id)),original.resources);assert.deepEqual(saved.history,before.history);await page.reload();await page.getByRole("tab",{name:"Proto Files",exact:true}).click();await panel().waitFor();assert.equal(await panel().getByRole("textbox",{name:"Proto source",exact:true}).inputValue(),replacement);assert.equal(await alerts().count(),0);await page.getByRole("button",{name:"Load methods",exact:true}).click();await page.getByRole("combobox",{name:"gRPC method",exact:true}).getByRole("option").filter({hasText:"Echo"}).waitFor({state:"attached"});await record({theme,width,kind:"actual-rust-success-persist-reload",protoId,parentId:workspaceId,rawBytes:digest(new TextEncoder().encode(replacement)),originalResourcesUnchanged:true,historyUnchanged:true,schemaReplies:[...trace.values()].slice(nativeBefore)});
+      }
+      await Promise.all(pending);assert.deepEqual(traceErrors,[]);assert.deepEqual(errors,[]);assert.equal(rows.length,36);
+      await Bun.write(join(output,"acceptance.json"),JSON.stringify({passed:true,native:true,renderingMode:"native-hidden",rows:36,profiles:6,sourceHashes:protoNativeSourceHashes,registeredCollection:{id:workspaceId,name},gitMutation:false,osChooser:false,physicalEntryTiming:false,outerRestorationRequired:true},null,2));
+    }finally{await Promise.all(pending);page.off("pageerror",onError);page.off("request",onRequest);page.off("response",onResponse);await Bun.write(join(output,"proto-native-trace.json"),JSON.stringify({rows:rows.length,trace:[...trace.values()],errors,traceErrors,complete:rows.length===36},null,2));}
+  });
+}
