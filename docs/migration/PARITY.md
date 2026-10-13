@@ -1,3 +1,7 @@
+## Original current XML formatter/cancellation acceptance — 2026-10-13
+
+Currentedbb/f66 original18 saved cases verified:3real-format MIME,6controlled cancellation,6controlled faults,3real refusals, saved/Git/Undo/Redo/reload/deadline/late-message behaviors. Separate authenticated emitted-worker exactmessage and bounded workspace_meta audit repair preserves old operator1; complete case/liveprofile656/Git13783/original43-20/layout5/currentauthority/retainedhost/naturalhiddenexit and explicit release accepted. Evidence: CURRENT-ORIGINAL-XML-NATIVE-ACCEPTANCE.md. Rolealert, actualquota/depth/count refusals, independent per-case disk/Rust-entry/AT/OS/universalplatform and every other originalmigration/distribution/UX scope remain open.
+
 ## Original current Windows gRPC acceptance — 2026-10-13
 
 Original saved full gRPC workflow on currentedbb/f66 is verified: unchanged assertions, host/all6 recorded process objects, exact registered nine-object Git quarantine, fullprotected656/Git13783/original43-20/layout restoration, independent originalcase auditors and explicit profile release. Evidence: CURRENT-ORIGINAL-GRPC-NATIVE-ACCEPTANCE.md. This closes that saved workflow gate only. Actual terminal-startup classification branch unexercised; no unobservedbirth/OSclose/AT/universalplatform/perRPCrawtranscript or allmigration completion claim. Every other original parity/distribution/UX item remains active.
