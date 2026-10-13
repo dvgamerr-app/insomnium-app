@@ -1,3 +1,12 @@
+## Current parallel assignments — 2026-10-13
+
+1. native_provider: source-only review of authenticated terminal startup process attempts after measured QueryFullProcessImageNameW failure. Preserve raw failures and authenticate every recorded child; active or unknown failed attempts refuse.
+2. shared_ui: independent original XML case/preservation auditor for the frozen current runtime; role-alert product adoption waits for the current native gate.
+3. event_api: archive-bound frontend source/license corpus proposal for current Bun.lock identities; universal-target offer remains separate.
+4. Root: concrete quarantine review, same-volume no-replace cleanup, independent complete restoration and explicit global profile release for the terminal observer run. Then review immutable offers and run saved scenarios serially.
+
+Agents use isolated worktrees and source-only/pure checks. Root alone owns build/compiler/native/profile/cache. Browser scenarios use shared launchUiBrowser headless:true; native hosts hide before CDP and report native-hidden. Commit verified work by topic; record commit, evidence, open gates and live handles in STATUS before each feature handoff. /compact cannot be invoked here; explicitly provide the handoff. Full migration, distribution and subsequent UX scope remain active.
+
 ## Updated parallel assignments — 2026-10-13
 
 Owner explicitly requests agents working in parallel. Reuse the three existing isolated agents; their assignments below supersede older assignment lists. Full migration and UX/CSS scope and every original parity gate remain active. Current Open/TLS and Proto36 acceptance is already recorded; current app edbbac32 / closure f66eaa2a remains frozen for original full gRPC acceptance.
