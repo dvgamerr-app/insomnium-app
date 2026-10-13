@@ -43,7 +43,7 @@ Meaningful acceptance: deterministic/raw-byte/dedup controls, missing source non
 
 ## Exact inputs, checks and next authority boundary
 
-`current-input-pins.json` records 23 actual root paths with raw sizes/SHA and an after-read rehash: workflow, target consumers/hook, collectors/validator, Tauri config, policy5, package/root lock, actual editor source, CodeMirror raw package/license, pinned CLI metadata, both actual inventories and PLAN/PARITY/STATUS/CI/Linux records. Relevant source bytes are copied only into this owned offer. Product guards must match before future implementation; operational docs are historical context, not forever-frozen executable inputs.
+`current-input-pins.json` records 23 actual root paths with raw sizes/SHA and an after-read rehash: workflow, target consumers/hook, collectors/validator, Tauri config, policy5, package/root lock, actual editor source, CodeMirror raw package/license, pinned CLI metadata, both actual inventories and PLAN/PARITY/STATUS/CI/Linux records. `parser-input-pins.json` additionally binds the existing JSONC parser2.2.1 metadata and five used implementation files. Relevant source bytes are copied only into this owned offer. Product guards must match before future implementation; operational docs are historical context, not forever-frozen executable inputs.
 
 Actual command, terminal 0:
 
