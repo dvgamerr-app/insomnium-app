@@ -22,7 +22,7 @@ export async function validateNativeNotices(target,{projectRoot=nativeRoot,direc
   const projectInputs=await projectIdentity(projectRoot);
   if(JSON.stringify(receipt.projectInputs)!==JSON.stringify(projectInputs)||JSON.stringify(stamp.projectInputs)!==JSON.stringify(projectInputs))throw Error('Native notice project inputs are stale');
   const policy=readPolicy(await fileBytes(join(projectRoot,'tools/native-notices/source-policy.json'))),locked=lockPackages(await fileBytes(join(projectRoot,'src-tauri/Cargo.lock')),policy);
-  if(receipt.schemaVersion!==(policy.schemaVersion===4?3:policy.schemaVersion>=3?2:1))throw Error('Native notice receipt/policy schema mismatch');
+  if(receipt.schemaVersion!==(policy.schemaVersion>=4?3:policy.schemaVersion>=3?2:1))throw Error('Native notice receipt/policy schema mismatch');
   if(!Array.isArray(receipt.packages)||receipt.packages.length!==locked.length)throw Error('Native notice locked package count mismatch');
   const repositorySources=await repositorySourceFiles(policy,projectRoot),blobs=new Map();
   const readBlob=(row,label)=>{digest(row,label);const bytes=files.get('blobs/'+row.sha256);if(!bytes||bytes.length!==row.bytes||sha256(bytes)!==row.sha256)throw Error('Native admitted blob mismatch '+label);blobs.set(row.sha256,bytes);return bytes;};

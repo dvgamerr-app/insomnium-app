@@ -1,3 +1,7 @@
+## Actual policy5 packaging accepted; native embedding and full coverage open — 2026-10-13
+
+Root16376 five stage0+independentrawaudit0+parentcurrent-set recheck acceptsf72/policy5/schema3/project18/closed5origins/tree10 andactual126. 765archives/4localtrees/whole424/header24+4/rawbodydelta +11745; Spectral/public count unchanged. No freshapp/currentOpen/Proto/fullgRPC/installed/signing/linkage/fullcoverage acceptance. Source1319 is runnerclosure only; alloriginalgates retained.
+
 ## Open IDOK snapshot boundary remains open — 2026-10-13
 
 Actual49493 typed filename read succeeds, but14-control snapshot has no admitted IDOK; refuses before path write/visibility operation. v10 re-hide unexercised/zero rows. Independent66859 fullactual profile/Git/layout/source/public-private/runtime/compiled restoration passes; claimreleased/hostexit0. No Open4/currentTLS/Proto36/fullgRPC/platform/notice/linkage/distribution/migration/UX completion; all original gates retained.
