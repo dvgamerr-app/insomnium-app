@@ -1,3 +1,9 @@
+## Curl two test type corrections — 2026-10-13
+
+Topicec46a50; report5d29ebe6f45d9e13384bf7afa7ea9b41fad30dfdca8ace6b1a5731ffb85dcb7f; artifacts/curl-test-types/final/audit.json SHA1c4019bf772238b06e197d7d29f50ce99911d93a5acf6f17f1107ac533a2707c freezes9source/proof files+report. ONLY2eligible annotationfiles: helper1be0->dad702d9; fixture6bd4->1134d229. Rootbeforeguard rehashpassed; exactwholeRAW annotationinverses, exactBuntranspiledJS bytes helper7f82/fixtureb73d andwholemarkup equal; syntax/Svelteparse pass. No executable/default/assertion/style change/no ignores/nocheck. Initialsplitdeclaration equalityrefusal correctedtooriginalgrouping, no tolerance.
+
+Rootproducttyping separatelyowned; Rootfullcheck82852failed46errors/0warnings retained, fullcompiler/SAMEsavedheadlessafter2overlay remainsRootgate. Nobuild/compiler/browser/native/profile/cache/network/Rootactions byagent; handlesnone/profileunclaimed. /compact unavailable explicit handoff; old151/actualpass/failure/typebeforeproofs untouched/fullscope retained, ownSTATUS excludedRoot.
+
 ## Namespace original native failure diagnostics — 2026-10-13
 
 Topicfe5e24d; report218b0279993131a407f5b7b489e234286e613ddbba25a8aa5ef27d2f5b381369. artifacts/namespace-failure-diagnostics/final/audit.json SHAdf54099fe318f5717d52d0ba00e28016dbd0bc084f78e1685464b46436a00c17 freezes7source/metadata/purefiles+report; Rootbeforeca8bccf4/candidate4011e4ac. ExactwholeRAWnativehelperinverse/componentprefix/allassertions/protocol maintained; addedonlyalreadyreadpeer snapshot/preclickcheckpoint/boundedprimaryerror rethrow,7puresyntax pass.
