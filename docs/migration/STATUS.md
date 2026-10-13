@@ -1,3 +1,9 @@
+## Closed24 per-file notice read-only preparation — 2026-10-13
+
+- Report-only topic5bda57db425a115d003de1c80e815a5d8703d57f binds24 exact source/version/archive/path/full-source size+SHA/range-offset+size+SHA identities from prior authentic research. Four raw range blobs:16 selectors MPL-reference notices,4tauri copyright/SPDX headers,4winapi copyright/reference notices. Zero standalone full grants/canonical full licenses inferred; raw bytes preserved, no substitution or operator/whole-library attribution inferred.
+- Proposal policy3 closed24 selectors plus separate receipt2 perFileNotices preserves existing whole-file equality/availability/counts and policy1/2/receipt1 historical47/57/current58/AUTHORS70/future71 boundaries. Lists exact source-body/range/path/unknownrecord/coherent-hash/availability/rollback/dedupe/target negative gates; no implementation authorized here. Binary/nonUTF8/large2799 entries and omitted/perfile/canonical/wholelibrary/targetlinkage/platform/distribution/fullmigration scope remain unknown/open.
+- Evidence artifacts/native-notice-header-proposal includes exact closed dataset/four archives/fullsource+raw ranges. Prior4010676/ecafcd2/13140 and309 proof preserved. No collector/product/test/root/cache/profile/build/native edits/actions; own handles:none. /compact unavailable; report/manifest handoff.
+
 ## Isolated closed two-AUTHORS collector candidate — 2026-10-13
 
 - Topic40106763df85c04e30f3fde979aaf97ce57b0768 offers only collector/validator, schema2 data policy, SAME saved scenario and report. Exact approved r-efi5.3.0/6.0.0 AUTHORS records bind source/name/version/checksum/path/raw size/SHA/kind. No global glob, synthetic/full Apache/LGPL or perfile-header addition. Schema1 exact filename/declaration behavior retained; receipt schema1 keys unchanged, discovery reviewed-authors-license-notice exact against authoritative policy/archive bytes.
