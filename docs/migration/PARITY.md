@@ -1,3 +1,7 @@
+## Parallel preparation is not runtime acceptance — 2026-10-13
+
+Current216+16 headless Proto Field acceptance stays bounded to frontend/model. Headerb0d3488 policy3/receipt2 offer and90/70/57 proofs remain isolated pending independent root review/new current91; old wholetext/gap semantics and historical proofs remain protected. Native current Open/build binding and optional36-row realRust Proto supplement are preparation only until final current source/notice closure, fresh root build/native-hidden runtime and full profile/Git/layout restoration pass. No historical7fa/1019 waiver, OS chooser/AT/physical timing/fullworkflow/fullnotice/platform/fullmigration/UX claim. Every original open gate retained.
+
 ## Pending Proto filename Field ownership boundary — 2026-10-13
 
 Actual root216UI/16model/compiler/shared/build/current1022/sourceaudit accept30previousownership failures corrected, distinctduplicate associations, correction retirement and genericglobal preservation, sixnormal+12validpending exactgeometry/sixlongerror wraps/focuscontract retained. Only localcaption-free Field/privateactualError metadata added; no native/backend/persistence/shareddefault claim. Actual nativeGrpc/OS/AT/platform/heldbackend/fullpane/fullmigration/UX and all original scope remainopen. Historical7fa and1019 preparation do not contain new Field/model delta.

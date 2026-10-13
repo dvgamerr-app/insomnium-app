@@ -1,3 +1,11 @@
+## Three agents resumed with concrete final-source deliverables — 2026-10-13
+
+Current verified topic383b52c/handoff2b8d3cf; source1022, notice352f9d7f. Root native/build/profile handles:none. event_api headerb0d3488/50f5505 final78891-file offer awaits independent review; now prepares intentional generation/fresh-validator runner only. native_provider refreshes Field8c9a/model4ee8 binding architecture, with final notices explicitly pending; no stale1019 acceptance/build. shared_ui implements reviewed81c2f8c optional36-row native Proto supplement in isolation, no launch and original default body reversible. Root owns serial adoption/build/runtimes/full restoration.
+
+Saved browser tests remain shared headless:true; native hosts hidden before CDP/native-hidden. Topic commits and STATUS evidence/gates/handles handoff after each feature. Interface cannot invoke /compact; no compaction claimed. All original migration and subsequent UX gates retained; no full completion claim.
+
+Current verified topic commit: 383b52c (pending Proto filename Field ownership). Evidence: proto-pending-fields-root-proof/root-audit.json; compiler/SAME216+16/shared/build35406 all0. Root handles:none/profile unused. Fresh nativeGrpc/Open selection/OS/AT/headers/fullnotice/platform/fullmigration/UX and all original gates remain open. /compact unavailable; explicit feature handoff recorded.
+
 ## Proto pending filename Field correction accepted on root — 2026-10-13
 
 Root35406 compiler0/0/SAME216+16actualmodel/fullshared/build all0; independent proto-pending-fields-root-proof/root-audit.json verifies original174+42/30priorRED corrected/sixnormal+12validpending exactgeometry/sixlongbounds and retainedfocus/no-steal. Only ProtoManager8c9a/grpc-model4ee8 product changes; privateWeakMap authenticfilename Error, capturedsubmission/request/data/epoch/lifetime ownership, complete-validator correction retains samekind/rows or retires withoutauto-publishing another issue. Context/read/backend/rename/topology genericerrors stayglobal, corrections neverpersist rawinputs. See PROTO-PENDING-FIELDS-ROOT-ACCEPTANCE.md.

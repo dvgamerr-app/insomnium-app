@@ -1,3 +1,16 @@
+## Final-source parallel assignments and serial acceptance — 2026-10-13
+
+Owner authorizes three existing agents in isolated worktrees; root integrates independently. Current verified Proto Field topic383b52c/handoff2b8d3cf and notice352f9d7f remain the baseline.
+
+| Owner | Concrete assignment | Root acceptance gate |
+| --- | --- | --- |
+| event_api | Preserve final header b0d3488/50f5505 offer; prepare saved intentional-generation runner proposal, without rerunning old terminal scenarios or changing root/current resources | Independent 78,891-file proof and code review; owned90, actual hook/new current91, bundle, fresh-process final validator and raw765archive/24range/4blob audit |
+| native_provider | Prepare current Field/model Open/build binding and integration of reviewed native supplement; final header authority remains unresolved until root generation accepted | Final complete source/assets/notices closure, fresh exclusive root build, native-hidden saved Open scenario and complete profile/Git/layout restoration; no1019/7fa exemptions |
+| shared_ui | Implement reviewed optional SAME --proto-fields-native non-Git owned fixture supplement:36 frontend Field/realRust schema/persistence rows; original default body reversible | Frozen guards/static checks reviewed first; actual final-generation root native run with passive real replies and full preservation; CDP file injection is not OS chooser evidence |
+| root | Independent offer/code/evidence review, serial guarded adoption and expensive build/runtime ownership | Commit verified work by topic; STATUS includes commit/evidence/open gates/live handles; /compact when callable, explicit limitation/handoff otherwise |
+
+Agents never modify root/cache/profile or launch native apps. Root freezes all consumed inputs during compiler/build/scenarios and polls the same live handle until authoritative terminal. All browser scenarios use shared launchUiBrowser headless:true/no override; native owned hosts hide before CDP and report native-hidden. Bun only. Original parity/SDK/Event/FIFO/private/platform/distribution/fullnotice/UX gates stay open; redesign remains after migration.
+
 ## Pending filename fields checkpoint; final-source native preparation waits headers — 2026-10-13
 
 Root ownedField/privateError model/current216+16/compiler/shared/build/exactgeometry/wrap audit pass with1022 frozeninputs. No native/profile claim. Review and serially adopt policy3/receipt2 closed24 partialheader candidate after owned90/legacy70/57 terminalproof, preserving fulltext424/1338/1343/41gaps and separatepartial24/4 counters. Deliberate rootgeneration requires freshprocess finalvalidator after module changes, retain cached-validator20654 negative. Then refresh native Open preparation from fullcurrent source/notice receipts and independently build/emit/prelaunch/exclusively run/restoration; no1019 or7fa exemptions. All original scope/featurecommits/STATUS/compact-unavailable handoffs retained.
