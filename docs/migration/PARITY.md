@@ -1,3 +1,7 @@
+## Actual pinned AUTHORS notice boundary — 2026-10-13
+
+Policy2/new352f9d7f actualroot current71/bundle/freshvalidator and independent765rawarchive audit accept exactlytwo rawr-efi AUTHORS origins (1338registry/1343total/424texts/41registry2localgaps/0miss). OldEA21 retained. Wrapper20654 terminal1 cachedvalidator refusal is preserved; fresh finalvalidation0 supplies currentauthority acceptance. These rawnotices contain MIT grants/reference notices, not canonicalfullApache/LGPL or completecoverage/linkage. No newnative emittedcopy/installation/platform/fullmigration/UX claim; all original gates retained.
+
 ## Proto Cancel focus correction boundary — 2026-10-13
 
 Root compiler/SAME138/shared/build/current1019 audit accepts twelve exact-picker Enter-Cancel focus restorations and36 scripted retirement no-steal cases, keeping original102 and six exactnormalgeometry. Current UI declaration inventory unchanged; rawsource CRLF→LF explicitly acknowledged. Invalid preview-path Field/stale validation diagnostics/nativeGrpc/realOS/backend heldapply-remove/AT/platform/fullpane remain open. Historical7fa certificate native app predates Proto delta; every original migration/UX/private/distribution/fullnotice gate retained.

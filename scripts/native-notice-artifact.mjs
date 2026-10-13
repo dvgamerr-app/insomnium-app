@@ -1,6 +1,6 @@
 import {join,resolve} from 'node:path';
 import {spectralPaths} from './spectral-artifact.mjs';
-import {nativeRoot,exactKeys,projectIdentity,readPolicy,lockPackages,buildRecipe,nativeAssets} from './generate-native-notices.mjs';
+import {nativeRoot,exactKeys,projectIdentity,readPolicy,lockPackages,buildRecipe,nativeAssets,sourceNoticeCandidates} from './generate-native-notices.mjs';
 import {sha256,compare,jsonBytes,fileBytes,treeFiles,relativePath,privateArchiveFiles,candidates,validateAdmissionReceipt} from './native-notice-sources.mjs';
 
 const digestPattern=/^[a-f0-9]{64}$/;
@@ -62,12 +62,13 @@ export async function validateNativeNotices(target,{projectRoot=nativeRoot,direc
     if(!authoritative.get('Cargo.toml')?.equals(manifestBytes))throw Error('Native manifest bytes differ from authoritative source');
     const authoritativeVcs=authoritative.get('.cargo_vcs_info.json')??null;
     if((row.vcs!==null)!==Boolean(authoritativeVcs)||row.vcs!==null&&!authoritativeVcs.equals(readBlob(row.vcs,'VCS')))throw Error('Native VCS bytes differ from authoritative source');
-    const expectedPaths=candidates(authoritative,{package:meta});
+    const {paths:expectedPaths,reviewedPaths}=sourceNoticeCandidates(policy,row,authoritative,{package:meta});
     if(JSON.stringify(row.texts.map(t=>t.path))!==JSON.stringify(expectedPaths))throw Error('Native selected text paths differ from authoritative source');
     const paths=new Set();
     for(const text of row.texts) {
       exactKeys(text,['path','discovery','sha256','bytes'],'text');relativePath(text.path);if(paths.has(text.path))throw Error('Duplicate native notice text path');paths.add(text.path);
-      if(!['declared-license-file','filename-candidate','project-license-context'].includes(text.discovery)||text.discovery==='declared-license-file'&&text.path!==row.licenseFile||text.discovery==='project-license-context'&&row.provenance.kind!=='workspace-context')throw Error('Native text discovery mismatch');
+      const expectedDiscovery=text.path===row.licenseFile?'declared-license-file':row.provenance.kind==='workspace-context'?'project-license-context':reviewedPaths.includes(text.path)?'reviewed-authors-license-notice':'filename-candidate';
+      if(text.discovery!==expectedDiscovery)throw Error('Native text discovery mismatch');
       const admitted=readBlob({sha256:text.sha256,bytes:text.bytes},'text');
       if(!authoritative.get(text.path)?.equals(admitted))throw Error('Native text bytes differ from authoritative source');
     }

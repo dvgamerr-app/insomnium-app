@@ -8,15 +8,33 @@ export const nativeRoot=resolve(import.meta.dir,'..');
 const policyPath='tools/native-notices/source-policy.json';
 const modulePaths=['scripts/generate-native-notices.mjs','scripts/native-notice-sources.mjs','scripts/native-notice-artifact.mjs','scripts/tauri-spectral-hook.mjs','scripts/generate-spectral-notices.mjs','scripts/spectral-artifact.mjs','scripts/build-desktop.mjs','src-tauri/tauri.conf.json','.gitignore',policyPath];
 const patchRoots={reqwest:'vendor/reqwest','http-auth':'vendor/http-auth','eventsource-stream':'vendor/eventsource-stream','p12-keystore':'vendor/p12-keystore'};
+const reviewedAuthors=[
+ {source:'registry+https://github.com/rust-lang/crates.io-index',name:'r-efi',version:'5.3.0',checksum:'69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f',path:'AUTHORS',bytes:3693,sha256:'ff92bed461f50338dd703a9ba9aee496a425957873df1d91192776e4bdf5dda7',kind:'authors-license-notice'},
+ {source:'registry+https://github.com/rust-lang/crates.io-index',name:'r-efi',version:'6.0.0',checksum:'f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf',path:'AUTHORS',bytes:3733,sha256:'d027e91dbc9cdbb2f1190068e498bd6b61cff022b6a032b191021ba658d96111',kind:'authors-license-notice'},
+];
 export const scopes=['source-unavailable','filename-declaration-discovery','local-patch-provenance','nested-and-per-file','build-conditions','target-linkage','system-and-toolchain','platform-distribution'];
 export function exactKeys(value, keys, label) {
   if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).sort(compare).join('|')!==[...keys].sort(compare).join('|'))throw Error('Malformed native notice '+label);
 }
 export function readPolicy(bytes) {
   const policy=JSON.parse(Buffer.from(bytes).toString());
-  exactKeys(policy,['schemaVersion','evidenceClass','coverage','completenessBlocksBuild','registrySource','patchRoots','unresolvedScopes'],'policy');
-  if(policy.schemaVersion!==1||policy.evidenceClass!=='cargo-source-corpus-candidate'||policy.coverage!=='incomplete'||policy.completenessBlocksBuild!==false||policy.registrySource!=='registry+https://github.com/rust-lang/crates.io-index'||JSON.stringify(policy.patchRoots)!==JSON.stringify(patchRoots)||JSON.stringify(policy.unresolvedScopes)!==JSON.stringify(scopes))throw Error('Unsupported native notice policy');
+  exactKeys(policy,['schemaVersion','evidenceClass','coverage','completenessBlocksBuild','registrySource','patchRoots','unresolvedScopes',...(policy.schemaVersion===2?['additionalCandidates']:[])],'policy');
+  if(![1,2].includes(policy.schemaVersion)||policy.evidenceClass!=='cargo-source-corpus-candidate'||policy.coverage!=='incomplete'||policy.completenessBlocksBuild!==false||policy.registrySource!=='registry+https://github.com/rust-lang/crates.io-index'||JSON.stringify(policy.patchRoots)!==JSON.stringify(patchRoots)||JSON.stringify(policy.unresolvedScopes)!==JSON.stringify(scopes))throw Error('Unsupported native notice policy');
+  if(policy.schemaVersion===2){
+    if(!Array.isArray(policy.additionalCandidates)||policy.additionalCandidates.length!==reviewedAuthors.length)throw Error('Unsupported native authors candidate policy');
+    for(let at=0;at<reviewedAuthors.length;at++){const row=policy.additionalCandidates[at],expected=reviewedAuthors[at];exactKeys(row,Object.keys(expected),'authors candidate');for(const key of Object.keys(expected))if(row[key]!==expected[key])throw Error('Unsupported native authors candidate policy');}
+  }
   return policy;
+}
+export function sourceNoticeCandidates(policy,identity,files,manifest){
+  const paths=candidates(files,manifest),reviewedPaths=[];
+  for(const rule of policy.additionalCandidates??[]){
+    if(rule.name!==identity.name||rule.version!==identity.version)continue;
+    if(rule.source!==identity.source||rule.checksum!==identity.checksum)throw Error('Native authors candidate source identity mismatch');
+    const bytes=files.get(rule.path);if(!bytes||bytes.length!==rule.bytes||sha256(bytes)!==rule.sha256)throw Error('Native authors candidate raw text mismatch');
+    reviewedPaths.push(rule.path);if(!paths.includes(rule.path))paths.push(rule.path);
+  }
+  return {paths:paths.sort(compare),reviewedPaths};
 }
 export function lockPackages(bytes, policy) {
   const parsed=Bun.TOML.parse(Buffer.from(bytes).toString());
@@ -79,8 +97,8 @@ export async function collectNativeNotices(target, {projectRoot=nativeRoot,cargo
       provenance={kind:'workspace-context',logicalRoot:'src-tauri',contextSHA256:treeDigest(files),reason:'Native manifest and project root LICENSE context; not a whole workspace source-tree receipt.'};
     }
     const manifestBytes=files.get('Cargo.toml');if(!manifestBytes)throw Error('Missing native archive manifest');
-    const meta=parseManifest(manifestBytes,identity), paths=candidates(files,meta), texts=[];
-    for(const path of paths)texts.push({path,discovery:meta.package['license-file']===path?'declared-license-file':provenance.kind==='workspace-context'?'project-license-context':'filename-candidate',...addBlob(files.get(path))});
+    const meta=parseManifest(manifestBytes,identity), {paths,reviewedPaths}=sourceNoticeCandidates(policy,identity,files,meta), texts=[];
+    for(const path of paths)texts.push({path,discovery:meta.package['license-file']===path?'declared-license-file':provenance.kind==='workspace-context'?'project-license-context':reviewedPaths.includes(path)?'reviewed-authors-license-notice':'filename-candidate',...addBlob(files.get(path))});
     if(!texts.length)state='no-candidate-discovered';
     const vcs=files.get('.cargo_vcs_info.json');if(vcs)JSON.parse(vcs.toString());
     packages.push({...identity,provenance,availability:state,availabilityReason:state==='available'?'verified-source-text-candidates':'filename-and-declaration-policy-found-no-candidate',manifest:addBlob(manifestBytes),licenseExpression:meta.package.license??null,licenseFile:meta.package['license-file']??null,repository:meta.package.repository??null,links:meta.package.links??null,vcs:vcs?addBlob(vcs):null,texts});

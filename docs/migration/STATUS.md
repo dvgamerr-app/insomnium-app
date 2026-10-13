@@ -1,3 +1,11 @@
+## Actual closed-two AUTHORS notice generation accepted — 2026-10-13
+
+Root saved70/hook/current71/bundle subprocesses all0; original wrapper20654 terminal1 cached pre-adoption policy1 validator refusal retained. Fresh-process finalvalidation0 and independent native-notice-authors-root-generation/root-audit.json verify actual352f9d7f admission/765rawarchives/exact2r-efi delta/1338registry1343total origins/424texts/0miss/41registry2localgaps. Source1019 frozen, Spectral producer/resources unchanged, oldEA21/767private/resources retained; newgenerated resources/frontend archived. Only4collector/validator/policy/savedtest paths plus reports adopted. See AUTHORS-NOTICES-ROOT-ACCEPTANCE.md.
+
+No syntheticcanonical Apache/LGPL/fullcoverage/linkage or freshnative claim. Historical7fa is oldEA21/preProto. Root handlesnone/profile unused. Proto174/30fieldRED independently reviewed; composition/typedowner design experiment isolated. Open-selection postawait guard proposal a66ff remains unlaunched; next freshcurrent nativebuild after source gates. Perfile24header proposal separate read-only review; every original migration/UX/SDK/Event/FIFO/private/platform/distribution/fullnotice gate retained. /compact unavailable, topic handoff required.
+
+Current verified topic commit: 19f57ce (Proto Cancel focus ownership correction). Evidence: proto-manager-focus-root-proof/root-audit.json; compiler/SAME138/shared/build38104 all0. Root handles:none/profile unused. Field validation/nativeGrpc/OS/AT/platform/fullnotice/fullmigration/UX and all original gates remain open. /compact unavailable; explicit feature handoff recorded.
+
 ## Proto Cancel focus correction accepted on root — 2026-10-13
 
 Root38104 terminal0: compiler0/0/SAME138/fullshared/build all0; independent proto-manager-focus-root-proof/root-audit.json verifies original102/12focus positives/36no-steal controls/six exactnormalgeometry/current1019sources/frontend/ea21 notice. Only ProtoManager product changes; four reusable savedtest paths preserve entire nativeentry. Owner/request/data/collection/epoch/lifetime and BODY/connected/enabled guards retire focus continuation; no Field/error/backend/persistence expansion. CSS declaration text equal under acknowledged CRLF→LF; rawCSS-byte equivalence is not claimed. See PROTO-FOCUS-ROOT-ACCEPTANCE.md.
