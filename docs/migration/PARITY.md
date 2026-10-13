@@ -1,3 +1,7 @@
+## Typed accessibility preparation boundary — 2026-10-13
+
+Normal root csc compilation of v3 DLL/STA helper passes two terminal0 processes and1046 source freeze; binding42b3f10e/console94f97558. No COM/native/selection acceptance yet. Existing emptyEdit refusal remains; semantic read-only integration and actual restored runtime await root. UI durablehelper/CSS and policy5 remain isolated proposals; all original Open/Proto36/gRPC/platform/private/fullnotice/linkage/distribution/migration/UX gates stayOPEN.
+
 ## Partial native Proto client-bound and schema evidence — 2026-10-13
 
 Actual root30393/independent58815 prove three compatibleinteger bounds checks,17darkprofile partialrows and14realRust replies (3rejections/11successes with exactside/base methodscope), fullprotected654/Git13783/resources43/history20/layout5/source-private-public restoration, hiddenhostexit0/release. Actual760 ProtoSourceSelect blocksunforcedLoadmethods; no36/light/fullworkflow acceptance. Rootdefaulthelper077 unchanged pendingdurablemigration, productionCSSfix unadopted. Originalmeasurementnegatives/reviewerrefusals retained. All original Open/Grpc/OS/AT/platform/private/fullnotice/linkage/distribution/fullmigration/UX gates remainOPEN.

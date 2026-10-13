@@ -1,3 +1,10 @@
+## Parallel integration plan after current native measurements — 2026-10-13
+
+1. native_provider: artifact-only SAME saved Open integration of compiled v3 read-only MSAA and local identity diagnostics; preserve original strict matcher/action/stamp oracle. Root alone reviews, freezes runtime, executes native-hidden serially and audits full restoration.
+2. shared_ui: durable integer/clientWidth helper and pre-original-click diagnostic, combined with reviewed local GrpcPane clipping proposal; preserve36cases/normalUI and original source inverses. Root integrates only after old32e diagnostic phase.
+3. event_api: exact policy5 ten-path source adoption/current126/raw-private delta recipe; no root generation/cache changes while native freeze held. Root independently reviews and executes afterward.
+4. Root: commit verified work by topic, record commit/evidence/open gates/live handles in STATUS, hand off for /compact (interface cannot invoke it), then generate current authority/build and serial actual Open/Proto36/originalgRPC verification. All original migration/UX/parity/platform/fullnotice/linkage scope retained.
+
 ## Fix measured gRPC Select hit overflow and migrate the verified helper — 2026-10-13
 
 Actualcb92 root30393 passesintegerclient measurement3profiles/17rows/14Rust replies but exposes760 unforcedLoadmethods pointer interception. Root will independently review UIagent minimal localGrpc Select clipping and headless actualcomponent12/normalgeometry/keyboard/popup/shared checks, then adopt durablehelper integercomparison+productionCSS together with freshcompiler/sourcefreeze/build/currentnative36. Do not forceclick or bypassUIpath. Keep interim11/final14 replies and side/basequalified-service distinctions exact; old32e449 app/proofs remainimmutable. Native Open semantic diagnostics may finishagainstoldapp before currentroot source/notices change; root-only typedinterop compile/identity/boundedownedchild review precedesCOM probe. Futuretauri policy5 gen/validator proposal staysisolated until oldappnativefreeze released. Originalfullscope/topiccommits/STATUS/compact-unavailable handoffs remainrequired.
