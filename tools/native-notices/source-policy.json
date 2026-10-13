@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "evidenceClass": "cargo-source-corpus-candidate",
   "coverage": "incomplete",
   "completenessBlocksBuild": false,
@@ -448,7 +448,9 @@
       "licenseSHA256": "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73",
       "licenseBytes": 1067,
       "licenseURL": "https://raw.githubusercontent.com/wravery/webview2-rs/dffa41a8a46d3f5565eefbff2de57d38d399f158/LICENSE",
-      "kind": "repository-license-at-published-commit"
+      "kind": "repository-license-at-published-commit",
+      "declaredLicense": "MIT",
+      "licensePath": "LICENSE"
     },
     {
       "source": "registry+https://github.com/rust-lang/crates.io-index",
@@ -469,7 +471,9 @@
       "licenseSHA256": "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73",
       "licenseBytes": 1067,
       "licenseURL": "https://raw.githubusercontent.com/wravery/webview2-rs/edc2caf886175ccaebe86078c9cfe1ae2a187328/LICENSE",
-      "kind": "repository-license-at-published-commit"
+      "kind": "repository-license-at-published-commit",
+      "declaredLicense": "MIT",
+      "licensePath": "LICENSE"
     },
     {
       "source": "registry+https://github.com/rust-lang/crates.io-index",
@@ -490,7 +494,55 @@
       "licenseSHA256": "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73",
       "licenseBytes": 1067,
       "licenseURL": "https://raw.githubusercontent.com/wravery/webview2-rs/edc2caf886175ccaebe86078c9cfe1ae2a187328/LICENSE",
-      "kind": "repository-license-at-published-commit"
+      "kind": "repository-license-at-published-commit",
+      "declaredLicense": "MIT",
+      "licensePath": "LICENSE"
+    },
+    {
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "name": "tauri-plugin",
+      "version": "2.7.0",
+      "checksum": "c9ff3ebb9fda56ceb93d46f6cbb126bae82951bf43498543a5163dde5def49a1",
+      "repository": "https://github.com/tauri-apps/tauri",
+      "commit": "447fa9f3f993fe77724189e355078b38ce20baea",
+      "pathInVcs": "crates/tauri-plugin",
+      "vcsSHA256": "b0e43c3b243b05d7d2d6a862aef9e0fd0173fd09a27e4c84651f77c80ebdc9ab",
+      "manifestSHA256": "05d4f0e4fe8a1d2c7ddabff0fe6b87688c54f5d0b230af617d666ea692796947",
+      "packageManifestSHA256": "41b5c8fdd6494e98c73563f5d989dbc3f741841744f561acc7abf73039d71848",
+      "packageManifestBytes": 1048,
+      "packageManifestURL": "https://raw.githubusercontent.com/tauri-apps/tauri/447fa9f3f993fe77724189e355078b38ce20baea/crates/tauri-plugin/Cargo.toml",
+      "workspaceSHA256": "f6eab0a90a5ab759040c82f16e9507c1c8425422667ec642eb722c7f973df41d",
+      "workspaceBytes": 2953,
+      "workspaceURL": "https://raw.githubusercontent.com/tauri-apps/tauri/447fa9f3f993fe77724189e355078b38ce20baea/Cargo.toml",
+      "licenseSHA256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+      "licenseBytes": 10174,
+      "licenseURL": "https://raw.githubusercontent.com/tauri-apps/tauri/447fa9f3f993fe77724189e355078b38ce20baea/LICENSE-APACHE-2.0",
+      "kind": "repository-license-at-published-commit",
+      "declaredLicense": "Apache-2.0 OR MIT",
+      "licensePath": "LICENSE-APACHE-2.0"
+    },
+    {
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "name": "tauri-plugin",
+      "version": "2.7.0",
+      "checksum": "c9ff3ebb9fda56ceb93d46f6cbb126bae82951bf43498543a5163dde5def49a1",
+      "repository": "https://github.com/tauri-apps/tauri",
+      "commit": "447fa9f3f993fe77724189e355078b38ce20baea",
+      "pathInVcs": "crates/tauri-plugin",
+      "vcsSHA256": "b0e43c3b243b05d7d2d6a862aef9e0fd0173fd09a27e4c84651f77c80ebdc9ab",
+      "manifestSHA256": "05d4f0e4fe8a1d2c7ddabff0fe6b87688c54f5d0b230af617d666ea692796947",
+      "packageManifestSHA256": "41b5c8fdd6494e98c73563f5d989dbc3f741841744f561acc7abf73039d71848",
+      "packageManifestBytes": 1048,
+      "packageManifestURL": "https://raw.githubusercontent.com/tauri-apps/tauri/447fa9f3f993fe77724189e355078b38ce20baea/crates/tauri-plugin/Cargo.toml",
+      "workspaceSHA256": "f6eab0a90a5ab759040c82f16e9507c1c8425422667ec642eb722c7f973df41d",
+      "workspaceBytes": 2953,
+      "workspaceURL": "https://raw.githubusercontent.com/tauri-apps/tauri/447fa9f3f993fe77724189e355078b38ce20baea/Cargo.toml",
+      "licenseSHA256": "9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d",
+      "licenseBytes": 1090,
+      "licenseURL": "https://raw.githubusercontent.com/tauri-apps/tauri/447fa9f3f993fe77724189e355078b38ce20baea/LICENSE-MIT",
+      "kind": "repository-license-at-published-commit",
+      "declaredLicense": "Apache-2.0 OR MIT",
+      "licensePath": "LICENSE-MIT"
     }
   ]
 }
