@@ -1,3 +1,9 @@
+## Old shared-ui tracked snapshot review — 2026-10-13
+
+Topic8b6e185; report AGENT-OLD-SHARED-UI-REVIEW-20261013.md SHAcef1b91582ae96551aab1872439039d073933cdfd1b069c22e2c77859fcedebf. artifacts/old-shared-ui-review/final/audit.json SHA6f92d35c837b4bc1ee43c290c4976ba3c619fa080ccd75c0f451f82e3c18db83 freezes19comparison/diff files+report; all18 requestedpeer/main RAWpins rehashed before/after, nonewholeLFidentical. Uniqueusefulunmergedcode found:0 inthisboundedscope, no patch. OldHEAD25fa dirtycopies superseded bymain structural18cb/external2849148/eventFocusInputWheel/packaging anddensefield harness topics; no broadoldRust/config/docs overlay. Untrackedoldfiles notaudited/retainedlocal.
+
+No Rootwrites/browser/native/build/compiler/profile/cache/remotes; handles:none/profileunclaimed. Currentedbb/f66 unchangedbyagent. ParentCurlV2 sixprofilepass49716/46096 acknowledged,151proof/sourceimmutable/adoptionafternamespace. Fullmigration/UI/AT/OS/originalgRPC/provenance scope notclosed. /compact unavailable explicit handoff; ownSTATUS excludedRoot.
+
 ## Curl long feedback V2 — 2026-10-13
 
 Topic8711cc2; reportcb9931183864a0aa2675166cb505b770f2db3b23231712bfec2c90050b30676c. Root actual149 headless run1791905406188 exit1 atunchangedlongerrorparentbounds, screenshot unbrokenoverflow, no oldrawbounds. Original149/launcher/failure untouched. New151proof artifacts/curl-file-owned-v2/final/audit.json SHA8b1ea389e707185b2927ed25f7b45fcf6ffda77d763dc09c8b8ef48a616b8d53; ONLYcomponent4ee45e36 localfourerrorCSSdeclarations andhelper1be0c766 preassertboundsdiagnostics changed, precisewholeV1inverses/34pure-syntax pass. Allold assertions maintained; no tolerance/crop/forceclick/globalstyle/tokenchange.
