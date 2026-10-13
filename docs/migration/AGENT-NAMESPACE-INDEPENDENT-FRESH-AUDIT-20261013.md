@@ -1,0 +1,7 @@
+# Namespace independent fresh terminal audit
+
+Source-only separate Root actor. Copy six source/proof files to artifacts/namespace-independent-fresh-audit-root after hashes reviewed. With actual binding SHA and INSOMNIUM_NAMESPACE_NATIVE_RUN=reviewed-current-namespace-fields, Root runs bun artifacts/namespace-independent-fresh-audit-root/cli.mjs --audit-reviewed-namespace-terminal only AFTER original operator terminal. No process spawn, retry, claim rewrite or release.
+
+CLI pins original bound sources/tools/all nonliteral dependencies and new audit module BEFORE imports. It requires original run exit0/no failure, physically error-free receipt, terminal held claim and no original claim failures. Saved nohosts/currentCommon/package/source gates stay. Original audit body is byte-exact after reversing five imports to unchanged Root stage and ONE output filename: independent-filesystem-after.json becomes independent-fresh-filesystem-after.json. Root receives independent-fresh-audit.json at original run dir with wx; original independent-audit.json and claim remain untouched. All original20/additive88/cases/history/timestamps/fixture/full656/654/Git/43-20/layout/physical required-child predicates remain. Failure cannot mask original failure; separate release remains original actor.
+
+Pure refusal8, syntax3 and whole original audit inverse passed. No agent Root/native/profile/cache/browser/build actions or handles. Actual Root audit/serial release pending. /compact unavailable; frozen handoff.
