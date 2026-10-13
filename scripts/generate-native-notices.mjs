@@ -12,19 +12,38 @@ const reviewedAuthors=[
  {source:'registry+https://github.com/rust-lang/crates.io-index',name:'r-efi',version:'5.3.0',checksum:'69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f',path:'AUTHORS',bytes:3693,sha256:'ff92bed461f50338dd703a9ba9aee496a425957873df1d91192776e4bdf5dda7',kind:'authors-license-notice'},
  {source:'registry+https://github.com/rust-lang/crates.io-index',name:'r-efi',version:'6.0.0',checksum:'f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf',path:'AUTHORS',bytes:3733,sha256:'d027e91dbc9cdbb2f1190068e498bd6b61cff022b6a032b191021ba658d96111',kind:'authors-license-notice'},
 ];
+const headerKeys=['source','name','version','checksum','path','sourceBytes','sourceSHA256','offset','bytes','sha256','kind','classification','containsCanonicalFullLicense','containsStandaloneFullGrant'];
+const reviewedHeaderDigest='76737a4318e88b58dd9917c9e86e5749dd487c8c0a5aa5c785ae01bf9135bb3f';
 export const scopes=['source-unavailable','filename-declaration-discovery','local-patch-provenance','nested-and-per-file','build-conditions','target-linkage','system-and-toolchain','platform-distribution'];
 export function exactKeys(value, keys, label) {
   if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).sort(compare).join('|')!==[...keys].sort(compare).join('|'))throw Error('Malformed native notice '+label);
 }
 export function readPolicy(bytes) {
   const policy=JSON.parse(Buffer.from(bytes).toString());
-  exactKeys(policy,['schemaVersion','evidenceClass','coverage','completenessBlocksBuild','registrySource','patchRoots','unresolvedScopes',...(policy.schemaVersion===2?['additionalCandidates']:[])],'policy');
-  if(![1,2].includes(policy.schemaVersion)||policy.evidenceClass!=='cargo-source-corpus-candidate'||policy.coverage!=='incomplete'||policy.completenessBlocksBuild!==false||policy.registrySource!=='registry+https://github.com/rust-lang/crates.io-index'||JSON.stringify(policy.patchRoots)!==JSON.stringify(patchRoots)||JSON.stringify(policy.unresolvedScopes)!==JSON.stringify(scopes))throw Error('Unsupported native notice policy');
-  if(policy.schemaVersion===2){
+  exactKeys(policy,['schemaVersion','evidenceClass','coverage','completenessBlocksBuild','registrySource','patchRoots','unresolvedScopes',...([2,3].includes(policy.schemaVersion)?['additionalCandidates']:[]),...(policy.schemaVersion===3?['sourceHeaderCandidates']:[])],'policy');
+  if(![1,2,3].includes(policy.schemaVersion)||policy.evidenceClass!=='cargo-source-corpus-candidate'||policy.coverage!=='incomplete'||policy.completenessBlocksBuild!==false||policy.registrySource!=='registry+https://github.com/rust-lang/crates.io-index'||JSON.stringify(policy.patchRoots)!==JSON.stringify(patchRoots)||JSON.stringify(policy.unresolvedScopes)!==JSON.stringify(scopes))throw Error('Unsupported native notice policy');
+  if([2,3].includes(policy.schemaVersion)){
     if(!Array.isArray(policy.additionalCandidates)||policy.additionalCandidates.length!==reviewedAuthors.length)throw Error('Unsupported native authors candidate policy');
     for(let at=0;at<reviewedAuthors.length;at++){const row=policy.additionalCandidates[at],expected=reviewedAuthors[at];exactKeys(row,Object.keys(expected),'authors candidate');for(const key of Object.keys(expected))if(row[key]!==expected[key])throw Error('Unsupported native authors candidate policy');}
   }
+  if(policy.schemaVersion===3){
+    if(!Array.isArray(policy.sourceHeaderCandidates)||policy.sourceHeaderCandidates.length!==24)throw Error('Unsupported native header candidate policy');
+    const canonical=policy.sourceHeaderCandidates.map(row=>{exactKeys(row,headerKeys,'header candidate');return Object.fromEntries(headerKeys.map(key=>[key,row[key]]));});
+    if(sha256(jsonBytes(canonical))!==reviewedHeaderDigest)throw Error('Unsupported native header candidate policy');
+  }
   return policy;
+}
+export function sourceHeaderNotices(policy,identity,files){
+  const notices=[],blobs=new Map();
+  for(const rule of policy.sourceHeaderCandidates??[]){
+    if(rule.name!==identity.name||rule.version!==identity.version)continue;
+    if(rule.source!==identity.source||rule.checksum!==identity.checksum)throw Error('Native header source identity mismatch');
+    const source=files.get(rule.path);if(!source||source.length!==rule.sourceBytes||sha256(source)!==rule.sourceSHA256)throw Error('Native header full source mismatch');
+    if(!Number.isSafeInteger(rule.offset)||!Number.isSafeInteger(rule.bytes)||rule.offset<0||rule.bytes<1||rule.offset+rule.bytes>source.length)throw Error('Native header range mismatch');
+    const range=source.subarray(rule.offset,rule.offset+rule.bytes);if(sha256(range)!==rule.sha256)throw Error('Native header range mismatch');
+    notices.push({path:rule.path,discovery:'reviewed-per-file-source-notice',classification:rule.classification,source:{sha256:rule.sourceSHA256,bytes:rule.sourceBytes},range:{offset:rule.offset,sha256:rule.sha256,bytes:rule.bytes}});blobs.set(rule.sha256,range);
+  }
+  return {notices,blobs};
 }
 export function sourceNoticeCandidates(policy,identity,files,manifest){
   const paths=candidates(files,manifest),reviewedPaths=[];
@@ -82,7 +101,7 @@ export async function collectNativeNotices(target, {projectRoot=nativeRoot,cargo
     let files, provenance, state='available';
     if(identity.source!==null) {
       const archive=await registryArchive(cargoHome,identity.name,identity.version);
-      if(archive===null) {packages.push({...identity,provenance:null,availability:'source-unavailable',availabilityReason:'registry-archive-not-present-in-local-cache',manifest:null,licenseExpression:null,licenseFile:null,repository:null,links:null,vcs:null,texts:[]});continue;}
+      if(archive===null) {packages.push({...identity,provenance:null,availability:'source-unavailable',availabilityReason:'registry-archive-not-present-in-local-cache',manifest:null,licenseExpression:null,licenseFile:null,repository:null,links:null,vcs:null,texts:[],...(policy.schemaVersion===3?{perFileNotices:[]}: {})});continue;}
       if(sha256(archive)!==identity.checksum)throw Error('Native archive lock checksum mismatch: '+identity.name);
       files=archiveFiles(archive,identity.name+'-'+identity.version);
       await retainPrivateArchive(projectRoot,identity.checksum,archive);
@@ -101,11 +120,12 @@ export async function collectNativeNotices(target, {projectRoot=nativeRoot,cargo
     for(const path of paths)texts.push({path,discovery:meta.package['license-file']===path?'declared-license-file':provenance.kind==='workspace-context'?'project-license-context':reviewedPaths.includes(path)?'reviewed-authors-license-notice':'filename-candidate',...addBlob(files.get(path))});
     if(!texts.length)state='no-candidate-discovered';
     const vcs=files.get('.cargo_vcs_info.json');if(vcs)JSON.parse(vcs.toString());
-    packages.push({...identity,provenance,availability:state,availabilityReason:state==='available'?'verified-source-text-candidates':'filename-and-declaration-policy-found-no-candidate',manifest:addBlob(manifestBytes),licenseExpression:meta.package.license??null,licenseFile:meta.package['license-file']??null,repository:meta.package.repository??null,links:meta.package.links??null,vcs:vcs?addBlob(vcs):null,texts});
+    const headers=sourceHeaderNotices(policy,identity,files);for(const bytes of headers.blobs.values())addBlob(bytes);
+    packages.push({...identity,provenance,availability:state,availabilityReason:state==='available'?'verified-source-text-candidates':'filename-and-declaration-policy-found-no-candidate',manifest:addBlob(manifestBytes),licenseExpression:meta.package.license??null,licenseFile:meta.package['license-file']??null,repository:meta.package.repository??null,links:meta.package.links??null,vcs:vcs?addBlob(vcs):null,texts,...(policy.schemaVersion===3?{perFileNotices:headers.notices}: {})});
   }
   // Refuse a mixed generation if project/source trees changed while collecting.
   if(JSON.stringify(projectInputs)!==JSON.stringify(await projectIdentity(projectRoot)))throw Error('Native notice project changed during collection');
-  const receipt={schemaVersion:1,target,buildRecipe:buildRecipe(mode),projectInputs,packages};
+  const receipt={schemaVersion:policy.schemaVersion===3?2:1,target,buildRecipe:buildRecipe(mode),projectInputs,packages};
   return {receipt,blobs};
 }
 export function nativeAssets(receipt, blobs) {
@@ -116,8 +136,12 @@ export function nativeAssets(receipt, blobs) {
   }
   const texts=[...references.values()].sort((a,b)=>compare(a.sha256,b.sha256));
   for(const text of texts)chunks.push(Buffer.from('\n=== Source text SHA256 '+text.sha256+'; origins '+text.origins.map(o=>o.name+'@'+o.version+'/'+o.path).join(', ')+' ===\n'),blobs.get(text.sha256),Buffer.from('\n'));
-  const inventory={schemaVersion:1,evidenceClass:'cargo-source-corpus-candidate',coverage:'incomplete',completenessBlocksBuild:false,targetLinkage:'unproven',receiptSHA256:sha256(jsonBytes(receipt)),lockIdentities:receipt.packages.length,packages:receipt.packages,texts,unresolvedScopes:scopes};
+  const headerReferences=new Map();
+  if(receipt.schemaVersion===2)for(const row of receipt.packages)for(const notice of row.perFileNotices){const origin={packageId:row.id,name:row.name,version:row.version,path:notice.path,discovery:notice.discovery,classification:notice.classification,source:notice.source,offset:notice.range.offset,provenance:row.provenance};const entry=headerReferences.get(notice.range.sha256)??{sha256:notice.range.sha256,bytes:notice.range.bytes,blobPath:'blobs/'+notice.range.sha256,origins:[]};entry.origins.push(origin);headerReferences.set(notice.range.sha256,entry);}
+  const perFileNotices=[...headerReferences.values()].sort((a,b)=>compare(a.sha256,b.sha256));
+  const inventory={schemaVersion:receipt.schemaVersion,evidenceClass:'cargo-source-corpus-candidate',coverage:'incomplete',completenessBlocksBuild:false,targetLinkage:'unproven',receiptSHA256:sha256(jsonBytes(receipt)),lockIdentities:receipt.packages.length,packages:receipt.packages,texts,unresolvedScopes:scopes,...(receipt.schemaVersion===2?{perFileNotices,perFileNoticeOrigins:perFileNotices.reduce((n,h)=>n+h.origins.length,0),perFileNoticeBlobCount:perFileNotices.length}: {})};
   const assets=new Map([['collection-inputs.json',jsonBytes(receipt)],['inventory.json',jsonBytes(inventory)],['THIRD_PARTY_NOTICES.txt',Buffer.concat(chunks)]]);
+  if(receipt.schemaVersion===2){const partial=[Buffer.from('Insomnium exact per-file source notices\nPartial references/identifiers/attribution; no full-license or target-linkage claim.\n')];for(const notice of perFileNotices)partial.push(Buffer.from('\n=== Raw source notice SHA256 '+notice.sha256+'; origins '+notice.origins.map(o=>o.name+'@'+o.version+'/'+o.path+' byte'+o.offset).join(', ')+' ===\n'),blobs.get(notice.sha256),Buffer.from('\n'));assets.set('PER_FILE_SOURCE_NOTICES.txt',Buffer.concat(partial));}
   for(const [sha,bytes] of [...blobs].sort(([a],[b])=>compare(a,b)))assets.set('blobs/'+sha,bytes);
   return assets;
 }

@@ -1,3 +1,7 @@
+## Closed24 partial source notices current-root boundary — 2026-10-13
+
+Actual28a86218b1807fd1f3537183a75074b08a4b14bb440a42d651bb48d1f1ce4057 policy3/receipt2/new1961resources independently pass root90/current91/hook/bundle/freshprocess validator/raw765archive/fourlocalpatch/24range/fourblob/fullwholefile bytes/exactprivate-set audit. Wholetext424/1338/1343and41registry2localgaps stay unchanged; partial reference/SPDX/attribution is separate and does not prove canonical full licenses/linkage/fullcoverage. Source1023/frontend49 frozen; native emittedcopy/currentOpen/Grpc/OS/AT/platform/signing/distribution/fullmigration/UX and every original gate remainopen. Historical old352/70/71/57/58/20654negative preserved.
+
 ## Parallel preparation is not runtime acceptance — 2026-10-13
 
 Current216+16 headless Proto Field acceptance stays bounded to frontend/model. Headerb0d3488 policy3/receipt2 offer and90/70/57 proofs remain isolated pending independent root review/new current91; old wholetext/gap semantics and historical proofs remain protected. Native current Open/build binding and optional36-row realRust Proto supplement are preparation only until final current source/notice closure, fresh root build/native-hidden runtime and full profile/Git/layout restoration pass. No historical7fa/1019 waiver, OS chooser/AT/physical timing/fullworkflow/fullnotice/platform/fullmigration/UX claim. Every original open gate retained.

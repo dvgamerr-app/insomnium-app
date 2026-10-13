@@ -1,3 +1,7 @@
+## Current header authority accepted; final native harness next — 2026-10-13
+
+New28a86218b1807fd1f3537183a75074b08a4b14bb440a42d651bb48d1f1ce4057 policy3/receipt2 root90/hook/current91/bundle/freshvalidator/rawaudit accepted with1023inputs/1961resources. Preserve424/1338/1343wholefile and separate24/4partial scopes/old352/private/history. Next review shared_ui optional36 native Proto helper and exact originaldefault-body reversal; adopt reviewed harness/source imports before final nativefreeze. Then native_provider produces NEW explicit finalsource map/count/header receipts and Open/build binding; root independently reviews, builds one fresh current app and runs Open then separate Proto native-hidden host serially with fullprofile/Git/layout restoration. Never use1019/7fa exceptions or source changes during checks/build/runtimes. All original migration/UX/fullnotice and perfeaturecommit/STATUS/compact-unavailable handoff requirements retained.
+
 ## Final-source parallel assignments and serial acceptance — 2026-10-13
 
 Owner authorizes three existing agents in isolated worktrees; root integrates independently. Current verified Proto Field topic383b52c/handoff2b8d3cf and notice352f9d7f remain the baseline.
