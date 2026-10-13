@@ -5,7 +5,7 @@
   import Textarea from "./ui/Textarea.svelte";
   import Button from "./ui/Button.svelte";
   import Input from "./ui/Input.svelte";
-  import { onDestroy } from "svelte";
+  import { onDestroy, tick } from "svelte";
   import Icon from "./Icon.svelte";
   import {
     workspace as app,
@@ -26,7 +26,13 @@
   import { workspaceFor } from "../model.js";
   /** @type {{request:Record<string,any>}} */ let { request } = $props();
   const fileWork = createWorkspaceWorkScope();
-  onDestroy(fileWork.dispose);
+  let disposed = false;
+  onDestroy(() => {
+    disposed = true;
+    fileWork.dispose();
+  });
+  /** @type {{input:HTMLInputElement,data:typeof app.data,collectionId:string,requestId:string,version:number}|null} */
+  let pickerOwner = null;
   /** @type {typeof app.data|null} */ let pendingData = null;
   let pendingRequest = "";
   let error = $state(""),
@@ -61,7 +67,11 @@
       return null;
     }
   });
-  function discard() {
+  async function discard(/** @type {MouseEvent} */ event) {
+    const owner = pickerOwner;
+    const restore = document.activeElement === event.currentTarget &&
+      owner?.version === epoch;
+    pickerOwner = null;
     fileWork.cancel();
     pendingData = null;
     epoch++;
@@ -69,6 +79,15 @@
     targetId = "";
     reading = false;
     error = "";
+    const cancelledVersion = epoch;
+    await tick();
+    if (restore && owner && !disposed && epoch === cancelledVersion &&
+      owner.data === app.data && owner.collectionId === app.data.activeWorkspaceId &&
+      owner.requestId === request._id &&
+      owner.input.isConnected && !owner.input.disabled &&
+      document.activeElement === document.body) {
+      owner.input.focus({ preventScroll: true });
+    }
   }
   async function choose(
     /** @type {Event} */ event,
@@ -79,6 +98,7 @@
       version = ++epoch;
     fileWork.cancel();
     const selectedRequest = request._id;
+    pickerOwner = { input, data: app.data, collectionId: app.data.activeWorkspaceId, requestId: selectedRequest, version };
     /** @type {import("../workspace.svelte.js").ScopedWorkspaceWork|undefined} */ let work;
     reading = true;
     error = "";

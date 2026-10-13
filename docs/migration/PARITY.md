@@ -1,3 +1,7 @@
+## Proto Cancel focus correction boundary — 2026-10-13
+
+Root compiler/SAME138/shared/build/current1019 audit accepts twelve exact-picker Enter-Cancel focus restorations and36 scripted retirement no-steal cases, keeping original102 and six exactnormalgeometry. Current UI declaration inventory unchanged; rawsource CRLF→LF explicitly acknowledged. Invalid preview-path Field/stale validation diagnostics/nativeGrpc/realOS/backend heldapply-remove/AT/platform/fullpane remain open. Historical7fa certificate native app predates Proto delta; every original migration/UX/private/distribution/fullnotice gate retained.
+
 ## Current certificate native/TLS and cancellation boundary — 2026-10-13
 
 Actual7fa8/ea21 native-hidden16573 plus independent root audit verify59checks/14TLS+44collection cases/4real ownedchooser cancellations and full protected profile/Git/current+legacy layout restoration. Fresh actual emitted noticecopy1954/private767/source1022 closure passes; sourcecorpus notice coverage/linkage remains incomplete. Cancellation is authenticated WM_CLOSE/owned-list absence/actual settlement, not physicaluser/selection/IsWindow destruction/zero flash/otherplatform. CoalescedABA/save settlement/AT/otherworkflow/installedsigned/fullnotice/fullmigration/UX and all original scope remain open.
