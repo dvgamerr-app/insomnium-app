@@ -1,3 +1,11 @@
+## Actual native Proto long-field diagnostic preparation — 2026-10-13
+
+Topic3796f6aaf501b145a388791430770b2da9807ff7; report AGENT-PROTO-NATIVE-BOUNDS-DIAGNOSTIC-20261013.md SHAe4ca1f3fa5e9e43e75f473846bbd8ae4582d84fd92c047d4c799022a842d6e83. Root37369 actualnegative: firstdark1440 threeFieldrows, trace[], longbounds assertionfailsbeforepersistingbounds, noRustrows/36acceptance. Rootownedhostexit0/fullrestorationreported; screenshot afterfacadelayoutrestore notfailedgeometry. Cannotdetermine actualCSSoverflow vs integer/fractionalrounding withoutvalues.
+
+Artifact SAMEhelperaa4facd1144fd45fec8c584760896440643ab30c2eb99863b5a4bc2cffb63333 adds onlypreassert read-only geometryJSON+threeactualrootimportrebases; EXACToldassertion andwhole077RAWinverse retained. Bun syntax1/wrongcwdrefusal/22rootconsumedguards pass;6rawnegativecopies immutable. Final artifacts/proto-native-bounds-diagnostic/final/audit.json SHAf100553a34223d37b22c2615d2d1161fb08eda6127ccf2ff4f55799a0645d3f8 verifies42files. Roothelper077/entry8fc/product/compiled1046 unchanged. Actualdiagnosticrerun/root-reviewed supplement/fullrestore/actual36 remainOPEN; noassertionrelaxation/CSSfix.
+
+Handles:none/profileunclaimed; no native/profile/build/cache/root actions. Originalgrpc nonrunnableprototype paused/frozen. /compact unavailable; explicit diagnostic handoff/no compactionclaim. OwnSTATUS excludedrootoverlay.
+
 ## Isolated original gRPC restoration prototype — 2026-10-13
 
 Topic006bba5d5e75d305bf6c54ec19ccaf209acc115f; onlyreport AGENT-GRPC-RESTORATION-PROTOTYPE-20261013.md tracked/offered SHA62207db6f1e4eae9c5a755872a5c573e2300c9fe37708d6d17c080402d7eb671. Artifact prototype/final/audit.json SHAa18fbc49c3da7c7bbed8984225c14714dae946d4280232e01f100b2c80023f78 rehashes10 files/rootGit9861/rootentry8fc unchanged. Clone optional awaited before-firstsave/init and actualinit/commit observations, originalwholeLF inverse; artifactnativeentry wholeRAW import-only inverse. Pure ownership planning/syntax4/30negative guards pass. Planrunnable:false/bridgeexplicitrefusalonly, no native/profile/build/cache/marker/move/delete executed.
