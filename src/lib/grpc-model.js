@@ -11,6 +11,14 @@ import {
 export const protoFileLimit = 2 * 1024 * 1024;
 export const protoTotalLimit = 8 * 1024 * 1024;
 const utf8 = new TextEncoder();
+/** @typedef {{kind:'invalid-name'|'duplicate-name',name:string,rows:readonly number[]}} ProtoFilenameIssue */
+/** @type {WeakMap<Error,Readonly<ProtoFilenameIssue>>} */
+const filenameIssues = new WeakMap();
+/** Only errors created at the authoritative filename validation branch own fields.
+ * @param {unknown} error */
+export function protoFilenameIssue(error) {
+  return error instanceof Error ? filenameIssues.get(error) ?? null : null;
+}
 
 /** @param {unknown} name */
 export function validProtoName(name) {
@@ -112,13 +120,17 @@ export function validateProtoFiles(files) {
     throw new Error("Select between 1 and 256 proto files.");
   let total = 0;
   const seen = new Set();
-  for (const file of files) {
-    if (
-      !validProtoName(file.name) ||
-      !file.name.endsWith(".proto") ||
-      seen.has(file.name)
-    )
-      throw new Error(`Invalid or duplicate proto filename: ${file.name}`);
+  for (const [index, file] of files.entries()) {
+    const invalidName = !validProtoName(file.name) || !file.name.endsWith(".proto");
+    if (invalidName || seen.has(file.name)) {
+      const error = new Error(`Invalid or duplicate proto filename: ${file.name}`);
+      filenameIssues.set(error, Object.freeze({
+        kind: invalidName ? "invalid-name" : "duplicate-name",
+        name: file.name,
+        rows: Object.freeze(invalidName ? [index] : [files.findIndex((row) => row.name === file.name), index]),
+      }));
+      throw error;
+    }
     seen.add(file.name);
     const bytes = utf8.encode(file.text).length;
     total += bytes;
