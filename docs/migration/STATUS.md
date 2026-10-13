@@ -1,3 +1,11 @@
+## Independent actual Proto36 result audit — 2026-10-13
+
+Topic1d8b5ff; report AGENT-PROTO36-RESULT-AUDITOR-20261013.md SHAe97d73048dd4dd89dd4d97b9f60642689408da4b22a6f504b57853d3aeee989b. Source-derived6profiles×6orderedkinds=36,30Rust replies=6parserreject+24success(base/sidevalidate+autoRefresh+explicitunforcedLoad/profile); map6de873 from exactae439/162b/f66 source snapshots, notoutputsubsets. Auditor004aee actualreadonly caseaudit passes36/30/exactqualifiedbackendEcho+input/output/example/noarbitraryerror/sixclient-parentgeometry/sixBUTTONhits/registry+sourceassertednative-diskreload.
+
+RootnativePID63144 exit0/native-hidden and rootindependent16418 fullcurrent1065/protected656incl654/Git13783/resource43/history20/layout5/retainedPIDwait258→0/handleclosed receipts verified readonly. Ownactual-complete-pre-release07e950 passes70reads(all39rootrestoration receipt hashes). Final artifacts/proto36-result-auditor/final/audit.json SHAf173384bcf366ab636ce22bc0cf6d1057d55cbdbdd6d781330095223b1a50149 independent61selectedfile rehash/source+rawreceipts/prior30 unchanged. Syntax6/pure28refusals pass; releasedpositive SYNTHETIConly.
+
+ActualoperatorClaimReleased:false while originalheldclaimimmutable; Root independentlyreviews/rerunspre-release thennewprofile-release.json separately. Agentneverreleases/launches/readsactualprofile/cache/build/compiler/rootmutations. No dedicatedrawper-casepersistedworkspace/disk/finalDOMoptionreceipts fabricated; sourceassertedpersistence vsbackendqualifiedpath limits retained. FulloriginalgRPC/provenance/quarantine/platform/physicalRustentry/unobservedbirth/OS/AT/hardFS/fullmigrationOPEN. Handles:none/profileunclaimedbyagent. /compact unavailable; explicit featurehandoff/no compactionclaim. OwnSTATUS excluded root overlay.
+
 ## Current native Proto36 source-only operator proposal — 2026-10-13
 
 Topic9135756; report AGENT-PROTO36-CURRENT-RUNTIME-20261013.md SHA9ad54323a7cbf48eccc4285c7ead616094ce22fda55b3069941527502863b1e1. Rootdefaulthelper162b remains RAW unchanged; offeredhelperae439 changesONLY3imports+facadepath with wholeRAW inverse, retains all36/clientWidth/unforcedclick/realRust/disk/reload assertions. Historicalfacadec62 immutable. Newfacade2016/authority90a3/physical8534/operator sourceonly rootserial/native-hidden/full654+13783/43resources20history/layout5 and observedPIDexit proofs.
