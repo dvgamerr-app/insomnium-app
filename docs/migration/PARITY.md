@@ -1,3 +1,7 @@
+## Three authentic repository LICENSE origins current-root boundary — 2026-10-13
+
+Actualab928fbb7a375e777c46c2fe669e08f3bc68ea11d727517710d4c7d6f7f6fa98 root109/current110/hook/bundle/freshvalidator/rawaudit/compiler1034 accept one1067-byte published-repository LICENSE/three package origins/twoURLs/sixsource authority tree. Wholefile424/header24+4/41registry2local filename gaps and rawcombinedbytes stay unchanged; external repository evidence is distinct from archive members and linkage. Root1963 resources/49frontend assets measured; actualnative emittedcopy/Open/Proto/originalgrpc/OS/AT/platform/signing/distribution/fullnotice/fullmigration/UX and everyoriginal gate stayOPEN. Historical28/91/109fixture90742/20654 negatives preserved.
+
 ## Native Proto harness preparation boundary — 2026-10-13
 
 Four savedharness/report paths onroot passcompiler0/0/syntax3/independent1026 source+22rootdependency+olddefaultbody+current28 notice guards. Actual native36/schema/persistence/fullrestoration remainsunexecuted; parserMessage is statically derived fromlockedcrates, not native evidence. No product delta, physicalchooser/timing/AT/platform/fullworkflow/fullmigration/UX closure. Freshcurrent executable/Open/Proto and everyoriginal gate remainOPEN.

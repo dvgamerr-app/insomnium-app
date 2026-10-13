@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "evidenceClass": "cargo-source-corpus-candidate",
   "coverage": "incomplete",
   "completenessBlocksBuild": false,
@@ -426,6 +426,71 @@
       "classification": "copyright-and-license-references",
       "containsCanonicalFullLicense": false,
       "containsStandaloneFullGrant": false
+    }
+  ],
+  "repositoryCandidates": [
+    {
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "name": "webview2-com-macros",
+      "version": "0.8.1",
+      "checksum": "67a921c1b6914c367b2b823cd4cde6f96beec77d30a939c8199bb377cf9b9b54",
+      "repository": "https://github.com/wravery/webview2-rs",
+      "commit": "dffa41a8a46d3f5565eefbff2de57d38d399f158",
+      "pathInVcs": "crates/callback-macros",
+      "vcsSHA256": "c24c2646f52e6cb4c1f382afc69fa99c0dc78d6d8e4316ade7e51707b4f9af8e",
+      "manifestSHA256": "b006cef88171ef3675df724a900cb31eb1f74158f77a20680915f1dbe95d457e",
+      "packageManifestSHA256": "a615e325d5acebc64f6553724028cd5e3639397e534cef107f172540cb78d0fd",
+      "packageManifestBytes": 419,
+      "packageManifestURL": "https://raw.githubusercontent.com/wravery/webview2-rs/dffa41a8a46d3f5565eefbff2de57d38d399f158/crates/callback-macros/Cargo.toml",
+      "workspaceSHA256": "5d0444d55131aa8a4290fc3cd54bd8598e9528577ddf5c3368ee48a02e297f6d",
+      "workspaceBytes": 977,
+      "workspaceURL": "https://raw.githubusercontent.com/wravery/webview2-rs/dffa41a8a46d3f5565eefbff2de57d38d399f158/Cargo.toml",
+      "licenseSHA256": "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73",
+      "licenseBytes": 1067,
+      "licenseURL": "https://raw.githubusercontent.com/wravery/webview2-rs/dffa41a8a46d3f5565eefbff2de57d38d399f158/LICENSE",
+      "kind": "repository-license-at-published-commit"
+    },
+    {
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "name": "webview2-com-sys",
+      "version": "0.39.1",
+      "checksum": "b3a07132775117d6065853d9d1178157b8c90e228de47129d6bce2c7edebedfb",
+      "repository": "https://github.com/wravery/webview2-rs",
+      "commit": "edc2caf886175ccaebe86078c9cfe1ae2a187328",
+      "pathInVcs": "crates/bindings",
+      "vcsSHA256": "d4137410068017c3f66fe98578f2fd40f0e76d3fd628fa361c758f3b262351c7",
+      "manifestSHA256": "1a3e5684710cb1d2e7e7afdd32af011a4a8038c259f6592ade3f871ca31cad7d",
+      "packageManifestSHA256": "00229c125c597e4f0ddb9e598738ee5b38a9086fd59eea6d2577cdda5f8e5875",
+      "packageManifestBytes": 627,
+      "packageManifestURL": "https://raw.githubusercontent.com/wravery/webview2-rs/edc2caf886175ccaebe86078c9cfe1ae2a187328/crates/bindings/Cargo.toml",
+      "workspaceSHA256": "86df68bbb014e816ac356a462838914d813ce6aaa1d11b2aa284941701c6c7c2",
+      "workspaceBytes": 923,
+      "workspaceURL": "https://raw.githubusercontent.com/wravery/webview2-rs/edc2caf886175ccaebe86078c9cfe1ae2a187328/Cargo.toml",
+      "licenseSHA256": "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73",
+      "licenseBytes": 1067,
+      "licenseURL": "https://raw.githubusercontent.com/wravery/webview2-rs/edc2caf886175ccaebe86078c9cfe1ae2a187328/LICENSE",
+      "kind": "repository-license-at-published-commit"
+    },
+    {
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "name": "webview2-com",
+      "version": "0.39.1",
+      "checksum": "3f89fca7a704cee10dcb3654c1dbb8941d1783132f1917358af75bec37a7d7e6",
+      "repository": "https://github.com/wravery/webview2-rs",
+      "commit": "edc2caf886175ccaebe86078c9cfe1ae2a187328",
+      "pathInVcs": "crates/webview2-com",
+      "vcsSHA256": "88413f4e9de3a9360fafb0d8c9a0fdf5a01a45d73f9ded314fa7b9ffa2108ace",
+      "manifestSHA256": "4ba1c8935a5f535d18115242abbef3c73e9b2dd329a52b87f6f37b7adeae2421",
+      "packageManifestSHA256": "bee8a11a0f7c152ff835ea5ca64bcb5558e8a6079be56eccc4086dddb383288c",
+      "packageManifestBytes": 923,
+      "packageManifestURL": "https://raw.githubusercontent.com/wravery/webview2-rs/edc2caf886175ccaebe86078c9cfe1ae2a187328/crates/webview2-com/Cargo.toml",
+      "workspaceSHA256": "86df68bbb014e816ac356a462838914d813ce6aaa1d11b2aa284941701c6c7c2",
+      "workspaceBytes": 923,
+      "workspaceURL": "https://raw.githubusercontent.com/wravery/webview2-rs/edc2caf886175ccaebe86078c9cfe1ae2a187328/Cargo.toml",
+      "licenseSHA256": "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73",
+      "licenseBytes": 1067,
+      "licenseURL": "https://raw.githubusercontent.com/wravery/webview2-rs/edc2caf886175ccaebe86078c9cfe1ae2a187328/LICENSE",
+      "kind": "repository-license-at-published-commit"
     }
   ]
 }
