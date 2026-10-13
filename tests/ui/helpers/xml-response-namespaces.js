@@ -181,6 +181,7 @@ export async function verifyXmlResponseNamespaces(context) {
     requestId,
   } = context;
   const checks = /** @type {Record<string,any>[]} */ ([]);
+  try {
   const refusals = [
     null,
     [],
@@ -559,8 +560,10 @@ export async function verifyXmlResponseNamespaces(context) {
   const peerResponse = peerState.history.find(
     (/** @type {any} */ r) => r.requestId === peerId,
   );
+  await Bun.write(output+"/namespace-peer-before-assert.json",JSON.stringify({phase:"native-load-captured-before-peer-assertions",peerId,peerMeta:peerMeta??null,peerResponse:peerResponse??null,expectedMap:{n:"urn:two"},expectedBody:documents["/mapped"].body},null,2));
   assert.deepEqual(peerMeta.responseXPathNamespaces, { n: "urn:two" });
   assert.equal(peerResponse.body, documents["/mapped"].body);
+  await Bun.write(output+"/namespace-peer-assertions-passed.json",JSON.stringify({phase:"peer-assertions-passed-before-original-request-click",peerId},null,2));
   await page
     .locator("button.tree-request")
     .filter({ has: page.getByText("Owned XML response", { exact: true }) })
@@ -595,4 +598,20 @@ export async function verifyXmlResponseNamespaces(context) {
       2,
     ),
   );
+  } catch (error) {
+    const seen=new WeakSet();
+    /** @type {(value:any,depth?:number)=>Record<string,any>} */
+    const describe=(value,depth=0)=>{
+      if(depth>5)return {truncated:true};
+      if(value===null||typeof value!=='object')return {type:typeof value,message:String(value)};
+      if(seen.has(value))return {cycle:true};seen.add(value);
+      const result=/** @type {Record<string,any>} */ ({name:String(value.name??value.constructor?.name??'Error'),message:String(value.message??value),stack:typeof value.stack==='string'?value.stack:null,code:typeof value.code==='string'?value.code:null});
+      if('cause' in value)result.cause=describe(value.cause,depth+1);
+      if(Array.isArray(value.errors))result.errors=value.errors.slice(0,20).map((/** @type {any} */ child)=>describe(child,depth+1));
+      return result;
+    };
+    try {await Bun.write(output+'/namespace-primary-failure.json',JSON.stringify({phase:'original-native-namespace-helper-failed',error:describe(error),completedCheckKinds:checks.map(row=>row.kind)},null,2));}
+    catch(diagnosticError){console.error('Namespace diagnostic write failed; original error retained',String(diagnosticError));}
+    throw error;
+  }
 }
