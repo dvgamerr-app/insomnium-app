@@ -1,3 +1,9 @@
+## Curl long feedback V2 — 2026-10-13
+
+Topic8711cc2; reportcb9931183864a0aa2675166cb505b770f2db3b23231712bfec2c90050b30676c. Root actual149 headless run1791905406188 exit1 atunchangedlongerrorparentbounds, screenshot unbrokenoverflow, no oldrawbounds. Original149/launcher/failure untouched. New151proof artifacts/curl-file-owned-v2/final/audit.json SHA8b1ea389e707185b2927ed25f7b45fcf6ffda77d763dc09c8b8ef48a616b8d53; ONLYcomponent4ee45e36 localfourerrorCSSdeclarations andhelper1be0c766 preassertboundsdiagnostics changed, precisewholeV1inverses/34pure-syntax pass. Allold assertions maintained; no tolerance/crop/forceclick/globalstyle/tokenchange.
+
+V2 Root-only verification/run.mjs17fdc3c6 andunchangedoverlay0a36625a frozenauditabb8fb0d; exact2replacements vsoldlauncher (proofpath/manifest), command same--curl-component. Actualall6profiles/normalgeometry/errorwrap/compiler/build/native pendingRoot; nobrowser/build/compiler/native/profile/cache/Rootactions byagent. Handles:none/profileunclaimed. /compact unavailable explicit handoff; ownSTATUS excludedRoot, fullscope/gates retained.
+
 ## Curl pre-adoption verification support — 2026-10-13
 
 Topic8c7e1c1; report AGENT-CURL-VERIFICATION-LAUNCHER-20261013.md SHA74d4a798b95ba72a675e236f96244730aff1040debd185b9ac7eaae0836c9166. artifacts/curl-candidate-verification-source/final/audit.json SHA697cb1ee5f69dff088cf8edead0c69132e2d0549a047f1d0cbb0a8ac8079b6a2 freezes4 supportsource/receipt files +report; runed0231d1/overlay0a36625a. Existing149 candidate manifest d50347 unchanged.
