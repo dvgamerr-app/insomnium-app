@@ -1,3 +1,7 @@
+## Original current Windows gRPC acceptance — 2026-10-13
+
+Original saved full gRPC workflow on currentedbb/f66 is verified: unchanged assertions, host/all6 recorded process objects, exact registered nine-object Git quarantine, fullprotected656/Git13783/original43-20/layout restoration, independent originalcase auditors and explicit profile release. Evidence: CURRENT-ORIGINAL-GRPC-NATIVE-ACCEPTANCE.md. This closes that saved workflow gate only. Actual terminal-startup classification branch unexercised; no unobservedbirth/OSclose/AT/universalplatform/perRPCrawtranscript or allmigration completion claim. Every other original parity/distribution/UX item remains active.
+
 ## Current Windows Proto36 workflow verified — 2026-10-13
 
 Current edbb/f66, actual41559/host63144 exit0 native-hidden; all36 unchanged field/schema/persist-reload cases over6theme-width profiles and30Rust replies accepted. Independent caseauditor53736 exit0 verifies source-derived expectedmap/qualifiedmethods/geometry and fullactual654/Git13783/43-20/layout5 restoration; explicitprofile release complete. Evidence: CURRENT-PROTO36-NATIVE-ACCEPTANCE.md. Per-case rawdisk/finalUIoption snapshots absent; original savedsource assertions are bound to passingnative result. No OSchooser/physicalentry/AT/universalplatform/fulloriginalgRPC/fullmigration-UX completion. All original remaininggates retained.

@@ -1,3 +1,7 @@
+## Proceed after original gRPC native acceptance — 2026-10-13
+
+Original current Windows gRPC saved workflow, required retained process objects, exact quarantine, independent original case/full restoration and explicit release are accepted (CURRENT-ORIGINAL-GRPC-NATIVE-ACCEPTANCE.md). Next Root reviews immutable XML runtime/auditor/integration offers, all pre-import dependency pins and fresh package inputs, then runs saved XML serially. Agents retain isolated source-only lanes; Root alone owns build/native/profile/cache. Product role-alert adoption/new authority and all other original migration/distribution/shared UI/UX gates remain separate required work. Commit verified topics, STATUS handoff and compact-unavailable report before next feature; browser headless/native-hidden policy retained.
+
 ## Current parallel assignments — 2026-10-13
 
 1. native_provider: source-only review of authenticated terminal startup process attempts after measured QueryFullProcessImageNameW failure. Preserve raw failures and authenticate every recorded child; active or unknown failed attempts refuse.
