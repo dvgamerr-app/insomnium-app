@@ -1,0 +1,23 @@
+# Actual header-bound final-current code preparation — 2026-10-13
+
+NEW artifacts/certificate-final-current-native-preparation is real code preparation bound to accepted header d9aefd1/28a86218b1807fd1f3537183a75074b08a4b14bb440a42d651bb48d1f1ce4057. Header verification c67a82d8a69f534c49768ded74050210b6233d982deadefaa270ece140474996 and audit de806246a166cccc09f306b7fa41417ca1b1065939a744125ef657e03fe21d2b are exact pins. Current1023 source hashes, Field8c9a/model4ee8, Field35406/216+16 and certificate49574 receipts are independently rechecked. No full source tree/archive/proof is recopied; source-map and receipt references suffice until final root adoption.
+
+## Non-runnable final-source gate
+
+optionalHarness.status remains pending-root-adoption-signal, manifest/final count unresolved and runnable:false. requireFinalSupplement executes before builder source capture/config/spawn and refuses pending/unreviewed/wrong entry/helper/flag/nonserial/missing-closure records. Pure completed records in guards are schema fixtures only, not actual runtime authority. Root must first adopt exact reviewed SAME nocturne-grpc-theme --proto-fields-native/helper/artifact-local preservation/import closure, then issue a NEW explicit complete selected-source map/count. This1023 generation must become historical if those selected bytes change; never bypass1023 with1022/1019 or broad >= checks.
+
+The separate optional helper remains unfinished/unadopted at preparation. Shared_ui confirmed actual production Proto/model/primitive UI, no compiled test component fixture or backend/product/protocol/IPC shim. It can share one fresh executable but needs an exact final runtime source closure. Root must review registration, passive load_grpc_schema observations, real saved data and complete profile preservation before accepting that scope. No partial helper is copied here.
+
+## Concrete builder/facade/Open code
+
+NEW candidate path artifacts/certificate-final-current-native-root-candidate. Code reuses50194 build/frontend/facade/Open ancestry. Saved reversal proves existing env/lockedCargo/LIBCLANG/emitted app+adjacent sidecar/generated-vs-emitted notices/private/sourcefreeze/asset/identity guards are unchanged. Only the artifact directory, explicit Git-reader source list and reviewed runtime-only closure capture are added. That closure is hashed and frozen before Cargo, never patched during a live build. Exact13783Git metadata fdcb53ab7bc5511fbc73bba59adccc80c6729370621530e2efca6ae77a2c2b43 is reused by reviewed reference rather than recopied.
+
+Current prerequisite requires actual header policy3/receipt2/765raw registry archives/24partial origins/fourblobs, all five actual stages0, unchanged producer a5ec, and Field216+16. Expected native public resources1961 are recorded; root prelaunch must independently validate all copied bytes/counts and current private admission/registry inputs (no old352/EA21 exception). Current ordinary frontend49 is a generation fact, not a substitute for full emitted asset hash closure.
+
+Native preservation facade and all four Open helpers are byte-exact predecessors, including final-after-await Buttonclass/IDOK1/open/enabled reauthentication. Original HTTP/TLS/native oracle is retained. Full43resources20history/654cookie files/two buffers/store/Git13783/current3+legacy2layouts/actualregisteredfixture guards remain intact. Root runtime is exclusive and SERIAL: Open host, authoritative exit/full restore audit/release, then separate selfwrapped Proto host on the same immutable app with its own complete restore audit. No nested facade or concurrent profile host. Posted messages alone do not accept OS selection; actual Rust path/newmodified/noalerts/noforeignchanges still required.
+
+## Frozen evidence and limits
+
+Manifest b8a0751b21cf595cc48c2045612a87d40dd4221ab54a60e431c35b67ef8a19da binds14artifact sources/1023root refs/fiveaccepted receipt refs/reusedGit pin. Saved prepare.mjs and guards.mjs terminal0: syntax12,11pending-supplement refusals, build reversal and exact unchanged frontend/facade/Open hashes. No native/app/profile/root/cache/build action or source mutation occurred. All own handles terminal; accepted expensive scenarios were not rerun. Old999/05/a66/50194/7fa/352/EA21 proofs remain unchanged.
+
+Root final optional adoption/current count and independent prelaunch/build/run are still required. Actual OS Open/hidden-controls/modal/platform/private/fullnotice/linkage/fullmigration/UX gates stay OPEN. Existing official build/dialog/API documentation from predecessor reports applies; no subsystem/permission/dependency is introduced. Topic/STATUS checkpoint follows. /compact unavailable through this interface; explicit frozen handoff substitutes and no next feature starts.
