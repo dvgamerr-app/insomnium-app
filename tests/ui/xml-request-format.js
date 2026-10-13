@@ -341,6 +341,7 @@ await withNativeApp("xml-request-format", async ({ page, invoke, output }) => {
         error: "Owned XML response failure",
       });
     await page.locator(".inline-error").waitFor();
+    assert.equal(await page.locator(".inline-error").getAttribute("role"), "alert", "Current owned formatting failure is an alert");
     const error = await page.locator(".inline-error").innerText();
     if (name === "timeout") assert.match(error, /exceeded 3 seconds/);
     assert.equal(await value(), source);
@@ -372,6 +373,7 @@ await withNativeApp("xml-request-format", async ({ page, invoke, output }) => {
     const original = await seed("application/xml", text);
     await page.getByRole("button", { name: "Format XML", exact: true }).click();
     await page.locator(".inline-error").waitFor();
+    assert.equal(await page.locator(".inline-error").getAttribute("role"), "alert", "Current owned formatting failure is an alert");
     assert.equal(await value(), text, "Rejected XML retains original body");
     const saved = await persisted(text);
     assert.deepEqual(saved.body, original.body);

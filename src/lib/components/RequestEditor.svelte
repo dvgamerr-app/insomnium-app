@@ -252,7 +252,7 @@
               : "Format XML"}</Button
           >{/if}
       </Toolbar>
-      {#if error}<Feedback as="p" class="inline-error">{error}</Feedback>{/if}
+      {#if error}<Feedback as="p" class="inline-error" role="alert">{error}</Feedback>{/if}
       {#if !request.body?.mimeType}<EmptyState
           variant="body"
           class="empty-body"
