@@ -1,0 +1,23 @@
+# Current Proto/AUTHORS combined native and Open binding preparation — 2026-10-13
+
+NEW artifacts/certificate-current-open-native-preparation binds actual root3daeacb/current1019 sources, AUTHORS21421b4 generation352f9d7fb55cbc30dcb80ea935c2b7a866674f6da7d4a90b17dad9377b3db414 and Proto50c24cb focus correction. No build/app/profile/cache/root/source/native actions were performed. Root alone owns future build and exclusive execution. If Field changes are adopted later, this generation is historical; exact1019 guards must not be weakened.
+
+## Guarded ancestry
+
+Old combined999ebd, cancellation05e263 and Opena66ff proofs remain unchanged. Exact saved reversal proves the original build command/env/LIBCLANG/lockedCargo/emitted app+sidecar/notices/private/sourcefreeze guards are retained: only prototype directory and supplemental Open-helper source list change. Frontend runHook, native preservation facade, Git13783 metadata/streaming reader and original native entry before snapshot are byte-exact predecessors. Open selection-file/control/action/scenario helpers are byte-exact a66ff, including final-await Buttonclass/IDOK1/open/enabled reauthentication. Open entry changes ONLY its facade import to the new same-directory facade. Existing entire native/network oracle and profile restoration therefore remain inherited, not newly runtime-verified.
+
+The new common prerequisite uses exact1019 source hashes and all captured root before bytes; four receipt hashes pin AUTHORS verification/root audit, Proto root audit38104 and certificate picker audit49574. Actual authors saved70/current71/hook/bundle/fresh validation and Proto compiler/SAME138/shared/build exits are required. Native admission352, unchanged actual Spectral a5ec producer,765registry archives and Proto50c are explicit. Current generated resources1956/private inputs767 are recorded as expected closure counts; registry entries are distinct from local patches/workspace context. No old EA21/7fa executable is used or relabelled.
+
+## Root-owned recipe / acceptance
+
+NEW candidate is artifacts/certificate-current-open-native-root-candidate. Root reviews/copies the exact offered artifact folder under the same relative path, independently reruns saved guards, and validates all1019 current bytes/receipt hashes. With explicit existing root-only build authorization, build.mjs uses current production runHook before Cargo, freezes source/generated/wrapper/optional Cargo config, validates current notice/private admission and producer, then copies actual logged emitted app, adjacent sidecar, complete emitted native/Spectral notices and all765registry archives plus two private admission files. It compares generated/emitted notice inventories and freezes frontend assets. No build was run by this agent.
+
+Before execution, root independently verifies actual exe/identity/source/frontend/sidecar/notices/private closure, expected1956native notice resources and767private files, frozen script closure and no competing native host/profile owner. Root sets NEW build state and explicit native-run authorization, then invokes the saved http-client-certificate-owned-open.mjs. Full43resources20history/654cookie files/two exact buffers/store/13783Git files/current3+actuallegacy2layout keys/actualregistered fixture collections are preserved by unchanged facade. Root must retain real hidden host exit and fixture cleanup. Open posted-message receipts remain acceptance:false; four actual real Rust persisted path/newmodified/noalerts/noforeignmutation rows are required before any selection claim.
+
+No physical selection, hidden/inactive control support, OS accessibility/lifecycle, HWND/PID atomicity, platform/private/distribution/fullnotice/fullmigration or UX gate is closed by this preparation. Newer production changes require a new frozen capture/build rather than exemptions from the1019 map.
+
+## Frozen evidence
+
+Manifest50194d97aef77e255a4e7cb8cdbbbd68598468b4a106681d2ce0dc2d79abb0f8 binds15artifact sources/all1019root-source snapshots/four exact receipts/syntax12/build reversal/facade equality/Open equality/oldproof pins. Root receipts and source snapshots live under root-receipts and root-source. Commands: bun artifacts/certificate-current-open-native-preparation/prepare.mjs and guards.mjs; both terminal0. Old20refusal Open proof is inherited by exact unchanged helper hashes, not rerun or presented as new native evidence. No own live handles. Existing official API/build documentation from predecessor reports applies; no subsystem/permission/dependency is introduced.
+
+Topic/STATUS checkpoint follows. /compact cannot be invoked through this interface; explicit frozen handoff substitutes and no next feature starts.
