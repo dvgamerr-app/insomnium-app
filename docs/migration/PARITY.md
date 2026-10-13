@@ -1,3 +1,7 @@
+## Original-query evidence and early text-read boundary — 2026-10-13
+
+Actual63528 records9validownedGetThreadqueries/firstFailure:null andearlyWM_GETTEXT0n/partial6metadata. NoMSAA/console/selection orpriorfailedcontrolidentity claim. Independent21145 fullactualGit/profile/layout/source-public-private/runtimecompiled restoration passes/hostexit0/claimreleased. Metadata-only diagnostic next; all original Open/Proto36/fullgRPC/platform/fullnotice/linkage/distribution/migration/UX gates stayOPEN.
+
 ## Dialog identity verified; original failed control still unmeasured — 2026-10-13
 
 Actual9125 phase181/61.1886ms provesdialog IsWindow/thread/PID/owner/class and before+after originaldialogverify, then control-loop refusal. Rootv4 stack interpretation corrected; no exactfailedcandidate/COM/selection claim. Independent64810 fullactualGit/profile/layout/current1046/public-private/runtimecompiled restoration passes/hostexit0/claimreleased. All original migration/UX/native36/Open/fullgRPC/platform/fullnotice/linkage/distribution gates stayOPEN.

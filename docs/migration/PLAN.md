@@ -1,3 +1,7 @@
+## Run metadata-only semantic diagnostic before source integration — 2026-10-13
+
+Actualv6 firstdiagnosticEdittext read failswhile9originalownershipqueries pass; do notinferoldcontrol failure cause. Reviewv7metadata-only traversal/explicitunobservedtext/ownedclass-id-parent-localstyle/CBEM andsameone1148 typedMSAA; unchangedstrictmatcher/actions refuse absentfixtureMatch. Root serialcurrent32e/fullrestore/audit beforeUI7/license10 adoption andnewsourceauthority/compiler/headless/current126/build/actualOpen-Proto36/fullgRPC. Otheragentsprepare gatedlegalrunner/fullgRPCpreserveronly. Everyoriginalscope/topiccommit/STATUS/compact-unavailable handoff remainsrequired.
+
 ## Candidate control identity is the next measured boundary — 2026-10-13
 
 Actualv5 dialog remainsverified across181samples and theexplicit verify-dialog after; failure is candidatecontrol loop, correctingrootv4 interpretation. Nativeprovider NEWdiagnostics captureoriginal verify call once (handle/thread/PID/immediateerror) and explicitlyreadONE verifiedCombo branch via compiledMSAA, no fallback/selectionmatcher/action change. Root reviews/runs serially/currentold32e/fullrestore. In parallel event_api prepares gated125/current126 generation-auditor; shared_ui prepares SAMEdefaultfullgRPC outerpreserver/ownedcleanupplan, notexecutescleanup. Afteroldphasefinish, integrateUI7/license10 with recapturedsource/compiler/headless/currentauthority/freshbuild/actualOpen-Proto36/fullgRPC. All originalscope/topiccommit/STATUS/compact-unavailable handoffs retained.
