@@ -1,0 +1,37 @@
+# Closed-header root generation runner proposal
+
+Proposal only. Parent reviews/adopts source and authorizes intentional generation before execution. This topic runs no collector, scenario, hook, bundle, cache admission or native process. Existing header90/AUTHORS70/legacy57 and 78,891-file proof stay immutable; they are not rerun or recopied here. Root alone executes the future saved runner.
+
+## Inputs and adoption boundary
+
+Proposed artifact entry: `artifacts/native-notice-header-root-run/run.mjs`, accompanied by data-only `approved-inputs.json`; neither is implemented in this topic. Closed target `x86_64-pc-windows-msvc`, ordinary canonical root cwd `E:\.dvgamerr-app\insomnium-app`, default admitted cache `D:\home\.cargo`, explicit reviewed older-reader closure and an exclusive output directory. No dynamic command strings, fallback target, dependency install, profile/native launch or cache writes.
+
+Before adoption, independently compare four root paths to the header offer's root-before hashes and require its report absent. Reconcile any discrepancy explicitly; never overwrite it. Adopt only the exact five offered paths from b0d3488633476531b59c04f4dfa17d3e60ba272f. STATUS50f5505 is an isolated checkpoint, not an instruction to overwrite root STATUS. After adoption, compare the four executable/data/test offered hashes and report hash, unchanged parser/helper/hook/config/lock/localpatch inputs, and exact17 project identity to the reviewed adoption receipt. Freeze source throughout all stages. These source guards do not equate source adoption with current-resource validity.
+
+Read-only preflight captures current marker352f9d7fb55cbc30dcb80ea935c2b7a866674f6da7d4a90b17dad9377b3db414, public resources/preparation stamp, its private admission receipt, historical700b438375749e6f400ecd72e4df4b040974dbd892ffd098d68a7b97d3942db1 and required private archives. Capture hashes/bytes before generation in a new root-owned proof; preserve old files, never rewrite markers or manufacture receipts. Select archives from verified receipt package rows, not all cache/private-directory entries. Expected current corpus765 registry archive identities must each match lock checksum; exact recovered3 receipt/checksums remain bound. Capture four patch trees and existing raw wholefile texts. Any source availability, cache namespace conflict, checksum, project or target discrepancy stops before hook. Do not treat missing-source discovery as newly complete coverage.
+
+## Serial stages and exact commands
+
+Environment is set only after reviewed preflight: `CARGO_HOME=D:\home\.cargo`, `TAURI_ENV_TARGET_TRIPLE=x86_64-pc-windows-msvc`, `NATIVE_NOTICE_OLD_READER_ROOT=<reviewed immutable older-reader five-module closure>`. Root uses its pinned Bun executable. Future runner uses `Bun.spawn([process.execPath,...argv],{cwd:approvedRoot,env:approvedEnv,...})`, records child PID/argv/cwd/stdout/stderr and waits for `child.exited===0` before the next stage. [Official Bun subprocess documentation](https://bun.sh/docs/runtime/child-process) describes array arguments, cwd/env, exit promises and output capture. Every stage is a new subprocess; the runner never imports generator/validator modules itself.
+
+| Stage | Child argv after Bun executable | Acceptance and mutation boundary |
+| --- | --- | --- |
+| Owned preparation | `tests/packaging/native-notices.mjs --per-file-notices` |90 groups in owned fixture. Assert root public/private marker and cache before/after unchanged. Compare first70/57 names/order and original47 values to frozen historical results. This does not generate root resources. |
+| Intentional root hook | `scripts/tauri-spectral-hook.mjs build` | First authorized root-generation stage. Existing order is producer, Spectral notices, native notices, producer stamp/validation, native validation, frontend build. Preserve that order and wait terminal0. Cache remains read-only. |
+| Actual current acceptance | `tests/packaging/native-notices.mjs --per-file-notices --verify-current` |91 groups: owned90 plus actual-root receipt2/policy3 assertion. Record actual receipt identity; root generated resource/admission/current marker bytes must stay unchanged through this scenario. Old70/current71/legacy57/current58 are historical boundaries, not the same new current generation. |
+| Bundle validation | `scripts/tauri-spectral-hook.mjs bundle` | Validation-only/no generation or child frontend/producer. Resource/admission/current marker/source/cache byte equality before/after. |
+| Final fresh validation | `scripts/native-notice-artifact.mjs x86_64-pc-windows-msvc` | Mandatory separate fresh Bun subprocess after bundle; parse its JSON, assert receipt2/current receipt/target/project/output identities and terminal0. No parent-imported validator or cached evaluation is acceptance. |
+
+Do not call the no-argument packaging scenario: it publishes before its historical762 assertion. Historical cached-validator20654 refusal1 remains a preserved negative; fresh validation must not overwrite/relabel it as success. Existing retained 70/57 result proofs are read-only comparison inputs; no redundant reruns are needed.
+
+## Raw authority and before/after evidence
+
+Reparse each of765 admitted registry archives with the unchanged pinned parser. Check archive SHA against lock/receipt, ordinary manifest identity and independently derive wholefile candidates from their authentic entries. Validate localpatch full trees separately. For the24 exact policy3 ranges, check literal source/name/version/archive/path, complete source byte count/SHA, safe offset/count and raw slice SHA. Assert24 origins/four deduplicated blobs; preserve all source descriptors, origin membership/classification and raw bytes. No canonical license/fullgrant/SPDX operator inference. Source bodies remain private and are not resource assets.
+
+Actual new corpus must retain765 registry sources,424 wholefile blobs,1338 registry origins,1343 total wholefile origins and41 registry filename gaps; receipt2 adds separate24 header origins/four blobs. Compare wholefile texts and THIRD_PARTY_NOTICES bytes with the old352 generation, not just counts. Inventory/resource file counts and new receipt SHA are measured after actual root hook, not guessed. Private historical700b and old352 admission receipts/archive authorities stay byte-identical; new admission/current pointer publication is captured separately. Cache raw archives, root source and patch trees stay byte-identical across every stage.
+
+Final receipt records each stage's exit/PID/output hashes, all approved source hashes, old/new public+private identity manifests,765 archive checks,24 fullsource/range checks, four exact raw blobs, count comparisons, current91 and fresh-validator JSON. Capture failures at the first failed stage; do not retry, restore an old pointer, clean arbitrary files or continue later stages automatically. Preserve any legitimate hook partial publication/rollback evidence and let root decide recovery. No actual bundle/native installation is inferred from hook bundle validation.
+
+## Remaining gates and handoff
+
+Source adoption, actual root hook/current91/fresh validation remain unexecuted. Per-file omissions, canonical full texts, wholelibrary/data/system/toolchain coverage, target linkage, other platforms/signing/distribution/native embedded-resource acceptance and full migration remain open. This proposal makes no completeness/compliance claim. Own handles:none. `/compact` unavailable; report/input manifest/STATUS handoff instead.
