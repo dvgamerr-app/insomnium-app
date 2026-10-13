@@ -1,3 +1,11 @@
+## Durable default Proto helper migration proposal — 2026-10-13
+
+Topic52ad94ffd798989fd05fcf14f4ec6a9f486c83e2; report62c1b64981fff121ab4d551d49e9fd3814232c5805394b47263505a43d6a9186. Artifact defaulthelper70e4981bbd34d5ef8fe90fe57959261a1945023fa2bbdbc6a81e18d66916e722 retains reviewedclientintegerassertion +boundsJSON +preoriginalLoadclickJSON, restores3originalrelativeimports. Exactwhole077 RAW inverse/syntax1 pass; originalall36/Rust/data/restoration assertionsoutsideprecisedeclaredclientdelta unchanged. Prior6CSSoffer rawrootguards allpass; combined7candidatepathmap rootbefore077/b004/8fc/new4absent pinned, preview5493/README WIP excludedadoption.
+
+Final artifacts/proto-default-helper-migration/final/audit.json SHAc25bbc58e0e8fcaf64d15c42106f4ad2b384749aa7d5aebea0804fa53679ca37 verifies1009files; closedtrackedprojectsource/config/UI map991actualroot/995virtual onroot581ae71. Generated/private/vendor/native runtime closure explicitlyOPEN pendingfreshbuild; nofalse1046count/fullruntimeclosureclaim. Currentrootcheckpointfinal14Rustreplies distinguishedfrominterim11,17partialrows/nofull36. Rootold32e freezes preserved; no root/product/helper/tests/native/profile/cache/build/scenario actions.
+
+Prerequisites: finishrootnativeOpen/fullrestoration, exactcurrentguardmaprecheck/newcaptureifadvanced, onlysevenreviewedcandidatepaths+explicitdocs, rootcompiler/headless/shared, freshcurrentUIassets/exe/completeclosure thenactualdefault36/fullRustdiskGitlayoutprotectedrestore. Originalgrpcprototypepaused/nonrunnable. Handles:none/profileunclaimed. /compact unavailable; explicit proposalhandoff/no compactionclaim. OwnSTATUS excludedrootoverlay.
+
 ## gRPC Proto selector painting containment — 2026-10-13
 
 Topic81ca3a0dd55ed437f80ef1338168a917b368d8b3; sixofferedpaths only. Actualroot30393 failedafter17rows/11Rust replies atdark760 Loadmethods selectinterception; originalnegative immutable. SavedactualGrpcPane6profiles×short/long=12 reproduces4long900/760 blockedhits whileboxescontained. MinimalproductionONElocaloverflow:hidden declaration ongrpc-methods directselect controls, no sharedSelect/layoutwidth/token/backendchange. SAME12 passunforcedclick/realShiftTabTabfocus/base-selectpopupEscape; allnormalrectangles/fonts/colors/background exact versusneutralV2baseline. Native36 freshgeneration/fullrestore stillOPEN.
