@@ -1,3 +1,11 @@
+## Fresh namespace/XML source materializer — 2026-10-14
+
+Topic42aaa08; reportbcf6468fcc1f1c6d6adf4d82073a310d4af4704342c1ddc401decafd1e0a6bc0. artifacts/fresh-native-rebind-source/final/audit.json SHA245e87fc0d1ce17d5a8c944ed3edad72806c831efcf2d5eef4a075dcab966cba freezes30public source/25template files. RunnableSOURCEactor prepare-root20b8de9b/planb8091727 pinsactualRootinput andpreparesNEWexclusive source/bindings only; NEVER launches/importsruntime/profile/build/cache.38pure/syntax checks pass onsyntheticdescriptor, no actualfreshappvalue invented.
+
+Oldedbb/f66/17cf rejected; currentRoot7292diagnostics and9afe/92cc/77d0/c72sourcepins required. Namespace20+88/fullretainedphysical/preserver/Git13783/656/43-20/layout5 assertions retained; bootstraplatestcleanup65052Verifier accepts restorationonly/no namespacecaseclaim. XML7role/source/emittedworker+metadata policy retargetedonly; RootactualroleAuthority/preservationentry/facade/operator/newallbyteclosure/package/workers/currentbaseline/latestcleanuprelease stillmissing suppliedpins. NativeRunnable:false untilRootactualinputs/review/freshclaim, no fabricatednewcounts/hash/permission. Rootfailednative unchanged/open; role18/9/6/twoassertion sites sourceadopted notnativeaccepted.
+
+Rootnotice70850 parentreportedlive; no Rootwrites/compiler/browser/native/profile/cache/process/network actions, handlesnone/profileunclaimed. /compact unavailable explicit handoff; oldproofs/actualfailures/currentRootsource preserved, fullscope retained; ownSTATUS excludedRoot.
+
 ## Curl two test type corrections — 2026-10-13
 
 Topicec46a50; report5d29ebe6f45d9e13384bf7afa7ea9b41fad30dfdca8ace6b1a5731ffb85dcb7f; artifacts/curl-test-types/final/audit.json SHA1c4019bf772238b06e197d7d29f50ce99911d93a5acf6f17f1107ac533a2707c freezes9source/proof files+report. ONLY2eligible annotationfiles: helper1be0->dad702d9; fixture6bd4->1134d229. Rootbeforeguard rehashpassed; exactwholeRAW annotationinverses, exactBuntranspiledJS bytes helper7f82/fixtureb73d andwholemarkup equal; syntax/Svelteparse pass. No executable/default/assertion/style change/no ignores/nocheck. Initialsplitdeclaration equalityrefusal correctedtooriginalgrouping, no tolerance.
