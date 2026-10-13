@@ -1,3 +1,7 @@
+## Console execution boundary and pure CLR case proof — 2026-10-13
+
+Actual19309 metadata17/query26/phase189 reachesconsoleexit1; COMentry/semanticresult/selection unproven because rawoutputmissing. Independent39561 fullrestoration passes. PureCLRd145 provesvalidJSONprimitivecasts andloadedknownGACcasevariance/identicalSHA, notactual earliesthelperfailure. Newcase+SHA/phasecapture remedy awaitingcompile/native. All original Open/Proto36/fullgRPC/platform/fullnotice/linkage/distribution/migration/UX remainOPEN.
+
 ## Original-query evidence and early text-read boundary — 2026-10-13
 
 Actual63528 records9validownedGetThreadqueries/firstFailure:null andearlyWM_GETTEXT0n/partial6metadata. NoMSAA/console/selection orpriorfailedcontrolidentity claim. Independent21145 fullactualGit/profile/layout/source-public-private/runtimecompiled restoration passes/hostexit0/claimreleased. Metadata-only diagnostic next; all original Open/Proto36/fullgRPC/platform/fullnotice/linkage/distribution/migration/UX gates stayOPEN.
