@@ -1,3 +1,8 @@
+## Future native publication correctness topic verified — 2026-10-13
+
+- Topic12809f512ca54638a29e1e8abd67f2d59e0b936c changes only future builder/auditor: exclusive ordinary notices/private-inputs/frontend roots before snapshot and sort only derived combined source/runtime table. Actual Root4module baselines captured; both exact whole inverses pass. Fixture originalENOENT and originalcombinedorderERR_ASSERTION retained, fixed3root copies/derivedverify pass, componentrows unchanged/duplicate stillrefused; syntax4.
+- Actual50384Cargo0/edbb success plus26404publicationfailure/no-rebuildrecovery/rootaudit remain immutable and hash-referenced, never replayed/replaced. New Root preparation folder/input/runtime/source rows required forfuture adoption, preserving current consumedhelper paths. No Root/cache/compiler/build/native/profile action; ownhandles:none. All originalfullscope gates open;/compact unavailable frozenhandoff before independentlibgit2 readonlyresearch. Evidence artifacts/policy5-fresh-native-publication-fix and AGENT-NATIVE-PUBLICATION-FIX.md.
+
 ## Physical fresh native build-state supplement — 2026-10-13
 
 - Topiccece8ff4964d41f242db0c08636ff3b498ed30b6 offers NEW v2 common/build/audit actual child started/finished/PIDs/argv/code and standard build-state.json at spawn/terminal, updated after actual savedexe copy/SHA/mtime. Auditor compares physical times/process/closure/state and savedexe ordinarymtime>=started; no later inventedstart. SAME savedhelper contract preserved. Original10file eb5f8a98 frozen unchanged; frontend/template byteidentical.
