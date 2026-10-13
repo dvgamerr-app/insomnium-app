@@ -1,3 +1,11 @@
+## Curl row-owned file candidate — source-only handoff, 2026-10-13
+
+Topic 10d43e0; report AGENT-CURL-FILE-OWNERSHIP-20261013.md SHA875e8fd633cfaa7e4c9c012253608840c683dcf196094780639428d413f22f66. Public artifacts/curl-file-owned-proposal/final/audit.json SHAd50347e697fc0ec20a5c964399851c787d7f1eb129d16206a233a880d702f591 freezes149 files, seven exact offered code paths, three raw Root-before guards,133 current Root dependency snapshots. WholeRAW component/uploads/originalnative-entry/baseline inverses pass; preview/shared primitives unchanged and not offered. Artifact-only productcandidate, only report committed.
+
+34 source/syntax/pure upload checks terminal0: three Svelte parse/four JS syntax, allfive mode bytes/MIME and exact error identity/private metadata/foreign-error poisons. Runnable SAME saved curl-import-file-body.js --curl-component branch exits before originalserver/native body, sharedlaunchUiBrowser headless via component helper. Six-profile strict baselineRED/candidate association, otherrow correction/byte callbacks/globaladmission/config/callback/staleABA/disposal/cancellation/keyboard/geometry/errorwrap checks prepared but NOT executed; no measuredUI or freshnative claim. Root must exact guard/adoptONLY7 then execute compiler/build/headless/originalnative generation. No parser/transport/quota/globalField/style changes; three local composition selectors unmeasuredgeometry gate.
+
+No Root/source/profile/cache/browser/native/build/compiler actions; handles:none/profileunclaimed. Current role-alert/XML/namespace andoriginalfullgRPC/provenance/AT/OS/fullmigration gates retained. /compact unavailable inthisinterface; explicit handoff/no compactionclaim. Own STATUS excludedRoot overlay. Prior inventory/role/source/actualproofs remainimmutable.
+
 ## Read-only remaining shared-input inventory — 2026-10-13
 
 Topiccadc382; report AGENT-UI-NEXT-CENTRALIZED-GAPS-20261013.md SHAb6f4da89831fe07b0a6db3397cc321836d925ad481e52a2d098f42e9b92e62ab. artifacts/ui-next-centralized-gaps/final/audit.json SHAaf4592f1f652f326020581aa5cf321c5c7e64c24fac6a59a44950a062cc5960b freezes24 current Rootpublicsource/scenario/docs/report files; no rawprivate/workspace receipts. No AST/property-count or runtime-measured bug claim.
