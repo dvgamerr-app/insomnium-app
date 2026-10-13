@@ -1,3 +1,9 @@
+## Three agents resumed; v10 reviewed for root run — 2026-10-13
+
+Baseline commit 7d1363b. Agents native_provider/shared_ui/event_api work separately on visibility audit predicates, exact Git initializer policy and notice runner compatibility. Root v10 independent 29-source hash/whole inverse/17 unchanged/runtime19 and two pure visibility cases pass. Initial reviewer JSON byte conversion refusal retained; only reviewer parsing corrected before adoption. Evidence: open-hidden-v10-root-review/review.json. Root native run next; no profile claim or live root handle yet. Old32e/current1046/product/notices unchanged; all original gates remain. Topic commits and explicit /compact-unavailable handoff required.
+
+Current verified identity checkpoint commit: 3b0b89a. Actual3701 semanticadmission/visibilityrefusal andindependent46956 fullrestore accepted; BEFOREwrite/no4fieldselection. Evidence: OWNED-OPEN-V9-VISIBILITY-CHECKPOINT.md. Root handlesnone/claimsreleased/old32e frozen; V10ownedrehide next/alloriginalgates retained. /compact unavailable; explicit completedcheckpoint handoff.
+
 ## Actual semantic admission passes; chooser re-show refuses — 2026-10-13
 
 Root3701 terminal1:actualsemanticselector passes/Edit6881624/nameflagtrue/role42/state1048580/worker0-105B-480.783ms;31queries/199phases pass. Exactchooser20254714 visibletrue AFTERasyncsemanticwait, refuses BEFOREwrite/submission; presence-stamp actualselection untested. Host53776 hiddenexit0/normalWM_CLOSE; auditor46956 actualGit13783/protected654/43resources20history/layout5/current1046/public-private/runtime-v8compiled audit0/allolderrawreceipts retained/claimreleased/root handlesnone. See OWNED-OPEN-V9-VISIBILITY-CHECKPOINT.md. V10confirmedownedrehide/before-after visibility awaited/noactivation/guardrelaxation/zero-flashclaim. UI7/license10 unadopted/alloriginalgates retained;/compact unavailable/handoff.
