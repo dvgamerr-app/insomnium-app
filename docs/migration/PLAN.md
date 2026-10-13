@@ -1,3 +1,16 @@
+## Current three-agent plan and root runtime acceptance — 2026-10-13
+
+The owner authorizes three existing agents, each in an isolated worktree. Verified repository topic bff8df7/handoff36c80f4 and current1034 compiler/ab928 authority are the baseline.
+
+| Owner | Deliverable and current handoff | Next gate |
+| --- | --- | --- |
+| native_provider | Current1034/22runtime/15artifact native preparation a8d5395/e93a9ad; manifest2a353 reviewed and exact artifact sources adopted by root | Root alone builds fresh release and independently audits emitted app/source/assets/sidecar/1963notice/private closure; then serial saved Open and Proto36 with full restoration |
+| event_api | Read-only authentic tauri-plugin source research dd5cb1e/d7ca6e8; two existing MIT/Apache bodies lack this package origin | Independent21-file proof review; any future closed package-origin policy change is a separate feature after current native freeze ends |
+| shared_ui | Artifact-only original gRPC restoration prototype006bba5/c177980; syntax4/pure30, original fixture/default entry unchanged | Independent10-file/source inverse/ownership plan review; concrete same-volume destination/manifest and root runtime bridge remain required before any cleanup action |
+| root | Serial independent integration and actual expensive native/build/profile ownership | Topic commits, STATUS commit/evidence/gates/live handles, then /compact when available; explicit handoff when unavailable |
+
+Do not modify consumed sources during checks/build/runtime. Poll the same live handle to terminal. Saved browser scenarios use shared launchUiBrowser headless:true without headed override; native owned hosts hide before CDP and report native-hidden. Bun only. All original parity, migration, UX, SDK/Event/FIFO/private/platform/distribution/fullnotice/linkage gates remain open. Preserve Insomnium UI; later redesign follows migration.
+
 ## Current repository authority accepted; fresh integrated native next — 2026-10-13
 
 Actualab928fbb7a375e777c46c2fe669e08f3bc68ea11d727517710d4c7d6f7f6fa98/policy4/receipt3/18inputs/1963resources/current1034 compiler0/0/root110/rawaudit accepted. Preserve whole424/header24+4/43discovery observations and old28/history. Nativeprovider must produceNEWexact1034 compiler/header/repository/Proto acceptance+22runtime closure/build source map/count; retain prior598/1026 as immutablehistorical. Independently review, then one root-owned freshrelease/emitted-source/sidecar/public-private closure followed by exclusive serialOpen and Proto36 native-hidden/fullprotected profile/Git/current3legacy2layout restoration. No oldsource/notice exemptions, source changes duringlivechecks or premature actualnative claims. Review defaultgrpc ownedGit proposal separately before any cleanup/helper extension. Fulloriginalscope/topiccommits/STATUS/compact-unavailable handoff remainrequired.
