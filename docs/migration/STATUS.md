@@ -1,3 +1,9 @@
+## Curl pre-adoption verification support — 2026-10-13
+
+Topic8c7e1c1; report AGENT-CURL-VERIFICATION-LAUNCHER-20261013.md SHA74d4a798b95ba72a675e236f96244730aff1040debd185b9ac7eaae0836c9166. artifacts/curl-candidate-verification-source/final/audit.json SHA697cb1ee5f69dff088cf8edead0c69132e2d0549a047f1d0cbb0a8ac8079b6a2 freezes4 supportsource/receipt files +report; runed0231d1/overlay0a36625a. Existing149 candidate manifest d50347 unchanged.
+
+Root-alone command afterexact2supportfile artifactcopy: bun artifacts/curl-candidate-verification-source/run.mjs --curl-component. Sharedfixture clone entrypoint/output/plugin insertion withwholeinverse; savedentry/helper import-onlyrebase inverses andALLoriginalassertions unchanged. ClosedcompileonLoad substitutesONLY2 productfiles, allother133 actualRootsources+3originalrawguards pinnedbefore/after. Original Rootproduct/tests/nativeauthority untouched; freshexclusiveartifactoutput. 10puresyntax/closedresolver poisons terminal0; nobuild/compiler/browser/native/profile/cache/Rootactions byagent. Actualsavedheadless acceptance pendingRoot, no measuredbug/geometry/nativeclaim. Handles:none/profileunclaimed. /compact unavailable; explicithandoff, ownSTATUS excludedRoot. Prior149/role/XML/fullscope gates retained.
+
 ## Curl row-owned file candidate — source-only handoff, 2026-10-13
 
 Topic 10d43e0; report AGENT-CURL-FILE-OWNERSHIP-20261013.md SHA875e8fd633cfaa7e4c9c012253608840c683dcf196094780639428d413f22f66. Public artifacts/curl-file-owned-proposal/final/audit.json SHAd50347e697fc0ec20a5c964399851c787d7f1eb129d16206a233a880d702f591 freezes149 files, seven exact offered code paths, three raw Root-before guards,133 current Root dependency snapshots. WholeRAW component/uploads/originalnative-entry/baseline inverses pass; preview/shared primitives unchanged and not offered. Artifact-only productcandidate, only report committed.
