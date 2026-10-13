@@ -3,6 +3,7 @@ import {resolve,sep,join} from "node:path";
 import {lstat,realpath} from "node:fs/promises";
 import {createHash} from "node:crypto";
 import {withComponentFixture} from "./component-fixture.js";
+import {measureProtoPendingFields} from "./proto-pending-fields.js";
 
 /** Source alias only; no API/transport/provider behavior replacement. */
 async function sourcePlugin(){
@@ -59,7 +60,7 @@ export async function runProtoComponentMeasurement(){
       assert.equal(imported.data.resources.find((/** @type {any} */r)=>r.name==="imported.proto").protoText,source);
       await page.waitForFunction(()=>{const host=/** @type {any} */(window),state=host.__protoMeasurement.snapshot();return state.persisted&&JSON.parse(state.persisted).resources.some((/** @type {any} */r)=>r.name==="imported.proto");});
       const filename=panel.getByRole("textbox",{name:"Proto filename",exact:true});await filename.fill("invalid/name.proto");await filename.press("Tab");
-      await panel.getByRole("alert").waitFor();assert.equal(await filename.inputValue(),"imported.proto");
+      await panel.getByRole("alert").waitFor();assert.equal(await filename.inputValue(),"imported.proto");assert.equal(await filename.getAttribute("aria-invalid"),null,"Rolled-back current filename is valid");
       assert.equal((await snap()).data.resources.find((/** @type {any} */r)=>r.name==="imported.proto").protoText,source);
       await filename.fill("renamed.proto");await filename.press("Tab");assert.equal(await panel.getByRole("alert").count(),0);
       await page.waitForFunction(()=>{const host=/** @type {any} */(window),state=host.__protoMeasurement.snapshot();return state.persisted&&JSON.parse(state.persisted).resources.some((/** @type {any} */r)=>r.name==="renamed.proto");});
@@ -85,6 +86,7 @@ export async function runProtoComponentMeasurement(){
       await reset();const replaceBefore=await snap();await panel.locator('input[type="file"][title="Replace seed.proto"]').setInputFiles({name:"seed.proto",mimeType:"text/plain",buffer:Buffer.from(source)});await path.waitFor();
       await panel.getByRole("button",{name:"Validate and update",exact:true}).click();await panel.getByRole("alert").waitFor();assert.equal(await panel.getByRole("alert").innerText(),"Error: Open the desktop app to use gRPC and server reflection.");
       assert.deepEqual((await snap()).data.resources,replaceBefore.data.resources);assert.equal((await snap()).persisted,replaceBefore.persisted);
+      await path.fill("backend-edited.proto");assert.equal(await panel.getByRole("alert").innerText(),"Error: Open the desktop app to use gRPC and server reflection.");assert.equal(await path.getAttribute("aria-invalid"),null,"Backend availability is not a current filename error");
       await record({theme,width,kind:"real-browser-replace-fallback",native:false,backendNotInvoked:true,noSave:true,heldNativeValidation:"OPEN"});
       for(const [kind,reject] of /** @type {[string,boolean][]} */([
         ["request-A-B-success",false],["request-A-B-rejection",true],["flushed-ABA-rejection",true],
@@ -133,6 +135,7 @@ export async function runProtoComponentMeasurement(){
         const after=await snap();assert.deepEqual(after.data.resources,baseline.data.resources);assert.deepEqual(after.data.history,baseline.data.history);
         await record({theme,width,kind:"cancel-focus-retirement",retirement,focus,scriptedSameTask:true,oldPickerNotFocused:true,resourcesUnchanged:true});
       }
+      await measureProtoPendingFields({page,panel,picker,reset,snap,record,failures,source,theme,width});
     }
     assert.deepEqual(errors,[]);
     const summary={status:failures.length?"failed":"passed",measurementComplete:true,native:false,profiles:6,results:results.length,failures,limits:"Keyed component/browser persistence and owned File.text controls; no native schema validation/OS read faults/held backend apply-remove acceptance."};
