@@ -1,0 +1,13 @@
+# Owned Open v10 checkpoint
+
+Root session49493 ended1. Native host41392 was native-hidden and ended0. Independent auditor66859 ended0, checking full actual protected profile/cookies654, Git13783 files, resources43/history20/layout, current1046 consumed source inputs, public/private/runtime/compiled inputs and retained v9 receipts. Claim released; no native or console process remains.
+
+The reviewed offer manifest is bf5e73274d70922fb03c2a8a33b8fb1dff2468f9f939575cc59bf1db69bf4043: 29 pinned sources, whole v9 owned-open inverse, 17 unchanged runtime sources and 19 separately installed runtime sources. Two pure visibility cases and a retained failed receipt passed root review. The proposal authenticates the same owned chooser and hides it at two await boundaries without action retries, activation or alternative controls. Native re-hiding was **not exercised** in this run.
+
+Actual raw output is artifacts/playwright/http-client-certificate-1791869152420. Its metadata snapshot contains14 controls and one Button: HWND72812740/ID1028/enabled/localVisible. No ID1 or ID2 is present. Typed filename read succeeds: HWND15142568/fileNameLabeltrue/role42/state1048576, worker0/106bytes/585.920ms. Original28 ownership queries have no failure. Selector correctly refuses `Exactly one owned IDOK Button`, before any path write, submission, or visibility boundary. Visibility receipt has zero rows; no selection/stamp/currentTLS acceptance is claimed. Exact owned chooser81200532 receives normal WM_CLOSE cleanup. This difference from v9's17-control snapshot does not prove its initialization timing or cause.
+
+Two root reviewer mistakes were retained as negative source snapshots: Uint8Array was parsed without Buffer conversion before adoption; the first auditor expected v9's focused state1048580 rather than v10's measured1048576. Only reviewer conversion and exact observed-state assertion were corrected. Frozen agent/runtime sources, semantic admission and native action guards stayed unchanged.
+
+Root operational evidence: open-hidden-v10-root-review/review.json and certificate-open-hidden-v10-native-root-run/refusal-restoration-audit.json. Three agents continue isolated source-only work: native visibility/receipt/readiness evidence, UI exact Git initializer policy, notice runner compatibility/adoption sequence. Root alone owns native/build/profile/cache. UI7/license10 remain unadopted; current old32e executable and source authority remain frozen. Original Open4/currentTLS59, Proto36/fullgRPC, platform, full notice/linkage/distribution, migration and UX gates remain open.
+
+Verified work is committed by topic. This interface cannot invoke `/compact`; STATUS records the commit, evidence, open gates and live agent state as the explicit handoff.

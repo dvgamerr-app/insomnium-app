@@ -1,3 +1,7 @@
+## Open IDOK snapshot boundary remains open — 2026-10-13
+
+Actual49493 typed filename read succeeds, but14-control snapshot has no admitted IDOK; refuses before path write/visibility operation. v10 re-hide unexercised/zero rows. Independent66859 fullactual profile/Git/layout/source/public-private/runtime/compiled restoration passes; claimreleased/hostexit0. No Open4/currentTLS/Proto36/fullgRPC/platform/notice/linkage/distribution/migration/UX completion; all original gates retained.
+
 ## Filename identity admission; headless chooser lifecycle still open — 2026-10-13
 
 Actual3701 semanticselector/typedfilename read passes, then sameownedchooser visibletrue afterasyncwait refusesbeforewrite. No4fieldselection/stamp/TLScurrent workflow acceptance; zeroflash unproven. Independent46956 fullactualGit/profile/layout/current1046/public-private/runtime-v8compiled restoration passes/claimreleased/hostexit0. Confirmedownedrehide next; all original Open/Proto36/fullgRPC/platform/fullnotice/linkage/distribution/migration/UX remainOPEN.
