@@ -1,3 +1,15 @@
+## Future role-alert source proposal independently replayed — 2026-10-13
+
+Root frozen27 rehash/whole product-script inverses/fourpolicy refusals/syntax9 pass; full saved verifier exact-location inverse and child52340 exit0/50refusals independently pass. Evidence: CURRENT-FUTURE-ROLE-SOURCE-REVIEW.md and future-role-offer-root-review. Synthetic cases/old authenticated worker reference only, no freshapp/native/product adoption/DOM/AT acceptance. Namespace instrumentation/fullnative still next; role delta/newbuild/full authority/positiveoperator/SAME18/fullrestoration/release and all original migration/distribution/UX gates remain open. Root handles:none/profileunclaimed. /compact unavailable; explicit handoff.
+
+Current namespace dependency discovery commit: 6f2c9b35b07eaa3f38fb885575ebc9dbbd743726. Evidence: namespace-literal-closure-root/ledger.json/imports.json/review.json;21files38edges/four actual package seeds. No native acceptance; complete runtime closure/capture and recorded-process/layout additions pending. Root handles:none/profileunclaimed; all remaining gates active. /compact unavailable; explicit handoff.
+
+## Namespace literal dependency discovery — 2026-10-13
+
+Root saved scanner closes21 literal entry dependencies/38edges; ledger65c4a70a. Bare seeds are @xmldom/xmldom, playwright-core, svelte/compiler and xpath; conditional component fixture retained, no inherited YAML/noble assumption. This is discovery only: nonliteral fixture build entry/plugin addon assets, tools/Win32 boundary, outer operator/observer/authority modules and fresh full package capture still require reviewed binding. No native/profile/build launched. Root handles:none/profileunclaimed; current namespace instrumented offer pending. All original migration/distribution/UX gates remain open. /compact unavailable; explicit handoff.
+
+Current verified namespace source review commit: 915884abacee9accb291f6e8d0011563dd93afda. Evidence: CURRENT-NAMESPACE-OFFER-REVIEW.md; Root child55952 pure27/syntax8/21sources13references/inverses pass. Root handles:none/profile unclaimed. Actual namespace native20+88 and every remaining migration/distribution/UX gate remain open. /compact unavailable; explicit feature handoff before further integration.
+
 ## Namespace frozen source independently reviewed — 2026-10-13
 
 Root rehashed21 source files and13 current baselines/references; child55952 exit0/pure27/whole entry and component inverse/syntax8/post-check hashes pass. Evidence: CURRENT-NAMESPACE-OFFER-REVIEW.md and namespace-offer-root-review/review.json. Initial manifest-key typo refused before imports and was corrected. Native provider prepares separate recorded-process and actual restored-layout instrumentation; original20/additive88 actual native execution, full source/package/physical/FS/case/restoration/release gates remain open. Root handles:none/profile unclaimed; all migration/distribution/UX scope retained. /compact unavailable; explicit feature handoff.
