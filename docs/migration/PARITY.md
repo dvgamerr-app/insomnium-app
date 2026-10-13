@@ -1,3 +1,7 @@
+## Filename identity admission; headless chooser lifecycle still open — 2026-10-13
+
+Actual3701 semanticselector/typedfilename read passes, then sameownedchooser visibletrue afterasyncwait refusesbeforewrite. No4fieldselection/stamp/TLScurrent workflow acceptance; zeroflash unproven. Independent46956 fullactualGit/profile/layout/current1046/public-private/runtime-v8compiled restoration passes/claimreleased/hostexit0. Confirmedownedrehide next; all original Open/Proto36/fullgRPC/platform/fullnotice/linkage/distribution/migration/UX remainOPEN.
+
 ## Actual filename semantics; selection remains open — 2026-10-13
 
 V8actual58160 helper0/106B/500.841ms proves exactCBEMbranch Edit1148 filenameLabeltrue/role42/state1048580;31queries/199phases/actualcurrent1046-fullrestore17644 pass. Unchangedstrictmatcher refusesabsenttext BEFOREselection; no4field/Open/TLScurrent workflow claim. Narrowknownloadedcase+actualSHA fix accepted; alloriginalOpen/Proto36/fullgRPC/platform/fullnotice/linkage/distribution/migration/UX remainOPEN.

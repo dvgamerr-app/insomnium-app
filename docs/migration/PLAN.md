@@ -1,3 +1,7 @@
+## Maintain owned chooser hiding across async waits — 2026-10-13
+
+Actualv9 filename semanticadmission passes; chooservisibletrue afterMSAAwait refusesprewrite. Reviewv10 samePID/main/#32770/HWND re-auth→savedownedhide→sameidentity/visiblefalse proof afterrelevantasyncboundaries, retainingactions/path/stamp/backend guards. Userheadless/native-hidden authorization alreadycoversownedhide; no newuserapproval/globalinput/activation/fallback. RootserialSAME4field/TLS/fullrestore/audit. UI7/license10/currentauthority/compiler-headless/freshbuild/Proto36/fullgRPC/platform/fullnotice/linkage/migration/UX remainrequired; topiccommits/STATUS/compact-unavailable handoff.
+
 ## Use measured filename authority for explicit Open fix — 2026-10-13
 
 Actual58160/independent17644 prove filenameLabeltrue/role42/state1048580 on exactowned1148branch andfullrestore; strictoldtextmatcher stillrefuses beforeselection. Rootreviewv9 ONLY declaredsemanticidentity/livebranch/state/button/prewriteclosedtext and presence-awaremodified changes, wholeoldsource inverses/allotherassertions retained. RunSAME4fields/TLS serialcurrent32e/fullrestore/independentresultaudit. ThenintegrateUI7/license10/gRPCpreserver proposals aseligible bytopic, recaptureauthority/compiler-headless/current126/newbuild/serialnative36/fullgRPC. Fulloriginalscope/platform/fullnotice/linkage/migration/UX staysrequired; STATUS/compact-unavailable handoff afterfeatures.
