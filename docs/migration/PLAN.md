@@ -1,3 +1,7 @@
+## Measure the transient Open identity refusal before action changes — 2026-10-13
+
+Actualv4 fails before helper spawn while latersame numeric chooser passes cleanup authentication. Preserve75776/rawreceipts/fullrestore audit; do not infer disappearance. Nativeprovider prepares NEWbounded phase/rawthreadPID/error/IsWindow owner/class receipts before/afterawaits, unchanged actions/no retry. Root alone reviews/runs SAME saved scenario/source freeze/serialfullrestore. Finish old32e phase, then integrate reviewedUI localclipping+durablehelper and policy5 with recapturedauthority/compiler/headless/freshbuild/nativeOpen-Proto36. Every original scope/topiccommit/STATUS/compact-unavailable handoff remainsrequired.
+
 ## Parallel integration plan after current native measurements — 2026-10-13
 
 1. native_provider: artifact-only SAME saved Open integration of compiled v3 read-only MSAA and local identity diagnostics; preserve original strict matcher/action/stamp oracle. Root alone reviews, freezes runtime, executes native-hidden serially and audits full restoration.

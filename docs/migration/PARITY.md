@@ -1,3 +1,7 @@
+## Actual owned Open structural evidence; semantic unavailable — 2026-10-13
+
+Run75776 proves17controls/bothemptyEdit locallyvisible/CBEM ownedCombo association, notfilenameauthority. Pre-spawn rawthreadquery0 refuses; sameHWND latercleanupauthenticates, causeunmeasured/no COM/selection. Independent12031 fullactualGit/profile/layout/source-public-private/runtimecompiled restoration passes/hostexit0/claimreleased. Open acceptance/Proto36/originalgRPC/platform/fullnotice/linkage/distribution/fullmigration/UX remainOPEN.
+
 ## Typed accessibility preparation boundary — 2026-10-13
 
 Normal root csc compilation of v3 DLL/STA helper passes two terminal0 processes and1046 source freeze; binding42b3f10e/console94f97558. No COM/native/selection acceptance yet. Existing emptyEdit refusal remains; semantic read-only integration and actual restored runtime await root. UI durablehelper/CSS and policy5 remain isolated proposals; all original Open/Proto36/gRPC/platform/private/fullnotice/linkage/distribution/migration/UX gates stayOPEN.
