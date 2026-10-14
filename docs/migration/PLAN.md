@@ -4,7 +4,7 @@ Updated 2026-10-15. Current state is in [STATUS.md](STATUS.md); all original req
 
 ## Remaining execution order
 
-1. Complete remaining actual collection UI create/duplicate/delete and private-resource/model variants, then manual body/send/cancel/history and shared UI workflow gates. Current Windows ResourceManager native6 +field24/correction6 is verified at301c173; it does not waive broader collection lifecycle or callback-drain/platform acceptance.
+1. Complete manual body/send/cancel/history and shared UI workflows, plus remaining collection/model variants. Windows ResourceManager original6 +field24/correction6 +collection lifecycle6 is verified at2870f40, including14 legacy private-model exclusions/15 references and actual root reorder/restoration; broader model, callback-drain and platform acceptance remains required.
 2. Finish environment/import/export, GraphQL, streams, gRPC and OpenAPI remaining compatibility.
 3. Finish Git clone/remote checkout/push and remaining network/provider/recovery gates; finish authentication provider/native acceptance. Proxy NTLMv2 Windows30 is verified; broader legacy schemes/provider/platform gates remain open.
 4. Complete desktop integration, license coverage/linkage, installer and CI/platform acceptance. Namespace original20+88/current Windows source/package/kernel-process audit is verified at787cce7; universal loader/linkage/all-birth/OS-close/physical-width/AT/platform claims remain open.
