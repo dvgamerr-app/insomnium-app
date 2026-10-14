@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { resolve, sep } from "node:path";
 
 /** @param {string} name @param {(page: import('playwright-core').Page, output: string) => Promise<void>} run
- * @param {{buildRoot?:string,beforeNavigate?:(page:import('playwright-core').Page)=>Promise<void>,headers?:Record<string,string>}} [options] */
+ * @param {{buildRoot?:string,beforeNavigate?:(page:import('playwright-core').Page)=>Promise<void>,headers?:Record<string,string>,fetch?:(request:Request)=>Response|undefined|Promise<Response|undefined>}} [options] */
 export async function withPreview(name, run, options = {}) {
   const root = resolve(options.buildRoot ?? "build");
   assert.ok(
@@ -22,6 +22,8 @@ export async function withPreview(name, run, options = {}) {
     hostname: "127.0.0.1",
     port: 0,
     async fetch(request) {
+      const fixture = await options.fetch?.(request);
+      if (fixture) return fixture;
       const path = decodeURIComponent(new URL(request.url).pathname);
       const target = resolve(root, "." + (path === "/" ? "/index.html" : path));
       if (!target.startsWith(root + sep))

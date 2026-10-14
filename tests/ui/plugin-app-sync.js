@@ -221,7 +221,9 @@ await withPreview(
         const states = await page.evaluate(() =>
           /** @type {any} */ (window).__pluginAppSyncFixture.states(),
         );
-        assert.equal(states[0][0], kind === "timeout" ? 3 : 0);
+        // Owner retirement publishes an error to wake the blocked worker;
+        // a caller timeout retains the distinct timed-out state.
+        assert.equal(states[0][0], kind === "timeout" ? 3 : 2);
         await page.evaluate(() =>
           /** @type {any} */ (window).__pluginAppSyncFixture.release(),
         );
