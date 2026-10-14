@@ -2,9 +2,13 @@ import assert from "node:assert/strict";
 import { initialData } from "../../src/lib/model.js";
 import { withPreview } from "./helpers/preview-app.js";
 import { measureEnvironmentName } from "./helpers/environment-name.js";
+import { runNativeEnvironmentCases } from "./helpers/environment-native-cases.js";
 
 // Actual built application and bundled template workers; browser storage only.
-await withPreview("template-tag-environment", async (page, output) => {
+const runLabel=process.env.INSOMNIUM_UI_RUN_LABEL ?? "";
+assert.match(runLabel,/^[a-zA-Z0-9_-]{0,80}$/);
+if (process.env.INSOMNIUM_ENVIRONMENT_NATIVE === "1") await runNativeEnvironmentCases();
+else await withPreview("template-tag-environment"+(runLabel?"-"+runLabel:""), async (page, output) => {
   /** @type {string[]} */ const errors = [];
   page.on("pageerror", (error) => errors.push(String(error)));
   /** @type {string[]} */ const workers = [];

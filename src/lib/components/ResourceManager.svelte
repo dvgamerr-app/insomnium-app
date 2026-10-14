@@ -1,4 +1,5 @@
 <script>
+  import { environmentEditorText, parseEnvironmentEditor } from "../environment-editor.js";
   import FormPanel from "./ui/FormPanel.svelte";
   import Feedback from "./ui/Feedback.svelte";
   import Field from "./ui/Field.svelte";
@@ -35,7 +36,7 @@
     if (!initialized) {
       name = resource.name || "";
       description = resource.description || "";
-      environment = JSON.stringify(resource.environment || {}, null, 2);
+      environment = environmentEditorText(resource.environment || {}, resource.environmentPropertyOrder);
       parentId = resource.parentId || "";
       initialized = true;
     }
@@ -68,10 +69,8 @@
     const patch = { name: name.trim(), description };
     if (isFolder) {
       try {
-        const parsed = JSON.parse(environment);
-        if (!parsed || Array.isArray(parsed) || typeof parsed !== "object")
-          throw new Error("Folder variables must be a JSON object.");
-        Object.assign(patch, { environment: parsed });
+        const parsed = parseEnvironmentEditor(environment, "Folder variables must be a JSON object.");
+        Object.assign(patch, { environment: parsed.data, environmentPropertyOrder: parsed.dataPropertyOrder });
       } catch (e) {
         environmentError = String(e);
         return;

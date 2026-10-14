@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
 
 /** Actual saved preview application; owns only the scenario's browser storage.
- * @param {import('playwright-core').Page} page @param {string} output */
-export async function measureEnvironmentName(page, output) {
+ * @param {import('playwright-core').Page} page @param {string} output
+ * @param {{saved?:()=>Promise<any>,until?:(read:()=>Promise<boolean>,label:string)=>Promise<any>,setTheme?:(theme:string)=>Promise<void>,native?:boolean}} [options] */
+export async function measureEnvironmentName(page, output, options = {}) {
   const rows = /** @type {Record<string,any>[]} */ ([]);
   const failures = /** @type {Record<string,any>[]} */ ([]);
   const jsonRows = /** @type {Record<string,any>[]} */ ([]);
-  const saved = async () => JSON.parse(/** @type {string} */ (
-    await page.evaluate(() => localStorage.getItem("insomnium-tauri-preview-v1"))));
+  const saved = options.saved ?? (async () => JSON.parse(/** @type {string} */ (
+    await page.evaluate(() => localStorage.getItem("insomnium-tauri-preview-v1")))));
   const open = async () => {
     await page.getByRole("button", {name:"Edit environment",exact:true}).click();
     const dialog=page.getByRole("dialog",{name:"Manage environments",exact:true});
@@ -20,13 +21,18 @@ export async function measureEnvironmentName(page, output) {
   // read-only baseline; subsequent saved rename must not create foreign data.
   const selection=page.getByRole("combobox",{name:"Active environment",exact:true});
   await selection.selectOption(await selection.inputValue());
-  await page.waitForFunction(()=>{
+  if (options.until) await options.until(async()=>{
+    const data=await saved();
+    return data.resources?.some(/** @param {any} resource */resource=>resource._type==="workspace_meta"&&resource.parentId===data.activeWorkspaceId&&resource.activeEnvironmentId===data.activeEnvironmentId);
+  },"Durable environment selection metadata");
+  else await page.waitForFunction(()=>{
     const data=JSON.parse(localStorage.getItem("insomnium-tauri-preview-v1")||"{}");
     return data.resources?.some(/** @param {any} resource */resource=>resource._type==="workspace_meta"&&resource.parentId===data.activeWorkspaceId&&resource.activeEnvironmentId===data.activeEnvironmentId);
   });
   for(const theme of ["dark","light"]) for(const width of [1440,900,760]) {
     await page.setViewportSize({width,height:600});
-    await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
+    if(options.setTheme) await options.setTheme(theme);
+    else await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
     await page.waitForFunction(()=>document.querySelector(".status-save")?.textContent?.includes("Local workspace"));
     const before=await saved();
     let dialog=await open();
@@ -110,7 +116,11 @@ export async function measureEnvironmentName(page, output) {
     await dialog.getByRole("textbox",{name:"Name",exact:true}).fill(" "+correctedName+" ");
     await dialog.getByRole("button",{name:"Save environment",exact:true}).press("Enter");
     await dialog.waitFor({state:"detached"});
-    await page.waitForFunction(({environmentId,correctedName})=>{
+    if(options.until) await options.until(async()=>{
+      const data=await saved();
+      return data.resources?.find(/** @param {any} resource */resource=>resource._id===environmentId)?.name===correctedName;
+    },"Durable corrected environment name");
+    else await page.waitForFunction(({environmentId,correctedName})=>{
       const data=JSON.parse(localStorage.getItem("insomnium-tauri-preview-v1")||"{}");
       return data.resources?.find(/** @param {any} resource */resource=>resource._id===environmentId)?.name===correctedName;
     },{environmentId,correctedName});
@@ -124,6 +134,7 @@ export async function measureEnvironmentName(page, output) {
     if(state.invalid!=="true"||state.refs!==id+"-error") failures.push({...row,kind:"missing-name-association"});
     if(corrected.alerts!==0) failures.push({...row,kind:"stale-local-name-error-after-correction"});
   }
-  await Bun.write(output+"/environment-name-measurements.json",JSON.stringify({native:false,rows,jsonRows,failures},null,2));
+  await Bun.write(output+"/environment-name-measurements.json",JSON.stringify({native:options.native??false,rows,jsonRows,failures},null,2));
   assert.deepEqual(failures,[],"Authoritative blank environment Name feedback belongs to that field and clears on correction");
+  return {rows,jsonRows,failures};
 }

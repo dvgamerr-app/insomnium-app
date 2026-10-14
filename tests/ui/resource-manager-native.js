@@ -459,6 +459,7 @@ await withResourceProbePreserved(
                           name: outer.name,
                           description: item.description ?? "",
                           environment: correctedEnvironment,
+                          environmentPropertyOrder: { $: ["corrected", "retained"] },
                           modified: current.modified,
                         }
                       : item,
@@ -474,6 +475,7 @@ await withResourceProbePreserved(
                   width,
                   trimmedName: outer.name,
                   environment: correctedEnvironment,
+                  environmentPropertyOrder: { $: ["corrected", "retained"] },
                   unknownFieldsPreserved: true,
                   durable: true,
                   reload: true,

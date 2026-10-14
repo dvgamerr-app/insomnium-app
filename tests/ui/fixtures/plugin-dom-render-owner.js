@@ -122,7 +122,32 @@ async function httpControl(mode){
     return {mode,calls,runId,beforeReload,saved,hydrated:JSON.parse(JSON.stringify(workspace.responses[request._id]??null)),running:!!workspace.running[request._id]};
   }finally{clearMocks();delete /** @type {any} */(window).isTauri;}
 }
+/** Controlled compiled remove() state transitions, not native body evidence.
+ * @param {'unrelated'|'selected'} mode */
+async function environmentRemovalControl(mode){
+  const request={...newRequest('w'),_id:'environment-controlled',url:'http://127.0.0.1/environment-controlled'};
+  const baseResponse={_id:'controlled-base-saved',requestId:request._id,environmentId:null,status:200,statusText:'OK',body:'controlled Base history',created:1};
+  const unsaved={_id:'controlled-unsaved',requestId:request._id,environmentId:'env-selected',status:200,statusText:'OK',body:'controlled unsaved response',created:2};
+  workspace.data={...initialData(),resources:[{_id:'w',_type:'workspace',name:'Controlled environment owner'},
+    {_id:'env-base',_type:'environment',parentId:'w',name:'Base',data:{}},
+    {_id:'env-selected',_type:'environment',parentId:'env-base',name:'Selected',data:{}},
+    {_id:'env-unrelated',_type:'environment',parentId:'env-base',name:'Unrelated',data:{}},
+    {_id:'meta-controlled',_type:'workspace_meta',parentId:'w',activeEnvironmentId:'env-selected'},request],
+    history:[baseResponse],activeWorkspaceId:'w',activeRequestId:request._id,activeEnvironmentId:'env-selected',settings:{...initialData().settings,filterResponsesByEnv:true}};
+  workspace.ready=true;workspace.responses={[request._id]:unsaved};workspace.saveFailed=false;
+  const before=JSON.parse(JSON.stringify({response:workspace.responses[request._id],history:workspace.data.history,selection:workspace.data.activeEnvironmentId,resources:workspace.data.resources,responseSelections:workspace.data.responseSelections}));
+  const calls=/** @type {string[]} */([]);let saved=/** @type {any} */(null);
+  /** @type {any} */(window).isTauri=true;
+  mockIPC((command,args)=>{calls.push(command);if(command==='save_workspace'){saved=JSON.parse(JSON.stringify(/** @type {any} */(args).data));return null;}throw Error('Unexpected environment-removal controlled IPC '+command);});
+  try{
+    const reference=workspace.responses[request._id];removeResource(mode==='selected'?'env-selected':'env-unrelated');
+    await new Promise(resolve=>setTimeout(resolve,0));
+    return {mode,requestId:request._id,calls,before,saved,sameResponseObject:workspace.responses[request._id]===reference,
+      after:JSON.parse(JSON.stringify({response:workspace.responses[request._id],history:workspace.data.history,selection:workspace.data.activeEnvironmentId,meta:workspace.data.resources.find(row=>row._id==='meta-controlled'),responseSelections:workspace.data.responseSelections,resources:workspace.data.resources}))};
+  }finally{clearMocks();delete /** @type {any} */(window).isTauri;}
+}
 /** @type {any} */(window).__pluginDomRenderOwner={
+  environmentRemovalControl,
   httpControl,
   records,
   clipboardFixture:()=>clipboardFixture,

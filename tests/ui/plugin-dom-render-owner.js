@@ -1,15 +1,31 @@
 import assert from "node:assert/strict";
 import {readdir} from "node:fs/promises";
 import {createHash} from "node:crypto";
+import {resolve} from "node:path";
+import {compileModule} from "svelte/compiler";
 import {withPreview} from "./helpers/preview-app.js";
 import {createSvelteUiFixturePlugin} from "./helpers/component-fixture.js";
 import {poll} from "./helpers/native-app.js";
 import {retainedHistory} from '../../src/lib/model.js';
 const runLabel=process.env.INSOMNIUM_UI_RUN_LABEL;
 if(runLabel!==undefined&&!/^[A-Za-z0-9-]{1,80}$/.test(runLabel))throw Error('Invalid INSOMNIUM_UI_RUN_LABEL');
+const baselineFlag=process.env.INSOMNIUM_ENV_DELETE_BASELINE;
+assert.ok(baselineFlag===undefined||baselineFlag==='1','Invalid INSOMNIUM_ENV_DELETE_BASELINE');
+let baselineSource='',baselineSHA256=/** @type {string|null} */(null);
+if(baselineFlag==='1'){
+  const result=Bun.spawnSync(['git','show','6349100:src/lib/workspace.svelte.js'],{windowsHide:true,timeout:10000,maxBuffer:4*1024*1024});
+  assert.equal(result.exitCode,0);assert.equal(result.success,true);assert.ok(result.signalCode==null&&!result.exitedDueToTimeout);
+  baselineSource=result.stdout.toString();assert.ok(baselineSource.length>0);baselineSHA256=createHash('sha256').update(baselineSource).digest('hex');
+}
+/** Exact workspace-only historical compiled negative control; no source rewrite.
+ * @type {import('bun').BunPlugin} */
+const baselinePlugin={name:'environment-delete-historical-workspace',setup(build){build.onLoad({filter:/workspace\.svelte\.js$/},({path})=>{
+  if(resolve(path).toLowerCase()!==resolve('src/lib/workspace.svelte.js').toLowerCase())return;
+  return {contents:compileModule(baselineSource,{filename:path,generate:'client'}).js.code,loader:'js'};
+});}};
 await withPreview("plugin-dom-render-owner"+(runLabel?'-'+runLabel:''),async(page,output)=>{
   assert.equal(await page.evaluate(()=>crossOriginIsolated),true);
-  const bundle=await Bun.build({entrypoints:["tests/ui/fixtures/plugin-dom-render-owner.js"],target:"browser",format:"iife",conditions:["browser","svelte"],plugins:[createSvelteUiFixturePlugin()],define:{"import.meta.url":JSON.stringify(page.url())}});
+  const bundle=await Bun.build({entrypoints:["tests/ui/fixtures/plugin-dom-render-owner.js"],target:"browser",format:"iife",conditions:["browser","svelte"],plugins:[...(baselineFlag==='1'?[baselinePlugin]:[]),createSvelteUiFixturePlugin()],define:{"import.meta.url":JSON.stringify(page.url())}});
   assert.equal(bundle.success,true,bundle.logs.map(String).join("\n"));await page.evaluate(await bundle.outputs[0].text());
   const files=await readdir("build/_app/immutable/workers"),urls=/** @type {Record<string,string>} */({}),hashes=/** @type {Record<string,string>} */({});
   const hash=(/** @type {string} */ text)=>createHash("sha256").update(text).digest("hex");
@@ -21,7 +37,7 @@ await withPreview("plugin-dom-render-owner"+(runLabel?'-'+runLabel:''),async(pag
   const call=(/** @type {string} */ method,/** @type {any[]} */ args=[])=>page.evaluate(({method,args})=>{
     const value=/** @type {any} */(window).__pluginDomRenderOwner[method];return typeof value==="function"?value(...args):value;
   },{method,args});
-  const dialog=()=>page.getByRole("dialog",{name:"Render lifetime dialog",exact:true}),checks=[],streamControls=[];
+  const dialog=()=>page.getByRole("dialog",{name:"Render lifetime dialog",exact:true}),checks=[],streamControls=[],environmentControls=/** @type {any[]} */([]);
   try {
     await call("open",[urls]);assert.equal(await call("render"),"prepared");assert.equal(await call("renderClosed"),true);
     await dialog().waitFor();await dialog().getByRole("button",{name:"Retained renderer event"}).click();
@@ -108,6 +124,35 @@ await withPreview("plugin-dom-render-owner"+(runLabel?'-'+runLabel:''),async(pag
     const large={...row('large','a'),bodyBase64:'A'.repeat(22*1024*1024)};
     assert.deepEqual(retainedHistory([large,{...large,_id:'large-b',requestId:'b'},row('small','c')],{maxHistory:2}).map(r=>r._id),['large','small']);
     assert.deepEqual(retentionInput,[row('a-new','a','one'),row('b-new','b'),row('a-env','a','two'),row('a-old','a','one')]);
+    for(const mode of ['unrelated','selected']){
+      const control=await call('environmentRemovalControl',[mode]);environmentControls.push(control);
+      assert.equal(control.calls.filter((/** @type {string} */ command)=>command==='send_http').length,0);
+      assert.ok(control.saved);assert.ok(control.calls.length>0&&control.calls.every((/** @type {string} */ command)=>command==='save_workspace'));
+      assert.deepEqual(control.after.history,control.before.history,'Removing an environment preserves saved history');
+      assert.deepEqual(control.saved.history,control.before.history);
+      assert.deepEqual(control.saved.responseSelections,control.after.responseSelections);
+      assert.deepEqual(control.after.responseSelections,control.before.responseSelections);
+      assert.deepEqual(control.saved.resources,control.after.resources);
+      assert.equal(control.saved.settings.filterResponsesByEnv,true);
+      assert.equal(control.after.history.some((/** @type {any} */ entry)=>entry._id==='controlled-unsaved'),false);
+      if(mode==='unrelated'){
+        assert.equal(control.sameResponseObject,true,'Unrelated environment deletion preserves exact unsaved response identity');
+        assert.deepEqual(control.after.response,control.before.response);
+        assert.equal(control.after.selection,'env-selected');assert.equal(control.after.meta.activeEnvironmentId,'env-selected');
+        assert.ok(control.after.resources.some((/** @type {any} */ entry)=>entry._id==='env-selected'));
+        assert.equal(control.after.resources.some((/** @type {any} */ entry)=>entry._id==='env-unrelated'),false);
+        assert.deepEqual(control.after.resources,control.before.resources.filter((/** @type {any} */ entry)=>entry._id!=='env-unrelated'));
+      }else{
+        assert.equal(control.sameResponseObject,false);
+        assert.equal(control.after.selection,'');assert.equal(control.after.meta.activeEnvironmentId,'');
+        assert.equal(control.saved.activeEnvironmentId,'');assert.equal(control.saved.resources.find((/** @type {any} */ entry)=>entry._id==='meta-controlled').activeEnvironmentId,'');
+        assert.deepEqual(control.after.response,control.before.history[0],'Selected environment deletion restores matching Base saved response');
+        assert.equal(control.after.resources.some((/** @type {any} */ entry)=>entry._id==='env-selected'),false);
+        assert.ok(control.after.resources.some((/** @type {any} */ entry)=>entry._id==='env-unrelated'));
+        assert.ok(Number.isFinite(control.after.meta.modified));
+        assert.deepEqual(control.after.resources,control.before.resources.filter((/** @type {any} */ entry)=>entry._id!=='env-selected').map((/** @type {any} */ entry)=>entry._id==='meta-controlled'?{...entry,activeEnvironmentId:'',modified:control.after.meta.modified}:entry));
+      }
+    }
     await call("close");await dialog().waitFor({state:"detached"});
     checks.push("Actual catalog unload closes owned roots; explicit reload creates fresh usable VM; app registry disposal closes final dialog");
     await poll(async()=>(await call("records")).every((/** @type {any} */ row)=>row.terminated),"Owned workers retire after admitted dialog cleanup");
@@ -117,7 +162,7 @@ await withPreview("plugin-dom-render-owner"+(runLabel?'-'+runLabel:''),async(pag
     const pluginWorkers=workers.filter((/** @type {any} */ row)=>row.kind==='plugin');
     assert.ok(pluginWorkers.length>=3);
     assert.deepEqual(pluginWorkers.flatMap((/** @type {any} */ row)=>row.messages.filter((/** @type {any} */ message)=>typeof message.error==='string').map((/** @type {any} */ message)=>message.error)),['owned field failure']);
-    await Bun.write(output+"/result.json",JSON.stringify({status:"passed",headless:true,checks,workers,hashes,streamControls,httpControls,httpContractEvidence: true,limits:"Actual registry/render/DOM/workspace execute/builtin response/dependent browser HTTP; Additive httpControls are deterministic controlled IPC contracts, not native acceptance. WebSocket/SSE frontend uses documented mockIPC with controlled command/channel/persistence. Fresh native stream terminal acceptance and ordered onHide before Abort/unload remain required."},null,2));
-  }catch(error){await Bun.write(output+"/diagnostics.json",JSON.stringify({workers:await call("records"),dialogs:await page.getByRole("dialog").allTextContents(),stream:await call("streamDiagnostics")},null,2));throw error;}
+    await Bun.write(output+"/result.json",JSON.stringify({status:"passed",headless:true,checks,workers,hashes,streamControls,httpControls,environmentControls,environmentDeleteBaseline:baselineFlag==="1",baselineWorkspaceSHA256:baselineSHA256,environmentContractEvidence:true,httpContractEvidence: true,limits:"Actual registry/render/DOM/workspace execute/builtin response/dependent browser HTTP; Additive httpControls/environmentControls are deterministic controlled IPC contracts, not native acceptance. WebSocket/SSE frontend uses documented mockIPC with controlled command/channel/persistence. Fresh native stream terminal acceptance and ordered onHide before Abort/unload remain required."},null,2));
+  }catch(error){await Bun.write(output+"/diagnostics.json",JSON.stringify({environmentControls,environmentDeleteBaseline:baselineFlag==="1",baselineWorkspaceSHA256:baselineSHA256,workers:await call("records"),dialogs:await page.getByRole("dialog").allTextContents(),stream:await call("streamDiagnostics")},null,2));throw error;}
   finally{await call("close").catch(()=>{});}
 },{headers:{"Cross-Origin-Opener-Policy":"same-origin","Cross-Origin-Embedder-Policy":"require-corp"}});

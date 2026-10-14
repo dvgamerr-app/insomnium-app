@@ -39,7 +39,9 @@ export function createSvelteUiFixturePlugin() {
  * @param {{minify?:boolean,plugins?:import('bun').BunPlugin[]}} [options]
  */
 export async function buildComponentFixture(name, options = {}) {
-  const output = resolve("artifacts/playwright", name);
+  const label = process.env.INSOMNIUM_UI_RUN_LABEL;
+  if (label !== undefined) assert.match(label, /^[a-zA-Z0-9_-]{1,80}$/, "Fixture run label must be bounded ASCII");
+  const output = resolve("artifacts/playwright", label === undefined ? name : name + "-" + label);
   const root = resolve(output, "bundle");
   await mkdir(root, { recursive: true });
   const bundle = await Bun.build({

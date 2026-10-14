@@ -284,6 +284,7 @@ await withComponentFixture("resource-manager", async (page, output) => {
           name: "Corrected name",
           description: "Original description",
           environment: { corrected: true },
+          environmentPropertyOrder: { $: ["corrected"] },
         },
         parentId: "wrk_owned_only",
       });

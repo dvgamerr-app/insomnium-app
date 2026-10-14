@@ -52,8 +52,9 @@ export function manualMultipartParts(bytes, contentType) {
   return parts;
 }
 
-/** Owned local HTTP fixture. It never force-closes sockets to manufacture retirement. */
-export async function createManualHttpFixture() {
+/** Owned local HTTP fixture. It never force-closes sockets to manufacture retirement.
+ * @param {{reply?:(record:Record<string,any>)=>{body:Buffer,contentType:string}}} [options] */
+export async function createManualHttpFixture(options = {}) {
   const routes = /** @type {Map<string,{mode:string,status:number}>} */ (
     new Map()
   );
@@ -61,7 +62,7 @@ export async function createManualHttpFixture() {
   const socketRecords = /** @type {Record<string,any>[]} */ ([]);
   const records = /** @type {Record<string,any>[]} */ ([]);
   const held =
-    /** @type {Map<string,{response:import('node:http').ServerResponse,record:Record<string,any>,remaining:Buffer}>} */ (
+    /** @type {Map<string,{response:import('node:http').ServerResponse,record:Record<string,any>,remaining:Buffer,headers:Record<string,string>}>} */ (
       new Map()
     );
   let socketId = 0;
@@ -121,21 +122,23 @@ export async function createManualHttpFixture() {
         request.socket.destroy();
         return;
       }
-      const reply = manualReply(token, route.status, route.mode);
+      const custom = options.reply?.(record);
+      const reply = custom?.body ?? manualReply(token, route.status, route.mode);
+      assert.ok(Buffer.isBuffer(reply) && reply.length <= 20 * 1024 * 1024);
       const headers = {
-        "Content-Type": "text/plain; charset=utf-8",
+        "Content-Type": custom?.contentType ?? "text/plain; charset=utf-8",
         "X-Owned-Token": token,
         "Content-Length": String(reply.length),
       };
       if (["held", "timeout"].includes(route.mode)) {
-        held.set(token, { response, record, remaining: reply });
+        held.set(token, { response, record, remaining: reply, headers });
         return;
       }
       response.writeHead(route.status, headers);
       record.headersReleasedAt = Date.now();
       if (route.mode === "headers") {
         response.write(reply.subarray(0, 8));
-        held.set(token, { response, record, remaining: reply.subarray(8) });
+        held.set(token, { response, record, remaining: reply.subarray(8), headers });
         return;
       }
       response.end(reply);
@@ -192,12 +195,7 @@ export async function createManualHttpFixture() {
       held.delete(token);
       if (current.response.destroyed) return false;
       if (current.record.headersReleasedAt === null) {
-        const reply = manualReply(token, current.record.status);
-        current.response.writeHead(current.record.status, {
-          "Content-Type": "text/plain; charset=utf-8",
-          "X-Owned-Token": token,
-          "Content-Length": String(reply.length),
-        });
+        current.response.writeHead(current.record.status, current.headers);
         current.record.headersReleasedAt = Date.now();
       }
       current.response.end(current.remaining);

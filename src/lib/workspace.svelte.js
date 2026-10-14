@@ -1078,8 +1078,14 @@ export function remove(resourceId) {
       meta.modified = Date.now();
     }
   }
-  if (ids.has(workspace.data.activeEnvironmentId))
+  const selectedEnvironmentRemoved = ids.has(workspace.data.activeEnvironmentId);
+  if (selectedEnvironmentRemoved)
     workspace.data.activeEnvironmentId = "";
+  if (
+    workspace.data.settings.filterResponsesByEnv &&
+    selectedEnvironmentRemoved
+  )
+    refreshHttpResponses();
   if (ids.has(workspace.data.activeRequestId))
     workspace.data.activeRequestId = "";
   if (ids.has(workspace.data.activeWorkspaceId))

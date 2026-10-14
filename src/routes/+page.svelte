@@ -1,5 +1,6 @@
 <script>
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
+  import { orderedEnvironments, environmentEditorText, parseEnvironmentEditor, newEnvironment, duplicateEnvironment, reorderEnvironment } from "$lib/environment-editor.js";
   import Toolbar from "$lib/components/ui/Toolbar.svelte";
   import FormPanel from "$lib/components/ui/FormPanel.svelte";
   import Feedback from "$lib/components/ui/Feedback.svelte";
@@ -91,6 +92,8 @@
     environmentName = $state(""),
     environmentText = $state("{}"),
     importText = $state("");
+  let environmentPrivate = $state(false), newEnvironmentPrivate = $state(false);
+  let environmentColor = $state(/** @type {string|null} */ (null));
   let environmentNameError = $state(
     /** @type {{environmentId:string,message:string}|null} */ (null),
   );
@@ -132,11 +135,11 @@
     ),
   );
   const environments = $derived(
-    app.data.resources.filter(
+    orderedEnvironments(app.data.resources.filter(
       (r) =>
         r._type === "environment" &&
         collectionIndex.get(r._id) === app.data.activeWorkspaceId,
-    ),
+    ), app.data.activeWorkspaceId),
   );
   const baseEnvironment = $derived(
     environments.find((r) => r.parentId === app.data.activeWorkspaceId),
@@ -201,6 +204,7 @@
     importBusy = false;
     modal = type;
     name = "";
+    if (type === "new-environment") newEnvironmentPrivate = false;
     modalError = "";
     environmentNameError = null;
   }
@@ -247,20 +251,17 @@
     environmentId = target;
     environmentName =
       app.data.resources.find((r) => r._id === target)?.name || "Environment";
-    environmentText = JSON.stringify(
-      app.data.resources.find((r) => r._id === target)?.data || {},
-      null,
-      2,
-    );
+    const environment = app.data.resources.find((r) => r._id === target);
+    environmentPrivate = environment?.isPrivate === true;
+    environmentColor = environment?.color || null;
+    environmentText = environmentEditorText(environment?.data || {}, environment?.dataPropertyOrder);
     showModal("environment");
   }
   function saveEnvironment() {
     modalError = "";
     environmentNameError = null;
     try {
-      const data = JSON.parse(environmentText);
-      if (!data || Array.isArray(data) || typeof data !== "object")
-        throw new Error("Environment must be a JSON object");
+      const { data, dataPropertyOrder } = parseEnvironmentEditor(environmentText);
       if (!environmentName.trim()) {
         environmentNameError = {
           environmentId,
@@ -268,7 +269,7 @@
         };
         return;
       }
-      update(environmentId, { data, name: environmentName.trim() });
+      update(environmentId, { data, dataPropertyOrder, name: environmentName.trim(), isPrivate: environmentPrivate, color: environmentColor });
       closeModal();
     } catch (e) {
       modalError = String(e);
@@ -283,13 +284,7 @@
     if (modal === "new-collection") addWorkspace(name.trim());
     if (modal === "new-folder") addFolder(name.trim(), newFolderParent);
     if (modal === "new-environment") {
-      app.data.resources.push({
-        _id: id("env"),
-        _type: "environment",
-        parentId: baseEnvironment?._id || app.data.activeWorkspaceId,
-        name: name.trim(),
-        data: {},
-      });
+      app.data.resources.push(newEnvironment(environments, baseEnvironment?._id || app.data.activeWorkspaceId, name, newEnvironmentPrivate));
       void persist();
     }
     closeModal();
@@ -583,7 +578,7 @@
               >{/if}
             <div class="environment-controls">
               <div class="environment-row">
-                <span class="environment-dot"></span><Select
+                <span class="environment-dot" style:background={selectedEnvironment?.color || undefined}></span><Select
                   variant="environment"
                   aria-label="Active environment"
                   value={app.data.activeEnvironmentId}
@@ -592,7 +587,7 @@
                   }}
                   ><option value="">Base Environment</option
                   >{#each environments.filter((e) => e._id !== baseEnvironment?._id) as env}<option
-                      value={env._id}>{env.name}</option
+                      value={env._id} style:color={env.color || undefined}>{env.name}{env.isPrivate ? " (private)" : ""}</option
                     >{/each}</Select
                 ><Button
                   variant="ghost"
@@ -969,7 +964,7 @@
             value={environmentId}
             onchange={(event) => editEnvironment(event.currentTarget.value)}
             >{#each environments as env}<option value={env._id}
-                >{env.name}</option
+                style:color={env.color || undefined}>{env.name}{env.isPrivate ? " (private)" : ""}</option
               >{/each}</Select
           ><Button
             variant="ghost"
@@ -982,17 +977,12 @@
           <Button
             variant="secondary"
             class="secondary-button"
+            disabled={editingEnvironment?._id === baseEnvironment?._id}
             onclick={() => {
               if (!canEditWorkspace() || !editingEnvironment) return;
-              const env = {
-                ...$state.snapshot(editingEnvironment),
-                _id: id("env"),
-                parentId: baseEnvironment?._id || app.data.activeWorkspaceId,
-                name: `${editingEnvironment.name} (copy)`,
-              };
-              app.data.resources.push(env);
+              const copyId = duplicateEnvironment(app.data.resources, editingEnvironment._id, baseEnvironment?._id || "");
               void persist();
-              editEnvironment(env._id);
+              editEnvironment(copyId || "");
             }}><Icon name="copy" size={14} /> Duplicate</Button
           >
           <Button
@@ -1002,6 +992,15 @@
             onclick={() => showModal("delete-environment")}>Delete…</Button
           >
         </div>
+        <div class="resource-tools">
+          <Button variant="secondary" disabled={!editingEnvironment || editingEnvironment._id === baseEnvironment?._id || environments.filter(env => env._id !== baseEnvironment?._id)[0]?._id === environmentId}
+            onclick={() => { if (!canEditWorkspace()) return; reorderEnvironment(environments, environmentId, app.data.activeWorkspaceId, -1); void persist(); }}>Move environment up</Button>
+          <Button variant="secondary" disabled={!editingEnvironment || editingEnvironment._id === baseEnvironment?._id || environments.filter(env => env._id !== baseEnvironment?._id).at(-1)?._id === environmentId}
+            onclick={() => { if (!canEditWorkspace()) return; reorderEnvironment(environments, environmentId, app.data.activeWorkspaceId, 1); void persist(); }}>Move environment down</Button>
+        </div>
+        <Field layout="inline" class="checkbox-label"><Checkbox bind:checked={environmentPrivate} />Private environment</Field>
+        <Field label="Environment color"><Input type="color" value={environmentColor || "#7d69cb"} onchange={(event) => environmentColor = event.currentTarget.value} /></Field>
+        <Button variant="secondary" disabled={!environmentColor} onclick={() => environmentColor = null}>Clear environment color</Button>
         <Field
           class="name-label environment-name"
           label="Name"
@@ -1177,6 +1176,7 @@
                   : "Development"}
             /></Field
           >
+          {#if modal === "new-environment"}<Field layout="inline" class="checkbox-label"><Checkbox bind:checked={newEnvironmentPrivate} />Private environment</Field>{/if}
           <div class="modal-actions">
             <Button
               variant="secondary"
