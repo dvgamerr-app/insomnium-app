@@ -4,6 +4,7 @@ import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { openSync, closeSync } from "node:fs";
 import { resolve, join } from "node:path";
 import assert from "node:assert/strict";
+import { nativeErrorTree } from "./native-error.js";
 import {resourceCrudProbeIdentifier,reserveCrudProfileLaunch,bindCrudProfileLaunch,recordCrudProfileExit} from './native-profile-ownership.js';
 export {resourceCrudProbeIdentifier} from './native-profile-ownership.js';
 
@@ -77,6 +78,8 @@ export async function withNativeApp(scenario, run, options = {}) {
   /** @type {import("playwright-core").Browser|undefined} */ let browser;
   /** @type {Page|undefined} */ let page;
   /** @type {string|undefined} */ let error;
+  /** @type {unknown} */ let failure;
+  let caughtFailure = false;
   let exit;
   let intentionalParentTermination = false;
   let nativeCloseRequested = false;
@@ -173,7 +176,10 @@ export async function withNativeApp(scenario, run, options = {}) {
       invoke: (command, args = {}) => invoke(activePage, command, args),
     });
   } catch (cause) {
-    error = String(cause instanceof Error ? cause.stack : cause);
+    failure = cause;
+    caughtFailure = true;
+    const details = nativeErrorTree(cause);
+    error = details.stack ?? `${details.name}: ${details.message}`;
     if (page) {
       await page
         .screenshot({ path: join(output, "failure.png") })
@@ -228,6 +234,7 @@ export async function withNativeApp(scenario, run, options = {}) {
           scenario,
           status: error ? "failed" : "passed",
           error,
+          ...(caughtFailure ? { errorDetails: nativeErrorTree(failure) } : {}),
           startedAt,
           finishedAt: new Date().toISOString(),
           pid: child.pid,
@@ -257,6 +264,7 @@ export async function withNativeApp(scenario, run, options = {}) {
       }),
     );
   }
+  if (caughtFailure) throw failure;
   if (error) throw Error(error);
 }
 
