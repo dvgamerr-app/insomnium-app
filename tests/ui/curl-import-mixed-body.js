@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { withNativeApp, poll } from "./helpers/native-app.js";
+import { withNativeApp, poll, selectedNativeProbeIdentifier, integrationProbeIdentifier } from "./helpers/native-app.js";
+import { preserveNativeProfile } from "./helpers/native-profile-preservation.js";
+import { withResourceProbePreserved, registerResourceProbeCollection } from "./helpers/resource-manager-cases.js";
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-curl-mixed-ui-probe/build-state.json";
 /** @type {Buffer[]} */ const received = [];
@@ -14,6 +16,7 @@ const server = Bun.serve({
   },
 });
 try {
+  const run = async () => withResourceProbePreserved(async () => {
   await withNativeApp(
     "curl-import-mixed-body",
     async ({ page, invoke, output }) => {
@@ -48,6 +51,9 @@ try {
         );
         return !!request;
       }, "Mixed import persisted");
+      const imported = await invoke("load_workspace");
+      for (const collection of imported.resources.filter((/** @type {any} */ r) => !oldIds.has(r._id) && r._type === "workspace"))
+        registerResourceProbeCollection(collection._id, collection.name);
       const select = async () =>
         page
           .getByRole("complementary", { name: "Collections" })
@@ -224,6 +230,9 @@ try {
       );
     },
   );
+  }, { expectedIdentifier: selectedNativeProbeIdentifier() });
+  if (selectedNativeProbeIdentifier() === integrationProbeIdentifier) await preserveNativeProfile(run);
+  else await run();
 } finally {
   server.stop(true);
 }

@@ -7,10 +7,11 @@ import {
   realpath,
   readdir,
   unlink,
+  rmdir,
 } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { createHash } from "node:crypto";
-import { probeIdentifier, poll } from "./native-app.js";
+import { probeIdentifier, integrationProbeIdentifier, poll } from "./native-app.js";
 import {
   knownWindowsApplicationData,
   resourceCrudProbeIdentifier,
@@ -35,9 +36,10 @@ export async function withResourceProbePreserved(run, options = {}) {
   assert.equal(activePreservation, null, "No nested profile preservation");
   const identifier = options.expectedIdentifier ?? probeIdentifier;
   assert.ok(
-    [probeIdentifier, resourceCrudProbeIdentifier].includes(identifier),
+    [probeIdentifier, resourceCrudProbeIdentifier, integrationProbeIdentifier].includes(identifier),
   );
   const isolated = identifier === resourceCrudProbeIdentifier;
+  const integration = identifier === integrationProbeIdentifier;
   assert.equal(
     !!options.lazyCapture,
     isolated,
@@ -94,13 +96,14 @@ export async function withResourceProbePreserved(run, options = {}) {
         result["cookies/" + name] = hash(await readFile(path));
       }
     } else
-      assert.ok(isolated, "Default profile must already have cookie directory");
+      assert.ok(isolated || integration, "Default profile must already have cookie directory");
     return result;
   };
   const originals =
     /** @type {{name:string,path:string,bytes:Buffer|null}[]} */ ([]);
   let before = /** @type {Record<string,string>|null} */ (null);
   let oldIds = new Set();
+  let cookiesOriginallyPresent = false;
   const owned = /** @type {Map<string,string>} */ (new Map());
   const capture = async () => {
     assert.equal(
@@ -111,6 +114,7 @@ export async function withResourceProbePreserved(run, options = {}) {
     const info = await lstat(root);
     assert.ok(info.isDirectory() && !info.isSymbolicLink());
     assert.equal(canonical(await realpath(root)), canonical(root));
+    cookiesOriginallyPresent = await exists(join(root, "cookies"));
     if (isolated) {
       const marker = await Bun.file(
         /** @type {string} */ (options.profileOwnershipPath),
@@ -267,6 +271,14 @@ export async function withResourceProbePreserved(run, options = {}) {
             sha,
             "Exact immutable bytes restored: " + name,
           );
+        if (integration && !cookiesOriginallyPresent && await exists(join(root, "cookies"))) {
+          const directory = join(root, "cookies");
+          const info = await lstat(directory);
+          assert.ok(info.isDirectory() && !info.isSymbolicLink());
+          assert.equal(canonical(await realpath(directory)), canonical(directory));
+          assert.deepEqual(await readdir(directory), [], "Only an empty owned cookie directory may be retired");
+          await rmdir(directory);
+        }
       } catch (error) {
         errors.push(error);
       }

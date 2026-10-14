@@ -2,7 +2,9 @@
 
 ## Current state — 2026-10-14
 
-Implementation and bounded historical native20/component88 checks exist. The current original20 + additive88 native integration remains **open**: the latest frozen operator failed and independently restored/released its profile. Source diagnostics preserve the primary error before bridge stringification; no new native acceptance is claimed. See artifacts/namespace-current-native-root-run/failure-profile-release.json and artifacts/namespace-failure-diagnostics-root/adoption.json.
+Current functional native replay1791973441156 passes the original20 cases and additive88 field cases across8 dark/light width profiles on the integration identity:20 workers/3 HTTP sends, native-hidden host45832 exit0, exact original profile bytes/file set and layout restored. Current compiler validation passes0 errors/0 warnings. The original operator source/package/kernel-process audit remains open; this saved functional result does not claim all process births, OS-close, physical screen width, AT or universal platform acceptance.
+
+The maintained tests now include xml-response-namespace-fields.js; its promoted runtime initially matched the reviewed artifact helper after import relocation/type annotations. Native replay exposed an ordering assumption at the final save: Rust-loaded object key order differs from in-memory UI row order. The helper now reads the exact edited first prefix input instead of choosing the first native-object key; expected mapping, response preservation and durable reload assertions remain unchanged. Failed receipt1791973323389 and successful restoration are retained. The original failed frozen operator is not relabeled as passing.
 
 Fresh current-source component replay: saved session91439 exited0; namespace-component-measurements.json independently confirms88 checks,8 theme/width profiles, zero failures and native:false. No native gate is closed by this component result.
 

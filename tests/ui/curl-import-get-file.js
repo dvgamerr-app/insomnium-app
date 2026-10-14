@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { withNativeApp, poll } from "./helpers/native-app.js";
+import { withNativeApp, poll, selectedNativeProbeIdentifier, integrationProbeIdentifier } from "./helpers/native-app.js";
+import { preserveNativeProfile } from "./helpers/native-profile-preservation.js";
+import { withResourceProbePreserved, registerResourceProbeCollection } from "./helpers/resource-manager-cases.js";
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-curl-get-ui-probe/build-state.json";
 /** @type {any[]} */ const received = [];
@@ -19,6 +21,7 @@ const server = Bun.serve({
   },
 });
 try {
+  const run = async () => withResourceProbePreserved(async () => {
   await withNativeApp(
     "curl-import-get-file",
     async ({ page, invoke, output }) => {
@@ -104,6 +107,9 @@ try {
         );
         return added.length === cases.length;
       }, "GET file requests saved");
+      const imported = await invoke("load_workspace");
+      for (const collection of imported.resources.filter((/** @type {any} */ r) => !oldIds.has(r._id) && r._type === "workspace"))
+        registerResourceProbeCollection(collection._id, collection.name);
       for (const c of cases) {
         const url = urlFor(c.name),
           request = added.find((r) => r.url === url);
@@ -221,6 +227,9 @@ try {
       );
     },
   );
+  }, { expectedIdentifier: selectedNativeProbeIdentifier() });
+  if (selectedNativeProbeIdentifier() === integrationProbeIdentifier) await preserveNativeProfile(run);
+  else await run();
 } finally {
   server.stop(true);
 }

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { withNativeApp, poll } from "./helpers/native-app.js";
+import { withNativeApp, poll, selectedNativeProbeIdentifier, integrationProbeIdentifier } from "./helpers/native-app.js";
+import { preserveNativeProfile } from "./helpers/native-profile-preservation.js";
 import { withResourceProbePreserved, registerResourceProbeCollection } from "./helpers/resource-manager-cases.js";
 if (process.argv.includes("--namespace-component")) {
   const { withComponentFixture } = await import("./helpers/component-fixture.js");
@@ -11,6 +12,7 @@ import { initialData, newRequest } from "../../src/lib/model.js";
 import { verifyXmlResponsePerformance } from "./helpers/xml-response-performance.js";
 import { verifyXmlResponseTransfer } from "./helpers/xml-response-transfer.js";
 import { verifyXmlResponseNamespaces } from "./helpers/xml-response-namespaces.js";
+import { verifyNamespaceNativeFields } from "./helpers/xml-response-namespace-fields.js";
 import {
   installResponseWorkerControl,
   responseWorkerRecords,
@@ -41,7 +43,7 @@ const server = Bun.serve({
   },
 });
 try {
-  await withResourceProbePreserved(async () => {
+  const run = async () => withResourceProbePreserved(async () => {
   await withNativeApp(
     "xml-response-filter",
     async ({ page, invoke, output }) => {
@@ -211,6 +213,7 @@ try {
           invoke,
           requestId,
         });
+        await verifyNamespaceNativeFields({ page, pane, saved, output, requestId });
         return;
       }
       if (process.env.INSOMNIUM_XML_RESPONSE_TRANSFER === "1") {
@@ -593,7 +596,9 @@ try {
       }
     },
   );
-  });
+  }, { expectedIdentifier: selectedNativeProbeIdentifier() });
+  if (selectedNativeProbeIdentifier() === integrationProbeIdentifier) await preserveNativeProfile(run);
+  else await run();
 } finally {
   server.stop(true);
 }
