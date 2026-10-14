@@ -220,6 +220,10 @@ self.onmessage = async (event) => {
         0,
         8192,
       ),
+      cleanupError:
+        typeof (/** @type {any} */ (error)?.cleanupError) === "string"
+          ? /** @type {any} */ (error).cleanupError.slice(0, 8192)
+          : undefined,
     });
   }
 };

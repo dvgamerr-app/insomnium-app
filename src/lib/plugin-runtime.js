@@ -130,11 +130,36 @@ export function createPluginVm(engine, snapshot, eventTimeOrigin = performance.t
       };
     })();`).dispose();
     if (snapshot.format === "module") {
-      evaluate(
+      const initialization = evaluate(
         `import * as exports from ${JSON.stringify("./" + snapshot.entry)};globalThis.__pluginExports=exports;`,
         "plugin-entry.mjs",
         { type: "module" },
-      ).dispose();
+      );
+      try {
+        // Module evaluation can finish only after its original native jobs.
+        // Initialization remains outside all callback/helper owner scopes.
+        while (true) {
+          const state = vm.getPromiseState(initialization);
+          if (state.type === "rejected") {
+            try { const error = vm.dump(state.error);throw Error(error?.message || String(error) || "Plugin module initialization failed"); }
+            finally { state.error.dispose(); }
+          }
+          const ready = state.type === "fulfilled";
+          if (ready && !state.notAPromise) state.value.dispose();
+          if (!vm.runtime.hasPendingJob()) {
+            if (!ready) throw Error("Plugin module initialization is pending without executable guest jobs");
+            break;
+          }
+          // Tiny jobs can finish before QuickJS next polls its interrupt hook.
+          // Keep the original initialization deadline at every job boundary.
+          if (performance.now() >= deadline) throw Error("Plugin module initialization interrupted");
+          const jobs = execute(() => vm.runtime.executePendingJobs(1));
+          if (jobs.error) {
+            try { throw Error(vm.dump(jobs.error)?.message || "Plugin module initialization job failed"); }
+            finally { jobs.error.dispose(); }
+          }
+        }
+      } finally { initialization.dispose(); }
     } else {
       evaluate(
         `globalThis.__pluginExports=globalThis.__requirePluginModule(${JSON.stringify(snapshot.entry)});`,
@@ -184,7 +209,17 @@ export function createPluginVm(engine, snapshot, eventTimeOrigin = performance.t
       },
     };
   } catch (error) {
-    vm.dispose();
+    try {
+      vm.dispose();
+    } catch (cleanup) {
+      // Keep the original initialization failure observable. The caller owns
+      // this isolated worker and must retire it; a failed VM is never reused.
+      if (!(error instanceof Error))
+        error = new Error(String(error), { cause: error });
+      Object.defineProperty(error, "cleanupError", {
+        value: (cleanup instanceof Error ? cleanup.message : String(cleanup)).slice(0, 8192),
+      });
+    }
     throw error;
   }
 }

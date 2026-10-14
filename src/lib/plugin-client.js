@@ -35,9 +35,14 @@ export function inspectPluginExports(snapshot, options = {}) {
         type: "module",
       });
       worker.onmessage = (event) => {
-        if (typeof event.data?.error === "string")
-          finish(new Error(event.data.error), null);
-        else if (event.data?.result && typeof event.data.result === "object")
+        if (typeof event.data?.error === "string") {
+          const error = new Error(event.data.error);
+          if (typeof event.data.cleanupError === "string")
+            Object.defineProperty(error, "cleanupError", {
+              value: event.data.cleanupError.slice(0, 8192),
+            });
+          finish(error, null);
+        } else if (event.data?.result && typeof event.data.result === "object")
           finish(null, event.data.result);
         else finish(new Error("Invalid plugin worker result"), null);
       };

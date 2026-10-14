@@ -1,13 +1,26 @@
 import { openPluginSession } from "../../../src/lib/plugin-session.js";
 import { createPluginValueCodec } from "../../../src/lib/plugin-values.js";
+import { inspectPluginExports } from "../../../src/lib/plugin-client.js";
 
 const sessions = new Map(),
   operations = new Map(),
   records = /** @type {any[]} */ ([]);
 let nextId = 0;
 let nextOperation = 0;
+/** Real inspector worker with the served production URL, no host services.
+ * @param {any} snapshot @param {string} url @param {string} [mode] */
+async function inspectSnapshot(snapshot,url,mode='normal') {
+  const NativeWorker=window.Worker,controller=new AbortController();
+  window.Worker=class extends NativeWorker {
+    constructor(){super(url,{type:'module'});const record={id:'inspect',url,terminated:false,messages:/** @type {any[]} */([])};records.push(record);this.addEventListener('message',event=>record.messages.push(event.data));const stop=this.terminate.bind(this);this.terminate=()=>{record.terminated=true;stop();};}
+  };
+  const timer=mode==='abort-init'?setTimeout(()=>controller.abort(),100):undefined;
+  try{return await inspectPluginExports(snapshot,{signal:controller.signal});}
+  finally{if(timer!==undefined)clearTimeout(timer);window.Worker=NativeWorker;}
+}
 /** @type {any} */ (window).__pluginSessionFixture = {
   records,
+  inspectSnapshot,
   /** @param {any} snapshot @param {string} url @param {string} [mode] */
   async open(snapshot, url, mode = "normal") {
     const id = ++nextId,
@@ -35,6 +48,8 @@ let nextOperation = 0;
           record.terminated = true;
           terminate();
         };
+        if(mode==='abort-init')setTimeout(()=>controller.abort(),100);
+        if(mode==='replace-init')setTimeout(()=>{owner.alive=false;},100);
         return worker;
       },
     });
