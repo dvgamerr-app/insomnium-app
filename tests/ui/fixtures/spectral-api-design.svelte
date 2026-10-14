@@ -1,17 +1,25 @@
 <script>
   import ApiDesign from "../../../src/lib/components/ApiDesign.svelte";
   import Button from "../../../src/lib/components/ui/Button.svelte";
-  import { workspace, withWorkspaceRunsPaused, canEditWorkspace, update } from "../../../src/lib/workspace.svelte.js";
+  import {
+    workspace,
+    withWorkspaceRunsPaused,
+    canEditWorkspace,
+    update,
+  } from "../../../src/lib/workspace.svelte.js";
   import { initialData } from "../../../src/lib/model.js";
   import {
     structuralFiles,
     structuralSource,
   } from "../helpers/structural-source-fixture.js";
-  const initial = initialData();
+  const nativeSeed = /** @type {any} */ (window).__apiImportNativeSeed;
+  const initial = /** @type {ReturnType<typeof initialData>} */ (
+    nativeSeed?.native === true ? nativeSeed.data : initialData()
+  );
   let workspaceId = $state(initial.activeWorkspaceId),
     shown = $state(true);
   const specId = "spc_spectral_owned",
-    otherWorkspace = "wrk_spectral_other";
+    otherWorkspace = nativeSeed?.otherWorkspaceId || "wrk_spectral_other";
   const source =
     "\uFEFFopenapi: 3.1.0\r\ninfo:\r\n  title: Fixture 😀\r\n  version: '1'\r\npaths:\r\n  /probe:\r\n    get:\r\n      responses:\r\n        '200':\r\n          description: OK\r\ncomponents:\r\n  schemas:\r\n    A:\r\n      $ref: './a/shared.yaml'\r\n    B:\r\n      $ref: './b/shared.yaml'\r\n";
   function seed(repository = false) {
@@ -73,16 +81,41 @@
   seed();
   const fixtureOwner = /** @type {any} */ (window);
   fixtureOwner.spectralDrain = {
-    phase: "idle", events: [], error: "",
+    phase: "idle",
+    events: [],
+    error: "",
     state: () => JSON.parse(JSON.stringify(workspace.data)),
     start() {
       this.phase = "waiting";
       this.events.push("drain-requested");
+      if (nativeSeed?.native)
+        fixtureOwner.apiImportNativeTrace.events.push("drain-requested");
       void withWorkspaceRunsPaused(async () => {
-        this.events.push(fixtureOwner.spectralSaveGate.acknowledged ? "operation-after-ack" : "operation-before-ack");
+        if (nativeSeed?.native) {
+          const trace = fixtureOwner.apiImportNativeTrace;
+          trace.events.push(
+            trace.acknowledged
+              ? "operation-after-native-ack"
+              : "operation-before-native-ack",
+          );
+        } else
+          this.events.push(
+            fixtureOwner.spectralSaveGate.acknowledged
+              ? "operation-after-ack"
+              : "operation-before-ack",
+          );
         this.phase = "entered";
-      }).then(() => { this.phase = "finished"; this.events.push("drain-finished"); })
-        .catch((error) => { this.error = String(error); this.phase = "failed"; });
+      })
+        .then(() => {
+          this.phase = "finished";
+          this.events.push("drain-finished");
+          if (nativeSeed?.native)
+            fixtureOwner.apiImportNativeTrace.events.push("drain-finished");
+        })
+        .catch((error) => {
+          this.error = String(error);
+          this.phase = "failed";
+        });
     },
     attemptEdit() {
       const allowed = canEditWorkspace();
