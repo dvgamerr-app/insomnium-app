@@ -48,6 +48,10 @@ import {
   workspaceFor,
   indexWorkspaces,
   historyLimit,
+  retainedHistory,
+  historyMatchesEnvironment,
+  validResponseSelections,
+  selectedHttpHistory,
   protocolFor,
   environmentFor,
   render,
@@ -293,6 +297,7 @@ function applyGitWorkspace(data) {
     if (restored.protocol && !["closed", "error"].includes(restored.connectionState)) restored.connectionState = "closed";
     workspace.responses[restored.requestId] = restored;
   }
+  refreshHttpResponses();
   workspace.schemas = {};
   workspace.grpcSchemas = {};
   workspace.grpcErrors = {};
@@ -582,6 +587,7 @@ export function canEditWorkspace() {
 export function updateSettings(patch) {
   if (!canEditWorkspace()) return;
   const next = { ...patch };
+  if (Object.hasOwn(next, "filterResponsesByEnv")) next.filterResponsesByEnv = next.filterResponsesByEnv === true;
   if (Object.hasOwn(next, "editorIndentSize"))
     next.editorIndentSize = Math.max(
       1,
@@ -593,6 +599,7 @@ export function updateSettings(patch) {
       Math.min(2000, Math.round(Number(next.autocompleteDelay) || 0)),
     );
   Object.assign(workspace.data.settings, next);
+  if (Object.hasOwn(next, "filterResponsesByEnv")) refreshHttpResponses();
   void persist();
 }
 function acceptWorkspaceRun() {
@@ -619,6 +626,7 @@ export async function initialize() {
       if (response.protocol && !["closed", "error"].includes(response.connectionState)) response.connectionState = "closed";
       workspace.responses[response.requestId] = response;
     }
+    refreshHttpResponses();
     workspace.ready = true;
   } catch (error) {
     workspace.error = `Could not load workspace: ${error}`;
@@ -696,6 +704,7 @@ export function selectRequest(requestId) {
     activateCollection(collectionId);
   }
   workspace.data.activeRequestId = requestId;
+  refreshHttpResponses();
   if (!workspace.data.openTabs.includes(requestId))
     workspace.data.openTabs.push(requestId);
   void persist();
@@ -710,6 +719,7 @@ function activateCollection(workspaceId) {
   const environmentId = selectedEnvironmentFor(workspace.data, workspaceId);
   workspace.data.activeWorkspaceId = workspaceId;
   workspace.data.activeEnvironmentId = environmentId;
+  if (workspace.data.settings.filterResponsesByEnv) refreshHttpResponses();
 }
 /** @param {string} environmentId */
 export function selectEnvironment(environmentId) {
@@ -721,6 +731,7 @@ export function selectEnvironment(environmentId) {
     environmentId,
   );
   rememberEnvironment(data, data.activeWorkspaceId, data.activeEnvironmentId);
+  if (data.settings.filterResponsesByEnv) refreshHttpResponses();
   void persist();
 }
 /** @param {string} workspaceId */
@@ -1050,6 +1061,7 @@ export function remove(resourceId) {
   workspace.data.history = workspace.data.history.filter(
     (h) => !ids.has(h.requestId),
   );
+  workspace.data.responseSelections = validResponseSelections(workspace.data);
   for (const key of ids) {
     delete workspace.runnerErrors[key];
     delete workspace.grpcSchemas[key];
@@ -1133,6 +1145,9 @@ export async function execute(
     controller.signal.addEventListener("abort", abortInitial, { once: true });
   let protocol = introspection ? "http" : protocolFor(request);
   let runCompleted = false;
+  /** @type {Record<string,any> | null} */
+  let httpAttempt = null;
+  let httpResponseReceived = false;
   if (introspection) workspace.schemaErrors[requestId] = "";
   try {
     const dataSnapshot = requestDataScope(
@@ -1341,8 +1356,22 @@ export async function execute(
       runCompleted = true;
       return;
     }
+    controller.signal.throwIfAborted();
+    if (!introspection) httpAttempt = {
+      method: prepared.method,
+      url: prepared.url,
+      environmentId: dataSnapshot.activeEnvironmentId || null,
+      graphql: requestSnapshot.body?.mimeType === "application/graphql",
+      started: Date.now(),
+    };
     const response = await send(prepared, controller.signal);
     if (!workspace.data.resources.some((r) => r._id === requestId)) return;
+    if (httpAttempt) {
+      httpAttempt.networkLog = response.networkLog;
+      httpAttempt.headersMs = response.headersMs;
+    }
+    controller.signal.throwIfAborted();
+    httpResponseReceived = true;
     if (response.warnings?.length)
       workspace.notice = response.warnings.join("\n");
     if (introspection) {
@@ -1373,6 +1402,7 @@ export async function execute(
     };
     workspace.responses[requestId] = entry;
     remember(entry);
+    if (!historyMatchesEnvironment(entry, workspace.data.settings, selectedEnvironmentFor(workspace.data, workspaceFor(workspace.data.resources, requestId) || ""))) refreshHttpResponses();
     await persist();
     runCompleted = true;
   } catch (error) {
@@ -1391,6 +1421,31 @@ export async function execute(
       });
       response.elapsedMs = Date.now() - response.created;
       remember(response);
+      await persist();
+    } else if (httpAttempt && !httpResponseReceived) {
+      const entry = {
+        _id: runId,
+        requestId,
+        created: Date.now(),
+        method: httpAttempt.method,
+        url: httpAttempt.url,
+        environmentId: httpAttempt.environmentId,
+        graphql: httpAttempt.graphql,
+        status: 0,
+        statusText: controller.signal.aborted ? "Cancelled" : "Error",
+        error: controller.signal.aborted ? "Request cancelled." : String(error),
+        elapsedMs: Math.max(0, Date.now() - httpAttempt.started),
+        headersMs: Number.isFinite(httpAttempt.headersMs) ? httpAttempt.headersMs : 0,
+        size: 0,
+        bytesRead: 0,
+        headers: [],
+        body: "",
+        bodyBase64: "",
+        networkLog: /** @type {any} */ (error)?.networkLog || httpAttempt.networkLog || [],
+      };
+      workspace.responses[requestId] = entry;
+      remember(entry);
+      if (!historyMatchesEnvironment(entry, workspace.data.settings, selectedEnvironmentFor(workspace.data, workspaceFor(workspace.data.resources, requestId) || ""))) refreshHttpResponses();
       await persist();
     } else
       workspace.responses[requestId] = {
@@ -2217,20 +2272,40 @@ function remember(entry) {
   );
   workspace.data.history.unshift(entry);
   trimHistory();
+  if (!entry.protocol && workspace.data.history.some(item => item._id === entry._id) &&
+      workspace.data.resources.some(request => request._id === entry.requestId && request._type === "request" && protocolFor(request) === "http"))
+    workspace.data.responseSelections = { ...workspace.data.responseSelections, [entry.requestId]: entry._id };
   if (!workspace.data.history.some((h) => h._id === entry._id))
     workspace.notice =
       "Response shown, but it exceeds the 40 MiB saved-history budget. Download it before closing.";
 }
 function trimHistory() {
-  let historyBytes = 0;
-  workspace.data.history = workspace.data.history
-    .slice(0, historyLimit(workspace.data.settings.maxHistory))
-    .filter((item) => {
-      const size = new TextEncoder().encode(JSON.stringify(item)).byteLength;
-      if (historyBytes + size > 40 * 1024 * 1024) return false;
-      historyBytes += size;
-      return true;
-    });
+  workspace.data.history = retainedHistory(workspace.data.history, workspace.data.settings);
+  workspace.data.responseSelections = validResponseSelections(workspace.data);
+}
+/** Persist a genuine ordinary HTTP history choice without modifying resources/history.
+ * @param {string} requestId @param {Record<string,any>} entry */
+export function selectHttpHistory(requestId, entry) {
+  if (!canEditWorkspace()) return;
+  const request = workspace.data.resources.find(item => item._id === requestId);
+  if (request?._type !== "request" || protocolFor(request) !== "http") return;
+  const environmentId = selectedEnvironmentFor(workspace.data,workspaceFor(workspace.data.resources,requestId) || "");
+  const saved = workspace.data.history.find(item => item._id === entry._id && item.requestId === requestId && !item.protocol && historyMatchesEnvironment(item,workspace.data.settings,environmentId));
+  if (!saved) return;
+  workspace.data.responseSelections = { ...workspace.data.responseSelections, [requestId]: saved._id };
+  workspace.responses[requestId] = saved;
+  void persist();
+}
+/** Select the newest saved ordinary HTTP response for each current environment.
+ * Streaming and gRPC response ownership remains unchanged. */
+function refreshHttpResponses() {
+  for (const request of workspace.data.resources) {
+    if (request._type !== "request" || protocolFor(request) !== "http" || workspace.responses[request._id]?.protocol) continue;
+    const environmentId = selectedEnvironmentFor(workspace.data, workspaceFor(workspace.data.resources, request._id) || "");
+    const response = selectedHttpHistory(workspace.data, request._id, environmentId);
+    if (response) workspace.responses[request._id] = response;
+    else delete workspace.responses[request._id];
+  }
 }
 /** @param {string} requestId */
 export async function stop(requestId) {

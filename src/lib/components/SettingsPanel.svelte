@@ -236,6 +236,12 @@
               </div>
               <Field layout="inline" class="checkbox-label"
                 ><Checkbox
+                  checked={settings.filterResponsesByEnv}
+                  onchange={(event) => updateSettings({ filterResponsesByEnv: event.currentTarget.checked })}
+                />Filter response history by environment</Field
+              >
+              <Field layout="inline" class="checkbox-label"
+                ><Checkbox
                   checked={settings.followRedirects}
                   onchange={(event) =>
                     updateSettings({

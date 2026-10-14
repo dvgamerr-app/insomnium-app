@@ -66,6 +66,7 @@ export function initialData() {
     activeEnvironmentId: "",
     openTabs: [request._id],
     history: /** @type {Resource[]} */ ([]),
+    responseSelections: /** @type {Record<string,string>} */ ({}),
     settings: {
       theme: "dark",
       editorIndentSize: 2,
@@ -82,6 +83,7 @@ export function initialData() {
       identityPem: "",
       identityHost: "",
       maxHistory: 20,
+      filterResponsesByEnv: false,
       oauthBrowserSession: "",
     },
   };
@@ -126,6 +128,11 @@ export function validateData(value) {
   )
     throw new Error("Invalid saved response history");
   const defaults = initialData();
+  if (data.responseSelections != null &&
+      (typeof data.responseSelections !== "object" || Array.isArray(data.responseSelections) ||
+       ![Object.prototype,null].includes(Object.getPrototypeOf(data.responseSelections)) ||
+       Object.values(data.responseSelections).some(value => typeof value !== "string")))
+    throw new Error("Invalid saved response selections");
   const result = {
     ...defaults,
     ...data,
@@ -135,6 +142,7 @@ export function validateData(value) {
     openTabs: (data.openTabs || []).filter((tab) => ids.has(tab)),
     // Branch switching may temporarily remove a request. Preserve its local history.
     history: [...(data.history || [])],
+    responseSelections: { ...(data.responseSelections || {}) },
     settings: { ...defaults.settings, ...data.settings },
   };
   if (
@@ -169,12 +177,56 @@ export function validateData(value) {
       );
   }
   result.settings.maxHistory = historyLimit(result.settings.maxHistory);
+  result.settings.filterResponsesByEnv = result.settings.filterResponsesByEnv === true;
+  result.responseSelections = validResponseSelections(result);
   return result;
 }
 /** @param {unknown} value */
 export function historyLimit(value) {
   const n = Number(value);
   return Number.isFinite(n) ? Math.max(1, Math.min(100, Math.trunc(n))) : 20;
+}
+/** Newest-first retention is scoped to each request, optionally its environment.
+ * The serialized history budget remains global across all retained requests.
+ * @param {Resource[]} history @param {Record<string,any>} settings */
+export function retainedHistory(history, settings) {
+  const limit = historyLimit(settings.maxHistory);
+  const counts = new Map();
+  let historyBytes = 0;
+  return history.filter((entry) => {
+    const key = JSON.stringify([
+      entry.requestId,
+      ...(settings.filterResponsesByEnv ? [entry.environmentId ?? null] : []),
+    ]);
+    const count = counts.get(key) || 0;
+    if (count >= limit) return false;
+    counts.set(key, count + 1);
+    const size = new TextEncoder().encode(JSON.stringify(entry)).byteLength;
+    if (historyBytes + size > 40 * 1024 * 1024) return false;
+    historyBytes += size;
+    return true;
+  });
+}
+/** @param {Resource} entry @param {Record<string,any>} settings @param {string|null} environmentId */
+export function historyMatchesEnvironment(entry, settings, environmentId) {
+  return !settings.filterResponsesByEnv || (entry.environmentId || null) === (environmentId || null);
+}
+/** Drop selections whose ordinary HTTP request or saved response no longer exists.
+ * Environment switching hides a selection without destroying its saved identity.
+ * @param {Record<string,any>} data @returns {Record<string,string>} */
+export function validResponseSelections(data) {
+  return Object.fromEntries(Object.entries(/** @type {Record<string,string>} */ (data.responseSelections || {})).filter(([requestId,responseId]) =>
+    data.resources.some((/** @type {Resource} */ request) => request._id === requestId && request._type === "request" && protocolFor(request) === "http") &&
+    data.history.some((/** @type {Resource} */ entry) => entry.requestId === requestId && entry._id === responseId && !entry.protocol)));
+}
+/** Resolve an explicit saved choice, retained legacy request metadata, or latest
+ * ordinary HTTP history under the same optional environment boundary.
+ * @param {Record<string,any>} data @param {string} requestId @param {string|null} environmentId */
+export function selectedHttpHistory(data, requestId, environmentId) {
+  const history = data.history.filter((/** @type {Resource} */ entry) => entry.requestId === requestId && !entry.protocol && historyMatchesEnvironment(entry,data.settings,environmentId));
+  const explicit = Object.hasOwn(data.responseSelections || {},requestId);
+  const selectedId = explicit ? data.responseSelections[requestId] : data.resources.find((/** @type {Resource} */ entry) => entry._type === "request_meta" && entry.parentId === requestId)?.activeResponseId;
+  return history.find((/** @type {Resource} */ entry) => entry._id === selectedId) || history[0];
 }
 /** @param {Resource[]} resources @param {string} resourceId */
 export function workspaceFor(resources, resourceId) {

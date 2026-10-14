@@ -4,7 +4,10 @@ import {createHash} from "node:crypto";
 import {withPreview} from "./helpers/preview-app.js";
 import {createSvelteUiFixturePlugin} from "./helpers/component-fixture.js";
 import {poll} from "./helpers/native-app.js";
-await withPreview("plugin-dom-render-owner",async(page,output)=>{
+import {retainedHistory} from '../../src/lib/model.js';
+const runLabel=process.env.INSOMNIUM_UI_RUN_LABEL;
+if(runLabel!==undefined&&!/^[A-Za-z0-9-]{1,80}$/.test(runLabel))throw Error('Invalid INSOMNIUM_UI_RUN_LABEL');
+await withPreview("plugin-dom-render-owner"+(runLabel?'-'+runLabel:''),async(page,output)=>{
   assert.equal(await page.evaluate(()=>crossOriginIsolated),true);
   const bundle=await Bun.build({entrypoints:["tests/ui/fixtures/plugin-dom-render-owner.js"],target:"browser",format:"iife",conditions:["browser","svelte"],plugins:[createSvelteUiFixturePlugin()],define:{"import.meta.url":JSON.stringify(page.url())}});
   assert.equal(bundle.success,true,bundle.logs.map(String).join("\n"));await page.evaluate(await bundle.outputs[0].text());
@@ -83,6 +86,28 @@ await withPreview("plugin-dom-render-owner",async(page,output)=>{
       checks.push(protocol+": closed event followed by command rejection revokes dialog and keeps error state (controlled native IPC)");
       streamControls.push({protocol,success,cancelled,failed});
     }
+    const httpControls=[];
+    for(const mode of ['cancel','error','preflight','delete-resolve','delete-reject','save-failure']){
+      const result=await call('httpControl',[mode]);httpControls.push(result);assert.equal(result.running,false);
+      const history=result.beforeReload.history;
+      if(mode==='preflight'){assert.equal(result.calls.includes('send_http'),false);assert.deepEqual(history,[]);assert.equal(result.saved,null);}
+      else if(mode.startsWith('delete-')){assert.deepEqual(history,[]);assert.equal(result.beforeReload.response,undefined);assert.equal(result.beforeReload.resources.some((/** @type {any} */ row)=>row._id==='http-controlled'),false);assert.equal(result.hydrated,null);}
+      else if(mode==='save-failure'){assert.equal(history.length,1);assert.equal(history[0].status,200);assert.equal(history[0].error,undefined);assert.equal(result.beforeReload.saveFailed,true);assert.equal(result.saved,null);}
+      else{
+        assert.equal(history.length,1);assert.equal(history[0]._id,result.runId);assert.equal(history[0].status,0);assert.equal(history[0].body,'');assert.equal(history[0].bodyBase64,'');assert.equal(history[0].method,'GET');assert.equal(history[0].environmentId,null);assert.ok(history[0].elapsedMs>=0);assert.deepEqual(result.hydrated,history[0]);assert.deepEqual(result.saved.history,history);
+        if(mode==='cancel'){assert.equal(history[0].statusText,'Cancelled');assert.ok(result.calls.includes('cancel_http'));assert.equal(history[0].error,'Request cancelled.');}
+        else{assert.equal(history[0].statusText,'Error');assert.ok(history[0].error.includes('Controlled wire failure'));assert.deepEqual(history[0].networkLog,[{kind:'controlled-wire',message:'Preserved failure log'}]);}
+      }
+    }
+    const row=(/** @type {string} */ _id,/** @type {string} */ requestId,/** @type {string|null} */ environmentId=null)=>({_id,requestId,environmentId});
+    const retentionInput=[row('a-new','a','one'),row('b-new','b'),row('a-env','a','two'),row('a-old','a','one')];
+    assert.deepEqual(retainedHistory(retentionInput,{maxHistory:1}).map(r=>r._id),['a-new','b-new']);
+    assert.deepEqual(retainedHistory(retentionInput,{maxHistory:1,filterResponsesByEnv:true}).map(r=>r._id),['a-new','b-new','a-env']);
+    const oversized={...row('oversized','a'),body:'😀'.repeat(11*1024*1024)};
+    assert.deepEqual(retainedHistory([oversized,row('older','a'),row('other','b')],{maxHistory:1}).map(r=>r._id),['other']);
+    const large={...row('large','a'),bodyBase64:'A'.repeat(22*1024*1024)};
+    assert.deepEqual(retainedHistory([large,{...large,_id:'large-b',requestId:'b'},row('small','c')],{maxHistory:2}).map(r=>r._id),['large','small']);
+    assert.deepEqual(retentionInput,[row('a-new','a','one'),row('b-new','b'),row('a-env','a','two'),row('a-old','a','one')]);
     await call("close");await dialog().waitFor({state:"detached"});
     checks.push("Actual catalog unload closes owned roots; explicit reload creates fresh usable VM; app registry disposal closes final dialog");
     await poll(async()=>(await call("records")).every((/** @type {any} */ row)=>row.terminated),"Owned workers retire after admitted dialog cleanup");
@@ -92,7 +117,7 @@ await withPreview("plugin-dom-render-owner",async(page,output)=>{
     const pluginWorkers=workers.filter((/** @type {any} */ row)=>row.kind==='plugin');
     assert.ok(pluginWorkers.length>=3);
     assert.deepEqual(pluginWorkers.flatMap((/** @type {any} */ row)=>row.messages.filter((/** @type {any} */ message)=>typeof message.error==='string').map((/** @type {any} */ message)=>message.error)),['owned field failure']);
-    await Bun.write(output+"/result.json",JSON.stringify({status:"passed",headless:true,checks,workers,hashes,streamControls,limits:"Actual registry/render/DOM/workspace execute/builtin response/dependent browser HTTP; WebSocket/SSE frontend uses documented mockIPC with controlled command/channel/persistence. Fresh native stream terminal acceptance and ordered onHide before Abort/unload remain required."},null,2));
+    await Bun.write(output+"/result.json",JSON.stringify({status:"passed",headless:true,checks,workers,hashes,streamControls,httpControls,httpContractEvidence: true,limits:"Actual registry/render/DOM/workspace execute/builtin response/dependent browser HTTP; Additive httpControls are deterministic controlled IPC contracts, not native acceptance. WebSocket/SSE frontend uses documented mockIPC with controlled command/channel/persistence. Fresh native stream terminal acceptance and ordered onHide before Abort/unload remain required."},null,2));
   }catch(error){await Bun.write(output+"/diagnostics.json",JSON.stringify({workers:await call("records"),dialogs:await page.getByRole("dialog").allTextContents(),stream:await call("streamDiagnostics")},null,2));throw error;}
   finally{await call("close").catch(()=>{});}
 },{headers:{"Cross-Origin-Opener-Policy":"same-origin","Cross-Origin-Embedder-Policy":"require-corp"}});

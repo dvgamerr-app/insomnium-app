@@ -83,7 +83,7 @@
   >
     {#if current}<span
         >{new Date(current.created).toLocaleTimeString()} ·
-        <b class={tone(current.status)}>{current.status}</b></span
+        <b class={current.error ? "fail" : tone(current.status)}>{current.error ? current.statusText || "Error" : current.status}</b></span
       >{:else}<span>History</span>{/if}
     <Icon name="down" size={14} />
   </Button>
@@ -113,7 +113,7 @@
             >
             <span class="line"
               >{new Date(entry.created).toLocaleTimeString()} ·
-              <b class={tone(entry.status)}>{entry.status}</b></span
+              <b class={entry.error ? "fail" : tone(entry.status)}>{entry.error ? entry.statusText || "Error" : entry.status}</b></span
             >
           </Button>
         </li>

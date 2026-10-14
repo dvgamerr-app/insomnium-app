@@ -50,6 +50,7 @@
     selectRequest,
     selectWorkspace,
     selectEnvironment,
+    selectHttpHistory,
     addRequest,
     addWorkspace,
     addFolder,
@@ -65,7 +66,7 @@
     createWorkspaceWorkScope,
     cancelChangedGrpcCalls,
   } from "$lib/workspace.svelte.js";
-  import { id, indexWorkspaces, protocolFor } from "$lib/model.js";
+  import { id, indexWorkspaces, protocolFor, historyMatchesEnvironment } from "$lib/model.js";
   import { orderedChildren } from "$lib/resources.js";
   import { curlRequestPatch, isCurlImport } from "$lib/curl-import.js";
   import { pickImport, parseImport, exportData } from "$lib/import-export.js";
@@ -783,10 +784,9 @@
                     response={app.responses[request._id]}
                     running={!!app.running[request._id]}
                     history={app.data.history.filter(
-                      (h) => h.requestId === request._id && !h.protocol,
+                      (h) => h.requestId === request._id && !h.protocol && historyMatchesEnvironment(h, app.data.settings, app.data.activeEnvironmentId),
                     )}
-                    onhistory={(response) =>
-                      (app.responses[request._id] = response)}
+                    onhistory={(response) => selectHttpHistory(request._id, response)}
                   />{/if}
               {/snippet}</SplitPane
             >

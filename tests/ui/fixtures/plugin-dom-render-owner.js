@@ -5,7 +5,7 @@ import {createPluginRegistry} from "../../../src/lib/plugin-registry.js";
 import {openPluginSession} from "../../../src/lib/plugin-session.js";
 import {installPluginTemplateProvider,pluginRenderSourceKey} from "../../../src/lib/plugin-template-tags.js";
 import {completePluginRequest,linkPluginRequestSignal,pluginRequestIsCurrent,pluginRequestCompleted} from "../../../src/lib/plugin-request-lifetime.js";
-import {workspace,execute,stop} from "../../../src/lib/workspace.svelte.js";
+import {workspace,execute,stop,remove as removeResource,initialize} from "../../../src/lib/workspace.svelte.js";
 import {initialData,newRequest} from "../../../src/lib/model.js";
 import {mockIPC,clearMocks} from "@tauri-apps/api/mocks";
 import {createPluginNativeAppEndpoint} from '../../../src/lib/plugin-app-native.js';
@@ -80,7 +80,50 @@ const terminalNodes=new Map(/** @type {[object,HTMLElement[]][]} */([]));
 let streamOpened=false;
 const streamCalls=/** @type {string[]} */([]);
 const records=/** @type {{kind:string,terminated:boolean,messages:any[]}[]} */([]);
+/** Controlled IPC exercises the compiled production workspace, never native acceptance.
+ * @param {'cancel'|'error'|'preflight'|'delete-resolve'|'delete-reject'|'save-failure'} mode */
+async function httpControl(mode){
+  const request={...newRequest('w'),_id:'http-controlled',url:'http://127.0.0.1/controlled'};
+  if(mode==='preflight')request.url='file:///controlled-preflight-refusal';
+  workspace.data={...initialData(),resources:[{_id:'w',_type:'workspace',name:'Controlled'},request],activeWorkspaceId:'w',activeRequestId:request._id};
+  workspace.ready=true;workspace.responses={};workspace.saveFailed=false;
+  const calls=/** @type {string[]} */([]);
+  let saved=/** @type {any} */(null),runId='';
+  let resolveSend=/** @type {((value:any)=>void)|undefined} */(undefined),rejectSend=/** @type {((value:any)=>void)|undefined} */(undefined);
+  let enteredResolve=/** @type {()=>void} */(()=>{});
+  const entered=new Promise(resolve=>{enteredResolve=()=>resolve(null);});
+  /** @type {any} */(window).isTauri=true;
+  mockIPC((command,args)=>{
+    calls.push(command);
+    if(command==='snapshot_request_cookies')return {cookies:[]};
+    if(command==='cancel_http')return null;
+    if(command==='load_workspace')return saved;
+    if(command==='save_workspace'){
+      if(mode==='save-failure')throw Error('Controlled persistence failure');
+      saved=structuredClone(/** @type {any} */(args).data);return null;
+    }
+    if(command!=='send_http')throw Error('Unexpected controlled HTTP IPC '+command);
+    runId=workspace.running[request._id].id;enteredResolve();
+    return new Promise((resolve,reject)=>{resolveSend=resolve;rejectSend=reject;});
+  });
+  try{
+    const pending=execute(request._id);
+    if(mode==='preflight')await pending;
+    else{
+      await entered;
+      if(mode==='cancel')await stop(request._id);
+      if(mode.startsWith('delete-'))removeResource(request._id);
+      if(mode==='error'||mode==='delete-reject')rejectSend?.({message:'Controlled wire failure',networkLog:[{kind:'controlled-wire',message:'Preserved failure log'}]});
+      else resolveSend?.({status:200,statusText:'OK',url:request.url,headers:[],body:'late controlled success',bodyBase64:btoa('late controlled success'),size:23,elapsedMs:7,headersMs:3,networkLog:[]});
+      await pending;
+    }
+    const beforeReload=JSON.parse(JSON.stringify({history:workspace.data.history,response:workspace.responses[request._id],resources:workspace.data.resources,saveFailed:workspace.saveFailed}));
+    if(saved){workspace.responses={};await initialize();}
+    return {mode,calls,runId,beforeReload,saved,hydrated:JSON.parse(JSON.stringify(workspace.responses[request._id]??null)),running:!!workspace.running[request._id]};
+  }finally{clearMocks();delete /** @type {any} */(window).isTauri;}
+}
 /** @type {any} */(window).__pluginDomRenderOwner={
+  httpControl,
   records,
   clipboardFixture:()=>clipboardFixture,
   async seedClipboard(/** @type {string} */ text){const signal=new AbortController(),endpoint=createPluginNativeAppEndpoint({signal:signal.signal,current:()=>true});try{await endpoint({method:'app.clipboard.writeText',args:[text]});return (await endpoint({method:'app.clipboard.readText',args:[]}))===text;}finally{signal.abort();}},
