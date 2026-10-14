@@ -70,7 +70,8 @@
   import { id, indexWorkspaces, protocolFor, historyMatchesEnvironment } from "$lib/model.js";
   import { orderedChildren } from "$lib/resources.js";
   import { curlRequestPatch, isCurlImport } from "$lib/curl-import.js";
-  import { pickImport, parseImport, exportData } from "$lib/import-export.js";
+  import { pickImport, parseImport, exportData, pickLegacyResponseHistory } from "$lib/import-export.js";
+  import { reviewImportedHistory } from "$lib/import-history-review.js";
   import "@fontsource-variable/inter";
   import "@fontsource-variable/roboto-mono";
   import "$lib/styles.css";
@@ -108,6 +109,9 @@
   );
   let pendingImport = $state(
     /** @type {ReturnType<typeof parseImport> | null} */ (null),
+  );
+  let importHistoryReview = $state(
+    /** @type {ReturnType<typeof reviewImportedHistory> | null} */ (null),
   );
   let filterInput = $state(
     /** @type {HTMLInputElement | undefined} */ (undefined),
@@ -231,6 +235,7 @@
     modal = "";
     environmentNameError = null;
     pendingImport = null;
+    importHistoryReview = null;
   }
   function editEnvironment(
     /** @type {string} */ target = selectedEnvironment?._id || "",
@@ -303,10 +308,12 @@
     modalError = "";
     try {
       work = importWork.begin();
+      if (file && file.size > 64 * 1024 * 1024)
+        throw new Error("Collection import exceeds 64 MiB. The source was not changed.");
       const result = file ? parseImport(await file.text()) : await pickImport();
       if (!work.current()) return;
       if (revision === importRevision && modal === "import" && result)
-        pendingImport = result;
+        setImportReview(result);
     } catch (error) {
       if (
         revision === importRevision &&
@@ -319,14 +326,53 @@
       if (revision === importRevision) importBusy = false;
     }
   }
+  /** @param {ReturnType<typeof parseImport>} review */
+  function setImportReview(review) {
+    pendingImport = review;
+    importHistoryReview = reviewImportedHistory(app.data, review);
+  }
+  async function loadLegacyResponseFiles() {
+    if (importBusy || modal !== "import" || !pendingImport) return;
+    const review = pendingImport;
+    const revision = ++importRevision;
+    /** @type {import("$lib/workspace.svelte.js").ScopedWorkspaceWork|undefined} */ let work;
+    importBusy = true;
+    modalError = "";
+    try {
+      work = importWork.begin();
+      const result = await pickLegacyResponseHistory($state.snapshot(review));
+      if (!work.current()) return;
+      if (result && revision === importRevision && modal === "import" && pendingImport === review)
+        setImportReview(result);
+    } catch (error) {
+      if (revision === importRevision && modal === "import" && (!work || work.current()))
+        modalError = String(error);
+    } finally {
+      work?.finish();
+      if (revision === importRevision) importBusy = false;
+    }
+  }
   function applyImport() {
     if (!canEditWorkspace()) return;
-    if (!pendingImport) return;
+    if (!pendingImport || importBusy || !importHistoryReview) return;
+    const checked = reviewImportedHistory(app.data, pendingImport);
+    if (checked.signature !== importHistoryReview.signature) {
+      importHistoryReview = checked;
+      modalError = "Saved history or its limits changed. Review the updated response counts before importing.";
+      return;
+    }
+    if (checked.blocked) return;
     app.data.resources.push(...pendingImport.resources);
+    app.data.history.push(...checked.accepted);
+    for (const meta of pendingImport.resources.filter((r) => r._type === "request_meta"))
+      if (checked.accepted.some((entry) => entry._id === meta.activeResponseId && entry.requestId === meta.parentId))
+        app.data.responseSelections[meta.parentId] = meta.activeResponseId;
     const target = pendingImport.resources.find((r) => r._type === "workspace");
     if (target) selectWorkspace(target._id);
+    if (checked.accepted.length && app.data.activeRequestId) selectRequest(app.data.activeRequestId);
     if (pendingImport.apiSpecs) mainView = "design";
     app.notice = `Imported ${pendingImport.requests} requests. ${pendingImport.preserved} additional resources preserved.`;
+    if (checked.accepted.length) app.notice += ` Restored ${checked.accepted.length} saved responses.`;
     if (pendingImport.cookieJars)
       app.notice +=
         " Open Cookies → Restore cookies from imported collections to review and activate the saved cookies.";
@@ -1054,6 +1100,22 @@
           {#each pendingImport.warnings as warning}<p class="hint">
               {warning}
             </p>{/each}
+          {#if pendingImport.legacyResponses}<p class="hint">
+              {pendingImport.legacyResponses} legacy response records will be preserved.
+              {importHistoryReview?.accepted.length || 0} saved responses will be added to history.
+              Loaded response files will also be included in collection exports.
+            </p>
+            {#each importHistoryReview?.warnings || [] as warning}<p class="hint">{warning}</p>{/each}
+            {#if pendingImport.legacyHistoryWarnings.length}<details class="hint">
+                <summary>Response file diagnostics ({pendingImport.legacyHistoryWarnings.length})</summary>
+                {#each pendingImport.legacyHistoryWarnings.slice(0, 20) as warning}<p>{warning.message}</p>{/each}
+                {#if pendingImport.legacyHistoryWarnings.length > 20}<p>Only the first 20 diagnostics are shown here. Original records and file paths will be preserved.</p>{/if}
+              </details>{/if}
+            {#if isTauri()}<Button variant="secondary" disabled={importBusy} onclick={loadLegacyResponseFiles}>Load legacy response files</Button>
+              <p class="hint">Choose the original legacy data folder. Files outside it will not be read; the source files will be kept unchanged.</p>
+            {:else}<p class="hint">External response files can be loaded in the desktop application. Response data included in an export can be restored here.</p>{/if}
+            {#if importBusy}<p class="hint" role="status">Reading legacy response files…</p>{/if}
+          {/if}
           {#if pendingImport.apiSpecs}<p class="hint">
               {pendingImport.apiSpecs} API documents will open in API Design. Validate
               the source and generate requests there.
@@ -1071,6 +1133,7 @@
             ><Button
               variant="primary"
               class="primary-button"
+              disabled={importBusy || importHistoryReview?.blocked}
               onclick={applyImport}>Import</Button
             >
           </div>{:else}<p class="hint">
@@ -1113,7 +1176,7 @@
               disabled={importBusy || !importText.trim()}
               onclick={() => {
                 try {
-                  pendingImport = parseImport(importText);
+                  setImportReview(parseImport(importText));
                   modalError = "";
                 } catch (e) {
                   modalError = String(e);

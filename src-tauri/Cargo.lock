@@ -2932,6 +2932,7 @@ dependencies = [
  "des",
  "digest_auth",
  "eventsource-stream",
+ "flate2",
  "futures-util",
  "git2",
  "gtk",

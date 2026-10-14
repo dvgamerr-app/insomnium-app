@@ -1,9 +1,10 @@
 import { curlResources, isCurlImport } from "./curl-import.js";
-import { isTauri } from "@tauri-apps/api/core";
+import { isTauri, invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
-import { readTextFile, writeTextFile, writeFile } from "@tauri-apps/plugin-fs";
+import { readTextFile, writeTextFile, writeFile, stat } from "@tauri-apps/plugin-fs";
 import { id, initialData, newRequest } from "./model.js";
 import { parseLegacyFiles } from "./legacy-import.js";
+import { legacyResponseAssetRequests, convertLegacyResponseHistory } from "./legacy-response-history.js";
 import { referenceKeys, validateTopology } from "./resources.js";
 import { parseSpec } from "./openapi-document.js";
 import {
@@ -28,6 +29,8 @@ function portableGitResource(resource, forExport = false) {
 
 /** @param {string} text */
 export function parseImport(text) {
+  if (new TextEncoder().encode(text).byteLength > 64 * 1024 * 1024)
+    throw new Error("Collection import exceeds 64 MiB. The source was not changed.");
   let source;
   if (isCurlImport(text)) source = { resources: curlResources(text) };
   else {
@@ -242,6 +245,10 @@ export function parseImport(text) {
     const copy = portableGitResource(structuredClone(resource));
     for (const key of referenceKeys)
       if (mapping.has(copy[key])) copy[key] = mapping.get(copy[key]);
+    // Legacy RequestMeta owns the saved response choice. Nested literal payloads
+    // remain untouched, as does the shared duplication reference policy.
+    if (copy._type === "request_meta" && mapping.has(copy.activeResponseId))
+      copy.activeResponseId = mapping.get(copy.activeResponseId);
     if (copy._type === "oauth2_token") copy._oauthImported = true;
     return copy;
   });
@@ -281,8 +288,12 @@ export function parseImport(text) {
     "client_certificate",
     "ca_certificate",
   ]);
+  const legacyHistory = convertLegacyResponseHistory(resources);
   return {
     resources,
+    history: legacyHistory.history,
+    legacyResponses: resources.filter((r) => r._type === "response").length,
+    legacyHistoryWarnings: legacyHistory.warnings,
     warnings: [
       ...(detachedGitBindings
         ? [
@@ -304,6 +315,45 @@ export function parseImport(text) {
     preserved: resources.filter((r) => !knownTypes.has(r._type)).length,
   };
 }
+/** Choose an explicitly authorized legacy folder and read response files only.
+ * Successful bytes stay on preserved resources so collection export/reimport
+ * survives later history retention. The original NeDB provenance is untouched.
+ * @param {ReturnType<typeof parseImport>} review */
+export async function pickLegacyResponseHistory(review) {
+  if (!isTauri()) throw new Error("External legacy response files require the desktop application.");
+  const root = await open({ directory: true, multiple: false, title: "Choose the original legacy data folder" });
+  if (!root) return null;
+  if (typeof root !== "string") throw new Error("Choose one legacy data folder.");
+  const plan = legacyResponseAssetRequests(review.resources);
+  const byId = new Map(review.resources.map((r) => [r._id, r]));
+  const ordered = plan.entries.map((entry, index) => ({ entry, index })).sort((a, b) => {
+    const time = (/** @type {string} */ id) => {
+      const resource = byId.get(id);
+      if (!resource) return 0;
+      return Number.isFinite(resource.modified) ? resource.modified : Number.isFinite(resource.created) ? resource.created : 0;
+    };
+    return time(b.entry.id) - time(a.entry.id) || a.index - b.index;
+  }).map(({ entry }) => entry);
+  /** @type {{entries:import('./legacy-response-history.js').LegacyResponseAsset[]}} */
+  const assets = await invoke("read_legacy_response_assets", { root, entries: ordered.slice(0, 100) });
+  const loaded = new Map(assets.entries.map((entry) => [entry.id, entry]));
+  const resources = review.resources.map((resource) => {
+    const asset = loaded.get(resource._id);
+    if (!asset || typeof asset.bodyBase64 !== "string") return resource;
+    const { id: _assetId, ...portable } = asset;
+    return { ...resource, _legacyResponseAssets: { version: 1, ...portable } };
+  });
+  const converted = convertLegacyResponseHistory(resources, assets);
+  return {
+    ...review,
+    resources,
+    history: converted.history,
+    legacyHistoryWarnings: [
+      ...converted.warnings,
+      ...(ordered.length > 100 ? [{ id: "", code: "preview-entry-limit", message: `${ordered.length - 100} older responses were not read in this preview. Their original records and asset paths remain preserved; at most 100 responses are read per preview.` }] : []),
+    ],
+  };
+}
 export async function pickImport() {
   if (!isTauri()) return null;
   const path = await open({
@@ -316,6 +366,13 @@ export async function pickImport() {
     ],
   });
   if (!path) return null;
+  let sourceBytes = 0;
+  for (const selected of path) {
+    const metadata = await stat(selected);
+    if (!metadata.isFile || metadata.size > 64 * 1024 * 1024 || sourceBytes + metadata.size > 64 * 1024 * 1024)
+      throw new Error("Selected collection files exceed the 64 MiB import limit or are not ordinary files. The source was not changed.");
+    sourceBytes += metadata.size;
+  }
   if (path.every((p) => p.toLowerCase().endsWith(".db"))) {
     const files = await Promise.all(
       path.map(async (p) => ({
@@ -333,15 +390,24 @@ export async function pickImport() {
 }
 /** @param {ReturnType<typeof initialData>} data */
 export async function exportData(data) {
+  const selectedPortableResponses = new Map(Object.entries(data.responseSelections || {}).filter(([requestId, responseId]) =>
+    data.history.some((entry) => entry._id === responseId && entry.requestId === requestId) &&
+    data.resources.some((resource) => resource._id === responseId && resource._type === "response" && resource._legacyResponseAssets?.version === 1)));
+  const resources = data.resources.map((resource) => {
+    const portable = portableGitResource(resource, true);
+    const selected = resource._type === "request_meta" ? selectedPortableResponses.get(resource.parentId) : undefined;
+    return selected ? { ...portable, activeResponseId: selected } : portable;
+  });
+  for (const [requestId, responseId] of selectedPortableResponses)
+    if (!resources.some((resource) => resource._type === "request_meta" && resource.parentId === requestId))
+      resources.push({ _id: id("reqm"), _type: "request_meta", parentId: requestId, activeResponseId: responseId });
   const text = JSON.stringify(
     {
       _type: "export",
       __export_format: 4,
       __export_date: new Date().toISOString(),
       __export_source: "insomnium.tauri:0.1.0",
-      resources: data.resources.map((resource) =>
-        portableGitResource(resource, true),
-      ),
+      resources,
     },
     null,
     2,

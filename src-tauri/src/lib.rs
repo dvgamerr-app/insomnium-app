@@ -39,6 +39,7 @@ mod oauth_embedded;
 mod oauth_implicit;
 mod oauth_navigation;
 mod storage;
+mod legacy_response;
 mod plugins;
 mod plugin_sources;
 mod plugin_package;
@@ -138,6 +139,7 @@ pub fn run() {
             plugin_save::cancel_plugin_save,
             storage::load_workspace,
             storage::save_workspace,
+            legacy_response::read_legacy_response_assets,
             plugins::discover_plugins,
             plugin_sources::discover_plugin_sources,
             plugin_package::read_plugin_package,

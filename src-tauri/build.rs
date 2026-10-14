@@ -34,6 +34,7 @@ fn main() {
             "cancel_plugin_save",
             "load_workspace",
             "save_workspace",
+            "read_legacy_response_assets",
             "discover_plugins",
             "discover_plugin_sources",
             "read_plugin_package",

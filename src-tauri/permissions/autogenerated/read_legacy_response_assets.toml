@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-read-legacy-response-assets"
+description = "Enables the read_legacy_response_assets command without any pre-configured scope."
+commands.allow = ["read_legacy_response_assets"]
+
+[[permission]]
+identifier = "deny-read-legacy-response-assets"
+description = "Denies the read_legacy_response_assets command without any pre-configured scope."
+commands.deny = ["read_legacy_response_assets"]
