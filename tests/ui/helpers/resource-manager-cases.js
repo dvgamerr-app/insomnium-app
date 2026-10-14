@@ -15,6 +15,7 @@ import { probeIdentifier, integrationProbeIdentifier, poll } from "./native-app.
 import {
   knownWindowsApplicationData,
   resourceCrudProbeIdentifier,
+  assertCrudProfileOwnership,
 } from "./native-profile-ownership.js";
 
 /** @type {{register:(id:string,name:string)=>void}|null} */
@@ -51,7 +52,7 @@ export async function withResourceProbePreserved(run, options = {}) {
     assert.ok(options.profileOwnershipPath);
     const marker = await Bun.file(options.profileOwnershipPath).json();
     assert.equal(marker.identifier, identifier);
-    assert.equal(marker.initiallyAbsent, true);
+    assertCrudProfileOwnership(marker);
     assert.equal(canonical(marker.profile), canonical(root));
   }
   const output = resolve(

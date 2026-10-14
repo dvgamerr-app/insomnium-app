@@ -45,7 +45,23 @@ await withResourceProbePreserved(
     try {
       await withNativeApp(
         "resource-manager-native",
-        async ({ page, invoke, output }) => {
+        async ({ page, invoke, output, pid }) => {
+          const ownership = await Bun.file(
+            /** @type {string} */ (process.env.INSOMNIUM_UI_PROFILE_OWNERSHIP),
+          ).json();
+          assert.equal(ownership.identifier, resourceCrudProbeIdentifier);
+          assert.equal(ownership.state, "owned");
+          const launch = ownership.launches.at(-1);
+          assert.equal(launch?.pid, pid, "Capture belongs to the exact bound native host");
+          assert.equal(typeof launch.directoryAbsentAtBind, "boolean");
+          assert.equal(launch.profileBinding, launch.directoryAbsentAtBind
+            ? "native-path-first-absence" : "native-path-directory");
+          if (launch.directoryAbsentAtBind) {
+            assert.equal(ownership.initiallyAbsent, true);
+            assert.equal(ownership.launches.length, 1);
+          } else {
+            await capture();
+          }
           await resourceSaved(page);
           assert.equal(
             await page
@@ -85,7 +101,7 @@ await withResourceProbePreserved(
           await lastDialog.waitFor({ state: "detached" });
           await resourceSaved(page);
           await Bun.write(output + "/cold-last-collection.json", JSON.stringify({passed:true,collections:1,deleteDisabled:true,title:"Keep at least one collection",keyboard:"Tab skips disabled Delete",beforeFixtures:true},null,2));
-          await capture();
+          if (launch.directoryAbsentAtBind) await capture();
           const original =
             /** @type {ReturnType<import('../../src/lib/model.js').initialData>} */ (
               await invoke("load_workspace")
@@ -260,6 +276,263 @@ await withResourceProbePreserved(
           });
           await invoke("save_workspace", { data: enriched });
           await reload();
+          const validationRows = [];
+          const correctionRows = [];
+          const validationBaseline = await load();
+          const originalFolder = validationBaseline.resources.find(
+            (item) => item._id === outer._id,
+          );
+          assert.ok(originalFolder);
+          const originalTheme = await page
+            .locator("html")
+            .getAttribute("data-theme");
+          const originalViewport = page.viewportSize();
+          const validationFailures = /** @type {unknown[]} */ ([]);
+          try {
+            for (const theme of ["dark", "light"])
+              for (const width of [1440, 900, 760]) {
+                await page.setViewportSize({ width, height: 600 });
+                await page
+                  .locator("html")
+                  .evaluate(
+                    (el, theme) => el.setAttribute("data-theme", theme),
+                    theme,
+                  );
+                const before = await load();
+                const folder = before.resources.find(
+                  (item) => item._id === outer._id,
+                );
+                assert.ok(folder);
+                dialog = await manageResource(page, outer.name);
+                const name = dialog.getByRole("textbox", {
+                  name: "Name",
+                  exact: true,
+                });
+                const variables = dialog.getByRole("textbox", {
+                  name: "Folder variables (JSON)",
+                  exact: true,
+                });
+                const submit = dialog.getByRole("button", {
+                  name: "Save changes",
+                  exact: true,
+                });
+                const nameId = await name.getAttribute("id");
+                const variablesId = await variables.getAttribute("id");
+                assert.ok(nameId && variablesId && nameId !== variablesId);
+                for (const [label, control] of [
+                  ["Name", name],
+                  ["Folder variables (JSON)", variables],
+                ]) {
+                  await dialog
+                    .getByText(/** @type {string} */ (label), { exact: true })
+                    .click({ position: { x: 2, y: 2 } });
+                  assert.equal(
+                    await /** @type {import('playwright-core').Locator} */ (
+                      control
+                    ).evaluate((el) => el === document.activeElement),
+                    true,
+                  );
+                }
+                for (const [kind, value] of [
+                  ["name", "   "],
+                  ["json", "{"],
+                  ["json", "[]"],
+                  ["json", "null"],
+                ]) {
+                  await name.fill(outer.name);
+                  await variables.fill(
+                    JSON.stringify(folder.environment ?? {}),
+                  );
+                  const field = kind === "name" ? name : variables;
+                  const id = /** @type {string} */ (
+                    kind === "name" ? nameId : variablesId
+                  );
+                  await field.fill(value);
+                  await submit.focus();
+                  await submit.press("Enter");
+                  const feedback = dialog.locator('[id="' + id + '-error"]');
+                  await feedback.waitFor();
+                  assert.equal(
+                    await field.getAttribute("aria-invalid"),
+                    "true",
+                  );
+                  assert.equal(
+                    await field.getAttribute("aria-describedby"),
+                    id + "-error",
+                  );
+                  assert.equal(await feedback.getAttribute("role"), "alert");
+                  assert.equal(await dialog.getByRole("alert").count(), 1);
+                  assert.ok((await feedback.innerText()).length > 0);
+                  assert.equal(await name.count(), 1);
+                  assert.equal(await variables.count(), 1);
+                  assert.equal(
+                    await submit.evaluate(
+                      (el) => el === document.activeElement,
+                    ),
+                    true,
+                  );
+                  const refused = await load();
+                  assert.deepEqual(refused.resources, before.resources);
+                  assert.deepEqual(refused.history, before.history);
+                  await field.focus();
+                  await field.hover();
+                  await page.waitForFunction(({ fieldId, errorId }) => {
+                    const control = document.getElementById(fieldId);
+                    const error = document.getElementById(errorId);
+                    if (!control || !error) return false;
+                    return getComputedStyle(control).borderTopColor === getComputedStyle(error).color &&
+                      !control.getAnimations().some(animation => animation instanceof CSSTransition &&
+                        /^border(?:-(?:top|right|bottom|left))?-color$/.test(animation.transitionProperty) &&
+                        (animation.playState === "running" || animation.pending));
+                  }, { fieldId: id, errorId: id + "-error" }, { timeout: 1500 });
+                  const presentation = await field.evaluate((el) => {
+                    const s = getComputedStyle(el);
+                    return {
+                      border: s.borderTopColor,
+                      outline: s.outlineStyle,
+                      shadow: s.boxShadow,
+                      focus: el === document.activeElement,
+                    };
+                  });
+                  assert.equal(
+                    presentation.border,
+                    await feedback.evaluate((el) => getComputedStyle(el).color),
+                  );
+                  assert.equal(presentation.outline, "none");
+                  assert.equal(presentation.shadow, "none");
+                  assert.equal(presentation.focus, true);
+                  validationRows.push({
+                    theme,
+                    width,
+                    kind,
+                    value,
+                    id,
+                    description: id + "-error",
+                    singleAlert: true,
+                    resourcesUnchanged: true,
+                    historyUnchanged: true,
+                    presentation,
+                  });
+                }
+                const correctedEnvironment = { corrected: true, retained: tag };
+                await name.fill(" " + outer.name + " ");
+                await variables.fill(JSON.stringify(correctedEnvironment));
+                for (const field of [name, variables]) {
+                  assert.equal(await field.getAttribute("aria-invalid"), null);
+                  assert.equal(
+                    await field.getAttribute("aria-describedby"),
+                    null,
+                  );
+                }
+                assert.equal(await dialog.getByRole("alert").count(), 0);
+                await submit.focus();
+                await submit.press("Enter");
+                await dialog.waitFor({ state: "detached" });
+                let corrected = before;
+                await poll(
+                  async () => {
+                    corrected = await load();
+                    const current = corrected.resources.find(
+                      (item) => item._id === outer._id,
+                    );
+                    return (
+                      !!current &&
+                      current.name === outer.name &&
+                      JSON.stringify(current.environment) ===
+                        JSON.stringify(correctedEnvironment)
+                    );
+                  },
+                  "Durable trimmed ResourceManager correction",
+                  60000,
+                );
+                const current = corrected.resources.find(
+                  (item) => item._id === outer._id,
+                );
+                assert.ok(current && Number.isFinite(current.modified));
+                assert.ok(current.modified >= folder.modified);
+                assert.deepEqual(
+                  corrected.resources,
+                  before.resources.map((item) =>
+                    item._id === outer._id
+                      ? {
+                          ...item,
+                          name: outer.name,
+                          description: item.description ?? "",
+                          environment: correctedEnvironment,
+                          modified: current.modified,
+                        }
+                      : item,
+                  ),
+                );
+                assert.deepEqual(corrected.history, before.history);
+                await reload();
+                const reloaded = await load();
+                assert.deepEqual(reloaded.resources, corrected.resources);
+                assert.deepEqual(reloaded.history, corrected.history);
+                correctionRows.push({
+                  theme,
+                  width,
+                  trimmedName: outer.name,
+                  environment: correctedEnvironment,
+                  unknownFieldsPreserved: true,
+                  durable: true,
+                  reload: true,
+                });
+              }
+          } catch (error) {
+            validationFailures.push(error);
+          } finally {
+            try {
+              if (validationFailures.length === 0) {
+                dialog = await manageResource(page, outer.name);
+                await dialog
+                  .getByRole("textbox", {
+                    name: "Folder variables (JSON)",
+                    exact: true,
+                  })
+                  .fill(JSON.stringify(originalFolder.environment ?? {}));
+                await save(dialog);
+                await poll(
+                  async () =>
+                    JSON.stringify(
+                      (await load()).resources.find(
+                        (item) => item._id === outer._id,
+                      )?.environment,
+                    ) === JSON.stringify(originalFolder.environment ?? {}),
+                  "Original owned folder environment restored",
+                  60000,
+                );
+              }
+              if (originalViewport)
+                await page.setViewportSize(originalViewport);
+              await page.locator("html").evaluate((el, theme) => {
+                if (theme === null) el.removeAttribute("data-theme");
+                else el.setAttribute("data-theme", theme);
+              }, originalTheme);
+            } catch (error) {
+              validationFailures.push(error);
+            }
+          }
+          if (validationFailures.length)
+            throw new AggregateError(
+              validationFailures,
+              "Native ResourceManager field and UI restoration failures retained",
+            );
+          assert.equal(validationRows.length, 24);
+          assert.equal(correctionRows.length, 6);
+          await Bun.write(
+            output + "/resource-field-validation.json",
+            JSON.stringify(
+              {
+                validationRows,
+                correctionRows,
+                scope:
+                  "Native saved folder fields; CSS viewport profiles; no callback shim or drain-refusal claim",
+              },
+              null,
+              2,
+            ),
+          );
           const beforeCopy = await load(),
             sourceIds = descendants(beforeCopy.resources, outer._id);
           const copiedSources = beforeCopy.resources.filter(
@@ -511,6 +784,8 @@ await withResourceProbePreserved(
               {
                 passed: true,
                 rows,
+                validationRows,
+                correctionRows,
                 received,
                 aborted,
                 lastCollectionNative:

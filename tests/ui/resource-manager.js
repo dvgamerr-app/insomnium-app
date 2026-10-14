@@ -218,6 +218,15 @@ await withComponentFixture("resource-manager", async (page, output) => {
           );
           await field.focus();
           await field.hover();
+          await page.waitForFunction(({ fieldId, errorId }) => {
+            const control = document.getElementById(fieldId);
+            const error = document.getElementById(errorId);
+            if (!control || !error) return false;
+            return getComputedStyle(control).borderTopColor === getComputedStyle(error).color &&
+              !control.getAnimations().some(animation => animation instanceof CSSTransition &&
+                /^border(?:-(?:top|right|bottom|left))?-color$/.test(animation.transitionProperty) &&
+                (animation.playState === "running" || animation.pending));
+          }, { fieldId: state.id, errorId: state.id + "-error" }, { timeout: 1500 });
           const presentation = await field.evaluate((el) => {
             const s = getComputedStyle(el),
               r = el.getBoundingClientRect();

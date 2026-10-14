@@ -10,6 +10,11 @@ import {
   validateNamespaceProducerPath,
   verifyNativeBuildClosure,
   readNamespaceCargoMetadata,
+  auditedProbeOutput,
+  auditedProbeRoute,
+  namespaceOutput,
+  namespaceProbeIdentifier,
+  resourceCrudBuildIdentifier,
 } from "./helpers/native-build-closure.js";
 
 assert.equal(process.platform, "win32");
@@ -179,6 +184,33 @@ try {
     [bin, bin, ancestorBin],
   );
   checks.push("equal-path", "known-cli-prefixes");
+  const namespaceCandidate = resolve("artifacts/native-namespace-audit-probe"),
+    crudCandidate = resolve(
+      "artifacts/native-resource-crud-audit-probe/current",
+    );
+  assert.equal(
+    auditedProbeRoute(namespaceProbeIdentifier).artifactName,
+    "insomnium-namespace-probe.exe",
+  );
+  assert.equal(
+    auditedProbeRoute(resourceCrudBuildIdentifier).artifactName,
+    "insomnium-resource-crud-probe.exe",
+  );
+  assert.equal(await namespaceOutput(namespaceCandidate), namespaceCandidate);
+  assert.equal(
+    await auditedProbeOutput(crudCandidate, resourceCrudBuildIdentifier),
+    crudCandidate,
+  );
+  await assert.rejects(
+    auditedProbeOutput(crudCandidate, namespaceProbeIdentifier),
+  );
+  await assert.rejects(
+    auditedProbeOutput(namespaceCandidate, resourceCrudBuildIdentifier),
+  );
+  await assert.rejects(namespaceOutput(crudCandidate));
+  assert.throws(() => auditedProbeRoute("app.insomnium.desktop"));
+  assert.throws(() => auditedProbeRoute("app.insomnium.probe.unreviewed"));
+  checks.push("closed-probe-identities-and-output-roots");
   for (const [name, path] of [
     ["foreign-prefix", "C:\\unbound-producer-bin;" + parentPATH],
     ["relative-prefix", "node_modules/.bin;" + parentPATH],

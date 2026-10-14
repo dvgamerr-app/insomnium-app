@@ -33,6 +33,31 @@ const { validateFrontendFS } = await import(
 );
 
 export const namespaceProbeIdentifier = "app.insomnium.probe.checkout20260929";
+export const resourceCrudBuildIdentifier =
+  "app.insomnium.probe.resourcecrud20261012";
+/** Only two owner-authorized build identities; namespace callers retain their
+ * original fixed entry and output guard. @param {string} identifier */
+export function auditedProbeRoute(identifier) {
+  assert.ok(
+    [namespaceProbeIdentifier, resourceCrudBuildIdentifier].includes(
+      identifier,
+    ),
+    "Unsupported audited native probe identity",
+  );
+  return {
+    identifier,
+    outputRoot: join(
+      root,
+      identifier === namespaceProbeIdentifier
+        ? "artifacts/native-namespace-audit-probe"
+        : "artifacts/native-resource-crud-audit-probe",
+    ),
+    artifactName:
+      identifier === namespaceProbeIdentifier
+        ? "insomnium-namespace-probe.exe"
+        : "insomnium-resource-crud-probe.exe",
+  };
+}
 export const namespaceTarget = "x86_64-pc-windows-msvc";
 const root = resolve(import.meta.dir, "../../..");
 /** Reuse the established saved Windows producer setup only when PATH lacks
@@ -162,11 +187,33 @@ export async function ordinary(path, missingLeaf = false) {
 }
 /** @param {string} output */
 export async function namespaceOutput(output) {
+  return auditedProbeOutput(output, namespaceProbeIdentifier);
+}
+/** @param {string} output @param {string} identifier */
+export async function auditedProbeOutput(output, identifier) {
+  const route = auditedProbeRoute(identifier);
   const path = resolve(output);
-  assert.ok(inside(path, join(root, "artifacts/native-namespace-audit-probe")));
+  assert.ok(inside(path, route.outputRoot));
   assert.equal(process.platform, "win32");
   assert.equal(resolve("."), root);
-  await ordinary(path, true);
+  if (identifier === namespaceProbeIdentifier) await ordinary(path, true);
+  else {
+    let checked = path;
+    for (;;) {
+      try {
+        await lstat(checked);
+        break;
+      } catch (error) {
+        if (/** @type {any} */ (error).code !== "ENOENT") throw error;
+        checked = dirname(checked);
+        assert.ok(
+          inside(checked, join(root, "artifacts")),
+          "Missing CRUD output ancestors exceed owned artifacts",
+        );
+      }
+    }
+    await ordinary(checked);
+  }
   return path;
 }
 /** @param {string} path */
@@ -610,8 +657,12 @@ async function packageBindings(bases) {
 }
 /** Called AFTER real Tauri frontend hook and BEFORE Cargo builds the executable.
  * Source/installed packages remain canonical: no private data/source copies.
- * @param {string} output @param {boolean} [writeLedger] */
-export async function captureNativeBuildClosure(output, writeLedger = true) {
+ * @param {string} output @param {boolean} [writeLedger] @param {string} [identifier] */
+export async function captureNativeBuildClosure(
+  output,
+  writeLedger = true,
+  identifier = namespaceProbeIdentifier,
+) {
   for (const name of [
     "BUN_OPTIONS",
     "BUN_BE_BUN",
@@ -624,7 +675,10 @@ export async function captureNativeBuildClosure(output, writeLedger = true) {
       !process.env[name],
       "Unreviewed preload/compiler wrapper refused: " + name,
     );
-  const candidate = await namespaceOutput(output),
+  const candidate =
+      identifier === namespaceProbeIdentifier
+        ? await namespaceOutput(output)
+        : await auditedProbeOutput(output, identifier),
     producerHost = verifyNamespaceHost(),
     producerTools = await tools(),
     producerConfigs = await cargoConfigs();
@@ -633,7 +687,7 @@ export async function captureNativeBuildClosure(output, writeLedger = true) {
   assert.deepEqual(
     JSON.parse((await readFile(configPath)).toString()),
     {
-      identifier: namespaceProbeIdentifier,
+      identifier,
       build: {
         beforeBuildCommand: "bun tests/ui/helpers/native-build-hook.js",
       },
@@ -734,7 +788,7 @@ export async function captureNativeBuildClosure(output, writeLedger = true) {
   }
   const ledger = {
     schemaVersion: 1,
-    identifier: namespaceProbeIdentifier,
+    identifier,
     target: namespaceTarget,
     root,
     candidate,
@@ -828,7 +882,11 @@ export async function verifyNativeBuildClosure(before, output) {
   validateNamespaceProducerPath(recordedPATH, parentPATH ?? "");
   process.env.PATH = recordedPATH;
   try {
-    const after = await captureNativeBuildClosure(output, false);
+    const after = await captureNativeBuildClosure(
+      output,
+      false,
+      before.identifier,
+    );
     for (const key of [
       "identifier",
       "target",
@@ -869,14 +927,13 @@ export async function verifyNativeBuildClosure(before, output) {
 /** Copy ONLY captured ordinary assets/notices and producer binaries to candidate.
  * @param {any} ledger @param {string} output @param {string} executable */
 export async function publishNativeCandidate(ledger, output, executable) {
-  const candidate = await namespaceOutput(output),
+  const route = auditedProbeRoute(ledger.identifier);
+  const candidate = await auditedProbeOutput(output, route.identifier),
     app = await fileRow(await ordinary(executable));
   assert.ok(
-    (await readFile(executable)).includes(
-      Buffer.from(namespaceProbeIdentifier),
-    ),
+    (await readFile(executable)).includes(Buffer.from(route.identifier)),
   );
-  const artifact = join(candidate, "insomnium-namespace-probe.exe");
+  const artifact = join(candidate, route.artifactName);
   await copyFile(executable, artifact);
   assert.equal(
     digest(await readFile(artifact)),
