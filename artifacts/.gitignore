@@ -1,0 +1,3 @@
+# Keep verification logs and snapshots locally, outside version control.
+*
+!.gitignore

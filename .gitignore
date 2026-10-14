@@ -11,7 +11,9 @@ vite.config.ts.timestamp-*
 # Original Electron/React project: keep locally for migration and recovery.
 /_backup/
 /.migration-scaffold/
-/artifacts/
+# Local logs, snapshots and verification output; never commit their payloads.
+/artifacts/*
+!/artifacts/.gitignore
 /src/lib/generated/
 /tools/spectral-linter/dist/
 /src-tauri/binaries/spectral-linter-*
