@@ -139,11 +139,14 @@ impl Default for Accepts {
 #[derive(Clone)]
 struct HyperService {
     hyper: HyperClient,
+    connector: Connector,
+    proxies: Arc<Vec<ProxyMatcher>>,
+    proxy_slot: crate::proxy_challenge::Slot,
 }
 
 impl Service<hyper::Request<crate::async_impl::body::Body>> for HyperService {
     type Error = crate::Error;
-    type Response = http::Response<hyper::body::Incoming>;
+    type Response = http::Response<super::body::ResponseBody>;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + Sync>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -153,7 +156,28 @@ impl Service<hyper::Request<crate::async_impl::body::Body>> for HyperService {
     fn call(&mut self, req: hyper::Request<crate::async_impl::body::Body>) -> Self::Future {
         let clone = self.hyper.clone();
         let mut inner = std::mem::replace(&mut self.hyper, clone);
-        Box::pin(async move { inner.call(req).await.map_err(crate::error::request) })
+        for matcher in self.proxies.iter() {
+            if let Some(proxy) = matcher.intercept(req.uri()) {
+                if let Some(provider) = proxy.challenge_provider().cloned() {
+                    let connector = self.connector.clone();
+                    let slot = self.proxy_slot.clone();
+                    let uri = proxy.uri().clone();
+                    return Box::pin(crate::proxy_challenge::SyncFuture::new(async move {
+                        crate::proxy_challenge::request(connector, slot, uri, provider, req)
+                            .await
+                            .map_err(crate::error::request)
+                    }));
+                }
+                break;
+            }
+        }
+        Box::pin(async move {
+            inner
+                .call(req)
+                .await
+                .map(|response| response.map(super::body::boxed))
+                .map_err(crate::error::request)
+        })
     }
 }
 
@@ -1010,9 +1034,13 @@ impl ClientBuilder {
             Some(format!("{:?}", &config.redirect_policy))
         };
 
-        let hyper_client = builder.build(connector_builder.build(config.connector_layers));
+        let connector = connector_builder.build(config.connector_layers);
+        let hyper_client = builder.build(connector.clone());
         let hyper_service = HyperService {
             hyper: hyper_client,
+            connector,
+            proxies: proxies.clone(),
+            proxy_slot: crate::proxy_challenge::Slot::default(),
         };
 
         let redirect_policy = {
@@ -2908,10 +2936,12 @@ type MaybeDecompression<T> = T;
 type MaybeDecompression<T> = Decompression<T>;
 
 type LayeredService<T> = MaybeDecompression<
-    super::download_meter::DownloadMeter<FollowRedirect<
-        MaybeCookieService<tower::retry::Retry<crate::retry::Policy, T>>,
-        TowerRedirectPolicy,
-    >>,
+    super::download_meter::DownloadMeter<
+        FollowRedirect<
+            MaybeCookieService<tower::retry::Retry<crate::retry::Policy, T>>,
+            TowerRedirectPolicy,
+        >,
+    >,
 >;
 type LayeredFuture<T> = <LayeredService<T> as Service<http::Request<Body>>>::Future;
 

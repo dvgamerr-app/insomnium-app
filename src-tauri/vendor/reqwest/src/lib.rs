@@ -359,7 +359,7 @@ if_hyper! {
     pub use self::async_impl::{
         Body, Client, ClientBuilder, Request, RequestBuilder, Response, Upgraded,
     };
-    pub use self::proxy::{Proxy,NoProxy};
+    pub use self::proxy::{Proxy,NoProxy,ProxyChallengeProvider,ProxyChallengeSession};
     #[cfg(feature = "__tls")]
     // Re-exports, to be removed in a future release
     pub use tls::{Certificate, Identity};
@@ -375,6 +375,7 @@ if_hyper! {
     pub mod cookie;
     pub mod dns;
     mod proxy;
+    mod proxy_challenge;
     pub mod redirect;
     pub mod retry;
     #[cfg(feature = "__tls")]

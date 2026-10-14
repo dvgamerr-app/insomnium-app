@@ -30,6 +30,7 @@ mod http;
 mod netrc;
 mod network_log;
 mod ntlm;
+mod proxy_auth;
 mod oauth;
 mod oauth1;
 mod oauth_browser;

@@ -420,7 +420,7 @@ pub(crate) fn build_client(
         )?);
     }
     if let Some(proxy) = request.proxy.as_ref().filter(|p| !p.is_empty()) {
-        builder = builder.proxy(reqwest::Proxy::all(proxy).map_err(|e| e.to_string())?);
+        builder = builder.proxy(crate::proxy_auth::configure_proxy(proxy)?);
     }
     let ca = crate::client_certificates::load_ca_certificate(
         request.ca_file.as_deref(),

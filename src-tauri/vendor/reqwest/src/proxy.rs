@@ -9,6 +9,25 @@ use hyper_util::client::proxy::matcher;
 use crate::into_url::{IntoUrl, IntoUrlSealed};
 use crate::Url;
 
+/// Creates isolated authentication state for one owned proxy connection.
+/// Callback errors are terminal; credentials are never sent before a 407.
+pub trait ProxyChallengeProvider: Send + Sync {
+    /// Create fresh authentication state for exactly one proxy socket.
+    fn create_session(
+        &self,
+    ) -> Result<Box<dyn ProxyChallengeSession>, Box<dyn Error + Send + Sync>>;
+}
+/// Answers an actual proxy challenge. The certificate belongs to the proxy,
+/// never the tunneled origin. Implementations must not expose credentials in errors.
+pub trait ProxyChallengeSession: Send {
+    /// Answer a real 407 using its headers and the proxy TLS certificate, if any.
+    fn authenticate(
+        &mut self,
+        headers: &HeaderMap,
+        proxy_certificate: Option<&[u8]>,
+    ) -> Result<HeaderValue, Box<dyn Error + Send + Sync>>;
+}
+
 // # Internals
 //
 // This module is a couple pieces:
@@ -68,6 +87,7 @@ pub struct NoProxy {
 #[derive(Clone)]
 struct Extra {
     auth: Option<HeaderValue>,
+    provider: Option<Arc<dyn ProxyChallengeProvider>>,
     misc: Option<HeaderMap>,
 }
 
@@ -262,10 +282,18 @@ impl Proxy {
         }))
     }
 
+    /// Enable challenge authentication on dedicated HTTP/1 proxy connections.
+    /// Overrides preemptive URL/basic credentials; callbacks run only after 407.
+    pub fn challenge_provider(mut self, provider: Arc<dyn ProxyChallengeProvider>) -> Proxy {
+        self.extra.provider = Some(provider);
+        self
+    }
+
     fn new(intercept: Intercept) -> Proxy {
         Proxy {
             extra: Extra {
                 auth: None,
+                provider: None,
                 misc: None,
             },
             intercept,
@@ -463,6 +491,9 @@ fn cache_maybe_has_http_custom_headers(url: &Url, extra: &Option<HeaderMap>) -> 
 
 impl fmt::Debug for Proxy {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.extra.provider.is_some() {
+            return f.write_str("Proxy(challenge credentials redacted)");
+        }
         f.debug_tuple("Proxy")
             .field(&self.intercept)
             .field(&self.no_proxy)
@@ -517,6 +548,7 @@ impl Matcher {
             inner: Matcher_::Util(matcher::Matcher::from_system()),
             extra: Extra {
                 auth: None,
+                provider: None,
                 misc: None,
             },
             // maybe env vars have auth!
@@ -579,6 +611,9 @@ impl Matcher {
 
 impl fmt::Debug for Matcher {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.extra.provider.is_some() {
+            return f.write_str("ProxyMatcher(challenge credentials redacted)");
+        }
         match self.inner {
             Matcher_::Util(ref m) => m.fmt(f),
             Matcher_::Custom(ref m) => m.fmt(f),
@@ -591,7 +626,14 @@ impl Intercepted {
         self.inner.uri()
     }
 
+    pub(crate) fn challenge_provider(&self) -> Option<&Arc<dyn ProxyChallengeProvider>> {
+        self.extra.provider.as_ref()
+    }
+
     pub(crate) fn basic_auth(&self) -> Option<&HeaderValue> {
+        if self.extra.provider.is_some() {
+            return None;
+        }
         if let Some(ref val) = self.extra.auth {
             return Some(val);
         }
@@ -613,6 +655,9 @@ impl Intercepted {
 
 impl fmt::Debug for Intercepted {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.extra.provider.is_some() {
+            return f.write_str("InterceptedProxy(challenge credentials redacted)");
+        }
         self.inner.uri().fmt(f)
     }
 }

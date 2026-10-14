@@ -858,6 +858,7 @@ impl ConnectorService {
         }
     }
 
+    #[allow(irrefutable_let_patterns)]
     async fn connect_via_proxy(self, dst: Uri, proxy: Intercepted) -> Result<Conn, BoxError> {
         log::debug!("proxy({proxy:?}) intercepts '{dst:?}'");
 
@@ -875,6 +876,112 @@ impl ConnectorService {
 
         #[cfg(feature = "__tls")]
         let misc = proxy.custom_headers().clone();
+
+        if let Some(provider) = proxy.challenge_provider().cloned() {
+            // Match the ordinary CONNECT path: configured User-Agent first,
+            // followed by explicit proxy headers, which may override it.
+            #[cfg(feature = "__tls")]
+            let mut challenge_headers = http::HeaderMap::new();
+            #[cfg(feature = "__tls")]
+            if let Some(user_agent) = self.user_agent.clone() {
+                challenge_headers.insert(http::header::USER_AGENT, user_agent);
+            }
+            #[cfg(feature = "__tls")]
+            if let Some(custom_headers) = misc {
+                challenge_headers.extend(custom_headers.clone());
+            }
+            #[cfg(feature = "__rustls")]
+            if let Inner::RustlsTls {
+                http,
+                tls,
+                tls_proxy,
+            } = &self.inner
+            {
+                let mut proxy_tls = (**tls_proxy).clone();
+                proxy_tls.alpn_protocols = vec![b"http/1.1".to_vec()];
+                let mut upstream =
+                    hyper_rustls::HttpsConnector::from((http.clone(), Arc::new(proxy_tls)));
+                let io = upstream.call(proxy_dst.clone()).await?;
+                let certificate = io.tls_info().and_then(|info| info.peer_certificate);
+                if dst.scheme() == Some(&Scheme::HTTPS) {
+                    let headers = challenge_headers.clone();
+                    let upgraded = crate::proxy_challenge::tunnel(
+                        io,
+                        certificate,
+                        dst.clone(),
+                        provider,
+                        headers,
+                    )
+                    .await?;
+                    let host = dst.host().ok_or("missing origin host")?.to_owned();
+                    let server_name = rustls_pki_types::ServerName::try_from(host)
+                        .map_err(|_| "Invalid origin server name")?;
+                    let mut origin_tls = (**tls).clone();
+                    origin_tls.alpn_protocols = vec![b"http/1.1".to_vec()];
+                    let io = tokio_rustls::TlsConnector::from(Arc::new(origin_tls))
+                        .connect(server_name, TokioIo::new(upgraded))
+                        .await?;
+                    return Ok(Conn {
+                        inner: self.verbose.wrap(RustlsTlsConn {
+                            inner: TokioIo::new(io),
+                        }),
+                        is_proxy: false,
+                        tls_info: true,
+                    });
+                }
+                return Ok(Conn {
+                    inner: self.verbose.wrap(io),
+                    is_proxy: true,
+                    tls_info: true,
+                });
+            }
+            #[cfg(feature = "default-tls")]
+            if let Inner::DefaultTls(http, tls) = &self.inner {
+                let tls_connector = tokio_native_tls::TlsConnector::from(tls.clone());
+                let mut upstream =
+                    hyper_tls::HttpsConnector::from((http.clone(), tls_connector.clone()));
+                let io = upstream.call(proxy_dst.clone()).await?;
+                let certificate = io.tls_info().and_then(|info| info.peer_certificate);
+                if dst.scheme() == Some(&Scheme::HTTPS) {
+                    let headers = challenge_headers.clone();
+                    let upgraded = crate::proxy_challenge::tunnel(
+                        io,
+                        certificate,
+                        dst.clone(),
+                        provider,
+                        headers,
+                    )
+                    .await?;
+                    let io = tls_connector
+                        .connect(
+                            dst.host().ok_or("missing origin host")?,
+                            TokioIo::new(upgraded),
+                        )
+                        .await?;
+                    return Ok(Conn {
+                        inner: self.verbose.wrap(NativeTlsConn {
+                            inner: TokioIo::new(io),
+                        }),
+                        is_proxy: false,
+                        tls_info: true,
+                    });
+                }
+                return Ok(Conn {
+                    inner: self.verbose.wrap(io),
+                    is_proxy: true,
+                    tls_info: true,
+                });
+            }
+            #[cfg(not(feature = "__tls"))]
+            {
+                if proxy_dst.scheme_str() != Some("http") || dst.scheme_str() != Some("http") {
+                    return Err(io::Error::other("Proxy TLS requires a TLS backend").into());
+                }
+                return self.connect_with_maybe_proxy(proxy_dst, true).await;
+            }
+            #[cfg(feature = "__tls")]
+            return Err(io::Error::other("Unsupported proxy challenge transport").into());
+        }
 
         match &self.inner {
             #[cfg(feature = "default-tls")]
@@ -1237,6 +1344,47 @@ impl TlsInfoFactory for hyper_rustls::MaybeHttpsStream<TokioIo<tokio::net::UnixS
     }
 }
 
+#[cfg(feature = "__rustls")]
+impl TlsInfoFactory
+    for tokio_rustls::client::TlsStream<TokioIo<crate::proxy_challenge::UpgradedIo>>
+{
+    fn tls_info(&self) -> Option<crate::tls::TlsInfo> {
+        Some(crate::tls::TlsInfo {
+            peer_certificate: self
+                .get_ref()
+                .1
+                .peer_certificates()
+                .and_then(|certs| certs.first())
+                .map(|cert| cert.to_vec()),
+        })
+    }
+}
+#[cfg(feature = "__rustls")]
+impl Connection for RustlsTlsConn<TokioIo<crate::proxy_challenge::UpgradedIo>> {
+    fn connected(&self) -> Connected {
+        self.inner.inner().get_ref().0.inner().connected()
+    }
+}
+#[cfg(feature = "default-tls")]
+impl TlsInfoFactory for tokio_native_tls::TlsStream<TokioIo<crate::proxy_challenge::UpgradedIo>> {
+    fn tls_info(&self) -> Option<crate::tls::TlsInfo> {
+        Some(crate::tls::TlsInfo {
+            peer_certificate: self
+                .get_ref()
+                .peer_certificate()
+                .ok()
+                .flatten()
+                .and_then(|cert| cert.to_der().ok()),
+        })
+    }
+}
+#[cfg(feature = "default-tls")]
+impl Connection for NativeTlsConn<TokioIo<crate::proxy_challenge::UpgradedIo>> {
+    fn connected(&self) -> Connected {
+        self.inner.inner().get_ref().inner().connected()
+    }
+}
+
 // ===== NamedPipe =====
 
 #[cfg(feature = "__tls")]
@@ -1387,6 +1535,19 @@ pub(crate) mod sealed {
             pub(super) is_proxy: bool,
             // Only needed for __tls, but #[cfg()] on fields breaks pin_project!
             pub(super) tls_info: bool,
+        }
+    }
+
+    impl Conn {
+        pub(crate) fn tls_peer_certificate(&self) -> Option<Vec<u8>> {
+            #[cfg(feature = "__tls")]
+            {
+                self.inner.tls_info().and_then(|info| info.peer_certificate)
+            }
+            #[cfg(not(feature = "__tls"))]
+            {
+                None
+            }
         }
     }
 

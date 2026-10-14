@@ -101,6 +101,18 @@ impl Session {
         if !c.connection.installed.load(Ordering::SeqCst) {
             return Err("NTLM requires its dedicated native connection guard.".into());
         }
+        Self::explicit(c)
+    }
+    /// Proxy transport owns its socket-bound handshake independently of the
+    /// origin connection guard; this never enables automatic OS credentials.
+    pub(crate) fn new_proxy(username: &str, password: &str) -> Result<Self, String> {
+        Self::explicit(&NtlmCredentials {
+            username: username.to_owned(),
+            password: password.to_owned(),
+            ..NtlmCredentials::default()
+        })
+    }
+    fn explicit(c: &NtlmCredentials) -> Result<Self, String> {
         if c.username.is_empty() {
             return Err(
                 "NTLM requires an explicit username; automatic OS sign-in is not used.".into(),
@@ -152,6 +164,16 @@ impl Session {
                 .get::<reqwest::tls::TlsInfo>()
                 .and_then(|v| v.peer_certificate())
                 .ok_or("NTLM TLS channel binding requires the peer certificate.")?;
+            self.ntlm.set_channel_bindings(&certificate_binding(der)?);
+        }
+        self.step(Some(token))
+    }
+    pub(crate) fn authenticate_proxy(
+        &mut self,
+        token: Vec<u8>,
+        proxy_certificate: Option<&[u8]>,
+    ) -> Result<header::HeaderValue, String> {
+        if let Some(der) = proxy_certificate {
             self.ntlm.set_channel_bindings(&certificate_binding(der)?);
         }
         self.step(Some(token))
@@ -248,9 +270,15 @@ pub(crate) fn certificate_binding(der: &[u8]) -> Result<Vec<u8>, String> {
 // Split challenge lists outside quoted values. NTLM uses token68, which the
 // Digest parameter parser does not expose. Never confuse Negotiate with NTLM.
 pub(crate) fn challenge(response: &Response) -> Result<Option<Vec<u8>>, String> {
+    challenge_headers(response.headers(), header::WWW_AUTHENTICATE)
+}
+pub(crate) fn challenge_headers(
+    headers: &header::HeaderMap,
+    name: header::HeaderName,
+) -> Result<Option<Vec<u8>>, String> {
     let mut bare = false;
     let mut found = None;
-    for value in response.headers().get_all(header::WWW_AUTHENTICATE) {
+    for value in headers.get_all(name) {
         let value = value
             .to_str()
             .map_err(|_| "Invalid authentication challenge text.")?;

@@ -66,7 +66,18 @@ impl From<hyper::upgrade::Upgraded> for Upgraded {
 
 impl super::response::Response {
     /// Consumes the response and returns a future for a possible HTTP upgrade.
-    pub async fn upgrade(self) -> crate::Result<Upgraded> {
+    pub async fn upgrade(mut self) -> crate::Result<Upgraded> {
+        if let Some(driver) = self
+            .res
+            .extensions_mut()
+            .remove::<crate::proxy_challenge::Driver>()
+        {
+            return driver
+                .upgrade(hyper::upgrade::on(self.res))
+                .await
+                .map(Upgraded::from)
+                .map_err(crate::error::upgrade);
+        }
         hyper::upgrade::on(self.res)
             .await
             .map(Upgraded::from)
