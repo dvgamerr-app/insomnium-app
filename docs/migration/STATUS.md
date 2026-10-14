@@ -1,6 +1,6 @@
 # Migration status
 
-Updated 2026-10-14. Full migration is **incomplete**. Latest verified topic commit: b0b411d on feat/ui-design-system-settings-curl. Earlier agent branches are integrated; current proxy NTLM work is uncommitted in this shared repo. Retired directories and custom .git backups are absent. Legacy backup and node_modules are preserved.
+Updated 2026-10-14. Full migration is **incomplete**. Latest verified feature/source commit: 81a8755 on feat/ui-design-system-settings-curl. Agent work for this proxy milestone is committed in the shared repo. Retired directories and custom .git backups are absent. Legacy backup and node_modules are preserved.
 
 ## Current work
 
@@ -34,4 +34,4 @@ The complete requirements remain in [PARITY.md](PARITY.md). Namespace functional
 
 ## Handoff
 
-Current source is ready for its proxy topic commit; preceding verified feature commit is b0b411d. Build82636, compiler57938, clippy88538 and all native scenarios are terminal. No live build/native/profile handles or claims remain. Current binary: artifacts/native-proxy-ntlm-probe, isolated integration identity; old integration binary remains untouched. Both restored workspace files retain SHA256 b06cdd2afff926e8a93ddfad2b7cb00b7f31bc8566c45e5a9beccb8407c1697c and the complete original file set. Logs/generated evidence remain ignored in artifacts; no custom .git files. Next: original namespace operator audit, then remaining PLAN/PARITY gates. This interface cannot invoke /compact; this is the explicit handoff. Historical STATUS/PLAN checkpoints remain in Git at2c8316e.
+Verified proxy source commit:81a8755; preceding verified feature:b0b411d. Build82636, compiler57938, clippy88538 and all native scenarios are terminal. No live build/native/profile handles or claims remain. Current binary: artifacts/native-proxy-ntlm-probe, isolated integration identity; old integration binary remains untouched. Both restored workspace files retain SHA256 b06cdd2afff926e8a93ddfad2b7cb00b7f31bc8566c45e5a9beccb8407c1697c and the complete original file set. Logs/generated evidence remain ignored in artifacts; no custom .git files. Next: original namespace operator audit, then remaining PLAN/PARITY gates. This interface cannot invoke /compact; this is the explicit handoff. Historical STATUS/PLAN checkpoints remain in Git at2c8316e.
