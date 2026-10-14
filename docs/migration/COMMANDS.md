@@ -478,21 +478,15 @@ Selected the original CodeMirror5 architecture after official manual/Svelte life
 
 ## Environment completion checkpoint — 2026-09-28
 
-Added show-hint integration and editor-completion.js for inherited environment names in HTTP/gRPC bodies. Ctrl-Space and delayed interpolation suggestions support current dot/numeric/underscore-alias rendering syntax, avoid duplicate closing braces and replace whole partially typed names. Names only; bounded traversal avoids getter execution/cycles. Original Tab behavior preserved through CodeMirror.Pass. Bracket/quoted paths, tags/snippets/constants, Nunjucks runtime and GraphQL completion remain pending.
-
-Read archived extensions/autocomplete.ts and official https://raw.githubusercontent.com/codemirror/codemirror5/master/addon/hint/show-hint.js plus the official manual before edits. No new packages. Ran bun x --bun prettier --write, bun run check (final0 errors/0 warnings), bun run build (passed), and15 inline Bun boundary/name/limit assertions. No saved test scripts. Actual popup/IME/lifecycle acceptance remains unverified; source is not packaged.
+The complete historical contract, evidence and remaining gates for this checkpoint are retained in [TEMPLATING — editor/template inventory](TEMPLATING.md#record-editor-template-inventory).
 
 ## GraphQL editor checkpoint — 2026-09-28
 
-Read official https://raw.githubusercontent.com/graphql/graphiql/main/packages/codemirror-graphql/README.md and installed using bun add codemirror-graphql (2.2.9). Connected GraphQL query/JSON variables to the shared editor, schema-aware query completion and live lint, with environment hints and separate undo identities. Lint skips large/read-only/unrendered-template content; explicit rendered validation remains. Six direct language-service assertions passed; Svelte0/0 and frontend build passed. Initial markup/type diagnostics fixed. No saved test scripts/native changes. Type hover/navigation, variable-specific suggestions/lint, template integration and real WebView acceptance remain pending. Source is newer than the packaged BUILD.json.
+The complete historical contract, evidence and remaining gates for this checkpoint are retained in [TEMPLATING — editor/template inventory](TEMPLATING.md#record-editor-template-inventory).
 
 ## GraphQL variables/navigation — 2026-09-28
 
-graphql-editor.js derives input types from the selected operation; invalid/ambiguous selections yield no map. Connected installed variables mode/hint/lint and query jump to the current Schema view. JSON non-object roots and upstream lint exceptions become diagnostics. Parent/named type navigation works in source; directive-only/hover/field highlighting remain open. Variables linter does not check omitted required variables. Nine inline mapping/reference assertions passed; Svelte0/0, Prettier and frontend build passed. Lazy editor chunk now triggers the500kB build warning; split later without suppressing it. Actual DOM/IPC behavior remains unverified and source is unpackaged.
-
-Official sources read: https://www.graphql-js.org/api-v16/utilities/ , https://raw.githubusercontent.com/graphql/graphiql/main/packages/codemirror-graphql/src/jump.ts and installed codemirror-graphql2.2.9 variables/hint.js, variables/lint.js, utils/collectVariables.js and utils/SchemaReference.js. The remote variables/hint and collectVariables paths failed to fetch; installed official package sources supplied the implementation evidence. Commands: bun x --bun prettier --write, bun run check, bun run build, git diff --check. No new dependencies/native changes/saved test scripts.
-
-GraphQL hover/directives checkpoint (September28): editor-hover.js owns lifecycle while reusing official info rendering; upstream info addon was inspected and not enabled because its disable path does not own all document listeners/popups. Schema explorer includes directive descriptions/args/defaults/repeatability/locations and directive-reference navigation. Official source: https://raw.githubusercontent.com/graphql/graphiql/main/packages/codemirror-graphql/src/info.ts and installed info-addon.js/info.js. Four directive-format assertions, Svelte0/0, Prettier, frontend build and diff check pass. Actual WebView hover/disposal remains unverified;508.48kB editor chunk warning remains. No saved test scripts/new dependencies/native changes. Source remains unpackaged.
+The complete historical contract, evidence and remaining gates for this checkpoint are retained in [TEMPLATING — editor/template inventory](TEMPLATING.md#record-editor-template-inventory).
 
 ## Shared editor surfaces/settings — September28
 
