@@ -1,8 +1,24 @@
 # HTTP migration
 
-Updated 2026-10-14. Native transport, cookie management, multipart, proxy/TLS settings and streams have scoped implementations/receipts. Complete request/body/cancel/history, legacy-cookie/proxy/platform/stream compatibility stays required.
+Updated 2026-10-15. Native transport, cookie management, multipart, proxy/TLS settings and streams have scoped implementations/receipts. Windows manual body/send/cancel/history has bounded acceptance below; complete legacy-cookie/proxy/platform/stream compatibility stays required.
 
 See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity requirements](PARITY.md). No original scope was removed by consolidation.
+
+## Current manual HTTP workflow
+
+Verified source:7a0e9e3. Ordinary HTTP now persists actual transport errors/Cancel, rejects a late successful native reply after abort, retains history per request/optional environment, and persists nonlatest selection in a separately validated responseSelections map. Public environment filtering updates both history and displayed selection. Preflight refusals remain history-free; deleted requests cannot resurrect; streams/introspection remain unchanged. Global40MiB serialized safety admission remains. Configured maxHistory1..100 corrects legacy's incidental preinsertN-plus-new-row count; bucket counts precede global budget admission.
+
+Legacy evidence: main/network/curl.ts:273–284; models/response.ts:181–193; ui/routes/request.tsx:81/414; response-history-dropdown.tsx:57; settings/general.tsx:191. References consulted: [AbortSignal.throwIfAborted](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/throwIfAborted), [Playwright input actions](https://playwright.dev/docs/input), [Bun HTTP server](https://bun.sh/docs/runtime/http/server), [HTTP response close events](https://nodejs.org/api/http.html#event-close_2). Fixtures execute with Bun only; shared browser launch remains headless, native host hidden before CDP.
+
+Compiler24524 passes0 errors/0 warnings. Controlled receipt plugin-dom-render-owner-http-workflow-1792000002 retains original20/stream2 plus HTTP6 (late IPC after Cancel, durable failure hydration, no-send preflight, deleted-owner resolve/reject and save failure after success);42 workers retire. Earlier0001 passed before selection extension (41 workers); failed0000 retains the plain-JS Svelte rune mistake, corrected with JSON state projection. Initial compiler26123 annotation errors were corrected;16913/66992 also passed within their earlier scope.
+
+Normal-hook build91016 at artifacts/native-resource-crud-audit-probe/http-workflow-attempt-2 exits0/Rust6m55 with full source/package/private-input closure. Executable SHA4e83e47347f716c8b8b2297e654e0ab90bd17c9ed2f844d034e7b8852b0c03bc. Native67507 at artifacts/playwright/response-history-native-1792004571680 passes original seededhistory6 unchanged,36 actual manual-body rows (JSON/text/XML/form/multipart/binary ×dark/light1440/900/760 CSS profiles), and18 controls. Controls cover file refusal/no partial upload, held Cancel/fresh recovery, actual503/404/200 keyboard selection/reload, destroy/timeout/partial headers, perrequest/environment quota/filter/reload, captured Send during edit/switch, aggregate budget and deletion without resurrection. All54 actual connections close without forced destruction. Host39808 exits0/native-hidden; restoration1792004571456 restores exact f0b51/d8b032 original buffers, protected inventory and selective fixture cleanup. Independent read-only audit confirms receipt counts and ownership.
+
+Both10MiB persisted replies compare full text/base64 and actual SHA256 to independently generated fixture bytes. The18MiB unsaved case proves visible200, size/content-length/token and budget refusal, but does not compare/hash the complete unsaved native body. CSS widths are not physical OS-picker/AT/platform acceptance. Layout checkpoint covers the manual-entry state, not whole WebView/beforebirth storage. Explicit window destroy is not OS-close lifecycle acceptance; universal loader/linkage/all-birth/callback-drain/legal/platform gates remain open.
+
+CRUD regression91711 at artifacts/playwright/resource-manager-native-1792004773396 passes original6/field24/correction6/collection6, one actual Send/abort; host43064 exits0/native-hidden with exact baseline restoration. Full post-HTTP closure91280 and post-regression72066 pass before any source/doc edits. No native/profile/build handles remain.
+
+Immutable first build69654/http-workflow exits0/Rust6m40; native55411/receipt1792002717530 fails at ambiguous Preferences after body36/file4. Host39808 exits0,36 sockets retire, restoration1792002717304 returns exact baseline, and source recheck18980 passes. Preferences is now scoped to Main navigation; fresh attempt2 replays all cases. Failed receipts remain failed and retained.
 
 ## Topic records
 
