@@ -4,6 +4,12 @@ Updated 2026-10-14. Auth implementations and direct checks exist for Basic/Beare
 
 See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity requirements](PARITY.md). No original scope was removed by consolidation.
 
+## Confirmed remaining source gaps
+
+Read-only audit2026-10-14: legacy libcurl-promise.ts:318 sets PROXYAUTH Any. Current src-tauri/src/http.rs configures Proxy::all without NTLM407 negotiation; ntlm.rs handles origin401 only. Proxy authentication remains a genuine legacy gate, including HTTP and HTTPS CONNECT, connection ownership, isolated proxy credentials, redirects/cancel/deadline and platform acceptance.
+
+OAuth1 addParamsToHeader=false remains an unsupported Postman import compatibility setting (oauth1-model.js / OAuth1Editor.svelte / Rust signer and digest adapter). Archived native get-token.ts always used oauth.toHeader; do not describe URL/body placement as missing original native behavior. Existing url-encoding.js independent wire/signature checks are suitable maintained verification when placement is implemented. No Auth code or runtime was changed by this audit.
+
 ## Topic records
 
 <a id="record-asap-compatibility"></a>

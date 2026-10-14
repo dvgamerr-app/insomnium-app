@@ -1,15 +1,16 @@
 # Migration status
 
-Updated 2026-10-14. Full migration is **incomplete**. Baseline commit: 5da7443 on feat/ui-design-system-settings-curl. All agent work is integrated; retired directories and custom .git backups are absent. Legacy backup and node_modules are preserved.
+Updated 2026-10-14. Full migration is **incomplete**. Baseline commit: 16b1cb2 on feat/ui-design-system-settings-curl. All agent work is integrated; retired directories and custom .git backups are absent. Legacy backup and node_modules are preserved.
 
 ## Current work
 
-Migration documentation consolidated from276 Markdown files to27 files:18 topic documents plus current status/plan/parity, acceptance, commands, architecture, CI, cURL and deferred UX. README.md indexes topics.265 individual checkpoint documents retired; all substantive original lines retained and29 exact duplicate prose paragraphs removed.559 rewritten record links/anchors verified; independent Git comparison confirms10313 original nonblank record lines and unchanged acceptance table cells. PARITY now presents the required matrix directly; all original extra gates/checkpoints remain in MIGRATION-REVIEW.md. Current native namespace and cURL results remain verified below. Next finish the stricter namespace operator audit and remaining product/provider/platform gates; no migration scope removed.
+Documentation consolidation is complete (276→27 Markdown files; original requirements/evidence and559 record links verified). cURL --insecure mapping now passes current native HTTPS acceptance:7 groups /5 actual fixture requests on corrected release build59801, including option order/--next/secure curl default, on/off/global UI/reload, both global policies and actual curl control. Native39896 exits0/native-hidden; full profile restored. Current mixed-body regression6 groups also passes (host46408); final compiler28963 exits0/0 errors/0 warnings. Initial tab/label failures and synchronous-loopback control timeout remain historical failures, each with full restoration; corrected Field.label and async control preserve complete assertions. Remaining full migration gates remain open; namespace operator audit and genuine legacy proxy NTLM407 negotiation remain required.
 
 ## Verified evidence
 
 | Topic | Verified scope | Evidence |
 | --- | --- | --- |
+| cURL request TLS validation |7 groups; secure default/flag order/next isolation/UI/reload/global on+off/actual curl;native-hidden/exit0; full profile restored | artifacts/playwright/curl-import-tls-1791976007258 |
 | Namespace | Original20 plus additive88 field cases;8 profiles;native-hidden/exit0; complete integration profile and layout restoration | artifacts/playwright/xml-response-filter-1791973441156 |
 | cURL mixed/file and GET/file |6 groups each; actual curl byte comparisons;native-hidden/exit0; full integration profile restored | artifacts/playwright/curl-import-mixed-body-1791973695180; curl-import-get-file-1791973709667 |
 | Plugin ESM | Original26 headless cases;32 workers retired; primary interruption and cleanup errors retained | artifacts/playwright/plugin-module-readiness |
@@ -30,4 +31,4 @@ The complete requirements remain in [PARITY.md](PARITY.md). Namespace functional
 
 ## Handoff
 
-No live process handles or native/profile/clipboard claims. Last complete source integration and cleanup checkpoint:2c8316e; last namespace feature6245b4d and cURL feature5da7443. Logs and generated evidence remain ignored in artifacts; no custom .git files. This interface cannot invoke /compact. Historical STATUS/PLAN checkpoints can be read with git show 2c8316e:docs/migration/STATUS.md and git show 2c8316e:docs/migration/PLAN.md.
+Build59801 and compiler28963 are terminal0. No live build/native/profile/clipboard handles or claims remain. This feature is ready for its topic commit; old integration binary remains untouched. Current fresh binary is artifacts/native-curl-tls-probe. Last complete source integration and cleanup checkpoint:2c8316e; last namespace feature6245b4d and cURL feature5da7443. Logs and generated evidence remain ignored in artifacts; no custom .git files. This interface cannot invoke /compact. Historical STATUS/PLAN checkpoints can be read with git show 2c8316e:docs/migration/STATUS.md and git show 2c8316e:docs/migration/PLAN.md.

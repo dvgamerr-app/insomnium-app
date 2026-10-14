@@ -2,6 +2,12 @@
 
 Updated 2026-10-14. Parser, single-file, mixed-file and GET/file workflows are implemented. Full cURL parity remains incomplete. This replaces repeated chronological checkpoints; original records and reference observations remain in Git at6245b4d and ignored artifacts.
 
+## Request TLS validation
+
+-k/--insecure and --no-insecure are implemented, with last flag wins and --next isolation. Imported curl requests explicitly validate certificates when insecure is absent, even if the app global preference is off. Ordinary requests continue inheriting global preferences. Request Settings provides on/off/global validation through existing Field/Select; invalid stored values refuse Send. The official contract was checked before implementation at [curl --insecure](https://curl.se/docs/manpage.html#--insecure); no new subsystem/generator applies.
+
+Current saved native curl-import-tls.js passes7 groups on release59801 (receipt1791976007258): actual untrusted HTTPS refusal/success, option reset, mounted UI/reload, strict and permissive global policies without request-induced global changes, and an independent async curl control. Native39896 exits0/native-hidden;5 fixture HTTP requests; exact profile restored. Current mixed-body regression1791976035634 passes6 groups and compiler28963 passes0/0. Initial Settings role/label refusals and synchronous loopback control timeout are retained failures; each restored the profile. The label uses explicit Field.label, and the control awaits curl asynchronously so the loopback server can respond. Other TLS/proxy/provider/platform gates remain open.
+
 ## Current behavior
 
 Paste import parses literal commands; it never launches a shell, expands variables or reads imported paths. Import review must be confirmed before resources are added. Named files are placeholders until explicitly selected in the request editor; unselected files refuse Send.
@@ -23,15 +29,16 @@ Bounds:1MiB pasted input,20000 tokens/body segments,1000 requests,8Mi code-unit 
 | tests/ui/curl-import-mixed-body.js | artifacts/playwright/curl-import-mixed-body-1791973695180 |6 groups: missing selections/no path read; overlapping reads; latest same-row selection; literal edit/reload; all256-byte native body comparison with actual curl; body-type cleanup |
 | tests/ui/curl-import-get-file.js | artifacts/playwright/curl-import-get-file-1791973709667 |6 groups: missing-file refusal; mounted selection/reload/native Send; all256-byte URL-encoding; HEAD/PATCH/no body; NUL/raw-space behavior; unchanged saved URL/bytes |
 
-Both hosts are native-hidden and exit0. Their maintained scenarios now register imported fixture collections before Send, preserve the selected matching profile and restore workspace buffers, owned cookie additions, window state and the full original profile byte/file layout. Unknown changes are retained and fail restoration. Compiler check passes0 errors/0 warnings. No new app build was needed for scenario-only fixes.
+The two file scenarios below were verified on their stated binary; their older receipts remain scoped evidence. Both hosts are native-hidden and exit0. Their maintained scenarios now register imported fixture collections before Send, preserve the selected matching profile and restore workspace buffers, owned cookie additions, window state and the full original profile byte/file layout. Unknown changes are retained and fail restoration. Compiler check passes0 errors/0 warnings. No new app build was needed for scenario-only fixes.
 
 Run serially:
 
 ```powershell
-$env:INSOMNIUM_UI_BUILD_STATE='artifacts/native-agent-integration-probe/build-state.json'
+$env:INSOMNIUM_UI_BUILD_STATE='artifacts/native-curl-tls-probe/build-state.json'
 $env:INSOMNIUM_UI_PROBE_IDENTIFIER='app.insomnium.probe.agentintegration20261014'
+bun tests/ui/curl-import-tls.js
 bun tests/ui/curl-import-mixed-body.js
-bun tests/ui/curl-import-get-file.js
+# GET/file receipt above uses the earlier integration binary; rerun when affected.
 ```
 
 Historical multipart, cookie, NTLM, option-reset and single-file receipts establish their stated earlier scope; they are not fresh current-source acceptance. Existing saved scenarios cover those topics and must be rerun when affected. OS chooser operation is separate from HTML file selection.
@@ -42,7 +49,7 @@ Historical multipart, cookie, NTLM, option-reset and single-file receipts establ
 2. Finish raw Unicode/invalid-UTF-8 request-target fidelity with actual TCP wire comparisons; normalized Request.url is insufficient evidence.
 3. Finish stdin/config/header/cookie file representations and non-ASCII shell byte escapes. Never implicitly read imported paths.
 4. Finish richer multipart headers/encoders/content-type parameters, quoted/Unicode filename edges, multiple-file/nested forms and content-only file cases beyond accepted scenarios.
-5. Finish --compressed, --insecure, request-local proxy/TLS/timeouts, upload-file and remaining authentication/default/config semantics. Unsupported options must continue failing visibly until their complete mapping exists.
+5. Finish --compressed, remaining request-local proxy/TLS/timeouts, upload-file and remaining authentication/default/config semantics. Unsupported options must continue failing visibly until their complete mapping exists.
 6. Complete duplicate header/cookie, URL/userinfo/escaping and app-default policy reconciliation (cookie jar, timeout, proxy, user agent, certificates).
 7. Finish true OS picker selection/cancellation, alternate formats, multiple legacy .db import, file read/error recovery, maximum-size full-session/native IPC acceptance and broader save/reload/export compatibility. Current mounted file selection is narrower evidence.
 8. Finish PowerShell/cmd Copy-as-cURL grammar beyond the implemented literal normalization subset.

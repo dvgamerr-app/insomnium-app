@@ -193,6 +193,7 @@ const aliases = /** @type {Record<string, string>} */ ({
   v: "verbose",
   i: "include",
   N: "no-buffer",
+  k: "insecure",
 });
 const values = new Set([
   "oauth2-bearer",
@@ -214,6 +215,8 @@ const values = new Set([
   "url-query",
 ]);
 const flags = new Set([
+  "insecure",
+  "no-insecure",
   "ntlm",
   "next",
   "get",
@@ -600,6 +603,10 @@ function requestsFor(words, workspaceId, entries) {
       authentication: structuredClone(authentication),
       body: structuredClone(body),
       settingFollowRedirects: location ? "on" : "off",
+      settingValidateCertificates:
+        entries.filter((e) => ["insecure", "no-insecure"].includes(e.name)).at(-1)?.name === "insecure"
+          ? "off"
+          : "on",
       settingEncodeUrl: false,
       _curlSource: words,
     });

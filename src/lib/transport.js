@@ -107,6 +107,9 @@ export function prepareRenderedRequest(data, request, runId, options = {}) {
 /** @param {Record<string,any>} data @param {Record<string,any>} request @param {string} runId
  * @param {(value:unknown)=>string} resolve @param {()=>string} resolvedOAuthHeader */
 function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
+  if (request.settingValidateCertificates != null &&
+      !["global", "on", "off"].includes(request.settingValidateCertificates))
+    throw new Error("Choose the request TLS certificate validation preference in Settings.");
   const openapiIssues = [
     ...new Set([
       ...(request._openapiIssues || []),
@@ -613,7 +616,12 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
         : request.settingFollowRedirects === "off"
           ? false
           : settings.followRedirects,
-    validateCertificates: settings.validateCertificates,
+    validateCertificates:
+      request.settingValidateCertificates === "on"
+        ? true
+        : request.settingValidateCertificates === "off"
+          ? false
+          : settings.validateCertificates,
     useCookies: settings.useCookies,
     cookieSnapshot: request.cookieSnapshot || null,
     sendCookies: request.settingSendCookies !== false,

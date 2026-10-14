@@ -621,6 +621,17 @@
                 })}>I have corrected these request fields</Button
             >
           </Feedback>{/if}
+        <Field label="TLS certificate validation"
+          ><Select
+            value={request.settingValidateCertificates || "global"}
+            onchange={(event) =>
+              onchange({ settingValidateCertificates: event.currentTarget.value })}
+          >
+            <option value="global">Use global preference</option>
+            <option value="on">Validate certificates</option>
+            <option value="off">Skip certificate validation</option>
+          </Select></Field
+        >
         <Field layout="inline" class="checkbox-label"
           ><Checkbox
             checked={request.settingEncodeUrl ?? !request._curlSource}
