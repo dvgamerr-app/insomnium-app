@@ -1,0 +1,2175 @@
+# MIGRATION REVIEW migration
+
+Updated 2026-10-14. Historical repository review and Thai summaries are retained for context. STATUS.md and PARITY.md define current status and the complete remaining requirements; historical completion claims do not close newer gates.
+
+See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity requirements](PARITY.md). No original scope was removed by consolidation.
+
+## Topic records
+
+<a id="record-review-2026-10-05"></a>
+
+<details>
+<summary>REVIEW-2026-10-05</summary>
+
+# ผลรีวิวทั้ง repository — 2026-10-05
+
+## ขอบเขตและสถานะ
+
+- งานที่เจ้าของร้องขอ: “review ให้ครบทั้งหมด ทุกไฟล์”
+- ตรวจครบ **453/453 ไฟล์ที่ Git ติดตาม** ณ commit `48030b1cffbd8ccb009992c306c81592dc18c92c` รายชื่อทั้งหมดอยู่ท้ายรายงาน
+- ครอบคลุม frontend Svelte/JavaScript, native Rust/Tauri, vendored dependencies, shared UI, scripts, saved UI scenarios/helpers, config/CI, migration docs, locks, licenses และภาพ/icon assets
+- เทียบรายการกับ `git ls-files` แล้ว ไม่มีไฟล์ตกหล่นหรือรายการส่วนเกิน; worktree สะอาดก่อนบันทึกรายงานนี้
+- การรีวิวเดิมเป็นงานอ่านอย่างเดียว ไม่มีการแก้ application code หรือ test scripts และไม่ได้รันทดสอบ UI จริงในรอบรีวิวนี้ การเขียนเอกสารครั้งนี้เป็นคำสั่งเพิ่มเติมจากเจ้าของ
+- ไม่รวมการรีวิว dependency ที่ติดตั้งใน `node_modules`, build outputs, ignored artifacts หรือการอ่าน legacy source ทุกไฟล์ใน `_backup/legacy-electron` เป็นชุดรีวิวใหม่ อย่างไรก็ตามได้ตรวจ archive manifest กับไฟล์ backup ครบตามที่อธิบายด้านล่าง
+- การรีวิว repository เสร็จแล้ว; **full migration ยังไม่เสร็จ** ตาม [PARITY.md](PARITY.md) รายงานนี้ไม่ใช่การรับรอง design, technical debt, security หรือ runtime compatibility ทั้งระบบ
+
+## ข้อพบที่ต้องแก้
+
+ทั้งสี่ข้อยังเปิดอยู่ ณ snapshot นี้ ไม่มีการแก้หรือปิดข้อพบในงานบันทึกเอกสาร
+
+| ID  | ระดับ | ตำแหน่งใน snapshot                                                                          | ผลกระทบ                                                                          |
+| --- | ----- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| R1  | P2    | [workspace.svelte.js](../../src/lib/workspace.svelte.js), บรรทัด 1267                       | gRPC ที่ได้รับ status สำเร็จอาจจบด้วย cancellation error                         |
+| R2  | P2    | [Select.svelte](../../src/lib/components/ui/Select.svelte), บรรทัด 49                       | select ที่เปิด svgArrow กลับไปใช้ native popup บน engine ที่รองรับ themed picker |
+| R3  | P2    | [StreamPane.svelte](../../src/lib/components/StreamPane.svelte), บรรทัด 39                  | JSON ใน stream แสดงเลขจำนวนเต็มขนาดใหญ่ผิดจากข้อมูลต้นฉบับ                       |
+| R4  | P3    | [TemplatePreview.svelte](../../src/lib/components/TemplatePreview.svelte), บรรทัด 65 และ 74 | ข้อความช่วยเหลือระบุความสามารถ Send และ prompt ล้าสมัย                           |
+
+### R1 — ปิด gRPC โดยไม่ส่ง cancellation ก่อน completion acknowledgement
+
+สถานะ 2026-10-07: แก้แล้วและผ่าน saved native scenario บน build ใหม่ ครอบคลุม unary/server/client/bidirectional, non-OK, Cancel และ prompt ของข้อความถัดไปที่ยังค้างตอนจบ ดู STATUS.md และ artifacts/playwright/nocturne-grpc-theme-1791348103242. หลักฐาน snapshot เดิมด้านล่างคงไว้ตามประวัติ; การปิด R1 ไม่ปิด full gRPC/migration parity.
+
+**หลักฐานและลำดับที่เกิดปัญหา**
+
+1. เมื่อ workspace รับ event `status` จะตั้ง status/trailers และปิด sender จากนั้นเรียก `controller.abort()` ที่บรรทัด 1267
+2. [grpc.js](../../src/lib/grpc.js) ลงทะเบียน abort listener ที่เรียก native `cancel_http` ทันที ขณะ listener ยัง active
+3. callback ของ Channel เรียก workspace handler ก่อนส่ง `acknowledge_grpc` ใน `finally` ดังนั้น cancellation ถูกส่งก่อน acknowledgement ของ status
+4. [grpc.rs](../../src-tauri/src/grpc.rs) ใช้ `Delivery::send` รอ acknowledgement ของทุก event รวมถึง status ขณะที่ `connect_grpc` แข่งงานนี้กับ `cancelled.changed()` ผ่าน `tokio::select!`
+5. cancellation จึงสามารถชนะการจบงานและคืน `gRPC call cancelled.` แม้ได้รับ `0 OK` แล้ว workspace catch จะเพิ่ม error event และตั้ง `grpcErrors`
+
+**ผลกระทบ:** ผู้ใช้เห็น error หลัง response ที่สำเร็จ รวมถึง error ที่ถูกเก็บในประวัติ ทำให้ completion state ไม่น่าเชื่อถือ
+
+**แนวทางแก้:** แยกการปิด sender/ยกเลิกงานส่งข้อความออกจากการยกเลิก transport; ให้ completion status ถูก acknowledge และ native invoke จบก่อน cleanup ที่อาจส่ง cancellation ต้องคง Stop/Disconnect และ shutdown cancellation สำหรับงานที่ยังไม่จบ
+
+**การตรวจซ้ำที่ต้องทำ:** ใช้ saved native gRPC scenario กับ unary, server streaming และ client/bidirectional streaming ตรวจ success `0 OK` โดยไม่มี cancellation/error เพิ่มหลังจบ ตรวจ non-OK status, Stop ระหว่างทำงาน และการส่งข้อความที่ยังค้างตอนจบด้วย
+
+**ความมั่นใจและข้อจำกัด:** ยืนยัน race จากการไล่ frontend/native code; ไม่ได้ทำ runtime reproduction ใหม่ในรอบรีวิวนี้ [STATUS.md](STATUS.md) มีหลักฐานเก่าบันทึกอาการ cancellation หลัง valid `0 OK` อยู่แล้ว แต่หลักฐาน theme acceptance ไม่ได้พิสูจน์ lifecycle parity
+
+### R2 — รักษา themed picker เมื่อเปิด svgArrow
+
+**หลักฐาน:** scoped rule `.select-with-icon :global(select.ui-select)` ใน Select ตั้ง `appearance: none` ซึ่งมี specificity สูงกว่ากฎ `.ui-select:not([multiple]):not([size])` ที่ตั้ง `appearance: base-select` ใน [controls.css](../../src/lib/components/ui/controls.css), บรรทัด 110–114 ผล compiled selector เทียบ specificity เป็น `0,3,1` กับ `0,3,0`
+
+บน Chromium/WebView2 ที่รองรับ `appearance: base-select` ตัว select จึงกลับไปใช้ native popup แม้ `::picker(select)` ยังตั้ง base-select และธีมไว้ จุดใช้งานที่ยืนยันคือ HTTP method และ Response mode ใน [+page.svelte](../../src/routes/+page.svelte), บรรทัด 625–654
+
+**ผลกระทบ:** popup สองจุดนี้ไม่ใช้ styling ส่วนกลางในธีม dark/light และต่างจาก shared Select จุดอื่น
+
+**แนวทางแก้:** ใช้ `appearance: none` เป็น fallback แล้วรักษา `base-select` ใน `@supports (appearance: base-select)` สำหรับ select ที่เหมาะสม คงการซ่อนลูกศรเดิมผ่าน `::picker-icon` ที่ component มีอยู่แล้ว
+
+**การตรวจซ้ำที่ต้องทำ:** เพิ่ม assertions ใน saved theme/workspace scenarios สำหรับ computed appearance และ popup ของ HTTP method/Response mode ทั้งสองธีม ตรวจ keyboard selection และ fallback engine ด้วย scenario ที่รองรับ การตรวจ alignment/SVG เพียงอย่างเดียวไม่ครอบคลุม popup regression นี้
+
+**ความมั่นใจและข้อจำกัด:** ยืนยันจาก source และ compiled CSS specificity; ไม่ได้เปิด UI ใหม่ในรอบรีวิวนี้
+
+### R3 — รักษาตัวเลข JSON ต้นฉบับใน stream display
+
+สถานะ 2026-10-07: แก้แล้วและผ่าน saved native WebSocket/SSE scenario บน build ใหม่ ทั้ง dark/light, 1440/900/760, large integers/decimal/exponent, raw Copy, JSON ปกติ/ผิดรูปแบบ และ binary fallback ดู STATUS.md และ artifacts/playwright/nocturne-stream-theme-1791348127026. Save dialog และ ping/pong ยังไม่ได้ตรวจใหม่; source paths คงเดิม. หลักฐาน snapshot เดิมด้านล่างคงไว้ตามประวัติ.
+
+**หลักฐาน:** StreamPane ทำ `JSON.stringify(JSON.parse(selected.data), null, 2)` เพื่อแสดงข้อมูล JSON การ parse เป็น JavaScript Number ทำให้เลขจำนวนเต็มที่เกินช่วง safe integer สูญเสียความแม่นยำ
+
+ตรวจด้วย inline Bun แล้ว:
+
+```text
+input:  {"id":9007199254740993}
+output: {"id":9007199254740992}
+```
+
+[ResponsePane.svelte](../../src/lib/components/ResponsePane.svelte) และ [GrpcPane.svelte](../../src/lib/components/GrpcPane.svelte) ใช้ [json-prettify.js](../../src/lib/json-prettify.js) ซึ่งรักษาตัวเลขต้นฉบับอยู่แล้ว
+
+**ผลกระทบ:** ผู้ใช้เห็น ID/ตัวเลขใน WebSocket หรือ SSE ผิดจากข้อมูลที่ server ส่ง ตัวข้อมูลดิบและการ copy/save ยังคงเดิม แต่ pane ไม่มี raw display toggle ที่ใช้ตรวจค่าจริงแทนได้
+
+**แนวทางแก้:** ใช้ formatter ที่รักษา JSON number lexemes เช่น shared `jsonPrettify` และคง raw fallback เมื่อ parse/format ไม่ได้
+
+**การตรวจซ้ำที่ต้องทำ:** ส่ง JSON ที่มีเลขเกิน safe integer ผ่าน saved stream scenario ตรวจข้อความที่แสดงตรงต้นฉบับ รวมถึง JSON ปกติ, invalid JSON และ binary/ping/pong ตรวจ copy/save ว่ายังคงข้อมูลดิบ
+
+**ความมั่นใจและข้อจำกัด:** ยืนยันการเปลี่ยนค่าด้วย Bun และ source path; ไม่ได้ทดสอบ rendered stream pane ใหม่ในรอบรีวิวนี้
+
+### R4 — อัปเดตคำอธิบาย Template ให้ตรงกับ Send
+
+**หลักฐาน:** TemplatePreview ระบุ “Sending currently supports variable substitutions only” และ “Interactive prompting on Send is still pending”
+
+แต่ [request-render.js](../../src/lib/request-render.js), `renderSendRequest` สร้าง session ด้วย `purpose: "send"`; [template-session.js](../../src/lib/template-session.js) เปิด `interactivePrompts` สำหรับ purpose นี้ และ [+page.svelte](../../src/routes/+page.svelte) mount TemplatePromptDialog อยู่แล้ว Send ใช้ renderer สำหรับ template tags และ interactive prompt
+
+**ผลกระทบ:** ผู้ใช้ได้รับข้อมูลความสามารถที่ผิด และอาจหลีกเลี่ยง feature ที่ใช้งานได้แล้ว
+
+**แนวทางแก้:** แก้ help text ให้แยกพฤติกรรม Preview กับ Send ตามการทำงานปัจจุบัน และคงข้อจำกัด desktop, dependent-response และ prompt cache ที่ยังตรงกับโค้ด
+
+**การตรวจซ้ำที่ต้องทำ:** ตรวจข้อความใน component เทียบ Send/session/prompt implementation และใช้ saved scenario ที่เกี่ยวข้องหากมีการเปลี่ยนพฤติกรรมเพิ่มเติม
+
+**ความมั่นใจและข้อจำกัด:** ยืนยันจาก source integration; ไม่มี runtime/UI verification ใหม่
+
+## หลักฐานการตรวจ coverage และไฟล์ที่ไม่ใช่ application code
+
+- อ่าน code, scripts, saved scenarios, config และ docs ที่ Git ติดตามครบตาม inventory ด้านล่าง ตรวจ cross-layer paths ที่เกี่ยวข้องกับข้อพบอีกครั้งก่อนจบรีวิว
+- STATUS มี 3,153 บรรทัด ใช้ exact-line matching กับ migration docs ที่อ่านครบแล้วเพื่อตรวจข้อความซ้ำ 1,441 บรรทัด และอ่าน unique lines อีก 1,712 บรรทัดครบ ไม่ใช้หัวข้อหรือคำค้นแทนการอ่านส่วนที่เหลือ
+- Archive manifest: ตรวจ 1,144 records และ 26 roots ทั้ง path/schema, duplicates, size และ SHA-256 กับ backup ทุกไฟล์ผ่าน หลักฐานนี้ยืนยันความครบถ้วนของ archive ไม่ใช่การรีวิว legacy ทั้งชุดใหม่
+- BUILD.json: อ่าน build/check/notVerified/artifact metadata และ source manifest 186 รายการ ตรวจ fingerprint/order; พบ source ปัจจุบันต่างจาก historical snapshot 48 รายการและ template SVG เดิมถูกลบ 3 รายการ บันทึก build นี้จึงไม่ใช่หลักฐาน acceptance ของ HEAD ปัจจุบัน Installer ที่ระบุยังตรง size/hash แต่ release executable ปัจจุบันต่างจาก record
+- PNG/ICO/ICNS assets: ตรวจภาพและขนาด 52 ไฟล์ รวม container entries/bounds ของ ICO/ICNS, PNG frames และ decoded legacy RGB/mask frames ภาพเป็นชุด moon/mountains เดียวกัน XML icon resources อ่านแล้ว
+- Licenses 8 ไฟล์: อ่าน MIT/Apache/OFL/ISC และตรวจ license สำหรับ bundled fonts/Lucide เทียบ packages ที่ติดตั้ง
+- Lockfiles 3 ไฟล์: parse Bun lock 278 package records และเทียบ root dependencies; ตรวจ Cargo lock ของ app 719 packages และ vendored reqwest 280 packages รวม format checksum, unique IDs และ dependency edges
+- `cargo metadata --manifest-path src-tauri/Cargo.toml --format-version 1 --no-deps --locked --offline` ผ่าน exit 0 ไม่มี warnings เป็นการตรวจ manifest metadata ไม่ใช่ full Cargo build หรือ security audit
+- Inline Bun ยืนยัน JSON integer rounding ตาม R3; inspected compiled Select CSS ยืนยัน specificity ตาม R2
+- รายชื่อสุดท้ายเทียบ `git ls-files`: tracked 453, reviewed 453, missing 0, extra 0; HEAD ยังเป็น snapshot ข้างต้น และไม่มี worktree edits ก่อนเขียนรายงาน
+
+## ประเด็นที่พิจารณาแล้วแต่ไม่ได้ยืนยันเป็น bug ใหม่
+
+รายการนี้เก็บเหตุผลไว้เพื่อไม่ให้ข้อสงสัยถูกตีความเป็น findings ที่พิสูจน์แล้ว
+
+| ประเด็น                                                                | ผลการพิจารณา                                                                                                                                  |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| API-key header/cookie ไม่ถูกสร้างเมื่อมี manual Authorization          | ทำซ้ำได้ แต่เป็น legacy precedence ที่ตั้งใจรักษาและระบุใน AUTH-INVENTORY/ACCEPTANCE/STATUS; API-key query ยังใช้ จึงไม่รายงานเป็น regression |
+| Git selected restore coordinator ยังไม่เชื่อม UI                       | เป็น scope ที่เอกสารระบุว่ายังไม่เสร็จ ไม่ใช่ regression ใหม่                                                                                 |
+| Shared UI/Nocturne redesign เริ่มก่อน migration เสร็จ                  | STATUS บันทึกคำสั่งเจ้าของวันที่ 2026-10-05 ให้ทำทันที จึง supersede การเลื่อนไป post-migration เดิม                                          |
+| Git/GraphQL scenarios บางรายการอ้าง layout/modal/outline ก่อน Nocturne | เป็นข้อสงสัยเรื่อง stale test coverage; scenario ใหม่ครอบคลุมบางจุด แต่ยังไม่ยืนยัน product defect                                            |
+| Native test helper/build record ไม่ผูก acceptance กับ HEAD โดยตรง      | Historical pass หรือ artifact mtime ไม่ใช่ proof ของ current HEAD; ไม่รายงานเป็น application regression                                       |
+| CI LIBCLANG_PATH อ้าง local ignored LLVM                               | ต้องตรวจ runner/clang-sys fallback และผล CI จริงก่อนยืนยัน failure                                                                            |
+| RequestTree depth 30                                                   | ยังไม่ยืนยัน defect จากกรณีใช้งานจริง/contract                                                                                                |
+| HTTP early cancellation และ OAuth abort listener                       | ยังไม่พิสูจน์ race; workspace Stop มี explicit native cancellation อยู่แล้ว                                                                   |
+| PEM certificate bundle                                                 | ตรวจ reqwest implementation แล้ววนอ่าน certificate ทุกตัว จึงปฏิเสธข้อสงสัยว่ารับเพียง certificate แรก                                        |
+| Vendored http-auth auth-int raw hash                                   | signing path ที่มีข้อสงสัยไม่ได้เปิดใช้; app ใช้ digest_auth และมี PATCH อธิบาย                                                               |
+| Vendored reqwest blocking/wasm/http3/custom proxy/CRL edge cases       | app ไม่ใช้ paths ที่พบข้อสงสัยเหล่านี้ จึงไม่จัดเป็น current product bugs                                                                     |
+| Android hdpi icon 49×49 และ background เดิม                            | เป็น asset debt ของ scaffold; ไม่มี Android runtime path ใน desktop scope ปัจจุบัน                                                            |
+| Historical docs มี stale tables/checklists และ COMMANDS fences         | เป็น editorial debt; milestone ที่ใหม่กว่าต้องใช้อ่านสถานะปัจจุบัน ไม่จัดเป็น application regression                                          |
+
+## ข้อจำกัดและงานที่ยังเปิด
+
+เจ้าของระบุเพิ่มเติมว่า UI/UX ยังแยกกันเขียนและไม่ใช้ design system/components ร่วมกันอย่างทั่วถึง ได้ตรวจ source และบันทึก architectural debt, consumer inventory, ownership ปัจจุบัน, แผนย้ายและเกณฑ์รับงานใน [UI-DESIGN-SYSTEM-DEBT.md](UI-DESIGN-SYSTEM-DEBT.md) งานนี้เป็น documentation follow-up ตามคำสั่งเจ้าของ ยังไม่ได้ refactor และไม่ถูกนับเป็นข้อพบ regression ที่ยืนยันใหม่แทนข้อพบเดิมทั้งสี่
+
+- ไม่มีการเปิด UI, ใช้ browser-use หรือ ad-hoc browser automation ในงานรีวิวนี้ และไม่ได้อ้างว่า saved Playwright scenarios ผ่านใหม่
+- ไม่มี fresh full frontend/native build หรือ provider/platform acceptance จากรอบรีวิวนี้ Historical logs/screenshots ใน docs ไม่ใช่ผลทดสอบใหม่
+- ไม่มีการรับรอง package vulnerability, external CI execution, installer upgrade, real power-loss durability หรือการทำงานทุกระบบปฏิบัติการ
+- R1 ต้องเพิ่ม runtime evidence; R2/R3 ต้องตรวจ rendered behavior หลังแก้; R4 ต้องอัปเดตข้อความให้ตรง implementation
+- Remote Git checkout/pull/push/merge/tag/prune, plugins, raw URL behavior และ provider/platform acceptance ที่ยังระบุว่าเปิดใน PARITY/STATUS ต้องติดตามต่อ ไม่ถูกนำออกจาก migration scope โดยงานรีวิวนี้
+- การบันทึกนี้แก้เฉพาะ docs ไม่เปลี่ยนสถานะ parity item ใดเป็น complete และไม่ปิดข้อพบทั้งสี่
+
+## รายชื่อไฟล์ที่รีวิวครบ ณ snapshot
+
+รายการนี้มาจาก `git ls-files` ของ commit ที่ระบุข้างต้น ไม่รวมรายงานนี้ซึ่งสร้างหลังรีวิวเสร็จ
+
+```text
+.cargo/config.toml
+.github/workflows/desktop-build.yml
+.gitignore
+.prettierignore
+.prettierrc.json
+.vscode/extensions.json
+.vscode/settings.json
+AGENTS.md
+LICENSE
+README.md
+bun.lock
+docs/migration/ACCEPTANCE.md
+docs/migration/AUTHENTICATION.md#record-asap-compatibility
+docs/migration/AUTHENTICATION.md#record-auth-inventory
+docs/migration/AUTHENTICATION.md#record-aws-compatibility
+docs/migration/BUILD.json
+docs/migration/GIT.md#record-checkout-transaction
+docs/migration/CI.md
+docs/migration/TEMPLATING.md#record-collection-environments
+docs/migration/COMMANDS.md
+docs/migration/HTTP.md#record-cookie-rendering
+docs/migration/CURL-IMPORT.md
+docs/migration/TEMPLATING.md#record-dependent-responses
+docs/migration/DESIGN.md
+docs/migration/TEMPLATING.md#record-editor-template-inventory
+docs/migration/TEMPLATING.md#record-environment-rendering
+docs/migration/GIT.md#record-git-fetch-staging
+docs/migration/GIT.md#record-git-inventory
+docs/migration/GIT.md#record-git-remote-lifecycle
+docs/migration/GIT.md#record-git-remote
+docs/migration/GRAPHQL.md#record-graphql-rendering
+docs/migration/GRPC.md#record-grpc-compatibility
+docs/migration/GRPC.md#record-grpc-inventory
+docs/migration/GRPC.md#record-grpc-rendering
+docs/migration/AUTHENTICATION.md#record-hawk-compatibility
+docs/migration/IMPORT-EXPORT.md#record-import-ui
+docs/migration/CI.md#record-linux-distribution
+docs/migration/AUTHENTICATION.md#record-manual-oauth-rendering
+docs/migration/RUNNER.md#record-native-runner-acceptance
+docs/migration/AUTHENTICATION.md#record-netrc-compatibility
+docs/migration/UI-DESIGN-SYSTEM-DEBT.md#record-nocturne-theme
+docs/migration/UI-DESIGN-SYSTEM-DEBT.md#record-nocturne-workspace
+docs/migration/AUTHENTICATION.md#record-ntlm-compatibility
+docs/migration/AUTHENTICATION.md#record-oauth-compatibility
+docs/migration/AUTHENTICATION.md#record-oauth1-compatibility
+docs/migration/TEMPLATING.md#record-os-template
+docs/migration/PARITY.md
+docs/migration/PLAN.md
+docs/migration/POST-MIGRATION-UX.md
+docs/migration/TEMPLATING.md#record-prompt-template
+docs/migration/RUNNER.md#record-runner-inventory
+docs/migration/TEMPLATING.md#record-send-rendering
+docs/migration/GIT.md#record-shallow-history
+docs/migration/STATUS.md
+docs/migration/MIGRATION-REVIEW.md#record-summary-th
+docs/migration/TEMPLATING.md#record-template-runtime
+docs/migration/HTTP.md#record-unix-socket
+docs/migration/HTTP.md#record-user-agent
+docs/migration/HTTP.md#record-websocket-rendering
+docs/migration/archive-manifest.json
+docs/migration/archive.mjs
+jsconfig.json
+package.json
+scripts/build-desktop.mjs
+scripts/build-openapi-validators.mjs
+scripts/convert-legacy.mjs
+scripts/generate-appimage-config.mjs
+scripts/generate-deb-config.mjs
+scripts/generate-rpm-config.mjs
+src-tauri/.gitignore
+src-tauri/Cargo.lock
+src-tauri/Cargo.toml
+src-tauri/build.rs
+src-tauri/capabilities/default.json
+src-tauri/capabilities/desktop.json
+src-tauri/icons/128x128.png
+src-tauri/icons/128x128@2x.png
+src-tauri/icons/32x32.png
+src-tauri/icons/64x64.png
+src-tauri/icons/Square107x107Logo.png
+src-tauri/icons/Square142x142Logo.png
+src-tauri/icons/Square150x150Logo.png
+src-tauri/icons/Square284x284Logo.png
+src-tauri/icons/Square30x30Logo.png
+src-tauri/icons/Square310x310Logo.png
+src-tauri/icons/Square44x44Logo.png
+src-tauri/icons/Square71x71Logo.png
+src-tauri/icons/Square89x89Logo.png
+src-tauri/icons/StoreLogo.png
+src-tauri/icons/android/mipmap-anydpi-v26/ic_launcher.xml
+src-tauri/icons/android/mipmap-hdpi/ic_launcher.png
+src-tauri/icons/android/mipmap-hdpi/ic_launcher_foreground.png
+src-tauri/icons/android/mipmap-hdpi/ic_launcher_round.png
+src-tauri/icons/android/mipmap-mdpi/ic_launcher.png
+src-tauri/icons/android/mipmap-mdpi/ic_launcher_foreground.png
+src-tauri/icons/android/mipmap-mdpi/ic_launcher_round.png
+src-tauri/icons/android/mipmap-xhdpi/ic_launcher.png
+src-tauri/icons/android/mipmap-xhdpi/ic_launcher_foreground.png
+src-tauri/icons/android/mipmap-xhdpi/ic_launcher_round.png
+src-tauri/icons/android/mipmap-xxhdpi/ic_launcher.png
+src-tauri/icons/android/mipmap-xxhdpi/ic_launcher_foreground.png
+src-tauri/icons/android/mipmap-xxhdpi/ic_launcher_round.png
+src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher.png
+src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher_foreground.png
+src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher_round.png
+src-tauri/icons/android/values/ic_launcher_background.xml
+src-tauri/icons/icon.icns
+src-tauri/icons/icon.ico
+src-tauri/icons/icon.png
+src-tauri/icons/ios/AppIcon-20x20@1x.png
+src-tauri/icons/ios/AppIcon-20x20@2x-1.png
+src-tauri/icons/ios/AppIcon-20x20@2x.png
+src-tauri/icons/ios/AppIcon-20x20@3x.png
+src-tauri/icons/ios/AppIcon-29x29@1x.png
+src-tauri/icons/ios/AppIcon-29x29@2x-1.png
+src-tauri/icons/ios/AppIcon-29x29@2x.png
+src-tauri/icons/ios/AppIcon-29x29@3x.png
+src-tauri/icons/ios/AppIcon-40x40@1x.png
+src-tauri/icons/ios/AppIcon-40x40@2x-1.png
+src-tauri/icons/ios/AppIcon-40x40@2x.png
+src-tauri/icons/ios/AppIcon-40x40@3x.png
+src-tauri/icons/ios/AppIcon-512@2x.png
+src-tauri/icons/ios/AppIcon-60x60@2x.png
+src-tauri/icons/ios/AppIcon-60x60@3x.png
+src-tauri/icons/ios/AppIcon-76x76@1x.png
+src-tauri/icons/ios/AppIcon-76x76@2x.png
+src-tauri/icons/ios/AppIcon-83.5x83.5@2x.png
+src-tauri/permissions/autogenerated/acknowledge_grpc.toml
+src-tauri/permissions/autogenerated/acknowledge_stream.toml
+src-tauri/permissions/autogenerated/authorize_oauth.toml
+src-tauri/permissions/autogenerated/cancel_http.toml
+src-tauri/permissions/autogenerated/change_cookie.toml
+src-tauri/permissions/autogenerated/connect_grpc.toml
+src-tauri/permissions/autogenerated/connect_stream.toml
+src-tauri/permissions/autogenerated/fetch_oauth_token.toml
+src-tauri/permissions/autogenerated/git_remote_advertise.toml
+src-tauri/permissions/autogenerated/git_remote_cancel.toml
+src-tauri/permissions/autogenerated/git_remote_cleanup_staging.toml
+src-tauri/permissions/autogenerated/git_remote_fetch.toml
+src-tauri/permissions/autogenerated/git_remote_fetch_inspect.toml
+src-tauri/permissions/autogenerated/git_remote_fetch_recover.toml
+src-tauri/permissions/autogenerated/git_remote_fetch_recovery_status.toml
+src-tauri/permissions/autogenerated/git_repository_checkout.toml
+src-tauri/permissions/autogenerated/git_repository_commit.toml
+src-tauri/permissions/autogenerated/git_repository_create_branch.toml
+src-tauri/permissions/autogenerated/git_repository_delete_branch.toml
+src-tauri/permissions/autogenerated/git_repository_history.toml
+src-tauri/permissions/autogenerated/git_repository_info.toml
+src-tauri/permissions/autogenerated/git_repository_init.toml
+src-tauri/permissions/autogenerated/git_repository_read_commit.toml
+src-tauri/permissions/autogenerated/git_repository_restore.toml
+src-tauri/permissions/autogenerated/import_legacy_cookies.toml
+src-tauri/permissions/autogenerated/list_cookies.toml
+src-tauri/permissions/autogenerated/load_grpc_schema.toml
+src-tauri/permissions/autogenerated/load_workspace.toml
+src-tauri/permissions/autogenerated/read_template_cookie.toml
+src-tauri/permissions/autogenerated/read_template_file.toml
+src-tauri/permissions/autogenerated/read_template_os.toml
+src-tauri/permissions/autogenerated/save_workspace.toml
+src-tauri/permissions/autogenerated/send_grpc_message.toml
+src-tauri/permissions/autogenerated/send_http.toml
+src-tauri/permissions/autogenerated/send_stream_message.toml
+src-tauri/permissions/autogenerated/snapshot_request_cookies.toml
+src-tauri/permissions/autogenerated/submit_oauth_callback.toml
+src-tauri/src/asap.rs
+src-tauri/src/aws.rs
+src-tauri/src/cookies.rs
+src-tauri/src/digest.rs
+src-tauri/src/git.rs
+src-tauri/src/git_fetch_cleanup.rs
+src-tauri/src/git_fetch_command.rs
+src-tauri/src/git_fetch_journal.rs
+src-tauri/src/git_fetch_snapshot.rs
+src-tauri/src/git_journal.rs
+src-tauri/src/git_remote.rs
+src-tauri/src/git_remote_job.rs
+src-tauri/src/grpc.rs
+src-tauri/src/grpc_example.rs
+src-tauri/src/grpc_legacy.rs
+src-tauri/src/grpc_schema.rs
+src-tauri/src/grpc_transport.rs
+src-tauri/src/hawk.rs
+src-tauri/src/http.rs
+src-tauri/src/lib.rs
+src-tauri/src/main.rs
+src-tauri/src/netrc.rs
+src-tauri/src/ntlm.rs
+src-tauri/src/oauth-fragment.js
+src-tauri/src/oauth.rs
+src-tauri/src/oauth1.rs
+src-tauri/src/oauth_browser.rs
+src-tauri/src/oauth_callback.rs
+src-tauri/src/oauth_embedded.rs
+src-tauri/src/oauth_implicit.rs
+src-tauri/src/oauth_navigation.rs
+src-tauri/src/storage.rs
+src-tauri/src/streaming.rs
+src-tauri/src/template.rs
+src-tauri/src/template_os.rs
+src-tauri/tauri.conf.json
+src-tauri/tauri.windows.conf.json
+src-tauri/vendor/http-auth/CHANGELOG.md
+src-tauri/vendor/http-auth/Cargo.toml
+src-tauri/vendor/http-auth/Cargo.toml.orig
+src-tauri/vendor/http-auth/LICENSE-APACHE.txt
+src-tauri/vendor/http-auth/LICENSE-MIT.txt
+src-tauri/vendor/http-auth/PATCH.md
+src-tauri/vendor/http-auth/README.md
+src-tauri/vendor/http-auth/UPSTREAM.json
+src-tauri/vendor/http-auth/examples/reqwest.rs
+src-tauri/vendor/http-auth/src/basic.rs
+src-tauri/vendor/http-auth/src/digest.rs
+src-tauri/vendor/http-auth/src/lib.rs
+src-tauri/vendor/http-auth/src/parser.rs
+src-tauri/vendor/http-auth/src/table.rs
+src-tauri/vendor/reqwest/.cargo-ok
+src-tauri/vendor/reqwest/.cargo_vcs_info.json
+src-tauri/vendor/reqwest/Cargo.lock
+src-tauri/vendor/reqwest/Cargo.toml
+src-tauri/vendor/reqwest/Cargo.toml.orig
+src-tauri/vendor/reqwest/INSOMNIUM-PATCH.md
+src-tauri/vendor/reqwest/LICENSE-APACHE
+src-tauri/vendor/reqwest/LICENSE-MIT
+src-tauri/vendor/reqwest/README.md
+src-tauri/vendor/reqwest/src/async_impl/body.rs
+src-tauri/vendor/reqwest/src/async_impl/client.rs
+src-tauri/vendor/reqwest/src/async_impl/h3_client/connect.rs
+src-tauri/vendor/reqwest/src/async_impl/h3_client/dns.rs
+src-tauri/vendor/reqwest/src/async_impl/h3_client/mod.rs
+src-tauri/vendor/reqwest/src/async_impl/h3_client/pool.rs
+src-tauri/vendor/reqwest/src/async_impl/mod.rs
+src-tauri/vendor/reqwest/src/async_impl/multipart.rs
+src-tauri/vendor/reqwest/src/async_impl/request.rs
+src-tauri/vendor/reqwest/src/async_impl/response.rs
+src-tauri/vendor/reqwest/src/async_impl/upgrade.rs
+src-tauri/vendor/reqwest/src/blocking/body.rs
+src-tauri/vendor/reqwest/src/blocking/client.rs
+src-tauri/vendor/reqwest/src/blocking/mod.rs
+src-tauri/vendor/reqwest/src/blocking/multipart.rs
+src-tauri/vendor/reqwest/src/blocking/request.rs
+src-tauri/vendor/reqwest/src/blocking/response.rs
+src-tauri/vendor/reqwest/src/blocking/wait.rs
+src-tauri/vendor/reqwest/src/config.rs
+src-tauri/vendor/reqwest/src/connect.rs
+src-tauri/vendor/reqwest/src/cookie.rs
+src-tauri/vendor/reqwest/src/dns/gai.rs
+src-tauri/vendor/reqwest/src/dns/hickory.rs
+src-tauri/vendor/reqwest/src/dns/mod.rs
+src-tauri/vendor/reqwest/src/dns/resolve.rs
+src-tauri/vendor/reqwest/src/error.rs
+src-tauri/vendor/reqwest/src/into_url.rs
+src-tauri/vendor/reqwest/src/lib.rs
+src-tauri/vendor/reqwest/src/proxy.rs
+src-tauri/vendor/reqwest/src/redirect.rs
+src-tauri/vendor/reqwest/src/response.rs
+src-tauri/vendor/reqwest/src/retry.rs
+src-tauri/vendor/reqwest/src/tls.rs
+src-tauri/vendor/reqwest/src/util.rs
+src-tauri/vendor/reqwest/src/wasm/body.rs
+src-tauri/vendor/reqwest/src/wasm/client.rs
+src-tauri/vendor/reqwest/src/wasm/mod.rs
+src-tauri/vendor/reqwest/src/wasm/multipart.rs
+src-tauri/vendor/reqwest/src/wasm/request.rs
+src-tauri/vendor/reqwest/src/wasm/response.rs
+src/app.html
+src/lib/asap-model.js
+src/lib/components/ApiDesign.svelte
+src/lib/components/AsapEditor.svelte
+src/lib/components/AwsEditor.svelte
+src/lib/components/CodeEditor.svelte
+src/lib/components/CookieManager.svelte
+src/lib/components/CurlBodyEditor.svelte
+src/lib/components/GitPanel.svelte
+src/lib/components/GitRecovery.svelte
+src/lib/components/GitRemotePanel.svelte
+src/lib/components/GraphqlEditor.svelte
+src/lib/components/GrpcPane.svelte
+src/lib/components/HawkEditor.svelte
+src/lib/components/Icon.svelte
+src/lib/components/KeyValueEditor.svelte
+src/lib/components/LegacyCookieImport.svelte
+src/lib/components/NewRequestMenu.svelte
+src/lib/components/OAuth1Editor.svelte
+src/lib/components/OAuthEditor.svelte
+src/lib/components/ProtoManager.svelte
+src/lib/components/RequestEditor.svelte
+src/lib/components/RequestTree.svelte
+src/lib/components/ResourceManager.svelte
+src/lib/components/ResponsePane.svelte
+src/lib/components/RunnerPane.svelte
+src/lib/components/RunnerSidebar.svelte
+src/lib/components/StreamPane.svelte
+src/lib/components/TemplatePreview.svelte
+src/lib/components/TemplatePromptDialog.svelte
+src/lib/components/WebSocketMessageEditor.svelte
+src/lib/components/ui/Button.svelte
+src/lib/components/ui/Dropdown.svelte
+src/lib/components/ui/EditableName.svelte
+src/lib/components/ui/Field.svelte
+src/lib/components/ui/Input.svelte
+src/lib/components/ui/Modal.svelte
+src/lib/components/ui/README.md
+src/lib/components/ui/Select.svelte
+src/lib/components/ui/SplitPane.svelte
+src/lib/components/ui/Textarea.svelte
+src/lib/components/ui/WindowControls.svelte
+src/lib/components/ui/button-config.css
+src/lib/components/ui/controls.css
+src/lib/curl-body.js
+src/lib/curl-form.js
+src/lib/curl-import.js
+src/lib/editor-completion.js
+src/lib/editor-engine.js
+src/lib/editor-hover.js
+src/lib/editor-keymaps.js
+src/lib/editor-state.js
+src/lib/git-checkout.js
+src/lib/git-client.js
+src/lib/git-collection.js
+src/lib/git-create.js
+src/lib/git-graph.js
+src/lib/git-reconcile.js
+src/lib/git-remote-client.js
+src/lib/git-remote-settings.js
+src/lib/git-resources.js
+src/lib/git-restore.js
+src/lib/git-setup.js
+src/lib/git-staging.js
+src/lib/git-workspace.js
+src/lib/graphql-editor.js
+src/lib/graphql.js
+src/lib/grpc-model.js
+src/lib/grpc.js
+src/lib/hawk-model.js
+src/lib/import-export.js
+src/lib/json-prettify.js
+src/lib/legacy-cookies.js
+src/lib/legacy-import.js
+src/lib/model.js
+src/lib/oauth-model.js
+src/lib/oauth.js
+src/lib/oauth1-model.js
+src/lib/openapi-document.js
+src/lib/openapi-validation.js
+src/lib/openapi.js
+src/lib/openapi.worker.js
+src/lib/persistence-queue.js
+src/lib/persistence.js
+src/lib/postman-import.js
+src/lib/proto-management.js
+src/lib/request-meta.js
+src/lib/request-render.js
+src/lib/request-scope.js
+src/lib/request-uploads.js
+src/lib/resources.js
+src/lib/response-filter.js
+src/lib/response-filter.worker.js
+src/lib/run-drain.js
+src/lib/runner-client.js
+src/lib/runner-model.js
+src/lib/runner-runtime.js
+src/lib/runner.worker.js
+src/lib/streaming.js
+src/lib/styles.css
+src/lib/template-client.js
+src/lib/template-deadline.js
+src/lib/template-environment.js
+src/lib/template-interaction.js
+src/lib/template-native.js
+src/lib/template-object.js
+src/lib/template-os-functions.js
+src/lib/template-os.js
+src/lib/template-preview.js
+src/lib/template-prompt-dialog.js
+src/lib/template-prompt.js
+src/lib/template-request.js
+src/lib/template-response-filter-client.js
+src/lib/template-response-filter.js
+src/lib/template-response-send.js
+src/lib/template-response.js
+src/lib/template-runtime.js
+src/lib/template-session.js
+src/lib/template-tags.js
+src/lib/template-url.js
+src/lib/template.worker.js
+src/lib/transport.js
+src/lib/uploads.js
+src/lib/workspace.svelte.js
+src/lib/xml-format.worker.js
+src/lib/xml-prettify.js
+src/lib/xml-response-filter.js
+src/routes/+layout.js
+src/routes/+page.svelte
+static/app-icon.png
+static/favicon.png
+static/licenses/Inter-OFL.txt
+static/licenses/Lucide-ISC.txt
+static/licenses/Roboto-Mono-OFL.txt
+svelte.config.js
+tests/ui/README.md
+tests/ui/codecommit.js
+tests/ui/curl-import-cookie.js
+tests/ui/curl-import-file-body.js
+tests/ui/curl-import-get-file.js
+tests/ui/curl-import-mixed-body.js
+tests/ui/curl-import-multipart.js
+tests/ui/curl-import-next.js
+tests/ui/curl-import-ntlm.js
+tests/ui/git-create-and-switch.js
+tests/ui/git-create-forget.js
+tests/ui/git-create-resume.js
+tests/ui/git-delete-branch.js
+tests/ui/git-delete-stale-session.js
+tests/ui/git-delete-unmerged.js
+tests/ui/git-fetch-cleanup.js
+tests/ui/git-fetch-depth.js
+tests/ui/git-fetch-journal-recovery.js
+tests/ui/git-fetch-journal-resume.js
+tests/ui/git-fetch-parent-crash.js
+tests/ui/git-fetch-public-journal-crash.js
+tests/ui/git-fetch-recovery-errors.js
+tests/ui/git-fetch-retire-race.js
+tests/ui/git-fetch-scope.js
+tests/ui/git-fetch.js
+tests/ui/git-remote-lifecycle.js
+tests/ui/git-remote-settings.js
+tests/ui/git-source-control.js
+tests/ui/graphql-editor.js
+tests/ui/graphql-execution.js
+tests/ui/graphql-schema-cache.js
+tests/ui/graphql-schema-close.js
+tests/ui/graphql-schema-context.js
+tests/ui/graphql-schema-import.js
+tests/ui/graphql-schema-lifecycle.js
+tests/ui/helpers/git-fixture.js
+tests/ui/helpers/git-pack-fixture.js
+tests/ui/helpers/ipc-failure.js
+tests/ui/helpers/native-app.js
+tests/ui/helpers/native-window-close.js
+tests/ui/helpers/preview-app.js
+tests/ui/helpers/split-pane.js
+tests/ui/nocturne-grpc-theme.js
+tests/ui/nocturne-native-theme.js
+tests/ui/nocturne-reference.js
+tests/ui/nocturne-stream-theme.js
+tests/ui/nocturne-theme.js
+tests/ui/nocturne-workspace.js
+tests/ui/unix-socket-tls.js
+tests/ui/unix-socket.js
+tests/ui/upload-size.js
+tests/ui/url-encoding.js
+tests/ui/window-controls.js
+vite.config.js
+```
+
+
+</details>
+
+<a id="record-summary-th"></a>
+
+<details>
+<summary>SUMMARY-TH</summary>
+
+# สรุปสถานะ Insomnium → Tauri
+
+อัปเดต 2026-09-30: เชื่อม native git_remote_fetch แล้ว ตรวจ saved binding/settings ก่อนและหลัง network พร้อม cancel/publication/reconciliation; Cargo และ helper/pipeline checks ผ่าน ยังไม่ได้ทดสอบ command IPC จริง ต้องต่อ JS client/workspace/UI และ saved Playwright
+
+อัปเดต 2026-09-30: เพิ่ม fetch snapshot ผ่าน ref เดียวพร้อม manifest commit ที่เก็บ branch tips ให้ Git รักษา objects ผ่าน23 snapshot +17 import +15 real-pack assertions; ยังไม่เชื่อม native Fetch command/binding admission/UI และ recovery
+
+อัปเดต 2026-09-30: native object importer ผ่าน17 assertions พร้อม15 real-pack regression โดย HEAD/refs/working edits เดิมไม่เปลี่ยน ยังเป็น primitive ที่ตรวจแยก ต้องเชื่อม snapshot publication และ Fetch command/UI ต่อ
+
+อัปเดต 2026-09-30: ส่งมอบ staging ownership ให้ native consumer ได้แล้ว พร้อม allocator จาก Tauri app-data/UUID (ยังไม่เปิด Fetch IPC) ผ่าน58 assertions และ15 real-pack checks; ขั้นต่อไปตรวจ/import objects และเผยแพร่ snapshot ก่อนต่อ UI
+
+อัปเดต 2026-09-30: parent จอง staging container และ ownership marker แล้ว งานล้มเหลว/timeout/cancel เก็บกวาดอัตโนมัติเมื่อยืนยัน worker จบ ผ่าน43 lifecycle/ownership assertions และ15 Git-pack assertions ผ่าน supervisor จริง ยังเหลือ app-data allocation, recovery, snapshot publication และ UI Fetch
+
+อัปเดต 2026-09-30: เพิ่ม supervisor สำหรับ fetch แยก timeout จาก advertisement และตรวจ parent path/reparse points แล้ว Cargo checks +29 native assertions ผ่าน ยังต้องทำการจองพื้นที่ staging, cleanup/restart และเผยแพร่ผลเข้า repository หลักก่อนเปิด Fetch ใน UI
+
+อัปเดต 2026-09-30: เพิ่ม native fetch ลง bare repository ชั่วคราว และตรวจด้วย Git pack จริงผ่าน15 assertions + advertisement regression14 assertions; Cargo checks ผ่าน ยังไม่เชื่อม Fetch กับ UI/repository หลัก ต้องทำ supervisor, path ownership, cancel/cleanup และเผยแพร่ snapshot ให้ recover ได้ก่อน ดู GIT.md#record-git-fetch-staging ส่วน migration ทั้งหมดยังไม่เสร็จ
+
+อัปเดต: 30 กันยายน 2026  
+สถานะ: **กำลังดำเนินการ — โครงสร้างใหม่และฟีเจอร์หลักมีแล้ว แต่ยัง migrate ไม่ครบและยังไม่พร้อม release ทดแทนทุกฟีเจอร์**
+
+เอกสารนี้สรุปจาก checkpoint ล่าสุดและ artifacts รวม Playwright native branch deletion acceptance รอบล่าสุด ข้อความ pending ใน checkpoint เก่าอาจถูกแทนด้วยงานที่เสร็จภายหลังแล้ว
+
+## กติกา UI tests ล่าสุด
+
+**ห้ามใช้ browser-use** ให้เขียน Playwright JavaScript เป็นไฟล์แยกตามเรื่อง ใช้ shared fixtures/helpers และรันด้วย Bun เมื่อตรวจเรื่องเดิมให้แก้หรือรัน scenario เดิมซ้ำ เจ้าของอนุญาตให้สร้าง UI test scripts ตามแนวทางนี้แล้ว
+
+## ข้อตกลงที่ยืนยันแล้ว
+
+- Tauri 2 / Rust backend; Svelte frontend ด้วย JavaScript; ใช้ Bun สำหรับ JavaScript tooling
+- คงหน้าตาและ layout ของ Insomnium เดิม
+- ใช้ E:\.dvgamerr-app\jirasync-hub-app เป็น reference แบบอ่านอย่างเดียว
+- Legacy อยู่ใน `_backup/legacy-electron/`; `/_backup/` อยู่ใน .gitignore ห้ามลบ
+- อ่าน official docs ก่อน implement/init และบันทึกลิงก์กับคำสั่งใน docs/migration
+- ไม่ใช้ Node/npm/npx/pnpm/yarn/Python/pip; บน Windows ใช้ node_repl เป็น launcher เรียก Bun/โปรแกรมโดยตรงด้วย shell:false และ windowsHide:true
+- ไม่สร้างหรือแก้ test scripts สำหรับฟีเจอร์ใหม่โดยไม่ได้รับคำขอ; ใช้ build/compiler checks และการตรวจตามขอบเขตที่อนุญาต
+
+## ทำถึงไหนแล้ว
+
+“มี implementation” ไม่ได้แปลว่าผ่านการตรวจครบทุกกรณีในแอปจริง
+
+| ส่วน                               | ทำแล้ว                                                                                                                                            | ยังเหลือ                                                                            |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| โครงสร้างและ backup                | Tauri 2 + Svelte JavaScript + Bun, Rust backend และ legacy backup                                                                                 | CI และ platform matrix                                                              |
+| UI และจัดการข้อมูล                 | Sidebar/collections/folders/requests, environments, tabs, response panes, themes, CRUD/copy/move/search                                           | เทียบ UI/keyboard/resize/light-dark ทั้งแอปกับของเดิม                               |
+| HTTP / body / history              | Native transport, body หลัก, headers/status/timing/history, timeout/Stop                                                                          | Encoding/redirect/network edges และ native acceptance ให้ครบ                        |
+| Authentication / TLS               | Basic/Bearer/API key, Digest, OAuth1/2/PKCE, AWS IAM, Hawk, ASAP, NTLM, netrc และ certificate settings                                            | Provider จริง, login WebView, proxy/TLS/client certificates และ compatibility edges |
+| Templates / environments / cookies | Isolated renderer, inheritance, built-in tags, prompt/dependencies, shared rendering และ cookie jar                                               | Custom plugins, legacy cookie template source/lifecycle และ rendering edges         |
+| GraphQL / WebSocket / SSE / gRPC   | Editors/transports หลัก, streaming/Stop, proto/reflection                                                                                         | Completion/navigation, native UI/IPC/reload และ stream/history parity               |
+| Storage / import / export          | Atomic save/backup; Insomnia/Postman/HAR/NeDB/OpenAPI/cURL; native paste import ผ่านบาง flow                                                      | OS picker, legacy หลายไฟล์/external assets/recovery และ cURL options/files          |
+| API Design                         | OpenAPI editor/import/export/preview, structural validation/local refs และ request generation                                                     | Spectral/custom rules และ advanced serialization                                    |
+| Tests / Runner                     | Mocha/Chai ใน QuickJS worker, suite/test CRUD, JS editor, Run/Stop, shared sender และ saved results                                               | Script/import/result/lifecycle compatibility ที่เหลือ                               |
+| Git local                          | Setup/resume, staging/partial commit/history, create-and-switch/continue/forget, guarded delete, สลับ committed local branch และ journal/recovery | Unborn/detached/remote, fetch/pull/push/merge และ failure acceptance เพิ่มเติม      |
+| Desktop / packaging                | Dialogs/window state/single instance/icons/shortcuts; เคย build Windows EXE/NSIS ผ่าน                                                             | Native menus, package ล่าสุด และ install/upgrade/uninstall                          |
+| Custom plugin runtime              | มีพื้นฐาน renderer และ built-in tags                                                                                                              | ยังไม่ครบ runtime/compatibility ของ plugin เดิม                                     |
+
+## งานล่าสุด: Git checkout และ recovery
+
+### มีโค้ดและเชื่อมแล้ว
+
+- Frontend coordinator รอให้งานที่กำลังทำจบ/ยกเลิก บันทึก baseline และวางแผนรวมข้อมูลแบบ three-way ก่อน checkout
+- Persistence queue บล็อกการแก้ข้อมูล/เริ่มงาน/save ระหว่าง transition และเมื่อยังต้อง recovery
+- Native journal เก็บ before/after ตรวจ refs/HEAD ภายใต้ lock เปลี่ยน HEAD แล้วบันทึก workspace; load สามารถ recovery จาก journal
+- ซ่อม active request/environment/tabs เฉพาะรายการที่ใช้ไม่ได้ และรักษา history ของ request ที่ไม่มีใน branch ปัจจุบัน
+- Git dialog สลับ local branch ที่มี commit แล้วได้
+- Recovery dialog แยกจากส่วน UI ที่ถูกล็อก; retained edits ต้องบันทึกสำเนาและ review snapshot ตรงกันก่อนยอมแทนที่
+
+### ตรวจผ่านแอป Tauri จริงแล้ว ตามขอบเขตหลักฐาน
+
+- สลับ main → target และกลับ; HEAD และ persisted resources ตรงกัน
+- รักษา local edit ที่ไม่ conflict, private/foreign resources, tabs ที่ยังใช้ได้ และ history หลัง reload
+- ปฏิเสธ conflicting deletion โดยไม่ทำ local edit หาย
+- Native ref-lock failure ก่อนสร้าง journal เปิด recovery dialog ที่กด Retry ได้; ปลด fixture lock แล้ว Retry สำเร็จ
+- มีหลักฐาน 16 assertions ใน [native acceptance](../../artifacts/native-checkout-ui-probe/acceptance.json)
+
+### Fix ล่าสุดและ build ที่ค้างจากรอบก่อน
+
+พบข้อความ conflict หายจาก Git dialog หลัง reload; แก้ source แล้วและ compiled-handler checks ผ่าน
+
+**Native recheck build จบสำเร็จแล้ว (exit code 0)** จาก [build-state.json](../../artifacts/native-checkout-ui-recheck/build-state.json) ใช้เวลาประมาณ 5 นาที 6 วินาที ไม่ต้องเริ่ม build เดิมซ้ำเพียงเพราะ checkpoint เก่าระบุว่ากำลังรัน
+
+Executable: `artifacts/native-checkout-ui-recheck/insomnium-checkout-probe.exe`  
+Identity: `app.insomnium.probe.checkout20260929`
+
+**ตรวจ fix ผ่านแอปจริงแล้ว:** ข้อความ conflict คงอยู่หลัง staging reload, HEAD ยังเป็น main และ local edit อยู่ครบหลัง fresh-document reload; ตรวจ screenshot แล้ว และ probe ปิดด้วย code 0 รวม 5 assertions ใน [conflict recheck](../../artifacts/native-checkout-ui-recheck/conflict-recheck.json) Build นี้เป็น probe แยก identity ไม่ใช่ production release
+
+## Native post-HEAD failure/recovery ล่าสุด
+
+ผ่าน 18 assertions โดยใช้ Tauri IPC จริงและ JS client/planner จริง: บล็อกการเขียน workspace ด้วย Windows sharing handle, ยืนยัน HEAD เปลี่ยนแต่ before workspace/journal ยังอยู่, save ถูกปฏิเสธ, recovery ยังล้มเหลวขณะถือ handle และสำเร็จหลังปลด handle พร้อมรักษา history/local edit จากนั้น fresh-document reload แสดง target ถูกต้อง หลักฐาน [post-head-ipc.json](../../artifacts/native-checkout-ui-recheck/post-head-ipc.json)
+
+Probe ปิดด้วย code 0 แล้ว; fixture อยู่ target และไม่มี pending journal ยังไม่ใช่การตรวจ mounted coordinator เมื่อเกิด failure, fresh-process/crash recovery, OS picker หรือ OS-close lifecycle
+
+## Startup recovery ผ่าน process ใหม่
+
+ผ่าน 18 assertions: สร้าง pending journal จาก native failure จริงใน target → main, ปิด process แรกขณะยังถือ sharing handle แล้วปลด handle และเปิดใหม่ Startup กู้ข้อมูล main เองโดยไม่ได้เรียก recovery IPC จาก probe รักษา local edit/history/private/foreign ครบ และปิดทั้งสอง process ด้วย code 0 หลักฐาน [startup-recovery.json](../../artifacts/native-checkout-ui-recheck/startup-recovery.json)
+
+เป็นการปิดหลัง native คืน error แล้ว ยังไม่ใช่ crash ระหว่าง transaction หรือ stale-lock acceptance
+
+## Native create-branch retry ล่าสุด
+
+เพิ่ม optional operationId และตรวจหลักฐาน creation reflog/source/author/tip ภายใต้ lock ก่อนยอมรับ retry โดยไม่เขียน ref ซ้ำ Cargo fmt/check/clippy และ actual-source assertions 14 ข้อผ่าน ดู [ผลตรวจ](../../artifacts/git-create-retry-check/probe-state.json)
+
+Checkpoint เดิมนี้ถูกต่อยอดเป็น durable frontend intent และ create-and-switch UI พร้อม native acceptance ด้านล่างแล้ว หากหลักฐานหาย/ไม่ตรงจะปฏิเสธแทนการเขียนทับ branch
+
+## Create-and-switch UI ล่าสุด
+
+มี durable intent prepared/submitted/created, native verify-only resume และ UI Create/Continue/Forget แล้ว รักษา operation ID ข้าม session และไม่สร้าง ref ที่หายไปซ้ำอัตโนมัติ Frontend/Cargo checks ผ่าน พร้อม coordinator 31 ข้อและ native 18 ข้อ ตรวจ UI จริงผ่านไฟล์ Playwright ตามขอบเขตด้านล่างแล้ว
+
+Native build artifacts/native-create-ui-probe/build-state.json จบ code 0 แล้ว และสาม Playwright scenarios ผ่านตามขอบเขตด้านล่าง
+
+## Playwright UI scenarios ผ่านแล้ว
+
+Native build จบ code 0 และรันไฟล์ Playwright ด้วย Bun ผ่านทั้ง 3 เรื่อง: create-and-switch/reload, resume pending intent และปฏิเสธ operation ไม่ตรงพร้อม Forget โดยไม่ลบ branch ดูวิธีรันซ้ำใน [tests/ui/README.md](../../tests/ui/README.md) และไฟล์ tests/ui/git-create-and-switch.js, git-create-resume.js, git-create-forget.js
+
+ใช้ playwright-core 1.63.0 กับ WebView2 ของ native probe ไม่มี browser-use รอบแรกแก้ fixture ให้มี workspace metadata ครบแล้วรัน scenario เดิมซ้ำผ่าน ผลอยู่ artifacts/playwright ไม่ได้อ้างว่าเป็น lost IPC reply/crash/OS picker/full visual acceptance
+
+## Branch deletion ล่าสุด
+
+Native build ใหม่จบ code 0 แล้ว และ Playwright ผ่านทั้ง 3 เรื่อง รวม 13 checks: ลบ merged branch/รักษา HEAD และข้อมูล/reload, ปฏิเสธ unmerged และ stale target tip, ปฏิเสธเมื่อ HEAD เปลี่ยนหลังเปิด dialog และต้องกดใหม่หลัง reload จึงลบ merged ancestor ได้
+
+หลักฐานอยู่ใน artifacts/playwright/:
+
+- git-delete-branch-1790768615482
+- git-delete-unmerged-1790768566676
+- git-delete-stale-session-1790768580216
+
+แต่ละโฟลเดอร์มี result.json และ acceptance.json; ทุก probe ปิด code 0 ไม่มี build ค้างจาก milestone นี้ แก้ selector ในสคริปต์รอบแรกและเพิ่มการรอโหลด Git session ก่อนตรวจว่า branch หายแล้ว ไม่ได้แก้ app source รอบนี้ Svelte check ผ่าน 0 errors / 0 warnings
+
+ใช้ไฟล์ tests/ui/git-delete-branch.js, git-delete-unmerged.js และ git-delete-stale-session.js รันซ้ำตาม [README](../../tests/ui/README.md) ไม่มี browser-use ผลนี้ยังไม่ครอบคลุม remote/crash/OS-close/full visual parity
+
+## ผลตรวจที่ยืนยันจาก artifacts
+
+| ชุดตรวจ                    | ผล                                                               | ขอบเขต                                                                                          |
+| -------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Frontend ล่าสุด            | Prettier, Svelte sync/check และ Vite build จบ code 0             | [state](../../artifacts/checkout-ui-check/state.json)                                           |
+| Checkout coordinator       | 34 assertions ผ่าน                                               | โมดูลจริง แต่ mock native/storage boundaries                                                    |
+| Compiled Svelte handlers   | 11 assertions ผ่าน รวม conflict text หลัง reload                 | Mock dialog/filesystem/IPC; ไม่ใช่ OS picker จริง                                               |
+| Native selection/journal   | Cargo fmt/check/clippy ผ่าน; standalone probe compile/run code 0 | Rust probe ไม่แทนการตรวจ Tauri UI ทั้งระบบ                                                      |
+| Native checkout UI รอบก่อน | 16 assertions ผ่าน พร้อม defect ที่แก้ source แล้ว               | รวม switch/reload/conflict และ pre-journal ref-lock recovery                                    |
+| Native recheck build/UI    | Build code 0; acceptance 5 ข้อผ่าน                               | Conflict ใน dialog, HEAD/local edit/reload และปิด probe; ยังไม่ใช่ post-HEAD failure acceptance |
+
+หลักฐานเพิ่มเติม: [coordinator](../../artifacts/checkout-ui-check/coordinator-probe.json), [handlers](../../artifacts/checkout-ui-check/component-probe.json), [Cargo checks](../../artifacts/native-selection-check/state.json), [native probe](../../artifacts/native-selection-check/probe-state.json)
+
+Runner เคยผ่าน native flow ทั้งผลผ่าน/ล้ม, cookie round-trip, Stop และ reload รวม sendRequest callback fix; paste Import ผ่าน invalid input/review/cancel/additive apply/reload ตาม [Runner acceptance](RUNNER.md#record-native-runner-acceptance) และ [Import UI](IMPORT-EXPORT.md#record-import-ui) ยังไม่ใช่ acceptance ครบทุก parity item
+
+## แผน Git remote จาก source เดิม
+
+ตรวจ URL/settings/provider credentials/clone/fetch/pull/push/merge แล้ว และบันทึกขั้นตอนพร้อมเกณฑ์ตรวจรับใน [GIT.md#record-git-remote](GIT.md#record-git-remote) พบว่า journal ปัจจุบันใช้ได้กับการเปลี่ยน branch แต่ยังใช้กับ pull/merge ที่เลื่อน commit ของ branch เดิมไม่ได้ ต้องเพิ่ม journal แบบมี version และตรวจ old/new OID ก่อนเชื่อม workflow นี้
+
+ขั้นถัดไปคือ settings/auth และอ่านรายการ branch จาก remote ตามด้วย fetch แล้วจึง advance-ref journal/pull/merge/clone/push ตามลำดับ เพิ่ม native command อ่าน advertised branches แล้ว Cargo checks และ 14 assertions กับ loopback fixture ผ่าน เพิ่ม worker timeout/cancel แล้วและ Cargo checks + 14 lifecycle assertions ผ่าน ดู [GIT.md#record-git-remote-lifecycle](GIT.md#record-git-remote-lifecycle) ตรวจผ่าน native app/IPC ด้วย saved Playwright แล้ว: 7 checks รวม timeout จริง 30021ms, cancel/pre-cancel, Git dialog ยังตอบสนองและข้อมูลไม่เปลี่ยน หลักฐาน artifacts/playwright/git-remote-lifecycle-1790769998943 ยังเหลือ remote settings/Stop UI, provider จริง และ fetch/pull/push acceptance
+
+## เหลืออะไรและควรทำตามลำดับไหน
+
+1. **ปิด acceptance ของ checkout/recovery**
+   - ตรวจ conflict text ใน native Git dialog แล้ว; ขั้นถัดไปคือ failure/recovery ด้านล่าง
+   - ตรวจ native OS save picker/retained-copy/review ทั้ง cancel, write failure และ success
+   - ผ่าน workspace write failure หลัง HEAD เปลี่ยนผ่าน Tauri IPC แล้ว; ผ่าน fresh-process startup recovery แล้ว; ต่อ mounted failure coordinator และ abrupt interruption
+   - ตรวจ IPC outcome ไม่แน่นอน, process interruption/stale locks และการปิดแอประหว่างมีงาน
+   - หมายเหตุ: post-HEAD file-sharing failure ผ่าน Tauri IPC แล้ว แต่การลอง override Tauri invoke ไม่สำเร็จ จึงยังห้ามนับว่า lost-reply scenario ผ่าน
+
+2. **ทำ Git branch/remote ให้ครบ**
+   - Create-and-switch/continue/forget และ guarded delete ผ่าน native Playwright แล้ว; ต่อ remote settings/auth/clone/fetch/pull/push/merge ตาม legacy inventory และ official docs
+   - Unborn/detached/remote branches
+   - Remote authentication, fetch/pull/push, merge/conflict และ rollback
+   - ตรวจ local/private/foreign data ไม่สูญหายทุก transition
+
+3. **ปิดช่องว่าง compatibility**
+   - Custom plugin runtime
+   - Runner script/import/result/lifecycle
+   - Legacy cookie template source และ edit/delete/clear/restore
+   - URL/query/path encoding และ SSE raw response history
+   - cURL mixed files/options/config/form
+   - OpenAPI Spectral/custom rules/serialization และ GraphQL completion/navigation
+   - Legacy external assets/recovery และ native menus
+
+4. **ตรวจรับทั้งระบบและ UI เดิม**
+   - ทุก protocol ผ่าน UI/native รวม Stop/reload/error handling
+   - Provider จริง, redirects/proxy/TLS/client certificates
+   - Import/export/OS picker/backup/recovery และ legacy หลายไฟล์
+   - Light/dark, keyboard/focus, resize, editors/dialogs และ window close lifecycle
+
+5. **เตรียม production release**
+   - Bun-only CI และ platform matrix
+   - Build EXE/NSIS จาก source ล่าสุด
+   - ตรวจ install/launch/upgrade/uninstall
+   - อัปเดต README, migration/recovery guide และ BUILD fingerprint
+   - ปิดทุก parity item หรือให้เจ้าของระบุรายการที่ตัดออกจาก scope
+
+## เริ่มต่อใน session ใหม่
+
+1. อ่าน [STATUS.md](STATUS.md), [PLAN.md](PLAN.md), [PARITY.md](PARITY.md) และเอกสารนี้ โดยใช้ checkpoint ใหม่สุดเมื่อข้อความขัดกัน
+2. อ่าน [GIT.md#record-git-inventory](GIT.md#record-git-inventory) และ [GIT.md#record-checkout-transaction](GIT.md#record-checkout-transaction)
+3. Native conflict-message และ post-HEAD write-failure IPC acceptance ผ่านแล้วและ probe ปิดแล้ว; ผ่าน fresh-process startup recovery แล้ว; ต่อ mounted failure coordinator, retained-copy OS picker/review และ interruption/stale locks
+4. Build สำหรับ saved Playwright ล่าสุดอยู่ที่ `artifacts/native-delete-ui-probe/build-state.json` และจบ code 0 แล้ว ใช้ helpers ที่ตรวจ probe identity และสร้าง fixture แยกต่อ scenario รันทีละไฟล์ ไม่ใช้ browser-use หรือ ad-hoc UI automation ตรวจข้อมูลจริงก่อนใช้ fixture เก่า
+5. จุดโค้ดหลัก: `src/lib/git-checkout.js`, `git-workspace.js`, `workspace.svelte.js`, `components/GitPanel.svelte`, `components/GitRecovery.svelte`, `src-tauri/src/git_journal.rs` และ `storage.rs`
+6. อ่าน official docs ก่อนแก้ subsystem; หลัง milestone/failure/decision อัปเดต STATUS พร้อมหลักฐาน/ข้อจำกัด/ขั้นถัดไป และทำให้สรุปนี้ตรงกัน
+
+## ข้อจำกัดก่อนเรียกว่างานเสร็จ
+
+- Full migration ยังไม่เสร็จ ไม่ประเมินเปอร์เซ็นต์จากจำนวนไฟล์หรือ assertions
+- [BUILD.json](BUILD.json) เป็น production package เมื่อ 28 กันยายน 2026 เวลา 04:01 UTC ซึ่งเก่ากว่า source ปัจจุบัน
+- Probe executable ใช้ identity สำหรับตรวจรับ ห้ามแจกแทน production package
+- Artifacts ถูก Git ignore; session/เครื่องใหม่ต้องตรวจว่าหลักฐานและ fixture ยังอยู่
+
+## Remote client ล่าสุด
+
+เพิ่ม client และ workspace wrapper สำหรับส่ง cancel, รอ native completion และปฏิเสธผลเก่าหลังเปลี่ยน collection/settings แล้ว ตรวจผ่าน 10 client + 6 wrapper assertions แบบ mock boundaries และ frontend build/Svelte check ยังต้องเพิ่ม remote settings/connection/Stop controls และตรวจ mounted UI ด้วย saved Playwright; ยังไม่ใช่ remote workflow ครบ
+
+## Remote settings UI ล่าสุด
+
+เพิ่ม Save remote settings, Read remote branches, Stop และ provider token fields ใน Git dialog เดิมแล้ว มี URL normalization และบันทึก settings locally; portable export ตัด Git credentials ออก แต่ import ยังอ่าน settings เดิมได้ 15 model/export assertions และ frontend check/build ผ่าน
+
+Native build จบ code 0 แล้ว และ tests/ui/git-remote-settings.js ผ่าน 8 checks บนแอปจริง รวม save/read/reload/auth error/Stop/เปลี่ยน URL/ปิด dialog โดยข้อมูลคงเดิม หลักฐาน artifacts/playwright/git-remote-settings-1790770895847 แอปปิด code 0 ยังเหลือ provider จริง, fetch/pull/merge/clone/push และ parity อื่น
+
+
+</details>
+
+
+
+<a id="record-parity-history-20261014"></a>
+
+<details>
+<summary>PARITY checkpoints and original requirements through 2026-10-14</summary>
+
+## Agent integration evidence — 2026-10-14
+
+Original ESM readiness26 now passes headless, including retained primary interruption/cleanup diagnostics and32worker retirements. Native event transport10 passes native-hidden. Native metadata9 (including HTTP2 gzip), actual mounted Send, persisted history and restart pass with complete isolated profile restoration. Guarded clipboard native acceptance passes on the fixed release binary (receipt1791958115295), including real guest read/write/clear and exact complete original five-format restoration; arbitrary formats remain unsupported by this probe. Current namespace functional native replay1791973441156 also passes original20 plus additive88 field checks across8 profiles with full integration profile/layout restoration; the original source/package/kernel-process operator audit remains open (RESPONSES.md#record-xpath-namespaces). These close only the named bounded checks; every remaining requirement in the tables below is retained, including full migration, original namespace/XML matrices, wider platform/legal/distribution and subsequent shared-input UX scope.
+
+## Original current XML formatter/cancellation acceptance — 2026-10-13
+
+Currentedbb/f66 original18 saved cases verified:3real-format MIME,6controlled cancellation,6controlled faults,3real refusals, saved/Git/Undo/Redo/reload/deadline/late-message behaviors. Separate authenticated emitted-worker exactmessage and bounded workspace_meta audit repair preserves old operator1; complete case/liveprofile656/Git13783/original43-20/layout5/currentauthority/retainedhost/naturalhiddenexit and explicit release accepted. Evidence: RESPONSES.md#record-current-original-xml-native-acceptance. Rolealert, actualquota/depth/count refusals, independent per-case disk/Rust-entry/AT/OS/universalplatform and every other originalmigration/distribution/UX scope remain open.
+
+## Original current Windows gRPC acceptance — 2026-10-13
+
+Original saved full gRPC workflow on currentedbb/f66 is verified: unchanged assertions, host/all6 recorded process objects, exact registered nine-object Git quarantine, fullprotected656/Git13783/original43-20/layout restoration, independent originalcase auditors and explicit profile release. Evidence: GRPC.md#record-current-original-grpc-native-acceptance. This closes that saved workflow gate only. Actual terminal-startup classification branch unexercised; no unobservedbirth/OSclose/AT/universalplatform/perRPCrawtranscript or allmigration completion claim. Every other original parity/distribution/UX item remains active.
+
+## Current Windows Proto36 workflow verified — 2026-10-13
+
+Current edbb/f66, actual41559/host63144 exit0 native-hidden; all36 unchanged field/schema/persist-reload cases over6theme-width profiles and30Rust replies accepted. Independent caseauditor53736 exit0 verifies source-derived expectedmap/qualifiedmethods/geometry and fullactual654/Git13783/43-20/layout5 restoration; explicitprofile release complete. Evidence: GRPC.md#record-current-proto36-native-acceptance. Per-case rawdisk/finalUIoption snapshots absent; original savedsource assertions are bound to passingnative result. No OSchooser/physicalentry/AT/universalplatform/fulloriginalgRPC/fullmigration-UX completion. All original remaininggates retained.
+
+## Current Windows native Open/TLS workflow verified — 2026-10-13
+
+Current edbb/f66/f72, actual4420/host62168 exit0 native-hidden; independently audited Open4 plus TLS59(14core+44collection/UI), fresh typed branch and physicalprocess exit, full654/Git13783/43-20/layout restoration; explicitprofile release accepted. Evidence: TLS.md#record-current-open-tls-native-acceptance. This boundedWindows workflow is verified; no zero-flash/universalplatform/nativecancellation/OSshutdown/fullmigration claim. Proto36/fulloriginalgRPC/allotheroriginalparity/platform/linkage/notice/distribution/UX requirements remainopen.
+
+## Current edbb native release/resource closure accepted; runtime open — 2026-10-13
+
+ActualCargo0/currentf72/edbbexe/f66eclosure/source1065/assets49/public1963/privateconsumed767 accepted after preservedpublicationfailure/recovery(no rebuild)/independentaudit0/parentrecheck0. No current app/profile launch or Open/Proto/fullgRPC/OS/AT/signing/installed/linkage/fullnotice/fullmigration/UX acceptance. Historicalold32e remains separate; everyoriginalgate retained.
+
+## Actual policy5 packaging accepted; native embedding and full coverage open — 2026-10-13
+
+Root16376 five stage0+independentrawaudit0+parentcurrent-set recheck acceptsf72/policy5/schema3/project18/closed5origins/tree10 andactual126. 765archives/4localtrees/whole424/header24+4/rawbodydelta +11745; Spectral/public count unchanged. No freshapp/currentOpen/Proto/fullgRPC/installed/signing/linkage/fullcoverage acceptance. Source1319 is runnerclosure only; alloriginalgates retained.
+
+## Open IDOK snapshot boundary remains open — 2026-10-13
+
+Actual49493 typed filename read succeeds, but14-control snapshot has no admitted IDOK; refuses before path write/visibility operation. v10 re-hide unexercised/zero rows. Independent66859 fullactual profile/Git/layout/source/public-private/runtime/compiled restoration passes; claimreleased/hostexit0. No Open4/currentTLS/Proto36/fullgRPC/platform/notice/linkage/distribution/migration/UX completion; all original gates retained.
+
+## Filename identity admission; headless chooser lifecycle still open — 2026-10-13
+
+Actual3701 semanticselector/typedfilename read passes, then sameownedchooser visibletrue afterasyncwait refusesbeforewrite. No4fieldselection/stamp/TLScurrent workflow acceptance; zeroflash unproven. Independent46956 fullactualGit/profile/layout/current1046/public-private/runtime-v8compiled restoration passes/claimreleased/hostexit0. Confirmedownedrehide next; all original Open/Proto36/fullgRPC/platform/fullnotice/linkage/distribution/migration/UX remainOPEN.
+
+## Actual filename semantics; selection remains open — 2026-10-13
+
+V8actual58160 helper0/106B/500.841ms proves exactCBEMbranch Edit1148 filenameLabeltrue/role42/state1048580;31queries/199phases/actualcurrent1046-fullrestore17644 pass. Unchangedstrictmatcher refusesabsenttext BEFOREselection; no4field/Open/TLScurrent workflow claim. Narrowknownloadedcase+actualSHA fix accepted; alloriginalOpen/Proto36/fullgRPC/platform/fullnotice/linkage/distribution/migration/UX remainOPEN.
+
+## Console execution boundary and pure CLR case proof — 2026-10-13
+
+Actual19309 metadata17/query26/phase189 reachesconsoleexit1; COMentry/semanticresult/selection unproven because rawoutputmissing. Independent39561 fullrestoration passes. PureCLRd145 provesvalidJSONprimitivecasts andloadedknownGACcasevariance/identicalSHA, notactual earliesthelperfailure. Newcase+SHA/phasecapture remedy awaitingcompile/native. All original Open/Proto36/fullgRPC/platform/fullnotice/linkage/distribution/migration/UX remainOPEN.
+
+## Original-query evidence and early text-read boundary — 2026-10-13
+
+Actual63528 records9validownedGetThreadqueries/firstFailure:null andearlyWM_GETTEXT0n/partial6metadata. NoMSAA/console/selection orpriorfailedcontrolidentity claim. Independent21145 fullactualGit/profile/layout/source-public-private/runtimecompiled restoration passes/hostexit0/claimreleased. Metadata-only diagnostic next; all original Open/Proto36/fullgRPC/platform/fullnotice/linkage/distribution/migration/UX gates stayOPEN.
+
+## Dialog identity verified; original failed control still unmeasured — 2026-10-13
+
+Actual9125 phase181/61.1886ms provesdialog IsWindow/thread/PID/owner/class and before+after originaldialogverify, then control-loop refusal. Rootv4 stack interpretation corrected; no exactfailedcandidate/COM/selection claim. Independent64810 fullactualGit/profile/layout/current1046/public-private/runtimecompiled restoration passes/hostexit0/claimreleased. All original migration/UX/native36/Open/fullgRPC/platform/fullnotice/linkage/distribution gates stayOPEN.
+
+## Actual owned Open structural evidence; semantic unavailable — 2026-10-13
+
+Run75776 proves17controls/bothemptyEdit locallyvisible/CBEM ownedCombo association, notfilenameauthority. Pre-spawn rawthreadquery0 refuses; sameHWND latercleanupauthenticates, causeunmeasured/no COM/selection. Independent12031 fullactualGit/profile/layout/source-public-private/runtimecompiled restoration passes/hostexit0/claimreleased. Open acceptance/Proto36/originalgRPC/platform/fullnotice/linkage/distribution/fullmigration/UX remainOPEN.
+
+## Typed accessibility preparation boundary — 2026-10-13
+
+Normal root csc compilation of v3 DLL/STA helper passes two terminal0 processes and1046 source freeze; binding42b3f10e/console94f97558. No COM/native/selection acceptance yet. Existing emptyEdit refusal remains; semantic read-only integration and actual restored runtime await root. UI durablehelper/CSS and policy5 remain isolated proposals; all original Open/Proto36/gRPC/platform/private/fullnotice/linkage/distribution/migration/UX gates stayOPEN.
+
+## Partial native Proto client-bound and schema evidence — 2026-10-13
+
+Actual root30393/independent58815 prove three compatibleinteger bounds checks,17darkprofile partialrows and14realRust replies (3rejections/11successes with exactside/base methodscope), fullprotected654/Git13783/resources43/history20/layout5/source-private-public restoration, hiddenhostexit0/release. Actual760 ProtoSourceSelect blocksunforcedLoadmethods; no36/light/fullworkflow acceptance. Rootdefaulthelper077 unchanged pendingdurablemigration, productionCSSfix unadopted. Originalmeasurementnegatives/reviewerrefusals retained. All original Open/Grpc/OS/AT/platform/private/fullnotice/linkage/distribution/fullmigration/UX gates remainOPEN.
+
+## Current native diagnostic boundary — 2026-10-13
+
+Actual93670 ownedcontrol17/twoemptyEdit and59765 rawlongbounds prove specific savedscenario failure causes/remainingidentity uncertainty, not fullruntime acceptance. Proto measuredscroll/client equal1083 with rect1082.796875 and containedparent explainsmixedcoordinateassertion failure; no CSS/productchange claim. Both strictnegative1/original55623-37369 receipts retained, nativehidden hosts exit0/fullprotected654/Git13783/resources43/history20/layout5/source-private-public closure restored/claimsreleased. New compatibleinteger comparison and semantic control identity remain rootreview/runtime gates. Open/Proto36/realRust/originalgrpc/OS/AT/platform/fullnotice/linkage/private/distribution/fullmigration/UX all remainOPEN.
+
+## Fresh native source/resource closure; runtime negative boundary — 2026-10-13
+
+Actual current32e449 freshrelease/rootclosure9c58 passes1034core1046consumed/49assets1963notice767private/currentab928/a5ec source-emitted-copy authority. This is not actual full workflow acceptance. Open55623 refuses before selection; Proto37369 observes three dark1440 Field rows then strictlongbounds refusal, zero realRust schema replies/no36-row acceptance. Both native-hidden hosts exit0 and independently restore fullprotected654/Git13783/resources43/history20/layout5 with claimsreleased. Rawnegatives/sourcefreeze retained; actualcontrol/geometry causes unmeasured pending instrumented SAME savedscenarios. All original Open/Grpc/OS/AT/platform/fullnotice/linkage/private/distribution/fullmigration/UX gates remainOPEN.
+
+## Three authentic repository LICENSE origins current-root boundary — 2026-10-13
+
+Actualab928fbb7a375e777c46c2fe669e08f3bc68ea11d727517710d4c7d6f7f6fa98 root109/current110/hook/bundle/freshvalidator/rawaudit/compiler1034 accept one1067-byte published-repository LICENSE/three package origins/twoURLs/sixsource authority tree. Wholefile424/header24+4/41registry2local filename gaps and rawcombinedbytes stay unchanged; external repository evidence is distinct from archive members and linkage. Root1963 resources/49frontend assets measured; actualnative emittedcopy/Open/Proto/originalgrpc/OS/AT/platform/signing/distribution/fullnotice/fullmigration/UX and everyoriginal gate stayOPEN. Historical28/91/109fixture90742/20654 negatives preserved.
+
+## Native Proto harness preparation boundary — 2026-10-13
+
+Four savedharness/report paths onroot passcompiler0/0/syntax3/independent1026 source+22rootdependency+olddefaultbody+current28 notice guards. Actual native36/schema/persistence/fullrestoration remainsunexecuted; parserMessage is statically derived fromlockedcrates, not native evidence. No product delta, physicalchooser/timing/AT/platform/fullworkflow/fullmigration/UX closure. Freshcurrent executable/Open/Proto and everyoriginal gate remainOPEN.
+
+## Closed24 partial source notices current-root boundary — 2026-10-13
+
+Actual28a86218b1807fd1f3537183a75074b08a4b14bb440a42d651bb48d1f1ce4057 policy3/receipt2/new1961resources independently pass root90/current91/hook/bundle/freshprocess validator/raw765archive/fourlocalpatch/24range/fourblob/fullwholefile bytes/exactprivate-set audit. Wholetext424/1338/1343and41registry2localgaps stay unchanged; partial reference/SPDX/attribution is separate and does not prove canonical full licenses/linkage/fullcoverage. Source1023/frontend49 frozen; native emittedcopy/currentOpen/Grpc/OS/AT/platform/signing/distribution/fullmigration/UX and every original gate remainopen. Historical old352/70/71/57/58/20654negative preserved.
+
+## Parallel preparation is not runtime acceptance — 2026-10-13
+
+Current216+16 headless Proto Field acceptance stays bounded to frontend/model. Headerb0d3488 policy3/receipt2 offer and90/70/57 proofs remain isolated pending independent root review/new current91; old wholetext/gap semantics and historical proofs remain protected. Native current Open/build binding and optional36-row realRust Proto supplement are preparation only until final current source/notice closure, fresh root build/native-hidden runtime and full profile/Git/layout restoration pass. No historical7fa/1019 waiver, OS chooser/AT/physical timing/fullworkflow/fullnotice/platform/fullmigration/UX claim. Every original open gate retained.
+
+## Pending Proto filename Field ownership boundary — 2026-10-13
+
+Actual root216UI/16model/compiler/shared/build/current1022/sourceaudit accept30previousownership failures corrected, distinctduplicate associations, correction retirement and genericglobal preservation, sixnormal+12validpending exactgeometry/sixlongerror wraps/focuscontract retained. Only localcaption-free Field/privateactualError metadata added; no native/backend/persistence/shareddefault claim. Actual nativeGrpc/OS/AT/platform/heldbackend/fullpane/fullmigration/UX and all original scope remainopen. Historical7fa and1019 preparation do not contain new Field/model delta.
+
+## Actual pinned AUTHORS notice boundary — 2026-10-13
+
+Policy2/new352f9d7f actualroot current71/bundle/freshvalidator and independent765rawarchive audit accept exactlytwo rawr-efi AUTHORS origins (1338registry/1343total/424texts/41registry2localgaps/0miss). OldEA21 retained. Wrapper20654 terminal1 cachedvalidator refusal is preserved; fresh finalvalidation0 supplies currentauthority acceptance. These rawnotices contain MIT grants/reference notices, not canonicalfullApache/LGPL or completecoverage/linkage. No newnative emittedcopy/installation/platform/fullmigration/UX claim; all original gates retained.
+
+## Proto Cancel focus correction boundary — 2026-10-13
+
+Root compiler/SAME138/shared/build/current1019 audit accepts twelve exact-picker Enter-Cancel focus restorations and36 scripted retirement no-steal cases, keeping original102 and six exactnormalgeometry. Current UI declaration inventory unchanged; rawsource CRLF→LF explicitly acknowledged. Invalid preview-path Field/stale validation diagnostics/nativeGrpc/realOS/backend heldapply-remove/AT/platform/fullpane remain open. Historical7fa certificate native app predates Proto delta; every original migration/UX/private/distribution/fullnotice gate retained.
+
+## Current certificate native/TLS and cancellation boundary — 2026-10-13
+
+Actual7fa8/ea21 native-hidden16573 plus independent root audit verify59checks/14TLS+44collection cases/4real ownedchooser cancellations and full protected profile/Git/current+legacy layout restoration. Fresh actual emitted noticecopy1954/private767/source1022 closure passes; sourcecorpus notice coverage/linkage remains incomplete. Cancellation is authenticated WM_CLOSE/owned-list absence/actual settlement, not physicaluser/selection/IsWindow destruction/zero flash/otherplatform. CoalescedABA/save settlement/AT/otherworkflow/installedsigned/fullnotice/fullmigration/UX and all original scope remain open.
+
+## Proto keyboard cancellation measurement boundary — 2026-10-13
+
+Independent285-file/102-receipt audit reproduces12 focused Cancel removals leaving BODY after Playwright Enter in actual keyed-parent component fixture. Data/persistence/stale owned-read checks pass; product correction awaits isolated preparation/root verification. Native schema replacement/physical OS selection/AT/full GrpcPane and field validation diagnostics remain open. Fresh combined certificate/ea21 native build94563 is LIVE and has no runtime acceptance yet; do not reuse olde567 as current product/resource evidence. Every original migration/UX/platform/private/distribution/fullnotice gate retained.
+
+## Certificate controlled UI ownership boundary — 2026-10-13
+
+Actual root222 headless cases/compiler/fullshared/build independently verify one owning generic alert and suppression of24 historical stale picker writes after observed-flushed collection/data/resource/component changes. ExactCSS/normalgeometry/realbrowser persistence preserved. This is actual component/workspace evidence with two consumer-only picker aliases; OS dialog/native save/coalesced same-turnABA/AT/platform/fullshell and all original migration/UX/private/distribution/SDK/Event/FIFO/fullnotice gates remain open.
+
+## Recovered notice availability verified in actual root generation — 2026-10-13
+
+Actual hook/current58/bundle/compiler and independent raw765archive audit verify exact recovered-three promotion,1336registry/1341total origins/422texts and0cachemiss. Current admissionea21bd83 replaces700b intentionally; oldproof retained. Registry43/local2 discovery gaps remain, coverage incomplete/target linkage unproven. New generated resources/frontend are archived but no new native emitted-resource/installed/signed/platform/fullnotice/fullmigration claim is made. All original migration/UX/SDK/Event/FIFO/private/distribution scope remains open.
+
+## Actual scripted Cookie UI-await boundary — 2026-10-13
+
+Native V4 independently verifies12 scripted pending New/close actions before observed passive scheme response, unchanged jar/disk/previous keys and stale-feedback suppression, retaining24originalcases/25mapped replies (37total). Full profile/Git/currentlayout restoration and compiler0/0 pass. Physical Rust entry/reply production, trusted keyboard race, OS/AT/platform and other full workflows remain open. V3 negative retained; no full migration/UX/notice/platform/distribution claim.
+
+## Cache admission boundary — 2026-10-13
+
+Exact recovered three Cargo archives are now present and independently checksum-verified. This is cache data admission only: old762 notice collection/private authority is unchanged and bundle validation passes. New765 collection/text counts, target linkage and complete notices remain unverified. Historical negative and successful proofs remain immutable; all original migration/UX/platform/distribution/SDK/Event/FIFO/private scope remains open.
+
+## Actual native Cookie validation boundary — 2026-10-13
+
+Native-hidden34526 e567 validates18realRust URLscheme/8194UTF8/combinedbyte-precedence failures+six keyboard/reset/close rows,25unalteredprotocol replies, exactprevious identity/livejar-generation/disk preservation/Field association-correction/default7px. Independent full13783Git prestartup-postexit bytes/654protectedcookie files/buffers/store/43resources20history/3current2legacylayout/profile release pass. V1countbound failure retained; exactmetadata-pin streamcorrected, current savedtest compiler53258 0/0/1010inputs. Enteredresponse New/disposal/OS/AT/platform/otherproduction workflows and all SDK/Event/FIFO/private/distribution/fullnotice/migration/UX remainOPEN; no fullscope claim.
+
+## Actual fresh native managed ruleset coherence boundary — 2026-10-13
+
+Release62029 e567/a5ec/1013sources52assets1946emittednotice764privateauthority and native-hidden42258 independentlypass original48/73oracle→61/54reads→actual62normalfixed4s A→B Rustbindingrefusal/UI0/noacceptedcancel/allphysical/restored43resources20history/twobuffers/store654cookies/Gitnames/registeredrepo+3current2legacylayout/profile release. This closes measured69504 stale-rule defect only; historicalRED preserved. Complete actual emittedsource-corpus resourcecopy verified, fulltargetlinkage/legal/distribution completeness stillunproven. NativeCookie/currentotherproductionworkflows/OS/AT/platform/fullshell/ambientpackage-dynamic-remote-resolution/externalABA/hardFS/TOCTOU/birth/restart/private/SDK/Event/FIFO/fullnotice/migration/UX stayOPEN.
+
+## Current Cookie controlled-component boundary — 2026-10-13
+
+RootCookie-only correction/compiler12430 0/0/serial2219 SAMEsixprofile18knownrefusals/fullshared-control suite/build0 accepted with1008frozen inputs49assets and independent root-audit. Alloriginal36association/correction defects cleared; exactnormalgeometry/default7px/onlyapprovedcaption500/feedbackvisible/globalpreservation/formowner/disposal/HTMLnoinvoke/InputEnter1/rawprevious/nojar mutation verified with controlledoutcomes. ActualnativeRust error/UTF8/scheme/precedence/jar/restoration/OS/AT/platform remainsOPEN, as do freshmanagedread61+62 and everyoriginalmigration/UX/private/distribution/SDK/Event/FIFO/noticelinkage gate. Old724RED preserved; historicalbf5e notcurrent.
+
+## Managed read implementation and compatibility boundary — 2026-10-13
+
+Currentroot8source guardedadoption/compiler58768 0/0/83187 actualhook-compiledproducer-v1v2contract/Cargo17/headless61/91695 native47+Spectral185+sixguards pass, independent1002input/privateadmission/output audit. Changedmanagedbytes/missingfallback/nonregular/contentconflict/cancel/unitopaque protocol verified; originalheadless61 usesv1 and doesnot proveactualRust/native post-run publication. Freshnative original61+62bindingrefusal/UI0/fullrestoration remainsOPEN; realhistorical62RED preserved. Originalpermission/dependency/publicresult and currentcollector unchanged; actualrootproducer a5ec393d48c9 distinct from isolatedf50/historicalf569. Ambient/package/dynamic/remote/resolution/externalABA/hardFS/UnixFIFO/platform/fullmigration/UX/noticelinkage/private/distribution/SDK/Event/FIFO gates retained.
+
+## Native notice collector authority boundary — 2026-10-13
+
+Current root11path adoption passes compiler26100 0/0/47savedchecks/retained185Spectral/actualhook+frontend/bundle-only4675 with937frozen inputs/private762archive+current admission/1943outputs independently audited. Actual coherenttext substitution, availabilitydowngrade and oldreceipt rollback refused. Source corpus770identities/1331registry+4local+1context origins/420texts remains incomplete:3cachemisses/43registry/2local discovery gaps; recovered3 not admitted yet. No targetlinkage/native app/resource-copy/installed/signed/platform/fullnotice claim. Historical nativebf5e predates configdelta. Managed-read62nd-job correction and CookieManager36failure correction remain isolated, awaiting root acceptance. All original migration/UX/repository/SDK/Event/FIFO/private/distribution gates retained.
+
+## Recovered source availability is separate from current packaged notices — 2026-10-13
+
+Three exact Cargo archive checksums/five source-text candidates now verified in cargo-missing-source-root-proof/root-audit.json, cache/currentcollection untouched. Historical762/three-missing corpus remains its immutable generation; currentnotice gaps not yetclosed by recollection. Targetlinkage/fullnotice/localpatch/nested/per-file/platform/distribution/migration/UX scope staysopen.
+
+## Current multipart shared Field boundary — 2026-10-13
+
+Root compiler2641 0/0/serial16983 fullheadless+build0/713sourcefreeze49assets independently audited. Sixprofiles clear original24defects, preserve fullvalid geometry/styles, actualerror control sizes and bounds; row-ownedread/limit, otherrow retention/correction/proxyclone/externalreset, globaladmission/caller errors, disposal/stale and keyboard next/previous/Add pass. Nativebf5e predatesdelta; OS picker/readfailure/AT/platform/full migration/UX remain open. Collector coherenttext-tamper fix and repository freshness correction are not yet rootaccepted. See HTTP.md#record-multipart-fields-root-acceptance; all original gates retained.
+
+## Current compiled XML workflow boundary — 2026-10-13
+
+Native-hidden3330 full22HTTP58workers/7selections/6layouts,19395 five4000sibling selections+10001matchrefusal actualworkers under3000ms,46451 controlled transfer/refusal/recovery all pass. Independent native-xml-current-proof three root-audits prove unchangedbf5e/f569/990source52asset closure and exact profile/Git/currentSplitPane restoration. No actual hungworker/OS clipboard-dialog-write/AT/allprovider-platform/fullmigration claim. Every other original repository/native/private/distribution/SDK/Event/FIFO/notices/UX gate stays open.
+
+## Actual held ruleset content mismatch remains open — 2026-10-13
+
+Native-hidden69504 reproduces A finding and1 UI row after owned ruleset becomesB, actual62nd normal job following original61/7cancel/54read checkpoint. Independent held-rule-root-proof/native-negative-v1/root-audit.json proves physical settlement/full restoration/currentSplitPane keys; expectedRED remains unresolved product defect. Consumed-read/binding freshness correction in isolated preparation, not accepted yet. No universalABA/complete ambientread/fullshell/private/platform/distribution/notice/migration/UX claim.
+
+## Current native namespace boundary — 2026-10-13
+
+Saved native-hidden90664 on unchanged bf5e/f569 closure independently passes namespace persistence/reload/clear/remove/isolation, three HTTP requests, twenty workers, fifteen refusals, six layouts and full profile/current SplitPane-key restoration (current-layout-v3/root-audit.json; RESPONSES.md#record-xpath-namespaces). Native field-association/focused-row-removal/AT remain unverified. Earlier542e177 and preservation-v2 layout proofs cover obsolete keys only; no current-key claim from those proofs. Full production shell, remaining native/platform/private/distribution/repository/SDK/Event/FIFO/notices/migration/UX remain open.
+
+## Actual current native structural component boundary — 2026-10-13
+
+Fresh locked990input/52asset/appbf5e866ccf30+f569 saved native-hidden26453 proves original48 checkpoint then61realRustjobs/7entered physical cancels/54HTTPreads/12structural profiles/full raw range navigation/readonly/focus/unknown, original43resources20history/two buffers/store/654cookies/Git/layout and managedrepo archival/retirement restored (artifacts/spectral-native-structural-root-candidate/root-audit.json). This supersedes pending-current-native wording for ApiDesign structural component only. Full production shell/current other UI workflows/AT/consumedread-generation-ABA/hardFS/birth/restart/private/platform/distribution/SDK/Event/FIFO/fullnotice/migration/UX remain OPEN. No broad or historicalgeneration relabeling.
+
+## Current Environment Name association boundary — 2026-10-13
+
+Name-only localField.error/explicit label/correction/modal lifecycle now validated on current root; JSON-first and unrelatedglobal feedback unchanged. Root732agent/3rawguards/compiler0/0/build/SAMEtemplate+Name/sixprofiles12JSONrefusals/exactcontrols/colors/captioncolors/fullDialog/708sourcefreeze/49assets pass (artifacts/environment-name-root-proof/root-audit.json); only approved captionweight500. Browser storage/component proof does not prove currentnative persistence/AT/platform or full migration/UX. Original all repository/private/distribution/SDK/Event/FIFO/native/fullnotice/UX gates remain OPEN.
+
+## Native structural preparation boundary — 2026-10-13
+
+Current saved native adapter retains original48checkpoint and adds realRust structural navigation cases with explicit loopback/closedrepresentation/nativeIPC preserved; fresh native run still pending. Root747outputs/10baseline/6testpaths/compiler0/0/18+9guards/headless61/7/54/fixturecompile/707sourcefreeze audited (artifacts/native-structural-root-proof/root-audit.json), no app/profile/build launch. This proves preparation only; native physical settlement/full profile restoration/current product generation and every original migration/UX/parity gate remain OPEN.
+
+## Current source-aware structural component boundary — 2026-10-13
+
+Current-root diagnostics now retain proven raw source/full AST ranges including known YAML anchors and actual restored Boolean target origins; metadata stripped before validators/schemaEvaluation/generation, iterative strip accepts measured wide browser input. Unknown/pathless/ambiguous sources stay unresolved. Root676/808handoff/15guards/compiler0/0/706sourcefreeze/SAMEschema83+32/serialized/fullheadless61jobs7cancel54reads/build/full73oracle/equality83analyses46Generate/near8MiB pass (artifacts/structural-source-range-root-proof/root-audit.json). Current native/Rust structural parent/worker integration, namespace/Resource persistence/AT, broader dialect/error classes and all original migration/UX/private/platform/distribution/notice/repository/SDK/Event/FIFO remain OPEN; no historical native relabeling.
+
+## Three MIT full-text gaps examined, still unresolved — 2026-10-13
+
+Root independently verifies73 frozen inputs/3exacttarballs/19tarheaders/34complete sourceblobs/currentlock and publishedversiontags (artifacts/mit-text-gap-root-proof/root-audit.json). No corresponding authentic full MIT text in examined snapshots; three fullTextAvailable=false rows stay unresolved. Report-only adoption; no generic text/copyright inference or full legal/distribution/notice coverage claim. All original migration/UX gates retained.
+
+## Namespace compact Field component boundary — 2026-10-13
+
+Namespace editor now has shared opt-in compact6px Field, typed affected-field validation/correction and next/previous/Add keyboard focus after removal. Default shared styles unchanged. Root792 frozen inputs/compiler0/0/SAMEheadless3scenarios/build0/full source freeze/8profiles88checks32refusals24removals/exact104controls48captions/default token restoration pass (artifacts/namespace-field-root-proof/root-audit.json). Native entry/assertions retained but current native persistence/focus/AT/platform not proved; historical a00 does not contain this change. Full migration/UX and every original native/private/distribution/SDK/Event/FIFO/repository/source-range/notice gate stay OPEN.
+
+## Authentic runtime source-text collection boundary — 2026-10-13
+
+Four exact version-pinned libuv/uSockets+uWS/JSC/ICU source texts now collected with closed source/build-candidate provenance and raw byte preservation; root413file/eightdelta/SAMEguards/actual hook+bundle/Gitcheckout audit passes (artifacts/bun-source-texts-root-proof/root-audit.json). Embedded component coverage is still unproven, global coverage incomplete, threeMIT/per-file/Rust/polyfill/data/library/archive/variant/link-map/redistribution/native-installed/platform gaps stay explicit. No full migration/Spectral/UX completion claim.
+
+## Verified public standalone runtime identity boundary — 2026-10-13
+
+Actual compiledf569 producer runs exact bounded existing-helper custom probe and returns public Bun1.4.2/revision744846f8; root16input audit/replay/oneframe/exit0/owned settlement pass (artifacts/bun-embedded-identity-root-proof/root-audit.json). This closes public standalone identity uncertainty, not official archive equivalence, CPU/WebKit/ICU variant/component link-map/full notice or native-installed acceptance. No product/protocol/source change; all other migration/UX gates remain active.
+
+## Bun source evidence boundary — 2026-10-13
+
+Exact pinned Bun1.4.2 source/release/build-condition and four authentic candidate license texts independently reviewed across57 frozen inputs; local CLI revision744846f8 corroborates source identity (artifacts/bun-notice-coverage-root-proof/root-audit.json). No embedded variant/link-map/official archive byte identity/full coverage/native packaging or redistribution acceptance proved; no product or generated notice changes. Existing three MIT full-text and Bun dependency/Rust/polyfill/per-file gaps plus all original migration/UX requirements remain open.
+
+## Verified ResourceManager field association boundary — 2026-10-13
+
+Current component uses shared Field.error for name/folder JSON failures with stable exact accessible labels, described error IDs, correction and callback-retry feedback. Root775frozen-input audit/compiler0/0/build/SAMEsaved resource+design-system pass;24refusals/sixprofiles/12exactcontrol geometry/style comparisons, captionweight500 existing API. Proof artifacts/resource-field-root-proof/root-audit.json. Component proof does not establish current native CRUD/persistence/AT/platform or full design-system/UX/migration parity. Original all native/private/distribution/SDK/Event/FIFO/Spectral/repository/source-range requirements remain open.
+
+## Exact-version runtime notice boundary — 2026-10-13
+
+Spectral-runtime1.1.6 authentic repository LICENSE at its published gitHead now included with closed metadata/hash/integrity/source provenance and raw-byte preservation through Git checkout. Root406file/sixdelta audit, determinism/rawtext/6tamper/6provenance guards and actual build+bundle freshness pass (artifacts/spectral-runtime-license-root-proof/root-audit.json); producer f569 unchanged. Remaining three MIT full-text gaps and Bun linked-library/platform/redistribution coverage explicitly incomplete; no full compliance or native-installed notice generation claim. Original full migration/Spectral/native/private/platform/distribution/SDK/Event/FIFO/UX gates remain open.
+
+## Verified native captured external component boundary — 2026-10-13
+
+Fresha00 app/f569 sidecar saved native-hidden37495 independently verifies48Rust-owned jobs/7entered-before-cancel physical retirements/12external+6retained profiles/36HTTP reads/catalog41 actualGenerate/attachedprecedence and complete original profile/Git/layout restoration. Initial oracle negative and exact runtime-test-only ownership fix are preserved; compiled app/frontend unchanged. Root headless8230/48, compiler69577 0/0 and71guards pass. Proof artifacts/spectral-native-external-root-candidate/runs/owned-post-v1/root-audit.json. This accepts the compiled ApiDesign component, not full production shell/future structural source-range sources or full Spectral/migration/platform/private/distribution/consumed-read/SDK/Event/FIFO/shared UI/UX parity.
+
+## Current captured external-reference frontend boundary — 2026-10-13
+
+Captured semantic catalog now feeds structural preview and Generate using the same fresh lint input on desktop. Root headless6original/12external profiles/48actual producer jobs/7cancellations/36HTTPreads/main+40Generate/attachedprecedence and schema83/serialization/build/compiler/manual13 guards prove this bounded frontend slice. No worker fetch or raw persisted reference mutation. Native preparation is frozen but new actualnative48 remains unverified; old d478 acceptance predates parent/worker changes. Full source-aware structural diagnostic ranges, consumed repository reads/inflight generation, private/platform/distribution/SDK/Event/FIFO/full original migration and UX remain open. No full Spectral/migration completion claim.
+
+## Current verified Spectral component boundary — 2026-10-13
+
+Standalone producer, native reserve/run/cancel backend, client lifecycle, captured-source catalog, raw full-range editor/navigation and ApiDesign semantic Generate guard are implemented. Actual saved native component now verifies20Rust jobs/7entered cancellations/sixprofiles on exact d478 app +f569 sidecar with complete original profile restoration; matching headless20/7/compiler0/0 pass. This supersedes historical blanket wording that Spectral is absent. Full production shell, captured external structural join (frozen unintegrated handoff), repository consumed-read receipts, private/platform/distribution/unobserved-birth/hardFS/restart and every original migration/UX requirement remain incomplete or unverified. No full Spectral or migration completion claim.
+
+## Current integrated UI and semantic-lint boundary — 2026-10-12
+
+Nativeheavy3dc6bdd verifies12profiles/36states/12reloads with full original data restoration. Collectionhover549ed54 verifies18action rows+fulltheme; collapsea97dfcd verifies6real capture/collapse profiles+retained12heavy/36; fresh native candidate remains unaccepted until source/permission-generation/executable/current workflow gates pass. Spectral semantic/custom-rule functionality remains missing: isolated official Bun API returns6diagnostics but direct browser dependency fails actual unchanged production CSP during Ajv generated Function execution. API-DESIGN.md#record-spectral-integration records full legacy contract and architecture gates. Full Event/private/platform/Git/distribution/UX/all original scope remains active.
+
+## Current bounded resize and native acceptance — 2026-10-12
+
+Embedded native candidate49 with captureddeef083 factory9983/historyfe0991d and worker889 accepts provider8 and history6profiles+reload with exact2buffers/store/654cookies restoration; root independent f8c756 binds759base+explicit supplements/52assets/executable, committede3cf1e3. Headless content-heavy resize12profiles/36states/12reloads now verified by root6756/compiler38054; application unchanged, native resize/interruption/collapse/storage-denial broader UI remain open. Event held-sync actually enters callback then fails native capability admission; earlier queued-abort rejection was a separate expected error, original held-sync assertion stays RED. No permission relaxation/default prototype adoption/full parity claim.
+
+## Integrated history, CRUD and native owner checkpoints — 2026-10-12
+
+Historyfe0991d passes6component+6actual-app headless profiles/theme/compiler/build with exact old Escape negative. CRUD73aa81b passes actual native6matrix rows/last-collection/IDs/remap/private/history/runningmove/nativeCancel/search/reload/subtreedelete on frozen99f88, exact restoration. Native guarddeef083 skips already-aborted lease subscription; rootowner16/currenthistory6/check/build pass, actualbackend supplemental8/native10pendingreasons+2stalegeneration suppressions/restoration654 pass, but old9b3f frontend does not embed that guard. New759source/52asset latestroot nativecapture is prepared, not yet native acceptance. Cdiagnostics81proof/57agentreported groups prototype only; root independently verifies frozen hashes. Exact shared implicit Field accessible names already valid; querylabel-text difference is not a measured accessibility defect. Full FIFO/held-sync/Event/nativefreshhistory/private/platform/Git/alloriginalmigration/UX/unknowncookiecleanup remain OPEN.
+
+## Current native scoped checkpoints — 2026-10-12
+
+Current5c884runtime/9b3fexe/889worker accepts native-hidden rename60+32, GraphQL17+8, provider4/API4 and syntheticdispatch9/Windowprefix2. Root independent synthetic auditor8949f5 verifies754sources/51assets/all4hosts exit0/all4workers terminated and all4restorations:2buffers/store/654baselinecookies exact/no cleanup. Native SDL3 actual dialog/focus/UnicodeUTF8/OSwrite-refusal is separately accepted by auditor357890 (fd6777a). Preservation8f72091 and cold path-binding1034196 do not claim fullCRUD. Recovered CRUD reached initial last-collection/delete-disabled/title/Tab/create/rename/JSONrefusal but failed strict foreign-destination selection; negative retained/restorationpass/host0, fullmatrixOPEN. Matching0.32FFI179-file prototype90saved+24oracle is hash-reviewed only, default adoptionFALSE. Full FIFO/held-sync/Event/GraphQL/private/platform/Git/provider/all original parity/later UX and historical unbound-cookie cleanup remain required.
+
+2026-10-12 owned synthetic/property/late-control root checkpoint:219saved headless groups including21new groups, compiler0/0/build0/currentworker8893751d and independent frozen source/result/worker/Wasm/all796previous proof-file audit pass. Partial Window prefix retains original owner/budgets; strong identical-program cross-realm FIFO and unchanged held-sync owner after10prerequisites remain RED. Fresh native-current-UI/Event/CRUD/SDL/multiple async/private/provider/platform/full migration are still required. Root native profile ownership foundation1b50388 is tested without native CRUD launch; UI whitespace fix and GraphQL transition wait/restoration have separate ongoing gates. No full Event/Window/UI/migration completion claim.
+
+# Feature parity tracker
+
+2026-10-12 owned HTMLElement.dataset/DOMStringMap slice accepted:18browser groups/23headless checks/CommonJS+ES/captured definitions/receiver reflection/retained host+guest mutation/detached async cleanup/eight graph refusals/8MiBquota atomicity,108regressions/compiler0errors/0warnings/build0 and632positive/three627negative/690source audits pass. Fresh native1b697418 accepts75checks/26terminated workers/107HTTP plus gRPC/reflection/WS/SSE, two dataset Send/oracle cases/retained/cleanup plus original tokens/collections/12terminal cases;690source/49frontend/exe/workers/two-buffer/store/653cookie audits pass. Two quota failures preserved; saved cases split without dropping assertions or increasing quota. Full DOM/event/private/clipboard/platform/provider/all migration and shared-input UX/UI/CSS remain required. STATUS/PLUGINS.md#record-plugin-dom-dataset records evidence and unavailable /compact handoff.
+
+2026-10-12 owned classList/DOMTokenList slice accepted:23browser groups/28headless checks/CommonJS+ES/retained host+guest mutation/detached async cleanup/eight graph guards/8MiBquota atomicity,80regressions/compiler0errors/0warnings/build0 and629positive/three623negative/687source audits pass. Fresh native34fbb1e6 accepts71checks/27terminated workers/104HTTP plus gRPC/reflection/WS/SSE, token23oracle/retained/cleanup plus original collection/12terminal cases;687source/one JSON-only test variant/49frontend/exe/workers/two-buffer/store/653cookie audits pass. First raw-oracle/parsed-JSON mismatch preserved, exact same-codec normalization rerun accepted. Full DOM/event/private/clipboard/platform/provider/all migration and shared-input UX/UI/CSS remain required. STATUS/PLUGINS.md#record-plugin-dom-tokens records evidence/limits and unavailable /compact handoff.
+
+2026-10-12 owned DOM collection/reflection slice accepted:32headless checks/28browser groups with CommonJS+ES captured intrinsics/retained host mutation/detached cleanup/five graph refusals and48regressions/compiler0errors/0warnings/build0; positive626/five negative/684current source audits pass. Fresh native1bafb30e accepts68checks/27terminated workers/102HTTP plus gRPC/reflection/WS/SSE, three collection groups and retained12terminal cases;684source/49frontend/exe/served-worker/two-buffer/store/653cookie restoration audit passes. Complete DOM/event/private/clipboard/platform/provider/all migration and shared-input UX/UI/CSS remain required. STATUS/PLUGINS.md#record-plugin-dom-collections records evidence and unavailable /compact handoff.
+
+2026-10-12 supported owned-graph terminal onHide lifecycle accepted in fresh nativeb0652290:12actual HTTP source/unload/active-helper/Cancel/queued/Close/failure cases in65checks/26terminated workers/100HTTP plus gRPC/WS/SSE.12original nodes detached/count1 at termination; nine healthy callbacks finish before held peer replies, three explicit bounded failures. Compiler0/0/headless15+20/681source/one timing-aware owner-test variant/49frontend/exe/workers/two-buffer/store/653cookie audits pass. Programmatic underlying handlers and remote post-cleanup reply release do not prove pointer access or delivered post-cancel payload. Full DOM/private/OS clipboard/platform/provider/all original migration then shared-input UX/UI/CSS remain open. See STATUS/PLUGINS.md#record-plugin-dom-terminal-owner.
+
+2026-10-12 ordered terminal onHide frontend phase accepted in current worktree:15groups/27terminated workers/15detached original nodes (12healthy writes, three bounded failure controls), held store/native sync replies cancelled before release, stale permissions/queued events/late values refused. Retained owner20/session7/renderer21/dialog11/Cancel6, compiler0/0/build0 and623positive+two617negative audits pass. Fresh native-hidden terminal acceptance remains required after session/worker changes; prior237f89d3/native53 is historical. Full DOM/private/OS clipboard/platform/provider/all original migration then shared-input UX/UI/CSS stay open. See STATUS/PLUGINS.md#record-plugin-dom-terminal-owner.
+
+2026-10-12 native WS/SSE dialog completion/source/Disconnect/error gate accepted on237f89d3: eight real stream groups in53checks/14workers/83HTTP/12retained callbacks; native message/history/helper continuation and peer client-close/750msno-late-helper pass. Exact679source+49frontend/one helper variant/compiler0/0/headless20/41workers/two-buffer/store/653cookie audits pass. Programmatic handler checks do not prove pointer Disconnect, delivered post-close network data or terminal ordered onHide. Ordered onHide/full DOM/private/clipboard/platform/provider/all original migration then shared-input UX/UI/CSS remain open. See STATUS/PLUGINS.md#record-plugin-dom-stream-owner.
+
+2026-10-12 stream ownership frontend gate verified: real workspace/registry/dialog/workers with controlled native IPC proves WebSocket/SSE closed-before-command retention, completion/helper/source loss, Cancel+late success refusal and closed+command error.20headless groups/41workers/compiler0/0/build/two regressions/613exact-source+negative+result audits pass. Fresh native stream transport/source/Cancel/error acceptance remains required; d2c20319 native45predates host fix. Ordered terminal onHide/full DOM/private/clipboard/platform/provider/all migration and subsequent shared-input UX/UI/CSS remain open. See STATUS/PLUGINS.md#record-plugin-dom-stream-owner.
+
+2026-10-12 native nested response-dialog completion/source/Cancel gate accepted on freshd2c20319 executable: four added genuine native builtin-response/dependent-send groups in45checks/14workers/79HTTP/eight callbacks; normal onHide3 and750mslate suppression. Exact678source+49frontend/one helper variant/compiler0/0/two-buffer/store/653cookie restoration audits pass. Programmatic UI handlers under modal do not prove pointer Cancel, network Abort events or terminal ordered onHide. Stream/full DOM/private/clipboard/platform/provider/all original migration then shared-input UX/UI/CSS remain open. See STATUS/PLUGINS.md#record-plugin-dom-nested-owner.
+
+2026-10-12 nested response dialog lifetime browser gate verified: actual builtin response/dependent workspace HTTP and genuine guest helper survive completed field/session/root, idle root+child source loss and Cancel revoke correctly.14headless groups/33workers/compiler0/0/build/four regressions/612source+build audits pass. Fresh native nested response gate remains required; old427cf713 evidence predates host changes. Stream/terminal onHide/full DOM/private/clipboard/platform/provider/all migration and subsequent shared-input UX/UI/CSS remain open. See STATUS/PLUGINS.md#record-plugin-dom-nested-owner.
+
+2026-10-12 clean-checkout helper integration/dependency gate verified: complete proposed runtime/worker/session/registry/template/workspace/OAuth/app/save/native/Buffer assembly installs/generates/builds from staged tree20d97f7, compiler0/0/eightheadless scenarios/Windows Cargo release-locked pass.64source/Buffer/worker comparisons bind native427cf713 acceptance; broad pending UI excluded. Full facade/nested response-tag/stream/terminal onHide/DOM/private/clipboard/platform/provider/all migration and deferred shared-input UX/UI/CSS remain open. See STATUS/PLUGINS.md#record-plugin-helper-integration.
+
+2026-10-11 tag picker/argument editor accepted in topic `0f81387188fe9a95c187efcedb399b1e492f005c`: eight controls/defaults/raw/encoded/overrides/dynamic metadata/guarded preview/store-only actions/Prompt Clear/model ordering and shared request/environment field UI. Current production48bc final native5groups4wire4workers2held plus12fields24workers, six-profile156+72control geometry, retained12plugin modes/HTTP19groups20wire43workers/headless20+4+12/compiler0/0/restoration/source/cleanup pass. Full plugin helper contexts/hooks/menu actions/themes and remaining original migration/UX/UI/CSS scope stay open. Exact evidence and controlled OS-dialog limits: TEMPLATING.md#record-template-tag-editor/STATUS.
+
+2026-10-11 corrected native tag editor48bc/current758source passes5groups/4wire/4workers/2held boundaries, all12 retained plugin modes and fresh HTTP Send19groups/20wire/43workers with independent audits/restoration. Actual-built-app saved headless field scenario passes12 entries: URL, header/query names and values, Basic username/password, GraphQL query/JSON variables, gRPC URL/JSON and WebSocket message. Each verifies genuine preview, exact surrounding text, mounted Apply and exact saved field value. Native per-field/source/visual/cleanup gates still pending; full feature/migration/UX scope remains open.
+
+2026-10-11 native tag editor baseline accepted only for covered controls:336cb4e2/758source/editor4groups/4wire/3workers/1held/store+workspace restoration/all12retained modes pass. Expanded draft-change native control demonstrates an actual late store write; one guard corrected, directory/second-held controls added. Corrected build61072/native5group/per-field/visual/cleanup acceptance still pending. This is not full feature/migration completion. [TEMPLATING.md#record-template-tag-editor](TEMPLATING.md#record-template-tag-editor).
+
+2026-10-11 environment/model editor implemented in browser preparation: real collection/no-request context, separate source guard, JSON string decode/map/escape and legacy request tree labels/order. Built-app environment4groups/12genuine template workers, editor20groups/150controls, JSON/model23/current33source+compiled-worker audit and compiler/build/workspace/design-system pass. Native/general custom catalog/metadata/actions/Prompt/Send/per-field and frozen regression acceptance remains required; full feature/migration incomplete. [TEMPLATING.md#record-template-tag-editor](TEMPLATING.md#record-template-tag-editor).
+
+2026-10-11 tag editor scalar/action preparation: URL/key-value/auth/GraphQL/gRPC/WebSocket entry points implemented through shared guarded Input/Textarea/CodeEditor dialogs; store-only custom action dispatch and Prompt Clear implemented. Actual QuickJS24 and saved headless20groups/six profiles/150controls/current28path audit pass; compiler0/0/frontend/workspace12/design-system pass. Environment/model hierarchy, real production-worker/native/Prompt/action/Send and per-field ownership remain unaccepted. Full feature/migration remains incomplete. [TEMPLATING.md#record-template-tag-editor](TEMPLATING.md#record-template-tag-editor).
+
+2026-10-11 tag editor UI preparation has mounted evidence for8types, signed-zero/defaults, raw fallback/exact selected range, validation/hide/disablePreview, keyboard/focus and stale-parent/root-abort ownership: headless16groups/six full profiles/150controls, controlled custom/preview/file/action adapters. Compiler0/0/frontend/workspace12 and33built-in-range controls pass. Genuine-worker/native/full action/helper/other field/model hierarchy acceptance remains required; this is not feature/full migration completion. [TEMPLATING.md#record-template-tag-editor](TEMPLATING.md#record-template-tag-editor).
+
+2026-10-10 loaded custom tags now participate in HTTP request rendering with legacy collision/built-in precedence, guarded captured sources and typed argument/output transport. Production040ad2f9/frozen744source passes native12checks/7requests/9workers/4held boundaries, ten retained plugin suites and template Send19groups/20requests/43workers with independent audits/full restoration. Compiler0/0/headless12/owned cleanup pass. Argument picker/editor, full helper capabilities/other protocol/preview UI acceptance/hooks/actions/themes and all original migration/UX/UI/CSS gates remain required. [PLUGINS.md#record-plugin-template-render](PLUGINS.md#record-plugin-template-render).
+
+2026-10-10 per-callback operation ownership and detached helper-data contract verified on production282341ff/current741source: native20checks/14preflight refusals/3workers/5reads/0writes, full workspace/store restoration and all retained plugin suites with actual restarts/independent audits pass; native-hidden/visible:false/exit0/owned cleanup. This accepts cancellation/context transport only. Product custom tag registration/editor/Send/hooks/actions, all remaining context capabilities/admission/legacy data and original migration/UX/UI/CSS gates remain required. [PLUGINS.md#record-plugin-operations](PLUGINS.md#record-plugin-operations).
+
+2026-10-10 custom tag definitions: all eight argument types, typed defaults/options/file filters/actions and dynamic metadata callbacks preserved in isolated sessions; initial metadata value codec retains signed zero. Productione10918eb/current739source/native18refusals/20workers/40files/0store IPC/full workspace plus registry+restart/values/session/store/runtime/formats/discovery/sources+restart audits pass; compiler0/0/headless12/owned cleanup/native-hidden/visible:false/exit0. This accepts descriptor/query capability; product collision/priority registration/tag editor/resource contexts/Send/menu integration and every original migration/UX/UI/CSS gate remain required. [PLUGINS.md#record-plugin-tag-metadata](PLUGINS.md#record-plugin-tag-metadata).
+
+2026-10-10 application plugin registry: explicit isolated Load/Unload with admission identity, dedup and saved disable/reload/path/config/root ownership verified on production8c3c04f6/current736source. Native4groups/6real terminated workers/8files/six layouts/0store IPC plus actual restart/full workspace restoration, retained values/session/store/runtime/formats/discovery/sources+restart audits pass. Compiler0/0/headless workspace12/owned cleanup pass; native-hidden/visible:false/exit0. Contributions remain inactive. Tag argument/collision registration, resource/callback contexts, other context adapters, Buffer-stream/legacy import, ordered Send hooks/action menus/themes, complete admission and every original migration/UX/UI/CSS gate remain required. [PLUGINS.md#record-plugin-registry](PLUGINS.md#record-plugin-registry).
+
+2026-10-10 callback data encoding defect fixed for covered types: undefined/NaN/infinities/-0/bigint/sparse/identity cycles/Date/Map/Set/binary views/RegExp retain literal values through real isolated callbacks. Corrected production3a34fbbf/current734source/native48checks/six terminated workers/0store IPC and retained session/store/runtime/formats/discovery/source+restart audits pass, compiler0/0/cleanup/native-hidden/visible:false/exit0. Unsupported objects refuse rather than silently coerce; complete legacy Buffer/stream, product registry/context/Send/menu/theme/lifecycle and full migration/UX/CSS remain required. [PLUGINS.md#record-plugin-values](PLUGINS.md#record-plugin-values).
+
+2026-10-10 retained callback/store core has covered Windows acceptance: production9e3c459d/current732source/seven callback kinds/six methods/14terminated workers including actual restart; independent literal/ownership/worker/source/build/restoration audits and store/runtime/formats/discovery/sources regressions pass. All native-hidden/visible:false/exit0; compiler0/0/owned cleanup pass. Product registration/admission/lifecycle/other contexts/legacy import/Send/menu/themes/full callback encoding beyond JSON-only and all original migration/UX/CSS scope remain required. [PLUGINS.md#record-plugin-session](PLUGINS.md#record-plugin-session).
+
+2026-10-10 durable PluginData host adapter covered Windows acceptance: all six string-store methods in independent local-only native storage, fixed malformed Clear/All field handling, exact failed-write/cache/byte preservation and actual process restart. Productionce666983/current727source accepts8groups/23refusals/32concurrent writes and retained native plugin regressions with independent audits/compiler0/0/owned cleanup. Store guest bridge, legacy PluginData import, full admission/lifecycle/six context activation/eight contribution integrations/full migration/UX/CSS remain required. [PLUGINS.md#record-plugin-store](PLUGINS.md#record-plugin-store).
+
+2026-10-10 isolated plugin export inspection covered Windows acceptance: actual CJS/ESM dependency/JSON/cycle loading and eight contribution metadata, explicit Preferences check and corrected statuses/labels/buttons. Production6321d47e/current721source/runtime14packages/11workers/34files/six inspected UI profiles and retained formats/discovery/source+restart audits pass; compiler0/0/owned cleanup, native-hidden/visible:false/exit0. Contributions remain inactive; complete admission/six contexts/store/install/lifecycle/integration/full migration/UX/CSS remain required. [PLUGINS.md#record-plugin-runtime](PLUGINS.md#record-plugin-runtime).
+
+2026-10-10 isolated plugin export inspection prepared: real separate VM module loading/metadata and bounded native snapshot, explicit disabled-aware Preferences check; inline QuickJS6+1/compiler0/0 pass. Fresh native14package/11worker/six-layout acceptance pending. This does not activate contributions or complete six contexts/eight contribution integrations/store/install/runtime/full migration/UX/CSS. [PLUGINS.md#record-plugin-runtime](PLUGINS.md#record-plugin-runtime).
+
+2026-10-10 plugin declared-format scope reporting covered Windows acceptance: nearest bounded manifest/node_modules boundary/cjs-mjs override;31literal cases/eight formats/two invalid scopes/76files on production551bbbce/current713source. Retained discovery and source/actual-restart regressions, independent audits/compiler0/0/owned cleanup pass; native-hidden/visible:false/exit0. This does not activate modules or remove dependency/custom context/contribution/full migration/UX/CSS gates. [PLUGINS.md#record-plugin-formats](PLUGINS.md#record-plugin-formats).
+
+2026-10-10 plugin entry resolution covered Windows acceptance: internal parents/CommonJS file-index-fallback ordering/canonical outside junction refusal,21literal cases/47files/mounted read-only UI on productionf30d346f/current713source. Retained discovery13packages/2errors/28files and source seven checkpoints/actual restart/30files/six profiles, independent audits/compiler0/0/owned cleanup pass; native-hidden/visible:false/exit0. Nested directory main wording clarified against original require-directory algorithm; full dependency/execution/contribution/context and all original migration/UX/CSS gates remain. [PLUGINS.md#record-plugin-entries](PLUGINS.md#record-plugin-entries).
+
+2026-10-10 persistent plugin roots covered Windows acceptance: combined roots/legacy drive parsing/explicit import/save-remove/reload/home expansion/overlap/collision recovery and actual second-process full-value preservation pass on production5b495c83/current712source. Seven checkpoints/30files/six inspected profiles, retained discovery13packages/2errors/28files, independent audits/compiler0/0/owned cleanup pass; native-hidden/visible:false/exit0. [PLUGINS.md#record-plugin-folders](PLUGINS.md#record-plugin-folders). No original plugin contribution/context or migration/UX/CSS gate is removed.
+
+2026-10-10 plugin discovery first milestone verified on Windows production75d118b3/current709source:13packages/2manifest errors/513-entry control/six settled theme-width profiles, mounted folder/reload/recovery controls, unchanged28package files/absent execution marker/workspace values/source-build audit/compiler0/0/owned cleanup; native-hidden/visible:false/exit0. Full entry/path/dependency admission/custom execution/install/store/hooks/actions/eight contribution types/six contexts and original migration/UX/CSS gates remain required. [PLUGINS.md#record-plugin-discovery](PLUGINS.md#record-plugin-discovery).
+
+2026-10-10 custom plugin discovery implementation in progress: read-only native metadata scanner and Plugins Preferences page are prepared, compiler0/0/headless workspace12 pass. Fresh native production acceptance pending; package execution, persistent discovery paths/install, isolated registration/store, hooks/actions and all six contexts/eight contributions remain required. [PLUGINS.md#record-plugin-discovery](PLUGINS.md#record-plugin-discovery).
+
+2026-10-10 DEFAULT_HEADERS built-in HTTP Send verified: differential16/defaults3groups4wire5workers/retained HTTP19groups20wire43workers+held dependency/current704source/productionf7c86550. Literal/default precedence/disabled replacement/caller-foreign environment/Authorization scope/no saved mutation/history/selection audit/compiler0/0/headless workspace12/owned cleanup pass; native-hidden/visible:false/exit0. Custom loader/store/hooks/actions/protocol/provider/platform/shared ownership/adoption/full migration/UX/CSS stay required. [HTTP.md#record-default-headers](HTTP.md#record-default-headers), [PLUGINS.md#record-plugin-compatibility](PLUGINS.md#record-plugin-compatibility).
+
+2026-10-10 Clone author form normal Windows acceptance: native6checks/1real advertisement GET+pack POST verifies required/malformed-author refusal before IPC/network/full workspace bytes, corrected valid staging/review/install/existing navigation/fresh200/reload; production9fc6a4b7/current703source/native-hidden/visible:false/exit0. Compiler0/0/source-build audit/owned cleanup pass. Other fault modes/providers/platform/assistive/shared ownership/adoption/full migration/UX/CSS remain required. [GIT.md#record-git-clone](GIT.md#record-git-clone).
+
+2026-10-10 shared tab panels verified on fresh Windows native production82102013/current703source:6keyboard/label/geometry profiles, retained12workflow/10dialog captures/Git HEAD unchanged, native-hidden/visible:false/exit0. Independent source/build/baseline/geometry audit/compiler0/0/owned cleanup pass,760images inspected. Every other panel content/scrolling/assistive/platform/shared adoption/ownership/full migration/UX/CSS gate remains required. [UI-DESIGN-SYSTEM-DEBT.md#record-tab-panel-keyboard](UI-DESIGN-SYSTEM-DEBT.md#record-tab-panel-keyboard).
+
+2026-10-10 shared tab panel keyboard entry verified in headless Chromium: six Tab/Shift+Tab/selected-label profiles, full retained design-system and workspace12 with positive bounded pane dimensions, compiler0/0/build0. First display:contents focus failure corrected with shared flexible panel box. Packaged native/other content/assistive/platform/full migration/UX/CSS acceptance remains required. [UI-DESIGN-SYSTEM-DEBT.md#record-tab-panel-keyboard](UI-DESIGN-SYSTEM-DEBT.md#record-tab-panel-keyboard).
+
+2026-10-10 within-root OAuth resource sharing verified for sequential body/header and nested dependencies:3groups/13wire/3exchanges/38workers, independent703source/productionc2fbaa43/form/header/record/history/selection audit, compiler0/0 and owned cleanup pass; native-hidden/visible:false/exit0. Concurrent exchange coalescing/provider/source-race/platform/accessibility and every original migration/shared UI/UX/CSS gate remain required. [TEMPLATING.md#record-template-oauth-graph](TEMPLATING.md#record-template-oauth-graph).
+
+2026-10-10 covered local dependent OAuth native exchanges verified:5groups/10main wire/29workers plus held token exchange/current703source/unchanged productionc2fbaa43/native-hidden/visible:false/exit0. Foreign credentials/scope/token acquisition/reuse/refresh/rotation/manual bypass/Cancel pass independent literal form/header/token record/history/selection audit. Compiler0/0/formatting/owned cleanup pass. Synthetic local provider and advanced expiry fixture; interactive/public providers/concurrency/source races/within-root shared tokens/late-provider success/platform/accessibility and all original migration/shared UI/UX/CSS gates remain. [TEMPLATING.md#record-template-response-oauth](TEMPLATING.md#record-template-response-oauth).
+
+2026-10-10 covered native response-template cycles accepted:5groups/6wire/12workers/current703source/unchanged productionc2fbaa43/native-hidden/visible:false/exit0. No-history self/mutual cycles refuse without wire/history mutation; actual B HTTP history enables inner A→B→outer A and self inner/outer A, with literal payload/header/history/selection audits. No mocked responses/workers/transport. Compiler0/0/formatting/owned cleanup pass. Broader dependency graphs/provider/concurrency/limits/protocol/platform/accessibility and all original migration/shared UI/UX/CSS gates remain. [TEMPLATING.md#record-template-response-cycles](TEMPLATING.md#record-template-response-cycles).
+
+2026-10-10 covered SSE response-template completion verified on fresh optimized c2fbaa43/current703source:4groups/3wire/4workers accept literal framing, header waits for EOF, native Cancel and real timeout without root dispatch/partial-success history. Ordinary HTTP19groups/43workers/20wire plus held dependency retains extraction/trigger/nested/foreign/Cancel/stopped-worker behavior. Both terminal0/native-hidden/visible:false/exit0; independent audits/owned cleanup pass. Native fix preserves timeout identity rather than generic body-decoding error. Compiler0/0/targeted Rust formatting/headless workspace11 pass. Live SSE history/body bounds/provider/platform/accessibility and all original migration/shared UI/UX/CSS gates remain required. [TEMPLATING.md#record-template-response-sse](TEMPLATING.md#record-template-response-sse).
+
+2026-10-10 selected foreign response-template environment:4groups/5wire/9workers accept selected child environment routing, target-tagged history, caller-history refusal/reuse and unchanged UI selection. Production native-hidden/visible:false/exit0, independent703source/01515fc0/literal/history audit, compiler0/0 and owned cleanup pass. Explicitly seeded caller history; broader environment transitions/OAuth/provider/cycles/SSE/protocol/platform/accessibility and all original migration/shared UI/UX/CSS gates remain. [TEMPLATING.md#record-template-response-environments](TEMPLATING.md#record-template-response-environments).
+
+2026-10-10 covered finite HTTP response-tag Send workflows verified through actual mounted native application:19groups/43workers/20wire plus one held dependency, unchanged production01515fc0/current703paths, native-hidden/visible:false/exit0. Literal values/refusals/trigger policies/nested order/foreign Base environment/Cancel socket disconnect/stopped worker callbacks and subsequent manual edit pass independent audits. Compiler0/0/formatting/cleanup pass. Selected foreign environments/OAuth/provider/cycles/SSE/protocol/platform/accessibility and every original migration/shared UI/UX/CSS gate remain required. [TEMPLATING.md#record-template-response-send](TEMPLATING.md#record-template-response-send).
+
+2026-10-10 XPath namespace mapping UI implemented and verified for covered workflows: local request mappings, default/multiple URIs/alias prefixes, validation/refusals/reload/Cancel/focus/remap/Clear/remove/request isolation and before-deadline cancellation. Fresh production01515fc0/current702paths accepts focused20groups/20workers/3Sends/six dialog profiles, default XML36/58/22/six response-pane profiles and JSON26/11/21; all terminal0/native-hidden/visible:false. Independent source/build/literal/body/base64/meta/history/generation/all-control geometry audits, compiler0/0, retained XPath296/14709/11/4, headless workspace11 and owned cleanup pass; four760images inspected. Broader XPath expression/tree-shape, template Send integration, OS transfer/non-UTF-8/binary XML/accessibility/streaming/provider/platform and every original migration/shared adoption/ownership gate remain required. Full UX redesign follows migration. [RESPONSES.md#record-xpath-namespaces](RESPONSES.md#record-xpath-namespaces).
+
+2026-10-10 XML transfer boundary accepted: native XML8groups/8workers/1Send and shared JSON tools9groups/3Sends/six layouts terminal0/native-hidden/visible:false. Copy matches displayed XPath/Raw/Pretty; Save payload retains original bytes; cancel/refusal/recovery and adapter restoration pass. Independent699source/executable/literal/byte audits and owned cleanup pass; current760dark/light images inspected. Actual OS transfer, non-UTF-8/binary XML, namespace mapping UI and every remaining migration/UX gate remain required. See [RESPONSES.md#record-xml-response-transfer](RESPONSES.md#record-xml-response-transfer).
+
+2026-10-10 XPath ordering performance: an immutable per-document index removes repeated sibling scans for response/template extraction; native attribute/ancestor bits and descriptor restoration remain intact. Differential296results/1matching upstream refusal/14709position comparisons/11restoration fixtures/4template checks and compiler0/0 pass. Fresh production native performance6groups/12workers/3Sends accepts4000ordered elements/attributes/scalar/union/reverse-axis in1506–1882ms and10001flat match refusal1774.5ms, versus retained old native3s timeout. Current XML36groups/58workers/22Sends/six layouts and JSON26groups/11workers/21Sends pass, all terminal0/native-hidden/visible:false. Current697-source/build/payload/order/destination/timer/geometry audits and owned cleanup pass; current760images inspected, headless workspace11 passes. No UI/CSS/dependency/bounds/global-prototype change. Native timings include UI/CDP; all expressions/tree shapes/template Send/namespace mapping/OS/accessibility/streaming/platform and every remaining original migration/shared UI/UX/CSS gate remain required. Commands/failures/limits: [RESPONSES.md#record-xpath-performance](RESPONSES.md#record-xpath-performance).
+
+2026-10-10 mounted XPath/XML response: saved native scenario passes36groups/58real bundled workers/22HTTP Sends, seven literal selections, MIME/declaration/namespace, Pretty/Raw/reload/Clear, mixed-content preservation, match-count and real flat-sibling deadline refusals, controlled cancellation/faults and six dark-light layout profiles. Current694source/executable20458ce2/payload/base64/meta/timer/geometry audit, compiler0/0 and owned cleanup pass; terminal0/native-hidden/visible:false. Application/CSS unchanged, verified production release reused. Flat-sibling performance (Bun diagnostic84222.954ms), XML Copy/Save boundaries, namespace mapping UI, OS/accessibility/streaming/platform and every remaining migration/shared UI/UX/CSS gate stay required. Evidence, commands and retained first fixture failure: [RESPONSES.md#record-xml-response-filter](RESPONSES.md#record-xml-response-filter).
+
+2026-10-10 response Copy/Save feedback: retries clear prior errors; current owner/operation guards suppress late completions and old success timers, with role=alert errors. Fresh production native feedback23 groups/47controlled boundaries/5HTTP Sends, tools9 groups/6responsive profiles and corrected filter26 groups/11real workers/21Sends pass, all terminal0/native-hidden/visible:false. Compiler0/0, current692-source/build/payload/destination/timer/restoration audits and owned cleanup pass. Feedback/tools evidence precedes an explicit default-only fixture correction; unchanged application/helper/executable are verified. Headless workspace11 also passes. Actual OS boundaries, keyboard/assistive technology, mutable streaming-body cases, XPath/XML and every remaining migration/shared UI/UX/CSS gate remain required. Exact evidence, retained failure and commands: [RESPONSES.md#record-response-feedback](RESPONSES.md#record-response-feedback).
+
+2026-10-10 response tools: current saved native extension94277 passes9groups/3HTTP Sends, causal body replacement, displayed Copy/original152byte Save boundaries, history capacity/reload and six dark-light responsive profiles. Compiler0/0, current691source/executable audit, adapter restoration and owned cleanup pass; terminal0/native-hidden/visible:false. App/CSS unchanged,760images inspected. Feedback recovery/late operation ownership, actual OS boundaries, XPath and every remaining migration/UX/CSS gate stay required. Evidence/commands/failures/limits: [RESPONSES.md#record-json-response-tools](RESPONSES.md#record-json-response-tools).
+
+2026-10-10 mounted JSON response filter: saved native scenario passes 26 groups, 11 real bundled workers and 21 HTTP Sends; actual terminal0/native-hidden/visible:false. Exact Pretty/Raw numeric text/body/base64, JSONPath selections/refusals, metadata/reload and controlled cancellation/faults pass. Compiler0/0, current690 source/executable identity audit and owned cleanup pass. App/CSS unchanged. Body replacement, copy/download/history-capacity/theme-width/OS/XPath and all remaining migration/UX/CSS gates remain required. Evidence/commands/limits: [RESPONSES.md#record-json-response-filter](RESPONSES.md#record-json-response-filter).
+
+2026-10-10 collection ancestry index: saved CPU profile maps95.305% of a38.096s collection-switch sample to repeated workspaceFor lookups. Shared iterative index preserves topology semantics and derived reactivity;316model/10reactive/11preview checks/compiler0/0 pass. Fresh production6610/native fullXML83428 accepts18groups/6workers, larger8316resource dataset and1357.2ms cancellation vs34970.5ms baseline; Runner30305 accepts2exact choices/8states/4HTTP Sends/1held cancellation/dark-light3widths. Independent current688source/full-field Git/timer/destination/build/executable audit and owned cleanup pass; all handles terminal/native-hidden/visible:false. UI/CSS retained. General performance and every full migration/UX/CSS gate remain required. Exact commands/evidence/failures/limits: [COLLECTIONS.md#record-collection-index](COLLECTIONS.md#record-collection-index).
+
+2026-10-10 mounted XML request formatter: composite saved native acceptance covers3real bundled-worker MIME workflows with exact body/full-field Git/Undo/Redo/reload,6controlled faults,3real refusals and6causal cancellation boundaries with unchanged destination editor/request. Compiler0/0, independent current684source/executable/build8123 audits and owned cleanup pass; accepted runs terminal0/native-hidden/visible:false. Collection switch took34970.5ms and responsiveness remains REQUIRED; cancellation acceptance does not accept performance, actual hung workers or OS-close. No app/CSS change or full migration claim. Exact commands, retained failures and limitations: [RESPONSES.md#record-xml-request-format](RESPONSES.md#record-xml-request-format).
+
+2026-10-10 shared dialog backdrop: semantic tint/filter tokens preserve defaults and support central blur opt-out. Headless24fixture/10actual application dialogs/compiler0/0 and fresh production build8123/native theme34598 pass10dialog profiles/12retained workflow captures/fonts/locked recovery/unchanged HEAD. Independent current682/executable/default-override-none-restored audit and owned cleanup pass; all feature handles terminal0, native rendering native-hidden/visible:false. Other adoption/ownership/literal/platform/accessibility/full UX/CSS and every original migration gate remain required. Exact evidence/commands/limits: [UI-DESIGN-SYSTEM-DEBT.md#record-dialog-backdrop](UI-DESIGN-SYSTEM-DEBT.md#record-dialog-backdrop).
+
+2026-10-10 read-only request samples: existing skipReadOnly policy now applies before impossible-branch checks, with bounded direct/allOf annotations through expanded references. Headless253/static83/dynamic75/serialized/named/compiler0/0 pass. Fresh production build14976 accepts focused modern39groups/30wire/9refusals plus retained3.0.3four wire/12layout; all four native handles terminal0/native-hidden/visible:false. Independent complete source/raw bytes/all139generated bodies/full-field Git286/current682/executable audits and owned cleanup pass; no live handles. Focused native Sends do not prove every generated operation. Conditional/alternative/instance-dependent annotations and every original migration/UX/CSS gate remain required. Exact commands, evidence and limits: [API-DESIGN.md#record-openapi-readonly-sampling](API-DESIGN.md#record-openapi-readonly-sampling).
+
+2026-10-10 boolean schemas: typed true/false targets, standalone attachments and generated/explicit JSON samples preserve authored source and worker identity; impossible required values retain durable Settings review through canonical Git. Headless 175 plus static 83/dynamic 75/serialized/named regressions and compiler 0/0 pass. Fresh frozen production native 3.1.0/3.2.0/3.2.1 accepts 100 groups, 56 exact wire and 44 durable-only refusals; retained 3.0.3 adds 4 wire/12 layout/4 loading/4 management/2 worker literal checks. Independent whole-source/raw-byte/full-field Git/build/current-682 audits and owned cleanup pass; all native handles terminal0/native-hidden/visible:false. No CSS/CSP change or full schema/migration claim. Remaining dialect/vocabulary/URI/performance/instance-validation and every original migration/UX/CSS gate stay required. Exact commands, failures, evidence and limits: [API-DESIGN.md#record-openapi-boolean-schema](API-DESIGN.md#record-openapi-boolean-schema).
+
+2026-10-10 dynamic schema sampling: authored graph and cloneable bindings preserve per-operation outermost/branch scopes, static fallbacks and sibling constraints. Headless75/current676 hashes/compiler0/0/fresh production build pass; native3.1.0/3.2.0/3.2.1 each12wire (6dynamic) plus3.0.3 retained4, total40wire/18dynamic/48layout. Independent complete source/reference/bytes/full-field Git/build/raw geometry audits and owned cleanup pass. Attached dynamic/recursive/lexical cases are headless coverage. No CSS changes or full schema/migration claim; boolean refs, dialect/vocabulary/URI and every original migration/UX/CSS gate remain required. Exact commands/evidence/limits: [API-DESIGN.md#record-openapi-dynamic-schema](API-DESIGN.md#record-openapi-dynamic-schema).
+
+2026-10-10 static schema resources: typed traversal resolves canonical/nested$id, scoped$anchor and static$ref to$dynamicAnchor, including attached/retrieval/recursive resources and escaped/ref-named pointers. Own-property target checks precede Scalar; authored source/literal identifiers stay intact. Saved headless83 (46positive/37negative), retained8byte/68controls+168/11/8 and named108/28/6, compiler0/0 pass. Fresh frozen production native3.1.0/3.2.0/3.2.1 each6wire plus3.0.3 retained4: total22wire/6new schema/48layout/16loading/16management/8worker literal checks. Independent full authored-source/canonical Git/build/byte/current672 audits and owned cleanup pass; allhandles terminal0/native-hidden/visible:false. No CSS changes or full schema/migration claim. Dynamic scope, boolean refs, other dialects, unknown vocabularies, broader URI/fragment/resource policies and every original migration/UX/CSS gate remain required. Exact commands/failures/limits: [API-DESIGN.md#record-openapi-schema-resources](API-DESIGN.md#record-openapi-schema-resources).
+
+2026-10-10 literal $ref payloads: typed OpenAPI/Schema traversal protects literal members, preserves JSON order and YAML alias roles, and still resolves genuine references/property names. Headless8byte/68controls (+24 literal-role cases) and retained168/11/8 plus named108/28/6 pass; compiler0/0. Fresh frozen production native four versions pass16wire groups/48layout profiles/16loading/16management/8worker literal checks, with independent source/full-field canonical Git/build/byte audits and owned cleanup. Every handle terminal0/native-hidden/visible:false. No CSS change or broad schema/resource/platform/full migration claim. Exact commands/evidence/limits: [API-DESIGN.md#record-openapi-literal-references](API-DESIGN.md#record-openapi-literal-references). Schema IDs/anchors/dynamic refs, broader URI/fragment/charset/resource and every original migration/UX/CSS gate remain required.
+
+2026-10-10 OpenAPI3.2 declared document bases: root and attached complete
+OpenAPI documents resolve description references/external examples through $self;
+asset lookup/refresh share that base and canonical document collisions refuse.
+Authored source/ref text stays intact; incomplete-source attachment preparation
+remains available. Headless8byte/44controls plus retained168/11/8 and named108/28/6
+pass. Fresh frozen production native3.2.0/3.2.1 passes6wire groups/24layout profiles/
+8loading8management4worker literals, canonical Git/source/build/byte audits and
+owned cleanup; both handles terminal0/native-hidden/visible:false. No CSS changes
+or broader URI/platform/full migration claim. Exact commands/evidence/limits:
+[API-DESIGN.md#record-openapi-self-base](API-DESIGN.md#record-openapi-self-base). Schema IDs/anchors/dynamic refs, broader
+URI/fragment/charset/resource and every original migration/UX/CSS gate remain required.
+
+2026-10-10 native custom-method named examples: saved raw-TCP scenario passes
+12cases/34operation-scoped choices across3.2.0/3.2.1. Fixed GET and additional
+lowercase get independently select same-named path/query examples; QUERY/COPY/
+custom-METHOD/M!x retain exact methods and selected JSON bodies. Source/preferences,
+canonical Git/provenance, resource preservation/reload-without-resend, current
+668source/executable hashes and owned cleanup audits pass. Both handles terminal0/
+native-hidden/visible:false; app/CSS unchanged, production build explicitly reused.
+Compiler0/0. Actual760 images show method headings; no new control geometry/full
+layout claim. Exact commands/artifacts/limits: [API-DESIGN.md#record-named-method-examples](API-DESIGN.md#record-named-method-examples).
+All original external/URI/charset/schema/resource/provider/platform/migration/UX/CSS
+gates remain required.
+
+2026-10-10 named-example levels/source recovery: saved headless108checks/28controls
+and6control profiles pass, including24 modern root/media data/serialized/external
+cases with same-named refs/source preservation. Four current native versions
+pass26Sends/44generated requests/24profiles/4worker refusals without writes,
+then correction/regeneration preserves original resources and sends exact JSON.
+Source edit/Git/reset, current668 app/scenario hashes, exact executable SHA and
+owned cleanup audits pass; all actual handles terminal0/native-hidden. App/CSS
+unchanged from3cdbd18; accepted production release reused with proven hash identity.
+Compiler0/0, formatting/whitespace pass. Exact artifacts, retained first fixture
+Git-metadata failure, commands and limits:
+[API-DESIGN.md#record-named-example-recovery](API-DESIGN.md#record-named-example-recovery).
+All original migration/OpenAPI/UX/CSS/provider/platform gates remain required.
+
+2026-10-10 OpenAPI named examples: operation-scoped parameter/body choices and
+body MIME selection use shared controls, persist with the document and retain
+request provenance without modifying authored source/shared refs. Headless84
+checks/28specific refusal controls/6control profiles and frozen production-profile
+native20requests/24profiles across3.0.3/3.1.0/3.2.0/3.2.1 pass. Native includes
+worker/persistence/reload/reset/Git/exact payload capture; modern versions also
+send selected serialized JSON/whole-query. Independent source/build/bytes/Git
+and owned cleanup audits pass, every scenario handle terminal0/native-hidden.
+Compiler0/0; retained serialized/layout24 and formatting/whitespace pass.
+Static inventory58Svelte/681shared/117tokens/1728CSS declarations (+9shared sites,
+no new raw/style owner). Exact commands/artifacts/failures/limits:
+[API-DESIGN.md#record-openapi-named-examples](API-DESIGN.md#record-openapi-named-examples).
+All original migration/OpenAPI/UX/CSS/provider/platform gates remain required.
+
+2026-10-10 API Design attachment layout: bounded setup scrolling and API-only
+minimum split sizing preserve usable source/preview with expanded examples/refs.
+Saved headless24 count/theme/width/height profiles and fresh native12 geometry/
+keyboard-focus profiles pass, including600px height and760px width. Native
+3.2.1 retains3byte request groups/4loading controls/management/refs/worker literals/
+reload/Git; terminal0/native-hidden/visiblefalse, source/build/bytes/geometry
+audits and owned cleanup pass. Compiler0/0; shared sites/tokens unchanged672/117,
+feature CSS declarations+10 (1728total). Source preserved throughout fresh build
+and native acceptance. Failures, exact artifacts, viewport scope and commands:
+[API-DESIGN.md#record-api-design-layout](API-DESIGN.md#record-api-design-layout).
+Full original migration/OpenAPI/UX/CSS/provider/platform gates remain required.
+
+2026-10-10 OpenAPI external example byte assets (release0c2b79e): explicit local/HTTP(S) loading
+preserves body bytes and UTF-8 query representation, with cancellation and
+document-switch guards. Current typed-Object source and saved scenario are
+accepted on production-profile build2203 across3.2.1/3.2.0/3.1.0/3.0.3:
+12 request groups,16 loading controls,16 asset-management actions and8 worker
+literal assertions. Independent bytes/SHA/source/reference/Git/build audits pass;
+all scenario handles terminal0/native-hidden, owned processes/listeners gone.
+Headless8+30 plus retained168+11+8/editor/body-Git pass; compiler0/0.
+Static inventory57Svelte/672shared/117tokens/1718declarations; no new feature CSS.
+Exact source/build/artifacts, failures, commands and limits:
+[API-DESIGN.md#record-openapi-external-examples](API-DESIGN.md#record-openapi-external-examples).
+The760px attachment compression recorded for that release is resolved by the
+subsequent layout topic linked above. Full OpenAPI parity and every original
+migration/UX/CSS/provider/platform gate remain required.
+
+2026-10-09 FilePicker concurrent reset: older async callback completion no longer
+erases a newer pending file. Saved controlled headless12 (six theme/width profiles
+with both reset policies), retained full design-system and fresh native16/20MiB
+selection/persistence/reload/wire checks pass. Compiler0/0, native-hidden/terminal0,
+source/build/expected-hash audit and owned process/listener cleanup pass. Exact
+retained baseline/native action timeout, corrected waits and scope limitations:
+[UI-DESIGN-SYSTEM-DEBT.md#record-file-picker-concurrency](UI-DESIGN-SYSTEM-DEBT.md#record-file-picker-concurrency). Original migration and
+full UI/CSS/workflow/platform/provider gates remain required.
+
+
+2026-10-09 filled foreground tokens: Primary/Send/brand, Danger hover/focus and
+success/failure badges consume centralized on-accent/on-danger/on-success.
+Optional focus-danger-text retains explicit override priority with scoped fallback.
+Headless66/actual frontend26/native52 measured global/scoped/restoration rows pass;
+native1791559328466 is terminal0/native-hidden/visiblefalse, with12 workflows/
+10dialogs, unchanged Git HEAD, independent source/build audit and owned cleanup.
+Compiler0/0. Exact corrected responsive-brand test failure, artifacts and limits:
+[UI-DESIGN-SYSTEM-DEBT.md#record-filled-foreground](UI-DESIGN-SYSTEM-DEBT.md#record-filled-foreground). All original migration/UX/CSS and
+remaining adoption/ownership/provider/platform gates stay required.
+
+
+2026-10-09 shared Field descriptions: Input/Textarea/Select/Checkbox/FilePicker compose caller aria-describedby with reactive Field description/error IDs through one helper; stable reading order, deduplication and empty caller help retain validation feedback. Saved headless130 across5 controls/4 states/6 profiles and caller removal/replacement pass; independent120 raw-row audit and7 source hashes match. Native theme1791557144758 passes12workflows/10dialogs/6 Field+12 form profiles, terminal0/native-hidden/visiblefalse, unchanged Git HEAD and owned cleanup; relevant dark/light images inspected. Compiler0/0 and formatting pass. Body/Git dependency committed separately in a752707. Exact scope/commands/failures/limits: UI-DESIGN-SYSTEM-DEBT.md#record-field-descriptions/STATUS.md. Full migration/UX/CSS and remaining accessibility/platform/adoption/ownership gates stay required.
+
+2026-10-09 RequestEditor Body type/Git fix: clearing optional body properties now deletes keys rather than retaining undefined in live state, so immediate Git snapshots succeed without reload; unrelated fields remain and codec stays strict. Mounted ordinary/serialized/cURL to Text/GraphQL6 and retained168+11+8 pass, independent Git audit preserves rejection of unknown undefined values, compiler0/0. Fresh native theme1791557144758 passes12workflows/10dialogs with Git HEAD unchanged, terminal0/native-hidden/visiblefalse and owned cleanup; seven-source audit passes. Tested release includes pending Field composition topic; exact source/failures/commands/limits: GIT.md#record-request-body-git/STATUS.md. Every original migration/UX/CSS gate remains required.
+
+2026-10-09 OpenAPI3.2 serializedValue: authored parameter/media text retains raw HTTP representation and editable metadata across query/whole-query/header/path/cookie/body; body-type changes clear metadata. Frozen release1791550545542 accepts native3.2.1/21 and3.2.0/21, each3 editor/refusal/recovery controls and24 independent standard Hawk/OAuth1 signatures, terminal0/native-hidden/visiblefalse. Independent wire/source/editor/signing identity/recovery audits and owned cleanup pass; all8 actual760 help images inspected. Headless168+11+8, Git42, retained dataValue160/Git40/legacy24, whole-query60+4, legacy OAuth3 and compiler0/0 pass. Generation recovery1 per version; selection0; import-dialog timeout recovery branch not exercised in passing3.2.0. Exact commands, retained failures, differing harness revisions and limits: API-DESIGN.md#record-openapi-serialized-example/STATUS.md. Every remaining original migration/UX/CSS gate remains required.
+
+2026-10-09 OpenAPI3.2 dataValue selection: explicit data-form examples preserve false/zero/empty/null/arrays/objects before schema sampling, with media-first choice and3.2 parameter-level content fallback. Frozen release1791545416430 accepts saved native3.2.1/20 and3.2.0/20, both terminal0/native-hidden/visiblefalse, independent literal wire audits and owned cleanup complete. Generation recovery1 per version is checked against accepted source identity; selection recoveries0. Direct selection12/preflight160/Git40/legacy24 and compiler0/0 pass. Exact commands/artifacts/harness corrections/limits: API-DESIGN.md#record-openapi-data-value/STATUS.md. Only data-form selection is verified; serializedValue wire/external examples/precision/full schemas/media/bytes/provider/platform and all original migration/UX/CSS gates remain required.
+
+2026-10-09 OpenAPI3.2 whole-query parameters: one editable label row supports application/json, UTF-8 text and form media, represented-empty query versus nullable omission, inherited-parameter exclusivity and persistent review/runtime refusal. Frozen release1791535554156 accepts native3.2.1/25 and3.2.0/25 (50groups/36targets/14refusals), signing165targets/158signatures/8checks, and retained named-query3.2.1/44. All terminal0/native-hidden/visiblefalse, independent audits and owned cleanup complete; ten actual760px help images inspected. Saved headless60 composer+4malformed controls, direct112 preflight/boundary7/Git7/refusal7/inheritance4/signing12/malformed4 and compiler0/0 pass. Signing audits recompute80 new whole-query and32 retained ordered signatures plus4API-key/8legacy refusal controls. Exact commands, artifacts, retained failures, helper correction and limits: API-DESIGN.md#record-openapi-querystring/STATUS.md. Modern examples/bytes/media/schema/saved-resource/provider/platform and all original migration/UX/CSS gates remain required; redesign follows full migration.
+
+2026-10-09 OpenAPI3.2 QUERY/custom operations: analysis/preview/generation preserves exact custom method case and additional source identity, with path-parameter validation/source diagnostics and duplicate operationId checks. Release1791530305299 accepts native methods6/5JSON bodies plus query3.2.1/44groups, both terminal0/native-hidden/visiblefalse/exit0, independent audits and owned cleanup. Three actual760 images inspected; direct12/Git12 across3.2.0/3.2.1, negative11, compiler0/0 and formatting pass. QUERY/custom capability is verified; broader OpenAPI/provider/proxy/Auth/HTTP2/platform/full migration/UX/CSS gates remain required. Exact commands, retained failure and superseded build: API-DESIGN.md#record-openapi-methods/STATUS.md.
+
+2026-10-09 mixed query row order: enabled manual/generated rows now retain displayed order, duplicate keys, represented empty values, blank names and nullable omission across legacy/standard encoding and cURL contexts; API-key append preserves preceding raw query. Fresh production release1791522146028 accepts URL85targets/78independent signatures/7checks/8legacy OAuth1 refusal and explicit RFC recovery controls, plus generated-query3.2.1/44groups (33generated+11edits,5refusals). Both terminal0/native-hidden/visiblefalse/exit0 with independent saved-wire audits and owned process/profile/listener cleanup. Both actual query-help760 images inspected; selection recoveries0 in the accepted query run (timeout recovery branch not exercised). Compiler0errors0warnings and direct8/boundary8/legacy52/style132/preflight82 checks pass. Exact source, commands, retained failures and limits: docs/migration/HTTP.md#record-query-row-order and STATUS.md. Only the mixed-query gate is closed; every remaining original migration/provider/platform/UX/CSS gate stays required.
+
+2026-10-09 UTF-8 text parameters: query/header/path/cookie scalar content retains original media metadata and raw versus nullable editor semantics. Frozen production build1791510352616 accepts focused native323 (main295 +raw28), with independent audits, owned cleanup and eight actual light760 images inspected. Compiler0/0, inline488/Git488/direct48/raw-edit48/form-cookie252 and headless78rows6profiles pass. Cookie55/artifact1791517344223 is terminal0/passed with independent audit, jar restoration and owned cleanup. URL77518/artifact1791519298954 is terminal0/passed:53raw targets50independent signatures5checks; an independent saved-wire audit recomputes all4text-query signatures. Native42636 exit0/native-hidden/visiblefalse with owned processes/profile/listener55826 released. This scalar text feature is verified in implementation topic b02386b (supporting helper e5b4cbb). At the UTF-8 text checkpoint, mixed manual/generated query row order was still REQUIRED; the later HTTP.md#record-query-row-order evidence above closes that specific gate. Exact evidence/failures/commands/limits: API-DESIGN.md#record-openapi-text-content and STATUS.md. All original full migration/UX/CSS gates remain required.
+
+
+2026-10-09 text form media: validated text/plain case and single UTF-8 charset variants preserve original row metadata/help and unquoted scalar/repeated array behavior. Malformed/list/duplicate or non-UTF8 charsets/compound/binary guards remain. Fresh release1791506667570 accepts focused native form100 (casePrefix=text-media-,25 per4versions), including20 reviewed refusals20disable4edits36runtime controls; independent fixture audit passes. URL49raw targets46independent signatures includes4 new text-content HMAC-SHA1/SHA256 legacy/standard controls. Both terminal0/native-hidden/visiblefalse/exit0 with cleanup; all4 text760 images inspected. Compiler0/0, inline539 generation/composition72refusals/Git539/4edits, parser200equivalence12text3direct1nullable1binary2long controls, metadata40 and headless66 measured editor rows6profiles pass. Focused100 does not prove unfiltered272 groups. Exact standards/commands/limits: API-DESIGN.md#record-openapi-text-form-media/STATUS. Non-UTF8/all text locations/older array-provider interoperability/saved-resource policy and every original migration/UX/CSS gate remain required.
+
+
+2026-10-09 JSON request-body media: shared validated MIME recognition preserves application/json case/parameters, generic +json and legacy text/json body representation while field content rules remain strict application/json. Canonical/variant/suffix JSON preference, editor mode/Format JSON and schema-free text handling agree; misleading json substrings remain non-JSON. Fresh release1791503770124 accepts saved native JSON body84 groups across4versions (21each), terminal0/native-hidden/visiblefalse/exit0 with cleanup; all8 quoted/suffix760 images inspected. Compiler0/0, inline80body419fields52refusals, full-field Git499 and parser68strict10body pass. Fresh binary21 groups and URL45raw targets42independent signatures pass on the same release, terminal0/native-hidden/visiblefalse/exit0 with cleanup. All feature-owned handles are terminal. Saved command: bun tests/ui/openapi-json-body.js after the shared fresh build. Exact sources/commands/limits: docs/migration/API-DESIGN.md#record-openapi-json-body and STATUS.md. Every original full migration/UX/CSS gate remains required.
+
+
+2026-10-09 JSON media recognition: form fields and query/header/path/cookie content retain legal application/json case/parameter variants and original metadata. Fresh production form208 across4versions, content239 across3versions and URL45raw targets42independent signatures pass terminal native-hidden/visiblefalse/exit0 with cleanup. Compiler0/0, inline419wire419Git52refusals24parser4quoted-pair36versioned-array controls and headless60help6profiles pass. Exact release/evidence/limits: STATUS/API-DESIGN.md#record-openapi-json-media. Whole-body MIME selection, text/suffix/ranges/media/schema/saved-resource/provider interoperability and every original full migration/UX/CSS gate remain required.
+
+2026-10-09 versioned JSON-array form content: earlier3.0/3.1 content mode preserves the whole JSON array and represented empty array;3.2 retains per-item encoding. Older rule follows documented content-parameter equivalence interpretation; text-array/provider/raw interoperability remains open. Production release1791492118810/finished1791492493741/result0 accepts native form1791492503995/180 (49/49/34/48), plus URL1791494391567/45raw targets42independent signatures including4whole-array OAuth1 cases. Both terminal passed/native-hidden/visiblefalse/exit0; owned processes/profiles released. Compiler0/0/inline135wire135Git8refusals8lexical-empty controls/retained headless54help6profiles/format pass; current3.1 nullable and3.2 item images inspected. Exact rules/commands/evidence/remaining full migration/UX/CSS scope: STATUS/API-DESIGN.md#record-openapi-form-json-array. Saved-resource policy/text arrays/binary/media/schema/provider/platform and all original PLAN/PARITY gates remain required.
+
+2026-10-09 OAS3.0 contentType clarification: generation adopts the3.0.4 recommendation for3.0.3/3.0.4, keeps explicit RFC6570 styles, guards legacy byte/binary and retains nullable JSON media guidance. Production release1791489924836/finished1791490302230/result0/hash9617389091871754207 accepts native form1791490308816/98 cases (49/49), terminal passed/native-hidden/visiblefalse/native52400exit0. Earlier planned108 was incorrect; actual artifact and saved scenario agree98. Full saved scenario defines180 (49/49/34/48), not190; modern native results remain historical. Compiler0/0, inline135generation135Git8refusals1edit4omitted-encoding, headless54help6profiles and format pass. Exact primary references/evidence/limits: STATUS/API-DESIGN.md#record-openapi-form-legacy-content. Older content-array mapping/raw provider interoperability, saved generated resources, binary/base64/full schemas/media and every original migration/UX/CSS/PLAN/PARITY gate remain required.
+
+2026-10-09 OAS3.0 default form capability: editable rows now preserve form/explode:true metadata for empty/absent encoding fields, with repeated arrays, flat-object member expansion and null/empty omission. Unsupported nested/binary values refuse even after explicit request review. Current production form1791488554266/35 passes for3.0.3 only, native-hidden/visiblefalse/exit0; compiler0/0/inline88composition88Git1edit2omitted-encoding/retained headless48help6profiles/format pass. Actual default760 editor image inspected. Explicit3.0 media/contentType, saved-generated-resource policy and every original full migration/UX/OpenAPI/provider/platform gate remain open. Exact rules/commands/evidence: STATUS/API-DESIGN.md#record-openapi-form-defaults.
+
+2026-10-09 OAS3.2 explicit form style items: generation preserves per-item metadata and applies style expansion to each array item;3.0/3.1 unchanged. Explicit false deepObject expands correctly, undefined scalar space/pipe item styles refuse even after review, and edited scalar numbers preserve lexemes. Current production native form102/query44/URL41targets38signatures (4new item form cases) pass terminal native-hidden/visiblefalse/exit0; compiler0/0/headless48help6profiles/inline76wire76Git1edit/format pass. Exact release/source/scope: STATUS/API-DESIGN.md#record-openapi-form-style-items. Saved generated resource policy and every original full migration/UX/OpenAPI/provider/platform gate remain open.
+
+2026-10-09 modern form content/defaults: JSON/text properties retain editable media metadata, default objects support nested JSON and arrays produce repeated item names. Existing lexical JSON compaction plus validated item splitting preserve edited integer/exponent/escape spelling; linked media help reuses Feedback/grid with no CSS/backend/dependency change. Production release1791482486447/1791482863725/result0 accepts form88 across3.0.3/3.1.2/3.2.1, query44 and URL37targets/34independent signatures including4JSON-content/4style form cases. All native terminal hidden/visiblefalse/exit0; compiler0/0, headless42help6profiles, inline65wire65Git9controls and format pass. Exact evidence/limits: STATUS/API-DESIGN.md#record-openapi-form-content. OAS3.0 defaults,3.2 explicit-style item semantics, binary/media/multipart/full schemas/provider/platform and every original migration/UX/CSS gate remain required.
+
+2026-10-09 explicit form-body Encoding Object styles: editable flat JSON rows preserve style/explode/allowReserved metadata; query/form share RFC6570 expansion with destination-owned atom encoding. Form protects literal &=+, ordinary manual rows keep URLSearchParams, and linked help keeps existing layout. Production release1791480370156/1791480783337/result0 accepts form60 across3.0.3/3.1.2/3.2.1, query44 and URL33targets/30 independent signatures including4form OAuth1 cases. All terminal native-hidden/visiblefalse/exit0; compiler0/0/headless36help/inline45form45Git99query/format pass. Exact evidence/limits: STATUS/API-DESIGN.md#record-openapi-form-body. Default/content-based form bodies, arrays/media/binary/multipart/full schemas/Swagger/provider/platform and every original migration/UX/CSS gate remain required.
+
+2026-10-09 raw binary request bodies: OAS3.0 binary schemas and modern schema-less raw file media retain selected MIME with body.binary=true. Existing picker/late-selection/template-upload/transport paths share one predicate; manual Content-Type precedence remains, and changing body type clears explicit binary mode. Fresh production release1791478485955/1791479037902/result0/hash10572976255433141081 accepts binary1791479046614/21 groups across3.0.3/3.1.2/3.2.1, cURL file1791479287906/5modes4checks and mixed1791479337589/6checks; all native-hidden/visiblefalse/exit0. Compiler58610 terminal0/0errors0warnings, headless design-system65886, inline15 media +15Git round trips +8controls and format/diff pass. Exact scope/evidence: STATUS/API-DESIGN.md#record-openapi-binary-body. Other media/body/schema/encoding/Swagger/provider/platform and every original owner-approved migration/UX/CSS gate remain required.
+
+2026-10-08 compact feedback ownership: Feedback owns compact zero margins/line-height; Field uses SMALL Feedback for descriptions/errors and removes its duplicate rule. Compound query hint explicitly separates sentences. Final production release1791476676475/1791477053177/result0 accepts query44 (3.0.3) and Preferences Field6 profiles plus existing native theme/workflows; headless60 tag/tone cases/6 reactive Field profiles/30 exact help rows/12 multipart pairs and compiler0/0 pass. Native hidden/exit0, no live handles. Exact baseline, superseded runs, final source hash and limits: STATUS/UI-DESIGN-SYSTEM-DEBT.md#record-compact-feedback. All remaining owner-approved migration/UX/CSS/OpenAPI/TLS/Git/storage/CI/release/desktop/platform gates remain required.
+
+2026-10-08 query schema allowReserved: generator/serializer retain reserved syntax and valid percent triples, encode query-invalid/control/malformed data, and preserve strict root names. Shared KeyValueEditor now stacks linked help below full-width values with aligned row controls. Final production release1791471551768 accepts query44x3 versions (132), nullable50, and URL29 targets/26 independent Hawk/OAuth1/AWS signature cases; headless design-system6 profiles/30 rows/12 multipart pairs and compiler0/0 pass. Saved signing verifier separates query at the first question mark. Exact evidence, retained failures and unchanged remaining full migration/UX/OpenAPI gates: STATUS and API-DESIGN.md#record-openapi-allow-reserved. Browser scenarios remain headless:true; native hosts remain native-hidden.
+
+2026-10-08 query wire conformance correction: supported pipe/deepObject styles
+encode URI-illegal structural delimiters; names/data and persisted metadata kept.
+Production native21 groups×3 versions, nullable50 and URL5checks/23targets/20Hawk
+regressions accept actual raw wire/resource/reload behavior; compiler/inline/Git/
+composition/format pass. Previous raw style examples are historical, not current
+conformance evidence. See STATUS/OPENAPI-QUERY-URI-ENCODING/UI-TESTING; every
+remaining original OpenAPI/provider/platform/migration/UX gate stays required.
+
+2026-10-08 shared validation hover capability: actual Field error borders on
+standard Input/Select/Textarea survive hover and keyboard focus; clearing errors
+restores normal border states. Headless6 profiles/108 color/geometry/pointer
+measurements plus current production native theme/workflow regression pass,
+with compiler0/0 and unchanged original scope. Standard component styling is
+verified; broader domain validation, variants, OS/platform/full debt/migration
+remain open. Exact evidence and limits in STATUS/UI-TESTING.
+
+2026-10-08 inline name persistence capability: unchanged/normalized-equivalent drafts and Escape cause no save; genuine edits save once with existing trimming/blank fallback. Headless18 and production native60 HTTP/GraphQL/SSE/WebSocket groups verify callback/real IPC counts, exact workspace/timestamps/reload/Git snapshots/network0/unchanged HEAD. Native-hidden/terminal0/exit0, compiler0/0 and workspace regression accepted; see STATUS/UI-TESTING for evidence. No full migration, gRPC rename or broad concurrency/platform completion claim.
+
+2026-10-08 shared focus surfaces: owner outline-free policy retained. One focus.css owner and six semantic theme tokens centralize native/shared surface and valid-control border feedback, primary/Send/secondary/danger variants, visible file wrapper and URL composition. Hover and selected vertical-tab styling no longer override keyboard focus; invalid borders preserved. Headless design-system12 horizontal/vertical dark/light1440/900/760 profiles ×18 enabled controls verifies combined hover/focus/default/six overrides/restoration/no outlines/shadows/geometry change, with existing field/file/tab/dialog contracts. Actual headless application theme85167 passes unchanged no-outline URL contract. Production release1791460819509/1791461231950/result0/hash14143658787539048835/native1791461477780 accepts18 actual Preferences/HTTP URL/Cookie focus profiles with exact full workspace guards, plus12 workflows/10 dialogs/6 Button/6 Select/12 form geometry profiles/fonts/author validation/locked recovery/unchanged HEAD. Compiler66452 terminal0/0errors0warnings, format/diff pass; native-hidden/native43356exit0/no live handles, dark/light760 URL PNGs inspected. This does not close full UI debt/WCAG/high-contrast/native picker/OS/provider/platform/full migration gates. Original owner no-outline source, superseded failures and exact handoff in STATUS.
+
+2026-10-08 OpenAPI JSON parameter content: editable application/json parameters now retain nested JSON, represented null/empty containers and exact edited integer/exponent/escape lexemes across query/header/path/cookie. Unrestricted schema{} accepts changed JSON kinds; typed container guards remain, with linked JSON/review help and pre-network unsupported-media/invalid-Cookie refusal. Fresh production release1791455660166/1791456167122/result0/hash14143658787539048835; native1791456174189 accepts203 (162 generation across3.0.3/3.1.2/3.2.1 +41 edit/refusal/disable/help/type/lexeme controls). Same-release query1791457279115 accepts18/header1791457404428 accepts17/path1791457506475 accepts48/cookie1791457762109 accepts55/nullable1791458082613 accepts50/URL1791458315924 accepts5checks+23targets+20signature cases. All terminal0/native-hidden/visiblefalse/exit0/owned listeners closed/cookie jar restored; no live handles. Compiler0/0, headless design-system, inline162 +162 Git round trips +48 unrestricted edits +24 exact lexical controls +2 whitespace/escape controls and formatting/diff pass. OpenAPI remains PARTIAL: other media/body/allowReserved/Swagger/lint/advanced refs/external examples/name/version/provider/platform and full JSON Schema/union validation/spec-example numeric precision remain required, alongside every original migration/UX/CSS/TLS/Git/recovery/CI/release/distribution/OS gate. Exact baseline/superseded170/current evidence in STATUS.
+
+2026-10-08 shared form geometry: eight foundation tokens centralize standard control padding/line-height, Checkbox size, Field gaps and inline/dropzone FilePicker metrics, preserving defaults and explicit variant padding. Old Input override8/11vs6/17 failure retained; compiler0/0/headless design-system6 and actual theme regression pass. Fresh production release1791450919839/1791451297762/result0/native1791451311699 accepts12 actual Editor Preferences/cookie profiles (dark/light1440/900/760),6 Button/6 Select profiles,12 workflows/10 dialogs, exact no-workspace-mutation/fonts/locked recovery/unchanged HEAD; native-hidden/terminal0/exit0/no handles. Native restored cookie images inspected. Headless file geometry is not native OS-dialog acceptance; full UI debt/workflow/platform and original migration/UX gates remain required. Exact evidence and compact handoff in STATUS.
+
+2026-10-08 OpenAPI cookie capability: generated editable nullable rows now send form scalars/raw text/plain and3.2 cookie-style exploded flat compounds with RFC6265 delimiters/octet validation. Fresh production release1791449496842/1791449868620/result0/native1791449875115 accepts55 generation/wire/refusal/edit/jar/manual/API-key/reload groups, including lone-quote refusal and owned-jar cleanup. Same-build nullable50/cURL Cookie6checks/URL5checks+23targets+20signatures pass; all terminal0/native-hidden/exit0/no handles. Compiler0/0/headless design-system/inline/Git/format checks pass. OpenAPI remains PARTIAL: unsupported content/allowReserved/compound form/Swagger/body/lint/advanced schemas/refs/names/duplicate cookie/server/version/provider/platform and all original migration/UX gates retained. Exact failures/evidence/handoff in STATUS.
+
+2026-10-08 shared Button padding ownership: actual old primary override failure7/12vs5/19 reproduced; shared controls now consume existing foundation button-padding with unchanged defaults, explicit Icon/Send/toolbar overrides preserved. Headless6 and fresh production release1791446220301/1791446646549/result0/native1791446699449 accept6 dark/light1440/900/760 profiles (three actual variants each),12 workflows/10 dialogs/6 Select profiles/fonts/locked recovery/unchanged Git HEAD; native-hidden/terminal0/exit0. Compiler0/0/frontend/headless application/format/diff pass; restored native dark/light900px cookie images inspected. Full debt and original migration/UX gates remain required; exact evidence/failure/compact handoff in STATUS.
+
+
+2026-10-08 OpenAPI nullable values: fresh production release1791444668712/1791445297377/result0 accepts50 saved native groups across3.0.3/3.1.2: distinct null/empty/string-null/false/zero and undefined composites, JSON metadata/help/edit/type refusal/persistence/reload. Header17/query18/path48/URL5+23targets+20signatures regressions pass on the same build; terminal0/native-hidden/exit0/listeners closed. Compiler0/0/headless design-system/62 inline+69 regressions/12 Git metadata/format/diff pass. RFC6570/AppendixC omission chosen over conflicting table examples; non-RFC root-null remains review-gated. Advanced schema constraints/nullable unions/version interop and other OpenAPI/full migration/UX gates remain open. Exact evidence and compact handoff in STATUS.
+
+
+2026-10-08 shared Select capability: foundation owns five picker/option/chevron/height metrics, preserving defaults and shared styles. Actual old radius override failure reproduced; headless6/current native1791443414373 accepts6 dark/light1440/900/760 computed-geometry profiles (five controls each),12 workflows/10 dialogs on production release1791442836440/1791443403642/result0. All overrides/tighter viewport/restoration, fonts/locked recovery/unchanged HEAD accepted; terminal0/native-hidden/exit0/no handles. Full shared-input/design-system/migration parity remains PARTIAL: broader popup/fallback/platform/adoption/debt/workflow and all original goals retained. See STATUS/UI-TESTING/UI README.
+
+2026-10-08 OpenAPI3 path capability: simple/label/matrix flat samples now generate typed editable JSON metadata and original brace URLs, with embedded/repeated/static-colon path handling, once-per-name encoding and RFC empty/undefined composites. Native1791441912947 accepts48 raw-target/edit/refusal/resource/reload groups; same release1791441393298/1791441895908/result0 header17/query18/URL5+23targets+20signatures regressions pass. All terminal0/native-hidden/exit0/listeners closed; Git metadata/encoding-off/ordinary-colon inline controls pass. OpenAPI remains PARTIAL: cookie/content/allowReserved/Swagger2/body/lint/advanced names/nullable primitive/general URI/platform/refs and full migration/UX gates retained. See STATUS/UI-TESTING.
+
+2026-10-08 OpenAPI3 header capability: editable typed simple headers serialize flat arrays/objects (including explode), retain raw scalar/data spaces/percent/quotes, and preserve empty/false/zero. Case-insensitive operation override/ignored reserved declarations, invalid edited JSON/nested/control pre-network refusal and disabled omission accepted. Current release1791439799358/1791440247400/result0/native header1791440256027 accepts17 groups, query1791440315599 accepts18, URL1791440366342 accepts5/23 targets/20 signatures, all terminal0/native-hidden/exit0/listeners closed. OpenAPI remains PARTIAL: path/cookie/content/allowReserved/Swagger2/body encoding/lint/advanced refs/platform/native workflow/full migration/UX gates retained. See STATUS/UI-TESTING.
+
+2026-10-08 OpenAPI3 query capability: supported flat query samples now generate and send form (joined/repeated/exploded objects), spaceDelimited, pipeDelimited and deepObject syntax with data encoding distinct from separators. Native1791439102895 accepts18 generation/target/reload/edit/disable/malformed refusal groups; native URL1791439164861 accepts5 existing groups/23 targets/20 signature cases on release1791438573106/1791439011143/result0. All terminal0/native-hidden/exit0/listeners closed; metadata Git encode/decode and undefined/nested review guards verified inline. OpenAPI remains PARTIAL: other locations/path embedding/content/allowReserved/Swagger2/body encoding/Spectral/custom rules/advanced refs/platform/full migration/UX remain required. See STATUS/UI-TESTING.
+
+2026-10-08 shared dialog geometry capability: actual old radius override failure reproduced; foundation tokens now own seven normal/compact/recovery metrics. Headless24 theme/width/variant profiles and actual application dialogs pass. Current production release1791437451796/1791437846049/result0/native theme1791437863369 passes10 actual geometry profiles and12 existing workflow captures, locked recovery/retry and unchanged HEAD, native-hidden/terminal0/exit0. Defaults restored; native compact prompt/platform/OS dialogs/broader style/debt/workflow and original migration/UX gates remain required. See STATUS/UI-TESTING.
+
+2026-10-08 collection CA file capability: current release1791435593819/1791435988025/result0 accepts302 checks: HTTP59 (1791436004764), SSE58 (1791436185162), WSS58 (1791436356490), gRPC97 (1791436535787), WSS multi-identity30 (1791436854053). Actual imported CA paths/metadata/foreign ownership, native mounted controls and Git exclusion verified;15 CA cases per HTTP/SSE/WSS/unary/reflection prove bundle order, replacement of unrelated global trust, actual UnknownCA and bounded pre-TCP failures without fallback, disable/empty/cleared-path recovery. Seven gRPC streams use selected CA with unrelated global trust. All runs native-hidden/terminal0/exit0/settings restored/fixtures closed. Enable toggle intentionally fixes archived consumers ignoring disabled. TLS remains PARTIAL: builtin roots omitted through documented APIs; archived/public/platform/arbitrary chain/provider/proxy/fault/OS-dialog and all full migration/UX/CSS/CI/release gates remain required. Exact source/evidence/handoff in STATUS.
+
+2026-10-08 WSS PFX extra-certificate trust: production release1791433186292/1791433608432/result0 accepts WSS43 (1791433739048), multi-identity30 (1791433973401), SSE43 (1791434084040), HTTP43 (1791434202859) and gRPC67 (1791434319060), all terminal0/native-hidden/exit0/four settings restored/owned fixtures closed. WSS loads deduplicated extra certificates from every selected PFX into its connection-local root store, retaining an earlier CA after same-algorithm identity replacement. Modern/legacy PFX with unrelated explicit CA authenticate pinned peers; independent OpenSSL leaf-only export/decode proves cert1/extras0. PEM, disabled, host-mismatch and leaf-only controls observe UnknownCA/no payload; SSE PFX controls also refuse, preserving WSS-only behavior. OS trust stores and dependency versions unchanged. Official Node18/22 LoadPKCS12 source and reqwest add_root_certificate documented in STATUS. Exact archived runtime/TLS preferences, broader chain/trust/algorithm/provider/proxy/platform/fault/CI/release/CSS and full migration/subsequent UX remain required. Concrete next gap: imported collection CA file resources are not consumed by transport settings; inspect legacy path/disabled/fallback policies before implementation.
+
+
+2026-10-08 native stream-error Git transition: saved git-create-and-switch1791432332235/session68753 terminal0 accepts original five branch/resource/history groups plus six SSE/WSS stream-history groups on unchanged production release1791430496662/1791430957497/result0. Real Connect failures caused by malformed CA have TCP0; exact full retained history and mounted error badges survive actual native create-and-switch and reload with no reconnect. Four TLS settings restored, native32160 hidden/visiblefalse/exit0/listener closed. This verifies the applyGitWorkspace terminal-error guard for mounted branch creation/checkout; other recovery/merge/fault/platform transitions, remaining TLS/PLAN/PARITY/full migration and subsequent UX gates remain required. Failed fixture-modal/view runs and successful owned TLS recovery retained in STATUS.
+
+
+2026-10-08 multi-key PFX first-key selection: production release1791430496662/1791430957497/result0 accepts HTTP43 (1791431072211), SSE38 (1791431180578), WSS38 (1791431392969), gRPC67 (1791431504693) and unchanged WSS multi-identity regression25 (1791431690716), all terminal0/native-hidden/exit0/four TLS settings restored. Nine containers independently built/parsed with OpenSSL3.5.7 prove first encoded key/first matching leaf, absent or contradictory attributes, nested/split Safes, later-key bad-password skipping and first-key bad-password/no-match refusal before TCP despite valid fallback. Bun FFI is saved fixture tooling only; production reuses selectively vendored p12-keystore0.3.2 upstream crypto with unchanged dependency versions. Headless scan finds every browser launch centralized with headless:true; native hosts are hidden before CDP attachment. Exact legacy Electron/TLS preferences, arbitrary containers/algorithms/providers/platforms, extra-cert trust-store behavior and all other full migration/UX gates remain required. See STATUS and vendor patch documentation for exact evidence.
+
+
+2026-10-08 multiple WSS file identities: native25 accepted on production release1791426939853/1791427419116/result0; restricted RSA/ECDSA requests select pinned peers under TLS1.2/1.3 with both PEM/PFX orders, independent cert/key arrays, CA/empty hints, same-algorithm replacement/mismatch and bounded selected-file refusal/no fallback. Cross-origin destinationTCP0 and error history/error badge after reload verified; WSS29/HTTP34/SSE29/gRPC49 regressions pass. TLS remains PARTIAL: actual legacy preference equivalence, multi-key PFX/other algorithms/ciphers, arbitrary chains/DNS/revocation/provider/proxy/platform/fault, OS dialogs, full migration/CSS/UX/CI/release gates remain required. Exact results/commit handoff in STATUS/UI-TESTING.
+
+2026-10-08 collection client-certificate files: native HTTP34/SSE29/WSS29/gRPC49 accepted on production build1791424397215/1791424847416/result0. Imported host/port/disabled/private paths/passphrase now feed shared PEM/PFX/PKCS8/traditional PEM loader, with no selected-file failure fallback. Preferences and Git exclusion verified; exact native identities/state/restoration accepted. TLS remains PARTIAL: multi-key/PFX and multiple WSS identities, uncommon cipher variants, OS dialog, DNS/chains/revocation/provider/proxy/platform/fault/full migration/UX remain required. Evidence/handoff in STATUS/UI-TESTING.
+
+2026-10-08 server certificate acceptance: HTTP15/SSE23/WSS23/gRPC36 pass on current production release1791420051210/1791420404492/result0. Three private CA-signed leaves (IPv4 SAN mismatch, expired, future) have independent OpenSSL64/10/9 and Bun classifications; actual native TLS alerts/no payload or reflection query, resources/history/recovery and original settings verified. TLS remains PARTIAL: arbitrary DNS/wildcard/IDNA/chains/revocation/legacy/provider/proxy/Git/platform/network faults and full migration/UX/CSS gates still required. Current exact evidence and handoff in STATUS/UI-TESTING.
+
+2026-10-08 native SSE/WSS client-certificate redirects: final1791421179139/1791421121617 pass20 groups each. Relative/two-hop same-origin success, host/port/scheme foreign TCP0 refusal, explicit disabled-follow and10-hop loop bound use actual native UI, pinned authenticated peers, exact events/history/resources/reload. HTTP fixture regression12 and all four settings restored. TLS remains PARTIAL: arbitrary redirect statuses/credential variants/hostname-expiry/legacy/provider/proxy/Git/platform/fault/full migration and later UX/CSS are still required. See STATUS/UI-TESTING for scope and evidence.
+
+Native reflection gRPC mTLS capability675e587: final1791419491037/tool48711 terminal0 passes30 groups on unchanged release1791417162756/1791417516283/result0. Actual authenticated v1 discovery/exact five method paths/shapes, v1 UNIMPLEMENTED→v1alpha fallback, TLS refusals (query/RPC0; malformed PEM TCP0), cached-schema exact Send and full state/reload verified. HTTP non-grpc fixture regression passes12. Arbitrary reflection graphs/errors/network, remaining protocols/provider/proxy/platform/fault/CI/release/full migration/UX/CSS gates stay required; STATUS records failed scenario corrections and closed-handle handoff.
+
+Native streaming gRPC mTLS capability6e63690: final1791418806011/tool27809 terminal0 passes19 groups on unchanged release1791417162756/1791417516283/result0. Server/client/bidirectional exact frames/decoded messages, Commit EOF, actual RST_STREAM CANCEL for all three shapes, full saved responses/reload without auto-reconnect and explicit Chat reconnect verified. HTTP shared non-grpc fixture regression passes12. Reflection TLS, broader protocol/provider/proxy/platform/fault/CI/release/full migration/UX/CSS gates remain required; STATUS records source/evidence/closed-handle handoff.
+
+Native unary gRPC mTLS capabilityc9856ee: saved1791418245930/tool20110 terminal0 passes12 groups on unchanged release1791417162756/1791417516283/result0. Actual ALPNh2/client peer/protobuf bytes/status0/metadata/trailers, both CA bundle positions, TLS refusals (RPC0; malformed PEM TCP0), full resources/history and reload without resend verified. Shared HTTP12/SSE11/WSS12+24 regressions pass. Reflection/streaming TLS, other protocol/provider/proxy/platform/fault/CI/release/full migration/UX/CSS gates remain required; STATUS records failed fixture/waiter corrections and closed-handle handoff.
+
+2026-10-08 WebSocket FilePickera55dbf3: current release1791417162756/1791417516283/result0/native1791417593761/tool22889 passes12 plus24 layout cases. Existing compact variant removes duplicate native painted control; full hit surface/keyboard preserved,4 repeated owned-file chooser selections reset/persist exact binary bytes and real authenticated WSS Send echoes correctly. Component contract regression passes; processes closed. Scripted WebView chooser, not OS file-dialog acceptance. Full migration/UX/CSS/protocol/platform gates remain required. See STATUS/UI-TESTING.
+
+2026-10-08 payload sizingfc5f9d3: old native build reproduces24px name field. Current release1791416542018/1791416894400/result0/native1791416905052/tool6642 verifies24 mode/theme/width cases with minimum129.203125px/no overlap/overflow and native keyboard focus, plus all12 WSS TLS/send lifecycle groups. Static theme regression passes; processes closed. Feature-local intrinsic select-shell fix only; binary FilePicker duplicate native input and full CSS/UX/migration/protocol/platform gates remain open. See STATUS/UI-TESTING.
+
+2026-10-08 WSS send/disconnect4a1593f: run1791416234346/tool47547 terminal0 passes12 with two explicit native authenticated HTTP101 sessions, one exact text/binary/ping-pong exchange per payload each cycle, server-observed client close1000 and saved closed history reload without automatic reconnect. Resources/four TLS preferences preserved/restored; SSE11/HTTP12 regressions pass and processes closed. Remaining redirect/SSE/gRPC/legacy/provider/proxy/Git/platform/full migration/UX gates stay required. See STATUS/UI-TESTING.
+
+2026-10-08 native WSS mTLS acceptance7034378: run1791415792844/tool86663 terminal0 passes11 groups through real Preferences/reload/Connect with server-observed authenticated peer CN/fingerprint, HTTP101, one exact received text, normal1000 close and saved reload. Bundle/recovery and TLS refusals pass; malformed PEM TCP0. Resources/retained history preserved and four settings restored. SSE11/HTTP12 regressions pass; processes closed. TLS remains PARTIAL: live client-send/disconnect/redirect/gRPC/legacy/provider/proxy/Git/platform/full migration/UX remain required. See STATUS/UI-TESTING.
+
+2026-10-08 native SSE mTLS acceptance557222e: run1791415540725/tool16330 terminal0 passes11 groups with actual server-observed authenticated client CN/fingerprint, finite SSE event/id/data and saved reload. CA bundle/recovery and TLS refusals pass; malformed inputs have TCP0. All request resources/retained history preserved, one new connection row, four TLS settings restored and processes closed. HTTP helper regression passes12. TLS remains PARTIAL: WSS/gRPC/live disconnect/redirect/legacy/provider/proxy/Git/platform and full migration/UX remain required. See STATUS/UI-TESTING.
+
+2026-10-08 CA bundle acceptance75477b8: native HTTP run1791415294120/tool47753 terminal0 passes12 groups, including both required-root positions with actual authenticated POST/200 and malformed CA refusal before TCP. Existing Rustls backend already loads all PEM roots; release unchanged. Settings/resources/history preserved and owned processes closed. TLS remains PARTIAL; other protocols/legacy/provider/proxy/Git/platform and full migration/UX gates remain required. See STATUS/UI-TESTING.
+
+2026-10-08 HTTP mTLS acceptance997f0a7: actual Windows native Preferences/reload/Send with private app CA, server-required authenticated client CN/SHA256 peer fingerprint/exact POST body and200. Final1791414644939/tool88017 passes9 including missing/host-mismatched/wrong-issuer/untrusted-server/malformed PEM refusals, recovery, cross-origin destination TCP/HTTP0, full request-resource/error-history preservation and four-setting restoration. Current release unchanged. TLS remains PARTIAL: this is HTTP with an exact IPv4 identity hostname/private CA and owned fixture, not full certificate/legacy/protocol/Git/provider/proxy/platform parity. Full migration/UX scope retained; see STATUS/UI-TESTING.
+
+2026-10-08 Git TLS discovery acceptancef30e195: Windows native anonymous public HTTPS refs/HEAD match independent Git; hostname/expired certificate refusals independently classified by Bun, exact full local preservation and cancel/timeout pass. Current mounted self-signed Push refusal regression passes5. Git remains PARTIAL: authenticated HTTPS upload/provider refresh/mTLS/proxy/platform/fault/CI/release/full parity and UX remain required. See STATUS/GIT-REMOTE/UI-TESTING for exact evidence and limits.
+
+2026-10-07 Windows Clone accepted: owned staging/additive reviewed installation and startup recovery, normal/empty/external-only/multiple/collision/invalid typed parents, failed-pack/Stop/reload/explicit retry, lost successful replies, actual workspace write refusal, known durable parent termination/reopen, native admission and actual OS retained-copy/review/fresh persisted200 pass. Final fixture build1791385088355/1791385681535/result0; Clone copy1791385692539 and restore/merge copy/Source Control/remote checkout/Pull/Fetch+restart/check/Clippy pass. Commit/compact handoff in STATUS. Git stays PARTIAL: Push/provider/platform/fault/CI/release/full parity and authorized UX remain required. Exact artifacts/limits in GIT-CLONE.
+
+2026-10-07 remote checkout: public full Fetch/pinned review/local-ref creation/durable intent/verify-only continuation/journaled checkout/recorded local-to-remote binding implemented. Actual Windows native checkout1791379481936 passes7 groups including lost real success/reload/no duplicate, normal confirmation and Forget; conflict1791379512542 preserves held Send/full state with confirmation disabled. Clone remains missing and required separately. Git stays PARTIAL; fault/provider/platform/Push/full parity and subsequent UX remain open. See GIT.md#record-git-remote-checkout and STATUS.
+
+2026-10-07 completed-Fetch IPC uncertainty capability: fixed Pull's missing operation/error inspection guidance, shared with Fetch. Saved actual native publication/lost-success acknowledgement1791377578393 passes5, proving exact pending/full state/ref/index/held Send preservation, reload and explicit Inspect without network or automatic merge, then second review/one explicit confirmation/fresh200. Current Fetch5+4+4/Pull8/divergent5/retained-copy/browser contract9/hidden-native close4+reopen2+parent-stop1+startup2/check/build pass. Browser headless and PID-scoped hidden native host implemented incccf507. This is controlled IPC reply replacement, not true network/process/powerloss acceptance; all remaining histories/path/network/provider/platform/fault/clone/push/full parity and later UX stay required. See STATUS/GIT-PULL-UNCERTAINTY/UI-TESTING.
+
+2026-10-07 rename/file-directory capability: native paths1791376467375 passes5 and mounted actual smart-HTTP Pull1791376482685 passes7. Promoted colliding stage0 children require explicit choices; both complete sides preserve exact root/modes/ordered parents/full workspace/index, mixed and incomplete choices refuse without application. Fresh native build/check/Cargo/Clippy pass; current recursive bases8/preparation11/edge Pull5/divergent5 regressions pass. Other path histories/history/network uncertainty/faults/provider/platform/clone-push/full parity keep Git PARTIAL; later input/UX remains required. See STATUS/GIT-PATH-CONFLICTS.
+
+2026-10-07 byte-path/conflict-edge milestone: actual non-UTF8 native status refusal fixed with raw pathBytes/hex display; fixed-build edge Pull1791375357926 passes5 groups/11 conflicts for distinct raw paths/custom executable, missing gitlinks, symlink, large and aggregate-preview metadata, read-only cancel/second review and exact final OIDs/modes/ordered parents/unrelated files/full workspace. Current Source Control13/divergent5/check/Cargo/Clippy/native build pass. Rename/ancestor collision and remaining history/network uncertainty/copy-close/process faults/provider/platform/clone-push/full parity keep Git PARTIAL; later input/UX retained. See STATUS/GIT-CONFLICT-EDGES.
+
+2026-10-07 recursive merge-base capability: native complete actual base set and recursive virtual-base merge, exact resolution set and schema3 journal/application/recovery implemented. Final bases1791374388057 passes8 including two/three/nested complete Git-tree parity/conflicted virtual preview/malformed graph admission/actual Windows post-ref recovery/synthetic exact recovery table. Real smart-HTTP mounted recursive Pull1791374071314 passes3; current reader20/preparation11/writer8/divergent5/contract9/check/native build/Cargo/Clippy pass. Single-base refusal removed; remaining path/history/network uncertainty/copy-close/process faults/provider/platform/clone-push/full parity keep Git PARTIAL, later input/UX required. See STATUS/GIT-MERGE-BASES.
+
+2026-10-07 Pull network failure milestone: saved Pull1791373254105 passes8 groups with actual incomplete pack EOF, Stop of native held pack download/observed abort, full workspace/ref/active Send preservation except explicit Fetch pending/retired metadata, inspection/retirement without retry and subsequent successful Pull. Shared-helper divergent1791373286302 passes5; compiler/diff pass. Timeout/socket reset/completed-Fetch reply loss/Pull copy-close/multiple bases/other history/path/provider/platform/clone-push/full parity remain open; Git PARTIAL and later input/UX retained. See STATUS.
+
+2026-10-07 selected history milestone: real saved Windows history1791372820452 passes6 groups for retained unrelated shallow cut, complete managed Pull, explicit full expansion/complete manifest and selected remote-only depth1 tip with absent intermediate restored by full Pull before review/confirmation. Current native preparation11/divergent Pull5/compiler/build/Cargo/Clippy pass. Multiple/virtual bases, other source/server-shallow ancestry, remaining path/gitlink/large choices/network/provider/platform/faults/clone/push/full parity remain open; Git PARTIAL and later input/UX scope retained. See STATUS/GIT-REMOTE.
+
+2026-10-07 divergent network Pull milestone: real loopback smart-HTTP5 saved groups pass binary current/incoming preview+mode, cancel/full preservation, ours/theirs/delete/custom executable text and working incoming choice, complete tree/ordered parents, actual post-ref write refusal/schema2/authoritative full recovery/no resubmit/fresh200. Current shared-helper fast-forward Pull6/check pass. Non-UTF8/gitlink/large/rename/ancestor choices, network interruption/unknown reply/copy/close, shallow-history/multiple bases/providers/platform/clone/push/full parity/later UX remain open; Git PARTIAL. See STATUS.
+
+2026-10-07 network Pull review milestone: actual saved Windows loopback smart-HTTP6 groups pass explicit remote Fetch/current immutable proof/working review/cancel/full preservation/confirmed fast-forward and request drain/up-to-date no drain/gated local-ref race refusal. Current merge5/remote8/Source Control13/contract8/check/build pass. Divergent network/conflict/fault recovery, shallow-history/multiple bases, remaining Git choices/provider/platform/clone/push/full parity/later UX open; Git PARTIAL. See STATUS/GIT-REMOTE.
+
+2026-10-07 merge close/restart milestone: saved Windows close4/reopen2/pending-parent-stop1/pending-parent-reopen2 checks pass for actual WM_CLOSE refusal during recovery/no stale save/exact byte preservation, explicit recovery then normal close0, full startup workspace/new ref/cleanup and fresh persisted200. Parent interruption only at known durable post-ref journal after actual write refusal; mid-write/power-loss/disk-full/other-platform/OS-shutdown unverified. Remaining choices/network/history/multiple-base/provider/full parity/later UX open; Git PARTIAL. See STATUS.
+
+2026-10-07 merge retained-copy milestone: saved mounted merge1791369799995 and restore1791369869235 pass actual native HTTP drain/locked guards, Windows save picker cancellation/native write sharing refusal/exact live retained copy/review/authoritative recovery/no duplicate IPC/fresh persisted200 on fresh fixture build. Unexpected edits injected only in saved fixture after real native success. OS-close/crash/disk-full/other-platform and remaining choices/network/history/multiple-base/provider/full parity remain open; Git PARTIAL, later input/UX scope preserved. See STATUS.
+
+2026-10-07 merge drain/recovery milestone:6 saved Windows mounted groups pass for real baseline/post-ref file-sharing failure/durable locked recovery/exact full candidate, injected lost completed-success reply without resubmission, actual HTTP drain/no cancelled history/fresh persisted200 and up-to-date preserving active HTTP until explicit Cancel with unchanged bytes/data/ref. Existing successful build unchanged, final check passes. Retained-copy/OS-close/crash/disk-full/other-platform and binary/path/Git choices/real network/history/multiple-base/provider/full parity remain open; Git PARTIAL, subsequent UX scope retained. See STATUS/GIT-REMOTE.
+
+2026-10-07 working conflict review milestone: production mounted native UI5 groups pass with readable names/exact canonical base-local-incoming red-green diffs and both choices preserving full local/private/foreign/metadata, plus prior fast-forward/up-to-date/divergent custom merge. Source Control13/injected contract8/final check/build pass. Preview bounds/protected/deleted/local-import edge cases accepted only with injected adapters. Merge-specific actual drain/recovery/copy/close, remaining binary/path/Git-choice UI/network/history/multiple-base/provider/platform/full parity remain open; Git PARTIAL and subsequent UX scope preserved. See STATUS/GIT-REMOTE.
+
+2026-10-07 pinned conflict preview milestone: native preparation11 checks pass for bounded exact text/binary/executable/large/aggregate previews and existing immutable review/resolution/journal guards. Mounted UI4 groups include actual pinned text/custom path/executable divergent merge with ordered parents/full workspace preserved; source-admission5/injected contract8/checks pass. Binary/path/gitlink/other resolution UI, readable working conflict diffs/both choices, merge-specific actual drain/recovery/copy/close and network/history/multiple-base/provider/platform/full parity remain open. Git remains PARTIAL; later UX stays in scope. See STATUS/GIT-REMOTE.
+
+2026-10-07 mounted merge milestone:3 saved Windows native groups pass for production local-branch review/cancel/incoming working-conflict resolution/second review/schema2 fast-forward/private-foreign-metadata preservation/up-to-date. Existing Source Control13/restore17 regressions and injected merge contract7 pass. Pinned Git conflict content/mode/diffs, divergent UI and merge-specific actual drain/recovery/retained-copy/close, real network Pull/history/multiple-base/provider/platform/full parity remain open. Git remains PARTIAL; original later UX scope retained. See STATUS/GIT-REMOTE.
+
+2026-10-07 frontend merge coordinator milestone:7 saved injected Playwright browser contract groups pass for production client/planner/private review/coordinator, including working conflict choices, metadata/private/foreign preservation, single-use/stale guards, up-to-date, baseline failure/lost reply/no duplicate, retained-edit review. Frontend check/build pass. No mounted application/native IPC/real drain/OS copy/network acceptance from this fixture; public Pull/Merge UI/content/history/multiple-base/full parity remain open. Git stays PARTIAL.
+
+2026-10-07 incoming source admission milestone:5 saved Windows native groups pass for pinned direct local branch or exact saved endpoint/binding/current immutable fetch snapshot/branch and required-proof apply_merge, including post-ref OS workspace write refusal followed by recovery after incoming snapshot change and stale second apply refusal. Current merge10/writer8/reader20 regressions pass. Synthetic manifests only; public Pull/Merge UI/coordinator/real network/history/multiple-base/incoming-ref atomicity/full parity remain unproven or unfinished. Git remains PARTIAL; original UX phase stays in scope after migration. See STATUS/GIT-REMOTE.
+
+2026-10-07 native conflict resolution milestone: 10 saved Windows native groups pass, including binary ours/theirs/delete/custom choices, pinned review refusal guards, untouched refs/workspace/index during preparation/cancel, and actual journaled custom merge with local workspace preserved. Public Pull/Merge UI, branch/endpoint/snapshot admission, working conflict review/reconciliation/recovery, history/multiple-base handling remain unfinished. Git stays PARTIAL; original full migration and subsequent UX scope remain open. See STATUS/GIT-REMOTE.
+
+2026-10-07 Pull/Merge preparation milestone: native graph classification and complete-root-tree divergent candidate generation passes7 saved Windows checks, including binary conflict/no partial target and exact refs/workspace/index preservation on cancel. Current advancement writer8/reader20 regressions pass. Public Pull/Merge, conflict resolution, endpoint/fetch-snapshot admission, history/multiple-base handling and frontend reconciliation/recovery remain unfinished. Git remains PARTIAL; original full parity/UX scope unchanged. See STATUS/GIT-REMOTE.
+
+2026-10-07 advancement foundation: native schema2 writer/recovery for prepared fast-forward/merge inputs passes Windows actual ref-replace interruption, completed-command lost-reply restart, owned-lock guards and workspace write-refusal recovery, with schema1/restore/Source Control regressions on the current build. Public network pull/merge/conflicts/planner/UI/clone/push remain absent; partial bytes/power loss/ownership-persistence gap/disk-full/other-platform/full parity remain open. See STATUS/GIT-REMOTE.
+
+2026-10-07 pre-replace restore crash repair: saved actual Windows oplock interruption/restart1791356747751/1791356751271 verifies exact original workspace/HEAD, full candidate before replacement, live-lease/changed-lease/replaced-ref preservation, matching owned orphan+marker cleanup and fresh UI restore. Current native restore/parent-restart/Source Control/mounted retained-copy regressions pass. Only restore ref locks have durable ownership; unknown/legacy locks remain preserved. Other mutators, ownership-persistence crash gap, partial-byte write/power-loss/disk-full/other-platform and original full parity remain open. See STATUS.
+
+2026-10-07 restore interruption update: saved native parent termination/restart passes after successful baseline save before restore, and after successful native restore before UI reply, with exact durable bytes/full workspace/selection/unchanged HEAD/new-save admission. Parent-boundary/restart artifacts1791355072935/1791355076254/1791355077878/1791355081643. Explicit completed-command Windows interruption; mid-write crash/power-loss/disk-full/other-platform/full parity remain open. See STATUS.
+
+2026-10-07 mounted retained-copy acceptance: full production App/workspace/drain/persistence saved native fixture passes actual held Send cancellation/no history, defensive retained edits after native restore, refusal guards, OS picker cancel/native write refusal/exact copy/review, authoritative recovery and fresh persisted200 (git-recovery-native-copy1791354794724). Windows with explicit fixture-only unexpected-edit injection; disk-full/crash/other-platform and original full parity remain open. See STATUS.
+
+2026-10-07 retained-copy update: saved production recovery component and real restore coordinator/client/native IPC fixture pass actual Windows OS picker cancel/save, native copy-write sharing refusal (os error32), exact copied snapshot, required review and authoritative recovery without saved-data overwrite (git-recovery-native-copy1791353940793). Main mounted workspace unexpected-edit admission/drain/persistence remains unverified by this isolated fixture; disk-full/crash/other-platform/full parity remain open. See STATUS.
+
+2026-10-07 recovery update: reproduced/fixed stale retained-copy review after changed retained snapshots and during copy writing. Saved production-component callback fixture passes cancellation/write failure/exact snapshots/fresh review and retry; fresh native restore/recovery regressions pass (git-restore1791353071166). Actual retained-copy OS picker/native write/review, disk-full/crash/platform/full parity remain open. See STATUS.
+
+2026-10-07 acceptance update: actual restore transition save refusal after baseline success, mounted locked recovery and authoritative baseline load pass; fixed Source Control's stale closed session after recovery and verified automatic reload/next restore without navigation (git-restore1791352130010). Fresh native regression passes. Disk-full/crash/retained-copy picker/platform/full parity remain open. See STATUS.
+
+2026-10-07 acceptance update: selected restore native Windows file-sharing replacement refusal and mounted baseline-save refusal preserve exact original bytes/resources and successfully retry after release (git-restore1791351439885). This verifies one actual I/O failure; disk-full/crash, mounted transition-failure recovery, retained-copy picker/platform/full parity remain open. See STATUS.
+
+2026-10-07 acceptance update: narrow Git toolbar bounds and selected restore with actual held HTTP cancellation/no cancelled history/fresh persisted200 pass on native-restore-layout-probe. Disk fault/retained-copy picker/platform and original full parity remain open. See STATUS.
+
+2026-10-07 checkpoint: selected Git restore wired into workspace/review/confirm/cancel/recovery UI; fresh native modify/delete/add, read-only/cancel, stale HEAD/workspace/unselected-write refusal and lost-success reply recovery pass. Narrow toolbar repair, disk faults, retained-copy picker and active-run drain acceptance remain; full parity open. See STATUS/GIT-INVENTORY.
+
+2026-10-03 checkpoint: guarded native Git restore save and single-use review/recovery coordinator added; Cargo check/clippy and Svelte check pass,11 injected coordinator checks pass. Native runtime/UI integration still pending. See STATUS.
+
+2026-10-03 checkpoint: selected Git restore planner/client added;17 read-only assertions and check/build pass. Durable apply/review UI/native acceptance next; full parity remains open. See STATUS.
+
+2026-10-03 checkpoint: fixed73 GraphQL scenario compiler errors; full bun run check0 errors/0 warnings, six native scenarios (seven phases) pass on fresh focus probe. Remaining full-parity gates open; see STATUS.
+
+2026-10-02 checkpoint: GraphQL import focus CSS fix passes17 checks on fresh native probe without manual scrolling. Frontend build passes; global check still has73 errors in6 other GraphQL scenarios (next work). Full migration remains open. See STATUS.
+
+2026-10-02 checkpoint: schema-import17 native checks pass with keyboard file input activation and light/dark schema preservation; screenshots inspected. Automatic focus scrolling, SDL save dialog and full parity remain open. See STATUS.
+
+2026-10-02 checkpoint: native schema-import scenario passes 15 checks including loaded schema explorer keyboard traversal and exact type documentation. Full a11y/export/visual/provider/platform/original parity remains open. See STATUS.
+
+2026-10-01 checkpoint: Windows GraphQL WM_CLOSE/reopen6 checks pass; actual cancellation/persist/destroy IPC observed, held native request aborted, persisted request and fresh fetch accepted after reopen. Shared helper import12 regression passes. Full parity and remaining export/visual/provider/platform gates open. See STATUS.
+
+2026-10-01 checkpoint: native GraphQL cache6 checks pass: request isolation,3-entry and combined20MiB limits, replacement age, selected clear, persisted body/history. True close/export/visual/provider/platform/full parity remain open. See STATUS.
+
+2026-10-01 checkpoint: native GraphQL schema import/browser12 checks pass, including invalid/oversized file preservation, raw introspection JSON and search/directive documentation. Full parity remains open; shared input/UX redesign stays deferred. See STATUS.
+
+2026-10-01 checkpoint: native GraphQL source-context6 and real-executor4 cases pass (header/auth/env invalidation, named query/mutation/partial errors/history). Full gate not yet complete; see STATUS/GRAPHQL-RENDERING.
+
+2026-10-01 checkpoint: GraphQL editor15 native checks plus schema lifecycle/GET12 checks pass, including source-change discard, native Cancel abort, errors/history preservation and JSON import. Full GraphQL/platform/CI/parity still open. See STATUS.
+
+2026-10-01 checkpoint: saved native GraphQL editor scenario passes14 checks (completion/lint/hover/schema import, introspection and Send, reload). Original GraphQL remaining native gates and full parity open. See STATUS/GRAPHQL-RENDERING.
+
+2026-10-01 checkpoint: dynamic Debian generator integrated; all-format primary release actual0,12 Debian groups and RPM requirements retained, cleanup verified. Final staging helper emits no warning. Builder stopped; CI/platform/full parity pending. See STATUS.
+
+2026-10-01 checkpoint: Debian ELF dependency generator replaces static host minima; helper12 groups and invalid-ELF gate pass. All-format integration live supervisor28308/child31516, artifacts/linux-deb-dynamic-primary. Poll same process. Full parity pending. See STATUS.
+
+2026-10-01 checkpoint: primary Linux targets=all RELEASE actual0; Debian/RPM/AppImage exported, metadata/temp cleanup checked. Bun-only3-platform CI workflow added and native actionlint0; remote execution/artifact retention/platform/full parity remain pending. Builder stopped. See STATUS/CI.md.
+
+2026-10-01 checkpoint: primary AppImage RELEASE build actual0; exported artifact contains GLES+matching notice, temp config cleanup passes. Runtime without GLES/GTK/WebKit packages reaches20s process smoke. All4 containers stopped; all-format/CI/full parity pending. See STATUS.
+
+2026-10-01 checkpoint: AppImage GLES overlay fixes process startup without system libgles2. Primary wrapper now generates ABI-matched GLES+notice config; RELEASE acceptance live supervisor35360/child24236, artifacts/linux-appimage-primary. Poll same process. Full parity pending. See STATUS.
+
+2026-10-01 checkpoint: AppImage builds; bundled GTK/WebKit resolves without system packages. Runtime needs additional libgles2 (dynamic dependency unresolved); with it, nonroot process smoke reaches20s. UI/FUSE/bus warning/full parity pending. All4 owned containers stopped. See latest STATUS.
+
+2026-10-01 checkpoint: optimized RPM passes clean Fedora44 install/integrity/ldd, nonroot process startup, same-version reinstall and removal with5 WebKit files unchanged. Xvfb DRI3 warning; real UI/upgrade unproven. All3 owned containers stopped; RPM removed. AppImage/CI/full parity next. See STATUS.
+
+2026-10-01 checkpoint: desktop:build now generates fresh RPM metadata from Tauri's just-built ELF; end-to-end Linux debug primary build passes49 requirements/MIT/temp cleanup. Windows help passthrough and11 inline routing/merge checks pass. Actual RPM-native runtime/release-all-format/CI/full parity pending. See STATUS.
+
+2026-10-01 checkpoint: initial RPM exposed missing ELF requirements/license. Added Bun ELF→RPM config generator, MIT license, verified corrected probe RPM46 requirements/export. Default build/CI integration and RPM-native runtime pending; no full packaging claim. See STATUS/LINUX-DISTRIBUTION.
+
+2026-10-01 checkpoint: installed Linux release nonroot startup/AT-SPI and Debian reinstall/remove/install-again/purge verified;5 WebKit profile files unchanged. Actual upgrade/collection/UI acceptance unproven. Both owned containers stopped; runtime package purged. See STATUS/LINUX-DISTRIBUTION.
+
+2026-10-01 checkpoint: corrected optimized .deb installs on clean Debian12 (apt0, dpkg status/verify/audit pass, ldd no missing libraries). Both owned containers stopped with state/cache preserved. Installed release startup/lifecycle/platform/full parity next. See STATUS and LINUX-DISTRIBUTION.
+
+2026-10-01 checkpoint: Linux optimized Debian build passes; actual release dependency metadata gap fixed in tauri.conf.json and corrected .deb verified/exported. Clean runtime install live supervisor37952/child37940; see STATUS, LINUX-DISTRIBUTION and artifacts/linux-deb-install. Install/start/lifecycle/full parity pending.
+
+2026-10-01 checkpoint: Linux Bun1.4.2 frozen install/prepare/Svelte check0/0 and frontend production build pass. Isolated Debian release build live supervisor6304/child20396 with original release profile; artifacts/linux-deb-build. Poll same process; package/install/full parity pending. See STATUS.
+
+2026-10-01 checkpoint: Linux embedded debug executable build/link succeeds; isolated nonroot Xvfb startup observed app+WebKit processes,20-second timeout smoke completed. AT-SPI bus warning; rendered UI/workflows/package remain unverified. Owned container now stopped with snapshot/cache preserved. See latest STATUS and artifacts/linux-app-build.
+
+2026-10-01 checkpoint: isolated Linux binary build with embedded frontend live supervisor9212/child16460; logs artifacts/linux-app-build. Continue same process; linking/runtime/full parity pending. See STATUS.
+
+2026-10-01 checkpoint: full Linux backend Cargo check passes from owned writable snapshot; cfg-only unused_mut fixed and Linux/Windows checks pass. Linked Linux binary/runtime/full parity pending. See STATUS.
+
+2026-10-01 checkpoint: Linux native prerequisites installed; full-app locked Cargo check live supervisor38228/child35152. Durable artifacts/linux-app-check/{state.json,check.log}; final result pending. See STATUS.
+
+2026-10-01 checkpoint: actual Linux cfg(unix) HTTP/TLS probes pass. Owned container retained for full-app gate; Tauri native dependency install live PID22552. Full Linux app/parity pending. See STATUS.
+
+2026-10-01 checkpoint: discovered operational Docker inside WSL; owned read-only-source Rust1.98.1 Linux container created. Patched reqwest Unix build live PID28568; continue same handle. Runtime/full app parity pending. See STATUS.
+
+2026-10-01 checkpoint: native AF_UNIX SSE2-byte chunk UTF-8/multiline/event ID/comment handling and Disconnect→EOF passed1790801282297; prior9 wire cases retained. Unix platform and remaining full parity open. See STATUS.
+
+2026-10-01 checkpoint: native AF_UNIX Basic/Bearer, cookie replay, same/cross-host302 credential boundaries passed1790801156250; original Send/Cancel cases retained. Unix platform/stream/auth remainder/full parity open. See STATUS.
+
+2026-10-01 checkpoint: native HTTPS Unix socket4-case Preferences/CA/validation/reload/error acceptance passed1790801034434, original settings restored. Auth/cookie/redirect/Unix platform/full parity remain open. See STATUS.
+
+2026-10-01 checkpoint: fresh native Unix socket import/reload/Send/Cancel→EOF/Send passed1790800806086; URL/auth23-case and CodeCommit6-case regressions pass on same build. HTTPS UI/Unix platform/full parity pending. See STATUS.
+
+2026-10-01 checkpoint: saved Unix socket UI Send/persistence/Cancel scenario and fixture compile/check pass; native build live supervisor33312/child29468. Poll same build then run scenario; runtime acceptance pending. See STATUS.
+
+2026-10-01 checkpoint: patched Windows AF_UNIX HTTPS passes trusted CA/hostname/SNI/exact peer certificate; wrong-host and unknown-issuer rejected before HTTP. Native UI/app Cancel and Unix platform/full parity remain open. See STATUS.
+
+2026-10-01 checkpoint: actual patched AF_UNIX HTTP binary/cookie/redirect/chunked/proxy bypass passed; found and fixed generated proxy-header leak. Timeout cleanup with client drop passed. TLS/native UI/full parity pending. See STATUS.
+
+2026-10-01 checkpoint: pinned reqwest Windows AF_UNIX adapter and application routing implemented; rustfmt and locked offline Cargo check pass. Actual HTTP/TLS/native UI and full parity pending. See STATUS.
+
+2026-10-01 checkpoint: Windows AF_UNIX nonblocking connect, missing-endpoint error and Pending-future cancellation→peer EOF passed. Integrate pinned reqwest adapter next; full parity open. See STATUS/UNIX-SOCKET.
+
+2026-10-01 checkpoint: actual Windows AF_UNIX→Tokio65536-byte echo/read deadline/drop EOF and curl interoperability pass; uds_windows target dependency added. Cancellable connect/reqwest/TLS/UI integration remains next; full parity open. See STATUS.
+
+2026-10-01 finding: Windows supports AF_UNIX via curl/uds_windows but reqwest local transport exposes only named pipes there; sealed connector prevents a simple app-layer replacement. Unix runner lacks toolchain. See HTTP.md#record-unix-socket for concrete adapter/acceptance next steps; full parity open.
+
+2026-10-01 checkpoint: legacy Unix socket URL→IPC→cfg(unix) reqwest route connected;7 composer/refusal checks and Bun/Windows Cargo checks pass. Actual Unix transport and Windows AF_UNIX parity unverified/incomplete; full scope open. See STATUS.
+
+2026-10-01 checkpoint: CodeCommit303 same/cross-origin GET/body removal and independent ordinary SigV4 transition passed1790799123253;6 cases/10 wire requests. Remaining URL transport/provider/full parity open. See STATUS.
+
+2026-10-01 checkpoint: native CodeCommit4-case/6-request body/signature/307 same+cross-origin acceptance1790798995356 passed;23-case auth regression1790799002871 passes on fresh build. Provider/303/full parity remain open. See STATUS.
+
+2026-10-01 checkpoint: CodeCommit saved native4-case body/redirect/wire scenario prepared; Bun check passes. Isolated native build running (supervisor29448); runtime acceptance and23-case auth regression next. See STATUS.
+
+2026-10-01 checkpoint: native CodeCommit GIT special signer implemented; Cargo check and6 exact fixed-time aws4 signature comparisons pass. Fresh native UI/wire/redirect acceptance pending; full parity remains open. See STATUS.
+
+2026-10-01 checkpoint: legacy lock pins aws4 1.13.2;6 deterministic CodeCommit GIT canonical/signature references captured and independently HMAC-checked. Native implementation still pending; full parity open. See STATUS.
+
+2026-10-01 correction: archived AWS UI/adapter never enabled query signing; prior NEXT presigning priority was not established by legacy evidence. Confirmed CodeCommit GIT special-signing rejection is a legacy gap; capture reference and implement next. Existing limitations/full scope remain recorded. See STATUS.
+
+2026-10-01 checkpoint:4 AWS S3/execute-api native wire signatures passed1790798124712,23 total Settings/Hawk/OAuth1/AWS cases pass. AWS query signing remains unimplemented; full URL/auth/parity open. See STATUS.
+
+2026-10-01 checkpoint:8 native OAuth1 HMAC encoding/mode cases passed1790798012658 via independent wire signature verification;8 Hawk +3 Settings regressions also pass. AWS and full URL/auth/parity scope remain open. See STATUS.
+
+2026-10-01 checkpoint:8 native Hawk SHA1/SHA256 legacy/standard encoding on/off MAC checks passed1790797913458 using raw TCP target and independent HMAC; original3 settings cases also pass. OAuth1/AWS/full raw URL/parity remain open. See STATUS.
+
+2026-10-01 checkpoint: fresh native URL encoding Settings/reload/raw-TCP acceptance1790797792724 and cURL GET regression1790797800441 passed. Signed URL/native and full raw URL/parity remain open. See STATUS.
+
+2026-10-01 checkpoint: saved URL Settings/reload/raw-TCP scenario prepared; Bun check passes. Native URL encoding probe build live (supervisor20296); runtime acceptance and cURL GET regression next. Full parity open. See STATUS.
+
+2026-10-01 checkpoint: legacy auto URL encoding connected to Send/settings;17 composer cases plus cURL import check and Bun check/build pass. Fresh native settings/wire/signature acceptance remains next; raw URL/full parity open. See STATUS.
+
+2026-10-01 finding: legacy default settingEncodeUrl:true is ignored by current Send (ported helper only serves template tags). Six of seven diagnostic URL cases differ. Restore original Send encoding/order next; raw URL fidelity still open. See STATUS.
+
+2026-10-01 checkpoint: five-case native GET/file acceptance passed1790796856828 after315s build. Encoded bytes, HEAD/PATCH/no-body, NUL/refusal and saved state verified; raw Unicode/invalidUTF8 request-target fidelity and full parity remain open. See STATUS.
+
+2026-10-01 checkpoint: saved five-case native GET/file scenario prepared; Bun check passes. Isolated build running at artifacts/native-curl-get-ui-probe (supervisor35312); runtime acceptance next, full parity open. See STATUS.
+
+2026-10-01 checkpoint: GET file-data query parser/editor/composer implemented;39 reference assertions and Bun check/build pass. Native GET acceptance and raw non-UTF8 URL fidelity remain pending; full parity open. See STATUS.
+
+2026-10-01 checkpoint: fixed GET/data precedence over --url-query, including empty data and either option order. Seven actual curl comparisons plus --next reset and Bun check/build pass. GET file implementation/native query acceptance remain next. See STATUS.
+
+2026-10-01 checkpoint: native16/20MiB selection/persistence/reload/Send SHA-256 passed1790796132115; mixed-body regression passed1790796180942 on fresh upload-size build. GET/file reference captured; query implementation and full parity remain next. See STATUS.
+
+2026-10-01 checkpoint: saved native16/20MiB upload persistence/reload/Send SHA-256 scenario prepared; Bun check passes. Isolated build running at artifacts/native-upload-size-ui-probe. Runtime acceptance and mixed-body regression next; full parity open. See STATUS.
+
+2026-10-01 checkpoint: recognized binary uploads separated from template text with aggregate20MiB byte validation;17 boundary assertions and Bun check/build pass. Native full-session/persistence/IPC maximum-size acceptance next; GET and other parity remain open. See STATUS.
+
+2026-10-01 checkpoint: native multi-file scenario1790795545328 passed after successful315s build. Overlapping/stale reads, literal edit, reload and exact curl bytes accepted.16MiB upload/template size conflict reproduced; fix accounting and GET/query next. Full parity remains open. See STATUS.
+
+2026-10-01 checkpoint: saved mixed-body native scenario prepared with overlapping/stale file reads, reload and actual curl wire comparison; isolated build running at artifacts/native-curl-mixed-ui-probe (supervisor17324). Runtime acceptance next; full scope remains open. See STATUS.
+
+2026-10-01 checkpoint: mixed literal/multiple-file body parser/editor/byte composer implemented; six actual curl comparisons plus missing-file/boundary checks pass, Bun check/build pass. Native picker/IPC, GET/query and template-size reconciliation remain next. See STATUS.
+
+2026-10-01 checkpoint: Cookie native build exit0; saved five-group Import/reload/Send regression1790794877414 passed. Manual precedence, empty header, repeated values and --next reset accepted. Mixed-file implementation next; full parity remains open. See STATUS.
+
+2026-10-01 checkpoint: saved five-group Cookie Import/reload/native Send regression prepared; Bun check passes. Isolated native build running at artifacts/native-curl-cookie-ui-probe; runtime acceptance next. See STATUS.
+
+2026-10-01 checkpoint: fixed explicit Cookie header precedence over --cookie. Five actual curl/parser/composer wire comparisons and group-reset check pass; Bun check/build pass. Native Import acceptance of fix pending; cookie files/engine and other full parity remain open. See STATUS.
+
+2026-10-01 checkpoint: native NTLM Import/reload/Send accepted1790794284777 after successful315s build. Independent password proof, identity, connection, POST replay and manual-header suppression pass; MIC/TLS/provider/full parity remain open. See STATUS.
+
+2026-10-01 checkpoint: saved native NTLM Import/reload/connection/body/manual-header scenario prepared; Bun check/build pass. Isolated native build running at artifacts/native-curl-ntlm-ui-probe; runtime acceptance next. Structural fixture does not verify password proof/provider. See STATUS.
+
+2026-10-01 checkpoint: explicit cURL --ntlm maps to native NTLM credentials;27 parser/composer checks and Bun check/build pass. Native Import/handshake acceptance pending; automatic OS sign-in/proxy/mixed negotiation remain unsupported. See STATUS.
+
+2026-10-01 checkpoint: Bearer native build exit0 and saved six-group Import/reload/Send scenario1790793472875 passed. Token precedence, next-group auth reset and manual Authorization verified; mixed auth/other options/full parity remain pending.
+
+2026-10-01 checkpoint: saved cURL transfer-group scenario extended to6 requests covering Bearer precedence/reset/manual header. Bun check passes; isolated native build running at artifacts/native-curl-bearer-ui-probe, supervisor27940. Runtime acceptance next.
+
+2026-10-01 checkpoint: cURL --oauth2-bearer mapped to existing Bearer auth;10 checks including4 real curl wire comparisons pass, Bun check/build pass. Mixed explicit Basic/Digest negotiation remains rejected. Native Import acceptance and other options/full parity pending.
+
+2026-10-01 checkpoint: corrected native build finished exit0. Multipart <file/default+explicit MIME accepted1790792888538; all5 single-file body modes match actual curl for256 byte values through UI selection/reload/native Send1790792912164. Remaining import/full parity open; see STATUS.
+
+2026-10-01 checkpoint: real curl/native regression exposed <file filename= mismatch; parser/composer/UI corrected to omit filename (including stale overrides). Bun check/build and30 composition checks pass. Corrected native build running (supervisor37596, artifacts/native-curl-file-content-fix-ui-probe); saved multipart acceptance next.
+
+2026-10-01 checkpoint: multipart <file implemented with explicit binary IPC flag and filename-free native bytes; Cargo/Bun checks pass,28 composition+4 curl checks pass. Isolated native build running (supervisor24796, artifacts/native-curl-file-content-ui-probe); saved multipart acceptance next.
+
+2026-10-01 checkpoint: saved multipart Import/file-selection/replacement/reload/native-wire scenario1790791996313 passed. Exact binary bytes, MIME/filename overrides, empty filename and literal form-string verified; remaining file/options/full parity scope open. See STATUS.
+
+2026-10-01 checkpoint: isolated cURL build finished exit0; saved native Import/reload/Send scenario1790791796403 passed. Three transfer groups preserve settings and isolate auth/headers; unsupported options leave existing resources unchanged. Other import/full parity remain open; see STATUS.
+
+2026-10-01 checkpoint: saved cURL Import review/apply/reload/native-send scenario written; Bun check passes. Isolated native build running at artifacts/native-curl-import-ui-probe (supervisor20576, child18608). Poll same handle then run tests/ui/curl-import-next.js; runtime acceptance pending.
+
+2026-10-01 checkpoint: cURL --next/-: transfer groups implemented with local option reset;18 inline assertions including4 real curl wire comparisons pass. Bun check/build pass. Native Import acceptance and remaining import/Git/full parity gates pending; see STATUS.
+
+2026-10-01 checkpoint: actual public shallow Fetch journal creation -> foreign-lock refusal -> verified parent termination -> new-process Resume accepted (1790791214812/1790791216338). Five existing termination/error scenarios also pass on current build. No recovery network, exact receipt and preserved resources. Mid-write/powerloss/provider/full parity remain pending; see STATUS.
+
+2026-10-01 checkpoint: real Git2.55.0 upload-pack loopback HTTP full/shallow Fetch accepted (saved scenario1790791041039). Git emits shallow packet without LF as documented; no dependency fix needed. Hosted-provider auth/TLS and remaining crash/fault/full parity gates still pending. See latest STATUS for reproducible command/evidence.
+
+2026-10-01 checkpoint: public journaled full/scoped/shallow Fetch accepted on native build (exit0); nine saved UI scenarios passed including cleanup, retirement race and Resume/lost reply. See latest STATUS for artifact IDs. Real-provider shallow LF compatibility, remaining fault/platform and full parity gates remain outstanding; shared inputs/new UX deferred until migration completes.
+
+2026-10-01 checkpoint: workspace fence/recovery and Git transition UI regressions passed. Public Fetch now uses durable v3 candidate/journal/writer, requires persisted matching intent and carries bounded depth; UI persists v3 branch/depth and offers optional depth. Cargo/Bun checks,18 native admission +237 regressions and45+28 client checks pass. New native build running (supervisor28120, artifacts/native-journaled-fetch-ui-probe); public full/shallow UI acceptance remains next.
+
+2026-10-01 checkpoint: shared atomic workspace write fence implemented for pending Fetch binding/intent/collection; save acquires GitState then StorageState. Cargo checks,19 new+249 prior native checks and282 lease regressions pass. Saved UI interleaving cases added; isolated fence build running at artifacts/native-fetch-workspace-fence-ui-probe. Native/UI validation and public journaled/depth Fetch remain next.
+
+2026-10-01 checkpoint: real native/UI recovery error, shallow Resume success and lost-reply/reload reconciliation all passed on attempt-fix build (artifacts/playwright IDs1790789331865/1790789338588/1790789341332). Includes fresh/cancelled attempts, depth identity, unchanged HEAD/resources, no network, fsck and normal Git reopen. Next atomic workspace journal/binding fence before public journaled Fetch.
+
+2026-10-01 checkpoint: real native journal error/retention UI passes (git-fetch-journal-recovery-1790788741255, PID12428 exit0). Successful Resume scenario exposed one-shot operation reservation; fixed with fresh attemptId for each recovery/cancel while preserving durable identity. Cargo/Bun checks and44 client assertions pass. Attempt-fix build running, supervisor38240, artifacts/native-fetch-recovery-attempt-ui-probe; rerun saved recovery/resume scenarios next.
+
+2026-10-01 checkpoint: ACL build passes six native Fetch/scope/lost-reply/save-error UI scenarios. New journal scenario exposed hidden recovery panel; GitPanel visibility fixed, Bun check/build pass. Fresh panel build running (supervisor16668, artifacts/native-fetch-recovery-panel-ui-probe). Two saved journal recovery/resume scripts await this build; storage journal/intent race fence remains next before public journaled Fetch.
+
+2026-10-01 checkpoint: saved native recovery UI test exposed missing command ACL. Fixed build.rs generator + main-window permissions; Cargo checks pass. Corrected isolated build running, supervisor PID30684, artifacts/native-fetch-recovery-acl-ui-probe. Initial build is not accepted; rerun saved UI scenarios after corrected build completes.
+
+2026-09-30 latest checkpoint: frontend v3 receipts and explicit Inspect/Resume integrated; compiler/frontend build and38 client+28 scope checks pass. Saved journal recovery UI scenario added. Native isolated recovery build is running (supervisor PID11028); UI acceptance remains pending. See STATUS for continuation; do not restart a live build.
+
+2026-09-30 latest checkpoint: explicit native recovery/status commands registered with exact saved binding and operation scope fences; normal admission still refuses journals. Cargo fmt/check/clippy pass; status/journal249 and admission/lease282 current-source assertions pass. Native command/UI acceptance, v3 receipts/intent and journaled public Fetch remain pending. See STATUS checkpoint and artifacts/git-recovery-status-check/full-pack-state.json.
+
+2026-09-30 latest checkpoint: actual independent writer termination/restart passed at prepared-before-ref and after-ref publication boundaries (20 new checks each;195 regressions per suite). Both resumed same journal/snapshot and retired journal/lock; both final repos pass git fsck --full. Evidence: git-writer-crash-check and git-writer-published-crash-check crash-acceptance.json. No live writer/build; explicit native/UI recovery, remaining fault windows and public depth integration remain pending.
+
+2026-09-30 latest checkpoint: private actual journal transition writer now performs prepared/import/one-ref/final/retirement with owned shallow lock and retained uncertain outcomes. New32 transition/finalization cases passed, including real mid-import failure/retry and packed-ref completion; both resulting repos pass git fsck --full. Cargo and journal/lease regression passed. Evidence: git-transition-check and git-published-finalize-check. Process-crash/fault/platform acceptance and public native/UI wiring remain next.
+
+2026-09-30 latest checkpoint: journal-bound read-only recovery validation now handles old/prepared/partial-import and published/final states. Revalidates fetched staging independently, retains previous snapshot roots and requires destination-only completeness after publication. Cargo checks;45 new recovery cases and journal/root/lease regressions passed (git-recovery-plan-check, git-retained-recovery-check). Actual transition writer, crash/fault acceptance and public depth/recovery UI remain next; no native build launched.
+
+2026-09-30 latest checkpoint: private exclusive journal creator implemented with managed identity, bounded recovery-file flush, plan revalidation, create_new/write-through/sync/readback, and retained uncertain outcomes. Windows readonly pack handling fixed and42 new native assertions passed; Cargo checks and282 journal/lease regressions passed. Evidence: git-journal-creation-check and git-stage-recovery-check. Public Fetch wiring, recovery transitions and process-stop/disk-fault/platform acceptance remain pending; no native build launched.
+
+2026-09-30 latest checkpoint: combined stage+destination publication plan implemented and required by candidate completion. Validates exact operation manifest and retained roots, computes objects and old/prepared/final shallow images without destination writes. Cargo checks and29 new publication assertions passed; current-source suites428 unique assertions. Evidence: git-publication-plan-check, git-retained-roots-check, git-stage-recovery-check. Durable stage/journal creation and transitions/recovery remain next; no public depth or native build yet.
+
+2026-09-30 latest checkpoint: retained-root inventory and typed physical graph implemented (refs/packed refs, HEAD, orphan reflogs, pseudorefs, existing shallow roots, tags/tree/blob traversal). Cargo checks,43 new native assertions and candidate/journal regressions passed;399 unique assertions across suites. Evidence: git-retained-roots-check, git-fetch-candidate-check, git-stage-recovery-check. Combined candidate+retained publication plan, durability and production journal/recovery remain next; no public tag/depth parity claimed.
+
+2026-09-30 latest checkpoint: staged v3 candidate preparation verified; preserves unselected history views and writes candidate pack/index only to leased staging. Cargo checks and current-source candidate195 + journal/lease282 assertions passed (356 unique). Production journal writer/recovery, physical root enumeration/durability, v3 receipts and public depth remain pending. Evidence: git-fetch-candidate-check and git-stage-recovery-check. No native build launched; accepted UI binary predates candidate changes.
+
+2026-09-30 latest checkpoint: native v3 per-branch history metadata, depth-aware operation identity and immutable snapshot reader implemented. Cargo checks,44 new v3 assertions and282 current-source regressions passed (git-fetch-snapshot-v3-check and git-stage-recovery-check). Old publisher refuses v3 downgrade; journal writer/v3 publication/JS receipt/depth UI remain pending. No build active.
+
+2026-09-30 latest checkpoint: exclusive stage reacquisition and journal-bound acquisition implemented; bounded owner reads, Cargo checks and282 current-source native assertions passed (artifacts/git-stage-recovery-check/full-pack-state.json), including live independent worker lease refusal/release. Production journal creation/writes/recovery remain pending. No active build; accepted UI binary predates this change.
+
+2026-09-30 latest checkpoint: native-fetch-journal-ui-probe build0; saved cleanup10, main Fetch11, orderly restart3 and scoped Fetch9 passed on the new binary (git-fetch-cleanup-1790782032722, git-fetch-1790782051996, git-fetch-restart-1790782054820, git-fetch-scope-1790782055642). No active build. Journal retention/admission accepted; production journal writer/recovery and shallow publication remain pending.
+
+2026-09-30 latest checkpoint: cleanup now retains journal-owned stages and holds GitState across complete bounded recovery inventory/deletion; native230 assertions and compiler/frontend checks passed. Native acceptance build running child37752/supervisor36532 at artifacts/native-fetch-journal-ui-probe/build-state.json. Saved cleanup scenario extended; runtime acceptance pending. No production journal writer/depth publication yet.
+
+2026-09-30 latest checkpoint: bounded shallow publication journal schema/preflight and read-only managed-repository admission implemented. Cargo checks and203 native assertions passed (artifacts/git-fetch-journal-check/full-pack-state.json). Journal creation/recovery writer, stage retention and v3/depth publication remain pending; no public shallow behavior enabled.
+
+2026-09-30 latest checkpoint: effective shallow-cut planner and standard Git storage/recovery design selected (GIT.md#record-shallow-history). Cargo checks and166 native/planner/Git fsck+GC assertions passed (artifacts/git-shallow-plan-check/full-pack-state.json). Journal/v3 publication and public depth remain pending; full migration incomplete.
+
+2026-09-30 latest checkpoint: supervisor now preserves requested depth and verifies worker shallow metadata against leased staging; v1/v2 publication rejects depth requests even when remote history is complete. Cargo checks and137 current-source worker/snapshot/import assertions passed (artifacts/git-fetch-history-identity-check/full-pack-state.json). Shallow history publication/recovery and public depth remain pending; full migration incomplete.
+
+2026-09-30 latest checkpoint: private depth1 worker and bounded shallow metadata parser implemented; Cargo checks passed, real shallow protocol/pack plus parser/boundary/snapshot/import worker probe121 assertions passed (artifacts/git-shallow-transport-check/full-pack-state.json). Public depth remains disabled; importer refuses shallow until per-history metadata/publication/consumer integration. No active build; full parity unchanged.
+
+2026-09-30 latest checkpoint: explicit shallow-boundary object validator implemented; current callers remain strict/full-history. Cargo checks and19 shallow+77 existing current-source assertions passed (artifacts/git-shallow-graph-check/full-pack-state.json), including actual missing parent and valid shallow-file independence. Next stage boundary parsing/private depth protocol then safe metadata/import/history integration; public depth not enabled. No active build; full parity remains incomplete.
+
+2026-09-30 latest checkpoint: native-fetch-scope-ui-probe build0; saved scoped Fetch UI/recovery9 groups passed (git-fetch-scope-1790779543786), all-branch Fetch11 and orderly restart3 regression passed on same binary (git-fetch-1790779569300, git-fetch-restart-1790779572314). No active build. Exact-branch full-history Fetch accepted; shallow/depth/relative/pruning/tags and remote operations/full original parity remain pending.
+
+2026-09-30 latest checkpoint: exact branch scope connected through native Fetch/Inspect identity, JS receipt validation, durable v2 intent and Git UI field. Cargo/Svelte/Vite passed; native77 and injected-client28 checks passed. Native build live PID15840/supervisor6936 at artifacts/native-fetch-scope-ui-probe/build-state.json; do not restart while live. Saved scoped UI/recovery acceptance and regression remain next; full original parity incomplete.
+
+2026-09-30 latest checkpoint: scoped v2 Fetch snapshot publication merges selected branch with prior unselected tips; v1 remains readable/writable for full fetch. Supervisor carries scope, merged graph verified, one-pointer CAS retained. Cargo checks passed; actual-source probe41 snapshot+17 import+15 worker assertions (artifacts/git-fetch-scope-check/full-pack-state.json). Public request/intent/receipt/UI scope integration next; no active build or full parity completion.
+
+2026-09-30 latest checkpoint: private native Fetch worker supports validated exact branch selection; Cargo fmt/check/clippy and current-source real-pack32 assertions passed (artifacts/git-stage-branch-check/full-pack-state.json). Existing public Fetch still all-branch until scoped snapshot publication/operation identity integration; singleBranch/depth/prune parity not complete. Next implement scoped publication preserving unselected branches, then request/client/UI acceptance. No active build; last UI binary predates this change.
+
+2026-09-30 latest checkpoint: saved real parent-termination3 + orphan-recovery6 checks passed on native-fetch-cleanup-ui-probe; independent worker lease prevented cleanup after parent exit, then cleanup succeeded after lease release and new UI Fetch succeeded. Evidence git-fetch-parent-termination-1790778371725 and git-fetch-orphan-recovery-1790778373216. Normal cleanup6 regression passed with opt-in crash helper. No active build. Continue missing Git semantics/remote operations and full parity; OS faults/publication crash windows/OS-close still pending.
+
+2026-09-30 latest checkpoint: native-fetch-cleanup-ui-probe build finished0. Saved cleanup UI/native scenario passed6 groups (git-fetch-cleanup-1790778083421), main Fetch11 and orderly restart3 passed on same lease-enabled binary (git-fetch-1790778099419, git-fetch-restart-1790778102010). Real worker retained during parent-alive cleanup; actual parent-crash/orphan-worker acceptance remains next. No active build; full original parity remains incomplete.
+
+2026-09-30 latest checkpoint: explicit tracked Fetch cleanup UI connected; Svelte check0 errors/0 warnings and Vite build passed. Native build running at artifacts/native-fetch-cleanup-ui-probe/build-state.json (child PID35016, supervisor PID29980); do not restart while live. Saved cleanup UI/native IPC and actual parent-crash acceptance remain pending. Deferred reusable inputs/new UX recorded in POST-MIGRATION-UX.md, starts only after full original migration completion.
+
+2026-09-30 latest checkpoint: bounded exclusive-lease staging cleanup command registered; Cargo checks and20 current-source cleanup assertions passed (artifacts/git-stage-cleanup-check/state.json). Windows cannot rename open-lease directory, so cleanup holds exclusive lock while deleting in place. Unknown/v1/malformed/active stages retained. Frontend action, real app IPC/parent-crash acceptance and full parity remain pending; no build active.
+
+2026-09-30 latest checkpoint: parent and native Fetch worker now independently hold shared staging OS leases with v2 ownership marker. Cargo fmt/check/clippy and actual worker real-pack15 assertions passed (artifacts/git-stage-lease-check/full-pack-state.json); Windows lock/delete semantics probed. Automatic cleanup/exclusive reclamation and parent-crash acceptance remain next. Last UI binary predates lease changes; no build active.
+
+2026-09-30 latest checkpoint: saved git-fetch-recovery-errors.js passed native lost Fetch reply5, rejected retirement-save4 and lost retirement-save reply4 checks on existing native-fetch-retire-ui-probe binary. Evidence artifacts/playwright/git-fetch-lost-reply-1790776835174, git-fetch-retire-save-failure-1790776836701, git-fetch-retire-save-lost-reply-1790776838051. Svelte check0 errors/0 warnings. No active build. Actual OS disk faults/crash-stage ownership/recovery and full parity remain pending.
+
+2026-09-30 latest checkpoint: retirement native build0; main Fetch11 + orderly restart3 + in-flight retirement race5 checks passed. Cancel IPC deliberately rejected while real native worker completed network, then saved-binding fence rejected publication and new UI Fetch succeeded. Evidence git-fetch-1790776436355, git-fetch-restart-1790776438945, git-fetch-retire-race-1790776601455. No active build. Save-failure/lost-reply/crash-stage recovery and full original parity remain pending.
+
+2026-09-30 latest checkpoint: explicit Stop tracking pending fetch wired via acknowledged serialized binding save, retaining snapshots and fencing old expected binding. Svelte/Vite checks passed; retirement Playwright scenario prepared. New build artifacts/native-fetch-retire-ui-probe/build-state.json running; runtime retirement/race/save-failure acceptance and full parity remain pending.
+
+2026-09-30 latest checkpoint: durable Fetch recovery UI native acceptance passed10 grouped checks; orderly restart3 and remote-settings regression8 passed on native-fetch-intent-ui-probe. Evidence git-fetch-1790775827974, git-fetch-restart-1790775830365, git-remote-settings-1790775851713. No active build. Unconfirmed intents still block retry/settings: explicit resolution/publication fencing and crash/stage recovery remain next, alongside full parity.
+
+2026-09-30 latest checkpoint: persisted Fetch intent before submission, explicit operation ID and tracked Inspect pending fetch UI wired. Svelte/Vite checks passed. New isolated build live PID24068 at artifacts/native-fetch-intent-ui-probe/build-state.json; saved UI recovery scenario awaits this binary. Unconfirmed/canceled intent resolution and retained-stage/native terminal recovery are not complete.
+
+2026-09-30 latest checkpoint: native inspection build finished0; Fetch/inspection Playwright passed8 grouped checks plus missing snapshot, and separate orderly native restart passed3. Current JS inspection client verified through Bun/native invoke; recovery UI/durable renderer intent remain pending. Evidence artifacts/playwright/git-fetch-1790775212631 and git-fetch-restart-1790775214639. Svelte check0 errors/0 warnings after fixing scenario JSDoc. No active build.
+
+2026-09-30 latest checkpoint: read-only git_remote_fetch_inspect registered; shared request validation and Cargo fmt/check/clippy passed. Saved Fetch scenario extended; new isolated build running at artifacts/native-fetch-inspect-ui-probe/build-state.json (PID37284). Native inspection runtime acceptance and durable frontend intent/recovery still pending; older Fetch seven-check acceptance remains valid for its previous binary.
+
+2026-09-30 latest checkpoint: isolated native Fetch build passed; saved Playwright Fetch passed7 checks (real pack/UI, saved-settings gate, HEAD/resources preserved, same-operation reconciliation, changed persisted binding, Stop). Remote-settings regression passed8 on same binary. Evidence artifacts/playwright/git-fetch-1790774627690 and git-remote-settings-1790774661897. Durable recovery/lost IPC/OS-close/legacy modes and full parity remain pending.
+
+2026-09-30 latest checkpoint: Fetch JavaScript client, tracked workspace wrapper and existing Git panel Fetch/Stop controls wired. Svelte check and Vite build passed. Native rebuild and saved Playwright real-pack IPC lifecycle acceptance are next; reconciliation/recovery and full legacy parity remain pending.
+
+2026-09-30 latest checkpoint: git_remote_fetch command wired with persisted binding/settings admission before/after network, app-data stage, cancellation, snapshot publication and operation-ID reconciliation. Cargo checks;15 admission +23 snapshot +17 import +15 pack assertions passed. Actual command IPC/UI/lock-race/recovery acceptance pending; next JS client/workspace/UI and saved Playwright.
+
+2026-09-30 latest checkpoint: Immutable fetch manifest commit + single endpoint-scoped pointer implemented, using verified importer and sorted branch-tip parents for reachability. Cargo checks;23 snapshot +17 import +15 real-pack assertions passed. Native command/binding admission/UI and crash/recovery/full parity remain pending.
+
+2026-09-30 latest checkpoint: Lease-gated object importer implemented and standalone verified (17 import/cancellation +15 real-pack assertions; Cargo checks passed). Copies complete verified graph without refs/HEAD/worktree changes. Production caller/publication remains pending; remove temporary scoped dead-code expectation when wiring it.
+
+2026-09-30 latest checkpoint: Fetch validates complete reachable commit/tree/blob graph with type/hash checks before success. Cargo checks,15 graph +15 direct-pack assertions and15 worker-pack regression assertions passed. Parent verified import/publication, UI/recovery and full parity remain pending; current validation size limits documented in STATUS.
+
+2026-09-30 latest checkpoint: Native WorkerOutput now hands successful staging lease to consumers; app-data/UUID allocator added (not yet public Fetch IPC). Cargo checks,58 lifecycle/ownership/allocation assertions and15 real-pack assertions passed. Next object validation/import and snapshot publication, then Fetch UI; restart recovery/full parity remain.
+
+2026-09-30 latest checkpoint: Parent now reserves fetch container/ownership marker; confirmed failed/cancelled workers clean it automatically, successful or uncertain work is retained. Cargo checks,43 lifecycle/ownership assertions and15 real-pack assertions through supervisor passed. App-data allocation, restart recovery, successful-stage handoff/publication and UI remain pending.
+
+2026-09-30 latest checkpoint: Fixed supervisor termination evidence: explicit checked wait, idempotent reaped state and joins of both pipe threads before returning errors. Cargo checks/native33 assertions passed. Automatic staging allocation/cleanup, publication and UI remain pending; see STATUS.md.
+
+2026-09-30 latest checkpoint: Fetch now uses shared native process supervisor (300s cap/305s watchdog; advertisement remains30s/35s), with staging ancestor symlink/reparse checks. Cargo checks and29 native assertions passed. Parent-owned allocation/cleanup, publication, IPC/UI and full parity remain pending. See GIT.md#record-git-fetch-staging.
+
+2026-09-30 latest checkpoint: Isolated fetch staging primitive/private worker dispatch implemented. Cargo checks passed; real-pack15 assertions and advertisement14 regression assertions passed. Supervisor/path ownership/publication/UI remain pending; multi-ref Transaction is not atomic. See [GIT.md#record-git-fetch-staging](GIT.md#record-git-fetch-staging). No native app rebuild; full migration incomplete.
+
+2026-09-30 latest checkpoint: Remote settings build finished0; saved native Playwright passed8 checks (save/read/reload/auth error/Stop/endpoint edit/dialog close/data preservation). Evidence git-remote-settings-1790770895847. Next scoped fetch, advance-ref journal/pull/merge and remaining remote/parity workflows; actual providers remain unverified.
+
+2026-09-30 latest checkpoint: Remote settings/read/Stop UI implemented in existing Git dialog.15 model/export assertions and frontend checks/build passed. Saved Playwright settings scenario awaits native build PID30728 at artifacts/native-remote-settings-ui-probe/build-state.json. No mounted UI acceptance yet. Poll same build; next run test:ui:git-remote-settings.
+
+2026-09-30 latest checkpoint: Remote client and tracked workspace advertisement wrapper implemented; 10 client + 6 wrapper assertions and frontend checks/build passed. Settings/connection/Stop controls and mounted UI verification remain next. Evidence: artifacts/git-remote-client-check; details in STATUS.md.
+
+2026-09-30 latest checkpoint: Isolated remote build finished0; saved Playwright native lifecycle passed7 named checks, including actual 30021ms timeout and existing Git UI responsiveness. Evidence git-remote-lifecycle-1790769998943. Settings/remote Stop UI/providers and remaining workflows are pending; next client/workspace admission integration.
+
+2026-09-30 latest checkpoint: Advertisement now uses a cancellable native worker process with bounded lifecycle/registry. Cargo checks and 14 actual-source assertions passed. See [GIT.md#record-git-remote-lifecycle](GIT.md#record-git-remote-lifecycle); isolated app/IPC/settings/UI acceptance remains pending.
+
+2026-09-30 latest checkpoint: git_remote_advertise primitive implemented with detached native remote and explicit auth mapping. Cargo checks and 14 actual-source loopback assertions passed. No UI/provider/fetch acceptance. Next bounded lifecycle/cancel and settings/client integration; GIT.md#record-git-remote retains full remote scope.
+
+2026-09-30 remote design checkpoint: See [GIT.md#record-git-remote](GIT.md#record-git-remote) for inspected legacy behavior, ordered implementation and acceptance. Current checkout journal cannot advance a branch tip; versioned OID-based recovery is required before pull/merge. Next settings/auth and read-only advertisement. Remote implementation remains pending.
+
+2026-09-30 latest checkpoint: Native deletion build finished 0; saved Playwright deletion/unmerged/stale-session scenarios passed 13 checks. Reload absence now waits for the loaded Git session. Evidence and limits in STATUS.md. Next remote/auth/clone/fetch/pull/push/merge, branch modes and recovery acceptance; full migration remains incomplete. Older checkpoints below are historical.
+
+2026-09-30 checkpoint: Guarded native branch deletion + consumed-session client/UI implemented; frontend/Cargo checks and11 native assertions passed. Saved deletion/unmerged Playwright scenarios added, not yet run. Native build live at artifacts/native-delete-ui-probe/build-state.json; poll before restarting. Full migration incomplete.
+
+2026-09-30 checkpoint: Native create build finished0 and all three saved Bun/Playwright scenarios passed: create-and-switch/reload, pending intent resume and mismatch refusal/forget preserving branch. Scripts in tests/ui, results in artifacts/playwright. No browser-use. Remaining branch modes/delete/remotes/recovery/visual parity still pending.
+
+2026-09-30 checkpoint: Durable create intent, native verifyOnly resume and create-and-switch/continue/forget UI wired; frontend/Cargo checks and31 coordinator/18 native assertions passed. Isolated build running at artifacts/native-create-ui-probe/build-state.json. Owner prohibits browser-use: future UI acceptance must use saved reusable Playwright JavaScript scenarios with Bun. Native UI acceptance remains next.
+
+2026-09-30 checkpoint: Native create-branch accepts optional operationId and acknowledges existing branches only from exact current-tip/creation-reflog/source/author evidence, without rewriting refs. Cargo checks and14 actual-source assertions passed. Durable frontend intent/create-and-switch UI and native IPC acceptance remain next; this is not completed branch creation workflow.
+
+2026-09-29 checkpoint: Fresh-process startup recovery passed18 assertions using a real native-produced pending journal after workspace sharing failure. New app startup recovered exact main workspace without manual recovery IPC, preserving history/local/private/foreign data; both probes closed0. Evidence artifacts/native-checkout-ui-recheck/startup-recovery.json. Abrupt crash/stale-lock, mounted failure/retained picker and broader parity remain pending.
+
+2026-09-29 checkpoint: Real native checkout/load/save IPC passed18 post-HEAD file-sharing failure/recovery assertions. Before workspace and native journal survived failure, pending journal blocked save, releasing handle let load finish exact target and fresh-document reload agreed. Evidence artifacts/native-checkout-ui-recheck/post-head-ipc.json. Fresh-process startup, mounted failure coordinator, retained picker/review and wider branch/remote parity remain pending.
+
+2026-09-29 checkpoint: Native recheck executable verified the conflict-message fix in actual Git dialog after staging reload; source branch/local edit retained, fresh-document reload passed, screenshot inspected and probe closed0. Five assertions recorded in artifacts/native-checkout-ui-recheck/conflict-recheck.json. Next post-HEAD IPC failure/recovery, retained-copy OS picker/review and remaining branch/remote parity.
+
+2026-09-29 checkpoint: Actual native checkout/reload/protected-data/selection/conflict and pre-journal ref-lock recovery flows passed16 artifact assertions; probe closed0. Fixed conflict text lost on dialog reload;11 handler checks and frontend build passed. Native fix recheck build is live at artifacts/native-checkout-ui-recheck/build-state.json. Retained picker/review, crash/uncertain IPC and broader branch parity remain pending.
+
+2026-09-29 checkpoint: Existing committed local branch switching and separate recovery modal connected. Retained edits require successful copy and exact reviewed snapshot before replacement.34 coordinator +10 compiled UI-script checks and Svelte/build passed. Isolated native build is in progress; observe artifacts/native-checkout-ui-probe/build-state.json before any restart. Next actual Tauri checkout/recovery/visual acceptance.
+
+2026-09-29 checkpoint: Frontend checkout/recovery coordinator is wired into workspace with exact baseline, pinned three-way plan, authoritative apply and retained unexpected live edits. JS/native selection/topology contract aligned; orphaned branch history preserved on load.31 coordinator +7 compiled-workspace +61 native checks and frontend/Cargo checks passed. Next branch/recovery UI, retained-data resolution and actual Tauri acceptance; full migration remains incomplete.
+
+2026-09-29 checkpoint: Guarded native checkout producer/command now writes journal and switches HEAD, then completes via revalidated recovery under GitState → StorageState. Cargo checks and 55 native assertions passed, including real Windows post-HEAD workspace sharing failure/recovery. Frontend three-way coordinator, candidate/topology/selection contract and Tauri IPC/UI acceptance remain pending.
+
+2026-09-29 checkpoint: Native journal recovery now runs during load under GitState then StorageState. Version/snapshot/ref/binding checks and conservative recovery table implemented; Cargo checks and 33 standalone native assertions passed. No journal producer/HEAD transition or Tauri IPC acceptance yet. Next guarded checkout producer, full candidate/selection coordination and native UI acceptance.
+
+2026-09-29 checkpoint: Native storage load/save now use shared helpers; pending journal blocks ordinary load/save and Git init/commit/create under their existing locks. Cargo checks and24 native storage assertions passed. No journal producer/recovery or native IPC acceptance yet; next guarded journaled checkout/startup recovery.
+
+2026-09-29 checkpoint: Real persistence phase now drives frontend edit/run/save admission and inert UI. Recovery keeps admission closed after drain release; failed recovery stays blocked.28 new checks plus27 barrier regressions and Svelte/build passed. Durable native journal/startup recovery and product checkout/recovery UI remain pending.
+
+2026-09-29 checkpoint: Scoped work now covers body/multipart/WebSocket/proto/schema files, page import picker/file, XML worker and cookie/legacy-restore IPC.42 behavior checks and Svelte/build passed. Native lifecycle acceptance, durable transition/recovery mutation block and journaled checkout remain pending.
+
+2026-09-29 checkpoint: Added guarded resource/settings mutation entry points and page direct-action guards; app shell/dialog inert and keyboard blocked during drain.28 behavior checks plus20 API Design/Git regressions and Svelte/build passed. Remaining file/cookie/import work and durable transition/recovery lock remain pending.
+
+2026-09-29 checkpoint: Registered API Design worker/file reads and Git setup/dialog work with drain. Abort blocks late resource application and future init/commit submission while already accepted saves/native calls remain awaited.46 behavior checks plus12 Git setup regression checks and Svelte/build passed. Direct mutation lock, remaining-writer audit and native checkout/recovery remain pending.
+
+2026-09-29 checkpoint: Shutdown now pauses new tracked HTTP/stream/gRPC/OAuth/Runner/proto runs and bounds cancellation IPC plus completion waiting.19 helper and14 compiled-workspace checks passed; Svelte/build passed. Direct UI/component writers, full mutation lock, native journal/recovery and checkout UI remain pending.
+
+2026-09-29 checkpoint: Real saveData uses exclusive persistence queue with blocked writes during transition/failed recovery.27 inline checks and Svelte/build passed. Workspace writer quiescence, native journal/recovery and checkout UI remain pending.
+
+2026-09-29 checkpoint: Checkout protocol specified in GIT.md#record-checkout-transaction after finding queued old workspace snapshots can overwrite a Git-only switch. Next implement persistence barrier/generation with native journaled transition and startup recovery; not implemented yet.
+
+2026-09-29 checkpoint: Client prepares branch switch from pinned target tree and live-state/ref checks using three-way planner.11 inline assertions and Svelte/build passed. Read-only preview only; durable checkout/recovery/UI and native branch acceptance remain pending.
+
+2026-09-29 checkpoint: Native info includes validated branch tip OIDs and explicit symbolic/unborn states with HEAD consistency checks. Cargo checks passed; runtime branch metadata/create acceptance and recoverable checkout/UI remain pending.
+
+2026-09-29 checkpoint: Guarded native create-branch primitive added and Cargo checks passed. It leaves HEAD/resources unchanged; legacy create-and-switch, checkout transactions, UI and runtime acceptance remain pending.
+
+2026-09-29 checkpoint: Native init recovery matrix passed19 assertions: unborn/committed retry leaves files unchanged; six invalid existing path classes rejected/preserved. Probe closed0. ACL/disk/crash/race and cross-store recovery remain unverified. Next branch workflows with resource reconciliation and durable transition handling.
+
+2026-09-29 checkpoint: Canonical Git commit/reload now native-verified clean. UI partial commit preserves unselected tree baseline and local edit across reload. Checkbox margin correction verified as live preview, frontend checks passed. Recovery matrix and branch/remote/full UI parity remain pending. Probe closed0.
+
+2026-09-29 checkpoint: Native Git setup/commit/history passed bounded UI flow; reload exposed YAML key-order changes. Stable sorting and checkbox layout fixes added;7 regression checks and Svelte/build passed. Rebuild/native reload and visual reacceptance required. Probe closed0.
+
+2026-09-29 checkpoint: Git local workflow dialog connected (setup/resume, changes, commit and history).6 history assertions and Svelte/build passed. Actual mounted/native flow, visual parity and recovery acceptance remain pending; branch/remote workflows incomplete.
+
+2026-09-29 checkpoint: Persist-before-init Git setup coordinator connected to workspace entry point; retains binding on failure and detects stale collection/binding.12 inline checks and Svelte/build passed. Visible Git UI and mounted/native recovery acceptance remain pending.
+
+2026-09-29 checkpoint: Explicit native Git initialization can reopen an existing valid managed repository; only an absent path is initialized. Invalid paths remain untouched. Cargo fmt/check/clippy passed; changed native IPC behavior, binding persistence and UI acceptance remain pending. See GIT.md#record-git-inventory.
+
+2026-09-29 checkpoint: External import/export strips machine-local native Git binding IDs/version, preserves settings and warns on import; local saved-state restore unchanged.15 inline checks and Svelte/build passed. Binding persistence/recovery and Git UI integration remain next.
+
+2026-09-29 checkpoint: Git frontend binding/session client added with private baseline, live collection checks and consumed commit attempts;18 inline contract checks and Svelte/build passed. Workspace persistence/import recovery and mounted Git UI remain pending. See GIT.md#record-git-inventory.
+
+2026-09-29 checkpoint: Native commit/history bounded IPC acceptance passed: initial/partial commit, stale HEAD, preserved unrelated blob/mode, pinned pagination and merge ancestry. Probe closed0. UI/persistence/recovery/remote workflows remain pending. See GIT.md#record-git-inventory.
+
+2026-09-29 checkpoint: Native resource commit added with HEAD/branch locks, expected-tip check and managed-tree overlay preserving unrelated entries. Cargo checks passed; native commit/history runtime and UI/resource persistence coordination remain pending. See GIT.md#record-git-inventory.
+
+2026-09-29 checkpoint: Resource changes/selected commit candidate model added; preserves deleted names and unselected bytes, requires workspace and valid parent graph.26 inline checks and Svelte/build passed. Native index/commit, revision checks and UI integration pending. See GIT.md#record-git-inventory.
+
+2026-09-29 checkpoint: Native Git history command added with immutable-tip pagination, merge ancestry and author/committer metadata. Cargo fmt/check/clippy passed; history runtime/UI acceptance pending. See GIT.md#record-git-inventory.
+
+2026-09-29 checkpoint: Isolated native Git build and actual WebView init/info/read-commit IPC passed bounded acceptance, including malformed objects and unchanged HEAD/index/worktree. Probe closed code 0. Git UI/transactions/full operations remain pending; see GIT.md#record-git-inventory.
+
+2026-09-29 checkpoint: Native git_repository_read_commit added for exact commit IDs and bounded regular resource blobs; Cargo fmt/check/clippy passed. Native IPC acceptance and JS reader/UI/transaction integration remain pending. See GIT.md#record-git-inventory.
+
+2026-09-29 checkpoint: git2 0.21.0 HTTPS/SSH and native managed init/info commands added; Cargo fmt/check/clippy passed after API fixes. Runtime acceptance, remaining Git operations and UI/transaction integration pending. See GIT.md#record-git-inventory.
+
+2026-09-29 checkpoint: Git three-way resource planner added;38 inline checks and Svelte/build passed. Protects local/private/foreign data and rejects conflicting or orphaning updates as a whole. Not wired to persistence/native Git/UI. See GIT.md#record-git-inventory.
+
+2026-09-29 checkpoint: Git collection snapshot/tree reader added with workspace graph, exclusion and path checks;28 inline assertions including37 archived fixture resources passed, Svelte check/build passed. Remote-state transaction/native backend/UI pending. See GIT.md#record-git-inventory.
+
+2026-09-29 checkpoint: Git resource codec foundation added (12 legacy types);87 inline checks and37 archived-fixture round-trips passed, Svelte check/build passed. No native backend/UI or transactional collection apply yet. See GIT.md#record-git-inventory.
+
+2026-09-29 checkpoint: Latest Runner sendRequest fix passed actual native UI: direct/detached/overridden callback, Stop without late persisted result/history, and new-document reload. Probe/fixture cleaned up. See RUNNER.md#record-native-runner-acceptance; broad parity remains incomplete.
+
+2026-09-29 checkpoint: Native callback probe build started; inspect artifacts/native-callback-probe/build-state.json/log and actual process before restarting. Git legacy format/workflow inventory added in GIT.md#record-git-inventory; implementation remains TODO.
+
+2026-09-29 checkpoint: Restored Runner insomnia.sendRequest callback and send delegation. Six cases against archived Insomnium class now pass (four failed before fix); five cancellation/fresh-context assertions and frontend checks passed. Native re-verification of this fix remains pending. See RUNNER.md#record-runner-inventory.
+
+2026-09-29 checkpoint: Rebuilt native desktop paste Import verified through real UI: invalid text/error recovery, review/cancel without changes, additive cURL apply preserving old resources/history and fresh-document reload. Entry screenshot inspected. OS picker/legacy multi-file acceptance remains pending. See IMPORT-EXPORT.md#record-import-ui.
+
+2026-09-29 checkpoint: Desktop Import now opens paste/review UI with explicit native file selection and modal-lifetime guards.11 source lifecycle/parser assertions, Svelte check and frontend build passed; rebuilt native import acceptance is pending. See IMPORT-EXPORT.md#record-import-ui.
+
+2026-09-29 checkpoint: Isolated native release build and real WebView Runner flow passed: cookie round-trip, passing/failing assertions, Stop without late saved result and fresh-document reload (2 results/3 history/4 fixture requests). Dark Runner screenshots inspected. Probe closed and fixture stopped. Native paste import gap found; full parity remains pending. See RUNNER.md#record-native-runner-acceptance.
+
+2026-09-29 checkpoint: Native probe retry diagnosed missing MSVC INCLUDE (ring/vswhom-sys headers); child environment corrected. Build is still live, no success/runtime claim. Cookie snapshot allow/deny permission generated. See RUNNER.md#record-native-runner-acceptance and artifacts/native-runner-probe/build-state.json/log.
+
+2026-09-29 checkpoint: Actual compiled workspace + Runner/template workers + preview HTTP + persistence flow passed25 inline assertions using4 loopback requests and isolated memory storage. Native Tauri/UI/provider acceptance remains pending; see RUNNER.md#record-runner-inventory.
+
+2026-09-29 checkpoint: Tests UI integrated with suite sidebar, JavaScript editor, CRUD, Run/Stop and result detail.12 CRUD +11 runtime/report assertions and Svelte/build passed; production worker/WASM emitted. Mounted/native/visual acceptance still pending.
+
+2026-09-29 checkpoint: Runner workspace action now reuses shared HTTP sender, snapshots tests/per-Send request environments, owns Stop/shutdown and saves guarded results.13 model checks plus actual-action mocked wiring passed; Svelte/build passed. UI/native acceptance pending.
+
+2026-09-29 checkpoint: Runner worker/supervisor added.14 message-lifecycle assertions and6 actual Vite-built Bun Worker assertions passed, including hard Stop plus transport abort. Svelte/build passed; native sender/UI/WebView acceptance remain pending.
+
+2026-09-29 checkpoint: Isolated Runner runtime added with real Mocha/Chai, async insomnia.send callback bridge, scoped timers, abort/late-response cleanup and result reporting.20 inline assertions and Svelte/build passed; worker/native sender/UI remain pending (RUNNER.md#record-runner-inventory).
+
+2026-09-29 checkpoint: Mocha10.8.2/Chai4.5.0 installed with Bun; real browser bundles passed six-case QuickJS compatibility probe (7 host assertions). Svelte/build passed. Runner worker/send/UI not implemented; see RUNNER.md#record-runner-inventory.
+
+2026-09-29 checkpoint: Runner resource prerequisites fixed: additive imports remap selected request/suite; collection copies exclude legacy nonduplicable results/workspace metadata/tokens.18 inline checks and Svelte/build passed. Runtime/UI remain TODO; see RUNNER.md#record-runner-inventory.
+
+2026-09-29 checkpoint: cURL multipart filename/type metadata and guarded replacement implemented;136 inline checks,6 native-builder/curl wire comparisons and Svelte/build passed. Browser FormData differs; mounted/native IPC and remaining form/options parity stay pending. See CURL-IMPORT.md.
+
+2026-09-29 checkpoint: single-file cURL data modes use guarded explicit file selection, byte transforms and manual Content-Type;98 inline checks,7 local curl comparisons and Svelte/build passed. Mixed files/options/native UI remain pending. See CURL-IMPORT.md.
+
+2026-09-29 checkpoint: cURL import now uses existing paste/file review and additive resource flow;70 inline assertions,8 local curl wire comparisons and Svelte/build passed. File/options/native UI parity remains incomplete. See CURL-IMPORT.md.
+
+2026-09-29 checkpoint: Explicit OAuth Fetch/Refresh renders cookie snapshots;25 inline checks and frontend build passed. Retained legacy Restore records must not be blindly overlaid on Send. See HTTP.md#record-cookie-rendering for remaining template-source lifecycle work.
+
+2026-09-29 checkpoint: Cookie snapshot key/value now render separately and rebuild through RawCookie builder without attribute reparsing;24 inline assertions and Cargo checks passed. See HTTP.md#record-cookie-rendering. Legacy template-source overlay and native wire acceptance remain pending.
+
+2026-09-29 checkpoint: Native cookie snapshots now render with Send and reach request-local providers, with generation/bounds checks;40 inline assertions and Cargo/frontend checks passed. See HTTP.md#record-cookie-rendering. Structured legacy-cookie source equivalence and runtime acceptance remain incomplete.
+
+2026-09-29 checkpoint: Native cookie providers now isolate per-request cookies and merge response deltas;8 native assertions and Cargo checks passed. See HTTP.md#record-cookie-rendering. Pre-render cookie snapshot/template bridge and native wire acceptance remain pending.
+
+2026-09-29 checkpoint: User-Agent suppression now reaches native build_client; enabled explicit headers retained.9 inline assertions, Cargo check/clippy/fmt and frontend checks passed. See HTTP.md#record-user-agent. Native wire acceptance and full parity remain incomplete.
+
+2026-09-29 checkpoint: WebSocket payload Send now connects when idle, renders before handshake and dispatches once on open;28 inline checks, Svelte/build passed. See HTTP.md#record-websocket-rendering. Real native/WebView acceptance, SSE raw history and full migration remain incomplete.
+
+2026-09-29 checkpoint: Browser preview now bounds response reads at20 MiB with cancellation and no partial success.15 inline checks and Svelte/build passed. See STATUS.md. Live SSE history/native transport/full runtime acceptance remain pending.
+
+2026-09-29 checkpoint: SSE-labelled response dependencies now await complete raw HTTP bodies; 8 inline checks and Svelte/build passed. See TEMPLATING.md#record-dependent-responses. Live SSE history, preview size bounds and real native/WebView acceptance remain pending; full migration incomplete.
+
+2026-09-29 checkpoint: gRPC discovery/calls/client messages use shared rendering, raw/resolved cache identities and connection-bound cancellation;40 inline assertions, Svelte0/0 and build passed. See GRPC.md#record-grpc-rendering. Streaming dependency completion, native transport parity and full WebView/platform acceptance remain incomplete.
+
+Statuses: TODO / PARTIAL / IMPLEMENTED / VERIFIED. A scaffold/build alone is not full parity.
+Legacy paths below are relative to `_backup/legacy-electron/packages/insomnia/src` after archive.
+
+| Area | Legacy evidence | Status | Acceptance |
+| ------------------------------------ | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Desktop shell / build | main, electron-builder.config.js | PARTIAL — Windows release executable + NSIS built; launch/platform QA pending | Native Tauri executable and installer build with Bun/Cargo |
+| UI layout / themes | ui/css, ui/components, plugins/themes, screenshots/v0.1.png | PARTIAL — saved static and Windows native dark/light/keyboard/width checks pass; complete workflow/platform visual QA pending | Insomnium layout and usable light/dark, keyboard, resize |
+| Collections / folders / request CRUD | models/workspace, request-group, request | IMPLEMENTED — collection/folder/request management, subtree copy, guarded move/delete and ordering; runtime QA pending | Persist, switch, rename, duplicate, delete, reorder/search |
+| HTTP / response / history | network/network, models/response | PARTIAL — native transport compiles; runtime verification pending | CORS-free native requests, status/body/headers, timing, history, cancellation |
+| Request bodies | models/request | IMPLEMENTED — runtime checks pending | JSON/text/XML/form-urlencoded/multipart/binary |
+| Authentication | network/* | PARTIAL — Basic UTF-8/Latin-1, editable Bearer prefix, API key header/query/Cookie, manual Authorization precedence (also Digest/OAuth; explicit OAuth Fetch/Refresh retained) and native Digest for HTTP/SSE/WebSocket; Digest Unicode/NFC and executor loopback checks passed, UI/IPC pending; OAuth Client Credentials/Password/Refresh plus token lifecycle implemented and directly inspected; Authorization Code/PKCE browser/callback flow implemented and directly inspected, real browser/IPC pending; Implicit token/ID-token/none callback flow implemented and directly inspected (explicit ID-token use; no OpenID identity verification); optional legacy login-window remote/custom interception and session rotation implemented (WebView/provider/certificate/popup acceptance pending); OAuth1 four signature methods and explicit legacy/RFC body modes implemented with direct native/loopback/JS checks; OAuth2 NO_PREFIX implemented; AWS IAM header signing/editor/import implemented with independent native wire-signature verification (AUTHENTICATION.md#record-aws-compatibility); Hawk SHA1/SHA256 implemented with three explicit signing modes and native signature/redirect inspections (AUTHENTICATION.md#record-hawk-compatibility); ASAP legacy/Postman JWT signing/editor/import implemented with independent RSA/PSS/EC verification (AUTHENTICATION.md#record-asap-compatibility; ES512/P-521 now implemented and independently inspected); NTLMv2 guarded HTTP/1/TLS-binding/editor implemented with independent native proof/MIC/TLS checks (AUTHENTICATION.md#record-ntlm-compatibility); netrc discovery/parser/per-destination Basic implemented with45 native cases (AUTHENTICATION.md#record-netrc-compatibility); native UI/provider/platform and auth edge parity pending | Basic/bearer/API key, OAuth1/2/PKCE, digest/AWS/Hawk/NTLM/netrc/ASAP inventory |
+| Environment / templating | models/environment, templating | PARTIAL — isolated recursive templates connected to HTTP/initial stream Send; same-collection HTTP dependencies connected; foreign routing/introspection/gRPC/manual OAuth/native acceptance pending | Base/sub/folder inheritance; variable rendering; legacy tags handled explicitly |
+| Cookies / redirects / proxy | models/cookie-jar, network | PARTIAL — persistent cookie CRUD, collection isolation, separate send/store, redirect/proxy implemented; legacy-cookie preview/restore implemented; native QA and custom-cookie extensions pending | Session isolation, persistence, cookie management, redirect/proxy preferences |
+| TLS / certificates | models/ca-certificate, client-certificate | PARTIAL — settings/native support; real certificate checks pending | Validation default, custom CA, client certificate scoped to host |
+| Local data / legacy migration | common/database, models | PARTIAL — atomic save/backup and read-only NeDB parser; external assets pending | Atomic durable state; import legacy without changing source or dropping resources |
+| Import / export | ../plugins and common/import | PARTIAL — Insomnia/Postman/HAR/NeDB, OpenAPI JSON/YAML design documents and explicit request generation; literal cURL import implemented with file/options/native acceptance gaps (CURL-IMPORT.md) | Insomnia JSON, Postman, HAR, OpenAPI, curl; explicit unsupported handling |
+| GraphQL | ui/components, graphql deps | PARTIAL — query/variables/operation editor, POST/GET, manual introspection, JSON/SDL import, schema browser/export, format/validation and response errors implemented; Windows native15 editor checks +12 schema lifecycle/GET checks passed; remaining gates in GRAPHQL.md#record-graphql-rendering | Query/variables editor, schema introspection, error display; legacy completion/navigation |
+| WebSocket | models/websocket-*, network | PARTIAL — connect/send/receive/close, text/binary/ping, headers/subprotocols, saved payloads/history implemented; runtime/legacy-log QA pending | Connect/send/receive/close, headers, history |
+| SSE | models/request isEventStreamRequest | PARTIAL — native incremental events, IDs/retry metadata, cancel/history implemented; runtime QA pending | Incremental events and cancellation |
+| gRPC | network/grpc, models/proto-*, grpc-request | PARTIAL — Tonic/reflection, legacy JSON, Svelte/proto management plus method package groups and sent-message tabs implemented;64 native cases,97 legacy differential,75 prior workspace checks and10 method-group cases passed; bounded reflection samples implemented with15 native cases plus5 archived comparisons/independent wire decodes; JSON/shared-editor edges and actual UI/IPC/reload pending (GRPC.md#record-grpc-compatibility) | Proto/reflection, unary and streaming, metadata/TLS |
+| API design / OpenAPI lint | models/api-spec, spectral deps | PARTIAL — persisted source editor/import/export, operations/schema preview, strict structural validation and attached local refs, request generation implemented; native UI, Spectral/custom rules and advanced serialization pending | Edit/import/spec preview and lint |
+| OpenAPI 3.2 QUERY/custom operations | src/lib/openapi.js; src/lib/components/ApiDesign.svelte; tests/ui/openapi-methods.js | VERIFIED — release1791530305299: native6exact methods/5JSON bodies plus fresh query3.2.1/44groups; terminal0/native-hidden/exit0/independent audits/owned cleanup. Direct12/Git12 across3.2.0/3.2.1 and11negative controls; exact custom case/metadata, distinct fixed GET vs custom get, inherited/overridden parameters, path validation/diagnostics and duplicate operationIds. Three actual760 images inspected. See API-DESIGN.md#record-openapi-methods; broader OpenAPI/Auth/provider/proxy/HTTP2/platform gates remain open. |
+| Mixed manual/generated query order | src/lib/transport.js; src/lib/template-url.js; tests/ui/url-encoding.js | VERIFIED — release1791522146028: URL85targets/78signatures/7checks/8explicit legacy refusal/RFC recovery controls; independent audit recomputes32mixed signatures and4API-key targets. Fresh generated-query3.2.1/44groups passes. Enabled row/array expansion order, duplicate names, empty/bare/blank-name values, nullable omission, encoding/cURL contexts and raw-query-preserving API-key append verified. Direct8/boundary8/legacy52/style132/preflight82 pass; terminal native-hidden/exit0 and owned cleanup. See HTTP.md#record-query-row-order for exact evidence and limits; broader Auth/OpenAPI/provider gates remain open. |
+| Collection runner / assertions | models/unit-test*, network/unit-test-feature | PARTIAL — runtime/worker/shared sender/Tests UI implemented; saved Windows native runner-lifecycle verifies direct/detached/delegated callbacks, assertions, single-test persistence, Stop and fresh run, dark/light 1440/900/760; remaining script/import/provider/platform compatibility pending (RUNNER.md#record-runner-inventory) | User-authored API tests (separate from new development test scripts restriction) |
+| Git sync | sync, models/git-repository | PARTIAL — local status/staging/commit/history/branches/selected restore and journaled full/scoped/shallow Fetch implemented; public Pull/local Merge now have pinned content/working-conflict review, complete side/custom choices, recursive bases/schema3 recovery and recorded native acceptance. Remaining Pull/network/process/I/O/provider/platform/path/history acceptance and clone/remote checkout/non-force push are required; see current STATUS/GIT-REMOTE rather than historical GIT-INVENTORY checkpoints. | Existing local Git workflows or documented approved replacement |
+| Plugin / template tag compatibility | plugins, templating | PARTIAL — isolated renderer/built-in tags and prompt dialog implemented; Send integration/custom plugin runtime and native acceptance pending | Inventory and explicit compatibility boundary; no silent loading of Node-only plugins |
+| Desktop integrations | main | PARTIAL — dialogs/window-state/single-instance/icons/shortcuts; native QA/menu pending | Menus, shortcuts, dialogs, clipboard, window state, icons |
+| CI / distribution / docs | .github, scripts, README | PARTIAL — migration docs and Windows installer complete; CI/platform matrix pending | Bun-only CI, platform builds, accurate run/migrate/recovery docs |
+
+Shared editor checkpoint (September28): CodeMirror5 wrapper connected to HTTP/gRPC bodies with history/cursor cache, syntax/search/folding/keymaps; Svelte/build and10 mode/cache assertions pass. Environment/GraphQL completion, lint/filter/tag widgets, remaining surfaces/settings and actual WebView acceptance remain PARTIAL; see TEMPLATING.md#record-editor-template-inventory.
+
+## Environment completion checkpoint — 2026-09-28
+
+Added show-hint integration and editor-completion.js for inherited environment names in HTTP/gRPC bodies. Ctrl-Space and delayed interpolation suggestions support current dot/numeric/underscore-alias rendering syntax, avoid duplicate closing braces and replace whole partially typed names. Names only; bounded traversal avoids getter execution/cycles. Original Tab behavior preserved through CodeMirror.Pass. Bracket/quoted paths, tags/snippets/constants, Nunjucks runtime and GraphQL completion remain pending.
+
+Read archived extensions/autocomplete.ts and official https://raw.githubusercontent.com/codemirror/codemirror5/master/addon/hint/show-hint.js plus the official manual before edits. No new packages. Ran bun x --bun prettier --write, bun run check (final0 errors/0 warnings), bun run build (passed), and15 inline Bun boundary/name/limit assertions. No saved test scripts. Actual popup/IME/lifecycle acceptance remains unverified; source is not packaged.
+
+## GraphQL editor checkpoint — 2026-09-28
+
+Read official https://raw.githubusercontent.com/graphql/graphiql/main/packages/codemirror-graphql/README.md and installed using bun add codemirror-graphql (2.2.9). Connected GraphQL query/JSON variables to the shared editor, schema-aware query completion and live lint, with environment hints and separate undo identities. Lint skips large/read-only/unrendered-template content; explicit rendered validation remains. Six direct language-service assertions passed; Svelte0/0 and frontend build passed. Initial markup/type diagnostics fixed. No saved test scripts/native changes. Type hover/navigation, variable-specific suggestions/lint, template integration and real WebView acceptance remain pending. Source is newer than the packaged BUILD.json.
+
+GraphQL variable editor now has operation-specific type completion/lint and query-to-type navigation; helper assertions/build pass. Required-variable omission checks, hover/directive navigation and mounted WebView acceptance remain pending (STATUS.md).
+
+GraphQL hover/directive browser/navigation implemented in source; WebView acceptance and full editor/template parity remain pending. Next shared-editor surfaces/settings/bundle split: see STATUS.md.
+
+Shared editor surfaces/settings connected for response/environment/OpenAPI; bounds/save/readonly/diagnostic behavior retained in source. Runtime/layout verification and full editor/template parity remain open; next checkpoint in STATUS.md.
+
+## JSON formatter checkpoint — 2026-09-28
+
+- Ported archived utils/prettify/json.ts to JavaScript using documented Bun.Transpiler({ loader: 'ts', target: 'browser' }).transformSync(source), then customized src/lib/json-prettify.js. Original attribution retained. No dependency or native changes.
+- HTTP/gRPC Format now formats tokens without parsing numeric values or evaluating templates. Response/gRPC display validates JSON but formats the original string, preserving large integers, exponent spelling and negative zero. Non-JSON displays fall back to original data; copy/download behavior unchanged.
+- Safe Unicode conversion occurs only inside quoted strings; control characters, quotes, backslashes and surrogate code units retain escapes. Matching template closing delimiters are required. Formatter is deliberately permissive like the archived implementation, not a JSON validator or template renderer.
+- Bounds: 20 Mi UTF-16 code units for input/output, nesting 0..256, indentation up to16 spaces/tabs. Explicit Format reports errors and retains previous body; display catches errors and retains original text. This character bound is not a UTF-8 byte bound.
+- All10 archived fixture pairs passed exactly, plus14 inline boundary/value-preservation assertions (24 total). No saved test scripts. bun run check:0 errors/0 warnings; bun run build passed; Prettier passed. Native WebView format/undo/display acceptance remains unverified.
+- Source is newer than BUILD.json and the shared-editor installer; formatter is not yet packaged. No active processes. Next: response filter/history integration, XML formatting and remaining editor/template parity; full migration incomplete.
+
+JSON response filter checkpoint: JSONPath worker, per-request imported/new metadata, Enter/clear/history/help implemented.34 inline assertions/worker checks; Svelte0/0. Native UI/CSP/reload and XPath/XML remain pending; source unpackaged. See latest STATUS.md for bounds and precision limitations.
+
+XPath response filter implemented with xmldom/xpath inside disposable worker;14 compiled-worker checks and Svelte/build passed. XML prettification, native UI/CSP/reload and namespace mapping UI remain pending; see STATUS.md for strict-parser/timeout behavior. Source unpackaged.
+
+XML preview formatter implemented with original vkbeautify plus content-preservation guard, inside worker.12 inline/helper/worker assertions and Svelte/build passed. Request XML Format and native UI acceptance remain pending; source unpackaged. Shell must explicitly be cmd.exe/login:false per updated owner rules. See STATUS.md.
+
+## XML request Format checkpoint - 2026-09-28
+
+- Added XML Format button for application/xml, text/xml and +xml request bodies. Uses dedicated xml-format.worker.js and existing content-preserving xmlPrettify. No dependency/native changes; existing layout retained.
+- Worker terminates on reply/error/3-second deadline and effect teardown when request ID, text, MIME or tab changes or component unmounts. Callback independently compares current ID/text/MIME/tab before applying a result. Failures retain original body and display error. Pending button disabled. Exact mounted cancellation/Undo/persistence acceptance remains unverified.
+- Read official Svelte effect lifecycle and Vite Web Worker docs before wiring. Svelte check0/0; frontend build passed (dedicated worker93.28kB). Five compiled-worker assertions passed for formatting, malformed/empty XML, mixed-text rejection and indentation. First assertion expected generic Error wording for empty XML, corrected to actual missing-root diagnostic and reran all five. No saved test scripts.
+- CUA rechecked: apps=[]/browsers=[]. No active task processes; source newer than BUILD.json, no new installer. Next: remaining editor/template runtime parity and native UI acceptance/package. Full migration remains incomplete.
+
+## Isolated Nunjucks engine foundation - 2026-09-28
+
+- Researched original templating/index.ts and official Nunjucks API/templating, QuickJS embedding/runtime limits and CSP WebAssembly documentation. Selected actual Nunjucks inside QuickJS/WASM for compatibility without frontend JavaScript unsafe-eval. This is a foundation decision, not completed request rendering.
+- Installed nunjucks3.2.4 and quickjs-emscripten0.32.0 via direct Bun add --ignore-scripts --exact. No lifecycle shell commands. Added template-runtime.js using documented getQuickJS/newContext/evalCode APIs. Fresh VM per render; JSON-only input; no host functions, module loader, filesystem/network/Tauri APIs exposed. Bounds:128MiB VM heap,512KiB stack,2-second interrupt,20Mi-character serialized input/output. All handles/context disposed.
+- Preserves original autoescape:false, throwOnUndefined:true, root and underscore context aliases, all/variables/tags delimiter modes and debug identity filter. Uses original Nunjucks filters, expressions, loops/macros/comments rather than a handwritten syntax subset.
+  -10 inline Bun assertions passed (bracket/filters, loops, macros, comments, render modes, no autoescape, missing variable error, absent host APIs and infinite-loop interruption). Svelte check0/0 and frontend build passed. No saved test scripts.
+- NOT integrated into application rendering yet: model.render remains unchanged. Browser WASM asset/loading/CSP, disposable worker/client, native built-in tag bridge, async request/environment rendering, cancellation/errors, template widgets and plugin compatibility remain required. Browser may need narrowly scoped wasm-unsafe-eval; current CSP has not changed. Nunjucks source parameter must remain trusted bundled code, never user-provided engine source.
+- No active operations/new installer. Source newer than BUILD.json. Next: bundle production WASM with documented variant/loader, wire worker/client and verify actual browser acceptance; then bridge original tags and replace all render call sites with async pipeline. Full migration incomplete.
+
+## Template worker and preview checkpoint - 2026-09-28
+
+- Read official QuickJS packaging/newVariant wasmLocation docs and Vite URL/raw asset docs. Replaced aggregate quickjs-emscripten dependency with pinned quickjs-emscripten-core0.32.0 and @jitl/quickjs-wasmfile-release-sync0.32.0 using direct Bun add/remove --ignore-scripts. Only release-sync WASM is bundled.
+- template.worker.js imports trusted Nunjucks dependency as raw text and explicit WASM asset URL. Runtime accepts the initialized engine as first argument. WASM initializes inside the request try/catch so startup failures become worker error messages. No host APIs are exposed to guest templates.
+- template-client.js creates one worker per render, supports AbortSignal, terminates on response/error/abort/5-second outer deadline and removes timer/listener. TemplatePreview.svelte is collapsed by default below HTTP text-body editor; opening renders inherited environment, changing text/context/identity cancels old work and closing disposes it. Source body stays unchanged and output is read-only. Preview explains current Send/custom-tag limitation.
+- CSP/devCsp add only wasm-unsafe-eval to script-src; JavaScript unsafe-eval remains absent. This config change is not yet packaged or verified in native WebView. Worker275.68kB and one WASM503.13kB emitted; no other QuickJS variants in build.
+- Initial direct Bun execution of browser artifact failed because Bun worker lacks self.location. Then exercised the unmodified built worker using an in-memory wrapper simulating browser location and fetching WASM bytes from the actual built asset. Four asserted production-worker cases passed (loop/filter, missing variable, unsupported custom tag, failed WASM load). This is NOT actual browser/CSP acceptance. Fixed potential startup unhandled rejection by moving WASM initialization inside handler, then final Svelte0/0/build passed. No saved test scripts.
+- Send/model.render remains unchanged. Full environment expansion, built-in/native async tags, all request/auth/protocol call sites, template widgets and plugin compatibility remain required. Next: original tag/async render orchestration and Send integration, plus real WebView preview/abort/asset/CSP acceptance when a surface is available. No active task processes/new installer; source newer than BUILD.json. Full migration incomplete.
+
+## Worker-local built-in tags - 2026-09-28
+
+- Inspected original BaseExtension parser/run contract, decodeEncoding and local-template-tags implementations. Inventoried remaining render() callers: transport.js (URL/headers/body/auth), graphql.js, grpc-model.js, oauth-model.js and workspace.svelte.js; Send remains on existing renderer.
+- Added template-tags.js with base64, now, uuid, hash and jsonpath. Preserves Base64 normal/URL encode and permissive decode, b64::...::46b argument decoding, date-fns2.30 timestamp/custom formats and rounded Unix seconds, UUID v1/v4, four UI hash algorithms (MD5/SHA1/SHA256/SHA512) and hex/base64/latin1, first JSONPath result/error on no results. Additional OpenSSL hash names accepted by the legacy implementation are not yet covered.
+- Added a narrow synchronous QuickJS bridge: tag name whitelist, JSON arguments, up to32 args/1000 calls/20Mi argument/result characters. Guest cannot access Buffer/crypto/date libraries or host functions directly beyond this bridge. Nunjucks parses tag arguments using its original signature parser; run modes preserved. Missing-variable arguments serialized as null remain an edge to align with original undefined/default semantics.
+- JSONPath uses browser safe evaluator with4096 query length/10000 matches/20Mi cumulative result limit. Host tag work runs inside disposable worker; VM memory/time limits do not independently constrain host-library allocations/execution. Outer worker deadline remains required. Native tags (os/file/cookie/prompt/response/request), asynchronous tag bridge and widgets are still pending.
+- Read official buffer, noble-hashes, uuid v9 README and date-fns v2 format source before using APIs. Bun add --ignore-scripts --exact buffer@6.0.3 date-fns@2.30.0 uuid@9.0.1. Existing @noble/hashes and JSONPath reused. No Node runtime or shell invocation.
+  -16 inline VM/tag assertions passed; one direct UUID-null guard check and one compiled-browser-worker tag check passed (18 total). Initial Svelte JSONPath return-type diagnostics fixed with runtime array narrowing; Svelte0/0/build passed (worker370.89kB, WASM503.13kB). Build precedes final UUID-null guard and comment-only correction; source remains unpackaged. No saved test scripts.
+- Preview explains supported tags and remaining Send limitation. Native WebView/CSP/interaction acceptance remains unverified. No active processes/new installer. Next: asynchronous native tag bridge and environment/request render pipeline, then replace Send/auth/protocol callers without mutating stored request values. Full migration incomplete.
+
+## Async template extension checkpoint — 2026-09-28
+
+- Owner confirmed preserving the original Insomnium UI/layout. jirasync-hub-app remains a read-only architectural reference.
+- Consulted official [Nunjucks async extension API](https://mozilla.github.io/nunjucks/api.html#asynchronous-extensions) and [QuickJS embedding/lifetime documentation](https://raw.githubusercontent.com/justjake/quickjs-emscripten/main/README.md), plus installed Nunjucks browser scheduler and archived BaseExtension, before implementation.
+- template-runtime.js now uses CallExtensionAsync and callback-based rendering. Trusted application code may register async handlers; names are validated, capped at64 including built-ins, and cannot replace built-ins. Worker/client do not yet expose native handlers. No file/network/Tauri capabilities added to guest.
+- Argument envelopes preserve top-level undefined versus null. Empty calls use the original **EMPTY_NUNJUCKS_ARG** sentinel/filter: initial inline execution exposed Nunjucks's empty async argument compiler failure; matched archived parser and reran successfully.
+- Bounded one-shot callback scheduling supports the browser ASAP timeout/interval fallback. These are scheduling shims, not general-purpose timer semantics (delay/repeating behavior not implemented). All retained guest callbacks/timers are disposed on success/failure/timeout; late extension resolution checks liveness before touching VM. Falsy Promise rejections retain failure status.
+- Existing128MiB heap/512KiB stack/2-second wall-clock interrupt,20Mi-character bounds and1000 tag-call bound retained. Scheduler capped at1000 registrations; host completion deadline5seconds plus outer disposable worker deadline. Await time counts toward2seconds: interactive prompts need explicit future cancellation/time policy. Host extension work is not itself cancelled by VM disposal.
+- Validation:16 inline async VM assertions,3 rejection/late-disposal assertions and3 compiled worker assertions passed (22 total); no saved test scripts. Production-worker checks simulate browser location/fetch in Bun, not native WebView/CSP acceptance. Initial14 JS annotation diagnostics fixed; final Svelte0 errors/0 warnings and Vite build passed. Worker373.15kB/WASM503.13kB.
+- Commands launched directly with node_repl execFile(shell:false,windowsHide:true): Bun node_modules/prettier/bin/prettier.cjs --write src/lib/template-runtime.js; Bun node_modules/svelte-check/bin/svelte-check --tsconfig ./jsconfig.json --config ./svelte.config.js --fail-on-warnings; Bun node_modules/vite/bin/vite.js build. Inline inspections used Bun -e. No shell, Node, npm, Python or new dependency executed/installed.
+- Next: worker/main native-tag request/reply protocol with cancellation; implement original os/file/cookie/prompt/response/request semantics, decoded argument handling and request/environment orchestration; replace Send/auth/GraphQL/gRPC/WebSocket render call sites without mutating saved inputs. Native preview/IPC/CSP acceptance and full PARITY remain pending.
+- No active task processes/new installer. Source is newer than BUILD.json; full migration remains IN PROGRESS.
+
+## Native tag messaging checkpoint — 2026-09-28
+
+- Read official [Worker.postMessage](https://developer.mozilla.org/en-US/docs/Web/API/Worker/postMessage) and [AbortController](https://developer.mozilla.org/en-US/docs/Web/API/AbortController) documentation before implementation. No generator or dependencies needed for these Web APIs.
+- template-client.js now accepts application-owned handlers for os/file/cookie/prompt/response/request. Only registered names cross to template.worker.js; functions stay in the application. Message types render/tag/tag-result/result and per-render call IDs separate requests from final output. Worker accepts one render only; duplicate/late results are ignored.
+- Client rejects unregistered/duplicate/invalid calls, caps1000 calls and32 arguments, JSON-normalizes handler results with20Mi-character bound, preserves errors including falsy rejections. Worker decodes original b64 argument encoding before invoking native handlers, while structured clone retains undefined/null arguments. Existing local tags remain available without handlers.
+- Finishing, timeout or external AbortSignal terminates the disposable worker and aborts the handler signal. Late replies are ignored. Native handlers must actually observe this signal; terminating a worker does not independently cancel native operations. Current2-second VM wall-clock/5-second outer deadlines remain unsuitable for interactive prompt waiting until future policy work.
+- Four initial JavaScript annotation diagnostics fixed. Final Svelte0 errors/0 warnings, frontend build passed (template worker373.96kB);14 inline assertions through actual compiled worker + source client passed, including async replies, encoded/missing/null args, native failure, nonserializable result, loop, preabort, pending abort, late completion and zero remaining workers. Bun wrapper simulates browser location/WASM fetch; real WebView/CSP/IPC remains unverified. No saved test scripts.
+- Direct hidden execFile Bun commands: node_modules/prettier/bin/prettier.cjs --write src/lib/template.worker.js src/lib/template-client.js src/lib/template-tags.js; node_modules/svelte-check/bin/svelte-check --tsconfig ./jsconfig.json --config ./svelte.config.js --fail-on-warnings; node_modules/vite/bin/vite.js build. Inline validation via Bun -e. No shell/Node/npm/Python.
+- This implements the transport contract only: no native handler enabled in UI yet. Next implement original os/file/cookie/prompt/response/request handlers using existing native services and original semantics, connect preview context/purpose, then environment/request orchestration and Send callers. Keep original Insomnium UI. No new installer/active processes; source newer than BUILD.json. Full migration remains incomplete.
+
+## Native file template tag checkpoint — 2026-09-28
+
+- Added src-tauri/src/template.rs read_template_file command, registered in lib.rs/build.rs and main-window capability. Uses spawn_blocking and standard File/Read::take, ordinary-file metadata checks before/after open,20MiB byte cap including growth during read, and UTF-8 replacement decoding. Relative paths use native process cwd as legacy did; symlinks to regular files remain usable.
+- Added template-native.js file handler and connected desktop TemplatePreview. Handler checks AbortSignal before and after invoke. Browser preview registers no file handler; original layout retained and support hint updated. No file chooser/tag widget yet.
+- Cancellation drops late results but does NOT cancel an already running blocking OS read. Regular network-mounted files may outlive the preview deadline; special-file race and native resource concurrency policy need review before broader Send integration. Existing VM2-second wall time and worker5-second deadline remain. No request sending added.
+- Consulted official Tauri commands/spawn_blocking, Rust Read::take and String::from_utf8_lossy docs before implementation: https://v2.tauri.app/develop/calling-rust/ ; https://docs.rs/tauri/latest/tauri/async_runtime/fn.spawn_blocking.html ; https://doc.rust-lang.org/std/io/trait.Read.html#method.take ; https://doc.rust-lang.org/std/string/struct.String.html#method.from_utf8_lossy . Compared archived file tag (fs.readFileSync(path,'utf8')).
+- Validation: Svelte check0/0, Vite production build and cargo check --manifest-path src-tauri/Cargo.toml --locked passed. rustfmt --edition2021 src-tauri/src/template.rs passed. No new dependencies or saved test scripts. Actual file-byte behavior through native IPC/WebView, missing-file/directory/oversize interactions and preview cancellation remain unverified; compiler success is not runtime acceptance.
+- Initial native launches failed because default Rustup home was unset, then MSVC linker was absent from process PATH. Fixed process-local environment using existing installs; no toolchain downloaded/configuration changed. node_repl has no process global, so selected ordinary environment variables were obtained through Bun before launching binaries.
+- Repeat native commands via node_repl execFile(shell:false,windowsHide:true), executable D:/home/.cargo/bin/cargo.exe or rustfmt.exe. Set CARGO_HOME=D:/home/.cargo and RUSTUP_HOME=D:/home/.rustup. MSVC root: C:/Program Files (x86)/Microsoft Visual Studio/2017/BuildTools/VC/Tools/MSVC/14.16.27023. SDK root: C:/Program Files (x86)/Windows Kits/10, version10.0.19041.0. PATH adds MSVC bin/Hostx64/x64 and SDK bin/10.0.19041.0/x64. LIB adds MSVC lib/x64 and SDK Lib/10.0.19041.0/ucrt/x64 plus um/x64. INCLUDE adds MSVC include and SDK Include/10.0.19041.0/ucrt, shared, um. Do not invoke vcvars/cmd/PowerShell. Launch Bun directly for Prettier/Svelte/Vite as previous checkpoint.
+- Next: remaining native tags (os/cookie/prompt/response/request), cancellation/time-budget policies and environment/request render pipeline, Send/auth/protocol integration, tag widgets and real native acceptance. Source newer than BUILD.json; no installer or live task processes. Full migration incomplete.
+
+## Native cookie template tag checkpoint — 2026-09-28
+
+- Implemented read_template_cookie in cookies.rs and registered its command/permission for main window. Uses existing collection CookieState/PersistentJar and CookieStore::matches for unexpired domain/path/HTTPOnly/Secure eligibility. Does not write cookies or send requests. HTTP/S URL required; URL20KiB/name8KiB limits.
+- Prefers longer cookie paths like archived tough-cookie. Equal-path precedence uses native CookieDomain ordering; original creation timestamps are not retained. This is an explicit remaining parity gap; native outgoing Cookie header currently retains its existing ordering. Missing-cookie messages are simplified and do not list available names.
+- template-native.js cookie handler uses application-owned request/workspace metadata, checks AbortSignal before/after invoke and preserves original null result without request/workspace metadata. RequestEditor passes workspaceFor(resources,request._id); TemplatePreview captures collection context and advertises desktop cookie support. Browser preview still registers no native handlers.
+- Consulted official https://docs.rs/cookie_store/0.22.1/cookie_store/struct.CookieStore.html#method.matches and https://v2.tauri.app/develop/calling-rust/ before implementation; read archived cookie tag. Reused installed dependencies; no generator/new package needed.
+- Cargo check --manifest-path src-tauri/Cargo.toml --locked passed; rustfmt applied cookies.rs. Initial frontend error identified incorrect workspaceFor argument/result shape; fixed to its actual ID contract. Final Svelte check0/0 and Vite build passed. No saved test scripts. Native cookie selection/IPC, collection switching, cancellation and mounted preview acceptance remain unverified; compile checks do not prove runtime parity.
+- Direct node_repl hidden execFile commands with existing Rust/MSVC environment from prior checkpoint; Bun runs Prettier/Svelte/Vite. No shell/Node/npm/Python. No live task processes/new installer; source newer than BUILD.json.
+- Next: os/prompt/response/request handlers, original creation-order cookie parity, interactive time/cancellation policy, recursive environment/request rendering and Send/auth/protocol callers, real native verification. Full migration incomplete.
+
+## Request field template preview checkpoint — 2026-09-28
+
+- Added template-request.js for original request name/folder/header/parameter attributes. Folder ancestry includes request_group/workspace and detects cycles. Header/parameter names and values render asynchronously in inherited environment; case-insensitive first match and inclusion of disabled rows follow archived request tag behavior. Unknown attributes return null. URL/cookie/OAuth reference attributes explicitly report pending migration.
+- Added template-preview.js orchestration and connected TemplatePreview with a resource snapshot supplied by RequestEditor. Resources remain outside VM. Each nested field renders through the same worker/client and native handlers; branch field identifiers detect recursive references, depth12/total64 render limits bound work. AbortSignal propagates through nested workers. Request field preview also works in browser mode; native file/cookie remain desktop-only.
+- Consulted https://mozilla.github.io/nunjucks/api.html#renderstring and https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/throwIfAborted ; compared original request tag and current transport/OAuth contracts. No generator/new package needed.
+  -12 inline helper assertions passed (metadata/ancestry/case-insensitivity/disabled fields/missing values/unsupported attributes/no mutation);4 orchestration assertions passed through compiled workers with simulated browser location/WASM fetch (nested header→parameter→environment, recursion error, worker cleanup, preabort). Final Svelte0/0 and Vite build passed. No saved test scripts; actual mounted/native acceptance remains pending.
+- Updated preview hint to accurately list partial request support. Send still uses existing variable-only renderer. Existing2-second VM wall time/5-second worker limits include child waits, so large valid reference trees may time out; shared engine/session and interactive policy need further work.
+- Commands: direct hidden node_repl execFile Bun Prettier --write on four changed JS/Svelte files; Bun svelte-check --tsconfig ./jsconfig.json --config ./svelte.config.js --fail-on-warnings; Bun Vite build. Inline checks via Bun -e. No native changes/new installer/live task processes.
+- Next: request URL serialization and cookie/OAuth references, response/OS/prompt tags, recursive environment pipeline and Send integration, then native verification. Source newer than BUILD.json; full migration remains incomplete.
+
+## Request URL/cookie reference checkpoint — 2026-09-28
+
+- Ported original utils/url/querystring.ts and protocol.ts into JavaScript template-url.js using documented Bun.Transpiler({loader:'ts',target:'browser'}).transformSync first, then added JS annotations and explicit url/url.js browser-package import. Removed unused extraction/segment helpers via transpiler export elimination; original project attribution retained.
+- Read https://bun.sh/docs/runtime/transpiler , https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent and upstream https://github.com/defunctzombie/node-url before porting. Raw README URL initially failed; upstream repository documentation succeeded. Installed bun add --ignore-scripts --exact url@0.11.4; it is bundled JavaScript, no Node runtime invoked.
+- request tag URL now renders base URL and each parameter name/value through the recursive renderer, joins query before fragment, applies original default protocol/settingEncodeUrl and encoding semantics. Like the archived tag, includes disabled parameter rows, omits unnamed strict rows, and emits bare name for empty value. This differs from current Send preparation; transport URL unification remains required.
+- request cookie uses the same rendered URL and native cookie handler with propagated signal; browser reports desktop requirement. OAuth references remain explicitly pending. UI hint updated.
+  -28 inline assertions passed:20 URL comparisons against archived implementation (encoding enabled/disabled, spaces, Unicode, percent escapes, duplicate/empty query, credentials, IPv6, fragments and empty input),3 query-builder comparisons,5 request URL/cookie routing checks. The original reference ran under Bun's URL compatibility API; its deprecation warning did not involve Node execution.
+- Initial generated-JS annotation diagnostics resolved; a missing await-parenthesis in the editing command was corrected. Final Svelte0/0 and Vite build passed. No saved test scripts/native changes. Real WebView/IPC/URL-cookie lookup acceptance pending. New browser package is not assumed identical for every malformed URL; broader differential coverage required before shared Send use.
+- Next: OAuth reference policy/context, response/OS/prompt tags, time/cancellation budgets, shared environment/request rendering and Send/auth/protocol integration. No new installer/live processes; source newer than BUILD.json. Full migration incomplete.
+
+## Saved OAuth request references — 2026-09-28
+
+- request tag now supports oauth2/oauth2-identity/oauth2-refresh through existing savedOAuthTokens lookup. Selects latest record belonging to request (obtainedAt/modified ordering), including imported records; accessToken must exist as in original tag, then returns requested field. Missing optional field remains undefined, empty remains empty, malformed non-text field reports an error.
+- This is explicit reading of saved data, not Authorization selection: no expiry/context validation, refresh, network call or identity verification occurs, matching original single-record tag semantics. Current authorization binding/expiry rules remain unchanged. Multiple-record latest selection is migration-specific because original getByParentId assumed one record; documented in preview hint.
+- Read archived o-auth-2-token.ts/getByParentId and local-template-tags.ts, current OAuth model and official https://mozilla.github.io/nunjucks/api.html#custom-tags before implementation. No dependency/generator needed.
+  -10 inline synthetic-record assertions passed: three fields, request isolation/latest ordering, imported+expired saved value, empty/undefined optional fields, missing access token, invalid type and no mutation. No real credentials used/output; no saved test scripts. Svelte0 errors/0 warnings and Vite build passed.
+- Direct hidden node_repl execFile Bun Prettier, Svelte check, Vite build and inline Bun -e checks. No native changes/new installer/live processes; source newer than BUILD.json. Mounted/native preview and persistence acceptance still pending.
+- Next: response/OS/prompt tags, interactive time/cancellation budgets, recursive environment rendering, shared request serialization and Send/auth/protocol integration. Full migration remains incomplete.
+
+## Response history template preview — 2026-09-28
+
+- Added template-response.js and response handler in preview orchestration. Supports saved URL, case-insensitive first header and raw body. Preview ignores resend arguments as original preview did; no dependent network calls occur. Body JSONPath/XPath explicitly remains pending.
+- Found current HTTP history did not retain environment identity. New successful HTTP entries now record environmentId from the send's dataSnapshot (not current selection at completion). Preview selects latest matching request+environment HTTP record; unknown-environment older history is excluded with actionable resend message. Existing history is retained unchanged. validateData preserves the new field.
+- Raw body decodes original bodyBase64 bytes using Content-Type charset via TextDecoder with UTF-8 fallback; bounded20MiB bytes/28Mi base64 text. Text-only history falls back to stored body with20Mi-character limit. TextDecoder encoding coverage/mappings are not assumed identical to original iconv-lite; further parity review pending.
+- Read official https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder , https://github.com/JSONPath-Plus/JSONPath , https://github.com/goto100/xpath and inspected current response/history/filter structures before implementation. No new dependencies/generator required.
+  -16 inline assertions passed for URL/header/raw, Windows-1251/UTF8/unknown charset, text fallback, latest selection, environment isolation/base environment, unknown history, missing request/header, errors/status and streaming exclusion. Svelte0/0 and Vite build passed. No saved test scripts. New history environment attribution was inspected in source; native IPC/persistence/reload/selection interaction remains unverified.
+- Direct hidden node_repl execFile Bun Prettier/Svelte/Vite and inline Bun -e. No native changes/new installer/live processes; source newer than BUILD.json.
+- Next: response JSONPath/XPath extraction in disposable worker, then response resend behavior/requestChain in Send, OS/prompt tags, time/cancellation policy and shared recursive environment/request pipeline. Full migration incomplete.
+
+## Response template body filters — 2026-09-28
+
+- Added template-response-filter.js and kind:template branch in existing response-filter.worker.js. JSONPath reuses safe evaluator/match limits and returns single string unchanged, other single values as JSON, multiple matches as JSON array; no results error. Numeric parsing retains original JSON.parse precision limitations.
+- XPath selects element/attribute/text; element returns serialized children, attribute value, text trimmed serialization. Rejects zero/multiple supported nodes. Scalar functions return text (fixes the archived branch's attempted array.filter on scalar). Strict XML parsing differs from original permissive recovery; malformed XML errors explicitly.
+- template-response-filter-client.js gives each extraction a disposable worker,3-second deadline and AbortSignal cleanup. responseTemplatePreview decodes body then delegates body filter to worker; nested template cancellation propagates. Preview does not resend dependencies.
+- Bounds:20Mi body/output characters,4096 query characters,10000 selected nodes/matches. XML selection cap is checked after evaluation; worker deadline remains needed, not a heap isolation guarantee. Parent VM2-second wall clock can still expire before worker3-second deadline; unified timing policy remains pending.
+- Read upstream JSONPath-Plus, goto100/xpath and xmldom README/API docs before implementation: https://github.com/JSONPath-Plus/JSONPath ; https://github.com/goto100/xpath ; https://github.com/xmldom/xmldom . Existing dependencies reused.
+  -18 inline helper assertions plus6 compiled-worker/client assertions passed (24 total): JSON scalar/object/multiple/root/no results, XML inner content/attribute/text/scalar/multiple/malformed/limits, history integration, cancellation and worker cleanup. Final Svelte0/0 and Vite build passed. No saved test scripts. Bun workers exercise production artifact; actual WebView/CSP/native acceptance remains unverified.
+- Commands: hidden direct node_repl execFile Bun Prettier on changed files, svelte-check --tsconfig ./jsconfig.json --config ./svelte.config.js --fail-on-warnings, Vite build; inline assertions Bun -e. No native changes/new installer/live processes; source newer than BUILD.json.
+- Next: OS/prompt tags, charset parity, shared render timing/cancellation and recursive environment/request orchestration; integrate response dependency resend/requestChain and all Send/auth/protocol call sites. Full migration incomplete.
+
+## Prompt preview and cache lifecycle — 2026-09-28
+
+- Added template-prompt.js with original title→MD5/requestId implicit key, explicit storage key, cached/default/saveLastValue behavior and application-supplied async ask callback contract. Session Map is memory-only, capped1000 entries/4Mi value characters; title/key4096 characters. No credentials persisted/logged.
+- Preview handler never opens a prompt. Masked prompts return a placeholder (original tag editor disables masked preview); explicit/cached plaintext remains available for unmasked tags. Clear prompt values control clears cache and rerenders preview. Clear increments generation so already pending replies cannot repopulate cache; aborted replies are discarded.
+- Interactive ask contract is implemented as a reusable helper but NOT connected to UI/Send. Caller must observe signal to close/settle an open dialog; current renderer deadlines still preclude normal interactive waiting. No claim of completed prompt/send parity or original plugin-store persistence.
+- Read archived prompt run/disablePreview/cache logic and official Nunjucks custom tag / AbortSignal.throwIfAborted docs before implementation. Reused existing noble-hashes md5; no new dependency/generator.
+  -17 inline lifecycle assertions passed: defaults, implicit request scoping, explicit key reuse, masking, saveLastValue, empty value retention, clear, late-clear reply, aborted reply and title validation. Svelte0/0 and Vite build passed. No saved test scripts; mounted clear action and WebView preview remain unverified.
+- Commands through hidden node_repl execFile: Bun Prettier, svelte-check --tsconfig ./jsconfig.json --config ./svelte.config.js --fail-on-warnings, Vite build and inline Bun -e checks. No native changes/new installer/live processes; source newer than BUILD.json.
+- Next: OS tags; render execution-vs-wait timing policy; interactive Svelte prompt dialog/queue/cancellation and send-session cache lifecycle; recursive environment/request pipeline and Send/auth/protocol integration with response dependencies. Full migration incomplete.
+
+## Template execution and wait timing — 2026-09-28
+
+- VM execution now accumulates elapsed time across evalCode and every retained callback via performance.now(), excluding asynchronous host waits. The aggregate execution budget remains 2 seconds; core and outer-worker wall deadlines remain 5 seconds. This measures time inside VM entry (including synchronous bridges), not OS CPU time. It does not yet support human-duration interactive prompts.
+- Fixed callback handle JSDoc typing exposed by closure wrapping. Initial check had four implicit-any diagnostics; final Svelte check reports zero errors/warnings. One inline editing command failed on newline escaping before writing; corrected with a raw string.
+- Nine inline assertions passed: ordinary render, 2.3-second asynchronous tag success, infinite guest-loop interruption and bound, never-resolving tag timeout, three successful renders after failure, and cumulative execution exhaustion across two asynchronous callbacks. No saved test scripts created. Vite production build passed; native WebView/CSP verification remains outstanding.
+- Official references: https://github.com/justjake/quickjs-emscripten#runtime and https://developer.mozilla.org/en-US/docs/Web/API/Performance/now . No dependency or scaffold change.
+- Commands: hidden node_repl execFile of Bun -e inline checks; Bun node_modules/prettier/bin/prettier.cjs --write src/lib/template-runtime.js; Bun node_modules/svelte-check/bin/svelte-check --tsconfig ./jsconfig.json --config ./svelte.config.js --fail-on-warnings; Bun node_modules/vite/bin/vite.js build. All launches shell:false/windowsHide:true.
+- Next: define explicit interactive waiting/cancellation policy, implement Svelte prompt dialog queue and connect send-session prompt cache lifecycle; OS tags; recursive environment/request render pipeline and Send/auth/protocol/dependent-response integration. Current Send still uses the old variable-only renderer. Full migration remains incomplete; no new Windows installer, source newer than BUILD.json.
+
+## Native OS template tag — 2026-09-28
+
+- Added native libuv provider for all seven archived OS functions (arch/cpus/freemem/hostname/platform/release/userInfo), main-window read_template_os command/permission, application handler and worker JSONPath formatting. CPU/user allocations use RAII; names are allowlisted and CPU count bounded. JSON property order and first-match/invalid-filter fallback preserve legacy behavior; JSONPath stays in the disposable worker.
+- Installed libuv-sys2 1.53.0 via documented cargo add with skip-pkg-config. Bindgen requires Clang at build time: official LLVM20.1.8 DLL/headers extracted under ignored artifacts/tools/llvm-20.1.8; installer not executed, no system PATH change, release SHA-256 verified. Set child-process LIBCLANG_PATH=E:/insomnium/artifacts/tools/llvm-20.1.8/bin before future native builds. See TEMPLATING.md#record-os-template for exact setup, references and compatibility boundaries.
+- Verification: 22 inline format/parity assertions,8 compiled-worker assertions and2 limit assertions passed. Inline rustc-stdin probe exercised all7 actual Windows provider values and32 repeated reads without printing identities. Svelte0/0, Vite build, Cargo check, Cargo build --lib and Clippy --lib --locked -- -D warnings passed. Initial JSONPath typing diagnostics and one range lint fixed. No saved test scripts.
+- Desktop preview is connected; Send remains on old variable-only renderer. Actual WebView/IPC/CSP and Linux/macOS acceptance are unverified. Abort discards a late native result but does not cancel OS work already running. No installer/commit/push; no live task processes; source newer than BUILD.json.
+- Next: interactive wait/cancellation policy and Svelte prompt queue, send-session cache lifecycle, recursive environment/request rendering and Send/auth/protocol/dependent-response integration. Full migration remains incomplete.
+
+## Prompt dialog and interactive renderer timing — 2026-09-28
+
+- Added FIFO prompt service and mounted Svelte dialog using existing Insomnium modal styles. Supports title/label/default/text/password, active-ID protection, Cancel/Escape/abort/unmount/native-close cleanup and application shortcut suppression. promptTemplateTag defaults to the dialog service; previews remain noninteractive. Queue32/default-text4Mi/label-title4096 limits; no logging/persistence.
+- Added explicit interactivePrompts policy: core/client five-second active budgets pause only on direct prompt waits, keeping remaining time across overlaps. Worker heartbeat1s/watchdog5s and total ten-minute cap preserve bounded waiting; VM execution2s/memory bounds remain. Cancel is propagated as AbortError and disposes the worker/other handlers. Details in TEMPLATING.md#record-prompt-template.
+  -36 inline assertions passed across queue/cache lifecycle, deadline accounting, compiled worker/client integration (including6.1s wait), watchdog/hard-cap cleanup and guest-loop/non-prompt bounds. Hard-cap timer was accelerated for verification. Svelte0/0 and Vite production build passed. No saved test scripts/new dependency/native changes.
+- Actual Send is NOT connected. Nested request/response parent waits do not yet inherit child interaction pauses; resolve this in the shared send-render session. Send cache invalidation, recursive environments/fields, dependent sends and protocol/auth integration remain. CUA apps=[]/browsers=[]; actual dialog focus/Escape/WebView/CSP acceptance unverified.
+- Official Svelte store/effect and MDN dialog/AbortSignal/worker/timing docs consulted first. All execution via hidden node_repl with Bun. No active task processes/new installer; source newer than BUILD.json. Full migration remains incomplete.
+- Next: shared preview/send render session with interaction-wait propagation and cancellation, recursive environment/request fields, then all Send/auth/protocol call sites and dependent responses. See TEMPLATING.md#record-prompt-template for ordered steps.
+
+## Shared request render session and nested interaction — 2026-09-28
+
+- Added template-session.js createRequestRenderSession(context, options) with preview/send purpose, structured-cloned context/resources/history/metadata, owned AbortController, render(text, field?) and idempotent dispose. Preview now uses this session with automatic disposal. Each top-level field allows64 nested renders/depth12; session1000 renders/16 active workers. Any field failure cancels the session's other work. Send-purpose session has a ten-minute total cap, preserving TimeoutError on expiry.
+- Added application-owned template-interaction.js. Actual ask callbacks acquire/release a reference-counted wait; only clients in that session subscribe. Parent/child client and core active deadlines receive shared wait transitions, including subscription during an existing wait. Every paused worker still emits heartbeats and keeps its own five-second watchdog, VM execution budget and hard deadline. Guest templates cannot publish wait notifications.
+  -19 inline assertions passed:10 compiled session cases (multi-level request/header/parameter prompt waiting6.1s, ancestor resume, snapshot isolation, dispose/late work, nested Cancel, noninteractive preview, cycle and external abort),7 interaction lifecycle/isolation cases and2 nested watchdog/session-timeout cases. Hard cap was accelerated for verification. Svelte0/0 and production Vite build passed. No saved test scripts/new dependency/native changes.
+- One initial edit stopped because its expected runtime insertion marker did not match; only the new interaction helper had been written. Inspected the actual initialization block and completed the edit. No abandoned running processes.
+- Actual Send remains unconnected. Recursive environment/field pipeline and dependent-response sends are still required. The new send-purpose session currently rejects response trigger modes always/no-history/when-expired explicitly; default/never reads saved responses. This is an integration gap, not a scope removal. Shared prompt timing for nested fields is fixed; dependent network waits still need their own integration.
+- See TEMPLATING.md#record-prompt-template for current session ownership/timing contract. Official Nunjucks async API and MDN AbortController/Worker.postMessage/structuredClone docs consulted before edits. All launch/edit/check work used hidden node_repl and Bun. No new installer or live task processes; native WebView acceptance still unverified; source newer than BUILD.json. Full migration incomplete.
+- Next: recursive environment/request-field rendering with field diagnostics, dependent-response send callback/chain/cache semantics, then wire Send/auth/GraphQL/gRPC/stream/OAuth pipelines with cancellation registered before render. Preserve shared-session ownership and existing watchdogs.
+
+## Recursive environment and value rendering — 2026-09-28
+
+- Added template-environment.js and template-object.js: saved key ordering without lost keys/prototype traversal, base→selected ancestry→folders, same-name/deep merge and three legacy self-render passes; cloned recursive fields, disabled/path exclusions, one extra tag pass and field diagnostics. Bounds and interruption propagation prevent KEEP from swallowing cancellation. Preview now uses resource layers.
+- Shared session lazily prepares environment once, exposes renderValue/getContext, passes partial context to nested request tags without preparation deadlock and caps preview at30seconds total (send10minutes unchanged). Native callback Abort/Timeout/limit errors retain interruption semantics. Actual Send remains on the old synchronous renderer.
+  -49 inline assertions passed (22 VM/helper,7 compiled-session,8 boundaries,10 nested-prompt regressions,2 interruption/deadline cases), no live workers. Svelte0/0 and Vite production build passed. No saved test scripts, native changes or installer. Two generation commands failed parsing before mutation; fixed. Initial2 JSDoc diagnostics fixed; incorrect base64 fixture argument corrected and suite rerun.
+- Consulted official Nunjucks/MDN/Bun and archived render.ts first. Tried documented json-order install; proved dropped-key/hasOwnProperty defects, then removed it. No final new dependency. All program/file operations through hidden node_repl/Bun. See TEMPLATING.md#record-environment-rendering for full contract, sources, commands and validation.
+- Next: full request/cookieJar pipeline (description KEEP, skip body, GraphQL workaround, disabled rows, URL handling), dependent-response sending/cache/network-wait ownership, then actual Send/auth/OAuth/GraphQL/gRPC/streams. Native UI acceptance pending; source newer than BUILD.json. Full migration incomplete.
+
+## Request snapshot and transport composition — recovered 2026-09-29
+
+- Revalidated request-render.js and transport.js after the execution environment recovered. The prior turn implemented renderRequestSnapshot(session, request, {cookieJar?,skipBody?}): one cloned request/cookie render, lower-priority description KEEP, GraphQL #} workaround, body opt-out, disabled row/auth removal, User-Agent suppression metadata, HTTP/WS defaults and gRPC target preservation.
+- prepareRenderedRequest composes an already-rendered request using literal string values. OAuth Authorization must be supplied explicitly when needed; existing prepareRequest retains its synchronous behavior. This avoids accidentally rerendering literal template text and opted-out bodies.
+- Prior validation before the sandbox failure:19 inline assertions including a real local Bun HTTP POST wire fixture, Svelte0/0, Vite production build and git diff --check passed. No saved test scripts. The fixture server and all workers were stopped. No native changes/installer/commit.
+- The subsequent node_repl sandbox setup failures prevented this checkpoint from being written. Tool execution is now restored. Actual workspace Send/OAuth callers still require integration. CookieJar output and suppressUserAgent metadata are not yet consumed by native transport; URL/query encoding still follows the existing transport implementation. These remain parity gaps.
+- Official Nunjucks asynchronous API and MDN AbortSignal.throwIfAborted were consulted before the pipeline implementation, alongside archived common/render.ts. Continue with resolved OAuth lifecycle and stale-source guards, then wire Send, dependent-response sends, native cookie/User-Agent handling, introspection/gRPC/stream payloads and WebView acceptance. Full migration incomplete.
+
+## HTTP and initial stream Send renderer integration — 2026-09-29
+
+- Execution recovered from the node_repl sandbox failure. Revalidated and recorded the prior request snapshot milestone before continuing.
+- Added renderSendRequest ownership wrapper and connected workspace.execute HTTP/initial SSE/WebSocket preparation to full async request rendering and prepareRenderedRequest. Cancellation is registered before rendering; prompt Cancel/Stop prevent network dispatch; body opt-out/literal outputs are not rerendered.
+- OAuth model/exchange functions now accept explicit resolved inputs. ensureOAuth uses a separate hashed raw-source guard to discard changed/cancelled exchanges without executing templates again. Ordinary token fingerprints remain compatible; manual Authorization still bypasses automatic acquisition. Renderer session is disposed before OAuth/network work.
+  -27 inline assertions passed:7 compiled Svelte execute cases through a real local HTTP fixture,12 mocked-desktop OAuth lifecycle cases and8 compatibility cases. Svelte0/0 and Vite production build passed. No saved test scripts/dependencies/native changes/new installer. Fixtures stopped, workers0; no real user state loaded/saved.
+- Corrected one import-construction quoting failure before mutation, one function-arity compilation error and the inline harness's long data-URL encoding. Details, references, commands and exact limits in TEMPLATING.md#record-send-rendering.
+- Next: dependent-response callbacks and wait/cache lifecycle; introspection/manual OAuth/gRPC/WS payload callers; native cookie snapshot/User-Agent handling; URL encoding parity and WebView acceptance. These are outstanding scope, not removed features. Current source newer than BUILD.json; full migration remains incomplete.
+
+## Same-collection dependent HTTP response sends — 2026-09-29
+
+- Added template-response-send.js policy/history/chain resolver; extracted shared response lookup/read helpers; bridged an application-owned response callback through session/request rendering and workspace.execute. Dependencies recursively render and send with unique native IDs, resolved OAuth, history and root cancellation.
+- Preserved inspected legacy trigger/chain behavior, including independent root always occurrences, mutable child chains and cached-history fallback on cycles. Host network waits share deadline pause notifications but keep heartbeat/watchdog/VM/total bounds. Limit32 sends/chain entries and40Mi retained new-response characters.
+  -38 inline assertions passed:17 policy/resolver,9 compiled Svelte/local HTTP,6 mocked-native dependent OAuth/cancel,2 root-reentry cycle,2 timeout/watchdog,1 invalid trigger and1 cross-collection guard. Svelte0/0 and Vite build passed; workers/fixture servers stopped. No saved test scripts/dependencies/native edits/installer.
+- Original network.ts revealed per-collection active-environment routing. Current app's global selection cannot reproduce it yet, so cross-collection resends fail before dispatch; finite HTTP only, streaming dependencies explicitly pending. These remain required scope. See TEMPLATING.md#record-dependent-responses for exact semantics, sources, tests and remaining UI/history/concurrency/native gates.
+- Next: per-collection environment retention and foreign dependency routing, introspection/manual OAuth/gRPC/WS payload pipelines, native cookie/User-Agent/URL parity and real WebView acceptance. Full migration incomplete; source newer than BUILD.json.
+
+## Template preview panel removed from scope — 2026-10-06
+
+- Owner removed the request-body Template preview panel (and its Clear prompt values control) from scope. Template engine, native tag handlers and Send integration remain required; see STATUS.md.
+2026-10-08 live SSE acceptance: production release1791420051210/1791420404492/result0 fixes the actual leading-BOM crash; saved native SSE1791420476431 passes12 groups including two authenticated live Disconnect/reconnect cycles, exact split UTF8/multiline/id/retry event handling, incomplete-event suppression and persisted response reload without auto-reconnect. Original four TLS settings restored/verified after recovery and test. Compiled parser23 chunk widths/shared WSS12/HTTP12 regressions pass. Controlled Windows evidence does not complete redirects/hostname-expiry/legacy/provider/proxy/platform/network-fault/full migration/UX/CSS gates. Browser headless/native-hidden distinction unchanged; see STATUS/UI-TESTING.
+
+
+</details>

@@ -1,6 +1,6 @@
 # OAuth1 / NO_PREFIX acceptance gate
 
-Implementation and direct inspections are complete; **native UI/provider acceptance is pending**. See OAUTH1-COMPATIBILITY.md.
+Implementation and direct inspections are complete; **native UI/provider acceptance is pending**. See AUTHENTICATION.md#record-oauth1-compatibility.
 
 1. In native Auth, create HMAC-SHA1/HMAC-SHA256/RSA-SHA1/PLAINTEXT requests; render environment values, set fixed nonce/time, then try generated values. Verify PEM errors and unsupported algorithms remain visible without sending.
 2. Import original OAuth1 with/without Hash Body and duplicate/disabled form fields. Confirm visible legacy mode, unchanged source/export credentials, hash metadata and explicit RFC switch. Ambiguous query/property edge cases must explain how to proceed.
@@ -38,7 +38,7 @@ Native cache evidence (2026-10-01): tests/ui/graphql-schema-cache.js passes6 che
 
 Additional native evidence (2026-10-01): tests/ui/graphql-schema-import.js passes12 import/browser checks at artifacts/playwright/graphql-schema-import-1790808738003/acceptance.json. Invalid/oversized imports preserve valid schema; raw introspection JSON, search, descriptions/defaults/deprecation, directive details and Clear schema accepted. Native export, cache eviction/close, visual/accessibility/provider/platform gates remain open.
 
-2026-10-01 native Windows evidence: saved graphql-editor (15), graphql-schema-lifecycle (12), graphql-schema-context (6), graphql-execution (4) scenarios pass. Exact coverage/artifacts in GRAPHQL-RENDERING.md. Combined bullets below remain unchecked where any constituent acceptance is still outstanding.
+2026-10-01 native Windows evidence: saved graphql-editor (15), graphql-schema-lifecycle (12), graphql-schema-context (6), graphql-execution (4) scenarios pass. Exact coverage/artifacts in GRAPHQL.md#record-graphql-rendering. Combined bullets below remain unchecked where any constituent acceptance is still outstanding.
 
 - [ ] Use a disposable local GraphQL endpoint: query/variables and operation names via POST and GET, repeated URL parameters, environment expansion, auth and native proxy/TLS/cookies. GET encodes GraphQL fields in the URL without a body; use POST for mutations.
 - [ ] Fetch schema explicitly; verify original query/variables/operation, prior response and history remain unchanged. HTTP/auth failure, disabled introspection, malformed JSON and GraphQL errors are visible. Cancel fetch and close the app while fetching.
@@ -146,15 +146,15 @@ Legacy login-window release session 47190 exited 0. All 152 source hashes matche
 
 ## Basic/Bearer/API-key acceptance gate
 
-Direct preparation and native header echoes passed; native rendered UI/IPC/reload remain pending. Toggle Basic ISO 8859-1 and compare accented credentials; verify a default UTF-8 request is unchanged. Edit Bearer prefix and environment values. Import/re-export these auth settings. Add API-key Cookie with existing/disabled Cookie rows, test collection-cookie sending off/on and response storage, same/cross-origin redirects, SSE/WebSocket and a real provider. Browser preview must fail before sending an explicit Cookie. Verify manual Authorization takes precedence for Basic/Bearer/API-key headers, while API-key query remains present. Generate an OpenAPI apiKey in:cookie request and supply its environment value. See AUTH-INVENTORY.md; Digest/OAuth manual precedence is still outstanding.
+Direct preparation and native header echoes passed; native rendered UI/IPC/reload remain pending. Toggle Basic ISO 8859-1 and compare accented credentials; verify a default UTF-8 request is unchanged. Edit Bearer prefix and environment values. Import/re-export these auth settings. Add API-key Cookie with existing/disabled Cookie rows, test collection-cookie sending off/on and response storage, same/cross-origin redirects, SSE/WebSocket and a real provider. Browser preview must fail before sending an explicit Cookie. Verify manual Authorization takes precedence for Basic/Bearer/API-key headers, while API-key query remains present. Generate an OpenAPI apiKey in:cookie request and supply its environment value. See AUTHENTICATION.md#record-auth-inventory; Digest/OAuth manual precedence is still outstanding.
 
 ## Manual Authorization acceptance gate
 
-Native UI/IPC remains pending. Enable a manual Authorization for Digest/OAuth1/OAuth2, including empty/mixed-case/environment names and duplicate rows; it must be preserved without generated signing/challenges. HTTP/GraphQL/SSE/WS Send must not acquire/refresh OAuth or open login while manual auth is present. Explicit Fetch/Refresh must still manage saved tokens with resource headers excluded from the token request. Disable/remove the manual header and verify normal signing/refresh returns. Confirm manual 401 does not retry Digest, follow-off remains off, same-origin redirects retain the header and cross-origin removes it. Direct compiled workspace/native-core evidence is in AUTH-INVENTORY.md; it does not prove WebView UI, persistent cookies, TLS/proxy or provider behavior.
+Native UI/IPC remains pending. Enable a manual Authorization for Digest/OAuth1/OAuth2, including empty/mixed-case/environment names and duplicate rows; it must be preserved without generated signing/challenges. HTTP/GraphQL/SSE/WS Send must not acquire/refresh OAuth or open login while manual auth is present. Explicit Fetch/Refresh must still manage saved tokens with resource headers excluded from the token request. Disable/remove the manual header and verify normal signing/refresh returns. Confirm manual 401 does not retry Digest, follow-off remains off, same-origin redirects retain the header and cross-origin removes it. Direct compiled workspace/native-core evidence is in AUTHENTICATION.md#record-auth-inventory; it does not prove WebView UI, persistent cookies, TLS/proxy or provider behavior.
 
 ## AWS IAM native acceptance (pending)
 
-Direct 34-case wire/signature inspection and 14 prior-auth regressions passed; see AWS-COMPATIBILITY.md. Still verify in the actual desktop app:
+Direct 34-case wire/signature inspection and 14 prior-auth regressions passed; see AUTHENTICATION.md#record-aws-compatibility. Still verify in the actual desktop app:
 
 - Original Auth layout, masked fields, enabled toggle, environment changes, persistence/reload and Insomnia/Postman import; manual Authorization replacement notice.
 - HTTP/GraphQL/SSE/WS signed requests, temporary token, exact UTF-8/binary/multipart, S3 paths/queries, explicit region/service, custom Host, same-origin redirect re-sign and cross-origin token removal.
@@ -164,31 +164,31 @@ Direct 34-case wire/signature inspection and 14 prior-auth regressions passed; s
 
 ## Hawk native acceptance (pending)
 
-Direct native protocol/wire checks passed (HAWK-COMPATIBILITY.md). Verify in actual desktop UI/IPC: fields/default SHA256, masked key, legacy import default, environment changes/reload, all three signing modes, Postman mapping, manual/disabled precedence, fixed/generated timestamp/nonce, ext/Oz and visible malformed-input errors. Exercise HTTP/GraphQL/SSE/WS, exact binary/multipart, Host/port and Content-Type, redirect re-sign/body conversion/cross-origin stripping, cancellation/deadline and response history. Check provider compatibility including ext parser, TLS/HTTP2/proxy/client certificate/persistent jar. Payload validation means request hash only; no response-auth claim. Compare unusual legacy URLs and Postman serialization before declaring full parity.
+Direct native protocol/wire checks passed (AUTHENTICATION.md#record-hawk-compatibility). Verify in actual desktop UI/IPC: fields/default SHA256, masked key, legacy import default, environment changes/reload, all three signing modes, Postman mapping, manual/disabled precedence, fixed/generated timestamp/nonce, ext/Oz and visible malformed-input errors. Exercise HTTP/GraphQL/SSE/WS, exact binary/multipart, Host/port and Content-Type, redirect re-sign/body conversion/cross-origin stripping, cancellation/deadline and response history. Check provider compatibility including ext parser, TLS/HTTP2/proxy/client certificate/persistent jar. Payload validation means request hash only; no response-auth claim. Compare unusual legacy URLs and Postman serialization before declaring full parity.
 
 ## ASAP native acceptance (pending)
 
 1. Use Auth → ASAP with a disposable provider key, legacy/Postman mode and environment-rendered issuer/audience/key. Verify Send, GraphQL introspection, SSE and WebSocket through real Tauri IPC.
 2. Confirm claims, key ID/data URI matching, PEM editor/reload, ES512 P-521 PKCS8/SEC1 selection and wrong-curve/malformed-input errors. Verify manual/disabled auth bypass and no token resource persistence.
 3. Confirm same-origin reuse and cross-origin credential stripping with TLS/proxy/cookies, cancellation and settings changes. Check source exports/imports preserve unknown original auth fields.
-4. Direct native signature/wire checks passed; they do not satisfy UI/reload/provider or OS integration. See ASAP-COMPATIBILITY.md for all differences.
+4. Direct native signature/wire checks passed; they do not satisfy UI/reload/provider or OS integration. See AUTHENTICATION.md#record-asap-compatibility for all differences.
 
 ## NTLM native acceptance (pending)
 
 1. Verify rendered Auth editor, environment credentials, domain/UPN, manual/disabled behavior and reload with disposable provider credentials. Workstation Type3 is explicitly pending.
 2. Verify real IIS/AD authentication and WS/SSE via Tauri IPC, cancellation/deadlines, TLS/custom CA/client certificate/proxy and persistent cookies.
-3. Verify original-origin redirects, closed-connection error and no Type3 on a replacement connection. Direct HTTP/TLS loopback evidence is in NTLM-COMPATIBILITY.md; it does not satisfy provider/UI acceptance.
+3. Verify original-origin redirects, closed-connection error and no Type3 on a replacement connection. Direct HTTP/TLS loopback evidence is in AUTHENTICATION.md#record-ntlm-compatibility; it does not satisfy provider/UI acceptance.
 4. Resolve NTLMv1/LM, proxy407, Type3 workstation and unusual certificate/username cases before marking full parity.
 
 ## Netrc native acceptance (pending)
 
 1. Use a disposable profile with synthetic .netrc/_netrc and verify HTTP/GraphQL/SSE/WebSocket sends through real Tauri IPC, disabled/manual override, cancellation, reload and credential-free history/export/errors.
 2. Verify HOME precedence, USERPROFILE fallback, missing/unreadable files, Windows fallback and Unix home lookup in packaged apps. Do not inspect existing user credential files as a development fixture.
-3. Exercise TLS/proxy/persistent-cookie combinations and redirects with destination-specific/default/partial/empty entries. Source-host credentials must never be borrowed for another destination. Native loopback proof and explicit behavior differences are in NETRC-COMPATIBILITY.md.
+3. Exercise TLS/proxy/persistent-cookie combinations and redirects with destination-specific/default/partial/empty entries. Source-host credentials must never be borrowed for another destination. Native loopback proof and explicit behavior differences are in AUTHENTICATION.md#record-netrc-compatibility.
 
 ## gRPC native acceptance (integration implemented; real UI/IPC pending)
 
-1. Verify default legacy JSON and Svelte integration with existing grpc_request/proto_file/proto_directory records without changing saved bodies, hierarchy or method selection. Compare original layout, additive imports, nested tree, file replacement, directory refresh preserving IDs/absent old files, confirmed subtree deletion, invalid-schema/cancel/concurrent-change handling, source editing, method discovery, environment changes and persisted reload. Close remaining JSON/method/example/editor edges listed in GRPC-COMPATIBILITY.md.
+1. Verify default legacy JSON and Svelte integration with existing grpc_request/proto_file/proto_directory records without changing saved bodies, hierarchy or method selection. Compare original layout, additive imports, nested tree, file replacement, directory refresh preserving IDs/absent old files, confirmed subtree deletion, invalid-schema/cancel/concurrent-change handling, source editing, method discovery, environment changes and persisted reload. Close remaining JSON/method/example/editor edges listed in GRPC.md#record-grpc-compatibility.
 2. Exercise unary/server/client/bidi through Tauri IPC: Send, repeated messages, Commit half-close, cancel, deadline, method/context change, close/shutdown and late events. Verify acknowledgements bound delivery and no stale sender/registry remains after errors.
 3. Exercise reflection v1/v1alpha, local hierarchy imports, stale schema invalidation, binary/text metadata, initial/trailing metadata, errors and saved responses. Use custom CA/client identity and real providers/platforms after the local protocol checks.
-4. Compare original response defaults, WKT, bytes, oneof flags, longs/enums and invalid/coerced input behavior; verify native-only browser guidance and preserved Insomnium layout.64 native cases,97 legacy differential and75 frontend/workspace checks passed (including native compiler validation), but do not establish UI/IPC/reload/provider parity. See GRPC-COMPATIBILITY.md.
+4. Compare original response defaults, WKT, bytes, oneof flags, longs/enums and invalid/coerced input behavior; verify native-only browser guidance and preserved Insomnium layout.64 native cases,97 legacy differential and75 frontend/workspace checks passed (including native compiler validation), but do not establish UI/IPC/reload/provider parity. See GRPC.md#record-grpc-compatibility.

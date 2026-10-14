@@ -341,7 +341,7 @@ Commands: bun x --bun prettier --write/check changed JS/Svelte; bun run check; g
 
 Inline Bun compared the actual archived Basic function in 20 cases, inspected request/import/OpenAPI preparation and browser refusal before fetch. Three native wire echoes used the existing stdin-compiled actual executor helper, with no auth signing configured. No saved test scripts/source; no new Rust code/dependencies. CUA again returned empty apps/browsers, so actual UI/Tauri IPC remains pending. Source snapshot: artifacts/simple-auth-source-snapshot.json, 155 files. Finish BUILD.json only after packaging exits successfully and hashes match.
 
-Read-only advanced-auth inventory: original AWS/Hawk/ASAP/NTLM/netrc editors/transport; official aws-sigv4 signing example, Mozilla Hawk repository and libcurl NETRC documentation. Recorded fields, unsupported behaviors and next order in AUTH-INVENTORY.md. The guessed Atlassian ASAP docs URL was unavailable; locate the current protocol before implementation. Microsoft MS-NLMP index: https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-nlmp/b38c36ed-2804-4868-a9ff-8dd3182128e4 .
+Read-only advanced-auth inventory: original AWS/Hawk/ASAP/NTLM/netrc editors/transport; official aws-sigv4 signing example, Mozilla Hawk repository and libcurl NETRC documentation. Recorded fields, unsupported behaviors and next order in AUTHENTICATION.md#record-auth-inventory. The guessed Atlassian ASAP docs URL was unavailable; locate the current protocol before implementation. Microsoft MS-NLMP index: https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-nlmp/b38c36ed-2804-4868-a9ff-8dd3182128e4 .
 
 Simple-auth release session 97455 exited 0 (Rust release 3m58s). All 155 captured source hashes matched after packaging. Only three application inputs changed since OAuth1: RequestEditor.svelte, openapi.js and transport.js. BUILD.json records source fingerprint 3402244eb02668c643f89c189e38e0b68271670a311a659d140b758cbcf864a8, executable 8,652,800 bytes and NSIS 3,272,699 bytes with individual SHA-256. No installer execution/publication, native UI verification, commit or push.
 
@@ -353,13 +353,13 @@ Commands: bun x --bun prettier --write changed JS/Svelte; bun run check (0 error
 
 Inline Bun compiled actual Svelte workspace in memory with mocked Tauri APIs. Verified manual HTTP/GraphQL/SSE/WS sends skip all OAuth calls, explicit Fetch/Refresh still exchange/save, expired tokens are untouched during manual sends, and disabling the header restores automatic refresh. Empty/duplicate/environment names and unused invalid credentials passed. Native inspection compiled actual request structs/client and request builders plus signed executor from stdin. A placeholder persistent-jar type only satisfied the unused None branch; no jar/storage path was exercised. Fourteen actual TCP cases passed, including same/cross-origin redirects/follow-off, final 401, SSE/WS, and Digest/OAuth1 auto regressions. No saved test scripts/source.
 
-Source snapshot: artifacts/manual-auth-source-snapshot.json, 155 files. Await terminal success and hash match before updating BUILD.json. Read-only next-AWS preparation inspected aws4 v1.13.2 constructor/matchHost/prepareRequest/canonicalString from upstream raw source and official aws-sigv4 SigningSettings. Notes in AUTH-INVENTORY.md; no AWS dependency/code yet.
+Source snapshot: artifacts/manual-auth-source-snapshot.json, 155 files. Await terminal success and hash match before updating BUILD.json. Read-only next-AWS preparation inspected aws4 v1.13.2 constructor/matchHost/prepareRequest/canonicalString from upstream raw source and official aws-sigv4 SigningSettings. Notes in AUTHENTICATION.md#record-auth-inventory; no AWS dependency/code yet.
 
 Manual-auth release session 66146 exited 0 (Rust release 3m55s). All 155 source hashes matched captured inputs. BUILD.json records fingerprint 09a510d0b4eb2120611f093b4ec97a1101b71796bfccbbe2b6a883e79c488886, executable 8,652,288 bytes and NSIS 3,271,627 bytes with individual SHA-256. Original common/misc.ts confirms empty Authorization still counts by header presence. No installer launch/publish, commit/push or actual UI verification.
 
 ## AWS IAM header signing — 2026-09-24
 
-Read official AWS signing instructions, aws-sigv4 crate API/source, Cargo add docs, original aws4 1.13.2 and Postman runtime before editing (links in AWS-COMPATIBILITY.md). Pinned API requires Rust >= 1.94.1; installed 1.98.1 satisfies it.
+Read official AWS signing instructions, aws-sigv4 crate API/source, Cargo add docs, original aws4 1.13.2 and Postman runtime before editing (links in AUTHENTICATION.md#record-aws-compatibility). Pinned API requires Rust >= 1.94.1; installed 1.98.1 satisfies it.
 
 - cargo info aws-sigv4@1.6.0
 - cargo add aws-sigv4@1.6.0 aws-credential-types@1.3.0 --manifest-path src-tauri/Cargo.toml
@@ -376,7 +376,7 @@ Read official AWS signing instructions, aws-sigv4 crate API/source, Cargo add do
 
 ## Hawk signing — 2026-09-24
 
-- Read pinned Hawk 9.0.1 client/crypto/utils, Hoek escaping, published API vectors, Postman runtime/client source and RustCrypto HMAC docs; links in HAWK-COMPATIBILITY.md.
+- Read pinned Hawk 9.0.1 client/crypto/utils, Hoek escaping, published API vectors, Postman runtime/client source and RustCrypto HMAC docs; links in AUTHENTICATION.md#record-hawk-compatibility.
 - cargo info hawk@5.0.1: downloaded for inspection only. Its DigestAlgorithm lacks SHA1; no Cargo dependency added. Existing RustCrypto SHA1/SHA256/HMAC are reused.
 - cargo fmt --manifest-path src-tauri/Cargo.toml; cargo clippy --manifest-path src-tauri/Cargo.toml --locked -- -D warnings: passed.
 - bun x --bun prettier --write <changed JS/Svelte files>; bun run check: passed, zero errors/warnings.
@@ -388,7 +388,7 @@ Read official AWS signing instructions, aws-sigv4 crate API/source, Cargo add do
 
 ## ASAP signing — 2026-09-24
 
-- Read official ASAP, pinned httplease-asap 0.6.0/JWT9, Postman runtime and installed jsonwebtoken API/source before implementation; source links in ASAP-COMPATIBILITY.md.
+- Read official ASAP, pinned httplease-asap 0.6.0/JWT9, Postman runtime and installed jsonwebtoken API/source before implementation; source links in AUTHENTICATION.md#record-asap-compatibility.
 - Documented commands: cargo info jsonwebtoken; cargo add jsonwebtoken@11.1.0 --features rust_crypto --manifest-path src-tauri/Cargo.toml; cargo fetch --manifest-path src-tauri/Cargo.toml --locked; cargo add uuid@1 --features v4 --manifest-path src-tauri/Cargo.toml. Resolved JWT11.1.0 and UUID1.26.1.
 - bun x --bun prettier on changed JS/Svelte; bun run check: zero errors/warnings. cargo fmt and cargo clippy --manifest-path src-tauri/Cargo.toml --locked -- -D warnings passed (session78917). Debug library build session7114 exited0 in 1m06s.
 - Inline Bun/rustc stdin inspection: 64 ASAP cases, independent eight-algorithm signature oracle; 45 Hawk +34 AWS +14 manual-auth/Digest/OAuth1 regressions passed. No saved test scripts. Temporary keys only in memory; disposable loopback servers stopped.
@@ -397,12 +397,12 @@ Read official AWS signing instructions, aws-sigv4 crate API/source, Cargo add do
 
 ## NTLMv2 — 2026-09-24
 
-Read official MS-NLMP, reqwest connector-layer, SSPI installed examples/source, Tower, RFC5929 and X509 docs before implementation; exact cargo add commands/sources are in NTLM-COMPATIBILITY.md. First cargo check session36403 found two API spelling/mutability errors, fixed. Clippy -D warnings passed; debug build session97251 exited0 (1m10s). Svelte check0/0. Inline native inspection passed30 cases, plus27 scenarios over three TLS certificate variants and157 previous-auth regressions. Temporary synthetic keys removed; no saved test scripts. Windows packaging session59352 exited0 (Rust release5m18s);164 source hashes matched artifacts/ntlm-source-snapshot.json. BUILD.json records executable/NSIS hashes; installer not run/published.
+Read official MS-NLMP, reqwest connector-layer, SSPI installed examples/source, Tower, RFC5929 and X509 docs before implementation; exact cargo add commands/sources are in AUTHENTICATION.md#record-ntlm-compatibility. First cargo check session36403 found two API spelling/mutability errors, fixed. Clippy -D warnings passed; debug build session97251 exited0 (1m10s). Svelte check0/0. Inline native inspection passed30 cases, plus27 scenarios over three TLS certificate variants and157 previous-auth regressions. Temporary synthetic keys removed; no saved test scripts. Windows packaging session59352 exited0 (Rust release5m18s);164 source hashes matched artifacts/ntlm-source-snapshot.json. BUILD.json records executable/NSIS hashes; installer not run/published.
 
 
 ## Netrc checkpoint
 
-Read CURLOPT_NETRC, pinned curl7.86 netrc.c/url.c, current parser, curl credential-leak advisories and Rust1.98 home_dir docs before implementation (links in NETRC-COMPATIBILITY.md). No extra dependency or generator needed. Ran cargo fmt, bun x --bun prettier --write on modified frontend files, cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings, bun run check; all passed. Compiled actual native modules/builders from rustc stdin using Bun;45 synthetic netrc cases and187 existing-auth regressions passed. No saved test scripts or user netrc reads. Ran bun run tauri build --bundles nsis --ci; session74624 exited0 (Rust release4m17s). All165 captured source hashes matched after packaging; executable/NSIS hashes recorded in BUILD.json.
+Read CURLOPT_NETRC, pinned curl7.86 netrc.c/url.c, current parser, curl credential-leak advisories and Rust1.98 home_dir docs before implementation (links in AUTHENTICATION.md#record-netrc-compatibility). No extra dependency or generator needed. Ran cargo fmt, bun x --bun prettier --write on modified frontend files, cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings, bun run check; all passed. Compiled actual native modules/builders from rustc stdin using Bun;45 synthetic netrc cases and187 existing-auth regressions passed. No saved test scripts or user netrc reads. Ran bun run tauri build --bundles nsis --ci; session74624 exited0 (Rust release4m17s). All165 captured source hashes matched after packaging; executable/NSIS hashes recorded in BUILD.json.
 
 
 ## ASAP ES512 follow-up
@@ -411,7 +411,7 @@ Read official JWS/JWA/RFC6979, p521 API/examples and installed source first. Ran
 
 ## gRPC native core — 2026-09-24
 
-Read Tonic/protox/prost-reflect APIs, installed crate sources, official gRPC reflection/protocol definitions and RouteGuide working example first (GRPC-INVENTORY.md). Ran cargo info for tonic0.14.6, protox0.9.1, prost-reflect0.16.5 and tonic-reflection0.14.6, then documented dependency commands:
+Read Tonic/protox/prost-reflect APIs, installed crate sources, official gRPC reflection/protocol definitions and RouteGuide working example first (GRPC.md#record-grpc-inventory). Ran cargo info for tonic0.14.6, protox0.9.1, prost-reflect0.16.5 and tonic-reflection0.14.6, then documented dependency commands:
 
 ```powershell
 cargo add tonic@0.14.6 --no-default-features --features channel,codegen,tls-ring,tls-webpki-roots,gzip --manifest-path src-tauri/Cargo.toml
@@ -434,17 +434,17 @@ Additional primary sources read during inspection: https://github.com/grpc/grpc/
 
 ## gRPC method presentation — 2026-09-28
 
-After workspace returned to E:\insomnium and full filesystem access was restored, read STATUS/PLAN/PARITY and original grpc-method-dropdown/body controls. Consulted official Svelte keyed-each and MDN optgroup docs (GRPC-INVENTORY.md). Added package grouping/type labels and Body/Stream N sent tabs. Ran bun x --bun prettier --write src/lib/grpc-model.js src/lib/components/GrpcPane.svelte; bun run check (0 errors/0 warnings); bun run build (session2682 exited0); git diff --check.10 inline Bun grouping cases passed: discovery order, package/no-package/fallback, equal short names with distinct full paths, four RPC kinds, no mutation and empty list. No saved tests or dependency changes. No installer rebuild; BUILD.json remains the prior proto-manager package.
+After workspace returned to E:\insomnium and full filesystem access was restored, read STATUS/PLAN/PARITY and original grpc-method-dropdown/body controls. Consulted official Svelte keyed-each and MDN optgroup docs (GRPC.md#record-grpc-inventory). Added package grouping/type labels and Body/Stream N sent tabs. Ran bun x --bun prettier --write src/lib/grpc-model.js src/lib/components/GrpcPane.svelte; bun run check (0 errors/0 warnings); bun run build (session2682 exited0); git diff --check.10 inline Bun grouping cases passed: discovery order, package/no-package/fallback, equal short names with distinct full paths, four RPC kinds, no mutation and empty list. No saved tests or dependency changes. No installer rebuild; BUILD.json remains the prior proto-manager package.
 
 ## gRPC proto management — 2026-09-24
 
-Read archived proto-file-list.tsx/proto-loader.tsx and official Svelte keyed-each/file-input/Tauri Channel docs before editing (GRPC-INVENTORY.md). No dependency or native API additions. Added proto-management.js/ProtoManager.svelte and integrated workspace/GrpcPane. Used bun x --bun prettier --write on modified files, bun run check, bun run build and git diff --check. Initial JS inference errors on a spread resource _id were fixed with a JSDoc resource type; final Svelte check0 errors/0 warnings.
+Read archived proto-file-list.tsx/proto-loader.tsx and official Svelte keyed-each/file-input/Tauri Channel docs before editing (GRPC.md#record-grpc-inventory). No dependency or native API additions. Added proto-management.js/ProtoManager.svelte and integrated workspace/GrpcPane. Used bun x --bun prettier --write on modified files, bun run check, bun run build and git diff --check. Initial JS inference errors on a spread resource _id were fixed with a JSDoc resource type; final Svelte check0 errors/0 warnings.
 
 75 inline Bun model/compiled-workspace inspections passed, including33 previous checks and actual native compiler validation of successful refresh/rename and an unchanged service broken by a changed dependency. Covered preservation, collisions, cancellation/shutdown, concurrent changes, missing references and save failure. No test script files were created. Snapshot artifacts/grpc-proto-source-snapshot.json:178 files, fingerprint71e5d6e653edd3fb110a197a92c366b878dfdb0325ea3f6076b83f7964c78e2a. Ran bun run tauri build --bundles nsis --ci; session59731 exited0 (Rust release5m01s), frontend and NSIS builds passed. All178 hashes matched. BUILD.json records EXE11,984,896 bytes/SHA256 1fa659f33557e9f75110f4a93164bdda2d85e456702d2d1bd59934df40501c06 and installer4,335,750 bytes/SHA256 483639bc52587e5c7a92021ac58f59b6e8eb43c026b20bae4daa7ad2a766c5ef. Installer not executed/published.
 
 ## gRPC legacy JSON and Svelte integration — 2026-09-24
 
-Read the pinned protobuf.js converter/wrapper/default sources, Long5.3.2, prost-reflect values/descriptors, Electron structured-clone IPC, ryu-js, Bun add, Tauri Channels and Svelte derived-state docs first (links in GRPC-INVENTORY.md). Used documented commands:
+Read the pinned protobuf.js converter/wrapper/default sources, Long5.3.2, prost-reflect values/descriptors, Electron structured-clone IPC, ryu-js, Bun add, Tauri Channels and Svelte derived-state docs first (links in GRPC.md#record-grpc-inventory). Used documented commands:
 
 ```powershell
 cargo info ryu-js@1.0.3
@@ -466,7 +466,7 @@ Inline Bun/rustc-stdin inspections passed97 legacy differential,64 protocol/sche
 
 ## gRPC reflection examples — 2026-09-28
 
-Read archived automock/reflection IPC and official prost-reflect FieldDescriptor/MessageDescriptor and UUID new_v4 docs (GRPC-INVENTORY.md) before editing. Used existing dependencies; no installation required. Ran cargo fmt --manifest-path src-tauri/Cargo.toml and cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings; session98006 exited0. Compiled actual native modules from Rust stdin using existing debug rlibs and drove15 inline Bun cases; all passed. Five archived automock comparisons and independent protobuf.js wire decodes also passed after correcting inspection expectations for float32 rounding and proto3 default omission. No saved test scripts.
+Read archived automock/reflection IPC and official prost-reflect FieldDescriptor/MessageDescriptor and UUID new_v4 docs (GRPC.md#record-grpc-inventory) before editing. Used existing dependencies; no installation required. Ran cargo fmt --manifest-path src-tauri/Cargo.toml and cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings; session98006 exited0. Compiled actual native modules from Rust stdin using existing debug rlibs and drove15 inline Bun cases; all passed. Five archived automock comparisons and independent protobuf.js wire decodes also passed after correcting inspection expectations for float32 rounding and proto3 default omission. No saved test scripts.
 
 Captured179-source snapshot artifacts/grpc-example-source-snapshot.json and started bun run tauri build --bundles nsis --ci, session46089. Final outcome is in STATUS/BUILD.json.
 
@@ -474,7 +474,7 @@ Release checkpoint: session46089 exited0, Rust release5m29s and NSIS packaging p
 
 ## Shared editor foundation — 2026-09-28
 
-Selected the original CodeMirror5 architecture after official manual/Svelte lifecycle/Bun add documentation. Ran bun add --exact codemirror@5.65.21, bun add --dev @types/codemirror, bun x --bun prettier --write on modified JS/Svelte, bun run check (0/0), bun run build (passed), and git diff --check.10 inline Bun mode/cache assertions passed. No saved test scripts/native changes. Wrapper is integrated into HTTP/gRPC bodies; source is not yet packaged. Continue with EDITOR-TEMPLATE-INVENTORY.md.
+Selected the original CodeMirror5 architecture after official manual/Svelte lifecycle/Bun add documentation. Ran bun add --exact codemirror@5.65.21, bun add --dev @types/codemirror, bun x --bun prettier --write on modified JS/Svelte, bun run check (0/0), bun run build (passed), and git diff --check.10 inline Bun mode/cache assertions passed. No saved test scripts/native changes. Wrapper is integrated into HTTP/gRPC bodies; source is not yet packaged. Continue with TEMPLATING.md#record-editor-template-inventory.
 
 ## Environment completion checkpoint — 2026-09-28
 
@@ -553,7 +553,7 @@ Read https://svelte.dev/docs/svelte/$effect and https://vite.dev/guide/features.
 
 Current execution rule (owner update): Do not use shell execution tools or cmd/PowerShell. Launch Bun and other programs directly through node_repl with node:child_process execFile/spawn, shell:false and windowsHide:true. Bun handles scripts/filesystem operations. This supersedes historical cmd.exe instructions below.
 
-Nunjucks foundation: direct node_repl execFile Bun add --ignore-scripts --exact nunjucks quickjs-emscripten; direct Bun entrypoints node_modules/prettier/bin/prettier.cjs --write, node_modules/@sveltejs/kit/svelte-kit.js sync, node_modules/svelte-check/bin/svelte-check --tsconfig ./jsconfig.json --config ./svelte.config.js --fail-on-warnings, node_modules/vite/bin/vite.js build. All launched shell:false/windowsHide:true.10 inline Bun assertions passed; no saved test scripts. References/next steps in TEMPLATE-RUNTIME.md.
+Nunjucks foundation: direct node_repl execFile Bun add --ignore-scripts --exact nunjucks quickjs-emscripten; direct Bun entrypoints node_modules/prettier/bin/prettier.cjs --write, node_modules/@sveltejs/kit/svelte-kit.js sync, node_modules/svelte-check/bin/svelte-check --tsconfig ./jsconfig.json --config ./svelte.config.js --fail-on-warnings, node_modules/vite/bin/vite.js build. All launched shell:false/windowsHide:true.10 inline Bun assertions passed; no saved test scripts. References/next steps in TEMPLATING.md#record-template-runtime.
 
 Template worker/preview: read https://raw.githubusercontent.com/justjake/quickjs-emscripten/main/README.md packaging and WebAssembly loading, installed CustomizeVariantOptions declarations, https://vite.dev/guide/assets.html#explicit-url-imports . Direct Bun add --ignore-scripts --exact quickjs-emscripten-core@0.32.0 @jitl/quickjs-wasmfile-release-sync@0.32.0; remove --ignore-scripts quickjs-emscripten. Direct Bun Prettier, svelte-kit sync, svelte-check and vite build entrypoints passed. Four final compiled-worker assertions via in-memory browser-location/fetch wrapper passed; no actual WebView verification. All launchers node_repl execFile shell:false/windowsHide:true, no saved test scripts.
 

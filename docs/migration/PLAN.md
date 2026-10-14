@@ -4,7 +4,7 @@ Updated 2026-10-14. Current state is in [STATUS.md](STATUS.md); all original req
 
 ## Remaining execution order
 
-1. Finish current namespace native original20 + additive88 workflow; inspect the saved scenario and latest failed receipt before changing code.
+1. Finish the original namespace operator source/package/kernel-process audit; functional native20+88 already passes. Inspect the retained failed operator receipt before changing or rerunning it.
 2. Complete request CRUD, body/send/cancel/history and shared UI workflow gates.
 3. Finish environment/import/export, GraphQL, streams, gRPC and OpenAPI remaining compatibility.
 4. Finish Git clone/remote checkout/push and remaining network/provider/recovery gates; finish authentication provider/native acceptance.

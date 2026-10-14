@@ -3,7 +3,7 @@
 บันทึกคำสั่งเจ้าของ: 2026-09-30
 สถานะ: **เจ้าของสั่งทำ shared UI, Git tab และ resizable panels โดยตรงเมื่อ 2026-10-05 จึงเริ่มขอบเขตนี้ทันที**
 
-คำสั่งล่าสุดให้ปรับ design theme มีผลเหนือการเลื่อนงาน theme เดิม ชื่อธีมปัจจุบันคือ Nocturne ดู NOCTURNE-THEME.md และ STATUS.md งานนี้ไม่ถือว่า migration/parity เดิมเสร็จ และไม่ลดขอบเขตเดิม
+คำสั่งล่าสุดให้ปรับ design theme มีผลเหนือการเลื่อนงาน theme เดิม ชื่อธีมปัจจุบันคือ Nocturne ดู UI-DESIGN-SYSTEM-DEBT.md#record-nocturne-theme และ STATUS.md งานนี้ไม่ถือว่า migration/parity เดิมเสร็จ และไม่ลดขอบเขตเดิม
 
 ## สิ่งที่ต้องทำ
 
@@ -17,7 +17,7 @@
 
 ## UX
 
-คำสั่งล่าสุดให้ใช้ชื่อธีม Nocturne และออกแบบหน้าตาของเราเอง โดยอ้างอิงลำดับการทำงาน Source Control ของ VS Code ได้ แต่ไม่คัดลอก design ดู NOCTURNE-WORKSPACE.md
+คำสั่งล่าสุดให้ใช้ชื่อธีม Nocturne และออกแบบหน้าตาของเราเอง โดยอ้างอิงลำดับการทำงาน Source Control ของ VS Code ได้ แต่ไม่คัดลอก design ดู UI-DESIGN-SYSTEM-DEBT.md#record-nocturne-workspace
 
 เริ่มจากสำรวจ workflow ของ collection/request, environment, auth, send/response, history, import/export และ Git แล้วออกแบบ navigation, information hierarchy และ interaction ใหม่ โดยรักษาความสามารถและข้อมูลจาก migration
 

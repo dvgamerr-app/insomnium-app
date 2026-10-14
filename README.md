@@ -6,7 +6,7 @@ API client แบบ local-first กำลังย้ายจาก Electron/R
 
 ## เริ่มทำงาน
 
-ใช้ Bun 1.4.2+, Rust stable, และ [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) สำหรับ OS นั้น บน Windows ต้องมี MSVC C++ Build Tools และ WebView2 และต้องมี libclang สำหรับ build native OS tag (ไม่ใช่ runtime dependency) ดู [วิธีเตรียม Clang](docs/migration/OS-TEMPLATE.md)
+ใช้ Bun 1.4.2+, Rust stable, และ [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) สำหรับ OS นั้น บน Windows ต้องมี MSVC C++ Build Tools และ WebView2 และต้องมี libclang สำหรับ build native OS tag (ไม่ใช่ runtime dependency) ดู [วิธีเตรียม Clang](docs/migration/TEMPLATING.md#record-os-template)
 
 ```powershell
 bun install --frozen-lockfile
@@ -25,29 +25,29 @@ bun run desktop:build
 
 บน Linux `desktop:build` ใช้ build → สร้าง dependency config จาก executable → bundle สำหรับ Debian/RPM/AppImage: Debian ต้องมี `dpkg-shlibdeps` (package `dpkg-dev`) และ package metadata ของ library บนระบบ build เพื่อคำนวณ minimum versions จาก ELF ทุกครั้ง; RPM ต้องมี `rpmdeps` (Debian/Ubuntu: package `rpm`); AppImage ต้องมี `ldconfig`, GLES ที่ตรงกับสถาปัตยกรรมของ executable (Debian/Ubuntu: `libgles2`) และ license ของ library เพื่อรวม GLES ที่ WebKit โหลดตอน runtime ลงใน bundle โดยอัตโนมัติ รองรับ notice มาตรฐานของ Debian/Fedora หรือกำหนด `INSOMNIUM_GLES_LICENSE` ให้ชี้ไฟล์ notice ของ package ที่ใช้ ห้าม override destination `/usr/lib/libGLESv2.so.2` และ notice ที่ wrapper จัดการ
 
-เลือกเฉพาะ Debian (ยังคงสร้าง dependencies ใหม่) ได้ด้วย `bun run desktop:build --bundles deb`; Windows/macOS ส่งคำสั่งต่อให้ Tauri ตามเดิม Linux wrapper รองรับ release/debug, target, features, JSON config และ Cargo `--locked`/`--offline`/`--frozen`; config แบบ JSON5/TOML หรือ Cargo profile/output แบบกำหนดเองให้ใช้ [ขั้นตอน manual ที่ต้องสร้าง metadata ใหม่](docs/migration/LINUX-DISTRIBUTION.md) ห้ามนำ config ที่สร้างจาก binary เก่ามาใช้ซ้ำ Cross-architecture runtime ยังไม่ผ่านการตรวจยืนยัน
+เลือกเฉพาะ Debian (ยังคงสร้าง dependencies ใหม่) ได้ด้วย `bun run desktop:build --bundles deb`; Windows/macOS ส่งคำสั่งต่อให้ Tauri ตามเดิม Linux wrapper รองรับ release/debug, target, features, JSON config และ Cargo `--locked`/`--offline`/`--frozen`; config แบบ JSON5/TOML หรือ Cargo profile/output แบบกำหนดเองให้ใช้ [ขั้นตอน manual ที่ต้องสร้าง metadata ใหม่](docs/migration/CI.md#record-linux-distribution) ห้ามนำ config ที่สร้างจาก binary เก่ามาใช้ซ้ำ Cross-architecture runtime ยังไม่ผ่านการตรวจยืนยัน
 
 JavaScript tooling ทุกคำสั่งใช้ Bun ไม่มี Node server หรือ sidecar ในแอป ใช้ TypeScript 6.0.x เฉพาะเครื่องมือตรวจ JavaScript ไม่ใช้ TypeScript 7 ไม่มี test scripts ใหม่
 
 ## ส่วนที่เริ่มย้ายแล้ว
 
-- Shared editor: CodeMirror สำหรับ HTTP/gRPC/GraphQL, response, environment และ OpenAPI พร้อม search/folding, undo แยกตาม resource, environment completion, GraphQL schema/variable completion และ navigation; ตั้ง keymap/indent/wrapping ได้ ยังรอตรวจ WebView จริง ดู [editor migration](docs/migration/EDITOR-TEMPLATE-INVENTORY.md)
+- Shared editor: CodeMirror สำหรับ HTTP/gRPC/GraphQL, response, environment และ OpenAPI พร้อม search/folding, undo แยกตาม resource, environment completion, GraphQL schema/variable completion และ navigation; ตั้ง keymap/indent/wrapping ได้ ยังรอตรวจ WebView จริง ดู [editor migration](docs/migration/TEMPLATING.md#record-editor-template-inventory)
 
-- Netrc: native file lookup และ Basic auth แยก credentials ตามปลายทาง redirect; ดู [ข้อกำหนดและข้อจำกัด](docs/migration/NETRC-COMPATIBILITY.md)
+- Netrc: native file lookup และ Basic auth แยก credentials ตามปลายทาง redirect; ดู [ข้อกำหนดและข้อจำกัด](docs/migration/AUTHENTICATION.md#record-netrc-compatibility)
 - หน้าตา Insomnium: collection sidebar, request tabs, URL/Send, request/response panes, dark/light theme, icon เดิม
 - Collection/folder/request: สร้าง แก้ชื่อ ทำสำเนาทั้ง subtree ย้าย เรียง ลบ และค้นหา; environment create/rename/duplicate/delete และ inheritance
 - HTTP ผ่าน Rust: methods, headers/query, JSON/text/XML/form/multipart/binary, basic/bearer/API key/Digest, GraphQL query + variables
 - GraphQL: operation name, POST/GET, format/validate query และ variables, ดึง schema, import introspection JSON/SDL, ค้น type/field และ export SDL
 - Digest Auth ฝั่ง native: HTTP/SSE/WebSocket, challenge/retry, auth-int, multipart replay และ UTF-8/NFC; credentials จำกัด origin เดิม
-- OAuth1 ฝั่ง native: HMAC-SHA1/HMAC-SHA256/RSA-SHA1/PLAINTEXT พร้อมโหมด body แบบ RFC หรือ Insomnium เดิม; ดูข้อแตกต่างและผลตรวจใน [OAuth1 compatibility](docs/migration/OAUTH1-COMPATIBILITY.md)
-- AWS IAM ฝั่ง native: Signature V4, session token, Host/region/service, body จริงและ redirect; ดูข้อแตกต่างและงานที่เหลือใน [AWS compatibility](docs/migration/AWS-COMPATIBILITY.md)
-- ASAP ฝั่ง native: JWT/key/claims แบบ Insomnium และ Postman รองรับ RSA/PSS/ES256/384/512; native UI/provider acceptance ยังค้าง ดู [ASAP compatibility](docs/migration/ASAP-COMPATIBILITY.md)
-- Hawk ฝั่ง native: SHA1/SHA256 พร้อมโหมด Insomnium เดิม, body จริง และ Postman; ดูผลตรวจและข้อจำกัดใน [Hawk compatibility](docs/migration/HAWK-COMPATIBILITY.md)
-- Basic เลือก UTF-8/Latin-1, Bearer แก้ prefix ได้, API key รองรับ header/query/Cookie และ OpenAPI cookie auth; ดูงาน auth ที่ยังเหลือใน [Auth inventory](docs/migration/AUTH-INVENTORY.md)
+- OAuth1 ฝั่ง native: HMAC-SHA1/HMAC-SHA256/RSA-SHA1/PLAINTEXT พร้อมโหมด body แบบ RFC หรือ Insomnium เดิม; ดูข้อแตกต่างและผลตรวจใน [OAuth1 compatibility](docs/migration/AUTHENTICATION.md#record-oauth1-compatibility)
+- AWS IAM ฝั่ง native: Signature V4, session token, Host/region/service, body จริงและ redirect; ดูข้อแตกต่างและงานที่เหลือใน [AWS compatibility](docs/migration/AUTHENTICATION.md#record-aws-compatibility)
+- ASAP ฝั่ง native: JWT/key/claims แบบ Insomnium และ Postman รองรับ RSA/PSS/ES256/384/512; native UI/provider acceptance ยังค้าง ดู [ASAP compatibility](docs/migration/AUTHENTICATION.md#record-asap-compatibility)
+- Hawk ฝั่ง native: SHA1/SHA256 พร้อมโหมด Insomnium เดิม, body จริง และ Postman; ดูผลตรวจและข้อจำกัดใน [Hawk compatibility](docs/migration/AUTHENTICATION.md#record-hawk-compatibility)
+- Basic เลือก UTF-8/Latin-1, Bearer แก้ prefix ได้, API key รองรับ header/query/Cookie และ OpenAPI cookie auth; ดูงาน auth ที่ยังเหลือใน [Auth inventory](docs/migration/AUTHENTICATION.md#record-auth-inventory)
 - Response body/headers/cookies/timing/history, cancel, timeout, redirect, proxy, CA/client certificate settings
 - Cookie manager แยกต่อ collection: เพิ่ม/แก้ไข/ลบ/ล้าง บันทึกแบบ atomic และรองรับ send/store cookie แยกกัน
 - WebSocket: connect/send/receive/close, text/binary/ping และ saved payloads; SSE: incremental events, event ID และ retry metadata; มี log/filter/export/history และ cancel
-- gRPC: unary/streaming ทั้งสี่แบบ, proto tree/import/edit/replace/refresh/delete, reflection, metadata, legacy JSON, Send/Commit และประวัติ; refresh รักษา ID/ไฟล์เดิมและตรวจ schema ก่อนบันทึก ยังรอตรวจ UI/IPC จริงและความเข้ากันได้บางกรณี ดู [gRPC compatibility](docs/migration/GRPC-COMPATIBILITY.md)
+- gRPC: unary/streaming ทั้งสี่แบบ, proto tree/import/edit/replace/refresh/delete, reflection, metadata, legacy JSON, Send/Commit และประวัติ; refresh รักษา ID/ไฟล์เดิมและตรวจ schema ก่อนบันทึก ยังรอตรวจ UI/IPC จริงและความเข้ากันได้บางกรณี ดู [gRPC compatibility](docs/migration/GRPC.md#record-grpc-compatibility)
 - Workspace บันทึกแบบ atomic และเก็บไฟล์ก่อนแก้ไขไว้หนึ่งชุดต่อ session; single-instance ป้องกันหลาย process เขียนทับกัน
 - Import แบบเพิ่ม collection ใหม่จาก Insomnia JSON, Postman v2, HAR, OpenAPI JSON/YAML และ legacy NeDB; วาง cURL หรือเลือกไฟล์ .curl/.txt ผ่าน Review import ได้แล้ว (ยังเหลือ file/options/native acceptance ดู [cURL import](docs/migration/CURL-IMPORT.md)); export resource JSON
 - API Design: แก้ไข/บันทึก spec, ตรวจโครงสร้าง, preview operations/schema, แนบไฟล์ $ref และสร้าง request ลง folder ใหม่; รายการที่แปลงไม่ครบต้องแก้ใน Settings ก่อนส่ง
@@ -96,4 +96,4 @@ OAuth 2 ตอนนี้รองรับ Client Credentials, Password แบ
 
 MIT — ดู [LICENSE](LICENSE) ซึ่งเก็บลิขสิทธิ์เดิมครบถ้วน
 
-NTLMv2 ฝั่ง native ใช้ connection เดิมระหว่าง challenge พร้อม TLS channel binding; ตรวจขอบเขตและงานที่ยังค้างใน [NTLM compatibility](docs/migration/NTLM-COMPATIBILITY.md).
+NTLMv2 ฝั่ง native ใช้ connection เดิมระหว่าง challenge พร้อม TLS channel binding; ตรวจขอบเขตและงานที่ยังค้างใน [NTLM compatibility](docs/migration/AUTHENTICATION.md#record-ntlm-compatibility).
