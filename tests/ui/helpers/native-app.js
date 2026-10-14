@@ -11,9 +11,16 @@ export {resourceCrudProbeIdentifier} from './native-profile-ownership.js';
 /** @typedef {(command:string,args?:Record<string,any>)=>Promise<any>} NativeInvoke */
 /** @typedef {{page:Page,pid:number,output:string,invoke:NativeInvoke,requestNativeClose:(action?:()=>Promise<void>)=>Promise<any>,terminateParent:()=>Promise<{pid:number,exit:any}>}} ScenarioContext */
 export const probeIdentifier = "app.insomnium.probe.checkout20260929";
+export const integrationProbeIdentifier = "app.insomnium.probe.agentintegration20261014";
+/** Explicit saved-scenario identity selection, constrained to known probe builds. */
+export function selectedNativeProbeIdentifier() {
+  const chosen=process.env.INSOMNIUM_UI_PROBE_IDENTIFIER ?? probeIdentifier;
+  assertNativeProbeIdentity(chosen,chosen);
+  return chosen;
+}
 /** @param {string} actual @param {string} [expected] */
 export function assertNativeProbeIdentity(actual,expected=probeIdentifier){
-  assert.ok([probeIdentifier,resourceCrudProbeIdentifier].includes(expected),'Refuse non-allowlisted expected probe identity');
+  assert.ok([probeIdentifier,resourceCrudProbeIdentifier,integrationProbeIdentifier].includes(expected),'Refuse non-allowlisted expected probe identity');
   assert.equal(actual,expected,'Refuse unexpected probe app identity');
 }
 
@@ -27,7 +34,7 @@ export async function withNativeApp(scenario, run, options = {}) {
   const build = JSON.parse(await readFile(buildPath, "utf8"));
   assert.equal(build.status, "finished", "Native build must finish first");
   assert.equal(build.result?.code, 0, "Native build failed");
-  const expectedIdentifier=options.expectedIdentifier??probeIdentifier;
+  const expectedIdentifier=options.expectedIdentifier??selectedNativeProbeIdentifier();
   assertNativeProbeIdentity(build.identifier,expectedIdentifier);
   const exe = resolve(build.artifact);
   assert.ok(

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-get-plugin-clipboard-probe"
+description = "Enables the get_plugin_clipboard_probe command without any pre-configured scope."
+commands.allow = ["get_plugin_clipboard_probe"]
+
+[[permission]]
+identifier = "deny-get-plugin-clipboard-probe"
+description = "Denies the get_plugin_clipboard_probe command without any pre-configured scope."
+commands.deny = ["get_plugin_clipboard_probe"]

@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
 import { mkdir, copyFile, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { buildComponentFixture } from "./helpers/component-fixture.js";
-import { probeIdentifier } from "./helpers/native-app.js";
+import { probeIdentifier, assertNativeProbeIdentity } from "./helpers/native-app.js";
 
 // Saved Windows native UI-fixture build. Only an isolated probe identity is used;
 // production capabilities/CSP and application source remain unchanged.
-const dir = "artifacts/native-recovery-copy-probe";
+const dir = resolve(process.argv[2] || "artifacts/native-recovery-copy-probe");
+const identifier = process.argv[3] || probeIdentifier;
+assertNativeProbeIdentity(identifier, identifier);
+assert.ok(dir.startsWith(resolve("artifacts") + sep), "Probe output must stay inside local artifacts");
 await mkdir(dir, { recursive: true });
 const started = Date.now();
 const statePath = join(dir, "build-state.json");
@@ -14,7 +17,7 @@ const lowMemory = process.env.INSOMNIUM_UI_LOW_MEMORY === "1";
 const state = {
   status: "running",
   started,
-  identifier: probeIdentifier,
+  identifier,
   artifact: join(dir, "insomnium-recovery-copy-probe.exe"),
   compilerProfile: lowMemory
     ? "release with probe-only insomnium opt-level=1/codegen-units=16"
@@ -64,7 +67,7 @@ try {
       "--no-bundle",
       "--config",
       JSON.stringify({
-        identifier: probeIdentifier,
+        identifier,
         build: { beforeBuildCommand: null },
       }),
       ...(lowMemory

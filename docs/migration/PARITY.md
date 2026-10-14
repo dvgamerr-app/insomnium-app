@@ -1,3 +1,7 @@
+## Agent integration evidence — 2026-10-14
+
+Original ESM readiness26 now passes headless, including retained primary interruption/cleanup diagnostics and32worker retirements. Native event transport10 passes native-hidden. Native metadata9 (including HTTP2 gzip), actual mounted Send, persisted history and restart pass with complete isolated profile restoration. Guarded clipboard native acceptance is still pending the final ACL-enabled build. These close only the named bounded checks; every remaining requirement in the tables below is retained, including full migration, original namespace/XML matrices, wider platform/legal/distribution and subsequent shared-input UX scope.
+
 ## Original current XML formatter/cancellation acceptance — 2026-10-13
 
 Currentedbb/f66 original18 saved cases verified:3real-format MIME,6controlled cancellation,6controlled faults,3real refusals, saved/Git/Undo/Redo/reload/deadline/late-message behaviors. Separate authenticated emitted-worker exactmessage and bounded workspace_meta audit repair preserves old operator1; complete case/liveprofile656/Git13783/original43-20/layout5/currentauthority/retainedhost/naturalhiddenexit and explicit release accepted. Evidence: CURRENT-ORIGINAL-XML-NATIVE-ACCEPTANCE.md. Rolealert, actualquota/depth/count refusals, independent per-case disk/Rust-entry/AT/OS/universalplatform and every other originalmigration/distribution/UX scope remain open.

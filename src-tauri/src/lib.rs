@@ -43,6 +43,7 @@ mod plugin_sources;
 mod plugin_package;
 mod plugin_store;
 mod plugin_event_transport;
+mod plugin_clipboard_probe;
 mod plugin_save;
 mod streaming;
 mod spectral;
@@ -88,6 +89,7 @@ pub fn run() {
         .manage(storage::StorageState::default())
         .manage(plugin_store::PluginStoreState::default())
         .manage(plugin_event_transport::EventTransportState::default())
+        .manage(plugin_clipboard_probe::ClipboardProbeState::default())
         .manage(git::GitState::default())
         .manage(git_remote_job::RemoteJobState::default())
         .manage(plugin_save::SaveState::default())
@@ -107,6 +109,10 @@ pub fn run() {
             spectral::cancel_spectral_lint,
             plugin_event_transport::begin_plugin_event_transport,
             plugin_event_transport::end_plugin_event_transport,
+            plugin_clipboard_probe::begin_plugin_clipboard_probe,
+            plugin_clipboard_probe::write_plugin_clipboard_probe,
+            plugin_clipboard_probe::get_plugin_clipboard_probe,
+            plugin_clipboard_probe::end_plugin_clipboard_probe,
             http::send_http,
             http::cancel_http,
             http::fetch_oauth_token,

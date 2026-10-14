@@ -224,12 +224,7 @@ fn process_request(
                 if !validate(&leases)? {
                     return Err("Clipboard capability is unavailable".into());
                 }
-                if let Some(text) = text {
-                    app.clipboard().write_text(text)
-                } else {
-                    app.clipboard().clear()
-                }
-                .map_err(|error| error.to_string())?;
+                crate::plugin_clipboard_probe::guarded_mutation(app, text)?;
                 Ok(serde_json::Value::Null)
             }
             _ => Err("Unsupported event transport operation".into()),

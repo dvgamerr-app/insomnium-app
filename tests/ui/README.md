@@ -1,3 +1,16 @@
+# Current integration probe scenarios
+
+Saved browser scenarios always use headless launchUiBrowser. Native scenarios hide their owned WebView2 host and report native-hidden. Commands below use an explicit isolated integration profile; initialize it once only when absent, without copying existing user/probe state.
+
+```powershell
+bun scripts/prepare-native-event-fixtures.mjs
+bun tests/ui/build-recovery-copy-probe.js artifacts/native-agent-integration-probe app.insomnium.probe.agentintegration20261014
+$env:INSOMNIUM_UI_BUILD_STATE = "artifacts/native-agent-integration-probe/build-state.json"
+$env:INSOMNIUM_UI_PROBE_IDENTIFIER = "app.insomnium.probe.agentintegration20261014"
+```
+
+The initializer is initializeIntegrationProbeProfile() exported by helpers/native-profile-preservation.js; it refuses existing profiles. Run saved plugin-dom-event-native.js, plugin-dom-event-clipboard-native.js, and plugin-response-metadata-native.js serially with Bun. Set INSOMNIUM_METADATA_HTTP2=1 for the metadata gzip/H2 case; OpenSSL must be available (override with INSOMNIUM_METADATA_OPENSSL). Profile originals remain in RAM and workspace/window-state plus whole profile bytes/layout are verified after exit. Clipboard keeps bounded supported format bytes in RAM, refuses unknown formats/concurrent sequence changes and accepts only authenticated native guard receipts; its final native acceptance is pending the ACL-enabled build. Native event10 and metadata9/history/restart are verified; broader migration gates remain open. Historical receipts below refer to their original executables and are not current-build acceptance.
+
 # UI scenarios (Playwright + Bun)
 
 Environment template editor: `bun tests/ui/template-tag-environment.js` runs the actual built application through the shared headless helper. Four groups verify environment Apply/Save with JSON escaping, base64 preview, active-request folder context and collection fallback without a request;12genuine template workers observed, no preview adapter. Current editor scenario also asserts folder labels/order. Browser preparation does not prove native/custom action/Prompt/per-field/Send acceptance. Current33path/compiled-worker audit and JSON/model23controls: [TEMPLATE-TAG-EDITOR.md](../../docs/migration/TEMPLATE-TAG-EDITOR.md).

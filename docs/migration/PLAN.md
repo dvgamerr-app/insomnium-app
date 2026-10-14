@@ -1,3 +1,7 @@
+## Current agent integration — 2026-10-14
+
+ESM initialization is integrated (8e56205) and passes the original26 headless cases. All6 merged agent branches were deleted after ancestry checks. Complete the guarded native clipboard scenario with the corrected fixture and explicit four-command ACL, then verify the final isolated integration build and commit remaining source by topic. Native event10 and metadata9 including HTTP2/history/restart have passed on the isolated integration identity, with profile bytes/layout restored. Old agent directories still require removal; automatic approval review rejected the direct filesystem deletion. Original PARITY, distribution, broader native workflows and deferred POST-MIGRATION-UX scope remain unchanged. No new worktrees or custom .git files.
+
 ## Active parallel assignments — 2026-10-13
 
 Owner requests parallel agents. Reuse the three existing isolated agents; these assignments supersede earlier lists. Preserve every original migration, distribution and UX/CSS gate.

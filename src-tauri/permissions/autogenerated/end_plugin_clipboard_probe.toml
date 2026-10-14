@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-end-plugin-clipboard-probe"
+description = "Enables the end_plugin_clipboard_probe command without any pre-configured scope."
+commands.allow = ["end_plugin_clipboard_probe"]
+
+[[permission]]
+identifier = "deny-end-plugin-clipboard-probe"
+description = "Denies the end_plugin_clipboard_probe command without any pre-configured scope."
+commands.deny = ["end_plugin_clipboard_probe"]
