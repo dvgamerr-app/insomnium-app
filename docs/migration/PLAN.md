@@ -1,10 +1,10 @@
 # Migration execution plan
 
-Updated 2026-10-14. Current state is in [STATUS.md](STATUS.md); all original requirements and acceptance boundaries remain in [PARITY.md](PARITY.md). Topic documents hold implementation details. Historical execution logs are available in Git at commit 2c8316e; they are not the current plan.
+Updated 2026-10-15. Current state is in [STATUS.md](STATUS.md); all original requirements and acceptance boundaries remain in [PARITY.md](PARITY.md). Topic documents hold implementation details. Historical execution logs are available in Git at commit 2c8316e; they are not the current plan.
 
 ## Remaining execution order
 
-1. Complete current-native ResourceManager CRUD and latest field-feedback/focus acceptance using the existing saved six-profile scenario, then body/send/cancel/history and shared UI workflow gates.
+1. Complete remaining actual collection UI create/duplicate/delete and private-resource/model variants, then manual body/send/cancel/history and shared UI workflow gates. Current Windows ResourceManager native6 +field24/correction6 is verified at301c173; it does not waive broader collection lifecycle or callback-drain/platform acceptance.
 2. Finish environment/import/export, GraphQL, streams, gRPC and OpenAPI remaining compatibility.
 3. Finish Git clone/remote checkout/push and remaining network/provider/recovery gates; finish authentication provider/native acceptance. Proxy NTLMv2 Windows30 is verified; broader legacy schemes/provider/platform gates remain open.
 4. Complete desktop integration, license coverage/linkage, installer and CI/platform acceptance. Namespace original20+88/current Windows source/package/kernel-process audit is verified at787cce7; universal loader/linkage/all-birth/OS-close/physical-width/AT/platform claims remain open.
