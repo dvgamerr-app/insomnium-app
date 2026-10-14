@@ -4,12 +4,11 @@ Updated 2026-10-14. Current state is in [STATUS.md](STATUS.md); all original req
 
 ## Remaining execution order
 
-1. Finish the original namespace operator source/package/kernel-process audit; functional native20+88 already passes. Inspect the retained failed operator receipt before changing or rerunning it. Proxy NTLMv2 Windows30 is verified; broader legacy authentication schemes/provider/platform gates remain open.
-2. Complete request CRUD, body/send/cancel/history and shared UI workflow gates.
-3. Finish environment/import/export, GraphQL, streams, gRPC and OpenAPI remaining compatibility.
-4. Finish Git clone/remote checkout/push and remaining network/provider/recovery gates; finish authentication provider/native acceptance.
-5. Complete desktop integration, license coverage/linkage, installer and CI/platform acceptance.
-6. Audit every PARITY requirement against current evidence. Only then start the deferred input/UX redesign in POST-MIGRATION-UX.md.
+1. Complete current-native ResourceManager CRUD and latest field-feedback/focus acceptance using the existing saved six-profile scenario, then body/send/cancel/history and shared UI workflow gates.
+2. Finish environment/import/export, GraphQL, streams, gRPC and OpenAPI remaining compatibility.
+3. Finish Git clone/remote checkout/push and remaining network/provider/recovery gates; finish authentication provider/native acceptance. Proxy NTLMv2 Windows30 is verified; broader legacy schemes/provider/platform gates remain open.
+4. Complete desktop integration, license coverage/linkage, installer and CI/platform acceptance. Namespace original20+88/current Windows source/package/kernel-process audit is verified at787cce7; universal loader/linkage/all-birth/OS-close/physical-width/AT/platform claims remain open.
+5. Audit every PARITY requirement against current evidence. Only then start the deferred input/UX redesign in POST-MIGRATION-UX.md.
 
 ## Working rules
 

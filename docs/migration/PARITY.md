@@ -2,7 +2,7 @@
 
 Updated 2026-10-14. Full migration is incomplete. Every acceptance column below remains required. Detailed contracts, checkpoint-specific extra gates, failures and evidence are retained in the topic documents and [original parity records](MIGRATION-REVIEW.md#record-parity-history-20261014). Moving those records does not waive any requirement. A bounded receipt closes only its named cases/platform/version; historical pending statements must be interpreted alongside newer evidence in STATUS.md.
 
-Current receipts: namespace functional native20+88, cURL mixed/file and GET/file6+6, plugin ESM26/events10/metadata9+restart/guarded clipboard pass. Original Windows XML18, gRPC, Proto36 and Open4/TLS59 receipts are accepted within their stated scope. Original namespace operator source/package/kernel-process audit, broader workflow/provider/platform/legal/distribution requirements remain open.
+Current receipts: namespace original native20+88 and current Windows original operator source/package/kernel-process audit (787cce7; full protected/Git/history/layout restoration and separate release), cURL mixed/file and GET/file6+6, plugin ESM26/events10/metadata9+restart/guarded clipboard pass. Original Windows XML18, gRPC, Proto36 and Open4/TLS59 receipts are accepted within their stated scope. Broader workflow/provider/platform/legal/distribution requirements, including universal loader/linkage/all-birth/OS-close/physical-width/AT claims, remain open.
 
 ## Required acceptance matrix
 
