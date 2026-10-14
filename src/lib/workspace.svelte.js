@@ -662,7 +662,7 @@ export function update(resourceId, patch) {
   if (!canEditWorkspace()) return;
   const resource = workspace.data.resources.find((r) => r._id === resourceId);
   if (resource) Object.assign(resource, patch, { modified: Date.now() });
-  void persist();
+  return persist();
 }
 /** @param {string} requestId @param {string} filter */
 export function setResponseFilter(requestId, filter) {

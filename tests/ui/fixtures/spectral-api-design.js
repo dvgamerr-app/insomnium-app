@@ -1,6 +1,10 @@
 import "../../../src/lib/styles/index.css";
 const owner = /** @type {any} */ (window);
 owner.isTauri = true;
+// Controlled fixture acknowledgement gate; this is not native persistence.
+owner.spectralSaveGate = {
+  armed: false, held: false, acknowledged: false, payload: null, release: () => {},
+};
 owner.__TAURI_INTERNALS__ = {
   metadata: {
     currentWindow: { label: "spectral-ui-fixture" },
@@ -23,6 +27,15 @@ owner.__TAURI_INTERNALS__ = {
     });
     const reply = await response.json();
     if (!reply.ok) throw reply.error;
+    if (command === "save_workspace" && owner.spectralSaveGate.armed) {
+      const gate = owner.spectralSaveGate;
+      gate.armed = false;
+      gate.payload = structuredClone(args);
+      gate.held = true;
+      await new Promise((resolve) => { gate.release = () => resolve(undefined); });
+      gate.held = false;
+      gate.acknowledged = true;
+    }
     return reply.value;
   },
 };

@@ -77,7 +77,211 @@ try {
     reducedMotion: "reduce",
   });
   await page.goto(host.origin);
-  await exerciseSpectralApiDesign(page, output, host.origin);
+  const focusedImportDrain = process.env.INSOMNIUM_API_IMPORT_DRAIN === "1";
+  if (!focusedImportDrain)
+    await exerciseSpectralApiDesign(page, output, host.origin);
+  // Genuine production FilePicker/loadFile callback remains registered while
+  // its accepted save awaits a controlled fixture IPC acknowledgement.
+  await page.request.post(host.origin + "/__case", {
+    data: { mode: "default" },
+  });
+  await page
+    .getByRole("button", { name: "Default fixture", exact: true })
+    .click();
+  const drainRows = [];
+  for (const kind of ["document", "reference", "binary-example"]) {
+    const beforeImport = await page.evaluate(() =>
+      /** @type {any} */ (window).spectralDrain.state(),
+    );
+    await page.evaluate(() => {
+      const owner = /** @type {any} */ (window);
+      owner.spectralSaveGate.armed = true;
+      owner.spectralSaveGate.acknowledged = false;
+      owner.spectralDrain.phase = "idle";
+      owner.spectralDrain.events = [];
+      owner.spectralDrain.error = "";
+    });
+    const importedSource =
+      "openapi: 3.1.0\ninfo:\n  title: Drain accepted file\n  version: '1'\npaths: {}\n";
+    const referenceSource =
+      "type: object\nproperties:\n  owned:\n    type: string\n";
+    const exampleBytes = Buffer.from([0, 255, 13, 10, 128]);
+    const upload =
+      kind === "document"
+        ? {
+            name: "owned-drain.yaml",
+            mimeType: "application/yaml",
+            buffer: Buffer.from(importedSource),
+          }
+        : kind === "reference"
+          ? {
+              name: "owned-drain-reference.yaml",
+              mimeType: "application/yaml",
+              buffer: Buffer.from(referenceSource),
+            }
+          : {
+              name: "owned-drain-example.bin",
+              mimeType: "application/octet-stream",
+              buffer: exampleBytes,
+            };
+    await page
+      .getByRole("region", { name: "API Design", exact: true })
+      .locator("label")
+      .filter({
+        hasText:
+          kind === "document"
+            ? "Open JSON / YAML"
+            : kind === "reference"
+              ? "Attach $ref files"
+              : "Attach example files",
+      })
+      .locator('input[type="file"]')
+      .setInputFiles(upload);
+    await page.waitForFunction(
+      () => /** @type {any} */ (window).spectralSaveGate.held,
+    );
+    const accepted = await page.evaluate(() =>
+      /** @type {any} */ (window).spectralDrain.state(),
+    );
+    assert.equal(
+      accepted.resources.length,
+      beforeImport.resources.length + (kind === "document" ? 1 : 0),
+    );
+    if (kind === "document") {
+      const added = accepted.resources.filter(
+        (/** @type {any} */ r) =>
+          !beforeImport.resources.some(
+            (/** @type {any} */ old) => old._id === r._id,
+          ),
+      );
+      assert.equal(added[0]._type, "api_spec");
+      assert.equal(added[0].contents, importedSource);
+      assert.equal(added[0].fileName, "owned-drain.yaml");
+    } else {
+      const beforeSpec = beforeImport.resources.find(
+        (/** @type {any} */ r) => r.fileName === "owned-drain.yaml",
+      );
+      const afterSpec = accepted.resources.find(
+        (/** @type {any} */ r) => r._id === beforeSpec._id,
+      );
+      const changedField = kind === "reference" ? "files" : "exampleFiles";
+      const expectedAttachment =
+        kind === "reference"
+          ? { name: upload.name, contents: referenceSource }
+          : {
+              name: upload.name,
+              base64: exampleBytes.toString("base64"),
+              contentType: upload.mimeType,
+            };
+      assert.deepEqual(afterSpec[changedField], [
+        ...(beforeSpec[changedField] || []),
+        expectedAttachment,
+      ]);
+      if (kind === "binary-example") {
+        assert.deepEqual(
+          Buffer.from(afterSpec.exampleFiles.at(-1).base64, "base64"),
+          exampleBytes,
+        );
+      }
+      const expectedSpec = {
+        ...beforeSpec,
+        [changedField]: afterSpec[changedField],
+        modified: afterSpec.modified,
+      };
+      assert.deepEqual(
+        afterSpec,
+        expectedSpec,
+        "Attachment changes only owned asset field and modification timestamp",
+      );
+      assert.deepEqual(
+        accepted.resources.filter(
+          (/** @type {any} */ r) => r._id !== beforeSpec._id,
+        ),
+        beforeImport.resources.filter(
+          (/** @type {any} */ r) => r._id !== beforeSpec._id,
+        ),
+      );
+    }
+    assert.deepEqual(accepted.history, beforeImport.history);
+    const waiting = await page.evaluate(async () => {
+      const owner = /** @type {any} */ (window);
+      owner.spectralDrain.start();
+      const edit = owner.spectralDrain.attemptEdit();
+      // Bounded event-loop turns expose incorrectly released registrations.
+      for (let i = 0; i < 3; i++)
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      return {
+        edit,
+        phase: owner.spectralDrain.phase,
+        events: [...owner.spectralDrain.events],
+        data: owner.spectralDrain.state(),
+        held: owner.spectralSaveGate.held,
+      };
+    });
+    assert.equal(
+      waiting.edit.allowed,
+      false,
+      "Actual canEditWorkspace refuses during accepted-work drain",
+    );
+    assert.equal(
+      waiting.phase,
+      "waiting",
+      "Drain cannot enter while accepted import save acknowledgement is held",
+    );
+    assert.equal(waiting.held, true);
+    assert.deepEqual(waiting.events, ["drain-requested"]);
+    assert.deepEqual(
+      waiting.data,
+      accepted,
+      "Refused edit preserves exact resources/history/selection",
+    );
+    await page.evaluate(() =>
+      /** @type {any} */ (window).spectralSaveGate.release(),
+    );
+    await page.waitForFunction(
+      () => /** @type {any} */ (window).spectralDrain.phase === "finished",
+    );
+    const finished = await page.evaluate(() => {
+      const owner = /** @type {any} */ (window);
+      return {
+        events: owner.spectralDrain.events,
+        acknowledged: owner.spectralSaveGate.acknowledged,
+        canEdit: owner.spectralDrain.canEdit(),
+        data: owner.spectralDrain.state(),
+        error: owner.spectralDrain.error,
+      };
+    });
+    assert.deepEqual(finished.events, [
+      "drain-requested",
+      "operation-after-ack",
+      "drain-finished",
+    ]);
+    assert.equal(finished.acknowledged, true);
+    assert.equal(finished.canEdit, true);
+    assert.equal(finished.error, "");
+    assert.deepEqual(finished.data, accepted);
+    drainRows.push({
+      kind,
+      heldAcceptedSave: true,
+      refusedEdit: waiting.edit,
+      events: finished.events,
+      unchangedAcceptedState: true,
+    });
+    await Bun.write(
+      resolve(output, "callback-drain.json"),
+      JSON.stringify(
+        {
+          passed: drainRows.length === 3,
+          native: false,
+          controlledSaveIPC: true,
+          actualProductionFilePickerCallback: true,
+          rows: drainRows,
+        },
+        null,
+        2,
+      ),
+    );
+  }
   await Bun.write(
     resolve(output, "result.json"),
     JSON.stringify({
@@ -98,6 +302,16 @@ try {
   );
   throw error;
 } finally {
+  // Release any deliberately held acknowledgement before destroying its realm,
+  // including expected historical-negative failures.
+  await browser
+    ?.contexts()[0]
+    ?.pages()[0]
+    ?.evaluate(() => {
+      const owner = /** @type {any} */ (window);
+      if (owner.spectralSaveGate?.held) owner.spectralSaveGate.release();
+    })
+    .catch(() => {});
   await browser?.close();
   await host.close();
   for (const [path, before] of pinned) {

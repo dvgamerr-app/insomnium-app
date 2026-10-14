@@ -263,7 +263,7 @@
     };
     workspace.data.resources.push(resource);
     selectedId = resource._id;
-    void persist();
+    return persist();
   }
   async function loadFile(
     /** @type {Event & { currentTarget: HTMLInputElement }} */ event,
@@ -302,8 +302,8 @@
             8 * 1024 * 1024
         )
           throw new Error("Reference files exceed 32 files or 8 MiB.");
-        update(target._id, { files: combined });
-      } else if (loaded[0]) create(loaded[0].contents, loaded[0].name);
+        await update(target._id, { files: combined });
+      } else if (loaded[0]) await create(loaded[0].contents, loaded[0].name);
       error = "";
     } catch (e) {
       if (!disposed) error = String(e);
@@ -630,7 +630,7 @@
         throw new Error(
           "Document or collection changed while loading examples. Load them again.",
         );
-      update(target._id, { exampleFiles: addExampleAssets(target, loaded) });
+      await update(target._id, { exampleFiles: addExampleAssets(target, loaded) });
       error = "";
       notice = `${loaded.length} example file(s) loaded. Check the document again.`;
     } catch (e) {

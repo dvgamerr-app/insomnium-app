@@ -1,7 +1,7 @@
 <script>
   import ApiDesign from "../../../src/lib/components/ApiDesign.svelte";
   import Button from "../../../src/lib/components/ui/Button.svelte";
-  import { workspace } from "../../../src/lib/workspace.svelte.js";
+  import { workspace, withWorkspaceRunsPaused, canEditWorkspace, update } from "../../../src/lib/workspace.svelte.js";
   import { initialData } from "../../../src/lib/model.js";
   import {
     structuralFiles,
@@ -71,6 +71,26 @@
     shown = true;
   }
   seed();
+  const fixtureOwner = /** @type {any} */ (window);
+  fixtureOwner.spectralDrain = {
+    phase: "idle", events: [], error: "",
+    state: () => JSON.parse(JSON.stringify(workspace.data)),
+    start() {
+      this.phase = "waiting";
+      this.events.push("drain-requested");
+      void withWorkspaceRunsPaused(async () => {
+        this.events.push(fixtureOwner.spectralSaveGate.acknowledged ? "operation-after-ack" : "operation-before-ack");
+        this.phase = "entered";
+      }).then(() => { this.phase = "finished"; this.events.push("drain-finished"); })
+        .catch((error) => { this.error = String(error); this.phase = "failed"; });
+    },
+    attemptEdit() {
+      const allowed = canEditWorkspace();
+      update("req_spectral_foreign", { name: "REFUSED owned drain edit" });
+      return { allowed, notice: workspace.notice };
+    },
+    canEdit: () => canEditWorkspace(),
+  };
   function external(remote = false) {
     seed(true);
     const base = remote ? window.location.origin + "/references/" : "../";
