@@ -307,16 +307,7 @@ This checkpoint does not complete the full plugin helper feature or migration.
 
 ## Explicit OAuth cookie rendering and legacy-source audit — 2026-09-29
 
-- Inspected legacy-cookies.js and LegacyCookieImport.svelte: original cookie_jar resources are retained as explicit Restore candidates, with preview/overwrite policy. They are not an active jar. Automatically overlaying all retained records on Send would resurrect deleted cookies or override later edits. Do not implement that blanket overlay.
-- Existing valid template-bearing cookie values can be restored into the native jar and then participate in structured snapshot rendering. Unrepresentable template names/domain/path/expiry still need an explicit persistent template-source model with editing/deletion/clear semantics; this remains incomplete, not removed from scope.
-- Added shared requestCookieSnapshot helper and an explicit includeCookies option to renderOAuthRequest. authorizeOAuth Fetch/Refresh opts in; URL/authentication and cookie snapshot render within the same owned Send session. Generation remains native metadata. Existing OAuth token envelope forwards the rendered snapshot into native transport.
-- Preview and saved-token adoption do not opt into cookie loading/rendering; preview explicitly suppresses it even if requested. Cookie flags/global disable still skip snapshots. Cancellation is checked after lookup and session owns subsequent rendering cleanup. Unrelated request bodies/headers are still not rendered.
-  -25 inline assertions passed:12 compiled explicit Fetch/Refresh cases including rendered native cookie envelope plus previous dependency/prompt/Stop/token-source guards;7 ordinary cookie snapshot regressions;6 OAuth preview regressions. Native IPC mocked; no actual provider/WebView claim. Workers0; no saved test scripts/real-user-state writes.
-- Svelte0 errors/0 warnings, Vite production build and git diff --check passed. Bun ran Prettier/Svelte/Vite via hidden node_repl direct launch. No native change/dependency/new installer; source newer than BUILD.json.
-- The extracted helper initially had a return newline causing ASI; compiler caught it, fixed and rerun. First fixture returned collection-A templates for collection B, failing dependency rendering; corrected the mock to scope cookies by collection and reran. A guessed oauth-exchange.js search path was absent; actual implementation is oauth.js.
-- Official docs consulted before edits: https://v2.tauri.app/develop/calling-rust/#returning-data and https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/throwIfAborted . Existing subsystem reused; no generator needed.
-- Next: design/implement explicit storage and lifecycle for legacy template-bearing cookie sources that cannot enter native CookieStore, without resurrecting retained Restore records. Then URL encoding/live SSE raw history and full runtime/UI/platform/packaging acceptance plus all remaining PARITY rows. Full migration incomplete.
-
+The complete historical OAuth cookie-rendering contract, source audit, evidence and remaining gates are retained in [AUTHENTICATION — manual OAuth rendering](AUTHENTICATION.md#record-manual-oauth-rendering).
 
 </details>
 

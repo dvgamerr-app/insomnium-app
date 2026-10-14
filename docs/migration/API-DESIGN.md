@@ -1,9 +1,20 @@
 # API DESIGN migration
 
-Updated 2026-10-14. OpenAPI request generation and owned Spectral linting are implemented; custom QUERY/method and mixed-query-order receipts are verified. Remaining serialization/custom-rules/native/external-reference/provider/platform requirements remain open.
+Updated 2026-10-15. OpenAPI request generation and owned Spectral linting are implemented; custom QUERY/method and mixed-query-order receipts are verified. Remaining serialization/custom-rules/native/external-reference/provider/platform requirements remain open.
 
 See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity requirements](PARITY.md). No original scope was removed by consolidation.
 
+## Accepted import callback lifetime
+
+Verified source:9638705. Document import, reference attachments and example files now retain their registered workspace work until the existing save promise settles. update() and API create() return that same promise; their synchronous mutations and one-save behavior are unchanged. Generation already awaited its accepted save. The persistence queue separately serializes transitions; this correction establishes callback ownership, not evidence of prior data loss.
+
+The saved spectral-api-design entry uses actual production FilePicker callbacks and controls only the mocked save acknowledgment. Historical accepted-import-negative-pinned fails exactly because drain entered/finished before acknowledgment. accepted-import-three-positive passes document/reference/binary-example controls, exact accepted resources/history/selection, edit refusal and recovery. Binary bytes [0,255,13,10,128] round-trip independently. These are headless controlled-IPC proofs, not native storage or OS-close acceptance. Failure cleanup releases the held acknowledgment before closing the browser.
+
+Commands: INSOMNIUM_API_IMPORT_DRAIN=1 with a fresh INSOMNIUM_UI_RUN_LABEL runs the focused controls; omit the first variable for the original full Spectral suite plus these controls. INSOMNIUM_SPECTRAL_FIXTURE_EXE points to the retained exact f5690ce1 sidecar at artifacts/spectral-native-external-root-candidate/spectral-linter.exe; the current generated sidecar has a different hash and is correctly refused by this historical strict fixture pin. Do not relax that pin or relabel historical executable acquisition.
+
+Compiler24097 passes0 errors/0 warnings; frontend build and saved resource-manager-accepted-import-update-regression pass. Original full spectral-api-design-accepted-import-full passes before adding the final reference/binary controls. Final spectral-api-design-accepted-import-three-full (session10103) passes the original full suite plus all three controls; compiler58027 passes0 errors/0 warnings. All owned fixture/browser/host handles are terminal. Native actual save/drain and broader model/provider/platform/lifecycle gates remain required.
+
+Official references consulted: [Playwright file input](https://playwright.dev/docs/input#upload-files), [waitForFunction](https://playwright.dev/docs/api/class-page#page-wait-for-function), [Svelte testing](https://svelte.dev/docs/svelte/testing). No new application subsystem, dependency, native command or test entry was introduced.
 ## Topic records
 
 <a id="record-agent-native-structural-preparation"></a>
