@@ -770,6 +770,302 @@ await withResourceProbePreserved(
           rows.push(
             "cancelled delete then subtree/private/history/tab deletion, duplicate retained, reload",
           );
+          const collectionRows = [];
+          const collectionSelect = page.getByLabel("Collection", { exact: true });
+          const selectCollection = async (/** @type {string} */ id) => {
+            await collectionSelect.selectOption(id);
+            await resourceSaved(page);
+            await poll(async () => (await load()).activeWorkspaceId === id,
+              "Durable collection selection", 60000);
+            assert.equal(await collectionSelect.inputValue(), id);
+          };
+          const rootOrder = async () => {
+            const current = await load();
+            const order = orderedChildren(current.resources, null).map((item) => item._id);
+            assert.deepEqual(await collectionSelect.locator("option").evaluateAll(
+              (options) => options.map((option) => /** @type {HTMLOptionElement} */ (option).value)), order);
+            return order;
+          };
+          const allBeforeCollections = await load();
+          const originalFallback = original.resources.find((item) => item._type === "workspace");
+          assert.ok(originalFallback);
+          const originalSelectionMeta = original.resources.find((item) =>
+            item._type === "workspace_meta" && item.parentId === originalFallback._id);
+          assert.ok(originalSelectionMeta, "Original fallback has its captured persisted selection metadata");
+          assert.equal(originalSelectionMeta.activeEnvironmentId, original.activeEnvironmentId);
+          const previousIds = new Set(allBeforeCollections.resources.map((item) => item._id));
+          const createdName = tag + " UI collection";
+          await page.getByRole("button", { name: "New collection", exact: true }).click();
+          dialog = page.getByRole("dialog");
+          await dialog.getByLabel("Name", { exact: true }).fill(createdName);
+          await dialog.getByRole("button", { name: "Create", exact: true }).press("Enter");
+          await dialog.waitFor({ state: "detached" });
+          let createdState = allBeforeCollections;
+          await poll(async () => {
+            createdState = await load();
+            const created = createdState.resources.find((item) => item._type === "workspace" &&
+              item.name === createdName && !previousIds.has(item._id));
+            const request = createdState.resources.find((item) => item._type === "request" && item.parentId === created?._id);
+            const environment = createdState.resources.find((item) => item._type === "environment" && item.parentId === created?._id);
+            return !!created && !!request && !!environment &&
+              createdState.activeWorkspaceId === created._id && createdState.activeRequestId === request._id;
+          }, "Actual UI-created collection persisted", 60000);
+          const createdRoots = createdState.resources.filter((item) =>
+            item._type === "workspace" && !previousIds.has(item._id));
+          assert.equal(createdRoots.length, 1);
+          const createdCollection = createdRoots[0];
+          registerResourceProbeCollection(createdCollection._id, createdCollection.name);
+          const createdRequest = createdState.resources.find((item) =>
+            item._type === "request" && item.parentId === createdCollection._id);
+          const createdEnvironment = createdState.resources.find((item) =>
+            item._type === "environment" && item.parentId === createdCollection._id);
+          assert.ok(createdRequest && createdEnvironment);
+          assert.equal(createdEnvironment.name, "Base Environment");
+          assert.equal(createdState.activeWorkspaceId, createdCollection._id);
+          assert.equal(createdState.activeRequestId, createdRequest._id);
+          assert.deepEqual(createdState.history, allBeforeCollections.history);
+          await reload();
+          assert.deepEqual(await rootOrder(), [...orderedChildren(allBeforeCollections.resources, null)
+            .map((item) => item._id), createdCollection._id]);
+          collectionRows.push({ kind: "UI-create", id: createdCollection._id,
+            name: createdName, requestId: createdRequest._id, environmentId: createdEnvironment._id,
+            registered: true, reload: true });
+
+          const renamedName = createdName + " renamed";
+          await page.getByRole("button", { name: "Manage collection", exact: true }).click();
+          dialog = page.getByRole("dialog");
+          await dialog.getByRole("textbox", { name: "Name", exact: true }).fill(" " + renamedName + " ");
+          await dialog.getByRole("button", { name: "Save changes", exact: true }).press("Enter");
+          await dialog.waitFor({ state: "detached" });
+          await poll(async () => (await load()).resources.some((item) =>
+            item._id === createdCollection._id && item.name === renamedName), "Durable collection rename", 60000);
+          registerResourceProbeCollection(createdCollection._id, renamedName);
+          await reload();
+          await selectCollection(destinationId);
+          await selectCollection(createdCollection._id);
+          await reload();
+          assert.equal((await load()).activeWorkspaceId, createdCollection._id);
+          assert.equal(await collectionSelect.locator('option:checked').innerText(), renamedName);
+          collectionRows.push({ kind: "UI-rename-switch", id: createdCollection._id,
+            name: renamedName, trimmed: true, registered: true, reload: true });
+
+          const nonduplicable = ["git_repository", "grpc_request_meta", "oauth2_token", "plugin_data",
+            "project", "request_group_meta", "request_meta", "request_version", "response", "settings",
+            "stats", "unit_test_result", "websocket_response", "workspace_meta"];
+          const collectionFixture = await load();
+          const referenceProbeId = "probe_" + crypto.randomUUID();
+          const referencedTypes = ["proto_directory", "proto_file", "unit_test_suite", "unit_test", "websocket_payload", "api_spec", "cookie_jar"];
+          const referenced = Object.fromEntries(referencedTypes.map((type) => [type, type + "_" + crypto.randomUUID()]));
+          for (const type of referencedTypes) collectionFixture.resources.push({
+            _id: referenced[type], _type: type, parentId: createdCollection._id,
+            name: tag + " copied " + type, created: 1, modified: 1,
+            data: { literal: createdCollection._id }, cookies: [],
+          });
+          const localReferences = {
+            requestId: createdRequest._id, environmentId: createdEnvironment._id,
+            activeEnvironmentId: createdEnvironment._id, activeRequestId: createdRequest._id,
+            activeUnitTestSuiteId: referenced.unit_test_suite, workspaceId: createdCollection._id,
+            cookieJarId: referenced.cookie_jar, protoFileId: referenced.proto_file,
+            protoDirectoryId: referenced.proto_directory, unitTestSuiteId: referenced.unit_test_suite,
+            unitTestId: referenced.unit_test, activePayloadId: referenced.websocket_payload,
+            sourceSpecId: referenced.api_spec,
+          };
+          collectionFixture.resources.push({ _id: referenceProbeId, _type: "unknown_retained_probe",
+            parentId: createdCollection._id, name: tag + " unknown retained", ...localReferences,
+            literal: JSON.stringify(localReferences), nested: { ...localReferences }, created: 1, modified: 1 });
+          collectionFixture.resources.push({ _id: "probe_" + crypto.randomUUID(), _type: "unknown_foreign_probe",
+            parentId: createdCollection._id, name: tag + " foreign retained",
+            ...Object.fromEntries(Object.keys(localReferences).map((key) => [key, "uncopied_" + key])),
+            literal: createdCollection._id, created: 1, modified: 1 });
+          const excludedIds = new Set();
+          for (const type of nonduplicable) {
+            const privateId = type + "_" + crypto.randomUUID(), childId = "excluded_child_" + crypto.randomUUID();
+            excludedIds.add(privateId); excludedIds.add(childId);
+            collectionFixture.resources.push({ _id: privateId, _type: type, parentId: createdCollection._id,
+              name: tag + " excluded " + type, activeEnvironmentId: "", created: 1, modified: 1 });
+            collectionFixture.resources.push({ _id: childId, _type: "unknown_excluded_child",
+              parentId: privateId, name: tag + " excluded child " + type, created: 1, modified: 1 });
+          }
+          const collectionHistory = { _id: "res_" + crypto.randomUUID(), requestId: createdRequest._id,
+            created: Date.now(), status: 200, body: "owned collection history boundary", bodyBase64: Buffer.from("owned collection history boundary").toString("base64") };
+          collectionFixture.history.push(collectionHistory);
+          await invoke("save_workspace", { data: collectionFixture });
+          await reload();
+          const beforeCollectionCopy = await load();
+          const sourceCollectionIds = descendants(beforeCollectionCopy.resources, createdCollection._id);
+          const copyableSources = beforeCollectionCopy.resources.filter((item) =>
+            sourceCollectionIds.has(item._id) && !excludedIds.has(item._id) && !nonduplicable.includes(item._type));
+          await page.getByRole("button", { name: "Manage collection", exact: true }).click();
+          dialog = page.getByRole("dialog");
+          await dialog.getByRole("button", { name: "Duplicate", exact: true }).click();
+          await dialog.waitFor({ state: "detached" });
+          let collectionCopied = beforeCollectionCopy;
+          await poll(async () => {
+            collectionCopied = await load();
+            return collectionCopied.resources.some((item) => item._type === "workspace" &&
+              item.name === renamedName + " (copy)" && !beforeCollectionCopy.resources.some((old) => old._id === item._id));
+          }, "Actual duplicated collection persisted", 60000);
+          const duplicatedRoots = collectionCopied.resources.filter((item) => item._type === "workspace" &&
+            !beforeCollectionCopy.resources.some((old) => old._id === item._id));
+          assert.equal(duplicatedRoots.length, 1);
+          const duplicateCollection = duplicatedRoots[0];
+          registerResourceProbeCollection(duplicateCollection._id, duplicateCollection.name);
+          const duplicateIds = descendants(collectionCopied.resources, duplicateCollection._id);
+          const collectionCopies = collectionCopied.resources.filter((item) => duplicateIds.has(item._id));
+          assert.equal(collectionCopies.length, copyableSources.length);
+          assert.deepEqual(collectionCopied.resources.filter((item) =>
+            beforeCollectionCopy.resources.some((prior) => prior._id === item._id)), beforeCollectionCopy.resources,
+            "Duplicate leaves every source/original resource unchanged");
+          assert.deepEqual(collectionCopied.resources.filter((item) =>
+            !beforeCollectionCopy.resources.some((prior) => prior._id === item._id)), collectionCopies,
+            "All newly duplicated IDs belong to the actual copied subtree");
+          const mapping = new Map();
+          for (const source of copyableSources) {
+            const matches = collectionCopies.filter((item) => item._type === source._type &&
+              item.name === (source._id === createdCollection._id ? source.name + " (copy)" : source.name));
+            assert.equal(matches.length, 1);
+            assert.ok(!beforeCollectionCopy.resources.some((item) => item._id === matches[0]._id));
+            mapping.set(source._id, matches[0]._id);
+          }
+          const collectionReferenceKeys = ["_id", "parentId", "requestId", "environmentId", "activeEnvironmentId",
+            "activeRequestId", "activeUnitTestSuiteId", "workspaceId", "cookieJarId", "protoFileId",
+            "protoDirectoryId", "unitTestSuiteId", "unitTestId", "activePayloadId", "sourceSpecId"];
+          for (const source of copyableSources) {
+            const copy = collectionCopies.find((item) => item._id === mapping.get(source._id));
+            assert.ok(copy && copy.created > 1 && copy.modified >= copy.created);
+            const expected = structuredClone(source);
+            for (const key of collectionReferenceKeys) if (mapping.has(expected[key])) expected[key] = mapping.get(expected[key]);
+            expected.created = copy.created; expected.modified = copy.modified;
+            if (source._id === createdCollection._id) {
+              expected.name = source.name + " (copy)"; expected.metaSortKey = copy.metaSortKey;
+            }
+            assert.deepEqual(copy, expected, "Exact independent full-reference copy; payload literals unchanged");
+          }
+          assert.equal(collectionCopies.some((item) => nonduplicable.includes(item._type) || item._type === "unknown_excluded_child"), false);
+          assert.deepEqual(collectionCopied.history, beforeCollectionCopy.history);
+          assert.equal(collectionCopied.activeWorkspaceId, duplicateCollection._id);
+          assert.equal(collectionCopied.activeEnvironmentId, "", "Duplicate starts without retained environment selection");
+          const copyReloadStarted = Date.now();
+          await reload();
+          assert.deepEqual(await rootOrder(), [...orderedChildren(beforeCollectionCopy.resources, null)
+            .map((item) => item._id), duplicateCollection._id]);
+          // Loading creates fresh local selection metadata. Persist through the
+          // actual owned collection form before using it as the reorder baseline.
+          await page.getByRole("button", { name: "Manage collection", exact: true }).click();
+          dialog = page.getByRole("dialog");
+          await save(dialog);
+          let normalizedCopy = collectionCopied;
+          await poll(async () => {
+            normalizedCopy = await load();
+            return normalizedCopy.resources.some((item) => item._type === "workspace_meta" &&
+              item.parentId === duplicateCollection._id);
+          }, "Fresh duplicated selection metadata persisted", 60000);
+          const freshCopyMetadata = normalizedCopy.resources.filter((item) =>
+            !collectionCopied.resources.some((prior) => prior._id === item._id));
+          assert.equal(freshCopyMetadata.length, 1);
+          const freshMeta = freshCopyMetadata[0];
+          assert.deepEqual(Object.keys(freshMeta).sort(),
+            ["_id", "_type", "parentId", "activeEnvironmentId", "created", "modified"].sort());
+          assert.equal(freshMeta._type, "workspace_meta");
+          assert.equal(freshMeta.parentId, duplicateCollection._id);
+          assert.equal(freshMeta.activeEnvironmentId, "");
+          assert.ok(freshMeta.created >= copyReloadStarted && freshMeta.modified >= freshMeta.created && freshMeta.modified <= Date.now());
+          const normalizedRoot = normalizedCopy.resources.find((item) => item._id === duplicateCollection._id);
+          assert.ok(normalizedRoot && Number.isFinite(normalizedRoot.modified));
+          assert.deepEqual(normalizedCopy.resources, [...collectionCopied.resources.map((item) =>
+            item._id === duplicateCollection._id ? { ...item, modified: normalizedRoot.modified } : item), freshMeta]);
+          assert.deepEqual(normalizedCopy.history, collectionCopied.history);
+          collectionRows.push({ kind: "UI-duplicate", sourceId: createdCollection._id, duplicateId: duplicateCollection._id,
+            registered: true, excludedTypes: nonduplicable, excludedDescendants: nonduplicable.length,
+            referenceKeys: collectionReferenceKeys, unknownRetention: "current compatibility policy", historyCopied: false,
+            freshSelectionMetadataId: freshMeta._id, reload: true });
+
+          const beforeRootReorder = await load();
+          const rootIdsBefore = orderedChildren(beforeRootReorder.resources, null).map((item) => item._id);
+          let expectedRootOrder = [...rootIdsBefore];
+          for (const [button, direction] of [["Move up", -1], ["Move down", 1]]) {
+            const prior = await load(), lower = Date.now();
+            await page.getByRole("button", { name: "Manage collection", exact: true }).click();
+            dialog = page.getByRole("dialog");
+            await dialog.getByRole("button", { name: /** @type {string} */ (button), exact: true }).click();
+            const index = expectedRootOrder.indexOf(duplicateCollection._id), target = index + Number(direction);
+            [expectedRootOrder[index], expectedRootOrder[target]] = [expectedRootOrder[target], expectedRootOrder[index]];
+            let moved = prior;
+            await poll(async () => {
+              moved = await load();
+              return JSON.stringify(orderedChildren(moved.resources, null).map((item) => item._id)) === JSON.stringify(expectedRootOrder);
+            }, "Durable real collection reorder", 60000);
+            const upper = Date.now();
+            assert.deepEqual(moved.history, prior.history);
+            assert.deepEqual(moved.resources, prior.resources.map((item) => {
+              if (item._type !== "workspace") return item;
+              const actual = moved.resources.find((row) => row._id === item._id);
+              assert.ok(actual && actual.modified >= lower && actual.modified <= upper);
+              return { ...item, metaSortKey: (expectedRootOrder.indexOf(item._id) + 1) * 100, modified: actual.modified };
+            }), "Only authorized root sort keys/time changed, every other field/resource retained");
+            await close(dialog);
+            await reload();
+            assert.deepEqual(await rootOrder(), expectedRootOrder);
+          }
+          const restoredRootOrder = await load();
+          for (const item of restoredRootOrder.resources.filter((row) => row._type === "workspace")) {
+            const prior = beforeRootReorder.resources.find((row) => row._id === item._id);
+            assert.ok(prior);
+            for (const key of ["metaSortKey", "modified"]) {
+              if (Object.hasOwn(prior, key)) item[key] = prior[key]; else delete item[key];
+            }
+          }
+          await invoke("save_workspace", { data: restoredRootOrder });
+          await reload();
+          assert.deepEqual((await load()).resources, beforeRootReorder.resources);
+          assert.deepEqual((await load()).history, beforeRootReorder.history);
+          assert.deepEqual(await rootOrder(), rootIdsBefore);
+          collectionRows.push({ kind: "UI-root-reorder", up: true, down: true,
+            allowedFields: ["metaSortKey", "modified"], timestampBounds: true, originalRootFieldsRestored: true, reload: true });
+
+          await selectCollection(createdCollection._id);
+          const beforeCancelCollectionDelete = await load();
+          await page.getByRole("button", { name: "Manage collection", exact: true }).click();
+          dialog = page.getByRole("dialog");
+          await dialog.getByRole("button", { name: "Delete…", exact: true }).click();
+          await dialog.getByRole("button", { name: "Back", exact: true }).click();
+          await close(dialog);
+          assert.deepEqual(await load(), beforeCancelCollectionDelete);
+          await reload();
+          assert.deepEqual((await load()).resources, beforeCancelCollectionDelete.resources);
+          assert.deepEqual((await load()).history, beforeCancelCollectionDelete.history);
+          collectionRows.push({ kind: "UI-cancel-delete", id: createdCollection._id, completeModelUnchanged: true, reload: true });
+          for (const id of [createdCollection._id, duplicateCollection._id]) {
+            await selectCollection(id);
+            const prior = await load(), removed = descendants(prior.resources, id);
+            const expectedFallback = prior.resources.find((item) => item._type === "workspace" && item._id !== id);
+            assert.ok(expectedFallback && original.resources.some((item) => item._id === expectedFallback._id));
+            await page.getByRole("button", { name: "Manage collection", exact: true }).click();
+            dialog = page.getByRole("dialog");
+            await dialog.getByRole("button", { name: "Delete…", exact: true }).click();
+            await dialog.getByRole("button", { name: "Delete", exact: true }).click();
+            await dialog.waitFor({ state: "detached" });
+            let deleted = prior;
+            await poll(async () => {
+              deleted = await load();
+              return !deleted.resources.some((item) => item._id === id) && deleted.activeWorkspaceId === expectedFallback._id;
+            }, "Durable collection deletion and fallback", 60000);
+            assert.deepEqual(deleted.resources, prior.resources.filter((item) => !removed.has(item._id)));
+            assert.deepEqual(deleted.history, prior.history.filter((item) => !removed.has(item.requestId)));
+            const fallbackRequest = deleted.resources.find((item) => item._type === "request" && item.parentId === expectedFallback._id);
+            assert.ok(fallbackRequest);
+            assert.equal(deleted.activeRequestId, fallbackRequest._id);
+            const expectedTabs = prior.openTabs.filter((tab) => !removed.has(tab));
+            if (!expectedTabs.includes(fallbackRequest._id)) expectedTabs.push(fallbackRequest._id);
+            assert.deepEqual(deleted.openTabs, expectedTabs);
+            await reload();
+            assert.equal(await collectionSelect.inputValue(), expectedFallback._id);
+            assert.deepEqual((await load()).resources, deleted.resources);
+            assert.deepEqual((await load()).history, deleted.history);
+          }
+          collectionRows.push({ kind: "UI-confirm-delete", removed: [createdCollection._id, duplicateCollection._id],
+            subtreePrivateHistoryTabsRemoved: true, fallbackOriginalSelected: true, reload: true, extraSends: 0 });
+          assert.equal(collectionRows.length, 6);
           assert.deepEqual(
             (await load()).resources.filter((item) =>
               original.resources.some((prior) => prior._id === item._id),
@@ -786,6 +1082,7 @@ await withResourceProbePreserved(
                 rows,
                 validationRows,
                 correctionRows,
+                collectionRows,
                 received,
                 aborted,
                 lastCollectionNative:

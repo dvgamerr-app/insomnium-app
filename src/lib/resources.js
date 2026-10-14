@@ -141,14 +141,40 @@ export function duplicateResource(resources, resourceId) {
   const original = resources.find((r) => r._id === resourceId);
   if (!original || !["workspace", ...treeTypes].includes(original._type))
     throw new Error("This item cannot be duplicated.");
-  const selected = descendants(resources, resourceId);
-  // Legacy model policy: credentials, run results and local workspace UI state
-  // belong to their original owner; copying a collection starts with fresh state.
-  const source = resources.filter(
-    (r) =>
-      selected.has(r._id) &&
-      !["oauth2_token", "unit_test_result", "workspace_meta"].includes(r._type),
-  );
+  // Legacy models with canDuplicate=false are skipped before descending into
+  // their children (common/database.ts). Unknown retained models still copy.
+  const excludedTypes = new Set([
+    "git_repository",
+    "grpc_request_meta",
+    "oauth2_token",
+    "plugin_data",
+    "project",
+    "request_group_meta",
+    "request_meta",
+    "request_version",
+    "response",
+    "settings",
+    "stats",
+    "unit_test_result",
+    "websocket_response",
+    "workspace_meta",
+  ]);
+  const selected = new Set([resourceId]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const resource of resources) {
+      if (
+        selected.has(resource.parentId) &&
+        !selected.has(resource._id) &&
+        !excludedTypes.has(resource._type)
+      ) {
+        selected.add(resource._id);
+        changed = true;
+      }
+    }
+  }
+  const source = resources.filter((resource) => selected.has(resource._id));
   const mapping = new Map(source.map((r) => [r._id, id(r._id.split("_")[0])]));
   const copies = source.map((resource) => {
     const copy = JSON.parse(JSON.stringify(resource));
