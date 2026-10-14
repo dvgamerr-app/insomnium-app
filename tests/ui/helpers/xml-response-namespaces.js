@@ -546,13 +546,56 @@ export async function verifyXmlResponseNamespaces(context) {
     .locator("button.tree-request")
     .filter({ has: page.getByText("Namespace peer", { exact: true }) })
     .click();
+  await poll(
+    async () => (await invoke("load_workspace")).activeRequestId === peerId,
+    "Durable peer request selection",
+    60000,
+  );
+  assert.equal(
+    await page
+      .getByRole("textbox", { name: "Request URL", exact: true })
+      .inputValue(),
+    request.url,
+  );
+  const peerBefore = await invoke("load_workspace");
+  const peerResponseIds = new Set(
+    peerBefore.history
+      .filter((/** @type {any} */ r) => r.requestId === peerId)
+      .map((/** @type {any} */ r) => r._id),
+  );
+  const peerWireBefore = wire.length;
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await poll(
     async () => (await value()) === "<result>\n2\n</result>",
     "Peer request namespace mapping",
     60000,
   );
-  const peerState = await invoke("load_workspace");
+  let peerState = peerBefore;
+  await poll(
+    async () => {
+      assert.ok(
+        wire.length <= peerWireBefore + 1,
+        "Only one peer Send dispatch",
+      );
+      peerState = await invoke("load_workspace");
+      const response = peerState.history.find(
+        (/** @type {any} */ r) =>
+          r.requestId === peerId && !peerResponseIds.has(r._id),
+      );
+      return (
+        wire.length === peerWireBefore + 1 &&
+        wire.at(-1)?.path === "/mapped" &&
+        peerState.activeRequestId === peerId &&
+        response?.url === request.url &&
+        response.status === 200 &&
+        response.body === documents["/mapped"].body &&
+        response.bodyBase64 ===
+          Buffer.from(documents["/mapped"].body).toString("base64")
+      );
+    },
+    "Fresh durable peer XML response",
+    60000,
+  );
   const peerMeta = peerState.resources.find(
     (/** @type {any} */ r) =>
       r.parentId === peerId && r._type === "request_meta",

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { withNativeApp, poll, selectedNativeProbeIdentifier, integrationProbeIdentifier } from "./helpers/native-app.js";
+import { poll, selectedNativeProbeIdentifier, integrationProbeIdentifier } from "./helpers/native-app.js";
+import { withNamespaceNativeApp as withNativeApp, namespaceBeforeFirstSave } from "./helpers/namespace-native-bridge.js";
 import { preserveNativeProfile } from "./helpers/native-profile-preservation.js";
 import { withResourceProbePreserved, registerResourceProbeCollection } from "./helpers/resource-manager-cases.js";
 if (process.argv.includes("--namespace-component")) {
@@ -13,6 +14,7 @@ import { verifyXmlResponsePerformance } from "./helpers/xml-response-performance
 import { verifyXmlResponseTransfer } from "./helpers/xml-response-transfer.js";
 import { verifyXmlResponseNamespaces } from "./helpers/xml-response-namespaces.js";
 import { verifyNamespaceNativeFields } from "./helpers/xml-response-namespace-fields.js";
+import { namespaceHistoryPolicy, assertNamespaceHistory } from "./helpers/namespace-history.js";
 import {
   installResponseWorkerControl,
   responseWorkerRecords,
@@ -46,7 +48,8 @@ try {
   const run = async () => withResourceProbePreserved(async () => {
   await withNativeApp(
     "xml-response-filter",
-    async ({ page, invoke, output }) => {
+    async (context) => {
+      const { page, invoke, output } = context;
       const layoutKeys = ["nocturne:split:workspace-left", "nocturne:split:request-response", "nocturne:split:design", "insomnium.requestResponseSplit.v1", "insomnium.apiSourcePreviewSplit.v1"];
       const layout = await page.evaluate(keys => Object.fromEntries(keys.map(key => [key, localStorage.getItem(key)])), layoutKeys);
       try {
@@ -56,6 +59,8 @@ try {
         requestId = "req_xrf_" + suffix,
         metaId = "reqm_xrf_" + suffix;
       const data = (await invoke("load_workspace")) || initialData();
+      const historyPolicy=process.env.INSOMNIUM_XML_RESPONSE_NAMESPACES==="1"?namespaceHistoryPolicy(data):null;
+      if(historyPolicy) await Bun.write(output+"/namespace-history-policy-before.json",JSON.stringify(historyPolicy,null,2));
       data.resources.push(
         {
           _id: workspaceId,
@@ -83,6 +88,7 @@ try {
       data.activeEnvironmentId = "";
       data.openTabs = [requestId];
       registerResourceProbeCollection(workspaceId, "XML response " + suffix);
+      await namespaceBeforeFirstSave(context);
       await invoke("save_workspace", { data });
       await page.reload();
       const pane = page.getByRole("region", { name: "Response", exact: true });
@@ -214,6 +220,10 @@ try {
           requestId,
         });
         await verifyNamespaceNativeFields({ page, pane, saved, output, requestId });
+        assert.ok(historyPolicy);
+        const historyAfter=await invoke("load_workspace");
+        assertNamespaceHistory(historyPolicy,historyAfter);
+        await Bun.write(output+"/namespace-history-policy-after.json",JSON.stringify({passed:true,policy:historyPolicy,history:historyAfter.history,setting:historyAfter.settings.maxHistory},null,2));
         return;
       }
       if (process.env.INSOMNIUM_XML_RESPONSE_TRANSFER === "1") {
@@ -591,8 +601,9 @@ try {
       } finally {
         const after = await page.evaluate(keys => Object.fromEntries(keys.map(key => [key, localStorage.getItem(key)])), layoutKeys);
         await page.evaluate(values => { for (const [key,value] of Object.entries(values)) { if (value === null) localStorage.removeItem(key); else localStorage.setItem(key,value); } },layout);
-        assert.deepEqual(await page.evaluate(keys => Object.fromEntries(keys.map(key => [key, localStorage.getItem(key)])),layoutKeys),layout);
-        await Bun.write(output + "/xml-layout-restoration.json", JSON.stringify({passed:true,layout,after,currentKeys:layoutKeys.slice(0,3),legacyKeys:layoutKeys.slice(3)},null,2));
+        const restoredLayout=await page.evaluate(keys => Object.fromEntries(keys.map(key => [key, localStorage.getItem(key)])),layoutKeys);
+        assert.deepEqual(restoredLayout,layout);
+        await Bun.write(output + "/xml-layout-restoration.json", JSON.stringify({passed:true,layout,after,restoredLayout,currentKeys:layoutKeys.slice(0,3),legacyKeys:layoutKeys.slice(3)},null,2));
       }
     },
   );
