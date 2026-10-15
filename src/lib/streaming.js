@@ -41,11 +41,34 @@ export function appendStreamEvent(response, event) {
   const byteLength = new TextEncoder().encode(JSON.stringify(entry)).byteLength;
   response.events.push({ ...entry, byteLength });
   response.retainedBytes = (response.retainedBytes || 0) + byteLength;
+  const budget = 8 * 1024 * 1024;
+  // Terminal/status events must not evict the newest complete large payload.
+  // A newer payload replaces this exception; surrounding metadata stays bounded.
+  let oversized;
+  for (let index = response.events.length - 1; index >= 0; index--) {
+    const candidate = response.events[index];
+    if (
+      candidate.kind === "sse" ||
+      (candidate.kind === "message" &&
+        !["ping", "pong"].includes(candidate.format))
+    ) {
+      if (candidate.byteLength > budget) oversized = candidate;
+      break;
+    }
+  }
   while (
     response.events.length > 1 &&
-    (response.events.length > 1000 || response.retainedBytes > 8 * 1024 * 1024)
+    (response.events.length > 1000 || response.retainedBytes > budget)
   ) {
-    response.retainedBytes -= response.events.shift().byteLength;
+    const protectedFirst = response.events[0] === oversized;
+    if (
+      protectedFirst &&
+      response.events.length <= 1000 &&
+      response.retainedBytes - oversized.byteLength <= budget
+    )
+      break;
+    const [removed] = response.events.splice(protectedFirst ? 1 : 0, 1);
+    response.retainedBytes -= removed.byteLength;
     response.dropped = (response.dropped || 0) + 1;
   }
   return entry;
