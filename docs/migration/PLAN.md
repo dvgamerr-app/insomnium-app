@@ -4,6 +4,21 @@ Updated 2026-10-15. Current state is in [STATUS.md](STATUS.md); all original req
 
 ## Remaining execution order
 
+### Current working-tree handoff — 2026-10-15
+
+Latest verified stream source is 1874b36 (legacy raw SSE import), with handoff 85d11d5. Live raw SSE capture and byte-exact legacy timeline preservation are implemented in the working tree but are not yet native-accepted or committed. Frontend build, saved headless sse-raw-history and Cargo check passed; the latest Raw view effect still needs a fresh compiler check.
+
+Immediate remaining work:
+
+1. Recheck the latest frontend effect and run existing HTTP/WebSocket/SSE legacy-import headless regressions against shared timeline changes.
+2. Review raw fragment ordering, retention, cancellation/acknowledgement and exact timeline-byte accounting.
+3. Freeze source/scenarios, build an audited native candidate and run saved SSE runtime/raw-export, legacy SSE timeline and affected native HTTP/WebSocket legacy-import scenarios. Verify source closure and exact original profile restoration.
+4. Record receipts/limitations in HTTP.md, IMPORT-EXPORT.md, STATUS.md and PARITY.md, then commit the verified topic. Current working-tree changes have no native acceptance yet.
+
+After this lane: model/shared UI/callback-drain; broader environment/import-export/recovery, GraphQL, gRPC and OpenAPI compatibility; Git clone/remote checkout/push and recovery; authentication/provider/cookie/proxy/TLS acceptance; runner/plugin/template compatibility; desktop/accessibility/platform/installer/CI and legal source/linkage coverage. These groups already have implementations and bounded receipts; outstanding PARITY acceptance does not imply wholesale reimplementation. Deferred UX follows full migration.
+
+Cleanup retains migration contracts, acceptance evidence, original archive integrity/build records and the owner-required deferred UX plan. Removed the separate AI-HARNESS.md explainer; agent instructions remain in CLAUDE.md and .claude/.
+
 Latest bounded milestone: WebSocket NDJSON activation is verified at 869ad32; see [its contract and evidence](IMPORT-EXPORT.md#current-legacy-websocket-ndjson-activation). Earlier activation next-step wording below is superseded only for that recorded scope. Native WebSocket send/receive/cancel/environment-history has bounded Windows acceptance (HTTP.md#current-websocket-runtime-lifecycle); broader variants remain required. SSE incremental events/cancellation/history has bounded Windows acceptance (HTTP.md#current-sse-runtime-lifecycle). Legacy SSE raw-body activation/portability and semantic timelines have bounded Windows acceptance (IMPORT-EXPORT.md#current-legacy-sse-raw-ndjson-activation). Next concrete lane is live raw SSE capture and byte-exact raw timeline preservation. This closes no provider/platform or other PARITY gates.
 
 1. Complete remaining model/shared UI/callback-drain workflows. API import callback lifetime is corrected at9638705; native scenario2e04de6 verifies three genuine Windows save/drain callbacks with exact durable state/profile restoration (API-DESIGN.md). Broader callback-timeout/generation/OS-close/platform acceptance remains required. Windows environment lifecycle is verified at6349100 with unrelated-deletion retention at eae4ac2 (29checks/Name6/JSON12/inheritance5/foreign4+held1); broader caller/protocol/imported-model/platform acceptance remains required. Windows manual body/send/cancel/history is verified at7a0e9e3 with eae4ac2 regression coverage (body36/controls19/seededhistory6); broader platform/lifecycle compatibility remains required. Windows ResourceManager original6 +field24/correction6 +collection lifecycle6 is verified at2870f40, including14 legacy private-model exclusions/15 references and actual root reorder/restoration; broader model, callback-drain and platform acceptance remains required.
