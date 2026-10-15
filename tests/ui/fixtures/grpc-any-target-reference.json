@@ -1,0 +1,644 @@
+{
+  "protobufjs": "7.2.4",
+  "source": "syntax=\"proto3\";package ownedtargets;import \"google/protobuf/any.proto\";message Payload {string text=1;oneof choice {int32 a=2;string b=3;} optional string optional_text=4;map<string,string> labels=5;message Child {string value=1;}}message Envelope {google.protobuf.Any item=1;}enum Flag {TARGET_ZERO=0;TARGET_ONE=1;}service Echo {rpc Call(Payload) returns(Payload);}",
+  "rows": [
+    {
+      "label": "ownedtargets",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedtargets\",\"text\":\"owned\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "ownedtargets-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/ownedtargets\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "google",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/google\",\"text\":\"owned\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "google-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/google\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "google.protobuf",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/google.protobuf\",\"text\":\"owned\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "google.protobuf-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/google.protobuf\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "ownedtargets.Payload.text",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedtargets.Payload.text\",\"text\":\"owned\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "ownedtargets.Payload.text-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/ownedtargets.Payload.text\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "google.protobuf.Any.type_url",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/google.protobuf.Any.type_url\",\"text\":\"owned\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "google.protobuf.Any.type_url-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/google.protobuf.Any.type_url\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "google.protobuf.Any.value",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/google.protobuf.Any.value\",\"text\":\"owned\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "google.protobuf.Any.value-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/google.protobuf.Any.value\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "ownedtargets.Payload.choice",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedtargets.Payload.choice\",\"text\":\"owned\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "ownedtargets.Payload.choice-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/ownedtargets.Payload.choice\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "ownedtargets.Payload._optional_text",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedtargets.Payload._optional_text\",\"text\":\"owned\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "ownedtargets.Payload._optional_text-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/ownedtargets.Payload._optional_text\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "ownedtargets.Echo",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedtargets.Echo\",\"text\":\"owned\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "ownedtargets.Echo-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/ownedtargets.Echo\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "ownedtargets.Echo.Call",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedtargets.Echo.Call\",\"text\":\"owned\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "ownedtargets.Echo.Call-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/ownedtargets.Echo.Call\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "ownedtargets.Flag",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedtargets.Flag\",\"text\":\"owned\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "ownedtargets.Flag-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/ownedtargets.Flag\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "ownedtargets.Missing",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedtargets.Missing\",\"text\":\"owned\",\"value\":[1,2]}",
+      "wireHex": "12020102",
+      "json": "{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}"
+    },
+    {
+      "label": "ownedtargets.Missing-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/ownedtargets.Missing\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "wireHex": "0a0412020102",
+      "json": "{\"item\":{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}}"
+    },
+    {
+      "label": "ownedtargets.Payload.Missing",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedtargets.Payload.Missing\",\"text\":\"owned\",\"value\":[1,2]}",
+      "wireHex": "12020102",
+      "json": "{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}"
+    },
+    {
+      "label": "ownedtargets.Payload.Missing-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/ownedtargets.Payload.Missing\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "wireHex": "0a0412020102",
+      "json": "{\"item\":{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}}"
+    },
+    {
+      "label": "ownedtargets.Echo.Missing",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedtargets.Echo.Missing\",\"text\":\"owned\",\"value\":[1,2]}",
+      "wireHex": "12020102",
+      "json": "{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}"
+    },
+    {
+      "label": "ownedtargets.Echo.Missing-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/ownedtargets.Echo.Missing\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "wireHex": "0a0412020102",
+      "json": "{\"item\":{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}}"
+    },
+    {
+      "label": "type_url",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/type_url\",\"text\":\"owned\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "type_url-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/type_url\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "value",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/value\",\"text\":\"owned\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "value-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/value\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": ".",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/.\",\"text\":\"owned\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": ".-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/.\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "ownedtargets.Payload.Child",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedtargets.Payload.Child\",\"text\":\"owned\",\"value\":[1,2]}",
+      "wireHex": "0a2074797065732f6f776e6564746172676574732e5061796c6f61642e4368696c6412050a03312c32",
+      "json": "{\"type_url\":\"types/ownedtargets.Payload.Child\",\"value\":{\"0\":10,\"1\":3,\"2\":49,\"3\":44,\"4\":50}}"
+    },
+    {
+      "label": "ownedtargets.Payload.Child-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/ownedtargets.Payload.Child\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "wireHex": "0a290a2074797065732f6f776e6564746172676574732e5061796c6f61642e4368696c6412050a03312c32",
+      "json": "{\"item\":{\"type_url\":\"types/ownedtargets.Payload.Child\",\"value\":{\"0\":10,\"1\":3,\"2\":49,\"3\":44,\"4\":50}}}"
+    },
+    {
+      "label": "ownedtargets.Payload",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedtargets.Payload\",\"text\":\"owned\",\"value\":[1,2]}",
+      "wireHex": "0a1a74797065732f6f776e6564746172676574732e5061796c6f616412070a056f776e6564",
+      "json": "{\"type_url\":\"types/ownedtargets.Payload\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}"
+    },
+    {
+      "label": "ownedtargets.Payload-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/ownedtargets.Payload\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "wireHex": "0a250a1a74797065732f6f776e6564746172676574732e5061796c6f616412070a056f776e6564",
+      "json": "{\"item\":{\"type_url\":\"types/ownedtargets.Payload\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}}"
+    },
+    {
+      "label": "Payload",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/Payload\",\"text\":\"owned\",\"value\":[1,2]}",
+      "wireHex": "0a0d74797065732f5061796c6f616412070a056f776e6564",
+      "json": "{\"type_url\":\"types/Payload\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}"
+    },
+    {
+      "label": "Payload-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/Payload\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "wireHex": "0a180a0d74797065732f5061796c6f616412070a056f776e6564",
+      "json": "{\"item\":{\"type_url\":\"types/Payload\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}}"
+    },
+    {
+      "label": "ownedtargets.TARGET_ZERO",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedtargets.TARGET_ZERO\",\"text\":\"owned\",\"value\":[1,2]}",
+      "wireHex": "12020102",
+      "json": "{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}"
+    },
+    {
+      "label": "ownedtargets.TARGET_ZERO-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/ownedtargets.TARGET_ZERO\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "wireHex": "0a0412020102",
+      "json": "{\"item\":{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}}"
+    },
+    {
+      "label": "ownedtargets.Flag.TARGET_ZERO",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedtargets.Flag.TARGET_ZERO\",\"text\":\"owned\",\"value\":[1,2]}",
+      "wireHex": "12020102",
+      "json": "{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}"
+    },
+    {
+      "label": "ownedtargets.Flag.TARGET_ZERO-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/ownedtargets.Flag.TARGET_ZERO\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "wireHex": "0a0412020102",
+      "json": "{\"item\":{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}}"
+    },
+    {
+      "label": "google.protobuf.Any.insomnium_string_1",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/google.protobuf.Any.insomnium_string_1\",\"text\":\"owned\",\"value\":[1,2]}",
+      "wireHex": "12020102",
+      "json": "{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}"
+    },
+    {
+      "label": "google.protobuf.Any.insomnium_string_1-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/google.protobuf.Any.insomnium_string_1\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "wireHex": "0a0412020102",
+      "json": "{\"item\":{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}}"
+    },
+    {
+      "label": "constructor",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/constructor\",\"text\":\"owned\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "constructor-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/constructor\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "toString",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/toString\",\"text\":\"owned\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "toString-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/toString\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "__proto__",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/__proto__\",\"text\":\"owned\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "__proto__-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/__proto__\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "hasOwnProperty",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/hasOwnProperty\",\"text\":\"owned\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "hasOwnProperty-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/hasOwnProperty\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "isPrototypeOf",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/isPrototypeOf\",\"text\":\"owned\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "isPrototypeOf-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/isPrototypeOf\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "valueOf",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/valueOf\",\"text\":\"owned\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "valueOf-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/valueOf\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "toLocaleString",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/toLocaleString\",\"text\":\"owned\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "toLocaleString-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/toLocaleString\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "propertyIsEnumerable",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/propertyIsEnumerable\",\"text\":\"owned\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "propertyIsEnumerable-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/propertyIsEnumerable\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "__defineGetter__",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/__defineGetter__\",\"text\":\"owned\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "__defineGetter__-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/__defineGetter__\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "__lookupGetter__",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/__lookupGetter__\",\"text\":\"owned\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "__lookupGetter__-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/__lookupGetter__\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "ownedtargets.Payload.LabelsEntry",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedtargets.Payload.LabelsEntry\",\"text\":\"owned\",\"value\":[1,2]}",
+      "wireHex": "12020102",
+      "json": "{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}"
+    },
+    {
+      "label": "ownedtargets.Payload.LabelsEntry-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/ownedtargets.Payload.LabelsEntry\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "wireHex": "0a0412020102",
+      "json": "{\"item\":{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}}"
+    },
+    {
+      "label": "ownedtargets.Missing.constructor",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedtargets.Missing.constructor\",\"text\":\"owned\",\"value\":[1,2]}",
+      "wireHex": "12020102",
+      "json": "{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}"
+    },
+    {
+      "label": "ownedtargets.Missing.constructor-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/ownedtargets.Missing.constructor\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "wireHex": "0a0412020102",
+      "json": "{\"item\":{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}}"
+    },
+    {
+      "label": "ownedtargets.Payload.Child.value",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedtargets.Payload.Child.value\",\"text\":\"owned\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "ownedtargets.Payload.Child.value-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/ownedtargets.Payload.Child.value\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "Echo",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/Echo\",\"text\":\"owned\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "Echo-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/Echo\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "Echo.Call",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/Echo.Call\",\"text\":\"owned\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "Echo.Call-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/Echo.Call\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "Payload.Child",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/Payload.Child\",\"text\":\"owned\",\"value\":[1,2]}",
+      "wireHex": "0a1374797065732f5061796c6f61642e4368696c6412050a03312c32",
+      "json": "{\"type_url\":\"types/Payload.Child\",\"value\":{\"0\":10,\"1\":3,\"2\":49,\"3\":44,\"4\":50}}"
+    },
+    {
+      "label": "Payload.Child-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/Payload.Child\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "wireHex": "0a1c0a1374797065732f5061796c6f61642e4368696c6412050a03312c32",
+      "json": "{\"item\":{\"type_url\":\"types/Payload.Child\",\"value\":{\"0\":10,\"1\":3,\"2\":49,\"3\":44,\"4\":50}}}"
+    },
+    {
+      "label": "Child",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/Child\",\"text\":\"owned\",\"value\":[1,2]}",
+      "wireHex": "0a0b74797065732f4368696c6412050a03312c32",
+      "json": "{\"type_url\":\"types/Child\",\"value\":{\"0\":10,\"1\":3,\"2\":49,\"3\":44,\"4\":50}}"
+    },
+    {
+      "label": "Child-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/Child\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "wireHex": "0a140a0b74797065732f4368696c6412050a03312c32",
+      "json": "{\"item\":{\"type_url\":\"types/Child\",\"value\":{\"0\":10,\"1\":3,\"2\":49,\"3\":44,\"4\":50}}}"
+    },
+    {
+      "label": "optional_text",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/optional_text\",\"text\":\"owned\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "optional_text-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/optional_text\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "choice",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/choice\",\"text\":\"owned\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "choice-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/choice\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "Payload.LabelsEntry",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/Payload.LabelsEntry\",\"text\":\"owned\",\"value\":[1,2]}",
+      "wireHex": "12020102",
+      "json": "{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}"
+    },
+    {
+      "label": "Payload.LabelsEntry-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/Payload.LabelsEntry\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "wireHex": "0a0412020102",
+      "json": "{\"item\":{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}}"
+    },
+    {
+      "label": "LabelsEntry",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/LabelsEntry\",\"text\":\"owned\",\"value\":[1,2]}",
+      "wireHex": "12020102",
+      "json": "{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}"
+    },
+    {
+      "label": "LabelsEntry-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/LabelsEntry\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "wireHex": "0a0412020102",
+      "json": "{\"item\":{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}}"
+    },
+    {
+      "label": "ownedtargets.Payload.insomnium_string_1",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedtargets.Payload.insomnium_string_1\",\"text\":\"owned\",\"value\":[1,2]}",
+      "wireHex": "12020102",
+      "json": "{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}"
+    },
+    {
+      "label": "ownedtargets.Payload.insomnium_string_1-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/ownedtargets.Payload.insomnium_string_1\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "wireHex": "0a0412020102",
+      "json": "{\"item\":{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}}"
+    },
+    {
+      "label": "",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/\",\"text\":\"owned\",\"value\":[1,2]}",
+      "wireHex": "0a0674797065732f120412020102",
+      "json": "{\"type_url\":\"types/\",\"value\":{\"0\":18,\"1\":2,\"2\":1,\"3\":2}}"
+    },
+    {
+      "label": "-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "wireHex": "0a0e0a0674797065732f120412020102",
+      "json": "{\"item\":{\"type_url\":\"types/\",\"value\":{\"0\":18,\"1\":2,\"2\":1,\"3\":2}}}"
+    },
+    {
+      "label": "..",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/..\",\"text\":\"owned\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "..-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/..\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "ownedtargets.",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedtargets.\",\"text\":\"owned\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "ownedtargets.-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/ownedtargets.\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "ownedtargets..Payload",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedtargets..Payload\",\"text\":\"owned\",\"value\":[1,2]}",
+      "wireHex": "0a1b74797065732f6f776e6564746172676574732e2e5061796c6f616412070a056f776e6564",
+      "json": "{\"type_url\":\"types/ownedtargets..Payload\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}"
+    },
+    {
+      "label": "ownedtargets..Payload-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/ownedtargets..Payload\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "wireHex": "0a260a1b74797065732f6f776e6564746172676574732e2e5061796c6f616412070a056f776e6564",
+      "json": "{\"item\":{\"type_url\":\"types/ownedtargets..Payload\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}}"
+    },
+    {
+      "label": "Missing..Payload",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/Missing..Payload\",\"text\":\"owned\",\"value\":[1,2]}",
+      "wireHex": "12020102",
+      "json": "{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}"
+    },
+    {
+      "label": "Missing..Payload-nested",
+      "name": "ownedtargets.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/Missing..Payload\",\"text\":\"owned\",\"value\":[1,2]}}",
+      "wireHex": "0a0412020102",
+      "json": "{\"item\":{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}}"
+    }
+  ]
+}

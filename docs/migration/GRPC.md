@@ -1,5 +1,16 @@
 # GRPC migration
 
+<a id="current-native-grpc-any-target"></a>
+## Current native Any reflection lookup — 2026-10-16
+
+Legacy Any reflection lookup/WKT has bounded Windows acceptance:20new actual editor/wire/history/reload/Save cases plus8new non-message/WKT-alias refusal/typed-repair cases retain all129prior groups. Full47Rust library tests include100lookup and40WKT pinned protobuf.js7.2.4 vectors. Fresh17native-hidden scenarios/157groups/258actual successful gRPC Save exports/exact17profiles and original0override source closure pass. Ambiguous multi-file/declaration/load-order aliases, broader Any/WKT/JSON/template/editor/stream/provider/platform and every retained PLAN/PARITY gate remain open.
+
+Original-descriptor lookup distinguishes messages, reflection non-messages, unknown targets and the empty wrapper context; it hides generated map-entry/private-view artifacts and caches an iterative resolver per parse. Value field aliases reuse the legacy camelCase naming contract. Canonical Any.value has independent private presence so explicitly empty payloads write field2/length0 while absent bytes stay absent; original schema and ProtoJSON remain separate.
+
+Evidence: artifacts/native-resource-crud-audit-probe/grpc-any-target-attempt-1/acceptance-audit-grpc-any-target.json. Original manifest SHA256 4cc7318d5fc307f5a94a78a81d8a526d52fd507469fee26ad715644ce7087344; executable SHA256 6a2baf9f623caeeb59f6fa0eaa96463dd3c9f4c2a6f08d18014ec9d92062dca9; 1428source entries/1337regular files. All owned native hosts exit0/native-hidden without intentional parent termination; fixtures retire without force or unclassified errors, and original profiles restore exactly. ECONNRESET is accepted only after verified wire/trailers/finish/close/rstCode0; no physical FIN/TCP, universal loader or platform claim.
+
+Saved scenario: tests/ui/grpc-any-target-native.js; shared JSON-refusal now verifies21cases. Combined3virtual proto files load/resolve without enum-symbol collisions, all88prior authored specs stay unchanged,109loopback fixture exchanges retire cleanly, strict5JS/frontend checks pass. Primary pinned contract sources: https://raw.githubusercontent.com/protobufjs/protobuf.js/protobufjs-v7.2.4/src/namespace.js and https://raw.githubusercontent.com/protobufjs/protobuf.js/protobufjs-v7.2.4/src/wrappers.js .
+
 Updated 2026-10-15. Original current Windows gRPC workflow and Proto36 receipts are accepted. Remaining JSON/shared-editor/compatibility, prospective terminal-classification and platform requirements remain open.
 
 See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity requirements](PARITY.md). No original scope was removed by consolidation.

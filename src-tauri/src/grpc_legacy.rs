@@ -33,7 +33,12 @@ pub(crate) fn legacy_pool(pool: &DescriptorPool) -> Result<DescriptorPool, Strin
     }) {
         return Ok(pool.clone());
     }
-    fn split(message: &mut prost_types::DescriptorProto, proto3: bool) {
+    fn split(message: &mut prost_types::DescriptorProto, proto3: bool, parent: &str) {
+        let full_name = if parent.is_empty() {
+            message.name.clone().unwrap_or_default()
+        } else {
+            format!("{parent}.{}", message.name.as_deref().unwrap_or_default())
+        };
         let mut seen = HashSet::new();
         let mut names: HashSet<String> = message
             .oneof_decl
@@ -115,6 +120,29 @@ pub(crate) fn legacy_pool(pool: &DescriptorPool) -> Result<DescriptorPool, Strin
                 }
             }
         }
+        // Any's wrapper always supplies value, even for an empty inner message.
+        // Keep absent versus explicitly empty bytes distinct in the private view.
+        if proto3 && full_name == "google.protobuf.Any" {
+            for field in &mut message.field {
+                if field.number == Some(2)
+                    && field.name.as_deref() == Some("value")
+                    && field.r#type == Some(prost_types::field_descriptor_proto::Type::Bytes as i32)
+                    && field.label
+                        == Some(prost_types::field_descriptor_proto::Label::Optional as i32)
+                    && field.oneof_index.is_none()
+                {
+                    let mut name = "insomnium_any_value".to_owned();
+                    while !names.insert(name.clone()) {
+                        name.push('_');
+                    }
+                    field.oneof_index = Some(message.oneof_decl.len() as i32);
+                    message.oneof_decl.push(prost_types::OneofDescriptorProto {
+                        name: Some(name),
+                        ..Default::default()
+                    });
+                }
+            }
+        }
         for field in &mut message.field {
             let Some(index) = field.oneof_index else {
                 continue;
@@ -155,13 +183,17 @@ pub(crate) fn legacy_pool(pool: &DescriptorPool) -> Result<DescriptorPool, Strin
             }
         }
         for nested in &mut message.nested_type {
-            split(nested, proto3);
+            split(nested, proto3, &full_name);
         }
     }
     let mut files: Vec<_> = pool.file_descriptor_protos().cloned().collect();
     for file in &mut files {
         for message in &mut file.message_type {
-            split(message, file.syntax.as_deref() == Some("proto3"));
+            split(
+                message,
+                file.syntax.as_deref() == Some("proto3"),
+                file.package.as_deref().unwrap_or_default(),
+            );
         }
     }
     DescriptorPool::from_file_descriptor_set(prost_types::FileDescriptorSet { file: files })
@@ -672,7 +704,7 @@ fn legacy_field_default(
     legacy_default(field, for_wire)
 }
 
-fn field_name(field: &FieldDescriptor) -> &str {
+pub(crate) fn field_name(field: &FieldDescriptor) -> &str {
     // protobuf.js's built-in Struct/Value descriptors use camelCase names.
     if field.parent_message().full_name() == "google.protobuf.Value" {
         field.json_name()
@@ -721,6 +753,11 @@ pub(crate) fn parse(desc: MessageDescriptor, text: &str) -> Result<DynamicMessag
     let view = legacy_descriptor(desc.clone())?;
     parse_prepared(view, desc, text)
 }
+struct ConversionContext {
+    pool: DescriptorPool,
+    lookup: std::cell::OnceCell<crate::grpc_legacy_lookup::AnyLookup>,
+}
+
 pub(crate) fn parse_prepared(
     desc: MessageDescriptor,
     original: MessageDescriptor,
@@ -730,7 +767,11 @@ pub(crate) fn parse_prepared(
         return Err("gRPC JSON message exceeds 20 MiB.".into());
     }
     let input = Json::parse(text, 0)?;
-    let message = from_object(desc, original, &input, 0)?;
+    let context = ConversionContext {
+        pool: original.parent_pool().clone(),
+        lookup: std::cell::OnceCell::new(),
+    };
+    let message = from_object(desc, original, &input, 0, &context)?;
     if message.encoded_len() > MAX_MESSAGE {
         return Err("gRPC message exceeds 20 MiB.".into());
     }
@@ -741,6 +782,17 @@ fn from_object(
     original: MessageDescriptor,
     object: &Json,
     depth: usize,
+    context: &ConversionContext,
+) -> Result<DynamicMessage, String> {
+    from_object_inner(desc, original, object, depth, context, true)
+}
+fn from_object_inner(
+    desc: MessageDescriptor,
+    original: MessageDescriptor,
+    object: &Json,
+    depth: usize,
+    context: &ConversionContext,
+    apply_any_wrapper: bool,
 ) -> Result<DynamicMessage, String> {
     if depth > 64 {
         return Err("gRPC message nesting exceeds 64 levels.".into());
@@ -750,23 +802,42 @@ fn from_object(
     }
     let mut message = DynamicMessage::new(desc.clone());
     // protobuf.js's Any wrapper accepts an explicitly selected known message.
-    if desc.full_name() == "google.protobuf.Any" {
+    if apply_any_wrapper && desc.full_name() == "google.protobuf.Any" {
         if let Some(input) = object.get("@type").filter(|value| truthy(value)) {
             let Json::String(url_units) = input else {
                 return Err("Legacy Any @type requires a string.".into());
             };
             let url = url_units.as_str();
-            let name = url
-                .rsplit('/')
-                .next()
-                .unwrap_or(url)
-                .trim_start_matches('.');
-            if let Some(inner) = desc.parent_pool().get_message_by_name(name) {
-                let original_inner = original
+            let name = url.rsplit('/').next().unwrap_or(url);
+            let lookup = context
+                .lookup
+                .get_or_init(|| crate::grpc_legacy_lookup::AnyLookup::new(&context.pool));
+            use crate::grpc_legacy_lookup::Target;
+            let resolved = match lookup.resolve(name) {
+                Target::Message(name) => Some((name, true)),
+                Target::RawContext => Some((original.full_name().to_owned(), false)),
+                Target::NonMessage => {
+                    return Err("Legacy Any @type does not name a message.".into())
+                }
+                Target::Unknown => None,
+            };
+            if let Some((name, apply_inner_wrapper)) = resolved {
+                let inner = desc
                     .parent_pool()
-                    .get_message_by_name(name)
+                    .get_message_by_name(&name)
+                    .ok_or("Missing legacy Any descriptor.")?;
+                let original_inner = context
+                    .pool
+                    .get_message_by_name(&name)
                     .ok_or("Missing original Any descriptor.")?;
-                let inner = from_object(inner, original_inner, object, depth + 1)?;
+                let inner = from_object_inner(
+                    inner,
+                    original_inner,
+                    object,
+                    depth + 1,
+                    context,
+                    apply_inner_wrapper,
+                )?;
                 // protobuf.js removes exactly one leading dot, then inserts a slash
                 // only when missing. Preserve raw UTF16 through the writer threshold.
                 let mut normalized = if url_units.units.first() == Some(&(b'.' as u16)) {
@@ -788,8 +859,6 @@ fn from_object(
                 message.set_field(&url_field, url_value);
                 message.set_field_by_name("value", Value::Bytes(inner.encode_to_vec().into()));
                 return Ok(message);
-            } else if desc.parent_pool().get_enum_by_name(name).is_some() {
-                return Err("Legacy Any @type does not name a message.".into());
             }
         }
     }
@@ -834,7 +903,7 @@ fn from_object(
             };
             let mut converted = Vec::new();
             for (k, v) in pairs {
-                if let Some(value) = scalar(&value_field, &original_value, v, depth + 1)? {
+                if let Some(value) = scalar(&value_field, &original_value, v, depth + 1, context)? {
                     if k.as_str() != "__proto__" {
                         converted.push((k, value));
                     }
@@ -846,7 +915,8 @@ fn from_object(
                 let key_value = if matches!(original_key.kind(), Kind::Int32) {
                     map_int32_key(&raw_key)?
                 } else {
-                    scalar(&key, &original_key, &raw_key, depth + 1)?.ok_or("Invalid map key.")?
+                    scalar(&key, &original_key, &raw_key, depth + 1, context)?
+                        .ok_or("Invalid map key.")?
                 };
                 let mut item = DynamicMessage::new(entry.clone());
                 item.set_field(&key, key_value);
@@ -863,13 +933,13 @@ fn from_object(
                 .ok_or_else(|| format!("{}: array expected", field.full_name()))?;
             let mut values = Vec::new();
             for input in input {
-                let value = scalar(&field, &original_field, input, depth + 1)?
+                let value = scalar(&field, &original_field, input, depth + 1, context)?
                     .unwrap_or_else(|| Value::default_value(&field.kind()));
                 values.push(value);
             }
             Value::List(values)
         } else {
-            let Some(value) = scalar(&field, &original_field, input, depth + 1)? else {
+            let Some(value) = scalar(&field, &original_field, input, depth + 1, context)? else {
                 continue;
             };
             value
@@ -905,6 +975,7 @@ fn scalar(
     original: &FieldDescriptor,
     input: &Json,
     depth: usize,
+    context: &ConversionContext,
 ) -> Result<Option<Value>, String> {
     if matches!(field.kind(), Kind::Int64) && matches!(original.kind(), Kind::Int32) {
         return Ok(Some(Value::I64(uint32(input) as i32 as i64)));
@@ -959,7 +1030,7 @@ fn scalar(
             let Kind::Message(original) = original.kind() else {
                 return Err("Mismatched original message descriptor.".into());
             };
-            Value::Message(from_object(desc, original, input, depth)?)
+            Value::Message(from_object(desc, original, input, depth, context)?)
         }
     }))
 }
@@ -1254,6 +1325,234 @@ impl Serialize for LegacyValue<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn any_target_fixture() -> (serde_json::Value, DescriptorPool) {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../tests/ui/fixtures/grpc-any-target-reference.json"
+        ))
+        .unwrap();
+        let pool = crate::grpc_schema::compile(crate::grpc_schema::ProtoInput {
+            entry: "any_target.proto".into(),
+            files: vec![crate::grpc_schema::ProtoFile {
+                name: "any_target.proto".into(),
+                text: fixture["source"].as_str().unwrap().into(),
+            }],
+            include_paths: Vec::new(),
+        })
+        .unwrap();
+        (fixture, pool)
+    }
+
+    #[test]
+    fn legacy_any_target_long_root_path_refuses_without_recursive_lookup() {
+        let (_, pool) = any_target_fixture();
+        let body =
+            serde_json::json!({"@type": format!("types/{}", ".".repeat(100_000)), "value": [1,2]})
+                .to_string();
+        let error = parse(
+            pool.get_message_by_name("google.protobuf.Any").unwrap(),
+            &body,
+        )
+        .unwrap_err();
+        assert_eq!(error, "Legacy Any @type does not name a message.");
+    }
+
+    #[test]
+    fn legacy_any_target_repeated_conversion_retains_pinned_wire() {
+        let (fixture, _) = any_target_fixture();
+        let pool = crate::grpc_schema::compile(crate::grpc_schema::ProtoInput {
+            entry: "batch.proto".into(),
+            files: vec![crate::grpc_schema::ProtoFile {
+                name: "batch.proto".into(),
+                text: format!(
+                    "{} message Batch {{ repeated google.protobuf.Any items=1; }}",
+                    fixture["source"].as_str().unwrap()
+                ),
+            }],
+            include_paths: Vec::new(),
+        })
+        .unwrap();
+        let row = fixture["rows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|row| row["label"] == "ownedtargets.Payload")
+            .unwrap();
+        let input: serde_json::Value = serde_json::from_str(row["body"].as_str().unwrap()).unwrap();
+        let body = serde_json::json!({"items": vec![input; 5000]}).to_string();
+        let hex = row["wireHex"].as_str().unwrap();
+        let single: Vec<u8> = hex
+            .as_bytes()
+            .chunks_exact(2)
+            .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap())
+            .collect();
+        assert!(single.len() < 128);
+        let mut expected = Vec::new();
+        for _ in 0..5000 {
+            expected.extend([10, single.len() as u8]);
+            expected.extend_from_slice(&single);
+        }
+        let descriptor = pool.get_message_by_name("ownedtargets.Batch").unwrap();
+        let parsed = parse(descriptor.clone(), &body).unwrap();
+        assert_eq!(parsed.encode_to_vec(), expected);
+        let decoded = DynamicMessage::decode(descriptor, expected.as_slice()).unwrap();
+        let Value::List(items) = decoded.get_field_by_name("items").unwrap().into_owned() else {
+            panic!("Expected list");
+        };
+        assert_eq!(items.len(), 5000);
+    }
+
+    #[test]
+    fn legacy_any_target_matches_pinned_lookup_vectors() {
+        let (fixture, pool) = any_target_fixture();
+        assert_eq!(fixture["protobufjs"], "7.2.4");
+        let snapshot = pool.encode_to_vec();
+        let rows = fixture["rows"].as_array().unwrap();
+        assert_eq!(rows.len(), 100);
+        let mut refusals = 0;
+        for row in rows {
+            let label = row["label"].as_str().unwrap();
+            let original = pool
+                .get_message_by_name(row["name"].as_str().unwrap())
+                .unwrap();
+            let parsed = parse(original.clone(), row["body"].as_str().unwrap());
+            if row.get("error").is_some() {
+                refusals += 1;
+                assert!(parsed.is_err(), "Reference refusal {label}");
+                continue;
+            }
+            let request = parsed.unwrap_or_else(|e| panic!("{label}: {e}"));
+            let wire = request.encode_to_vec();
+            let hex: String = wire.iter().map(|b| format!("{b:02x}")).collect();
+            assert_eq!(
+                hex,
+                row["wireHex"].as_str().unwrap(),
+                "Any target wire {label}"
+            );
+            let decoded = DynamicMessage::decode(
+                legacy_descriptor(original.clone()).unwrap(),
+                wire.as_slice(),
+            )
+            .unwrap();
+            let json = crate::grpc_schema::json_mode(
+                &decoded,
+                crate::grpc_schema::JsonMode::Legacy,
+                original,
+            )
+            .unwrap();
+            assert_eq!(
+                json,
+                row["json"].as_str().unwrap(),
+                "Any target JSON {label}"
+            );
+        }
+        assert_eq!(refusals, 62);
+        assert_eq!(snapshot, pool.encode_to_vec());
+    }
+
+    fn assert_any_wkt_vectors(empty: bool) {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../tests/ui/fixtures/grpc-any-wkt-reference.json"
+        ))
+        .unwrap();
+        assert_eq!(fixture["protobufjs"], "7.2.4");
+        let pool = crate::grpc_schema::compile(crate::grpc_schema::ProtoInput {
+            entry: "any_wkt.proto".into(),
+            files: vec![crate::grpc_schema::ProtoFile {
+                name: "any_wkt.proto".into(),
+                text: fixture["source"].as_str().unwrap().into(),
+            }],
+            include_paths: Vec::new(),
+        })
+        .unwrap();
+        let snapshot = pool.encode_to_vec();
+        let rows = fixture["rows"].as_array().unwrap();
+        assert_eq!(rows.len(), 40);
+        for (index, row) in rows.iter().enumerate() {
+            if (index < 14) != empty {
+                continue;
+            }
+            let label = row["label"].as_str().unwrap();
+            let original = pool
+                .get_message_by_name(row["name"].as_str().unwrap())
+                .unwrap();
+            let parsed = parse(original.clone(), row["body"].as_str().unwrap());
+            if row.get("error").is_some() {
+                assert!(parsed.is_err(), "WKT refusal {label}");
+                continue;
+            }
+            let wire = parsed
+                .unwrap_or_else(|e| panic!("{label}: {e}"))
+                .encode_to_vec();
+            let hex: String = wire.iter().map(|b| format!("{b:02x}")).collect();
+            assert_eq!(hex, row["wireHex"].as_str().unwrap(), "WKT wire {label}");
+            let view = legacy_descriptor(original.clone()).unwrap();
+            assert_eq!(
+                view.parent_pool().encode_to_vec(),
+                legacy_pool(view.parent_pool()).unwrap().encode_to_vec()
+            );
+            let decoded = DynamicMessage::decode(view, wire.as_slice()).unwrap();
+            let json = crate::grpc_schema::json_mode(
+                &decoded,
+                crate::grpc_schema::JsonMode::Legacy,
+                original,
+            )
+            .unwrap();
+            assert_eq!(json, row["json"].as_str().unwrap(), "WKT JSON {label}");
+        }
+        assert_eq!(snapshot, pool.encode_to_vec());
+    }
+
+    #[test]
+    fn legacy_any_wkt_empty_payload_presence() {
+        assert_any_wkt_vectors(true);
+    }
+
+    #[test]
+    fn legacy_any_wkt_field_alias_lookup() {
+        assert_any_wkt_vectors(false);
+    }
+
+    fn assert_any_target_wire(label: &str) {
+        let (fixture, pool) = any_target_fixture();
+        let row = fixture["rows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|r| r["label"] == label)
+            .unwrap();
+        let request = parse(
+            pool.get_message_by_name(row["name"].as_str().unwrap())
+                .unwrap(),
+            row["body"].as_str().unwrap(),
+        )
+        .unwrap();
+        let hex: String = request
+            .encode_to_vec()
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect();
+        assert_eq!(
+            hex,
+            row["wireHex"].as_str().unwrap(),
+            "Pinned target {label}"
+        );
+    }
+
+    #[test]
+    fn legacy_any_target_resolves_relative_message() {
+        assert_any_target_wire("Payload");
+    }
+
+    #[test]
+    fn legacy_any_target_hides_synthetic_map_entry() {
+        assert_any_target_wire("ownedtargets.Payload.LabelsEntry");
+    }
+
+    #[test]
+    fn legacy_any_target_empty_name_wraps_raw_any_context() {
+        assert_any_target_wire("");
+    }
 
     #[test]
     fn legacy_any_url_matches_pinned_wire_and_json() {

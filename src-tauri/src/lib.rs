@@ -22,6 +22,7 @@ mod git_push;
 mod grpc;
 mod grpc_example;
 mod grpc_legacy;
+mod grpc_legacy_lookup;
 mod grpc_schema;
 mod grpc_transport;
 mod hawk;

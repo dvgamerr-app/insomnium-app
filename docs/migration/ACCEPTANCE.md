@@ -1,5 +1,9 @@
 # OAuth1 / NO_PREFIX acceptance gate
 
+## Bounded gRPC Any reflection lookup — 2026-10-16
+
+Legacy Any reflection lookup/WKT has bounded Windows acceptance:20new actual editor/wire/history/reload/Save cases plus8new non-message/WKT-alias refusal/typed-repair cases retain all129prior groups. Full47Rust library tests include100lookup and40WKT pinned protobuf.js7.2.4 vectors. Fresh17native-hidden scenarios/157groups/258actual successful gRPC Save exports/exact17profiles and original0override source closure pass. Ambiguous multi-file/declaration/load-order aliases, broader Any/WKT/JSON/template/editor/stream/provider/platform and every retained PLAN/PARITY gate remain open. See [scope/evidence](GRPC.md#current-native-grpc-any-target); this receipt does not close unrelated acceptance requirements.
+
 Implementation and direct inspections are complete; **native UI/provider acceptance is pending**. See AUTHENTICATION.md#record-oauth1-compatibility.
 
 1. In native Auth, create HMAC-SHA1/HMAC-SHA256/RSA-SHA1/PLAINTEXT requests; render environment values, set fixed nonce/time, then try generated values. Verify PEM errors and unsupported algorithms remain visible without sending.

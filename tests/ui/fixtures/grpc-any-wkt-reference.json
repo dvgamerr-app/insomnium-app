@@ -1,0 +1,272 @@
+{
+  "protobufjs": "7.2.4",
+  "source": "syntax=\"proto3\";package ownedwkt;import \"google/protobuf/any.proto\";import \"google/protobuf/struct.proto\";import \"google/protobuf/empty.proto\";message Envelope {google.protobuf.Any item=1;}",
+  "rows": [
+    {
+      "label": "empty-message",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/google.protobuf.Empty\"}",
+      "wireHex": "0a1b74797065732f676f6f676c652e70726f746f6275662e456d7074791200",
+      "json": "{\"type_url\":\"types/google.protobuf.Empty\",\"value\":{}}"
+    },
+    {
+      "label": "empty-message-nested",
+      "name": "ownedwkt.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/google.protobuf.Empty\"}}",
+      "wireHex": "0a1f0a1b74797065732f676f6f676c652e70726f746f6275662e456d7074791200",
+      "json": "{\"item\":{\"type_url\":\"types/google.protobuf.Empty\",\"value\":{}}}"
+    },
+    {
+      "label": "empty-value",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/google.protobuf.Value\"}",
+      "wireHex": "0a1b74797065732f676f6f676c652e70726f746f6275662e56616c75651200",
+      "json": "{\"type_url\":\"types/google.protobuf.Value\",\"value\":{}}"
+    },
+    {
+      "label": "empty-value-nested",
+      "name": "ownedwkt.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/google.protobuf.Value\"}}",
+      "wireHex": "0a1f0a1b74797065732f676f6f676c652e70726f746f6275662e56616c75651200",
+      "json": "{\"item\":{\"type_url\":\"types/google.protobuf.Value\",\"value\":{}}}"
+    },
+    {
+      "label": "raw-empty-bytes",
+      "name": "google.protobuf.Any",
+      "body": "{\"value\":[]}",
+      "wireHex": "1200",
+      "json": "{\"type_url\":\"\",\"value\":{}}"
+    },
+    {
+      "label": "raw-empty-bytes-nested",
+      "name": "ownedwkt.Envelope",
+      "body": "{\"item\":{\"value\":[]}}",
+      "wireHex": "0a021200",
+      "json": "{\"item\":{\"type_url\":\"\",\"value\":{}}}"
+    },
+    {
+      "label": "raw-absent-bytes",
+      "name": "google.protobuf.Any",
+      "body": "{}",
+      "wireHex": "",
+      "json": "{\"type_url\":\"\",\"value\":{}}"
+    },
+    {
+      "label": "raw-absent-bytes-nested",
+      "name": "ownedwkt.Envelope",
+      "body": "{\"item\":{}}",
+      "wireHex": "0a00",
+      "json": "{\"item\":{\"type_url\":\"\",\"value\":{}}}"
+    },
+    {
+      "label": "raw-empty-base64",
+      "name": "google.protobuf.Any",
+      "body": "{\"value\":\"\"}",
+      "wireHex": "1200",
+      "json": "{\"type_url\":\"\",\"value\":{}}"
+    },
+    {
+      "label": "raw-empty-base64-nested",
+      "name": "ownedwkt.Envelope",
+      "body": "{\"item\":{\"value\":\"\"}}",
+      "wireHex": "0a021200",
+      "json": "{\"item\":{\"type_url\":\"\",\"value\":{}}}"
+    },
+    {
+      "label": "unknown-empty-bytes",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/Missing\",\"value\":[]}",
+      "wireHex": "1200",
+      "json": "{\"type_url\":\"\",\"value\":{}}"
+    },
+    {
+      "label": "unknown-empty-bytes-nested",
+      "name": "ownedwkt.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/Missing\",\"value\":[]}}",
+      "wireHex": "0a021200",
+      "json": "{\"item\":{\"type_url\":\"\",\"value\":{}}}"
+    },
+    {
+      "label": "empty-context",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/\"}",
+      "wireHex": "0a0674797065732f1200",
+      "json": "{\"type_url\":\"types/\",\"value\":{}}"
+    },
+    {
+      "label": "empty-context-nested",
+      "name": "ownedwkt.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/\"}}",
+      "wireHex": "0a0a0a0674797065732f1200",
+      "json": "{\"item\":{\"type_url\":\"types/\",\"value\":{}}}"
+    },
+    {
+      "label": "stringValue",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/google.protobuf.Value.stringValue\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "stringValue-nested",
+      "name": "ownedwkt.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/google.protobuf.Value.stringValue\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "string_value",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/google.protobuf.Value.string_value\",\"value\":[1,2]}",
+      "wireHex": "12020102",
+      "json": "{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}"
+    },
+    {
+      "label": "string_value-nested",
+      "name": "ownedwkt.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/google.protobuf.Value.string_value\",\"value\":[1,2]}}",
+      "wireHex": "0a0412020102",
+      "json": "{\"item\":{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}}"
+    },
+    {
+      "label": "numberValue",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/google.protobuf.Value.numberValue\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "numberValue-nested",
+      "name": "ownedwkt.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/google.protobuf.Value.numberValue\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "number_value",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/google.protobuf.Value.number_value\",\"value\":[1,2]}",
+      "wireHex": "12020102",
+      "json": "{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}"
+    },
+    {
+      "label": "number_value-nested",
+      "name": "ownedwkt.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/google.protobuf.Value.number_value\",\"value\":[1,2]}}",
+      "wireHex": "0a0412020102",
+      "json": "{\"item\":{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}}"
+    },
+    {
+      "label": "nullValue",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/google.protobuf.Value.nullValue\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "nullValue-nested",
+      "name": "ownedwkt.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/google.protobuf.Value.nullValue\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "null_value",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/google.protobuf.Value.null_value\",\"value\":[1,2]}",
+      "wireHex": "12020102",
+      "json": "{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}"
+    },
+    {
+      "label": "null_value-nested",
+      "name": "ownedwkt.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/google.protobuf.Value.null_value\",\"value\":[1,2]}}",
+      "wireHex": "0a0412020102",
+      "json": "{\"item\":{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}}"
+    },
+    {
+      "label": "boolValue",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/google.protobuf.Value.boolValue\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "boolValue-nested",
+      "name": "ownedwkt.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/google.protobuf.Value.boolValue\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "bool_value",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/google.protobuf.Value.bool_value\",\"value\":[1,2]}",
+      "wireHex": "12020102",
+      "json": "{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}"
+    },
+    {
+      "label": "bool_value-nested",
+      "name": "ownedwkt.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/google.protobuf.Value.bool_value\",\"value\":[1,2]}}",
+      "wireHex": "0a0412020102",
+      "json": "{\"item\":{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}}"
+    },
+    {
+      "label": "structValue",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/google.protobuf.Value.structValue\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "structValue-nested",
+      "name": "ownedwkt.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/google.protobuf.Value.structValue\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "struct_value",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/google.protobuf.Value.struct_value\",\"value\":[1,2]}",
+      "wireHex": "12020102",
+      "json": "{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}"
+    },
+    {
+      "label": "struct_value-nested",
+      "name": "ownedwkt.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/google.protobuf.Value.struct_value\",\"value\":[1,2]}}",
+      "wireHex": "0a0412020102",
+      "json": "{\"item\":{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}}"
+    },
+    {
+      "label": "listValue",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/google.protobuf.Value.listValue\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "listValue-nested",
+      "name": "ownedwkt.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/google.protobuf.Value.listValue\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "list_value",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/google.protobuf.Value.list_value\",\"value\":[1,2]}",
+      "wireHex": "12020102",
+      "json": "{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}"
+    },
+    {
+      "label": "list_value-nested",
+      "name": "ownedwkt.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/google.protobuf.Value.list_value\",\"value\":[1,2]}}",
+      "wireHex": "0a0412020102",
+      "json": "{\"item\":{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}}"
+    },
+    {
+      "label": "kind",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/google.protobuf.Value.kind\",\"value\":[1,2]}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "kind-nested",
+      "name": "ownedwkt.Envelope",
+      "body": "{\"item\":{\"@type\":\"types/google.protobuf.Value.kind\",\"value\":[1,2]}}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    }
+  ]
+}

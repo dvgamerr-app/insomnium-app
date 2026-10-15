@@ -15,6 +15,10 @@ import {
 } from "./resource-manager-cases.js";
 import { grpcLargeCase, grpcLargeProto } from "./grpc-large-case-data.js";
 import { createGrpcLargeSentFixture } from "./grpc-large-sent-fixture.js";
+import {
+  grpcAnyTargetProtos,
+  grpcAnyTargetRefusals,
+} from "./grpc-any-target-case-data.js";
 import { respondToOwnedSaveDialog } from "./windows-save-dialog.js";
 const hash = (/** @type {string|Uint8Array} */ bytes) =>
   createHash("sha256").update(bytes).digest("hex");
@@ -85,6 +89,13 @@ export async function runGrpcJsonRefusalNativeCases() {
                     name: "refusal.proto",
                     protoText: grpcLargeProto,
                   },
+                  ...grpcAnyTargetProtos.map((file, index) => ({
+                    _id: protoId + "_dependency_" + index,
+                    _type: "proto_file",
+                    parentId: workspaceId,
+                    name: file.name,
+                    protoText: file.text,
+                  })),
                 ],
                 activeWorkspaceId: workspaceId,
                 activeEnvironmentId: null,
@@ -101,9 +112,9 @@ export async function runGrpcJsonRefusalNativeCases() {
               page.getByRole("button", { name: label, exact: true });
             const load = () => invoke("load_workspace");
             const watchdog = setTimeout(() => {
-              errors.push("Owned native refusal UI exceeded180seconds");
+              errors.push("Owned native refusal UI exceeded300seconds");
               void terminateParent().catch((error) => errors.push(error));
-            }, 180000);
+            }, 300000);
             try {
               for (const jsonMode of ["legacy", "protoJson"])
                 for (const kind of [
@@ -113,7 +124,13 @@ export async function runGrpcJsonRefusalNativeCases() {
                   "excess-base64-padding",
                   ...(jsonMode === "protoJson" ? ["unpaired-surrogate"] : []),
                   ...(jsonMode === "legacy"
-                    ? ["any-number", "any-array", "any-object", "any-enum"]
+                    ? [
+                        "any-number",
+                        "any-array",
+                        "any-object",
+                        "any-enum",
+                        ...Object.keys(grpcAnyTargetRefusals),
+                      ]
                     : []),
                 ]) {
                   const label = jsonMode + "-" + kind,
@@ -135,7 +152,11 @@ export async function runGrpcJsonRefusalNativeCases() {
                                   ? ["ownedlarge.AnyText"]
                                   : kind === "any-object"
                                     ? { owned: true }
-                                    : "types/ownedlarge.AnyFlag",
+                                    : (grpcAnyTargetRefusals[
+                                        /** @type {keyof typeof grpcAnyTargetRefusals} */ (
+                                          kind
+                                        )
+                                      ] ?? "types/ownedlarge.AnyFlag"),
                           })
                         : kind === "unpaired-surrogate"
                           ? spec.body.replace("9007199254740993", "\\ud800")
@@ -200,7 +221,8 @@ export async function runGrpcJsonRefusalNativeCases() {
                     const pattern = frontend
                       ? /SyntaxError:.*JSON/i
                       : kind.startsWith("any-")
-                        ? kind === "any-enum"
+                        ? kind === "any-enum" ||
+                          Object.hasOwn(grpcAnyTargetRefusals, kind)
                           ? /Legacy Any @type does not name a message\./
                           : /Legacy Any @type requires a string\./
                         : kind === "unpaired-surrogate"
@@ -502,7 +524,7 @@ export async function runGrpcJsonRefusalNativeCases() {
           errorEvents: fixture.errorEvents,
           errors: errors.map(String),
           scope:
-            "Thirteen actual native UI cases including four legacy Any wrong-type refusals/typed repairs and strict ProtoJSON unpaired-surrogate refusal/typed repair: renderer JSON refusal, native unknown-field and malformed/excess-padding Base64 refusal with durable errors, legacy unknown-field acceptance, zero observed peer IO and typed repair/reload/export. No full JSON/provider/platform claim.",
+            "Twenty-one actual native UI cases including legacy Any wrong-type and reflection non-message/WKT-alias refusals/typed repairs, plus strict ProtoJSON unpaired-surrogate refusal/typed repair: renderer JSON refusal, native unknown-field and malformed/excess-padding Base64 refusal with durable errors, legacy unknown-field acceptance, zero observed peer IO and typed repair/reload/export. No full JSON/provider/platform claim.",
         },
         null,
         2,

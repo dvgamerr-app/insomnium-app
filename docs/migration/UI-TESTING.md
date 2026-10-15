@@ -1,5 +1,9 @@
 # UI TESTING migration
 
+## Current gRPC Any reflection lookup verification
+
+Saved [grpc-any-target-native.js](../../tests/ui/grpc-any-target-native.js) requires INSOMNIUM_GRPC_ANY_TARGET_NATIVE=1 plus audited build/profile ownership.20real editor/Format/mode-flip/wire/history/reload/Save cases cover relative/nested messages, unknown/hidden targets, raw wrapper context, WKT spelling and absent/explicit-empty payloads. JSON-refusal adds8non-message/WKT-alias zero-peer-IO refusal/typed-repair cases (21total).17native-hidden scenarios/157groups/258successful Save exports/exact17profiles and original0override closure pass. See [scope/evidence](GRPC.md#current-native-grpc-any-target). Ambiguous loader/declaration order and broader migration gates remain open.
+
 Updated 2026-10-14. Use saved Bun Playwright scenarios only. Shared launchUiBrowser is headless:true with no override. Native hosts hide before CDP and report native-hidden. Await exact owned process exit; verify complete state restoration. No browser-use or custom .git files.
 
 See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity requirements](PARITY.md). No original scope was removed by consolidation.
