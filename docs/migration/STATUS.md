@@ -3,6 +3,9 @@
 Updated 2026-10-15. Full migration is **incomplete**. Latest verified scenario/source commit:5fbb75a; prior certificate scenario:9180ac4; portable certificate implementation:ddea70f; prior request-file implementation/scenario:11e9b96/08ab0b3. Branch:feat/ui-design-system-settings-curl. Verified agent work is committed in the shared repo. Retired directories/custom .git backups remain absent; legacy backup and node_modules are preserved.
 ## Current work
 
+Verified queued-send/peer-close topic commit:2c5ee4a. Post-acceptance audit checks1310regular files with exactly five documentation deltas; no implementation/scenario drift. Suite43267 terminal0, no live handles. Next queued-send missing-ACK timeout and additional close/send races; migration incomplete. /compact unavailable; explicit handoff recorded.
+
+
 ### WebSocket queued sends and peer-close barrier — verified bounded milestone 2026-10-15
 
 Extended the existing separate real SDK Channel receiver with owned nonblocking send-result records; application IPC/callbacks remain untouched. Three new groups pass in addition to the original four: while incoming ACK is held,20text send invocations produce16pending/4queue-full refusals with0peer messages; release drains exactly16successful payloads with exact peer membership, while cancellation rejects all16pending sends as disconnected before sending with0peer messages. Peer close while one message is held does not finish early: matching message ACK allows Closed/Finished, and Finished itself remains held until release. Concurrent IPC submission order is not asserted; this proves exact accepted membership, not a universal authored-order guarantee.
