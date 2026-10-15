@@ -3,6 +3,9 @@
 Updated 2026-10-15. Full migration is **incomplete**. Latest verified scenario/source commit:5fbb75a; prior certificate scenario:9180ac4; portable certificate implementation:ddea70f; prior request-file implementation/scenario:11e9b96/08ab0b3. Branch:feat/ui-design-system-settings-curl. Verified agent work is committed in the shared repo. Retired directories/custom .git backups remain absent; legacy backup and node_modules are preserved.
 ## Current work
 
+Verified queued-timeout topic commit:bfcd4da. Post-acceptance audit checks1310regular files, only five migration docs differ; no application/scenario drift. Suite37877 terminal0, no live handles. Next binary/control/exact-size/oversized WS-gRPC and remaining PLAN/PARITY. Full migration incomplete; /compact unavailable, explicit handoff.
+
+
 ### WebSocket queued-send ACK timeout — verified bounded milestone 2026-10-15
 
 Two added real SDK Channel/native groups pass: held inbound ACK with a full16-entry send queue, both with peer still open and after peer-initiated Close. Twenty concurrent text submissions yield4queue-full refusals and16pending sends; at the single ACK deadline all16reject as disconnected before sending,0succeed/0reach peer. Timings30.017/30.013seconds; one sequenced packet only, no second Finished timeout. Subsequent sends refuse WebSocket is not connected; late matching ACK produces no additional packets. These are exact bounded outcomes, not all close/send race or physicalTCP/OS-close acceptance.
