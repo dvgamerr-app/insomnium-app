@@ -1,0 +1,289 @@
+import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { join } from "node:path";
+import { newRequest } from "../../../src/lib/model.js";
+import {
+  withNativeApp,
+  poll,
+  resourceCrudProbeIdentifier,
+} from "./native-app.js";
+import {
+  withResourceProbePreserved,
+  resourceSaved,
+  registerResourceProbeCollection,
+  manageResource,
+} from "./resource-manager-cases.js";
+import { createGrpcLargeSentFixture } from "./grpc-large-sent-fixture.js";
+/** Real native bidi send/half-close/metadata/status/history, without injecting app callbacks. */
+export async function runGrpcLargeSentNativeCases() {
+  const marker = process.env.INSOMNIUM_UI_PROFILE_OWNERSHIP;
+  assert.ok(marker && process.env.INSOMNIUM_UI_BUILD_STATE);
+  const options = {
+    expectedIdentifier: resourceCrudProbeIdentifier,
+    profileOwnershipPath: marker,
+    allowParentTermination: true,
+  };
+  const fixture = await createGrpcLargeSentFixture();
+  /** @type {Record<string,any>[]} */ const checks = [];
+  /** @type {unknown[]} */ const errors = [];
+  /** @type {string|undefined} */ let output;
+  try {
+    await withResourceProbePreserved(
+      async (capture) => {
+        await withNativeApp(
+          "grpc-large-sent-native",
+          async ({ page, invoke, output: directory, terminateParent }) => {
+            output = directory;
+            page.setDefaultTimeout(60000);
+            await resourceSaved(page);
+            await capture();
+            const original = await invoke("load_workspace");
+            assert.ok(
+              Buffer.byteLength(JSON.stringify(original.history)) <
+                4 * 1024 * 1024,
+            );
+            const suffix = crypto.randomUUID().replaceAll("-", ""),
+              workspaceId = "wrk_grpc_large_" + suffix,
+              name = "Owned gRPC large " + suffix,
+              protoId = "pf_grpc_large_" + suffix;
+            await invoke("save_workspace", {
+              data: {
+                ...original,
+                resources: [
+                  ...original.resources,
+                  {
+                    _id: workspaceId,
+                    _type: "workspace",
+                    parentId: null,
+                    name,
+                    scope: "collection",
+                  },
+                  {
+                    _id: "env_" + suffix,
+                    _type: "environment",
+                    parentId: workspaceId,
+                    name: "Base Environment",
+                    data: {},
+                  },
+                  {
+                    _id: protoId,
+                    _type: "proto_file",
+                    parentId: workspaceId,
+                    name: "large.proto",
+                    protoText:
+                      'syntax="proto3"; package ownedlarge; message Input { string value=1; } service Upload { rpc Stream(stream Input) returns(stream Input); }',
+                  },
+                ],
+                activeWorkspaceId: workspaceId,
+                activeEnvironmentId: null,
+                settings: {
+                  ...original.settings,
+                  proxy: "",
+                  timeout: 120000,
+                  maxHistory: 40,
+                },
+              },
+            });
+            registerResourceProbeCollection(workspaceId, name);
+            const body = JSON.stringify({ value: "x".repeat(9 * 1024 * 1024) }),
+              bodySHA256 = createHash("sha256").update(body).digest("hex");
+            const button = (/** @type {string} */ name) =>
+              page.getByRole("button", { name, exact: true });
+            const watchdog = setTimeout(() => {
+              errors.push("Owned native UI exceeded180seconds");
+              void terminateParent().catch((error) => errors.push(error));
+            }, 180000);
+            try {
+              for (const mode of ["legacy", "protoJson"]) {
+                const request = newRequest(workspaceId, {
+                  _id: "greq_" + mode + "_" + suffix,
+                  _type: "grpc_request",
+                  name: "Owned large " + mode,
+                  url: fixture.url,
+                  protoFileId: protoId,
+                  protoMethodName: "/ownedlarge.Upload/Stream",
+                  grpcJsonMode: mode,
+                  body: { mimeType: "application/json", text: body },
+                  metadata: [{ name: "owned-case", value: mode }],
+                });
+                const before = await invoke("load_workspace");
+                await invoke("save_workspace", {
+                  data: {
+                    ...before,
+                    resources: [...before.resources, request],
+                    activeRequestId: request._id,
+                    openTabs: [...before.openTabs, request._id],
+                  },
+                });
+                await page.reload();
+                await resourceSaved(page);
+                await button("Load methods").click();
+                await poll(
+                  async () => await button("Connect").isEnabled(),
+                  "Native schema method ready",
+                );
+                assert.equal(
+                  await page
+                    .getByRole("combobox", { name: "gRPC method", exact: true })
+                    .inputValue(),
+                  "/ownedlarge.Upload/Stream",
+                );
+                await button("Connect").click();
+                await poll(
+                  async () => await button("Send message").isEnabled(),
+                  "Bidi sender open",
+                );
+                await button("Send message").click();
+                await poll(
+                  () =>
+                    Promise.resolve(
+                      fixture.records.some(
+                        (r) =>
+                          r.mode === mode &&
+                          r.receivedBytes === 9 * 1024 * 1024 + 10,
+                      ),
+                    ),
+                  "Full protobuf reaches peer",
+                  60000,
+                );
+                await poll(
+                  async () => await button("Commit").isEnabled(),
+                  "Send operation settles",
+                );
+                await button("Commit").click();
+                await poll(
+                  async () =>
+                    (await button("Connect").isVisible()) &&
+                    (await button("Connect").isEnabled()),
+                  "Native call/terminal persistence retires",
+                  60000,
+                );
+                await resourceSaved(page);
+                const saved = await invoke("load_workspace");
+                const entry = saved.history.find(
+                  (/** @type {any} */ r) => r.requestId === request._id,
+                );
+                assert.ok(entry);
+                assert.equal(entry.protocol, "grpc");
+                assert.equal(entry.connectionState, "closed");
+                assert.equal(entry.status, 0);
+                const sent = entry.events.filter(
+                  (/** @type {any} */ e) => e.kind === "sent",
+                );
+                assert.equal(sent.length, 1);
+                assert.equal(sent[0].text, body);
+                assert.ok(
+                  entry.events.some(
+                    (/** @type {any} */ e) =>
+                      e.kind === "status" && e.code === 0,
+                  ),
+                );
+                assert.equal(
+                  entry.events.some(
+                    (/** @type {any} */ e) => e.kind === "message",
+                  ),
+                  false,
+                );
+                await page
+                  .getByRole("tab", { name: "Stream 1", exact: true })
+                  .waitFor();
+                await page.reload();
+                await resourceSaved(page);
+                const reloaded = await invoke("load_workspace");
+                assert.deepEqual(
+                  reloaded.history.find(
+                    (/** @type {any} */ r) => r._id === entry._id,
+                  ),
+                  entry,
+                );
+                assert.equal(
+                  reloaded.resources.find(
+                    (/** @type {any} */ r) => r._id === request._id,
+                  ).body.text,
+                  body,
+                );
+                await page
+                  .getByRole("tab", { name: "Stream 1", exact: true })
+                  .waitFor();
+                assert.deepEqual(
+                  reloaded.history.filter(
+                    (/** @type {any} */ r) => r.requestId !== request._id,
+                  ),
+                  original.history,
+                );
+                const record = fixture.records.find((r) => r.mode === mode);
+                assert.ok(record?.verified);
+                const dialog = await manageResource(page, request.name);
+                await dialog
+                  .getByRole("button", { name: "Delete…", exact: true })
+                  .click();
+                await dialog
+                  .getByRole("button", { name: "Delete", exact: true })
+                  .click();
+                await resourceSaved(page);
+                await page.reload();
+                await resourceSaved(page);
+                assert.deepEqual(
+                  (await invoke("load_workspace")).history,
+                  original.history,
+                );
+                checks.push({
+                  mode,
+                  bodyBytes: Buffer.byteLength(body),
+                  bodySHA256,
+                  historyId: entry._id,
+                  sent: sent.length,
+                  status: entry.status,
+                  wireSHA256: record.wireSHA256,
+                  exactReload: true,
+                  streamTabRestored: true,
+                  deletedWithoutResurrection: true,
+                });
+                await Bun.write(
+                  join(directory, "grpc-large-sent-progress.json"),
+                  JSON.stringify({ checks }, null, 2),
+                );
+              }
+            } finally {
+              clearTimeout(watchdog);
+            }
+          },
+          options,
+        );
+      },
+      { ...options, lazyCapture: true },
+    );
+  } catch (error) {
+    errors.push(error);
+  }
+  let retirement;
+  try {
+    retirement = await fixture.closeAfterHostExit();
+  } catch (error) {
+    errors.push(error);
+  }
+  if (output)
+    await Bun.write(
+      join(output, "grpc-large-sent-acceptance.json"),
+      JSON.stringify(
+        {
+          passed: !errors.length,
+          renderingMode: "native-hidden",
+          checks,
+          retirement,
+          records: fixture.records,
+          errorEvents: fixture.errorEvents,
+          errors: errors.map(String),
+          scope:
+            "Actual native9MiB bidi sent/status history and reload in legacy/protoJson modes. Sent tab existence is verified, not rendering its entire large message. No broad JSON/provider/platform claim.",
+        },
+        null,
+        2,
+      ),
+    );
+  if (errors.length)
+    throw new AggregateError(
+      errors,
+      "Large gRPC sent native acceptance failed",
+    );
+}

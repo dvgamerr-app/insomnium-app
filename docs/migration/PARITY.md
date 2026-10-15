@@ -6,6 +6,10 @@ Current receipts: Windows environment6349100/follow-up eae4ac2 (29checks/Name6/J
 
 ## Latest stream history and decoded limits
 
+gRPC9MiB bidi sent data now has bounded native acceptance in legacy/protoJson: independent exact protobuf frame, status0/no received payload, complete sent history/body after reload, Stream1tab restoration and actual Manage/Delete. Six native profiles restore exactly, original1410source closure with1declared deletion-route test supplement passes. See GRPC.md#current-native-large-sent-history. Large sent-content rendering/response/shared-editor/JSON edges/provider/platform and all retained gates remain open.
+
+
+
 Shared retention now recognizes gRPC kind:sent as payload, fixing9MiB outgoing JSON loss after status. Eight utility cases and prior-source RED/current GREEN pass with compiler/build/headless raw-history regression. See GRPC.md#current-large-sent-event-retention-correction. Native gRPC large sent/history/reload remains unverified; no full gRPC acceptance or updated native binary is claimed.
 
 

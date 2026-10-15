@@ -4,6 +4,10 @@ Updated 2026-10-15. Current state is in [STATUS.md](STATUS.md); all original req
 
 ## Remaining execution order
 
+Native9MiB gRPC bidi sent history/status/reload in legacy/protoJson is now bounded verified; see GRPC.md#current-native-large-sent-history. Original6suite regressions/source/profile acceptance passes. Next large gRPC display/shared-editor and JSON compatibility variants; broader stream/control/Clipboard/provider/platform and every PARITY gate remain required.
+
+
+
 Current source fixes large gRPC sent events being evicted by terminal metadata. Eight actual utility regression groups pass with prior-source RED/current GREEN; see GRPC.md#current-large-sent-event-retention-correction. Native large sent/history/reload and JSON/shared-editor compatibility remain next; prior native binaries predate this fix. All remaining PARITY gates stay required.
 
 

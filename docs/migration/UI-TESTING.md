@@ -1695,3 +1695,7 @@ Run `bun tests/ui/websocket-frames-native.js` with INSOMNIUM_WEBSOCKET_FRAMES_NA
 ## Current aggregate WebSocket fragmentation verification
 
 Existing websocket-frames-native.js now runs12groups. Four aggregate cases use641explicit data frames each, prefix ping/pong barrier and real SDK digestStatus after Channel delivery. Verify20MiB exact hash/one payload versus20MiB+1failure/no payload, including UTF8 and binary. Keep actual TCP partial-write offsets and native-hidden/profile restoration. Canonical evidence: HTTP.md#current-aggregate-websocket-fragmentation-boundary.
+
+## Current large gRPC sent verification
+
+Run `bun tests/ui/grpc-large-sent-native.js` with INSOMNIUM_GRPC_LARGE_SENT_NATIVE=1 and audited native build/profile marker. Use actual Connect/Send message/Commit, seeded9MiB JSON, independent HTTP2 wire oracle, exact terminal/history/body reload and Stream1tab restoration. gRPC deletion uses sidebar Manage → Delete… → Delete. Watchdog failures must remain failed receipts; no full large sent-tab render or general JSON compatibility is claimed. Canonical evidence/failure/source supplement: GRPC.md#current-native-large-sent-history.
