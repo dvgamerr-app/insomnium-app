@@ -9,6 +9,8 @@ Latest gRPC display candidate build was running at cleanup inspection (session57
 
 ## Current work
 
+Verified legacy Long whitespace topic commit:d04b34519660c662d44072776cfe251bc0310edb. Workflow29043/build/suite terminal0:10native-hidden scenarios/66groups/76gRPCexports/exact10profiles and original1413source/1322regular closure with0overrides pass independent audit. Production long_bits34vector RED101/GREEN0 and full21Rust library tests pass. Six native signed/unsigned64 cases verify NEL/NBSP/chunk/sign, optional zero/selectors, real editor Format/mode switch, complete history/reload/export/deletion. Shared ECMAScript predicate preserves prior numeric behavior; no dependency change. Post-acceptance delta permits five docs, no application/scenario drift. No live build/suite/native/profile handles. Next broader64bit/coercion/JSON/WKT/oneof/map/key-order/editor/stream/provider/platform and every PLAN/PARITY gate. Full migration incomplete. This interface cannot invoke /compact; explicit handoff before next feature.
+
 ## Current legacy Long whitespace compatibility
 
 <a id="current-native-grpc-long"></a>
