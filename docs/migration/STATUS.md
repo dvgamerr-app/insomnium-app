@@ -3,6 +3,9 @@
 Updated 2026-10-15. Full migration is **incomplete**. Latest verified scenario/source commit:5fbb75a; prior certificate scenario:9180ac4; portable certificate implementation:ddea70f; prior request-file implementation/scenario:11e9b96/08ab0b3. Branch:feat/ui-design-system-settings-curl. Verified agent work is committed in the shared repo. Retired directories/custom .git backups remain absent; legacy backup and node_modules are preserved.
 ## Current work
 
+Verified aggregate fragmentation topic commit:82a86e9. Suite65860 terminal0; source1406/regular1315 closure and exact5profiles pass. Post-acceptance audit permits only five migration-doc deltas; no application/scenario drift. No live handles. Next broader control/close/fragmented UI-history, Clipboard Copy and gRPC; migration incomplete. /compact unavailable; explicit handoff.
+
+
 ### Aggregate WebSocket fragmentation boundary — verified bounded milestone 2026-10-15
 
 Four added real Channel cases pass: UTF8 text/binary aggregate20971520bytes reassemble once with independently recomputed full hashes; aggregate20971521bytes each refuse with0partial/full data payloads. Every authored data frame is<=32767bytes (641frames/message); text fragments cross UTF8 code-point boundaries. Before final continuation, an interleaved125byte ping/exact masked pong proves native read all prefix frames while no text/binary payload or completed invocation is visible. Native still emits only generic tungstenite error for refused aggregates; no precise diagnostic is claimed. Fixture handles partial TCP writes with retained offsets/liveness/deadlines, compacts large frame evidence to header/payload/wire hashes, and keeps prior small-frame receipts unchanged. No production edit.
