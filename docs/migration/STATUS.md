@@ -3,6 +3,9 @@
 Updated 2026-10-15. Full migration is **incomplete**. Latest verified scenario/source commit:5fbb75a; prior certificate scenario:9180ac4; portable certificate implementation:ddea70f; prior request-file implementation/scenario:11e9b96/08ab0b3. Branch:feat/ui-design-system-settings-curl. Verified agent work is committed in the shared repo. Retired directories/custom .git backups remain absent; legacy backup and node_modules are preserved.
 ## Current work
 
+Verified gRPC retention utility topic commit:d0985b1. RED/GREEN8cases, compiler0/0, frontend build, strict/format and saved headless SSE raw-history pass. No live handles. Native large gRPC sent/UI/history/reload is pending and existing native candidate predates this source change. Full migration incomplete; /compact unavailable, explicit handoff.
+
+
 ### gRPC large sent-event retention correction — verified utility scope 2026-10-15
 
 Found a concrete shared-retention defect: sendGrpcMessage appends kind:sent/text, but appendStreamEvent treated only SSE/received-message kinds as payloads. A9MiB sent JSON event followed by status was removed entirely (sent0/kinds[status]/dropped1). Classify sent as a payload too, preserving the newest large outgoing gRPC message through metadata/status/error; a newer sent or received payload replaces the exception, while8MiB surrounding metadata and1000event limits remain. Native codec/transport and UI rendering are unchanged.
