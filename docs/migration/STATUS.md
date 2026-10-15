@@ -3,6 +3,9 @@
 Updated 2026-10-15. Full migration is **incomplete**. Latest verified scenario/source commit:5fbb75a; prior certificate scenario:9180ac4; portable certificate implementation:ddea70f; prior request-file implementation/scenario:11e9b96/08ab0b3. Branch:feat/ui-design-system-settings-curl. Verified agent work is committed in the shared repo. Retired directories/custom .git backups remain absent; legacy backup and node_modules are preserved.
 ## Current work
 
+Verified full large-event export topic commit:b0030ca. Suite53647 terminal0; independent audit confirms four20MiB native files and exact5profile restoration. No live handles. Only declared migration documentation changed after accepted source snapshot; full migration incomplete. Next fragmentation/control frames, large Clipboard Copy and gRPC. /compact unavailable; explicit handoff.
+
+
 ### Full large WebSocket event export — verified bounded milestone 2026-10-15
 
 Actual Save stream event/native owned dialogs now verify20MiB UTF8 text and binary before and after reload: four new.bin files each20971520bytes with SHA256 identical to independently offered payloads. Preview remains bounded; complete saved content is preserved. Cancel is exercised before each first Save, then the scenario waits until inspectOwnedDialogs confirms no owned dialog before starting another Save. Clipboard Copy remains unverified for these20MiB payloads.
