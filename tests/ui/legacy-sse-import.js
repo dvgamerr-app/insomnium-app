@@ -7,7 +7,10 @@ import {
   selectedStreamHistory,
   validResponseSelections,
 } from "../../src/lib/model.js";
-import { parseImport } from "../../src/lib/import-export.js";
+import {
+  parseImport,
+  attachLegacyResponseAssets,
+} from "../../src/lib/import-export.js";
 import {
   convertLegacySseHistory,
   legacySseAssetRequests,
@@ -134,11 +137,161 @@ const resources = [
   newer,
   sub,
 ];
+const timelineRows = [
+  {
+    name: "Text",
+    value: "Standalone ไทย β",
+    timestamp: 17,
+    unknown: { keep: true },
+  },
+];
+const standaloneOwners = [
+  newRequest(workspaceId, {
+    _id: "req_timeline_http",
+    name: "Standalone HTTP",
+  }),
+  newRequest(workspaceId, {
+    _id: "req_timeline_ws",
+    _type: "websocket_request",
+    name: "Standalone WebSocket",
+  }),
+];
+const standaloneCases = [
+  {
+    id: "standalone_http",
+    parentId: "req_timeline_http",
+    websocket: false,
+    bytes: Buffer.from("\r\n" + JSON.stringify(timelineRows, null, 2) + "\r\n"),
+    parsed: timelineRows,
+  },
+  {
+    id: "standalone_sse",
+    parentId: requestId,
+    websocket: false,
+    bytes: Buffer.from("\r\n" + JSON.stringify(timelineRows[0]) + "\r\n\r\n"),
+    parsed: timelineRows,
+  },
+  {
+    id: "standalone_ws",
+    parentId: "req_timeline_ws",
+    websocket: true,
+    bytes: Buffer.from(JSON.stringify(timelineRows[0]) + "\r\n"),
+    parsed: timelineRows,
+  },
+  {
+    id: "standalone_malformed",
+    parentId: requestId,
+    websocket: false,
+    bytes: Buffer.from("{broken"),
+    parsed: undefined,
+  },
+  {
+    id: "standalone_empty",
+    parentId: "req_timeline_http",
+    websocket: false,
+    bytes: Buffer.alloc(0),
+    parsed: undefined,
+  },
+];
+const standaloneRecords = standaloneCases.map((row) => ({
+  _id: row.id,
+  _type: row.websocket ? "websocket_response" : "response",
+  parentId: row.parentId,
+  bodyPath: "C:/original/missing-body",
+  eventLogPath: "C:/original/missing-log",
+  timelinePath: "C:/original/timeline",
+  bodyCompression: null,
+  created: 401,
+  modified: 402,
+  statusCode: 200,
+  headers: [],
+  error: "",
+  _timelineOnlyCase: row.id,
+}));
+const standaloneAssets = standaloneCases.map((row) => ({
+  id: row.id,
+  timelineBase64: row.bytes.toString("base64"),
+  timelineSize: row.bytes.length,
+  timelineSha256: digest(row.bytes),
+  ...(row.parsed ? { timeline: row.parsed } : {}),
+  diagnostics: [
+    {
+      asset: row.websocket ? "eventLog" : "body",
+      code: "missing",
+      message: "Original payload unavailable",
+    },
+  ],
+}));
+const sourceBeforeAttach = structuredClone(standaloneRecords),
+  assetsBeforeAttach = structuredClone(standaloneAssets);
+const attachedStandalone = attachLegacyResponseAssets(
+  [...standaloneOwners, request, ...standaloneRecords],
+  standaloneAssets,
+).filter((row) => row._timelineOnlyCase);
+assert.deepEqual(standaloneRecords, sourceBeforeAttach);
+assert.deepEqual(standaloneAssets, assetsBeforeAttach);
+/** @param {{resources:Record<string,any>[],history:Record<string,any>[]}} data @param {number} copies */
+function verifyStandalone(data, copies) {
+  for (const expected of standaloneCases) {
+    const matches = data.resources.filter(
+      (row) => row._timelineOnlyCase === expected.id,
+    );
+    assert.equal(matches.length, copies);
+    for (const row of matches) {
+      const cache = expected.websocket
+        ? row._legacyWebSocketAssets
+        : row._legacyResponseAssets;
+      assert.ok(cache, expected.id + " timeline cache retained");
+      assert.equal(cache.timelineBase64, expected.bytes.toString("base64"));
+      assert.equal(cache.timelineSize, expected.bytes.length);
+      assert.equal(cache.timelineSha256, digest(expected.bytes));
+      assert.equal(cache.bodyBase64, undefined);
+      assert.equal(cache.eventLogBase64, undefined);
+      assert.deepEqual(cache.timeline, expected.parsed);
+      assert.equal(
+        data.history.some((entry) => entry._id === row._id),
+        false,
+      );
+      assert.ok(
+        cache.diagnostics.some(
+          (/** @type {any} */ item) => item.code === "missing",
+        ),
+      );
+    }
+  }
+}
+// Component-level rereads retain earlier completed payloads and timelines, but
+// new malformed timeline bytes must never inherit old semantic rows.
+const reread = attachLegacyResponseAssets(
+  [request, older],
+  [{ ...standaloneAssets[3], id: older._id }],
+).find((row) => row._id === older._id);
+assert.ok(reread);
+assert.equal(
+  reread._legacyResponseAssets.bodyBase64,
+  older._legacyResponseAssets.bodyBase64,
+);
+assert.equal(reread._legacyResponseAssets.timeline, undefined);
+assert.equal(
+  reread._legacyResponseAssets.timelineBase64,
+  Buffer.from("{broken").toString("base64"),
+);
+const { timeline: _semanticOnlyTimeline, ...bodyOnly } = asset(encode(chunks));
+const retained = attachLegacyResponseAssets(
+  [request, reread],
+  [{ id: older._id, ...bodyOnly }],
+).find((row) => row._id === older._id);
+assert.equal(
+  retained?._legacyResponseAssets.timelineBase64,
+  reread._legacyResponseAssets.timelineBase64,
+);
+assert.equal(retained?._legacyResponseAssets.timeline, undefined);
 const portableText = JSON.stringify({
   _type: "export",
   __export_format: 4,
-  resources,
+  resources: [...resources, ...standaloneOwners, ...attachedStandalone],
 });
+verifyStandalone(parseImport(portableText), 1);
 const converted = convertLegacySseHistory(resources);
 assert.equal(converted.history.length, 3);
 const capped = converted.history.find(
@@ -442,6 +595,7 @@ await withPreview(
           .history?.length === 3,
     );
     let accepted = await state();
+    verifyStandalone(accepted, 1);
     const importedRequest = accepted.resources.find(
       (/** @type {any} */ row) => row.name === request.name,
     );
@@ -551,6 +705,7 @@ await withPreview(
       chunks[0],
     );
     assert.equal(parseImport(exportedText).history.length, 3);
+    verifyStandalone(parseImport(exportedText), 1);
     accepted = await state();
     dialog = await review(exportedText);
     await dialog.getByRole("button", { name: "Import", exact: true }).click();
@@ -562,6 +717,7 @@ await withPreview(
     );
     await page.reload();
     const restored = await state();
+    verifyStandalone(restored, 2);
     for (const entry of accepted.history)
       assert.deepEqual(
         restored.history.find(
@@ -603,6 +759,8 @@ await withPreview(
           environmentSelection: true,
           nonlatestSelectionRoundtrip: true,
           rawTimeline: true,
+          standaloneTimelineCases: standaloneCases.length,
+          independentCacheRereadControls: true,
           sharedNewestBudget: true,
           exactTimelineBudgetBoundary: true,
           sharedActivationCap: 100,

@@ -174,6 +174,56 @@ export async function runLegacySseNativeCases() {
               environmentId: null,
             },
           ];
+          const httpTimelineBytes = Buffer.from(
+            "\r\n" + JSON.stringify(timeline, null, 2) + "\r\n",
+          );
+          const httpTimelinePath = await write(
+            "http-timeline.json",
+            httpTimelineBytes,
+          );
+          const missingPayload = join(root, "intentionally-missing-payload");
+          const standalone = [
+            {
+              _id: "timeline_only_http",
+              type: "Response",
+              parentId: "timeline_http_request",
+              bodyPath: missingPayload,
+              timelinePath: httpTimelinePath,
+              bytes: httpTimelineBytes,
+            },
+            {
+              _id: "timeline_only_sse",
+              type: "Response",
+              parentId: requestId,
+              bodyPath: missingPayload,
+              timelinePath,
+              bytes: timelineBytes,
+            },
+            {
+              _id: "timeline_only_ws",
+              type: "WebSocketResponse",
+              parentId: "timeline_ws_request",
+              eventLogPath: missingPayload,
+              timelinePath,
+              bytes: timelineBytes,
+            },
+            {
+              _id: "timeline_only_malformed",
+              type: "Response",
+              parentId: requestId,
+              bodyPath: missingPayload,
+              timelinePath: badTimeline,
+              bytes: Buffer.from("{broken"),
+            },
+            {
+              _id: "timeline_only_empty",
+              type: "Response",
+              parentId: "timeline_http_request",
+              bodyPath: missingPayload,
+              timelinePath: emptyPath,
+              bytes: Buffer.alloc(0),
+            },
+          ];
           const records = [
             {
               _id: workspaceId,
@@ -209,6 +259,36 @@ export async function runLegacySseNativeCases() {
               body: { mimeType: "", text: "", params: [] },
               authentication: {},
             },
+            ...[
+              {
+                _id: "timeline_http_request",
+                type: "Request",
+                url: "http://127.0.0.1:1/never-connect",
+              },
+              {
+                _id: "timeline_ws_request",
+                type: "WebSocketRequest",
+                url: "ws://127.0.0.1:1/never-connect",
+              },
+            ].map((row) => ({
+              ...row,
+              parentId: workspaceId,
+              name: row._id,
+              method: "GET",
+              headers: [],
+              parameters: [],
+              authentication: {},
+            })),
+            ...standalone.map(({ bytes: _bytes, ...row }, index) => ({
+              ...row,
+              created: base + 300 + index,
+              modified: base + 400 + index,
+              statusCode: 200,
+              statusMessage: "Saved metadata only",
+              bodyCompression: null,
+              headers: [],
+              error: "",
+            })),
             ...responses.map((row, index) => ({
               ...row,
               type: "Response",
@@ -286,7 +366,7 @@ export async function runLegacySseNativeCases() {
             receipts.push(await task);
             if (kind === "file" && path !== null)
               await dialog
-                .getByText(/6 legacy response records will be preserved/)
+                .getByText(/11 legacy response records will be preserved/)
                 .waitFor();
             else
               await poll(() => button.isEnabled(), "Owned SSE chooser settles");
@@ -335,6 +415,67 @@ export async function runLegacySseNativeCases() {
                 lookup(data, source._id, excluded)._legacySource.record,
                 source,
               );
+            for (const source of standalone) {
+              const resource = lookup(data, source._id, excluded);
+              const websocket = source.type === "WebSocketResponse";
+              const cache = websocket
+                ? resource._legacyWebSocketAssets
+                : resource._legacyResponseAssets;
+              assert.ok(
+                cache,
+                "Readable standalone timeline has a portable cache: " +
+                  source._id,
+              );
+              assert.equal(cache.version, 1);
+              assert.equal(
+                cache.timelineBase64,
+                source.bytes.toString("base64"),
+              );
+              assert.equal(cache.timelineSize, source.bytes.length);
+              assert.equal(cache.timelineSha256, digest(source.bytes));
+              assert.equal(
+                cache.bodyBase64,
+                undefined,
+                "No replacement response body",
+              );
+              assert.equal(
+                cache.eventLogBase64,
+                undefined,
+                "No replacement event log",
+              );
+              assert.equal(
+                data.history.some(
+                  (/** @type {any} */ row) => row._id === resource._id,
+                ),
+                false,
+                "No timeline-only history invented",
+              );
+              assert.ok(
+                cache.diagnostics.some(
+                  (/** @type {any} */ row) =>
+                    row.asset === (websocket ? "eventLog" : "body") &&
+                    row.code === "missing",
+                ),
+              );
+              if (source.parentId === requestId) {
+                assert.equal(cache.bodyFormat, "sse-ndjson");
+                assert.equal(cache.sourceRequestId, requestId);
+              }
+              if (websocket)
+                assert.equal(cache.sourceRequestId, "timeline_ws_request");
+              if (
+                source._id === "timeline_only_malformed" ||
+                source._id === "timeline_only_empty"
+              ) {
+                assert.equal(cache.timeline, undefined);
+                assert.ok(
+                  cache.diagnostics.some(
+                    (/** @type {any} */ row) =>
+                      row.asset === "timeline" && row.code === "malformed",
+                  ),
+                );
+              } else assert.deepEqual(cache.timeline, timeline);
+            }
             for (const source of responses) {
               const resource = lookup(data, source._id, excluded),
                 entry = data.history.find(
@@ -433,6 +574,8 @@ export async function runLegacySseNativeCases() {
             timelinePath,
             badTimeline,
             malformed,
+            httpTimelinePath,
+            emptyPath,
             database,
           ];
           try {
@@ -482,6 +625,40 @@ export async function runLegacySseNativeCases() {
             );
             assert.equal(valid.timelineSize, timelineBytes.length);
             assert.equal(valid.timelineSha256, digest(timelineBytes));
+            for (const source of standalone) {
+              const row = (
+                await invoke("read_legacy_response_assets", {
+                  root,
+                  entries: [
+                    {
+                      id: source._id,
+                      bodyPath: source.bodyPath,
+                      eventLogPath: source.eventLogPath,
+                      timelinePath: source.timelinePath,
+                      bodyCompression: "raw",
+                      ...(source.parentId === requestId
+                        ? { bodyFormat: "sse-ndjson" }
+                        : {}),
+                    },
+                  ],
+                })
+              ).entries[0];
+              assert.equal(row.bodyBase64, undefined);
+              assert.equal(row.eventLogBase64, undefined);
+              assert.equal(row.timelineBase64, source.bytes.toString("base64"));
+              assert.equal(row.timelineSize, source.bytes.length);
+              assert.equal(row.timelineSha256, digest(source.bytes));
+              assert.ok(
+                row.diagnostics.some(
+                  (/** @type {any} */ item) => item.code === "missing",
+                ),
+              );
+              readerChecks.push({
+                id: source._id,
+                bytes: row.timelineSize,
+                diagnostics: row.diagnostics,
+              });
+            }
             for (const [id, path, code] of [
               ["outside", outside, "refused"],
               ["traversal", join(root, "..", "outside-sse.ndjson"), "refused"],
@@ -567,6 +744,30 @@ export async function runLegacySseNativeCases() {
             });
             dialog = await review();
             await loaded(dialog);
+            // A failed component reread must not erase an earlier completed
+            // cache, nor remove its compatible history from the same preview.
+            for (const paths of [
+              [bodyPath],
+              [timelinePath, badTimeline, httpTimelinePath, emptyPath],
+            ]) {
+              const renamed = [];
+              try {
+                for (const path of paths) {
+                  assert.ok(resolve(path).startsWith(resolve(root) + sep));
+                  assert.equal((await lstat(path)).isSymbolicLink(), false);
+                  assert.equal(
+                    await Bun.file(path + ".reread-unavailable").exists(),
+                    false,
+                  );
+                  await rename(path, path + ".reread-unavailable");
+                  renamed.push(path);
+                }
+                await loaded(dialog);
+              } finally {
+                for (const path of renamed)
+                  await rename(path + ".reread-unavailable", path);
+              }
+            }
             await dialog
               .getByRole("button", { name: "Import", exact: true })
               .click();
@@ -805,6 +1006,11 @@ export async function runLegacySseNativeCases() {
                     mockedIpc: false,
                     chooserReceipts: receipts,
                     readerChecks,
+                    standaloneTimelineCases: standalone.map((row) => ({
+                      id: row._id,
+                      bytes: row.bytes.length,
+                    })),
+                    partialComponentRereads: 2,
                     sourceBefore: beforeFiles,
                     sourceAfter: await snapshot(),
                     connections,

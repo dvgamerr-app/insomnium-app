@@ -411,6 +411,50 @@ export function parseImport(text) {
     preserved: resources.filter((r) => !knownTypes.has(r._type)).length,
   };
 }
+/** Attach independently completed native reads without discarding an earlier
+ * portable component after a failed reread. No history/body is fabricated.
+ * @param {Record<string,any>[]} resources
+ * @param {(import('./legacy-response-history.js').LegacyResponseAsset & Record<string,any>)[]} entries */
+export function attachLegacyResponseAssets(resources, entries) {
+  const loaded = new Map(entries.map((entry) => [entry.id, entry]));
+  const byId = new Map(resources.map((resource) => [resource._id, resource]));
+  return resources.map((resource) => {
+    const asset = loaded.get(resource._id);
+    if (!asset || !["response", "websocket_response"].includes(resource._type))
+      return resource;
+    const websocket = resource._type === "websocket_response";
+    const hasPayload =
+      typeof (websocket ? asset.eventLogBase64 : asset.bodyBase64) === "string";
+    const hasTimeline = typeof asset.timelineBase64 === "string";
+    if (!hasPayload && !hasTimeline) return resource;
+    const key = websocket ? "_legacyWebSocketAssets" : "_legacyResponseAssets";
+    const previous = resource[key];
+    const cached = previous?.version === 1 ? { ...previous } : {};
+    // A newly read malformed timeline intentionally has raw bytes but no parsed
+    // rows. Do not pair those bytes with semantic rows from an older cache.
+    if (hasTimeline) delete cached.timeline;
+    const { id: _assetId, ...portable } = asset;
+    const request = byId.get(resource.parentId);
+    const sse = !websocket && request && protocolFor(request) === "sse";
+    return {
+      ...resource,
+      [key]: {
+        ...cached,
+        version: 1,
+        ...portable,
+        ...(sse ? { bodyFormat: "sse-ndjson" } : {}),
+        ...(websocket || sse
+          ? {
+              sourceRequestId:
+                request?._legacySource?.record?._id ||
+                cached.sourceRequestId ||
+                request?._id,
+            }
+          : {}),
+      },
+    };
+  });
+}
 /** Choose an explicitly authorized legacy folder and read response files only.
  * Successful bytes stay on preserved resources so collection export/reimport
  * survives later history retention. The original NeDB provenance is untouched.
@@ -435,21 +479,21 @@ export async function pickLegacyResponseHistory(review) {
   }).map(({ entry }) => entry);
   /** @type {{entries:(import('./legacy-response-history.js').LegacyResponseAsset & Record<string,any>)[]}} */
   const assets = await invoke("read_legacy_response_assets", { root, entries: ordered.slice(0, 100) });
-  const loaded = new Map(assets.entries.map((entry) => [entry.id, entry]));
-  const resources = review.resources.map((resource) => {
-    const asset = loaded.get(resource._id);
-    if (!asset) return resource;
-    const { id: _assetId, ...portable } = asset;
-    if (resource._type === "websocket_response" && typeof asset.eventLogBase64 === "string") {
-      const request = byId.get(resource.parentId);
-      return {...resource,_legacyWebSocketAssets:{version:1,...portable,sourceRequestId:request?._legacySource?.record?._id || request?._id}};
-    }
-    if (typeof asset.bodyBase64 !== "string") return resource;
-    const request = byId.get(resource.parentId);
-    const sse = request && protocolFor(request) === "sse";
-    return { ...resource, _legacyResponseAssets: { version: 1, ...portable, ...(sse ? { bodyFormat: "sse-ndjson", sourceRequestId: request._legacySource?.record?._id || resource._legacyResponseAssets?.sourceRequestId || request._id } : {}) } };
+  const resources = attachLegacyResponseAssets(review.resources, assets.entries);
+  const attached = new Map(resources.map((resource) => [resource._id, resource]));
+  const converted = importedResponseHistory(resources, {
+    entries: assets.entries.map((entry) => {
+      const resource = attached.get(entry.id);
+      const cache = resource?.[
+        resource._type === "websocket_response"
+          ? "_legacyWebSocketAssets"
+          : "_legacyResponseAssets"
+      ];
+      return cache?.version === 1
+        ? { ...cache, ...entry, id: entry.id }
+        : entry;
+    }),
   });
-  const converted = importedResponseHistory(resources, assets);
   return {
     ...review,
     resources,
