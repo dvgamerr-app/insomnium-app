@@ -1471,6 +1471,13 @@ export async function execute(
     if (runCompleted) completePluginRequest(controller, reason);
     else controller.abort(reason);
     delete workspace.running[requestId];
+    // Environment changes preserve the live pane; reconcile its captured history
+    // only after this run retires, without replacing same-environment results.
+    const terminal = workspace.responses[requestId];
+    if (protocol === "websocket" && terminal?._id === runId &&
+      !historyMatchesEnvironment(terminal, workspace.data.settings, selectedEnvironmentFor(workspace.data, workspaceFor(workspace.data.resources, requestId) || ""))) {
+      refreshWebSocketResponses(requestId);
+    }
     clearOAuthProgress(requestId);
     completions.delete(requestId);
     completed();
@@ -2320,9 +2327,10 @@ export function selectStreamHistory(requestId, entry) {
     void persist();
   }
 }
-function refreshWebSocketResponses() {
+/** @param {string} [onlyRequestId] */
+function refreshWebSocketResponses(onlyRequestId) {
   for (const request of workspace.data.resources) {
-    if (request._type !== "websocket_request" || workspace.running[request._id]) continue;
+    if (request._type !== "websocket_request" || workspace.running[request._id] || (onlyRequestId && request._id !== onlyRequestId)) continue;
     const environmentId = selectedEnvironmentFor(workspace.data,workspaceFor(workspace.data.resources,request._id) || "");
     const saved = selectedWebSocketHistory(workspace.data,request._id,environmentId);
     if (saved) workspace.responses[request._id] = saved;
