@@ -1667,3 +1667,7 @@ Run `bun tests/ui/stream-suspension-native.js` with the existing audited native 
 ## Current WebSocket send-queue verification
 
 Reuse `bun tests/ui/websocket-ack-native.js` with INSOMNIUM_WEBSOCKET_ACK_NATIVE=1 and the existing audited build/profile ownership environment. The existing7groups include real IPC queue saturation/release/cancel and peer-close Finished barrier; run native-hidden with exact profile restoration. Canonical evidence and remaining scope: HTTP.md#current-websocket-queued-send-and-close-edge-acceptance.
+
+## Current queued WebSocket timeout verification
+
+The existing `bun tests/ui/websocket-ack-native.js` now runs9groups, including queued missing-ACK timeout with open peer and peer-initiated Close. Use INSOMNIUM_WEBSOCKET_ACK_NATIVE=1 and audited native/profile ownership settings; native-hidden only. Preserve single30second deadline, exact16pending/4refusal/0wire-message results, late ACK and post-timeout send refusal. Canonical evidence: HTTP.md#current-queued-websocket-timeout-acceptance.

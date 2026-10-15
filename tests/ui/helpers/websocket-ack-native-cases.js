@@ -345,7 +345,12 @@ export async function runWebSocketAckNativeCases() {
               });
 
               // Freeze delivery before queueing: native cannot drain its16-slot queue.
-              for (const mode of ["release", "cancel"]) {
+              for (const mode of [
+                "release",
+                "cancel",
+                "timeout",
+                "peer-close-timeout",
+              ]) {
                 id = "ws_queue_" + mode + "_" + suffix;
                 token = "queue-" + mode + "-" + suffix;
                 await begin(id, token, true, 1);
@@ -382,6 +387,60 @@ export async function runWebSocketAckNativeCases() {
                         !r.ok && /send queue unavailable/.test(r.error),
                     ),
                 );
+                if (mode.endsWith("timeout")) {
+                  if (mode === "peer-close-timeout")
+                    fixture.peerClose(token, 1000, "queued timeout close");
+                  s = await done(id, 40000);
+                  await closed(token);
+                  await poll(
+                    async () =>
+                      (await status(id)).sends.every(
+                        (/** @type {any} */ r) => r.done,
+                      ),
+                    "All queued timeout sends settle",
+                  );
+                  s = await status(id);
+                  const elapsed = s.doneAt - packets(s)[0].at;
+                  assert.ok(elapsed >= 28000 && elapsed < 40000);
+                  assert.equal(s.result.ok, false);
+                  assert.match(s.result.error, /stopped acknowledging/);
+                  assert.equal(packets(s).length, 1);
+                  assert.equal(
+                    s.sends.filter((/** @type {any} */ r) =>
+                      /disconnected before sending/.test(r.error),
+                    ).length,
+                    16,
+                  );
+                  assert.equal(
+                    s.sends.filter((/** @type {any} */ r) => r.ok).length,
+                    0,
+                  );
+                  assert.equal(record(token)?.incoming.length, 0);
+                  let postTimeoutRefusal = "";
+                  try {
+                    await invoke("send_stream_message", {
+                      id,
+                      format: "text",
+                      data: "after queued timeout",
+                    });
+                  } catch (error) {
+                    postTimeoutRefusal = String(error);
+                  }
+                  assert.match(
+                    postTimeoutRefusal,
+                    /WebSocket is not connected/,
+                  );
+                  await ack(id, 1);
+                  await Bun.sleep(200);
+                  assert.deepEqual((await status(id)).packets, s.packets);
+                  await receipt("bounded-send-queue-" + mode, s, {
+                    elapsed,
+                    sends: s.sends,
+                    peerIncoming: record(token)?.incoming,
+                    postTimeoutRefusal,
+                  });
+                  continue;
+                }
                 if (mode === "cancel") {
                   await page.evaluate(
                     (key) =>

@@ -4,6 +4,10 @@ Updated 2026-10-15. Current state is in [STATUS.md](STATUS.md); all original req
 
 ## Remaining execution order
 
+Latest queued-timeout acceptance: open-peer and peer-close missing-ACK cases pass in9native ACKgroups, with exact queue settlement/single deadline and regressions. See HTTP.md#current-queued-websocket-timeout-acceptance. Next binary/control/exact-size/oversized WS-gRPC and remaining mixed/provider/platform/PARITY requirements.
+
+
+
 Latest bounded WebSocket queue/close acceptance: three new groups plus original four pass; see HTTP.md#current-websocket-queued-send-and-close-edge-acceptance. Next queued missing-ACK timeout and further close/send races, followed by remaining size/mixed/provider/platform and every PARITY gate.
 
 

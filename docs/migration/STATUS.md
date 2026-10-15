@@ -3,6 +3,14 @@
 Updated 2026-10-15. Full migration is **incomplete**. Latest verified scenario/source commit:5fbb75a; prior certificate scenario:9180ac4; portable certificate implementation:ddea70f; prior request-file implementation/scenario:11e9b96/08ab0b3. Branch:feat/ui-design-system-settings-curl. Verified agent work is committed in the shared repo. Retired directories/custom .git backups remain absent; legacy backup and node_modules are preserved.
 ## Current work
 
+### WebSocket queued-send ACK timeout — verified bounded milestone 2026-10-15
+
+Two added real SDK Channel/native groups pass: held inbound ACK with a full16-entry send queue, both with peer still open and after peer-initiated Close. Twenty concurrent text submissions yield4queue-full refusals and16pending sends; at the single ACK deadline all16reject as disconnected before sending,0succeed/0reach peer. Timings30.017/30.013seconds; one sequenced packet only, no second Finished timeout. Subsequent sends refuse WebSocket is not connected; late matching ACK produces no additional packets. These are exact bounded outcomes, not all close/send race or physicalTCP/OS-close acceptance.
+
+Suite37877 exits0: ACK1792059850925=9/SSE1792059975895=8/WS1792059992673=6/mixed1792060004230=5. Hosts52680/54668/56244/50848 exit0/native-hidden; four original profiles restore exactly. Original applicationb2bd65d/exeSHAcea47a30/manifest7b71e8d3 unchanged; declared6test/5doc supplement closes1401source/1310regular rows plus all other scopes. acceptance-audit-websocket-queue-timeout.json validates source/manifest/executable, all receipts/profile hashes and exact rebuilt receiver bundle. Artifacts: artifacts/native-resource-crud-audit-probe/sse-exact-retention-attempt-1/. Strict3-file JS, scenario formatting and diff checks pass. No application edits or live owned handles. Next binary/control-frame and exact-size/oversized WebSocket/gRPC variants, remaining mixed environment/lifecycle/provider/platform and all PLAN/PARITY. Full migration incomplete; UX deferred. /compact unavailable; explicit handoff.
+
+
+
 Verified queued-send/peer-close topic commit:2c5ee4a. Post-acceptance audit checks1310regular files with exactly five documentation deltas; no implementation/scenario drift. Suite43267 terminal0, no live handles. Next queued-send missing-ACK timeout and additional close/send races; migration incomplete. /compact unavailable; explicit handoff recorded.
 
 

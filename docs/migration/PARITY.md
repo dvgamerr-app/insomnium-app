@@ -6,6 +6,10 @@ Current receipts: Windows environment6349100/follow-up eae4ac2 (29checks/Name6/J
 
 ## Latest stream history and decoded limits
 
+Queued missing-ACK timeout with open peer and peer-initiated Close now passes bounded Windows acceptance:16queued failures/4overflow refusals/0peer messages, single30second deadline, late ACK inert and subsequent send refused. Original regressions and exact4profile/source restoration pass; see HTTP.md#current-queued-websocket-timeout-acceptance. Other race/size/control/provider/platform and all retained requirements remain open.
+
+
+
 Bounded Windows WebSocket queue saturation/release/cancel and peer-close Finished barrier now pass in existing7ACKgroups, with SSE8/WS6/mixed5regressions, exact4profile restoration and1401source closure. See HTTP.md#current-websocket-queued-send-and-close-edge-acceptance. Queued missing-ACK timeout, other close/send races, binary/control/size/provider/platform and every other retained gate remain open.
 
 
