@@ -130,13 +130,17 @@ pub async fn connect_grpc(
 ) -> Result<(), String> {
     let pool = grpc_schema::decode(&request.descriptor_set)?;
     let method = grpc_schema::method(&pool, &request.method)?;
+    let input = match request.json_mode {
+        grpc_schema::JsonMode::Legacy => crate::grpc_legacy::legacy_descriptor(method.input())?,
+        grpc_schema::JsonMode::ProtoJson => method.input(),
+    };
     let (sender, receiver) = mpsc::channel(1);
     let sender = if method.is_client_streaming() {
         Some(sender)
     } else {
         sender
             .send(grpc_schema::parse_mode(
-                method.input(),
+                input.clone(),
                 &request.body,
                 request.json_mode,
             )?)
@@ -148,7 +152,6 @@ pub async fn connect_grpc(
         None
     };
     let (ack_sender, acknowledgements) = mpsc::channel(2);
-    let input = method.input();
     // Both maps use the same lock order; no await occurs while holding std mutexes.
     let mut cancelled = {
         let mut calls = state.calls.lock().map_err(|_| "gRPC state unavailable.")?;

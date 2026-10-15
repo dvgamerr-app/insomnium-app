@@ -144,7 +144,7 @@ fn describe_with_examples(
             let generated = if reflection {
                 crate::grpc_example::generate(method.input(), mode)
             } else {
-                json_mode(&DynamicMessage::new(method.input()), mode)
+                json_mode(&DynamicMessage::new(method.input()), mode, method.input())
             };
             let (example, example_error) = match generated {
                 Ok(example) => (example, None),
@@ -224,7 +224,11 @@ pub(crate) fn parse_mode(
         JsonMode::ProtoJson => parse(desc, text),
     }
 }
-pub(crate) fn json_mode(message: &DynamicMessage, mode: JsonMode) -> Result<String, String> {
+pub(crate) fn json_mode(
+    message: &DynamicMessage,
+    mode: JsonMode,
+    original: MessageDescriptor,
+) -> Result<String, String> {
     struct LimitedJson(Vec<u8>);
     impl std::io::Write for LimitedJson {
         fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
@@ -242,7 +246,7 @@ pub(crate) fn json_mode(message: &DynamicMessage, mode: JsonMode) -> Result<Stri
     let mut serializer = serde_json::Serializer::new(&mut bytes);
     match mode {
         JsonMode::Legacy => {
-            crate::grpc_legacy::LegacyMessage(message, 0).serialize(&mut serializer)
+            crate::grpc_legacy::LegacyMessage(message, 0, original).serialize(&mut serializer)
         }
         JsonMode::ProtoJson => message.serialize_with_options(
             &mut serializer,

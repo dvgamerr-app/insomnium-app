@@ -43,7 +43,7 @@ pub(crate) fn generate(desc: MessageDescriptor, mode: JsonMode) -> Result<String
     let parsed = grpc_schema::parse_mode(desc.clone(), &text, JsonMode::Legacy)?;
     let result = match mode {
         JsonMode::Legacy => text,
-        JsonMode::ProtoJson => grpc_schema::json_mode(&parsed, mode)?,
+        JsonMode::ProtoJson => grpc_schema::json_mode(&parsed, mode, desc.clone())?,
     };
     if result.len() > MAX_EXAMPLE {
         return Err("Rendered example exceeds 128 KiB.".into());

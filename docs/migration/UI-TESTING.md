@@ -4,6 +4,12 @@ Updated 2026-10-14. Use saved Bun Playwright scenarios only. Shared launchUiBrow
 
 See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity requirements](PARITY.md). No original scope was removed by consolidation.
 
+## Current gRPC oneof and fixture identity verification
+
+Saved [grpc-oneof-native.js](../../tests/ui/grpc-oneof-native.js) selects six oneofOnly cases with INSOMNIUM_GRPC_ONEOF_NATIVE=1 and audited build/profile ownership. Corrected-source Windows native-hidden acceptance now passes real editor/Format/mode flip, explicit defaults, nested list/map, reversed input/response wire, colliding enum names and complete history/reload/export/deletion. Full80groups/12scenarios/104gRPCexports/exact12profiles and original0override closure pass; [GRPC scope and evidence](GRPC.md#current-native-grpc-oneof). Broader JSON property-order/provider/platform gates remain open.
+
+Run bun tests/ui/grpc-fixture-port-reuse.js for the fixture bug regression:3owned completed HTTP2 connections reuse one local port after explicit reset and must keep3socket/session identities. Raw/proxy observations can arrive in either order. Raw resets stay visible and require verified wire/trailers/finish/close/rstCode0 before classification. This command verifies only the loopback fixture; native receipts additionally preserve full session/socket correlation and require native-hidden, source closure and exact profile restoration. Failed candidate1 and failed prototypes remain retained, not accepted.
+
 ## Current WebSocket ACK verification
 
 Saved websocket-ack-native.js controls a separate real SDK Channel receiver, never application callbacks or an IPC shim. Run with INSOMNIUM_WEBSOCKET_ACK_NATIVE=1 and the explicit audited build/profile marker. Existing sse-ack-native-probe.js defaults to SSE; its optional websocket protocol and owned manual ACK/cancel methods are scenario-only. Rebuild/retain the actual browser bundle and compare byte hashes to current fixture+installed SDK. Observe native command completion, peer closure, retired-run send refusal, run-id reuse and exact profile restoration. Real delayed/missing ACKs are not real renderer/host suspension. Scope/receipts: HTTP.md#current-websocket-acknowledgement-controls.

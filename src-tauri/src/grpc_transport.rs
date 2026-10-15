@@ -145,7 +145,7 @@ pub(crate) async fn channel(config: &Connection) -> Result<Channel, String> {
         let ca = crate::client_certificates::load_ca_certificate(
             config.ca_file.as_deref(),
             config.ca_pem.as_deref(),
-        config.ca_asset.as_ref(),
+            config.ca_asset.as_ref(),
         )?;
         let mut tls = ClientTlsConfig::new();
         if !ca.replace_roots {
@@ -400,7 +400,12 @@ where
             request,
             path,
             DynamicCodec {
-                output: method.output(),
+                output: match mode {
+                    grpc_schema::JsonMode::Legacy => {
+                        crate::grpc_legacy::legacy_descriptor(method.output())?
+                    }
+                    grpc_schema::JsonMode::ProtoJson => method.output(),
+                },
             },
         )
         .await;
@@ -422,7 +427,7 @@ where
                     return Err("Server sent multiple messages for a unary response.".into());
                 }
                 emit(Event::Message {
-                    text: grpc_schema::json_mode(&message, mode)?,
+                    text: grpc_schema::json_mode(&message, mode, method.output())?,
                 })
                 .await?;
             }

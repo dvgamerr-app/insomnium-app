@@ -6,7 +6,7 @@ Updated 2026-10-16. Current state is in [STATUS.md](STATUS.md); all original req
 
 This checklist is the current execution order; bounded passes do not close an entire subsystem.
 
-1. **Current: remaining gRPC compatibility.** Legacy JSON numeric overflow corrected in isolated parser:8actual parser vectors/boundaries and23Rust tests pass; eight native editor/double/int32/int64/string/history/export cases pass. Full regression74groups/11profiles/92gRPCexports and fresh0override closure pass. See GRPC.md#current-native-grpc-overflow. Broader JSON/WKT/oneof/map/key-order/editor/stream/provider/platform and every retained gate remain open.
+1. **Current: remaining gRPC compatibility.** Legacy oneof member preservation now has bounded Windows acceptance:6native editor/wire/history/reload/export cases, including explicit defaults, nested list/map, reversed response wire and colliding enum names. Full27Rust tests and12native-hidden scenarios/80groups/104gRPCexports/exact12profiles pass with fresh0override closure. See GRPC.md#current-native-grpc-oneof. Broader JSON/WKT/oneof/map/key-order/surrogate/editor/stream/provider/platform and every retained gate remain open.
 2. **Streaming compatibility.** Remaining gRPC JSON/shared-editor/UTF8/surrogate cases, broader styles/providers/platforms; WebSocket fragmented application-history/control/close variants and large Clipboard Copy; further SSE UTF8/CRLF/compression exact boundaries and mixed environment/lifecycle variants. Prior exact-size, fragmentation, ACK, suspension and Save passes retain only their recorded scope.
 3. **Models and durable data.** Remaining resource/model/callback-drain and OS-close cases, environment callers/imported-model variants, legacy formats/assets/invalid or absent payload recovery, import/export round trips.
 4. **API tooling and compatibility.** Remaining GraphQL navigation/completion, gRPC/proto and OpenAPI contracts, runner scripts/imports, plugins and template integration; verify against the topic contracts.
@@ -17,7 +17,7 @@ This checklist is the current execution order; bounded passes do not close an en
 
 ## Latest investigation and document scope — 2026-10-16
 
-Latest verified application topic: 46d1602a; handoff: d5603cf6. Legacy oneof investigation has a pinned reference at artifacts/grpc-oneof-reference.json, but the runtime still rejects multiple members (src-tauri/src/grpc_legacy.rs). Implementation and native acceptance remain pending.
+Legacy oneof member preservation now has bounded Windows acceptance:6native editor/wire/history/reload/export cases, including explicit defaults, nested list/map, reversed response wire and colliding enum names. Full27Rust tests and12native-hidden scenarios/80groups/104gRPCexports/exact12profiles pass with fresh0override closure. See GRPC.md#current-native-grpc-oneof. Broader JSON/WKT/oneof/map/key-order/surrogate/editor/stream/provider/platform and every retained gate remain open.
 
 All 26 remaining docs files support active migration contracts, remaining acceptance, archive/build integrity or owner-required deferred UX. No additional unrelated file was identified. Superseded milestone narratives and completed initialization steps were removed from this plan; recover their committed versions at d5603cf641df1b46714f16e7cd4c09abe7ee01ca. Topic evidence and every PARITY requirement remain in place.
 

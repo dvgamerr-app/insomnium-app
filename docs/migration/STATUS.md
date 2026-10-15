@@ -15,6 +15,10 @@ Latest gRPC display candidate build was running at cleanup inspection (session57
 
 ## Current work
 
+Legacy oneof member preservation now has bounded Windows acceptance:6native editor/wire/history/reload/export cases, including explicit defaults, nested list/map, reversed response wire and colliding enum names. Full27Rust tests and12native-hidden scenarios/80groups/104gRPCexports/exact12profiles pass with fresh0override closure. See GRPC.md#current-native-grpc-oneof. Broader JSON/WKT/oneof/map/key-order/surrogate/editor/stream/provider/platform and every retained gate remain open.
+
+No live build/suite/native/profile handles remain. Bounded acceptance details and preserved failures are in GRPC.md#current-native-grpc-oneof. Next broaderJSON/WKT/oneof/map/key-order/surrogates/editor/stream/provider/platform and every PARITY gate. /compact unavailable; explicit handoff before the next feature.
+
 Verified legacy JSON numeric overflow topic commit:46d1602a964ef398ef8b288c1af43d6023ca8a36. Workflow68081/build/suite terminal0:11native-hidden scenarios/74groups/92gRPCexports/exact11profiles and original1414source/1323regular closure with0overrides pass independent audit. Actual parser8overflow/underflow vectors RED101/GREEN0, syntax/duplicate/negativezero/nesting guards and full23Rust library tests pass. Eight native double/int32/int64/string cases verify real editor/Format/mode flip, exact exponent lexemes, Infinity/finite/zero/negativezero wire, Long saturation/selectors, complete history/reload/export/deletion. Legacy-only RawValue/f64 tree; no global arbitrary_precision/dependency/ProtoJSON change. Post-acceptance delta permits five docs, no application/scenario drift. No live build/suite/native/profile handles. Next broaderJSON/lone-surrogate/WKT/oneof/map/key-order/editor/stream/provider/platform and every PLAN/PARITY gate. Full migration incomplete. This interface cannot invoke /compact; explicit handoff before next feature.
 
 ## Current legacy JSON numeric overflow compatibility

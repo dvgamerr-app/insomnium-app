@@ -42,35 +42,59 @@ export async function createGrpcLargeSentFixture() {
     });
   server.on("error", (error) => errors.push(String(error)));
   const socketIds = new Map();
+  const socketObjects = new WeakMap();
   /** @param {import("node:net").Socket} socket */
-  const observeSocket = (socket) => {
+  const socketKey = (socket) => {
     assert.ok(socket.localPort && socket.remotePort);
-    const key = [
+    return [
       socket.localAddress,
       socket.localPort,
       socket.remoteAddress,
       socket.remotePort,
     ].join("|");
-    if (socketIds.has(key)) return socketIds.get(key);
+  };
+  /** Raw connection and HTTP2 proxy observations can arrive in either order.
+   * Join each kind once; never reuse a previous connection's identity.
+   * @param {import("node:net").Socket} socket
+   * @param {"connection"|"session"} phase */
+  const observeSocket = (socket, phase) => {
+    const key = socketKey(socket);
+    const known = socketObjects.get(socket);
+    if (known) {
+      known[phase] = true;
+      return known.id;
+    }
+    const current = socketRecords.find((row) => row.id === socketIds.get(key));
+    if (current && current.closedAt === null && !current[phase]) {
+      current[phase] = true;
+      socketObjects.set(socket, current);
+      return current.id;
+    }
     const row = {
       id: socketRecords.length + 1,
       port: socket.remotePort,
+      tuple: key,
+      openedAt: Date.now(),
+      connection: phase === "connection",
+      session: phase === "session",
       closedAt: null,
     };
     socketRecords.push(row);
+    socketObjects.set(socket, row);
     sockets.add(socket);
     socketIds.set(key, row.id);
     socket.on("error", (error) => recordError("socket", row.id, error));
     socket.once("close", () => {
       /** @type {any} */ (row).closedAt = Date.now();
       sockets.delete(socket);
+      if (socketIds.get(key) === row.id) socketIds.delete(key);
     });
     return row.id;
   };
-  server.on("connection", observeSocket);
+  server.on("connection", (socket) => observeSocket(socket, "connection"));
   const sessionIds = new WeakMap();
   server.on("session", (session) => {
-    const socketId = observeSocket(session.socket);
+    const socketId = observeSocket(session.socket, "session");
     const row = {
       id: sessionRecords.length + 1,
       socketId,
@@ -142,7 +166,11 @@ export async function createGrpcLargeSentFixture() {
             });
             /** @type {any} */ (row).trailersAt = Date.now();
           });
-          const reply = authored.receives ? expected : undefined;
+          const reply = authored.receives
+            ? "responseWire" in authored
+              ? authored.responseWire
+              : expected
+            : undefined;
           /** @type {any} */ (row).responseBytes = reply?.length ?? 0;
           /** @type {any} */ (row).responseWireSHA256 = reply
             ? sha(reply)

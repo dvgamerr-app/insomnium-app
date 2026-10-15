@@ -6,6 +6,8 @@ Current receipts: Windows environment6349100/follow-up eae4ac2 (29checks/Name6/J
 
 ## Latest stream history and decoded limits
 
+Legacy oneof member preservation now has bounded Windows acceptance:6native editor/wire/history/reload/export cases, including explicit defaults, nested list/map, reversed response wire and colliding enum names. Full27Rust tests and12native-hidden scenarios/80groups/104gRPCexports/exact12profiles pass with fresh0override closure. See GRPC.md#current-native-grpc-oneof. Broader JSON/WKT/oneof/map/key-order/surrogate/editor/stream/provider/platform and every retained gate remain open.
+
 Legacy JSON numeric overflow corrected in isolated parser:8actual parser vectors/boundaries and23Rust tests pass; eight native editor/double/int32/int64/string/history/export cases pass. Full regression74groups/11profiles/92gRPCexports and fresh0override closure pass. See GRPC.md#current-native-grpc-overflow. Broader JSON/WKT/oneof/map/key-order/editor/stream/provider/platform and every retained gate remain open.
 
 Legacy Long whitespace correction passes34reference vectors/21Rust tests and six native signed/unsigned64 editor/chunk/sign/history/export cases. Full regression66groups/10profiles/76gRPCexports and fresh0override closure pass. See GRPC.md#current-native-grpc-long. Broader64bit coercion/JSON/WKT/oneof/map/key-order/editor/stream/provider/platform and every retained gate remain open.

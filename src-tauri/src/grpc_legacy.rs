@@ -11,13 +11,123 @@ use base64::{
 };
 use prost::Message;
 use prost_reflect::{
-    DynamicMessage, FieldDescriptor, Kind, MapKey, MessageDescriptor, ReflectMessage, Value,
+    DescriptorPool, DynamicMessage, FieldDescriptor, Kind, MapKey, MessageDescriptor,
+    ReflectMessage, Value,
 };
 use serde::{
     ser::{SerializeMap, SerializeSeq},
     Serialize, Serializer,
 };
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
+
+// protobuf.js retains all oneof members. Independent presence groups let prost
+// preserve both their values and explicit default values, without changing the
+// user schema or the standard ProtoJSON descriptor pool.
+pub(crate) fn legacy_pool(pool: &DescriptorPool) -> Result<DescriptorPool, String> {
+    if !pool
+        .all_messages()
+        .any(|message| message.oneofs().any(|group| group.fields().len() > 1))
+    {
+        return Ok(pool.clone());
+    }
+    fn split(message: &mut prost_types::DescriptorProto) {
+        let mut seen = HashSet::new();
+        let mut names: HashSet<String> = message
+            .oneof_decl
+            .iter()
+            .filter_map(|group| group.name.clone())
+            .chain(message.field.iter().filter_map(|field| field.name.clone()))
+            .chain(
+                message
+                    .nested_type
+                    .iter()
+                    .filter_map(|child| child.name.clone()),
+            )
+            .chain(
+                message
+                    .enum_type
+                    .iter()
+                    .filter_map(|child| child.name.clone()),
+            )
+            .collect();
+        names.extend(
+            message
+                .enum_type
+                .iter()
+                .flat_map(|kind| kind.value.iter())
+                .filter_map(|value| value.name.clone()),
+        );
+        names.extend(
+            message
+                .extension
+                .iter()
+                .filter_map(|field| field.name.clone()),
+        );
+        for field in &mut message.field {
+            let Some(index) = field.oneof_index else {
+                continue;
+            };
+            if !seen.insert(index) {
+                let mut name = format!("insomnium_legacy_{}", field.number.unwrap_or_default());
+                while !names.insert(name.clone()) {
+                    name.push('_');
+                }
+                let new_index = message.oneof_decl.len();
+                message.oneof_decl.push(prost_types::OneofDescriptorProto {
+                    name: Some(name),
+                    ..Default::default()
+                });
+                field.oneof_index = Some(new_index as i32);
+            }
+        }
+        // Synthetic optional groups must remain after real oneofs.
+        let synthetic: HashSet<usize> = message
+            .field
+            .iter()
+            .filter(|field| field.proto3_optional.unwrap_or_default())
+            .filter_map(|field| field.oneof_index.map(|index| index as usize))
+            .collect();
+        let order: Vec<usize> = (0..message.oneof_decl.len())
+            .filter(|index| !synthetic.contains(index))
+            .chain((0..message.oneof_decl.len()).filter(|index| synthetic.contains(index)))
+            .collect();
+        let mut remap = vec![0; order.len()];
+        for (new, old) in order.iter().enumerate() {
+            remap[*old] = new;
+        }
+        let original = std::mem::take(&mut message.oneof_decl);
+        message.oneof_decl = order.iter().map(|index| original[*index].clone()).collect();
+        for field in &mut message.field {
+            if let Some(index) = field.oneof_index {
+                field.oneof_index = Some(remap[index as usize] as i32);
+            }
+        }
+        for nested in &mut message.nested_type {
+            split(nested);
+        }
+    }
+    let mut files: Vec<_> = pool.file_descriptor_protos().cloned().collect();
+    for file in &mut files {
+        for message in &mut file.message_type {
+            split(message);
+        }
+    }
+    DescriptorPool::from_file_descriptor_set(prost_types::FileDescriptorSet { file: files })
+        .map_err(|error| format!("Could not prepare legacy gRPC descriptors: {error}"))
+}
+
+pub(crate) fn legacy_descriptor(desc: MessageDescriptor) -> Result<MessageDescriptor, String> {
+    legacy_pool(desc.parent_pool())?
+        .get_message_by_name(desc.full_name())
+        .ok_or_else(|| "Missing legacy message descriptor.".into())
+}
+
+fn oneof_name(field: &FieldDescriptor, original: &MessageDescriptor) -> Option<String> {
+    original
+        .get_field(field.number())?
+        .containing_oneof()
+        .map(|group| group.name().to_string())
+}
 
 // Only the legacy converter uses JavaScript Number semantics. RawValue validates
 // JSON syntax without rejecting numeric overflow before conversion to f64.
@@ -328,6 +438,7 @@ pub(crate) fn parse(desc: MessageDescriptor, text: &str) -> Result<DynamicMessag
         return Err("gRPC JSON message exceeds 20 MiB.".into());
     }
     let input = Json::parse(text, 0)?;
+    let desc = legacy_descriptor(desc)?;
     let message = from_object(desc, &input, 0)?;
     if message.encoded_len() > MAX_MESSAGE {
         return Err("gRPC message exceeds 20 MiB.".into());
@@ -489,7 +600,7 @@ fn scalar(field: &FieldDescriptor, input: &Json, depth: usize) -> Result<Option<
     }))
 }
 
-pub(crate) struct LegacyMessage<'a>(pub &'a DynamicMessage, pub usize);
+pub(crate) struct LegacyMessage<'a>(pub &'a DynamicMessage, pub usize, pub MessageDescriptor);
 impl Serialize for LegacyMessage<'_> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         if self.1 > 64 {
@@ -498,6 +609,17 @@ impl Serialize for LegacyMessage<'_> {
             ));
         }
         let mut out = serializer.serialize_map(None)?;
+        let mut selectors = HashMap::new();
+        for field in self
+            .0
+            .descriptor()
+            .fields()
+            .filter(|field| self.0.has_field(field))
+        {
+            if let Some(name) = oneof_name(&field, &self.2) {
+                selectors.insert(name, field_name(&field).to_string());
+            }
+        }
         for field in self.0.descriptor().fields() {
             let present = self.0.has_field(&field);
             if !present && field.containing_oneof().is_some() {
@@ -517,19 +639,26 @@ impl Serialize for LegacyMessage<'_> {
                 };
                 out.serialize_entry(
                     field_name(&field),
-                    &LegacyValue(&value, field.kind(), self.1 + 1),
+                    &LegacyValue(
+                        &value,
+                        field.kind(),
+                        self.1 + 1,
+                        self.2.get_field(field.number()).map(|field| field.kind()),
+                    ),
                 )?;
             }
             if present {
-                if let Some(oneof) = field.containing_oneof() {
-                    out.serialize_entry(oneof.name(), field_name(&field))?;
+                if let Some(name) = oneof_name(&field, &self.2) {
+                    if let Some(selected) = selectors.remove(&name) {
+                        out.serialize_entry(&name, &selected)?;
+                    }
                 }
             }
         }
         out.end()
     }
 }
-struct LegacyValue<'a>(&'a Value, Kind, usize);
+struct LegacyValue<'a>(&'a Value, Kind, usize, Option<Kind>);
 fn serialize_js_number<S: Serializer>(value: f64, serializer: S) -> Result<S::Ok, S::Error> {
     if !value.is_finite() {
         return serializer.serialize_none();
@@ -572,11 +701,17 @@ impl Serialize for LegacyValue<'_> {
                     s.serialize_i32(*v)
                 }
             }
-            Value::Message(v) => LegacyMessage(v, self.2).serialize(s),
+            Value::Message(v) => {
+                let original = match &self.3 {
+                    Some(Kind::Message(desc)) => desc.clone(),
+                    _ => v.descriptor(),
+                };
+                LegacyMessage(v, self.2, original).serialize(s)
+            }
             Value::List(values) => {
                 let mut seq = s.serialize_seq(Some(values.len()))?;
                 for v in values {
-                    seq.serialize_element(&LegacyValue(v, self.1.clone(), self.2))?;
+                    seq.serialize_element(&LegacyValue(v, self.1.clone(), self.2, self.3.clone()))?;
                 }
                 seq.end()
             }
@@ -604,7 +739,17 @@ impl Serialize for LegacyValue<'_> {
                     };
                     map.serialize_entry(
                         &key,
-                        &LegacyValue(value, entry.map_entry_value_field().kind(), self.2),
+                        &LegacyValue(
+                            value,
+                            entry.map_entry_value_field().kind(),
+                            self.2,
+                            match &self.3 {
+                                Some(Kind::Message(original)) => {
+                                    Some(original.map_entry_value_field().kind())
+                                }
+                                _ => None,
+                            },
+                        ),
                     )?;
                 }
                 map.end()
@@ -616,6 +761,246 @@ impl Serialize for LegacyValue<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn legacy_oneof_generated_names_avoid_enum_values_and_extensions() {
+        for extensions in [false, true] {
+            let mut files: Vec<_> = oneof_reference_pool()
+                .file_descriptor_protos()
+                .cloned()
+                .collect();
+            files[0].syntax = Some("proto2".into());
+            let choice = &mut files[0].message_type[0];
+            let names = ["insomnium_legacy_2", "insomnium_legacy_2_"];
+            if extensions {
+                choice
+                    .extension_range
+                    .push(prost_types::descriptor_proto::ExtensionRange {
+                        start: Some(100),
+                        end: Some(200),
+                        ..Default::default()
+                    });
+                choice.extension = names
+                    .iter()
+                    .enumerate()
+                    .map(|(index, name)| FieldDescriptorProto {
+                        name: Some((*name).into()),
+                        extendee: Some(".Choice".into()),
+                        number: Some(100 + index as i32),
+                        label: Some(1),
+                        r#type: Some(5),
+                        ..Default::default()
+                    })
+                    .collect();
+            } else {
+                choice.enum_type.push(prost_types::EnumDescriptorProto {
+                    name: Some("Collision".into()),
+                    value: names
+                        .iter()
+                        .enumerate()
+                        .map(|(index, name)| prost_types::EnumValueDescriptorProto {
+                            name: Some((*name).into()),
+                            number: Some(index as i32),
+                            ..Default::default()
+                        })
+                        .collect(),
+                    ..Default::default()
+                });
+            }
+            let pool = DescriptorPool::from_file_descriptor_set(FileDescriptorSet { file: files })
+                .unwrap();
+            let snapshot = pool.encode_to_vec();
+            let descriptor = pool.get_message_by_name("Choice").unwrap();
+            let parsed = parse(descriptor.clone(), r#"{"a":1,"b":"x"}"#).unwrap_or_else(|error| {
+                panic!("Valid schema refused, extensions={extensions}: {error}")
+            });
+            assert_eq!(parsed.encode_to_vec(), vec![8, 1, 18, 1, 120]);
+            assert_eq!(
+                serde_json::to_value(LegacyMessage(&parsed, 0, descriptor)).unwrap(),
+                serde_json::json!({"a":1,"b":"x","pick":"b"})
+            );
+            assert_eq!(pool.encode_to_vec(), snapshot);
+        }
+    }
+
+    fn oneof_reference_pool() -> DescriptorPool {
+        prost_reflect::DescriptorPool::from_file_descriptor_set(prost_types::FileDescriptorSet {
+            file: vec![prost_types::FileDescriptorProto {
+                name: Some("oneof_reference.proto".into()),
+                syntax: Some("proto3".into()),
+                message_type: vec![prost_types::DescriptorProto {
+                    name: Some("Choice".into()),
+                    oneof_decl: vec![prost_types::OneofDescriptorProto {
+                        name: Some("pick".into()),
+                        ..Default::default()
+                    }],
+                    field: [("a", 1, 5), ("b", 2, 9)]
+                        .into_iter()
+                        .map(|(name, number, kind)| prost_types::FieldDescriptorProto {
+                            name: Some(name.into()),
+                            number: Some(number),
+                            label: Some(1),
+                            r#type: Some(kind),
+                            oneof_index: Some(0),
+                            ..Default::default()
+                        })
+                        .collect(),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            }],
+        })
+        .unwrap()
+    }
+
+    #[test]
+    fn legacy_oneof_preserves_conflicting_members_reference() {
+        let pool = oneof_reference_pool();
+        let descriptor = pool.get_message_by_name("Choice").unwrap();
+        // Independent protobuf.js 7.2.4 reference: both members remain present,
+        // including explicit defaults. A last-member-wins workaround loses wire data.
+        for (input, expected_wire, expected_json) in [
+            (
+                r#"{"a":1,"b":"x"}"#,
+                vec![8, 1, 18, 1, 120],
+                serde_json::json!({"a":1,"b":"x","pick":"b"}),
+            ),
+            (
+                r#"{"b":"x","a":1}"#,
+                vec![8, 1, 18, 1, 120],
+                serde_json::json!({"a":1,"b":"x","pick":"b"}),
+            ),
+            (
+                r#"{"a":0,"b":""}"#,
+                vec![8, 0, 18, 0],
+                serde_json::json!({"a":0,"b":"","pick":"b"}),
+            ),
+        ] {
+            let message = parse(descriptor.clone(), input)
+                .unwrap_or_else(|error| panic!("Legacy reference input {input} refused: {error}"));
+            assert_eq!(message.encode_to_vec(), expected_wire, "{input}");
+            let output =
+                serde_json::to_value(LegacyMessage(&message, 0, descriptor.clone())).unwrap();
+            assert_eq!(output, expected_json, "{input}");
+        }
+    }
+
+    #[test]
+    fn legacy_oneof_decode_order_optional_presence_and_protojson_isolation() {
+        for reverse_declaration in [false, true] {
+            let mut files: Vec<_> = oneof_reference_pool()
+                .file_descriptor_protos()
+                .cloned()
+                .collect();
+            let choice = &mut files[0].message_type[0];
+            if reverse_declaration {
+                choice.field.reverse();
+            }
+            choice.oneof_decl.push(prost_types::OneofDescriptorProto {
+                name: Some("_c".into()),
+                ..Default::default()
+            });
+            choice.field.push(FieldDescriptorProto {
+                name: Some("c".into()),
+                number: Some(3),
+                label: Some(1),
+                r#type: Some(5),
+                proto3_optional: Some(true),
+                oneof_index: Some(1),
+                ..Default::default()
+            });
+            let pool = DescriptorPool::from_file_descriptor_set(FileDescriptorSet { file: files })
+                .unwrap();
+            let original_bytes = pool.encode_to_vec();
+            let original = pool.get_message_by_name("Choice").unwrap();
+            let adapted = legacy_descriptor(original.clone()).unwrap();
+            assert_eq!(
+                legacy_pool(adapted.parent_pool()).unwrap().encode_to_vec(),
+                adapted.parent_pool().encode_to_vec()
+            );
+            for wire in [vec![8, 1, 18, 1, 120], vec![18, 1, 120, 8, 1]] {
+                let message = DynamicMessage::decode(adapted.clone(), wire.as_slice()).unwrap();
+                let json =
+                    serde_json::to_string(&LegacyMessage(&message, 0, original.clone())).unwrap();
+                assert_eq!(json, r#"{"a":1,"pick":"b","b":"x"}"#);
+                assert_eq!(json.matches("\"pick\"").count(), 1);
+                let standard = DynamicMessage::decode(original.clone(), wire.as_slice()).unwrap();
+                assert_eq!(standard.has_field_by_name("a"), wire[0] == 18);
+                assert_eq!(standard.has_field_by_name("b"), wire[0] == 8);
+            }
+            let explicit = parse(original.clone(), r#"{"a":0,"b":"","c":0}"#).unwrap();
+            assert_eq!(explicit.encode_to_vec(), vec![8, 0, 18, 0, 24, 0]);
+            assert!(crate::grpc_schema::parse(original.clone(), r#"{"a":1,"b":"x"}"#).is_err());
+            assert_eq!(
+                pool.encode_to_vec(),
+                original_bytes,
+                "Original schema mutated"
+            );
+        }
+    }
+
+    #[test]
+    fn legacy_oneof_nested_list_and_map_reference() {
+        let mut pool = oneof_reference_pool();
+        let field =
+            |name: &str, number, kind, type_name: Option<&str>, repeated| FieldDescriptorProto {
+                name: Some(name.into()),
+                number: Some(number),
+                label: Some(if repeated { 3 } else { 1 }),
+                r#type: Some(kind),
+                type_name: type_name.map(str::to_owned),
+                ..Default::default()
+            };
+        pool.add_file_descriptor_proto(FileDescriptorProto {
+            name: Some("oneof_container.proto".into()),
+            syntax: Some("proto3".into()),
+            dependency: vec!["oneof_reference.proto".into()],
+            message_type: vec![DescriptorProto {
+                name: Some("Container".into()),
+                field: vec![
+                    field("children", 1, 11, Some(".Choice"), true),
+                    field("entries", 2, 11, Some(".Container.Entry"), true),
+                ],
+                nested_type: vec![DescriptorProto {
+                    name: Some("Entry".into()),
+                    field: vec![
+                        field("key", 1, 9, None, false),
+                        field("value", 2, 11, Some(".Choice"), false),
+                    ],
+                    options: Some(prost_types::MessageOptions {
+                        map_entry: Some(true),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            }],
+            ..Default::default()
+        })
+        .unwrap();
+        let original = pool.get_message_by_name("Container").unwrap();
+        let input = r#"{"children":[{"a":1,"b":"x"}],"entries":{"owned":{"a":1,"b":"x"}}}"#;
+        let expected = serde_json::json!({"children":[{"a":1,"b":"x","pick":"b"}],"entries":{"owned":{"a":1,"b":"x","pick":"b"}}});
+        let message = parse(original.clone(), input).unwrap();
+        let wire = vec![
+            10, 5, 8, 1, 18, 1, 120, 18, 14, 10, 5, 111, 119, 110, 101, 100, 18, 5, 8, 1, 18, 1,
+            120,
+        ];
+        assert_eq!(message.encode_to_vec(), wire);
+        assert_eq!(
+            serde_json::to_value(LegacyMessage(&message, 0, original.clone())).unwrap(),
+            expected
+        );
+        let decoded = DynamicMessage::decode(
+            legacy_descriptor(original.clone()).unwrap(),
+            wire.as_slice(),
+        )
+        .unwrap();
+        assert_eq!(
+            serde_json::to_value(LegacyMessage(&decoded, 0, original)).unwrap(),
+            expected
+        );
+    }
     use prost_reflect::DescriptorPool;
     use prost_types::{
         DescriptorProto, FieldDescriptorProto, FileDescriptorProto, FileDescriptorSet,
@@ -780,12 +1165,13 @@ mod tests {
         ];
         for (number, expected) in cases {
             let value = Value::F64(number);
-            let actual = serde_json::to_string(&LegacyValue(&value, Kind::Double, 0)).unwrap();
+            let actual =
+                serde_json::to_string(&LegacyValue(&value, Kind::Double, 0, None)).unwrap();
             assert_eq!(actual, expected, "Legacy JSON number {number:?}");
         }
         let value = Value::F32(0.1);
         assert_eq!(
-            serde_json::to_string(&LegacyValue(&value, Kind::Float, 0)).unwrap(),
+            serde_json::to_string(&LegacyValue(&value, Kind::Float, 0, None)).unwrap(),
             "0.10000000149011612"
         );
     }

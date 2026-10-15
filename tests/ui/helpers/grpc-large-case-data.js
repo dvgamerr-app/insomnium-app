@@ -1,5 +1,11 @@
 /** Authored native case inputs and independent protobuf/preview expectations. */
 export const grpcLargeModes = [
+  "legacy-oneof-both",
+  "legacy-oneof-reverse-input",
+  "legacy-oneof-defaults",
+  "legacy-oneof-list",
+  "legacy-oneof-map",
+  "legacy-oneof-reverse-wire",
   "legacy",
   "protoJson",
   "legacy-response",
@@ -40,7 +46,7 @@ export const grpcLargeModes = [
   "legacy-overflow-underflow-negative",
 ];
 export const grpcLargeProto =
-  'syntax="proto3"; package ownedlarge; message Input { string value=1; } message Compact { repeated int32 values=1; } message Precision { int64 exact_value=1; bytes bytes_value=2; } message Numeric { optional int32 value=1; double real=2; } message Wide { optional int64 signed_value=1; optional uint64 unsigned_value=2; } message Overflow { optional double real=1; optional int32 integer=2; optional int64 wide=3; string text=4; } service Upload { rpc Stream(stream Input) returns(stream Input); rpc Echo(Input) returns(Input); rpc Expand(Compact) returns(Compact); rpc PrecisionEcho(Precision) returns(Precision); rpc NumericEcho(Numeric) returns(Numeric); rpc WideEcho(Wide) returns(Wide); rpc OverflowEcho(Overflow) returns(Overflow); }';
+  'syntax="proto3"; package ownedlarge; message Input { string value=1; } message Compact { repeated int32 values=1; } message Precision { int64 exact_value=1; bytes bytes_value=2; } message Numeric { optional int32 value=1; double real=2; } message Wide { optional int64 signed_value=1; optional uint64 unsigned_value=2; } message Overflow { optional double real=1; optional int32 integer=2; optional int64 wide=3; string text=4; } message Choice { oneof pick { int32 a=1; string b=2; } enum Collision { insomnium_legacy_2=0; insomnium_legacy_2_=1; } repeated Choice children=3; map<string,Choice> entries=4; } service Upload { rpc ChoiceEcho(Choice) returns(Choice); rpc Stream(stream Input) returns(stream Input); rpc Echo(Input) returns(Input); rpc Expand(Compact) returns(Compact); rpc PrecisionEcho(Precision) returns(Precision); rpc NumericEcho(Numeric) returns(Numeric); rpc WideEcho(Wide) returns(Wide); rpc OverflowEcho(Overflow) returns(Overflow); }';
 /** Independent small-message wire and lexical editor expectations.
  * @param {string} mode */
 function jsonEditorCase(mode) {
@@ -92,6 +98,56 @@ function varint(value) {
 export function grpcLargeCase(mode) {
   if (!grpcLargeModes.includes(mode))
     throw new Error("Unknown authored gRPC case");
+  if (mode.includes("-oneof-")) {
+    const child = { a: 1, pick: "b", b: "x", children: [], entries: {} };
+    /** @type {Record<string, [Record<string, unknown>, string, Record<string, unknown>]>} */
+    const cases = {
+      "legacy-oneof-both": [{ a: 1, b: "x" }, "0801120178", child],
+      "legacy-oneof-reverse-input": [{ b: "x", a: 1 }, "0801120178", child],
+      "legacy-oneof-defaults": [
+        { a: 0, b: "" },
+        "08001200",
+        { a: 0, pick: "b", b: "", children: [], entries: {} },
+      ],
+      "legacy-oneof-list": [
+        { children: [{ a: 1, b: "x" }] },
+        "1a050801120178",
+        { children: [child], entries: {} },
+      ],
+      "legacy-oneof-map": [
+        { entries: { owned: { a: 1, b: "x" } } },
+        "220e0a056f776e656412050801120178",
+        { children: [], entries: { owned: child } },
+      ],
+      "legacy-oneof-reverse-wire": [{ a: 1, b: "x" }, "0801120178", child],
+    };
+    const tuple = cases[mode];
+    if (!tuple) throw new Error("Unknown oneof case");
+    const [input, hex, response] = tuple;
+    const frame = (/** @type {string} */ value) => {
+      const payload = Buffer.from(value, "hex"),
+        prefix = Buffer.alloc(5);
+      prefix.writeUInt32BE(payload.length, 1);
+      return Buffer.concat([prefix, payload]);
+    };
+    return {
+      mode,
+      jsonMode: "legacy",
+      unary: true,
+      receives: true,
+      body: JSON.stringify(input),
+      formattedBody: JSON.stringify(input, null, 2),
+      responseText: JSON.stringify(response),
+      preview: JSON.stringify(response, null, 2),
+      wire: frame(String(hex)),
+      responseWire: frame(
+        mode.endsWith("reverse-wire") ? "1201780801" : String(hex),
+      ),
+      method: "/ownedlarge.Upload/ChoiceEcho",
+      editor: true,
+      showNotice: false,
+    };
+  }
   if (mode.includes("-overflow-")) {
     const tuple = {
       "legacy-overflow-positive-400": [
