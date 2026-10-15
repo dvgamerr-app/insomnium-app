@@ -4,6 +4,10 @@ Updated 2026-10-15. Full migration is incomplete. Every acceptance column below 
 
 Current receipts: Windows environment6349100/follow-up eae4ac2 (29checks/Name6/JSON12/inheritance5/foreign4+held1,12 retired sockets and exact fixed-profile restoration), current HTTP/CRUD regressions on the same candidate, Windows ResourceManager original6 +24 field refusals/6 corrections +collection lifecycle6 with14 private exclusions/15 references and complete original profile restoration (2870f40), namespace original native20+88 and current Windows original operator source/package/kernel-process audit (787cce7; full protected/Git/history/layout restoration and separate release), cURL mixed/file and GET/file6+6, plugin ESM26/events10/metadata9+restart/guarded clipboard pass. Original Windows XML18, gRPC, Proto36 and Open4/TLS59 receipts are accepted within their stated scope. Broader workflow/provider/platform/legal/distribution requirements, including universal loader/linkage/all-birth/OS-close/physical-width/AT claims, remain open.
 
+## Latest bounded stream milestone
+
+WebSocket NDJSON activation is implemented and bounded-verified at 869ad32: reviewed native event/timeline reads, exact portable bytes, history/selection/reload/export/reimport and shared activation budgets. See [canonical evidence](IMPORT-EXPORT.md#current-legacy-websocket-ndjson-activation). The WebSocket/Import rows remain PARTIAL for broader runtime, legacy variants, provider and platform acceptance; no requirement is removed.
+
 ## Required acceptance matrix
 
 | Area | Legacy evidence | Status | Acceptance |

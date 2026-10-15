@@ -4,10 +4,6 @@ Updated 2026-10-15. Desktop paste/review/apply is implemented. Legacy HTTP respo
 
 See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity requirements](PARITY.md). No original scope was removed by consolidation.
 
-## Current legacy response assets and history work
-
-WebSocket NDJSON activation is now separately bounded-verified below. The ordinary HTTP receipts in this section remain scoped to their recorded source versions.
-
 ## Current legacy WebSocket NDJSON activation
 
 Legacy `WebSocketResponse` event and timeline files are raw UTF-8 NDJSON, as produced by `_backup/legacy-electron/packages/insomnia/src/main/network/websocket.ts`. The existing reviewed folder loader now handles both HTTP and WebSocket assets. The native command still requires the main window, an existing picker-granted scope, ordinary confined files and opened-handle identity checks; it grants no new filesystem access. `eventLogPath` explicitly selects the NDJSON adapter. An explicit empty path supports saved handshake failures; missing/invalid paths are not silently invented.
@@ -26,7 +22,7 @@ After final native closure, only migration documentation is updated to record ac
 
 Official references consulted before implementation: [Tauri filesystem/scopes](https://v2.tauri.app/plugin/file-system/), [Serde JSON conventions](https://serde.rs/json.html), [serde_json from_slice](https://docs.rs/serde_json/latest/serde_json/fn.from_slice.html). Existing subsystem extension; no dependency, generator, provider or application identity change.
 
-## Ordinary HTTP response evidence
+## Current legacy response assets and history work
 
 Implemented at4bc799d with saved scenarios at4818d7a. The feature preserves legacy response resources/provenance while projecting supported ordinary HTTP responses into saved history. Review explicitly selects the original data folder for bounded read-only body/timeline access, reports asset diagnostics and projects request/environment quotas plus the global 40 MiB serialized-history budget before Apply. Existing history remains intact, excluded imported responses remain resources, and Apply rechecks reviewed state. Portable export records the current selected imported response, with exact binary base64 and decoded-byte SHA256 checks.
 

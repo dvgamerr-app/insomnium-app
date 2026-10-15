@@ -58,11 +58,7 @@ JavaScript tooling ทุกคำสั่งใช้ Bun ไม่มี Node
 
 Source เดิมทั้งหมดอยู่ที่ `_backup/legacy-electron/` และถูก gitignore แล้ว เก็บไว้สำหรับอ้างอิง/rollback อย่าใช้ `git clean -dfX` เพราะจะลบ backup
 
-ตรวจความครบของ backup ได้ด้วย:
-
-```powershell
-bun docs/migration/archive.mjs verify
-```
+รายการไฟล์และ SHA-256 เดิมเก็บใน `docs/migration/archive-manifest.json` สำหรับเทียบกับ backup สคริปต์ archive แบบใช้ครั้งเดียวถูกถอดแล้ว เพราะผูกกับพาธ workspace เก่า
 
 ฐานข้อมูลผู้ใช้เดิมนอก repo ไม่ถูกย้ายหรือแก้ไข ถ้าจะย้ายข้อมูล ให้ปิดแอปเดิมแล้วเลือก `insomnia.*.db` หลายไฟล์พร้อมกันใน Import หรือแปลงเป็น export ด้วย Bun:
 

@@ -1,3 +1,5 @@
+<!-- Historical command log: archive.mjs was retired on 2026-10-15; the commands below are historical, not current instructions. Preserve archive-manifest.json and the legacy backup. -->
+
 # Original 26 root entries moved with checked absolute PowerShell paths.
 
 bun docs/migration/archive.mjs verify
