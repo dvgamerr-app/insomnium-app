@@ -1,5 +1,13 @@
 /** Authored native case inputs and independent protobuf/preview expectations. */
 export const grpcLargeModes = [
+  "legacy-order-defaults",
+  "legacy-order-full",
+  "legacy-order-normal",
+  "legacy-order-default-oneof",
+  "legacy-order-child",
+  "legacy-order-nested",
+  "legacy-order-map-first-defaults",
+  "legacy-order-map-first-full",
   "legacy-oneof-both",
   "legacy-oneof-reverse-input",
   "legacy-oneof-defaults",
@@ -46,7 +54,7 @@ export const grpcLargeModes = [
   "legacy-overflow-underflow-negative",
 ];
 export const grpcLargeProto =
-  'syntax="proto3"; package ownedlarge; message Input { string value=1; } message Compact { repeated int32 values=1; } message Precision { int64 exact_value=1; bytes bytes_value=2; } message Numeric { optional int32 value=1; double real=2; } message Wide { optional int64 signed_value=1; optional uint64 unsigned_value=2; } message Overflow { optional double real=1; optional int32 integer=2; optional int64 wide=3; string text=4; } message Choice { oneof pick { int32 a=1; string b=2; } enum Collision { insomnium_legacy_2=0; insomnium_legacy_2_=1; } repeated Choice children=3; map<string,Choice> entries=4; } service Upload { rpc ChoiceEcho(Choice) returns(Choice); rpc Stream(stream Input) returns(stream Input); rpc Echo(Input) returns(Input); rpc Expand(Compact) returns(Compact); rpc PrecisionEcho(Precision) returns(Precision); rpc NumericEcho(Numeric) returns(Numeric); rpc WideEcho(Wide) returns(Wide); rpc OverflowEcho(Overflow) returns(Overflow); }';
+  'syntax="proto3"; package ownedlarge; message Input { string value=1; } message Compact { repeated int32 values=1; } message Precision { int64 exact_value=1; bytes bytes_value=2; } message Numeric { optional int32 value=1; double real=2; } message Wide { optional int64 signed_value=1; optional uint64 unsigned_value=2; } message Overflow { optional double real=1; optional int32 integer=2; optional int64 wide=3; string text=4; } message Choice { oneof pick { int32 a=1; string b=2; } enum Collision { insomnium_legacy_2=0; insomnium_legacy_2_=1; } repeated Choice children=3; map<string,Choice> entries=4; } message Inner { string value=1; } message Order { bool flag=7; string scalar=1; oneof pick { string b=5; int32 a=4; } Inner child=6; map<string,string> labels=3; repeated int32 list=2; } message Envelope { int32 count=1; repeated Order items=2; map<string,Order> groups=3; } message MapFirst { repeated string tail=4; map<string,string> labels=1; bool flag=3; repeated int32 list=2; map<string,int32> counts=5; } service Upload { rpc OrderEcho(Order) returns(Order); rpc EnvelopeEcho(Envelope) returns(Envelope); rpc MapFirstEcho(MapFirst) returns(MapFirst); rpc ChoiceEcho(Choice) returns(Choice); rpc Stream(stream Input) returns(stream Input); rpc Echo(Input) returns(Input); rpc Expand(Compact) returns(Compact); rpc PrecisionEcho(Precision) returns(Precision); rpc NumericEcho(Numeric) returns(Numeric); rpc WideEcho(Wide) returns(Wide); rpc OverflowEcho(Overflow) returns(Overflow); }';
 /** Independent small-message wire and lexical editor expectations.
  * @param {string} mode */
 function jsonEditorCase(mode) {
@@ -98,8 +106,84 @@ function varint(value) {
 export function grpcLargeCase(mode) {
   if (!grpcLargeModes.includes(mode))
     throw new Error("Unknown authored gRPC case");
+
+  if (mode.includes("-order-")) {
+    // Literal response strings and wire bytes pinned independently from protobuf.js7.2.4.
+    /** @type {Record<string, [string, string, string, string]>} */
+    const cases = {
+      "legacy-order-defaults": [
+        "Order",
+        "{}",
+        "",
+        '{"list":[],"labels":{},"scalar":"","child":null,"flag":false}',
+      ],
+      "legacy-order-full": [
+        "Order",
+        '{"a":1,"b":"x","scalar":"s","list":[2],"labels":{"owned":"v"},"child":{"value":"c"},"flag":true}',
+        "0a01731201021a0a0a056f776e656412017620012a017832030a01633801",
+        '{"list":[2],"labels":{"owned":"v"},"scalar":"s","child":{"value":"c"},"flag":true,"a":1,"pick":"b","b":"x"}',
+      ],
+      "legacy-order-normal": [
+        "Order",
+        '{"scalar":"s","flag":true}',
+        "0a01733801",
+        '{"list":[],"labels":{},"scalar":"s","child":null,"flag":true}',
+      ],
+      "legacy-order-default-oneof": [
+        "Order",
+        '{"a":0,"b":""}',
+        "20002a00",
+        '{"list":[],"labels":{},"scalar":"","child":null,"flag":false,"a":0,"pick":"b","b":""}',
+      ],
+      "legacy-order-child": [
+        "Order",
+        '{"child":{}}',
+        "3200",
+        '{"list":[],"labels":{},"scalar":"","child":{"value":""},"flag":false}',
+      ],
+      "legacy-order-nested": [
+        "Envelope",
+        '{"count":1,"items":[{"a":1,"b":"x","scalar":"s","list":[2],"labels":{"owned":"v"},"child":{"value":"c"},"flag":true}],"groups":{"owned":{"a":1,"b":"x","scalar":"s","list":[2],"labels":{"owned":"v"},"child":{"value":"c"},"flag":true}}}',
+        "0801121e0a01731201021a0a0a056f776e656412017620012a017832030a016338011a270a056f776e6564121e0a01731201021a0a0a056f776e656412017620012a017832030a01633801",
+        '{"items":[{"list":[2],"labels":{"owned":"v"},"scalar":"s","child":{"value":"c"},"flag":true,"a":1,"pick":"b","b":"x"}],"groups":{"owned":{"list":[2],"labels":{"owned":"v"},"scalar":"s","child":{"value":"c"},"flag":true,"a":1,"pick":"b","b":"x"}},"count":1}',
+      ],
+      "legacy-order-map-first-defaults": [
+        "MapFirst",
+        "{}",
+        "",
+        '{"list":[],"tail":[],"labels":{},"counts":{},"flag":false}',
+      ],
+      "legacy-order-map-first-full": [
+        "MapFirst",
+        '{"labels":{"owned":"v"},"list":[2],"flag":true,"tail":["t"],"counts":{"owned":1}}',
+        "0a0a0a056f776e656412017612010218012201742a090a056f776e65641001",
+        '{"list":[2],"tail":["t"],"labels":{"owned":"v"},"counts":{"owned":1},"flag":true}',
+      ],
+    };
+    const tuple = cases[mode];
+    if (!tuple) throw new Error("Unknown message-order case");
+    const [type, body, hex, responseText] = tuple;
+    const payload = Buffer.from(hex, "hex"),
+      prefix = Buffer.alloc(5);
+    prefix.writeUInt32BE(payload.length, 1);
+    return {
+      mode,
+      jsonMode: "legacy",
+      unary: true,
+      receives: true,
+      body,
+      formattedBody: JSON.stringify(JSON.parse(body), null, 2),
+      responseText,
+      preview: JSON.stringify(JSON.parse(responseText), null, 2),
+      wire: Buffer.concat([prefix, payload]),
+      method: "/ownedlarge.Upload/" + type + "Echo",
+      editor: true,
+      showNotice: false,
+    };
+  }
+
   if (mode.includes("-oneof-")) {
-    const child = { a: 1, pick: "b", b: "x", children: [], entries: {} };
+    const child = { children: [], entries: {}, a: 1, pick: "b", b: "x" };
     /** @type {Record<string, [Record<string, unknown>, string, Record<string, unknown>]>} */
     const cases = {
       "legacy-oneof-both": [{ a: 1, b: "x" }, "0801120178", child],
@@ -107,7 +191,7 @@ export function grpcLargeCase(mode) {
       "legacy-oneof-defaults": [
         { a: 0, b: "" },
         "08001200",
-        { a: 0, pick: "b", b: "", children: [], entries: {} },
+        { children: [], entries: {}, a: 0, pick: "b", b: "" },
       ],
       "legacy-oneof-list": [
         { children: [{ a: 1, b: "x" }] },
@@ -210,13 +294,13 @@ export function grpcLargeCase(mode) {
     if (!tuple) throw new Error("Unknown overflow case");
     const [literal, real, wide, text, hex] = tuple;
     const response = {
+      text,
       real,
       _real: "real",
       integer: 0,
       _integer: "integer",
       wide,
       _wide: "wide",
-      text,
     };
     const body = `{"real":${literal},"integer":${literal},"wide":${literal},"text":${literal}}`;
     const formattedBody = `{\n  "real": ${literal},\n  "integer": ${literal},\n  "wide": ${literal},\n  "text": ${literal}\n}`;
@@ -302,9 +386,9 @@ export function grpcLargeCase(mode) {
       real: character + "1" + character,
     };
     const response = {
+      real: finite ? 1 : null,
       value: finite ? 1 : 0,
       _value: "value",
-      real: finite ? 1 : null,
     };
     return {
       mode,

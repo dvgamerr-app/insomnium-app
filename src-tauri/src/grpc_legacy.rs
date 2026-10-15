@@ -620,7 +620,26 @@ impl Serialize for LegacyMessage<'_> {
                 selectors.insert(name, field_name(&field).to_string());
             }
         }
-        for field in self.0.descriptor().fields() {
+        // protobuf.js initializes repeated, map and ordinary defaults first.
+        // Present oneof members are appended later; overwriting an initialized
+        // field does not change its JavaScript property position. Four stable
+        // descriptor passes preserve field-number order without copying values.
+        let descriptor = self.0.descriptor();
+        let ordered = (0..4).flat_map(|group| {
+            descriptor.fields().filter(move |field| {
+                let rank = if field.containing_oneof().is_some() {
+                    3
+                } else if field.is_map() {
+                    1
+                } else if field.is_list() {
+                    0
+                } else {
+                    2
+                };
+                rank == group
+            })
+        });
+        for field in ordered {
             let present = self.0.has_field(&field);
             if !present && field.containing_oneof().is_some() {
                 continue;
@@ -761,6 +780,95 @@ impl Serialize for LegacyValue<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn legacy_message_output_order_matches_protobufjs() {
+        let pool = crate::grpc_schema::compile(crate::grpc_schema::ProtoInput {
+            entry: "message_order.proto".into(),
+            files: vec![crate::grpc_schema::ProtoFile {
+                name: "message_order.proto".into(),
+                text: r##"syntax="proto3"; message Inner { string value=1; } message Order { bool flag=7; string scalar=1; oneof pick { string b=5; int32 a=4; } Inner child=6; map<string,string> labels=3; repeated int32 list=2; } message Envelope { int32 count=1; repeated Order items=2; map<string,Order> groups=3; } message MapFirst { repeated string tail=4; map<string,string> labels=1; bool flag=3; repeated int32 list=2; map<string,int32> counts=5; }"##.into(),
+            }],
+            include_paths: Vec::new(),
+        }).unwrap();
+        // Literal JSON and wire from protobuf.js7.2.4, not from this serializer.
+        for (name, input, expected, wire) in [
+            (
+                "Order",
+                r##"{}"##,
+                r##"{"list":[],"labels":{},"scalar":"","child":null,"flag":false}"##,
+                vec![],
+            ),
+            (
+                "Order",
+                r##"{"a":1,"b":"x","scalar":"s","list":[2],"labels":{"owned":"v"},"child":{"value":"c"},"flag":true}"##,
+                r##"{"list":[2],"labels":{"owned":"v"},"scalar":"s","child":{"value":"c"},"flag":true,"a":1,"pick":"b","b":"x"}"##,
+                vec![
+                    0x0a, 0x01, 0x73, 0x12, 0x01, 0x02, 0x1a, 0x0a, 0x0a, 0x05, 0x6f, 0x77, 0x6e,
+                    0x65, 0x64, 0x12, 0x01, 0x76, 0x20, 0x01, 0x2a, 0x01, 0x78, 0x32, 0x03, 0x0a,
+                    0x01, 0x63, 0x38, 0x01,
+                ],
+            ),
+            (
+                "Order",
+                r##"{"scalar":"s","flag":true}"##,
+                r##"{"list":[],"labels":{},"scalar":"s","child":null,"flag":true}"##,
+                vec![0x0a, 0x01, 0x73, 0x38, 0x01],
+            ),
+            (
+                "Order",
+                r##"{"a":0,"b":""}"##,
+                r##"{"list":[],"labels":{},"scalar":"","child":null,"flag":false,"a":0,"pick":"b","b":""}"##,
+                vec![0x20, 0x00, 0x2a, 0x00],
+            ),
+            (
+                "Order",
+                r##"{"child":{}}"##,
+                r##"{"list":[],"labels":{},"scalar":"","child":{"value":""},"flag":false}"##,
+                vec![0x32, 0x00],
+            ),
+            (
+                "Envelope",
+                r##"{"count":1,"items":[{"a":1,"b":"x","scalar":"s","list":[2],"labels":{"owned":"v"},"child":{"value":"c"},"flag":true}],"groups":{"owned":{"a":1,"b":"x","scalar":"s","list":[2],"labels":{"owned":"v"},"child":{"value":"c"},"flag":true}}}"##,
+                r##"{"items":[{"list":[2],"labels":{"owned":"v"},"scalar":"s","child":{"value":"c"},"flag":true,"a":1,"pick":"b","b":"x"}],"groups":{"owned":{"list":[2],"labels":{"owned":"v"},"scalar":"s","child":{"value":"c"},"flag":true,"a":1,"pick":"b","b":"x"}},"count":1}"##,
+                vec![
+                    0x08, 0x01, 0x12, 0x1e, 0x0a, 0x01, 0x73, 0x12, 0x01, 0x02, 0x1a, 0x0a, 0x0a,
+                    0x05, 0x6f, 0x77, 0x6e, 0x65, 0x64, 0x12, 0x01, 0x76, 0x20, 0x01, 0x2a, 0x01,
+                    0x78, 0x32, 0x03, 0x0a, 0x01, 0x63, 0x38, 0x01, 0x1a, 0x27, 0x0a, 0x05, 0x6f,
+                    0x77, 0x6e, 0x65, 0x64, 0x12, 0x1e, 0x0a, 0x01, 0x73, 0x12, 0x01, 0x02, 0x1a,
+                    0x0a, 0x0a, 0x05, 0x6f, 0x77, 0x6e, 0x65, 0x64, 0x12, 0x01, 0x76, 0x20, 0x01,
+                    0x2a, 0x01, 0x78, 0x32, 0x03, 0x0a, 0x01, 0x63, 0x38, 0x01,
+                ],
+            ),
+            (
+                "MapFirst",
+                r##"{}"##,
+                r##"{"list":[],"tail":[],"labels":{},"counts":{},"flag":false}"##,
+                vec![],
+            ),
+            (
+                "MapFirst",
+                r##"{"labels":{"owned":"v"},"list":[2],"flag":true,"tail":["t"],"counts":{"owned":1}}"##,
+                r##"{"list":[2],"tail":["t"],"labels":{"owned":"v"},"counts":{"owned":1},"flag":true}"##,
+                vec![
+                    0x0a, 0x0a, 0x0a, 0x05, 0x6f, 0x77, 0x6e, 0x65, 0x64, 0x12, 0x01, 0x76, 0x12,
+                    0x01, 0x02, 0x18, 0x01, 0x22, 0x01, 0x74, 0x2a, 0x09, 0x0a, 0x05, 0x6f, 0x77,
+                    0x6e, 0x65, 0x64, 0x10, 0x01,
+                ],
+            ),
+        ] {
+            let descriptor = pool.get_message_by_name(name).unwrap();
+            let message = parse(descriptor.clone(), input).unwrap();
+            assert_eq!(message.encode_to_vec(), wire, "Wire {name}: {input}");
+            let actual = crate::grpc_schema::json_mode(
+                &message,
+                crate::grpc_schema::JsonMode::Legacy,
+                descriptor,
+            )
+            .unwrap();
+            assert_eq!(actual, expected, "Ordered JSON {name}: {input}");
+        }
+    }
 
     #[test]
     fn legacy_oneof_generated_names_avoid_enum_values_and_extensions() {

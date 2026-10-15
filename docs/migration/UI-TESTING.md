@@ -4,6 +4,10 @@ Updated 2026-10-14. Use saved Bun Playwright scenarios only. Shared launchUiBrow
 
 See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity requirements](PARITY.md). No original scope was removed by consolidation.
 
+## Current gRPC message-field order verification
+
+Saved [grpc-message-order-native.js](../../tests/ui/grpc-message-order-native.js) requires INSOMNIUM_GRPC_MESSAGE_ORDER_NATIVE=1 and audited build/profile ownership. Eight Windows native-hidden cases pass default/full/normal/child/default-oneof/nested messages plus crossed list/map field-number categories, exact wire/ordered JSON, real editor/Format/mode flip and complete history/reload/export/deletion. Expected strings/frames are pinned directly;18existing oneof/numeric/overflow strings use corrected independent order, with exact-string assertions retained. Full13scenarios/88groups/120gRPCexports/exact13profiles and original0override closure pass. [Scope/evidence](GRPC.md#current-native-grpc-message-order). Map entry-key ordering, lone surrogates and broader JSON/provider/platform remain open.
+
 ## Current gRPC oneof and fixture identity verification
 
 Saved [grpc-oneof-native.js](../../tests/ui/grpc-oneof-native.js) selects six oneofOnly cases with INSOMNIUM_GRPC_ONEOF_NATIVE=1 and audited build/profile ownership. Corrected-source Windows native-hidden acceptance now passes real editor/Format/mode flip, explicit defaults, nested list/map, reversed input/response wire, colliding enum names and complete history/reload/export/deletion. Full80groups/12scenarios/104gRPCexports/exact12profiles and original0override closure pass; [GRPC scope and evidence](GRPC.md#current-native-grpc-oneof). Broader JSON property-order/provider/platform gates remain open.
