@@ -3,6 +3,9 @@
 Updated 2026-10-15. Full migration is **incomplete**. Latest verified scenario/source commit:5fbb75a; prior certificate scenario:9180ac4; portable certificate implementation:ddea70f; prior request-file implementation/scenario:11e9b96/08ab0b3. Branch:feat/ui-design-system-settings-curl. Verified agent work is committed in the shared repo. Retired directories/custom .git backups remain absent; legacy backup and node_modules are preserved.
 ## Current work
 
+Verified suspension topic commit: fabe4a9. Post-acceptance audit checks all1310regular files: only five declared migration docs changed; no application/scenario drift. No live owned handles. Next queued-send/close-edge ACK/backpressure. Full migration incomplete. /compact is unavailable in this interface; use this handoff.
+
+
 ### Genuine renderer and host suspension — verified bounded milestone 2026-10-15
 
 Eight actual Windows native UI cases pass: SSE/WebSocket × owned renderer/host ×5/35seconds. Kernel process image/birth and ancestry/profile guards retain handles; thread snapshots reach a fixed point, verify suspend counts and balance only owned increments. All handles close, watchdogs remain inactive. Renderer CDP evaluation stays pending until resume; host-only suspension permits renderer evaluation. Long renderer peer closures occur30.006seconds(SSE)/30.003seconds(WebSocket) after send, before resume. Short renderer and both host durations recover both messages. Exact durable history reload and earlier-run stability pass. SSE timeout preserves ready parsed event plus observed raw bytes; WebSocket timeout delivered both packets in this run, without a universal unacknowledged-delivery guarantee.
