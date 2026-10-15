@@ -33,6 +33,9 @@ export async function assertProtoRootModel(implementation) {
   function imported(source) {
     const decoded = parseLegacyFiles([{ name: "insomnia.proto-regression.db", text: source.map(row => JSON.stringify(row)).join("\r\n") }]);
     const review = parseImport(JSON.stringify(decoded));
+    assert.equal(review.requests, source.filter(row => row.type === "GrpcRequest").length,
+      "Import review counts executable gRPC requests");
+    assert.equal(review.preserved, 0, "Proto and gRPC models are recognized by import review");
     const byOld = new Map(review.resources.map(row => [row._legacySource.record._id, row]));
     /** @param {string} oldId */
     function get(oldId) {

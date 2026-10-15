@@ -290,6 +290,9 @@ export function parseImport(text) {
     "request_group",
     "environment",
     "websocket_request",
+    "grpc_request",
+    "proto_file",
+    "proto_directory",
     "websocket_payload",
     "client_certificate",
     "ca_certificate",
@@ -322,7 +325,7 @@ export function parseImport(text) {
     cookieJars: resources.filter((r) => r._type === "cookie_jar").length,
     apiSpecs: resources.filter((r) => r._type === "api_spec").length,
     requests: resources.filter((r) =>
-      ["request", "websocket_request"].includes(r._type),
+      ["request", "websocket_request", "grpc_request"].includes(r._type),
     ).length,
     preserved: resources.filter((r) => !knownTypes.has(r._type)).length,
   };
