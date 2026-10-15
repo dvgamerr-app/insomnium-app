@@ -101,6 +101,9 @@ export async function runGrpcLargeSentNativeCases() {
                 const spec = grpcLargeCase(mode),
                   body = spec.body,
                   bodySHA256 = createHash("sha256").update(body).digest("hex");
+                const payloadSHA256 = createHash("sha256")
+                  .update(spec.responseText)
+                  .digest("hex");
                 const unary = spec.unary;
                 const receives = spec.receives;
                 const startButton = unary ? "Send" : "Connect";
@@ -112,7 +115,10 @@ export async function runGrpcLargeSentNativeCases() {
                   protoFileId: protoId,
                   protoMethodName: spec.method,
                   grpcJsonMode: spec.jsonMode,
-                  body: { mimeType: "application/json", text: body },
+                  body: {
+                    mimeType: "application/json",
+                    text: spec.editor ? "{}" : body,
+                  },
                   metadata: [{ name: "owned-case", value: mode }],
                 });
                 const before = await invoke("load_workspace");
@@ -126,6 +132,80 @@ export async function runGrpcLargeSentNativeCases() {
                 });
                 await page.reload();
                 await resourceSaved(page);
+                if (spec.editor) {
+                  const editorRegion = page.getByRole("region", {
+                    name: "Body editor",
+                    exact: true,
+                  });
+                  const codeMirror = editorRegion.locator(".CodeMirror");
+                  await codeMirror.waitFor();
+                  await poll(
+                    () =>
+                      codeMirror.evaluate(
+                        (element) =>
+                          !!(
+                            /** @type {any} */ (
+                              element
+                            ).CodeMirror?.getInputField()?.isConnected
+                          ),
+                      ),
+                    "Actual gRPC CodeMirror mounted",
+                  );
+                  await editorRegion
+                    .getByRole("textbox", {
+                      name: "gRPC JSON message",
+                      exact: true,
+                    })
+                    .focus();
+                  await poll(
+                    () =>
+                      codeMirror.evaluate((element) =>
+                        /** @type {any} */ (element).CodeMirror.hasFocus(),
+                      ),
+                    "Actual gRPC CodeMirror has focus before keyboard input",
+                  );
+                  await page.keyboard.press("Control+A");
+                  await page.keyboard.insertText(body);
+                  const persistedBody = async () =>
+                    (await invoke("load_workspace")).resources.find(
+                      (/** @type {any} */ r) => r._id === request._id,
+                    ).body.text;
+                  await poll(
+                    async () => (await persistedBody()) === body,
+                    "Actual gRPC CodeMirror typing persisted",
+                  );
+                  await button("Format").click();
+                  await poll(
+                    async () => (await persistedBody()) === spec.formattedBody,
+                    "Format preserves authored int64 lexeme",
+                  );
+                  await page
+                    .getByRole("tab", { name: "Settings", exact: true })
+                    .click();
+                  const encoding = page.getByRole("combobox", {
+                    name: "Message JSON format",
+                    exact: true,
+                  });
+                  await encoding.selectOption(
+                    spec.jsonMode === "legacy" ? "protoJson" : "legacy",
+                  );
+                  await resourceSaved(page);
+                  assert.equal(await persistedBody(), spec.formattedBody);
+                  await encoding.selectOption(spec.jsonMode);
+                  await resourceSaved(page);
+                  assert.equal(await persistedBody(), spec.formattedBody);
+                  await page
+                    .getByRole("tab", { name: "Body", exact: true })
+                    .click();
+                  assert.equal(
+                    await editorRegion
+                      .locator(".CodeMirror")
+                      .evaluate((element) =>
+                        /** @type {any} */ (element).CodeMirror.getValue(),
+                      ),
+                    spec.formattedBody,
+                  );
+                }
                 await button("Load methods").click();
                 await poll(
                   async () => await button(startButton).isEnabled(),
@@ -201,7 +281,7 @@ export async function runGrpcLargeSentNativeCases() {
                 );
                 assert.equal(messages.length, receives ? 1 : 0);
                 const retained = receives ? messages[0] : sent[0];
-                assert.equal(retained.text, body);
+                assert.equal(retained.text, spec.responseText);
                 assert.ok(
                   entry.events.some(
                     (/** @type {any} */ e) =>
@@ -237,10 +317,11 @@ export async function runGrpcLargeSentNativeCases() {
                     await container.locator("pre.grpc-message").textContent(),
                     spec.preview,
                   );
-                  await container
+                  const previewNotice = container
                     .getByRole("status")
-                    .filter({ hasText: "Showing a preview" })
-                    .waitFor();
+                    .filter({ hasText: "Showing a preview" });
+                  if (spec.showNotice) await previewNotice.waitFor();
+                  else assert.equal(await previewNotice.count(), 0);
                 };
                 /** @type {Record<string,any>[]} */ const exports = [];
                 const exportFull = async (/** @type {string} */ phase) => {
@@ -267,13 +348,13 @@ export async function runGrpcLargeSentNativeCases() {
                       (/** @type {any} */ e) =>
                         e.kind === (receives ? "message" : "sent"),
                     ).text,
-                    body,
+                    spec.responseText,
                   );
                   exports.push({
                     phase,
                     path,
                     bytes: Bun.file(path).size,
-                    payloadSHA256: bodySHA256,
+                    payloadSHA256,
                   });
                 };
                 await verifyPreview();
@@ -291,7 +372,7 @@ export async function runGrpcLargeSentNativeCases() {
                   reloaded.resources.find(
                     (/** @type {any} */ r) => r._id === request._id,
                   ).body.text,
-                  body,
+                  spec.formattedBody,
                 );
                 await verifyPreview();
                 await exportFull("reloaded");
@@ -322,6 +403,12 @@ export async function runGrpcLargeSentNativeCases() {
                   unary,
                   bodyBytes: Buffer.byteLength(body),
                   bodySHA256,
+                  payloadSHA256,
+                  payloadBytes: Buffer.byteLength(spec.responseText),
+                  editorFormatAndModeSwitch: spec.editor,
+                  persistedBodySHA256: createHash("sha256")
+                    .update(spec.formattedBody)
+                    .digest("hex"),
                   historyId: entry._id,
                   sent: sent.length,
                   received: messages.length,
@@ -369,7 +456,7 @@ export async function runGrpcLargeSentNativeCases() {
           errorEvents: fixture.errorEvents,
           errors: errors.map(String),
           scope:
-            "Actual native ten-case9MiB/compact-array/Unicode preview, full history/reload/JSON export in legacy/protoJson bidi/unary. No broad JSON/provider/platform claim.",
+            "Actual native fourteen-case9MiB/compact-array/Unicode plus typed int64/bytes shared-editor Format/mode-switch/history/export in legacy/protoJson. No broad JSON/provider/platform claim.",
         },
         null,
         2,

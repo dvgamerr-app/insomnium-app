@@ -10,9 +10,51 @@ export const grpcLargeModes = [
   "protoJson-compact",
   "legacy-unicode",
   "protoJson-unicode",
+  "legacy-json-number",
+  "protoJson-json-number",
+  "legacy-json-string",
+  "protoJson-json-string",
 ];
 export const grpcLargeProto =
-  'syntax="proto3"; package ownedlarge; message Input { string value=1; } message Compact { repeated int32 values=1; } service Upload { rpc Stream(stream Input) returns(stream Input); rpc Echo(Input) returns(Input); rpc Expand(Compact) returns(Compact); }';
+  'syntax="proto3"; package ownedlarge; message Input { string value=1; } message Compact { repeated int32 values=1; } message Precision { int64 exact_value=1; bytes bytes_value=2; } service Upload { rpc Stream(stream Input) returns(stream Input); rpc Echo(Input) returns(Input); rpc Expand(Compact) returns(Compact); rpc PrecisionEcho(Precision) returns(Precision); }';
+/** Independent small-message wire and lexical editor expectations.
+ * @param {string} mode */
+function jsonEditorCase(mode) {
+  const legacy = mode.startsWith("legacy-"),
+    numeric = mode.endsWith("-number");
+  const literal = numeric ? "9007199254740993" : '"9007199254740993"';
+  const result = legacy && numeric ? "9007199254740992" : "9007199254740993";
+  const body = `{"exact_value":${literal},"bytes_value":"AP+A"}`;
+  const formattedBody = `{\n  "exact_value": ${literal},\n  "bytes_value": "AP+A"\n}`;
+  const responseText = JSON.stringify({
+    exact_value: result,
+    bytes_value: legacy ? { 0: 0, 1: 255, 2: 128 } : "AP+A",
+  });
+  const preview = legacy
+    ? `{\n  "exact_value": "${result}",\n  "bytes_value": {\n    "0": 0,\n    "1": 255,\n    "2": 128\n  }\n}`
+    : `{\n  "exact_value": "${result}",\n  "bytes_value": "AP+A"\n}`;
+  // int64 tag1, authored eight-byte varint, bytes tag2/length3/00ff80.
+  const wire = Buffer.from(
+    legacy && numeric
+      ? "000000000e088080808080808010120300ff80"
+      : "000000000e088180808080808010120300ff80",
+    "hex",
+  );
+  return {
+    mode,
+    jsonMode: legacy ? "legacy" : "protoJson",
+    unary: true,
+    receives: true,
+    body,
+    wire,
+    preview,
+    method: "/ownedlarge.Upload/PrecisionEcho",
+    editor: true,
+    formattedBody,
+    responseText,
+    showNotice: false,
+  };
+}
 /** @param {number} value */
 function varint(value) {
   const bytes = [];
@@ -26,6 +68,7 @@ function varint(value) {
 export function grpcLargeCase(mode) {
   if (!grpcLargeModes.includes(mode))
     throw new Error("Unknown authored gRPC case");
+  if (mode.includes("-json-")) return jsonEditorCase(mode);
   const compact = mode.endsWith("-compact"),
     unicode = mode.endsWith("-unicode");
   const unary = mode.endsWith("-unary") || compact || unicode;
@@ -63,6 +106,10 @@ export function grpcLargeCase(mode) {
     body,
     wire,
     preview,
+    editor: false,
+    formattedBody: body,
+    responseText: body,
+    showNotice: true,
     method: compact
       ? "/ownedlarge.Upload/Expand"
       : unary

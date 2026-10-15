@@ -6,6 +6,8 @@ Current receipts: Windows environment6349100/follow-up eae4ac2 (29checks/Name6/J
 
 ## Latest stream history and decoded limits
 
+Four native int64/bytes cases now verify real shared-editor typing/Format/mode toggles, authored numeric precision, explicit legacy/ProtoJSON wire/response differences, full reload and8newexports. Original10cases and regressions pass:42groups/28gRPCexports, exact6profiles, unchanged38417fe application with declared2test/5doc closure. See GRPC.md#current-native-grpc-json-editor. Continue remaining JSON/coercion/Base64/WKT/unknown-field/editor-lifecycle/stream-shape/provider/platform and every retained gate.
+
 Ten native gRPC cases now verify9MiB bidi/unary, compact formatted preview and surrogate-cut preview, full history/reload and20full JSON exports in legacy/protoJson. Unary request EOF is corrected. Six-suite acceptance/0override closure and exact six-profile restoration pass; see GRPC.md#current-native-large-grpc-preview-export. Continue broader JSON/shared-editor/stream-shape/provider/platform and all retained PARITY gates.
 
 gRPC9MiB bidi sent data now has bounded native acceptance in legacy/protoJson: independent exact protobuf frame, status0/no received payload, complete sent history/body after reload, Stream1tab restoration and actual Manage/Delete. Six native profiles restore exactly, original1410source closure with1declared deletion-route test supplement passes. See GRPC.md#current-native-large-sent-history. Large sent-content rendering/response/shared-editor/JSON edges/provider/platform and all retained gates remain open.
