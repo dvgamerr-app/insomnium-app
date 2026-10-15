@@ -106,7 +106,13 @@ export async function runSseExactNativeCases() {
             const mounted = (value) =>
               stream
                 .locator(".stream-event-summary")
-                .filter({ hasText: new RegExp("^" + value + "$") })
+                .filter({
+                  hasText: new RegExp(
+                    "^" +
+                      (value.length > 512 ? value.slice(0, 512) + "…" : value) +
+                      "$",
+                  ),
+                })
                 .waitFor({ state: "attached" });
             /** @param {string} token */
             const record = (token) =>
@@ -340,8 +346,8 @@ export async function runSseExactNativeCases() {
                 await summary.waitFor({ state: "attached" });
                 assert.equal(
                   sha(Buffer.from((await summary.textContent()) ?? "")),
-                  sha(Buffer.from(large)),
-                  "Exact9MiB payload appears before EOF",
+                  sha(Buffer.from(large.slice(0, 512) + "…")),
+                  "Exact bounded9MiB preview appears before EOF; full data checked in history",
                 );
                 if (mode === "large-replaced") {
                   expectedPayload = "small-after-large";

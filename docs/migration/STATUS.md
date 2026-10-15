@@ -3,6 +3,18 @@
 Updated 2026-10-15. Full migration is **incomplete**. Latest verified scenario/source commit:5fbb75a; prior certificate scenario:9180ac4; portable certificate implementation:ddea70f; prior request-file implementation/scenario:11e9b96/08ab0b3. Branch:feat/ui-design-system-settings-curl. Verified agent work is committed in the shared repo. Retired directories/custom .git backups remain absent; legacy backup and node_modules are preserved.
 ## Current work
 
+### Large stream UI preview and full history — verified bounded milestone 2026-10-15
+
+Fixed StreamPane rendering the full large payload twice in DOM. List summaries now show at most512UTF16 units plus ellipsis; selected detail shows at most65536units, avoiding split surrogate pairs and skipping full-data formatting when truncated. A visible preview notice points to Copy/Save. Full event data, native transport, history, Copy and Save sources remain unchanged. This is a rendering bound, not payload truncation or a layout redesign.
+
+Actual native UI3cases pass:20MiB UTF8 text and20MiB binary mount bounded previews before EOF, retain exact full payload/hash through Closed/late callbacks/reload/selection, and preserve original histories;9MiB payload replaced by a small message returns under8MiB. Each test request is deleted through actual UI and cannot resurrect after reload. Full Copy/Save of these20MiB messages was not separately exercised; existing code paths continue to use selected.data. Explicit fragmented/control frames, outgoing editor large payloads, gRPC and broader provider/platform remain required.
+
+Baseline actual UI receipt1792061279360 stalls first DOM query for over4minutes; owned renderer59128 records243CPU seconds/1.04GB working set. Only exact host54504/path/parent41480/start17:47:59 was force-stopped for diagnostic recovery (exit255, failed evidence); profile1792061279131 restores exact originals and failed suite82094 closes sources. Initial8759 rejected stale prior-doc hashes before launch; v2 refreshed exact declared docs and did not weaken guards. Prior candidate sse-exact-retention-attempt-1 retains both failures/source snapshots/ownership proof. No clean-close claim for forced baseline.
+
+Fresh candidate websocket-large-ui-attempt-1 build65298 exits0/Rust7m25, exeSHA61215395b6c266044e443485ba37600d4408518a802b700e0783844a06fae01c, manifestSHA3db462bb403097895fef04c3a7fac92904af1ff4ab16a5cedfac774205277fe9. Continuation18771 exits0: largeUI1792062383121=3 (19.082seconds total), SSEexact1792062407866=6, SSE1792062467073=8, WS1792062484568=6, mixed1792062496003=5. Hosts55812/56580/54952/54680/55836 exit0/native-hidden; all5profiles restore originalf0b51/d8b032 buffers. Original1403source/1312regular rows and other source/package/private/tool/asset scopes close with0overrides. acceptance-audit-websocket-large-history-v2.json independently reconstructs payload hashes and checks receipts/build/closure/profiles. Compiler55445 passes0/0; frontend build, strict targeted JS/format and saved headless SSE raw history pass. No live build/native/profile handles. Full migration incomplete; UX deferred. Next explicit fragmentation/control-frame variants, full large-event export and gRPC plus remaining PLAN/PARITY. /compact unavailable; explicit handoff.
+
+
+
 Verified exact20MiB transport topic commit:4e62d35. Post-acceptance audit checks1310regular files, only five migration docs differ; no application/scenario drift. Suite9490 terminal0/no live handles. Next actual large WebSocket UI/history and explicit fragmentation/control/gRPC. Full migration incomplete; /compact unavailable, explicit handoff.
 
 

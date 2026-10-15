@@ -6,6 +6,10 @@ Current receipts: Windows environment6349100/follow-up eae4ac2 (29checks/Name6/J
 
 ## Latest stream history and decoded limits
 
+Large stream UI now renders bounded summary/detail previews while preserving complete payload/history. Actual20MiB UTF8 text/binary terminal/reload,9MiB replacement and deletion3cases pass; SSEexact6/SSE8/WS6/mixed5, exact5profile restoration and fresh1403source closure/0overrides pass. Baseline forced diagnostic is retained as failure. See HTTP.md#current-large-stream-ui-correction. Full large-event Copy/Save, explicit fragmentation/control frames, gRPC/provider/platform and every retained requirement remain open.
+
+
+
 Exact20MiB UTF8 text/binary native send+echo now pass with independently recomputed authored/peer/Channel hashes; incoming20MiB+1text/binary end with generic tungstenite error and no oversized Channel payload. Four profiles restore exactly;14ACK/SSE8/WS6/mixed5regressions and1401source closure pass. See HTTP.md#current-exact-websocket-transport-boundaries. Actual large WS UI/history, fragmentation/full control frames, gRPC, provider/platform and all retained gates remain open.
 
 

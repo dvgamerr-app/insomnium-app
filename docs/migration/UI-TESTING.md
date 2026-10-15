@@ -1679,3 +1679,7 @@ Reuse `bun tests/ui/websocket-ack-native.js` with INSOMNIUM_WEBSOCKET_ACK_NATIVE
 ## Current exact WebSocket transport verification
 
 Existing `bun tests/ui/websocket-ack-native.js` has14groups with INSOMNIUM_WEBSOCKET_ACK_NATIVE=1 and audited build/profile ownership. Four new cases compare exact20MiB text/binary authored/peer/real Channel hashes and observe incoming20MiB+1 refusal without oversized delivery. digestStatus computes hashes after actual delivery; it does not substitute application callbacks. Keep full payload transport distinct from compact receipt storage and application UI history. Canonical evidence: HTTP.md#current-exact-websocket-transport-boundaries.
+
+## Current large WebSocket UI verification
+
+Run `bun tests/ui/websocket-large-history-native.js` with INSOMNIUM_WEBSOCKET_LARGE_HISTORY_NATIVE=1 and audited build/profile marker. Three actual UI cases compare bounded summary/detail rendering with complete20MiB durable text/binary, exact reload/selection,9MiB replacement and real request deletion. Use shared native-hidden/profile restoration helpers. Rerun `sse-exact-native.js` because its full payload/history/export checks share StreamPane; only its displayed-preview expectations changed. Canonical evidence/failures: HTTP.md#current-large-stream-ui-correction.

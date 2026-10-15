@@ -89,9 +89,27 @@
           .includes(filter.toLowerCase()),
     ),
   );
+  const previewLimit = 64 * 1024;
+  const previewTruncated = $derived(
+    typeof selected?.data === "string" && selected.data.length > previewLimit,
+  );
+  /** Bound DOM text without splitting a UTF-16 surrogate pair.
+   * @param {string} value @param {number} limit */
+  function previewText(value, limit) {
+    const end = value.charCodeAt(limit - 1);
+    return value.slice(0, end >= 0xd800 && end <= 0xdbff ? limit - 1 : limit);
+  }
+  /** @param {Record<string,any>} event */
+  function eventSummary(event) {
+    const value = String(
+      event.reason || event.message || event.data || event.url || "",
+    );
+    return value.length > 512 ? previewText(value, 512) + "…" : value;
+  }
   const body = $derived.by(() => {
     if (!selected) return "";
     if (selected.data == null) return JSON.stringify(selected, null, 2);
+    if (previewTruncated) return previewText(selected.data, previewLimit);
     if (
       selected.format === "binary" ||
       selected.format === "ping" ||
@@ -270,13 +288,7 @@
                   {event.event || event.format || event.kind}</span
                 >
                 <time>{new Date(event.created).toLocaleTimeString()}</time>
-                <span class="stream-event-summary"
-                  >{event.reason ||
-                    event.message ||
-                    event.data ||
-                    event.url ||
-                    ""}</span
-                >
+                <span class="stream-event-summary">{eventSummary(event)}</span>
               </Button>{/each}
           </div>
         {/snippet}{#snippet second()}
@@ -312,6 +324,10 @@
                 onclick={saveEvent}><Icon name="download" size={14} /></Button
               >
             </Toolbar>
+            {#if previewTruncated}<p class="hint" role="status">
+                Showing a preview of this large event. Copy or save to read the
+                full message.
+              </p>{/if}
             {#if selected}<pre
                 class="stream-event-body">{body}</pre>{:else}<EmptyState
                 variant="response"
