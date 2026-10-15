@@ -3,6 +3,9 @@
 Updated 2026-10-15. Full migration is **incomplete**. Latest verified scenario/source commit:5fbb75a; prior certificate scenario:9180ac4; portable certificate implementation:ddea70f; prior request-file implementation/scenario:11e9b96/08ab0b3. Branch:feat/ui-design-system-settings-curl. Verified agent work is committed in the shared repo. Retired directories/custom .git backups remain absent; legacy backup and node_modules are preserved.
 ## Current work
 
+Verified frame topic commit:bf57c27. Suite66425 terminal0; source1406/regular1315 closure and exact5profiles pass. Post-acceptance audit changes only five declared migration docs, no application/scenario drift. No live handles. Next aggregate large fragmentation, broader controls/close, Clipboard Copy and gRPC; full migration incomplete. /compact unavailable; explicit handoff.
+
+
 ### Explicit WebSocket fragmentation/control frames — verified bounded milestone 2026-10-15
 
 Eight small actual RFC6455 sequences pass through a separate real SDK Channel: text split inside a multibyte UTF8 code point, fragmented binary,125byte ping interleaved before final continuation with exact masked client pong, fragmented ping refusal,126byte ping refusal, unexpected continuation refusal, new data opcode inside fragmented message refusal, and invalid UTF8 across continuations refusal. No partial text/binary event precedes final continuation; valid messages arrive exactly once. Five invalid cases retire with generic WebSocket failed: tungstenite error and0data payloads; specific diagnostics are not claimed. Raw loopback peer authors FIN/opcodes/payloads explicitly, validates client masking, bounded handshake/control reads and exact small writes, and records frame bytes. It does not intercept app callbacks/IPC. This closes no aggregate20MiB fragmented, broad control-frame, application-history, physicalTCP/OS-close/provider/platform gate.
