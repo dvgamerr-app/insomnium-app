@@ -52,6 +52,7 @@
     selectWorkspace,
     selectEnvironment,
     selectHttpHistory,
+    selectStreamHistory,
     addRequest,
     addWorkspace,
     addFolder,
@@ -826,10 +827,9 @@
                     response={app.responses[request._id]}
                     running={!!app.running[request._id]}
                     history={app.data.history.filter(
-                      (h) => h.requestId === request._id && h.protocol,
+                      (h) => h.requestId === request._id && h.protocol && (protocol !== "websocket" || historyMatchesEnvironment(h,app.data.settings,app.data.activeEnvironmentId)),
                     )}
-                    onhistory={(response) =>
-                      (app.responses[request._id] = response)}
+                    onhistory={(response) => selectStreamHistory(request._id,response)}
                   />{:else}<ResponsePane
                     requestId={request._id}
                     response={app.responses[request._id]}

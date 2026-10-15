@@ -14,6 +14,8 @@ use std::{
 use tauri_plugin_fs::FsExt;
 
 const BODY_LIMIT: usize = 20 * 1024 * 1024;
+const EVENT_LOG_LIMIT: usize = 8 * 1024 * 1024;
+const EVENT_LOG_ENTRIES: usize = 10_000;
 const TIMELINE_LIMIT: usize = 2 * 1024 * 1024;
 const AGGREGATE_LIMIT: usize = 32 * 1024 * 1024;
 const ENTRY_LIMIT: usize = 100;
@@ -24,6 +26,7 @@ const TIMELINE_ENTRIES: usize = 10_000;
 pub struct LegacyResponseEntry {
     pub id: String,
     pub body_path: Option<String>,
+    pub event_log_path: Option<String>,
     pub timeline_path: Option<String>,
     pub body_compression: String,
 }
@@ -46,6 +49,12 @@ pub struct LegacyResponseAssets {
     #[serde(skip_serializing_if = "Option::is_none")]
     sha256: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    event_log_base64: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    event_log_size: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    event_log_sha256: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     timeline: Option<Vec<Value>>,
     diagnostics: Vec<AssetDiagnostic>,
 }
@@ -56,6 +65,8 @@ pub struct AssetLimits {
     max_entries: usize,
     body_input_bytes: usize,
     body_decoded_bytes: usize,
+    event_log_bytes: usize,
+    event_log_entries: usize,
     timeline_bytes: usize,
     timeline_entries: usize,
     aggregate_input_bytes: usize,
@@ -371,6 +382,53 @@ fn timeline(bytes: &[u8]) -> Result<Vec<Value>, Failure> {
     Ok(rows.clone())
 }
 
+/// WebSocket assets are NDJSON, never inferred from a filename extension.
+/// Validate only the persisted envelope here; the frontend owns event semantics.
+fn websocket_ndjson(bytes: &[u8], is_timeline: bool) -> Result<Vec<Value>, Failure> {
+    let limit = if is_timeline {
+        TIMELINE_ENTRIES
+    } else {
+        EVENT_LOG_ENTRIES
+    };
+    let mut rows = Vec::new();
+    for line in bytes.split(|byte| *byte == b'\n') {
+        // Empty logs, CRLF, blank lines and a missing final newline are valid.
+        if line.iter().all(u8::is_ascii_whitespace) {
+            continue;
+        }
+        if rows.len() == limit {
+            return Err(("oversize", "Legacy WebSocket NDJSON exceeds 10000 entries."));
+        }
+        let row: Value = serde_json::from_slice(line).map_err(|_| {
+            (
+                "malformed",
+                "Legacy WebSocket NDJSON contains an invalid JSON line.",
+            )
+        })?;
+        let object = row.as_object().ok_or((
+            "malformed",
+            "Legacy WebSocket NDJSON entries must be objects.",
+        ))?;
+        if object
+            .get("timestamp")
+            .and_then(Value::as_f64)
+            .filter(|value| value.is_finite() && *value >= 0.0)
+            .is_none()
+            || if is_timeline {
+                object.get("name").and_then(Value::as_str).is_none()
+                    || object.get("value").and_then(Value::as_str).is_none()
+            } else {
+                object.get("type").and_then(Value::as_str).is_none()
+            }
+        {
+            return Err(("malformed", "Legacy WebSocket NDJSON requires a nonnegative finite numeric timestamp and string type, or timeline name/value."));
+        }
+        // Preserve chronological source order and every unknown original field.
+        rows.push(row);
+    }
+    Ok(rows)
+}
+
 #[tauri::command]
 pub async fn read_legacy_response_assets(
     window: tauri::WebviewWindow,
@@ -430,9 +488,77 @@ async fn read_assets(
                 body_base64: None,
                 size: None,
                 sha256: None,
+                event_log_base64: None,
+                event_log_size: None,
+                event_log_sha256: None,
                 timeline: None,
                 diagnostics: Vec::new(),
             };
+            if let Some(path) = entry.event_log_path {
+                let result = if path.is_empty() {
+                    Ok(Vec::new())
+                } else {
+                    read_file(
+                        &root,
+                        &path,
+                        &scope,
+                        EVENT_LOG_LIMIT.min(decoded_remaining),
+                        &mut input_remaining,
+                    )
+                }
+                .and_then(|bytes| {
+                    decoded_remaining -= bytes.len();
+                    Ok(bytes)
+                });
+                match result {
+                    Ok(bytes) => {
+                        row.event_log_size = Some(bytes.len());
+                        row.event_log_sha256 = Some(format!("{:x}", Sha256::digest(&bytes)));
+                        row.event_log_base64 = Some(STANDARD.encode(&bytes));
+                        // A complete bounded read is portable even when malformed.
+                        // Never publish partial reads; derived history validates again.
+                        if let Err((code, message)) = websocket_ndjson(&bytes, false) {
+                            row.diagnostics.push(AssetDiagnostic {
+                                asset: "eventLog",
+                                code,
+                                message,
+                            });
+                        }
+                    }
+                    Err((code, message)) => row.diagnostics.push(AssetDiagnostic {
+                        asset: "eventLog",
+                        code,
+                        message,
+                    }),
+                }
+                if let Some(path) = entry.timeline_path {
+                    let result = if path.is_empty() {
+                        Ok(Vec::new())
+                    } else {
+                        read_file(
+                            &root,
+                            &path,
+                            &scope,
+                            TIMELINE_LIMIT.min(decoded_remaining),
+                            &mut input_remaining,
+                        )
+                    }
+                    .and_then(|bytes| {
+                        decoded_remaining -= bytes.len();
+                        websocket_ndjson(&bytes, true)
+                    });
+                    match result {
+                        Ok(rows) => row.timeline = Some(rows),
+                        Err((code, message)) => row.diagnostics.push(AssetDiagnostic {
+                            asset: "timeline",
+                            code,
+                            message,
+                        }),
+                    }
+                }
+                output.push(row);
+                continue;
+            }
             let body = if !["raw", "gzip"].contains(&entry.body_compression.as_str()) {
                 Err((
                     "compression",
@@ -509,6 +635,8 @@ async fn read_assets(
                 max_entries: ENTRY_LIMIT,
                 body_input_bytes: body_limit,
                 body_decoded_bytes: body_limit,
+                event_log_bytes: EVENT_LOG_LIMIT,
+                event_log_entries: EVENT_LOG_ENTRIES,
                 timeline_bytes: TIMELINE_LIMIT,
                 timeline_entries: TIMELINE_ENTRIES,
                 aggregate_input_bytes: AGGREGATE_LIMIT,
@@ -547,6 +675,7 @@ pub async fn read_legacy_request_assets(
         .map(|entry| LegacyResponseEntry {
             id: entry.id,
             body_path: Some(entry.path),
+            event_log_path: None,
             timeline_path: None,
             body_compression: "raw".into(),
         })
@@ -572,6 +701,7 @@ pub async fn read_legacy_certificate_assets(
         .map(|entry| LegacyResponseEntry {
             id: entry.id,
             body_path: Some(entry.path),
+            event_log_path: None,
             timeline_path: None,
             body_compression: "raw".into(),
         })

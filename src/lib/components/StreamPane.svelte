@@ -19,6 +19,9 @@
     selectedId = $state(""),
     filter = $state(""),
     error = $state("");
+  $effect(() => {
+    if (tab === "Timeline" && !response?.legacyTimeline?.length) tab = "Events";
+  });
   const events = $derived(
     /** @type {Record<string, any>[]} */ (response?.events || []),
   );
@@ -108,7 +111,7 @@
     role="tablist"
     aria-label="Stream view"
   >
-    {#each ["Events", "Headers"] as name}<TabButton
+    {#each ["Events", "Headers", ...(response?.legacyTimeline?.length ? ["Timeline"] : [])] as name}<TabButton
         role="tab"
         aria-selected={tab === name}
         onclick={() => (tab = name)}>{name}</TabButton
@@ -143,7 +146,7 @@
       {response?.error || error}
     </Feedback>{/if}
   <TabPanel id="stream-view-panel" labelledBy={activeTab0}
-    >{#if tab === "Headers"}<div class="response-content response-headers">
+    >{#if tab === "Timeline"}<pre class="stream-event-body">{(response?.networkLog || []).join("\n")}</pre>{:else if tab === "Headers"}<div class="response-content response-headers">
         {#each response?.headers || [] as [name, value]}<div>
             <span>{name}</span><code>{value}</code>
           </div>{:else}<p class="hint padded">

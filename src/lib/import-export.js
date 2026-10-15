@@ -5,6 +5,7 @@ import { readTextFile, writeTextFile, writeFile, stat } from "@tauri-apps/plugin
 import { id, initialData, newRequest } from "./model.js";
 import { parseLegacyFiles } from "./legacy-import.js";
 import { legacyResponseAssetRequests, convertLegacyResponseHistory } from "./legacy-response-history.js";
+import { legacyWebSocketAssetRequests, convertLegacyWebSocketHistory } from "./legacy-websocket-history.js";
 import { legacyRequestAssetRequests, convertLegacyRequestFiles } from "./legacy-request-files.js";
 import { legacyCertificateAssetRequests, convertLegacyCertificateFiles } from "./legacy-certificate-files.js";
 import { referenceKeys, validateTopology } from "./resources.js";
@@ -27,6 +28,87 @@ function portableGitResource(resource, forExport = false) {
   delete copy.nativeCreateIntent;
   if (forExport) delete copy.credentials;
   return copy;
+}
+
+/** Ordinary and WebSocket assets share one activation budget, including portable imports.
+ * @param {Record<string,any>[]} resources @param {{entries?:(import('./legacy-response-history.js').LegacyResponseAsset & Record<string,any>)[]}} [assets] */
+function importedResponseHistory(resources, assets = {}) {
+  const index = new Map(resources.map((resource) => [resource._id, resource]));
+  const time = (/** @type {Record<string,any>} */ response) =>
+    Number.isFinite(response.modified) && response.modified >= 0
+      ? response.modified
+      : response.created || 0;
+  const candidates = resources
+    .filter((resource) =>
+      ["response", "websocket_response"].includes(resource._type),
+    )
+    .sort((a, b) => time(b) - time(a) || (b.created || 0) - (a.created || 0));
+  /** @type {Record<string,any>[]} */ const history = [];
+  /** @type {{id:string,code:string,message:string,asset?:string}[]} */ const warnings =
+    [];
+  let used = 0;
+  for (const response of candidates) {
+    if (history.length === 100) {
+      warnings.push({
+        id: response._id,
+        code: "history-candidate-limit",
+        message:
+          "Only the newest 100 combined HTTP/WebSocket histories can be activated per preview; original records and portable assets are retained.",
+      });
+      continue;
+    }
+    const request = index.get(response.parentId);
+    const context = request ? [request, response] : [response];
+    const selectedAssets = {
+      entries: assets.entries?.filter((asset) => asset.id === response._id),
+    };
+    const converted =
+      response._type === "websocket_response"
+        ? convertLegacyWebSocketHistory(
+            context,
+            selectedAssets,
+            32 * 1024 * 1024 - used,
+          )
+        : convertLegacyResponseHistory(context, selectedAssets);
+    warnings.push(...converted.warnings);
+    const entry = converted.history[0];
+    if (!entry) continue;
+    const source =
+      selectedAssets.entries?.find((asset) =>
+        response._type === "websocket_response"
+          ? typeof asset.eventLogBase64 === "string"
+          : typeof asset.bodyBase64 === "string",
+      ) ||
+      (response._type === "websocket_response"
+        ? response._legacyWebSocketAssets
+        : response._legacyResponseAssets);
+    const timelineBytes =
+      source?.timeline !== undefined &&
+      !converted.warnings.some(
+        (item) =>
+          item.code === "invalid-timeline" ||
+          item.code === "invalid-websocket-timeline",
+      )
+        ? new TextEncoder().encode(JSON.stringify(entry.legacyTimeline || []))
+            .length
+        : 0;
+    const bytes =
+      (response._type === "websocket_response"
+        ? source?.eventLogSize
+        : entry.size) + timelineBytes;
+    if (!Number.isFinite(bytes) || used + bytes > 32 * 1024 * 1024) {
+      warnings.push({
+        id: response._id,
+        code: "aggregate-asset-limit",
+        message:
+          "Legacy response activation exceeds the shared 32 MiB decoded response/log/timeline budget; original records and portable assets are retained.",
+      });
+      continue;
+    }
+    history.push(entry);
+    used += bytes;
+  }
+  return { history, warnings };
 }
 
 /** @param {string} text */
@@ -245,6 +327,8 @@ export function parseImport(text) {
   );
   resources = resources.map((resource) => {
     const copy = portableGitResource(structuredClone(resource));
+    if (copy._type === "websocket_response" && copy._legacyWebSocketAssets?.version === 1)
+      copy._legacyWebSocketAssets.sourceRequestId ??= resource.parentId;
     for (const key of referenceKeys)
       if (mapping.has(copy[key])) copy[key] = mapping.get(copy[key]);
     // Legacy RequestMeta owns the saved response choice. Nested literal payloads
@@ -297,11 +381,11 @@ export function parseImport(text) {
     "client_certificate",
     "ca_certificate",
   ]);
-  const legacyHistory = convertLegacyResponseHistory(resources);
+  const legacyHistory = importedResponseHistory(resources);
   return {
     resources,
     history: legacyHistory.history,
-    legacyResponses: resources.filter((r) => r._type === "response").length,
+    legacyResponses: resources.filter((r) => ["response","websocket_response"].includes(r._type)).length,
     legacyHistoryWarnings: legacyHistory.warnings,
     legacyRequestFiles: requestFiles.pending,
     legacyRequestFilesLoaded: requestFiles.loaded + requestFiles.portableLoaded,
@@ -339,7 +423,9 @@ export async function pickLegacyResponseHistory(review) {
   const root = await open({ directory: true, multiple: false, title: "Choose the original legacy data folder" });
   if (!root) return null;
   if (typeof root !== "string") throw new Error("Choose one legacy data folder.");
-  const plan = legacyResponseAssetRequests(review.resources);
+  const httpPlan = legacyResponseAssetRequests(review.resources);
+  const streamPlan = legacyWebSocketAssetRequests(review.resources);
+  const plan = {entries:[...httpPlan.entries,...streamPlan.entries]};
   const byId = new Map(review.resources.map((r) => [r._id, r]));
   const ordered = plan.entries.map((entry, index) => ({ entry, index })).sort((a, b) => {
     const time = (/** @type {string} */ id) => {
@@ -349,16 +435,21 @@ export async function pickLegacyResponseHistory(review) {
     };
     return time(b.entry.id) - time(a.entry.id) || a.index - b.index;
   }).map(({ entry }) => entry);
-  /** @type {{entries:import('./legacy-response-history.js').LegacyResponseAsset[]}} */
+  /** @type {{entries:(import('./legacy-response-history.js').LegacyResponseAsset & Record<string,any>)[]}} */
   const assets = await invoke("read_legacy_response_assets", { root, entries: ordered.slice(0, 100) });
   const loaded = new Map(assets.entries.map((entry) => [entry.id, entry]));
   const resources = review.resources.map((resource) => {
     const asset = loaded.get(resource._id);
-    if (!asset || typeof asset.bodyBase64 !== "string") return resource;
+    if (!asset) return resource;
     const { id: _assetId, ...portable } = asset;
+    if (resource._type === "websocket_response" && typeof asset.eventLogBase64 === "string") {
+      const request = byId.get(resource.parentId);
+      return {...resource,_legacyWebSocketAssets:{version:1,...portable,sourceRequestId:request?._legacySource?.record?._id || request?._id}};
+    }
+    if (typeof asset.bodyBase64 !== "string") return resource;
     return { ...resource, _legacyResponseAssets: { version: 1, ...portable } };
   });
-  const converted = convertLegacyResponseHistory(resources, assets);
+  const converted = importedResponseHistory(resources, assets);
   return {
     ...review,
     resources,
@@ -438,7 +529,7 @@ export async function pickImport() {
 export async function exportData(data) {
   const selectedPortableResponses = new Map(Object.entries(data.responseSelections || {}).filter(([requestId, responseId]) =>
     data.history.some((entry) => entry._id === responseId && entry.requestId === requestId) &&
-    data.resources.some((resource) => resource._id === responseId && resource._type === "response" && resource._legacyResponseAssets?.version === 1)));
+    data.resources.some((resource) => resource._id === responseId && ((resource._type === "response" && resource._legacyResponseAssets?.version === 1) || (resource._type === "websocket_response" && resource._legacyWebSocketAssets?.version === 1)))));
   const resources = data.resources.map((resource) => {
     const portable = portableGitResource(resource, true);
     const selected = resource._type === "request_meta" ? selectedPortableResponses.get(resource.parentId) : undefined;

@@ -52,6 +52,7 @@ import {
   historyMatchesEnvironment,
   validResponseSelections,
   selectedHttpHistory,
+  selectedWebSocketHistory,
   protocolFor,
   environmentFor,
   render,
@@ -1286,6 +1287,7 @@ export async function execute(
         created: Date.now(),
         method: prepared.method,
         protocol,
+        environmentId: dataSnapshot.activeEnvironmentId || null,
         connectionState: "connecting",
         events: [],
         retainedBytes: 0,
@@ -2281,6 +2283,8 @@ function remember(entry) {
   if (!entry.protocol && workspace.data.history.some(item => item._id === entry._id) &&
       workspace.data.resources.some(request => request._id === entry.requestId && request._type === "request" && protocolFor(request) === "http"))
     workspace.data.responseSelections = { ...workspace.data.responseSelections, [entry.requestId]: entry._id };
+  if (entry.protocol === "websocket" && workspace.data.history.some(item => item._id === entry._id))
+    workspace.data.responseSelections = { ...workspace.data.responseSelections, [entry.requestId]: entry._id };
   if (!workspace.data.history.some((h) => h._id === entry._id))
     workspace.notice =
       "Response shown, but it exceeds the 40 MiB saved-history budget. Download it before closing.";
@@ -2302,8 +2306,31 @@ export function selectHttpHistory(requestId, entry) {
   workspace.responses[requestId] = saved;
   void persist();
 }
+/** Persist WebSocket history choices; other stream protocol choices keep their existing session behavior.
+ * @param {string} requestId @param {Record<string,any>} entry */
+export function selectStreamHistory(requestId, entry) {
+  if (!canEditWorkspace() || workspace.running[requestId]) return;
+  const request = workspace.data.resources.find(item => item._id === requestId);
+  const saved = workspace.data.history.find(item => item._id === entry._id && item.requestId === requestId && item.protocol);
+  if (!request || !saved) return;
+  if (request._type === "websocket_request" && !historyMatchesEnvironment(saved,workspace.data.settings,selectedEnvironmentFor(workspace.data,workspaceFor(workspace.data.resources,requestId) || ""))) return;
+  workspace.responses[requestId] = saved;
+  if (request._type === "websocket_request" && saved.protocol === "websocket") {
+    workspace.data.responseSelections = {...workspace.data.responseSelections,[requestId]:saved._id};
+    void persist();
+  }
+}
+function refreshWebSocketResponses() {
+  for (const request of workspace.data.resources) {
+    if (request._type !== "websocket_request" || workspace.running[request._id]) continue;
+    const environmentId = selectedEnvironmentFor(workspace.data,workspaceFor(workspace.data.resources,request._id) || "");
+    const saved = selectedWebSocketHistory(workspace.data,request._id,environmentId);
+    if (saved) workspace.responses[request._id] = saved;
+    else if (workspace.responses[request._id]?.protocol === "websocket") delete workspace.responses[request._id];
+  }
+}
 /** Select the newest saved ordinary HTTP response for each current environment.
- * Streaming and gRPC response ownership remains unchanged. */
+ * WebSocket saved choices refresh under the same environment policy; live runs are untouched. */
 function refreshHttpResponses() {
   for (const request of workspace.data.resources) {
     if (request._type !== "request" || protocolFor(request) !== "http" || workspace.responses[request._id]?.protocol) continue;
@@ -2312,6 +2339,7 @@ function refreshHttpResponses() {
     if (response) workspace.responses[request._id] = response;
     else delete workspace.responses[request._id];
   }
+  refreshWebSocketResponses();
 }
 /** @param {string} requestId */
 export async function stop(requestId) {
