@@ -6,14 +6,14 @@ Updated 2026-10-15. Current state is in [STATUS.md](STATUS.md); all original req
 
 ### Current working-tree handoff — 2026-10-15
 
-Standalone HTTP/SSE/WebSocket timeline portability and partial-component reread retention now have bounded Windows acceptance. Canonical contract: IMPORT-EXPORT.md#current-standalone-legacy-timeline-portability. Candidate standalone-timeline-attempt-1 passes native11records→4histories/9chooser/14reader/5standalone cases/2actual rereads, HTTP/WebSocket native regressions, headless5case portability, exact3profile restorations and original1251entry source/other-scope closure with0source overrides. The verified topic commit is recorded in STATUS.md; raw SSE b3f416c remains accepted within its receipt. Migration remains incomplete.
+Native SSE bounds and the duplicate ACK deadline fix now have bounded Windows acceptance. Canonical evidence: HTTP.md#current-native-sse-bounds-and-ack-deadline. Candidate sse-bounds-ack-attempt-1 passes8new bounds/ACK groups, originalSSE8groups/10durables and WS6groups, exact3profile restoration and original1254entry source/other-scope closure with0overrides. Missing ACK now ends the invocation in30.004seconds rather than starting a second30second Finished wait. The verified topic commit is recorded in STATUS.md; earlier standalone timelines68aad03 remain accepted. Full migration remains incomplete.
 
 Immediate remaining work:
 
-1. Extend saved native stream scenarios for large transport fragments, raw/parsed retention limits and oversized line/event refusal; verify exact retained suffix export and durable errors. Then verify slow acknowledgement/backpressure/timeout and compressed/mixed-mode variants. Existing bounded receipts do not prove these cases.
-2. Continue supported legacy format/recovery variants, including independent timeline reads for invalid/absent payload paths or unsupported format/compression plans not covered by the supported missing-file cases above. Preserve explicit diagnostics and do not fabricate history.
-3. Continue model/shared UI/callback-drain; environment/import-export/recovery, GraphQL, gRPC/OpenAPI compatibility; Git clone/remote checkout/push/recovery; auth/provider/cookie/proxy/TLS; runner/plugin/templates; desktop/accessibility/platform/installer/CI and legal source/linkage. Existing partial implementations/receipts do not close their remaining acceptance.
-4. Audit every PARITY requirement before starting deferred input/UX redesign.
+1. Verify compressed SSE response variants and mixed HTTP/SSE/WebSocket mode/history workflows. Keep decoded raw capture distinct from compressed wire framing and retain explicit malformed/truncated response diagnostics.
+2. Complete exact size boundaries/single large valid-event retention, WS-specific negative ACK cases and genuine renderer/host suspension, followed by broader provider/platform/physicalTCP/OS-close requirements. The separate real receiver proves delayed/missing ACK behavior; debugger pause did not prove renderer starvation.
+3. Continue supported legacy format/recovery variants, including independent timeline reads for invalid/absent payload paths or unsupported format/compression plans outside the supported missing-file receipt. Preserve diagnostics without fabricating history.
+4. Continue model/shared UI/callback-drain; environment/import-export/recovery, GraphQL, gRPC/OpenAPI compatibility; Git clone/remote checkout/push/recovery; auth/provider/cookie/proxy/TLS; runner/plugin/templates; desktop/accessibility/platform/installer/CI and legal source/linkage. Audit every PARITY requirement before deferred input/UX redesign.
 
 Cleanup retains migration contracts, acceptance evidence, original archive integrity/build records and the owner-required deferred UX plan. Removed the separate AI-HARNESS.md explainer; agent instructions remain in CLAUDE.md and .claude/.
 

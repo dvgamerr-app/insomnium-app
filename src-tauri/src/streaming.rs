@@ -33,18 +33,20 @@ struct Delivery {
     acknowledgements: mpsc::Receiver<u64>,
     cancelled: watch::Receiver<bool>,
     sequence: u64,
+    can_drain: bool,
 }
 impl Delivery {
     // Keep only one data event in flight through IPC. A slow WebView backpressures the socket.
     async fn message(&mut self, event: StreamEvent) -> Result<(), String> {
         self.sequence += 1;
         let sequence = self.sequence;
-        self.channel
-            .send(StreamPacket {
-                event,
-                sequence: Some(sequence),
-            })
-            .map_err(|e| e.to_string())?;
+        if let Err(error) = self.channel.send(StreamPacket {
+            event,
+            sequence: Some(sequence),
+        }) {
+            self.can_drain = false;
+            return Err(error.to_string());
+        }
         let wait = async {
             while let Some(ack) = self.acknowledgements.recv().await {
                 if ack == sequence {
@@ -53,10 +55,20 @@ impl Delivery {
             }
             Err("Stream view closed".to_string())
         };
-        tokio::select! {
-            ack = tokio::time::timeout(Duration::from_secs(30), wait) => ack.map_err(|_| "Stream view stopped acknowledging messages")?,
-            _ = self.cancelled.changed() => Err("Stream cancelled".into()),
+        let (result, failed) = tokio::select! {
+            ack = tokio::time::timeout(Duration::from_secs(30), wait) => match ack {
+                Ok(result) => {
+                    let failed = result.is_err();
+                    (result, failed)
+                }
+                Err(_) => (Err("Stream view stopped acknowledging messages".into()), true),
+            },
+            _ = self.cancelled.changed() => (Err("Stream cancelled".into()), false),
+        };
+        if failed {
+            self.can_drain = false;
         }
+        result
     }
 }
 
@@ -291,6 +303,7 @@ pub async fn connect_stream(
     let mut delivery = Delivery {
         channel: on_event.clone(),
         sequence: 0,
+        can_drain: true,
         cancelled,
         acknowledgements,
     };
@@ -334,7 +347,15 @@ pub async fn connect_stream(
         .remove(&request.id);
     let flushed = flush_cookies(jar.as_ref(), &on_event).await;
     // Drain earlier channel events before resolving the invocation/history snapshot.
-    let delivered = delivery.message(StreamEvent::Finished).await;
+    // A failed delivery has already exhausted its ACK deadline or lost its view.
+    // Waiting for another ACK on Finished would double the timeout and retain
+    // run/ACK registrations unnecessarily. Normal/error/cancel paths whose
+    // delivery is still usable keep the ordering barrier.
+    let delivered = if delivery.can_drain {
+        delivery.message(StreamEvent::Finished).await
+    } else {
+        Ok(())
+    };
     streams
         .acknowledgements
         .lock()
