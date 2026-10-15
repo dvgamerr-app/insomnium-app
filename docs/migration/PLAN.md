@@ -2,11 +2,11 @@
 
 Updated 2026-10-16. Current state is in [STATUS.md](STATUS.md); all original requirements and acceptance boundaries remain in [PARITY.md](PARITY.md). Topic documents hold implementation details. Historical execution logs are available in Git at commit 2c8316e; they are not the current plan.
 
-## Current remaining work — 2026-10-15
+## Current remaining work — 2026-10-16
 
 This checklist is the current execution order; bounded passes do not close an entire subsystem.
 
-1. **Current: remaining gRPC compatibility.** Legacy message-field JSON order now has bounded Windows acceptance:8new native default/full/normal/child/oneof/nested/cross-category cases plus original80groups pass with exact ordered JSON. Full28Rust tests,13native-hidden scenarios/88groups/120gRPCexports/exact13profiles and original0override closure pass. See GRPC.md#current-native-grpc-message-order. Broader JSON/WKT/oneof/map-entry-key/lone-surrogate/editor/template/stream/provider/platform and every retained gate remain open.
+1. **Current: remaining gRPC compatibility.** Current uncommitted map-entry/key-presence implementation passes the full33 Rust library tests (0failed/0filtered), including70 pinned reference vectors and3 explicit unsafe-writer refusals. Evidence: artifacts/grpc-map-view-full-attempt-1.log and matching exit.txt (0). Fresh native build, saved native editor/wire/history/reload/export/error-recovery acceptance, regression suite, independent closure audit and topic commit remain pending. The previous message-order binary does not verify these source changes.  Legacy message-field JSON order now has bounded Windows acceptance:8new native default/full/normal/child/oneof/nested/cross-category cases plus original80groups pass with exact ordered JSON. Full28Rust tests,13native-hidden scenarios/88groups/120gRPCexports/exact13profiles and original0override closure pass. See GRPC.md#current-native-grpc-message-order. Broader JSON/WKT/oneof/map-entry-key/lone-surrogate/editor/template/stream/provider/platform and every retained gate remain open.
 2. **Streaming compatibility.** Remaining gRPC JSON/shared-editor/UTF8/surrogate cases, broader styles/providers/platforms; WebSocket fragmented application-history/control/close variants and large Clipboard Copy; further SSE UTF8/CRLF/compression exact boundaries and mixed environment/lifecycle variants. Prior exact-size, fragmentation, ACK, suspension and Save passes retain only their recorded scope.
 3. **Models and durable data.** Remaining resource/model/callback-drain and OS-close cases, environment callers/imported-model variants, legacy formats/assets/invalid or absent payload recovery, import/export round trips.
 4. **API tooling and compatibility.** Remaining GraphQL navigation/completion, gRPC/proto and OpenAPI contracts, runner scripts/imports, plugins and template integration; verify against the topic contracts.
@@ -16,6 +16,8 @@ This checklist is the current execution order; bounded passes do not close an en
 8. **Final audit, then deferred UX.** Map every PARITY acceptance requirement to current evidence or explicit owner removal before declaring migration complete. Continue shared-input adoption/CSS ownership and redesign in POST-MIGRATION-UX only in the authorized sequence.
 
 ## Latest investigation and document scope — 2026-10-16
+
+Current uncommitted map-entry/key-presence implementation passes the full33 Rust library tests (0failed/0filtered), including70 pinned reference vectors and3 explicit unsafe-writer refusals. Evidence: artifacts/grpc-map-view-full-attempt-1.log and matching exit.txt (0). Fresh native build, saved native editor/wire/history/reload/export/error-recovery acceptance, regression suite, independent closure audit and topic commit remain pending. The previous message-order binary does not verify these source changes.
 
 Legacy message-field JSON order now has bounded Windows acceptance:8new native default/full/normal/child/oneof/nested/cross-category cases plus original80groups pass with exact ordered JSON. Full28Rust tests,13native-hidden scenarios/88groups/120gRPCexports/exact13profiles and original0override closure pass. See GRPC.md#current-native-grpc-message-order. Broader JSON/WKT/oneof/map-entry-key/lone-surrogate/editor/template/stream/provider/platform and every retained gate remain open.
 
