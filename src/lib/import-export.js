@@ -5,6 +5,7 @@ import { readTextFile, writeTextFile, writeFile, stat } from "@tauri-apps/plugin
 import { id, initialData, newRequest } from "./model.js";
 import { parseLegacyFiles } from "./legacy-import.js";
 import { legacyResponseAssetRequests, convertLegacyResponseHistory } from "./legacy-response-history.js";
+import { legacyRequestAssetRequests, convertLegacyRequestFiles } from "./legacy-request-files.js";
 import { referenceKeys, validateTopology } from "./resources.js";
 import { parseSpec } from "./openapi-document.js";
 import {
@@ -278,6 +279,8 @@ export function parseImport(text) {
         authentication: r.authentication || {},
       });
     }
+  const requestFiles = convertLegacyRequestFiles(resources);
+  resources = requestFiles.resources;
   const knownTypes = new Set([
     "workspace",
     "request",
@@ -294,6 +297,9 @@ export function parseImport(text) {
     history: legacyHistory.history,
     legacyResponses: resources.filter((r) => r._type === "response").length,
     legacyHistoryWarnings: legacyHistory.warnings,
+    legacyRequestFiles: requestFiles.pending,
+    legacyRequestFilesLoaded: requestFiles.loaded + requestFiles.portableLoaded,
+    legacyRequestFileWarnings: requestFiles.warnings,
     warnings: [
       ...(detachedGitBindings
         ? [
@@ -353,6 +359,23 @@ export async function pickLegacyResponseHistory(review) {
       ...(ordered.length > 100 ? [{ id: "", code: "preview-entry-limit", message: `${ordered.length - 100} older responses were not read in this preview. Their original records and asset paths remain preserved; at most 100 responses are read per preview.` }] : []),
     ],
   };
+}
+/** Explicitly select the original folder; never expand imported file paths.
+ * @param {ReturnType<typeof parseImport>} review */
+export async function pickLegacyRequestFiles(review) {
+  if (!isTauri()) throw new Error("External request files require the desktop application.");
+  const root = await open({ directory: true, multiple: false, title: "Choose the original request files folder" });
+  if (!root) return null;
+  if (typeof root !== "string") throw new Error("Choose one request files folder.");
+  const plan = legacyRequestAssetRequests(review.resources);
+  const assets = await invoke("read_legacy_request_assets", {
+    root, entries: plan.entries.map(({ id, path }) => ({ id, path })),
+  });
+  const converted = convertLegacyRequestFiles(review.resources, assets);
+  return { ...review, resources: converted.resources,
+    legacyRequestFiles: converted.pending,
+    legacyRequestFilesLoaded: converted.loaded + converted.portableLoaded,
+    legacyRequestFileWarnings: [...plan.warnings, ...converted.warnings] };
 }
 export async function pickImport() {
   if (!isTauri()) return null;

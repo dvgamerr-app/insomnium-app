@@ -465,7 +465,8 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
     );
     if (!headers.some(([name]) => name.toLowerCase() === "content-type"))
       headers.push(["Content-Type", mime]);
-  } else if (mime && isBinaryBody(body) && body.curlQuery !== true) {
+  } else if (isBinaryBody(body) && body.curlQuery !== true) {
+    if (body._legacyFileAssetError) throw new Error(`Imported binary file is invalid: ${body._legacyFileAssetError}. Select the file again.`);
     if (body.curlSegments)
       bodyBase64 = encodeBase64(composeCurlBody(body, resolve));
     else {
@@ -473,7 +474,7 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
         throw new Error("Select a binary file before sending");
       bodyBase64 = body.base64;
     }
-    if (!headers.some(([name]) => name.toLowerCase() === "content-type"))
+    if (mime && !headers.some(([name]) => name.toLowerCase() === "content-type"))
       headers.push(["Content-Type", mime]);
   } else if (mime === "application/graphql") {
     const graphql = JSON.parse(body.text || "{}");
@@ -535,34 +536,39 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
     setHeader("Content-Type", mime);
   } else if (mime === "multipart/form-data") {
     multipart = (body.params ?? [])
-      .filter((/** @type {any} */ p) => !p.disabled && p.name)
+      .filter((/** @type {any} */ p) => !p.disabled && (body._legacyMultipart === true
+        ? p.name || p.value || p.fileName || p._legacyFilePath || (p.type === "file" && typeof p.base64 === "string") : p.name))
       .map((/** @type {any} */ p) => {
-        if (p.type === "file" && typeof p.base64 !== "string")
+        const file = p.type === "file" && !(body._legacyMultipart === true && !p.fileName && !p._legacyFilePath && typeof p.base64 !== "string");
+        if (file && p._legacyFileAssetError) throw new Error(`Imported file for multipart field “${p.name || ""}” is invalid. Select the file again.`);
+        const legacyTextMime = body._legacyMultipart === true && !file
+          ? (p.contentType || (typeof p.multiline === "string" ? p.multiline : null))?.replace(/\r\n[ \t]+/g, " ") : null;
+        if (file && typeof p.base64 !== "string")
           throw new Error(
             `Select the file again for multipart field “${p.name}”`,
           );
         return {
-          name: resolve(p.name),
+          name: resolve(p.name || ""),
           value:
-            p.type === "file"
+            file
               ? p.base64
               : typeof p.fileNameOverride === "string"
                 ? encodeBase64(new TextEncoder().encode(resolve(p.value)))
-                : resolve(p.value),
-          valueBase64: p.type === "file" && p.fileContent === true,
+                : resolve(p.value || ""),
+          valueBase64: file && p.fileContent === true,
           fileName:
-            p.type === "file" && p.fileContent === true
+            file && p.fileContent === true
               ? null
               : typeof p.fileNameOverride === "string"
                 ? resolve(p.fileNameOverride)
-                : p.type === "file" && p.fileContent !== true
+                : file && p.fileContent !== true
                   ? p.fileName || "upload.bin"
                   : null,
           contentType: p.contentTypeOverride
             ? resolve(p.contentTypeOverride)
-            : p.type === "file" && p.fileContent === true
+            : file && p.fileContent === true
               ? null
-              : p.contentType || null,
+              : legacyTextMime || p.contentType || null,
         };
       });
     // Native client supplies the multipart boundary; remove all manual copies.

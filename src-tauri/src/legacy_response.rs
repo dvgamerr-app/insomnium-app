@@ -512,3 +512,35 @@ pub async fn read_legacy_response_assets(
     .await
     .map_err(|_| "Legacy asset reader worker failed.".to_string())?
 }
+
+/// Request file inputs expose neither response decompression nor timeline reads.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LegacyRequestEntry {
+    pub id: String,
+    pub path: String,
+}
+
+#[tauri::command]
+pub async fn read_legacy_request_assets(
+    window: tauri::WebviewWindow,
+    root: String,
+    entries: Vec<LegacyRequestEntry>,
+) -> Result<LegacyResponseResult, String> {
+    if entries.len() > ENTRY_LIMIT {
+        return Err("Legacy request files accept at most 100 entries per preview.".into());
+    }
+    if entries.iter().any(|entry| entry.path.is_empty()) {
+        return Err("Legacy request file assets require an explicit nonempty source path.".into());
+    }
+    let entries = entries
+        .into_iter()
+        .map(|entry| LegacyResponseEntry {
+            id: entry.id,
+            body_path: Some(entry.path),
+            timeline_path: None,
+            body_compression: "raw".into(),
+        })
+        .collect();
+    read_legacy_response_assets(window, root, entries).await
+}

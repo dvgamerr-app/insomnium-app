@@ -93,7 +93,7 @@
         throw new Error(
           "The field changed while reading the file. Select it again.",
         );
-      change(index, { type: "file", ...upload });
+      change(index, { type: "file", ...upload, _legacyFileAsset: undefined, _legacyFileAssetError: undefined, _legacyFilePath: undefined });
       fileErrors = fileErrors.filter((failure) => failure.row !== rows[index]);
       error = "";
     } catch (e) {

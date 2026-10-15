@@ -71,6 +71,7 @@
     "diff": "9.0.0",
     "graphql": "16",
     "jsonpath-plus": "11.1.0",
+    "mime-db": "1.52.0",
     "mocha": "10.8.2",
     "nunjucks": "3.2.4",
     "openapi-sampler": "^1.7.6",

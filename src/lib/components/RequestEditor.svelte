@@ -218,6 +218,10 @@
               mimeType: event.currentTarget.value,
               binary: undefined,
               _openapiSerialization: undefined,
+              ...(binaryBody && event.currentTarget.value !== "application/octet-stream"
+                ? { base64: undefined, fileName: undefined, _legacyFilePath: undefined,
+                    _legacyFileAsset: undefined, _legacyFileAssetError: undefined }
+                : {}),
               ...(request.body?.curlFileMode || request.body?.curlSegments
                 ? {
                     curlFileMode: undefined,
@@ -306,7 +310,7 @@
                     request.body !== originalBody
                   )
                     return;
-                  body(upload);
+                  body({ ...upload, _legacyFileAsset: undefined, _legacyFileAssetError: undefined, _legacyFilePath: undefined });
                   error = "";
                 } catch (e) {
                   if (

@@ -70,7 +70,7 @@
   import { id, indexWorkspaces, protocolFor, historyMatchesEnvironment } from "$lib/model.js";
   import { orderedChildren } from "$lib/resources.js";
   import { curlRequestPatch, isCurlImport } from "$lib/curl-import.js";
-  import { pickImport, parseImport, exportData, pickLegacyResponseHistory } from "$lib/import-export.js";
+  import { pickImport, parseImport, exportData, pickLegacyResponseHistory, pickLegacyRequestFiles } from "$lib/import-export.js";
   import { reviewImportedHistory } from "$lib/import-history-review.js";
   import "@fontsource-variable/inter";
   import "@fontsource-variable/roboto-mono";
@@ -332,6 +332,13 @@
     importHistoryReview = reviewImportedHistory(app.data, review);
   }
   async function loadLegacyResponseFiles() {
+    return loadLegacyFiles(pickLegacyResponseHistory);
+  }
+  async function loadLegacyRequestFileAssets() {
+    return loadLegacyFiles(pickLegacyRequestFiles);
+  }
+  /** @param {(review:ReturnType<typeof parseImport>)=>Promise<ReturnType<typeof parseImport>|null>} picker */
+  async function loadLegacyFiles(picker) {
     if (importBusy || modal !== "import" || !pendingImport) return;
     const review = pendingImport;
     const revision = ++importRevision;
@@ -340,7 +347,7 @@
     modalError = "";
     try {
       work = importWork.begin();
-      const result = await pickLegacyResponseHistory($state.snapshot(review));
+      const result = await picker($state.snapshot(review));
       if (!work.current()) return;
       if (result && revision === importRevision && modal === "import" && pendingImport === review)
         setImportReview(result);
@@ -1100,6 +1107,14 @@
           {#each pendingImport.warnings as warning}<p class="hint">
               {warning}
             </p>{/each}
+          {#if pendingImport.legacyRequestFiles || pendingImport.legacyRequestFilesLoaded}
+            <p class="hint">{pendingImport.legacyRequestFilesLoaded} request files are portable. {pendingImport.legacyRequestFiles} file inputs still need attention. Original source files will not be changed.</p>
+            {#if pendingImport.legacyRequestFiles && isTauri()}<Button variant="secondary" disabled={importBusy} onclick={loadLegacyRequestFileAssets}>Load legacy request files</Button>
+            <p class="hint">Choose the original folder to review binary and multipart files before importing.</p>{/if}
+          {/if}
+          {#if pendingImport.legacyRequestFileWarnings.length}<details class="hint"><summary>Request file diagnostics ({pendingImport.legacyRequestFileWarnings.length})</summary>
+            {#each pendingImport.legacyRequestFileWarnings.slice(0, 20) as warning}<p>{warning}</p>{/each}
+          </details>{/if}
           {#if pendingImport.legacyResponses}<p class="hint">
               {pendingImport.legacyResponses} legacy response records will be preserved.
               {importHistoryReview?.accepted.length || 0} saved responses will be added to history.

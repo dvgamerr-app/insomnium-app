@@ -35,6 +35,7 @@ fn main() {
             "load_workspace",
             "save_workspace",
             "read_legacy_response_assets",
+            "read_legacy_request_assets",
             "discover_plugins",
             "discover_plugin_sources",
             "read_plugin_package",
