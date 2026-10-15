@@ -489,6 +489,235 @@ export async function runSseCompressionNativeCases() {
               bothMembers: true,
             });
 
+            // Independent terminal cases clear only owned histories after exact reload,
+            // preserving original data and avoiding an artificial aggregate-history limit.
+            for (const [encoding, encode] of codecs) {
+              for (const kind of ["cancel", "line-limit", "event-limit"]) {
+                const token = encoding + "-" + kind + "-" + suffix;
+                const url = fixture.target(token, "stream", encoding);
+                const input = page.getByLabel("Request URL", { exact: true });
+                await input.fill(url);
+                await input.press("Tab");
+                await poll(
+                  async () =>
+                    (await load()).resources.find(
+                      (/** @type {any} */ r) => r._id === request._id,
+                    )?.url === url,
+                  "Compressed bounds URL persisted",
+                );
+                await page
+                  .getByRole("button", { name: "Connect", exact: true })
+                  .click();
+                await poll(
+                  () => Promise.resolve(!!record(token)?.streaming),
+                  "Compressed bounds peer opens",
+                );
+                let decoded;
+                let encoded;
+                if (kind === "cancel") {
+                  decoded = Buffer.from("data: cancel " + encoding + "\n\n");
+                  const compressor =
+                    encoding === "gzip"
+                      ? createGzip()
+                      : encoding === "deflate"
+                        ? createDeflate()
+                        : createBrotliCompress();
+                  /** @type {Buffer[]} */ const chunks = [];
+                  compressor.on("data", (chunk) =>
+                    chunks.push(Buffer.from(chunk)),
+                  );
+                  try {
+                    compressor.write(decoded);
+                    await new Promise((resolve, reject) => {
+                      compressor.once("error", reject);
+                      compressor.flush(
+                        encoding === "br"
+                          ? constants.BROTLI_OPERATION_FLUSH
+                          : constants.Z_SYNC_FLUSH,
+                        () => resolve(undefined),
+                      );
+                    });
+                    encoded = Buffer.concat(chunks);
+                    fixture.push(token, encoded);
+                    await mounted("cancel " + encoding);
+                    assert.equal(compressor.writableEnded, false);
+                    assert.equal(record(token)?.closed, false);
+                    await page
+                      .getByRole("button", { name: "Disconnect", exact: true })
+                      .click();
+                    await poll(
+                      () =>
+                        Promise.resolve(
+                          !!record(token)?.closed && !!record(token)?.aborted,
+                        ),
+                      "Cancelled compressed body retires",
+                    );
+                  } finally {
+                    compressor.destroy();
+                  }
+                } else {
+                  decoded =
+                    kind === "line-limit"
+                      ? Buffer.from(":" + "L".repeat(20 * MiB + 1) + "\n\n")
+                      : Buffer.from(
+                          ("data: " + "E".repeat(MiB) + "\n").repeat(21) + "\n",
+                        );
+                  encoded = encode(decoded);
+                  assert.ok(
+                    encoded.length < 100 * 1024,
+                    "Wire body is far below decoded 20MiB guard",
+                  );
+                  fixture.push(token, encoded);
+                  fixture.finish(token);
+                }
+                const expectedState = kind === "cancel" ? "closed" : "error";
+                const terminalStarted = Date.now();
+                let lastProgress = 0;
+                await poll(
+                  async () => {
+                    const state = await stream
+                      .locator(".status-badge")
+                      .innerText();
+                    if (Date.now() - lastProgress > 5000) {
+                      lastProgress = Date.now();
+                      await Bun.write(
+                        join(output, "compressed-bounds-live.json"),
+                        JSON.stringify(
+                          {
+                            encoding,
+                            kind,
+                            state,
+                            expectedState,
+                            elapsedMs: Date.now() - terminalStarted,
+                            retention: await stream
+                              .locator(".stream-notice")
+                              .allTextContents(),
+                            completedChecks: checks.length,
+                          },
+                          null,
+                          2,
+                        ),
+                      );
+                    }
+                    return state === expectedState;
+                  },
+                  "Compressed bounds terminal state",
+                  // The native decoder emits 4KiB chunks, each individually ACKed.
+                  // Keep the same 20MiB assertions while allowing that real drain.
+                  300000,
+                );
+                const connect = page.getByRole("button", {
+                  name: "Connect",
+                  exact: true,
+                });
+                await poll(
+                  async () =>
+                    (await connect.isVisible()) && (await connect.isEnabled()),
+                  "Compressed bounds invocation retires",
+                  300000,
+                );
+                await resourceSaved(page);
+                const entry = (await load()).history.find(
+                  (/** @type {any} */ r) =>
+                    r.requestId === request._id && r.url === url,
+                );
+                assert.ok(entry);
+                assert.equal(entry.connectionState, expectedState);
+                const parsed = entry.events.filter(
+                  (/** @type {any} */ e) => e.kind === "sse",
+                );
+                const raw = Buffer.from(sseRawBytes(entry));
+                assert.equal(entry.rawCaptureError, undefined);
+                assert.ok(entry.rawEvents.length <= 1000);
+                assert.equal(
+                  entry.rawStoredBytes,
+                  Buffer.byteLength(JSON.stringify(entry.rawEvents)),
+                );
+                assert.ok(entry.rawStoredBytes <= 8 * MiB);
+                assert.equal(entry.rawRetainedBytes, raw.length);
+                assert.ok(entry.rawReceivedBytes <= decoded.length);
+                assert.deepEqual(
+                  raw,
+                  decoded.subarray(
+                    entry.rawReceivedBytes - raw.length,
+                    entry.rawReceivedBytes,
+                  ),
+                  "Raw suffix matches only decoded consumed bytes",
+                );
+                assert.deepEqual(wire(token), encoded);
+                if (kind === "cancel") {
+                  assert.deepEqual(
+                    parsed.map((/** @type {any} */ e) => e.data),
+                    ["cancel " + encoding],
+                  );
+                  assert.deepEqual(raw, decoded);
+                  assert.equal(
+                    entry.events.some(
+                      (/** @type {any} */ e) => e.kind === "error",
+                    ),
+                    false,
+                  );
+                  assert.equal(record(token)?.aborted, true);
+                } else {
+                  assert.equal(
+                    parsed.length,
+                    0,
+                    "Refused oversize event never dispatches",
+                  );
+                  assert.ok(
+                    entry.events.some(
+                      (/** @type {any} */ e) =>
+                        e.kind === "error" && /20 MiB/.test(e.message),
+                    ),
+                  );
+                  assert.ok(
+                    entry.rawReceivedBytes > 20 * MiB,
+                    "Guard measures decoded bytes rather than compressed input",
+                  );
+                  assert.ok(entry.rawDropped > 0);
+                }
+                await page.reload();
+                await resourceSaved(page);
+                const saved = await load();
+                assert.deepEqual(
+                  saved.history.find(
+                    (/** @type {any} */ r) => r._id === entry._id,
+                  ),
+                  entry,
+                  "Exact compressed bounds history survives reload",
+                );
+                assert.deepEqual(
+                  saved.history.filter(
+                    (/** @type {any} */ r) => r.requestId !== request._id,
+                  ),
+                  original.history,
+                );
+                checks.push({
+                  encoding,
+                  mode: kind,
+                  wireBytes: encoded.length,
+                  decodedBytes: decoded.length,
+                  rawReceivedBytes: entry.rawReceivedBytes,
+                  rawRetainedBytes: entry.rawRetainedBytes,
+                  rawStoredBytes: entry.rawStoredBytes,
+                  rawDropped: entry.rawDropped,
+                  decodedSHA256: sha(decoded),
+                  retainedSHA256: sha(raw),
+                  connectionState: entry.connectionState,
+                  peerAborted: record(token)?.aborted,
+                  exactReload: true,
+                });
+                // The existing native fixture setup command removes only completed owned rows.
+                saved.history = saved.history.filter(
+                  (/** @type {any} */ r) => r.requestId !== request._id,
+                );
+                delete saved.responseSelections?.[request._id];
+                await invoke("save_workspace", { data: saved });
+                await page.reload();
+                await resourceSaved(page);
+              }
+            }
+
             const final = await load();
             assert.deepEqual(
               final.history.filter(
@@ -534,7 +763,7 @@ export async function runSseCompressionNativeCases() {
           errors: failures.map(String),
           outerProfileRestorationRequired: true,
           scope:
-            "Native gzip/deflate/Brotli valid, corrupt, open-compressor flush and truncated-trailer cases; exact decoded raw export/reload. Includes multi-member gzip SSE/HTTP and invalid second member. No compressed cancel/limits, full mixed protocol, physicalTCP/OS-close or broader platform claim.",
+            "Native gzip/deflate/Brotli valid, corrupt, open-compressor flush and truncated-trailer cases; exact decoded raw export/reload. Includes multi-member gzip SSE/HTTP and invalid second member. Includes compressed cancellation and decoded20MiB line/event limits. No exact-size boundaries, full mixed protocol, physicalTCP/OS-close or broader platform claim.",
         },
         null,
         2,
