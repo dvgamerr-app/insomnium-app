@@ -106,15 +106,25 @@ export async function runGrpcJsonRefusalNativeCases() {
             }, 180000);
             try {
               for (const jsonMode of ["legacy", "protoJson"])
-                for (const kind of ["invalid-json", "unknown-field"]) {
+                for (const kind of [
+                  "invalid-json",
+                  "unknown-field",
+                  "invalid-base64",
+                  "excess-base64-padding",
+                ]) {
                   const label = jsonMode + "-" + kind,
                     spec = grpcLargeCase(jsonMode + "-json-string");
                   const initial =
                     kind === "invalid-json"
                       ? '{"exact_value":'
-                      : spec.body.slice(0, -1) + ',"unrecognized":7}';
+                      : kind === "unknown-field"
+                        ? spec.body.slice(0, -1) + ',"unrecognized":7}'
+                        : spec.body.replace(
+                            "AP+A",
+                            kind === "invalid-base64" ? "@" : "Zg===",
+                          );
                   const refuses =
-                    kind === "invalid-json" || jsonMode === "protoJson";
+                    kind !== "unknown-field" || jsonMode === "protoJson";
                   const request = newRequest(workspaceId, {
                     _id: "greq_refusal_" + label + "_" + suffix,
                     _type: "grpc_request",
@@ -167,7 +177,11 @@ export async function runGrpcJsonRefusalNativeCases() {
                     const frontend = kind === "invalid-json";
                     const pattern = frontend
                       ? /SyntaxError:.*JSON/i
-                      : /Invalid gRPC message: unrecognized field name 'unrecognized'/i;
+                      : kind === "unknown-field"
+                        ? /Invalid gRPC message: unrecognized field name 'unrecognized'/i
+                        : jsonMode === "legacy"
+                          ? /Invalid legacy base64 bytes\./
+                          : /Invalid gRPC message: invalid base64:/i;
                     const feedback = page
                       .locator(".inline-error")
                       .filter({ hasText: pattern })
@@ -455,7 +469,7 @@ export async function runGrpcJsonRefusalNativeCases() {
           errorEvents: fixture.errorEvents,
           errors: errors.map(String),
           scope:
-            "Four actual native UI cases: renderer JSON refusal without fabricated history, native unknown-field refusal with durable error, legacy unknown-field acceptance, zero observed peer IO and typed repair/reload/export. No full JSON/provider/platform claim.",
+            "Eight actual native UI cases: renderer JSON refusal, native unknown-field and malformed/excess-padding Base64 refusal with durable errors, legacy unknown-field acceptance, zero observed peer IO and typed repair/reload/export. No full JSON/provider/platform claim.",
         },
         null,
         2,
