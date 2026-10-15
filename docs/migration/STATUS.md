@@ -1,6 +1,6 @@
 # Migration status
 
-Updated 2026-10-15. Full migration is **incomplete**. Latest verified scenario/source commit:5fbb75a; prior certificate scenario:9180ac4; portable certificate implementation:ddea70f; prior request-file implementation/scenario:11e9b96/08ab0b3. Branch:feat/ui-design-system-settings-curl. Verified agent work is committed in the shared repo. Retired directories/custom .git backups remain absent; legacy backup and node_modules are preserved.
+Updated 2026-10-15. Full migration is **incomplete**. Latest verified scenario/source commit:38417fe; prior certificate scenario:9180ac4; portable certificate implementation:ddea70f; prior request-file implementation/scenario:11e9b96/08ab0b3. Branch:feat/ui-design-system-settings-curl. Verified agent work is committed in the shared repo. Retired directories/custom .git backups remain absent; legacy backup and node_modules are preserved.
 ## Documentation cleanup — 2026-10-15
 
 Removed historical MIGRATION-REVIEW.md, UI-DESIGN-SYSTEM-DEBT.md and COMMANDS.md; recover from Git c10061abcc38ac1d1e01d5f6459b1704e2c35217. Historical Markdown links now target that revision. Retained active migration contracts, acceptance/evidence, archive/build integrity and owner-required deferred UX. PLAN now starts with a consolidated remaining-work checklist; no parity gate is waived. Existing application/scenario and five dirty migration-document edits were preserved.
@@ -8,6 +8,8 @@ Removed historical MIGRATION-REVIEW.md, UI-DESIGN-SYSTEM-DEBT.md and COMMANDS.md
 Latest gRPC display candidate build was running at cleanup inspection (session57291, nativePid31756); no continuation/native suite was launched by this cleanup. Fixture smoke passes six modes; corrected native display/export remains unverified. Cleanup changes documentation relative to the build snapshot: any later source-closure audit must explicitly account for this delta rather than treating it as a zero-override candidate. This interface cannot invoke /compact; this is the handoff.
 
 ## Current work
+
+Verified gRPC EOF/preview topic commit:38417fe. Workflow27461/build/suite all terminal0; ten gRPC cases plus28 regression groups pass. Independent audit verifies20full JSON exports, exact6profiles and original1408source/1317regular closure with0overrides; post-acceptance delta permits only five migration docs, no application/scenario drift. Failed baseline/candidate2 receipts remain. No live build/native/profile handles. Next broader gRPC JSON/shared-editor/stream-shape compatibility plus every remaining PLAN/PARITY gate. Full migration incomplete; /compact unavailable, explicit handoff.
 
 ## Current native gRPC EOF, bounded preview and complete export
 
