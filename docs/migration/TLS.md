@@ -1,6 +1,6 @@
 # TLS migration
 
-Updated 2026-10-14. Current bounded Windows Open4/TLS59 receipts pass. Remaining certificate scopes, provider and platform/OS lifecycle acceptance remain open.
+Updated 2026-10-15. Bounded Windows Open4/TLS59 receipts remain accepted for their recorded versions. Reviewed portable certificate/key activation is documented once in [IMPORT-EXPORT](IMPORT-EXPORT.md#current-legacy-certificate-activation-work). Broader certificate/provider and platform/OS lifecycle acceptance remains open.
 
 See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity requirements](PARITY.md). No original scope was removed by consolidation.
 
