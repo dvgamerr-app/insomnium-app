@@ -4,6 +4,10 @@ Updated 2026-10-14. Use saved Bun Playwright scenarios only. Shared launchUiBrow
 
 See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity requirements](PARITY.md). No original scope was removed by consolidation.
 
+## Current WebSocket ACK verification
+
+Saved websocket-ack-native.js controls a separate real SDK Channel receiver, never application callbacks or an IPC shim. Run with INSOMNIUM_WEBSOCKET_ACK_NATIVE=1 and the explicit audited build/profile marker. Existing sse-ack-native-probe.js defaults to SSE; its optional websocket protocol and owned manual ACK/cancel methods are scenario-only. Rebuild/retain the actual browser bundle and compare byte hashes to current fixture+installed SDK. Observe native command completion, peer closure, retired-run send refusal, run-id reuse and exact profile restoration. Real delayed/missing ACKs are not real renderer/host suspension. Scope/receipts: HTTP.md#current-websocket-acknowledgement-controls.
+
 ## Current native stream bounds verification
 
 Saved [sse-bounds-native.js](../../tests/ui/sse-bounds-native.js) uses the shared native-hidden/profile-preservation helpers. Its5application UI groups cover large bytes, count/byte retention, exact native binary export/reload and oversized line/event errors. Its3native ACK groups use a separate real Tauri SDK Channel receiver built by Bun from [sse-ack-native-probe.js](../../tests/ui/fixtures/sse-ack-native-probe.js); they intentionally delay/drop acknowledgements without replacing application callbacks. Run only with INSOMNIUM_SSE_BOUNDS_NATIVE=1 and explicit audited build/profile ownership. Current exact receipts and remaining gates: [HTTP.md#current-native-sse-bounds-and-ack-deadline](HTTP.md#current-native-sse-bounds-and-ack-deadline).

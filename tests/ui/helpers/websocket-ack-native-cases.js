@@ -1,0 +1,403 @@
+import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { join } from "node:path";
+import { newRequest } from "../../../src/lib/model.js";
+import {
+  withNativeApp,
+  poll,
+  resourceCrudProbeIdentifier,
+} from "./native-app.js";
+import {
+  withResourceProbePreserved,
+  registerResourceProbeCollection,
+  resourceSaved,
+} from "./resource-manager-cases.js";
+import { createWebSocketRuntimeFixture } from "./websocket-runtime-fixture.js";
+
+const MiB = 1024 * 1024;
+/** @param {Uint8Array} bytes */
+const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
+
+/** Saved native WebSocket ACK controls through a separate real SDK Channel. */
+export async function runWebSocketAckNativeCases() {
+  assert.equal(process.platform, "win32");
+  const marker = process.env.INSOMNIUM_UI_PROFILE_OWNERSHIP;
+  assert.ok(marker && process.env.INSOMNIUM_UI_BUILD_STATE);
+  const options = {
+    expectedIdentifier: resourceCrudProbeIdentifier,
+    profileOwnershipPath: marker,
+  };
+  const fixture = await createWebSocketRuntimeFixture();
+  /** @type {unknown[]} */ const failures = [];
+  /** @type {Record<string,any>[]} */ const checks = [];
+  /** @type {string[]} */ const pageErrors = [];
+  /** @type {string|undefined} */ let evidence;
+  try {
+    await withResourceProbePreserved(
+      async (capture) => {
+        await withNativeApp(
+          "websocket-ack-native",
+          async ({ page, invoke, output, pid }) => {
+            evidence = output;
+            page.setDefaultTimeout(60000);
+            page.on("pageerror", (error) => pageErrors.push(String(error)));
+            await resourceSaved(page);
+            await capture();
+            const original = await invoke("load_workspace");
+            assert.ok(
+              Buffer.byteLength(JSON.stringify(original.history)) < 8 * MiB,
+              "Leave room for owned bounded history without evicting original data",
+            );
+            const suffix = crypto.randomUUID().replaceAll("-", "");
+            const workspaceId = "wrk_sse_bounds_" + suffix;
+            const collectionName = "Owned WebSocket ACK " + suffix;
+            const request = newRequest(workspaceId, {
+              _id: "req_sse_bounds_" + suffix,
+              name: "Owned WebSocket ACK request " + suffix,
+              _type: "websocket_request",
+              url: fixture.target("initial-" + suffix),
+              headers: [],
+            });
+            await invoke("save_workspace", {
+              data: {
+                ...original,
+                resources: [
+                  ...original.resources,
+                  {
+                    _id: workspaceId,
+                    _type: "workspace",
+                    parentId: null,
+                    name: collectionName,
+                    scope: "collection",
+                  },
+                  {
+                    _id: "env_sse_bounds_" + suffix,
+                    _type: "environment",
+                    parentId: workspaceId,
+                    name: "Base Environment",
+                    data: {},
+                  },
+                  request,
+                ],
+                activeWorkspaceId: workspaceId,
+                activeRequestId: request._id,
+                activeEnvironmentId: null,
+                openTabs: [...original.openTabs, request._id],
+                settings: { ...original.settings, proxy: "", timeout: 120000 },
+              },
+            });
+            const load = () => invoke("load_workspace");
+            assert.equal(
+              (await load()).resources.find(
+                (/** @type {any} */ r) => r._id === workspaceId,
+              )?.name,
+              collectionName,
+            );
+            registerResourceProbeCollection(workspaceId, collectionName);
+            await page.reload();
+            await resourceSaved(page);
+
+            const built = await Bun.build({
+              entrypoints: ["tests/ui/fixtures/sse-ack-native-probe.js"],
+              target: "browser",
+              format: "iife",
+            });
+            assert.equal(built.success, true, String(built.logs));
+            const bundle = await built.outputs[0].text();
+            await Bun.write(join(output, "ack-probe.bundle.js"), bundle);
+            const bundleSha256 = sha(Buffer.from(bundle));
+            await page.evaluate(bundle);
+            const status = (/** @type {string} */ id) =>
+              page.evaluate(
+                (key) =>
+                  /** @type {any} */ (window).__ownedSseAckProbe.status(key),
+                id,
+              );
+            const ack = (
+              /** @type {string} */ id,
+              /** @type {number} */ sequence,
+              foreign = false,
+            ) =>
+              page.evaluate(
+                ({ id, sequence, foreign }) =>
+                  /** @type {any} */ (window).__ownedSseAckProbe.ack(
+                    id,
+                    sequence,
+                    foreign,
+                  ),
+                { id, sequence, foreign },
+              );
+            const release = (/** @type {string} */ id) =>
+              page.evaluate(
+                (key) =>
+                  /** @type {any} */ (window).__ownedSseAckProbe.release(key),
+                id,
+              );
+            const record = (/** @type {string} */ token) =>
+              fixture.records.find((r) => r.token === token);
+            const packets = (/** @type {any} */ s) =>
+              s.packets.filter((/** @type {any} */ p) => p.sequence != null);
+            const messages = (/** @type {any} */ s) =>
+              s.packets.filter(
+                (/** @type {any} */ p) => p.event.kind === "message",
+              );
+            const begin = async (
+              /** @type {string} */ id,
+              /** @type {string} */ token,
+              /** @type {boolean} */ held,
+              count = 2,
+            ) => {
+              const nativeRequest = {
+                id,
+                workspaceId,
+                method: "GET",
+                url: fixture.target(token),
+                headers: [],
+                body: null,
+                bodyBase64: null,
+                multipart: null,
+                timeoutMs: 120000,
+                followRedirects: true,
+                validateCertificates: true,
+                useCookies: false,
+                sendCookies: false,
+                storeCookies: false,
+                proxy: null,
+              };
+              await page.evaluate(
+                ({ request, held }) =>
+                  /** @type {any} */ (window).__ownedSseAckProbe.start(
+                    request,
+                    held,
+                    "websocket",
+                  ),
+                { request: nativeRequest, held },
+              );
+              await poll(
+                () => Promise.resolve(!!record(token)?.opened),
+                "ACK WebSocket upgraded",
+              );
+              for (let i = 1; i <= count; i++)
+                fixture.peerSend(token, token + ":message-" + i);
+              await poll(
+                async () => packets(await status(id)).length >= 1,
+                "First native WebSocket packet delivered",
+              );
+            };
+            const done = async (/** @type {string} */ id, timeout = 15000) => {
+              await poll(
+                async () => (await status(id)).done,
+                "ACK invocation retires",
+                timeout,
+              );
+              const s = await status(id);
+              assert.deepEqual(s.ackErrors, []);
+              return s;
+            };
+            const closed = async (/** @type {string} */ token) =>
+              poll(
+                () => Promise.resolve(!!record(token)?.closed),
+                "ACK peer retires",
+              );
+            const receipt = async (
+              /** @type {string} */ name,
+              /** @type {any} */ s,
+              extra = {},
+            ) => {
+              assert.deepEqual(s.ackErrors, []);
+              checks.push({
+                name,
+                receiver: "separate real Tauri SDK Channel",
+                bundleSha256,
+                result: s.result,
+                manualAcks: s.manualAcks,
+                sequenced: packets(s),
+                ...extra,
+              });
+              await Bun.write(
+                join(output, "websocket-ack-progress.json"),
+                JSON.stringify({ checks }, null, 2),
+              );
+            };
+            try {
+              let id = "ws_ack_hold_" + suffix;
+              let token = "held-" + suffix;
+              await begin(id, token, true, 3);
+              await ack(id, 2);
+              await ack(id, 0);
+              await ack(id, 1, true);
+              await Bun.sleep(25000);
+              let s = await status(id);
+              assert.equal(s.done, false);
+              assert.equal(packets(s).length, 1);
+              assert.equal(messages(s).length, 1);
+              const heldMilliseconds =
+                (await page.evaluate(() => performance.now())) -
+                packets(s)[0].at;
+              assert.ok(heldMilliseconds >= 24000 && heldMilliseconds < 30000);
+              assert.equal(record(token)?.closed, false);
+              await ack(id, 1);
+              await poll(
+                async () => packets(await status(id)).length === 2,
+                "Only matching ACK releases second packet",
+              );
+              await ack(id, 1);
+              await ack(id, 3);
+              await Bun.sleep(300);
+              s = await status(id);
+              assert.equal(
+                packets(s).length,
+                2,
+                "Duplicate and future ACKs do not release third message",
+              );
+              await ack(id, 2);
+              await poll(
+                async () => messages(await status(id)).length === 3,
+                "Matching second ACK releases third message",
+              );
+              await release(id);
+              fixture.peerClose(token, 1000, "held release complete");
+              s = await done(id);
+              await closed(token);
+              assert.equal(s.result.ok, true);
+              assert.deepEqual(
+                messages(s).map((/** @type {any} */ p) => p.event.data),
+                [1, 2, 3].map((i) => token + ":message-" + i),
+              );
+              assert.equal(packets(s).at(-1).event.kind, "finished");
+              await receipt(
+                "held25s-stale-future-foreign-duplicate-ACK-release",
+                s,
+                { heldMilliseconds, peerRetired: true },
+              );
+              id = "ws_ack_timeout_" + suffix;
+              token = "timeout-" + suffix;
+              await begin(id, token, true);
+              s = await done(id, 45000);
+              assert.equal(s.result.ok, false);
+              assert.match(s.result.error, /stopped acknowledging/);
+              assert.equal(packets(s).length, 1);
+              assert.equal(messages(s).length, 1);
+              const elapsed = s.doneAt - packets(s)[0].at;
+              assert.ok(elapsed >= 28000 && elapsed < 40000);
+              await closed(token);
+              /** @type {string|undefined} */ let sendRefusal;
+              try {
+                await invoke("send_stream_message", {
+                  id,
+                  format: "text",
+                  data: "refuse after timeout",
+                });
+              } catch (error) {
+                sendRefusal = String(error);
+              }
+              assert.match(sendRefusal ?? "", /WebSocket is not connected/);
+              await ack(id, 1);
+              await receipt(
+                "missing-ACK-single-deadline-socket-retirement",
+                s,
+                { elapsed, sendRefusal, peerRetired: true },
+              );
+              token = "reuse-" + suffix;
+              await begin(id, token, false);
+              await poll(
+                async () => messages(await status(id)).length === 2,
+                "Retired run ID is reusable",
+              );
+              fixture.peerClose(token, 1000, "reuse complete");
+              s = await done(id);
+              await closed(token);
+              assert.equal(s.result.ok, true);
+              assert.equal(packets(s)[0].sequence, 1);
+              await receipt("run-id-reuse-after-ACK-timeout", s, {
+                sameRunIdReused: true,
+                peerRetired: true,
+              });
+              id = "ws_ack_cancel_" + suffix;
+              token = "cancel-" + suffix;
+              await begin(id, token, true);
+              const cancelledAt = await page.evaluate(() => performance.now());
+              await page.evaluate(
+                (key) =>
+                  /** @type {any} */ (window).__ownedSseAckProbe.cancel(key),
+                id,
+              );
+              await poll(
+                async () =>
+                  packets(await status(id)).some(
+                    (/** @type {any} */ p) => p.event.kind === "finished",
+                  ),
+                "Cancellation preserves Finished ordering barrier",
+              );
+              await closed(token);
+              s = await status(id);
+              assert.equal(s.done, false);
+              assert.equal(messages(s).length, 1);
+              await release(id);
+              s = await done(id);
+              assert.equal(s.result.ok, false);
+              assert.match(s.result.error, /cancelled/i);
+              const cancellationMilliseconds = s.doneAt - cancelledAt;
+              assert.ok(cancellationMilliseconds < 10000);
+              await receipt("cancel-held-packet-drains-Finished", s, {
+                cancellationMilliseconds,
+                peerRetired: true,
+              });
+            } finally {
+              await page.evaluate(() =>
+                /** @type {any} */ (window).__ownedSseAckProbe?.dispose(),
+              );
+            }
+            const final = await load();
+            assert.deepEqual(final.history, original.history);
+            for (const resource of original.resources)
+              assert.deepEqual(
+                final.resources.find(
+                  (/** @type {any} */ r) => r._id === resource._id,
+                ),
+                resource,
+              );
+            assert.deepEqual(pageErrors, []);
+          },
+          options,
+        );
+      },
+      { ...options, lazyCapture: true },
+    );
+  } catch (error) {
+    failures.push(error);
+  }
+  let retirement;
+  try {
+    retirement = await fixture.closeAfterHostExit();
+  } catch (error) {
+    retirement = /** @type {any} */ (error)?.retirement;
+    failures.push(error);
+  }
+  if (evidence)
+    await Bun.write(
+      join(evidence, "websocket-ack-acceptance.json"),
+      JSON.stringify(
+        {
+          passed: !failures.length,
+          renderingMode: "native-hidden",
+          mockedIpc: false,
+          checks,
+          records: fixture.records,
+          retirement,
+          pageErrors,
+          errors: failures.map(String),
+          outerProfileRestorationRequired: true,
+          scope:
+            "Separate real SDK Channel WebSocket delayed/stale/future/foreign/duplicate/missing ACKs, cancellation and native map/socket retirement. No real renderer/host suspension, OS-close/physicalTCP or broader platform claim.",
+        },
+        null,
+        2,
+      ),
+    );
+  if (failures.length)
+    throw new AggregateError(
+      failures,
+      "Native WebSocket ACK acceptance failed",
+    );
+}
