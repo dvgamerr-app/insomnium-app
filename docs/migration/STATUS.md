@@ -3,6 +3,14 @@
 Updated 2026-10-15. Full migration is **incomplete**. Latest verified scenario/source commit:5fbb75a; prior certificate scenario:9180ac4; portable certificate implementation:ddea70f; prior request-file implementation/scenario:11e9b96/08ab0b3. Branch:feat/ui-design-system-settings-curl. Verified agent work is committed in the shared repo. Retired directories/custom .git backups remain absent; legacy backup and node_modules are preserved.
 ## Current work
 
+### Full large WebSocket event export — verified bounded milestone 2026-10-15
+
+Actual Save stream event/native owned dialogs now verify20MiB UTF8 text and binary before and after reload: four new.bin files each20971520bytes with SHA256 identical to independently offered payloads. Preview remains bounded; complete saved content is preserved. Cancel is exercised before each first Save, then the scenario waits until inspectOwnedDialogs confirms no owned dialog before starting another Save. Clipboard Copy remains unverified for these20MiB payloads.
+
+Initial91693/receipt1792062752218 fails missing export after back-to-back Cancel/Save; helper returns immediately after posting Cancel, so old-dialog selection was possible. Host42760 exits0/native-hidden/profile1792062751993 restores; failed closure remains exact. V2 adds an explicit owned-dialog disappearance barrier without changing production/helper ownership guards. Suite53647 exits0: largeUI1792062909484=3/SSEexact1792062948093=6/SSE1792062999669=8/WS1792063015941=6/mixed1792063026984=5. Hosts35348/53636/56444/28896/59620 exit0/native-hidden, exact5original profiles restored. Unchanged app3ecce5a/exe61215395/originalmanifest3db462bb with declared1scenario/5doc supplement closes1403source/1312regular rows/all other scopes. audit-large-export-v2.mjs reads/hashes all four actual files and validates original manifest/exe/receipts/closure/profile hashes. Artifacts: artifacts/native-resource-crud-audit-probe/websocket-large-ui-attempt-1/. Strict targeted JS/Prettier checks pass. No live handles. Next explicit fragmentation/control frames, large Clipboard Copy and gRPC plus all remaining PLAN/PARITY. Full migration incomplete; /compact unavailable, explicit handoff.
+
+
+
 Verified large stream rendering topic commit:3ecce5a. Post-acceptance delta audit checks1312regular files: only five migration docs changed, no implementation/scenario drift. Build65298/continuation18771 terminal0; all5native hosts exit0/profile hashes exact. No live owned handles. Next explicit fragmented/control frames, full large-event export and gRPC plus remaining PLAN/PARITY. Full migration incomplete; /compact unavailable, explicit handoff.
 
 

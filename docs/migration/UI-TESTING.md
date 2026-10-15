@@ -1683,3 +1683,7 @@ Existing `bun tests/ui/websocket-ack-native.js` has14groups with INSOMNIUM_WEBSO
 ## Current large WebSocket UI verification
 
 Run `bun tests/ui/websocket-large-history-native.js` with INSOMNIUM_WEBSOCKET_LARGE_HISTORY_NATIVE=1 and audited build/profile marker. Three actual UI cases compare bounded summary/detail rendering with complete20MiB durable text/binary, exact reload/selection,9MiB replacement and real request deletion. Use shared native-hidden/profile restoration helpers. Rerun `sse-exact-native.js` because its full payload/history/export checks share StreamPane; only its displayed-preview expectations changed. Canonical evidence/failures: HTTP.md#current-large-stream-ui-correction.
+
+## Current full large event export verification
+
+Existing websocket-large-history-native.js now verifies four20MiB native Save files (text/binary × terminal/reloaded) and Cancel before Save. Await actual owned dialog disappearance after Cancel; posting its command alone is insufficient. Use unchanged shared native-hidden/profile preservation and owned Save dialog helpers. Canonical evidence/failure: HTTP.md#current-full-large-websocket-export.

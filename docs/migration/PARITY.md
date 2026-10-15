@@ -6,6 +6,10 @@ Current receipts: Windows environment6349100/follow-up eae4ac2 (29checks/Name6/J
 
 ## Latest stream history and decoded limits
 
+Full20MiB text/binary event Save before/after reload now has bounded Windows acceptance: four native files exact size/SHA, Cancel/owned-dialog retirement, original regressions/source closure and exact5profile restoration. See HTTP.md#current-full-large-websocket-export. Large Clipboard Copy, fragmentation/control/gRPC/provider/platform and all other retained gates stay open.
+
+
+
 Large stream UI now renders bounded summary/detail previews while preserving complete payload/history. Actual20MiB UTF8 text/binary terminal/reload,9MiB replacement and deletion3cases pass; SSEexact6/SSE8/WS6/mixed5, exact5profile restoration and fresh1403source closure/0overrides pass. Baseline forced diagnostic is retained as failure. See HTTP.md#current-large-stream-ui-correction. Full large-event Copy/Save, explicit fragmentation/control frames, gRPC/provider/platform and every retained requirement remain open.
 
 

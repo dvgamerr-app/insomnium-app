@@ -4,6 +4,10 @@ Updated 2026-10-15. Current state is in [STATUS.md](STATUS.md); all original req
 
 ## Remaining execution order
 
+Full20MiB text/binary native event Save is now bounded verified before/after reload with four exact files; see HTTP.md#current-full-large-websocket-export. Next explicit fragmentation/control frames, large Clipboard Copy and gRPC plus all retained PARITY gates.
+
+
+
 Latest large stream UI correction is bounded verified: responsive512/65536unit previews with full20MiB text/binary history through terminal/reload,9MiB replacement and owned deletion; see HTTP.md#current-large-stream-ui-correction. Fresh largeUI3/SSEexact6/SSE8/WS6/mixed5 and original0override closure pass. Next explicit fragmentation/control frames, full large-event export, gRPC and every remaining PARITY gate.
 
 

@@ -13,6 +13,8 @@ import {
   resourceSaved,
 } from "./resource-manager-cases.js";
 import { createWebSocketRuntimeFixture } from "./websocket-runtime-fixture.js";
+import { inspectOwnedDialogs } from "./native-window-close.js";
+import { respondToOwnedSaveDialog } from "./windows-save-dialog.js";
 const MiB = 1024 * 1024;
 /** @param {Uint8Array} bytes */
 const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
@@ -35,7 +37,7 @@ export async function runWebSocketLargeHistoryNativeCases() {
       async (capture) => {
         await withNativeApp(
           "websocket-large-history-native",
-          async ({ page, invoke, output }) => {
+          async ({ page, invoke, output, pid }) => {
             evidence = output;
             page.setDefaultTimeout(120000);
             page.on("pageerror", (error) => pageErrors.push(String(error)));
@@ -167,6 +169,7 @@ export async function runWebSocketLargeHistoryNativeCases() {
               );
               assert.equal(mounted.sha256, previewSHA256);
               assert.equal(mounted.characters, 513);
+              /** @type {Record<string,any>[]} */ const exports = [];
               if (mode === "replacement") {
                 fixture.peerSend(token, "replacement " + token);
                 await poll(
@@ -231,6 +234,63 @@ export async function runWebSocketLargeHistoryNativeCases() {
                   .filter({ hasText: "Showing a preview of this large event" })
                   .waitFor();
               }
+              const exportFull = async (/** @type {string} */ phase) => {
+                const path = join(output, mode + "-" + phase + ".bin");
+                const saving = respondToOwnedSaveDialog(
+                  pid,
+                  output,
+                  path,
+                  ".bin",
+                );
+                void saving.catch(() => {});
+                try {
+                  await stream
+                    .getByRole("button", {
+                      name: "Save stream event",
+                      exact: true,
+                    })
+                    .click();
+                } finally {
+                  await saving;
+                }
+                await poll(
+                  () => Bun.file(path).exists(),
+                  "Complete large event saved",
+                );
+                const saved = await Bun.file(path).bytes();
+                assert.equal(saved.length, bytes.length);
+                assert.equal(sha(saved), expectedSHA256);
+                exports.push({
+                  phase,
+                  path,
+                  bytes: saved.length,
+                  sha256: sha(saved),
+                });
+              };
+              if (mode !== "replacement") {
+                const cancelling = respondToOwnedSaveDialog(
+                  pid,
+                  output,
+                  null,
+                  ".bin",
+                );
+                void cancelling.catch(() => {});
+                try {
+                  await stream
+                    .getByRole("button", {
+                      name: "Save stream event",
+                      exact: true,
+                    })
+                    .click();
+                } finally {
+                  await cancelling;
+                }
+                await poll(
+                  () => Promise.resolve(inspectOwnedDialogs(pid).length === 0),
+                  "Cancelled owned Save dialog retires before fresh Save",
+                );
+                await exportFull("terminal");
+              }
               await Bun.sleep(200);
               assert.deepEqual(
                 (await load()).history.find(
@@ -254,6 +314,13 @@ export async function runWebSocketLargeHistoryNativeCases() {
               );
               if (mode !== "replacement")
                 assert.equal((await hashMounted()).sha256, previewSHA256);
+              if (mode !== "replacement") {
+                await stream
+                  .locator(".stream-event")
+                  .filter({ hasText: expected.slice(0, 24) })
+                  .click();
+                await exportFull("reloaded");
+              }
               assert.deepEqual(
                 (await load()).history.filter(
                   (/** @type {any} */ r) => r.requestId !== request._id,
@@ -282,6 +349,7 @@ export async function runWebSocketLargeHistoryNativeCases() {
                 expectedSHA256,
                 mounted,
                 previewSHA256,
+                exports,
                 historyId: runId,
                 payloadCount: payloads.length,
                 retainedBytes: entry.retainedBytes,
