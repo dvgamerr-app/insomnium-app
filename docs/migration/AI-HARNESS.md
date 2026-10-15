@@ -21,6 +21,8 @@ For review only:
 
 Claude dispatches objectives and relevant paths; workers read applicable instructions and code in their own contexts, returning concise results. The coordinator owns integration, approvals, STATUS and topic commits. Assign exclusive file ownership; serialize shared-file edits and native/profile-mutating checks. Independent investigations may run in parallel. Model selection and permissions inherit host configuration; these definitions do not change either.
 
+Each prompt first reads [shared project knowledge](../../.claude/PROJECT-KNOWLEDGE.md): architecture, source entry points, topic contracts, toolchain constraints and verification helpers. This is a maintained navigation guide, not a generated context bundle. Workers read only the relevant topics after required instruction/status reads; current gaps and evidence remain in migration documents. Prompts define role-specific steps and concise result formats. Dispatch acceptance criteria and source/diff identity explicitly; supply reviewer diff text/artifact because its read-only tools cannot run git.
+
 ## Six responsibilities
 
 1. Agent loop: existing Claude session delegates, consumes results and decides next actions.
