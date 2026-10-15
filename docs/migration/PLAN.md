@@ -4,6 +4,10 @@ Updated 2026-10-15. Current state is in [STATUS.md](STATUS.md); all original req
 
 ## Remaining execution order
 
+Latest bounded WebSocket queue/close acceptance: three new groups plus original four pass; see HTTP.md#current-websocket-queued-send-and-close-edge-acceptance. Next queued missing-ACK timeout and further close/send races, followed by remaining size/mixed/provider/platform and every PARITY gate.
+
+
+
 Latest bounded acceptance: genuine Windows renderer/host suspension8cases plus SSE8/WS6/mixed5 regressions pass; see HTTP.md#current-genuine-renderer-host-suspension. Earlier pending suspension wording below is superseded only for these8cases. Next queued-send/close-edge ACK/backpressure, further size/mixed/provider/platform and all remaining PARITY gates. Full migration incomplete.
 
 

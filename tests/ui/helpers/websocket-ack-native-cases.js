@@ -343,6 +343,143 @@ export async function runWebSocketAckNativeCases() {
                 cancellationMilliseconds,
                 peerRetired: true,
               });
+
+              // Freeze delivery before queueing: native cannot drain its16-slot queue.
+              for (const mode of ["release", "cancel"]) {
+                id = "ws_queue_" + mode + "_" + suffix;
+                token = "queue-" + mode + "-" + suffix;
+                await begin(id, token, true, 1);
+                const payloads = Array.from(
+                  { length: 20 },
+                  (_, i) => token + ":out-" + i,
+                );
+                await page.evaluate(
+                  ({ id, payloads }) =>
+                    /** @type {any} */ (window).__ownedSseAckProbe.enqueue(
+                      id,
+                      payloads,
+                    ),
+                  { id, payloads },
+                );
+                await poll(
+                  async () =>
+                    (await status(id)).sends.filter(
+                      (/** @type {any} */ r) => r.done,
+                    ).length === 4,
+                  "Four excess sends refused while16 wait behind ACK",
+                );
+                s = await status(id);
+                assert.equal(record(token)?.incoming.length, 0);
+                assert.equal(
+                  s.sends.filter((/** @type {any} */ r) => !r.done).length,
+                  16,
+                );
+                assert.ok(
+                  s.sends
+                    .filter((/** @type {any} */ r) => r.done)
+                    .every(
+                      (/** @type {any} */ r) =>
+                        !r.ok && /send queue unavailable/.test(r.error),
+                    ),
+                );
+                if (mode === "cancel") {
+                  await page.evaluate(
+                    (key) =>
+                      /** @type {any} */ (window).__ownedSseAckProbe.cancel(
+                        key,
+                      ),
+                    id,
+                  );
+                  await poll(
+                    async () =>
+                      (await status(id)).sends.every(
+                        (/** @type {any} */ r) => r.done,
+                      ),
+                    "Queued cancellation settles every send",
+                  );
+                  assert.equal(record(token)?.incoming.length, 0);
+                }
+                await release(id);
+                if (mode === "release") {
+                  await poll(
+                    async () =>
+                      (await status(id)).sends.every(
+                        (/** @type {any} */ r) => r.done,
+                      ),
+                    "Queue drains after ACK release",
+                  );
+                  await poll(
+                    () =>
+                      Promise.resolve(record(token)?.incoming.length === 16),
+                    "Peer sees16 accepted sends",
+                  );
+                  const accepted = (await status(id)).sends
+                    .filter((/** @type {any} */ r) => r.ok)
+                    .map((/** @type {any} */ r) => r.data);
+                  assert.equal(accepted.length, 16);
+                  assert.deepEqual(
+                    record(token)
+                      ?.incoming.map((r) => r.text)
+                      .sort(),
+                    [...accepted].sort(),
+                  );
+                  fixture.peerClose(token, 1000, "queue drained");
+                }
+                s = await done(id);
+                await closed(token);
+                assert.equal(s.result.ok, mode === "release");
+                if (mode === "cancel") {
+                  assert.match(s.result.error, /cancelled/i);
+                  assert.equal(
+                    s.sends.filter((/** @type {any} */ r) => r.ok).length,
+                    0,
+                  );
+                  assert.equal(
+                    s.sends.filter((/** @type {any} */ r) =>
+                      /disconnected before sending/.test(r.error),
+                    ).length,
+                    16,
+                  );
+                }
+                await receipt("bounded-send-queue-" + mode, s, {
+                  sends: s.sends,
+                  peerIncoming: record(token)?.incoming,
+                });
+              }
+              id = "ws_close_edge_" + suffix;
+              token = "close-edge-" + suffix;
+              await begin(id, token, true, 1);
+              fixture.peerClose(token, 1000, "held close edge");
+              await Bun.sleep(300);
+              s = await status(id);
+              assert.equal(s.done, false);
+              assert.equal(packets(s).length, 1);
+              await ack(id, 1);
+              await poll(
+                async () =>
+                  packets(await status(id)).some(
+                    (/** @type {any} */ p) => p.event.kind === "finished",
+                  ),
+                "Peer close reaches Finished after message ACK",
+              );
+              s = await status(id);
+              assert.equal(s.done, false);
+              assert.ok(
+                s.packets.some(
+                  (/** @type {any} */ p) => p.event.kind === "closed",
+                ),
+              );
+              await release(id);
+              s = await done(id);
+              await closed(token);
+              assert.equal(s.result.ok, true);
+              assert.deepEqual(
+                packets(s).map((/** @type {any} */ p) => p.event.kind),
+                ["message", "finished"],
+              );
+              await receipt("peer-close-held-message-Finished-barrier", s, {
+                peerRetired: true,
+              });
             } finally {
               await page.evaluate(() =>
                 /** @type {any} */ (window).__ownedSseAckProbe?.dispose(),

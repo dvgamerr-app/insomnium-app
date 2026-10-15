@@ -3,6 +3,14 @@
 Updated 2026-10-15. Full migration is **incomplete**. Latest verified scenario/source commit:5fbb75a; prior certificate scenario:9180ac4; portable certificate implementation:ddea70f; prior request-file implementation/scenario:11e9b96/08ab0b3. Branch:feat/ui-design-system-settings-curl. Verified agent work is committed in the shared repo. Retired directories/custom .git backups remain absent; legacy backup and node_modules are preserved.
 ## Current work
 
+### WebSocket queued sends and peer-close barrier — verified bounded milestone 2026-10-15
+
+Extended the existing separate real SDK Channel receiver with owned nonblocking send-result records; application IPC/callbacks remain untouched. Three new groups pass in addition to the original four: while incoming ACK is held,20text send invocations produce16pending/4queue-full refusals with0peer messages; release drains exactly16successful payloads with exact peer membership, while cancellation rejects all16pending sends as disconnected before sending with0peer messages. Peer close while one message is held does not finish early: matching message ACK allows Closed/Finished, and Finished itself remains held until release. Concurrent IPC submission order is not asserted; this proves exact accepted membership, not a universal authored-order guarantee.
+
+Suite43267 exits0: ACK1792059516328=7/SSE1792059580614=8/WS1792059597033=6/mixed1792059608266=5. Hosts43652/55328/54516/4188 exit0/native-hidden; exact4original profile buffers restore. Original appb2bd65d/exeSHAcea47a30/originalmanifest7b71e8d3 unchanged. Explicit6test/5doc supplement closes1401source/1310regular rows and all other scopes; acceptance-audit-websocket-queue.json independently checks receipts, source/build identity, queue results and profile hashes. Artifacts: artifacts/native-resource-crud-audit-probe/sse-exact-retention-attempt-1/. Strict3-file JS/Prettier/diff checks pass. No application change or live owned handles. Next missing-ACK timeout with queued sends, additional peer-close/send races, binary/control/size/provider/platform variants and all remaining PLAN/PARITY. Full migration incomplete; UX deferred. /compact is unavailable; this is the explicit handoff.
+
+
+
 Verified suspension topic commit: fabe4a9. Post-acceptance audit checks all1310regular files: only five declared migration docs changed; no application/scenario drift. No live owned handles. Next queued-send/close-edge ACK/backpressure. Full migration incomplete. /compact is unavailable in this interface; use this handoff.
 
 

@@ -6,6 +6,10 @@ Current receipts: Windows environment6349100/follow-up eae4ac2 (29checks/Name6/J
 
 ## Latest stream history and decoded limits
 
+Bounded Windows WebSocket queue saturation/release/cancel and peer-close Finished barrier now pass in existing7ACKgroups, with SSE8/WS6/mixed5regressions, exact4profile restoration and1401source closure. See HTTP.md#current-websocket-queued-send-and-close-edge-acceptance. Queued missing-ACK timeout, other close/send races, binary/control/size/provider/platform and every other retained gate remain open.
+
+
+
 Genuine Windows renderer/host suspension8cases now pass with actual thread-state/evaluation/peer-timeout/recovery/history evidence, exact4profile restoration and full1401source closure with declared6test/5doc supplement. See HTTP.md#current-genuine-renderer-host-suspension. Earlier pending suspension statements are superseded only for this scope. Queued-send/close-edge/backpressure, broader provider/platform/physicalTCP/OS-close and all other retained gates remain open.
 
 

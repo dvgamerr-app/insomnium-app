@@ -27,6 +27,7 @@ if (/** @type {any} */ (window).__ownedSseAckProbe)
       id: request.id,
       held,
       protocol,
+      sends: /** @type {Record<string,any>[]} */ ([]),
       manualAcks: /** @type {Record<string,any>[]} */ ([]),
       packets: /** @type {Record<string,any>[]} */ ([]),
       acked: new Set(),
@@ -70,6 +71,7 @@ if (/** @type {any} */ (window).__ownedSseAckProbe)
       held: run.held,
       protocol: run.protocol,
       manualAcks: run.manualAcks,
+      sends: run.sends,
       packets: run.packets,
       ackErrors: run.ackErrors,
       startedAt: run.startedAt,
@@ -96,6 +98,37 @@ if (/** @type {any} */ (window).__ownedSseAckProbe)
     const target = foreign ? id + "-foreign" : id;
     await invoke("acknowledge_stream", { id: target, sequence });
     run.manualAcks.push({ id: target, sequence, at: performance.now() });
+  },
+  /** Submit real IPC without awaiting completion; inspect owned results via status.
+   * @param {string} id @param {string[]} payloads */
+  enqueue(id, payloads) {
+    const run = runs.get(id);
+    if (!run || run.done || payloads.length > 32)
+      throw Error("Invalid owned send batch");
+    for (const data of payloads) {
+      const row = {
+        data,
+        done: false,
+        ok: false,
+        error: "",
+        at: performance.now(),
+        settledAt: 0,
+      };
+      run.sends.push(row);
+      void invoke("send_stream_message", { id, format: "text", data })
+        .then(
+          () => {
+            row.ok = true;
+          },
+          (error) => {
+            row.error = String(error);
+          },
+        )
+        .finally(() => {
+          row.done = true;
+          row.settledAt = performance.now();
+        });
+    }
   },
   /** @param {string} id */
   async cancel(id) {
