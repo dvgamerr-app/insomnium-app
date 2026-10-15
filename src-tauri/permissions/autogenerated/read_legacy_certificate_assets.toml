@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-read-legacy-certificate-assets"
+description = "Enables the read_legacy_certificate_assets command without any pre-configured scope."
+commands.allow = ["read_legacy_certificate_assets"]
+
+[[permission]]
+identifier = "deny-read-legacy-certificate-assets"
+description = "Denies the read_legacy_certificate_assets command without any pre-configured scope."
+commands.deny = ["read_legacy_certificate_assets"]

@@ -5,6 +5,7 @@ import { environmentFor, render, workspaceFor, id } from "./model.js";
 import {
   clientCertificateSelection,
   collectionCaCertificatePath,
+  collectionCaCertificateAsset,
 } from "./client-certificates.js";
 
 /** @typedef {Record<string, any>} Resource */
@@ -268,6 +269,7 @@ export function grpcConnection(data, request, options = {}) {
       url.protocol === "https:"
         ? collectionCaCertificatePath(data, request)
         : null,
+    caAsset: url.protocol === "https:" ? collectionCaCertificateAsset(data, request) : null,
     clientCertificates,
     identityPem:
       url.protocol === "https:" &&

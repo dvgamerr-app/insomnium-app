@@ -6,6 +6,7 @@ import { id, initialData, newRequest } from "./model.js";
 import { parseLegacyFiles } from "./legacy-import.js";
 import { legacyResponseAssetRequests, convertLegacyResponseHistory } from "./legacy-response-history.js";
 import { legacyRequestAssetRequests, convertLegacyRequestFiles } from "./legacy-request-files.js";
+import { legacyCertificateAssetRequests, convertLegacyCertificateFiles } from "./legacy-certificate-files.js";
 import { referenceKeys, validateTopology } from "./resources.js";
 import { parseSpec } from "./openapi-document.js";
 import {
@@ -281,6 +282,8 @@ export function parseImport(text) {
     }
   const requestFiles = convertLegacyRequestFiles(resources);
   resources = requestFiles.resources;
+  const certificateFiles = convertLegacyCertificateFiles(resources);
+  resources = certificateFiles.resources;
   const knownTypes = new Set([
     "workspace",
     "request",
@@ -300,6 +303,9 @@ export function parseImport(text) {
     legacyRequestFiles: requestFiles.pending,
     legacyRequestFilesLoaded: requestFiles.loaded + requestFiles.portableLoaded,
     legacyRequestFileWarnings: requestFiles.warnings,
+    legacyCertificateFiles: certificateFiles.pending,
+    legacyCertificateFilesLoaded: certificateFiles.loaded,
+    legacyCertificateFileWarnings: certificateFiles.warnings,
     warnings: [
       ...(detachedGitBindings
         ? [
@@ -376,6 +382,20 @@ export async function pickLegacyRequestFiles(review) {
     legacyRequestFiles: converted.pending,
     legacyRequestFilesLoaded: converted.loaded + converted.portableLoaded,
     legacyRequestFileWarnings: [...plan.warnings, ...converted.warnings] };
+}
+/** Load only explicitly granted original certificate files into the reviewed copy.
+ * @param {ReturnType<typeof parseImport>} review */
+export async function pickLegacyCertificateFiles(review) {
+  if (!isTauri()) throw new Error("External certificate files require the desktop application.");
+  const root = await open({ directory: true, multiple: false, title: "Choose the original certificate files folder" });
+  if (!root) return null;
+  if (typeof root !== "string") throw new Error("Choose one certificate files folder.");
+  const plan = legacyCertificateAssetRequests(review.resources);
+  const assets = await invoke("read_legacy_certificate_assets", { root, entries: plan.entries });
+  const converted = convertLegacyCertificateFiles(review.resources, assets);
+  return { ...review, resources: converted.resources,
+    legacyCertificateFiles: converted.pending, legacyCertificateFilesLoaded: converted.loaded,
+    legacyCertificateFileWarnings: [...plan.warnings, ...converted.warnings] };
 }
 export async function pickImport() {
   if (!isTauri()) return null;

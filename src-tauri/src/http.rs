@@ -57,6 +57,7 @@ pub struct HttpRequest {
     pub(crate) proxy: Option<String>,
     pub(crate) ca_pem: Option<String>,
     pub(crate) ca_file: Option<String>,
+    pub(crate) ca_asset: Option<crate::client_certificates::PortableCertificateAsset>,
     pub(crate) identity_pem: Option<String>,
     #[serde(default)]
     pub(crate) client_certificates: Vec<crate::client_certificates::ClientCertificateSource>,
@@ -425,6 +426,7 @@ pub(crate) fn build_client(
     let ca = crate::client_certificates::load_ca_certificate(
         request.ca_file.as_deref(),
         request.ca_pem.as_deref(),
+        request.ca_asset.as_ref(),
     )?;
     if ca.replace_roots {
         builder = builder.tls_built_in_root_certs(false);

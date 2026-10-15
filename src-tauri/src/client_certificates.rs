@@ -9,6 +9,7 @@ use rustls::{
     SignatureAlgorithm, SignatureScheme,
 };
 use serde::Deserialize;
+use sha2::Sha256;
 use std::sync::Arc;
 use std::{fs::File, io::Read};
 
@@ -137,7 +138,7 @@ pub(crate) fn websocket_identity(
             return Err("Client certificate passphrase exceeds 32 KiB.".into());
         }
         if let Some(path) = source.cert.as_deref().filter(|path| !path.is_empty()) {
-            let value = String::from_utf8(read_file(path)?)
+            let value = String::from_utf8(read_material(path, source.cert_asset.as_ref())?)
                 .map_err(|_| "Client certificate PEM must be UTF-8.")?;
             add_chain(&certificate_chain(&value)?)?;
         }
@@ -147,7 +148,7 @@ pub(crate) fn websocket_identity(
     for source in sources {
         let password = source.passphrase.as_deref().unwrap_or("");
         if let Some(path) = source.cert.as_deref().filter(|path| !path.is_empty()) {
-            let value = String::from_utf8(read_file(path)?)
+            let value = String::from_utf8(read_material(path, source.cert_asset.as_ref())?)
                 .map_err(|_| "Client certificate PEM must be UTF-8.")?;
             if source
                 .key
@@ -160,7 +161,7 @@ pub(crate) fn websocket_identity(
             }
         }
         if let Some(path) = source.key.as_deref().filter(|path| !path.is_empty()) {
-            let value = String::from_utf8(read_file(path)?)
+            let value = String::from_utf8(read_material(path, source.key_asset.as_ref())?)
                 .map_err(|_| "Client private key PEM must be UTF-8.")?;
             add_key(&value, password, &chains, &mut keys)?;
         }
@@ -173,6 +174,9 @@ pub(crate) fn websocket_identity(
                 key: None,
                 pfx: source.pfx.clone(),
                 passphrase: source.passphrase.clone(),
+                cert_asset: None,
+                key_asset: None,
+                pfx_asset: source.pfx_asset.clone(),
             };
             if let Some(value) = load_identity(&[pfx], None)? {
                 let chain = CertificateDer::pem_slice_iter(value.as_bytes())
@@ -233,11 +237,68 @@ pub(crate) fn websocket_identity(
 }
 
 #[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct PortableCertificateAsset {
+    pub path: Option<String>,
+    pub base64: Option<String>,
+    pub size: Option<usize>,
+    pub sha256: Option<String>,
+    pub error: Option<String>,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct ClientCertificateSource {
     pub cert: Option<String>,
     pub key: Option<String>,
     pub pfx: Option<String>,
     pub passphrase: Option<String>,
+    pub cert_asset: Option<PortableCertificateAsset>,
+    pub key_asset: Option<PortableCertificateAsset>,
+    pub pfx_asset: Option<PortableCertificateAsset>,
+}
+
+/// Inline imported bytes never fall back to an arbitrary original path.
+fn read_material(path: &str, asset: Option<&PortableCertificateAsset>) -> Result<Vec<u8>, String> {
+    let Some(asset) = asset else {
+        return read_file(path);
+    };
+    if asset.error.is_some() {
+        return Err(
+            "Imported certificate material is pending or invalid; select the file again.".into(),
+        );
+    }
+    let (Some(source), Some(encoded), Some(size), Some(expected)) =
+        (&asset.path, &asset.base64, asset.size, &asset.sha256)
+    else {
+        return Err("Imported certificate material is incomplete.".into());
+    };
+    if source != path
+        || path.is_empty()
+        || path.len() > 32768
+        || path.contains('\0')
+        || size > MAX_FILE
+        || encoded.len() > 4 * MAX_FILE.div_ceil(3)
+    {
+        return Err("Imported certificate material path or size is invalid.".into());
+    }
+    let bytes = STANDARD
+        .decode(encoded)
+        .map_err(|_| "Imported certificate material base64 is invalid.")?;
+    if bytes.len() != size
+        || bytes.len() > MAX_FILE
+        || STANDARD.encode(&bytes) != *encoded
+        || expected.len() != 64
+        || !expected
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        || format!("{:x}", <Sha256 as sha2::Digest>::digest(&bytes)) != *expected
+    {
+        return Err(
+            "Imported certificate material size or SHA256 does not match its bytes.".into(),
+        );
+    }
+    Ok(bytes)
 }
 
 fn read_file(path: &str) -> Result<Vec<u8>, String> {
@@ -277,6 +338,7 @@ pub(crate) struct CaCertificates {
 pub(crate) fn load_ca_certificate(
     path: Option<&str>,
     fallback: Option<&str>,
+    asset: Option<&PortableCertificateAsset>,
 ) -> Result<CaCertificates, String> {
     let fallback = || CaCertificates {
         pem: fallback.filter(|p| !p.is_empty()).map(str::to_owned),
@@ -285,7 +347,11 @@ pub(crate) fn load_ca_certificate(
     let Some(path) = path.filter(|p| !p.is_empty()) else {
         return Ok(fallback());
     };
-    let bytes = read_certificate_file(path, "CA certificate", "CA certificate")?;
+    let bytes = if asset.is_some() {
+        read_material(path, asset)?
+    } else {
+        read_certificate_file(path, "CA certificate", "CA certificate")?
+    };
     if bytes.is_empty() {
         return Ok(fallback());
     }
@@ -498,13 +564,13 @@ pub(crate) fn load_identity(
     let mut password = "";
     for source in sources {
         if let Some(path) = source.cert.as_deref().filter(|s| !s.is_empty()) {
-            certificate = Some((path, false));
+            certificate = Some((path, false, source.cert_asset.as_ref()));
         }
         if let Some(path) = source.pfx.as_deref().filter(|s| !s.is_empty()) {
-            certificate = Some((path, true));
+            certificate = Some((path, true, source.pfx_asset.as_ref()));
         }
         if let Some(path) = source.key.as_deref().filter(|s| !s.is_empty()) {
-            key = Some(path);
+            key = Some((path, source.key_asset.as_ref()));
         }
         if let Some(value) = source.passphrase.as_deref().filter(|s| !s.is_empty()) {
             password = value;
@@ -513,14 +579,14 @@ pub(crate) fn load_identity(
     if password.len() > 32768 {
         return Err("Client certificate passphrase exceeds 32 KiB.".into());
     }
-    let Some((path, pfx)) = certificate else {
+    let Some((path, pfx, asset)) = certificate else {
         return if key.is_some() {
             Err("Client certificate has a private key but no certificate file.".into())
         } else {
             Ok(None)
         };
     };
-    let bytes = read_file(path)?;
+    let bytes = read_material(path, asset)?;
     let value = if pfx {
         let (key, certs) = KeyStore::first_tls_identity(&bytes, password)
             .map_err(|_| "Cannot decode PFX client certificate; check its password and format.")?;
@@ -554,8 +620,8 @@ pub(crate) fn load_identity(
         let certificate =
             String::from_utf8(bytes).map_err(|_| "Client certificate PEM must be UTF-8.")?;
         let mut output = certificate_chain(&certificate)?;
-        let material = if let Some(path) = key {
-            String::from_utf8(read_file(path)?)
+        let material = if let Some((path, asset)) = key {
+            String::from_utf8(read_material(path, asset)?)
                 .map_err(|_| "Client private key PEM must be UTF-8.")?
         } else {
             certificate

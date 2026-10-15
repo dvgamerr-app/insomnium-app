@@ -7,6 +7,7 @@
   import Feedback from "./ui/Feedback.svelte";
   import { isTauri } from "@tauri-apps/api/core";
   import { open } from "@tauri-apps/plugin-dialog";
+  import { certificatePathPatch } from "../legacy-certificate-files.js";
   import {
     workspace,
     addClientCertificate,
@@ -99,7 +100,8 @@
   );
   /** @param {Record<string,any>} resource @param {string} key @param {any} value */
   function change(resource, key, value) {
-    editResource(resource._id, { [key]: value }, resource.parentId);
+    editResource(resource._id, ["path", "cert", "key", "pfx"].includes(key)
+      ? certificatePathPatch(resource, key, value) : { [key]: value }, resource.parentId);
   }
   /** @param {Record<string,any>} certificate @param {typeof fileFields[number]} field */
   async function chooseFile(certificate, field) {

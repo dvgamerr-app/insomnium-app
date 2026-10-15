@@ -141,6 +141,7 @@ pub fn run() {
             storage::save_workspace,
             legacy_response::read_legacy_response_assets,
             legacy_response::read_legacy_request_assets,
+            legacy_response::read_legacy_certificate_assets,
             plugins::discover_plugins,
             plugin_sources::discover_plugin_sources,
             plugin_package::read_plugin_package,

@@ -70,7 +70,7 @@
   import { id, indexWorkspaces, protocolFor, historyMatchesEnvironment } from "$lib/model.js";
   import { orderedChildren } from "$lib/resources.js";
   import { curlRequestPatch, isCurlImport } from "$lib/curl-import.js";
-  import { pickImport, parseImport, exportData, pickLegacyResponseHistory, pickLegacyRequestFiles } from "$lib/import-export.js";
+  import { pickImport, parseImport, exportData, pickLegacyResponseHistory, pickLegacyRequestFiles, pickLegacyCertificateFiles } from "$lib/import-export.js";
   import { reviewImportedHistory } from "$lib/import-history-review.js";
   import "@fontsource-variable/inter";
   import "@fontsource-variable/roboto-mono";
@@ -336,6 +336,9 @@
   }
   async function loadLegacyRequestFileAssets() {
     return loadLegacyFiles(pickLegacyRequestFiles);
+  }
+  async function loadLegacyCertificateFileAssets() {
+    return loadLegacyFiles(pickLegacyCertificateFiles);
   }
   /** @param {(review:ReturnType<typeof parseImport>)=>Promise<ReturnType<typeof parseImport>|null>} picker */
   async function loadLegacyFiles(picker) {
@@ -1114,6 +1117,14 @@
           {/if}
           {#if pendingImport.legacyRequestFileWarnings.length}<details class="hint"><summary>Request file diagnostics ({pendingImport.legacyRequestFileWarnings.length})</summary>
             {#each pendingImport.legacyRequestFileWarnings.slice(0, 20) as warning}<p>{warning}</p>{/each}
+          </details>{/if}
+          {#if pendingImport.legacyCertificateFiles || pendingImport.legacyCertificateFilesLoaded}
+            <p class="hint">{pendingImport.legacyCertificateFilesLoaded} certificate files are portable. {pendingImport.legacyCertificateFiles} file inputs still need attention. Loaded certificates and private keys will be included in exports. Original files will not be changed.</p>
+            {#if pendingImport.legacyCertificateFiles && isTauri()}<Button variant="secondary" disabled={importBusy} onclick={loadLegacyCertificateFileAssets}>Load legacy certificate files</Button>
+              <p class="hint">Choose the original certificate folder to review CA, PEM key and PFX files before importing.</p>{/if}
+          {/if}
+          {#if pendingImport.legacyCertificateFileWarnings.length}<details class="hint"><summary>Certificate file diagnostics ({pendingImport.legacyCertificateFileWarnings.length})</summary>
+            {#each pendingImport.legacyCertificateFileWarnings.slice(0, 20) as warning}<p>{warning}</p>{/each}
           </details>{/if}
           {#if pendingImport.legacyResponses}<p class="hint">
               {pendingImport.legacyResponses} legacy response records will be preserved.

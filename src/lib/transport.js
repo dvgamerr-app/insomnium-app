@@ -19,6 +19,7 @@ import { oauthHeader } from "./oauth-model.js";
 import {
   clientCertificateSelection,
   collectionCaCertificatePath,
+  collectionCaCertificateAsset,
 } from "./client-certificates.js";
 import { prepareOAuth1 } from "./oauth1-model.js";
 import { prepareHawk } from "./hawk-model.js";
@@ -635,6 +636,7 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
     proxy: settings.proxy || null,
     caPem: settings.caPem || null,
     caFile: collectionCaCertificatePath(data, request),
+    caAsset: collectionCaCertificateAsset(data, request),
     clientCertificates,
     identityPem:
       !clientCertificates.length && settings.identityHost === url.hostname
@@ -701,6 +703,8 @@ export async function send(request, signal) {
   }
   if (request.socketPath)
     throw new Error("Unix socket requests require the desktop app.");
+  if (request.caFile || request.caAsset || request.caPem || request.identityPem || request.clientCertificates?.length)
+    throw new Error("Custom CA and client certificates require the desktop app.");
   if (request.digest)
     throw new Error("Digest authentication requires the desktop app.");
   if (request.oauth1)

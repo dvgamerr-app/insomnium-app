@@ -33,6 +33,7 @@
     "allow-save-workspace",
     "allow-read-legacy-response-assets",
     "allow-read-legacy-request-assets",
+    "allow-read-legacy-certificate-assets",
     "allow-discover-plugins",
     "allow-discover-plugin-sources",
     "allow-read-plugin-package",

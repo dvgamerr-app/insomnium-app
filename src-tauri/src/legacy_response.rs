@@ -377,6 +377,15 @@ pub async fn read_legacy_response_assets(
     root: String,
     entries: Vec<LegacyResponseEntry>,
 ) -> Result<LegacyResponseResult, String> {
+    read_assets(window, root, entries, BODY_LIMIT).await
+}
+
+async fn read_assets(
+    window: tauri::WebviewWindow,
+    root: String,
+    entries: Vec<LegacyResponseEntry>,
+    body_limit: usize,
+) -> Result<LegacyResponseResult, String> {
     if window.label() != "main" {
         return Err("Legacy response assets require the main native window.".into());
     }
@@ -436,14 +445,14 @@ pub async fn read_legacy_response_assets(
                     &root,
                     entry.body_path.as_deref().unwrap(),
                     &scope,
-                    BODY_LIMIT,
+                    body_limit,
                     &mut input_remaining,
                 )
                 .and_then(|bytes| {
                     if entry.body_compression == "gzip" {
                         read_bounded(
                             MultiGzDecoder::new(bytes.as_slice()),
-                            BODY_LIMIT.min(decoded_remaining),
+                            body_limit.min(decoded_remaining),
                             &mut decoded_remaining,
                             "compression",
                         )
@@ -498,8 +507,8 @@ pub async fn read_legacy_response_assets(
             entries: output,
             limits: AssetLimits {
                 max_entries: ENTRY_LIMIT,
-                body_input_bytes: BODY_LIMIT,
-                body_decoded_bytes: BODY_LIMIT,
+                body_input_bytes: body_limit,
+                body_decoded_bytes: body_limit,
                 timeline_bytes: TIMELINE_LIMIT,
                 timeline_entries: TIMELINE_ENTRIES,
                 aggregate_input_bytes: AGGREGATE_LIMIT,
@@ -543,4 +552,29 @@ pub async fn read_legacy_request_assets(
         })
         .collect();
     read_legacy_response_assets(window, root, entries).await
+}
+
+/// Certificate input exposes raw scoped bytes only, under the existing TLS cap.
+#[tauri::command]
+pub async fn read_legacy_certificate_assets(
+    window: tauri::WebviewWindow,
+    root: String,
+    entries: Vec<LegacyRequestEntry>,
+) -> Result<LegacyResponseResult, String> {
+    if entries.len() > ENTRY_LIMIT {
+        return Err("Legacy certificate files accept at most 100 entries per preview.".into());
+    }
+    if entries.iter().any(|entry| entry.path.is_empty()) {
+        return Err("Legacy certificate assets require an explicit nonempty source path.".into());
+    }
+    let entries = entries
+        .into_iter()
+        .map(|entry| LegacyResponseEntry {
+            id: entry.id,
+            body_path: Some(entry.path),
+            timeline_path: None,
+            body_compression: "raw".into(),
+        })
+        .collect();
+    read_assets(window, root, entries, 1024 * 1024).await
 }

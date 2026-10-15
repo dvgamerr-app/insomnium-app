@@ -24,6 +24,7 @@ pub struct Connection {
     pub timeout_ms: u64,
     pub ca_pem: Option<String>,
     pub ca_file: Option<String>,
+    pub(crate) ca_asset: Option<crate::client_certificates::PortableCertificateAsset>,
     pub identity_pem: Option<String>,
     #[serde(default)]
     pub(crate) client_certificates: Vec<crate::client_certificates::ClientCertificateSource>,
@@ -144,6 +145,7 @@ pub(crate) async fn channel(config: &Connection) -> Result<Channel, String> {
         let ca = crate::client_certificates::load_ca_certificate(
             config.ca_file.as_deref(),
             config.ca_pem.as_deref(),
+        config.ca_asset.as_ref(),
         )?;
         let mut tls = ClientTlsConfig::new();
         if !ca.replace_roots {

@@ -1,5 +1,6 @@
 import { parse } from "url";
 import { workspaceFor } from "./model.js";
+import { portableCertificateAsset } from "./legacy-certificate-files.js";
 
 /** Preserve legacy host/port glob matching (paths and schemes do not scope a certificate).
  * @param {string} pattern @param {string} address */
@@ -54,6 +55,9 @@ export function clientCertificateSelection(data, request, address) {
     key: resource.key || null,
     pfx: resource.pfx || null,
     passphrase: resource.passphrase || null,
+    certAsset: portableCertificateAsset(resource, "cert"),
+    keyAsset: portableCertificateAsset(resource, "key"),
+    pfxAsset: portableCertificateAsset(resource, "pfx"),
   }));
 }
 
@@ -80,4 +84,14 @@ export function collectionCaCertificatePath(data, request) {
   if (typeof certificate.path !== "string")
     throw new Error("Invalid collection CA certificate file path.");
   return certificate.path;
+}
+
+/** Share the same first singleton/collection scope as collectionCaCertificatePath.
+ * @param {Record<string,any>} data @param {Record<string,any>} request */
+export function collectionCaCertificateAsset(data, request) {
+  const collectionId = workspaceFor(data.resources, request._id);
+  const certificate = data.resources.find(
+    (/** @type {Record<string,any>} */ resource) => resource._type === "ca_certificate" && resource.parentId === collectionId,
+  );
+  return !certificate || certificate.disabled || !certificate.path ? null : portableCertificateAsset(certificate, "path");
 }
