@@ -1450,6 +1450,99 @@ mod tests {
         assert_eq!(snapshot, pool.encode_to_vec());
     }
 
+    fn assert_any_order_vectors(group: &str) {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../tests/ui/fixtures/grpc-any-order-reference.json"
+        ))
+        .unwrap();
+        assert_eq!(fixture["protobufjs"], "7.2.4");
+        let rows = fixture["rows"].as_array().unwrap();
+        assert_eq!(rows.len(), 12);
+        for row in rows {
+            let label = row["label"].as_str().unwrap();
+            let selected = match group {
+                "service" => label.starts_with("service-before-"),
+                "imports" => label.starts_with("main-before-"),
+                _ => !label.starts_with("service-before-") && !label.starts_with("main-before-"),
+            };
+            if !selected {
+                continue;
+            }
+            let pool = crate::grpc_schema::compile(crate::grpc_schema::ProtoInput {
+                entry: row["entry"].as_str().unwrap().into(),
+                files: row["files"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|file| crate::grpc_schema::ProtoFile {
+                        name: file["name"].as_str().unwrap().into(),
+                        text: file["text"].as_str().unwrap().into(),
+                    })
+                    .collect(),
+                include_paths: Vec::new(),
+            })
+            .unwrap();
+            assert!(pool
+                .get_file_by_name(row["entry"].as_str().unwrap())
+                .unwrap()
+                .file_descriptor_proto()
+                .source_code_info
+                .is_some());
+            let schema =
+                crate::grpc_schema::describe(&pool, crate::grpc_schema::JsonMode::Legacy).unwrap();
+            let pool = crate::grpc_schema::decode(&schema.descriptor_set).unwrap();
+            let original = pool.get_message_by_name("google.protobuf.Any").unwrap();
+            let parsed = parse(original.clone(), row["body"].as_str().unwrap());
+            if row.get("error").is_some() {
+                assert!(parsed.is_err(), "Declaration-order refusal {label}");
+                continue;
+            }
+            let wire = parsed
+                .unwrap_or_else(|error| panic!("{label}: {error}"))
+                .encode_to_vec();
+            let hex: String = wire.iter().map(|b| format!("{b:02x}")).collect();
+            assert_eq!(
+                hex,
+                row["wireHex"].as_str().unwrap(),
+                "Declaration-order wire {label}; files {:?}",
+                pool.files()
+                    .map(|f| f.name().to_owned())
+                    .collect::<Vec<_>>()
+            );
+            let decoded = DynamicMessage::decode(
+                legacy_descriptor(original.clone()).unwrap(),
+                wire.as_slice(),
+            )
+            .unwrap();
+            let json = crate::grpc_schema::json_mode(
+                &decoded,
+                crate::grpc_schema::JsonMode::Legacy,
+                original,
+            )
+            .unwrap();
+            assert_eq!(
+                json,
+                row["json"].as_str().unwrap(),
+                "Declaration-order JSON {label}"
+            );
+        }
+    }
+
+    #[test]
+    fn legacy_any_order_service_before_message() {
+        assert_any_order_vectors("service");
+    }
+
+    #[test]
+    fn legacy_any_order_main_before_imports() {
+        assert_any_order_vectors("imports");
+    }
+
+    #[test]
+    fn legacy_any_order_source_controls() {
+        assert_any_order_vectors("controls");
+    }
+
     fn assert_any_wkt_vectors(empty: bool) {
         let fixture: serde_json::Value = serde_json::from_str(include_str!(
             "../../tests/ui/fixtures/grpc-any-wkt-reference.json"

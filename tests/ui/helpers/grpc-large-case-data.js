@@ -3,7 +3,18 @@ import {
   grpcAnyTargetModes,
   grpcAnyTargetCase,
 } from "./grpc-any-target-case-data.js";
+import { grpcAnyTargetProtos } from "./grpc-any-target-case-data.js";
+import {
+  grpcAnyOrderModes,
+  grpcAnyOrderCase,
+  grpcAnyOrderProtos,
+} from "./grpc-any-order-case-data.js";
+export const grpcLargeAdditionalProtos = [
+  ...grpcAnyTargetProtos,
+  ...grpcAnyOrderProtos,
+];
 export const grpcLargeModes = [
+  ...grpcAnyOrderModes,
   ...grpcAnyTargetModes,
   "legacy-anyurl-plain",
   "legacy-anyurl-leading-dot",
@@ -150,6 +161,7 @@ export function grpcLargeCase(mode) {
     throw new Error("Unknown authored gRPC case");
 
   if (mode.startsWith("legacy-anytarget-")) return grpcAnyTargetCase(mode);
+  if (mode.startsWith("legacy-anyorder-")) return grpcAnyOrderCase(mode);
 
   if (mode.startsWith("legacy-anyurl-")) {
     // Independent pinned Any wrapper/wire/response oracle, including nested Any.

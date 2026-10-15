@@ -1,5 +1,9 @@
 # UI TESTING migration
 
+## Current gRPC Any declaration-order verification
+
+Saved [grpc-any-order-native.js](../../tests/ui/grpc-any-order-native.js) requires INSOMNIUM_GRPC_ANY_ORDER_NATIVE=1 plus audited build/profile ownership.10actual selectable-entry/editor/Format/mode-flip/wire/history/reload/Save cases cover source category/message order and entry-before-direct/transitive imports. JSON-refusal adds2service-shadow zero-peer-IO refusal/typed repairs (23total).18native-hidden scenarios/169groups/282Save exports/exact18profiles and original manifest plus explicit1test/1STATUSdoc fixture-supplement closure pass. See [scope/evidence](GRPC.md#current-native-grpc-any-order); sibling completion timing, source-info-free reflection and broader gates remain open.
+
 ## Current gRPC Any reflection lookup verification
 
 Saved [grpc-any-target-native.js](../../tests/ui/grpc-any-target-native.js) requires INSOMNIUM_GRPC_ANY_TARGET_NATIVE=1 plus audited build/profile ownership.20real editor/Format/mode-flip/wire/history/reload/Save cases cover relative/nested messages, unknown/hidden targets, raw wrapper context, WKT spelling and absent/explicit-empty payloads. JSON-refusal adds8non-message/WKT-alias zero-peer-IO refusal/typed-repair cases (21total).17native-hidden scenarios/157groups/258successful Save exports/exact17profiles and original0override closure pass. See [scope/evidence](GRPC.md#current-native-grpc-any-target). Ambiguous loader/declaration order and broader migration gates remain open.

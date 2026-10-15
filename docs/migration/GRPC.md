@@ -1,5 +1,16 @@
 # GRPC migration
 
+<a id="current-native-grpc-any-order"></a>
+## Current native Any declaration ordering — 2026-10-16
+
+Legacy Any source-declaration/main-before-import ordering has bounded Windows acceptance:10new actual editor/wire/history/reload/Save cases plus2service-shadow refusal/typed-repair cases retain all157prior groups. Full50Rust tests include12new pinned protobuf.js7.2.4 order vectors and descriptor describe/decode round trips. Fresh18native-hidden scenarios/169groups/282actual successful gRPC Save exports/exact18profiles and original manifest plus explicit1test/1STATUSdoc fixture-supplement closure pass. Concurrent sibling import timing, source-info-free reflection and broader Any/WKT/JSON/template/editor/stream/provider/platform plus every retained PLAN/PARITY gate remain open.
+
+The cached original-schema lookup index uses existing SourceCodeInfo declaration positions and visits source entry roots before imports. No schema metadata, dependency or UI change is introduced. Source-info-free descriptor pools retain the previous fallback. A controlled pinned probe proves identical files/import declaration order can select two different messages when sibling completion timing changes; dependency declaration order is only a deterministic tie-break, not a universal historical timing reconstruction (artifacts/grpc-any-order-sibling-completion-probe.json).
+
+Evidence: artifacts/native-resource-crud-audit-probe/grpc-any-order-attempt-1/acceptance-audit-grpc-any-order-fixture-correction.json. Original manifest SHA256 2371f65460bba872f8a132ca5de44747aeecc3bf4cb5890b4d53cdd7a9c0e05d; executable SHA256 240dc89295934a061c40a9018e8924ae4c84c174fdecd3743d935e1e57f7b219; 1431source entries/1340regular files. All hosts exit0/native-hidden without intentional parent termination, fixtures retire without force or unclassified errors, and original profiles restore exactly. Post-protocol ECONNRESET requires verified wire/trailers/finish/close/rstCode0; no physical FIN/TCP, universal loader or platform claim.
+
+Saved tests/ui/grpc-any-order-native.js selects separate proto entries; JSON-refusal has23cases. Combined12virtual files pass per-entry pinned load/resolve/enum scans; all108prior authored specs unchanged;119loopback exchanges retire cleanly; strict5JS/frontend checks pass. Two actual Rust RED regressions preceded the fix. Initial native suite failure was a test-only primary proto filename mismatch (refusal.proto versus imported large.proto); failed receipt/restoration and original0override post-suite closure remain retained. The corrected audit independently verifies the one-line rename, unchanged application/binary and explicit supplement. Source metadata API: https://docs.rs/protox/0.9.1/protox/struct.Compiler.html#method.descriptor_pool ; local0.9.1 source confirms include_source_info affects descriptor-set output while descriptor_pool returns the existing pool.
+
 <a id="current-native-grpc-any-target"></a>
 ## Current native Any reflection lookup — 2026-10-16
 

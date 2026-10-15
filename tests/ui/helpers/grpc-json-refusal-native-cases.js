@@ -13,12 +13,18 @@ import {
   registerResourceProbeCollection,
   manageResource,
 } from "./resource-manager-cases.js";
-import { grpcLargeCase, grpcLargeProto } from "./grpc-large-case-data.js";
-import { createGrpcLargeSentFixture } from "./grpc-large-sent-fixture.js";
 import {
-  grpcAnyTargetProtos,
-  grpcAnyTargetRefusals,
-} from "./grpc-any-target-case-data.js";
+  grpcLargeCase,
+  grpcLargeProto,
+  grpcLargeAdditionalProtos,
+} from "./grpc-large-case-data.js";
+import { createGrpcLargeSentFixture } from "./grpc-large-sent-fixture.js";
+import { grpcAnyTargetRefusals as targetRefusals } from "./grpc-any-target-case-data.js";
+import {
+  grpcAnyOrderRefusals,
+  grpcAnyOrderRefusalEntry,
+} from "./grpc-any-order-case-data.js";
+const grpcAnyTargetRefusals = { ...targetRefusals, ...grpcAnyOrderRefusals };
 import { respondToOwnedSaveDialog } from "./windows-save-dialog.js";
 const hash = (/** @type {string|Uint8Array} */ bytes) =>
   createHash("sha256").update(bytes).digest("hex");
@@ -86,10 +92,10 @@ export async function runGrpcJsonRefusalNativeCases() {
                     _id: protoId,
                     _type: "proto_file",
                     parentId: workspaceId,
-                    name: "refusal.proto",
+                    name: "large.proto",
                     protoText: grpcLargeProto,
                   },
-                  ...grpcAnyTargetProtos.map((file, index) => ({
+                  ...grpcLargeAdditionalProtos.map((file, index) => ({
                     _id: protoId + "_dependency_" + index,
                     _type: "proto_file",
                     parentId: workspaceId,
@@ -173,7 +179,13 @@ export async function runGrpcJsonRefusalNativeCases() {
                     _type: "grpc_request",
                     name: "Owned refusal " + label,
                     url: fixture.url,
-                    protoFileId: protoId,
+                    protoFileId: kind.startsWith("any-order-")
+                      ? protoId +
+                        "_dependency_" +
+                        grpcLargeAdditionalProtos.findIndex(
+                          (file) => file.name === grpcAnyOrderRefusalEntry,
+                        )
+                      : protoId,
                     protoMethodName: spec.method,
                     grpcJsonMode: jsonMode,
                     body: { mimeType: "application/json", text: initial },
@@ -524,7 +536,7 @@ export async function runGrpcJsonRefusalNativeCases() {
           errorEvents: fixture.errorEvents,
           errors: errors.map(String),
           scope:
-            "Twenty-one actual native UI cases including legacy Any wrong-type and reflection non-message/WKT-alias refusals/typed repairs, plus strict ProtoJSON unpaired-surrogate refusal/typed repair: renderer JSON refusal, native unknown-field and malformed/excess-padding Base64 refusal with durable errors, legacy unknown-field acceptance, zero observed peer IO and typed repair/reload/export. No full JSON/provider/platform claim.",
+            "Twenty-three actual native UI cases including legacy Any wrong-type and reflection non-message/WKT-alias/declaration-order-service-shadow refusals/typed repairs, plus strict ProtoJSON unpaired-surrogate refusal/typed repair: renderer JSON refusal, native unknown-field and malformed/excess-padding Base64 refusal with durable errors, legacy unknown-field acceptance, zero observed peer IO and typed repair/reload/export. No full JSON/provider/platform claim.",
         },
         null,
         2,

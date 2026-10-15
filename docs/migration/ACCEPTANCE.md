@@ -1,5 +1,9 @@
 # OAuth1 / NO_PREFIX acceptance gate
 
+## Bounded gRPC Any declaration ordering — 2026-10-16
+
+Legacy Any source-declaration/main-before-import ordering has bounded Windows acceptance:10new actual editor/wire/history/reload/Save cases plus2service-shadow refusal/typed-repair cases retain all157prior groups. Full50Rust tests include12new pinned protobuf.js7.2.4 order vectors and descriptor describe/decode round trips. Fresh18native-hidden scenarios/169groups/282actual successful gRPC Save exports/exact18profiles and original manifest plus explicit1test/1STATUSdoc fixture-supplement closure pass. Concurrent sibling import timing, source-info-free reflection and broader Any/WKT/JSON/template/editor/stream/provider/platform plus every retained PLAN/PARITY gate remain open. See [scope/evidence](GRPC.md#current-native-grpc-any-order); unrelated acceptance requirements remain required.
+
 ## Bounded gRPC Any reflection lookup — 2026-10-16
 
 Legacy Any reflection lookup/WKT has bounded Windows acceptance:20new actual editor/wire/history/reload/Save cases plus8new non-message/WKT-alias refusal/typed-repair cases retain all129prior groups. Full47Rust library tests include100lookup and40WKT pinned protobuf.js7.2.4 vectors. Fresh17native-hidden scenarios/157groups/258actual successful gRPC Save exports/exact17profiles and original0override source closure pass. Ambiguous multi-file/declaration/load-order aliases, broader Any/WKT/JSON/template/editor/stream/provider/platform and every retained PLAN/PARITY gate remain open. See [scope/evidence](GRPC.md#current-native-grpc-any-target); this receipt does not close unrelated acceptance requirements.

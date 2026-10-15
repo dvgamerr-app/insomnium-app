@@ -1,0 +1,225 @@
+{
+  "protobufjs": "7.2.4",
+  "rows": [
+    {
+      "label": "service-before-message-Payload",
+      "entry": "main.proto",
+      "files": [
+        {
+          "name": "main.proto",
+          "text": "syntax=\"proto3\";package ownedorder;import \"google/protobuf/any.proto\";service Z {rpc Payload(google.protobuf.Any) returns(google.protobuf.Any);}message A {message Payload {string text=2;}}"
+        }
+      ],
+      "body": "{\"@type\":\"types/Payload\",\"text\":\"owned\"}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)",
+      "loaded": [
+        "main.proto"
+      ]
+    },
+    {
+      "label": "service-before-message-ownedorder.Payload",
+      "entry": "main.proto",
+      "files": [
+        {
+          "name": "main.proto",
+          "text": "syntax=\"proto3\";package ownedorder;import \"google/protobuf/any.proto\";service Z {rpc Payload(google.protobuf.Any) returns(google.protobuf.Any);}message A {message Payload {string text=2;}}"
+        }
+      ],
+      "body": "{\"@type\":\"types/ownedorder.Payload\",\"text\":\"owned\"}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)",
+      "loaded": [
+        "main.proto"
+      ]
+    },
+    {
+      "label": "message-before-service-Payload",
+      "entry": "main.proto",
+      "files": [
+        {
+          "name": "main.proto",
+          "text": "syntax=\"proto3\";package ownedorder;import \"google/protobuf/any.proto\";message A {message Payload {string text=2;}}service Z {rpc Payload(google.protobuf.Any) returns(google.protobuf.Any);}"
+        }
+      ],
+      "body": "{\"@type\":\"types/Payload\",\"text\":\"owned\"}",
+      "wireHex": "0a0d74797065732f5061796c6f6164120712056f776e6564",
+      "json": "{\"type_url\":\"types/Payload\",\"value\":{\"0\":18,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}",
+      "loaded": [
+        "main.proto"
+      ]
+    },
+    {
+      "label": "message-before-service-ownedorder.Payload",
+      "entry": "main.proto",
+      "files": [
+        {
+          "name": "main.proto",
+          "text": "syntax=\"proto3\";package ownedorder;import \"google/protobuf/any.proto\";message A {message Payload {string text=2;}}service Z {rpc Payload(google.protobuf.Any) returns(google.protobuf.Any);}"
+        }
+      ],
+      "body": "{\"@type\":\"types/ownedorder.Payload\",\"text\":\"owned\"}",
+      "wireHex": "0a1874797065732f6f776e65646f726465722e5061796c6f6164120712056f776e6564",
+      "json": "{\"type_url\":\"types/ownedorder.Payload\",\"value\":{\"0\":18,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}",
+      "loaded": [
+        "main.proto"
+      ]
+    },
+    {
+      "label": "main-before-import-Payload",
+      "entry": "main.proto",
+      "files": [
+        {
+          "name": "main.proto",
+          "text": "syntax=\"proto3\";package ownedorder;import \"google/protobuf/any.proto\";import \"dep.proto\";message B {message Payload {string text=1;}}"
+        },
+        {
+          "name": "dep.proto",
+          "text": "syntax=\"proto3\";package ownedorder;message A {message Payload {string text=2;}}"
+        }
+      ],
+      "body": "{\"@type\":\"types/Payload\",\"text\":\"owned\"}",
+      "wireHex": "0a0d74797065732f5061796c6f616412070a056f776e6564",
+      "json": "{\"type_url\":\"types/Payload\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}",
+      "loaded": [
+        "main.proto",
+        "dep.proto"
+      ]
+    },
+    {
+      "label": "main-before-import-ownedorder.Payload",
+      "entry": "main.proto",
+      "files": [
+        {
+          "name": "main.proto",
+          "text": "syntax=\"proto3\";package ownedorder;import \"google/protobuf/any.proto\";import \"dep.proto\";message B {message Payload {string text=1;}}"
+        },
+        {
+          "name": "dep.proto",
+          "text": "syntax=\"proto3\";package ownedorder;message A {message Payload {string text=2;}}"
+        }
+      ],
+      "body": "{\"@type\":\"types/ownedorder.Payload\",\"text\":\"owned\"}",
+      "wireHex": "0a1874797065732f6f776e65646f726465722e5061796c6f616412070a056f776e6564",
+      "json": "{\"type_url\":\"types/ownedorder.Payload\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}",
+      "loaded": [
+        "main.proto",
+        "dep.proto"
+      ]
+    },
+    {
+      "label": "main-before-transitive-import-Payload",
+      "entry": "main.proto",
+      "files": [
+        {
+          "name": "main.proto",
+          "text": "syntax=\"proto3\";package ownedorder;import \"google/protobuf/any.proto\";import \"bridge.proto\";message B {message Payload {string text=1;}}"
+        },
+        {
+          "name": "bridge.proto",
+          "text": "syntax=\"proto3\";package ownedorder;import \"dep.proto\";message Bridge {}"
+        },
+        {
+          "name": "dep.proto",
+          "text": "syntax=\"proto3\";package ownedorder;message A {message Payload {string text=2;}}"
+        }
+      ],
+      "body": "{\"@type\":\"types/Payload\",\"text\":\"owned\"}",
+      "wireHex": "0a0d74797065732f5061796c6f616412070a056f776e6564",
+      "json": "{\"type_url\":\"types/Payload\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}",
+      "loaded": [
+        "main.proto",
+        "bridge.proto",
+        "dep.proto"
+      ]
+    },
+    {
+      "label": "main-before-transitive-import-ownedorder.Payload",
+      "entry": "main.proto",
+      "files": [
+        {
+          "name": "main.proto",
+          "text": "syntax=\"proto3\";package ownedorder;import \"google/protobuf/any.proto\";import \"bridge.proto\";message B {message Payload {string text=1;}}"
+        },
+        {
+          "name": "bridge.proto",
+          "text": "syntax=\"proto3\";package ownedorder;import \"dep.proto\";message Bridge {}"
+        },
+        {
+          "name": "dep.proto",
+          "text": "syntax=\"proto3\";package ownedorder;message A {message Payload {string text=2;}}"
+        }
+      ],
+      "body": "{\"@type\":\"types/ownedorder.Payload\",\"text\":\"owned\"}",
+      "wireHex": "0a1874797065732f6f776e65646f726465722e5061796c6f616412070a056f776e6564",
+      "json": "{\"type_url\":\"types/ownedorder.Payload\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}",
+      "loaded": [
+        "main.proto",
+        "bridge.proto",
+        "dep.proto"
+      ]
+    },
+    {
+      "label": "message-source-order-Payload",
+      "entry": "main.proto",
+      "files": [
+        {
+          "name": "main.proto",
+          "text": "syntax=\"proto3\";package ownedorder;import \"google/protobuf/any.proto\";message B {message Payload {string text=1;}}message A {message Payload {string text=2;}}"
+        }
+      ],
+      "body": "{\"@type\":\"types/Payload\",\"text\":\"owned\"}",
+      "wireHex": "0a0d74797065732f5061796c6f616412070a056f776e6564",
+      "json": "{\"type_url\":\"types/Payload\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}",
+      "loaded": [
+        "main.proto"
+      ]
+    },
+    {
+      "label": "message-source-order-ownedorder.Payload",
+      "entry": "main.proto",
+      "files": [
+        {
+          "name": "main.proto",
+          "text": "syntax=\"proto3\";package ownedorder;import \"google/protobuf/any.proto\";message B {message Payload {string text=1;}}message A {message Payload {string text=2;}}"
+        }
+      ],
+      "body": "{\"@type\":\"types/ownedorder.Payload\",\"text\":\"owned\"}",
+      "wireHex": "0a1874797065732f6f776e65646f726465722e5061796c6f616412070a056f776e6564",
+      "json": "{\"type_url\":\"types/ownedorder.Payload\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}",
+      "loaded": [
+        "main.proto"
+      ]
+    },
+    {
+      "label": "reversed-message-source-order-Payload",
+      "entry": "main.proto",
+      "files": [
+        {
+          "name": "main.proto",
+          "text": "syntax=\"proto3\";package ownedorder;import \"google/protobuf/any.proto\";message A {message Payload {string text=2;}}message B {message Payload {string text=1;}}"
+        }
+      ],
+      "body": "{\"@type\":\"types/Payload\",\"text\":\"owned\"}",
+      "wireHex": "0a0d74797065732f5061796c6f6164120712056f776e6564",
+      "json": "{\"type_url\":\"types/Payload\",\"value\":{\"0\":18,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}",
+      "loaded": [
+        "main.proto"
+      ]
+    },
+    {
+      "label": "reversed-message-source-order-ownedorder.Payload",
+      "entry": "main.proto",
+      "files": [
+        {
+          "name": "main.proto",
+          "text": "syntax=\"proto3\";package ownedorder;import \"google/protobuf/any.proto\";message A {message Payload {string text=2;}}message B {message Payload {string text=1;}}"
+        }
+      ],
+      "body": "{\"@type\":\"types/ownedorder.Payload\",\"text\":\"owned\"}",
+      "wireHex": "0a1874797065732f6f776e65646f726465722e5061796c6f6164120712056f776e6564",
+      "json": "{\"type_url\":\"types/ownedorder.Payload\",\"value\":{\"0\":18,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}",
+      "loaded": [
+        "main.proto"
+      ]
+    }
+  ]
+}
