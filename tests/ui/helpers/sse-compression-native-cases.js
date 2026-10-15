@@ -135,7 +135,13 @@ export async function runSseCompressionNativeCases() {
               ["br", brotliCompressSync],
             ]);
             for (const [encoding, encode] of codecs) {
-              for (const mode of ["valid", "corrupt", "flush", "truncated"]) {
+              for (const mode of [
+                "valid",
+                "corrupt",
+                "flush",
+                "truncated",
+                ...(encoding === "gzip" ? ["multi", "multibad"] : []),
+              ]) {
                 const invalid = mode === "corrupt";
                 const partial = mode === "flush" || mode === "truncated";
                 const token = encoding + "-" + mode + "-" + suffix;
@@ -167,7 +173,23 @@ export async function runSseCompressionNativeCases() {
                 let sent = invalid
                   ? Buffer.from("invalid compressed stream " + encoding)
                   : encoded;
-                if (partial) {
+                if (mode === "multi" || mode === "multibad") {
+                  fixture.push(token, gzipSync(decoded));
+                  await mounted(data);
+                  const nextData = "second member gzip";
+                  const next = Buffer.from("data: " + nextData + "\n\n");
+                  fixture.push(
+                    token,
+                    mode === "multi"
+                      ? gzipSync(next)
+                      : Buffer.from("invalid next gzip member"),
+                  );
+                  if (mode === "multi") {
+                    await mounted(nextData);
+                    decoded = Buffer.concat([decoded, next]);
+                  }
+                  sent = wire(token);
+                } else if (partial) {
                   const compressor =
                     encoding === "gzip"
                       ? createGzip()
@@ -241,7 +263,7 @@ export async function runSseCompressionNativeCases() {
                   fixture.push(token, sent.subarray(0, split));
                   fixture.push(token, sent.subarray(split));
                 }
-                if (!invalid) {
+                if (!invalid && mode !== "multibad") {
                   await mounted(data);
                   assert.equal(
                     record(token)?.closed,
@@ -260,7 +282,9 @@ export async function runSseCompressionNativeCases() {
                 }
                 if (!record(token)?.closed) fixture.finish(token);
                 const expectedState =
-                  invalid || mode === "truncated" ? "error" : "closed";
+                  invalid || mode === "truncated" || mode === "multibad"
+                    ? "error"
+                    : "closed";
                 await poll(
                   async () =>
                     (await stream.locator(".status-badge").innerText()) ===
@@ -288,7 +312,7 @@ export async function runSseCompressionNativeCases() {
                   sent,
                   "Peer records exact compressed bytes",
                 );
-                if (invalid || mode === "truncated") {
+                if (invalid || mode === "truncated" || mode === "multibad") {
                   assert.ok(
                     entry.events.some(
                       (/** @type {any} */ e) =>
@@ -302,7 +326,7 @@ export async function runSseCompressionNativeCases() {
                     ).length,
                     invalid ? 0 : 1,
                   );
-                  if (mode === "truncated") {
+                  if (mode === "truncated" || mode === "multibad") {
                     assert.deepEqual(
                       entry.events
                         .filter((/** @type {any} */ e) => e.kind === "sse")
@@ -329,13 +353,16 @@ export async function runSseCompressionNativeCases() {
                         id: e.id,
                         data: e.data,
                       })),
-                    mode === "flush"
+                    mode === "flush" || mode === "multi"
                       ? [
                           { event: "update", id: "owned", data },
                           {
                             event: "message",
                             id: "owned",
-                            data: "second flushed " + encoding,
+                            data:
+                              mode === "multi"
+                                ? "second member gzip"
+                                : "second flushed " + encoding,
                           },
                         ]
                       : [{ event: "update", id: "owned", data }],
@@ -392,10 +419,76 @@ export async function runSseCompressionNativeCases() {
                   decodedSHA256: invalid ? null : sha(decoded),
                   incrementalBeforeEof: !invalid,
                   exactReload: true,
-                  rawExport: !invalid && mode !== "truncated",
+                  rawExport:
+                    !invalid && !["truncated", "multibad"].includes(mode),
                 });
               }
             }
+
+            // Shared gzip decoder also serves ordinary HTTP; verify a real Send.
+            const httpToken = "http-multi-" + suffix;
+            const httpUrl = fixture.target(httpToken, "stream", "gzip");
+            const modeInput = page.getByLabel("Response mode", { exact: true });
+            await modeInput.selectOption("http");
+            const urlInput = page.getByLabel("Request URL", { exact: true });
+            await urlInput.fill(httpUrl);
+            await urlInput.press("Tab");
+            await resourceSaved(page);
+            await poll(
+              async () =>
+                (await load()).resources.find(
+                  (/** @type {any} */ r) => r._id === request._id,
+                )?.url === httpUrl,
+              "HTTP multi URL persisted",
+            );
+            await page
+              .getByRole("button", { name: "Send", exact: true })
+              .click();
+            await poll(
+              () => Promise.resolve(!!record(httpToken)?.streaming),
+              "HTTP multi peer open",
+            );
+            const httpFirst = Buffer.from(
+              "HTTP member one \u0E44\u0E17\u0E22 ",
+            );
+            const httpSecond = Buffer.from("and member two \u03B2");
+            fixture.push(httpToken, gzipSync(httpFirst));
+            fixture.push(httpToken, gzipSync(httpSecond));
+            fixture.finish(httpToken);
+            /** @type {Record<string,any>|undefined} */ let httpEntry;
+            await poll(async () => {
+              httpEntry = (await load()).history.find(
+                (/** @type {any} */ r) =>
+                  r.requestId === request._id && r.url === httpUrl,
+              );
+              return !!httpEntry;
+            }, "HTTP both members persisted");
+            assert.ok(httpEntry);
+            assert.equal(httpEntry.status, 200);
+            assert.equal(
+              httpEntry.body,
+              Buffer.concat([httpFirst, httpSecond]).toString("utf8"),
+            );
+            await resourceSaved(page);
+            await page.reload();
+            await resourceSaved(page);
+            assert.deepEqual(
+              (await load()).history.find(
+                (/** @type {any} */ r) => r._id === httpEntry?._id,
+              ),
+              httpEntry,
+            );
+            await modeInput.selectOption("sse");
+            await stream.waitFor();
+            await resourceSaved(page);
+            checks.push({
+              encoding: "gzip",
+              mode: "http-multi",
+              actualNativeSend: true,
+              exactReload: true,
+              bothMembers: true,
+            });
+
             const final = await load();
             assert.deepEqual(
               final.history.filter(
@@ -441,7 +534,7 @@ export async function runSseCompressionNativeCases() {
           errors: failures.map(String),
           outerProfileRestorationRequired: true,
           scope:
-            "Native gzip/deflate/Brotli valid, corrupt, open-compressor flush and truncated-trailer cases; exact decoded raw export/reload. No multi-member, compressed cancel/limits, mixed protocol, physicalTCP/OS-close or broader platform claim.",
+            "Native gzip/deflate/Brotli valid, corrupt, open-compressor flush and truncated-trailer cases; exact decoded raw export/reload. Includes multi-member gzip SSE/HTTP and invalid second member. No compressed cancel/limits, full mixed protocol, physicalTCP/OS-close or broader platform claim.",
         },
         null,
         2,

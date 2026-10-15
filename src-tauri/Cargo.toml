@@ -85,6 +85,7 @@ panic = "abort"
 strip = true
 
 [patch.crates-io]
+tower-http = { path = "vendor/tower-http" }
 reqwest = { path = "vendor/reqwest" }
 http-auth = { path = "vendor/http-auth" }
 eventsource-stream = { path = "vendor/eventsource-stream" }

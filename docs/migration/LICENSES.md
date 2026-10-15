@@ -4,6 +4,10 @@ Updated 2026-10-14. Authentic frontend283 inputs and current packaging receipts 
 
 See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity requirements](PARITY.md). No original scope was removed by consolidation.
 
+## Current tower-http gzip patch acquisition
+
+Complete published tower-http0.6.11 source/LICENSE retained under src-tauri/vendor/tower-http from cached .crate SHA4cfcf7e2740e6fc6d4d688b4ef00650406bb94adf4731e43c096c3a19fe40840, matching the original Cargo.lock registry checksum. Acquisition/delta: artifacts/tower-http-original-acquisition.json and tower-http-patch-delta.json; exactly one upstream code file differs (enable gzip multiple_members) plus INSOMNIUM-PATCH.md. Registry source is unchanged. Source policy and generator admit the added local patch root; bun scripts/generate-native-notices.mjs x86_64-pc-windows-msvc passes770identities/424texts. The fresh gzip-members native candidate closes original source/notices/assets/packages exactly; HTTP.md#current-consecutive-gzip-member-correction records evidence. This is bounded source/notices provenance, not complete license/linkage/platform acceptance.
+
 ## Topic records
 
 <a id="record-agent-bun-embedded-runtime-identity"></a>

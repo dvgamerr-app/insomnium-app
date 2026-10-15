@@ -8,7 +8,8 @@
     "reqwest": "vendor/reqwest",
     "http-auth": "vendor/http-auth",
     "eventsource-stream": "vendor/eventsource-stream",
-    "p12-keystore": "vendor/p12-keystore"
+    "p12-keystore": "vendor/p12-keystore",
+    "tower-http": "vendor/tower-http"
   },
   "unresolvedScopes": [
     "source-unavailable",
