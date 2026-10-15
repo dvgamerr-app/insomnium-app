@@ -1,0 +1,1249 @@
+{
+  "passed": true,
+  "protobufjs": "7.2.4",
+  "source": "syntax=\"proto3\"; message Strings { map<string,string> values=1; } message Int32 { map<int32,string> values=1; } message Uint32 { map<uint32,string> values=1; } message Sint32 { map<sint32,string> values=1; } message Fixed32 { map<fixed32,string> values=1; } message Sfixed32 { map<sfixed32,string> values=1; } message Int64 { map<int64,string> values=1; } message Uint64 { map<uint64,string> values=1; } message Sint64 { map<sint64,string> values=1; } message Fixed64 { map<fixed64,string> values=1; } message Sfixed64 { map<sfixed64,string> values=1; } message Bools { map<bool,string> values=1; } enum Flag { ZERO=0; ONE=1; } message Enums { map<string,Flag> values=1; } message Blobs { map<string,bytes> values=1; } message Child { map<string,string> values=1; } message Nested { map<string,Child> values=1; } message Empty {} message EmptyValues { map<string,Empty> values=1; }",
+  "rows": [
+    {
+      "label": "Strings-colliding-coercion",
+      "name": "Strings",
+      "body": "{\"values\":{\"z\":\"first\",\"a\":\"last\"}}",
+      "wireHex": "0a0a0a017a120566697273740a090a016112046c617374",
+      "json": "{\"values\":{\"z\":\"first\",\"a\":\"last\"}}",
+      "output": {
+        "values": {
+          "z": "first",
+          "a": "last"
+        }
+      },
+      "keys": [
+        "z",
+        "a"
+      ]
+    },
+    {
+      "label": "Strings-index-boundary",
+      "name": "Strings",
+      "body": "{\"values\":{\"10\":\"ten\",\"2\":\"two\",\"01\":\"lead\",\"-1\":\"minus\",\"0\":\"zero\",\"4294967295\":\"max\",\"4294967294\":\"indexMax\"}}",
+      "wireHex": "0a090a013012047a65726f0a080a0132120374776f0a090a023130120374656e0a160a0a343239343936373239341208696e6465784d61780a0a0a02303112046c6561640a0b0a022d3112056d696e75730a110a0a3432393439363732393512036d6178",
+      "json": "{\"values\":{\"0\":\"zero\",\"2\":\"two\",\"10\":\"ten\",\"4294967294\":\"indexMax\",\"01\":\"lead\",\"-1\":\"minus\",\"4294967295\":\"max\"}}",
+      "output": {
+        "values": {
+          "0": "zero",
+          "2": "two",
+          "10": "ten",
+          "4294967294": "indexMax",
+          "01": "lead",
+          "-1": "minus",
+          "4294967295": "max"
+        }
+      },
+      "keys": [
+        "0",
+        "2",
+        "10",
+        "4294967294",
+        "01",
+        "-1",
+        "4294967295"
+      ]
+    },
+    {
+      "label": "Strings-array-object-keys",
+      "name": "Strings",
+      "body": "{\"values\":[\"first\",\"second\"]}",
+      "wireHex": "0a0a0a0130120566697273740a0b0a013112067365636f6e64",
+      "json": "{\"values\":{\"0\":\"first\",\"1\":\"second\"}}",
+      "output": {
+        "values": {
+          "0": "first",
+          "1": "second"
+        }
+      },
+      "keys": [
+        "0",
+        "1"
+      ]
+    },
+    {
+      "label": "Int32-colliding-coercion",
+      "name": "Int32",
+      "body": "{\"values\":{\"z\":\"first\",\"a\":\"last\"}}",
+      "wireHex": "0a090800120566697273740a08080012046c617374",
+      "json": "{\"values\":{\"0\":\"last\"}}",
+      "output": {
+        "values": {
+          "0": "last"
+        }
+      },
+      "keys": [
+        "0"
+      ]
+    },
+    {
+      "label": "Int32-index-boundary",
+      "name": "Int32",
+      "body": "{\"values\":{\"10\":\"ten\",\"2\":\"two\",\"01\":\"lead\",\"-1\":\"minus\",\"0\":\"zero\",\"4294967295\":\"max\",\"4294967294\":\"indexMax\"}}",
+      "wireHex": "0a08080012047a65726f0a070802120374776f0a07080a120374656e0a1008feffffff0f1208696e6465784d61780a08080112046c6561640a1208ffffffffffffffffff0112056d696e75730a0b08ffffffff0f12036d6178",
+      "json": "{\"values\":{\"0\":\"zero\",\"1\":\"lead\",\"2\":\"two\",\"10\":\"ten\",\"-2\":\"indexMax\",\"-1\":\"max\"}}",
+      "output": {
+        "values": {
+          "0": "zero",
+          "1": "lead",
+          "2": "two",
+          "10": "ten",
+          "-2": "indexMax",
+          "-1": "max"
+        }
+      },
+      "keys": [
+        "0",
+        "1",
+        "2",
+        "10",
+        "-2",
+        "-1"
+      ]
+    },
+    {
+      "label": "Int32-array-object-keys",
+      "name": "Int32",
+      "body": "{\"values\":[\"first\",\"second\"]}",
+      "wireHex": "0a090800120566697273740a0a080112067365636f6e64",
+      "json": "{\"values\":{\"0\":\"first\",\"1\":\"second\"}}",
+      "output": {
+        "values": {
+          "0": "first",
+          "1": "second"
+        }
+      },
+      "keys": [
+        "0",
+        "1"
+      ]
+    },
+    {
+      "label": "Uint32-colliding-coercion",
+      "name": "Uint32",
+      "body": "{\"values\":{\"z\":\"first\",\"a\":\"last\"}}",
+      "wireHex": "0a090800120566697273740a08080012046c617374",
+      "json": "{\"values\":{\"0\":\"last\"}}",
+      "output": {
+        "values": {
+          "0": "last"
+        }
+      },
+      "keys": [
+        "0"
+      ]
+    },
+    {
+      "label": "Uint32-index-boundary",
+      "name": "Uint32",
+      "body": "{\"values\":{\"10\":\"ten\",\"2\":\"two\",\"01\":\"lead\",\"-1\":\"minus\",\"0\":\"zero\",\"4294967295\":\"max\",\"4294967294\":\"indexMax\"}}",
+      "wireHex": "0a08080012047a65726f0a070802120374776f0a07080a120374656e0a1008feffffff0f1208696e6465784d61780a08080112046c6561640a0d08ffffffff0f12056d696e75730a0b08ffffffff0f12036d6178",
+      "json": "{\"values\":{\"0\":\"zero\",\"1\":\"lead\",\"2\":\"two\",\"10\":\"ten\",\"4294967294\":\"indexMax\",\"4294967295\":\"max\"}}",
+      "output": {
+        "values": {
+          "0": "zero",
+          "1": "lead",
+          "2": "two",
+          "10": "ten",
+          "4294967294": "indexMax",
+          "4294967295": "max"
+        }
+      },
+      "keys": [
+        "0",
+        "1",
+        "2",
+        "10",
+        "4294967294",
+        "4294967295"
+      ]
+    },
+    {
+      "label": "Uint32-array-object-keys",
+      "name": "Uint32",
+      "body": "{\"values\":[\"first\",\"second\"]}",
+      "wireHex": "0a090800120566697273740a0a080112067365636f6e64",
+      "json": "{\"values\":{\"0\":\"first\",\"1\":\"second\"}}",
+      "output": {
+        "values": {
+          "0": "first",
+          "1": "second"
+        }
+      },
+      "keys": [
+        "0",
+        "1"
+      ]
+    },
+    {
+      "label": "Sint32-colliding-coercion",
+      "name": "Sint32",
+      "body": "{\"values\":{\"z\":\"first\",\"a\":\"last\"}}",
+      "wireHex": "0a090800120566697273740a08080012046c617374",
+      "json": "{\"values\":{\"0\":\"last\"}}",
+      "output": {
+        "values": {
+          "0": "last"
+        }
+      },
+      "keys": [
+        "0"
+      ]
+    },
+    {
+      "label": "Sint32-index-boundary",
+      "name": "Sint32",
+      "body": "{\"values\":{\"10\":\"ten\",\"2\":\"two\",\"01\":\"lead\",\"-1\":\"minus\",\"0\":\"zero\",\"4294967295\":\"max\",\"4294967294\":\"indexMax\"}}",
+      "wireHex": "0a08080012047a65726f0a070804120374776f0a070814120374656e0a0c08031208696e6465784d61780a08080212046c6561640a09080112056d696e75730a07080112036d6178",
+      "json": "{\"values\":{\"0\":\"zero\",\"1\":\"lead\",\"2\":\"two\",\"10\":\"ten\",\"-2\":\"indexMax\",\"-1\":\"max\"}}",
+      "output": {
+        "values": {
+          "0": "zero",
+          "1": "lead",
+          "2": "two",
+          "10": "ten",
+          "-2": "indexMax",
+          "-1": "max"
+        }
+      },
+      "keys": [
+        "0",
+        "1",
+        "2",
+        "10",
+        "-2",
+        "-1"
+      ]
+    },
+    {
+      "label": "Sint32-array-object-keys",
+      "name": "Sint32",
+      "body": "{\"values\":[\"first\",\"second\"]}",
+      "wireHex": "0a090800120566697273740a0a080212067365636f6e64",
+      "json": "{\"values\":{\"0\":\"first\",\"1\":\"second\"}}",
+      "output": {
+        "values": {
+          "0": "first",
+          "1": "second"
+        }
+      },
+      "keys": [
+        "0",
+        "1"
+      ]
+    },
+    {
+      "label": "Fixed32-colliding-coercion",
+      "name": "Fixed32",
+      "body": "{\"values\":{\"z\":\"first\",\"a\":\"last\"}}",
+      "wireHex": "0a0c0d00000000120566697273740a0b0d0000000012046c617374",
+      "json": "{\"values\":{\"0\":\"last\"}}",
+      "output": {
+        "values": {
+          "0": "last"
+        }
+      },
+      "keys": [
+        "0"
+      ]
+    },
+    {
+      "label": "Fixed32-index-boundary",
+      "name": "Fixed32",
+      "body": "{\"values\":{\"10\":\"ten\",\"2\":\"two\",\"01\":\"lead\",\"-1\":\"minus\",\"0\":\"zero\",\"4294967295\":\"max\",\"4294967294\":\"indexMax\"}}",
+      "wireHex": "0a0b0d0000000012047a65726f0a0a0d02000000120374776f0a0a0d0a000000120374656e0a0f0dfeffffff1208696e6465784d61780a0b0d0100000012046c6561640a0c0dffffffff12056d696e75730a0a0dffffffff12036d6178",
+      "json": "{\"values\":{\"0\":\"zero\",\"1\":\"lead\",\"2\":\"two\",\"10\":\"ten\",\"4294967294\":\"indexMax\",\"4294967295\":\"max\"}}",
+      "output": {
+        "values": {
+          "0": "zero",
+          "1": "lead",
+          "2": "two",
+          "10": "ten",
+          "4294967294": "indexMax",
+          "4294967295": "max"
+        }
+      },
+      "keys": [
+        "0",
+        "1",
+        "2",
+        "10",
+        "4294967294",
+        "4294967295"
+      ]
+    },
+    {
+      "label": "Fixed32-array-object-keys",
+      "name": "Fixed32",
+      "body": "{\"values\":[\"first\",\"second\"]}",
+      "wireHex": "0a0c0d00000000120566697273740a0d0d0100000012067365636f6e64",
+      "json": "{\"values\":{\"0\":\"first\",\"1\":\"second\"}}",
+      "output": {
+        "values": {
+          "0": "first",
+          "1": "second"
+        }
+      },
+      "keys": [
+        "0",
+        "1"
+      ]
+    },
+    {
+      "label": "Sfixed32-colliding-coercion",
+      "name": "Sfixed32",
+      "body": "{\"values\":{\"z\":\"first\",\"a\":\"last\"}}",
+      "wireHex": "0a0c0d00000000120566697273740a0b0d0000000012046c617374",
+      "json": "{\"values\":{\"0\":\"last\"}}",
+      "output": {
+        "values": {
+          "0": "last"
+        }
+      },
+      "keys": [
+        "0"
+      ]
+    },
+    {
+      "label": "Sfixed32-index-boundary",
+      "name": "Sfixed32",
+      "body": "{\"values\":{\"10\":\"ten\",\"2\":\"two\",\"01\":\"lead\",\"-1\":\"minus\",\"0\":\"zero\",\"4294967295\":\"max\",\"4294967294\":\"indexMax\"}}",
+      "wireHex": "0a0b0d0000000012047a65726f0a0a0d02000000120374776f0a0a0d0a000000120374656e0a0f0dfeffffff1208696e6465784d61780a0b0d0100000012046c6561640a0c0dffffffff12056d696e75730a0a0dffffffff12036d6178",
+      "json": "{\"values\":{\"0\":\"zero\",\"1\":\"lead\",\"2\":\"two\",\"10\":\"ten\",\"-2\":\"indexMax\",\"-1\":\"max\"}}",
+      "output": {
+        "values": {
+          "0": "zero",
+          "1": "lead",
+          "2": "two",
+          "10": "ten",
+          "-2": "indexMax",
+          "-1": "max"
+        }
+      },
+      "keys": [
+        "0",
+        "1",
+        "2",
+        "10",
+        "-2",
+        "-1"
+      ]
+    },
+    {
+      "label": "Sfixed32-array-object-keys",
+      "name": "Sfixed32",
+      "body": "{\"values\":[\"first\",\"second\"]}",
+      "wireHex": "0a0c0d00000000120566697273740a0d0d0100000012067365636f6e64",
+      "json": "{\"values\":{\"0\":\"first\",\"1\":\"second\"}}",
+      "output": {
+        "values": {
+          "0": "first",
+          "1": "second"
+        }
+      },
+      "keys": [
+        "0",
+        "1"
+      ]
+    },
+    {
+      "label": "Int64-colliding-coercion",
+      "name": "Int64",
+      "body": "{\"values\":{\"z\":\"first\",\"a\":\"last\"}}",
+      "wireHex": "0a090800120566697273740a08080012046c617374",
+      "json": "{\"values\":{\"\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"last\"}}",
+      "output": {
+        "values": {
+          "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "last"
+        }
+      },
+      "keys": [
+        "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+      ]
+    },
+    {
+      "label": "Int64-index-boundary",
+      "name": "Int64",
+      "body": "{\"values\":{\"10\":\"ten\",\"2\":\"two\",\"01\":\"lead\",\"-1\":\"minus\",\"0\":\"zero\",\"4294967295\":\"max\",\"4294967294\":\"indexMax\"}}",
+      "wireHex": "0a08080012047a65726f0a070802120374776f0a07080a120374656e0a1008feffffff0f1208696e6465784d61780a08080112046c6561640a1208ffffffffffffffffff0112056d696e75730a0b08ffffffff0f12036d6178",
+      "json": "{\"values\":{\"\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"zero\",\"\\u0002\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"two\",\"\\n\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"ten\",\"þÿÿÿ\\u0000\\u0000\\u0000\\u0000\":\"indexMax\",\"\\u0001\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"lead\",\"ÿÿÿÿÿÿÿÿ\":\"minus\",\"ÿÿÿÿ\\u0000\\u0000\\u0000\\u0000\":\"max\"}}",
+      "output": {
+        "values": {
+          "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "zero",
+          "\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "two",
+          "\n\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "ten",
+          "þÿÿÿ\u0000\u0000\u0000\u0000": "indexMax",
+          "\u0001\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "lead",
+          "ÿÿÿÿÿÿÿÿ": "minus",
+          "ÿÿÿÿ\u0000\u0000\u0000\u0000": "max"
+        }
+      },
+      "keys": [
+        "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+        "\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+        "\n\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+        "þÿÿÿ\u0000\u0000\u0000\u0000",
+        "\u0001\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+        "ÿÿÿÿÿÿÿÿ",
+        "ÿÿÿÿ\u0000\u0000\u0000\u0000"
+      ]
+    },
+    {
+      "label": "Int64-array-object-keys",
+      "name": "Int64",
+      "body": "{\"values\":[\"first\",\"second\"]}",
+      "wireHex": "0a090800120566697273740a0a080112067365636f6e64",
+      "json": "{\"values\":{\"\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"first\",\"\\u0001\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"second\"}}",
+      "output": {
+        "values": {
+          "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "first",
+          "\u0001\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "second"
+        }
+      },
+      "keys": [
+        "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+        "\u0001\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+      ]
+    },
+    {
+      "label": "Uint64-colliding-coercion",
+      "name": "Uint64",
+      "body": "{\"values\":{\"z\":\"first\",\"a\":\"last\"}}",
+      "wireHex": "0a090800120566697273740a08080012046c617374",
+      "json": "{\"values\":{\"\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"last\"}}",
+      "output": {
+        "values": {
+          "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "last"
+        }
+      },
+      "keys": [
+        "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+      ]
+    },
+    {
+      "label": "Uint64-index-boundary",
+      "name": "Uint64",
+      "body": "{\"values\":{\"10\":\"ten\",\"2\":\"two\",\"01\":\"lead\",\"-1\":\"minus\",\"0\":\"zero\",\"4294967295\":\"max\",\"4294967294\":\"indexMax\"}}",
+      "wireHex": "0a08080012047a65726f0a070802120374776f0a07080a120374656e0a1008feffffff0f1208696e6465784d61780a08080112046c6561640a1208ffffffffffffffffff0112056d696e75730a0b08ffffffff0f12036d6178",
+      "json": "{\"values\":{\"\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"zero\",\"\\u0002\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"two\",\"\\n\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"ten\",\"þÿÿÿ\\u0000\\u0000\\u0000\\u0000\":\"indexMax\",\"\\u0001\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"lead\",\"ÿÿÿÿÿÿÿÿ\":\"minus\",\"ÿÿÿÿ\\u0000\\u0000\\u0000\\u0000\":\"max\"}}",
+      "output": {
+        "values": {
+          "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "zero",
+          "\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "two",
+          "\n\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "ten",
+          "þÿÿÿ\u0000\u0000\u0000\u0000": "indexMax",
+          "\u0001\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "lead",
+          "ÿÿÿÿÿÿÿÿ": "minus",
+          "ÿÿÿÿ\u0000\u0000\u0000\u0000": "max"
+        }
+      },
+      "keys": [
+        "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+        "\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+        "\n\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+        "þÿÿÿ\u0000\u0000\u0000\u0000",
+        "\u0001\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+        "ÿÿÿÿÿÿÿÿ",
+        "ÿÿÿÿ\u0000\u0000\u0000\u0000"
+      ]
+    },
+    {
+      "label": "Uint64-array-object-keys",
+      "name": "Uint64",
+      "body": "{\"values\":[\"first\",\"second\"]}",
+      "wireHex": "0a090800120566697273740a0a080112067365636f6e64",
+      "json": "{\"values\":{\"\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"first\",\"\\u0001\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"second\"}}",
+      "output": {
+        "values": {
+          "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "first",
+          "\u0001\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "second"
+        }
+      },
+      "keys": [
+        "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+        "\u0001\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+      ]
+    },
+    {
+      "label": "Sint64-colliding-coercion",
+      "name": "Sint64",
+      "body": "{\"values\":{\"z\":\"first\",\"a\":\"last\"}}",
+      "wireHex": "0a090800120566697273740a08080012046c617374",
+      "json": "{\"values\":{\"\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"last\"}}",
+      "output": {
+        "values": {
+          "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "last"
+        }
+      },
+      "keys": [
+        "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+      ]
+    },
+    {
+      "label": "Sint64-index-boundary",
+      "name": "Sint64",
+      "body": "{\"values\":{\"10\":\"ten\",\"2\":\"two\",\"01\":\"lead\",\"-1\":\"minus\",\"0\":\"zero\",\"4294967295\":\"max\",\"4294967294\":\"indexMax\"}}",
+      "wireHex": "0a08080012047a65726f0a070804120374776f0a070814120374656e0a1008fcffffff1f1208696e6465784d61780a08080212046c6561640a09080112056d696e75730a0b08feffffff1f12036d6178",
+      "json": "{\"values\":{\"\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"zero\",\"\\u0002\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"two\",\"\\n\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"ten\",\"þÿÿÿ\\u0000\\u0000\\u0000\\u0000\":\"indexMax\",\"\\u0001\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"lead\",\"ÿÿÿÿÿÿÿÿ\":\"minus\",\"ÿÿÿÿ\\u0000\\u0000\\u0000\\u0000\":\"max\"}}",
+      "output": {
+        "values": {
+          "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "zero",
+          "\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "two",
+          "\n\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "ten",
+          "þÿÿÿ\u0000\u0000\u0000\u0000": "indexMax",
+          "\u0001\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "lead",
+          "ÿÿÿÿÿÿÿÿ": "minus",
+          "ÿÿÿÿ\u0000\u0000\u0000\u0000": "max"
+        }
+      },
+      "keys": [
+        "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+        "\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+        "\n\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+        "þÿÿÿ\u0000\u0000\u0000\u0000",
+        "\u0001\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+        "ÿÿÿÿÿÿÿÿ",
+        "ÿÿÿÿ\u0000\u0000\u0000\u0000"
+      ]
+    },
+    {
+      "label": "Sint64-array-object-keys",
+      "name": "Sint64",
+      "body": "{\"values\":[\"first\",\"second\"]}",
+      "wireHex": "0a090800120566697273740a0a080212067365636f6e64",
+      "json": "{\"values\":{\"\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"first\",\"\\u0001\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"second\"}}",
+      "output": {
+        "values": {
+          "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "first",
+          "\u0001\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "second"
+        }
+      },
+      "keys": [
+        "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+        "\u0001\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+      ]
+    },
+    {
+      "label": "Fixed64-colliding-coercion",
+      "name": "Fixed64",
+      "body": "{\"values\":{\"z\":\"first\",\"a\":\"last\"}}",
+      "wireHex": "0a10090000000000000000120566697273740a0f09000000000000000012046c617374",
+      "json": "{\"values\":{\"\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"last\"}}",
+      "output": {
+        "values": {
+          "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "last"
+        }
+      },
+      "keys": [
+        "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+      ]
+    },
+    {
+      "label": "Fixed64-index-boundary",
+      "name": "Fixed64",
+      "body": "{\"values\":{\"10\":\"ten\",\"2\":\"two\",\"01\":\"lead\",\"-1\":\"minus\",\"0\":\"zero\",\"4294967295\":\"max\",\"4294967294\":\"indexMax\"}}",
+      "wireHex": "0a0f09000000000000000012047a65726f0a0e090200000000000000120374776f0a0e090a00000000000000120374656e0a1309feffffff000000001208696e6465784d61780a0f09010000000000000012046c6561640a1009ffffffffffffffff12056d696e75730a0e09ffffffff0000000012036d6178",
+      "json": "{\"values\":{\"\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"zero\",\"\\u0002\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"two\",\"\\n\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"ten\",\"þÿÿÿ\\u0000\\u0000\\u0000\\u0000\":\"indexMax\",\"\\u0001\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"lead\",\"ÿÿÿÿÿÿÿÿ\":\"minus\",\"ÿÿÿÿ\\u0000\\u0000\\u0000\\u0000\":\"max\"}}",
+      "output": {
+        "values": {
+          "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "zero",
+          "\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "two",
+          "\n\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "ten",
+          "þÿÿÿ\u0000\u0000\u0000\u0000": "indexMax",
+          "\u0001\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "lead",
+          "ÿÿÿÿÿÿÿÿ": "minus",
+          "ÿÿÿÿ\u0000\u0000\u0000\u0000": "max"
+        }
+      },
+      "keys": [
+        "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+        "\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+        "\n\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+        "þÿÿÿ\u0000\u0000\u0000\u0000",
+        "\u0001\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+        "ÿÿÿÿÿÿÿÿ",
+        "ÿÿÿÿ\u0000\u0000\u0000\u0000"
+      ]
+    },
+    {
+      "label": "Fixed64-array-object-keys",
+      "name": "Fixed64",
+      "body": "{\"values\":[\"first\",\"second\"]}",
+      "wireHex": "0a10090000000000000000120566697273740a1109010000000000000012067365636f6e64",
+      "json": "{\"values\":{\"\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"first\",\"\\u0001\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"second\"}}",
+      "output": {
+        "values": {
+          "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "first",
+          "\u0001\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "second"
+        }
+      },
+      "keys": [
+        "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+        "\u0001\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+      ]
+    },
+    {
+      "label": "Sfixed64-colliding-coercion",
+      "name": "Sfixed64",
+      "body": "{\"values\":{\"z\":\"first\",\"a\":\"last\"}}",
+      "wireHex": "0a10090000000000000000120566697273740a0f09000000000000000012046c617374",
+      "json": "{\"values\":{\"\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"last\"}}",
+      "output": {
+        "values": {
+          "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "last"
+        }
+      },
+      "keys": [
+        "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+      ]
+    },
+    {
+      "label": "Sfixed64-index-boundary",
+      "name": "Sfixed64",
+      "body": "{\"values\":{\"10\":\"ten\",\"2\":\"two\",\"01\":\"lead\",\"-1\":\"minus\",\"0\":\"zero\",\"4294967295\":\"max\",\"4294967294\":\"indexMax\"}}",
+      "wireHex": "0a0f09000000000000000012047a65726f0a0e090200000000000000120374776f0a0e090a00000000000000120374656e0a1309feffffff000000001208696e6465784d61780a0f09010000000000000012046c6561640a1009ffffffffffffffff12056d696e75730a0e09ffffffff0000000012036d6178",
+      "json": "{\"values\":{\"\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"zero\",\"\\u0002\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"two\",\"\\n\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"ten\",\"þÿÿÿ\\u0000\\u0000\\u0000\\u0000\":\"indexMax\",\"\\u0001\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"lead\",\"ÿÿÿÿÿÿÿÿ\":\"minus\",\"ÿÿÿÿ\\u0000\\u0000\\u0000\\u0000\":\"max\"}}",
+      "output": {
+        "values": {
+          "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "zero",
+          "\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "two",
+          "\n\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "ten",
+          "þÿÿÿ\u0000\u0000\u0000\u0000": "indexMax",
+          "\u0001\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "lead",
+          "ÿÿÿÿÿÿÿÿ": "minus",
+          "ÿÿÿÿ\u0000\u0000\u0000\u0000": "max"
+        }
+      },
+      "keys": [
+        "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+        "\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+        "\n\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+        "þÿÿÿ\u0000\u0000\u0000\u0000",
+        "\u0001\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+        "ÿÿÿÿÿÿÿÿ",
+        "ÿÿÿÿ\u0000\u0000\u0000\u0000"
+      ]
+    },
+    {
+      "label": "Sfixed64-array-object-keys",
+      "name": "Sfixed64",
+      "body": "{\"values\":[\"first\",\"second\"]}",
+      "wireHex": "0a10090000000000000000120566697273740a1109010000000000000012067365636f6e64",
+      "json": "{\"values\":{\"\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"first\",\"\\u0001\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"second\"}}",
+      "output": {
+        "values": {
+          "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "first",
+          "\u0001\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "second"
+        }
+      },
+      "keys": [
+        "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+        "\u0001\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+      ]
+    },
+    {
+      "label": "Bools-colliding-coercion",
+      "name": "Bools",
+      "body": "{\"values\":{\"z\":\"first\",\"a\":\"last\"}}",
+      "wireHex": "0a090801120566697273740a08080112046c617374",
+      "json": "{\"values\":{\"true\":\"last\"}}",
+      "output": {
+        "values": {
+          "true": "last"
+        }
+      },
+      "keys": [
+        "true"
+      ]
+    },
+    {
+      "label": "Bools-index-boundary",
+      "name": "Bools",
+      "body": "{\"values\":{\"10\":\"ten\",\"2\":\"two\",\"01\":\"lead\",\"-1\":\"minus\",\"0\":\"zero\",\"4294967295\":\"max\",\"4294967294\":\"indexMax\"}}",
+      "wireHex": "0a08080112047a65726f0a070801120374776f0a070801120374656e0a0c08011208696e6465784d61780a08080112046c6561640a09080112056d696e75730a07080112036d6178",
+      "json": "{\"values\":{\"true\":\"max\"}}",
+      "output": {
+        "values": {
+          "true": "max"
+        }
+      },
+      "keys": [
+        "true"
+      ]
+    },
+    {
+      "label": "Bools-array-object-keys",
+      "name": "Bools",
+      "body": "{\"values\":[\"first\",\"second\"]}",
+      "wireHex": "0a090801120566697273740a0a080112067365636f6e64",
+      "json": "{\"values\":{\"true\":\"second\"}}",
+      "output": {
+        "values": {
+          "true": "second"
+        }
+      },
+      "keys": [
+        "true"
+      ]
+    },
+    {
+      "label": "Int64-numeric-hash-key",
+      "name": "Int64",
+      "body": "{\"values\":{\"0\":\"zero\",\"3544952156018063160\":\"numericHash\"}}",
+      "wireHex": "0a08080012047a65726f0a1708b8eed8a9c3e68c9931120b6e756d6572696348617368",
+      "json": "{\"values\":{\"87654321\":\"numericHash\",\"\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"zero\"}}",
+      "output": {
+        "values": {
+          "87654321": "numericHash",
+          "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "zero"
+        }
+      },
+      "keys": [
+        "87654321",
+        "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+      ]
+    },
+    {
+      "label": "Uint64-numeric-hash-key",
+      "name": "Uint64",
+      "body": "{\"values\":{\"0\":\"zero\",\"3544952156018063160\":\"numericHash\"}}",
+      "wireHex": "0a08080012047a65726f0a1708b8eed8a9c3e68c9931120b6e756d6572696348617368",
+      "json": "{\"values\":{\"87654321\":\"numericHash\",\"\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"zero\"}}",
+      "output": {
+        "values": {
+          "87654321": "numericHash",
+          "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "zero"
+        }
+      },
+      "keys": [
+        "87654321",
+        "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+      ]
+    },
+    {
+      "label": "Sint64-numeric-hash-key",
+      "name": "Sint64",
+      "body": "{\"values\":{\"0\":\"zero\",\"3544952156018063160\":\"numericHash\"}}",
+      "wireHex": "0a08080012047a65726f0a1708f0dcb1d386cd99b262120b6e756d6572696348617368",
+      "json": "{\"values\":{\"87654321\":\"numericHash\",\"\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"zero\"}}",
+      "output": {
+        "values": {
+          "87654321": "numericHash",
+          "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "zero"
+        }
+      },
+      "keys": [
+        "87654321",
+        "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+      ]
+    },
+    {
+      "label": "Fixed64-numeric-hash-key",
+      "name": "Fixed64",
+      "body": "{\"values\":{\"0\":\"zero\",\"3544952156018063160\":\"numericHash\"}}",
+      "wireHex": "0a0f09000000000000000012047a65726f0a16093837363534333231120b6e756d6572696348617368",
+      "json": "{\"values\":{\"87654321\":\"numericHash\",\"\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"zero\"}}",
+      "output": {
+        "values": {
+          "87654321": "numericHash",
+          "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "zero"
+        }
+      },
+      "keys": [
+        "87654321",
+        "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+      ]
+    },
+    {
+      "label": "Sfixed64-numeric-hash-key",
+      "name": "Sfixed64",
+      "body": "{\"values\":{\"0\":\"zero\",\"3544952156018063160\":\"numericHash\"}}",
+      "wireHex": "0a0f09000000000000000012047a65726f0a16093837363534333231120b6e756d6572696348617368",
+      "json": "{\"values\":{\"87654321\":\"numericHash\",\"\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"zero\"}}",
+      "output": {
+        "values": {
+          "87654321": "numericHash",
+          "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "zero"
+        }
+      },
+      "keys": [
+        "87654321",
+        "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+      ]
+    },
+    {
+      "label": "Strings-duplicate-json-key",
+      "name": "Strings",
+      "body": "{\"values\":{\"z\":\"old\",\"a\":\"middle\",\"z\":\"new\",\"m\":\"tail\"}}",
+      "wireHex": "0a080a017a12036e65770a0b0a016112066d6964646c650a090a016d12047461696c",
+      "json": "{\"values\":{\"z\":\"new\",\"a\":\"middle\",\"m\":\"tail\"}}",
+      "output": {
+        "values": {
+          "z": "new",
+          "a": "middle",
+          "m": "tail"
+        }
+      },
+      "keys": [
+        "z",
+        "a",
+        "m"
+      ]
+    },
+    {
+      "label": "Strings-prototype-name",
+      "name": "Strings",
+      "body": "{\"values\":{\"__proto__\":\"ignored\",\"constructor\":\"owned\",\"z\":\"tail\"}}",
+      "wireHex": "0a140a0b636f6e7374727563746f7212056f776e65640a090a017a12047461696c",
+      "json": "{\"values\":{\"constructor\":\"owned\",\"z\":\"tail\"}}",
+      "output": {
+        "values": {
+          "constructor": "owned",
+          "z": "tail"
+        }
+      },
+      "keys": [
+        "constructor",
+        "z"
+      ]
+    },
+    {
+      "label": "Nested-order-and-prototype-name",
+      "name": "Nested",
+      "body": "{\"values\":{\"__proto__\":{\"values\":{\"owned\":\"ignored\"}},\"z\":{\"values\":{\"z\":\"first\",\"a\":\"last\"}},\"a\":{\"values\":{\"m\":\"middle\"}}}}",
+      "wireHex": "0a1c0a017a12170a0a0a017a120566697273740a090a016112046c6173740a120a0161120d0a0b0a016d12066d6964646c65",
+      "json": "{\"values\":{\"z\":{\"values\":{\"z\":\"first\",\"a\":\"last\"}},\"a\":{\"values\":{\"m\":\"middle\"}}}}",
+      "output": {
+        "values": {
+          "z": {
+            "values": {
+              "z": "first",
+              "a": "last"
+            }
+          },
+          "a": {
+            "values": {
+              "m": "middle"
+            }
+          }
+        }
+      },
+      "keys": [
+        "z",
+        "a"
+      ]
+    },
+    {
+      "label": "Enums-unknown-and-null",
+      "name": "Enums",
+      "body": "{\"values\":{\"z\":\"UNKNOWN\",\"a\":\"ONE\",\"m\":null,\"n\":7}}",
+      "wireHex": "0a050a016110010a050a016e1007",
+      "json": "{\"values\":{\"a\":\"ONE\",\"n\":7}}",
+      "output": {
+        "values": {
+          "a": "ONE",
+          "n": 7
+        }
+      },
+      "keys": [
+        "a",
+        "n"
+      ]
+    },
+    {
+      "label": "Blobs-empty-and-ignored",
+      "name": "Blobs",
+      "body": "{\"values\":{\"z\":\"\",\"a\":\"AP+A\",\"m\":false}}",
+      "wireHex": "0a050a017a12000a080a0161120300ff80",
+      "json": "{\"values\":{\"z\":{},\"a\":{\"0\":0,\"1\":255,\"2\":128}}}",
+      "output": {
+        "values": {
+          "z": {},
+          "a": {
+            "0": 0,
+            "1": 255,
+            "2": 128
+          }
+        }
+      },
+      "keys": [
+        "z",
+        "a"
+      ]
+    },
+    {
+      "label": "Strings-explicit-default-key-value",
+      "name": "Strings",
+      "body": "{\"values\":{\"\":\"\"}}",
+      "wireHex": "0a040a001200",
+      "json": "{\"values\":{\"\":\"\"}}",
+      "output": {
+        "values": {
+          "": ""
+        }
+      },
+      "keys": [
+        ""
+      ]
+    },
+    {
+      "label": "Int32-explicit-default-key-value",
+      "name": "Int32",
+      "body": "{\"values\":{\"0\":\"\"}}",
+      "wireHex": "0a0408001200",
+      "json": "{\"values\":{\"0\":\"\"}}",
+      "output": {
+        "values": {
+          "0": ""
+        }
+      },
+      "keys": [
+        "0"
+      ]
+    },
+    {
+      "label": "Uint32-explicit-default-key-value",
+      "name": "Uint32",
+      "body": "{\"values\":{\"0\":\"\"}}",
+      "wireHex": "0a0408001200",
+      "json": "{\"values\":{\"0\":\"\"}}",
+      "output": {
+        "values": {
+          "0": ""
+        }
+      },
+      "keys": [
+        "0"
+      ]
+    },
+    {
+      "label": "Sint32-explicit-default-key-value",
+      "name": "Sint32",
+      "body": "{\"values\":{\"0\":\"\"}}",
+      "wireHex": "0a0408001200",
+      "json": "{\"values\":{\"0\":\"\"}}",
+      "output": {
+        "values": {
+          "0": ""
+        }
+      },
+      "keys": [
+        "0"
+      ]
+    },
+    {
+      "label": "Fixed32-explicit-default-key-value",
+      "name": "Fixed32",
+      "body": "{\"values\":{\"0\":\"\"}}",
+      "wireHex": "0a070d000000001200",
+      "json": "{\"values\":{\"0\":\"\"}}",
+      "output": {
+        "values": {
+          "0": ""
+        }
+      },
+      "keys": [
+        "0"
+      ]
+    },
+    {
+      "label": "Sfixed32-explicit-default-key-value",
+      "name": "Sfixed32",
+      "body": "{\"values\":{\"0\":\"\"}}",
+      "wireHex": "0a070d000000001200",
+      "json": "{\"values\":{\"0\":\"\"}}",
+      "output": {
+        "values": {
+          "0": ""
+        }
+      },
+      "keys": [
+        "0"
+      ]
+    },
+    {
+      "label": "Int64-explicit-default-key-value",
+      "name": "Int64",
+      "body": "{\"values\":{\"0\":\"\"}}",
+      "wireHex": "0a0408001200",
+      "json": "{\"values\":{\"\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"\"}}",
+      "output": {
+        "values": {
+          "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000": ""
+        }
+      },
+      "keys": [
+        "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+      ]
+    },
+    {
+      "label": "Uint64-explicit-default-key-value",
+      "name": "Uint64",
+      "body": "{\"values\":{\"0\":\"\"}}",
+      "wireHex": "0a0408001200",
+      "json": "{\"values\":{\"\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"\"}}",
+      "output": {
+        "values": {
+          "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000": ""
+        }
+      },
+      "keys": [
+        "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+      ]
+    },
+    {
+      "label": "Sint64-explicit-default-key-value",
+      "name": "Sint64",
+      "body": "{\"values\":{\"0\":\"\"}}",
+      "wireHex": "0a0408001200",
+      "json": "{\"values\":{\"\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"\"}}",
+      "output": {
+        "values": {
+          "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000": ""
+        }
+      },
+      "keys": [
+        "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+      ]
+    },
+    {
+      "label": "Fixed64-explicit-default-key-value",
+      "name": "Fixed64",
+      "body": "{\"values\":{\"0\":\"\"}}",
+      "wireHex": "0a0b0900000000000000001200",
+      "json": "{\"values\":{\"\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"\"}}",
+      "output": {
+        "values": {
+          "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000": ""
+        }
+      },
+      "keys": [
+        "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+      ]
+    },
+    {
+      "label": "Sfixed64-explicit-default-key-value",
+      "name": "Sfixed64",
+      "body": "{\"values\":{\"0\":\"\"}}",
+      "wireHex": "0a0b0900000000000000001200",
+      "json": "{\"values\":{\"\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"\"}}",
+      "output": {
+        "values": {
+          "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000": ""
+        }
+      },
+      "keys": [
+        "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+      ]
+    },
+    {
+      "label": "Bools-explicit-default-key-value",
+      "name": "Bools",
+      "body": "{\"values\":{\"\":\"\"}}",
+      "wireHex": "0a0408001200",
+      "json": "{\"values\":{\"false\":\"\"}}",
+      "output": {
+        "values": {
+          "false": ""
+        }
+      },
+      "keys": [
+        "false"
+      ]
+    },
+    {
+      "label": "Enums-zero-presence",
+      "name": "Enums",
+      "body": "{\"values\":{\"z\":\"ZERO\"}}",
+      "wireHex": "0a050a017a1000",
+      "json": "{\"values\":{\"z\":\"ZERO\"}}",
+      "output": {
+        "values": {
+          "z": "ZERO"
+        }
+      },
+      "keys": [
+        "z"
+      ]
+    },
+    {
+      "label": "EmptyValues-null-empty-message",
+      "name": "EmptyValues",
+      "body": "{\"values\":{\"z\":null}}",
+      "wireHex": "0a050a017a1200",
+      "json": "{\"values\":{\"z\":{}}}",
+      "output": {
+        "values": {
+          "z": {}
+        }
+      },
+      "keys": [
+        "z"
+      ]
+    },
+    {
+      "name": "Strings",
+      "label": "wire-duplicate-string",
+      "incomingWireHex": "0a0a0a017a120566697273740a0b0a016112066d6964646c650a090a017a12046c617374",
+      "json": "{\"values\":{\"z\":\"last\",\"a\":\"middle\"}}",
+      "output": {
+        "values": {
+          "z": "last",
+          "a": "middle"
+        }
+      },
+      "keys": [
+        "z",
+        "a"
+      ]
+    },
+    {
+      "name": "Int64",
+      "label": "wire-missing-long-key",
+      "incomingWireHex": "0a0912076d697373696e67",
+      "json": "{\"values\":{\"0\":\"missing\"}}",
+      "output": {
+        "values": {
+          "0": "missing"
+        }
+      },
+      "keys": [
+        "0"
+      ]
+    },
+    {
+      "name": "Int64",
+      "label": "wire-explicit-zero-long-key",
+      "incomingWireHex": "0a0c080012086578706c69636974",
+      "json": "{\"values\":{\"\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\":\"explicit\"}}",
+      "output": {
+        "values": {
+          "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000": "explicit"
+        }
+      },
+      "keys": [
+        "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+      ]
+    },
+    {
+      "name": "Nested",
+      "label": "wire-missing-message-value",
+      "incomingWireHex": "0a070a056f776e6564",
+      "errorPhase": "toObject",
+      "error": "TypeError: null is not an object (evaluating 'm.values')"
+    },
+    {
+      "name": "EmptyValues",
+      "label": "wire-missing-empty-message-value",
+      "incomingWireHex": "0a070a056f776e6564",
+      "json": "{\"values\":{\"owned\":{}}}",
+      "output": {
+        "values": {
+          "owned": {}
+        }
+      },
+      "keys": [
+        "owned"
+      ]
+    },
+    {
+      "name": "Int32",
+      "label": "Int32-negative-fraction",
+      "body": "{\"values\":{\"-1.5\":\"fraction\"}}",
+      "wireHex": "0a1508ffffffffffffffffff0112086672616374696f6e",
+      "json": "{\"values\":{\"-1\":\"fraction\"}}",
+      "output": {
+        "values": {
+          "-1": "fraction"
+        }
+      },
+      "keys": [
+        "-1"
+      ]
+    },
+    {
+      "name": "Int32",
+      "label": "Int32-negative-wide",
+      "body": "{\"values\":{\"-4294967296\":\"wide\"}}",
+      "wireHex": "0a110880808080f0ffffffff01120477696465",
+      "json": "{\"values\":{\"0\":\"wide\"}}",
+      "output": {
+        "values": {
+          "0": "wide"
+        }
+      },
+      "keys": [
+        "0"
+      ]
+    },
+    {
+      "name": "Int32",
+      "label": "Int32-negative-zero",
+      "body": "{\"values\":{\"-0\":\"zero\"}}",
+      "wireHex": "0a08080012047a65726f",
+      "json": "{\"values\":{\"0\":\"zero\"}}",
+      "output": {
+        "values": {
+          "0": "zero"
+        }
+      },
+      "keys": [
+        "0"
+      ]
+    },
+    {
+      "name": "Int32",
+      "label": "Int32-hex-key",
+      "body": "{\"values\":{\"0x10\":\"hex\"}}",
+      "wireHex": "0a0708101203686578",
+      "json": "{\"values\":{\"16\":\"hex\"}}",
+      "output": {
+        "values": {
+          "16": "hex"
+        }
+      },
+      "keys": [
+        "16"
+      ]
+    },
+    {
+      "name": "Int32",
+      "label": "Int32-numeric-spelling-collisions",
+      "body": "{\"values\":{\"+1\":\"plus\",\"1\":\"one\",\"1.0\":\"dot\",\"1e0\":\"exponent\"}}",
+      "wireHex": "0a07080112036f6e650a0808011204706c75730a0708011203646f740a0c080112086578706f6e656e74",
+      "json": "{\"values\":{\"1\":\"exponent\"}}",
+      "output": {
+        "values": {
+          "1": "exponent"
+        }
+      },
+      "keys": [
+        "1"
+      ]
+    }
+  ],
+  "scope": "Pinned request map conversion/wire and incoming decode/toObject ordering, duplicate winners, index/hash/prototype/missing-value edge behavior. This is reference evidence, not app acceptance. Extended safe int32 raw-key writer vectors; unsafe allocations are characterized by length only, never finished/read.",
+  "refusals": [
+    {
+      "key": "-0.5",
+      "reservedBytes": 10,
+      "actualVarintBytes": 1,
+      "policy": "Reject unwritten writer tails; Writer.finish was not called."
+    },
+    {
+      "key": "-18446744073709551616",
+      "reservedBytes": 10,
+      "actualVarintBytes": 1,
+      "policy": "Reject unwritten writer tails; Writer.finish was not called."
+    },
+    {
+      "key": "-Infinity",
+      "reservedBytes": 10,
+      "actualVarintBytes": 1,
+      "policy": "Reject unwritten writer tails; Writer.finish was not called."
+    }
+  ]
+}

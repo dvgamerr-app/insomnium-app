@@ -23,6 +23,7 @@ export function largeGrpcFrame(value) {
 /** Real loopback HTTP2 bidi receiver; only metadata/status returned, preserving sent as newest payload. */
 export async function createGrpcLargeSentFixture() {
   const server = createServer();
+  /** @type {Set<string>} */ const recoveredModes = new Set();
   /** @type {Record<string,any>[]} */ const records = [];
   /** @type {Record<string,any>[]} */ const sessionRecords = [];
   /** @type {Record<string,any>[]} */ const socketRecords = [];
@@ -167,9 +168,11 @@ export async function createGrpcLargeSentFixture() {
             /** @type {any} */ (row).trailersAt = Date.now();
           });
           const reply = authored.receives
-            ? "responseWire" in authored
-              ? authored.responseWire
-              : expected
+            ? recoveredModes.has(row.mode)
+              ? expected
+              : "responseWire" in authored
+                ? authored.responseWire
+                : expected
             : undefined;
           /** @type {any} */ (row).responseBytes = reply?.length ?? 0;
           /** @type {any} */ (row).responseWireSHA256 = reply
@@ -198,6 +201,10 @@ export async function createGrpcLargeSentFixture() {
   assert.ok(address && typeof address === "object");
   return {
     url: `grpc://127.0.0.1:${address.port}`,
+    recoverMode(/** @type {string} */ mode) {
+      assert.ok("expectedError" in grpcLargeCase(mode));
+      recoveredModes.add(mode);
+    },
     records,
     sessionRecords,
     socketRecords,

@@ -20,6 +20,7 @@ pub struct GrpcState {
 }
 struct Outgoing {
     input: MessageDescriptor,
+    original_input: MessageDescriptor,
     mode: JsonMode,
     sender: Option<mpsc::Sender<DynamicMessage>>,
 }
@@ -130,6 +131,7 @@ pub async fn connect_grpc(
 ) -> Result<(), String> {
     let pool = grpc_schema::decode(&request.descriptor_set)?;
     let method = grpc_schema::method(&pool, &request.method)?;
+    let original_input = method.input();
     let input = match request.json_mode {
         grpc_schema::JsonMode::Legacy => crate::grpc_legacy::legacy_descriptor(method.input())?,
         grpc_schema::JsonMode::ProtoJson => method.input(),
@@ -139,8 +141,9 @@ pub async fn connect_grpc(
         Some(sender)
     } else {
         sender
-            .send(grpc_schema::parse_mode(
+            .send(grpc_schema::parse_prepared_mode(
                 input.clone(),
+                original_input.clone(),
                 &request.body,
                 request.json_mode,
             )?)
@@ -164,6 +167,7 @@ pub async fn connect_grpc(
             request.id.clone(),
             Arc::new(AsyncMutex::new(Outgoing {
                 input,
+                original_input,
                 sender,
                 mode: request.json_mode,
             })),
@@ -237,8 +241,9 @@ pub async fn send_grpc_message(
         outgoing.sender.take();
         return Ok(());
     }
-    let message = grpc_schema::parse_mode(
+    let message = grpc_schema::parse_prepared_mode(
         outgoing.input.clone(),
+        outgoing.original_input.clone(),
         text.as_deref().ok_or("Provide a gRPC message.")?,
         outgoing.mode,
     )?;

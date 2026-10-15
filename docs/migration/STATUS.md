@@ -1,5 +1,11 @@
 # Migration status
 
+## Verified bounded gRPC map milestone — 2026-10-16
+
+Legacy gRPC map-entry order/key presence has bounded Windows acceptance:9 native groups including malformed incoming message-value refusal/reload/explicit repair/retry, exact wire/JSON/editor/body/history/Save/deletion. Full33 Rust tests/70 pinned vectors/3 explicit unsafe-writer refusals,14 native-hidden scenarios/97 groups/138 actual successful gRPC Save exports/exact14 profiles and original manifest plus explicit1test/1STATUSdoc supplemental closure pass. See GRPC.md#current-native-grpc-map. Broader JSON/WKT/lone-surrogate/template/editor/stream/provider/platform and every retained PLAN/PARITY gate remain open.
+
+Prior HEADd73f3c4b. The topic commit adding this section contains the verified map source/scenarios. Current candidate2 evidence: artifacts/native-resource-crud-audit-probe/grpc-map-attempt-2/acceptance-audit-grpc-map-selection.json. Earlier in-progress map notes and failed candidate1 remain history, superseded only within this scope. No owned build/suite/native/profile handles remain; live workflow finished0. Next remaining JSON/WKT/lone-surrogate/template/editor/stream/provider/platform and all PLAN/PARITY gates. UX redesign stays deferred. This interface cannot invoke /compact; this is the explicit handoff before another feature.
+
 ## Documentation scope and remaining-work review — 2026-10-16
 
 Rechecked all26 files under docs, including hidden-file inventory. All remain tied to active migration contracts, acceptance evidence, archive/build integrity or owner-required deferred UX; no unrelated files were identified or deleted. Historical cleanup remains recorded below. PLAN now distinguishes current uncommitted map work from the last accepted message-order binary. Current uncommitted map-entry/key-presence implementation passes the full33 Rust library tests (0failed/0filtered), including70 pinned reference vectors and3 explicit unsafe-writer refusals. Evidence: artifacts/grpc-map-view-full-attempt-1.log and matching exit.txt (0). Fresh native build, saved native editor/wire/history/reload/export/error-recovery acceptance, regression suite, independent closure audit and topic commit remain pending. The previous message-order binary does not verify these source changes.

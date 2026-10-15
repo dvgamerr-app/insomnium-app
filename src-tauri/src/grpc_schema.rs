@@ -1,7 +1,8 @@
 use base64::{engine::general_purpose::STANDARD, Engine};
 use prost::Message;
 use prost_reflect::{
-    DescriptorPool, DynamicMessage, MessageDescriptor, MethodDescriptor, SerializeOptions,
+    DescriptorPool, DynamicMessage, MessageDescriptor, MethodDescriptor, ReflectMessage,
+    SerializeOptions,
 };
 use protox::file::{File, FileResolver, GoogleFileResolver};
 use serde::{Deserialize, Serialize};
@@ -224,6 +225,17 @@ pub(crate) fn parse_mode(
         JsonMode::ProtoJson => parse(desc, text),
     }
 }
+pub(crate) fn parse_prepared_mode(
+    view: MessageDescriptor,
+    original: MessageDescriptor,
+    text: &str,
+    mode: JsonMode,
+) -> Result<DynamicMessage, String> {
+    match mode {
+        JsonMode::Legacy => crate::grpc_legacy::parse_prepared(view, original, text),
+        JsonMode::ProtoJson => parse(original, text),
+    }
+}
 pub(crate) fn json_mode(
     message: &DynamicMessage,
     mode: JsonMode,
@@ -248,12 +260,27 @@ pub(crate) fn json_mode(
         JsonMode::Legacy => {
             crate::grpc_legacy::LegacyMessage(message, 0, original).serialize(&mut serializer)
         }
-        JsonMode::ProtoJson => message.serialize_with_options(
-            &mut serializer,
-            &SerializeOptions::new()
-                .use_proto_field_name(true)
-                .skip_default_fields(false),
-        ),
+        JsonMode::ProtoJson => {
+            // Reflection examples may have been validated in the legacy view.
+            // Restore standard map/oneof descriptors before ProtoJSON rendering.
+            let restored;
+            let message = if message.descriptor() != original {
+                if message.encoded_len() > MAX_MESSAGE {
+                    return Err("gRPC message exceeds 20 MiB.".into());
+                }
+                restored = DynamicMessage::decode(original, message.encode_to_vec().as_slice())
+                    .map_err(|error| format!("Could not restore ProtoJSON descriptors: {error}"))?;
+                &restored
+            } else {
+                message
+            };
+            message.serialize_with_options(
+                &mut serializer,
+                &SerializeOptions::new()
+                    .use_proto_field_name(true)
+                    .skip_default_fields(false),
+            )
+        }
     }
     .map_err(|e| format!("Could not display gRPC message: {e}"))?;
     String::from_utf8(bytes.0).map_err(|_| "Invalid gRPC JSON encoding.".into())

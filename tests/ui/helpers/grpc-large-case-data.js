@@ -1,5 +1,14 @@
 /** Authored native case inputs and independent protobuf/preview expectations. */
 export const grpcLargeModes = [
+  "legacy-map-missing-value",
+  "legacy-map-indices",
+  "legacy-map-collision",
+  "legacy-map-bool",
+  "legacy-map-long-hash",
+  "legacy-map-missing-long",
+  "legacy-map-duplicates",
+  "legacy-map-nested",
+  "legacy-map-bytes",
   "legacy-order-defaults",
   "legacy-order-full",
   "legacy-order-normal",
@@ -54,7 +63,7 @@ export const grpcLargeModes = [
   "legacy-overflow-underflow-negative",
 ];
 export const grpcLargeProto =
-  'syntax="proto3"; package ownedlarge; message Input { string value=1; } message Compact { repeated int32 values=1; } message Precision { int64 exact_value=1; bytes bytes_value=2; } message Numeric { optional int32 value=1; double real=2; } message Wide { optional int64 signed_value=1; optional uint64 unsigned_value=2; } message Overflow { optional double real=1; optional int32 integer=2; optional int64 wide=3; string text=4; } message Choice { oneof pick { int32 a=1; string b=2; } enum Collision { insomnium_legacy_2=0; insomnium_legacy_2_=1; } repeated Choice children=3; map<string,Choice> entries=4; } message Inner { string value=1; } message Order { bool flag=7; string scalar=1; oneof pick { string b=5; int32 a=4; } Inner child=6; map<string,string> labels=3; repeated int32 list=2; } message Envelope { int32 count=1; repeated Order items=2; map<string,Order> groups=3; } message MapFirst { repeated string tail=4; map<string,string> labels=1; bool flag=3; repeated int32 list=2; map<string,int32> counts=5; } service Upload { rpc OrderEcho(Order) returns(Order); rpc EnvelopeEcho(Envelope) returns(Envelope); rpc MapFirstEcho(MapFirst) returns(MapFirst); rpc ChoiceEcho(Choice) returns(Choice); rpc Stream(stream Input) returns(stream Input); rpc Echo(Input) returns(Input); rpc Expand(Compact) returns(Compact); rpc PrecisionEcho(Precision) returns(Precision); rpc NumericEcho(Numeric) returns(Numeric); rpc WideEcho(Wide) returns(Wide); rpc OverflowEcho(Overflow) returns(Overflow); }';
+  'syntax="proto3"; package ownedlarge; message Input { string value=1; } message Compact { repeated int32 values=1; } message Precision { int64 exact_value=1; bytes bytes_value=2; } message Numeric { optional int32 value=1; double real=2; } message Wide { optional int64 signed_value=1; optional uint64 unsigned_value=2; } message Overflow { optional double real=1; optional int32 integer=2; optional int64 wide=3; string text=4; } message Choice { oneof pick { int32 a=1; string b=2; } enum Collision { insomnium_legacy_2=0; insomnium_legacy_2_=1; } repeated Choice children=3; map<string,Choice> entries=4; } message Inner { string value=1; } message Order { bool flag=7; string scalar=1; oneof pick { string b=5; int32 a=4; } Inner child=6; map<string,string> labels=3; repeated int32 list=2; } message Envelope { int32 count=1; repeated Order items=2; map<string,Order> groups=3; } message MapFirst { repeated string tail=4; map<string,string> labels=1; bool flag=3; repeated int32 list=2; map<string,int32> counts=5; }  message Strings { map<string,string> values=1; } message Int32 { map<int32,string> values=1; } message Uint32 { map<uint32,string> values=1; } message Sint32 { map<sint32,string> values=1; } message Fixed32 { map<fixed32,string> values=1; } message Sfixed32 { map<sfixed32,string> values=1; } message Int64 { map<int64,string> values=1; } message Uint64 { map<uint64,string> values=1; } message Sint64 { map<sint64,string> values=1; } message Fixed64 { map<fixed64,string> values=1; } message Sfixed64 { map<sfixed64,string> values=1; } message Bools { map<bool,string> values=1; } enum Flag { ZERO=0; ONE=1; } message Enums { map<string,Flag> values=1; } message Blobs { map<string,bytes> values=1; } message Child { map<string,string> values=1; } message Nested { map<string,Child> values=1; } message Empty {} message EmptyValues { map<string,Empty> values=1; } service Upload { rpc MapStrings(Strings) returns(Strings); rpc MapInt32(Int32) returns(Int32); rpc MapBools(Bools) returns(Bools); rpc MapInt64(Int64) returns(Int64); rpc MapNested(Nested) returns(Nested); rpc MapBlobs(Blobs) returns(Blobs); rpc OrderEcho(Order) returns(Order); rpc EnvelopeEcho(Envelope) returns(Envelope); rpc MapFirstEcho(MapFirst) returns(MapFirst); rpc ChoiceEcho(Choice) returns(Choice); rpc Stream(stream Input) returns(stream Input); rpc Echo(Input) returns(Input); rpc Expand(Compact) returns(Compact); rpc PrecisionEcho(Precision) returns(Precision); rpc NumericEcho(Numeric) returns(Numeric); rpc WideEcho(Wide) returns(Wide); rpc OverflowEcho(Overflow) returns(Overflow); }';
 /** Independent small-message wire and lexical editor expectations.
  * @param {string} mode */
 function jsonEditorCase(mode) {
@@ -107,6 +116,105 @@ export function grpcLargeCase(mode) {
   if (!grpcLargeModes.includes(mode))
     throw new Error("Unknown authored gRPC case");
 
+  if (mode.startsWith("legacy-map-")) {
+    // Independently captured protobuf.js7.2.4 wire and exact JSON; never normalize expected output.
+    /** @type {Record<string,[string,string,string,string,string]>} */
+    const cases = {
+      "legacy-map-missing-value": [
+        "Nested",
+        '{"values":{"__proto__":{"values":{"owned":"ignored"}},"z":{"values":{"z":"first","a":"last"}},"a":{"values":{"m":"middle"}}}}',
+        "0a1c0a017a12170a0a0a017a120566697273740a090a016112046c6173740a120a0161120d0a0b0a016d12066d6964646c65",
+        "0a070a056f776e6564",
+        '{"values":{"z":{"values":{"z":"first","a":"last"}},"a":{"values":{"m":"middle"}}}}',
+      ],
+      "legacy-map-indices": [
+        "Strings",
+        '{"values":{"10":"ten","2":"two","01":"lead","-1":"minus","0":"zero","4294967295":"max","4294967294":"indexMax"}}',
+        "0a090a013012047a65726f0a080a0132120374776f0a090a023130120374656e0a160a0a343239343936373239341208696e6465784d61780a0a0a02303112046c6561640a0b0a022d3112056d696e75730a110a0a3432393439363732393512036d6178",
+        "0a090a013012047a65726f0a080a0132120374776f0a090a023130120374656e0a160a0a343239343936373239341208696e6465784d61780a0a0a02303112046c6561640a0b0a022d3112056d696e75730a110a0a3432393439363732393512036d6178",
+        '{"values":{"0":"zero","2":"two","10":"ten","4294967294":"indexMax","01":"lead","-1":"minus","4294967295":"max"}}',
+      ],
+      "legacy-map-collision": [
+        "Int32",
+        '{"values":{"z":"first","a":"last"}}',
+        "0a090800120566697273740a08080012046c617374",
+        "0a090800120566697273740a08080012046c617374",
+        '{"values":{"0":"last"}}',
+      ],
+      "legacy-map-bool": [
+        "Bools",
+        '{"values":{"z":"first","a":"last"}}',
+        "0a090801120566697273740a08080112046c617374",
+        "0a090801120566697273740a08080112046c617374",
+        '{"values":{"true":"last"}}',
+      ],
+      "legacy-map-long-hash": [
+        "Int64",
+        '{"values":{"0":"zero","3544952156018063160":"numericHash"}}',
+        "0a08080012047a65726f0a1708b8eed8a9c3e68c9931120b6e756d6572696348617368",
+        "0a08080012047a65726f0a1708b8eed8a9c3e68c9931120b6e756d6572696348617368",
+        '{"values":{"87654321":"numericHash","\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000\\u0000":"zero"}}',
+      ],
+      "legacy-map-missing-long": [
+        "Int64",
+        '{"values":{"0":""}}',
+        "0a0408001200",
+        "0a0912076d697373696e67",
+        '{"values":{"0":"missing"}}',
+      ],
+      "legacy-map-duplicates": [
+        "Strings",
+        '{"values":{"z":"first","a":"last"}}',
+        "0a0a0a017a120566697273740a090a016112046c617374",
+        "0a0a0a017a120566697273740a0b0a016112066d6964646c650a090a017a12046c617374",
+        '{"values":{"z":"last","a":"middle"}}',
+      ],
+      "legacy-map-nested": [
+        "Nested",
+        '{"values":{"__proto__":{"values":{"owned":"ignored"}},"z":{"values":{"z":"first","a":"last"}},"a":{"values":{"m":"middle"}}}}',
+        "0a1c0a017a12170a0a0a017a120566697273740a090a016112046c6173740a120a0161120d0a0b0a016d12066d6964646c65",
+        "0a1c0a017a12170a0a0a017a120566697273740a090a016112046c6173740a120a0161120d0a0b0a016d12066d6964646c65",
+        '{"values":{"z":{"values":{"z":"first","a":"last"}},"a":{"values":{"m":"middle"}}}}',
+      ],
+      "legacy-map-bytes": [
+        "Blobs",
+        '{"values":{"z":"","a":"AP+A","m":false}}',
+        "0a050a017a12000a080a0161120300ff80",
+        "0a050a017a12000a080a0161120300ff80",
+        '{"values":{"z":{},"a":{"0":0,"1":255,"2":128}}}',
+      ],
+    };
+    const tuple = cases[mode];
+    if (!tuple) throw new Error("Unknown map case");
+    const [type, body, hex, responseHex, responseText] = tuple;
+    const frame = (/** @type {string} */ value) => {
+      const payload = Buffer.from(value, "hex"),
+        prefix = Buffer.alloc(5);
+      prefix.writeUInt32BE(payload.length, 1);
+      return Buffer.concat([prefix, payload]);
+    };
+    return {
+      mode,
+      jsonMode: "legacy",
+      unary: true,
+      receives: true,
+      body,
+      formattedBody:
+        mode === "legacy-map-indices"
+          ? '{\n  "values": {\n    "10": "ten",\n    "2": "two",\n    "01": "lead",\n    "-1": "minus",\n    "0": "zero",\n    "4294967295": "max",\n    "4294967294": "indexMax"\n  }\n}'
+          : JSON.stringify(JSON.parse(body), null, 2),
+      responseText,
+      preview: JSON.stringify(JSON.parse(responseText), null, 2),
+      wire: frame(hex),
+      responseWire: frame(responseHex),
+      ...(mode === "legacy-map-missing-value"
+        ? { expectedError: "Legacy map message value is missing." }
+        : {}),
+      method: "/ownedlarge.Upload/Map" + type,
+      editor: true,
+      showNotice: false,
+    };
+  }
   if (mode.includes("-order-")) {
     // Literal response strings and wire bytes pinned independently from protobuf.js7.2.4.
     /** @type {Record<string, [string, string, string, string]>} */

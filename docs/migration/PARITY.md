@@ -6,6 +6,8 @@ Current receipts: Windows environment6349100/follow-up eae4ac2 (29checks/Name6/J
 
 ## Latest stream history and decoded limits
 
+Legacy gRPC map-entry order/key presence has bounded Windows acceptance:9 native groups including malformed incoming message-value refusal/reload/explicit repair/retry, exact wire/JSON/editor/body/history/Save/deletion. Full33 Rust tests/70 pinned vectors/3 explicit unsafe-writer refusals,14 native-hidden scenarios/97 groups/138 actual successful gRPC Save exports/exact14 profiles and original manifest plus explicit1test/1STATUSdoc supplemental closure pass. See GRPC.md#current-native-grpc-map. Broader JSON/WKT/lone-surrogate/template/editor/stream/provider/platform and every retained PLAN/PARITY gate remain open.
+
 Legacy message-field JSON order now has bounded Windows acceptance:8new native default/full/normal/child/oneof/nested/cross-category cases plus original80groups pass with exact ordered JSON. Full28Rust tests,13native-hidden scenarios/88groups/120gRPCexports/exact13profiles and original0override closure pass. See GRPC.md#current-native-grpc-message-order. Broader JSON/WKT/oneof/map-entry-key/lone-surrogate/editor/template/stream/provider/platform and every retained gate remain open.
 
 Legacy oneof member preservation now has bounded Windows acceptance:6native editor/wire/history/reload/export cases, including explicit defaults, nested list/map, reversed response wire and colliding enum names. Full27Rust tests and12native-hidden scenarios/80groups/104gRPCexports/exact12profiles pass with fresh0override closure. See GRPC.md#current-native-grpc-oneof. Broader JSON/WKT/oneof/map/key-order/surrogate/editor/stream/provider/platform and every retained gate remain open.

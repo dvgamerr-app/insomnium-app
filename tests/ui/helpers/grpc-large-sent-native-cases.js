@@ -28,8 +28,10 @@ export async function runGrpcLargeSentNativeCases({
   overflowOnly = false,
   oneofOnly = false,
   orderOnly = false,
+  mapOnly = false,
 } = {}) {
   const variants = [
+    { enabled: mapOnly, tag: "legacy-map-", scenario: "grpc-map-native" },
     {
       enabled: orderOnly,
       tag: "-order-",
@@ -50,7 +52,8 @@ export async function runGrpcLargeSentNativeCases({
   const scenario = selected?.scenario ?? "grpc-large-sent-native";
   const modes = grpcLargeModes.filter((mode) =>
     selected
-      ? mode.includes(selected.tag)
+      ? (mapOnly || !mode.startsWith("legacy-map-")) &&
+        mode.includes(selected.tag)
       : !variants.some((variant) => mode.includes(variant.tag)),
   );
   const marker = process.env.INSOMNIUM_UI_PROFILE_OWNERSHIP;
@@ -296,11 +299,105 @@ export async function runGrpcLargeSentNativeCases({
                 );
                 await resourceSaved(page);
                 const saved = await invoke("load_workspace");
-                const entry = saved.history.find(
+                let entry = saved.history.find(
                   (/** @type {any} */ r) => r.requestId === request._id,
                 );
                 assert.ok(entry);
                 assert.equal(entry.protocol, "grpc");
+                /** @type {any} */ let failureRecovery;
+                if ("expectedError" in spec) {
+                  const failed = structuredClone(entry);
+                  assert.equal(failed.connectionState, "error");
+                  const failures = failed.events.filter(
+                    (/** @type {any} */ e) => e.kind === "error",
+                  );
+                  assert.equal(failures.length, 1);
+                  assert.ok(
+                    JSON.stringify(failures[0]).includes(
+                      String(spec.expectedError),
+                    ),
+                  );
+                  assert.equal(
+                    failed.events.filter(
+                      (/** @type {any} */ e) =>
+                        e.kind === "sent" || e.kind === "message",
+                    ).length,
+                    0,
+                  );
+                  const counts = [
+                    fixture.records.length,
+                    fixture.sessionRecords.length,
+                    fixture.socketRecords.length,
+                  ];
+                  const snapshot = join(
+                    directory,
+                    mode + "-error-history.json",
+                  );
+                  await Bun.write(snapshot, JSON.stringify(failed, null, 2));
+                  await page.reload();
+                  await resourceSaved(page);
+                  const afterErrorReload = await invoke("load_workspace");
+                  assert.deepEqual(
+                    afterErrorReload.history.find(
+                      (/** @type {any} */ r) => r._id === failed._id,
+                    ),
+                    failed,
+                  );
+                  assert.equal(
+                    afterErrorReload.resources.find(
+                      (/** @type {any} */ r) => r._id === request._id,
+                    ).body.text,
+                    spec.formattedBody,
+                  );
+                  assert.deepEqual(
+                    [
+                      fixture.records.length,
+                      fixture.sessionRecords.length,
+                      fixture.socketRecords.length,
+                    ],
+                    counts,
+                  );
+                  fixture.recoverMode(mode);
+                  await button("Load methods").click();
+                  await poll(
+                    () => button("Send").isEnabled(),
+                    "Method ready for explicit retry",
+                  );
+                  await button("Send").click();
+                  await poll(
+                    async () =>
+                      (await button("Send").isVisible()) &&
+                      (await button("Send").isEnabled()),
+                    "Map recovery retires",
+                    60000,
+                  );
+                  await resourceSaved(page);
+                  const recovered = await invoke("load_workspace");
+                  assert.deepEqual(
+                    recovered.history.find(
+                      (/** @type {any} */ r) => r._id === failed._id,
+                    ),
+                    failed,
+                  );
+                  entry = recovered.history.find(
+                    (/** @type {any} */ r) =>
+                      r.requestId === request._id && r._id !== failed._id,
+                  );
+                  assert.ok(entry);
+                  assert.equal(
+                    fixture.records.filter((r) => r.mode === mode).length,
+                    2,
+                  );
+                  failureRecovery = {
+                    failedHistory: failed,
+                    snapshot,
+                    zeroPayloadOnFailure: true,
+                    exactErrorReload: true,
+                    noImplicitRetry: true,
+                    explicitPeerRepairAndUiRetry: true,
+                  };
+                }
+
                 assert.equal(entry.connectionState, "closed");
                 assert.equal(entry.status, 0);
                 const sent = entry.events.filter(
@@ -405,6 +502,14 @@ export async function runGrpcLargeSentNativeCases({
                   ).body.text,
                   spec.formattedBody,
                 );
+                if (failureRecovery)
+                  assert.deepEqual(
+                    reloaded.history.find(
+                      (/** @type {any} */ r) =>
+                        r._id === failureRecovery.failedHistory._id,
+                    ),
+                    failureRecovery.failedHistory,
+                  );
                 await verifyPreview();
                 await exportFull("reloaded");
                 assert.deepEqual(
@@ -440,6 +545,7 @@ export async function runGrpcLargeSentNativeCases({
                   persistedBodySHA256: createHash("sha256")
                     .update(spec.formattedBody)
                     .digest("hex"),
+                  failureRecovery,
                   historyId: entry._id,
                   sent: sent.length,
                   received: messages.length,
@@ -488,19 +594,21 @@ export async function runGrpcLargeSentNativeCases({
           socketRecords: fixture.socketRecords,
           errorEvents: fixture.errorEvents,
           errors: errors.map(String),
-          scope: orderOnly
-            ? "Eight exact legacy message-field ordering cases: defaults, normal/message fields, multiple repeated/map categories, oneof selectors and nested containers through real editor/wire/history/reload/export. Map entry-key and lone-surrogate order remain open."
-            : oneofOnly
-              ? "Six legacy oneof cases: conflicting/default/list/map members, reversed input and response wire, real editor/Format/mode switch/history/reload/export. JSON key-order and broader provider/platform compatibility remain open."
-              : overflowOnly
-                ? "Eight legacy JSON numeric overflow/underflow cases through actual editor/Format/mode switch and exact double/int32/int64/string wire/history/reload/export. Broader JSON/provider/platform gates remain open."
-                : longOnly
-                  ? "Six legacy signed/unsigned64 whitespace/chunk/sign cases through actual editor/Format/mode switch and full wire/history/reload/export. Broader coercion/provider/platform gates remain open."
-                  : numericOnly
-                    ? "Four legacy numeric-whitespace cases through actual editor/Format/mode switch, exact int32/double frames, response/history/reload/export. Other coercion/provider/platform gates remain open."
-                    : base64Only
-                      ? "Six legacy Base64 byte/frame/history/reload/export cases. Other Base64, ProtoJSON and provider/platform gates remain open."
-                      : "Actual native fourteen-case9MiB/compact-array/Unicode plus typed int64/bytes shared-editor Format/mode-switch/history/export in legacy/protoJson. No broad JSON/provider/platform claim.",
+          scope: mapOnly
+            ? "Nine legacy map cases including missing-message-value durable refusal and explicit peer repair/retry; exact editor/wire/history/reload/export. Broader provider/platform gates remain open."
+            : orderOnly
+              ? "Eight exact legacy message-field ordering cases: defaults, normal/message fields, multiple repeated/map categories, oneof selectors and nested containers through real editor/wire/history/reload/export. Map entry-key and lone-surrogate order remain open."
+              : oneofOnly
+                ? "Six legacy oneof cases: conflicting/default/list/map members, reversed input and response wire, real editor/Format/mode switch/history/reload/export. JSON key-order and broader provider/platform compatibility remain open."
+                : overflowOnly
+                  ? "Eight legacy JSON numeric overflow/underflow cases through actual editor/Format/mode switch and exact double/int32/int64/string wire/history/reload/export. Broader JSON/provider/platform gates remain open."
+                  : longOnly
+                    ? "Six legacy signed/unsigned64 whitespace/chunk/sign cases through actual editor/Format/mode switch and full wire/history/reload/export. Broader coercion/provider/platform gates remain open."
+                    : numericOnly
+                      ? "Four legacy numeric-whitespace cases through actual editor/Format/mode switch, exact int32/double frames, response/history/reload/export. Other coercion/provider/platform gates remain open."
+                      : base64Only
+                        ? "Six legacy Base64 byte/frame/history/reload/export cases. Other Base64, ProtoJSON and provider/platform gates remain open."
+                        : "Actual native fourteen-case9MiB/compact-array/Unicode plus typed int64/bytes shared-editor Format/mode-switch/history/export in legacy/protoJson. No broad JSON/provider/platform claim.",
         },
         null,
         2,

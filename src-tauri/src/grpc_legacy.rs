@@ -18,16 +18,15 @@ use serde::{
     ser::{SerializeMap, SerializeSeq},
     Serialize, Serializer,
 };
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 
 // protobuf.js retains all oneof members. Independent presence groups let prost
 // preserve both their values and explicit default values, without changing the
 // user schema or the standard ProtoJSON descriptor pool.
 pub(crate) fn legacy_pool(pool: &DescriptorPool) -> Result<DescriptorPool, String> {
-    if !pool
-        .all_messages()
-        .any(|message| message.oneofs().any(|group| group.fields().len() > 1))
-    {
+    if !pool.all_messages().any(|message| {
+        message.is_map_entry() || message.oneofs().any(|group| group.fields().len() > 1)
+    }) {
         return Ok(pool.clone());
     }
     fn split(message: &mut prost_types::DescriptorProto) {
@@ -63,6 +62,33 @@ pub(crate) fn legacy_pool(pool: &DescriptorPool) -> Result<DescriptorPool, Strin
                 .iter()
                 .filter_map(|field| field.name.clone()),
         );
+        if message
+            .options
+            .as_ref()
+            .is_some_and(|options| options.map_entry.unwrap_or(false))
+        {
+            // Repeated entry messages preserve wire order, duplicate keys and
+            // the distinction between an absent key and an explicit zero key.
+            message.options.as_mut().unwrap().map_entry = Some(false);
+            for field in &mut message.field {
+                if field.number == Some(1)
+                    && field.r#type == Some(prost_types::field_descriptor_proto::Type::Int32 as i32)
+                {
+                    // Writer.int32 receives raw map-key strings: positive u32
+                    // spellings use five bytes, while negative numbers use ten.
+                    field.r#type = Some(prost_types::field_descriptor_proto::Type::Int64 as i32);
+                }
+                let mut name = format!("insomnium_map_{}", field.number.unwrap_or_default());
+                while !names.insert(name.clone()) {
+                    name.push('_');
+                }
+                field.oneof_index = Some(message.oneof_decl.len() as i32);
+                message.oneof_decl.push(prost_types::OneofDescriptorProto {
+                    name: Some(name),
+                    ..Default::default()
+                });
+            }
+        }
         for field in &mut message.field {
             let Some(index) = field.oneof_index else {
                 continue;
@@ -131,13 +157,86 @@ fn oneof_name(field: &FieldDescriptor, original: &MessageDescriptor) -> Option<S
 
 // Only the legacy converter uses JavaScript Number semantics. RawValue validates
 // JSON syntax without rejecting numeric overflow before conversion to f64.
+fn js_array_index(key: &str) -> Option<u32> {
+    if key.len() > 10 {
+        return None;
+    }
+    let index = key.parse::<u32>().ok()?;
+    (index != u32::MAX && index.to_string() == key).then_some(index)
+}
+
+struct JsonObject {
+    entries: Vec<(String, Json)>,
+    index: HashMap<String, usize>,
+}
+impl JsonObject {
+    fn new(mut entries: Vec<(String, Json)>) -> Self {
+        // JSON.parse keeps a property's original position on duplicate writes.
+        // Object.keys then enumerates array indices first, numerically.
+        entries.sort_by(|(left, _), (right, _)| {
+            match (js_array_index(left), js_array_index(right)) {
+                (Some(left), Some(right)) => left.cmp(&right),
+                (Some(_), None) => std::cmp::Ordering::Less,
+                (None, Some(_)) => std::cmp::Ordering::Greater,
+                (None, None) => std::cmp::Ordering::Equal,
+            }
+        });
+        let index = entries
+            .iter()
+            .enumerate()
+            .map(|(index, (key, _))| (key.clone(), index))
+            .collect();
+        Self { entries, index }
+    }
+    fn get(&self, key: &str) -> Option<&Json> {
+        self.index.get(key).map(|index| &self.entries[*index].1)
+    }
+    fn iter(&self) -> impl Iterator<Item = (&String, &Json)> + '_ {
+        self.entries.iter().map(|(key, value)| (key, value))
+    }
+}
+
+// Capture borrowed raw values before converting only the last value of each
+// duplicate key, retaining the first insertion position and existing guards.
+struct RawJsonObject<'a>(Vec<(String, &'a serde_json::value::RawValue)>);
+impl<'de> serde::Deserialize<'de> for RawJsonObject<'de> {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct ObjectVisitor;
+        impl<'de> serde::de::Visitor<'de> for ObjectVisitor {
+            type Value = RawJsonObject<'de>;
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("a JSON object")
+            }
+            fn visit_map<M: serde::de::MapAccess<'de>>(
+                self,
+                mut access: M,
+            ) -> Result<Self::Value, M::Error> {
+                let mut entries: Vec<(String, &'de serde_json::value::RawValue)> = Vec::new();
+                let mut index: HashMap<String, usize> = HashMap::new();
+                while let Some((key, value)) =
+                    access.next_entry::<String, &'de serde_json::value::RawValue>()?
+                {
+                    if let Some(position) = index.get(&key) {
+                        entries[*position].1 = value;
+                    } else {
+                        index.insert(key.clone(), entries.len());
+                        entries.push((key, value));
+                    }
+                }
+                Ok(RawJsonObject(entries))
+            }
+        }
+        deserializer.deserialize_map(ObjectVisitor)
+    }
+}
+
 enum Json {
     Null,
     Bool(bool),
     Number(f64),
     String(String),
     Array(Vec<Json>),
-    Object(BTreeMap<String, Json>),
+    Object(JsonObject),
 }
 impl Json {
     fn parse(text: &str, depth: usize) -> Result<Self, String> {
@@ -167,15 +266,15 @@ impl Json {
                     .map(Self::Array)
             }
             b'{' => {
-                let values: BTreeMap<String, &serde_json::value::RawValue> =
-                    serde_json::from_str(text).map_err(invalid)?;
+                let values: RawJsonObject<'_> = serde_json::from_str(text).map_err(invalid)?;
                 values
+                    .0
                     .into_iter()
                     .map(|(key, value)| {
                         Self::parse(value.get(), depth + 1).map(|value| (key, value))
                     })
-                    .collect::<Result<BTreeMap<_, _>, _>>()
-                    .map(Self::Object)
+                    .collect::<Result<Vec<_>, _>>()
+                    .map(|entries| Self::Object(JsonObject::new(entries)))
             }
             _ => text
                 .parse::<f64>()
@@ -437,9 +536,19 @@ pub(crate) fn parse(desc: MessageDescriptor, text: &str) -> Result<DynamicMessag
     if text.len() > MAX_MESSAGE {
         return Err("gRPC JSON message exceeds 20 MiB.".into());
     }
+    let view = legacy_descriptor(desc.clone())?;
+    parse_prepared(view, desc, text)
+}
+pub(crate) fn parse_prepared(
+    desc: MessageDescriptor,
+    original: MessageDescriptor,
+    text: &str,
+) -> Result<DynamicMessage, String> {
+    if text.len() > MAX_MESSAGE {
+        return Err("gRPC JSON message exceeds 20 MiB.".into());
+    }
     let input = Json::parse(text, 0)?;
-    let desc = legacy_descriptor(desc)?;
-    let message = from_object(desc, &input, 0)?;
+    let message = from_object(desc, original, &input, 0)?;
     if message.encoded_len() > MAX_MESSAGE {
         return Err("gRPC message exceeds 20 MiB.".into());
     }
@@ -447,6 +556,7 @@ pub(crate) fn parse(desc: MessageDescriptor, text: &str) -> Result<DynamicMessag
 }
 fn from_object(
     desc: MessageDescriptor,
+    original: MessageDescriptor,
     object: &Json,
     depth: usize,
 ) -> Result<DynamicMessage, String> {
@@ -466,7 +576,11 @@ fn from_object(
                 .unwrap_or(url)
                 .trim_start_matches('.');
             if let Some(inner) = desc.parent_pool().get_message_by_name(name) {
-                let inner = from_object(inner, object, depth + 1)?;
+                let original_inner = original
+                    .parent_pool()
+                    .get_message_by_name(name)
+                    .ok_or("Missing original Any descriptor.")?;
+                let inner = from_object(inner, original_inner, object, depth + 1)?;
                 let url = url.trim_start_matches('.');
                 let url = if url.contains('/') {
                     url.into()
@@ -480,6 +594,9 @@ fn from_object(
         }
     }
     for field in desc.fields() {
+        let original_field = original
+            .get_field(field.number())
+            .ok_or("Missing original field descriptor.")?;
         let Some(input) = object.get(field_name(&field)).filter(|v| !v.is_null()) else {
             if field.cardinality() == prost_reflect::Cardinality::Required {
                 if matches!(field.kind(), Kind::Message(_)) {
@@ -492,15 +609,20 @@ fn from_object(
             }
             continue;
         };
-        let value = if field.is_map() {
+        let value = if original_field.is_map() {
             if !truthy(input) {
                 continue;
             }
             let Kind::Message(entry) = field.kind() else {
                 unreachable!()
             };
-            let key = entry.map_entry_key_field();
-            let value_field = entry.map_entry_value_field();
+            let key = entry.get_field(1).ok_or("Missing map key descriptor.")?;
+            let value_field = entry.get_field(2).ok_or("Missing map value descriptor.")?;
+            let Kind::Message(original_entry) = original_field.kind() else {
+                unreachable!()
+            };
+            let original_key = original_entry.map_entry_key_field();
+            let original_value = original_entry.map_entry_value_field();
             let pairs: Vec<(String, &Json)> = match input {
                 Json::Object(map) => map.iter().map(|(k, v)| (k.clone(), v)).collect(),
                 Json::Array(array) => array
@@ -510,17 +632,28 @@ fn from_object(
                     .collect(),
                 _ => return Err(format!("{}: object expected", field.full_name())),
             };
-            let mut values = HashMap::new();
+            let mut converted = Vec::new();
             for (k, v) in pairs {
-                let map_key = scalar(&key, &Json::String(k), depth + 1)?
-                    .ok_or("Invalid map key.")?
-                    .into_map_key()
-                    .ok_or("Invalid map key.")?;
-                if let Some(value) = scalar(&value_field, v, depth + 1)? {
-                    values.insert(map_key, value);
+                if let Some(value) = scalar(&value_field, &original_value, v, depth + 1)? {
+                    if k != "__proto__" {
+                        converted.push((k, value));
+                    }
                 }
             }
-            Value::Map(values)
+            let mut values = Vec::new();
+            for (k, value) in converted {
+                let raw_key = Json::String(k);
+                let key_value = if matches!(original_key.kind(), Kind::Int32) {
+                    map_int32_key(&raw_key)?
+                } else {
+                    scalar(&key, &original_key, &raw_key, depth + 1)?.ok_or("Invalid map key.")?
+                };
+                let mut item = DynamicMessage::new(entry.clone());
+                item.set_field(&key, key_value);
+                item.set_field(&value_field, value);
+                values.push(Value::Message(item));
+            }
+            Value::List(values)
         } else if field.is_list() {
             if !truthy(input) {
                 continue;
@@ -530,13 +663,13 @@ fn from_object(
                 .ok_or_else(|| format!("{}: array expected", field.full_name()))?;
             let mut values = Vec::new();
             for input in input {
-                let value = scalar(&field, input, depth + 1)?
+                let value = scalar(&field, &original_field, input, depth + 1)?
                     .unwrap_or_else(|| Value::default_value(&field.kind()));
                 values.push(value);
             }
             Value::List(values)
         } else {
-            let Some(value) = scalar(&field, input, depth + 1)? else {
+            let Some(value) = scalar(&field, &original_field, input, depth + 1)? else {
                 continue;
             };
             value
@@ -552,7 +685,30 @@ fn from_object(
     }
     Ok(message)
 }
-fn scalar(field: &FieldDescriptor, input: &Json, depth: usize) -> Result<Option<Value>, String> {
+fn map_int32_key(input: &Json) -> Result<Value, String> {
+    let number = number(input);
+    if number < 0.0 {
+        let magnitude = -number;
+        let low = uint32(&Json::Number(magnitude));
+        let high = uint32(&Json::Number((magnitude - low as f64) / 4294967296.0));
+        let bits = ((high as u64) << 32 | low as u64).wrapping_neg();
+        if (bits as i64) >= 0 {
+            return Err("Legacy int32 map key requires unwritten writer bytes.".into());
+        }
+        Ok(Value::I64(bits as i64))
+    } else {
+        Ok(Value::I64(uint32(&Json::Number(number)) as i64))
+    }
+}
+fn scalar(
+    field: &FieldDescriptor,
+    original: &FieldDescriptor,
+    input: &Json,
+    depth: usize,
+) -> Result<Option<Value>, String> {
+    if matches!(field.kind(), Kind::Int64) && matches!(original.kind(), Kind::Int32) {
+        return Ok(Some(Value::I64(uint32(input) as i32 as i64)));
+    }
     Ok(Some(match field.kind() {
         Kind::Double => Value::F64(number(input)),
         Kind::Float => Value::F32(number(input) as f32),
@@ -567,7 +723,7 @@ fn scalar(field: &FieldDescriptor, input: &Json, depth: usize) -> Result<Option<
                 Json::String(text) => legacy_base64_bytes(text)?,
                 Json::Array(array) => array.iter().map(|v| uint32(v) as u8).collect(),
                 Json::Object(object) if object.get("length").is_some_and(|v| number(v) >= 0.0) => {
-                    let length = number(&object["length"]).trunc();
+                    let length = number(object.get("length").unwrap()).trunc();
                     if !length.is_finite() || length > MAX_MESSAGE as f64 {
                         return Err("gRPC bytes exceed 20 MiB.".into());
                     }
@@ -595,7 +751,10 @@ fn scalar(field: &FieldDescriptor, input: &Json, depth: usize) -> Result<Option<
             if !input.is_object() && !input.is_array() && !input.is_null() {
                 return Err(format!("{}: object expected", field.full_name()));
             }
-            Value::Message(from_object(desc, input, depth)?)
+            let Kind::Message(original) = original.kind() else {
+                return Err("Mismatched original message descriptor.".into());
+            };
+            Value::Message(from_object(desc, original, input, depth)?)
         }
     }))
 }
@@ -627,11 +786,15 @@ impl Serialize for LegacyMessage<'_> {
         let descriptor = self.0.descriptor();
         let ordered = (0..4).flat_map(|group| {
             descriptor.fields().filter(move |field| {
-                let rank = if field.containing_oneof().is_some() {
+                let original = self
+                    .2
+                    .get_field(field.number())
+                    .unwrap_or_else(|| field.clone());
+                let rank = if original.containing_oneof().is_some() {
                     3
-                } else if field.is_map() {
+                } else if original.is_map() {
                     1
-                } else if field.is_list() {
+                } else if original.is_list() {
                     0
                 } else {
                     2
@@ -641,7 +804,7 @@ impl Serialize for LegacyMessage<'_> {
         });
         for field in ordered {
             let present = self.0.has_field(&field);
-            if !present && field.containing_oneof().is_some() {
+            if !present && oneof_name(&field, &self.2).is_some() {
                 continue;
             }
             if !present
@@ -678,6 +841,93 @@ impl Serialize for LegacyMessage<'_> {
     }
 }
 struct LegacyValue<'a>(&'a Value, Kind, usize, Option<Kind>);
+
+struct LegacyMapEntries<'a>(&'a [Value], usize, MessageDescriptor);
+impl Serialize for LegacyMapEntries<'_> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let original_key = self.2.map_entry_key_field();
+        let original_value = self.2.map_entry_value_field();
+        let mut entries: Vec<(String, &DynamicMessage)> = Vec::new();
+        let mut positions: HashMap<String, usize> = HashMap::new();
+        for value in self.0 {
+            let Value::Message(entry) = value else {
+                return Err(serde::ser::Error::custom("Invalid legacy map entry."));
+            };
+            let key_field = entry
+                .descriptor()
+                .get_field(1)
+                .ok_or_else(|| serde::ser::Error::custom("Missing map key field."))?;
+            let key = entry.get_field(&key_field);
+            let missing_long = !entry.has_field(&key_field)
+                && matches!(
+                    original_key.kind(),
+                    Kind::Int64 | Kind::Uint64 | Kind::Sint64 | Kind::Fixed64 | Kind::Sfixed64
+                );
+            let key = if missing_long {
+                "0".into()
+            } else {
+                match key.as_ref() {
+                    Value::I64(value) if matches!(original_key.kind(), Kind::Int32) => {
+                        (*value as i32).to_string()
+                    }
+                    Value::I64(value) => value
+                        .to_le_bytes()
+                        .iter()
+                        .map(|byte| char::from(*byte))
+                        .collect(),
+                    Value::U64(value) => value
+                        .to_le_bytes()
+                        .iter()
+                        .map(|byte| char::from(*byte))
+                        .collect(),
+                    Value::String(value) => value.clone(),
+                    Value::Bool(value) => value.to_string(),
+                    Value::I32(value) => value.to_string(),
+                    Value::U32(value) => value.to_string(),
+                    _ => return Err(serde::ser::Error::custom("Invalid legacy map key.")),
+                }
+            };
+            // Match own-property enumeration without mutating any prototype.
+            if key == "__proto__" {
+                continue;
+            }
+            if let Some(position) = positions.get(&key) {
+                entries[*position].1 = entry;
+            } else {
+                positions.insert(key.clone(), entries.len());
+                entries.push((key, entry));
+            }
+        }
+        entries.sort_by(|(left, _), (right, _)| {
+            match (js_array_index(left), js_array_index(right)) {
+                (Some(left), Some(right)) => left.cmp(&right),
+                (Some(_), None) => std::cmp::Ordering::Less,
+                (None, Some(_)) => std::cmp::Ordering::Greater,
+                (None, None) => std::cmp::Ordering::Equal,
+            }
+        });
+        let mut output = serializer.serialize_map(Some(entries.len()))?;
+        for (key, entry) in entries {
+            let field = entry
+                .descriptor()
+                .get_field(2)
+                .ok_or_else(|| serde::ser::Error::custom("Missing map value field."))?;
+            if !entry.has_field(&field)
+                && matches!(original_value.kind(), Kind::Message(ref desc) if desc.fields().next().is_some())
+            {
+                return Err(serde::ser::Error::custom(
+                    "Legacy map message value is missing.",
+                ));
+            }
+            let value = entry.get_field(&field);
+            output.serialize_entry(
+                &key,
+                &LegacyValue(&value, field.kind(), self.1, Some(original_value.kind())),
+            )?;
+        }
+        output.end()
+    }
+}
 fn serialize_js_number<S: Serializer>(value: f64, serializer: S) -> Result<S::Ok, S::Error> {
     if !value.is_finite() {
         return serializer.serialize_none();
@@ -695,6 +945,7 @@ impl Serialize for LegacyValue<'_> {
             Value::Bool(v) => s.serialize_bool(*v),
             Value::I32(v) => s.serialize_i32(*v),
             Value::U32(v) => s.serialize_u32(*v),
+            Value::I64(v) if matches!(self.3, Some(Kind::Int32)) => s.serialize_i32(*v as i32),
             Value::I64(v) => s.serialize_str(&v.to_string()),
             Value::U64(v) => s.serialize_str(&v.to_string()),
             Value::F32(v) => serialize_js_number(*v as f64, s),
@@ -728,6 +979,11 @@ impl Serialize for LegacyValue<'_> {
                 LegacyMessage(v, self.2, original).serialize(s)
             }
             Value::List(values) => {
+                if let Some(Kind::Message(original)) = &self.3 {
+                    if original.is_map_entry() {
+                        return LegacyMapEntries(values, self.2, original.clone()).serialize(s);
+                    }
+                }
                 let mut seq = s.serialize_seq(Some(values.len()))?;
                 for v in values {
                     seq.serialize_element(&LegacyValue(v, self.1.clone(), self.2, self.3.clone()))?;
@@ -780,6 +1036,254 @@ impl Serialize for LegacyValue<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn legacy_map_matches_pinned_wire_and_json_vectors() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../tests/ui/fixtures/grpc-map-reference.json"
+        ))
+        .unwrap();
+        assert_eq!(fixture["protobufjs"], "7.2.4");
+        let pool = map_order_reference_pool();
+        let snapshot = pool.encode_to_vec();
+        let rows = fixture["rows"].as_array().unwrap();
+        assert_eq!(rows.len(), 70);
+        let hex = |value: &str| -> Vec<u8> {
+            assert_eq!(value.len() % 2, 0);
+            value
+                .as_bytes()
+                .chunks_exact(2)
+                .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap())
+                .collect()
+        };
+        let mut expected_errors = 0;
+        for row in rows {
+            let label = row["label"].as_str().unwrap();
+            let original = pool
+                .get_message_by_name(row["name"].as_str().unwrap())
+                .unwrap();
+            let wire = if let Some(body) = row["body"].as_str() {
+                let request = parse(original.clone(), body)
+                    .unwrap_or_else(|error| panic!("{label}: {error}"));
+                let wire = request.encode_to_vec();
+                assert_eq!(
+                    wire,
+                    hex(row["wireHex"].as_str().unwrap()),
+                    "Request wire {label}"
+                );
+                wire
+            } else {
+                hex(row["incomingWireHex"].as_str().unwrap())
+            };
+            let view = legacy_descriptor(original.clone()).unwrap();
+            assert_eq!(
+                legacy_pool(view.parent_pool()).unwrap().encode_to_vec(),
+                view.parent_pool().encode_to_vec(),
+                "Idempotence {label}"
+            );
+            let response = DynamicMessage::decode(view, wire.as_slice())
+                .unwrap_or_else(|error| panic!("Decode {label}: {error}"));
+            let json = crate::grpc_schema::json_mode(
+                &response,
+                crate::grpc_schema::JsonMode::Legacy,
+                original,
+            );
+            if row.get("error").is_some() {
+                expected_errors += 1;
+                assert_eq!(label, "wire-missing-message-value");
+                assert!(json
+                    .unwrap_err()
+                    .contains("Legacy map message value is missing."));
+            } else {
+                assert_eq!(
+                    json.unwrap_or_else(|error| panic!("Serialize {label}: {error}")),
+                    row["json"].as_str().unwrap(),
+                    "Exact JSON {label}"
+                );
+            }
+        }
+        assert_eq!(expected_errors, 1);
+        let refusals = fixture["refusals"].as_array().unwrap();
+        assert_eq!(refusals.len(), 3);
+        let original = pool.get_message_by_name("Int32").unwrap();
+        for refusal in refusals {
+            assert_eq!(refusal["reservedBytes"], 10);
+            assert!(refusal["actualVarintBytes"].as_u64().unwrap() < 10);
+            let body = serde_json::json!({"values":{refusal["key"].as_str().unwrap():"owned"}})
+                .to_string();
+            assert!(parse(original.clone(), &body)
+                .unwrap_err()
+                .contains("unwritten writer bytes"));
+        }
+        assert_eq!(
+            pool.encode_to_vec(),
+            snapshot,
+            "Original map schema changed"
+        );
+    }
+
+    #[test]
+    fn legacy_map_view_does_not_leak_into_protojson_or_examples() {
+        let pool = map_order_reference_pool();
+        let original = pool.get_message_by_name("Strings").unwrap();
+        let parsed = parse(original.clone(), r#"{"values":{"z":"first","a":"last"}}"#).unwrap();
+        let before = parsed.encode_to_vec();
+        let text = crate::grpc_schema::json_mode(
+            &parsed,
+            crate::grpc_schema::JsonMode::ProtoJson,
+            original.clone(),
+        )
+        .unwrap();
+        let json: serde_json::Value = serde_json::from_str(&text).unwrap();
+        assert!(json["values"].is_object());
+        assert_eq!(json, serde_json::json!({"values":{"z":"first","a":"last"}}));
+        assert_eq!(parsed.encode_to_vec(), before);
+        assert_eq!(
+            crate::grpc_schema::json_mode(&parsed, crate::grpc_schema::JsonMode::Legacy, original)
+                .unwrap(),
+            r#"{"values":{"z":"first","a":"last"}}"#
+        );
+        assert!(crate::grpc_schema::parse(
+            pool.get_message_by_name("Int32").unwrap(),
+            r#"{"values":{"z":"invalid standard key"}}"#
+        )
+        .is_err());
+        for name in ["Strings", "Int64", "Nested", "Enums"] {
+            let descriptor = pool.get_message_by_name(name).unwrap();
+            let example = crate::grpc_example::generate(
+                descriptor.clone(),
+                crate::grpc_schema::JsonMode::ProtoJson,
+            )
+            .unwrap();
+            let json: serde_json::Value = serde_json::from_str(&example).unwrap();
+            assert!(
+                json["values"].is_object(),
+                "ProtoJSON example {name}: {example}"
+            );
+            crate::grpc_schema::parse(descriptor, &example).unwrap();
+        }
+    }
+
+    #[test]
+    fn legacy_json_object_keys_follow_ecmascript_order() {
+        let parsed = Json::parse(
+            r#"{"10":10,"2":2,"z":1,"01":1,"a":0,"z":3,"4294967295":5,"4294967294":4,"0":0}"#,
+            0,
+        )
+        .unwrap();
+        let Json::Object(object) = parsed else {
+            panic!("Expected object")
+        };
+        assert_eq!(
+            object
+                .iter()
+                .map(|(key, _)| key.as_str())
+                .collect::<Vec<_>>(),
+            vec!["0", "2", "10", "4294967294", "z", "01", "a", "4294967295"]
+        );
+        assert_eq!(number(object.get("z").unwrap()), 3.0);
+        for (key, expected) in [
+            ("0", Some(0)),
+            ("4294967294", Some(u32::MAX - 1)),
+            ("4294967295", None),
+            ("01", None),
+            ("-0", None),
+            ("+1", None),
+            ("1.0", None),
+            ("87654321", Some(87654321)),
+        ] {
+            assert_eq!(js_array_index(key), expected, "Index {key:?}");
+        }
+    }
+
+    fn map_order_reference_pool() -> DescriptorPool {
+        crate::grpc_schema::compile(crate::grpc_schema::ProtoInput {
+            entry: "map_order.proto".into(),
+            files: vec![crate::grpc_schema::ProtoFile {
+                name: "map_order.proto".into(),
+                text: r##"syntax="proto3"; message Strings { map<string,string> values=1; } message Int32 { map<int32,string> values=1; } message Uint32 { map<uint32,string> values=1; } message Sint32 { map<sint32,string> values=1; } message Fixed32 { map<fixed32,string> values=1; } message Sfixed32 { map<sfixed32,string> values=1; } message Int64 { map<int64,string> values=1; } message Uint64 { map<uint64,string> values=1; } message Sint64 { map<sint64,string> values=1; } message Fixed64 { map<fixed64,string> values=1; } message Sfixed64 { map<sfixed64,string> values=1; } message Bools { map<bool,string> values=1; } enum Flag { ZERO=0; ONE=1; } message Enums { map<string,Flag> values=1; } message Blobs { map<string,bytes> values=1; } message Child { map<string,string> values=1; } message Nested { map<string,Child> values=1; } message Empty {} message EmptyValues { map<string,Empty> values=1; }"##.into(),
+            }], include_paths: Vec::new(),
+        }).unwrap()
+    }
+
+    #[test]
+    fn legacy_map_request_order_preserves_colliding_key_winner() {
+        let pool = map_order_reference_pool();
+        // Pinned legacy conversion and actual encode/decode, not normalized JSON.
+        for (name, body, expected, expected_wire) in [
+            (
+                "Int32",
+                r##"{"values":{"z":"first","a":"last"}}"##,
+                r##"{"values":{"0":"last"}}"##,
+                vec![
+                    0x0a, 0x09, 0x08, 0x00, 0x12, 0x05, 0x66, 0x69, 0x72, 0x73, 0x74, 0x0a, 0x08,
+                    0x08, 0x00, 0x12, 0x04, 0x6c, 0x61, 0x73, 0x74,
+                ],
+            ),
+            (
+                "Bools",
+                r##"{"values":{"z":"first","a":"last"}}"##,
+                r##"{"values":{"true":"last"}}"##,
+                vec![
+                    0x0a, 0x09, 0x08, 0x01, 0x12, 0x05, 0x66, 0x69, 0x72, 0x73, 0x74, 0x0a, 0x08,
+                    0x08, 0x01, 0x12, 0x04, 0x6c, 0x61, 0x73, 0x74,
+                ],
+            ),
+        ] {
+            let original = pool.get_message_by_name(name).unwrap();
+            let request = parse(original.clone(), body).unwrap();
+            let wire = request.encode_to_vec();
+            let response = DynamicMessage::decode(
+                legacy_descriptor(original.clone()).unwrap(),
+                wire.as_slice(),
+            )
+            .unwrap();
+            let json = crate::grpc_schema::json_mode(
+                &response,
+                crate::grpc_schema::JsonMode::Legacy,
+                original,
+            )
+            .unwrap();
+            assert_eq!(json, expected, "Map winner {name}: {body}");
+            assert_eq!(wire, expected_wire, "Map request wire {name}: {body}");
+        }
+    }
+
+    #[test]
+    fn legacy_map_missing_long_key_keeps_numeric_zero_property() {
+        let pool = map_order_reference_pool();
+        for (name, wire, expected) in [
+            (
+                "Int64",
+                vec![
+                    0x0a, 0x09, 0x12, 0x07, 0x6d, 0x69, 0x73, 0x73, 0x69, 0x6e, 0x67,
+                ],
+                r##"{"values":{"0":"missing"}}"##,
+            ),
+            (
+                "Int64",
+                vec![
+                    0x0a, 0x0c, 0x08, 0x00, 0x12, 0x08, 0x65, 0x78, 0x70, 0x6c, 0x69, 0x63, 0x69,
+                    0x74,
+                ],
+                r##"{"values":{"\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000":"explicit"}}"##,
+            ),
+        ] {
+            let original = pool.get_message_by_name(name).unwrap();
+            let response = DynamicMessage::decode(
+                legacy_descriptor(original.clone()).unwrap(),
+                wire.as_slice(),
+            )
+            .unwrap();
+            let json = crate::grpc_schema::json_mode(
+                &response,
+                crate::grpc_schema::JsonMode::Legacy,
+                original,
+            )
+            .unwrap();
+            assert_eq!(json, expected, "Missing versus explicit long map key");
+        }
+    }
 
     #[test]
     fn legacy_message_output_order_matches_protobufjs() {

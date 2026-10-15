@@ -4,6 +4,10 @@ Updated 2026-10-14. Use saved Bun Playwright scenarios only. Shared launchUiBrow
 
 See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity requirements](PARITY.md). No original scope was removed by consolidation.
 
+## Current gRPC map entry verification
+
+Saved [grpc-map-native.js](../../tests/ui/grpc-map-native.js) requires INSOMNIUM_GRPC_MAP_NATIVE=1 and audited build/profile ownership.9 bounded native groups include exact numeric-index/collision/long-hash/missing-key/duplicate/nested/bytes behavior plus incoming missing-message-value error/reload/no implicit retry/explicit peer repair/UI retry.18 actual successful Save exports are distinct from1error model snapshot. Full14scenarios/97groups/138gRPCexports/exact14profiles and original manifest plus explicit1test/1STATUSdoc supplemental closure pass. See [scope/evidence](GRPC.md#current-native-grpc-map). Broader JSON/provider/platform/migration gates remain open.
+
 ## Current gRPC message-field order verification
 
 Saved [grpc-message-order-native.js](../../tests/ui/grpc-message-order-native.js) requires INSOMNIUM_GRPC_MESSAGE_ORDER_NATIVE=1 and audited build/profile ownership. Eight Windows native-hidden cases pass default/full/normal/child/default-oneof/nested messages plus crossed list/map field-number categories, exact wire/ordered JSON, real editor/Format/mode flip and complete history/reload/export/deletion. Expected strings/frames are pinned directly;18existing oneof/numeric/overflow strings use corrected independent order, with exact-string assertions retained. Full13scenarios/88groups/120gRPCexports/exact13profiles and original0override closure pass. [Scope/evidence](GRPC.md#current-native-grpc-message-order). Map entry-key ordering, lone surrogates and broader JSON/provider/platform remain open.
