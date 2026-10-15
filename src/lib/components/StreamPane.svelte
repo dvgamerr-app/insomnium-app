@@ -1,4 +1,6 @@
 <script>
+  import { onDestroy, untrack } from "svelte";
+  import { sseRawBytes } from "../sse-raw.js";
   import TabPanel from "./ui/TabPanel.svelte";
   let activeTab0 = $state("");
   import Feedback from "./ui/Feedback.svelte";
@@ -21,7 +23,57 @@
     error = $state("");
   $effect(() => {
     if (tab === "Timeline" && !response?.legacyTimeline?.length) tab = "Events";
+    if (tab === "Raw" && !Array.isArray(response?.rawEvents)) tab = "Events";
   });
+  let rawText = $state(""),
+    rawFailure = $state("");
+  /** @type {ReturnType<typeof setTimeout>|undefined} */
+  let rawTimer;
+  /** @type {Record<string,any>|undefined} */
+  let rawOwner;
+  let rawVisible = false;
+  /** @param {Record<string,any>|undefined} current */
+  function readRaw(current) {
+    try {
+      rawText = new TextDecoder().decode(sseRawBytes(current));
+      rawFailure = "";
+    } catch (error) {
+      rawText = "";
+      rawFailure = String(error);
+    }
+  }
+  $effect(() => {
+    const current = response;
+    const changed = rawOwner !== current;
+    if (changed) {
+      clearTimeout(rawTimer);
+      rawTimer = undefined;
+      rawOwner = current;
+      rawText = "";
+      rawFailure = "";
+    }
+    const received = current?.rawReceivedBytes;
+    const dropped = current?.rawDropped;
+    void received;
+    void dropped;
+    if (tab !== "Raw") {
+      rawVisible = false;
+      clearTimeout(rawTimer);
+      rawTimer = undefined;
+      return;
+    }
+    if (!rawVisible || changed) {
+      rawVisible = true;
+      untrack(() => readRaw(current));
+      return;
+    }
+    if (rawTimer === undefined)
+      rawTimer = setTimeout(() => {
+        rawTimer = undefined;
+        if (tab === "Raw" && response === current) readRaw(current);
+      }, 250);
+  });
+  onDestroy(() => clearTimeout(rawTimer));
   const events = $derived(
     /** @type {Record<string, any>[]} */ (response?.events || []),
   );
@@ -111,12 +163,27 @@
     role="tablist"
     aria-label="Stream view"
   >
-    {#each ["Events", "Headers", ...(response?.legacyTimeline?.length ? ["Timeline"] : [])] as name}<TabButton
+    {#each ["Events", "Headers", ...(Array.isArray(response?.rawEvents) ? ["Raw"] : []), ...(response?.legacyTimeline?.length ? ["Timeline"] : [])] as name}<TabButton
         role="tab"
         aria-selected={tab === name}
         onclick={() => (tab = name)}>{name}</TabButton
       >{/each}
     <span class="spacer"></span>
+    {#if tab === "Raw"}<Button
+        variant="ghost"
+        class="text-button"
+        onclick={async () => {
+          try {
+            await download(
+              sseRawBytes(response),
+              "sse-raw.bin",
+              "application/octet-stream",
+            );
+          } catch (e) {
+            error = String(e);
+          }
+        }}>Export raw</Button
+      >{/if}
     <Button
       variant="ghost"
       class="text-button"
@@ -134,6 +201,15 @@
       }}>Export log</Button
     >
   </TabList>
+  {#if response?.rawDropped}<p class="hint stream-notice">
+      Raw capture retains {response.rawRetainedBytes} bytes; {response.rawDropped}
+      earlier fragments were omitted.
+    </p>{/if}
+  {#if response?.rawCaptureError || rawFailure}<Feedback
+      as="p"
+      class="inline-error"
+      role="alert">{response?.rawCaptureError || rawFailure}</Feedback
+    >{/if}
   {#if response?.dropped}<p class="hint stream-notice">
       {response.dropped} older events removed from this log. Showing the latest 1,000
       events within an 8 MiB budget.
@@ -146,7 +222,13 @@
       {response?.error || error}
     </Feedback>{/if}
   <TabPanel id="stream-view-panel" labelledBy={activeTab0}
-    >{#if tab === "Timeline"}<pre class="stream-event-body">{(response?.networkLog || []).join("\n")}</pre>{:else if tab === "Headers"}<div class="response-content response-headers">
+    >{#if tab === "Raw"}<pre
+        class="stream-event-body stream-raw-body">{rawText}</pre>{:else if tab === "Timeline"}<pre
+        class="stream-event-body">{(response?.networkLog || []).join(
+          "\n",
+        )}</pre>{:else if tab === "Headers"}<div
+        class="response-content response-headers"
+      >
         {#each response?.headers || [] as [name, value]}<div>
             <span>{name}</span><code>{value}</code>
           </div>{:else}<p class="hint padded">

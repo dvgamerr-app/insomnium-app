@@ -228,14 +228,7 @@ export function convertLegacySseHistory(
           dropped++;
         }
       }
-      const timelineBytes =
-        asset?.timeline !== undefined &&
-        !converted.warnings.some(
-          (item) => item.id === entry._id && item.code === "invalid-timeline",
-        )
-          ? encoder.encode(JSON.stringify(entry.legacyTimeline || []))
-              .byteLength
-          : 0;
+      const timelineBytes = entry.legacyTimelineByteSize ?? 0;
       const cost = bytes.byteLength + timelineBytes;
       if (
         !Number.isFinite(remainingBudget) ||

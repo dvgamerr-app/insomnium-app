@@ -1,8 +1,8 @@
+import { validateLegacyTimeline } from "./legacy-timeline.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 
 const eventLimit = 8 * 1024 * 1024;
-const timelineLimit = 2 * 1024 * 1024;
 const aggregateLimit = 32 * 1024 * 1024;
 const encoder = new TextEncoder();
 /** @param {unknown} value */
@@ -256,34 +256,18 @@ export function convertLegacyWebSocketHistory(
           dropped++;
         }
       }
-      /** @type {Record<string,any>[]} */ let timeline = [];
-      let timelineBytes = 0;
-      try {
-        if (asset.timeline !== undefined) {
-          if (
-            !Array.isArray(asset.timeline) ||
-            asset.timeline.length > 10000 ||
-            asset.timeline.some(
-              (/** @type {Record<string,any>} */ row) =>
-                !row ||
-                typeof row.name !== "string" ||
-                typeof row.value !== "string" ||
-                !nonnegative(row.timestamp),
-            )
-          )
-            throw Error("Invalid WebSocket timeline entries.");
-          timelineBytes = encoder.encode(JSON.stringify(asset.timeline)).length;
-          if (timelineBytes > timelineLimit)
-            throw Error("WebSocket timeline exceeds 2 MiB.");
-          timeline = structuredClone(asset.timeline);
-        }
-      } catch (error) {
-        timelineBytes = 0;
+      const validatedTimeline = validateLegacyTimeline(asset, "ndjson");
+      const timeline = validatedTimeline.timeline;
+      const timelineBytes = validatedTimeline.byteSize;
+      if (validatedTimeline.error)
         warnings.push({
-          ...diagnostic(response, "invalid-websocket-timeline", String(error)),
+          ...diagnostic(
+            response,
+            "invalid-websocket-timeline",
+            validatedTimeline.error,
+          ),
           asset: "timeline",
         });
-      }
       if (
         activatedBytes + bytes.length + timelineBytes >
         Math.min(aggregateLimit, remainingBytes)
@@ -332,6 +316,10 @@ export function convertLegacyWebSocketHistory(
         dropped,
         size,
         legacyTimeline: timeline,
+        legacyTimelineByteSize: timelineBytes,
+        ...(validatedTimeline.sha256
+          ? { legacyTimelineSha256: validatedTimeline.sha256 }
+          : {}),
         networkLog: timeline.map(
           (row) =>
             "[legacy " + row.timestamp + " " + row.name + "] " + row.value,

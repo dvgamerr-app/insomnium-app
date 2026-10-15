@@ -86,16 +86,7 @@ function importedResponseHistory(resources, assets = {}) {
       (response._type === "websocket_response"
         ? response._legacyWebSocketAssets
         : response._legacyResponseAssets);
-    const timelineBytes =
-      source?.timeline !== undefined &&
-      !converted.warnings.some(
-        (item) =>
-          item.code === "invalid-timeline" ||
-          item.code === "invalid-websocket-timeline",
-      )
-        ? new TextEncoder().encode(JSON.stringify(entry.legacyTimeline || []))
-            .length
-        : 0;
+    const timelineBytes = entry.legacyTimelineByteSize ?? 0;
     const bytes =
       (response._type === "websocket_response"
         ? source?.eventLogSize

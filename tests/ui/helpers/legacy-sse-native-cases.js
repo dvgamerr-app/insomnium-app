@@ -115,10 +115,12 @@ export async function runLegacySseNativeCases() {
               unknown: { keep: true },
             },
           ];
-          const timelinePath = await write(
-            "timeline.ndjson",
-            timeline.map((row) => JSON.stringify(row)).join("\r\n"),
+          const timelineBytes = Buffer.from(
+            "\r\n" +
+              timeline.map((row) => JSON.stringify(row)).join("\r\n\r\n") +
+              "\r\n\r\n",
           );
+          const timelinePath = await write("timeline.ndjson", timelineBytes);
           const malformedRaw = JSON.stringify(chunks[0]) + "\n{broken",
             malformed = await write("malformed.ndjson", malformedRaw),
             badTimeline = await write("bad-timeline.ndjson", "{broken"),
@@ -374,6 +376,24 @@ export async function runLegacySseNativeCases() {
                 );
                 continue;
               }
+              if (source.timelinePath) {
+                const exact =
+                  source.timelinePath === timelinePath
+                    ? timelineBytes
+                    : Buffer.from("{broken");
+                assert.equal(
+                  resource._legacyResponseAssets.timelineBase64,
+                  exact.toString("base64"),
+                );
+                assert.equal(
+                  resource._legacyResponseAssets.timelineSize,
+                  exact.length,
+                );
+                assert.equal(
+                  resource._legacyResponseAssets.timelineSha256,
+                  digest(exact),
+                );
+              }
               assert.ok(entry);
               assert.equal(entry.requestId, request._id);
               assert.equal(entry.protocol, "sse");
@@ -456,6 +476,12 @@ export async function runLegacySseNativeCases() {
             assert.equal(valid.size, raw.length);
             assert.equal(valid.sha256, digest(raw));
             assert.deepEqual(valid.timeline, timeline);
+            assert.equal(
+              valid.timelineBase64,
+              timelineBytes.toString("base64"),
+            );
+            assert.equal(valid.timelineSize, timelineBytes.length);
+            assert.equal(valid.timelineSha256, digest(timelineBytes));
             for (const [id, path, code] of [
               ["outside", outside, "refused"],
               ["traversal", join(root, "..", "outside-sse.ndjson"), "refused"],
@@ -486,6 +512,12 @@ export async function runLegacySseNativeCases() {
               .entries[0];
             assert.equal(bad.bodyBase64, raw.toString("base64"));
             assert.equal(bad.timeline, undefined);
+            assert.equal(
+              bad.timelineBase64,
+              Buffer.from("{broken").toString("base64"),
+            );
+            assert.equal(bad.timelineSize, Buffer.byteLength("{broken"));
+            assert.equal(bad.timelineSha256, digest(Buffer.from("{broken")));
             assert.ok(
               bad.diagnostics.some(
                 (/** @type {any} */ item) =>

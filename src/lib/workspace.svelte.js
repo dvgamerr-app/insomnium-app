@@ -1,3 +1,4 @@
+import { appendSseRaw } from "./sse-raw.js";
 import {
   gitRemoteSettingsPatch,
   readGitRemoteSettings,
@@ -1296,6 +1297,15 @@ export async function execute(
         events: [],
         retainedBytes: 0,
         dropped: 0,
+        ...(protocol === "sse"
+          ? {
+              rawEvents: [],
+              rawReceivedBytes: 0,
+              rawRetainedBytes: 0,
+              rawStoredBytes: 2,
+              rawDropped: 0,
+            }
+          : {}),
         size: 0,
         headers: [],
         url: prepared.url,
@@ -1310,6 +1320,20 @@ export async function execute(
         )
           return;
         if (["started", "finished"].includes(event.kind)) return;
+        if (event.kind === "sseRaw") {
+          if (protocol !== "sse" || controller.signal.aborted) return;
+          try {
+            appendSseRaw(response, event);
+          } catch (error) {
+            response.rawCaptureError = String(error);
+          }
+          response.elapsedMs = Date.now() - response.created;
+          if (Date.now() - savedAt > 5000) {
+            savedAt = Date.now();
+            void persist();
+          }
+          return;
+        }
         if (event.kind === "open") {
           Object.assign(response, { ...event, connectionState: "open" });
           if (firstMessage && !firstMessageSent && initialPayload) {

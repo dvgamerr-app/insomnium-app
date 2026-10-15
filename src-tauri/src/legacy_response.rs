@@ -57,6 +57,12 @@ pub struct LegacyResponseAssets {
     event_log_sha256: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     timeline: Option<Vec<Value>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    timeline_base64: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    timeline_size: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    timeline_sha256: Option<String>,
     diagnostics: Vec<AssetDiagnostic>,
 }
 
@@ -497,6 +503,9 @@ async fn read_assets(
                 event_log_size: None,
                 event_log_sha256: None,
                 timeline: None,
+                timeline_base64: None,
+                timeline_size: None,
+                timeline_sha256: None,
                 diagnostics: Vec::new(),
             };
             if let Some(path) = entry.event_log_path {
@@ -536,7 +545,7 @@ async fn read_assets(
                         message,
                     }),
                 }
-                if let Some(path) = entry.timeline_path {
+                if let Some(path) = entry.timeline_path.filter(|path| !path.is_empty()) {
                     let result = if path.is_empty() {
                         Ok(Vec::new())
                     } else {
@@ -550,6 +559,9 @@ async fn read_assets(
                     }
                     .and_then(|bytes| {
                         decoded_remaining -= bytes.len();
+                        row.timeline_size = Some(bytes.len());
+                        row.timeline_sha256 = Some(format!("{:x}", Sha256::digest(&bytes)));
+                        row.timeline_base64 = Some(STANDARD.encode(&bytes));
                         stream_ndjson(&bytes, true)
                     });
                     match result {
@@ -621,6 +633,9 @@ async fn read_assets(
                 )
                 .and_then(|bytes| {
                     decoded_remaining -= bytes.len();
+                    row.timeline_size = Some(bytes.len());
+                    row.timeline_sha256 = Some(format!("{:x}", Sha256::digest(&bytes)));
+                    row.timeline_base64 = Some(STANDARD.encode(&bytes));
                     if entry.body_format.as_deref() == Some("sse-ndjson") {
                         stream_ndjson(&bytes, true)
                     } else {

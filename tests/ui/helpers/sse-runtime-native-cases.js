@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { newRequest } from "../../../src/lib/model.js";
+import { sseRawBytes } from "../../../src/lib/sse-raw.js";
+import { respondToOwnedSaveDialog } from "./windows-save-dialog.js";
 import {
   withNativeApp,
   poll,
@@ -34,7 +36,7 @@ export async function runSseRuntimeNativeCases() {
       async (capture) => {
         await withNativeApp(
           "sse-runtime-native",
-          async ({ page, invoke, output }) => {
+          async ({ page, invoke, output, pid }) => {
             evidence = output;
             page.on("pageerror", (error) => pageErrors.push(String(error)));
             await resourceSaved(page);
@@ -152,6 +154,58 @@ export async function runSseRuntimeNativeCases() {
                 );
               }, "Durable terminal SSE histories " + count);
               const list = await rows();
+              for (const entry of list) {
+                const peer = fixture.records.find(
+                  (row) => row.url === entry.url,
+                );
+                assert.ok(
+                  peer,
+                  "Durable SSE row has independently captured fixture request",
+                );
+                const expected = Buffer.concat(
+                  peer.chunks.map((chunk) =>
+                    Buffer.from(chunk.base64, "base64"),
+                  ),
+                );
+                assert.deepEqual(
+                  Buffer.from(sseRawBytes(entry)),
+                  expected,
+                  "Exact native raw byte concatenation survives terminal persistence",
+                );
+                assert.equal(entry.rawDropped, 0);
+                assert.equal(entry.rawReceivedBytes, expected.length);
+                assert.equal(entry.rawRetainedBytes, expected.length);
+                let total = 0;
+                /** @type {Record<string,any>|undefined} */ let previous;
+                for (const frame of entry.rawEvents) {
+                  if (!previous) {
+                    assert.equal(frame.chunk, 1);
+                    assert.equal(frame.offset, 0);
+                  } else
+                    assert.ok(
+                      (frame.chunk === previous.chunk &&
+                        frame.offset === previous.offset + previous.size) ||
+                        (frame.chunk === previous.chunk + 1 &&
+                          frame.offset === 0),
+                      "Native raw frame sequence is continuous within/across network chunks",
+                    );
+                  assert.equal(
+                    frame.size,
+                    Buffer.from(frame.data, "base64").length,
+                  );
+                  assert.ok(frame.size > 0 && frame.size <= 65536);
+                  total += frame.size;
+                  previous = frame;
+                }
+                assert.equal(total, expected.length);
+                assert.equal(
+                  entry.events.some(
+                    (/** @type {any} */ event) => event.kind === "sseRaw",
+                  ),
+                  false,
+                  "Raw packets never duplicate parsed event log",
+                );
+              }
               durable.push({ checkpoint: count, history: list });
               return list;
             };
@@ -230,6 +284,21 @@ export async function runSseRuntimeNativeCases() {
               false,
               "First multiline event is mounted before EOF",
             );
+            await stream.getByRole("tab", { name: "Raw", exact: true }).click();
+            await poll(
+              async () =>
+                (await stream.locator("pre").last().textContent()) ===
+                new TextDecoder().decode(bytes),
+              "Mounted raw view joins split UTF8 bytes before EOF",
+            );
+            assert.equal(record(initial)?.closed, false);
+            await page.screenshot({
+              path: join(output, "live-raw-before-eof.png"),
+              fullPage: true,
+            });
+            await stream
+              .getByRole("tab", { name: "Events", exact: true })
+              .click();
             const first = record(initial);
             assert.ok(first);
             assert.equal(first.method, "POST");
@@ -263,6 +332,48 @@ export async function runSseRuntimeNativeCases() {
             await state("closed");
             let entries = await terminal(1);
             const firstHistory = entries[0];
+            const rawExportPath = join(output, "sse-native-raw.bin");
+            await stream.getByRole("tab", { name: "Raw", exact: true }).click();
+            const saveRaw = respondToOwnedSaveDialog(
+              pid,
+              output,
+              rawExportPath,
+              ".bin",
+            );
+            void saveRaw.catch(() => {});
+            /** @type {unknown[]} */ const rawExportFailures = [];
+            try {
+              await stream
+                .getByRole("button", { name: "Export raw", exact: true })
+                .click();
+            } catch (error) {
+              rawExportFailures.push(error);
+            }
+            try {
+              await saveRaw;
+            } catch (error) {
+              rawExportFailures.push(error);
+            }
+            if (rawExportFailures.length)
+              throw new AggregateError(
+                rawExportFailures,
+                "Actual native raw Save dialog failed",
+              );
+            await poll(
+              () => Bun.file(rawExportPath).exists(),
+              "Native raw binary export exists",
+            );
+            assert.deepEqual(
+              Buffer.from(await Bun.file(rawExportPath).bytes()),
+              Buffer.concat(
+                first.chunks.map((chunk) =>
+                  Buffer.from(chunk.base64, "base64"),
+                ),
+              ),
+            );
+            await stream
+              .getByRole("tab", { name: "Events", exact: true })
+              .click();
             const summarize = (/** @type {any} */ row) =>
               row.events
                 .filter((/** @type {any} */ event) => event.kind === "sse")

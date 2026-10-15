@@ -1,14 +1,14 @@
 import { protocolFor } from "./model.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
+import { validateLegacyTimeline } from "./legacy-timeline.js";
 
 const bodyLimit = 20 * 1024 * 1024;
 const base64Limit = 4 * Math.ceil(bodyLimit / 3);
 const aggregateLimit = 32 * 1024 * 1024;
-const timelineLimit = 2 * 1024 * 1024;
 
 /** @typedef {{id:string,code:string,message:string,asset?:string}} LegacyResponseDiagnostic */
-/** @typedef {{id:string,bodyBase64?:string|null,size?:number,sha256?:string|null,timeline?:unknown[],diagnostics?:unknown[]}} LegacyResponseAsset */
+/** @typedef {{id:string,bodyBase64?:string|null,size?:number,sha256?:string|null,timeline?:unknown[],timelineBase64?:string,timelineSize?:number,timelineSha256?:string,diagnostics?:unknown[]}} LegacyResponseAsset */
 
 /** @param {Record<string,any>} response @param {string} code @param {string} message */
 function diagnostic(response, code, message) {
@@ -38,10 +38,7 @@ function ownerDiagnostic(response, index, expectedProtocol) {
       "dangling-request",
       "Legacy response references a missing request; original response metadata is retained.",
     );
-  if (
-    request._type !== "request" ||
-    protocolFor(request) !== expectedProtocol
-  )
+  if (request._type !== "request" || protocolFor(request) !== expectedProtocol)
     return diagnostic(
       response,
       "unsupported-protocol",
@@ -54,7 +51,10 @@ function ownerDiagnostic(response, index, expectedProtocol) {
  * Input IDs/references must already have been remapped together by the importer.
  * No path resolution, I/O, decompression or mutation takes place here.
  * @param {Record<string,any>[]} resources @param {"http"|"sse"} [expectedProtocol] */
-export function legacyResponseAssetRequests(resources, expectedProtocol = "http") {
+export function legacyResponseAssetRequests(
+  resources,
+  expectedProtocol = "http",
+) {
   const index = new Map(resources.map((resource) => [resource._id, resource]));
   /** @type {{id:string,bodyPath:string,bodyCompression:"gzip"|"raw",timelinePath:string}[]} */ const entries =
     [];
@@ -129,7 +129,11 @@ function text(value) {
  * and must match the reader/portable digest. Binary bytes remain exact in base64.
  * @param {Record<string,any>[]} resources
  * @param {{entries?:LegacyResponseAsset[],diagnostics?:unknown[]}} assetResults @param {"http"|"sse"} [expectedProtocol] */
-export function convertLegacyResponseHistory(resources, assetResults = {}, expectedProtocol = "http") {
+export function convertLegacyResponseHistory(
+  resources,
+  assetResults = {},
+  expectedProtocol = "http",
+) {
   const requested = legacyResponseAssetRequests(resources, expectedProtocol);
   /** @type {LegacyResponseDiagnostic[]} */ const warnings = [
     ...requested.diagnostics,
@@ -367,38 +371,15 @@ export function convertLegacyResponseHistory(resources, assetResults = {}, expec
       );
       continue;
     }
-    let timeline = /** @type {unknown[]} */ ([]),
-      timelineBytes = 0;
-    try {
-      if (asset.timeline !== undefined) {
-        if (
-          !Array.isArray(asset.timeline) ||
-          asset.timeline.length > 10000 ||
-          asset.timeline.some((entry) => {
-            if (!entry || typeof entry !== "object" || Array.isArray(entry))
-              return true;
-            const item = /** @type {Record<string,any>} */ (entry);
-            return (
-              typeof item.name !== "string" ||
-              !nonnegative(item.timestamp) ||
-              typeof item.value !== "string"
-            );
-          })
-        )
-          throw Error(
-            "Legacy timeline must contain at most 10000 valid name/timestamp/value events",
-          );
-        timelineBytes = new TextEncoder().encode(
-          JSON.stringify(asset.timeline),
-        ).byteLength;
-        if (timelineBytes > timelineLimit)
-          throw Error("Legacy timeline exceeds 2 MiB");
-        timeline = structuredClone(asset.timeline);
-      }
-    } catch (error) {
-      timelineBytes = 0;
+    const validatedTimeline = validateLegacyTimeline(
+      asset,
+      expectedProtocol === "sse" ? "ndjson" : "json",
+    );
+    const timeline = validatedTimeline.timeline;
+    const timelineBytes = validatedTimeline.byteSize;
+    if (validatedTimeline.error) {
       warnings.push({
-        ...diagnostic(response, "invalid-timeline", String(error)),
+        ...diagnostic(response, "invalid-timeline", validatedTimeline.error),
         asset: "timeline",
       });
     }
@@ -453,6 +434,10 @@ export function convertLegacyResponseHistory(resources, assetResults = {}, expec
       error: text(response.error),
       networkLog,
       legacyTimeline: timeline,
+      legacyTimelineByteSize: timelineBytes,
+      ...(validatedTimeline.sha256
+        ? { legacyTimelineSha256: validatedTimeline.sha256 }
+        : {}),
       legacyResponse: structuredClone(metadata),
       _legacySource: structuredClone(response._legacySource ?? null),
       legacyAsset: {

@@ -177,6 +177,12 @@ pub enum StreamEvent {
         data: String,
         retry_ms: Option<u128>,
     },
+    SseRaw {
+        data: String,
+        size: usize,
+        chunk: u64,
+        offset: usize,
+    },
     Closed {
         code: Option<u16>,
         reason: String,
@@ -478,19 +484,55 @@ async fn sse_session(
     {
         return Err("The response Content-Type is not text/event-stream. Use HTTP mode to inspect its body.".into());
     }
+    let mut cancelled = delivery.cancelled.clone();
+    let shared_delivery = Arc::new(tokio::sync::Mutex::new(delivery));
+    let raw_delivery = shared_delivery.clone();
     let mut limits = SseLimits::default();
-    let bytes = response.bytes_stream().map(move |chunk| {
-        let chunk = chunk.map_err(|e| e.to_string())?;
-        limits.accept(&chunk)?;
-        Ok::<_, String>(chunk)
-    });
+    let mut chunk_number = 0_u64;
+    // `then` holds at most the current decoded transport chunk. Each fragment
+    // uses the same acknowledged delivery sequence as parsed events; no queue
+    // or second reader can race parsing or terminal invocation completion.
+    let bytes = response
+        .bytes_stream()
+        .then(move |chunk| {
+            let raw_delivery = raw_delivery.clone();
+            let chunk = chunk.map_err(|e| e.to_string());
+            if chunk.as_ref().is_ok_and(|bytes| !bytes.is_empty()) {
+                chunk_number += 1;
+            }
+            let number = chunk_number;
+            let accepted = chunk.as_ref().map(|bytes| limits.accept(bytes));
+            let accepted = match accepted {
+                Ok(result) => result,
+                Err(error) => Err(error.clone()),
+            };
+            async move {
+                let chunk = chunk?;
+                for (index, fragment) in chunk.chunks(64 * 1024).enumerate() {
+                    raw_delivery
+                        .lock()
+                        .await
+                        .message(StreamEvent::SseRaw {
+                            data: STANDARD.encode(fragment),
+                            size: fragment.len(),
+                            chunk: number,
+                            offset: index * 64 * 1024,
+                        })
+                        .await?;
+                }
+                // Preserve bytes even when the existing parser limit rejects them.
+                accepted?;
+                Ok::<_, String>(chunk)
+            }
+        })
+        .boxed();
     let mut events = bytes.eventsource();
     loop {
         tokio::select! {
-            _ = delivery.cancelled.changed() => return emit(&channel, StreamEvent::Closed { code: None, reason: "Disconnected by client".into() }),
+            _ = cancelled.changed() => return emit(&channel, StreamEvent::Closed { code: None, reason: "Disconnected by client".into() }),
             event = events.next() => match event {
                 Some(Ok(event)) => {
-                    delivery.message(StreamEvent::Sse { event: event.event, id: event.id, data: event.data, retry_ms: event.retry.map(|r| r.as_millis()) }).await?;
+                    shared_delivery.lock().await.message(StreamEvent::Sse { event: event.event, id: event.id, data: event.data, retry_ms: event.retry.map(|r| r.as_millis()) }).await?;
                 }
                 Some(Err(error)) => return Err(format!("SSE stream failed: {error}")),
                 None => return emit(&channel, StreamEvent::Closed { code: None, reason: "Event stream ended".into() }),

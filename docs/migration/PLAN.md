@@ -6,16 +6,14 @@ Updated 2026-10-15. Current state is in [STATUS.md](STATUS.md); all original req
 
 ### Current working-tree handoff — 2026-10-15
 
-Latest verified stream source is 1874b36 (legacy raw SSE import), with handoff 85d11d5. Live raw SSE capture and byte-exact legacy timeline preservation are implemented in the working tree but are not yet native-accepted or committed. Frontend build, saved headless sse-raw-history and Cargo check passed; the latest Raw view effect still needs a fresh compiler check.
+Live raw SSE capture and complete raw timelines accompanying loaded bodies/logs now have bounded Windows acceptance. Canonical contracts: HTTP.md#current-live-raw-sse-capture and IMPORT-EXPORT.md#current-byte-exact-legacy-timelines. Candidate sse-raw-capture-attempt-1 passes build, runtime8groups/10checkpoints, legacySSE7chooser/9reader, affected HTTP/WebSocket regressions, source closure with an explicit two-file test-only binary-save supplement, and exact original profile restoration. Source topic commit is recorded in STATUS.md; broader migration remains incomplete.
 
 Immediate remaining work:
 
-1. Recheck the latest frontend effect and run existing HTTP/WebSocket/SSE legacy-import headless regressions against shared timeline changes.
-2. Review raw fragment ordering, retention, cancellation/acknowledgement and exact timeline-byte accounting.
-3. Freeze source/scenarios, build an audited native candidate and run saved SSE runtime/raw-export, legacy SSE timeline and affected native HTTP/WebSocket legacy-import scenarios. Verify source closure and exact original profile restoration.
-4. Record receipts/limitations in HTTP.md, IMPORT-EXPORT.md, STATUS.md and PARITY.md, then commit the verified topic. Current working-tree changes have no native acceptance yet.
-
-After this lane: model/shared UI/callback-drain; broader environment/import-export/recovery, GraphQL, gRPC and OpenAPI compatibility; Git clone/remote checkout/push and recovery; authentication/provider/cookie/proxy/TLS acceptance; runner/plugin/template compatibility; desktop/accessibility/platform/installer/CI and legal source/linkage coverage. These groups already have implementations and bounded receipts; outstanding PARITY acceptance does not imply wholesale reimplementation. Deferred UX follows full migration.
+1. Preserve independently readable raw timeline bytes when body/eventLog loading fails. Current cache attachment depends on successful body/log bytes; add saved missing-body/log portability acceptance and retain failed-reader diagnostics without inventing history.
+2. Complete native large-fragment/overflow/backpressure/timeout and compressed/mixed-mode stream variants, then broader protocol/provider/platform requirements. Existing bounded runtime receipts remain valid only for their stated cases.
+3. Continue model/shared UI/callback-drain; environment/import-export/recovery, GraphQL, gRPC/OpenAPI compatibility; Git clone/remote checkout/push/recovery; auth/provider/cookie/proxy/TLS; runner/plugin/templates; desktop/accessibility/platform/installer/CI and legal source/linkage. Most have implementation and partial receipts; outstanding acceptance does not imply wholesale reimplementation.
+4. Audit every PARITY requirement before starting the deferred input/UX redesign.
 
 Cleanup retains migration contracts, acceptance evidence, original archive integrity/build records and the owner-required deferred UX plan. Removed the separate AI-HARNESS.md explainer; agent instructions remain in CLAUDE.md and .claude/.
 

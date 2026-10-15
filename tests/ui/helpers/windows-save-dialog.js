@@ -4,14 +4,22 @@ import { resolve, sep } from "node:path";
 
 /** Control only the owned probe's Windows file dialog. Never type into the
  * foreground window or use titles/global keyboard input. Save paths must be new
- * JSON artifacts inside this scenario's output; no overwrite prompt is allowed.
- * @param {number} pid @param {string} output @param {string|null} path */
-export async function respondToOwnedSaveDialog(pid, output, path) {
+ * JSON artifacts (or explicitly selected binary artifacts) inside this scenario's
+ * output; no overwrite prompt is allowed.
+ * @param {number} pid @param {string} output @param {string|null} path
+ * @param {'.json'|'.bin'} [extension] */
+export async function respondToOwnedSaveDialog(
+  pid,
+  output,
+  path,
+  extension = ".json",
+) {
   assert.equal(process.platform, "win32");
   assert.ok(Number.isSafeInteger(pid) && pid > 0);
+  assert.ok([".json", ".bin"].includes(extension));
   if (path) {
     assert.ok(resolve(path).startsWith(resolve(output) + sep));
-    assert.ok(path.endsWith(".json"));
+    assert.ok(path.endsWith(extension));
     assert.equal(await Bun.file(path).exists(), false, "Refuse overwrite");
   }
   const library = dlopen("user32.dll", {
