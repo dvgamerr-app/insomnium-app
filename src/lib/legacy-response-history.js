@@ -29,8 +29,8 @@ function compression(response) {
   return null;
 }
 
-/** @param {Record<string,any>} response @param {Map<string,Record<string,any>>} index */
-function ownerDiagnostic(response, index) {
+/** @param {Record<string,any>} response @param {Map<string,Record<string,any>>} index @param {"http"|"sse"} expectedProtocol */
+function ownerDiagnostic(response, index, expectedProtocol) {
   const request = index.get(response.parentId);
   if (!request)
     return diagnostic(
@@ -40,13 +40,12 @@ function ownerDiagnostic(response, index) {
     );
   if (
     request._type !== "request" ||
-    request.isEventStreamRequest === true ||
-    protocolFor(request) !== "http"
+    protocolFor(request) !== expectedProtocol
   )
     return diagnostic(
       response,
       "unsupported-protocol",
-      "Legacy response history belongs to a non-HTTP or streaming request; a protocol adapter is required and original response metadata is retained.",
+      "Legacy response history belongs to a different protocol; its protocol adapter is required and original metadata is retained.",
     );
   return null;
 }
@@ -54,8 +53,8 @@ function ownerDiagnostic(response, index) {
 /** Build read-only native asset requests using EXACT supplied legacy paths.
  * Input IDs/references must already have been remapped together by the importer.
  * No path resolution, I/O, decompression or mutation takes place here.
- * @param {Record<string,any>[]} resources */
-export function legacyResponseAssetRequests(resources) {
+ * @param {Record<string,any>[]} resources @param {"http"|"sse"} [expectedProtocol] */
+export function legacyResponseAssetRequests(resources, expectedProtocol = "http") {
   const index = new Map(resources.map((resource) => [resource._id, resource]));
   /** @type {{id:string,bodyPath:string,bodyCompression:"gzip"|"raw",timelinePath:string}[]} */ const entries =
     [];
@@ -63,7 +62,7 @@ export function legacyResponseAssetRequests(resources) {
   for (const response of resources.filter(
     (resource) => resource._type === "response",
   )) {
-    const refusedOwner = ownerDiagnostic(response, index);
+    const refusedOwner = ownerDiagnostic(response, index, expectedProtocol);
     if (refusedOwner) {
       diagnostics.push(refusedOwner);
       continue;
@@ -129,9 +128,9 @@ function text(value) {
  * The browser-compatible SHA256 digest is recomputed over bounded decoded bytes
  * and must match the reader/portable digest. Binary bytes remain exact in base64.
  * @param {Record<string,any>[]} resources
- * @param {{entries?:LegacyResponseAsset[],diagnostics?:unknown[]}} assetResults */
-export function convertLegacyResponseHistory(resources, assetResults = {}) {
-  const requested = legacyResponseAssetRequests(resources);
+ * @param {{entries?:LegacyResponseAsset[],diagnostics?:unknown[]}} assetResults @param {"http"|"sse"} [expectedProtocol] */
+export function convertLegacyResponseHistory(resources, assetResults = {}, expectedProtocol = "http") {
+  const requested = legacyResponseAssetRequests(resources, expectedProtocol);
   /** @type {LegacyResponseDiagnostic[]} */ const warnings = [
     ...requested.diagnostics,
   ];
@@ -181,7 +180,7 @@ export function convertLegacyResponseHistory(resources, assetResults = {}) {
     if (
       !assets.has(response._id) ||
       requestedIds.has(response._id) ||
-      ownerDiagnostic(response, ownerIndex) ||
+      ownerDiagnostic(response, ownerIndex, expectedProtocol) ||
       compression(response) === null
     )
       continue;

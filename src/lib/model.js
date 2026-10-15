@@ -8,6 +8,7 @@ export function protocolFor(request) {
   if (request?._type !== "request") return "http";
   if (request.responseMode)
     return request.responseMode === "sse" ? "sse" : "http";
+  if (request.isEventStreamRequest === true) return "sse";
   return request.headers?.some(
     (/** @type {Resource} */ h) =>
       !h.disabled &&

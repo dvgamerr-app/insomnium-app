@@ -29,6 +29,7 @@ pub struct LegacyResponseEntry {
     pub event_log_path: Option<String>,
     pub timeline_path: Option<String>,
     pub body_compression: String,
+    pub body_format: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -382,9 +383,9 @@ fn timeline(bytes: &[u8]) -> Result<Vec<Value>, Failure> {
     Ok(rows.clone())
 }
 
-/// WebSocket assets are NDJSON, never inferred from a filename extension.
+/// WebSocket logs and explicitly marked SSE timelines use NDJSON, never a filename guess.
 /// Validate only the persisted envelope here; the frontend owns event semantics.
-fn websocket_ndjson(bytes: &[u8], is_timeline: bool) -> Result<Vec<Value>, Failure> {
+fn stream_ndjson(bytes: &[u8], is_timeline: bool) -> Result<Vec<Value>, Failure> {
     let limit = if is_timeline {
         TIMELINE_ENTRIES
     } else {
@@ -397,18 +398,17 @@ fn websocket_ndjson(bytes: &[u8], is_timeline: bool) -> Result<Vec<Value>, Failu
             continue;
         }
         if rows.len() == limit {
-            return Err(("oversize", "Legacy WebSocket NDJSON exceeds 10000 entries."));
+            return Err(("oversize", "Legacy stream NDJSON exceeds 10000 entries."));
         }
         let row: Value = serde_json::from_slice(line).map_err(|_| {
             (
                 "malformed",
-                "Legacy WebSocket NDJSON contains an invalid JSON line.",
+                "Legacy stream NDJSON contains an invalid JSON line.",
             )
         })?;
-        let object = row.as_object().ok_or((
-            "malformed",
-            "Legacy WebSocket NDJSON entries must be objects.",
-        ))?;
+        let object = row
+            .as_object()
+            .ok_or(("malformed", "Legacy stream NDJSON entries must be objects."))?;
         if object
             .get("timestamp")
             .and_then(Value::as_f64)
@@ -421,7 +421,7 @@ fn websocket_ndjson(bytes: &[u8], is_timeline: bool) -> Result<Vec<Value>, Failu
                 object.get("type").and_then(Value::as_str).is_none()
             }
         {
-            return Err(("malformed", "Legacy WebSocket NDJSON requires a nonnegative finite numeric timestamp and string type, or timeline name/value."));
+            return Err(("malformed", "Legacy stream NDJSON requires a nonnegative finite numeric timestamp and string type, or timeline name/value."));
         }
         // Preserve chronological source order and every unknown original field.
         rows.push(row);
@@ -452,6 +452,11 @@ async fn read_assets(
     }
     let mut ids = HashSet::new();
     for entry in &entries {
+        if !matches!(entry.body_format.as_deref(), None | Some("sse-ndjson"))
+            || (entry.body_format.is_some() && entry.event_log_path.is_some())
+        {
+            return Err("Legacy response body format must be ordinary HTTP or explicit SSE NDJSON, without a WebSocket event log.".into());
+        }
         if entry.id.is_empty()
             || entry.id.len() > 200
             || entry.id.chars().any(char::is_control)
@@ -517,7 +522,7 @@ async fn read_assets(
                         row.event_log_base64 = Some(STANDARD.encode(&bytes));
                         // A complete bounded read is portable even when malformed.
                         // Never publish partial reads; derived history validates again.
-                        if let Err((code, message)) = websocket_ndjson(&bytes, false) {
+                        if let Err((code, message)) = stream_ndjson(&bytes, false) {
                             row.diagnostics.push(AssetDiagnostic {
                                 asset: "eventLog",
                                 code,
@@ -545,7 +550,7 @@ async fn read_assets(
                     }
                     .and_then(|bytes| {
                         decoded_remaining -= bytes.len();
-                        websocket_ndjson(&bytes, true)
+                        stream_ndjson(&bytes, true)
                     });
                     match result {
                         Ok(rows) => row.timeline = Some(rows),
@@ -616,7 +621,11 @@ async fn read_assets(
                 )
                 .and_then(|bytes| {
                     decoded_remaining -= bytes.len();
-                    timeline(&bytes)
+                    if entry.body_format.as_deref() == Some("sse-ndjson") {
+                        stream_ndjson(&bytes, true)
+                    } else {
+                        timeline(&bytes)
+                    }
                 });
                 match result {
                     Ok(rows) => row.timeline = Some(rows),
@@ -676,6 +685,7 @@ pub async fn read_legacy_request_assets(
             id: entry.id,
             body_path: Some(entry.path),
             event_log_path: None,
+            body_format: None,
             timeline_path: None,
             body_compression: "raw".into(),
         })
@@ -702,6 +712,7 @@ pub async fn read_legacy_certificate_assets(
             id: entry.id,
             body_path: Some(entry.path),
             event_log_path: None,
+            body_format: None,
             timeline_path: None,
             body_compression: "raw".into(),
         })

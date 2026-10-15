@@ -2,10 +2,11 @@ import { curlResources, isCurlImport } from "./curl-import.js";
 import { isTauri, invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { readTextFile, writeTextFile, writeFile, stat } from "@tauri-apps/plugin-fs";
-import { id, initialData, newRequest } from "./model.js";
+import { id, initialData, newRequest, protocolFor } from "./model.js";
 import { parseLegacyFiles } from "./legacy-import.js";
 import { legacyResponseAssetRequests, convertLegacyResponseHistory } from "./legacy-response-history.js";
 import { legacyWebSocketAssetRequests, convertLegacyWebSocketHistory } from "./legacy-websocket-history.js";
+import { legacySseAssetRequests, convertLegacySseHistory } from "./legacy-sse-history.js";
 import { legacyRequestAssetRequests, convertLegacyRequestFiles } from "./legacy-request-files.js";
 import { legacyCertificateAssetRequests, convertLegacyCertificateFiles } from "./legacy-certificate-files.js";
 import { referenceKeys, validateTopology } from "./resources.js";
@@ -30,7 +31,7 @@ function portableGitResource(resource, forExport = false) {
   return copy;
 }
 
-/** Ordinary and WebSocket assets share one activation budget, including portable imports.
+/** HTTP, SSE and WebSocket assets share one activation budget, including portable imports.
  * @param {Record<string,any>[]} resources @param {{entries?:(import('./legacy-response-history.js').LegacyResponseAsset & Record<string,any>)[]}} [assets] */
 function importedResponseHistory(resources, assets = {}) {
   const index = new Map(resources.map((resource) => [resource._id, resource]));
@@ -53,12 +54,13 @@ function importedResponseHistory(resources, assets = {}) {
         id: response._id,
         code: "history-candidate-limit",
         message:
-          "Only the newest 100 combined HTTP/WebSocket histories can be activated per preview; original records and portable assets are retained.",
+          "Only the newest 100 combined HTTP/SSE/WebSocket histories can be activated per preview; original records and portable assets are retained.",
       });
       continue;
     }
     const request = index.get(response.parentId);
     const context = request ? [request, response] : [response];
+    const isSse = response._type === "response" && request && protocolFor(request) === "sse";
     const selectedAssets = {
       entries: assets.entries?.filter((asset) => asset.id === response._id),
     };
@@ -69,7 +71,9 @@ function importedResponseHistory(resources, assets = {}) {
             selectedAssets,
             32 * 1024 * 1024 - used,
           )
-        : convertLegacyResponseHistory(context, selectedAssets);
+        : isSse
+          ? convertLegacySseHistory(context, selectedAssets, 32 * 1024 * 1024 - used)
+          : convertLegacyResponseHistory(context, selectedAssets);
     warnings.push(...converted.warnings);
     const entry = converted.history[0];
     if (!entry) continue;
@@ -95,7 +99,7 @@ function importedResponseHistory(resources, assets = {}) {
     const bytes =
       (response._type === "websocket_response"
         ? source?.eventLogSize
-        : entry.size) + timelineBytes;
+        : (entry.legacyRawByteSize ?? entry.size)) + timelineBytes;
     if (!Number.isFinite(bytes) || used + bytes > 32 * 1024 * 1024) {
       warnings.push({
         id: response._id,
@@ -329,6 +333,8 @@ export function parseImport(text) {
     const copy = portableGitResource(structuredClone(resource));
     if (copy._type === "websocket_response" && copy._legacyWebSocketAssets?.version === 1)
       copy._legacyWebSocketAssets.sourceRequestId ??= resource.parentId;
+    if (copy._type === "response" && copy._legacyResponseAssets?.bodyFormat === "sse-ndjson")
+      copy._legacyResponseAssets.sourceRequestId ??= resource.parentId;
     for (const key of referenceKeys)
       if (mapping.has(copy[key])) copy[key] = mapping.get(copy[key]);
     // Legacy RequestMeta owns the saved response choice. Nested literal payloads
@@ -425,7 +431,8 @@ export async function pickLegacyResponseHistory(review) {
   if (typeof root !== "string") throw new Error("Choose one legacy data folder.");
   const httpPlan = legacyResponseAssetRequests(review.resources);
   const streamPlan = legacyWebSocketAssetRequests(review.resources);
-  const plan = {entries:[...httpPlan.entries,...streamPlan.entries]};
+  const ssePlan = legacySseAssetRequests(review.resources);
+  const plan = {entries:[...httpPlan.entries,...ssePlan.entries,...streamPlan.entries]};
   const byId = new Map(review.resources.map((r) => [r._id, r]));
   const ordered = plan.entries.map((entry, index) => ({ entry, index })).sort((a, b) => {
     const time = (/** @type {string} */ id) => {
@@ -447,7 +454,9 @@ export async function pickLegacyResponseHistory(review) {
       return {...resource,_legacyWebSocketAssets:{version:1,...portable,sourceRequestId:request?._legacySource?.record?._id || request?._id}};
     }
     if (typeof asset.bodyBase64 !== "string") return resource;
-    return { ...resource, _legacyResponseAssets: { version: 1, ...portable } };
+    const request = byId.get(resource.parentId);
+    const sse = request && protocolFor(request) === "sse";
+    return { ...resource, _legacyResponseAssets: { version: 1, ...portable, ...(sse ? { bodyFormat: "sse-ndjson", sourceRequestId: request._legacySource?.record?._id || resource._legacyResponseAssets?.sourceRequestId || request._id } : {}) } };
   });
   const converted = importedResponseHistory(resources, assets);
   return {
