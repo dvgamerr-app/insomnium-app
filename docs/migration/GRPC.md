@@ -1,8 +1,16 @@
 # GRPC migration
 
-Updated 2026-10-14. Original current Windows gRPC workflow and Proto36 receipts are accepted. Remaining JSON/shared-editor/compatibility, prospective terminal-classification and platform requirements remain open.
+Updated 2026-10-15. Original current Windows gRPC workflow and Proto36 receipts are accepted. Remaining JSON/shared-editor/compatibility, prospective terminal-classification and platform requirements remain open.
 
 See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity requirements](PARITY.md). No original scope was removed by consolidation.
+
+## Current embedded proto root correction
+
+Legacy `proto_file` stores embedded `protoText` and `proto_directory` stores hierarchy; original `network/grpc/write-proto-file.ts` materializes these records rather than authorizing external source paths. The bounded correction at5fbb75a in `grpc-model.js`/`GrpcPane.svelte` isolates the selected root by resource ID before validation and derives parent-first DFS include paths in resource order, including empty directories under the256-directory bound. Optional UI choice enumeration skips invalid alternatives; default enumeration and the selected tree remain strict. The2 MiB source boundary remains unchanged. Official source consulted: [protox FileResolver](https://docs.rs/protox/latest/protox/file/trait.FileResolver.html); no new subsystem is added.
+
+Actual NeDB decode/ID remapping/provenance regression passes7 controls at `artifacts/playwright/proto-manager-component/proto-root-model.json`; historical baseline `a147531` fails6 independent root-name/order/unsafe-name/picker/empty-directory-bound controls. Saved headless `--proto-component`73822 passes216 rows across6 profiles without errors/failures. Final compiler5404 passes0/0 and frontend build3332e6 passes; intermediate compiler16304's15 nullable-helper diagnostics were corrected with an asserting lookup. These are model/component/build proofs: no native build/run or profile handles were used for this feature; source/scenario commit is5fbb75a.
+
+Genuine NeDB nested import → Rust method discovery/Echo → export/reimport remains open, including selected method/provenance preservation and native missing-import/root-isolation evidence. Existing [original Windows workflow](#record-current-original-grpc-native-acceptance) and [Proto36](#record-current-proto36-native-acceptance) remain accepted within their receipts. Remaining JSON/shared-editor/provider/platform and all retained [compatibility requirements](#record-grpc-compatibility) stay required.
 
 ## Topic records
 
