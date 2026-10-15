@@ -4,6 +4,10 @@ Updated 2026-10-15. Current state is in [STATUS.md](STATUS.md); all original req
 
 ## Remaining execution order
 
+Latest bounded acceptance: exact20MiB UTF8 text/binary send+echo hashes and incoming20MiB+1refusal pass in14native ACKgroups with original regressions. See HTTP.md#current-exact-websocket-transport-boundaries. Next actual large WebSocket UI/history/reload/retention, explicit fragmented/control frames and gRPC plus remaining PARITY.
+
+
+
 Latest outgoing WebSocket guards are bounded verified: UTF8 ping125/126, ASCII/UTF8/binary20MiB+1, format refusals and binary recovery. See HTTP.md#current-outgoing-websocket-size-and-control-guards. Next exact20MiB accepted send/receive, incoming oversized/fragmentation and gRPC, plus all remaining PARITY.
 
 

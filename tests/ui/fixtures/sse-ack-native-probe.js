@@ -80,6 +80,45 @@ if (/** @type {any} */ (window).__ownedSseAckProbe)
       result: run.result,
     };
   },
+  /** Hash large received data locally after real Channel delivery.
+   * @param {string} id */
+  async digestStatus(id) {
+    const run = runs.get(id);
+    if (!run) throw Error("Unknown owned probe");
+    const packets = await Promise.all(
+      run.packets.map(async (/** @type {any} */ packet) => {
+        if (packet.event.kind !== "message" || packet.event.size < 1024 * 1024)
+          return packet;
+        const bytes =
+          packet.event.format === "binary"
+            ? Uint8Array.from(atob(packet.event.data), (c) => c.charCodeAt(0))
+            : new TextEncoder().encode(packet.event.data);
+        const digest = await crypto.subtle.digest("SHA-256", bytes);
+        const sha256 = Array.from(new Uint8Array(digest), (b) =>
+          b.toString(16).padStart(2, "0"),
+        ).join("");
+        return {
+          ...packet,
+          event: {
+            ...packet.event,
+            data: null,
+            sha256,
+            decodedBytes: bytes.length,
+          },
+        };
+      }),
+    );
+    return {
+      id,
+      packets,
+      ackErrors: run.ackErrors,
+      manualAcks: run.manualAcks,
+      startedAt: run.startedAt,
+      doneAt: run.doneAt,
+      done: run.done,
+      result: run.result,
+    };
+  },
   /** @param {string} id */
   release(id) {
     const run = runs.get(id);

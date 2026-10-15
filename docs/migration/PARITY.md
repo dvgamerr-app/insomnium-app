@@ -6,6 +6,10 @@ Current receipts: Windows environment6349100/follow-up eae4ac2 (29checks/Name6/J
 
 ## Latest stream history and decoded limits
 
+Exact20MiB UTF8 text/binary native send+echo now pass with independently recomputed authored/peer/Channel hashes; incoming20MiB+1text/binary end with generic tungstenite error and no oversized Channel payload. Four profiles restore exactly;14ACK/SSE8/WS6/mixed5regressions and1401source closure pass. See HTTP.md#current-exact-websocket-transport-boundaries. Actual large WS UI/history, fragmentation/full control frames, gRPC, provider/platform and all retained gates remain open.
+
+
+
 Outgoing WebSocket size/control guards now have bounded Windows acceptance: exact UTF8 ping125wire bytes/126refusal,20MiB+1ASCII/UTF8/binary refusal and malformed-format refusal with valid binary recovery. Existing10ACKgroups/SSE8/WS6/mixed5 and exact4profile/source closure pass. See HTTP.md#current-outgoing-websocket-size-and-control-guards. Exact-size success/incoming fragmentation/oversize, gRPC and broader provider/platform/all retained gates remain open.
 
 

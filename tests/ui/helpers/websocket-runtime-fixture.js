@@ -4,9 +4,10 @@ import assert from "node:assert/strict";
 /** @typedef {{token:string,mode:string,url:string,method:string,headers:Record<string,string>,subprotocol:string,receivedAt:number,opened:boolean,openedAt:number|null,closed:boolean,closeCode:number|null,closeReason:string|null,closedAt:number|null,aborted:boolean,settled:boolean,released:boolean,incoming:WireMessage[],outgoing:WireMessage[],pings:WireMessage[],callbackErrors:string[]}} SessionRecord */
 
 /** Real loopback peer for saved UI/native scenarios. No transport interception.
+ * @param {{largeMessages?:boolean}} [options]
  * Official protocol API: https://bun.sh/docs/runtime/http/websockets
  */
-export async function createWebSocketRuntimeFixture() {
+export async function createWebSocketRuntimeFixture(options = {}) {
   /** @type {SessionRecord[]} */
   const records = [];
   /** @type {string[]} */
@@ -121,6 +122,12 @@ export async function createWebSocketRuntimeFixture() {
       data: /** @type {SessionRecord} */ ({}),
       idleTimeout: 0,
       sendPings: false,
+      ...(options.largeMessages
+        ? {
+            maxPayloadLength: 24 * 1024 * 1024,
+            backpressureLimit: 64 * 1024 * 1024,
+          }
+        : {}),
       open(ws) {
         ws.data.opened = true;
         ws.data.openedAt = Date.now();

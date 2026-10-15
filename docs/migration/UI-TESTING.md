@@ -1675,3 +1675,7 @@ The existing `bun tests/ui/websocket-ack-native.js` now runs9groups, including q
 ## Current outgoing WebSocket guard verification
 
 Reuse `bun tests/ui/websocket-ack-native.js` with INSOMNIUM_WEBSOCKET_ACK_NATIVE=1 and audited build/profile ownership settings. Existing10groups include six outgoing refusals, exact UTF8 ping125wire bytes and valid binary recovery after refusals. Native-hidden and exact profile restoration remain required. Canonical scope/evidence: HTTP.md#current-outgoing-websocket-size-and-control-guards.
+
+## Current exact WebSocket transport verification
+
+Existing `bun tests/ui/websocket-ack-native.js` has14groups with INSOMNIUM_WEBSOCKET_ACK_NATIVE=1 and audited build/profile ownership. Four new cases compare exact20MiB text/binary authored/peer/real Channel hashes and observe incoming20MiB+1 refusal without oversized delivery. digestStatus computes hashes after actual delivery; it does not substitute application callbacks. Keep full payload transport distinct from compact receipt storage and application UI history. Canonical evidence: HTTP.md#current-exact-websocket-transport-boundaries.

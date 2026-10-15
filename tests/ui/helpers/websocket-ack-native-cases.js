@@ -15,6 +15,18 @@ import {
 import { createWebSocketRuntimeFixture } from "./websocket-runtime-fixture.js";
 
 const MiB = 1024 * 1024;
+/** @param {import('./websocket-runtime-fixture.js').WireMessage} row */
+function compactWire(row) {
+  if (row.size < MiB) return row;
+  const bytes = Buffer.from(row.base64, "base64");
+  return {
+    ...row,
+    text: null,
+    base64: "",
+    sha256: sha(bytes),
+    capturedAs: "size-and-sha256",
+  };
+}
 /** @param {Uint8Array} bytes */
 const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
@@ -27,7 +39,7 @@ export async function runWebSocketAckNativeCases() {
     expectedIdentifier: resourceCrudProbeIdentifier,
     profileOwnershipPath: marker,
   };
-  const fixture = await createWebSocketRuntimeFixture();
+  const fixture = await createWebSocketRuntimeFixture({ largeMessages: true });
   /** @type {unknown[]} */ const failures = [];
   /** @type {Record<string,any>[]} */ const checks = [];
   /** @type {string[]} */ const pageErrors = [];
@@ -645,6 +657,95 @@ export async function runWebSocketAckNativeCases() {
                 ping125: record(token)?.pings[0],
                 binaryWire: record(token)?.incoming[0],
               });
+
+              const digestStatus = (/** @type {string} */ key) =>
+                page.evaluate(
+                  (key) =>
+                    /** @type {any} */ (window).__ownedSseAckProbe.digestStatus(
+                      key,
+                    ),
+                  key,
+                );
+              for (const format of ["text", "binary"]) {
+                id = "ws_exact20_" + format + "_" + suffix;
+                token = "exact20-" + format + "-" + suffix;
+                await begin(id, token, false, 1);
+                const bytes =
+                  format === "text"
+                    ? Buffer.from("β".repeat(10 * MiB))
+                    : Buffer.alloc(20 * MiB, 165);
+                const expectedSHA256 = sha(bytes);
+                await invoke("send_stream_message", {
+                  id,
+                  format,
+                  data:
+                    format === "text"
+                      ? bytes.toString()
+                      : bytes.toString("base64"),
+                });
+                await poll(
+                  () => Promise.resolve(record(token)?.incoming.length === 1),
+                  "Exact20MiB reaches independent peer",
+                  60000,
+                );
+                const wire = record(token)?.incoming[0];
+                assert.equal(wire?.size, 20 * MiB);
+                assert.equal(
+                  sha(Buffer.from(wire?.base64 ?? "", "base64")),
+                  expectedSHA256,
+                );
+                await poll(
+                  async () =>
+                    (await digestStatus(id)).packets.some(
+                      (/** @type {any} */ p) =>
+                        p.event.direction === "received" &&
+                        p.event.sha256 === expectedSHA256,
+                    ),
+                  "Exact20MiB echo reaches real Channel",
+                  60000,
+                );
+                fixture.peerClose(token, 1000, "exact20 complete");
+                await poll(
+                  async () => (await digestStatus(id)).done,
+                  "Exact20MiB invocation retires",
+                  60000,
+                );
+                await closed(token);
+                s = await digestStatus(id);
+                assert.equal(s.result.ok, true);
+                const large = messages(s).filter(
+                  (/** @type {any} */ p) => p.event.size === 20 * MiB,
+                );
+                assert.equal(large.length, 2);
+                for (const packet of large) {
+                  assert.equal(packet.event.sha256, expectedSHA256);
+                  assert.equal(packet.event.decodedBytes, 20 * MiB);
+                }
+                await receipt("exact20MiB-send-and-echo-" + format, s, {
+                  bytes: bytes.length,
+                  expectedSHA256,
+                  peerSHA256: sha(Buffer.from(wire?.base64 ?? "", "base64")),
+                });
+              }
+              for (const format of ["text", "binary"]) {
+                id = "ws_incoming_oversize_" + format + "_" + suffix;
+                token = "incoming-oversize-" + format + "-" + suffix;
+                await begin(id, token, false, 1);
+                const bytes = Buffer.alloc(20 * MiB + 1, 120);
+                fixture.peerSend(
+                  token,
+                  format === "text" ? bytes.toString() : bytes,
+                );
+                s = await done(id, 60000);
+                await closed(token);
+                assert.equal(s.result.ok, false);
+                assert.match(s.result.error, /WebSocket failed/);
+                assert.equal(messages(s).length, 1);
+                await receipt("incoming20MiB-plus1-refused-" + format, s, {
+                  offeredBytes: bytes.length,
+                  offeredSHA256: sha(bytes),
+                });
+              }
             } finally {
               await page.evaluate(() =>
                 /** @type {any} */ (window).__ownedSseAckProbe?.dispose(),
@@ -685,7 +786,11 @@ export async function runWebSocketAckNativeCases() {
           renderingMode: "native-hidden",
           mockedIpc: false,
           checks,
-          records: fixture.records,
+          records: fixture.records.map((row) => ({
+            ...row,
+            incoming: row.incoming.map(compactWire),
+            outgoing: row.outgoing.map(compactWire),
+          })),
           retirement,
           pageErrors,
           errors: failures.map(String),

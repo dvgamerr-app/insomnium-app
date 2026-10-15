@@ -3,6 +3,14 @@
 Updated 2026-10-15. Full migration is **incomplete**. Latest verified scenario/source commit:5fbb75a; prior certificate scenario:9180ac4; portable certificate implementation:ddea70f; prior request-file implementation/scenario:11e9b96/08ab0b3. Branch:feat/ui-design-system-settings-curl. Verified agent work is committed in the shared repo. Retired directories/custom .git backups remain absent; legacy backup and node_modules are preserved.
 ## Current work
 
+### WebSocket exact20MiB transport boundary — verified bounded milestone 2026-10-15
+
+Four real SDK Channel/native groups pass: UTF8 text (10MiB β characters) and binary (20MiB0xa5) each20971520decoded bytes send to independent peer and echo through the native Channel. Authored bytes, peer capture and both sent/received Channel events have identical independently recomputed SHA256. Incoming text/binary20971521bytes each end with WebSocket failed: tungstenite error; only the earlier ready message reaches Channel. The current error hides the specific capacity cause, so no precise size diagnostic is claimed. Fixture opts into24MiB receive/64MiB backpressure only for these ACK cases; other callers retain defaults. Large payloads traverse the actual Channel; the receiver hashes them locally after delivery and receipts compact peer data to size/SHA256.
+
+Suite9490 exits0: ACK1792060679503=14/SSE1792060851046=8/WS1792060867876=6/mixed1792060879560=5. Hosts45088/51828/41672/56612 exit0/native-hidden; exact4original profiles restore. Original appb2bd65d/exeSHAcea47a30/manifest7b71e8d3 unchanged; declared7test/5doc supplement closes1401source/1310regular files/all other scopes. acceptance-audit-websocket-exact20.json checks source/build/receipts/profiles, independently reconstructed20MiB hashes and exact rebuilt SDK bundle. Artifacts: artifacts/native-resource-crud-audit-probe/sse-exact-retention-attempt-1/. Strict4-file JS/Prettier checks pass. No application edit/live handles. Next actual application large WS rendering/history/reload/retention, explicit fragmented/control-frame variants and gRPC, plus remaining PLAN/PARITY. Full migration incomplete; UX deferred. /compact unavailable; explicit handoff.
+
+
+
 Verified outgoing guard topic commit:10255f7. Post-acceptance audit checks1310regular files with five documentation-only deltas; no application/scenario drift. Suite20361 terminal0/no live handles. Next exact20MiB accepted send/receive and incoming oversize/fragmentation/gRPC; full migration incomplete. /compact unavailable; explicit handoff.
 
 
