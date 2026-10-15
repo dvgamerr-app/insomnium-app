@@ -3,6 +3,9 @@
 Updated 2026-10-15. Full migration is **incomplete**. Latest verified scenario/source commit:5fbb75a; prior certificate scenario:9180ac4; portable certificate implementation:ddea70f; prior request-file implementation/scenario:11e9b96/08ab0b3. Branch:feat/ui-design-system-settings-curl. Verified agent work is committed in the shared repo. Retired directories/custom .git backups remain absent; legacy backup and node_modules are preserved.
 ## Current work
 
+Verified large stream rendering topic commit:3ecce5a. Post-acceptance delta audit checks1312regular files: only five migration docs changed, no implementation/scenario drift. Build65298/continuation18771 terminal0; all5native hosts exit0/profile hashes exact. No live owned handles. Next explicit fragmented/control frames, full large-event export and gRPC plus remaining PLAN/PARITY. Full migration incomplete; /compact unavailable, explicit handoff.
+
+
 ### Large stream UI preview and full history — verified bounded milestone 2026-10-15
 
 Fixed StreamPane rendering the full large payload twice in DOM. List summaries now show at most512UTF16 units plus ellipsis; selected detail shows at most65536units, avoiding split surrogate pairs and skipping full-data formatting when truncated. A visible preview notice points to Copy/Save. Full event data, native transport, history, Copy and Save sources remain unchanged. This is a rendering bound, not payload truncation or a layout redesign.
