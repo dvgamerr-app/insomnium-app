@@ -25,23 +25,25 @@ export async function runGrpcLargeSentNativeCases({
   base64Only = false,
   numericOnly = false,
   longOnly = false,
+  overflowOnly = false,
 } = {}) {
-  assert.ok([base64Only, numericOnly, longOnly].filter(Boolean).length <= 1);
-  const scenario = longOnly
-    ? "grpc-long-native"
-    : numericOnly
-      ? "grpc-numeric-native"
-      : base64Only
-        ? "grpc-base64-native"
-        : "grpc-large-sent-native";
+  const variants = [
+    {
+      enabled: overflowOnly,
+      tag: "-overflow-",
+      scenario: "grpc-overflow-native",
+    },
+    { enabled: longOnly, tag: "-long-", scenario: "grpc-long-native" },
+    { enabled: numericOnly, tag: "-numeric-", scenario: "grpc-numeric-native" },
+    { enabled: base64Only, tag: "-base64-", scenario: "grpc-base64-native" },
+  ];
+  assert.ok(variants.filter((variant) => variant.enabled).length <= 1);
+  const selected = variants.find((variant) => variant.enabled);
+  const scenario = selected?.scenario ?? "grpc-large-sent-native";
   const modes = grpcLargeModes.filter((mode) =>
-    longOnly
-      ? mode.includes("-long-")
-      : !mode.includes("-long-") &&
-        (numericOnly
-          ? mode.includes("-numeric-")
-          : !mode.includes("-numeric-") &&
-            mode.includes("-base64-") === base64Only),
+    selected
+      ? mode.includes(selected.tag)
+      : !variants.some((variant) => mode.includes(variant.tag)),
   );
   const marker = process.env.INSOMNIUM_UI_PROFILE_OWNERSHIP;
   assert.ok(marker && process.env.INSOMNIUM_UI_BUILD_STATE);
@@ -476,13 +478,15 @@ export async function runGrpcLargeSentNativeCases({
           records: fixture.records,
           errorEvents: fixture.errorEvents,
           errors: errors.map(String),
-          scope: longOnly
-            ? "Six legacy signed/unsigned64 whitespace/chunk/sign cases through actual editor/Format/mode switch and full wire/history/reload/export. Broader coercion/provider/platform gates remain open."
-            : numericOnly
-              ? "Four legacy numeric-whitespace cases through actual editor/Format/mode switch, exact int32/double frames, response/history/reload/export. Other coercion/provider/platform gates remain open."
-              : base64Only
-                ? "Six legacy Base64 byte/frame/history/reload/export cases. Other Base64, ProtoJSON and provider/platform gates remain open."
-                : "Actual native fourteen-case9MiB/compact-array/Unicode plus typed int64/bytes shared-editor Format/mode-switch/history/export in legacy/protoJson. No broad JSON/provider/platform claim.",
+          scope: overflowOnly
+            ? "Eight legacy JSON numeric overflow/underflow cases through actual editor/Format/mode switch and exact double/int32/int64/string wire/history/reload/export. Broader JSON/provider/platform gates remain open."
+            : longOnly
+              ? "Six legacy signed/unsigned64 whitespace/chunk/sign cases through actual editor/Format/mode switch and full wire/history/reload/export. Broader coercion/provider/platform gates remain open."
+              : numericOnly
+                ? "Four legacy numeric-whitespace cases through actual editor/Format/mode switch, exact int32/double frames, response/history/reload/export. Other coercion/provider/platform gates remain open."
+                : base64Only
+                  ? "Six legacy Base64 byte/frame/history/reload/export cases. Other Base64, ProtoJSON and provider/platform gates remain open."
+                  : "Actual native fourteen-case9MiB/compact-array/Unicode plus typed int64/bytes shared-editor Format/mode-switch/history/export in legacy/protoJson. No broad JSON/provider/platform claim.",
         },
         null,
         2,

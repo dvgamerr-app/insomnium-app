@@ -30,9 +30,17 @@ export const grpcLargeModes = [
   "legacy-long-chunk-nbsp",
   "legacy-long-negative-nel",
   "legacy-long-negative-bom",
+  "legacy-overflow-positive-400",
+  "legacy-overflow-negative-400",
+  "legacy-overflow-positive-309",
+  "legacy-overflow-negative-309",
+  "legacy-overflow-finite-positive",
+  "legacy-overflow-finite-negative",
+  "legacy-overflow-underflow-positive",
+  "legacy-overflow-underflow-negative",
 ];
 export const grpcLargeProto =
-  'syntax="proto3"; package ownedlarge; message Input { string value=1; } message Compact { repeated int32 values=1; } message Precision { int64 exact_value=1; bytes bytes_value=2; } message Numeric { optional int32 value=1; double real=2; } message Wide { optional int64 signed_value=1; optional uint64 unsigned_value=2; } service Upload { rpc Stream(stream Input) returns(stream Input); rpc Echo(Input) returns(Input); rpc Expand(Compact) returns(Compact); rpc PrecisionEcho(Precision) returns(Precision); rpc NumericEcho(Numeric) returns(Numeric); rpc WideEcho(Wide) returns(Wide); }';
+  'syntax="proto3"; package ownedlarge; message Input { string value=1; } message Compact { repeated int32 values=1; } message Precision { int64 exact_value=1; bytes bytes_value=2; } message Numeric { optional int32 value=1; double real=2; } message Wide { optional int64 signed_value=1; optional uint64 unsigned_value=2; } message Overflow { optional double real=1; optional int32 integer=2; optional int64 wide=3; string text=4; } service Upload { rpc Stream(stream Input) returns(stream Input); rpc Echo(Input) returns(Input); rpc Expand(Compact) returns(Compact); rpc PrecisionEcho(Precision) returns(Precision); rpc NumericEcho(Numeric) returns(Numeric); rpc WideEcho(Wide) returns(Wide); rpc OverflowEcho(Overflow) returns(Overflow); }';
 /** Independent small-message wire and lexical editor expectations.
  * @param {string} mode */
 function jsonEditorCase(mode) {
@@ -84,6 +92,96 @@ function varint(value) {
 export function grpcLargeCase(mode) {
   if (!grpcLargeModes.includes(mode))
     throw new Error("Unknown authored gRPC case");
+  if (mode.includes("-overflow-")) {
+    const tuple = {
+      "legacy-overflow-positive-400": [
+        "1e400",
+        null,
+        "9223372036854775807",
+        "Infinity",
+        "09000000000000f07f100018ffffffffffffffff7f2208496e66696e697479",
+      ],
+      "legacy-overflow-negative-400": [
+        "-1e400",
+        null,
+        "-9223372036854775808",
+        "-Infinity",
+        "09000000000000f0ff1000188080808080808080800122092d496e66696e697479",
+      ],
+      "legacy-overflow-positive-309": [
+        "1e309",
+        null,
+        "9223372036854775807",
+        "Infinity",
+        "09000000000000f07f100018ffffffffffffffff7f2208496e66696e697479",
+      ],
+      "legacy-overflow-negative-309": [
+        "-1e309",
+        null,
+        "-9223372036854775808",
+        "-Infinity",
+        "09000000000000f0ff1000188080808080808080800122092d496e66696e697479",
+      ],
+      "legacy-overflow-finite-positive": [
+        "1e308",
+        1e308,
+        "9223372036854775807",
+        "1e+308",
+        "09a0c8eb85f3cce17f100018ffffffffffffffff7f220631652b333038",
+      ],
+      "legacy-overflow-finite-negative": [
+        "-1e308",
+        -1e308,
+        "-9223372036854775808",
+        "-1e+308",
+        "09a0c8eb85f3cce1ff1000188080808080808080800122072d31652b333038",
+      ],
+      "legacy-overflow-underflow-positive": [
+        "1e-400",
+        0,
+        "0",
+        "0",
+        "09000000000000000010001800220130",
+      ],
+      "legacy-overflow-underflow-negative": [
+        "-1e-400",
+        0,
+        "0",
+        "0",
+        "09000000000000008010001800220130",
+      ],
+    }[mode];
+    if (!tuple) throw new Error("Unknown overflow case");
+    const [literal, real, wide, text, hex] = tuple;
+    const response = {
+      real,
+      _real: "real",
+      integer: 0,
+      _integer: "integer",
+      wide,
+      _wide: "wide",
+      text,
+    };
+    const body = `{"real":${literal},"integer":${literal},"wide":${literal},"text":${literal}}`;
+    const formattedBody = `{\n  "real": ${literal},\n  "integer": ${literal},\n  "wide": ${literal},\n  "text": ${literal}\n}`;
+    const payload = Buffer.from(String(hex), "hex"),
+      prefix = Buffer.alloc(5);
+    prefix.writeUInt32BE(payload.length, 1);
+    return {
+      mode,
+      jsonMode: "legacy",
+      unary: true,
+      receives: true,
+      body,
+      formattedBody,
+      responseText: JSON.stringify(response),
+      preview: JSON.stringify(response, null, 2),
+      wire: Buffer.concat([prefix, payload]),
+      method: "/ownedlarge.Upload/OverflowEcho",
+      editor: true,
+      showNotice: false,
+    };
+  }
   if (mode.includes("-long-")) {
     const tuple = {
       "legacy-long-nel": ["\u00851\u0085", "0", "0", "08001000"],

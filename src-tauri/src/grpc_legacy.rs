@@ -17,8 +17,90 @@ use serde::{
     ser::{SerializeMap, SerializeSeq},
     Serialize, Serializer,
 };
-use serde_json::Value as Json;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
+
+// Only the legacy converter uses JavaScript Number semantics. RawValue validates
+// JSON syntax without rejecting numeric overflow before conversion to f64.
+enum Json {
+    Null,
+    Bool(bool),
+    Number(f64),
+    String(String),
+    Array(Vec<Json>),
+    Object(BTreeMap<String, Json>),
+}
+impl Json {
+    fn parse(text: &str, depth: usize) -> Result<Self, String> {
+        let raw: &serde_json::value::RawValue =
+            serde_json::from_str(text).map_err(|error| format!("Invalid gRPC JSON: {error}"))?;
+        let text = raw.get();
+        let first = text.as_bytes()[0];
+        // Match serde_json's default maximum of 127 nested containers.
+        if depth >= 127 && matches!(first, b'[' | b'{') {
+            return Err("Invalid gRPC JSON: recursion limit exceeded".into());
+        }
+        let invalid = |error| format!("Invalid gRPC JSON: {error}");
+        match first {
+            b'n' => Ok(Self::Null),
+            b't' => Ok(Self::Bool(true)),
+            b'f' => Ok(Self::Bool(false)),
+            b'"' => serde_json::from_str(text)
+                .map(Self::String)
+                .map_err(invalid),
+            b'[' => {
+                let values: Vec<&serde_json::value::RawValue> =
+                    serde_json::from_str(text).map_err(invalid)?;
+                values
+                    .into_iter()
+                    .map(|value| Self::parse(value.get(), depth + 1))
+                    .collect::<Result<Vec<_>, _>>()
+                    .map(Self::Array)
+            }
+            b'{' => {
+                let values: BTreeMap<String, &serde_json::value::RawValue> =
+                    serde_json::from_str(text).map_err(invalid)?;
+                values
+                    .into_iter()
+                    .map(|(key, value)| {
+                        Self::parse(value.get(), depth + 1).map(|value| (key, value))
+                    })
+                    .collect::<Result<BTreeMap<_, _>, _>>()
+                    .map(Self::Object)
+            }
+            _ => text
+                .parse::<f64>()
+                .map(Self::Number)
+                .map_err(|error| format!("Invalid gRPC JSON number: {error}")),
+        }
+    }
+    fn get(&self, key: &str) -> Option<&Self> {
+        match self {
+            Self::Object(values) => values.get(key),
+            _ => None,
+        }
+    }
+    fn as_str(&self) -> Option<&str> {
+        match self {
+            Self::String(value) => Some(value),
+            _ => None,
+        }
+    }
+    fn as_array(&self) -> Option<&Vec<Self>> {
+        match self {
+            Self::Array(values) => Some(values),
+            _ => None,
+        }
+    }
+    fn is_null(&self) -> bool {
+        matches!(self, Self::Null)
+    }
+    fn is_object(&self) -> bool {
+        matches!(self, Self::Object(_))
+    }
+    fn is_array(&self) -> bool {
+        matches!(self, Self::Array(_))
+    }
+}
 
 fn legacy_base64_bytes(text: &str) -> Result<Vec<u8>, &'static str> {
     const ENGINE: GeneralPurpose = GeneralPurpose::new(
@@ -56,7 +138,7 @@ fn truthy(value: &Json) -> bool {
     match value {
         Json::Null => false,
         Json::Bool(v) => *v,
-        Json::Number(v) => v.as_f64().is_some_and(|v| v != 0.0 && !v.is_nan()),
+        Json::Number(v) => *v != 0.0 && !v.is_nan(),
         Json::String(v) => !v.is_empty(),
         _ => true,
     }
@@ -65,9 +147,7 @@ fn js_string(value: &Json) -> String {
     match value {
         Json::Null => "null".into(),
         Json::Bool(v) => v.to_string(),
-        Json::Number(v) => ryu_js::Buffer::new()
-            .format(v.as_f64().unwrap_or(f64::NAN))
-            .into(),
+        Json::Number(v) => ryu_js::Buffer::new().format(*v).into(),
         Json::String(v) => v.clone(),
         Json::Array(v) => v
             .iter()
@@ -111,7 +191,7 @@ fn number(value: &Json) -> f64 {
                 0.0
             }
         }
-        Json::Number(v) => v.as_f64().unwrap_or(f64::NAN),
+        Json::Number(v) => *v,
         _ => {
             let text = js_string(value);
             let text = text.trim_matches(js_whitespace);
@@ -193,7 +273,7 @@ fn long_bits(value: &Json) -> Result<u64, String> {
             }
             Ok(if negative { bits.wrapping_neg() } else { bits })
         }
-        Json::Number(value) => Ok(value.as_f64().unwrap_or(0.0) as i64 as u64),
+        Json::Number(value) => Ok(*value as i64 as u64),
         Json::Object(value) => Ok(uint32(value.get("low").unwrap_or(&Json::Null)) as u64
             | ((uint32(value.get("high").unwrap_or(&Json::Null)) as u64) << 32)),
         Json::Null => Err("Legacy 64-bit field cannot contain null.".into()),
@@ -247,7 +327,7 @@ pub(crate) fn parse(desc: MessageDescriptor, text: &str) -> Result<DynamicMessag
     if text.len() > MAX_MESSAGE {
         return Err("gRPC JSON message exceeds 20 MiB.".into());
     }
-    let input: Json = serde_json::from_str(text).map_err(|e| format!("Invalid gRPC JSON: {e}"))?;
+    let input = Json::parse(text, 0)?;
     let message = from_object(desc, &input, 0)?;
     if message.encoded_len() > MAX_MESSAGE {
         return Err("gRPC message exceeds 20 MiB.".into());
@@ -540,6 +620,117 @@ mod tests {
     use prost_types::{
         DescriptorProto, FieldDescriptorProto, FileDescriptorProto, FileDescriptorSet,
     };
+
+    #[test]
+    fn legacy_json_parser_preserves_syntax_and_container_boundaries() {
+        for input in [
+            "NaN",
+            "Infinity",
+            "-Infinity",
+            "+1",
+            "01",
+            "1.",
+            "1e",
+            "[1,]",
+            "{\"x\":1,}",
+            "{\"x\":1}null",
+            "\"unterminated",
+            "{bad:1}",
+        ] {
+            assert!(
+                Json::parse(input, 0).is_err(),
+                "Invalid JSON accepted: {input}"
+            );
+        }
+        let duplicate = Json::parse("{\"value\":1e400,\"value\":2}", 0).unwrap();
+        assert_eq!(number(duplicate.get("value").unwrap()), 2.0);
+        let duplicate = Json::parse("{\"value\":2,\"value\":-1e400}", 0).unwrap();
+        assert_eq!(number(duplicate.get("value").unwrap()), f64::NEG_INFINITY);
+        let negative_zero = Json::parse("-0", 0).unwrap();
+        assert!(number(&negative_zero).is_sign_negative());
+        assert!(!truthy(&negative_zero));
+        assert_eq!(js_string(&negative_zero), "0");
+        let overflow = Json::parse("1e400", 0).unwrap();
+        assert!(truthy(&overflow));
+        assert_eq!(js_string(&overflow), "Infinity");
+        assert_eq!(
+            js_string(&Json::parse("[null,true,1,\"x\",{}]", 0).unwrap()),
+            ",true,1,x,[object Object]"
+        );
+        for (depth, allowed) in [(127, true), (128, false)] {
+            let input = "[".repeat(depth) + "0" + &"]".repeat(depth);
+            assert_eq!(
+                serde_json::from_str::<serde_json::Value>(&input).is_ok(),
+                allowed
+            );
+            assert_eq!(
+                Json::parse(&input, 0).is_ok(),
+                allowed,
+                "JSON depth {depth}"
+            );
+        }
+    }
+
+    #[test]
+    fn legacy_json_numeric_overflow_reference_vectors() {
+        use prost_types::field_descriptor_proto::{Label, Type};
+        let pool = DescriptorPool::from_file_descriptor_set(FileDescriptorSet {
+            file: vec![FileDescriptorProto {
+                name: Some("numeric_overflow.proto".into()),
+                syntax: Some("proto3".into()),
+                message_type: vec![DescriptorProto {
+                    name: Some("NumericOverflow".into()),
+                    field: [
+                        ("real", Type::Double),
+                        ("integer", Type::Int32),
+                        ("wide", Type::Int64),
+                        ("text", Type::String),
+                    ]
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, (name, kind))| FieldDescriptorProto {
+                        name: Some(name.into()),
+                        number: Some(index as i32 + 1),
+                        label: Some(Label::Optional as i32),
+                        r#type: Some(kind as i32),
+                        ..Default::default()
+                    })
+                    .collect(),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            }],
+        })
+        .unwrap();
+        let descriptor = pool.get_message_by_name("NumericOverflow").unwrap();
+        // Pinned JSON.parse + protobuf.js7.2.4/Long5.3.2 oracle.
+        for (literal, real, wide, text) in [
+            ("1e400", f64::INFINITY, i64::MAX, "Infinity"),
+            ("-1e400", f64::NEG_INFINITY, i64::MIN, "-Infinity"),
+            ("1e309", f64::INFINITY, i64::MAX, "Infinity"),
+            ("-1e309", f64::NEG_INFINITY, i64::MIN, "-Infinity"),
+            ("1e308", 1e308, i64::MAX, "1e+308"),
+            ("-1e308", -1e308, i64::MIN, "-1e+308"),
+            ("1e-400", 0.0, 0, "0"),
+            ("-1e-400", -0.0, 0, "0"),
+        ] {
+            let input = format!("{{\"real\":{literal},\"integer\":{literal},\"wide\":{literal},\"text\":{literal}}}");
+            let message = parse(descriptor.clone(), &input)
+                .unwrap_or_else(|error| panic!("Reference JSON number {literal} refused: {error}"));
+            for (field, expected) in [
+                ("real", Value::F64(real)),
+                ("integer", Value::I32(0)),
+                ("wide", Value::I64(wide)),
+                ("text", Value::String(text.into())),
+            ] {
+                assert_eq!(
+                    message.get_field_by_name(field).unwrap().as_ref(),
+                    &expected,
+                    "Reference field {field} for {literal}"
+                );
+            }
+        }
+    }
 
     #[test]
     fn legacy_long_whitespace_reference_vectors() {
