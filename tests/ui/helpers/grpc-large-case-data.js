@@ -14,6 +14,12 @@ export const grpcLargeModes = [
   "protoJson-json-number",
   "legacy-json-string",
   "protoJson-json-string",
+  "legacy-base64-canonical",
+  "legacy-base64-trailing",
+  "legacy-base64-unpadded",
+  "legacy-base64-two-padded",
+  "legacy-base64-two-unpadded",
+  "legacy-base64-short-padding",
 ];
 export const grpcLargeProto =
   'syntax="proto3"; package ownedlarge; message Input { string value=1; } message Compact { repeated int32 values=1; } message Precision { int64 exact_value=1; bytes bytes_value=2; } service Upload { rpc Stream(stream Input) returns(stream Input); rpc Echo(Input) returns(Input); rpc Expand(Compact) returns(Compact); rpc PrecisionEcho(Precision) returns(Precision); }';
@@ -68,6 +74,41 @@ function varint(value) {
 export function grpcLargeCase(mode) {
   if (!grpcLargeModes.includes(mode))
     throw new Error("Unknown authored gRPC case");
+  if (mode.includes("-base64-")) {
+    const input = {
+      "legacy-base64-canonical": "Zg==",
+      "legacy-base64-trailing": "Zh==",
+      "legacy-base64-unpadded": "Zh",
+      "legacy-base64-two-padded": "Zm9=",
+      "legacy-base64-two-unpadded": "Zm9",
+      "legacy-base64-short-padding": "Zg=",
+    }[mode];
+    const two = mode.includes("-two-");
+    const body = `{"exact_value":"9007199254740993","bytes_value":"${input}"}`;
+    const response = {
+      exact_value: "9007199254740993",
+      bytes_value: two ? { 0: 102, 1: 111 } : { 0: 102 },
+    };
+    return {
+      mode,
+      jsonMode: "legacy",
+      unary: true,
+      receives: true,
+      body,
+      formattedBody: body,
+      responseText: JSON.stringify(response),
+      preview: JSON.stringify(response, null, 2),
+      wire: Buffer.from(
+        two
+          ? "000000000d0881808080808080101202666f"
+          : "000000000c088180808080808010120166",
+        "hex",
+      ),
+      method: "/ownedlarge.Upload/PrecisionEcho",
+      editor: false,
+      showNotice: false,
+    };
+  }
   if (mode.includes("-json-")) return jsonEditorCase(mode);
   const compact = mode.endsWith("-compact"),
     unicode = mode.endsWith("-unicode");

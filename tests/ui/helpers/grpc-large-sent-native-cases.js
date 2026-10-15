@@ -21,7 +21,11 @@ import {
 import { respondToOwnedSaveDialog } from "./windows-save-dialog.js";
 import { createGrpcLargeSentFixture } from "./grpc-large-sent-fixture.js";
 /** Real native bidi send/half-close/metadata/status/history, without injecting app callbacks. */
-export async function runGrpcLargeSentNativeCases() {
+export async function runGrpcLargeSentNativeCases({ base64Only = false } = {}) {
+  const scenario = base64Only ? "grpc-base64-native" : "grpc-large-sent-native";
+  const modes = grpcLargeModes.filter(
+    (mode) => mode.includes("-base64-") === base64Only,
+  );
   const marker = process.env.INSOMNIUM_UI_PROFILE_OWNERSHIP;
   assert.ok(marker && process.env.INSOMNIUM_UI_BUILD_STATE);
   const options = {
@@ -37,7 +41,7 @@ export async function runGrpcLargeSentNativeCases() {
     await withResourceProbePreserved(
       async (capture) => {
         await withNativeApp(
-          "grpc-large-sent-native",
+          scenario,
           async ({ page, invoke, output: directory, terminateParent, pid }) => {
             output = directory;
             page.setDefaultTimeout(60000);
@@ -97,7 +101,7 @@ export async function runGrpcLargeSentNativeCases() {
               void terminateParent().catch((error) => errors.push(error));
             }, 600000);
             try {
-              for (const mode of grpcLargeModes) {
+              for (const mode of modes) {
                 const spec = grpcLargeCase(mode),
                   body = spec.body,
                   bodySHA256 = createHash("sha256").update(body).digest("hex");
@@ -455,8 +459,9 @@ export async function runGrpcLargeSentNativeCases() {
           records: fixture.records,
           errorEvents: fixture.errorEvents,
           errors: errors.map(String),
-          scope:
-            "Actual native fourteen-case9MiB/compact-array/Unicode plus typed int64/bytes shared-editor Format/mode-switch/history/export in legacy/protoJson. No broad JSON/provider/platform claim.",
+          scope: base64Only
+            ? "Six legacy Base64 byte/frame/history/reload/export cases. Other Base64, ProtoJSON and provider/platform gates remain open."
+            : "Actual native fourteen-case9MiB/compact-array/Unicode plus typed int64/bytes shared-editor Format/mode-switch/history/export in legacy/protoJson. No broad JSON/provider/platform claim.",
         },
         null,
         2,

@@ -2,7 +2,11 @@
 //! Wire encoding and descriptor validation remain prost-reflect's responsibility.
 use crate::grpc_schema::MAX_MESSAGE;
 use base64::{
-    engine::general_purpose::{STANDARD, STANDARD_NO_PAD},
+    alphabet,
+    engine::{
+        general_purpose::{GeneralPurpose, GeneralPurposeConfig, STANDARD},
+        DecodePaddingMode,
+    },
     Engine,
 };
 use prost::Message;
@@ -15,6 +19,38 @@ use serde::{
 };
 use serde_json::Value as Json;
 use std::collections::HashMap;
+
+fn legacy_base64_bytes(text: &str) -> Result<Vec<u8>, &'static str> {
+    const ENGINE: GeneralPurpose = GeneralPurpose::new(
+        &alphabet::STANDARD,
+        GeneralPurposeConfig::new()
+            .with_decode_allow_trailing_bits(true)
+            .with_decode_padding_mode(DecodePaddingMode::Indifferent),
+    );
+    const INVALID: &str = "Invalid legacy base64 bytes.";
+    let bytes = ENGINE.decode(text).map_err(|_| INVALID)?;
+    // protobuf.js 7.2.4 allocates from base64.length before decoding. Only
+    // accept fully initialized results; never emulate an unwritten buffer tail.
+    let mut position = text.len();
+    let mut padding = 0;
+    while position > 0 {
+        position -= 1;
+        if position % 4 > 1 && text.as_bytes()[position] == b'=' {
+            padding += 1;
+        } else {
+            break;
+        }
+    }
+    let allocated = text
+        .len()
+        .checked_mul(3)
+        .and_then(|length| (length / 4).checked_sub(padding))
+        .ok_or(INVALID)?;
+    if bytes.len() != allocated {
+        return Err(INVALID);
+    }
+    Ok(bytes)
+}
 
 fn truthy(value: &Json) -> bool {
     match value {
@@ -319,10 +355,7 @@ fn scalar(field: &FieldDescriptor, input: &Json, depth: usize) -> Result<Option<
         Kind::String => Value::String(js_string(input)),
         Kind::Bytes => {
             let bytes = match input {
-                Json::String(text) => STANDARD
-                    .decode(text)
-                    .or_else(|_| STANDARD_NO_PAD.decode(text))
-                    .map_err(|_| "Invalid legacy base64 bytes.")?,
+                Json::String(text) => legacy_base64_bytes(text)?,
                 Json::Array(array) => array.iter().map(|v| uint32(v) as u8).collect(),
                 Json::Object(object) if object.get("length").is_some_and(|v| number(v) >= 0.0) => {
                     let length = number(&object["length"]).trunc();
@@ -478,6 +511,101 @@ impl Serialize for LegacyValue<'_> {
                     )?;
                 }
                 map.end()
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use prost_reflect::DescriptorPool;
+    use prost_types::{
+        DescriptorProto, FieldDescriptorProto, FileDescriptorProto, FileDescriptorSet,
+    };
+
+    #[test]
+    fn legacy_base64_reference_vectors() {
+        let pool = DescriptorPool::from_file_descriptor_set(FileDescriptorSet {
+            file: vec![FileDescriptorProto {
+                name: Some("base64_oracle.proto".into()),
+                syntax: Some("proto3".into()),
+                message_type: vec![DescriptorProto {
+                    name: Some("Packet".into()),
+                    field: vec![FieldDescriptorProto {
+                        name: Some("payload".into()),
+                        number: Some(1),
+                        label: Some(prost_types::field_descriptor_proto::Label::Optional as i32),
+                        r#type: Some(prost_types::field_descriptor_proto::Type::Bytes as i32),
+                        ..Default::default()
+                    }],
+                    ..Default::default()
+                }],
+                ..Default::default()
+            }],
+        })
+        .unwrap();
+        let descriptor = pool.get_message_by_name("Packet").unwrap();
+        // Pinned protobuf.js7.2.4/Long5.3.2 byte oracle, not a second decoder.
+        // Cases with unwritten allocUnsafe tails remain explicitly unsupported.
+        let cases: &[(&str, Option<&str>)] = &[
+            ("", Some("")),
+            ("Zg==", Some("66")),
+            ("Zg", Some("66")),
+            ("Zg=", Some("66")),
+            ("Zh==", Some("66")),
+            ("Zh", Some("66")),
+            ("Zm8=", Some("666f")),
+            ("Zm8", Some("666f")),
+            ("Zm9=", Some("666f")),
+            ("Zm9", Some("666f")),
+            ("Zm9v", Some("666f6f")),
+            ("AA==", Some("00")),
+            ("AB==", Some("00")),
+            ("AA=", Some("00")),
+            ("AB", Some("00")),
+            ("AAA=", Some("0000")),
+            ("AAB=", Some("0000")),
+            ("AAB", Some("0000")),
+            ("AAAA", Some("000000")),
+            ("AP+A", Some("00ff80")),
+            ("AP+A==", None),
+            ("Z", None),
+            ("A", None),
+            ("=", None),
+            ("==", None),
+            ("Zg===", None),
+            ("Zg====", None),
+            ("Zm8==", None),
+            ("Zm8===", None),
+            ("Zg==a", None),
+            ("Zg== ", None),
+            ("Z g==", None),
+            (" Zg==", None),
+            ("Zg\n==", None),
+            ("AP-A", None),
+            ("AP_A", None),
+            ("Zg==!", None),
+        ];
+        assert_eq!(cases.len(), 37);
+        for (input, expected) in cases {
+            let result = parse(
+                descriptor.clone(),
+                &serde_json::json!({"payload": input}).to_string(),
+            );
+            match expected {
+                None => assert!(result.is_err(), "Unsupported input {input:?} was accepted"),
+                Some(hex) => {
+                    let message = result.unwrap_or_else(|error| {
+                        panic!("Reference input {input:?} refused: {error}")
+                    });
+                    let value = message.get_field_by_name("payload").unwrap();
+                    let Value::Bytes(bytes) = value.as_ref() else {
+                        panic!("Expected bytes");
+                    };
+                    let actual: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+                    assert_eq!(&actual, hex, "Reference bytes differ for {input:?}");
+                }
             }
         }
     }

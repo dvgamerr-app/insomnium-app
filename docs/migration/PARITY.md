@@ -6,6 +6,8 @@ Current receipts: Windows environment6349100/follow-up eae4ac2 (29checks/Name6/J
 
 ## Latest stream history and decoded limits
 
+Legacy Base64 deterministic compatibility corrected:37actual-parser vectors and18Rust tests pass; six new native byte/history/reload/export cases plus original regressions give52groups/8profiles/48gRPCexports with fresh0override closure. See GRPC.md#current-native-grpc-base64. Native Base64 refusal/recovery and broader JSON/WKT/oneof/map/editor/stream/provider/platform and every retained gate remain open.
+
 Native4case JSON refusal/repair verifies renderer malformed-JSON refusal without fabricated history, legacy unknown-field acceptance, native ProtoJSON unknown-field durable error, zero added observed peer IO on3refusals and typed repair/reload. Seven scenarios/46groups/36gRPCexports/exact7profiles and declared source-addition closure pass; application38417fe unchanged. See GRPC.md#current-native-grpc-json-refusal. Continue other JSON/Base64/WKT/oneof/map/editor-lifecycle/stream-shape/provider/platform and every retained gate.
 
 Four native int64/bytes cases now verify real shared-editor typing/Format/mode toggles, authored numeric precision, explicit legacy/ProtoJSON wire/response differences, full reload and8newexports. Original10cases and regressions pass:42groups/28gRPCexports, exact6profiles, unchanged38417fe application with declared2test/5doc closure. See GRPC.md#current-native-grpc-json-editor. Continue remaining JSON/coercion/Base64/WKT/unknown-field/editor-lifecycle/stream-shape/provider/platform and every retained gate.
