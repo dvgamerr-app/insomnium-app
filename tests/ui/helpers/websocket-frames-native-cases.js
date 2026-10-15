@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import {
@@ -44,7 +45,9 @@ export async function runWebSocketFramesNativeCases() {
             const status = (/** @type {string} */ id) =>
               page.evaluate(
                 (key) =>
-                  /** @type {any} */ (window).__ownedSseAckProbe.status(key),
+                  /** @type {any} */ (window).__ownedSseAckProbe.digestStatus(
+                    key,
+                  ),
                 id,
               );
             try {
@@ -199,6 +202,142 @@ export async function runWebSocketFramesNativeCases() {
                   JSON.stringify({ checks }, null, 2),
                 );
               }
+
+              for (const format of ["text", "binary"])
+                for (const extra of [0, 1]) {
+                  const mode =
+                    "aggregate-" +
+                    format +
+                    "-" +
+                    (extra ? "plus-one" : "exact");
+                  const id =
+                    "ws_aggregate_" + crypto.randomUUID().replaceAll("-", "");
+                  const request = {
+                    id,
+                    workspaceId: "owned-frame-fixture",
+                    method: "GET",
+                    url: fixture.target(id),
+                    headers: [],
+                    body: null,
+                    bodyBase64: null,
+                    multipart: null,
+                    timeoutMs: 60000,
+                    followRedirects: true,
+                    validateCertificates: true,
+                    useCookies: false,
+                    sendCookies: false,
+                    storeCookies: false,
+                    proxy: null,
+                  };
+                  await page.evaluate(
+                    (request) =>
+                      /** @type {any} */ (window).__ownedSseAckProbe.start(
+                        request,
+                        false,
+                        "websocket",
+                      ),
+                    request,
+                  );
+                  await poll(
+                    () =>
+                      Promise.resolve(
+                        fixture.records.some((r) => r.token === id && r.ready),
+                      ),
+                    "Aggregate upgrade",
+                  );
+                  const record = fixture.records.find((r) => r.token === id);
+                  assert.ok(record);
+                  const payload =
+                    format === "text"
+                      ? Buffer.from(
+                          "β".repeat(10 * 1024 * 1024) + (extra ? "a" : ""),
+                        )
+                      : Buffer.alloc(20 * 1024 * 1024 + extra, 165);
+                  const expectedSHA256 = createHash("sha256")
+                    .update(payload)
+                    .digest("hex");
+                  let prefixReadBarrier = false;
+                  await fixture.sendFragmented(
+                    id,
+                    format === "text" ? 1 : 2,
+                    payload,
+                    async () => {
+                      fixture.send(id, 9, Buffer.alloc(125, 90));
+                      await poll(
+                        () =>
+                          Promise.resolve(
+                            record.frames.some((f) => f.opcode === 10),
+                          ),
+                        "Pong proves all prefix frames read before final continuation",
+                      );
+                      assert.equal(
+                        record.frames.find((f) => f.opcode === 10)?.base64,
+                        Buffer.alloc(125, 90).toString("base64"),
+                      );
+                      const partial = await status(id);
+                      assert.equal(partial.done, false);
+                      assert.equal(
+                        partial.packets.filter((/** @type {any} */ p) =>
+                          ["text", "binary"].includes(p.event.format),
+                        ).length,
+                        0,
+                      );
+                      prefixReadBarrier = true;
+                    },
+                  );
+                  if (!extra) {
+                    await poll(
+                      async () =>
+                        (await status(id)).packets.some(
+                          (/** @type {any} */ p) =>
+                            p.event.sha256 === expectedSHA256,
+                        ),
+                      "Exact aggregate delivered with matching hash",
+                      60000,
+                    );
+                    fixture.send(id, 8, Buffer.from([3, 232]));
+                  }
+                  await poll(
+                    async () => (await status(id)).done,
+                    "Aggregate native invocation retires",
+                    60000,
+                  );
+                  await poll(
+                    () => Promise.resolve(record.closed),
+                    "Aggregate peer retires",
+                  );
+                  const result = await status(id);
+                  assert.deepEqual(result.ackErrors, []);
+                  assert.equal(result.result.ok, !extra);
+                  const messages = result.packets.filter(
+                    (/** @type {any} */ p) =>
+                      ["text", "binary"].includes(p.event.format),
+                  );
+                  assert.equal(messages.length, extra ? 0 : 1);
+                  if (!extra) {
+                    assert.equal(messages[0].event.sha256, expectedSHA256);
+                    assert.equal(
+                      messages[0].event.decodedBytes,
+                      payload.length,
+                    );
+                  } else assert.match(result.result.error, /WebSocket failed/);
+                  checks.push({
+                    mode,
+                    format,
+                    extra,
+                    offeredBytes: payload.length,
+                    expectedSHA256,
+                    prefixReadBarrier,
+                    result: result.result,
+                    packets: result.packets,
+                    wire: { sent: record.sent, received: record.frames },
+                    closed: true,
+                  });
+                  await Bun.write(
+                    join(directory, "websocket-frames-progress.json"),
+                    JSON.stringify({ checks }, null, 2),
+                  );
+                }
             } finally {
               await page.evaluate(() =>
                 /** @type {any} */ (window).__ownedSseAckProbe?.dispose(),
@@ -234,7 +373,7 @@ export async function runWebSocketFramesNativeCases() {
           retirement,
           errors: errors.map(String),
           scope:
-            "Eight small actual RFC6455 frame sequences through real native SDK Channel. No oversized aggregate/physicalTCP/platform/application history claim.",
+            "Eight small and four20MiBaggregate RFC6455 frame sequences through real native SDK Channel. No physicalTCP/platform/application history claim.",
         },
         null,
         2,

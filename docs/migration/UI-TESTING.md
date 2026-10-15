@@ -1691,3 +1691,7 @@ Existing websocket-large-history-native.js now verifies four20MiB native Save fi
 ## Current explicit WebSocket frame verification
 
 Run `bun tests/ui/websocket-frames-native.js` with INSOMNIUM_WEBSOCKET_FRAMES_NATIVE=1 and audited build/profile marker. Saved websocket-frame-fixture.js uses a bounded raw TCP handshake/control parser to author real FIN/opcode sequences. Keep actual SDK Channel and independent pong/peer retirement evidence; no application callbacks/transport are replaced. Canonical8case evidence and limits: HTTP.md#current-explicit-websocket-frame-acceptance.
+
+## Current aggregate WebSocket fragmentation verification
+
+Existing websocket-frames-native.js now runs12groups. Four aggregate cases use641explicit data frames each, prefix ping/pong barrier and real SDK digestStatus after Channel delivery. Verify20MiB exact hash/one payload versus20MiB+1failure/no payload, including UTF8 and binary. Keep actual TCP partial-write offsets and native-hidden/profile restoration. Canonical evidence: HTTP.md#current-aggregate-websocket-fragmentation-boundary.

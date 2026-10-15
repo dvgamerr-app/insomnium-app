@@ -10,8 +10,8 @@ export function createWebSocketFrameFixture() {
   /** @param {number} opcode @param {Uint8Array} payload @param {boolean} [fin] */
   const frame = (opcode, payload, fin = true) => {
     assert.ok(
-      payload.length <= 1024,
-      "Fixture only authors small bounded frames",
+      payload.length <= 32767,
+      "Fixture frames are bounded to32767bytes",
     );
     const header = Buffer.alloc(payload.length < 126 ? 2 : 4);
     header[0] = (fin ? 128 : 0) | opcode;
@@ -153,6 +153,51 @@ export function createWebSocketFrameFixture() {
         wireBase64: bytes.toString("base64"),
       });
       if (opcode === 8) row.closeSent = true;
+    },
+    /** Send an aggregate message in explicitly bounded frames, honouring partial TCP writes.
+     * @param {string} token @param {1|2} opcode @param {Uint8Array} payload
+     * @param {()=>Promise<void>} beforeFinal */
+    async sendFragmented(token, opcode, payload, beforeFinal) {
+      assert.ok(payload.length <= 20 * 1024 * 1024 + 1);
+      const [socket, row] = owned(token);
+      for (let start = 0; start < payload.length; start += 32767) {
+        const part = payload.subarray(start, start + 32767);
+        const fin = start + part.length === payload.length;
+        if (fin) await beforeFinal();
+        const op = start === 0 ? opcode : 0;
+        const bytes = frame(op, part, fin);
+        let offset = 0,
+          writes = 0,
+          stalled = 0;
+        const deadline = Date.now() + 15000;
+        while (offset < bytes.length) {
+          assert.ok(
+            peers.has(socket) && Date.now() < deadline,
+            "Owned fragmented write must stay live/bounded",
+          );
+          const count = socket.write(bytes.subarray(offset));
+          assert.ok(count >= 0 && count <= bytes.length - offset);
+          offset += count;
+          writes++;
+          if (offset < bytes.length) {
+            stalled++;
+            await Bun.sleep(1);
+          }
+        }
+        row.sent.push({
+          opcode: op,
+          fin,
+          size: part.length,
+          headerHex: bytes
+            .subarray(0, bytes.length - part.length)
+            .toString("hex"),
+          payloadSHA256: createHash("sha256").update(part).digest("hex"),
+          wireSHA256: createHash("sha256").update(bytes).digest("hex"),
+          writes,
+          stalled,
+        });
+        if (row.sent.length % 8 === 0) await Bun.sleep(1);
+      }
     },
     closeAfterHostExit() {
       const forced = peers.size > 0;

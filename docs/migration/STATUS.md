@@ -3,6 +3,14 @@
 Updated 2026-10-15. Full migration is **incomplete**. Latest verified scenario/source commit:5fbb75a; prior certificate scenario:9180ac4; portable certificate implementation:ddea70f; prior request-file implementation/scenario:11e9b96/08ab0b3. Branch:feat/ui-design-system-settings-curl. Verified agent work is committed in the shared repo. Retired directories/custom .git backups remain absent; legacy backup and node_modules are preserved.
 ## Current work
 
+### Aggregate WebSocket fragmentation boundary — verified bounded milestone 2026-10-15
+
+Four added real Channel cases pass: UTF8 text/binary aggregate20971520bytes reassemble once with independently recomputed full hashes; aggregate20971521bytes each refuse with0partial/full data payloads. Every authored data frame is<=32767bytes (641frames/message); text fragments cross UTF8 code-point boundaries. Before final continuation, an interleaved125byte ping/exact masked pong proves native read all prefix frames while no text/binary payload or completed invocation is visible. Native still emits only generic tungstenite error for refused aggregates; no precise diagnostic is claimed. Fixture handles partial TCP writes with retained offsets/liveness/deadlines, compacts large frame evidence to header/payload/wire hashes, and keeps prior small-frame receipts unchanged. No production edit.
+
+Suite65860 exits0: frames1792063764660=12/SSEexact1792063782027=6/SSE1792063832890=8/WS1792063848994=6/mixed1792063860016=5. Hosts20356/57048/58156/39636/51640 exit0/native-hidden; exact5original profiles restore. Raw fixture12connections/12closures without forced retirement/errors. Unchanged app3ecce5a/exe61215395/manifest3db462bb; declared4test/5doc supplement closes1406source/1315regular rows/all other scopes. audit-aggregate.mjs independently reconstructs every data frame/header/wire hash, aggregate bytes/hash, prefix pong and complete/refused packet counts, original source/build/receipt/profile closure and exact rebuilt SDK bundle. Artifacts: artifacts/native-resource-crud-audit-probe/websocket-large-ui-attempt-1/. Strict3-file JS/format pass. No live handles. Next broader control/close/fragmented application-history/provider/platform, large Clipboard Copy and gRPC plus all remaining PLAN/PARITY. Full migration incomplete; /compact unavailable, explicit handoff.
+
+
+
 Verified frame topic commit:bf57c27. Suite66425 terminal0; source1406/regular1315 closure and exact5profiles pass. Post-acceptance audit changes only five declared migration docs, no application/scenario drift. No live handles. Next aggregate large fragmentation, broader controls/close, Clipboard Copy and gRPC; full migration incomplete. /compact unavailable; explicit handoff.
 
 

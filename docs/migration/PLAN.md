@@ -4,6 +4,10 @@ Updated 2026-10-15. Current state is in [STATUS.md](STATUS.md); all original req
 
 ## Remaining execution order
 
+Aggregate20MiB fragmented UTF8/binary exact/+1 native boundary is bounded verified in12frame groups; see HTTP.md#current-aggregate-websocket-fragmentation-boundary. Next broader control/close/fragmented application-history variants, large Clipboard Copy and gRPC plus remaining PARITY.
+
+
+
 Eight explicit small WebSocket fragmentation/control sequences are bounded verified through real native Channel/independent wire; see HTTP.md#current-explicit-websocket-frame-acceptance. Next aggregate large fragmented messages, broader control/close cases, Clipboard Copy and gRPC plus every remaining PARITY gate.
 
 

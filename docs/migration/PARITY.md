@@ -6,6 +6,10 @@ Current receipts: Windows environment6349100/follow-up eae4ac2 (29checks/Name6/J
 
 ## Latest stream history and decoded limits
 
+Aggregate fragmented20MiB UTF8/binary pass with exact hashes/one complete payload;20MiB+1refuses without data delivery despite every frame<=32767bytes. Prefix ping/pong barrier,12frame groups and original regressions/exact5profiles/source closure pass. See HTTP.md#current-aggregate-websocket-fragmentation-boundary. Broader control/close/fragmented UI-history/provider/platform, Clipboard/gRPC and all retained gates remain open.
+
+
+
 Eight small raw WebSocket frame sequences now have bounded native acceptance: splitUTF8/binary reassembly,125byte interleaved ping/exact client pong and five invalid-framing/UTF8 refusals. All5profiles restore; source closure/regressions pass. See HTTP.md#current-explicit-websocket-frame-acceptance. Aggregate large fragmentation, broader controls/close/Clipboard/gRPC/provider/platform and all retained gates remain open.
 
 
