@@ -1,5 +1,19 @@
 /** Authored native case inputs and independent protobuf/preview expectations. */
 export const grpcLargeModes = [
+  "legacy-anyurl-plain",
+  "legacy-anyurl-leading-dot",
+  "legacy-anyurl-high-prefix",
+  "legacy-anyurl-low-prefix",
+  "legacy-anyurl-pair-prefix",
+  "legacy-anyurl-units39",
+  "legacy-anyurl-units40",
+  "legacy-anyurl-dot-crosses40",
+  "legacy-anyurl-two-dot-prefix",
+  "legacy-anyurl-two-dot-name",
+  "legacy-anyurl-high-prefix-nested",
+  "legacy-anyurl-units39-nested",
+  "legacy-anyurl-dot-crosses40-nested",
+  "legacy-anyurl-unknown-name",
   "legacy-surrogate-high-text",
   "legacy-surrogate-low-text",
   "legacy-surrogate-pair-text",
@@ -76,7 +90,8 @@ export const grpcLargeModes = [
   "legacy-overflow-underflow-negative",
 ];
 export const grpcLargeProto =
-  'syntax="proto3"; package ownedlarge; message Input { string value=1; } message Compact { repeated int32 values=1; } message Precision { int64 exact_value=1; bytes bytes_value=2; } message Numeric { optional int32 value=1; double real=2; } message Wide { optional int64 signed_value=1; optional uint64 unsigned_value=2; } message Overflow { optional double real=1; optional int32 integer=2; optional int64 wide=3; string text=4; } message Choice { oneof pick { int32 a=1; string b=2; } enum Collision { insomnium_legacy_2=0; insomnium_legacy_2_=1; } repeated Choice children=3; map<string,Choice> entries=4; } message Inner { string value=1; } message Order { bool flag=7; string scalar=1; oneof pick { string b=5; int32 a=4; } Inner child=6; map<string,string> labels=3; repeated int32 list=2; } message Envelope { int32 count=1; repeated Order items=2; map<string,Order> groups=3; } message MapFirst { repeated string tail=4; map<string,string> labels=1; bool flag=3; repeated int32 list=2; map<string,int32> counts=5; }  message Strings { map<string,string> values=1; } message Int32 { map<int32,string> values=1; } message Uint32 { map<uint32,string> values=1; } message Sint32 { map<sint32,string> values=1; } message Fixed32 { map<fixed32,string> values=1; } message Sfixed32 { map<sfixed32,string> values=1; } message Int64 { map<int64,string> values=1; } message Uint64 { map<uint64,string> values=1; } message Sint64 { map<sint64,string> values=1; } message Fixed64 { map<fixed64,string> values=1; } message Sfixed64 { map<sfixed64,string> values=1; } message Bools { map<bool,string> values=1; } enum Flag { ZERO=0; ONE=1; } message Enums { map<string,Flag> values=1; } message Blobs { map<string,bytes> values=1; } message Child { map<string,string> values=1; } message Nested { map<string,Child> values=1; } message Empty {} message EmptyValues { map<string,Empty> values=1; }  message SurrogateText { string text=1; repeated string list=2; map<string,string> labels=3; } service Upload { rpc SurrogateEcho(SurrogateText) returns(SurrogateText); rpc MapStrings(Strings) returns(Strings); rpc MapInt32(Int32) returns(Int32); rpc MapBools(Bools) returns(Bools); rpc MapInt64(Int64) returns(Int64); rpc MapNested(Nested) returns(Nested); rpc MapBlobs(Blobs) returns(Blobs); rpc OrderEcho(Order) returns(Order); rpc EnvelopeEcho(Envelope) returns(Envelope); rpc MapFirstEcho(MapFirst) returns(MapFirst); rpc ChoiceEcho(Choice) returns(Choice); rpc Stream(stream Input) returns(stream Input); rpc Echo(Input) returns(Input); rpc Expand(Compact) returns(Compact); rpc PrecisionEcho(Precision) returns(Precision); rpc NumericEcho(Numeric) returns(Numeric); rpc WideEcho(Wide) returns(Wide); rpc OverflowEcho(Overflow) returns(Overflow); }';
+  'syntax="proto3";import "google/protobuf/any.proto"; package ownedlarge; message Input { string value=1; } message Compact { repeated int32 values=1; } message Precision { int64 exact_value=1; bytes bytes_value=2; } message Numeric { optional int32 value=1; double real=2; } message Wide { optional int64 signed_value=1; optional uint64 unsigned_value=2; } message Overflow { optional double real=1; optional int32 integer=2; optional int64 wide=3; string text=4; } message Choice { oneof pick { int32 a=1; string b=2; } enum Collision { insomnium_legacy_2=0; insomnium_legacy_2_=1; } repeated Choice children=3; map<string,Choice> entries=4; } message Inner { string value=1; } message Order { bool flag=7; string scalar=1; oneof pick { string b=5; int32 a=4; } Inner child=6; map<string,string> labels=3; repeated int32 list=2; } message Envelope { int32 count=1; repeated Order items=2; map<string,Order> groups=3; } message MapFirst { repeated string tail=4; map<string,string> labels=1; bool flag=3; repeated int32 list=2; map<string,int32> counts=5; }  message Strings { map<string,string> values=1; } message Int32 { map<int32,string> values=1; } message Uint32 { map<uint32,string> values=1; } message Sint32 { map<sint32,string> values=1; } message Fixed32 { map<fixed32,string> values=1; } message Sfixed32 { map<sfixed32,string> values=1; } message Int64 { map<int64,string> values=1; } message Uint64 { map<uint64,string> values=1; } message Sint64 { map<sint64,string> values=1; } message Fixed64 { map<fixed64,string> values=1; } message Sfixed64 { map<sfixed64,string> values=1; } message Bools { map<bool,string> values=1; } enum Flag { ZERO=0; ONE=1; } message Enums { map<string,Flag> values=1; } message Blobs { map<string,bytes> values=1; } message Child { map<string,string> values=1; } message Nested { map<string,Child> values=1; } message Empty {} message EmptyValues { map<string,Empty> values=1; }  message SurrogateText { string text=1; repeated string list=2; map<string,string> labels=3; } message AnyText {string text=1;}message AnyEnvelope {google.protobuf.Any item=1;} enum AnyFlag {ANY_ZERO=0;ANY_ONE=1;} service Upload { rpc AnyEcho(google.protobuf.Any) returns(google.protobuf.Any); rpc AnyEnvelopeEcho(AnyEnvelope) returns(AnyEnvelope); rpc SurrogateEcho(SurrogateText) returns(SurrogateText); rpc MapStrings(Strings) returns(Strings); rpc MapInt32(Int32) returns(Int32); rpc MapBools(Bools) returns(Bools); rpc MapInt64(Int64) returns(Int64); rpc MapNested(Nested) returns(Nested); rpc MapBlobs(Blobs) returns(Blobs); rpc OrderEcho(Order) returns(Order); rpc EnvelopeEcho(Envelope) returns(Envelope); rpc MapFirstEcho(MapFirst) returns(MapFirst); rpc ChoiceEcho(Choice) returns(Choice); rpc Stream(stream Input) returns(stream Input); rpc Echo(Input) returns(Input); rpc Expand(Compact) returns(Compact); rpc PrecisionEcho(Precision) returns(Precision); rpc NumericEcho(Numeric) returns(Numeric); rpc WideEcho(Wide) returns(Wide); rpc OverflowEcho(Overflow) returns(Overflow); }';
+
 /** Independent small-message wire and lexical editor expectations.
  * @param {string} mode */
 function jsonEditorCase(mode) {
@@ -129,6 +144,118 @@ export function grpcLargeCase(mode) {
   if (!grpcLargeModes.includes(mode))
     throw new Error("Unknown authored gRPC case");
 
+  if (mode.startsWith("legacy-anyurl-")) {
+    // Independent pinned Any wrapper/wire/response oracle, including nested Any.
+    /** @type {Record<string,[string,string,string,string]>} */
+    const cases = {
+      "legacy-anyurl-plain": [
+        "google.protobuf.Any",
+        '{"@type":"ownedlarge.AnyText","text":"owned"}',
+        "0a132f6f776e65646c617267652e416e795465787412070a056f776e6564",
+        '{"type_url":"/ownedlarge.AnyText","value":{"0":10,"1":5,"2":111,"3":119,"4":110,"5":101,"6":100}}',
+      ],
+      "legacy-anyurl-leading-dot": [
+        "google.protobuf.Any",
+        '{"@type":".ownedlarge.AnyText","text":"owned"}',
+        "0a132f6f776e65646c617267652e416e795465787412070a056f776e6564",
+        '{"type_url":"/ownedlarge.AnyText","value":{"0":10,"1":5,"2":111,"3":119,"4":110,"5":101,"6":100}}',
+      ],
+      "legacy-anyurl-high-prefix": [
+        "google.protobuf.Any",
+        '{"@type":"\\ud800/ownedlarge.AnyText","text":"owned"}',
+        "0a16eda0802f6f776e65646c617267652e416e795465787412070a056f776e6564",
+        '{"type_url":"���/ownedlarge.AnyText","value":{"0":10,"1":5,"2":111,"3":119,"4":110,"5":101,"6":100}}',
+      ],
+      "legacy-anyurl-low-prefix": [
+        "google.protobuf.Any",
+        '{"@type":"\\udfff/ownedlarge.AnyText","text":"owned"}',
+        "0a16edbfbf2f6f776e65646c617267652e416e795465787412070a056f776e6564",
+        '{"type_url":"���/ownedlarge.AnyText","value":{"0":10,"1":5,"2":111,"3":119,"4":110,"5":101,"6":100}}',
+      ],
+      "legacy-anyurl-pair-prefix": [
+        "google.protobuf.Any",
+        '{"@type":"😀/ownedlarge.AnyText","text":"owned"}',
+        "0a17f09f98802f6f776e65646c617267652e416e795465787412070a056f776e6564",
+        '{"type_url":"😀/ownedlarge.AnyText","value":{"0":10,"1":5,"2":111,"3":119,"4":110,"5":101,"6":100}}',
+      ],
+      "legacy-anyurl-units39": [
+        "google.protobuf.Any",
+        '{"@type":"xxxxxxxxxxxxxxxxxxx\\ud800/ownedlarge.AnyText","text":"owned"}',
+        "0a2978787878787878787878787878787878787878eda0802f6f776e65646c617267652e416e795465787412070a056f776e6564",
+        '{"type_url":"xxxxxxxxxxxxxxxxxxx���/ownedlarge.AnyText","value":{"0":10,"1":5,"2":111,"3":119,"4":110,"5":101,"6":100}}',
+      ],
+      "legacy-anyurl-units40": [
+        "google.protobuf.Any",
+        '{"@type":"xxxxxxxxxxxxxxxxxxxx\\ud800/ownedlarge.AnyText","text":"owned"}',
+        "0a2a7878787878787878787878787878787878787878efbfbd2f6f776e65646c617267652e416e795465787412070a056f776e6564",
+        '{"type_url":"xxxxxxxxxxxxxxxxxxxx�/ownedlarge.AnyText","value":{"0":10,"1":5,"2":111,"3":119,"4":110,"5":101,"6":100}}',
+      ],
+      "legacy-anyurl-dot-crosses40": [
+        "google.protobuf.Any",
+        '{"@type":".xxxxxxxxxxxxxxxxxxx\\ud800/ownedlarge.AnyText","text":"owned"}',
+        "0a2978787878787878787878787878787878787878eda0802f6f776e65646c617267652e416e795465787412070a056f776e6564",
+        '{"type_url":"xxxxxxxxxxxxxxxxxxx���/ownedlarge.AnyText","value":{"0":10,"1":5,"2":111,"3":119,"4":110,"5":101,"6":100}}',
+      ],
+      "legacy-anyurl-two-dot-prefix": [
+        "google.protobuf.Any",
+        '{"@type":"..types/ownedlarge.AnyText","text":"owned"}',
+        "0a192e74797065732f6f776e65646c617267652e416e795465787412070a056f776e6564",
+        '{"type_url":".types/ownedlarge.AnyText","value":{"0":10,"1":5,"2":111,"3":119,"4":110,"5":101,"6":100}}',
+      ],
+      "legacy-anyurl-two-dot-name": [
+        "google.protobuf.Any",
+        '{"@type":"types/..ownedlarge.AnyText","text":"owned"}',
+        "0a1a74797065732f2e2e6f776e65646c617267652e416e795465787412070a056f776e6564",
+        '{"type_url":"types/..ownedlarge.AnyText","value":{"0":10,"1":5,"2":111,"3":119,"4":110,"5":101,"6":100}}',
+      ],
+      "legacy-anyurl-high-prefix-nested": [
+        "ownedlarge.AnyEnvelope",
+        '{"item":{"@type":"\\ud800/ownedlarge.AnyText","text":"owned"}}',
+        "0a210a16eda0802f6f776e65646c617267652e416e795465787412070a056f776e6564",
+        '{"item":{"type_url":"���/ownedlarge.AnyText","value":{"0":10,"1":5,"2":111,"3":119,"4":110,"5":101,"6":100}}}',
+      ],
+      "legacy-anyurl-units39-nested": [
+        "ownedlarge.AnyEnvelope",
+        '{"item":{"@type":"xxxxxxxxxxxxxxxxxxx\\ud800/ownedlarge.AnyText","text":"owned"}}',
+        "0a340a2978787878787878787878787878787878787878eda0802f6f776e65646c617267652e416e795465787412070a056f776e6564",
+        '{"item":{"type_url":"xxxxxxxxxxxxxxxxxxx���/ownedlarge.AnyText","value":{"0":10,"1":5,"2":111,"3":119,"4":110,"5":101,"6":100}}}',
+      ],
+      "legacy-anyurl-dot-crosses40-nested": [
+        "ownedlarge.AnyEnvelope",
+        '{"item":{"@type":".xxxxxxxxxxxxxxxxxxx\\ud800/ownedlarge.AnyText","text":"owned"}}',
+        "0a340a2978787878787878787878787878787878787878eda0802f6f776e65646c617267652e416e795465787412070a056f776e6564",
+        '{"item":{"type_url":"xxxxxxxxxxxxxxxxxxx���/ownedlarge.AnyText","value":{"0":10,"1":5,"2":111,"3":119,"4":110,"5":101,"6":100}}}',
+      ],
+      "legacy-anyurl-unknown-name": [
+        "google.protobuf.Any",
+        '{"@type":"types/ownedlarge.Missing","text":"owned"}',
+        "",
+        '{"type_url":"","value":{}}',
+      ],
+    };
+    const tuple = cases[mode];
+    if (!tuple) throw new Error("Unknown Any URL case");
+    const [type, body, hex, responseText] = tuple;
+    const payload = Buffer.from(hex, "hex"),
+      prefix = Buffer.alloc(5);
+    prefix.writeUInt32BE(payload.length, 1);
+    return {
+      mode,
+      jsonMode: "legacy",
+      unary: true,
+      receives: true,
+      body,
+      formattedBody: JSON.stringify(JSON.parse(body), null, 2),
+      responseText,
+      preview: JSON.stringify(JSON.parse(responseText), null, 2),
+      wire: Buffer.concat([prefix, payload]),
+      method:
+        "/ownedlarge.Upload/" +
+        (type === "google.protobuf.Any" ? "AnyEcho" : "AnyEnvelopeEcho"),
+      editor: true,
+      showNotice: false,
+    };
+  }
   if (mode.startsWith("legacy-surrogate-")) {
     // Captured from pinned protobuf.js7.2.4 BufferWriter and BufferReader.
     /** @type {Record<string,[string,string,string]>} */

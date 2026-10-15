@@ -1,0 +1,272 @@
+{
+  "protobufjs": "7.2.4",
+  "source": "syntax=\"proto3\";package ownedlarge;import \"google/protobuf/any.proto\";message AnyText {string text=1;}message AnyEnvelope {google.protobuf.Any item=1;} enum AnyFlag {ZERO=0;ONE=1;}",
+  "rows": [
+    {
+      "label": "plain",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"ownedlarge.AnyText\",\"text\":\"owned\"}",
+      "wireHex": "0a132f6f776e65646c617267652e416e795465787412070a056f776e6564",
+      "json": "{\"type_url\":\"/ownedlarge.AnyText\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}"
+    },
+    {
+      "label": "plain-nested",
+      "name": "ownedlarge.AnyEnvelope",
+      "body": "{\"item\":{\"@type\":\"ownedlarge.AnyText\",\"text\":\"owned\"}}",
+      "wireHex": "0a1e0a132f6f776e65646c617267652e416e795465787412070a056f776e6564",
+      "json": "{\"item\":{\"type_url\":\"/ownedlarge.AnyText\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}}"
+    },
+    {
+      "label": "leading-dot",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\".ownedlarge.AnyText\",\"text\":\"owned\"}",
+      "wireHex": "0a132f6f776e65646c617267652e416e795465787412070a056f776e6564",
+      "json": "{\"type_url\":\"/ownedlarge.AnyText\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}"
+    },
+    {
+      "label": "leading-dot-nested",
+      "name": "ownedlarge.AnyEnvelope",
+      "body": "{\"item\":{\"@type\":\".ownedlarge.AnyText\",\"text\":\"owned\"}}",
+      "wireHex": "0a1e0a132f6f776e65646c617267652e416e795465787412070a056f776e6564",
+      "json": "{\"item\":{\"type_url\":\"/ownedlarge.AnyText\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}}"
+    },
+    {
+      "label": "prefix",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedlarge.AnyText\",\"text\":\"owned\"}",
+      "wireHex": "0a1874797065732f6f776e65646c617267652e416e795465787412070a056f776e6564",
+      "json": "{\"type_url\":\"types/ownedlarge.AnyText\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}"
+    },
+    {
+      "label": "prefix-nested",
+      "name": "ownedlarge.AnyEnvelope",
+      "body": "{\"item\":{\"@type\":\"types/ownedlarge.AnyText\",\"text\":\"owned\"}}",
+      "wireHex": "0a230a1874797065732f6f776e65646c617267652e416e795465787412070a056f776e6564",
+      "json": "{\"item\":{\"type_url\":\"types/ownedlarge.AnyText\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}}"
+    },
+    {
+      "label": "high-prefix",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"\\ud800/ownedlarge.AnyText\",\"text\":\"owned\"}",
+      "wireHex": "0a16eda0802f6f776e65646c617267652e416e795465787412070a056f776e6564",
+      "json": "{\"type_url\":\"���/ownedlarge.AnyText\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}"
+    },
+    {
+      "label": "high-prefix-nested",
+      "name": "ownedlarge.AnyEnvelope",
+      "body": "{\"item\":{\"@type\":\"\\ud800/ownedlarge.AnyText\",\"text\":\"owned\"}}",
+      "wireHex": "0a210a16eda0802f6f776e65646c617267652e416e795465787412070a056f776e6564",
+      "json": "{\"item\":{\"type_url\":\"���/ownedlarge.AnyText\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}}"
+    },
+    {
+      "label": "low-prefix",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"\\udfff/ownedlarge.AnyText\",\"text\":\"owned\"}",
+      "wireHex": "0a16edbfbf2f6f776e65646c617267652e416e795465787412070a056f776e6564",
+      "json": "{\"type_url\":\"���/ownedlarge.AnyText\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}"
+    },
+    {
+      "label": "low-prefix-nested",
+      "name": "ownedlarge.AnyEnvelope",
+      "body": "{\"item\":{\"@type\":\"\\udfff/ownedlarge.AnyText\",\"text\":\"owned\"}}",
+      "wireHex": "0a210a16edbfbf2f6f776e65646c617267652e416e795465787412070a056f776e6564",
+      "json": "{\"item\":{\"type_url\":\"���/ownedlarge.AnyText\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}}"
+    },
+    {
+      "label": "pair-prefix",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"😀/ownedlarge.AnyText\",\"text\":\"owned\"}",
+      "wireHex": "0a17f09f98802f6f776e65646c617267652e416e795465787412070a056f776e6564",
+      "json": "{\"type_url\":\"😀/ownedlarge.AnyText\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}"
+    },
+    {
+      "label": "pair-prefix-nested",
+      "name": "ownedlarge.AnyEnvelope",
+      "body": "{\"item\":{\"@type\":\"😀/ownedlarge.AnyText\",\"text\":\"owned\"}}",
+      "wireHex": "0a220a17f09f98802f6f776e65646c617267652e416e795465787412070a056f776e6564",
+      "json": "{\"item\":{\"type_url\":\"😀/ownedlarge.AnyText\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}}"
+    },
+    {
+      "label": "units39",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"xxxxxxxxxxxxxxxxxxx\\ud800/ownedlarge.AnyText\",\"text\":\"owned\"}",
+      "wireHex": "0a2978787878787878787878787878787878787878eda0802f6f776e65646c617267652e416e795465787412070a056f776e6564",
+      "json": "{\"type_url\":\"xxxxxxxxxxxxxxxxxxx���/ownedlarge.AnyText\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}"
+    },
+    {
+      "label": "units39-nested",
+      "name": "ownedlarge.AnyEnvelope",
+      "body": "{\"item\":{\"@type\":\"xxxxxxxxxxxxxxxxxxx\\ud800/ownedlarge.AnyText\",\"text\":\"owned\"}}",
+      "wireHex": "0a340a2978787878787878787878787878787878787878eda0802f6f776e65646c617267652e416e795465787412070a056f776e6564",
+      "json": "{\"item\":{\"type_url\":\"xxxxxxxxxxxxxxxxxxx���/ownedlarge.AnyText\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}}"
+    },
+    {
+      "label": "units40",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"xxxxxxxxxxxxxxxxxxxx\\ud800/ownedlarge.AnyText\",\"text\":\"owned\"}",
+      "wireHex": "0a2a7878787878787878787878787878787878787878efbfbd2f6f776e65646c617267652e416e795465787412070a056f776e6564",
+      "json": "{\"type_url\":\"xxxxxxxxxxxxxxxxxxxx�/ownedlarge.AnyText\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}"
+    },
+    {
+      "label": "units40-nested",
+      "name": "ownedlarge.AnyEnvelope",
+      "body": "{\"item\":{\"@type\":\"xxxxxxxxxxxxxxxxxxxx\\ud800/ownedlarge.AnyText\",\"text\":\"owned\"}}",
+      "wireHex": "0a350a2a7878787878787878787878787878787878787878efbfbd2f6f776e65646c617267652e416e795465787412070a056f776e6564",
+      "json": "{\"item\":{\"type_url\":\"xxxxxxxxxxxxxxxxxxxx�/ownedlarge.AnyText\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}}"
+    },
+    {
+      "label": "dot-crosses40",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\".xxxxxxxxxxxxxxxxxxx\\ud800/ownedlarge.AnyText\",\"text\":\"owned\"}",
+      "wireHex": "0a2978787878787878787878787878787878787878eda0802f6f776e65646c617267652e416e795465787412070a056f776e6564",
+      "json": "{\"type_url\":\"xxxxxxxxxxxxxxxxxxx���/ownedlarge.AnyText\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}"
+    },
+    {
+      "label": "dot-crosses40-nested",
+      "name": "ownedlarge.AnyEnvelope",
+      "body": "{\"item\":{\"@type\":\".xxxxxxxxxxxxxxxxxxx\\ud800/ownedlarge.AnyText\",\"text\":\"owned\"}}",
+      "wireHex": "0a340a2978787878787878787878787878787878787878eda0802f6f776e65646c617267652e416e795465787412070a056f776e6564",
+      "json": "{\"item\":{\"type_url\":\"xxxxxxxxxxxxxxxxxxx���/ownedlarge.AnyText\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}}"
+    },
+    {
+      "label": "two-dot-prefix",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"..types/ownedlarge.AnyText\",\"text\":\"owned\"}",
+      "wireHex": "0a192e74797065732f6f776e65646c617267652e416e795465787412070a056f776e6564",
+      "json": "{\"type_url\":\".types/ownedlarge.AnyText\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}"
+    },
+    {
+      "label": "two-dot-prefix-nested",
+      "name": "ownedlarge.AnyEnvelope",
+      "body": "{\"item\":{\"@type\":\"..types/ownedlarge.AnyText\",\"text\":\"owned\"}}",
+      "wireHex": "0a240a192e74797065732f6f776e65646c617267652e416e795465787412070a056f776e6564",
+      "json": "{\"item\":{\"type_url\":\".types/ownedlarge.AnyText\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}}"
+    },
+    {
+      "label": "dot-name",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/.ownedlarge.AnyText\",\"text\":\"owned\"}",
+      "wireHex": "0a1974797065732f2e6f776e65646c617267652e416e795465787412070a056f776e6564",
+      "json": "{\"type_url\":\"types/.ownedlarge.AnyText\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}"
+    },
+    {
+      "label": "dot-name-nested",
+      "name": "ownedlarge.AnyEnvelope",
+      "body": "{\"item\":{\"@type\":\"types/.ownedlarge.AnyText\",\"text\":\"owned\"}}",
+      "wireHex": "0a240a1974797065732f2e6f776e65646c617267652e416e795465787412070a056f776e6564",
+      "json": "{\"item\":{\"type_url\":\"types/.ownedlarge.AnyText\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}}"
+    },
+    {
+      "label": "two-dot-name",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/..ownedlarge.AnyText\",\"text\":\"owned\"}",
+      "wireHex": "0a1a74797065732f2e2e6f776e65646c617267652e416e795465787412070a056f776e6564",
+      "json": "{\"type_url\":\"types/..ownedlarge.AnyText\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}"
+    },
+    {
+      "label": "two-dot-name-nested",
+      "name": "ownedlarge.AnyEnvelope",
+      "body": "{\"item\":{\"@type\":\"types/..ownedlarge.AnyText\",\"text\":\"owned\"}}",
+      "wireHex": "0a250a1a74797065732f2e2e6f776e65646c617267652e416e795465787412070a056f776e6564",
+      "json": "{\"item\":{\"type_url\":\"types/..ownedlarge.AnyText\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}}"
+    },
+    {
+      "label": "unknown-name",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedlarge.Missing\",\"text\":\"owned\"}",
+      "wireHex": "",
+      "json": "{\"type_url\":\"\",\"value\":{}}"
+    },
+    {
+      "label": "unknown-name-nested",
+      "name": "ownedlarge.AnyEnvelope",
+      "body": "{\"item\":{\"@type\":\"types/ownedlarge.Missing\",\"text\":\"owned\"}}",
+      "wireHex": "0a00",
+      "json": "{\"item\":{\"type_url\":\"\",\"value\":{}}}"
+    },
+    {
+      "label": "enum-name",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedlarge.AnyFlag\",\"text\":\"owned\"}",
+      "errorPhase": "fromObject",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "enum-name-nested",
+      "name": "ownedlarge.AnyEnvelope",
+      "body": "{\"item\":{\"@type\":\"types/ownedlarge.AnyFlag\",\"text\":\"owned\"}}",
+      "errorPhase": "fromObject",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "number-type",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":7,\"text\":\"owned\"}",
+      "errorPhase": "fromObject",
+      "error": "TypeError: object[\"@type\"].lastIndexOf is not a function. (In 'object[\"@type\"].lastIndexOf(\"/\")', 'object[\"@type\"].lastIndexOf' is undefined)"
+    },
+    {
+      "label": "number-type-nested",
+      "name": "ownedlarge.AnyEnvelope",
+      "body": "{\"item\":{\"@type\":7,\"text\":\"owned\"}}",
+      "errorPhase": "fromObject",
+      "error": "TypeError: object[\"@type\"].lastIndexOf is not a function. (In 'object[\"@type\"].lastIndexOf(\"/\")', 'object[\"@type\"].lastIndexOf' is undefined)"
+    },
+    {
+      "label": "array-type",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":[\"ownedlarge.AnyText\"],\"text\":\"owned\"}",
+      "errorPhase": "fromObject",
+      "error": "TypeError: object[\"@type\"].substring is not a function. (In 'object[\"@type\"].substring(object[\"@type\"].lastIndexOf(\"/\") + 1)', 'object[\"@type\"].substring' is undefined)"
+    },
+    {
+      "label": "array-type-nested",
+      "name": "ownedlarge.AnyEnvelope",
+      "body": "{\"item\":{\"@type\":[\"ownedlarge.AnyText\"],\"text\":\"owned\"}}",
+      "errorPhase": "fromObject",
+      "error": "TypeError: object[\"@type\"].substring is not a function. (In 'object[\"@type\"].substring(object[\"@type\"].lastIndexOf(\"/\") + 1)', 'object[\"@type\"].substring' is undefined)"
+    },
+    {
+      "label": "object-type",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":{\"owned\":true},\"text\":\"owned\"}",
+      "errorPhase": "fromObject",
+      "error": "TypeError: object[\"@type\"].lastIndexOf is not a function. (In 'object[\"@type\"].lastIndexOf(\"/\")', 'object[\"@type\"].lastIndexOf' is undefined)"
+    },
+    {
+      "label": "object-type-nested",
+      "name": "ownedlarge.AnyEnvelope",
+      "body": "{\"item\":{\"@type\":{\"owned\":true},\"text\":\"owned\"}}",
+      "errorPhase": "fromObject",
+      "error": "TypeError: object[\"@type\"].lastIndexOf is not a function. (In 'object[\"@type\"].lastIndexOf(\"/\")', 'object[\"@type\"].lastIndexOf' is undefined)"
+    },
+    {
+      "label": "false-type",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":false,\"text\":\"owned\"}",
+      "wireHex": "",
+      "json": "{\"type_url\":\"\",\"value\":{}}"
+    },
+    {
+      "label": "false-type-nested",
+      "name": "ownedlarge.AnyEnvelope",
+      "body": "{\"item\":{\"@type\":false,\"text\":\"owned\"}}",
+      "wireHex": "0a00",
+      "json": "{\"item\":{\"type_url\":\"\",\"value\":{}}}"
+    },
+    {
+      "label": "empty-type",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"\",\"text\":\"owned\"}",
+      "wireHex": "",
+      "json": "{\"type_url\":\"\",\"value\":{}}"
+    },
+    {
+      "label": "empty-type-nested",
+      "name": "ownedlarge.AnyEnvelope",
+      "body": "{\"item\":{\"@type\":\"\",\"text\":\"owned\"}}",
+      "wireHex": "0a00",
+      "json": "{\"item\":{\"type_url\":\"\",\"value\":{}}}"
+    }
+  ]
+}

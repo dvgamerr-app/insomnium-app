@@ -399,12 +399,6 @@ impl Json {
             _ => None,
         }
     }
-    fn as_str(&self) -> Option<&str> {
-        match self {
-            Self::String(value) => Some(value),
-            _ => None,
-        }
-    }
     fn as_array(&self) -> Option<&Vec<Self>> {
         match self {
             Self::Array(values) => Some(values),
@@ -757,7 +751,11 @@ fn from_object(
     let mut message = DynamicMessage::new(desc.clone());
     // protobuf.js's Any wrapper accepts an explicitly selected known message.
     if desc.full_name() == "google.protobuf.Any" {
-        if let Some(url) = object.get("@type").and_then(Json::as_str) {
+        if let Some(input) = object.get("@type").filter(|value| truthy(value)) {
+            let Json::String(url_units) = input else {
+                return Err("Legacy Any @type requires a string.".into());
+            };
+            let url = url_units.as_str();
             let name = url
                 .rsplit('/')
                 .next()
@@ -769,23 +767,29 @@ fn from_object(
                     .get_message_by_name(name)
                     .ok_or("Missing original Any descriptor.")?;
                 let inner = from_object(inner, original_inner, object, depth + 1)?;
-                let url = url.trim_start_matches('.');
-                let url = if url.contains('/') {
-                    url.into()
+                // protobuf.js removes exactly one leading dot, then inserts a slash
+                // only when missing. Preserve raw UTF16 through the writer threshold.
+                let mut normalized = if url_units.units.first() == Some(&(b'.' as u16)) {
+                    url_units.units[1..].to_vec()
                 } else {
-                    format!("/{url}")
+                    url_units.units.clone()
                 };
+                if !normalized.contains(&(b'/' as u16)) {
+                    normalized.insert(0, b'/' as u16);
+                }
                 let url_field = desc
                     .get_field_by_name("type_url")
                     .ok_or("Missing Any type URL field.")?;
                 let url_value = if matches!(url_field.kind(), Kind::Bytes) {
-                    Value::Bytes(url.as_bytes().to_vec().into())
+                    Value::Bytes(legacy_string_bytes(&normalized).into())
                 } else {
-                    Value::String(url)
+                    Value::String(String::from_utf16_lossy(&normalized))
                 };
                 message.set_field(&url_field, url_value);
                 message.set_field_by_name("value", Value::Bytes(inner.encode_to_vec().into()));
                 return Ok(message);
+            } else if desc.parent_pool().get_enum_by_name(name).is_some() {
+                return Err("Legacy Any @type does not name a message.".into());
             }
         }
     }
@@ -1250,6 +1254,59 @@ impl Serialize for LegacyValue<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn legacy_any_url_matches_pinned_wire_and_json() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../tests/ui/fixtures/grpc-any-url-reference.json"
+        ))
+        .unwrap();
+        assert_eq!(fixture["protobufjs"], "7.2.4");
+        let pool = crate::grpc_schema::compile(crate::grpc_schema::ProtoInput {
+            entry: "any_url.proto".into(),
+            files: vec![crate::grpc_schema::ProtoFile {
+                name: "any_url.proto".into(),
+                text: fixture["source"].as_str().unwrap().into(),
+            }],
+            include_paths: Vec::new(),
+        })
+        .unwrap();
+        let snapshot = pool.encode_to_vec();
+        let rows = fixture["rows"].as_array().unwrap();
+        assert_eq!(rows.len(), 38);
+        let mut refusals = 0;
+        for row in rows {
+            let label = row["label"].as_str().unwrap();
+            let original = pool
+                .get_message_by_name(row["name"].as_str().unwrap())
+                .unwrap();
+            let parsed = parse(original.clone(), row["body"].as_str().unwrap());
+            if row.get("error").is_some() {
+                refusals += 1;
+                assert!(parsed.is_err(), "Reference refusal {label}");
+                continue;
+            }
+            let request = parsed.unwrap_or_else(|e| panic!("{label}: {e}"));
+            let wire = request.encode_to_vec();
+            let hex: String = wire.iter().map(|b| format!("{b:02x}")).collect();
+            assert_eq!(hex, row["wireHex"].as_str().unwrap(), "Any request {label}");
+            let view = legacy_descriptor(original.clone()).unwrap();
+            assert_eq!(
+                legacy_pool(view.parent_pool()).unwrap().encode_to_vec(),
+                view.parent_pool().encode_to_vec()
+            );
+            let decoded = DynamicMessage::decode(view, wire.as_slice()).unwrap();
+            let json = crate::grpc_schema::json_mode(
+                &decoded,
+                crate::grpc_schema::JsonMode::Legacy,
+                original,
+            )
+            .unwrap();
+            assert_eq!(json, row["json"].as_str().unwrap(), "Any JSON {label}");
+        }
+        assert_eq!(refusals, 8);
+        assert_eq!(snapshot, pool.encode_to_vec());
+    }
 
     #[test]
     fn legacy_surrogate_view_preserves_defaults_any_and_protojson() {

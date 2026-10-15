@@ -4,6 +4,10 @@ Updated 2026-10-14. Use saved Bun Playwright scenarios only. Shared launchUiBrow
 
 See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity requirements](PARITY.md). No original scope was removed by consolidation.
 
+## Current gRPC Any URL verification
+
+Saved [grpc-any-url-native.js](../../tests/ui/grpc-any-url-native.js) requires INSOMNIUM_GRPC_ANY_URL_NATIVE=1 and audited build/profile ownership.14actual editor/Format/mode-flip/wire/history/reload/Save cases cover normal/dotted/surrogate URL prefixes, normalized39/40unit boundaries, nested Any and unknown fallback. JSON-refusal adds4legacy wrong-type refusals with zero peer IO/durable error/reload/typed repair. Full16scenarios/129groups/202successful Save exports/exact16profiles and explicit1test/1STATUSdoc supplemental closure pass; original manifest retained. See [scope/evidence](GRPC.md#current-native-grpc-any-url). Broader Any/WKT/provider/platform/migration gates remain open.
+
 ## Current gRPC lone-surrogate verification
 
 Saved [grpc-surrogate-native.js](../../tests/ui/grpc-surrogate-native.js) requires INSOMNIUM_GRPC_SURROGATE_NATIVE=1 and audited build/profile ownership.13actual CodeMirror/Format/mode-flip/wire/history/reload/export cases cover lone high/low/pairs,39/40unit boundaries, lists/maps/collisions/coercion/unknown/escaped/explicit-empty input. Existing JSON-refusal adds strict ProtoJSON surrogate refusal with zero peer IO/durable error/reload/typed repair. Full15scenarios/111groups/166successful Save exports/exact15profiles and original0override closure pass. Error model snapshots remain distinct from Save exports. See [scope/evidence](GRPC.md#current-native-grpc-surrogate). Broader JSON/WKT/provider/platform/migration gates remain open.

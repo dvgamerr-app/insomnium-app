@@ -112,20 +112,39 @@ export async function runGrpcJsonRefusalNativeCases() {
                   "invalid-base64",
                   "excess-base64-padding",
                   ...(jsonMode === "protoJson" ? ["unpaired-surrogate"] : []),
+                  ...(jsonMode === "legacy"
+                    ? ["any-number", "any-array", "any-object", "any-enum"]
+                    : []),
                 ]) {
                   const label = jsonMode + "-" + kind,
-                    spec = grpcLargeCase(jsonMode + "-json-string");
+                    spec = grpcLargeCase(
+                      kind.startsWith("any-")
+                        ? "legacy-anyurl-plain"
+                        : jsonMode + "-json-string",
+                    );
                   const initial =
                     kind === "invalid-json"
                       ? '{"exact_value":'
-                      : kind === "unpaired-surrogate"
-                        ? spec.body.replace("9007199254740993", "\\ud800")
-                        : kind === "unknown-field"
-                          ? spec.body.slice(0, -1) + ',"unrecognized":7}'
-                          : spec.body.replace(
-                              "AP+A",
-                              kind === "invalid-base64" ? "@" : "Zg===",
-                            );
+                      : kind.startsWith("any-")
+                        ? JSON.stringify({
+                            ...JSON.parse(spec.body),
+                            "@type":
+                              kind === "any-number"
+                                ? 7
+                                : kind === "any-array"
+                                  ? ["ownedlarge.AnyText"]
+                                  : kind === "any-object"
+                                    ? { owned: true }
+                                    : "types/ownedlarge.AnyFlag",
+                          })
+                        : kind === "unpaired-surrogate"
+                          ? spec.body.replace("9007199254740993", "\\ud800")
+                          : kind === "unknown-field"
+                            ? spec.body.slice(0, -1) + ',"unrecognized":7}'
+                            : spec.body.replace(
+                                "AP+A",
+                                kind === "invalid-base64" ? "@" : "Zg===",
+                              );
                   const refuses =
                     kind !== "unknown-field" || jsonMode === "protoJson";
                   const request = newRequest(workspaceId, {
@@ -180,13 +199,17 @@ export async function runGrpcJsonRefusalNativeCases() {
                     const frontend = kind === "invalid-json";
                     const pattern = frontend
                       ? /SyntaxError:.*JSON/i
-                      : kind === "unpaired-surrogate"
-                        ? /Invalid gRPC message:.*(?:surrogate|hex escape)/i
-                        : kind === "unknown-field"
-                          ? /Invalid gRPC message: unrecognized field name 'unrecognized'/i
-                          : jsonMode === "legacy"
-                            ? /Invalid legacy base64 bytes\./
-                            : /Invalid gRPC message: invalid base64:/i;
+                      : kind.startsWith("any-")
+                        ? kind === "any-enum"
+                          ? /Legacy Any @type does not name a message\./
+                          : /Legacy Any @type requires a string\./
+                        : kind === "unpaired-surrogate"
+                          ? /Invalid gRPC message:.*(?:surrogate|hex escape)/i
+                          : kind === "unknown-field"
+                            ? /Invalid gRPC message: unrecognized field name 'unrecognized'/i
+                            : jsonMode === "legacy"
+                              ? /Invalid legacy base64 bytes\./
+                              : /Invalid gRPC message: invalid base64:/i;
                     const feedback = page
                       .locator(".inline-error")
                       .filter({ hasText: pattern })
@@ -333,9 +356,14 @@ export async function runGrpcJsonRefusalNativeCases() {
                   assert.equal(record.mode, spec.mode);
                   assert.equal(
                     record.wireSHA256,
-                    "9e0cc9c83819dbf4a21cbe515dc4d10e0b03bafc1a9aaba3e96b52a19130fc08",
+                    kind.startsWith("any-")
+                      ? hash(spec.wire)
+                      : "9e0cc9c83819dbf4a21cbe515dc4d10e0b03bafc1a9aaba3e96b52a19130fc08",
                   );
-                  assert.equal(record.receivedBytes, 19);
+                  assert.equal(
+                    record.receivedBytes,
+                    kind.startsWith("any-") ? spec.wire.length : 19,
+                  );
                   /** @type {Record<string,any>[]} */ const exports = [];
                   const saveFull = async (/** @type {string} */ phase) => {
                     const path = join(directory, label + "-" + phase + ".json"),
@@ -474,7 +502,7 @@ export async function runGrpcJsonRefusalNativeCases() {
           errorEvents: fixture.errorEvents,
           errors: errors.map(String),
           scope:
-            "Nine actual native UI cases including strict ProtoJSON unpaired-surrogate refusal/typed repair: renderer JSON refusal, native unknown-field and malformed/excess-padding Base64 refusal with durable errors, legacy unknown-field acceptance, zero observed peer IO and typed repair/reload/export. No full JSON/provider/platform claim.",
+            "Thirteen actual native UI cases including four legacy Any wrong-type refusals/typed repairs and strict ProtoJSON unpaired-surrogate refusal/typed repair: renderer JSON refusal, native unknown-field and malformed/excess-padding Base64 refusal with durable errors, legacy unknown-field acceptance, zero observed peer IO and typed repair/reload/export. No full JSON/provider/platform claim.",
         },
         null,
         2,
