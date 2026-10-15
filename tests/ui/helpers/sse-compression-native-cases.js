@@ -16,7 +16,15 @@ import {
 import { createSseRuntimeFixture } from "./sse-runtime-fixture.js";
 import { respondToOwnedSaveDialog } from "./windows-save-dialog.js";
 
-import { gzipSync, deflateSync, brotliCompressSync } from "node:zlib";
+import {
+  gzipSync,
+  deflateSync,
+  brotliCompressSync,
+  createGzip,
+  createDeflate,
+  createBrotliCompress,
+  constants,
+} from "node:zlib";
 
 const MiB = 1024 * 1024;
 /** @param {Uint8Array} bytes */
@@ -127,9 +135,10 @@ export async function runSseCompressionNativeCases() {
               ["br", brotliCompressSync],
             ]);
             for (const [encoding, encode] of codecs) {
-              for (const invalid of [false, true]) {
-                const token =
-                  encoding + (invalid ? "-corrupt-" : "-valid-") + suffix;
+              for (const mode of ["valid", "corrupt", "flush", "truncated"]) {
+                const invalid = mode === "corrupt";
+                const partial = mode === "flush" || mode === "truncated";
+                const token = encoding + "-" + mode + "-" + suffix;
                 const url = fixture.target(token, "stream", encoding);
                 const input = page.getByLabel("Request URL", { exact: true });
                 await input.fill(url);
@@ -149,19 +158,89 @@ export async function runSseCompressionNativeCases() {
                   "Compressed peer opens",
                 );
                 const data = "compressed \u0E44\u0E17\u0E22 \u03B2 " + encoding;
-                const decoded = Buffer.from(
+                let decoded = Buffer.from(
                   "\uFEFF: compressed comment\r\nid: owned\r\nevent: update\r\ndata: " +
                     data +
                     "\r\n\r\n",
                 );
                 const encoded = encode(decoded);
-                const sent = invalid
+                let sent = invalid
                   ? Buffer.from("invalid compressed stream " + encoding)
                   : encoded;
-                // Send fragmented encoded bytes. Complete valid member arrives before HTTP EOF.
-                const split = Math.floor(sent.length / 2);
-                fixture.push(token, sent.subarray(0, split));
-                fixture.push(token, sent.subarray(split));
+                if (partial) {
+                  const compressor =
+                    encoding === "gzip"
+                      ? createGzip()
+                      : encoding === "deflate"
+                        ? createDeflate()
+                        : createBrotliCompress();
+                  /** @type {Buffer[]} */ const chunks = [];
+                  /** @type {Error|undefined} */ let compressionError;
+                  compressor.on("data", (chunk) =>
+                    chunks.push(Buffer.from(chunk)),
+                  );
+                  compressor.on("error", (error) => {
+                    compressionError = error;
+                  });
+                  const take = () => {
+                    if (compressionError) throw compressionError;
+                    const bytes = Buffer.concat(chunks);
+                    chunks.length = 0;
+                    return bytes;
+                  };
+                  const flush = async (/** @type {Buffer} */ bytes) => {
+                    compressor.write(bytes);
+                    await new Promise((resolve, reject) =>
+                      compressor.flush(
+                        encoding === "br"
+                          ? constants.BROTLI_OPERATION_FLUSH
+                          : constants.Z_SYNC_FLUSH,
+                        (/** @type {Error|null|undefined} */ error = null) =>
+                          error ? reject(error) : resolve(undefined),
+                      ),
+                    );
+                    return take();
+                  };
+                  try {
+                    const prefix = await flush(decoded);
+                    fixture.push(token, prefix);
+                    await mounted(data);
+                    assert.equal(
+                      compressor.writableEnded,
+                      false,
+                      "Event renders while compressor is still open",
+                    );
+                    assert.equal(record(token)?.closed, false);
+                    if (mode === "flush") {
+                      const nextData = "second flushed " + encoding;
+                      const next = Buffer.from("data: " + nextData + "\n\n");
+                      const second = await flush(next);
+                      fixture.push(token, second);
+                      await mounted(nextData);
+                      assert.equal(compressor.writableEnded, false);
+                      decoded = Buffer.concat([decoded, next]);
+                    }
+                    await new Promise((resolve, reject) => {
+                      compressor.once("error", reject);
+                      compressor.once("end", () => resolve(undefined));
+                      compressor.end();
+                    });
+                    const trailer = take();
+                    assert.ok(
+                      trailer.length > 0,
+                      "A real compressor trailer remains after flushed prefix",
+                    );
+                    if (mode === "flush") fixture.push(token, trailer);
+                    sent = wire(token);
+                  } finally {
+                    compressor.destroy();
+                  }
+                } else {
+                  // Fragmented producer writes do not imply distinct native reads.
+                  const split = Math.floor(sent.length / 2);
+                  fixture.push(token, sent.subarray(0, split));
+                  fixture.push(token, sent.subarray(split));
+                }
                 if (!invalid) {
                   await mounted(data);
                   assert.equal(
@@ -180,7 +259,8 @@ export async function runSseCompressionNativeCases() {
                   );
                 }
                 if (!record(token)?.closed) fixture.finish(token);
-                const expectedState = invalid ? "error" : "closed";
+                const expectedState =
+                  invalid || mode === "truncated" ? "error" : "closed";
                 await poll(
                   async () =>
                     (await stream.locator(".status-badge").innerText()) ===
@@ -208,7 +288,7 @@ export async function runSseCompressionNativeCases() {
                   sent,
                   "Peer records exact compressed bytes",
                 );
-                if (invalid) {
+                if (invalid || mode === "truncated") {
                   assert.ok(
                     entry.events.some(
                       (/** @type {any} */ e) =>
@@ -220,8 +300,21 @@ export async function runSseCompressionNativeCases() {
                     entry.events.filter(
                       (/** @type {any} */ e) => e.kind === "sse",
                     ).length,
-                    0,
+                    invalid ? 0 : 1,
                   );
+                  if (mode === "truncated") {
+                    assert.deepEqual(
+                      entry.events
+                        .filter((/** @type {any} */ e) => e.kind === "sse")
+                        .map((/** @type {any} */ e) => ({
+                          event: e.event,
+                          id: e.id,
+                          data: e.data,
+                        })),
+                      [{ event: "update", id: "owned", data }],
+                    );
+                    assert.deepEqual(Buffer.from(sseRawBytes(entry)), decoded);
+                  }
                 } else {
                   assert.deepEqual(
                     Buffer.from(sseRawBytes(entry)),
@@ -236,10 +329,22 @@ export async function runSseCompressionNativeCases() {
                         id: e.id,
                         data: e.data,
                       })),
-                    [{ event: "update", id: "owned", data }],
+                    mode === "flush"
+                      ? [
+                          { event: "update", id: "owned", data },
+                          {
+                            event: "message",
+                            id: "owned",
+                            data: "second flushed " + encoding,
+                          },
+                        ]
+                      : [{ event: "update", id: "owned", data }],
                   );
                   assert.equal(entry.rawReceivedBytes, decoded.length);
-                  const destination = join(output, encoding + "-decoded.bin");
+                  const destination = join(
+                    output,
+                    encoding + "-" + mode + "-decoded.bin",
+                  );
                   const saving = respondToOwnedSaveDialog(
                     pid,
                     output,
@@ -278,14 +383,16 @@ export async function runSseCompressionNativeCases() {
                   .click();
                 checks.push({
                   encoding,
+                  mode,
                   invalid,
+                  compressorOpenAtFirstEvent: partial,
                   wireBytes: sent.length,
                   decodedBytes: invalid ? null : decoded.length,
                   wireSHA256: sha(sent),
                   decodedSHA256: invalid ? null : sha(decoded),
                   incrementalBeforeEof: !invalid,
                   exactReload: true,
-                  rawExport: !invalid,
+                  rawExport: !invalid && mode !== "truncated",
                 });
               }
             }
@@ -334,7 +441,7 @@ export async function runSseCompressionNativeCases() {
           errors: failures.map(String),
           outerProfileRestorationRequired: true,
           scope:
-            "Native decoded gzip/deflate/Brotli SSE events before EOF, corrupt bodies, exact raw export and reload. No truncated-body, mixed protocol, physicalTCP/OS-close or broader platform claim.",
+            "Native gzip/deflate/Brotli valid, corrupt, open-compressor flush and truncated-trailer cases; exact decoded raw export/reload. No multi-member, compressed cancel/limits, mixed protocol, physicalTCP/OS-close or broader platform claim.",
         },
         null,
         2,

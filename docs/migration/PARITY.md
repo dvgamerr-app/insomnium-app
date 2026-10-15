@@ -4,6 +4,10 @@ Updated 2026-10-15. Full migration is incomplete. Every acceptance column below 
 
 Current receipts: Windows environment6349100/follow-up eae4ac2 (29checks/Name6/JSON12/inheritance5/foreign4+held1,12 retired sockets and exact fixed-profile restoration), current HTTP/CRUD regressions on the same candidate, Windows ResourceManager original6 +24 field refusals/6 corrections +collection lifecycle6 with14 private exclusions/15 references and complete original profile restoration (2870f40), namespace original native20+88 and current Windows original operator source/package/kernel-process audit (787cce7; full protected/Git/history/layout restoration and separate release), cURL mixed/file and GET/file6+6, plugin ESM26/events10/metadata9+restart/guarded clipboard pass. Original Windows XML18, gRPC, Proto36 and Open4/TLS59 receipts are accepted within their stated scope. Broader workflow/provider/platform/legal/distribution requirements, including universal loader/linkage/all-birth/OS-close/physical-width/AT claims, remain open.
 
+## Latest open-compressor SSE milestone
+
+Bounded Windows12native valid/corrupt/real open-compressor flush/truncated-trailer cases pass for gzip/deflate/Brotli. Exact decoded raw/parsed prefixes, native export and durable reload are verified with SSE8/WS6regressions, exact3profile restoration and1256source closure with one declared filename-only scenario supplement. Two failed Save attempts are retained; unchanged ownership guards remain required. See HTTP.md#current-open-compressor-flush-and-truncated-trailers. Multi-member/cancel/limits/mixed/provider/platform and every other retained acceptance gate remain open.
+
 ## Latest compressed SSE milestone
 
 Bounded Windows valid/corrupt gzip/deflate/Brotli6native UI cases pass with exact decoded raw Save/reload, event before HTTP EOF, originalSSE8/WS6regressions, exact3profile restoration and original1256entry closure. See HTTP.md#current-compressed-sse-native-acceptance. True incremental compressor flush/truncation/multi-member/cancellation/limits, mixed protocols and all retained provider/platform gates remain required. Full migration incomplete.
