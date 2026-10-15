@@ -4,6 +4,9 @@ Updated 2026-10-15. Current state is in [STATUS.md](STATUS.md); all original req
 
 ## Remaining execution order
 
+Latest bounded acceptance: genuine Windows renderer/host suspension8cases plus SSE8/WS6/mixed5 regressions pass; see HTTP.md#current-genuine-renderer-host-suspension. Earlier pending suspension wording below is superseded only for these8cases. Next queued-send/close-edge ACK/backpressure, further size/mixed/provider/platform and all remaining PARITY gates. Full migration incomplete.
+
+
 ### Current working-tree handoff — 2026-10-15
 
 Native SSE bounds and the duplicate ACK deadline fix now have bounded Windows acceptance. Canonical evidence: HTTP.md#current-native-sse-bounds-and-ack-deadline. Candidate sse-bounds-ack-attempt-1 passes8new bounds/ACK groups, originalSSE8groups/10durables and WS6groups, exact3profile restoration and original1254entry source/other-scope closure with0overrides. Missing ACK now ends the invocation in30.004seconds rather than starting a second30second Finished wait. The verified topic commit is recorded in STATUS.md; earlier standalone timelines68aad03 remain accepted. Full migration remains incomplete.

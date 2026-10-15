@@ -1659,3 +1659,7 @@ Selected-environment mode: set `$env:INSOMNIUM_TEMPLATE_ENVIRONMENTS='1'` and ru
 
 
 </details>
+
+## Current owned stream suspension verification
+
+Run `bun tests/ui/stream-suspension-native.js` with the existing audited native artifact environment and exclusive profile ownership. Reuse `withNativeApp`/`withResourceProbePreserved`; native host hides before CDP. Saved helper restricts process image/birth/ancestry/profile and balances owned thread increments in finally with a60second watchdog. Eight real cases and original SSE8/WS6/mixed5 regressions pass; exact commands/source/receipts/failure and scope are in HTTP.md#current-genuine-renderer-host-suspension. Do not replace OS suspension with Debugger.pause or synthetic ACK controls.

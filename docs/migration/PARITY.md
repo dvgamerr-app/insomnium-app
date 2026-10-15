@@ -6,6 +6,9 @@ Current receipts: Windows environment6349100/follow-up eae4ac2 (29checks/Name6/J
 
 ## Latest stream history and decoded limits
 
+Genuine Windows renderer/host suspension8cases now pass with actual thread-state/evaluation/peer-timeout/recovery/history evidence, exact4profile restoration and full1401source closure with declared6test/5doc supplement. See HTTP.md#current-genuine-renderer-host-suspension. Earlier pending suspension statements are superseded only for this scope. Queued-send/close-edge/backpressure, broader provider/platform/physicalTCP/OS-close and all other retained gates remain open.
+
+
 Separate real SDK Channel WebSocket4ACK groups pass for held/stale/future/foreign/duplicate/missing ACKs, timeout session retirement/send refusal, run-ID reuse and cancellation Finished drain. Default-SSE bounds8/WSUI6/mixedUI5regressions, exact4profile restorations and1398source closure with declared3test/4doc supplement pass on unchanged executable. Two actual receiver bundles rebuild exactly. See HTTP.md#current-websocket-acknowledgement-controls. Genuine renderer-host suspension, queued-send/close-edge/backpressure/provider/platform and all other retained gates remain open.
 
 Bounded Windows exactSSE6cases now preserve9MiB newest parsed payload through terminal/reload with retained raw export, evict it on new small payload and verify ASCII/LF20MiB line/data-field-line-sum equal/+1 guards. Fresh SSE8/WS6/mixed5regressions and exact4profile restorations pass with original1396source closure/0overrides. Field syntax counts toward the event guard; further exact variants and oversized WS/gRPC remain open. See HTTP.md#current-exact-sse-boundaries-and-large-event-retention.
