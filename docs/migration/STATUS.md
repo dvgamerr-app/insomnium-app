@@ -1,6 +1,6 @@
 # Migration status
 
-Updated 2026-10-15. Full migration is **incomplete**. Latest verified scenario/source commit:544f369263c70a608a146f45f2e18dacb9fd3eb9; prior certificate scenario:9180ac4; portable certificate implementation:ddea70f; prior request-file implementation/scenario:11e9b96/08ab0b3. Branch:feat/ui-design-system-settings-curl. Verified agent work is committed in the shared repo. Retired directories/custom .git backups remain absent; legacy backup and node_modules are preserved.
+Updated 2026-10-15. Full migration is **incomplete**. Latest verified scenario/source commit:9ad0ca99030ec4e39c59a94c64fcd71ec85a85a1; prior certificate scenario:9180ac4; portable certificate implementation:ddea70f; prior request-file implementation/scenario:11e9b96/08ab0b3. Branch:feat/ui-design-system-settings-curl. Verified agent work is committed in the shared repo. Retired directories/custom .git backups remain absent; legacy backup and node_modules are preserved.
 ## Documentation cleanup — 2026-10-15
 
 Removed historical MIGRATION-REVIEW.md, UI-DESIGN-SYSTEM-DEBT.md and COMMANDS.md; recover from Git c10061abcc38ac1d1e01d5f6459b1704e2c35217. Historical Markdown links now target that revision. Retained active migration contracts, acceptance/evidence, archive/build integrity and owner-required deferred UX. PLAN now starts with a consolidated remaining-work checklist; no parity gate is waived. Existing application/scenario and five dirty migration-document edits were preserved.
@@ -8,6 +8,8 @@ Removed historical MIGRATION-REVIEW.md, UI-DESIGN-SYSTEM-DEBT.md and COMMANDS.md
 Latest gRPC display candidate build was running at cleanup inspection (session57291, nativePid31756); no continuation/native suite was launched by this cleanup. Fixture smoke passes six modes; corrected native display/export remains unverified. Cleanup changes documentation relative to the build snapshot: any later source-closure audit must explicitly account for this delta rather than treating it as a zero-override candidate. This interface cannot invoke /compact; this is the handoff.
 
 ## Current work
+
+Verified gRPC JSON refusal topic commit:9ad0ca99030ec4e39c59a94c64fcd71ec85a85a1. Corrected boundary workflow/suite exits0:4refusal/recovery plus14JSON/editor and28stream regression groups,36gRPCexports, exact7profiles and original1410source/1319regular closure with explicit2added/2modifiedtest/5doc supplement pass. Application remains38417fe. Three refused attempts create no added observed peer IO; original receipt1792074063820 with wrongly authored invalid-JSON history requirement is retained; renderer refusal fabricates no history, native unknown-field error and successful histories survive reload, actual typed repair succeeds and deletion cannot resurrect either. Post-acceptance delta permits only five docs, no application/scenario drift. No live suite/native/profile handles. Next remaining JSON/Base64/WKT/oneof/map/editor-lifecycle/stream-shape/provider/platform and all PLAN/PARITY gates. Full migration incomplete; /compact unavailable, explicit handoff.
 
 ## Current native gRPC JSON refusal and repair
 
