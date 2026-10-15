@@ -1,5 +1,18 @@
 /** Authored native case inputs and independent protobuf/preview expectations. */
 export const grpcLargeModes = [
+  "legacy-surrogate-high-text",
+  "legacy-surrogate-low-text",
+  "legacy-surrogate-pair-text",
+  "legacy-surrogate-39units-text",
+  "legacy-surrogate-40units-text",
+  "legacy-surrogate-high-list",
+  "legacy-surrogate-high-labels",
+  "legacy-surrogate-decoded-key-collision",
+  "legacy-surrogate-array-coercion",
+  "legacy-surrogate-unknown-high",
+  "legacy-surrogate-escaped-field-name",
+  "legacy-surrogate-unknown-surrogate-key",
+  "legacy-surrogate-coerced-null-array",
   "legacy-map-missing-value",
   "legacy-map-indices",
   "legacy-map-collision",
@@ -63,7 +76,7 @@ export const grpcLargeModes = [
   "legacy-overflow-underflow-negative",
 ];
 export const grpcLargeProto =
-  'syntax="proto3"; package ownedlarge; message Input { string value=1; } message Compact { repeated int32 values=1; } message Precision { int64 exact_value=1; bytes bytes_value=2; } message Numeric { optional int32 value=1; double real=2; } message Wide { optional int64 signed_value=1; optional uint64 unsigned_value=2; } message Overflow { optional double real=1; optional int32 integer=2; optional int64 wide=3; string text=4; } message Choice { oneof pick { int32 a=1; string b=2; } enum Collision { insomnium_legacy_2=0; insomnium_legacy_2_=1; } repeated Choice children=3; map<string,Choice> entries=4; } message Inner { string value=1; } message Order { bool flag=7; string scalar=1; oneof pick { string b=5; int32 a=4; } Inner child=6; map<string,string> labels=3; repeated int32 list=2; } message Envelope { int32 count=1; repeated Order items=2; map<string,Order> groups=3; } message MapFirst { repeated string tail=4; map<string,string> labels=1; bool flag=3; repeated int32 list=2; map<string,int32> counts=5; }  message Strings { map<string,string> values=1; } message Int32 { map<int32,string> values=1; } message Uint32 { map<uint32,string> values=1; } message Sint32 { map<sint32,string> values=1; } message Fixed32 { map<fixed32,string> values=1; } message Sfixed32 { map<sfixed32,string> values=1; } message Int64 { map<int64,string> values=1; } message Uint64 { map<uint64,string> values=1; } message Sint64 { map<sint64,string> values=1; } message Fixed64 { map<fixed64,string> values=1; } message Sfixed64 { map<sfixed64,string> values=1; } message Bools { map<bool,string> values=1; } enum Flag { ZERO=0; ONE=1; } message Enums { map<string,Flag> values=1; } message Blobs { map<string,bytes> values=1; } message Child { map<string,string> values=1; } message Nested { map<string,Child> values=1; } message Empty {} message EmptyValues { map<string,Empty> values=1; } service Upload { rpc MapStrings(Strings) returns(Strings); rpc MapInt32(Int32) returns(Int32); rpc MapBools(Bools) returns(Bools); rpc MapInt64(Int64) returns(Int64); rpc MapNested(Nested) returns(Nested); rpc MapBlobs(Blobs) returns(Blobs); rpc OrderEcho(Order) returns(Order); rpc EnvelopeEcho(Envelope) returns(Envelope); rpc MapFirstEcho(MapFirst) returns(MapFirst); rpc ChoiceEcho(Choice) returns(Choice); rpc Stream(stream Input) returns(stream Input); rpc Echo(Input) returns(Input); rpc Expand(Compact) returns(Compact); rpc PrecisionEcho(Precision) returns(Precision); rpc NumericEcho(Numeric) returns(Numeric); rpc WideEcho(Wide) returns(Wide); rpc OverflowEcho(Overflow) returns(Overflow); }';
+  'syntax="proto3"; package ownedlarge; message Input { string value=1; } message Compact { repeated int32 values=1; } message Precision { int64 exact_value=1; bytes bytes_value=2; } message Numeric { optional int32 value=1; double real=2; } message Wide { optional int64 signed_value=1; optional uint64 unsigned_value=2; } message Overflow { optional double real=1; optional int32 integer=2; optional int64 wide=3; string text=4; } message Choice { oneof pick { int32 a=1; string b=2; } enum Collision { insomnium_legacy_2=0; insomnium_legacy_2_=1; } repeated Choice children=3; map<string,Choice> entries=4; } message Inner { string value=1; } message Order { bool flag=7; string scalar=1; oneof pick { string b=5; int32 a=4; } Inner child=6; map<string,string> labels=3; repeated int32 list=2; } message Envelope { int32 count=1; repeated Order items=2; map<string,Order> groups=3; } message MapFirst { repeated string tail=4; map<string,string> labels=1; bool flag=3; repeated int32 list=2; map<string,int32> counts=5; }  message Strings { map<string,string> values=1; } message Int32 { map<int32,string> values=1; } message Uint32 { map<uint32,string> values=1; } message Sint32 { map<sint32,string> values=1; } message Fixed32 { map<fixed32,string> values=1; } message Sfixed32 { map<sfixed32,string> values=1; } message Int64 { map<int64,string> values=1; } message Uint64 { map<uint64,string> values=1; } message Sint64 { map<sint64,string> values=1; } message Fixed64 { map<fixed64,string> values=1; } message Sfixed64 { map<sfixed64,string> values=1; } message Bools { map<bool,string> values=1; } enum Flag { ZERO=0; ONE=1; } message Enums { map<string,Flag> values=1; } message Blobs { map<string,bytes> values=1; } message Child { map<string,string> values=1; } message Nested { map<string,Child> values=1; } message Empty {} message EmptyValues { map<string,Empty> values=1; }  message SurrogateText { string text=1; repeated string list=2; map<string,string> labels=3; } service Upload { rpc SurrogateEcho(SurrogateText) returns(SurrogateText); rpc MapStrings(Strings) returns(Strings); rpc MapInt32(Int32) returns(Int32); rpc MapBools(Bools) returns(Bools); rpc MapInt64(Int64) returns(Int64); rpc MapNested(Nested) returns(Nested); rpc MapBlobs(Blobs) returns(Blobs); rpc OrderEcho(Order) returns(Order); rpc EnvelopeEcho(Envelope) returns(Envelope); rpc MapFirstEcho(MapFirst) returns(MapFirst); rpc ChoiceEcho(Choice) returns(Choice); rpc Stream(stream Input) returns(stream Input); rpc Echo(Input) returns(Input); rpc Expand(Compact) returns(Compact); rpc PrecisionEcho(Precision) returns(Precision); rpc NumericEcho(Numeric) returns(Numeric); rpc WideEcho(Wide) returns(Wide); rpc OverflowEcho(Overflow) returns(Overflow); }';
 /** Independent small-message wire and lexical editor expectations.
  * @param {string} mode */
 function jsonEditorCase(mode) {
@@ -116,6 +129,97 @@ export function grpcLargeCase(mode) {
   if (!grpcLargeModes.includes(mode))
     throw new Error("Unknown authored gRPC case");
 
+  if (mode.startsWith("legacy-surrogate-")) {
+    // Captured from pinned protobuf.js7.2.4 BufferWriter and BufferReader.
+    /** @type {Record<string,[string,string,string]>} */
+    const cases = {
+      "legacy-surrogate-high-text": [
+        '{"text":"\\ud800"}',
+        "0a03eda080",
+        '{"list":[],"labels":{},"text":"���"}',
+      ],
+      "legacy-surrogate-low-text": [
+        '{"text":"\\udfff"}',
+        "0a03edbfbf",
+        '{"list":[],"labels":{},"text":"���"}',
+      ],
+      "legacy-surrogate-pair-text": [
+        '{"text":"😀"}',
+        "0a04f09f9880",
+        '{"list":[],"labels":{},"text":"😀"}',
+      ],
+      "legacy-surrogate-39units-text": [
+        '{"text":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\ud800"}',
+        "0a297878787878787878787878787878787878787878787878787878787878787878787878787878eda080",
+        '{"list":[],"labels":{},"text":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx���"}',
+      ],
+      "legacy-surrogate-40units-text": [
+        '{"text":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\ud800"}',
+        "0a2a787878787878787878787878787878787878787878787878787878787878787878787878787878efbfbd",
+        '{"list":[],"labels":{},"text":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx�"}',
+      ],
+      "legacy-surrogate-high-list": [
+        '{"list":["\\ud800"]}',
+        "1203eda080",
+        '{"list":["���"],"labels":{},"text":""}',
+      ],
+      "legacy-surrogate-high-labels": [
+        '{"labels":{"\\ud800":"\\ud800"}}',
+        "1a0a0a03eda0801203eda080",
+        '{"list":[],"labels":{"���":"���"},"text":""}',
+      ],
+      "legacy-surrogate-decoded-key-collision": [
+        '{"labels":{"\\ud800":"first","\\udfff":"second","�":"third"}}',
+        "1a0c0a03eda080120566697273741a0d0a03edbfbf12067365636f6e641a0c0a03efbfbd12057468697264",
+        '{"list":[],"labels":{"���":"second","�":"third"},"text":""}',
+      ],
+      "legacy-surrogate-array-coercion": [
+        '{"text":["\\ud800",null,"\\udfff"]}',
+        "0a08eda0802c2cedbfbf",
+        '{"list":[],"labels":{},"text":"���,,���"}',
+      ],
+      "legacy-surrogate-unknown-high": [
+        '{"ignored":"\\ud800","text":"owned"}',
+        "0a056f776e6564",
+        '{"list":[],"labels":{},"text":"owned"}',
+      ],
+      "legacy-surrogate-escaped-field-name": [
+        '{"te\\u0078t":"\\ud800"}',
+        "0a03eda080",
+        '{"list":[],"labels":{},"text":"���"}',
+      ],
+      "legacy-surrogate-unknown-surrogate-key": [
+        '{"\\ud800":"ignored","text":"owned"}',
+        "0a056f776e6564",
+        '{"list":[],"labels":{},"text":"owned"}',
+      ],
+      "legacy-surrogate-coerced-null-array": [
+        '{"text":[null]}',
+        "0a00",
+        '{"list":[],"labels":{},"text":""}',
+      ],
+    };
+    const tuple = cases[mode];
+    if (!tuple) throw new Error("Unknown surrogate case");
+    const [body, hex, responseText] = tuple;
+    const payload = Buffer.from(hex, "hex"),
+      prefix = Buffer.alloc(5);
+    prefix.writeUInt32BE(payload.length, 1);
+    return {
+      mode,
+      jsonMode: "legacy",
+      unary: true,
+      receives: true,
+      body,
+      formattedBody: JSON.stringify(JSON.parse(body), null, 2),
+      responseText,
+      preview: JSON.stringify(JSON.parse(responseText), null, 2),
+      wire: Buffer.concat([prefix, payload]),
+      method: "/ownedlarge.Upload/SurrogateEcho",
+      editor: true,
+      showNotice: false,
+    };
+  }
   if (mode.startsWith("legacy-map-")) {
     // Independently captured protobuf.js7.2.4 wire and exact JSON; never normalize expected output.
     /** @type {Record<string,[string,string,string,string,string]>} */

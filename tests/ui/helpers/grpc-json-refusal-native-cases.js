@@ -111,18 +111,21 @@ export async function runGrpcJsonRefusalNativeCases() {
                   "unknown-field",
                   "invalid-base64",
                   "excess-base64-padding",
+                  ...(jsonMode === "protoJson" ? ["unpaired-surrogate"] : []),
                 ]) {
                   const label = jsonMode + "-" + kind,
                     spec = grpcLargeCase(jsonMode + "-json-string");
                   const initial =
                     kind === "invalid-json"
                       ? '{"exact_value":'
-                      : kind === "unknown-field"
-                        ? spec.body.slice(0, -1) + ',"unrecognized":7}'
-                        : spec.body.replace(
-                            "AP+A",
-                            kind === "invalid-base64" ? "@" : "Zg===",
-                          );
+                      : kind === "unpaired-surrogate"
+                        ? spec.body.replace("9007199254740993", "\\ud800")
+                        : kind === "unknown-field"
+                          ? spec.body.slice(0, -1) + ',"unrecognized":7}'
+                          : spec.body.replace(
+                              "AP+A",
+                              kind === "invalid-base64" ? "@" : "Zg===",
+                            );
                   const refuses =
                     kind !== "unknown-field" || jsonMode === "protoJson";
                   const request = newRequest(workspaceId, {
@@ -177,11 +180,13 @@ export async function runGrpcJsonRefusalNativeCases() {
                     const frontend = kind === "invalid-json";
                     const pattern = frontend
                       ? /SyntaxError:.*JSON/i
-                      : kind === "unknown-field"
-                        ? /Invalid gRPC message: unrecognized field name 'unrecognized'/i
-                        : jsonMode === "legacy"
-                          ? /Invalid legacy base64 bytes\./
-                          : /Invalid gRPC message: invalid base64:/i;
+                      : kind === "unpaired-surrogate"
+                        ? /Invalid gRPC message:.*(?:surrogate|hex escape)/i
+                        : kind === "unknown-field"
+                          ? /Invalid gRPC message: unrecognized field name 'unrecognized'/i
+                          : jsonMode === "legacy"
+                            ? /Invalid legacy base64 bytes\./
+                            : /Invalid gRPC message: invalid base64:/i;
                     const feedback = page
                       .locator(".inline-error")
                       .filter({ hasText: pattern })
@@ -469,7 +474,7 @@ export async function runGrpcJsonRefusalNativeCases() {
           errorEvents: fixture.errorEvents,
           errors: errors.map(String),
           scope:
-            "Eight actual native UI cases: renderer JSON refusal, native unknown-field and malformed/excess-padding Base64 refusal with durable errors, legacy unknown-field acceptance, zero observed peer IO and typed repair/reload/export. No full JSON/provider/platform claim.",
+            "Nine actual native UI cases including strict ProtoJSON unpaired-surrogate refusal/typed repair: renderer JSON refusal, native unknown-field and malformed/excess-padding Base64 refusal with durable errors, legacy unknown-field acceptance, zero observed peer IO and typed repair/reload/export. No full JSON/provider/platform claim.",
         },
         null,
         2,

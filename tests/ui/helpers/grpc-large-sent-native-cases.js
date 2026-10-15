@@ -29,32 +29,45 @@ export async function runGrpcLargeSentNativeCases({
   oneofOnly = false,
   orderOnly = false,
   mapOnly = false,
+  surrogateOnly = false,
 } = {}) {
   const variants = [
+    {
+      enabled: surrogateOnly,
+      tag: "legacy-surrogate-",
+      scenario: "grpc-surrogate-native",
+    },
     { enabled: mapOnly, tag: "legacy-map-", scenario: "grpc-map-native" },
     {
       enabled: orderOnly,
-      tag: "-order-",
+      tag: "legacy-order-",
       scenario: "grpc-message-order-native",
     },
-    { enabled: oneofOnly, tag: "-oneof-", scenario: "grpc-oneof-native" },
+    { enabled: oneofOnly, tag: "legacy-oneof-", scenario: "grpc-oneof-native" },
     {
       enabled: overflowOnly,
-      tag: "-overflow-",
+      tag: "legacy-overflow-",
       scenario: "grpc-overflow-native",
     },
-    { enabled: longOnly, tag: "-long-", scenario: "grpc-long-native" },
-    { enabled: numericOnly, tag: "-numeric-", scenario: "grpc-numeric-native" },
-    { enabled: base64Only, tag: "-base64-", scenario: "grpc-base64-native" },
+    { enabled: longOnly, tag: "legacy-long-", scenario: "grpc-long-native" },
+    {
+      enabled: numericOnly,
+      tag: "legacy-numeric-",
+      scenario: "grpc-numeric-native",
+    },
+    {
+      enabled: base64Only,
+      tag: "legacy-base64-",
+      scenario: "grpc-base64-native",
+    },
   ];
   assert.ok(variants.filter((variant) => variant.enabled).length <= 1);
   const selected = variants.find((variant) => variant.enabled);
   const scenario = selected?.scenario ?? "grpc-large-sent-native";
   const modes = grpcLargeModes.filter((mode) =>
     selected
-      ? (mapOnly || !mode.startsWith("legacy-map-")) &&
-        mode.includes(selected.tag)
-      : !variants.some((variant) => mode.includes(variant.tag)),
+      ? mode.startsWith(selected.tag)
+      : !variants.some((variant) => mode.startsWith(variant.tag)),
   );
   const marker = process.env.INSOMNIUM_UI_PROFILE_OWNERSHIP;
   assert.ok(marker && process.env.INSOMNIUM_UI_BUILD_STATE);
@@ -594,21 +607,23 @@ export async function runGrpcLargeSentNativeCases({
           socketRecords: fixture.socketRecords,
           errorEvents: fixture.errorEvents,
           errors: errors.map(String),
-          scope: mapOnly
-            ? "Nine legacy map cases including missing-message-value durable refusal and explicit peer repair/retry; exact editor/wire/history/reload/export. Broader provider/platform gates remain open."
-            : orderOnly
-              ? "Eight exact legacy message-field ordering cases: defaults, normal/message fields, multiple repeated/map categories, oneof selectors and nested containers through real editor/wire/history/reload/export. Map entry-key and lone-surrogate order remain open."
-              : oneofOnly
-                ? "Six legacy oneof cases: conflicting/default/list/map members, reversed input and response wire, real editor/Format/mode switch/history/reload/export. JSON key-order and broader provider/platform compatibility remain open."
-                : overflowOnly
-                  ? "Eight legacy JSON numeric overflow/underflow cases through actual editor/Format/mode switch and exact double/int32/int64/string wire/history/reload/export. Broader JSON/provider/platform gates remain open."
-                  : longOnly
-                    ? "Six legacy signed/unsigned64 whitespace/chunk/sign cases through actual editor/Format/mode switch and full wire/history/reload/export. Broader coercion/provider/platform gates remain open."
-                    : numericOnly
-                      ? "Four legacy numeric-whitespace cases through actual editor/Format/mode switch, exact int32/double frames, response/history/reload/export. Other coercion/provider/platform gates remain open."
-                      : base64Only
-                        ? "Six legacy Base64 byte/frame/history/reload/export cases. Other Base64, ProtoJSON and provider/platform gates remain open."
-                        : "Actual native fourteen-case9MiB/compact-array/Unicode plus typed int64/bytes shared-editor Format/mode-switch/history/export in legacy/protoJson. No broad JSON/provider/platform claim.",
+          scope: surrogateOnly
+            ? "Thirteen legacy surrogate cases: scalar/list/map,39/40UTF16unit boundaries, collisions/coercions/unknown fields and explicit empty strings through real editor/wire/history/reload/export. Standard refusal is covered by JSON-refusal scenario; broader provider/platform gates remain open."
+            : mapOnly
+              ? "Nine legacy map cases including missing-message-value durable refusal and explicit peer repair/retry; exact editor/wire/history/reload/export. Broader provider/platform gates remain open."
+              : orderOnly
+                ? "Eight exact legacy message-field ordering cases: defaults, normal/message fields, multiple repeated/map categories, oneof selectors and nested containers through real editor/wire/history/reload/export. Map entry-key and lone-surrogate order remain open."
+                : oneofOnly
+                  ? "Six legacy oneof cases: conflicting/default/list/map members, reversed input and response wire, real editor/Format/mode switch/history/reload/export. JSON key-order and broader provider/platform compatibility remain open."
+                  : overflowOnly
+                    ? "Eight legacy JSON numeric overflow/underflow cases through actual editor/Format/mode switch and exact double/int32/int64/string wire/history/reload/export. Broader JSON/provider/platform gates remain open."
+                    : longOnly
+                      ? "Six legacy signed/unsigned64 whitespace/chunk/sign cases through actual editor/Format/mode switch and full wire/history/reload/export. Broader coercion/provider/platform gates remain open."
+                      : numericOnly
+                        ? "Four legacy numeric-whitespace cases through actual editor/Format/mode switch, exact int32/double frames, response/history/reload/export. Other coercion/provider/platform gates remain open."
+                        : base64Only
+                          ? "Six legacy Base64 byte/frame/history/reload/export cases. Other Base64, ProtoJSON and provider/platform gates remain open."
+                          : "Actual native fourteen-case9MiB/compact-array/Unicode plus typed int64/bytes shared-editor Format/mode-switch/history/export in legacy/protoJson. No broad JSON/provider/platform claim.",
         },
         null,
         2,

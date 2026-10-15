@@ -25,11 +25,15 @@ use std::collections::{HashMap, HashSet};
 // user schema or the standard ProtoJSON descriptor pool.
 pub(crate) fn legacy_pool(pool: &DescriptorPool) -> Result<DescriptorPool, String> {
     if !pool.all_messages().any(|message| {
-        message.is_map_entry() || message.oneofs().any(|group| group.fields().len() > 1)
+        message.is_map_entry()
+            || message
+                .fields()
+                .any(|field| matches!(field.kind(), Kind::String))
+            || message.oneofs().any(|group| group.fields().len() > 1)
     }) {
         return Ok(pool.clone());
     }
-    fn split(message: &mut prost_types::DescriptorProto) {
+    fn split(message: &mut prost_types::DescriptorProto, proto3: bool) {
         let mut seen = HashSet::new();
         let mut names: HashSet<String> = message
             .oneof_decl
@@ -89,6 +93,28 @@ pub(crate) fn legacy_pool(pool: &DescriptorPool) -> Result<DescriptorPool, Strin
                 });
             }
         }
+        // Legacy BufferWriter can emit WTF8; bytes keep the original wire intact.
+        for field in &mut message.field {
+            if field.r#type == Some(prost_types::field_descriptor_proto::Type::String as i32) {
+                field.r#type = Some(prost_types::field_descriptor_proto::Type::Bytes as i32);
+                if proto3
+                    && field.label
+                        != Some(prost_types::field_descriptor_proto::Label::Repeated as i32)
+                    && field.oneof_index.is_none()
+                {
+                    // Explicit empty strings are written by protobuf.js too.
+                    let mut name = format!("insomnium_string_{}", field.number.unwrap_or_default());
+                    while !names.insert(name.clone()) {
+                        name.push('_');
+                    }
+                    field.oneof_index = Some(message.oneof_decl.len() as i32);
+                    message.oneof_decl.push(prost_types::OneofDescriptorProto {
+                        name: Some(name),
+                        ..Default::default()
+                    });
+                }
+            }
+        }
         for field in &mut message.field {
             let Some(index) = field.oneof_index else {
                 continue;
@@ -129,13 +155,13 @@ pub(crate) fn legacy_pool(pool: &DescriptorPool) -> Result<DescriptorPool, Strin
             }
         }
         for nested in &mut message.nested_type {
-            split(nested);
+            split(nested, proto3);
         }
     }
     let mut files: Vec<_> = pool.file_descriptor_protos().cloned().collect();
     for file in &mut files {
         for message in &mut file.message_type {
-            split(message);
+            split(message, file.syntax.as_deref() == Some("proto3"));
         }
     }
     DescriptorPool::from_file_descriptor_set(prost_types::FileDescriptorSet { file: files })
@@ -165,12 +191,95 @@ fn js_array_index(key: &str) -> Option<u32> {
     (index != u32::MAX && index.to_string() == key).then_some(index)
 }
 
+// Preserve JavaScript UTF16 identity, including unpaired surrogate property keys.
+// serde_json's byte-string visitor validates escapes while retaining WTF8 units.
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+struct JsString {
+    units: Vec<u16>,
+    text: String,
+}
+impl JsString {
+    fn from_units(units: Vec<u16>) -> Self {
+        let text = String::from_utf16_lossy(&units);
+        Self { units, text }
+    }
+    fn as_str(&self) -> &str {
+        &self.text
+    }
+}
+impl From<String> for JsString {
+    fn from(text: String) -> Self {
+        Self {
+            units: text.encode_utf16().collect(),
+            text,
+        }
+    }
+}
+impl From<&str> for JsString {
+    fn from(text: &str) -> Self {
+        text.to_owned().into()
+    }
+}
+impl std::ops::Deref for JsString {
+    type Target = str;
+    fn deref(&self) -> &str {
+        &self.text
+    }
+}
+impl<'de> serde::Deserialize<'de> for JsString {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct StringVisitor;
+        impl<'de> serde::de::Visitor<'de> for StringVisitor {
+            type Value = JsString;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("a legacy JSON string")
+            }
+            fn visit_bytes<E: serde::de::Error>(self, bytes: &[u8]) -> Result<JsString, E> {
+                let mut units = Vec::new();
+                let mut index = 0;
+                while index < bytes.len() {
+                    let first = bytes[index];
+                    let (width, mut point) = match first {
+                        0..=0x7f => (1, first as u32),
+                        0xc2..=0xdf => (2, (first & 0x1f) as u32),
+                        0xe0..=0xef => (3, (first & 0x0f) as u32),
+                        0xf0..=0xf4 => (4, (first & 7) as u32),
+                        _ => return Err(E::custom("Invalid legacy WTF8 string.")),
+                    };
+                    let tail = bytes
+                        .get(index + 1..index + width)
+                        .ok_or_else(|| E::custom("Truncated legacy WTF8 string."))?;
+                    for byte in tail {
+                        if byte & 0xc0 != 0x80 {
+                            return Err(E::custom("Invalid legacy WTF8 continuation."));
+                        }
+                        point = (point << 6) | (byte & 0x3f) as u32;
+                    }
+                    if point > 0x10ffff {
+                        return Err(E::custom("Invalid legacy WTF8 codepoint."));
+                    }
+                    if point <= 0xffff {
+                        units.push(point as u16);
+                    } else {
+                        let value = point - 0x10000;
+                        units.push(0xd800 | (value >> 10) as u16);
+                        units.push(0xdc00 | (value & 0x3ff) as u16);
+                    }
+                    index += width;
+                }
+                Ok(JsString::from_units(units))
+            }
+        }
+        deserializer.deserialize_bytes(StringVisitor)
+    }
+}
+
 struct JsonObject {
-    entries: Vec<(String, Json)>,
-    index: HashMap<String, usize>,
+    entries: Vec<(JsString, Json)>,
+    index: HashMap<Vec<u16>, usize>,
 }
 impl JsonObject {
-    fn new(mut entries: Vec<(String, Json)>) -> Self {
+    fn new(mut entries: Vec<(JsString, Json)>) -> Self {
         // JSON.parse keeps a property's original position on duplicate writes.
         // Object.keys then enumerates array indices first, numerically.
         entries.sort_by(|(left, _), (right, _)| {
@@ -184,21 +293,23 @@ impl JsonObject {
         let index = entries
             .iter()
             .enumerate()
-            .map(|(index, (key, _))| (key.clone(), index))
+            .map(|(index, (key, _))| (key.units.clone(), index))
             .collect();
         Self { entries, index }
     }
     fn get(&self, key: &str) -> Option<&Json> {
-        self.index.get(key).map(|index| &self.entries[*index].1)
+        self.index
+            .get(&key.encode_utf16().collect::<Vec<_>>())
+            .map(|index| &self.entries[*index].1)
     }
-    fn iter(&self) -> impl Iterator<Item = (&String, &Json)> + '_ {
+    fn iter(&self) -> impl Iterator<Item = (&JsString, &Json)> + '_ {
         self.entries.iter().map(|(key, value)| (key, value))
     }
 }
 
 // Capture borrowed raw values before converting only the last value of each
 // duplicate key, retaining the first insertion position and existing guards.
-struct RawJsonObject<'a>(Vec<(String, &'a serde_json::value::RawValue)>);
+struct RawJsonObject<'a>(Vec<(JsString, &'a serde_json::value::RawValue)>);
 impl<'de> serde::Deserialize<'de> for RawJsonObject<'de> {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         struct ObjectVisitor;
@@ -211,10 +322,10 @@ impl<'de> serde::Deserialize<'de> for RawJsonObject<'de> {
                 self,
                 mut access: M,
             ) -> Result<Self::Value, M::Error> {
-                let mut entries: Vec<(String, &'de serde_json::value::RawValue)> = Vec::new();
-                let mut index: HashMap<String, usize> = HashMap::new();
+                let mut entries: Vec<(JsString, &'de serde_json::value::RawValue)> = Vec::new();
+                let mut index: HashMap<JsString, usize> = HashMap::new();
                 while let Some((key, value)) =
-                    access.next_entry::<String, &'de serde_json::value::RawValue>()?
+                    access.next_entry::<JsString, &'de serde_json::value::RawValue>()?
                 {
                     if let Some(position) = index.get(&key) {
                         entries[*position].1 = value;
@@ -234,7 +345,7 @@ enum Json {
     Null,
     Bool(bool),
     Number(f64),
-    String(String),
+    String(JsString),
     Array(Vec<Json>),
     Object(JsonObject),
 }
@@ -357,7 +468,7 @@ fn js_string(value: &Json) -> String {
         Json::Null => "null".into(),
         Json::Bool(v) => v.to_string(),
         Json::Number(v) => ryu_js::Buffer::new().format(*v).into(),
-        Json::String(v) => v.clone(),
+        Json::String(v) => v.text.clone(),
         Json::Array(v) => v
             .iter()
             .map(|v| {
@@ -490,6 +601,83 @@ fn long_bits(value: &Json) -> Result<u64, String> {
     }
 }
 
+fn js_string_units(value: &Json) -> Vec<u16> {
+    match value {
+        Json::String(value) => value.units.clone(),
+        Json::Array(values) => {
+            let mut units = Vec::new();
+            for (index, value) in values.iter().enumerate() {
+                if index != 0 {
+                    units.push(b',' as u16);
+                }
+                if !value.is_null() {
+                    units.extend(js_string_units(value));
+                }
+            }
+            units
+        }
+        _ => js_string(value).encode_utf16().collect(),
+    }
+}
+fn legacy_string_bytes(units: &[u16]) -> Vec<u8> {
+    // BufferWriter switches from its manual writer to Buffer UTF8 at40units.
+    if units.len() >= 40 {
+        return String::from_utf16_lossy(units).into_bytes();
+    }
+    let mut bytes = Vec::new();
+    let mut index = 0;
+    while index < units.len() {
+        let unit = units[index];
+        let mut point = unit as u32;
+        if (0xd800..=0xdbff).contains(&unit) {
+            if let Some(low) = units
+                .get(index + 1)
+                .filter(|low| (0xdc00..=0xdfff).contains(*low))
+            {
+                point = 0x10000 + (((unit as u32 & 0x3ff) << 10) | (*low as u32 & 0x3ff));
+                index += 1;
+            }
+        }
+        if point < 0x80 {
+            bytes.push(point as u8);
+        } else if point < 0x800 {
+            bytes.extend([(0xc0 | (point >> 6)) as u8, (0x80 | (point & 0x3f)) as u8]);
+        } else if point < 0x10000 {
+            bytes.extend([
+                (0xe0 | (point >> 12)) as u8,
+                (0x80 | ((point >> 6) & 0x3f)) as u8,
+                (0x80 | (point & 0x3f)) as u8,
+            ]);
+        } else {
+            bytes.extend([
+                (0xf0 | (point >> 18)) as u8,
+                (0x80 | ((point >> 12) & 0x3f)) as u8,
+                (0x80 | ((point >> 6) & 0x3f)) as u8,
+                (0x80 | (point & 0x3f)) as u8,
+            ]);
+        }
+        index += 1;
+    }
+    bytes
+}
+fn legacy_field_default(
+    field: &FieldDescriptor,
+    original: &FieldDescriptor,
+    for_wire: bool,
+) -> Value {
+    if matches!(original.kind(), Kind::String)
+        && matches!(field.kind(), Kind::Bytes)
+        && !field.is_list()
+    {
+        if let Value::String(value) = Value::default_value_for_field(original) {
+            return Value::Bytes(
+                legacy_string_bytes(&value.encode_utf16().collect::<Vec<_>>()).into(),
+            );
+        }
+    }
+    legacy_default(field, for_wire)
+}
+
 fn field_name(field: &FieldDescriptor) -> &str {
     // protobuf.js's built-in Struct/Value descriptors use camelCase names.
     if field.parent_message().full_name() == "google.protobuf.Value" {
@@ -587,7 +775,15 @@ fn from_object(
                 } else {
                     format!("/{url}")
                 };
-                message.set_field_by_name("type_url", Value::String(url));
+                let url_field = desc
+                    .get_field_by_name("type_url")
+                    .ok_or("Missing Any type URL field.")?;
+                let url_value = if matches!(url_field.kind(), Kind::Bytes) {
+                    Value::Bytes(url.as_bytes().to_vec().into())
+                } else {
+                    Value::String(url)
+                };
+                message.set_field(&url_field, url_value);
                 message.set_field_by_name("value", Value::Bytes(inner.encode_to_vec().into()));
                 return Ok(message);
             }
@@ -605,7 +801,7 @@ fn from_object(
                         field.full_name()
                     ));
                 }
-                message.set_field(&field, legacy_default(&field, true));
+                message.set_field(&field, legacy_field_default(&field, &original_field, true));
             }
             continue;
         };
@@ -623,19 +819,19 @@ fn from_object(
             };
             let original_key = original_entry.map_entry_key_field();
             let original_value = original_entry.map_entry_value_field();
-            let pairs: Vec<(String, &Json)> = match input {
+            let pairs: Vec<(JsString, &Json)> = match input {
                 Json::Object(map) => map.iter().map(|(k, v)| (k.clone(), v)).collect(),
                 Json::Array(array) => array
                     .iter()
                     .enumerate()
-                    .map(|(i, v)| (i.to_string(), v))
+                    .map(|(i, v)| (i.to_string().into(), v))
                     .collect(),
                 _ => return Err(format!("{}: object expected", field.full_name())),
             };
             let mut converted = Vec::new();
             for (k, v) in pairs {
                 if let Some(value) = scalar(&value_field, &original_value, v, depth + 1)? {
-                    if k != "__proto__" {
+                    if k.as_str() != "__proto__" {
                         converted.push((k, value));
                     }
                 }
@@ -708,6 +904,11 @@ fn scalar(
 ) -> Result<Option<Value>, String> {
     if matches!(field.kind(), Kind::Int64) && matches!(original.kind(), Kind::Int32) {
         return Ok(Some(Value::I64(uint32(input) as i32 as i64)));
+    }
+    if matches!(field.kind(), Kind::Bytes) && matches!(original.kind(), Kind::String) {
+        return Ok(Some(Value::Bytes(
+            legacy_string_bytes(&js_string_units(input)).into(),
+        )));
     }
     Ok(Some(match field.kind() {
         Kind::Double => Value::F64(number(input)),
@@ -817,7 +1018,14 @@ impl Serialize for LegacyMessage<'_> {
                 let value = if present {
                     self.0.get_field(&field)
                 } else {
-                    std::borrow::Cow::Owned(legacy_default(&field, false))
+                    std::borrow::Cow::Owned(legacy_field_default(
+                        &field,
+                        &self
+                            .2
+                            .get_field(field.number())
+                            .unwrap_or_else(|| field.clone()),
+                        false,
+                    ))
                 };
                 out.serialize_entry(
                     field_name(&field),
@@ -880,6 +1088,9 @@ impl Serialize for LegacyMapEntries<'_> {
                         .iter()
                         .map(|byte| char::from(*byte))
                         .collect(),
+                    Value::Bytes(value) if matches!(original_key.kind(), Kind::String) => {
+                        String::from_utf8_lossy(value).into_owned()
+                    }
                     Value::String(value) => value.clone(),
                     Value::Bool(value) => value.to_string(),
                     Value::I32(value) => value.to_string(),
@@ -951,6 +1162,9 @@ impl Serialize for LegacyValue<'_> {
             Value::F32(v) => serialize_js_number(*v as f64, s),
             Value::F64(v) => serialize_js_number(*v, s),
             Value::String(v) => s.serialize_str(v),
+            Value::Bytes(v) if matches!(self.3, Some(Kind::String)) => {
+                s.serialize_str(&String::from_utf8_lossy(v))
+            }
             Value::Bytes(v) => {
                 // Electron structured cloning turns Buffer into Uint8Array;
                 // the old renderer then JSON.stringify's its numeric keys.
@@ -1036,6 +1250,174 @@ impl Serialize for LegacyValue<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn legacy_surrogate_view_preserves_defaults_any_and_protojson() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../tests/ui/fixtures/grpc-surrogate-reference.json"
+        ))
+        .unwrap();
+        let controls = fixture["controls"].as_array().unwrap();
+        assert_eq!(controls.len(), 7);
+        for row in controls {
+            let label = row["label"].as_str().unwrap();
+            let pool = crate::grpc_schema::compile(crate::grpc_schema::ProtoInput {
+                entry: "control.proto".into(),
+                files: vec![crate::grpc_schema::ProtoFile {
+                    name: "control.proto".into(),
+                    text: row["source"].as_str().unwrap().into(),
+                }],
+                include_paths: Vec::new(),
+            })
+            .unwrap();
+            let original = pool
+                .get_message_by_name(row["name"].as_str().unwrap())
+                .unwrap();
+            let snapshot = pool.encode_to_vec();
+            let request = parse(original.clone(), row["body"].as_str().unwrap())
+                .unwrap_or_else(|e| panic!("{label}: {e}"));
+            let wire = request.encode_to_vec();
+            let hex: String = wire.iter().map(|b| format!("{b:02x}")).collect();
+            assert_eq!(hex, row["wireHex"].as_str().unwrap(), "Wire {label}");
+            let response = DynamicMessage::decode(
+                legacy_descriptor(original.clone()).unwrap(),
+                wire.as_slice(),
+            )
+            .unwrap();
+            assert_eq!(
+                crate::grpc_schema::json_mode(
+                    &response,
+                    crate::grpc_schema::JsonMode::Legacy,
+                    original.clone()
+                )
+                .unwrap(),
+                row["json"].as_str().unwrap(),
+                "JSON {label}"
+            );
+            let standard = crate::grpc_schema::json_mode(
+                &response,
+                crate::grpc_schema::JsonMode::ProtoJson,
+                original.clone(),
+            );
+            if label == "any-known-surrogate" {
+                assert!(
+                    standard.is_err(),
+                    "Standard Any must reject invalid UTF8 inner string"
+                );
+            } else {
+                let value: serde_json::Value = serde_json::from_str(
+                    &standard.unwrap_or_else(|e| panic!("ProtoJSON {label}: {e}")),
+                )
+                .unwrap();
+                if label.starts_with("default-") {
+                    if label == "default-empty" {
+                        assert!(value.get("text").is_none());
+                    } else {
+                        assert!(value["text"].is_string());
+                    }
+                    assert!(value["must"].is_string());
+                } else {
+                    assert!(value["@type"].is_string());
+                    assert_eq!(value["text"], "owned");
+                }
+            }
+            if label.starts_with("default-") {
+                for mode in [
+                    crate::grpc_schema::JsonMode::Legacy,
+                    crate::grpc_schema::JsonMode::ProtoJson,
+                ] {
+                    let example = crate::grpc_example::generate(original.clone(), mode).unwrap();
+                    crate::grpc_schema::parse_mode(original.clone(), &example, mode).unwrap();
+                }
+            }
+            assert_eq!(pool.encode_to_vec(), snapshot, "Original pool {label}");
+        }
+    }
+
+    #[test]
+    fn legacy_surrogate_matches_pinned_wire_and_json() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../tests/ui/fixtures/grpc-surrogate-reference.json"
+        ))
+        .unwrap();
+        assert_eq!(fixture["protobufjs"], "7.2.4");
+        let pool = crate::grpc_schema::compile(crate::grpc_schema::ProtoInput {
+            entry: "surrogate.proto".into(),
+            files: vec![crate::grpc_schema::ProtoFile {
+                name: "surrogate.proto".into(),
+                text: fixture["source"].as_str().unwrap().into(),
+            }],
+            include_paths: Vec::new(),
+        })
+        .unwrap();
+        let original = pool.get_message_by_name("Text").unwrap();
+        let snapshot = pool.encode_to_vec();
+        let rows = fixture["rows"].as_array().unwrap();
+        assert_eq!(rows.len(), 43);
+        for row in rows {
+            let label = row["label"].as_str().unwrap();
+            let message = parse(original.clone(), row["body"].as_str().unwrap())
+                .unwrap_or_else(|e| panic!("{label}: {e}"));
+            let wire = message.encode_to_vec();
+            let actual: String = wire.iter().map(|b| format!("{b:02x}")).collect();
+            assert_eq!(actual, row["wireHex"].as_str().unwrap(), "Wire {label}");
+            let view = legacy_descriptor(original.clone()).unwrap();
+            assert_eq!(
+                legacy_pool(view.parent_pool()).unwrap().encode_to_vec(),
+                view.parent_pool().encode_to_vec()
+            );
+            let decoded = DynamicMessage::decode(view, wire.as_slice()).unwrap();
+            let json = crate::grpc_schema::json_mode(
+                &decoded,
+                crate::grpc_schema::JsonMode::Legacy,
+                original.clone(),
+            )
+            .unwrap();
+            assert_eq!(json, row["json"].as_str().unwrap(), "Response {label}");
+        }
+        assert_eq!(snapshot, pool.encode_to_vec());
+        assert!(crate::grpc_schema::parse(original, r#"{"text":"\ud800"}"#).is_err());
+    }
+
+    #[test]
+    fn legacy_surrogate_property_keys_keep_utf16_identity() {
+        let input = Json::parse(r#"{"\ud800":1,"\udfff":2,"�":3,"\ud800":4}"#, 0).unwrap();
+        let Json::Object(map) = input else {
+            panic!("Expected object");
+        };
+        assert_eq!(map.entries.len(), 3);
+        assert_eq!(map.entries[0].0.units, vec![0xd800]);
+        assert_eq!(map.entries[1].0.units, vec![0xdfff]);
+        assert_eq!(map.entries[2].0.units, vec![0xfffd]);
+        assert_eq!(number(&map.entries[0].1), 4.0);
+        assert_eq!(number(map.get("�").unwrap()), 3.0);
+        let input = Json::parse(r#"{"😀":1,"\ud83d\ude00":2}"#, 0).unwrap();
+        let Json::Object(map) = input else {
+            panic!("Expected object");
+        };
+        assert_eq!(map.entries.len(), 1);
+        assert_eq!(number(&map.entries[0].1), 2.0);
+    }
+
+    #[test]
+    fn legacy_surrogate_unknown_field_is_ignored() {
+        let pool = map_order_reference_pool();
+        let descriptor = pool.get_message_by_name("Strings").unwrap();
+        let parsed = parse(descriptor, r#"{"ignored":"\ud800"}"#).unwrap();
+        assert!(parsed.encode_to_vec().is_empty());
+    }
+
+    #[test]
+    fn legacy_surrogate_short_string_preserves_reference_wire() {
+        let pool = map_order_reference_pool();
+        let descriptor = pool.get_message_by_name("Strings").unwrap();
+        let parsed = parse(descriptor, r#"{"values":{"owned":"\ud800"}}"#).unwrap();
+        // Pinned protobuf.js7.2.4 BufferWriter uses its JS UTF8 writer below40units.
+        assert_eq!(
+            parsed.encode_to_vec(),
+            vec![10, 12, 10, 5, b'o', b'w', b'n', b'e', b'd', 18, 3, 0xed, 0xa0, 0x80]
+        );
+    }
 
     #[test]
     fn legacy_map_matches_pinned_wire_and_json_vectors() {
@@ -1714,6 +2096,10 @@ mod tests {
             let input = format!("{{\"real\":{literal},\"integer\":{literal},\"wide\":{literal},\"text\":{literal}}}");
             let message = parse(descriptor.clone(), &input)
                 .unwrap_or_else(|error| panic!("Reference JSON number {literal} refused: {error}"));
+            // Check original-schema wire values, independent of the private legacy view.
+            let message =
+                DynamicMessage::decode(descriptor.clone(), message.encode_to_vec().as_slice())
+                    .unwrap();
             for (field, expected) in [
                 ("real", Value::F64(real)),
                 ("integer", Value::I32(0)),
@@ -1737,7 +2123,7 @@ mod tests {
         ];
         for code in whitespace.into_iter().chain([133, 6158, 8203, 8288]) {
             let ch = char::from_u32(code).unwrap();
-            let input = Json::String(format!("{ch}1{ch}"));
+            let input = Json::String(format!("{ch}1{ch}").into());
             assert_eq!(
                 long_bits(&input).unwrap(),
                 if whitespace.contains(&code) { 1 } else { 0 },

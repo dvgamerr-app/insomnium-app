@@ -1,0 +1,364 @@
+{
+  "protobufjs": "7.2.4",
+  "source": "syntax=\"proto3\"; message Text { string text=1; repeated string list=2; map<string,string> labels=3; }",
+  "rows": [
+    {
+      "label": "high-text",
+      "body": "{\"text\":\"\\ud800\"}",
+      "wireHex": "0a03eda080",
+      "json": "{\"list\":[],\"labels\":{},\"text\":\"���\"}",
+      "error": null
+    },
+    {
+      "label": "high-list",
+      "body": "{\"list\":[\"\\ud800\"]}",
+      "wireHex": "1203eda080",
+      "json": "{\"list\":[\"���\"],\"labels\":{},\"text\":\"\"}",
+      "error": null
+    },
+    {
+      "label": "high-labels",
+      "body": "{\"labels\":{\"\\ud800\":\"\\ud800\"}}",
+      "wireHex": "1a0a0a03eda0801203eda080",
+      "json": "{\"list\":[],\"labels\":{\"���\":\"���\"},\"text\":\"\"}",
+      "error": null
+    },
+    {
+      "label": "low-text",
+      "body": "{\"text\":\"\\udfff\"}",
+      "wireHex": "0a03edbfbf",
+      "json": "{\"list\":[],\"labels\":{},\"text\":\"���\"}",
+      "error": null
+    },
+    {
+      "label": "low-list",
+      "body": "{\"list\":[\"\\udfff\"]}",
+      "wireHex": "1203edbfbf",
+      "json": "{\"list\":[\"���\"],\"labels\":{},\"text\":\"\"}",
+      "error": null
+    },
+    {
+      "label": "low-labels",
+      "body": "{\"labels\":{\"\\udfff\":\"\\udfff\"}}",
+      "wireHex": "1a0a0a03edbfbf1203edbfbf",
+      "json": "{\"list\":[],\"labels\":{\"���\":\"���\"},\"text\":\"\"}",
+      "error": null
+    },
+    {
+      "label": "pair-text",
+      "body": "{\"text\":\"😀\"}",
+      "wireHex": "0a04f09f9880",
+      "json": "{\"list\":[],\"labels\":{},\"text\":\"😀\"}",
+      "error": null
+    },
+    {
+      "label": "pair-list",
+      "body": "{\"list\":[\"😀\"]}",
+      "wireHex": "1204f09f9880",
+      "json": "{\"list\":[\"😀\"],\"labels\":{},\"text\":\"\"}",
+      "error": null
+    },
+    {
+      "label": "pair-labels",
+      "body": "{\"labels\":{\"😀\":\"😀\"}}",
+      "wireHex": "1a0c0a04f09f98801204f09f9880",
+      "json": "{\"list\":[],\"labels\":{\"😀\":\"😀\"},\"text\":\"\"}",
+      "error": null
+    },
+    {
+      "label": "high-ascii-text",
+      "body": "{\"text\":\"\\ud800a\"}",
+      "wireHex": "0a04eda08061",
+      "json": "{\"list\":[],\"labels\":{},\"text\":\"���a\"}",
+      "error": null
+    },
+    {
+      "label": "high-ascii-list",
+      "body": "{\"list\":[\"\\ud800a\"]}",
+      "wireHex": "1204eda08061",
+      "json": "{\"list\":[\"���a\"],\"labels\":{},\"text\":\"\"}",
+      "error": null
+    },
+    {
+      "label": "high-ascii-labels",
+      "body": "{\"labels\":{\"\\ud800a\":\"\\ud800a\"}}",
+      "wireHex": "1a0c0a04eda080611204eda08061",
+      "json": "{\"list\":[],\"labels\":{\"���a\":\"���a\"},\"text\":\"\"}",
+      "error": null
+    },
+    {
+      "label": "ascii-low-text",
+      "body": "{\"text\":\"a\\udfff\"}",
+      "wireHex": "0a0461edbfbf",
+      "json": "{\"list\":[],\"labels\":{},\"text\":\"a���\"}",
+      "error": null
+    },
+    {
+      "label": "ascii-low-list",
+      "body": "{\"list\":[\"a\\udfff\"]}",
+      "wireHex": "120461edbfbf",
+      "json": "{\"list\":[\"a���\"],\"labels\":{},\"text\":\"\"}",
+      "error": null
+    },
+    {
+      "label": "ascii-low-labels",
+      "body": "{\"labels\":{\"a\\udfff\":\"a\\udfff\"}}",
+      "wireHex": "1a0c0a0461edbfbf120461edbfbf",
+      "json": "{\"list\":[],\"labels\":{\"a���\":\"a���\"},\"text\":\"\"}",
+      "error": null
+    },
+    {
+      "label": "two-high-text",
+      "body": "{\"text\":\"\\ud800\\ud801\"}",
+      "wireHex": "0a06eda080eda081",
+      "json": "{\"list\":[],\"labels\":{},\"text\":\"������\"}",
+      "error": null
+    },
+    {
+      "label": "two-high-list",
+      "body": "{\"list\":[\"\\ud800\\ud801\"]}",
+      "wireHex": "1206eda080eda081",
+      "json": "{\"list\":[\"������\"],\"labels\":{},\"text\":\"\"}",
+      "error": null
+    },
+    {
+      "label": "two-high-labels",
+      "body": "{\"labels\":{\"\\ud800\\ud801\":\"\\ud800\\ud801\"}}",
+      "wireHex": "1a100a06eda080eda0811206eda080eda081",
+      "json": "{\"list\":[],\"labels\":{\"������\":\"������\"},\"text\":\"\"}",
+      "error": null
+    },
+    {
+      "label": "low-high-text",
+      "body": "{\"text\":\"\\udfff\\ud800\"}",
+      "wireHex": "0a06edbfbfeda080",
+      "json": "{\"list\":[],\"labels\":{},\"text\":\"������\"}",
+      "error": null
+    },
+    {
+      "label": "low-high-list",
+      "body": "{\"list\":[\"\\udfff\\ud800\"]}",
+      "wireHex": "1206edbfbfeda080",
+      "json": "{\"list\":[\"������\"],\"labels\":{},\"text\":\"\"}",
+      "error": null
+    },
+    {
+      "label": "low-high-labels",
+      "body": "{\"labels\":{\"\\udfff\\ud800\":\"\\udfff\\ud800\"}}",
+      "wireHex": "1a100a06edbfbfeda0801206edbfbfeda080",
+      "json": "{\"list\":[],\"labels\":{\"������\":\"������\"},\"text\":\"\"}",
+      "error": null
+    },
+    {
+      "label": "39units-text",
+      "body": "{\"text\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\ud800\"}",
+      "wireHex": "0a297878787878787878787878787878787878787878787878787878787878787878787878787878eda080",
+      "json": "{\"list\":[],\"labels\":{},\"text\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx���\"}",
+      "error": null
+    },
+    {
+      "label": "39units-list",
+      "body": "{\"list\":[\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\ud800\"]}",
+      "wireHex": "12297878787878787878787878787878787878787878787878787878787878787878787878787878eda080",
+      "json": "{\"list\":[\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx���\"],\"labels\":{},\"text\":\"\"}",
+      "error": null
+    },
+    {
+      "label": "39units-labels",
+      "body": "{\"labels\":{\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\ud800\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\ud800\"}}",
+      "wireHex": "1a560a297878787878787878787878787878787878787878787878787878787878787878787878787878eda08012297878787878787878787878787878787878787878787878787878787878787878787878787878eda080",
+      "json": "{\"list\":[],\"labels\":{\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx���\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx���\"},\"text\":\"\"}",
+      "error": null
+    },
+    {
+      "label": "40units-text",
+      "body": "{\"text\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\ud800\"}",
+      "wireHex": "0a2a787878787878787878787878787878787878787878787878787878787878787878787878787878efbfbd",
+      "json": "{\"list\":[],\"labels\":{},\"text\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx�\"}",
+      "error": null
+    },
+    {
+      "label": "40units-list",
+      "body": "{\"list\":[\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\ud800\"]}",
+      "wireHex": "122a787878787878787878787878787878787878787878787878787878787878787878787878787878efbfbd",
+      "json": "{\"list\":[\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx�\"],\"labels\":{},\"text\":\"\"}",
+      "error": null
+    },
+    {
+      "label": "40units-labels",
+      "body": "{\"labels\":{\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\ud800\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\ud800\"}}",
+      "wireHex": "1a580a2a787878787878787878787878787878787878787878787878787878787878787878787878787878efbfbd122a787878787878787878787878787878787878787878787878787878787878787878787878787878efbfbd",
+      "json": "{\"list\":[],\"labels\":{\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx�\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx�\"},\"text\":\"\"}",
+      "error": null
+    },
+    {
+      "label": "41units-text",
+      "body": "{\"text\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\ud800\"}",
+      "wireHex": "0a2b78787878787878787878787878787878787878787878787878787878787878787878787878787878efbfbd",
+      "json": "{\"list\":[],\"labels\":{},\"text\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx�\"}",
+      "error": null
+    },
+    {
+      "label": "41units-list",
+      "body": "{\"list\":[\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\ud800\"]}",
+      "wireHex": "122b78787878787878787878787878787878787878787878787878787878787878787878787878787878efbfbd",
+      "json": "{\"list\":[\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx�\"],\"labels\":{},\"text\":\"\"}",
+      "error": null
+    },
+    {
+      "label": "41units-labels",
+      "body": "{\"labels\":{\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\ud800\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\ud800\"}}",
+      "wireHex": "1a5a0a2b78787878787878787878787878787878787878787878787878787878787878787878787878787878efbfbd122b78787878787878787878787878787878787878787878787878787878787878787878787878787878efbfbd",
+      "json": "{\"list\":[],\"labels\":{\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx�\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx�\"},\"text\":\"\"}",
+      "error": null
+    },
+    {
+      "label": "unknown-high",
+      "body": "{\"ignored\":\"\\ud800\",\"text\":\"owned\"}",
+      "wireHex": "0a056f776e6564",
+      "json": "{\"list\":[],\"labels\":{},\"text\":\"owned\"}"
+    },
+    {
+      "label": "array-coercion",
+      "body": "{\"text\":[\"\\ud800\",null,\"\\udfff\"]}",
+      "wireHex": "0a08eda0802c2cedbfbf",
+      "json": "{\"list\":[],\"labels\":{},\"text\":\"���,,���\"}",
+      "error": null
+    },
+    {
+      "label": "nested-array-coercion",
+      "body": "{\"text\":[[\"\\ud800\"],[null,\"\\udfff\"]]}",
+      "wireHex": "0a08eda0802c2cedbfbf",
+      "json": "{\"list\":[],\"labels\":{},\"text\":\"���,,���\"}",
+      "error": null
+    },
+    {
+      "label": "object-coercion",
+      "body": "{\"text\":{\"owned\":\"\\ud800\"}}",
+      "wireHex": "0a0f5b6f626a656374204f626a6563745d",
+      "json": "{\"list\":[],\"labels\":{},\"text\":\"[object Object]\"}",
+      "error": null
+    },
+    {
+      "label": "decoded-key-collision",
+      "body": "{\"labels\":{\"\\ud800\":\"first\",\"\\udfff\":\"second\",\"�\":\"third\"}}",
+      "wireHex": "1a0c0a03eda080120566697273741a0d0a03edbfbf12067365636f6e641a0c0a03efbfbd12057468697264",
+      "json": "{\"list\":[],\"labels\":{\"���\":\"second\",\"�\":\"third\"},\"text\":\"\"}",
+      "error": null
+    },
+    {
+      "label": "duplicate-surrogate-key",
+      "body": "{\"labels\":{\"\\ud800\":\"old\",\"z\":\"middle\",\"\\ud800\":\"last\"}}",
+      "wireHex": "1a0b0a03eda08012046c6173741a0b0a017a12066d6964646c65",
+      "json": "{\"list\":[],\"labels\":{\"���\":\"last\",\"z\":\"middle\"},\"text\":\"\"}",
+      "error": null
+    },
+    {
+      "label": "escaped-field-name",
+      "body": "{\"te\\u0078t\":\"\\ud800\"}",
+      "wireHex": "0a03eda080",
+      "json": "{\"list\":[],\"labels\":{},\"text\":\"���\"}",
+      "error": null
+    },
+    {
+      "label": "unknown-surrogate-key",
+      "body": "{\"\\ud800\":\"ignored\",\"text\":\"owned\"}",
+      "wireHex": "0a056f776e6564",
+      "json": "{\"list\":[],\"labels\":{},\"text\":\"owned\"}",
+      "error": null
+    },
+    {
+      "label": "escaped-literal",
+      "body": "{\"text\":\"\\\\ud800\"}",
+      "wireHex": "0a065c7564383030",
+      "json": "{\"list\":[],\"labels\":{},\"text\":\"\\\\ud800\"}",
+      "error": null
+    },
+    {
+      "label": "proto-name-prefix",
+      "body": "{\"labels\":{\"__proto__\\ud800\":\"owned\"}}",
+      "wireHex": "1a150a0c5f5f70726f746f5f5feda08012056f776e6564",
+      "json": "{\"list\":[],\"labels\":{\"__proto__���\":\"owned\"},\"text\":\"\"}",
+      "error": null
+    },
+    {
+      "label": "coerced-null-array",
+      "body": "{\"text\":[null]}",
+      "wireHex": "0a00",
+      "json": "{\"list\":[],\"labels\":{},\"text\":\"\"}",
+      "error": null
+    },
+    {
+      "label": "short-pair-boundary",
+      "body": "{\"text\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx😀\"}",
+      "wireHex": "0a2978787878787878787878787878787878787878787878787878787878787878787878787878f09f9880",
+      "json": "{\"list\":[],\"labels\":{},\"text\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx😀\"}",
+      "error": null
+    },
+    {
+      "label": "long-pair-boundary",
+      "body": "{\"text\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx😀\"}",
+      "wireHex": "0a2a7878787878787878787878787878787878787878787878787878787878787878787878787878f09f9880",
+      "json": "{\"list\":[],\"labels\":{},\"text\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx😀\"}",
+      "error": null
+    }
+  ],
+  "controls": [
+    {
+      "label": "default-empty",
+      "source": "syntax=\"proto2\";message Defaults { optional string text=1 [default=\"YWJj\"]; required string must=2 [default=\"owned\"]; repeated string list=3; }",
+      "name": "Defaults",
+      "body": "{}",
+      "wireHex": "12056f776e6564",
+      "json": "{\"list\":[],\"text\":\"YWJj\",\"must\":\"owned\"}"
+    },
+    {
+      "label": "default-explicit",
+      "source": "syntax=\"proto2\";message Defaults { optional string text=1 [default=\"YWJj\"]; required string must=2 [default=\"owned\"]; repeated string list=3; }",
+      "name": "Defaults",
+      "body": "{\"text\":\"YWJj\",\"must\":\"owned\"}",
+      "wireHex": "0a0459574a6a12056f776e6564",
+      "json": "{\"list\":[],\"text\":\"YWJj\",\"must\":\"owned\"}"
+    },
+    {
+      "label": "default-override",
+      "source": "syntax=\"proto2\";message Defaults { optional string text=1 [default=\"YWJj\"]; required string must=2 [default=\"owned\"]; repeated string list=3; }",
+      "name": "Defaults",
+      "body": "{\"text\":\"value\",\"must\":\"\"}",
+      "wireHex": "0a0576616c75651200",
+      "json": "{\"list\":[],\"text\":\"value\",\"must\":\"\"}"
+    },
+    {
+      "label": "default-unicode",
+      "source": "syntax=\"proto2\";message Defaults { optional string text=1 [default=\"YWJj\"]; required string must=2 [default=\"owned\"]; repeated string list=3; }",
+      "name": "Defaults",
+      "body": "{\"text\":\"😀\",\"must\":\"é\"}",
+      "wireHex": "0a04f09f98801202c3a9",
+      "json": "{\"list\":[],\"text\":\"😀\",\"must\":\"é\"}"
+    },
+    {
+      "label": "any-known",
+      "source": "syntax=\"proto3\";import \"google/protobuf/any.proto\";message Text {string text=1;}",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\".Text\",\"text\":\"owned\"}",
+      "wireHex": "0a052f5465787412070a056f776e6564",
+      "json": "{\"type_url\":\"/Text\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}"
+    },
+    {
+      "label": "any-known-surrogate",
+      "source": "syntax=\"proto3\";import \"google/protobuf/any.proto\";message Text {string text=1;}",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"type.googleapis.com/Text\",\"text\":\"\\ud800\"}",
+      "wireHex": "0a18747970652e676f6f676c65617069732e636f6d2f5465787412050a03eda080",
+      "json": "{\"type_url\":\"type.googleapis.com/Text\",\"value\":{\"0\":10,\"1\":3,\"2\":237,\"3\":160,\"4\":128}}"
+    },
+    {
+      "label": "any-raw-url",
+      "source": "syntax=\"proto3\";import \"google/protobuf/any.proto\";message Text {string text=1;}",
+      "name": "google.protobuf.Any",
+      "body": "{\"type_url\":\"/Text\",\"value\":\"CgVvd25lZA==\"}",
+      "wireHex": "0a052f5465787412070a056f776e6564",
+      "json": "{\"type_url\":\"/Text\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}"
+    }
+  ]
+}
