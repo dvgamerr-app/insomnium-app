@@ -4,6 +4,14 @@ Updated 2026-10-15. Native transport, cookie management, multipart, proxy/TLS se
 
 See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity requirements](PARITY.md). No original scope was removed by consolidation.
 
+## Current compressed SSE native acceptance
+
+Windows valid/corrupt gzip, deflate and Brotli are bounded verified by tests/ui/sse-compression-native.js and its saved helper. Each valid complete compressed member is sent as two producer writes while HTTP EOF remains held: the actual mounted event and decoded Raw view appear before EOF. Native .bin Save is byte-exact to decoded UTF8/BOM input; raw history counts decoded bytes, not compressed wire bytes. Corrupt bodies produce durable SSE stream errors without parsed events. All6histories survive exact reload equality. Producer write boundaries do not establish distinct TCP/native decoder reads, and complete-member-before-EOF is not incremental compressor-flush acceptance.
+
+Fresh normal-hook candidate artifacts/native-resource-crud-audit-probe/sse-compression-attempt-1: build99049 exits0/Rust7m39; exeSHA32fddb0bc6cc04e9c40eee0475e9e5d16b50c4c00408068baef1ce57f8ecadb6. Native continuation29351 exits0: compression1792050599269 passes6, originalSSE1792050611308 passes8/10durables, WS1792050628531 passes6. Hosts48644/564/56460 exit0/native-hidden. Restorations1792050599033/1792050611078/1792050628276 return exact originalf0b51/d8b032 profile buffers. acceptance-audit.json validates original1256source entries/1186regular rows,0overrides and exact full source/package/private/tool/asset closure after all3native suites. Fixture preflight, strict fixture/2scenario checking, Prettier and diff checks pass. Only5preexisting vendor warnings. No production transport change; no live owned handles remain.
+
+Remaining: truncated/corrupt-after-valid-prefix streams, true incremental compressor flush, multiple members, cancellation/limits while decoding, mixed HTTP/SSE/WebSocket actual histories, exact boundaries/WS-negative/renderer-host suspension/provider/platform/physicalTCP/OS-close and every retained PARITY gate. Official references: https://bun.sh/reference/node/zlib and https://docs.rs/reqwest/0.12.28/reqwest/struct.ClientBuilder.html. Full migration incomplete.
+
 ## Current native SSE bounds and ACK deadline
 
 A lost data acknowledgement previously exhausted30seconds, then connect_stream unconditionally sent Finished and started another30second acknowledgement wait before retiring its run/ACK registrations. The real held-receiver baseline at artifacts/playwright/sse-bounds-native-1792047337508 retires its peer body after30113ms but leaves the invocation pending beyond45000ms. Exact failed receiver/scenario/baseline Rust bytes and timeout-finding.json are retained in artifacts/native-resource-crud-audit-probe/sse-bounds-diagnostic-attempt-4.

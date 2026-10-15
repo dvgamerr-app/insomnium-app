@@ -130,11 +130,17 @@ export async function createSseRuntimeFixture() {
             closed(row, `body-cancel: ${String(reason)}`);
           },
         });
+        const encoding = url.searchParams.get("encoding");
+        if (encoding && !["gzip", "deflate", "br"].includes(encoding)) {
+          closed(row, "unsupported-fixture-encoding");
+          return new Response("Unsupported fixture encoding", { status: 400 });
+        }
         return new Response(stream, {
           headers: {
             "Content-Type": "text/event-stream; charset=utf-8",
             "Cache-Control": "no-cache",
             Connection: "close",
+            ...(encoding ? { "Content-Encoding": encoding } : {}),
           },
         });
       } catch (error) {
@@ -163,10 +169,11 @@ export async function createSseRuntimeFixture() {
   return {
     records,
     errors,
-    /** @param {string} token @param {'stream'|'reject'|'mime'|'held'} [mode] */
-    target(token, mode = "stream") {
+    /** @param {string} token @param {'stream'|'reject'|'mime'|'held'} [mode]
+     * @param {'gzip'|'deflate'|'br'} [encoding] */
+    target(token, mode = "stream", encoding) {
       assert.ok(token);
-      return `http://127.0.0.1:${server.port}/${encodeURIComponent(token)}?mode=${mode}`;
+      return `http://127.0.0.1:${server.port}/${encodeURIComponent(token)}?mode=${mode}${encoding ? `&encoding=${encoding}` : ""}`;
     },
     /** @param {string} token @param {string|Uint8Array} data */
     push(token, data) {
