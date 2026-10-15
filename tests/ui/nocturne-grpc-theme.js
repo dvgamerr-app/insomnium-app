@@ -4,6 +4,12 @@ import { createServer } from "node:http2";
 import { withNativeApp, poll } from "./helpers/native-app.js";
 import { gitCollection } from "./helpers/git-fixture.js";
 
+if (process.argv.includes("--proto-root-model")) {
+  const { assertProtoRootModel } = await import("./helpers/proto-root-model.js");
+  console.log(JSON.stringify(await assertProtoRootModel(), null, 2));
+  process.exit(0);
+}
+
 if (process.argv.includes("--proto-component")) {
   const { runProtoComponentMeasurement } = await import("./helpers/proto-manager-component.js");
   await runProtoComponentMeasurement();

@@ -52,7 +52,7 @@
   const collectionId = $derived(workspaceFor(app.data.resources, request._id));
   const files = $derived.by(() => {
     try {
-      return protoFiles(app.data.resources, collectionId);
+      return protoFiles(app.data.resources, collectionId, { skipInvalid: true });
     } catch {
       return [];
     }

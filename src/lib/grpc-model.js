@@ -32,8 +32,10 @@ export function validProtoName(name) {
   );
 }
 
-/** @param {Resource[]} resources @param {string} collectionId */
-export function protoFiles(resources, collectionId) {
+/** Strict by default; the UI may omit invalid choices without hiding other roots.
+ * @param {Resource[]} resources @param {string} collectionId
+ * @param {{skipInvalid?:boolean}} [options] */
+export function protoFiles(resources, collectionId, options = {}) {
   const byId = new Map(resources.map((r) => [r._id, r]));
   return resources
     .filter(
@@ -42,50 +44,93 @@ export function protoFiles(resources, collectionId) {
         workspaceFor(resources, r._id) === collectionId,
     )
     .map((file) => {
-      const parts = [String(file.name || "")],
-        seen = new Set([file._id]);
-      let current = byId.get(file.parentId);
-      while (current && current._id !== collectionId) {
-        if (current._type !== "proto_directory" || seen.has(current._id))
-          throw new Error("Invalid saved proto hierarchy.");
-        seen.add(current._id);
-        parts.unshift(String(current.name || ""));
-        current = byId.get(current.parentId);
+      try {
+        const parts = [String(file.name || "")],
+          seen = new Set([file._id]);
+        let current = byId.get(file.parentId);
+        while (current && current._id !== collectionId) {
+          if (current._type !== "proto_directory" || seen.has(current._id))
+            throw new Error("Invalid saved proto hierarchy.");
+          seen.add(current._id);
+          parts.unshift(String(current.name || ""));
+          current = byId.get(current.parentId);
+        }
+        if (!current || parts.some((p) => p.includes("/") || !validProtoName(p)))
+          throw new Error(`Invalid proto name: ${file.name}`);
+        return {
+          id: file._id,
+          name: parts.join("/"),
+          text: String(file.protoText || ""),
+        };
+      } catch (error) {
+        if (options.skipInvalid) return null;
+        throw error;
       }
-      if (!current || parts.some((p) => p.includes("/") || !validProtoName(p)))
-        throw new Error(`Invalid proto name: ${file.name}`);
-      return {
-        id: file._id,
-        name: parts.join("/"),
-        text: String(file.protoText || ""),
-      };
-    });
+    })
+    .filter((file) => file !== null);
 }
 
 /** @param {Resource[]} resources @param {string} collectionId @param {string} selectedId */
 export function protoInput(resources, collectionId, selectedId) {
   if (!selectedId) return null;
-  const saved = protoFiles(resources, collectionId);
-  const selected = saved.find((f) => f.id === selectedId);
-  if (!selected)
-    throw new Error(
-      "The selected proto file is missing from this collection. Choose a file or server reflection.",
-    );
-  // Legacy resolves imports within the selected top-level proto directory.
-  // Separate imports may contain equal filenames with different definitions.
-  const root = selected.name.includes("/")
-    ? selected.name.split("/")[0] + "/"
-    : "";
-  const files = saved
-    .filter((f) => (root ? f.name.startsWith(root) : !f.name.includes("/")))
-    .map((f) => ({ ...f, name: root ? f.name.slice(root.length) : f.name }));
+  const byId = new Map(resources.map((row) => [row._id, row]));
+  const collection = byId.get(collectionId), selectedResource = byId.get(selectedId);
+  const missing = () => new Error(
+    "The selected proto file is missing from this collection. Choose a file or server reflection.",
+  );
+  if (collection?._type !== "workspace" || selectedResource?._type !== "proto_file")
+    throw missing();
+  // Isolate by ancestry identity BEFORE validating any names. Unrelated roots
+  // may have the same display name or malformed imported trees.
+  const ancestors = new Set([selectedId]);
+  let current = selectedResource, rootDirectory = null;
+  while (current.parentId !== collectionId) {
+    const parent = byId.get(current.parentId);
+    if (!parent || parent._type !== "proto_directory" || ancestors.has(parent._id))
+      throw new Error("Invalid saved proto hierarchy.");
+    ancestors.add(parent._id);
+    rootDirectory = parent;
+    current = parent;
+  }
+  const scopedIds = new Set([collectionId]);
+  const includes = new Set();
+  if (rootDirectory) {
+    const stack = [{ directory: rootDirectory, path: "" }];
+    while (stack.length) {
+      const item = stack.pop();
+      if (!item || scopedIds.has(item.directory._id))
+        throw new Error("Invalid saved proto hierarchy.");
+      scopedIds.add(item.directory._id);
+      if (item.path) includes.add(item.path);
+      if (includes.size > 256)
+        throw new Error("A proto directory can compile at most 256 include directories at a time.");
+      const children = resources.filter((row) => row.parentId === item.directory._id);
+      for (const child of children)
+        if (child._type === "proto_file") scopedIds.add(child._id);
+      // Legacy writeProtoFile lists directories parent-before-child, DFS in
+      // resource order, even if a directory contains no proto files.
+      for (const child of children.slice().reverse()) {
+        if (child._type !== "proto_directory") continue;
+        const part = String(child.name || "");
+        const path = item.path ? item.path + "/" + part : part;
+        if (part.includes("/") || !validProtoName(part) || !validProtoName(path))
+          throw new Error(`Invalid proto name: ${child.name}`);
+        stack.push({ directory: child, path });
+      }
+    }
+  } else {
+    for (const row of resources)
+      if (row._type === "proto_file" && row.parentId === collectionId) scopedIds.add(row._id);
+  }
+  const saved = protoFiles(resources.filter((row) => scopedIds.has(row._id)), collectionId);
+  const selected = saved.find((file) => file.id === selectedId);
+  if (!selected) throw missing();
+  const prefix = rootDirectory ? String(rootDirectory.name || "") + "/" : "";
+  const files = saved.map((file) => ({ ...file, name: prefix ? file.name.slice(prefix.length) : file.name }));
   if (files.length > 256)
-    throw new Error(
-      "A proto directory can compile at most 256 files at a time.",
-    );
+    throw new Error("A proto directory can compile at most 256 files at a time.");
   let total = 0;
-  const names = new Set(),
-    includes = new Set();
+  const names = new Set();
   for (const file of files) {
     if (!validProtoName(file.name) || names.has(file.name))
       throw new Error(`Invalid or duplicate proto path: ${file.name}`);
@@ -94,15 +139,9 @@ export function protoInput(resources, collectionId, selectedId) {
     total += size;
     if (size > protoFileLimit || total > protoTotalLimit)
       throw new Error("Proto sources exceed 2 MiB per file or 8 MiB combined.");
-    const parts = file.name.split("/");
-    parts.pop();
-    while (parts.length) {
-      includes.add(parts.join("/"));
-      parts.pop();
-    }
   }
   return {
-    entry: root ? selected.name.slice(root.length) : selected.name,
+    entry: prefix ? selected.name.slice(prefix.length) : selected.name,
     files: files.map(({ name, text }) => ({ name, text })),
     includePaths: [...includes],
   };
