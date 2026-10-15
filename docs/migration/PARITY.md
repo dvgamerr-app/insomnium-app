@@ -6,6 +6,10 @@ Current receipts: Windows environment6349100/follow-up eae4ac2 (29checks/Name6/J
 
 ## Latest stream history and decoded limits
 
+Eight small raw WebSocket frame sequences now have bounded native acceptance: splitUTF8/binary reassembly,125byte interleaved ping/exact client pong and five invalid-framing/UTF8 refusals. All5profiles restore; source closure/regressions pass. See HTTP.md#current-explicit-websocket-frame-acceptance. Aggregate large fragmentation, broader controls/close/Clipboard/gRPC/provider/platform and all retained gates remain open.
+
+
+
 Full20MiB text/binary event Save before/after reload now has bounded Windows acceptance: four native files exact size/SHA, Cancel/owned-dialog retirement, original regressions/source closure and exact5profile restoration. See HTTP.md#current-full-large-websocket-export. Large Clipboard Copy, fragmentation/control/gRPC/provider/platform and all other retained gates stay open.
 
 

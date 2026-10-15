@@ -1687,3 +1687,7 @@ Run `bun tests/ui/websocket-large-history-native.js` with INSOMNIUM_WEBSOCKET_LA
 ## Current full large event export verification
 
 Existing websocket-large-history-native.js now verifies four20MiB native Save files (text/binary × terminal/reloaded) and Cancel before Save. Await actual owned dialog disappearance after Cancel; posting its command alone is insufficient. Use unchanged shared native-hidden/profile preservation and owned Save dialog helpers. Canonical evidence/failure: HTTP.md#current-full-large-websocket-export.
+
+## Current explicit WebSocket frame verification
+
+Run `bun tests/ui/websocket-frames-native.js` with INSOMNIUM_WEBSOCKET_FRAMES_NATIVE=1 and audited build/profile marker. Saved websocket-frame-fixture.js uses a bounded raw TCP handshake/control parser to author real FIN/opcode sequences. Keep actual SDK Channel and independent pong/peer retirement evidence; no application callbacks/transport are replaced. Canonical8case evidence and limits: HTTP.md#current-explicit-websocket-frame-acceptance.

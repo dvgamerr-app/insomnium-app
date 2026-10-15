@@ -4,6 +4,10 @@ Updated 2026-10-15. Current state is in [STATUS.md](STATUS.md); all original req
 
 ## Remaining execution order
 
+Eight explicit small WebSocket fragmentation/control sequences are bounded verified through real native Channel/independent wire; see HTTP.md#current-explicit-websocket-frame-acceptance. Next aggregate large fragmented messages, broader control/close cases, Clipboard Copy and gRPC plus every remaining PARITY gate.
+
+
+
 Full20MiB text/binary native event Save is now bounded verified before/after reload with four exact files; see HTTP.md#current-full-large-websocket-export. Next explicit fragmentation/control frames, large Clipboard Copy and gRPC plus all retained PARITY gates.
 
 

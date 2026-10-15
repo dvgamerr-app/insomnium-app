@@ -3,6 +3,14 @@
 Updated 2026-10-15. Full migration is **incomplete**. Latest verified scenario/source commit:5fbb75a; prior certificate scenario:9180ac4; portable certificate implementation:ddea70f; prior request-file implementation/scenario:11e9b96/08ab0b3. Branch:feat/ui-design-system-settings-curl. Verified agent work is committed in the shared repo. Retired directories/custom .git backups remain absent; legacy backup and node_modules are preserved.
 ## Current work
 
+### Explicit WebSocket fragmentation/control frames — verified bounded milestone 2026-10-15
+
+Eight small actual RFC6455 sequences pass through a separate real SDK Channel: text split inside a multibyte UTF8 code point, fragmented binary,125byte ping interleaved before final continuation with exact masked client pong, fragmented ping refusal,126byte ping refusal, unexpected continuation refusal, new data opcode inside fragmented message refusal, and invalid UTF8 across continuations refusal. No partial text/binary event precedes final continuation; valid messages arrive exactly once. Five invalid cases retire with generic WebSocket failed: tungstenite error and0data payloads; specific diagnostics are not claimed. Raw loopback peer authors FIN/opcodes/payloads explicitly, validates client masking, bounded handshake/control reads and exact small writes, and records frame bytes. It does not intercept app callbacks/IPC. This closes no aggregate20MiB fragmented, broad control-frame, application-history, physicalTCP/OS-close/provider/platform gate.
+
+Suite66425 exits0: frames1792063362453=8/SSEexact1792063371570=6/SSE1792063431474=8/WS1792063447852=6/mixed1792063459241=5. Hosts58292/56972/57000/58568/42600 exit0/native-hidden; exact5original profiles restore. Raw fixture8connections/8closures, no forced retirement/errors. Unchanged app3ecce5a/exe61215395/manifest3db462bb with declared4test/5doc supplement closes1406source/1315regular rows/all other scopes. audit-frames.mjs validates original manifest/executable, exact declared deltas, sources/receipts/profiles, sent frame headers/payload bytes/client masking/exact pong and rebuilt SDK bundle. Artifacts: artifacts/native-resource-crud-audit-probe/websocket-large-ui-attempt-1/. Strict3-file JS/format pass after adding explicit buffer/scalar types and optional socket-error code annotation. No live handles. Next aggregate large fragmented messages, broader control/close cases, large Clipboard Copy and gRPC plus every remaining PLAN/PARITY. Full migration incomplete; /compact unavailable, explicit handoff.
+
+
+
 Verified full large-event export topic commit:b0030ca. Suite53647 terminal0; independent audit confirms four20MiB native files and exact5profile restoration. No live handles. Only declared migration documentation changed after accepted source snapshot; full migration incomplete. Next fragmentation/control frames, large Clipboard Copy and gRPC. /compact unavailable; explicit handoff.
 
 
