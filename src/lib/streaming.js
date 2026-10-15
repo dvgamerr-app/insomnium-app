@@ -49,6 +49,7 @@ export function appendStreamEvent(response, event) {
     const candidate = response.events[index];
     if (
       candidate.kind === "sse" ||
+      candidate.kind === "sent" ||
       (candidate.kind === "message" &&
         !["ping", "pong"].includes(candidate.format))
     ) {

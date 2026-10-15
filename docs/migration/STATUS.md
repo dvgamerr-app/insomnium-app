@@ -3,6 +3,14 @@
 Updated 2026-10-15. Full migration is **incomplete**. Latest verified scenario/source commit:5fbb75a; prior certificate scenario:9180ac4; portable certificate implementation:ddea70f; prior request-file implementation/scenario:11e9b96/08ab0b3. Branch:feat/ui-design-system-settings-curl. Verified agent work is committed in the shared repo. Retired directories/custom .git backups remain absent; legacy backup and node_modules are preserved.
 ## Current work
 
+### gRPC large sent-event retention correction — verified utility scope 2026-10-15
+
+Found a concrete shared-retention defect: sendGrpcMessage appends kind:sent/text, but appendStreamEvent treated only SSE/received-message kinds as payloads. A9MiB sent JSON event followed by status was removed entirely (sent0/kinds[status]/dropped1). Classify sent as a payload too, preserving the newest large outgoing gRPC message through metadata/status/error; a newer sent or received payload replaces the exception, while8MiB surrounding metadata and1000event limits remain. Native codec/transport and UI rendering are unchanged.
+
+New bug regression tests/stream-retention.js exercises8groups: sent/message/SSE terminal retention, sent→small sent/received replacement, metadata byte/count budgets and WebSocket pong/close retention. artifacts/grpc-sent-retention/audit.json executes the same test against actual prior HEAD utility (only baseline model import redirected to unchanged real model) and current source: REDexit1/0!==1, GREENexit0/all8. Compiler97504 exits0/0errors/0warnings; strict test JS, formatting, frontend build and existing saved headless SSE raw history pass. This proves the pure retention behavior, not native gRPC wire/IPC/UI. Current source is newer than native candidate websocket-large-ui-attempt-1; its binary does not contain this correction. Native large outgoing gRPC interaction/history/reload remains required before claiming that lane verified. No live handles. Next actual gRPC large sent/response and JSON/shared-editor compatibility, plus remaining PLAN/PARITY. Full migration incomplete; /compact unavailable, explicit handoff.
+
+
+
 Verified aggregate fragmentation topic commit:82a86e9. Suite65860 terminal0; source1406/regular1315 closure and exact5profiles pass. Post-acceptance audit permits only five migration-doc deltas; no application/scenario drift. No live handles. Next broader control/close/fragmented UI-history, Clipboard Copy and gRPC; migration incomplete. /compact unavailable; explicit handoff.
 
 

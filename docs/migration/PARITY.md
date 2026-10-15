@@ -6,6 +6,10 @@ Current receipts: Windows environment6349100/follow-up eae4ac2 (29checks/Name6/J
 
 ## Latest stream history and decoded limits
 
+Shared retention now recognizes gRPC kind:sent as payload, fixing9MiB outgoing JSON loss after status. Eight utility cases and prior-source RED/current GREEN pass with compiler/build/headless raw-history regression. See GRPC.md#current-large-sent-event-retention-correction. Native gRPC large sent/history/reload remains unverified; no full gRPC acceptance or updated native binary is claimed.
+
+
+
 Aggregate fragmented20MiB UTF8/binary pass with exact hashes/one complete payload;20MiB+1refuses without data delivery despite every frame<=32767bytes. Prefix ping/pong barrier,12frame groups and original regressions/exact5profiles/source closure pass. See HTTP.md#current-aggregate-websocket-fragmentation-boundary. Broader control/close/fragmented UI-history/provider/platform, Clipboard/gRPC and all retained gates remain open.
 
 
