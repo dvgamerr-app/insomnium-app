@@ -1,6 +1,12 @@
 # Migration status
 
 Updated 2026-10-15. Full migration is **incomplete**. Latest verified scenario/source commit:9ad0ca99030ec4e39c59a94c64fcd71ec85a85a1; prior certificate scenario:9180ac4; portable certificate implementation:ddea70f; prior request-file implementation/scenario:11e9b96/08ab0b3. Branch:feat/ui-design-system-settings-curl. Verified agent work is committed in the shared repo. Retired directories/custom .git backups remain absent; legacy backup and node_modules are preserved.
+## Documentation review — 2026-10-16
+
+Reviewed all 26 retained docs files against current PLAN/PARITY and project routing. No further unrelated file was found; the three historical files were already removed. PLAN now omits superseded milestone narratives and completed archive/scaffold execution steps, retaining current remaining work, rules and source references. No acceptance requirement or topic evidence was deleted. Previous plan is recoverable at d5603cf641df1b46714f16e7cd4c09abe7ee01ca.
+
+Verified application remains 46d1602a (handoff d5603cf6). Current oneof work has reference evidence only; runtime implementation and native acceptance are pending. This documentation-only review ran no build or native scenario and started no background process. Existing five dirty documents are preserved separately from this topic. /compact is unavailable in this interface; this section is the handoff.
+
 ## Documentation cleanup — 2026-10-15
 
 Removed historical MIGRATION-REVIEW.md, UI-DESIGN-SYSTEM-DEBT.md and COMMANDS.md; recover from Git c10061abcc38ac1d1e01d5f6459b1704e2c35217. Historical Markdown links now target that revision. Retained active migration contracts, acceptance/evidence, archive/build integrity and owner-required deferred UX. PLAN now starts with a consolidated remaining-work checklist; no parity gate is waived. Existing application/scenario and five dirty migration-document edits were preserved.
@@ -8,6 +14,8 @@ Removed historical MIGRATION-REVIEW.md, UI-DESIGN-SYSTEM-DEBT.md and COMMANDS.md
 Latest gRPC display candidate build was running at cleanup inspection (session57291, nativePid31756); no continuation/native suite was launched by this cleanup. Fixture smoke passes six modes; corrected native display/export remains unverified. Cleanup changes documentation relative to the build snapshot: any later source-closure audit must explicitly account for this delta rather than treating it as a zero-override candidate. This interface cannot invoke /compact; this is the handoff.
 
 ## Current work
+
+Verified legacy JSON numeric overflow topic commit:46d1602a964ef398ef8b288c1af43d6023ca8a36. Workflow68081/build/suite terminal0:11native-hidden scenarios/74groups/92gRPCexports/exact11profiles and original1414source/1323regular closure with0overrides pass independent audit. Actual parser8overflow/underflow vectors RED101/GREEN0, syntax/duplicate/negativezero/nesting guards and full23Rust library tests pass. Eight native double/int32/int64/string cases verify real editor/Format/mode flip, exact exponent lexemes, Infinity/finite/zero/negativezero wire, Long saturation/selectors, complete history/reload/export/deletion. Legacy-only RawValue/f64 tree; no global arbitrary_precision/dependency/ProtoJSON change. Post-acceptance delta permits five docs, no application/scenario drift. No live build/suite/native/profile handles. Next broaderJSON/lone-surrogate/WKT/oneof/map/key-order/editor/stream/provider/platform and every PLAN/PARITY gate. Full migration incomplete. This interface cannot invoke /compact; explicit handoff before next feature.
 
 ## Current legacy JSON numeric overflow compatibility
 
