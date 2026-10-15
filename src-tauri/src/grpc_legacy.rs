@@ -96,7 +96,24 @@ fn number(value: &Json) -> f64 {
         Json::Number(v) => v.as_f64().unwrap_or(f64::NAN),
         _ => {
             let text = js_string(value);
-            let text = text.trim_matches(|c: char| c.is_whitespace() || c == '\u{feff}');
+            // ECMAScript WhiteSpace + LineTerminator, used by Number/ToNumber.
+            // Rust's Unicode White_Space additionally includes U+0085 (NEL).
+            let text = text.trim_matches(|c| {
+                matches!(
+                    c,
+                    '\u{0009}'..='\u{000d}'
+                        | '\u{0020}'
+                        | '\u{00a0}'
+                        | '\u{1680}'
+                        | '\u{2000}'..='\u{200a}'
+                        | '\u{2028}'
+                        | '\u{2029}'
+                        | '\u{202f}'
+                        | '\u{205f}'
+                        | '\u{3000}'
+                        | '\u{feff}'
+                )
+            });
             if text.is_empty() {
                 return 0.0;
             }
@@ -432,6 +449,17 @@ impl Serialize for LegacyMessage<'_> {
     }
 }
 struct LegacyValue<'a>(&'a Value, Kind, usize);
+fn serialize_js_number<S: Serializer>(value: f64, serializer: S) -> Result<S::Ok, S::Error> {
+    if !value.is_finite() {
+        return serializer.serialize_none();
+    }
+    // Keep JSON.stringify spelling (including -0 and exponent thresholds).
+    // Parsing as Number would send finite values back through serde's formatter.
+    let mut buffer = ryu_js::Buffer::new();
+    let raw: &serde_json::value::RawValue =
+        serde_json::from_str(buffer.format(value)).map_err(serde::ser::Error::custom)?;
+    raw.serialize(serializer)
+}
 impl Serialize for LegacyValue<'_> {
     fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         match self.0 {
@@ -440,20 +468,8 @@ impl Serialize for LegacyValue<'_> {
             Value::U32(v) => s.serialize_u32(*v),
             Value::I64(v) => s.serialize_str(&v.to_string()),
             Value::U64(v) => s.serialize_str(&v.to_string()),
-            Value::F32(v) => {
-                if v.is_finite() {
-                    s.serialize_f64(*v as f64)
-                } else {
-                    s.serialize_none()
-                }
-            }
-            Value::F64(v) => {
-                if v.is_finite() {
-                    s.serialize_f64(*v)
-                } else {
-                    s.serialize_none()
-                }
-            }
+            Value::F32(v) => serialize_js_number(*v as f64, s),
+            Value::F64(v) => serialize_js_number(*v, s),
             Value::String(v) => s.serialize_str(v),
             Value::Bytes(v) => {
                 // Electron structured cloning turns Buffer into Uint8Array;
@@ -523,6 +539,93 @@ mod tests {
     use prost_types::{
         DescriptorProto, FieldDescriptorProto, FileDescriptorProto, FileDescriptorSet,
     };
+
+    #[test]
+    fn legacy_float_json_reference_vectors() {
+        let cases = [
+            (1.0, "1"),
+            (-0.0, "0"),
+            (0.1, "0.1"),
+            (1e-6, "0.000001"),
+            (1e-7, "1e-7"),
+            (1e20, "100000000000000000000"),
+            (1e21, "1e+21"),
+            (f64::from_bits(1), "5e-324"),
+            (f64::MAX, "1.7976931348623157e+308"),
+            (f64::NAN, "null"),
+            (f64::INFINITY, "null"),
+            (f64::NEG_INFINITY, "null"),
+        ];
+        for (number, expected) in cases {
+            let value = Value::F64(number);
+            let actual = serde_json::to_string(&LegacyValue(&value, Kind::Double, 0)).unwrap();
+            assert_eq!(actual, expected, "Legacy JSON number {number:?}");
+        }
+        let value = Value::F32(0.1);
+        assert_eq!(
+            serde_json::to_string(&LegacyValue(&value, Kind::Float, 0)).unwrap(),
+            "0.10000000149011612"
+        );
+    }
+
+    #[test]
+    fn legacy_numeric_whitespace_reference_vectors() {
+        let pool = DescriptorPool::from_file_descriptor_set(FileDescriptorSet {
+            file: vec![FileDescriptorProto {
+                name: Some("numeric_whitespace.proto".into()),
+                syntax: Some("proto3".into()),
+                message_type: vec![DescriptorProto {
+                    name: Some("Numeric".into()),
+                    field: [
+                        ("value", 1, prost_types::field_descriptor_proto::Type::Int32),
+                        ("real", 2, prost_types::field_descriptor_proto::Type::Double),
+                    ]
+                    .into_iter()
+                    .map(|(name, number, kind)| FieldDescriptorProto {
+                        name: Some(name.into()),
+                        number: Some(number),
+                        label: Some(prost_types::field_descriptor_proto::Label::Optional as i32),
+                        r#type: Some(kind as i32),
+                        ..Default::default()
+                    })
+                    .collect(),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            }],
+        })
+        .unwrap();
+        let descriptor = pool.get_message_by_name("Numeric").unwrap();
+        // Pinned protobuf.js7.2.4 Number/bitwise conversion oracle.
+        let whitespace = [
+            9, 11, 12, 32, 160, 5760, 8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201,
+            8202, 8239, 8287, 12288, 65279, 10, 13, 8232, 8233,
+        ];
+        for code in whitespace.into_iter().chain([133, 6158, 8203, 8288]) {
+            let ch = char::from_u32(code).unwrap();
+            let text = format!("{ch}1{ch}");
+            let input = serde_json::json!({"value": text, "real": text});
+            let message = parse(descriptor.clone(), &input.to_string()).unwrap();
+            let accepted = whitespace.contains(&code);
+            assert_eq!(
+                message.get_field_by_name("value").unwrap().as_ref(),
+                &Value::I32(if accepted { 1 } else { 0 }),
+                "Integer conversion U+{code:04X}"
+            );
+            let real = message.get_field_by_name("real").unwrap();
+            let Value::F64(real) = real.as_ref() else {
+                panic!("Expected double")
+            };
+            assert!(
+                if accepted {
+                    *real == 1.0
+                } else {
+                    real.is_nan()
+                },
+                "Double conversion U+{code:04X}"
+            );
+        }
+    }
 
     #[test]
     fn legacy_base64_reference_vectors() {

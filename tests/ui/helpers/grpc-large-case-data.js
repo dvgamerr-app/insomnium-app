@@ -20,9 +20,13 @@ export const grpcLargeModes = [
   "legacy-base64-two-padded",
   "legacy-base64-two-unpadded",
   "legacy-base64-short-padding",
+  "legacy-numeric-nel",
+  "legacy-numeric-nbsp",
+  "legacy-numeric-bom",
+  "legacy-numeric-zwsp",
 ];
 export const grpcLargeProto =
-  'syntax="proto3"; package ownedlarge; message Input { string value=1; } message Compact { repeated int32 values=1; } message Precision { int64 exact_value=1; bytes bytes_value=2; } service Upload { rpc Stream(stream Input) returns(stream Input); rpc Echo(Input) returns(Input); rpc Expand(Compact) returns(Compact); rpc PrecisionEcho(Precision) returns(Precision); }';
+  'syntax="proto3"; package ownedlarge; message Input { string value=1; } message Compact { repeated int32 values=1; } message Precision { int64 exact_value=1; bytes bytes_value=2; } message Numeric { optional int32 value=1; double real=2; } service Upload { rpc Stream(stream Input) returns(stream Input); rpc Echo(Input) returns(Input); rpc Expand(Compact) returns(Compact); rpc PrecisionEcho(Precision) returns(Precision); rpc NumericEcho(Numeric) returns(Numeric); }';
 /** Independent small-message wire and lexical editor expectations.
  * @param {string} mode */
 function jsonEditorCase(mode) {
@@ -74,6 +78,44 @@ function varint(value) {
 export function grpcLargeCase(mode) {
   if (!grpcLargeModes.includes(mode))
     throw new Error("Unknown authored gRPC case");
+  if (mode.includes("-numeric-")) {
+    const character = {
+      "legacy-numeric-nel": "\u0085",
+      "legacy-numeric-nbsp": "\u00a0",
+      "legacy-numeric-bom": "\ufeff",
+      "legacy-numeric-zwsp": "\u200b",
+    }[mode];
+    const finite = mode.endsWith("-nbsp") || mode.endsWith("-bom");
+    const authored = {
+      value: character + "1" + character,
+      real: character + "1" + character,
+    };
+    const response = {
+      value: finite ? 1 : 0,
+      _value: "value",
+      real: finite ? 1 : null,
+    };
+    return {
+      mode,
+      jsonMode: "legacy",
+      unary: true,
+      receives: true,
+      body: JSON.stringify(authored),
+      formattedBody: JSON.stringify(authored, null, 2),
+      responseText: JSON.stringify(response),
+      preview: JSON.stringify(response, null, 2),
+      // Explicit optional int32 presence and IEEE754 double, independently authored.
+      wire: Buffer.from(
+        finite
+          ? "000000000b080111000000000000f03f"
+          : "000000000b080011000000000000f87f",
+        "hex",
+      ),
+      method: "/ownedlarge.Upload/NumericEcho",
+      editor: true,
+      showNotice: false,
+    };
+  }
   if (mode.includes("-base64-")) {
     const input = {
       "legacy-base64-canonical": "Zg==",

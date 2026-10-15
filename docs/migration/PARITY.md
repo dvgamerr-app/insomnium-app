@@ -6,6 +6,8 @@ Current receipts: Windows environment6349100/follow-up eae4ac2 (29checks/Name6/J
 
 ## Latest stream history and decoded limits
 
+Legacy numeric whitespace coercion corrected against pinned reference29vectors;20Rust tests and four native editor/int32/double/history/export cases pass. Full regression60groups/9profiles/64gRPCexports and fresh0override closure pass. See GRPC.md#current-native-grpc-numeric. Broader coercion/JSON/WKT/oneof/map/key-order/editor/stream/provider/platform and every retained gate remain open.
+
 Native malformed/excess-padding Base64 refusal/keyboard repair now passes in legacy/protoJson with durable error/no payload, zero added observed peer IO and exact reload/export/deletion. Full regression56groups/8profiles/56gRPCexports and explicit1test/5doc closure pass; application6b0805f unchanged. See GRPC.md#current-native-base64-refusal. Broader JSON/WKT/oneof/map/editor/stream/provider/platform and every retained gate remain open.
 
 Legacy Base64 deterministic compatibility corrected:37actual-parser vectors and18Rust tests pass; six new native byte/history/reload/export cases plus original regressions give52groups/8profiles/48gRPCexports with fresh0override closure. See GRPC.md#current-native-grpc-base64. Native Base64 refusal/recovery and broader JSON/WKT/oneof/map/editor/stream/provider/platform and every retained gate remain open.
