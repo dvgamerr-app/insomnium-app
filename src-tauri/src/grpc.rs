@@ -142,6 +142,9 @@ pub async fn connect_grpc(
             )?)
             .await
             .map_err(|_| "gRPC stream closed.")?;
+        // A shadowed sender otherwise stays alive until connect_grpc returns.
+        // Close unary/server-streaming request input after its one message.
+        drop(sender);
         None
     };
     let (ack_sender, acknowledgements) = mpsc::channel(2);

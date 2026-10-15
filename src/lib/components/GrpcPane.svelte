@@ -52,7 +52,9 @@
   const collectionId = $derived(workspaceFor(app.data.resources, request._id));
   const files = $derived.by(() => {
     try {
-      return protoFiles(app.data.resources, collectionId, { skipInvalid: true });
+      return protoFiles(app.data.resources, collectionId, {
+        skipInvalid: true,
+      });
     } catch {
       return [];
     }
@@ -110,6 +112,21 @@
       return text;
     }
   }
+  const previewLimit = 64 * 1024;
+  function displayMessage(/** @type {string} */ text) {
+    const formatted = text.length <= previewLimit ? pretty(text) : text;
+    const truncated = formatted.length > previewLimit;
+    const end = formatted.charCodeAt(previewLimit - 1);
+    return {
+      text: truncated
+        ? formatted.slice(
+            0,
+            end >= 0xd800 && end <= 0xdbff ? previewLimit - 1 : previewLimit,
+          )
+        : formatted,
+      truncated,
+    };
+  }
   function body(/** @type {string} */ text) {
     update(request._id, { body: { ...request.body, text } });
   }
@@ -125,6 +142,15 @@
     }
   }
 </script>
+
+{#snippet messageView(text = "")}
+  {@const preview = displayMessage(String(text ?? ""))}
+  {#if preview.truncated}<p class="grpc-hint hint" role="status">
+      Showing a preview of this large gRPC message. Save response to read the
+      full message.
+    </p>{/if}
+  <pre class="grpc-message">{preview.text}</pre>
+{/snippet}
 
 <div class="request-heading">
   <Input
@@ -336,9 +362,10 @@
                   Sent at {new Date(selectedSent.created).toLocaleString()} · Read
                   only
                 </div>
-                <pre class="grpc-message">{pretty(selectedSent.text)}</pre>
+                {@render messageView(selectedSent.text)}
               {:else}<CodeEditor
-                  templateEditor={() => createTemplateEditorSession(request._id)}
+                  templateEditor={() =>
+                    createTemplateEditorSession(request._id)}
                   identity={request._id + ":grpc-body"}
                   value={request.body?.text || ""}
                   mode="application/json"
@@ -471,7 +498,7 @@
                 >
                   Received at {new Date(message.created).toLocaleTimeString()}
                 </div>
-                <pre class="grpc-message">{pretty(message.text)}</pre>{/each}
+                {@render messageView(message.text)}{/each}
             {:else}<TabList
                 panelId="grpc-received-panel"
                 bind:activeId={activeTab3}
@@ -485,16 +512,16 @@
                   >{/each}
               </TabList>
               <TabPanel id="grpc-received-panel" labelledBy={activeTab3}
-                ><pre class="grpc-message">{pretty(
-                    (messages[selectedMessage] || messages[0]).text,
-                  )}</pre></TabPanel
+                >{@render messageView(
+                  (messages[selectedMessage] || messages[0]).text,
+                )}</TabPanel
               >{/if}
           {:else if responseTab === "Sent"}{#each sent as message (message._id)}<div
                 class="grpc-message-time"
               >
                 Sent at {new Date(message.created).toLocaleTimeString()}
               </div>
-              <pre class="grpc-message">{pretty(message.text)}</pre>{/each}
+              {@render messageView(message.text)}{/each}
           {:else}<table class="grpc-metadata">
               <tbody
                 >{#each (responseTab === "Metadata" ? response?.headers : response?.trailers) || [] as [name, value]}<tr

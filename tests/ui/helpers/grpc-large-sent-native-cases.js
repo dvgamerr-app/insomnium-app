@@ -1,4 +1,9 @@
 import assert from "node:assert/strict";
+import {
+  grpcLargeCase,
+  grpcLargeModes,
+  grpcLargeProto,
+} from "./grpc-large-case-data.js";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { newRequest } from "../../../src/lib/model.js";
@@ -13,6 +18,7 @@ import {
   registerResourceProbeCollection,
   manageResource,
 } from "./resource-manager-cases.js";
+import { respondToOwnedSaveDialog } from "./windows-save-dialog.js";
 import { createGrpcLargeSentFixture } from "./grpc-large-sent-fixture.js";
 /** Real native bidi send/half-close/metadata/status/history, without injecting app callbacks. */
 export async function runGrpcLargeSentNativeCases() {
@@ -32,7 +38,7 @@ export async function runGrpcLargeSentNativeCases() {
       async (capture) => {
         await withNativeApp(
           "grpc-large-sent-native",
-          async ({ page, invoke, output: directory, terminateParent }) => {
+          async ({ page, invoke, output: directory, terminateParent, pid }) => {
             output = directory;
             page.setDefaultTimeout(60000);
             await resourceSaved(page);
@@ -70,8 +76,7 @@ export async function runGrpcLargeSentNativeCases() {
                     _type: "proto_file",
                     parentId: workspaceId,
                     name: "large.proto",
-                    protoText:
-                      'syntax="proto3"; package ownedlarge; message Input { string value=1; } service Upload { rpc Stream(stream Input) returns(stream Input); }',
+                    protoText: grpcLargeProto,
                   },
                 ],
                 activeWorkspaceId: workspaceId,
@@ -85,24 +90,28 @@ export async function runGrpcLargeSentNativeCases() {
               },
             });
             registerResourceProbeCollection(workspaceId, name);
-            const body = JSON.stringify({ value: "x".repeat(9 * 1024 * 1024) }),
-              bodySHA256 = createHash("sha256").update(body).digest("hex");
             const button = (/** @type {string} */ name) =>
               page.getByRole("button", { name, exact: true });
             const watchdog = setTimeout(() => {
-              errors.push("Owned native UI exceeded180seconds");
+              errors.push("Owned native UI exceeded600seconds");
               void terminateParent().catch((error) => errors.push(error));
-            }, 180000);
+            }, 600000);
             try {
-              for (const mode of ["legacy", "protoJson"]) {
+              for (const mode of grpcLargeModes) {
+                const spec = grpcLargeCase(mode),
+                  body = spec.body,
+                  bodySHA256 = createHash("sha256").update(body).digest("hex");
+                const unary = spec.unary;
+                const receives = spec.receives;
+                const startButton = unary ? "Send" : "Connect";
                 const request = newRequest(workspaceId, {
                   _id: "greq_" + mode + "_" + suffix,
                   _type: "grpc_request",
                   name: "Owned large " + mode,
                   url: fixture.url,
                   protoFileId: protoId,
-                  protoMethodName: "/ownedlarge.Upload/Stream",
-                  grpcJsonMode: mode,
+                  protoMethodName: spec.method,
+                  grpcJsonMode: spec.jsonMode,
                   body: { mimeType: "application/json", text: body },
                   metadata: [{ name: "owned-case", value: mode }],
                 });
@@ -119,42 +128,58 @@ export async function runGrpcLargeSentNativeCases() {
                 await resourceSaved(page);
                 await button("Load methods").click();
                 await poll(
-                  async () => await button("Connect").isEnabled(),
+                  async () => await button(startButton).isEnabled(),
                   "Native schema method ready",
                 );
                 assert.equal(
                   await page
                     .getByRole("combobox", { name: "gRPC method", exact: true })
                     .inputValue(),
-                  "/ownedlarge.Upload/Stream",
+                  request.protoMethodName,
                 );
-                await button("Connect").click();
-                await poll(
-                  async () => await button("Send message").isEnabled(),
-                  "Bidi sender open",
-                );
-                await button("Send message").click();
-                await poll(
-                  () =>
-                    Promise.resolve(
-                      fixture.records.some(
-                        (r) =>
-                          r.mode === mode &&
-                          r.receivedBytes === 9 * 1024 * 1024 + 10,
+                await button(startButton).click();
+                if (!unary) {
+                  await poll(
+                    async () => await button("Send message").isEnabled(),
+                    "Bidi sender open",
+                  );
+                  await button("Send message").click();
+                  await poll(
+                    () =>
+                      Promise.resolve(
+                        fixture.records.some(
+                          (r) =>
+                            r.mode === mode &&
+                            r.receivedBytes === 9 * 1024 * 1024 + 10,
+                        ),
                       ),
-                    ),
-                  "Full protobuf reaches peer",
-                  60000,
-                );
-                await poll(
-                  async () => await button("Commit").isEnabled(),
-                  "Send operation settles",
-                );
-                await button("Commit").click();
+                    "Full protobuf reaches peer",
+                    60000,
+                  );
+                  await poll(
+                    async () => await button("Commit").isEnabled(),
+                    "Send operation settles",
+                  );
+                  await page
+                    .getByRole("tab", { name: "Stream 1", exact: true })
+                    .click();
+                  assert.equal(
+                    await page
+                      .locator(".request-compose pre.grpc-message")
+                      .textContent(),
+                    spec.preview,
+                  );
+                  await page
+                    .locator(".request-compose")
+                    .getByRole("status")
+                    .filter({ hasText: "Showing a preview" })
+                    .waitFor();
+                  await button("Commit").click();
+                }
                 await poll(
                   async () =>
-                    (await button("Connect").isVisible()) &&
-                    (await button("Connect").isEnabled()),
+                    (await button(startButton).isVisible()) &&
+                    (await button(startButton).isEnabled()),
                   "Native call/terminal persistence retires",
                   60000,
                 );
@@ -170,23 +195,89 @@ export async function runGrpcLargeSentNativeCases() {
                 const sent = entry.events.filter(
                   (/** @type {any} */ e) => e.kind === "sent",
                 );
-                assert.equal(sent.length, 1);
-                assert.equal(sent[0].text, body);
+                assert.equal(sent.length, receives ? 0 : 1);
+                const messages = entry.events.filter(
+                  (/** @type {any} */ e) => e.kind === "message",
+                );
+                assert.equal(messages.length, receives ? 1 : 0);
+                const retained = receives ? messages[0] : sent[0];
+                assert.equal(retained.text, body);
                 assert.ok(
                   entry.events.some(
                     (/** @type {any} */ e) =>
                       e.kind === "status" && e.code === 0,
                   ),
                 );
-                assert.equal(
-                  entry.events.some(
-                    (/** @type {any} */ e) => e.kind === "message",
-                  ),
-                  false,
-                );
-                await page
-                  .getByRole("tab", { name: "Stream 1", exact: true })
-                  .waitFor();
+                const verifyPreview = async () => {
+                  if (!receives)
+                    await page
+                      .getByRole("tab", { name: "Stream 1", exact: true })
+                      .click();
+                  if (!receives) {
+                    const pane = page.locator(".grpc-response");
+                    await pane
+                      .getByRole("tab", { name: "Sent", exact: true })
+                      .click();
+                    assert.equal(
+                      await pane.locator("pre.grpc-message").textContent(),
+                      spec.preview,
+                    );
+                    await pane
+                      .getByRole("status")
+                      .filter({ hasText: "Showing a preview" })
+                      .waitFor();
+                    await pane
+                      .getByRole("tab", { name: "Response", exact: true })
+                      .click();
+                  }
+                  const container = page.locator(
+                    receives ? ".grpc-response" : ".request-compose",
+                  );
+                  assert.equal(
+                    await container.locator("pre.grpc-message").textContent(),
+                    spec.preview,
+                  );
+                  await container
+                    .getByRole("status")
+                    .filter({ hasText: "Showing a preview" })
+                    .waitFor();
+                };
+                /** @type {Record<string,any>[]} */ const exports = [];
+                const exportFull = async (/** @type {string} */ phase) => {
+                  const path = join(directory, mode + "-" + phase + ".json");
+                  const saving = respondToOwnedSaveDialog(
+                    pid,
+                    directory,
+                    path,
+                    ".json",
+                  );
+                  void saving.catch(() => {});
+                  try {
+                    await button("Save response").click();
+                  } finally {
+                    await saving;
+                  }
+                  await poll(
+                    () => Bun.file(path).exists(),
+                    "Full gRPC response export",
+                  );
+                  const saved = await Bun.file(path).json();
+                  assert.equal(
+                    saved.events.find(
+                      (/** @type {any} */ e) =>
+                        e.kind === (receives ? "message" : "sent"),
+                    ).text,
+                    body,
+                  );
+                  exports.push({
+                    phase,
+                    path,
+                    bytes: Bun.file(path).size,
+                    payloadSHA256: bodySHA256,
+                  });
+                };
+                await verifyPreview();
+                await exportFull("terminal");
                 await page.reload();
                 await resourceSaved(page);
                 const reloaded = await invoke("load_workspace");
@@ -202,9 +293,8 @@ export async function runGrpcLargeSentNativeCases() {
                   ).body.text,
                   body,
                 );
-                await page
-                  .getByRole("tab", { name: "Stream 1", exact: true })
-                  .waitFor();
+                await verifyPreview();
+                await exportFull("reloaded");
                 assert.deepEqual(
                   reloaded.history.filter(
                     (/** @type {any} */ r) => r.requestId !== request._id,
@@ -229,14 +319,18 @@ export async function runGrpcLargeSentNativeCases() {
                 );
                 checks.push({
                   mode,
+                  unary,
                   bodyBytes: Buffer.byteLength(body),
                   bodySHA256,
                   historyId: entry._id,
                   sent: sent.length,
+                  received: messages.length,
+                  previewCharacters: spec.preview.length,
+                  exports,
                   status: entry.status,
                   wireSHA256: record.wireSHA256,
                   exactReload: true,
-                  streamTabRestored: true,
+                  streamTabRestored: !receives,
                   deletedWithoutResurrection: true,
                 });
                 await Bun.write(
@@ -275,7 +369,7 @@ export async function runGrpcLargeSentNativeCases() {
           errorEvents: fixture.errorEvents,
           errors: errors.map(String),
           scope:
-            "Actual native9MiB bidi sent/status history and reload in legacy/protoJson modes. Sent tab existence is verified, not rendering its entire large message. No broad JSON/provider/platform claim.",
+            "Actual native ten-case9MiB/compact-array/Unicode preview, full history/reload/JSON export in legacy/protoJson bidi/unary. No broad JSON/provider/platform claim.",
         },
         null,
         2,

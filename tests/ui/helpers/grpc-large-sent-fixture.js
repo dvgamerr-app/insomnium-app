@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { grpcLargeCase, grpcLargeModes } from "./grpc-large-case-data.js";
 import { createHash } from "node:crypto";
 import { createServer } from "node:http2";
 /** @param {Uint8Array} bytes */
@@ -124,11 +125,12 @@ export async function createGrpcLargeSentFixture() {
       });
       stream.on("end", () => {
         try {
-          assert.equal(headers[":path"], "/ownedlarge.Upload/Stream");
+          const authored = grpcLargeCase(row.mode);
+          assert.equal(headers[":path"], authored.method);
           assert.equal(headers[":method"], "POST");
-          assert.ok(["legacy", "protoJson"].includes(row.mode));
+          assert.ok(grpcLargeModes.includes(row.mode));
           const wire = Buffer.concat(chunks),
-            expected = largeGrpcFrame("x".repeat(9 * 1024 * 1024));
+            expected = authored.wire;
           assert.deepEqual(wire, expected);
           row.wireSHA256 = sha(wire);
           row.expectedWireSHA256 = sha(expected);
@@ -140,7 +142,12 @@ export async function createGrpcLargeSentFixture() {
             });
             /** @type {any} */ (row).trailersAt = Date.now();
           });
-          stream.end();
+          const reply = authored.receives ? expected : undefined;
+          /** @type {any} */ (row).responseBytes = reply?.length ?? 0;
+          /** @type {any} */ (row).responseWireSHA256 = reply
+            ? sha(reply)
+            : null;
+          stream.end(reply);
         } catch (error) {
           errors.push(String(error));
           stream.close(2);
