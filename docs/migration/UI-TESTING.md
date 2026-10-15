@@ -815,7 +815,7 @@ XML transfer mode and shared JSON/XML clipboard/dialog/write adapter are accepte
 
 2026-10-10 mounted XML request formatter: composite saved native acceptance covers3real bundled-worker MIME workflows with exact body/full-field Git/Undo/Redo/reload,6controlled faults,3real refusals and6causal cancellation boundaries with unchanged destination editor/request. Compiler0/0, independent current684source/executable/build8123 audits and owned cleanup pass; accepted runs terminal0/native-hidden/visible:false. Collection switch took34970.5ms and responsiveness remains REQUIRED; cancellation acceptance does not accept performance, actual hung workers or OS-close. No app/CSS change or full migration claim. Exact commands, retained failures and limitations: [RESPONSES.md#record-xml-request-format](RESPONSES.md#record-xml-request-format).
 
-2026-10-10 shared dialog backdrop: semantic tint/filter tokens preserve defaults and support central blur opt-out. Headless24fixture/10actual application dialogs/compiler0/0 and fresh production build8123/native theme34598 pass10dialog profiles/12retained workflow captures/fonts/locked recovery/unchanged HEAD. Independent current682/executable/default-override-none-restored audit and owned cleanup pass; all feature handles terminal0, native rendering native-hidden/visible:false. Other adoption/ownership/literal/platform/accessibility/full UX/CSS and every original migration gate remain required. Exact evidence/commands/limits: [UI-DESIGN-SYSTEM-DEBT.md#record-dialog-backdrop](UI-DESIGN-SYSTEM-DEBT.md#record-dialog-backdrop).
+2026-10-10 shared dialog backdrop: semantic tint/filter tokens preserve defaults and support central blur opt-out. Headless24fixture/10actual application dialogs/compiler0/0 and fresh production build8123/native theme34598 pass10dialog profiles/12retained workflow captures/fonts/locked recovery/unchanged HEAD. Independent current682/executable/default-override-none-restored audit and owned cleanup pass; all feature handles terminal0, native rendering native-hidden/visible:false. Other adoption/ownership/literal/platform/accessibility/full UX/CSS and every original migration gate remain required. Exact evidence/commands/limits: [UI-DESIGN-SYSTEM-DEBT.md#record-dialog-backdrop](https://github.com/dvgamerr-app/insomnium-app/blob/c10061abcc38ac1d1e01d5f6459b1704e2c35217/docs/migration/UI-DESIGN-SYSTEM-DEBT.md#record-dialog-backdrop).
 
 2026-10-10 read-only request samples: existing skipReadOnly policy now applies before impossible-branch checks, with bounded direct/allOf annotations through expanded references. Headless253/static83/dynamic75/serialized/named/compiler0/0 pass. Fresh production build14976 accepts focused modern39groups/30wire/9refusals plus retained3.0.3four wire/12layout; all four native handles terminal0/native-hidden/visible:false. Independent complete source/raw bytes/all139generated bodies/full-field Git286/current682/executable audits and owned cleanup pass; no live handles. Focused native Sends do not prove every generated operation. Conditional/alternative/instance-dependent annotations and every original migration/UX/CSS gate remain required. Exact commands, evidence and limits: [API-DESIGN.md#record-openapi-readonly-sampling](API-DESIGN.md#record-openapi-readonly-sampling).
 
@@ -911,7 +911,7 @@ with both reset policies), retained full design-system and fresh native16/20MiB
 selection/persistence/reload/wire checks pass. Compiler0/0, native-hidden/terminal0,
 source/build/expected-hash audit and owned process/listener cleanup pass. Exact
 retained baseline/native action timeout, corrected waits and scope limitations:
-[UI-DESIGN-SYSTEM-DEBT.md#record-file-picker-concurrency](UI-DESIGN-SYSTEM-DEBT.md#record-file-picker-concurrency). Original migration and
+[UI-DESIGN-SYSTEM-DEBT.md#record-file-picker-concurrency](https://github.com/dvgamerr-app/insomnium-app/blob/c10061abcc38ac1d1e01d5f6459b1704e2c35217/docs/migration/UI-DESIGN-SYSTEM-DEBT.md#record-file-picker-concurrency). Original migration and
 full UI/CSS/workflow/platform/provider gates remain required.
 
 
@@ -922,7 +922,7 @@ Headless66/actual frontend26/native52 measured global/scoped/restoration rows pa
 native1791559328466 is terminal0/native-hidden/visiblefalse, with12 workflows/
 10dialogs, unchanged Git HEAD, independent source/build audit and owned cleanup.
 Compiler0/0. Exact corrected responsive-brand test failure, artifacts and limits:
-[UI-DESIGN-SYSTEM-DEBT.md#record-filled-foreground](UI-DESIGN-SYSTEM-DEBT.md#record-filled-foreground). All original migration/UX/CSS and
+[UI-DESIGN-SYSTEM-DEBT.md#record-filled-foreground](https://github.com/dvgamerr-app/insomnium-app/blob/c10061abcc38ac1d1e01d5f6459b1704e2c35217/docs/migration/UI-DESIGN-SYSTEM-DEBT.md#record-filled-foreground). All original migration/UX/CSS and
 remaining adoption/ownership/provider/platform gates stay required.
 
 

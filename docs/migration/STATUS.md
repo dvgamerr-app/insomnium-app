@@ -1,7 +1,16 @@
 # Migration status
 
 Updated 2026-10-15. Full migration is **incomplete**. Latest verified scenario/source commit:5fbb75a; prior certificate scenario:9180ac4; portable certificate implementation:ddea70f; prior request-file implementation/scenario:11e9b96/08ab0b3. Branch:feat/ui-design-system-settings-curl. Verified agent work is committed in the shared repo. Retired directories/custom .git backups remain absent; legacy backup and node_modules are preserved.
+## Documentation cleanup — 2026-10-15
+
+Removed historical MIGRATION-REVIEW.md, UI-DESIGN-SYSTEM-DEBT.md and COMMANDS.md; recover from Git c10061abcc38ac1d1e01d5f6459b1704e2c35217. Historical Markdown links now target that revision. Retained active migration contracts, acceptance/evidence, archive/build integrity and owner-required deferred UX. PLAN now starts with a consolidated remaining-work checklist; no parity gate is waived. Existing application/scenario and five dirty migration-document edits were preserved.
+
+Latest gRPC display candidate build was running at cleanup inspection (session57291, nativePid31756); no continuation/native suite was launched by this cleanup. Fixture smoke passes six modes; corrected native display/export remains unverified. Cleanup changes documentation relative to the build snapshot: any later source-closure audit must explicitly account for this delta rather than treating it as a zero-override candidate. This interface cannot invoke /compact; this is the handoff.
+
 ## Current work
+
+Verified native large gRPC topic commit:482cab9 (production retention fix:d0985b1). Build31612 terminal0; initial continuation63226 terminal1/deletion-selector failure with exact profile restoration; corrected suite83819 terminal0. All6passing hosts exit0/native-hidden and exact6profiles restored. Post-acceptance audit checks1319regular files, only five declared docs differ; no application/scenario drift. No live handles. Next large gRPC display/shared-editor and JSON compatibility; full migration incomplete. /compact unavailable; explicit handoff.
+
 
 ### Native large gRPC sent history — verified bounded milestone 2026-10-15
 

@@ -2,7 +2,20 @@
 
 Updated 2026-10-15. Current state is in [STATUS.md](STATUS.md); all original requirements and acceptance boundaries remain in [PARITY.md](PARITY.md). Topic documents hold implementation details. Historical execution logs are available in Git at commit 2c8316e; they are not the current plan.
 
-## Remaining execution order
+## Current remaining work — 2026-10-15
+
+This checklist supersedes chronological next-step statements below; bounded passes do not close an entire subsystem.
+
+1. **Current: large gRPC display/export.** Sent history/reload in legacy/protoJson is verified at 482cab9. Preview/export implementation and six-case scenario are uncommitted; compiler/build and independent fixture smoke pass, corrected native acceptance is still pending. Inspect STATUS and candidate grpc-display-attempt-1 before resuming.
+2. **Streaming compatibility.** Remaining gRPC JSON/shared-editor/UTF8/surrogate cases, broader styles/providers/platforms; WebSocket fragmented application-history/control/close variants and large Clipboard Copy; further SSE UTF8/CRLF/compression exact boundaries and mixed environment/lifecycle variants. Prior exact-size, fragmentation, ACK, suspension and Save passes retain only their recorded scope.
+3. **Models and durable data.** Remaining resource/model/callback-drain and OS-close cases, environment callers/imported-model variants, legacy formats/assets/invalid or absent payload recovery, import/export round trips.
+4. **API tooling and compatibility.** Remaining GraphQL navigation/completion, gRPC/proto and OpenAPI contracts, runner scripts/imports, plugins and template integration; verify against the topic contracts.
+5. **Networking and authentication.** Remaining cookie management/isolation, proxy schemes, OAuth/provider/native flows, redirects, TLS identity/certificate and platform matrices.
+6. **Git.** Clone, remote checkout, non-force push and remaining Pull/network/process/I/O/recovery/provider/platform gates.
+7. **Desktop and release.** Menus/shortcuts/dialogs/clipboard/window lifecycle, accessibility/keyboard/resize/theme, legal source/linkage, installer and CI/platform checks.
+8. **Final audit, then deferred UX.** Map every PARITY acceptance requirement to current evidence or explicit owner removal before declaring migration complete. Continue shared-input adoption/CSS ownership and redesign in POST-MIGRATION-UX only in the authorized sequence.
+
+## Historical milestone notes (superseded by current checklist)
 
 Native9MiB gRPC bidi sent history/status/reload in legacy/protoJson is now bounded verified; see GRPC.md#current-native-large-sent-history. Original6suite regressions/source/profile acceptance passes. Next large gRPC display/shared-editor and JSON compatibility variants; broader stream/control/Clipboard/provider/platform and every PARITY gate remain required.
 
