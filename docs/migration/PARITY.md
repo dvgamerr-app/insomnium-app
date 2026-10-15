@@ -6,6 +6,10 @@ Current receipts: Windows environment6349100/follow-up eae4ac2 (29checks/Name6/J
 
 ## Latest stream history and decoded limits
 
+Outgoing WebSocket size/control guards now have bounded Windows acceptance: exact UTF8 ping125wire bytes/126refusal,20MiB+1ASCII/UTF8/binary refusal and malformed-format refusal with valid binary recovery. Existing10ACKgroups/SSE8/WS6/mixed5 and exact4profile/source closure pass. See HTTP.md#current-outgoing-websocket-size-and-control-guards. Exact-size success/incoming fragmentation/oversize, gRPC and broader provider/platform/all retained gates remain open.
+
+
+
 Queued missing-ACK timeout with open peer and peer-initiated Close now passes bounded Windows acceptance:16queued failures/4overflow refusals/0peer messages, single30second deadline, late ACK inert and subsequent send refused. Original regressions and exact4profile/source restoration pass; see HTTP.md#current-queued-websocket-timeout-acceptance. Other race/size/control/provider/platform and all retained requirements remain open.
 
 

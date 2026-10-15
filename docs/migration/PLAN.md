@@ -4,6 +4,10 @@ Updated 2026-10-15. Current state is in [STATUS.md](STATUS.md); all original req
 
 ## Remaining execution order
 
+Latest outgoing WebSocket guards are bounded verified: UTF8 ping125/126, ASCII/UTF8/binary20MiB+1, format refusals and binary recovery. See HTTP.md#current-outgoing-websocket-size-and-control-guards. Next exact20MiB accepted send/receive, incoming oversized/fragmentation and gRPC, plus all remaining PARITY.
+
+
+
 Latest queued-timeout acceptance: open-peer and peer-close missing-ACK cases pass in9native ACKgroups, with exact queue settlement/single deadline and regressions. See HTTP.md#current-queued-websocket-timeout-acceptance. Next binary/control/exact-size/oversized WS-gRPC and remaining mixed/provider/platform/PARITY requirements.
 
 

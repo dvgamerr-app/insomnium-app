@@ -1671,3 +1671,7 @@ Reuse `bun tests/ui/websocket-ack-native.js` with INSOMNIUM_WEBSOCKET_ACK_NATIVE
 ## Current queued WebSocket timeout verification
 
 The existing `bun tests/ui/websocket-ack-native.js` now runs9groups, including queued missing-ACK timeout with open peer and peer-initiated Close. Use INSOMNIUM_WEBSOCKET_ACK_NATIVE=1 and audited native/profile ownership settings; native-hidden only. Preserve single30second deadline, exact16pending/4refusal/0wire-message results, late ACK and post-timeout send refusal. Canonical evidence: HTTP.md#current-queued-websocket-timeout-acceptance.
+
+## Current outgoing WebSocket guard verification
+
+Reuse `bun tests/ui/websocket-ack-native.js` with INSOMNIUM_WEBSOCKET_ACK_NATIVE=1 and audited build/profile ownership settings. Existing10groups include six outgoing refusals, exact UTF8 ping125wire bytes and valid binary recovery after refusals. Native-hidden and exact profile restoration remain required. Canonical scope/evidence: HTTP.md#current-outgoing-websocket-size-and-control-guards.

@@ -3,6 +3,14 @@
 Updated 2026-10-15. Full migration is **incomplete**. Latest verified scenario/source commit:5fbb75a; prior certificate scenario:9180ac4; portable certificate implementation:ddea70f; prior request-file implementation/scenario:11e9b96/08ab0b3. Branch:feat/ui-design-system-settings-curl. Verified agent work is committed in the shared repo. Retired directories/custom .git backups remain absent; legacy backup and node_modules are preserved.
 ## Current work
 
+### WebSocket outgoing size/control guards — verified bounded milestone 2026-10-15
+
+Real native SDK Channel group passes UTF8 ping125bytes (62β plus a) with exact peer bytes;126bytes refused with no second ping. ASCII and UTF8 text each20971521bytes, and binary decoded20971521bytes/base6427962028bytes, refuse the20MiB guard with0data messages at peer. Invalid Base64 reports Invalid symbol37, offset0; unknown format reports Unsupported WebSocket message type. A valid3byte binary AP+A then reaches peer and returns through the real Channel, proving the same connection remains usable. No application edits. Exact20MiB success, incoming oversized/fragmentation, complete control-frame and gRPC variants remain unverified by this group.
+
+Suite20361 exits0: ACK1792060247455=10/SSE1792060389056=8/WS1792060405301=6/mixed1792060416317=5. Hosts57644/59852/58928/51528 exit0/native-hidden; exact4original profiles restore. Original appb2bd65d/exeSHAcea47a30/manifest7b71e8d3 unchanged. Declared6test/5doc supplement closes1401source/1310regular rows/all other scopes. acceptance-audit-websocket-send-limits.json checks original manifest/executable, source closure, all receipts/profile hashes, guard bytes and exact rebuilt receiver bundle. Artifacts: artifacts/native-resource-crud-audit-probe/sse-exact-retention-attempt-1/. Strict3-file JS/format checks pass. No live owned handles. Next exact20MiB accepted send/receive, incoming oversize/fragmentation and gRPC plus remaining PLAN/PARITY. Full migration incomplete; UX deferred. /compact unavailable; explicit handoff.
+
+
+
 Verified queued-timeout topic commit:bfcd4da. Post-acceptance audit checks1310regular files, only five migration docs differ; no application/scenario drift. Suite37877 terminal0, no live handles. Next binary/control/exact-size/oversized WS-gRPC and remaining PLAN/PARITY. Full migration incomplete; /compact unavailable, explicit handoff.
 
 

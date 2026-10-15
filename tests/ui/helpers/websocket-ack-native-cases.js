@@ -539,6 +539,112 @@ export async function runWebSocketAckNativeCases() {
               await receipt("peer-close-held-message-Finished-barrier", s, {
                 peerRetired: true,
               });
+
+              id = "ws_limits_" + suffix;
+              token = "limits-" + suffix;
+              await begin(id, token, false, 1);
+              const ping125 = "β".repeat(62) + "a";
+              assert.equal(Buffer.byteLength(ping125), 125);
+              await invoke("send_stream_message", {
+                id,
+                format: "ping",
+                data: ping125,
+              });
+              await poll(
+                () => Promise.resolve(record(token)?.pings.length === 1),
+                "125byte UTF8 ping reaches peer",
+              );
+              assert.equal(
+                record(token)?.pings[0].base64,
+                Buffer.from(ping125).toString("base64"),
+              );
+              const refusals = [];
+              for (const c of [
+                {
+                  name: "ping126-UTF8",
+                  format: "ping",
+                  data: "β".repeat(63),
+                  pattern: /125 bytes ping/,
+                },
+                {
+                  name: "text20MiB-plus1-ASCII",
+                  format: "text",
+                  data: "x".repeat(20 * MiB + 1),
+                  pattern: /20 MiB/,
+                },
+                {
+                  name: "text20MiB-plus1-UTF8",
+                  format: "text",
+                  data: "β".repeat(10 * MiB) + "a",
+                  pattern: /20 MiB/,
+                },
+                {
+                  name: "binary20MiB-plus1",
+                  format: "binary",
+                  data: Buffer.alloc(20 * MiB + 1, 165).toString("base64"),
+                  pattern: /20 MiB/,
+                },
+                {
+                  name: "binary-invalid-base64",
+                  format: "binary",
+                  data: "%%%not-base64",
+                  pattern: /./,
+                },
+                {
+                  name: "unsupported-format",
+                  format: "unknown",
+                  data: "refused",
+                  pattern: /Unsupported WebSocket/,
+                },
+              ]) {
+                let error = "";
+                try {
+                  await invoke("send_stream_message", {
+                    id,
+                    format: c.format,
+                    data: c.data,
+                  });
+                } catch (caught) {
+                  error = String(caught);
+                }
+                assert.match(error, c.pattern, c.name);
+                refusals.push({
+                  name: c.name,
+                  format: c.format,
+                  encodedBytes: Buffer.byteLength(c.data),
+                  error,
+                });
+                assert.equal(record(token)?.incoming.length, 0);
+                assert.equal(record(token)?.pings.length, 1);
+              }
+              await invoke("send_stream_message", {
+                id,
+                format: "binary",
+                data: "AP+A",
+              });
+              await poll(
+                () => Promise.resolve(record(token)?.incoming.length === 1),
+                "Valid binary send survives refusals",
+              );
+              assert.equal(record(token)?.incoming[0].base64, "AP+A");
+              await poll(
+                async () =>
+                  messages(await status(id)).some(
+                    (/** @type {any} */ p) =>
+                      p.event.direction === "received" &&
+                      p.event.data === "AP+A",
+                  ),
+                "Binary echo delivered through real Channel",
+              );
+              fixture.peerClose(token, 1000, "limits complete");
+              s = await done(id);
+              await closed(token);
+              assert.equal(s.result.ok, true);
+              await receipt("native-send-size-control-and-format-guards", s, {
+                refusals,
+                ping125: record(token)?.pings[0],
+                binaryWire: record(token)?.incoming[0],
+              });
             } finally {
               await page.evaluate(() =>
                 /** @type {any} */ (window).__ownedSseAckProbe?.dispose(),
