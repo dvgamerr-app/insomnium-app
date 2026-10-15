@@ -24,9 +24,15 @@ export const grpcLargeModes = [
   "legacy-numeric-nbsp",
   "legacy-numeric-bom",
   "legacy-numeric-zwsp",
+  "legacy-long-nel",
+  "legacy-long-nbsp",
+  "legacy-long-chunk-nel",
+  "legacy-long-chunk-nbsp",
+  "legacy-long-negative-nel",
+  "legacy-long-negative-bom",
 ];
 export const grpcLargeProto =
-  'syntax="proto3"; package ownedlarge; message Input { string value=1; } message Compact { repeated int32 values=1; } message Precision { int64 exact_value=1; bytes bytes_value=2; } message Numeric { optional int32 value=1; double real=2; } service Upload { rpc Stream(stream Input) returns(stream Input); rpc Echo(Input) returns(Input); rpc Expand(Compact) returns(Compact); rpc PrecisionEcho(Precision) returns(Precision); rpc NumericEcho(Numeric) returns(Numeric); }';
+  'syntax="proto3"; package ownedlarge; message Input { string value=1; } message Compact { repeated int32 values=1; } message Precision { int64 exact_value=1; bytes bytes_value=2; } message Numeric { optional int32 value=1; double real=2; } message Wide { optional int64 signed_value=1; optional uint64 unsigned_value=2; } service Upload { rpc Stream(stream Input) returns(stream Input); rpc Echo(Input) returns(Input); rpc Expand(Compact) returns(Compact); rpc PrecisionEcho(Precision) returns(Precision); rpc NumericEcho(Numeric) returns(Numeric); rpc WideEcho(Wide) returns(Wide); }';
 /** Independent small-message wire and lexical editor expectations.
  * @param {string} mode */
 function jsonEditorCase(mode) {
@@ -78,6 +84,57 @@ function varint(value) {
 export function grpcLargeCase(mode) {
   if (!grpcLargeModes.includes(mode))
     throw new Error("Unknown authored gRPC case");
+  if (mode.includes("-long-")) {
+    const tuple = {
+      "legacy-long-nel": ["\u00851\u0085", "0", "0", "08001000"],
+      "legacy-long-nbsp": ["\u00a01\u00a0", "1", "1", "08011001"],
+      "legacy-long-chunk-nel": [
+        "12345678\u00851",
+        "1234567800",
+        "1234567800",
+        "08f884d8cc0410f884d8cc04",
+      ],
+      "legacy-long-chunk-nbsp": [
+        "12345678\u00a01",
+        "1234567801",
+        "1234567801",
+        "08f984d8cc0410f984d8cc04",
+      ],
+      "legacy-long-negative-nel": ["-\u00851", "0", "0", "08001000"],
+      "legacy-long-negative-bom": [
+        "-\ufeff1",
+        "-1",
+        "18446744073709551615",
+        "08ffffffffffffffffff0110ffffffffffffffffff01",
+      ],
+    }[mode];
+    if (!tuple) throw new Error("Unknown Long case");
+    const [input, signed, unsigned, hex] = tuple;
+    const authored = { signed_value: input, unsigned_value: input };
+    const response = {
+      signed_value: signed,
+      _signed_value: "signed_value",
+      unsigned_value: unsigned,
+      _unsigned_value: "unsigned_value",
+    };
+    const payload = Buffer.from(hex, "hex"),
+      prefix = Buffer.alloc(5);
+    prefix.writeUInt32BE(payload.length, 1);
+    return {
+      mode,
+      jsonMode: "legacy",
+      unary: true,
+      receives: true,
+      body: JSON.stringify(authored),
+      formattedBody: JSON.stringify(authored, null, 2),
+      responseText: JSON.stringify(response),
+      preview: JSON.stringify(response, null, 2),
+      wire: Buffer.concat([prefix, payload]),
+      method: "/ownedlarge.Upload/WideEcho",
+      editor: true,
+      showNotice: false,
+    };
+  }
   if (mode.includes("-numeric-")) {
     const character = {
       "legacy-numeric-nel": "\u0085",

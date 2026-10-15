@@ -83,6 +83,24 @@ fn js_string(value: &Json) -> String {
         Json::Object(_) => "[object Object]".into(),
     }
 }
+// ECMAScript WhiteSpace + LineTerminator for Number and parseInt.
+// Rust's Unicode White_Space additionally includes U+0085 (NEL).
+fn js_whitespace(c: char) -> bool {
+    matches!(
+        c,
+        '\u{0009}'..='\u{000d}'
+            | '\u{0020}'
+            | '\u{00a0}'
+            | '\u{1680}'
+            | '\u{2000}'..='\u{200a}'
+            | '\u{2028}'
+            | '\u{2029}'
+            | '\u{202f}'
+            | '\u{205f}'
+            | '\u{3000}'
+            | '\u{feff}'
+    )
+}
 fn number(value: &Json) -> f64 {
     match value {
         Json::Null => 0.0,
@@ -96,24 +114,7 @@ fn number(value: &Json) -> f64 {
         Json::Number(v) => v.as_f64().unwrap_or(f64::NAN),
         _ => {
             let text = js_string(value);
-            // ECMAScript WhiteSpace + LineTerminator, used by Number/ToNumber.
-            // Rust's Unicode White_Space additionally includes U+0085 (NEL).
-            let text = text.trim_matches(|c| {
-                matches!(
-                    c,
-                    '\u{0009}'..='\u{000d}'
-                        | '\u{0020}'
-                        | '\u{00a0}'
-                        | '\u{1680}'
-                        | '\u{2000}'..='\u{200a}'
-                        | '\u{2028}'
-                        | '\u{2029}'
-                        | '\u{202f}'
-                        | '\u{205f}'
-                        | '\u{3000}'
-                        | '\u{feff}'
-                )
-            });
+            let text = text.trim_matches(js_whitespace);
             if text.is_empty() {
                 return 0.0;
             }
@@ -180,7 +181,7 @@ fn long_bits(value: &Json) -> Result<u64, String> {
             let mut bits = 0u64;
             for chunk in units.chunks(8) {
                 let part = String::from_utf16_lossy(chunk);
-                let part = part.trim_start_matches(|c: char| c.is_whitespace() || c == '\u{feff}');
+                let part = part.trim_start_matches(js_whitespace);
                 let part = part.strip_prefix('+').unwrap_or(part);
                 let value = part
                     .bytes()
@@ -539,6 +540,36 @@ mod tests {
     use prost_types::{
         DescriptorProto, FieldDescriptorProto, FileDescriptorProto, FileDescriptorSet,
     };
+
+    #[test]
+    fn legacy_long_whitespace_reference_vectors() {
+        let whitespace = [
+            9, 11, 12, 32, 160, 5760, 8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201,
+            8202, 8239, 8287, 12288, 65279, 10, 13, 8232, 8233,
+        ];
+        for code in whitespace.into_iter().chain([133, 6158, 8203, 8288]) {
+            let ch = char::from_u32(code).unwrap();
+            let input = Json::String(format!("{ch}1{ch}"));
+            assert_eq!(
+                long_bits(&input).unwrap(),
+                if whitespace.contains(&code) { 1 } else { 0 },
+                "Long conversion U+{code:04X}"
+            );
+        }
+        for (input, expected) in [
+            ("12345678\u{0085}1", 1_234_567_800),
+            ("12345678\u{00a0}1", 1_234_567_801),
+            ("12345678\u{feff}1", 1_234_567_801),
+            ("-\u{0085}1", 0),
+            ("-\u{feff}1", u64::MAX),
+        ] {
+            assert_eq!(
+                long_bits(&Json::String(input.into())).unwrap(),
+                expected,
+                "Long chunk conversion {input:?}"
+            );
+        }
+    }
 
     #[test]
     fn legacy_float_json_reference_vectors() {

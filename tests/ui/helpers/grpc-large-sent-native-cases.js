@@ -24,17 +24,24 @@ import { createGrpcLargeSentFixture } from "./grpc-large-sent-fixture.js";
 export async function runGrpcLargeSentNativeCases({
   base64Only = false,
   numericOnly = false,
+  longOnly = false,
 } = {}) {
-  assert.ok(!(base64Only && numericOnly));
-  const scenario = numericOnly
-    ? "grpc-numeric-native"
-    : base64Only
-      ? "grpc-base64-native"
-      : "grpc-large-sent-native";
+  assert.ok([base64Only, numericOnly, longOnly].filter(Boolean).length <= 1);
+  const scenario = longOnly
+    ? "grpc-long-native"
+    : numericOnly
+      ? "grpc-numeric-native"
+      : base64Only
+        ? "grpc-base64-native"
+        : "grpc-large-sent-native";
   const modes = grpcLargeModes.filter((mode) =>
-    numericOnly
-      ? mode.includes("-numeric-")
-      : !mode.includes("-numeric-") && mode.includes("-base64-") === base64Only,
+    longOnly
+      ? mode.includes("-long-")
+      : !mode.includes("-long-") &&
+        (numericOnly
+          ? mode.includes("-numeric-")
+          : !mode.includes("-numeric-") &&
+            mode.includes("-base64-") === base64Only),
   );
   const marker = process.env.INSOMNIUM_UI_PROFILE_OWNERSHIP;
   assert.ok(marker && process.env.INSOMNIUM_UI_BUILD_STATE);
@@ -469,11 +476,13 @@ export async function runGrpcLargeSentNativeCases({
           records: fixture.records,
           errorEvents: fixture.errorEvents,
           errors: errors.map(String),
-          scope: numericOnly
-            ? "Four legacy numeric-whitespace cases through actual editor/Format/mode switch, exact int32/double frames, response/history/reload/export. Other coercion/provider/platform gates remain open."
-            : base64Only
-              ? "Six legacy Base64 byte/frame/history/reload/export cases. Other Base64, ProtoJSON and provider/platform gates remain open."
-              : "Actual native fourteen-case9MiB/compact-array/Unicode plus typed int64/bytes shared-editor Format/mode-switch/history/export in legacy/protoJson. No broad JSON/provider/platform claim.",
+          scope: longOnly
+            ? "Six legacy signed/unsigned64 whitespace/chunk/sign cases through actual editor/Format/mode switch and full wire/history/reload/export. Broader coercion/provider/platform gates remain open."
+            : numericOnly
+              ? "Four legacy numeric-whitespace cases through actual editor/Format/mode switch, exact int32/double frames, response/history/reload/export. Other coercion/provider/platform gates remain open."
+              : base64Only
+                ? "Six legacy Base64 byte/frame/history/reload/export cases. Other Base64, ProtoJSON and provider/platform gates remain open."
+                : "Actual native fourteen-case9MiB/compact-array/Unicode plus typed int64/bytes shared-editor Format/mode-switch/history/export in legacy/protoJson. No broad JSON/provider/platform claim.",
         },
         null,
         2,
