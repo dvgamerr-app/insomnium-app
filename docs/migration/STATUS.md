@@ -3,6 +3,9 @@
 Updated 2026-10-15. Full migration is **incomplete**. Latest verified scenario/source commit:5fbb75a; prior certificate scenario:9180ac4; portable certificate implementation:ddea70f; prior request-file implementation/scenario:11e9b96/08ab0b3. Branch:feat/ui-design-system-settings-curl. Verified agent work is committed in the shared repo. Retired directories/custom .git backups remain absent; legacy backup and node_modules are preserved.
 ## Current work
 
+Verified exact20MiB transport topic commit:4e62d35. Post-acceptance audit checks1310regular files, only five migration docs differ; no application/scenario drift. Suite9490 terminal0/no live handles. Next actual large WebSocket UI/history and explicit fragmentation/control/gRPC. Full migration incomplete; /compact unavailable, explicit handoff.
+
+
 ### WebSocket exact20MiB transport boundary — verified bounded milestone 2026-10-15
 
 Four real SDK Channel/native groups pass: UTF8 text (10MiB β characters) and binary (20MiB0xa5) each20971520decoded bytes send to independent peer and echo through the native Channel. Authored bytes, peer capture and both sent/received Channel events have identical independently recomputed SHA256. Incoming text/binary20971521bytes each end with WebSocket failed: tungstenite error; only the earlier ready message reaches Channel. The current error hides the specific capacity cause, so no precise size diagnostic is claimed. Fixture opts into24MiB receive/64MiB backpressure only for these ACK cases; other callers retain defaults. Large payloads traverse the actual Channel; the receiver hashes them locally after delivery and receipts compact peer data to size/SHA256.
