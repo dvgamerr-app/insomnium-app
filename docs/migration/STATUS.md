@@ -3,6 +3,9 @@
 Updated 2026-10-15. Full migration is **incomplete**. Latest verified scenario/source commit:5fbb75a; prior certificate scenario:9180ac4; portable certificate implementation:ddea70f; prior request-file implementation/scenario:11e9b96/08ab0b3. Branch:feat/ui-design-system-settings-curl. Verified agent work is committed in the shared repo. Retired directories/custom .git backups remain absent; legacy backup and node_modules are preserved.
 ## Current work
 
+Verified outgoing guard topic commit:10255f7. Post-acceptance audit checks1310regular files with five documentation-only deltas; no application/scenario drift. Suite20361 terminal0/no live handles. Next exact20MiB accepted send/receive and incoming oversize/fragmentation/gRPC; full migration incomplete. /compact unavailable; explicit handoff.
+
+
 ### WebSocket outgoing size/control guards — verified bounded milestone 2026-10-15
 
 Real native SDK Channel group passes UTF8 ping125bytes (62β plus a) with exact peer bytes;126bytes refused with no second ping. ASCII and UTF8 text each20971521bytes, and binary decoded20971521bytes/base6427962028bytes, refuse the20MiB guard with0data messages at peer. Invalid Base64 reports Invalid symbol37, offset0; unknown format reports Unsupported WebSocket message type. A valid3byte binary AP+A then reaches peer and returns through the real Channel, proving the same connection remains usable. No application edits. Exact20MiB success, incoming oversized/fragmentation, complete control-frame and gRPC variants remain unverified by this group.
