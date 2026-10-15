@@ -1,62 +1,37 @@
-# Development AI Harness
+# Claude development subagents
 
-Claude owns the existing agent loop. This repository's Bun CLI is a supporting harness, not another agent or autonomous loop. It does not add AI features, providers, API keys, network calls or UI to Insomnium. Claude exports context, decides, submits JSON and consumes results through its existing tools. No dependency or generator is needed for this standalone JavaScript utility.
+Claude owns the existing agent loop and native tools. CLAUDE.md routes scoped work to project subagents in .claude/agents/. The earlier scripts/ai-harness.mjs JSON CLI is removed. No concatenation service, provider adapter or second agent runtime is needed.
 
-## Six components
+| Agent              | Responsibility                              | Tools                                              |
+| ------------------ | ------------------------------------------- | -------------------------------------------------- |
+| insomnium-scout    | Investigate code/evidence and propose scope | Read, Grep, Glob                                   |
+| insomnium-builder  | Implement explicitly owned files            | Read/search/edit/write, Bash, documentation lookup |
+| insomnium-verifier | Run existing checks and saved scenarios     | Read/search, Bash                                  |
+| insomnium-reviewer | Review supplied diff and affected code      | Read, Grep, Glob                                   |
 
-| Component                  | Implementation                                                                                                                                                                          |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Agent loop                 | Reuse Claude's existing loop; CLI calls `init → context → step → context` provide state and tool boundaries, stopping at review, human help, completion or the 200-event budget         |
-| Tool calling               | Validated `read_file` and `write_file` requests; unknown tools refused; no shell execution                                                                                              |
-| Context management         | Fresh ancestor/project instructions and migration documents pinned; explicit agent summary plus up to 32 KiB recent events; omission count; scoped instructions included in tool events |
-| Checkpointing              | Local JSON checkpoint replaced by rename under exclusive lock; revision prevents stale decisions; approval intent saved before a write                                                  |
-| Permissions and sandboxing | Repository-relative paths, canonical path checks, protected data/build directories and key files excluded; each write requires human approval                                           |
-| Guardrails                 | Bounded input/file sizes, schema checks, revision checks, before-content conflict checks and final-output approval                                                                      |
+## Usage in Claude Code
 
-## Usage
+Start Claude Code in this repository. Restart an existing session if the new agents directory is not discovered. Ask directly:
 
-Run from the repository root using Bun:
+> ใช้ insomnium-scout ตรวจ gap ของ WebSocket history แล้วมอบไฟล์ที่ต้องแก้ให้ insomnium-builder จากนั้นใช้ insomnium-verifier ตรวจ และ insomnium-reviewer รีวิว diff ให้คุณรวมผลและ commit
 
-```sh
-bun scripts/ai-harness.mjs init "Implement the reviewed migration task"
-bun scripts/ai-harness.mjs context
-bun scripts/ai-harness.mjs step artifacts/decision.json
-bun scripts/ai-harness.mjs status
-```
+For review only:
 
-The external agent reads the context and writes a decision JSON file. Use the current `revision` shown by `context` or `status`:
+> ใช้ insomnium-reviewer รีวิว diff ปัจจุบัน โดยเตรียม diff ให้ agent อ่าน ไม่ต้องแก้ไฟล์
 
-```json
-{
-  "revision": 1,
-  "type": "tool",
-  "tool": "read_file",
-  "args": { "path": "src/lib/transport.js" }
-}
-```
+Claude dispatches objectives and relevant paths; workers read applicable instructions and code in their own contexts, returning concise results. The coordinator owns integration, approvals, STATUS and topic commits. Assign exclusive file ownership; serialize shared-file edits and native/profile-mutating checks. Independent investigations may run in parallel. Model selection and permissions inherit host configuration; these definitions do not change either.
 
-Files above 32 KiB are refused. Use the host agent's existing narrow-reading tools for large files. For edits submit `write_file` with `args.path` and the complete `args.content` (at most 32 KiB). Parent directories must already exist. Review `status` for the original and proposed content. A human runs `approve <revision>` or `reject <revision>`; the model adapter must never invoke these review commands. After approval, consume the next `context`. A changed target refuses the write; reject and submit a fresh decision.
+## Six responsibilities
 
-Other decisions:
+1. Agent loop: existing Claude session delegates, consumes results and decides next actions.
+2. Tool calling: native Claude tools, restricted by agent frontmatter.
+3. Context: separate worker contexts and targeted reads; no generated concatenated prompt.
+4. Recovery: existing Claude session/resume facilities and STATUS handoffs. Definitions do not create transactional workflow checkpoints or replay unfinished calls.
+5. Permissions: host permissions and per-agent tool access. Builder/verifier Bash remains powerful; prose restrictions are not an OS sandbox. No permission bypass is configured.
+6. Guardrails: project rules, owned scopes, independent verification/review and existing host approvals. Review is an instructed workflow, not an enforced hook or guaranteed automatic gate.
 
-```json
-{
-  "revision": 2,
-  "type": "summary",
-  "content": "Evidence, decisions, remaining gates, current commit and live handles"
-}
-```
+## Validation and references
 
-`help` with `content` pauses for human assistance; approval resumes. `finish` with `content` proposes the final response and requires approval before completion. Completion approval records review, not proof that checks passed. The caller must run repository-required Bun/Cargo checks, update STATUS, and commit verified work by topic using its authorized host tools.
+Official [Claude Code subagent documentation](https://code.claude.com/docs/en/sub-agents) describes Markdown/YAML definitions and project discovery. This uses that documented file format, without a new dependency or generator.
 
-## Recovery and boundary
-
-Checkpoint and lock live in ignored `artifacts/ai-harness/`. Resume with `status` and `context`; `init` refuses to overwrite a run. After a crash, verify no harness process remains before manually removing the lock. Interrupted approved writes require human reconciliation: inspect the target and pending proposal, then reject/replan if needed. Never automatically replay a write. Archive a completed checkpoint before starting another task. Local checkpoint/event content may contain source or sensitive information; do not upload it blindly.
-
-This is an application permission boundary, **not an OS sandbox**. The agent and human share the host account; anyone with filesystem access can alter checkpoints or invoke approval. Canonical checks do not eliminate filesystem races caused by another local process. For untrusted agents, enforce approval separation and OS/container isolation externally. No arbitrary execution tool is exposed. Nested instructions must be followed by the caller; scoped instruction events aid review but do not semantically enforce their prose. Summary compression is explicit and character budgets are not token counts; pinned rules are never silently truncated.
-
-Official references consulted before implementation: [Bun file I/O](https://bun.sh/docs/runtime/file-io) and [Bun subprocess documentation](https://bun.sh/docs/runtime/child-process). This harness deliberately exposes no subprocess tool.
-
-## Verification
-
-See the development harness handoff in STATUS.md for actual checks. No new automated test file or UI scenario is added; the application UI and migration acceptance scope remain unchanged.
+Frontmatter and file references are checked locally with Bun and the existing YAML dependency. Runtime invocation remains unverified until Claude Code loads and invokes the agents. No application source/UI or test scenario changes are needed. Historical ignored CLI verification artifacts remain local and are not consumed. See STATUS.md for handoff.
