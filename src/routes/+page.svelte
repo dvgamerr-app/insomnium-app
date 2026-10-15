@@ -827,7 +827,7 @@
                     response={app.responses[request._id]}
                     running={!!app.running[request._id]}
                     history={app.data.history.filter(
-                      (h) => h.requestId === request._id && h.protocol && (protocol !== "websocket" || historyMatchesEnvironment(h,app.data.settings,app.data.activeEnvironmentId)),
+                      (h) => h.requestId === request._id && h.protocol && (!["websocket", "sse"].includes(protocol) || (h.protocol === protocol && historyMatchesEnvironment(h,app.data.settings,app.data.activeEnvironmentId))),
                     )}
                     onhistory={(response) => selectStreamHistory(request._id,response)}
                   />{:else}<ResponsePane

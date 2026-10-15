@@ -211,18 +211,24 @@ export function retainedHistory(history, settings) {
 export function historyMatchesEnvironment(entry, settings, environmentId) {
   return !settings.filterResponsesByEnv || (entry.environmentId || null) === (environmentId || null);
 }
-/** Drop selections whose HTTP/WebSocket request or saved response no longer exists.
+/** Drop selections whose HTTP/SSE/WebSocket request or saved response no longer exists.
  * Environment switching hides a selection without destroying its saved identity.
  * @param {Record<string,any>} data @returns {Record<string,string>} */
 export function validResponseSelections(data) {
   return Object.fromEntries(Object.entries(/** @type {Record<string,string>} */ (data.responseSelections || {})).filter(([requestId,responseId]) =>
     data.resources.some((/** @type {Resource} */ request) => request._id === requestId &&
       ((request._type === "request" && protocolFor(request) === "http" && data.history.some((/** @type {Resource} */ entry) => entry.requestId === requestId && entry._id === responseId && !entry.protocol)) ||
+       (request._type === "request" && protocolFor(request) === "sse" && data.history.some((/** @type {Resource} */ entry) => entry.requestId === requestId && entry._id === responseId && entry.protocol === "sse")) ||
        (request._type === "websocket_request" && data.history.some((/** @type {Resource} */ entry) => entry.requestId === requestId && entry._id === responseId && entry.protocol === "websocket"))))));
 }
 /** @param {Record<string,any>} data @param {string} requestId @param {string|null} environmentId */
 export function selectedWebSocketHistory(data, requestId, environmentId) {
-  const history = data.history.filter((/** @type {Resource} */ entry) => entry.requestId === requestId && entry.protocol === "websocket" && historyMatchesEnvironment(entry,data.settings,environmentId));
+  return selectedStreamHistory(data, requestId, "websocket", environmentId);
+}
+/** Resolve only the requested stream protocol under the current environment policy.
+ * @param {Record<string,any>} data @param {string} requestId @param {"websocket"|"sse"} protocol @param {string|null} environmentId */
+export function selectedStreamHistory(data, requestId, protocol, environmentId) {
+  const history = data.history.filter((/** @type {Resource} */ entry) => entry.requestId === requestId && entry.protocol === protocol && historyMatchesEnvironment(entry,data.settings,environmentId));
   const selected = data.responseSelections?.[requestId] ?? data.resources.find((/** @type {Resource} */ resource) => resource._type === "request_meta" && resource.parentId === requestId)?.activeResponseId;
   return history.find((/** @type {Resource} */ entry) => entry._id === selected) || history[0];
 }

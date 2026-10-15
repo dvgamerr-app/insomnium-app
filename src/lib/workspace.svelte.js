@@ -52,7 +52,7 @@ import {
   historyMatchesEnvironment,
   validResponseSelections,
   selectedHttpHistory,
-  selectedWebSocketHistory,
+  selectedStreamHistory,
   protocolFor,
   environmentFor,
   render,
@@ -662,7 +662,11 @@ export async function persist() {
 export function update(resourceId, patch) {
   if (!canEditWorkspace()) return;
   const resource = workspace.data.resources.find((r) => r._id === resourceId);
-  if (resource) Object.assign(resource, patch, { modified: Date.now() });
+  if (resource) {
+    const previousProtocol = protocolFor(resource);
+    Object.assign(resource, patch, { modified: Date.now() });
+    if (previousProtocol !== protocolFor(resource)) refreshHttpResponses(resourceId);
+  }
   return persist();
 }
 /** @param {string} requestId @param {string} filter */
@@ -1474,9 +1478,11 @@ export async function execute(
     // Environment changes preserve the live pane; reconcile its captured history
     // only after this run retires, without replacing same-environment results.
     const terminal = workspace.responses[requestId];
-    if (protocol === "websocket" && terminal?._id === runId &&
+    const currentRequest = workspace.data.resources.find(item => item._id === requestId);
+    if (currentRequest && protocolFor(currentRequest) !== protocol) refreshHttpResponses(requestId);
+    else if (terminal?._id === runId &&
       !historyMatchesEnvironment(terminal, workspace.data.settings, selectedEnvironmentFor(workspace.data, workspaceFor(workspace.data.resources, requestId) || ""))) {
-      refreshWebSocketResponses(requestId);
+      refreshHttpResponses(requestId);
     }
     clearOAuthProgress(requestId);
     completions.delete(requestId);
@@ -2290,7 +2296,7 @@ function remember(entry) {
   if (!entry.protocol && workspace.data.history.some(item => item._id === entry._id) &&
       workspace.data.resources.some(request => request._id === entry.requestId && request._type === "request" && protocolFor(request) === "http"))
     workspace.data.responseSelections = { ...workspace.data.responseSelections, [entry.requestId]: entry._id };
-  if (entry.protocol === "websocket" && workspace.data.history.some(item => item._id === entry._id))
+  if (["websocket", "sse"].includes(entry.protocol) && workspace.data.history.some(item => item._id === entry._id))
     workspace.data.responseSelections = { ...workspace.data.responseSelections, [entry.requestId]: entry._id };
   if (!workspace.data.history.some((h) => h._id === entry._id))
     workspace.notice =
@@ -2313,41 +2319,43 @@ export function selectHttpHistory(requestId, entry) {
   workspace.responses[requestId] = saved;
   void persist();
 }
-/** Persist WebSocket history choices; other stream protocol choices keep their existing session behavior.
+/** Persist a genuine saved stream choice for its exact request protocol/environment.
  * @param {string} requestId @param {Record<string,any>} entry */
 export function selectStreamHistory(requestId, entry) {
   if (!canEditWorkspace() || workspace.running[requestId]) return;
   const request = workspace.data.resources.find(item => item._id === requestId);
-  const saved = workspace.data.history.find(item => item._id === entry._id && item.requestId === requestId && item.protocol);
-  if (!request || !saved) return;
-  if (request._type === "websocket_request" && !historyMatchesEnvironment(saved,workspace.data.settings,selectedEnvironmentFor(workspace.data,workspaceFor(workspace.data.resources,requestId) || ""))) return;
+  const protocol = protocolFor(request);
+  if (!request || !["websocket", "sse"].includes(protocol)) return;
+  const environmentId = selectedEnvironmentFor(workspace.data,workspaceFor(workspace.data.resources,requestId) || "");
+  const saved = workspace.data.history.find(item => item._id === entry._id && item.requestId === requestId && item.protocol === protocol && historyMatchesEnvironment(item,workspace.data.settings,environmentId));
+  if (!saved) return;
   workspace.responses[requestId] = saved;
-  if (request._type === "websocket_request" && saved.protocol === "websocket") {
-    workspace.data.responseSelections = {...workspace.data.responseSelections,[requestId]:saved._id};
-    void persist();
-  }
+  workspace.data.responseSelections = {...workspace.data.responseSelections,[requestId]:saved._id};
+  void persist();
 }
 /** @param {string} [onlyRequestId] */
-function refreshWebSocketResponses(onlyRequestId) {
+function refreshStreamResponses(onlyRequestId) {
   for (const request of workspace.data.resources) {
-    if (request._type !== "websocket_request" || workspace.running[request._id] || (onlyRequestId && request._id !== onlyRequestId)) continue;
+    const protocol = protocolFor(request);
+    if ((protocol !== "websocket" && protocol !== "sse") || workspace.running[request._id] || (onlyRequestId && request._id !== onlyRequestId)) continue;
     const environmentId = selectedEnvironmentFor(workspace.data,workspaceFor(workspace.data.resources,request._id) || "");
-    const saved = selectedWebSocketHistory(workspace.data,request._id,environmentId);
+    const saved = selectedStreamHistory(workspace.data,request._id,protocol,environmentId);
     if (saved) workspace.responses[request._id] = saved;
-    else if (workspace.responses[request._id]?.protocol === "websocket") delete workspace.responses[request._id];
+    else delete workspace.responses[request._id];
   }
 }
 /** Select the newest saved ordinary HTTP response for each current environment.
- * WebSocket saved choices refresh under the same environment policy; live runs are untouched. */
-function refreshHttpResponses() {
+ * SSE/WebSocket saved choices refresh under the same environment policy; live runs are untouched. */
+/** @param {string} [onlyRequestId] */
+function refreshHttpResponses(onlyRequestId) {
   for (const request of workspace.data.resources) {
-    if (request._type !== "request" || protocolFor(request) !== "http" || workspace.responses[request._id]?.protocol) continue;
+    if (request._type !== "request" || protocolFor(request) !== "http" || workspace.running[request._id] || (onlyRequestId && request._id !== onlyRequestId)) continue;
     const environmentId = selectedEnvironmentFor(workspace.data, workspaceFor(workspace.data.resources, request._id) || "");
     const response = selectedHttpHistory(workspace.data, request._id, environmentId);
     if (response) workspace.responses[request._id] = response;
     else delete workspace.responses[request._id];
   }
-  refreshWebSocketResponses();
+  refreshStreamResponses(onlyRequestId);
 }
 /** @param {string} requestId */
 export async function stop(requestId) {
