@@ -34,6 +34,7 @@ import {
   exerciseTemplateTagEditorNative,
 } from "./helpers/template-tag-editor-native.js";
 
+const hooksMode = process.env.INSOMNIUM_PLUGIN_HOOKS === "1";
 const editorMode = process.env.INSOMNIUM_TEMPLATE_TAG_EDITOR === "1";
 const helperMode = process.env.INSOMNIUM_PLUGIN_HELPERS === "1";
 const cookieMode = helperMode && process.env.INSOMNIUM_PLUGIN_HELPER_COOKIES === "1";
@@ -177,6 +178,25 @@ try {
       if (domCollectionsMode) sourceB += pluginDomCollectionsNativeSource();
       if (domTokensMode) sourceB += pluginDomTokensNativeSource();
       if (domDatasetMode) sourceB += pluginDomDatasetNativeSource();
+      if(hooksMode)sourceB+=`
+        exports.requestHooks=[async c=>{
+          const source=c.request.getBody().text;
+          if(source==='cancel-request-hook')await c.app.prompt('Cancel request hook',{defaultValue:'must-not-send'});
+          c.request.getEnvironment().waitResponse=source==='cancel-response-hook';
+          if(c.request.getBody().text==='refuse-hook')throw Error('owned hook refusal');
+          c.request.setUrl(c.request.getUrl()+'/hooked');
+          c.request.setHeader('X-Hook','first');c.request.setCookie('hook','cookie');
+          c.request.getEnvironment().hookStage='request';
+        },c=>{if(c.request.getHeader('x-hook')!=='first')throw Error('request order');
+          c.request.setHeader('X-Hook','second');c.request.setBodyText('hook-wire');}];
+        exports.responseHooks=[async c=>{
+          if(c.request.getEnvironmentVariable('waitResponse'))await c.app.prompt('Cancel response hook',{defaultValue:'must-not-publish'});
+          if(c.request.getEnvironmentVariable('hookStage')!=='request')throw Error('request environment lost');
+          const chunks=[];for await(const chunk of c.response.getBodyStream())chunks.push(chunk);
+          if(Buffer.concat(chunks).toString()!=='plugin-render-accepted')throw Error('network body lost');
+          c.request.getEnvironment().hookStage='response';c.response.setBody(Buffer.from('first-response'));
+        },c=>{if(c.request.setUrl!==undefined||c.response.getBody().toString()!=='first-response'||c.request.getEnvironmentVariable('hookStage')!=='response')throw Error('response order');c.response.setBody(Buffer.from('hook-response-final'));}];
+      `;
       for (const [index, source] of [sourceA, sourceB].entries()) {
         const directory = join(root, index === 0 ? "a" : "b");
         await mkdir(directory, { recursive: true });
@@ -383,6 +403,40 @@ try {
         await load(names[1]);
         await load(names[0]);
         await closePreferences();
+        if(hooksMode){
+          await body('hook-source');await send('hook-wire');
+          assert.equal(new URL(wire.at(-1).url).pathname,'/render/hooked');
+          assert.equal(wire.at(-1).headers['x-hook'],'second');
+          assert.match(wire.at(-1).headers.cookie,/hook=cookie/);
+          const actual=await invoke('load_workspace');
+          const history=actual.history.find((/** @type {any} */r)=>r.requestId===requestId);
+          assert.ok(history,'Completed hooked response persisted');
+          assert.equal(history.body,'hook-response-final');
+          assert.equal(Buffer.from(history.bodyBase64,'base64').toString(),'hook-response-final');
+          assert.equal(history.size,Buffer.byteLength('plugin-render-accepted'));
+          assert.equal(history.bytesContent,Buffer.byteLength('hook-response-final'));
+          assert.equal(actual.resources.find((/** @type {any} */r)=>r._id===requestId).body.text,'hook-source');
+          for(const phase of ['request','response']){
+            await body('cancel-'+phase+'-hook');
+            const before=wire.length;
+            const historyIds=new Set((await invoke('load_workspace')).history.map((/** @type {any} */r)=>r._id));
+            await page.getByRole('button',{name:'Send',exact:true}).click();
+            const prompt=page.getByRole('dialog',{name:'Cancel '+phase+' hook',exact:true});
+            await prompt.waitFor();
+            // Exercise the actual root Stop handler while its prompt owns focus.
+            await page.locator('.send-button').filter({hasText:'Cancel'}).evaluate(el=>/** @type {HTMLButtonElement} */(el).click());
+            await prompt.waitFor({state:'detached'});await settled();
+            assert.equal(wire.length,before+(phase==='response'?1:0));
+            const added=(await invoke('load_workspace')).history.filter((/** @type {any} */r)=>r.requestId===requestId&&!historyIds.has(r._id));
+            assert.ok(added.every((/** @type {any} */r)=>r.status===0&&r.body===''),'No successful cancelled hook result published');
+            await body('hook-source');await send('hook-wire');
+            checks.push('Root Cancel during '+phase+' hook retires prompt/VM without successful publication; fresh Send recovers');
+          }
+          await body('refuse-hook');await send(null);
+          checks.push('Native ordered request/header/url/cookie/body mutations, response stream/replacement/shared environment, durable history, source isolation and pre-transport refusal');
+          await Bun.write(join(output,'hook-acceptance.json'),JSON.stringify({passed:true,checks,wire,history,requestId,sourceCommit:'8577b6bc',scenarioSupplement:'tests/ui/plugin-template-tags.js'},null,2));
+          return;
+        }
         if (editorMode) {
           const editor = await exerciseTemplateTagEditorNative({
             page,

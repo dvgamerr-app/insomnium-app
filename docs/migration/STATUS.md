@@ -1,5 +1,17 @@
 # Migration status
 
+## Native hook Cancel and session recovery — 2026-10-16
+
+Source parent9423a4d7; application source/binary unchanged. Extended only existing focused hook scenario with root Stop during genuine request/response hook Prompts, using the actual root button handler while Prompt owns focus. Request cancellation emits no HTTP; response cancellation publishes no successful history; fresh Send after each proves admitted-session recovery. Existing ordered wire/body/history/source isolation/refusal checks retained. One native-hidden run exits0 (~10s), artifacts/playwright/plugin-template-tags-1792168889193/hook-acceptance.json and result.json;4actual HTTP requests, host67368 exits0, original loaded workspace/plugin store restored by existing finally. Reused candidate plugin-hooks-20261016-attempt-1; no rebuild/new scripts/product edits or live handles. DOM-dialog/large-payload/provider/platform and full PLAN/PARITY gates remain open. /compact unavailable; handoff recorded.
+
+
+## Native request/response hook acceptance — 2026-10-16
+
+Source parent 8577b6bc. One maintained namespace build completed exit0/sourceClosureVerified:true at artifacts/native-namespace-audit-probe/plugin-hooks-20261016-attempt-1/build-state.json; app SHA eabe95e016004e231662e444a5e716ec4dee2b8b0136c61d2cc9ad74d40e7c6b, closure510753f6f2b837cbd9163c504ce7f875ee85afda827cf1d73dcfc2465a58071a. Total~26m19s, Cargo8m14s; remaining time includes the maintained pre/post source/dependency inventory. No duplicate build launched. Coverage incomplete/targetLinkage unproven remains.
+
+Added only a focused INSOMNIUM_PLUGIN_HOOKS=1 branch to existing plugin-template-tags.js after build; this scenario-only supplement is not claimed in the candidate's original source closure. One native-hidden run exits0 (~8.4s command,2.9s host), artifacts/playwright/plugin-template-tags-1792168737233/hook-acceptance.json and result.json. Actual native HTTP peer sees one POST with modified URL/header/cookie/body. Two response hooks consume body stream, share mutated environment, replace body and persist final bodyBase64/text with network size22/content size19. Saved source remains hook-source. Second Send throws in request hook with zero additional HTTP requests. Existing finally restores full loaded workspace object and original plugin store; host69052 hidden before CDP exits0. No native cancellation/DOM-dialog/OS-close/physical profile-byte claim. No new runner/test files or broad reruns. Native cancellation/DOM dialogs, large codec payloads and all retained PLAN/PARITY gates remain open. /compact unavailable; handoff recorded.
+
+
 ## Shared response-hook context correction — 2026-10-16
 
 Source parent ab247368. Archived network/network.ts shares one renderedContext and readonly request clone across ordered response hooks. Guest now returns request/environment alongside response, and the dispatcher forwards all three to the next hook. This preserves getEnvironment/getBody reference mutations between hooks while keeping saved source data detached and mutator methods absent. Actual QuickJS inline check passes shared environment/request references, readonly API, exact binary stream and unchanged source. Compiler exits0/0errors/0warnings; build exits0. No new test scripts/native build/service calls/live handles. Native integration, large payload and all original migration gates remain open. /compact unavailable; handoff recorded.
