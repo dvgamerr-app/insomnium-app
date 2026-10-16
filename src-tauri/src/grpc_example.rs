@@ -12,12 +12,71 @@ const MAX_EXAMPLE: usize = 128 * 1024;
 pub(crate) fn generate_saved(desc: MessageDescriptor, mode: JsonMode) -> Result<String, String> {
     let canonical = generate(desc.clone(), JsonMode::ProtoJson)?;
     let parsed = grpc_schema::parse_mode(desc.clone(), &canonical, JsonMode::ProtoJson)?;
-    let result = grpc_schema::json_mode(&parsed, mode, desc.clone())?;
+    let mut result = grpc_schema::json_mode(&parsed, mode, desc.clone())?;
+    if matches!(mode, JsonMode::Legacy) {
+        let mut value: Value = serde_json::from_str(&result).map_err(|e| e.to_string())?;
+        request_bytes(&mut value, Kind::Message(desc.clone()), 0)?;
+        result = serde_json::to_string(&value).map_err(|e| e.to_string())?;
+    }
     if result.len() > MAX_EXAMPLE {
         return Err("Rendered example exceeds 128 KiB.".into());
     }
     grpc_schema::parse_mode(desc, &result, mode)?;
     Ok(result)
+}
+
+// Legacy display uses numeric-key objects for bytes. Request fromObject needs
+// arrays (or base64), including inside repeated messages and map values.
+fn request_bytes(value: &mut Value, kind: Kind, depth: usize) -> Result<(), String> {
+    if depth > 32 {
+        return Err("Example nesting exceeds 32 levels.".into());
+    }
+    match kind {
+        Kind::Bytes => {
+            if let Some(object) = value.as_object() {
+                let bytes = (0..object.len())
+                    .map(|index| {
+                        object
+                            .get(&index.to_string())
+                            .cloned()
+                            .ok_or("Invalid example bytes")
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                *value = Value::Array(bytes);
+            }
+        }
+        Kind::Message(desc) => {
+            for field in desc.fields() {
+                let Some(child) = value.get_mut(field.name()) else {
+                    continue;
+                };
+                if field.is_map() {
+                    let Kind::Message(entry) = field.kind() else {
+                        unreachable!()
+                    };
+                    if let Some(entries) = child.as_object_mut() {
+                        for entry_value in entries.values_mut() {
+                            request_bytes(
+                                entry_value,
+                                entry.map_entry_value_field().kind(),
+                                depth + 1,
+                            )?;
+                        }
+                    }
+                } else if field.is_list() {
+                    if let Some(entries) = child.as_array_mut() {
+                        for entry_value in entries {
+                            request_bytes(entry_value, field.kind(), depth + 1)?;
+                        }
+                    }
+                } else {
+                    request_bytes(child, field.kind(), depth + 1)?;
+                }
+            }
+        }
+        _ => {}
+    }
+    Ok(())
 }
 
 #[derive(Default)]

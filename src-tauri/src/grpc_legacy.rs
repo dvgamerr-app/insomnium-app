@@ -2160,6 +2160,19 @@ mod tests {
             }
             crate::grpc_schema::parse_mode(original.clone(), &example, mode.from_schema(true))
                 .unwrap();
+            let saved = crate::grpc_example::generate_saved(original.clone(), mode).unwrap();
+            let saved_json: serde_json::Value = serde_json::from_str(&saved).unwrap();
+            assert!(saved_json["labels"].is_object(), "Saved map sample {saved}");
+            assert_eq!(saved_json["labels"]["Hello"], 10);
+            let saved_message =
+                crate::grpc_schema::parse_mode(original.clone(), &saved, mode).unwrap();
+            let reflected_message =
+                crate::grpc_schema::parse_mode(original.clone(), &example, mode.from_schema(true))
+                    .unwrap();
+            assert_eq!(
+                saved_message.encode_to_vec(),
+                reflected_message.encode_to_vec()
+            );
         }
         let any: serde_json::Value = serde_json::from_str(include_str!(
             "../../tests/ui/fixtures/grpc-reflection-any-reference.json"

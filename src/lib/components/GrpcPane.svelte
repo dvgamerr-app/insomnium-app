@@ -160,6 +160,7 @@
   }
   function body(/** @type {string} */ text) {
     update(request._id, { body: { ...request.body, text } });
+    error = "";
   }
   async function exportResponse() {
     const fail=beginTransfer();
