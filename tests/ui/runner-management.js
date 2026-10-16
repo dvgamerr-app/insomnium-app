@@ -1,8 +1,29 @@
 import assert from "node:assert/strict";
 import { withComponentFixture } from "./helpers/component-fixture.js";
+import {withPreview} from './helpers/preview-app.js';
+import {readdir} from 'node:fs/promises';
 
 process.env.INSOMNIUM_UI_RUN_LABEL ||= String(Date.now());
-await withComponentFixture("runner-management", async (page, output) => {
+if(process.env.INSOMNIUM_RUNNER_MODULES==='1'){
+  await withPreview('runner-modules',async(page,output)=>{
+    const workers=(await readdir('build/_app/immutable/workers')).filter(name=>/^runner\.worker-.*\.js$/.test(name));
+    assert.equal(workers.length,1);
+    const result=await page.evaluate(url=>new Promise((resolve,reject)=>{
+      const worker=new Worker(url,{type:'module'});
+      const timer=setTimeout(()=>{worker.terminate();reject(Error('Runner worker deadline'));},20000);
+      const finish=(/** @type {any} */value,/** @type {any} */error)=>{clearTimeout(timer);worker.terminate();if(error)reject(Error(error));else resolve(value);};
+      worker.onerror=event=>finish(null,event.message);
+      worker.onmessage=({data})=>{if(data.type==='send')finish(null,'Unexpected network request');if(data.type==='result')finish(data.value,data.error);};
+      worker.postMessage({type:'run',suite:{name:'Legacy module compatibility',tests:[
+        {name:'Buffer imports and Unicode',code:"const {expect}=require('chai');expect(require('node:buffer').Buffer).to.equal(Buffer);expect(require('buffer').Buffer.from('ภาษาไทย').toString('base64')).to.equal('4Lig4Liy4Lip4Liy4LmE4LiX4Lii');"},
+        {name:'Unsupported host modules',code:"expect(()=>require('fs')).to.throw('Unsupported runner module: fs');expect(typeof process).to.equal('undefined');"},
+      ]},options:{timeoutMs:1000}});
+    }),new URL('/_app/immutable/workers/'+workers[0],page.url()).href);
+    assert.equal(/** @type {any} */(result).stats.passes,2);
+    assert.equal(/** @type {any} */(result).stats.failures,0);
+    await Bun.write(output+'/result.json',JSON.stringify({passed:true,headless:true,worker:workers[0],result,limits:'Production browser Worker; no native IPC or HTTP'},null,2));
+  });
+}else await withComponentFixture("runner-management", async (page, output) => {
   await page.waitForFunction(() => /** @type {any} */ (window).runnerManagementReady || /** @type {any} */ (window).runnerManagementError);
   assert.equal(await page.evaluate(() => /** @type {any} */ (window).runnerManagementError), undefined);
   await page.getByRole("button", {name:"Nested suite", exact:true}).click();

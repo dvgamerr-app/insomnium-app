@@ -1,5 +1,9 @@
 # Migration status
 
+## Runner modules production Worker accepted — 2026-10-17
+
+Source9661e126. Existing runner-management scenario has a focused INSOMNIUM_RUNNER_MODULES mode, leaving unrelated dirty runner-lifecycle untouched. One saved headless run (~1.8s) executes the current production browser Worker/Mocha/QuickJS:2passes/0failures for chai/Buffer/node:buffer identity and Thai/base64, fs refusal/process absent; no sends/native IPC. Worker explicitly terminated, receipt artifacts/playwright/runner-modules/result.json. Compiler exits0/0errors/0warnings. No new runner/disposable scripts/native rebuild or expanded historical matrix. Native WebView execution and broader script/import/provider/platform/full PLAN/PARITY remain open. No live owned handles. Topic commit follows; /compact unavailable, handoff recorded.
+
 ## Runner Buffer and assertion module compatibility — 2026-10-17
 
 Source parent3ebe7358. Archived insomnia-testing/src/run/run.ts executes generated CommonJS files under Node; current isolated Runner lacked Buffer and require. Reuses existing licensed isolated Buffer bundle and exposes VM-local require for chai, buffer and node:buffer only; no host resolver/process/filesystem. Actual QuickJS/Mocha inline execution passes2tests: UTF8 Thai/base64 and byte/hex conversion, shared Buffer identity and chai destructuring, unsupported fs refusal/process absent. Compiler exits0/0errors/0warnings and frontend build exits0. No new scripts/dependencies/artifacts/native rebuild; worker/UI/native acceptance of this added source and remaining Node modules/script/import/provider/platform compatibility stay open, along with full PLAN/PARITY. No live owned handles. Topic commit follows; /compact unavailable; handoff recorded.
