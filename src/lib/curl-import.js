@@ -349,6 +349,7 @@ function requestsFor(words, workspaceId, entries) {
     headers.push({ name, value: content, disabled: suppressed,
       ...(suppressed&&name.toLowerCase()!=='user-agent'?{_curlSuppressDefault:true}:{}) });
   }
+  const autoReferer=Boolean(last('referer')?.endsWith(';auto'))&&!headers.some(h=>h.name.toLowerCase()==='referer');
   for (const [option, header] of [
     ["user-agent", "User-Agent"],
     ["referer", "Referer"],
@@ -358,11 +359,11 @@ function requestsFor(words, workspaceId, entries) {
       value !== undefined &&
       !headers.some((h) => h.name.toLowerCase() === header.toLowerCase())
     ) {
-      if (option === "referer" && value.endsWith(";auto"))
-        throw new Error("cURL automatic Referer is not supported.");
+      const content=option==='referer'&&value.endsWith(';auto')?value.slice(0,-5):value;
+      if(option==='referer'&&!content)continue;
       headers.push({
         name: header,
-        value,
+        value:content,
         disabled: option === "user-agent" && !value,
       });
     }
@@ -604,6 +605,7 @@ function requestsFor(words, workspaceId, entries) {
       authentication: structuredClone(authentication),
       body: structuredClone(body),
       settingFollowRedirects: location ? "on" : "off",
+      settingAutoReferer:autoReferer,
       settingValidateCertificates:
         entries.filter((e) => ["insecure", "no-insecure"].includes(e.name)).at(-1)?.name === "insecure"
           ? "off"
@@ -634,6 +636,7 @@ export function curlRequestPatch(text) {
     authentication: request.authentication,
     body: request.body,
     settingFollowRedirects: request.settingFollowRedirects,
+    settingAutoReferer: request.settingAutoReferer,
     settingEncodeUrl: false,
     _curlSource: request._curlSource,
   };

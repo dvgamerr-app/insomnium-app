@@ -674,6 +674,15 @@
             ><option value="off">Do not follow redirects</option>
           </Select></Field
         >
+        <Field label="Redirect Referer"><Select
+          value={typeof request.settingAutoReferer==='boolean'?(request.settingAutoReferer?'on':'off'):'default'}
+          onchange={event=>onchange({settingAutoReferer:event.currentTarget.value==='default'?undefined:event.currentTarget.value==='on'})}
+        >
+          <option value="default">Use default behavior</option>
+          <option value="on">Use previous URL on redirects</option>
+          <option value="off">Keep explicit Referer</option>
+        </Select></Field>
+        <p class="hint">An automatic Referer uses the previous URL without credentials or fragment. An explicit Referer starts with the value in Headers.</p>
         <Field layout="inline" class="checkbox-label"
           ><Checkbox
             checked={request.settingSendCookies !== false}

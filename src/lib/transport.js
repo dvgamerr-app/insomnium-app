@@ -609,6 +609,7 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
     socketPath,
     headers:headers.filter(([name])=>!suppressedDefaults.has(name.toLowerCase())||explicitHeaders.has(name.toLowerCase())),
     suppressDefaultHeaders:[...suppressedDefaults].filter(name=>!explicitHeaders.has(name)),
+    autoReferer:typeof request.settingAutoReferer==='boolean'?request.settingAutoReferer:null,
     suppressUserAgent:
       request.suppressUserAgent === true ||
       (request.headers || []).some(

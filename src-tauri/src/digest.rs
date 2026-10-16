@@ -12,6 +12,7 @@ pub struct DigestCredentials {
 }
 
 pub(crate) struct Auth<'a> {
+    pub auto_referer: bool,
     pub digest: Option<&'a DigestCredentials>,
     pub oauth1: Option<&'a crate::oauth1::OAuth1Credentials>,
     pub aws: Option<&'a crate::aws::AwsCredentials>,
@@ -152,6 +153,7 @@ where
         asap,
         ntlm,
         netrc,
+        auto_referer,
     } = auth;
     if (aws.is_none() && outgoing.headers().contains_key(header::AUTHORIZATION))
         || (credentials.is_none()
@@ -384,6 +386,16 @@ where
         }
         if previous.scheme() == "https" && next.scheme() == "http" {
             outgoing.headers_mut().remove(header::REFERER);
+        } else if auto_referer {
+            let mut referer = previous.clone();
+            let _ = referer.set_username("");
+            let _ = referer.set_password(None);
+            referer.set_fragment(None);
+            outgoing.headers_mut().insert(
+                header::REFERER,
+                header::HeaderValue::from_str(referer.as_str())
+                    .map_err(|_| "Invalid redirect Referer")?,
+            );
         }
         if ((status == StatusCode::MOVED_PERMANENTLY || status == StatusCode::FOUND)
             && outgoing.method() == Method::POST)

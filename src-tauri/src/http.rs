@@ -46,6 +46,8 @@ pub struct HttpRequest {
     pub(crate) suppress_user_agent: bool,
     #[serde(default)]
     pub(crate) suppress_default_headers: Vec<String>,
+    #[serde(default)]
+    pub(crate) auto_referer: Option<bool>,
     pub(crate) body: Option<String>,
     pub(crate) body_base64: Option<String>,
     pub(crate) multipart: Option<Vec<FormPart>>,
@@ -90,6 +92,7 @@ impl HttpRequest {
             asap: self.asap.as_ref(),
             ntlm: self.ntlm.as_ref(),
             netrc: self.netrc.then_some(self.url.as_str()),
+            auto_referer: self.auto_referer.unwrap_or(false),
         }
     }
 }
@@ -416,6 +419,7 @@ pub(crate) fn build_client(
         )
         .tls_info(true)
         .danger_accept_invalid_certs(!request.validate_certificates);
+    builder = builder.referer(request.auto_referer.unwrap_or(true));
     if request
         .suppress_default_headers
         .iter()
