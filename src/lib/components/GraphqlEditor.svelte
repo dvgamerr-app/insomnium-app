@@ -138,7 +138,7 @@
       (/** @type {any} */ item) => item.name === selectedDirective,
     ),
   );
-  const referencedTypes = $derived(graphqlReferencedTypes(directive || type));
+  const referencedTypes = $derived(graphqlReferencedTypes(directive || type, schema));
   function change(/** @type {Record<string, any>} */ patch) {
     if (content.error) return;
     onchange({

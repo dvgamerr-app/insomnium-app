@@ -41,8 +41,9 @@ export function graphqlReferenceType(reference) {
 }
 
 /** Direct schema links, unwrapping lists/non-null and deduplicating names.
- * @param {import('graphql').GraphQLNamedType|import('graphql').GraphQLDirective|undefined} owner */
-export function graphqlReferencedTypes(owner) {
+ * @param {import('graphql').GraphQLNamedType|import('graphql').GraphQLDirective|undefined} owner
+ * @param {import('graphql').GraphQLSchema|null} [schema] */
+export function graphqlReferencedTypes(owner, schema = null) {
   const names = new Set();
   /** @param {import('graphql').GraphQLType} type */
   const add = (type) => {
@@ -54,6 +55,8 @@ export function graphqlReferencedTypes(owner) {
     for (const argument of owner.args) add(argument.type);
   } else if (isObjectType(owner) || isInterfaceType(owner)) {
     for (const parent of owner.getInterfaces()) add(parent);
+    if (isInterfaceType(owner) && schema)
+      for (const implementation of schema.getPossibleTypes(owner)) add(implementation);
     for (const field of Object.values(owner.getFields())) {
       add(field.type);
       for (const argument of field.args) add(argument.type);
