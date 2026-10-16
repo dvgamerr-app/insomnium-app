@@ -85,6 +85,10 @@ export async function renderRequestSnapshot(session, request, options = {}) {
       String(header.name).toLowerCase() === "user-agent" &&
       header.disabled === true,
   );
+  rendered.suppressDefaultHeaders=(input.headers||[])
+    .filter((/** @type {any} */row)=>row._curlSuppressDefault===true&&row.disabled===true&&!row.value)
+    .map((/** @type {any} */row)=>String(row.name).toLowerCase())
+    .filter((/** @type {string} */name)=>['accept','content-type'].includes(name));
   for (const key of ["headers", "parameters", "cookieParameters"]) {
     if (rendered[key] == null) rendered[key] = [];
     else if (Array.isArray(rendered[key]))

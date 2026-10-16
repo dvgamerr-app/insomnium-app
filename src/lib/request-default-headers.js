@@ -16,6 +16,7 @@ export function applyDefaultRequestHeaders(request, context) {
         header.name.toLowerCase(),
       ),
   );
+  for(const name of request.suppressDefaultHeaders||[])present.add(name);
   for (const name of Object.keys(defaults)) {
     if (present.has(name.toLowerCase())) continue;
     // Legacy checks existing headers first; the string sentinel never removes

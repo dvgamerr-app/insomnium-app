@@ -1,5 +1,9 @@
 # Migration status
 
+## cURL suppression survives Send rendering — 2026-10-17
+
+Source parentb3af814f. Found disabled marker rows are removed by renderRequestSnapshot before transport. Carries allowlisted suppression names in detached Send snapshot, preserves them across hook request snapshots and prevents DEFAULT_HEADERS from reintroducing those defaults; explicit enabled/plugin-added headers remain transport overrides. Actual inline renderSendRequest→prepareRenderedRequest passes missing Accept/Content-Type and unchanged saved request. Actual default-header helper skips suppressed defaults while retaining unrelated header. Compiler exits0/0errors/0warnings. No new scripts/native rebuild/network. Native wire/multipart suppression and all PLAN/PARITY remain open. No live handles. Topic commit follows; /compact unavailable; handoff recorded.
+
 ## cURL default Accept and Content-Type suppression — 2026-10-17
 
 Source parent210887a7. Imports Name: suppression for Accept/Content-Type as disabled marked header rows; Name; remains explicit empty header. Preparation removes generated defaults while retaining explicit enabled overrides. Existing User-Agent suppression unchanged. Multipart Content-Type suppression explicitly refuses pending native multipart adapter; other unsupported suppression still refuses. Official contract https://curl.se/docs/manpage.html#-H . Inline actual parseImport/prepareRequest controls pass JSON/body preservation, suppression, explicit empty and later override, multipart refusal, plugin export/reimport/preparation persistence. Initial generic exportData control required browser document; corrected to actual text-returning plugin exporter, no generic browser-export claim. Compiler exits0/0errors/0warnings. No new scripts/dependencies/native rebuild/network calls. UI/native wire and broader cURL/import/PLAN/PARITY remain open. No live handles. Topic commit follows; /compact unavailable; handoff recorded.

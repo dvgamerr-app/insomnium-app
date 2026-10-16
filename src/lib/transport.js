@@ -283,10 +283,10 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
     headers.push([name, value]);
   };
   const explicitHeaders=new Set(headers.map(([name])=>name.toLowerCase()));
-  const suppressedDefaults=new Set((request.headers??[])
+  const suppressedDefaults=new Set([...(Array.isArray(request.suppressDefaultHeaders)?request.suppressDefaultHeaders:[]),...(request.headers??[])
     .filter((/** @type {any} */row)=>row._curlSuppressDefault===true&&row.disabled===true&&!row.value)
     .map((/** @type {any} */row)=>String(row.name).toLowerCase())
-    .filter((/** @type {string} */name)=>['accept','content-type'].includes(name)));
+    .filter((/** @type {string} */name)=>['accept','content-type'].includes(name))].filter(name=>['accept','content-type'].includes(name)));
   const cookiePairs = (request.cookieParameters || [])
     .filter((/** @type {any} */ row) => !row.disabled)
     .map((/** @type {any} */ row) =>
