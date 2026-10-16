@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { withPreview } from "./helpers/preview-app.js";
+import {createSvelteUiFixturePlugin} from './helpers/component-fixture.js';
 
 await withPreview("plugin-oauth-preview", async (page, output) => {
   const bundle = await Bun.build({
@@ -7,6 +8,7 @@ await withPreview("plugin-oauth-preview", async (page, output) => {
     target: "browser",
     format: "iife",
     define: { "import.meta.url": JSON.stringify(page.url()) },
+    plugins:[createSvelteUiFixturePlugin()],
   });
   assert.equal(bundle.success, true, bundle.logs.map(String).join("\n"));
   await page.evaluate(await bundle.outputs[0].text());
@@ -96,6 +98,22 @@ await withPreview("plugin-oauth-preview", async (page, output) => {
     return rows;
   });
   assert.equal(checks.length, 8);
+  await page.evaluate(()=>/** @type {any} */(window).__pluginOAuthPreviewFixture.mountEditor());
+  const editor=page.getByRole('region',{name:'Owned OAuth preview',exact:true});
+  try{
+    await editor.getByText('API token ready',{exact:true}).waitFor();
+    const token=editor.getByLabel('Access token',{exact:true});
+    assert.equal(await token.inputValue(),'owned-preview-token');
+    await page.evaluate(()=>/** @type {any} */(window).__pluginOAuthPreviewFixture.pause());
+    await page.waitForFunction(()=>/** @type {any} */(window).__pluginOAuthPreviewFixture.phase()==='paused');
+    assert.equal(await token.inputValue(),'owned-preview-token');
+    assert.equal(await editor.getByText('Checking token…',{exact:true}).count(),0);
+    await page.evaluate(()=>/** @type {any} */(window).__pluginOAuthPreviewFixture.resume());
+    await page.waitForFunction(()=>/** @type {any} */(window).__pluginOAuthPreviewFixture.phase()==='idle');
+    await editor.getByText('API token ready',{exact:true}).waitFor();
+    assert.equal(await token.inputValue(),'owned-preview-token');
+    checks.push('actual OAuthEditor retains resolved token across workspace pause/resume');
+  }finally{await page.evaluate(()=>/** @type {any} */(window).__pluginOAuthPreviewFixture.dispose());}
   await Bun.write(
     output + "/result.json",
     JSON.stringify(
@@ -104,7 +122,7 @@ await withPreview("plugin-oauth-preview", async (page, output) => {
         headless: true,
         checks,
         limits:
-          "Actual history/source guard; component/native helper acceptance is separate.",
+          "Actual history/source guard and mounted literal OAuth preview pause/resume; no provider/native IPC or held-render-failure coverage.",
       },
       null,
       2,
