@@ -67,7 +67,7 @@ try {
         const baseAuth = {type:'oauth1',consumerKey:'fixture-consumer',consumerSecret:'consumer +&secret',
           tokenKey:'fixture-token',tokenSecret:'token /secret',signatureMethod:'HMAC-SHA256',
           bodyMode:'standard',nonce:'oauthprobe',timestamp:'1700000000',version:'1.0',realm:'owned realm'};
-        const cases = [
+        /** @type {Record<string,any>[]} */ const cases = [
           {name:'Header baseline',method:'GET',authentication:{...baseAuth}},
           {name:'Query destination',method:'GET',authentication:{...baseAuth,addParamsToHeader:false}},
           {name:'Form destination',method:'POST',body:{mimeType:'application/x-www-form-urlencoded',params:[{name:'message',value:'ไทย +&'}]},
@@ -75,7 +75,7 @@ try {
           {name:'Raw header empty signature',method:'GET',authentication:{...baseAuth,tokenKey:'',tokenSecret:'',version:'',
             addEmptyParamsToSign:true,disableHeaderEncoding:true}},
         ];
-        const requests = cases.map((item,index) => ({_id:'req_oauth_options_'+index,_type:'request',parentId:'wrk_oauth_options',
+        /** @type {Record<string,any>[]} */ const requests = cases.map((item,index) => ({_id:'req_oauth_options_'+index,_type:'request',parentId:'wrk_oauth_options',
           url:'http://127.0.0.1:'+address.port+'/oauth?fixed=a%20b',headers:[],parameters:[],body:{mimeType:''},...item}));
         await page.getByRole('button',{name:'Import collection',exact:true}).click();
         const dialog = page.getByRole('dialog');
@@ -84,11 +84,12 @@ try {
         await dialog.getByRole('button',{name:'Review import',exact:true}).click();
         await dialog.getByRole('button',{name:'Import',exact:true}).click();
         await dialog.waitFor({state:'detached'});
-        let owned;
+        /** @type {any} */ let owned;
         await poll(async()=>{
           owned=(await invoke('load_workspace')).resources.find((/** @type {any} */ r)=>r._type==='workspace'&&r.name===name);
           return !!owned;
         },'OAuth1 collection persisted');
+        assert.ok(owned);
         registerResourceProbeCollection(owned._id,name);
         const encode = (/** @type {string} */ value)=>encodeURIComponent(value).replace(/[!'()*]/g,c=>'%'+c.charCodeAt(0).toString(16).toUpperCase());
         const checks=[];
@@ -101,7 +102,7 @@ try {
           await poll(async()=>!(await page.getByRole('button',{name:'Cancel',exact:true}).count()),'OAuth1 Send settled');
           const [method,target]=received[count].split(' ');
           assert.equal(method,item.method);
-          const wireUrl = new URL(target,'http://127.0.0.1:'+address.port);
+          /** @type {URL} */ const wireUrl = new URL(target,'http://127.0.0.1:'+address.port);
           assert.equal(wireUrl.searchParams.get('fixed'),'a b');
           const header=wireHeaders[count].find(line=>/^authorization:/i.test(line));
           const form=new URLSearchParams(wireBodies[count]);
