@@ -215,10 +215,10 @@ fn verify_opened(
     file: &File,
     root: &Path,
     expected: &Path,
-    scope: &tauri::scope::fs::Scope,
+    scope: &dyn Fn(&Path) -> bool,
 ) -> Result<(), Failure> {
     let actual = opened_path(file)?;
-    if actual != expected || !actual.starts_with(root) || !scope.is_allowed(&actual) {
+    if actual != expected || !actual.starts_with(root) || !scope(&actual) {
         return Err(REFUSED);
     }
     ordinary_chain(&actual, false)?;
@@ -274,12 +274,12 @@ fn confined_path(root: &Path, input: &str) -> Result<PathBuf, Failure> {
 fn read_file(
     root: &Path,
     input: &str,
-    scope: &tauri::scope::fs::Scope,
+    scope: &dyn Fn(&Path) -> bool,
     limit: usize,
     remaining: &mut usize,
 ) -> Result<Vec<u8>, Failure> {
     let path = confined_path(root, input)?;
-    if !scope.is_allowed(&path) {
+    if !scope(&path) {
         return Err(REFUSED);
     }
     let before = metadata(&path)?;
@@ -316,7 +316,7 @@ fn read_file(
     // Recheck ancestry and canonical containment after open. These checks do not
     // claim a universal hostile concurrent filesystem-replacement guarantee.
     ordinary_chain(&path, false)?;
-    if fs::canonicalize(&path).map_err(|_| REFUSED)? != path || !scope.is_allowed(&path) {
+    if fs::canonicalize(&path).map_err(|_| REFUSED)? != path || !scope(&path) {
         return Err(REFUSED);
     }
     let bytes = read_bounded(&file, limit.min(*remaining), remaining, "io")?;
@@ -458,8 +458,11 @@ async fn read_assets(
     }
     let mut ids = HashSet::new();
     for entry in &entries {
-        if !matches!(entry.body_format.as_deref(), None | Some("sse-ndjson") | Some("websocket-ndjson"))
-            || (entry.body_format.as_deref() == Some("sse-ndjson") && entry.event_log_path.is_some())
+        if !matches!(
+            entry.body_format.as_deref(),
+            None | Some("sse-ndjson") | Some("websocket-ndjson")
+        ) || (entry.body_format.as_deref() == Some("sse-ndjson")
+            && entry.event_log_path.is_some())
         {
             return Err("Legacy response body format must be ordinary HTTP, SSE NDJSON or WebSocket NDJSON; SSE cannot include a WebSocket event log.".into());
         }
@@ -480,174 +483,111 @@ async fn read_assets(
     if !supplied_root.is_absolute() || supplied_root.as_os_str().len() > 4096 {
         return Err("Select and grant the legacy data folder before reading assets.".into());
     }
-    tauri::async_runtime::spawn_blocking(move || -> Result<LegacyResponseResult, String> {
-        if !scope.is_allowed(&supplied_root) {
-            return Err("Select and grant the legacy data folder before reading assets.".into());
-        }
-        ordinary_chain(&supplied_root, true).map_err(|(_, message)| message.to_string())?;
-        let root = fs::canonicalize(&supplied_root)
-            .map_err(|_| "Legacy data folder could not be resolved.")?;
-        if !scope.is_allowed(&root) {
-            return Err("Resolved legacy folder is outside the existing filesystem scope.".into());
-        }
-        let mut input_remaining = AGGREGATE_LIMIT;
-        let mut decoded_remaining = AGGREGATE_LIMIT;
-        let mut output = Vec::with_capacity(entries.len());
-        for entry in entries {
-            let mut row = LegacyResponseAssets {
-                id: entry.id,
-                body_base64: None,
-                size: None,
-                sha256: None,
-                event_log_base64: None,
-                event_log_size: None,
-                event_log_sha256: None,
-                timeline: None,
-                timeline_base64: None,
-                timeline_size: None,
-                timeline_sha256: None,
-                diagnostics: Vec::new(),
-            };
-            if entry.event_log_path.is_some() || entry.body_format.as_deref() == Some("websocket-ndjson") {
-                let result = if entry.event_log_path.is_none() {
-                    Err(("missing-event-log-path", "Legacy WebSocket event log path is absent; no log was invented."))
-                } else if entry.event_log_path.as_deref() == Some("") {
-                    Ok(Vec::new())
-                } else {
-                    read_file(
-                        &root,
-                        entry.event_log_path.as_deref().unwrap(),
-                        &scope,
-                        EVENT_LOG_LIMIT.min(decoded_remaining),
-                        &mut input_remaining,
-                    )
-                }
-                .and_then(|bytes| {
-                    decoded_remaining -= bytes.len();
-                    Ok(bytes)
-                });
-                match result {
-                    Ok(bytes) => {
-                        row.event_log_size = Some(bytes.len());
-                        row.event_log_sha256 = Some(format!("{:x}", Sha256::digest(&bytes)));
-                        row.event_log_base64 = Some(STANDARD.encode(&bytes));
-                        // A complete bounded read is portable even when malformed.
-                        // Never publish partial reads; derived history validates again.
-                        if let Err((code, message)) = stream_ndjson(&bytes, false) {
-                            row.diagnostics.push(AssetDiagnostic {
-                                asset: "eventLog",
-                                code,
-                                message,
-                            });
-                        }
-                    }
-                    Err((code, message)) => row.diagnostics.push(AssetDiagnostic {
-                        asset: "eventLog",
-                        code,
-                        message,
-                    }),
-                }
-                if let Some(path) = entry.timeline_path.filter(|path| !path.is_empty()) {
-                    let result = if path.is_empty() {
-                        Ok(Vec::new())
-                    } else {
-                        read_file(
-                            &root,
-                            &path,
-                            &scope,
-                            TIMELINE_LIMIT.min(decoded_remaining),
-                            &mut input_remaining,
-                        )
-                    }
-                    .and_then(|bytes| {
-                        decoded_remaining -= bytes.len();
-                        row.timeline_size = Some(bytes.len());
-                        row.timeline_sha256 = Some(format!("{:x}", Sha256::digest(&bytes)));
-                        row.timeline_base64 = Some(STANDARD.encode(&bytes));
-                        stream_ndjson(&bytes, true)
-                    });
-                    match result {
-                        Ok(rows) => row.timeline = Some(rows),
-                        Err((code, message)) => row.diagnostics.push(AssetDiagnostic {
-                            asset: "timeline",
-                            code,
-                            message,
-                        }),
-                    }
-                }
-                output.push(row);
-                continue;
-            }
-            let body = if !["raw", "gzip"].contains(&entry.body_compression.as_str()) {
+    tauri::async_runtime::spawn_blocking(move || {
+        read_assets_scoped(supplied_root, entries, body_limit, &|path| {
+            scope.is_allowed(path)
+        })
+    })
+    .await
+    .map_err(|_| "Legacy asset reader worker failed.".to_string())?
+}
+
+// The native command supplies its existing filesystem scope; no grants are added.
+fn read_assets_scoped(
+    supplied_root: PathBuf,
+    entries: Vec<LegacyResponseEntry>,
+    body_limit: usize,
+    scope: &dyn Fn(&Path) -> bool,
+) -> Result<LegacyResponseResult, String> {
+    if !scope(&supplied_root) {
+        return Err("Select and grant the legacy data folder before reading assets.".into());
+    }
+    ordinary_chain(&supplied_root, true).map_err(|(_, message)| message.to_string())?;
+    let root = fs::canonicalize(&supplied_root)
+        .map_err(|_| "Legacy data folder could not be resolved.")?;
+    if !scope(&root) {
+        return Err("Resolved legacy folder is outside the existing filesystem scope.".into());
+    }
+    let mut input_remaining = AGGREGATE_LIMIT;
+    let mut decoded_remaining = AGGREGATE_LIMIT;
+    let mut output = Vec::with_capacity(entries.len());
+    for entry in entries {
+        let mut row = LegacyResponseAssets {
+            id: entry.id,
+            body_base64: None,
+            size: None,
+            sha256: None,
+            event_log_base64: None,
+            event_log_size: None,
+            event_log_sha256: None,
+            timeline: None,
+            timeline_base64: None,
+            timeline_size: None,
+            timeline_sha256: None,
+            diagnostics: Vec::new(),
+        };
+        if entry.event_log_path.is_some()
+            || entry.body_format.as_deref() == Some("websocket-ndjson")
+        {
+            let result = if entry.event_log_path.is_none() {
                 Err((
-                    "compression",
-                    "Legacy body compression must be explicitly raw or gzip.",
+                    "missing-event-log-path",
+                    "Legacy WebSocket event log path is absent; no log was invented.",
                 ))
-            } else if entry.body_path.is_none() {
-                Err((
-                    "missing-body-path",
-                    "Legacy body path is absent; no response body was invented.",
-                ))
-            } else if entry.body_path.as_deref() == Some("") {
+            } else if entry.event_log_path.as_deref() == Some("") {
                 Ok(Vec::new())
             } else {
                 read_file(
                     &root,
-                    entry.body_path.as_deref().unwrap(),
+                    entry.event_log_path.as_deref().unwrap(),
                     &scope,
-                    body_limit,
+                    EVENT_LOG_LIMIT.min(decoded_remaining),
                     &mut input_remaining,
                 )
-                .and_then(|bytes| {
-                    if entry.body_compression == "gzip" {
-                        read_bounded(
-                            MultiGzDecoder::new(bytes.as_slice()),
-                            body_limit.min(decoded_remaining),
-                            &mut decoded_remaining,
-                            "compression",
-                        )
-                    } else {
-                        if bytes.len() > decoded_remaining {
-                            return Err((
-                                "aggregate_limit",
-                                "Legacy body exceeds the remaining aggregate decoded allowance.",
-                            ));
-                        }
-                        decoded_remaining -= bytes.len();
-                        Ok(bytes)
-                    }
-                })
-            };
-            match body {
+            }
+            .and_then(|bytes| {
+                decoded_remaining -= bytes.len();
+                Ok(bytes)
+            });
+            match result {
                 Ok(bytes) => {
-                    row.size = Some(bytes.len());
-                    row.sha256 = Some(format!("{:x}", Sha256::digest(&bytes)));
-                    row.body_base64 = Some(STANDARD.encode(bytes));
+                    row.event_log_size = Some(bytes.len());
+                    row.event_log_sha256 = Some(format!("{:x}", Sha256::digest(&bytes)));
+                    row.event_log_base64 = Some(STANDARD.encode(&bytes));
+                    // A complete bounded read is portable even when malformed.
+                    // Never publish partial reads; derived history validates again.
+                    if let Err((code, message)) = stream_ndjson(&bytes, false) {
+                        row.diagnostics.push(AssetDiagnostic {
+                            asset: "eventLog",
+                            code,
+                            message,
+                        });
+                    }
                 }
                 Err((code, message)) => row.diagnostics.push(AssetDiagnostic {
-                    asset: "body",
+                    asset: "eventLog",
                     code,
                     message,
                 }),
             }
             if let Some(path) = entry.timeline_path.filter(|path| !path.is_empty()) {
-                let result = read_file(
-                    &root,
-                    &path,
-                    &scope,
-                    TIMELINE_LIMIT.min(decoded_remaining),
-                    &mut input_remaining,
-                )
+                let result = if path.is_empty() {
+                    Ok(Vec::new())
+                } else {
+                    read_file(
+                        &root,
+                        &path,
+                        &scope,
+                        TIMELINE_LIMIT.min(decoded_remaining),
+                        &mut input_remaining,
+                    )
+                }
                 .and_then(|bytes| {
                     decoded_remaining -= bytes.len();
                     row.timeline_size = Some(bytes.len());
                     row.timeline_sha256 = Some(format!("{:x}", Sha256::digest(&bytes)));
                     row.timeline_base64 = Some(STANDARD.encode(&bytes));
-                    if entry.body_format.as_deref() == Some("sse-ndjson") {
-                        stream_ndjson(&bytes, true)
-                    } else {
-                        timeline(&bytes)
-                    }
+                    stream_ndjson(&bytes, true)
                 });
                 match result {
                     Ok(rows) => row.timeline = Some(rows),
@@ -659,26 +599,106 @@ async fn read_assets(
                 }
             }
             output.push(row);
+            continue;
         }
-        Ok(LegacyResponseResult {
-            entries: output,
-            limits: AssetLimits {
-                max_entries: ENTRY_LIMIT,
-                body_input_bytes: body_limit,
-                body_decoded_bytes: body_limit,
-                event_log_bytes: EVENT_LOG_LIMIT,
-                event_log_entries: EVENT_LOG_ENTRIES,
-                timeline_bytes: TIMELINE_LIMIT,
-                timeline_entries: TIMELINE_ENTRIES,
-                aggregate_input_bytes: AGGREGATE_LIMIT,
-                aggregate_decoded_bytes: AGGREGATE_LIMIT,
-                input_bytes_read: AGGREGATE_LIMIT - input_remaining,
-                decoded_bytes_read: AGGREGATE_LIMIT - decoded_remaining,
-            },
-        })
+        let body = if !["raw", "gzip"].contains(&entry.body_compression.as_str()) {
+            Err((
+                "compression",
+                "Legacy body compression must be explicitly raw or gzip.",
+            ))
+        } else if entry.body_path.is_none() {
+            Err((
+                "missing-body-path",
+                "Legacy body path is absent; no response body was invented.",
+            ))
+        } else if entry.body_path.as_deref() == Some("") {
+            Ok(Vec::new())
+        } else {
+            read_file(
+                &root,
+                entry.body_path.as_deref().unwrap(),
+                &scope,
+                body_limit,
+                &mut input_remaining,
+            )
+            .and_then(|bytes| {
+                if entry.body_compression == "gzip" {
+                    read_bounded(
+                        MultiGzDecoder::new(bytes.as_slice()),
+                        body_limit.min(decoded_remaining),
+                        &mut decoded_remaining,
+                        "compression",
+                    )
+                } else {
+                    if bytes.len() > decoded_remaining {
+                        return Err((
+                            "aggregate_limit",
+                            "Legacy body exceeds the remaining aggregate decoded allowance.",
+                        ));
+                    }
+                    decoded_remaining -= bytes.len();
+                    Ok(bytes)
+                }
+            })
+        };
+        match body {
+            Ok(bytes) => {
+                row.size = Some(bytes.len());
+                row.sha256 = Some(format!("{:x}", Sha256::digest(&bytes)));
+                row.body_base64 = Some(STANDARD.encode(bytes));
+            }
+            Err((code, message)) => row.diagnostics.push(AssetDiagnostic {
+                asset: "body",
+                code,
+                message,
+            }),
+        }
+        if let Some(path) = entry.timeline_path.filter(|path| !path.is_empty()) {
+            let result = read_file(
+                &root,
+                &path,
+                &scope,
+                TIMELINE_LIMIT.min(decoded_remaining),
+                &mut input_remaining,
+            )
+            .and_then(|bytes| {
+                decoded_remaining -= bytes.len();
+                row.timeline_size = Some(bytes.len());
+                row.timeline_sha256 = Some(format!("{:x}", Sha256::digest(&bytes)));
+                row.timeline_base64 = Some(STANDARD.encode(&bytes));
+                if entry.body_format.as_deref() == Some("sse-ndjson") {
+                    stream_ndjson(&bytes, true)
+                } else {
+                    timeline(&bytes)
+                }
+            });
+            match result {
+                Ok(rows) => row.timeline = Some(rows),
+                Err((code, message)) => row.diagnostics.push(AssetDiagnostic {
+                    asset: "timeline",
+                    code,
+                    message,
+                }),
+            }
+        }
+        output.push(row);
+    }
+    Ok(LegacyResponseResult {
+        entries: output,
+        limits: AssetLimits {
+            max_entries: ENTRY_LIMIT,
+            body_input_bytes: body_limit,
+            body_decoded_bytes: body_limit,
+            event_log_bytes: EVENT_LOG_LIMIT,
+            event_log_entries: EVENT_LOG_ENTRIES,
+            timeline_bytes: TIMELINE_LIMIT,
+            timeline_entries: TIMELINE_ENTRIES,
+            aggregate_input_bytes: AGGREGATE_LIMIT,
+            aggregate_decoded_bytes: AGGREGATE_LIMIT,
+            input_bytes_read: AGGREGATE_LIMIT - input_remaining,
+            decoded_bytes_read: AGGREGATE_LIMIT - decoded_remaining,
+        },
     })
-    .await
-    .map_err(|_| "Legacy asset reader worker failed.".to_string())?
 }
 
 /// Request file inputs expose neither response decompression nor timeline reads.
@@ -740,4 +760,97 @@ pub async fn read_legacy_certificate_assets(
         })
         .collect();
     read_assets(window, root, entries, 1024 * 1024).await
+}
+
+#[cfg(all(test, any(windows, target_os = "linux")))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn missing_payloads_preserve_real_timelines_without_inventing_bytes() {
+        struct OwnedDir(PathBuf);
+        impl Drop for OwnedDir {
+            fn drop(&mut self) {
+                for name in ["http.json", "stream.ndjson", "body.txt"] {
+                    let _ = fs::remove_file(self.0.join(name));
+                }
+                let _ = fs::remove_dir(&self.0);
+            }
+        }
+        let directory =
+            std::env::temp_dir().join(format!("insomnium-assets-{}", uuid::Uuid::new_v4()));
+        fs::create_dir(&directory).unwrap();
+        let directory = OwnedDir(fs::canonicalize(directory).unwrap());
+        let http = br#"[{"name":"Text","value":"owned","timestamp":1}]"#;
+        let stream = b"{\"name\":\"Text\",\"value\":\"owned\",\"timestamp\":1}\n";
+        fs::write(directory.0.join("http.json"), http).unwrap();
+        fs::write(directory.0.join("stream.ndjson"), stream).unwrap();
+        fs::write(directory.0.join("body.txt"), b"owned body").unwrap();
+        let entry = |id: &str, body: Option<&str>, format: Option<&str>, timeline: &str| {
+            LegacyResponseEntry {
+                id: id.into(),
+                body_path: body.map(str::to_owned),
+                event_log_path: None,
+                timeline_path: Some(timeline.into()),
+                body_compression: "raw".into(),
+                body_format: format.map(str::to_owned),
+            }
+        };
+        let result = read_assets_scoped(
+            directory.0.clone(),
+            vec![
+                entry("missing", None, None, "http.json"),
+                entry("empty", Some(""), None, "http.json"),
+                entry("websocket", None, Some("websocket-ndjson"), "stream.ndjson"),
+                entry("body", Some("body.txt"), None, "http.json"),
+            ],
+            BODY_LIMIT,
+            &|path| path.starts_with(&directory.0),
+        )
+        .unwrap();
+        let missing = &result.entries[0];
+        assert!(missing.body_base64.is_none());
+        assert!(missing
+            .diagnostics
+            .iter()
+            .any(|d| d.code == "missing-body-path"));
+        assert_eq!(
+            missing.timeline_base64.as_deref(),
+            Some(STANDARD.encode(http).as_str())
+        );
+        assert_eq!(missing.timeline.as_ref().unwrap().len(), 1);
+        assert_eq!(result.entries[1].body_base64.as_deref(), Some(""));
+        let websocket = &result.entries[2];
+        assert!(websocket.event_log_base64.is_none());
+        assert!(websocket.body_base64.is_none());
+        assert!(websocket
+            .diagnostics
+            .iter()
+            .any(|d| d.code == "missing-event-log-path"));
+        assert_eq!(
+            websocket.timeline_base64.as_deref(),
+            Some(STANDARD.encode(stream).as_str())
+        );
+        assert_eq!(websocket.timeline.as_ref().unwrap().len(), 1);
+        assert_eq!(
+            result.entries[3].body_base64.as_deref(),
+            Some(STANDARD.encode(b"owned body").as_str())
+        );
+        let refused = read_assets_scoped(
+            directory.0.clone(),
+            vec![entry("denied", Some("body.txt"), None, "")],
+            BODY_LIMIT,
+            &|path| {
+                path.starts_with(&directory.0)
+                    && path.file_name().is_none_or(|name| name != "body.txt")
+            },
+        )
+        .unwrap();
+        assert!(refused.entries[0].body_base64.is_none());
+        assert!(!refused.entries[0].diagnostics.is_empty());
+        assert_eq!(
+            fs::read(directory.0.join("body.txt")).unwrap(),
+            b"owned body"
+        );
+    }
 }
