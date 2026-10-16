@@ -23,8 +23,7 @@
   $effect(() => { void response?._id; fullMessage = null; });
   let tab = $state("Events"),
     selectedId = $state(""),
-    filter = $state(""),
-    error = $state("");
+    filter = $state("");
   $effect(() => {
     if (tab === "Timeline" && !response?.legacyTimeline?.length) tab = "Events";
     if (tab === "Raw" && !Array.isArray(response?.rawEvents)) tab = "Events";
@@ -84,6 +83,20 @@
   const selected = $derived(
     events.find((e) => e._id === selectedId) || events.at(-1),
   );
+  let disposed=false,transferSequence=0;
+  onDestroy(()=>{disposed=true;});
+  const transferOwner=$derived({responseId:response?._id,requestId:response?.requestId,
+    tab,selectedId,eventId:selected?._id,data:selected?.data,events:events.length,rawBytes:response?.rawReceivedBytes});
+  let transferFeedback=$state.raw(/** @type {{owner:typeof transferOwner,operation:number,error:string}|undefined} */(undefined));
+  const error=$derived(transferFeedback?.owner===transferOwner?transferFeedback.error:'');
+  function beginTransfer(){
+    const owner=transferOwner,operation=++transferSequence;
+    transferFeedback={owner,operation,error:''};
+    return (/** @type {unknown} */ cause)=>{
+      if(!disposed&&transferOwner===owner&&transferFeedback?.operation===operation)
+        transferFeedback={owner,operation,error:String(cause)};
+    };
+  }
   const visible = $derived(
     events.filter(
       (e) =>
@@ -130,6 +143,7 @@
   });
   async function saveEvent() {
     if (!selected) return;
+    const fail=beginTransfer();
     try {
       if (["binary", "ping", "pong"].includes(selected.format))
         await download(
@@ -139,7 +153,7 @@
         );
       else await download(selected.data ?? body, "event.txt");
     } catch (e) {
-      error = String(e);
+      fail(e);
     }
   }
 </script>
@@ -200,6 +214,7 @@
         variant="ghost"
         class="text-button"
         onclick={async () => {
+          const fail=beginTransfer();
           try {
             await download(
               sseRawBytes(response),
@@ -207,7 +222,7 @@
               "application/octet-stream",
             );
           } catch (e) {
-            error = String(e);
+            fail(e);
           }
         }}>Export raw</Button
       >{/if}
@@ -216,6 +231,7 @@
       class="text-button"
       disabled={!events.length}
       onclick={async () => {
+        const fail=beginTransfer();
         try {
           await download(
             JSON.stringify(response, null, 2),
@@ -223,7 +239,7 @@
             "application/json",
           );
         } catch (e) {
-          error = String(e);
+          fail(e);
         }
       }}>Export log</Button
     >
@@ -317,11 +333,11 @@
                 aria-label="Copy stream event"
                 title="Copy event"
                 onclick={async () => {
-                  error = "";
+                  const fail=beginTransfer();
                   try {
                     await copyText(selected?.data ?? body);
                   } catch (e) {
-                    error = String(e);
+                    fail(e);
                   }
                 }}><Icon name="copy" size={14} /></Button
               >

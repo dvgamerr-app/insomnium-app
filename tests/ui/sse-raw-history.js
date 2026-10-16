@@ -203,6 +203,21 @@ await withPreview(
       await pane.locator(".stream-event-body").textContent(),
       "ไทย β\nsecond line",
     );
+    await page.evaluate(()=>{
+      const state=/** @type {any} */(window);state.__streamClipboardDescriptor=Object.getOwnPropertyDescriptor(navigator.clipboard,'writeText');
+      Object.defineProperty(navigator.clipboard,'writeText',{configurable:true,value:(/** @type {string} */text)=>new Promise((resolve,reject)=>{state.__streamCopyText=text;state.__rejectStreamCopy=reject;})});
+    });
+    try{
+      await pane.getByRole('button',{name:'Copy stream event',exact:true}).click();
+      assert.equal(await page.evaluate(()=>/** @type {any} */(window).__streamCopyText),'ไทย β\nsecond line');
+      await history.selectOption(partialHistory._id);
+      await page.evaluate(async()=>{/** @type {any} */(window).__rejectStreamCopy(new Error('owned stale stream copy'));await new Promise(resolve=>setTimeout(resolve,0));});
+      assert.equal(await pane.getByText('owned stale stream copy',{exact:false}).count(),0);
+      await history.selectOption(fullHistory._id);await pane.locator('.stream-event').click();
+      await pane.getByRole('button',{name:'Copy stream event',exact:true}).click();
+      await page.evaluate(()=>/** @type {any} */(window).__rejectStreamCopy(new Error('owned current stream copy')));
+      await pane.getByRole('alert').filter({hasText:'owned current stream copy'}).waitFor();
+    }finally{await page.evaluate(()=>{const state=/** @type {any} */(window);if(state.__streamClipboardDescriptor)Object.defineProperty(navigator.clipboard,'writeText',state.__streamClipboardDescriptor);else delete /** @type {any} */(navigator.clipboard).writeText;});}
     await history.selectOption(partialHistory._id);
     await raw().click();
     await pane
@@ -247,6 +262,8 @@ await withPreview(
           malformedRefusals: malformed.length,
           sequenceRefusals: 3,
           noParsedDuplication: true,
+          lateCopyFailureIgnored: true,
+          currentCopyFailureVisible: true,
           reload: true,
           scope:
             "Seeded durable raw capture UI; native capture verified separately",

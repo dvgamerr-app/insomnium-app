@@ -1,4 +1,5 @@
 <script>
+  import {onDestroy} from "svelte";
   import TabPanel from "./ui/TabPanel.svelte";
   let activeTab0 = $state("");
   let activeTab1 = $state("");
@@ -105,6 +106,20 @@
       )
     ),
   );
+  let disposed=false,transferSequence=0;
+  onDestroy(()=>{disposed=true;});
+  const transferOwner=$derived({requestId:request._id,responseId:response?._id,responseTab,
+    selectedMessage,selectedSentId,fullMessage,messages:messages.length,sent:sent.length});
+  let transferFeedback=$state.raw(/** @type {{owner:typeof transferOwner,operation:number,error:string}|undefined} */(undefined));
+  const transferError=$derived(transferFeedback?.owner===transferOwner?transferFeedback.error:'');
+  function beginTransfer(){
+    const owner=transferOwner,operation=++transferSequence;
+    transferFeedback={owner,operation,error:''};
+    return (/** @type {unknown} */ cause)=>{
+      if(!disposed&&transferOwner===owner&&transferFeedback?.operation===operation)
+        transferFeedback={owner,operation,error:String(cause)};
+    };
+  }
   const selectedSent = $derived(
     sent.find((message) => message._id === selectedSentId),
   );
@@ -147,6 +162,7 @@
     update(request._id, { body: { ...request.body, text } });
   }
   async function exportResponse() {
+    const fail=beginTransfer();
     try {
       await download(
         JSON.stringify(response, null, 2),
@@ -154,15 +170,15 @@
         "application/json",
       );
     } catch (e) {
-      error = String(e);
+      fail(e);
     }
   }
   async function copyMessage(/** @type {string} */ text) {
-    error = "";
+    const fail=beginTransfer();
     try {
       await copyText(text);
     } catch (e) {
-      error = String(e);
+      fail(e);
     }
   }
 </script>
@@ -300,6 +316,7 @@
 {#if error || app.grpcErrors[request._id]}<Feedback as="p" class="inline-error">
     {error || app.grpcErrors[request._id]}
   </Feedback>{/if}
+{#if transferError}<Feedback as="p" class="inline-error" role="alert">{transferError}</Feedback>{/if}
 <SplitPane
   storageKey="grpc-response"
   label="gRPC request and response size"

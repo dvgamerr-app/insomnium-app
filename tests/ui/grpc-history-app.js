@@ -42,9 +42,23 @@ await withPreview("grpc-history-app", async (page, output) => {
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"], {origin:new URL(page.url()).origin});
   await page.getByRole("button", {name:"Copy gRPC message", exact:true}).click();
   assert.equal(await page.evaluate(() => navigator.clipboard.readText()), largeMessage);
+  await page.evaluate(()=>{
+    const state=/** @type {any} */(window);state.__originalGrpcWrite=navigator.clipboard.writeText.bind(navigator.clipboard);
+    Object.defineProperty(navigator.clipboard,'writeText',{configurable:true,value:()=>new Promise((resolve,reject)=>{state.__rejectGrpcCopy=reject;})});
+  });
+  try{
+    await page.getByRole('button',{name:'Copy gRPC message',exact:true}).click();
+    await history.selectOption('grpc_history_new');
+    await page.evaluate(async()=>{/** @type {any} */(window).__rejectGrpcCopy(new Error('owned stale clipboard failure'));await new Promise(resolve=>setTimeout(resolve,0));});
+    assert.equal(await page.getByText('owned stale clipboard failure',{exact:false}).count(),0);
+    await page.getByRole('button',{name:'Copy gRPC message',exact:true}).click();
+    await page.evaluate(()=>/** @type {any} */(window).__rejectGrpcCopy(new Error('owned current clipboard failure')));
+    await page.getByRole('alert').filter({hasText:'owned current clipboard failure'}).waitFor();
+    await history.selectOption('grpc_history_old');assert.equal(await page.getByText('owned current clipboard failure',{exact:false}).count(),0);
+  }finally{await page.evaluate(()=>{const state=/** @type {any} */(window);Object.defineProperty(navigator.clipboard,'writeText',{configurable:true,value:state.__originalGrpcWrite});});}
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("insomnium-tauri-preview-v1") || "{}"));
   assert.deepEqual(saved.history, data.history);
-  await Bun.write(output + "/result.json", JSON.stringify({status:"passed",headless:true,scope:"Built application and actual workspace/persistence/browser clipboard; no native/network IO",selectionAndReload:true,historyUnchanged:true,completeLargeMessageCopy:true,completeReadOnlyMessageEditor:true}, null, 2));
+  await Bun.write(output + "/result.json", JSON.stringify({status:"passed",headless:true,scope:"Built application and actual workspace/persistence/browser clipboard; no native/network IO",selectionAndReload:true,historyUnchanged:true,completeLargeMessageCopy:true,lateCopyErrorIgnored:true,currentCopyErrorVisible:true,completeReadOnlyMessageEditor:true}, null, 2));
 }, {beforeNavigate:async (page) => {
   await page.addInitScript((data) => {
     if (!localStorage.getItem("insomnium-tauri-preview-v1"))
