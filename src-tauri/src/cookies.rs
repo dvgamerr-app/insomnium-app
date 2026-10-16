@@ -51,12 +51,14 @@ impl CookieState {
             let store = match fs::read(&path) {
                 // Preserve model entries across restart; request/header views
                 // independently filter expired cookies when reading the jar.
-                Ok(bytes) => cookie_store::serde::json::load_all(bytes.as_slice()).map_err(|e| {
-                    format!(
-                        "Cookie file could not be loaded: {e}. Original retained at {}",
-                        path.display()
-                    )
-                })?,
+                Ok(bytes) => {
+                    cookie_store::serde::json::load_all(bytes.as_slice()).map_err(|e| {
+                        format!(
+                            "Cookie file could not be loaded: {e}. Original retained at {}",
+                            path.display()
+                        )
+                    })?
+                }
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => CookieStore::default(),
                 Err(e) => return Err(e.to_string()),
             };
@@ -235,6 +237,51 @@ pub struct CookieProvider {
     generation: u64,
     request_store: Mutex<CookieStore>,
 }
+// RFC6265 section5.4 prefers longer paths. Native storage lacks creation time;
+// domain/name provide deterministic ties until that metadata is migrated.
+fn matching_cookies<'a>(
+    store: &'a CookieStore,
+    url: &Url,
+) -> Vec<&'a cookie_store::Cookie<'static>> {
+    let mut matching = store.matches(url);
+    matching.sort_by(|a, b| {
+        let a_path: &str = a.path.as_ref();
+        let b_path: &str = b.path.as_ref();
+        b_path
+            .len()
+            .cmp(&a_path.len())
+            .then_with(|| a.domain.cmp(&b.domain))
+            .then_with(|| a.name().cmp(b.name()))
+    });
+    matching
+}
+#[cfg(test)]
+mod ordering_tests {
+    use super::*;
+
+    #[test]
+    fn cookie_request_values_prefer_longer_paths() {
+        let url = Url::parse("https://example.invalid/api/deep/item").unwrap();
+        let mut store = CookieStore::default();
+        for raw in [
+            "id=root; Path=/",
+            "id=deep; Path=/api/deep",
+            "id=parent; Path=/api",
+        ] {
+            store.parse(raw, &url).unwrap();
+        }
+        let matching = matching_cookies(&store, &url);
+        assert_eq!(
+            matching
+                .iter()
+                .map(|cookie| cookie.value())
+                .collect::<Vec<_>>(),
+            vec!["deep", "parent", "root"]
+        );
+        let outside = Url::parse("https://example.invalid/other").unwrap();
+        assert_eq!(matching_cookies(&store, &outside).len(), 1);
+    }
+}
 impl reqwest::cookie::CookieStore for CookieProvider {
     fn set_cookies(&self, cookies: &mut dyn Iterator<Item = &HeaderValue>, url: &Url) {
         if !self.send && !self.store {
@@ -268,9 +315,9 @@ impl reqwest::cookie::CookieStore for CookieProvider {
             return None;
         }
         let request_store = self.request_store.lock().ok()?;
-        let value = request_store
-            .get_request_values(url)
-            .map(|(name, value)| format!("{name}={value}"))
+        let value = matching_cookies(&request_store, url)
+            .into_iter()
+            .map(|cookie| format!("{}={}", cookie.name(), cookie.value()))
             .collect::<Vec<_>>()
             .join("; ");
         if value.is_empty() {
@@ -515,20 +562,10 @@ pub async fn read_template_cookie(
     }
     let jar = state.jar(&app, workspace_id).await?;
     let data = jar.inner.lock().map_err(|e| e.to_string())?;
-    let mut matching = data.store.matches(&url);
+    let matching = matching_cookies(&data.store, &url);
     if matching.is_empty() {
         return Err("No cookies in store for URL".into());
     }
-    // Legacy tough-cookie prefers longer paths. Creation time is not retained
-    // by the native store; use domain as a deterministic tie-breaker.
-    matching.sort_by(|a, b| {
-        let a_path: &str = a.path.as_ref();
-        let b_path: &str = b.path.as_ref();
-        b_path
-            .len()
-            .cmp(&a_path.len())
-            .then_with(|| a.domain.cmp(&b.domain))
-    });
     matching
         .iter()
         .find(|cookie| cookie.name() == name)

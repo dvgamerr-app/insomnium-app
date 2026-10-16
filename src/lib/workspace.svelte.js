@@ -222,6 +222,7 @@ export async function setupGit(workspaceId) {
 let revision = 0;
 /** @type {Map<string, Promise<void>>} */
 const completions = new Map();
+const schemaRevisions = new Map(/** @type {[string,symbol][]} */ ([]));
 /** @type {Map<symbol,{controller:AbortController,completion:Promise<void>}>} */
 const componentWork = new Map();
 /** Register component/file/native work before its first await.
@@ -1160,8 +1161,7 @@ export function remove(resourceId) {
     delete workspace.grpcSchemas[key];
     delete workspace.grpcErrors[key];
     delete workspace.responses[key];
-    delete workspace.schemas[key];
-    delete workspace.schemaErrors[key];
+    clearSchema(key);
     delete workspace.oauthErrors[key];
     delete workspace.oauthProgress[key];
   }
@@ -1221,9 +1221,11 @@ export async function execute(
   if (request._type === "grpc_request" && !introspection)
     return executeGrpc(requestId);
   const schemaData = workspace.data, originalSchema = workspace.schemas[requestId];
+  const schemaRevision = schemaRevisions.get(requestId);
   /** @type {string|null} */ let schemaRequestContext = null;
   const ownsSchema = () => {
-    if (workspace.data !== schemaData || workspace.schemas[requestId] !== originalSchema) return false;
+    if (workspace.data !== schemaData || workspace.schemas[requestId] !== originalSchema ||
+        schemaRevisions.get(requestId) !== schemaRevision) return false;
     const currentRequest = workspace.data.resources.find(resource => resource._id === requestId);
     if (!currentRequest) return false;
     if (schemaRequestContext === null) return true;
@@ -2408,20 +2410,29 @@ export function clearOAuth(requestId) {
   workspace.oauthErrors[requestId] = "";
   void persist();
 }
+/** @param {string} requestId */
+export function schemaRevisionFor(requestId) { return schemaRevisions.get(requestId); }
+/** Retire pending schema publications even when clearing an already empty cache.
+ * @param {string} requestId */
+export function clearSchema(requestId) {
+  schemaRevisions.set(requestId, Symbol());
+  delete workspace.schemas[requestId];
+  delete workspace.schemaErrors[requestId];
+}
 /** Keep at most three schemas and 20 MiB SDL in session memory; never export credentials or cache identity.
  * @param {string} requestId @param {ReturnType<typeof readSchema>} result @param {string} context @param {string} source */
 export function cacheSchema(requestId, result, context, source) {
   const bytes = new TextEncoder().encode(result.sdl).byteLength;
   if (bytes > schemaLimit)
     throw new Error("Schema exceeds the 20 MiB cache limit.");
-  delete workspace.schemas[requestId];
+  clearSchema(requestId);
   let total = bytes;
   let count = 1;
   for (const [key, entry] of Object.entries(workspace.schemas).sort(
     (a, b) => b[1].loadedAt - a[1].loadedAt,
   )) {
     if (count >= 3 || total + entry.bytes > schemaLimit)
-      delete workspace.schemas[key];
+      clearSchema(key);
     else {
       total += entry.bytes;
       count++;

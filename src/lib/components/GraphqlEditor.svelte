@@ -38,6 +38,8 @@
     execute,
     stop,
     cacheSchema,
+    clearSchema,
+    schemaRevisionFor,
   } from "../workspace.svelte.js";
   import { download } from "../import-export.js";
   /** @type {{ request: Record<string, any>, onchange: (patch: Record<string, any>) => void }} */
@@ -232,12 +234,14 @@
     const file = event.currentTarget.files?.[0];
     const requestId = request._id;
     const originalRequest = request, originalContext = context, originalCache = cached;
+    const originalRevision = schemaRevisionFor(requestId);
     event.currentTarget.value = "";
     if (!file) return;
     fileWork.cancel();
     /** @type {import("../workspace.svelte.js").ScopedWorkspaceWork|undefined} */ let work;
     const current = () => (!work || work.current()) && request === originalRequest &&
-      request._id === requestId && context === originalContext && cached === originalCache;
+      request._id === requestId && context === originalContext && cached === originalCache &&
+      schemaRevisionFor(requestId) === originalRevision;
     try {
       work = fileWork.begin();
       if (file.size > schemaLimit)
@@ -324,8 +328,7 @@
       ><Button
         variant="ghost"
         onclick={() => {
-          delete workspace.schemas[request._id];
-          delete workspace.schemaErrors[request._id];
+          clearSchema(request._id);
         }}>Clear schema</Button
       >{/if}
   </Toolbar>

@@ -28,19 +28,24 @@ if(process.env.INSOMNIUM_GRAPHQL_NAVIGATION==='1'){
     await page.getByRole('navigation',{name:'Referenced schema types'}).getByRole('button',{name:'User',exact:true}).click();
     await page.evaluate(()=>/** @type {any} */(window).replaceNavigationSchema());
     await page.getByRole('button',{name:'Back in schema navigation'}).waitFor({state:'detached'});
-    for(const outcome of ['success','failure']){
+    for(const outcome of ['success','failure','clear']){
+      if(outcome==='clear')await page.getByRole('button',{name:'Clear schema',exact:true}).click();
       /** @type {import('playwright-core').Route|undefined} */ let pending;
       await page.route('**/held-schema',route=>{pending=route;});
       try{
         await page.getByRole('button',{name:'Fetch schema',exact:true}).click();
         await poll(async()=>!!pending,'Owned introspection request reached held route');
         await page.evaluate(()=>/** @type {any} */(window).replaceNavigationSchema());
+        if(outcome==='clear')await page.getByRole('button',{name:'Clear schema',exact:true}).click();
         assert.ok(pending);
-        if(outcome==='success')await pending.fulfill({status:200,contentType:'application/json',body:JSON.stringify({data:introspectionFromSchema(buildSchema('type Query { stale: String }'))})});
+        if(outcome!=='failure')await pending.fulfill({status:200,contentType:'application/json',body:JSON.stringify({data:introspectionFromSchema(buildSchema('type Query { stale: String }'))})});
         else await pending.abort('failed');
         await page.waitForFunction(()=>Array.from(document.querySelectorAll('button')).some(button=>button.textContent?.trim()==='Fetch schema'&&!button.disabled));
-        await page.getByRole('listbox',{name:'Schema types',exact:true}).selectOption('Query');
-        assert.match(await page.locator('.schema-definition').innerText(),/next: String/);
+        if(outcome==='clear')await page.getByText('No schema loaded',{exact:true}).waitFor();
+        else{
+          await page.getByRole('listbox',{name:'Schema types',exact:true}).selectOption('Query');
+          assert.match(await page.locator('.schema-definition').innerText(),/next: String/);
+        }
         assert.equal(await page.getByRole('alert').count(),0,'Retired fetch must not publish stale errors');
       }finally{await pending?.abort().catch(()=>{});await page.unroute('**/held-schema');}
     }

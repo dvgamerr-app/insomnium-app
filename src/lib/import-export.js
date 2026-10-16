@@ -216,6 +216,10 @@ export function parseImport(text) {
         if (frame.index >= frame.items.length) { frames.pop(); continue; }
         const {parentId, inheritedAuth, inheritedScripts} = frame;
         const item = frame.items[frame.index++];
+        if (!item || typeof item !== 'object' || Array.isArray(item))
+          throw new Error('Postman items must be objects.');
+        if (Object.hasOwn(item, 'item') && !Array.isArray(item.item))
+          throw new Error('Postman folder items must be an array.');
         if (Array.isArray(item.item)) {
           const folderId = id("fld");
           // Descendants have their own resources; archive only this folder's
@@ -233,7 +237,10 @@ export function parseImport(text) {
           frames.push({items:item.item, index:0, parentId:folderId,
             inheritedAuth:item.auth || inheritedAuth,
             inheritedScripts:inheritedScripts || !!item.event?.length});
-        } else if (item.request) {
+        } else if (Object.hasOwn(item, 'request')) {
+          if (typeof item.request !== 'string' &&
+              (!item.request || typeof item.request !== 'object' || Array.isArray(item.request)))
+            throw new Error('Postman requests must be URL strings or request objects.');
           const req =
             typeof item.request === "string"
               ? { url: item.request }
@@ -314,7 +321,7 @@ export function parseImport(text) {
                   : [],
             }),
           );
-        }
+        } else throw new Error('Postman items require a request or folder items array.');
       }
     };
     visit(source.item, workspaceId);
