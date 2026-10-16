@@ -865,6 +865,9 @@ export async function captureNativeBuildClosure(
     ],
     "Actual original-profile build arguments changed",
   );
+  // Capture can take minutes. Refuse dependency drift before Cargo starts,
+  // rather than discovering a stale identity only after a release compile.
+  await assertNativePackageBindings(bases, resolvedPackages);
   if (writeLedger)
     await writeFile(
       join(candidate, "before-cargo.json"),
@@ -872,6 +875,12 @@ export async function captureNativeBuildClosure(
       { flag: "wx" },
     );
   return ledger;
+}
+/** Cheap identity recheck, reusable without repeating the complete tree capture.
+ * @param {string[]} bases @param {any[]} expected */
+export async function assertNativePackageBindings(bases, expected) {
+  assert.deepEqual(await packageBindings(bases),expected,
+    "Installed package bindings changed during snapshot capture");
 }
 /** Recompute complete source/package/assets/notices/Cargo/tool scopes, detecting
  * added/deleted files and changed link targets as well as byte changes.

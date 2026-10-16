@@ -52,6 +52,12 @@ export function postmanUrl(source) {
 export function postmanBody(source) {
   const body = source || {};
   const mode = body.disabled ? "" : body.mode;
+  if (mode && !["raw","urlencoded","formdata","graphql","file"].includes(mode))
+    throw new Error("Unsupported Postman body mode: " + mode);
+  const parameters = mode === "urlencoded" ? body.urlencoded ?? []
+    : mode === "formdata" ? body.formdata ?? [] : [];
+  if (!Array.isArray(parameters) || parameters.some((/** @type {any} */ parameter) => !parameter || typeof parameter !== "object" || Array.isArray(parameter)))
+    throw new Error("Postman form fields must be an array of objects.");
   /** @type {Record<string, string>} */
   const rawTypes = {
     json: "application/json",
@@ -73,9 +79,9 @@ export function postmanBody(source) {
         ? rawTypes[body.options?.raw?.language] || "text/plain"
         : mimeTypes[mode] || "",
     text:
-      mode === "graphql" ? JSON.stringify(body.graphql || {}) : body.raw || "",
+      mode === "graphql" ? JSON.stringify(body.graphql || {}) : mode === "raw" ? body.raw || "" : "",
     fileName: typeof body.file?.src === "string" ? body.file.src : "",
-    params: (body.urlencoded || body.formdata || []).flatMap(
+    params: parameters.flatMap(
       (/** @type {any} */ p) => {
         const files =
           p.type === "file" && Array.isArray(p.src) && p.src.length

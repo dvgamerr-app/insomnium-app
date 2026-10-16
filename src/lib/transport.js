@@ -534,7 +534,8 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
       )
       .filter(Boolean)
       .join("&");
-    setHeader("Content-Type", mime);
+    if (!headers.some(([name]) => name.toLowerCase() === "content-type"))
+      headers.push(["Content-Type", mime]);
   } else if (mime === "multipart/form-data") {
     multipart = (body.params ?? [])
       .filter((/** @type {any} */ p) => !p.disabled && (body._legacyMultipart === true
