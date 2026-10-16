@@ -17,6 +17,7 @@
   import {
     graphqlVariableTypes,
     graphqlReferenceType,
+    graphqlReferencedTypes,
     graphqlDirectiveText,
   } from "../graphql-editor.js";
   import { environmentFor } from "../model.js";
@@ -137,6 +138,7 @@
       (/** @type {any} */ item) => item.name === selectedDirective,
     ),
   );
+  const referencedTypes = $derived(graphqlReferencedTypes(directive || type));
   function change(/** @type {Record<string, any>} */ patch) {
     if (content.error) return;
     onchange({
@@ -428,6 +430,18 @@
                 >@{item.name}</option
               >{/each}
           </Select>
+          {#if referencedTypes.length}
+            <nav class="schema-reference-links" aria-label="Referenced schema types">
+              <p class="hint">Referenced types</p>
+              {#each referencedTypes as name}
+                <Button
+                  variant="plain"
+                  onclick={() => navigate({ type: schema.getType(name) })}
+                  >{name}</Button
+                >
+              {/each}
+            </nav>
+          {/if}
         </div>
       {/snippet}{#snippet second()}
         <pre class="schema-definition">{directive

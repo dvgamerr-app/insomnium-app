@@ -15,6 +15,7 @@
   import Icon from "./Icon.svelte";
   import { download } from "../import-export.js";
   import { jsonPrettify } from "../json-prettify.js";
+  import { copyText } from "../clipboard.js";
   /** @type {{ response: Record<string, any> | undefined, running: boolean, history: Record<string, any>[], onhistory: (response: Record<string, any>) => void }} */
   let { response, running, history, onhistory } = $props();
   let tab = $state("Events"),
@@ -308,8 +309,9 @@
                 aria-label="Copy stream event"
                 title="Copy event"
                 onclick={async () => {
+                  error = "";
                   try {
-                    await navigator.clipboard.writeText(selected?.data ?? body);
+                    await copyText(selected?.data ?? body);
                   } catch (e) {
                     error = String(e);
                   }

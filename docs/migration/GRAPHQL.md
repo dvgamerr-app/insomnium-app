@@ -1,5 +1,9 @@
 # GRAPHQL migration
 
+## Referenced type navigation — 2026-10-16
+
+Schema explorer now offers Referenced types links for fields/arguments, implemented interfaces, input fields, union members and directive arguments. Named targets unwrap list/non-null types, deduplicate, omit self-links and sort. Clicking uses the existing schema navigation handler, clears search/directive selection and opens the referenced definition without network access. Sidebar links have bounded scrolling; main layout is preserved. `bun run check` passes0errors/0warnings; `bun run build` passes. An inline Bun inspection verified object/input/interface/union/directive targets against an actual GraphQL schema. Mounted UI and broader legacy navigation parity remain unverified; no new test/audit scripts or native matrix. Official type API: https://www.graphql-js.org/api-v16/type/ .
+
 Updated 2026-10-14. Introspection rendering and saved editor/schema workflows are implemented. Historical Windows SDL cancellation/exact UTF8/write-refusal acceptance exists; complete query/schema/import/export/provider/platform parity remains open.
 
 See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity requirements](PARITY.md). No original scope was removed by consolidation.

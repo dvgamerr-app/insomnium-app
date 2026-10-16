@@ -54,6 +54,12 @@
   font-size: var(--font-size-12);
 }
 
+.schema-reference-links {
+  max-height: 120px;
+  overflow: auto;
+  flex-shrink: 0;
+}
+
 .graphql-editor-column {
   flex: 1;
   min-height: 0;

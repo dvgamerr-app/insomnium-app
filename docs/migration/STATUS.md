@@ -1,5 +1,15 @@
 # Migration status
 
+## GraphQL referenced type navigation — 2026-10-16
+
+Fromd8c4cc21: Git inspection confirmed clone/remote checkout/non-force push already exist, so no duplicate implementation. Addressed the remaining GraphQL navigation scope instead: schema explorer links to directly referenced field/argument/input/interface/union/directive types, unwraps wrappers, deduplicates and omits self-links. Uses existing loaded schema and navigation handler; bounded sidebar scrolling preserves layout. bun run check0errors/0warnings (session23120exit0), bun run buildexit0, inline Bun inspection returned Query=>Filter/Result/User, User=>ID/Node, Filter=>String, Result=>User, directive=>Filter. No new test/audit scripts or native build. Mounted UI/native and full legacy/provider/platform parity remain open; other PLAN/PARITY requirements are unchanged. No owned process handles remain. /compact unavailable; this is the feature handoff.
+
+
+## Desktop clipboard integration — 2026-10-16
+
+From2454f4ec: implemented shared native/browser Copy routing for StreamPane and ResponsePane in src/lib/clipboard.js. Desktop reuses existing clipboard-manager writeText and existing capability; browser keeps its clipboard API. Full selected stream data is copied even when preview is truncated; stale copy errors clear on retry. No Rust/dependency/layout change. bun run check passes0errors/0warnings (session44378exit0); bun run build passes (session60417exit0). No new test/audit scripts or native matrix. Actual OS clipboard and large-payload native acceptance remain open; no claim that the installed binary contains this frontend change. See HTTP.md. No owned processes remain; unrelated dirty documents preserved. Broader PLAN/PARITY scope remains incomplete. /compact is unavailable; this is the feature handoff.
+
+
 ## JSON object primitive fix delivered — 2026-10-16
 
 Verified topic commit: 94f9f7359a1a85f919fbdbac1e7eaf1aa614bc34. Final native selector import reports16positive/12refusal defaults. No owned build/native/scenario processes remain. Next feature starts from this commit; preserve unrelated dirty documentation. /compact is unavailable in this interface.

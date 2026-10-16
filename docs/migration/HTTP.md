@@ -1,5 +1,9 @@
 # HTTP migration
 
+## Desktop Copy integration — 2026-10-16
+
+Stream event and HTTP response Copy now share `src/lib/clipboard.js`: Tauri uses the already-installed clipboard-manager `writeText`, browser preview retains `navigator.clipboard`. Stream Copy passes the complete selected event data, independently of its64KiB display preview, and clears stale copy errors before retry. Existing Rust plugin registration and write permission are reused; no dependency, layout or Rust change. `bun run check` passes0errors/0warnings; `bun run build` passes. Actual OS clipboard/large-payload acceptance remains open; compiler/bundler results are not native clipboard evidence. Official API: https://v2.tauri.app/plugin/clipboard/ .
+
 Updated 2026-10-15. Native transport, cookie management, multipart, proxy/TLS settings and streams have scoped implementations/receipts. Windows manual body/send/cancel/history has bounded acceptance below; complete legacy-cookie/proxy/platform/stream compatibility stays required.
 
 See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity requirements](PARITY.md). No original scope was removed by consolidation.

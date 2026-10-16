@@ -1,4 +1,5 @@
 <script>
+  import { copyText } from "../clipboard.js";
   import { onDestroy } from "svelte";
   import TabPanel from "./ui/TabPanel.svelte";
   let activeTab0 = $state("");
@@ -302,7 +303,7 @@
         onclick={async () => {
           const finish = beginFeedback();
           try {
-            await navigator.clipboard.writeText(body);
+            await copyText(body);
             if (finish(true)) setTimeout(() => finish(), 1500);
           } catch (e) {
             finish(false, String(e));
