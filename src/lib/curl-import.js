@@ -346,8 +346,6 @@ function requestsFor(words, workspaceId, entries) {
           name +
           ". Use Name; for an empty header.",
       );
-    if(suppressed&&name.toLowerCase()==='content-type'&&(has('form')||has('form-string')))
-      throw Error('cURL multipart Content-Type suppression requires native multipart header support.');
     headers.push({ name, value: content, disabled: suppressed,
       ...(suppressed&&name.toLowerCase()!=='user-agent'?{_curlSuppressDefault:true}:{}) });
   }

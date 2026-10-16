@@ -44,9 +44,13 @@ pub struct HttpRequest {
     pub(crate) headers: Vec<(String, String)>,
     #[serde(default)]
     pub(crate) suppress_user_agent: bool,
+    #[serde(default)]
+    pub(crate) suppress_default_headers: Vec<String>,
     pub(crate) body: Option<String>,
     pub(crate) body_base64: Option<String>,
     pub(crate) multipart: Option<Vec<FormPart>>,
+    #[serde(default)]
+    pub(crate) multipart_content_type: Option<String>,
     pub(crate) timeout_ms: u64,
     pub(crate) follow_redirects: bool,
     pub(crate) validate_certificates: bool,
@@ -271,7 +275,9 @@ pub async fn send_http(
         Ok(HttpResponse {
             status: status.as_u16(),
             http_version,
-            bytes_read: response.downloaded_body_bytes().ok_or_else(|| "Native response download counter missing".to_string())?,
+            bytes_read: response
+                .downloaded_body_bytes()
+                .ok_or_else(|| "Native response download counter missing".to_string())?,
             status_text: status.canonical_reason().unwrap_or("").into(),
             url: final_url,
             headers,
@@ -517,6 +523,7 @@ pub(crate) fn build_request(
             HeaderValue::from_str(value).map_err(|e| format!("Invalid header value: {e}"))?;
         outgoing = outgoing.header(name, value);
     }
+    let mut multipart_content_type = None;
     if let Some(parts) = &request.multipart {
         let mut form = reqwest::multipart::Form::new();
         for part in parts {
@@ -535,11 +542,43 @@ pub(crate) fn build_request(
             }
             form = form.part(part.name.clone(), field);
         }
+        multipart_content_type = request.multipart_content_type.as_ref().map(|value| {
+            if value.is_empty() {
+                String::new()
+            } else {
+                format!("{}; boundary={}", value, form.boundary())
+            }
+        });
         outgoing = outgoing.multipart(form);
     } else if let Some(encoded) = &request.body_base64 {
         outgoing = outgoing.body(STANDARD.decode(encoded).map_err(|e| e.to_string())?);
     } else if let Some(body) = &request.body {
         outgoing = outgoing.body(body.clone());
+    }
+    if !request.suppress_default_headers.is_empty() || multipart_content_type.is_some() {
+        let (client, built) = outgoing.build_split();
+        let mut built = built.map_err(|e| e.to_string())?;
+        if let Some(value) = multipart_content_type {
+            built.headers_mut().insert(
+                reqwest::header::CONTENT_TYPE,
+                HeaderValue::from_str(&value)
+                    .map_err(|e| format!("Invalid multipart Content-Type: {e}"))?,
+            );
+        }
+        for name in &request.suppress_default_headers {
+            if !matches!(name.as_str(), "accept" | "content-type") {
+                return Err("Unsupported default header suppression.".into());
+            }
+            if !(name == "content-type" && request.multipart_content_type.is_some())
+                && !request
+                    .headers
+                    .iter()
+                    .any(|(header, _)| header.eq_ignore_ascii_case(name))
+            {
+                built.headers_mut().remove(name);
+            }
+        }
+        outgoing = reqwest::RequestBuilder::from_parts(client, built);
     }
     Ok(outgoing)
 }

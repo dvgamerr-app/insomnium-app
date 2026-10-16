@@ -461,6 +461,7 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
   const body = request.body ?? {};
   let text = null;
   let multipart = null;
+  let multipartContentType = null;
   let bodyBase64 = null;
   const mime = protocol === "websocket" ? "" : body.mimeType || "";
   if (mime && body._openapiSerialization?.style === "serialized") {
@@ -579,7 +580,8 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
               : legacyTextMime || p.contentType || null,
         };
       });
-    // Native client supplies the multipart boundary; remove all manual copies.
+    // Native client appends its actual boundary to the selected MIME value.
+    multipartContentType=headers.find(([name])=>name.toLowerCase()==='content-type')?.[1]??null;
     for (let i = headers.length - 1; i >= 0; i--)
       if (headers[i][0].toLowerCase() === "content-type") headers.splice(i, 1);
   } else if (mime && body.curlQuery !== true) {
@@ -606,6 +608,7 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
     url: url.toString(),
     socketPath,
     headers:headers.filter(([name])=>!suppressedDefaults.has(name.toLowerCase())||explicitHeaders.has(name.toLowerCase())),
+    suppressDefaultHeaders:[...suppressedDefaults].filter(name=>!explicitHeaders.has(name)),
     suppressUserAgent:
       request.suppressUserAgent === true ||
       (request.headers || []).some(
@@ -614,6 +617,7 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
       ),
     body: text,
     multipart,
+    multipartContentType,
     bodyBase64,
     digest,
     oauth1,
