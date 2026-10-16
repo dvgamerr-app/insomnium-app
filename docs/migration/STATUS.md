@@ -1,5 +1,12 @@
 # Migration status
 
+## Combined native actions and data API acceptance — 2026-10-17
+
+Source ecda133b. One maintained build at artifacts/native-namespace-audit-probe/plugin-actions-data-20261017-attempt-1/build-state.json finishes exit0/sourceClosureVerified:true, app SHA b149612fab0e984ae5ce264212d1d32cf87f3059bf89c83096d3795f9090f9e0, closure dc7e87ec6ca4d19786731bddc804f9c1c162d2a216a7f54a3d8df8cdaf95ce6f. Total~19m7s, Cargo6m57s; coverage incomplete/targetLinkage unproven retained. No duplicate build launched.
+
+Existing focused INSOMNIUM_PLUGIN_ACTIONS=1 native scenario exits0 (~9.3s). artifacts/playwright/plugin-template-tags-1792173897080/actions-acceptance.json/result.json proves actual full-page request/folder/collection menus and API Design document action/owned alerts; scoped JSON/private exclusion; HAR picks current response over seeded older history; raw/HTTP/app-data-file URI imports persist exactly3requests; active collection/request source unchanged. Exactly2HTTP calls (baseline POST and URI GET), no HAR root Send. Host75456 hidden before CDP (visible:false/native-hidden) exits0; owned URI file absent; existing finally restores original loaded workspace object and original plugin-store bytes. Physical full-profile byte equality is not claimed. Exact owned producer/compiler/host handles are absent; no live handles. No new scripts or broad historical reruns in this gate. Larger payloads/native signers, outside-granted file paths, action Cancel/reload/retained DOM, WebSocket/gRPC/provider/platform and all original PLAN/PARITY requirements remain open. /compact unavailable; handoff recorded.
+
+
 ## HAR latest history correction and combined native gate prepared — 2026-10-17
 
 Source parent77e3c569. HAR previously reversed newest-first history and could export the oldest reply. Added timestamp-based latestHarResponse using model modified/created ordering and the global filterResponsesByEnv policy. Inline controls pass both array orders and enabled/disabled environment filtering. Final compiler exits0/0errors/0warnings and frontend build exits0.
