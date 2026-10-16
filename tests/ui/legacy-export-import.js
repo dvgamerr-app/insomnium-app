@@ -18,12 +18,19 @@ inputs[2].source.headers=[{key:'X-Token',value:'parent',active:true},{key:'X-Kee
 inputs[2].source.requests[0].headers=[{key:'x-token',value:'child',active:true}];
 inputs[0].source.info.description = "Collection Ω\n**documentation**";
 inputs[0].source.item.push({name:"Owned Postman folder",description:{content:"Folder ไทย",type:"text/markdown"},variable:[{key:"folderVar",value:"owned"}],custom:{retained:true},item:[]});
-inputs.push({name:'OwnedSOAP',source:{},body:'<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><Echo xmlns="urn:owned"><value xmlns="urn:owned">string</value></Echo></soap:Body></soap:Envelope>',
+inputs.push({name:'OwnedSOAP',source:{},body:'<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Header><Auth xmlns="urn:owned">owned&amp;key</Auth></soap:Header><soap:Body><Echo xmlns="urn:owned" code="A&amp;B"><value xmlns="urn:owned">string</value><count xmlns="urn:owned">0</count><label xmlns="urn:owned" kind="owned">string</label></Echo></soap:Body></soap:Envelope>',
   text:`<wsdl:definitions name="Owned WSDL" targetNamespace="urn:owned" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:tns="urn:owned">
-<wsdl:types><xsd:schema targetNamespace="urn:owned" elementFormDefault="qualified"><xsd:element name="Echo"><xsd:complexType><xsd:sequence><xsd:element name="value" type="xsd:string"/></xsd:sequence></xsd:complexType></xsd:element></xsd:schema></wsdl:types>
+<wsdl:types><xsd:schema targetNamespace="urn:owned" elementFormDefault="qualified">
+<xsd:element name="Echo" type="tns:Derived"/><xsd:element name="Auth" type="xsd:string" fixed="owned&amp;key"/>
+<xsd:complexType name="Base"><xsd:sequence><xsd:element name="value" type="xsd:string"/></xsd:sequence><xsd:attribute name="code" type="xsd:string" fixed="A&amp;B" use="required"/></xsd:complexType>
+<xsd:complexType name="Label"><xsd:simpleContent><xsd:extension base="xsd:string"><xsd:attribute name="kind" type="xsd:string" fixed="owned" use="required"/></xsd:extension></xsd:simpleContent></xsd:complexType>
+<xsd:group name="Fields"><xsd:sequence><xsd:choice><xsd:element name="count" type="xsd:int"/><xsd:element name="other" type="xsd:string"/></xsd:choice><xsd:element name="label" type="tns:Label"/></xsd:sequence></xsd:group>
+<xsd:complexType name="Derived"><xsd:complexContent><xsd:extension base="tns:Base"><xsd:group ref="tns:Fields"/></xsd:extension></xsd:complexContent></xsd:complexType>
+</xsd:schema></wsdl:types>
 <wsdl:message name="Input"><wsdl:part name="parameters" element="tns:Echo"/></wsdl:message>
+<wsdl:message name="Header"><wsdl:part name="auth" element="tns:Auth"/></wsdl:message>
 <wsdl:portType name="Port"><wsdl:operation name="OwnedSOAP"><wsdl:input message="tns:Input"/></wsdl:operation></wsdl:portType>
-<wsdl:binding name="Binding" type="tns:Port"><soap:binding transport="http://schemas.xmlsoap.org/soap/http"/><wsdl:operation name="OwnedSOAP"><soap:operation soapAction="urn:echo"/><wsdl:input><soap:body use="literal"/></wsdl:input></wsdl:operation></wsdl:binding>
+<wsdl:binding name="Binding" type="tns:Port"><soap:binding transport="http://schemas.xmlsoap.org/soap/http"/><wsdl:operation name="OwnedSOAP"><soap:operation soapAction="urn:echo"/><wsdl:input><soap:body use="literal"/><soap:header message="tns:Header" part="auth" use="literal"/></wsdl:input></wsdl:operation></wsdl:binding>
 <wsdl:service name="Service"><wsdl:port name="Endpoint" binding="tns:Binding"><soap:address location="https://owned.invalid/soap"/></wsdl:port></wsdl:service></wsdl:definitions>`});
 /** @param {import('playwright-core').Page} page @param {string} output
  * @param {{read?:()=>Promise<any>,onImported?:(data:any)=>void}} [options] */
@@ -94,7 +101,7 @@ async function runImports(page, output, options = {}) {
   const soap = imported(data,'OwnedSOAP');
   assert.equal(soap.headers.find((/** @type {any} */ h)=>h.name==='SOAPAction').value,'"urn:echo"');
   assert.equal(imported(data,'Owned WSDL')._wsdlSource,inputs.at(-1)?.text);
-  const receipt = {status:"passed",renderingMode:options.read ? "native-hidden" : "headless",mockedIpc:false,scope:"Actual UI review/apply/reload and storage; no file chooser or network",formats:[1,2,"hoppscotch-v2","har","postman","wsdl-soap11"],bodyTextPreserved:true,folderEnvironment:true,harSourceAndCookies:true,postmanActiveBodyMode:true};
+  const receipt = {status:"passed",renderingMode:options.read ? "native-hidden" : "headless",mockedIpc:false,scope:"Actual UI review/apply/reload and storage; no file chooser or network",formats:[1,2,"hoppscotch-v2","har","postman","wsdl-soap11"],bodyTextPreserved:true,folderEnvironment:true,harSourceAndCookies:true,postmanActiveBodyMode:true,wsdlHeaderInheritanceGroupsAttributesAndSimpleContent:true};
   await Bun.write(output + "/import-acceptance.json",JSON.stringify(receipt,null,2));
   return receipt;
 }
