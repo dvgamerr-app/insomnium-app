@@ -8,6 +8,7 @@ import {
   lstat,
 } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import {pathToFileURL} from "node:url";
 import { createHash } from "node:crypto";
 import { newRequest } from "../../src/lib/model.js";
 import { builtinTemplateNames } from "../../src/lib/template-registration.js";
@@ -34,9 +35,11 @@ import {
   exerciseTemplateTagEditorNative,
 } from "./helpers/template-tag-editor-native.js";
 
+const actionsMode=process.env.INSOMNIUM_PLUGIN_ACTIONS==="1";
 const hooksMode = process.env.INSOMNIUM_PLUGIN_HOOKS === "1";
 const editorMode = process.env.INSOMNIUM_TEMPLATE_TAG_EDITOR === "1";
 const helperMode = process.env.INSOMNIUM_PLUGIN_HELPERS === "1";
+if(actionsMode&&(hooksMode||editorMode||helperMode))throw Error("Choose only the plugin actions scenario mode");
 const cookieMode = helperMode && process.env.INSOMNIUM_PLUGIN_HELPER_COOKIES === "1";
 const protocolMode = helperMode && process.env.INSOMNIUM_PLUGIN_HELPER_PROTOCOLS === "1";
 const oauthMode = helperMode && process.env.INSOMNIUM_PLUGIN_HELPER_OAUTH === "1";
@@ -87,6 +90,8 @@ try {
 } catch (error) {
   if (/** @type {any} */ (error).code !== "ENOENT") throw error;
 }
+let uriImportContent="",uriOwned=false;
+const uriFixturePath=join(storeRoot,"plugin-action-import-uri.json");
 const wire = /** @type {any[]} */ ([]);
 const heldRoots=/** @type {(()=>void)[]} */([]);
 const server = Bun.serve({
@@ -106,6 +111,7 @@ const server = Bun.serve({
     if(domTerminalMode&&new URL(request.url).pathname==='/dom-terminal-helper-held')return new Promise(resolve=>{
       let released=false;heldRoots.push(()=>{if(released)return;released=true;resolve(new Response('late-terminal-helper',{headers:{'Content-Type':'text/plain'}}));});
     });
+    if(actionsMode&&new URL(request.url).pathname==="/collection-import")return new Response(uriImportContent,{headers:{"Content-Type":"application/json"}});
     return new Response("plugin-render-accepted", {
       headers: { "Content-Type": "text/plain" },
     });
@@ -132,6 +138,11 @@ try {
         observations = /** @type {any[]} */ ([]),
         records = /** @type {any[]} */ ([]),
         directories = [];
+      if(actionsMode){
+        uriImportContent=JSON.stringify({_type:'export',__export_format:4,resources:[{_id:'wrk_import',_type:'workspace',name:'Imported '+collection},{_id:'req_import',_type:'request',parentId:'wrk_import',name:'Imported '+requestId,method:'GET',url:'https://example.invalid'}]});
+        assert.equal(await Bun.file(uriFixturePath).exists(),false,'Owned URI fixture must not pre-exist');
+        await Bun.write(uriFixturePath,uriImportContent);uriOwned=true;
+      }
       let expiredCookieExpiry = "";
       const sourceA = `exports.templateTags=[
       {name:'dup',priority:-100,run(){return 'A-first';}},
@@ -197,6 +208,22 @@ try {
           c.request.getEnvironment().hookStage='response';c.response.setBody(Buffer.from('first-response'));
         },c=>{if(c.request.setUrl!==undefined||c.response.getBody().toString()!=='first-response'||c.request.getEnvironmentVariable('hookStage')!=='response')throw Error('response order');c.response.setBody(Buffer.from('hook-response-final'));}];
       `;
+      if(actionsMode)sourceB+=`
+        exports.requestActions=[{label:'Native request action',async action(c,{request}){
+          if(request._id!==${JSON.stringify(requestId)})throw Error('request argument');request.name='guest mutation';
+          const own=JSON.parse(await c.data.export.insomnia({workspace:{_id:${JSON.stringify(collection)}}}));
+          if(own.resources.some(r=>r.isPrivate)||!own.resources.some(r=>r._id===${JSON.stringify(requestId)}))throw Error('export privacy');
+          const har=JSON.parse(await c.data.export.har({workspace:{_id:${JSON.stringify(collection)}}}));
+          if(har.log.entries.length!==1||har.log.entries[0].response.content.text!=='plugin-render-accepted')throw Error('HAR history');
+          await c.data.import.raw(${JSON.stringify(uriImportContent)});
+          await c.data.import.uri(${JSON.stringify('http://127.0.0.1:'+server.port+'/collection-import')});
+          await c.data.import.uri(${JSON.stringify(pathToFileURL(uriFixturePath).href)});
+          await c.app.alert('Native request action','JSON/HAR/raw/HTTP/file import complete');
+        }}];
+        exports.requestGroupActions=[{label:'Native folder action',async action(c,{requestGroup,requests}){if(requestGroup._id!==${JSON.stringify(requestId+'_group')}||requests.length!==2)throw Error('folder argument');await c.app.alert('Native folder action','folder accepted');}}];
+        exports.workspaceActions=[{label:'Native collection action',async action(c,{workspace,requests,requestGroups}){if(workspace._id!==${JSON.stringify(collection)}||requests.length!==1||requestGroups.length!==1)throw Error('collection argument');await c.app.alert('Native collection action','collection accepted');}}];
+        exports.documentActions=[{label:'Native document action',hideAfterClick:true,async action(c,spec){if(spec.format!=='openapi'||spec.contents.info.title!=='Native API'||c.network!==undefined)throw Error('document argument');await c.app.alert('Native document action','document accepted');}}];
+      `;
       for (const [index, source] of [sourceA, sourceB].entries()) {
         const directory = join(root, index === 0 ? "a" : "b");
         await mkdir(directory, { recursive: true });
@@ -231,7 +258,7 @@ try {
           name: "Base Environment",
           data: {
             scope: "base",
-            derived: "{% dup %}",
+            derived: actionsMode?"static":"{% dup %}",
             ...(editorMode ? { tag: editorTemplate } : {}),
           },
         },
@@ -245,6 +272,14 @@ try {
           settingStoreCookies: false,
         }),
       );
+      if(actionsMode){
+        seed.settings.maxHistory=Math.max(2,Number(seed.settings.maxHistory)||0);
+        seed.history.push({_id:requestId+'_older',requestId,created:1,status:200,statusText:'OK',method:'POST',url:'http://127.0.0.1:'+server.port+'/render',body:'older',bodyBase64:Buffer.from('older').toString('base64'),size:5,elapsedMs:1,headers:[],environmentId:null});
+        const saved=seed.resources.find((/** @type {any} */r)=>r._id===requestId);saved.parentId=requestId+'_group';saved.metaSortKey=10;
+        seed.resources.push({_id:requestId+'_group',_type:'request_group',parentId:collection,name:'Action folder',environment:{}},
+          newRequest(requestId+'_group',{_id:requestId+'_private',name:'Private action request',url:'https://example.invalid',isPrivate:true,metaSortKey:20}),
+          {_id:requestId+'_spec',_type:'api_spec',parentId:collection,fileName:'action.yaml',contents:'openapi: 3.0.3\ninfo:\n  title: Native API\n  version: 1.0.0\npaths: {}\n'});
+      }
       seed.activeWorkspaceId = collection;
       if (helperMode) seed.resources.push(newRequest(collection, {
         _id: helperRequestId, name: "Helper saved request", method: "POST",
@@ -403,6 +438,37 @@ try {
         await load(names[1]);
         await load(names[0]);
         await closePreferences();
+        if(actionsMode){
+          await body('action-body');await send('action-body');
+          const baseline=JSON.stringify((await invoke('load_workspace')).resources.find((/** @type {any} */r)=>r._id===requestId));
+          const runAction=async(/** @type {string} */type,/** @type {import('playwright-core').Locator} */root)=>{
+            await root.locator('.plugin-resource-actions summary').click();
+            await root.getByRole('button',{name:'Native '+type+' action · '+names[1],exact:true}).click();
+            const alert=page.getByRole('dialog',{name:'Native '+type+' action',exact:true});
+            await poll(async()=>await alert.isVisible()||await root.locator('.inline-error').count()>0,'Native action alert or failure',60000);
+            if(await root.locator('.inline-error').count())throw Error(await root.innerText());
+            await alert.getByRole('button',{name:'Ok',exact:true}).click();
+            await root.getByRole('status').filter({hasText:'Action completed.'}).waitFor();
+          };
+          await page.getByRole('button',{name:'Move or manage request',exact:true}).click();
+          let manager=page.getByRole('dialog',{name:'Manage request',exact:true});await runAction('request',manager);
+          await manager.getByRole('button',{name:'Cancel',exact:true}).click();
+          await page.getByRole('button',{name:'Manage Action folder',exact:true}).click();
+          manager=page.getByRole('dialog',{name:'Manage folder',exact:true});await runAction('folder',manager);
+          await manager.getByRole('button',{name:'Cancel',exact:true}).click();
+          await page.getByRole('button',{name:'Manage collection',exact:true}).click();
+          manager=page.getByRole('dialog',{name:'Manage collection',exact:true});await runAction('collection',manager);
+          await manager.getByRole('button',{name:'Cancel',exact:true}).click();
+          await page.getByRole('button',{name:'API Design',exact:true}).click();
+          await runAction('document',page.getByRole('region',{name:'API Design',exact:true}));
+          const actual=await invoke('load_workspace');
+          assert.equal(actual.activeWorkspaceId,collection,'Import preserves active collection');
+          assert.equal(JSON.stringify(actual.resources.find((/** @type {any} */r)=>r._id===requestId)),baseline,'Action request argument remains detached');
+          assert.equal(actual.resources.filter((/** @type {any} */r)=>r.name==='Imported '+requestId).length,3,'Raw/HTTP/file imports persisted exactly once');
+          assert.equal(wire.length,2,'One baseline Send and one URI HTTP GET; HAR never sends root request');
+          await Bun.write(join(output,'actions-acceptance.json'),JSON.stringify({passed:true,renderingMode:'native-hidden',checks:['full-page four action menus/arguments/alerts','JSON/HAR export privacy/history','raw/HTTP/file import with unchanged selection','source isolation and exact two HTTP requests'],wire,requestId,collection},null,2));
+          return;
+        }
         if(hooksMode){
           await body('hook-source');await send('hook-wire');
           assert.equal(new URL(wire.at(-1).url).pathname,'/render/hooked');
@@ -826,6 +892,7 @@ try {
     },
   );
 } finally {
+  if(uriOwned){await unlink(uriFixturePath);assert.equal(await Bun.file(uriFixturePath).exists(),false);}
   heldRoots.forEach(release=>release());
   domStreamFixture?.stop();
   server.stop(true);

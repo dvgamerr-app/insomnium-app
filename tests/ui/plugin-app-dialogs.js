@@ -5,8 +5,9 @@ import { withPreview } from "./helpers/preview-app.js";
 import { createSvelteUiFixturePlugin } from "./helpers/component-fixture.js";
 import { poll } from "./helpers/native-app.js";
 
-await withPreview("plugin-app-dialogs", async (page, output) => {
-  const bundle = await Bun.build({ entrypoints: ["tests/ui/fixtures/plugin-app-dialogs.js"], target: "browser", format: "iife", conditions: ["browser", "svelte"], plugins: [createSvelteUiFixturePlugin()], define: { "import.meta.url": JSON.stringify(page.url()) } });
+const actionUi=process.env.INSOMNIUM_PLUGIN_ACTION_UI==="1";
+await withPreview(actionUi?"plugin-resource-actions":"plugin-app-dialogs", async (page, output) => {
+  const bundle = await Bun.build({ entrypoints: [actionUi?"tests/ui/fixtures/plugin-resource-actions.js":"tests/ui/fixtures/plugin-app-dialogs.js"], target: "browser", format: "iife", conditions: ["browser", "svelte"], plugins: [...(actionUi?[{name:'browser-native-action-adapter',setup(/** @type {Parameters<import('bun').BunPlugin['setup']>[0]} */build){build.onResolve({filter:/plugin-app-native\.js$/},()=>({path:'native-action-adapter',namespace:'action-native'}));build.onLoad({filter:/.*/,namespace:'action-native'},()=>({contents:"export function createPluginNativeAppEndpoint(){return async()=>{throw Error('Native app IO is outside this browser UI fixture');};}",loader:'js'}));}}]:[]),createSvelteUiFixturePlugin()], define: { "import.meta.url": JSON.stringify(page.url()) } });
   assert.ok(bundle.success, bundle.logs.map(String).join("\n"));
   await page.evaluate(await bundle.outputs[0].text());
   const workers = (await readdir("build/_app/immutable/workers")).filter(name => /^plugin\.worker-.*\.js$/.test(name));
@@ -16,6 +17,31 @@ await withPreview("plugin-app-dialogs", async (page, output) => {
   const hash = (/** @type {Uint8Array} */ bytes) => createHash("sha256").update(bytes).digest("hex");
   const workerSha256 = hash(Buffer.from(served));
   assert.equal(workerSha256, hash(await Bun.file("build/_app/immutable/workers/" + workers[0]).bytes()));
+  if(actionUi){
+    await page.evaluate(url=>/** @type {any} */(window).__resourceActions.open(url),url);
+    const root=page.getByRole('region',{name:'Plugin action fixture'}),before=await page.evaluate(()=>/** @type {any} */(window).__resourceActions.snapshot());
+    try{
+      for(const type of ['Request','Folder','Collection','Document']){
+        await root.getByRole('button',{name:'Select '+type,exact:true}).click();
+        await root.locator('summary').click();
+        await root.getByRole('button',{name:type+' action · insomnia-plugin-action-ui',exact:true}).click();
+        const dialog=page.getByRole('dialog',{name:'Run '+type+' action',exact:true});
+        await poll(async()=>await dialog.isVisible()||await root.locator('.inline-error').count()>0,'Action dialog or failure',10000);
+        if(await root.locator('.inline-error').count())throw Error(await root.innerText());
+        assert.equal(await root.locator('details').evaluate(el=>/** @type {HTMLDetailsElement} */(el).open),type!=='Document','hideAfterClick controls menu');
+        await dialog.getByRole('button',{name:'Ok',exact:true}).click();
+        await root.getByRole('status').filter({hasText:'Action completed.'}).waitFor();
+      }
+      assert.equal(await page.evaluate(()=>/** @type {any} */(window).__resourceActions.snapshot()),before,'Actions cannot mutate saved argument snapshots');
+      await root.locator('summary').click();
+      await root.getByRole('button',{name:'Throw action · insomnia-plugin-action-ui',exact:true}).click();
+      await root.locator('.inline-error').filter({hasText:'owned action failure'}).waitFor();
+      assert.equal(await root.getByRole('button',{name:'Throw action · insomnia-plugin-action-ui',exact:true}).count(),0,'Failed guest leaves visible error after registry quarantine');
+      await page.screenshot({path:output+'/actions.png'});
+      await Bun.write(output+'/action-ui-acceptance.json',JSON.stringify({passed:true,renderingMode:'headless',workerSha256,checks:['request/folder/collection/document actual UI dispatch through registry and production worker','owned alerts and completion','document hideAfterClick','saved argument isolation'],nativeAdapter:'fixture; native app IPC and file/persistence are not covered'},null,2));
+    }catch(error){await Bun.write(output+'/action-failure.txt',await root.innerText());await page.screenshot({path:output+'/action-failure.png'});throw error;}finally{await page.evaluate(()=>/** @type {any} */(window).__resourceActions.close());}
+    return;
+  }
   // evaluate callbacks are self-contained and use the injected fixture explicitly.
   const open = async (/** @type {'preview'|'send'|'action'} */ purpose) => page.evaluate(({ url, purpose }) => /** @type {any} */ (window).__pluginAppDialogs.open(url, purpose), { url, purpose });
   const start = async (/** @type {string} */ kind, /** @type {any[]} */ args) => page.evaluate(({ kind, args }) => /** @type {any} */ (window).__pluginAppDialogs.start(kind, args), { kind, args });
@@ -100,4 +126,4 @@ await withPreview("plugin-app-dialogs", async (page, output) => {
   const records = await page.evaluate(() => /** @type {any} */ (window).__pluginAppDialogs.records);
   assert.ok(records.every((/** @type {any} */ record) => record.terminated));
   await Bun.write(output + "/result.json", JSON.stringify({ status: "passed", headless: true, checks, workerSha256, workers: records.length, allTerminated: true, completeAppFacadeActivated: false, limits: "Actual VM/worker/dialog component; controlled save, no native chooser or clipboard acceptance." }, null, 2));
-});
+},actionUi?{headers:{'Cross-Origin-Opener-Policy':'same-origin','Cross-Origin-Embedder-Policy':'require-corp'}}:{});

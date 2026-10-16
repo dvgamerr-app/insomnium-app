@@ -49,3 +49,10 @@ export function harEnvironmentId(resources,environmentId,includePrivate=false){
   const environment=resources.find(r=>r._id===environmentId&&r._type==='environment');
   return environment&&(!environment.isPrivate||includePrivate)?environmentId:'';
 }
+
+/** Select by model timestamp, independent of saved array ordering.
+ * @param {Record<string,any>[]} history @param {string} requestId @param {string|null} environmentId @param {boolean} filterByEnvironment */
+export function latestHarResponse(history,requestId,environmentId,filterByEnvironment){
+  return history.filter(entry=>entry.requestId===requestId&&(!entry.protocol||entry.protocol==='http')&&
+    (!filterByEnvironment||(entry.environmentId||null)===(environmentId||null))).sort((a,b)=>(b.modified??b.created??0)-(a.modified??a.created??0))[0];
+}

@@ -46,7 +46,7 @@
   }
 </script>
 
-{#if actions.length}
+{#if actions.length || busy || error || done}
   <div class="plugin-resource-actions" aria-label="Plugin resource actions">
     <details bind:open={menuOpen}><summary>Plugin actions</summary>
     {#each actions as action (action.plugin+':'+action.index)}

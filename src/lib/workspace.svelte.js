@@ -1,7 +1,7 @@
 import {readTextFile,stat} from '@tauri-apps/plugin-fs';
 import {readPluginImportUri} from './plugin-import-uri.js';
 import {exportPluginInsomnia} from './plugin-data-export.js';
-import {pluginHarEntry,harEnvironmentId} from './plugin-har-export.js';
+import {pluginHarEntry,harEnvironmentId,latestHarResponse} from './plugin-har-export.js';
 import {parseImport} from './import-export.js';
 import {applyImportedData} from './import-history-review.js';
 import { appendSseRaw } from "./sse-raw.js";
@@ -2598,7 +2598,7 @@ function workspacePluginServices(data, owner, resolveResponse, chain = [owner.re
         const manual=rendered.headers.some((/** @type {any} */h)=>h.name.toLowerCase()==='authorization');
         const prepared=prepareRenderedRequest(scoped,rendered,id('har'),rendered.authentication?.type==='oauth2'&&!rendered.authentication.disabled&&!manual?
           {oauthAuthorization:oauthHeader(scoped,rendered,{resolved:true})}:{});
-        const response=[...workspace.data.history].reverse().find(entry=>entry.requestId===request._id&&(entry.environmentId||null)===(scoped.activeEnvironmentId||null));
+        const response=latestHarResponse(workspace.data.history,request._id,scoped.activeEnvironmentId||null,Boolean(scoped.settings.filterResponsesByEnv));
         entries.push(pluginHarEntry(rendered,prepared,response,startedDateTime));
       }
       check(signal);
