@@ -93,7 +93,7 @@ export function createPluginRegistry(adapters) {
       if (disposed) return Promise.reject(aborted());
       const context=synchronize();
       if (!context.ready) return Promise.reject(aborted());
-      const names=Array.from(records.entries()).filter(([,record])=>record.status==='ready')
+      const names=Array.from(records.entries()).filter(([,record])=>record.status==='ready'||record.reloadAdmitted===true)
         .sort((a,b)=>a[1].order-b[1].order).map(([name])=>name);
       invalidate();
       const epoch=generation, sourcePaths=pathKey(context.settings);
@@ -103,7 +103,7 @@ export function createPluginRegistry(adapters) {
         for (const name of names) {
           if(!current())throw aborted();
           try {await this.prepare(name);loaded.push(name);}
-          catch(error){if(!current())throw aborted();errors.push(name+': '+String(error));}
+          catch(error){if(!current())throw aborted();const record=records.get(name);if(record)record.reloadAdmitted=true;errors.push(name+': '+String(error));}
         }
         if(!current())throw aborted();
         return {loaded,errors};
@@ -402,6 +402,7 @@ export function createPluginRegistry(adapters) {
             })();
             return record.recovery;
           };
+          record.reloadAdmitted = true;
           record.status = "ready";
           emit();
           return structuredClone(session.metadata);

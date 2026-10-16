@@ -10,6 +10,8 @@ Ctrl/Cmd+Shift+R now reloads previously ready plugin sessions through the existi
 
 Contract: archived common/hotkeys.ts plugin_reload and existing explicit registry admission. Inline Bun assertions against the actual registry with controlled adapters pass fresh revision2snapshots, old-session close, one discovery per reload, shared concurrent promise, unloaded-package exclusion, partial failure and changed-owner cancellation. This is registry-layer evidence, not native package execution/OS-keyboard acceptance. Compiler75507 exits0/0errors/0warnings; build exits0. No new test/artifact scripts/dependencies/native build/profile changes or owned live handles. Native reload integration and broader plugin/PLAN/PARITY gates remain open. /compact unavailable.
 
+Reload recovery follow-up (source parent 8804c907): registry remembers prior successful admission through reload/session-recovery failures, so fixing a package and pressing reload retries it. Packages never successfully loaded stay excluded; explicit unload removes retry eligibility. Inline actual-registry controls pass failure→repair→reload, exact additional load, never-ready exclusion and unload exclusion. Compiler52828 exits0/0errors/0warnings; build exits0. No new test/artifact scripts/native/profile/live handles. Native execution/keyboard and full migration remain open. Variable source/value display remains an identified implementation gap; no setting-only substitute was added. /compact unavailable.
+
 ## Topic records
 
 <a id="record-agent-event-api"></a>
