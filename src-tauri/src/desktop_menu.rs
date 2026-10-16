@@ -1,5 +1,5 @@
 use tauri::{
-    menu::{MenuBuilder, SubmenuBuilder},
+    menu::{AboutMetadata, MenuBuilder, SubmenuBuilder},
     Emitter, Manager,
 };
 
@@ -7,9 +7,34 @@ use tauri::{
 /// persistence and shutdown use the same paths as the visible application UI.
 pub fn install(app: &tauri::App) -> tauri::Result<()> {
     let application = SubmenuBuilder::new(app, "Insomnium")
+        .about_with_text(
+            "About Insomnium",
+            Some(AboutMetadata {
+                name: Some("Insomnium".into()),
+                version: Some(app.package_info().version.to_string()),
+                authors: Some(
+                    env!("CARGO_PKG_AUTHORS")
+                        .split(':')
+                        .map(str::to_owned)
+                        .collect(),
+                ),
+                copyright: Some(
+                    include_str!("../../LICENSE")
+                        .lines()
+                        .filter(|line| line.starts_with("Copyright"))
+                        .collect::<Vec<_>>()
+                        .join("\n"),
+                ),
+                license: Some(include_str!("../../LICENSE").into()),
+                icon: app.default_window_icon().cloned(),
+                ..Default::default()
+            }),
+        )
+        .separator()
         .text("settings", "Preferences…")
         .separator()
         .text("close", "Close Window")
+        .text("quit", "Quit Insomnium")
         .build()?;
     let file = SubmenuBuilder::new(app, "File")
         .text("new-request", "New Request")
@@ -43,6 +68,13 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
     let menu = MenuBuilder::new(app)
         .items(&[&application, &file, &edit, &request, &view])
         .build()?;
+    // Quit is application-wide, including macOS after the main window closes.
+    // exit() enters the existing ExitRequested save/drain coordinator.
+    app.on_menu_event(|app, event| {
+        if event.id().as_ref() == "quit" {
+            app.exit(0);
+        }
+    });
     if let Some(window) = app.get_webview_window("main") {
         #[cfg(target_os = "macos")]
         app.set_menu(menu)?;

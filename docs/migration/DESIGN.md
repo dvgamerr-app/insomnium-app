@@ -182,3 +182,17 @@ Reference: archived common/hotkeys.ts and https://developer.mozilla.org/en-US/do
 Restored Ctrl/Cmd+Alt+Shift+Comma for request settings, retaining Ctrl/Cmd+Shift+Enter. Ctrl+Shift+Slash (including Ctrl+Cmd+Shift+Slash on macOS) opens General Preferences and focuses the existing Shortcuts heading. Keyboard code identifies shifted punctuation. Existing ready/edit/modal/composition/repeat/defaultPrevented guards remain; Alt is permitted only for the exact request-settings chord. Contract: archived common/hotkeys.ts.
 
 Existing workspace-shortcuts headless scenario passes both chords/focus plus its existing request/settings/admission checks (~3.06s). Initial test expected request Settings to survive Preferences unmount; retained failed-tab-remount-result.json, corrected scenario explicitly reopens the tab. Compiler66374 exits0/0errors/0warnings; build exits0. Evidence artifacts/playwright/workspace-shortcuts/result.json. No new dependencies/scripts/native build/profile changes or owned live handles. Native OS accelerator delivery/platform and broader PLAN/PARITY remain open. /compact unavailable.
+
+
+## Native About menu — 2026-10-16
+
+Insomnium application menu now includes About Insomnium using Tauri predefined About, with actual package version, Cargo contributors, repository LICENSE/copyright and the configured icon. Metadata comes from existing package/license sources instead of duplicated version or attribution strings. Native toolkit handling opens the dialog; no renderer IPC action or new web modal is added. Field presentation follows each platform’s native About support. References: official [SubmenuBuilder about_with_text](https://docs.rs/tauri/latest/tauri/menu/struct.SubmenuBuilder.html#method.about_with_text) and [AboutMetadata](https://docs.rs/tauri/latest/tauri/menu/struct.AboutMetadata.html).
+
+Cargo check --locked --manifest-path src-tauri/Cargo.toml exits0 in~9.4s; only existing eventsource-stream warnings. Scoped rustfmt and diff check pass. No new tests/scripts/dependencies/native release build/profile changes or owned live handles. Actual native menu/dialog rendering, platform metadata differences, third-party notices/linkage and every broader PLAN/PARITY gate remain open. Existing native candidate predates this Rust edit. /compact unavailable.
+
+
+## Application Quit menu — 2026-10-16
+
+Quit Insomnium now invokes AppHandle.exit(0) through an app-wide menu listener. Existing lib.rs ExitRequested coordination requests renderer-approved close, so tracked work/save/drain remains the normal shutdown path; no process::exit or direct destroy was added. The listener belongs to the app so macOS Quit remains available after the main window closes or a provider window has focus. Main-window commands keep their existing focus guard and Quit is not emitted twice through renderer actions.
+
+Consulted installed official tauri2.12.0 src/app.rs exit/on_menu_event documentation (versioned docs.rs fetch was unavailable): exit emits ExitRequested/Exit and on_menu_event is global. Locked Cargo check exits0 in~2.87s with existing dependency warnings; scoped rustfmt/diff pass. No new tests/scripts/dependencies/native release build/profile changes or owned live handles. Actual menu Quit/save-failure/retry/provider focus/macOS/platform/runtime gates and full migration remain open; existing native binary predates this change. /compact unavailable.
