@@ -80,6 +80,10 @@
   });
   $effect(() => {
     const key = previewKey;
+    if (!workspace.ready || workspace.draining) {
+      untrack(() => { status = { ...status, pending: false }; });
+      return;
+    }
     // Explicit acquisition/adoption owns the guest while the editor is running.
     // Resume general rendering only after that owner has finished.
     if (running) return;
@@ -95,11 +99,11 @@
     status = { token: null, error: "", pending: true };
     const timer = setTimeout(async () => {
       /** @type {ReturnType<typeof previewScope.begin>|undefined} */ let work;
+      const current = () => !controller.signal.aborted &&
+        (!work || work.current()) && previewKey === key;
       try {
         work = previewScope.begin();
         const signal = AbortSignal.any([controller.signal, work.signal]);
-        const current = () =>
-          !signal.aborted && work?.current() === true && previewKey === key;
         const data = requestDataScope(dataSnapshot, snapshot._id);
         const rendered = await renderOAuthRequest(data, snapshot, signal, {
           purpose: "preview",
@@ -113,7 +117,7 @@
         });
         if (current()) resolvedPreview = { key, request: rendered, error: "" };
       } catch (error) {
-        if (!controller.signal.aborted)
+        if (current())
           resolvedPreview = { key, request: null, error: String(error) };
       } finally {
         work?.finish();

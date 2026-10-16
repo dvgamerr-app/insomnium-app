@@ -1,3 +1,9 @@
+/** @param {unknown} value */
+const disabled = (value) => {
+  if (value === undefined) return false;
+  if (typeof value !== 'boolean') throw new Error('Postman disabled flags must be booleans.');
+  return value;
+};
 /** @param {any} value */
 const decode = (value) => {
   try {
@@ -28,7 +34,7 @@ export function postmanUrl(source) {
   const parameters = (source.query || []).map((/** @type {any} */ p) => ({
     name: decode(p.key),
     value: decode(p.value),
-    disabled: !!p.disabled,
+    disabled: disabled(p.disabled),
     noValue: p.value == null,
     sendEmptyName: !p.key,
   }));
@@ -43,7 +49,7 @@ export function postmanUrl(source) {
     pathParameters: (source.variable || []).map((/** @type {any} */ v) => ({
       name: v.key || v.id,
       value: v.value ?? "",
-      disabled: !!v.disabled,
+      disabled: disabled(v.disabled),
     })),
   };
 }
@@ -51,7 +57,7 @@ export function postmanUrl(source) {
 /** @param {any} source */
 export function postmanBody(source) {
   const body = source || {};
-  const mode = body.disabled ? "" : body.mode;
+  const mode = disabled(body.disabled) ? "" : body.mode;
   if (mode && !["raw","urlencoded","formdata","graphql","file"].includes(mode))
     throw new Error("Unsupported Postman body mode: " + mode);
   const parameters = mode === "urlencoded" ? body.urlencoded ?? []
@@ -90,7 +96,7 @@ export function postmanBody(source) {
         return files.map((/** @type {any} */ fileName) => ({
           name: p.key,
           value: p.value ?? "",
-          disabled: !!p.disabled,
+          disabled: disabled(p.disabled),
           type: p.type,
           fileName: typeof fileName === "string" ? fileName : "",
           contentType: p.contentType || "",
@@ -104,7 +110,7 @@ export function postmanBody(source) {
 export const postmanVariables = (variables = []) =>
   Object.fromEntries(
     variables
-      .filter((v) => !v.disabled && (v.key || v.id))
+      .filter((v) => !disabled(v.disabled) && (v.key || v.id))
       .map((v) => [v.key || v.id, v.value ?? ""]),
   );
 
@@ -126,7 +132,7 @@ export function postmanHeaders(headers = []) {
   return headers.map((/** @type {any} */ h) => ({
     name: h.key,
     value: h.value,
-    disabled: !!h.disabled,
+    disabled: disabled(h.disabled),
   }));
 }
 /** Postman v2.1 descriptions may be text, a content object, or null.
