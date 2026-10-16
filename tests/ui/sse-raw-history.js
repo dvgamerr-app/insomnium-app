@@ -140,7 +140,11 @@ const partialHistory = {
   headers: [],
   size: 1003,
 };
-seed.history = [partialHistory, fullHistory];
+const selectionHistory={_id:'res_stream_selection',requestId:request._id,protocol:'sse',environmentId:null,
+  created:1700000002000,connectionState:'closed',status:200,headers:[],size:0,
+  events:[{...fullHistory.events[0],data:'colliding earlier event'},
+    {...fullHistory.events[0],_id:'parsed_latest_selection',data:'latest selected history event'}]};
+seed.history = [partialHistory, fullHistory,selectionHistory];
 seed.responseSelections = { [request._id]: fullHistory._id };
 const label = process.env.INSOMNIUM_UI_RUN_LABEL || "";
 assert.match(label, /^[a-zA-Z0-9_-]{0,80}$/);
@@ -203,6 +207,10 @@ await withPreview(
       await pane.locator(".stream-event-body").textContent(),
       "ไทย β\nsecond line",
     );
+    await history.selectOption(selectionHistory._id);
+    await pane.locator('.stream-event-body').filter({hasText:'latest selected history event'}).waitFor();
+    assert.equal(await pane.locator('.stream-event-body').textContent(),'latest selected history event');
+    await history.selectOption(fullHistory._id);await pane.locator('.stream-event').click();
     await page.evaluate(()=>{
       const state=/** @type {any} */(window);state.__streamClipboardDescriptor=Object.getOwnPropertyDescriptor(navigator.clipboard,'writeText');
       Object.defineProperty(navigator.clipboard,'writeText',{configurable:true,value:(/** @type {string} */text)=>new Promise((resolve,reject)=>{state.__streamCopyText=text;state.__rejectStreamCopy=reject;})});
@@ -262,6 +270,7 @@ await withPreview(
           malformedRefusals: malformed.length,
           sequenceRefusals: 3,
           noParsedDuplication: true,
+          historySelectionDoesNotReuseEventId:true,
           lateCopyFailureIgnored: true,
           currentCopyFailureVisible: true,
           reload: true,

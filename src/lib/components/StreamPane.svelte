@@ -20,7 +20,7 @@
   /** @type {{ response: Record<string, any> | undefined, running: boolean, history: Record<string, any>[], onhistory: (response: Record<string, any>) => void, settings?:Record<string,any> }} */
   let { response, running, history, onhistory, settings = {} } = $props();
   let fullMessage = $state(/** @type {string|null} */ (null));
-  $effect(() => { void response?._id; fullMessage = null; });
+  $effect(() => { void response?._id; selectedId = ""; fullMessage = null; });
   let tab = $state("Events"),
     selectedId = $state(""),
     filter = $state("");
