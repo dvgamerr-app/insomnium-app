@@ -3,6 +3,7 @@ import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { withNativeApp, poll } from "./helpers/native-app.js";
+import {newRequest} from '../../src/lib/model.js';
 import {
   installPluginWorkerProbe,
   pluginWorkerRecords,
@@ -49,6 +50,40 @@ async function workerAsset(page, records) {
   );
   assert.equal(createHash("sha256").update(embedded).digest("hex"), sha256);
   return { url, path, sha256 };
+}
+if(process.env.INSOMNIUM_PLUGIN_NATIVE_MODULES==='1'){
+  await withNativeApp('plugin-native-modules',async({page,invoke,output})=>{
+    const original=await invoke('load_workspace'),directory=join(output,'package'),pluginName='insomnia-plugin-native-modules';
+    await mkdir(directory,{recursive:true});
+    const source=`import helper from './helper.cjs';import {Readable,Transform,Writable} from 'node:stream';import {pipeline} from 'stream/promises';import {EventEmitter,once} from 'node:events';import {StringDecoder} from 'node:string_decoder';
+export const requestActions=[{label:'Native module pipeline',async action(c){const bytes=Buffer.from('ไทย'),decoder=new StringDecoder('utf8');let text='';const input=Readable.from([helper,bytes.subarray(0,1),bytes.subarray(1)]);if(!(input instanceof EventEmitter))throw Error('EventEmitter identity');const emitter=new EventEmitter(),ready=once(emitter,'ready');emitter.emit('ready');await ready;await pipeline(input,new Transform({transform(chunk,enc,done){done(null,decoder.write(chunk));},flush(done){this.push(decoder.end());done();}}),new Writable({write(chunk,enc,done){text+=chunk.toString();done();}}));await c.app.alert('Native module pipeline',text);}}];`;
+    await Bun.write(join(directory,'package.json'),JSON.stringify({name:pluginName,version:'1.0.0',insomnia:{},type:'module',main:'index.mjs'}));
+    await Bun.write(join(directory,'index.mjs'),source);
+    await Bun.write(join(directory,'helper.cjs'),"if(require('buffer').Buffer!==Buffer||require('events')!==require('node:events'))throw Error('CJS identity');module.exports=Buffer.from('hello');");
+    try{
+      const seed=structuredClone(original),collection='wrk_native_modules',request=newRequest(collection,{_id:'req_native_modules',name:'Native module request',url:'https://example.invalid'});
+      seed.resources.push({_id:collection,_type:'workspace',parentId:null,name:'Native modules',scope:'collection'},request);
+      seed.activeWorkspaceId=collection;seed.activeRequestId=request._id;seed.openTabs=[request._id];
+      seed.settings.pluginDirectories=[directory];seed.settings.pluginPathMigrationVersion=1;
+      seed.settings.pluginConfig={...seed.settings.pluginConfig,[pluginName]:{disabled:false}};
+      await invoke('save_workspace',{data:seed});await page.reload();
+      await page.locator('button[aria-label="Preferences"]').click();
+      await page.getByRole('tab',{name:'Plugins',exact:true}).click();
+      const plugin=card(page,pluginName);await plugin.getByRole('button',{name:'Load plugin',exact:true}).click();
+      await plugin.getByRole('button',{name:'Unload plugin',exact:true}).waitFor();
+      await page.getByRole('button',{name:'Close Preferences',exact:true}).click();
+      await page.getByRole('button',{name:'Move or manage request',exact:true}).click();
+      const manager=page.getByRole('dialog',{name:'Manage request',exact:true});await manager.locator('.plugin-resource-actions summary').click();
+      await manager.getByRole('button',{name:'Native module pipeline · '+pluginName,exact:true}).click();
+      const alert=page.getByRole('dialog',{name:'Native module pipeline',exact:true});
+      await alert.getByText('helloไทย',{exact:true}).waitFor();await alert.getByRole('button',{name:'Ok',exact:true}).click();
+      await manager.getByRole('status').filter({hasText:'Action completed.'}).waitFor();
+      assert.deepEqual((await invoke('load_workspace')).resources.find((/** @type {any} */r)=>r._id===request._id),request);
+      await manager.getByRole('button',{name:'Cancel',exact:true}).click();
+      await Bun.write(join(output,'modules-acceptance.json'),JSON.stringify({passed:true,nativeMode:'native-hidden',checks:['native ESM package and CJS helper admission','builtin modules and stream EventEmitter identity','UTF8 split pipeline and owned action alert','saved request unchanged']},null,2));
+    }finally{await invoke('save_workspace',{data:original});await page.reload();await page.locator('button[aria-label="Preferences"]').waitFor();assert.deepEqual(await invoke('load_workspace'),original);}
+  });
+  process.exit(0);
 }
 try {
   await withNativeApp("plugin-registry", async ({ page, invoke, output }) => {
@@ -118,7 +153,7 @@ try {
         .click();
       await ready
         .getByText(
-          "Plugin loaded in isolation. Custom template tags are available to request rendering. Hooks and actions are not connected yet.",
+          "Plugin loaded in isolation. Supported template tags, hooks, actions and themes are available.",
           { exact: true },
         )
         .waitFor();
@@ -133,7 +168,7 @@ try {
       await preferences(page);
       await ready
         .getByText(
-          "Plugin loaded in isolation. Custom template tags are available to request rendering. Hooks and actions are not connected yet.",
+          "Plugin loaded in isolation. Supported template tags, hooks, actions and themes are available.",
           { exact: true },
         )
         .waitFor();
@@ -200,7 +235,7 @@ try {
         .click();
       await ready
         .getByText(
-          "Plugin loaded in isolation. Custom template tags are available to request rendering. Hooks and actions are not connected yet.",
+          "Plugin loaded in isolation. Supported template tags, hooks, actions and themes are available.",
           { exact: true },
         )
         .waitFor();
@@ -240,7 +275,7 @@ try {
       .click();
     await ready
       .getByText(
-        "Plugin loaded in isolation. Custom template tags are available to request rendering. Hooks and actions are not connected yet.",
+        "Plugin loaded in isolation. Supported template tags, hooks, actions and themes are available.",
         { exact: true },
       )
       .waitFor();
@@ -256,7 +291,7 @@ try {
       .click();
     await ready
       .getByText(
-        "Plugin loaded in isolation. Custom template tags are available to request rendering. Hooks and actions are not connected yet.",
+        "Plugin loaded in isolation. Supported template tags, hooks, actions and themes are available.",
         { exact: true },
       )
       .waitFor();
@@ -357,7 +392,7 @@ try {
           .click();
         await ready
           .getByText(
-            "Plugin loaded in isolation. Custom template tags are available to request rendering. Hooks and actions are not connected yet.",
+            "Plugin loaded in isolation. Supported template tags, hooks, actions and themes are available.",
             { exact: true },
           )
           .waitFor();
