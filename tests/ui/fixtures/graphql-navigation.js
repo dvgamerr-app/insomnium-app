@@ -9,6 +9,7 @@ workspace.data=initialData();workspace.ready=true;
 const request=workspace.data.resources.find(r=>r._type==='request');
 if(!request)throw Error('Missing fixture request');
 request.body={mimeType:'application/graphql',text:JSON.stringify({query:'{ user { id } }'})};
+request.url=location.origin+'/held-schema';
 const schema='type Query { user: User } type User { id: ID!, friend: User }';
 cacheSchema(request._id,readSchema(schema),'local','Fixture');
 mount(GraphqlEditor,{target:document.body,props:{request,onchange:()=>{}}});
