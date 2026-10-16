@@ -20,6 +20,21 @@ export function pluginJarCookies(snapshot) {
   });
 }
 
+/** Keep native projections separate from imported cookies awaiting review.
+ * @param {Record<string,any>[]} resources @param {string} workspaceId
+ * @param {string} nativeId @param {Record<string,any>[]} cookies @param {number} [now] */
+export function pluginCookieJarView(resources, workspaceId, nativeId, cookies, now = Date.now()) {
+  const existing = resources.find(resource => resource._type === "cookie_jar" &&
+    resource.parentId === workspaceId && resource._nativeCookieJarView === true);
+  let viewId = existing?._id || nativeId;
+  for (let suffix = 1; !existing && resources.some(resource => resource._id === viewId); suffix++)
+    viewId = nativeId + "_native" + suffix;
+  return { ...existing, _id: viewId, _type: "cookie_jar", parentId: workspaceId,
+    name: existing?.name ?? "Default Jar", created: existing?.created ?? now,
+    modified: existing?.modified ?? now, _nativeCookieJarView: true,
+    cookies: structuredClone(cookies) };
+}
+
 /** Legacy deterministic jar IDs prevent duplicates across repeated helper calls.
  * @param {string} workspaceId */
 export async function pluginCookieJarId(workspaceId) {

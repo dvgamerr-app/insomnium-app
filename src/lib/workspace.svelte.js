@@ -37,7 +37,7 @@ import { runSuiteInWorker } from "./runner-client.js";
 import { runnerSuite, runnerResponse, runnerRequestId } from "./runner-model.js";
 import { requestDataScope } from "./request-scope.js";
 import { createResponseTemplateResolver } from "./template-response-send.js";
-import { pluginCookieJarId, pluginJarCookies } from "./plugin-cookie-jar.js";
+import { pluginCookieJarId, pluginJarCookies, pluginCookieJarView } from "./plugin-cookie-jar.js";
 import {
   renderSendRequest,
   renderOAuthRequest,
@@ -2678,11 +2678,8 @@ function workspacePluginServices(data, owner, resolveResponse, chain = [owner.re
       const cookies = pluginJarCookies(snapshot);
       const deterministicId = await pluginCookieJarId(collection._id);
       check(signal);
-      const existing = data.resources.find(item => item._type === "cookie_jar" && item.parentId === collection._id);
-      const jar = { ...existing, _id: existing?._id ?? deterministicId,
-        _type: "cookie_jar", parentId: collection._id,
-        name: existing?.name ?? "Default Jar", created: existing?.created ?? Date.now(),
-        modified: existing?.modified ?? Date.now(), cookies };
+      const jar = pluginCookieJarView(workspace.data.resources, collection._id, deterministicId, cookies);
+      const existing = workspace.data.resources.find(item => item._id === jar._id);
       if (!existing || JSON.stringify(existing.cookies) !== JSON.stringify(cookies)) {
         jar.modified = Date.now();
         const live = workspace.data.resources.findIndex(item => item._id === jar._id);

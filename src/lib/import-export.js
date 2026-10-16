@@ -38,7 +38,12 @@ const localGitFields = [
 /** Native repository IDs and operation receipts identify app-data on this machine, not portable resources.
  * Keep repository settings, but never reactivate a local binding through import.
  * @param {Record<string, any>} resource @param {boolean} [forExport] */
-function portableGitResource(resource, forExport = false) {
+function portableResource(resource, forExport = false) {
+  if (resource._type === "cookie_jar") {
+    const copy = { ...resource };
+    delete copy._nativeCookieJarView;
+    return copy;
+  }
   if (resource._type !== "git_repository") return resource;
   const copy = { ...resource };
   for (const key of localGitFields) delete copy[key];
@@ -374,7 +379,7 @@ export function parseImport(text,options = {}) {
     resources.map((r) => [r._id, id(r._id.split("_")[0])]),
   );
   resources = resources.map((resource) => {
-    const copy = portableGitResource(structuredClone(resource));
+    const copy = portableResource(structuredClone(resource));
     if (copy._type === "request") {
       const aliases = Array.isArray(copy._importRequestIds)
         ? copy._importRequestIds.filter((value) => typeof value === "string" && value)
@@ -648,7 +653,7 @@ export async function exportData(data) {
     data.history.some((entry) => entry._id === responseId && entry.requestId === requestId) &&
     data.resources.some((resource) => resource._id === responseId && ((resource._type === "response" && resource._legacyResponseAssets?.version === 1) || (resource._type === "websocket_response" && resource._legacyWebSocketAssets?.version === 1)))));
   const resources = data.resources.map((resource) => {
-    const portable = portableGitResource(resource, true);
+    const portable = portableResource(resource, true);
     const selected = resource._type === "request_meta" ? selectedPortableResponses.get(resource.parentId) : undefined;
     return selected ? { ...portable, activeResponseId: selected } : portable;
   });

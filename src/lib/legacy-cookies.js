@@ -121,7 +121,8 @@ export function convertLegacyCookie(cookie, now = Date.now()) {
 export function legacyCookiePlan(resources, workspaceId, now = Date.now()) {
   const jars = resources.filter(
     (resource) =>
-      resource._type === "cookie_jar" && resource.parentId === workspaceId,
+      resource._type === "cookie_jar" && resource.parentId === workspaceId &&
+      resource._nativeCookieJarView !== true,
   );
   /** @type {(NonNullable<ReturnType<typeof convertLegacyCookie>> & { label: string })[]} */
   const entries = [];
