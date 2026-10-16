@@ -14,6 +14,9 @@ const diagnostic = (response, code, message) => ({
   code,
   message,
 });
+/** @param {Record<string,any>} response */
+const invalidTimeline = (response) => diagnostic(response, "invalid-websocket-timeline-path",
+  "Legacy WebSocket timeline path is invalid; event log remains eligible and original metadata is retained.");
 
 /** @param {Record<string,any>} response @param {Map<string,Record<string,any>>} index */
 function owner(response, index) {
@@ -38,20 +41,18 @@ export function legacyWebSocketAssetRequests(resources) {
   )) {
     try {
       owner(response, index);
-      if (
-        typeof response.eventLogPath !== "string" ||
-        (response.timelinePath != null &&
-          typeof response.timelinePath !== "string")
-      )
+      if (typeof response.eventLogPath !== "string")
         throw Error(
           "Legacy WebSocket log paths must be explicit strings; original metadata is retained.",
         );
+      if (response.timelinePath != null && typeof response.timelinePath !== "string")
+        diagnostics.push(invalidTimeline(response));
       entries.push({
         id: response._id,
         bodyPath: "",
         bodyCompression: "raw",
         eventLogPath: response.eventLogPath,
-        timelinePath: response.timelinePath || "",
+        timelinePath: typeof response.timelinePath === "string" ? response.timelinePath : "",
       });
     } catch (error) {
       diagnostics.push(
@@ -131,6 +132,8 @@ export function convertLegacyWebSocketHistory(
   for (const response of responses) {
     try {
       const request = owner(response, index);
+      if (response.timelinePath != null && typeof response.timelinePath !== "string")
+        warnings.push(invalidTimeline(response));
       const portable = response._legacyWebSocketAssets;
       if (
         portable != null &&

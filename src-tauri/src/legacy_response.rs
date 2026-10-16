@@ -581,7 +581,12 @@ async fn read_assets(
                     "compression",
                     "Legacy body compression must be explicitly raw or gzip.",
                 ))
-            } else if entry.body_path.as_deref().unwrap_or("").is_empty() {
+            } else if entry.body_path.is_none() {
+                Err((
+                    "missing-body-path",
+                    "Legacy body path is absent; no response body was invented.",
+                ))
+            } else if entry.body_path.as_deref() == Some("") {
                 Ok(Vec::new())
             } else {
                 read_file(

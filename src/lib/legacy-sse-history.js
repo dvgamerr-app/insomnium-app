@@ -29,7 +29,7 @@ export function legacySseAssetRequests(resources) {
             "Legacy SSE requires an explicit nonempty source body path for native reads; independently validated portable bytes may still activate.",
           ),
         );
-        return false;
+        if (!entry.timelinePath) return false;
       }
       if (index.get(entry.id)?.bodyCompression === null) return true;
       diagnostics.push(
@@ -41,7 +41,7 @@ export function legacySseAssetRequests(resources) {
       );
       return false;
     })
-    .map((entry) => ({ ...entry, bodyFormat: "sse-ndjson" }));
+    .map((entry) => ({ ...entry, bodyPath: entry.bodyPath || null, bodyFormat: "sse-ndjson" }));
   return { entries, diagnostics };
 }
 

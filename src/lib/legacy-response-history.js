@@ -56,7 +56,7 @@ export function legacyResponseAssetRequests(
   expectedProtocol = "http",
 ) {
   const index = new Map(resources.map((resource) => [resource._id, resource]));
-  /** @type {{id:string,bodyPath:string,bodyCompression:"gzip"|"raw",timelinePath:string}[]} */ const entries =
+  /** @type {{id:string,bodyPath:string|null,bodyCompression:"gzip"|"raw",timelinePath:string}[]} */ const entries =
     [];
   /** @type {LegacyResponseDiagnostic[]} */ const diagnostics = [];
   for (const response of resources.filter(
@@ -78,7 +78,7 @@ export function legacyResponseAssetRequests(
       );
       continue;
     }
-    if (response.bodyPath != null && typeof response.bodyPath !== "string") {
+    if (typeof response.bodyPath !== "string") {
       diagnostics.push(
         diagnostic(
           response,
@@ -86,7 +86,6 @@ export function legacyResponseAssetRequests(
           "Legacy response body path has an invalid type; no body or history entry was invented.",
         ),
       );
-      continue;
     }
     if (
       response.timelinePath != null &&
@@ -99,13 +98,12 @@ export function legacyResponseAssetRequests(
           "Legacy response timeline path is invalid; original metadata is retained.",
         ),
       );
-      continue;
     }
     entries.push({
       id: response._id,
-      bodyPath: response.bodyPath ?? "",
+      bodyPath: typeof response.bodyPath === "string" ? response.bodyPath : null,
       bodyCompression: mode,
-      timelinePath: response.timelinePath || "",
+      timelinePath: typeof response.timelinePath === "string" ? response.timelinePath : "",
     });
   }
   return { entries, diagnostics };
