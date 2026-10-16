@@ -33,7 +33,7 @@ await withPreview(actionUi?"plugin-resource-actions":"plugin-app-dialogs", async
           await root.getByRole('status').filter({hasText:'Action completed.'}).waitFor();
         }finally{await page.evaluate(()=>/** @type {any} */(window).__resourceActions.close());}
       }
-      await Bun.write(output+'/modules-ui-acceptance.json',JSON.stringify({passed:true,headless:true,workerSha256,checks:['CommonJS/ESM buffer/stream/events/string_decoder imports','actual action and owned dialog','EventEmitter identity and promise once','pipeline decodes UTF8 split inside a Thai character'],limits:'Browser production Worker and real registry/UI; native package IO not covered'},null,2));
+      await Bun.write(output+'/modules-ui-acceptance.json',JSON.stringify({passed:true,headless:true,workerSha256,checks:['CommonJS/ESM builtin imports','conditional dependency exports select correct mode','package imports alias and self-reference','actual action and owned dialog','EventEmitter identity and promise once','pipeline decodes UTF8 split inside a Thai character'],limits:'Browser production Worker and real registry/UI; native package IO not covered'},null,2));
       return;
     }
     if(themeUi){

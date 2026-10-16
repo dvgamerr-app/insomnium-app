@@ -111,7 +111,7 @@ export function createPluginVm(engine, snapshot, eventTimeOrigin = performance.t
         if (format === "module") return files[name].replace(/^\uFEFF/, "");
         return `export default globalThis.__requirePluginModule(${JSON.stringify(name)});`;
       },
-      (parent, request) => resolvePluginModule(files, request, parent),
+      (parent, request) => resolvePluginModule(files, request, parent, 'import'),
     );
     evaluate(`(() => {
       const files = ${JSON.stringify(files)};
