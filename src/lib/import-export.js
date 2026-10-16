@@ -315,6 +315,24 @@ export function parseImport(text) {
       "Unsupported file. Use Insomnia JSON, Insomnium JSON, Postman collection v2 or environment JSON, HAR, OpenAPI JSON/YAML, or cURL commands.",
     );
   if (!resources.length) throw new Error("The import contains no resources");
+  if (source.__export_format === 2) resources = resources.map((resource) => {
+    if (resource?._type !== "request") return resource;
+    if (resource.body != null && typeof resource.body !== "string")
+      throw new Error("Legacy export format 2 request bodies must be strings.");
+    const contentType = Array.isArray(resource.headers)
+      ? resource.headers.find((/** @type {any} */ header) => typeof header?.name === "string" && header.name.toLowerCase() === "content-type")?.value
+      : "";
+    const mimeType = typeof contentType === "string" ? contentType.split(";")[0] : "";
+    return {...resource,
+      _legacyExportFormat:2,
+      body:{
+        // Preserve already encoded form bytes through the raw-text sender.
+        // The original Content-Type header remains authoritative.
+        mimeType:["application/x-www-form-urlencoded", "application/octet-stream", "multipart/form-data", "application/graphql"].includes(mimeType.toLowerCase()) ? "text/plain" : mimeType || (resource.body ? "text/plain" : ""),
+        text:resource.body ?? "",
+      },
+    };
+  });
   const ids = new Set();
   for (const r of resources) {
     if (

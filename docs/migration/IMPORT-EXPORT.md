@@ -1,5 +1,11 @@
 # IMPORT EXPORT migration
 
+## Legacy export format 2 request bodies — 2026-10-16
+
+Format 2 string request bodies are converted before ordinary import normalization; previously spreading a string into the body object lost `text`. Content-Type comes from the original header, and raw form/binary/multipart/GraphQL text uses the text sender with that header retained, avoiding parameter re-encoding or accidental file interpretation. Missing body without Content-Type stays absent. Original other fields remain intact and `_legacyExportFormat:2` records provenance without duplicating payload bytes. Non-string bodies in format 2 refuse explicitly; format 3/4 handling is unchanged.
+
+Contract: archived `insomnia-2.ts` and `models/request.ts::migrateBody`; raw sender choice follows existing `curl-import.js`. Inline Bun checks cover actual `prepareRequest` body/header preservation across JSON/form/binary/multipart/missing MIME, absent-body control, reimport and malformed refusal. `bun run check` and `bun run build` pass. UI/native import/send acceptance for this frontend change remains open; current native candidate predates it.
+
 ## Postman environment JSON — 2026-10-16
 
 Recognizes `_postman_variable_scope: "environment"` exports with a `values` array. Creates an isolated imported collection/environment under the existing additive import policy. Like archived `postman-env.ts`, only enabled entries become active variables and later enabled duplicates win. Complete source, disabled entries and variable metadata remain in the environment's `_postmanSource`; malformed variable records refuse before applying. Review and success notice include environment counts.
