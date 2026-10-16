@@ -1,5 +1,6 @@
 //! Recovery of versioned checkout and same-branch advancement journals.
 //! Never guesses from journal age or from a successful transport reply.
+use crate::resource_topology::owner;
 use crate::{git, storage};
 use serde::Deserialize;
 use serde_json::Value;
@@ -99,61 +100,12 @@ fn resources(value: &Value) -> Result<HashMap<&str, &Value>, String> {
     Ok(result)
 }
 
-fn owner<'a>(records: &HashMap<&'a str, &'a Value>, id: &str) -> Option<&'a str> {
-    let mut item = *records.get(id)?;
-    let mut seen = std::collections::HashSet::new();
-    loop {
-        let id = item["_id"].as_str()?;
-        if !seen.insert(id) {
-            return None;
-        }
-        if item["_type"] == "workspace" {
-            return Some(id);
-        }
-        item = *records.get(item["parentId"].as_str()?)?;
-    }
-}
-
-fn validate_topology(records: &HashMap<&str, &Value>) -> Result<(), String> {
-    for resource in records.values() {
-        let mut seen = std::collections::HashSet::new();
-        let mut current = *resource;
-        loop {
-            let id = current["_id"]
-                .as_str()
-                .ok_or("Invalid topology resource ID")?;
-            if !seen.insert(id) {
-                return Err("Circular checkout parent reference".into());
-            }
-            let Some(parent) = current["parentId"].as_str().and_then(|id| records.get(id)) else {
-                break;
-            };
-            current = parent;
-        }
-        let kind = resource["_type"].as_str().unwrap_or("");
-        let allowed: &[&str] = match kind {
-            "environment" => &["workspace", "environment"],
-            "request_group" | "request" | "grpc_request" | "websocket_request" => {
-                &["workspace", "request_group"]
-            }
-            _ => continue,
-        };
-        let parent = resource["parentId"].as_str().and_then(|id| records.get(id));
-        if parent.is_none_or(|parent| !allowed.contains(&parent["_type"].as_str().unwrap_or("")))
-            || owner(records, resource["_id"].as_str().unwrap_or("")).is_none()
-        {
-            return Err("Invalid or missing parent for navigable checkout resource".into());
-        }
-    }
-    Ok(())
-}
-
 fn validate_pair(journal: &Journal) -> Result<(), String> {
     let before = resources(&journal.before_workspace)?;
     let after = resources(&journal.after_workspace)?;
     let workspace = journal.workspace_id.as_str();
     for records in [&before, &after] {
-        validate_topology(records)?;
+        // resources() already applies shared storage/topology validation.
         let root = records
             .get(workspace)
             .ok_or("Missing checkout collection")?;

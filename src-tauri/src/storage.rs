@@ -2,7 +2,7 @@ use atomic_write_file::AtomicWriteFile;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::{
-    collections::HashSet,
+    collections::HashMap,
     fs,
     io::Write,
     path::Path,
@@ -36,14 +36,26 @@ pub(crate) fn validate(value: &Value) -> Result<(), String> {
     {
         return Err("No collection in workspace data".into());
     }
-    let mut ids = HashSet::new();
+    let mut records = HashMap::new();
     for resource in resources {
         let id = resource
             .get("_id")
             .and_then(Value::as_str)
             .ok_or("Missing resource ID")?;
-        if resource.get("_type").and_then(Value::as_str).is_none() || !ids.insert(id) {
+        if id.is_empty()
+            || resource.get("_type").and_then(Value::as_str).is_none()
+            || records.insert(id, resource).is_some()
+        {
             return Err("Invalid or duplicate resource".into());
+        }
+    }
+    crate::resource_topology::validate(&records)?;
+    if let Some(tabs) = value.get("openTabs").filter(|tabs| !tabs.is_null()) {
+        if tabs
+            .as_array()
+            .is_none_or(|tabs| tabs.iter().any(|tab| !tab.is_string()))
+        {
+            return Err("Invalid saved request tabs".into());
         }
     }
     if let Some(history) = value.get("history").filter(|history| !history.is_null()) {
@@ -62,6 +74,17 @@ pub(crate) fn validate(value: &Value) -> Result<(), String> {
                     }
                 }
             }
+        }
+    }
+    if let Some(selections) = value
+        .get("responseSelections")
+        .filter(|selections| !selections.is_null())
+    {
+        if selections
+            .as_object()
+            .is_none_or(|selections| selections.values().any(|selection| !selection.is_string()))
+        {
+            return Err("Invalid saved response selections".into());
         }
     }
     Ok(())
@@ -107,7 +130,7 @@ pub(crate) fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
 #[serde(rename_all = "camelCase")]
 pub struct BackupPreview {
     data: Value,
-    primary_sha256: String,
+    primary_sha256: Option<String>,
     backup_sha256: String,
 }
 
@@ -128,10 +151,22 @@ fn ordinary_bytes(path: &Path) -> Result<Vec<u8>, String> {
     fs::read(path).map_err(|e| e.to_string())
 }
 
-fn backup_preview(directory: &Path) -> Result<(BackupPreview, Vec<u8>, Vec<u8>), String> {
+fn primary_bytes(directory: &Path) -> Result<Option<Vec<u8>>, String> {
+    let path = directory.join(WORKSPACE_FILE);
+    match fs::symlink_metadata(&path) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(error.to_string()),
+        Ok(_) => ordinary_bytes(&path).map(Some),
+    }
+}
+
+fn backup_preview(directory: &Path) -> Result<(BackupPreview, Option<Vec<u8>>, Vec<u8>), String> {
     ensure_no_pending_transition(directory)?;
-    let primary = ordinary_bytes(&directory.join(WORKSPACE_FILE))?;
-    if decoded_workspace(&primary).is_ok() {
+    let primary = primary_bytes(directory)?;
+    if primary
+        .as_ref()
+        .is_some_and(|bytes| decoded_workspace(bytes).is_ok())
+    {
         return Err(
             "The current workspace is valid. Backup restore is only available for damaged storage."
                 .into(),
@@ -144,7 +179,9 @@ fn backup_preview(directory: &Path) -> Result<(BackupPreview, Vec<u8>, Vec<u8>),
     Ok((
         BackupPreview {
             data,
-            primary_sha256: format!("{:x}", Sha256::digest(&primary)),
+            primary_sha256: primary
+                .as_ref()
+                .map(|bytes| format!("{:x}", Sha256::digest(bytes))),
             backup_sha256: format!("{:x}", Sha256::digest(&backup)),
         },
         primary,
@@ -155,47 +192,51 @@ fn backup_preview(directory: &Path) -> Result<(BackupPreview, Vec<u8>, Vec<u8>),
 fn restore_backup(
     session: &mut Session,
     directory: &Path,
-    primary_hash: &str,
+    primary_hash: Option<&str>,
     backup_hash: &str,
-) -> Result<String, String> {
+) -> Result<Option<String>, String> {
     if session.loaded {
         return Err("Reload before restoring a damaged workspace.".into());
     }
     let (preview, primary, backup) = backup_preview(directory)?;
-    if preview.primary_sha256 != primary_hash || preview.backup_sha256 != backup_hash {
+    if preview.primary_sha256.as_deref() != primary_hash || preview.backup_sha256 != backup_hash {
         return Err(
             "Workspace or backup changed. Inspect the backup again before restoring.".into(),
         );
     }
-    let retained = directory.join(format!(
-        "workspace-v1.damaged-{}.json",
-        uuid::Uuid::new_v4()
-    ));
-    let mut copy = fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&retained)
-        .map_err(|e| e.to_string())?;
-    copy.write_all(&primary)
-        .and_then(|_| copy.sync_all())
-        .map_err(|e| e.to_string())?;
+    let retained = if let Some(bytes) = &primary {
+        let path = directory.join(format!(
+            "workspace-v1.damaged-{}.json",
+            uuid::Uuid::new_v4()
+        ));
+        let mut copy = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+            .map_err(|e| e.to_string())?;
+        copy.write_all(bytes)
+            .and_then(|_| copy.sync_all())
+            .map_err(|e| e.to_string())?;
+        Some(path)
+    } else {
+        None
+    };
+    let retained_notice = retained
+        .as_ref()
+        .map(|path| format!(" Damaged copy retained at {}.", path.display()))
+        .unwrap_or_default();
     // Recheck after retaining the damaged bytes, before replacing the primary.
-    if ordinary_bytes(&directory.join(WORKSPACE_FILE))? != primary
+    if primary_bytes(directory)? != primary
         || ordinary_bytes(&directory.join(PREVIOUS_WORKSPACE_FILE))? != backup
     {
         return Err(format!(
-            "Workspace changed. Damaged copy retained at {}. Inspect again.",
-            retained.display()
+            "Workspace changed. Inspect again.{retained_notice}"
         ));
     }
-    atomic_write(&directory.join(WORKSPACE_FILE), &backup).map_err(|e| {
-        format!(
-            "Restore failed: {e}. Damaged copy retained at {}",
-            retained.display()
-        )
-    })?;
+    atomic_write(&directory.join(WORKSPACE_FILE), &backup)
+        .map_err(|e| format!("Restore failed: {e}.{retained_notice}"))?;
     session.backed_up = true; // Preserve the reviewed backup through the next save.
-    Ok(retained.to_string_lossy().into_owned())
+    Ok(retained.map(|path| path.to_string_lossy().into_owned()))
 }
 
 #[tauri::command]
@@ -222,18 +263,23 @@ pub async fn inspect_workspace_backup(
 #[tauri::command]
 pub async fn restore_workspace_backup(
     app: tauri::AppHandle,
-    primary_sha256: String,
+    primary_sha256: Option<String>,
     backup_sha256: String,
     git_state: tauri::State<'_, crate::git::GitState>,
     state: tauri::State<'_, StorageState>,
-) -> Result<String, String> {
+) -> Result<Option<String>, String> {
     let directory = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let git = git_state.0.clone();
     let session = state.0.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let _git = git.lock().map_err(|e| e.to_string())?;
         let mut session = session.lock().map_err(|e| e.to_string())?;
-        restore_backup(&mut session, &directory, &primary_sha256, &backup_sha256)
+        restore_backup(
+            &mut session,
+            &directory,
+            primary_sha256.as_deref(),
+            &backup_sha256,
+        )
     })
     .await
     .map_err(|e| e.to_string())?
@@ -299,8 +345,16 @@ impl Session {
     }
 
     pub(crate) fn load(&mut self, directory: &Path) -> Result<Option<Value>, String> {
+        self.loaded = false;
         ensure_no_pending_transition(directory)?;
         let data = read_workspace_file(directory)?;
+        if data.is_none() {
+            match fs::symlink_metadata(directory.join(PREVIOUS_WORKSPACE_FILE)) {
+                Ok(_) => return Err("Workspace file is missing, but a backup exists. Inspect the backup before continuing.".into()),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(format!("Could not inspect workspace backup: {error}")),
+            }
+        }
         self.loaded = true;
         Ok(data)
     }
@@ -390,11 +444,11 @@ mod tests {
         let retained = restore_backup(
             &mut session,
             &directory.0,
-            &preview.primary_sha256,
+            preview.primary_sha256.as_deref(),
             &preview.backup_sha256,
         )
         .unwrap();
-        assert_eq!(fs::read(retained).unwrap(), b"damaged original");
+        assert_eq!(fs::read(retained.unwrap()).unwrap(), b"damaged original");
         assert_eq!(fs::read(directory.0.join(WORKSPACE_FILE)).unwrap(), backup);
         assert_eq!(
             fs::read(directory.0.join(PREVIOUS_WORKSPACE_FILE)).unwrap(),
@@ -425,7 +479,7 @@ mod tests {
             assert!(restore_backup(
                 &mut Session::default(),
                 &directory.0,
-                &preview.primary_sha256,
+                preview.primary_sha256.as_deref(),
                 &preview.backup_sha256
             )
             .is_err());
@@ -449,6 +503,150 @@ mod tests {
         fs::write(directory.0.join(PREVIOUS_WORKSPACE_FILE), &backup).unwrap();
         fs::write(directory.0.join(WORKSPACE_FILE), &backup).unwrap();
         assert!(backup_preview(&directory.0).is_err());
+    }
+
+    #[test]
+    fn missing_primary_requires_review_but_first_run_stays_empty() {
+        let (directory, backup) = damaged_backup();
+        fs::remove_file(directory.0.join(WORKSPACE_FILE)).unwrap();
+        let mut session = Session::default();
+        assert!(session.load(&directory.0).is_err());
+        assert!(session.require_loaded().is_err());
+        let (preview, _, _) = backup_preview(&directory.0).unwrap();
+        assert_eq!(preview.primary_sha256, None);
+        assert_eq!(
+            serde_json::to_value(&preview).unwrap()["primarySha256"],
+            Value::Null
+        );
+        assert!(
+            restore_backup(&mut session, &directory.0, None, &preview.backup_sha256)
+                .unwrap()
+                .is_none()
+        );
+        assert_eq!(fs::read(directory.0.join(WORKSPACE_FILE)).unwrap(), backup);
+        assert_eq!(
+            fs::read(directory.0.join(PREVIOUS_WORKSPACE_FILE)).unwrap(),
+            backup
+        );
+        assert_eq!(fs::read_dir(&directory.0).unwrap().count(), 2);
+        assert_eq!(session.load(&directory.0).unwrap(), Some(workspace()));
+
+        fs::remove_file(directory.0.join(WORKSPACE_FILE)).unwrap();
+        fs::remove_file(directory.0.join(PREVIOUS_WORKSPACE_FILE)).unwrap();
+        let mut fresh = Session::default();
+        assert_eq!(fresh.load(&directory.0).unwrap(), None);
+        assert!(fresh.require_loaded().is_ok());
+        fs::write(directory.0.join(WORKSPACE_FILE), b"new corruption").unwrap();
+        assert!(fresh.load(&directory.0).is_err());
+        assert!(fresh.require_loaded().is_err());
+    }
+
+    #[test]
+    fn missing_primary_preview_does_not_replace_a_newly_created_file() {
+        let (directory, backup) = damaged_backup();
+        fs::remove_file(directory.0.join(WORKSPACE_FILE)).unwrap();
+        let (preview, _, _) = backup_preview(&directory.0).unwrap();
+        fs::write(directory.0.join(WORKSPACE_FILE), b"new file since review").unwrap();
+        assert!(restore_backup(
+            &mut Session::default(),
+            &directory.0,
+            None,
+            &preview.backup_sha256
+        )
+        .is_err());
+        assert_eq!(
+            fs::read(directory.0.join(WORKSPACE_FILE)).unwrap(),
+            b"new file since review"
+        );
+        assert_eq!(
+            fs::read(directory.0.join(PREVIOUS_WORKSPACE_FILE)).unwrap(),
+            backup
+        );
+        assert_eq!(fs::read_dir(&directory.0).unwrap().count(), 2);
+    }
+
+    #[test]
+    fn topology_validation_preserves_unknown_models_and_rejects_broken_trees() {
+        let mut valid = workspace();
+        valid["resources"].as_array_mut().unwrap().extend([
+            json!({"_id":"folder","_type":"request_group","parentId":"wrk_owned"}),
+            json!({"_id":"req","_type":"request","parentId":"folder"}),
+            json!({"_id":"env","_type":"environment","parentId":"wrk_owned"}),
+            json!({"_id":"subenv","_type":"environment","parentId":"env"}),
+            json!({"_id":"future","_type":"unknown_legacy_model","parentId":"foreign","payload":{"keep":true}}),
+        ]);
+        let original = valid.clone();
+        validate(&valid).unwrap();
+        assert_eq!(valid, original);
+        for broken in [
+            json!([{"_id":"req","_type":"request","parentId":"missing"}]),
+            json!([{"_id":"folder","_type":"request_group","parentId":"folder"}]),
+            json!([{"_id":"req","_type":"request","parentId":"wrk_owned"},{"_id":"env","_type":"environment","parentId":"req"}]),
+            json!([{"_id":"future","_type":"unknown_legacy_model","parentId":"future"}]),
+            json!([{"_id":"","_type":"unknown_legacy_model"}]),
+        ] {
+            let mut data = workspace();
+            data["resources"]
+                .as_array_mut()
+                .unwrap()
+                .extend(broken.as_array().unwrap().iter().cloned());
+            assert!(validate(&data).is_err());
+        }
+    }
+
+    #[test]
+    fn topology_failure_can_restore_a_reviewed_backup() {
+        let (directory, backup) = damaged_backup();
+        let mut broken = workspace();
+        broken["resources"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"_id":"folder","_type":"request_group","parentId":"folder"}));
+        let original = serde_json::to_vec(&broken).unwrap();
+        fs::write(directory.0.join(WORKSPACE_FILE), &original).unwrap();
+        let mut session = Session::default();
+        assert!(session.load(&directory.0).is_err());
+        assert!(session.require_loaded().is_err());
+        let (preview, _, _) = backup_preview(&directory.0).unwrap();
+        let retained = restore_backup(
+            &mut session,
+            &directory.0,
+            preview.primary_sha256.as_deref(),
+            &preview.backup_sha256,
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(fs::read(retained).unwrap(), original);
+        assert_eq!(
+            fs::read(directory.0.join(PREVIOUS_WORKSPACE_FILE)).unwrap(),
+            backup
+        );
+        assert_eq!(session.load(&directory.0).unwrap(), Some(workspace()));
+    }
+
+    #[test]
+    fn damaged_navigation_metadata_blocks_load_but_allows_backup_review() {
+        let (directory, _) = damaged_backup();
+        for (field, invalid) in [
+            ("openTabs", json!("not a list")),
+            ("openTabs", json!([7])),
+            ("responseSelections", json!([])),
+            ("responseSelections", json!({"req":null})),
+        ] {
+            let mut data = workspace();
+            data[field] = invalid;
+            let bytes = serde_json::to_vec(&data).unwrap();
+            fs::write(directory.0.join(WORKSPACE_FILE), &bytes).unwrap();
+            let mut session = Session::default();
+            assert!(session.load(&directory.0).is_err());
+            assert!(session.require_loaded().is_err());
+            assert_eq!(backup_preview(&directory.0).unwrap().0.data, workspace());
+            assert_eq!(fs::read(directory.0.join(WORKSPACE_FILE)).unwrap(), bytes);
+        }
+        let mut valid = workspace();
+        valid["openTabs"] = json!(["req"]);
+        valid["responseSelections"] = json!({"req":"response"});
+        validate(&valid).unwrap();
     }
 
     fn workspace() -> Value {

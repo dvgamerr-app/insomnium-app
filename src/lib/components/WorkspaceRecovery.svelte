@@ -39,7 +39,9 @@
           workspace.error || "Could not open the restored workspace.",
         );
       workspace.error = "";
-      workspace.notice = `Backup restored. The damaged file was preserved at ${retained}`;
+      workspace.notice = retained
+        ? `Backup restored. The damaged file was preserved at ${retained}`
+        : "Workspace restored from backup.";
     } catch (cause) {
       error = String(cause);
       preview = null;
@@ -64,9 +66,10 @@
         ).length} collections and {preview.data.history.length} history entries.
       </p>
       <p>
-        Restoring replaces the damaged workspace with this older backup. Recent
-        changes may be missing. The damaged file will be preserved separately
-        and the backup will remain unchanged.
+        {preview.primarySha256 === null
+          ? "The workspace file is missing. Restoring will recreate it from this older backup."
+          : "Restoring replaces the damaged workspace with this older backup. The damaged file will be preserved separately."}
+        Recent changes may be missing. The backup will remain unchanged.
       </p>
       <div class="resource-tools">
         <Button disabled={busy} onclick={() => (preview = null)}>Cancel</Button>

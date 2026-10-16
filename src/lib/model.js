@@ -196,8 +196,13 @@ export function validateData(value) {
 }
 /** @param {unknown} value */
 export function historyLimit(value) {
-  const n = Number(value);
-  return Number.isFinite(n) ? Math.max(1, Math.min(100, Math.trunc(n))) : 20;
+  try {
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.max(1, Math.min(100, Math.trunc(n))) : 20;
+  } catch {
+    // Corrupt preferences must not prevent opening otherwise valid local data.
+    return 20;
+  }
 }
 /** Newest-first retention is scoped to each request, optionally its environment.
  * The serialized history budget remains global across all retained requests.

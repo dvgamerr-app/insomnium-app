@@ -40,6 +40,7 @@ mod oauth_embedded;
 mod oauth_implicit;
 mod oauth_navigation;
 mod storage;
+mod resource_topology;
 mod legacy_response;
 mod plugins;
 mod plugin_sources;

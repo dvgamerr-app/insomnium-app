@@ -88,4 +88,17 @@ saved.history = [
 ];
 assert.deepEqual(validateData(saved).history, saved.history);
 cases.push("valid-and-legacy-stream-history-remain-intact");
+const damagedPreference = /** @type {Record<string,any>} */ (initialData());
+damagedPreference.settings.maxHistory = JSON.parse('{"toString":null}');
+const normalizedPreference = validateData(damagedPreference);
+assert.equal(normalizedPreference.settings.maxHistory, 20);
+for (const original of damagedPreference.resources) {
+  assert.deepEqual(
+    normalizedPreference.resources.find(
+      (/** @type {Record<string,any>} */ row) => row._id === original._id,
+    ),
+    original,
+  );
+}
+cases.push("damaged-history-preference-does-not-block-workspace");
 console.log(JSON.stringify({ passed: true, cases }));
