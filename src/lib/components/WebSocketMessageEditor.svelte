@@ -6,6 +6,8 @@
   import Textarea from "./ui/Textarea.svelte";
   import CodeEditor from "./CodeEditor.svelte";
   import { environmentFor } from "../model.js";
+  import { jsonPrettify } from "../json-prettify.js";
+  import { isJsonBodyMediaType } from "../media-type.js";
   import Select from "./ui/Select.svelte";
   import Button from "./ui/Button.svelte";
   import Input from "./ui/Input.svelte";
@@ -39,6 +41,15 @@
     !!app.running[request._id] &&
       app.responses[request._id]?.connectionState === "open",
   );
+  function format() {
+    if (!payload || !isJsonBodyMediaType(payload.mode)) return;
+    error = "";
+    try {
+      update(payload._id, { value: jsonPrettify(payload.value, "  ", false) });
+    } catch (e) {
+      error = String(e);
+    }
+  }
   export async function send() {
     if (!payload || sending) return;
     sending = true;
@@ -71,6 +82,10 @@
     ><Icon name="plus" size={14} /> Payload</Button
   >
   <span class="spacer"></span>
+  {#if payload && isJsonBodyMediaType(payload.mode)}<Button
+      variant="secondary"
+      onclick={format}><Icon name="code" size={14} /> Format JSON</Button
+    >{/if}
   {#if payload}<Button
       variant="ghost"
       class="icon-button subtle"

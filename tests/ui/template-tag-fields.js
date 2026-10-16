@@ -239,9 +239,16 @@ async function exercise(page, output, invoke) {
     await edit("WebSocket message", true, (r) => r.value);
     const payloadEditor = page.locator(".shared-code-editor")
       .filter({has:page.getByLabel("WebSocket message", {exact:true})}).locator(".CodeMirror");
-    const payloadText = await payloadEditor.evaluate((el) => /** @type {any} */ (el).CodeMirror.getValue());
     await page.getByLabel("Payload type", {exact:true}).selectOption("application/json");
     await poll(async () => await payloadEditor.evaluate((el) => /** @type {any} */ (el).CodeMirror.getOption("mode")) === "application/json", "WS JSON editor mode");
+    const jsonSource = String.raw`{"literal":"\u007b\u007b keep \u007d\u007d","value":"{{ _.wire }}","large":9007199254740993}`;
+    await payloadEditor.evaluate((el, value) => /** @type {any} */ (el).CodeMirror.setValue(value),jsonSource);
+    await page.getByRole("button",{name:"Format JSON",exact:true}).click();
+    const payloadText = await payloadEditor.evaluate((el) => /** @type {any} */ (el).CodeMirror.getValue());
+    assert.ok(payloadText.includes("\n"));
+    assert.ok(payloadText.includes(String.raw`\u007b\u007b keep \u007d\u007d`));
+    assert.ok(payloadText.includes("9007199254740993"));
+    assert.equal(JSON.parse(payloadText).value,"{{ _.wire }}");
     await page.getByLabel("Payload type", {exact:true}).selectOption("binary");
     await payloadEditor.waitFor({state:"detached"});
     assert.equal(await page.getByLabel("WebSocket message", {exact:true}).inputValue(),payloadText);
