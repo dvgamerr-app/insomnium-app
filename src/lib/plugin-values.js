@@ -1,8 +1,10 @@
 /** Data-only graph transport shared verbatim with the isolated VM.
  * No getters/toJSON or arbitrary constructors are invoked by the codec.
  * The wire format is internal, bounded and never used for workspace storage. */
-export function createPluginValueCodec() {
-  const limit = 1024 * 1024,
+/** @param {"standard"|"hook"} [profile] */
+export function createPluginValueCodec(profile="standard") {
+  if(!["standard","hook"].includes(profile))throw TypeError("Invalid plugin codec profile");
+  const limit = (profile==="hook"?8:1) * 1024 * 1024,
     maxItems = 10000,
     maxDepth = 64;
   const views = [
@@ -40,7 +42,7 @@ export function createPluginValueCodec() {
         }
       }
       if (bytes > limit)
-        throw RangeError("Plugin value exceeds the 1 MiB wire limit");
+        throw RangeError("Plugin value exceeds the "+(profile==="hook"?8:1)+" MiB wire limit");
     }
     return bytes;
   }
@@ -48,6 +50,13 @@ export function createPluginValueCodec() {
   const bounded = (text) => {
     byteSize(text);
     return text;
+  };
+  const hex=Array.from({length:256},(_,i)=>i.toString(16).padStart(2,'0'));
+  /** @param {ArrayBuffer} buffer */
+  const encodeBytes=buffer=>{
+    const bytes=new Uint8Array(buffer),chunks=[];
+    for(let offset=0;offset<bytes.length;offset+=4096){let part='';for(let i=offset;i<Math.min(offset+4096,bytes.length);i++)part+=hex[bytes[i]];chunks.push(part);}
+    return chunks.join('');
   };
   /** @param {any} input */
   function encode(input) {
@@ -61,7 +70,7 @@ export function createPluginValueCodec() {
       bounded(text);
       payloadBytes += byteSize(JSON.stringify(text));
       if (payloadBytes > limit)
-        throw RangeError("Plugin value exceeds the 1 MiB wire limit");
+        throw RangeError("Plugin value exceeds the "+(profile==="hook"?8:1)+" MiB wire limit");
       return text;
     }
     /** @param {any} value @param {number} depth @returns {any} */
@@ -151,9 +160,7 @@ export function createPluginValueCodec() {
         nodes[id] = [
           "buffer",
           charge(
-            Array.from(new Uint8Array(value), (byte) =>
-              byte.toString(16).padStart(2, "0"),
-            ).join(""),
+            encodeBytes(value),
           ),
         ];
       } else if (ArrayBuffer.isView(value)) {
@@ -333,7 +340,7 @@ export function createPluginValueCodec() {
         type === "buffer" &&
         n.length === 2 &&
         typeof n[1] === "string" &&
-        /^(?:[0-9a-f]{2})*$/.test(n[1])
+        n[1].length%2===0 && !/[^0-9a-f]/.test(n[1])
       ) {
         const bytes = new Uint8Array(n[1].length / 2);
         for (let i = 0; i < bytes.length; i++)

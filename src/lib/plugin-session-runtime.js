@@ -215,7 +215,7 @@ export function createPluginCallbackRuntime(
       'Object.defineProperty(globalThis,"__pluginHelperCurrent",{writable:false,configurable:false});',
     ).dispose();
     evaluate(
-      `globalThis.__pluginValueCodec=(${createPluginValueCodec.toString()})();`,
+      `globalThis.__pluginHookValueCodec=(${createPluginValueCodec.toString()})("hook");globalThis.__pluginValueCodec=(${createPluginValueCodec.toString()})();`,
     ).dispose();
     evaluate(
       `globalThis.__createPluginResponseContext=(${createPluginResponseContext.toString()});globalThis.__createPluginRequestContext=(${createPluginRequestContext.toString()});globalThis.__validatePluginCallContext=(${validatePluginCallContext.toString()});`,
@@ -379,7 +379,8 @@ export function createPluginCallbackRuntime(
       )
         throw Error("Invalid plugin callback");
       // Validate the internal envelope before entering the guest.
-      const payload = codec.decode(args),
+      const callbackCodec=["requestHooks","responseHooks"].includes(kind)?createPluginValueCodec("hook"):codec;
+      const payload = callbackCodec.decode(args),
         callArgs = Array.isArray(payload) ? payload : payload?.args,
         helper = validatePluginCallContext(
           Array.isArray(payload) ? {} : payload?.context,
@@ -423,7 +424,8 @@ export function createPluginCallbackRuntime(
       try {
         handle = evaluate(`(async()=>{
           const kind=${JSON.stringify(kind)},item=__pluginExports[kind==='templateTagMetadata'||kind==='templateTagAction'?'templateTags':kind]?.[${index}];
-          const payload=__pluginValueCodec.decode(${JSON.stringify(args)});
+          const callbackCodec=kind.endsWith('Hooks')?__pluginHookValueCodec:__pluginValueCodec;
+          const payload=callbackCodec.decode(${JSON.stringify(args)});
           const args=Array.isArray(payload)?payload:payload.args;
           const helper=__validatePluginCallContext(Array.isArray(payload)?{}:payload.context);
           if(kind==='templateTagMetadata') {
@@ -453,8 +455,8 @@ export function createPluginCallbackRuntime(
           }}:undefined;
           const context=Object.freeze({...helperData,...(renderContext?{context:renderContext}:{}),...runHelpers,...(responseContext?{response:responseContext}:{}),...(requestContext?{request:requestContext}:{}),...(app?{app}:{}),store:__pluginContext.store});
           const value=await fn.call(item,context,...args);
-          if(responseContext)return __pluginValueCodec.encode({response:responseSnapshot,request:requestSnapshot,environment:helper.context??{}});
-          if(requestContext)return __pluginValueCodec.encode({request:requestSnapshot,environment:helper.context??{}});
+          if(responseContext)return callbackCodec.encode({response:responseSnapshot,request:requestSnapshot,environment:helper.context??{}});
+          if(requestContext)return callbackCodec.encode({request:requestSnapshot,environment:helper.context??{}});
           if(kind==='templateTags' && Object.getPrototypeOf(value??{})===__pluginBuffer.prototype)
             return __pluginValueCodec.encode(value.toString());
           return __pluginValueCodec.encode(value);

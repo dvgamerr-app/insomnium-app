@@ -150,7 +150,7 @@ export function createPluginRegistry(adapters) {
                 record.session.wasCancelled?.() === true
               ) {
                 // Recovery waits must not expose mutable caller data to a new VM.
-                const codec = createPluginValueCodec();
+                const codec = createPluginValueCodec(kind.endsWith("Hooks")?"hook":"standard");
                 const detached = codec.decode(
                   codec.encode({ args, context: operation.context ?? {} }),
                 );

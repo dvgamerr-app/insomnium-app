@@ -28,6 +28,7 @@ export async function openPluginSession(snapshot, options) {
   if (options.signal?.aborted || !options.isCurrent()) throw aborted();
   const store = createPluginStore(snapshot.name);
   const codec = createPluginValueCodec();
+  const hookCodec=createPluginValueCodec("hook");
   const worker =
     options.createWorker?.() ??
     new Worker(new URL("./plugin.worker.js", import.meta.url), {
@@ -41,7 +42,7 @@ export async function openPluginSession(snapshot, options) {
     queued = 0;
   /** @type {Error|undefined} */ let closeReason;
   let queue = Promise.resolve();
-  /** @type {(PluginDomOwner & {id:number,leaseId?:number,cleanup:boolean,resolve:(value:any)=>void,reject:(error:Error)=>void,deadline:ReturnType<typeof createRenderDeadline>,totalTimer:ReturnType<typeof setTimeout>,unsubscribe?:()=>void,resume?:()=>void,retentionOwner?:PluginDomOwner})|undefined} */
+  /** @type {(PluginDomOwner & {callbackCodec:ReturnType<typeof createPluginValueCodec>,id:number,leaseId?:number,cleanup:boolean,resolve:(value:any)=>void,reject:(error:Error)=>void,deadline:ReturnType<typeof createRenderDeadline>,totalTimer:ReturnType<typeof setTimeout>,unsubscribe?:()=>void,resume?:()=>void,retentionOwner?:PluginDomOwner})|undefined} */
   let active;
   const waitingEventFrames=new WeakSet(),windowCheckpointFrames=new WeakSet();
   /** @type {WeakMap<object,{frames:SharedArrayBuffer[],owner:number,depth:number,servicing:boolean,dispatch:(wire:string)=>string}>} */
@@ -149,6 +150,7 @@ export async function openPluginSession(snapshot, options) {
       const id = message.type === "init" ? 0 : ++nextId;
       active = {
         id,
+        callbackCodec:["requestHooks","responseHooks"].includes(message.kind)?hookCodec:codec,
         leaseId:message.leaseId,
         cleanup,
         resolve,
@@ -541,11 +543,12 @@ export async function openPluginSession(snapshot, options) {
       return;
     }
     disposeOperation(active);
+    const resultCodec=active.callbackCodec;
     const resolve = active.resolve,
       reject = active.reject;
     active = undefined;
     try {
-      resolve(message.id === 0 ? message.result : codec.decode(message.result));
+      resolve(message.id === 0 ? message.result : resultCodec.decode(message.result));
     } catch (error) {
       // The callback is already detached from active; reject it explicitly.
       reject(error instanceof Error ? error : new Error(String(error)));
@@ -642,9 +645,10 @@ export async function openPluginSession(snapshot, options) {
         if (!Array.isArray(args)) throw Error("Invalid plugin arguments");
         // Encode first so accessor/function/prototype refusals cannot execute
         // getters during context validation, and detach before queueing.
-        detached = codec.encode({ args, context: operation.context ?? {} });
+        const callbackCodec=["requestHooks","responseHooks"].includes(kind)?hookCodec:codec;
+        detached = callbackCodec.encode({ args, context: operation.context ?? {} });
         const helper = validatePluginCallContext(
-          codec.decode(detached).context,
+          callbackCodec.decode(detached).context,
         );
         if (Object.keys(helper).length && typeof operationGuard !== "function")
           throw Error("Plugin callback context requires an operation guard");

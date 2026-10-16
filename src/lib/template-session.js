@@ -391,7 +391,7 @@ export function createRequestRenderSession(context, options, capturedPlugins) {
       return guarded(async()=>{
         const bytes=typeof response.bodyBase64==='string'?Uint8Array.from(atob(response.bodyBase64),c=>c.charCodeAt(0)):new TextEncoder().encode(response.body??'');
         let value={requestId:request._id,status:response.status,statusText:response.statusText,
-          headers:response.headers,size:response.size,elapsedMs:response.elapsedMs,bodyBytes:bytes,bodyChanged:false};
+          headers:response.headers,size:response.size,elapsedMs:response.elapsedMs,bodyBytes:bytes.buffer,bodyChanged:false};
         let requestData=structuredClone(request);requestData.cookies=requestData.cookieParameters??[];
         for(const hook of plugins.responseHooks){
           const current=()=>!controller.signal.aborted&&plugins.isCurrent()&&hook.isCurrent()&&(!services||services.isCurrent?.()===true);
@@ -417,7 +417,7 @@ export function createRequestRenderSession(context, options, capturedPlugins) {
           if(!current())throw new DOMException('Plugin response owner changed','AbortError');
         }
         if(!value.bodyChanged)return response;
-        const bodyBytes=value.bodyBytes;
+        const bodyBytes=new Uint8Array(value.bodyBytes);
         let binary='';for(let i=0;i<bodyBytes.length;i+=8192)binary+=String.fromCharCode(...bodyBytes.subarray(i,i+8192));
         const type=(response.headers??[]).find((/** @type {any} */row)=>String(Array.isArray(row)?row[0]:row.name).toLowerCase()==='content-type');
         return {...response,bodyBase64:btoa(binary),body:decodeResponseBytes(bodyBytes,type?(Array.isArray(type)?type[1]:type.value):''),bytesContent:bodyBytes.length};

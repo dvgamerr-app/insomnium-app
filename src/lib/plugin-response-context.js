@@ -2,7 +2,7 @@
  * @param {Record<string,any>} response @param {any} Buffer @param {any} Readable */
 export function createPluginResponseContext(response, Buffer, Readable) {
   const headers=()=>response.headers??[];
-  const bytes=()=>Buffer.from(response.bodyBytes??[]);
+  const bytes=()=>Buffer.from(new Uint8Array(response.bodyBytes??[]));
   return {
     getRequestId:()=>response.requestId??response.parentId??'',
     getStatusCode:()=>response.status??0,
@@ -12,7 +12,7 @@ export function createPluginResponseContext(response, Buffer, Readable) {
     getBody:bytes,
     setBody:(/** @type {any} */body)=>{
       if(!Buffer.isBuffer(body))throw TypeError('Response body must be a Buffer');
-      response.bodyBytes=Uint8Array.from(body);
+      response.bodyBytes=Uint8Array.from(body).buffer;
       response.bytesContent=body.length;
       response.bodyChanged=true;
     },
