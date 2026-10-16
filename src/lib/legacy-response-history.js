@@ -76,7 +76,7 @@ export function legacyResponseAssetRequests(
           "Legacy response body compression is unsupported; original metadata and asset paths are retained.",
         ),
       );
-      continue;
+      if (typeof response.timelinePath !== "string" || !response.timelinePath) continue;
     }
     if (typeof response.bodyPath !== "string") {
       diagnostics.push(
@@ -101,8 +101,8 @@ export function legacyResponseAssetRequests(
     }
     entries.push({
       id: response._id,
-      bodyPath: typeof response.bodyPath === "string" ? response.bodyPath : null,
-      bodyCompression: mode,
+      bodyPath: mode !== null && typeof response.bodyPath === "string" ? response.bodyPath : null,
+      bodyCompression: mode || "raw",
       timelinePath: typeof response.timelinePath === "string" ? response.timelinePath : "",
     });
   }
@@ -232,6 +232,7 @@ export function convertLegacyResponseHistory(
   for (const request of requested.entries) {
     const response = responses.get(request.id);
     if (!response) continue;
+    if (compression(response) === null) continue;
     const asset = assets.get(request.id);
     if (history.length >= 100) {
       warnings.push(

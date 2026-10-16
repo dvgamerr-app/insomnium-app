@@ -39,9 +39,12 @@ export function legacySseAssetRequests(resources) {
           "Legacy SSE requires explicit bodyCompression:null raw NDJSON; compressed or unspecified formats are retained without activation.",
         ),
       );
-      return false;
+      return Boolean(entry.timelinePath);
     })
-    .map((entry) => ({ ...entry, bodyPath: entry.bodyPath || null, bodyFormat: "sse-ndjson" }));
+    .map((entry) => ({ ...entry,
+      bodyPath: index.get(entry.id)?.bodyCompression === null ? entry.bodyPath || null : null,
+      bodyCompression: index.get(entry.id)?.bodyCompression === null ? entry.bodyCompression : "raw",
+      bodyFormat: "sse-ndjson" }));
   return { entries, diagnostics };
 }
 
