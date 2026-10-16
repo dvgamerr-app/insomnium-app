@@ -4,6 +4,8 @@ import { open, save } from "@tauri-apps/plugin-dialog";
 import { readTextFile, writeTextFile, writeFile, stat } from "@tauri-apps/plugin-fs";
 import { id, initialData, newRequest, protocolFor } from "./model.js";
 import { parseLegacyFiles } from "./legacy-import.js";
+import { legacyV1Resources } from "./legacy-v1-import.js";
+import { hoppscotchResources } from "./hoppscotch-import.js";
 import { legacyResponseAssetRequests, convertLegacyResponseHistory } from "./legacy-response-history.js";
 import { legacyWebSocketAssetRequests, convertLegacyWebSocketHistory } from "./legacy-websocket-history.js";
 import { legacySseAssetRequests, convertLegacySseHistory } from "./legacy-sse-history.js";
@@ -123,7 +125,9 @@ export function parseImport(text) {
     throw new Error("Expected a collection object");
   /** @type {Record<string, any>[]} */
   let resources = [];
-  if (source.openapi || source.swagger) {
+  if (source.__export_format === 1) resources = legacyV1Resources(source);
+  else if (source.v === 2 && "requests" in source && "folders" in source) resources = hoppscotchResources(source);
+  else if (source.openapi || source.swagger) {
     const workspaceId = id("wrk");
     resources = [
       {
@@ -312,7 +316,7 @@ export function parseImport(text) {
       );
   } else
     throw new Error(
-      "Unsupported file. Use Insomnia JSON, Insomnium JSON, Postman collection v2 or environment JSON, HAR, OpenAPI JSON/YAML, or cURL commands.",
+      "Unsupported file. Use Insomnia JSON, Insomnium JSON, Postman collection v2 or environment JSON, Hoppscotch v2, HAR, OpenAPI JSON/YAML, or cURL commands.",
     );
   if (!resources.length) throw new Error("The import contains no resources");
   if (source.__export_format === 2) resources = resources.map((resource) => {

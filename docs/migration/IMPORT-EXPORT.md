@@ -1,5 +1,17 @@
 # IMPORT EXPORT migration
 
+## Hoppscotch v2 collection object — 2026-10-16
+
+Imports the archived v2 collection-object contract, including nested folders, exact-key header overrides, inherited auth, active/disabled fields, query parameters and `<<variable>>` references. Basic/Bearer/API-key/OAuth configurations map to existing senders; explicit disabled auth remains disabled. Text, legacy newline-form bodies and form-field arrays are supported; file fields require user selection. Complete request sources and non-child folder metadata remain in `_hoppscotchSource`. Scripts remain preserved and guarded by the existing import review mechanism; they are never executed during import. Malformed/unsupported structures refuse instead of silently dropping requests. This does not claim newer collection versions or multi-collection array formats.
+
+References: archived `hoppscotch-2.ts` and official [Hoppscotch importer documentation](https://docs.hoppscotch.io/documentation/features/importer). Inline Bun actual request-preparation checks pass nested inheritance, variables, Basic/Bearer/API-key/OAuth/disabled auth, form encoding, source preservation, script refusal and reimport. Build/check pass; existing `legacy-export-import.js` now verifies built-app Hoppscotch review/apply/reload alongside formats1/2. Receipt: `artifacts/playwright/legacy-export-import/result.json`. No provider/network/native runtime acceptance is claimed; existing native candidate predates this feature.
+
+## Legacy export format 1 — 2026-10-16
+
+`items[].requests` now converts to an isolated collection with folders, inherited `environments.base`, requests, query parameters and Basic auth. Existing headers, body objects and other request/folder fields remain; `__insomnia.format` supplies a missing Content-Type. Raw text/form bytes use the same text-send preservation as format 2. Input conversion is detached and malformed folder/request/header/environment shapes refuse before applying. Implementation: `src/lib/legacy-v1-import.js`, based on archived `insomnia-1.ts`.
+
+Inline Bun checks pass actual request preparation for JSON/form bodies, folder environment lookup, Basic Authorization, parameters and reimport. Build/check pass. `bun tests/ui/legacy-export-import.js` verifies actual review/apply/reload for formats1/2 with unchanged body text and folder environment: `artifacts/playwright/legacy-export-import/result.json`, headless/passed. Desktop/native picker/send and broader format compatibility remain open; no new native build was performed.
+
 ## Legacy export format 2 request bodies — 2026-10-16
 
 Format 2 string request bodies are converted before ordinary import normalization; previously spreading a string into the body object lost `text`. Content-Type comes from the original header, and raw form/binary/multipart/GraphQL text uses the text sender with that header retained, avoiding parameter re-encoding or accidental file interpretation. Missing body without Content-Type stays absent. Original other fields remain intact and `_legacyExportFormat:2` records provenance without duplicating payload bytes. Non-string bodies in format 2 refuse explicitly; format 3/4 handling is unchanged.
