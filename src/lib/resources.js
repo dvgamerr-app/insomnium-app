@@ -139,7 +139,7 @@ export function reorderResource(resources, resourceId, direction) {
  * @param {Resource[]} resources @param {string} resourceId */
 export function duplicateResource(resources, resourceId) {
   const original = resources.find((r) => r._id === resourceId);
-  if (!original || !["workspace", "environment", ...treeTypes].includes(original._type))
+  if (!original || !["workspace", "environment", "unit_test_suite", "unit_test", ...treeTypes].includes(original._type))
     throw new Error("This item cannot be duplicated.");
   // Legacy models with canDuplicate=false are skipped before descending into
   // their children (common/database.ts). Unknown retained models still copy.

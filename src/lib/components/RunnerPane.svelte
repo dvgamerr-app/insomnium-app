@@ -13,6 +13,7 @@
     runTests,
     stop,
     addUnitTest,
+    duplicate,
   } from "../workspace.svelte.js";
   import { selectedRunnerSuite, latestRunnerResult } from "../runner-model.js";
   import { indexWorkspaces } from "../model.js";
@@ -102,6 +103,15 @@
         onclick={() => addUnitTest(suite._id)}
         ><Icon name="plus" size={14} /> New Test</Button
       >
+      <Button
+        variant="ghost"
+        class="icon-button"
+        aria-label="Duplicate test suite"
+        title="Duplicate test suite"
+        disabled={running}
+        onclick={() => duplicate(suite._id)}
+        ><Icon name="copy" size={15} /></Button
+      >
       {#if running}<Button
           variant="danger"
           class="danger-button"
@@ -177,6 +187,15 @@
                   disabled={running}
                   onclick={() => run(test._id)}
                   ><Icon name="play" size={14} /></Button
+                >
+                <Button
+                  variant="ghost"
+                  class="icon-button"
+                  title="Duplicate test"
+                  aria-label={"Duplicate " + test.name}
+                  disabled={running}
+                  onclick={() => duplicate(test._id)}
+                  ><Icon name="copy" size={14} /></Button
                 >
                 <Button
                   variant="ghost"

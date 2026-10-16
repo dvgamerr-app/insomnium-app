@@ -1016,6 +1016,7 @@ export function duplicate(resourceId) {
   const copyId = duplicateResource(workspace.data.resources, resourceId);
   const copy = workspace.data.resources.find((r) => r._id === copyId);
   if (copy?._type === "workspace") selectWorkspace(copy._id);
+  else if (copy?._type === "unit_test_suite") selectTestSuite(copy._id);
   else if (copy && requestTypes.includes(copy._type)) selectRequest(copy._id);
   else void persist();
 }

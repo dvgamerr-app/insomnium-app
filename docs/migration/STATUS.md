@@ -1,6 +1,7 @@
 # Migration status
 
 ## Runner suite collection ownership — 2026-10-16
+Runner duplication follow-up from b3afeec4: archived unit-test-suite.ts and unit-test.ts both set canDuplicate=true. Added suite/test support to the shared duplicateResource path and existing Runner toolbar buttons; duplicated suite becomes selected. Copies retain code/request references, use fresh IDs and omit historical results per existing policy. Inline Bun assertions passed suite/test copies, unchanged script/request binding, excluded results and untouched original records. bun run check exits0/0errors/0warnings (session19732); scoped diff check passes. No new test/artifact scripts, native build or historical suite. Mounted/native duplication remains unverified; broader migration gates remain open. No owned live handles. Official existing-component reference: https://svelte.dev/docs/svelte/$derived (consulted before edits); no subsystem generator needed. /compact unavailable; handoff recorded.
 
 Continued from 69744970. Fixed nested/imported runner suites being omitted from the sidebar and saved selection: shared runnerSuites resolves collection ownership through the existing resource index; selectTestSuite writes selection/environment metadata under the owning collection rather than a folder. Existing script/request bindings and execution runtime are unchanged.
 
