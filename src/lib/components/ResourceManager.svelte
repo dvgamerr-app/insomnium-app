@@ -1,4 +1,5 @@
 <script>
+  import PluginResourceActions from "./PluginResourceActions.svelte";
   import { environmentEditorText, parseEnvironmentEditor } from "../environment-editor.js";
   import FormPanel from "./ui/FormPanel.svelte";
   import Feedback from "./ui/Feedback.svelte";
@@ -216,6 +217,7 @@
         >
       {/if}
     </div>
+    {#if ["request","websocket_request","grpc_request","request_group","workspace"].includes(resource._type)}<PluginResourceActions resourceId={resource._id}/>{/if}
     <div class="modal-actions">
       <Button
         variant="danger"

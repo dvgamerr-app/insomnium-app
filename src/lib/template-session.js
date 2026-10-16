@@ -25,6 +25,9 @@ import {completePluginRequest,linkPluginRequestSignal} from "./plugin-request-li
 export function capturePluginRenderOptions(options) {
   const services = options.pluginServices
     ? Object.freeze({
+        ...(options.pluginServices.exportHar?{exportHar:options.pluginServices.exportHar}:{}),
+        ...(options.pluginServices.importUri?{importUri:options.pluginServices.importUri}:{}),
+        ...(options.pluginServices.importRaw?{importRaw:options.pluginServices.importRaw}:{}),
         getData: options.pluginServices.getData,
         send: options.pluginServices.send,
         cookieJar: options.pluginServices.cookieJar,
@@ -62,6 +65,9 @@ export function capturePluginRenderOptions(options) {
  * pluginHelperPath?:string[],
  * pluginExtraInfo?:{name:string,value:any}[],
  * pluginServices?:{isCurrent?:()=>boolean,getData:()=>{resources:Record<string,any>[],history?:Record<string,any>[],settings?:Record<string,any>},
+ * exportHar?:(options:Record<string,any>,signal:AbortSignal,path:string[])=>Promise<string>,
+ * importUri?:(uri:string,signal:AbortSignal)=>Promise<void>,
+ * importRaw?:(content:string,signal:AbortSignal)=>Promise<void>,
  * send:(request:Record<string,any>,extra:any,signal:AbortSignal,path:string[])=>Promise<any>,
  * cookieJar:(workspace:Record<string,any>,signal:AbortSignal)=>Promise<any>}}} options
  * @param {ReturnType<typeof capturePluginTemplateTags>} [capturedPlugins]
@@ -119,16 +125,16 @@ export function createRequestRenderSession(context, options, capturedPlugins) {
     purpose === "send" ? PROMPT_TOTAL_MS : 30000,
   );
   /** Shared field/hook dialog owner, independent of the short-lived callback.
-   * @param {string} plugin @param {()=>boolean} current @param {Record<string,any>} renderContext @param {string[]} [pluginPath] */
-  const createDomOwner=(plugin,current,renderContext,pluginPath=rootPluginPath)=>{
+   * @param {string} plugin @param {()=>boolean} current @param {Record<string,any>} renderContext @param {string[]} [pluginPath] @param {boolean} [networkAllowed] */
+  const createDomOwner=(plugin,current,renderContext,pluginPath=rootPluginPath,networkAllowed=true)=>{
     if(!services)throw Error("Plugin dialog services are unavailable");
 
     const owner=createPluginDomRenderOwner({
               purpose,signal:options.signal,current:()=>current()&&services.isCurrent?.()===true,
               synchronous:(signal,current)=>createPluginNativeAppEndpoint({signal,current}),
               helpers:(signal,current,uiInteraction)=>createPluginHelperDispatcher({
-                plugin,ancestors:pluginPath,signal,isCurrent:current,getData:()=>services.getData(),
-                send:(request,extra,nestedSignal,nestedPath)=>services.send(request,extra,nestedSignal,nestedPath),
+                plugin,ancestors:pluginPath,signal,isCurrent:current,getData:()=>services.getData(),importRaw:purpose==='send'?services.importRaw:undefined,importUri:purpose==='send'?services.importUri:undefined,exportHar:purpose==='send'?services.exportHar:undefined,
+                send:(request,extra,nestedSignal,nestedPath)=>networkAllowed?services.send(request,extra,nestedSignal,nestedPath):Promise.reject(Error("Document actions do not have network helpers")),
                 cookieJar:(workspace,signal)=>services.cookieJar(workspace,signal),
                 render:async(text,nestedSignal,nestedPath)=>{
                   const data=services.getData();
@@ -185,7 +191,7 @@ export function createRequestRenderSession(context, options, capturedPlugins) {
                     ancestors: pluginPath,
                     signal: childSignal,
                     isCurrent,
-                    getData: () => services.getData(),
+                    getData: () => services.getData(),importRaw:purpose==='send'?services.importRaw:undefined,importUri:purpose==='send'?services.importUri:undefined,exportHar:purpose==='send'?services.exportHar:undefined,
                     render: (text, nestedSignal, nestedPath) =>
                       run(
                         text,
@@ -353,7 +359,7 @@ export function createRequestRenderSession(context, options, capturedPlugins) {
           if(!current())throw new DOMException('Plugin request owner changed','AbortError');
           const helperCall=services?createPluginHelperDispatcher({
             plugin:hook.plugin,ancestors:rootPluginPath,signal:controller.signal,isCurrent:current,
-            getData:()=>services.getData(),
+            getData:()=>services.getData(),importRaw:purpose==='send'?services.importRaw:undefined,importUri:purpose==='send'?services.importUri:undefined,exportHar:purpose==='send'?services.exportHar:undefined,
             render:(text,signal,path)=>run(text,signal,[],{count:0},state.environment,path),
             send:(request,extra,signal,path)=>services.send(request,extra,signal,path),
             cookieJar:(workspace,signal)=>services.cookieJar(workspace,signal),
@@ -397,7 +403,7 @@ export function createRequestRenderSession(context, options, capturedPlugins) {
           const current=()=>!controller.signal.aborted&&plugins.isCurrent()&&hook.isCurrent()&&(!services||services.isCurrent?.()===true);
           if(!current())throw new DOMException('Plugin response owner changed','AbortError');
           const helperCall=services?createPluginHelperDispatcher({
-            plugin:hook.plugin,ancestors:rootPluginPath,signal:controller.signal,isCurrent:current,getData:()=>services.getData(),
+            plugin:hook.plugin,ancestors:rootPluginPath,signal:controller.signal,isCurrent:current,getData:()=>services.getData(),importRaw:purpose==='send'?services.importRaw:undefined,importUri:purpose==='send'?services.importUri:undefined,exportHar:purpose==='send'?services.exportHar:undefined,
             render:(text,signal,path)=>run(text,signal,[],{count:0},environment,path),
             send:(request,extra,signal,path)=>services.send(request,extra,signal,path),
             cookieJar:(workspace,signal)=>services.cookieJar(workspace,signal),
@@ -421,6 +427,34 @@ export function createRequestRenderSession(context, options, capturedPlugins) {
         let binary='';for(let i=0;i<bodyBytes.length;i+=8192)binary+=String.fromCharCode(...bodyBytes.subarray(i,i+8192));
         const type=(response.headers??[]).find((/** @type {any} */row)=>String(Array.isArray(row)?row[0]:row.name).toLowerCase()==='content-type');
         return {...response,bodyBase64:btoa(binary),body:decodeResponseBytes(bodyBytes,type?(Array.isArray(type)?type[1]:type.value):''),bytesContent:bodyBytes.length};
+      });
+    },
+    /** Explicit resource action; its argument remains detached saved models.
+     * @param {import('./plugin-template-tags.js').CapturedTag} action @param {Record<string,any>} input */
+    runResourceAction(action,input) {
+      return guarded(async()=>{
+        const environment=await prepare();
+        const current=()=>!controller.signal.aborted&&action.isCurrent()&&(!services||services.isCurrent?.()===true);
+        if(!current())throw new DOMException('Plugin action owner changed','AbortError');
+        const helperCall=services?createPluginHelperDispatcher({
+          plugin:action.plugin,ancestors:rootPluginPath,signal:controller.signal,isCurrent:current,getData:()=>services.getData(),importRaw:purpose==='send'?services.importRaw:undefined,importUri:purpose==='send'?services.importUri:undefined,exportHar:purpose==='send'?services.exportHar:undefined,
+          render:(text,signal,path)=>run(text,signal,[],{count:0},environment,path),
+          send:(request,extra,signal,path)=>services.send(request,extra,signal,path),
+          cookieJar:(workspace,signal)=>services.cookieJar(workspace,signal),
+          app:createPluginAppDialogEndpoint({purpose,signal:controller.signal,current,interaction,prompt:ask}),
+        }):undefined;
+        const domOwner=services?createDomOwner(action.plugin,()=>action.isCurrent(),environment,rootPluginPath,action.kind!=="documentActions"):undefined;
+        let succeeded=false;
+        try{
+          await action.invoke([structuredClone(input)],{signal:controller.signal,isCurrent:current,
+            helperCall:helperCall?call=>{if(action.kind==='documentActions'&&call.method==='network.sendRequest')return Promise.reject(Error('Document actions do not have network helpers'));return helperCall(call);}:undefined,interaction,
+            syncCall:services?createPluginNativeAppEndpoint({signal:controller.signal,current}):undefined,
+            domCall:domOwner?.domCall,domCallbacks:domOwner?.domCallbacks,domOwner,
+            context:{context:environment,meta:{requestId:snapshot.requestId,workspaceId:snapshot.workspaceId??'n/a'},renderPurpose:'no-render'},
+          });
+          if(!current())throw new DOMException('Plugin action owner changed','AbortError');
+          succeeded=true;
+        }finally{if(succeeded)domOwner?.finish();else domOwner?.dispose();}
       });
     },
     getContext() {

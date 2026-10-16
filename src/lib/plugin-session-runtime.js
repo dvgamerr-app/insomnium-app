@@ -350,7 +350,7 @@ export function createPluginCallbackRuntime(
       if (running) throw Error("Plugin callback is already running");
       if (
         typeof helpers !== "boolean" ||
-        (helpers && (!["templateTags","requestHooks","responseHooks"].includes(kind) || !helperCall)) ||
+        (helpers && (!["templateTags","requestHooks","responseHooks","requestActions","requestGroupActions","workspaceActions","documentActions"].includes(kind) || !helperCall)) ||
         typeof interaction !== "boolean" ||
         (interaction && !helpers) ||
         typeof synchronous !== "boolean" ||
@@ -443,6 +443,7 @@ export function createPluginCallbackRuntime(
           const fn=kind.endsWith('Hooks')?item:kind==='templateTags'?item?.run:item?.action;
           if(typeof fn!=='function')throw Error('Plugin callback is unavailable');
           const runHelpers=${helpers ? `__createPluginRunHelpers((method,args)=>__pluginStoreCall(JSON.stringify({helper:__pluginValueCodec.encode({method,args}),generation:${generation}})).then(value=>method==='models.response.readBodyChunk'?__pluginBuffer.from(value):__pluginValueCodec.decode(value)),__pluginBuffer,()=>__pluginHelperCurrent(${generation}))` : "{}"};
+          const callbackHelpers=kind==='documentActions'?{util:runHelpers.util,data:runHelpers.data}:runHelpers;
           const app=${helpers ? `Object.freeze({...__createPluginAppAsyncHelpers((method,args)=>__pluginStoreCall(JSON.stringify({helper:__pluginValueCodec.encode({method,args}),generation:${generation}})).then(value=>__pluginValueCodec.decode(value)),()=>__pluginHelperCurrent(${generation})),...${synchronous ? `__createPluginAppSyncHelpers((method,args)=>__pluginValueCodec.decode(__pluginSyncCall(JSON.stringify({generation:${generation},call:__pluginValueCodec.encode({method,args})}))),()=>__pluginHelperCurrent(${generation}))` : "{}"},...${transportDom?`__pluginGuestDom.app(()=>__pluginHelperCurrent(${generation}))`:"{}"}})` : "undefined"};
           const {extraInfo,requestSnapshot,responseSnapshot,...helperData}=helper;
           if(requestSnapshot && !['requestHooks','responseHooks'].includes(kind))throw Error('Request snapshot is only available to request hooks');
@@ -453,8 +454,9 @@ export function createPluginCallbackRuntime(
             const pair=extraInfo?.find(item=>item.name===key);
             return pair?__pluginValueCodec.decode(__pluginValueCodec.encode(pair.value)):null;
           }}:undefined;
-          const context=Object.freeze({...helperData,...(renderContext?{context:renderContext}:{}),...runHelpers,...(responseContext?{response:responseContext}:{}),...(requestContext?{request:requestContext}:{}),...(app?{app}:{}),store:__pluginContext.store});
+          const context=Object.freeze({...helperData,...(renderContext?{context:renderContext}:{}),...callbackHelpers,...(responseContext?{response:responseContext}:{}),...(requestContext?{request:requestContext}:{}),...(app?{app}:{}),store:__pluginContext.store});
           const value=await fn.call(item,context,...args);
+          if(['requestActions','requestGroupActions','workspaceActions','documentActions'].includes(kind))return __pluginValueCodec.encode(undefined);
           if(responseContext)return callbackCodec.encode({response:responseSnapshot,request:requestSnapshot,environment:helper.context??{}});
           if(requestContext)return callbackCodec.encode({request:requestSnapshot,environment:helper.context??{}});
           if(kind==='templateTags' && Object.getPrototypeOf(value??{})===__pluginBuffer.prototype)

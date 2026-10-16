@@ -78,7 +78,7 @@
   import { pinnedRequests } from "$lib/request-meta.js";
   import { curlRequestPatch, isCurlImport } from "$lib/curl-import.js";
   import { pickImport, parseImport, exportData, pickLegacyResponseHistory, pickLegacyRequestFiles, pickLegacyCertificateFiles } from "$lib/import-export.js";
-  import { reviewImportedHistory } from "$lib/import-history-review.js";
+  import { reviewImportedHistory, applyImportedData } from "$lib/import-history-review.js";
   import "@fontsource-variable/inter";
   import "@fontsource-variable/roboto-mono";
   import "$lib/styles.css";
@@ -400,11 +400,7 @@
       return;
     }
     if (checked.blocked) return;
-    app.data.resources.push(...pendingImport.resources);
-    app.data.history.push(...checked.accepted);
-    for (const meta of pendingImport.resources.filter((r) => r._type === "request_meta"))
-      if (checked.accepted.some((entry) => entry._id === meta.activeResponseId && entry.requestId === meta.parentId))
-        app.data.responseSelections[meta.parentId] = meta.activeResponseId;
+    try{applyImportedData(app.data,pendingImport);}catch(error){modalError=String(error);return;}
     const target = pendingImport.resources.find((r) => r._type === "workspace");
     if (target) selectWorkspace(target._id);
     if (checked.accepted.length && app.data.activeRequestId) selectRequest(app.data.activeRequestId);

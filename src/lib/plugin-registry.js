@@ -116,8 +116,14 @@ export function createPluginRegistry(adapters) {
      * The returned closures cannot outlive this exact catalog or its owners. */
     captureTemplateTags() { return this.captureCallbacks("templateTags"); },
     captureRequestHooks() { return this.captureCallbacks("requestHooks"); },
+    /** @param {"requestActions"|"requestGroupActions"|"workspaceActions"|"documentActions"} kind */
+    captureResourceActions(kind) {
+      if(!["requestActions","requestGroupActions","workspaceActions","documentActions"].includes(kind))throw Error("Unsupported plugin action kind");
+      return this.captureCallbacks(kind);
+    },
+    captureRequestActions() { return this.captureCallbacks("requestActions"); },
     captureResponseHooks() { return this.captureCallbacks("responseHooks"); },
-    /** @param {"templateTags"|"requestHooks"|"responseHooks"} contributionKind */
+    /** @param {"templateTags"|"requestHooks"|"responseHooks"|"requestActions"|"requestGroupActions"|"workspaceActions"|"documentActions"} contributionKind */
     captureCallbacks(contributionKind) {
       if (disposed) throw aborted();
       const context = synchronize();
@@ -135,7 +141,7 @@ export function createPluginRegistry(adapters) {
         );
         return (contribution?.items ?? []).map(
           (/** @type {any} */ item, /** @type {number} */ index) => {
-            /** @param {'templateTags'|'templateTagMetadata'|'templateTagAction'|'requestHooks'|'responseHooks'} kind @param {any[]} args
+            /** @param {'templateTags'|'templateTagMetadata'|'templateTagAction'|'requestHooks'|'responseHooks'|'requestActions'|'requestGroupActions'|'workspaceActions'|'documentActions'} kind @param {any[]} args
              * @param {{isCurrent:()=>boolean,signal:AbortSignal,context?:Record<string,any>}} operation */
             async function dispatch(kind, args, operation) {
               if (
@@ -212,9 +218,10 @@ export function createPluginRegistry(adapters) {
                 });
             }
             return {
+              kind:contributionKind,
               plugin: name,
               index,
-              definition: structuredClone(item.definition),
+              definition: structuredClone(item.definition??{name:item.name,label:item.label,hideAfterClick:item.hideAfterClick===true}),
               isCurrent: current,
               /** @param {any[]} args @param {{isCurrent:()=>boolean,signal:AbortSignal,context:Record<string,any>,helperCall?:(call:{method:string,args:any[]})=>Promise<any>,interaction?:import('./plugin-session.js').PluginInteraction,syncCall?:(call:{method:string,args:any[]})=>Promise<any>}} operation */
               invoke(args, operation) {

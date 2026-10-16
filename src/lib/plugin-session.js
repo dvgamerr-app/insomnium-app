@@ -619,7 +619,7 @@ export async function openPluginSession(snapshot, options) {
           helperCall !== undefined &&
           (typeof helperCall !== "function" ||
             typeof operationGuard !== "function" ||
-            !["templateTags","requestHooks","responseHooks"].includes(kind))
+            !["templateTags","requestHooks","responseHooks","requestActions","requestGroupActions","workspaceActions","documentActions"].includes(kind))
         )
           throw Error("Plugin run helpers require a guarded template callback");
         if (operation.interaction !== undefined) {

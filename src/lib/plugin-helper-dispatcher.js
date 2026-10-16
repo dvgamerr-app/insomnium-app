@@ -1,3 +1,4 @@
+import {exportPluginInsomnia} from './plugin-data-export.js';
 import { validatePluginHelperCall } from "./plugin-run-helpers.js";
 import { resolvePluginModelRead } from "./plugin-model-reads.js";
 import { createPluginResponseTransfer } from "./plugin-response-model.js";
@@ -26,6 +27,9 @@ export function pluginHelperRenderPath(ancestors, plugin) {
  * render:(text:string,signal:AbortSignal,path:string[])=>Promise<any>,
  * send:(request:Record<string,any>,extra:any,signal:AbortSignal,path:string[])=>Promise<any>,
  * cookieJar:(workspace:Record<string,any>,signal:AbortSignal)=>Promise<any>,
+ * exportHar?:(options:Record<string,any>,signal:AbortSignal,path:string[])=>Promise<string>,
+ * importUri?:(uri:string,signal:AbortSignal)=>Promise<void>,
+ * importRaw?:(content:string,signal:AbortSignal)=>Promise<void>,
  * app?:(operation:{method:string,args:any[]})=>Promise<any>}} options */
 export function createPluginHelperDispatcher(options) {
   const app = options.app;
@@ -57,7 +61,21 @@ export function createPluginHelperDispatcher(options) {
     current();
     const { method, args } = validatePluginHelperCall(request);
     let result;
-    if (method === "models.response.readBodyChunk") {
+    if(method === "data.import.uri") {
+      if(args.length!==1||typeof args[0]!=="string")throw Error("Invalid plugin import URI");
+      if(!options.importUri)throw Error("Plugin URI import is unavailable in this operation");
+      await options.importUri(args[0],options.signal);
+    } else if(method === "data.export.har") {
+      if(args.length>1||args[0]!==undefined&&(!args[0]||typeof args[0]!=="object"||Array.isArray(args[0])))throw Error("Invalid plugin HAR export options");
+      if(!options.exportHar)throw Error("Plugin HAR export is unavailable in this operation");
+      result=await options.exportHar(args[0]??{},options.signal,[...path]);
+    } else if(method === "data.import.raw") {
+      if(args.length!==1||typeof args[0]!=="string")throw Error("Invalid plugin raw import");
+      if(!options.importRaw)throw Error("Plugin import is unavailable in this operation");
+      await options.importRaw(args[0],options.signal);
+    } else if(method === "data.export.insomnia") {
+      result=exportPluginInsomnia(options.getData(),args);
+    } else if (method === "models.response.readBodyChunk") {
       result = responses.chunk(args);
     } else if (method.startsWith("app.")) {
       if (typeof app !== "function") throw Error("Plugin app dialogs are not available in this operation");

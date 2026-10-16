@@ -1,3 +1,9 @@
+import {readTextFile,stat} from '@tauri-apps/plugin-fs';
+import {readPluginImportUri} from './plugin-import-uri.js';
+import {exportPluginInsomnia} from './plugin-data-export.js';
+import {pluginHarEntry,harEnvironmentId} from './plugin-har-export.js';
+import {parseImport} from './import-export.js';
+import {applyImportedData} from './import-history-review.js';
 import { appendSseRaw } from "./sse-raw.js";
 import {
   gitRemoteSettingsPatch,
@@ -2541,6 +2547,20 @@ function workspacePluginServices(data, owner, resolveResponse, chain = [owner.re
   const check = (/** @type {AbortSignal} */ signal) => {signal.throwIfAborted();checkOwner();};
   const isCurrent=()=>{try{checkOwner();return true;}catch{return false;}};
   const nestedOwner = {...owner,isCurrent};
+  /** @param {string} content @param {AbortSignal} signal */
+  const importRaw=async(content,signal)=>{
+      check(signal);
+      if(!canEditWorkspace())throw Error('Workspace is not available for plugin import');
+      const review=parseImport(content);
+      check(signal);
+      const checked=applyImportedData(workspace.data,review);
+      // Keep this operation's read snapshot aware of its own accepted import.
+      if(data.resources!==workspace.data.resources)data.resources.push(...structuredClone(review.resources));
+      workspace.notice='Imported '+review.requests+' requests and '+review.environments+' environments from plugin.'+
+        (checked.warnings.length?' '+checked.warnings.join(' '):'')+
+        (review.cookieJars?' Open Cookies to review and activate imported cookies.':'');
+      await persist();
+    };
   return {
     isCurrent,
     getData: () => {checkOwner();return ({
@@ -2561,6 +2581,55 @@ function workspacePluginServices(data, owner, resolveResponse, chain = [owner.re
         });
       check(signal);
       return response;
+    },
+    exportHar:async(options,signal,path)=>{
+      check(signal);
+      const selected=JSON.parse(exportPluginInsomnia({resources:data.resources},[{...options,format:'json'}]));
+      const requests=selected.resources.filter((/** @type {any} */r)=>r._type==='request').sort((/** @type {any} */a,/** @type {any} */b)=>a.metaSortKey-b.metaSortKey);
+      const startedDateTime=new Date().toISOString(),entries=[];
+      for(const request of requests){
+        check(signal);
+        const scoped=requestDataScope(data,request._id);
+        scoped.activeEnvironmentId=harEnvironmentId(data.resources,scoped.activeEnvironmentId,Boolean(options.includePrivate));
+        const result=await renderSendRequest(scoped,request,signal,{pluginServices:workspacePluginServices(data,nestedOwner,resolveResponse,chain),pluginHelperPath:path,
+          responseResolver:(args,signal)=>resolveResponse(args,signal,chain,scoped.activeEnvironmentId)});
+        check(signal);
+        const rendered=result.request;
+        const manual=rendered.headers.some((/** @type {any} */h)=>h.name.toLowerCase()==='authorization');
+        const prepared=prepareRenderedRequest(scoped,rendered,id('har'),rendered.authentication?.type==='oauth2'&&!rendered.authentication.disabled&&!manual?
+          {oauthAuthorization:oauthHeader(scoped,rendered,{resolved:true})}:{});
+        const response=[...workspace.data.history].reverse().find(entry=>entry.requestId===request._id&&(entry.environmentId||null)===(scoped.activeEnvironmentId||null));
+        entries.push(pluginHarEntry(rendered,prepared,response,startedDateTime));
+      }
+      check(signal);
+      return JSON.stringify({log:{version:'1.2',creator:{name:'Insomnium REST Client',version:'insomnium.tauri:0.1.0'},entries}},null,'\t');
+    },
+    importRaw,
+    importUri:async(uri,signal)=>{
+      check(signal);
+      const content=await readPluginImportUri(uri,{signal,
+        fetchText:async(url,signal)=>{
+          check(signal);
+          const runId=id('plugin-import-uri');
+          const request=newRequest(data.activeWorkspaceId,{_id:runId,url,method:'GET',authentication:{},body:{},settingSendCookies:false,settingStoreCookies:false,settingFollowRedirects:'on'});
+          const scoped={...data,resources:[...data.resources,request],settings:{...data.settings,useCookies:false}};
+          const prepared=prepareRenderedRequest(scoped,request,runId);
+          const abort=()=>{void cancel(runId).catch(()=>{});};
+          signal.addEventListener('abort',abort,{once:true});
+          try{
+            const response=await send(prepared,signal);check(signal);
+            return typeof response.bodyBase64==='string'?new TextDecoder().decode(Uint8Array.from(atob(response.bodyBase64),c=>c.charCodeAt(0))):response.body;
+          }finally{signal.removeEventListener('abort',abort);}
+        },
+        readText:async(path,signal)=>{
+          check(signal);
+          if(!isTauri())throw Error('File URI import requires the desktop app');
+          const info=await stat(path);check(signal);
+          if(!info.isFile||info.size>64*1024*1024)throw Error('Import file must be an ordinary file no larger than64MiB');
+          const text=await readTextFile(path);check(signal);return text;
+        },
+      });
+      check(signal);await importRaw(content,signal);
     },
     cookieJar: async (collection, signal) => {
       check(signal);

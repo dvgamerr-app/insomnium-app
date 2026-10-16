@@ -4,6 +4,10 @@ export const pluginRunHelperMethods = Object.freeze([
   "app.prompt",
   "app.showSaveDialog",
   "util.render",
+  "data.export.insomnia",
+  "data.export.har",
+  "data.import.raw",
+  "data.import.uri",
   "network.sendRequest",
   "models.request.getById",
   "models.request.getAncestors",
@@ -132,6 +136,7 @@ export function createPluginRunHelpers(
     }),
   });
   return Object.freeze({
+    data:Object.freeze({import:Object.freeze({raw:method("data.import.raw"),uri:method("data.import.uri")}),export:Object.freeze({insomnia:method("data.export.insomnia"),har:method("data.export.har")})}),
     util: Object.freeze({ render: method("util.render"), models }),
     network: Object.freeze({
       async sendRequest(/** @type {any[]} */ ...args) {

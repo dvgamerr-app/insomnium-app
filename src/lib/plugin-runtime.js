@@ -256,7 +256,7 @@ export function inspectPluginVm(loaded, name) {
           const name = typeof value.name === 'string' ? value.name : '';
           const label = typeof value.displayName === 'string' ? value.displayName : typeof value.label === 'string' ? value.label : name;
           if (name.length > 256 || label.length > 1024) throw Error('Contribution label exceeds its limit');
-          return { index, name, label };
+          return { index, name, label, ...(kind==='documentActions'?{hideAfterClick:value.hideAfterClick===true}:{}) };
         });
         contributions.push({ kind, count: items.length, items });
       }

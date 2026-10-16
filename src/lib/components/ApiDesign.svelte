@@ -1,4 +1,5 @@
 <script>
+  import PluginResourceActions from "./PluginResourceActions.svelte";
   import TabPanel from "./ui/TabPanel.svelte";
   let activeTab0 = $state("");
   import TabList from "./ui/TabList.svelte";
@@ -675,6 +676,7 @@
       onchange={(event) => loadFile(event)}
       disabled={busy}>Open JSON / YAML</FilePicker
     >
+    {#if spec}{#key spec._id}<PluginResourceActions resourceId={spec._id}/>{/key}{/if}
     <span class="spacer"></span><Button
       variant="secondary"
       class="secondary-button"

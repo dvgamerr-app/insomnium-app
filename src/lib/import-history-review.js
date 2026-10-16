@@ -30,3 +30,21 @@ export function reviewImportedHistory(data, review) {
     ],
   };
 }
+
+/** Shared import commit. Refuse collisions/retention loss before any mutation.
+ * @param {Record<string,any>} data @param {{resources:Record<string,any>[],history?:Record<string,any>[]}} review */
+export function applyImportedData(data,review){
+  const checked=reviewImportedHistory(data,review);
+  if(checked.blocked)throw Error('Import would remove existing saved history. Adjust retention before importing.');
+  const ids=new Set(data.resources.map((/** @type {any} */r)=>r._id));
+  for(const resource of review.resources){
+    if(typeof resource._id!=='string'||!resource._id||ids.has(resource._id))throw Error('Import resource ID collision. Review the import again.');
+    ids.add(resource._id);
+  }
+  data.resources.push(...review.resources);
+  data.history.push(...checked.accepted);
+  for(const meta of review.resources.filter(r=>r._type==='request_meta'))
+    if(checked.accepted.some(entry=>entry._id===meta.activeResponseId&&entry.requestId===meta.parentId))
+      data.responseSelections[meta.parentId]=meta.activeResponseId;
+  return checked;
+}
