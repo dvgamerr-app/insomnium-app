@@ -255,6 +255,7 @@
     showModal("new-folder");
   }
   function closeModal() {
+    environmentOwner = null;
     importWork.cancel();
     importRevision++;
     importBusy = false;
@@ -284,15 +285,25 @@
     environmentName =
       app.data.resources.find((r) => r._id === target)?.name || "Environment";
     const environment = app.data.resources.find((r) => r._id === target);
+    if (!environment || !environments.includes(environment)) return;
+    environmentOwner = { data: app.data, collectionId: app.data.activeWorkspaceId, environment };
     environmentPrivate = environment?.isPrivate === true;
     environmentColor = environment?.color || null;
     environmentText = environmentEditorText(environment?.data || {}, environment?.dataPropertyOrder);
     showModal("environment");
   }
+  /** @type {{data:typeof app.data,collectionId:string,environment:Record<string,any>}|null} */
+  let environmentOwner = null;
   function saveEnvironment() {
+    if (!canEditWorkspace()) return;
     modalError = "";
     environmentNameError = null;
     try {
+      if (!environmentOwner || environmentOwner.data !== app.data ||
+          environmentOwner.collectionId !== app.data.activeWorkspaceId ||
+          environmentOwner.environment._id !== environmentId ||
+          !environments.includes(environmentOwner.environment))
+        throw new Error("The environment context changed. Reopen the environment editor before saving.");
       const { data, dataPropertyOrder } = parseEnvironmentEditor(environmentText);
       if (!environmentName.trim()) {
         environmentNameError = {
@@ -1256,9 +1267,9 @@
             onclick={saveEnvironment}>Save environment</Button
           >
         </div>
-      {:else if modal === "cookies"}<CookieManager
+      {:else if modal === "cookies"}{#key app.data.activeWorkspaceId}<CookieManager
           workspaceId={app.data.activeWorkspaceId}
-        />
+        />{/key}
       {:else if modal === "import"}{#if pendingImport}<p>
             Import <strong>{pendingImport.requests} requests</strong>{#if pendingImport.environments} and <strong>{pendingImport.environments} environments</strong>{/if} into new collections?
           </p>
