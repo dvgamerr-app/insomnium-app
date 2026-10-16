@@ -54,10 +54,12 @@ export async function renderRequestSnapshot(session, request, options = {}) {
     { _request: input, _cookieJar: cookieJar },
     {
       jsonPaths: isJsonBodyMediaType(input.body?.mimeType || "") ? ["body.text"] : [],
+      // Import provenance is inert archival data, not executable template input.
+      // Keep it in the clone and preflight limits, including when skipping body.
       blacklist:
         options.skipBody || input.settingDisableRenderRequestBody
-          ? /^body.*/
-          : null,
+          ? /^(?:body.*|_(?:postman|har|hoppscotch|curl|legacy)Source(?:\.|\[|$))/
+          : /^_(?:postman|har|hoppscotch|curl|legacy)Source(?:\.|\[|$)/,
     },
   );
   const rendered = result._request;
