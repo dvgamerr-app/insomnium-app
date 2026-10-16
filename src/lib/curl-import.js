@@ -339,14 +339,17 @@ function requestsFor(words, workspaceId, entries) {
       /[\r\n\0]/.test(content)
     )
       throw new Error("Invalid cURL header name or value.");
-    // curl's Name: suppresses a default; only User-Agent has a corresponding app setting.
-    if (!empty && !content && name.toLowerCase() !== "user-agent")
+    const suppressed=!empty&&!content;
+    if (suppressed && !['user-agent','accept','content-type'].includes(name.toLowerCase()))
       throw new Error(
         "cURL header suppression is not supported for " +
           name +
           ". Use Name; for an empty header.",
       );
-    headers.push({ name, value: content, disabled: !empty && !content });
+    if(suppressed&&name.toLowerCase()==='content-type'&&(has('form')||has('form-string')))
+      throw Error('cURL multipart Content-Type suppression requires native multipart header support.');
+    headers.push({ name, value: content, disabled: suppressed,
+      ...(suppressed&&name.toLowerCase()!=='user-agent'?{_curlSuppressDefault:true}:{}) });
   }
   for (const [option, header] of [
     ["user-agent", "User-Agent"],

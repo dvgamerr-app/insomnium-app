@@ -282,6 +282,11 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
         headers.splice(i, 1);
     headers.push([name, value]);
   };
+  const explicitHeaders=new Set(headers.map(([name])=>name.toLowerCase()));
+  const suppressedDefaults=new Set((request.headers??[])
+    .filter((/** @type {any} */row)=>row._curlSuppressDefault===true&&row.disabled===true&&!row.value)
+    .map((/** @type {any} */row)=>String(row.name).toLowerCase())
+    .filter((/** @type {string} */name)=>['accept','content-type'].includes(name)));
   const cookiePairs = (request.cookieParameters || [])
     .filter((/** @type {any} */ row) => !row.disabled)
     .map((/** @type {any} */ row) =>
@@ -600,7 +605,7 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
     method: protocol === "websocket" ? "GET" : request.method || "GET",
     url: url.toString(),
     socketPath,
-    headers,
+    headers:headers.filter(([name])=>!suppressedDefaults.has(name.toLowerCase())||explicitHeaders.has(name.toLowerCase())),
     suppressUserAgent:
       request.suppressUserAgent === true ||
       (request.headers || []).some(
