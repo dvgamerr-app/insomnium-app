@@ -1202,6 +1202,14 @@ impl ClientBuilder {
         self
     }
 
+    /// Removes one implicit client header without changing explicit request headers.
+    ///
+    /// Insomnium extension for curl-style default header suppression.
+    pub fn remove_default_header(mut self, name: http::header::HeaderName) -> ClientBuilder {
+        self.config.headers.remove(name);
+        self
+    }
+
     /// Enable a persistent cookie store for the client.
     ///
     /// Cookies received in responses will be preserved and included in

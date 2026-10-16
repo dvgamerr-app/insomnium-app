@@ -1,5 +1,9 @@
 # Insomnium reqwest extensions
 
+## Default header suppression
+
+Async ClientBuilder::remove_default_header removes a named header from client defaults before execution. Insomnium uses it to suppress implicit Accept for imported curl commands; removing it only from Request is insufficient because execute reinserts client defaults. Explicit request headers remain unaffected. This extends the existing local 0.12.28 patch without changing default_headers merge semantics, dependency versions, TLS/proxy configuration or registry source. Retain the method when upgrading this fork. Native wire acceptance must use a newly built candidate.
+
 ## WebSocket client identity resolver
 
 Insomnium also exposes rustls-only Identity::from_rustls_resolver, storing a cloned Arc<dyn ResolvesClientCert> and forwarding it to ConfigBuilder::with_client_cert_resolver. This preserves reqwest's existing root store, validation, ALPN, proxy and connector configuration while allowing WSS to select among legacy certificate/key arrays by the server's requested signature schemes and issuer hints. Native-TLS configurations reject this identity variant like other rustls PEM identities.

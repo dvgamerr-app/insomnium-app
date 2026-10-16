@@ -416,6 +416,13 @@ pub(crate) fn build_client(
         )
         .tls_info(true)
         .danger_accept_invalid_certs(!request.validate_certificates);
+    if request
+        .suppress_default_headers
+        .iter()
+        .any(|name| name == "accept")
+    {
+        builder = builder.remove_default_header(reqwest::header::ACCEPT);
+    }
     if !request.suppress_user_agent {
         builder = builder.user_agent(concat!("Insomnium/", env!("CARGO_PKG_VERSION")));
     }

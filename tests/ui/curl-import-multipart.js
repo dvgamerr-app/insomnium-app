@@ -4,13 +4,15 @@ import { join } from "node:path";
 import { withNativeApp, poll } from "./helpers/native-app.js";
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-curl-file-content-fix-ui-probe/build-state.json";
-/** @type {{type:string,body:Buffer}[]} */ const received = [];
+/** @type {{type:string,contentTypePresent:boolean,accept:string|null,body:Buffer}[]} */ const received = [];
 const server = Bun.serve({
   hostname: "127.0.0.1",
   port: 0,
   async fetch(r) {
     received.push({
       type: r.headers.get("content-type") || "",
+      contentTypePresent:r.headers.has('content-type'),
+      accept:r.headers.get('accept'),
       body: Buffer.from(await r.arrayBuffer()),
     });
     return Response.json({ ok: true });
@@ -20,6 +22,41 @@ try {
   await withNativeApp(
     "curl-import-multipart",
     async ({ page, invoke, output }) => {
+      if(process.env.INSOMNIUM_CURL_HEADERS==='1'){
+        const original=await invoke('load_workspace');
+        try{
+          for(const [label,options,present] of [
+            ['custom',"-H 'Content-Type: multipart/magic; charset=utf-8' -F 'field=value'",true],
+            ['empty',"-H 'Content-Type;' -F 'field=value'",true],
+            ['suppressed',"-H 'Content-Type:' -F 'field=value'",false],
+            ['json',"-H 'Content-Type:' -H 'Accept:' --json '{}'",false],
+          ]){
+            const url=`http://127.0.0.1:${server.port}/${label}`;
+            await page.getByRole('button',{name:'Import collection',exact:true}).click();
+            const dialog=page.getByRole('dialog');
+            await dialog.getByLabel('Import collection or cURL commands').fill(`curl '${url}' ${options}`);
+            await dialog.getByRole('button',{name:'Review import',exact:true}).click();
+            await dialog.getByRole('button',{name:'Import',exact:true}).click();await dialog.waitFor({state:'detached'});
+            await page.locator('.tree-request').filter({hasText:url}).click();
+            const count=received.length;
+            await page.getByRole('button',{name:'Send',exact:true}).click();
+            await poll(async()=>received.length===count+1,'Native header request received');
+            await page.getByRole('button',{name:'Send',exact:true}).waitFor();
+            const actual=received.at(-1);assert.ok(actual);
+            assert.equal(actual.contentTypePresent,present);
+            if(label==='custom'){
+              assert.match(actual.type,/^multipart\/magic; charset=utf-8; boundary=/);
+              const boundary=actual.type.split('boundary=')[1];
+              assert.ok(actual.body.toString().startsWith('--'+boundary+'\r\n'));
+              assert.ok(actual.body.toString().endsWith('--'+boundary+'--\r\n'));
+            }else assert.equal(actual.type,'');
+            if(label==='json'){assert.equal(actual.body.toString(),'{}');assert.equal(actual.accept,null);}
+            else assert.ok(actual.body.toString().includes('name="field"\r\n\r\nvalue\r\n'));
+          }
+          await Bun.write(join(output,'headers-acceptance.json'),JSON.stringify({passed:true,checks:['custom multipart MIME matches actual body boundary','explicit empty Content-Type preserved','multipart default header suppressed','JSON Accept/Content-Type suppressed with body unchanged'],nativeMode:'native-hidden'},null,2));
+        }finally{await invoke('save_workspace',{data:original});await page.reload();await page.locator('button[aria-label="Preferences"]').waitFor();}
+        return;
+      }
       const before = await invoke("load_workspace"),
         oldIds = new Set(
           before.resources.map(/** @param {any} r */ (r) => r._id),
