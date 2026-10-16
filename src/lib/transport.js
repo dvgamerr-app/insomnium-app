@@ -2,6 +2,7 @@ import {decodeResponseBytes,responseBodyText} from "./response-text.js";
 import { serializeOpenApiCookie } from "./openapi-cookie.js";
 import { serializeOpenApiSerialized } from "./openapi-serialized-example.js";
 import { isBinaryBody } from "./binary-body.js";
+import { readGraphqlBody } from "./graphql-body.js";
 import { serializeOpenApiForm } from "./openapi-form.js";
 import { buildNetworkLog, failureLog, NetworkError } from "./network-log.js";
 import {
@@ -485,9 +486,7 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
     if (mime && !headers.some(([name]) => name.toLowerCase() === "content-type"))
       headers.push(["Content-Type", mime]);
   } else if (mime === "application/graphql") {
-    const graphql = JSON.parse(body.text || "{}");
-    if (!graphql || typeof graphql !== "object" || Array.isArray(graphql))
-      throw new Error("GraphQL body must be a JSON object.");
+    const graphql = readGraphqlBody(body.text || "{}");
     const variables = JSON.parse(
       resolve(
         typeof graphql.variables === "string"

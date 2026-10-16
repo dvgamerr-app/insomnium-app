@@ -17,18 +17,10 @@ import { prepareRequest, prepareRenderedRequest } from "./transport.js";
 import { createRequestRenderSession, capturePluginRenderOptions } from "./template-session.js";
 import { requestEnvironmentLayers } from "./template-environment.js";
 import { renderGraphqlTemplateBody } from "./graphql-template.js";
+import { readGraphqlBody } from "./graphql-body.js";
+export { readGraphqlBody } from "./graphql-body.js";
 
 export const schemaLimit = 20 * 1024 * 1024;
-
-/** @param {string} text */
-export function readGraphqlBody(text) {
-  const value = JSON.parse(text || "{}");
-  if (!value || typeof value !== "object" || Array.isArray(value))
-    throw new Error("GraphQL body must be a JSON object.");
-  if (value.query != null && typeof value.query !== "string")
-    throw new Error("GraphQL query must be text.");
-  return value;
-}
 
 /** @param {string} query */
 export function parseQuery(query) {

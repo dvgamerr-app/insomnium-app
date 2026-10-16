@@ -2140,6 +2140,19 @@ mod tests {
 
     #[test]
     fn legacy_reflection_profile_examples_are_sendable_for_both_ui_modes() {
+        let maps = map_order_reference_pool();
+        let long_map = maps.get_message_by_name("Int64").unwrap();
+        for mode in [
+            crate::grpc_schema::JsonMode::Legacy,
+            crate::grpc_schema::JsonMode::ProtoJson,
+        ] {
+            let sample = crate::grpc_example::generate_saved(long_map.clone(), mode).unwrap();
+            let value: serde_json::Value = serde_json::from_str(&sample).unwrap();
+            assert_eq!(
+                value["values"]["20"], "Hello",
+                "Request map key must stay decimal: {sample}"
+            );
+        }
         let (_, pool) = reflection_profile_fixture();
         let original = pool.get_message_by_name("ownedreflection.Input").unwrap();
         for mode in [

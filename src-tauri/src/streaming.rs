@@ -450,6 +450,17 @@ async fn websocket_session(
             message = socket.next() => {
                 match message {
                     Some(Ok(message)) => {
+                        // Tungstenite queues automatic Pong on read; flush it
+                        // before UI delivery can block waiting for its ACK.
+                        if matches!(message, Message::Ping(_)) {
+                            tokio::select! {
+                                result = tokio::time::timeout(Duration::from_secs(2), socket.flush()) => {
+                                    result.map_err(|_| "WebSocket pong flush timed out")?
+                                        .map_err(|error| format!("WebSocket pong flush failed: {error}"))?;
+                                }
+                                _ = delivery.cancelled.changed() => return Err("WebSocket pong flush cancelled".into()),
+                            }
+                        }
                         let closed = matches!(message, Message::Close { .. });
                         if closed { emit(&channel, message_event(&message, "received"))?; } else { delivery.message(message_event(&message, "received")).await?; }
                         if closed {

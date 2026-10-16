@@ -15,7 +15,7 @@ pub(crate) fn generate_saved(desc: MessageDescriptor, mode: JsonMode) -> Result<
     let mut result = grpc_schema::json_mode(&parsed, mode, desc.clone())?;
     if matches!(mode, JsonMode::Legacy) {
         let mut value: Value = serde_json::from_str(&result).map_err(|e| e.to_string())?;
-        request_bytes(&mut value, Kind::Message(desc.clone()), 0)?;
+        request_shape(&mut value, Kind::Message(desc.clone()), 0)?;
         result = serde_json::to_string(&value).map_err(|e| e.to_string())?;
     }
     if result.len() > MAX_EXAMPLE {
@@ -25,9 +25,9 @@ pub(crate) fn generate_saved(desc: MessageDescriptor, mode: JsonMode) -> Result<
     Ok(result)
 }
 
-// Legacy display uses numeric-key objects for bytes. Request fromObject needs
-// arrays (or base64), including inside repeated messages and map values.
-fn request_bytes(value: &mut Value, kind: Kind, depth: usize) -> Result<(), String> {
+// Legacy response display is not request JSON: bytes need arrays and 64-bit
+// map keys need decimal strings instead of protobuf.js binary hash strings.
+fn request_shape(value: &mut Value, kind: Kind, depth: usize) -> Result<(), String> {
     if depth > 32 {
         return Err("Example nesting exceeds 32 levels.".into());
     }
@@ -55,28 +55,54 @@ fn request_bytes(value: &mut Value, kind: Kind, depth: usize) -> Result<(), Stri
                         unreachable!()
                     };
                     if let Some(entries) = child.as_object_mut() {
-                        for entry_value in entries.values_mut() {
-                            request_bytes(
-                                entry_value,
+                        let key_kind = entry.map_entry_key_field().kind();
+                        let mut converted = Map::new();
+                        for (key, mut entry_value) in std::mem::take(entries) {
+                            request_shape(
+                                &mut entry_value,
                                 entry.map_entry_value_field().kind(),
                                 depth + 1,
                             )?;
+                            converted.insert(request_map_key(key, &key_kind)?, entry_value);
                         }
+                        *entries = converted;
                     }
                 } else if field.is_list() {
                     if let Some(entries) = child.as_array_mut() {
                         for entry_value in entries {
-                            request_bytes(entry_value, field.kind(), depth + 1)?;
+                            request_shape(entry_value, field.kind(), depth + 1)?;
                         }
                     }
                 } else {
-                    request_bytes(child, field.kind(), depth + 1)?;
+                    request_shape(child, field.kind(), depth + 1)?;
                 }
             }
         }
         _ => {}
     }
     Ok(())
+}
+
+fn request_map_key(key: String, kind: &Kind) -> Result<String, String> {
+    let signed = matches!(kind, Kind::Int64 | Kind::Sint64 | Kind::Sfixed64);
+    if !signed && !matches!(kind, Kind::Uint64 | Kind::Fixed64) {
+        return Ok(key);
+    }
+    // Absent/default long keys are displayed as the literal decimal zero.
+    if key == "0" {
+        return Ok(key);
+    }
+    let bytes = key
+        .chars()
+        .map(|ch| u8::try_from(u32::from(ch)))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|_| "Invalid example map key")?;
+    let bytes: [u8; 8] = bytes.try_into().map_err(|_| "Invalid example map key")?;
+    Ok(if signed {
+        i64::from_le_bytes(bytes).to_string()
+    } else {
+        u64::from_le_bytes(bytes).to_string()
+    })
 }
 
 #[derive(Default)]
