@@ -4,6 +4,8 @@
   import EmptyState from "./ui/EmptyState.svelte";
   import FilePicker from "./ui/FilePicker.svelte";
   import Textarea from "./ui/Textarea.svelte";
+  import CodeEditor from "./CodeEditor.svelte";
+  import { environmentFor } from "../model.js";
   import Select from "./ui/Select.svelte";
   import Button from "./ui/Button.svelte";
   import Input from "./ui/Input.svelte";
@@ -149,7 +151,19 @@
         }}>Choose file</FilePicker
       >{/if}
   </div>
-  <Textarea
+  {#if payload.mode !== "binary" && payload.mode !== "ping"}
+    <CodeEditor
+      identity={payload._id + ":websocket-message"}
+      label="WebSocket message"
+      value={payload.value}
+      mode={payload.mode === "text" ? "text/plain" : payload.mode}
+      settings={app.data.settings}
+      environment={environmentFor(app.data.resources, request, app.data.activeEnvironmentId)}
+      templateEditor={() => createTemplateEditorSession(request._id)}
+      onchange={(value) => update(payload._id, { value })}
+      placeholder="Message to send…"
+    />
+  {:else}<Textarea
     class="code-editor body-text"
     aria-label="WebSocket message"
     spellcheck="false"
@@ -160,7 +174,7 @@
     placeholder={payload.mode === "binary"
       ? "Paste Base64 or choose a file"
       : "Message to send…"}
-  ></Textarea>
+  ></Textarea>{/if}
 {:else}<EmptyState variant="body" class="empty-body">
     <p>No saved payloads.</p>
     <Button

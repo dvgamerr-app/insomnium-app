@@ -208,8 +208,10 @@ export async function runWebSocketRuntimeNativeCases() {
             };
             const editPayload = async (/** @type {string} */ value) => {
               await page
-                .getByLabel("WebSocket message", { exact: true })
-                .fill(value);
+                .locator(".shared-code-editor")
+                .filter({has:page.getByLabel("WebSocket message", {exact:true})})
+                .locator(".CodeMirror")
+                .evaluate((el, value) => /** @type {any} */ (el).CodeMirror.setValue(value), value);
               await poll(
                 async () =>
                   (await load()).resources.find(

@@ -236,7 +236,18 @@ async function exercise(page, output, invoke) {
     await edit("gRPC server URL");
     await edit("gRPC JSON message", true, (r) => r.body.text);
     await seed({ _type: "websocket_request" });
-    await edit("WebSocket message", false, (r) => r.value);
+    await edit("WebSocket message", true, (r) => r.value);
+    const payloadEditor = page.locator(".shared-code-editor")
+      .filter({has:page.getByLabel("WebSocket message", {exact:true})}).locator(".CodeMirror");
+    const payloadText = await payloadEditor.evaluate((el) => /** @type {any} */ (el).CodeMirror.getValue());
+    await page.getByLabel("Payload type", {exact:true}).selectOption("application/json");
+    await poll(async () => await payloadEditor.evaluate((el) => /** @type {any} */ (el).CodeMirror.getOption("mode")) === "application/json", "WS JSON editor mode");
+    await page.getByLabel("Payload type", {exact:true}).selectOption("binary");
+    await payloadEditor.waitFor({state:"detached"});
+    assert.equal(await page.getByLabel("WebSocket message", {exact:true}).inputValue(),payloadText);
+    await page.getByLabel("Payload type", {exact:true}).selectOption("text/plain");
+    await payloadEditor.waitFor();
+    assert.equal(await payloadEditor.evaluate((el) => /** @type {any} */ (el).CodeMirror.getValue()),payloadText);
     assert.deepEqual(errors, []);
     assert.ok(workers.length >= checks.length);
     await Bun.write(
