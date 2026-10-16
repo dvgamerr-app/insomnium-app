@@ -13,7 +13,7 @@ exports.workspaceActions=[{label:'Collection action',async action(c,{workspace,r
 exports.documentActions=[{label:'Document action',hideAfterClick:true,async action(c,spec){if(c.network!==undefined||spec.format!=='openapi')throw Error('document arguments');await c.app.alert('Run Document action',spec.contents.info.title);}},{label:'Throw action',action(){throw Error('owned action failure');}}];`;
 /** @type {any} */(window).__resourceActions={
   /** @param {string} url */
-  async open(url){
+  async open(url,themes=false){
     workspace.data=initialData();workspace.ready=true;
     workspace.data.activeWorkspaceId='wrk_action';
     workspace.data.resources=[{_id:'wrk_action',_type:'workspace',parentId:null,name:'Action collection'},
@@ -24,15 +24,17 @@ exports.documentActions=[{label:'Document action',hideAfterClick:true,async acti
     const owner=workspace.data;
     registry=createPluginRegistry({getContext:()=>({owner,ready:true,settings:{pluginDirectories:['/fixture'],pluginPathMigrationVersion:1}}),
       discover:async()=>({report:{complete:true,packages:[{name,version:'1',directory:'/fixture',entry:'/fixture/index.js',format:'commonjs',status:'execution-pending'}]}}),
-      readPackage:async()=>({name,entry:'index.js',format:'commonjs',files:{'package.json':JSON.stringify({name,version:'1'}),'index.js':source}}),
+      readPackage:async()=>({name,entry:'index.js',format:'commonjs',files:{'package.json':JSON.stringify({name,version:'1'}),'index.js':themes?`exports.themes=[{name:'ocean',displayName:'Ocean',theme:{background:{default:'#123456'},styles:{sidebar:{background:{default:'#234567'}}},rawCss:'[theme="ocean"] { --theme-probe: active; }'}}]`:source}}),
       openSession:(snapshot,options)=>openPluginSession(snapshot,{...options,createWorker:()=>new Worker(url,{type:'module'})})});
     pluginRegistry.captureResourceActions=registry.captureResourceActions.bind(registry);
     pluginRegistry.subscribe=registry.subscribe.bind(registry);
+    pluginRegistry.captureThemes=registry.captureThemes.bind(registry);
     await registry.prepare(name);
     const target=document.createElement('div');document.body.appendChild(target);
-    app=mount(Fixture,{target});
+    app=mount(Fixture,{target,props:{themes}});
   },
   editRequest(/** @type {string} */name){const request=workspace.data.resources.find(r=>r._id==='req_action');if(request)request.name=name;},
   snapshot:()=>JSON.stringify(workspace.data.resources),
+  unload(){registry?.invalidate(name);},
   async close(){if(app)await unmount(app);registry?.dispose();},
 };

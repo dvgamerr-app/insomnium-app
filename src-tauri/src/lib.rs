@@ -156,6 +156,7 @@ pub fn run() {
             plugin_sources::discover_plugin_sources,
             plugin_package::read_plugin_package,
             plugin_store::plugin_store,
+            plugin_store::import_legacy_plugin_data,
             git_remote_job::git_remote_advertise,
             git_fetch_command::git_remote_fetch,
             git_push::git_remote_push,

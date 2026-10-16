@@ -20,6 +20,13 @@
   onMount(()=>pluginRegistry.subscribe(()=>{
     pluginThemes=pluginThemeOptions(pluginRegistry.captureThemes());
   }));
+  /** @param {string} selected */
+  const themeOptions=selected=>[
+    {value:'dark',label:'Nocturne Dark'},{value:'light',label:'Nocturne Light'},
+    ...pluginThemes.map(({value,label})=>({value,label})),
+    ...(String(selected).startsWith('plugin:')&&!pluginThemes.some(item=>item.value===selected)
+      ?[{value:selected,label:'Selected plugin theme (unavailable)'}]:[]),
+  ];
 
   /** @type {{settings:Record<string, any>,tab?:string,onclose?:()=>void}} */
   let { settings, tab = $bindable("General"), onclose = () => {} } = $props();
@@ -123,15 +130,15 @@
                     value={settings.theme}
                     onchange={(event) =>
                       updateSettings({ theme: event.currentTarget.value })}
-                    options={[
-                      { value: "dark", label: "Nocturne Dark" },
-                      { value: "light", label: "Nocturne Light" },
-                      ...pluginThemes.map(({value,label})=>({value,label})),
-                      ...(String(settings.theme).startsWith('plugin:')&&!pluginThemes.some(item=>item.value===settings.theme)
-                        ?[{value:settings.theme,label:'Selected plugin theme (unavailable)'}]:[]),
-                    ]}
+                    options={themeOptions(settings.theme)}
                   /></Field
                 >
+                <Field layout="inline" class="checkbox-label"><Checkbox checked={settings.autoDetectColorScheme===true} onchange={event=>updateSettings({autoDetectColorScheme:event.currentTarget.checked})}/>Follow system colour scheme</Field>
+                {#if settings.autoDetectColorScheme}
+                  {#each [['lightTheme','Light theme','light'],['darkTheme','Dark theme','dark']] as [key,label,fallback]}
+                    <Field {label}><Dropdown value={settings[key]??fallback} options={themeOptions(settings[key]??fallback)} onchange={event=>updateSettings({[key]:event.currentTarget.value})}/></Field>
+                  {/each}
+                {/if}
               </div>
             </section>
             <section

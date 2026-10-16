@@ -35,6 +35,22 @@
   let sessionReports = $state(/** @type {Record<string,any>} */ ({}));
   let configBusy = $state(false);
   let configSaveFailed = $state(false);
+  let legacyResult=$state('');
+  const legacyData=$derived(workspace.data.resources.filter(resource=>resource._type==='plugin_data'));
+  async function importLegacyData(){
+    if(!mounted||busy||!canEditWorkspace()||!isTauri())return;
+    const owner=workspace.data;
+    busy=true;error='';legacyResult='';
+    try{
+      const records=[...legacyData].sort((a,b)=>(b.modified??b.created??0)-(a.modified??a.created??0)).map(({plugin,key,value})=>{
+        if(typeof plugin!=='string'||typeof key!=='string'||typeof value!=='string')throw Error('Invalid preserved PluginData record. Store unchanged.');
+        return {plugin,key,value};
+      });
+      const result=/** @type {{inserted:number,skipped:number}} */(await invoke('import_legacy_plugin_data',{records}));
+      if(mounted&&workspace.data===owner)legacyResult=`Imported ${result.inserted} values; kept ${result.skipped} existing or duplicate keys.`;
+    }catch(failure){if(mounted&&workspace.data===owner)error=String(failure);}
+    finally{if(mounted)busy=false;}
+  }
   const contributionLabels = /** @type {Record<string,string>} */ ({
     templateTags: "Template tags",
     requestHooks: "Request hooks",
@@ -309,9 +325,13 @@
     Inspect installed plugin packages and their loading status.
   </p>
   <Feedback as="p" tone="hint"
-    >Plugin contributions are not active yet. Check exports to inspect a package
-    in isolation.</Feedback
+    >Load a plugin to activate its supported contributions. Check exports inspects a package in isolation.</Feedback
   >
+  {#if legacyData.length}
+    <p class="hint">Preserved legacy plugin values: {legacyData.length}. Import adds missing keys and keeps current store values.</p>
+    <Button disabled={busy||!isTauri()||!canEditWorkspace()} onclick={importLegacyData}>Import legacy plugin data</Button>
+    {#if legacyResult}<Feedback as="p" role="status">{legacyResult}</Feedback>{/if}
+  {/if}
   {#if !isTauri()}
     <p class="hint" role="status">
       Open the desktop app to inspect plugin folders.

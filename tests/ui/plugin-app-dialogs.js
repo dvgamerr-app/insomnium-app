@@ -5,7 +5,8 @@ import { withPreview } from "./helpers/preview-app.js";
 import { createSvelteUiFixturePlugin } from "./helpers/component-fixture.js";
 import { poll } from "./helpers/native-app.js";
 
-const actionUi=process.env.INSOMNIUM_PLUGIN_ACTION_UI==="1";
+const themeUi=process.env.INSOMNIUM_PLUGIN_THEME_UI==="1";
+const actionUi=themeUi||process.env.INSOMNIUM_PLUGIN_ACTION_UI==="1";
 await withPreview(actionUi?"plugin-resource-actions":"plugin-app-dialogs", async (page, output) => {
   const bundle = await Bun.build({ entrypoints: [actionUi?"tests/ui/fixtures/plugin-resource-actions.js":"tests/ui/fixtures/plugin-app-dialogs.js"], target: "browser", format: "iife", conditions: ["browser", "svelte"], plugins: [...(actionUi?[{name:'browser-native-action-adapter',setup(/** @type {Parameters<import('bun').BunPlugin['setup']>[0]} */build){build.onResolve({filter:/plugin-app-native\.js$/},()=>({path:'native-action-adapter',namespace:'action-native'}));build.onLoad({filter:/.*/,namespace:'action-native'},()=>({contents:"export function createPluginNativeAppEndpoint(){return async()=>{throw Error('Native app IO is outside this browser UI fixture');};}",loader:'js'}));}}]:[]),createSvelteUiFixturePlugin()], define: { "import.meta.url": JSON.stringify(page.url()) } });
   assert.ok(bundle.success, bundle.logs.map(String).join("\n"));
@@ -18,6 +19,32 @@ await withPreview(actionUi?"plugin-resource-actions":"plugin-app-dialogs", async
   const workerSha256 = hash(Buffer.from(served));
   assert.equal(workerSha256, hash(await Bun.file("build/_app/immutable/workers/" + workers[0]).bytes()));
   if(actionUi){
+    if(themeUi){
+      await page.evaluate(url=>/** @type {any} */(window).__resourceActions.open(url,true),url);
+      const root=page.getByRole('region',{name:'Plugin action fixture'});
+      try{
+        const select=root.getByRole('combobox',{name:'Theme',exact:true});
+        await select.selectOption('plugin:insomnia-plugin-action-ui:ocean');
+        await page.waitForFunction(()=>document.body.getAttribute('theme')==='ocean');
+        assert.equal(await page.locator('body').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(18, 52, 86)');
+        assert.equal(await page.locator('body').evaluate(el=>getComputedStyle(el).getPropertyValue('--theme-probe').trim()),'active');
+        await root.getByRole('checkbox',{name:'Follow system colour scheme',exact:true}).check();
+        await root.getByRole('combobox',{name:'Dark theme',exact:true}).selectOption('plugin:insomnia-plugin-action-ui:ocean');
+        await page.emulateMedia({colorScheme:'light'});
+        await page.waitForFunction(()=>document.documentElement.dataset.theme==='light'&&!document.querySelector('style[data-plugin-theme]'));
+        await page.emulateMedia({colorScheme:'dark'});
+        await page.waitForFunction(()=>document.body.getAttribute('theme')==='ocean');
+        await root.getByRole('checkbox',{name:'Follow system colour scheme',exact:true}).uncheck();
+        await page.evaluate(()=>/** @type {any} */(window).__resourceActions.unload());
+        await page.waitForFunction(()=>!document.querySelector('style[data-plugin-theme]'));
+        assert.equal(await page.locator('body').getAttribute('theme'),null);
+        assert.equal(await select.inputValue(),'plugin:insomnia-plugin-action-ui:ocean');
+        await select.selectOption('light');
+        await page.waitForFunction(()=>document.documentElement.dataset.theme==='light');
+        await Bun.write(output+'/theme-ui-acceptance.json',JSON.stringify({passed:true,headless:true,workerSha256,checks:['actual Preferences selection','production theme host and guest metadata','raw CSS theme selector','system light/dark changes with independent theme choice','manual selection recovery','unload stylesheet and attribute cleanup','unavailable selection retained','built-in recovery'],limits:'Isolated browser workspace; native persistence and full legacy visual parity unverified'},null,2));
+      }finally{await page.evaluate(()=>/** @type {any} */(window).__resourceActions.close());}
+      return;
+    }
     await page.evaluate(url=>/** @type {any} */(window).__resourceActions.open(url),url);
     const root=page.getByRole('region',{name:'Plugin action fixture'}),before=await page.evaluate(()=>/** @type {any} */(window).__resourceActions.snapshot());
     try{

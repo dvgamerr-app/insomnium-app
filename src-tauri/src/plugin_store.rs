@@ -20,6 +20,64 @@ const MAX_ITEMS: usize = 4096;
 #[derive(Default)]
 pub struct PluginStoreState(pub Arc<Mutex<()>>);
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LegacyPluginItem {
+    plugin: String,
+    key: String,
+    value: String,
+}
+
+// User-invoked host migration only; this is not part of the guest store facade.
+#[tauri::command]
+pub async fn import_legacy_plugin_data(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, PluginStoreState>,
+    records: Vec<LegacyPluginItem>,
+) -> Result<Value, String> {
+    let directory = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let lock = state.0.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let _guard = lock.lock().map_err(|e| e.to_string())?;
+        let mut data = read(&directory)?;
+        let mut inserted = 0usize;
+        let mut skipped = 0usize;
+        for record in records {
+            if !crate::plugins::valid_name(&record.plugin) || record.plugin.len() > 256 {
+                return Err("Invalid legacy plugin name. Store unchanged.".into());
+            }
+            key_valid(&record.key)?;
+            if record.value.len() > MAX_VALUE {
+                return Err("Legacy plugin value exceeds 1 MiB. Store unchanged.".into());
+            }
+            match data
+                .plugins
+                .entry(record.plugin)
+                .or_default()
+                .entry(record.key)
+            {
+                std::collections::btree_map::Entry::Vacant(entry) => {
+                    entry.insert(record.value);
+                    inserted += 1;
+                }
+                std::collections::btree_map::Entry::Occupied(_) => skipped += 1,
+            }
+        }
+        validate(&data)?;
+        if inserted > 0 {
+            let bytes = serde_json::to_vec(&data).map_err(|e| e.to_string())?;
+            if bytes.len() > MAX_BYTES {
+                return Err("PluginData exceeds 8 MiB. Store unchanged.".into());
+            }
+            fs::create_dir_all(&directory).map_err(|e| e.to_string())?;
+            crate::storage::atomic_write(&directory.join(FILE), &bytes)?;
+        }
+        Ok(json!({"inserted":inserted,"skipped":skipped}))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct PluginData {

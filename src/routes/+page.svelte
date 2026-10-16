@@ -84,11 +84,7 @@
   import "$lib/styles.css";
   import SettingsPanel from "$lib/components/SettingsPanel.svelte";
   import { pluginRegistry } from "$lib/workspace.svelte.js";
-  import { pluginThemeOptions, pluginThemeCss, pluginThemeScheme } from "$lib/plugin-themes.js";
-  let pluginThemes = $state(/** @type {ReturnType<typeof pluginThemeOptions>} */([]));
-  onMount(() => pluginRegistry.subscribe(() => {
-    pluginThemes = pluginThemeOptions(pluginRegistry.captureThemes());
-  }));
+  import PluginThemeHost from '$lib/components/PluginThemeHost.svelte';
   import Dropdown from "$lib/components/ui/Dropdown.svelte";
   const editingBlocked = $derived(
     app.draining || app.persistencePhase !== "idle",
@@ -226,22 +222,6 @@
       disposed = true;
       unlisten?.();
       unlistenMenu?.();
-    };
-  });
-  $effect(() => {
-    const selected=pluginThemes.find(item=>item.value===app.data.settings.theme);
-    document.documentElement.dataset.theme = selected?pluginThemeScheme(selected.definition.theme):app.data.settings.theme==='light'?'light':'dark';
-    if(!selected)return;
-    const style=document.createElement('style');
-    style.dataset.pluginTheme=selected.value;
-    style.textContent=pluginThemeCss(selected.definition.theme);
-    const previousTheme=document.body.getAttribute('theme');
-    document.body.setAttribute('theme',selected.definition.name);
-    document.head.appendChild(style);
-    return ()=>{
-      style.remove();
-      if(previousTheme===null)document.body.removeAttribute('theme');
-      else document.body.setAttribute('theme',previousTheme);
     };
   });
   $effect(() => {
@@ -588,6 +568,7 @@
 </script>
 
 <TemplatePromptDialog />
+<PluginThemeHost />
 <TemplateFieldDialogHost />
 <PluginDomDialogHost />
 <svelte:window onkeydown={keyboard} />
@@ -644,7 +625,8 @@
       aria-label="Toggle theme"
       onclick={() => {
         updateSettings({
-          theme: app.data.settings.theme === "dark" ? "light" : "dark",
+          autoDetectColorScheme: false,
+          theme: document.documentElement.dataset.theme === "dark" ? "light" : "dark",
         });
       }}
       ><Icon

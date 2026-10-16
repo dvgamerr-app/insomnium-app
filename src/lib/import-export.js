@@ -437,6 +437,9 @@ export function parseImport(text) {
     legacyCertificateFilesLoaded: certificateFiles.loaded,
     legacyCertificateFileWarnings: certificateFiles.warnings,
     warnings: [
+      ...(resources.some(resource=>resource._type==='plugin_data')
+        ? ['Legacy plugin data is preserved without activating plugins or changing their local stores. After applying this import, open Preferences → Plugins → Import legacy plugin data to add missing store keys.']
+        : []),
       ...(detachedGitBindings
         ? [
             "Imported Git settings are disconnected from local repositories. Set up Git for the imported collection before syncing.",

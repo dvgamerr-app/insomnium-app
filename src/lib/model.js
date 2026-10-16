@@ -71,6 +71,9 @@ export function initialData() {
     responseSelections: /** @type {Record<string,string>} */ ({}),
     settings: {
       theme: "dark",
+      autoDetectColorScheme: false,
+      lightTheme: "light",
+      darkTheme: "dark",
       editorIndentSize: 2,
       editorIndentWithTabs: true,
       editorKeyMap: "default",
