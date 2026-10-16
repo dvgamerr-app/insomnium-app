@@ -35,3 +35,56 @@ await withPreview("grpc-history-app", async (page, output) => {
       localStorage.setItem("insomnium-tauri-preview-v1", JSON.stringify(data));
   }, data);
 }});
+
+const producerData = structuredClone(data);
+const producerRequest = producerData.resources.find((r) => r._id === request._id);
+assert.ok(producerRequest);
+Object.assign(producerRequest, {url:"grpc://127.0.0.1:50051", protoMethodName:"/owned.Service/Echo"});
+producerData.resources.push({_id:"env_grpc_capture", _type:"environment", parentId:producerData.activeWorkspaceId, name:"Captured environment", data:{}});
+producerData.activeEnvironmentId = "env_grpc_capture";
+producerData.resources = producerData.resources.filter((r) => r._type !== "workspace_meta");
+producerData.resources.push({_id:"meta_grpc_capture", _type:"workspace_meta", parentId:producerData.activeWorkspaceId, activeEnvironmentId:"env_grpc_capture"});
+producerData.responseSelections = {[request._id]:"grpc_history_old"};
+await withPreview("grpc-history-producer", async (page, output) => {
+  const history = page.getByRole("combobox", {name:"gRPC response history", exact:true});
+  await history.waitFor();
+  assert.equal(await history.inputValue(), "grpc_history_old");
+  await page.getByRole("button", {name:"Load methods", exact:true}).click();
+  await page.getByRole("button", {name:"Send", exact:true}).click();
+  await page.waitForFunction((requestId) => {
+    const saved = JSON.parse(localStorage.getItem("insomnium-tauri-preview-v1") || "{}");
+    return saved.history?.[0]?.environmentId === "env_grpc_capture" && saved.responseSelections?.[requestId] === saved.history[0]._id;
+  }, request._id);
+  const latest = await history.inputValue();
+  assert.notEqual(latest, "grpc_history_old");
+  await page.reload();
+  await history.waitFor();
+  assert.equal(await history.inputValue(), latest);
+  await Bun.write(output + "/result.json", JSON.stringify({status:"passed",headless:true,scope:"Actual executeGrpc/Channel/history/persistence with controlled IPC; no Rust or network",capturedEnvironment:true,newRunReplacesOldChoice:true,reload:true}, null, 2));
+}, {beforeNavigate:async (page) => {
+  await page.addInitScript((data) => {
+    const key = "insomnium-tauri-preview-v1";
+    if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify(data));
+    const owner = /** @type {any} */ (window);
+    owner.isTauri = true;
+    owner.__TAURI_INTERNALS__ = {
+      metadata:{currentWindow:{label:"main"}, currentWebview:{label:"main"}},
+      transformCallback: () => 1,
+      unregisterCallback: () => {},
+      async invoke(/** @type {string} */ command, /** @type {any} */ args) {
+        if (command === "plugin:event|listen") return 1;
+        if (command === "plugin:event|unlisten") return;
+        if (command === "load_workspace") return JSON.parse(localStorage.getItem(key) || "null");
+        if (command === "save_workspace") {localStorage.setItem(key, JSON.stringify(args.data)); return;}
+        if (command === "load_grpc_schema") return {descriptorSet:"owned", methods:[{path:"/owned.Service/Echo", name:"Echo", service:"owned.Service", clientStreaming:false, serverStreaming:false}]};
+        if (command === "connect_grpc") {
+          args.onEvent.onmessage({sequence:0,event:{kind:"message",text:'{"owned":true}'}});
+          args.onEvent.onmessage({sequence:1,event:{kind:"status",code:0,details:"OK",trailers:[]}});
+          return;
+        }
+        if (["acknowledge_grpc", "cancel_http"].includes(command)) return;
+        throw new Error("Unexpected producer fixture IPC: " + command);
+      },
+    };
+  }, producerData);
+}});
