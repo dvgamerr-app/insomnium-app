@@ -3,7 +3,7 @@
   import Field from "./ui/Field.svelte";
   import Checkbox from "./ui/Checkbox.svelte";
   import Button from "./ui/Button.svelte";
-  import { onDestroy } from "svelte";
+  import { onDestroy, untrack } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
   import { workspace, createWorkspaceWorkScope } from "../workspace.svelte.js";
   import { legacyCookiePlan } from "../legacy-cookies.js";
@@ -21,6 +21,15 @@
   let input = $derived(
     JSON.stringify({ workspaceId, cookies: plan.entries, overwrite }),
   );
+  $effect(() => {
+    void input;
+    untrack(() => {
+      report = null;
+      reviewed = "";
+      error = "";
+      notice = "";
+    });
+  });
   async function restore(/** @type {boolean} */ preview) {
     if (busy || disabled || (!preview && reviewed !== input)) return;
     /** @type {import("../workspace.svelte.js").ScopedWorkspaceWork|undefined} */ let work;
@@ -44,7 +53,7 @@
         await onimported();
       }
     } catch (e) {
-      if (!work || work.current()) error = String(e);
+      if (input === snapshot && (!work || work.current())) error = String(e);
       reviewed = "";
     } finally {
       work?.finish();

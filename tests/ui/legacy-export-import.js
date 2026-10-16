@@ -14,6 +14,8 @@ const inputs = [
 inputs.find((input) => input.source.v === 2)?.source.requests?.push({v:1,name:"Owned Hoppscotch raw",method:"POST",endpoint:"https://owned.invalid/raw",auth:{authType:"none"},headers:[],params:[],body:{contentType:"application/octet-stream",body:"raw Ω\r\nbytes"}});
 inputs[1].source.log.entries.push({comment:'Owned HAR multipart',request:{method:'POST',url:'https://owned.invalid/multipart',headers:[{name:'Content-Type',value:'multipart/form-data; charset=utf-8; BOUNDARY="old;boundary"; note="keep;boundary=value"'},{name:'Content-Length',value:'999'}],postData:{mimeType:'multipart/form-data; boundary=old',params:[{name:'message',value:'ไทย'}]}}});
 inputs[1].source.log.entries.push({comment:'Owned HAR form params',request:{method:'POST',url:'https://owned.invalid/form',headers:[{name:'Content-Length',value:'1'},{name:'Content-Encoding',value:'gzip'},{name:'Transfer-Encoding',value:'chunked'},{name:'Trailer',value:'Digest'},{name:'Content-Encoding',value:'br',disabled:true},{name:'Content-Type',value:'application/x-www-form-urlencoded; charset=utf-8'}],postData:{mimeType:'application/x-www-form-urlencoded',params:[{name:'q',value:'ไทย space'},{name:'q',value:'second'}]}}});
+inputs[2].source.headers=[{key:'X-Token',value:'parent',active:true},{key:'X-Keep',value:'retained',active:true}];
+inputs[2].source.requests[0].headers=[{key:'x-token',value:'child',active:true}];
 inputs[0].source.info.description = "Collection Ω\n**documentation**";
 inputs[0].source.item.push({name:"Owned Postman folder",description:{content:"Folder ไทย",type:"text/markdown"},variable:[{key:"folderVar",value:"owned"}],custom:{retained:true},item:[]});
 /** @param {import('playwright-core').Page} page @param {string} output
@@ -40,6 +42,9 @@ async function runImports(page, output, options = {}) {
   await page.getByRole("button", {name:"Import collection",exact:true}).waitFor();
   const data = await stored();
   const raw = imported(data,"Owned Hoppscotch raw");
+  const hoppscotch = imported(data,'Owned Hoppscotch');
+  assert.deepEqual(hoppscotch.headers.filter((/** @type {any} */ h)=>h.name.toLowerCase()==='x-token').map((/** @type {any} */ h)=>h.value),['child']);
+  assert.ok(hoppscotch.headers.some((/** @type {any} */ h)=>h.name==='X-Keep'&&h.value==='retained'));
   const har = imported(data,"Owned HAR");
   assert.deepEqual(har._harSource,inputs.find((input) => input.source.log)?.source.log.entries[0]);
   const postman = imported(data,"Owned Postman Form");

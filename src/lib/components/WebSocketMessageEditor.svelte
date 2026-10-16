@@ -41,8 +41,9 @@
   const payload = $derived(
     payloads.find((r) => r._id === request.activePayloadId) || payloads[0],
   );
+  const payloadOwner = $derived({data: app.data, request, payload, value: payload?.value, mode: payload?.mode});
   $effect(() => {
-    void payload?._id;
+    void payloadOwner;
     untrack(() => { error = ""; });
   });
   const connected = $derived(
@@ -61,12 +62,13 @@
   export async function send() {
     if (!payload || sending || disposed) return;
     const payloadId = payload._id;
+    const owner = payloadOwner;
     sending = true;
     error = "";
     try {
       await sendPayload(request._id, payloadId);
     } catch (e) {
-      if (!disposed && payload?._id === payloadId) error = String(e);
+      if (!disposed && payloadOwner === owner) error = String(e);
     } finally {
       sending = false;
     }
@@ -146,9 +148,7 @@
         onchange={async (event) => {
           const file = event.currentTarget.files?.[0];
           const selectedId = payload._id;
-          const original = payload;
-          const originalValue = payload.value;
-          const originalMode = payload.mode;
+          const owner = payloadOwner;
           if (!file) return;
           fileWork.cancel();
           /** @type {import("../workspace.svelte.js").ScopedWorkspaceWork|undefined} */ let work;
@@ -157,9 +157,7 @@
             const upload = await readUpload(file);
             if (
               !work.current() ||
-              payload !== original ||
-              payload.value !== originalValue ||
-              payload.mode !== originalMode
+              payloadOwner !== owner
             )
               return;
             update(selectedId, {
@@ -168,7 +166,7 @@
             });
             error = "";
           } catch (e) {
-            if (!work || work.current()) error = String(e);
+            if (!disposed && payloadOwner === owner && (!work || work.current())) error = String(e);
           } finally {
             work?.finish();
           }

@@ -47,7 +47,8 @@ export function resolvePluginModule(files, request, parent, mode='require',resol
   };
   /** @param {string} root @param {any} exports @param {string} subpath @param {boolean} [internal] */
   const exported=(root,exports,subpath,internal=false)=>{
-    let mapping=exports,pattern='';
+    const invalidTarget = (/** @type {string} */ message) => Object.assign(new Error(message), {code:'ERR_INVALID_PACKAGE_TARGET'});
+    let mapping=exports,pattern='',patterned=false;
     if(internal&&(!mapping||typeof mapping!=='object'||Array.isArray(mapping)))throw Error('Invalid package imports map');
     if(mapping&&typeof mapping==='object'&&!Array.isArray(mapping)){
       const keys=Object.keys(mapping),paths=keys.filter(key=>key.startsWith(internal?'#':'.'));
@@ -57,9 +58,9 @@ export function resolvePluginModule(files, request, parent, mode='require',resol
         else{
           const key=paths.filter(key=>key.includes('*')&&key.indexOf('*')===key.lastIndexOf('*'))
             .sort((a,b)=>b.indexOf('*')-a.indexOf('*')||b.length-a.length)
-            .find(key=>{const [prefix,suffix]=key.split('*');return subpath.startsWith(prefix)&&subpath.endsWith(suffix)&&subpath.length>=prefix.length+suffix.length;});
+            .find(key=>{const [prefix,suffix]=key.split('*');return subpath.startsWith(prefix)&&subpath.endsWith(suffix)&&subpath.length>prefix.length+suffix.length;});
           if(!key)throw Error('Package subpath is not exported: '+request);
-          const [prefix,suffix]=key.split('*');pattern=subpath.slice(prefix.length,subpath.length-suffix.length);mapping=mapping[key];
+          const [prefix,suffix]=key.split('*');pattern=subpath.slice(prefix.length,subpath.length-suffix.length);patterned=true;mapping=mapping[key];
         }
       }else if(subpath!=='.')throw Error('Package subpath is not exported: '+request);
     }else if(subpath!=='.')throw Error('Package subpath is not exported: '+request);
@@ -68,21 +69,27 @@ export function resolvePluginModule(files, request, parent, mode='require',resol
       if(depth>32)throw Error('Package exports nesting exceeds its limit');
       if(value===null)return null;
       if(typeof value==='string'){
-        const target=value.replaceAll('*',pattern);
+        const target=patterned?value.replaceAll('*',()=>pattern):value;
         if(internal&&!target.startsWith('./')){
-          if(target.startsWith('../')||target.startsWith('/'))throw Error('Invalid package import target');
+          if(target.startsWith('../')||target.startsWith('/'))throw invalidTarget('Invalid package import target');
           return resolvePluginModule(files,target,root?root+'/package.json':'package.json',mode,resolutionDepth+1);
         }
-        if(!target.startsWith('./')||/[:\\?#]/.test(target))throw Error('Invalid package export target');
-        const parts=target.slice(2).split('/').map(part=>decodeURIComponent(part));
-        if(parts.some(part=>part==='.'||part==='..'||part.toLowerCase()==='node_modules'||/[\\/\0]/.test(part)))throw Error('Invalid package export target');
+        if(!target.startsWith('./')||/[:\\?#]/.test(target))throw invalidTarget('Invalid package export target');
+        let parts;
+        try { parts=target.slice(2).split('/').map(part=>decodeURIComponent(part)); }
+        catch { throw invalidTarget('Invalid package export target encoding'); }
+        if(parts.some(part=>part==='.'||part==='..'||part.toLowerCase()==='node_modules'||/[\\/\0]/.test(part)))throw invalidTarget('Invalid package export target');
         return normalize(root+'/'+parts.join('/'));
       }
       if(Array.isArray(value)){
+        if(!value.length)return null;
         let failure;
-        for(const item of value){try{const result=select(item,depth+1);if(result!=null)return result;}catch(error){failure=error;}}
-        if(failure)throw failure;
-        return null;
+        for(const item of value){try{const result=select(item,depth+1);if(result===null)failure=null;else if(result!==undefined)return result;}catch(error){
+          if(!error||typeof error!=='object'||!('code' in error)||error.code!=='ERR_INVALID_PACKAGE_TARGET')throw error;
+          failure=error;
+        }}
+        if(failure!=null)throw failure;
+        return failure;
       }
       if(value&&typeof value==='object'){
         for(const key of Object.keys(value)){
@@ -93,7 +100,7 @@ export function resolvePluginModule(files, request, parent, mode='require',resol
         }
         return undefined;
       }
-      throw Error('Invalid package export target');
+      throw invalidTarget('Invalid package export target');
     };
     const target=select(mapping,0);
     if(target==null)throw Error('Package subpath is not exported: '+request);
@@ -118,7 +125,7 @@ export function resolvePluginModule(files, request, parent, mode='require',resol
     scopeParts.pop();
   }
   if(request.startsWith('#')){
-    if(request==='#'||request.startsWith('#/'))throw Error('Invalid package import identifier');
+    if(request==='#'||request.startsWith('#/')||request.endsWith('/'))throw Error('Invalid package import identifier');
     if(!scope?.manifest.imports)throw Error('Package import is not defined: '+request);
     return exported(scope.root,scope.manifest.imports,request,true);
   }

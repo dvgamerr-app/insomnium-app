@@ -6,6 +6,8 @@
 function dateMillis(value) {
   if (value && typeof value === "object" && Object.hasOwn(value, "$$date"))
     value = value.$$date;
+  if (typeof value !== 'string' && typeof value !== 'number' && !(value instanceof Date))
+    throw new Error("Invalid saved date");
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) throw new Error("Invalid saved date");
   return date.getTime();
@@ -70,11 +72,15 @@ export function convertLegacyCookie(cookie, now = Date.now()) {
     cookie.expires !== Infinity
   )
     expires = dateMillis(cookie.expires);
+  if (expires !== Infinity && expires >= Date.UTC(10000, 0, 1))
+    throw new Error("Cookie expiry is outside the supported date range");
   if (expires <= now) return null;
   let domain = cookie.domain;
   if (typeof domain !== "string" || !domain || /[\s/\\?#@;%]/.test(domain))
     throw new Error("Missing or invalid saved cookie domain");
   domain = domain.replace(/^\./, "");
+  if (domain.startsWith('[') && !domain.endsWith(']'))
+    throw new Error("Cookie domain must not contain a port or path");
   if (domain.includes(":") && !domain.startsWith("[")) domain = `[${domain}]`;
   const origin = new URL(`https://${domain}/`);
   if (origin.port || origin.pathname !== "/" || !origin.hostname)

@@ -294,16 +294,23 @@
   }
   /** @type {{data:typeof app.data,collectionId:string,environment:Record<string,any>}|null} */
   let environmentOwner = null;
+  function hasEnvironmentOwner() {
+    return !!environmentOwner && environmentOwner.data === app.data &&
+      environmentOwner.collectionId === app.data.activeWorkspaceId &&
+      environmentOwner.environment._id === environmentId &&
+      environments.includes(environmentOwner.environment);
+  }
+  function canEditEnvironment() {
+    if (!canEditWorkspace()) return false;
+    if (hasEnvironmentOwner()) return true;
+    modalError = "The environment context changed. Reopen the environment editor before editing.";
+    return false;
+  }
   function saveEnvironment() {
-    if (!canEditWorkspace()) return;
+    if (!canEditEnvironment()) return;
     modalError = "";
     environmentNameError = null;
     try {
-      if (!environmentOwner || environmentOwner.data !== app.data ||
-          environmentOwner.collectionId !== app.data.activeWorkspaceId ||
-          environmentOwner.environment._id !== environmentId ||
-          !environments.includes(environmentOwner.environment))
-        throw new Error("The environment context changed. Reopen the environment editor before saving.");
       const { data, dataPropertyOrder } = parseEnvironmentEditor(environmentText);
       if (!environmentName.trim()) {
         environmentNameError = {
@@ -1205,7 +1212,7 @@
             class="secondary-button"
             disabled={editingEnvironment?._id === baseEnvironment?._id}
             onclick={() => {
-              if (!canEditWorkspace() || !editingEnvironment) return;
+              if (!canEditEnvironment() || !editingEnvironment) return;
               const copyId = duplicateEnvironment(app.data.resources, editingEnvironment._id, baseEnvironment?._id || "");
               void persist();
               editEnvironment(copyId || "");
@@ -1220,9 +1227,9 @@
         </div>
         <div class="resource-tools">
           <Button variant="secondary" disabled={!editingEnvironment || editingEnvironment._id === baseEnvironment?._id || environments.filter(env => env._id !== baseEnvironment?._id)[0]?._id === environmentId}
-            onclick={() => { if (!canEditWorkspace()) return; reorderEnvironment(environments, environmentId, app.data.activeWorkspaceId, -1); void persist(); }}>Move environment up</Button>
+            onclick={() => { if (!canEditEnvironment()) return; reorderEnvironment(environments, environmentId, app.data.activeWorkspaceId, -1); void persist(); }}>Move environment up</Button>
           <Button variant="secondary" disabled={!editingEnvironment || editingEnvironment._id === baseEnvironment?._id || environments.filter(env => env._id !== baseEnvironment?._id).at(-1)?._id === environmentId}
-            onclick={() => { if (!canEditWorkspace()) return; reorderEnvironment(environments, environmentId, app.data.activeWorkspaceId, 1); void persist(); }}>Move environment down</Button>
+            onclick={() => { if (!canEditEnvironment()) return; reorderEnvironment(environments, environmentId, app.data.activeWorkspaceId, 1); void persist(); }}>Move environment down</Button>
         </div>
         <Field layout="inline" class="checkbox-label"><Checkbox bind:checked={environmentPrivate} />Private environment</Field>
         <Field label="Environment color"><Input type="color" value={environmentColor || "#7d69cb"} onchange={(event) => environmentColor = event.currentTarget.value} /></Field>
@@ -1387,12 +1394,13 @@
           <Button
             variant="secondary"
             class="secondary-button"
-            onclick={() => editEnvironment(environmentId)}>Cancel</Button
+            onclick={() => hasEnvironmentOwner() ? editEnvironment(environmentId) : closeModal()}>Cancel</Button
           >
           <Button
             variant="danger"
             class="danger-button"
             onclick={() => {
+              if (!canEditEnvironment()) return;
               if (
                 editingEnvironment &&
                 editingEnvironment._id !== baseEnvironment?._id

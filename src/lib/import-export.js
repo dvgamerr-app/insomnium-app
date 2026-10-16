@@ -209,7 +209,13 @@ export function parseImport(text) {
       /** @type {any} */ inheritedAuth = source.auth,
       /** @type {boolean} */ inheritedScripts = !!source.event?.length,
     ) => {
-      for (const item of items) {
+      const frames = [{items, index:0, parentId, inheritedAuth, inheritedScripts}];
+      while (frames.length) {
+        const frame = frames.at(-1);
+        if (!frame) break;
+        if (frame.index >= frame.items.length) { frames.pop(); continue; }
+        const {parentId, inheritedAuth, inheritedScripts} = frame;
+        const item = frame.items[frame.index++];
         if (Array.isArray(item.item)) {
           const folderId = id("fld");
           // Descendants have their own resources; archive only this folder's
@@ -224,12 +230,9 @@ export function parseImport(text) {
             environment: postmanVariables(item.variable),
             _postmanSource: structuredClone(folderSource),
           });
-          visit(
-            item.item,
-            folderId,
-            item.auth || inheritedAuth,
-            inheritedScripts || !!item.event?.length,
-          );
+          frames.push({items:item.item, index:0, parentId:folderId,
+            inheritedAuth:item.auth || inheritedAuth,
+            inheritedScripts:inheritedScripts || !!item.event?.length});
         } else if (item.request) {
           const req =
             typeof item.request === "string"
