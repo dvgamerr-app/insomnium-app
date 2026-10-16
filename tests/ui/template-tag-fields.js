@@ -23,9 +23,14 @@ async function exercise(page, output, invoke) {
     });
     let data = initialData(),
       request = /** @type {Record<string,any>} */ ({});
-    /** @param {Record<string,any>} [overrides] */
-    async function seed(overrides = {}) {
+    /** @param {Record<string,any>} [overrides] @param {Record<string,any>|null} [environmentData] */
+    async function seed(overrides = {}, environmentData = null) {
       data = initialData();
+      if (environmentData) {
+        const environment = data.resources.find((r) => r._type === "environment");
+        assert.ok(environment);
+        environment.data = environmentData;
+      }
       const selected = data.resources.find(
         (r) => r._id === data.activeRequestId,
       );
@@ -228,6 +233,16 @@ async function exercise(page, output, invoke) {
       true,
       (r) => JSON.parse(r.body.text).variables,
     );
+    for (const textual of [false,true]) {
+      const variables = {disabled:true,input:"{{ graphqlSpecial }}"};
+      const text = JSON.stringify({query:"query Lookup($input: String) { viewer }",variables:textual ? JSON.stringify(variables) : variables});
+      await seed({url:"https://owned.invalid/graphql",body:{mimeType:"application/graphql",text}},{graphqlSpecial:'quote" slash\\ newline\nไทย'});
+      await page.getByRole("button",{name:"Validate",exact:true}).click();
+      await page.getByRole("status").filter({hasText:"Query syntax and operation selection are valid."}).waitFor();
+      const saved = invoke ? await invoke("load_workspace") : await page.evaluate(() => JSON.parse(localStorage.getItem("insomnium-tauri-preview-v1") || "{}"));
+      assert.equal(saved.resources.find((/** @type {any} */ r) => r._id === request._id).body.text,text);
+      checks.push("GraphQL Validate " + (textual ? "textual" : "object") + " variables preserves source");
+    }
     await seed({
       _type: "grpc_request",
       url: tag,
