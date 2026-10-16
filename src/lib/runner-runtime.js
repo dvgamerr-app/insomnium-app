@@ -1,4 +1,5 @@
 import { runnerTestCount } from "./runner-suite.js";
+import { pluginBufferSource } from './generated/plugin-buffer.js';
 /** @typedef {import('./runner-suite.js').RunnerTest} RunnerTest */
 /**
  * Real Mocha/Chai in a fresh VM; caller owns transport and cancellation.
@@ -218,8 +219,16 @@ export async function runSuiteIsolated(
         ),
       ),
     );
+    enter(() => consume(vm.evalCode(pluginBufferSource,'runner-buffer.js')));
     enter(() => consume(vm.evalCode(sources.mocha)));
     enter(() => consume(vm.evalCode(sources.chai)));
+    // Legacy scripts ran as CommonJS under Node. Expose only the data/assertion
+    // modules already available inside this VM; no host module resolver.
+    enter(()=>consume(vm.evalCode(
+      "const runnerBufferModule=Object.freeze({Buffer:globalThis.Buffer});"+
+      "globalThis.require=(name)=>{if(name==='chai')return globalThis.chai;if(name==='buffer'||name==='node:buffer')return runnerBufferModule;throw Error('Unsupported runner module: '+String(name));};",
+      'runner-modules.js',
+    )));
     // Mocha captured its own scheduler; user timers belong to the current test.
     enter(() =>
       consume(
