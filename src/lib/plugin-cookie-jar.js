@@ -11,11 +11,14 @@ export function pluginJarCookies(snapshot) {
       typeof domain !== "string" || !Array.isArray(cookie.path) ||
       typeof cookie.path[0] !== "string" || typeof cookie.path[1] !== "boolean" ||
       typeof expires !== "string" || typeof cookie.secure !== "boolean" ||
-      typeof cookie.httpOnly !== "boolean") throw Error("Invalid native cookie model");
+      typeof cookie.httpOnly !== "boolean" ||
+      (cookie.sameSite != null && !["strict", "lax", "none"].includes(cookie.sameSite)))
+      throw Error("Invalid native cookie model");
     return {
       key: cookie.key, value: cookie.value, domain, path: cookie.path[0],
       pathIsDefault: !cookie.path[1], hostOnly, expires,
       secure: cookie.secure, httpOnly: cookie.httpOnly,
+      ...(cookie.sameSite != null ? {sameSite: cookie.sameSite} : {}),
     };
   });
 }

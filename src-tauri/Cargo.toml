@@ -29,6 +29,7 @@ tokio = { version = "1.53.1", features = ["sync", "time", "macros", "net", "rt"]
 base64 = "0.22"
 atomic-write-file = "0.3.1"
 cookie_store = { version = "0.22.1", features = ["serde_json"] }
+cookie = "=0.18.2"
 reqwest-websocket = "0.5.1"
 eventsource-stream = "0.2.3"
 futures-util = { version = "0.3.34", features = ["sink"] }

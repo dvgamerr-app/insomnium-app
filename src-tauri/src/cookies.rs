@@ -154,6 +154,8 @@ pub struct SnapshotCookie {
     expires: cookie_store::CookieExpiration,
     secure: bool,
     http_only: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    same_site: Option<String>,
 }
 impl SnapshotCookie {
     fn from_cookie(cookie: &cookie_store::Cookie<'_>) -> Self {
@@ -165,6 +167,9 @@ impl SnapshotCookie {
             expires: cookie.expires.clone(),
             secure: cookie.secure().unwrap_or(false),
             http_only: cookie.http_only().unwrap_or(false),
+            same_site: cookie
+                .same_site()
+                .map(|value| value.to_string().to_lowercase()),
         }
     }
 
@@ -172,10 +177,18 @@ impl SnapshotCookie {
         HeaderValue::from_str(&format!("{}={}", self.key, self.value))
             .map_err(|_| "Rendered cookie contains an invalid header value".to_string())?;
         // Build name/value directly: rendered delimiters are never reparsed as attributes.
-        let raw = cookie_store::RawCookie::build((self.key.clone(), self.value.clone()))
+        let mut raw = cookie_store::RawCookie::build((self.key.clone(), self.value.clone()))
             .secure(self.secure)
             .http_only(self.http_only)
             .build();
+        if let Some(value) = self.same_site.as_deref() {
+            raw.set_same_site(match value {
+                "strict" => cookie::SameSite::Strict,
+                "lax" => cookie::SameSite::Lax,
+                "none" => cookie::SameSite::None,
+                _ => return Err("Invalid rendered cookie SameSite attribute".into()),
+            });
+        }
         // This origin only initializes the raw cookie; all scope/expiry comes from the snapshot.
         let origin = Url::parse("https://snapshot.invalid/").map_err(|e| e.to_string())?;
         let mut cookie = cookie_store::Cookie::try_from_raw_cookie(&raw, &origin)
@@ -258,6 +271,36 @@ fn matching_cookies<'a>(
 #[cfg(test)]
 mod ordering_tests {
     use super::*;
+
+    #[test]
+    fn cookie_snapshot_preserves_same_site_and_old_packets() {
+        let url = Url::parse("https://example.invalid/").unwrap();
+        for attribute in [None, Some("Strict"), Some("Lax"), Some("None")] {
+            let raw = format!(
+                "session=owned; Path=/; Secure{}",
+                attribute
+                    .map(|value| format!("; SameSite={value}"))
+                    .unwrap_or_default()
+            );
+            let mut store = CookieStore::default();
+            store.parse(&raw, &url).unwrap();
+            let original = store.iter_any().next().unwrap();
+            let snapshot = SnapshotCookie::from_cookie(original);
+            let json = serde_json::to_value(&snapshot).unwrap();
+            let restored: SnapshotCookie = serde_json::from_value(json.clone()).unwrap();
+            assert_eq!(
+                restored.to_cookie().unwrap().same_site(),
+                original.same_site()
+            );
+            if attribute.is_none() {
+                assert!(json.get("sameSite").is_none());
+            }
+            let mut invalid = json;
+            invalid["sameSite"] = serde_json::json!("unexpected");
+            let invalid: SnapshotCookie = serde_json::from_value(invalid).unwrap();
+            assert!(invalid.to_cookie().is_err());
+        }
+    }
 
     #[test]
     fn cookie_request_values_prefer_longer_paths() {

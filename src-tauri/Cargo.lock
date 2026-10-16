@@ -2928,6 +2928,7 @@ dependencies = [
  "aws-sigv4",
  "base64 0.22.1",
  "cbc",
+ "cookie",
  "cookie_store",
  "des",
  "digest_auth",
