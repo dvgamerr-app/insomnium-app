@@ -1,6 +1,28 @@
 import { osFunctions } from "./template-os-functions.js";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 
+/** @param {string} workspaceId @param {AbortSignal} signal */
+export async function snapshotTemplateCookies(workspaceId,signal) {
+  signal.throwIfAborted();
+  const snapshot=await invoke('snapshot_request_cookies',{workspaceId});
+  signal.throwIfAborted();
+  return /** @type {{generation:number,cookies:Record<string,any>[]}} */(snapshot);
+}
+
+/** Application-only snapshot argument; guest tag arguments cannot supply it.
+ * @param {{requestId?:string,workspaceId?:string}} meta @param {any[]} args
+ * @param {AbortSignal} signal @param {Record<string,any>} [cookieSnapshot] */
+export async function readNativeTemplateCookie(meta,args,signal,cookieSnapshot) {
+  signal.throwIfAborted();
+  if(!meta.requestId||!meta.workspaceId)return null;
+  const [url,name]=args;
+  if(typeof url!=='string'||typeof name!=='string')throw Error('Cookie URL and name are required');
+  const value=await invoke('read_template_cookie',{workspaceId:meta.workspaceId,url,name,
+    ...(cookieSnapshot?{cookieSnapshot}:{})});
+  signal.throwIfAborted();
+  return value;
+}
+
 /** Application-owned native template handlers. No invoke function enters the VM.
  * @param {{requestId?: string, workspaceId?: string}} [meta]
  * @returns {import('./template-client.js').renderTemplate extends (...args: infer A) => any ? NonNullable<A[2]>['tags'] : never}
@@ -16,19 +38,7 @@ export function nativeTemplateTags(meta = {}) {
       signal.throwIfAborted();
       return value;
     },
-    cookie: async ([url, name], signal) => {
-      signal.throwIfAborted();
-      if (!meta.requestId || !meta.workspaceId) return null;
-      if (typeof url !== "string" || typeof name !== "string")
-        throw new Error("Cookie URL and name are required");
-      const value = await invoke("read_template_cookie", {
-        workspaceId: meta.workspaceId,
-        url,
-        name,
-      });
-      signal.throwIfAborted();
-      return value;
-    },
+    cookie: (args, signal) => readNativeTemplateCookie(meta,args,signal),
     file: async ([path], signal) => {
       signal.throwIfAborted();
       if (!path) throw new Error("No file selected");

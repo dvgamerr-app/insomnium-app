@@ -3,7 +3,8 @@ import { promptTemplateTag } from "./template-prompt.js";
 import { askTemplatePrompt } from "./template-prompt-dialog.js";
 import { responseTemplatePreview } from "./template-response.js";
 import { renderTemplate } from "./template-client.js";
-import { nativeTemplateTags } from "./template-native.js";
+import { nativeTemplateTags, snapshotTemplateCookies, readNativeTemplateCookie } from "./template-native.js";
+import {cookieTemplateSources,withCookieTemplateSources,normalizeRenderedCookieSnapshot} from './cookie-template-sources.js';
 import { requestTemplateTag } from "./template-request.js";
 import { createTemplateInteraction } from "./template-interaction.js";
 import { buildTemplateEnvironment } from "./template-environment.js";
@@ -92,10 +93,13 @@ export function createRequestRenderSession(context, options, capturedPlugins) {
   const native = nativeTemplateTags(snapshot);
   const plugins = capturedPlugins ?? capturePluginTemplateTags(snapshot);
   const cookie = native?.cookie;
+  const hasCookieSources=!!snapshot.workspaceId&&cookieTemplateSources(snapshot.resources,snapshot.workspaceId).length>0;
   const ask = options.ask || askTemplatePrompt;
   const { pluginServices: services, pluginHelperPath: rootPluginPath } =
     capturePluginRenderOptions(options);
   const controller = new AbortController();
+  /** @type {Promise<{generation:number,cookies:Record<string,any>[]}>|undefined} */
+  let cookieSourceSnapshot;
   linkPluginRequestSignal(controller.signal,options.signal);
   const domOwners=new Set(/** @type {ReturnType<typeof createPluginDomRenderOwner>[]} */([]));
   let finishing=false;
@@ -173,6 +177,34 @@ export function createRequestRenderSession(context, options, capturedPlugins) {
       );
     active++;
     try {
+      /** @param {any[]} args @param {AbortSignal} childSignal */
+      const readCookie=async(args,childSignal)=>{
+        const workspaceId=snapshot.workspaceId;
+        if(!hasCookieSources||!workspaceId)return cookie?.(args,childSignal);
+        if(typeof args[0]!=='string'||typeof args[1]!=='string')throw Error('Cookie URL and name are required');
+        const target=new URL(args[0]);
+        if(!['http:','https:'].includes(target.protocol))throw Error('Cookie URL must use HTTP or HTTPS');
+        if(chain.includes('cookie-source-scope'))throw Error('Cookie tags cannot be used in cookie source scope fields.');
+        const nativeSnapshot=await (cookieSourceSnapshot??=snapshotTemplateCookies(workspaceId,controller.signal));
+        childSignal.throwIfAborted();
+        const cookies=withCookieTemplateSources(
+          nativeSnapshot,snapshot.resources,workspaceId);
+        // Select by rendered metadata using the native matcher. Only render the
+        // winner's value, avoiding prompts/dependencies in unrelated cookies.
+        const token='cookie-selection-'+crypto.randomUUID()+':';
+        const values=cookies.cookies.map(cookie=>cookie.value);
+        const selector={...cookies,cookies:cookies.cookies.map((cookie,index)=>({...cookie,value:token+index}))};
+        const rendered=await renderTemplateValue(selector,(text,path)=>run(text,childSignal,
+          [...chain,'cookie-source-scope',path],budget,renderContext,pluginPath),{signal:childSignal});
+        const selected=await readNativeTemplateCookie(snapshot,args,childSignal,normalizeRenderedCookieSnapshot(rendered)??undefined);
+        if(typeof selected!=='string'||!selected.startsWith(token))throw Error('Invalid cookie source selection');
+        const index=Number(selected.slice(token.length));
+        if(!Number.isSafeInteger(index)||index<0||index>=values.length)throw Error('Invalid cookie source selection');
+        if(index<nativeSnapshot.cookies.length)return values[index];
+        const field='cookie-source-value:'+index;
+        if(chain.includes(field))throw Error('Cyclic cookie template source reference');
+        return run(values[index],childSignal,[...chain,field],budget,renderContext,pluginPath);
+      };
       return await renderTemplate(input, renderContext, {
         signal,
         customTagNames: plugins.names,
@@ -219,6 +251,7 @@ export function createRequestRenderSession(context, options, capturedPlugins) {
             services ? (plugin,current)=>createDomOwner(plugin,current,renderContext,pluginPath):undefined,
           ),
           ...native,
+          ...(cookie?{cookie:readCookie}:{}),
           prompt: (args, childSignal) =>
             promptTemplateTag(args, {
               requestId: snapshot.requestId,
@@ -286,7 +319,7 @@ export function createRequestRenderSession(context, options, capturedPlugins) {
               },
               args,
               cookie
-                ? (url, name) => cookie([url, name], childSignal)
+                ? (url, name) => readCookie([url, name], childSignal)
                 : undefined,
             ),
         },

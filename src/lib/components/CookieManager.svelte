@@ -7,7 +7,9 @@
   import Input from "./ui/Input.svelte";
   import { onMount, onDestroy } from "svelte";
   import { invoke, isTauri } from "@tauri-apps/api/core";
-  import { createWorkspaceWorkScope } from "../workspace.svelte.js";
+  import { createWorkspaceWorkScope, workspace, persist } from "../workspace.svelte.js";
+  import {cookieTemplateSources,replaceCookieTemplateSources} from '../cookie-template-sources.js';
+  import CookieTemplateSources from './CookieTemplateSources.svelte';
   import Icon from "./Icon.svelte";
   import LegacyCookieImport from "./LegacyCookieImport.svelte";
   /** @type {{ workspaceId: string }} */
@@ -15,9 +17,12 @@
   const workScope = createWorkspaceWorkScope();
   onDestroy(workScope.dispose);
   let cookies = $state(/** @type {Record<string, any>[]} */ ([]));
-  let busy = $state(false),
+  let nativeBusy = $state(false),
     error = $state(""),
     notice = $state("");
+  let templateBusy=$state(false);
+  const busy=$derived(nativeBusy||templateBusy);
+  const templateSources=$derived(cookieTemplateSources(workspace.data.resources,workspaceId));
   let url = $state(""),
     raw = $state("");
   let previous = $state(/** @type {Record<string, any> | null} */ (null));
@@ -45,7 +50,7 @@
   async function refresh() {
     if (!isTauri()) return;
     /** @type {import("../workspace.svelte.js").ScopedWorkspaceWork|undefined} */ let work;
-    busy = true;
+    nativeBusy = true;
     try {
       work = workScope.begin();
       const result = await invoke("list_cookies", { workspaceId });
@@ -56,7 +61,7 @@
       if (!work || work.current()) error = String(e);
     } finally {
       work?.finish();
-      busy = false;
+      nativeBusy = false;
     }
   }
   onMount(() => {
@@ -69,7 +74,7 @@
     if (formPatch) fieldError = null;
     /** @type {import("../workspace.svelte.js").ScopedWorkspaceWork|undefined} */ let work;
     let nativePending = false;
-    busy = true;
+    nativeBusy = true;
     error = "";
     notice = "";
     try {
@@ -85,6 +90,11 @@
       });
       nativePending = false;
       if (!work.current()) return;
+      if(patch.clear&&templateSources.length){
+        workspace.data.resources=replaceCookieTemplateSources(workspace.data.resources,workspaceId,[]);
+        if(!(await persist()))throw Error('Template cookie sources could not be cleared.');
+        if(!work.current())return;
+      }
       resetFields();
       confirmClear = false;
       await refresh();
@@ -100,7 +110,7 @@
       }
     } finally {
       work?.finish();
-      busy = false;
+      nativeBusy = false;
     }
   }
   function edit(/** @type {Record<string, any>} */ cookie) {
@@ -124,6 +134,7 @@
     cookies.
   </p>
   <LegacyCookieImport {workspaceId} onimported={refresh} disabled={busy} />
+  <CookieTemplateSources {workspaceId} disabled={nativeBusy} onbusy={value=>templateBusy=value} />
   <div class="cookie-list">
     {#each cookies as cookie (`${cookie.domain}\n${cookie.path}\n${cookie.name}`)}
       <div class="cookie-entry">
@@ -172,7 +183,7 @@
     <Button
       variant="danger"
       class="danger-button"
-      disabled={busy || !cookies.length}
+      disabled={busy || (!cookies.length&&!templateSources.length)}
       onclick={() => (confirmClear = true)}>Clear all…</Button
     >
     {#if confirmClear}<span>Clear every cookie in this collection?</span><Button

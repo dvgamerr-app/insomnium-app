@@ -32,6 +32,8 @@
   const host=/** @type {any} */(window);
   if(host.__cookieComponent)throw Error("Cookie fixture already mounted");
   host.__cookieComponent=Object.freeze({arm:transport.arm,reset:transport.reset,snapshot:transport.snapshot,release:transport.releasePending,pause,resume:()=>resume?.(),
+    enablePersistence:()=>{workspace.ready=true;},
+    resources:()=>JSON.parse(JSON.stringify(workspace.data.resources)),
     setLegacyCookies:(/** @type {Record<string,any>[]} */ cookies)=>{
       workspace.data.resources=workspace.data.resources.filter(resource=>resource._type!=='cookie_jar');
       workspace.data.resources.push({_id:'jar_cookie_component',_type:'cookie_jar',parentId:transport.ownedWorkspaceId,name:'Owned legacy jar',cookies});

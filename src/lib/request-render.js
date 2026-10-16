@@ -11,6 +11,7 @@ import { checkTemplateValue } from "./template-object.js";
 import { applyDefaultRequestHeaders } from "./request-default-headers.js";
 import { isJsonBodyMediaType } from "./media-type.js";
 import { renderGraphqlTemplateBody } from "./graphql-template.js";
+import { withCookieTemplateSources, normalizeRenderedCookieSnapshot } from './cookie-template-sources.js';
 /** @typedef {import('./template-session.js').PluginRenderOptions} PluginRenderOptions */
 
 /** @param {Record<string,any>} data @param {Record<string,any>} request */
@@ -19,9 +20,9 @@ async function requestCookieSnapshot(data, request) {
     data.settings?.useCookies &&
     (request.settingSendCookies !== false ||
       request.settingStoreCookies !== false)
-    ? await invoke("snapshot_request_cookies", {
+    ? withCookieTemplateSources(await invoke("snapshot_request_cookies", {
         workspaceId: workspaceFor(data.resources, request._id),
-      })
+      }), data.resources, workspaceFor(data.resources, request._id))
     : null;
 }
 
@@ -153,7 +154,7 @@ export async function renderSendRequest(data, request, signal, options = {}) {
     applyDefaultRequestHeaders(result.request, result.context);
     // Generation is native ownership metadata, not a template field.
     result.request.cookieSnapshot = cookieJar
-      ? { ...result.cookieJar, generation: cookieJar.generation }
+      ? { ...normalizeRenderedCookieSnapshot(result.cookieJar), generation: cookieJar.generation }
       : null;
     const hooked=await session.runRequestHooks(result.request,result.context);
     result.request=hooked.request;
@@ -207,7 +208,7 @@ export async function renderOAuthRequest(data, request, signal, options = {}) {
       ...request,
       ...resolved,
       cookieSnapshot: cookieJar
-        ? { ...resolved.cookieSnapshot, generation: cookieJar.generation }
+        ? { ...normalizeRenderedCookieSnapshot(resolved.cookieSnapshot), generation: cookieJar.generation }
         : null,
       url: setDefaultProtocol(
         String(resolved.url || ""),

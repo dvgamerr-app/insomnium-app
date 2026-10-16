@@ -42,6 +42,7 @@ function portableResource(resource, forExport = false) {
   if (resource._type === "cookie_jar") {
     const copy = { ...resource };
     delete copy._nativeCookieJarView;
+    delete copy._activeTemplateCookieSource;
     return copy;
   }
   if (resource._type !== "git_repository") return resource;

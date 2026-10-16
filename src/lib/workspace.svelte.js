@@ -38,6 +38,7 @@ import { runnerSuite, runnerResponse, runnerRequestId } from "./runner-model.js"
 import { requestDataScope } from "./request-scope.js";
 import { createResponseTemplateResolver } from "./template-response-send.js";
 import { pluginCookieJarId, pluginJarCookies, pluginCookieJarView } from "./plugin-cookie-jar.js";
+import {withCookieTemplateSources} from './cookie-template-sources.js';
 import {
   renderSendRequest,
   renderOAuthRequest,
@@ -2675,7 +2676,7 @@ function workspacePluginServices(data, owner, resolveResponse, chain = [owner.re
         workspaceId: collection._id, includeExpired: true,
       });
       check(signal);
-      const cookies = pluginJarCookies(snapshot);
+      const cookies = pluginJarCookies(withCookieTemplateSources(snapshot,workspace.data.resources,collection._id));
       const deterministicId = await pluginCookieJarId(collection._id);
       check(signal);
       const jar = pluginCookieJarView(workspace.data.resources, collection._id, deterministicId, cookies);

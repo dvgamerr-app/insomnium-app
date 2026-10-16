@@ -122,14 +122,7 @@ impl PersistentJar {
         let data = self.inner.lock().map_err(|e| e.to_string())?;
         let generation = data.generation;
         let request_store = if let Some(snapshot) = snapshot {
-            snapshot.validate_size()?;
-            if snapshot.generation != generation {
-                return Err("Cookie jar changed while preparing the request. Send again.".into());
-            }
-            CookieStore::from_cookies(
-                snapshot.cookies.iter().map(SnapshotCookie::to_cookie),
-                false,
-            )?
+            snapshot.to_store(generation)?
         } else {
             data.store.clone()
         };
@@ -207,6 +200,14 @@ pub struct CookieSnapshot {
     cookies: Vec<SnapshotCookie>,
 }
 impl CookieSnapshot {
+    fn to_store(&self, generation: u64) -> Result<CookieStore, String> {
+        self.validate_size()?;
+        if self.generation != generation {
+            return Err("Cookie jar changed while preparing the request. Send again.".into());
+        }
+        CookieStore::from_cookies(self.cookies.iter().map(SnapshotCookie::to_cookie), false)
+    }
+
     fn validate_size(&self) -> Result<(), String> {
         if self.cookies.len() > 10000
             || serde_json::to_vec(self).map_err(|e| e.to_string())?.len() > 8 * 1024 * 1024
@@ -271,6 +272,33 @@ fn matching_cookies<'a>(
 #[cfg(test)]
 mod ordering_tests {
     use super::*;
+
+    #[test]
+    fn rendered_snapshot_lookup_preserves_scope_and_live_store() {
+        let url = Url::parse("https://example.invalid/api/item").unwrap();
+        let mut live = CookieStore::default();
+        live.parse("session=root; Path=/", &url).unwrap();
+        live.parse("session=deep; Path=/api", &url).unwrap();
+        let mut snapshot = CookieSnapshot {
+            generation: 7,
+            cookies: live.iter_any().map(SnapshotCookie::from_cookie).collect(),
+        };
+        let mut source = CookieStore::default();
+        source
+            .parse("session=source; Path=/api; Secure", &url)
+            .unwrap();
+        snapshot.cookies.push(SnapshotCookie::from_cookie(
+            source.iter_any().next().unwrap(),
+        ));
+        let rendered = snapshot.to_store(7).unwrap();
+        assert_eq!(matching_cookies(&rendered, &url)[0].value(), "source");
+        let http = Url::parse("http://example.invalid/api/item").unwrap();
+        assert_eq!(matching_cookies(&rendered, &http)[0].value(), "root");
+        let foreign = Url::parse("https://other.invalid/api/item").unwrap();
+        assert!(matching_cookies(&rendered, &foreign).is_empty());
+        assert_eq!(matching_cookies(&live, &url)[0].value(), "deep");
+        assert!(snapshot.to_store(8).is_err());
+    }
 
     #[test]
     fn cookie_snapshot_preserves_same_site_and_old_packets() {
@@ -592,6 +620,7 @@ pub async fn read_template_cookie(
     workspace_id: String,
     url: String,
     name: String,
+    cookie_snapshot: Option<CookieSnapshot>,
 ) -> Result<String, String> {
     if window.label() != "main" {
         return Err("Template cookies are only available in the main window".into());
@@ -605,7 +634,14 @@ pub async fn read_template_cookie(
     }
     let jar = state.jar(&app, workspace_id).await?;
     let data = jar.inner.lock().map_err(|e| e.to_string())?;
-    let matching = matching_cookies(&data.store, &url);
+    let rendered;
+    let store = if let Some(snapshot) = cookie_snapshot {
+        rendered = snapshot.to_store(data.generation)?;
+        &rendered
+    } else {
+        &data.store
+    };
+    let matching = matching_cookies(store, &url);
     if matching.is_empty() {
         return Err("No cookies in store for URL".into());
     }
