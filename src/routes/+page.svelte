@@ -383,7 +383,7 @@
     if (target) selectWorkspace(target._id);
     if (checked.accepted.length && app.data.activeRequestId) selectRequest(app.data.activeRequestId);
     if (pendingImport.apiSpecs) mainView = "design";
-    app.notice = `Imported ${pendingImport.requests} requests. ${pendingImport.preserved} additional resources preserved.`;
+    app.notice = `Imported ${pendingImport.requests} requests and ${pendingImport.environments} environments. ${pendingImport.preserved} additional resources preserved.`;
     if (checked.accepted.length) app.notice += ` Restored ${checked.accepted.length} saved responses.`;
     if (pendingImport.cookieJars)
       app.notice +=
@@ -1104,7 +1104,7 @@
           workspaceId={app.data.activeWorkspaceId}
         />
       {:else if modal === "import"}{#if pendingImport}<p>
-            Import <strong>{pendingImport.requests} requests</strong> into new collections?
+            Import <strong>{pendingImport.requests} requests</strong>{#if pendingImport.environments} and <strong>{pendingImport.environments} environments</strong>{/if} into new collections?
           </p>
           <p class="hint">
             Existing collections will be kept. {pendingImport.preserved} additional

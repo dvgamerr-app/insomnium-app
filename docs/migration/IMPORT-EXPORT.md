@@ -1,5 +1,11 @@
 # IMPORT EXPORT migration
 
+## Postman environment JSON — 2026-10-16
+
+Recognizes `_postman_variable_scope: "environment"` exports with a `values` array. Creates an isolated imported collection/environment under the existing additive import policy. Like archived `postman-env.ts`, only enabled entries become active variables and later enabled duplicates win. Complete source, disabled entries and variable metadata remain in the environment's `_postmanSource`; malformed variable records refuse before applying. Review and success notice include environment counts.
+
+Reference: archived `packages/insomnia/src/utils/importers/importers/postman-env.ts`; official [Postman environment export](https://learning.postman.com/docs/getting-started/importing-and-exporting/exporting-data). No external API/runtime or generator is introduced. Inline Bun conversion/topology/reimport checks, `bun run check`, `bun run build` and `bun tests/ui/postman-environment-import.js` pass. Receipt: `artifacts/playwright/postman-environment-import/result.json` (actual built browser app review/apply/reload, source preservation, enabled-only activation and existing collection retained). Native picker/desktop acceptance of this new frontend generation remains open; prior native candidate predates this feature.
+
 ## Current Windows recovery integration — 2026-10-16
 
 Fresh isolated candidate `legacy-recovery-20261016-attempt-1` built from source `2d42c9d1` plus preserved documentation edits. Existing HTTP, SSE and WebSocket native import scenarios pass with actual Rust readers, OS chooser/export flows, no IPC mocks, `native-hidden` hosts and exit0. All three profile restoration receipts pass with exact original primary/backup hashes. Browser WebSocket/SSE review/cancel/apply/reload/export/reimport regressions also pass. No new runners or historical matrix were added.

@@ -143,6 +143,22 @@ export function parseImport(text) {
       },
     ];
   } else if (Array.isArray(source.resources)) resources = source.resources;
+  else if (source._postman_variable_scope === "environment") {
+    if (!Array.isArray(source.values) || source.values.some(
+      (/** @type {any} */ value) => !value || typeof value !== "object" ||
+        Array.isArray(value) || typeof value.key !== "string",
+    )) throw new Error("Postman environment values must be an array of named variables.");
+    const workspaceId = id("wrk");
+    const name = typeof source.name === "string" && source.name.trim()
+      ? source.name : "Postman Environment";
+    resources = [
+      {_id:workspaceId, _type:"workspace", parentId:null, name, scope:"collection"},
+      {_id:id("env"), _type:"environment", parentId:workspaceId, name,
+        data:Object.fromEntries(source.values.filter((/** @type {any} */ value) => value.enabled)
+          .map((/** @type {any} */ value) => [value.key, value.value ?? ""])),
+        _postmanSource:source},
+    ];
+  }
   else if (source.info && Array.isArray(source.item)) {
     const workspaceId = id("wrk");
     resources.push({
@@ -296,7 +312,7 @@ export function parseImport(text) {
       );
   } else
     throw new Error(
-      "Unsupported file. Use Insomnia JSON, Insomnium JSON, Postman collection v2, HAR, OpenAPI JSON/YAML, or cURL commands.",
+      "Unsupported file. Use Insomnia JSON, Insomnium JSON, Postman collection v2 or environment JSON, HAR, OpenAPI JSON/YAML, or cURL commands.",
     );
   if (!resources.length) throw new Error("The import contains no resources");
   const ids = new Set();
@@ -410,6 +426,7 @@ export function parseImport(text) {
         : []),
     ],
     cookieJars: resources.filter((r) => r._type === "cookie_jar").length,
+    environments: resources.filter((r) => r._type === "environment").length,
     apiSpecs: resources.filter((r) => r._type === "api_spec").length,
     requests: resources.filter((r) =>
       ["request", "websocket_request", "grpc_request"].includes(r._type),
