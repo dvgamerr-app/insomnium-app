@@ -114,6 +114,9 @@ await withPreview("plugin-oauth-preview", async (page, output) => {
     assert.equal(await token.inputValue(),'owned-preview-token');
     checks.push('actual OAuthEditor retains resolved token across workspace pause/resume');
   }finally{await page.evaluate(()=>/** @type {any} */(window).__pluginOAuthPreviewFixture.dispose());}
+  const ownership = await page.evaluate(()=>/** @type {any} */(window).__pluginOAuthPreviewFixture.operationOwnership());
+  assert.deepEqual(ownership,['fetch','saved-error','saved-success']);
+  checks.push('actual OAuth operations retain replacement workspace feedback/run/progress and reject stale token adoption');
   await Bun.write(
     output + "/result.json",
     JSON.stringify(
@@ -122,7 +125,7 @@ await withPreview("plugin-oauth-preview", async (page, output) => {
         headless: true,
         checks,
         limits:
-          "Actual history/source guard and mounted literal OAuth preview pause/resume; no provider/native IPC or held-render-failure coverage.",
+          "Actual history/source guard, mounted literal preview pause/resume and OAuth operation ownership across controlled data/run replacement; no provider/native IPC or held provider-response coverage.",
       },
       null,
       2,

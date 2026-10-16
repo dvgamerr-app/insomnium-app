@@ -2107,6 +2107,7 @@ async function ensureOAuth(
   if (!exchange) return;
   workspace.oauthErrors[request._id] = "";
   const context = oauthContext(data, request, options);
+  const ownerData = workspace.data;
   const result = await fetchOAuthToken(exchange, signal, (event) => {
     const ownerActive =
       options.dependencyOwner &&
@@ -2114,6 +2115,7 @@ async function ensureOAuth(
         options.dependencyOwner.runId;
     if (
       signal.aborted ||
+      workspace.data !== ownerData ||
       (!ownerActive && workspace.running[request._id]?.id !== runId) ||
       event.id !== runId
     )
@@ -2127,7 +2129,10 @@ async function ensureOAuth(
         "OAuth login is waiting. Open this request’s Auth tab to paste the final callback URL.";
   });
   const current = workspace.data.resources.find((r) => r._id === request._id);
-  if (signal.aborted || !current)
+  const ownerActive = options.dependencyOwner &&
+    workspace.running[options.dependencyOwner.requestId]?.id === options.dependencyOwner.runId;
+  if (signal.aborted || !current || workspace.data !== ownerData ||
+      (!ownerActive && workspace.running[request._id]?.id !== runId))
     throw new Error("OAuth token request cancelled.");
   if (
     options.resolved
@@ -2183,18 +2188,15 @@ export async function authorizeOAuth(requestId, action = "fetch") {
   if (workspace.running[requestId]) return;
   const request = workspace.data.resources.find((r) => r._id === requestId);
   if (!request) return;
+  const ownerData = workspace.data;
   const runId = id("oauth");
   const controller = new AbortController();
   workspace.running[requestId] = { id: runId, controller };
   workspace.oauthErrors[requestId] = "";
   /** @type {() => void} */
   let completed = () => {};
-  completions.set(
-    requestId,
-    new Promise((resolve) => {
-      completed = resolve;
-    }),
-  );
+  /** @type {Promise<void>} */ const completion = new Promise((resolve) => { completed = resolve; });
+  completions.set(requestId, completion);
   try {
     const data = requestDataScope($state.snapshot(workspace.data), requestId);
     const snapshot = $state.snapshot(request);
@@ -2220,17 +2222,21 @@ export async function authorizeOAuth(requestId, action = "fetch") {
         pluginServices:workspacePluginServices(data,{requestId,runId},resolveResponse) },
     );
     controller.signal.throwIfAborted();
+    if (workspace.data !== ownerData || workspace.running[requestId]?.id !== runId) return;
     await ensureOAuth(data, rendered, runId, controller.signal, action, {
       resolved: true,
       sourceContext,
     });
   } catch (error) {
-    if (workspace.data.resources.some((r) => r._id === requestId))
+    if (workspace.data === ownerData && workspace.running[requestId]?.id === runId &&
+        workspace.data.resources.some((r) => r._id === requestId))
       workspace.oauthErrors[requestId] = String(error);
   } finally {
-    delete workspace.running[requestId];
-    clearOAuthProgress(requestId);
-    completions.delete(requestId);
+    if (workspace.running[requestId]?.id === runId) {
+      delete workspace.running[requestId];
+      clearOAuthProgress(requestId);
+    }
+    if (completions.get(requestId) === completion) completions.delete(requestId);
     completed();
   }
 }
@@ -2305,17 +2311,14 @@ function clearOAuthProgress(requestId) {
 export async function useSavedOAuth(requestId, tokenId) {
   if (!acceptWorkspaceRun()) return false;
   if (workspace.running[requestId]) return false;
+  const ownerData = workspace.data;
   const runId = id("oauth-adopt");
   const controller = new AbortController();
   workspace.running[requestId] = { id: runId, controller };
   workspace.oauthErrors[requestId] = "";
   /** @type {()=>void} */ let completed = () => {};
-  completions.set(
-    requestId,
-    new Promise((resolve) => {
-      completed = resolve;
-    }),
-  );
+  /** @type {Promise<void>} */ const completion = new Promise((resolve) => { completed = resolve; });
+  completions.set(requestId, completion);
   try {
     const data = requestDataScope($state.snapshot(workspace.data), requestId);
     const request = data.resources.find((r) => r._id === requestId);
@@ -2364,6 +2367,8 @@ export async function useSavedOAuth(requestId, tokenId) {
       (r) => r._id === tokenId,
     );
     if (
+      workspace.data !== ownerData ||
+      workspace.running[requestId]?.id !== runId ||
       !current ||
       !currentToken ||
       JSON.stringify($state.snapshot(currentToken)) !== tokenSource ||
@@ -2383,13 +2388,16 @@ export async function useSavedOAuth(requestId, tokenId) {
     storeOAuthRecord(workspace.data, record);
     return await persist();
   } catch (error) {
-    if (workspace.data.resources.some((r) => r._id === requestId))
+    if (workspace.data === ownerData && workspace.running[requestId]?.id === runId &&
+        workspace.data.resources.some((r) => r._id === requestId))
       workspace.oauthErrors[requestId] = String(error);
     return false;
   } finally {
-    delete workspace.running[requestId];
-    clearOAuthProgress(requestId);
-    completions.delete(requestId);
+    if (workspace.running[requestId]?.id === runId) {
+      delete workspace.running[requestId];
+      clearOAuthProgress(requestId);
+    }
+    if (completions.get(requestId) === completion) completions.delete(requestId);
     completed();
   }
 }
