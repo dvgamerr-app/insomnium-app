@@ -1,3 +1,5 @@
+import { serializeTemplateArgument } from "./template-authoring.js";
+
 /** Names only: completion must not render or expose environment values.
  * @param {Record<string, any>} environment
  */
@@ -16,9 +18,9 @@ export function environmentPaths(environment) {
     ancestors.add(value);
     for (const name of Object.keys(value)) {
       if (paths.length >= 2000) break;
-      // Bracket/quoted paths need the pending template-runtime migration.
-      if (!/^(?:[A-Za-z_$][\w$]*|\d+)$/.test(name)) continue;
-      const path = prefix ? `${prefix}.${name}` : name;
+      const identifier = /^[A-Za-z_$][\w$]*$/.test(name);
+      const path = identifier ? (prefix ? `${prefix}.${name}` : name)
+        : `${prefix || "_"}[${serializeTemplateArgument({type:"string",value:name})}]`;
       paths.push(path);
       const property = Object.getOwnPropertyDescriptor(value, name);
       if (property && "value" in property)
@@ -33,7 +35,7 @@ export function environmentPaths(environment) {
 /** @param {string} line @param {number} cursor @param {string[]} paths @param {boolean} force */
 export function environmentHints(line, cursor, paths, force = false) {
   const before = line.slice(0, cursor);
-  const variable = /{{\s*([\w$.]*)$/.exec(before);
+  const variable = /{{\s*((?:[\w$.]|\[(?:'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*")\])*)$/.exec(before);
   if (!variable && !force) return null;
   // Do not offer variables inside an unsupported tag or expression.
   if (
@@ -45,15 +47,15 @@ export function environmentHints(line, cursor, paths, force = false) {
   const word = variable ? variable[1] : /[\w$.]*$/.exec(before)?.[0] || "";
   const alias = word.startsWith("_.") ? "_." : "";
   const query = alias ? word.slice(2) : word;
-  const suffix = /^[\w$.]*/.exec(line.slice(cursor))?.[0] || "";
+  const suffix = /^(?:[\w$.]|\[(?:'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*")\])*/.exec(line.slice(cursor))?.[0] || "";
   let to = cursor + suffix.length;
   if (variable) to += /^\s*}}/.exec(line.slice(to))?.[0].length || 0;
   const list = paths
     .filter((path) => path.toLowerCase().startsWith(query.toLowerCase()))
     .slice(0, 100)
     .map((path) => ({
-      text: variable ? `${alias}${path} }}` : `{{ ${alias}${path} }}`,
-      displayText: `${alias}${path}`,
+      text: variable ? `${path.startsWith("_[") ? "" : alias}${path} }}` : `{{ ${path.startsWith("_[") ? "" : alias}${path} }}`,
+      displayText: `${path.startsWith("_[") ? "" : alias}${path}`,
     }));
   return { list, from: cursor - word.length, to };
 }

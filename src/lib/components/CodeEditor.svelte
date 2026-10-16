@@ -145,6 +145,12 @@
           paths,
           force && !editorMode(mode).startsWith("graphql"),
         );
+        if (hints && (isJsonBodyMediaType(mode) || mode === "graphql-variables")) {
+          const source = editor.getValue();
+          const offset = editor.indexFromPos(cursor);
+          if (templateEditorRange(source, offset, offset, true).jsonString)
+            hints.list = hints.list.map((hint) => ({...hint,text:JSON.stringify(hint.text).slice(1,-1)}));
+        }
         return hints
           ? {
               ...hints,

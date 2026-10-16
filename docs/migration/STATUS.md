@@ -1,5 +1,7 @@
 # Migration status
 
+Bracket-path completion follow-up from74ae78f5: shared environment completion now includes non-identifier keys with Nunjucks-quoted brackets and root _ alias, accepts/replaces complete bracket segments, and escapes inserted paths in JSON strings. Existing template-variable datalist shares these names. Bundled Nunjucks generated-path and cycle/getter checks pass; saved headless environment-completion scenario passes3actual CodeMirror paths with JSON validity and names-only presentation. Build/final scenario exit0; check25958exit0/0errors/0warnings. Details in TEMPLATING.md. Native/Send/isolated VM/provider/platform and original broader gates remain open. No live handles; /compact unavailable.
+
 Request JSON Format follow-up from9df115e3: HTTP/gRPC request formatting preserves Unicode escape tokens rather than manufacturing active template delimiters. Two actual headless built-app Format/persist/reload scenarios pass; inline model.render RED/GREEN confirms escaped literals unchanged and intentional templates active. Build passes; final check67061exit0/0errors/0warnings; scoped diff clean. Initial saved scenario label/typing corrected; prior legacy scenario optional access typing corrected. Details in TEMPLATING.md. Broader shared-editor/native/provider/platform and all original parity gates remain open. No live handles; /compact unavailable.
 
 ## Hoppscotch v2 collection import — 2026-10-16
