@@ -316,6 +316,17 @@ export async function runWebSocketRuntimeNativeCases() {
               "Connection usable after payload refusals",
             );
             assert.equal(first.incoming[3].text, expectedJson("owned-A"));
+            await page.getByRole("tab", {name:"Settings",exact:true}).click();
+            await page.getByRole("checkbox", {name:"Skip rendering of request body",exact:true}).check();
+            await poll(async () => (await load()).resources.find((/** @type {any} */ r) => r._id === request._id)?.settingDisableRenderRequestBody === true,"WS literal-body setting persisted");
+            await page.getByRole("tab", {name:"Message",exact:true}).click();
+            await button("Send message").click();
+            await poll(() => Promise.resolve(first.incoming.length === 5),"Literal JSON payload delivered");
+            assert.equal(first.incoming[4].text,jsonText,"Disabled rendering preserves template source on actual wire");
+            await page.getByRole("tab", {name:"Settings",exact:true}).click();
+            await page.getByRole("checkbox", {name:"Skip rendering of request body",exact:true}).uncheck();
+            await poll(async () => (await load()).resources.find((/** @type {any} */ r) => r._id === request._id)?.settingDisableRenderRequestBody === false,"WS rendering restored");
+            await page.getByRole("tab", {name:"Message",exact:true}).click();
             assert.equal(first.pings.length, 1);
             fixture.peerSend(initial, "Peer exact ไทย");
             fixture.peerSend(initial, binary);
