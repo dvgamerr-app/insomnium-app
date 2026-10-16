@@ -2,6 +2,8 @@
  * @param {Record<string,string>} files @param {string} request @param {string} parent */
 export function resolvePluginModule(files, request, parent) {
   if(request==='buffer'||request==='node:buffer')return 'insomnium:buffer';
+  if(request==='events'||request==='node:events')return 'insomnium:events';
+  if(request==='string_decoder'||request==='node:string_decoder')return 'insomnium:string_decoder';
   if(request==='stream'||request==='node:stream')return 'insomnium:stream';
   if(request==='stream/promises'||request==='node:stream/promises')return 'insomnium:stream/promises';
   const own = (/** @type {string} */ path) => Object.hasOwn(files, path);

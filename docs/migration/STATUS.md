@@ -1,5 +1,13 @@
 # Migration status
 
+## Plugin incremental StringDecoder imports accepted — 2026-10-17
+
+Source parent3d16a09b. Exposes existing licensed string_decoder implementation through string_decoder/node:string_decoder virtual CJS/ESM modules. Same package instance used by readable-stream; no dependency/version/lock change. Existing module UI scenario now splits UTF8 bytes inside first Thai character and decodes through StringDecoder→Transform→Writable; also verifies stream EventEmitter inheritance and promise once. One production-worker/headless registry/action/dialog run exits0 (~3.4s), exact helloไทย for CJS and ESM. modules-ui-acceptance.json records scope/workerSHA; generator, compiler0errors0warnings and frontend build exit0. No new runner/scripts/native rebuild/host calls. Native package admission and complete module/stream/platform/full PLAN/PARITY remain open. No live handles. Topic commit follows; /compact unavailable, handoff recorded.
+
+## Plugin EventEmitter module imports connected — 2026-10-17
+
+Source parent587ad5c1. Exposes existing bundled events implementation through events/node:events virtual modules for CJS and ESM, sharing EventEmitter identity with readable-stream. Named/default EventEmitter, once, listenerCount and defaultMaxListeners exported; no host resolver/process/filesystem introduced. Actual QuickJS callbacks pass CJS/ESM aliases, stream instanceof EventEmitter, promise once Unicode result and exact once/listener cleanup (ไทย:1:0), with zero host calls. Existing generator and Svelte check exit0/0errors0warnings. No dependency/lock/new tests/native build. Installed events implementation establishes pinned API; complete modern Node events API and worker/native/module/platform/full PLAN/PARITY remain open. No live handles. Topic commit follows; /compact unavailable, handoff recorded.
+
 ## Plugin buffer/stream production Worker acceptance — 2026-10-17
 
 Sourcec42d2003. Existing plugin-app-dialogs runner/action fixture gains INSOMNIUM_PLUGIN_MODULES_UI mode. One headless run exits0 (~3.4s) for CJS and ESM admitted plugin snapshots with actual registry/production Worker/action click/owned alert. Buffer and stream aliases share identity; Readable→Transform→Writable promise pipeline displays exact helloไทย and completion. Both sessions unmounted/disposed; receipt artifacts/playwright/plugin-resource-actions/modules-ui-acceptance.json includes served worker SHA matched to current build. Compiler exits0/0errors/0warnings. No new runner/dependency/native build/network; package/native IO is explicit fixture adapter. Full native admission/module/stream/provider/platform and original PLAN/PARITY remain open. No live handles. Topic commit follows; /compact unavailable, handoff recorded.
