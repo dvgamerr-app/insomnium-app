@@ -1,5 +1,9 @@
 # Migration status
 
+## GraphQL explorer Back navigation — 2026-10-17
+
+Source parent2280f833. Schema navigation previously discarded the prior view/type/directive/search. Added bounded100-entry Back history for hover/reference links and type/directive list selections; Back restores the previous query/schema view and selection/search. History resets on schema identity or request change; no network/schema fetch or saved request mutation. Existing explorer layout gains one conditional plain Back button. bun run check exits0/0errors/0warnings. No new tests/scripts/native rebuild; mounted UI/native navigation acceptance remains open, alongside full GraphQL/PLAN/PARITY. Reuses existing Svelte state and navigation path, no new subsystem. No live handles. Topic commit follows; /compact unavailable; handoff recorded.
+
 ## Theme toggle reflects displayed scheme — 2026-10-17
 
 Source parent11f8d70c. Fixed toolbar sun/moon icon reading the manual theme setting while system/plugin theme determines the visible scheme. ThemeHost reports its computed scheme to the shell through an untracked callback; toggle already uses displayed document scheme and disables automatic mode. Compiler exits0/0errors/0warnings; no new tests/scripts/native rebuild. Visual icon acceptance and all retained PLAN/PARITY remain open. gRPC contract/source inspection found no justified new change in inspected proto/reflection/runner paths; do not invent a gap or expand coercion test matrices from that inspection. No live handles. Topic commit follows; /compact unavailable, handoff recorded.

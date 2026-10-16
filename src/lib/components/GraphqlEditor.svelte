@@ -50,6 +50,7 @@
   let search = $state("");
   let selectedType = $state("");
   let selectedDirective = $state("");
+  let navigation=$state(/** @type {{view:string,search:string,type:string,directive:string}[]} */([]));
   let content = $derived.by(() => {
     try {
       return { body: readGraphqlBody(request.body?.text || "{}"), error: "" };
@@ -71,6 +72,16 @@
       : null,
   );
   let schema = $derived(entry?.schema || null);
+  $effect(()=>{void schema;void request._id;navigation=[];});
+  function rememberNavigation(){
+    navigation=[...navigation.slice(-99),{view,search,type:type?.name||'',directive:selectedDirective}];
+  }
+  function navigateBack(){
+    const previous=navigation.at(-1);
+    if(!previous)return;
+    navigation=navigation.slice(0,-1);
+    view=previous.view;search=previous.search;selectedType=previous.type;selectedDirective=previous.directive;
+  }
   const variableTypes = $derived(
     graphqlVariableTypes(
       schema,
@@ -83,6 +94,7 @@
       reference?.directive &&
       schema?.getDirective(reference.directive.name)
     ) {
+      rememberNavigation();
       selectedDirective = reference.directive.name;
       search = "";
       view = "Schema";
@@ -90,6 +102,7 @@
     }
     const name = graphqlReferenceType(reference);
     if (!name || !schema?.getType(name)) return;
+    rememberNavigation();
     search = "";
     selectedDirective = "";
     selectedType = name;
@@ -403,6 +416,7 @@
     >
       {#snippet first()}
         <div class="schema-types">
+          {#if navigation.length}<Button variant="plain" onclick={navigateBack} aria-label="Back in schema navigation">← Back</Button>{/if}
           <Input
             aria-label="Search schema types and fields"
             placeholder="Find type or field…"
@@ -413,6 +427,7 @@
             aria-label="Schema types"
             value={directive ? "" : type?.name || ""}
             onchange={(event) => {
+              rememberNavigation();
               selectedType = event.currentTarget.value;
               selectedDirective = "";
             }}
@@ -423,8 +438,10 @@
             size={4}
             aria-label="Schema directives"
             value={directive?.name || ""}
-            onchange={(event) =>
-              (selectedDirective = event.currentTarget.value)}
+            onchange={(event) => {
+              rememberNavigation();
+              selectedDirective = event.currentTarget.value;
+            }}
           >
             {#each directives as item}<option value={item.name}
                 >@{item.name}</option
