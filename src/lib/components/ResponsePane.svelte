@@ -1,6 +1,6 @@
 <script>
   import { copyText } from "../clipboard.js";
-  import { onDestroy } from "svelte";
+  import { onDestroy, tick } from "svelte";
   import TabPanel from "./ui/TabPanel.svelte";
   let activeTab0 = $state("");
   import SegmentedControl from "./ui/SegmentedControl.svelte";
@@ -29,6 +29,16 @@
   let { requestId, response, running, history, onhistory } = $props();
   let tab = $state("Preview");
   let raw = $state(false);
+  let bodyEditor = $state(/** @type {{focus:()=>void,setSelectionRange:(start:number,end:number)=>void}|undefined} */ (undefined));
+  export async function focusResponse() {
+    if (!response) return;
+    const owner = response;
+    tab = "Preview";
+    await tick();
+    if (response !== owner) return;
+    bodyEditor?.focus();
+    bodyEditor?.setSelectionRange(0, body.length);
+  }
   const meta = $derived(requestMeta(workspace.data.resources, requestId));
   const filter = $derived(
     typeof meta?.responseFilter === "string" ? meta.responseFilter : "",
@@ -453,6 +463,7 @@
             </Feedback>{/if}
         {/if}
         <CodeEditor
+          bind:this={bodyEditor}
           identity={String(response._id || response.created) +
             (raw ? ":raw" : ":preview")}
           value={body}

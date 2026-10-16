@@ -55,6 +55,7 @@ mod spectral_jobs;
 mod spectral_process;
 mod template;
 mod template_os;
+mod desktop_menu;
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -63,6 +64,10 @@ pub fn run() {
         return;
     }
     tauri::Builder::default()
+        .setup(|app| {
+            desktop_menu::install(app)?;
+            Ok(())
+        })
         .register_asynchronous_uri_scheme_protocol("insomnium-event", plugin_event_transport::handle)
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {

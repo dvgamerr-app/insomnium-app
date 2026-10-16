@@ -29,6 +29,14 @@ Keep the dark gray surfaces, purple selection/send action, left navigation rail,
 
 Implemented visual structure is not yet visually verified. CUA inventory on this session returned no browsers or native apps; do not treat compilation as screenshot evidence.
 
+## Native desktop menu
+
+The main window installs Insomnium, File, Edit, Request and View menus through Tauri's Rust menu builders. Custom actions are delivered only to the main renderer and use existing guarded workspace actions: new request/folder, import/export/save, send/message, duplicate/delete confirmation, environment/cookies, preferences and view/sidebar selection. Close Window calls the existing close-request path, which drains tracked work and persists before destruction. Custom menu items do not register additional accelerators; existing renderer shortcuts remain authoritative.
+
+Windows/Linux attach the menu to the main window. macOS uses the required application-wide menu and ignores custom main-window actions while another window owns focus. Native Cut/Copy/Paste/Select All are predefined items; native Undo/Redo are included only on macOS, where Tauri supports them. Windows compilation, frontend diagnostics and bundling pass; actual menu interaction, native clipboard behavior, close/recovery and other-platform acceptance remain unverified.
+
+Official references consulted: [Tauri window menus](https://v2.tauri.app/learn/window-menu/), [SubmenuBuilder](https://docs.rs/tauri/latest/tauri/menu/struct.SubmenuBuilder.html), [window menu platform restrictions](https://docs.rs/tauri/latest/tauri/webview/struct.WebviewWindow.html#method.set_menu). Existing subsystem APIs were used; no generator or dependency was required. Validation: `bun run check`, `bun run build`, `cargo check --manifest-path src-tauri/Cargo.toml`.
+
 ## Data flow
 
 `Svelte UI → workspace.svelte.js → model / transport / persistence → Tauri invoke → Rust HTTP / atomic storage`

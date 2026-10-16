@@ -51,6 +51,7 @@
     update,
     selectRequest,
     selectWorkspace,
+    setSidebarHidden,
     selectEnvironment,
     selectHttpHistory,
     selectStreamHistory,
@@ -104,6 +105,7 @@
   let importRevision = 0;
   let managedId = $state("");
   let mainView = $state("requests");
+  const sidebarHidden = $derived(app.data.resources.find((r) => r._type === "workspace_meta" && r.parentId === app.data.activeWorkspaceId)?.sidebarHidden === true);
   let settingsTab = $state("General");
   let newFolderParent = $state("");
   const managedResource = $derived(
@@ -127,6 +129,7 @@
   const protocol = $derived(protocolFor(request));
   let requestEditor = $state(/** @type {{openSettings:()=>void,sendMessage:()=>Promise<void>}|undefined} */ (undefined));
   let grpcEditor = $state(/** @type {{openSettings:()=>void,sendMessage:()=>Promise<void>}|undefined} */ (undefined));
+  let responsePane = $state(/** @type {{focusResponse:()=>Promise<void>}|undefined} */ (undefined));
   $effect(() => {
     if (app.ready) cancelChangedGrpcCalls();
   });
@@ -170,8 +173,21 @@
     let closing = false;
     /** @type {(() => void) | undefined} */
     let unlisten;
+    /** @type {(() => void) | undefined} */
+    let unlistenMenu;
     if (isTauri()) {
       const window = getCurrentWindow();
+      void window.listen("insomnium-menu", (event) => {
+        if (disposed) return;
+        if (event.payload === "close") {
+          void window.close().catch((error) => (app.error = String(error)));
+          return;
+        }
+        void nativeMenuAction(event.payload).catch((error) => (app.error = String(error)));
+      }).then((cleanup) => {
+        if (disposed) cleanup();
+        else unlistenMenu = cleanup;
+      }).catch((error) => (app.error = String(error)));
       void window
         .onCloseRequested(async (event) => {
           event.preventDefault();
@@ -197,6 +213,7 @@
     return () => {
       disposed = true;
       unlisten?.();
+      unlistenMenu?.();
     };
   });
   $effect(() => {
@@ -401,7 +418,41 @@
         tabs.filter((t) => t?._id !== tabId).at(-1)?._id || "";
     void persist();
   }
+  async function sendCurrentRequest() {
+    if (!request) return;
+    if (protocol === "websocket") await requestEditor?.sendMessage();
+    else if (protocol === "grpc") await grpcEditor?.sendMessage();
+    else await execute(request._id);
+  }
+  /** @param {unknown} action */
+  async function nativeMenuAction(action) {
+    if (!app.ready || editingBlocked || modal || document.querySelector("dialog[open]") || $templatePrompt) return;
+    switch (action) {
+      case "settings": openSettings("General"); break;
+      case "requests": case "tests": case "git": mainView = action; break;
+      case "import": await importFile(); break;
+      case "export": await exportData($state.snapshot(app.data)); break;
+      case "save": await persist(); break;
+      case "sidebar":
+        if (["requests", "tests"].includes(mainView)) setSidebarHidden(!sidebarHidden);
+        break;
+      default:
+        if (mainView !== "requests") return;
+        if (action === "new-request") addRequest();
+        else if (action === "new-folder") newFolder();
+        else if (action === "environment") editEnvironment();
+        else if (action === "cookies") showModal("cookies");
+        else if (request) {
+          if (action === "send") await sendCurrentRequest();
+          else if (action === "duplicate") duplicate(request._id);
+          else if (action === "delete") showModal("delete-request");
+        }
+    }
+  }
   function keyboard(/** @type {KeyboardEvent} */ event) {
+    const key = event.key.toLowerCase();
+    const modifier = event.ctrlKey || event.metaKey;
+    const plainF5 = key === "f5" && !modifier && !event.shiftKey;
     if (
       !app.ready ||
       event.defaultPrevented || event.isComposing || event.repeat || event.altKey ||
@@ -409,10 +460,9 @@
       modal ||
       document.querySelector("dialog[open]") ||
       $templatePrompt ||
-      !(event.ctrlKey || event.metaKey)
+      !(modifier || plainF5)
     )
       return;
-    const key = event.key.toLowerCase();
     if (event.shiftKey && key === "enter" && request && mainView === "requests") {
       const editor = protocol === "grpc" ? grpcEditor : requestEditor;
       if (editor) {
@@ -423,6 +473,36 @@
           const tab = document.querySelector('[aria-label="Request editor"] [role="tab"][aria-selected="true"], [aria-label="gRPC request editor"] [role="tab"][aria-selected="true"]');
           if (tab instanceof HTMLElement) tab.focus();
         });
+      }
+    } else if (event.shiftKey && ["e", "l"].includes(key) && mainView === "requests") {
+      const picker = document.querySelector(key === "e"
+        ? 'select[aria-label="Active environment"]'
+        : 'select[aria-label="HTTP method"]');
+      if (picker instanceof HTMLSelectElement && !picker.disabled) {
+        event.preventDefault();
+        picker.focus();
+        try { picker.showPicker?.(); } catch { /* Keyboard selection remains available. */ }
+      }
+    } else if (!event.shiftKey && key === "\\" && ["requests", "tests"].includes(mainView)) {
+      event.preventDefault();
+      const losingFocus = !sidebarHidden && document.activeElement?.closest('aside[aria-label="Collections"]');
+      setSidebarHidden(!sidebarHidden);
+      if (losingFocus) void tick().then(() => {
+        const target = document.querySelector('input[aria-label="Request URL"], input[aria-label="gRPC server URL"], button[aria-label="Tests"]');
+        if (target instanceof HTMLElement) target.focus();
+      });
+    } else if (!event.shiftKey && key === "'" && request && mainView === "requests" && responsePane) {
+      event.preventDefault();
+      void responsePane.focusResponse();
+    } else if (event.shiftKey && key === "h" && request && mainView === "requests") {
+      const history = document.querySelector('button[aria-label="Response history"], select[aria-label="Connection history"], select[aria-label="gRPC response history"]');
+      if (history instanceof HTMLButtonElement && !history.disabled) {
+        event.preventDefault();
+        history.click();
+      } else if (history instanceof HTMLSelectElement && !history.disabled) {
+        event.preventDefault();
+        history.focus();
+        try { history.showPicker?.(); } catch { /* Keyboard selection remains available. */ }
       }
     } else if (!event.shiftKey && key === ",") {
       event.preventDefault();
@@ -439,21 +519,31 @@
         event.preventDefault();input.focus();input.select();
       }
     } else if (event.shiftKey && key === "f" && mainView === "requests") {
-      event.preventDefault();filterInput?.focus();
+      event.preventDefault();
+      setSidebarHidden(false);
+      void tick().then(() => { if (mainView === "requests") filterInput?.focus(); });
     } else if (event.shiftKey && key === "g") {
       event.preventDefault();
       mainView = "git";
-    } else if (!event.shiftKey && event.key === "Enter" && request && mainView === "requests") {
+    } else if (!event.shiftKey && ((modifier && ["enter", "r"].includes(key)) || plainF5) && request && mainView === "requests") {
       event.preventDefault();
-      if (protocol === "websocket") void requestEditor?.sendMessage();
-      else if (protocol === "grpc") void grpcEditor?.sendMessage();
-      else void execute(request._id);
+      void sendCurrentRequest().catch((error) => (app.error = String(error)));
+    } else if (event.shiftKey && key === "n" && mainView === "requests") {
+      event.preventDefault();
+      newFolder();
+    } else if (event.shiftKey && key === "delete" && request && mainView === "requests") {
+      event.preventDefault();
+      showModal("delete-request");
+    } else if (!event.shiftKey && key === "d" && request && mainView === "requests") {
+      event.preventDefault();
+      duplicate(request._id);
     } else if (!event.shiftKey && key === "n" && mainView === "requests") {
       event.preventDefault();
       addRequest();
     } else if (!event.shiftKey && key === "p" && mainView === "requests") {
       event.preventDefault();
-      filterInput?.focus();
+      setSidebarHidden(false);
+      void tick().then(() => { if (mainView === "requests") filterInput?.focus(); });
     } else if (!event.shiftKey && key === "s") {
       event.preventDefault();
       void persist();
@@ -602,7 +692,7 @@
     minFirst={220}
     minSecond={320}
     collapsedPane="first"
-    collapsed={mainView === "git" || mainView === "settings"}
+    collapsed={sidebarHidden || mainView === "git" || mainView === "settings"}
   >
     {#snippet second()}
       <main class="workspace-main">
@@ -870,6 +960,7 @@
                     )}
                     onhistory={(response) => selectStreamHistory(request._id,response)}
                   />{:else}<ResponsePane
+                    bind:this={responsePane}
                     requestId={request._id}
                     response={app.responses[request._id]}
                     running={!!app.running[request._id]}

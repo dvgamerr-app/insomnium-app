@@ -131,10 +131,16 @@
             >
               <h3 id="settings-shortcuts-title">Shortcuts</h3>
               <p class="hint">
-                Ctrl/Cmd + Enter: send · + N: new request · + P: filter.
+                Ctrl/Cmd + Enter, Ctrl/Cmd + R or F5: send.
+                Ctrl/Cmd + N: new request · + P: filter.
                 + L: URL · + E: environment · + K: cookies · + ,: preferences.
                 Ctrl/Cmd + Shift + F: filter.
                 Ctrl/Cmd + Shift + Enter: request options.
+                Ctrl/Cmd + Shift + E: switch environment · + Shift + L: HTTP method.
+                Ctrl/Cmd + D: duplicate request · + Shift + Delete: delete request.
+                Ctrl/Cmd + Shift + N: new folder.
+                Ctrl/Cmd + Shift + H: response or connection history.
+                Ctrl/Cmd + \: toggle sidebar · + ': focus and select HTTP response.
               </p>
             </section>
           {:else if tab === "Editor"}

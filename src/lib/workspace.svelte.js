@@ -748,6 +748,21 @@ export function selectEnvironment(environmentId) {
   if (data.settings.filterResponsesByEnv) refreshHttpResponses();
   void persist();
 }
+/** @param {boolean} hidden */
+export function setSidebarHidden(hidden) {
+  if (!canEditWorkspace()) return;
+  const data = workspace.data;
+  if (!data.resources.some((r) => r._type === "workspace" && r._id === data.activeWorkspaceId)) return;
+  let meta = data.resources.find((r) => r._type === "workspace_meta" && r.parentId === data.activeWorkspaceId);
+  if ((meta?.sidebarHidden === true) === hidden) return;
+  if (!meta) {
+    meta = {_id:id("wrkm"),_type:"workspace_meta",parentId:data.activeWorkspaceId,activeEnvironmentId:data.activeEnvironmentId,created:Date.now()};
+    data.resources.push(meta);
+  }
+  meta.sidebarHidden = hidden;
+  meta.modified = Date.now();
+  void persist();
+}
 /** @param {string} workspaceId */
 export function selectWorkspace(workspaceId) {
   if (!canEditWorkspace()) return;
