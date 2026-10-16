@@ -103,7 +103,7 @@
   }
   function format() {
     try {
-      body({ text: jsonPrettify(request.body.text, "  ") });
+      body({ text: jsonPrettify(request.body.text, "  ", false) });
       error = "";
     } catch (e) {
       error = String(e);

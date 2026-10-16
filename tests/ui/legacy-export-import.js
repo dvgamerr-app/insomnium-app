@@ -6,6 +6,7 @@ const inputs = [
   {name:"Owned legacy v1",body:'{"legacy":1,"unicode":"Ω"}',source:{__export_format:1,items:[{name:"Owned folder",environments:{base:{host:"https://owned.invalid"}},requests:[{name:"Owned legacy v1",url:"{{host}}/echo",method:"POST",__insomnia:{format:"json"},body:'{"legacy":1,"unicode":"Ω"}'}]}]}},
   {name:"Owned legacy v2",body:"a=1&a=2&raw=%2f&x=a+b",source:{__export_format:2,resources:[{_id:"legacy_req",_type:"request",name:"Owned legacy v2",url:"https://owned.invalid/form",method:"POST",headers:[{name:"Content-Type",value:"application/x-www-form-urlencoded"}],body:"a=1&a=2&raw=%2f&x=a+b"}]}},
 ];
+inputs[0].source.requests?.push({v:1,name:"Owned Hoppscotch raw",method:"POST",endpoint:"https://owned.invalid/raw",auth:{authType:"none"},headers:[],params:[],body:{contentType:"application/octet-stream",body:"raw Ω\r\nbytes"}});
 await withPreview("legacy-export-import", async (page, output) => {
   const stored = () => page.evaluate(() => JSON.parse(localStorage.getItem("insomnium-tauri-preview-v1") || "{}"));
   for (const input of inputs) {
@@ -24,6 +25,10 @@ await withPreview("legacy-export-import", async (page, output) => {
   await page.reload();
   await page.getByRole("button", {name:"Import collection",exact:true}).waitFor();
   const data = await stored();
+  const raw = data.resources.find((/** @type {any} */ r) => r.name === "Owned Hoppscotch raw");
+  assert.equal(raw.body.text,"raw Ω\r\nbytes");
+  assert.equal(raw.body.mimeType,"text/plain");
+  assert.ok(raw.headers.some((/** @type {any} */ h) => h.name === "Content-Type" && h.value === "application/octet-stream" && !h.disabled));
   for (const input of inputs) assert.equal(data.resources.find((/** @type {any} */ r) => r.name === input.name).body.text,input.body);
   assert.equal(data.resources.find((/** @type {any} */ r) => r.name === "Owned folder").environment.host,"https://owned.invalid");
   await Bun.write(output + "/result.json",JSON.stringify({status:"passed",headless:true,scope:"Actual built-app legacy/Hoppscotch review/apply/reload; no network",formats:[1,2,"hoppscotch-v2"],bodyTextPreserved:true,folderEnvironment:true},null,2));

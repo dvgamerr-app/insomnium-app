@@ -65,9 +65,18 @@ export function hoppscotchResources(source) {
       const inherited = [...ownHeaders,...headers.filter((parent) => !ownHeaders.some((child) => child.key === parent.key))];
       const effectiveAuth = request.auth.authType === "inherit" ? {...auth,...(request.auth.authActive === false ? {authActive:false} : {})} : request.auth;
       const body = requestBody(request.body);
+      // Raw Hoppscotch text is not an Insomnium file or GraphQL editor payload.
+      // Keep its wire MIME in a header while selecting the ordinary text sender.
+      const rawMime = typeof body.text === "string" &&
+        ["application/octet-stream","application/graphql","multipart/form-data"].includes(body.mimeType.toLowerCase())
+        ? body.mimeType : null;
+      if (rawMime) body.mimeType = "text/plain";
+      const importedHeaders = inherited.map((header) => ({name:tokens(header.key),value:tokens(header.value),disabled:!header.active}));
+      if (rawMime && !importedHeaders.some((header) => !header.disabled && header.name.toLowerCase() === "content-type"))
+        importedHeaders.push({name:"Content-Type",value:rawMime,disabled:false});
       const scripts = !!(request.preRequestScript || request.testScript);
       resources.push(newRequest(folderId,{name:request.name || "Imported request",method:request.method || "GET",url:tokens(request.endpoint),body,
-        headers:inherited.map((header) => ({name:tokens(header.key),value:tokens(header.value),disabled:!header.active})),
+        headers:importedHeaders,
         parameters:rows(request.params,"parameters").map((parameter) => ({name:tokens(parameter.key),value:tokens(parameter.value),disabled:!parameter.active})),
         authentication:authentication(effectiveAuth),_hoppscotchSource:structuredClone(request),
         _migrationIssues:[...(scripts ? ["Hoppscotch scripts are retained but are not executed."] : []),

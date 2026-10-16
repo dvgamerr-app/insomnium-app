@@ -318,7 +318,7 @@
                 disabled={!!selectedSent}
                 onclick={() => {
                   try {
-                    body(jsonPrettify(request.body?.text || "{}", "  "));
+                    body(jsonPrettify(request.body?.text || "{}", "  ", false));
                     error = "";
                   } catch (e) {
                     error = String(e);

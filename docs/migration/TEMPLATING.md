@@ -959,3 +959,9 @@ Next: complete the built-in authoring definitions/dynamic behavior, dialog contr
 
 
 </details>
+
+## Request JSON formatting and escaped templates — 2026-10-16
+
+HTTP/gRPC request Format now passes replaceUnicode:false to the existing token formatter. Decoding escaped braces/percent characters previously manufactured template delimiters and changed subsequent rendering. Authored Unicode escapes, integer tokens and intentional templates remain intact; response display formatting is unchanged. Reference: RFC8259 section7 (https://www.rfc-editor.org/rfc/rfc8259#section-7).
+
+Inline Bun actual model.render comparison reproduces the old escaped-template expansion and verifies corrected literal/active-template behavior. Saved headless tests/ui/json-request-format.js verifies actual built-app Format/persistence/reload for HTTP and gRPC, exact escapes/large integer tokens and parsed JSON equality; both pass. Initial HTTP button label was corrected from Format to Format JSON. Frontend build passes; final check session67061 exits0 with0errors/0warnings after scenario typing corrections (including a previous legacy scenario's possibly undefined requests access). No native/network acceptance claimed or new artifact scripts. Full migration remains incomplete.
