@@ -128,6 +128,18 @@ export function validateData(value) {
       ))
   )
     throw new Error("Invalid saved response history");
+  for (const entry of data.history || []) {
+    if (
+      ["websocket", "sse", "grpc"].includes(entry.protocol) &&
+      entry.events != null &&
+      (!Array.isArray(entry.events) ||
+        entry.events.some(
+          (/** @type {unknown} */ event) =>
+            !event || typeof event !== "object" || Array.isArray(event),
+        ))
+    )
+      throw new Error("Invalid saved stream events");
+  }
   const defaults = initialData();
   if (data.responseSelections != null &&
       (typeof data.responseSelections !== "object" || Array.isArray(data.responseSelections) ||

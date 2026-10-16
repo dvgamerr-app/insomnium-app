@@ -1,5 +1,11 @@
 # IMPORT EXPORT migration
 
+## Saved stream event validation — 2026-10-16
+
+Native `storage::validate` now enforces the same history/requestId and stream-event container guards on reads and writes. Targeted `cargo test --manifest-path src-tauri/Cargo.toml --lib storage::tests` passes3tests: malformed input refusal, valid/legacy preservation, and real temporary-file save refusal preserving primary bytes, prior backup bytes and the first-backup opportunity. No live profile was used. Invalid loads still refuse safely; automatic backup fallback and a reviewed restore UI are not implemented by this change.
+
+Shared workspace validation now rejects a present non-array stream event list and null/primitive/array event entries for WebSocket/SSE/gRPC history before rendering. Valid event objects and legacy history without an event list remain unchanged; nothing is silently dropped. Initialization already keeps saving disabled when loading fails, preserving the source workspace for recovery. `bun tests/stream-retention.js` and `bun run check` pass. This is frontend schema protection, not native backup recovery or mounted UI acceptance. Existing newest-N-before-byte-budget retention semantics remain unchanged.
+
 Updated 2026-10-15. Desktop paste/review/apply is implemented. Legacy HTTP response assets/history have bounded headless and final Windows native acceptance with current source closure verified. Current cURL mixed/file and GET/file receipts pass (CURL-IMPORT.md); broader import/export and external-asset gates remain open.
 
 See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity requirements](PARITY.md). No original scope was removed by consolidation.

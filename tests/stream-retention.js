@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { appendStreamEvent } from "../src/lib/streaming.js";
+import { initialData, validateData } from "../src/lib/model.js";
 const MiB = 1024 * 1024;
 const large = JSON.stringify({ value: "x".repeat(9 * MiB) });
 const empty = () => ({
@@ -67,4 +68,24 @@ appendStreamEvent(socket, { kind: "message", format: "pong", data: "pong" });
 appendStreamEvent(socket, { kind: "closed", code: 1000 });
 assert.equal(socket.events.find((e) => e.format === "text")?.data, large);
 cases.push("websocket-control-terminal-retention");
+for (const events of [{}, [null], ["invalid"], [[]]]) {
+  const data = initialData();
+  data.history = [
+    { _id: "res_invalid", requestId: "req", protocol: "websocket", events },
+  ];
+  assert.throws(() => validateData(data), /Invalid saved stream events/);
+}
+cases.push("invalid-saved-stream-events-refuse-before-rendering");
+const saved = initialData();
+saved.history = [
+  {
+    _id: "res_valid",
+    requestId: "req",
+    protocol: "websocket",
+    events: [{ kind: "closed", code: 1000 }],
+  },
+  { _id: "res_legacy", requestId: "req", protocol: "sse" },
+];
+assert.deepEqual(validateData(saved).history, saved.history);
+cases.push("valid-and-legacy-stream-history-remain-intact");
 console.log(JSON.stringify({ passed: true, cases }));

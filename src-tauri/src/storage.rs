@@ -45,6 +45,24 @@ pub(crate) fn validate(value: &Value) -> Result<(), String> {
             return Err("Invalid or duplicate resource".into());
         }
     }
+    if let Some(history) = value.get("history").filter(|history| !history.is_null()) {
+        for entry in history.as_array().ok_or("Invalid saved response history")? {
+            if entry.get("requestId").and_then(Value::as_str).is_none() {
+                return Err("Invalid saved response history".into());
+            }
+            if matches!(
+                entry.get("protocol").and_then(Value::as_str),
+                Some("websocket" | "sse" | "grpc")
+            ) {
+                if let Some(events) = entry.get("events").filter(|events| !events.is_null()) {
+                    let events = events.as_array().ok_or("Invalid saved stream events")?;
+                    if events.iter().any(|event| !event.is_object()) {
+                        return Err("Invalid saved stream events".into());
+                    }
+                }
+            }
+        }
+    }
     Ok(())
 }
 
@@ -54,8 +72,12 @@ pub(crate) fn validate(value: &Value) -> Result<(), String> {
 pub(crate) fn ensure_no_pending_transition(directory: &Path) -> Result<(), String> {
     let clone = directory.join(crate::git_clone::install::JOURNAL);
     match fs::symlink_metadata(&clone) {
-        Ok(_) => return Err("Clone installation recovery is required before writing; journal retained".into()),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {},
+        Ok(_) => {
+            return Err(
+                "Clone installation recovery is required before writing; journal retained".into(),
+            )
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
         Err(error) => return Err(format!("Cannot inspect Clone recovery journal: {error}")),
     }
     let path = directory.join(GIT_TRANSITION_FILE);
@@ -195,4 +217,80 @@ pub async fn save_workspace(
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn workspace() -> Value {
+        json!({"schemaVersion":1,"resources":[{"_id":"wrk_owned","_type":"workspace"}],"history":[]})
+    }
+
+    #[test]
+    fn malformed_stream_history_is_rejected() {
+        for protocol in ["websocket", "sse", "grpc"] {
+            for events in [json!({}), json!([null]), json!(["invalid"]), json!([[]])] {
+                let mut data = workspace();
+                data["history"] = json!([{"requestId":"req","protocol":protocol,"events":events}]);
+                assert_eq!(validate(&data).unwrap_err(), "Invalid saved stream events");
+            }
+        }
+    }
+
+    #[test]
+    fn valid_and_legacy_history_is_unchanged() {
+        let mut data = workspace();
+        data["history"] = json!([
+            {"requestId":"req","protocol":"websocket","events":[{"kind":"closed","code":1000}]},
+            {"requestId":"req","protocol":"sse"},
+            {"requestId":"req","protocol":"grpc","events":null},
+            {"requestId":"req","body":"original"}
+        ]);
+        let before = data.clone();
+        validate(&data).unwrap();
+        assert_eq!(data, before);
+    }
+
+    #[test]
+    fn refused_save_preserves_primary_backup_and_session() {
+        struct OwnedDirectory(std::path::PathBuf);
+        impl Drop for OwnedDirectory {
+            fn drop(&mut self) {
+                let _ = fs::remove_dir_all(&self.0);
+            }
+        }
+        let directory = OwnedDirectory(
+            std::env::temp_dir().join(format!("insomnium-storage-{}", uuid::Uuid::new_v4())),
+        );
+        fs::create_dir(&directory.0).unwrap();
+        let original = serde_json::to_vec(&workspace()).unwrap();
+        fs::write(directory.0.join(WORKSPACE_FILE), &original).unwrap();
+        fs::write(
+            directory.0.join(PREVIOUS_WORKSPACE_FILE),
+            b"original backup",
+        )
+        .unwrap();
+        let mut session = Session::default();
+        session.load(&directory.0).unwrap();
+        let mut invalid = workspace();
+        invalid["history"] = json!([{"requestId":"req","protocol":"websocket","events":[null]}]);
+        assert!(session.save(&directory.0, &invalid).is_err());
+        assert_eq!(
+            fs::read(directory.0.join(WORKSPACE_FILE)).unwrap(),
+            original
+        );
+        assert_eq!(
+            fs::read(directory.0.join(PREVIOUS_WORKSPACE_FILE)).unwrap(),
+            b"original backup"
+        );
+        assert!(!session.backed_up);
+        // A later valid save still gets the first-backup opportunity.
+        session.save(&directory.0, &workspace()).unwrap();
+        assert_eq!(
+            fs::read(directory.0.join(PREVIOUS_WORKSPACE_FILE)).unwrap(),
+            original
+        );
+    }
 }

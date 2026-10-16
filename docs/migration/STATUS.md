@@ -1,5 +1,15 @@
 # Migration status
 
+## Native saved history validation — 2026-10-16
+
+From950b28d3: storage::validate now aligns native reads/writes with frontend history/requestId and stream-event shape guards. Invalid input is refused before saving or backup mutation. Targeted cargo test --manifest-path src-tauri/Cargo.toml --lib storage::tests passes3/0failed/74filtered in0.01s after1m01compile (session31416exit0); only5known vendor warnings. Tests cover malformed/valid/legacy history and real owned temporary-file preservation of primary, backup and first-backup opportunity after a rejected save. No real profile, native release build, UI matrix or new scripts/audits. Existing loader does not automatically fall back to backup; reviewed recovery UI remains unimplemented, and mounted/native/platform acceptance plus all remaining PLAN/PARITY requirements stay open. No owned process handles remain. /compact unavailable; this is the feature handoff.
+
+
+## Malformed saved stream history guard — 2026-10-16
+
+From60ab032f: validateData now refuses present non-array events or null/primitive/array event entries in WebSocket/SSE/gRPC history before mounting consumers. Valid history and absent legacy event lists remain intact; no entries are silently discarded. Existing initialization keeps ready=false and saving disabled on validation failure, preserving stored data. Necessary regression added to existing tests/stream-retention.js: initial missing-exception RED, then all10retention groups pass. bun run check0errors/0warnings (session68085exit0); diff check passes. No new scripts, audit, native build or matrix. The initial quota suspicion contradicted the existing newest-N-before-budget contract and was discarded without changing retention semantics. Native backup recovery and mounted UI acceptance remain open; all other PLAN/PARITY requirements remain incomplete. No owned processes remain; unrelated documentation preserved. /compact unavailable; this is the feature handoff.
+
+
 ## GraphQL referenced type navigation — 2026-10-16
 
 Fromd8c4cc21: Git inspection confirmed clone/remote checkout/non-force push already exist, so no duplicate implementation. Addressed the remaining GraphQL navigation scope instead: schema explorer links to directly referenced field/argument/input/interface/union/directive types, unwraps wrappers, deduplicates and omits self-links. Uses existing loaded schema and navigation handler; bounded sidebar scrolling preserves layout. bun run check0errors/0warnings (session23120exit0), bun run buildexit0, inline Bun inspection returned Query=>Filter/Result/User, User=>ID/Node, Filter=>String, Result=>User, directive=>Filter. No new test/audit scripts or native build. Mounted UI/native and full legacy/provider/platform parity remain open; other PLAN/PARITY requirements are unchanged. No owned process handles remain. /compact unavailable; this is the feature handoff.
