@@ -1,4 +1,4 @@
-import { workspaceFor } from "./model.js";
+import { indexWorkspaces, workspaceFor } from "./model.js";
 /** @param {Record<string,any>[]} resources @param {string} suiteId @param {string|null} [testId] */
 export function runnerSuite(resources, suiteId, testId = null) {
   const suite = resources.find(
@@ -72,12 +72,19 @@ export function latestRunnerResult(resources, collectionId, suiteId) {
 }
 
 /** @param {Record<string,any>[]} resources @param {string} collectionId */
+export function runnerSuites(resources, collectionId) {
+  if (!collectionId) return [];
+  const owners = indexWorkspaces(resources);
+  return resources.filter(
+    (r) => r._type === "unit_test_suite" && owners.get(r._id) === collectionId,
+  );
+}
+
+/** @param {Record<string,any>[]} resources @param {string} collectionId */
 export function selectedRunnerSuite(resources, collectionId) {
   const selected = resources.find(
     (r) => r._type === "workspace_meta" && r.parentId === collectionId,
   )?.activeUnitTestSuiteId;
-  const suites = resources.filter(
-    (r) => r._type === "unit_test_suite" && r.parentId === collectionId,
-  );
+  const suites = runnerSuites(resources, collectionId);
   return suites.find((r) => r._id === selected) || suites[0] || null;
 }

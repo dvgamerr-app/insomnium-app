@@ -2727,17 +2727,19 @@ export function selectTestSuite(suiteId) {
     (r) => r._id === suiteId && r._type === "unit_test_suite",
   );
   if (!suite) return;
+  const collectionId = workspaceFor(workspace.data.resources, suiteId);
+  if (!collectionId) return;
   let meta = workspace.data.resources.find(
-    (r) => r._type === "workspace_meta" && r.parentId === suite.parentId,
+    (r) => r._type === "workspace_meta" && r.parentId === collectionId,
   );
   if (!meta) {
     meta = {
       _id: id("wrkm"),
       _type: "workspace_meta",
-      parentId: suite.parentId,
+      parentId: collectionId,
       activeEnvironmentId: selectedEnvironmentFor(
         workspace.data,
-        suite.parentId,
+        collectionId,
       ),
     };
     workspace.data.resources.push(meta);

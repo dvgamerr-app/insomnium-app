@@ -1,5 +1,11 @@
 # Migration status
 
+## Runner suite collection ownership — 2026-10-16
+
+Continued from 69744970. Fixed nested/imported runner suites being omitted from the sidebar and saved selection: shared runnerSuites resolves collection ownership through the existing resource index; selectTestSuite writes selection/environment metadata under the owning collection rather than a folder. Existing script/request bindings and execution runtime are unchanged.
+
+Evidence: bun tests/runner-model.js reproduced suite_root instead of suite_nested before the fix and passes after it, including collection isolation, foreign-selection fallback, original resource preservation and imported request binding. bun run check exits0 with0errors/0warnings (session5606). No native build, full historical suite or disposable artifact scripts. Mounted/native runner acceptance and broader PLAN/PARITY requirements remain open. No live owned process handles. Unrelated documentation edits remain unstaged. /compact unavailable; this is the topic handoff.
+
 ## Reviewed workspace backup restore — 2026-10-16
 
 From08e4a0a9: added one saved headless UI flow for the implemented backup recovery, using existing component-fixture/launchUiBrowser helpers. Actual WorkspaceRecovery, persistence and initialize code run against controlled IPC; verifies preview counts, Cancel with no restore request, explicit confirmation with both reviewed hashes, modal removal and successful workspace ready/retained-file notice. bun tests/ui/workspace-recovery.js exits0 in about2seconds; artifacts/playwright/workspace-recovery-1792133779254/result.json records headless/passed and exact five IPC calls. No product code changes, native host, real profile, release build, historical matrix or one-off artifacts scripts. Prior native storage11tests, retention11groups and frontend check remain their recorded evidence; this adds mounted UI coverage only. Real Tauri IPC, cross-platform filesystem behavior, malformed payloads and all broader PLAN/PARITY gates remain open. Browser/server closed by shared helper; no owned handles remain. Unrelated documentation preserved. /compact unavailable; this is the feature handoff.

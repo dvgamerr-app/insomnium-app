@@ -6,13 +6,11 @@
     selectTestSuite,
     stop,
   } from "../workspace.svelte.js";
-  import { selectedRunnerSuite } from "../runner-model.js";
+  import { runnerSuites, selectedRunnerSuite } from "../runner-model.js";
   import Icon from "./Icon.svelte";
   /** @type {{collectionId:string}} */ let { collectionId } = $props();
   const suites = $derived(
-    workspace.data.resources.filter(
-      (r) => r._type === "unit_test_suite" && r.parentId === collectionId,
-    ),
+    runnerSuites(workspace.data.resources, collectionId),
   );
   const selected = $derived(
     selectedRunnerSuite(workspace.data.resources, collectionId),
