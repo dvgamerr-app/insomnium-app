@@ -102,6 +102,9 @@ export function createPluginVm(engine, snapshot, eventTimeOrigin = performance.t
     evaluate(pluginBufferSource, "plugin-buffer.js").dispose();
     vm.runtime.setModuleLoader(
       (name) => {
+        if(name==='insomnium:buffer')return 'export const {Buffer,SlowBuffer,INSPECT_MAX_BYTES,kMaxLength}=globalThis.__pluginBufferModule;export default globalThis.__pluginBufferModule;';
+        if(name==='insomnium:stream')return 'export const {Stream,Readable,Writable,Duplex,Transform,PassThrough,pipeline,finished,compose,addAbortSignal,destroy,isDestroyed,isDisturbed,isErrored,isReadable,isWritable,getDefaultHighWaterMark,setDefaultHighWaterMark,promises}=globalThis.__pluginStreamModule;export default globalThis.__pluginStreamModule;';
+        if(name==='insomnium:stream/promises')return 'export const {pipeline,finished}=globalThis.__pluginStreamPromises;export default globalThis.__pluginStreamPromises;';
         const format = pluginModuleFormat(files, name);
         if (format === "module") return files[name].replace(/^\uFEFF/, "");
         return `export default globalThis.__requirePluginModule(${JSON.stringify(name)});`;
@@ -114,6 +117,9 @@ export function createPluginVm(engine, snapshot, eventTimeOrigin = performance.t
       const pluginModuleFormat = ${pluginModuleFormat.toString()};
       const cache = Object.create(null);
       globalThis.__requirePluginModule = function load(id) {
+        if(id==='insomnium:buffer')return globalThis.__pluginBufferModule;
+        if(id==='insomnium:stream')return globalThis.__pluginStreamModule;
+        if(id==='insomnium:stream/promises')return globalThis.__pluginStreamPromises;
         if (Object.hasOwn(cache, id)) return cache[id].exports;
         const format = pluginModuleFormat(files, id);
         if (format === 'module') throw Error('CommonJS require of an ES module is not supported yet: ' + id);

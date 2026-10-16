@@ -1,7 +1,12 @@
-import { Readable } from "readable-stream/lib/ours/browser.js";
-import { Buffer } from "buffer/";
+import { Readable, Stream } from "readable-stream/lib/ours/browser.js";
+import { Buffer, SlowBuffer, INSPECT_MAX_BYTES, kMaxLength } from "buffer/";
 // This runs inside the isolated QuickJS VM, never the application global.
 globalThis.Buffer = Buffer;
 Object.defineProperty(globalThis, "__pluginBuffer", { value: Buffer });
+Object.defineProperty(globalThis, "__pluginBufferModule", {
+  value:Object.freeze({Buffer,SlowBuffer,INSPECT_MAX_BYTES,kMaxLength}),
+});
 
 Object.defineProperty(globalThis, "__pluginReadable", { value: Readable });
+Object.defineProperty(globalThis, "__pluginStreamModule", { value: Stream });
+Object.defineProperty(globalThis, "__pluginStreamPromises", { value: Stream.promises });

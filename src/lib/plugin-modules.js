@@ -1,6 +1,9 @@
 /** Resolve modules using only the admitted text snapshot; never host filesystem.
  * @param {Record<string,string>} files @param {string} request @param {string} parent */
 export function resolvePluginModule(files, request, parent) {
+  if(request==='buffer'||request==='node:buffer')return 'insomnium:buffer';
+  if(request==='stream'||request==='node:stream')return 'insomnium:stream';
+  if(request==='stream/promises'||request==='node:stream/promises')return 'insomnium:stream/promises';
   const own = (/** @type {string} */ path) => Object.hasOwn(files, path);
   const normalize = (/** @type {string} */ path) => {
     const parts = [];
