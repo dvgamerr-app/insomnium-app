@@ -3,6 +3,7 @@
 export function resolvePluginModule(files, request, parent, mode='require',resolutionDepth=0) {
   if(resolutionDepth>32)throw Error('Package resolution nesting exceeds its limit');
   if(request==='buffer'||request==='node:buffer')return 'insomnium:buffer';
+  if(request==='url'||request==='node:url')return 'insomnium:url';
   if(request==='events'||request==='node:events')return 'insomnium:events';
   if(request==='string_decoder'||request==='node:string_decoder')return 'insomnium:string_decoder';
   if(request==='stream'||request==='node:stream')return 'insomnium:stream';

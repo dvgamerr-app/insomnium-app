@@ -102,6 +102,7 @@ export function createPluginVm(engine, snapshot, eventTimeOrigin = performance.t
     evaluate(pluginBufferSource, "plugin-buffer.js").dispose();
     vm.runtime.setModuleLoader(
       (name) => {
+        if(name==='insomnium:url')return 'export const {URL,URLSearchParams,Url,parse,format,resolve,resolveObject}=globalThis.__pluginUrlModule;export default globalThis.__pluginUrlModule;';
         if(name==='insomnium:buffer')return 'export const {Buffer,SlowBuffer,INSPECT_MAX_BYTES,kMaxLength}=globalThis.__pluginBufferModule;export default globalThis.__pluginBufferModule;';
         if(name==='insomnium:events')return 'export const {EventEmitter,once,listenerCount,defaultMaxListeners}=globalThis.__pluginEventsModule;export default globalThis.__pluginEventsModule;';
         if(name==='insomnium:string_decoder')return 'export const {StringDecoder}=globalThis.__pluginStringDecoderModule;export default globalThis.__pluginStringDecoderModule;';
@@ -118,25 +119,56 @@ export function createPluginVm(engine, snapshot, eventTimeOrigin = performance.t
       const resolvePluginModule = ${resolvePluginModule.toString()};
       const pluginModuleFormat = ${pluginModuleFormat.toString()};
       const cache = Object.create(null);
-      globalThis.__requirePluginModule = function load(id) {
+      globalThis.__requirePluginModule = function load(id, parent = null) {
+        if(id==='insomnium:url')return globalThis.__pluginUrlModule;
         if(id==='insomnium:buffer')return globalThis.__pluginBufferModule;
         if(id==='insomnium:events')return globalThis.__pluginEventsModule;
         if(id==='insomnium:string_decoder')return globalThis.__pluginStringDecoderModule;
         if(id==='insomnium:stream')return globalThis.__pluginStreamModule;
         if(id==='insomnium:stream/promises')return globalThis.__pluginStreamPromises;
-        if (Object.hasOwn(cache, id)) return cache[id].exports;
+        const filename = '/' + id;
+        const attach = child => {
+          if (parent && !parent.children.includes(child)) parent.children.push(child);
+        };
+        if (Object.hasOwn(cache, filename)) {
+          attach(cache[filename]);
+          return cache[filename].exports;
+        }
         const format = pluginModuleFormat(files, id);
         if (format === 'module') throw Error('CommonJS require of an ES module is not supported yet: ' + id);
-        const module = { exports: {} }; cache[id] = module;
+        const dirname = filename.slice(0, filename.lastIndexOf('/')) || '/';
+        const module = { exports: {}, id: filename, filename, path: dirname, loaded: false, parent, children: [] };
+        cache[filename] = module;
+        attach(module);
         try {
           if (format === 'json') module.exports = JSON.parse(files[id]);
           else {
             const source = files[id].replace(/^\\uFEFF/, '').replace(/^#![^\\n]*\\n/, '\\n');
             const run = new Function('module', 'exports', 'require', '__filename', '__dirname', source);
-            run.call(module.exports, module, module.exports, request => load(resolvePluginModule(files, request, id)), id, id.split('/').slice(0,-1).join('/'));
+            const resolve = request => typeof request === 'string' && request.startsWith('/')
+              ? resolvePluginModule(files, '.' + request, '')
+              : resolvePluginModule(files, request, id);
+            const require = request => load(resolve(request), module);
+            require.cache = cache;
+            require.resolve = request => {
+              const resolved = resolve(request);
+              return resolved.startsWith('insomnium:')
+                ? (request.startsWith('node:') ? 'node:' : '') + resolved.slice('insomnium:'.length)
+                : '/' + resolved;
+            };
+            module.require = require;
+            run.call(module.exports, module, module.exports, require, filename, dirname);
           }
+          module.loaded = true;
           return module.exports;
-        } catch (error) { delete cache[id]; throw error; }
+        } catch (error) {
+          delete cache[filename];
+          if (parent) {
+            const index = parent.children.indexOf(module);
+            if (index !== -1) parent.children.splice(index, 1);
+          }
+          throw error;
+        }
       };
     })();`).dispose();
     if (snapshot.format === "module") {

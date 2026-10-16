@@ -67,6 +67,7 @@
     "chai": "4.5.0",
     "codemirror": "5.65.21",
     "codemirror-graphql": "^2.2.9",
+    "core-js-pure": "3.50.0",
     "date-fns": "4.4.0",
     "diff": "9.0.0",
     "graphql": "16",

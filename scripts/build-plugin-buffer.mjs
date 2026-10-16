@@ -1,4 +1,4 @@
-import {resolve} from "node:path";
+import {resolve, dirname, join} from "node:path";
 import { mkdir } from "node:fs/promises";
 const bundle = await Bun.build({
   entrypoints: ["scripts/plugin-buffer-entry.js"],
@@ -13,6 +13,25 @@ const bundle = await Bun.build({
 });
 if (!bundle.success) throw Error(bundle.logs.map(String).join("\n"));
 await mkdir("src/lib/generated", { recursive: true });
+// Retain licenses for the already installed URL polyfill and its transitive code.
+const urlLicenses = [];
+const visited = new Set();
+async function collectUrlLicenses(name, from = process.cwd()) {
+  const manifestPath = Bun.resolveSync(name + '/package.json', from);
+  if (visited.has(manifestPath)) return;
+  visited.add(manifestPath);
+  const root = dirname(manifestPath), manifest = await Bun.file(manifestPath).json();
+  let license;
+  for (const filename of ['LICENSE', 'LICENSE.md', 'LICENSE-MIT.txt']) {
+    const file = Bun.file(join(root, filename));
+    if (await file.exists()) { license = await file.text(); break; }
+  }
+  if (!license) throw Error('Missing bundled license: ' + name);
+  urlLicenses.push(name + '\n' + license);
+  for (const dependency of Object.keys(manifest.dependencies || {})) await collectUrlLicenses(dependency, root);
+}
+await collectUrlLicenses('url');
+await collectUrlLicenses('core-js-pure');
 const license = (
   await Promise.all(
     ["buffer", "base64-js", "ieee754", "readable-stream", "events", "string_decoder", "safe-buffer", "abort-controller", "event-target-shim"].map(
@@ -20,7 +39,7 @@ const license = (
         `${name}\n${await Bun.file(`node_modules/${name}/LICENSE`).text()}`,
     ),
   )
-).join("\n\n");
+).concat(urlLicenses).join("\n\n");
 const source = await bundle.outputs[0].text();
 await Bun.write(
   "src/lib/generated/plugin-buffer.js",
