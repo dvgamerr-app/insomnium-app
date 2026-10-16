@@ -1,4 +1,4 @@
-//! Reflection request samples inspired by the original Insomnium automock.
+//! Request samples inspired by the original Insomnium automock.
 //! Kept separate from response serialization and never applied to saved bodies.
 use crate::grpc_schema::{self, JsonMode};
 use prost_reflect::{FieldDescriptor, Kind, MessageDescriptor};
@@ -6,6 +6,19 @@ use serde_json::{json, Map, Value};
 use std::collections::{HashMap, HashSet};
 
 const MAX_EXAMPLE: usize = 128 * 1024;
+
+/// Convert the reflected entry-array sample through the codec before exposing
+/// saved-proto JSON (whose maps use objects rather than reflected entry arrays).
+pub(crate) fn generate_saved(desc: MessageDescriptor, mode: JsonMode) -> Result<String, String> {
+    let canonical = generate(desc.clone(), JsonMode::ProtoJson)?;
+    let parsed = grpc_schema::parse_mode(desc.clone(), &canonical, JsonMode::ProtoJson)?;
+    let result = grpc_schema::json_mode(&parsed, mode, desc.clone())?;
+    if result.len() > MAX_EXAMPLE {
+        return Err("Rendered example exceeds 128 KiB.".into());
+    }
+    grpc_schema::parse_mode(desc, &result, mode)?;
+    Ok(result)
+}
 
 #[derive(Default)]
 struct Budget {

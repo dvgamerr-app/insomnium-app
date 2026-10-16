@@ -249,7 +249,7 @@ fn describe_with_examples(
             let generated = if reflection {
                 crate::grpc_example::generate(method.input(), mode)
             } else {
-                json_mode(&DynamicMessage::new(method.input()), mode, method.input())
+                crate::grpc_example::generate_saved(method.input(), mode)
             };
             let (example, example_error) = match generated {
                 Ok(example) => (example, None),
