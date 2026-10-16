@@ -12,6 +12,8 @@ const inputs = [
   {name:"Owned legacy v2",body:"a=1&a=2&raw=%2f&x=a+b",source:{__export_format:2,resources:[{_id:"legacy_req",_type:"request",name:"Owned legacy v2",url:"https://owned.invalid/form",method:"POST",headers:[{name:"Content-Type",value:"application/x-www-form-urlencoded"}],body:"a=1&a=2&raw=%2f&x=a+b"}]}},
 ];
 inputs.find((input) => input.source.v === 2)?.source.requests?.push({v:1,name:"Owned Hoppscotch raw",method:"POST",endpoint:"https://owned.invalid/raw",auth:{authType:"none"},headers:[],params:[],body:{contentType:"application/octet-stream",body:"raw Ω\r\nbytes"}});
+inputs[0].source.info.description = "Collection Ω\n**documentation**";
+inputs[0].source.item.push({name:"Owned Postman folder",description:{content:"Folder ไทย",type:"text/markdown"},variable:[{key:"folderVar",value:"owned"}],custom:{retained:true},item:[]});
 /** @param {import('playwright-core').Page} page @param {string} output
  * @param {{read?:()=>Promise<any>,onImported?:(data:any)=>void}} [options] */
 async function runImports(page, output, options = {}) {
@@ -39,6 +41,12 @@ async function runImports(page, output, options = {}) {
   const har = imported(data,"Owned HAR");
   assert.deepEqual(har._harSource,inputs.find((input) => input.source.log)?.source.log.entries[0]);
   const postman = imported(data,"Owned Postman Form");
+  assert.equal(imported(data,"Owned Postman collection").description,inputs[0].source.info.description);
+  const postmanFolder = imported(data,"Owned Postman folder");
+  assert.equal(postmanFolder.description,"Folder ไทย");
+  assert.equal(postmanFolder.environment.folderVar,"owned");
+  const {item:_children,...folderSource} = inputs[0].source.item[1];
+  assert.deepEqual(postmanFolder._postmanSource,folderSource);
   assert.deepEqual(postman.body.params.map((/** @type {any} */ p) => p.name),["active"]);
   assert.deepEqual(postman._postmanSource,inputs[0].source.item[0]);
   assert.equal(har.parameters.length,0);
