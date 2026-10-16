@@ -84,7 +84,7 @@
   import "$lib/styles.css";
   import SettingsPanel from "$lib/components/SettingsPanel.svelte";
   import { pluginRegistry } from "$lib/workspace.svelte.js";
-  import { pluginThemeOptions, pluginThemeCss } from "$lib/plugin-themes.js";
+  import { pluginThemeOptions, pluginThemeCss, pluginThemeScheme } from "$lib/plugin-themes.js";
   let pluginThemes = $state(/** @type {ReturnType<typeof pluginThemeOptions>} */([]));
   onMount(() => pluginRegistry.subscribe(() => {
     pluginThemes = pluginThemeOptions(pluginRegistry.captureThemes());
@@ -230,13 +230,19 @@
   });
   $effect(() => {
     const selected=pluginThemes.find(item=>item.value===app.data.settings.theme);
-    document.documentElement.dataset.theme = app.data.settings.theme==='light'?'light':'dark';
+    document.documentElement.dataset.theme = selected?pluginThemeScheme(selected.definition.theme):app.data.settings.theme==='light'?'light':'dark';
     if(!selected)return;
     const style=document.createElement('style');
     style.dataset.pluginTheme=selected.value;
     style.textContent=pluginThemeCss(selected.definition.theme);
+    const previousTheme=document.body.getAttribute('theme');
+    document.body.setAttribute('theme',selected.definition.name);
     document.head.appendChild(style);
-    return ()=>style.remove();
+    return ()=>{
+      style.remove();
+      if(previousTheme===null)document.body.removeAttribute('theme');
+      else document.body.setAttribute('theme',previousTheme);
+    };
   });
   $effect(() => {
     if (app.persistencePhase === "recovery") untrack(closeModal);
