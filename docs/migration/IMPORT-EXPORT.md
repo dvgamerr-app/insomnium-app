@@ -1,5 +1,11 @@
 # IMPORT EXPORT migration
 
+## Current Windows recovery integration — 2026-10-16
+
+Fresh isolated candidate `legacy-recovery-20261016-attempt-1` built from source `2d42c9d1` plus preserved documentation edits. Existing HTTP, SSE and WebSocket native import scenarios pass with actual Rust readers, OS chooser/export flows, no IPC mocks, `native-hidden` hosts and exit0. All three profile restoration receipts pass with exact original primary/backup hashes. Browser WebSocket/SSE review/cancel/apply/reload/export/reimport regressions also pass. No new runners or historical matrix were added.
+
+Evidence: `artifacts/native-resource-crud-audit-probe/legacy-recovery-20261016-attempt-1/build-state.json`; `artifacts/playwright/legacy-response-import-native-1792138814584/legacy-native-acceptance.json`, `legacy-sse-import-native-1792138775350/legacy-sse-acceptance.json`, and `legacy-websocket-import-native-1792138684625/legacy-websocket-acceptance.json` under the same playwright artifact root. Restoration receipts: `resource-manager-restoration-1792138814353`, `-1792138775122`, `-1792138684400`. Native worker tests separately cover absent body/log paths without invented bytes. These existing native scenarios verify their authored cases, not every newly added malformed-path/compression combination or other platforms. Full migration remains incomplete.
+
 ## Reviewed recovery from workspace backup — 2026-10-16
 
 Desktop startup failure now offers Inspect workspace backup, then an explicit restore review showing collection/history counts and a warning about newer changes. Preview passes native validation plus frontend model/topology validation. No automatic fallback occurs. Native restore only runs in an unloaded session with an invalid or missing primary and valid ordinary backup file; primary existence/hash and backup SHA256 must match the review. Pending Git transition/clone-install journals and protected fetch bindings refuse recovery. Before atomic replacement, an existing damaged primary is retained in a new synced `workspace-v1.damaged-<uuid>.json` file; backup bytes remain untouched. Both inputs are rechecked immediately before replacement. Successful restore reloads the workspace and reports the retained path. Blocking startup errors cannot be dismissed out of the recovery flow.
