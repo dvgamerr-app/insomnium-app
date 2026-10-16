@@ -1,9 +1,12 @@
-/** Render interpolations in valid JSON strings using their decoded expressions.
+import { builtinTemplateNames } from "./template-registration.js";
+
+/** Render interpolations and registered output tags inside valid JSON strings.
  * Preserve every other source token, including large integers and escaped braces.
  * Blocks/comments and non-JSON bodies retain the existing whole-text renderer.
- * @param {string} source @param {(text:string)=>Promise<string>} render */
-export async function renderJsonTemplateBody(source, render) {
-  if (source.includes("{%") || source.includes("{#")) return render(source);
+ * @param {string} source @param {(text:string)=>Promise<string>} render
+ * @param {string[]} [registeredTagNames] */
+export async function renderJsonTemplateBody(source, render, registeredTagNames = []) {
+  if (source.includes("{#")) return render(source);
   try { JSON.parse(source); } catch { return render(source); }
   /** @type {{start:number,end:number,text:string}[]} */ const changes = [];
   for (let start = 0; start < source.length; start++) {
@@ -14,7 +17,7 @@ export async function renderJsonTemplateBody(source, render) {
       else if (source[end] === '"') break;
     }
     const token = source.slice(start + 1,end);
-    if (!token.includes("{{")) { start = end; continue; }
+    if (!token.includes("{{") && !token.includes("{%")) { start = end; continue; }
     const decoded = JSON.parse('"' + token + '"');
     const offsets = [0];
     for (let index = 0; index < token.length;) {
@@ -22,7 +25,14 @@ export async function renderJsonTemplateBody(source, render) {
       offsets.push(index);
     }
     for (let index = 0; index < decoded.length - 1; index++) {
-      if (decoded.slice(index,index + 2) !== "{{" || token.slice(offsets[index],offsets[index] + 2) !== "{{") continue;
+      const opening = decoded.slice(index,index + 2);
+      if (!["{{", "{%"].includes(opening) || token.slice(offsets[index],offsets[index] + 2) !== opening) continue;
+      const closing = opening === "{{" ? "}}" : "%}";
+      if (opening === "{%") {
+        const name = /^\{%\s*([^\s,%}]+)/.exec(decoded.slice(index))?.[1];
+        // Unregistered syntax, including control blocks, keeps whole-template semantics.
+        if (!name || (!builtinTemplateNames.includes(name) && !registeredTagNames.includes(name))) return render(source);
+      }
       let quote = "", finish = index + 2;
       for (; finish < decoded.length - 1; finish++) {
         const char = decoded[finish];
@@ -30,7 +40,7 @@ export async function renderJsonTemplateBody(source, render) {
           if (char === "\\") finish++;
           else if (char === quote) quote = "";
         } else if (char === "'" || char === '"') quote = char;
-        else if (decoded.slice(finish,finish + 2) === "}}") break;
+        else if (decoded.slice(finish,finish + 2) === closing) break;
       }
       if (finish >= decoded.length - 1) return render(source);
       if (changes.length >= 1000) throw new Error("JSON body exceeds 1000 template interpolations");

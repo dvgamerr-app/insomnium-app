@@ -324,7 +324,7 @@ export function createRequestRenderSession(context, options) {
             { count: 0 },
             current,
           ),
-        { ...settings, signal: controller.signal },
+        { ...settings, signal: controller.signal, jsonTagNames: plugins.names },
       );
     });
   return {

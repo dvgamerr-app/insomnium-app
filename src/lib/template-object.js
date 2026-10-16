@@ -62,7 +62,7 @@ export function templateFieldError(error, path) {
 /** Clone and render values sequentially, retaining legacy paths/disabled semantics.
  * @param {any} input
  * @param {(text:string,path:string)=>Promise<string>} render
- * @param {{signal:AbortSignal,path?:string,keepOnError?:boolean,blacklist?:RegExp|null,jsonPaths?:string[]}} options
+ * @param {{signal:AbortSignal,path?:string,keepOnError?:boolean,blacklist?:RegExp|null,jsonPaths?:string[],jsonTagNames?:string[]}} options
  * @returns {Promise<any>}
  */
 export async function renderTemplateValue(input, render, options) {
@@ -82,7 +82,7 @@ export async function renderTemplateValue(input, render, options) {
         const containsTemplate = (/** @type {string} */ text) =>
           /{{[\s\S]*?}}|{%[\s\S]*?%}|{#[\s\S]*?#}/.test(text);
         if (containsTemplate(value)) value = options.jsonPaths?.includes(path)
-          ? await renderJsonTemplateBody(value,(text) => render(text,path))
+          ? await renderJsonTemplateBody(value,(text) => render(text,path),options.jsonTagNames)
           : await render(value, path);
         options.signal.throwIfAborted();
         if (value.includes("{%") && containsTemplate(value))

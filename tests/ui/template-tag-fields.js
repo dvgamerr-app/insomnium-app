@@ -234,7 +234,7 @@ async function exercise(page, output, invoke) {
       (r) => JSON.parse(r.body.text).variables,
     );
     for (const textual of [false,true]) {
-      const variables = {disabled:true,input:"{{ graphqlSpecial }}"};
+      const variables = {disabled:true,input:"{{ graphqlSpecial }}",tagged:'{% base64 "decode", "normal", "' + Buffer.from('quote" slash\\ newline\nไทย').toString("base64") + '" %}'};
       const text = JSON.stringify({query:"query Lookup($input: String) { viewer }",variables:textual ? JSON.stringify(variables) : variables});
       await seed({url:"https://owned.invalid/graphql",body:{mimeType:"application/graphql",text}},{graphqlSpecial:'quote" slash\\ newline\nไทย'});
       await page.getByRole("button",{name:"Validate",exact:true}).click();
