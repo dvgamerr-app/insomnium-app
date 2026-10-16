@@ -1,5 +1,13 @@
 # Migration status
 
+## Multi-request cURL paste refuses silent loss — 2026-10-17
+
+Source parent34f45b29. curlRequestPatch previously selected first request with find(), silently dropping other URLs/--next groups. It now requires one request and directs multi-request input to Import collection before any request mutation. Full curlResources collection import remains unchanged. Inline controls pass two-URL and --next inputs preserving2collection requests while paste refuses, plus single POST acceptance. Compiler exits0/0errors/0warnings. No new scripts/native build/network. Mounted paste error feedback and outstanding native Referer/PLAN/PARITY remain open. No live handles. Topic commit follows; /compact unavailable, handoff recorded.
+
+## Paste cURL preserves TLS choice — 2026-10-17
+
+Source parenteba0dac1. curlRequestPatch omitted parser-produced settingValidateCertificates, retaining opposite prior request behavior for pasted commands. Now copies the parsed setting alongside redirect/referrer fields. Actual patch→prepareRequest controls pass -k disabling, --insecure --no-insecure enabling, and normal command restoring validation despite prior off. Compiler exits0/0errors/0warnings. No network/new scripts/native build. Browser paste/native TLS/redirect acceptance and full PLAN/PARITY remain open. No live handles. Topic commit follows; /compact unavailable, handoff recorded.
+
 ## Request Referer preference editable — 2026-10-17
 
 Source parent00384313. Existing Request Settings adds Redirect Referer selection for default behavior, previous URL on redirects, or keeping explicit header. Uses the same persisted settingAutoReferer introduced by cURL import; choosing default removes the explicit override through existing serialization. Shared Field/Select and current layout retained; explanatory text describes initial header and sanitized automatic URL. Compiler exits0/0errors/0warnings. No new tests/scripts/native build; mounted preference/persistence/redirect-wire and full PLAN/PARITY remain open. No live handles. Topic commit follows; /compact unavailable, handoff recorded.

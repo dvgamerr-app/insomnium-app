@@ -622,11 +622,13 @@ export function isCurlImport(text) {
 }
 
 /**
- * Fields of the first cURL request, for filling an existing request.
+ * Fields of one cURL request, for filling an existing request without discarding others.
  * @param {string} text
  */
 export function curlRequestPatch(text) {
-  const request = curlResources(text).find((r) => r._type === "request");
+  const requests = curlResources(text).filter((r) => r._type === "request");
+  if(requests.length>1)throw Error('This cURL input contains multiple requests. Use Import collection to keep all requests.');
+  const request = requests[0];
   if (!request) throw new Error("cURL command has no URL.");
   return {
     url: request.url,
@@ -637,6 +639,7 @@ export function curlRequestPatch(text) {
     body: request.body,
     settingFollowRedirects: request.settingFollowRedirects,
     settingAutoReferer: request.settingAutoReferer,
+    settingValidateCertificates: request.settingValidateCertificates,
     settingEncodeUrl: false,
     _curlSource: request._curlSource,
   };
