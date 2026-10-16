@@ -132,6 +132,9 @@
               <h3 id="settings-shortcuts-title">Shortcuts</h3>
               <p class="hint">
                 Ctrl/Cmd + Enter: send · + N: new request · + P: filter.
+                + L: URL · + E: environment · + K: cookies · + ,: preferences.
+                Ctrl/Cmd + Shift + F: filter.
+                Ctrl/Cmd + Shift + Enter: request options.
               </p>
             </section>
           {:else if tab === "Editor"}

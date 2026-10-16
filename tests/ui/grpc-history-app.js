@@ -15,6 +15,10 @@ data.history[0].events.push({_id:"message_second", kind:"message", text:'{"secon
 await withPreview("grpc-history-app", async (page, output) => {
   const history = page.getByRole("combobox", {name:"gRPC response history", exact:true});
   await history.waitFor();
+  await page.keyboard.press("Control+Shift+Enter");
+  assert.equal(await page.getByRole("tablist",{name:"gRPC request editor",exact:true}).getByRole("tab",{name:"Settings",exact:true}).getAttribute("aria-selected"),"true");
+  assert.equal(await page.getByRole("tablist",{name:"gRPC request editor",exact:true}).getByRole("tab",{name:"Settings",exact:true}).evaluate((el) => document.activeElement === el),true);
+  await page.getByRole("tablist",{name:"gRPC request editor",exact:true}).getByRole("tab",{name:"Body",exact:true}).click();
   assert.equal(await history.inputValue(), "grpc_history_new");
   await page.getByRole("tab", {name:"Response 2", exact:true}).click();
   await history.selectOption("grpc_history_old");
@@ -23,12 +27,24 @@ await withPreview("grpc-history-app", async (page, output) => {
   await page.reload();
   await history.waitFor();
   assert.equal(await history.inputValue(), "grpc_history_old");
+  await page.getByRole("button",{name:"Open complete gRPC message",exact:true}).click();
+  const complete = page.getByRole("dialog",{name:"Complete gRPC message",exact:true});
+  const completeEditor = complete.locator(".CodeMirror");
+  await completeEditor.waitFor();
+  assert.equal(await completeEditor.evaluate((el) => /** @type {any} */ (el).CodeMirror.getValue()),largeMessage);
+  assert.equal(await completeEditor.evaluate((el) => /** @type {any} */ (el).CodeMirror.getOption("readOnly")),true);
+  await completeEditor.locator("textarea").focus();
+  await page.keyboard.type("must remain read only");
+  assert.equal(await completeEditor.evaluate((el) => /** @type {any} */ (el).CodeMirror.getValue()),largeMessage);
+  await complete.screenshot({path:output + "/complete-message.png"});
+  await page.keyboard.press("Escape");
+  await complete.waitFor({state:"detached"});
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"], {origin:new URL(page.url()).origin});
   await page.getByRole("button", {name:"Copy gRPC message", exact:true}).click();
   assert.equal(await page.evaluate(() => navigator.clipboard.readText()), largeMessage);
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("insomnium-tauri-preview-v1") || "{}"));
   assert.deepEqual(saved.history, data.history);
-  await Bun.write(output + "/result.json", JSON.stringify({status:"passed",headless:true,scope:"Built application and actual workspace/persistence/browser clipboard; no native/network IO",selectionAndReload:true,historyUnchanged:true,completeLargeMessageCopy:true}, null, 2));
+  await Bun.write(output + "/result.json", JSON.stringify({status:"passed",headless:true,scope:"Built application and actual workspace/persistence/browser clipboard; no native/network IO",selectionAndReload:true,historyUnchanged:true,completeLargeMessageCopy:true,completeReadOnlyMessageEditor:true}, null, 2));
 }, {beforeNavigate:async (page) => {
   await page.addInitScript((data) => {
     if (!localStorage.getItem("insomnium-tauri-preview-v1"))

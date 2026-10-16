@@ -19,6 +19,7 @@
   import { jsonPrettify } from "../json-prettify.js";
   import { environmentFor, historyMatchesEnvironment, selectedEnvironmentFor } from "../model.js";
   import CodeEditor from "./CodeEditor.svelte";
+  import MessageReader from "./MessageReader.svelte";
   import Icon from "./Icon.svelte";
   import ProtoManager from "./ProtoManager.svelte";
   import KeyValueEditor from "./KeyValueEditor.svelte";
@@ -46,7 +47,9 @@
     error = $state(""),
     selectedMessage = $state(0),
     selectedSentId = $state("");
+  let fullMessage = $state(/** @type {string|null} */ (null));
   let follow = $state(true);
+  export function openSettings() { tab = "Settings"; }
   let log = $state(/** @type {HTMLDivElement|undefined} */ (undefined));
   const running = $derived(!!app.running[request._id]);
   const run = $derived(app.grpcRuns[request._id]);
@@ -55,6 +58,7 @@
     void response?._id;
     selectedMessage = 0;
     selectedSentId = "";
+    fullMessage = null;
   });
   const collectionId = $derived(workspaceFor(app.data.resources, request._id));
   const files = $derived.by(() => {
@@ -164,11 +168,17 @@
   <Button variant="ghost" class="text-button" aria-label="Copy gRPC message"
     onclick={() => copyMessage(String(text ?? ""))}>Copy</Button>
   {#if preview.truncated}<p class="grpc-hint hint" role="status">
-      Showing a preview of this large gRPC message. Copy or Save response to read the
-      full message.
-    </p>{/if}
+      Showing a preview of this large gRPC message.
+    </p><Button variant="ghost" class="text-button"
+      onclick={() => (fullMessage = String(text ?? ""))}>Open complete gRPC message</Button>{/if}
   <pre class="grpc-message">{preview.text}</pre>
 {/snippet}
+
+{#if fullMessage !== null}
+  <MessageReader title="Complete gRPC message" identity={request._id + ":full-grpc-message"}
+    value={fullMessage} mode="application/json" settings={app.data.settings}
+    onclose={() => (fullMessage = null)} />
+{/if}
 
 <div class="request-heading">
   <Input

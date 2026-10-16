@@ -46,6 +46,7 @@
     ]),
   ]);
   let tab = $state("Body");
+  export function openSettings() { tab = "Settings"; }
   const binaryBody = $derived(isBinaryBody(request.body));
   const headerRows = $derived([
     ...(request.headers || []),

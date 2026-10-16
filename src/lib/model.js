@@ -1,3 +1,4 @@
+import {templateVariablePath,templateVariableReferences} from "./template-variable-path.js";
 /** @typedef {Record<string, any>} Resource */
 export const id = (prefix = "req") =>
   `${prefix}_${crypto.randomUUID().replaceAll("-", "")}`;
@@ -370,8 +371,9 @@ export function render(input, environment) {
       throw new Error(
         "This request contains a legacy template tag that has not been migrated.",
       );
-    const next = value.replace(/{{\s*([^{}]+?)\s*}}/g, (_, key) => {
-      const path = key.trim().replace(/^_\./, "").split(".");
+    let next = "", previous = 0;
+    for (const {start,end,key} of templateVariableReferences(value)) {
+      const path = templateVariablePath(key);
       let resolved = environment;
       for (const part of path)
         resolved = Object.hasOwn(resolved ?? {}, part)
@@ -379,10 +381,13 @@ export function render(input, environment) {
           : undefined;
       if (resolved === undefined)
         throw new Error(`Environment variable not found: ${key}`);
-      return typeof resolved === "object"
+      const replacement = typeof resolved === "object"
         ? JSON.stringify(resolved)
         : String(resolved);
-    });
+      next += value.slice(previous,start) + replacement;
+      previous = end;
+    }
+    next += value.slice(previous);
     if (next === value) {
       if (/{{.*}}/.test(next)) throw new Error("Circular environment variable");
       return next;

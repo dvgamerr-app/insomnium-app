@@ -6,6 +6,7 @@ import { id, initialData, newRequest, protocolFor } from "./model.js";
 import { parseLegacyFiles } from "./legacy-import.js";
 import { legacyV1Resources } from "./legacy-v1-import.js";
 import { hoppscotchResources } from "./hoppscotch-import.js";
+import {harResources} from "./har-import.js";
 import { legacyResponseAssetRequests, convertLegacyResponseHistory } from "./legacy-response-history.js";
 import { legacyWebSocketAssetRequests, convertLegacyWebSocketHistory } from "./legacy-websocket-history.js";
 import { legacySseAssetRequests, convertLegacySseHistory } from "./legacy-sse-history.js";
@@ -290,31 +291,9 @@ export function parseImport(text) {
       }
     };
     visit(source.item, workspaceId);
-  } else if (source.log?.entries) {
-    const workspaceId = id("wrk");
-    resources.push({
-      _id: workspaceId,
-      _type: "workspace",
-      parentId: null,
-      name: "HAR Import",
-      scope: "collection",
-    });
-    for (const entry of source.log.entries)
-      resources.push(
-        newRequest(workspaceId, {
-          name: entry.request.url,
-          method: entry.request.method,
-          url: entry.request.url,
-          headers: entry.request.headers || [],
-          body: {
-            mimeType: entry.request.postData?.mimeType || "",
-            text: entry.request.postData?.text || "",
-            params: entry.request.postData?.params || [],
-          },
-          _harSource: entry,
-        }),
-      );
-  } else
+  } else if (source.log?.entries || (source.httpVersion && source.method && source.url))
+    resources = harResources(source);
+  else
     throw new Error(
       "Unsupported file. Use Insomnia JSON, Insomnium JSON, Postman collection v2 or environment JSON, Hoppscotch v2, HAR, OpenAPI JSON/YAML, or cURL commands.",
     );

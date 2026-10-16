@@ -212,3 +212,11 @@ Remaining acceptance: actual OS file-picker selection/cancellation, multiple leg
 
 
 </details>
+
+## HAR request conversion — 2026-10-16
+
+har-import.js replaces the minimal log-only converter and also accepts the archived standalone request-object shape (httpVersion/method/url). Request/entry comments supply names, methods normalize to uppercase, cookies merge into an enabled Cookie header, and named query/form parameters are preserved. HAR's full URL remains authoritative when it already contains a query; its decomposition is not appended again. Sources remain intact in _harSource. Ordinary shared URL percent-case normalization still applies when preparing a request.
+
+Raw postData text with form/multipart/octet-stream/GraphQL MIME uses the text sender with original Content-Type, avoiding empty form sends, file reinterpretation and GraphQL editor parsing. Parameter bodies default to form URL encoding; multipart file metadata/contentType is retained and guarded for explicit reselection without file reads. Unsupported structures refuse before apply. Existing sender behavior still governs form encoding/header generation; no universal HAR compatibility claim.
+
+References: archived importers/har.ts and historical HAR format description https://webperfwg.org/specs/HAR/Overview.html (abandoned draft, used only as format context). Inline actual prepareRequest checks pass five raw MIME bodies, Cookie merge, method/name, no duplicated query, source/reimport, form/query fallback, file guard and malformed refusal. Initial assertion expected lowercase percent escapes on wire; corrected for the existing shared uppercase normalization without changing it. Existing headless legacy-export-import scenario now also verifies HAR review/apply/reload, full source, cookie and body preservation: artifacts/playwright/legacy-export-import/result.json. Final build/scenario/check55633exit0/0errors/0warnings and scoped diff pass. Native picker/wire, broad multipart/HAR variants/provider/platform and original migration remain open. No new scripts/native rebuild/live handles.

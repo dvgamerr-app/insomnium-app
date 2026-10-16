@@ -16,8 +16,11 @@
   import { download } from "../import-export.js";
   import { jsonPrettify } from "../json-prettify.js";
   import { copyText } from "../clipboard.js";
-  /** @type {{ response: Record<string, any> | undefined, running: boolean, history: Record<string, any>[], onhistory: (response: Record<string, any>) => void }} */
-  let { response, running, history, onhistory } = $props();
+  import MessageReader from "./MessageReader.svelte";
+  /** @type {{ response: Record<string, any> | undefined, running: boolean, history: Record<string, any>[], onhistory: (response: Record<string, any>) => void, settings?:Record<string,any> }} */
+  let { response, running, history, onhistory, settings = {} } = $props();
+  let fullMessage = $state(/** @type {string|null} */ (null));
+  $effect(() => { void response?._id; fullMessage = null; });
   let tab = $state("Events"),
     selectedId = $state(""),
     filter = $state(""),
@@ -140,6 +143,11 @@
     }
   }
 </script>
+
+{#if fullMessage !== null}
+  <MessageReader title="Complete stream event" identity={(response?._id || "stream") + ":complete-event"}
+    value={fullMessage} {settings} onclose={() => (fullMessage = null)} />
+{/if}
 
 <section class="response-pane stream-pane" aria-label="Stream response">
   <div class="response-status">
@@ -327,9 +335,9 @@
               >
             </Toolbar>
             {#if previewTruncated}<p class="hint" role="status">
-                Showing a preview of this large event. Copy or save to read the
-                full message.
-              </p>{/if}
+                Showing a preview of this large event.
+              </p><Button variant="ghost" class="text-button"
+                onclick={() => (fullMessage = String(selected?.data ?? ""))}>Open complete stream event</Button>{/if}
             {#if selected}<pre
                 class="stream-event-body">{body}</pre>{:else}<EmptyState
                 variant="response"

@@ -1,5 +1,12 @@
 # GRPC migration
 
+## Complete large-message reader — 2026-10-16
+
+Shared reader follow-up: gRPC now uses MessageReader.svelte, also used by StreamPane. Existing grpc-history-app regression passes unchanged full-text/read-only/Escape/history/Copy assertions. Final build/check43741exit0/0errors/0warnings pass; native/larger-limit gates above remain open.
+
+GrpcPane retains its64KiB preview and adds Open complete gRPC message for larger received/sent messages. The existing shared CodeEditor opens the exact raw string read-only in a bounded-height DialogShell, with normal editor navigation/search and no environment/template editing context. Escape closes the reader unless the editor search field owns it; response identity changes clear the captured reader. Copy/Save behavior remains on the original complete payload.
+
+Existing headless grpc-history-app scenario passes exact complete Unicode message, readOnly option and attempted typing without mutation, Escape dismissal, history/reload and full browser clipboard Copy. Actual final screenshot artifacts/playwright/grpc-history-app/complete-message.png inspected: heading/close remain visible above bounded editor. First focused-editor Escape was consumed by CodeMirror and unconstrained height scrolled the heading away; corrected in component and final saved scenario passes. Build/check29605exit0/0errors/0warnings and scoped diff pass. Controlled producer scenario remains passed. Native WebView/wire, sent-message reader interaction and larger20MiB performance/provider/platform gates remain unverified. No native rebuild/new scripts/live handles; full migration incomplete.
 ## JSON-only primitive conversion — 2026-10-16
 
 Legacy conversion now rejects own non-callable toString at string/numeric conversion boundaries, including joined arrays, Long low/high and consumed byte length/indices. Non-coercing bool/enum/message values and unused byte indices remain accepted. No UI/layout or production dependency change. The262row pinned protobufjs7.2.4/proto-loader0.7.13/Long5.3.2 oracle and full74Rust tests pass; native58controls/34refusals passed with184Save exports and exact profiles. See STATUS.md for evidence and the deliberately interrupted wider regression. Full-suite/post-suite acceptance is not claimed.

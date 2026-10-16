@@ -31,7 +31,7 @@
     cancelAllTemplatePrompts,
   } from "$lib/template-prompt-dialog.js";
   import CodeEditor from "$lib/components/CodeEditor.svelte";
-  import { onMount, onDestroy, untrack } from "svelte";
+  import { onMount, onDestroy, untrack, tick } from "svelte";
   import { isTauri } from "@tauri-apps/api/core";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import Icon from "$lib/components/Icon.svelte";
@@ -125,6 +125,8 @@
     app.data.resources.find((r) => r._id === app.data.activeRequestId),
   );
   const protocol = $derived(protocolFor(request));
+  let requestEditor = $state(/** @type {{openSettings:()=>void}|undefined} */ (undefined));
+  let grpcEditor = $state(/** @type {{openSettings:()=>void}|undefined} */ (undefined));
   $effect(() => {
     if (app.ready) cancelChangedGrpcCalls();
   });
@@ -402,25 +404,55 @@
   function keyboard(/** @type {KeyboardEvent} */ event) {
     if (
       !app.ready ||
+      event.defaultPrevented || event.isComposing || event.repeat || event.altKey ||
       editingBlocked ||
       modal ||
+      document.querySelector("dialog[open]") ||
       $templatePrompt ||
       !(event.ctrlKey || event.metaKey)
     )
       return;
-    if (event.shiftKey && event.key.toLowerCase() === "g") {
+    const key = event.key.toLowerCase();
+    if (event.shiftKey && key === "enter" && request && mainView === "requests") {
+      const editor = protocol === "grpc" ? grpcEditor : requestEditor;
+      if (editor) {
+        event.preventDefault();editor.openSettings();
+        const owner = request._id;
+        void tick().then(() => {
+          if (app.data.activeRequestId !== owner || mainView !== "requests") return;
+          const tab = document.querySelector('[aria-label="Request editor"] [role="tab"][aria-selected="true"], [aria-label="gRPC request editor"] [role="tab"][aria-selected="true"]');
+          if (tab instanceof HTMLElement) tab.focus();
+        });
+      }
+    } else if (!event.shiftKey && key === ",") {
+      event.preventDefault();
+      openSettings("General");
+    } else if (!event.shiftKey && key === "e" && mainView === "requests") {
+      event.preventDefault();
+      editEnvironment();
+    } else if (!event.shiftKey && key === "k" && mainView === "requests") {
+      event.preventDefault();
+      showModal("cookies");
+    } else if (!event.shiftKey && key === "l" && request && mainView === "requests") {
+      const input = document.querySelector('input[aria-label="Request URL"], input[aria-label="gRPC server URL"]');
+      if (input instanceof HTMLInputElement) {
+        event.preventDefault();input.focus();input.select();
+      }
+    } else if (event.shiftKey && key === "f" && mainView === "requests") {
+      event.preventDefault();filterInput?.focus();
+    } else if (event.shiftKey && key === "g") {
       event.preventDefault();
       mainView = "git";
-    } else if (event.key === "Enter" && request && mainView === "requests") {
+    } else if (!event.shiftKey && event.key === "Enter" && request && mainView === "requests") {
       event.preventDefault();
       void execute(request._id);
-    } else if (event.key.toLowerCase() === "n" && mainView === "requests") {
+    } else if (!event.shiftKey && key === "n" && mainView === "requests") {
       event.preventDefault();
       addRequest();
-    } else if (event.key.toLowerCase() === "p" && mainView === "requests") {
+    } else if (!event.shiftKey && key === "p" && mainView === "requests") {
       event.preventDefault();
       filterInput?.focus();
-    } else if (event.key.toLowerCase() === "s") {
+    } else if (!event.shiftKey && key === "s") {
       event.preventDefault();
       void persist();
     }
@@ -821,12 +853,14 @@
             >
               {#snippet first()}<div class="request-compose">
                   {#key request._id}<RequestEditor
+                      bind:this={requestEditor}
                       {request}
                       onchange={(patch) => update(request._id, patch)}
                     />{/key}
                 </div>
               {/snippet}{#snippet second()}
                 {#if protocol !== "http" || app.responses[request._id]?.protocol}<StreamPane
+                    settings={app.data.settings}
                     response={app.responses[request._id]}
                     running={!!app.running[request._id]}
                     history={app.data.history.filter(
@@ -845,6 +879,7 @@
               {/snippet}</SplitPane
             >
           {:else if request?._type === "grpc_request"}{#key request._id}<GrpcPane
+                bind:this={grpcEditor}
                 {request}
               />{/key}
           {:else if request}<EmptyState
