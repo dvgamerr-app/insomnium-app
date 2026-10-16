@@ -107,7 +107,10 @@
     formOwner++;
     fieldError = null;
     previous = { domain: cookie.domain, path: cookie.path, name: cookie.name };
-    url = `${cookie.secure ? "https" : "http"}://${cookie.domain}${cookie.path}`;
+    const domain = String(cookie.domain);
+    const host = domain.includes(":") && !domain.startsWith("[")
+      ? `[${domain}]` : domain;
+    url = `${cookie.secure ? "https" : "http"}://${host}${cookie.path}`;
     raw = cookie.raw;
     notice = "";
   }

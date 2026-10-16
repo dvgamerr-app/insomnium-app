@@ -17,7 +17,7 @@
   import Select from "./ui/Select.svelte";
   import SplitPane from "./ui/SplitPane.svelte";
   import { jsonPrettify } from "../json-prettify.js";
-  import { environmentFor } from "../model.js";
+  import { environmentFor, historyMatchesEnvironment, selectedEnvironmentFor } from "../model.js";
   import CodeEditor from "./CodeEditor.svelte";
   import Icon from "./Icon.svelte";
   import ProtoManager from "./ProtoManager.svelte";
@@ -29,6 +29,7 @@
     executeGrpc,
     sendGrpc,
     stop,
+    selectStreamHistory,
   } from "../workspace.svelte.js";
   import {
     grpcSourceContext as grpcContext,
@@ -95,7 +96,8 @@
   );
   const history = $derived(
     app.data.history.filter(
-      (h) => h.requestId === request._id && h.protocol === "grpc",
+      (h) => h.requestId === request._id && h.protocol === "grpc" &&
+        historyMatchesEnvironment(h, app.data.settings, selectedEnvironmentFor(app.data, collectionId)),
     ),
   );
   $effect(() => {
@@ -444,7 +446,7 @@
           value={response?._id || ""}
           onchange={(e) => {
             const saved = history.find((h) => h._id === e.currentTarget.value);
-            if (saved) app.responses[request._id] = saved;
+            if (saved) selectStreamHistory(request._id, saved);
           }}
           ><option value="">History</option>{#each history as h}<option
               value={h._id}>{new Date(h.created).toLocaleString()}</option

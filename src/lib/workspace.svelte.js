@@ -2363,7 +2363,7 @@ export function selectStreamHistory(requestId, entry) {
   if (!canEditWorkspace() || workspace.running[requestId]) return;
   const request = workspace.data.resources.find(item => item._id === requestId);
   const protocol = protocolFor(request);
-  if (!request || !["websocket", "sse"].includes(protocol)) return;
+  if (!request || !["websocket", "sse", "grpc"].includes(protocol)) return;
   const environmentId = selectedEnvironmentFor(workspace.data,workspaceFor(workspace.data.resources,requestId) || "");
   const saved = workspace.data.history.find(item => item._id === entry._id && item.requestId === requestId && item.protocol === protocol && historyMatchesEnvironment(item,workspace.data.settings,environmentId));
   if (!saved) return;
@@ -2375,7 +2375,7 @@ export function selectStreamHistory(requestId, entry) {
 function refreshStreamResponses(onlyRequestId) {
   for (const request of workspace.data.resources) {
     const protocol = protocolFor(request);
-    if ((protocol !== "websocket" && protocol !== "sse") || workspace.running[request._id] || (onlyRequestId && request._id !== onlyRequestId)) continue;
+    if ((protocol !== "websocket" && protocol !== "sse" && protocol !== "grpc") || workspace.running[request._id] || (onlyRequestId && request._id !== onlyRequestId)) continue;
     const environmentId = selectedEnvironmentFor(workspace.data,workspaceFor(workspace.data.resources,request._id) || "");
     const saved = selectedStreamHistory(workspace.data,request._id,protocol,environmentId);
     if (saved) workspace.responses[request._id] = saved;

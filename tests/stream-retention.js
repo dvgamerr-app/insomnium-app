@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { appendStreamEvent } from "../src/lib/streaming.js";
-import { initialData, validateData } from "../src/lib/model.js";
+import { initialData, validateData, selectedStreamHistory, validResponseSelections } from "../src/lib/model.js";
 const MiB = 1024 * 1024;
 const large = JSON.stringify({ value: "x".repeat(9 * MiB) });
 const empty = () => ({
@@ -101,4 +101,17 @@ for (const original of damagedPreference.resources) {
   );
 }
 cases.push("damaged-history-preference-does-not-block-workspace");
+const grpcHistory = initialData();
+grpcHistory.resources.push({_id:"grpc_request", _type:"grpc_request", parentId:grpcHistory.activeWorkspaceId});
+grpcHistory.history = [
+  {_id:"grpc_new", requestId:"grpc_request", protocol:"grpc", environmentId:"env_b", events:[]},
+  {_id:"grpc_old", requestId:"grpc_request", protocol:"grpc", environmentId:"env_a", events:[]},
+];
+grpcHistory.responseSelections = {grpc_request:"grpc_old"};
+assert.deepEqual(validResponseSelections(grpcHistory), {grpc_request:"grpc_old"});
+assert.equal(selectedStreamHistory(grpcHistory,"grpc_request","grpc", "env_a")?._id,"grpc_old");
+grpcHistory.settings.filterResponsesByEnv = true;
+assert.equal(selectedStreamHistory(grpcHistory,"grpc_request","grpc", "env_b")?._id,"grpc_new");
+assert.deepEqual(validateData(grpcHistory).responseSelections, {grpc_request:"grpc_old"});
+cases.push("grpc-history-choice-survives-reload-and-environment-filtering");
 console.log(JSON.stringify({ passed: true, cases }));
