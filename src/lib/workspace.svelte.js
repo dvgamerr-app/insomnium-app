@@ -1665,6 +1665,7 @@ export async function executeGrpc(requestId, discoveryOnly = false) {
       requestId,
       created: Date.now(),
       protocol: "grpc",
+      environmentId: data.activeEnvironmentId || null,
       method: method.path,
       url: connection.url,
       clientStreaming: method.clientStreaming,
@@ -1751,6 +1752,11 @@ export async function executeGrpc(requestId, discoveryOnly = false) {
     else controller.abort(reason);
     delete workspace.running[requestId];
     delete workspace.grpcRuns[requestId];
+    const terminal = workspace.responses[requestId];
+    if (terminal?._id === runId &&
+      !historyMatchesEnvironment(terminal, workspace.data.settings,
+        selectedEnvironmentFor(workspace.data, workspaceFor(workspace.data.resources, requestId) || "")))
+      refreshStreamResponses(requestId);
     completions.delete(requestId);
     completed();
   }
@@ -2334,7 +2340,7 @@ function remember(entry) {
   if (!entry.protocol && workspace.data.history.some(item => item._id === entry._id) &&
       workspace.data.resources.some(request => request._id === entry.requestId && request._type === "request" && protocolFor(request) === "http"))
     workspace.data.responseSelections = { ...workspace.data.responseSelections, [entry.requestId]: entry._id };
-  if (["websocket", "sse"].includes(entry.protocol) && workspace.data.history.some(item => item._id === entry._id))
+  if (["websocket", "sse", "grpc"].includes(entry.protocol) && workspace.data.history.some(item => item._id === entry._id))
     workspace.data.responseSelections = { ...workspace.data.responseSelections, [entry.requestId]: entry._id };
   if (!workspace.data.history.some((h) => h._id === entry._id))
     workspace.notice =

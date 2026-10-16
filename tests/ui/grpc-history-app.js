@@ -11,11 +11,14 @@ data.history = ["new", "old"].map((label, index) => ({
   _id:"grpc_history_" + label, requestId:request._id, protocol:"grpc",
   created:1720000030000-index*10000, connectionState:"closed", events:[{_id:"message_"+label, kind:"message", text:largeMessage}],
 }));
+data.history[0].events.push({_id:"message_second", kind:"message", text:'{"second":true}'});
 await withPreview("grpc-history-app", async (page, output) => {
   const history = page.getByRole("combobox", {name:"gRPC response history", exact:true});
   await history.waitFor();
   assert.equal(await history.inputValue(), "grpc_history_new");
+  await page.getByRole("tab", {name:"Response 2", exact:true}).click();
   await history.selectOption("grpc_history_old");
+  assert.equal(await page.getByRole("tab", {name:"Response 1", exact:true}).getAttribute("aria-selected"), "true");
   await page.waitForFunction((requestId) => JSON.parse(localStorage.getItem("insomnium-tauri-preview-v1") || "{}").responseSelections?.[requestId] === "grpc_history_old", request._id);
   await page.reload();
   await history.waitFor();

@@ -51,6 +51,11 @@
   const running = $derived(!!app.running[request._id]);
   const run = $derived(app.grpcRuns[request._id]);
   const response = $derived(app.responses[request._id]);
+  $effect(() => {
+    void response?._id;
+    selectedMessage = 0;
+    selectedSentId = "";
+  });
   const collectionId = $derived(workspaceFor(app.data.resources, request._id));
   const files = $derived.by(() => {
     try {
