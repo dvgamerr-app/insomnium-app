@@ -39,6 +39,7 @@
   } from "../grpc-model.js";
   import { workspaceFor } from "../model.js";
   import { download } from "../import-export.js";
+  import { copyText } from "../clipboard.js";
   /** @type {{request:Record<string,any>}} */ let { request } = $props();
   let tab = $state("Body"),
     responseTab = $state("Response"),
@@ -143,12 +144,22 @@
       error = String(e);
     }
   }
+  async function copyMessage(/** @type {string} */ text) {
+    error = "";
+    try {
+      await copyText(text);
+    } catch (e) {
+      error = String(e);
+    }
+  }
 </script>
 
 {#snippet messageView(text = "")}
   {@const preview = displayMessage(String(text ?? ""))}
+  <Button variant="ghost" class="text-button" aria-label="Copy gRPC message"
+    onclick={() => copyMessage(String(text ?? ""))}>Copy</Button>
   {#if preview.truncated}<p class="grpc-hint hint" role="status">
-      Showing a preview of this large gRPC message. Save response to read the
+      Showing a preview of this large gRPC message. Copy or Save response to read the
       full message.
     </p>{/if}
   <pre class="grpc-message">{preview.text}</pre>
