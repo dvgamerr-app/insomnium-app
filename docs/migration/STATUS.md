@@ -1,5 +1,9 @@
 # Migration status
 
+## GraphQL Back mounted component acceptance — 2026-10-17
+
+Source9b96bbd1. Existing graphql-editor scenario adds INSOMNIUM_GRAPHQL_NAVIGATION mode with a maintained local-schema component fixture. Actual GraphqlEditor reference click opens User, Back restores Query definition/search, replacement schema clears history. Initial test wrongly selected a radio; corrected to actual segmented button, final headless run exits0 (~1.9s). Compiler exits0/0errors/0warnings. Receipt artifacts/playwright/graphql-navigation/result.json. No network/native IPC/new runner/native rebuild. Native/keyboard-focus and broader GraphQL/full PLAN/PARITY stay open. No live handles. Topic commit follows; /compact unavailable; handoff recorded.
+
 ## GraphQL explorer Back navigation — 2026-10-17
 
 Source parent2280f833. Schema navigation previously discarded the prior view/type/directive/search. Added bounded100-entry Back history for hover/reference links and type/directive list selections; Back restores the previous query/schema view and selection/search. History resets on schema identity or request change; no network/schema fetch or saved request mutation. Existing explorer layout gains one conditional plain Back button. bun run check exits0/0errors/0warnings. No new tests/scripts/native rebuild; mounted UI/native navigation acceptance remains open, alongside full GraphQL/PLAN/PARITY. Reuses existing Svelte state and navigation path, no new subsystem. No live handles. Topic commit follows; /compact unavailable; handoff recorded.

@@ -9,6 +9,26 @@ import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { buildSchema, introspectionFromSchema } from "graphql";
 import { withNativeApp, poll } from "./helpers/native-app.js";
+import {withComponentFixture} from './helpers/component-fixture.js';
+
+if(process.env.INSOMNIUM_GRAPHQL_NAVIGATION==='1'){
+  await withComponentFixture('graphql-navigation',async(page,output)=>{
+    await page.getByRole('button',{name:'Schema',exact:true}).click();
+    const search=page.getByRole('textbox',{name:'Search schema types and fields',exact:true});
+    await search.fill('Query');
+    await page.getByRole('navigation',{name:'Referenced schema types'}).getByRole('button',{name:'User',exact:true}).click();
+    assert.equal(await search.inputValue(),'');
+    assert.match(await page.locator('.schema-definition').innerText(),/type User/);
+    await page.getByRole('button',{name:'Back in schema navigation'}).click();
+    assert.equal(await search.inputValue(),'Query');
+    assert.match(await page.locator('.schema-definition').innerText(),/type Query/);
+    await page.getByRole('navigation',{name:'Referenced schema types'}).getByRole('button',{name:'User',exact:true}).click();
+    await page.evaluate(()=>/** @type {any} */(window).replaceNavigationSchema());
+    await page.getByRole('button',{name:'Back in schema navigation'}).waitFor({state:'detached'});
+    await Bun.write(output+'/result.json',JSON.stringify({status:'passed',headless:true,checks:['reference navigation','Back restores search and definition','schema replacement clears history'],limits:'Real component with local schema; no native IPC/network'},null,2));
+  });
+  process.exit(0);
+}
 
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-nocturne-controls-probe/build-state.json";
