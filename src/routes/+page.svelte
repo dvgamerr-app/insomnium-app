@@ -458,20 +458,23 @@
   function keyboard(/** @type {KeyboardEvent} */ event) {
     const key = event.key.toLowerCase();
     const modifier = event.ctrlKey || event.metaKey;
+    const variableDisplayChord = event.altKey && event.shiftKey && event.code === "KeyU" && !modifier;
     const requestSettingsChord = modifier && event.altKey && event.shiftKey && event.code === "Comma";
     const shortcutHelpChord = event.ctrlKey && event.shiftKey && event.code === "Slash";
     const plainF5 = key === "f5" && !modifier && !event.shiftKey;
     if (
       !app.ready ||
-      event.defaultPrevented || event.isComposing || event.repeat || (event.altKey && !requestSettingsChord) ||
+      event.defaultPrevented || event.isComposing || event.repeat || (event.altKey && !requestSettingsChord && !variableDisplayChord) ||
       editingBlocked ||
       modal ||
       document.querySelector("dialog[open]") ||
       $templatePrompt ||
-      !(modifier || plainF5)
+      !(modifier || plainF5 || variableDisplayChord)
     )
       return;
-    if (event.shiftKey && key === "r") {
+    if (variableDisplayChord) {
+      event.preventDefault();updateSettings({showVariableSourceAndValue:!app.data.settings.showVariableSourceAndValue});
+    } else if (event.shiftKey && key === "r") {
       event.preventDefault();
       const owner=app.data;
       void pluginRegistry.reload().then(result=>{if(app.data===owner && result.errors.length)app.error=result.errors.join("\n");}).catch(error=>{if(app.data===owner && error?.name!=="AbortError")app.error=String(error);});

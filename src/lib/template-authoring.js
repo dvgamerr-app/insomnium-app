@@ -1,4 +1,5 @@
 // Authoring is data-only: parsing never renders expressions or executes tags.
+import {templateVariableReferences} from "./template-variable-path.js";
 import { decodeArgument } from "./template-tags.js";
 import { isTemplateTagName } from "./template-registration.js";
 
@@ -326,6 +327,8 @@ export function templateTagRange(text, start, end) {
     }
     if (i >= text.length) break;
   }
+  const variable=templateVariableReferences(text).find(reference=>start>=reference.start && start<reference.end);
+  if(variable)return {start:variable.start,end:variable.end,text:text.slice(variable.start,variable.end)};
   return { start, end, text: "" };
 }
 

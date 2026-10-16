@@ -1,5 +1,6 @@
 <script>
   import { onDestroy, untrack } from "svelte";
+  import {templateVariableReferences,templateVariablePath} from "../template-variable-path.js";
   import { templateModelOptions } from "../template-model-options.js";
   import DialogShell from "./ui/DialogShell.svelte";
   import Field from "./ui/Field.svelte";
@@ -18,13 +19,14 @@
     templateArgumentTypes,
   } from "../template-authoring.js";
   /** @typedef {import('../template-authoring.js').AuthoringArgument} Argument */
-  /** @type {{initialValue?:string,signal?:AbortSignal,definitions:Record<string,any>[],resources?:Record<string,any>[],variables?:string[],isCurrent:()=>boolean,queryMetadata:(name:string,args:any[],operation:{signal:AbortSignal,isCurrent:()=>boolean})=>Promise<Record<string,any>>,renderPreview:(text:string,operation:{signal:AbortSignal,isCurrent:()=>boolean})=>Promise<string>,choosePath?:(kind:'file'|'directory',definition:Record<string,any>)=>Promise<string|null>,runAction?:(name:string,index:number,operation:{signal:AbortSignal,isCurrent:()=>boolean})=>Promise<void>,onapply:(text:string)=>void,onclose:()=>void}} */
+  /** @type {{initialValue?:string,signal?:AbortSignal,definitions:Record<string,any>[],resources?:Record<string,any>[],variables?:string[],variableSources?:Record<string,{id:string,name:string,type:string}>,isCurrent:()=>boolean,queryMetadata:(name:string,args:any[],operation:{signal:AbortSignal,isCurrent:()=>boolean})=>Promise<Record<string,any>>,renderPreview:(text:string,operation:{signal:AbortSignal,isCurrent:()=>boolean})=>Promise<string>,choosePath?:(kind:'file'|'directory',definition:Record<string,any>)=>Promise<string|null>,runAction?:(name:string,index:number,operation:{signal:AbortSignal,isCurrent:()=>boolean})=>Promise<void>,onapply:(text:string)=>void,onclose:()=>void}} */
   let {
     initialValue = "",
     signal,
     definitions,
     resources = [],
     variables = [],
+    variableSources = {},
     isCurrent,
     queryMetadata,
     renderPreview,
@@ -51,6 +53,11 @@
     } catch {
       return null;
     }
+  });
+  const variableOrigins=$derived.by(()=>{
+    const keys=[...templateVariableReferences(text).map(item=>item.key),
+      ...(parsed?.args??[]).filter(item=>item.type==='variable').map(item=>String(item.value))];
+    return [...new Set(keys)].flatMap(key=>{try{const root=templateVariablePath(key)[0];const source=Object.hasOwn(variableSources,root)?variableSources[root]:null;return source?[{key,...source}]:[];}catch{return [];}});
   });
   const definition = $derived(
     definitions.find((item) => item.name === parsed?.name),
@@ -467,6 +474,7 @@
     {#if editError || error || activeDefinition?.validationError}<Feedback
         >{editError || error || activeDefinition?.validationError}</Feedback
       >{/if}
+    {#if variableOrigins.length}<dl aria-label="Variable sources">{#each variableOrigins as source}<dt><code>{source.key}</code></dt><dd>{source.type === "request_group" ? "Folder" : "Environment"}: {source.name}</dd>{/each}</dl>{/if}
     <Field label="Preview" {busy}
       ><Textarea
         value={busy ? "Rendering…" : preview}

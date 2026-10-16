@@ -198,6 +198,33 @@ async function exercise(page, output, invoke) {
       }, "Field persisted");
       checks.push(label);
     }
+    if(process.env.INSOMNIUM_INLINE_VARIABLES_ONLY==='1'){
+      const source='prefix {{ token }} / {{ "hello" | upper }} / {{ missing }} suffix';await seed({body:{mimeType:'text/plain',text:source}},{token:'ไทย <img src=x onerror=alert(1)>'});
+      const host=page.locator('.shared-code-editor').filter({has:page.locator('textarea[aria-label="Request body"]')});
+      await host.locator('.CodeMirror').waitFor();await page.keyboard.press('Alt+Shift+u');
+      const allMarks=host.locator('.template-variable-preview');const marker=allMarks.first();await marker.waitFor();
+      await allMarks.filter({hasText:'HELLO'}).waitFor();assert.equal(await allMarks.count(),2);
+      assert.match(await marker.textContent()||'',/Base Environment.*ไทย <img/);assert.equal(await marker.locator('img').count(),0);assert.equal(await marker.getAttribute('title'),'{{ token }}');
+      assert.equal(await host.locator('.CodeMirror').evaluate(el=>/** @type {any} */(el).CodeMirror.getValue()),source);
+      await poll(async()=>JSON.parse(await page.evaluate(()=>localStorage.getItem('insomnium-tauri-preview-v1')||'{}')).settings.showVariableSourceAndValue===true,'display setting saved');
+      await page.reload();await marker.waitFor();assert.equal(await host.locator('.CodeMirror').evaluate(el=>/** @type {any} */(el).CodeMirror.getValue()),source);
+      await page.screenshot({path:output+'/inline-variable.png'});await page.keyboard.press('Alt+Shift+u');await marker.waitFor({state:'detached'});
+      assert.equal(await host.locator('.CodeMirror').evaluate(el=>/** @type {any} */(el).CodeMirror.getValue()),source);assert.deepEqual(errors,[]);
+      await Bun.write(output+'/result.json',JSON.stringify({status:'passed',headless:true,inlineValue:true,origin:true,escapedValue:true,sourcePreserved:true,persistedToggle:true,reload:true,disableRemovesMark:true,expressionFilter:true,failedExpressionRemainsSource:true},null,2));return;
+    }
+    if(process.env.INSOMNIUM_VARIABLE_SOURCES_ONLY==='1'){
+      await seed({url:'https://owned.invalid/{{ token }}'},{token:'owned source ไทย'});
+      const field=page.getByRole('textbox',{name:'Request URL',exact:true});await field.focus();
+      await field.evaluate(el=>{const input=/** @type {HTMLInputElement} */(el);const start=input.value.indexOf('{{')+4;input.setSelectionRange(start,start);});
+      await page.keyboard.press('Control+Alt+Space');await dialog.waitFor();
+      const origin=dialog.getByLabel('Variable sources',{exact:true});await origin.waitFor();
+      assert.match(await origin.textContent()||'',/token/);
+      const base=data.resources.find(r=>r._type==='environment');assert.ok(base);assert.ok((await origin.textContent()||'').includes('Environment: '+base.name));
+      await poll(async()=>await dialog.getByLabel('Preview',{exact:true}).inputValue()==='owned source ไทย','variable preview');
+      await page.screenshot({path:output+'/variable-source.png'});
+      await dialog.getByRole('button',{name:'Cancel',exact:true}).click();assert.equal(await field.inputValue(),'https://owned.invalid/{{ token }}');
+      assert.deepEqual(errors,[]);await Bun.write(output+'/result.json',JSON.stringify({status:'passed',headless:true,variableOrigin:true,renderedValue:true,cancelPreservesSource:true},null,2));return;
+    }
     await seed();
     await edit("Request URL");
     await seed();
@@ -305,6 +332,6 @@ if (native) {
     exercise(page, output, invoke),
   );
 } else
-  await withPreview("template-tag-fields", (page, output) =>
+  await withPreview(process.env.INSOMNIUM_INLINE_VARIABLES_ONLY==='1'?"template-inline-variables":process.env.INSOMNIUM_VARIABLE_SOURCES_ONLY==='1'?"template-variable-sources":"template-tag-fields", (page, output) =>
     exercise(page, output),
   );

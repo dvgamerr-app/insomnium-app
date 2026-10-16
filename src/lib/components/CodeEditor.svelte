@@ -1,4 +1,5 @@
 <script>
+  import {attachVariablePreview} from "../editor-variable-preview.js";
   import Feedback from "./ui/Feedback.svelte";
   import TemplateTagDialog from "./TemplateTagDialog.svelte";
   import { templateEditorRange } from "../template-authoring.js";
@@ -563,6 +564,12 @@
     )
       closeTemplateTag();
   });
+  $effect(()=>{
+    const editor=cm,factory=templateEditor;
+    identity;environment;
+    if(!editor||!factory||readOnly||!settings.showVariableSourceAndValue)return;
+    return attachVariablePreview(editor,factory,isJsonBodyMediaType(mode));
+  });
   $effect(() => {
     if (cm)
       /** @type {any} */ (cm).setOption(
@@ -608,6 +615,7 @@
 {/if}
 
 <style>
+  :global(.template-variable-preview) {background:var(--raised);color:var(--accent);border-radius:3px;padding:0 3px;white-space:pre-wrap;}
   :global(.graphql-editor-info) {
     position: fixed;
     z-index: 1000;

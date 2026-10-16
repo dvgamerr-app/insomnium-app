@@ -195,6 +195,7 @@
                   /></Field
                 >
               </div>
+              <Field layout="inline" class="checkbox-label"><Checkbox checked={settings.showVariableSourceAndValue === true} onchange={event=>updateSettings({showVariableSourceAndValue:event.currentTarget.checked})}/>Show variable source and value in code editors</Field>
               <Field layout="inline" class="checkbox-label"
                 ><Checkbox
                   checked={settings.editorIndentWithTabs}

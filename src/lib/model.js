@@ -75,6 +75,7 @@ export function initialData() {
       editorIndentWithTabs: true,
       editorKeyMap: "default",
       editorLineWrapping: true,
+      showVariableSourceAndValue: false,
       autocompleteDelay: 1200,
       timeout: 30000,
       followRedirects: true,
@@ -335,7 +336,7 @@ export function descendants(resources, parentId) {
   return selected;
 }
 /** @param {Resource[]} resources @param {Resource} request @param {string} environmentId */
-export function environmentFor(resources, request, environmentId) {
+function environmentLayers(resources, request, environmentId) {
   const workspaceId = workspaceFor(resources, request._id);
   const base = resources.find(
     (r) => r._type === "environment" && r.parentId === workspaceId,
@@ -354,8 +355,8 @@ export function environmentFor(resources, request, environmentId) {
     chain.unshift(selected);
     selected = resources.find((r) => r._id === selected?.parentId);
   }
-  let data = { ...base?.data };
-  for (const environment of chain) data = { ...data, ...environment.data };
+  const layers = [...(base ? [{resource:base,values:base.data}] : []),
+    ...chain.map(environment=>({resource:environment,values:environment.data}))];
   const groups = [];
   const seen = new Set();
   let parent = resources.find((r) => r._id === request.parentId);
@@ -364,8 +365,20 @@ export function environmentFor(resources, request, environmentId) {
     groups.unshift(parent);
     parent = resources.find((r) => r._id === parent?.parentId);
   }
-  for (const group of groups) data = { ...data, ...group.environment };
-  return data;
+  return [...layers,...groups.map(group=>({resource:group,values:group.environment}))];
+}
+/** @param {Resource[]} resources @param {Resource} request @param {string} environmentId */
+export function environmentFor(resources, request, environmentId) {
+  return environmentLayers(resources,request,environmentId).reduce((data,layer)=>({...data,...layer.values}),{});
+}
+/** Winning top-level variable owners follow the exact same shallow overlay as Send.
+ * @param {Resource[]} resources @param {Resource} request @param {string} environmentId */
+export function environmentSourcesFor(resources,request,environmentId) {
+  /** @type {Record<string,{id:string,name:string,type:string}>} */ const sources={};
+  for(const {resource,values} of environmentLayers(resources,request,environmentId))
+    for(const key of Object.keys(values??{}))
+      Object.defineProperty(sources,key,{value:{id:resource._id,name:resource.name||resource._id,type:resource._type},enumerable:true,configurable:true,writable:true});
+  return sources;
 }
 /** @param {unknown} input @param {Resource} environment */
 export function render(input, environment) {

@@ -2,7 +2,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { isTauri } from "@tauri-apps/api/core";
 import { workspace, createWorkspaceWorkScope } from "./workspace.svelte.js";
 import { requestDataScope } from "./request-scope.js";
-import { environmentFor, workspaceFor } from "./model.js";
+import { environmentFor, environmentSourcesFor, workspaceFor } from "./model.js";
 import { environmentPaths } from "./editor-completion.js";
 import {
   builtinTagDefinitions,
@@ -146,6 +146,7 @@ function createEditorSession(requestId, ownerCurrent = () => true) {
           workspaceFor(data.resources, item._id) === data.activeWorkspaceId,
       ),
       variables: environmentPaths(context),
+      .../** @type {{variableSources?:ReturnType<typeof environmentSourcesFor>}} */ ({variableSources:environmentSourcesFor(data.resources,request,data.activeEnvironmentId)}),
       isCurrent: () => current() && plugins.isCurrent(),
       /** @param {string} name @param {any[]} args @param {{signal:AbortSignal,isCurrent:()=>boolean}} operation */
       async queryMetadata(name, args, operation) {
