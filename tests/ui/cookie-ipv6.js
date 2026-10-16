@@ -4,6 +4,7 @@ import { cookieComponentAlias } from "./helpers/cookie-component-build.js";
 import { ownedCookie } from "./fixtures/cookie-component-transport.js";
 
 process.env.INSOMNIUM_UI_RUN_LABEL ||= String(Date.now());
+const legacyPreview=process.env.INSOMNIUM_LEGACY_COOKIE_PREVIEW==='1';
 await withComponentFixture("cookie-manager-component", async (page, output) => {
   await page.getByRole("button", {name:"Open owned Cookies", exact:true}).click();
   const dialog = page.getByRole("dialog", {name:"Cookies", exact:true});
@@ -24,5 +25,26 @@ await withComponentFixture("cookie-manager-component", async (page, output) => {
   const lastChange = snapshot.calls.filter((/** @type {any} */ call) => call.command === "change_cookie").at(-1);
   assert.equal(lastChange.args.url, "https://[::1]/api");
   assert.deepEqual(lastChange.args.previous, {domain:"::1", path:"/api", name:"ipv6"});
-  await Bun.write(output + "/result.json", JSON.stringify({status:"passed",headless:true,scope:"Actual cookie editor with existing controlled transport; no native/network IO",ipv6EditAndSave:true}, null, 2));
-}, {plugins:[cookieComponentAlias()]});
+  if(legacyPreview){
+    const seed=async(/** @type {string[]} */ names)=>page.evaluate(names=>{
+      /** @type {any} */(window).__cookieComponent.setLegacyCookies(names.map(key=>({key,value:'owned',domain:'fixture.example.invalid',path:'/',hostOnly:true})));
+    },names);
+    await seed(['before','rejected']);
+    await dialog.locator('.legacy-cookie-import summary').click();
+    await page.evaluate(()=>/** @type {any} */(window).__cookieComponent.arm({report:{imported:1,kept:0,replaced:0,expired:0,issues:[{index:1,message:'owned old rejection'}]}}));
+    await dialog.getByRole('button',{name:'Preview restore',exact:true}).click();
+    await dialog.getByRole('button',{name:'Restore 1 cookies',exact:true}).waitFor();
+    await dialog.getByText(/owned old rejection/).waitFor();
+    await seed(['after']);
+    await dialog.getByRole('button',{name:'Restore 1 cookies',exact:true}).waitFor({state:'detached'});
+    assert.equal(await dialog.getByText(/owned old rejection/).count(),0);
+    await page.evaluate(()=>/** @type {any} */(window).__cookieComponent.arm({hold:true,error:'owned stale preview error'}));
+    await dialog.getByRole('button',{name:'Preview restore',exact:true}).click();
+    await page.waitForFunction(()=>/** @type {any} */(window).__cookieComponent.snapshot().pending);
+    await seed(['changed-during-preview']);
+    await page.evaluate(()=>/** @type {any} */(window).__cookieComponent.release());
+    await page.waitForFunction(()=>!/** @type {any} */(window).__cookieComponent.snapshot().pending);
+    assert.equal(await dialog.getByText('owned stale preview error',{exact:true}).count(),0);
+  }
+  await Bun.write(output + "/result.json", JSON.stringify({status:"passed",headless:true,scope:"Actual cookie editor with existing controlled transport; no native/network IO",ipv6EditAndSave:true,legacyPreviewOwnership:legacyPreview}, null, 2));
+}, {plugins:[cookieComponentAlias({legacyPreview})]});
