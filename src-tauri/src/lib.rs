@@ -63,6 +63,7 @@ pub fn run() {
     if git_remote_job::worker_entry() {
         return;
     }
+    let mut pending_exit_code = None;
     tauri::Builder::default()
         .setup(|app| {
             desktop_menu::install(app)?;
@@ -185,7 +186,39 @@ pub fn run() {
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(|app, event| {
+        .run(move |app, event| {
+            if matches!(&event, tauri::RunEvent::WindowEvent {
+                label, event: tauri::WindowEvent::Destroyed, ..
+            } if label == "main") {
+                // macOS may keep the application alive after its last window.
+                // Resume an intercepted Quit only after renderer-approved close.
+                if let Some(code) = pending_exit_code {
+                    app.exit(code);
+                }
+            }
+            if let tauri::RunEvent::ExitRequested { code, api, .. } = &event {
+                if *code != Some(tauri::RESTART_EXIT_CODE) {
+                    if let Some(window) = app.get_webview_window("main") {
+                        // close(), unlike destroy(), lets the renderer cancel
+                        // tracked work and save. A failed save keeps the app open.
+                        api.prevent_exit();
+                        pending_exit_code.get_or_insert(code.unwrap_or(0));
+                        if let Err(error) = window.close() {
+                            eprintln!("Could not request workspace shutdown: {error}");
+                        }
+                        return;
+                    }
+                    // Window destruction can request a fresh exit without a
+                    // code. Keep the original programmatic exit status.
+                    if let Some(saved_code) = pending_exit_code.take() {
+                        if *code != Some(saved_code) {
+                            api.prevent_exit();
+                            app.exit(saved_code);
+                            return;
+                        }
+                    }
+                }
+            }
             if let Some(state) = app.try_state::<spectral::SpectralState>() {
                 match event {
                     tauri::RunEvent::ExitRequested { code, api, .. } if !spectral::exit_ready(&state) => {

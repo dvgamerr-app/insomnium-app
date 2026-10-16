@@ -22,6 +22,12 @@ Imported `request_meta.pinned` (HTTP/WebSocket) and `grpc_request_meta.pinned` n
 
 Inline checks execute the actual pin action and verify HTTP/WS/gRPC metadata types, nested/foreign collection scope, preserved response-filter/custom fields, imported IDs and admission refusal. Compiler/build pass. Actual mounted/native pin/unpin/filter/keyboard/reload and visual/platform acceptance remain open. Legacy contracts: `models/request-meta.ts`, `models/grpc-request-meta.ts`, `ui/routes/debug.tsx` in the read-only archive. No new test files or native build.
 
+## Durable folder collapse — 2026-10-16
+
+RequestTree reads `request_group_meta.collapsed` and toggles it through guarded workspace persistence, retaining imported/custom metadata. Recursive folders share the same durable state. Search still reveals descendants temporarily without rewriting collapse preferences; folder buttons expose the effective `aria-expanded` state. Existing metadata duplication/removal/import policies remain.
+
+Actual action checks pass imported/nested metadata, preserved fields, save-data validation/reload, ID remapping and admission/type guards. Compiler/build pass; mounted/native search/collapse/reload and platform acceptance remain open. Legacy contract: archived `models/request-group-meta.ts` and folder toggle in `ui/routes/debug.tsx`. No new test files/native build.
+
 ## Current Windows acceptance
 
 Collection lifecycle extension is verified on Windows at2870f40. Legacy models with explicit canDuplicate:false comprise git_repository, grpc_request_meta, oauth2_token, plugin_data, project, request_group_meta, request_meta, request_version, response, settings, stats, unit_test_result, websocket_response and workspace_meta. The legacy database skips those models before child recursion; the current fix follows that exclusion boundary. Unknown models under eligible owners remain preserved by the current application policy; this is explicitly broader than legacy's unknown-type exclusion, not a claim of strict legacy unknown parity. [Playwright actionability](https://playwright.dev/docs/actionability) was consulted again; successful clicks do not replace durable native-state checks.

@@ -679,6 +679,16 @@ export function update(resourceId, patch) {
   }
   return persist();
 }
+/** @param {string} requestId @param {string} mode */
+export function setResponsePreviewMode(requestId, mode) {
+  if (!canEditWorkspace() || !["friendly", "source", "raw"].includes(mode)) return;
+  if (!workspace.data.resources.some((r) => r._id === requestId && r._type === "request")) return;
+  const meta = requestMeta(workspace.data.resources, requestId);
+  if (meta?.previewMode === mode) return;
+  if (meta) Object.assign(meta, {previewMode:mode,modified:Date.now()});
+  else workspace.data.resources.push({...withResponseFilter(undefined, requestId, ""),previewMode:mode});
+  void persist();
+}
 /** @param {string} requestId @param {string} filter */
 export function setResponseFilter(requestId, filter) {
   if (!canEditWorkspace()) return;
@@ -709,6 +719,20 @@ export function setResponseNamespaces(requestId, namespaces) {
   else workspace.data.resources.push(next);
   void persist();
   return true;
+}
+/** @param {string} folderId */
+export function toggleFolderCollapsed(folderId) {
+  if (!canEditWorkspace()) return;
+  const resources = workspace.data.resources;
+  if (!resources.some((r) => r._id === folderId && r._type === "request_group")) return;
+  let meta = resources.find((r) => r._type === "request_group_meta" && r.parentId === folderId);
+  if (!meta) {
+    meta = {_id:id("fldm"),_type:"request_group_meta",parentId:folderId,created:Date.now()};
+    resources.push(meta);
+  }
+  meta.collapsed = meta.collapsed !== true;
+  meta.modified = Date.now();
+  void persist();
 }
 /** @param {string} requestId */
 export function toggleRequestPin(requestId) {

@@ -54,6 +54,7 @@
     setSidebarHidden,
     setSidebarFilter,
     toggleRequestPin,
+    toggleFolderCollapsed,
     selectEnvironment,
     selectHttpHistory,
     selectStreamHistory,
@@ -1051,7 +1052,7 @@
               <div class="collection-label">Pinned Requests</div>
               <RequestTree resources={app.data.resources} parentId={app.data.activeWorkspaceId}
                 selected={app.data.activeRequestId} search={sidebarFilter} onselect={selectRequest}
-                onfolder={addRequest} onmanage={manageResource} pinnedOnly />
+                onfolder={addRequest} onmanage={manageResource} oncollapse={toggleFolderCollapsed} pinnedOnly />
             </section>{/if}
             <RequestTree
               resources={app.data.resources}
@@ -1061,6 +1062,7 @@
               onselect={selectRequest}
               onfolder={addRequest}
               onmanage={manageResource}
+              oncollapse={toggleFolderCollapsed}
             />{#if !requests.length}<EmptyState
                 variant="sidebar"
                 class="sidebar-empty"

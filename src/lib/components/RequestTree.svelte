@@ -5,7 +5,7 @@
   import { orderedChildren } from "../resources.js";
   import { protocolFor } from "../model.js";
   import { pinnedRequests, requestPinMeta } from "../request-meta.js";
-  /** @type {{ resources: Record<string, any>[], parentId: string, selected: string, search: string, onselect: (id: string) => void, onfolder: (id: string) => void, onmanage: (id: string) => void, depth?: number, pinnedOnly?:boolean }} */
+  /** @type {{ resources: Record<string, any>[], parentId: string, selected: string, search: string, onselect: (id: string) => void, onfolder: (id: string) => void, onmanage: (id: string) => void, oncollapse:(id:string)=>void, depth?: number, pinnedOnly?:boolean }} */
   let {
     resources,
     parentId,
@@ -14,10 +14,11 @@
     onselect,
     onfolder,
     onmanage,
+    oncollapse,
     depth = 0,
     pinnedOnly = false,
   } = $props();
-  let collapsed = $state(/** @type {Record<string, boolean>} */ ({}));
+  const collapsed = $derived(new Set(resources.filter((r) => r._type === "request_group_meta" && r.collapsed === true).map((r) => r.parentId)));
   const children = $derived(pinnedOnly ? pinnedRequests(resources, parentId) : orderedChildren(resources, parentId));
 </script>
 
@@ -28,9 +29,10 @@
         <Button
           variant="ghost"
           class="folder-label"
-          onclick={() => (collapsed[item._id] = !collapsed[item._id])}
+          aria-expanded={!collapsed.has(item._id) || !!search}
+          onclick={() => oncollapse(item._id)}
           ><Icon
-            name={collapsed[item._id] && !search ? "chevron" : "down"}
+            name={collapsed.has(item._id) && !search ? "chevron" : "down"}
             size={12}
           /><Icon name="folder" size={15} /><span>{item.name}</span></Button
         >
@@ -51,7 +53,7 @@
           ><Icon name="more" size={14} /></Button
         >
       </div>
-      {#if !collapsed[item._id] || search}<RequestTree
+      {#if !collapsed.has(item._id) || search}<RequestTree
           {resources}
           parentId={item._id}
           {selected}
@@ -59,6 +61,7 @@
           {onselect}
           {onfolder}
           {onmanage}
+          {oncollapse}
           depth={depth + 1}
         />{/if}
     {:else if !search || `${item.name} ${item.url} ${item.method}`

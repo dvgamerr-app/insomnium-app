@@ -21,6 +21,7 @@
     workspace,
     setResponseFilter,
     setResponseNamespaces,
+    setResponsePreviewMode,
   } from "../workspace.svelte.js";
   import { requestMeta } from "../request-meta.js";
   import Icon from "./Icon.svelte";
@@ -28,7 +29,6 @@
   /** @type {{ requestId: string, response: Record<string, any> | undefined, running: boolean, history: Record<string, any>[], onhistory: (response: Record<string, any>) => void }} */
   let { requestId, response, running, history, onhistory } = $props();
   let tab = $state("Preview");
-  let raw = $state(false);
   let bodyEditor = $state(/** @type {{focus:()=>void,setSelectionRange:(start:number,end:number)=>void}|undefined} */ (undefined));
   export async function focusResponse() {
     if (!response) return;
@@ -40,6 +40,7 @@
     bodyEditor?.setSelectionRange(0, body.length);
   }
   const meta = $derived(requestMeta(workspace.data.resources, requestId));
+  const raw = $derived(meta?.previewMode === "raw");
   const filter = $derived(
     typeof meta?.responseFilter === "string" ? meta.responseFilter : "",
   );
@@ -373,7 +374,7 @@
               { value: false, label: "Pretty" },
               { value: true, label: "Raw" },
             ]}
-            onchange={(value) => (raw = Boolean(value))}
+            onchange={(value) => setResponsePreviewMode(requestId, value ? "raw" : "friendly")}
           /><span class="spacer"></span><span class="hint"
             >{response.headers
               ?.find(

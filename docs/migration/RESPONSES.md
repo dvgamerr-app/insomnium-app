@@ -4,6 +4,12 @@ Updated 2026-10-14. Current functional namespace20+88 passes on the integration 
 
 See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity requirements](PARITY.md). No original scope was removed by consolidation.
 
+## Durable response formatting — 2026-10-16
+
+HTTP Pretty/Raw now reads `request_meta.previewMode` and persists changes through a guarded workspace action. Imported `raw` activates the original-body view. Choosing Pretty stores `friendly`; retained `source` metadata remains supported by the setter without adding a new renderer. Existing response/filter/pin/custom metadata is preserved, and unchanged/invalid/blocked actions do not save. This does not implement a separate legacy visual/source renderer.
+
+Inline actual-action checks pass metadata preservation, saved-data validation/reload, import reference remapping and invalid/admission guards. Compiler/build pass. Mounted/native switching/reload, legacy visual/source rendering and complete response/platform acceptance remain open. Legacy reference: archived `models/request-meta.ts` and `common/constants.ts`. No new test files/native build.
+
 ## Topic records
 
 <a id="record-current-original-xml-native-acceptance"></a>

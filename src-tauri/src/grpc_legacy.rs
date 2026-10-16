@@ -558,6 +558,44 @@ fn js_whitespace(c: char) -> bool {
             | '\u{feff}'
     )
 }
+// Binary/octal/hex integer strings convert their exact integer value to binary64
+// once. Accumulating in f64 rounds each digit and can lose the final sticky bit.
+fn radix_number(digits: &str, radix: u32) -> f64 {
+    if digits.is_empty() {
+        return f64::NAN;
+    }
+    let width = radix.trailing_zeros();
+    let mut bits = 0u32;
+    let mut significand = 0u64;
+    let mut round = false;
+    let mut sticky = false;
+    for digit in digits.chars() {
+        let Some(digit) = digit.to_digit(radix) else {
+            return f64::NAN;
+        };
+        for shift in (0..width).rev() {
+            let bit = (digit >> shift) & 1;
+            if bits == 0 && bit == 0 {
+                continue;
+            }
+            bits += 1;
+            if bits <= 53 {
+                significand = (significand << 1) | bit as u64;
+            } else if bits == 54 {
+                round = bit != 0;
+            } else {
+                sticky |= bit != 0;
+            }
+        }
+    }
+    if bits <= 53 {
+        return significand as f64;
+    }
+    if round && (sticky || significand & 1 != 0) {
+        significand += 1;
+    }
+    (significand as f64) * 2.0f64.powi((bits - 53) as i32)
+}
 fn number(value: &Json) -> f64 {
     match value {
         Json::Null => 0.0,
@@ -584,15 +622,7 @@ fn number(value: &Json) -> f64 {
                 ("0B", 2),
             ] {
                 if let Some(digits) = text.strip_prefix(prefix) {
-                    if digits.is_empty() {
-                        return f64::NAN;
-                    }
-                    return digits
-                        .chars()
-                        .try_fold(0.0, |n, c| {
-                            c.to_digit(radix).map(|d| n * radix as f64 + d as f64)
-                        })
-                        .unwrap_or(f64::NAN);
+                    return radix_number(digits, radix);
                 }
             }
             match text {
@@ -3401,6 +3431,59 @@ mod tests {
                 "JSON depth {depth}"
             );
         }
+    }
+
+    #[test]
+    fn legacy_radix_rounding_matches_protobufjs_wire() {
+        use prost_types::field_descriptor_proto::{Label, Type};
+        let pool = DescriptorPool::from_file_descriptor_set(FileDescriptorSet {
+            file: vec![FileDescriptorProto {
+                name: Some("radix.proto".into()),
+                syntax: Some("proto3".into()),
+                message_type: vec![DescriptorProto {
+                    name: Some("Radix".into()),
+                    field: [("real", Type::Double), ("integer", Type::Int32)]
+                        .into_iter()
+                        .enumerate()
+                        .map(|(index, (name, kind))| FieldDescriptorProto {
+                            name: Some(name.into()),
+                            number: Some(index as i32 + 1),
+                            label: Some(Label::Optional as i32),
+                            r#type: Some(kind as i32),
+                            ..Default::default()
+                        })
+                        .collect(),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            }],
+        })
+        .unwrap();
+        let descriptor = pool.get_message_by_name("Radix").unwrap();
+        // Actual protobuf.js 7.2.4 fromObject -> encode, including ties-to-even.
+        for (literal, wire) in [
+            ("0x1000000000000081", "09010000000000b043108002"),
+            ("0o100000000000000000201", "09010000000000b043108002"),
+            (
+                "0b1000000000000000000000000000000000000000000000000000010000001",
+                "09010000000000b043108002",
+            ),
+            ("0x1000000000000080", "09000000000000b0431000"),
+            ("0x1000000000000180", "09020000000000b043108004"),
+        ] {
+            let body = format!("{{\"real\":\"{literal}\",\"integer\":\"{literal}\"}}");
+            let bytes = parse(descriptor.clone(), &body).unwrap().encode_to_vec();
+            let actual: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+            assert_eq!(actual, wire, "{literal}");
+        }
+        assert!(number(&Json::String("0x".into())).is_nan());
+        assert!(number(&Json::String("0b102".into())).is_nan());
+        assert!(number(&Json::String(format!("0x1{}z", "0".repeat(256)).into())).is_nan());
+        assert_eq!(
+            number(&Json::String(format!("0x1{}", "0".repeat(256)).into())),
+            f64::INFINITY
+        );
+        assert_eq!(number(&Json::String("0O0007".into())), 7.0);
     }
 
     #[test]

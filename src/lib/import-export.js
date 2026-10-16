@@ -40,7 +40,18 @@ function portableGitResource(resource, forExport = false) {
   if (resource._type !== "git_repository") return resource;
   const copy = { ...resource };
   for (const key of localGitFields) delete copy[key];
-  if (forExport) delete copy.credentials;
+  if (forExport) {
+    delete copy.credentials;
+    const record = resource._legacySource?.record;
+    if (record && typeof record === "object" && !Array.isArray(record)) {
+      // NeDB imports archive an original copy of the same Git resource. Apply
+      // the export policy there too, without mutating the live provenance.
+      const portableRecord = {...record};
+      for (const key of localGitFields) delete portableRecord[key];
+      delete portableRecord.credentials;
+      copy._legacySource = {...resource._legacySource,record:portableRecord};
+    }
+  }
   return copy;
 }
 
