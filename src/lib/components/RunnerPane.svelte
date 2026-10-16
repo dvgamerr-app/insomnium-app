@@ -15,7 +15,7 @@
     addUnitTest,
     duplicate,
   } from "../workspace.svelte.js";
-  import { selectedRunnerSuite, latestRunnerResult } from "../runner-model.js";
+  import { selectedRunnerSuite, latestRunnerResult, runnerSuite } from "../runner-model.js";
   import { indexWorkspaces } from "../model.js";
   import CodeEditor from "./CodeEditor.svelte";
   import Icon from "./Icon.svelte";
@@ -28,6 +28,10 @@
       (r) => r._type === "unit_test" && r.parentId === suite?._id,
     ),
   );
+  const totalTests = $derived.by(() => {
+    try { return suite ? runnerSuite(workspace.data.resources,suite._id).testIds.length : 0; }
+    catch { return 0; }
+  });
   const collectionIndex = $derived(indexWorkspaces(workspace.data.resources));
   const requests = $derived(
     workspace.data.resources.filter(
@@ -121,7 +125,7 @@
       {:else}<Button
           variant="primary"
           class="primary-button"
-          disabled={!tests.length}
+          disabled={!totalTests}
           onclick={() => run()}><Icon name="play" size={14} /> Run Tests</Button
         >{/if}
       <Button

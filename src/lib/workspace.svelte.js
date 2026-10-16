@@ -2620,11 +2620,14 @@ export async function runTests(suiteId, testId = null) {
     suiteId,
     testId,
   );
+  const targets = new Set(selected.parents.map((resource) => resource.id));
+  for (const active of runnerTargets.values())
+    if ([...targets].some((target) => active.has(target)))
+      throw new Error("This suite overlaps another active test run.");
   const runId = id("runner");
   const controller = new AbortController();
   workspace.running[suiteId] = { id: runId, controller };
   workspace.runnerErrors[suiteId] = "";
-  const targets = new Set([suiteId, ...selected.testIds]);
   runnerTargets.set(suiteId, targets);
   /** @type {Set<Promise<any>>} */ const sends = new Set();
   /** @type {()=>void} */ let completed = () => {};
@@ -2701,10 +2704,10 @@ export async function runTests(suiteId, testId = null) {
       !workspace.data.resources.some(
         (r) => r._id === suiteId && r._type === "unit_test_suite",
       ) ||
-      selected.testIds.some(
-        (test) =>
+      selected.parents.some(
+        (resource) =>
           !workspace.data.resources.some(
-            (r) => r._id === test && r.parentId === suiteId,
+            (r) => r._id === resource.id && r.parentId === resource.parentId,
           ),
       )
     )

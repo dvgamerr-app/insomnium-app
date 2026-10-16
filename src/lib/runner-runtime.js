@@ -1,9 +1,10 @@
-/** @typedef {{name:string, code:string, requestId?:string|null}} RunnerTest */
+import { runnerTestCount } from "./runner-suite.js";
+/** @typedef {import('./runner-suite.js').RunnerTest} RunnerTest */
 /**
  * Real Mocha/Chai in a fresh VM; caller owns transport and cancellation.
  * @param {import('quickjs-emscripten-core').QuickJSWASMModule} engine
  * @param {{mocha:string,chai:string}} sources
- * @param {{name:string,tests:RunnerTest[]}} suite
+ * @param {import('./runner-suite.js').RunnerSuite} suite
  * @param {(requestId:string,signal:AbortSignal)=>Promise<any>} send
  * @param {{signal?:AbortSignal,timeoutMs?:number,bail?:boolean,filter?:string}} [options]
  */
@@ -17,20 +18,7 @@ export async function runSuiteIsolated(
   const timeout = options.timeoutMs ?? 60000;
   if (!Number.isInteger(timeout) || timeout < 1 || timeout > 600000)
     throw new Error("Runner timeout must be between 1 and 600000 ms");
-  if (
-    !suite ||
-    typeof suite.name !== "string" ||
-    !Array.isArray(suite.tests) ||
-    suite.tests.length > 1000 ||
-    suite.tests.some(
-      (t) =>
-        !t ||
-        typeof t.name !== "string" ||
-        typeof t.code !== "string" ||
-        (t.requestId != null && typeof t.requestId !== "string"),
-    )
-  )
-    throw new Error("Invalid runner suite");
+  const testCount = runnerTestCount(suite);
   const snapshot = JSON.stringify(suite);
   if (snapshot.length > 2 * 1024 * 1024)
     throw new Error("Runner source exceeds 2 Mi characters");
@@ -60,7 +48,7 @@ export async function runSuiteIsolated(
   options.signal?.addEventListener("abort", cancel, { once: true });
   const watchdog = setTimeout(
     () => fail(new Error("Runner deadline exceeded")),
-    Math.min(2147483647, (suite.tests.length + 1) * timeout + 10000),
+    Math.min(2147483647, (testCount + 1) * timeout + 10000),
   );
   vm.runtime.setInterruptHandler(
     () => performance.now() >= entryDeadline || !!options.signal?.aborted,
@@ -262,10 +250,12 @@ export async function runSuiteIsolated(
   }
 }
 
-/** @param {{name:string,tests:RunnerTest[]}} suite @param {number} timeout
+/** @param {import('./runner-suite.js').RunnerSuite} suite @param {number} timeout
  * @param {boolean} bail @param {string} filter */
 function runnerProgram(suite, timeout, bail, filter) {
-  const tests = suite.tests
+  /** @param {import('./runner-suite.js').RunnerSuite} current @returns {string} */
+  function defineSuite(current) {
+    const tests = current.tests
     .map(
       (test) =>
         "it(" +
@@ -277,6 +267,9 @@ function runnerProgram(suite, timeout, bail, filter) {
         "\n});",
     )
     .join("\n");
+    return "describe(" + JSON.stringify(current.name) + ",()=>{" +
+      (current.suites || []).map(defineSuite).join("\n") + "\n" + tests + "\n});";
+  }
   return [
     "globalThis.expect=chai.expect;",
     "globalThis.insomnia={activeRequestId:null,activeEnvironmentId:null,sendRequest:async(id)=>await __runnerSend(id),setActiveRequestId(id){this.activeRequestId=id;},clearActiveRequest(){this.activeRequestId=null;},async send(id=null){id=id||this.activeRequestId;if(!id)throw Error('No selected request');return await this.sendRequest(id);}};",
@@ -289,10 +282,6 @@ function runnerProgram(suite, timeout, bail, filter) {
       ",reporter});",
     "mocha.fgrep(" + JSON.stringify(filter) + ");",
     "beforeEach(()=>insomnia.clearActiveRequest());",
-    "describe(" +
-      JSON.stringify(suite.name) +
-      ",()=>{" +
-      tests +
-      "});mocha.run();",
+    defineSuite(suite) + "mocha.run();",
   ].join("\n");
 }

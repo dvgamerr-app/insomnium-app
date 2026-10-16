@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 
 /** Actual pure-Chai worker/results UI; native HTTP/provider/Stop remain separate.
- * @param {import('playwright-core').Page} page @param {string} output */
-export async function exerciseRunnerResults(page, output) {
+ * @param {import('playwright-core').Page} page @param {string} output @param {boolean} [nested] */
+export async function exerciseRunnerResults(page, output, nested = false) {
   const key = "insomnium-tauri-preview-v1",
     viewport = page.viewportSize();
   const inventory = await page.evaluate(() =>
@@ -42,6 +42,10 @@ export async function exerciseRunnerResults(page, output) {
   );
   assert.ok(meta, "Existing active suite has persisted workspace metadata");
   meta.activeUnitTestSuiteId = suiteId;
+  if (nested) data.resources.push(
+    {_id:suiteId + "_child",_type:"unit_test_suite",parentId:suiteId,name:"Owned child"},
+    {_id:suiteId + "_grandchild",_type:"unit_test_suite",parentId:suiteId + "_child",name:"Owned grandchild"},
+  );
   const expected = Array.from({ length: 24 }, (_, i) => "Expected line " + i),
     actual = expected.map((line, i) =>
       i === 23 ? "ACTUAL FINAL DETAIL" : line,
@@ -50,12 +54,12 @@ export async function exerciseRunnerResults(page, output) {
     data.resources.push({
       _id: "ut_runner_results_owned_" + i,
       _type: "unit_test",
-      parentId: suiteId,
+      parentId: nested ? suiteId + "_grandchild" : suiteId,
       name: i === 5 ? "Final owned failure detail" : "Owned assertion " + i,
-      requestId: null,
+      requestId: nested && i === 0 ? before.activeRequestId : null,
       code:
         i === 0
-          ? "expect(2+2).to.equal(4);"
+          ? "expect(2+2).to.equal(4);" + (nested ? "expect(insomnia.activeRequestId).to.equal(" + JSON.stringify(before.activeRequestId) + ");" : "")
           : `expect(${JSON.stringify(actual)}).to.deep.equal(${JSON.stringify(expected)});`,
       created: now,
       modified: now,
@@ -108,6 +112,8 @@ export async function exerciseRunnerResults(page, output) {
     assert.equal(record.results.stats.tests, 6);
     assert.equal(record.results.stats.passes, 1);
     assert.equal(record.results.stats.failures, 5);
+    if (nested) assert.equal(record.results.tests[0].fullTitle,
+      "Owned executed results probe Owned child Owned grandchild Owned assertion 0");
     assert.deepEqual(
       afterRun.history,
       before.history,

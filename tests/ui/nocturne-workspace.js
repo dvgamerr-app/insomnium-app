@@ -17,6 +17,14 @@ await withPreview(
     const errors = /** @type {string[]} */ ([]);
     page.on("pageerror", (error) => errors.push(error.message));
     await page.getByRole("button", { name: "Git", exact: true }).waitFor();
+    if (process.env.INSOMNIUM_RUNNER_NESTED_ONLY === "1") {
+      await page.getByRole("button",{name:"Tests",exact:true}).click();
+      await page.getByRole("button",{name:"New Test Suite",exact:true}).click();
+      await page.getByRole("textbox",{name:"Test suite name",exact:true}).waitFor();
+      await exerciseRunnerResults(page,output,true);
+      await Bun.write(output + "/result.json",JSON.stringify({status:"passed",headless:true,nestedSuiteLevels:3,scope:"Actual Runner UI/worker/VM/nested titles/request binding/results persistence and original result controls; no network/native"},null,2));
+      return;
+    }
     assert.equal(
       await page
         .getByRole("textbox", { name: "Request name", exact: true })

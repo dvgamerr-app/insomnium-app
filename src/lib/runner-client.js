@@ -1,6 +1,7 @@
+import { runnerTestCount } from "./runner-suite.js";
 /**
  * Start a dedicated worker for each suite. Caller supplies the owned HTTP sender.
- * @param {{name:string,tests:import('./runner-runtime.js').RunnerTest[]}} suite
+ * @param {import('./runner-suite.js').RunnerSuite} suite
  * @param {(requestId:string,signal:AbortSignal)=>Promise<any>} send
  * @param {{signal?:AbortSignal,timeoutMs?:number,bail?:boolean,filter?:string}} [options]
  */
@@ -16,7 +17,7 @@ export function runSuiteInWorker(suite, send, options = {}) {
 /**
  * Own worker lifetime and every outstanding transport request.
  * @param {Worker} worker
- * @param {{name:string,tests:import('./runner-runtime.js').RunnerTest[]}} suite
+ * @param {import('./runner-suite.js').RunnerSuite} suite
  * @param {(requestId:string,signal:AbortSignal)=>Promise<any>} send
  * @param {{signal?:AbortSignal,timeoutMs?:number,bail?:boolean,filter?:string}} [options]
  */
@@ -62,13 +63,10 @@ export function superviseRunnerWorker(worker, suite, send, options = {}) {
       if (
         !Number.isInteger(timeout) ||
         timeout < 1 ||
-        timeout > 600000 ||
-        !suite ||
-        typeof suite.name !== "string" ||
-        !Array.isArray(suite.tests) ||
-        suite.tests.length > 1000
+        timeout > 600000
       )
         throw new Error("Invalid runner options or suite");
+      const testCount = runnerTestCount(suite);
       // Serialize before posting: reject cycles/oversized input without keeping a worker alive.
       const snapshot = JSON.stringify(suite);
       if (snapshot.length > 2 * 1024 * 1024)
@@ -79,7 +77,7 @@ export function superviseRunnerWorker(worker, suite, send, options = {}) {
       );
       deadline = setTimeout(
         () => finish(new Error("Runner deadline exceeded")),
-        Math.min(2147483647, (suite.tests.length + 1) * timeout + 25000),
+        Math.min(2147483647, (testCount + 1) * timeout + 25000),
       );
       worker.onerror = (event) => {
         event.preventDefault();

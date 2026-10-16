@@ -1,4 +1,5 @@
 import { indexWorkspaces, workspaceFor } from "./model.js";
+import { runnerTestCount } from "./runner-suite.js";
 
 /** Resolve preserved script literals within the suite's imported collection.
  * Current collection IDs take precedence; foreign import aliases are never consulted.
@@ -20,26 +21,36 @@ export function runnerSuite(resources, suiteId, testId = null) {
   );
   const collectionId = suite && workspaceFor(resources, suiteId);
   if (!suite || !collectionId) throw new Error("Test suite no longer exists");
-  const tests = resources.filter(
-    (r) =>
-      r._type === "unit_test" &&
-      r.parentId === suiteId &&
-      (!testId || r._id === testId),
-  );
+  /** @type {Record<string,any>[]} */ const tests = [];
+  /** @type {{id:string,parentId:string}[]} */ const parents = [];
+  const seen = new Set();
+  /** @param {Record<string,any>} current @param {number} depth
+   * @returns {import('./runner-suite.js').RunnerSuite} */
+  function build(current, depth) {
+    if (depth > 32 || seen.has(current._id)) throw new Error("Invalid runner suite hierarchy");
+    seen.add(current._id);
+    parents.push({id:current._id,parentId:current.parentId});
+    const suites = resources.filter((r) => r._type === "unit_test_suite" && r.parentId === current._id)
+      .map((child) => build(child, depth + 1));
+    const ownTests = resources.filter((r) => r._type === "unit_test" &&
+      r.parentId === current._id && (!testId || r._id === testId));
+    tests.push(...ownTests);
+    parents.push(...ownTests.map((test) => ({id:test._id,parentId:test.parentId})));
+    return {
+      name:String(current.name || "My Suite"),suites,
+      tests:ownTests.map((test) => ({name:String(test.name || "My Test"),code:String(test.code || ""),requestId:test.requestId || null})),
+    };
+  }
+  const tree = build(suite,0);
+  runnerTestCount(tree);
   if (testId && !tests.length)
     throw new Error("Test no longer belongs to this suite");
   return {
     collectionId,
     suiteId,
+    parents,
     testIds: tests.map((t) => t._id),
-    suite: {
-      name: String(suite.name || "My Suite"),
-      tests: tests.map((t) => ({
-        name: String(t.name || "My Test"),
-        code: String(t.code || ""),
-        requestId: t.requestId || null,
-      })),
-    },
+    suite: tree,
   };
 }
 /** Match the legacy insomnia.send response contract, including UTF-8 replacement/BOM.
