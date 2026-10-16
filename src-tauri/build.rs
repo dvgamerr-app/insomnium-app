@@ -43,6 +43,7 @@ fn main() {
             "discover_plugin_sources",
             "read_plugin_package",
             "plugin_store",
+            "import_legacy_plugin_data",
             "git_remote_advertise",
             "git_clone_stage",
             "git_clone_inspect",

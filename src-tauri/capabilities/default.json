@@ -40,6 +40,7 @@
     "allow-discover-plugin-sources",
     "allow-read-plugin-package",
     "allow-plugin-store",
+    "allow-import-legacy-plugin-data",
     "core:default",
     "core:window:allow-destroy",
     "core:window:allow-close",
