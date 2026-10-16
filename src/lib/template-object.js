@@ -1,3 +1,5 @@
+import {renderJsonTemplateBody} from "./json-template-body.js";
+
 /** Limits apply even to disabled/blacklisted values before cloning. */
 export class TemplateLimitError extends Error {
   constructor(message = "Template value exceeds render limits") {
@@ -60,7 +62,7 @@ export function templateFieldError(error, path) {
 /** Clone and render values sequentially, retaining legacy paths/disabled semantics.
  * @param {any} input
  * @param {(text:string,path:string)=>Promise<string>} render
- * @param {{signal:AbortSignal,path?:string,keepOnError?:boolean,blacklist?:RegExp|null}} options
+ * @param {{signal:AbortSignal,path?:string,keepOnError?:boolean,blacklist?:RegExp|null,jsonPaths?:string[]}} options
  * @returns {Promise<any>}
  */
 export async function renderTemplateValue(input, render, options) {
@@ -79,7 +81,9 @@ export async function renderTemplateValue(input, render, options) {
       try {
         const containsTemplate = (/** @type {string} */ text) =>
           /{{[\s\S]*?}}|{%[\s\S]*?%}|{#[\s\S]*?#}/.test(text);
-        if (containsTemplate(value)) value = await render(value, path);
+        if (containsTemplate(value)) value = options.jsonPaths?.includes(path)
+          ? await renderJsonTemplateBody(value,(text) => render(text,path))
+          : await render(value, path);
         options.signal.throwIfAborted();
         if (value.includes("{%") && containsTemplate(value))
           value = await render(value, path);

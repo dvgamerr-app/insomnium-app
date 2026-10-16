@@ -8,7 +8,7 @@ assert.ok(request);
 request.body = {mimeType:"application/json",text:'{"value":"{{ }}"}'};
 const base = data.resources.find((r) => r._type === "environment" && r.parentId === data.activeWorkspaceId);
 assert.ok(base);
-base.data = {"api-key":"DO_NOT_SHOW_VALUE","quote'\"key":"ALSO_PRIVATE",user:{"display name":"private"}};
+base.data = {"api-key":"DO_NOT_SHOW_VALUE","quote'\"key":"ALSO_PRIVATE",true:"reserved",user:{"display name":"private"}};
 await withPreview("environment-completion",async (page,output) => {
   const editor = page.locator(".CodeMirror").first();
   await editor.waitFor();
@@ -27,7 +27,19 @@ await withPreview("environment-completion",async (page,output) => {
     const actual = await editor.evaluate((element) => /** @type {any} */ (element).CodeMirror.getValue());
     assert.equal(JSON.parse(actual).value,"{{ " + path + " }}");
   }
-  await Bun.write(output + "/result.json",JSON.stringify({status:"passed",headless:true,paths:3,jsonEscaping:true,namesOnly:true,scope:"Actual shared CodeMirror completion, no Send/native/network"},null,2));
+  for (const [prefix,path,suffix] of [["user['dis","user['display name']"," }}"],["us","user"," | dump }}"],["_['tr","_['true']"," }}"]]) {
+    const text = '{"value":"{{ ' + prefix + suffix + '"}';
+    const cursor = ('{"value":"{{ ' + prefix).length;
+    await editor.evaluate((element,{text,cursor}) => {
+      const cm = /** @type {any} */ (element).CodeMirror;
+      cm.setValue(text);cm.setCursor({line:0,ch:cursor});cm.focus();
+    },{text,cursor});
+    await page.keyboard.press("Control+Space");
+    await page.locator(".CodeMirror-hints").getByText(path,{exact:true}).click();
+    const actual = await editor.evaluate((element) => /** @type {any} */ (element).CodeMirror.getValue());
+    assert.equal(JSON.parse(actual).value,"{{ " + path + suffix);
+  }
+  await Bun.write(output + "/result.json",JSON.stringify({status:"passed",headless:true,paths:6,jsonEscaping:true,namesOnly:true,partialBracket:true,reservedKey:true,filterPreserved:true,scope:"Actual shared CodeMirror completion, no Send/native/network"},null,2));
 },{beforeNavigate:async (page) => {
   await page.addInitScript((data) => localStorage.setItem("insomnium-tauri-preview-v1",JSON.stringify(data)),data);
 }});

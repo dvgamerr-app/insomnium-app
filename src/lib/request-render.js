@@ -9,6 +9,7 @@ import { workspaceFor } from "./model.js";
 import { setDefaultProtocol } from "./template-url.js";
 import { checkTemplateValue } from "./template-object.js";
 import { applyDefaultRequestHeaders } from "./request-default-headers.js";
+import { isJsonBodyMediaType } from "./media-type.js";
 /** @typedef {import('./template-session.js').PluginRenderOptions} PluginRenderOptions */
 
 /** @param {Record<string,any>} data @param {Record<string,any>} request */
@@ -52,6 +53,7 @@ export async function renderRequestSnapshot(session, request, options = {}) {
   const result = await session.renderValue(
     { _request: input, _cookieJar: cookieJar },
     {
+      jsonPaths: isJsonBodyMediaType(input.body?.mimeType || "") ? ["body.text"] : [],
       blacklist:
         options.skipBody || input.settingDisableRenderRequestBody
           ? /^body.*/
@@ -232,6 +234,8 @@ export async function renderMessageValue(
     },
   );
   try {
+    if (request._type === "grpc_request" && !request.settingDisableRenderRequestBody)
+      return await session.renderValue(value,{path:"payload.value",jsonPaths:["payload.value"]});
     return await session.render(value, "payload.value");
   } finally {
     session.dispose();

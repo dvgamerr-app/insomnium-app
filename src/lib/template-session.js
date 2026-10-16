@@ -310,7 +310,7 @@ export function createRequestRenderSession(context, options) {
       throw reason;
     }
   };
-  /** @param {any} value @param {{path?:string,keepOnError?:boolean,blacklist?:RegExp|null}} [settings] */
+  /** @param {any} value @param {{path?:string,keepOnError?:boolean,blacklist?:RegExp|null,jsonPaths?:string[]}} [settings] */
   const renderValue = (value, settings = {}) =>
     guarded(async () => {
       const current = await prepare();
