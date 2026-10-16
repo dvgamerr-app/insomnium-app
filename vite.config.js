@@ -12,6 +12,9 @@ export default defineConfig(() => ({
     })),
   })],
 
+  // iconv-lite uses the installed browser Buffer/StringDecoder implementations.
+  resolve:{alias:[{find:/^buffer$/,replacement:"buffer/"},{find:/^string_decoder$/,replacement:"string_decoder/"}]},
+
   // The app is a pure SPA (ssr = false), so skip the SSR dependency optimizer.
   ssr: { optimizeDeps: { noDiscovery: true, include: [] } },
 
@@ -68,6 +71,8 @@ export default defineConfig(() => ({
       "graphql",
       "jsonpath-plus",
       "openapi-sampler",
+      "iconv-lite",
+      "string_decoder",
       "papaparse",
       "pdfjs-dist",
       "quickjs-emscripten-core",
