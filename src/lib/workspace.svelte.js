@@ -166,7 +166,9 @@ if (import.meta.hot) import.meta.hot.dispose(() => pluginRegistry.dispose());
 const removePluginTemplateProvider = installPluginTemplateProvider(
   (snapshot) => {
     const tags = pluginRegistry.captureTemplateTags();
-    if (!tags.length) return { tags, isCurrent: () => true };
+    const requestHooks = pluginRegistry.captureRequestHooks();
+    const responseHooks = pluginRegistry.captureResponseHooks();
+    if (!tags.length && !requestHooks.length && !responseHooks.length) return { tags, requestHooks, responseHooks, isCurrent: () => true };
     const sourceId = snapshot.sourceResourceId ?? snapshot.requestId;
     const expected = pluginRenderSourceKey(
       snapshot.resources,
@@ -187,7 +189,7 @@ const removePluginTemplateProvider = installPluginTemplateProvider(
         return false;
       }
     };
-    return { tags, isCurrent: current };
+    return { tags, requestHooks, responseHooks, isCurrent: current };
   },
 );
 if (import.meta.hot) import.meta.hot.dispose(removePluginTemplateProvider);
@@ -1255,6 +1257,8 @@ export async function execute(
     );
     const originalRequest = $state.snapshot(request);
     let requestSnapshot = originalRequest;
+    /** @type {((response:Record<string,any>)=>Promise<Record<string,any>>)|undefined} */
+    let runResponseHooks;
     const sourceContext = oauthSourceContext(dataSnapshot, requestSnapshot);
     if (introspection) requestSnapshot = introspectionRequest(requestSnapshot);
     {
@@ -1314,6 +1318,7 @@ export async function execute(
         },
       );
       requestSnapshot = rendered.request;
+      runResponseHooks=rendered.runResponseHooks;
       protocol = protocolFor(requestSnapshot);
       controller.signal.throwIfAborted();
     }
@@ -1487,7 +1492,8 @@ export async function execute(
       graphql: requestSnapshot.body?.mimeType === "application/graphql",
       started: Date.now(),
     };
-    const response = await send(prepared, controller.signal);
+    let response = await send(prepared, controller.signal);
+    if(runResponseHooks)response=await runResponseHooks(response);
     if (!workspace.data.resources.some((r) => r._id === requestId)) return;
     if (httpAttempt) {
       httpAttempt.networkLog = response.networkLog;
@@ -2613,14 +2619,13 @@ async function sendDependentRequest(
   signal.addEventListener("abort", abort, { once: true });
   const sourceContext = oauthSourceContext(data, request);
   try {
-    const rendered = (
-      await renderSendRequest(data, request, signal, {
+    const renderResult = await renderSendRequest(data, request, signal, {
         ...pluginOptions,
         pluginServices: workspacePluginServices(data, owner, resolveResponse, chain),
         responseResolver: (args, childSignal) =>
           resolveResponse(args, childSignal, chain, data.activeEnvironmentId),
-      })
-    ).request;
+      });
+    const rendered=renderResult.request;
     // Response tags await the completed HTTP body, including SSE framing.
     // Native send_http bounds this wait/body; it does not open a live stream pane.
     const needsOAuth =
@@ -2657,7 +2662,7 @@ async function sendDependentRequest(
         : {},
     );
     if (owner.isCurrent && !owner.isCurrent()) throw new DOMException("Plugin preview owner changed", "AbortError");
-    const response = await send(prepared, signal);
+    const response = await renderResult.runResponseHooks(await send(prepared, signal));
     signal.throwIfAborted();
     if (owner.isCurrent && !owner.isCurrent()) throw new DOMException("Plugin preview owner changed", "AbortError");
     const entry = {

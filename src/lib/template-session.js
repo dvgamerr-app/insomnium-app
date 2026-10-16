@@ -1,3 +1,4 @@
+import { decodeResponseBytes } from "./response-text.js";
 import { promptTemplateTag } from "./template-prompt.js";
 import { askTemplatePrompt } from "./template-prompt-dialog.js";
 import { responseTemplatePreview } from "./template-response.js";
@@ -63,8 +64,9 @@ export function capturePluginRenderOptions(options) {
  * pluginServices?:{isCurrent?:()=>boolean,getData:()=>{resources:Record<string,any>[],history?:Record<string,any>[],settings?:Record<string,any>},
  * send:(request:Record<string,any>,extra:any,signal:AbortSignal,path:string[])=>Promise<any>,
  * cookieJar:(workspace:Record<string,any>,signal:AbortSignal)=>Promise<any>}}} options
+ * @param {ReturnType<typeof capturePluginTemplateTags>} [capturedPlugins]
  */
-export function createRequestRenderSession(context, options) {
+export function createRequestRenderSession(context, options, capturedPlugins) {
   options.signal.throwIfAborted();
   const purpose = options.purpose;
   if (purpose !== "preview" && purpose !== "send")
@@ -82,7 +84,7 @@ export function createRequestRenderSession(context, options) {
   });
   options.signal.throwIfAborted();
   const native = nativeTemplateTags(snapshot);
-  const plugins = capturePluginTemplateTags(snapshot);
+  const plugins = capturedPlugins ?? capturePluginTemplateTags(snapshot);
   const cookie = native?.cookie;
   const ask = options.ask || askTemplatePrompt;
   const { pluginServices: services, pluginHelperPath: rootPluginPath } =
@@ -116,6 +118,29 @@ export function createRequestRenderSession(context, options) {
       ),
     purpose === "send" ? PROMPT_TOTAL_MS : 30000,
   );
+  /** Shared field/hook dialog owner, independent of the short-lived callback.
+   * @param {string} plugin @param {()=>boolean} current @param {Record<string,any>} renderContext @param {string[]} [pluginPath] */
+  const createDomOwner=(plugin,current,renderContext,pluginPath=rootPluginPath)=>{
+    if(!services)throw Error("Plugin dialog services are unavailable");
+
+    const owner=createPluginDomRenderOwner({
+              purpose,signal:options.signal,current:()=>current()&&services.isCurrent?.()===true,
+              synchronous:(signal,current)=>createPluginNativeAppEndpoint({signal,current}),
+              helpers:(signal,current,uiInteraction)=>createPluginHelperDispatcher({
+                plugin,ancestors:pluginPath,signal,isCurrent:current,getData:()=>services.getData(),
+                send:(request,extra,nestedSignal,nestedPath)=>services.send(request,extra,nestedSignal,nestedPath),
+                cookieJar:(workspace,signal)=>services.cookieJar(workspace,signal),
+                render:async(text,nestedSignal,nestedPath)=>{
+                  const data=services.getData();
+                  const child=createRequestRenderSession(renderContext,{...options,signal:nestedSignal,
+                    environmentLayers:undefined,
+                    resources:data.resources,history:data.history||[],pluginHelperPath:nestedPath,pluginServices:services});
+                  try{return await child.render(text);}finally{child.dispose();}
+                },
+                app:createPluginAppDialogEndpoint({purpose,signal,current,interaction:uiInteraction,prompt:ask}),
+              }),
+              });domOwners.add(owner);return owner;
+  };
   let totalRenders = 0;
   let active = 0;
 
@@ -185,25 +210,7 @@ export function createRequestRenderSession(context, options) {
               : undefined,
             services && purpose === "send" ? interaction : undefined,
             services ? (_plugin,childSignal,current) => createPluginNativeAppEndpoint({signal:childSignal,current}) : undefined,
-            services ? (plugin,current)=>{
-              const owner=createPluginDomRenderOwner({
-              purpose,signal:options.signal,current:()=>current()&&services.isCurrent?.()===true,
-              synchronous:(signal,current)=>createPluginNativeAppEndpoint({signal,current}),
-              helpers:(signal,current,uiInteraction)=>createPluginHelperDispatcher({
-                plugin,ancestors:pluginPath,signal,isCurrent:current,getData:()=>services.getData(),
-                send:(request,extra,nestedSignal,nestedPath)=>services.send(request,extra,nestedSignal,nestedPath),
-                cookieJar:(workspace,signal)=>services.cookieJar(workspace,signal),
-                render:async(text,nestedSignal,nestedPath)=>{
-                  const data=services.getData();
-                  const child=createRequestRenderSession(renderContext,{...options,signal:nestedSignal,
-                    environmentLayers:undefined,
-                    resources:data.resources,history:data.history||[],pluginHelperPath:nestedPath,pluginServices:services});
-                  try{return await child.render(text);}finally{child.dispose();}
-                },
-                app:createPluginAppDialogEndpoint({purpose,signal,current,interaction:uiInteraction,prompt:ask}),
-              }),
-              });domOwners.add(owner);return owner;
-            }:undefined,
+            services ? (plugin,current)=>createDomOwner(plugin,current,renderContext,pluginPath):undefined,
           ),
           ...native,
           prompt: (args, childSignal) =>
@@ -334,6 +341,86 @@ export function createRequestRenderSession(context, options) {
       return renderValue(text, { path: field });
     },
     renderValue,
+    /** Ordered hooks operate on detached send data, never persisted resources.
+     * @param {Record<string,any>} request @param {Record<string,any>} environment */
+    runRequestHooks(request, environment) {
+      return guarded(async () => {
+        if(!plugins.requestHooks.length)return {request,environment};
+        let state={request:structuredClone(request),environment:structuredClone(environment)};
+        state.request.cookies=state.request.cookieParameters??[];
+        for(const hook of plugins.requestHooks) {
+          const current=()=>!controller.signal.aborted&&plugins.isCurrent()&&hook.isCurrent()&&(!services||services.isCurrent?.()===true);
+          if(!current())throw new DOMException('Plugin request owner changed','AbortError');
+          const helperCall=services?createPluginHelperDispatcher({
+            plugin:hook.plugin,ancestors:rootPluginPath,signal:controller.signal,isCurrent:current,
+            getData:()=>services.getData(),
+            render:(text,signal,path)=>run(text,signal,[],{count:0},state.environment,path),
+            send:(request,extra,signal,path)=>services.send(request,extra,signal,path),
+            cookieJar:(workspace,signal)=>services.cookieJar(workspace,signal),
+            app:createPluginAppDialogEndpoint({purpose,signal:controller.signal,current,interaction,prompt:ask}),
+          }):undefined;
+          const domOwner=services?createDomOwner(hook.plugin,()=>plugins.isCurrent()&&hook.isCurrent(),state.environment):undefined;
+          let succeeded=false;
+          try {state=await hook.invoke([],{
+            domCall:domOwner?.domCall,domCallbacks:domOwner?.domCallbacks,domOwner,
+            signal:controller.signal,isCurrent:current,helperCall,interaction,
+            syncCall:services?createPluginNativeAppEndpoint({signal:controller.signal,current}):undefined,
+            context:{requestSnapshot:state.request,context:state.environment,
+              meta:{requestId:snapshot.requestId,workspaceId:snapshot.workspaceId??'n/a'},renderPurpose:'send'},
+          });succeeded=true;}finally{if(succeeded)domOwner?.finish();else domOwner?.dispose();}
+          if(!current())throw new DOMException('Plugin request owner changed','AbortError');
+        }
+        state.request.cookieParameters=state.request.cookies;
+        delete state.request.cookies;
+        return state;
+      });
+    },
+    /** Capture the catalog at Send; allocate a fresh bounded session only on reply.
+     * @param {Record<string,any>} request @param {Record<string,any>} environment */
+    responseHookRunner(request,environment) {
+      if(!plugins.responseHooks.length)return async (/** @type {Record<string,any>} */response)=>response;
+      const capturedRequest=structuredClone(request),capturedEnvironment=structuredClone(environment);
+      return async (/** @type {Record<string,any>} */response)=>{
+        if(!plugins.responseHooks.length)return response;
+        const child=createRequestRenderSession(capturedEnvironment,options,plugins);
+        try{return await child.runResponseHooks(capturedRequest,capturedEnvironment,response);}finally{child.dispose();}
+      };
+    },
+    /** @param {Record<string,any>} request @param {Record<string,any>} environment @param {Record<string,any>} response */
+    runResponseHooks(request,environment,response) {
+      return guarded(async()=>{
+        const bytes=typeof response.bodyBase64==='string'?Uint8Array.from(atob(response.bodyBase64),c=>c.charCodeAt(0)):new TextEncoder().encode(response.body??'');
+        let value={requestId:request._id,status:response.status,statusText:response.statusText,
+          headers:response.headers,size:response.size,elapsedMs:response.elapsedMs,bodyBytes:bytes,bodyChanged:false};
+        const requestData=structuredClone(request);requestData.cookies=requestData.cookieParameters??[];
+        for(const hook of plugins.responseHooks){
+          const current=()=>!controller.signal.aborted&&plugins.isCurrent()&&hook.isCurrent()&&(!services||services.isCurrent?.()===true);
+          if(!current())throw new DOMException('Plugin response owner changed','AbortError');
+          const helperCall=services?createPluginHelperDispatcher({
+            plugin:hook.plugin,ancestors:rootPluginPath,signal:controller.signal,isCurrent:current,getData:()=>services.getData(),
+            render:(text,signal,path)=>run(text,signal,[],{count:0},environment,path),
+            send:(request,extra,signal,path)=>services.send(request,extra,signal,path),
+            cookieJar:(workspace,signal)=>services.cookieJar(workspace,signal),
+            app:createPluginAppDialogEndpoint({purpose,signal:controller.signal,current,interaction,prompt:ask}),
+          }):undefined;
+          const domOwner=services?createDomOwner(hook.plugin,()=>plugins.isCurrent()&&hook.isCurrent(),environment):undefined;
+          let succeeded=false;
+          try {value=await hook.invoke([],{
+            domCall:domOwner?.domCall,domCallbacks:domOwner?.domCallbacks,domOwner,
+            signal:controller.signal,isCurrent:current,helperCall,interaction,
+            syncCall:services?createPluginNativeAppEndpoint({signal:controller.signal,current}):undefined,
+            context:{requestSnapshot:requestData,responseSnapshot:value,context:environment,
+              meta:{requestId:snapshot.requestId,workspaceId:snapshot.workspaceId??'n/a'},renderPurpose:'send'},
+          });succeeded=true;}finally{if(succeeded)domOwner?.finish();else domOwner?.dispose();}
+          if(!current())throw new DOMException('Plugin response owner changed','AbortError');
+        }
+        if(!value.bodyChanged)return response;
+        const bodyBytes=value.bodyBytes;
+        let binary='';for(let i=0;i<bodyBytes.length;i+=8192)binary+=String.fromCharCode(...bodyBytes.subarray(i,i+8192));
+        const type=(response.headers??[]).find((/** @type {any} */row)=>String(Array.isArray(row)?row[0]:row.name).toLowerCase()==='content-type');
+        return {...response,bodyBase64:btoa(binary),body:decodeResponseBytes(bodyBytes,type?(Array.isArray(type)?type[1]:type.value):''),bytesContent:bodyBytes.length};
+      });
+    },
     getContext() {
       return guarded(async () => structuredClone(await prepare()));
     },

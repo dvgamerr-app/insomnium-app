@@ -151,7 +151,10 @@ export async function renderSendRequest(data, request, signal, options = {}) {
     result.request.cookieSnapshot = cookieJar
       ? { ...result.cookieJar, generation: cookieJar.generation }
       : null;
-    return result;
+    const hooked=await session.runRequestHooks(result.request,result.context);
+    result.request=hooked.request;
+    result.context=hooked.environment;
+    return {...result,runResponseHooks:session.responseHookRunner(result.request,result.context)};
   } finally {
     session.dispose();
   }

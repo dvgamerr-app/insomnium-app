@@ -114,7 +114,11 @@ export function createPluginRegistry(adapters) {
     },
     /** Capture only explicitly loaded sessions. No discovery/module execution.
      * The returned closures cannot outlive this exact catalog or its owners. */
-    captureTemplateTags() {
+    captureTemplateTags() { return this.captureCallbacks("templateTags"); },
+    captureRequestHooks() { return this.captureCallbacks("requestHooks"); },
+    captureResponseHooks() { return this.captureCallbacks("responseHooks"); },
+    /** @param {"templateTags"|"requestHooks"|"responseHooks"} contributionKind */
+    captureCallbacks(contributionKind) {
       if (disposed) throw aborted();
       const context = synchronize();
       if (!context.ready) return [];
@@ -127,11 +131,11 @@ export function createPluginRegistry(adapters) {
         ready.every(([, record]) => record.current());
       return ready.flatMap(([name, record]) => {
         const contribution = record.session.metadata.contributions.find(
-          (/** @type {any} */ item) => item.kind === "templateTags",
+          (/** @type {any} */ item) => item.kind === contributionKind,
         );
         return (contribution?.items ?? []).map(
           (/** @type {any} */ item, /** @type {number} */ index) => {
-            /** @param {'templateTags'|'templateTagMetadata'|'templateTagAction'} kind @param {any[]} args
+            /** @param {'templateTags'|'templateTagMetadata'|'templateTagAction'|'requestHooks'|'responseHooks'} kind @param {any[]} args
              * @param {{isCurrent:()=>boolean,signal:AbortSignal,context?:Record<string,any>}} operation */
             async function dispatch(kind, args, operation) {
               if (
@@ -207,7 +211,7 @@ export function createPluginRegistry(adapters) {
               isCurrent: current,
               /** @param {any[]} args @param {{isCurrent:()=>boolean,signal:AbortSignal,context:Record<string,any>,helperCall?:(call:{method:string,args:any[]})=>Promise<any>,interaction?:import('./plugin-session.js').PluginInteraction,syncCall?:(call:{method:string,args:any[]})=>Promise<any>}} operation */
               invoke(args, operation) {
-                return dispatch("templateTags", args, operation);
+                return dispatch(contributionKind, args, operation);
               },
               /** Metadata evaluation has no render/helper/store context.
                * @param {any[]} args @param {{isCurrent:()=>boolean,signal:AbortSignal}} operation */

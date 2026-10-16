@@ -7,7 +7,7 @@ import {
 } from "./template-registration.js";
 export { builtinTemplateNames } from "./template-registration.js";
 /** @typedef {{definition:Record<string,any>,plugin:string,index:number,isCurrent:()=>boolean,invoke:(args:any[],operation:{isCurrent:()=>boolean,signal:AbortSignal,context:Record<string,any>,helperCall?:(call:{method:string,args:any[]})=>Promise<any>,interaction?:import('./plugin-session.js').PluginInteraction,syncCall?:(call:{method:string,args:any[]})=>Promise<any>,domCall?:import('./plugin-session.js').PluginDomOwner['domCall'],domCallbacks?:import('./plugin-session.js').PluginDomRetention,domOwner?:import('./plugin-session.js').PluginDomOwner})=>Promise<any>,queryMetadata?:(args:any[],operation:{isCurrent:()=>boolean,signal:AbortSignal})=>Promise<any>,runAction?:(index:number,operation:{isCurrent:()=>boolean,signal:AbortSignal})=>Promise<any>}} CapturedTag */
-/** @type {(snapshot:Record<string,any>)=>{tags:CapturedTag[],isCurrent:()=>boolean}} */
+/** @type {(snapshot:Record<string,any>)=>{tags:CapturedTag[],requestHooks?:CapturedTag[],responseHooks?:CapturedTag[],isCurrent:()=>boolean}} */
 let provider = () => ({ tags: [], isCurrent: () => true });
 /** Match the exact request, collection and inherited environment inputs consumed
  * by this renderer. History/token updates and unrelated requests cannot invalidate it.
@@ -56,6 +56,8 @@ export function capturePluginTemplateTags(snapshot) {
   const current = () =>
     captured.isCurrent() && tags.every((tag) => tag.isCurrent());
   return {
+    requestHooks: captured.requestHooks ?? [],
+    responseHooks: captured.responseHooks ?? [],
     names: tags.map((tag) => tag.definition.name),
     definitions: tags.map((tag) => ({
       ...tag.definition,

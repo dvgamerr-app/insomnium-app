@@ -1,5 +1,7 @@
+import { createPluginResponseContext } from "./plugin-response-context.js";
 import { createPluginVm, inspectPluginVm } from "./plugin-runtime.js";
 import { createPluginValueCodec } from "./plugin-values.js";
+import { createPluginRequestContext } from "./plugin-request-context.js";
 import { validatePluginCallContext } from "./plugin-call-context.js";
 import { PROMPT_TOTAL_MS } from "./template-deadline.js";
 import { createPluginAppSyncHelpers, validatePluginAppSyncCall } from "./plugin-app-sync.js";
@@ -216,7 +218,7 @@ export function createPluginCallbackRuntime(
       `globalThis.__pluginValueCodec=(${createPluginValueCodec.toString()})();`,
     ).dispose();
     evaluate(
-      `globalThis.__validatePluginCallContext=(${validatePluginCallContext.toString()});`,
+      `globalThis.__createPluginResponseContext=(${createPluginResponseContext.toString()});globalThis.__createPluginRequestContext=(${createPluginRequestContext.toString()});globalThis.__validatePluginCallContext=(${validatePluginCallContext.toString()});`,
     ).dispose();
     evaluate(
       `Object.defineProperty(globalThis,'__createPluginRunHelpers',{value:((create)=>{
@@ -348,7 +350,7 @@ export function createPluginCallbackRuntime(
       if (running) throw Error("Plugin callback is already running");
       if (
         typeof helpers !== "boolean" ||
-        (helpers && (kind !== "templateTags" || !helperCall)) ||
+        (helpers && (!["templateTags","requestHooks","responseHooks"].includes(kind) || !helperCall)) ||
         typeof interaction !== "boolean" ||
         (interaction && !helpers) ||
         typeof synchronous !== "boolean" ||
@@ -440,13 +442,19 @@ export function createPluginCallbackRuntime(
           if(typeof fn!=='function')throw Error('Plugin callback is unavailable');
           const runHelpers=${helpers ? `__createPluginRunHelpers((method,args)=>__pluginStoreCall(JSON.stringify({helper:__pluginValueCodec.encode({method,args}),generation:${generation}})).then(value=>method==='models.response.readBodyChunk'?__pluginBuffer.from(value):__pluginValueCodec.decode(value)),__pluginBuffer,()=>__pluginHelperCurrent(${generation}))` : "{}"};
           const app=${helpers ? `Object.freeze({...__createPluginAppAsyncHelpers((method,args)=>__pluginStoreCall(JSON.stringify({helper:__pluginValueCodec.encode({method,args}),generation:${generation}})).then(value=>__pluginValueCodec.decode(value)),()=>__pluginHelperCurrent(${generation})),...${synchronous ? `__createPluginAppSyncHelpers((method,args)=>__pluginValueCodec.decode(__pluginSyncCall(JSON.stringify({generation:${generation},call:__pluginValueCodec.encode({method,args})}))),()=>__pluginHelperCurrent(${generation}))` : "{}"},...${transportDom?`__pluginGuestDom.app(()=>__pluginHelperCurrent(${generation}))`:"{}"}})` : "undefined"};
-          const {extraInfo,...helperData}=helper;
+          const {extraInfo,requestSnapshot,responseSnapshot,...helperData}=helper;
+          if(requestSnapshot && !['requestHooks','responseHooks'].includes(kind))throw Error('Request snapshot is only available to request hooks');
+          const requestContext=requestSnapshot?__createPluginRequestContext(requestSnapshot,helper.context??{},kind==='responseHooks'):undefined;
+          if(responseSnapshot && kind!=='responseHooks')throw Error('Response snapshot is only available to response hooks');
+          const responseContext=responseSnapshot?__createPluginResponseContext(responseSnapshot,__pluginBuffer,__pluginReadable):undefined;
           const renderContext=helper.context?{...helper.context,getExtraInfo:(key)=>{
             const pair=extraInfo?.find(item=>item.name===key);
             return pair?__pluginValueCodec.decode(__pluginValueCodec.encode(pair.value)):null;
           }}:undefined;
-          const context=Object.freeze({...helperData,...(renderContext?{context:renderContext}:{}),...runHelpers,...(app?{app}:{}),store:__pluginContext.store});
+          const context=Object.freeze({...helperData,...(renderContext?{context:renderContext}:{}),...runHelpers,...(responseContext?{response:responseContext}:{}),...(requestContext?{request:requestContext}:{}),...(app?{app}:{}),store:__pluginContext.store});
           const value=await fn.call(item,context,...args);
+          if(responseContext)return __pluginValueCodec.encode(responseSnapshot);
+          if(requestContext)return __pluginValueCodec.encode({request:requestSnapshot,environment:helper.context??{}});
           if(kind==='templateTags' && Object.getPrototypeOf(value??{})===__pluginBuffer.prototype)
             return __pluginValueCodec.encode(value.toString());
           return __pluginValueCodec.encode(value);

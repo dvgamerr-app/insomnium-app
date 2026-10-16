@@ -10,11 +10,11 @@ export function validatePluginCallContext(value) {
   if (
     !record(value) ||
     Object.keys(value).some(
-      (key) => !["context", "meta", "renderPurpose", "extraInfo"].includes(key),
+      (key) => !["context", "meta", "renderPurpose", "extraInfo", "requestSnapshot", "responseSnapshot"].includes(key),
     )
   )
     throw Error("Invalid plugin callback context");
-  for (const key of ["context", "meta"]) {
+  for (const key of ["context", "meta", "requestSnapshot", "responseSnapshot"]) {
     const item = value[key];
     if (item !== undefined && !record(item))
       throw Error("Invalid plugin callback context");

@@ -459,8 +459,8 @@ The archived `packages/insomnia/src/plugins/index.ts` loads directories with pac
 | Legacy contribution | Current implementation | Required continuation |
 | --- | --- | --- |
 | templateTags | Bundled base64/now/uuid/hash/jsonpath and application-owned OS/file/cookie/prompt/request/response bridges | Custom package discovery, registration, declared tag argument metadata, collision policy, reload/disable and error reporting |
-| requestHooks | Legacy built-in DEFAULT_HEADERS now has covered native Send acceptance in shared preparation | Custom ordered hooks with explicit request/context mutation and cancellation before transport |
-| responseHooks | No custom hook dispatcher | Ordered response transforms and original-byte/history policy |
+| requestHooks | DEFAULT_HEADERS native acceptance retained; loaded custom hooks now run sequentially after rendering/default headers and before transport, using detached request/environment data and existing guarded sessions | Native Send/cancellation integration acceptance, hook-dialog native integration acceptance and large binary payload limits remain open |
+| responseHooks | Loaded hooks captured at Send run sequentially after HTTP completion and before history publication for normal/dependent requests; readonly request facade, duplicate response headers, realm-local readable-stream body streams and exact Buffer body replacement retain network size separately | Native Send/cancellation and hook-dialog integration acceptance, broader stream/module compatibility and payloads beyond the existing 1 MiB codec envelope remain open |
 | themes | Owner-directed shared Nocturne dark/light system | Explicit theme compatibility handling; arbitrary legacy plugin themes are not silently applied |
 | requestGroupActions | No custom action registry/UI | Group/request snapshot context, explicit actions and stale-owner checks |
 | requestActions | No custom action registry/UI | HTTP/WebSocket/gRPC action routing and explicit mutations |
@@ -2136,3 +2136,5 @@ Final review found Array subclasses were accepted as ordinary arrays and DataVie
 
 
 </details>
+
+Response body streams use pinned `readable-stream@4.7.0` (upstream bundled README and `lib/ours/browser.js`), with its standard Readable.from binary API. Scheduling uses guest Promise jobs under the existing QuickJS budgets, with no host process/timers. This supplies body-stream events and async iteration; it does not admit Node builtin modules or prove all Node stream scheduling/provider behavior.
