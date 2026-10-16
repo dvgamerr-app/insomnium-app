@@ -206,7 +206,9 @@
 <TabPanel id="request-editor-panel" labelledBy={activeTab0}
   ><section class="request-editor" aria-label={`${tab} editor`}>
     {#if tab === "Body" && request._type === "websocket_request"}
-      <WebSocketMessageEditor bind:this={messageEditor} {request} />
+      {#key request._id}
+        <WebSocketMessageEditor bind:this={messageEditor} {request} />
+      {/key}
     {:else if tab === "Body"}
       <Toolbar variant="editor" class="editor-toolbar">
         {#if bodyCodeEditor}<Button

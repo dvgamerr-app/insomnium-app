@@ -12,7 +12,7 @@
   import Button from "./ui/Button.svelte";
   import Input from "./ui/Input.svelte";
   import { createTemplateEditorSession } from "../template-editor-session.svelte.js";
-  import { onDestroy } from "svelte";
+  import { onDestroy, untrack } from "svelte";
   import {
     workspace as app,
     createWorkspaceWorkScope,
@@ -26,7 +26,11 @@
   /** @type {{ request: Record<string, any> }} */
   let { request } = $props();
   const fileWork = createWorkspaceWorkScope();
-  onDestroy(fileWork.dispose);
+  let disposed = false;
+  onDestroy(() => {
+    disposed = true;
+    fileWork.dispose();
+  });
   let error = $state(""),
     sending = $state(false);
   const payloads = $derived(
@@ -37,6 +41,10 @@
   const payload = $derived(
     payloads.find((r) => r._id === request.activePayloadId) || payloads[0],
   );
+  $effect(() => {
+    void payload?._id;
+    untrack(() => { error = ""; });
+  });
   const connected = $derived(
     !!app.running[request._id] &&
       app.responses[request._id]?.connectionState === "open",
@@ -51,13 +59,14 @@
     }
   }
   export async function send() {
-    if (!payload || sending) return;
+    if (!payload || sending || disposed) return;
+    const payloadId = payload._id;
     sending = true;
     error = "";
     try {
-      await sendPayload(request._id, payload._id);
+      await sendPayload(request._id, payloadId);
     } catch (e) {
-      error = String(e);
+      if (!disposed && payload?._id === payloadId) error = String(e);
     } finally {
       sending = false;
     }
