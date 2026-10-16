@@ -1,5 +1,13 @@
 # Migration status
 
+## HAR form transport serialization — 2026-10-17
+
+Source parent7fbe52dc. HAR form-urlencoded params now derive from prepared transport body instead of unfiltered editor rows, preserving actual duplicate/expanded OpenAPI pairs and excluding disabled fields. Inline Bun assertions pass duplicate keys, space/literal-plus decoding, Thai Unicode, empty values/body and unchanged raw body. No HTTP calls, new scripts, browser scenarios or native rebuild. Compiler initially exposed an inferred never[] params type; explicit JSDoc corrected it; final bun run check exits0/0errors/0warnings. Reference: https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams/URLSearchParams . Native integration of this correction and broader PLAN/PARITY remain open. No live owned handles. Topic commit follows; /compact unavailable, handoff recorded.
+
+## Retire stale plugin action feedback — 2026-10-17
+
+Source parent c9b2be27. PluginResourceActions now checks resource/workspace/environment ownership before publishing failures, independently of plugin catalog admission so genuine guest quarantine errors remain visible. Existing headless plugin-app-dialogs action mode covers Cancel and request edits while an owned alert is pending, no stale feedback and a fresh action afterward. action-ui-acceptance.json (2026-10-17 01:07:32 local) records passed; runner process is absent. Preview helper leaves result.json as running even after success, so it is not terminal-process evidence; previous action-failure files are older. No scenario rerun or new artifact script. bun run check exits0, zero errors/warnings. Native acceptance of this lifecycle change and broader PLAN/PARITY requirements remain open. No owned live check handles. Topic commit follows this note; /compact unavailable, use this handoff before the next feature.
+
 ## Combined native actions and data API acceptance — 2026-10-17
 
 Source ecda133b. One maintained build at artifacts/native-namespace-audit-probe/plugin-actions-data-20261017-attempt-1/build-state.json finishes exit0/sourceClosureVerified:true, app SHA b149612fab0e984ae5ce264212d1d32cf87f3059bf89c83096d3795f9090f9e0, closure dc7e87ec6ca4d19786731bddc804f9c1c162d2a216a7f54a3d8df8cdaf95ce6f. Total~19m7s, Cargo6m57s; coverage incomplete/targetLinkage unproven retained. No duplicate build launched.

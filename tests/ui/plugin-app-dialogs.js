@@ -33,12 +33,29 @@ await withPreview(actionUi?"plugin-resource-actions":"plugin-app-dialogs", async
         await root.getByRole('status').filter({hasText:'Action completed.'}).waitFor();
       }
       assert.equal(await page.evaluate(()=>/** @type {any} */(window).__resourceActions.snapshot()),before,'Actions cannot mutate saved argument snapshots');
+      await root.getByRole('button',{name:'Select Request',exact:true}).click();
+      for(const mode of ['cancel','source-edit']){
+        if(!await root.locator('details').evaluate(el=>/** @type {HTMLDetailsElement} */(el).open))await root.locator('summary').click();
+        await root.getByRole('button',{name:'Request action · insomnia-plugin-action-ui',exact:true}).click();
+        const owned=page.getByRole('dialog',{name:'Run Request action',exact:true});await owned.waitFor();
+        if(mode==='cancel')await root.getByRole('button',{name:'Cancel plugin action',exact:true}).evaluate(el=>/** @type {HTMLButtonElement} */(el).click());
+        else await page.evaluate(()=>/** @type {any} */(window).__resourceActions.editRequest('Changed while pending'));
+        await owned.waitFor({state:'hidden'});
+        await root.getByRole('button',{name:'Cancel plugin action',exact:true}).waitFor({state:'detached'});
+        assert.equal(await root.locator('.inline-error').count(),0,'Retired action cannot publish stale error');
+        assert.equal(await root.getByRole('status').count(),0,'Retired action cannot publish success');
+        await page.evaluate(()=>/** @type {any} */(window).__resourceActions.editRequest('Public request'));
+        await root.getByRole('button',{name:'Request action · insomnia-plugin-action-ui',exact:true}).click();
+        await owned.waitFor();await owned.getByRole('button',{name:'Ok',exact:true}).click();
+        await root.getByRole('status').filter({hasText:'Action completed.'}).waitFor();
+      }
+      await root.getByRole('button',{name:'Select Document',exact:true}).click();
       await root.locator('summary').click();
       await root.getByRole('button',{name:'Throw action · insomnia-plugin-action-ui',exact:true}).click();
       await root.locator('.inline-error').filter({hasText:'owned action failure'}).waitFor();
       assert.equal(await root.getByRole('button',{name:'Throw action · insomnia-plugin-action-ui',exact:true}).count(),0,'Failed guest leaves visible error after registry quarantine');
       await page.screenshot({path:output+'/actions.png'});
-      await Bun.write(output+'/action-ui-acceptance.json',JSON.stringify({passed:true,renderingMode:'headless',workerSha256,checks:['request/folder/collection/document actual UI dispatch through registry and production worker','owned alerts and completion','document hideAfterClick','saved argument isolation'],nativeAdapter:'fixture; native app IPC and file/persistence are not covered'},null,2));
+      await Bun.write(output+'/action-ui-acceptance.json',JSON.stringify({passed:true,renderingMode:'headless',workerSha256,checks:['request/folder/collection/document actual UI dispatch through registry and production worker','owned alerts and completion','document hideAfterClick','saved argument isolation','Cancel/source-edit retire alerts without stale feedback and allow fresh action','guest quarantine keeps failure visible'],nativeAdapter:'fixture; native app IPC and file/persistence are not covered'},null,2));
     }catch(error){await Bun.write(output+'/action-failure.txt',await root.innerText());await page.screenshot({path:output+'/action-failure.png'});throw error;}finally{await page.evaluate(()=>/** @type {any} */(window).__resourceActions.close());}
     return;
   }

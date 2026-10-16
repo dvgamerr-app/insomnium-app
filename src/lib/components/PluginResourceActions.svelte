@@ -26,6 +26,7 @@
     if(action.definition.hideAfterClick)menuOpen=false;
     const work=scope.begin();
     let session;
+    let ownerCurrent=()=>mounted&&!work.signal.aborted;
     try{
       const owner=workspace.data,collection=owner.activeWorkspaceId;
       const data=requestDataScope($state.snapshot(owner),resourceId);
@@ -33,15 +34,19 @@
       if(!request)throw Error('Resource no longer exists');
       const input=pluginActionInput(data.resources,resourceId);
       const source=pluginRenderSourceKey(data.resources,resourceId,data.activeEnvironmentId)+pluginActionSourceKey(data.resources,resourceId);
-      const current=()=>mounted&&!work.signal.aborted&&workspace.data===owner&&owner.activeWorkspaceId===collection&&
-        action.isCurrent()&&pluginRenderSourceKey(owner.resources,resourceId,requestDataScope(owner,resourceId).activeEnvironmentId)+pluginActionSourceKey(owner.resources,resourceId)===source;
+      ownerCurrent=()=>{
+        try{return mounted&&!work.signal.aborted&&workspace.data===owner&&owner.activeWorkspaceId===collection&&
+          pluginRenderSourceKey(owner.resources,resourceId,requestDataScope(owner,resourceId).activeEnvironmentId)+pluginActionSourceKey(owner.resources,resourceId)===source;}
+        catch{return false;}
+      };
+      const current=()=>ownerCurrent()&&action.isCurrent();
       const services=createWorkspacePluginPreviewServices(data,resourceId,work.signal,current,()=>{});
       session=createRequestRenderSession(environmentFor(data.resources,request,data.activeEnvironmentId), {purpose:'send',requestId:resourceId,workspaceId:workspaceFor(data.resources,resourceId),
         resources:data.resources,history:data.history,environmentId:data.activeEnvironmentId,signal:work.signal,
         pluginServices:services});
       await session.runResourceAction(action,input.args);
       if(current())done='Action completed.';
-    }catch(failure){if(mounted&&!work.signal.aborted)error=String(failure);}
+    }catch(failure){if(ownerCurrent())error=String(failure);}
     finally{session?.dispose();work.finish();if(mounted)busy=false;}
   }
 </script>

@@ -32,6 +32,7 @@ exports.documentActions=[{label:'Document action',hideAfterClick:true,async acti
     const target=document.createElement('div');document.body.appendChild(target);
     app=mount(Fixture,{target});
   },
+  editRequest(/** @type {string} */name){const request=workspace.data.resources.find(r=>r._id==='req_action');if(request)request.name=name;},
   snapshot:()=>JSON.stringify(workspace.data.resources),
   async close(){if(app)await unmount(app);registry?.dispose();},
 };

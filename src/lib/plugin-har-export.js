@@ -19,9 +19,11 @@ export function pluginHarEntry(rendered,prepared,response,startedDateTime){
   for(const kind of ['digest','oauth1','aws','hawk','asap','ntlm','netrc'])if(prepared[kind])throw Error('HAR export for '+kind+' authentication requires its native auth adapter');
   const headers=rows(prepared.headers??[]),responseHeaders=rows(response?.headers??[]);
   const contentType=(/** @type {{name:string,value:string}[]} */values)=>values.find(row=>row.name.toLowerCase()==='content-type')?.value||'';
-  const postData={mimeType:contentType(headers)||rendered.body?.mimeType||'',text:prepared.bodyBase64??prepared.body??'',params:[]};
+  const postData={mimeType:contentType(headers)||rendered.body?.mimeType||'',text:prepared.bodyBase64??prepared.body??'',params:/** @type {{name:string,value?:string,fileName?:string}[]} */([])};
   if(prepared.multipart)postData.params=prepared.multipart.map((/** @type {any} */part)=>({name:part.name,...(part.fileName!==null&&part.fileName!==undefined?{fileName:part.fileName}:{value:part.value})}));
-  else if(rendered.body?.mimeType==='application/x-www-form-urlencoded')postData.params=(rendered.body.params??[]).map((/** @type {any} */part)=>({name:part.name,value:part.value}));
+  // Use the serialized transport body: disabled fields have been removed and
+  // OpenAPI form serialization may expand one editor row into several pairs.
+  else if(rendered.body?.mimeType==='application/x-www-form-urlencoded')postData.params=[...new URLSearchParams(prepared.body??'')].map(([name,value])=>({name,value}));
   const bytes=response?typeof response.bodyBase64==='string'?Uint8Array.from(atob(response.bodyBase64),c=>c.charCodeAt(0)):new TextEncoder().encode(response.body??''):null;
   const cookies=responseHeaders.filter(row=>row.name.toLowerCase()==='set-cookie').map(row=>{
     const parts=row.value.split(';'),pair=parts.shift()??'',split=pair.indexOf('=');
