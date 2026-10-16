@@ -14,7 +14,7 @@
   import Select from "./ui/Select.svelte";
   import Button from "./ui/Button.svelte";
   import Input from "./ui/Input.svelte";
-  import { onDestroy, tick } from "svelte";
+  import { onDestroy, tick, untrack } from "svelte";
   import { jsonPrettify } from "../json-prettify.js";
   import { environmentFor, workspaceFor } from "../model.js";
   import CodeEditor from "./CodeEditor.svelte";
@@ -62,6 +62,17 @@
       : []),
   ]);
   let error = $state("");
+  const bodyOwner = $derived({
+    data: app.data,
+    request,
+    body: request.body,
+    text: request.body?.text,
+    mimeType: request.body?.mimeType,
+  });
+  $effect(() => {
+    void bodyOwner;
+    untrack(() => { error = ""; });
+  });
   const fileWork = createWorkspaceWorkScope();
   let fileSelection = 0;
   onDestroy(() => {
@@ -76,9 +87,7 @@
     ),
   );
   $effect(() => {
-    request._id;
-    request.body?.text;
-    request.body?.mimeType;
+    void bodyOwner;
     tab;
     return () => cancelFormat();
   });
@@ -119,18 +128,15 @@
   }
   function formatXml() {
     cancelFormat();
-    const requestId = request._id;
+    const owner = bodyOwner;
     const source = String(request.body?.text || "");
-    const mime = request.body?.mimeType;
     let active = true;
     /** @type {import("../workspace.svelte.js").ScopedWorkspaceWork|undefined} */ let work;
     /** @type {Worker | undefined} */ let worker;
     /** @type {ReturnType<typeof setTimeout> | undefined} */ let timer;
     const current = () =>
       (!work || work.current()) &&
-      request._id === requestId &&
-      String(request.body?.text || "") === source &&
-      request.body?.mimeType === mime &&
+      bodyOwner === owner &&
       tab === "Body";
     cancelFormat = () => {
       active = false;
@@ -301,10 +307,12 @@
               if (file) {
                 const requestId = request._id;
                 const originalBody = request.body;
+                const owner = bodyOwner;
                 const selection = ++fileSelection;
                 /** @type {import("../workspace.svelte.js").ScopedWorkspaceWork|undefined} */ let work;
                 const current = () =>
-                  selection === fileSelection && (!work || work.current());
+                  selection === fileSelection && bodyOwner === owner &&
+                  (!work || work.current());
                 try {
                   work = fileWork.begin();
                   const upload = await readCurrentBodyUpload(

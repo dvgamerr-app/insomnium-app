@@ -2,9 +2,13 @@ import {id, newRequest} from "./model.js";
 import {parseMediaType} from './media-type.js';
 
 /** @param {unknown} value */
-const tokens = (value) => typeof value === "string" ? value.replace(/<<(.+?)>>/g, (_match, name) =>
+const tokens = (value) => {
+  if (value == null) return '';
+  if (typeof value !== 'string') throw new Error('Hoppscotch text values must be strings.');
+  return value.replace(/<<(.+?)>>/g, (_match, name) =>
   /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name) && !/^(true|false|none|null)$/i.test(name)
-    ? `{{ _.${name} }}` : `{{ _[${JSON.stringify(name)}] }}`) : "";
+    ? `{{ _.${name} }}` : `{{ _[${JSON.stringify(name)}] }}`);
+};
 /** Static HTTP header names are case insensitive; template variable names are not.
  * @param {Record<string,any>} header */
 const headerIdentity = (header) => typeof header.key === 'string' && !header.key.includes('<<')
@@ -42,10 +46,14 @@ function requestBody(body) {
   if (Array.isArray(value)) {
     if (!["application/x-www-form-urlencoded","multipart/form-data"].includes(mimeType))
       throw new Error("Hoppscotch form fields require a form content type.");
-    return {mimeType, params:rows(value,"body fields").map((field) => ({
-    name:tokens(field.key),value:field.isFile ? "" : tokens(field.value),disabled:!active(field.active),
-    ...(field.isFile ? {type:"file",fileName:typeof field.value === "string" ? field.value : ""} : {}),
-    }))};
+    return {mimeType, params:rows(value,"body fields").map((field) => {
+      if (field.isFile !== undefined && typeof field.isFile !== 'boolean')
+        throw new Error('Hoppscotch isFile flags must be booleans.');
+      return {
+        name:tokens(field.key),value:field.isFile ? "" : tokens(field.value),disabled:!active(field.active),
+        ...(field.isFile ? {type:"file",fileName:typeof field.value === "string" ? field.value : ""} : {}),
+      };
+    })};
   }
   if (value != null && typeof value !== "string") throw new Error("Hoppscotch body must be text or form fields.");
   if (mimeType === "application/x-www-form-urlencoded") return {mimeType,params:String(value || "").split(/\r?\n/).filter((line) => line.trim()).map((line) => {
