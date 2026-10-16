@@ -55,11 +55,11 @@ await withPreview(jsonOnly ? "plugin-helper-render-json" : "plugin-helper-render
       urls,
     );
     if (jsonOnly) {
-      const source = String.raw`{"value":"{% jsonoutput %}","literal":"\u007b\u007b missing \u007d\u007d","large":9007199254740993}`;
+      const source = String.raw`{"value":"left  {%- jsonoutput -%}  right","literal":"\u007b\u007b missing \u007d\u007d","large":9007199254740993}`;
       await page.evaluate((source) => /** @type {any} */ (window).__pluginRenderFixture.start(source,false,{json:true}),source);
       const rendered = await page.evaluate(() => /** @type {any} */ (window).__pluginRenderFixture.result());
       assert.equal(typeof rendered.value,"string",JSON.stringify(rendered));
-      assert.equal(JSON.parse(rendered.value).value,'quote" slash\\ newline\nไทย');
+      assert.equal(JSON.parse(rendered.value).value,'leftquote" slash\\ newline\nไทยright');
       assert.ok(rendered.value.includes(String.raw`\u007b\u007b missing \u007d\u007d`));
       assert.ok(rendered.value.includes("9007199254740993"));
       await Bun.write(output + "/result.json",JSON.stringify({status:"passed",headless:true,jsonPluginOutput:true,literalEscapes:true,largeIntegerToken:true,scope:"Actual plugin registry/session/VM and template worker; no native or network services"},null,2));

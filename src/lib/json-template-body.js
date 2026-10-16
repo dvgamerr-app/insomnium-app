@@ -29,7 +29,7 @@ export async function renderJsonTemplateBody(source, render, registeredTagNames 
       if (!["{{", "{%"].includes(opening) || token.slice(offsets[index],offsets[index] + 2) !== opening) continue;
       const closing = opening === "{{" ? "}}" : "%}";
       if (opening === "{%") {
-        const name = /^\{%\s*([^\s,%}]+)/.exec(decoded.slice(index))?.[1];
+        const name = /^\{%-?\s*([^\s,%}]+)/.exec(decoded.slice(index))?.[1];
         // Unregistered syntax, including control blocks, keeps whole-template semantics.
         if (!name || (!builtinTemplateNames.includes(name) && !registeredTagNames.includes(name))) return render(source);
       }
@@ -44,8 +44,16 @@ export async function renderJsonTemplateBody(source, render, registeredTagNames 
       }
       if (finish >= decoded.length - 1) return render(source);
       if (changes.length >= 1000) throw new Error("JSON body exceeds 1000 template interpolations");
-      changes.push({start:start + 1 + offsets[index],end:start + 1 + offsets[finish + 2],text:decoded.slice(index,finish + 2)});
-      index = finish + 1;
+      let left = index, right = finish + 2;
+      if (decoded[index + 2] === "-")
+        while (left > 0 && /\s/.test(decoded[left - 1])) left--;
+      if (decoded[finish - 1] === "-")
+        while (right < decoded.length && /\s/.test(decoded[right])) right++;
+      changes.push({
+        start:Math.max(start + 1 + offsets[left], changes.at(-1)?.end ?? 0),
+        end:start + 1 + offsets[right],text:decoded.slice(index,finish + 2),
+      });
+      index = right - 1;
     }
     start = end;
   }
