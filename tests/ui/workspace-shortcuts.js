@@ -8,6 +8,14 @@ await withPreview("workspace-shortcuts",async (page,output) => {
   await page.keyboard.press("Control+Shift+Enter");
   assert.equal(await page.getByRole("tablist",{name:"Request editor",exact:true}).getByRole("tab",{name:"Settings",exact:true}).getAttribute("aria-selected"),"true");
   assert.equal(await page.getByRole("tablist",{name:"Request editor",exact:true}).getByRole("tab",{name:"Settings",exact:true}).evaluate((el) => document.activeElement === el),true);
+  await page.getByRole('tablist',{name:'Request editor',exact:true}).getByRole('tab',{name:'Body',exact:true}).click();
+  await page.keyboard.press('Control+Alt+Shift+Comma');
+  assert.equal(await page.getByRole('tablist',{name:'Request editor',exact:true}).getByRole('tab',{name:'Settings',exact:true}).getAttribute('aria-selected'),'true');
+  await page.keyboard.press('Control+Shift+Slash');
+  const shortcutsTitle=page.getByRole('heading',{name:'Shortcuts',exact:true});await shortcutsTitle.waitFor();
+  assert.equal(await shortcutsTitle.evaluate(el=>el===document.activeElement),true);
+  await page.getByRole('button',{name:'Close Preferences',exact:true}).click();
+  await page.keyboard.press('Control+Alt+Shift+Comma');
   const skipBody = page.getByRole("checkbox",{name:"Skip rendering of request body",exact:true});
   assert.equal(await skipBody.isChecked(),false);
   await skipBody.check();

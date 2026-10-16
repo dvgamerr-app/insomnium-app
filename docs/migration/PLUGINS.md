@@ -4,6 +4,12 @@ Updated 2026-10-14. Current ESM26, native event10, metadata9/restart and guarded
 
 See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity requirements](PARITY.md). No original scope was removed by consolidation.
 
+## Reload explicitly loaded plugins — 2026-10-16
+
+Ctrl/Cmd+Shift+R now reloads previously ready plugin sessions through the existing registry. It closes old sessions, clears discovery, rereads packages and repeats normal admission with fresh snapshots. Other discovered packages are not automatically executed. Concurrent reload calls share one promise; each plugin failure is recorded while remaining plugins continue. Workspace/path/readiness changes cancel the operation and old callbacks remain invalidated. The page reports current-owner errors and retains all existing keyboard admission/modal guards; Preferences lists the shortcut.
+
+Contract: archived common/hotkeys.ts plugin_reload and existing explicit registry admission. Inline Bun assertions against the actual registry with controlled adapters pass fresh revision2snapshots, old-session close, one discovery per reload, shared concurrent promise, unloaded-package exclusion, partial failure and changed-owner cancellation. This is registry-layer evidence, not native package execution/OS-keyboard acceptance. Compiler75507 exits0/0errors/0warnings; build exits0. No new test/artifact scripts/dependencies/native build/profile changes or owned live handles. Native reload integration and broader plugin/PLAN/PARITY gates remain open. /compact unavailable.
+
 ## Topic records
 
 <a id="record-agent-event-api"></a>

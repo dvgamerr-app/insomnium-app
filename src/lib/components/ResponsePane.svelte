@@ -30,6 +30,7 @@
   } from "../workspace.svelte.js";
   import { requestMeta } from "../request-meta.js";
   import Icon from "./Icon.svelte";
+  import { responseDownloadName } from "../response-download.js";
   import { download } from "../import-export.js";
   /** @type {{ requestId: string, response: Record<string, any> | undefined, running: boolean, history: Record<string, any>[], onhistory: (response: Record<string, any>) => void }} */
   let { requestId, response, running, history, onhistory } = $props();
@@ -346,7 +347,7 @@
               Uint8Array.from(atob(response.bodyBase64), (c) =>
                 c.charCodeAt(0),
               ),
-              "response.bin",
+              responseDownloadName(response),
               "application/octet-stream",
             );
             finish();

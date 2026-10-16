@@ -58,6 +58,12 @@ The preview now matches archived response-viewer.tsx _getContentType: valid JSON
 
 Inline Bun checks pass JSON-over-HTML precedence, HTML-over-text/plain, first100byte boundary, no-doctype fallback, empty media and original-source preservation. The existing HTML-only saved headless scenario now deliberately supplies text/plain and passes the original sandbox/script/network/Source/Raw/reload assertions (~2.11s). Prior explicit-MIME result retained as explicit-mime-result.json; final artifacts/playwright/response-html-preview/result.json passed. Compiler28507 exits0/0errors/0warnings; build exits0. No new dependency/script/native build/profile changes or owned live handles. Native/platform and broader PLAN/PARITY remain open. /compact unavailable.
 
+## Response download filenames — 2026-10-16
+
+Save response now uses Content-Disposition filename, preferring valid UTF8/ISO-8859-1 filename* and falling back to ordinary filename or response.bin. Quoted semicolons/escapes are parsed using the shared MIME parameter reader. Suggested names discard directory components, replace control/Windows-invalid characters and avoid reserved device names. Multipart Save part shares this handling. Exact saved Base64 remains the file source; server headers are unchanged.
+
+Reference: archived request.tsx download naming and [RFC6266 section4.3](https://www.rfc-editor.org/rfc/rfc6266#section-4.3). Inline Bun controls pass UTF8 precedence, malformed extended fallback, quoted semicolon, Latin1, path removal, reserved name and absent-header fallback. Existing PDF-only scenario now also clicks actual Save response and verifies ไทย.pdf plus byte-exact downloaded PDF (~2.38s, headless), retaining page/pixel/navigation/zoom/Raw assertions. Receipt artifacts/playwright/response-pdf-preview/result.json; prior result preserved. Compiler29291 exits0/0errors/0warnings; build exits0. No dependency/new scenario/artifact script/native build/profile changes or owned live handles. Native dialog/platform and full migration remain open. /compact unavailable.
+
 ## Topic records
 
 <a id="record-current-original-xml-native-acceptance"></a>

@@ -37,7 +37,7 @@ data.history=[200,404,503].map((status,index)=>({_id:'res_owned_history_'+index,
 const visualBody=audioOnly?'Owned audio text representation':imageOnly?'Owned image text representation':htmlBody;
 if(visualOnly){data.history=data.history.slice(0,1).map(entry=>({...entry,headers:[['Content-Type',audioOnly?'audio/wav':imageOnly?'image/png':'text/plain; charset=utf-8']],body:visualBody,bodyBase64:audioOnly?audioBase64:imageOnly?imageBase64:Buffer.from(htmlBody).toString('base64')}));data.resources.push({_id:'reqm_html',_type:'request_meta',parentId:data.activeRequestId,previewMode:'source'});}
 if(csvOnly)data.history=data.history.slice(0,1).map(entry=>({...entry,headers:[['Content-Type','text/csv; charset=utf-8']],body:csvBody,bodyBase64:Buffer.from(csvBody).toString('base64')}));
-if(pdfOnly)data.history=data.history.slice(0,1).map(entry=>({...entry,headers:[['Content-Type','application/pdf']],body:'Owned PDF text representation',bodyBase64:pdfBase64}));
+if(pdfOnly)data.history=data.history.slice(0,1).map(entry=>({...entry,headers:[['Content-Type','application/pdf'],['Content-Disposition',"attachment; filename=report.pdf; filename*=UTF-8''%E0%B9%84%E0%B8%97%E0%B8%A2.pdf"]],body:'Owned PDF text representation',bodyBase64:pdfBase64}));
 if(multipartOnly)data.history=data.history.slice(0,1).map(entry=>({...entry,headers:[['Content-Type','multipart/mixed; boundary="owned+parts"']],body:multipartBytes.toString('utf8'),bodyBase64:multipartBytes.toString('base64')}));
 await withPreview(multipartOnly?'response-multipart-preview':pdfOnly?'response-pdf-preview':csvOnly?'response-csv-preview':audioOnly?'response-audio-preview':imageOnly?'response-image-preview':htmlOnly?'response-html-preview':'response-history-app',async(page,output)=>{
  if(multipartOnly){
@@ -63,6 +63,9 @@ await withPreview(multipartOnly?'response-multipart-preview':pdfOnly?'response-p
    const attempts=/** @type {string[]} */([]);await page.route('https://owned-preview.invalid/**',route=>{attempts.push(route.request().url());return route.abort();});
    await page.getByText('PDF page text',{exact:true}).click();
    await page.locator('.pdf-preview pre').filter({hasText:'Owned PDF page one'}).waitFor();
+   const responseDownload=page.waitForEvent('download');await page.getByRole('button',{name:'Save response',exact:true}).click();
+   const saved=await responseDownload;assert.equal(saved.suggestedFilename(),'ไทย.pdf');const savedPath=await saved.path();assert.ok(savedPath);
+   assert.equal(Buffer.from(await Bun.file(savedPath).bytes()).toString('base64'),pdfBase64);
    const canvas=page.locator('canvas[aria-label="PDF page 1"]');
    assert.deepEqual(await canvas.evaluate(el=>{const c=/** @type {HTMLCanvasElement} */(el);const context=c.getContext('2d');if(!context)throw new Error('PDF canvas context unavailable');return Array.from(context.getImageData(Math.floor(c.width*25/300),Math.floor(c.height*175/200),1,1).data);}),[0,0,255,255]);
    await page.getByRole('button',{name:'Next page',exact:true}).click();await page.locator('.pdf-preview pre').filter({hasText:'Owned PDF page two'}).waitFor();
@@ -76,7 +79,7 @@ await withPreview(multipartOnly?'response-multipart-preview':pdfOnly?'response-p
    await page.waitForFunction(()=>JSON.parse(localStorage.getItem('insomnium-tauri-preview-v1')||'{}').resources.some((/** @type {any} */r)=>r._type==='request_meta'&&r.previewMode==='raw'));
    await page.reload();await modes.waitFor();assert.equal(await modes.getByRole('button',{name:'Raw',exact:true}).getAttribute('aria-pressed'),'true');
    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('insomnium-tauri-preview-v1')||'{}').history[0].bodyBase64),pdfBase64);assert.deepEqual(errors,[]);
-   await Bun.write(output+'/result.json',JSON.stringify({status:'passed',headless:true,pages:2,canvasPixels:true,pageText:true,navigation:true,zoom:true,noDocumentActions:true,networkAttempts:attempts,rawReload:true,exactSavedBytes:true},null,2));
+   await Bun.write(output+'/result.json',JSON.stringify({status:'passed',headless:true,pages:2,canvasPixels:true,unicodeFilenameAndExactDownload:true,pageText:true,navigation:true,zoom:true,noDocumentActions:true,networkAttempts:attempts,rawReload:true,exactSavedBytes:true},null,2));
   }finally{clearTimeout(deadline);}
   return;
  }

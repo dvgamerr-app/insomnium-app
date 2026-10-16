@@ -2,6 +2,7 @@
   import {parseMultipart,partHeader} from '../response-multipart.js';
   import {responsePreviewMime,responseVisual} from '../response-visual.js';
   import {jsonPrettify} from '../json-prettify.js';
+  import {dispositionFilename,safeResponseFilename} from '../response-download.js';
   import {download} from '../import-export.js';
   import Select from './ui/Select.svelte';
   import Button from './ui/Button.svelte';
@@ -23,7 +24,7 @@
     const owned=part;if(!owned||saving)return;
     saving=true;saveError='';
     try {const binary=atob(owned.bodyBase64);const data=Uint8Array.from(binary,char=>char.charCodeAt(0));
-      const filename=(owned.filename||owned.name+'.bin').split(/[\\/]/).pop()||'part.bin';
+      const filename=dispositionFilename(partHeader(owned.headers,'content-disposition'))||safeResponseFilename(owned.name+'.bin')||'part.bin';
       await download(data,filename,partHeader(owned.headers,'content-type')||'application/octet-stream');
     }catch(error){if(part===owned)saveError=String(error);}finally{saving=false;}
   }

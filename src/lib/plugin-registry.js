@@ -12,6 +12,7 @@ export function createPluginRegistry(adapters) {
   let paths = "";
   let catalogRevision = 0;
   /** @type {Promise<any>|undefined} */ let discovery;
+  /** @type {Promise<{loaded:string[],errors:string[]}>|undefined} */ let reloadPromise;
   const aborted = () =>
     new DOMException("Plugin loading is no longer current", "AbortError");
   /** @param {Record<string,any>} settings */
@@ -85,6 +86,32 @@ export function createPluginRegistry(adapters) {
     read,
     synchronize,
     invalidate,
+    /** Reload only sessions explicitly admitted by the user, using fresh discovery
+     * and package snapshots. Never load other discovered packages implicitly. */
+    reload() {
+      if (reloadPromise) return reloadPromise;
+      if (disposed) return Promise.reject(aborted());
+      const context=synchronize();
+      if (!context.ready) return Promise.reject(aborted());
+      const names=Array.from(records.entries()).filter(([,record])=>record.status==='ready')
+        .sort((a,b)=>a[1].order-b[1].order).map(([name])=>name);
+      invalidate();
+      const epoch=generation, sourcePaths=pathKey(context.settings);
+      const current=()=>{const now=adapters.getContext();return !disposed && generation===epoch && now.ready && now.owner===context.owner && pathKey(now.settings)===sourcePaths;};
+      const work=(async()=>{
+        /** @type {string[]} */ const loaded=[],errors=[];
+        for (const name of names) {
+          if(!current())throw aborted();
+          try {await this.prepare(name);loaded.push(name);}
+          catch(error){if(!current())throw aborted();errors.push(name+': '+String(error));}
+        }
+        if(!current())throw aborted();
+        return {loaded,errors};
+      })();
+      reloadPromise=work;
+      void work.finally(()=>{if(reloadPromise===work)reloadPromise=undefined;}).catch(()=>{});
+      return work;
+    },
     /** Capture only explicitly loaded sessions. No discovery/module execution.
      * The returned closures cannot outlive this exact catalog or its owners. */
     captureTemplateTags() {

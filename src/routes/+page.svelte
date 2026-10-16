@@ -458,10 +458,12 @@
   function keyboard(/** @type {KeyboardEvent} */ event) {
     const key = event.key.toLowerCase();
     const modifier = event.ctrlKey || event.metaKey;
+    const requestSettingsChord = modifier && event.altKey && event.shiftKey && event.code === "Comma";
+    const shortcutHelpChord = event.ctrlKey && event.shiftKey && event.code === "Slash";
     const plainF5 = key === "f5" && !modifier && !event.shiftKey;
     if (
       !app.ready ||
-      event.defaultPrevented || event.isComposing || event.repeat || event.altKey ||
+      event.defaultPrevented || event.isComposing || event.repeat || (event.altKey && !requestSettingsChord) ||
       editingBlocked ||
       modal ||
       document.querySelector("dialog[open]") ||
@@ -469,7 +471,15 @@
       !(modifier || plainF5)
     )
       return;
-    if (event.shiftKey && key === "enter" && request && mainView === "requests") {
+    if (event.shiftKey && key === "r") {
+      event.preventDefault();
+      const owner=app.data;
+      void pluginRegistry.reload().then(result=>{if(app.data===owner && result.errors.length)app.error=result.errors.join("\n");}).catch(error=>{if(app.data===owner && error?.name!=="AbortError")app.error=String(error);});
+    } else if (shortcutHelpChord) {
+      event.preventDefault();
+      openSettings("General");
+      void tick().then(() => document.getElementById("settings-shortcuts-title")?.focus());
+    } else if ((requestSettingsChord || (event.shiftKey && key === "enter")) && request && mainView === "requests") {
       const editor = protocol === "grpc" ? grpcEditor : requestEditor;
       if (editor) {
         event.preventDefault();editor.openSettings();

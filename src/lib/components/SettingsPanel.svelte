@@ -129,7 +129,7 @@
               class="settings-section"
               aria-labelledby="settings-shortcuts-title"
             >
-              <h3 id="settings-shortcuts-title">Shortcuts</h3>
+              <h3 id="settings-shortcuts-title" tabindex="-1">Shortcuts</h3>
               <p class="hint">
                 Ctrl/Cmd + Enter, Ctrl/Cmd + R or F5: send.
                 Ctrl/Cmd + N: new request · + P: filter.
@@ -141,6 +141,7 @@
                 Ctrl/Cmd + Shift + N: new folder.
                 Ctrl/Cmd + Shift + H: response or connection history.
                 Ctrl/Cmd + Shift + P: pin/unpin request.
+                Ctrl/Cmd + Shift + R: reload loaded plugins.
                 Ctrl/Cmd + \: toggle sidebar · + ': focus and select HTTP response.
               </p>
             </section>
