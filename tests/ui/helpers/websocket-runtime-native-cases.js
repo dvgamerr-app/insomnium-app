@@ -55,7 +55,11 @@ export async function runWebSocketRuntimeNativeCases() {
               ],
             });
             const jsonText =
-              '{"message":"สวัสดี β {{ _.wire }}","exact":9007199254740993}';
+              '{"message":"สวัสดี β {{ _.wire }}","special":"{{ _.special }}","exact":9007199254740993}';
+            const special = 'quote" slash\\ newline\nไทย';
+            const expectedJson = (/** @type {string} */ wire) => jsonText
+              .replace("{{ _.wire }}", wire)
+              .replace("{{ _.special }}", JSON.stringify(special).slice(1,-1));
             const text = "Exact text β\r\nไทย";
             const binary = new Uint8Array([0, 255, 128, 13, 10, 42]);
             const ping = "ping β";
@@ -99,14 +103,14 @@ export async function runWebSocketRuntimeNativeCases() {
                   _type: "environment",
                   parentId: envBase,
                   name: "Runtime A",
-                  data: { wire: "owned-A" },
+                  data: { wire: "owned-A", special },
                 },
                 {
                   _id: envB,
                   _type: "environment",
                   parentId: envBase,
                   name: "Runtime B",
-                  data: { wire: "owned-B" },
+                  data: { wire: "owned-B", special },
                 },
                 request,
                 ...payloads,
@@ -237,7 +241,8 @@ export async function runWebSocketRuntimeNativeCases() {
             );
             await editPayload(jsonText);
             const initial = "initial-" + suffix;
-            await button("Connect and send").click();
+            await page.getByLabel("Request URL", {exact:true}).focus();
+            await page.keyboard.press("Control+Enter");
             await state("open");
             await wire(initial);
             await poll(
@@ -248,7 +253,7 @@ export async function runWebSocketRuntimeNativeCases() {
             assert.ok(first);
             assert.equal(
               first.incoming[0].text,
-              jsonText.replace("{{ _.wire }}", "owned-A"),
+              expectedJson("owned-A"),
             );
             assert.equal(first.headers["x-owned-environment"], "owned-A");
             assert.equal(
@@ -303,12 +308,14 @@ export async function runWebSocketRuntimeNativeCases() {
               .filter({ hasText: /125|ping/i })
               .waitFor();
             await state("open");
-            await selectPayload(1);
-            await button("Send message").click();
+            await selectPayload(0);
+            await page.getByLabel("Request URL", {exact:true}).focus();
+            await page.keyboard.press("Meta+Enter");
             await poll(
               () => Promise.resolve(first.incoming.length === 4),
               "Connection usable after payload refusals",
             );
+            assert.equal(first.incoming[3].text, expectedJson("owned-A"));
             assert.equal(first.pings.length, 1);
             fixture.peerSend(initial, "Peer exact ไทย");
             fixture.peerSend(initial, binary);
