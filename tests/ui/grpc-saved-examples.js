@@ -16,6 +16,7 @@ message Input {
   repeated bytes chunks = 4;
   Child child = 5;
   map<string,Child> children = 6;
+  map<int64,int32> longLabels = 7;
 }
 service Examples { rpc Call(Input) returns (Input); }`;
 
@@ -47,7 +48,7 @@ await preserveNativeProfile(()=>withResourceProbePreserved(async()=>{
       await poll(async()=>await persisted()!=='{}','Example persisted');
       const bytes=mode==='legacy'?[161,178,195]:'obLD';
       const expected={title:'Hello',payload:bytes,labels:{Hello:10},chunks:[bytes],
-        child:{payload:bytes},children:{Hello:{payload:bytes}}};
+        child:{payload:bytes},children:{Hello:{payload:bytes}},longLabels:{20:10}};
       assert.deepEqual(JSON.parse(await persisted()),expected);
       await page.reload();
       await page.getByRole('button',{name:'Load methods',exact:true}).waitFor();
