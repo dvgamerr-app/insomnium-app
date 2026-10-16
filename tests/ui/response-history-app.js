@@ -10,7 +10,10 @@ const imageOnly=process.env.INSOMNIUM_RESPONSE_IMAGE_ONLY==='1';
 const audioOnly=process.env.INSOMNIUM_RESPONSE_AUDIO_ONLY==='1';
 const csvOnly=process.env.INSOMNIUM_RESPONSE_CSV_ONLY==='1';
 const multipartOnly=process.env.INSOMNIUM_RESPONSE_MULTIPART_ONLY==='1';
-const multipartBytes=Buffer.concat([Buffer.from('preamble\r\n--owned+parts\r\nContent-Disposition: form-data; name="metadata"\r\nContent-Type: application/json\r\nX-Owned: first\r\n\r\n{"message":"ไทย","id":9007199254740993}\r\n--owned+parts\r\nContent-Disposition: attachment; name="binary"; filename="owned.bin"\r\nContent-Type: application/octet-stream\r\n\r\n'),Buffer.from([0,255,13,10,42]),Buffer.from('\r\n--owned+parts--\r\nepilogue')]);
+const multipartJson='{"message":"ไทย","id":9007199254740993}';
+const metadataPoints=Array.from(multipartJson),metadataBytes=Buffer.alloc(metadataPoints.length*4);
+metadataPoints.forEach((char,index)=>metadataBytes.writeUInt32LE(char.codePointAt(0)||0,index*4));
+const multipartBytes=Buffer.concat([Buffer.from('preamble\r\n--owned+parts\r\nContent-Disposition: form-data; name="metadata"\r\nContent-Type: application/json; charset=utf-32le\r\nContent-Transfer-Encoding: 8bit\r\nX-Owned: first\r\n\r\n'),metadataBytes,Buffer.from('\r\n--owned+parts\r\nContent-Disposition: attachment; name="binary"; filename="owned.bin"\r\nContent-Type: application/octet-stream\r\nContent-Transfer-Encoding: BASE64\r\n\r\n'),Buffer.from('AP8N\r\nCio='),Buffer.from('\r\n--owned+parts--\r\nepilogue')]);
 const pdfOnly=process.env.INSOMNIUM_RESPONSE_PDF_ONLY==='1';
 function ownedPdf(){
  const first='BT /F1 18 Tf 30 120 Td (Owned PDF page one) Tj ET\n0 0 1 rg 20 20 20 20 re f\n';
@@ -68,7 +71,7 @@ await withPreview(charsetOnly?'response-charset-preview':multipartOnly?'response
   await page.screenshot({path:output+'/multipart-preview.png'});
   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('insomnium-tauri-preview-v1')||'{}').history[0].bodyBase64),multipartBytes.toString('base64'));
   assert.deepEqual(errors,[]);
-  await Bun.write(output+'/result.json',JSON.stringify({status:'passed',headless:true,parts:2,jsonUnicodeAndLargeInteger:true,headers:true,exactBinaryDownload:true,originalBytes:true},null,2));return;
+  await Bun.write(output+'/result.json',JSON.stringify({status:'passed',headless:true,parts:2,jsonUnicodeAndLargeInteger:true,utf32Part:true,transferBase64:true,headers:true,exactBinaryDownload:true,originalBytes:true},null,2));return;
  }
  if(pdfOnly){
   const deadline=setTimeout(()=>{void page.close();},15000);

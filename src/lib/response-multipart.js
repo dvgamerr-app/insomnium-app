@@ -1,17 +1,11 @@
-/** Read a MIME parameter without splitting quoted semicolons.
- * @param {string} value @param {string} name */
-export function mimeParameter(value,name) {
-  const parameters = /;\s*([!#$%&'*+.^_`|~\w-]+)\s*=\s*(?:"((?:\\.|[^"\\])*)"|([^;\s]*))/g;
-  for (const match of value.matchAll(parameters))
-    if (match[1].toLowerCase()===name.toLowerCase()) return match[2]===undefined?match[3]:match[2].replace(/\\(.)/g,'$1');
-  return '';
-}
-/** @param {string[][]} headers @param {string} name */
-export function partHeader(headers,name) {return headers.find(row=>row[0].toLowerCase()===name)?.[1]||'';}
-/** @param {string} binary */
-function decodeText(binary,charset='utf-8') {
+import {Buffer} from "buffer";
+import {mimeParameter,partHeader} from "./mime-headers.js";
+export {mimeParameter,partHeader} from "./mime-headers.js";
+import {decodeResponseBytes} from "./response-text.js";
+/** @param {string} binary @param {string} [contentType] */
+function decodeText(binary,contentType='') {
   const bytes=Uint8Array.from(binary,char=>char.charCodeAt(0));
-  try {return new TextDecoder(charset).decode(bytes);} catch {return new TextDecoder().decode(bytes);}
+  return decodeResponseBytes(bytes,contentType);
 }
 /** Parse boundaries in a byte-preserving binary string, never decoded body text.
  * @param {string|undefined} base64 @param {string} contentType */
@@ -45,11 +39,15 @@ export function parseMultipart(base64,contentType) {
       if (colon<1 || !/^[!#$%&'*+.^_`|~\w-]+$/.test(line.slice(0,colon))) throw new Error('Invalid multipart part header.');
       headers.push([line.slice(0,colon),line.slice(colon+1).trim()]);
     }
-    const bytes=raw.slice(emptyHeaders?2:split+4);
+    let bytes=raw.slice(emptyHeaders?2:split+4);
+    const transfer=headers.filter(row=>row[0].toLowerCase()==="content-transfer-encoding").at(-1);
+    const encoding=transfer?transfer[1].toLowerCase():"binary";
+    if(encoding==="base64")bytes=Buffer.from(Buffer.from(bytes,"binary").toString("ascii"),"base64").toString("binary");
+    else if(!["binary","7bit","8bit"].includes(encoding))throw new Error("Unknown multipart transfer encoding: "+encoding);
     const disposition=partHeader(headers,'content-disposition');
     parts.push({name:mimeParameter(disposition,'name')||`Part ${parts.length+1}`,
       filename:mimeParameter(disposition,'filename'),headers,bodyBase64:btoa(bytes),size:bytes.length,
-      body:decodeText(bytes,mimeParameter(partHeader(headers,'content-type'),'charset')||'utf-8')});
+      body:decodeText(bytes,partHeader(headers,'content-type'))});
     if(next[1]) return parts;
     previous=next;
   }

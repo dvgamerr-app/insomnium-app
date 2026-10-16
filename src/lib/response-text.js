@@ -1,6 +1,6 @@
 import {Buffer} from "buffer";
 import iconv from "iconv-lite";
-import {mimeParameter,partHeader} from './response-multipart.js';
+import {mimeParameter,partHeader} from './mime-headers.js';
 /** Decode display text only. The caller retains original bytes for Save.
  * Unknown encoding labels retain the existing UTF8 fallback.
  * @param {Uint8Array} bytes @param {string} contentType */
