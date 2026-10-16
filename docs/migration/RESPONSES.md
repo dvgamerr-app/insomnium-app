@@ -52,6 +52,12 @@ Multipart responses now expose a part selector, per-part headers and exact-byte 
 
 Contract: archived response-multipart-viewer.tsx and [RFC2046 section5.1.1](https://www.rfc-editor.org/rfc/rfc2046#section-5.1.1). Inline Bun assertions pass Unicode, binary NUL/FF/CRLF, boundary-prefix lookalikes and missing closing-boundary refusal. Existing response-history-app with INSOMNIUM_RESPONSE_MULTIPART_ONLY=1 passes two-part JSON/binary selection, Unicode/exact large integer source, headers, actual downloaded5bytes/filename and unchanged original Base64 (~1.72s, headless). Receipt/screenshot: artifacts/playwright/response-multipart-preview/, inspected. Initial editor selectors addressed CodeMirror's input rather than stored value; both failed receipts retained, final selector reads the original source textarea. Build exits0; compiler82778 exits0/0errors/0warnings. No new test/artifact scripts/native build/profile changes or owned live handles. Native save dialog, nested/media/transfer-encoding variants and broader migration acceptance remain open. /compact unavailable.
 
+## Response MIME inference — 2026-10-16
+
+The preview now matches archived response-viewer.tsx _getContentType: valid JSON takes precedence over the declared MIME, then a HTML doctype in the first100UTF8bytes selects sandboxed HTML. Empty/unrecognized bodies retain the declared MIME. Original headers/download MIME and saved body/bytes are unchanged. HTTP and multipart parts share the same inference; CodeEditor receives the inferred MIME for JSON highlighting.
+
+Inline Bun checks pass JSON-over-HTML precedence, HTML-over-text/plain, first100byte boundary, no-doctype fallback, empty media and original-source preservation. The existing HTML-only saved headless scenario now deliberately supplies text/plain and passes the original sandbox/script/network/Source/Raw/reload assertions (~2.11s). Prior explicit-MIME result retained as explicit-mime-result.json; final artifacts/playwright/response-html-preview/result.json passed. Compiler28507 exits0/0errors/0warnings; build exits0. No new dependency/script/native build/profile changes or owned live handles. Native/platform and broader PLAN/PARITY remain open. /compact unavailable.
+
 ## Topic records
 
 <a id="record-current-original-xml-native-acceptance"></a>

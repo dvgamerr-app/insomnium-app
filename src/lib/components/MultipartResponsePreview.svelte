@@ -1,6 +1,6 @@
 <script>
   import {parseMultipart,partHeader} from '../response-multipart.js';
-  import {responseMime,responseVisual} from '../response-visual.js';
+  import {responsePreviewMime,responseVisual} from '../response-visual.js';
   import {jsonPrettify} from '../json-prettify.js';
   import {download} from '../import-export.js';
   import Select from './ui/Select.svelte';
@@ -15,7 +15,7 @@
   let selected=$state(0),showHeaders=$state(false),saving=$state(false),saveError=$state('');
   const parsed=$derived.by(()=>{try{return {parts:parseMultipart(bytes,contentType),error:''};}catch(error){return {parts:[],error:String(error)};}});
   const part=$derived(parsed.parts[selected]);
-  const mime=$derived(responseMime(part));
+  const mime=$derived(responsePreviewMime(part));
   const visual=$derived(responseVisual(part));
   const text=$derived.by(()=>{if(!part)return '';if(mime==='application/json'||mime.endsWith('+json')){try{return jsonPrettify(part.body);}catch{}}return part.body;});
   $effect(()=>{bytes;contentType;selected=0;showHeaders=false;saveError='';});

@@ -18,7 +18,7 @@
   import { responseNetworkLog, tokenizeLine } from "../network-log.js";
   import CodeEditor from "./CodeEditor.svelte";
   import HtmlResponsePreview from "./HtmlResponsePreview.svelte";
-  import { responseVisual, responseMime } from "../response-visual.js";
+  import { responseVisual, responsePreviewMime } from "../response-visual.js";
   import CsvResponsePreview from "./CsvResponsePreview.svelte";
   import MultipartResponsePreview from "./MultipartResponsePreview.svelte";
   import PdfResponsePreview from "./PdfResponsePreview.svelte";
@@ -50,9 +50,10 @@
   const raw = $derived(meta?.previewMode === "raw");
   const previewMode = $derived(meta?.previewMode === "raw" || meta?.previewMode === "source" ? meta.previewMode : "friendly");
   const visual = $derived(responseVisual(response));
-  const csvResponse = $derived(responseMime(response) === "text/csv");
-  const pdfResponse = $derived(responseMime(response) === "application/pdf");
-  const multipartResponse = $derived(responseMime(response).startsWith("multipart/"));
+  const previewMime = $derived(responsePreviewMime(response));
+  const csvResponse = $derived(previewMime === "text/csv");
+  const pdfResponse = $derived(previewMime === "application/pdf");
+  const multipartResponse = $derived(previewMime.startsWith("multipart/"));
   const visualMode = $derived(!!visual || csvResponse || pdfResponse || multipartResponse);
   const filter = $derived(
     typeof meta?.responseFilter === "string" ? meta.responseFilter : "",
@@ -492,10 +493,7 @@
           readOnly
           mode={raw
             ? "text/plain"
-            : response.headers?.find(
-                (/** @type {string[]} */ h) =>
-                  h[0].toLowerCase() === "content-type",
-              )?.[1] || "text/plain"}
+            : previewMime || "text/plain"}
           settings={workspace.data.settings}
           placeholder="(empty response)"
         />{/if}

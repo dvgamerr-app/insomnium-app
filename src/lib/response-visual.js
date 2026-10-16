@@ -5,10 +5,21 @@ export function responseMime(response) {
   )?.[1] || "").split(";", 1)[0].trim().toLowerCase();
 }
 
+/** Match the legacy viewer's JSON-first and first100byte HTML doctype detection.
+ * The declared MIME remains available independently for headers and downloads.
+ * @param {Record<string,any>|undefined} response */
+export function responsePreviewMime(response) {
+  const declared=responseMime(response), body=response?.body;
+  if (typeof body!=='string' || !body) return declared;
+  try {JSON.parse(body);return 'application/json';} catch {}
+  const prefix=new TextDecoder().decode(new TextEncoder().encode(body.slice(0,100)).subarray(0,100)).trim();
+  return /^<!doctype html.*>/i.test(prefix)?'text/html':declared;
+}
+
 /** Build only local visual content; the caller owns the restrictive sandbox.
  * @param {Record<string,any>|undefined} response */
 export function responseVisual(response) {
-  const mime = responseMime(response);
+  const mime = responsePreviewMime(response);
   if (mime === "text/html")
     return {title:"HTML response preview",html:String(response?.body || "")};
   if (!/^(?:image|audio)\/[a-z0-9.+-]+$/.test(mime)) return null;
