@@ -14,7 +14,7 @@
   import Select from "./ui/Select.svelte";
   import Button from "./ui/Button.svelte";
   import Input from "./ui/Input.svelte";
-  import { onDestroy } from "svelte";
+  import { onDestroy, tick } from "svelte";
   import { jsonPrettify } from "../json-prettify.js";
   import { environmentFor, workspaceFor } from "../model.js";
   import CodeEditor from "./CodeEditor.svelte";
@@ -46,6 +46,13 @@
     ]),
   ]);
   let tab = $state("Body");
+  let messageEditor = $state(/** @type {WebSocketMessageEditor|undefined} */ (undefined));
+  export async function sendMessage() {
+    const requestId = request._id;
+    tab = "Body";
+    await tick();
+    if (request._id === requestId) await messageEditor?.send();
+  }
   export function openSettings() { tab = "Settings"; }
   const binaryBody = $derived(isBinaryBody(request.body));
   const headerRows = $derived([
@@ -199,7 +206,7 @@
 <TabPanel id="request-editor-panel" labelledBy={activeTab0}
   ><section class="request-editor" aria-label={`${tab} editor`}>
     {#if tab === "Body" && request._type === "websocket_request"}
-      <WebSocketMessageEditor {request} />
+      <WebSocketMessageEditor bind:this={messageEditor} {request} />
     {:else if tab === "Body"}
       <Toolbar variant="editor" class="editor-toolbar">
         {#if bodyCodeEditor}<Button

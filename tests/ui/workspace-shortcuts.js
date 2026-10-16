@@ -60,3 +60,25 @@ await withPreview("workspace-shortcuts",async (page,output) => {
       localStorage.setItem("insomnium-tauri-preview-v1",JSON.stringify(data));
   },initialData());
 }});
+
+const websocketData = initialData();
+const websocket = websocketData.resources.find((r) => r._id === websocketData.activeRequestId);
+assert.ok(websocket);
+Object.assign(websocket,{_type:"websocket_request",url:"ws://owned.invalid",activePayloadId:"wsp_shortcut"});
+websocketData.resources.push({_id:"wsp_shortcut",_type:"websocket_payload",parentId:websocket._id,name:"Owned invalid JSON",mode:"application/json",value:"{"});
+await withPreview("websocket-message-shortcut",async (page,output) => {
+  await page.getByRole("textbox",{name:"Request URL",exact:true}).waitFor();
+  await page.keyboard.press("Control+Shift+Enter");
+  await page.keyboard.press("Control+Enter");
+  await page.getByRole("alert").filter({hasText:/JSON|Expected|Unexpected/i}).first().waitFor();
+  assert.equal(await page.getByRole("tablist",{name:"Request editor",exact:true}).getByRole("tab",{name:"Message",exact:true}).getAttribute("aria-selected"),"true");
+  const alert = page.getByRole("alert").filter({hasText:/JSON|Expected|Unexpected/i}).first();
+  const firstError = await alert.textContent();
+  const editor = page.locator(".shared-code-editor").filter({has:page.getByLabel("WebSocket message",{exact:true})}).locator(".CodeMirror");
+  await editor.evaluate((el) => {const cm=/** @type {any} */ (el).CodeMirror;cm.setValue('{"x":}');cm.focus();});
+  await page.keyboard.press("Meta+Enter");
+  await page.waitForFunction((before) => [...document.querySelectorAll('[role="alert"]')].some((el) => /JSON|Expected|Unexpected/i.test(el.textContent || "") && el.textContent !== before),firstError);
+  await Bun.write(output + "/result.json",JSON.stringify({status:"passed",headless:true,selectedPayloadValidated:true,opensMessageTab:true,scope:"Actual shortcut dispatch and invalid JSON refusal before connection; no native/wire"},null,2));
+},{beforeNavigate:async (page) => {
+  await page.addInitScript((data) => localStorage.setItem("insomnium-tauri-preview-v1",JSON.stringify(data)),websocketData);
+}});

@@ -125,7 +125,7 @@
     app.data.resources.find((r) => r._id === app.data.activeRequestId),
   );
   const protocol = $derived(protocolFor(request));
-  let requestEditor = $state(/** @type {{openSettings:()=>void}|undefined} */ (undefined));
+  let requestEditor = $state(/** @type {{openSettings:()=>void,sendMessage:()=>Promise<void>}|undefined} */ (undefined));
   let grpcEditor = $state(/** @type {{openSettings:()=>void}|undefined} */ (undefined));
   $effect(() => {
     if (app.ready) cancelChangedGrpcCalls();
@@ -445,7 +445,8 @@
       mainView = "git";
     } else if (!event.shiftKey && event.key === "Enter" && request && mainView === "requests") {
       event.preventDefault();
-      void execute(request._id);
+      if (protocol === "websocket") void requestEditor?.sendMessage();
+      else void execute(request._id);
     } else if (!event.shiftKey && key === "n" && mainView === "requests") {
       event.preventDefault();
       addRequest();

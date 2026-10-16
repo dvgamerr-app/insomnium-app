@@ -39,8 +39,8 @@
     !!app.running[request._id] &&
       app.responses[request._id]?.connectionState === "open",
   );
-  async function send() {
-    if (!payload) return;
+  export async function send() {
+    if (!payload || sending) return;
     sending = true;
     error = "";
     try {
