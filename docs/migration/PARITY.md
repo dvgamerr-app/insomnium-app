@@ -1,5 +1,9 @@
 # Feature parity tracker
 
+## Latest bounded source-specific reflection receipt — 2026-10-16
+
+Source-specific legacy gRPC file/reflection profiles have bounded Windows acceptance:33new actual editor/mode-switch/wire/history/reload/Save cases (including2real Use example actions) plus2zero-additional-peer-IO refusal/typed-repair cases retain all169prior groups. Full58Rust tests include88pinned profile/Any/WKT rows (14refusals) and authored example/ProtoJSON contracts. Fresh20native-hidden scenarios/204groups/352actual successful gRPC Save exports/exact20profiles and original manifest plus explicit1test/1STATUSdoc discovery-retirement supplement closure pass. Per-service dependency-closure/arrival-order aliases, concurrent sibling import timing and broader JSON/template/editor/stream/provider/platform plus every retained PLAN/PARITY gate remain open. See [scope/evidence](GRPC.md#current-native-grpc-reflection-profile).
+
 ## Latest bounded Any declaration-order receipt — 2026-10-16
 
 Legacy Any source-declaration/main-before-import ordering has bounded Windows acceptance:10new actual editor/wire/history/reload/Save cases plus2service-shadow refusal/typed-repair cases retain all157prior groups. Full50Rust tests include12new pinned protobuf.js7.2.4 order vectors and descriptor describe/decode round trips. Fresh18native-hidden scenarios/169groups/282actual successful gRPC Save exports/exact18profiles and original manifest plus explicit1test/1STATUSdoc fixture-supplement closure pass. Concurrent sibling import timing, source-info-free reflection and broader Any/WKT/JSON/template/editor/stream/provider/platform plus every retained PLAN/PARITY gate remain open. See [scope/evidence](GRPC.md#current-native-grpc-any-order).

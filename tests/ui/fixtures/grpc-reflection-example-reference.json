@@ -1,0 +1,17 @@
+{
+  "provenance": "Authored guarded sample contract. Legacy wire/response pinned via grpc-reflection-js0.3.0 + proto-loader0.7.13 + protobufjs7.2.4; ProtoJSON uses proto field names/default output and canonical omission of scalar enum zero. Does not claim full archived automock equivalence.",
+  "rows": [
+    {
+      "jsonMode": "legacy",
+      "body": "{\"a\":10,\"child\":{\"number\":10,\"text\":\"Hello\"},\"choice\":0,\"data\":[161,178,195],\"flag\":true,\"labels\":[{\"key\":\"Hello\",\"value\":10}],\"list\":[10],\"number\":10,\"real\":1.4,\"text\":\"Hello\",\"unsigned_wide\":100,\"wide\":20}",
+      "wireHex": "080a100119666666666666f63f220548656c6c6f2a03a1b2c33014386440004a010a5209080a120548656c6c6f580a6a090a0548656c6c6f100a",
+      "responseText": "{\"number\":10,\"flag\":true,\"real\":1.4,\"text\":\"Hello\",\"data\":{\"0\":161,\"1\":178,\"2\":195},\"wide\":{\"low\":20,\"high\":0,\"unsigned\":false},\"unsigned_wide\":{\"low\":100,\"high\":0,\"unsigned\":true},\"choice\":0,\"list\":[10],\"child\":{\"number\":10,\"text\":\"Hello\"},\"a\":10,\"labels\":[{\"key\":\"Hello\",\"value\":10}]}"
+    },
+    {
+      "jsonMode": "protoJson",
+      "body": "{\"number\":10,\"flag\":true,\"real\":1.4,\"text\":\"Hello\",\"data\":\"obLD\",\"wide\":\"20\",\"unsigned_wide\":\"100\",\"choice\":\"ZERO\",\"list\":[10],\"child\":{\"number\":10,\"text\":\"Hello\"},\"a\":10,\"labels\":{\"Hello\":10}}",
+      "wireHex": "080a100119666666666666f63f220548656c6c6f2a03a1b2c3301438644a010a5209080a120548656c6c6f580a6a090a0548656c6c6f100a",
+      "responseText": "{\"number\":10,\"flag\":true,\"real\":1.4,\"text\":\"Hello\",\"data\":\"obLD\",\"wide\":\"20\",\"unsigned_wide\":\"100\",\"choice\":\"ZERO\",\"list\":[10],\"child\":{\"number\":10,\"text\":\"Hello\"},\"a\":10,\"labels\":{\"Hello\":10}}"
+    }
+  ]
+}

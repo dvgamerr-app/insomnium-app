@@ -1,0 +1,549 @@
+{
+  "versions": {
+    "protoLoader": "0.7.13",
+    "protobufjs": "7.2.4",
+    "long": "5.3.2",
+    "reflectionClient": "0.3.0"
+  },
+  "pipeline": "grpc-reflection-js0.3.0 getDescriptorRootFromDescriptorSet -> Root.toDescriptor(proto3) -> proto-loader0.7.13 options{} -> structuredClone -> JSON.stringify",
+  "source": "syntax=\"proto3\";package ownedreflection;enum Flag {ZERO=0;ONE=1;}message Child {int32 number=1;string text=2;}message Input {int32 number=1;bool flag=2;double real=3;string text=4;bytes data=5;int64 wide=6;uint64 unsigned_wide=7;Flag choice=8;repeated int32 list=9;Child child=10;oneof pick {int32 a=11;string b=12;}map<string,int32> labels=13;}service Echo {rpc Call(Input) returns(Input);}",
+  "descriptorSet": "CscDChVvd25lZHJlZmxlY3Rpb24ucHJvdG8SD293bmVkcmVmbGVjdGlvbiIlCgVDaGlsZBIOCgZudW1iZXIYASABKAUSDAoEdGV4dBgCIAEoCSKSAgoFSW5wdXQSDgoGbnVtYmVyGAEgASgFEgwKBGZsYWcYAiABKAgSDAoEcmVhbBgDIAEoARIMCgR0ZXh0GAQgASgJEgwKBGRhdGEYBSABKAwSDAoEd2lkZRgGIAEoAxIVCg11bnNpZ25lZF93aWRlGAcgASgEEhQKBmNob2ljZRgIIAEoDjIERmxhZxIMCgRsaXN0GAkgAygFEhQKBWNoaWxkGAogASgLMgVDaGlsZBILCgFhGAsgASgFSAASCwoBYhgMIAEoCUgAEhYKBmxhYmVscxgNIAMoCzIGTGFiZWxzGigKBkxhYmVscxILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAU6AjgBQgYKBHBpY2sqGQoERmxhZxIICgRaRVJPEAASBwoDT05FEAEyPgoERWNobxI2CgRDYWxsEhYub3duZWRyZWZsZWN0aW9uLklucHV0GhYub3duZWRyZWZsZWN0aW9uLklucHV0YgZwcm90bzM=",
+  "descriptor": {
+    "file": [
+      {
+        "name": "ownedreflection.proto",
+        "package": "ownedreflection",
+        "messageType": [
+          {
+            "name": "Child",
+            "field": [
+              {
+                "name": "number",
+                "number": 1,
+                "label": "LABEL_OPTIONAL",
+                "type": "TYPE_INT32"
+              },
+              {
+                "name": "text",
+                "number": 2,
+                "label": "LABEL_OPTIONAL",
+                "type": "TYPE_STRING"
+              }
+            ]
+          },
+          {
+            "name": "Input",
+            "field": [
+              {
+                "name": "number",
+                "number": 1,
+                "label": "LABEL_OPTIONAL",
+                "type": "TYPE_INT32"
+              },
+              {
+                "name": "flag",
+                "number": 2,
+                "label": "LABEL_OPTIONAL",
+                "type": "TYPE_BOOL"
+              },
+              {
+                "name": "real",
+                "number": 3,
+                "label": "LABEL_OPTIONAL",
+                "type": "TYPE_DOUBLE"
+              },
+              {
+                "name": "text",
+                "number": 4,
+                "label": "LABEL_OPTIONAL",
+                "type": "TYPE_STRING"
+              },
+              {
+                "name": "data",
+                "number": 5,
+                "label": "LABEL_OPTIONAL",
+                "type": "TYPE_BYTES"
+              },
+              {
+                "name": "wide",
+                "number": 6,
+                "label": "LABEL_OPTIONAL",
+                "type": "TYPE_INT64"
+              },
+              {
+                "name": "unsigned_wide",
+                "number": 7,
+                "label": "LABEL_OPTIONAL",
+                "type": "TYPE_UINT64"
+              },
+              {
+                "name": "choice",
+                "number": 8,
+                "label": "LABEL_OPTIONAL",
+                "type": "TYPE_ENUM",
+                "typeName": "Flag"
+              },
+              {
+                "name": "list",
+                "number": 9,
+                "label": "LABEL_REPEATED",
+                "type": "TYPE_INT32"
+              },
+              {
+                "name": "child",
+                "number": 10,
+                "label": "LABEL_OPTIONAL",
+                "type": "TYPE_MESSAGE",
+                "typeName": "Child"
+              },
+              {
+                "name": "a",
+                "number": 11,
+                "label": "LABEL_OPTIONAL",
+                "type": "TYPE_INT32",
+                "oneofIndex": 0
+              },
+              {
+                "name": "b",
+                "number": 12,
+                "label": "LABEL_OPTIONAL",
+                "type": "TYPE_STRING",
+                "oneofIndex": 0
+              },
+              {
+                "name": "labels",
+                "number": 13,
+                "label": "LABEL_REPEATED",
+                "type": "TYPE_MESSAGE",
+                "typeName": "Labels"
+              }
+            ],
+            "nestedType": [
+              {
+                "name": "Labels",
+                "field": [
+                  {
+                    "name": "key",
+                    "number": 1,
+                    "label": "LABEL_OPTIONAL",
+                    "type": "TYPE_STRING"
+                  },
+                  {
+                    "name": "value",
+                    "number": 2,
+                    "label": "LABEL_OPTIONAL",
+                    "type": "TYPE_INT32"
+                  }
+                ],
+                "options": {
+                  "mapEntry": true
+                }
+              }
+            ],
+            "oneofDecl": [
+              {
+                "name": "pick"
+              }
+            ]
+          }
+        ],
+        "enumType": [
+          {
+            "name": "Flag",
+            "value": [
+              {
+                "name": "ZERO",
+                "number": 0
+              },
+              {
+                "name": "ONE",
+                "number": 1
+              }
+            ]
+          }
+        ],
+        "service": [
+          {
+            "name": "Echo",
+            "method": [
+              {
+                "name": "Call",
+                "inputType": ".ownedreflection.Input",
+                "outputType": ".ownedreflection.Input"
+              }
+            ]
+          }
+        ],
+        "syntax": "proto3"
+      }
+    ]
+  },
+  "rows": [
+    {
+      "label": "absent-file",
+      "profile": "file",
+      "name": "ownedreflection.Input",
+      "body": "{}",
+      "wireHex": "",
+      "json": "{\"list\":[],\"labels\":{},\"number\":0,\"flag\":false,\"real\":0,\"text\":\"\",\"data\":{},\"wide\":\"0\",\"unsigned_wide\":\"0\",\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "label": "absent-reflection",
+      "profile": "reflection",
+      "name": "ownedreflection.Input",
+      "body": "{}",
+      "wireHex": "",
+      "json": "{}"
+    },
+    {
+      "label": "explicit-zero-file",
+      "profile": "file",
+      "name": "ownedreflection.Input",
+      "body": "{\"number\":0,\"flag\":false,\"real\":0,\"text\":\"\",\"data\":\"\",\"wide\":\"0\",\"unsigned_wide\":\"0\",\"choice\":0}",
+      "wireHex": "0800100019000000000000000022002a00300038004000",
+      "json": "{\"list\":[],\"labels\":{},\"number\":0,\"flag\":false,\"real\":0,\"text\":\"\",\"data\":{},\"wide\":\"0\",\"unsigned_wide\":\"0\",\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "label": "explicit-zero-reflection",
+      "profile": "reflection",
+      "name": "ownedreflection.Input",
+      "body": "{\"number\":0,\"flag\":false,\"real\":0,\"text\":\"\",\"data\":\"\",\"wide\":\"0\",\"unsigned_wide\":\"0\",\"choice\":0}",
+      "wireHex": "0800100019000000000000000022002a00300038004000",
+      "json": "{\"number\":0,\"flag\":false,\"real\":0,\"text\":\"\",\"data\":{},\"wide\":{\"low\":0,\"high\":0,\"unsigned\":false},\"unsigned_wide\":{\"low\":0,\"high\":0,\"unsigned\":true},\"choice\":0}"
+    },
+    {
+      "label": "nonzero-file",
+      "profile": "file",
+      "name": "ownedreflection.Input",
+      "body": "{\"number\":7,\"flag\":true,\"real\":1.5,\"text\":\"owned\",\"data\":\"AP+A\",\"wide\":\"9007199254740993\",\"unsigned_wide\":\"18446744073709551615\",\"choice\":\"ONE\"}",
+      "wireHex": "0807100119000000000000f83f22056f776e65642a0300ff8030818080808080801038ffffffffffffffffff014001",
+      "json": "{\"list\":[],\"labels\":{},\"number\":7,\"flag\":true,\"real\":1.5,\"text\":\"owned\",\"data\":{\"0\":0,\"1\":255,\"2\":128},\"wide\":\"9007199254740993\",\"unsigned_wide\":\"18446744073709551615\",\"choice\":\"ONE\",\"child\":null}"
+    },
+    {
+      "label": "nonzero-reflection",
+      "profile": "reflection",
+      "name": "ownedreflection.Input",
+      "body": "{\"number\":7,\"flag\":true,\"real\":1.5,\"text\":\"owned\",\"data\":\"AP+A\",\"wide\":\"9007199254740993\",\"unsigned_wide\":\"18446744073709551615\",\"choice\":\"ONE\"}",
+      "wireHex": "0807100119000000000000f83f22056f776e65642a0300ff8030818080808080801038ffffffffffffffffff014001",
+      "json": "{\"number\":7,\"flag\":true,\"real\":1.5,\"text\":\"owned\",\"data\":{\"0\":0,\"1\":255,\"2\":128},\"wide\":{\"low\":1,\"high\":2097152,\"unsigned\":false},\"unsigned_wide\":{\"low\":-1,\"high\":-1,\"unsigned\":true},\"choice\":1}"
+    },
+    {
+      "label": "oneof-defaults-file",
+      "profile": "file",
+      "name": "ownedreflection.Input",
+      "body": "{\"a\":0,\"b\":\"\"}",
+      "wireHex": "58006200",
+      "json": "{\"list\":[],\"labels\":{},\"number\":0,\"flag\":false,\"real\":0,\"text\":\"\",\"data\":{},\"wide\":\"0\",\"unsigned_wide\":\"0\",\"choice\":\"ZERO\",\"child\":null,\"a\":0,\"pick\":\"b\",\"b\":\"\"}"
+    },
+    {
+      "label": "oneof-defaults-reflection",
+      "profile": "reflection",
+      "name": "ownedreflection.Input",
+      "body": "{\"a\":0,\"b\":\"\"}",
+      "wireHex": "58006200",
+      "json": "{\"a\":0,\"b\":\"\"}"
+    },
+    {
+      "label": "nested-empty-file",
+      "profile": "file",
+      "name": "ownedreflection.Input",
+      "body": "{\"child\":{}}",
+      "wireHex": "5200",
+      "json": "{\"list\":[],\"labels\":{},\"number\":0,\"flag\":false,\"real\":0,\"text\":\"\",\"data\":{},\"wide\":\"0\",\"unsigned_wide\":\"0\",\"choice\":\"ZERO\",\"child\":{\"number\":0,\"text\":\"\"}}"
+    },
+    {
+      "label": "nested-empty-reflection",
+      "profile": "reflection",
+      "name": "ownedreflection.Input",
+      "body": "{\"child\":{}}",
+      "wireHex": "5200",
+      "json": "{\"child\":{}}"
+    },
+    {
+      "label": "nested-zero-file",
+      "profile": "file",
+      "name": "ownedreflection.Input",
+      "body": "{\"child\":{\"number\":0,\"text\":\"\"}}",
+      "wireHex": "520408001200",
+      "json": "{\"list\":[],\"labels\":{},\"number\":0,\"flag\":false,\"real\":0,\"text\":\"\",\"data\":{},\"wide\":\"0\",\"unsigned_wide\":\"0\",\"choice\":\"ZERO\",\"child\":{\"number\":0,\"text\":\"\"}}"
+    },
+    {
+      "label": "nested-zero-reflection",
+      "profile": "reflection",
+      "name": "ownedreflection.Input",
+      "body": "{\"child\":{\"number\":0,\"text\":\"\"}}",
+      "wireHex": "520408001200",
+      "json": "{\"child\":{\"number\":0,\"text\":\"\"}}"
+    },
+    {
+      "label": "empty-containers-file",
+      "profile": "file",
+      "name": "ownedreflection.Input",
+      "body": "{\"list\":[],\"labels\":{}}",
+      "wireHex": "",
+      "json": "{\"list\":[],\"labels\":{},\"number\":0,\"flag\":false,\"real\":0,\"text\":\"\",\"data\":{},\"wide\":\"0\",\"unsigned_wide\":\"0\",\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "label": "empty-containers-reflection",
+      "profile": "reflection",
+      "name": "ownedreflection.Input",
+      "body": "{\"list\":[],\"labels\":{}}",
+      "error": "TypeError: .ownedreflection.Input.labels: array expected"
+    },
+    {
+      "label": "containers-file",
+      "profile": "file",
+      "name": "ownedreflection.Input",
+      "body": "{\"list\":[0,1],\"labels\":{\"owned\":0}}",
+      "wireHex": "4a0200016a090a056f776e65641000",
+      "json": "{\"list\":[0,1],\"labels\":{\"owned\":0},\"number\":0,\"flag\":false,\"real\":0,\"text\":\"\",\"data\":{},\"wide\":\"0\",\"unsigned_wide\":\"0\",\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "label": "containers-reflection",
+      "profile": "reflection",
+      "name": "ownedreflection.Input",
+      "body": "{\"list\":[0,1],\"labels\":{\"owned\":0}}",
+      "error": "TypeError: .ownedreflection.Input.labels: array expected"
+    },
+    {
+      "label": "negative-zero-file",
+      "profile": "file",
+      "name": "ownedreflection.Input",
+      "body": "{\"real\":-0}",
+      "wireHex": "190000000000000080",
+      "json": "{\"list\":[],\"labels\":{},\"number\":0,\"flag\":false,\"real\":0,\"text\":\"\",\"data\":{},\"wide\":\"0\",\"unsigned_wide\":\"0\",\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "label": "negative-zero-reflection",
+      "profile": "reflection",
+      "name": "ownedreflection.Input",
+      "body": "{\"real\":-0}",
+      "wireHex": "190000000000000080",
+      "json": "{\"real\":0}"
+    },
+    {
+      "label": "unknown-enum-file",
+      "profile": "file",
+      "name": "ownedreflection.Input",
+      "body": "{\"choice\":123}",
+      "wireHex": "407b",
+      "json": "{\"list\":[],\"labels\":{},\"number\":0,\"flag\":false,\"real\":0,\"text\":\"\",\"data\":{},\"wide\":\"0\",\"unsigned_wide\":\"0\",\"choice\":123,\"child\":null}"
+    },
+    {
+      "label": "unknown-enum-reflection",
+      "profile": "reflection",
+      "name": "ownedreflection.Input",
+      "body": "{\"choice\":123}",
+      "wireHex": "407b",
+      "json": "{\"choice\":123}"
+    },
+    {
+      "label": "signed-min-file",
+      "profile": "file",
+      "name": "ownedreflection.Input",
+      "body": "{\"wide\":\"-9223372036854775808\"}",
+      "wireHex": "3080808080808080808001",
+      "json": "{\"list\":[],\"labels\":{},\"number\":0,\"flag\":false,\"real\":0,\"text\":\"\",\"data\":{},\"wide\":\"-9223372036854775808\",\"unsigned_wide\":\"0\",\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "label": "signed-min-reflection",
+      "profile": "reflection",
+      "name": "ownedreflection.Input",
+      "body": "{\"wide\":\"-9223372036854775808\"}",
+      "wireHex": "3080808080808080808001",
+      "json": "{\"wide\":{\"low\":0,\"high\":-2147483648,\"unsigned\":false}}"
+    },
+    {
+      "label": "nulls-file",
+      "profile": "file",
+      "name": "ownedreflection.Input",
+      "body": "{\"number\":null,\"wide\":null,\"data\":null,\"child\":null}",
+      "wireHex": "",
+      "json": "{\"list\":[],\"labels\":{},\"number\":0,\"flag\":false,\"real\":0,\"text\":\"\",\"data\":{},\"wide\":\"0\",\"unsigned_wide\":\"0\",\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "label": "nulls-reflection",
+      "profile": "reflection",
+      "name": "ownedreflection.Input",
+      "body": "{\"number\":null,\"wide\":null,\"data\":null,\"child\":null}",
+      "wireHex": "",
+      "json": "{}"
+    },
+    {
+      "label": "entry-array-empty-file",
+      "profile": "file",
+      "name": "ownedreflection.Input",
+      "body": "{\"labels\":[{}]}",
+      "wireHex": "6a050a01301000",
+      "json": "{\"list\":[],\"labels\":{\"0\":0},\"number\":0,\"flag\":false,\"real\":0,\"text\":\"\",\"data\":{},\"wide\":\"0\",\"unsigned_wide\":\"0\",\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "label": "entry-array-empty-reflection",
+      "profile": "reflection",
+      "name": "ownedreflection.Input",
+      "body": "{\"labels\":[{}]}",
+      "wireHex": "6a00",
+      "json": "{\"labels\":[{}]}"
+    },
+    {
+      "label": "entry-array-value-file",
+      "profile": "file",
+      "name": "ownedreflection.Input",
+      "body": "{\"labels\":[{\"value\":0}]}",
+      "wireHex": "6a050a01301000",
+      "json": "{\"list\":[],\"labels\":{\"0\":0},\"number\":0,\"flag\":false,\"real\":0,\"text\":\"\",\"data\":{},\"wide\":\"0\",\"unsigned_wide\":\"0\",\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "label": "entry-array-value-reflection",
+      "profile": "reflection",
+      "name": "ownedreflection.Input",
+      "body": "{\"labels\":[{\"value\":0}]}",
+      "wireHex": "6a021000",
+      "json": "{\"labels\":[{\"value\":0}]}"
+    },
+    {
+      "label": "entry-array-key-value-file",
+      "profile": "file",
+      "name": "ownedreflection.Input",
+      "body": "{\"labels\":[{\"key\":\"owned\",\"value\":0}]}",
+      "wireHex": "6a050a01301000",
+      "json": "{\"list\":[],\"labels\":{\"0\":0},\"number\":0,\"flag\":false,\"real\":0,\"text\":\"\",\"data\":{},\"wide\":\"0\",\"unsigned_wide\":\"0\",\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "label": "entry-array-key-value-reflection",
+      "profile": "reflection",
+      "name": "ownedreflection.Input",
+      "body": "{\"labels\":[{\"key\":\"owned\",\"value\":0}]}",
+      "wireHex": "6a090a056f776e65641000",
+      "json": "{\"labels\":[{\"key\":\"owned\",\"value\":0}]}"
+    },
+    {
+      "label": "wire-explicit-zero-file",
+      "profile": "file",
+      "name": "ownedreflection.Input",
+      "incoming": true,
+      "wireHex": "0800100019000000000000000022002a00300038004000",
+      "json": "{\"list\":[],\"labels\":{},\"number\":0,\"flag\":false,\"real\":0,\"text\":\"\",\"data\":{},\"wide\":\"0\",\"unsigned_wide\":\"0\",\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "label": "wire-explicit-zero-reflection",
+      "profile": "reflection",
+      "name": "ownedreflection.Input",
+      "incoming": true,
+      "wireHex": "0800100019000000000000000022002a00300038004000",
+      "json": "{\"number\":0,\"flag\":false,\"real\":0,\"text\":\"\",\"data\":{},\"wide\":{\"low\":0,\"high\":0,\"unsigned\":false},\"unsigned_wide\":{\"low\":0,\"high\":0,\"unsigned\":true},\"choice\":0}"
+    },
+    {
+      "label": "wire-reversed-fields-file",
+      "profile": "file",
+      "name": "ownedreflection.Input",
+      "incoming": true,
+      "wireHex": "4001380130012a00220019000000000000000010000800",
+      "json": "{\"list\":[],\"labels\":{},\"number\":0,\"flag\":false,\"real\":0,\"text\":\"\",\"data\":{},\"wide\":\"1\",\"unsigned_wide\":\"1\",\"choice\":\"ONE\",\"child\":null}"
+    },
+    {
+      "label": "wire-reversed-fields-reflection",
+      "profile": "reflection",
+      "name": "ownedreflection.Input",
+      "incoming": true,
+      "wireHex": "4001380130012a00220019000000000000000010000800",
+      "json": "{\"number\":0,\"flag\":false,\"real\":0,\"text\":\"\",\"data\":{},\"wide\":{\"low\":1,\"high\":0,\"unsigned\":false},\"unsigned_wide\":{\"low\":1,\"high\":0,\"unsigned\":true},\"choice\":1}"
+    },
+    {
+      "label": "wire-unknown-field-file",
+      "profile": "file",
+      "name": "ownedreflection.Input",
+      "incoming": true,
+      "wireHex": "f80300",
+      "json": "{\"list\":[],\"labels\":{},\"number\":0,\"flag\":false,\"real\":0,\"text\":\"\",\"data\":{},\"wide\":\"0\",\"unsigned_wide\":\"0\",\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "label": "wire-unknown-field-reflection",
+      "profile": "reflection",
+      "name": "ownedreflection.Input",
+      "incoming": true,
+      "wireHex": "f80300",
+      "json": "{}"
+    },
+    {
+      "label": "wire-empty-entry-file",
+      "profile": "file",
+      "name": "ownedreflection.Input",
+      "incoming": true,
+      "wireHex": "6a00",
+      "json": "{\"list\":[],\"labels\":{\"\":0},\"number\":0,\"flag\":false,\"real\":0,\"text\":\"\",\"data\":{},\"wide\":\"0\",\"unsigned_wide\":\"0\",\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "label": "wire-empty-entry-reflection",
+      "profile": "reflection",
+      "name": "ownedreflection.Input",
+      "incoming": true,
+      "wireHex": "6a00",
+      "json": "{\"labels\":[{}]}"
+    },
+    {
+      "label": "wire-value-only-entry-file",
+      "profile": "file",
+      "name": "ownedreflection.Input",
+      "incoming": true,
+      "wireHex": "6a021000",
+      "json": "{\"list\":[],\"labels\":{\"\":0},\"number\":0,\"flag\":false,\"real\":0,\"text\":\"\",\"data\":{},\"wide\":\"0\",\"unsigned_wide\":\"0\",\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "label": "wire-value-only-entry-reflection",
+      "profile": "reflection",
+      "name": "ownedreflection.Input",
+      "incoming": true,
+      "wireHex": "6a021000",
+      "json": "{\"labels\":[{\"value\":0}]}"
+    },
+    {
+      "label": "wire-duplicate-entries-file",
+      "profile": "file",
+      "name": "ownedreflection.Input",
+      "incoming": true,
+      "wireHex": "6a090a056f776e656410006a090a056f776e65641001",
+      "json": "{\"list\":[],\"labels\":{\"owned\":1},\"number\":0,\"flag\":false,\"real\":0,\"text\":\"\",\"data\":{},\"wide\":\"0\",\"unsigned_wide\":\"0\",\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "label": "wire-duplicate-entries-reflection",
+      "profile": "reflection",
+      "name": "ownedreflection.Input",
+      "incoming": true,
+      "wireHex": "6a090a056f776e656410006a090a056f776e65641001",
+      "json": "{\"labels\":[{\"key\":\"owned\",\"value\":0},{\"key\":\"owned\",\"value\":1}]}"
+    },
+    {
+      "label": "wire-reversed-oneof-file",
+      "profile": "file",
+      "name": "ownedreflection.Input",
+      "incoming": true,
+      "wireHex": "6201785800",
+      "json": "{\"list\":[],\"labels\":{},\"number\":0,\"flag\":false,\"real\":0,\"text\":\"\",\"data\":{},\"wide\":\"0\",\"unsigned_wide\":\"0\",\"choice\":\"ZERO\",\"child\":null,\"a\":0,\"pick\":\"b\",\"b\":\"x\"}"
+    },
+    {
+      "label": "wire-reversed-oneof-reflection",
+      "profile": "reflection",
+      "name": "ownedreflection.Input",
+      "incoming": true,
+      "wireHex": "6201785800",
+      "json": "{\"a\":0,\"b\":\"x\"}"
+    },
+    {
+      "label": "wire-empty-packed-list-file",
+      "profile": "file",
+      "name": "ownedreflection.Input",
+      "incoming": true,
+      "wireHex": "4a00",
+      "json": "{\"list\":[],\"labels\":{},\"number\":0,\"flag\":false,\"real\":0,\"text\":\"\",\"data\":{},\"wide\":\"0\",\"unsigned_wide\":\"0\",\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "label": "wire-empty-packed-list-reflection",
+      "profile": "reflection",
+      "name": "ownedreflection.Input",
+      "incoming": true,
+      "wireHex": "4a00",
+      "json": "{}"
+    }
+  ]
+}

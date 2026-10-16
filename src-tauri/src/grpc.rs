@@ -91,6 +91,8 @@ pub struct GrpcRequest {
     body: String,
     #[serde(default)]
     json_mode: JsonMode,
+    #[serde(default)]
+    reflection: bool,
 }
 #[derive(Serialize)]
 pub struct Packet {
@@ -124,16 +126,19 @@ impl Delivery {
 
 #[tauri::command]
 pub async fn connect_grpc(
-    request: GrpcRequest,
+    mut request: GrpcRequest,
     on_event: Channel<Packet>,
     state: tauri::State<'_, GrpcState>,
     network: tauri::State<'_, NetworkState>,
 ) -> Result<(), String> {
+    request.json_mode = request.json_mode.from_schema(request.reflection);
     let pool = grpc_schema::decode(&request.descriptor_set)?;
     let method = grpc_schema::method(&pool, &request.method)?;
     let original_input = method.input();
     let input = match request.json_mode {
-        grpc_schema::JsonMode::Legacy => crate::grpc_legacy::legacy_descriptor(method.input())?,
+        grpc_schema::JsonMode::Legacy | grpc_schema::JsonMode::LegacyReflection => {
+            crate::grpc_legacy::legacy_descriptor(method.input())?
+        }
         grpc_schema::JsonMode::ProtoJson => method.input(),
     };
     let (sender, receiver) = mpsc::channel(1);

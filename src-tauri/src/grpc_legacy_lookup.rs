@@ -38,8 +38,8 @@ pub(crate) struct AnyLookup {
     names: HashMap<String, usize>,
 }
 impl AnyLookup {
-    pub(crate) fn new(pool: &DescriptorPool) -> Self {
-        let mut result = Self {
+    fn empty() -> Self {
+        Self {
             nodes: vec![Node {
                 name: String::new(),
                 parent: None,
@@ -48,7 +48,10 @@ impl AnyLookup {
                 nested: Vec::new(),
             }],
             names: HashMap::from([(String::new(), 0)]),
-        };
+        }
+    }
+    pub(crate) fn new(pool: &DescriptorPool) -> Self {
+        let mut result = Self::empty();
         if pool
             .files()
             .any(|file| file.file_descriptor_proto().source_code_info.is_some())
@@ -88,6 +91,119 @@ impl AnyLookup {
             result.add(extension.full_name(), Kind::Other, true);
         }
         result
+    }
+
+    /// Reflection first constructs Root.fromDescriptor, then re-emits one file
+    /// per namespace with Root.toDescriptor before proto-loader reads it again.
+    /// Source spans and synthetic map-entry hiding belong to the file profile.
+    pub(crate) fn from_descriptor(pool: &DescriptorPool) -> Self {
+        let mut loaded = Self::empty();
+        for file in pool.files() {
+            loaded.scope(file.package_name());
+            let mut pending: Vec<_> = file.messages().collect();
+            pending.reverse();
+            while let Some(message) = pending.pop() {
+                loaded.add_descriptor_message(message.clone());
+                for enumeration in message.child_enums() {
+                    loaded.add(enumeration.full_name(), Kind::Other, true);
+                }
+                for extension in message.child_extensions() {
+                    loaded.add(extension.full_name(), Kind::Other, true);
+                }
+                let children: Vec<_> = message.child_messages().collect();
+                pending.extend(children.into_iter().rev());
+            }
+            for enumeration in file.enums() {
+                loaded.add(enumeration.full_name(), Kind::Other, true);
+            }
+            for extension in file.extensions() {
+                loaded.add(extension.full_name(), Kind::Other, true);
+            }
+            for service in file.services() {
+                let index = loaded.add(service.full_name(), Kind::Service, true);
+                for method in service.methods() {
+                    loaded.add_member(index, method.name(), method.full_name());
+                }
+            }
+        }
+        // Root.toDescriptor visits plain child namespaces before emitting the
+        // current namespace's file. Keep this traversal iterative as well.
+        let mut pending = vec![(0, false)];
+        let mut packages = Vec::new();
+        while let Some((index, expanded)) = pending.pop() {
+            if expanded {
+                packages.push(index);
+            } else {
+                pending.push((index, true));
+                for child in loaded.nodes[index].nested.iter().rev() {
+                    if matches!(loaded.nodes[*child].kind, Kind::Namespace) {
+                        pending.push((*child, false));
+                    }
+                }
+            }
+        }
+        let mut result = Self::empty();
+        for package in packages {
+            let nested = &loaded.nodes[package].nested;
+            if !nested
+                .iter()
+                .any(|child| !matches!(loaded.nodes[*child].kind, Kind::Namespace))
+            {
+                continue;
+            }
+            result.scope(&loaded.nodes[package].name);
+            let mut types: Vec<_> = nested
+                .iter()
+                .copied()
+                .filter(|child| matches!(loaded.nodes[*child].kind, Kind::Message))
+                .collect();
+            types.reverse();
+            while let Some(index) = types.pop() {
+                result.add_descriptor_message(
+                    pool.get_message_by_name(&loaded.nodes[index].name).unwrap(),
+                );
+                for child in &loaded.nodes[index].nested {
+                    if matches!(loaded.nodes[*child].kind, Kind::Other) {
+                        result.add(&loaded.nodes[*child].name, Kind::Other, true);
+                    }
+                }
+                types.extend(
+                    loaded.nodes[index]
+                        .nested
+                        .iter()
+                        .rev()
+                        .copied()
+                        .filter(|child| matches!(loaded.nodes[*child].kind, Kind::Message)),
+                );
+            }
+            for child in nested {
+                let node = &loaded.nodes[*child];
+                match node.kind {
+                    Kind::Other => {
+                        result.add(&node.name, Kind::Other, true);
+                    }
+                    Kind::Service => {
+                        let service = pool.get_service_by_name(&node.name).unwrap();
+                        let index = result.add(&node.name, Kind::Service, true);
+                        for method in service.methods() {
+                            result.add_member(index, method.name(), method.full_name());
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        result
+    }
+
+    fn add_descriptor_message(&mut self, message: MessageDescriptor) {
+        let index = self.add(message.full_name(), Kind::Message, true);
+        for field in message.fields() {
+            self.add_member(index, field.name(), field.full_name());
+        }
+        for group in message.oneofs() {
+            self.add_member(index, group.name(), group.full_name());
+        }
     }
 
     fn add_message(&mut self, message: MessageDescriptor) {

@@ -1,0 +1,180 @@
+import assert from "node:assert/strict";
+import {
+  grpcReflectionProfileCase,
+  profileGrpcFrame,
+} from "./grpc-reflection-profile-case-data.js";
+
+/** @param {number} value */
+function varint(value) {
+  assert.ok(Number.isSafeInteger(value) && value >= 0);
+  const out = [];
+  do {
+    const byte = value % 128;
+    value = Math.floor(value / 128);
+    out.push(byte | (value ? 128 : 0));
+  } while (value);
+  return Buffer.from(out);
+}
+/** @param {number} field @param {Buffer|string} value */
+function bytesField(field, value) {
+  const bytes = Buffer.isBuffer(value) ? value : Buffer.from(value);
+  return Buffer.concat([varint(field * 8 + 2), varint(bytes.length), bytes]);
+}
+/** Bounded descriptor/query reader; unknown primitive descriptor fields are skipped.
+ * @param {Buffer} bytes */
+export function reflectionFields(bytes) {
+  let offset = 0;
+  function read() {
+    let value = 0;
+    for (let shift = 0; shift < 49; shift += 7) {
+      assert.ok(offset < bytes.length, "Truncated reflection varint");
+      const byte = bytes[offset++];
+      value += (byte & 127) * 2 ** shift;
+      if (!(byte & 128)) {
+        assert.ok(Number.isSafeInteger(value));
+        return value;
+      }
+    }
+    throw Error("Oversized reflection varint");
+  }
+  /** @type {{field:number,value:Buffer}[]} */ const fields = [];
+  while (offset < bytes.length) {
+    const tag = read(),
+      field = Math.floor(tag / 8),
+      type = tag % 8;
+    assert.ok(field > 0);
+    if (type === 0) {
+      read();
+      continue;
+    }
+    const size = type === 2 ? read() : type === 1 ? 8 : type === 5 ? 4 : -1;
+    assert.ok(
+      size >= 0 && offset + size <= bytes.length,
+      "Invalid reflection field",
+    );
+    if (type === 2)
+      fields.push({ field, value: bytes.subarray(offset, offset + size) });
+    offset += size;
+  }
+  return fields;
+}
+
+/** Real v1/v1alpha wire service backed by pinned server descriptors.
+ * @param {import('node:http2').ServerHttp2Stream} stream
+ * @param {import('node:http2').IncomingHttpHeaders} headers
+ * @param {Record<string,any>[]} records @param {string[]} errors */
+export function handleGrpcProfileReflection(stream, headers, records, errors) {
+  const path = String(headers[":path"]);
+  if (
+    !/^\/grpc\.reflection\.(v1|v1alpha)\.ServerReflection\/ServerReflectionInfo$/.test(
+      path,
+    )
+  )
+    return false;
+  const mode = String(headers["owned-case"]),
+    spec = grpcReflectionProfileCase(mode);
+  const rejected = spec.alphaOnly === true && path.includes(".v1.");
+  const row = {
+    id: records.length + 1,
+    mode,
+    path,
+    rejected,
+    queries: /** @type {any[]} */ ([]),
+    responses: 0,
+    verified: false,
+    closedAt: /** @type {number|null} */ (null),
+    rstCode: /** @type {number|null} */ (null),
+    errors: /** @type {any[]} */ ([]),
+  };
+  records.push(row);
+  stream.on("error", (error) =>
+    row.errors.push({
+      code: /** @type {any} */ (error).code,
+      message: String(error),
+    }),
+  );
+  stream.once("close", () => {
+    row.closedAt = Date.now();
+    row.rstCode = stream.rstCode;
+  });
+  stream.respond(
+    { ":status": 200, "content-type": "application/grpc" },
+    { waitForTrailers: true },
+  );
+  stream.on("wantTrailers", () =>
+    stream.sendTrailers({ "grpc-status": rejected ? "12" : "0" }),
+  );
+  const files = reflectionFields(Buffer.from(spec.descriptorSet, "base64"))
+    .filter((f) => f.field === 1)
+    .map((f) => f.value);
+  assert.ok(files.length > 0);
+  let buffered = Buffer.alloc(0),
+    ended = false;
+  stream.on("data", (chunk) => {
+    try {
+      buffered = Buffer.concat([buffered, Buffer.from(chunk)]);
+      assert.ok(
+        buffered.length <= 1024 * 1024,
+        "Reflection request exceeds fixture bound",
+      );
+      while (buffered.length >= 5) {
+        assert.equal(buffered[0], 0);
+        const size = buffered.readUInt32BE(1);
+        assert.ok(size <= 1024 * 1024);
+        if (buffered.length < size + 5) break;
+        const payload = buffered.subarray(5, size + 5);
+        buffered = buffered.subarray(size + 5);
+        const queries = reflectionFields(payload).filter((f) =>
+          [3, 4, 7].includes(f.field),
+        );
+        assert.equal(queries.length, 1);
+        const query = queries[0],
+          value = query.value.toString();
+        row.queries.push({ field: query.field, value });
+        if (rejected) {
+          row.verified = true;
+          if (!ended) {
+            ended = true;
+            stream.end();
+          }
+          continue;
+        }
+        let answer;
+        if (query.field === 7)
+          answer = bytesField(6, bytesField(1, bytesField(1, spec.service)));
+        else {
+          if (query.field === 4) assert.equal(value, spec.service);
+          if (query.field === 3)
+            assert.ok(
+              files.some((file) =>
+                reflectionFields(file).some(
+                  (f) => f.field === 1 && f.value.toString() === value,
+                ),
+              ),
+              "Unknown descriptor file",
+            );
+          answer = bytesField(
+            4,
+            Buffer.concat(files.map((file) => bytesField(1, file))),
+          );
+        }
+        stream.write(
+          profileGrpcFrame(Buffer.concat([bytesField(2, payload), answer])),
+        );
+        row.responses++;
+        row.verified = row.responses === row.queries.length;
+      }
+    } catch (error) {
+      errors.push(String(error));
+      stream.close(2);
+    }
+  });
+  stream.on("end", () => {
+    if (buffered.length) errors.push("Incomplete reflection frame");
+    if (!ended && !stream.destroyed) {
+      ended = true;
+      stream.end();
+    }
+  });
+  return true;
+}

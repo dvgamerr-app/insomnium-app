@@ -17,6 +17,16 @@ pub(crate) enum JsonMode {
     #[default]
     Legacy,
     ProtoJson,
+    #[serde(skip)]
+    LegacyReflection,
+}
+impl JsonMode {
+    pub(crate) fn from_schema(self, reflection: bool) -> Self {
+        match (self, reflection) {
+            (Self::Legacy, true) => Self::LegacyReflection,
+            _ => self,
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -117,6 +127,7 @@ pub struct MethodInfo {
 pub struct Schema {
     pub descriptor_set: String,
     pub methods: Vec<MethodInfo>,
+    pub reflection: bool,
 }
 pub(crate) fn describe(pool: &DescriptorPool, mode: JsonMode) -> Result<Schema, String> {
     describe_with_examples(pool, mode, false)
@@ -176,6 +187,7 @@ fn describe_with_examples(
     Ok(Schema {
         descriptor_set: STANDARD.encode(bytes),
         methods,
+        reflection,
     })
 }
 
@@ -222,6 +234,10 @@ pub(crate) fn parse_mode(
 ) -> Result<DynamicMessage, String> {
     match mode {
         JsonMode::Legacy => crate::grpc_legacy::parse(desc, text),
+        JsonMode::LegacyReflection => {
+            let view = crate::grpc_legacy::legacy_descriptor(desc.clone())?;
+            crate::grpc_legacy::parse_prepared_profile(view, desc, text, true)
+        }
         JsonMode::ProtoJson => parse(desc, text),
     }
 }
@@ -233,6 +249,9 @@ pub(crate) fn parse_prepared_mode(
 ) -> Result<DynamicMessage, String> {
     match mode {
         JsonMode::Legacy => crate::grpc_legacy::parse_prepared(view, original, text),
+        JsonMode::LegacyReflection => {
+            crate::grpc_legacy::parse_prepared_profile(view, original, text, true)
+        }
         JsonMode::ProtoJson => parse(original, text),
     }
 }
@@ -259,6 +278,9 @@ pub(crate) fn json_mode(
     match mode {
         JsonMode::Legacy => {
             crate::grpc_legacy::LegacyMessage(message, 0, original).serialize(&mut serializer)
+        }
+        JsonMode::LegacyReflection => {
+            crate::grpc_legacy::ReflectionMessage(message, 0, original).serialize(&mut serializer)
         }
         JsonMode::ProtoJson => {
             // Reflection examples may have been validated in the legacy view.

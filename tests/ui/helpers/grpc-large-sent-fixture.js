@@ -21,10 +21,17 @@ export function largeGrpcFrame(value) {
   return Buffer.concat([prefix, protobuf]);
 }
 /** Real loopback HTTP2 bidi receiver; only metadata/status returned, preserving sent as newest payload. */
-export async function createGrpcLargeSentFixture() {
+export async function createGrpcLargeSentFixture({
+  caseFor = grpcLargeCase,
+  modes = grpcLargeModes,
+  handleDiscovery = /** @type {null|((stream:import('node:http2').ServerHttp2Stream,headers:import('node:http2').IncomingHttpHeaders,records:Record<string,any>[],errors:string[])=>boolean)} */ (
+    null
+  ),
+} = {}) {
   const server = createServer();
   /** @type {Set<string>} */ const recoveredModes = new Set();
   /** @type {Record<string,any>[]} */ const records = [];
+  /** @type {Record<string,any>[]} */ const discoveryRecords = [];
   /** @type {Record<string,any>[]} */ const sessionRecords = [];
   /** @type {Record<string,any>[]} */ const socketRecords = [];
   /** @type {Record<string,any>[]} */ const errorEvents = [];
@@ -114,6 +121,17 @@ export async function createGrpcLargeSentFixture() {
     "stream",
     (/** @type {import("node:http2").ServerHttp2Stream} */ stream, headers) => {
       assert.ok(stream.session);
+      if (
+        handleDiscovery &&
+        handleDiscovery(stream, headers, discoveryRecords, errors)
+      ) {
+        const discovery = discoveryRecords.at(-1);
+        assert.ok(discovery);
+        discovery.sessionId = sessionIds.get(stream.session);
+        streams.add(stream);
+        stream.once("close", () => streams.delete(stream));
+        return;
+      }
       const row = {
         id: records.length + 1,
         sessionId: sessionIds.get(stream.session),
@@ -150,10 +168,10 @@ export async function createGrpcLargeSentFixture() {
       });
       stream.on("end", () => {
         try {
-          const authored = grpcLargeCase(row.mode);
+          const authored = caseFor(row.mode);
           assert.equal(headers[":path"], authored.method);
           assert.equal(headers[":method"], "POST");
-          assert.ok(grpcLargeModes.includes(row.mode));
+          assert.ok(modes.includes(row.mode));
           const wire = Buffer.concat(chunks),
             expected = authored.wire;
           assert.deepEqual(wire, expected);
@@ -202,10 +220,11 @@ export async function createGrpcLargeSentFixture() {
   return {
     url: `grpc://127.0.0.1:${address.port}`,
     recoverMode(/** @type {string} */ mode) {
-      assert.ok("expectedError" in grpcLargeCase(mode));
+      assert.ok("expectedError" in caseFor(mode));
       recoveredModes.add(mode);
     },
     records,
+    discoveryRecords,
     sessionRecords,
     socketRecords,
     errorEvents,
@@ -229,6 +248,19 @@ export async function createGrpcLargeSentFixture() {
         server.close((error) => (error ? reject(error) : resolve(null))),
       );
       assert.deepEqual(errors, []);
+      for (const row of discoveryRecords) {
+        assert.ok(
+          row.verified && row.queries.length > 0 && row.closedAt !== null,
+        );
+        assert.ok(row.rstCode === 0 || row.rstCode === 8);
+        if (!row.rejected) assert.equal(row.responses, row.queries.length);
+        for (const error of row.errors) {
+          assert.ok(
+            row.rstCode === 8 && error.code === "ERR_HTTP2_STREAM_ERROR",
+            "Unclassified discovery stream error: " + JSON.stringify(error),
+          );
+        }
+      }
       const classified = [];
       for (const event of errorEvents) {
         const related =
@@ -243,20 +275,69 @@ export async function createGrpcLargeSentFixture() {
                       : s.socketId === event.id),
                 ),
               );
-        const matched =
-          event.code === "ECONNRESET" &&
-          related.length > 0 &&
-          related.every(
+        const discoveryRelated =
+          event.scope === "stream"
+            ? []
+            : discoveryRecords.filter((r) =>
+                sessionRecords.some(
+                  (s) =>
+                    s.id === r.sessionId &&
+                    (event.scope === "session"
+                      ? s.id === event.id
+                      : s.socketId === event.id),
+                ),
+              );
+        const discoveryOnly =
+          related.length === 0 && discoveryRelated.length > 0;
+        // A discovery-only socket close is distinct from a business reset.
+        // Require every response, peer cancellation and both owned closures.
+        const discoverySocketClosed =
+          event.code === "ERR_SOCKET_CLOSED" &&
+          discoveryOnly &&
+          discoveryRelated.every(
             (r) =>
+              !r.rejected &&
               r.verified &&
+              r.queries.length >= 2 &&
+              r.responses === r.queries.length &&
+              r.rstCode === 8 &&
               r.closedAt !== null &&
               r.closedAt <= event.at &&
-              r.rstCode === 0 &&
-              r.finishedAt !== null &&
-              r.finishedAt <= event.at &&
-              r.trailersAt !== null &&
-              r.trailersAt <= event.at,
+              sessionRecords.some(
+                (s) =>
+                  s.id === r.sessionId &&
+                  s.closedAt !== null &&
+                  // Session close callback may follow the already closed socket.
+                  socketRecords.some(
+                    (socket) =>
+                      socket.id === s.socketId &&
+                      socket.closedAt !== null &&
+                      socket.closedAt <= event.at,
+                  ),
+              ),
           );
+        const matched =
+          discoverySocketClosed ||
+          (event.code === "ECONNRESET" &&
+            (related.length > 0 || discoveryOnly) &&
+            discoveryRelated.every(
+              (r) =>
+                r.verified &&
+                r.closedAt !== null &&
+                r.closedAt <= event.at &&
+                [0, 8].includes(r.rstCode),
+            ) &&
+            related.every(
+              (r) =>
+                r.verified &&
+                r.closedAt !== null &&
+                r.closedAt <= event.at &&
+                r.rstCode === 0 &&
+                r.finishedAt !== null &&
+                r.finishedAt <= event.at &&
+                r.trailersAt !== null &&
+                r.trailersAt <= event.at,
+            ));
         assert.ok(
           matched,
           "Unclassified transport error: " + JSON.stringify(event),
@@ -266,10 +347,16 @@ export async function createGrpcLargeSentFixture() {
       return {
         forced: false,
         streams: records.length,
+        discoveryStreams: discoveryRecords.length,
         closed: records.filter((r) => r.closedAt !== null).length,
         sessions: sessionRecords.length,
         sockets: socketRecords.length,
-        classifiedPostProtocolResets: classified,
+        classifiedPostProtocolResets: classified.filter(
+          (event) => event.code === "ECONNRESET",
+        ),
+        classifiedDiscoverySocketClosures: classified.filter(
+          (event) => event.code === "ERR_SOCKET_CLOSED",
+        ),
         errors: [],
       };
     },

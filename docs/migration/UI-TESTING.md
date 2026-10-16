@@ -1,5 +1,9 @@
 # UI TESTING migration
 
+## Current source-specific gRPC reflection verification
+
+Saved [grpc-reflection-profile-native.js](../../tests/ui/grpc-reflection-profile-native.js) requires INSOMNIUM_GRPC_REFLECTION_PROFILE_NATIVE=1; [grpc-reflection-refusal-native.js](../../tests/ui/grpc-reflection-refusal-native.js) requires INSOMNIUM_GRPC_REFLECTION_REFUSAL_NATIVE=1, both with audited build/profile ownership.33positive cases include actual Use example from empty bodies in both modes and Format/mode switching;2refusals verify no additional peer IO after schema discovery, durable errors, reload, actual typed repair and terminal/reloaded Save. Real v1/v1alpha discovery has separate telemetry from strict business streams.20native-hidden scenarios/204groups/352successful Save exports/exact20profiles and original manifest plus explicit1test/1STATUSdoc supplement2 closure pass. See [scope/evidence](GRPC.md#current-native-grpc-reflection-profile); broader aliases/provider/platform and migration gates remain open.
+
 ## Current gRPC Any declaration-order verification
 
 Saved [grpc-any-order-native.js](../../tests/ui/grpc-any-order-native.js) requires INSOMNIUM_GRPC_ANY_ORDER_NATIVE=1 plus audited build/profile ownership.10actual selectable-entry/editor/Format/mode-flip/wire/history/reload/Save cases cover source category/message order and entry-before-direct/transitive imports. JSON-refusal adds2service-shadow zero-peer-IO refusal/typed repairs (23total).18native-hidden scenarios/169groups/282Save exports/exact18profiles and original manifest plus explicit1test/1STATUSdoc fixture-supplement closure pass. See [scope/evidence](GRPC.md#current-native-grpc-any-order); sibling completion timing, source-info-free reflection and broader gates remain open.

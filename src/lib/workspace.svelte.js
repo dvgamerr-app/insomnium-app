@@ -1678,6 +1678,7 @@ export async function executeGrpc(requestId, discoveryOnly = false) {
         id: runId,
         connection,
         descriptorSet: cached.schema.descriptorSet,
+        reflection: cached.schema.reflection === true,
         method: method.path,
         body,
         jsonMode: grpcJsonMode(snapshot),

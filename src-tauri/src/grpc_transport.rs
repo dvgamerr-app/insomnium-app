@@ -262,6 +262,7 @@ async fn reflect_version(
         .map(|s| MessageRequest::FileContainingSymbol(s.name.clone()))
         .collect();
     let mut files = HashMap::new();
+    let mut file_order = Vec::new();
     let mut queries = 0;
     let mut total = 0usize;
     while let Some(query) = pending.pop_front() {
@@ -325,6 +326,7 @@ async fn reflect_version(
                 for dependency in &descriptor.dependency {
                     pending.push_back(MessageRequest::FileByFilename(dependency.clone()));
                 }
+                file_order.push(name.clone());
                 files.insert(name, descriptor);
                 if files.len() > 1024 {
                     return Err(Status::resource_exhausted("Reflection exceeds 1024 files."));
@@ -334,7 +336,10 @@ async fn reflect_version(
     }
     drop(sender);
     let pool = DescriptorPool::from_file_descriptor_set(prost_types::FileDescriptorSet {
-        file: files.into_values().collect(),
+        file: file_order
+            .into_iter()
+            .map(|name| files.remove(&name).unwrap())
+            .collect(),
     })
     .map_err(|e| Status::internal(format!("Invalid reflected schema: {e}")))?;
     if services
@@ -401,7 +406,7 @@ where
             path,
             DynamicCodec {
                 output: match mode {
-                    grpc_schema::JsonMode::Legacy => {
+                    grpc_schema::JsonMode::Legacy | grpc_schema::JsonMode::LegacyReflection => {
                         crate::grpc_legacy::legacy_descriptor(method.output())?
                     }
                     grpc_schema::JsonMode::ProtoJson => method.output(),

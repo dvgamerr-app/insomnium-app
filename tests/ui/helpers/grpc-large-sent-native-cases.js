@@ -21,6 +21,7 @@ import {
 } from "./resource-manager-cases.js";
 import { respondToOwnedSaveDialog } from "./windows-save-dialog.js";
 import { createGrpcLargeSentFixture } from "./grpc-large-sent-fixture.js";
+import { handleGrpcProfileReflection } from "./grpc-reflection-profile-wire.js";
 /** Real native bidi send/half-close/metadata/status/history, without injecting app callbacks. */
 export async function runGrpcLargeSentNativeCases({
   base64Only = false,
@@ -34,8 +35,14 @@ export async function runGrpcLargeSentNativeCases({
   anyUrlOnly = false,
   anyTargetOnly = false,
   anyOrderOnly = false,
+  reflectionProfileOnly = false,
 } = {}) {
   const variants = [
+    {
+      enabled: reflectionProfileOnly,
+      tag: "legacy-profile-",
+      scenario: "grpc-reflection-profile-native",
+    },
     {
       enabled: anyOrderOnly,
       tag: "legacy-anyorder-",
@@ -95,7 +102,9 @@ export async function runGrpcLargeSentNativeCases({
     profileOwnershipPath: marker,
     allowParentTermination: true,
   };
-  const fixture = await createGrpcLargeSentFixture();
+  const fixture = await createGrpcLargeSentFixture({
+    handleDiscovery: reflectionProfileOnly ? handleGrpcProfileReflection : null,
+  });
   /** @type {Record<string,any>[]} */ const checks = [];
   /** @type {unknown[]} */ const errors = [];
   /** @type {string|undefined} */ let output;
@@ -178,6 +187,8 @@ export async function runGrpcLargeSentNativeCases({
                   .update(spec.responseText)
                   .digest("hex");
                 const unary = spec.unary;
+                const useExample =
+                  "useExample" in spec && spec.useExample === true;
                 const receives = spec.receives;
                 const startButton = unary ? "Send" : "Connect";
                 const request = newRequest(workspaceId, {
@@ -186,18 +197,20 @@ export async function runGrpcLargeSentNativeCases({
                   name: "Owned large " + mode,
                   url: fixture.url,
                   protoFileId:
-                    "protoEntry" in spec
-                      ? protoId +
-                        "_dependency_" +
-                        grpcLargeAdditionalProtos.findIndex(
-                          (file) => file.name === spec.protoEntry,
-                        )
-                      : protoId,
+                    "reflection" in spec && spec.reflection === true
+                      ? null
+                      : "protoEntry" in spec
+                        ? protoId +
+                          "_dependency_" +
+                          grpcLargeAdditionalProtos.findIndex(
+                            (file) => file.name === spec.protoEntry,
+                          )
+                        : protoId,
                   protoMethodName: spec.method,
                   grpcJsonMode: spec.jsonMode,
                   body: {
                     mimeType: "application/json",
-                    text: spec.editor ? "{}" : body,
+                    text: spec.editor || useExample ? "{}" : body,
                   },
                   metadata: [{ name: "owned-case", value: mode }],
                 });
@@ -297,6 +310,52 @@ export async function runGrpcLargeSentNativeCases({
                     .inputValue(),
                   request.protoMethodName,
                 );
+                if (useExample) {
+                  const persistedBody = async () =>
+                    (await invoke("load_workspace")).resources.find(
+                      (/** @type {any} */ r) => r._id === request._id,
+                    ).body.text;
+                  assert.equal(
+                    await persistedBody(),
+                    "{}",
+                    "Example must replace an empty authored body",
+                  );
+                  await button("Use example").click();
+                  await poll(
+                    async () => (await persistedBody()) === spec.formattedBody,
+                    "Actual Use example persisted the authored sample contract",
+                  );
+                  await button("Format").click();
+                  await resourceSaved(page);
+                  assert.equal(await persistedBody(), spec.formattedBody);
+                  await page
+                    .getByRole("tab", { name: "Settings", exact: true })
+                    .click();
+                  const encoding = page.getByRole("combobox", {
+                    name: "Message JSON format",
+                    exact: true,
+                  });
+                  await encoding.selectOption(
+                    spec.jsonMode === "legacy" ? "protoJson" : "legacy",
+                  );
+                  await resourceSaved(page);
+                  assert.equal(await persistedBody(), spec.formattedBody);
+                  await encoding.selectOption(spec.jsonMode);
+                  await resourceSaved(page);
+                  assert.equal(await persistedBody(), spec.formattedBody);
+                  await page
+                    .getByRole("tab", { name: "Body", exact: true })
+                    .click();
+                  assert.equal(
+                    await page
+                      .getByRole("region", { name: "Body editor", exact: true })
+                      .locator(".CodeMirror")
+                      .evaluate((element) =>
+                        /** @type {any} */ (element).CodeMirror.getValue(),
+                      ),
+                    spec.formattedBody,
+                  );
+                }
                 await button(startButton).click();
                 if (!unary) {
                   await poll(
@@ -588,6 +647,7 @@ export async function runGrpcLargeSentNativeCases({
                   payloadSHA256,
                   payloadBytes: Buffer.byteLength(spec.responseText),
                   editorFormatAndModeSwitch: spec.editor,
+                  useExampleAppliedAndModeSwitched: useExample,
                   persistedBodySHA256: createHash("sha256")
                     .update(spec.formattedBody)
                     .digest("hex"),
@@ -636,33 +696,36 @@ export async function runGrpcLargeSentNativeCases({
           checks,
           retirement,
           records: fixture.records,
+          discoveryRecords: fixture.discoveryRecords,
           sessionRecords: fixture.sessionRecords,
           socketRecords: fixture.socketRecords,
           errorEvents: fixture.errorEvents,
           errors: errors.map(String),
-          scope: anyOrderOnly
-            ? "Ten pinned declaration-order/main-before-import Any cases through actual selectable proto entry, editor, wire, history, reload and Save. Service-first shadow refusal/repair is in JSON-refusal. Concurrent sibling import timing and source-info-free reflection remain separate open gates."
-            : anyTargetOnly
-              ? "Twenty pinned Any reflection lookup/WKT cases through actual editor, wire, history, reload and Save: relative/nested messages, unknown and hidden targets, raw wrapper context, WKT spelling and absent/explicit-empty payloads. Refusal/typed repair is in JSON-refusal. Ambiguous loader/declaration order and broader provider/platform gates remain open."
-              : anyUrlOnly
-                ? "Fourteen Any URL cases: normal/dotted/surrogate prefixes,39/40unit threshold after normalization, nested Any and unknown-type fallback through real editor/wire/history/reload/export. Native wrong-type refusal/typed repair is in JSON-refusal scenario. Broader Any/WKT/provider/platform gates remain open."
-                : surrogateOnly
-                  ? "Thirteen legacy surrogate cases: scalar/list/map,39/40UTF16unit boundaries, collisions/coercions/unknown fields and explicit empty strings through real editor/wire/history/reload/export. Standard refusal is covered by JSON-refusal scenario; broader provider/platform gates remain open."
-                  : mapOnly
-                    ? "Nine legacy map cases including missing-message-value durable refusal and explicit peer repair/retry; exact editor/wire/history/reload/export. Broader provider/platform gates remain open."
-                    : orderOnly
-                      ? "Eight exact legacy message-field ordering cases: defaults, normal/message fields, multiple repeated/map categories, oneof selectors and nested containers through real editor/wire/history/reload/export. Map entry-key and lone-surrogate order remain open."
-                      : oneofOnly
-                        ? "Six legacy oneof cases: conflicting/default/list/map members, reversed input and response wire, real editor/Format/mode switch/history/reload/export. JSON key-order and broader provider/platform compatibility remain open."
-                        : overflowOnly
-                          ? "Eight legacy JSON numeric overflow/underflow cases through actual editor/Format/mode switch and exact double/int32/int64/string wire/history/reload/export. Broader JSON/provider/platform gates remain open."
-                          : longOnly
-                            ? "Six legacy signed/unsigned64 whitespace/chunk/sign cases through actual editor/Format/mode switch and full wire/history/reload/export. Broader coercion/provider/platform gates remain open."
-                            : numericOnly
-                              ? "Four legacy numeric-whitespace cases through actual editor/Format/mode switch, exact int32/double frames, response/history/reload/export. Other coercion/provider/platform gates remain open."
-                              : base64Only
-                                ? "Six legacy Base64 byte/frame/history/reload/export cases. Other Base64, ProtoJSON and provider/platform gates remain open."
-                                : "Actual native fourteen-case9MiB/compact-array/Unicode plus typed int64/bytes shared-editor Format/mode-switch/history/export in legacy/protoJson. No broad JSON/provider/platform claim.",
+          scope: reflectionProfileOnly
+            ? "Pinned saved-file/reflection profiles through real v1/v1alpha discovery, editor/mode switching, wire/history/reload/Save. Discovery telemetry is separate from business requests. Per-service ambiguous aliases, examples/refusals and broader provider/platform gates require separate acceptance."
+            : anyOrderOnly
+              ? "Ten pinned declaration-order/main-before-import Any cases through actual selectable proto entry, editor, wire, history, reload and Save. Service-first shadow refusal/repair is in JSON-refusal. Concurrent sibling import timing and source-info-free reflection remain separate open gates."
+              : anyTargetOnly
+                ? "Twenty pinned Any reflection lookup/WKT cases through actual editor, wire, history, reload and Save: relative/nested messages, unknown and hidden targets, raw wrapper context, WKT spelling and absent/explicit-empty payloads. Refusal/typed repair is in JSON-refusal. Ambiguous loader/declaration order and broader provider/platform gates remain open."
+                : anyUrlOnly
+                  ? "Fourteen Any URL cases: normal/dotted/surrogate prefixes,39/40unit threshold after normalization, nested Any and unknown-type fallback through real editor/wire/history/reload/export. Native wrong-type refusal/typed repair is in JSON-refusal scenario. Broader Any/WKT/provider/platform gates remain open."
+                  : surrogateOnly
+                    ? "Thirteen legacy surrogate cases: scalar/list/map,39/40UTF16unit boundaries, collisions/coercions/unknown fields and explicit empty strings through real editor/wire/history/reload/export. Standard refusal is covered by JSON-refusal scenario; broader provider/platform gates remain open."
+                    : mapOnly
+                      ? "Nine legacy map cases including missing-message-value durable refusal and explicit peer repair/retry; exact editor/wire/history/reload/export. Broader provider/platform gates remain open."
+                      : orderOnly
+                        ? "Eight exact legacy message-field ordering cases: defaults, normal/message fields, multiple repeated/map categories, oneof selectors and nested containers through real editor/wire/history/reload/export. Map entry-key and lone-surrogate order remain open."
+                        : oneofOnly
+                          ? "Six legacy oneof cases: conflicting/default/list/map members, reversed input and response wire, real editor/Format/mode switch/history/reload/export. JSON key-order and broader provider/platform compatibility remain open."
+                          : overflowOnly
+                            ? "Eight legacy JSON numeric overflow/underflow cases through actual editor/Format/mode switch and exact double/int32/int64/string wire/history/reload/export. Broader JSON/provider/platform gates remain open."
+                            : longOnly
+                              ? "Six legacy signed/unsigned64 whitespace/chunk/sign cases through actual editor/Format/mode switch and full wire/history/reload/export. Broader coercion/provider/platform gates remain open."
+                              : numericOnly
+                                ? "Four legacy numeric-whitespace cases through actual editor/Format/mode switch, exact int32/double frames, response/history/reload/export. Other coercion/provider/platform gates remain open."
+                                : base64Only
+                                  ? "Six legacy Base64 byte/frame/history/reload/export cases. Other Base64, ProtoJSON and provider/platform gates remain open."
+                                  : "Actual native fourteen-case9MiB/compact-array/Unicode plus typed int64/bytes shared-editor Format/mode-switch/history/export in legacy/protoJson. No broad JSON/provider/platform claim.",
         },
         null,
         2,

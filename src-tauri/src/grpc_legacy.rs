@@ -29,6 +29,9 @@ pub(crate) fn legacy_pool(pool: &DescriptorPool) -> Result<DescriptorPool, Strin
             || message
                 .fields()
                 .any(|field| matches!(field.kind(), Kind::String))
+            || message
+                .fields()
+                .any(|field| !field.is_list() && !field.is_map() && !field.supports_presence())
             || message.oneofs().any(|group| group.fields().len() > 1)
     }) {
         return Ok(pool.clone());
@@ -109,6 +112,34 @@ pub(crate) fn legacy_pool(pool: &DescriptorPool) -> Result<DescriptorPool, Strin
                 {
                     // Explicit empty strings are written by protobuf.js too.
                     let mut name = format!("insomnium_string_{}", field.number.unwrap_or_default());
+                    while !names.insert(name.clone()) {
+                        name.push('_');
+                    }
+                    field.oneof_index = Some(message.oneof_decl.len() as i32);
+                    message.oneof_decl.push(prost_types::OneofDescriptorProto {
+                        name: Some(name),
+                        ..Default::default()
+                    });
+                }
+            }
+        }
+        // protobuf.js encodes every supplied scalar, including false/zero/empty
+        // bytes and the sign bit of -0. Private presence keeps those distinct
+        // from absent fields without changing the original protobuf schema.
+        if proto3 {
+            for field in &mut message.field {
+                let any_value = full_name == "google.protobuf.Any"
+                    && field.number == Some(2)
+                    && field.name.as_deref() == Some("value")
+                    && field.r#type
+                        == Some(prost_types::field_descriptor_proto::Type::Bytes as i32);
+                if field.oneof_index.is_none()
+                    && field.label
+                        != Some(prost_types::field_descriptor_proto::Label::Repeated as i32)
+                    && !matches!(field.r#type, Some(kind) if kind == prost_types::field_descriptor_proto::Type::Message as i32 || kind == prost_types::field_descriptor_proto::Type::Group as i32)
+                    && !any_value
+                {
+                    let mut name = format!("insomnium_scalar_{}", field.number.unwrap_or_default());
                     while !names.insert(name.clone()) {
                         name.push('_');
                     }
@@ -756,12 +787,22 @@ pub(crate) fn parse(desc: MessageDescriptor, text: &str) -> Result<DynamicMessag
 struct ConversionContext {
     pool: DescriptorPool,
     lookup: std::cell::OnceCell<crate::grpc_legacy_lookup::AnyLookup>,
+    reflection: bool,
 }
 
 pub(crate) fn parse_prepared(
     desc: MessageDescriptor,
     original: MessageDescriptor,
     text: &str,
+) -> Result<DynamicMessage, String> {
+    parse_prepared_profile(desc, original, text, false)
+}
+
+pub(crate) fn parse_prepared_profile(
+    desc: MessageDescriptor,
+    original: MessageDescriptor,
+    text: &str,
+    reflection: bool,
 ) -> Result<DynamicMessage, String> {
     if text.len() > MAX_MESSAGE {
         return Err("gRPC JSON message exceeds 20 MiB.".into());
@@ -770,6 +811,7 @@ pub(crate) fn parse_prepared(
     let context = ConversionContext {
         pool: original.parent_pool().clone(),
         lookup: std::cell::OnceCell::new(),
+        reflection,
     };
     let message = from_object(desc, original, &input, 0, &context)?;
     if message.encoded_len() > MAX_MESSAGE {
@@ -809,9 +851,13 @@ fn from_object_inner(
             };
             let url = url_units.as_str();
             let name = url.rsplit('/').next().unwrap_or(url);
-            let lookup = context
-                .lookup
-                .get_or_init(|| crate::grpc_legacy_lookup::AnyLookup::new(&context.pool));
+            let lookup = context.lookup.get_or_init(|| {
+                if context.reflection {
+                    crate::grpc_legacy_lookup::AnyLookup::from_descriptor(&context.pool)
+                } else {
+                    crate::grpc_legacy_lookup::AnyLookup::new(&context.pool)
+                }
+            });
             use crate::grpc_legacy_lookup::Target;
             let resolved = match lookup.resolve(name) {
                 Target::Message(name) => Some((name, true)),
@@ -866,7 +912,12 @@ fn from_object_inner(
         let original_field = original
             .get_field(field.number())
             .ok_or("Missing original field descriptor.")?;
-        let Some(input) = object.get(field_name(&field)).filter(|v| !v.is_null()) else {
+        let name = if context.reflection {
+            original_field.name()
+        } else {
+            field_name(&field)
+        };
+        let Some(input) = object.get(name).filter(|v| !v.is_null()) else {
             if field.cardinality() == prost_reflect::Cardinality::Required {
                 if matches!(field.kind(), Kind::Message(_)) {
                     return Err(format!(
@@ -878,7 +929,7 @@ fn from_object_inner(
             }
             continue;
         };
-        let value = if original_field.is_map() {
+        let value = if original_field.is_map() && !context.reflection {
             if !truthy(input) {
                 continue;
             }
@@ -1122,6 +1173,87 @@ impl Serialize for LegacyMessage<'_> {
         }
         out.end()
     }
+}
+/// Descriptor-loaded legacy methods use proto-loader options {}, independently
+/// of the saved-file defaults/enum-name/long-string/oneof display options.
+pub(crate) struct ReflectionMessage<'a>(pub &'a DynamicMessage, pub usize, pub MessageDescriptor);
+impl Serialize for ReflectionMessage<'_> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        if self.1 > 64 {
+            return Err(serde::ser::Error::custom(
+                "gRPC message nesting exceeds 64 levels.",
+            ));
+        }
+        let mut out = serializer.serialize_map(None)?;
+        for field in self
+            .0
+            .descriptor()
+            .fields()
+            .filter(|field| self.0.has_field(field))
+        {
+            let original = self
+                .2
+                .get_field(field.number())
+                .unwrap_or_else(|| field.clone());
+            out.serialize_entry(
+                original.name(),
+                &ReflectionValue(
+                    &self.0.get_field(&field),
+                    field.kind(),
+                    self.1 + 1,
+                    Some(original.kind()),
+                ),
+            )?;
+        }
+        out.end()
+    }
+}
+struct ReflectionValue<'a>(&'a Value, Kind, usize, Option<Kind>);
+impl Serialize for ReflectionValue<'_> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self.0 {
+            Value::I64(value) if matches!(self.3, Some(Kind::Int32)) => {
+                serializer.serialize_i32(*value as i32)
+            }
+            Value::I64(value) => reflection_long(*value as u64, false, serializer),
+            Value::U64(value) => reflection_long(*value, true, serializer),
+            Value::EnumNumber(value) => serializer.serialize_i32(*value),
+            Value::Message(value) => {
+                let original = match &self.3 {
+                    Some(Kind::Message(desc)) => desc.clone(),
+                    _ => value.descriptor(),
+                };
+                ReflectionMessage(value, self.2, original).serialize(serializer)
+            }
+            Value::List(values) => {
+                let mut out = serializer.serialize_seq(Some(values.len()))?;
+                for value in values {
+                    out.serialize_element(&ReflectionValue(
+                        value,
+                        self.1.clone(),
+                        self.2,
+                        self.3.clone(),
+                    ))?;
+                }
+                out.end()
+            }
+            Value::Map(_) => Err(serde::ser::Error::custom(
+                "Reflected legacy maps require prepared entry descriptors.",
+            )),
+            _ => LegacyValue(self.0, self.1.clone(), self.2, self.3.clone()).serialize(serializer),
+        }
+    }
+}
+fn reflection_long<S: Serializer>(
+    bits: u64,
+    unsigned: bool,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    let mut out = serializer.serialize_map(Some(3))?;
+    out.serialize_entry("low", &(bits as u32 as i32))?;
+    out.serialize_entry("high", &((bits >> 32) as u32 as i32))?;
+    out.serialize_entry("unsigned", &unsigned)?;
+    out.end()
 }
 struct LegacyValue<'a>(&'a Value, Kind, usize, Option<Kind>);
 
@@ -1448,6 +1580,361 @@ mod tests {
         }
         assert_eq!(refusals, 62);
         assert_eq!(snapshot, pool.encode_to_vec());
+    }
+
+    fn reflection_profile_fixture() -> (serde_json::Value, DescriptorPool) {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../tests/ui/fixtures/grpc-reflection-profile-reference.json"
+        ))
+        .unwrap();
+        assert_eq!(fixture["versions"]["protoLoader"], "0.7.13");
+        assert_eq!(fixture["versions"]["protobufjs"], "7.2.4");
+        assert_eq!(fixture["versions"]["long"], "5.3.2");
+        assert_eq!(fixture["rows"].as_array().unwrap().len(), 46);
+        let pool = crate::grpc_schema::decode(fixture["descriptorSet"].as_str().unwrap()).unwrap();
+        assert!(pool
+            .files()
+            .all(|file| file.file_descriptor_proto().source_code_info.is_none()));
+        (fixture, pool)
+    }
+
+    fn assert_profile_wire(label: &str) {
+        let (fixture, _) = reflection_profile_fixture();
+        let row = fixture["rows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|row| row["label"] == label)
+            .unwrap();
+        // Saved files use the compiler path; reflection uses supplied descriptors.
+        let pool = crate::grpc_schema::compile(crate::grpc_schema::ProtoInput {
+            entry: "profile.proto".into(),
+            files: vec![crate::grpc_schema::ProtoFile {
+                name: "profile.proto".into(),
+                text: fixture["source"].as_str().unwrap().into(),
+            }],
+            include_paths: Vec::new(),
+        })
+        .unwrap();
+        let parsed = parse(
+            pool.get_message_by_name("ownedreflection.Input").unwrap(),
+            row["body"].as_str().unwrap(),
+        )
+        .unwrap();
+        let hex: String = parsed
+            .encode_to_vec()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect();
+        assert_eq!(
+            hex,
+            row["wireHex"].as_str().unwrap(),
+            "Pinned file profile wire {label}"
+        );
+    }
+
+    #[test]
+    fn legacy_reflection_profile_explicit_scalar_zero_wire() {
+        assert_profile_wire("explicit-zero-file");
+    }
+
+    #[test]
+    fn legacy_reflection_profile_negative_zero_wire() {
+        assert_profile_wire("negative-zero-file");
+    }
+
+    #[test]
+    fn legacy_reflection_profile_sparse_response_contract() {
+        let (fixture, pool) = reflection_profile_fixture();
+        let row = fixture["rows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|row| row["label"] == "absent-reflection")
+            .unwrap();
+        let original = pool.get_message_by_name("ownedreflection.Input").unwrap();
+        let decoded =
+            DynamicMessage::decode(legacy_descriptor(original.clone()).unwrap(), &[][..]).unwrap();
+        // Select from explicit schema origin, independently of source positions.
+        let json = crate::grpc_schema::json_mode(
+            &decoded,
+            crate::grpc_schema::JsonMode::Legacy.from_schema(true),
+            original,
+        )
+        .unwrap();
+        assert_eq!(json, row["json"].as_str().unwrap());
+    }
+
+    #[test]
+    fn legacy_reflection_profile_descriptor_map_requires_entries() {
+        let (fixture, pool) = reflection_profile_fixture();
+        let row = fixture["rows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|row| row["label"] == "empty-containers-reflection")
+            .unwrap();
+        assert!(row.get("error").is_some());
+        assert!(
+            crate::grpc_schema::parse_mode(
+                pool.get_message_by_name("ownedreflection.Input").unwrap(),
+                row["body"].as_str().unwrap(),
+                crate::grpc_schema::JsonMode::Legacy.from_schema(true),
+            )
+            .is_err(),
+            "Pinned descriptor loader requires an entry array, not a map object"
+        );
+    }
+
+    #[test]
+    fn legacy_reflection_profile_matches_pinned_loader_vectors() {
+        let (fixture, reflected) = reflection_profile_fixture();
+        assert_eq!(fixture["versions"]["reflectionClient"], "0.3.0");
+        let compiled = crate::grpc_schema::compile(crate::grpc_schema::ProtoInput {
+            entry: "profile.proto".into(),
+            files: vec![crate::grpc_schema::ProtoFile {
+                name: "profile.proto".into(),
+                text: fixture["source"].as_str().unwrap().into(),
+            }],
+            include_paths: Vec::new(),
+        })
+        .unwrap();
+        assert!(
+            !crate::grpc_schema::describe(&compiled, crate::grpc_schema::JsonMode::Legacy)
+                .unwrap()
+                .reflection
+        );
+        assert!(
+            crate::grpc_schema::describe_reflection(
+                &reflected,
+                crate::grpc_schema::JsonMode::Legacy
+            )
+            .unwrap()
+            .reflection
+        );
+        assert!(matches!(
+            crate::grpc_schema::JsonMode::ProtoJson.from_schema(true),
+            crate::grpc_schema::JsonMode::ProtoJson
+        ));
+        assert!(
+            serde_json::from_str::<crate::grpc_schema::JsonMode>("\"legacyReflection\"").is_err()
+        );
+        let snapshots = (compiled.encode_to_vec(), reflected.encode_to_vec());
+        let mut refusals = 0;
+        for row in fixture["rows"].as_array().unwrap() {
+            let reflection = row["profile"] == "reflection";
+            let pool = if reflection { &reflected } else { &compiled };
+            let original = pool
+                .get_message_by_name(row["name"].as_str().unwrap())
+                .unwrap();
+            let mode = crate::grpc_schema::JsonMode::Legacy.from_schema(reflection);
+            let label = row["label"].as_str().unwrap();
+            if row["incoming"] == true {
+                let hex = row["wireHex"].as_str().unwrap();
+                let wire: Vec<_> = hex
+                    .as_bytes()
+                    .chunks_exact(2)
+                    .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap())
+                    .collect();
+                let decoded = DynamicMessage::decode(
+                    legacy_descriptor(original.clone()).unwrap(),
+                    wire.as_slice(),
+                )
+                .unwrap();
+                let json = crate::grpc_schema::json_mode(&decoded, mode, original).unwrap();
+                assert_eq!(
+                    json,
+                    row["json"].as_str().unwrap(),
+                    "Incoming profile JSON {label}"
+                );
+                continue;
+            }
+            let parsed = crate::grpc_schema::parse_mode(
+                original.clone(),
+                row["body"].as_str().unwrap(),
+                mode,
+            );
+            if row.get("error").is_some() {
+                refusals += 1;
+                assert!(parsed.is_err(), "Pinned refusal {label}");
+                continue;
+            }
+            let message = parsed.unwrap_or_else(|error| panic!("{label}: {error}"));
+            let wire = message.encode_to_vec();
+            let hex: String = wire.iter().map(|b| format!("{b:02x}")).collect();
+            assert_eq!(
+                hex,
+                row["wireHex"].as_str().unwrap(),
+                "Profile wire {label}"
+            );
+            let view = legacy_descriptor(original.clone()).unwrap();
+            assert_eq!(
+                legacy_pool(view.parent_pool()).unwrap().encode_to_vec(),
+                view.parent_pool().encode_to_vec()
+            );
+            let decoded = DynamicMessage::decode(view, wire.as_slice()).unwrap();
+            let json = crate::grpc_schema::json_mode(&decoded, mode, original).unwrap();
+            assert_eq!(json, row["json"].as_str().unwrap(), "Profile JSON {label}");
+        }
+        assert_eq!(refusals, 2);
+        assert_eq!(
+            snapshots,
+            (compiled.encode_to_vec(), reflected.encode_to_vec())
+        );
+    }
+
+    #[test]
+    fn legacy_reflection_profile_any_wkt_matches_pinned_loader() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../tests/ui/fixtures/grpc-reflection-any-reference.json"
+        ))
+        .unwrap();
+        assert_eq!(fixture["versions"]["protoLoader"], "0.7.13");
+        assert_eq!(fixture["versions"]["reflectionClient"], "0.3.0");
+        let reflected =
+            crate::grpc_schema::decode(fixture["descriptorSet"].as_str().unwrap()).unwrap();
+        let compiled = crate::grpc_schema::compile(crate::grpc_schema::ProtoInput {
+            entry: "profile_any.proto".into(),
+            files: vec![crate::grpc_schema::ProtoFile {
+                name: "profile_any.proto".into(),
+                text: fixture["source"].as_str().unwrap().into(),
+            }],
+            include_paths: Vec::new(),
+        })
+        .unwrap();
+        let snapshots = (compiled.encode_to_vec(), reflected.encode_to_vec());
+        let rows = fixture["rows"].as_array().unwrap();
+        assert_eq!(rows.len(), 42);
+        let mut refusals = 0;
+        for row in rows {
+            let reflection = row["profile"] == "reflection";
+            let pool = if reflection { &reflected } else { &compiled };
+            let original = pool
+                .get_message_by_name(row["name"].as_str().unwrap())
+                .unwrap();
+            let mode = crate::grpc_schema::JsonMode::Legacy.from_schema(reflection);
+            let label = row["label"].as_str().unwrap();
+            let parsed = crate::grpc_schema::parse_mode(
+                original.clone(),
+                row["body"].as_str().unwrap(),
+                mode,
+            );
+            if row.get("error").is_some() {
+                refusals += 1;
+                assert!(parsed.is_err(), "Any profile refusal {label}");
+                continue;
+            }
+            let wire = parsed
+                .unwrap_or_else(|error| panic!("{label}: {error}"))
+                .encode_to_vec();
+            let hex: String = wire.iter().map(|b| format!("{b:02x}")).collect();
+            assert_eq!(
+                hex,
+                row["wireHex"].as_str().unwrap(),
+                "Any profile wire {label}"
+            );
+            let decoded = DynamicMessage::decode(
+                legacy_descriptor(original.clone()).unwrap(),
+                wire.as_slice(),
+            )
+            .unwrap();
+            let json = crate::grpc_schema::json_mode(&decoded, mode, original).unwrap();
+            assert_eq!(
+                json,
+                row["json"].as_str().unwrap(),
+                "Any profile JSON {label}"
+            );
+        }
+        assert_eq!(refusals, 12);
+        assert_eq!(
+            snapshots,
+            (compiled.encode_to_vec(), reflected.encode_to_vec())
+        );
+    }
+
+    #[test]
+    fn legacy_reflection_profile_examples_are_sendable_for_both_ui_modes() {
+        let (_, pool) = reflection_profile_fixture();
+        let original = pool.get_message_by_name("ownedreflection.Input").unwrap();
+        for mode in [
+            crate::grpc_schema::JsonMode::Legacy,
+            crate::grpc_schema::JsonMode::ProtoJson,
+        ] {
+            let example = crate::grpc_example::generate(original.clone(), mode).unwrap();
+            let json: serde_json::Value = serde_json::from_str(&example).unwrap();
+            if matches!(mode, crate::grpc_schema::JsonMode::Legacy) {
+                assert!(
+                    json["labels"].is_array(),
+                    "Descriptor entry sample {example}"
+                );
+                assert_eq!(json["labels"][0]["key"], "Hello");
+                assert_eq!(json["labels"][0]["value"], 10);
+            } else {
+                assert!(json["labels"].is_object(), "Standard map sample {example}");
+            }
+            crate::grpc_schema::parse_mode(original.clone(), &example, mode.from_schema(true))
+                .unwrap();
+        }
+        let any: serde_json::Value = serde_json::from_str(include_str!(
+            "../../tests/ui/fixtures/grpc-reflection-any-reference.json"
+        ))
+        .unwrap();
+        let pool = crate::grpc_schema::decode(any["descriptorSet"].as_str().unwrap()).unwrap();
+        let value = pool.get_message_by_name("google.protobuf.Value").unwrap();
+        let example =
+            crate::grpc_example::generate(value.clone(), crate::grpc_schema::JsonMode::Legacy)
+                .unwrap();
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&example).unwrap(),
+            serde_json::json!({"null_value":0})
+        );
+        crate::grpc_schema::parse_mode(
+            value,
+            &example,
+            crate::grpc_schema::JsonMode::Legacy.from_schema(true),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn reflection_native_example_contract_and_protojson_control() {
+        use crate::grpc_schema::{self, JsonMode};
+        let (_, pool) = reflection_profile_fixture();
+        let original = pool.get_message_by_name("ownedreflection.Input").unwrap();
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../tests/ui/fixtures/grpc-reflection-example-reference.json"
+        ))
+        .unwrap();
+        for row in fixture["rows"].as_array().unwrap() {
+            let mode = if row["jsonMode"] == "legacy" {
+                JsonMode::Legacy
+            } else {
+                JsonMode::ProtoJson
+            };
+            let body = row["body"].as_str().unwrap();
+            assert_eq!(
+                crate::grpc_example::generate(original.clone(), mode).unwrap(),
+                body
+            );
+            let parsed =
+                grpc_schema::parse_mode(original.clone(), body, mode.from_schema(true)).unwrap();
+            let hex: String = parsed
+                .encode_to_vec()
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect();
+            assert_eq!(hex, row["wireHex"].as_str().unwrap());
+            assert_eq!(
+                grpc_schema::json_mode(&parsed, mode.from_schema(true), original.clone()).unwrap(),
+                row["responseText"].as_str().unwrap()
+            );
+        }
+        let parsed = grpc_schema::parse_mode(original.clone(), r#"{"number":7,"flag":true,"real":1.5,"text":"owned","data":"AP+A","wide":"9007199254740993","unsignedWide":"18446744073709551615","choice":"ONE"}"#, JsonMode::ProtoJson.from_schema(true)).unwrap();
+        assert_eq!(
+            grpc_schema::json_mode(&parsed, JsonMode::ProtoJson.from_schema(true), original)
+                .unwrap(),
+            r#"{"number":7,"flag":true,"real":1.5,"text":"owned","data":"AP+A","wide":"9007199254740993","unsigned_wide":"18446744073709551615","choice":"ONE","list":[],"labels":{}}"#
+        );
     }
 
     fn assert_any_order_vectors(group: &str) {

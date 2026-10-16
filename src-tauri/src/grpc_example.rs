@@ -40,15 +40,15 @@ pub(crate) fn generate(desc: MessageDescriptor, mode: JsonMode) -> Result<String
     }
     // Validate the exact legacy sample, including oneofs and required fields,
     // before exposing an enabled Use example action.
-    let parsed = grpc_schema::parse_mode(desc.clone(), &text, JsonMode::Legacy)?;
+    let parsed = grpc_schema::parse_mode(desc.clone(), &text, JsonMode::Legacy.from_schema(true))?;
     let result = match mode {
-        JsonMode::Legacy => text,
+        JsonMode::Legacy | JsonMode::LegacyReflection => text,
         JsonMode::ProtoJson => grpc_schema::json_mode(&parsed, mode, desc.clone())?,
     };
     if result.len() > MAX_EXAMPLE {
         return Err("Rendered example exceeds 128 KiB.".into());
     }
-    grpc_schema::parse_mode(desc, &result, mode)?;
+    grpc_schema::parse_mode(desc, &result, mode.from_schema(true))?;
     Ok(result)
 }
 
@@ -84,18 +84,9 @@ fn message(desc: &MessageDescriptor, budget: &mut Budget, depth: usize) -> Resul
             let Kind::Message(entry) = field.kind() else {
                 unreachable!()
             };
-            let key = scalar(&entry.map_entry_key_field(), field.name())?;
-            let key = match key {
-                Value::String(v) => v,
-                other => other.to_string(),
-            };
-            let value = field_value(
-                &entry.map_entry_value_field(),
-                field.name(),
-                budget,
-                depth + 1,
-            )?;
-            Value::Object(Map::from_iter([(key, value)]))
+            // Root.fromDescriptor exposes map fields as repeated entry types.
+            // Samples must match the actual reflected request serializer.
+            Value::Array(vec![message(&entry, budget, depth + 1)?])
         } else {
             let value = field_value(&field, field.name(), budget, depth + 1)?;
             if field.is_list() {
@@ -104,12 +95,7 @@ fn message(desc: &MessageDescriptor, budget: &mut Budget, depth: usize) -> Resul
                 value
             }
         };
-        let name = if desc.full_name() == "google.protobuf.Value" {
-            field.json_name()
-        } else {
-            field.name()
-        };
-        result.insert(name.to_string(), value);
+        result.insert(field.name().to_string(), value);
     }
     Ok(Value::Object(result))
 }

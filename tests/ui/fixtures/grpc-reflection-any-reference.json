@@ -1,0 +1,336 @@
+{
+  "versions": {
+    "protoLoader": "0.7.13",
+    "protobufjs": "7.2.4",
+    "long": "5.3.2",
+    "reflectionClient": "0.3.0"
+  },
+  "source": "syntax=\"proto3\";package ownedreflection;import \"google/protobuf/any.proto\";import \"google/protobuf/struct.proto\";enum Flag {ZERO=0;ONE=1;}message Input {int32 number=1;string text=2;map<string,int32> labels=3;uint64 unsigned_wide=4;}service Echo {rpc AnyEcho(google.protobuf.Any) returns(google.protobuf.Any);rpc ValueEcho(google.protobuf.Value) returns(google.protobuf.Value);}",
+  "descriptorSet": "Cu4DChVnb29nbGVfcHJvdG9idWYucHJvdG8SD2dvb2dsZS5wcm90b2J1ZiImCgNBbnkSEAoIdHlwZV91cmwYASABKAkSDQoFdmFsdWUYAiABKAwiUQoGU3RydWN0EhYKBmZpZWxkcxgBIAMoCzIGRmllbGRzGi8KBkZpZWxkcxILCgNrZXkYASABKAkSFAoFdmFsdWUYAiABKAsyBVZhbHVlOgI4ASL/AQoFVmFsdWUSKgoKbnVsbF92YWx1ZRgBIAEoDjIJTnVsbFZhbHVlSABSCW51bGxWYWx1ZRIjCgxudW1iZXJfdmFsdWUYAiABKAFIAFILbnVtYmVyVmFsdWUSIwoMc3RyaW5nX3ZhbHVlGAMgASgJSABSC3N0cmluZ1ZhbHVlEh8KCmJvb2xfdmFsdWUYBCABKAhIAFIJYm9vbFZhbHVlEisKDHN0cnVjdF92YWx1ZRgFIAEoCzIGU3RydWN0SABSC3N0cnVjdFZhbHVlEioKCmxpc3RfdmFsdWUYBiABKAsyCUxpc3RWYWx1ZUgAUglsaXN0VmFsdWVCBgoEa2luZCIiCglMaXN0VmFsdWUSFQoGdmFsdWVzGAEgAygLMgVWYWx1ZSobCglOdWxsVmFsdWUSDgoKTlVMTF9WQUxVRRAAYgZwcm90bzMK3gIKFW93bmVkcmVmbGVjdGlvbi5wcm90bxIPb3duZWRyZWZsZWN0aW9uGhVnb29nbGVfcHJvdG9idWYucHJvdG8ifgoFSW5wdXQSDgoGbnVtYmVyGAEgASgFEgwKBHRleHQYAiABKAkSFgoGbGFiZWxzGAMgAygLMgZMYWJlbHMSFQoNdW5zaWduZWRfd2lkZRgEIAEoBBooCgZMYWJlbHMSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgFOgI4ASoZCgRGbGFnEggKBFpFUk8QABIHCgNPTkUQATJ6CgRFY2hvEjUKB0FueUVjaG8SFC5nb29nbGUucHJvdG9idWYuQW55GhQuZ29vZ2xlLnByb3RvYnVmLkFueRI7CglWYWx1ZUVjaG8SFi5nb29nbGUucHJvdG9idWYuVmFsdWUaFi5nb29nbGUucHJvdG9idWYuVmFsdWViBnByb3RvMw==",
+  "rows": [
+    {
+      "label": "target:ownedreflection.Input-file",
+      "profile": "file",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedreflection.Input\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "wireHex": "0a1b74797065732f6f776e65647265666c656374696f6e2e496e707574120b080012056f776e65642000",
+      "json": "{\"type_url\":\"types/ownedreflection.Input\",\"value\":{\"0\":8,\"1\":0,\"2\":18,\"3\":5,\"4\":111,\"5\":119,\"6\":110,\"7\":101,\"8\":100,\"9\":32,\"10\":0}}"
+    },
+    {
+      "label": "target:ownedreflection.Input-reflection",
+      "profile": "reflection",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedreflection.Input\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "wireHex": "0a1b74797065732f6f776e65647265666c656374696f6e2e496e707574120b080012056f776e65642000",
+      "json": "{\"type_url\":\"types/ownedreflection.Input\",\"value\":{\"0\":8,\"1\":0,\"2\":18,\"3\":5,\"4\":111,\"5\":119,\"6\":110,\"7\":101,\"8\":100,\"9\":32,\"10\":0}}"
+    },
+    {
+      "label": "target:Input-file",
+      "profile": "file",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/Input\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "wireHex": "0a0b74797065732f496e707574120b080012056f776e65642000",
+      "json": "{\"type_url\":\"types/Input\",\"value\":{\"0\":8,\"1\":0,\"2\":18,\"3\":5,\"4\":111,\"5\":119,\"6\":110,\"7\":101,\"8\":100,\"9\":32,\"10\":0}}"
+    },
+    {
+      "label": "target:Input-reflection",
+      "profile": "reflection",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/Input\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "wireHex": "0a0b74797065732f496e707574120b080012056f776e65642000",
+      "json": "{\"type_url\":\"types/Input\",\"value\":{\"0\":8,\"1\":0,\"2\":18,\"3\":5,\"4\":111,\"5\":119,\"6\":110,\"7\":101,\"8\":100,\"9\":32,\"10\":0}}"
+    },
+    {
+      "label": "target:ownedreflection.Input.Labels-file",
+      "profile": "file",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedreflection.Input.Labels\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "wireHex": "12020102",
+      "json": "{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}"
+    },
+    {
+      "label": "target:ownedreflection.Input.Labels-reflection",
+      "profile": "reflection",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedreflection.Input.Labels\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "wireHex": "0a2274797065732f6f776e65647265666c656374696f6e2e496e7075742e4c6162656c7312090a056f776e65641000",
+      "json": "{\"type_url\":\"types/ownedreflection.Input.Labels\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100,\"7\":16,\"8\":0}}"
+    },
+    {
+      "label": "target:Input.Labels-file",
+      "profile": "file",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/Input.Labels\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "wireHex": "12020102",
+      "json": "{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}"
+    },
+    {
+      "label": "target:Input.Labels-reflection",
+      "profile": "reflection",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/Input.Labels\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "wireHex": "0a1274797065732f496e7075742e4c6162656c7312090a056f776e65641000",
+      "json": "{\"type_url\":\"types/Input.Labels\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100,\"7\":16,\"8\":0}}"
+    },
+    {
+      "label": "target:Labels-file",
+      "profile": "file",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/Labels\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "wireHex": "12020102",
+      "json": "{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}"
+    },
+    {
+      "label": "target:Labels-reflection",
+      "profile": "reflection",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/Labels\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "wireHex": "0a0c74797065732f4c6162656c7312090a056f776e65641000",
+      "json": "{\"type_url\":\"types/Labels\",\"value\":{\"0\":10,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100,\"7\":16,\"8\":0}}"
+    },
+    {
+      "label": "target:google.protobuf.Value-file",
+      "profile": "file",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/google.protobuf.Value\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "wireHex": "0a1b74797065732f676f6f676c652e70726f746f6275662e56616c756512071a056f776e6564",
+      "json": "{\"type_url\":\"types/google.protobuf.Value\",\"value\":{\"0\":26,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}"
+    },
+    {
+      "label": "target:google.protobuf.Value-reflection",
+      "profile": "reflection",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/google.protobuf.Value\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "wireHex": "0a1b74797065732f676f6f676c652e70726f746f6275662e56616c756512071a056f776e6564",
+      "json": "{\"type_url\":\"types/google.protobuf.Value\",\"value\":{\"0\":26,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}"
+    },
+    {
+      "label": "target:Value-file",
+      "profile": "file",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/Value\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "wireHex": "0a0b74797065732f56616c756512071a056f776e6564",
+      "json": "{\"type_url\":\"types/Value\",\"value\":{\"0\":26,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}"
+    },
+    {
+      "label": "target:Value-reflection",
+      "profile": "reflection",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/Value\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "wireHex": "0a0b74797065732f56616c756512071a056f776e6564",
+      "json": "{\"type_url\":\"types/Value\",\"value\":{\"0\":26,\"1\":5,\"2\":111,\"3\":119,\"4\":110,\"5\":101,\"6\":100}}"
+    },
+    {
+      "label": "target:google.protobuf.Value.stringValue-file",
+      "profile": "file",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/google.protobuf.Value.stringValue\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "target:google.protobuf.Value.stringValue-reflection",
+      "profile": "reflection",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/google.protobuf.Value.stringValue\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "wireHex": "12020102",
+      "json": "{\"value\":{\"0\":1,\"1\":2}}"
+    },
+    {
+      "label": "target:google.protobuf.Value.string_value-file",
+      "profile": "file",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/google.protobuf.Value.string_value\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "wireHex": "12020102",
+      "json": "{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}"
+    },
+    {
+      "label": "target:google.protobuf.Value.string_value-reflection",
+      "profile": "reflection",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/google.protobuf.Value.string_value\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "target:google.protobuf.Any.value-file",
+      "profile": "file",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/google.protobuf.Any.value\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "target:google.protobuf.Any.value-reflection",
+      "profile": "reflection",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/google.protobuf.Any.value\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "target:ownedreflection.Echo-file",
+      "profile": "file",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedreflection.Echo\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "target:ownedreflection.Echo-reflection",
+      "profile": "reflection",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedreflection.Echo\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "target:ownedreflection.Echo.AnyEcho-file",
+      "profile": "file",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedreflection.Echo.AnyEcho\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "target:ownedreflection.Echo.AnyEcho-reflection",
+      "profile": "reflection",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedreflection.Echo.AnyEcho\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "target:ownedreflection.Flag-file",
+      "profile": "file",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedreflection.Flag\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "target:ownedreflection.Flag-reflection",
+      "profile": "reflection",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedreflection.Flag\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "target:ownedreflection.Missing-file",
+      "profile": "file",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedreflection.Missing\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "wireHex": "12020102",
+      "json": "{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}"
+    },
+    {
+      "label": "target:ownedreflection.Missing-reflection",
+      "profile": "reflection",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/ownedreflection.Missing\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "wireHex": "12020102",
+      "json": "{\"value\":{\"0\":1,\"1\":2}}"
+    },
+    {
+      "label": "target:google.protobuf.Any.insomnium_scalar_1-file",
+      "profile": "file",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/google.protobuf.Any.insomnium_scalar_1\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "wireHex": "12020102",
+      "json": "{\"type_url\":\"\",\"value\":{\"0\":1,\"1\":2}}"
+    },
+    {
+      "label": "target:google.protobuf.Any.insomnium_scalar_1-reflection",
+      "profile": "reflection",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/google.protobuf.Any.insomnium_scalar_1\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "wireHex": "12020102",
+      "json": "{\"value\":{\"0\":1,\"1\":2}}"
+    },
+    {
+      "label": "target:-file",
+      "profile": "file",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "wireHex": "0a0674797065732f120412020102",
+      "json": "{\"type_url\":\"types/\",\"value\":{\"0\":18,\"1\":2,\"2\":1,\"3\":2}}"
+    },
+    {
+      "label": "target:-reflection",
+      "profile": "reflection",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "wireHex": "0a0674797065732f120412020102",
+      "json": "{\"type_url\":\"types/\",\"value\":{\"0\":18,\"1\":2,\"2\":1,\"3\":2}}"
+    },
+    {
+      "label": "target:.-file",
+      "profile": "file",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/.\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "target:.-reflection",
+      "profile": "reflection",
+      "name": "google.protobuf.Any",
+      "body": "{\"@type\":\"types/.\",\"text\":\"owned\",\"key\":\"owned\",\"value\":[1,2],\"number\":0,\"unsigned_wide\":\"0\",\"string_value\":\"owned\",\"stringValue\":\"owned\"}",
+      "error": "TypeError: type.fromObject is not a function. (In 'type.fromObject(object)', 'type.fromObject' is undefined)"
+    },
+    {
+      "label": "value:stringValue-file",
+      "profile": "file",
+      "name": "google.protobuf.Value",
+      "body": "{\"stringValue\":\"owned\"}",
+      "wireHex": "1a056f776e6564",
+      "json": "{\"stringValue\":\"owned\",\"kind\":\"stringValue\"}"
+    },
+    {
+      "label": "value:stringValue-reflection",
+      "profile": "reflection",
+      "name": "google.protobuf.Value",
+      "body": "{\"stringValue\":\"owned\"}",
+      "wireHex": "",
+      "json": "{}"
+    },
+    {
+      "label": "value:string_value-file",
+      "profile": "file",
+      "name": "google.protobuf.Value",
+      "body": "{\"string_value\":\"owned\"}",
+      "wireHex": "",
+      "json": "{}"
+    },
+    {
+      "label": "value:string_value-reflection",
+      "profile": "reflection",
+      "name": "google.protobuf.Value",
+      "body": "{\"string_value\":\"owned\"}",
+      "wireHex": "1a056f776e6564",
+      "json": "{\"string_value\":\"owned\"}"
+    },
+    {
+      "label": "value:numberValue-file",
+      "profile": "file",
+      "name": "google.protobuf.Value",
+      "body": "{\"numberValue\":0}",
+      "wireHex": "110000000000000000",
+      "json": "{\"numberValue\":0,\"kind\":\"numberValue\"}"
+    },
+    {
+      "label": "value:numberValue-reflection",
+      "profile": "reflection",
+      "name": "google.protobuf.Value",
+      "body": "{\"numberValue\":0}",
+      "wireHex": "",
+      "json": "{}"
+    },
+    {
+      "label": "value:number_value-file",
+      "profile": "file",
+      "name": "google.protobuf.Value",
+      "body": "{\"number_value\":0}",
+      "wireHex": "",
+      "json": "{}"
+    },
+    {
+      "label": "value:number_value-reflection",
+      "profile": "reflection",
+      "name": "google.protobuf.Value",
+      "body": "{\"number_value\":0}",
+      "wireHex": "110000000000000000",
+      "json": "{\"number_value\":0}"
+    }
+  ]
+}
