@@ -129,3 +129,9 @@ export function postmanHeaders(headers = []) {
     disabled: !!h.disabled,
   }));
 }
+/** Postman v2.1 descriptions may be text, a content object, or null.
+ * @param {any} description @returns {string} */
+export function postmanDescription(description) {
+  if (typeof description === "string") return description;
+  return typeof description?.content === "string" ? description.content : "";
+}

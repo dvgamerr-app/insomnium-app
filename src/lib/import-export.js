@@ -19,6 +19,7 @@ import {
   postmanBody,
   postmanVariables,
   postmanHeaders,
+  postmanDescription,
 } from "./postman-import.js";
 
 /** Native repository IDs identify app-data on this machine, not portable resources.
@@ -171,6 +172,7 @@ export function parseImport(text) {
       _type: "workspace",
       parentId: null,
       name: source.info.name || "Postman Collection",
+      description: postmanDescription(source.info.description),
       scope: "collection",
       _postmanSource: source,
     });
@@ -190,12 +192,17 @@ export function parseImport(text) {
       for (const item of items) {
         if (Array.isArray(item.item)) {
           const folderId = id("fld");
+          // Descendants have their own resources; archive only this folder's
+          // metadata so nested imports do not duplicate every child subtree.
+          const { item: _children, ...folderSource } = item;
           resources.push({
             _id: folderId,
             _type: "request_group",
             parentId,
             name: item.name,
+            description: postmanDescription(item.description),
             environment: postmanVariables(item.variable),
+            _postmanSource: structuredClone(folderSource),
           });
           visit(
             item.item,
@@ -273,10 +280,7 @@ export function parseImport(text) {
               ...postmanUrl(req.url),
               authentication,
               headers: postmanHeaders(req.header),
-              description:
-                typeof req.description === "string"
-                  ? req.description
-                  : req.description?.content || "",
+              description: postmanDescription(req.description),
               body: postmanBody(req.body),
               _postmanSource: item,
               _migrationIssues:

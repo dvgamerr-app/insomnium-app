@@ -914,7 +914,7 @@ export async function sendPayload(requestId, payloadId) {
             String(snapshot.value || ""),
             run.controller.signal,
             resolveResponse,
-            {pluginServices:workspacePluginServices(data,{requestId,runId:run.id},resolveResponse)},
+            {messageMimeType:snapshot.mode,pluginServices:workspacePluginServices(data,{requestId,runId:run.id},resolveResponse)},
           );
     run.controller.signal.throwIfAborted();
     if (
@@ -1220,7 +1220,7 @@ export async function execute(
                 String(payload.value || ""),
                 controller.signal,
                 resolveResponse,
-                {pluginServices:workspacePluginServices(dataSnapshot,{requestId,runId},resolveResponse)},
+                {messageMimeType:payload.mode,pluginServices:workspacePluginServices(dataSnapshot,{requestId,runId},resolveResponse)},
               );
         if (payload.mode === "application/json") JSON.parse(value);
         controller.signal.throwIfAborted();

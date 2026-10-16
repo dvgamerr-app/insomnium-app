@@ -204,7 +204,7 @@ export async function renderOAuthRequest(data, request, signal, options = {}) {
 /** Render one message with the connection owner's cancellation signal.
  * @param {Record<string,any>} data @param {Record<string,any>} request @param {string} value @param {AbortSignal} signal
  * @param {(args:any[],signal:AbortSignal)=>any|Promise<any>} responseResolver
- * @param {PluginRenderOptions} [options] */
+ * @param {PluginRenderOptions&{messageMimeType?:string}} [options] */
 export async function renderMessageValue(
   data,
   request,
@@ -214,6 +214,11 @@ export async function renderMessageValue(
   options = {},
 ) {
   signal.throwIfAborted();
+  if (request.settingDisableRenderRequestBody) {
+    // Match HTTP body skipping without starting workers or interactive tags.
+    checkTemplateValue(value);
+    return value;
+  }
   const helperOptions = capturePluginRenderOptions(options);
   const session = createRequestRenderSession(
     {},
@@ -236,7 +241,7 @@ export async function renderMessageValue(
     },
   );
   try {
-    if (request._type === "grpc_request" && !request.settingDisableRenderRequestBody)
+    if (request._type === "grpc_request" || isJsonBodyMediaType(options.messageMimeType))
       return await session.renderValue(value,{path:"payload.value",jsonPaths:["payload.value"]});
     return await session.render(value, "payload.value");
   } finally {
