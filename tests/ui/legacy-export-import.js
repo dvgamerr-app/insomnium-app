@@ -75,6 +75,15 @@ async function runImports(page, output, options = {}) {
   assert.ok(raw.headers.some((/** @type {any} */ h) => h.name === "Content-Type" && h.value === "application/octet-stream" && !h.disabled));
   for (const input of inputs) assert.equal(imported(data,input.name).body.text,input.body);
   assert.equal(imported(data,"Owned folder").environment.host,"https://owned.invalid");
+  await page.getByRole('button',{name:'Import collection',exact:true}).click();
+  const invalidDialog=page.getByRole('dialog');
+  await invalidDialog.getByLabel('Import collection or cURL commands',{exact:true}).fill(JSON.stringify({info:{name:'Refused partial collection'},item:[{name:'Valid prefix',request:'https://owned.invalid/prefix'},{name:'Malformed folder',item:{}}]}));
+  await invalidDialog.getByRole('button',{name:'Review import',exact:true}).click();
+  await invalidDialog.getByText('Error: Postman folder items must be an array.',{exact:true}).waitFor();
+  assert.equal(await invalidDialog.getByRole('button',{name:'Import',exact:true}).count(),0);
+  assert.ok(JSON.stringify((await stored()).resources)===JSON.stringify(data.resources),'Malformed review must leave resources unchanged');
+  await page.keyboard.press('Escape');
+  await invalidDialog.waitFor({state:'detached'});
   const receipt = {status:"passed",renderingMode:options.read ? "native-hidden" : "headless",mockedIpc:false,scope:"Actual UI review/apply/reload and storage; no file chooser or network",formats:[1,2,"hoppscotch-v2","har","postman"],bodyTextPreserved:true,folderEnvironment:true,harSourceAndCookies:true,postmanActiveBodyMode:true};
   await Bun.write(output + "/import-acceptance.json",JSON.stringify(receipt,null,2));
   return receipt;
