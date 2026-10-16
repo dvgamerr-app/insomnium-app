@@ -6,6 +6,8 @@ import { id, initialData, newRequest, protocolFor } from "./model.js";
 import { parseLegacyFiles } from "./legacy-import.js";
 import { legacyV1Resources } from "./legacy-v1-import.js";
 import { hoppscotchResources } from "./hoppscotch-import.js";
+import { wsdlResources } from './wsdl-import.js';
+import {selectWsdlRoot} from './wsdl-documents.js';
 import {harResources} from "./har-import.js";
 import { legacyResponseAssetRequests, convertLegacyResponseHistory } from "./legacy-response-history.js";
 import { legacyWebSocketAssetRequests, convertLegacyWebSocketHistory } from "./legacy-websocket-history.js";
@@ -130,12 +132,13 @@ function importedResponseHistory(resources, assets = {}) {
   return { history, warnings };
 }
 
-/** @param {string} text */
-export function parseImport(text) {
+/** @param {string} text @param {{name?:string,documents?:import('./wsdl-documents.js').WsdlDocument[]}} [options] */
+export function parseImport(text,options = {}) {
   if (new TextEncoder().encode(text).byteLength > 64 * 1024 * 1024)
     throw new Error("Collection import exceeds 64 MiB. The source was not changed.");
   let source;
   if (isCurlImport(text)) source = { resources: curlResources(text) };
+  else if (text.trimStart().startsWith('<')) source = {resources:wsdlResources(text,options)};
   else {
     try {
       source = JSON.parse(text);
@@ -602,7 +605,7 @@ export async function pickImport() {
     filters: [
       {
         name: "API collections / legacy databases",
-        extensions: ["json", "yaml", "yml", "har", "db", "curl", "txt"],
+        extensions: ["json", "yaml", "yml", "har", "db", "curl", "txt", "wsdl", "xml", "xsd"],
       },
     ],
   });
@@ -623,9 +626,19 @@ export async function pickImport() {
     );
     return parseImport(JSON.stringify(parseLegacyFiles(files)));
   }
+  if (path.length > 1 && path.every(p=>/\.(wsdl|xsd|xml)$/i.test(p))) {
+    const normalized = path.map(p=>p.replaceAll('\\','/'));
+    let directory = normalized[0].slice(0,normalized[0].lastIndexOf('/'));
+    while (directory && !normalized.every(p=>p.startsWith(directory+'/')))
+      directory = directory.slice(0,directory.lastIndexOf('/'));
+    if (!directory) throw new Error('Select WSDL dependencies from a common local directory tree.');
+    const files = await Promise.all(path.map(async (p,index)=>({name:normalized[index].slice(directory.length+1),text:await readTextFile(p)})));
+    const selected = selectWsdlRoot(files);
+    return parseImport(selected.text,selected);
+  }
   if (path.length !== 1)
     throw new Error(
-      "Select one collection file, or select legacy .db files together.",
+      "Select one collection file, legacy .db files together, or a WSDL root with its WSDL/XSD dependencies.",
     );
   return parseImport(await readTextFile(path[0]));
 }

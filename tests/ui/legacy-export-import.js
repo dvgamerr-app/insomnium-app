@@ -3,7 +3,7 @@ import {withPreview} from "./helpers/preview-app.js";
 import {withNativeApp,poll,resourceCrudProbeIdentifier} from "./helpers/native-app.js";
 import {withResourceProbePreserved,registerResourceProbeCollection,resourceSaved} from "./helpers/resource-manager-cases.js";
 
-/** @type {{name:string,body:string,source:Record<string,any>}[]} */
+/** @type {{name:string,body:string,source:Record<string,any>,text?:string}[]} */
 const inputs = [
   {name:"Owned Postman Form",body:"",source:{info:{name:"Owned Postman collection"},item:[{name:"Owned Postman Form",request:{method:"POST",url:"https://owned.invalid/form",body:{mode:"formdata",raw:"inactive raw",urlencoded:[{key:"inactive",value:"old"}],formdata:[{key:"active",value:"new",type:"text"}]}}}]}},
   {name:"Owned HAR",body:"a=1&a=2&x=a+b",source:{log:{entries:[{comment:"Owned HAR",request:{method:"post",url:"https://owned.invalid/har?q=%2f",httpVersion:"HTTP/1.1",cookies:[{name:"owned",value:"cookie"}],queryString:[{name:"q",value:"/"}],headers:[],postData:{mimeType:"application/x-www-form-urlencoded",text:"a=1&a=2&x=a+b"}}}]}}},
@@ -18,6 +18,13 @@ inputs[2].source.headers=[{key:'X-Token',value:'parent',active:true},{key:'X-Kee
 inputs[2].source.requests[0].headers=[{key:'x-token',value:'child',active:true}];
 inputs[0].source.info.description = "Collection Ω\n**documentation**";
 inputs[0].source.item.push({name:"Owned Postman folder",description:{content:"Folder ไทย",type:"text/markdown"},variable:[{key:"folderVar",value:"owned"}],custom:{retained:true},item:[]});
+inputs.push({name:'OwnedSOAP',source:{},body:'<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><Echo xmlns="urn:owned"><value xmlns="urn:owned">string</value></Echo></soap:Body></soap:Envelope>',
+  text:`<wsdl:definitions name="Owned WSDL" targetNamespace="urn:owned" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:tns="urn:owned">
+<wsdl:types><xsd:schema targetNamespace="urn:owned" elementFormDefault="qualified"><xsd:element name="Echo"><xsd:complexType><xsd:sequence><xsd:element name="value" type="xsd:string"/></xsd:sequence></xsd:complexType></xsd:element></xsd:schema></wsdl:types>
+<wsdl:message name="Input"><wsdl:part name="parameters" element="tns:Echo"/></wsdl:message>
+<wsdl:portType name="Port"><wsdl:operation name="OwnedSOAP"><wsdl:input message="tns:Input"/></wsdl:operation></wsdl:portType>
+<wsdl:binding name="Binding" type="tns:Port"><soap:binding transport="http://schemas.xmlsoap.org/soap/http"/><wsdl:operation name="OwnedSOAP"><soap:operation soapAction="urn:echo"/><wsdl:input><soap:body use="literal"/></wsdl:input></wsdl:operation></wsdl:binding>
+<wsdl:service name="Service"><wsdl:port name="Endpoint" binding="tns:Binding"><soap:address location="https://owned.invalid/soap"/></wsdl:port></wsdl:service></wsdl:definitions>`});
 /** @param {import('playwright-core').Page} page @param {string} output
  * @param {{read?:()=>Promise<any>,onImported?:(data:any)=>void}} [options] */
 async function runImports(page, output, options = {}) {
@@ -27,7 +34,7 @@ async function runImports(page, output, options = {}) {
   for (const input of inputs) {
     await page.getByRole("button", {name:"Import collection",exact:true}).click();
     const dialog = page.getByRole("dialog");
-    await dialog.getByLabel("Import collection or cURL commands", {exact:true}).fill(JSON.stringify(input.source));
+    await dialog.getByLabel("Import collection or cURL commands", {exact:true}).fill(input.text ?? JSON.stringify(input.source));
     await dialog.getByRole("button", {name:"Review import",exact:true}).click();
     await dialog.getByRole("button", {name:"Import",exact:true}).click();
     await dialog.waitFor({state:"detached"});
@@ -84,7 +91,10 @@ async function runImports(page, output, options = {}) {
   assert.ok(JSON.stringify((await stored()).resources)===JSON.stringify(data.resources),'Malformed review must leave resources unchanged');
   await page.keyboard.press('Escape');
   await invalidDialog.waitFor({state:'detached'});
-  const receipt = {status:"passed",renderingMode:options.read ? "native-hidden" : "headless",mockedIpc:false,scope:"Actual UI review/apply/reload and storage; no file chooser or network",formats:[1,2,"hoppscotch-v2","har","postman"],bodyTextPreserved:true,folderEnvironment:true,harSourceAndCookies:true,postmanActiveBodyMode:true};
+  const soap = imported(data,'OwnedSOAP');
+  assert.equal(soap.headers.find((/** @type {any} */ h)=>h.name==='SOAPAction').value,'"urn:echo"');
+  assert.equal(imported(data,'Owned WSDL')._wsdlSource,inputs.at(-1)?.text);
+  const receipt = {status:"passed",renderingMode:options.read ? "native-hidden" : "headless",mockedIpc:false,scope:"Actual UI review/apply/reload and storage; no file chooser or network",formats:[1,2,"hoppscotch-v2","har","postman","wsdl-soap11"],bodyTextPreserved:true,folderEnvironment:true,harSourceAndCookies:true,postmanActiveBodyMode:true};
   await Bun.write(output + "/import-acceptance.json",JSON.stringify(receipt,null,2));
   return receipt;
 }
