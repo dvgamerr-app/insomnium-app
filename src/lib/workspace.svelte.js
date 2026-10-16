@@ -621,6 +621,13 @@ function acceptWorkspaceRun() {
 const payloadRuns = new Map();
 /** @type {Map<string,Set<string>>} */
 const runnerTargets = new Map();
+/** Active run owning a suite/test, including a selected descendant.
+ * @param {string} resourceId */
+export function runnerRunOwner(resourceId) {
+  for (const suiteId of Object.keys(workspace.running))
+    if (runnerTargets.get(suiteId)?.has(resourceId)) return suiteId;
+  return null;
+}
 export async function initialize() {
   try {
     const data = await loadData();

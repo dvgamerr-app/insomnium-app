@@ -13,6 +13,8 @@
     runTests,
     stop,
     addUnitTest,
+    runnerRunOwner,
+    selectTestSuite,
     duplicate,
   } from "../workspace.svelte.js";
   import { selectedRunnerSuite, latestRunnerResult, runnerSuite } from "../runner-model.js";
@@ -39,7 +41,8 @@
         r._type === "request" && collectionIndex.get(r._id) === collectionId,
     ),
   );
-  const running = $derived(!!suite && !!workspace.running[suite._id]);
+  const runOwner = $derived(suite ? runnerRunOwner(suite._id) : null);
+  const running = $derived(!!runOwner);
   const saved = $derived(
     suite
       ? latestRunnerResult(workspace.data.resources, collectionId, suite._id)
@@ -119,7 +122,7 @@
       {#if running}<Button
           variant="danger"
           class="danger-button"
-          onclick={() => stop(suite._id)}
+          onclick={() => stop(runOwner || suite._id)}
           ><Icon name="stop" size={14} /> Stop</Button
         >
       {:else}<Button
@@ -153,6 +156,12 @@
           >Delete</Button
         >
       </div>
+    {/if}
+    {#if runOwner && runOwner !== suite._id}
+      <p class="hint padded" role="status">Running as part of
+        <Button variant="ghost" onclick={() => selectTestSuite(runOwner)}
+          >{workspace.data.resources.find((r) => r._id === runOwner)?.name || "parent suite"}</Button>.
+      </p>
     {/if}
     {#if workspace.runnerErrors[suite._id]}<Feedback
         as="div"

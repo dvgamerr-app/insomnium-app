@@ -1,5 +1,10 @@
 # Migration status
 
+## Descendant Runner UI shares active run ownership — 2026-10-16
+
+Source parent ef4db16c. Added runnerRunOwner lookup backed by live workspace.running and captured runnerTargets. RunnerPane/Sidebar now show Stop for selected descendants of a running suite and route it to the owning run; child controls use the same running state. Child pane explains the owning suite and links back to it. Previously selecting a child while the parent ran showed an idle pane and could only discover overlap through an error. Existing focused nested runner-results flow holds one pure VM timer, switches to grandchild, verifies disabled suite-name edit/owner status, stops through child pane and confirms no cancelled result publication. It then removes the synthetic hold from the fixture, reloads and completes the original nested six-test/result/layout/restoration checks. Final scenario exits0 in~5.4s; build exits0; compiler88293 exits0/0errors/0warnings; scoped diff passes. No new scripts/native build/profile/network/live handles. This verifies browser worker cancellation/fresh recovery, not native HTTP/callback drain/OS-close/provider/platform or full migration. Those original PLAN/PARITY gates remain open. /compact unavailable; handoff recorded here.
+
+
 ## Nested Runner suite execution — 2026-10-16
 
 Source parent 613a83e4. Runner model now builds descendant suite trees and captures every included resource's parent identity. VM program emits nested Mocha describe groups, preserving full titles and per-test request defaults; child suites run before parent tests like archived insomnia-testing/src/generate/generate.ts. Shared runner-suite validation counts all descendant tests before worker submission/VM allocation, rejects cycles/depth>32/suites>1000/tests>1000, and both watchdogs budget the complete tree. Workspace tracks descendant suite/test targets, refuses overlapping parent/child runs and checks captured parents before publishing results. RunnerPane Run Tests enables for descendant tests even when the root has no direct tests.

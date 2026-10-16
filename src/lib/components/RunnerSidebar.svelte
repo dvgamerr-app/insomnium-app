@@ -5,6 +5,7 @@
     addTestSuite,
     selectTestSuite,
     stop,
+    runnerRunOwner,
   } from "../workspace.svelte.js";
   import { runnerSuites, selectedRunnerSuite } from "../runner-model.js";
   import Icon from "./Icon.svelte";
@@ -26,6 +27,7 @@
   >
   <nav aria-label="Test suites">
     {#each suites as suite (suite._id)}
+      {@const runOwner = runnerRunOwner(suite._id)}
       <div class:active={suite._id === selected?._id}>
         <Button
           variant="ghost"
@@ -33,13 +35,13 @@
           aria-current={suite._id === selected?._id ? "page" : undefined}
           onclick={() => selectTestSuite(suite._id)}>{suite.name}</Button
         >
-        {#if workspace.running[suite._id]}
+        {#if runOwner}
           <Button
             variant="ghost"
             class="icon-button"
             aria-label={"Stop " + suite.name}
             title="Stop tests"
-            onclick={() => stop(suite._id)}
+            onclick={() => stop(runOwner)}
             ><Icon name="stop" size={14} /></Button
           >
         {/if}

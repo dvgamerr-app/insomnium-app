@@ -28,6 +28,7 @@ export async function exerciseRunnerResults(page, output, nested = false) {
   );
   const data = structuredClone(before),
     now = Date.now();
+  const hold = "await new Promise(resolve=>setTimeout(resolve,10000));";
   data.resources.push({
     _id: suiteId,
     _type: "unit_test_suite",
@@ -59,7 +60,7 @@ export async function exerciseRunnerResults(page, output, nested = false) {
       requestId: nested && i === 0 ? before.activeRequestId : null,
       code:
         i === 0
-          ? "expect(2+2).to.equal(4);" + (nested ? "expect(insomnia.activeRequestId).to.equal(" + JSON.stringify(before.activeRequestId) + ");" : "")
+          ? (nested ? hold : "") + "expect(2+2).to.equal(4);" + (nested ? "expect(insomnia.activeRequestId).to.equal(" + JSON.stringify(before.activeRequestId) + ");" : "")
           : `expect(${JSON.stringify(actual)}).to.deep.equal(${JSON.stringify(expected)});`,
       created: now,
       modified: now,
@@ -91,6 +92,22 @@ export async function exerciseRunnerResults(page, output, nested = false) {
       "Owned executed results probe",
     );
     await scope.getByRole("button", { name: "Run Tests", exact: true }).click();
+    if (nested) {
+      await scope.getByRole("button",{name:"Stop",exact:true}).waitFor();
+      await page.getByRole("navigation",{name:"Test suites",exact:true}).getByRole("button",{name:"Owned grandchild",exact:true}).click();
+      assert.equal(await scope.getByRole("textbox",{name:"Test suite name",exact:true}).isDisabled(),true);
+      await scope.getByRole("status").filter({hasText:"Running as part of"}).waitFor();
+      await scope.getByRole("button",{name:"Stop",exact:true}).click();
+      await scope.getByRole("button",{name:"Run Tests",exact:true}).waitFor();
+      const cancelled = await saved();
+      assert.equal(cancelled.resources.filter((/** @type {any} */ r) => r._type === "unit_test_result" && r.unitTestSuiteId === suiteId).length,0);
+      cancelled.resources.find((/** @type {any} */ r) => r._id === "ut_runner_results_owned_0").code = data.resources.find((/** @type {any} */ r) => r._id === "ut_runner_results_owned_0").code.slice(hold.length);
+      cancelled.resources.find((/** @type {any} */ r) => r._type === "workspace_meta" && r.parentId === collectionId).activeUnitTestSuiteId = suiteId;
+      await page.evaluate(({key,data}) => localStorage.setItem(key,JSON.stringify(data)),{key,data:cancelled});
+      await page.reload();
+      await page.getByRole("button",{name:"Tests",exact:true}).click();
+      await scope.getByRole("button",{name:"Run Tests",exact:true}).click();
+    }
     await page.waitForFunction(
       ({ key, suiteId }) =>
         JSON.parse(localStorage.getItem(key) || "{}").resources?.some(
