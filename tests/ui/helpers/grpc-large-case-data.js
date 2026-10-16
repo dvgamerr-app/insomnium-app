@@ -1,5 +1,10 @@
 /** Authored native case inputs and independent protobuf/preview expectations. */
 import {
+  grpcBytesArraylikeCase,
+  grpcBytesArraylikeModes,
+  grpcBytesArraylikeProtos,
+} from "./grpc-bytes-arraylike-case-data.js";
+import {
   grpcReflectionArrivalCase,
   grpcReflectionArrivalModes,
 } from "./grpc-reflection-arrival-case-data.js";
@@ -23,11 +28,13 @@ import {
   grpcAnyOrderProtos,
 } from "./grpc-any-order-case-data.js";
 export const grpcLargeAdditionalProtos = [
+  ...grpcBytesArraylikeProtos,
   ...grpcAnyTargetProtos,
   ...grpcAnyOrderProtos,
   ...grpcReflectionProfileProtos,
 ];
 export const grpcLargeModes = [
+  ...grpcBytesArraylikeModes,
   ...grpcReflectionArrivalModes,
   ...grpcReflectionServiceModes,
   ...grpcReflectionProfileModes,
@@ -174,6 +181,7 @@ function varint(value) {
 }
 /** @param {string} mode */
 export function grpcLargeCase(mode) {
+  if (mode.startsWith("legacy-arraylike-")) return grpcBytesArraylikeCase(mode);
   if (mode.startsWith("legacy-arrival-"))
     return grpcReflectionArrivalCase(mode);
   if (!grpcLargeModes.includes(mode))

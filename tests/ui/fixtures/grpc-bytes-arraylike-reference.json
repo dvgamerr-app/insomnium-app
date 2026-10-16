@@ -1,0 +1,865 @@
+{
+  "versions": {
+    "protobufjs": "7.2.4",
+    "protoLoader": "0.7.13"
+  },
+  "scope": "Actual pinned loader requestSerialize/responseDeserialize; safe finite-size array-like controls and zero-wrapped lengths, no large allocation required",
+  "source": "syntax=\"proto3\";package ownedarraylike;message Envelope {bytes data=1;repeated bytes items=2;Envelope child=3;}service Echo {rpc Call(Envelope) returns(Envelope);}",
+  "descriptorSet": "CrQBChRvd25lZGFycmF5bGlrZS5wcm90bxIOb3duZWRhcnJheWxpa2UiQAoIRW52ZWxvcGUSDAoEZGF0YRgBIAEoDBINCgVpdGVtcxgCIAMoDBIXCgVjaGlsZBgDIAEoCzIIRW52ZWxvcGUyQgoERWNobxI6CgRDYWxsEhgub3duZWRhcnJheWxpa2UuRW52ZWxvcGUaGC5vd25lZGFycmF5bGlrZS5FbnZlbG9wZWIGcHJvdG8z",
+  "rows": [
+    {
+      "profile": "file",
+      "label": "zero:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":0}}",
+      "wireHex": "0a00",
+      "json": "{\"items\":[],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "zero:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":0}]}",
+      "wireHex": "1200",
+      "json": "{\"items\":[{}],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "zero:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":0}}}",
+      "wireHex": "1a020a00",
+      "json": "{\"items\":[],\"data\":{},\"child\":{\"items\":[],\"data\":{},\"child\":null}}"
+    },
+    {
+      "profile": "file",
+      "label": "fraction:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":1.9}}",
+      "wireHex": "0a0141",
+      "json": "{\"items\":[],\"data\":{\"0\":65},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "fraction:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":1.9}]}",
+      "wireHex": "120141",
+      "json": "{\"items\":[{\"0\":65}],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "fraction:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":1.9}}}",
+      "wireHex": "1a030a0141",
+      "json": "{\"items\":[],\"data\":{},\"child\":{\"items\":[],\"data\":{\"0\":65},\"child\":null}}"
+    },
+    {
+      "profile": "file",
+      "label": "small:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":2}}",
+      "wireHex": "0a024142",
+      "json": "{\"items\":[],\"data\":{\"0\":65,\"1\":66},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "small:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":2}]}",
+      "wireHex": "12024142",
+      "json": "{\"items\":[{\"0\":65,\"1\":66}],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "small:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":2}}}",
+      "wireHex": "1a040a024142",
+      "json": "{\"items\":[],\"data\":{},\"child\":{\"items\":[],\"data\":{\"0\":65,\"1\":66},\"child\":null}}"
+    },
+    {
+      "profile": "file",
+      "label": "uint32-wrap:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":4294967296}}",
+      "wireHex": "0a00",
+      "json": "{\"items\":[],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "uint32-wrap:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":4294967296}]}",
+      "wireHex": "1200",
+      "json": "{\"items\":[{}],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "uint32-wrap:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":4294967296}}}",
+      "wireHex": "1a020a00",
+      "json": "{\"items\":[],\"data\":{},\"child\":{\"items\":[],\"data\":{},\"child\":null}}"
+    },
+    {
+      "profile": "file",
+      "label": "double-wrap:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":8589934592}}",
+      "wireHex": "0a00",
+      "json": "{\"items\":[],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "double-wrap:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":8589934592}]}",
+      "wireHex": "1200",
+      "json": "{\"items\":[{}],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "double-wrap:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":8589934592}}}",
+      "wireHex": "1a020a00",
+      "json": "{\"items\":[],\"data\":{},\"child\":{\"items\":[],\"data\":{},\"child\":null}}"
+    },
+    {
+      "profile": "file",
+      "label": "wrap-fraction:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":4294967296.5}}",
+      "wireHex": "0a00",
+      "json": "{\"items\":[],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "wrap-fraction:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":4294967296.5}]}",
+      "wireHex": "1200",
+      "json": "{\"items\":[{}],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "wrap-fraction:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":4294967296.5}}}",
+      "wireHex": "1a020a00",
+      "json": "{\"items\":[],\"data\":{},\"child\":{\"items\":[],\"data\":{},\"child\":null}}"
+    },
+    {
+      "profile": "file",
+      "label": "uint64-wrap:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":18446744073709551616}}",
+      "wireHex": "0a00",
+      "json": "{\"items\":[],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "uint64-wrap:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":18446744073709551616}]}",
+      "wireHex": "1200",
+      "json": "{\"items\":[{}],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "uint64-wrap:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":18446744073709551616}}}",
+      "wireHex": "1a020a00",
+      "json": "{\"items\":[],\"data\":{},\"child\":{\"items\":[],\"data\":{},\"child\":null}}"
+    },
+    {
+      "profile": "file",
+      "label": "positive-overflow:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":1e999}}",
+      "wireHex": "0a00",
+      "json": "{\"items\":[],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "positive-overflow:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":1e999}]}",
+      "wireHex": "1200",
+      "json": "{\"items\":[{}],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "positive-overflow:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":1e999}}}",
+      "wireHex": "1a020a00",
+      "json": "{\"items\":[],\"data\":{},\"child\":{\"items\":[],\"data\":{},\"child\":null}}"
+    },
+    {
+      "profile": "file",
+      "label": "string-infinity:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":\"Infinity\"}}",
+      "wireHex": "0a00",
+      "json": "{\"items\":[],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "string-infinity:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":\"Infinity\"}]}",
+      "wireHex": "1200",
+      "json": "{\"items\":[{}],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "string-infinity:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":\"Infinity\"}}}",
+      "wireHex": "1a020a00",
+      "json": "{\"items\":[],\"data\":{},\"child\":{\"items\":[],\"data\":{},\"child\":null}}"
+    },
+    {
+      "profile": "file",
+      "label": "string-wrap:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":\"4294967296\"}}",
+      "wireHex": "0a00",
+      "json": "{\"items\":[],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "string-wrap:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":\"4294967296\"}]}",
+      "wireHex": "1200",
+      "json": "{\"items\":[{}],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "string-wrap:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":\"4294967296\"}}}",
+      "wireHex": "1a020a00",
+      "json": "{\"items\":[],\"data\":{},\"child\":{\"items\":[],\"data\":{},\"child\":null}}"
+    },
+    {
+      "profile": "file",
+      "label": "zero-array:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":[]}}",
+      "wireHex": "0a00",
+      "json": "{\"items\":[],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "zero-array:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":[]}]}",
+      "wireHex": "1200",
+      "json": "{\"items\":[{}],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "zero-array:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":[]}}}",
+      "wireHex": "1a020a00",
+      "json": "{\"items\":[],\"data\":{},\"child\":{\"items\":[],\"data\":{},\"child\":null}}"
+    },
+    {
+      "profile": "file",
+      "label": "one-array:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":[1]}}",
+      "wireHex": "0a0141",
+      "json": "{\"items\":[],\"data\":{\"0\":65},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "one-array:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":[1]}]}",
+      "wireHex": "120141",
+      "json": "{\"items\":[{\"0\":65}],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "one-array:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":[1]}}}",
+      "wireHex": "1a030a0141",
+      "json": "{\"items\":[],\"data\":{},\"child\":{\"items\":[],\"data\":{\"0\":65},\"child\":null}}"
+    },
+    {
+      "profile": "file",
+      "label": "negative:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":-1}}",
+      "wireHex": "",
+      "json": "{\"items\":[],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "negative:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":-1}]}",
+      "wireHex": "",
+      "json": "{\"items\":[],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "negative:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":-1}}}",
+      "wireHex": "1a00",
+      "json": "{\"items\":[],\"data\":{},\"child\":{\"items\":[],\"data\":{},\"child\":null}}"
+    },
+    {
+      "profile": "file",
+      "label": "negative-overflow:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":-1e999}}",
+      "wireHex": "",
+      "json": "{\"items\":[],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "negative-overflow:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":-1e999}]}",
+      "wireHex": "",
+      "json": "{\"items\":[],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "negative-overflow:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":-1e999}}}",
+      "wireHex": "1a00",
+      "json": "{\"items\":[],\"data\":{},\"child\":{\"items\":[],\"data\":{},\"child\":null}}"
+    },
+    {
+      "profile": "file",
+      "label": "wrapped-positive:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":4294967297}}",
+      "error": "RangeError: Range consisting of offset and length are out of bounds"
+    },
+    {
+      "profile": "file",
+      "label": "wrapped-positive:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":4294967297}]}",
+      "error": "RangeError: Range consisting of offset and length are out of bounds"
+    },
+    {
+      "profile": "file",
+      "label": "wrapped-positive:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":4294967297}}}",
+      "error": "RangeError: Range consisting of offset and length are out of bounds"
+    },
+    {
+      "profile": "file",
+      "label": "null:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":null}}",
+      "wireHex": "0a00",
+      "json": "{\"items\":[],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "null:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":null}]}",
+      "wireHex": "1200",
+      "json": "{\"items\":[{}],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "null:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":null}}}",
+      "wireHex": "1a020a00",
+      "json": "{\"items\":[],\"data\":{},\"child\":{\"items\":[],\"data\":{},\"child\":null}}"
+    },
+    {
+      "profile": "file",
+      "label": "false:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":false}}",
+      "wireHex": "0a00",
+      "json": "{\"items\":[],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "false:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":false}]}",
+      "wireHex": "1200",
+      "json": "{\"items\":[{}],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "false:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":false}}}",
+      "wireHex": "1a020a00",
+      "json": "{\"items\":[],\"data\":{},\"child\":{\"items\":[],\"data\":{},\"child\":null}}"
+    },
+    {
+      "profile": "file",
+      "label": "true:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":true}}",
+      "wireHex": "0a0141",
+      "json": "{\"items\":[],\"data\":{\"0\":65},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "true:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":true}]}",
+      "wireHex": "120141",
+      "json": "{\"items\":[{\"0\":65}],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "true:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":true}}}",
+      "wireHex": "1a030a0141",
+      "json": "{\"items\":[],\"data\":{},\"child\":{\"items\":[],\"data\":{\"0\":65},\"child\":null}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "zero:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":0}}",
+      "wireHex": "0a00",
+      "json": "{\"data\":{}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "zero:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":0}]}",
+      "wireHex": "1200",
+      "json": "{\"items\":[{}]}"
+    },
+    {
+      "profile": "reflection",
+      "label": "zero:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":0}}}",
+      "wireHex": "1a020a00",
+      "json": "{\"child\":{\"data\":{}}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "fraction:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":1.9}}",
+      "wireHex": "0a0141",
+      "json": "{\"data\":{\"0\":65}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "fraction:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":1.9}]}",
+      "wireHex": "120141",
+      "json": "{\"items\":[{\"0\":65}]}"
+    },
+    {
+      "profile": "reflection",
+      "label": "fraction:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":1.9}}}",
+      "wireHex": "1a030a0141",
+      "json": "{\"child\":{\"data\":{\"0\":65}}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "small:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":2}}",
+      "wireHex": "0a024142",
+      "json": "{\"data\":{\"0\":65,\"1\":66}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "small:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":2}]}",
+      "wireHex": "12024142",
+      "json": "{\"items\":[{\"0\":65,\"1\":66}]}"
+    },
+    {
+      "profile": "reflection",
+      "label": "small:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":2}}}",
+      "wireHex": "1a040a024142",
+      "json": "{\"child\":{\"data\":{\"0\":65,\"1\":66}}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "uint32-wrap:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":4294967296}}",
+      "wireHex": "0a00",
+      "json": "{\"data\":{}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "uint32-wrap:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":4294967296}]}",
+      "wireHex": "1200",
+      "json": "{\"items\":[{}]}"
+    },
+    {
+      "profile": "reflection",
+      "label": "uint32-wrap:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":4294967296}}}",
+      "wireHex": "1a020a00",
+      "json": "{\"child\":{\"data\":{}}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "double-wrap:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":8589934592}}",
+      "wireHex": "0a00",
+      "json": "{\"data\":{}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "double-wrap:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":8589934592}]}",
+      "wireHex": "1200",
+      "json": "{\"items\":[{}]}"
+    },
+    {
+      "profile": "reflection",
+      "label": "double-wrap:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":8589934592}}}",
+      "wireHex": "1a020a00",
+      "json": "{\"child\":{\"data\":{}}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "wrap-fraction:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":4294967296.5}}",
+      "wireHex": "0a00",
+      "json": "{\"data\":{}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "wrap-fraction:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":4294967296.5}]}",
+      "wireHex": "1200",
+      "json": "{\"items\":[{}]}"
+    },
+    {
+      "profile": "reflection",
+      "label": "wrap-fraction:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":4294967296.5}}}",
+      "wireHex": "1a020a00",
+      "json": "{\"child\":{\"data\":{}}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "uint64-wrap:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":18446744073709551616}}",
+      "wireHex": "0a00",
+      "json": "{\"data\":{}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "uint64-wrap:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":18446744073709551616}]}",
+      "wireHex": "1200",
+      "json": "{\"items\":[{}]}"
+    },
+    {
+      "profile": "reflection",
+      "label": "uint64-wrap:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":18446744073709551616}}}",
+      "wireHex": "1a020a00",
+      "json": "{\"child\":{\"data\":{}}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "positive-overflow:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":1e999}}",
+      "wireHex": "0a00",
+      "json": "{\"data\":{}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "positive-overflow:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":1e999}]}",
+      "wireHex": "1200",
+      "json": "{\"items\":[{}]}"
+    },
+    {
+      "profile": "reflection",
+      "label": "positive-overflow:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":1e999}}}",
+      "wireHex": "1a020a00",
+      "json": "{\"child\":{\"data\":{}}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "string-infinity:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":\"Infinity\"}}",
+      "wireHex": "0a00",
+      "json": "{\"data\":{}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "string-infinity:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":\"Infinity\"}]}",
+      "wireHex": "1200",
+      "json": "{\"items\":[{}]}"
+    },
+    {
+      "profile": "reflection",
+      "label": "string-infinity:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":\"Infinity\"}}}",
+      "wireHex": "1a020a00",
+      "json": "{\"child\":{\"data\":{}}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "string-wrap:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":\"4294967296\"}}",
+      "wireHex": "0a00",
+      "json": "{\"data\":{}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "string-wrap:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":\"4294967296\"}]}",
+      "wireHex": "1200",
+      "json": "{\"items\":[{}]}"
+    },
+    {
+      "profile": "reflection",
+      "label": "string-wrap:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":\"4294967296\"}}}",
+      "wireHex": "1a020a00",
+      "json": "{\"child\":{\"data\":{}}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "zero-array:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":[]}}",
+      "wireHex": "0a00",
+      "json": "{\"data\":{}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "zero-array:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":[]}]}",
+      "wireHex": "1200",
+      "json": "{\"items\":[{}]}"
+    },
+    {
+      "profile": "reflection",
+      "label": "zero-array:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":[]}}}",
+      "wireHex": "1a020a00",
+      "json": "{\"child\":{\"data\":{}}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "one-array:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":[1]}}",
+      "wireHex": "0a0141",
+      "json": "{\"data\":{\"0\":65}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "one-array:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":[1]}]}",
+      "wireHex": "120141",
+      "json": "{\"items\":[{\"0\":65}]}"
+    },
+    {
+      "profile": "reflection",
+      "label": "one-array:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":[1]}}}",
+      "wireHex": "1a030a0141",
+      "json": "{\"child\":{\"data\":{\"0\":65}}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "negative:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":-1}}",
+      "wireHex": "",
+      "json": "{}"
+    },
+    {
+      "profile": "reflection",
+      "label": "negative:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":-1}]}",
+      "wireHex": "",
+      "json": "{}"
+    },
+    {
+      "profile": "reflection",
+      "label": "negative:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":-1}}}",
+      "wireHex": "1a00",
+      "json": "{\"child\":{}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "negative-overflow:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":-1e999}}",
+      "wireHex": "",
+      "json": "{}"
+    },
+    {
+      "profile": "reflection",
+      "label": "negative-overflow:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":-1e999}]}",
+      "wireHex": "",
+      "json": "{}"
+    },
+    {
+      "profile": "reflection",
+      "label": "negative-overflow:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":-1e999}}}",
+      "wireHex": "1a00",
+      "json": "{\"child\":{}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "wrapped-positive:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":4294967297}}",
+      "error": "RangeError: Range consisting of offset and length are out of bounds"
+    },
+    {
+      "profile": "reflection",
+      "label": "wrapped-positive:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":4294967297}]}",
+      "error": "RangeError: Range consisting of offset and length are out of bounds"
+    },
+    {
+      "profile": "reflection",
+      "label": "wrapped-positive:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":4294967297}}}",
+      "error": "RangeError: Range consisting of offset and length are out of bounds"
+    },
+    {
+      "profile": "reflection",
+      "label": "null:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":null}}",
+      "wireHex": "0a00",
+      "json": "{\"data\":{}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "null:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":null}]}",
+      "wireHex": "1200",
+      "json": "{\"items\":[{}]}"
+    },
+    {
+      "profile": "reflection",
+      "label": "null:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":null}}}",
+      "wireHex": "1a020a00",
+      "json": "{\"child\":{\"data\":{}}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "false:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":false}}",
+      "wireHex": "0a00",
+      "json": "{\"data\":{}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "false:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":false}]}",
+      "wireHex": "1200",
+      "json": "{\"items\":[{}]}"
+    },
+    {
+      "profile": "reflection",
+      "label": "false:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":false}}}",
+      "wireHex": "1a020a00",
+      "json": "{\"child\":{\"data\":{}}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "true:ordinary",
+      "body": " {\"data\":{\"0\":65,\"1\":66,\"length\":true}}",
+      "wireHex": "0a0141",
+      "json": "{\"data\":{\"0\":65}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "true:repeated",
+      "body": " {\"items\":[{\"0\":65,\"1\":66,\"length\":true}]}",
+      "wireHex": "120141",
+      "json": "{\"items\":[{\"0\":65}]}"
+    },
+    {
+      "profile": "reflection",
+      "label": "true:nested",
+      "body": " {\"child\":{\"data\":{\"0\":65,\"1\":66,\"length\":true}}}",
+      "wireHex": "1a030a0141",
+      "json": "{\"child\":{\"data\":{\"0\":65}}}"
+    },
+    {
+      "profile": "file",
+      "label": "sparse:trailing-invalid",
+      "body": "{\"items\":[{\"0\":65,\"length\":1},{\"length\":-1}]}",
+      "wireHex": "120141",
+      "json": "{\"items\":[{\"0\":65}],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "sparse:leading-invalid",
+      "body": "{\"items\":[{\"length\":-1},{\"0\":65,\"length\":1}]}",
+      "error": "TypeError: undefined is not an object (evaluating 'value.length')"
+    },
+    {
+      "profile": "file",
+      "label": "sparse:middle-invalid",
+      "body": "{\"items\":[{\"0\":65,\"length\":1},{},{\"0\":66,\"length\":1}]}",
+      "error": "TypeError: undefined is not an object (evaluating 'value.length')"
+    },
+    {
+      "profile": "file",
+      "label": "sparse:all-invalid",
+      "body": "{\"items\":[{\"length\":-1},{}]}",
+      "wireHex": "",
+      "json": "{\"items\":[],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "sparse:trailing-number",
+      "body": "{\"items\":[{\"0\":65,\"length\":1},1]}",
+      "wireHex": "120141",
+      "json": "{\"items\":[{\"0\":65}],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "sparse:leading-number",
+      "body": "{\"items\":[1,{\"0\":65,\"length\":1}]}",
+      "error": "TypeError: undefined is not an object (evaluating 'value.length')"
+    },
+    {
+      "profile": "file",
+      "label": "sparse:trailing-null",
+      "body": "{\"items\":[{\"0\":65,\"length\":1},null]}",
+      "error": "TypeError: null is not an object (evaluating 'd.items[i].length')"
+    },
+    {
+      "profile": "file",
+      "label": "sparse:missing-length",
+      "body": "{\"items\":[{}]}",
+      "wireHex": "",
+      "json": "{\"items\":[],\"data\":{},\"child\":null}"
+    },
+    {
+      "profile": "reflection",
+      "label": "sparse:trailing-invalid",
+      "body": "{\"items\":[{\"0\":65,\"length\":1},{\"length\":-1}]}",
+      "wireHex": "120141",
+      "json": "{\"items\":[{\"0\":65}]}"
+    },
+    {
+      "profile": "reflection",
+      "label": "sparse:leading-invalid",
+      "body": "{\"items\":[{\"length\":-1},{\"0\":65,\"length\":1}]}",
+      "error": "TypeError: undefined is not an object (evaluating 'value.length')"
+    },
+    {
+      "profile": "reflection",
+      "label": "sparse:middle-invalid",
+      "body": "{\"items\":[{\"0\":65,\"length\":1},{},{\"0\":66,\"length\":1}]}",
+      "error": "TypeError: undefined is not an object (evaluating 'value.length')"
+    },
+    {
+      "profile": "reflection",
+      "label": "sparse:all-invalid",
+      "body": "{\"items\":[{\"length\":-1},{}]}",
+      "wireHex": "",
+      "json": "{}"
+    },
+    {
+      "profile": "reflection",
+      "label": "sparse:trailing-number",
+      "body": "{\"items\":[{\"0\":65,\"length\":1},1]}",
+      "wireHex": "120141",
+      "json": "{\"items\":[{\"0\":65}]}"
+    },
+    {
+      "profile": "reflection",
+      "label": "sparse:leading-number",
+      "body": "{\"items\":[1,{\"0\":65,\"length\":1}]}",
+      "error": "TypeError: undefined is not an object (evaluating 'value.length')"
+    },
+    {
+      "profile": "reflection",
+      "label": "sparse:trailing-null",
+      "body": "{\"items\":[{\"0\":65,\"length\":1},null]}",
+      "error": "TypeError: null is not an object (evaluating 'd.items[i].length')"
+    },
+    {
+      "profile": "reflection",
+      "label": "sparse:missing-length",
+      "body": "{\"items\":[{}]}",
+      "wireHex": "",
+      "json": "{}"
+    }
+  ]
+}

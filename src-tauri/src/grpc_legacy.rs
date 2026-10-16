@@ -983,9 +983,26 @@ fn from_object_inner(
                 .as_array()
                 .ok_or_else(|| format!("{}: array expected", field.full_name()))?;
             let mut values = Vec::new();
+            let mut skipped_bytes = false;
             for input in input {
-                let value = scalar(&field, &original_field, input, depth + 1, context)?
-                    .unwrap_or_else(|| Value::default_value(&field.kind()));
+                let value = match scalar(&field, &original_field, input, depth + 1, context)? {
+                    Some(value) => {
+                        if skipped_bytes {
+                            return Err(
+                                "Legacy repeated bytes contain an unwritten array element.".into(),
+                            );
+                        }
+                        value
+                    }
+                    None if matches!(original_field.kind(), Kind::Bytes) => {
+                        // fromObject assigns valid byte values by index. Invalid
+                        // trailing entries do not extend the array; a later valid
+                        // entry would leave a hole that BufferWriter cannot write.
+                        skipped_bytes = true;
+                        continue;
+                    }
+                    None => Value::default_value(&field.kind()),
+                };
                 values.push(value);
             }
             Value::List(values)
@@ -1050,11 +1067,16 @@ fn scalar(
                 Json::String(text) => legacy_base64_bytes(text)?,
                 Json::Array(array) => array.iter().map(|v| uint32(v) as u8).collect(),
                 Json::Object(object) if object.get("length").is_some_and(|v| number(v) >= 0.0) => {
-                    let length = number(object.get("length").unwrap()).trunc();
-                    if !length.is_finite() || length > MAX_MESSAGE as f64 {
+                    let input_length = object.get("length").unwrap();
+                    let raw_length = number(input_length).trunc();
+                    let length = uint32(input_length) as usize;
+                    // BufferWriter tests length>>>0 before copying. Zero wraps
+                    // (including +Infinity) write only an empty bytes field.
+                    // Nonzero oversized array-likes still refuse before allocation.
+                    if length != 0 && (!raw_length.is_finite() || raw_length > MAX_MESSAGE as f64) {
                         return Err("gRPC bytes exceed 20 MiB.".into());
                     }
-                    (0..length as usize)
+                    (0..length)
                         .map(|i| uint32(object.get(&i.to_string()).unwrap_or(&Json::Null)) as u8)
                         .collect()
                 }
@@ -1457,6 +1479,107 @@ impl Serialize for LegacyValue<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn legacy_bytes_arraylike_matches_pinned_loader() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../tests/ui/fixtures/grpc-bytes-arraylike-reference.json"
+        ))
+        .unwrap();
+        let reflected =
+            crate::grpc_schema::decode(fixture["descriptorSet"].as_str().unwrap()).unwrap();
+        let compiled = crate::grpc_schema::compile(crate::grpc_schema::ProtoInput {
+            entry: "arraylike.proto".into(),
+            files: vec![crate::grpc_schema::ProtoFile {
+                name: "arraylike.proto".into(),
+                text: fixture["source"].as_str().unwrap().into(),
+            }],
+            include_paths: vec![],
+        })
+        .unwrap();
+        assert_eq!(fixture["rows"].as_array().unwrap().len(), 124);
+        assert_eq!(fixture["versions"]["protobufjs"], "7.2.4");
+        assert_eq!(fixture["versions"]["protoLoader"], "0.7.13");
+        let snapshots = (compiled.encode_to_vec(), reflected.encode_to_vec());
+        let mut failures = Vec::new();
+        for row in fixture["rows"].as_array().unwrap() {
+            let reflection = row["profile"] == "reflection";
+            let pool = if reflection { &reflected } else { &compiled };
+            let original = pool.get_message_by_name("ownedarraylike.Envelope").unwrap();
+            let mode = crate::grpc_schema::JsonMode::Legacy.from_schema(reflection);
+            let result = crate::grpc_schema::parse_mode(
+                original.clone(),
+                row["body"].as_str().unwrap(),
+                mode,
+            );
+            let label = format!("{}:{}", row["profile"], row["label"]);
+            match result {
+                Err(error) if row.get("error").is_none() => {
+                    failures.push(format!("{label}: unexpected refusal {error}"))
+                }
+                Ok(_) if row.get("error").is_some() => {
+                    failures.push(format!("{label}: expected refusal"))
+                }
+                Ok(message) => {
+                    let wire = message.encode_to_vec();
+                    let hex: String = wire.iter().map(|byte| format!("{byte:02x}")).collect();
+                    if hex != row["wireHex"].as_str().unwrap() {
+                        failures.push(format!("{label}: wire {hex} != {}", row["wireHex"]));
+                        continue;
+                    }
+                    let decoded = DynamicMessage::decode(
+                        legacy_descriptor(original.clone()).unwrap(),
+                        wire.as_slice(),
+                    )
+                    .unwrap();
+                    let json = crate::grpc_schema::json_mode(&decoded, mode, original).unwrap();
+                    if json != row["json"].as_str().unwrap() {
+                        failures.push(format!("{label}: JSON differs"));
+                    }
+                }
+                Err(_) => {}
+            }
+        }
+        assert!(
+            failures.is_empty(),
+            "{} pinned bytes divergences:\n{}",
+            failures.len(),
+            failures.join("\n")
+        );
+        assert_eq!(
+            snapshots,
+            (compiled.encode_to_vec(), reflected.encode_to_vec())
+        );
+    }
+
+    #[test]
+    fn legacy_bytes_arraylike_does_not_change_protojson() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../tests/ui/fixtures/grpc-bytes-arraylike-reference.json"
+        ))
+        .unwrap();
+        let pool = crate::grpc_schema::decode(fixture["descriptorSet"].as_str().unwrap()).unwrap();
+        let descriptor = pool.get_message_by_name("ownedarraylike.Envelope").unwrap();
+        for row in fixture["rows"].as_array().unwrap() {
+            assert!(
+                crate::grpc_schema::parse_mode(
+                    descriptor.clone(),
+                    row["body"].as_str().unwrap(),
+                    crate::grpc_schema::JsonMode::ProtoJson
+                )
+                .is_err(),
+                "Standard ProtoJSON must reject the array-like byte object: {}",
+                row["label"]
+            );
+        }
+        let parsed = crate::grpc_schema::parse_mode(
+            descriptor,
+            r#"{"data":"QQ=="}"#,
+            crate::grpc_schema::JsonMode::ProtoJson,
+        )
+        .unwrap();
+        assert_eq!(parsed.encode_to_vec(), [0x0a, 1, 65]);
+    }
 
     fn any_target_fixture() -> (serde_json::Value, DescriptorPool) {
         let fixture: serde_json::Value = serde_json::from_str(include_str!(

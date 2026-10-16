@@ -1,5 +1,20 @@
 # GRPC migration
 
+<a id="current-native-grpc-bytes-arraylike"></a>
+## Current native legacy byte-array-like conversion — 2026-10-16
+
+Legacy bytes zero-wrapped lengths and sparse repeated tails have bounded Windows acceptance:30new actual editor/Format/mode-switch/wire/JSON/history/reload/Save cases (15saved-file/15reflection) plus4zero-additional-IO refusal/durable-error/typed-repair cases retain all245prior groups. Full73Rust tests match124pinned byte-array-like rows (110success/14refusals), preserve original descriptor pools and retain strict ProtoJSON rejection/canonical Base64 controls. Fresh24native-hidden scenarios/279groups/502actual successful gRPC Save exports/exact24profiles and original0override source/profile/export closure pass. Broader JSON/object-coercion/map/template/editor/stream/provider/platform and every retained PLAN/PARITY gate remain open.
+
+Legacy conversion now applies the existing uint32 operation to an array-like length before copying: zero-wrapped positive lengths, including positive numeric overflow and string Infinity, emit an explicit empty bytes field without large allocation. Nonzero oversized lengths retain the20MiB refusal. protobuf.js fromObject only assigns valid repeated byte entries by index: invalid trailing entries do not extend the array; an invalid slot followed by a valid value would leave a hole that BufferWriter cannot write, so Rust refuses that request. Enum and private string-view conversion remain separate; source-specific file/reflection JSON modes and standard ProtoJSON descriptors are unchanged. No production dependency or UI/layout change.
+
+Actual pinned protobufjs7.2.4/proto-loader0.7.13 requestSerialize/responseDeserialize produced108initial rows and46Rust RED divergences (42wrong size refusals,4wrong repeated empty writes). Expanded124rows retain the exact108row prefix and add leading/middle/trailing/all-invalid sparse controls. Final full73Rust tests pass0failed/0filtered; original pools remain byte-identical and strict ProtoJSON rejects every array-like object while canonical Base64 still works. This is a finite bounded matrix, not a complete ToPrimitive or all-object-coercion claim.
+
+Native30positive cases retain raw1e999/large-integer tokens through actual editor Format/mode switching and prove exact wire/JSON/history/reload/Save for ordinary/repeated/nested values, file defaults/reflection sparsity, trailing omissions and valid fractional/small controls. Four additional native cases prove leading-hole/nonzero-wrap refusal before additional peer IO, exact error reload, actual typed repair, diagnostic clearing and success/error history retention across both origins. Refusal Save checks now use the previously accepted exact-history byte-count policy; full malformed JSON still fails. All192prior authored positive specs/default14selection remain unchanged. Strict7JS, frontend0errors/0warnings, native check and real loopback30business/60discovery/60sessions/60sockets pass. The initial strict union-access error was corrected to the authored profile kind before build.
+
+Evidence: artifacts/native-resource-crud-audit-probe/grpc-bytes-arraylike-attempt-1/acceptance-audit-grpc-bytes-arraylike.json. Original manifest SHA256 e6487ece166225e5f454cbcd9c76052729ae87db00894875a3147cf9335113d4; executable SHA256 2c7fffb70847af1e5c3a7ad99bf0fde06c05a4c240342c3e644cfcede2304470; 1451source entries/1360regular files. All owned hosts exit0/native-hidden without intentional parent termination, fixtures retire without force or unclassified errors and original profiles restore exactly. No physical FIN/TCP, universal JavaScript coercion/loader/timing or platform claim.
+
+Primary conversion reference: https://tc39.es/ecma262/multipage/abstract-operations.html#sec-touint32 . Pinned official package source: protobufjs7.2.4 src/converter.js and src/writer_buffer.js (length>>>0 followed by the typed-array set branch). Existing20MiB message/field bounds remain; no large buffer is allocated for the zero-wrapped cases.
+
 <a id="current-native-grpc-reflection-arrival"></a>
 ## Current native reflection dependency/cache arrival — 2026-10-16
 

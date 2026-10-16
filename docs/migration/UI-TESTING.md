@@ -1,5 +1,9 @@
 # UI TESTING migration
 
+## Current legacy byte-array-like verification
+
+Saved [grpc-bytes-arraylike-native.js](../../tests/ui/grpc-bytes-arraylike-native.js) requires INSOMNIUM_GRPC_BYTES_ARRAYLIKE_NATIVE=1; [grpc-bytes-arraylike-refusal-native.js](../../tests/ui/grpc-bytes-arraylike-refusal-native.js) requires INSOMNIUM_GRPC_BYTES_ARRAYLIKE_REFUSAL_NATIVE=1, both with audited build/profile ownership.30positive and4refusal/typed-repair cases retain all22prior scenarios/245groups. Fresh24native-hidden scenarios/279groups/502successful gRPC Save exports/exact24profiles and original0override closure pass. Tests verify actual editor, raw numeric-token preservation, origin-specific wire/JSON/history/reload/complete Save and zero additional peer IO for native refusals. No broader coercion/provider/platform claim. See [scope/evidence](GRPC.md#current-native-grpc-bytes-arraylike).
+
 ## Current reflection dependency/cache arrival verification
 
 Saved [grpc-reflection-arrival-native.js](../../tests/ui/grpc-reflection-arrival-native.js) requires INSOMNIUM_GRPC_REFLECTION_ARRIVAL_NATIVE=1 plus audited build/profile ownership.19cases assert real seed/cache and dependency-batch discovery provenance, actual editor/Format/mode switching, exact wire/JSON/history/reload/Save/deletion. Root/cache timing is provider-controlled; universal provider/platform claims remain open. All21prior scenarios/226groups are retained;22native-hidden scenarios/245groups/434successful gRPC Save exports/exact22profiles and original manifest plus explicit1test/1STATUSdoc supplemented closure pass. See [scope/evidence](GRPC.md#current-native-grpc-reflection-arrival).

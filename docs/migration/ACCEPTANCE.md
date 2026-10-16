@@ -1,5 +1,9 @@
 # OAuth1 / NO_PREFIX acceptance gate
 
+## Bounded legacy byte-array-like conversion — 2026-10-16
+
+Legacy bytes zero-wrapped lengths and sparse repeated tails have bounded Windows acceptance:30new actual editor/Format/mode-switch/wire/JSON/history/reload/Save cases (15saved-file/15reflection) plus4zero-additional-IO refusal/durable-error/typed-repair cases retain all245prior groups. Full73Rust tests match124pinned byte-array-like rows (110success/14refusals), preserve original descriptor pools and retain strict ProtoJSON rejection/canonical Base64 controls. Fresh24native-hidden scenarios/279groups/502actual successful gRPC Save exports/exact24profiles and original0override source/profile/export closure pass. Broader JSON/object-coercion/map/template/editor/stream/provider/platform and every retained PLAN/PARITY gate remain open. See [scope/evidence](GRPC.md#current-native-grpc-bytes-arraylike); unrelated acceptance requirements remain required.
+
 ## Bounded reflection dependency/cache arrival — 2026-10-16
 
 Reflection dependency batching and shared-cache arrival have bounded Windows acceptance:19new actual editor/wire/JSON/history/reload/Save cases (16declaration/arrival/cache combinations and3transitive controls) retain all226prior groups. Full71Rust tests include real HTTP2 partial-reply peers, wrong/foreign/missing/duplicate reply refusals, a1000file cached chain and shared4096query budget. Fresh22native-hidden scenarios/245groups/434actual successful gRPC Save exports/exact22profiles and original manifest plus explicit1test/1STATUSdoc supplemented source/profile/export closure pass. Broader Any/JSON/template/editor/stream/provider/platform and every retained PLAN/PARITY gate remain open. See [scope/evidence](GRPC.md#current-native-grpc-reflection-arrival); unrelated acceptance requirements remain required.
