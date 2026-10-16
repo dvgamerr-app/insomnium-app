@@ -223,7 +223,7 @@ async function exercise(page, output, invoke) {
       await poll(async()=>await dialog.getByLabel('Preview',{exact:true}).inputValue()==='owned source ไทย','variable preview');
       await page.screenshot({path:output+'/variable-source.png'});
       await dialog.getByRole('button',{name:'Cancel',exact:true}).click();assert.equal(await field.inputValue(),'https://owned.invalid/{{ token }}');
-      assert.deepEqual(errors,[]);await Bun.write(output+'/result.json',JSON.stringify({status:'passed',headless:true,variableOrigin:true,renderedValue:true,cancelPreservesSource:true},null,2));return;
+      assert.deepEqual(errors,[]);await Bun.write(output+(native?'/acceptance.json':'/result.json'),JSON.stringify({status:'passed',headless:!native,renderingMode:native?"native-hidden":"headless",variableOrigin:true,renderedValue:true,cancelPreservesSource:true},null,2));return;
     }
     await seed();
     await edit("Request URL");
