@@ -1,5 +1,9 @@
 # Migration status
 
+## Theme toggle reflects displayed scheme — 2026-10-17
+
+Source parent11f8d70c. Fixed toolbar sun/moon icon reading the manual theme setting while system/plugin theme determines the visible scheme. ThemeHost reports its computed scheme to the shell through an untracked callback; toggle already uses displayed document scheme and disables automatic mode. Compiler exits0/0errors/0warnings; no new tests/scripts/native rebuild. Visual icon acceptance and all retained PLAN/PARITY remain open. gRPC contract/source inspection found no justified new change in inspected proto/reflection/runner paths; do not invent a gap or expand coercion test matrices from that inspection. No live handles. Topic commit follows; /compact unavailable, handoff recorded.
+
 ## Runner modules production Worker accepted — 2026-10-17
 
 Source9661e126. Existing runner-management scenario has a focused INSOMNIUM_RUNNER_MODULES mode, leaving unrelated dirty runner-lifecycle untouched. One saved headless run (~1.8s) executes the current production browser Worker/Mocha/QuickJS:2passes/0failures for chai/Buffer/node:buffer identity and Thai/base64, fs refusal/process absent; no sends/native IPC. Worker explicitly terminated, receipt artifacts/playwright/runner-modules/result.json. Compiler exits0/0errors/0warnings. No new runner/disposable scripts/native rebuild or expanded historical matrix. Native WebView execution and broader script/import/provider/platform/full PLAN/PARITY remain open. No live owned handles. Topic commit follows; /compact unavailable, handoff recorded.

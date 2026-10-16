@@ -85,6 +85,7 @@
   import SettingsPanel from "$lib/components/SettingsPanel.svelte";
   import { pluginRegistry } from "$lib/workspace.svelte.js";
   import PluginThemeHost from '$lib/components/PluginThemeHost.svelte';
+  let displayedTheme=$state('dark');
   import Dropdown from "$lib/components/ui/Dropdown.svelte";
   const editingBlocked = $derived(
     app.draining || app.persistencePhase !== "idle",
@@ -568,7 +569,7 @@
 </script>
 
 <TemplatePromptDialog />
-<PluginThemeHost />
+<PluginThemeHost onSchemeChange={scheme=>displayedTheme=scheme}/>
 <TemplateFieldDialogHost />
 <PluginDomDialogHost />
 <svelte:window onkeydown={keyboard} />
@@ -630,7 +631,7 @@
         });
       }}
       ><Icon
-        name={app.data.settings.theme === "dark" ? "sun" : "moon"}
+        name={displayedTheme === "dark" ? "sun" : "moon"}
         size={17}
       /></Button
     >

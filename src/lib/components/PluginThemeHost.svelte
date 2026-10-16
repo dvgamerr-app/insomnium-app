@@ -1,7 +1,9 @@
 <script>
-  import {onMount} from 'svelte';
+  import {onMount,untrack} from 'svelte';
   import {workspace,pluginRegistry} from '../workspace.svelte.js';
   import {pluginThemeOptions,pluginThemeCss,pluginThemeScheme} from '../plugin-themes.js';
+  /** @type {{onSchemeChange?:(scheme:string)=>void}} */
+  let {onSchemeChange=()=>{}}=$props();
   let themes=$state(/** @type {ReturnType<typeof pluginThemeOptions>} */([]));
   let systemScheme=$state('default');
   onMount(()=>{
@@ -16,7 +18,9 @@
     const requested=settings.autoDetectColorScheme===true&&systemScheme!=='default'
       ?settings[systemScheme==='light'?'lightTheme':'darkTheme']??systemScheme:settings.theme;
     const selected=themes.find(item=>item.value===requested);
-    document.documentElement.dataset.theme=selected?pluginThemeScheme(selected.definition.theme):requested==='light'?'light':'dark';
+    const scheme=selected?pluginThemeScheme(selected.definition.theme):requested==='light'?'light':'dark';
+    document.documentElement.dataset.theme=scheme;
+    untrack(()=>onSchemeChange(scheme));
     if(!selected)return;
     const style=document.createElement('style');
     style.dataset.pluginTheme=selected.value;
