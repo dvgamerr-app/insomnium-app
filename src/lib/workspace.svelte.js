@@ -110,6 +110,7 @@ import {
   moveResource,
   reorderResource,
   duplicateResource,
+  resourceRemovalIds,
 } from "./resources.js";
 
 export const workspace = $state({
@@ -1056,7 +1057,10 @@ export function remove(resourceId) {
     throw new Error(
       "Keep at least one collection. Create another collection before deleting this one.",
     );
-  const ids = descendants(workspace.data.resources, resourceId);
+  const ids = resourceRemovalIds(workspace.data.resources, resourceId);
+  for (const [suiteId, targets] of runnerTargets)
+    if (!ids.has(suiteId) && [...targets].some((target) => ids.has(target)))
+      void stop(suiteId);
   for (const requestId of ids)
     if (workspace.running[requestId]) void stop(requestId);
   workspace.data.resources = workspace.data.resources.filter(
@@ -1080,6 +1084,10 @@ export function remove(resourceId) {
     delete workspace.oauthProgress[key];
   }
   for (const meta of workspace.data.resources) {
+    if (meta._type === "workspace_meta" && ids.has(meta.activeUnitTestSuiteId)) {
+      meta.activeUnitTestSuiteId = "";
+      meta.modified = Date.now();
+    }
     if (meta._type === "workspace_meta" && ids.has(meta.activeEnvironmentId)) {
       meta.activeEnvironmentId = "";
       meta.modified = Date.now();

@@ -21,6 +21,19 @@ export const referenceKeys = [
   "sourceSpecId",
 ];
 
+/** Include explicitly linked runner results even when stored under a collection.
+ * Unattributed legacy collection results remain intact.
+ * @param {Resource[]} resources @param {string} resourceId */
+export function resourceRemovalIds(resources, resourceId) {
+  const ids = descendants(resources, resourceId);
+  for (const resource of resources) {
+    if (resource._type === "unit_test_result" &&
+        (ids.has(resource.unitTestSuiteId) || ids.has(resource.unitTestId)))
+      ids.add(resource._id);
+  }
+  return ids;
+}
+
 /** Keep legacy metaSortKey ordering; stable input order is the fallback.
  * @param {Resource[]} resources @param {string | null} parentId */
 export function orderedChildren(resources, parentId) {

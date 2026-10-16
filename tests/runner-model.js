@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { resourceRemovalIds } from "../src/lib/resources.js";
 import { runnerSuite, runnerSuites, selectedRunnerSuite } from "../src/lib/runner-model.js";
 
 const resources = [
@@ -23,3 +24,16 @@ assert.deepEqual(runnerSuites(resources, "wrk_a").map((r) => r._id), ["suite_roo
 assert.deepEqual(runnerSuites(resources, "wrk_b").map((r) => r._id), ["suite_foreign"]);
 assert.equal(selectedRunnerSuite(resources.map((r) => r._id === "meta" ? {...r, activeUnitTestSuiteId: "suite_foreign"} : r), "wrk_a")?._id, "suite_root");
 console.log("Nested runner selection and imported test binding passed");
+
+const history = [...resources,
+  {_id: "suite_result", _type: "unit_test_result", parentId: "wrk_a", unitTestSuiteId: "suite_nested"},
+  {_id: "test_result", _type: "unit_test_result", parentId: "wrk_a", unitTestId: "test"},
+  {_id: "old_result", _type: "unit_test_result", parentId: "suite_nested"},
+  {_id: "unattributed", _type: "unit_test_result", parentId: "wrk_a"},
+  {_id: "foreign_result", _type: "unit_test_result", parentId: "wrk_b", unitTestSuiteId: "suite_foreign"},
+];
+const removingSuite = resourceRemovalIds(history, "suite_nested");
+assert.deepEqual([...removingSuite].sort(), ["suite_nested", "test", "suite_result", "test_result", "old_result"].sort());
+assert.deepEqual([...resourceRemovalIds(history, "test")].sort(), ["test", "test_result"]);
+assert.deepEqual([...resourceRemovalIds(history, "req")], ["req"]);
+console.log("Runner deletion covers linked and legacy results without removing unrelated history");
