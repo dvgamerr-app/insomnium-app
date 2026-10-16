@@ -19,6 +19,11 @@ struct Provider(Arc<Credentials>);
 enum Phase {
     Initial,
     Negotiated(crate::ntlm::Session),
+    Digest {
+        nonce: String,
+        realm: String,
+        algorithm: String,
+    },
     Finished,
 }
 struct Session {
@@ -100,7 +105,19 @@ impl ProxyChallengeSession for Session {
         headers: &HeaderMap,
         proxy_certificate: Option<&[u8]>,
     ) -> Result<HeaderValue, BoxError> {
-        self.reply(headers, proxy_certificate)
+        self.reply(headers, proxy_certificate, None)
+            .map_err(|error| std::io::Error::other(error).into())
+    }
+
+    fn authenticate_request(
+        &mut self,
+        headers: &HeaderMap,
+        proxy_certificate: Option<&[u8]>,
+        method: &reqwest::Method,
+        target: &str,
+        body: &[u8],
+    ) -> Result<HeaderValue, BoxError> {
+        self.reply(headers, proxy_certificate, Some((method, target, body)))
             .map_err(|error| std::io::Error::other(error).into())
     }
 }
@@ -109,6 +126,7 @@ impl Session {
         &mut self,
         headers: &HeaderMap,
         certificate: Option<&[u8]>,
+        request: Option<(&reqwest::Method, &str, &[u8])>,
     ) -> Result<HeaderValue, String> {
         // Replace first: every malformed/ambiguous/rejected response permanently
         // exhausts this socket session instead of falling back with credentials.
@@ -125,6 +143,9 @@ impl Session {
             .iter()
             .filter(|scheme| scheme.eq_ignore_ascii_case("basic"))
             .count();
+        let digest = schemes
+            .iter()
+            .any(|scheme| scheme.eq_ignore_ascii_case("digest"));
         if ntlm > 1 || basic > 1 {
             return Err("Ambiguous proxy authentication challenges".into());
         }
@@ -156,6 +177,50 @@ impl Session {
                     } else {
                         None
                     },
+                )
+            }
+            Phase::Initial if digest => {
+                let (method, target, body) =
+                    request.ok_or("Proxy Digest requires request context")?;
+                let mut prompt = crate::digest::challenge_from_headers(headers, PROXY_AUTHENTICATE)
+                    .map_err(|_| "Proxy returned no supported Digest challenge")?;
+                self.phase = Phase::Digest {
+                    nonce: prompt.nonce.clone(),
+                    realm: prompt.realm.clone(),
+                    algorithm: format!("{:?}", prompt.algorithm),
+                };
+                crate::digest::authorization(
+                    &mut prompt,
+                    &self.credentials.username,
+                    &self.credentials.password,
+                    target,
+                    body,
+                    method,
+                )
+            }
+            Phase::Digest {
+                nonce,
+                realm,
+                algorithm,
+            } if digest => {
+                let (method, target, body) =
+                    request.ok_or("Proxy Digest requires request context")?;
+                let mut prompt = crate::digest::challenge_from_headers(headers, PROXY_AUTHENTICATE)
+                    .map_err(|_| "Proxy returned no supported Digest challenge")?;
+                if !prompt.stale
+                    || prompt.nonce == nonce
+                    || prompt.realm != realm
+                    || format!("{:?}", prompt.algorithm) != algorithm
+                {
+                    return Err("Proxy Digest authentication was rejected".into());
+                }
+                crate::digest::authorization(
+                    &mut prompt,
+                    &self.credentials.username,
+                    &self.credentials.password,
+                    target,
+                    body,
+                    method,
                 )
             }
             Phase::Initial if basic == 1 && schemes.len() == 1 => {

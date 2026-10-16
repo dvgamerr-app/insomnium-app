@@ -112,7 +112,14 @@ fn prompt(item: &http_auth::ChallengeRef<'_>) -> Option<WwwAuthenticateHeader> {
 }
 
 fn challenge(response: &Response) -> Result<WwwAuthenticateHeader, String> {
-    for value in response.headers().get_all(header::WWW_AUTHENTICATE) {
+    challenge_from_headers(response.headers(), header::WWW_AUTHENTICATE)
+}
+
+pub(crate) fn challenge_from_headers(
+    headers: &header::HeaderMap,
+    name: header::HeaderName,
+) -> Result<WwwAuthenticateHeader, String> {
+    for value in headers.get_all(name) {
         let Ok(value) = std::str::from_utf8(value.as_bytes()) else {
             continue;
         };
@@ -129,6 +136,53 @@ fn challenge(response: &Response) -> Result<WwwAuthenticateHeader, String> {
         }
     }
     Err("The server returned no supported Digest challenge (MD5/SHA-256/SHA-512-256; session variants require qop).".into())
+}
+
+pub(crate) fn authorization(
+    prompt: &mut WwwAuthenticateHeader,
+    username: &str,
+    password: &str,
+    target: &str,
+    body: &[u8],
+    method: &Method,
+) -> Result<header::HeaderValue, String> {
+    let normalize = |value: &str| -> String { value.nfc().collect() };
+    let (username, password) = if prompt.charset == Charset::UTF8 {
+        (
+            Cow::Owned(normalize(username)),
+            Cow::Owned(normalize(password)),
+        )
+    } else {
+        (Cow::Borrowed(username), Cow::Borrowed(password))
+    };
+    if username.contains(':') {
+        return Err("Digest usernames cannot contain a colon".into());
+    }
+    let context = AuthContext::new_with_method(
+        username.as_ref(),
+        password.as_ref(),
+        target,
+        Some(body),
+        HttpMethod::from(method.as_str()),
+    );
+    let mut answer = prompt
+        .respond(&context)
+        .map_err(|_| "Could not calculate Digest response")?;
+    // RFC 7616 / RFC 5987: preserve normalized UTF-8 in username*.
+    let value = if !answer.userhash && !answer.username.is_ascii() {
+        let username = std::mem::take(&mut answer.username);
+        let encoded =
+            percent_encoding::utf8_percent_encode(&username, percent_encoding::NON_ALPHANUMERIC);
+        answer
+            .to_string()
+            .replacen("username=\"\"", &format!("username*=UTF-8''{encoded}"), 1)
+    } else {
+        answer.to_string()
+    };
+    let mut value =
+        header::HeaderValue::from_str(&value).map_err(|_| "Invalid Digest authorization value")?;
+    value.set_sensitive(true);
+    Ok(value)
 }
 
 /// A single request operation, including bounded challenge retries and redirects.
@@ -295,50 +349,14 @@ where
                 .body()
                 .and_then(|body| body.as_bytes())
                 .unwrap_or(&[]);
-            let normalize = |value: &str| -> String { value.nfc().collect() };
-            let (username, password) = if prompt.charset == Charset::UTF8 {
-                (
-                    Cow::Owned(normalize(&credentials.username)),
-                    Cow::Owned(normalize(&credentials.password)),
-                )
-            } else {
-                (
-                    Cow::Borrowed(credentials.username.as_str()),
-                    Cow::Borrowed(credentials.password.as_str()),
-                )
-            };
-            if username.contains(':') {
-                return Err("Digest usernames cannot contain a colon".into());
-            }
-            let context = AuthContext::new_with_method(
-                username.as_ref(),
-                password.as_ref(),
-                uri.as_str(),
-                Some(body),
-                HttpMethod::from(outgoing.method().as_str()),
-            );
-            let mut answer = prompt
-                .respond(&context)
-                .map_err(|_| "Could not calculate Digest response")?;
-            // RFC 7616 section 4 / RFC 5987: non-ASCII unhashed usernames use
-            // username*, while the digest was calculated from normalized UTF-8.
-            let value = if !answer.userhash && !answer.username.is_ascii() {
-                let username = std::mem::take(&mut answer.username);
-                let encoded = percent_encoding::utf8_percent_encode(
-                    &username,
-                    percent_encoding::NON_ALPHANUMERIC,
-                );
-                answer.to_string().replacen(
-                    "username=\"\"",
-                    &format!("username*=UTF-8''{encoded}"),
-                    1,
-                )
-            } else {
-                answer.to_string()
-            };
-            let mut value = header::HeaderValue::from_str(&value)
-                .map_err(|_| "Invalid Digest authorization value")?;
-            value.set_sensitive(true);
+            let value = authorization(
+                &mut prompt,
+                &credentials.username,
+                &credentials.password,
+                &uri,
+                body,
+                outgoing.method(),
+            )?;
             outgoing.headers_mut().insert(header::AUTHORIZATION, value);
             attempts += 1;
             continue;

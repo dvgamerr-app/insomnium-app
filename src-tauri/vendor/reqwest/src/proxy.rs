@@ -26,6 +26,19 @@ pub trait ProxyChallengeSession: Send {
         headers: &HeaderMap,
         proxy_certificate: Option<&[u8]>,
     ) -> Result<HeaderValue, Box<dyn Error + Send + Sync>>;
+
+    /// Answer with the exact replayed method, request-target and entity bytes.
+    /// Existing connection-based providers retain their original callback.
+    fn authenticate_request(
+        &mut self,
+        headers: &HeaderMap,
+        proxy_certificate: Option<&[u8]>,
+        _method: &http::Method,
+        _target: &str,
+        _body: &[u8],
+    ) -> Result<HeaderValue, Box<dyn Error + Send + Sync>> {
+        self.authenticate(headers, proxy_certificate)
+    }
 }
 
 // # Internals

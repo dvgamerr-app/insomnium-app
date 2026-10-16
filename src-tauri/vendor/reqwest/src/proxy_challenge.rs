@@ -239,7 +239,13 @@ async fn exchange(
         let value = session
             .as_mut()
             .expect("proxy session")
-            .authenticate(response.headers(), live.certificate.as_deref())?;
+            .authenticate_request(
+                response.headers(),
+                live.certificate.as_deref(),
+                &method,
+                &uri.to_string(),
+                bytes.as_ref(),
+            )?;
         if value.as_bytes().len() > 96 * 1024 {
             return Err(failed("Proxy authentication header exceeds limit"));
         }
