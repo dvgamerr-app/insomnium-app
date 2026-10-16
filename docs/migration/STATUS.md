@@ -1,5 +1,10 @@
 # Migration status
 
+## Shared response-hook context correction — 2026-10-16
+
+Source parent ab247368. Archived network/network.ts shares one renderedContext and readonly request clone across ordered response hooks. Guest now returns request/environment alongside response, and the dispatcher forwards all three to the next hook. This preserves getEnvironment/getBody reference mutations between hooks while keeping saved source data detached and mutator methods absent. Actual QuickJS inline check passes shared environment/request references, readonly API, exact binary stream and unchanged source. Compiler exits0/0errors/0warnings; build exits0. No new test scripts/native build/service calls/live handles. Native integration, large payload and all original migration gates remain open. /compact unavailable; handoff recorded.
+
+
 ## Shared dialog ownership for request/response hooks — 2026-10-16
 
 Source parent eac27fe0. Extracted the existing template-tag DOM owner factory within template-session and connected both ordered hook dispatch paths to its domCall/domCallbacks/domOwner capabilities. Hooks now use the existing VM binding, retained callback lifetime, source/catalog/service guards and success finish/error disposal behavior; no second dialog implementation. Existing saved headless plugin-dom-callback-leases scenario exits0 (~3.8s). Initial compiler found the extracted optional factory return mismatch; service-guarded creation corrected it, final compiler exits0/0errors/0warnings and production build exits0. This verifies retained callback regression plus compilation, not an actual native hook dialog or Send acceptance. Native hook dialogs/Send/cancellation, large binary codec limits, broader stream/module/provider/platform and all original PLAN/PARITY gates remain open. No new test scripts/native builds/profile writes/service calls/live owned handles. /compact unavailable; handoff recorded here.

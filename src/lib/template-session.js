@@ -392,7 +392,7 @@ export function createRequestRenderSession(context, options, capturedPlugins) {
         const bytes=typeof response.bodyBase64==='string'?Uint8Array.from(atob(response.bodyBase64),c=>c.charCodeAt(0)):new TextEncoder().encode(response.body??'');
         let value={requestId:request._id,status:response.status,statusText:response.statusText,
           headers:response.headers,size:response.size,elapsedMs:response.elapsedMs,bodyBytes:bytes,bodyChanged:false};
-        const requestData=structuredClone(request);requestData.cookies=requestData.cookieParameters??[];
+        let requestData=structuredClone(request);requestData.cookies=requestData.cookieParameters??[];
         for(const hook of plugins.responseHooks){
           const current=()=>!controller.signal.aborted&&plugins.isCurrent()&&hook.isCurrent()&&(!services||services.isCurrent?.()===true);
           if(!current())throw new DOMException('Plugin response owner changed','AbortError');
@@ -405,13 +405,15 @@ export function createRequestRenderSession(context, options, capturedPlugins) {
           }):undefined;
           const domOwner=services?createDomOwner(hook.plugin,()=>plugins.isCurrent()&&hook.isCurrent(),environment):undefined;
           let succeeded=false;
-          try {value=await hook.invoke([],{
+          try {const updated=await hook.invoke([],{
             domCall:domOwner?.domCall,domCallbacks:domOwner?.domCallbacks,domOwner,
             signal:controller.signal,isCurrent:current,helperCall,interaction,
             syncCall:services?createPluginNativeAppEndpoint({signal:controller.signal,current}):undefined,
             context:{requestSnapshot:requestData,responseSnapshot:value,context:environment,
               meta:{requestId:snapshot.requestId,workspaceId:snapshot.workspaceId??'n/a'},renderPurpose:'send'},
-          });succeeded=true;}finally{if(succeeded)domOwner?.finish();else domOwner?.dispose();}
+          });
+          value=updated.response;requestData=updated.request;environment=updated.environment;
+          succeeded=true;}finally{if(succeeded)domOwner?.finish();else domOwner?.dispose();}
           if(!current())throw new DOMException('Plugin response owner changed','AbortError');
         }
         if(!value.bodyChanged)return response;

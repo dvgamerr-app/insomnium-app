@@ -453,7 +453,7 @@ export function createPluginCallbackRuntime(
           }}:undefined;
           const context=Object.freeze({...helperData,...(renderContext?{context:renderContext}:{}),...runHelpers,...(responseContext?{response:responseContext}:{}),...(requestContext?{request:requestContext}:{}),...(app?{app}:{}),store:__pluginContext.store});
           const value=await fn.call(item,context,...args);
-          if(responseContext)return __pluginValueCodec.encode(responseSnapshot);
+          if(responseContext)return __pluginValueCodec.encode({response:responseSnapshot,request:requestSnapshot,environment:helper.context??{}});
           if(requestContext)return __pluginValueCodec.encode({request:requestSnapshot,environment:helper.context??{}});
           if(kind==='templateTags' && Object.getPrototypeOf(value??{})===__pluginBuffer.prototype)
             return __pluginValueCodec.encode(value.toString());
