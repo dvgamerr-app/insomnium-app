@@ -36,6 +36,10 @@ await withPreview("grpc-history-app", async (page, output) => {
   await completeEditor.locator("textarea").focus();
   await page.keyboard.type("must remain read only");
   assert.equal(await completeEditor.evaluate((el) => /** @type {any} */ (el).CodeMirror.getValue()),largeMessage);
+  await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:new URL(page.url()).origin});
+  await complete.getByRole('button',{name:'Copy complete message',exact:true}).click();assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),largeMessage);
+  const messageDownload=page.waitForEvent('download');await complete.getByRole('button',{name:'Save complete message',exact:true}).click();
+  const messageFile=await messageDownload;assert.equal(messageFile.suggestedFilename(),'message.json');const messagePath=await messageFile.path();assert.ok(messagePath);assert.equal(await Bun.file(messagePath).text(),largeMessage);
   await complete.screenshot({path:output + "/complete-message.png"});
   await page.keyboard.press("Escape");
   await complete.waitFor({state:"detached"});
@@ -58,7 +62,7 @@ await withPreview("grpc-history-app", async (page, output) => {
   }finally{await page.evaluate(()=>{const state=/** @type {any} */(window);Object.defineProperty(navigator.clipboard,'writeText',{configurable:true,value:state.__originalGrpcWrite});});}
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("insomnium-tauri-preview-v1") || "{}"));
   assert.deepEqual(saved.history, data.history);
-  await Bun.write(output + "/result.json", JSON.stringify({status:"passed",headless:true,scope:"Built application and actual workspace/persistence/browser clipboard; no native/network IO",selectionAndReload:true,historyUnchanged:true,completeLargeMessageCopy:true,lateCopyErrorIgnored:true,currentCopyErrorVisible:true,completeReadOnlyMessageEditor:true}, null, 2));
+  await Bun.write(output + "/result.json", JSON.stringify({status:"passed",headless:true,scope:"Built application and actual workspace/persistence/browser clipboard; no native/network IO",selectionAndReload:true,historyUnchanged:true,completeLargeMessageCopy:true,lateCopyErrorIgnored:true,currentCopyErrorVisible:true,completeReadOnlyMessageEditor:true,completeDialogCopyAndSave:true}, null, 2));
 }, {beforeNavigate:async (page) => {
   await page.addInitScript((data) => {
     if (!localStorage.getItem("insomnium-tauri-preview-v1"))
