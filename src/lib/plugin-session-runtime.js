@@ -417,7 +417,7 @@ export function createPluginCallbackRuntime(
       domAllowed = retainDom;
       domTransport = transportDom;
       calls = 0;
-      loaded.resetDeadline();
+      loaded.resetDeadline(kind.endsWith("Hooks")?5000:2000);
       let handle;
       /** @type {Error|undefined} */ let failure;
       const started = performance.now();

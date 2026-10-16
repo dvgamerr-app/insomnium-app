@@ -1,5 +1,15 @@
 # Migration status
 
+## Identify failing plugin hooks — 2026-10-16
+
+Source parent66786cb4. Registry now attributes live request/response hook failures with plugin name, phase and1-based hook number, retaining original cause and structured plugin/hook/index fields. AbortError and cancelled/stale operations retain their original failure; existing quarantine/recovery behavior remains. Inline actual-registry dispatch checks pass request/response attribution/cause and AbortError identity. Compiler exits0/0errors/0warnings; production build exits0. No new scripts/native builds/service calls/live handles. Later payload/native/DOM-dialog and full migration gates remain open. /compact unavailable; handoff recorded.
+
+
+## Hook wire conversion and VM deadline alignment — 2026-10-16
+
+Source parent7b3108e2. Codec now fast-counts ASCII wire strings while retaining UTF8/surrogate byte accounting and rejects oversized UTF16 strings before scanning. Hex decode uses validated character nibbles without per-byte substring/parseInt allocation. Actual2MiB body initially interrupted despite the outer5second hook watchdog: VM resetDeadline still imposed2seconds. Added a trusted2s/5s preset and uses5s only for hook callbacks; initialization/non-hook2s and outer total/CPU/memory limits remain. Corrected actual QuickJS2MiB binary round trip passes in2155ms with exact first/final bytes;1MiB previously passes1087ms. Thai/emoji/lone surrogate round trips and multibyte standard-limit refusal pass. Final compiler exits0/0errors/0warnings and build exits0. No new scripts/native build or live handles. Native validation of later payload changes, larger-body/chunking, DOM-dialog and all original migration gates remain open. /compact unavailable; handoff recorded.
+
+
 ## Bounded larger hook payload transport — 2026-10-16
 
 Source parent6dd8073a. Hook callbacks now use an explicit8MiB wire codec profile across admission, cancelled-session recovery, host/guest invocation and result decode; standard tags/helper/store/DOM paths retain1MiB. Existing graph/depth/CPU/memory limits remain. Response bodies use ArrayBuffer transport to avoid per-byte typed-array key enumeration; guest getBody still copies and setBody returns detached bytes. Codec hex encoding uses4KiB chunks and linear hex validation. Initial raw typed-array attempt hit QuickJS interruption/cleanup assertion and compiler exposed missing active codec type; corrected array-buffer path and active type. Final actual QuickJS inline check exits0 (~2.2s) for768KiB binary (>1MiB wire), exact edited first/final bytes and unchanged standard-codec refusal. Compiler exits0/0errors/0warnings; build exits0. No new test scripts, dependencies, native build or live handles. Existing native candidate predates this source change; no native acceptance claim for the new profile. Full larger-body/chunking/native/DOM-dialog/provider/platform and original migration gates remain open. /compact unavailable; handoff recorded.

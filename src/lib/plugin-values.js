@@ -30,6 +30,10 @@ export function createPluginValueCodec(profile="standard") {
     Object.getOwnPropertyDescriptor(prototype, key)?.get?.call(value);
   /** @param {string} text */
   function byteSize(text) {
+    if(text.length>limit)throw RangeError("Plugin value exceeds the "+(profile==="hook"?8:1)+" MiB wire limit");
+    // Hex bodies and JSON envelopes are usually ASCII: count in the regexp
+    // engine rather than charging every byte to a guest JavaScript loop.
+    if(!/[^\x00-\x7f]/.test(text))return text.length;
     let bytes = 0;
     for (let i = 0; i < text.length; i++) {
       const c = text.charCodeAt(i);
@@ -343,8 +347,10 @@ export function createPluginValueCodec(profile="standard") {
         n[1].length%2===0 && !/[^0-9a-f]/.test(n[1])
       ) {
         const bytes = new Uint8Array(n[1].length / 2);
-        for (let i = 0; i < bytes.length; i++)
-          bytes[i] = parseInt(n[1].slice(i * 2, i * 2 + 2), 16);
+        for (let i = 0; i < bytes.length; i++) {
+          const high=n[1].charCodeAt(i*2),low=n[1].charCodeAt(i*2+1);
+          bytes[i]=((high<=57?high-48:high-87)<<4)|(low<=57?low-48:low-87);
+        }
         values[id] = bytes.buffer;
       } else if (
         type === "view" &&

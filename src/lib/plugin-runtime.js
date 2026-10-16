@@ -174,8 +174,9 @@ export function createPluginVm(engine, snapshot, eventTimeOrigin = performance.t
        * @template T @param {()=>T} run @returns {T} */
       executeNativeNested(run){const started=performance.now(),beforeCpu=nestedCpu,beforeWait=creditedWait;try{return run();}finally{nestedCpu+=Math.max(0,performance.now()-started-(creditedWait-beforeWait)-(nestedCpu-beforeCpu));}},
       beginHostWait:()=>({started:performance.now(),nestedCpu,creditedWait}),
-      resetDeadline: () => {
-        deadline = performance.now() + 2000;
+      resetDeadline: (budget = 2000) => {
+        if(![2000,5000].includes(budget))throw Error("Invalid plugin CPU budget");
+        deadline = performance.now() + budget;
         pausedAt = undefined;
         pausedExecution = 0;
       },

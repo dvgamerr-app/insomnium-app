@@ -183,6 +183,8 @@ export function createPluginRegistry(adapters) {
                   return result;
                 })
                 .catch((/** @type {any} */ error) => {
+                  const hookFailure=kind.endsWith("Hooks")&&error?.name!=="AbortError"&&
+                    !operation.signal.aborted&&current()&&operation.isCurrent();
                   // Cancellation retires only this VM, retaining the admitted
                   // catalog for a fresh callback. Failed/over-budget guests stay
                   // quarantined until explicit Load. Ignore late retired replies.
@@ -200,6 +202,11 @@ export function createPluginRegistry(adapters) {
                     record.controller.abort();
                     record.session.close();
                     emit();
+                  }
+                  if(hookFailure){
+                    const failure=new Error('Plugin "'+name+'" '+(kind==='requestHooks'?'request':'response')+' hook '+(index+1)+' failed: '+String(error?.message??error).slice(0,8192),{cause:error});
+                    Object.assign(failure,{name:typeof error?.name==='string'?error.name:'Error',plugin:name,hook:kind,hookIndex:index});
+                    throw failure;
                   }
                   throw error;
                 });
