@@ -123,6 +123,25 @@ export function createPluginRegistry(adapters) {
     },
     captureRequestActions() { return this.captureCallbacks("requestActions"); },
     captureResponseHooks() { return this.captureCallbacks("responseHooks"); },
+    /** Themes are detached metadata, never executable callback contributions. */
+    captureThemes() {
+      if (disposed) return [];
+      const context = synchronize();
+      if (!context.ready) return [];
+      return Array.from(records.entries())
+        .filter(([, record]) => record.status === "ready" && record.current())
+        .sort((a, b) => a[1].order - b[1].order)
+        .flatMap(([plugin, record]) => {
+          const contribution = record.session.metadata.contributions.find(
+            (/** @type {any} */ item) => item.kind === "themes",
+          );
+          return (contribution?.items ?? []).map((/** @type {any} */ item) => ({
+            plugin,
+            index: item.index,
+            definition: structuredClone(item.definition),
+          }));
+        });
+    },
     /** @param {"templateTags"|"requestHooks"|"responseHooks"|"requestActions"|"requestGroupActions"|"workspaceActions"|"documentActions"} contributionKind */
     captureCallbacks(contributionKind) {
       if (disposed) throw aborted();

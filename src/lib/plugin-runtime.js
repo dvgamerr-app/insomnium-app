@@ -256,6 +256,10 @@ export function inspectPluginVm(loaded, name) {
           const name = typeof value.name === 'string' ? value.name : '';
           const label = typeof value.displayName === 'string' ? value.displayName : typeof value.label === 'string' ? value.label : name;
           if (name.length > 256 || label.length > 1024) throw Error('Contribution label exceeds its limit');
+          if (kind === 'themes') {
+            if (!name || !value.theme || typeof value.theme !== 'object' || Array.isArray(value.theme)) throw Error('Theme requires a name and theme object');
+            return { index, name, label, definition: { name, displayName: label, theme: value.theme } };
+          }
           return { index, name, label, ...(kind==='documentActions'?{hideAfterClick:value.hideAfterClick===true}:{}) };
         });
         contributions.push({ kind, count: items.length, items });

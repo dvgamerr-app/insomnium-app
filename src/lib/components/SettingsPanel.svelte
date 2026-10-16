@@ -13,7 +13,13 @@
   import TabPanel from "./ui/TabPanel.svelte";
   import Textarea from "./ui/Textarea.svelte";
   import { nativeGitBinding } from "../git-client.js";
-  import { persist, updateSettings, workspace } from "$lib/workspace.svelte.js";
+  import { persist, updateSettings, workspace, pluginRegistry } from "$lib/workspace.svelte.js";
+  import { onMount } from 'svelte';
+  import { pluginThemeOptions } from '../plugin-themes.js';
+  let pluginThemes=$state(/** @type {ReturnType<typeof pluginThemeOptions>} */([]));
+  onMount(()=>pluginRegistry.subscribe(()=>{
+    pluginThemes=pluginThemeOptions(pluginRegistry.captureThemes());
+  }));
 
   /** @type {{settings:Record<string, any>,tab?:string,onclose?:()=>void}} */
   let { settings, tab = $bindable("General"), onclose = () => {} } = $props();
@@ -120,6 +126,9 @@
                     options={[
                       { value: "dark", label: "Nocturne Dark" },
                       { value: "light", label: "Nocturne Light" },
+                      ...pluginThemes.map(({value,label})=>({value,label})),
+                      ...(String(settings.theme).startsWith('plugin:')&&!pluginThemes.some(item=>item.value===settings.theme)
+                        ?[{value:settings.theme,label:'Selected plugin theme (unavailable)'}]:[]),
                     ]}
                   /></Field
                 >
