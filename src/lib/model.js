@@ -168,9 +168,13 @@ export function validateData(value) {
       result.resources.find((r) => r._type === "workspace")?._id || "";
   if (
     workspaceFor(result.resources, result.activeRequestId) !==
-    result.activeWorkspaceId
+    result.activeWorkspaceId ||
+    !result.resources.some((r) => r._id === result.activeRequestId && ["request", "websocket_request", "grpc_request"].includes(r._type))
   )
-    result.activeRequestId = "";
+    result.activeRequestId = selectedRequestFor(result, result.activeWorkspaceId);
+  rememberRequest(result, result.activeWorkspaceId, result.activeRequestId);
+  if (result.activeRequestId && !result.openTabs.includes(result.activeRequestId))
+    result.openTabs.push(result.activeRequestId);
   result.activeEnvironmentId = selectedEnvironmentFor(
     result,
     result.activeWorkspaceId,
@@ -410,6 +414,32 @@ export function validEnvironmentSelection(
     workspaceFor(resources, environmentId) === workspaceId
     ? environmentId
     : "";
+}
+/** @param {ReturnType<typeof initialData>} data @param {string} workspaceId */
+export function selectedRequestFor(data, workspaceId) {
+  const meta = data.resources.find((r) => r._type === "workspace_meta" && r.parentId === workspaceId);
+  const selection = meta && Object.hasOwn(meta, "activeRequestId")
+    ? meta.activeRequestId
+    : workspaceId === data.activeWorkspaceId ? data.activeRequestId : undefined;
+  if (selection === "") return "";
+  const requests = data.resources.filter((r) =>
+    ["request", "websocket_request", "grpc_request"].includes(r._type) && workspaceFor(data.resources, r._id) === workspaceId);
+  return requests.find((r) => r._id === selection)?._id || requests[0]?._id || "";
+}
+/** @param {ReturnType<typeof initialData>} data @param {string} workspaceId @param {string} requestId */
+export function rememberRequest(data, workspaceId, requestId) {
+  if (!data.resources.some((r) => r._type === "workspace" && r._id === workspaceId)) return;
+  if (requestId && !data.resources.some((r) => r._id === requestId &&
+    ["request", "websocket_request", "grpc_request"].includes(r._type) && workspaceFor(data.resources, r._id) === workspaceId)) return;
+  let meta = data.resources.find((r) => r._type === "workspace_meta" && r.parentId === workspaceId);
+  if (!meta) {
+    meta = {_id:id("wrkm"),_type:"workspace_meta",parentId:workspaceId,created:Date.now()};
+    data.resources.push(meta);
+  }
+  if (meta.activeRequestId !== requestId) {
+    meta.activeRequestId = requestId;
+    meta.modified = Date.now();
+  }
 }
 /** @param {ReturnType<typeof initialData>} data @param {string} workspaceId */
 export function selectedEnvironmentFor(data, workspaceId) {

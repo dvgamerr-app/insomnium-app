@@ -4,6 +4,12 @@ Updated 2026-10-15. CRUD, indexed ancestry, subtree duplication/move/delete and 
 
 See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity requirements](PARITY.md). No original scope was removed by consolidation.
 
+## Remembered request selection — 2026-10-16
+
+Request selection now updates `workspace_meta.activeRequestId` and collection switching restores that collection's remembered HTTP/WebSocket/gRPC request, including nested folders. Missing/foreign/non-request references fall back to a request in the destination collection; an explicit empty selection remains empty. Closing the active tab records the fallback selection, deletion clears removed selections, and loading restores a valid remembered request/tab. Existing import reference remapping makes imported metadata usable without retaining source IDs. No layout changes.
+
+Inline Bun checks cover helpers, saved-data validation/reload, actual import ID remapping, empty selections and foreign/non-request refusal. Follow-up actual coordinator checks exposed an empty source selection leaking into an unvisited destination; resolve destination selection before changing the active collection. The original assertion fails before the fix and passes after it, together with remembered/explicit-blank destination, open-tab and invalid-target controls. Compiler and prior production bundling pass. Mounted/native collection switching, tab close/delete/reload and broader platform acceptance remain open. Legacy contract: `_backup/legacy-electron/packages/insomnia/src/models/workspace-meta.ts`.
+
 ## Current Windows acceptance
 
 Collection lifecycle extension is verified on Windows at2870f40. Legacy models with explicit canDuplicate:false comprise git_repository, grpc_request_meta, oauth2_token, plugin_data, project, request_group_meta, request_meta, request_version, response, settings, stats, unit_test_result, websocket_response and workspace_meta. The legacy database skips those models before child recursion; the current fix follows that exclusion boundary. Unknown models under eligible owners remain preserved by the current application policy; this is explicitly broader than legacy's unknown-type exclusion, not a claim of strict legacy unknown parity. [Playwright actionability](https://playwright.dev/docs/actionability) was consulted again; successful clicks do not replace durable native-state checks.

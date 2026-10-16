@@ -414,9 +414,8 @@
     if (!canEditWorkspace()) return;
     app.data.openTabs = app.data.openTabs.filter((t) => t !== tabId);
     if (app.data.activeRequestId === tabId)
-      app.data.activeRequestId =
-        tabs.filter((t) => t?._id !== tabId).at(-1)?._id || "";
-    void persist();
+      selectRequest(tabs.filter((t) => t?._id !== tabId).at(-1)?._id || "");
+    else void persist();
   }
   async function sendCurrentRequest() {
     if (!request) return;

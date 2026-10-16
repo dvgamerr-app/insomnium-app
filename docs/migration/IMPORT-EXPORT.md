@@ -8,6 +8,10 @@ Imports the archived v2 collection-object contract, including nested folders, ex
 
 References: archived `hoppscotch-2.ts` and official [Hoppscotch importer documentation](https://docs.hoppscotch.io/documentation/features/importer). Inline Bun actual request-preparation checks pass nested inheritance, variables, Basic/Bearer/API-key/OAuth/disabled auth, form encoding, source preservation, script refusal and reimport. Build/check pass; existing `legacy-export-import.js` now verifies built-app Hoppscotch review/apply/reload alongside formats1/2. Receipt: `artifacts/playwright/legacy-export-import/result.json`. No provider/network/native runtime acceptance is claimed; existing native candidate predates this feature.
 
+## Portable Git settings — 2026-10-16
+
+Import/export strips machine-local repository binding, create/fetch/push/remote-checkout intents, clone operation identity and cached native remote branches. Remote URL and author settings remain portable; export continues omitting Git credentials. Import review reports disconnected Git state even when an input contains only an operation intent. Live resources and their pending recovery state remain unchanged. Inline Bun checks through actual `parseImport`/`exportData` pass field removal, settings/author preservation, intent-only notice, export credential omission, round trip and unchanged source. Frontend compiler passes; native chooser/provider/platform acceptance remains open.
+
 ## Legacy export format 1 — 2026-10-16
 
 `items[].requests` now converts to an isolated collection with folders, inherited `environments.base`, requests, query parameters and Basic auth. Existing headers, body objects and other request/folder fields remain; `__insomnia.format` supplies a missing Content-Type. Raw text/form bytes use the same text-send preservation as format 2. Input conversion is detached and malformed folder/request/header/environment shapes refuse before applying. Implementation: `src/lib/legacy-v1-import.js`, based on archived `insomnia-1.ts`.

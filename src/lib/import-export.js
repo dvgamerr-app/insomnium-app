@@ -22,15 +22,24 @@ import {
   postmanDescription,
 } from "./postman-import.js";
 
-/** Native repository IDs identify app-data on this machine, not portable resources.
+const localGitFields = [
+  "nativeRepositoryId",
+  "nativeBindingVersion",
+  "nativeCreateIntent",
+  "nativeFetchIntent",
+  "nativePushIntent",
+  "nativeRemoteCheckoutIntent",
+  "nativeCloneOperationId",
+  "nativeRemoteBranches",
+];
+
+/** Native repository IDs and operation receipts identify app-data on this machine, not portable resources.
  * Keep repository settings, but never reactivate a local binding through import.
  * @param {Record<string, any>} resource @param {boolean} [forExport] */
 function portableGitResource(resource, forExport = false) {
   if (resource._type !== "git_repository") return resource;
   const copy = { ...resource };
-  delete copy.nativeRepositoryId;
-  delete copy.nativeBindingVersion;
-  delete copy.nativeCreateIntent;
+  for (const key of localGitFields) delete copy[key];
   if (forExport) delete copy.credentials;
   return copy;
 }
@@ -334,8 +343,7 @@ export function parseImport(text) {
   const detachedGitBindings = resources.filter(
     (r) =>
       r._type === "git_repository" &&
-      (Object.hasOwn(r, "nativeRepositoryId") ||
-        Object.hasOwn(r, "nativeBindingVersion")),
+      localGitFields.some((key) => Object.hasOwn(r, key)),
   ).length;
   // Imports are additive: remap all IDs and references to avoid replacing existing user data.
   const mapping = new Map(

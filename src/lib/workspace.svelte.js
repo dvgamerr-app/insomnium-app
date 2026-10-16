@@ -43,6 +43,8 @@ import {
   initialData,
   selectedEnvironmentFor,
   rememberEnvironment,
+  rememberRequest,
+  selectedRequestFor,
   validEnvironmentSelection,
   newRequest,
   descendants,
@@ -712,19 +714,22 @@ export function setResponseNamespaces(requestId, namespaces) {
 /** @param {string} requestId */
 export function selectRequest(requestId) {
   if (!canEditWorkspace()) return;
-  const collectionId = workspaceFor(workspace.data.resources, requestId);
+  const collectionId = requestId ? workspaceFor(workspace.data.resources, requestId) : workspace.data.activeWorkspaceId;
   if (!collectionId) return;
+  if (requestId && !workspace.data.resources.some((r) => r._id === requestId && requestTypes.includes(r._type))) return;
   if (workspace.data.activeWorkspaceId !== collectionId) {
     activateCollection(collectionId);
   }
   workspace.data.activeRequestId = requestId;
+  rememberRequest(workspace.data, collectionId, requestId);
   refreshHttpResponses();
-  if (!workspace.data.openTabs.includes(requestId))
+  if (requestId && !workspace.data.openTabs.includes(requestId))
     workspace.data.openTabs.push(requestId);
   void persist();
 }
 /** @param {string} workspaceId */
 function activateCollection(workspaceId) {
+  rememberRequest(workspace.data, workspace.data.activeWorkspaceId, workspace.data.activeRequestId);
   rememberEnvironment(
     workspace.data,
     workspace.data.activeWorkspaceId,
@@ -772,14 +777,12 @@ export function selectWorkspace(workspaceId) {
     )
   )
     return;
+  // Resolve against the old active collection so an empty source selection
+  // cannot be mistaken for an explicit empty selection in a new destination.
+  const requestId = selectedRequestFor(workspace.data, workspaceId);
   activateCollection(workspaceId);
-  const collectionIndex = indexWorkspaces(workspace.data.resources);
-  workspace.data.activeRequestId =
-    workspace.data.resources.find(
-      (r) =>
-        requestTypes.includes(r._type) &&
-        collectionIndex.get(r._id) === workspaceId,
-    )?._id || "";
+  workspace.data.activeRequestId = requestId;
+  rememberRequest(workspace.data, workspaceId, workspace.data.activeRequestId);
   if (
     workspace.data.activeRequestId &&
     !workspace.data.openTabs.includes(workspace.data.activeRequestId)
@@ -1112,6 +1115,10 @@ export function remove(resourceId) {
     }
     if (meta._type === "workspace_meta" && ids.has(meta.activeEnvironmentId)) {
       meta.activeEnvironmentId = "";
+      meta.modified = Date.now();
+    }
+    if (meta._type === "workspace_meta" && ids.has(meta.activeRequestId)) {
+      meta.activeRequestId = "";
       meta.modified = Date.now();
     }
   }
