@@ -30,6 +30,7 @@ const parent = "insomnia-plugin-render-parent",
     "exports.templateTags=[{name:'childhelper',async run(c){const w=await c.util.models.workspace.getById('w');const jar=await c.util.models.cookieJar.getOrCreateForWorkspace(w);return (await c.util.render('{{ token }}'))+':'+jar.parentId;}},{name:'childloop',async run(c){return await c.util.render('{% siblinghelper %}');}}];",
 };
 sources[parent] += "\nexports.templateTags.push({name:'entryextra',run(c){const first=c.context.getExtraInfo('marker');first.value='guest-mutated';return c.context.getExtraInfo('marker').value;}});";
+sources[parent] += "\nexports.templateTags.push({name:'jsonoutput',run(){return " + JSON.stringify('quote" slash\\ newline\nไทย') + ";}});";
 /** @type {Record<string,any>[]} */ const resources = [
   { _id: "w", _type: "workspace", name: "Workspace" },
   {
@@ -190,7 +191,7 @@ function services() {
     await registry?.prepare(parent);
     await registry?.prepare(child);
   },
-  /** @param {string} text @param {boolean} [hold] @param {{tamperServices?:boolean,ancestry?:string[],mutateAncestry?:boolean,promptSubmit?:string}} [options] */
+  /** @param {string} text @param {boolean} [hold] @param {{tamperServices?:boolean,ancestry?:string[],mutateAncestry?:boolean,promptSubmit?:string,json?:boolean}} [options] */
   start(text, hold = false, options = {}) {
     entryController?.abort();
     renderer?.dispose();
@@ -222,7 +223,7 @@ function services() {
         throw Error("Replaced service endpoint");
       };
     if (options.mutateAncestry) ancestry.length = 0;
-    result = renderer.render(text).then(
+    result = (options.json ? renderer.renderValue(text,{jsonPaths:[""]}) : renderer.render(text)).then(
       (value) => ({ value }),
       (error) => ({ name: error.name, error: String(error) }),
     );

@@ -5,7 +5,8 @@ import { withPreview } from "./helpers/preview-app.js";
 import { poll } from "./helpers/native-app.js";
 import { createSvelteUiFixturePlugin } from "./helpers/component-fixture.js";
 
-await withPreview("plugin-helper-render", async (page, output) => {
+const jsonOnly = process.env.INSOMNIUM_PLUGIN_JSON_ONLY === "1";
+await withPreview(jsonOnly ? "plugin-helper-render-json" : "plugin-helper-render", async (page, output) => {
   const bundled = await Bun.build({
     entrypoints: ["tests/ui/fixtures/plugin-helper-render.js"],
     target: "browser",
@@ -53,6 +54,17 @@ await withPreview("plugin-helper-render", async (page, output) => {
       (urls) => /** @type {any} */ (window).__pluginRenderFixture.open(urls),
       urls,
     );
+    if (jsonOnly) {
+      const source = String.raw`{"value":"{% jsonoutput %}","literal":"\u007b\u007b missing \u007d\u007d","large":9007199254740993}`;
+      await page.evaluate((source) => /** @type {any} */ (window).__pluginRenderFixture.start(source,false,{json:true}),source);
+      const rendered = await page.evaluate(() => /** @type {any} */ (window).__pluginRenderFixture.result());
+      assert.equal(typeof rendered.value,"string",JSON.stringify(rendered));
+      assert.equal(JSON.parse(rendered.value).value,'quote" slash\\ newline\nไทย');
+      assert.ok(rendered.value.includes(String.raw`\u007b\u007b missing \u007d\u007d`));
+      assert.ok(rendered.value.includes("9007199254740993"));
+      await Bun.write(output + "/result.json",JSON.stringify({status:"passed",headless:true,jsonPluginOutput:true,literalEscapes:true,largeIntegerToken:true,scope:"Actual plugin registry/session/VM and template worker; no native or network services"},null,2));
+      return;
+    }
     await page.evaluate(() =>
       /** @type {any} */ (window).__pluginRenderFixture.start(
         "{% parenthelper %}",
@@ -601,4 +613,4 @@ await withPreview("plugin-helper-render", async (page, output) => {
       /** @type {any} */ (window).__pluginRenderFixture.close(),
     );
   }
-});
+},{headers:{"Cross-Origin-Opener-Policy":"same-origin","Cross-Origin-Embedder-Policy":"require-corp"}});
