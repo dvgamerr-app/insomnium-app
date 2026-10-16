@@ -12,6 +12,8 @@ const inputs = [
   {name:"Owned legacy v2",body:"a=1&a=2&raw=%2f&x=a+b",source:{__export_format:2,resources:[{_id:"legacy_req",_type:"request",name:"Owned legacy v2",url:"https://owned.invalid/form",method:"POST",headers:[{name:"Content-Type",value:"application/x-www-form-urlencoded"}],body:"a=1&a=2&raw=%2f&x=a+b"}]}},
 ];
 inputs.find((input) => input.source.v === 2)?.source.requests?.push({v:1,name:"Owned Hoppscotch raw",method:"POST",endpoint:"https://owned.invalid/raw",auth:{authType:"none"},headers:[],params:[],body:{contentType:"application/octet-stream",body:"raw Ω\r\nbytes"}});
+inputs[1].source.log.entries.push({comment:'Owned HAR multipart',request:{method:'POST',url:'https://owned.invalid/multipart',headers:[{name:'Content-Type',value:'multipart/form-data; charset=utf-8; BOUNDARY="old;boundary"; note="keep;boundary=value"'},{name:'Content-Length',value:'999'}],postData:{mimeType:'multipart/form-data; boundary=old',params:[{name:'message',value:'ไทย'}]}}});
+inputs[1].source.log.entries.push({comment:'Owned HAR form params',request:{method:'POST',url:'https://owned.invalid/form',headers:[{name:'Content-Length',value:'1'},{name:'Content-Encoding',value:'gzip'},{name:'Transfer-Encoding',value:'chunked'},{name:'Trailer',value:'Digest'},{name:'Content-Encoding',value:'br',disabled:true},{name:'Content-Type',value:'application/x-www-form-urlencoded; charset=utf-8'}],postData:{mimeType:'application/x-www-form-urlencoded',params:[{name:'q',value:'ไทย space'},{name:'q',value:'second'}]}}});
 inputs[0].source.info.description = "Collection Ω\n**documentation**";
 inputs[0].source.item.push({name:"Owned Postman folder",description:{content:"Folder ไทย",type:"text/markdown"},variable:[{key:"folderVar",value:"owned"}],custom:{retained:true},item:[]});
 /** @param {import('playwright-core').Page} page @param {string} output
@@ -49,6 +51,18 @@ async function runImports(page, output, options = {}) {
   assert.deepEqual(postmanFolder._postmanSource,folderSource);
   assert.deepEqual(postman.body.params.map((/** @type {any} */ p) => p.name),["active"]);
   assert.deepEqual(postman._postmanSource,inputs[0].source.item[0]);
+  const form = imported(data,'Owned HAR form params');
+  assert.deepEqual(form.body.params,[{name:'q',value:'ไทย space'},{name:'q',value:'second'}]);
+  assert.equal(form.headers.some((/** @type {any} */ h)=>h.name.toLowerCase()==='content-length'),false);
+  assert.equal(form.headers.some((/** @type {any} */ h)=>!h.disabled&&['content-encoding','transfer-encoding','trailer'].includes(h.name.toLowerCase())),false);
+  assert.ok(form.headers.some((/** @type {any} */ h)=>h.disabled&&h.name==='Content-Encoding'&&h.value==='br'));
+  assert.equal(form.headers.find((/** @type {any} */ h)=>h.name.toLowerCase()==='content-type').value,'application/x-www-form-urlencoded; charset=utf-8');
+  assert.deepEqual(form._harSource,inputs[1].source.log.entries[2]);
+  const multipart = imported(data,'Owned HAR multipart');
+  assert.deepEqual(multipart.body.params,[{name:'message',value:'ไทย'}]);
+  assert.equal(multipart.headers.find((/** @type {any} */ h)=>h.name.toLowerCase()==='content-type').value,'multipart/form-data; charset=utf-8; note="keep;boundary=value"');
+  assert.equal(multipart.headers.some((/** @type {any} */ h)=>h.name.toLowerCase()==='content-length'),false);
+  assert.deepEqual(multipart._harSource,inputs[1].source.log.entries[1]);
   assert.equal(har.parameters.length,0);
   assert.ok(har.headers.some((/** @type {any} */ header) => header.name === "Cookie" && header.value === "owned=cookie"));
   assert.equal(raw.body.text,"raw Ω\r\nbytes");

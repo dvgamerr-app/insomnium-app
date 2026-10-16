@@ -49,6 +49,21 @@ export function harResources(source) {
     }
     if (mime && !headers.some((header) => !header.disabled && header.name.toLowerCase() === "content-type"))
       headers.push({name:"Content-Type",value:mime});
+    if (parameters.length) {
+      // The sender generates a new form body. Captured framing describes
+      // the old body and cannot accompany the reconstructed form fields.
+      for (let i = headers.length - 1; i >= 0; i--) {
+        const header = headers[i];
+        if (header.disabled) continue;
+        const name = header.name.toLowerCase();
+        if (['content-length', 'content-encoding', 'transfer-encoding', 'trailer'].includes(name)) headers.splice(i, 1);
+        else if (body.mimeType === 'multipart/form-data' && name === 'content-type' && typeof header.value === 'string') {
+          const parts = header.value.match(/(?:[^;"]|"(?:\\.|[^"\\])*")+/g) || [];
+          if (parts[0]?.trim().toLowerCase() === 'multipart/form-data')
+            header.value = parts.filter((part, index) => index === 0 || !/^\s*boundary\s*=/i.test(part)).map(part => part.trim()).join('; ');
+        }
+      }
+    }
     // HAR url is the full target; queryString is its decomposition. Preserve raw
     // query spelling/order and do not append that decomposition a second time.
     const query = rows(request.queryString ?? [],"query parameters");
