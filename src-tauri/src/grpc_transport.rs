@@ -178,11 +178,18 @@ pub(crate) async fn channel(config: &Connection) -> Result<Channel, String> {
 
 // Reflection v1 and v1alpha messages share the same wire field numbers.
 // Use the generated v1 types with the appropriate service path and standard codec.
-pub(crate) async fn reflect(config: &Connection) -> Result<DescriptorPool, String> {
+pub(crate) struct ReflectionDiscovery {
+    pub pool: DescriptorPool,
+    pub services: Vec<grpc_schema::ReflectionService>,
+    received_bytes: usize,
+    query_count: usize,
+}
+
+pub(crate) async fn reflect(config: &Connection) -> Result<ReflectionDiscovery, String> {
     let channel = channel(config).await?;
-    match reflect_version(channel.clone(), config, "v1").await {
+    match reflect_version(channel.clone(), config, "v1", None).await {
         Err(error) if error.code() == tonic::Code::Unimplemented => {
-            reflect_version(channel, config, "v1alpha")
+            reflect_version(channel, config, "v1alpha", None)
                 .await
                 .map_err(|e| e.to_string())
         }
@@ -194,12 +201,13 @@ async fn reflect_version(
     channel: Channel,
     config: &Connection,
     version: &str,
-) -> Result<DescriptorPool, Status> {
+    selected_service: Option<&str>,
+) -> Result<ReflectionDiscovery, Status> {
     use tonic_reflection::pb::v1::{
         server_reflection_request::MessageRequest, server_reflection_response::MessageResponse,
         ServerReflectionRequest, ServerReflectionResponse,
     };
-    let mut client = tonic::client::Grpc::new(channel)
+    let mut client = tonic::client::Grpc::new(channel.clone())
         .max_decoding_message_size(MAX_SCHEMA)
         .max_encoding_message_size(MAX_SCHEMA);
     client
@@ -257,13 +265,36 @@ async fn reflect_version(
             "Reflection exceeds 1024 services.",
         ));
     }
+    if let Some(name) = selected_service {
+        if !services.iter().any(|service| service.name == name) {
+            return Err(Status::internal(
+                "Reflection service list changed during discovery.",
+            ));
+        }
+    }
+    let remaining: Vec<String> = if selected_service.is_none() {
+        services
+            .iter()
+            .skip(1)
+            .map(|service| service.name.clone())
+            .collect()
+    } else {
+        Vec::new()
+    };
+    // A fresh descriptor stream per service prevents the protocol's legal
+    // omission of previously sent files from erasing that service's root.
+    let services: Vec<_> = services
+        .into_iter()
+        .filter(|service| selected_service.is_none_or(|name| service.name == name))
+        .take(1)
+        .collect();
     let mut pending: std::collections::VecDeque<MessageRequest> = services
         .iter()
         .map(|s| MessageRequest::FileContainingSymbol(s.name.clone()))
         .collect();
     let mut files = HashMap::new();
     let mut file_order = Vec::new();
-    let mut queries = 0;
+    let mut queries = 0usize;
     let mut total = 0usize;
     while let Some(query) = pending.pop_front() {
         if let MessageRequest::FileByFilename(name) = &query {
@@ -335,6 +366,14 @@ async fn reflect_version(
         }
     }
     drop(sender);
+    drop(response);
+    let mut service_roots: Vec<_> = services
+        .iter()
+        .map(|service| grpc_schema::ReflectionService {
+            name: service.name.clone(),
+            files: file_order.clone(),
+        })
+        .collect();
     let pool = DescriptorPool::from_file_descriptor_set(prost_types::FileDescriptorSet {
         file: file_order
             .into_iter()
@@ -350,7 +389,61 @@ async fn reflect_version(
             "Reflection omitted a listed service descriptor.",
         ));
     }
-    Ok(pool)
+    let mut merged: Vec<_> = pool
+        .files()
+        .map(|file| file.file_descriptor_proto().clone())
+        .collect();
+    let mut indexes: HashMap<String, usize> = merged
+        .iter()
+        .enumerate()
+        .map(|(index, file)| (file.name().to_string(), index))
+        .collect();
+    for service in remaining {
+        // Recursion is bounded to one level: selected-service calls never fan out.
+        let next = Box::pin(reflect_version(
+            channel.clone(),
+            config,
+            version,
+            Some(&service),
+        ))
+        .await?;
+        total = total.saturating_add(next.received_bytes);
+        queries = queries.saturating_add(next.query_count);
+        if queries > 4096 {
+            return Err(Status::resource_exhausted(
+                "Too many reflection dependencies.",
+            ));
+        }
+        if total > MAX_SCHEMA {
+            return Err(Status::resource_exhausted(
+                "Reflection descriptors exceed 8 MiB.",
+            ));
+        }
+        for file in next.pool.files() {
+            let descriptor = file.file_descriptor_proto();
+            if let Some(index) = indexes.get(file.name()) {
+                if &merged[*index] != descriptor {
+                    return Err(Status::internal("Conflicting reflected descriptors."));
+                }
+            } else {
+                indexes.insert(file.name().to_string(), merged.len());
+                merged.push(descriptor.clone());
+                if merged.len() > 1024 {
+                    return Err(Status::resource_exhausted("Reflection exceeds 1024 files."));
+                }
+            }
+        }
+        service_roots.extend(next.services);
+    }
+    let pool =
+        DescriptorPool::from_file_descriptor_set(prost_types::FileDescriptorSet { file: merged })
+            .map_err(|error| Status::internal(format!("Invalid reflected schema: {error}")))?;
+    Ok(ReflectionDiscovery {
+        pool,
+        services: service_roots,
+        received_bytes: total,
+        query_count: queries,
+    })
 }
 
 #[derive(Serialize)]

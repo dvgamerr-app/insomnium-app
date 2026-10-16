@@ -128,17 +128,73 @@ pub struct Schema {
     pub descriptor_set: String,
     pub methods: Vec<MethodInfo>,
     pub reflection: bool,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub reflection_services: Vec<ReflectionService>,
+}
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReflectionService {
+    pub name: String,
+    pub files: Vec<String>,
 }
 pub(crate) fn describe(pool: &DescriptorPool, mode: JsonMode) -> Result<Schema, String> {
-    describe_with_examples(pool, mode, false)
+    describe_with_examples(pool, mode, false, &[])
 }
 pub(crate) fn describe_reflection(pool: &DescriptorPool, mode: JsonMode) -> Result<Schema, String> {
-    describe_with_examples(pool, mode, true)
+    describe_with_examples(pool, mode, true, &[])
+}
+pub(crate) fn describe_reflection_services(
+    pool: &DescriptorPool,
+    services: &[ReflectionService],
+    mode: JsonMode,
+) -> Result<Schema, String> {
+    if services.is_empty() {
+        describe_reflection(pool, mode)
+    } else {
+        describe_with_examples(pool, mode, true, services)
+    }
+}
+pub(crate) fn reflection_pool(
+    pool: &DescriptorPool,
+    files: &[String],
+) -> Result<DescriptorPool, String> {
+    if files.len() > 1024
+        || files
+            .iter()
+            .fold(0usize, |size, name| size.saturating_add(name.len()))
+            > MAX_SCHEMA
+    {
+        return Err("Reflected service file index exceeds its budget.".into());
+    }
+    let mut seen = std::collections::HashSet::new();
+    let mut selected = Vec::new();
+    for name in files {
+        if !seen.insert(name) {
+            return Err("Duplicate reflected service file.".into());
+        }
+        let file = pool
+            .get_file_by_name(name)
+            .ok_or("Reflected service file is missing.")?;
+        selected.push(file.file_descriptor_proto().clone());
+    }
+    DescriptorPool::from_file_descriptor_set(prost_types::FileDescriptorSet { file: selected })
+        .map_err(|error| format!("Invalid reflected service schema: {error}"))
+}
+pub(crate) fn reflection_method(
+    pool: &DescriptorPool,
+    path: &str,
+    files: Option<&[String]>,
+) -> Result<MethodDescriptor, String> {
+    match files {
+        Some(files) => method(&reflection_pool(pool, files)?, path),
+        None => method(pool, path),
+    }
 }
 fn describe_with_examples(
     pool: &DescriptorPool,
     mode: JsonMode,
     reflection: bool,
+    reflection_services: &[ReflectionService],
 ) -> Result<Schema, String> {
     let bytes = pool.encode_to_vec();
     if bytes.len() > MAX_SCHEMA {
@@ -146,7 +202,44 @@ fn describe_with_examples(
     }
     let mut methods = Vec::new();
     let mut method_bytes = 0usize;
-    for service in pool.services() {
+    if reflection_services.len() > 1024 {
+        return Err("Reflection exceeds 1024 services.".into());
+    }
+    let mut service_names = std::collections::HashSet::new();
+    let mut index_bytes = 0usize;
+    for scope in reflection_services {
+        if !service_names.insert(&scope.name) {
+            return Err("Duplicate reflected service scope.".into());
+        }
+        index_bytes = scope.files.iter().fold(
+            index_bytes.saturating_add(scope.name.len()),
+            |size, name| size.saturating_add(name.len()),
+        );
+        if index_bytes > MAX_SCHEMA {
+            return Err("Reflected service index exceeds 8 MiB.".into());
+        }
+    }
+    let scopes: Vec<_> = if reflection_services.is_empty() {
+        pool.services()
+            .map(|s| (s.full_name().to_string(), None))
+            .collect()
+    } else {
+        reflection_services
+            .iter()
+            .map(|s| (s.name.clone(), Some(s.files.as_slice())))
+            .collect()
+    };
+    for (name, files) in scopes {
+        let scoped_pool;
+        let selected_pool = if let Some(files) = files {
+            scoped_pool = reflection_pool(pool, files)?;
+            &scoped_pool
+        } else {
+            pool
+        };
+        let service = selected_pool
+            .get_service_by_name(&name)
+            .ok_or("Reflection omitted a listed service descriptor.")?;
         for method in service.methods() {
             if methods.len() >= 4096 {
                 return Err("Schema exceeds 4096 methods.".into());
@@ -188,6 +281,7 @@ fn describe_with_examples(
         descriptor_set: STANDARD.encode(bytes),
         methods,
         reflection,
+        reflection_services: reflection_services.to_vec(),
     })
 }
 

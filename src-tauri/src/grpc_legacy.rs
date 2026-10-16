@@ -1937,6 +1937,167 @@ mod tests {
         );
     }
 
+    fn reflection_service_reference() -> serde_json::Value {
+        serde_json::from_str(include_str!(
+            "../../tests/ui/fixtures/grpc-reflection-service-reference.json"
+        ))
+        .unwrap()
+    }
+
+    fn assert_reflection_service_row(fixture: &serde_json::Value, label: &str, scoped: bool) {
+        let row = fixture["rows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|row| row["label"] == label)
+            .unwrap();
+        let encoded = if scoped {
+            fixture["scopes"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|scope| scope["scope"] == row["scope"])
+                .unwrap()["descriptorSet"]
+                .as_str()
+                .unwrap()
+        } else {
+            fixture["combinedDescriptorSet"].as_str().unwrap()
+        };
+        let pool = crate::grpc_schema::decode(encoded).unwrap();
+        let path = format!("/{}/Call", row["service"].as_str().unwrap());
+        let method = if scoped {
+            crate::grpc_schema::method(&pool, &path).unwrap()
+        } else {
+            let scope = fixture["scopes"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|scope| scope["scope"] == row["scope"])
+                .unwrap();
+            let files = scope["fileOrder"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|name| name.as_str().unwrap().to_string())
+                .collect();
+            let schema = crate::grpc_schema::describe_reflection_services(
+                &pool,
+                &[crate::grpc_schema::ReflectionService {
+                    name: row["service"].as_str().unwrap().into(),
+                    files,
+                }],
+                crate::grpc_schema::JsonMode::Legacy,
+            )
+            .unwrap();
+            assert_eq!(
+                schema.methods.len(),
+                1,
+                "Only listed service methods belong to this scope"
+            );
+            assert_eq!(schema.methods[0].path, path);
+            let serialized = serde_json::to_value(&schema).unwrap();
+            let names: Vec<String> = serialized["reflectionServices"][0]["files"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|name| name.as_str().unwrap().into())
+                .collect();
+            assert_eq!(
+                serialized["reflectionServices"][0]["files"],
+                scope["fileOrder"]
+            );
+            let decoded =
+                crate::grpc_schema::decode(serialized["descriptorSet"].as_str().unwrap()).unwrap();
+            crate::grpc_schema::reflection_method(&decoded, &path, Some(&names)).unwrap()
+        };
+        let original = method.input();
+        let parsed = crate::grpc_schema::parse_mode(
+            original.clone(),
+            row["body"].as_str().unwrap(),
+            crate::grpc_schema::JsonMode::Legacy.from_schema(true),
+        )
+        .unwrap();
+        let wire = parsed.encode_to_vec();
+        let hex: String = wire.iter().map(|byte| format!("{byte:02x}")).collect();
+        assert_eq!(
+            hex,
+            row["wireHex"].as_str().unwrap(),
+            "Service-scoped wire {label}"
+        );
+        assert_eq!(
+            crate::grpc_schema::json_mode(
+                &parsed,
+                crate::grpc_schema::JsonMode::Legacy.from_schema(true),
+                original
+            )
+            .unwrap(),
+            row["json"].as_str().unwrap(),
+            "Service-scoped JSON {label}"
+        );
+    }
+
+    #[test]
+    fn reflection_service_scope_pinned_roots_are_controls() {
+        let fixture = reflection_service_reference();
+        assert_eq!(fixture["versions"]["reflectionClient"], "0.3.0");
+        assert_eq!(fixture["rows"].as_array().unwrap().len(), 16);
+        for row in fixture["rows"].as_array().unwrap() {
+            assert_reflection_service_row(&fixture, row["label"].as_str().unwrap(), true);
+        }
+    }
+
+    #[test]
+    fn reflection_service_scope_short_alias_uses_selected_root() {
+        assert_reflection_service_row(
+            &reflection_service_reference(),
+            "isolated-beta:Payload",
+            false,
+        );
+    }
+
+    #[test]
+    fn reflection_service_scope_excludes_unreturned_foreign_type() {
+        assert_reflection_service_row(
+            &reflection_service_reference(),
+            "isolated-alpha:ownedclosure.beta.Payload",
+            false,
+        );
+    }
+
+    #[test]
+    fn reflection_service_scope_metadata_roundtrip_matches_all_vectors() {
+        let fixture = reflection_service_reference();
+        for row in fixture["rows"].as_array().unwrap() {
+            assert_reflection_service_row(&fixture, row["label"].as_str().unwrap(), false);
+        }
+    }
+
+    #[test]
+    fn reflection_service_scope_invalid_file_indexes_refuse() {
+        use crate::grpc_schema;
+        let fixture = reflection_service_reference();
+        let pool = grpc_schema::decode(fixture["combinedDescriptorSet"].as_str().unwrap()).unwrap();
+        let before = pool.encode_to_vec();
+        for files in [
+            vec!["missing.proto".into()],
+            vec!["any.proto".into(), "any.proto".into()],
+            vec!["alpha.proto".into()],
+            vec!["any.proto".into(); 1025],
+        ] {
+            assert!(grpc_schema::reflection_pool(&pool, &files).is_err());
+        }
+        assert!(grpc_schema::reflection_method(
+            &pool,
+            "/ownedclosure.beta.Echo/Call",
+            Some(&["alpha.proto".into(), "any.proto".into()])
+        )
+        .is_err());
+        assert!(
+            grpc_schema::reflection_method(&pool, "/ownedclosure.beta.Echo/Call", None).is_ok()
+        );
+        assert_eq!(pool.encode_to_vec(), before);
+    }
+
     fn assert_any_order_vectors(group: &str) {
         let fixture: serde_json::Value = serde_json::from_str(include_str!(
             "../../tests/ui/fixtures/grpc-any-order-reference.json"

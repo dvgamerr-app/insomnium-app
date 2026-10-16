@@ -1,0 +1,236 @@
+{
+  "versions": {
+    "protobufjs": "7.2.4",
+    "protoLoader": "0.7.13",
+    "reflectionClient": "0.3.0"
+  },
+  "sources": {
+    "alpha": "syntax=\"proto3\";package ownedclosure.alpha;import \"google/protobuf/any.proto\";message Payload {string left=1;}service Echo {rpc Call(google.protobuf.Any) returns(google.protobuf.Any);}",
+    "beta": "syntax=\"proto3\";package ownedclosure.beta;import \"google/protobuf/any.proto\";message Payload {string right=2;}service Echo {rpc Call(google.protobuf.Any) returns(google.protobuf.Any);}"
+  },
+  "files": [
+    {
+      "name": "any.proto",
+      "bytes": "CglhbnkucHJvdG8SD2dvb2dsZS5wcm90b2J1ZiImCgNBbnkSEAoIdHlwZV91cmwYASABKAkSDQoFdmFsdWUYAiABKAxiBnByb3RvMw=="
+    },
+    {
+      "name": "alpha.proto",
+      "bytes": "CgthbHBoYS5wcm90bxISb3duZWRjbG9zdXJlLmFscGhhGglhbnkucHJvdG8iFwoHUGF5bG9hZBIMCgRsZWZ0GAEgASgJMjoKBEVjaG8SMgoEQ2FsbBIULmdvb2dsZS5wcm90b2J1Zi5BbnkaFC5nb29nbGUucHJvdG9idWYuQW55YgZwcm90bzM="
+    },
+    {
+      "name": "beta.proto",
+      "bytes": "CgpiZXRhLnByb3RvEhFvd25lZGNsb3N1cmUuYmV0YRoJYW55LnByb3RvIhgKB1BheWxvYWQSDQoFcmlnaHQYAiABKAkyOgoERWNobxIyCgRDYWxsEhQuZ29vZ2xlLnByb3RvYnVmLkFueRoULmdvb2dsZS5wcm90b2J1Zi5BbnliBnByb3RvMw=="
+    }
+  ],
+  "scopes": [
+    {
+      "scope": "isolated-alpha",
+      "service": "ownedclosure.alpha.Echo",
+      "initialFiles": [
+        "alpha.proto"
+      ],
+      "dependencyQueries": [
+        [
+          "any.proto"
+        ]
+      ],
+      "fileOrder": [
+        "alpha.proto",
+        "any.proto"
+      ],
+      "descriptorSet": "CokBCgthbHBoYS5wcm90bxISb3duZWRjbG9zdXJlLmFscGhhGglhbnkucHJvdG8iFwoHUGF5bG9hZBIMCgRsZWZ0GAEgASgJMjoKBEVjaG8SMgoEQ2FsbBIULmdvb2dsZS5wcm90b2J1Zi5BbnkaFC5nb29nbGUucHJvdG9idWYuQW55YgZwcm90bzMKTAoJYW55LnByb3RvEg9nb29nbGUucHJvdG9idWYiJgoDQW55EhAKCHR5cGVfdXJsGAEgASgJEg0KBXZhbHVlGAIgASgMYgZwcm90bzM="
+    },
+    {
+      "scope": "isolated-beta",
+      "service": "ownedclosure.beta.Echo",
+      "initialFiles": [
+        "beta.proto"
+      ],
+      "dependencyQueries": [
+        [
+          "any.proto"
+        ]
+      ],
+      "fileOrder": [
+        "beta.proto",
+        "any.proto"
+      ],
+      "descriptorSet": "CogBCgpiZXRhLnByb3RvEhFvd25lZGNsb3N1cmUuYmV0YRoJYW55LnByb3RvIhgKB1BheWxvYWQSDQoFcmlnaHQYAiABKAkyOgoERWNobxIyCgRDYWxsEhQuZ29vZ2xlLnByb3RvYnVmLkFueRoULmdvb2dsZS5wcm90b2J1Zi5BbnliBnByb3RvMwpMCglhbnkucHJvdG8SD2dvb2dsZS5wcm90b2J1ZiImCgNBbnkSEAoIdHlwZV91cmwYASABKAkSDQoFdmFsdWUYAiABKAxiBnByb3RvMw=="
+    },
+    {
+      "scope": "extras-alpha",
+      "service": "ownedclosure.alpha.Echo",
+      "initialFiles": [
+        "alpha.proto",
+        "beta.proto"
+      ],
+      "dependencyQueries": [
+        [
+          "any.proto"
+        ],
+        [
+          "any.proto"
+        ]
+      ],
+      "fileOrder": [
+        "alpha.proto",
+        "beta.proto",
+        "any.proto"
+      ],
+      "descriptorSet": "CokBCgthbHBoYS5wcm90bxISb3duZWRjbG9zdXJlLmFscGhhGglhbnkucHJvdG8iFwoHUGF5bG9hZBIMCgRsZWZ0GAEgASgJMjoKBEVjaG8SMgoEQ2FsbBIULmdvb2dsZS5wcm90b2J1Zi5BbnkaFC5nb29nbGUucHJvdG9idWYuQW55YgZwcm90bzMKiAEKCmJldGEucHJvdG8SEW93bmVkY2xvc3VyZS5iZXRhGglhbnkucHJvdG8iGAoHUGF5bG9hZBINCgVyaWdodBgCIAEoCTI6CgRFY2hvEjIKBENhbGwSFC5nb29nbGUucHJvdG9idWYuQW55GhQuZ29vZ2xlLnByb3RvYnVmLkFueWIGcHJvdG8zCkwKCWFueS5wcm90bxIPZ29vZ2xlLnByb3RvYnVmIiYKA0FueRIQCgh0eXBlX3VybBgBIAEoCRINCgV2YWx1ZRgCIAEoDGIGcHJvdG8z"
+    },
+    {
+      "scope": "extras-beta",
+      "service": "ownedclosure.beta.Echo",
+      "initialFiles": [
+        "beta.proto",
+        "alpha.proto"
+      ],
+      "dependencyQueries": [
+        [
+          "any.proto"
+        ],
+        [
+          "any.proto"
+        ]
+      ],
+      "fileOrder": [
+        "beta.proto",
+        "alpha.proto",
+        "any.proto"
+      ],
+      "descriptorSet": "CogBCgpiZXRhLnByb3RvEhFvd25lZGNsb3N1cmUuYmV0YRoJYW55LnByb3RvIhgKB1BheWxvYWQSDQoFcmlnaHQYAiABKAkyOgoERWNobxIyCgRDYWxsEhQuZ29vZ2xlLnByb3RvYnVmLkFueRoULmdvb2dsZS5wcm90b2J1Zi5BbnliBnByb3RvMwqJAQoLYWxwaGEucHJvdG8SEm93bmVkY2xvc3VyZS5hbHBoYRoJYW55LnByb3RvIhcKB1BheWxvYWQSDAoEbGVmdBgBIAEoCTI6CgRFY2hvEjIKBENhbGwSFC5nb29nbGUucHJvdG9idWYuQW55GhQuZ29vZ2xlLnByb3RvYnVmLkFueWIGcHJvdG8zCkwKCWFueS5wcm90bxIPZ29vZ2xlLnByb3RvYnVmIiYKA0FueRIQCgh0eXBlX3VybBgBIAEoCRINCgV2YWx1ZRgCIAEoDGIGcHJvdG8z"
+    }
+  ],
+  "combinedDescriptorSet": "CokBCgthbHBoYS5wcm90bxISb3duZWRjbG9zdXJlLmFscGhhGglhbnkucHJvdG8iFwoHUGF5bG9hZBIMCgRsZWZ0GAEgASgJMjoKBEVjaG8SMgoEQ2FsbBIULmdvb2dsZS5wcm90b2J1Zi5BbnkaFC5nb29nbGUucHJvdG9idWYuQW55YgZwcm90bzMKTAoJYW55LnByb3RvEg9nb29nbGUucHJvdG9idWYiJgoDQW55EhAKCHR5cGVfdXJsGAEgASgJEg0KBXZhbHVlGAIgASgMYgZwcm90bzMKiAEKCmJldGEucHJvdG8SEW93bmVkY2xvc3VyZS5iZXRhGglhbnkucHJvdG8iGAoHUGF5bG9hZBINCgVyaWdodBgCIAEoCTI6CgRFY2hvEjIKBENhbGwSFC5nb29nbGUucHJvdG9idWYuQW55GhQuZ29vZ2xlLnByb3RvYnVmLkFueWIGcHJvdG8z",
+  "rows": [
+    {
+      "label": "isolated-alpha:Payload",
+      "scope": "isolated-alpha",
+      "service": "ownedclosure.alpha.Echo",
+      "body": "{\"@type\":\"types/Payload\",\"left\":\"left-owned\",\"right\":\"right-owned\"}",
+      "wireHex": "0a0d74797065732f5061796c6f6164120c0a0a6c6566742d6f776e6564",
+      "json": "{\"type_url\":\"types/Payload\",\"value\":{\"0\":10,\"1\":10,\"2\":108,\"3\":101,\"4\":102,\"5\":116,\"6\":45,\"7\":111,\"8\":119,\"9\":110,\"10\":101,\"11\":100}}"
+    },
+    {
+      "label": "isolated-alpha:ownedclosure.alpha.Payload",
+      "scope": "isolated-alpha",
+      "service": "ownedclosure.alpha.Echo",
+      "body": "{\"@type\":\"types/ownedclosure.alpha.Payload\",\"left\":\"left-owned\",\"right\":\"right-owned\"}",
+      "wireHex": "0a2074797065732f6f776e6564636c6f737572652e616c7068612e5061796c6f6164120c0a0a6c6566742d6f776e6564",
+      "json": "{\"type_url\":\"types/ownedclosure.alpha.Payload\",\"value\":{\"0\":10,\"1\":10,\"2\":108,\"3\":101,\"4\":102,\"5\":116,\"6\":45,\"7\":111,\"8\":119,\"9\":110,\"10\":101,\"11\":100}}"
+    },
+    {
+      "label": "isolated-alpha:ownedclosure.beta.Payload",
+      "scope": "isolated-alpha",
+      "service": "ownedclosure.alpha.Echo",
+      "body": "{\"@type\":\"types/ownedclosure.beta.Payload\",\"left\":\"left-owned\",\"right\":\"right-owned\"}",
+      "wireHex": "",
+      "json": "{}"
+    },
+    {
+      "label": "isolated-alpha:ownedclosure.Missing",
+      "scope": "isolated-alpha",
+      "service": "ownedclosure.alpha.Echo",
+      "body": "{\"@type\":\"types/ownedclosure.Missing\",\"left\":\"left-owned\",\"right\":\"right-owned\"}",
+      "wireHex": "",
+      "json": "{}"
+    },
+    {
+      "label": "isolated-beta:Payload",
+      "scope": "isolated-beta",
+      "service": "ownedclosure.beta.Echo",
+      "body": "{\"@type\":\"types/Payload\",\"left\":\"left-owned\",\"right\":\"right-owned\"}",
+      "wireHex": "0a0d74797065732f5061796c6f6164120d120b72696768742d6f776e6564",
+      "json": "{\"type_url\":\"types/Payload\",\"value\":{\"0\":18,\"1\":11,\"2\":114,\"3\":105,\"4\":103,\"5\":104,\"6\":116,\"7\":45,\"8\":111,\"9\":119,\"10\":110,\"11\":101,\"12\":100}}"
+    },
+    {
+      "label": "isolated-beta:ownedclosure.alpha.Payload",
+      "scope": "isolated-beta",
+      "service": "ownedclosure.beta.Echo",
+      "body": "{\"@type\":\"types/ownedclosure.alpha.Payload\",\"left\":\"left-owned\",\"right\":\"right-owned\"}",
+      "wireHex": "",
+      "json": "{}"
+    },
+    {
+      "label": "isolated-beta:ownedclosure.beta.Payload",
+      "scope": "isolated-beta",
+      "service": "ownedclosure.beta.Echo",
+      "body": "{\"@type\":\"types/ownedclosure.beta.Payload\",\"left\":\"left-owned\",\"right\":\"right-owned\"}",
+      "wireHex": "0a1f74797065732f6f776e6564636c6f737572652e626574612e5061796c6f6164120d120b72696768742d6f776e6564",
+      "json": "{\"type_url\":\"types/ownedclosure.beta.Payload\",\"value\":{\"0\":18,\"1\":11,\"2\":114,\"3\":105,\"4\":103,\"5\":104,\"6\":116,\"7\":45,\"8\":111,\"9\":119,\"10\":110,\"11\":101,\"12\":100}}"
+    },
+    {
+      "label": "isolated-beta:ownedclosure.Missing",
+      "scope": "isolated-beta",
+      "service": "ownedclosure.beta.Echo",
+      "body": "{\"@type\":\"types/ownedclosure.Missing\",\"left\":\"left-owned\",\"right\":\"right-owned\"}",
+      "wireHex": "",
+      "json": "{}"
+    },
+    {
+      "label": "extras-alpha:Payload",
+      "scope": "extras-alpha",
+      "service": "ownedclosure.alpha.Echo",
+      "body": "{\"@type\":\"types/Payload\",\"left\":\"left-owned\",\"right\":\"right-owned\"}",
+      "wireHex": "0a0d74797065732f5061796c6f6164120c0a0a6c6566742d6f776e6564",
+      "json": "{\"type_url\":\"types/Payload\",\"value\":{\"0\":10,\"1\":10,\"2\":108,\"3\":101,\"4\":102,\"5\":116,\"6\":45,\"7\":111,\"8\":119,\"9\":110,\"10\":101,\"11\":100}}"
+    },
+    {
+      "label": "extras-alpha:ownedclosure.alpha.Payload",
+      "scope": "extras-alpha",
+      "service": "ownedclosure.alpha.Echo",
+      "body": "{\"@type\":\"types/ownedclosure.alpha.Payload\",\"left\":\"left-owned\",\"right\":\"right-owned\"}",
+      "wireHex": "0a2074797065732f6f776e6564636c6f737572652e616c7068612e5061796c6f6164120c0a0a6c6566742d6f776e6564",
+      "json": "{\"type_url\":\"types/ownedclosure.alpha.Payload\",\"value\":{\"0\":10,\"1\":10,\"2\":108,\"3\":101,\"4\":102,\"5\":116,\"6\":45,\"7\":111,\"8\":119,\"9\":110,\"10\":101,\"11\":100}}"
+    },
+    {
+      "label": "extras-alpha:ownedclosure.beta.Payload",
+      "scope": "extras-alpha",
+      "service": "ownedclosure.alpha.Echo",
+      "body": "{\"@type\":\"types/ownedclosure.beta.Payload\",\"left\":\"left-owned\",\"right\":\"right-owned\"}",
+      "wireHex": "0a1f74797065732f6f776e6564636c6f737572652e626574612e5061796c6f6164120d120b72696768742d6f776e6564",
+      "json": "{\"type_url\":\"types/ownedclosure.beta.Payload\",\"value\":{\"0\":18,\"1\":11,\"2\":114,\"3\":105,\"4\":103,\"5\":104,\"6\":116,\"7\":45,\"8\":111,\"9\":119,\"10\":110,\"11\":101,\"12\":100}}"
+    },
+    {
+      "label": "extras-alpha:ownedclosure.Missing",
+      "scope": "extras-alpha",
+      "service": "ownedclosure.alpha.Echo",
+      "body": "{\"@type\":\"types/ownedclosure.Missing\",\"left\":\"left-owned\",\"right\":\"right-owned\"}",
+      "wireHex": "",
+      "json": "{}"
+    },
+    {
+      "label": "extras-beta:Payload",
+      "scope": "extras-beta",
+      "service": "ownedclosure.beta.Echo",
+      "body": "{\"@type\":\"types/Payload\",\"left\":\"left-owned\",\"right\":\"right-owned\"}",
+      "wireHex": "0a0d74797065732f5061796c6f6164120d120b72696768742d6f776e6564",
+      "json": "{\"type_url\":\"types/Payload\",\"value\":{\"0\":18,\"1\":11,\"2\":114,\"3\":105,\"4\":103,\"5\":104,\"6\":116,\"7\":45,\"8\":111,\"9\":119,\"10\":110,\"11\":101,\"12\":100}}"
+    },
+    {
+      "label": "extras-beta:ownedclosure.alpha.Payload",
+      "scope": "extras-beta",
+      "service": "ownedclosure.beta.Echo",
+      "body": "{\"@type\":\"types/ownedclosure.alpha.Payload\",\"left\":\"left-owned\",\"right\":\"right-owned\"}",
+      "wireHex": "0a2074797065732f6f776e6564636c6f737572652e616c7068612e5061796c6f6164120c0a0a6c6566742d6f776e6564",
+      "json": "{\"type_url\":\"types/ownedclosure.alpha.Payload\",\"value\":{\"0\":10,\"1\":10,\"2\":108,\"3\":101,\"4\":102,\"5\":116,\"6\":45,\"7\":111,\"8\":119,\"9\":110,\"10\":101,\"11\":100}}"
+    },
+    {
+      "label": "extras-beta:ownedclosure.beta.Payload",
+      "scope": "extras-beta",
+      "service": "ownedclosure.beta.Echo",
+      "body": "{\"@type\":\"types/ownedclosure.beta.Payload\",\"left\":\"left-owned\",\"right\":\"right-owned\"}",
+      "wireHex": "0a1f74797065732f6f776e6564636c6f737572652e626574612e5061796c6f6164120d120b72696768742d6f776e6564",
+      "json": "{\"type_url\":\"types/ownedclosure.beta.Payload\",\"value\":{\"0\":18,\"1\":11,\"2\":114,\"3\":105,\"4\":103,\"5\":104,\"6\":116,\"7\":45,\"8\":111,\"9\":119,\"10\":110,\"11\":101,\"12\":100}}"
+    },
+    {
+      "label": "extras-beta:ownedclosure.Missing",
+      "scope": "extras-beta",
+      "service": "ownedclosure.beta.Echo",
+      "body": "{\"@type\":\"types/ownedclosure.Missing\",\"left\":\"left-owned\",\"right\":\"right-owned\"}",
+      "wireHex": "",
+      "json": "{}"
+    }
+  ]
+}

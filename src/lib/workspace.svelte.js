@@ -1679,6 +1679,10 @@ export async function executeGrpc(requestId, discoveryOnly = false) {
         connection,
         descriptorSet: cached.schema.descriptorSet,
         reflection: cached.schema.reflection === true,
+        reflectionFiles: cached.schema.reflectionServices?.find(
+          (/** @type {{name:string,files:string[]}} */ service) =>
+            service.name === method.path.split("/")[1],
+        )?.files,
         method: method.path,
         body,
         jsonMode: grpcJsonMode(snapshot),

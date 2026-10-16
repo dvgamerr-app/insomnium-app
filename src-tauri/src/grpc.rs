@@ -46,26 +46,26 @@ pub async fn load_grpc_schema(
         on_started
             .send(())
             .map_err(|_| "gRPC schema view closed.")?;
-        let reflection = request.proto.is_none();
         let pool = match request.proto {
             Some(input) => tokio::task::spawn_blocking(move || grpc_schema::compile(input))
                 .await
                 .map_err(|_| "Proto compiler stopped unexpectedly.")??,
             None => {
-                grpc_transport::reflect(
+                let discovery = grpc_transport::reflect(
                     request
                         .connection
                         .as_ref()
                         .ok_or("Provide proto files or a reflection endpoint.")?,
                 )
-                .await?
+                .await?;
+                return grpc_schema::describe_reflection_services(
+                    &discovery.pool,
+                    &discovery.services,
+                    request.json_mode,
+                );
             }
         };
-        if reflection {
-            grpc_schema::describe_reflection(&pool, request.json_mode)
-        } else {
-            grpc_schema::describe(&pool, request.json_mode)
-        }
+        grpc_schema::describe(&pool, request.json_mode)
     };
     let timeout = request
         .connection
@@ -93,6 +93,8 @@ pub struct GrpcRequest {
     json_mode: JsonMode,
     #[serde(default)]
     reflection: bool,
+    #[serde(default)]
+    reflection_files: Option<Vec<String>>,
 }
 #[derive(Serialize)]
 pub struct Packet {
@@ -133,7 +135,15 @@ pub async fn connect_grpc(
 ) -> Result<(), String> {
     request.json_mode = request.json_mode.from_schema(request.reflection);
     let pool = grpc_schema::decode(&request.descriptor_set)?;
-    let method = grpc_schema::method(&pool, &request.method)?;
+    let method = grpc_schema::reflection_method(
+        &pool,
+        &request.method,
+        if request.reflection {
+            request.reflection_files.as_deref()
+        } else {
+            None
+        },
+    )?;
     let original_input = method.input();
     let input = match request.json_mode {
         grpc_schema::JsonMode::Legacy | grpc_schema::JsonMode::LegacyReflection => {

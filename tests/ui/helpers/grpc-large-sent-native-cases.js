@@ -36,8 +36,14 @@ export async function runGrpcLargeSentNativeCases({
   anyTargetOnly = false,
   anyOrderOnly = false,
   reflectionProfileOnly = false,
+  reflectionServiceOnly = false,
 } = {}) {
   const variants = [
+    {
+      enabled: reflectionServiceOnly,
+      tag: "legacy-service-",
+      scenario: "grpc-reflection-service-native",
+    },
     {
       enabled: reflectionProfileOnly,
       tag: "legacy-profile-",
@@ -103,7 +109,10 @@ export async function runGrpcLargeSentNativeCases({
     allowParentTermination: true,
   };
   const fixture = await createGrpcLargeSentFixture({
-    handleDiscovery: reflectionProfileOnly ? handleGrpcProfileReflection : null,
+    handleDiscovery:
+      reflectionProfileOnly || reflectionServiceOnly
+        ? handleGrpcProfileReflection
+        : null,
   });
   /** @type {Record<string,any>[]} */ const checks = [];
   /** @type {unknown[]} */ const errors = [];
@@ -625,6 +634,51 @@ export async function runGrpcLargeSentNativeCases({
                 );
                 const record = fixture.records.find((r) => r.mode === mode);
                 assert.ok(record?.verified);
+                if (reflectionServiceOnly) {
+                  const serviceSpec = /** @type {Record<string,any>} */ (spec);
+                  const discovery = fixture.discoveryRecords.filter(
+                    (row) => row.mode === mode && !row.rejected,
+                  );
+                  assert.ok(discovery.length >= 2);
+                  assert.deepEqual(
+                    [
+                      ...new Set(
+                        discovery.flatMap((row) =>
+                          row.queries
+                            .filter(
+                              (/** @type {any} */ query) => query.field === 4,
+                            )
+                            .map((/** @type {any} */ query) => query.value),
+                        ),
+                      ),
+                    ],
+                    serviceSpec.services,
+                  );
+                  for (const row of discovery) {
+                    const symbols = row.queries.filter(
+                      (/** @type {any} */ query) => query.field === 4,
+                    );
+                    assert.equal(
+                      symbols.length,
+                      1,
+                      "Each service root must have its own reflection stream",
+                    );
+                    assert.ok(
+                      row.queries.some(
+                        (/** @type {any} */ query) =>
+                          query.field === 3 && query.value === "any.proto",
+                      ),
+                      "Each fresh root must retrieve its own missing dependency",
+                    );
+                    const root = row.descriptorReplies.find(
+                      (/** @type {any} */ reply) => reply.field === 4,
+                    );
+                    assert.deepEqual(
+                      root.files,
+                      serviceSpec.discoveryFileGroups[symbols[0].value],
+                    );
+                  }
+                }
                 const dialog = await manageResource(page, request.name);
                 await dialog
                   .getByRole("button", { name: "Delete…", exact: true })
@@ -648,6 +702,7 @@ export async function runGrpcLargeSentNativeCases({
                   payloadBytes: Buffer.byteLength(spec.responseText),
                   editorFormatAndModeSwitch: spec.editor,
                   useExampleAppliedAndModeSwitched: useExample,
+                  perServiceDiscoveryVerified: reflectionServiceOnly,
                   persistedBodySHA256: createHash("sha256")
                     .update(spec.formattedBody)
                     .digest("hex"),
@@ -701,31 +756,33 @@ export async function runGrpcLargeSentNativeCases({
           socketRecords: fixture.socketRecords,
           errorEvents: fixture.errorEvents,
           errors: errors.map(String),
-          scope: reflectionProfileOnly
-            ? "Pinned saved-file/reflection profiles through real v1/v1alpha discovery, editor/mode switching, wire/history/reload/Save. Discovery telemetry is separate from business requests. Per-service ambiguous aliases, examples/refusals and broader provider/platform gates require separate acceptance."
-            : anyOrderOnly
-              ? "Ten pinned declaration-order/main-before-import Any cases through actual selectable proto entry, editor, wire, history, reload and Save. Service-first shadow refusal/repair is in JSON-refusal. Concurrent sibling import timing and source-info-free reflection remain separate open gates."
-              : anyTargetOnly
-                ? "Twenty pinned Any reflection lookup/WKT cases through actual editor, wire, history, reload and Save: relative/nested messages, unknown and hidden targets, raw wrapper context, WKT spelling and absent/explicit-empty payloads. Refusal/typed repair is in JSON-refusal. Ambiguous loader/declaration order and broader provider/platform gates remain open."
-                : anyUrlOnly
-                  ? "Fourteen Any URL cases: normal/dotted/surrogate prefixes,39/40unit threshold after normalization, nested Any and unknown-type fallback through real editor/wire/history/reload/export. Native wrong-type refusal/typed repair is in JSON-refusal scenario. Broader Any/WKT/provider/platform gates remain open."
-                  : surrogateOnly
-                    ? "Thirteen legacy surrogate cases: scalar/list/map,39/40UTF16unit boundaries, collisions/coercions/unknown fields and explicit empty strings through real editor/wire/history/reload/export. Standard refusal is covered by JSON-refusal scenario; broader provider/platform gates remain open."
-                    : mapOnly
-                      ? "Nine legacy map cases including missing-message-value durable refusal and explicit peer repair/retry; exact editor/wire/history/reload/export. Broader provider/platform gates remain open."
-                      : orderOnly
-                        ? "Eight exact legacy message-field ordering cases: defaults, normal/message fields, multiple repeated/map categories, oneof selectors and nested containers through real editor/wire/history/reload/export. Map entry-key and lone-surrogate order remain open."
-                        : oneofOnly
-                          ? "Six legacy oneof cases: conflicting/default/list/map members, reversed input and response wire, real editor/Format/mode switch/history/reload/export. JSON key-order and broader provider/platform compatibility remain open."
-                          : overflowOnly
-                            ? "Eight legacy JSON numeric overflow/underflow cases through actual editor/Format/mode switch and exact double/int32/int64/string wire/history/reload/export. Broader JSON/provider/platform gates remain open."
-                            : longOnly
-                              ? "Six legacy signed/unsigned64 whitespace/chunk/sign cases through actual editor/Format/mode switch and full wire/history/reload/export. Broader coercion/provider/platform gates remain open."
-                              : numericOnly
-                                ? "Four legacy numeric-whitespace cases through actual editor/Format/mode switch, exact int32/double frames, response/history/reload/export. Other coercion/provider/platform gates remain open."
-                                : base64Only
-                                  ? "Six legacy Base64 byte/frame/history/reload/export cases. Other Base64, ProtoJSON and provider/platform gates remain open."
-                                  : "Actual native fourteen-case9MiB/compact-array/Unicode plus typed int64/bytes shared-editor Format/mode-switch/history/export in legacy/protoJson. No broad JSON/provider/platform claim.",
+          scope: reflectionServiceOnly
+            ? "Twenty-two pinned service-root cases through real multi-service discovery, per-root filename dependencies, returned extras, reversed service lists and v1alpha; editor/wire/history/reload/Save. Concurrent dependency/cache arrival timing and broader provider/platform gates remain open."
+            : reflectionProfileOnly
+              ? "Pinned saved-file/reflection profiles through real v1/v1alpha discovery, editor/mode switching, wire/history/reload/Save. Discovery telemetry is separate from business requests. Per-service ambiguous aliases, examples/refusals and broader provider/platform gates require separate acceptance."
+              : anyOrderOnly
+                ? "Ten pinned declaration-order/main-before-import Any cases through actual selectable proto entry, editor, wire, history, reload and Save. Service-first shadow refusal/repair is in JSON-refusal. Concurrent sibling import timing and source-info-free reflection remain separate open gates."
+                : anyTargetOnly
+                  ? "Twenty pinned Any reflection lookup/WKT cases through actual editor, wire, history, reload and Save: relative/nested messages, unknown and hidden targets, raw wrapper context, WKT spelling and absent/explicit-empty payloads. Refusal/typed repair is in JSON-refusal. Ambiguous loader/declaration order and broader provider/platform gates remain open."
+                  : anyUrlOnly
+                    ? "Fourteen Any URL cases: normal/dotted/surrogate prefixes,39/40unit threshold after normalization, nested Any and unknown-type fallback through real editor/wire/history/reload/export. Native wrong-type refusal/typed repair is in JSON-refusal scenario. Broader Any/WKT/provider/platform gates remain open."
+                    : surrogateOnly
+                      ? "Thirteen legacy surrogate cases: scalar/list/map,39/40UTF16unit boundaries, collisions/coercions/unknown fields and explicit empty strings through real editor/wire/history/reload/export. Standard refusal is covered by JSON-refusal scenario; broader provider/platform gates remain open."
+                      : mapOnly
+                        ? "Nine legacy map cases including missing-message-value durable refusal and explicit peer repair/retry; exact editor/wire/history/reload/export. Broader provider/platform gates remain open."
+                        : orderOnly
+                          ? "Eight exact legacy message-field ordering cases: defaults, normal/message fields, multiple repeated/map categories, oneof selectors and nested containers through real editor/wire/history/reload/export. Map entry-key and lone-surrogate order remain open."
+                          : oneofOnly
+                            ? "Six legacy oneof cases: conflicting/default/list/map members, reversed input and response wire, real editor/Format/mode switch/history/reload/export. JSON key-order and broader provider/platform compatibility remain open."
+                            : overflowOnly
+                              ? "Eight legacy JSON numeric overflow/underflow cases through actual editor/Format/mode switch and exact double/int32/int64/string wire/history/reload/export. Broader JSON/provider/platform gates remain open."
+                              : longOnly
+                                ? "Six legacy signed/unsigned64 whitespace/chunk/sign cases through actual editor/Format/mode switch and full wire/history/reload/export. Broader coercion/provider/platform gates remain open."
+                                : numericOnly
+                                  ? "Four legacy numeric-whitespace cases through actual editor/Format/mode switch, exact int32/double frames, response/history/reload/export. Other coercion/provider/platform gates remain open."
+                                  : base64Only
+                                    ? "Six legacy Base64 byte/frame/history/reload/export cases. Other Base64, ProtoJSON and provider/platform gates remain open."
+                                    : "Actual native fourteen-case9MiB/compact-array/Unicode plus typed int64/bytes shared-editor Format/mode-switch/history/export in legacy/protoJson. No broad JSON/provider/platform claim.",
         },
         null,
         2,

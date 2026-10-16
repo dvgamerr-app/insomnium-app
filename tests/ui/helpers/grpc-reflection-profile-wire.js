@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { grpcReflectionServiceCase } from "./grpc-reflection-service-case-data.js";
 import {
   grpcReflectionProfileCase,
   profileGrpcFrame,
@@ -72,7 +73,10 @@ export function handleGrpcProfileReflection(stream, headers, records, errors) {
   )
     return false;
   const mode = String(headers["owned-case"]),
-    spec = grpcReflectionProfileCase(mode);
+    spec = mode.startsWith("legacy-service-")
+      ? grpcReflectionServiceCase(mode)
+      : grpcReflectionProfileCase(mode);
+  const services = spec.services ?? [spec.service];
   const rejected = spec.alphaOnly === true && path.includes(".v1.");
   const row = {
     id: records.length + 1,
@@ -81,6 +85,7 @@ export function handleGrpcProfileReflection(stream, headers, records, errors) {
     rejected,
     queries: /** @type {any[]} */ ([]),
     responses: 0,
+    descriptorReplies: /** @type {any[]} */ ([]),
     verified: false,
     closedAt: /** @type {number|null} */ (null),
     rstCode: /** @type {number|null} */ (null),
@@ -108,6 +113,15 @@ export function handleGrpcProfileReflection(stream, headers, records, errors) {
     .filter((f) => f.field === 1)
     .map((f) => f.value);
   assert.ok(files.length > 0);
+  const byName = new Map(
+    files.map((file) => [
+      reflectionFields(file)
+        .find((field) => field.field === 1)
+        ?.value.toString(),
+      file,
+    ]),
+  );
+  const sentFiles = new Set();
   let buffered = Buffer.alloc(0),
     ended = false;
   stream.on("data", (chunk) => {
@@ -141,9 +155,17 @@ export function handleGrpcProfileReflection(stream, headers, records, errors) {
         }
         let answer;
         if (query.field === 7)
-          answer = bytesField(6, bytesField(1, bytesField(1, spec.service)));
+          answer = bytesField(
+            6,
+            Buffer.concat(
+              services.map((/** @type {string} */ service) =>
+                bytesField(1, bytesField(1, service)),
+              ),
+            ),
+          );
         else {
-          if (query.field === 4) assert.equal(value, spec.service);
+          if (query.field === 4)
+            assert.ok(services.includes(value), "Unknown reflected service");
           if (query.field === 3)
             assert.ok(
               files.some((file) =>
@@ -153,9 +175,30 @@ export function handleGrpcProfileReflection(stream, headers, records, errors) {
               ),
               "Unknown descriptor file",
             );
+          const requested = spec.discoveryFileGroups
+            ? query.field === 4
+              ? spec.discoveryFileGroups[value]
+              : [value]
+            : [...byName.keys()];
+          assert.ok(Array.isArray(requested));
+          const selected = requested.filter(
+            (/** @type {string} */ name) =>
+              !spec.omitPreviouslySent || !sentFiles.has(name),
+          );
+          const returned = selected.map((/** @type {string} */ name) => {
+            const file = byName.get(name);
+            assert.ok(file, "Missing reflection fixture file");
+            sentFiles.add(name);
+            return file;
+          });
+          row.descriptorReplies.push({
+            field: query.field,
+            value,
+            files: selected,
+          });
           answer = bytesField(
             4,
-            Buffer.concat(files.map((file) => bytesField(1, file))),
+            Buffer.concat(returned.map((file) => bytesField(1, file))),
           );
         }
         stream.write(

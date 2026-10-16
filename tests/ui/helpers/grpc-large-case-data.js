@@ -1,5 +1,9 @@
 /** Authored native case inputs and independent protobuf/preview expectations. */
 import {
+  grpcReflectionServiceCase,
+  grpcReflectionServiceModes,
+} from "./grpc-reflection-service-case-data.js";
+import {
   grpcReflectionProfileCase,
   grpcReflectionProfileModes,
   grpcReflectionProfileProtos,
@@ -20,6 +24,7 @@ export const grpcLargeAdditionalProtos = [
   ...grpcReflectionProfileProtos,
 ];
 export const grpcLargeModes = [
+  ...grpcReflectionServiceModes,
   ...grpcReflectionProfileModes,
   ...grpcAnyOrderModes,
   ...grpcAnyTargetModes,
@@ -167,6 +172,8 @@ export function grpcLargeCase(mode) {
   if (!grpcLargeModes.includes(mode))
     throw new Error("Unknown authored gRPC case");
 
+  if (mode.startsWith("legacy-service-"))
+    return grpcReflectionServiceCase(mode);
   if (mode.startsWith("legacy-profile-"))
     return grpcReflectionProfileCase(mode);
   if (mode.startsWith("legacy-anytarget-")) return grpcAnyTargetCase(mode);

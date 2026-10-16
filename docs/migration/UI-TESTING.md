@@ -1,5 +1,9 @@
 # UI TESTING migration
 
+## Current per-service gRPC reflection verification
+
+Saved [grpc-reflection-service-native.js](../../tests/ui/grpc-reflection-service-native.js) requires INSOMNIUM_GRPC_REFLECTION_SERVICE_NATIVE=1 plus audited build/profile ownership.22cases assert separate per-service descriptor streams on the owned channel, exact root symbol packets, per-root any.proto filename fetch, returned extras, reversed service lists and v1alpha, actual editor/Format/mode flip/wire/history/reload/terminal and reloaded Save/deletion.21native-hidden scenarios/226groups/396successful Save exports/exact21profiles and original0override closure pass. See [scope/evidence](GRPC.md#current-native-grpc-reflection-service); concurrent cache/arrival and broader migration gates remain open.
+
 ## Current source-specific gRPC reflection verification
 
 Saved [grpc-reflection-profile-native.js](../../tests/ui/grpc-reflection-profile-native.js) requires INSOMNIUM_GRPC_REFLECTION_PROFILE_NATIVE=1; [grpc-reflection-refusal-native.js](../../tests/ui/grpc-reflection-refusal-native.js) requires INSOMNIUM_GRPC_REFLECTION_REFUSAL_NATIVE=1, both with audited build/profile ownership.33positive cases include actual Use example from empty bodies in both modes and Format/mode switching;2refusals verify no additional peer IO after schema discovery, durable errors, reload, actual typed repair and terminal/reloaded Save. Real v1/v1alpha discovery has separate telemetry from strict business streams.20native-hidden scenarios/204groups/352successful Save exports/exact20profiles and original manifest plus explicit1test/1STATUSdoc supplement2 closure pass. See [scope/evidence](GRPC.md#current-native-grpc-reflection-profile); broader aliases/provider/platform and migration gates remain open.

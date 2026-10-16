@@ -1,5 +1,9 @@
 # Feature parity tracker
 
+## Latest bounded per-service reflection-root receipt — 2026-10-16
+
+Per-service gRPC reflection descriptor roots have bounded Windows acceptance:22new actual editor/wire/history/reload/Save cases (16pinned isolated/returned-extra roots,4reversed-service-list controls and2multi-service v1alpha controls) retain all204prior groups. Full63Rust tests include serialized schema-index/native method selection round trips and invalid-file-index guards. Fresh21native-hidden scenarios/226groups/396actual successful gRPC Save exports/exact21profiles and original0override source/profile/export closure pass. Concurrent dependency/shared-cache arrival semantics and broader Any/JSON/template/editor/stream/provider/platform plus every retained PLAN/PARITY gate remain open. See [scope/evidence](GRPC.md#current-native-grpc-reflection-service).
+
 ## Latest bounded source-specific reflection receipt — 2026-10-16
 
 Source-specific legacy gRPC file/reflection profiles have bounded Windows acceptance:33new actual editor/mode-switch/wire/history/reload/Save cases (including2real Use example actions) plus2zero-additional-peer-IO refusal/typed-repair cases retain all169prior groups. Full58Rust tests include88pinned profile/Any/WKT rows (14refusals) and authored example/ProtoJSON contracts. Fresh20native-hidden scenarios/204groups/352actual successful gRPC Save exports/exact20profiles and original manifest plus explicit1test/1STATUSdoc discovery-retirement supplement closure pass. Per-service dependency-closure/arrival-order aliases, concurrent sibling import timing and broader JSON/template/editor/stream/provider/platform plus every retained PLAN/PARITY gate remain open. See [scope/evidence](GRPC.md#current-native-grpc-reflection-profile).
