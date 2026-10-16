@@ -56,7 +56,7 @@ const producerData = structuredClone(data);
 const producerRequest = producerData.resources.find((r) => r._id === request._id);
 assert.ok(producerRequest);
 Object.assign(producerRequest, {url:"grpc://127.0.0.1:50051", protoMethodName:"/owned.Service/Echo"});
-producerRequest.body.text = '{"value":' + JSON.stringify("{{ _['quote\\'\"key'] }}") + ',"large":9007199254740993}';
+producerRequest.body.text = '{"value":' + JSON.stringify("{{ _['quote\\'\"key'] }}") + ',"large":9007199254740993,"literal":"\\u007b\\u007b missing \\u007d\\u007d"}';
 producerData.resources.push({_id:"env_grpc_capture", _type:"environment", parentId:producerData.activeWorkspaceId, name:"Captured environment", data:{}});
 const producerEnvironment = producerData.resources.find((r) => r._id === "env_grpc_capture");
 assert.ok(producerEnvironment);
@@ -70,6 +70,7 @@ for (const clientStreaming of [false,true]) await withPreview(clientStreaming ? 
   await history.waitFor();
   assert.equal(await history.inputValue(), "grpc_history_old");
   await page.getByRole("button", {name:"Load methods", exact:true}).click();
+  await page.getByRole("button", {name:"Use example", exact:true}).click();
   if (clientStreaming) {
     await page.keyboard.press("Control+Enter");
     await page.waitForFunction(() => /** @type {any} */ (window).__grpcStreamReady === true);
@@ -84,6 +85,8 @@ for (const clientStreaming of [false,true]) await withPreview(clientStreaming ? 
   const prepared = await page.evaluate(() => /** @type {any} */ (window).__grpcPreparedRequest);
   assert.equal(JSON.parse(prepared.body).value,'owned "Ω"\nline');
   assert.ok(prepared.body.includes("9007199254740993"));
+  assert.ok(prepared.body.includes(String.raw`\u007b\u007b missing \u007d\u007d`));
+  assert.equal(JSON.parse(prepared.body).literal,"{{ missing }}");
   assert.notEqual(latest, "grpc_history_old");
   await page.reload();
   await history.waitFor();
@@ -104,7 +107,7 @@ for (const clientStreaming of [false,true]) await withPreview(clientStreaming ? 
         if (command === "plugin:event|unlisten") return;
         if (command === "load_workspace") return JSON.parse(localStorage.getItem(key) || "null");
         if (command === "save_workspace") {localStorage.setItem(key, JSON.stringify(args.data)); return;}
-        if (command === "load_grpc_schema") return {descriptorSet:"owned", methods:[{path:"/owned.Service/Echo", name:"Echo", service:"owned.Service", clientStreaming, serverStreaming:false}]};
+        if (command === "load_grpc_schema") return {descriptorSet:"owned", methods:[{path:"/owned.Service/Echo", name:"Echo", service:"owned.Service", clientStreaming, serverStreaming:false,example:data.resources.find((r) => r._type === "grpc_request")?.body.text}]};
         if (command === "connect_grpc") {
           owner.__grpcPreparedRequest = args.request;
           if (clientStreaming) return new Promise((resolve) => {

@@ -120,10 +120,10 @@
       log.scrollTop = log.scrollHeight;
     }
   });
-  function pretty(/** @type {string} */ text) {
+  function pretty(/** @type {string} */ text, replaceUnicode = true) {
     try {
       JSON.parse(text); // Validate display input without using its rounded numeric values.
-      return jsonPrettify(text, "  ");
+      return jsonPrettify(text, "  ", replaceUnicode);
     } catch {
       return text;
     }
@@ -343,7 +343,7 @@
                 variant="ghost"
                 class="text-button"
                 disabled={!!selectedSent || !method || !!method.exampleError}
-                onclick={() => body(pretty(method.example))}>Use example</Button
+                onclick={() => body(pretty(method.example, false))}>Use example</Button
               >
               {#if run?.method?.clientStreaming}<Button
                   variant="primary"
