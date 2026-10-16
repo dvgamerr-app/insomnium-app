@@ -90,29 +90,38 @@
   <p class="hint">
     Form parameters are signed automatically. Hash body is an optional extension
     for non-form bytes (SHA-1, or SHA-256 with HMAC-SHA256); the server must
-    support it. Leave Version blank to omit it. PLAINTEXT sends encoded secrets
+    support it. A blank Version is omitted unless empty parameters are included
+    in the signature. PLAINTEXT sends encoded secrets
     as its signature.
   </p>
 {/if}
-{#if auth.addParamsToHeader != null && ![true, "true"].includes(auth.addParamsToHeader)}<Field
-    >Parameter destination<Select
-      value="unsupported"
-      onchange={() => onchange({ addParamsToHeader: true })}
-      ><option value="unsupported">Imported URL/body (not migrated)</option
-      ><option value="header">Authorization header</option></Select
-    ></Field
-  >{/if}
+<Field
+  >Parameter destination<Select
+    value={[false, "false"].includes(auth.addParamsToHeader) ? "parameters" : "header"}
+    onchange={(event) => onchange({ addParamsToHeader: event.currentTarget.value === "header" })}
+    ><option value="header">Authorization header</option>
+    <option value="parameters">Request body / URL</option></Select
+  ></Field
+>
+{#if [false, "false"].includes(auth.addParamsToHeader)}<p class="hint">
+    OAuth parameters are added to URL-encoded POST/PUT bodies, or to the URL
+    query for other requests.
+  </p>{/if}
 <p class="hint">
   OAuth1 signs each native HTTP, GraphQL or stream handshake. Supply existing
   credentials; callback and verifier fields can be used in your own
   token-endpoint requests. No automatic OAuth1 browser/token exchange is
   performed. Credentials stay in local workspace/export data.
 </p>
-{#each ["addEmptyParamsToSign", "disableHeaderEncoding"] as key}
-  {#if auth[key] != null && ![false, "false"].includes(auth[key])}
-    <Field layout="inline" class="checkbox-label"
-      ><Checkbox checked onchange={() => onchange({ [key]: false })} />Imported {key}
-      (unsupported; uncheck to use standard signing)</Field
-    >
-  {/if}
-{/each}
+<Field layout="inline" class="checkbox-label"
+  ><Checkbox
+    checked={[true, "true"].includes(auth.addEmptyParamsToSign)}
+    onchange={(event) => onchange({ addEmptyParamsToSign: event.currentTarget.checked })}
+  />Include empty OAuth parameters in signature</Field
+>
+<Field layout="inline" class="checkbox-label"
+  ><Checkbox
+    checked={![true, "true"].includes(auth.disableHeaderEncoding)}
+    onchange={(event) => onchange({ disableHeaderEncoding: !event.currentTarget.checked })}
+  />Encode parameters in Authorization header</Field
+>

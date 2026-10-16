@@ -28,15 +28,6 @@ export function prepareOAuth1(auth, body, resolve) {
     throw new Error("Choose an OAuth1 signature method in Auth.");
   if (!["standard", "legacy"].includes(config.bodyMode))
     throw new Error("Choose an OAuth1 body signing mode in Auth.");
-  if (auth.addParamsToHeader === false || auth.addParamsToHeader === "false")
-    throw new Error(
-      "OAuth1 parameters in the URL/body are not migrated. Select Authorization header explicitly in Auth.",
-    );
-  for (const key of ["addEmptyParamsToSign", "disableHeaderEncoding"])
-    if (auth[key] === true || auth[key] === "true")
-      throw new Error(
-        `Imported OAuth1 option ${key} is not migrated. Disable it explicitly in Auth before sending.`,
-      );
   for (const key of [
     "includeBodyHash",
     "addParamsToHeader",
@@ -85,6 +76,9 @@ export function prepareOAuth1(auth, body, resolve) {
   }
   return {
     ...config,
+    addParamsToHeader: ![false, "false"].includes(auth.addParamsToHeader),
+    addEmptyParamsToSign: [true, "true"].includes(auth.addEmptyParamsToSign),
+    disableHeaderEncoding: [true, "true"].includes(auth.disableHeaderEncoding),
     includeBodyHash,
     legacyBodyJson: data ? JSON.stringify(data) : null,
   };

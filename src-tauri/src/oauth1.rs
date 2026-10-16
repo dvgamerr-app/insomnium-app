@@ -60,6 +60,9 @@ pub struct OAuth1Credentials {
     pub realm: String,
     pub body_mode: String,
     pub include_body_hash: bool,
+    pub add_params_to_header: Option<bool>,
+    pub add_empty_params_to_sign: bool,
+    pub disable_header_encoding: bool,
     pub legacy_body_json: Option<String>,
 }
 
@@ -157,7 +160,7 @@ impl<'a> Signer<'a> {
         })
     }
 
-    pub fn header(&self, request: &Request) -> Result<header::HeaderValue, String> {
+    fn signed_parameters(&self, request: &Request) -> Result<Vec<(String, String)>, String> {
         let c = self.credentials;
         if [header::HOST, header::CONTENT_TYPE]
             .iter()
@@ -237,17 +240,17 @@ impl<'a> Signer<'a> {
             ("oauth_signature_method".into(), c.signature_method.clone()),
             ("oauth_timestamp".into(), timestamp.clone()),
         ];
-        if !c.version.is_empty() || c.body_mode == "legacy" {
+        if !c.version.is_empty() || c.body_mode == "legacy" || c.add_empty_params_to_sign {
             oauth.push((
                 "oauth_version".into(),
-                if c.version.is_empty() {
+                if c.version.is_empty() && c.body_mode == "legacy" {
                     "1.0".into()
                 } else {
                     c.version.clone()
                 },
             ));
         }
-        if !c.token_key.is_empty() {
+        if !c.token_key.is_empty() || c.add_empty_params_to_sign {
             oauth.push(("oauth_token".into(), c.token_key.clone()));
         }
         if !legacy_hash {
@@ -336,12 +339,35 @@ impl<'a> Signer<'a> {
             self.signature(input.as_bytes(), &key, c.body_mode == "legacy")?,
         ));
         oauth.sort_by(|a, b| a.0.cmp(&b.0));
+        Ok(oauth)
+    }
+
+    pub fn header(&self, request: &Request) -> Result<header::HeaderValue, String> {
+        let oauth = self.signed_parameters(request)?;
+        let c = self.credentials;
         let mut parts: Vec<_> = oauth
             .iter()
-            .map(|(k, v)| format!("{k}=\"{}\"", encode(v)))
+            // Postman's empty parameters affect signing and URL/form placement,
+            // but its Authorization-header serializer omits empty values.
+            .filter(|(_, value)| !value.is_empty())
+            .map(|(k, v)| {
+                let value = if c.disable_header_encoding {
+                    v.trim().to_string()
+                } else {
+                    encode(v)
+                };
+                format!("{k}=\"{value}\"")
+            })
             .collect();
         if !c.realm.is_empty() {
-            parts.insert(0, format!("realm=\"{}\"", encode(&c.realm)));
+            let realm = if c.disable_header_encoding {
+                c.realm.clone()
+            } else {
+                encode(&c.realm)
+            };
+            if !c.disable_header_encoding || !realm.trim().is_empty() {
+                parts.insert(0, format!("realm=\"{realm}\""));
+            }
         }
         let value = format!("OAuth {}", parts.join(", "));
         if value.len() > 64 * 1024 {
@@ -351,5 +377,62 @@ impl<'a> Signer<'a> {
             .map_err(|_| "Invalid OAuth1 authorization header.")?;
         header.set_sensitive(true);
         Ok(header)
+    }
+
+    pub fn sign(&self, request: &mut Request) -> Result<(), String> {
+        if self.credentials.add_params_to_header != Some(false) {
+            let value = self.header(request)?;
+            request.headers_mut().insert(header::AUTHORIZATION, value);
+            return Ok(());
+        }
+        let oauth = self.signed_parameters(request)?;
+        let encoded = oauth
+            .iter()
+            .map(|(key, value)| format!("{}={}", encode(key), encode(value)))
+            .collect::<Vec<_>>()
+            .join("&");
+        if encoded.len() > 64 * 1024 {
+            return Err("OAuth1 parameters exceed 64 KiB.".into());
+        }
+        let form = matches!(request.method().as_str(), "POST" | "PUT")
+            && request
+                .headers()
+                .get(header::CONTENT_TYPE)
+                .and_then(|value| value.to_str().ok())
+                .is_some_and(|value| {
+                    value
+                        .split(';')
+                        .next()
+                        .unwrap_or("")
+                        .trim()
+                        .eq_ignore_ascii_case("application/x-www-form-urlencoded")
+                });
+        if form {
+            let original = request
+                .body()
+                .and_then(|body| body.as_bytes())
+                .unwrap_or_default();
+            let mut body = original.to_vec();
+            if !body.is_empty() {
+                body.push(b'&');
+            }
+            body.extend_from_slice(encoded.as_bytes());
+            if body.len() > 20 * 1024 * 1024 {
+                return Err("Signed request body exceeds 20 MiB.".into());
+            }
+            let length = header::HeaderValue::from_str(&body.len().to_string())
+                .map_err(|_| "Invalid OAuth1 body length.")?;
+            *request.body_mut() = Some(body.into());
+            request.headers_mut().insert(header::CONTENT_LENGTH, length);
+            request.headers_mut().remove(header::TRANSFER_ENCODING);
+        } else {
+            let query = match request.url().query() {
+                Some(value) if !value.is_empty() => format!("{value}&{encoded}"),
+                _ => encoded,
+            };
+            request.url_mut().set_query(Some(&query));
+        }
+        request.headers_mut().remove(header::AUTHORIZATION);
+        Ok(())
     }
 }

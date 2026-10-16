@@ -238,19 +238,17 @@ where
                 signer.sign(&mut outgoing)?;
             }
         }
+        // Sign a fresh attempt so URL/body parameters never accumulate on retry
+        // or survive into redirect resolution, Referer generation or another origin.
+        let mut attempt = outgoing
+            .try_clone()
+            .ok_or("Signed request cannot be replayed")?;
         if let Some(signer) = &oauth1 {
-            if outgoing.url().origin() == original_origin {
-                let header = signer.header(&outgoing)?;
-                outgoing.headers_mut().insert(header::AUTHORIZATION, header);
+            if attempt.url().origin() == original_origin {
+                signer.sign(&mut attempt)?;
             }
         }
-        let reply = send(
-            outgoing
-                .try_clone()
-                .ok_or("Signed request cannot be replayed")?,
-        )
-        .await
-        .map_err(|error| {
+        let reply = send(attempt).await.map_err(|error| {
             if ntlm.is_some_and(|c| c.connection.rejected()) {
                 "NTLM connection closed during authentication; send again to start a new handshake."
                     .to_string()
