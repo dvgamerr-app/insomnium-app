@@ -31,6 +31,8 @@
     "allow-import-legacy-cookies",
     "allow-load-workspace",
     "allow-save-workspace",
+    "allow-inspect-workspace-backup",
+    "allow-restore-workspace-backup",
     "allow-read-legacy-response-assets",
     "allow-read-legacy-request-assets",
     "allow-read-legacy-certificate-assets",

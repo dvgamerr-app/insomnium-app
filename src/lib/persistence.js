@@ -21,6 +21,27 @@ export async function loadData() {
   validateTopology(data.resources);
   return data;
 }
+
+/** Preview only: validate the backup through both model and topology guards. */
+export async function inspectWorkspaceBackup() {
+  if (!isTauri())
+    throw new Error("Backup recovery is available in the desktop app.");
+  const preview =
+    /** @type {{data:unknown,primarySha256:string,backupSha256:string}} */ (
+      await invoke("inspect_workspace_backup")
+    );
+  const data = validateData(preview.data);
+  validateTopology(data.resources);
+  return { ...preview, data };
+}
+
+/** @param {{primarySha256:string,backupSha256:string}} preview */
+export async function restoreWorkspaceBackup(preview) {
+  return invoke("restore_workspace_backup", {
+    primarySha256: preview.primarySha256,
+    backupSha256: preview.backupSha256,
+  });
+}
 /** Serialize detached saves and reject writes during a transition. @param {unknown} data */
 export function saveData(data) {
   return queue.save(data);

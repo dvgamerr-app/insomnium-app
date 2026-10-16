@@ -140,6 +140,8 @@ pub fn run() {
             plugin_save::cancel_plugin_save,
             storage::load_workspace,
             storage::save_workspace,
+            storage::inspect_workspace_backup,
+            storage::restore_workspace_backup,
             legacy_response::read_legacy_response_assets,
             legacy_response::read_legacy_request_assets,
             legacy_response::read_legacy_certificate_assets,

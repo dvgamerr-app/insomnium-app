@@ -34,6 +34,8 @@ fn main() {
             "cancel_plugin_save",
             "load_workspace",
             "save_workspace",
+            "inspect_workspace_backup",
+            "restore_workspace_backup",
             "read_legacy_response_assets",
             "read_legacy_request_assets",
             "read_legacy_certificate_assets",

@@ -1,5 +1,6 @@
 use atomic_write_file::AtomicWriteFile;
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 use std::{
     collections::HashSet,
     fs,
@@ -100,6 +101,142 @@ pub(crate) fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
     file.write_all(bytes).map_err(|e| e.to_string())?;
     file.commit().map_err(|e| e.to_string())
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupPreview {
+    data: Value,
+    primary_sha256: String,
+    backup_sha256: String,
+}
+
+fn decoded_workspace(bytes: &[u8]) -> Result<Value, String> {
+    let mut value: Value = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
+    if value.get("workspace").is_some() {
+        value = value["workspace"].take();
+    }
+    validate(&value)?;
+    Ok(value)
+}
+
+fn ordinary_bytes(path: &Path) -> Result<Vec<u8>, String> {
+    let metadata = fs::symlink_metadata(path).map_err(|e| e.to_string())?;
+    if !metadata.file_type().is_file() {
+        return Err("Workspace recovery requires ordinary files.".into());
+    }
+    fs::read(path).map_err(|e| e.to_string())
+}
+
+fn backup_preview(directory: &Path) -> Result<(BackupPreview, Vec<u8>, Vec<u8>), String> {
+    ensure_no_pending_transition(directory)?;
+    let primary = ordinary_bytes(&directory.join(WORKSPACE_FILE))?;
+    if decoded_workspace(&primary).is_ok() {
+        return Err(
+            "The current workspace is valid. Backup restore is only available for damaged storage."
+                .into(),
+        );
+    }
+    let backup = ordinary_bytes(&directory.join(PREVIOUS_WORKSPACE_FILE))?;
+    let data = decoded_workspace(&backup).map_err(|e| format!("Backup is invalid: {e}"))?;
+    // An unreadable original cannot prove that retained fetch bindings survive.
+    crate::git_fetch_journal::protect_workspace_bindings(directory, None, &data)?;
+    Ok((
+        BackupPreview {
+            data,
+            primary_sha256: format!("{:x}", Sha256::digest(&primary)),
+            backup_sha256: format!("{:x}", Sha256::digest(&backup)),
+        },
+        primary,
+        backup,
+    ))
+}
+
+fn restore_backup(
+    session: &mut Session,
+    directory: &Path,
+    primary_hash: &str,
+    backup_hash: &str,
+) -> Result<String, String> {
+    if session.loaded {
+        return Err("Reload before restoring a damaged workspace.".into());
+    }
+    let (preview, primary, backup) = backup_preview(directory)?;
+    if preview.primary_sha256 != primary_hash || preview.backup_sha256 != backup_hash {
+        return Err(
+            "Workspace or backup changed. Inspect the backup again before restoring.".into(),
+        );
+    }
+    let retained = directory.join(format!(
+        "workspace-v1.damaged-{}.json",
+        uuid::Uuid::new_v4()
+    ));
+    let mut copy = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&retained)
+        .map_err(|e| e.to_string())?;
+    copy.write_all(&primary)
+        .and_then(|_| copy.sync_all())
+        .map_err(|e| e.to_string())?;
+    // Recheck after retaining the damaged bytes, before replacing the primary.
+    if ordinary_bytes(&directory.join(WORKSPACE_FILE))? != primary
+        || ordinary_bytes(&directory.join(PREVIOUS_WORKSPACE_FILE))? != backup
+    {
+        return Err(format!(
+            "Workspace changed. Damaged copy retained at {}. Inspect again.",
+            retained.display()
+        ));
+    }
+    atomic_write(&directory.join(WORKSPACE_FILE), &backup).map_err(|e| {
+        format!(
+            "Restore failed: {e}. Damaged copy retained at {}",
+            retained.display()
+        )
+    })?;
+    session.backed_up = true; // Preserve the reviewed backup through the next save.
+    Ok(retained.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+pub async fn inspect_workspace_backup(
+    app: tauri::AppHandle,
+    git_state: tauri::State<'_, crate::git::GitState>,
+    state: tauri::State<'_, StorageState>,
+) -> Result<BackupPreview, String> {
+    let directory = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let git = git_state.0.clone();
+    let session = state.0.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let _git = git.lock().map_err(|e| e.to_string())?;
+        let session = session.lock().map_err(|e| e.to_string())?;
+        if session.loaded {
+            return Err("Reload before inspecting damaged storage.".into());
+        }
+        backup_preview(&directory).map(|(preview, _, _)| preview)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn restore_workspace_backup(
+    app: tauri::AppHandle,
+    primary_sha256: String,
+    backup_sha256: String,
+    git_state: tauri::State<'_, crate::git::GitState>,
+    state: tauri::State<'_, StorageState>,
+) -> Result<String, String> {
+    let directory = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let git = git_state.0.clone();
+    let session = state.0.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let _git = git.lock().map_err(|e| e.to_string())?;
+        let mut session = session.lock().map_err(|e| e.to_string())?;
+        restore_backup(&mut session, &directory, &primary_sha256, &backup_sha256)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// Shared read/validation path. Does not acknowledge a loaded storage session or
@@ -223,6 +360,96 @@ pub async fn save_workspace(
 mod tests {
     use super::*;
     use serde_json::json;
+
+    struct RecoveryDirectory(std::path::PathBuf);
+    impl Drop for RecoveryDirectory {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+    fn damaged_backup() -> (RecoveryDirectory, Vec<u8>) {
+        let directory = RecoveryDirectory(
+            std::env::temp_dir().join(format!("insomnium-recovery-{}", uuid::Uuid::new_v4())),
+        );
+        fs::create_dir(&directory.0).unwrap();
+        let backup = serde_json::to_vec(&workspace()).unwrap();
+        fs::write(directory.0.join(WORKSPACE_FILE), b"damaged original").unwrap();
+        fs::write(directory.0.join(PREVIOUS_WORKSPACE_FILE), &backup).unwrap();
+        (directory, backup)
+    }
+
+    #[test]
+    fn reviewed_backup_restore_retains_damaged_and_backup_bytes() {
+        let (directory, backup) = damaged_backup();
+        let (preview, _, _) = backup_preview(&directory.0).unwrap();
+        assert_eq!(
+            fs::read(directory.0.join(WORKSPACE_FILE)).unwrap(),
+            b"damaged original"
+        );
+        let mut session = Session::default();
+        let retained = restore_backup(
+            &mut session,
+            &directory.0,
+            &preview.primary_sha256,
+            &preview.backup_sha256,
+        )
+        .unwrap();
+        assert_eq!(fs::read(retained).unwrap(), b"damaged original");
+        assert_eq!(fs::read(directory.0.join(WORKSPACE_FILE)).unwrap(), backup);
+        assert_eq!(
+            fs::read(directory.0.join(PREVIOUS_WORKSPACE_FILE)).unwrap(),
+            backup
+        );
+        assert!(!session.loaded);
+        assert_eq!(session.load(&directory.0).unwrap(), Some(workspace()));
+        session.save(&directory.0, &workspace()).unwrap();
+        assert_eq!(
+            fs::read(directory.0.join(PREVIOUS_WORKSPACE_FILE)).unwrap(),
+            backup
+        );
+    }
+
+    #[test]
+    fn backup_restore_refuses_stale_files_and_pending_transition() {
+        for changed in [WORKSPACE_FILE, PREVIOUS_WORKSPACE_FILE, GIT_TRANSITION_FILE] {
+            let (directory, _) = damaged_backup();
+            let (preview, _, _) = backup_preview(&directory.0).unwrap();
+            let change = if changed == PREVIOUS_WORKSPACE_FILE {
+                serde_json::to_vec(&json!({"workspace":workspace()})).unwrap()
+            } else {
+                b"changed".to_vec()
+            };
+            fs::write(directory.0.join(changed), &change).unwrap();
+            let primary = fs::read(directory.0.join(WORKSPACE_FILE)).unwrap();
+            let backup = fs::read(directory.0.join(PREVIOUS_WORKSPACE_FILE)).unwrap();
+            assert!(restore_backup(
+                &mut Session::default(),
+                &directory.0,
+                &preview.primary_sha256,
+                &preview.backup_sha256
+            )
+            .is_err());
+            assert_eq!(fs::read(directory.0.join(WORKSPACE_FILE)).unwrap(), primary);
+            assert_eq!(
+                fs::read(directory.0.join(PREVIOUS_WORKSPACE_FILE)).unwrap(),
+                backup
+            );
+            assert_eq!(
+                fs::read_dir(&directory.0).unwrap().count(),
+                if changed == GIT_TRANSITION_FILE { 3 } else { 2 }
+            );
+        }
+    }
+
+    #[test]
+    fn backup_preview_refuses_invalid_backup_and_healthy_primary() {
+        let (directory, backup) = damaged_backup();
+        fs::write(directory.0.join(PREVIOUS_WORKSPACE_FILE), b"invalid backup").unwrap();
+        assert!(backup_preview(&directory.0).is_err());
+        fs::write(directory.0.join(PREVIOUS_WORKSPACE_FILE), &backup).unwrap();
+        fs::write(directory.0.join(WORKSPACE_FILE), &backup).unwrap();
+        assert!(backup_preview(&directory.0).is_err());
+    }
 
     fn workspace() -> Value {
         json!({"schemaVersion":1,"resources":[{"_id":"wrk_owned","_type":"workspace"}],"history":[]})

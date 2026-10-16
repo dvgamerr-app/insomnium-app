@@ -1,5 +1,10 @@
 # Migration status
 
+## Reviewed workspace backup restore — 2026-10-16
+
+From72f4f581: implemented native backup preview/explicit restore and startup recovery UI. Frontend validates model/topology before review; restore matches both reviewed hashes, refuses healthy/loaded sessions and pending transition/fetch binding hazards, syncs a uniquely named damaged-file copy, rechecks inputs and atomically restores the exact backup bytes. Backup survives the next save. Main-window ACL uses generated command permissions; no arbitrary user path is accepted. Startup error remains visible until resolved. Targeted storage tests6PASS/0failed/74filtered in0.03s (session91479exit0), real owned temporary files only. Frontend checks0errors/0warnings (sessions36788/1853exit0) and bundle pass. No new test/audit scripts, native matrix or release build; no actual user profile touched. Mounted UI/IPC, cross-platform races/locking, missing-primary and native-valid/frontend-invalid-topology recovery remain unverified/unimplemented as noted in IMPORT-EXPORT.md. All broader PLAN/PARITY gates remain open. No owned processes remain; unrelated documentation preserved. /compact unavailable; this is the feature handoff.
+
+
 ## Native saved history validation — 2026-10-16
 
 From950b28d3: storage::validate now aligns native reads/writes with frontend history/requestId and stream-event shape guards. Invalid input is refused before saving or backup mutation. Targeted cargo test --manifest-path src-tauri/Cargo.toml --lib storage::tests passes3/0failed/74filtered in0.01s after1m01compile (session31416exit0); only5known vendor warnings. Tests cover malformed/valid/legacy history and real owned temporary-file preservation of primary, backup and first-backup opportunity after a rejected save. No real profile, native release build, UI matrix or new scripts/audits. Existing loader does not automatically fall back to backup; reviewed recovery UI remains unimplemented, and mounted/native/platform acceptance plus all remaining PLAN/PARITY requirements stay open. No owned process handles remain. /compact unavailable; this is the feature handoff.

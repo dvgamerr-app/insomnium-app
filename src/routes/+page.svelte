@@ -1,5 +1,6 @@
 <script>
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
+  import WorkspaceRecovery from "$lib/components/WorkspaceRecovery.svelte";
   import { orderedEnvironments, environmentEditorText, parseEnvironmentEditor, newEnvironment, duplicateEnvironment, reorderEnvironment } from "$lib/environment-editor.js";
   import Toolbar from "$lib/components/ui/Toolbar.svelte";
   import FormPanel from "$lib/components/ui/FormPanel.svelte";
@@ -576,6 +577,7 @@
               variant="ghost"
               class="icon-button"
               aria-label="Dismiss error"
+              disabled={!app.ready}
               onclick={() => (app.error = "")}
               ><Icon name="close" size={14} /></Button
             >
@@ -667,12 +669,13 @@
           </div>
         {/if}
         {#if !app.ready}<EmptyState variant="response" class="empty-response">
-            <h2>Loading your workspace</h2>
+            <h2>{app.error ? "Workspace could not be opened" : "Loading your workspace"}</h2>
             <p>
               {app.error
                 ? "Resolve the storage error before editing. Your data has not been reset."
                 : "Reading local data…"}
             </p>
+            {#if app.error}<WorkspaceRecovery />{/if}
           </EmptyState>{:else if mainView === "git"}{#key app.data.activeWorkspaceId}<GitPanel
               workspaceId={app.data.activeWorkspaceId}
               onclose={() => (mainView = "requests")}
