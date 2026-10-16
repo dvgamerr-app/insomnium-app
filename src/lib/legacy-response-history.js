@@ -1,3 +1,4 @@
+import {decodeResponseBytes} from "./response-text.js";
 import { protocolFor } from "./model.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
@@ -427,7 +428,7 @@ export function convertLegacyResponseHistory(
       bytesRead: nonnegative(response.bytesRead) ? response.bytesRead : 0,
       elapsedMs: nonnegative(response.elapsedTime) ? response.elapsedTime : 0,
       headersMs: 0,
-      body: new TextDecoder("utf-8", { fatal: false }).decode(bytes),
+      body: decodeResponseBytes(bytes,headers.find(row=>row[0].toLowerCase()==="content-type")?.[1]||text(response.contentType)),
       bodyBase64: asset.bodyBase64,
       bodySha256: asset.sha256,
       error: text(response.error),

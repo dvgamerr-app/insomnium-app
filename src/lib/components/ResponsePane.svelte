@@ -1,4 +1,5 @@
 <script>
+  import {responseBodyText} from "../response-text.js";
   import { copyText } from "../clipboard.js";
   import { onDestroy, tick } from "svelte";
   import TabPanel from "./ui/TabPanel.svelte";
@@ -33,7 +34,8 @@
   import { responseDownloadName } from "../response-download.js";
   import { download } from "../import-export.js";
   /** @type {{ requestId: string, response: Record<string, any> | undefined, running: boolean, history: Record<string, any>[], onhistory: (response: Record<string, any>) => void }} */
-  let { requestId, response, running, history, onhistory } = $props();
+  let { requestId, response: sourceResponse, running, history, onhistory } = $props();
+  const response=$derived(/** @type {Record<string,any>|undefined} */ (sourceResponse?{...sourceResponse,body:responseBodyText(sourceResponse)}:undefined));
   let tab = $state("Preview");
   let bodyEditor = $state(/** @type {{focus:()=>void,setSelectionRange:(start:number,end:number)=>void}|undefined} */ (undefined));
   let htmlPreview = $state(/** @type {HtmlResponsePreview|undefined} */ (undefined));

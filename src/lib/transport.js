@@ -1,3 +1,4 @@
+import {decodeResponseBytes,responseBodyText} from "./response-text.js";
 import { serializeOpenApiCookie } from "./openapi-cookie.js";
 import { serializeOpenApiSerialized } from "./openapi-serialized-example.js";
 import { isBinaryBody } from "./binary-body.js";
@@ -687,11 +688,12 @@ async function readPreviewBody(response, signal) {
   }
 }
 
-/** @param {Record<string, any>} request @param {AbortSignal} signal */
+/** @param {Record<string, any>} request @param {AbortSignal} signal @returns {Promise<Record<string,any>>} */
 export async function send(request, signal) {
   if (isTauri()) {
     try {
-      return await invoke("send_http", { request });
+      const response=/** @type {Record<string,any>} */(await invoke("send_http", { request }));
+      return {...response,body:responseBodyText(response)};
     } catch (/** @type {any} */ error) {
       // Native failures arrive as { message, networkLog }; keep the log.
       if (error && typeof error === "object" && "message" in error)
@@ -793,7 +795,7 @@ export async function send(request, signal) {
     statusText: response.statusText,
     url: response.url,
     headers: [...response.headers.entries()],
-    body: new TextDecoder().decode(bytes),
+    body: decodeResponseBytes(bytes,response.headers.get("content-type")||""),
     bodyBase64: encodeBase64(bytes),
     size: bytes.byteLength,
     elapsedMs,

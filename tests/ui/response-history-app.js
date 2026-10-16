@@ -3,6 +3,8 @@ import {initialData} from '../../src/lib/model.js';
 import {withPreview} from './helpers/preview-app.js';
 
 const data=initialData();
+const charsetOnly=process.env.INSOMNIUM_RESPONSE_CHARSET_ONLY==='1';
+const charsetBytes=Buffer.from([99,97,102,233]);
 const htmlOnly=process.env.INSOMNIUM_RESPONSE_HTML_ONLY==='1';
 const imageOnly=process.env.INSOMNIUM_RESPONSE_IMAGE_ONLY==='1';
 const audioOnly=process.env.INSOMNIUM_RESPONSE_AUDIO_ONLY==='1';
@@ -39,7 +41,18 @@ if(visualOnly){data.history=data.history.slice(0,1).map(entry=>({...entry,header
 if(csvOnly)data.history=data.history.slice(0,1).map(entry=>({...entry,headers:[['Content-Type','text/csv; charset=utf-8']],body:csvBody,bodyBase64:Buffer.from(csvBody).toString('base64')}));
 if(pdfOnly)data.history=data.history.slice(0,1).map(entry=>({...entry,headers:[['Content-Type','application/pdf'],['Content-Disposition',"attachment; filename=report.pdf; filename*=UTF-8''%E0%B9%84%E0%B8%97%E0%B8%A2.pdf"]],body:'Owned PDF text representation',bodyBase64:pdfBase64}));
 if(multipartOnly)data.history=data.history.slice(0,1).map(entry=>({...entry,headers:[['Content-Type','multipart/mixed; boundary="owned+parts"']],body:multipartBytes.toString('utf8'),bodyBase64:multipartBytes.toString('base64')}));
-await withPreview(multipartOnly?'response-multipart-preview':pdfOnly?'response-pdf-preview':csvOnly?'response-csv-preview':audioOnly?'response-audio-preview':imageOnly?'response-image-preview':htmlOnly?'response-html-preview':'response-history-app',async(page,output)=>{
+if(charsetOnly)data.history=data.history.slice(0,1).map(entry=>({...entry,headers:[['Content-Type','text/plain; charset=windows-1252']],body:'caf�',bodyBase64:charsetBytes.toString('base64')}));
+await withPreview(charsetOnly?'response-charset-preview':multipartOnly?'response-multipart-preview':pdfOnly?'response-pdf-preview':csvOnly?'response-csv-preview':audioOnly?'response-audio-preview':imageOnly?'response-image-preview':htmlOnly?'response-html-preview':'response-history-app',async(page,output)=>{
+ if(charsetOnly){
+  const editor=page.locator('textarea[aria-label="Response body"]').first();
+  await page.waitForFunction(()=>/** @type {HTMLTextAreaElement|null} */(document.querySelector('textarea[aria-label="Response body"]'))?.value==='café');
+  assert.equal(await editor.inputValue(),'café');
+  const savedEvent=page.waitForEvent('download');await page.getByRole('button',{name:'Save response',exact:true}).click();const saved=await savedEvent;const savedPath=await saved.path();assert.ok(savedPath);assert.deepEqual(Buffer.from(await Bun.file(savedPath).bytes()),charsetBytes);
+  await page.getByRole('group',{name:'Response formatting',exact:true}).getByRole('button',{name:'Raw',exact:true}).click();
+  await page.reload();await page.waitForFunction(()=>/** @type {HTMLTextAreaElement|null} */(document.querySelector('textarea[aria-label="Response body"]'))?.value==='café');
+  const stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('insomnium-tauri-preview-v1')||'{}').history[0]);assert.equal(stored.body,'caf�');assert.equal(stored.bodyBase64,charsetBytes.toString('base64'));assert.deepEqual(errors,[]);
+  await Bun.write(output+'/result.json',JSON.stringify({status:'passed',headless:true,decodedCharset:true,exactSavedBytes:true,reload:true,originalHistoryUnchanged:true},null,2));return;
+ }
  if(multipartOnly){
   const selector=page.getByRole('combobox',{name:'Response part',exact:true});await selector.waitFor();
   assert.equal(await selector.locator('option').count(),2);
