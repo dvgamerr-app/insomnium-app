@@ -10,6 +10,7 @@ import { setDefaultProtocol } from "./template-url.js";
 import { checkTemplateValue } from "./template-object.js";
 import { applyDefaultRequestHeaders } from "./request-default-headers.js";
 import { isJsonBodyMediaType } from "./media-type.js";
+import { renderGraphqlTemplateBody } from "./graphql-template.js";
 /** @typedef {import('./template-session.js').PluginRenderOptions} PluginRenderOptions */
 
 /** @param {Record<string,any>} data @param {Record<string,any>} request */
@@ -36,6 +37,7 @@ export async function renderRequestSnapshot(session, request, options = {}) {
   checkTemplateValue(options.cookieJar);
   const input = uploads.input;
   const cookieJar = structuredClone(options.cookieJar ?? null);
+  let graphqlBody = null;
   // Preserve the original GraphQL comment workaround before any body rendering.
   if (input.body?.mimeType === "application/graphql" && input.body.text) {
     try {
@@ -43,6 +45,11 @@ export async function renderRequestSnapshot(session, request, options = {}) {
       if (typeof body?.query === "string") {
         body.query = body.query.replace(/#}/g, "# }");
         input.body.text = JSON.stringify(body);
+      }
+      if (body && typeof body === "object" && !Array.isArray(body) &&
+          !options.skipBody && !input.settingDisableRenderRequestBody) {
+        graphqlBody = body;
+        input.body.text = "";
       }
     } catch {
       // Transport reports invalid GraphQL JSON; rendering must not rewrite it.
@@ -63,6 +70,10 @@ export async function renderRequestSnapshot(session, request, options = {}) {
     },
   );
   const rendered = result._request;
+  if (graphqlBody) {
+    rendered.body.text = JSON.stringify(await renderGraphqlTemplateBody(session, graphqlBody));
+    checkTemplateValue(rendered.body.text);
+  }
   uploads.restore(rendered);
   rendered.description = await session.renderValue(description, {
     path: "description",

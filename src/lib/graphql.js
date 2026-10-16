@@ -16,6 +16,7 @@ import {
 import { prepareRequest, prepareRenderedRequest } from "./transport.js";
 import { createRequestRenderSession, capturePluginRenderOptions } from "./template-session.js";
 import { requestEnvironmentLayers } from "./template-environment.js";
+import { renderGraphqlTemplateBody } from "./graphql-template.js";
 
 export const schemaLimit = 20 * 1024 * 1024;
 
@@ -71,12 +72,11 @@ export async function resolveQuery(data, request, signal, options = {}) {
     },
   );
   try {
-    const text = JSON.stringify(body);
-    const resolved = readGraphqlBody(
-      request.settingDisableRenderRequestBody
-        ? text
-        : await session.render(text, "body.text"),
-    );
+    // Render decoded fields instead of the serialized envelope: query text
+    // needs ordinary interpolation, while textual variables contain nested JSON.
+    const resolved = request.settingDisableRenderRequestBody
+      ? body
+      : await renderGraphqlTemplateBody(session, body);
     signal.throwIfAborted();
     return {
       body: JSON.stringify({
