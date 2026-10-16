@@ -43,7 +43,8 @@
   /** @type {{ request: Record<string, any>, onchange: (patch: Record<string, any>) => void }} */
   let { request, onchange } = $props();
   const fileWork = createWorkspaceWorkScope();
-  onDestroy(fileWork.dispose);
+  let disposed = false;
+  onDestroy(() => { disposed = true; fileWork.dispose(); });
   let view = $state("Query");
   let message = $state("");
   let error = $state("");
@@ -230,16 +231,19 @@
   ) {
     const file = event.currentTarget.files?.[0];
     const requestId = request._id;
+    const originalRequest = request, originalContext = context, originalCache = cached;
     event.currentTarget.value = "";
     if (!file) return;
     fileWork.cancel();
     /** @type {import("../workspace.svelte.js").ScopedWorkspaceWork|undefined} */ let work;
+    const current = () => (!work || work.current()) && request === originalRequest &&
+      request._id === requestId && context === originalContext && cached === originalCache;
     try {
       work = fileWork.begin();
       if (file.size > schemaLimit)
         throw new Error("Schema exceeds the 20 MiB limit.");
       const text = await file.text();
-      if (!work.current() || request._id !== requestId) return;
+      if (!current()) return;
       const result = readSchema(text);
       if (
         !workspace.data.resources.some((resource) => resource._id === requestId)
@@ -249,7 +253,7 @@
       error = "";
       view = "Schema";
     } catch (e) {
-      if (!work || work.current()) error = String(e);
+      if (current()) error = String(e);
     } finally {
       work?.finish();
     }
@@ -290,8 +294,10 @@
       disabled={!context || running}
       title="Send a separate introspection POST using this request's auth, headers and environment"
       onclick={async () => {
+        const originalRequest = request, originalContext = context;
         await execute(request._id, true);
-        view = "Schema";
+        if (!disposed && request === originalRequest && context === originalContext)
+          view = "Schema";
       }}>Fetch schema</Button
     >
     {#if running}<Button variant="ghost" onclick={() => stop(request._id)}
@@ -306,10 +312,13 @@
     {#if entry}<Button
         variant="ghost"
         onclick={async () => {
+          const originalRequest = request, originalContext = context, originalEntry = entry;
+          if (!originalEntry) return;
           try {
-            await download(entry.sdl, "schema.graphql");
+            await download(originalEntry.sdl, "schema.graphql");
           } catch (e) {
-            error = String(e);
+            if (!disposed && request === originalRequest && context === originalContext && entry === originalEntry)
+              error = String(e);
           }
         }}>Export SDL</Button
       ><Button

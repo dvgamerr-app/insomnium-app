@@ -1220,6 +1220,16 @@ export async function execute(
   }
   if (request._type === "grpc_request" && !introspection)
     return executeGrpc(requestId);
+  const schemaData = workspace.data, originalSchema = workspace.schemas[requestId];
+  /** @type {string|null} */ let schemaRequestContext = null;
+  const ownsSchema = () => {
+    if (workspace.data !== schemaData || workspace.schemas[requestId] !== originalSchema) return false;
+    const currentRequest = workspace.data.resources.find(resource => resource._id === requestId);
+    if (!currentRequest) return false;
+    if (schemaRequestContext === null) return true;
+    try { return schemaContext(workspace.data, currentRequest) === schemaRequestContext; }
+    catch { return false; }
+  };
   if (!["request", "websocket_request"].includes(request._type)) {
     workspace.error = "This protocol has not been migrated yet.";
     return;
@@ -1356,6 +1366,7 @@ export async function execute(
     const context = introspection
       ? schemaContext(dataSnapshot, originalRequest)
       : "";
+    if (introspection) schemaRequestContext = context;
     const prepared = (
       introspection ? prepareIntrospection : prepareRenderedRequest
     )(dataSnapshot, requestSnapshot, runId, {
@@ -1507,13 +1518,18 @@ export async function execute(
     }
     controller.signal.throwIfAborted();
     httpResponseReceived = true;
+    if (introspection && !ownsSchema()) {
+      runCompleted = true;
+      return;
+    }
     if (response.warnings?.length)
       workspace.notice = response.warnings.join("\n");
     if (introspection) {
       if (controller.signal.aborted) throw new Error("Schema fetch cancelled.");
       if (response.status < 200 || response.status >= 300)
         throw new Error(`Schema request returned HTTP ${response.status}.`);
-      if (schemaContext(workspace.data, request) !== context)
+      const currentRequest = workspace.data.resources.find(resource => resource._id === requestId);
+      if (!currentRequest || schemaContext(workspace.data, currentRequest) !== context)
         throw new Error(
           "Request or environment changed while loading schema. Fetch it again.",
         );
@@ -1544,7 +1560,7 @@ export async function execute(
     if (!workspace.data.resources.some((r) => r._id === requestId)) return;
     settleInitial(error);
     if (introspection) {
-      workspace.schemaErrors[requestId] = String(error);
+      if (ownsSchema()) workspace.schemaErrors[requestId] = String(error);
       return;
     }
     if (protocol !== "http" && workspace.responses[requestId]?._id === runId) {
