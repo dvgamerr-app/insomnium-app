@@ -28,7 +28,7 @@ import {
 } from "./git-remote-client.js";
 import { createGitSetup } from "./git-setup.js";
 import { runSuiteInWorker } from "./runner-client.js";
-import { runnerSuite, runnerResponse } from "./runner-model.js";
+import { runnerSuite, runnerResponse, runnerRequestId } from "./runner-model.js";
 import { requestDataScope } from "./request-scope.js";
 import { createResponseTemplateResolver } from "./template-response-send.js";
 import { pluginCookieJarId, pluginJarCookies } from "./plugin-cookie-jar.js";
@@ -2635,6 +2635,11 @@ export async function runTests(suiteId, testId = null) {
         const operation = (async () => {
           signal.throwIfAborted();
           controller.signal.throwIfAborted();
+          requestId = runnerRequestId(
+            workspace.data.resources,
+            selected.collectionId,
+            requestId,
+          );
           const data = requestDataScope(
             $state.snapshot(workspace.data),
             requestId,

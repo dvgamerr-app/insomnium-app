@@ -1,4 +1,18 @@
 import { indexWorkspaces, workspaceFor } from "./model.js";
+
+/** Resolve preserved script literals within the suite's imported collection.
+ * Current collection IDs take precedence; foreign import aliases are never consulted.
+ * @param {Record<string,any>[]} resources @param {string} collectionId @param {string} requestId */
+export function runnerRequestId(resources, collectionId, requestId) {
+  const owners = indexWorkspaces(resources);
+  if (resources.some((r) => r._id === requestId && r._type === "request" &&
+    owners.get(r._id) === collectionId)) return requestId;
+  const matches = resources.filter((r) => r._type === "request" &&
+    owners.get(r._id) === collectionId && Array.isArray(r._importRequestIds) &&
+    r._importRequestIds.includes(requestId));
+  if (matches.length > 1) throw new Error("Imported runner request ID is ambiguous: " + requestId);
+  return matches[0]?._id || requestId;
+}
 /** @param {Record<string,any>[]} resources @param {string} suiteId @param {string|null} [testId] */
 export function runnerSuite(resources, suiteId, testId = null) {
   const suite = resources.find(

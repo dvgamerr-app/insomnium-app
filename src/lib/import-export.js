@@ -322,6 +322,12 @@ export function parseImport(text) {
   );
   resources = resources.map((resource) => {
     const copy = portableGitResource(structuredClone(resource));
+    if (copy._type === "request") {
+      const aliases = Array.isArray(copy._importRequestIds)
+        ? copy._importRequestIds.filter((value) => typeof value === "string" && value)
+        : [];
+      copy._importRequestIds = [...new Set([...aliases, resource._id])];
+    }
     if (copy._type === "websocket_response" && copy._legacyWebSocketAssets?.version === 1)
       copy._legacyWebSocketAssets.sourceRequestId ??= resource.parentId;
     if (copy._type === "response" && copy._legacyResponseAssets?.bodyFormat === "sse-ndjson")

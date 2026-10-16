@@ -191,6 +191,17 @@ export function duplicateResource(resources, resourceId) {
   const mapping = new Map(source.map((r) => [r._id, id(r._id.split("_")[0])]));
   const copies = source.map((resource) => {
     const copy = JSON.parse(JSON.stringify(resource));
+    if (resource._type === "request") {
+      if (mapping.has(workspaceFor(resources, resource._id))) {
+        const aliases = Array.isArray(resource._importRequestIds)
+          ? resource._importRequestIds.filter((value) => typeof value === "string" && value)
+          : [];
+        copy._importRequestIds = [...new Set([...aliases, resource._id])];
+      } else {
+        // A sibling copy must not claim the original request's script aliases.
+        delete copy._importRequestIds;
+      }
+    }
     for (const key of referenceKeys)
       if (mapping.has(copy[key])) copy[key] = mapping.get(copy[key]);
     copy.created = copy.modified = Date.now();

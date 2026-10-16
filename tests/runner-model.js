@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
-import { resourceRemovalIds } from "../src/lib/resources.js";
-import { runnerSuite, runnerSuites, selectedRunnerSuite } from "../src/lib/runner-model.js";
+import { resourceRemovalIds, duplicateResource } from "../src/lib/resources.js";
+import { runnerSuite, runnerSuites, runnerRequestId, selectedRunnerSuite } from "../src/lib/runner-model.js";
+import { parseImport } from "../src/lib/import-export.js";
 
 const resources = [
   { _id: "wrk_a", _type: "workspace" },
@@ -37,3 +38,30 @@ assert.deepEqual([...removingSuite].sort(), ["suite_nested", "test", "suite_resu
 assert.deepEqual([...resourceRemovalIds(history, "test")].sort(), ["test", "test_result"]);
 assert.deepEqual([...resourceRemovalIds(history, "req")], ["req"]);
 console.log("Runner deletion covers linked and legacy results without removing unrelated history");
+
+const imported = parseImport(JSON.stringify({resources})).resources;
+const importedWorkspace = imported.find((r) => r._type === "workspace" && r._id !== "wrk_a")?._id;
+const importedRequest = imported.find((r) => r._type === "request");
+assert.ok(importedWorkspace && importedRequest);
+assert.equal(runnerRequestId([...resources, ...imported], importedWorkspace, "req"), importedRequest._id);
+assert.equal(runnerRequestId(imported, importedWorkspace, importedRequest._id), importedRequest._id);
+assert.equal(runnerRequestId(imported, "wrk_b", "req"), "req");
+assert.equal(imported.find((r) => r._type === "unit_test")?.code, resources.find((r) => r._type === "unit_test")?.code);
+const reimported = parseImport(JSON.stringify({resources:imported})).resources;
+const reimportedRequest = reimported.find((r) => r._type === "request");
+assert.ok(reimportedRequest);
+assert.ok(reimportedRequest._importRequestIds.includes("req"));
+assert.ok(reimportedRequest._importRequestIds.includes(importedRequest._id));
+assert.throws(() => runnerRequestId([...imported, {...importedRequest, _id:"duplicate_alias"}], importedWorkspace, "req"), /ambiguous/);
+console.log("Imported runner literal IDs resolve locally and survive reimport without changing scripts");
+
+const duplicatedResources = structuredClone(imported);
+duplicateResource(duplicatedResources, importedRequest._id);
+assert.equal(runnerRequestId(duplicatedResources, importedWorkspace, "req"), importedRequest._id);
+const copiedWorkspace = duplicateResource(duplicatedResources, importedWorkspace);
+assert.ok(copiedWorkspace);
+const copiedPlan = duplicatedResources.filter((r) => r._type === "request" && r._importRequestIds?.includes(importedRequest._id));
+assert.equal(copiedPlan.length, 1);
+assert.equal(runnerRequestId(duplicatedResources, copiedWorkspace, importedRequest._id), copiedPlan[0]._id);
+assert.equal(runnerRequestId(duplicatedResources, copiedWorkspace, "req"), copiedPlan[0]._id);
+console.log("Request copies preserve original aliases; collection copies resolve their own script IDs");
