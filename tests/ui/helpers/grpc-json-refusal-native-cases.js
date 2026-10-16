@@ -1,3 +1,7 @@
+import {
+  grpcObjectPrimitiveRefusals,
+  grpcObjectPrimitiveSmokeRefusals,
+} from "./grpc-object-primitive-case-data.js";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
@@ -34,9 +38,19 @@ const hash = (/** @type {string|Uint8Array} */ bytes) =>
 /** Real parse refusal, zero peer IO, durable error and explicit body repair. */
 export async function runGrpcJsonRefusalNativeCases({
   reflectionOnly = false,
+  objectPrimitiveOnly = false,
   bytesArraylikeOnly = false,
 } = {}) {
-  assert.ok(!(reflectionOnly && bytesArraylikeOnly));
+  assert.ok(
+    [reflectionOnly, bytesArraylikeOnly, objectPrimitiveOnly].filter(Boolean)
+      .length <= 1,
+  );
+  const authoredOnly = bytesArraylikeOnly || objectPrimitiveOnly;
+  const authoredRefusals = objectPrimitiveOnly
+    ? process.env.INSOMNIUM_GRPC_OBJECT_PRIMITIVE_MATRIX === "1"
+      ? grpcObjectPrimitiveRefusals
+      : grpcObjectPrimitiveSmokeRefusals
+    : grpcBytesArraylikeRefusals;
   assert.ok(
     process.env.INSOMNIUM_UI_BUILD_STATE &&
       process.env.INSOMNIUM_UI_PROFILE_OWNERSHIP,
@@ -48,7 +62,7 @@ export async function runGrpcJsonRefusalNativeCases({
   };
   const fixture = await createGrpcLargeSentFixture({
     handleDiscovery:
-      reflectionOnly || bytesArraylikeOnly ? handleGrpcProfileReflection : null,
+      reflectionOnly || authoredOnly ? handleGrpcProfileReflection : null,
   });
   /** @type {Record<string,any>[]} */ const checks = [];
   /** @type {unknown[]} */ const errors = [];
@@ -62,11 +76,13 @@ export async function runGrpcJsonRefusalNativeCases({
     await withResourceProbePreserved(
       async (capture) => {
         await withNativeApp(
-          bytesArraylikeOnly
-            ? "grpc-bytes-arraylike-refusal-native"
-            : reflectionOnly
-              ? "grpc-reflection-refusal-native"
-              : "grpc-json-refusal-native",
+          objectPrimitiveOnly
+            ? "grpc-object-primitive-refusal-native"
+            : bytesArraylikeOnly
+              ? "grpc-bytes-arraylike-refusal-native"
+              : reflectionOnly
+                ? "grpc-reflection-refusal-native"
+                : "grpc-json-refusal-native",
           async ({ page, invoke, output: directory, pid, terminateParent }) => {
             output = directory;
             page.setDefaultTimeout(60000);
@@ -135,11 +151,11 @@ export async function runGrpcJsonRefusalNativeCases({
               void terminateParent().catch((error) => errors.push(error));
             }, 300000);
             try {
-              for (const jsonMode of reflectionOnly || bytesArraylikeOnly
+              for (const jsonMode of reflectionOnly || authoredOnly
                 ? ["legacy"]
                 : ["legacy", "protoJson"])
-                for (const kind of bytesArraylikeOnly
-                  ? Object.keys(grpcBytesArraylikeRefusals)
+                for (const kind of authoredOnly
+                  ? Object.keys(authoredRefusals)
                   : reflectionOnly
                     ? ["reflection-map-object", "any-reflection-field"]
                     : [
@@ -162,8 +178,8 @@ export async function runGrpcJsonRefusalNativeCases({
                       ]) {
                   const label = jsonMode + "-" + kind,
                     spec = grpcLargeCase(
-                      bytesArraylikeOnly
-                        ? grpcBytesArraylikeRefusals[kind].mode
+                      authoredOnly
+                        ? authoredRefusals[kind].mode
                         : reflectionOnly
                           ? kind === "reflection-map-object"
                             ? "legacy-profile-entry-array-key-value-reflection"
@@ -172,8 +188,8 @@ export async function runGrpcJsonRefusalNativeCases({
                             ? "legacy-anyurl-plain"
                             : jsonMode + "-json-string",
                     );
-                  const initial = bytesArraylikeOnly
-                    ? grpcBytesArraylikeRefusals[kind].body
+                  const initial = authoredOnly
+                    ? authoredRefusals[kind].body
                     : kind === "reflection-map-object"
                       ? '{"labels":{"owned":0}}'
                       : kind === "any-reflection-field"
@@ -211,13 +227,17 @@ export async function runGrpcJsonRefusalNativeCases({
                     _type: "grpc_request",
                     name: "Owned refusal " + label,
                     url: fixture.url,
-                    protoFileId: bytesArraylikeOnly
+                    protoFileId: authoredOnly
                       ? kind.endsWith("-reflection")
                         ? null
                         : protoId +
                           "_dependency_" +
                           grpcLargeAdditionalProtos.findIndex(
-                            (file) => file.name === "arraylike.proto",
+                            (file) =>
+                              file.name ===
+                              (objectPrimitiveOnly
+                                ? "primitive.proto"
+                                : "arraylike.proto"),
                           )
                       : reflectionOnly
                         ? null
@@ -272,28 +292,30 @@ export async function runGrpcJsonRefusalNativeCases({
                   let refusalError;
                   if (refuses) {
                     const frontend = kind === "invalid-json";
-                    const pattern = bytesArraylikeOnly
-                      ? grpcBytesArraylikeRefusals[kind].kind === "leading"
-                        ? /Legacy repeated bytes contain an unwritten array element\./
-                        : /gRPC bytes exceed 20 MiB\./
-                      : kind === "reflection-map-object"
-                        ? /ownedreflection\.Input\.labels: array expected/
-                        : kind === "any-reflection-field"
-                          ? /Legacy Any @type does not name a message\./
-                          : frontend
-                            ? /SyntaxError:.*JSON/i
-                            : kind.startsWith("any-")
-                              ? kind === "any-enum" ||
-                                Object.hasOwn(grpcAnyTargetRefusals, kind)
-                                ? /Legacy Any @type does not name a message\./
-                                : /Legacy Any @type requires a string\./
-                              : kind === "unpaired-surrogate"
-                                ? /Invalid gRPC message:.*(?:surrogate|hex escape)/i
-                                : kind === "unknown-field"
-                                  ? /Invalid gRPC message: unrecognized field name 'unrecognized'/i
-                                  : jsonMode === "legacy"
-                                    ? /Invalid legacy base64 bytes\./
-                                    : /Invalid gRPC message: invalid base64:/i;
+                    const pattern = objectPrimitiveOnly
+                      ? /Cannot convert object to primitive value\./
+                      : bytesArraylikeOnly
+                        ? authoredRefusals[kind].kind === "leading"
+                          ? /Legacy repeated bytes contain an unwritten array element\./
+                          : /gRPC bytes exceed 20 MiB\./
+                        : kind === "reflection-map-object"
+                          ? /ownedreflection\.Input\.labels: array expected/
+                          : kind === "any-reflection-field"
+                            ? /Legacy Any @type does not name a message\./
+                            : frontend
+                              ? /SyntaxError:.*JSON/i
+                              : kind.startsWith("any-")
+                                ? kind === "any-enum" ||
+                                  Object.hasOwn(grpcAnyTargetRefusals, kind)
+                                  ? /Legacy Any @type does not name a message\./
+                                  : /Legacy Any @type requires a string\./
+                                : kind === "unpaired-surrogate"
+                                  ? /Invalid gRPC message:.*(?:surrogate|hex escape)/i
+                                  : kind === "unknown-field"
+                                    ? /Invalid gRPC message: unrecognized field name 'unrecognized'/i
+                                    : jsonMode === "legacy"
+                                      ? /Invalid legacy base64 bytes\./
+                                      : /Invalid gRPC message: invalid base64:/i;
                     const feedback = page
                       .locator(".inline-error")
                       .filter({ hasText: pattern })
@@ -429,12 +451,13 @@ export async function runGrpcJsonRefusalNativeCases({
                     "Successful repair must clear its prior diagnostic",
                   );
                   if (refused) assert.notEqual(success._id, refused._id);
-                  if (bytesArraylikeOnly)
+                  if (authoredOnly)
                     assert.equal(
                       await page
                         .locator(".inline-error")
                         .filter({
-                          hasText: /Legacy repeated bytes|gRPC bytes exceed/,
+                          hasText:
+                            /Cannot convert object to primitive value|Legacy repeated bytes|gRPC bytes exceed/,
                         })
                         .count(),
                       0,
@@ -451,17 +474,13 @@ export async function runGrpcJsonRefusalNativeCases({
                   assert.equal(record.mode, spec.mode);
                   assert.equal(
                     record.wireSHA256,
-                    reflectionOnly ||
-                      bytesArraylikeOnly ||
-                      kind.startsWith("any-")
+                    reflectionOnly || authoredOnly || kind.startsWith("any-")
                       ? hash(spec.wire)
                       : "9e0cc9c83819dbf4a21cbe515dc4d10e0b03bafc1a9aaba3e96b52a19130fc08",
                   );
                   assert.equal(
                     record.receivedBytes,
-                    reflectionOnly ||
-                      bytesArraylikeOnly ||
-                      kind.startsWith("any-")
+                    reflectionOnly || authoredOnly || kind.startsWith("any-")
                       ? spec.wire.length
                       : 19,
                   );
@@ -623,11 +642,13 @@ export async function runGrpcJsonRefusalNativeCases({
           socketRecords: fixture.socketRecords,
           errorEvents: fixture.errorEvents,
           errors: errors.map(String),
-          scope: bytesArraylikeOnly
-            ? "Four native legacy bytes refusals across saved files/reflection: sparse leading hole and oversized nonzero-wrapped length, zero additional peer IO, durable error/reload, explicit typed repair, exact history/Save and original-profile restoration."
-            : reflectionOnly
-              ? "Two real reflection legacy parse refusals: map object and known non-message Any target, with zero additional peer IO after schema discovery, durable error/reload, actual typed repair, history and Save. Discovery and business telemetry remain distinct; no broader alias/provider/platform claim."
-              : "Twenty-three actual native UI cases including legacy Any wrong-type and reflection non-message/WKT-alias/declaration-order-service-shadow refusals/typed repairs, plus strict ProtoJSON unpaired-surrogate refusal/typed repair: renderer JSON refusal, native unknown-field and malformed/excess-padding Base64 refusal with durable errors, legacy unknown-field acceptance, zero observed peer IO and typed repair/reload/export. No full JSON/provider/platform claim.",
+          scope: objectPrimitiveOnly
+            ? "Representative JSON-only own toString refusals: twelve cases by default, full thirty-four-case matrix only with INSOMNIUM_GRPC_OBJECT_PRIMITIVE_MATRIX=1. Zero additional peer IO, durable error/reload, typed repair and Save. Exhaustive values remain in the Rust oracle."
+            : bytesArraylikeOnly
+              ? "Four native legacy bytes refusals across saved files/reflection: sparse leading hole and oversized nonzero-wrapped length, zero additional peer IO, durable error/reload, explicit typed repair, exact history/Save and original-profile restoration."
+              : reflectionOnly
+                ? "Two real reflection legacy parse refusals: map object and known non-message Any target, with zero additional peer IO after schema discovery, durable error/reload, actual typed repair, history and Save. Discovery and business telemetry remain distinct; no broader alias/provider/platform claim."
+                : "Twenty-three actual native UI cases including legacy Any wrong-type and reflection non-message/WKT-alias/declaration-order-service-shadow refusals/typed repairs, plus strict ProtoJSON unpaired-surrogate refusal/typed repair: renderer JSON refusal, native unknown-field and malformed/excess-padding Base64 refusal with durable errors, legacy unknown-field acceptance, zero observed peer IO and typed repair/reload/export. No full JSON/provider/platform claim.",
         },
         null,
         2,

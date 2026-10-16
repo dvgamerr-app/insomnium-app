@@ -1,3 +1,8 @@
+import {
+  grpcObjectPrimitiveCase,
+  grpcObjectPrimitiveModes,
+  grpcObjectPrimitiveProtos,
+} from "./grpc-object-primitive-case-data.js";
 /** Authored native case inputs and independent protobuf/preview expectations. */
 import {
   grpcBytesArraylikeCase,
@@ -28,12 +33,14 @@ import {
   grpcAnyOrderProtos,
 } from "./grpc-any-order-case-data.js";
 export const grpcLargeAdditionalProtos = [
+  ...grpcObjectPrimitiveProtos,
   ...grpcBytesArraylikeProtos,
   ...grpcAnyTargetProtos,
   ...grpcAnyOrderProtos,
   ...grpcReflectionProfileProtos,
 ];
 export const grpcLargeModes = [
+  ...grpcObjectPrimitiveModes,
   ...grpcBytesArraylikeModes,
   ...grpcReflectionArrivalModes,
   ...grpcReflectionServiceModes,
@@ -181,6 +188,8 @@ function varint(value) {
 }
 /** @param {string} mode */
 export function grpcLargeCase(mode) {
+  if (mode.startsWith("legacy-primitive-"))
+    return grpcObjectPrimitiveCase(mode);
   if (mode.startsWith("legacy-arraylike-")) return grpcBytesArraylikeCase(mode);
   if (mode.startsWith("legacy-arrival-"))
     return grpcReflectionArrivalCase(mode);

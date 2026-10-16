@@ -613,6 +613,23 @@ fn uint32(value: &Json) -> u32 {
         number.trunc().rem_euclid(4_294_967_296.0) as u32
     }
 }
+// JSON cannot contain callable overrides. An own toString shadows the
+// inherited primitive-producing method; arrays reach it through join.
+// Validate only values actually coerced, never unrelated object properties.
+fn ensure_primitive_conversion(value: &Json) -> Result<(), String> {
+    let mut pending = vec![value];
+    while let Some(value) = pending.pop() {
+        match value {
+            Json::Object(object) if object.get("toString").is_some() => {
+                return Err("Cannot convert object to primitive value.".into());
+            }
+            Json::Array(array) => pending.extend(array),
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
 fn long_bits(value: &Json) -> Result<u64, String> {
     match value {
         Json::String(text) => {
@@ -651,8 +668,13 @@ fn long_bits(value: &Json) -> Result<u64, String> {
             Ok(if negative { bits.wrapping_neg() } else { bits })
         }
         Json::Number(value) => Ok(*value as i64 as u64),
-        Json::Object(value) => Ok(uint32(value.get("low").unwrap_or(&Json::Null)) as u64
-            | ((uint32(value.get("high").unwrap_or(&Json::Null)) as u64) << 32)),
+        Json::Object(value) => {
+            let low = value.get("low").unwrap_or(&Json::Null);
+            let high = value.get("high").unwrap_or(&Json::Null);
+            ensure_primitive_conversion(low)?;
+            ensure_primitive_conversion(high)?;
+            Ok(uint32(low) as u64 | ((uint32(high) as u64) << 32))
+        }
         Json::Null => Err("Legacy 64-bit field cannot contain null.".into()),
         _ => Ok(0),
     }
@@ -1045,6 +1067,19 @@ fn scalar(
     depth: usize,
     context: &ConversionContext,
 ) -> Result<Option<Value>, String> {
+    if matches!(
+        original.kind(),
+        Kind::String
+            | Kind::Double
+            | Kind::Float
+            | Kind::Int32
+            | Kind::Sint32
+            | Kind::Sfixed32
+            | Kind::Uint32
+            | Kind::Fixed32
+    ) {
+        ensure_primitive_conversion(input)?;
+    }
     if matches!(field.kind(), Kind::Int64) && matches!(original.kind(), Kind::Int32) {
         return Ok(Some(Value::I64(uint32(input) as i32 as i64)));
     }
@@ -1065,9 +1100,20 @@ fn scalar(
         Kind::Bytes => {
             let bytes = match input {
                 Json::String(text) => legacy_base64_bytes(text)?,
-                Json::Array(array) => array.iter().map(|v| uint32(v) as u8).collect(),
-                Json::Object(object) if object.get("length").is_some_and(|v| number(v) >= 0.0) => {
-                    let input_length = object.get("length").unwrap();
+                Json::Array(array) => {
+                    for value in array {
+                        ensure_primitive_conversion(value)?;
+                    }
+                    array.iter().map(|v| uint32(v) as u8).collect()
+                }
+                Json::Object(object) => {
+                    let Some(input_length) = object.get("length") else {
+                        return Ok(None);
+                    };
+                    ensure_primitive_conversion(input_length)?;
+                    if !(number(input_length) >= 0.0) {
+                        return Ok(None);
+                    }
                     let raw_length = number(input_length).trunc();
                     let length = uint32(input_length) as usize;
                     // BufferWriter tests length>>>0 before copying. Zero wraps
@@ -1076,9 +1122,13 @@ fn scalar(
                     if length != 0 && (!raw_length.is_finite() || raw_length > MAX_MESSAGE as f64) {
                         return Err("gRPC bytes exceed 20 MiB.".into());
                     }
-                    (0..length)
-                        .map(|i| uint32(object.get(&i.to_string()).unwrap_or(&Json::Null)) as u8)
-                        .collect()
+                    let mut bytes = Vec::with_capacity(length);
+                    for i in 0..length {
+                        let value = object.get(&i.to_string()).unwrap_or(&Json::Null);
+                        ensure_primitive_conversion(value)?;
+                        bytes.push(uint32(value) as u8);
+                    }
+                    bytes
                 }
                 Json::Null => return Err("Legacy bytes field cannot contain null.".into()),
                 _ => return Ok(None),
@@ -1479,6 +1529,89 @@ impl Serialize for LegacyValue<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn legacy_object_primitive_matches_pinned_loader() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../tests/ui/fixtures/grpc-object-primitive-reference.json"
+        ))
+        .unwrap();
+        let reflected =
+            crate::grpc_schema::decode(fixture["descriptorSet"].as_str().unwrap()).unwrap();
+        let compiled = crate::grpc_schema::compile(crate::grpc_schema::ProtoInput {
+            entry: "primitive.proto".into(),
+            files: vec![crate::grpc_schema::ProtoFile {
+                name: "primitive.proto".into(),
+                text: fixture["source"].as_str().unwrap().into(),
+            }],
+            include_paths: vec![],
+        })
+        .unwrap();
+        assert_eq!(fixture["rows"].as_array().unwrap().len(), 262);
+        assert_eq!(fixture["versions"]["protobufjs"], "7.2.4");
+        assert_eq!(fixture["versions"]["protoLoader"], "0.7.13");
+        let snapshots = (compiled.encode_to_vec(), reflected.encode_to_vec());
+        let mut failures = Vec::new();
+        for row in fixture["rows"].as_array().unwrap() {
+            let reflection = row["profile"] == "reflection";
+            let pool = if reflection { &reflected } else { &compiled };
+            let original = pool.get_message_by_name("ownedprimitive.Envelope").unwrap();
+            let mode = crate::grpc_schema::JsonMode::Legacy.from_schema(reflection);
+            let result = crate::grpc_schema::parse_mode(
+                original.clone(),
+                row["body"].as_str().unwrap(),
+                mode,
+            );
+            let label = format!("{}:{}", row["profile"], row["label"]);
+            if row.get("error").is_some() {
+                assert!(
+                    crate::grpc_schema::parse_mode(
+                        original.clone(),
+                        row["body"].as_str().unwrap(),
+                        crate::grpc_schema::JsonMode::ProtoJson,
+                    )
+                    .is_err(),
+                    "strict ProtoJSON unexpectedly accepted {label}"
+                );
+            }
+            match result {
+                Err(error) if row.get("error").is_none() => {
+                    failures.push(format!("{label}: unexpected refusal {error}"))
+                }
+                Ok(_) if row.get("error").is_some() => {
+                    failures.push(format!("{label}: expected refusal"))
+                }
+                Ok(message) => {
+                    let wire = message.encode_to_vec();
+                    let hex: String = wire.iter().map(|byte| format!("{byte:02x}")).collect();
+                    if hex != row["wireHex"].as_str().unwrap() {
+                        failures.push(format!("{label}: wire {hex} != {}", row["wireHex"]));
+                        continue;
+                    }
+                    let decoded = DynamicMessage::decode(
+                        legacy_descriptor(original.clone()).unwrap(),
+                        wire.as_slice(),
+                    )
+                    .unwrap();
+                    let json = crate::grpc_schema::json_mode(&decoded, mode, original).unwrap();
+                    if json != row["json"].as_str().unwrap() {
+                        failures.push(format!("{label}: JSON differs"));
+                    }
+                }
+                Err(_) => {}
+            }
+        }
+        assert!(
+            failures.is_empty(),
+            "{} pinned primitive divergences:\n{}",
+            failures.len(),
+            failures.join("\n")
+        );
+        assert_eq!(
+            snapshots,
+            (compiled.encode_to_vec(), reflected.encode_to_vec())
+        );
+    }
 
     #[test]
     fn legacy_bytes_arraylike_matches_pinned_loader() {

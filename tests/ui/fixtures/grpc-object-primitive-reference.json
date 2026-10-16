@@ -1,0 +1,1642 @@
+{
+  "versions": {
+    "protobufjs": "7.2.4",
+    "protoLoader": "0.7.13",
+    "long": "5.3.2"
+  },
+  "scope": "Actual pinned file loadSync and archived descriptor reconstruction; JSON-only non-callable own toString shadows and lazy non-coercing controls",
+  "source": "syntax=\"proto3\";package ownedprimitive;message Envelope {string text=1;int32 num=2;double real=3;bytes data=4;int64 wide=5;bool flag=6;enum Choice {ZERO=0;ONE=1;}Choice choice=7;repeated string texts=8;repeated int32 numbers=9;map<string,string> strings=10;map<string,int32> integers=11;Envelope child=12;repeated bytes blobs=13;}service Echo {rpc Call(Envelope) returns(Envelope);}",
+  "descriptorSet": "CtwDChRvd25lZHByaW1pdGl2ZS5wcm90bxIOb3duZWRwcmltaXRpdmUi5wIKCEVudmVsb3BlEgwKBHRleHQYASABKAkSCwoDbnVtGAIgASgFEgwKBHJlYWwYAyABKAESDAoEZGF0YRgEIAEoDBIMCgR3aWRlGAUgASgDEgwKBGZsYWcYBiABKAgSFgoGY2hvaWNlGAcgASgOMgZDaG9pY2USDQoFdGV4dHMYCCADKAkSDwoHbnVtYmVycxgJIAMoBRIYCgdzdHJpbmdzGAogAygLMgdTdHJpbmdzEhoKCGludGVnZXJzGAsgAygLMghJbnRlZ2VycxIXCgVjaGlsZBgMIAEoCzIIRW52ZWxvcGUSDQoFYmxvYnMYDSADKAwaKQoHU3RyaW5ncxILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBGioKCEludGVnZXJzEgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoBToCOAEiGwoGQ2hvaWNlEggKBFpFUk8QABIHCgNPTkUQATJCCgRFY2hvEjoKBENhbGwSGC5vd25lZHByaW1pdGl2ZS5FbnZlbG9wZRoYLm93bmVkcHJpbWl0aXZlLkVudmVsb3BlYgZwcm90bzM=",
+  "rows": [
+    {
+      "profile": "file",
+      "label": "shadow-null:text",
+      "body": "{\"text\":{\"toString\":null}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-null:num",
+      "body": "{\"num\":{\"toString\":null}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-null:real",
+      "body": "{\"real\":{\"toString\":null}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-null:text-array",
+      "body": "{\"text\":[null,{\"toString\":null}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-null:num-array",
+      "body": "{\"num\":[{\"toString\":null}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-null:texts",
+      "body": "{\"texts\":[\"ok\",{\"toString\":null}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-null:numbers",
+      "body": "{\"numbers\":[1,{\"toString\":null}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-null:bytes-array",
+      "body": "{\"data\":[{\"toString\":null}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-null:bytes-length",
+      "body": "{\"data\":{\"length\":{\"toString\":null}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-null:bytes-index",
+      "body": "{\"data\":{\"0\":{\"toString\":null},\"length\":1}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-null:long-low",
+      "body": "{\"wide\":{\"low\":{\"toString\":null},\"high\":0}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-null:long-high",
+      "body": "{\"wide\":{\"low\":0,\"high\":[{\"toString\":null}]}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-null:map-string",
+      "body": "{\"strings\":{\"owned\":{\"toString\":null}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-null:map-number",
+      "body": "{\"integers\":{\"owned\":{\"toString\":null}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-null:nested-text",
+      "body": "{\"child\":{\"text\":{\"toString\":null}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-null:blobs-length",
+      "body": "{\"blobs\":[{\"length\":{\"toString\":null}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-null:blobs-index",
+      "body": "{\"blobs\":[{\"0\":{\"toString\":null},\"length\":1}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-false:text",
+      "body": "{\"text\":{\"toString\":false}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-false:num",
+      "body": "{\"num\":{\"toString\":false}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-false:real",
+      "body": "{\"real\":{\"toString\":false}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-false:text-array",
+      "body": "{\"text\":[null,{\"toString\":false}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-false:num-array",
+      "body": "{\"num\":[{\"toString\":false}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-false:texts",
+      "body": "{\"texts\":[\"ok\",{\"toString\":false}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-false:numbers",
+      "body": "{\"numbers\":[1,{\"toString\":false}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-false:bytes-array",
+      "body": "{\"data\":[{\"toString\":false}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-false:bytes-length",
+      "body": "{\"data\":{\"length\":{\"toString\":false}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-false:bytes-index",
+      "body": "{\"data\":{\"0\":{\"toString\":false},\"length\":1}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-false:long-low",
+      "body": "{\"wide\":{\"low\":{\"toString\":false},\"high\":0}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-false:long-high",
+      "body": "{\"wide\":{\"low\":0,\"high\":[{\"toString\":false}]}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-false:map-string",
+      "body": "{\"strings\":{\"owned\":{\"toString\":false}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-false:map-number",
+      "body": "{\"integers\":{\"owned\":{\"toString\":false}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-false:nested-text",
+      "body": "{\"child\":{\"text\":{\"toString\":false}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-false:blobs-length",
+      "body": "{\"blobs\":[{\"length\":{\"toString\":false}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-false:blobs-index",
+      "body": "{\"blobs\":[{\"0\":{\"toString\":false},\"length\":1}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-number:text",
+      "body": "{\"text\":{\"toString\":7}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-number:num",
+      "body": "{\"num\":{\"toString\":7}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-number:real",
+      "body": "{\"real\":{\"toString\":7}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-number:text-array",
+      "body": "{\"text\":[null,{\"toString\":7}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-number:num-array",
+      "body": "{\"num\":[{\"toString\":7}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-number:texts",
+      "body": "{\"texts\":[\"ok\",{\"toString\":7}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-number:numbers",
+      "body": "{\"numbers\":[1,{\"toString\":7}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-number:bytes-array",
+      "body": "{\"data\":[{\"toString\":7}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-number:bytes-length",
+      "body": "{\"data\":{\"length\":{\"toString\":7}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-number:bytes-index",
+      "body": "{\"data\":{\"0\":{\"toString\":7},\"length\":1}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-number:long-low",
+      "body": "{\"wide\":{\"low\":{\"toString\":7},\"high\":0}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-number:long-high",
+      "body": "{\"wide\":{\"low\":0,\"high\":[{\"toString\":7}]}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-number:map-string",
+      "body": "{\"strings\":{\"owned\":{\"toString\":7}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-number:map-number",
+      "body": "{\"integers\":{\"owned\":{\"toString\":7}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-number:nested-text",
+      "body": "{\"child\":{\"text\":{\"toString\":7}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-number:blobs-length",
+      "body": "{\"blobs\":[{\"length\":{\"toString\":7}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-number:blobs-index",
+      "body": "{\"blobs\":[{\"0\":{\"toString\":7},\"length\":1}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-string:text",
+      "body": "{\"text\":{\"toString\":\"unused\"}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-string:num",
+      "body": "{\"num\":{\"toString\":\"unused\"}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-string:real",
+      "body": "{\"real\":{\"toString\":\"unused\"}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-string:text-array",
+      "body": "{\"text\":[null,{\"toString\":\"unused\"}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-string:num-array",
+      "body": "{\"num\":[{\"toString\":\"unused\"}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-string:texts",
+      "body": "{\"texts\":[\"ok\",{\"toString\":\"unused\"}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-string:numbers",
+      "body": "{\"numbers\":[1,{\"toString\":\"unused\"}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-string:bytes-array",
+      "body": "{\"data\":[{\"toString\":\"unused\"}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-string:bytes-length",
+      "body": "{\"data\":{\"length\":{\"toString\":\"unused\"}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-string:bytes-index",
+      "body": "{\"data\":{\"0\":{\"toString\":\"unused\"},\"length\":1}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-string:long-low",
+      "body": "{\"wide\":{\"low\":{\"toString\":\"unused\"},\"high\":0}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-string:long-high",
+      "body": "{\"wide\":{\"low\":0,\"high\":[{\"toString\":\"unused\"}]}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-string:map-string",
+      "body": "{\"strings\":{\"owned\":{\"toString\":\"unused\"}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-string:map-number",
+      "body": "{\"integers\":{\"owned\":{\"toString\":\"unused\"}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-string:nested-text",
+      "body": "{\"child\":{\"text\":{\"toString\":\"unused\"}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-string:blobs-length",
+      "body": "{\"blobs\":[{\"length\":{\"toString\":\"unused\"}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-string:blobs-index",
+      "body": "{\"blobs\":[{\"0\":{\"toString\":\"unused\"},\"length\":1}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-array:text",
+      "body": "{\"text\":{\"toString\":[]}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-array:num",
+      "body": "{\"num\":{\"toString\":[]}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-array:real",
+      "body": "{\"real\":{\"toString\":[]}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-array:text-array",
+      "body": "{\"text\":[null,{\"toString\":[]}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-array:num-array",
+      "body": "{\"num\":[{\"toString\":[]}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-array:texts",
+      "body": "{\"texts\":[\"ok\",{\"toString\":[]}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-array:numbers",
+      "body": "{\"numbers\":[1,{\"toString\":[]}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-array:bytes-array",
+      "body": "{\"data\":[{\"toString\":[]}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-array:bytes-length",
+      "body": "{\"data\":{\"length\":{\"toString\":[]}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-array:bytes-index",
+      "body": "{\"data\":{\"0\":{\"toString\":[]},\"length\":1}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-array:long-low",
+      "body": "{\"wide\":{\"low\":{\"toString\":[]},\"high\":0}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-array:long-high",
+      "body": "{\"wide\":{\"low\":0,\"high\":[{\"toString\":[]}]}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-array:map-string",
+      "body": "{\"strings\":{\"owned\":{\"toString\":[]}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-array:map-number",
+      "body": "{\"integers\":{\"owned\":{\"toString\":[]}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-array:nested-text",
+      "body": "{\"child\":{\"text\":{\"toString\":[]}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-array:blobs-length",
+      "body": "{\"blobs\":[{\"length\":{\"toString\":[]}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-array:blobs-index",
+      "body": "{\"blobs\":[{\"0\":{\"toString\":[]},\"length\":1}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-object:text",
+      "body": "{\"text\":{\"toString\":{}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-object:num",
+      "body": "{\"num\":{\"toString\":{}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-object:real",
+      "body": "{\"real\":{\"toString\":{}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-object:text-array",
+      "body": "{\"text\":[null,{\"toString\":{}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-object:num-array",
+      "body": "{\"num\":[{\"toString\":{}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-object:texts",
+      "body": "{\"texts\":[\"ok\",{\"toString\":{}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-object:numbers",
+      "body": "{\"numbers\":[1,{\"toString\":{}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-object:bytes-array",
+      "body": "{\"data\":[{\"toString\":{}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-object:bytes-length",
+      "body": "{\"data\":{\"length\":{\"toString\":{}}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-object:bytes-index",
+      "body": "{\"data\":{\"0\":{\"toString\":{}},\"length\":1}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-object:long-low",
+      "body": "{\"wide\":{\"low\":{\"toString\":{}},\"high\":0}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-object:long-high",
+      "body": "{\"wide\":{\"low\":0,\"high\":[{\"toString\":{}}]}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-object:map-string",
+      "body": "{\"strings\":{\"owned\":{\"toString\":{}}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-object:map-number",
+      "body": "{\"integers\":{\"owned\":{\"toString\":{}}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-object:nested-text",
+      "body": "{\"child\":{\"text\":{\"toString\":{}}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-object:blobs-length",
+      "body": "{\"blobs\":[{\"length\":{\"toString\":{}}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "shadow-object:blobs-index",
+      "body": "{\"blobs\":[{\"0\":{\"toString\":{}},\"length\":1}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "file",
+      "label": "control:plain-text",
+      "body": "{\"text\":{\"owned\":true}}",
+      "wireHex": "0a0f5b6f626a656374204f626a6563745d",
+      "json": "{\"texts\":[],\"numbers\":[],\"blobs\":[],\"strings\":{},\"integers\":{},\"text\":\"[object Object]\",\"num\":0,\"real\":0,\"data\":{},\"wide\":\"0\",\"flag\":false,\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "control:plain-number",
+      "body": "{\"num\":{\"owned\":true}}",
+      "wireHex": "1000",
+      "json": "{\"texts\":[],\"numbers\":[],\"blobs\":[],\"strings\":{},\"integers\":{},\"text\":\"\",\"num\":0,\"real\":0,\"data\":{},\"wide\":\"0\",\"flag\":false,\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "control:plain-real",
+      "body": "{\"real\":{\"owned\":true}}",
+      "wireHex": "19000000000000f87f",
+      "json": "{\"texts\":[],\"numbers\":[],\"blobs\":[],\"strings\":{},\"integers\":{},\"text\":\"\",\"num\":0,\"real\":null,\"data\":{},\"wide\":\"0\",\"flag\":false,\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "control:valueof-text",
+      "body": "{\"text\":{\"valueOf\":null}}",
+      "wireHex": "0a0f5b6f626a656374204f626a6563745d",
+      "json": "{\"texts\":[],\"numbers\":[],\"blobs\":[],\"strings\":{},\"integers\":{},\"text\":\"[object Object]\",\"num\":0,\"real\":0,\"data\":{},\"wide\":\"0\",\"flag\":false,\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "control:valueof-number",
+      "body": "{\"num\":{\"valueOf\":{\"toString\":null}}}",
+      "wireHex": "1000",
+      "json": "{\"texts\":[],\"numbers\":[],\"blobs\":[],\"strings\":{},\"integers\":{},\"text\":\"\",\"num\":0,\"real\":0,\"data\":{},\"wide\":\"0\",\"flag\":false,\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "control:case-sensitive",
+      "body": "{\"text\":{\"ToString\":null}}",
+      "wireHex": "0a0f5b6f626a656374204f626a6563745d",
+      "json": "{\"texts\":[],\"numbers\":[],\"blobs\":[],\"strings\":{},\"integers\":{},\"text\":\"[object Object]\",\"num\":0,\"real\":0,\"data\":{},\"wide\":\"0\",\"flag\":false,\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "control:proto-key",
+      "body": "{\"text\":{\"__proto__\":{\"toString\":null}}}",
+      "wireHex": "0a0f5b6f626a656374204f626a6563745d",
+      "json": "{\"texts\":[],\"numbers\":[],\"blobs\":[],\"strings\":{},\"integers\":{},\"text\":\"[object Object]\",\"num\":0,\"real\":0,\"data\":{},\"wide\":\"0\",\"flag\":false,\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "control:bool",
+      "body": "{\"flag\":{\"toString\":null}}",
+      "wireHex": "3001",
+      "json": "{\"texts\":[],\"numbers\":[],\"blobs\":[],\"strings\":{},\"integers\":{},\"text\":\"\",\"num\":0,\"real\":0,\"data\":{},\"wide\":\"0\",\"flag\":true,\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "control:bool-array",
+      "body": "{\"flag\":[{\"toString\":null}]}",
+      "wireHex": "3001",
+      "json": "{\"texts\":[],\"numbers\":[],\"blobs\":[],\"strings\":{},\"integers\":{},\"text\":\"\",\"num\":0,\"real\":0,\"data\":{},\"wide\":\"0\",\"flag\":true,\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "control:enum",
+      "body": "{\"choice\":{\"toString\":null}}",
+      "wireHex": "",
+      "json": "{\"texts\":[],\"numbers\":[],\"blobs\":[],\"strings\":{},\"integers\":{},\"text\":\"\",\"num\":0,\"real\":0,\"data\":{},\"wide\":\"0\",\"flag\":false,\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "control:enum-array",
+      "body": "{\"choice\":[{\"toString\":null}]}",
+      "wireHex": "",
+      "json": "{\"texts\":[],\"numbers\":[],\"blobs\":[],\"strings\":{},\"integers\":{},\"text\":\"\",\"num\":0,\"real\":0,\"data\":{},\"wide\":\"0\",\"flag\":false,\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "control:root-unknown",
+      "body": "{\"toString\":null}",
+      "wireHex": "",
+      "json": "{\"texts\":[],\"numbers\":[],\"blobs\":[],\"strings\":{},\"integers\":{},\"text\":\"\",\"num\":0,\"real\":0,\"data\":{},\"wide\":\"0\",\"flag\":false,\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "control:child-unknown",
+      "body": "{\"child\":{\"toString\":null}}",
+      "wireHex": "6200",
+      "json": "{\"texts\":[],\"numbers\":[],\"blobs\":[],\"strings\":{},\"integers\":{},\"text\":\"\",\"num\":0,\"real\":0,\"data\":{},\"wide\":\"0\",\"flag\":false,\"choice\":\"ZERO\",\"child\":{\"texts\":[],\"numbers\":[],\"blobs\":[],\"strings\":{},\"integers\":{},\"text\":\"\",\"num\":0,\"real\":0,\"data\":{},\"wide\":\"0\",\"flag\":false,\"choice\":\"ZERO\",\"child\":null}}"
+    },
+    {
+      "profile": "file",
+      "label": "control:nested-bool",
+      "body": "{\"child\":{\"flag\":{\"toString\":null}}}",
+      "wireHex": "62023001",
+      "json": "{\"texts\":[],\"numbers\":[],\"blobs\":[],\"strings\":{},\"integers\":{},\"text\":\"\",\"num\":0,\"real\":0,\"data\":{},\"wide\":\"0\",\"flag\":false,\"choice\":\"ZERO\",\"child\":{\"texts\":[],\"numbers\":[],\"blobs\":[],\"strings\":{},\"integers\":{},\"text\":\"\",\"num\":0,\"real\":0,\"data\":{},\"wide\":\"0\",\"flag\":true,\"choice\":\"ZERO\",\"child\":null}}"
+    },
+    {
+      "profile": "file",
+      "label": "control:long-outer",
+      "body": "{\"wide\":{\"toString\":null,\"low\":1,\"high\":0}}",
+      "wireHex": "2801",
+      "json": "{\"texts\":[],\"numbers\":[],\"blobs\":[],\"strings\":{},\"integers\":{},\"text\":\"\",\"num\":0,\"real\":0,\"data\":{},\"wide\":\"1\",\"flag\":false,\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "control:long-array",
+      "body": "{\"wide\":[{\"toString\":null}]}",
+      "wireHex": "2800",
+      "json": "{\"texts\":[],\"numbers\":[],\"blobs\":[],\"strings\":{},\"integers\":{},\"text\":\"\",\"num\":0,\"real\":0,\"data\":{},\"wide\":\"0\",\"flag\":false,\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "control:long-unsigned",
+      "body": "{\"wide\":{\"low\":1,\"high\":0,\"unsigned\":{\"toString\":null}}}",
+      "wireHex": "2801",
+      "json": "{\"texts\":[],\"numbers\":[],\"blobs\":[],\"strings\":{},\"integers\":{},\"text\":\"\",\"num\":0,\"real\":0,\"data\":{},\"wide\":\"1\",\"flag\":false,\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "control:bytes-outer",
+      "body": "{\"data\":{\"0\":65,\"length\":1,\"toString\":null}}",
+      "wireHex": "220141",
+      "json": "{\"texts\":[],\"numbers\":[],\"blobs\":[],\"strings\":{},\"integers\":{},\"text\":\"\",\"num\":0,\"real\":0,\"data\":{\"0\":65},\"wide\":\"0\",\"flag\":false,\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "control:bytes-zero-lazy",
+      "body": "{\"data\":{\"0\":{\"toString\":null},\"length\":0}}",
+      "wireHex": "2200",
+      "json": "{\"texts\":[],\"numbers\":[],\"blobs\":[],\"strings\":{},\"integers\":{},\"text\":\"\",\"num\":0,\"real\":0,\"data\":{},\"wide\":\"0\",\"flag\":false,\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "control:bytes-wrap-lazy",
+      "body": "{\"data\":{\"0\":{\"toString\":null},\"length\":4294967296}}",
+      "wireHex": "2200",
+      "json": "{\"texts\":[],\"numbers\":[],\"blobs\":[],\"strings\":{},\"integers\":{},\"text\":\"\",\"num\":0,\"real\":0,\"data\":{},\"wide\":\"0\",\"flag\":false,\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "control:bytes-negative-lazy",
+      "body": "{\"data\":{\"0\":{\"toString\":null},\"length\":-1}}",
+      "wireHex": "",
+      "json": "{\"texts\":[],\"numbers\":[],\"blobs\":[],\"strings\":{},\"integers\":{},\"text\":\"\",\"num\":0,\"real\":0,\"data\":{},\"wide\":\"0\",\"flag\":false,\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "control:bytes-missing-lazy",
+      "body": "{\"data\":{\"0\":{\"toString\":null}}}",
+      "wireHex": "",
+      "json": "{\"texts\":[],\"numbers\":[],\"blobs\":[],\"strings\":{},\"integers\":{},\"text\":\"\",\"num\":0,\"real\":0,\"data\":{},\"wide\":\"0\",\"flag\":false,\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "control:blobs-zero-lazy",
+      "body": "{\"blobs\":[{\"0\":{\"toString\":null},\"length\":0}]}",
+      "wireHex": "6a00",
+      "json": "{\"texts\":[],\"numbers\":[],\"blobs\":[{}],\"strings\":{},\"integers\":{},\"text\":\"\",\"num\":0,\"real\":0,\"data\":{},\"wide\":\"0\",\"flag\":false,\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "control:blobs-negative-tail",
+      "body": "{\"blobs\":[{\"0\":65,\"length\":1},{\"0\":{\"toString\":null},\"length\":-1}]}",
+      "wireHex": "6a0141",
+      "json": "{\"texts\":[],\"numbers\":[],\"blobs\":[{\"0\":65}],\"strings\":{},\"integers\":{},\"text\":\"\",\"num\":0,\"real\":0,\"data\":{},\"wide\":\"0\",\"flag\":false,\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "control:map-key-shadow",
+      "body": "{\"strings\":{\"toString\":\"owned\"}}",
+      "wireHex": "52110a08746f537472696e6712056f776e6564",
+      "json": "{\"texts\":[],\"numbers\":[],\"blobs\":[],\"strings\":{\"toString\":\"owned\"},\"integers\":{},\"text\":\"\",\"num\":0,\"real\":0,\"data\":{},\"wide\":\"0\",\"flag\":false,\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "control:null-array-text",
+      "body": "{\"text\":[null,\"owned\",null]}",
+      "wireHex": "0a072c6f776e65642c",
+      "json": "{\"texts\":[],\"numbers\":[],\"blobs\":[],\"strings\":{},\"integers\":{},\"text\":\",owned,\",\"num\":0,\"real\":0,\"data\":{},\"wide\":\"0\",\"flag\":false,\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "control:nested-array-text",
+      "body": "{\"text\":[[\"owned\"],[1]]}",
+      "wireHex": "0a076f776e65642c31",
+      "json": "{\"texts\":[],\"numbers\":[],\"blobs\":[],\"strings\":{},\"integers\":{},\"text\":\"owned,1\",\"num\":0,\"real\":0,\"data\":{},\"wide\":\"0\",\"flag\":false,\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "control:null-repeated-text",
+      "body": "{\"texts\":[null,{\"valueOf\":null}]}",
+      "wireHex": "42046e756c6c420f5b6f626a656374204f626a6563745d",
+      "json": "{\"texts\":[\"null\",\"[object Object]\"],\"numbers\":[],\"blobs\":[],\"strings\":{},\"integers\":{},\"text\":\"\",\"num\":0,\"real\":0,\"data\":{},\"wide\":\"0\",\"flag\":false,\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "profile": "file",
+      "label": "control:long-proto-key",
+      "body": "{\"wide\":{\"__proto__\":{\"low\":7}}}",
+      "wireHex": "2800",
+      "json": "{\"texts\":[],\"numbers\":[],\"blobs\":[],\"strings\":{},\"integers\":{},\"text\":\"\",\"num\":0,\"real\":0,\"data\":{},\"wide\":\"0\",\"flag\":false,\"choice\":\"ZERO\",\"child\":null}"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-null:text",
+      "body": "{\"text\":{\"toString\":null}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-null:num",
+      "body": "{\"num\":{\"toString\":null}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-null:real",
+      "body": "{\"real\":{\"toString\":null}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-null:text-array",
+      "body": "{\"text\":[null,{\"toString\":null}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-null:num-array",
+      "body": "{\"num\":[{\"toString\":null}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-null:texts",
+      "body": "{\"texts\":[\"ok\",{\"toString\":null}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-null:numbers",
+      "body": "{\"numbers\":[1,{\"toString\":null}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-null:bytes-array",
+      "body": "{\"data\":[{\"toString\":null}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-null:bytes-length",
+      "body": "{\"data\":{\"length\":{\"toString\":null}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-null:bytes-index",
+      "body": "{\"data\":{\"0\":{\"toString\":null},\"length\":1}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-null:long-low",
+      "body": "{\"wide\":{\"low\":{\"toString\":null},\"high\":0}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-null:long-high",
+      "body": "{\"wide\":{\"low\":0,\"high\":[{\"toString\":null}]}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-null:map-string",
+      "body": "{\"strings\":[{\"key\":\"owned\",\"value\":{\"toString\":null}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-null:map-number",
+      "body": "{\"integers\":[{\"key\":\"owned\",\"value\":{\"toString\":null}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-null:nested-text",
+      "body": "{\"child\":{\"text\":{\"toString\":null}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-null:blobs-length",
+      "body": "{\"blobs\":[{\"length\":{\"toString\":null}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-null:blobs-index",
+      "body": "{\"blobs\":[{\"0\":{\"toString\":null},\"length\":1}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-false:text",
+      "body": "{\"text\":{\"toString\":false}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-false:num",
+      "body": "{\"num\":{\"toString\":false}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-false:real",
+      "body": "{\"real\":{\"toString\":false}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-false:text-array",
+      "body": "{\"text\":[null,{\"toString\":false}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-false:num-array",
+      "body": "{\"num\":[{\"toString\":false}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-false:texts",
+      "body": "{\"texts\":[\"ok\",{\"toString\":false}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-false:numbers",
+      "body": "{\"numbers\":[1,{\"toString\":false}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-false:bytes-array",
+      "body": "{\"data\":[{\"toString\":false}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-false:bytes-length",
+      "body": "{\"data\":{\"length\":{\"toString\":false}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-false:bytes-index",
+      "body": "{\"data\":{\"0\":{\"toString\":false},\"length\":1}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-false:long-low",
+      "body": "{\"wide\":{\"low\":{\"toString\":false},\"high\":0}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-false:long-high",
+      "body": "{\"wide\":{\"low\":0,\"high\":[{\"toString\":false}]}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-false:map-string",
+      "body": "{\"strings\":[{\"key\":\"owned\",\"value\":{\"toString\":false}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-false:map-number",
+      "body": "{\"integers\":[{\"key\":\"owned\",\"value\":{\"toString\":false}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-false:nested-text",
+      "body": "{\"child\":{\"text\":{\"toString\":false}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-false:blobs-length",
+      "body": "{\"blobs\":[{\"length\":{\"toString\":false}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-false:blobs-index",
+      "body": "{\"blobs\":[{\"0\":{\"toString\":false},\"length\":1}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-number:text",
+      "body": "{\"text\":{\"toString\":7}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-number:num",
+      "body": "{\"num\":{\"toString\":7}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-number:real",
+      "body": "{\"real\":{\"toString\":7}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-number:text-array",
+      "body": "{\"text\":[null,{\"toString\":7}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-number:num-array",
+      "body": "{\"num\":[{\"toString\":7}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-number:texts",
+      "body": "{\"texts\":[\"ok\",{\"toString\":7}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-number:numbers",
+      "body": "{\"numbers\":[1,{\"toString\":7}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-number:bytes-array",
+      "body": "{\"data\":[{\"toString\":7}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-number:bytes-length",
+      "body": "{\"data\":{\"length\":{\"toString\":7}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-number:bytes-index",
+      "body": "{\"data\":{\"0\":{\"toString\":7},\"length\":1}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-number:long-low",
+      "body": "{\"wide\":{\"low\":{\"toString\":7},\"high\":0}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-number:long-high",
+      "body": "{\"wide\":{\"low\":0,\"high\":[{\"toString\":7}]}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-number:map-string",
+      "body": "{\"strings\":[{\"key\":\"owned\",\"value\":{\"toString\":7}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-number:map-number",
+      "body": "{\"integers\":[{\"key\":\"owned\",\"value\":{\"toString\":7}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-number:nested-text",
+      "body": "{\"child\":{\"text\":{\"toString\":7}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-number:blobs-length",
+      "body": "{\"blobs\":[{\"length\":{\"toString\":7}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-number:blobs-index",
+      "body": "{\"blobs\":[{\"0\":{\"toString\":7},\"length\":1}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-string:text",
+      "body": "{\"text\":{\"toString\":\"unused\"}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-string:num",
+      "body": "{\"num\":{\"toString\":\"unused\"}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-string:real",
+      "body": "{\"real\":{\"toString\":\"unused\"}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-string:text-array",
+      "body": "{\"text\":[null,{\"toString\":\"unused\"}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-string:num-array",
+      "body": "{\"num\":[{\"toString\":\"unused\"}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-string:texts",
+      "body": "{\"texts\":[\"ok\",{\"toString\":\"unused\"}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-string:numbers",
+      "body": "{\"numbers\":[1,{\"toString\":\"unused\"}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-string:bytes-array",
+      "body": "{\"data\":[{\"toString\":\"unused\"}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-string:bytes-length",
+      "body": "{\"data\":{\"length\":{\"toString\":\"unused\"}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-string:bytes-index",
+      "body": "{\"data\":{\"0\":{\"toString\":\"unused\"},\"length\":1}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-string:long-low",
+      "body": "{\"wide\":{\"low\":{\"toString\":\"unused\"},\"high\":0}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-string:long-high",
+      "body": "{\"wide\":{\"low\":0,\"high\":[{\"toString\":\"unused\"}]}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-string:map-string",
+      "body": "{\"strings\":[{\"key\":\"owned\",\"value\":{\"toString\":\"unused\"}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-string:map-number",
+      "body": "{\"integers\":[{\"key\":\"owned\",\"value\":{\"toString\":\"unused\"}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-string:nested-text",
+      "body": "{\"child\":{\"text\":{\"toString\":\"unused\"}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-string:blobs-length",
+      "body": "{\"blobs\":[{\"length\":{\"toString\":\"unused\"}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-string:blobs-index",
+      "body": "{\"blobs\":[{\"0\":{\"toString\":\"unused\"},\"length\":1}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-array:text",
+      "body": "{\"text\":{\"toString\":[]}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-array:num",
+      "body": "{\"num\":{\"toString\":[]}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-array:real",
+      "body": "{\"real\":{\"toString\":[]}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-array:text-array",
+      "body": "{\"text\":[null,{\"toString\":[]}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-array:num-array",
+      "body": "{\"num\":[{\"toString\":[]}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-array:texts",
+      "body": "{\"texts\":[\"ok\",{\"toString\":[]}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-array:numbers",
+      "body": "{\"numbers\":[1,{\"toString\":[]}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-array:bytes-array",
+      "body": "{\"data\":[{\"toString\":[]}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-array:bytes-length",
+      "body": "{\"data\":{\"length\":{\"toString\":[]}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-array:bytes-index",
+      "body": "{\"data\":{\"0\":{\"toString\":[]},\"length\":1}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-array:long-low",
+      "body": "{\"wide\":{\"low\":{\"toString\":[]},\"high\":0}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-array:long-high",
+      "body": "{\"wide\":{\"low\":0,\"high\":[{\"toString\":[]}]}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-array:map-string",
+      "body": "{\"strings\":[{\"key\":\"owned\",\"value\":{\"toString\":[]}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-array:map-number",
+      "body": "{\"integers\":[{\"key\":\"owned\",\"value\":{\"toString\":[]}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-array:nested-text",
+      "body": "{\"child\":{\"text\":{\"toString\":[]}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-array:blobs-length",
+      "body": "{\"blobs\":[{\"length\":{\"toString\":[]}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-array:blobs-index",
+      "body": "{\"blobs\":[{\"0\":{\"toString\":[]},\"length\":1}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-object:text",
+      "body": "{\"text\":{\"toString\":{}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-object:num",
+      "body": "{\"num\":{\"toString\":{}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-object:real",
+      "body": "{\"real\":{\"toString\":{}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-object:text-array",
+      "body": "{\"text\":[null,{\"toString\":{}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-object:num-array",
+      "body": "{\"num\":[{\"toString\":{}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-object:texts",
+      "body": "{\"texts\":[\"ok\",{\"toString\":{}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-object:numbers",
+      "body": "{\"numbers\":[1,{\"toString\":{}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-object:bytes-array",
+      "body": "{\"data\":[{\"toString\":{}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-object:bytes-length",
+      "body": "{\"data\":{\"length\":{\"toString\":{}}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-object:bytes-index",
+      "body": "{\"data\":{\"0\":{\"toString\":{}},\"length\":1}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-object:long-low",
+      "body": "{\"wide\":{\"low\":{\"toString\":{}},\"high\":0}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-object:long-high",
+      "body": "{\"wide\":{\"low\":0,\"high\":[{\"toString\":{}}]}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-object:map-string",
+      "body": "{\"strings\":[{\"key\":\"owned\",\"value\":{\"toString\":{}}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-object:map-number",
+      "body": "{\"integers\":[{\"key\":\"owned\",\"value\":{\"toString\":{}}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-object:nested-text",
+      "body": "{\"child\":{\"text\":{\"toString\":{}}}}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-object:blobs-length",
+      "body": "{\"blobs\":[{\"length\":{\"toString\":{}}}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "shadow-object:blobs-index",
+      "body": "{\"blobs\":[{\"0\":{\"toString\":{}},\"length\":1}]}",
+      "error": "TypeError: No default value"
+    },
+    {
+      "profile": "reflection",
+      "label": "control:plain-text",
+      "body": "{\"text\":{\"owned\":true}}",
+      "wireHex": "0a0f5b6f626a656374204f626a6563745d",
+      "json": "{\"text\":\"[object Object]\"}"
+    },
+    {
+      "profile": "reflection",
+      "label": "control:plain-number",
+      "body": "{\"num\":{\"owned\":true}}",
+      "wireHex": "1000",
+      "json": "{\"num\":0}"
+    },
+    {
+      "profile": "reflection",
+      "label": "control:plain-real",
+      "body": "{\"real\":{\"owned\":true}}",
+      "wireHex": "19000000000000f87f",
+      "json": "{\"real\":null}"
+    },
+    {
+      "profile": "reflection",
+      "label": "control:valueof-text",
+      "body": "{\"text\":{\"valueOf\":null}}",
+      "wireHex": "0a0f5b6f626a656374204f626a6563745d",
+      "json": "{\"text\":\"[object Object]\"}"
+    },
+    {
+      "profile": "reflection",
+      "label": "control:valueof-number",
+      "body": "{\"num\":{\"valueOf\":{\"toString\":null}}}",
+      "wireHex": "1000",
+      "json": "{\"num\":0}"
+    },
+    {
+      "profile": "reflection",
+      "label": "control:case-sensitive",
+      "body": "{\"text\":{\"ToString\":null}}",
+      "wireHex": "0a0f5b6f626a656374204f626a6563745d",
+      "json": "{\"text\":\"[object Object]\"}"
+    },
+    {
+      "profile": "reflection",
+      "label": "control:proto-key",
+      "body": "{\"text\":{\"__proto__\":{\"toString\":null}}}",
+      "wireHex": "0a0f5b6f626a656374204f626a6563745d",
+      "json": "{\"text\":\"[object Object]\"}"
+    },
+    {
+      "profile": "reflection",
+      "label": "control:bool",
+      "body": "{\"flag\":{\"toString\":null}}",
+      "wireHex": "3001",
+      "json": "{\"flag\":true}"
+    },
+    {
+      "profile": "reflection",
+      "label": "control:bool-array",
+      "body": "{\"flag\":[{\"toString\":null}]}",
+      "wireHex": "3001",
+      "json": "{\"flag\":true}"
+    },
+    {
+      "profile": "reflection",
+      "label": "control:enum",
+      "body": "{\"choice\":{\"toString\":null}}",
+      "wireHex": "",
+      "json": "{}"
+    },
+    {
+      "profile": "reflection",
+      "label": "control:enum-array",
+      "body": "{\"choice\":[{\"toString\":null}]}",
+      "wireHex": "",
+      "json": "{}"
+    },
+    {
+      "profile": "reflection",
+      "label": "control:root-unknown",
+      "body": "{\"toString\":null}",
+      "wireHex": "",
+      "json": "{}"
+    },
+    {
+      "profile": "reflection",
+      "label": "control:child-unknown",
+      "body": "{\"child\":{\"toString\":null}}",
+      "wireHex": "6200",
+      "json": "{\"child\":{}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "control:nested-bool",
+      "body": "{\"child\":{\"flag\":{\"toString\":null}}}",
+      "wireHex": "62023001",
+      "json": "{\"child\":{\"flag\":true}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "control:long-outer",
+      "body": "{\"wide\":{\"toString\":null,\"low\":1,\"high\":0}}",
+      "wireHex": "2801",
+      "json": "{\"wide\":{\"low\":1,\"high\":0,\"unsigned\":false}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "control:long-array",
+      "body": "{\"wide\":[{\"toString\":null}]}",
+      "wireHex": "2800",
+      "json": "{\"wide\":{\"low\":0,\"high\":0,\"unsigned\":false}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "control:long-unsigned",
+      "body": "{\"wide\":{\"low\":1,\"high\":0,\"unsigned\":{\"toString\":null}}}",
+      "wireHex": "2801",
+      "json": "{\"wide\":{\"low\":1,\"high\":0,\"unsigned\":false}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "control:bytes-outer",
+      "body": "{\"data\":{\"0\":65,\"length\":1,\"toString\":null}}",
+      "wireHex": "220141",
+      "json": "{\"data\":{\"0\":65}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "control:bytes-zero-lazy",
+      "body": "{\"data\":{\"0\":{\"toString\":null},\"length\":0}}",
+      "wireHex": "2200",
+      "json": "{\"data\":{}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "control:bytes-wrap-lazy",
+      "body": "{\"data\":{\"0\":{\"toString\":null},\"length\":4294967296}}",
+      "wireHex": "2200",
+      "json": "{\"data\":{}}"
+    },
+    {
+      "profile": "reflection",
+      "label": "control:bytes-negative-lazy",
+      "body": "{\"data\":{\"0\":{\"toString\":null},\"length\":-1}}",
+      "wireHex": "",
+      "json": "{}"
+    },
+    {
+      "profile": "reflection",
+      "label": "control:bytes-missing-lazy",
+      "body": "{\"data\":{\"0\":{\"toString\":null}}}",
+      "wireHex": "",
+      "json": "{}"
+    },
+    {
+      "profile": "reflection",
+      "label": "control:blobs-zero-lazy",
+      "body": "{\"blobs\":[{\"0\":{\"toString\":null},\"length\":0}]}",
+      "wireHex": "6a00",
+      "json": "{\"blobs\":[{}]}"
+    },
+    {
+      "profile": "reflection",
+      "label": "control:blobs-negative-tail",
+      "body": "{\"blobs\":[{\"0\":65,\"length\":1},{\"0\":{\"toString\":null},\"length\":-1}]}",
+      "wireHex": "6a0141",
+      "json": "{\"blobs\":[{\"0\":65}]}"
+    },
+    {
+      "profile": "reflection",
+      "label": "control:map-key-shadow",
+      "body": "{\"strings\":[{\"key\":\"toString\",\"value\":\"owned\"}]}",
+      "wireHex": "52110a08746f537472696e6712056f776e6564",
+      "json": "{\"strings\":[{\"key\":\"toString\",\"value\":\"owned\"}]}"
+    },
+    {
+      "profile": "reflection",
+      "label": "control:null-array-text",
+      "body": "{\"text\":[null,\"owned\",null]}",
+      "wireHex": "0a072c6f776e65642c",
+      "json": "{\"text\":\",owned,\"}"
+    },
+    {
+      "profile": "reflection",
+      "label": "control:nested-array-text",
+      "body": "{\"text\":[[\"owned\"],[1]]}",
+      "wireHex": "0a076f776e65642c31",
+      "json": "{\"text\":\"owned,1\"}"
+    },
+    {
+      "profile": "reflection",
+      "label": "control:null-repeated-text",
+      "body": "{\"texts\":[null,{\"valueOf\":null}]}",
+      "wireHex": "42046e756c6c420f5b6f626a656374204f626a6563745d",
+      "json": "{\"texts\":[\"null\",\"[object Object]\"]}"
+    },
+    {
+      "profile": "reflection",
+      "label": "control:long-proto-key",
+      "body": "{\"wide\":{\"__proto__\":{\"low\":7}}}",
+      "wireHex": "2800",
+      "json": "{\"wide\":{\"low\":0,\"high\":0,\"unsigned\":false}}"
+    }
+  ]
+}

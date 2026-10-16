@@ -1,5 +1,12 @@
 # GRPC migration
 
+## JSON-only primitive conversion — 2026-10-16
+
+Legacy conversion now rejects own non-callable toString at string/numeric conversion boundaries, including joined arrays, Long low/high and consumed byte length/indices. Non-coercing bool/enum/message values and unused byte indices remain accepted. No UI/layout or production dependency change. The262row pinned protobufjs7.2.4/proto-loader0.7.13/Long5.3.2 oracle and full74Rust tests pass; native58controls/34refusals passed with184Save exports and exact profiles. See STATUS.md for evidence and the deliberately interrupted wider regression. Full-suite/post-suite acceptance is not claimed.
+
+To avoid repeating the unit matrix through every UI lifecycle, native defaults select16positive/12refusal integration representatives. Set INSOMNIUM_GRPC_OBJECT_PRIMITIVE_MATRIX=1 only when the full native matrix is justified. The262row Rust matrix remains exhaustive within its authored scope. Broader legacy compatibility and provider/platform requirements remain open. Primary conversion reference: https://tc39.es/ecma262/2024/#sec-ordinarytoprimitive .
+
+
 <a id="current-native-grpc-bytes-arraylike"></a>
 ## Current native legacy byte-array-like conversion — 2026-10-16
 

@@ -1,3 +1,4 @@
+import { grpcObjectPrimitiveCase } from "./grpc-object-primitive-case-data.js";
 import assert from "node:assert/strict";
 import { grpcBytesArraylikeCase } from "./grpc-bytes-arraylike-case-data.js";
 import { grpcReflectionServiceCase } from "./grpc-reflection-service-case-data.js";
@@ -79,13 +80,15 @@ export function handleGrpcProfileReflection(stream, headers, records, errors) {
   )
     return false;
   const mode = String(headers["owned-case"]),
-    spec = mode.startsWith("legacy-arraylike-")
-      ? grpcBytesArraylikeCase(mode)
-      : mode.startsWith("legacy-arrival-")
-        ? grpcReflectionArrivalCase(mode)
-        : mode.startsWith("legacy-service-")
-          ? grpcReflectionServiceCase(mode)
-          : grpcReflectionProfileCase(mode);
+    spec = mode.startsWith("legacy-primitive-")
+      ? grpcObjectPrimitiveCase(mode)
+      : mode.startsWith("legacy-arraylike-")
+        ? grpcBytesArraylikeCase(mode)
+        : mode.startsWith("legacy-arrival-")
+          ? grpcReflectionArrivalCase(mode)
+          : mode.startsWith("legacy-service-")
+            ? grpcReflectionServiceCase(mode)
+            : grpcReflectionProfileCase(mode);
   const services = spec.services ?? [spec.service];
   const plan = spec.arrivalPlan;
   const session = stream.session;

@@ -1,5 +1,10 @@
 # Migration execution plan
 
+## Execution correction — 2026-10-16
+
+JSON-only own-toString primitive conversion is implemented and has bounded Rust/native evidence; see STATUS.md and GRPC.md. The owner rejected excessive repeated native matrices and one-off audit scripts. Use exhaustive fast conversion tests plus representative UI integration checks, reuse existing tooling and finish code changes after relevant checks pass. Native defaults for this fix are16positive/12refusal cases; the full matrix is opt-in. The broad regression was deliberately interrupted, so its26scenario/full-closure gate is not passed. All broader parity/release requirements below remain open. Next work must address a concrete missing behavior from the remaining plan, not expand evidence scripts for this completed bounded fix.
+
+
 Updated 2026-10-16. Current state is in [STATUS.md](STATUS.md); all original requirements and acceptance boundaries remain in [PARITY.md](PARITY.md). Topic documents hold implementation details. Historical execution logs are available in Git at commit 2c8316e; they are not the current plan.
 
 ## Current remaining work — 2026-10-16
