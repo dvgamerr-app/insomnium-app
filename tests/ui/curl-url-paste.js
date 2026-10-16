@@ -55,4 +55,16 @@ await withPreview("curl-url-paste", async (page) => {
   await page.waitForTimeout(150);
   assert.equal(await url.inputValue(), "https://api.example.com/items/9");
   assert.equal(await method.inputValue(), "DELETE");
+  await url.fill('curl -k https://api.example.com/insecure');
+  await page.getByRole('tab',{name:'Settings',exact:true}).click();
+  const tls=page.getByRole('combobox',{name:'TLS certificate validation',exact:true});
+  assert.equal(await tls.inputValue(),'off');
+  await url.fill('curl --no-insecure https://api.example.com/secure');
+  assert.equal(await tls.inputValue(),'on');
+  await url.evaluate(el=>{
+    const data=new DataTransfer();data.setData('text/plain','curl https://api.example.com/one --next https://api.example.com/two');
+    el.dispatchEvent(new ClipboardEvent('paste',{clipboardData:data,bubbles:true,cancelable:true}));
+  });
+  await page.getByText(/This cURL input contains multiple requests/).waitFor();
+  assert.equal(await url.inputValue(),'https://api.example.com/secure','Rejected paste preserves current request');
 });

@@ -1,5 +1,13 @@
 # Migration status
 
+## Native cURL Referer acceptance — 2026-10-17
+
+Source5ac01836. Maintained candidate curl-referer-20261017-attempt-1 finishes exit0/sourceClosureVerified:true (Cargo6m34s), appSHA f26451bbc5d597c06ca0ad13f5bbb57e4d487f8142939a6b18f8dbb17ba1ac85, closure21e918012be8534122b113ea46b6dae9bea8b5799fd8bffc9454c8fe5cc52b4f; coverage incomplete/linkage unproven retained. Existing INSOMNIUM_CURL_REFERER mode in multipart scenario passes once (~9.9s), three2-hop local HTTP cases: actual imported Request Settings, static header across redirect, auto replaces initial header, auto-only via native Digest redirect loop, fragments omitted. Receipt curl-import-multipart-1792180098606/referer-acceptance.json. This does not verify Digest challenge signatures, TLS downgrade/providers or every signer. Finally restores original loaded workspace. Host68524 native-hidden/visible:false exits0 and is absent; producer81452/70160 absent, session72811 terminal0. No new runner/disposable scripts or further build after pass. Original PLAN/PARITY remains open; no live handles. /compact unavailable; handoff recorded before next feature.
+
+## cURL paste TLS and multi-request UI accepted — 2026-10-17
+
+Source0870418c. Existing curl-url-paste scenario extends its actual built-app paste/input path: -k updates Request Settings TLS select to off; --no-insecure restores on; multi-request ClipboardEvent shows explicit error and preserves previous secure URL. One headless run exits0 (~2.4s), frontend build exits0. Existing withPreview result placeholder stays running on success; command exit0 establishes completed scenario, no terminal receipt claim. No new runner/scripts/native rebuild/network. Native TLS and pending Referer redirect gate plus full PLAN/PARITY remain open. No live handles. Topic commit follows; /compact unavailable; handoff recorded.
+
 ## Multi-request cURL paste refuses silent loss — 2026-10-17
 
 Source parent34f45b29. curlRequestPatch previously selected first request with find(), silently dropping other URLs/--next groups. It now requires one request and directs multi-request input to Import collection before any request mutation. Full curlResources collection import remains unchanged. Inline controls pass two-URL and --next inputs preserving2collection requests while paste refuses, plus single POST acceptance. Compiler exits0/0errors/0warnings. No new scripts/native build/network. Mounted paste error feedback and outstanding native Referer/PLAN/PARITY remain open. No live handles. Topic commit follows; /compact unavailable, handoff recorded.

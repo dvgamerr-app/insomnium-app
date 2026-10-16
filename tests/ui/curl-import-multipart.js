@@ -4,7 +4,8 @@ import { join } from "node:path";
 import { withNativeApp, poll } from "./helpers/native-app.js";
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-curl-file-content-fix-ui-probe/build-state.json";
-/** @type {{type:string,contentTypePresent:boolean,accept:string|null,body:Buffer}[]} */ const received = [];
+const refererMode=process.env.INSOMNIUM_CURL_REFERER==='1';
+/** @type {{type:string,contentTypePresent:boolean,accept:string|null,referer:string|null,path:string,body:Buffer}[]} */ const received = [];
 const server = Bun.serve({
   hostname: "127.0.0.1",
   port: 0,
@@ -13,8 +14,11 @@ const server = Bun.serve({
       type: r.headers.get("content-type") || "",
       contentTypePresent:r.headers.has('content-type'),
       accept:r.headers.get('accept'),
+      referer:r.headers.get('referer'),
+      path:new URL(r.url).pathname,
       body: Buffer.from(await r.arrayBuffer()),
     });
+    if(refererMode&&new URL(r.url).pathname.endsWith('/start'))return new Response(null,{status:302,headers:{Location:new URL(r.url).pathname.replace(/\/start$/,'/finish')}});
     return Response.json({ ok: true });
   },
 });
@@ -22,6 +26,35 @@ try {
   await withNativeApp(
     "curl-import-multipart",
     async ({ page, invoke, output }) => {
+      if(refererMode){
+        const original=await invoke('load_workspace');
+        try{
+          for(const [label,options,initial,auto] of [
+            ['static',"-e 'https://initial.invalid/'",'https://initial.invalid/',false],
+            ['auto',"-e 'https://initial.invalid/;auto'",'https://initial.invalid/',true],
+            ['signer-auto',"--digest -u fixture:secret -e ';auto'",null,true],
+          ]){
+            const base=`http://127.0.0.1:${server.port}/${label}/start`,url=base+'#fragment';
+            await page.getByRole('button',{name:'Import collection',exact:true}).click();
+            const dialog=page.getByRole('dialog');
+            await dialog.getByLabel('Import collection or cURL commands').fill(`curl -L ${options} '${url}'`);
+            await dialog.getByRole('button',{name:'Review import',exact:true}).click();
+            await dialog.getByRole('button',{name:'Import',exact:true}).click();await dialog.waitFor({state:'detached'});
+            await page.locator('.tree-request').filter({hasText:url}).click();
+            await page.getByRole('tab',{name:'Settings',exact:true}).click();
+            assert.equal(await page.getByRole('combobox',{name:'Redirect Referer',exact:true}).inputValue(),auto?'on':'off');
+            const count=received.length;
+            await page.getByRole('button',{name:'Send',exact:true}).click();
+            await poll(async()=>received.length===count+2,'Redirect pair received');
+            await page.getByRole('button',{name:'Send',exact:true}).waitFor();
+            const pair=received.slice(count);assert.equal(pair[0].referer,initial);
+            assert.equal(pair[1].referer,auto?base:initial);
+            assert.equal(pair[1].path,`/${label}/finish`);
+          }
+          await Bun.write(join(output,'referer-acceptance.json'),JSON.stringify({passed:true,nativeMode:'native-hidden',checks:['actual imported Request Settings','static initial header survives redirect','automatic previous URL replaces initial header','auto-only native signer redirect','fragments omitted']},null,2));
+        }finally{await invoke('save_workspace',{data:original});await page.reload();await page.locator('button[aria-label="Preferences"]').waitFor();}
+        return;
+      }
       if(process.env.INSOMNIUM_CURL_HEADERS==='1'){
         const original=await invoke('load_workspace');
         try{
