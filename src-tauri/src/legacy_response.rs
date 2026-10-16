@@ -458,10 +458,10 @@ async fn read_assets(
     }
     let mut ids = HashSet::new();
     for entry in &entries {
-        if !matches!(entry.body_format.as_deref(), None | Some("sse-ndjson"))
-            || (entry.body_format.is_some() && entry.event_log_path.is_some())
+        if !matches!(entry.body_format.as_deref(), None | Some("sse-ndjson") | Some("websocket-ndjson"))
+            || (entry.body_format.as_deref() == Some("sse-ndjson") && entry.event_log_path.is_some())
         {
-            return Err("Legacy response body format must be ordinary HTTP or explicit SSE NDJSON, without a WebSocket event log.".into());
+            return Err("Legacy response body format must be ordinary HTTP, SSE NDJSON or WebSocket NDJSON; SSE cannot include a WebSocket event log.".into());
         }
         if entry.id.is_empty()
             || entry.id.len() > 200
@@ -508,13 +508,15 @@ async fn read_assets(
                 timeline_sha256: None,
                 diagnostics: Vec::new(),
             };
-            if let Some(path) = entry.event_log_path {
-                let result = if path.is_empty() {
+            if entry.event_log_path.is_some() || entry.body_format.as_deref() == Some("websocket-ndjson") {
+                let result = if entry.event_log_path.is_none() {
+                    Err(("missing-event-log-path", "Legacy WebSocket event log path is absent; no log was invented."))
+                } else if entry.event_log_path.as_deref() == Some("") {
                     Ok(Vec::new())
                 } else {
                     read_file(
                         &root,
-                        &path,
+                        entry.event_log_path.as_deref().unwrap(),
                         &scope,
                         EVENT_LOG_LIMIT.min(decoded_remaining),
                         &mut input_remaining,

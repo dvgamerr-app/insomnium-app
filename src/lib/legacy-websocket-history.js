@@ -32,7 +32,7 @@ function owner(response, index) {
  * @param {Record<string,any>[]} resources */
 export function legacyWebSocketAssetRequests(resources) {
   const index = new Map(resources.map((resource) => [resource._id, resource]));
-  /** @type {{id:string,bodyPath:string,bodyCompression:string,eventLogPath:string,timelinePath:string}[]} */ const entries =
+  /** @type {{id:string,bodyPath:string,bodyCompression:string,bodyFormat:string,eventLogPath:string|null,timelinePath:string}[]} */ const entries =
     [];
   /** @type {{id:string,code:string,message:string}[]} */ const diagnostics =
     [];
@@ -41,17 +41,19 @@ export function legacyWebSocketAssetRequests(resources) {
   )) {
     try {
       owner(response, index);
-      if (typeof response.eventLogPath !== "string")
-        throw Error(
-          "Legacy WebSocket log paths must be explicit strings; original metadata is retained.",
-        );
+      if (typeof response.eventLogPath !== "string") {
+        diagnostics.push(diagnostic(response, "invalid-websocket-owner-or-path",
+          "Legacy WebSocket event log path is absent or invalid; original metadata is retained."));
+        if (typeof response.timelinePath !== "string" || !response.timelinePath) continue;
+      }
       if (response.timelinePath != null && typeof response.timelinePath !== "string")
         diagnostics.push(invalidTimeline(response));
       entries.push({
         id: response._id,
         bodyPath: "",
         bodyCompression: "raw",
-        eventLogPath: response.eventLogPath,
+        bodyFormat: "websocket-ndjson",
+        eventLogPath: typeof response.eventLogPath === "string" ? response.eventLogPath : null,
         timelinePath: typeof response.timelinePath === "string" ? response.timelinePath : "",
       });
     } catch (error) {
