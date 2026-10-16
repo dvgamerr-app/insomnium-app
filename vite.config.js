@@ -1,11 +1,16 @@
 import { defineConfig } from "vite";
 import { sveltekit } from "@sveltejs/kit/vite";
 import { codemirrorLintOwnership } from "./scripts/codemirror-lint-ownership.mjs";
+import { viteStaticCopy } from "vite-plugin-static-copy";
 const host = Bun.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
 export default defineConfig(() => ({
-  plugins: [codemirrorLintOwnership(), sveltekit()],
+  plugins: [codemirrorLintOwnership(), sveltekit(), viteStaticCopy({
+    targets: ["cmaps","standard_fonts","wasm","iccs"].map((directory) => ({
+      src:`node_modules/pdfjs-dist/${directory}/*`,dest:`pdf-assets/${directory}`,rename:{stripBase:true},
+    })),
+  })],
 
   // The app is a pure SPA (ssr = false), so skip the SSR dependency optimizer.
   ssr: { optimizeDeps: { noDiscovery: true, include: [] } },
@@ -63,6 +68,8 @@ export default defineConfig(() => ({
       "graphql",
       "jsonpath-plus",
       "openapi-sampler",
+      "papaparse",
+      "pdfjs-dist",
       "quickjs-emscripten-core",
       "url",
       "url/url.js",

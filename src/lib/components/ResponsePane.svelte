@@ -17,6 +17,11 @@
   import { jsonPrettify } from "../json-prettify.js";
   import { responseNetworkLog, tokenizeLine } from "../network-log.js";
   import CodeEditor from "./CodeEditor.svelte";
+  import HtmlResponsePreview from "./HtmlResponsePreview.svelte";
+  import { responseVisual, responseMime } from "../response-visual.js";
+  import CsvResponsePreview from "./CsvResponsePreview.svelte";
+  import MultipartResponsePreview from "./MultipartResponsePreview.svelte";
+  import PdfResponsePreview from "./PdfResponsePreview.svelte";
   import {
     workspace,
     setResponseFilter,
@@ -30,6 +35,7 @@
   let { requestId, response, running, history, onhistory } = $props();
   let tab = $state("Preview");
   let bodyEditor = $state(/** @type {{focus:()=>void,setSelectionRange:(start:number,end:number)=>void}|undefined} */ (undefined));
+  let htmlPreview = $state(/** @type {HtmlResponsePreview|undefined} */ (undefined));
   export async function focusResponse() {
     if (!response) return;
     const owner = response;
@@ -38,9 +44,16 @@
     if (response !== owner) return;
     bodyEditor?.focus();
     bodyEditor?.setSelectionRange(0, body.length);
+    htmlPreview?.focus();
   }
   const meta = $derived(requestMeta(workspace.data.resources, requestId));
   const raw = $derived(meta?.previewMode === "raw");
+  const previewMode = $derived(meta?.previewMode === "raw" || meta?.previewMode === "source" ? meta.previewMode : "friendly");
+  const visual = $derived(responseVisual(response));
+  const csvResponse = $derived(responseMime(response) === "text/csv");
+  const pdfResponse = $derived(responseMime(response) === "application/pdf");
+  const multipartResponse = $derived(responseMime(response).startsWith("multipart/"));
+  const visualMode = $derived(!!visual || csvResponse || pdfResponse || multipartResponse);
   const filter = $derived(
     typeof meta?.responseFilter === "string" ? meta.responseFilter : "",
   );
@@ -88,7 +101,7 @@
     xmlResponse ? JSON.stringify(namespaces) : undefined,
   );
   const filtering = $derived(
-    !raw && (jsonResponse || xmlResponse) && !!filter.trim(),
+    !raw && !csvResponse && (jsonResponse || xmlResponse) && !!filter.trim(),
   );
   const processing = $derived(!raw && (xmlResponse || filtering));
   const currentResult = $derived(
@@ -187,7 +200,7 @@
   });
   let body = $derived.by(() => {
     if (!response?.body) return "";
-    if (raw) return response.body;
+    if (raw || previewMode === "source" || csvResponse) return response.body;
     if (processing)
       return (
         currentResult?.text ??
@@ -369,12 +382,16 @@
           <SegmentedControl
             label="Response formatting"
             variant="compact"
-            value={raw}
-            options={[
+            value={visualMode ? previewMode : raw}
+            options={visualMode ? [
+              {value:"friendly",label:"Preview"},
+              {value:"source",label:"Source"},
+              {value:"raw",label:"Raw"},
+            ] : [
               { value: false, label: "Pretty" },
               { value: true, label: "Raw" },
             ]}
-            onchange={(value) => setResponsePreviewMode(requestId, value ? "raw" : "friendly")}
+            onchange={(value) => setResponsePreviewMode(requestId, visualMode ? String(value) : value ? "raw" : "friendly")}
           /><span class="spacer"></span><span class="hint"
             >{response.headers
               ?.find(
@@ -384,7 +401,7 @@
               ?.split(";")[0] || "Response body"}</span
           >
         </Toolbar>
-        {#if !raw && (jsonResponse || xmlResponse)}
+        {#if !raw && !csvResponse && (jsonResponse || xmlResponse)}
           <form
             class="response-filter"
             onsubmit={(event) => {
@@ -463,7 +480,10 @@
               {currentResult.error}
             </Feedback>{/if}
         {/if}
-        <CodeEditor
+        {#if multipartResponse && previewMode === "friendly"}<MultipartResponsePreview bytes={response.bodyBase64} contentType={response.headers?.find((/** @type {string[]} */ h) => h[0].toLowerCase() === "content-type")?.[1] || ""} settings={workspace.data.settings} />
+        {:else if pdfResponse && previewMode === "friendly"}<PdfResponsePreview bytes={response.bodyBase64} />
+        {:else if csvResponse && previewMode === "friendly"}<CsvResponsePreview text={response.body || ""} />
+        {:else if visual && previewMode === "friendly"}<HtmlResponsePreview bind:this={htmlPreview} html={visual.html} title={visual.title} />{:else}<CodeEditor
           bind:this={bodyEditor}
           identity={String(response._id || response.created) +
             (raw ? ":raw" : ":preview")}
@@ -478,7 +498,7 @@
               )?.[1] || "text/plain"}
           settings={workspace.data.settings}
           placeholder="(empty response)"
-        />
+        />{/if}
       {:else if tab === "Headers" || tab === "Cookies"}<div
           class="response-headers"
         >

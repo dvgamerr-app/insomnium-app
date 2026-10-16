@@ -281,6 +281,8 @@
                     updateSettings({ proxy: event.currentTarget.value })}
                 /></Field
               >
+              <p class="hint">HTTP/HTTPS, SOCKS4/4a and SOCKS5/5h URLs are supported.
+                Use socks4a or socks5h to resolve destination names through the proxy.</p>
             </section>
             <section
               class="settings-section"

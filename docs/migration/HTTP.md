@@ -1,5 +1,11 @@
 # HTTP migration
 
+## SOCKS transport enabled — 2026-10-16
+
+The application now enables the pinned reqwest `socks` feature for its shared HTTP/SSE/WebSocket client. Existing proxy configuration can reach the dependency's SOCKS4/4a/5/5h connector rather than the feature-disabled path. Preferences lists the schemes and explains proxy-side destination DNS for 4a/5h. gRPC proxy behavior is unchanged.
+
+Official pinned source documentation inspected: `src-tauri/vendor/reqwest/src/proxy.rs` (Proxy documentation), `src/connect.rs` (local versus proxy DNS and connector dispatch), and Cargo feature declaration (`socks = []`). `cargo check --locked --manifest-path src-tauri/Cargo.toml` exits0; no dependency/lockfile changes or new test scripts. Actual proxy handshake/authentication/DNS/TLS/cancellation/provider/platform acceptance and packaging/linkage gates remain open; existing binaries predate this feature.
+
 ## Desktop Copy integration — 2026-10-16
 
 Stream event and HTTP response Copy now share `src/lib/clipboard.js`: Tauri uses the already-installed clipboard-manager `writeText`, browser preview retains `navigator.clipboard`. Stream Copy passes the complete selected event data, independently of its64KiB display preview, and clears stale copy errors before retry. Existing Rust plugin registration and write permission are reused; no dependency, layout or Rust change. `bun run check` passes0errors/0warnings; `bun run build` passes. Actual OS clipboard/large-payload acceptance remains open; compiler/bundler results are not native clipboard evidence. Official API: https://v2.tauri.app/plugin/clipboard/ .
