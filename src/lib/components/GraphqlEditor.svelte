@@ -11,7 +11,7 @@
   import Input from "./ui/Input.svelte";
   import Select from "./ui/Select.svelte";
   import SplitPane from "./ui/SplitPane.svelte";
-  import { untrack, onDestroy } from "svelte";
+  import { untrack, onDestroy, tick } from "svelte";
   import CodeEditor from "./CodeEditor.svelte";
   import { createTemplateEditorSession } from "../template-editor-session.svelte.js";
   import {
@@ -76,11 +76,18 @@
   function rememberNavigation(){
     navigation=[...navigation.slice(-99),{view,search,type:type?.name||'',directive:selectedDirective}];
   }
-  function navigateBack(){
+  let schemaSearch = $state(/** @type {HTMLInputElement | undefined} */ (undefined));
+  async function navigateBack(/** @type {MouseEvent & {currentTarget: HTMLButtonElement}} */ event){
+    const button = event.currentTarget;
+    const restoreFocus = document.activeElement === button;
     const previous=navigation.at(-1);
     if(!previous)return;
     navigation=navigation.slice(0,-1);
     view=previous.view;search=previous.search;selectedType=previous.type;selectedDirective=previous.directive;
+    await tick();
+    if (restoreFocus && !button.isConnected && document.activeElement === document.body) {
+      schemaSearch?.focus();
+    }
   }
   const variableTypes = $derived(
     graphqlVariableTypes(
@@ -418,6 +425,7 @@
         <div class="schema-types">
           {#if navigation.length}<Button variant="plain" onclick={navigateBack} aria-label="Back in schema navigation">← Back</Button>{/if}
           <Input
+            bind:element={schemaSearch}
             aria-label="Search schema types and fields"
             placeholder="Find type or field…"
             bind:value={search}

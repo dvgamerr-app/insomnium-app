@@ -19,13 +19,16 @@ if(process.env.INSOMNIUM_GRAPHQL_NAVIGATION==='1'){
     await page.getByRole('navigation',{name:'Referenced schema types'}).getByRole('button',{name:'User',exact:true}).click();
     assert.equal(await search.inputValue(),'');
     assert.match(await page.locator('.schema-definition').innerText(),/type User/);
-    await page.getByRole('button',{name:'Back in schema navigation'}).click();
+    const back=page.getByRole('button',{name:'Back in schema navigation'});
+    await back.focus();
+    await back.press('Enter');
+    assert.equal(await search.evaluate(element=>element===document.activeElement),true,'Last Back restores keyboard focus to schema search');
     assert.equal(await search.inputValue(),'Query');
     assert.match(await page.locator('.schema-definition').innerText(),/type Query/);
     await page.getByRole('navigation',{name:'Referenced schema types'}).getByRole('button',{name:'User',exact:true}).click();
     await page.evaluate(()=>/** @type {any} */(window).replaceNavigationSchema());
     await page.getByRole('button',{name:'Back in schema navigation'}).waitFor({state:'detached'});
-    await Bun.write(output+'/result.json',JSON.stringify({status:'passed',headless:true,checks:['reference navigation','Back restores search and definition','schema replacement clears history'],limits:'Real component with local schema; no native IPC/network'},null,2));
+    await Bun.write(output+'/result.json',JSON.stringify({status:'passed',headless:true,checks:['reference navigation','Back restores search and definition','keyboard Back restores search focus','schema replacement clears history'],limits:'Real component with local schema; no native IPC/network'},null,2));
   });
   process.exit(0);
 }
