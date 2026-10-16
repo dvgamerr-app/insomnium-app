@@ -53,6 +53,10 @@
   let log = $state(/** @type {HTMLDivElement|undefined} */ (undefined));
   const running = $derived(!!app.running[request._id]);
   const run = $derived(app.grpcRuns[request._id]);
+  export async function sendMessage() {
+    if (running && run?.method?.clientStreaming) await sendGrpc(request._id);
+    else await executeGrpc(request._id);
+  }
   const response = $derived(app.responses[request._id]);
   $effect(() => {
     void response?._id;

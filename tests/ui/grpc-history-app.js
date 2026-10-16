@@ -65,12 +65,17 @@ producerData.activeEnvironmentId = "env_grpc_capture";
 producerData.resources = producerData.resources.filter((r) => r._type !== "workspace_meta");
 producerData.resources.push({_id:"meta_grpc_capture", _type:"workspace_meta", parentId:producerData.activeWorkspaceId, activeEnvironmentId:"env_grpc_capture"});
 producerData.responseSelections = {[request._id]:"grpc_history_old"};
-await withPreview("grpc-history-producer", async (page, output) => {
+for (const clientStreaming of [false,true]) await withPreview(clientStreaming ? "grpc-stream-shortcut" : "grpc-history-producer", async (page, output) => {
   const history = page.getByRole("combobox", {name:"gRPC response history", exact:true});
   await history.waitFor();
   assert.equal(await history.inputValue(), "grpc_history_old");
   await page.getByRole("button", {name:"Load methods", exact:true}).click();
-  await page.getByRole("button", {name:"Send", exact:true}).click();
+  if (clientStreaming) {
+    await page.keyboard.press("Control+Enter");
+    await page.waitForFunction(() => /** @type {any} */ (window).__grpcStreamReady === true);
+    await page.keyboard.press("Meta+Enter");
+    await page.waitForFunction(() => /** @type {any} */ (window).__grpcSent === true);
+  } else await page.getByRole("button", {name:"Send", exact:true}).click();
   await page.waitForFunction((requestId) => {
     const saved = JSON.parse(localStorage.getItem("insomnium-tauri-preview-v1") || "{}");
     return saved.history?.[0]?.environmentId === "env_grpc_capture" && saved.responseSelections?.[requestId] === saved.history[0]._id;
@@ -85,7 +90,7 @@ await withPreview("grpc-history-producer", async (page, output) => {
   assert.equal(await history.inputValue(), latest);
   await Bun.write(output + "/result.json", JSON.stringify({status:"passed",headless:true,scope:"Actual executeGrpc/Channel/history/persistence with controlled IPC; no Rust or network",capturedEnvironment:true,newRunReplacesOldChoice:true,reload:true,jsonEscapedPathRendered:true,exactLargeIntegerToken:true}, null, 2));
 }, {beforeNavigate:async (page) => {
-  await page.addInitScript((data) => {
+  await page.addInitScript(({data,clientStreaming}) => {
     const key = "insomnium-tauri-preview-v1";
     if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify(data));
     const owner = /** @type {any} */ (window);
@@ -99,16 +104,31 @@ await withPreview("grpc-history-producer", async (page, output) => {
         if (command === "plugin:event|unlisten") return;
         if (command === "load_workspace") return JSON.parse(localStorage.getItem(key) || "null");
         if (command === "save_workspace") {localStorage.setItem(key, JSON.stringify(args.data)); return;}
-        if (command === "load_grpc_schema") return {descriptorSet:"owned", methods:[{path:"/owned.Service/Echo", name:"Echo", service:"owned.Service", clientStreaming:false, serverStreaming:false}]};
+        if (command === "load_grpc_schema") return {descriptorSet:"owned", methods:[{path:"/owned.Service/Echo", name:"Echo", service:"owned.Service", clientStreaming, serverStreaming:false}]};
         if (command === "connect_grpc") {
           owner.__grpcPreparedRequest = args.request;
+          if (clientStreaming) return new Promise((resolve) => {
+            owner.__grpcFinish = () => {
+              args.onEvent.onmessage({sequence:1,event:{kind:"message",text:'{"owned":true}'}});
+              args.onEvent.onmessage({sequence:2,event:{kind:"status",code:0,details:"OK",trailers:[]}});
+              resolve(undefined);
+            };
+            args.onEvent.onmessage({sequence:0,event:{kind:"connected"}});
+            owner.__grpcStreamReady = true;
+          });
           args.onEvent.onmessage({sequence:0,event:{kind:"message",text:'{"owned":true}'}});
           args.onEvent.onmessage({sequence:1,event:{kind:"status",code:0,details:"OK",trailers:[]}});
+          return;
+        }
+        if (command === "send_grpc_message" && clientStreaming) {
+          owner.__grpcPreparedRequest.body = args.text;
+          owner.__grpcSent = true;
+          owner.__grpcFinish();
           return;
         }
         if (["acknowledge_grpc", "cancel_http"].includes(command)) return;
         throw new Error("Unexpected producer fixture IPC: " + command);
       },
     };
-  }, producerData);
+  }, {data:producerData,clientStreaming});
 }});

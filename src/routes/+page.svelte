@@ -126,7 +126,7 @@
   );
   const protocol = $derived(protocolFor(request));
   let requestEditor = $state(/** @type {{openSettings:()=>void,sendMessage:()=>Promise<void>}|undefined} */ (undefined));
-  let grpcEditor = $state(/** @type {{openSettings:()=>void}|undefined} */ (undefined));
+  let grpcEditor = $state(/** @type {{openSettings:()=>void,sendMessage:()=>Promise<void>}|undefined} */ (undefined));
   $effect(() => {
     if (app.ready) cancelChangedGrpcCalls();
   });
@@ -446,6 +446,7 @@
     } else if (!event.shiftKey && event.key === "Enter" && request && mainView === "requests") {
       event.preventDefault();
       if (protocol === "websocket") void requestEditor?.sendMessage();
+      else if (protocol === "grpc") void grpcEditor?.sendMessage();
       else void execute(request._id);
     } else if (!event.shiftKey && key === "n" && mainView === "requests") {
       event.preventDefault();

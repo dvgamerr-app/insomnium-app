@@ -1,5 +1,10 @@
 # Migration status
 
+## gRPC client-stream send shortcut — 2026-10-16
+
+Source parent ac45d3d0. Ctrl/Cmd+Enter routes through GrpcPane.sendMessage: an active client-streaming call uses existing sendGrpc (phase/sending/senderClosed guards retained); otherwise it uses executeGrpc. Previously page execute returned early for active calls, so the shortcut never sent a client-stream message. Existing grpc-history-app producer scenario now runs unary and client-stream variants with controlled SDK Channel/IPC. Stream variant uses Control+Enter to connect and Meta+Enter to send, then verifies rendered special-character JSON/large integer, captured environment, latest-history selection and reload. Original history/reader and unary scenarios pass. Final scenario96131 exits0; artifacts/playwright/grpc-stream-shortcut/result.json plus existing producer/history receipts. Build exits0; compiler78087 exits0/0errors/0warnings; scoped diff passes. No new scripts/native rebuild/profile/network or live handles. Controlled frontend producer evidence only; native gRPC wire/keyboard lifecycle and all broader PLAN/PARITY gates remain open. Current native candidate predates these product edits. /compact unavailable; handoff recorded here.
+
+
 ## Native WebSocket editor and JSON send integration — 2026-10-16
 
 Source parent 519c41d3 plus this scenario edit. Normal maintained build-resource-crud-probe producer69346 exits0, Cargo release9m03 and source/dependency closure verified. Candidate artifacts/native-resource-crud-audit-probe/websocket-editor-20261016-attempt-1/build-state.json; exe SHA7635f327a6e7c300daff7787f29424f5381299c52b9b73d23b90b8fcfb8b1dfe. Profile ownership reconstructed with maintained CLI, initialAbsenceClaim false and no profile mutation during preparation.
