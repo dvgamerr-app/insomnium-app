@@ -1,9 +1,14 @@
 import assert from "node:assert/strict";
 import { grpcReflectionServiceCase } from "./grpc-reflection-service-case-data.js";
+import { grpcReflectionArrivalCase } from "./grpc-reflection-arrival-case-data.js";
 import {
   grpcReflectionProfileCase,
   profileGrpcFrame,
 } from "./grpc-reflection-profile-case-data.js";
+
+/** Each reflection load owns a new channel/session; cache gates never cross loads.
+ * @type {WeakMap<object,{closedSeeds:Set<string>,waitingSeeds:(()=>void)[],graphRelease:(()=>void)[],graphReleased:boolean}>} */
+const arrivalSessions = new WeakMap();
 
 /** @param {number} value */
 function varint(value) {
@@ -73,10 +78,25 @@ export function handleGrpcProfileReflection(stream, headers, records, errors) {
   )
     return false;
   const mode = String(headers["owned-case"]),
-    spec = mode.startsWith("legacy-service-")
-      ? grpcReflectionServiceCase(mode)
-      : grpcReflectionProfileCase(mode);
+    spec = mode.startsWith("legacy-arrival-")
+      ? grpcReflectionArrivalCase(mode)
+      : mode.startsWith("legacy-service-")
+        ? grpcReflectionServiceCase(mode)
+        : grpcReflectionProfileCase(mode);
   const services = spec.services ?? [spec.service];
+  const plan = spec.arrivalPlan;
+  const session = stream.session;
+  if (plan) assert.ok(session, "Owned arrival stream requires a session");
+  let arrivalState = plan && session ? arrivalSessions.get(session) : undefined;
+  if (plan && session && !arrivalState) {
+    arrivalState = {
+      closedSeeds: new Set(),
+      waitingSeeds: [],
+      graphRelease: [],
+      graphReleased: false,
+    };
+    arrivalSessions.set(session, arrivalState);
+  }
   const rejected = spec.alphaOnly === true && path.includes(".v1.");
   const row = {
     id: records.length + 1,
@@ -101,6 +121,18 @@ export function handleGrpcProfileReflection(stream, headers, records, errors) {
   stream.once("close", () => {
     row.closedAt = Date.now();
     row.rstCode = stream.rstCode;
+    const symbol = row.queries.find((query) => query.field === 4)?.value;
+    if (arrivalState && plan.seedServices.includes(symbol)) {
+      assert.ok(row.verified, "Seed cache gate needs a verified response");
+      arrivalState.closedSeeds.add(symbol);
+      if (
+        plan.seedServices.every((/** @type {string} */ name) =>
+          arrivalState.closedSeeds.has(name),
+        )
+      ) {
+        for (const resume of arrivalState.waitingSeeds.splice(0)) resume();
+      }
+    }
   });
   stream.respond(
     { ":status": 200, "content-type": "application/grpc" },
@@ -123,7 +155,21 @@ export function handleGrpcProfileReflection(stream, headers, records, errors) {
   );
   const sentFiles = new Set();
   let buffered = Buffer.alloc(0),
-    ended = false;
+    ended = false,
+    inputEnded = false;
+  /** @type {(()=>void)|undefined} */ let heldSibling;
+  let preferredSent = false;
+  const finish = () => {
+    if (
+      inputEnded &&
+      row.responses === row.queries.length &&
+      !ended &&
+      !stream.destroyed
+    ) {
+      ended = true;
+      stream.end();
+    }
+  };
   stream.on("data", (chunk) => {
     try {
       buffered = Buffer.concat([buffered, Buffer.from(chunk)]);
@@ -154,6 +200,8 @@ export function handleGrpcProfileReflection(stream, headers, records, errors) {
           continue;
         }
         let answer;
+        /** @type {{field:number,value:string,files:string[]}|undefined} */
+        let descriptorReply;
         if (query.field === 7)
           answer = bytesField(
             6,
@@ -188,24 +236,83 @@ export function handleGrpcProfileReflection(stream, headers, records, errors) {
           const returned = selected.map((/** @type {string} */ name) => {
             const file = byName.get(name);
             assert.ok(file, "Missing reflection fixture file");
-            sentFiles.add(name);
             return file;
           });
-          row.descriptorReplies.push({
+          descriptorReply = {
             field: query.field,
             value,
             files: selected,
-          });
+          };
           answer = bytesField(
             4,
             Buffer.concat(returned.map((file) => bytesField(1, file))),
           );
         }
-        stream.write(
-          profileGrpcFrame(Buffer.concat([bytesField(2, payload), answer])),
-        );
-        row.responses++;
-        row.verified = row.responses === row.queries.length;
+        const send = () => {
+          if (stream.destroyed || ended) return;
+          if (descriptorReply) {
+            row.descriptorReplies.push(descriptorReply);
+            for (const name of descriptorReply.files) sentFiles.add(name);
+          }
+          stream.write(
+            profileGrpcFrame(Buffer.concat([bytesField(2, payload), answer])),
+          );
+          row.responses++;
+          row.verified = row.responses === row.queries.length;
+          finish();
+        };
+        if (
+          arrivalState &&
+          query.field === 4 &&
+          value === spec.service &&
+          !plan.seedServices.every((/** @type {string} */ name) =>
+            arrivalState.closedSeeds.has(name),
+          )
+        ) {
+          arrivalState.waitingSeeds.push(send);
+        } else if (
+          arrivalState &&
+          query.field === 3 &&
+          plan.graph &&
+          ((plan.label === "cold-deep-first" && value === "d.proto") ||
+            (plan.label === "cold-shallow-first" && value === "c.proto"))
+        ) {
+          const resume = () => {
+            const timer = setTimeout(send, 40);
+            stream.once("close", () => clearTimeout(timer));
+          };
+          if (arrivalState.graphReleased) resume();
+          else arrivalState.graphRelease.push(resume);
+        } else {
+          const bothMissing =
+            plan && !plan.graph && plan.seedServices.length === 0;
+          const preferred =
+            plan?.arrival === "right-first" ? "right.proto" : "left.proto";
+          if (
+            bothMissing &&
+            query.field === 3 &&
+            value !== preferred &&
+            !preferredSent
+          ) {
+            heldSibling = send;
+          } else {
+            send();
+            if (bothMissing && query.field === 3 && value === preferred) {
+              preferredSent = true;
+              heldSibling?.();
+              heldSibling = undefined;
+            }
+          }
+          if (
+            arrivalState &&
+            query.field === 3 &&
+            ((plan.label === "cold-deep-first" && value === "e.proto") ||
+              (plan.label === "cold-shallow-first" && value === "d.proto"))
+          ) {
+            arrivalState.graphReleased = true;
+            for (const resume of arrivalState.graphRelease.splice(0)) resume();
+          }
+        }
       }
     } catch (error) {
       errors.push(String(error));
@@ -214,10 +321,8 @@ export function handleGrpcProfileReflection(stream, headers, records, errors) {
   });
   stream.on("end", () => {
     if (buffered.length) errors.push("Incomplete reflection frame");
-    if (!ended && !stream.destroyed) {
-      ended = true;
-      stream.end();
-    }
+    inputEnded = true;
+    finish();
   });
   return true;
 }

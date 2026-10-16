@@ -1,0 +1,269 @@
+{
+  "scope": "Actual pinned grpc-reflection-js0.3.0 resolver and cache, asynchronous controlled in-memory transport; not native acceptance",
+  "sources": {
+    "main": "syntax=\"proto3\";package ownedgraph.main;service Entry {rpc Call(google.protobuf.Any) returns(google.protobuf.Any);}",
+    "a": "syntax=\"proto3\";package ownedgraph.a;message Link {}",
+    "b": "syntax=\"proto3\";package ownedgraph.b;message Link {}",
+    "c": "syntax=\"proto3\";package ownedgraph.c;message Link {}",
+    "d": "syntax=\"proto3\";package ownedgraph.d;message Payload {string d=2;}",
+    "e": "syntax=\"proto3\";package ownedgraph.e;message Payload {string e=1;}",
+    "seed": "syntax=\"proto3\";package ownedgraph.seed;service Seed {rpc Call(google.protobuf.Any) returns(google.protobuf.Any);}"
+  },
+  "files": [
+    {
+      "name": "main.proto",
+      "bytes": "CgptYWluLnByb3RvEg9vd25lZGdyYXBoLm1haW4aCWFueS5wcm90bxoHYS5wcm90bxoHYi5wcm90bzI7CgVFbnRyeRIyCgRDYWxsEhQuZ29vZ2xlLnByb3RvYnVmLkFueRoULmdvb2dsZS5wcm90b2J1Zi5BbnliBnByb3RvMw=="
+    },
+    {
+      "name": "a.proto",
+      "bytes": "CgdhLnByb3RvEgxvd25lZGdyYXBoLmEaB2MucHJvdG8iBgoETGlua2IGcHJvdG8z"
+    },
+    {
+      "name": "b.proto",
+      "bytes": "CgdiLnByb3RvEgxvd25lZGdyYXBoLmIaB2QucHJvdG8iBgoETGlua2IGcHJvdG8z"
+    },
+    {
+      "name": "c.proto",
+      "bytes": "CgdjLnByb3RvEgxvd25lZGdyYXBoLmMaB2UucHJvdG8iBgoETGlua2IGcHJvdG8z"
+    },
+    {
+      "name": "d.proto",
+      "bytes": "CgdkLnByb3RvEgxvd25lZGdyYXBoLmQiFAoHUGF5bG9hZBIJCgFkGAIgASgJYgZwcm90bzM="
+    },
+    {
+      "name": "e.proto",
+      "bytes": "CgdlLnByb3RvEgxvd25lZGdyYXBoLmUiFAoHUGF5bG9hZBIJCgFlGAEgASgJYgZwcm90bzM="
+    },
+    {
+      "name": "seed.proto",
+      "bytes": "CgpzZWVkLnByb3RvEg9vd25lZGdyYXBoLnNlZWQaCWFueS5wcm90bxoHYy5wcm90bxoHZC5wcm90bxoHZS5wcm90bzI6CgRTZWVkEjIKBENhbGwSFC5nb29nbGUucHJvdG9idWYuQW55GhQuZ29vZ2xlLnByb3RvYnVmLkFueWIGcHJvdG8z"
+    },
+    {
+      "name": "any.proto",
+      "bytes": "CglhbnkucHJvdG8SD2dvb2dsZS5wcm90b2J1ZiImCgNBbnkSEAoIdHlwZV91cmwYASABKAkSDQoFdmFsdWUYAiABKAxiBnByb3RvMw=="
+    }
+  ],
+  "rows": [
+    {
+      "label": "cached-transitive-parent-batch",
+      "fileOrder": [
+        "main.proto",
+        "any.proto",
+        "a.proto",
+        "b.proto",
+        "c.proto",
+        "d.proto",
+        "e.proto"
+      ],
+      "body": "{\"@type\":\"types/Payload\",\"d\":\"d-owned\",\"e\":\"e-owned\"}",
+      "wireHex": "0a0d74797065732f5061796c6f616412091207642d6f776e6564",
+      "json": "{\"type_url\":\"types/Payload\",\"value\":{\"0\":18,\"1\":7,\"2\":100,\"3\":45,\"4\":111,\"5\":119,\"6\":110,\"7\":101,\"8\":100}}",
+      "trace": [
+        {
+          "requests": [
+            {
+              "symbol": "ownedgraph.seed.Seed",
+              "filename": ""
+            }
+          ]
+        },
+        {
+          "replyFiles": [
+            "seed.proto",
+            "any.proto",
+            "c.proto",
+            "d.proto",
+            "e.proto"
+          ]
+        },
+        {
+          "requests": [
+            {
+              "symbol": "ownedgraph.main.Entry",
+              "filename": ""
+            }
+          ]
+        },
+        {
+          "replyFiles": ["main.proto", "any.proto"]
+        },
+        {
+          "requests": [
+            {
+              "symbol": "",
+              "filename": "a.proto"
+            },
+            {
+              "symbol": "",
+              "filename": "b.proto"
+            }
+          ]
+        },
+        {
+          "replyFiles": ["a.proto"]
+        },
+        {
+          "replyFiles": ["b.proto"]
+        }
+      ]
+    },
+    {
+      "label": "cold-deep-first",
+      "fileOrder": [
+        "main.proto",
+        "any.proto",
+        "a.proto",
+        "b.proto",
+        "c.proto",
+        "e.proto",
+        "d.proto"
+      ],
+      "body": "{\"@type\":\"types/Payload\",\"d\":\"d-owned\",\"e\":\"e-owned\"}",
+      "wireHex": "0a0d74797065732f5061796c6f616412090a07652d6f776e6564",
+      "json": "{\"type_url\":\"types/Payload\",\"value\":{\"0\":10,\"1\":7,\"2\":101,\"3\":45,\"4\":111,\"5\":119,\"6\":110,\"7\":101,\"8\":100}}",
+      "trace": [
+        {
+          "requests": [
+            {
+              "symbol": "ownedgraph.main.Entry",
+              "filename": ""
+            }
+          ]
+        },
+        {
+          "replyFiles": ["main.proto", "any.proto"]
+        },
+        {
+          "requests": [
+            {
+              "symbol": "",
+              "filename": "a.proto"
+            },
+            {
+              "symbol": "",
+              "filename": "b.proto"
+            }
+          ]
+        },
+        {
+          "replyFiles": ["a.proto"]
+        },
+        {
+          "replyFiles": ["b.proto"]
+        },
+        {
+          "requests": [
+            {
+              "symbol": "",
+              "filename": "c.proto"
+            }
+          ]
+        },
+        {
+          "replyFiles": ["c.proto"]
+        },
+        {
+          "requests": [
+            {
+              "symbol": "",
+              "filename": "d.proto"
+            }
+          ]
+        },
+        {
+          "requests": [
+            {
+              "symbol": "",
+              "filename": "e.proto"
+            }
+          ]
+        },
+        {
+          "replyFiles": ["e.proto"]
+        },
+        {
+          "replyFiles": ["d.proto"]
+        }
+      ]
+    },
+    {
+      "label": "cold-shallow-first",
+      "fileOrder": [
+        "main.proto",
+        "any.proto",
+        "a.proto",
+        "b.proto",
+        "d.proto",
+        "c.proto",
+        "e.proto"
+      ],
+      "body": "{\"@type\":\"types/Payload\",\"d\":\"d-owned\",\"e\":\"e-owned\"}",
+      "wireHex": "0a0d74797065732f5061796c6f616412091207642d6f776e6564",
+      "json": "{\"type_url\":\"types/Payload\",\"value\":{\"0\":18,\"1\":7,\"2\":100,\"3\":45,\"4\":111,\"5\":119,\"6\":110,\"7\":101,\"8\":100}}",
+      "trace": [
+        {
+          "requests": [
+            {
+              "symbol": "ownedgraph.main.Entry",
+              "filename": ""
+            }
+          ]
+        },
+        {
+          "replyFiles": ["main.proto", "any.proto"]
+        },
+        {
+          "requests": [
+            {
+              "symbol": "",
+              "filename": "a.proto"
+            },
+            {
+              "symbol": "",
+              "filename": "b.proto"
+            }
+          ]
+        },
+        {
+          "replyFiles": ["a.proto"]
+        },
+        {
+          "replyFiles": ["b.proto"]
+        },
+        {
+          "requests": [
+            {
+              "symbol": "",
+              "filename": "c.proto"
+            }
+          ]
+        },
+        {
+          "requests": [
+            {
+              "symbol": "",
+              "filename": "d.proto"
+            }
+          ]
+        },
+        {
+          "replyFiles": ["d.proto"]
+        },
+        {
+          "replyFiles": ["c.proto"]
+        },
+        {
+          "requests": [
+            {
+              "symbol": "",
+              "filename": "e.proto"
+            }
+          ]
+        },
+        {
+          "replyFiles": ["e.proto"]
+        }
+      ]
+    }
+  ]
+}

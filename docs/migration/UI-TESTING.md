@@ -1,5 +1,9 @@
 # UI TESTING migration
 
+## Current reflection dependency/cache arrival verification
+
+Saved [grpc-reflection-arrival-native.js](../../tests/ui/grpc-reflection-arrival-native.js) requires INSOMNIUM_GRPC_REFLECTION_ARRIVAL_NATIVE=1 plus audited build/profile ownership.19cases assert real seed/cache and dependency-batch discovery provenance, actual editor/Format/mode switching, exact wire/JSON/history/reload/Save/deletion. Root/cache timing is provider-controlled; universal provider/platform claims remain open. All21prior scenarios/226groups are retained;22native-hidden scenarios/245groups/434successful gRPC Save exports/exact22profiles and original manifest plus explicit1test/1STATUSdoc supplemented closure pass. See [scope/evidence](GRPC.md#current-native-grpc-reflection-arrival).
+
 ## Current per-service gRPC reflection verification
 
 Saved [grpc-reflection-service-native.js](../../tests/ui/grpc-reflection-service-native.js) requires INSOMNIUM_GRPC_REFLECTION_SERVICE_NATIVE=1 plus audited build/profile ownership.22cases assert separate per-service descriptor streams on the owned channel, exact root symbol packets, per-root any.proto filename fetch, returned extras, reversed service lists and v1alpha, actual editor/Format/mode flip/wire/history/reload/terminal and reloaded Save/deletion.21native-hidden scenarios/226groups/396successful Save exports/exact21profiles and original0override closure pass. See [scope/evidence](GRPC.md#current-native-grpc-reflection-service); concurrent cache/arrival and broader migration gates remain open.

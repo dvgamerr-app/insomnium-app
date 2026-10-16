@@ -1,5 +1,9 @@
 # OAuth1 / NO_PREFIX acceptance gate
 
+## Bounded reflection dependency/cache arrival — 2026-10-16
+
+Reflection dependency batching and shared-cache arrival have bounded Windows acceptance:19new actual editor/wire/JSON/history/reload/Save cases (16declaration/arrival/cache combinations and3transitive controls) retain all226prior groups. Full71Rust tests include real HTTP2 partial-reply peers, wrong/foreign/missing/duplicate reply refusals, a1000file cached chain and shared4096query budget. Fresh22native-hidden scenarios/245groups/434actual successful gRPC Save exports/exact22profiles and original manifest plus explicit1test/1STATUSdoc supplemented source/profile/export closure pass. Broader Any/JSON/template/editor/stream/provider/platform and every retained PLAN/PARITY gate remain open. See [scope/evidence](GRPC.md#current-native-grpc-reflection-arrival); unrelated acceptance requirements remain required.
+
 ## Bounded per-service gRPC reflection roots — 2026-10-16
 
 Per-service gRPC reflection descriptor roots have bounded Windows acceptance:22new actual editor/wire/history/reload/Save cases (16pinned isolated/returned-extra roots,4reversed-service-list controls and2multi-service v1alpha controls) retain all204prior groups. Full63Rust tests include serialized schema-index/native method selection round trips and invalid-file-index guards. Fresh21native-hidden scenarios/226groups/396actual successful gRPC Save exports/exact21profiles and original0override source/profile/export closure pass. Concurrent dependency/shared-cache arrival semantics and broader Any/JSON/template/editor/stream/provider/platform plus every retained PLAN/PARITY gate remain open. See [scope/evidence](GRPC.md#current-native-grpc-reflection-service); unrelated acceptance requirements remain required.
