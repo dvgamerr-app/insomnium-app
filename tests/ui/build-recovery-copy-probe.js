@@ -14,10 +14,12 @@ await mkdir(dir, { recursive: true });
 const started = Date.now();
 const statePath = join(dir, "build-state.json");
 const lowMemory = process.env.INSOMNIUM_UI_LOW_MEMORY === "1";
+const productOnly = process.env.INSOMNIUM_UI_NATIVE_PRODUCT_ONLY === '1';
 const state = {
   status: "running",
   started,
   identifier,
+  productOnly,
   artifact: join(dir, "insomnium-recovery-copy-probe.exe"),
   compilerProfile: lowMemory
     ? "release with probe-only insomnium opt-level=1/codegen-units=16"
@@ -36,14 +38,15 @@ try {
     windowsHide: true,
   });
   assert.equal(await frontend.exited, 0, "Frontend build failed");
-  const { root } = await buildComponentFixture("git-recovery-native-copy", {
-    minify: true,
-  });
-  const bundle = await Bun.file(
-    join(root, "git-recovery-native-copy.js"),
-  ).text();
-  fixtureHash = Bun.hash(bundle).toString();
-  await Bun.write(asset, bundle);
+  // Native product scenarios do not load the optional recovery component fixture.
+  if (!productOnly) {
+    const { root } = await buildComponentFixture("git-recovery-native-copy", {
+      minify: true,
+    });
+    const bundle = await Bun.file(join(root, "git-recovery-native-copy.js")).text();
+    fixtureHash = Bun.hash(bundle).toString();
+    await Bun.write(asset, bundle);
+  }
   const msvc =
     "C:/Program Files (x86)/Microsoft Visual Studio/2017/BuildTools/VC/Tools/MSVC/14.16.27023";
   const sdk = "C:/Program Files (x86)/Windows Kits/10";
@@ -100,7 +103,7 @@ try {
     await copyFile("src-tauri/target/release/insomnium.exe", state.artifact);
 } finally {
   // Exact generated asset only; never recursively clean build/legacy trees.
-  await rm(asset, { force: true });
+  if (fixtureHash !== undefined) await rm(asset, { force: true });
   await Bun.write(
     statePath,
     JSON.stringify(

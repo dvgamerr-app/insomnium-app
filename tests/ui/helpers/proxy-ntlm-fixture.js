@@ -29,6 +29,26 @@ const username = "FIXTURE\\fixture",
   password = "synthetic:password";
 const challengeNonce = Buffer.from("0123456789abcdef", "hex");
 const originNonce = Buffer.from("fedcba9876543210", "hex");
+const digestNonce = 'owned-proxy-digest-nonce';
+/** @param {string} nonce @param {boolean} [stale] */
+function digestChallenge(nonce,stale=false){
+  return `Digest realm="owned Digest", nonce="${nonce}", algorithm=SHA-256, qop="auth-int"${stale?', stale=true':''}`;
+}
+/** Independent RFC7616 SHA-256/auth-int oracle from actual target/entity bytes.
+ * @param {string} value @param {string} method @param {string} target @param {Buffer} body
+ * @param {string} nonce @param {string} [user] @param {string} [secret] */
+function digestProof(value,method,target,body,nonce,user=username,secret=password){
+  assert.match(value,/^Digest /);
+  const fields=Object.fromEntries([...value.matchAll(/([\w*]+)=(?:"((?:\\.|[^"\\])*)"|([^,\s]+))/g)]
+    .map(match=>[match[1],match[2]===undefined?match[3]:match[2].replace(/\\(.)/g,'$1')]));
+  assert.equal(fields.username,user);assert.equal(fields.realm,'owned Digest');assert.equal(fields.nonce,nonce);
+  assert.equal(fields.uri,target);assert.equal(fields.qop,'auth-int');assert.equal(fields.algorithm,'SHA-256');
+  assert.equal(fields.nc,'00000001');assert.ok(fields.cnonce);
+  const hash=(/** @type {string|Buffer} */ value)=>createHash('sha256').update(value).digest('hex');
+  const ha1=hash(user+':owned Digest:'+secret),ha2=hash(method+':'+target+':'+hash(body));
+  assert.equal(fields.response,hash([ha1,nonce,fields.nc,fields.cnonce,'auth-int',ha2].join(':')));
+  return {proofValid:true,digestNonce:nonce,digestTarget:target,digestQop:fields.qop};
+}
 /** @param {string} [domainName] @param {Buffer} [nonce] */
 function type2(domainName = "FIXTURE", nonce = challengeNonce) {
   const domain = Buffer.from(domainName, "utf16le"),
@@ -296,6 +316,10 @@ export async function createProxyNtlmFixture(output) {
         undefined,
         "Proxy credentials never reach origin",
       );
+      if(req.url==='/origin-digest'){
+        if(!req.headers.authorization){res.writeHead(401,{'WWW-Authenticate':digestChallenge('owned-origin-digest-nonce'),'Content-Length':'0'});res.end();return;}
+        Object.assign(row,digestProof(req.headers.authorization,req.method || '',req.url,body,'owned-origin-digest-nonce','origin-digest-user','origin-digest-password'));
+      }
       if (req.url === "/origin-ntlm") {
         const auth = req.headers.authorization ?? "";
         if (!auth) {
@@ -711,9 +735,12 @@ export async function createProxyNtlmFixture(output) {
                 channelBindingValid: false,
               });
             records.push(row);
-            if (!auth && stage !== 3) {
+            if (!auth && (stage !== 3 || socketMode.startsWith('digest'))) {
+              if(socketMode.startsWith('digest'))stage=0;
               reply(
-                socketMode === "basic"
+                socketMode.startsWith('digest')
+                  ? [digestChallenge(digestNonce),'Basic realm="fallback"']
+                  : socketMode === "basic"
                   ? 'Basic realm="owned proxy"'
                   : socketMode === "malformed"
                     ? "NTLM !!!!"
@@ -723,7 +750,13 @@ export async function createProxyNtlmFixture(output) {
               );
               continue;
             }
-            if (auth && socketMode === "basic") {
+            if(auth && socketMode.startsWith('digest')){
+              Object.assign(row,digestProof(auth,req.method,req.target,req.body,stage===1?digestNonce+'-next':digestNonce));
+              row.type='digest';
+              if(socketMode==='digest-reject'){reply('Basic realm="no downgrade"');continue;}
+              if(socketMode==='digest-stale'&&stage===0){stage=1;reply(digestChallenge(digestNonce+'-next',true));continue;}
+              stage=3;
+            } else if (auth && socketMode === "basic") {
               assert.equal(
                 auth,
                 "Basic " +
@@ -936,6 +969,9 @@ export async function createProxyNtlmFixture(output) {
         assert.ok(
           [
             "ntlm",
+            "digest",
+            "digest-stale",
+            "digest-reject",
             "basic",
             "malformed",
             "repeated",

@@ -18,11 +18,13 @@ assert.ok(
   process.env.INSOMNIUM_UI_BUILD_STATE,
   "Explicit current build required",
 );
+const digestOnly = process.env.INSOMNIUM_PROXY_DIGEST === '1';
 await preserveNativeProfile(async () =>
   withResourceProbePreserved(
     async () => {
       await withNativeApp("proxy-ntlm", async ({ page, invoke, output }) => {
         const fixture = await createProxyNtlmFixture(output);
+        if(digestOnly)fixture.setMode('digest');
         const checks = /** @type {Record<string,any>[]} */ ([]);
         try {
           const data = await invoke("load_workspace");
@@ -144,6 +146,42 @@ await preserveNativeProfile(async () =>
                 ...extra,
               },
             });
+          if(digestOnly){
+            for(const [mode,origin] of [['digest',fixture.httpOrigin],['digest',fixture.httpsOrigin],['digest-stale',fixture.httpOrigin],['basic',fixture.httpOrigin],['ntlm',fixture.httpOrigin]]){
+              fixture.setMode(mode);
+              const start=fixture.records.length,originStart=fixture.origins.length;
+              const result=await send(fixture.httpProxy,origin+'/echo');
+              assert.equal(result.status,200);
+              const rows=fixture.records.slice(start);
+              assert.equal(new Set(rows.map(r=>r.socketId)).size,1);
+              assert.ok(rows.every(r=>r.target===(origin===fixture.httpsOrigin?new URL(origin).host:origin+'/echo')));
+              assert.ok(rows.every(r=>r.bodyBase64===(origin===fixture.httpsOrigin?'':body.toString('base64'))));
+              if(mode.startsWith('digest')){
+                assert.deepEqual(rows.map(r=>r.type),mode==='digest-stale'?[0,'digest','digest']:[0,'digest']);
+                assert.ok(rows.filter(r=>r.type==='digest').every(r=>r.proofValid));
+              }else assert.deepEqual(rows.map(r=>r.type),mode==='basic'?[0,'basic']:[0,1,3]);
+              const forwarded=fixture.origins.slice(originStart);
+              assert.equal(forwarded.length,1);assert.equal(forwarded[0].authorization,'Custom origin only');
+              assert.equal(forwarded[0].bodyBase64,body.toString('base64'));assert.equal(forwarded[0].proxyAuthorizationPresent,false);
+              checks.push({mode,origin:origin===fixture.httpsOrigin?'https-connect':'http',sameSocket:true,signatureVerified:mode.startsWith('digest')});
+            }
+            fixture.setMode('digest-reject');
+            const rejectedStart=fixture.records.length,originStart=fixture.origins.length;
+            await assert.rejects(send(fixture.httpProxy,fixture.httpOrigin+'/echo'));
+            assert.deepEqual(fixture.records.slice(rejectedStart).map(r=>r.type),[0,'digest']);
+            assert.equal(fixture.origins.length,originStart);checks.push({kind:'digest-rejection-does-not-downgrade-to-basic'});
+            fixture.setMode('basic');
+            const originDigest=fixture.origins.length;
+            assert.equal((await send(fixture.httpProxy,fixture.httpOrigin+'/origin-digest',{headers:[],digest:{username:'origin-digest-user',password:'origin-digest-password'}})).status,200);
+            assert.ok(fixture.origins.slice(originDigest).some(r=>r.proofValid));
+            checks.push({kind:'origin-digest-shared-signer-regression',signatureVerified:true});
+            assert.deepEqual(fixture.errors,[]);
+            await poll(()=>Promise.resolve(fixture.activeSocketCount()===0),'Digest fixture sockets retired before cleanup');
+            assert.ok(fixture.records.every(r=>r.socketClosed));
+            await Bun.write(output+'/acceptance.json',JSON.stringify({passed:true,checks,records:fixture.records,origins:fixture.origins,
+              limits:'Local HTTP proxy SHA-256/auth-int, CONNECT, one stale retry, rejection/no Basic downgrade and Basic/NTLM/origin Digest controls; other algorithms/TLS proxies/provider/platform remain open.'},null,2));
+            return;
+          }
           for (const [proxyName, proxy] of [
             ["http", fixture.httpProxy],
             ["https", fixture.httpsProxy],
