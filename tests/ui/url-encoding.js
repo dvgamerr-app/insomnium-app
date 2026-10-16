@@ -9,6 +9,7 @@ import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { withNativeApp, poll } from "./helpers/native-app.js";
 import { openApiQuerystringCases } from "./helpers/openapi-querystring-cases.js";
+import {withResourceProbePreserved, registerResourceProbeCollection, resourceSaved} from './helpers/resource-manager-cases.js';
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-url-encoding-ui-probe/build-state.json";
 /** @type {string[]} */ const received = [];
@@ -56,7 +57,96 @@ await new Promise((resolve) =>
   server.listen(0, "127.0.0.1", () => resolve(null)),
 );
 try {
-  await withNativeApp("url-encoding", async ({ page, invoke, output }) => {
+  if (process.env.INSOMNIUM_OAUTH1_OPTIONS === '1') {
+    await withResourceProbePreserved(async () => {
+      await withNativeApp('oauth1-options', async ({page, invoke, output}) => {
+        await resourceSaved(page);
+        const address = server.address();
+        assert.ok(address && typeof address !== 'string');
+        const name = 'OAuth1 options ' + Date.now();
+        const baseAuth = {type:'oauth1',consumerKey:'fixture-consumer',consumerSecret:'consumer +&secret',
+          tokenKey:'fixture-token',tokenSecret:'token /secret',signatureMethod:'HMAC-SHA256',
+          bodyMode:'standard',nonce:'oauthprobe',timestamp:'1700000000',version:'1.0',realm:'owned realm'};
+        const cases = [
+          {name:'Header baseline',method:'GET',authentication:{...baseAuth}},
+          {name:'Query destination',method:'GET',authentication:{...baseAuth,addParamsToHeader:false}},
+          {name:'Form destination',method:'POST',body:{mimeType:'application/x-www-form-urlencoded',params:[{name:'message',value:'ไทย +&'}]},
+            authentication:{...baseAuth,addParamsToHeader:false}},
+          {name:'Raw header empty signature',method:'GET',authentication:{...baseAuth,tokenKey:'',tokenSecret:'',version:'',
+            addEmptyParamsToSign:true,disableHeaderEncoding:true}},
+        ];
+        const requests = cases.map((item,index) => ({_id:'req_oauth_options_'+index,_type:'request',parentId:'wrk_oauth_options',
+          url:'http://127.0.0.1:'+address.port+'/oauth?fixed=a%20b',headers:[],parameters:[],body:{mimeType:''},...item}));
+        await page.getByRole('button',{name:'Import collection',exact:true}).click();
+        const dialog = page.getByRole('dialog');
+        await dialog.getByLabel('Import collection or cURL commands',{exact:true}).fill(JSON.stringify({__export_format:4,
+          resources:[{_id:'wrk_oauth_options',_type:'workspace',parentId:null,name,scope:'collection'},...requests]}));
+        await dialog.getByRole('button',{name:'Review import',exact:true}).click();
+        await dialog.getByRole('button',{name:'Import',exact:true}).click();
+        await dialog.waitFor({state:'detached'});
+        let owned;
+        await poll(async()=>{
+          owned=(await invoke('load_workspace')).resources.find((/** @type {any} */ r)=>r._type==='workspace'&&r.name===name);
+          return !!owned;
+        },'OAuth1 collection persisted');
+        registerResourceProbeCollection(owned._id,name);
+        const encode = (/** @type {string} */ value)=>encodeURIComponent(value).replace(/[!'()*]/g,c=>'%'+c.charCodeAt(0).toString(16).toUpperCase());
+        const checks=[];
+        for (const item of requests) {
+          await page.getByRole('complementary',{name:'Collections'}).getByRole('button')
+            .filter({has:page.getByText(item.name,{exact:true})}).click();
+          const count=received.length;
+          await page.getByRole('button',{name:'Send',exact:true}).click();
+          await poll(async()=>received.length===count+1,'OAuth1 owned wire request');
+          await poll(async()=>!(await page.getByRole('button',{name:'Cancel',exact:true}).count()),'OAuth1 Send settled');
+          const [method,target]=received[count].split(' ');
+          assert.equal(method,item.method);
+          const wireUrl = new URL(target,'http://127.0.0.1:'+address.port);
+          assert.equal(wireUrl.searchParams.get('fixed'),'a b');
+          const header=wireHeaders[count].find(line=>/^authorization:/i.test(line));
+          const form=new URLSearchParams(wireBodies[count]);
+          const inHeader=item.authentication.addParamsToHeader!==false;
+          const oauth = inHeader ? Object.fromEntries([...String(header).matchAll(/(\w+)="([^"]*)"/g)]
+            .map(match=>[match[1],item.authentication.disableHeaderEncoding ? match[2] : decodeURIComponent(match[2])]))
+            : Object.fromEntries([...(item.method==='POST' ? form : wireUrl.searchParams).entries()].filter(([key])=>key.startsWith('oauth_')));
+          assert.equal(Boolean(header),inHeader);
+          assert.equal(oauth.oauth_consumer_key,'fixture-consumer');
+          assert.equal(oauth.oauth_nonce,'oauthprobe');
+          assert.equal(oauth.oauth_timestamp,'1700000000');
+          assert.equal(oauth.oauth_signature_method,'HMAC-SHA256');
+          assert.ok(oauth.oauth_signature);
+          if (item.method==='POST') {
+            assert.equal(form.get('message'),'ไทย +&');
+            assert.equal(wireUrl.searchParams.has('oauth_signature'),false);
+            assert.equal(form.getAll('oauth_signature').length,1);
+            const length=wireHeaders[count].find(line=>/^content-length:/i.test(line));
+            assert.equal(Number(length?.split(':')[1]),Buffer.byteLength(wireBodies[count]));
+          } else assert.equal(wireBodies[count],'');
+          if (inHeader) {
+            assert.equal(oauth.realm,'owned realm');
+            assert.equal(wireUrl.searchParams.has('oauth_signature'),false);
+          }
+          const params=[...wireUrl.searchParams.entries(),...form.entries()].filter(([key])=>key!=='oauth_signature');
+          if (inHeader) params.push(...Object.entries(oauth).filter(([key])=>key!=='realm'&&key!=='oauth_signature'));
+          if (item.authentication.addEmptyParamsToSign) {
+            assert.equal('oauth_token' in oauth,false);
+            assert.equal('oauth_version' in oauth,false);
+            params.push(['oauth_token',''],['oauth_version','']);
+            assert.ok(header?.includes('realm="owned realm"'));
+            assert.ok(header?.includes('oauth_signature="'+oauth.oauth_signature+'"'));
+          }
+          const normalized=params.map(([key,value])=>[encode(key),encode(value)]).sort((a,b)=>
+            a[0]<b[0]?-1:a[0]>b[0]?1:a[1]<b[1]?-1:a[1]>b[1]?1:0).map(pair=>pair.join('=')).join('&');
+          const base=[method,wireUrl.origin+wireUrl.pathname,normalized].map(encode).join('&');
+          const secret=encode(baseAuth.consumerSecret)+'&'+encode(item.authentication.tokenSecret);
+          assert.equal(oauth.oauth_signature,createHmac('sha256',secret).update(base).digest('base64'),'Independent signature from exact wire');
+          checks.push({name:item.name,placement:inHeader?'header':item.method==='POST'?'form':'query',signatureVerified:true});
+        }
+        await writeFile(join(output,'oauth1-options-acceptance.json'),JSON.stringify({passed:true,renderingMode:'native-hidden',checks,
+          limits:'Four local HTTP signing cases; redirect/retry, provider, UI checkbox editing and other platforms remain unverified.'},null,2));
+      });
+    });
+  } else await withNativeApp("url-encoding", async ({ page, invoke, output }) => {
     const address = server.address();
     assert.ok(address && typeof address !== "string");
     const url =
