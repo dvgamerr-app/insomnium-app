@@ -6,7 +6,8 @@ import { createSvelteUiFixturePlugin } from "./helpers/component-fixture.js";
 import { poll } from "./helpers/native-app.js";
 
 const themeUi=process.env.INSOMNIUM_PLUGIN_THEME_UI==="1";
-const actionUi=themeUi||process.env.INSOMNIUM_PLUGIN_ACTION_UI==="1";
+const modulesUi=process.env.INSOMNIUM_PLUGIN_MODULES_UI==="1";
+const actionUi=modulesUi||themeUi||process.env.INSOMNIUM_PLUGIN_ACTION_UI==="1";
 await withPreview(actionUi?"plugin-resource-actions":"plugin-app-dialogs", async (page, output) => {
   const bundle = await Bun.build({ entrypoints: [actionUi?"tests/ui/fixtures/plugin-resource-actions.js":"tests/ui/fixtures/plugin-app-dialogs.js"], target: "browser", format: "iife", conditions: ["browser", "svelte"], plugins: [...(actionUi?[{name:'browser-native-action-adapter',setup(/** @type {Parameters<import('bun').BunPlugin['setup']>[0]} */build){build.onResolve({filter:/plugin-app-native\.js$/},()=>({path:'native-action-adapter',namespace:'action-native'}));build.onLoad({filter:/.*/,namespace:'action-native'},()=>({contents:"export function createPluginNativeAppEndpoint(){return async()=>{throw Error('Native app IO is outside this browser UI fixture');};}",loader:'js'}));}}]:[]),createSvelteUiFixturePlugin()], define: { "import.meta.url": JSON.stringify(page.url()) } });
   assert.ok(bundle.success, bundle.logs.map(String).join("\n"));
@@ -19,6 +20,22 @@ await withPreview(actionUi?"plugin-resource-actions":"plugin-app-dialogs", async
   const workerSha256 = hash(Buffer.from(served));
   assert.equal(workerSha256, hash(await Bun.file("build/_app/immutable/workers/" + workers[0]).bytes()));
   if(actionUi){
+    if(modulesUi){
+      for(const format of ['commonjs','module']){
+        await page.evaluate(({url,format})=>/** @type {any} */(window).__resourceActions.open(url,false,format),{url,format});
+        try{
+          const root=page.getByRole('region',{name:'Plugin action fixture'});
+          await root.locator('summary').click();
+          await root.getByRole('button',{name:'Module pipeline · insomnia-plugin-action-ui',exact:true}).click();
+          const dialog=page.getByRole('dialog',{name:'Plugin module pipeline',exact:true});
+          await dialog.getByText('helloไทย',{exact:true}).waitFor();
+          await dialog.getByRole('button',{name:'Ok',exact:true}).click();
+          await root.getByRole('status').filter({hasText:'Action completed.'}).waitFor();
+        }finally{await page.evaluate(()=>/** @type {any} */(window).__resourceActions.close());}
+      }
+      await Bun.write(output+'/modules-ui-acceptance.json',JSON.stringify({passed:true,headless:true,workerSha256,checks:['CommonJS/ESM buffer and stream imports','actual action and owned dialog','promise pipeline with Unicode bytes'],limits:'Browser production Worker and real registry/UI; native package IO not covered'},null,2));
+      return;
+    }
     if(themeUi){
       await page.evaluate(url=>/** @type {any} */(window).__resourceActions.open(url,true),url);
       const root=page.getByRole('region',{name:'Plugin action fixture'});
