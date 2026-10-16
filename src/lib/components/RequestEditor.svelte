@@ -644,6 +644,16 @@
               onchange({ settingEncodeUrl: event.currentTarget.checked })}
           /> Automatically encode URL</Field
         >
+        <Field layout="inline" class="checkbox-label"
+          ><Checkbox
+            checked={request.settingDisableRenderRequestBody === true}
+            onchange={(event) =>
+              onchange({ settingDisableRenderRequestBody: event.currentTarget.checked })}
+          /> Skip rendering of request body</Field
+        >
+        <p class="hint">
+          Send body variables and template tags literally. URL and headers still render.
+        </p>
         <Field
           >Redirects<Select
             value={request.settingFollowRedirects || "global"}

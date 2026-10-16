@@ -8,6 +8,16 @@ await withPreview("workspace-shortcuts",async (page,output) => {
   await page.keyboard.press("Control+Shift+Enter");
   assert.equal(await page.getByRole("tablist",{name:"Request editor",exact:true}).getByRole("tab",{name:"Settings",exact:true}).getAttribute("aria-selected"),"true");
   assert.equal(await page.getByRole("tablist",{name:"Request editor",exact:true}).getByRole("tab",{name:"Settings",exact:true}).evaluate((el) => document.activeElement === el),true);
+  const skipBody = page.getByRole("checkbox",{name:"Skip rendering of request body",exact:true});
+  assert.equal(await skipBody.isChecked(),false);
+  await skipBody.check();
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem("insomnium-tauri-preview-v1") || "{}").resources.some((/** @type {any} */ r) => r._type === "request" && r.settingDisableRenderRequestBody === true));
+  await page.reload();
+  await url.waitFor();
+  await page.keyboard.press("Control+Shift+Enter");
+  assert.equal(await skipBody.isChecked(),true);
+  await skipBody.uncheck();
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem("insomnium-tauri-preview-v1") || "{}").resources.some((/** @type {any} */ r) => r._type === "request" && r.settingDisableRenderRequestBody === false));
   await page.getByRole("tablist",{name:"Request editor",exact:true}).getByRole("tab",{name:"Body",exact:true}).click();
   await page.keyboard.press("Control+l");
   assert.equal(await url.evaluate((el) => document.activeElement === el),true);
@@ -45,5 +55,8 @@ await withPreview("workspace-shortcuts",async (page,output) => {
   await page.waitForFunction((count) => JSON.parse(localStorage.getItem("insomnium-tauri-preview-v1") || "{}").resources.filter((/** @type {any} */ r) => r._type === "request").length === count + 1,count);
   await Bun.write(output + "/result.json",JSON.stringify({status:"passed",headless:true,shortcuts:5,modalGuard:true,repeatCompositionAltConsumedGuards:true,scope:"Actual built-app keyboard/focus/dialogs; no native/network"},null,2));
 },{beforeNavigate:async (page) => {
-  await page.addInitScript((data) => localStorage.setItem("insomnium-tauri-preview-v1",JSON.stringify(data)),initialData());
+  await page.addInitScript((data) => {
+    if (!localStorage.getItem("insomnium-tauri-preview-v1"))
+      localStorage.setItem("insomnium-tauri-preview-v1",JSON.stringify(data));
+  },initialData());
 }});
