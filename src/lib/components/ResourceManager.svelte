@@ -10,7 +10,8 @@
   import { descendants } from "../model.js";
   import { orderedChildren, resourcePath } from "../resources.js";
   import Icon from "./Icon.svelte";
-  /** @type {{ resource: Record<string, any>, resources: Record<string, any>[], onsave: (patch: Record<string, any>, parentId: string) => void, onduplicate: () => void, ondelete: () => void, onreorder: (direction: number) => void, onrequest: () => void, onfolder: () => void, onclose: () => void }} */
+  import { requestPinMeta } from "../request-meta.js";
+  /** @type {{ resource: Record<string, any>, resources: Record<string, any>[], onsave: (patch: Record<string, any>, parentId: string) => void, onduplicate: () => void, ondelete: () => void, onreorder: (direction: number) => void, onrequest: () => void, onfolder: () => void, onclose: () => void, onpin?:()=>void }} */
   let {
     resource,
     resources,
@@ -21,6 +22,7 @@
     onrequest,
     onfolder,
     onclose,
+    onpin,
   } = $props();
   // The parent keys this component by resource ID; edits are local until Save.
   let name = $state("");
@@ -175,6 +177,9 @@
       {/if}
     </FormPanel>
     <div class="resource-tools">
+      {#if onpin && ["request", "websocket_request", "grpc_request"].includes(resource._type)}
+        <Button variant="secondary" type="button" onclick={() => action(onpin)}><Icon name="pin" size={14} />{requestPinMeta(resources, resource)?.pinned === true ? "Unpin request" : "Pin request"}</Button>
+      {/if}
       <Button
         variant="secondary"
         type="button"

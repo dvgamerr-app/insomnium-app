@@ -10,6 +10,18 @@ Request selection now updates `workspace_meta.activeRequestId` and collection sw
 
 Inline Bun checks cover helpers, saved-data validation/reload, actual import ID remapping, empty selections and foreign/non-request refusal. Follow-up actual coordinator checks exposed an empty source selection leaking into an unvisited destination; resolve destination selection before changing the active collection. The original assertion fails before the fix and passes after it, together with remembered/explicit-blank destination, open-tab and invalid-target controls. Compiler and prior production bundling pass. Mounted/native collection switching, tab close/delete/reload and broader platform acceptance remain open. Legacy contract: `_backup/legacy-electron/packages/insomnia/src/models/workspace-meta.ts`.
 
+## Per-collection sidebar filter — 2026-10-16
+
+The sidebar reads `workspace_meta.sidebarFilter` for the active collection rather than a shared transient search string. Input uses the guarded workspace persistence path; imported/saved filters restore automatically when collection metadata changes. Empty/unchanged updates avoid creating metadata or another save. Existing metadata, including remembered request/environment and sidebar visibility, remains intact.
+
+Actual setter checks pass independent collection values, Unicode text, saved-data validation/reload, clear, unchanged updates and admission refusal. Compiler and production bundling pass. The unchanged saved `workspace-shortcuts` scenario passed before this filter change (about 3 seconds); that receipt proves the previous shortcut baseline, not this feature's mounted/native switching acceptance. No test files were added or edited.
+
+## Pinned requests — 2026-10-16
+
+Imported `request_meta.pinned` (HTTP/WebSocket) and `grpc_request_meta.pinned` now populate the collection-scoped Pinned Requests list, including nested requests. Normal tree locations remain, with a pin indicator. Manage request and Ctrl/Cmd+Shift+P toggle pinning through guarded persistence, retaining unrelated metadata. Existing import ID remapping and duplication exclusion policies are unchanged.
+
+Inline checks execute the actual pin action and verify HTTP/WS/gRPC metadata types, nested/foreign collection scope, preserved response-filter/custom fields, imported IDs and admission refusal. Compiler/build pass. Actual mounted/native pin/unpin/filter/keyboard/reload and visual/platform acceptance remain open. Legacy contracts: `models/request-meta.ts`, `models/grpc-request-meta.ts`, `ui/routes/debug.tsx` in the read-only archive. No new test files or native build.
+
 ## Current Windows acceptance
 
 Collection lifecycle extension is verified on Windows at2870f40. Legacy models with explicit canDuplicate:false comprise git_repository, grpc_request_meta, oauth2_token, plugin_data, project, request_group_meta, request_meta, request_version, response, settings, stats, unit_test_result, websocket_response and workspace_meta. The legacy database skips those models before child recursion; the current fix follows that exclusion boundary. Unknown models under eligible owners remain preserved by the current application policy; this is explicitly broader than legacy's unknown-type exclusion, not a claim of strict legacy unknown parity. [Playwright actionability](https://playwright.dev/docs/actionability) was consulted again; successful clicks do not replace durable native-state checks.

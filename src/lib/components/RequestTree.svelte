@@ -4,7 +4,8 @@
   import RequestTree from "./RequestTree.svelte";
   import { orderedChildren } from "../resources.js";
   import { protocolFor } from "../model.js";
-  /** @type {{ resources: Record<string, any>[], parentId: string, selected: string, search: string, onselect: (id: string) => void, onfolder: (id: string) => void, onmanage: (id: string) => void, depth?: number }} */
+  import { pinnedRequests, requestPinMeta } from "../request-meta.js";
+  /** @type {{ resources: Record<string, any>[], parentId: string, selected: string, search: string, onselect: (id: string) => void, onfolder: (id: string) => void, onmanage: (id: string) => void, depth?: number, pinnedOnly?:boolean }} */
   let {
     resources,
     parentId,
@@ -14,9 +15,10 @@
     onfolder,
     onmanage,
     depth = 0,
+    pinnedOnly = false,
   } = $props();
   let collapsed = $state(/** @type {Record<string, boolean>} */ ({}));
-  const children = $derived(orderedChildren(resources, parentId));
+  const children = $derived(pinnedOnly ? pinnedRequests(resources, parentId) : orderedChildren(resources, parentId));
 </script>
 
 {#if depth < 30}
@@ -82,6 +84,7 @@
                     ? "GQL"
                     : item.method}</span
           ><span>{item.name}</span>
+          {#if requestPinMeta(resources, item)?.pinned === true}<span title="Pinned request"><Icon name="pin" size={12} /></span>{/if}
         </Button>
         <Button
           variant="ghost"

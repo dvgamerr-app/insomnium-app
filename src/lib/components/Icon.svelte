@@ -31,6 +31,7 @@
   import GlyphArrowUp from "@lucide/svelte/icons/arrow-up";
   import GlyphArrowDown from "@lucide/svelte/icons/arrow-down";
   import GlyphDot from "@lucide/svelte/icons/dot";
+  import GlyphPin from "@lucide/svelte/icons/pin";
   /** @type {{name:string,size?:number,class?:string}} */
   let { name, size = 18, class: className = "" } = $props();
   /** @type {Record<string,typeof GlyphHome>} */
@@ -67,6 +68,7 @@
     arrowUp: GlyphArrowUp,
     arrowDown: GlyphArrowDown,
     dot: GlyphDot,
+    pin: GlyphPin,
   };
   const Glyph = $derived(icons[name] || GlyphFile);
 </script>

@@ -52,6 +52,8 @@
     selectRequest,
     selectWorkspace,
     setSidebarHidden,
+    setSidebarFilter,
+    toggleRequestPin,
     selectEnvironment,
     selectHttpHistory,
     selectStreamHistory,
@@ -72,6 +74,7 @@
   } from "$lib/workspace.svelte.js";
   import { id, indexWorkspaces, protocolFor, historyMatchesEnvironment } from "$lib/model.js";
   import { orderedChildren } from "$lib/resources.js";
+  import { pinnedRequests } from "$lib/request-meta.js";
   import { curlRequestPatch, isCurlImport } from "$lib/curl-import.js";
   import { pickImport, parseImport, exportData, pickLegacyResponseHistory, pickLegacyRequestFiles, pickLegacyCertificateFiles } from "$lib/import-export.js";
   import { reviewImportedHistory } from "$lib/import-history-review.js";
@@ -105,7 +108,10 @@
   let importRevision = 0;
   let managedId = $state("");
   let mainView = $state("requests");
-  const sidebarHidden = $derived(app.data.resources.find((r) => r._type === "workspace_meta" && r.parentId === app.data.activeWorkspaceId)?.sidebarHidden === true);
+  const collectionMeta = $derived(app.data.resources.find((r) => r._type === "workspace_meta" && r.parentId === app.data.activeWorkspaceId));
+  const sidebarHidden = $derived(collectionMeta?.sidebarHidden === true);
+  const sidebarFilter = $derived(typeof collectionMeta?.sidebarFilter === "string" ? collectionMeta.sidebarFilter : "");
+  const pins = $derived(pinnedRequests(app.data.resources, app.data.activeWorkspaceId));
   let settingsTab = $state("General");
   let newFolderParent = $state("");
   const managedResource = $derived(
@@ -539,6 +545,9 @@
     } else if (!event.shiftKey && key === "n" && mainView === "requests") {
       event.preventDefault();
       addRequest();
+    } else if (event.shiftKey && key === "p" && request && mainView === "requests") {
+      event.preventDefault();
+      toggleRequestPin(request._id);
     } else if (!event.shiftKey && key === "p" && mainView === "requests") {
       event.preventDefault();
       setSidebarHidden(false);
@@ -1018,7 +1027,8 @@
                 bind:element={filterInput}
                 aria-label="Filter requests"
                 placeholder="Filter requests"
-                bind:value={app.search}
+                value={sidebarFilter}
+                oninput={(event) => setSidebarFilter(event.currentTarget.value)}
               /><kbd>⌃ P</kbd>
             </div>
           </div>
@@ -1037,11 +1047,17 @@
             >
           </div>
           <div class="request-tree">
+            {#if pins.length}<section aria-label="Pinned requests">
+              <div class="collection-label">Pinned Requests</div>
+              <RequestTree resources={app.data.resources} parentId={app.data.activeWorkspaceId}
+                selected={app.data.activeRequestId} search={sidebarFilter} onselect={selectRequest}
+                onfolder={addRequest} onmanage={manageResource} pinnedOnly />
+            </section>{/if}
             <RequestTree
               resources={app.data.resources}
               parentId={app.data.activeWorkspaceId}
               selected={app.data.activeRequestId}
-              search={app.search}
+              search={sidebarFilter}
               onselect={selectRequest}
               onfolder={addRequest}
               onmanage={manageResource}
@@ -1134,6 +1150,7 @@
               closeModal();
             }}
             onreorder={(direction) => reorder(managedId, direction)}
+            onpin={() => toggleRequestPin(managedId)}
             onrequest={() => {
               addRequest(managedId);
               closeModal();

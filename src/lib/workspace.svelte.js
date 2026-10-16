@@ -68,7 +68,7 @@ import {
   workspacePersistencePhase,
   subscribeWorkspacePersistence,
 } from "./persistence.js";
-import { requestMeta, withResponseFilter, withResponseNamespaces } from "./request-meta.js";
+import { requestMeta, withResponseFilter, withResponseNamespaces, requestPinMeta, withRequestPin } from "./request-meta.js";
 import { prepareRenderedRequest, send, cancel } from "./transport.js";
 import { connectStream, sendMessage, appendStreamEvent } from "./streaming.js";
 import { loadGrpcSchema, connectGrpc, sendGrpcMessage } from "./grpc.js";
@@ -137,7 +137,6 @@ export const workspace = $state({
   oauthErrors: /** @type {Record<string, string>} */ ({}),
   oauthProgress: /** @type {Record<string, any>} */ ({}),
   runnerErrors: /** @type {Record<string,string>} */ ({}),
-  search: "",
 });
 const unsubscribePersistence = subscribeWorkspacePersistence((phase) => {
   workspace.persistencePhase = phase;
@@ -712,6 +711,17 @@ export function setResponseNamespaces(requestId, namespaces) {
   return true;
 }
 /** @param {string} requestId */
+export function toggleRequestPin(requestId) {
+  if (!canEditWorkspace()) return;
+  const request = workspace.data.resources.find((r) => r._id === requestId && requestTypes.includes(r._type));
+  if (!request) return;
+  const meta = requestPinMeta(workspace.data.resources, request);
+  const next = withRequestPin(meta, request, meta?.pinned !== true);
+  if (meta) Object.assign(meta, next);
+  else workspace.data.resources.push(next);
+  void persist();
+}
+/** @param {string} requestId */
 export function selectRequest(requestId) {
   if (!canEditWorkspace()) return;
   const collectionId = requestId ? workspaceFor(workspace.data.resources, requestId) : workspace.data.activeWorkspaceId;
@@ -765,6 +775,21 @@ export function setSidebarHidden(hidden) {
     data.resources.push(meta);
   }
   meta.sidebarHidden = hidden;
+  meta.modified = Date.now();
+  void persist();
+}
+/** @param {string} value */
+export function setSidebarFilter(value) {
+  if (!canEditWorkspace() || typeof value !== "string") return;
+  const data = workspace.data;
+  if (!data.resources.some((r) => r._type === "workspace" && r._id === data.activeWorkspaceId)) return;
+  let meta = data.resources.find((r) => r._type === "workspace_meta" && r.parentId === data.activeWorkspaceId);
+  if ((typeof meta?.sidebarFilter === "string" ? meta.sidebarFilter : "") === value) return;
+  if (!meta) {
+    meta = {_id:id("wrkm"),_type:"workspace_meta",parentId:data.activeWorkspaceId,created:Date.now()};
+    data.resources.push(meta);
+  }
+  meta.sidebarFilter = value;
   meta.modified = Date.now();
   void persist();
 }

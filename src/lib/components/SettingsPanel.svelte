@@ -140,6 +140,7 @@
                 Ctrl/Cmd + D: duplicate request · + Shift + Delete: delete request.
                 Ctrl/Cmd + Shift + N: new folder.
                 Ctrl/Cmd + Shift + H: response or connection history.
+                Ctrl/Cmd + Shift + P: pin/unpin request.
                 Ctrl/Cmd + \: toggle sidebar · + ': focus and select HTTP response.
               </p>
             </section>
