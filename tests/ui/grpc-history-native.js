@@ -4,6 +4,7 @@ import {withResourceProbePreserved, registerResourceProbeCollection, resourceSav
 
 assert.ok(process.env.INSOMNIUM_UI_BUILD_STATE);
 assert.ok(process.env.INSOMNIUM_UI_PROFILE_OWNERSHIP);
+const largeMessage = JSON.stringify({text:"Owned native gRPC message Ω ".repeat(5000)});
 await withResourceProbePreserved(async (capture) => {
   await withNativeApp("grpc-history-native", async ({page, invoke, output}) => {
     await resourceSaved(page);
@@ -27,6 +28,7 @@ await withResourceProbePreserved(async (capture) => {
       environmentId:data.activeEnvironmentId || null, connectionState:"closed", events:[{_id:"evt_"+label,kind:"message",text:JSON.stringify({label})}],
     }));
     history[0].events.push({_id:"evt_second",kind:"message",text:'{"second":true}'});
+    history[1].events[0].text = largeMessage;
     data.history.unshift(...history);
     await invoke("save_workspace", {data});
     await page.reload();
@@ -40,8 +42,23 @@ await withResourceProbePreserved(async (capture) => {
     await page.reload();
     await choice.waitFor();
     assert.equal(await choice.inputValue(), "grpc_owned_old");
+    await page.getByRole("button",{name:"Open complete gRPC message",exact:true}).click();
+    const reader = page.getByRole("dialog",{name:"Complete gRPC message",exact:true});
+    const editor = reader.locator(".CodeMirror");
+    await editor.waitFor();
+    assert.equal(await editor.evaluate((el) => /** @type {any} */ (el).CodeMirror.getValue()),largeMessage);
+    await editor.locator("textarea").focus();
+    await page.keyboard.type("must not edit");
+    assert.equal(await editor.evaluate((el) => /** @type {any} */ (el).CodeMirror.getValue()),largeMessage);
+    await page.keyboard.press("Control+End");
+    assert.equal(await editor.evaluate((el) => {
+      const cm = /** @type {any} */ (el).CodeMirror;
+      return cm.indexFromPos(cm.getCursor());
+    }),largeMessage.length);
+    await page.keyboard.press("Escape");
+    await reader.waitFor({state:"detached"});
     const saved = await invoke("load_workspace");
     assert.deepEqual(saved.history.filter((/** @type {any} */ r) => r.requestId === request._id), history);
-    await Bun.write(output + "/grpc-history-acceptance.json", JSON.stringify({passed:true,native:true,renderingMode:"native-hidden",mockedIpc:false,selectionReload:true,messageTabReset:true,historyUnchanged:true,clipboardTested:false,networkSend:false},null,2));
+    await Bun.write(output + "/grpc-history-acceptance.json", JSON.stringify({passed:true,native:true,renderingMode:"native-hidden",mockedIpc:false,selectionReload:true,messageTabReset:true,historyUnchanged:true,completeReadOnlyReader:true,tailNavigation:true,clipboardTested:false,networkSend:false},null,2));
   }, {expectedIdentifier:resourceCrudProbeIdentifier,profileOwnershipPath:process.env.INSOMNIUM_UI_PROFILE_OWNERSHIP});
 }, {expectedIdentifier:resourceCrudProbeIdentifier,profileOwnershipPath:process.env.INSOMNIUM_UI_PROFILE_OWNERSHIP,lazyCapture:true});
