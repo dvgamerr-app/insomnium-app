@@ -287,12 +287,16 @@ export function historyMatchesEnvironment(entry, settings, environmentId) {
  * Environment switching hides a selection without destroying its saved identity.
  * @param {Record<string,any>} data @returns {Record<string,string>} */
 export function validResponseSelections(data) {
-  return Object.fromEntries(Object.entries(/** @type {Record<string,string>} */ (data.responseSelections || {})).filter(([requestId,responseId]) =>
-    data.resources.some((/** @type {Resource} */ request) => request._id === requestId &&
-      ((request._type === "request" && protocolFor(request) === "http" && data.history.some((/** @type {Resource} */ entry) => entry.requestId === requestId && entry._id === responseId && !entry.protocol)) ||
-       (request._type === "request" && protocolFor(request) === "sse" && data.history.some((/** @type {Resource} */ entry) => entry.requestId === requestId && entry._id === responseId && entry.protocol === "sse")) ||
-       (request._type === "grpc_request" && data.history.some((/** @type {Resource} */ entry) => entry.requestId === requestId && entry._id === responseId && entry.protocol === "grpc")) ||
-       (request._type === "websocket_request" && data.history.some((/** @type {Resource} */ entry) => entry.requestId === requestId && entry._id === responseId && entry.protocol === "websocket"))))));
+  const protocols = new Map(data.resources
+    .filter((/** @type {Resource} */ request) => ["request", "grpc_request", "websocket_request"].includes(request._type))
+    .map((/** @type {Resource} */ request) => [request._id, protocolFor(request)]));
+  const saved = new Set(data.history
+    .filter((/** @type {Resource} */ entry) => !entry.protocol || ["sse", "grpc", "websocket"].includes(entry.protocol))
+    .map((/** @type {Resource} */ entry) =>
+    JSON.stringify([entry.requestId, entry._id, entry.protocol || "http"])));
+  return Object.fromEntries(Object.entries(/** @type {Record<string,string>} */ (data.responseSelections || {}))
+    .filter(([requestId,responseId]) => protocols.has(requestId) &&
+      saved.has(JSON.stringify([requestId,responseId,protocols.get(requestId)]))));
 }
 /** @param {Record<string,any>} data @param {string} requestId @param {string|null} environmentId */
 export function selectedWebSocketHistory(data, requestId, environmentId) {
