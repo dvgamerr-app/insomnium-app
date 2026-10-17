@@ -60,6 +60,12 @@
   flex-shrink: 0;
 }
 
+.schema-member-reference {
+  background: var(--selected);
+  color: inherit;
+  outline: 1px solid var(--accent);
+}
+
 .graphql-editor-column {
   flex: 1;
   min-height: 0;

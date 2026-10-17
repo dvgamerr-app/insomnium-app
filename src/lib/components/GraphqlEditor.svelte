@@ -17,6 +17,8 @@
   import {
     graphqlVariableTypes,
     graphqlReferenceType,
+    graphqlReferenceMember,
+    graphqlSchemaMemberRange,
     graphqlReferencedTypes,
     graphqlDirectiveText,
   } from "../graphql-editor.js";
@@ -53,7 +55,8 @@
   let search = $state("");
   let selectedType = $state("");
   let selectedDirective = $state("");
-  let navigation=$state(/** @type {{view:string,search:string,type:string,directive:string}[]} */([]));
+  let selectedMember=$state.raw(/** @type {ReturnType<typeof graphqlReferenceMember>} */(null));
+  let navigation=$state(/** @type {{view:string,search:string,type:string,directive:string,member:typeof selectedMember}[]} */([]));
   let content = $derived.by(() => {
     try {
       return { body: readGraphqlBody(request.body?.text || "{}"), error: "" };
@@ -75,9 +78,9 @@
       : null,
   );
   let schema = $derived(entry?.schema || null);
-  $effect(()=>{void schema;void request._id;navigation=[];});
+  $effect(()=>{void schema;void request._id;navigation=[];selectedMember=null;});
   function rememberNavigation(){
-    navigation=[...navigation.slice(-99),{view,search,type:type?.name||'',directive:selectedDirective}];
+    navigation=[...navigation.slice(-99),{view,search,type:type?.name||'',directive:selectedDirective,member:selectedMember}];
   }
   let schemaSearch = $state(/** @type {HTMLInputElement | undefined} */ (undefined));
   async function navigateBack(/** @type {MouseEvent & {currentTarget: HTMLButtonElement}} */ event){
@@ -86,7 +89,7 @@
     const previous=navigation.at(-1);
     if(!previous)return;
     navigation=navigation.slice(0,-1);
-    view=previous.view;search=previous.search;selectedType=previous.type;selectedDirective=previous.directive;
+    view=previous.view;search=previous.search;selectedType=previous.type;selectedDirective=previous.directive;selectedMember=previous.member;
     await tick();
     if (restoreFocus && !button.isConnected && document.activeElement === document.body) {
       schemaSearch?.focus();
@@ -105,6 +108,7 @@
       schema?.getDirective(reference.directive.name)
     ) {
       rememberNavigation();
+      selectedMember=graphqlReferenceMember(reference);
       selectedDirective = reference.directive.name;
       search = "";
       view = "Schema";
@@ -113,6 +117,7 @@
     const name = graphqlReferenceType(reference);
     if (!name || !schema?.getType(name)) return;
     rememberNavigation();
+    selectedMember=graphqlReferenceMember(reference);
     search = "";
     selectedDirective = "";
     selectedType = name;
@@ -162,6 +167,17 @@
     ),
   );
   const referencedTypes = $derived(graphqlReferencedTypes(directive || type, schema));
+  const schemaDefinition=$derived(directive?graphqlDirectiveText(directive):type?printType(type):'No matching types');
+  const memberRange=$derived(selectedMember?.owner===(directive?'directive:'+directive.name:'type:'+type?.name)
+    ? graphqlSchemaMemberRange(schemaDefinition,selectedMember,directive?.description?directive.description.length+2:0):null);
+  let definitionElement=$state(/** @type {HTMLPreElement|undefined} */(undefined));
+  $effect(()=>{
+    const range=memberRange,element=definitionElement;
+    if(range&&element)void tick().then(()=>{
+      if(!disposed&&range===memberRange&&element.isConnected)
+        element.querySelector('mark')?.scrollIntoView({block:'nearest',inline:'nearest'});
+    });
+  });
   function change(/** @type {Record<string, any>} */ patch) {
     if (content.error) return;
     onchange({
@@ -448,6 +464,7 @@
             value={directive ? "" : type?.name || ""}
             onchange={(event) => {
               rememberNavigation();
+              selectedMember=null;
               selectedType = event.currentTarget.value;
               selectedDirective = "";
             }}
@@ -460,6 +477,7 @@
             value={directive?.name || ""}
             onchange={(event) => {
               rememberNavigation();
+              selectedMember=null;
               selectedDirective = event.currentTarget.value;
             }}
           >
@@ -481,11 +499,7 @@
           {/if}
         </div>
       {/snippet}{#snippet second()}
-        <pre class="schema-definition">{directive
-            ? graphqlDirectiveText(directive)
-            : type
-              ? printType(type)
-              : "No matching types"}</pre>
+        <pre bind:this={definitionElement} class="schema-definition">{#if memberRange}{schemaDefinition.slice(0,memberRange.start)}<mark class="schema-member-reference">{schemaDefinition.slice(memberRange.start,memberRange.end)}</mark>{schemaDefinition.slice(memberRange.end)}{:else}{schemaDefinition}{/if}</pre>
       {/snippet}</SplitPane
     >
   {:else}

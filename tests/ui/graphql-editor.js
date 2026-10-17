@@ -13,6 +13,29 @@ import {withComponentFixture} from './helpers/component-fixture.js';
 
 if(process.env.INSOMNIUM_GRAPHQL_NAVIGATION==='1'){
   await withComponentFixture('graphql-navigation',async(page,output)=>{
+    for(const [kind,expected] of [['field','user'],['argument','id'],['enum','ADMIN'],['directiveArgument','level']]){
+      await page.getByRole('button',{name:'Query',exact:true}).click();
+      const query=page.locator('.shared-code-editor').filter({has:page.locator('textarea[aria-label="GraphQL query"]')}).locator('.CodeMirror');
+      await query.waitFor();
+      await query.evaluate((element,kind)=>{
+        const options=/** @type {any} */(element).CodeMirror.getOption('jump'),schema=options.schema;
+        const type=schema.getQueryType(),field=type.getFields().user;
+        options.onClick(kind==='field'?{kind:'Field',type,field}
+          :kind==='argument'?{kind:'Argument',type,field,argument:field.args[0]}
+          :kind==='enum'?{kind:'EnumValue',type:schema.getType('Role'),value:schema.getType('Role').getValues()[0]}
+          :{kind:'Argument',directive:schema.getDirective('trace'),argument:schema.getDirective('trace').args[0]});
+      },kind);
+      const mark=page.locator('.schema-member-reference');
+      await mark.waitFor();assert.equal(await mark.textContent(),expected);
+      if(kind==='field'){
+        await page.getByRole('navigation',{name:'Referenced schema types'}).getByRole('button',{name:'User',exact:true}).click();
+        await mark.waitFor({state:'detached'});
+        await page.getByRole('button',{name:'Back in schema navigation'}).click();
+        await mark.waitFor();assert.equal(await mark.textContent(),'user','Back restores the exact field target');
+      }
+      await page.getByRole('button',{name:'Back in schema navigation'}).click();
+      await mark.waitFor({state:'detached'});
+    }
     await page.getByRole('button',{name:'Schema',exact:true}).click();
     const search=page.getByRole('textbox',{name:'Search schema types and fields',exact:true});
     await search.fill('Query');

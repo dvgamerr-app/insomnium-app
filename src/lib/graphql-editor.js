@@ -40,6 +40,36 @@ export function graphqlReferenceType(reference) {
   return isType(type) ? getNamedType(type).name : "";
 }
 
+/** Keep navigation history independent from cyclic GraphQL schema objects.
+ * @param {any} reference */
+export function graphqlReferenceMember(reference){
+  const field=reference?.field?.name||'',argument=reference?.argument?.name||'';
+  const enumValue=reference?.kind==='EnumValue'?reference.value?.name||'':'';
+  if(!field&&!argument&&!enumValue)return null;
+  const owner=reference?.directive
+    ? 'directive:'+reference.directive.name : 'type:'+graphqlReferenceType(reference);
+  return {owner,field,argument,enumValue};
+}
+
+/** Locate a referenced member in the displayed SDL using AST positions, so
+ * descriptions and repeated names cannot select the wrong occurrence.
+ * @param {string} definition @param {ReturnType<typeof graphqlReferenceMember>} member
+ * @param {number} [prefix] */
+export function graphqlSchemaMemberRange(definition,member,prefix=0){
+  if(!member)return null;
+  try{
+    const node=/** @type {any} */(parse(definition.slice(prefix),{maxTokens:10000}).definitions[0]);
+    const field=member.field?node.fields?.find((/** @type {any} */item)=>item.name.value===member.field):undefined;
+    const target=member.argument
+      ? (field?.arguments||node.arguments)?.find((/** @type {any} */item)=>item.name.value===member.argument)
+      : member.enumValue
+        ? node.values?.find((/** @type {any} */item)=>item.name.value===member.enumValue)
+        : field;
+    const location=target?.name?.loc;
+    return location?{start:prefix+location.start,end:prefix+location.end}:null;
+  }catch{return null;}
+}
+
 /** Direct schema links, unwrapping lists/non-null and deduplicating names.
  * @param {import('graphql').GraphQLNamedType|import('graphql').GraphQLDirective|undefined} owner
  * @param {import('graphql').GraphQLSchema|null} [schema] */

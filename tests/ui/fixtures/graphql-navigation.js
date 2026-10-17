@@ -10,7 +10,7 @@ const request=workspace.data.resources.find(r=>r._type==='request');
 if(!request)throw Error('Missing fixture request');
 request.body={mimeType:'application/graphql',text:JSON.stringify({query:'{ user { id } }'})};
 request.url=location.origin+'/held-schema';
-const schema='type Query { user: User } type User { id: ID!, friend: User }';
+const schema='directive @trace(level: Int = 1) on FIELD enum Role { ADMIN READER } "user id appear in this description" type Query { user(id: ID): User } type User { id: ID!, friend: User }';
 cacheSchema(request._id,readSchema(schema),'local','Fixture');
 mount(GraphqlEditor,{target:document.body,props:{request,onchange:()=>{}}});
 /** @type {any} */(window).replaceNavigationSchema=()=>cacheSchema(request._id,readSchema('type Query { next: String }'),'local','Replacement');
