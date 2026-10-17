@@ -24,6 +24,32 @@ const integerRanges = {
   unsignedLong:[0n,18446744073709551615n],
 };
 const numericFacets = ['minInclusive','minExclusive','maxInclusive','maxExclusive','totalDigits','fractionDigits'];
+const stringFacets = ['length','minLength','maxLength','whiteSpace'];
+/** Inline simpleType is a base declaration, not a constraining facet.
+ * @param {any} restriction @returns {any[]} */
+function restrictionFacets(restriction) {
+  return children(restriction,XSD).filter(child=>!['annotation','simpleType'].includes(child.localName));
+}
+/** @param {any} restriction @param {[bigint,bigint|null]|null} range
+ * @returns {[bigint,bigint|null]|null} */
+function stringRestrictionRange(restriction,range) {
+  const facets = restrictionFacets(restriction);
+  if (!range || facets.some(child=>!stringFacets.includes(child.localName))) return null;
+  let [min,max] = range;
+  for (const facet of facets) {
+    const text = (facet.getAttribute('value') || '').trim();
+    if (facet.localName === 'whiteSpace') {
+      if (!['preserve','replace','collapse'].includes(text)) throw new Error('Invalid WSDL whiteSpace facet.');
+      continue;
+    }
+    if (!/^\+?\d{1,128}$/.test(text)) throw new Error('WSDL string lengths require nonnegative decimal integers.');
+    const value = BigInt(text);
+    if (facet.localName !== 'maxLength') min = value > min ? value : min;
+    if (facet.localName !== 'minLength') max = max === null || value < max ? value : max;
+  }
+  if (max !== null && min > max) throw new Error('WSDL length restriction has no valid example length.');
+  return [min,max];
+}
 /** @param {any} facet */
 function digitFacet(facet) {
   const text = (facet.getAttribute('value') || '').trim();
@@ -35,7 +61,7 @@ function digitFacet(facet) {
 /** @param {any} restriction @param {[bigint|null,bigint|null]|null} range
  * @returns {[bigint|null,bigint|null]|null} */
 function integerRestrictionRange(restriction,range) {
-  const facets = children(restriction,XSD).filter(child=>child.localName !== 'annotation');
+  const facets = restrictionFacets(restriction);
   if (!range || facets.some(child=>!numericFacets.includes(child.localName))) return null;
   let [min,max] = range;
   for (const facet of facets) {
@@ -176,20 +202,34 @@ export function wsdlResources(text,options = {}) {
   function enter(depth) {
     if (depth > 32 || ++generated > 10000) throw new Error('WSDL example exceeds generation limits.');
   }
+  /** @param {any} context @param {string} name @param {boolean} [complex]
+   * @returns {{node:any,builtin:string}} */
+  function resolveTextType(context,name,complex=false) {
+    if (context.namespaceURI === XSD && context.localName === 'restriction') {
+      const inline = children(context,XSD,'simpleType');
+      if (!context.hasAttribute('base')) {
+        if (inline.length !== 1) throw new Error('WSDL restriction requires one named or inline base type.');
+        return {node:inline[0],builtin:''};
+      }
+      if (inline.length) throw new Error('WSDL restriction cannot combine named and inline base types.');
+    }
+    const key = qname(context,name || '');
+    if (key.startsWith(XSD+'#')) return {node:null,builtin:key.slice(XSD.length+1)};
+    const found = schemas.get('simpleType:'+key) || (complex && schemas.get('complexType:'+key));
+    if (!found) throw new Error('Unresolved WSDL text base type.');
+    return {node:found.node,builtin:''};
+  }
   /** Resolve every named base before applying a derived restriction. The same
    * generation guard rejects cycles across selected schema documents.
    * @param {any} context @param {string} name @param {number} depth
    * @returns {[bigint|null,bigint|null]|null} */
   function integerTypeRange(context,name,depth) {
     enter(depth);
-    const key = qname(context,name);
-    if (key.startsWith(XSD+'#')) {
-      const builtin = key.slice(XSD.length+1);
+    const {node,builtin} = resolveTextType(context,name);
+    if (builtin) {
       return Object.hasOwn(integerRanges,builtin) ? integerRanges[builtin] : null;
     }
-    const found = schemas.get('simpleType:'+key);
-    if (!found) throw new Error('Unresolved WSDL integer base type.');
-    const restriction = children(found.node,XSD,'restriction')[0];
+    const restriction = children(node,XSD,'restriction')[0];
     if (!restriction) return null;
     return integerRestrictionRange(restriction,
       integerTypeRange(restriction,restriction.getAttribute('base') || '',depth+1));
@@ -198,43 +238,89 @@ export function wsdlResources(text,options = {}) {
    * @returns {any[]|null} */
   function decimalTypeFacets(context,name,depth) {
     enter(depth);
-    const key = qname(context,name);
-    if (key.startsWith(XSD+'#')) return key === XSD+'#decimal' ? [] : null;
-    const found = schemas.get('simpleType:'+key);
-    if (!found) throw new Error('Unresolved WSDL decimal base type.');
-    const restriction = children(found.node,XSD,'restriction')[0];
+    const {node,builtin} = resolveTextType(context,name);
+    if (builtin) return builtin === 'decimal' ? [] : null;
+    const restriction = children(node,XSD,'restriction')[0];
     if (!restriction) return null;
-    const own = children(restriction,XSD).filter(child=>child.localName !== 'annotation');
+    const own = restrictionFacets(restriction);
     if (own.some(child=>!numericFacets.includes(child.localName))) return null;
     const inherited = decimalTypeFacets(restriction,restriction.getAttribute('base') || '',depth+1);
     if (inherited === null) return null;
     if (own.length+inherited.length > 10000) throw new Error('WSDL decimal facets exceed generation limits.');
     return [...inherited,...own];
   }
+  /** @param {any} context @param {string} name @param {number} depth
+   * @returns {[bigint,bigint|null]|null} */
+  function stringTypeRange(context,name,depth) {
+    enter(depth);
+    const {node,builtin} = resolveTextType(context,name);
+    if (builtin) return ['string','normalizedString','token','anyURI'].includes(builtin) ? [0n,null] : null;
+    const restriction = children(node,XSD,'restriction')[0];
+    if (!restriction) return null;
+    return stringRestrictionRange(restriction,
+      stringTypeRange(restriction,restriction.getAttribute('base') || '',depth+1));
+  }
+  /** @param {any} restriction @param {string} [kind] */
+  function checkCollapsedWhitespace(restriction,kind='list') {
+    if (children(restriction,XSD,'whiteSpace').some(facet=>(facet.getAttribute('value') || '').trim() !== 'collapse'))
+      throw new Error(`WSDL ${kind} whiteSpace must remain collapse.`);
+  }
+  /** @param {any} context @param {string} name @param {number} depth
+   * @returns {{type:any,min:bigint,max:bigint|null,item?:string}|null} */
+  function listTypeInfo(context,name,depth) {
+    enter(depth);
+    const {node,builtin} = resolveTextType(context,name);
+    if (builtin) return ['NMTOKENS','IDREFS','ENTITIES'].includes(builtin)
+      ? {type:null,min:1n,max:null,item:'string'} : null;
+    if (children(node,XSD,'list').length) return {type:node,min:0n,max:null};
+    const restriction = children(node,XSD,'restriction')[0];
+    if (!restriction) return null;
+    const base = listTypeInfo(restriction,restriction.getAttribute('base') || '',depth+1);
+    if (!base) return null;
+    checkCollapsedWhitespace(restriction);
+    const range = stringRestrictionRange(restriction,[base.min,base.max]);
+    return range ? {...base,min:range[0],max:range[1]} : null;
+  }
+  /** @param {any} context @param {string} name @param {number} depth
+   * @returns {{encoding:string,min:bigint,max:bigint|null}|null} */
+  function binaryTypeInfo(context,name,depth) {
+    enter(depth);
+    const {node,builtin:encoding} = resolveTextType(context,name);
+    if (encoding) {
+      return ['hexBinary','base64Binary'].includes(encoding) ? {encoding,min:0n,max:null} : null;
+    }
+    const restriction = children(node,XSD,'restriction')[0];
+    if (!restriction) return null;
+    const base = binaryTypeInfo(restriction,restriction.getAttribute('base') || '',depth+1);
+    if (!base) return null;
+    checkCollapsedWhitespace(restriction,'binary');
+    const range = stringRestrictionRange(restriction,[base.min,base.max]);
+    return range ? {...base,min:range[0],max:range[1]} : null;
+  }
+  /** @param {any} list @param {number} depth @returns {string} */
+  function listItem(list,depth) {
+    enter(depth);
+    const inline = children(list,XSD,'simpleType');
+    const item = list.getAttribute('itemType');
+    if ((!!item ? 1 : 0) + inline.length !== 1 ||
+        children(list,XSD).some(child=>!['annotation','simpleType'].includes(child.localName)))
+      throw new Error('WSDL list requires one named or inline item type.');
+    const value = item ? textType(list,item,depth+1,true) : textValue(inline[0],depth+1);
+    if (/[\x20\t\r\n]/.test(value)) throw new Error('WSDL list item example contains whitespace; author the example manually.');
+    return value;
+  }
   /** @param {any} context @param {string} name @param {number} depth @returns {string} */
   function textType(context,name,depth,simpleOnly=false) {
     enter(depth);
-    const key = qname(context,name);
-    if (key.startsWith(XSD+'#')) return builtinSample(key.slice(XSD.length+1));
-    const found = schemas.get('simpleType:'+key) || (!simpleOnly && schemas.get('complexType:'+key));
-    if (!found) throw new Error('Unresolved WSDL text type.');
-    return textValue(found.node,depth+1);
+    const {node,builtin} = resolveTextType(context,name,!simpleOnly);
+    return builtin ? builtinSample(builtin) : textValue(node,depth+1);
   }
   /** @param {any} type @param {number} depth @returns {string} */
   function textValue(type,depth) {
     enter(depth);
     const list = children(type,XSD,'list')[0];
     if (list) {
-      const inline = children(list,XSD,'simpleType');
-      const item = list.getAttribute('itemType');
-      if ((!!item ? 1 : 0) + inline.length !== 1 ||
-          children(list,XSD).some(child=>!['annotation','simpleType'].includes(child.localName)))
-        throw new Error('WSDL list requires one named or inline item type.');
-      const value = item ? textType(list,item,depth+1,true) : textValue(inline[0],depth+1);
-      // One example item is sufficient; whitespace inside that item would
-      // change its lexical meaning into several list items.
-      if (/[\x20\t\r\n]/.test(value)) throw new Error('WSDL list item example contains whitespace; author the example manually.');
-      return bounded(value);
+      return bounded(listItem(list,depth+1));
     }
     const union = children(type,XSD,'union')[0];
     if (union) {
@@ -248,9 +334,10 @@ export function wsdlResources(text,options = {}) {
     }
     const restriction = children(type,XSD,'restriction')[0];
     if (restriction) {
+      resolveTextType(restriction,restriction.getAttribute('base') || '');
       const enumeration = children(restriction,XSD,'enumeration')[0];
       if (enumeration) return enumeration.getAttribute('value') || '';
-      if (children(restriction,XSD).some(child=>child.localName !== 'annotation')) {
+      if (restrictionFacets(restriction).length) {
         const range = integerRestrictionRange(restriction,
           integerTypeRange(restriction,restriction.getAttribute('base') || '',depth+1));
         if (range !== null) {
@@ -260,12 +347,50 @@ export function wsdlResources(text,options = {}) {
           if (max !== null && value > max) value = max;
           return String(value);
         }
-        const own = children(restriction,XSD).filter(child=>child.localName !== 'annotation');
+        const own = restrictionFacets(restriction);
         if (own.every(child=>numericFacets.includes(child.localName))) {
           const inherited = decimalTypeFacets(restriction,restriction.getAttribute('base') || '',depth+1);
           if (inherited !== null) {
             if (own.length+inherited.length > 10000) throw new Error('WSDL decimal facets exceed generation limits.');
             return decimalRestrictionSample([...inherited,...own]);
+          }
+        }
+        if (own.every(child=>stringFacets.includes(child.localName))) {
+          const range = stringRestrictionRange(restriction,
+            stringTypeRange(restriction,restriction.getAttribute('base') || '',depth+1));
+          if (range !== null) {
+            const [min,max] = range;
+            let length = min > 6n ? min : 6n;
+            if (max !== null && length > max) length = max;
+            if (length > 8n*1024n*1024n) throw new Error('WSDL string example exceeds 8 MiB.');
+            // ASCII has identical XML-character and UTF8 lengths and satisfies
+            // preserve/replace/collapse without introducing whitespace.
+            return bounded('x'.repeat(Number(length)));
+          }
+          const list = listTypeInfo(restriction,restriction.getAttribute('base') || '',depth+1);
+          if (list) {
+            checkCollapsedWhitespace(restriction);
+            const range = stringRestrictionRange(restriction,[list.min,list.max]);
+            if (!range) throw new Error('Unsupported WSDL list restriction.');
+            const [min,max] = range;
+            let count = min > 1n ? min : 1n;
+            if (max !== null && count > max) count = max;
+            const item = list.item ?? listItem(children(list.type,XSD,'list')[0],depth+1);
+            if (count === 0n) return '';
+            if (!item) throw new Error('WSDL nonempty list requires a nonempty item example.');
+            const cost = count*BigInt(encoder.encode(escape(item)).byteLength+1)-1n;
+            if (cost > 8n*1024n*1024n) throw new Error('WSDL list example exceeds 8 MiB.');
+            return bounded((item+' ').repeat(Number(count-1n))+item);
+          }
+          const binary = binaryTypeInfo(restriction,restriction.getAttribute('base') || '',depth+1);
+          if (binary) {
+            checkCollapsedWhitespace(restriction,'binary');
+            const range = stringRestrictionRange(restriction,[binary.min,binary.max]);
+            if (!range) throw new Error('Unsupported WSDL binary restriction.');
+            const count = range[0];
+            const cost = binary.encoding === 'hexBinary' ? 2n*count : 4n*((count+2n)/3n);
+            if (cost > 8n*1024n*1024n) throw new Error('WSDL binary example exceeds 8 MiB.');
+            return bounded(binary.encoding === 'hexBinary' ? '00'.repeat(Number(count)) : btoa('\0'.repeat(Number(count))));
           }
         }
         throw new Error('WSDL simple-type restrictions require manual example authoring.');

@@ -29,7 +29,7 @@ inputs.push({name:'OwnedSOAP',source:{},body:'<soap:Envelope xmlns:soap="http://
 <xsd:simpleType name="Choice"><xsd:union><xsd:simpleType><xsd:restriction base="xsd:string"><xsd:enumeration value="owned&amp;item"/></xsd:restriction></xsd:simpleType></xsd:union></xsd:simpleType>
 <xsd:simpleType name="Tokens"><xsd:list itemType="tns:Choice"/></xsd:simpleType>
 <xsd:simpleType name="CountBase"><xsd:restriction base="xsd:long"><xsd:minExclusive value="9007199254740993"/></xsd:restriction></xsd:simpleType>
-<xsd:simpleType name="Count"><xsd:restriction base="tns:CountBase"><xsd:maxInclusive value="9007199254740994"/><xsd:totalDigits value="16"/><xsd:fractionDigits value="0"/></xsd:restriction></xsd:simpleType>
+<xsd:simpleType name="Count"><xsd:restriction><xsd:simpleType><xsd:restriction base="tns:CountBase"/></xsd:simpleType><xsd:maxInclusive value="9007199254740994"/><xsd:totalDigits value="16"/><xsd:fractionDigits value="0"/></xsd:restriction></xsd:simpleType>
 <xsd:simpleType name="MoneyBase"><xsd:restriction base="xsd:decimal"><xsd:minExclusive value="1"/><xsd:maxExclusive value="1.02"/></xsd:restriction></xsd:simpleType>
 <xsd:simpleType name="Money"><xsd:restriction base="tns:MoneyBase"><xsd:fractionDigits value="2"/><xsd:totalDigits value="3"/></xsd:restriction></xsd:simpleType>
 </xsd:schema></wsdl:types>
@@ -107,7 +107,7 @@ async function runImports(page, output, options = {}) {
   const soap = imported(data,'OwnedSOAP');
   assert.equal(soap.headers.find((/** @type {any} */ h)=>h.name==='SOAPAction').value,'"urn:echo"');
   assert.equal(imported(data,'Owned WSDL')._wsdlSource,inputs.at(-1)?.text);
-  const receipt = {status:"passed",renderingMode:options.read ? "native-hidden" : "headless",mockedIpc:false,scope:"Actual UI review/apply/reload and storage; no file chooser or network",formats:[1,2,"hoppscotch-v2","har","postman","wsdl-soap11"],bodyTextPreserved:true,folderEnvironment:true,harSourceAndCookies:true,postmanActiveBodyMode:true,wsdlHeaderInheritanceGroupsAttributesAndSimpleContent:true,wsdlListsUnionsAndInheritedNumericDigits:true};
+  const receipt = {status:"passed",renderingMode:options.read ? "native-hidden" : "headless",mockedIpc:false,scope:"Actual UI review/apply/reload and storage; no file chooser or network",formats:[1,2,"hoppscotch-v2","har","postman","wsdl-soap11"],bodyTextPreserved:true,folderEnvironment:true,harSourceAndCookies:true,postmanActiveBodyMode:true,wsdlHeaderInheritanceGroupsAttributesAndSimpleContent:true,wsdlListsUnionsAndInheritedNumericDigits:true,wsdlInlineRestrictionBase:true};
   await Bun.write(output + "/import-acceptance.json",JSON.stringify(receipt,null,2));
   return receipt;
 }
