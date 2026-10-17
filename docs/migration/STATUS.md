@@ -1,5 +1,17 @@
 # Migration status
 
+## Git empty Clone naming — 2026-10-17
+
+Source parentf39d726b. Fixed planGitClone default-name derivation that threw URIError for remote paths accepted by normalizeGitRemoteUrl but not decodable as UTF8. gitCloneName safely retains encoded path text for invalid percent/UTF8 or decoded controls and uses a nonempty generic fallback for .git-only/root names. Existing explicit-name precedence and native receipts/install transaction untouched. Direct Bun actual planGitClone controls pass normal/Thai/%FF/lone-percent/encoded-NUL/empty-basename/root inputs, expected names and exact source-data preservation. Final compiler0errors0warnings then sequential build0. No new tests/scripts/native build/network/profile/clipboard operation; real stage/install/provider/recovery/platform and broader Git/PLAN/PARITY remain open. No owned live handles. Topic commit follows; /compact unavailable, handoff recorded.
+
+
+
+## gRPC response decompression — 2026-10-17
+
+Source parent5e29ab97. Calls now accept gzip+deflate; reflection Driver::open enables both algorithms for v1/v1alpha. Uses existing Tonic deflate feature/flate2 dependency, unchanged Cargo.lock/package versions and20MiB message/8MiB schema limits. Published @grpc/grpc-js1.14.4 source read via Bun confirms legacy identity/deflate/gzip behavior; official Tonic docs/source consulted (links in GRPC.md). Existing owned HTTP2 call test extends three status shapes with real compressed protobuf value=owned for zlib-deflate and gzip, checks advertisement, exact decoded value and terminal metadata. Exact status_tests::call_preserves_status_messages_over_http2:1pass/91filtered/runtime0.02s/compile41s; cargo check --locked0 (~10s), rustfmt applied, five existing eventsource-stream warnings. No new runner/files/native release build/clipboard/profile changes. Reflection compressed-wire, other RPC/JSON modes, decompressed limits/cancellation/WebView/provider/platform and broader PLAN/PARITY remain open; latest native executable predates this fix. No owned live handles. Topic commit follows; /compact unavailable, handoff recorded.
+
+
+
 ## gRPC successful status details — 2026-10-17
 
 Bounded HTTP2 acceptance (parentef690065): tests only; no additional product edit. Existing grpc_transport.rs status_tests now runs production call against owned in-process Hyper HTTP2 peers for unary+OK trailer, server-stream trailers-only OK and immediate trailers-only PermissionDenied. Exact request path/empty protobuf frame, response count, percent-decoded Thai/+/% details, terminal status code and duplicate metadata rows pass. Owned server handles abort/join before result assertions. Exact --lib grpc_transport::status_tests::call_preserves_status_messages_over_http2:1pass/91filtered/runtime0.01s/compile28s; rustfmt applied, five existing eventsource-stream warnings. No new script/files/native release build/full matrix/clipboard/profile changes. This closes only the bounded HTTP2 routing/trailers-only follow-up for ef690065, not WebView/IPC/history/compression/deadline/cancellation/provider/platform/full gRPC or PLAN/PARITY gates. Latest native executable still predates production fix. No owned live handles. Topic commit follows; /compact unavailable, handoff recorded.

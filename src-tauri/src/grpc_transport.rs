@@ -226,7 +226,8 @@ where
     let mut client = tonic::client::Grpc::new(channel)
         .max_decoding_message_size(MAX_MESSAGE)
         .max_encoding_message_size(MAX_MESSAGE)
-        .accept_compressed(tonic::codec::CompressionEncoding::Gzip);
+        .accept_compressed(tonic::codec::CompressionEncoding::Gzip)
+        .accept_compressed(tonic::codec::CompressionEncoding::Deflate);
     client
         .ready()
         .await
@@ -341,6 +342,7 @@ mod status_tests {
     use hyper_util::rt::{TokioExecutor, TokioIo};
     use std::{
         convert::Infallible,
+        io::Write,
         sync::{Arc, Mutex},
     };
 
@@ -379,11 +381,11 @@ mod status_tests {
             entry: "status.proto".into(),
             files: vec![grpc_schema::ProtoFile {
                 name: "status.proto".into(),
-                text: "syntax=\"proto3\"; package owned; message Payload {} service Status { rpc Echo(Payload) returns(Payload); rpc Watch(Payload) returns(stream Payload); }".into(),
+                text: "syntax=\"proto3\"; package owned; message Payload { string value = 1; } service Status { rpc Echo(Payload) returns(Payload); rpc Watch(Payload) returns(stream Payload); }".into(),
             }],
             include_paths: vec![],
         }).unwrap();
-        for shape in 0..3 {
+        for shape in 0..5 {
             let method_name = if shape == 1 { "Watch" } else { "Echo" };
             let method = pool
                 .get_service_by_name("owned.Status")
@@ -418,6 +420,14 @@ mod status_tests {
                     let trailers = trailers.clone();
                     async move {
                         assert_eq!(request.uri().path(), format!("/owned.Status/{method_name}"));
+                        let accepted = request
+                            .headers()
+                            .get("grpc-accept-encoding")
+                            .unwrap()
+                            .to_str()
+                            .unwrap();
+                        assert!(accepted.split(',').any(|encoding| encoding == "deflate"));
+                        assert!(accepted.split(',').any(|encoding| encoding == "gzip"));
                         assert_eq!(
                             request
                                 .into_body()
@@ -428,11 +438,33 @@ mod status_tests {
                                 .as_ref(),
                             &[0, 0, 0, 0, 0]
                         );
-                        let frames = if shape == 0 {
+                        let payload = b"\x0a\x05owned";
+                        let (encoded, encoding) = match shape {
+                            3 => {
+                                let mut encoder = flate2::write::ZlibEncoder::new(
+                                    Vec::new(),
+                                    flate2::Compression::default(),
+                                );
+                                encoder.write_all(payload).unwrap();
+                                (encoder.finish().unwrap(), Some("deflate"))
+                            }
+                            4 => {
+                                let mut encoder = flate2::write::GzEncoder::new(
+                                    Vec::new(),
+                                    flate2::Compression::default(),
+                                );
+                                encoder.write_all(payload).unwrap();
+                                (encoder.finish().unwrap(), Some("gzip"))
+                            }
+                            _ => (payload.to_vec(), None),
+                        };
+                        let mut frame = vec![u8::from(encoding.is_some())];
+                        frame.extend_from_slice(&(encoded.len() as u32).to_be_bytes());
+                        frame.extend_from_slice(&encoded);
+                        let trailers_only = matches!(shape, 1 | 2);
+                        let frames = if !trailers_only {
                             vec![
-                                Ok::<_, Infallible>(Frame::data(Bytes::from_static(&[
-                                    0, 0, 0, 0, 0,
-                                ]))),
+                                Ok::<_, Infallible>(Frame::data(Bytes::from(frame))),
                                 Ok(Frame::trailers(trailers.clone())),
                             ]
                         } else {
@@ -443,7 +475,12 @@ mod status_tests {
                         response
                             .headers_mut()
                             .insert("content-type", "application/grpc".parse().unwrap());
-                        if shape != 0 {
+                        if let Some(encoding) = encoding {
+                            response
+                                .headers_mut()
+                                .insert("grpc-encoding", encoding.parse().unwrap());
+                        }
+                        if trailers_only {
                             response.headers_mut().extend(trailers);
                         }
                         Ok::<_, Infallible>(response)
@@ -492,8 +529,17 @@ mod status_tests {
                     .iter()
                     .filter(|event| event["kind"] == "message")
                     .count(),
-                if shape == 0 { 1 } else { 0 }
+                if matches!(shape, 1 | 2) { 0 } else { 1 }
             );
+            if !matches!(shape, 1 | 2) {
+                let data = events
+                    .iter()
+                    .find(|event| event["kind"] == "message")
+                    .unwrap();
+                let body: serde_json::Value =
+                    serde_json::from_str(data["text"].as_str().unwrap()).unwrap();
+                assert_eq!(body["value"], "owned");
+            }
             let terminal = events.last().unwrap();
             assert_eq!(terminal["kind"], "status");
             assert_eq!(terminal["code"], code as i32);

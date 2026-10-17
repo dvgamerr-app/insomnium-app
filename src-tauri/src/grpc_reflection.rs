@@ -161,7 +161,9 @@ impl Driver {
     async fn open(channel: Channel, config: &Connection, version: &str) -> Result<Self, Status> {
         let mut client = tonic::client::Grpc::new(channel)
             .max_decoding_message_size(MAX_SCHEMA)
-            .max_encoding_message_size(MAX_SCHEMA);
+            .max_encoding_message_size(MAX_SCHEMA)
+            .accept_compressed(tonic::codec::CompressionEncoding::Gzip)
+            .accept_compressed(tonic::codec::CompressionEncoding::Deflate);
         client
             .ready()
             .await

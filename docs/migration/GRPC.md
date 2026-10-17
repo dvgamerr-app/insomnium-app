@@ -1,5 +1,13 @@
 # GRPC migration
 
+## gRPC gzip/deflate response compatibility — 2026-10-17
+
+Enabled the existing Tonic0.14.6 deflate feature and accept_compressed(Deflate) alongside gzip for application calls. Reflection Driver::open now accepts both gzip and deflate for v1/v1alpha sessions using the same configured client. Existing decoded limits remain20MiB for messages/8MiB for schema, and outbound messages keep their existing identity encoding. Cargo.lock/package versions are unchanged; flate2 was already present. Archive package manifest declares @grpc/grpc-js^1.14.4; published1.14.4 compression-filter.js was read without execution through Bun fetch and confirms identity/deflate/gzip advertisement and zlib inflate. Official Tonic feature API: https://docs.rs/tonic/0.14.6/tonic/codec/enum.CompressionEncoding.html . Published source: https://cdn.jsdelivr.net/npm/@grpc/grpc-js@1.14.4/build/src/compression-filter.js (web opener unavailable, direct read succeeded).
+
+Extended the same owned HTTP2 call regression with actual zlib-wrapped deflate and gzip protobuf frames carrying value=owned. Peer verifies advertised algorithms; real production call emits the exact decoded field, expected status/details and duplicate metadata. Prior identity unary/trailers-only OK/error shapes retain coverage: five shapes in one exact test. cargo test --manifest-path src-tauri/Cargo.toml --locked --lib grpc_transport::status_tests::call_preserves_status_messages_over_http2 -- --exact passes1test/91filtered/runtime0.02s/compile41s. cargo check --locked passes (~10s), rustfmt applied; five existing eventsource-stream warnings. No new test files/scripts/native release build or clipboard/profile changes. Actual compressed reflection wire, other RPC/JSON modes, decompressed-limit/cancellation/provider/WebView/platform and complete gRPC parity remain open; current test uses ProtoJSON unary compressed responses.
+
+
+
 ## Successful status details — 2026-10-17
 
 HTTP2 transport follow-up (parentef690065): one maintained Rust regression in the existing status_tests module now invokes the real grpc_transport::call against owned loopback HTTP2 peers, reusing the existing Hyper/Tonic test pattern. Three bounded shapes pass: unary empty-protobuf response plus final OK trailers; zero-message server-streaming trailers-only OK; immediate trailers-only PermissionDenied. Each peer verifies exact request method path and framed empty protobuf input. Terminal events retain the exact percent-decoded Thai/plus/percent message, expected code and separate duplicate metadata rows; only the unary case emits one message. Owned peers are aborted/joined before assertions on the result. No external service, OS clipboard or profile mutation.

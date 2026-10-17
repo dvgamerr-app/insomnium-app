@@ -1,5 +1,13 @@
 # GIT migration
 
+## Empty Clone display-name fallback — 2026-10-17
+
+planGitClone no longer lets decodeURIComponent reject an accepted remote URL while naming a new empty-repository collection. gitCloneName decodes valid UTF8 paths, preserves encoded display text for malformed UTF8/percent sequences or decoded control characters, strips the .git display suffix and supplies Cloned repository for an empty name. Explicit user names keep their existing precedence. Remote URLs, native repository paths, receipts and install coordination are unchanged.
+
+Direct Bun checks pass seven inputs through normalizeGitRemoteUrl, the new helper and actual planGitClone with controlled ready/empty-repository receipts: ordinary name, Thai UTF8, %FF, lone %, encoded NUL, .git-only and root path. Each produces the expected nonempty name and leaves source data unchanged. bun run check0errors0warnings; sequential bun run build0. No new test files/scripts/native build/network/repository/profile/clipboard mutation. Actual native stage/install/provider/path/recovery and broader Git/PLAN/PARITY acceptance remain open.
+
+
+
 Updated 2026-10-14. Local status/commit/branch/restore, staged clone, checkout, Fetch, Pull/Merge and non-force Push implementations exist with scoped historical receipts. Remaining current network/process/recovery/provider/path/history/platform gates remain open.
 
 See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity requirements](PARITY.md). No original scope was removed by consolidation.

@@ -6,6 +6,18 @@ import { sameWorkspace } from "./git-workspace.js";
 import { validateTopology } from "./resources.js";
 const copy = (/** @type {any} */ value) => JSON.parse(JSON.stringify(value));
 
+/** Derive a display name without rejecting an otherwise accepted remote URL.
+ * Remote path bytes need not form a valid percent-encoded UTF-8 string.
+ * @param {string} remoteUrl */
+export function gitCloneName(remoteUrl){
+  let name=new URL(remoteUrl).pathname.split('/').filter(Boolean).pop()||'';
+  try{
+    const decoded=decodeURIComponent(name);
+    if(!/[\x00-\x1f\x7f]/.test(decoded))name=decoded;
+  }catch{ /* Keep the encoded name when the remote uses arbitrary path bytes. */ }
+  return name.replace(/\.git$/,'').trim()||'Cloned repository';
+}
+
 /** Detached additive plan; no save or repository installation.
  * @param {any} data @param {any} preview
  * @param {{remote:import('./git-remote-client.js').RemoteInput,author:{name:string,email:string},name?:string}} input */
@@ -57,7 +69,7 @@ export function planGitClone(data, preview, input) {
         receipt: copy(receipt), next: null, added: [] };
     }
     workspaceId = id("wrk");
-    const name = input.name?.trim() || decodeURIComponent(new URL(remote.url).pathname.split("/").filter(Boolean).pop() || "Cloned repository").replace(/\.git$/, "");
+    const name = input.name?.trim() || gitCloneName(remote.url);
     resources = [
       { _id: workspaceId, _type: "workspace", parentId: null, name, scope: "design",
         description: "Insomnium Workspace for " + remote.url },

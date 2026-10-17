@@ -54,7 +54,7 @@ sspi = { version = "0.22.0", default-features = false }
 tower = { version = "0.5", default-features = false }
 x509-parser = { version = "0.18", default-features = false }
 p521 = { version = "0.14.0", default-features = false, features = ["ecdsa", "pem", "std"] }
-tonic = { version = "0.14.6", default-features = false, features = ["channel", "codegen", "tls-ring", "tls-webpki-roots", "gzip"] }
+tonic = { version = "0.14.6", default-features = false, features = ["channel", "codegen", "tls-ring", "tls-webpki-roots", "gzip", "deflate"] }
 protox = "0.9.1"
 prost = "0.14"
 prost-types = "0.14"
