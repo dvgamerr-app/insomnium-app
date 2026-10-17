@@ -11,7 +11,9 @@ const escape = (/** @type {string} */ value) => value.replace(/[&<>"']/g, c =>
 function builtinSample(name) {
   if (/^(?:byte|short|int|integer|long|unsigned\w+|positiveInteger|negativeInteger|nonPositiveInteger|nonNegativeInteger|decimal|float|double)$/.test(name))
     return name === 'positiveInteger' ? '1' : /^(negativeInteger|nonPositiveInteger)$/.test(name) ? '-1' : '0';
-  return ({boolean:'false',date:'2000-01-01',dateTime:'2000-01-01T00:00:00Z',time:'00:00:00Z',base64Binary:'',hexBinary:''})[name] ?? 'string';
+  return ({boolean:'false',date:'2000-01-01',dateTime:'2000-01-01T00:00:00Z',time:'00:00:00Z',
+    duration:'P0D',gYearMonth:'2000-01',gYear:'2000',gMonthDay:'--01-01',gDay:'---01',gMonth:'--01',
+    base64Binary:'',hexBinary:''})[name] ?? 'string';
 }
 /** Exact integer ranges; do not round schema bounds through JavaScript Number.
  * @type {Record<string,[bigint|null,bigint|null]>} */

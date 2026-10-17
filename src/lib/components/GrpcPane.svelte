@@ -17,7 +17,7 @@
   import Button from "./ui/Button.svelte";
   import Select from "./ui/Select.svelte";
   import SplitPane from "./ui/SplitPane.svelte";
-  import { jsonPrettify } from "../json-prettify.js";
+  import { jsonIndent, jsonPrettify } from "../json-prettify.js";
   import { environmentFor, historyMatchesEnvironment, selectedEnvironmentFor } from "../model.js";
   import CodeEditor from "./CodeEditor.svelte";
   import MessageReader from "./MessageReader.svelte";
@@ -360,7 +360,7 @@
                 disabled={!!selectedSent}
                 onclick={() => {
                   try {
-                    body(jsonPrettify(request.body?.text || "{}", "  ", false));
+                    body(jsonPrettify(request.body?.text || "{}", jsonIndent(app.data.settings), false));
                     error = "";
                   } catch (e) {
                     error = String(e);

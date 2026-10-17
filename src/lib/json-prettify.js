@@ -16,6 +16,13 @@ const NUNJUCKS_CLOSE_STATES = {
   "%}": STATE_IN_NUN_TAG,
   "#}": STATE_IN_NUN_COM,
 };
+/** Match the JSON editor's configured tab/space indentation.
+ * @param {Record<string,any>} [settings] */
+export function jsonIndent(settings = {}) {
+  if (settings.editorIndentWithTabs) return "\t";
+  const size = Math.max(1, Math.min(16, Math.trunc(Number(settings.editorIndentSize) || 4)));
+  return " ".repeat(size);
+}
 /** Format tokens without parsing numeric values or evaluating templates.
  * @param {string | undefined} json
  */
@@ -31,6 +38,8 @@ export const jsonPrettify = (
     throw new Error("JSON formatting input exceeds 20 Mi characters");
   if (!/^[ \t]{0,16}$/.test(indentChars))
     throw new Error("Invalid JSON indentation");
+  // Raw output may cross JSON token boundaries; preserve it without evaluation.
+  if (/\{%-?\s*(?:raw|verbatim)\s*-?%\}/.test(json)) return json;
   let i = 0;
   const il = json.length;
   const tab = indentChars;
@@ -40,6 +49,8 @@ export const jsonPrettify = (
   let nextChar = null;
   let nextTwo = null;
   let state = STATE_NONE;
+  let templateQuote = "";
+  let templateRegex = false, regexClass = false, templateDepth = 0;
   for (; i < il; i += 1) {
     if (newJson.length > 20 * 1024 * 1024)
       throw new Error("Formatted JSON exceeds 20 Mi characters");
@@ -77,8 +88,44 @@ export const jsonPrettify = (
       }
     }
     if (Object.values(NUNJUCKS_CLOSE_STATES).includes(state)) {
+      // Nunjucks delimiters inside quoted expression/tag arguments are data.
+      // Comments have no string syntax: their first #} still closes the comment.
+      if (state !== STATE_IN_NUN_COM) {
+        if (templateRegex) {
+          newJson += currentChar;
+          if (currentChar === "\\") { newJson += nextChar; i++; }
+          else if (currentChar === "[") regexClass = true;
+          else if (currentChar === "]") regexClass = false;
+          else if (currentChar === "/" && !regexClass) templateRegex = false;
+          continue;
+        }
+        if (templateQuote) {
+          newJson += currentChar;
+          if (currentChar === "\\") { newJson += nextChar; i++; }
+          else if (currentChar === templateQuote) templateQuote = "";
+          continue;
+        }
+        if (currentChar === '"' || currentChar === "'") {
+          templateQuote = currentChar;
+          newJson += currentChar;
+          continue;
+        }
+        if (currentChar === "r" && nextChar === "/" && !/[\w$]/.test(json.charAt(i - 1))) {
+          templateRegex = true;
+          regexClass = false;
+          newJson += nextTwo;
+          i++;
+          continue;
+        }
+        if (["(", "[", "{"].includes(currentChar)) templateDepth++;
+        else if (templateDepth && ")]}".includes(currentChar)) {
+          templateDepth--;
+          newJson += currentChar;
+          continue;
+        }
+      }
       const closeState = NUNJUCKS_CLOSE_STATES[nextTwo];
-      if (closeState === state) {
+      if (closeState === state && templateDepth === 0) {
         state = STATE_NONE;
         if (closeState === STATE_IN_NUN_COM) {
           newJson +=
@@ -99,6 +146,7 @@ export const jsonPrettify = (
     const nextState = NUNJUCKS_OPEN_STATES[nextTwo];
     if (nextState) {
       state = nextState;
+      templateDepth = 0;
       newJson += nextTwo;
       i++;
       continue;

@@ -6,7 +6,7 @@
   import Textarea from "./ui/Textarea.svelte";
   import CodeEditor from "./CodeEditor.svelte";
   import { environmentFor } from "../model.js";
-  import { jsonPrettify } from "../json-prettify.js";
+  import { jsonIndent, jsonPrettify } from "../json-prettify.js";
   import { isJsonBodyMediaType } from "../media-type.js";
   import Select from "./ui/Select.svelte";
   import Button from "./ui/Button.svelte";
@@ -54,7 +54,7 @@
     if (!payload || !isJsonBodyMediaType(payload.mode)) return;
     error = "";
     try {
-      update(payload._id, { value: jsonPrettify(payload.value, "  ", false) });
+      update(payload._id, { value: jsonPrettify(payload.value, jsonIndent(app.data.settings), false) });
     } catch (e) {
       error = String(e);
     }

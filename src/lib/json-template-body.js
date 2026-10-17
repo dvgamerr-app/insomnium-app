@@ -33,14 +33,23 @@ export async function renderJsonTemplateBody(source, render, registeredTagNames 
         // Unregistered syntax, including control blocks, keeps whole-template semantics.
         if (!name || (!builtinTemplateNames.includes(name) && !registeredTagNames.includes(name))) return render(source);
       }
-      let quote = "", finish = index + 2;
+      let quote = "", finish = index + 2, regex = false, regexClass = false, depth = 0;
       for (; finish < decoded.length - 1; finish++) {
         const char = decoded[finish];
-        if (quote) {
+        if (regex) {
+          if (char === "\\") finish++;
+          else if (char === "[") regexClass = true;
+          else if (char === "]") regexClass = false;
+          else if (char === "/" && !regexClass) regex = false;
+        } else if (quote) {
           if (char === "\\") finish++;
           else if (char === quote) quote = "";
         } else if (char === "'" || char === '"') quote = char;
-        else if (decoded.slice(finish,finish + 2) === closing) break;
+        else if (char === "r" && decoded[finish + 1] === "/" && !/[\w$]/.test(decoded[finish - 1])) {
+          regex = true; regexClass = false; finish++;
+        } else if (["(", "[", "{"].includes(char)) depth++;
+        else if (depth && ")]}".includes(char)) depth--;
+        else if (depth === 0 && decoded.slice(finish,finish + 2) === closing) break;
       }
       if (finish >= decoded.length - 1) return render(source);
       if (changes.length >= 1000) throw new Error("JSON body exceeds 1000 template interpolations");

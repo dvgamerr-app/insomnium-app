@@ -15,7 +15,7 @@
   import Button from "./ui/Button.svelte";
   import Input from "./ui/Input.svelte";
   import { onDestroy, tick, untrack } from "svelte";
-  import { jsonPrettify } from "../json-prettify.js";
+  import { jsonIndent, jsonPrettify } from "../json-prettify.js";
   import { environmentFor, workspaceFor } from "../model.js";
   import CodeEditor from "./CodeEditor.svelte";
   import { createTemplateEditorSession } from "../template-editor-session.svelte.js";
@@ -120,7 +120,7 @@
   }
   function format() {
     try {
-      body({ text: jsonPrettify(request.body.text, "  ", false) });
+      body({ text: jsonPrettify(request.body.text, jsonIndent(app.data.settings), false) });
       error = "";
     } catch (e) {
       error = String(e);
