@@ -11,6 +11,7 @@ use prost::Message;
 use std::{
     collections::HashMap,
     convert::Infallible,
+    io::Write,
     sync::{Arc, Mutex},
 };
 use tonic_reflection::pb::v1::{
@@ -19,7 +20,51 @@ use tonic_reflection::pb::v1::{
     ServiceResponse,
 };
 
-type Sender = mpsc::Sender<Result<Frame<Bytes>, Infallible>>;
+struct Sender {
+    frames: mpsc::Sender<Result<Frame<Bytes>, Infallible>>,
+    encoding: Option<tonic::codec::CompressionEncoding>,
+}
+impl Sender {
+    async fn send(&self, frame: Result<Frame<Bytes>, Infallible>) -> Result<(), ()> {
+        let frame = match (frame, self.encoding) {
+            (Ok(frame), Some(encoding)) => Ok(match frame.into_data() {
+                Ok(bytes) => {
+                    assert_eq!(bytes[0], 0);
+                    assert_eq!(
+                        u32::from_be_bytes(bytes[1..5].try_into().unwrap()) as usize,
+                        bytes.len() - 5
+                    );
+                    let payload = match encoding {
+                        tonic::codec::CompressionEncoding::Gzip => {
+                            let mut writer = flate2::write::GzEncoder::new(
+                                Vec::new(),
+                                flate2::Compression::default(),
+                            );
+                            writer.write_all(&bytes[5..]).unwrap();
+                            writer.finish().unwrap()
+                        }
+                        tonic::codec::CompressionEncoding::Deflate => {
+                            let mut writer = flate2::write::ZlibEncoder::new(
+                                Vec::new(),
+                                flate2::Compression::default(),
+                            );
+                            writer.write_all(&bytes[5..]).unwrap();
+                            writer.finish().unwrap()
+                        }
+                        _ => panic!("Unsupported owned peer encoding"),
+                    };
+                    let mut wire = vec![1];
+                    wire.extend_from_slice(&(payload.len() as u32).to_be_bytes());
+                    wire.extend_from_slice(&payload);
+                    Frame::data(Bytes::from(wire))
+                }
+                Err(frame) => frame,
+            }),
+            (frame, _) => frame,
+        };
+        self.frames.send(frame).await.map_err(|_| ())
+    }
+}
 #[derive(Clone, Copy)]
 enum Fault {
     None,
@@ -38,6 +83,7 @@ struct Peer {
     fault: Fault,
     graph: Option<bool>,
     graph_release: Arc<tokio::sync::Notify>,
+    encoding: Option<tonic::codec::CompressionEncoding>,
 }
 fn fixture() -> serde_json::Value {
     serde_json::from_str(include_str!(
@@ -92,7 +138,18 @@ async fn handle(
     request: HttpRequest<Incoming>,
 ) -> Result<HttpResponse<StreamBody<ReceiverStream<Result<Frame<Bytes>, Infallible>>>>, Infallible>
 {
-    let (sender, receiver) = mpsc::channel(16);
+    let encoding = peer.encoding;
+    if let Some(encoding) = encoding {
+        let accepted = request
+            .headers()
+            .get("grpc-accept-encoding")
+            .unwrap()
+            .to_str()
+            .unwrap();
+        assert!(accepted.split(',').any(|name| name == encoding.to_string()));
+    }
+    let (frames, receiver) = mpsc::channel(16);
+    let sender = Sender { frames, encoding };
     tokio::spawn(async move {
         let mut body = request.into_body();
         let mut buffered = Vec::new();
@@ -252,11 +309,17 @@ async fn handle(
         trailers.insert("grpc-status", "0".parse().unwrap());
         let _ = sender.send(Ok(Frame::trailers(trailers))).await;
     });
-    Ok(HttpResponse::builder()
+    let mut response = HttpResponse::builder()
         .status(200)
         .header("content-type", "application/grpc")
         .body(StreamBody::new(ReceiverStream::new(receiver)))
-        .unwrap())
+        .unwrap();
+    if let Some(encoding) = encoding {
+        response
+            .headers_mut()
+            .insert("grpc-encoding", encoding.to_string().parse().unwrap());
+    }
+    Ok(response)
 }
 
 async fn discover(
@@ -274,6 +337,17 @@ async fn discover_reference(
     warm_right: bool,
     fault: Fault,
     graph: Option<bool>,
+) -> (Result<ReflectionDiscovery, String>, Vec<String>) {
+    discover_reference_encoded(reference, reverse_batch, warm_right, fault, graph, None).await
+}
+
+async fn discover_reference_encoded(
+    reference: serde_json::Value,
+    reverse_batch: bool,
+    warm_right: bool,
+    fault: Fault,
+    graph: Option<bool>,
+    encoding: Option<tonic::codec::CompressionEncoding>,
 ) -> (Result<ReflectionDiscovery, String>, Vec<String>) {
     let files = reference["files"]
         .as_array()
@@ -296,6 +370,7 @@ async fn discover_reference(
         fault,
         graph,
         graph_release: Arc::new(tokio::sync::Notify::new()),
+        encoding,
     };
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
@@ -332,8 +407,25 @@ async fn discover_reference(
 }
 
 async fn check(label: &str, reverse_batch: bool, warm_right: bool) {
+    check_encoded(label, reverse_batch, warm_right, None).await;
+}
+
+async fn check_encoded(
+    label: &str,
+    reverse_batch: bool,
+    warm_right: bool,
+    encoding: Option<tonic::codec::CompressionEncoding>,
+) {
     let reference = fixture();
-    let (result, observed) = discover(reverse_batch, warm_right, Fault::None).await;
+    let (result, observed) = discover_reference_encoded(
+        reference.clone(),
+        reverse_batch,
+        warm_right,
+        Fault::None,
+        None,
+        encoding,
+    )
+    .await;
     let discovery = result
         .unwrap_or_else(|error| panic!("Reflection failed: {error}; peer trace={observed:?}"));
     let scope = discovery
@@ -380,6 +472,21 @@ async fn check(label: &str, reverse_batch: bool, warm_right: bool) {
 #[tokio::test]
 async fn reflection_arrival_sequential_control() {
     check("left-right:left-first:cache-none", false, false).await;
+}
+#[tokio::test]
+async fn reflection_arrival_sequential_compression() {
+    for encoding in [
+        tonic::codec::CompressionEncoding::Gzip,
+        tonic::codec::CompressionEncoding::Deflate,
+    ] {
+        check_encoded(
+            "left-right:left-first:cache-none",
+            false,
+            false,
+            Some(encoding),
+        )
+        .await;
+    }
 }
 #[tokio::test]
 async fn reflection_arrival_batch_response_order() {
