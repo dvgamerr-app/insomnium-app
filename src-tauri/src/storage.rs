@@ -59,9 +59,39 @@ pub(crate) fn validate(value: &Value) -> Result<(), String> {
         }
     }
     if let Some(history) = value.get("history").filter(|history| !history.is_null()) {
+        let mut history_ids = std::collections::HashSet::new();
         for entry in history.as_array().ok_or("Invalid saved response history")? {
             if entry.get("requestId").and_then(Value::as_str).is_none() {
                 return Err("Invalid saved response history".into());
+            }
+            if let Some(id) = entry.get("_id").filter(|id| !id.is_null()) {
+                let id = id
+                    .as_str()
+                    .ok_or("Invalid or duplicate saved response ID")?;
+                if id.is_empty() || !history_ids.insert(id) {
+                    return Err("Invalid or duplicate saved response ID".into());
+                }
+            }
+            for field in ["headers", "trailers", "requestHeaders"] {
+                if let Some(rows) = entry.get(field).filter(|rows| !rows.is_null()) {
+                    if rows.as_array().is_none_or(|rows| {
+                        rows.iter().any(|row| {
+                            row.as_array().is_none_or(|pair| {
+                                pair.len() < 2 || !pair[0].is_string() || !pair[1].is_string()
+                            })
+                        })
+                    }) {
+                        return Err(format!("Invalid saved response {field}"));
+                    }
+                }
+            }
+            if let Some(log) = entry.get("networkLog").filter(|log| !log.is_null()) {
+                if log
+                    .as_array()
+                    .is_none_or(|lines| lines.iter().any(|line| !line.is_string()))
+                {
+                    return Err("Invalid saved response networkLog".into());
+                }
             }
             if matches!(
                 entry.get("protocol").and_then(Value::as_str),
@@ -71,6 +101,17 @@ pub(crate) fn validate(value: &Value) -> Result<(), String> {
                     let events = events.as_array().ok_or("Invalid saved stream events")?;
                     if events.iter().any(|event| !event.is_object()) {
                         return Err("Invalid saved stream events".into());
+                    }
+                    let mut event_ids = std::collections::HashSet::new();
+                    for event in events {
+                        if let Some(id) = event.get("_id").filter(|id| !id.is_null()) {
+                            let id = id
+                                .as_str()
+                                .ok_or("Invalid or duplicate saved stream event ID")?;
+                            if id.is_empty() || !event_ids.insert(id) {
+                                return Err("Invalid or duplicate saved stream event ID".into());
+                            }
+                        }
                     }
                 }
             }
@@ -665,13 +706,103 @@ mod tests {
     }
 
     #[test]
+    fn malformed_response_header_rows_are_rejected() {
+        for field in ["headers", "trailers", "requestHeaders"] {
+            for rows in [
+                json!({}),
+                json!("headers"),
+                json!([null]),
+                json!([[]]),
+                json!([["name"]]),
+                json!([[1, "value"]]),
+                json!([["name", false]]),
+            ] {
+                let mut data = workspace();
+                data["history"] = json!([{"requestId":"req"}]);
+                data["history"][0][field] = rows;
+                assert_eq!(
+                    validate(&data).unwrap_err(),
+                    format!("Invalid saved response {field}")
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn malformed_response_network_log_is_rejected() {
+        for log in [
+            json!({}),
+            json!("log"),
+            json!([null]),
+            json!([1]),
+            json!([{}]),
+            json!([[]]),
+        ] {
+            let mut data = workspace();
+            data["history"] = json!([{"requestId":"req","networkLog":log}]);
+            assert_eq!(
+                validate(&data).unwrap_err(),
+                "Invalid saved response networkLog"
+            );
+        }
+    }
+
+    #[test]
+    fn malformed_or_duplicate_response_ids_are_rejected() {
+        for id in [json!(""), json!(1), json!({}), json!([])] {
+            let mut data = workspace();
+            data["history"] = json!([{"requestId":"req","_id":id}]);
+            assert_eq!(
+                validate(&data).unwrap_err(),
+                "Invalid or duplicate saved response ID"
+            );
+        }
+        let mut data = workspace();
+        data["history"] = json!([
+            {"requestId":"req_first","_id":"res_owned"},
+            {"requestId":"req_second","_id":"res_owned"}
+        ]);
+        assert_eq!(
+            validate(&data).unwrap_err(),
+            "Invalid or duplicate saved response ID"
+        );
+    }
+
+    #[test]
+    fn malformed_or_duplicate_stream_event_ids_are_rejected() {
+        for id in [json!(""), json!(1), json!({}), json!([])] {
+            let mut data = workspace();
+            data["history"] = json!([{"requestId":"req","protocol":"sse","events":[{"_id":id}]}]);
+            assert_eq!(
+                validate(&data).unwrap_err(),
+                "Invalid or duplicate saved stream event ID"
+            );
+        }
+        let mut data = workspace();
+        data["history"] = json!([{"requestId":"req","protocol":"sse","events":[{"_id":"evt_owned"},{"_id":"evt_owned"}]}]);
+        assert_eq!(
+            validate(&data).unwrap_err(),
+            "Invalid or duplicate saved stream event ID"
+        );
+        data["history"] = json!([
+            {"requestId":"req_first","protocol":"sse","events":[{"_id":"evt_owned"},{}]},
+            {"requestId":"req_second","protocol":"grpc","events":[{"_id":"evt_owned"},{"_id":null}]}
+        ]);
+        let before = data.clone();
+        validate(&data).unwrap();
+        assert_eq!(data, before);
+    }
+
+    #[test]
     fn valid_and_legacy_history_is_unchanged() {
         let mut data = workspace();
         data["history"] = json!([
             {"requestId":"req","protocol":"websocket","events":[{"kind":"closed","code":1000}]},
             {"requestId":"req","protocol":"sse"},
             {"requestId":"req","protocol":"grpc","events":null},
-            {"requestId":"req","body":"original"}
+            {"requestId":"req","body":"original","headers":[["X-Owned","ไทย"],["X-Owned","duplicate",{"unknown":"retained"}]],"trailers":[["x-end",""]]},
+            {"requestId":"req","headers":null,"trailers":[],"requestHeaders":[["Authorization","Bearer ***"]],"networkLog":["","* Saved ไทย"]},
+            {"requestId":"req","networkLog":null,"requestHeaders":null}
         ]);
         let before = data.clone();
         validate(&data).unwrap();

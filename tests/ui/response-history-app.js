@@ -3,6 +3,7 @@ import {initialData} from '../../src/lib/model.js';
 import {withPreview} from './helpers/preview-app.js';
 
 const data=initialData();
+const legacyIdsOnly=process.env.INSOMNIUM_RESPONSE_LEGACY_IDS_ONLY==='1';
 const charsetOnly=process.env.INSOMNIUM_RESPONSE_CHARSET_ONLY==='1';
 const charsetBytes=Buffer.from([65,0,0,0,66,0,0,0]);
 const htmlOnly=process.env.INSOMNIUM_RESPONSE_HTML_ONLY==='1';
@@ -39,13 +40,31 @@ const imageBase64=Buffer.from(imageBytes).toString('base64');
 const htmlBody='<!doctype html><html><head><style>#owned-html-mark {color:rgb(12,34,56)}</style><meta http-equiv="refresh" content="0;url=https://owned-preview.invalid/blocked-navigation"></head><body><h1 id="owned-html-mark">HTML preview ไทย</h1><p id="owned-script-state">not executed</p><script>document.querySelector("#owned-script-state").textContent="executed"</script><img src="https://owned-preview.invalid/blocked-image"><iframe src="https://owned-preview.invalid/blocked-frame"></iframe></body></html>';
 const errors=/** @type {string[]} */([]);
 data.history=[200,404,503].map((status,index)=>({_id:'res_owned_history_'+index,_type:'response',requestId:data.activeRequestId,created:1720000030000-index*10000,status,statusText:'Owned '+status,elapsedMs:10,size:20,headers:[['Content-Type','text/plain']],body:'Owned history body '+status}));
+if(legacyIdsOnly){delete data.history[0]._id;delete data.history[1]._id;}
 const visualBody=audioOnly?'Owned audio text representation':imageOnly?'Owned image text representation':htmlBody;
 if(visualOnly){data.history=data.history.slice(0,1).map(entry=>({...entry,headers:[['Content-Type',audioOnly?'audio/wav':imageOnly?'image/png':'text/plain; charset=utf-8']],body:visualBody,bodyBase64:audioOnly?audioBase64:imageOnly?imageBase64:Buffer.from(htmlBody).toString('base64')}));data.resources.push({_id:'reqm_html',_type:'request_meta',parentId:data.activeRequestId,previewMode:'source'});}
 if(csvOnly)data.history=data.history.slice(0,1).map(entry=>({...entry,headers:[['Content-Type','text/csv; charset=utf-8']],body:csvBody,bodyBase64:Buffer.from(csvBody).toString('base64')}));
 if(pdfOnly)data.history=data.history.slice(0,1).map(entry=>({...entry,headers:[['Content-Type','application/pdf'],['Content-Disposition',"attachment; filename=report.pdf; filename*=UTF-8''%E0%B9%84%E0%B8%97%E0%B8%A2.pdf"]],body:'Owned PDF text representation',bodyBase64:pdfBase64}));
 if(multipartOnly)data.history=data.history.slice(0,1).map(entry=>({...entry,headers:[['Content-Type','multipart/mixed; boundary="owned+parts"']],body:multipartBytes.toString('utf8'),bodyBase64:multipartBytes.toString('base64')}));
 if(charsetOnly)data.history=data.history.slice(0,1).map(entry=>({...entry,headers:[['Content-Type','text/plain; charset=utf-32le']],body:'A\u0000\u0000\u0000B\u0000\u0000\u0000',bodyBase64:charsetBytes.toString('base64')}));
-await withPreview(charsetOnly?'response-charset-preview':multipartOnly?'response-multipart-preview':pdfOnly?'response-pdf-preview':csvOnly?'response-csv-preview':audioOnly?'response-audio-preview':imageOnly?'response-image-preview':htmlOnly?'response-html-preview':'response-history-app',async(page,output)=>{
+await withPreview(legacyIdsOnly?'response-legacy-ids':charsetOnly?'response-charset-preview':multipartOnly?'response-multipart-preview':pdfOnly?'response-pdf-preview':csvOnly?'response-csv-preview':audioOnly?'response-audio-preview':imageOnly?'response-image-preview':htmlOnly?'response-html-preview':'response-history-app',async(page,output)=>{
+ if(legacyIdsOnly){
+  const trigger=page.getByRole('button',{name:'Response history',exact:true});
+  await trigger.waitFor();await trigger.click();
+  const list=page.getByRole('listbox',{name:'Response history',exact:true});
+  await list.waitFor();assert.equal(await list.getByRole('option').count(),3);
+  await list.getByRole('option').nth(1).click();
+  await page.locator('.status-badge').filter({hasText:'404 Owned 404'}).waitFor();
+  await page.waitForFunction(()=>{const saved=JSON.parse(localStorage.getItem('insomnium-tauri-preview-v1')||'{}');const id=saved.history?.[1]?._id;return typeof id==='string'&&saved.responseSelections?.[saved.activeRequestId]===id;});
+  const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('insomnium-tauri-preview-v1')||'{}'));
+  const ids=before.history.map((/** @type {Record<string,any>} */ entry)=>entry._id);assert.equal(new Set(ids).size,3);assert.ok(ids.every((/** @type {unknown} */ id)=>typeof id==='string'&&id));assert.equal(ids[2],'res_owned_history_2');
+  assert.deepEqual(before.history.map((/** @type {Record<string,any>} */ entry)=>entry.body),data.history.map(entry=>entry.body));
+  await page.reload();await trigger.waitFor();
+  await page.locator('.status-badge').filter({hasText:'404 Owned 404'}).waitFor();
+  const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('insomnium-tauri-preview-v1')||'{}'));
+  assert.deepEqual(after.history,before.history);assert.deepEqual(after.responseSelections,before.responseSelections);assert.deepEqual(errors,[]);
+  await Bun.write(output+'/result.json',JSON.stringify({status:'passed',headless:true,legacyIdsAssigned:true,selectionReload:true,knownIdPreserved:true,bodiesPreserved:true,clipboardTouched:false}));return;
+ }
  if(charsetOnly){
   const editor=page.locator('textarea[aria-label="Response body"]').first();
   await page.waitForFunction(()=>/** @type {HTMLTextAreaElement|null} */(document.querySelector('textarea[aria-label="Response body"]'))?.value==='AB');

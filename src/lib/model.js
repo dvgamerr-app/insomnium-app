@@ -2,6 +2,18 @@ import {templateVariablePath,templateVariableReferences} from "./template-variab
 /** @typedef {Record<string, any>} Resource */
 export const id = (prefix = "req") =>
   `${prefix}_${crypto.randomUUID().replaceAll("-", "")}`;
+/** Add missing legacy identities to copies; callers validate explicit IDs first.
+ * @param {Resource[]} rows @param {string} prefix */
+function assignRecordIds(rows,prefix) {
+  const occupied = new Set(rows.map(row=>row._id));
+  return rows.map(row=>{
+    if (row._id != null) return row;
+    let generatedId;
+    do { generatedId = id(prefix); } while (occupied.has(generatedId));
+    occupied.add(generatedId);
+    return {...row,_id:generatedId};
+  });
+}
 /** @param {Resource | undefined} request */
 export function protocolFor(request) {
   if (request?._type === "grpc_request") return "grpc";
@@ -133,7 +145,23 @@ export function validateData(value) {
       ))
   )
     throw new Error("Invalid saved response history");
+  const historyIds = new Set();
   for (const entry of data.history || []) {
+    if (entry._id != null) {
+      if (typeof entry._id !== "string" || !entry._id || historyIds.has(entry._id))
+        throw new Error("Invalid or duplicate saved response ID");
+      historyIds.add(entry._id);
+    }
+    for (const field of ["headers", "trailers", "requestHeaders"]) {
+      const rows = entry[field];
+      if (rows != null && (!Array.isArray(rows) || rows.some(
+        (/** @type {unknown} */ row) => !Array.isArray(row) || row.length < 2 ||
+          typeof row[0] !== "string" || typeof row[1] !== "string",
+      ))) throw new Error(`Invalid saved response ${field}`);
+    }
+    if (entry.networkLog != null && (!Array.isArray(entry.networkLog) ||
+        entry.networkLog.some((/** @type {unknown} */ line) => typeof line !== "string")))
+      throw new Error("Invalid saved response networkLog");
     if (
       ["websocket", "sse", "grpc"].includes(entry.protocol) &&
       entry.events != null &&
@@ -144,6 +172,15 @@ export function validateData(value) {
         ))
     )
       throw new Error("Invalid saved stream events");
+    if (["websocket", "sse", "grpc"].includes(entry.protocol) && Array.isArray(entry.events)) {
+      const eventIds = new Set();
+      for (const event of entry.events) {
+        if (event._id == null) continue;
+        if (typeof event._id !== "string" || !event._id || eventIds.has(event._id))
+          throw new Error("Invalid or duplicate saved stream event ID");
+        eventIds.add(event._id);
+      }
+    }
   }
   const defaults = initialData();
   if (data.responseSelections != null &&
@@ -159,7 +196,12 @@ export function validateData(value) {
     ),
     openTabs: (data.openTabs || []).filter((tab) => ids.has(tab)),
     // Branch switching may temporarily remove a request. Preserve its local history.
-    history: [...(data.history || [])],
+    history: assignRecordIds(data.history || [],"res").map(entry => {
+      if (["websocket", "sse", "grpc"].includes(entry.protocol) &&
+          Array.isArray(entry.events) && entry.events.some(event=>event._id == null))
+        return {...entry,events:assignRecordIds(entry.events,"evt")};
+      return entry;
+    }),
     responseSelections: { ...(data.responseSelections || {}) },
     settings: { ...defaults.settings, ...data.settings },
   };
@@ -223,13 +265,16 @@ export function retainedHistory(history, settings) {
   return history.filter((entry) => {
     const key = JSON.stringify([
       entry.requestId,
-      ...(settings.filterResponsesByEnv ? [entry.environmentId ?? null] : []),
+      // Match historyMatchesEnvironment: legacy empty IDs denote Base too.
+      ...(settings.filterResponsesByEnv ? [entry.environmentId || null] : []),
     ]);
     const count = counts.get(key) || 0;
     if (count >= limit) return false;
-    counts.set(key, count + 1);
     const size = new TextEncoder().encode(JSON.stringify(entry)).byteLength;
     if (historyBytes + size > 40 * 1024 * 1024) return false;
+    // A candidate excluded by the global byte budget is not retained and must
+    // not consume this request/environment's count allowance.
+    counts.set(key, count + 1);
     historyBytes += size;
     return true;
   });

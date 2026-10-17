@@ -4,6 +4,7 @@ import { withPreview } from "./helpers/preview-app.js";
 
 const data = initialData();
 const sourceOnly = process.env.INSOMNIUM_GRPC_SOURCE_ONLY === "1";
+const legacyIdsOnly = process.env.INSOMNIUM_GRPC_LEGACY_IDS_ONLY === "1";
 const largeMessage = JSON.stringify({text:"Owned gRPC message Ω ".repeat(5000)});
 const request = data.resources.find((r) => r._id === data.activeRequestId);
 assert.ok(request);
@@ -13,9 +14,28 @@ data.history = ["new", "old"].map((label, index) => ({
   created:1720000030000-index*10000, connectionState:"closed", events:[{_id:"message_"+label, kind:"message", text:largeMessage}],
 }));
 data.history[0].events.push({_id:"message_second", kind:"message", text:'{"second":true}'});
-await withPreview(sourceOnly ? "grpc-message-source" : "grpc-history-app", async (page, output) => {
+if(legacyIdsOnly){delete data.history[0].events[0]._id;delete data.history[0].events[1]._id;}
+await withPreview(legacyIdsOnly ? "grpc-legacy-event-ids" : sourceOnly ? "grpc-message-source" : "grpc-history-app", async (page, output) => {
   const history = page.getByRole("combobox", {name:"gRPC response history", exact:true});
   await history.waitFor();
+  if (legacyIdsOnly) {
+    const errors=/** @type {string[]} */([]);page.on('pageerror',error=>errors.push(error.message));
+    const readSecond = async () => {
+      await page.getByRole('tab',{name:'Response 2',exact:true}).click();
+      await page.getByRole('button',{name:'Source',exact:true}).click();
+      const source=page.locator('.grpc-message-source .CodeMirror');await source.waitFor();
+      assert.equal(await source.evaluate(el=>/** @type {any} */(el).CodeMirror.getValue()),'{"second":true}');
+    };
+    await readSecond();await history.selectOption('grpc_history_old');await history.selectOption('grpc_history_new');
+    await page.waitForFunction(()=>{const saved=JSON.parse(localStorage.getItem('insomnium-tauri-preview-v1')||'{}');return saved.history?.[0]?.events?.every((/** @type {Record<string,any>} */ event)=>typeof event._id==='string')&&saved.responseSelections?.[saved.activeRequestId]==='grpc_history_new';});
+    const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('insomnium-tauri-preview-v1')||'{}'));
+    assert.equal(new Set(before.history[0].events.map((/** @type {Record<string,any>} */ event)=>event._id)).size,2);
+    assert.equal(before.history[1].events[0]._id,'message_old');
+    await page.reload();await history.waitFor();assert.equal(await history.inputValue(),'grpc_history_new');await readSecond();
+    const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('insomnium-tauri-preview-v1')||'{}'));
+    assert.deepEqual(after.history,before.history);assert.deepEqual(errors,[]);
+    await Bun.write(output+'/result.json',JSON.stringify({status:'passed',headless:true,eventIdsAssigned:true,secondMessageSource:true,historyReload:true,knownIdPreserved:true,clipboardTouched:false}));return;
+  }
   if (sourceOnly) {
     await page.getByRole("button", {name:"Source",exact:true}).click();
     const source = page.locator(".grpc-message-source .CodeMirror");
@@ -107,7 +127,7 @@ producerData.activeEnvironmentId = "env_grpc_capture";
 producerData.resources = producerData.resources.filter((r) => r._type !== "workspace_meta");
 producerData.resources.push({_id:"meta_grpc_capture", _type:"workspace_meta", parentId:producerData.activeWorkspaceId, activeEnvironmentId:"env_grpc_capture"});
 producerData.responseSelections = {[request._id]:"grpc_history_old"};
-for (const clientStreaming of sourceOnly ? [] : [false,true]) await withPreview(clientStreaming ? "grpc-stream-shortcut" : "grpc-history-producer", async (page, output) => {
+for (const clientStreaming of sourceOnly || legacyIdsOnly ? [] : [false,true]) await withPreview(clientStreaming ? "grpc-stream-shortcut" : "grpc-history-producer", async (page, output) => {
   const history = page.getByRole("combobox", {name:"gRPC response history", exact:true});
   await history.waitFor();
   assert.equal(await history.inputValue(), "grpc_history_old");
