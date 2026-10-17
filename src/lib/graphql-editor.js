@@ -75,10 +75,11 @@ export function graphqlSchemaMemberRange(definition,member,prefix=0){
  * @param {import('graphql').GraphQLSchema|null} [schema] */
 export function graphqlReferencedTypes(owner, schema = null) {
   const names = new Set();
+  const introspectionOwner=isType(owner)&&owner.name.startsWith('__');
   /** @param {import('graphql').GraphQLType} type */
   const add = (type) => {
     const name = getNamedType(type).name;
-    if (!name.startsWith("__") && (!isType(owner) || name !== owner.name))
+    if ((!name.startsWith("__")||introspectionOwner) && (!isType(owner) || name !== owner.name))
       names.add(name);
   };
   if (isDirective(owner)) {

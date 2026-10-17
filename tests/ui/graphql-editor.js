@@ -36,8 +36,27 @@ if(process.env.INSOMNIUM_GRAPHQL_NAVIGATION==='1'){
       await page.getByRole('button',{name:'Back in schema navigation'}).click();
       await mark.waitFor({state:'detached'});
     }
+    const query=page.locator('.shared-code-editor').filter({has:page.locator('textarea[aria-label="GraphQL query"]')}).locator('.CodeMirror');
+    await query.waitFor();
+    await query.evaluate(element=>{
+      const options=/** @type {any} */(element).CodeMirror.getOption('jump');
+      options.onClick({kind:'Type',type:options.schema.getType('__Type')});
+    });
+    const types=page.getByRole('listbox',{name:'Schema types',exact:true});
+    await page.waitForFunction(()=>/** @type {HTMLSelectElement|null} */(document.querySelector('select[aria-label="Schema types"]'))?.value==='__Type');
+    assert.match(await page.locator('.schema-definition').innerText(),/type __Type/);
+    await page.getByRole('navigation',{name:'Referenced schema types'}).getByRole('button',{name:'__Field',exact:true}).click();
+    assert.equal(await types.inputValue(),'__Field');
+    assert.match(await page.locator('.schema-definition').innerText(),/type __Field/);
+    await page.getByRole('button',{name:'Back in schema navigation'}).click();
+    assert.equal(await types.inputValue(),'__Type');
+    await page.getByRole('button',{name:'Back in schema navigation'}).click();
     await page.getByRole('button',{name:'Schema',exact:true}).click();
+    assert.equal(await types.locator('option[value^="__"]').count(),0,'Default list hides introspection types after returning');
     const search=page.getByRole('textbox',{name:'Search schema types and fields',exact:true});
+    await search.fill('__Type');
+    await types.locator('option[value="__Type"]').waitFor({state:'attached'});
+    await search.fill('');
     await search.fill('Query');
     await page.getByRole('navigation',{name:'Referenced schema types'}).getByRole('button',{name:'User',exact:true}).click();
     assert.equal(await search.inputValue(),'');

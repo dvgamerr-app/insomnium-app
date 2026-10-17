@@ -1,5 +1,13 @@
 # GRPC migration
 
+## Successful status details — 2026-10-17
+
+Successful calls previously hardcoded an empty details string, discarding grpc-message. grpc_transport.rs now percent-decodes the successful terminal metadata using the existing percent-encoding dependency and retains metadata_rows unchanged. Tonic0.14.6 stores successful trailers-only status in initial response metadata with an empty body; that block is retained as the terminal fallback. Normal final trailers take precedence. Unary response cardinality and non-OK status handling are unchanged. Official contract https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md permits Status-Message in trailers even with OK; installed Tonic client/codec/status sources confirm both metadata paths.
+
+Exact cargo test --manifest-path src-tauri/Cargo.toml --locked --lib grpc_transport::status_tests::successful_status_preserves_encoded_message_and_metadata -- --exact passes1test/90filtered (runtime0s, compile27s). Public Tonic Status.add_header constructs percent-encoded Unicode/plus/percent and duplicate/binary metadata; serialization verifies preserved details, separate duplicate rows, exact normalized binary and unchanged empty status. Initial test compile attempted private to_header_map; corrected to public add_header. cargo check --locked passes (~4s); rustfmt applied. Five existing eventsource-stream warnings remain. No new runner/scripts/native release build/clipboard operations. This proves the status adapter and compilation, not actual HTTP2 call routing, trailers-only wire, WebView/history/provider/platform or complete gRPC parity; those remain open.
+
+
+
 ## Radix-string rounding correction — 2026-10-16
 
 Legacy numeric conversion now rounds binary/octal/hex integer strings once to binary64 using a bounded significand, round bit and sticky bit. The former f64 digit accumulator could round repeatedly: 0x1000000000000081 produced an incorrect double/int32, while actual pinned protobuf.js7.2.4 gives wire 09010000000000b043108002 (int32 256). Three radix representations and two ties-to-even controls match actual fromObject/encode bytes. Empty/invalid/overflow/leading-zero controls are in one focused Rust regression; existing numeric-whitespace and JSON-overflow regressions also pass. Decimal/Long parsing and strict ProtoJSON code are unchanged. Constant auxiliary storage; existing input limits remain.

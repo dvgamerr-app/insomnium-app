@@ -258,6 +258,12 @@ where
         Ok(response) => response,
         Err(status) => return emit(status_event(status)?).await,
     };
+    // Tonic keeps a successful trailers-only block in response metadata and
+    // exposes an empty body with no subsequent trailers.
+    let terminal_headers = response
+        .metadata()
+        .get("grpc-status")
+        .map(|_| response.metadata().clone());
     emit(Event::Metadata {
         headers: metadata_rows(response.metadata())?,
     })
@@ -284,19 +290,29 @@ where
                     .trailers()
                     .await
                     .map_err(|s| s.to_string())?
-                    .map(|m| metadata_rows(&m))
-                    .transpose()?
+                    .or(terminal_headers)
                     .unwrap_or_default();
-                return emit(Event::Status {
-                    code: 0,
-                    details: String::new(),
-                    trailers,
-                })
-                .await;
+                return emit(successful_status_event(&trailers)?).await;
             }
             Err(status) => return emit(status_event(status)?).await,
         }
     }
+}
+
+fn successful_status_event(metadata: &MetadataMap) -> Result<Event, String> {
+    let details = metadata
+        .get("grpc-message")
+        .map(|value| {
+            percent_encoding::percent_decode(value.as_encoded_bytes())
+                .decode_utf8_lossy()
+                .into_owned()
+        })
+        .unwrap_or_default();
+    Ok(Event::Status {
+        code: 0,
+        details,
+        trailers: metadata_rows(metadata)?,
+    })
 }
 
 fn status_event(status: Status) -> Result<Event, String> {
@@ -312,4 +328,38 @@ fn status_event(status: Status) -> Result<Event, String> {
         details: status.message().to_string(),
         trailers,
     })
+}
+
+#[cfg(test)]
+mod status_tests {
+    use super::*;
+
+    #[test]
+    fn successful_status_preserves_encoded_message_and_metadata() {
+        let message = "สำเร็จ + 100%";
+        let mut status = Status::new(tonic::Code::Ok, message);
+        status
+            .metadata_mut()
+            .append("x-result", "first".parse().unwrap());
+        status
+            .metadata_mut()
+            .append("x-result", "second".parse().unwrap());
+        status
+            .metadata_mut()
+            .insert_bin("proof-bin", MetadataValue::from_bytes(&[0, 255]));
+        let mut headers = Default::default();
+        status.add_header(&mut headers).unwrap();
+        let headers = MetadataMap::from_headers(headers);
+        let event = serde_json::to_value(successful_status_event(&headers).unwrap()).unwrap();
+        assert_eq!(event["code"], 0);
+        assert_eq!(event["details"], message);
+        let rows = event["trailers"].as_array().unwrap();
+        assert!(rows.contains(&serde_json::json!(["x-result", "first"])));
+        assert!(rows.contains(&serde_json::json!(["x-result", "second"])));
+        assert!(rows.contains(&serde_json::json!(["proof-bin", "AP8="])));
+        let empty =
+            serde_json::to_value(successful_status_event(&MetadataMap::new()).unwrap()).unwrap();
+        assert_eq!(empty["details"], "");
+        assert_eq!(empty["trailers"], serde_json::json!([]));
+    }
 }

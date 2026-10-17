@@ -139,7 +139,7 @@
     return Object.values(schema.getTypeMap())
       .filter(
         (/** @type {any} */ type) =>
-          !type.name.startsWith("__") &&
+          (!type.name.startsWith("__") || type.name===selectedType || search.trim().startsWith('__')) &&
           `${type.name} ${type.description || ""} ${printType(type)}`
             .toLowerCase()
             .includes(search.toLowerCase()),
