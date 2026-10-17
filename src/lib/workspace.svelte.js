@@ -38,7 +38,7 @@ import { runnerSuite, runnerResponse, runnerRequestId } from "./runner-model.js"
 import { requestDataScope } from "./request-scope.js";
 import { createResponseTemplateResolver } from "./template-response-send.js";
 import { pluginCookieJarId, pluginJarCookies, pluginCookieJarView } from "./plugin-cookie-jar.js";
-import {withCookieTemplateSources} from './cookie-template-sources.js';
+import {withCookieTemplateSources,captureCookieSourceOwner} from './cookie-template-sources.js';
 import {
   renderSendRequest,
   renderOAuthRequest,
@@ -172,10 +172,13 @@ export const pluginRegistry = createPluginRegistry({
 if (import.meta.hot) import.meta.hot.dispose(() => pluginRegistry.dispose());
 const removePluginTemplateProvider = installPluginTemplateProvider(
   (snapshot) => {
+    const cookieOwner=workspace.data;
+    const cookieSourcesCurrent=captureCookieSourceOwner(snapshot.resources,snapshot.workspaceId||'',
+      ()=>workspace.data===cookieOwner?workspace.data.resources:null);
     const tags = pluginRegistry.captureTemplateTags();
     const requestHooks = pluginRegistry.captureRequestHooks();
     const responseHooks = pluginRegistry.captureResponseHooks();
-    if (!tags.length && !requestHooks.length && !responseHooks.length) return { tags, requestHooks, responseHooks, isCurrent: () => true };
+    if (!tags.length && !requestHooks.length && !responseHooks.length) return { tags, requestHooks, responseHooks, isCurrent: () => true,cookieSourcesCurrent };
     const sourceId = snapshot.sourceResourceId ?? snapshot.requestId;
     const expected = pluginRenderSourceKey(
       snapshot.resources,
@@ -196,7 +199,7 @@ const removePluginTemplateProvider = installPluginTemplateProvider(
         return false;
       }
     };
-    return { tags, requestHooks, responseHooks, isCurrent: current };
+    return { tags, requestHooks, responseHooks, isCurrent: current,cookieSourcesCurrent };
   },
 );
 if (import.meta.hot) import.meta.hot.dispose(removePluginTemplateProvider);

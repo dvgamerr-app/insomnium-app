@@ -4,7 +4,7 @@ import { askTemplatePrompt } from "./template-prompt-dialog.js";
 import { responseTemplatePreview } from "./template-response.js";
 import { renderTemplate } from "./template-client.js";
 import { nativeTemplateTags, snapshotTemplateCookies, readNativeTemplateCookie } from "./template-native.js";
-import {cookieTemplateSources,withCookieTemplateSources,normalizeRenderedCookieSnapshot} from './cookie-template-sources.js';
+import {cookieTemplateSources,withCookieTemplateSources,normalizeRenderedCookieSnapshot,renderCookieSnapshot} from './cookie-template-sources.js';
 import { requestTemplateTag } from "./template-request.js";
 import { createTemplateInteraction } from "./template-interaction.js";
 import { buildTemplateEnvironment } from "./template-environment.js";
@@ -94,6 +94,10 @@ export function createRequestRenderSession(context, options, capturedPlugins) {
   const plugins = capturedPlugins ?? capturePluginTemplateTags(snapshot);
   const cookie = native?.cookie;
   const hasCookieSources=!!snapshot.workspaceId&&cookieTemplateSources(snapshot.resources,snapshot.workspaceId).length>0;
+  const checkCookieSourceOwner=()=>{
+    if(hasCookieSources&&!plugins.cookieSourcesCurrent())
+      throw new DOMException('Cookie template sources changed','AbortError');
+  };
   const ask = options.ask || askTemplatePrompt;
   const { pluginServices: services, pluginHelperPath: rootPluginPath } =
     capturePluginRenderOptions(options);
@@ -164,6 +168,7 @@ export function createRequestRenderSession(context, options, capturedPlugins) {
     pluginPath = rootPluginPath,
   ) => {
     signal.throwIfAborted();
+    checkCookieSourceOwner();
     if (++budget.count > 64 || ++totalRenders > 1000 || chain.length > 12) {
       const error = new TemplateLimitError(
         "Request template reference limit exceeded",
@@ -179,6 +184,7 @@ export function createRequestRenderSession(context, options, capturedPlugins) {
     try {
       /** @param {any[]} args @param {AbortSignal} childSignal */
       const readCookie=async(args,childSignal)=>{
+        checkCookieSourceOwner();
         const workspaceId=snapshot.workspaceId;
         if(!hasCookieSources||!workspaceId)return cookie?.(args,childSignal);
         if(typeof args[0]!=='string'||typeof args[1]!=='string')throw Error('Cookie URL and name are required');
@@ -194,8 +200,9 @@ export function createRequestRenderSession(context, options, capturedPlugins) {
         const token='cookie-selection-'+crypto.randomUUID()+':';
         const values=cookies.cookies.map(cookie=>cookie.value);
         const selector={...cookies,cookies:cookies.cookies.map((cookie,index)=>({...cookie,value:token+index}))};
-        const rendered=await renderTemplateValue(selector,(text,path)=>run(text,childSignal,
-          [...chain,'cookie-source-scope',path],budget,renderContext,pluginPath),{signal:childSignal});
+        const rendered=await renderCookieSnapshot(selector,(value,settings)=>renderTemplateValue(value,
+          (text,path)=>run(text,childSignal,[...chain,'cookie-source-scope',path],budget,renderContext,pluginPath),
+          {signal:childSignal,path:settings.path}),childSignal);
         const selected=await readNativeTemplateCookie(snapshot,args,childSignal,normalizeRenderedCookieSnapshot(rendered)??undefined);
         if(typeof selected!=='string'||!selected.startsWith(token))throw Error('Invalid cookie source selection');
         const index=Number(selected.slice(token.length));
@@ -343,8 +350,10 @@ export function createRequestRenderSession(context, options, capturedPlugins) {
   const guarded = async (action) => {
     try {
       controller.signal.throwIfAborted();
+      checkCookieSourceOwner();
       const result = await action();
       controller.signal.throwIfAborted();
+      checkCookieSourceOwner();
       if (plugins.names.length && !plugins.isCurrent())
         throw new DOMException("Plugin render owner changed", "AbortError");
       return result;

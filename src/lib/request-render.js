@@ -11,7 +11,7 @@ import { checkTemplateValue } from "./template-object.js";
 import { applyDefaultRequestHeaders } from "./request-default-headers.js";
 import { isJsonBodyMediaType } from "./media-type.js";
 import { renderGraphqlTemplateBody } from "./graphql-template.js";
-import { withCookieTemplateSources, normalizeRenderedCookieSnapshot } from './cookie-template-sources.js';
+import { withCookieTemplateSources, normalizeRenderedCookieSnapshot, checkCookieSnapshot, renderCookieSnapshot } from './cookie-template-sources.js';
 /** @typedef {import('./template-session.js').PluginRenderOptions} PluginRenderOptions */
 
 /** @param {Record<string,any>} data @param {Record<string,any>} request */
@@ -35,7 +35,7 @@ async function requestCookieSnapshot(data, request) {
 export async function renderRequestSnapshot(session, request, options = {}) {
   session.signal.throwIfAborted();
   const uploads = separateRequestUploads(request);
-  checkTemplateValue(options.cookieJar);
+  checkCookieSnapshot(options.cookieJar);
   const input = uploads.input;
   const cookieJar = structuredClone(options.cookieJar ?? null);
   let graphqlBody = null;
@@ -59,7 +59,7 @@ export async function renderRequestSnapshot(session, request, options = {}) {
   const description = input.description;
   input.description = "";
   const result = await session.renderValue(
-    { _request: input, _cookieJar: cookieJar },
+    { _request: input },
     {
       jsonPaths: isJsonBodyMediaType(input.body?.mimeType || "") ? ["body.text"] : [],
       // Import provenance is inert archival data, not executable template input.
@@ -71,6 +71,7 @@ export async function renderRequestSnapshot(session, request, options = {}) {
     },
   );
   const rendered = result._request;
+  const renderedCookies=await renderCookieSnapshot(cookieJar,session.renderValue,session.signal);
   if (graphqlBody) {
     rendered.body.text = JSON.stringify(await renderGraphqlTemplateBody(session, graphqlBody));
     checkTemplateValue(rendered.body.text);
@@ -112,7 +113,7 @@ export async function renderRequestSnapshot(session, request, options = {}) {
   session.signal.throwIfAborted();
   return {
     request: rendered,
-    cookieJar: result._cookieJar,
+    cookieJar: renderedCookies,
     context: await session.getContext(),
   };
 }
@@ -201,14 +202,14 @@ export async function renderOAuthRequest(data, request, signal, options = {}) {
     const resolved = await session.renderValue({
       url: request.url,
       authentication: request.authentication,
-      cookieSnapshot: cookieJar,
     });
+    const renderedCookies=await renderCookieSnapshot(cookieJar,session.renderValue,signal);
     signal.throwIfAborted();
     return {
       ...request,
       ...resolved,
       cookieSnapshot: cookieJar
-        ? { ...normalizeRenderedCookieSnapshot(resolved.cookieSnapshot), generation: cookieJar.generation }
+        ? { ...normalizeRenderedCookieSnapshot(renderedCookies), generation: cookieJar.generation }
         : null,
       url: setDefaultProtocol(
         String(resolved.url || ""),
