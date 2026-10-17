@@ -3,7 +3,10 @@ import {withComponentFixture} from './helpers/component-fixture.js';
 import {cookieComponentAlias} from './helpers/cookie-component-build.js';
 
 process.env.INSOMNIUM_UI_RUN_LABEL ||= String(Date.now());
-await withComponentFixture('cookie-manager-component',async(page,output)=>{
+if(process.env.INSOMNIUM_COOKIE_TEMPLATE_NATIVE==='1'){
+  const {runCookieTemplateNative}=await import('./helpers/cookie-template-native.js');
+  await runCookieTemplateNative();
+}else await withComponentFixture('cookie-manager-component',async(page,output)=>{
   await page.evaluate(()=>/** @type {any} */(window).__cookieComponent.enablePersistence());
   await page.getByRole('button',{name:'Open owned Cookies',exact:true}).click();
   const dialog=page.getByRole('dialog',{name:'Cookies',exact:true});
