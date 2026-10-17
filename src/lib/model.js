@@ -261,7 +261,8 @@ export function historyLimit(value) {
 export function retainedHistory(history, settings) {
   const limit = historyLimit(settings.maxHistory);
   const counts = new Map();
-  let historyBytes = 0;
+  let historyBytes = 2; // The serialized history array's opening/closing brackets.
+  let retainedCount = 0;
   return history.filter((entry) => {
     const key = JSON.stringify([
       entry.requestId,
@@ -271,11 +272,13 @@ export function retainedHistory(history, settings) {
     const count = counts.get(key) || 0;
     if (count >= limit) return false;
     const size = new TextEncoder().encode(JSON.stringify(entry)).byteLength;
-    if (historyBytes + size > 40 * 1024 * 1024) return false;
+    const separator = retainedCount ? 1 : 0;
+    if (historyBytes + separator + size > 40 * 1024 * 1024) return false;
     // A candidate excluded by the global byte budget is not retained and must
     // not consume this request/environment's count allowance.
     counts.set(key, count + 1);
-    historyBytes += size;
+    historyBytes += separator + size;
+    retainedCount++;
     return true;
   });
 }
