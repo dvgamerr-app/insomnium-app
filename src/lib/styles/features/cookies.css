@@ -48,3 +48,33 @@
 .cookie-form {
   margin-top: var(--space-20);
 }
+
+.response-cookies {
+  padding: var(--space-14);
+  overflow: auto;
+}
+
+.response-cookie-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: var(--space-14);
+  table-layout: fixed;
+}
+
+.response-cookie-table th,
+.response-cookie-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: var(--space-8);
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+
+.response-cookie-table details {
+  margin-top: var(--space-4);
+  color: var(--muted);
+}
+
+.response-cookie-table summary {
+  cursor: pointer;
+}

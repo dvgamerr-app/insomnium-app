@@ -12,6 +12,16 @@
   width: calc(100% - 12px);
 }
 
+.stream-event-list-toolbar {
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.stream-event-list-toolbar > .ui-select-shell {
+  flex: 1;
+  min-width: 0;
+}
+
 .stream-event {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

@@ -12,6 +12,7 @@
   import TabButton from "./ui/TabButton.svelte";
   import Select from "./ui/Select.svelte";
   import ResponseHistoryMenu from "./ResponseHistoryMenu.svelte";
+  import ResponseCookies from './ResponseCookies.svelte';
   import Button from "./ui/Button.svelte";
   import Input from "./ui/Input.svelte";
   import ResponseNamespaces from "./ResponseNamespaces.svelte";
@@ -33,8 +34,8 @@
   import Icon from "./Icon.svelte";
   import { responseDownloadName } from "../response-download.js";
   import { download } from "../import-export.js";
-  /** @type {{ requestId: string, response: Record<string, any> | undefined, running: boolean, history: Record<string, any>[], onhistory: (response: Record<string, any>) => void }} */
-  let { requestId, response: sourceResponse, running, history, onhistory } = $props();
+  /** @type {{ requestId: string, response: Record<string, any> | undefined, running: boolean, history: Record<string, any>[], onhistory: (response: Record<string, any>) => void,onmanagecookies?:()=>void }} */
+  let { requestId, response: sourceResponse, running, history, onhistory,onmanagecookies } = $props();
   const response=$derived(/** @type {Record<string,any>|undefined} */ (sourceResponse?{...sourceResponse,body:responseBodyText(sourceResponse)}:undefined));
   let tab = $state("Preview");
   let bodyEditor = $state(/** @type {{focus:()=>void,setSelectionRange:(start:number,end:number)=>void}|undefined} */ (undefined));
@@ -500,10 +501,11 @@
           settings={workspace.data.settings}
           placeholder="(empty response)"
         />{/if}
-      {:else if tab === "Headers" || tab === "Cookies"}<div
+      {:else if tab === "Cookies"}<ResponseCookies {response} onmanage={onmanagecookies} />
+      {:else if tab === "Headers"}<div
           class="response-headers"
         >
-          {#each (response.headers || []).filter((/** @type {string[]} */ h) => tab !== "Cookies" || h[0].toLowerCase() === "set-cookie") as [name, value]}<div
+          {#each response.headers || [] as [name, value]}<div
             >
               <span>{name}</span><code>{value}</code>
             </div>{:else}<p class="hint padded">

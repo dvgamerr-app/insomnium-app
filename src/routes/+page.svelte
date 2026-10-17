@@ -1002,6 +1002,7 @@
                       (h) => h.requestId === request._id && h.protocol === protocol && historyMatchesEnvironment(h,app.data.settings,app.data.activeEnvironmentId),
                     )}
                     onhistory={(response) => selectStreamHistory(request._id,response)}
+                    onmanagecookies={()=>showModal('cookies')}
                   />{:else}<ResponsePane
                     bind:this={responsePane}
                     requestId={request._id}
@@ -1011,6 +1012,7 @@
                       (h) => h.requestId === request._id && !h.protocol && historyMatchesEnvironment(h, app.data.settings, app.data.activeEnvironmentId),
                     )}
                     onhistory={(response) => selectHttpHistory(request._id, response)}
+                    onmanagecookies={()=>showModal('cookies')}
                   />{/if}
               {/snippet}</SplitPane
             >

@@ -1419,6 +1419,8 @@ export async function execute(
         protocol,
         environmentId: dataSnapshot.activeEnvironmentId || null,
         connectionState: "connecting",
+        settingSendCookies: !!prepared.useCookies && prepared.sendCookies !== false,
+        settingStoreCookies: !!prepared.useCookies && prepared.storeCookies !== false,
         events: [],
         retainedBytes: 0,
         dropped: 0,
@@ -1560,6 +1562,8 @@ export async function execute(
     }
     const entry = {
       ...response,
+      settingSendCookies: !!prepared.useCookies && prepared.sendCookies !== false,
+      settingStoreCookies: !!prepared.useCookies && prepared.storeCookies !== false,
       _id: runId,
       requestId,
       created: Date.now(),

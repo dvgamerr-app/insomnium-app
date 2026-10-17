@@ -17,15 +17,18 @@
   import { jsonPrettify } from "../json-prettify.js";
   import { copyText } from "../clipboard.js";
   import MessageReader from "./MessageReader.svelte";
+  import ResponseCookies from './ResponseCookies.svelte';
   import CodeEditor from './CodeEditor.svelte';
   import {binaryStreamEvent,streamEventText,streamEventPreview,streamEventMatches} from '../stream-event-text.js';
-  /** @type {{ response: Record<string, any> | undefined, running: boolean, history: Record<string, any>[], onhistory: (response: Record<string, any>) => void, settings?:Record<string,any>,previewMode?:string,onpreviewmode?:(mode:string)=>void,binaryEncoding?:string,onbinaryencoding?:(encoding:string)=>void }} */
-  let { response, running, history, onhistory, settings = {},previewMode='friendly',onpreviewmode,binaryEncoding='base64',onbinaryencoding } = $props();
+  /** @type {{ response: Record<string, any> | undefined, running: boolean, history: Record<string, any>[], onhistory: (response: Record<string, any>) => void, settings?:Record<string,any>,previewMode?:string,onpreviewmode?:(mode:string)=>void,binaryEncoding?:string,onbinaryencoding?:(encoding:string)=>void,onmanagecookies?:()=>void }} */
+  let { response, running, history, onhistory, settings = {},previewMode='friendly',onpreviewmode,binaryEncoding='base64',onbinaryencoding,onmanagecookies } = $props();
   let fullMessage = $state(/** @type {string|null} */ (null));
-  $effect(() => { void response?._id; selectedId = ""; fullMessage = null; });
+  $effect(() => { void response?._id; selectedId = ""; fullMessage = null; clearedIds = new Set(); });
   let tab = $state("Events"),
     selectedId = $state(""),
     filter = $state("");
+  let eventType = $state("");
+  let clearedIds = $state.raw(/** @type {Set<string>} */ (new Set()));
   $effect(() => {
     if (tab === "Timeline" && !response?.legacyTimeline?.length) tab = "Events";
     if (tab === "Raw" && !Array.isArray(response?.rawEvents)) tab = "Events";
@@ -82,8 +85,14 @@
   const events = $derived(
     /** @type {Record<string, any>[]} */ (response?.events || []),
   );
+  const visible = $derived(
+    events.filter(event=>!clearedIds.has(event._id)
+      && (!eventType || (eventType==='message'
+        ? ['message','sse','sent'].includes(event.kind) : event.kind===eventType))
+      && streamEventMatches(event,filter)),
+  );
   const selected = $derived(
-    events.find((e) => e._id === selectedId) || events.at(-1),
+    visible.find((e) => e._id === selectedId) || visible.at(-1),
   );
   let disposed=false,transferSequence=0;
   onDestroy(()=>{disposed=true;});
@@ -99,9 +108,11 @@
         transferFeedback={owner,operation,error:String(cause)};
     };
   }
-  const visible = $derived(
-    events.filter(event=>streamEventMatches(event,filter)),
-  );
+  function clearEvents(){
+    clearedIds=new Set(events.map(event=>event._id));
+    selectedId='';
+    fullMessage=null;
+  }
   const previewLimit = 64 * 1024;
   const eventPreview=$derived(streamEventPreview(selected,binaryEncoding,previewLimit));
   /** Bound DOM text without splitting a UTF-16 surrogate pair.
@@ -177,7 +188,7 @@
     >
     {#if response?.status}<span class="metric">HTTP {response.status}</span
       >{/if}
-    <span class="metric">{events.length} events</span>
+    <span class="metric">{visible.length === events.length ? events.length : `${visible.length} of ${events.length}`} events</span>
     <span class="spacer"></span>
     {#if history.length}<Select
         class="history-select"
@@ -204,7 +215,7 @@
     role="tablist"
     aria-label="Stream view"
   >
-    {#each ["Events", "Headers", ...(Array.isArray(response?.rawEvents) ? ["Raw"] : []), ...(response?.legacyTimeline?.length ? ["Timeline"] : [])] as name}<TabButton
+    {#each ["Events", "Headers", "Cookies", ...(Array.isArray(response?.rawEvents) ? ["Raw"] : []), ...(response?.legacyTimeline?.length ? ["Timeline"] : [])] as name}<TabButton
         role="tab"
         aria-selected={tab === name}
         onclick={() => (tab = name)}>{name}</TabButton
@@ -269,7 +280,7 @@
         class="stream-event-body stream-raw-body">{rawText}</pre>{:else if tab === "Timeline"}<pre
         class="stream-event-body">{(response?.networkLog || []).join(
           "\n",
-        )}</pre>{:else if tab === "Headers"}<div
+        )}</pre>{:else if tab === "Cookies"}<ResponseCookies {response} onmanage={onmanagecookies} />{:else if tab === "Headers"}<div
         class="response-content response-headers"
       >
         {#each response?.headers || [] as [name, value]}<div>
@@ -288,6 +299,18 @@
       >
         {#snippet first()}
           <div class="stream-event-list">
+            <Toolbar variant="preview" class="stream-event-list-toolbar">
+              <Select aria-label="Stream event type" bind:value={eventType}>
+                <option value="">All events</option>
+                <option value="message">Messages</option>
+                <option value="open">Open</option>
+                <option value="closed">Close</option>
+                <option value="error">Error</option>
+              </Select>
+              <Button variant="ghost" class="text-button"
+                disabled={!events.some(event=>!clearedIds.has(event._id))}
+                onclick={clearEvents}>Clear view</Button>
+            </Toolbar>
             <Input
               class="stream-filter"
               aria-label="Filter stream events"
@@ -375,8 +398,8 @@
                 class="empty-response"
               >
                 <Icon name="globe" size={30} />
-                <h2>Waiting for events</h2>
-                <p>Connect to begin receiving messages.</p>
+                <h2>{events.length ? "No matching events" : "Waiting for events"}</h2>
+                <p>{events.length ? "Change the filters or wait for new events. Saved history is unchanged." : "Connect to begin receiving messages."}</p>
               </EmptyState>{/if}
           </div>
         {/snippet}</SplitPane

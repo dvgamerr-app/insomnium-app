@@ -4,6 +4,12 @@ Updated 2026-10-14. Current functional namespace20+88 passes on the integration 
 
 See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity requirements](PARITY.md). No original scope was removed by consolidation.
 
+## Response and stream cookies — 2026-10-17
+
+HTTP and WebSocket/SSE reuse ResponseCookies.svelte for a Name/Value table and expandable original Set-Cookie headers. Stream adds the missing Cookies tab. Header matching is case-insensitive; duplicates are separate, values retain additional equals signs, Expires commas are not split, and malformed pairs retain their original header for inspection. Display parses only the first name/value pair, not native jar acceptance; Svelte text rendering escapes content. Manage cookies opens the existing workspace manager. The main HTTP and stream execution paths snapshot effective automatic send/store settings into history using legacy settingSendCookies/settingStoreCookies fields. Only explicit false produces a disabled notice; older history with missing policy is unknown. Native cookie storage/matching is unchanged. Reference: https://www.rfc-editor.org/rfc/rfc6265#section-5.2 .
+
+Final bun run check:0errors0warnings; bun run build:exit0. Maintained headless stream-message-reader.js passes SSE/WebSocket (~5.2s), covering the mounted shared viewer, mixed-case/duplicate/padded/malformed headers, exact original header, disabled-policy notice and manager open/close. Saved history is fixture-seeded; this does not verify live policy capture, HTTP request runtime, handshake jar mutation/native/network/platform acceptance. Initial concurrent check/build produced a SvelteKit bootstrap global mismatch; sequential rebuild resolves it. Do not parallelize tools that mutate .svelte-kit/build.
+
 ## Durable response formatting — 2026-10-16
 
 HTTP Pretty/Raw now reads `request_meta.previewMode` and persists changes through a guarded workspace action. Imported `raw` activates the original-body view. Choosing Pretty stores `friendly`; retained `source` metadata remains supported. Existing response/filter/pin/custom metadata is preserved, and unchanged/invalid/blocked actions do not save. HTML visual/source rendering is implemented below; other media and broader legacy rendering remain separate work.
