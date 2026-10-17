@@ -190,9 +190,15 @@ export function createRequestRenderSession(context, options, capturedPlugins) {
         if(typeof args[0]!=='string'||typeof args[1]!=='string')throw Error('Cookie URL and name are required');
         const target=new URL(args[0]);
         if(!['http:','https:'].includes(target.protocol))throw Error('Cookie URL must use HTTP or HTTPS');
-        if(chain.includes('cookie-source-scope'))throw Error('Cookie tags cannot be used in cookie source scope fields.');
         const nativeSnapshot=await (cookieSourceSnapshot??=snapshotTemplateCookies(workspaceId,controller.signal));
         childSignal.throwIfAborted();
+        // Legacy scope tags read the stored jar before the request jar renders.
+        // Resolve against the captured native jar, not the overlay whose own
+        // metadata is currently being evaluated. Use the same rule for direct
+        // request/OAuth snapshot rendering and nested overlay selection.
+        if(chain.includes('cookie-source-scope')||chain.some(field=>
+          /^cookieSnapshot\.cookies\[\d+\]\.(?:key|domain|path|expires)(?:[.\[]|$)/.test(field)))
+          return readNativeTemplateCookie(snapshot,args,childSignal,nativeSnapshot);
         const cookies=withCookieTemplateSources(
           nativeSnapshot,snapshot.resources,workspaceId);
         // Select by rendered metadata using the native matcher. Only render the
