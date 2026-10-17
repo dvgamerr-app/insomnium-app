@@ -51,29 +51,38 @@ export async function connectGrpc(request, signal, onmessage) {
   const cancel = cancellation(request.id, signal);
   /** @type {Channel<Record<string,any>>} */
   const channel = new Channel();
+  /** @type {Set<Promise<void>>} */
+  const acknowledgements = new Set();
   /** @type {unknown} */
   let deliveryError;
+  let deliveryFailed = false;
+  /** @param {unknown} error */
+  const failed = (error) => {
+    if (!deliveryFailed) deliveryError = error;
+    deliveryFailed = true;
+    void invoke("cancel_http", { id: request.id }).catch(() => {});
+  };
   channel.onmessage = ({ event, sequence }) => {
     if (event.kind === "started") cancel.started();
     try {
       onmessage(event);
     } catch (error) {
-      deliveryError = error;
-      void invoke("cancel_http", { id: request.id }).catch(() => {});
+      failed(error);
     } finally {
-      void invoke("acknowledge_grpc", { id: request.id, sequence }).catch(
-        (error) => {
-          deliveryError = error;
-          void invoke("cancel_http", { id: request.id }).catch(() => {});
-        },
-      );
+      const acknowledgement = invoke("acknowledge_grpc", { id: request.id, sequence })
+        .catch(failed)
+        .then(() => { acknowledgements.delete(acknowledgement); });
+      acknowledgements.add(acknowledgement);
     }
   };
   try {
     await invoke("connect_grpc", { request, onEvent: channel });
-    if (deliveryError) throw deliveryError;
+    await Promise.all(acknowledgements);
+    if (deliveryFailed) throw deliveryError;
     if (cancel.error) throw cancel.error;
   } finally {
+    // Keep the call tracked until ACK callbacks settle, including native failure.
+    await Promise.all(acknowledgements);
     cancel.close();
   }
 }

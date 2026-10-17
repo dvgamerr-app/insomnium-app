@@ -10,21 +10,41 @@ export async function connectStream(request, protocol, signal, onmessage) {
   if (signal.aborted) return;
   /** @type {Channel<Record<string, any>>} */
   const channel = new Channel();
+  /** @type {Set<Promise<void>>} */
+  const pending = new Set();
+  let deliveryFailed = false;
+  /** @type {unknown} */
+  let deliveryError;
+  /** @param {unknown} error */
+  const failed = (error) => {
+    if (!deliveryFailed) deliveryError = error;
+    deliveryFailed = true;
+    void invoke("cancel_http", { id: request.id }).catch(() => {});
+  };
+  /** @param {Promise<unknown>} operation */
+  const track = (operation) => {
+    const completion = operation.catch(failed).then(() => { pending.delete(completion); });
+    pending.add(completion);
+  };
   channel.onmessage = ({ event, sequence }) => {
     if (signal.aborted && event.kind === "started")
-      void invoke("cancel_http", { id: request.id }).catch((error) =>
-        onmessage({ kind: "warning", message: String(error) }),
-      );
+      track(invoke("cancel_http", { id: request.id }));
     try {
       onmessage(event);
+    } catch (error) {
+      failed(error);
     } finally {
       if (sequence != null)
-        void invoke("acknowledge_stream", { id: request.id, sequence }).catch(
-          (error) => onmessage({ kind: "warning", message: String(error) }),
-        );
+        track(invoke("acknowledge_stream", { id: request.id, sequence }));
     }
   };
-  await invoke("connect_stream", { request, protocol, onEvent: channel });
+  try {
+    await invoke("connect_stream", { request, protocol, onEvent: channel });
+    await Promise.all(pending);
+    if (deliveryFailed) throw deliveryError;
+  } finally {
+    await Promise.all(pending);
+  }
 }
 
 /** @param {string} runId @param {string} format @param {string} data */

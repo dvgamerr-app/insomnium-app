@@ -949,7 +949,7 @@ export async function sendPayload(requestId, payloadId) {
       await new Promise((resolve, reject) => {
         void execute(requestId, false, {
           payload: $state.snapshot(payload),
-          settle: (error) => (error ? reject(error) : resolve(undefined)),
+          settle: (...errors) => (errors.length ? reject(errors[0]) : resolve(undefined)),
         }).catch(reject);
       });
     } finally {
@@ -1210,7 +1210,7 @@ export function remove(resourceId) {
   void persist();
 }
 /** @param {string} requestId @param {boolean} [introspection]
- * @param {{payload: Record<string, any>, settle: (error?: unknown) => void} | null} [initialPayload] */
+ * @param {{payload: Record<string, any>, settle: (...errors: unknown[]) => void} | null} [initialPayload] */
 export async function execute(
   requestId,
   introspection = false,
@@ -1266,11 +1266,12 @@ export async function execute(
   let firstMessage = null;
   let firstMessageSent = false;
   let firstMessageSettled = false;
-  /** @param {unknown} [error] */
-  const settleInitial = (error) => {
+  /** No arguments means success; one argument is failure even when undefined.
+   * @param {unknown[]} errors */
+  const settleInitial = (...errors) => {
     if (!initialPayload || firstMessageSettled) return;
     firstMessageSettled = true;
-    initialPayload.settle(error);
+    initialPayload.settle(...errors);
   };
   const abortInitial = () =>
     settleInitial(controller.signal.reason || new Error("Message cancelled."));
@@ -1832,6 +1833,10 @@ export async function executeGrpc(requestId, discoveryOnly = false) {
           return;
         if (event.kind === "started") return;
         if (event.kind === "connected") {
+          // Native has parsed and queued the single request body before opening
+          // the call. Retain the exact rendered JSON, as for streaming sends.
+          if (!method.clientStreaming && run.phase === "connecting")
+            appendStreamEvent(live, { kind: "sent", text: body });
           live.connectionState = "open";
           run.phase = "open";
         }
@@ -1966,10 +1971,21 @@ export async function sendGrpc(requestId, finish = false) {
       );
     }
     current();
+    const response = workspace.responses[requestId];
     await sendGrpcMessage(running.id, text, finish);
     if (finish) run.senderClosed = true;
-    else if (workspace.responses[requestId]?._id === running.id)
-      appendStreamEvent(workspace.responses[requestId], { kind: "sent", text });
+    else if (
+      workspace.responses[requestId] === response ||
+      workspace.data.history.includes(response)
+    ) {
+      // IPC acceptance can arrive after terminal persistence or a history switch.
+      // Keep the message on its original call, never on the newly selected one.
+      appendStreamEvent(response, { kind: "sent", text });
+      if (response.connectionState !== "open" || workspace.responses[requestId] !== response) {
+        trimHistory();
+        await persist();
+      }
+    }
   } catch (error) {
     if (
       workspace.running[requestId]?.id === running.id &&
