@@ -695,11 +695,21 @@ export function update(resourceId, patch) {
 /** @param {string} requestId @param {string} mode */
 export function setResponsePreviewMode(requestId, mode) {
   if (!canEditWorkspace() || !["friendly", "source", "raw"].includes(mode)) return;
-  if (!workspace.data.resources.some((r) => r._id === requestId && r._type === "request")) return;
+  if (!workspace.data.resources.some((r) => r._id === requestId && ["request","websocket_request"].includes(r._type))) return;
   const meta = requestMeta(workspace.data.resources, requestId);
   if (meta?.previewMode === mode) return;
   if (meta) Object.assign(meta, {previewMode:mode,modified:Date.now()});
   else workspace.data.resources.push({...withResponseFilter(undefined, requestId, ""),previewMode:mode});
+  void persist();
+}
+/** @param {string} requestId @param {string} encoding */
+export function setStreamBinaryEncoding(requestId,encoding){
+  if(!canEditWorkspace()||!['base64','utf8'].includes(encoding))return;
+  if(!workspace.data.resources.some(r=>r._id===requestId&&['request','websocket_request'].includes(r._type)))return;
+  const meta=requestMeta(workspace.data.resources,requestId);
+  if(meta?.streamBinaryEncoding===encoding)return;
+  if(meta)Object.assign(meta,{streamBinaryEncoding:encoding,modified:Date.now()});
+  else workspace.data.resources.push({...withResponseFilter(undefined,requestId,''),streamBinaryEncoding:encoding});
   void persist();
 }
 /** @param {string} requestId @param {string} filter */

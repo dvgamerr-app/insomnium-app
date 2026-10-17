@@ -17,8 +17,10 @@
   import { jsonPrettify } from "../json-prettify.js";
   import { copyText } from "../clipboard.js";
   import MessageReader from "./MessageReader.svelte";
-  /** @type {{ response: Record<string, any> | undefined, running: boolean, history: Record<string, any>[], onhistory: (response: Record<string, any>) => void, settings?:Record<string,any> }} */
-  let { response, running, history, onhistory, settings = {} } = $props();
+  import CodeEditor from './CodeEditor.svelte';
+  import {binaryStreamEvent,streamEventText,streamEventPreview} from '../stream-event-text.js';
+  /** @type {{ response: Record<string, any> | undefined, running: boolean, history: Record<string, any>[], onhistory: (response: Record<string, any>) => void, settings?:Record<string,any>,previewMode?:string,onpreviewmode?:(mode:string)=>void,binaryEncoding?:string,onbinaryencoding?:(encoding:string)=>void }} */
+  let { response, running, history, onhistory, settings = {},previewMode='friendly',onpreviewmode,binaryEncoding='base64',onbinaryencoding } = $props();
   let fullMessage = $state(/** @type {string|null} */ (null));
   $effect(() => { void response?._id; selectedId = ""; fullMessage = null; });
   let tab = $state("Events"),
@@ -86,7 +88,7 @@
   let disposed=false,transferSequence=0;
   onDestroy(()=>{disposed=true;});
   const transferOwner=$derived({responseId:response?._id,requestId:response?.requestId,
-    tab,selectedId,eventId:selected?._id,data:selected?.data,events:events.length,rawBytes:response?.rawReceivedBytes});
+    tab,selectedId,eventId:selected?._id,data:selected?.data,events:events.length,rawBytes:response?.rawReceivedBytes,binaryEncoding});
   let transferFeedback=$state.raw(/** @type {{owner:typeof transferOwner,operation:number,error:string}|undefined} */(undefined));
   const error=$derived(transferFeedback?.owner===transferOwner?transferFeedback.error:'');
   function beginTransfer(){
@@ -107,9 +109,7 @@
     ),
   );
   const previewLimit = 64 * 1024;
-  const previewTruncated = $derived(
-    typeof selected?.data === "string" && selected.data.length > previewLimit,
-  );
+  const eventPreview=$derived(streamEventPreview(selected,binaryEncoding,previewLimit));
   /** Bound DOM text without splitting a UTF-16 surrogate pair.
    * @param {string} value @param {number} limit */
   function previewText(value, limit) {
@@ -126,21 +126,27 @@
   const body = $derived.by(() => {
     if (!selected) return "";
     if (selected.data == null) return JSON.stringify(selected, null, 2);
-    if (previewTruncated) return previewText(selected.data, previewLimit);
-    if (
-      selected.format === "binary" ||
-      selected.format === "ping" ||
-      selected.format === "pong"
-    )
-      return selected.data;
+    if (eventPreview.truncated) return eventPreview.text;
+    if(previewMode==='raw'||previewMode==='source'||eventPreview.error)return eventPreview.text;
+    if(binaryStreamEvent(selected)&&binaryEncoding!=='utf8')return eventPreview.text;
     try {
       // Validate syntax, then format original tokens without converting numbers.
-      JSON.parse(selected.data);
-      return jsonPrettify(selected.data, "  ");
+      JSON.parse(eventPreview.text);
+      return jsonPrettify(eventPreview.text, "  ");
     } catch {
-      return selected.data;
+      return eventPreview.text;
     }
   });
+  const previewTruncated=$derived(eventPreview.truncated||body.length>previewLimit);
+  const displayBody=$derived(body.length>previewLimit?previewText(body,previewLimit):body);
+  const sourceMime=$derived.by(()=>{
+    if(previewTruncated||eventPreview.error||typeof selected?.data!=='string'||(binaryStreamEvent(selected)&&binaryEncoding!=='utf8'))return 'text/plain';
+    try{JSON.parse(eventPreview.text);return 'application/json';}catch{return 'text/plain';}
+  });
+  function openCompleteEvent(){
+    const fail=beginTransfer();
+    try{fullMessage=streamEventText(selected,binaryEncoding);}catch(cause){fail(cause);}
+  }
   async function saveEvent() {
     if (!selected) return;
     const fail=beginTransfer();
@@ -318,13 +324,24 @@
           </div>
         {/snippet}{#snippet second()}
           <div class="stream-event-detail">
-            <Toolbar variant="preview" class="preview-toolbar">
+            <Toolbar variant="preview" class="stream-event-toolbar">
               <Button
                 variant="plain"
                 class={[!selectedId && "chosen"].filter(Boolean).join(" ")}
                 onclick={() => (selectedId = "")}>Follow latest</Button
               >
               {#if selected?.id}<span class="hint">ID: {selected.id}</span>{/if}
+              {#if selected&&onpreviewmode}<Select aria-label="Stream event display" class="stream-event-option"
+                  value={['friendly','source','raw'].includes(previewMode)?previewMode:'friendly'}
+                  onchange={event=>onpreviewmode?.(event.currentTarget.value)}>
+                  <option value="friendly">Formatted</option>
+                  <option value="source">Source</option>
+                  <option value="raw">Raw</option>
+                </Select>{/if}
+              {#if binaryStreamEvent(selected)&&onbinaryencoding}<Select aria-label="Binary event encoding" class="stream-event-option"
+                  value={binaryEncoding==='utf8'?'utf8':'base64'} onchange={event=>onbinaryencoding?.(event.currentTarget.value)}>
+                  <option value="base64">Base64</option><option value="utf8">UTF-8</option>
+                </Select>{/if}
               <span class="spacer"></span>
               <Button
                 variant="ghost"
@@ -335,7 +352,7 @@
                 onclick={async () => {
                   const fail=beginTransfer();
                   try {
-                    await copyText(selected?.data ?? body);
+                    await copyText(streamEventText(selected,binaryEncoding));
                   } catch (e) {
                     fail(e);
                   }
@@ -350,12 +367,16 @@
                 onclick={saveEvent}><Icon name="download" size={14} /></Button
               >
             </Toolbar>
+            {#if eventPreview.error}<Feedback as="p" class="inline-error" role="alert">{eventPreview.error}</Feedback>{/if}
             {#if previewTruncated}<p class="hint" role="status">
                 Showing a preview of this large event.
               </p><Button variant="ghost" class="text-button"
-                onclick={() => (fullMessage = String(selected?.data ?? ""))}>Open complete stream event</Button>{/if}
-            {#if selected}<pre
-                class="stream-event-body">{body}</pre>{:else}<EmptyState
+                onclick={openCompleteEvent}>Open complete stream event</Button>{/if}
+            {#if selected&&previewMode==='source'}<div class="stream-event-source">
+                <CodeEditor identity={(response?._id||'stream')+':'+selected._id+':source'}
+                  label="Stream event source" value={displayBody} mode={sourceMime} readOnly {settings} />
+              </div>{:else if selected}<pre
+                class="stream-event-body">{displayBody}</pre>{:else}<EmptyState
                 variant="response"
                 class="empty-response"
               >

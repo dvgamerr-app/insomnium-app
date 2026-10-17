@@ -58,6 +58,8 @@
     selectEnvironment,
     selectHttpHistory,
     selectStreamHistory,
+    setResponsePreviewMode,
+    setStreamBinaryEncoding,
     addRequest,
     addWorkspace,
     addFolder,
@@ -75,7 +77,7 @@
   } from "$lib/workspace.svelte.js";
   import { id, indexWorkspaces, protocolFor, historyMatchesEnvironment } from "$lib/model.js";
   import { orderedChildren } from "$lib/resources.js";
-  import { pinnedRequests } from "$lib/request-meta.js";
+  import { pinnedRequests, requestMeta } from "$lib/request-meta.js";
   import { curlRequestPatch, isCurlImport } from "$lib/curl-import.js";
   import { pickImport, parseImport, exportData, pickLegacyResponseHistory, pickLegacyRequestFiles, pickLegacyCertificateFiles } from "$lib/import-export.js";
   import { reviewImportedHistory, applyImportedData } from "$lib/import-history-review.js";
@@ -989,6 +991,10 @@
                 </div>
               {/snippet}{#snippet second()}
                 {#if protocol !== "http" || app.responses[request._id]?.protocol}<StreamPane
+                    previewMode={requestMeta(app.data.resources,request._id)?.previewMode||'friendly'}
+                    onpreviewmode={mode=>setResponsePreviewMode(request._id,mode)}
+                    binaryEncoding={requestMeta(app.data.resources,request._id)?.streamBinaryEncoding||'base64'}
+                    onbinaryencoding={encoding=>setStreamBinaryEncoding(request._id,encoding)}
                     settings={app.data.settings}
                     response={app.responses[request._id]}
                     running={!!app.running[request._id]}

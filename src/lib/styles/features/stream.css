@@ -54,6 +54,17 @@
   overflow: hidden;
 }
 
+.stream-event-toolbar {
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.stream-event-toolbar > .ui-button,
+.stream-event-toolbar > .stream-event-option {
+  flex-shrink: 0;
+  width: auto;
+}
+
 .stream-event-body {
   padding: var(--space-14);
   margin: 0;
@@ -62,6 +73,23 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-size: var(--font-size-12);
+}
+
+.stream-event-source {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.stream-event-source > .shared-code-editor {
+  flex: 1;
+  min-height: 0;
+}
+
+.stream-event-detail .stream-event-source > .shared-code-editor > .CodeMirror,
+.stream-event-detail .stream-event-source > .shared-code-editor > textarea {
+  min-height: 0;
 }
 
 .stream-notice {
