@@ -18,7 +18,7 @@
   import { copyText } from "../clipboard.js";
   import MessageReader from "./MessageReader.svelte";
   import CodeEditor from './CodeEditor.svelte';
-  import {binaryStreamEvent,streamEventText,streamEventPreview} from '../stream-event-text.js';
+  import {binaryStreamEvent,streamEventText,streamEventPreview,streamEventMatches} from '../stream-event-text.js';
   /** @type {{ response: Record<string, any> | undefined, running: boolean, history: Record<string, any>[], onhistory: (response: Record<string, any>) => void, settings?:Record<string,any>,previewMode?:string,onpreviewmode?:(mode:string)=>void,binaryEncoding?:string,onbinaryencoding?:(encoding:string)=>void }} */
   let { response, running, history, onhistory, settings = {},previewMode='friendly',onpreviewmode,binaryEncoding='base64',onbinaryencoding } = $props();
   let fullMessage = $state(/** @type {string|null} */ (null));
@@ -100,13 +100,7 @@
     };
   }
   const visible = $derived(
-    events.filter(
-      (e) =>
-        !filter ||
-        `${e.kind} ${e.event || ""} ${e.data || ""}`
-          .toLowerCase()
-          .includes(filter.toLowerCase()),
-    ),
+    events.filter(event=>streamEventMatches(event,filter)),
   );
   const previewLimit = 64 * 1024;
   const eventPreview=$derived(streamEventPreview(selected,binaryEncoding,previewLimit));

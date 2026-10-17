@@ -68,6 +68,16 @@ for (const protocol of ["sse","websocket"]) {
       const encoding=page.getByRole('combobox',{name:'Binary event encoding',exact:true});
       assert.equal(await encoding.inputValue(),'base64');
       assert.equal(await page.locator('.stream-event-body').textContent(),binaryBase64);
+      const search=page.getByRole('textbox',{name:'Filter stream events',exact:true});
+      await search.fill('ไทย');
+      await page.waitForFunction(()=>document.querySelectorAll('.stream-event').length===1);
+      assert.equal(await page.locator('.stream-event').count(),1);
+      assert.ok((await page.locator('.stream-event').textContent())?.includes(binaryBase64));
+      await search.fill('no matching stream event');
+      await page.waitForFunction(()=>document.querySelectorAll('.stream-event').length===0);
+      assert.equal(await page.locator('.stream-event').count(),0);
+      await search.fill('');
+      await page.locator('.stream-event').filter({hasText:binaryBase64}).waitFor();
       await mode.selectOption('raw');await encoding.selectOption('utf8');
       await page.waitForFunction(expected=>document.querySelector('.stream-event-body')?.textContent===expected,binaryJson);
       await page.getByRole('button',{name:'Copy stream event',exact:true}).click();

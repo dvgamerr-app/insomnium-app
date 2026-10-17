@@ -20,6 +20,21 @@ export function streamEventText(event,encoding){
   return binaryStreamEvent(event)&&encoding==='utf8'?utf8(raw):raw;
 }
 
+/** Search complete event content, independently of preview truncation/encoding.
+ * Invalid imported binary data remains searchable in its stored representation.
+ * @param {Record<string,any>} event @param {string} query */
+export function streamEventMatches(event,query){
+  if(!query)return true;
+  const needle=query.toLowerCase();
+  if(['kind','event','data','message','reason','url'].some(key=>
+    String(event[key]??'').toLowerCase().includes(needle)))return true;
+  if(binaryStreamEvent(event)){
+    try{return streamEventText(event,'utf8').toLowerCase().includes(needle);}
+    catch{return false;}
+  }
+  return false;
+}
+
 /** Bounded UTF8 preview reads at most four bytes per visible UTF16 unit plus
  * one character of lookahead; it never decodes the entire large binary event.
  * @param {Record<string,any>|undefined} event @param {string} encoding @param {number} limit */
