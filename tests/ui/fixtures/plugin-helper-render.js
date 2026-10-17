@@ -11,6 +11,7 @@ import {
 import { renderRequestPreview } from "../../../src/lib/template-preview.js";
 import { resolveQuery } from "../../../src/lib/graphql.js";
 import { initialData } from "../../../src/lib/model.js";
+import {captureCookieSourceOwner,replaceCookieTemplateSources} from '../../../src/lib/cookie-template-sources.js';
 import { mount } from "svelte";
 import TemplatePromptDialog from "../../../src/lib/components/TemplatePromptDialog.svelte";
 import { askTemplatePrompt } from "../../../src/lib/template-prompt-dialog.js";
@@ -57,6 +58,7 @@ sources[parent] += "\nexports.templateTags.push({name:'jsonoutput',run(){return 
 /** @type {AbortController|undefined} */ let entryController;
 let owner = {},
   held = false;
+/** @type {Record<string,any>[]|null} */ let cookieOwnerResources=null;
 const ActualWorker = window.Worker;
 /** @returns {NonNullable<Parameters<typeof createRequestRenderSession>[1]['pluginServices']>} */
 function services() {
@@ -89,8 +91,8 @@ function services() {
 /** @type {any} */ (window).__pluginRenderFixture = {
   records,
   calls,
-  /** @param {{plugin:string,template:string}} urls */
-  async open(urls) {
+  /** @param {{plugin:string,template:string}} urls @param {{cookieSourcesOnly?:boolean}} [options] */
+  async open(urls,options={}) {
     entryController?.abort();
     renderer?.dispose();
     registry?.dispose();
@@ -138,6 +140,7 @@ function services() {
         };
       }
     };
+    if(options.cookieSourcesOnly)return;
     const settings = {
       pluginDirectories: ["fixture"],
       pluginPathMigrationVersion: 1,
@@ -190,6 +193,24 @@ function services() {
   async reload() {
     await registry?.prepare(parent);
     await registry?.prepare(child);
+  },
+  startCookieSourceOwner(){
+    renderer?.dispose();remove?.();
+    cookieOwnerResources=replaceCookieTemplateSources([...resources],'w',[
+      {key:'session',value:'owned',domain:'example.invalid',path:'/'}]);
+    remove=installPluginTemplateProvider(snapshot=>({tags:[],isCurrent:()=>true,
+      cookieSourcesCurrent:captureCookieSourceOwner(snapshot.resources,'w',()=>cookieOwnerResources)}));
+    renderer=createRequestRenderSession({}, {purpose:'send',requestId:'r',workspaceId:'w',
+      resources:cookieOwnerResources,signal:new AbortController().signal,
+      ask:(title,options,signal)=>askTemplatePrompt(title,{...options,submitName:'Resume source'},signal)});
+    result=renderer.render('{% prompt "Source owner", "Value", "", "", false, false %}').then(
+      value=>({value}),error=>({name:error.name,error:String(error)}));
+  },
+  /** @param {'foreign'|'remove'} mode */
+  mutateCookieSourceOwner(mode){
+    if(!cookieOwnerResources)throw Error('Cookie owner fixture is not active');
+    cookieOwnerResources=mode==='remove'?replaceCookieTemplateSources(cookieOwnerResources,'w',[]):
+      [...cookieOwnerResources,{_id:'foreign_source',_type:'cookie_jar',parentId:'foreign',_activeTemplateCookieSource:true,cookies:[]}];
   },
   /** @param {string} text @param {boolean} [hold] @param {{tamperServices?:boolean,ancestry?:string[],mutateAncestry?:boolean,promptSubmit?:string,json?:boolean}} [options] */
   start(text, hold = false, options = {}) {

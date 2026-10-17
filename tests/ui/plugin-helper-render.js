@@ -6,7 +6,8 @@ import { poll } from "./helpers/native-app.js";
 import { createSvelteUiFixturePlugin } from "./helpers/component-fixture.js";
 
 const jsonOnly = process.env.INSOMNIUM_PLUGIN_JSON_ONLY === "1";
-await withPreview(jsonOnly ? "plugin-helper-render-json" : "plugin-helper-render", async (page, output) => {
+const cookieOwnerOnly=process.env.INSOMNIUM_COOKIE_SOURCE_OWNER==='1';
+await withPreview(cookieOwnerOnly?'cookie-source-render-owner':jsonOnly ? "plugin-helper-render-json" : "plugin-helper-render", async (page, output) => {
   const bundled = await Bun.build({
     entrypoints: ["tests/ui/fixtures/plugin-helper-render.js"],
     target: "browser",
@@ -51,9 +52,29 @@ await withPreview(jsonOnly ? "plugin-helper-render-json" : "plugin-helper-render
   /** @type {string[]} */ const checks = [];
   try {
     await page.evaluate(
-      (urls) => /** @type {any} */ (window).__pluginRenderFixture.open(urls),
-      urls,
+      ({urls,cookieOwnerOnly}) => /** @type {any} */ (window).__pluginRenderFixture.open(urls,{cookieSourcesOnly:cookieOwnerOnly}),
+      {urls,cookieOwnerOnly},
     );
+    if(cookieOwnerOnly){
+      for(const mode of ['foreign','remove']){
+        await page.evaluate(()=>/** @type {any} */(window).__pluginRenderFixture.startCookieSourceOwner());
+        const prompt=page.getByRole('dialog').filter({has:page.getByRole('heading',{name:'Source owner',exact:true})});
+        await prompt.waitFor();
+        await page.evaluate(mode=>/** @type {any} */(window).__pluginRenderFixture.mutateCookieSourceOwner(mode),mode);
+        await prompt.getByRole('textbox').fill('accepted');
+        await prompt.getByRole('button',{name:'Resume source',exact:true}).click();
+        const rendered=await page.evaluate(()=>/** @type {any} */(window).__pluginRenderFixture.result());
+        if(mode==='foreign')assert.deepEqual(rendered,{value:'accepted'});
+        else assert.equal(rendered.name,'AbortError');
+        await prompt.waitFor({state:'hidden'});
+        checks.push(mode==='foreign'?'foreign collection retains held render':'removed source rejects held render');
+      }
+      const records=await page.evaluate(()=>/** @type {any} */(window).__pluginRenderFixture.records);
+      assert.equal(records.length,2);assert.ok(records.every((/** @type {any} */record)=>record.terminated));
+      await Bun.write(output+'/result.json',JSON.stringify({status:'passed',headless:true,checks,workers:2,terminated:true,
+        scope:'Production template workers and mounted Prompt; controlled source owner provider, zero custom plugins and no native/network calls'},null,2));
+      return;
+    }
     if (jsonOnly) {
       const source = String.raw`{"value":"left  {%- jsonoutput -%}  right","literal":"\u007b\u007b missing \u007d\u007d","large":9007199254740993}`;
       await page.evaluate((source) => /** @type {any} */ (window).__pluginRenderFixture.start(source,false,{json:true}),source);
