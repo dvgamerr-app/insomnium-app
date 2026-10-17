@@ -509,7 +509,10 @@ export function wsdlResources(text,options = {}) {
           result.push(...[...inherited.filter(attribute=>!replaced.has(key(attribute))),...local]
             .filter(attribute=>includeOptional || attribute.required !== false));
         }
-      } else if (child.localName === 'anyAttribute') throw new Error('WSDL wildcard attributes require manual example authoring.');
+      } else if (child.localName === 'anyAttribute') {
+        // Attribute wildcards permit additional attributes; none are required.
+        wildcardSpec(child,schema);
+      }
     }
     return result;
   }
@@ -525,6 +528,44 @@ export function wsdlResources(text,options = {}) {
       return bounded(` xmlns:a${index}="${escape(namespace)}" a${index}:${name}="${escape(value)}"`);
     }).join(''));
   }
+  /** @param {any} node @param {any} schema */
+  function wildcardSpec(node,schema) {
+    const tokens=(node.getAttribute('namespace') ?? '##any').trim().split(/\s+/).filter(Boolean);
+    const process=(node.getAttribute('processContents') ?? 'strict').trim();
+    if(!tokens.length || !['strict','lax','skip'].includes(process) ||
+        tokens.some((/** @type {string} */ token)=>token.startsWith('##') &&
+          !['##any','##other','##local','##targetNamespace'].includes(token)) ||
+        (tokens.length > 1 && tokens.some((/** @type {string} */ token)=>['##any','##other'].includes(token))))
+      throw new Error('Invalid WSDL wildcard namespace or processContents.');
+    const target=schema.getAttribute('targetNamespace') || '';
+    const namespaces=tokens.map((/** @type {string} */ token)=>token==='##local' ? '' : token==='##targetNamespace' ? target : token);
+    const allows=(/** @type {string} */ namespace)=>tokens[0]==='##any' ||
+      (tokens[0]==='##other' ? !!namespace && namespace!==target : namespaces.includes(namespace));
+    let placeholder=tokens[0]==='##any' ? '' : tokens[0]==='##other'
+      ? 'urn:insomnium:example'+(target==='urn:insomnium:example' ? ':other' : '') : namespaces[0];
+    if(placeholder==='http://www.w3.org/2000/xmlns/')
+      throw new Error('WSDL wildcard uses a reserved namespace.');
+    return {process,allows,placeholder};
+  }
+  const activeElements=new Set();
+  const recursiveExpansion=new Error('WSDL example requires recursive element expansion.');
+  /** @param {any} node @param {any} schema @param {number} depth */
+  function wildcardSample(node,schema,depth) {
+    const {process,allows,placeholder}=wildcardSpec(node,schema);
+    if(process!=='skip')for(const [key,candidate] of schemas) {
+      if(key.startsWith('element:') && allows(candidate.namespace) &&
+          (!activeElements.has(candidate.node) || canNil(candidate.node)) &&
+          !['true','1'].includes(candidate.node.getAttribute('abstract'))) {
+        try { return sample(candidate.node,candidate.schema,depth+1); }
+        catch(error) { if(error!==recursiveExpansion)throw error; }
+      }
+    }
+    if(process==='strict')throw new Error('WSDL strict wildcard has no available concrete element declaration.');
+    // Lax must not accidentally select a declared name whose type needs validation.
+    let name='example';
+    while(schemas.has('element:'+placeholder+'#'+name))name+='X';
+    return bounded(`<${name} xmlns="${escape(placeholder)}"></${name}>`);
+  }
   /** Render required occurrences of one schema particle. Optional paths stay empty.
    * @param {any} node @param {any} schema @param {number} depth @returns {string} */
   function particle(node,schema,depth) {
@@ -537,14 +578,21 @@ export function wsdlResources(text,options = {}) {
     let result = '';
     for (let i=0;i<count;i++) {
       if (node.localName === 'element') result += sample(node,schema,depth+1);
+      else if (node.localName === 'any') result += wildcardSample(node,schema,depth+1);
       else if (node.localName === 'group' && node.hasAttribute('ref')) {
         const found = schemas.get('group:'+qname(node,node.getAttribute('ref')));
         if (!found) throw new Error('Unresolved WSDL model group.');
         result += particle(found.node,found.schema,depth+1);
       } else if (['sequence','all','choice','group'].includes(node.localName)) {
         const members = children(node,XSD).filter(child=>child.localName !== 'annotation');
-        for (const child of node.localName === 'choice' ? members.slice(0,1) : members)
-          result += particle(child,schema,depth+1);
+        if(node.localName==='choice') {
+          let chosen=false;
+          for(const child of members) {
+            try { result+=particle(child,schema,depth+1);chosen=true;break; }
+            catch(error) { if(error!==recursiveExpansion)throw error; }
+          }
+          if(!chosen)throw recursiveExpansion;
+        } else for (const child of members) result += particle(child,schema,depth+1);
       } else throw new Error('Unsupported WSDL schema particle.');
       // Enforce the expansion budget during repetitions, before joining parents.
       if (encoder.encode(result).byteLength > 8 * 1024 * 1024) throw new Error('WSDL examples exceed 8 MiB.');
@@ -556,14 +604,13 @@ export function wsdlResources(text,options = {}) {
    * @param {any} type @param {any} schema @param {number} depth @returns {string} */
   function complexFields(type,schema,depth) {
     enter(depth);
-    if (['true','1'].includes(type.getAttribute('mixed')))
-      throw new Error('WSDL mixed-content types require manual example authoring.');
+    // Mixed content permits text between particles; an editable example need
+    // not invent prose, but must still generate the required child elements.
     let result = '';
     for (const child of children(type,XSD)) {
-      if (['annotation','attribute','attributeGroup'].includes(child.localName)) continue;
+      if (['annotation','attribute','attributeGroup','anyAttribute'].includes(child.localName)) continue;
       if (['sequence','all','choice','group'].includes(child.localName)) result += particle(child,schema,depth+1);
       else if (child.localName === 'complexContent') {
-        if (['true','1'].includes(child.getAttribute('mixed'))) throw new Error('WSDL mixed-content types require manual example authoring.');
         const derivations = children(child,XSD).filter(item=>item.localName !== 'annotation');
         if (derivations.length !== 1 || !['extension','restriction'].includes(derivations[0].localName))
           throw new Error('WSDL complex content requires one extension or restriction.');
@@ -692,6 +739,21 @@ export function wsdlResources(text,options = {}) {
   }
   /** @param {any} node @param {any} schema @param {number} depth @returns {string} */
   function sample(node,schema,depth) {
+    if(activeElements.has(node)) {
+      if(canNil(node))return sampleElement(node,schema,depth,true);
+      throw recursiveExpansion;
+    }
+    activeElements.add(node);
+    try { return sampleElement(node,schema,depth); }
+    finally { activeElements.delete(node); }
+  }
+  /** @param {any} node */
+  function canNil(node) {
+    return ['true','1'].includes(node.getAttribute('nillable')) && !node.hasAttribute('fixed');
+  }
+  /** @param {any} node @param {any} schema @param {number} depth
+   * @param {boolean} [nil] @returns {string} */
+  function sampleElement(node,schema,depth,nil=false) {
     enter(depth);
     if (node.hasAttribute('ref')) {
       const found = schemas.get('element:' + qname(node,node.getAttribute('ref')));
@@ -735,15 +797,23 @@ export function wsdlResources(text,options = {}) {
           if(namespace){tag='e:'+name;namespaceAttributes=` xmlns="" xmlns:e="${escape(namespace)}"`;}
         }
       }
-      if (['true','1'].includes(type.getAttribute('mixed')))
-        throw new Error('WSDL mixed-content types require manual example authoring.');
+      if(nil) {
+        const nilAttributes=(typeAttributes.includes(' xmlns:xsi=') ? ''
+          : ' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"')+' xsi:nil="true"';
+        const attributes=type.localName==='complexType' ? attributeXml(attributesFor(type,schema,depth+1)) : '';
+        return bounded(`<${tag}${namespaceAttributes}${typeAttributes}${nilAttributes}${attributes}></${tag}>`);
+      }
       const members = children(type,XSD).filter(child => child.localName !== 'annotation');
       const restriction = members.find(child => child.localName === 'restriction');
       if (type.localName === 'simpleType' || restriction) {
         content = textValue(type,depth+1);
       } else {
         content = complexFields(type,schema,depth+1);
-        if (children(type,XSD,'simpleContent').length && (node.hasAttribute('fixed') || node.hasAttribute('default')))
+        const complexContent=children(type,XSD,'complexContent')[0];
+        const mixed=['true','1'].includes(complexContent?.hasAttribute('mixed')
+          ? complexContent.getAttribute('mixed') : type.getAttribute('mixed'));
+        if ((children(type,XSD,'simpleContent').length || (mixed && !content)) &&
+            (node.hasAttribute('fixed') || node.hasAttribute('default')))
           content = escape(node.getAttribute('fixed') ?? node.getAttribute('default'));
         const attributes = attributeXml(attributesFor(type,schema,depth+1));
         return bounded(`<${tag}${namespaceAttributes}${typeAttributes}${attributes}>${content}</${tag}>`);
