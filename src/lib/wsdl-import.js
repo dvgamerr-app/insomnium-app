@@ -25,10 +25,26 @@ const integerRanges = {
 };
 const numericFacets = ['minInclusive','minExclusive','maxInclusive','maxExclusive','totalDigits','fractionDigits'];
 const stringFacets = ['length','minLength','maxLength','whiteSpace'];
+/** @type {Record<string,string>} */
+const builtinTypeParents = {
+  anySimpleType:'anyType', normalizedString:'string', token:'normalizedString', language:'token',
+  Name:'token', NCName:'Name', ID:'NCName', IDREF:'NCName', ENTITY:'NCName', NMTOKEN:'token',
+  integer:'decimal', nonPositiveInteger:'integer', negativeInteger:'nonPositiveInteger',
+  long:'integer', int:'long', short:'int', byte:'short', nonNegativeInteger:'integer',
+  unsignedLong:'nonNegativeInteger', unsignedInt:'unsignedLong', unsignedShort:'unsignedInt',
+  unsignedByte:'unsignedShort', positiveInteger:'nonNegativeInteger',
+};
+const primitiveTypes = new Set(['string','boolean','decimal','float','double','duration','dateTime',
+  'time','date','gYearMonth','gYear','gMonthDay','gDay','gMonth','hexBinary','base64Binary','anyURI','QName','NOTATION']);
 /** Inline simpleType is a base declaration, not a constraining facet.
  * @param {any} restriction @returns {any[]} */
 function restrictionFacets(restriction) {
-  return children(restriction,XSD).filter(child=>!['annotation','simpleType'].includes(child.localName));
+  return children(restriction,XSD).filter(child=>!['annotation','simpleType'].includes(child.localName) &&
+    !(simpleContentContext(restriction) && ['attribute','attributeGroup','anyAttribute'].includes(child.localName)));
+}
+/** @param {any} node */
+function simpleContentContext(node) {
+  return node.parentNode?.namespaceURI === XSD && node.parentNode?.localName === 'simpleContent';
 }
 /** @param {any} restriction @param {[bigint,bigint|null]|null} range
  * @returns {[bigint,bigint|null]|null} */
@@ -207,17 +223,31 @@ export function wsdlResources(text,options = {}) {
   function resolveTextType(context,name,complex=false) {
     if (context.namespaceURI === XSD && context.localName === 'restriction') {
       const inline = children(context,XSD,'simpleType');
+      if(inline.length > 1)throw new Error('WSDL restriction accepts at most one inline simple type.');
       if (!context.hasAttribute('base')) {
-        if (inline.length !== 1) throw new Error('WSDL restriction requires one named or inline base type.');
+        if (inline.length !== 1 || simpleContentContext(context)) throw new Error('WSDL restriction requires a supported base type.');
         return {node:inline[0],builtin:''};
       }
-      if (inline.length) throw new Error('WSDL restriction cannot combine named and inline base types.');
+      if (inline.length && !simpleContentContext(context)) throw new Error('WSDL restriction cannot combine named and inline base types.');
     }
     const key = qname(context,name || '');
     if (key.startsWith(XSD+'#')) return {node:null,builtin:key.slice(XSD.length+1)};
-    const found = schemas.get('simpleType:'+key) || (complex && schemas.get('complexType:'+key));
+    const found = schemas.get('simpleType:'+key) || ((complex || simpleContentContext(context)) && schemas.get('complexType:'+key));
     if (!found) throw new Error('Unresolved WSDL text base type.');
     return {node:found.node,builtin:''};
+  }
+  /** A simple-content restriction's inline type narrows its scalar content;
+   * its named complex base still owns attribute/type inheritance.
+   * @param {any} context @param {string} name */
+  function resolveScalarType(context,name) {
+    const resolved=resolveTextType(context,name);
+    const inline=simpleContentContext(context) ? children(context,XSD,'simpleType')[0] : null;
+    return inline ? {node:inline,builtin:''} : resolved;
+  }
+  /** @param {any} type @returns {any} */
+  function scalarDerivation(type) {
+    const content=type.localName === 'simpleType' ? type : children(type,XSD,'simpleContent')[0];
+    return children(content,XSD).find(child=>['restriction','extension'].includes(child.localName));
   }
   /** Resolve every named base before applying a derived restriction. The same
    * generation guard rejects cycles across selected schema documents.
@@ -225,24 +255,24 @@ export function wsdlResources(text,options = {}) {
    * @returns {[bigint|null,bigint|null]|null} */
   function integerTypeRange(context,name,depth) {
     enter(depth);
-    const {node,builtin} = resolveTextType(context,name);
+    const {node,builtin} = resolveScalarType(context,name);
     if (builtin) {
       return Object.hasOwn(integerRanges,builtin) ? integerRanges[builtin] : null;
     }
-    const restriction = children(node,XSD,'restriction')[0];
+    const restriction = scalarDerivation(node);
     if (!restriction) return null;
-    return integerRestrictionRange(restriction,
-      integerTypeRange(restriction,restriction.getAttribute('base') || '',depth+1));
+    const base=integerTypeRange(restriction,restriction.getAttribute('base') || '',depth+1);
+    return restriction.localName === 'extension' ? base : integerRestrictionRange(restriction,base);
   }
   /** @param {any} context @param {string} name @param {number} depth
    * @returns {any[]|null} */
   function decimalTypeFacets(context,name,depth) {
     enter(depth);
-    const {node,builtin} = resolveTextType(context,name);
+    const {node,builtin} = resolveScalarType(context,name);
     if (builtin) return builtin === 'decimal' ? [] : null;
-    const restriction = children(node,XSD,'restriction')[0];
+    const restriction = scalarDerivation(node);
     if (!restriction) return null;
-    const own = restrictionFacets(restriction);
+    const own = restriction.localName === 'extension' ? [] : restrictionFacets(restriction);
     if (own.some(child=>!numericFacets.includes(child.localName))) return null;
     const inherited = decimalTypeFacets(restriction,restriction.getAttribute('base') || '',depth+1);
     if (inherited === null) return null;
@@ -253,12 +283,12 @@ export function wsdlResources(text,options = {}) {
    * @returns {[bigint,bigint|null]|null} */
   function stringTypeRange(context,name,depth) {
     enter(depth);
-    const {node,builtin} = resolveTextType(context,name);
+    const {node,builtin} = resolveScalarType(context,name);
     if (builtin) return ['string','normalizedString','token','anyURI'].includes(builtin) ? [0n,null] : null;
-    const restriction = children(node,XSD,'restriction')[0];
+    const restriction = scalarDerivation(node);
     if (!restriction) return null;
-    return stringRestrictionRange(restriction,
-      stringTypeRange(restriction,restriction.getAttribute('base') || '',depth+1));
+    const base=stringTypeRange(restriction,restriction.getAttribute('base') || '',depth+1);
+    return restriction.localName === 'extension' ? base : stringRestrictionRange(restriction,base);
   }
   /** @param {any} restriction @param {string} [kind] */
   function checkCollapsedWhitespace(restriction,kind='list') {
@@ -269,14 +299,15 @@ export function wsdlResources(text,options = {}) {
    * @returns {{type:any,min:bigint,max:bigint|null,item?:string}|null} */
   function listTypeInfo(context,name,depth) {
     enter(depth);
-    const {node,builtin} = resolveTextType(context,name);
+    const {node,builtin} = resolveScalarType(context,name);
     if (builtin) return ['NMTOKENS','IDREFS','ENTITIES'].includes(builtin)
       ? {type:null,min:1n,max:null,item:'string'} : null;
     if (children(node,XSD,'list').length) return {type:node,min:0n,max:null};
-    const restriction = children(node,XSD,'restriction')[0];
+    const restriction = scalarDerivation(node);
     if (!restriction) return null;
     const base = listTypeInfo(restriction,restriction.getAttribute('base') || '',depth+1);
     if (!base) return null;
+    if(restriction.localName === 'extension')return base;
     checkCollapsedWhitespace(restriction);
     const range = stringRestrictionRange(restriction,[base.min,base.max]);
     return range ? {...base,min:range[0],max:range[1]} : null;
@@ -285,14 +316,15 @@ export function wsdlResources(text,options = {}) {
    * @returns {{encoding:string,min:bigint,max:bigint|null}|null} */
   function binaryTypeInfo(context,name,depth) {
     enter(depth);
-    const {node,builtin:encoding} = resolveTextType(context,name);
+    const {node,builtin:encoding} = resolveScalarType(context,name);
     if (encoding) {
       return ['hexBinary','base64Binary'].includes(encoding) ? {encoding,min:0n,max:null} : null;
     }
-    const restriction = children(node,XSD,'restriction')[0];
+    const restriction = scalarDerivation(node);
     if (!restriction) return null;
     const base = binaryTypeInfo(restriction,restriction.getAttribute('base') || '',depth+1);
     if (!base) return null;
+    if(restriction.localName === 'extension')return base;
     checkCollapsedWhitespace(restriction,'binary');
     const range = stringRestrictionRange(restriction,[base.min,base.max]);
     return range ? {...base,min:range[0],max:range[1]} : null;
@@ -332,7 +364,7 @@ export function wsdlResources(text,options = {}) {
       // Deterministic editable example: named members precede inline members.
       return bounded(names.length ? textType(union,names[0],depth+1,true) : textValue(inline[0],depth+1));
     }
-    const restriction = children(type,XSD,'restriction')[0];
+    const restriction = type.localName === 'restriction' ? type : children(type,XSD,'restriction')[0];
     if (restriction) {
       resolveTextType(restriction,restriction.getAttribute('base') || '');
       const enumeration = children(restriction,XSD,'enumeration')[0];
@@ -395,23 +427,27 @@ export function wsdlResources(text,options = {}) {
         }
         throw new Error('WSDL simple-type restrictions require manual example authoring.');
       }
-      return textType(restriction,restriction.getAttribute('base'),depth+1);
+      const base=resolveScalarType(restriction,restriction.getAttribute('base') || '');
+      return base.builtin ? builtinSample(base.builtin) : textValue(base.node,depth+1);
     }
-    const simple = children(type,XSD,'simpleContent')[0];
-    const extension = children(simple,XSD,'extension')[0];
-    if (!extension) throw new Error('WSDL text types require a supported restriction or simpleContent extension.');
-    return textType(extension,extension.getAttribute('base'),depth+1);
+    const derivation=scalarDerivation(type);
+    if(!derivation)throw new Error('WSDL text types require a supported restriction or simpleContent derivation.');
+    return derivation.localName === 'restriction' ? textValue(derivation,depth+1)
+      : textType(derivation,derivation.getAttribute('base'),depth+1);
   }
-  /** @typedef {{name:string,namespace:string,value:string}} ExampleAttribute */
-  /** @param {any} type @param {any} schema @param {number} depth @returns {ExampleAttribute[]} */
-  function attributesFor(type,schema,depth) {
+  /** @typedef {{name:string,namespace:string,value:string,fixedValue?:string,required?:boolean}} ExampleAttribute */
+  /** @param {any} type @param {any} schema @param {number} depth
+   * @param {(attribute:{name:string,namespace:string,use:string})=>string|undefined} [onUse]
+   * @param {boolean} [includeOptional]
+   * @returns {ExampleAttribute[]} */
+  function attributesFor(type,schema,depth,onUse,includeOptional=false) {
     enter(depth);
     /** @type {ExampleAttribute[]} */ let result = [];
     for (const child of children(type,XSD)) {
       if (child.localName === 'attribute') {
         const use = child.getAttribute('use') || 'optional';
         if (!['optional','required','prohibited'].includes(use)) throw new Error('Invalid WSDL attribute use.');
-        if (use !== 'required') continue;
+        if (use !== 'required' && !onUse && !includeOptional) continue;
         enter(depth+1);
         let declaration = child, ownerSchema = schema;
         if (child.hasAttribute('ref')) {
@@ -420,27 +456,59 @@ export function wsdlResources(text,options = {}) {
           declaration = found.node; ownerSchema = found.schema;
         }
         const name = declaration.getAttribute('name');
-        if (!name || !/^[A-Za-z_][\w.-]*$/.test(name) || name === 'xmlns') throw new Error('Invalid WSDL attribute name.');
+        if (!name || (use === 'required' && !/^[A-Za-z_][\w.-]*$/.test(name)) || name === 'xmlns') throw new Error('Invalid WSDL attribute name.');
         const namespace = declaration.parentNode === ownerSchema ||
           (declaration.getAttribute('form') || ownerSchema.getAttribute('attributeFormDefault')) === 'qualified'
           ? ownerSchema.getAttribute('targetNamespace') || '' : '';
-        const fixed = child.getAttribute('fixed') ?? declaration.getAttribute('fixed') ?? child.getAttribute('default') ?? declaration.getAttribute('default');
+        const inheritedFixed=onUse?.({name,namespace,use});
+        const fixedValue = child.getAttribute('fixed') ?? declaration.getAttribute('fixed') ?? inheritedFixed;
+        if (use !== 'required') {
+          if(includeOptional && use === 'optional')result.push({name,namespace,value:fixedValue ?? '',required:false,...(fixedValue != null ? {fixedValue} : {})});
+          continue;
+        }
+        const fixed = fixedValue ?? child.getAttribute('default') ?? declaration.getAttribute('default');
         const inline = children(declaration,XSD,'simpleType')[0];
         const value = fixed ?? (inline ? textValue(inline,depth+1) : declaration.hasAttribute('type')
           ? textType(declaration,declaration.getAttribute('type'),depth+1) : 'string');
-        result.push({name,namespace,value});
+        result.push({name,namespace,value,...(fixedValue != null ? {fixedValue} : {})});
       } else if (child.localName === 'attributeGroup') {
         const found = schemas.get('attributeGroup:'+qname(child,child.getAttribute('ref')));
         if (!found) throw new Error('Unresolved WSDL attribute group.');
-        result.push(...attributesFor(found.node,found.schema,depth+1));
+        result.push(...attributesFor(found.node,found.schema,depth+1,onUse,includeOptional));
       } else if (['complexContent','simpleContent'].includes(child.localName)) {
         const derivations = children(child,XSD).filter(item=>item.localName !== 'annotation');
-        if (derivations.length !== 1 || derivations[0].localName !== 'extension')
+        if (derivations.length !== 1 || !['extension','restriction'].includes(derivations[0].localName))
           throw new Error('WSDL content restrictions require manual example authoring.');
         const extension = derivations[0];
-        const base = schemas.get('complexType:'+qname(extension,extension.getAttribute('base')));
-        if (base) result.push(...attributesFor(base.node,base.schema,depth+1));
-        result.push(...attributesFor(extension,schema,depth+1));
+        const baseKey=qname(extension,extension.getAttribute('base'));
+        const base = schemas.get('complexType:'+baseKey);
+        if(child.localName === 'simpleContent' && base && blocksDerivation(base.node,base.schema,[extension.localName],'final'))
+          throw new Error('WSDL base type forbids this derivation.');
+        if(child.localName === 'complexContent' && baseKey !== XSD+'#anyType' && !base)
+          throw new Error('Unresolved WSDL base complex type.');
+        const inherited = base ? attributesFor(base.node,base.schema,depth+1,undefined,
+          includeOptional || extension.localName === 'restriction') : [];
+        if (extension.localName === 'extension') {
+          result.push(...inherited,...attributesFor(extension,schema,depth+1,undefined,includeOptional));
+        } else {
+          const key=(/** @type {{name:string,namespace:string}} */ attribute)=>attribute.namespace+'#'+attribute.name;
+          const byKey=new Map(inherited.map(attribute=>[key(attribute),attribute]));
+          const replaced=new Set();
+          const local=attributesFor(extension,schema,depth+1,attribute=>{
+            const identity=key(attribute);replaced.add(identity);
+            if(byKey.has(identity) && byKey.get(identity)?.required !== false && attribute.use !== 'required')
+              throw new Error('WSDL restriction cannot remove a required base attribute.');
+            return byKey.get(identity)?.fixedValue;
+          },true).map(attribute=>{
+            const previous=byKey.get(key(attribute));
+            if(previous?.fixedValue == null)return attribute;
+            if(attribute.fixedValue != null && attribute.fixedValue !== previous.fixedValue)
+              throw new Error('WSDL restriction cannot change a fixed base attribute.');
+            return {...attribute,value:previous.fixedValue,fixedValue:previous.fixedValue};
+          });
+          result.push(...[...inherited.filter(attribute=>!replaced.has(key(attribute))),...local]
+            .filter(attribute=>includeOptional || attribute.required !== false));
+        }
       } else if (child.localName === 'anyAttribute') throw new Error('WSDL wildcard attributes require manual example authoring.');
     }
     return result;
@@ -483,7 +551,8 @@ export function wsdlResources(text,options = {}) {
     }
     return bounded(result);
   }
-  /** Base fields precede extension fields; each declaration keeps its schema namespace.
+  /** Extensions prepend base fields; restrictions replace particles. Each
+   * declaration keeps its schema namespace.
    * @param {any} type @param {any} schema @param {number} depth @returns {string} */
   function complexFields(type,schema,depth) {
     enter(depth);
@@ -496,20 +565,130 @@ export function wsdlResources(text,options = {}) {
       else if (child.localName === 'complexContent') {
         if (['true','1'].includes(child.getAttribute('mixed'))) throw new Error('WSDL mixed-content types require manual example authoring.');
         const derivations = children(child,XSD).filter(item=>item.localName !== 'annotation');
-        if (derivations.length !== 1 || derivations[0].localName !== 'extension')
-          throw new Error('WSDL complex-content restrictions require manual example authoring.');
+        if (derivations.length !== 1 || !['extension','restriction'].includes(derivations[0].localName))
+          throw new Error('WSDL complex content requires one extension or restriction.');
         const extension = derivations[0];
         const base = qname(extension,extension.getAttribute('base'));
         if (base !== XSD+'#anyType') {
           const found = schemas.get('complexType:'+base);
           if (!found) throw new Error('Unresolved WSDL base complex type.');
-          result += complexFields(found.node,found.schema,depth+1);
+          if(blocksDerivation(found.node,found.schema,[extension.localName],'final'))
+            throw new Error('WSDL base type forbids this derivation.');
+          if(extension.localName === 'extension')result += complexFields(found.node,found.schema,depth+1);
         }
         result += complexFields(extension,schema,depth+1);
       } else if (child.localName === 'simpleContent') result += escape(textValue(type,depth+1));
       else throw new Error('WSDL example generation does not yet support this complex type.');
     }
     return bounded(result);
+  }
+  /** @param {{node:any,schema:any}} declaration @param {any} [member] @param {number} [depth] */
+  function substitutionBlocked(declaration,member,depth=0) {
+    const value = declaration.node.hasAttribute('block') ? declaration.node.getAttribute('block')
+      : declaration.schema.getAttribute('blockDefault') || '';
+    const tokens = value.trim().split(/\s+/).filter(Boolean);
+    if (tokens.some((/** @type {string} */ token)=>!['#all','substitution','extension','restriction'].includes(token)))
+      throw new Error('Invalid WSDL element substitution block.');
+    if (tokens.includes('#all') || tokens.includes('substitution')) return true;
+    if (member) {
+      const methods=typeDerivation(elementType(member.node),elementType(declaration.node),depth+1);
+      return methods === null || methods.some(method=>tokens.includes(method)) ||
+        (methods.length > 0 && blocksDerivation(declaration.node,declaration.schema,methods,'final'));
+    }
+    return false;
+  }
+  /** @param {any} element @returns {{node:any,builtin:string}} */
+  function elementType(element) {
+    if(element.hasAttribute('type'))return resolveTextType(element,element.getAttribute('type'),true);
+    const node=children(element,XSD).find(child=>['simpleType','complexType'].includes(child.localName));
+    return node ? {node,builtin:''} : {node:null,builtin:'anyType'};
+  }
+  /** @param {any} node @returns {any} */
+  function typeSchema(node) {
+    for(let owner=node;owner;owner=owner.parentNode)
+      if(owner.namespaceURI===XSD && owner.localName==='schema')return owner;
+    return null;
+  }
+  /** @param {any} node @param {any} schema @param {string[]} methods
+   * @param {string} [attribute] */
+  function blocksDerivation(node,schema,methods,attribute='block') {
+    const value = node.hasAttribute(attribute) ? node.getAttribute(attribute)
+      : schema?.getAttribute(attribute+'Default') || '';
+    const tokens = value.trim().split(/\s+/).filter(Boolean);
+    if (tokens.some((/** @type {string} */ token)=>!['#all','extension','restriction','substitution','list','union'].includes(token)))
+      throw new Error('Invalid WSDL derivation constraint.');
+    return tokens.includes('#all') || methods.some(method=>tokens.includes(method));
+  }
+  /** @param {{node:any,builtin?:string}} candidate @param {{node:any,builtin?:string}} head @param {number} depth
+   * @returns {string[]|null} */
+  function typeDerivation(candidate,head,depth) {
+    let current=candidate;
+    const seen=new Set();
+    const methods=/** @type {string[]} */([]);
+    for(let step=0;;step++) {
+      enter(depth+step+1);
+      const identity=current.builtin || current.node;
+      if(seen.has(identity))return null;
+      seen.add(identity);
+      if(current.builtin ? current.builtin===head.builtin : !head.builtin && current.node===head.node)return methods;
+      let method='restriction';
+      /** @type {{node:any,builtin:string}} */ let parent;
+      if(current.builtin) {
+        const name=current.builtin;
+        if(['NMTOKENS','IDREFS','ENTITIES'].includes(name)) {
+          methods.push('restriction');method='list';parent={node:null,builtin:'anySimpleType'};
+        } else {
+          const base=Object.hasOwn(builtinTypeParents,name) ? builtinTypeParents[name] : primitiveTypes.has(name) ? 'anySimpleType' : '';
+          if(!base)return null;
+          parent={node:null,builtin:base};
+        }
+      } else {
+        const content=current.node.localName==='simpleType' ? current.node
+          : children(current.node,XSD).find(child=>['complexContent','simpleContent'].includes(child.localName));
+        const derivation=children(content,XSD).find(child=>['extension','restriction','list','union'].includes(child.localName));
+        if(!derivation)parent={node:null,builtin:'anyType'};
+        else {
+          method=derivation.localName;
+          parent=['list','union'].includes(method) ? {node:null,builtin:'anySimpleType'}
+            : resolveTextType(derivation,derivation.getAttribute('base') || '',true);
+        }
+      }
+      if(parent.node && blocksDerivation(parent.node,typeSchema(parent.node),[method],'final'))return null;
+      methods.push(method);current=parent;
+    }
+  }
+  /** @param {any} head @param {any} schema @param {any} element
+   * @param {any} elementSchema @param {number} depth @returns {any} */
+  function concreteType(head,schema,element,elementSchema,depth) {
+    for(const [key,candidate] of schemas) {
+      if(!key.startsWith('complexType:') || ['true','1'].includes(candidate.node.getAttribute('abstract')))continue;
+      const methods=typeDerivation(candidate,{node:head},depth+1);
+      if(methods && !blocksDerivation(head,schema,methods) && !blocksDerivation(element,elementSchema,methods))return candidate;
+    }
+    throw new Error('WSDL abstract type has no permitted concrete derived type.');
+  }
+  /** Find a concrete member in source order, including transitive groups.
+   * @param {any} head @param {any} schema @param {number} depth @returns {any} */
+  function concreteElement(head,schema,depth) {
+    if (substitutionBlocked({node:head,schema})) throw new Error('WSDL abstract element blocks substitution.');
+    for (const [key,candidate] of schemas) {
+      if (!key.startsWith('element:') || ['true','1'].includes(candidate.node.getAttribute('abstract'))) continue;
+      let current = candidate;
+      const seen = new Set([current.node]);
+      const ancestors = [];
+      for (let step=0;current.node.hasAttribute('substitutionGroup');step++) {
+        enter(depth+step+1);
+        const parent = schemas.get('element:'+qname(current.node,current.node.getAttribute('substitutionGroup')));
+        if (!parent || seen.has(parent.node)) break;
+        seen.add(parent.node);ancestors.push(parent);
+        if (parent.node === head) {
+          if (!ancestors.some(ancestor=>substitutionBlocked(ancestor,candidate,depth+1))) return candidate;
+          break;
+        }
+        current = parent;
+      }
+    }
+    throw new Error('WSDL abstract element has no available concrete substitution member.');
   }
   /** @param {any} node @param {any} schema @param {number} depth @returns {string} */
   function sample(node,schema,depth) {
@@ -519,10 +698,16 @@ export function wsdlResources(text,options = {}) {
       if (!found) throw new Error('Unresolved WSDL element reference.');
       return sample(found.node,found.schema,depth+1);
     }
+    if (['true','1'].includes(node.getAttribute('abstract'))) {
+      const concrete = concreteElement(node,schema,depth+1);
+      return sample(concrete.node,concrete.schema,depth+1);
+    }
     const name = node.getAttribute('name');
     if (!name || !/^[A-Za-z_][\w.-]*$/.test(name)) throw new Error('Invalid WSDL element name.');
     const namespace = node.parentNode === schema || (node.getAttribute('form') || schema.getAttribute('elementFormDefault')) === 'qualified'
       ? schema.getAttribute('targetNamespace') || '' : '';
+    const elementSchema=schema;
+    let tag=name,namespaceAttributes=` xmlns="${escape(namespace)}"`,typeAttributes='';
     let content = '';
     let type = children(node,XSD).find(child => ['complexType','simpleType'].includes(child.localName));
     const declared = node.getAttribute('type');
@@ -538,6 +723,18 @@ export function wsdlResources(text,options = {}) {
       }
     }
     if (type) {
+      if (['true','1'].includes(type.getAttribute('abstract'))) {
+        const concrete=concreteType(type,schema,node,elementSchema,depth+1);
+        type=concrete.node;schema=concrete.schema;
+        const typeName=type.getAttribute('name');
+        if(!typeName || !/^[A-Za-z_][\w.-]*$/.test(typeName))throw new Error('Invalid WSDL concrete type name.');
+        typeAttributes=' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"';
+        if(concrete.namespace)typeAttributes+=` xmlns:xt="${escape(concrete.namespace)}" xsi:type="xt:${typeName}"`;
+        else {
+          typeAttributes+=` xsi:type="${typeName}"`;
+          if(namespace){tag='e:'+name;namespaceAttributes=` xmlns="" xmlns:e="${escape(namespace)}"`;}
+        }
+      }
       if (['true','1'].includes(type.getAttribute('mixed')))
         throw new Error('WSDL mixed-content types require manual example authoring.');
       const members = children(type,XSD).filter(child => child.localName !== 'annotation');
@@ -549,10 +746,10 @@ export function wsdlResources(text,options = {}) {
         if (children(type,XSD,'simpleContent').length && (node.hasAttribute('fixed') || node.hasAttribute('default')))
           content = escape(node.getAttribute('fixed') ?? node.getAttribute('default'));
         const attributes = attributeXml(attributesFor(type,schema,depth+1));
-        return bounded(`<${name} xmlns="${escape(namespace)}"${attributes}>${content}</${name}>`);
+        return bounded(`<${tag}${namespaceAttributes}${typeAttributes}${attributes}>${content}</${tag}>`);
       }
     } else if (!declared) throw new Error('WSDL elements require an explicit supported schema type.');
-    return bounded(`<${name} xmlns="${escape(namespace)}">${escape(node.getAttribute('fixed') ?? node.getAttribute('default') ?? content)}</${name}>`);
+    return bounded(`<${tag}${namespaceAttributes}${typeAttributes}>${escape(node.getAttribute('fixed') ?? node.getAttribute('default') ?? content)}</${tag}>`);
   }
   /** @param {any} part */
   function literalPart(part) {
