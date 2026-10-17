@@ -49,6 +49,7 @@
     selectedMessage = $state(0),
     selectedSentId = $state("");
   let fullMessage = $state(/** @type {string|null} */ (null));
+  let sourceMessageId = $state("");
   let follow = $state(true);
   export function openSettings() { tab = "Settings"; }
   let log = $state(/** @type {HTMLDivElement|undefined} */ (undefined));
@@ -64,6 +65,7 @@
     selectedMessage = 0;
     selectedSentId = "";
     fullMessage = null;
+    sourceMessageId = "";
   });
   const collectionId = $derived(workspaceFor(app.data.resources, request._id));
   const files = $derived.by(() => {
@@ -144,8 +146,8 @@
     }
   }
   const previewLimit = 64 * 1024;
-  function displayMessage(/** @type {string} */ text) {
-    const formatted = text.length <= previewLimit ? pretty(text) : text;
+  function displayMessage(/** @type {string} */ text, raw = false) {
+    const formatted = !raw && text.length <= previewLimit ? pretty(text) : text;
     const truncated = formatted.length > previewLimit;
     const end = formatted.charCodeAt(previewLimit - 1);
     return {
@@ -184,15 +186,23 @@
   }
 </script>
 
-{#snippet messageView(text = "")}
-  {@const preview = displayMessage(String(text ?? ""))}
+{#snippet messageView(text = "", messageId = "")}
+  {@const source = sourceMessageId === messageId && !!messageId}
+  {@const preview = displayMessage(String(text ?? ""), source)}
   <Button variant="ghost" class="text-button" aria-label="Copy gRPC message"
     onclick={() => copyMessage(String(text ?? ""))}>Copy</Button>
+  <Button variant="ghost" class="text-button" aria-pressed={source}
+    onclick={() => (sourceMessageId = source ? "" : messageId)}
+    >{source ? "Formatted" : "Source"}</Button>
   {#if preview.truncated}<p class="grpc-hint hint" role="status">
       Showing a preview of this large gRPC message.
     </p><Button variant="ghost" class="text-button"
       onclick={() => (fullMessage = String(text ?? ""))}>Open complete gRPC message</Button>{/if}
-  <pre class="grpc-message">{preview.text}</pre>
+  {#if source}<div class="grpc-message-source">
+      <CodeEditor identity={request._id + ":" + messageId + ":grpc-source"}
+        label="gRPC message source" value={preview.text} mode="application/json"
+        readOnly settings={app.data.settings} />
+    </div>{:else}<pre class="grpc-message">{preview.text}</pre>{/if}
 {/snippet}
 
 {#if fullMessage !== null}
@@ -412,7 +422,7 @@
                   Sent at {new Date(selectedSent.created).toLocaleString()} · Read
                   only
                 </div>
-                {@render messageView(selectedSent.text)}
+                {@render messageView(selectedSent.text, selectedSent._id + ":body")}
               {:else}<CodeEditor
                   templateEditor={() =>
                     createTemplateEditorSession(request._id)}
@@ -548,7 +558,7 @@
                 >
                   Received at {new Date(message.created).toLocaleTimeString()}
                 </div>
-                {@render messageView(message.text)}{/each}
+                {@render messageView(message.text, message._id)}{/each}
             {:else}<TabList
                 panelId="grpc-received-panel"
                 bind:activeId={activeTab3}
@@ -564,6 +574,7 @@
               <TabPanel id="grpc-received-panel" labelledBy={activeTab3}
                 >{@render messageView(
                   (messages[selectedMessage] || messages[0]).text,
+                  (messages[selectedMessage] || messages[0])._id,
                 )}</TabPanel
               >{/if}
           {:else if responseTab === "Sent"}{#each sent as message (message._id)}<div
@@ -571,7 +582,7 @@
               >
                 Sent at {new Date(message.created).toLocaleTimeString()}
               </div>
-              {@render messageView(message.text)}{/each}
+              {@render messageView(message.text, message._id)}{/each}
           {:else}<table class="grpc-metadata">
               <tbody
                 >{#each (responseTab === "Metadata" ? response?.headers : response?.trailers) || [] as [name, value]}<tr
@@ -627,6 +638,16 @@
     white-space: pre-wrap;
     overflow-wrap: anywhere;
     font: var(--font-size-12)/1.6 var(--font-mono);
+  }
+  .grpc-message-source {
+    height: 240px;
+    display: flex;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .grpc-message-source :global(.shared-code-editor) {
+    flex: 1;
+    min-height: 0;
   }
   .grpc-message-time {
     font-size: var(--font-size-11);
