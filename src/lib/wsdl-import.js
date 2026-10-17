@@ -646,9 +646,19 @@ export function wsdlResources(text,options = {}) {
   }
   /** @param {any} element @returns {{node:any,builtin:string}} */
   function elementType(element) {
-    if(element.hasAttribute('type'))return resolveTextType(element,element.getAttribute('type'),true);
-    const node=children(element,XSD).find(child=>['simpleType','complexType'].includes(child.localName));
-    return node ? {node,builtin:''} : {node:null,builtin:'anyType'};
+    const seen=new Set();
+    for(let depth=0;;depth++) {
+      enter(depth);
+      if(seen.has(element))throw new Error('Cyclic WSDL substitution type inheritance.');
+      seen.add(element);
+      if(element.hasAttribute('type'))return resolveTextType(element,element.getAttribute('type'),true);
+      const node=children(element,XSD).find(child=>['simpleType','complexType'].includes(child.localName));
+      if(node)return {node,builtin:''};
+      if(!element.hasAttribute('substitutionGroup'))return {node:null,builtin:'anyType'};
+      const head=schemas.get('element:'+qname(element,element.getAttribute('substitutionGroup')));
+      if(!head)throw new Error('Unresolved WSDL substitution head type.');
+      element=head.node;
+    }
   }
   /** @param {any} node @returns {any} */
   function typeSchema(node) {
@@ -784,6 +794,12 @@ export function wsdlResources(text,options = {}) {
         schema = found.schema;
       }
     }
+    if(!type && !declared) {
+      const inherited=elementType(node);
+      type=inherited.node;
+      if(type)schema=typeSchema(type) || schema;
+      else content=builtinSample(inherited.builtin);
+    }
     if (type) {
       if (['true','1'].includes(type.getAttribute('abstract'))) {
         const concrete=concreteType(type,schema,node,elementSchema,depth+1);
@@ -818,7 +834,7 @@ export function wsdlResources(text,options = {}) {
         const attributes = attributeXml(attributesFor(type,schema,depth+1));
         return bounded(`<${tag}${namespaceAttributes}${typeAttributes}${attributes}>${content}</${tag}>`);
       }
-    } else if (!declared) throw new Error('WSDL elements require an explicit supported schema type.');
+    }
     return bounded(`<${tag}${namespaceAttributes}${typeAttributes}>${escape(node.getAttribute('fixed') ?? node.getAttribute('default') ?? content)}</${tag}>`);
   }
   /** @param {any} part */
