@@ -4,7 +4,8 @@ use crate::{
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
 use eventsource_stream::Eventsource;
-use futures_util::{SinkExt, StreamExt};
+use futures_util::{SinkExt, Stream, StreamExt};
+use hyper::body::Bytes;
 use reqwest::{header::HeaderValue, Url};
 use reqwest_websocket::{CloseCode, Message, RequestBuilderExt};
 use serde::Serialize;
@@ -72,7 +73,7 @@ impl Delivery {
     }
 }
 
-// Size guard only; eventsource-stream remains responsible for UTF-8 and SSE parsing.
+// Bound original bytes; UTF8 repair and decoded field limits are separate.
 // Count data fields within an event, not comments/heartbeats over the connection lifetime.
 #[derive(Default)]
 struct SseLimits {
@@ -82,11 +83,15 @@ struct SseLimits {
     colon: bool,
     skip_lf: bool,
     bom: u8,
+    // Accepted prefix of the most recent chunk, before its first invalid byte.
+    valid_prefix: usize,
 }
 impl SseLimits {
     fn accept(&mut self, bytes: &[u8]) -> Result<(), String> {
-        for &byte in bytes {
+        for (index, &byte) in bytes.iter().enumerate() {
+            self.valid_prefix = index;
             // The SSE parser strips one leading UTF-8 BOM, including across chunks.
+            let pending = self.bom;
             match (self.bom, byte) {
                 (0, 0xef) => {
                     self.bom = 1;
@@ -100,41 +105,337 @@ impl SseLimits {
                     self.bom = 3;
                     continue;
                 }
-                _ => self.bom = 3,
-            }
-            if self.skip_lf {
-                self.skip_lf = false;
-                if byte == b'\n' {
-                    continue;
+                _ => {
+                    self.bom = 3;
+                    // A partial match is ordinary input unless the complete BOM
+                    // arrives. Count all buffered bytes when the prefix differs.
+                    if matches!(pending, 1 | 2) {
+                        self.accept_byte(0xef)?;
+                    }
+                    if pending == 2 {
+                        self.accept_byte(0xbb)?;
+                    }
                 }
             }
-            if matches!(byte, b'\r' | b'\n') {
-                if self.line_bytes == 0 {
-                    self.data_bytes = 0;
-                } else if self.field == b"data" {
-                    self.data_bytes += self.line_bytes;
-                }
-                self.line_bytes = 0;
-                self.field.clear();
-                self.colon = false;
-                self.skip_lf = byte == b'\r';
-                continue;
-            }
-            self.line_bytes += 1;
-            if !self.colon {
-                if byte == b':' {
-                    self.colon = true;
-                } else if self.field.len() < 6 {
-                    self.field.push(byte);
-                }
-            }
-            if self.line_bytes > MAX_MESSAGE
-                || (self.field == b"data" && self.data_bytes + self.line_bytes > MAX_MESSAGE)
-            {
-                return Err("SSE line or event exceeded the 20 MiB limit".into());
+            self.accept_byte(byte)?;
+        }
+        self.valid_prefix = bytes.len();
+        Ok(())
+    }
+
+    fn accept_byte(&mut self, byte: u8) -> Result<(), String> {
+        if self.skip_lf {
+            self.skip_lf = false;
+            if byte == b'\n' {
+                return Ok(());
             }
         }
+        if matches!(byte, b'\r' | b'\n') {
+            if self.line_bytes == 0 {
+                self.data_bytes = 0;
+            } else if self.field == b"data" {
+                self.data_bytes += self.line_bytes;
+            }
+            self.line_bytes = 0;
+            self.field.clear();
+            self.colon = false;
+            self.skip_lf = byte == b'\r';
+            return Ok(());
+        }
+        self.line_bytes += 1;
+        if !self.colon {
+            if byte == b':' {
+                self.colon = true;
+            } else if self.field.len() < 6 {
+                self.field.push(byte);
+            }
+        }
+        if self.line_bytes > MAX_MESSAGE
+            || (self.field == b"data" && self.data_bytes + self.line_bytes > MAX_MESSAGE)
+        {
+            return Err("SSE line or event exceeded the 20 MiB limit".into());
+        }
         Ok(())
+    }
+}
+
+fn sse_checked_parts(
+    chunk: Bytes,
+    valid_prefix: usize,
+    accepted: Result<(), String>,
+) -> Vec<Result<Bytes, String>> {
+    match accepted {
+        Ok(()) => vec![Ok(chunk)],
+        Err(error) => {
+            let mut parts = Vec::with_capacity(2);
+            if valid_prefix > 0 {
+                parts.push(Ok(chunk.slice(..valid_prefix)));
+            }
+            parts.push(Err(error));
+            parts
+        }
+    }
+}
+
+/// SSE uses replacement-mode UTF8, unlike the dependency's strict byte stream.
+/// Keep only an incomplete final scalar (at most three bytes) between chunks.
+#[derive(Default)]
+struct SseUtf8 {
+    pending: Vec<u8>,
+}
+impl SseUtf8 {
+    fn decode(&mut self, chunk: Bytes, last: bool) -> Bytes {
+        if self.pending.is_empty() && std::str::from_utf8(&chunk).is_ok() {
+            return chunk;
+        }
+        let mut bytes = std::mem::take(&mut self.pending);
+        bytes.extend_from_slice(&chunk);
+        let mut text = String::with_capacity(bytes.len());
+        let mut offset = 0;
+        loop {
+            let rest = &bytes[offset..];
+            match std::str::from_utf8(rest) {
+                Ok(valid) => {
+                    text.push_str(valid);
+                    break;
+                }
+                Err(error) => {
+                    let valid = error.valid_up_to();
+                    text.push_str(std::str::from_utf8(&rest[..valid]).unwrap());
+                    if let Some(invalid) = error.error_len() {
+                        text.push('\u{fffd}');
+                        offset += valid + invalid;
+                    } else {
+                        if last {
+                            text.push('\u{fffd}');
+                        } else {
+                            debug_assert!(rest.len() - valid <= 3);
+                            self.pending.extend_from_slice(&rest[valid..]);
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        Bytes::from(text)
+    }
+}
+
+fn sse_utf8<S, E>(stream: S) -> impl Stream<Item = Result<Bytes, E>>
+where
+    S: Stream<Item = Result<Bytes, E>>,
+{
+    stream
+        .map(|chunk| chunk.map(Some))
+        .chain(futures_util::stream::once(futures_util::future::ready(Ok(
+            None,
+        ))))
+        .scan(SseUtf8::default(), |decoder, chunk| {
+            futures_util::future::ready(Some(chunk.map(|chunk| {
+                let last = chunk.is_none();
+                decoder.decode(chunk.unwrap_or_default(), last)
+            })))
+        })
+}
+
+/// Normalize only parser input. A CR ends a line immediately; a subsequent LF
+/// belongs to that same ending even when it arrives in another transport chunk.
+fn sse_text<S, E>(stream: S) -> impl Stream<Item = Result<Bytes, E>>
+where
+    S: Stream<Item = Result<Bytes, E>>,
+{
+    sse_utf8(stream).scan(false, |skip_lf, chunk| {
+        futures_util::future::ready(Some(chunk.map(|chunk| {
+            if !*skip_lf && !chunk.contains(&b'\r') {
+                return chunk;
+            }
+            let mut normalized = Vec::with_capacity(chunk.len());
+            for &byte in chunk.as_ref() {
+                if *skip_lf {
+                    *skip_lf = false;
+                    if byte == b'\n' {
+                        continue;
+                    }
+                }
+                if byte == b'\r' {
+                    normalized.push(b'\n');
+                    *skip_lf = true;
+                } else {
+                    normalized.push(byte);
+                }
+            }
+            Bytes::from(normalized)
+        })))
+    })
+}
+
+fn validate_sse_text(event: &str, id: &str, data: &str) -> Result<(), String> {
+    if [event, id, data]
+        .iter()
+        .any(|field| field.len() > MAX_MESSAGE)
+    {
+        return Err("SSE decoded field exceeded the 20 MiB limit".into());
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod sse_limit_tests {
+    use super::*;
+
+    #[test]
+    fn partial_bom_counts_non_bom_utf8_and_exact_line_limit() {
+        for prefix in [[0xef, 0xbb, 0xbd], [0xef, 0xb8, 0x80]] {
+            assert!(std::str::from_utf8(&prefix).is_ok());
+            let mut limits = SseLimits::default();
+            for byte in prefix {
+                limits.accept(&[byte]).unwrap();
+            }
+            assert_eq!(limits.line_bytes, 3);
+            limits.accept(&vec![b'x'; MAX_MESSAGE - 3]).unwrap();
+            assert_eq!(limits.line_bytes, MAX_MESSAGE);
+            assert!(limits.accept(b"x").is_err());
+        }
+        let mut limits = SseLimits::default();
+        for byte in [0xef, 0xbb, 0xbf] {
+            limits.accept(&[byte]).unwrap();
+        }
+        assert_eq!(limits.line_bytes, 0);
+        limits.accept(b"data:x\r").unwrap();
+        assert_eq!(limits.data_bytes, 6);
+        limits.accept(b"\n\r\n").unwrap();
+        assert_eq!(limits.line_bytes, 0);
+        assert_eq!(limits.data_bytes, 0);
+    }
+
+    #[tokio::test]
+    async fn utf8_replacement_dispatches_before_eof_and_keeps_chunked_scalars() {
+        let source = futures_util::stream::iter([Ok::<_, String>(Bytes::from_static(
+            b"data:bad \xff\n\ndata:next\n\n",
+        ))])
+        .chain(futures_util::stream::pending());
+        let mut events = sse_utf8(source).eventsource().boxed();
+        let first = tokio::time::timeout(Duration::from_millis(500), events.next())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(first.data, "bad \u{fffd}");
+        assert_eq!(events.next().await.unwrap().unwrap().data, "next");
+
+        let raw = "\u{feff}data:ไทย\r\n\r\n".as_bytes();
+        let chunks = raw
+            .iter()
+            .map(|byte| Ok::<_, String>(Bytes::copy_from_slice(&[*byte])))
+            .collect::<Vec<_>>();
+        let decoded = sse_utf8(futures_util::stream::iter(chunks))
+            .eventsource()
+            .collect::<Vec<_>>()
+            .await;
+        assert_eq!(decoded.len(), 1);
+        assert_eq!(decoded[0].as_ref().unwrap().data, "ไทย");
+
+        let mut decoder = SseUtf8::default();
+        assert_eq!(
+            decoder.decode(Bytes::from_static(&[0xe2, 0x82]), false),
+            Bytes::new()
+        );
+        assert_eq!(decoder.pending.len(), 2);
+        assert_eq!(
+            decoder.decode(Bytes::from_static(b"A"), false).as_ref(),
+            "\u{fffd}A".as_bytes()
+        );
+        assert!(decoder.pending.is_empty());
+        decoder.decode(Bytes::from_static(&[0xf0, 0x9f, 0x92]), false);
+        assert_eq!(
+            decoder.decode(Bytes::new(), true).as_ref(),
+            "\u{fffd}".as_bytes()
+        );
+    }
+
+    #[tokio::test]
+    async fn utf8_replacement_expansion_cannot_exceed_event_limit() {
+        let mut raw = b"data:".to_vec();
+        raw.extend(vec![0xff; MAX_MESSAGE / 3 + 1]);
+        raw.extend_from_slice(b"\n\n");
+        SseLimits::default().accept(&raw).unwrap();
+        let mut events = sse_utf8(futures_util::stream::iter([Ok::<_, String>(Bytes::from(
+            raw,
+        ))]))
+        .eventsource()
+        .boxed();
+        let event = events.next().await.unwrap().unwrap();
+        assert!(event.data.len() > MAX_MESSAGE);
+        assert!(validate_sse_text(&event.event, &event.id, &event.data).is_err());
+    }
+
+    #[tokio::test]
+    async fn line_endings_dispatch_cr_before_eof_and_preserve_split_crlf() {
+        let raw = Bytes::from_static(b"data:one\r\r");
+        let source = futures_util::stream::iter([Ok::<_, String>(raw.clone())])
+            .chain(futures_util::stream::pending());
+        let mut events = sse_text(source).eventsource().boxed();
+        let first = tokio::time::timeout(Duration::from_millis(500), events.next())
+            .await
+            .expect("Complete CR-only event must dispatch without waiting for EOF")
+            .unwrap()
+            .unwrap();
+        assert_eq!(first.data, "one");
+        assert_eq!(raw.as_ref(), b"data:one\r\r");
+
+        let chunks: Vec<Result<Bytes, String>> = [
+            &b"id:42\r"[..],
+            &b"\ndata:one\r"[..],
+            &b"\ndata:two\r"[..],
+            &b"\n\r"[..],
+            &b"\n"[..],
+        ]
+        .into_iter()
+        .map(|chunk| Ok(Bytes::copy_from_slice(chunk)))
+        .collect();
+        let parsed = sse_text(futures_util::stream::iter(chunks))
+            .eventsource()
+            .collect::<Vec<_>>()
+            .await;
+        assert_eq!(parsed.len(), 1);
+        assert_eq!(parsed[0].as_ref().unwrap().id, "42");
+        assert_eq!(parsed[0].as_ref().unwrap().data, "one\ntwo");
+        let incomplete = sse_text(futures_util::stream::iter([Ok::<_, String>(
+            Bytes::from_static(b"data:unfinished"),
+        )]))
+        .eventsource()
+        .collect::<Vec<_>>()
+        .await;
+        assert!(incomplete.is_empty());
+    }
+
+    #[tokio::test]
+    async fn size_failure_keeps_prior_complete_event_independent_of_chunking() {
+        let first = Bytes::from_static(b"data:first\n\n");
+        let oversized = Bytes::from(vec![b':'; MAX_MESSAGE + 1]);
+        let mut combined = first.to_vec();
+        combined.extend_from_slice(&oversized);
+        for chunks in [
+            vec![Bytes::from(combined)],
+            vec![first.clone(), oversized.clone()],
+        ] {
+            let mut limits = SseLimits::default();
+            let parts = chunks.into_iter().flat_map(|chunk| {
+                let accepted = limits.accept(&chunk);
+                sse_checked_parts(chunk, limits.valid_prefix, accepted)
+            });
+            let events = sse_text(futures_util::stream::iter(parts))
+                .eventsource()
+                .collect::<Vec<_>>()
+                .await;
+            assert_eq!(events.len(), 2);
+            assert_eq!(events[0].as_ref().unwrap().data, "first");
+            assert!(events[1]
+                .as_ref()
+                .unwrap_err()
+                .to_string()
+                .contains("20 MiB"));
+        }
     }
 }
 
@@ -533,10 +834,12 @@ async fn sse_session(
                 chunk_number += 1;
             }
             let number = chunk_number;
-            let accepted = chunk.as_ref().map(|bytes| limits.accept(bytes));
-            let accepted = match accepted {
-                Ok(result) => result,
-                Err(error) => Err(error.clone()),
+            let (valid_prefix, accepted) = match chunk.as_ref() {
+                Ok(bytes) => {
+                    let accepted = limits.accept(bytes);
+                    (limits.valid_prefix, accepted)
+                }
+                Err(error) => (0, Err(error.clone())),
             };
             async move {
                 let chunk = chunk?;
@@ -552,18 +855,25 @@ async fn sse_session(
                         })
                         .await?;
                 }
-                // Preserve bytes even when the existing parser limit rejects them.
-                accepted?;
-                Ok::<_, String>(chunk)
+                // Raw capture stays complete; parse every accepted byte before
+                // reporting the later size error from this transport chunk.
+                Ok::<_, String>(sse_checked_parts(chunk, valid_prefix, accepted))
             }
         })
+        .flat_map(|parts| {
+            futures_util::stream::iter(match parts {
+                Ok(parts) => parts,
+                Err(error) => vec![Err(error)],
+            })
+        })
         .boxed();
-    let mut events = bytes.eventsource();
+    let mut events = sse_text(bytes).eventsource().boxed();
     loop {
         tokio::select! {
             _ = cancelled.changed() => return emit(&channel, StreamEvent::Closed { code: None, reason: "Disconnected by client".into() }),
             event = events.next() => match event {
                 Some(Ok(event)) => {
+                    validate_sse_text(&event.event, &event.id, &event.data)?;
                     shared_delivery.lock().await.message(StreamEvent::Sse { event: event.event, id: event.id, data: event.data, retry_ms: event.retry.map(|r| r.as_millis()) }).await?;
                 }
                 Some(Err(error)) => return Err(format!("SSE stream failed: {error}")),

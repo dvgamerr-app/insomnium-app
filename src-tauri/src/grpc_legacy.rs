@@ -969,7 +969,22 @@ fn from_object_inner(
         } else {
             field_name(&field)
         };
-        let Some(input) = object.get(name).filter(|v| !v.is_null()) else {
+        // protobuf.js reads d[fieldName], including the built-in length of an
+        // array used as a message (or a string supplied at the root).
+        let length = if name == "length" {
+            match object {
+                Json::Array(values) => Some(Json::Number(values.len() as f64)),
+                Json::String(value) => Some(Json::Number(value.units.len() as f64)),
+                _ => None,
+            }
+        } else {
+            None
+        };
+        let Some(input) = length
+            .as_ref()
+            .or_else(|| object.get(name))
+            .filter(|v| !v.is_null())
+        else {
             if field.cardinality() == prost_reflect::Cardinality::Required {
                 if matches!(field.kind(), Kind::Message(_)) {
                     return Err(format!(
@@ -1559,6 +1574,45 @@ impl Serialize for LegacyValue<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn legacy_array_message_length_matches_pinned_loader() {
+        let pool = crate::grpc_schema::compile(crate::grpc_schema::ProtoInput {
+            entry: "length.proto".into(),
+            files: vec![crate::grpc_schema::ProtoFile {
+                name: "length.proto".into(),
+                text: "syntax=\"proto3\"; message Child { uint32 length=1; } message Envelope { Child child=1; repeated Child children=2; map<string, Child> values=3; }".into(),
+            }],
+            include_paths: vec![],
+        }).unwrap();
+        let desc = pool.get_message_by_name("Envelope").unwrap();
+        // Exact protobuf.js 7.2.4 fromObject/encode outputs, checked under Bun.
+        for (body, hex) in [
+            (r#"{"child":[1,2,3]}"#, "0a020803"),
+            (r#"{"children":[[],[1,2]]}"#, "1202080012020802"),
+            (r#"{"values":{"key":[0,0,0,0]}}"#, "1a090a036b657912020804"),
+            (r#"{"child":{"length":7}}"#, "0a020807"),
+        ] {
+            let message = crate::grpc_schema::parse_mode(
+                desc.clone(),
+                body,
+                crate::grpc_schema::JsonMode::Legacy,
+            )
+            .unwrap();
+            let actual: String = message
+                .encode_to_vec()
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect();
+            assert_eq!(actual, hex, "{body}");
+        }
+        assert!(crate::grpc_schema::parse_mode(
+            desc,
+            r#"{"child":[1,2,3]}"#,
+            crate::grpc_schema::JsonMode::ProtoJson
+        )
+        .is_err());
+    }
 
     #[test]
     fn legacy_object_primitive_matches_pinned_loader() {

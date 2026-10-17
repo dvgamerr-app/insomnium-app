@@ -1,5 +1,13 @@
 # PLUGINS migration
 
+## Windows clipboard NUL admission — 2026-10-17
+
+Plugin app.clipboard.writeText now reuses the native Copy validator through copyText for worker calls. Native event admission checks the same validator before returning a clipboard capability; the Rust guarded_mutation entry also rejects Windows NUL text before reading probe state or dispatching the ordinary clipboard API, so direct event POSTs cannot bypass the host check. CF_UNICODETEXT terminates at NUL; refusal prevents a successful-looking partial write. Clear, reads, owner/cancellation checks and non-Windows/browser paths retain their existing behavior. No new permissions, dependencies or native commands.
+
+Direct Bun checks execute the actual createPluginNativeAppEndpoint with controlled native clipboard adapters: worker NUL rejection and event-admission rejection produce zero writes; complete Thai text passes; other-host/browser NUL dispatch remains unchanged; aborted owners cannot write. bun run check0errors0warnings; cargo check --locked0 (~3s; five existing dependency warnings); sequential bun run build0; rustfmt applied. No new test files/scripts/native release build or OS clipboard/profile mutation. Actual native event rejection/runtime/platform/full plugin parity remains open; current native binary predates this guard.
+
+
+
 Updated 2026-10-14. Current ESM26, native event10, metadata9/restart and guarded clipboard receipts pass their bounded scope. Full legacy plugin/context/DOM/provider/platform compatibility remains open.
 
 See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity requirements](PARITY.md). No original scope was removed by consolidation.

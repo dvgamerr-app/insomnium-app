@@ -1,7 +1,8 @@
 import { getVersion } from "@tauri-apps/api/app";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { desktopDir } from "@tauri-apps/api/path";
-import { clear, readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { clear, readText } from "@tauri-apps/plugin-clipboard-manager";
+import {copyText,validateNativeClipboardText} from './clipboard.js';
 import { validatePluginAppSyncCall } from "./plugin-app-sync.js";
 
 /** Host endpoint for the synchronous worker bridge. Native promises remain on
@@ -40,7 +41,7 @@ export function createPluginNativeAppEndpoint({ current, signal }) {
           if((typeof error==='string'?error:error?.message)==='The clipboard contents were not available in the requested format or the clipboard is empty.')return '';
           throw error;
         });break;
-      case "app.clipboard.writeText": await writeText(args[0]); break;
+      case "app.clipboard.writeText": await copyText(args[0]); break;
       case "app.clipboard.clear": await clear(); break;
     }
     check();
@@ -85,6 +86,7 @@ export function createPluginNativeAppEndpoint({ current, signal }) {
   };
   return Object.freeze(Object.assign(endpoint,{prepareEvent,eventCall:(/** @type {any} */ operation)=>{
     const call=validatePluginAppSyncCall(operation);check();
+    if(call.method==='app.clipboard.writeText')validateNativeClipboardText(call.args[0]);
     if(!lease||expires<=performance.now())throw Error('Native event capability is unavailable or expired');
     const url=call.method==='app.getInfo'?lease.infoUrl:call.method==='app.getPath'&&call.args[0].toLowerCase()==='desktop'?lease.desktopUrl:call.method==='app.clipboard.readText'?lease.clipboardReadUrl:call.method==='app.clipboard.writeText'?lease.clipboardWriteUrl:call.method==='app.clipboard.clear'?lease.clipboardClearUrl:undefined;
     if(typeof url!=='string')throw Error('Native event capability does not admit this operation');

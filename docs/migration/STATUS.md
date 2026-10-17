@@ -1,4 +1,46 @@
 # Migration status
+## gRPC array message length — 2026-10-17
+
+Parent f7b8e6c. Legacy fromObject now reads the built-in length when an array is supplied as a message; root string length uses UTF16 units. Previously only own JSON object fields were visible, silently dropping a declared length field. Actual installed protobuf.js7.2.4 fromObject/encode independently supplied exact nested/repeated/map-value wire vectors. The single focused Rust regression passes those vectors plus an ordinary object control and unchanged strict ProtoJSON array refusal: cargo test --manifest-path src-tauri/Cargo.toml --locked --lib grpc_legacy::tests::legacy_array_message_length_matches_pinned_loader -- --exact, 1passed/98filtered/runtime0.01s/compile29.34s. No new scripts/artifacts, frontend/native release build or UI matrix. Five existing eventsource-stream warnings. Published converter source read with Bun fetch: https://cdn.jsdelivr.net/npm/protobufjs@7.2.4/src/converter.js . Broader object/prototype semantics, UI/wire/history/provider/platform and all PLAN/PARITY gates remain open. No owned live handles. /compact unavailable; topic handoff recorded.
+
+## GraphQL directive argument metadata — 2026-10-17
+
+Search follow-up (parent 937c25b8): directive filtering now searches the displayed definition, including argument names/types/descriptions/defaults/deprecation reasons/locations. Type and directive filters trim surrounding whitespace consistently. Final direct svelte-check passes 0 errors/0 warnings; no added/rerun UI or native scenario. SSE native build session 79253 finished exit0; Cargo PID78200 is absent. Its source predates these GraphQL-only changes and is not GraphQL acceptance. The previous unrun SSE parser-mode additions were removed from the two saved scenario files, retaining their committed baseline; SSE native runtime acceptance remains open. No owned live handles remain. /compact unavailable; this paragraph is the current handoff.
+
+Source parent 2f61c41e. Schema explorer directive definitions now use GraphQL AST printing for arguments, preserving descriptions, deprecation reasons, typed defaults, repeatability and locations. Existing directive prose prefix/member offsets remain compatible. Direct Bun actual-schema inspection passed metadata/defaults/locations/exact argument highlight and built-in skip control. Final svelte-check: 0 errors, 0 warnings. No saved scenario/native acceptance rerun; fetched schemas can display only metadata supplied by their introspection response. Official API consulted: https://www.graphql-js.org/api-v16/language/ . Broader GraphQL and all PLAN/PARITY gates remain open.
+
+Separate prior SSE work: native product build session 79253 / Cargo PID 78200 remains live at this checkpoint; build-state artifacts/native-sse-parser-20261017/build-state.json. No restart or native scenario run. Two uncommitted SSE scenario edits from the previous turn remain unfinished and are excluded from this topic commit. /compact is unavailable in this interface; this is the handoff.
+
+
+## SSE pre-error event preservation — 2026-10-17
+
+Source parente02b5cf8. Fixed size-guard rejection dropping complete earlier events coalesced with an oversized later line in one transport chunk. Guard tracks valid prefix offset; after Raw capture, the native byte stream yields that accepted zero-copy slice then the original error, preserving complete prior events independently of chunk boundaries. Limits/offending-byte exclusion and Raw offsets/ACK behavior retained. New real guard/parts/text/parser check compares coalesced/split input, each producing valid first event then one20MiB error. Whole affected sse_limit_tests:5pass/93filtered/runtime5.53s/compile32s, retains BOM/UTF8/CRLF/expanded-size checks. cargo check --locked0 (~4s), rustfmt applied, five existing dependency warnings. No new runner/files/native release build/clipboard/profile operations; actual HTTP/IPC/Raw-history/error persistence/compression/cancellation/provider/platform and broader PLAN/PARITY remain open. Current native executable predates recent fixes. No owned live handles. Topic commit follows; /compact unavailable, handoff recorded.
+
+
+
+## SSE CR-only dispatch — 2026-10-17
+
+Source parent6f930ffe. Fixed complete CR-only events waiting for a later chunk/EOF in the dependency's CRLF-first streaming parser. App sse_text normalizes CR/CRLF to LF after UTF8 repair and remembers one optional LF across chunks; raw capture/original-byte limits remain before normalization. LF-only chunks forward unchanged/no-copy; no vendor/Cargo change. WHATWG SSE line-ending contract consulted (HTTP.md link). Exact CR-only regression RED at500ms (1failed/runtime0.51s/compile34s), then whole affected sse_limit_tests module GREEN4pass/93filtered/runtime0.89s/compile33s: before-EOF CR dispatch, split CRLF/ID/multiline/no extra event, unfinished-block discard plus UTF8/BOM/size controls. cargo check --locked0 (~7s), rustfmt applied; five existing dependency warnings. No new runner/files/native release build/clipboard/profile mutations; actual HTTP/IPC/Raw-history/compression/cancellation/provider/platform and broader PLAN/PARITY remain open. Current native executable predates recent fixes. No owned live handles. Topic commit follows; /compact unavailable, handoff recorded.
+
+
+
+## SSE invalid UTF8 recovery — 2026-10-17
+
+Source parent7a332a4e. Added app-owned replacement UTF8 adapter before the existing SSE parser: known invalid subsequences become U+FFFD immediately, incomplete scalar carry stays<=3bytes, EOF flushes replacement, valid chunks pass through unchanged/no-copy. Fixes dependency strict-decoder behavior that buffers known invalid bytes and all subsequent events until EOF. Raw capture/original-byte guard remain upstream; decoded event/name/ID guard enforces20MiB after replacement expansion. No vendor/Cargo dependency changes. WHATWG Encoding/SSE contracts consulted (HTTP.md links). Exact --lib streaming::sse_limit_tests::utf8_replacement_:2pass/94filtered/runtime0.80s/compile30s, actual parser before-EOF recovery/following event, one-byte BOM/Thai/CRLF, split/EOF scalar and real expanded oversized-event refusal. cargo check --locked0 (~6s), rustfmt applied; five existing dependency warnings. No new runner/files/native release build/clipboard/profile operations; actual HTTP/IPC/Raw-history/compression/cancellation/provider/platform/full streaming and PLAN/PARITY remain open. Current native executable predates this fix. No owned live handles. Topic commit follows; /compact unavailable, handoff recorded.
+
+
+
+## SSE UTF8 prefix limit accounting — 2026-10-17
+
+Source parent3667259c. Fixed SseLimits discarding tentative BOM prefix bytes when input begins with valid non-BOM UTF8 sharing EF/EF-BB. Mismatches now replay all buffered bytes through extracted ordinary accept_byte accounting; complete leading BOM still omitted, original parser/raw bytes unchanged. Exact20MiB line bound is enforced instead of allowing1or2extra bytes. WHATWG SSE BOM contract consulted (HTTP.md link). Exact --lib streaming::sse_limit_tests::partial_bom_counts_non_bom_utf8_and_exact_line_limit:1pass/93filtered/runtime0.56s/compile25s; one-byte chunks for two valid non-BOM sequences, exact limit/next-byte refusal, fragmented BOM and CRLF/event-reset controls. cargo check --locked0 (~4s), rustfmt applied, five existing eventsource-stream warnings. No new script/files/native release build/clipboard/profile writes; actual native SSE/raw/history/compression/platform and broader PLAN/PARITY remain open. Native executable predates this fix. No owned live handles. Topic commit follows; /compact unavailable, handoff recorded.
+
+
+
+## Plugin clipboard NUL guard — 2026-10-17
+
+Source parent8e8eb584. Shared validateNativeClipboardText now guards UI Copy and plugin worker writes; eventCall validates before capability publication. Windows Rust guarded_mutation independently rejects NUL before state/clipboard dispatch, covering direct native event POSTs. Existing clear/read/owner/cancellation/non-Windows/browser behavior retained. Direct Bun actual endpoint checks with mocked native adapters pass worker/event NUL zero-write refusal, complete Thai write, other-host/browser NUL behavior and aborted-owner refusal. Compiler0errors0warnings, cargo check --locked0 (~3s; five existing dependency warnings), sequential build0; rustfmt applied. No new runner/native build/OS clipboard or profile changes; actual native event/runtime/full plugin acceptance remains open. Read-only source inspection also confirms arboard opens clipboard-win with NULL owner: prior HWND0 cannot prove writer identity or Copy failure. Failed large-Copy acceptance/original clipboard loss remains unchanged; no recovery claimed. Current native executable predates recent product fixes. No owned live handles. Topic commit follows; /compact unavailable, handoff recorded.
+
+
 
 ## Git empty Clone naming — 2026-10-17
 

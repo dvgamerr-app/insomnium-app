@@ -1,5 +1,37 @@
 # HTTP migration
 
+## SSE accepted events before a size failure — 2026-10-17
+
+SseLimits now records the valid byte prefix of each transport chunk. After complete Raw capture, the parser receives that prefix before a later size error is emitted. Previously accepted? rejected the entire transport chunk, so a complete valid event preceding an oversized line in the same chunk disappeared; identical bytes split into different transport chunks could preserve it. sse_checked_parts uses a zero-copy Bytes slice for the accepted prefix and then returns the original error. The offending byte and later input never enter the parser, limits are unchanged, and native processing still stops on the error. Upstream Raw capture/chunk offsets and acknowledged delivery remain in place.
+
+The actual guard/parts/text/parser regression checks a valid first event followed by an oversized comment line, once coalesced and once split; both produce first then exactly one20MiB error. cargo test --manifest-path src-tauri/Cargo.toml --locked --lib streaming::sse_limit_tests:: passes5tests/93filtered/runtime5.53s/compile32s, retaining BOM/UTF8/CRLF/expansion-limit checks affected by the shared guard. cargo check --locked0 (~4s), rustfmt applied; five existing dependency warnings. No new runner/files/native release build/clipboard/profile changes. Actual HTTP/IPC/Raw-history/error-persistence/compression/cancellation/provider/platform and full streaming/PLAN/PARITY remain open; the native executable predates this fix.
+
+
+
+## SSE CR-only event dispatch — 2026-10-17
+
+sse_text now normalizes parser input after UTF8 repair: CR terminates a line immediately, and one following LF is skipped even across chunk boundaries. The dependency's streaming CRLF-first parser previously held a final CR waiting for more input; a complete data:one CR CR event therefore stalled on a live stream and could be dropped at EOF. LF-only chunks pass through without copying. Raw capture and byte accounting remain upstream of normalization; original transport bytes are preserved. No vendor/dependency change. Contract: https://html.spec.whatwg.org/multipage/server-sent-events.html .
+
+Measured RED: exact line_endings_dispatch_cr_before_eof_and_preserve_split_crlf test times out at500ms with the prior adapter (1failed/runtime0.51s/compile34s). After wiring normalization, cargo test --manifest-path src-tauri/Cargo.toml --locked --lib streaming::sse_limit_tests:: passes4tests/93filtered/runtime0.89s/compile33s. Checks cover immediate CR-only dispatch with source held open, exact unchanged source bytes, split CRLF joining data lines/ID without extra events, discard of unfinished EOF block, and retained UTF8/BOM/decoded-expansion limits. cargo check --locked0 (~7s), rustfmt applied; five existing dependency warnings. No new runner/files/native release build/clipboard/profile changes. Actual HTTP/IPC/Raw history/compression/cancellation/provider/platform and full streaming/PLAN/PARITY gates remain open; native executable predates this fix.
+
+
+
+## SSE replacement-mode UTF8 — 2026-10-17
+
+Application-owned SseUtf8 now repairs invalid UTF8 before eventsource-stream parses it. The dependency's strict decoder previously held an invalid byte plus all later input until EOF, delaying otherwise complete events and accumulating data. The adapter immediately emits U+FFFD for known invalid subsequences, retains at most3bytes of an incomplete scalar across chunks, and flushes an incomplete scalar as replacement at EOF. Already-valid chunks pass through without copying; BOM handling remains in the existing parser. Raw capture and original-byte SseLimits still run before repair. A separate20MiB decoded-field check covers event name/ID/data, preventing replacement expansion from escaping the payload limit. No vendored source or dependency changed. Contract: https://encoding.spec.whatwg.org/#utf-8-decode and https://html.spec.whatwg.org/multipage/server-sent-events.html .
+
+Exact cargo test --manifest-path src-tauri/Cargo.toml --locked --lib streaming::sse_limit_tests::utf8_replacement_ passes2tests/94filtered/runtime0.80s/compile30s. Tests use the actual eventsource parser: invalid-byte event dispatches before EOF while source remains pending, a following event is intact, one-byte BOM/Thai/CRLF chunks parse, split invalid scalar and truncated EOF recover, and an actual replacement-expanded event above20MiB refuses after the original-byte guard accepts its smaller input. cargo check --locked0 (~6s); rustfmt applied; five existing dependency warnings. No new test files/scripts/native release build/clipboard/profile mutation. Native HTTP/IPC/Raw-history/compression/cancellation/provider/platform and full streaming/PLAN/PARITY gates remain open; current native executable predates this fix.
+
+
+
+## SSE partial-BOM size accounting — 2026-10-17
+
+SseLimits now buffers a possible leading EF/EF-BB prefix until it can distinguish the complete UTF8 BOM. If the next byte differs, every buffered byte is fed through the ordinary line/event accounting path. Previously valid non-BOM UTF8 such as EF-BB-BD or EF-B8-80 lost2or1bytes from the counter, admitting a line beyond its exact20MiB boundary. accept_byte reuses the original CR/LF, data-field and limit logic; original chunks/parser/raw capture are unchanged. The SSE standard strips one complete leading BOM, not a partial match: https://html.spec.whatwg.org/multipage/server-sent-events.html .
+
+Exact cargo test --manifest-path src-tauri/Cargo.toml --locked --lib streaming::sse_limit_tests::partial_bom_counts_non_bom_utf8_and_exact_line_limit -- --exact passes1test/93filtered/runtime0.56s/compile25s. Both non-BOM prefixes arrive one byte at a time, count all3bytes, accept a line exactly20MiB and refuse its next byte. A fragmented real BOM counts0bytes; CRLF and blank-line event reset controls pass. cargo check --locked0 (~4s); rustfmt applied; five existing eventsource-stream warnings. No new test files/scripts/native release build/clipboard/profile mutation. Actual native SSE/raw/history/compression variants and full streaming/PLAN/PARITY acceptance remain open; prior native executable predates this change.
+
+
+
 ## Raw and formatted stream event display — 2026-10-17
 
 Binary text display follow-up: binary/Ping/Pong events offer Base64 (existing default) or UTF-8, persisted per request as streamBinaryEncoding. UTF-8 preserves BOM and uses replacement characters for invalid UTF-8, matching legacy Buffer.toString display intent; bounded previews decode only a prefix with multibyte lookahead. Copy/complete-reader use the full selected representation, while Save always decodes the original Base64 bytes. Malformed Base64 displays a local decode error. Toolbar controls scroll horizontally in narrow panes. JSON formatting expansion is also capped at the 64 KiB visible preview, with complete original data still available. Reference: https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder/ignoreBOM .
@@ -21,6 +53,10 @@ Stream filtering now searches full UTF-8-decoded binary/Ping/Pong data as well a
 Stream event controls restore legacy All/Message/Open/Close/Error filtering and Clear view using shared UI controls. Message includes SSE and sent records. Selection/details follow the visible list, so Copy/Save cannot target a hidden event. Clear view masks currently retained event IDs only, allowing later unique events without deleting history or Export log data; the mask resets when the response ID changes or the pane reloads. Counts show visible versus retained events. Maintained headless stream-message-reader.js verifies message/open/close filters, combined close-reason search, Clear view with disabled transfers, unchanged persisted history and reload restoration for SSE/WebSocket. Actual live-arrival/native/platform acceptance remains open.
 
 ## Desktop Copy integration — 2026-10-16
+
+Read-only source follow-up (2026-10-17): installed clipboard-manager2.4.0 uses arboard3.6.1, whose Windows open calls clipboard-win5.4.1 Clipboard::new/open_for(NULL). Thus owner HWND0 is consistent with this writer path and cannot authenticate it by PID; it alone does not prove Copy failed. Prior large-Copy completeness/restoration acceptance remains FAILED and no original clipboard was recovered. No further clipboard mutation was attempted. Shared NUL admission now also covers plugin worker/event paths; see PLUGINS.md.
+
+
 
 Native large-Copy attempt — 2026-10-17: FAILED, not acceptance. One current product-only integration build artifacts/native-stream-copy-20261017 finishes exit0 (~6m45s). Native-hidden host69344 runs a temporary opt-in in the maintained reader scenario; the first20MiB text Copy changes Windows clipboard sequence9600→9605, but GetClipboardOwner returns0. The proposed owner-PID adoption cannot authenticate this writer, and the existing sequence guard refuses restoration. Original clipboard formats/bytes were captured in memory but NOT restored; disposal then cleared the only snapshot, so this attempt cannot recover the original clipboard. Text completeness was not verified and binary did not run. Receipt artifacts/playwright/stream-copy-native-1792198335280/acceptance.json is failed. App/profile buffers restore exactly (resource-manager-restoration-1792198335242/result.json); host exits0 and is absent. The unverified opt-in/helper changes were removed to prevent repetition. No product code changed. Do not repeat this mutation until the exact ownerless production writer has a proven safe receipt/restoration route or runs in a disposable environment. Capture-only preflight is insufficient. Reuse the new binary for unchanged production code; no new build/audit matrix is justified.
 

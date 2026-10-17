@@ -296,6 +296,10 @@ pub fn end_plugin_clipboard_probe(
 /// Inactive probes use the ordinary production clipboard API. Active probes require
 /// the exact sequence/owner under an exclusive OS lock for every event mutation.
 pub fn guarded_mutation(app: &tauri::AppHandle, text: Option<&str>) -> Result<(), String> {
+    #[cfg(windows)]
+    if text.is_some_and(|text| text.contains('\0')) {
+        return Err("Windows clipboard text cannot contain NUL characters".into());
+    }
     let state = app.state::<ClipboardProbeState>();
     let mut active = match state.0.lock() {
         Ok(active) => active,

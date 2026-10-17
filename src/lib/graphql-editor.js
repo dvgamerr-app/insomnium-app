@@ -12,6 +12,8 @@ import {
   isDirective,
   astFromValue,
   print,
+  parseType,
+  Kind,
 } from "graphql";
 
 /** @param {import('graphql').GraphQLSchema|null} schema @param {string} query @param {string} [operationName] */
@@ -102,12 +104,34 @@ export function graphqlReferencedTypes(owner, schema = null) {
 
 /** @param {import('graphql').GraphQLDirective} directive */
 export function graphqlDirectiveText(directive) {
-  const args = directive.args.map((arg) => {
-    const value =
-      arg.defaultValue === undefined
-        ? null
-        : astFromValue(arg.defaultValue, arg.type);
-    return `${arg.name}: ${arg.type}${value ? ` = ${print(value)}` : ""}`;
-  });
-  return `${directive.description ? directive.description + "\n\n" : ""}directive @${directive.name}${args.length ? `(${args.join(", ")})` : ""}${directive.isRepeatable ? " repeatable" : ""} on ${directive.locations.join(" | ")}`;
+  /** @type {import('graphql').DirectiveDefinitionNode} */
+  const definition = {
+    kind: Kind.DIRECTIVE_DEFINITION,
+    name: { kind: Kind.NAME, value: directive.name },
+    repeatable: directive.isRepeatable,
+    locations: directive.locations.map(value => ({ kind: Kind.NAME, value })),
+    arguments: directive.args.map(arg => ({
+      kind: Kind.INPUT_VALUE_DEFINITION,
+      name: { kind: Kind.NAME, value: arg.name },
+      description: arg.description == null ? undefined : {
+        kind: Kind.STRING, value: arg.description, block: true,
+      },
+      type: parseType(String(arg.type)),
+      defaultValue: arg.defaultValue === undefined ? undefined
+        // Runtime defaults contain values, never executable variable references.
+        : /** @type {import('graphql').ConstValueNode|undefined} */ (
+          astFromValue(arg.defaultValue, arg.type) ?? undefined),
+      directives: arg.deprecationReason == null ? [] : [{
+        kind: Kind.DIRECTIVE,
+        name: { kind: Kind.NAME, value: 'deprecated' },
+        arguments: [{
+          kind: Kind.ARGUMENT,
+          name: { kind: Kind.NAME, value: 'reason' },
+          value: { kind: Kind.STRING, value: arg.deprecationReason },
+        }],
+      }],
+    })),
+  };
+  // Keep the existing prose prefix and member-location offset contract.
+  return `${directive.description ? directive.description + "\n\n" : ""}${print(definition)}`;
 }

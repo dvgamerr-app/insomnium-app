@@ -136,13 +136,14 @@
   });
   let types = $derived.by(() => {
     if (!schema) return [];
+    const query = search.trim().toLowerCase();
     return Object.values(schema.getTypeMap())
       .filter(
         (/** @type {any} */ type) =>
-          (!type.name.startsWith("__") || type.name===selectedType || search.trim().startsWith('__')) &&
+          (!type.name.startsWith("__") || type.name===selectedType || query.startsWith('__')) &&
           `${type.name} ${type.description || ""} ${printType(type)}`
             .toLowerCase()
-            .includes(search.toLowerCase()),
+            .includes(query),
       )
       .sort((/** @type {any} */ a, /** @type {any} */ b) =>
         a.name.localeCompare(b.name),
@@ -156,9 +157,9 @@
     schema
       ?.getDirectives()
       .filter((/** @type {any} */ item) =>
-        `${item.name} ${item.description || ""}`
+        graphqlDirectiveText(item)
           .toLowerCase()
-          .includes(search.toLowerCase()),
+          .includes(search.trim().toLowerCase()),
       ) || [],
   );
   const directive = $derived(
