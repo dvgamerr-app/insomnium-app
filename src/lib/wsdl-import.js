@@ -13,6 +13,107 @@ function builtinSample(name) {
     return name === 'positiveInteger' ? '1' : /^(negativeInteger|nonPositiveInteger)$/.test(name) ? '-1' : '0';
   return ({boolean:'false',date:'2000-01-01',dateTime:'2000-01-01T00:00:00Z',time:'00:00:00Z',base64Binary:'',hexBinary:''})[name] ?? 'string';
 }
+/** Exact integer ranges; do not round schema bounds through JavaScript Number.
+ * @type {Record<string,[bigint|null,bigint|null]>} */
+const integerRanges = {
+  integer:[null,null], nonPositiveInteger:[null,0n], negativeInteger:[null,-1n],
+  nonNegativeInteger:[0n,null], positiveInteger:[1n,null],
+  byte:[-128n,127n], short:[-32768n,32767n], int:[-2147483648n,2147483647n],
+  long:[-9223372036854775808n,9223372036854775807n],
+  unsignedByte:[0n,255n], unsignedShort:[0n,65535n], unsignedInt:[0n,4294967295n],
+  unsignedLong:[0n,18446744073709551615n],
+};
+const numericFacets = ['minInclusive','minExclusive','maxInclusive','maxExclusive','totalDigits','fractionDigits'];
+/** @param {any} facet */
+function digitFacet(facet) {
+  const text = (facet.getAttribute('value') || '').trim();
+  if (!/^\+?\d{1,3}$/.test(text) || Number(text) > 128 ||
+      (facet.localName === 'totalDigits' && Number(text) === 0))
+    throw new Error('WSDL digit facets require totalDigits 1–128 or fractionDigits 0–128.');
+  return Number(text);
+}
+/** @param {any} restriction @param {[bigint|null,bigint|null]|null} range
+ * @returns {[bigint|null,bigint|null]|null} */
+function integerRestrictionRange(restriction,range) {
+  const facets = children(restriction,XSD).filter(child=>child.localName !== 'annotation');
+  if (!range || facets.some(child=>!numericFacets.includes(child.localName))) return null;
+  let [min,max] = range;
+  for (const facet of facets) {
+    if (facet.localName === 'fractionDigits') {
+      if (digitFacet(facet) !== 0) throw new Error('WSDL integer fractionDigits must remain zero.');
+      continue;
+    }
+    if (facet.localName === 'totalDigits') {
+      const limit = 10n ** BigInt(digitFacet(facet))-1n;
+      min = min === null || min < -limit ? -limit : min;
+      max = max === null || max > limit ? limit : max;
+      continue;
+    }
+    const text = (facet.getAttribute('value') || '').trim();
+    if (!/^[+-]?\d{1,128}$/.test(text)) throw new Error('WSDL integer bounds require at most 128 decimal digits.');
+    let value = BigInt(text);
+    if (facet.localName === 'minExclusive') value++;
+    if (facet.localName === 'maxExclusive') value--;
+    if (facet.localName.startsWith('min')) min = min === null || value > min ? value : min;
+    else max = max === null || value < max ? value : max;
+  }
+  if (min !== null && max !== null && min > max) throw new Error('WSDL integer restriction has no valid example value.');
+  return [min,max];
+}
+/** Choose a finite decimal on a common exact grid. One extra decimal place
+ * provides an interior value for any nonempty exclusive-bound interval.
+ * @param {any[]} facets */
+function decimalRestrictionSample(facets) {
+  let fractionDigits = 129, totalDigits = 129;
+  for (const facet of facets) {
+    if (facet.localName === 'fractionDigits') fractionDigits = Math.min(fractionDigits,digitFacet(facet));
+    if (facet.localName === 'totalDigits') totalDigits = Math.min(totalDigits,digitFacet(facet));
+  }
+  const bounds = facets.filter(facet=>!['totalDigits','fractionDigits'].includes(facet.localName)).map(facet=>{
+    const text = (facet.getAttribute('value') || '').trim();
+    if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(text) || text.replace(/\D/g,'').length > 128)
+      throw new Error('WSDL decimal bounds require at most 128 decimal digits without exponents.');
+    const scale = text.includes('.') ? text.length-text.indexOf('.')-1 : 0;
+    return {kind:facet.localName,scale,value:BigInt(text.replace('.',''))};
+  });
+  const scale = Math.min(fractionDigits,bounds.reduce((max,bound)=>Math.max(max,bound.scale),0)+1);
+  /** @type {bigint|null} */ let min = null;
+  /** @type {bigint|null} */ let max = null;
+  for (const bound of bounds) {
+    const divisor = 10n ** BigInt(Math.max(0,bound.scale-scale));
+    const numerator = bound.value * 10n ** BigInt(Math.max(0,scale-bound.scale));
+    const quotient = numerator/divisor, remainder = numerator%divisor;
+    const floor = quotient-(remainder < 0n ? 1n : 0n);
+    const ceil = quotient+(remainder > 0n ? 1n : 0n);
+    const value = bound.kind === 'minExclusive' ? floor+1n
+      : bound.kind === 'maxExclusive' ? ceil-1n
+      : bound.kind === 'minInclusive' ? ceil : floor;
+    if (bound.kind.startsWith('min')) min = min === null || value > min ? value : min;
+    else max = max === null || value < max ? value : max;
+  }
+  if (totalDigits < 129) {
+    const limit = 10n ** BigInt(totalDigits+scale)-1n;
+    min = min === null || min < -limit ? -limit : min;
+    max = max === null || max > limit ? limit : max;
+  }
+  if (min !== null && max !== null && min > max) throw new Error('WSDL decimal restriction has no valid example value.');
+  let value = 0n;
+  if (min !== null && value < min) value = min;
+  if (max !== null && value > max) value = max;
+  if (value !== 0n && totalDigits < 129) {
+    const magnitude = value < 0n ? -value : value;
+    const quantum = 10n ** BigInt(Math.max(0,String(magnitude).length-totalDigits));
+    const rounded = ((magnitude+quantum-1n)/quantum)*quantum;
+    value = value < 0n ? -rounded : rounded;
+    if ((min !== null && value < min) || (max !== null && value > max))
+      throw new Error('WSDL decimal digit constraints have no valid example value.');
+  }
+  if (scale === 0) return String(value);
+  const negative = value < 0n;
+  const digits = String(negative ? -value : value).padStart(scale+1,'0');
+  const result = (digits.slice(0,-scale)+'.'+digits.slice(-scale)).replace(/0+$/,'').replace(/\.$/,'');
+  return (negative ? '-' : '')+result;
+}
 /** @param {any} node @param {string} [namespace] @param {string} [name] @returns {any[]} */
 function children(node, namespace, name) {
   return Array.from(node?.childNodes || []).filter((/** @type {any} */ child) =>
@@ -75,24 +176,100 @@ export function wsdlResources(text,options = {}) {
   function enter(depth) {
     if (depth > 32 || ++generated > 10000) throw new Error('WSDL example exceeds generation limits.');
   }
+  /** Resolve every named base before applying a derived restriction. The same
+   * generation guard rejects cycles across selected schema documents.
+   * @param {any} context @param {string} name @param {number} depth
+   * @returns {[bigint|null,bigint|null]|null} */
+  function integerTypeRange(context,name,depth) {
+    enter(depth);
+    const key = qname(context,name);
+    if (key.startsWith(XSD+'#')) {
+      const builtin = key.slice(XSD.length+1);
+      return Object.hasOwn(integerRanges,builtin) ? integerRanges[builtin] : null;
+    }
+    const found = schemas.get('simpleType:'+key);
+    if (!found) throw new Error('Unresolved WSDL integer base type.');
+    const restriction = children(found.node,XSD,'restriction')[0];
+    if (!restriction) return null;
+    return integerRestrictionRange(restriction,
+      integerTypeRange(restriction,restriction.getAttribute('base') || '',depth+1));
+  }
+  /** @param {any} context @param {string} name @param {number} depth
+   * @returns {any[]|null} */
+  function decimalTypeFacets(context,name,depth) {
+    enter(depth);
+    const key = qname(context,name);
+    if (key.startsWith(XSD+'#')) return key === XSD+'#decimal' ? [] : null;
+    const found = schemas.get('simpleType:'+key);
+    if (!found) throw new Error('Unresolved WSDL decimal base type.');
+    const restriction = children(found.node,XSD,'restriction')[0];
+    if (!restriction) return null;
+    const own = children(restriction,XSD).filter(child=>child.localName !== 'annotation');
+    if (own.some(child=>!numericFacets.includes(child.localName))) return null;
+    const inherited = decimalTypeFacets(restriction,restriction.getAttribute('base') || '',depth+1);
+    if (inherited === null) return null;
+    if (own.length+inherited.length > 10000) throw new Error('WSDL decimal facets exceed generation limits.');
+    return [...inherited,...own];
+  }
   /** @param {any} context @param {string} name @param {number} depth @returns {string} */
-  function textType(context,name,depth) {
+  function textType(context,name,depth,simpleOnly=false) {
     enter(depth);
     const key = qname(context,name);
     if (key.startsWith(XSD+'#')) return builtinSample(key.slice(XSD.length+1));
-    const found = schemas.get('simpleType:'+key) || schemas.get('complexType:'+key);
+    const found = schemas.get('simpleType:'+key) || (!simpleOnly && schemas.get('complexType:'+key));
     if (!found) throw new Error('Unresolved WSDL text type.');
     return textValue(found.node,depth+1);
   }
   /** @param {any} type @param {number} depth @returns {string} */
   function textValue(type,depth) {
     enter(depth);
+    const list = children(type,XSD,'list')[0];
+    if (list) {
+      const inline = children(list,XSD,'simpleType');
+      const item = list.getAttribute('itemType');
+      if ((!!item ? 1 : 0) + inline.length !== 1 ||
+          children(list,XSD).some(child=>!['annotation','simpleType'].includes(child.localName)))
+        throw new Error('WSDL list requires one named or inline item type.');
+      const value = item ? textType(list,item,depth+1,true) : textValue(inline[0],depth+1);
+      // One example item is sufficient; whitespace inside that item would
+      // change its lexical meaning into several list items.
+      if (/[\x20\t\r\n]/.test(value)) throw new Error('WSDL list item example contains whitespace; author the example manually.');
+      return bounded(value);
+    }
+    const union = children(type,XSD,'union')[0];
+    if (union) {
+      const names = (union.getAttribute('memberTypes') || '').trim().split(/\s+/).filter(Boolean);
+      const inline = children(union,XSD,'simpleType');
+      if ((!names.length && !inline.length) ||
+          children(union,XSD).some(child=>!['annotation','simpleType'].includes(child.localName)))
+        throw new Error('WSDL union requires a named or inline member type.');
+      // Deterministic editable example: named members precede inline members.
+      return bounded(names.length ? textType(union,names[0],depth+1,true) : textValue(inline[0],depth+1));
+    }
     const restriction = children(type,XSD,'restriction')[0];
     if (restriction) {
       const enumeration = children(restriction,XSD,'enumeration')[0];
       if (enumeration) return enumeration.getAttribute('value') || '';
-      if (children(restriction,XSD).some(child=>child.localName !== 'annotation'))
+      if (children(restriction,XSD).some(child=>child.localName !== 'annotation')) {
+        const range = integerRestrictionRange(restriction,
+          integerTypeRange(restriction,restriction.getAttribute('base') || '',depth+1));
+        if (range !== null) {
+          const [min,max] = range;
+          let value = 0n;
+          if (min !== null && value < min) value = min;
+          if (max !== null && value > max) value = max;
+          return String(value);
+        }
+        const own = children(restriction,XSD).filter(child=>child.localName !== 'annotation');
+        if (own.every(child=>numericFacets.includes(child.localName))) {
+          const inherited = decimalTypeFacets(restriction,restriction.getAttribute('base') || '',depth+1);
+          if (inherited !== null) {
+            if (own.length+inherited.length > 10000) throw new Error('WSDL decimal facets exceed generation limits.');
+            return decimalRestrictionSample([...inherited,...own]);
+          }
+        }
         throw new Error('WSDL simple-type restrictions require manual example authoring.');
+      }
       return textType(restriction,restriction.getAttribute('base'),depth+1);
     }
     const simple = children(type,XSD,'simpleContent')[0];
@@ -240,7 +417,7 @@ export function wsdlResources(text,options = {}) {
         throw new Error('WSDL mixed-content types require manual example authoring.');
       const members = children(type,XSD).filter(child => child.localName !== 'annotation');
       const restriction = members.find(child => child.localName === 'restriction');
-      if (restriction) {
+      if (type.localName === 'simpleType' || restriction) {
         content = textValue(type,depth+1);
       } else {
         content = complexFields(type,schema,depth+1);
