@@ -5,6 +5,9 @@ const WSDL = 'http://schemas.xmlsoap.org/wsdl/';
 const XSD = 'http://www.w3.org/2001/XMLSchema';
 const SOAP = 'http://schemas.xmlsoap.org/wsdl/soap/';
 const SOAP12 = 'http://schemas.xmlsoap.org/wsdl/soap12/';
+// XML 1.0 Fifth Edition NameStartChar/NameChar, excluding the QName colon.
+const xmlNameStart = String.raw`A-Z_a-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u02FF\u0370-\u037D\u037F-\u1FFF\u200C-\u200D\u2070-\u218F\u2C00-\u2FEF\u3001-\uD7FF\uF900-\uFDCF\uFDF0-\uFFFD\u{10000}-\u{EFFFF}`;
+const xmlNcName = new RegExp('^['+xmlNameStart+']['+xmlNameStart+String.raw`.\-0-9\u00B7\u0300-\u036F\u203F-\u2040]*$`,'u');
 const escape = (/** @type {string} */ value) => value.replace(/[&<>"']/g, c =>
   ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'})[c] || c);
 /** @param {string} name */
@@ -166,7 +169,7 @@ function children(node, namespace, name) {
 /** @param {any} node @param {string} value */
 function qname(node, value) {
   const parts = value.split(':');
-  if (parts.length > 2 || !parts.every(part => /^[A-Za-z_][\w.-]*$/.test(part)))
+  if (parts.length > 2 || !parts.every(part => xmlNcName.test(part)))
     throw new Error('Invalid WSDL qualified name.');
   const namespace = node.lookupNamespaceURI(parts.length === 2 ? parts[0] : null) ||
     (parts.length === 1 ? adoptedWsdlNamespace(node) : '');
@@ -458,7 +461,7 @@ export function wsdlResources(text,options = {}) {
           declaration = found.node; ownerSchema = found.schema;
         }
         const name = declaration.getAttribute('name');
-        if (!name || (use === 'required' && !/^[A-Za-z_][\w.-]*$/.test(name)) || name === 'xmlns') throw new Error('Invalid WSDL attribute name.');
+        if (!name || (use === 'required' && !xmlNcName.test(name)) || name === 'xmlns') throw new Error('Invalid WSDL attribute name.');
         const namespace = declaration.parentNode === ownerSchema ||
           (declaration.getAttribute('form') || ownerSchema.getAttribute('attributeFormDefault')) === 'qualified'
           ? ownerSchema.getAttribute('targetNamespace') || '' : '';
@@ -777,7 +780,7 @@ export function wsdlResources(text,options = {}) {
       return sample(concrete.node,concrete.schema,depth+1);
     }
     const name = node.getAttribute('name');
-    if (!name || !/^[A-Za-z_][\w.-]*$/.test(name)) throw new Error('Invalid WSDL element name.');
+    if (!name || !xmlNcName.test(name)) throw new Error('Invalid WSDL element name.');
     const namespace = node.parentNode === schema || (node.getAttribute('form') || schema.getAttribute('elementFormDefault')) === 'qualified'
       ? schema.getAttribute('targetNamespace') || '' : '';
     const elementSchema=schema;
@@ -807,7 +810,7 @@ export function wsdlResources(text,options = {}) {
         const concrete=concreteType(type,schema,node,elementSchema,depth+1);
         type=concrete.node;schema=concrete.schema;
         const typeName=type.getAttribute('name');
-        if(!typeName || !/^[A-Za-z_][\w.-]*$/.test(typeName))throw new Error('Invalid WSDL concrete type name.');
+        if(!typeName || !xmlNcName.test(typeName))throw new Error('Invalid WSDL concrete type name.');
         typeAttributes=' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"';
         if(concrete.namespace)typeAttributes+=` xmlns:xt="${escape(concrete.namespace)}" xsi:type="xt:${typeName}"`;
         else {
@@ -867,7 +870,7 @@ export function wsdlResources(text,options = {}) {
     for (const operation of children(binding,WSDL,'operation')) {
       if (resources.length >= 10000) throw new Error('WSDL resource limit exceeded.');
       const name = operation.getAttribute('name');
-      if (!name || !/^[A-Za-z_][\w.-]*$/.test(name)) throw new Error('Invalid WSDL operation name.');
+      if (!name || !xmlNcName.test(name)) throw new Error('Invalid WSDL operation name.');
       const soapOperation = children(operation,soapNamespace,'operation')[0];
       const style = soapOperation?.getAttribute('style') || soap.getAttribute('style') || 'document';
       if (!['document','rpc'].includes(style)) throw new Error('Unsupported WSDL operation style.');
