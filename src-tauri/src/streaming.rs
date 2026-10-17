@@ -734,7 +734,9 @@ async fn websocket_session(
     loop {
         tokio::select! {
             _ = delivery.cancelled.changed() => {
-                let _ = tokio::time::timeout(Duration::from_secs(2), socket.close(CloseCode::Normal, Some("Disconnected by client"))).await;
+                let closed = tokio::time::timeout(Duration::from_secs(2), socket.close(CloseCode::Normal, Some("Disconnected by client")))
+                    .await.map_err(|_| "WebSocket disconnect timed out".to_string())?;
+                websocket_close_result(closed, "disconnect")?;
                 return emit(&channel, StreamEvent::Closed { code: Some(1000), reason: "Disconnected by client".into() });
             }
             command = outgoing.recv() => {
@@ -765,7 +767,10 @@ async fn websocket_session(
                         let closed = matches!(message, Message::Close { .. });
                         if closed { emit(&channel, message_event(&message, "received"))?; } else { delivery.message(message_event(&message, "received")).await?; }
                         if closed {
-                            let _ = tokio::time::timeout(Duration::from_secs(2), socket.flush()).await;
+                            let reply = tokio::time::timeout(Duration::from_secs(2), socket.flush())
+                                .await
+                                .map_err(|_| "WebSocket close reply timed out".to_string())?;
+                            websocket_close_result(reply, "close reply")?;
                             return Ok(());
                         }
                     }
@@ -773,6 +778,56 @@ async fn websocket_session(
                     None => return emit(&channel, StreamEvent::Closed { code: None, reason: "Connection ended".into() }),
                 }
             }
+        }
+    }
+}
+
+// ConnectionClosed confirms an already-completed connection; other write errors
+// must not become a successful Close reply or locally requested disconnect.
+fn websocket_close_result(
+    result: Result<(), reqwest_websocket::Error>,
+    operation: &str,
+) -> Result<(), String> {
+    match result {
+        Ok(())
+        | Err(reqwest_websocket::Error::Tungstenite(tungstenite::Error::ConnectionClosed)) => {
+            Ok(())
+        }
+        Err(error) => Err(format!("WebSocket {operation} failed: {error:?}")),
+    }
+}
+
+#[cfg(test)]
+mod websocket_close_tests {
+    use super::websocket_close_result;
+
+    #[test]
+    fn close_reply_distinguishes_completion_from_transport_failure() {
+        for operation in ["close reply", "disconnect"] {
+            let websocket_close_reply = |result| websocket_close_result(result, operation);
+            assert!(websocket_close_reply(Ok(())).is_ok());
+            assert!(
+                websocket_close_reply(Err(reqwest_websocket::Error::Tungstenite(
+                    tungstenite::Error::ConnectionClosed,
+                )))
+                .is_ok()
+            );
+            let error = websocket_close_reply(Err(reqwest_websocket::Error::Tungstenite(
+                tungstenite::Error::Io(std::io::Error::new(
+                    std::io::ErrorKind::ConnectionReset,
+                    "owned reset",
+                )),
+            )))
+            .unwrap_err();
+            assert!(
+                error.contains(&format!("{operation} failed")) && error.contains("owned reset")
+            );
+            assert!(
+                websocket_close_reply(Err(reqwest_websocket::Error::Tungstenite(
+                    tungstenite::Error::AlreadyClosed,
+                )))
+                .is_err()
+            );
         }
     }
 }
