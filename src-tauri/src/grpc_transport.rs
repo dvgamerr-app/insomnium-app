@@ -333,6 +333,16 @@ fn status_event(status: Status) -> Result<Event, String> {
 #[cfg(test)]
 mod status_tests {
     use super::*;
+    use http_body_util::{BodyExt, StreamBody};
+    use hyper::{
+        body::{Bytes, Frame, Incoming},
+        Request as HttpRequest, Response as HttpResponse,
+    };
+    use hyper_util::rt::{TokioExecutor, TokioIo};
+    use std::{
+        convert::Infallible,
+        sync::{Arc, Mutex},
+    };
 
     #[test]
     fn successful_status_preserves_encoded_message_and_metadata() {
@@ -361,5 +371,136 @@ mod status_tests {
             serde_json::to_value(successful_status_event(&MetadataMap::new()).unwrap()).unwrap();
         assert_eq!(empty["details"], "");
         assert_eq!(empty["trailers"], serde_json::json!([]));
+    }
+
+    #[tokio::test]
+    async fn call_preserves_status_messages_over_http2() {
+        let pool = grpc_schema::compile(grpc_schema::ProtoInput {
+            entry: "status.proto".into(),
+            files: vec![grpc_schema::ProtoFile {
+                name: "status.proto".into(),
+                text: "syntax=\"proto3\"; package owned; message Payload {} service Status { rpc Echo(Payload) returns(Payload); rpc Watch(Payload) returns(stream Payload); }".into(),
+            }],
+            include_paths: vec![],
+        }).unwrap();
+        for shape in 0..3 {
+            let method_name = if shape == 1 { "Watch" } else { "Echo" };
+            let method = pool
+                .get_service_by_name("owned.Status")
+                .unwrap()
+                .methods()
+                .find(|method| method.name() == method_name)
+                .unwrap();
+            let message = if shape == 2 {
+                "denied + %"
+            } else {
+                "สำเร็จ + 100%"
+            };
+            let code = if shape == 2 {
+                tonic::Code::PermissionDenied
+            } else {
+                tonic::Code::Ok
+            };
+            let mut status = Status::new(code, message);
+            status
+                .metadata_mut()
+                .append("x-result", "first".parse().unwrap());
+            status
+                .metadata_mut()
+                .append("x-result", "second".parse().unwrap());
+            let mut trailers = Default::default();
+            status.add_header(&mut trailers).unwrap();
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let address = listener.local_addr().unwrap();
+            let server = tokio::spawn(async move {
+                let (socket, _) = listener.accept().await.unwrap();
+                let service = hyper::service::service_fn(move |request: HttpRequest<Incoming>| {
+                    let trailers = trailers.clone();
+                    async move {
+                        assert_eq!(request.uri().path(), format!("/owned.Status/{method_name}"));
+                        assert_eq!(
+                            request
+                                .into_body()
+                                .collect()
+                                .await
+                                .unwrap()
+                                .to_bytes()
+                                .as_ref(),
+                            &[0, 0, 0, 0, 0]
+                        );
+                        let frames = if shape == 0 {
+                            vec![
+                                Ok::<_, Infallible>(Frame::data(Bytes::from_static(&[
+                                    0, 0, 0, 0, 0,
+                                ]))),
+                                Ok(Frame::trailers(trailers.clone())),
+                            ]
+                        } else {
+                            vec![]
+                        };
+                        let mut response =
+                            HttpResponse::new(StreamBody::new(tokio_stream::iter(frames)));
+                        response
+                            .headers_mut()
+                            .insert("content-type", "application/grpc".parse().unwrap());
+                        if shape != 0 {
+                            response.headers_mut().extend(trailers);
+                        }
+                        Ok::<_, Infallible>(response)
+                    }
+                });
+                let _ = hyper::server::conn::http2::Builder::new(TokioExecutor::new())
+                    .serve_connection(TokioIo::new(socket), service)
+                    .await;
+            });
+            let config: Connection = serde_json::from_value(serde_json::json!({
+                "url": format!("grpc://{address}"), "timeoutMs": 3000
+            }))
+            .unwrap();
+            let (sender, receiver) = mpsc::channel(1);
+            sender
+                .send(DynamicMessage::new(method.input()))
+                .await
+                .unwrap();
+            drop(sender);
+            let events = Arc::new(Mutex::new(Vec::new()));
+            let observed = events.clone();
+            let result = tokio::time::timeout(
+                Duration::from_secs(5),
+                call(
+                    &config,
+                    method,
+                    receiver,
+                    grpc_schema::JsonMode::ProtoJson,
+                    move |event| {
+                        observed
+                            .lock()
+                            .unwrap()
+                            .push(serde_json::to_value(event).unwrap());
+                        async { Ok(()) }
+                    },
+                ),
+            )
+            .await;
+            // Retire only this owned in-process peer, including failed calls.
+            server.abort();
+            let _ = server.await;
+            result.unwrap().unwrap();
+            let events = events.lock().unwrap();
+            assert_eq!(
+                events
+                    .iter()
+                    .filter(|event| event["kind"] == "message")
+                    .count(),
+                if shape == 0 { 1 } else { 0 }
+            );
+            let terminal = events.last().unwrap();
+            assert_eq!(terminal["kind"], "status");
+            assert_eq!(terminal["code"], code as i32);
+            assert_eq!(terminal["details"], message);
+            let rows = terminal["trailers"].as_array().unwrap();
+            assert!(rows.contains(&serde_json::json!(["x-result", "first"])));
+            assert!(rows.contains(&serde_json::json!(["x-result", "second"])));
+        }
     }
 }
