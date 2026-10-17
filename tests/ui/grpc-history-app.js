@@ -3,6 +3,7 @@ import { initialData } from "../../src/lib/model.js";
 import { withPreview } from "./helpers/preview-app.js";
 
 const data = initialData();
+const sourceOnly = process.env.INSOMNIUM_GRPC_SOURCE_ONLY === "1";
 const largeMessage = JSON.stringify({text:"Owned gRPC message Ω ".repeat(5000)});
 const request = data.resources.find((r) => r._id === data.activeRequestId);
 assert.ok(request);
@@ -12,9 +13,32 @@ data.history = ["new", "old"].map((label, index) => ({
   created:1720000030000-index*10000, connectionState:"closed", events:[{_id:"message_"+label, kind:"message", text:largeMessage}],
 }));
 data.history[0].events.push({_id:"message_second", kind:"message", text:'{"second":true}'});
-await withPreview("grpc-history-app", async (page, output) => {
+await withPreview(sourceOnly ? "grpc-message-source" : "grpc-history-app", async (page, output) => {
   const history = page.getByRole("combobox", {name:"gRPC response history", exact:true});
   await history.waitFor();
+  if (sourceOnly) {
+    await page.getByRole("button", {name:"Source",exact:true}).click();
+    const source = page.locator(".grpc-message-source .CodeMirror");
+    await source.waitFor();
+    const read = () => source.evaluate(el => /** @type {any} */ (el).CodeMirror.getValue());
+    assert.equal(await read(), largeMessage.slice(0,64*1024));
+    assert.equal(await source.evaluate(el => /** @type {any} */ (el).CodeMirror.getOption("readOnly")),true);
+    await source.locator("textarea").focus();
+    await page.keyboard.type("must remain unchanged");
+    assert.equal(await read(), largeMessage.slice(0,64*1024));
+    await page.getByRole("button",{name:"Formatted",exact:true}).click();
+    assert.equal(await source.count(),0);
+    await page.getByRole("tab",{name:"Response 2",exact:true}).click();
+    await page.getByRole("button",{name:"Source",exact:true}).click();
+    await source.waitFor();
+    assert.equal(await read(),'{"second":true}');
+    await history.selectOption("grpc_history_old");
+    assert.equal(await source.count(),0);
+    const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem("insomnium-tauri-preview-v1")||"{}"));
+    assert.deepEqual(saved.history,data.history);
+    await Bun.write(output+"/result.json",JSON.stringify({status:"passed",boundedSource:true,readOnly:true,messageSwitch:true,historySwitch:true,historyUnchanged:true,clipboardTouched:false,native:false}));
+    return;
+  }
   await page.keyboard.press("Control+Shift+Enter");
   assert.equal(await page.getByRole("tablist",{name:"gRPC request editor",exact:true}).getByRole("tab",{name:"Settings",exact:true}).getAttribute("aria-selected"),"true");
   assert.equal(await page.getByRole("tablist",{name:"gRPC request editor",exact:true}).getByRole("tab",{name:"Settings",exact:true}).evaluate((el) => document.activeElement === el),true);
@@ -83,7 +107,7 @@ producerData.activeEnvironmentId = "env_grpc_capture";
 producerData.resources = producerData.resources.filter((r) => r._type !== "workspace_meta");
 producerData.resources.push({_id:"meta_grpc_capture", _type:"workspace_meta", parentId:producerData.activeWorkspaceId, activeEnvironmentId:"env_grpc_capture"});
 producerData.responseSelections = {[request._id]:"grpc_history_old"};
-for (const clientStreaming of [false,true]) await withPreview(clientStreaming ? "grpc-stream-shortcut" : "grpc-history-producer", async (page, output) => {
+for (const clientStreaming of sourceOnly ? [] : [false,true]) await withPreview(clientStreaming ? "grpc-stream-shortcut" : "grpc-history-producer", async (page, output) => {
   const history = page.getByRole("combobox", {name:"gRPC response history", exact:true});
   await history.waitFor();
   assert.equal(await history.inputValue(), "grpc_history_old");
