@@ -401,7 +401,7 @@ pub async fn fetch_oauth_token(
         }
         let client = build_client(&request, &url, jar.as_ref(), false, false)
             .map_err(|_| "Invalid OAuth proxy, CA or client certificate settings.")?;
-        crate::oauth::exchange(&client, &url, &config).await
+        crate::oauth::exchange(&client, &url, &config, versions::selected(request.http_version.as_deref())?).await
     };
     let mut result: Result<crate::oauth::OAuthToken, String> = tokio::select! {
         result = timeouts::run(timeouts::selected(request.request_timeout_ms, request.timeout_ms), exchange, "OAuth token request timed out.") => result,

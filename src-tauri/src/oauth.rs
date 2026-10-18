@@ -93,6 +93,7 @@ pub struct OAuthToken {
 }
 
 struct TokenHttp {
+    version: Option<reqwest::Version>,
     client: reqwest::Client,
     origin: Option<reqwest::header::HeaderValue>,
 }
@@ -105,6 +106,9 @@ impl<'c> oauth2::AsyncHttpClient<'c> for TokenHttp {
             let mut outgoing: reqwest::Request = outgoing
                 .try_into()
                 .map_err(|_| io::Error::other("Invalid OAuth request."))?;
+            if let Some(version) = self.version {
+                *outgoing.version_mut() = version;
+            }
             if let Some(value) = &self.origin {
                 outgoing
                     .headers_mut()
@@ -149,8 +153,9 @@ pub async fn exchange(
     client: &reqwest::Client,
     url: &reqwest::Url,
     config: &OAuthConfig,
+    version: Option<reqwest::Version>,
 ) -> Result<OAuthToken, String> {
-    exchange_grant(client, url, config, None).await
+    exchange_grant(client, url, config, None, version).await
 }
 
 pub async fn exchange_code(
@@ -158,8 +163,9 @@ pub async fn exchange_code(
     url: &reqwest::Url,
     config: &OAuthConfig,
     grant: CodeGrant,
+    version: Option<reqwest::Version>,
 ) -> Result<OAuthToken, String> {
-    exchange_grant(client, url, config, Some(grant)).await
+    exchange_grant(client, url, config, Some(grant), version).await
 }
 
 async fn exchange_grant(
@@ -167,6 +173,7 @@ async fn exchange_grant(
     url: &reqwest::Url,
     config: &OAuthConfig,
     code: Option<CodeGrant>,
+    version: Option<reqwest::Version>,
 ) -> Result<OAuthToken, String> {
     if !matches!(url.scheme(), "http" | "https")
         || !url.username().is_empty()
@@ -199,6 +206,7 @@ async fn exchange_grant(
         )
     };
     let http = TokenHttp {
+        version,
         client: client.clone(),
         origin,
     };

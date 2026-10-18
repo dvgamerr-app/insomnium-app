@@ -213,7 +213,7 @@ pub async fn authorize_oauth(
             }
             let client = build_client(&request, &url, jar.as_ref(), false, false)
                 .map_err(|_| "Invalid OAuth proxy, CA or client certificate settings.")?;
-            crate::oauth::exchange_code(&client, &url, &config, authorization.grant(code)).await
+            crate::oauth::exchange_code(&client, &url, &config, authorization.grant(code), crate::http::versions::selected(request.http_version.as_deref())?).await
         };
         crate::http::timeouts::run(
             crate::http::timeouts::selected(request.request_timeout_ms, request.timeout_ms),
