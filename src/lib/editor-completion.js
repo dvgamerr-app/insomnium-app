@@ -36,6 +36,52 @@ export function environmentPaths(environment) {
   return paths.sort();
 }
 
+/** Canonical literal lookup tokens, including an unfinished final key.
+ * No expressions are evaluated. Escapes follow Nunjucks' string lexer.
+ * @param {string} source @param {boolean} partial */
+function lookupKey(source, partial) {
+  let index = source.startsWith("_[") ? 1 : 0, result = "";
+  while (index < source.length) {
+    if (source[index] === ".") {
+      index++;
+      if (index === source.length) return partial ? result + '["' : null;
+    }
+    let value = "", complete = true;
+    if (source[index] === "[") {
+      const quote = source[++index];
+      if (quote !== "'" && quote !== '"') return null;
+      index++;
+      let closed = false;
+      while (index < source.length) {
+        let char = source[index++];
+        if (char === quote) { closed = true; break; }
+        if (char === "\\") {
+          if (index === source.length) return null;
+          char = source[index++];
+          char = char === "n" ? "\n" : char === "r" ? "\r" : char === "t" ? "\t" : char;
+        }
+        value += char;
+      }
+      if (closed) {
+        if (source[index++] !== "]") return null;
+      } else {
+        if (!partial) return null;
+        complete = false;
+      }
+    } else {
+      const word = /^[\w$]+/.exec(source.slice(index));
+      if (!word) return null;
+      value = word[0]; index += value.length;
+      complete = !partial || index < source.length;
+    }
+    const encoded = JSON.stringify(value.toLowerCase());
+    result += "[" + (complete ? encoded + "]" : encoded.slice(0, -1));
+    if (index < source.length && source[index] !== "." && source[index] !== "[")
+      return null;
+  }
+  return result;
+}
+
 /** @param {string} line @param {number} cursor @param {string[]} paths @param {boolean} force */
 export function environmentHints(line, cursor, paths, force = false) {
   const before = line.slice(0, cursor);
@@ -51,6 +97,8 @@ export function environmentHints(line, cursor, paths, force = false) {
   const word = variable ? variable[1] : /[\w$.]*$/.exec(before)?.[0] || "";
   const alias = word.startsWith("_.") ? "_." : "";
   const query = alias ? word.slice(2) : word;
+  const queryLower = query.toLowerCase();
+  const lookup = lookupKey(query, true);
   const from = cursor - word.length;
   let to = from, quote = "";
   for (; to < line.length; to++) {
@@ -66,7 +114,8 @@ export function environmentHints(line, cursor, paths, force = false) {
   const expressionContinues = variable && /^\s*(?:\||[+*/%~<>!=?-]|\b(?:and|or|if|in|is)\b)/.test(line.slice(to));
   if (closing) to += closing.length;
   const list = paths
-    .filter((path) => path.toLowerCase().startsWith(query.toLowerCase()))
+    .filter((path) => path.toLowerCase().startsWith(queryLower) ||
+      (lookup !== null && lookupKey(path, false)?.startsWith(lookup)))
     .slice(0, 100)
     .map((path) => ({
       text: variable ? `${path.startsWith("_[") ? "" : alias}${path}${expressionContinues ? "" : " }}"}` : `{{ ${path.startsWith("_[") ? "" : alias}${path} }}`,

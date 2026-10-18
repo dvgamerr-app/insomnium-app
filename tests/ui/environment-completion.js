@@ -30,9 +30,9 @@ await withPreview("environment-completion",async (page,output) => {
     const actual = await editor.evaluate((element) => /** @type {any} */ (element).CodeMirror.getValue());
     assert.equal(JSON.parse(actual).value,"{{ " + path + " }}");
   }
-  for (const [prefix,path,suffix] of [["user['dis","user['display name']"," }}"],["us","user"," | dump }}"],["_['tr","_['true']"," }}"]]) {
-    const text = '{"value":"{{ ' + prefix + suffix + '"}';
-    const cursor = ('{"value":"{{ ' + prefix).length;
+  for (const [prefix,path,suffix] of [['user["dis',"user['display name']"," }}"],["us","user"," | dump }}"],["_['tr","_['true']"," }}"]]) {
+    const text = JSON.stringify({value:"{{ " + prefix + suffix});
+    const cursor = JSON.stringify({value:"{{ " + prefix}).length - 2;
     await editor.evaluate((element,{text,cursor}) => {
       const cm = /** @type {any} */ (element).CodeMirror;
       cm.setValue(text);cm.setCursor({line:0,ch:cursor});cm.focus();
