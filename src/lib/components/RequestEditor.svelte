@@ -657,6 +657,8 @@
           <option value="default">Automatic</option><option value="1.0">HTTP/1.0</option>
           <option value="1.1">HTTP/1.1</option><option value="2-prior-knowledge">HTTP/2 (prior knowledge)</option>
         </Select></Field>
+        {#if request.settingUploadRange != null}<Field label="Upload byte range" description="Content-Range uses the rendered body size. Clear to disable."><Input
+          value={request.settingUploadRange} oninput={event => onchange({settingUploadRange:event.currentTarget.value})} /></Field>{/if}
         <Field label="Request timeout (ms)"><Input type="number" min="0" max="3600000" step="1"
           placeholder="Global preference; 0 disables timeout"
           value={request.settingRequestTimeout ?? ""}

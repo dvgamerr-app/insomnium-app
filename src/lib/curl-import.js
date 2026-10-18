@@ -217,6 +217,7 @@ const aliases = /** @type {Record<string, string>} */ ({
   L: "location",
   A: "user-agent",
   e: "referer",
+  r: "range",
   g: "globoff",
   s: "silent",
   S: "show-error",
@@ -231,6 +232,7 @@ const aliases = /** @type {Record<string, string>} */ ({
   0: "http1.0",
 });
 const values = new Set([
+  "range",
   "max-redirs",
   "upload-file",
   "max-time",
@@ -398,6 +400,9 @@ function requestsFor(words, workspaceId, entries, uploadFiles = []) {
   }
   const optionHeader = headers.some(header => header._curlHeaderFile) ? curlOptionHeader
     : (/** @type {Record<string,any>} */row) => row;
+  const range = last("range");
+  if (range !== undefined && (!range || /[\0\r\n]/.test(range)))
+    throw new Error("cURL range must be nonempty and cannot contain control lines.");
   const autoReferer=Boolean(last('referer')?.endsWith(';auto'))&&!headers.some(h=>h.name.toLowerCase()==='referer');
   for (const [option, header] of [
     ["user-agent", "User-Agent"],
@@ -679,11 +684,15 @@ function requestsFor(words, workspaceId, entries, uploadFiles = []) {
         url,
         query.startsWith("+") ? query.slice(1) : encodedData(query),
       );
+    const rangeUpload = !forms.length && (uploadFiles[index] !== undefined || (data.length > 0 && !has("get")));
+    const rangeHeaders = range !== undefined && !forms.length && !rangeUpload && !headers.some(h => h.name.toLowerCase() === "range")
+      ? [...headers, optionHeader({name:"Range",value:"bytes="+range,disabled:false})] : headers;
     return newRequest(workspaceId, {
       name: url,
       url,
       method: uploadFiles[index] !== undefined ? last("request") ?? "PUT" : method,
-      headers: structuredClone(headers),
+      headers: structuredClone(rangeHeaders),
+      settingUploadRange: rangeUpload ? range ?? null : null,
       authentication: structuredClone(authentication),
       body: uploadFiles[index] !== undefined ? {
         mimeType: "application/octet-stream", text: "", params: [],
@@ -744,6 +753,7 @@ export function curlRequestPatch(text) {
     settingFollowRedirects: request.settingFollowRedirects,
     settingMaxRedirects: request.settingMaxRedirects,
     settingHttpVersion: request.settingHttpVersion,
+    settingUploadRange: request.settingUploadRange,
     settingProxy: request.settingProxy,
     settingProxyUrl: request.settingProxyUrl,
     settingProxyBasicAuth: request.settingProxyBasicAuth,

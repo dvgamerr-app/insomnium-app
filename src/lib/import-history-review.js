@@ -7,9 +7,9 @@ import { retainedHistory } from "./model.js";
  * A detached signature makes Apply reject a review changed by background work.
  * @param {Record<string,any>} data
  * @param {{history?:Record<string,any>[],resources?:Record<string,any>[]}} review
- * @param {{preferences?:boolean}} [options] */
+ * @param {{preferences?:boolean,preferenceSourceId?:string}} [options] */
 export function reviewImportedHistory(data, review, options = {}) {
-  const preferences = options.preferences ? legacyPreferenceCandidate(review.resources || []) : null;
+  const preferences = options.preferences ? legacyPreferenceCandidate(review.resources || [],options.preferenceSourceId) : null;
   const settingsPatch = preferences?.patch || {};
   const preferencesBlocked = preferences !== null && !preferences.canApply;
   /** @type {Record<string,any>[]} */ const existing = data.history || [];
@@ -23,7 +23,7 @@ export function reviewImportedHistory(data, review, options = {}) {
     history: existing,
     maxHistory: data.settings.maxHistory,
     filterResponsesByEnv: data.settings.filterResponsesByEnv,
-    ...(preferences ? {preferences: data.settings, settingsPatch} : {}),
+    ...(preferences ? {preferences: data.settings, settingsPatch, preferenceSourceId:preferences.selectedId} : {}),
   }))));
   return {
     signature,
@@ -42,7 +42,7 @@ export function reviewImportedHistory(data, review, options = {}) {
 
 /** Shared import commit. Refuse collisions/retention loss before any mutation.
  * @param {Record<string,any>} data @param {{resources:Record<string,any>[],history?:Record<string,any>[]}} review
- * @param {{preferences?:boolean}} [options] */
+ * @param {{preferences?:boolean,preferenceSourceId?:string}} [options] */
 export function applyImportedData(data,review,options = {}){
   const checked=reviewImportedHistory(data,review,options);
   if(checked.blocked)throw Error(checked.preferencesBlocked ? 'Compatible app preferences cannot be applied from this review.' : 'Import would remove existing saved history. Adjust retention before importing.');

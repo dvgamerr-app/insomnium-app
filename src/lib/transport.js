@@ -610,6 +610,17 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
     if (!headers.some((h) => h[0].toLowerCase() === "content-type"))
       headers.push(["Content-Type", mime]);
   }
+  const uploadRange = request.settingUploadRange;
+  if (uploadRange != null && uploadRange !== "") {
+    if (typeof uploadRange !== "string") throw new Error("Upload range must be text.");
+    const range = resolve(uploadRange);
+    if (!range || /[\0\r\n]/.test(range)) throw new Error("Upload range cannot be empty or contain control lines.");
+    const suppressed = (request.headers || []).some((/** @type {Record<string,any>} */ h) => String(h.name).toLowerCase() === "content-range" && h._curlSuppressUploadRange === true && h.disabled === true && !h.value);
+    if (!multipart && !suppressed && !headers.some(([name]) => name.toLowerCase() === "content-range")) {
+      const bytes = bodyBase64 != null ? atob(bodyBase64).length : new TextEncoder().encode(text ?? "").length;
+      headers.push(["Content-Range", `bytes ${range}/${bytes}`]);
+    }
+  }
   const settings = data.settings;
   if (
     !Number.isSafeInteger(Number(settings.timeout)) ||

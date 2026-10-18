@@ -85,6 +85,7 @@
   import { pinnedRequests, recentRequests, requestMeta } from "$lib/request-meta.js";
   import { curlRequestPatch, isCurlImport } from "$lib/curl-import.js";
   import { pickImport, parseImport, exportData, pickLegacyResponseHistory, pickLegacyRequestFiles, pickLegacyCertificateFiles } from "$lib/import-export.js";
+  import {legacyPreferenceCandidate} from "$lib/legacy-preferences.js";
   import { reviewImportedHistory, applyImportedData } from "$lib/import-history-review.js";
   import "@fontsource-variable/inter";
   import "@fontsource-variable/roboto-mono";
@@ -139,6 +140,8 @@
     /** @type {ReturnType<typeof parseImport> | null} */ (null),
   );
   let importPreferences = $state(false);
+  let importPreferenceSourceId = $state("");
+  const importPreferenceCandidate = $derived(pendingImport ? legacyPreferenceCandidate(pendingImport.resources,importPreferenceSourceId || undefined) : null);
   let importHistoryReview = $state(
     /** @type {ReturnType<typeof reviewImportedHistory> | null} */ (null),
   );
@@ -397,13 +400,14 @@
   /** @param {ReturnType<typeof parseImport>} review */
   function setImportReview(review) {
     pendingImport = review;
+    importPreferenceSourceId = "";
     importPreferences = false;
     importHistoryReview = reviewImportedHistory(app.data, review);
   }
   function reviewImportPreferences(/** @type {boolean} */ enabled) {
     if (!pendingImport) return;
     importPreferences = enabled;
-    importHistoryReview = reviewImportedHistory(app.data, pendingImport, {preferences:enabled});
+    importHistoryReview = reviewImportedHistory(app.data, pendingImport, {preferences:enabled,preferenceSourceId:importPreferenceSourceId || undefined});
   }
   async function loadLegacyResponseFiles() {
     return loadLegacyFiles(pickLegacyResponseHistory);
@@ -439,14 +443,14 @@
   function applyImport() {
     if (!canEditWorkspace()) return;
     if (!pendingImport || importBusy || !importHistoryReview) return;
-    const checked = reviewImportedHistory(app.data, pendingImport, {preferences:importPreferences});
+    const checked = reviewImportedHistory(app.data, pendingImport, {preferences:importPreferences,preferenceSourceId:importPreferenceSourceId || undefined});
     if (checked.signature !== importHistoryReview.signature) {
       importHistoryReview = checked;
       modalError = "Saved history or app preferences changed. Review the updated import before applying.";
       return;
     }
     if (checked.blocked) return;
-    try{applyImportedData(app.data,pendingImport,{preferences:importPreferences});}catch(error){modalError=String(error);return;}
+    try{applyImportedData(app.data,pendingImport,{preferences:importPreferences,preferenceSourceId:importPreferenceSourceId || undefined});}catch(error){modalError=String(error);return;}
     if (Object.hasOwn(checked.settingsPatch,"filterResponsesByEnv")) refreshHttpResponses();
     const target = pendingImport.resources.find((r) => r._type === "workspace");
     if (target) selectWorkspace(target._id);
@@ -1341,16 +1345,21 @@
             Existing collections will be kept. {pendingImport.preserved} additional
             resources will be preserved.
           </p>
-          {#if pendingImport.legacyPreferences.count}
-            {#if pendingImport.legacyPreferences.canApply}
+          {#if importPreferenceCandidate && importPreferenceCandidate.count}
+            {#if importPreferenceCandidate.count > 1}<Field label="Settings record"><Select value={importPreferenceSourceId} disabled={importBusy}
+              onchange={event => { importPreferenceSourceId=event.currentTarget.value; reviewImportPreferences(false); }}>
+              <option value="">Choose a settings record</option>
+              {#each importPreferenceCandidate.sources as source}<option value={source.id}>{source.label}</option>{/each}
+            </Select></Field>{/if}
+            {#if importPreferenceCandidate.canApply}
               <Field layout="inline" class="checkbox-label"><Checkbox checked={importPreferences} disabled={importBusy}
                 onchange={event=>reviewImportPreferences(event.currentTarget.checked)}/>Apply compatible app preferences</Field>
-              <details class="hint"><summary>Preference changes ({pendingImport.legacyPreferences.fields.length})</summary>
-                {#each pendingImport.legacyPreferences.fields as field}<p>{field.label}: {field.value}</p>{/each}
+              <details class="hint"><summary>Preference changes ({importPreferenceCandidate.fields.length})</summary>
+                {#each importPreferenceCandidate.fields as field}<p>{field.label}: {field.value}</p>{/each}
               </details>
             {/if}
             <p class="hint">The settings record stays preserved. Only the listed values can be applied; paths, credentials, plugin activation and other preferences stay as they are.</p>
-            {#each pendingImport.legacyPreferences.warnings as warning}<p class="hint">{warning}</p>{/each}
+            {#each importPreferenceCandidate.warnings as warning}<p class="hint">{warning}</p>{/each}
           {/if}
           {#each importHistoryReview?.warnings || [] as warning}<p class="hint">{warning}</p>{/each}
           {#each pendingImport.warnings as warning}<p class="hint">

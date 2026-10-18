@@ -98,6 +98,7 @@ export function prepareOAuthExchange(
       headers: [],
       body: {},
       settingFollowRedirects: "off",
+      settingUploadRange: null,
     },
     runId,
   );

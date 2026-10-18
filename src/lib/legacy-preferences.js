@@ -1,25 +1,20 @@
 /** Compatible, explicitly reviewed preferences. Source records remain portable.
- * @param {Record<string,any>[]} resources */
-export function legacyPreferenceCandidate(resources) {
+ * @param {Record<string,any>[]} resources @param {string} [sourceId] */
+export function legacyPreferenceCandidate(resources, sourceId) {
   const records = resources.filter((row) => row._type === "settings");
   /** @type {Record<string,any>} */ const patch = {};
   /** @type {{key:string,label:string,value:string|number|boolean}[]} */ const fields =
     [];
   /** @type {string[]} */ const warnings = [];
-  if (records.length !== 1)
-    return {
-      patch,
-      fields,
-      warnings:
-        records.length > 1
-          ? [
-              "Multiple legacy settings records are preserved. Import one settings record to review compatible preferences.",
-            ]
-          : warnings,
-      count: records.length,
-      canApply: false,
-    };
-  const record = records[0];
+  const sources = records.filter(row => typeof row._id === "string" && row._id).map(row => ({id:String(row._id),label:typeof row.name === "string" && row.name ? row.name + " (" + row._id + ")" : String(row._id)}));
+  const selected = sourceId ? records.filter(row => row._id === sourceId) : records.length === 1 ? records : [];
+  if (selected.length !== 1)
+    return {patch,fields,warnings:sourceId
+      ? ["The selected settings record is missing or ambiguous. Choose a settings record again."]
+      : records.length > 1 ? ["Choose a settings record to review compatible preferences. All source records will be preserved."] : warnings,
+      count:records.length,sources,selectedId:null,canApply:false};
+  const record = selected[0];
+  const selectedId = typeof record._id === "string" ? record._id : null;
   /** @type {[string,string,string,number,number][]} */
   const numbers = [
     ["timeout", "timeout", "Request timeout (ms)", 0, 3600000],
@@ -93,5 +88,5 @@ export function legacyPreferenceCandidate(resources) {
         "Editor keymap is preserved without applying an unsupported value.",
       );
   }
-  return { patch, fields, warnings, count: 1, canApply: fields.length > 0 };
+  return { patch, fields, warnings, count: records.length, sources, selectedId, canApply: fields.length > 0 };
 }

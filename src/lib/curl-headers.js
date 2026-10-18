@@ -15,7 +15,7 @@ export function curlHeader(value) {
   const suppressed = !empty && !content;
   if (
     suppressed &&
-    !["user-agent", "accept", "content-type"].includes(name.toLowerCase())
+    !["user-agent", "accept", "content-type", "range", "content-range"].includes(name.toLowerCase())
   )
     throw new Error(
       "cURL header suppression is not supported for " +
@@ -26,7 +26,8 @@ export function curlHeader(value) {
     name,
     value: content,
     disabled: suppressed,
-    ...(suppressed && name.toLowerCase() !== "user-agent"
+    ...(suppressed && name.toLowerCase() === "content-range" ? {_curlSuppressUploadRange:true} : {}),
+    ...(suppressed && !["user-agent", "range", "content-range"].includes(name.toLowerCase())
       ? { _curlSuppressDefault: true }
       : {}),
   };
