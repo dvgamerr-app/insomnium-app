@@ -195,7 +195,10 @@ pub async fn connect_grpc(
         acknowledgements,
         sequence: 0,
     }));
-    let deadline = request.connection.call_deadline();
+    let deadline = request
+        .connection
+        .call_deadline()
+        .map(|duration| tokio::time::Instant::now() + duration);
     let work = async move {
         delivery.lock().await.send(Event::Started).await?;
         grpc_transport::call(
@@ -203,6 +206,7 @@ pub async fn connect_grpc(
             method,
             receiver,
             request.json_mode,
+            deadline,
             move |event| {
                 let delivery = delivery.clone();
                 async move { delivery.lock().await.send(event).await }
@@ -212,7 +216,7 @@ pub async fn connect_grpc(
     };
     let work = async {
         match deadline {
-            Some(deadline) => tokio::time::timeout(deadline, work)
+            Some(deadline) => tokio::time::timeout_at(deadline, work)
                 .await
                 .map_err(|_| "gRPC deadline exceeded.".to_string())
                 .and_then(|result| result),

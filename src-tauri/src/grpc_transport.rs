@@ -243,6 +243,7 @@ pub(crate) async fn call<F, Fut>(
     method: MethodDescriptor,
     messages: mpsc::Receiver<DynamicMessage>,
     mode: grpc_schema::JsonMode,
+    deadline: Option<tokio::time::Instant>,
     mut emit: F,
 ) -> Result<(), String>
 where
@@ -264,26 +265,27 @@ where
         .map_err(|_| "Invalid gRPC method path.")?;
     let mut request = Request::new(ReceiverStream::new(messages));
     *request.metadata_mut() = metadata(&config.metadata)?;
-    if let Some(deadline) = config.call_deadline() {
-        request.set_timeout(deadline);
-    }
     emit(Event::Connected).await?;
+    let codec = DynamicCodec {
+        output: match mode {
+            grpc_schema::JsonMode::Legacy | grpc_schema::JsonMode::LegacyReflection => {
+                crate::grpc_legacy::legacy_descriptor(method.output())?
+            }
+            grpc_schema::JsonMode::ProtoJson => method.output(),
+        },
+    };
+    if let Some(deadline) = deadline {
+        // Connecting and renderer ACK delivery consume the same call budget.
+        // Do not advertise a fresh timeout to the server after that work.
+        let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+        if remaining.is_zero() {
+            return Err("gRPC deadline exceeded.".into());
+        }
+        request.set_timeout(remaining);
+    }
     // The streaming dispatcher uses the same gRPC wire protocol for every shape;
     // schema-aware IPC restricts sends and response cardinality below.
-    let result = client
-        .streaming(
-            request,
-            path,
-            DynamicCodec {
-                output: match mode {
-                    grpc_schema::JsonMode::Legacy | grpc_schema::JsonMode::LegacyReflection => {
-                        crate::grpc_legacy::legacy_descriptor(method.output())?
-                    }
-                    grpc_schema::JsonMode::ProtoJson => method.output(),
-                },
-            },
-        )
-        .await;
+    let result = client.streaming(request, path, codec).await;
     let mut response = match result {
         Ok(response) => response,
         Err(status) => return emit(status_event(status)?).await,
@@ -450,6 +452,24 @@ mod status_tests {
                     async move {
                         assert_eq!(request.uri().path(), format!("/owned.Status/{method_name}"));
                         assert_eq!(request.headers().contains_key("grpc-timeout"), shape != 1);
+                        if shape == 0 {
+                            let timeout = request.headers()["grpc-timeout"].to_str().unwrap();
+                            let (value, unit) = timeout.split_at(timeout.len() - 1);
+                            let nanos = value.parse::<u128>().unwrap()
+                                * match unit {
+                                    "H" => 3_600_000_000_000,
+                                    "M" => 60_000_000_000,
+                                    "S" => 1_000_000_000,
+                                    "m" => 1_000_000,
+                                    "u" => 1_000,
+                                    "n" => 1,
+                                    _ => panic!("Invalid timeout unit"),
+                                };
+                            assert!(
+                                nanos > 0 && nanos < 450_000_000,
+                                "The renderer ACK wait must be deducted from the 500ms budget"
+                            );
+                        }
                         if shape == 1 {
                             // The existing streaming case must outlive the
                             // connection timeout when its call has no deadline.
@@ -553,12 +573,21 @@ mod status_tests {
                     method,
                     receiver,
                     grpc_schema::JsonMode::ProtoJson,
+                    config
+                        .call_deadline()
+                        .map(|duration| tokio::time::Instant::now() + duration),
                     move |event| {
+                        let connected = matches!(&event, Event::Connected);
                         observed
                             .lock()
                             .unwrap()
                             .push(serde_json::to_value(event).unwrap());
-                        async { Ok(()) }
+                        async move {
+                            if shape == 0 && connected {
+                                tokio::time::sleep(Duration::from_millis(100)).await;
+                            }
+                            Ok(())
+                        }
                     },
                 ),
             )

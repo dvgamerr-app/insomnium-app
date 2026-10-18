@@ -295,6 +295,10 @@ export function grpcConnection(data, request, options = {}) {
   if (request.settingValidateCertificates != null &&
       !["global", "on", "off"].includes(request.settingValidateCertificates))
     throw new Error("Choose a valid TLS certificate validation setting.");
+  const validateCertificates = request.settingValidateCertificates === "on"
+    ? true : request.settingValidateCertificates === "off"
+      ? false : settings.validateCertificates ?? true;
+  const useCa = url.protocol === "https:" && validateCertificates !== false;
   const clientCertificates =
     url.protocol === "https:"
       ? clientCertificateSelection(data, request, url.toString())
@@ -302,9 +306,7 @@ export function grpcConnection(data, request, options = {}) {
   return {
     url: url.toString(),
     deadlineMs: Number(deadline),
-    validateCertificates: request.settingValidateCertificates === "on"
-      ? true : request.settingValidateCertificates === "off"
-        ? false : settings.validateCertificates ?? true,
+    validateCertificates,
     metadata: (request.metadata || [])
       .filter((/** @type {Resource} */ row) => !row.disabled && row.name)
       .map((/** @type {Resource} */ row) => [
@@ -315,12 +317,12 @@ export function grpcConnection(data, request, options = {}) {
       1,
       Math.min(3600000, Number(settings.timeout) || 30000),
     ),
-    caPem: url.protocol === "https:" ? settings.caPem || null : null,
+    caPem: useCa ? settings.caPem || null : null,
     caFile:
-      url.protocol === "https:"
+      useCa
         ? collectionCaCertificatePath(data, request)
         : null,
-    caAsset: url.protocol === "https:" ? collectionCaCertificateAsset(data, request) : null,
+    caAsset: useCa ? collectionCaCertificateAsset(data, request) : null,
     clientCertificates,
     identityPem:
       url.protocol === "https:" &&

@@ -5,19 +5,27 @@ import {
 import assert from "node:assert/strict";
 import { connect } from "node:http2";
 import { join } from "node:path";
-import { withNativeApp, poll } from "./helpers/native-app.js";
-import { gitCollection } from "./helpers/git-fixture.js";
+import {
+  withNativeApp,
+  poll,
+  integrationProbeIdentifier,
+  selectedNativeProbeIdentifier,
+} from "./helpers/native-app.js";
+import { preserveNativeProfile } from "./helpers/native-profile-preservation.js";
+import { id, newRequest } from "../../src/lib/model.js";
 import { clientCertificateFixture } from "./helpers/client-certificate.js";
 import { tlsPreferences } from "./helpers/tls-preferences.js";
 import { grpcStreamCertificate } from "./helpers/grpc-stream-certificate.js";
 import { grpcReflectionCertificate } from "./helpers/grpc-reflection-certificate.js";
 
-process.env.INSOMNIUM_UI_BUILD_STATE ||=
-  "artifacts/native-recovery-copy-probe/build-state.json";
+assert.equal(selectedNativeProbeIdentifier(), integrationProbeIdentifier);
+assert.ok(
+  process.env.INSOMNIUM_UI_BUILD_STATE,
+  "Explicit current native build required",
+);
 const message = "owned mutual TLS gRPC response";
-await withNativeApp(
-  "grpc-client-certificate",
-  async ({ page, invoke, output }) => {
+await preserveNativeProfile(() =>
+  withNativeApp("grpc-client-certificate", async ({ page, invoke, output }) => {
     const fixture = await clientCertificateFixture(output, {
       grpc: true,
       fileIdentities: true,
@@ -86,7 +94,37 @@ await withNativeApp(
       const independent = structuredClone(fixture.grpcRequests[0]);
       fixture.grpcRequests.length = 0;
       fixture.grpcConnections.count = 0;
-      await gitCollection({ page, invoke });
+      // TLS needs an owned collection, not a filesystem Git repository.
+      const data = await invoke("load_workspace");
+      const workspaceId = id("wrk"),
+        environmentId = id("env");
+      const placeholder = newRequest(workspaceId, {
+        name: "Owned TLS placeholder",
+      });
+      data.resources.push(
+        {
+          _id: workspaceId,
+          _type: "workspace",
+          parentId: null,
+          name: "Owned gRPC TLS",
+          scope: "collection",
+        },
+        {
+          _id: environmentId,
+          _type: "environment",
+          parentId: workspaceId,
+          name: "Base Environment",
+          data: {},
+        },
+        placeholder,
+      );
+      data.activeWorkspaceId = workspaceId;
+      data.activeEnvironmentId = environmentId;
+      data.activeRequestId = placeholder._id;
+      data.openTabs = [placeholder._id];
+      await invoke("save_workspace", { data });
+      await page.reload();
+      await page.locator(".new-request-menu summary").waitFor();
       await page.locator(".new-request-menu summary").click();
       await page
         .getByRole("button", { name: "gRPC Request", exact: true })
@@ -220,7 +258,10 @@ await withNativeApp(
         await page
           .getByRole("combobox", { name: "gRPC method", exact: true })
           .selectOption({ label: "/Sample/Echo · Unary" });
-        await page.getByRole("tab", { name: "Body", exact: true }).click();
+        await page
+          .getByRole("tablist", { name: "gRPC request editor", exact: true })
+          .getByRole("tab", { name: "Body", exact: true })
+          .click();
         await page
           .locator(".CodeMirror")
           .first()
@@ -487,5 +528,5 @@ await withNativeApp(
         await fixture.close();
       }
     }
-  },
+  }),
 );
