@@ -1,4 +1,6 @@
 <script>
+  import {toggleWindowFullscreen} from "$lib/window-fullscreen.js";
+  import {windowZoom, applyWindowZoom} from "$lib/desktop-zoom.js";
   import { runEditorHistory } from "$lib/editor-history.js";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import WorkspaceRecovery from "$lib/components/WorkspaceRecovery.svelte";
@@ -190,6 +192,13 @@
       .map((tab) => requests.find((r) => r._id === tab))
       .filter(Boolean),
   );
+  $effect(() => {
+    if (!app.ready || !isTauri()) return;
+    const zoom = windowZoom(app.data.settings.windowZoom);
+    void applyWindowZoom(zoom).catch(error => {
+      if (windowZoom(app.data.settings.windowZoom) === zoom) app.error = "Could not change window zoom: " + String(error);
+    });
+  });
   onMount(() => {
     void initialize();
     let disposed = false;
@@ -473,6 +482,10 @@
     }
     if (!app.ready || editingBlocked || modal || document.querySelector("dialog[open]") || $templatePrompt) return;
     switch (action) {
+      case "fullscreen": if (isTauri()) await toggleWindowFullscreen(); break;
+      case "zoom-reset": updateSettings({windowZoom:1}); break;
+      case "zoom-in": updateSettings({windowZoom:Math.min(5,windowZoom(app.data.settings.windowZoom)*1.2)}); break;
+      case "zoom-out": updateSettings({windowZoom:Math.max(0.25,windowZoom(app.data.settings.windowZoom)*0.8)}); break;
       case "settings": openSettings("General"); break;
       case "requests": case "tests": case "git": mainView = action; break;
       case "import": await importFile(); break;
@@ -496,6 +509,11 @@
   }
   function keyboard(/** @type {KeyboardEvent} */ event) {
     const key = event.key.toLowerCase();
+    if (["=", "+", "-", "0"].includes(key) && (!event.shiftKey || key === "+")) {
+      event.preventDefault();
+      void nativeMenuAction(key === "0" ? "zoom-reset" : key === "-" ? "zoom-out" : "zoom-in");
+      return;
+    }
     const modifier = event.ctrlKey || event.metaKey;
     const variableDisplayChord = event.altKey && event.shiftKey && event.code === "KeyU" && !modifier;
     const requestSettingsChord = modifier && event.altKey && event.shiftKey && event.code === "Comma";
@@ -627,7 +645,7 @@
 <svelte:head
   ><title>{collection?.name || "Insomnium"} · Insomnium</title></svelte:head
 >
-<div class="app-shell" inert={editingBlocked} aria-busy={editingBlocked}>
+<div class="app-shell" inert={editingBlocked} aria-busy={editingBlocked} style:zoom={!isTauri() ? windowZoom(app.data.settings.windowZoom) : undefined}>
   <header class="app-header" data-tauri-drag-region>
     <div class="brand">
       <img class="brand-mark" src="/app-icon.png" alt="" /><span>Insomnium</span

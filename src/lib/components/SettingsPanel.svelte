@@ -126,6 +126,12 @@
               <h3 id="settings-appearance-title">Appearance</h3>
               <p class="hint">Colour theme for the whole application.</p>
               <div class="settings-grid">
+                <Field label="Window zoom"><Select value={settings.windowZoom ?? 1}
+                  onchange={event => updateSettings({windowZoom:Number(event.currentTarget.value)})}>
+                  {#each [...new Set([0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.5,3,4,5,settings.windowZoom ?? 1])].sort((a,b)=>a-b) as zoom}
+                    <option value={zoom}>{Math.round(zoom*100)}%</option>
+                  {/each}
+                </Select></Field>
                 <Field label="Theme"
                   ><Dropdown
                     value={settings.theme}

@@ -82,6 +82,7 @@ export function initialData() {
     history: /** @type {Resource[]} */ ([]),
     responseSelections: /** @type {Record<string,string>} */ ({}),
     settings: {
+      windowZoom: 1,
       theme: "dark",
       autoDetectColorScheme: false,
       lightTheme: "light",

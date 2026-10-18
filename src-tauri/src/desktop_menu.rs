@@ -1,5 +1,5 @@
 use tauri::{
-    menu::{AboutMetadata, MenuBuilder, SubmenuBuilder},
+    menu::{AboutMetadata, MenuBuilder, MenuItemBuilder, SubmenuBuilder},
     Emitter, Manager,
 };
 
@@ -60,12 +60,25 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
         .text("environment", "Edit Environment…")
         .text("cookies", "Manage Cookies…")
         .build()?;
+    #[cfg(target_os = "macos")]
+    let fullscreen_accelerator = "Ctrl+Super+F";
+    #[cfg(not(target_os = "macos"))]
+    let fullscreen_accelerator = "F11";
+    let fullscreen = MenuItemBuilder::with_id("fullscreen", "Toggle Full Screen")
+        .accelerator(fullscreen_accelerator)
+        .build(app)?;
     let view = SubmenuBuilder::new(app, "View")
+        .item(&fullscreen)
+        .separator()
         .text("requests", "Requests")
         .text("tests", "Tests")
         .text("git", "Source Control")
         .separator()
         .text("sidebar", "Toggle Sidebar")
+        .separator()
+        .text("zoom-reset", "Actual Size")
+        .text("zoom-in", "Zoom In")
+        .text("zoom-out", "Zoom Out")
         .build()?;
     let menu = MenuBuilder::new(app)
         .items(&[&application, &file, &edit, &request, &view])
@@ -109,6 +122,10 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
                         | "tests"
                         | "git"
                         | "sidebar"
+                        | "fullscreen"
+                        | "zoom-reset"
+                        | "zoom-in"
+                        | "zoom-out"
                 )
             {
                 let _ = window.emit_to("main", "insomnium-menu", action);

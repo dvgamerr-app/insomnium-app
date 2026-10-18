@@ -607,6 +607,13 @@ export function canEditWorkspace() {
 export function updateSettings(patch) {
   if (!canEditWorkspace()) return;
   const next = { ...patch };
+  if (Object.hasOwn(next, "windowZoom")) {
+    const value = next.windowZoom;
+    if (typeof value !== "number" || !Number.isFinite(value) || value < 0.25 || value > 5) {
+      workspace.error = "Window zoom must be between 25% and 500%.";
+      return;
+    }
+  }
   if (Object.hasOwn(next, "httpVersion")) {
     try { next.httpVersion = requestHttpVersion(next.httpVersion) ?? "default"; }
     catch (error) { workspace.error = String(error); return; }
