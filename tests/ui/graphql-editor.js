@@ -13,6 +13,24 @@ import {withComponentFixture} from './helpers/component-fixture.js';
 
 if(process.env.INSOMNIUM_GRAPHQL_NAVIGATION==='1'){
   await withComponentFixture('graphql-navigation',async(page,output)=>{
+    const variables=page.locator('.shared-code-editor').filter({has:page.locator('textarea[aria-label="GraphQL variables"]')}).locator('.CodeMirror');
+    await variables.waitFor();
+    await variables.evaluate(element=>{
+      const editor=/** @type {any} */(element).CodeMirror;
+      editor.focus();editor.setCursor(editor.posFromIndex(editor.getValue().length));
+    });
+    await page.keyboard.press('Control+Space');
+    await page.locator('.CodeMirror-hints').waitFor();
+    await variables.evaluate(element=>{
+      const editor=/** @type {any} */(element).CodeMirror;
+      editor.fixtureCompletion=editor.state.completionActive;
+    });
+    await page.keyboard.type('i');
+    assert.ok(await variables.evaluate(element=>{
+      const editor=/** @type {any} */(element).CodeMirror;
+      return !!editor.fixtureCompletion && editor.state.completionActive===editor.fixtureCompletion;
+    }),'Variables-only edit retains the original completion session without automatic reopening');
+    await page.keyboard.press('Escape');
     for(const [kind,expected] of [['field','user'],['argument','id'],['enum','ADMIN'],['directiveArgument','level']]){
       await page.getByRole('button',{name:'Query',exact:true}).click();
       const query=page.locator('.shared-code-editor').filter({has:page.locator('textarea[aria-label="GraphQL query"]')}).locator('.CodeMirror');
@@ -91,7 +109,7 @@ if(process.env.INSOMNIUM_GRAPHQL_NAVIGATION==='1'){
         assert.equal(await page.getByRole('alert').count(),0,'Retired fetch must not publish stale errors');
       }finally{await pending?.abort().catch(()=>{});await page.unroute('**/held-schema');}
     }
-    await Bun.write(output+'/result.json',JSON.stringify({status:'passed',headless:true,checks:['reference navigation','Back restores search and definition','keyboard Back restores search focus','schema replacement clears history','held fetch success/failure preserve replacement schema'],limits:'Real component/workflow/preview transport with held Playwright route; no native IPC or external server'},null,2));
+    await Bun.write(output+'/result.json',JSON.stringify({status:'passed',headless:true,checks:['variables-only typing preserves completion session with automatic completion disabled','reference navigation','Back restores search and definition','keyboard Back restores search focus','schema replacement clears history','held fetch success/failure preserve replacement schema'],limits:'Real component/workflow/preview transport with held Playwright route; no native IPC or external server'},null,2));
   });
   process.exit(0);
 }
