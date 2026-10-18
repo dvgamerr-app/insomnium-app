@@ -4,7 +4,7 @@ use crate::grpc_schema::MAX_MESSAGE;
 use base64::{
     alphabet,
     engine::{
-        general_purpose::{GeneralPurpose, GeneralPurposeConfig, STANDARD},
+        general_purpose::{GeneralPurpose, GeneralPurposeConfig},
         DecodePaddingMode,
     },
     Engine,
@@ -821,8 +821,14 @@ fn legacy_field_default(
 }
 
 pub(crate) fn field_name(field: &FieldDescriptor) -> &str {
-    // protobuf.js's built-in Struct/Value descriptors use camelCase names.
-    if field.parent_message().full_name() == "google.protobuf.Value" {
+    // Only the bundled Struct JSON uses these aliases. A namesake declared in
+    // an ordinary source file still goes through keepCase parsing.
+    if field.parent_message().full_name() == "google.protobuf.Value"
+        && field
+            .parent_file()
+            .name()
+            .ends_with("google/protobuf/struct.proto")
+    {
         field.json_name()
     } else {
         field.name()
@@ -876,7 +882,10 @@ fn legacy_default_value(value: Value, kind: Kind, default: Option<&str>, for_wir
         Value::Bytes(bytes) => {
             if let Ok(text) = std::str::from_utf8(&bytes) {
                 if text.len().is_multiple_of(4) {
-                    if let Ok(decoded) = STANDARD.decode(text) {
+                    // Field.resolve tests the padded base64 shape, then uses
+                    // protobuf.js's permissive trailing-bit decoder. Defaults
+                    // without that shape remain literal bytes (unlike input).
+                    if let Ok(decoded) = legacy_base64_bytes(text) {
                         return Value::Bytes(decoded.into());
                     }
                 }
@@ -1823,8 +1832,10 @@ mod tests {
                     message Empty {} message Nonempty { optional string s=1; }
                     message Refusal { required Nonempty child=1; }
                     message M { required E e=1 [default=B];
-                        required bytes b=2 [default="AB"]; optional E opt=3;
-                        required Empty empty=4; }"#
+                        required bytes b=2 [default="Zh=="]; optional E opt=3;
+                        required Empty empty=4; optional bytes o=5 [default="Zm9="];
+                        extensions 100 to 199; }
+                    extend M { optional bytes ext=100 [default="AB=="]; }"#
                     .into(),
             }],
             include_paths: vec![],
@@ -1834,13 +1845,13 @@ mod tests {
         let original = pool.get_message_by_name("M").unwrap();
         // Exact fromObject/encode output from protobuf.js 7.2.4.
         for (body, expected) in [
-            (r#"{}"#, "0807120241422200"),
-            (r#"{"empty":null}"#, "0807120241422200"),
+            (r#"{}"#, "08071201662200"),
+            (r#"{"empty":null}"#, "08071201662200"),
             (
                 r#"{"e":"unknown","b":{},"opt":"unknown"}"#,
-                "0807120241422200",
+                "08071201662200",
             ),
-            (r#"{"e":[],"b":false}"#, "0807120241422200"),
+            (r#"{"e":[],"b":false}"#, "08071201662200"),
             (r#"{"e":"A","b":[]}"#, "080312002200"),
         ] {
             for mode in [JsonMode::Legacy, JsonMode::LegacyReflection] {
@@ -1851,6 +1862,17 @@ mod tests {
                     .map(|byte| format!("{byte:02x}"))
                     .collect();
                 assert_eq!(hex, expected, "{body}");
+                let output: serde_json::Value = serde_json::from_str(
+                    &crate::grpc_schema::json_mode(&message, mode, original.clone()).unwrap(),
+                )
+                .unwrap();
+                if matches!(mode, JsonMode::Legacy) {
+                    assert_eq!(output["o"], serde_json::json!({"0":102,"1":111}));
+                    assert_eq!(output[".ext"], serde_json::json!({"0":0}));
+                } else {
+                    assert!(output.get("o").is_none());
+                    assert!(output.get(".ext").is_none());
+                }
             }
         }
         assert!(crate::grpc_schema::parse_mode(
@@ -3073,6 +3095,45 @@ mod tests {
     #[test]
     fn legacy_any_wkt_field_alias_lookup() {
         assert_any_wkt_vectors(false);
+        // A user-declared namesake is parsed with keepCase, not loaded from
+        // protobuf.js's bundled Struct JSON. Its fields must retain their names.
+        let pool = crate::grpc_schema::compile(crate::grpc_schema::ProtoInput {
+            entry: "custom_value.proto".into(),
+            files: vec![crate::grpc_schema::ProtoFile {
+                name: "custom_value.proto".into(),
+                text:
+                    r#"syntax="proto3"; import "google/protobuf/any.proto"; package google.protobuf;
+                    message Value { string custom_value=1; int32 null_value=2; }"#
+                        .into(),
+            }],
+            include_paths: vec![],
+        })
+        .unwrap();
+        let original = pool.get_message_by_name("google.protobuf.Value").unwrap();
+        let snapshot = pool.encode_to_vec();
+        let body =
+            r#"{"custom_value":"owned","null_value":7,"customValue":"ignored","nullValue":9}"#;
+        let lookup = crate::grpc_legacy_lookup::AnyLookup::new(&pool);
+        assert!(matches!(
+            lookup.resolve("google.protobuf.Value.custom_value"),
+            crate::grpc_legacy_lookup::Target::NonMessage
+        ));
+        assert!(matches!(
+            lookup.resolve("google.protobuf.Value.customValue"),
+            crate::grpc_legacy_lookup::Target::Unknown
+        ));
+        for mode in [
+            crate::grpc_schema::JsonMode::Legacy,
+            crate::grpc_schema::JsonMode::LegacyReflection,
+        ] {
+            let message = crate::grpc_schema::parse_mode(original.clone(), body, mode).unwrap();
+            assert_eq!(message.encode_to_vec(), b"\x0a\x05owned\x10\x07");
+            assert_eq!(
+                crate::grpc_schema::json_mode(&message, mode, original.clone()).unwrap(),
+                r#"{"custom_value":"owned","null_value":7}"#
+            );
+        }
+        assert_eq!(pool.encode_to_vec(), snapshot);
     }
 
     fn assert_any_target_wire(label: &str) {
