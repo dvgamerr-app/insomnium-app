@@ -48,25 +48,36 @@ function lookupKey(source, partial) {
     }
     let value = "", complete = true;
     if (source[index] === "[") {
-      const quote = source[++index];
-      if (quote !== "'" && quote !== '"') return null;
-      index++;
-      let closed = false;
-      while (index < source.length) {
-        let char = source[index++];
-        if (char === quote) { closed = true; break; }
-        if (char === "\\") {
-          if (index === source.length) return null;
-          char = source[index++];
-          char = char === "n" ? "\n" : char === "r" ? "\r" : char === "t" ? "\t" : char;
-        }
-        value += char;
-      }
-      if (closed) {
-        if (source[index++] !== "]") return null;
+      const numeric = /^\d+/.exec(source.slice(index + 1));
+      if (numeric) {
+        index += numeric[0].length + 1;
+        complete = source[index] === "]";
+        if (complete) index++;
+        else if (!partial || index !== source.length) return null;
+        // Nunjucks parses decimal integer literals before property lookup.
+        // Keep this data-only; computed keys and expressions are not evaluated.
+        value = String(parseInt(numeric[0], 10));
       } else {
-        if (!partial) return null;
-        complete = false;
+        const quote = source[++index];
+        if (quote !== "'" && quote !== '"') return null;
+        index++;
+        let closed = false;
+        while (index < source.length) {
+          let char = source[index++];
+          if (char === quote) { closed = true; break; }
+          if (char === "\\") {
+            if (index === source.length) return null;
+            char = source[index++];
+            char = char === "n" ? "\n" : char === "r" ? "\r" : char === "t" ? "\t" : char;
+          }
+          value += char;
+        }
+        if (closed) {
+          if (source[index++] !== "]") return null;
+        } else {
+          if (!partial) return null;
+          complete = false;
+        }
       }
     } else {
       const word = /^[\w$]+/.exec(source.slice(index));
@@ -85,7 +96,7 @@ function lookupKey(source, partial) {
 /** @param {string} line @param {number} cursor @param {string[]} paths @param {boolean} force */
 export function environmentHints(line, cursor, paths, force = false) {
   const before = line.slice(0, cursor);
-  const variable = /{{\s*((?:[\w$.]|\[(?:'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*")\])*(?:\[(?:'(?:\\.|[^'\\])*|"(?:\\.|[^"\\])*)?)?)$/.exec(before);
+  const variable = /{{\s*((?:[\w$.]|\[(?:\d+|'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*")\])*(?:\[(?:\d+|'(?:\\.|[^'\\])*|"(?:\\.|[^"\\])*)?)?)$/.exec(before);
   if (!variable && !force) return null;
   // Do not offer variables inside an unsupported tag or expression.
   if (

@@ -8,11 +8,11 @@ assert.ok(request);
 request.body = {mimeType:"application/json",text:'{"value":"{{ }}"}'};
 const base = data.resources.find((r) => r._type === "environment" && r.parentId === data.activeWorkspaceId);
 assert.ok(base);
-base.data = {"api-key":"DO_NOT_SHOW_VALUE","quote'\"key":"ALSO_PRIVATE",true:"reserved",user:{"display name":"private"}};
+base.data = {"api-key":"DO_NOT_SHOW_VALUE","quote'\"key":"ALSO_PRIVATE",true:"reserved",user:[{"display name":"private"}]};
 await withPreview("environment-completion",async (page,output) => {
   const editor = page.locator(".CodeMirror").first();
   await editor.waitFor();
-  for (const path of ["_['api-key']","_['quote\\'\"key']","user['display name']"]) {
+  for (const path of ["_['api-key']","_['quote\\'\"key']","user['0']['display name']"]) {
     const prefix = "{{ " + (path.includes("\\") ? path.slice(0,-4) : "");
     const text = JSON.stringify({value:prefix + "}}"});
     const cursor = JSON.stringify({value:prefix}).length - 2;
@@ -30,7 +30,7 @@ await withPreview("environment-completion",async (page,output) => {
     const actual = await editor.evaluate((element) => /** @type {any} */ (element).CodeMirror.getValue());
     assert.equal(JSON.parse(actual).value,"{{ " + path + " }}");
   }
-  for (const [prefix,path,suffix] of [['user["dis',"user['display name']"," }}"],["us","user"," | dump }}"],["_['tr","_['true']"," }}"]]) {
+  for (const [prefix,path,suffix] of [['user[00]["dis',"user['0']['display name']"," }}"],["us","user"," | dump }}"],["_['tr","_['true']"," }}"]]) {
     const text = JSON.stringify({value:"{{ " + prefix + suffix});
     const cursor = JSON.stringify({value:"{{ " + prefix}).length - 2;
     await editor.evaluate((element,{text,cursor}) => {
