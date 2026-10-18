@@ -759,7 +759,7 @@ async fn websocket_session(
                 let Some(command) = command else { return Ok(()); };
                 let event = message_event(&command.message, "sent");
                 let sent = tokio::select! {
-                    result = tokio::time::timeout(Duration::from_millis(request.timeout_ms.clamp(1, 3_600_000)), socket.send(command.message)) => result.map_err(|_| "WebSocket send timed out".to_string()).and_then(|result| result.map_err(|e| e.to_string())),
+                    result = crate::http::timeouts::run(crate::http::timeouts::selected(None, request.timeout_ms), async { socket.send(command.message).await.map_err(|error| error.to_string()) }, "WebSocket send timed out") => result,
                     _ = delivery.cancelled.changed() => Err("WebSocket send cancelled".into()),
                 };
                 let _ = command.sent.send(sent.clone());

@@ -215,12 +215,12 @@ pub async fn authorize_oauth(
                 .map_err(|_| "Invalid OAuth proxy, CA or client certificate settings.")?;
             crate::oauth::exchange_code(&client, &url, &config, authorization.grant(code)).await
         };
-        tokio::time::timeout(
-            Duration::from_millis(request.timeout_ms.clamp(1, 3_600_000)),
+        crate::http::timeouts::run(
+            crate::http::timeouts::selected(request.request_timeout_ms, request.timeout_ms),
             exchange,
+            "OAuth token request timed out.",
         )
         .await
-        .map_err(|_| "OAuth token request timed out.")?
         .map(Some)
     };
     let mut result: Result<Option<OAuthToken>, String> = tokio::select! {

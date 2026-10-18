@@ -611,11 +611,12 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
   }
   const settings = data.settings;
   if (
-    !Number.isFinite(Number(settings.timeout)) ||
-    Number(settings.timeout) < 1 ||
+    !Number.isSafeInteger(Number(settings.timeout)) ||
+    settings.timeout === null || settings.timeout === "" || typeof settings.timeout === "boolean" ||
+    Number(settings.timeout) < 0 ||
     Number(settings.timeout) > 3600000
   )
-    throw new Error("Set a timeout between 1 and 3,600,000 ms in Preferences.");
+    throw new Error("Set a whole-number timeout between 0 and 3,600,000 ms in Preferences (0 = unlimited).");
   const clientCertificates = clientCertificateSelection(
     data,
     request,

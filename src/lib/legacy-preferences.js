@@ -22,7 +22,7 @@ export function legacyPreferenceCandidate(resources) {
   const record = records[0];
   /** @type {[string,string,string,number,number][]} */
   const numbers = [
-    ["timeout", "timeout", "Request timeout (ms)", 1, 3600000],
+    ["timeout", "timeout", "Request timeout (ms)", 0, 3600000],
     ["maxRedirects", "maxRedirects", "Maximum redirects", 1, 2147483647],
     ["maxHistoryResponses", "maxHistory", "Response history limit", 1, 100],
     [
@@ -36,7 +36,13 @@ export function legacyPreferenceCandidate(resources) {
   ];
   for (const [source, key, label, min, max] of numbers) {
     if (!Object.hasOwn(record, source)) continue;
-    const value = record[source];
+    const original = record[source];
+    // The archived libcurl adapter disables the timeout for every finite <= 0 value.
+    const unlimitedTimeout = source === "timeout" && typeof original === "number" &&
+      Number.isFinite(original) && original < 0;
+    const value = unlimitedTimeout ? 0 : original;
+    if (unlimitedTimeout)
+      warnings.push("Legacy negative request timeout means unlimited and will apply as 0 ms. The original setting is preserved.");
     if (
       typeof value === "number" &&
       Number.isInteger(value) &&

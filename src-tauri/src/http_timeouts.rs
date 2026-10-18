@@ -16,7 +16,7 @@ pub(crate) fn duration(milliseconds: u64) -> Option<Duration> {
 }
 
 pub(crate) fn selected(value: Option<u64>, legacy: u64) -> Option<Duration> {
-    duration(value.unwrap_or(legacy.clamp(1, 3_600_000)))
+    duration(value.unwrap_or(legacy.min(3_600_000)))
 }
 
 pub(crate) async fn run<T>(

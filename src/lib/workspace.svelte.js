@@ -606,6 +606,15 @@ export function canEditWorkspace() {
 export function updateSettings(patch) {
   if (!canEditWorkspace()) return;
   const next = { ...patch };
+  if (Object.hasOwn(next, "timeout")) {
+    const value = next.timeout;
+    if ((typeof value !== "number" && typeof value !== "string") || value === "" ||
+        !Number.isSafeInteger(Number(value)) || Number(value) < 0 || Number(value) > 3600000) {
+      workspace.error = "Request timeout must be a whole number from 0 to 3,600,000 ms (0 = unlimited).";
+      return;
+    }
+    next.timeout = Number(value);
+  }
   if (Object.hasOwn(next, "maxRedirects")) {
     try { next.maxRedirects = redirectLimit(next.maxRedirects) ?? 10; }
     catch (error) { workspace.error = String(error); return; }

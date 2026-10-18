@@ -46,7 +46,7 @@ impl Connection {
         // The current renderer sends explicit zero for legacy no-deadline calls.
         let ms = self
             .deadline_ms
-            .unwrap_or(self.timeout_ms.clamp(1, 3_600_000));
+            .unwrap_or(self.timeout_ms.min(3_600_000));
         (ms != 0).then(|| Duration::from_millis(ms.clamp(1, 3_600_000)))
     }
 }
@@ -163,9 +163,11 @@ pub(crate) async fn channel(config: &Connection) -> Result<Channel, String> {
     }
     let mut endpoint = Endpoint::from_shared(url.to_string())
         .map_err(|_| "Invalid gRPC endpoint.")?
-        .connect_timeout(Duration::from_millis(config.timeout_ms.clamp(1, 3_600_000)))
         .user_agent(concat!("Insomnium/", env!("CARGO_PKG_VERSION")))
         .map_err(|_| "Invalid gRPC user agent.")?;
+    if let Some(timeout) = crate::http::timeouts::selected(None, config.timeout_ms) {
+        endpoint = endpoint.connect_timeout(timeout);
+    }
     if url.scheme() == "https" {
         let mut tls = ClientTlsConfig::new();
         if config.validate_certificates {

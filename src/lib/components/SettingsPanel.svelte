@@ -242,11 +242,12 @@
                 Defaults used when a request does not override them.
               </p>
               <div class="settings-grid">
-                <Field label="Request timeout (ms)"
+                <Field label="Request timeout (ms, 0 = unlimited)"
                   ><Input
                     type="number"
-                    min="1"
+                    min="0"
                     max="3600000"
+                    step="1"
                     value={settings.timeout}
                     onchange={(event) =>
                       updateSettings({ timeout: optionalNumber(event) })}

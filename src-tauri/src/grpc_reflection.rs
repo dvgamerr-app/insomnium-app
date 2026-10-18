@@ -8,8 +8,9 @@ use prost_reflect::DescriptorPool;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     sync::{Arc, Mutex},
-    time::Duration,
 };
+#[cfg(test)]
+use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{transport::Channel, Request, Status, Streaming};
@@ -175,7 +176,9 @@ impl Driver {
             .map_err(|_| Status::cancelled("Reflection closed."))?;
         let mut outgoing = Request::new(ReceiverStream::new(receiver));
         *outgoing.metadata_mut() = metadata(&config.metadata).map_err(Status::invalid_argument)?;
-        outgoing.set_timeout(Duration::from_millis(config.timeout_ms.clamp(1, 3_600_000)));
+        if let Some(timeout) = crate::http::timeouts::selected(None, config.timeout_ms) {
+            outgoing.set_timeout(timeout);
+        }
         let path = format!("/grpc.reflection.{version}.ServerReflection/ServerReflectionInfo")
             .parse()
             .map_err(|_| Status::internal("Invalid reflection path."))?;

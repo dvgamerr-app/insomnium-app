@@ -313,7 +313,7 @@ export function grpcConnection(data, request, options = {}) {
         resolve(row.name),
         resolve(row.value),
       ]),
-    timeoutMs: Math.max(
+    timeoutMs: Number(settings.timeout) === 0 ? 0 : Math.max(
       1,
       Math.min(3600000, Number(settings.timeout) || 30000),
     ),
