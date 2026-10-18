@@ -79,6 +79,7 @@ import { requestMeta, withResponseFilter, withResponseNamespaces, requestPinMeta
 import { prepareRenderedRequest, send, cancel } from "./transport.js";
 import { connectStream, sendMessage, appendStreamEvent } from "./streaming.js";
 import { loadGrpcSchema, connectGrpc, sendGrpcMessage } from "./grpc.js";
+import { createNativeCancellation } from "./native-cancellation.js";
 import {
   prepareProtoChange,
   protoFingerprint,
@@ -2696,12 +2697,8 @@ function workspacePluginServices(data, owner, resolveResponse, chain = [owner.re
           const request=newRequest(data.activeWorkspaceId,{_id:runId,url,method:'GET',authentication:{},body:{},settingSendCookies:false,settingStoreCookies:false,settingFollowRedirects:'on'});
           const scoped={...data,resources:[...data.resources,request],settings:{...data.settings,useCookies:false}};
           const prepared=prepareRenderedRequest(scoped,request,runId);
-          const abort=()=>{void cancel(runId).catch(()=>{});};
-          signal.addEventListener('abort',abort,{once:true});
-          try{
-            const response=await send(prepared,signal);check(signal);
-            return typeof response.bodyBase64==='string'?new TextDecoder().decode(Uint8Array.from(atob(response.bodyBase64),c=>c.charCodeAt(0))):response.body;
-          }finally{signal.removeEventListener('abort',abort);}
+          const response=await send(prepared,signal);check(signal);
+          return typeof response.bodyBase64==='string'?new TextDecoder().decode(Uint8Array.from(atob(response.bodyBase64),c=>c.charCodeAt(0))):response.body;
         },
         readText:async(path,signal)=>{
           check(signal);
@@ -2761,11 +2758,8 @@ async function sendDependentRequest(
   signal.throwIfAborted();
   data = requestDataScope(data, request._id);
   const runId = id("dependency");
-  const abort = () => {
-    void cancel(runId).catch(() => {});
-  };
-  signal.addEventListener("abort", abort, { once: true });
   const sourceContext = oauthSourceContext(data, request);
+  const cancellation = createNativeCancellation(runId, signal);
   try {
     const renderResult = await renderSendRequest(data, request, signal, {
         ...pluginOptions,
@@ -2834,7 +2828,7 @@ async function sendDependentRequest(
     }
     return entry;
   } finally {
-    signal.removeEventListener("abort", abort);
+    await cancellation.close();
     if (workspace.oauthProgress[request._id]?.id === runId)
       clearOAuthProgress(request._id);
   }

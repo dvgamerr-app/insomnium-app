@@ -83,6 +83,8 @@ pub async fn authorize_oauth(
     mut request: HttpRequest,
     config: OAuthConfig,
     on_event: Channel<BrowserEvent>,
+    on_started: Option<tauri::ipc::JavaScriptChannelId>,
+    webview: tauri::Webview,
     state: tauri::State<'_, NetworkState>,
     browsers: tauri::State<'_, OAuthBrowserState>,
     cookie_state: tauri::State<'_, crate::cookies::CookieState>,
@@ -111,6 +113,7 @@ pub async fn authorize_oauth(
     request.netrc = false;
     request.socket_path = None;
     let mut cancelled = state.begin(&request.id)?;
+    state.publish_started(&request.id, on_started, webview)?;
     let mut jar = None;
     let operation = async {
         let (redirect, listener) = prepare_redirect(&config).await?;

@@ -1,5 +1,6 @@
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 import { id } from "./model.js";
+import { createNativeCancellation } from "./native-cancellation.js";
 
 /** @param {Record<string, any>} request @param {string} protocol @param {AbortSignal} signal @param {(event: Record<string, any>) => void} onmessage */
 export async function connectStream(request, protocol, signal, onmessage) {
@@ -8,6 +9,7 @@ export async function connectStream(request, protocol, signal, onmessage) {
       "Open the desktop app to use WebSocket and SSE with native headers, cookies and TLS.",
     );
   if (signal.aborted) return;
+  const cancellation = createNativeCancellation(request.id, signal);
   /** @type {Channel<Record<string, any>>} */
   const channel = new Channel();
   /** @type {Set<Promise<void>>} */
@@ -19,16 +21,19 @@ export async function connectStream(request, protocol, signal, onmessage) {
   const failed = (error) => {
     if (!deliveryFailed) deliveryError = error;
     deliveryFailed = true;
-    void invoke("cancel_http", { id: request.id }).catch(() => {});
+    cancellation.request();
   };
   /** @param {Promise<unknown>} operation */
   const track = (operation) => {
     const completion = operation.catch(failed).then(() => { pending.delete(completion); });
     pending.add(completion);
   };
+  const drain = async () => {
+    // Drain delivered ACKs before retiring the cancellation owner.
+    while (pending.size) await Promise.all(pending);
+  };
   channel.onmessage = ({ event, sequence }) => {
-    if (signal.aborted && event.kind === "started")
-      track(invoke("cancel_http", { id: request.id }));
+    if (event.kind === "started") cancellation.started();
     try {
       onmessage(event);
     } catch (error) {
@@ -40,11 +45,13 @@ export async function connectStream(request, protocol, signal, onmessage) {
   };
   try {
     await invoke("connect_stream", { request, protocol, onEvent: channel });
-    await Promise.all(pending);
+    await drain();
     if (deliveryFailed) throw deliveryError;
   } finally {
-    await Promise.all(pending);
+    await drain();
+    await cancellation.close();
   }
+  if (cancellation.failed) throw cancellation.error;
 }
 
 /** @param {string} runId @param {string} format @param {string} data */

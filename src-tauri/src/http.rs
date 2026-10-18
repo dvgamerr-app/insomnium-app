@@ -28,6 +28,18 @@ impl NetworkState {
         running.insert(id.into(), sender);
         Ok(receiver)
     }
+    pub(crate) fn publish_started(
+        &self,
+        id: &str,
+        channel: Option<tauri::ipc::JavaScriptChannelId>,
+        webview: tauri::Webview,
+    ) -> Result<(), String> {
+        if channel.is_some_and(|channel| channel.channel_on::<_, ()>(webview).send(()).is_err()) {
+            self.finish(id)?;
+            return Err("Request view closed before starting.".into());
+        }
+        Ok(())
+    }
     pub(crate) fn finish(&self, id: &str) -> Result<(), String> {
         self.running.lock().map_err(|e| e.to_string())?.remove(id);
         Ok(())
@@ -177,6 +189,8 @@ pub fn cancel_http(id: String, state: tauri::State<'_, NetworkState>) -> Result<
 pub async fn send_http(
     app: tauri::AppHandle,
     request: HttpRequest,
+    on_started: Option<tauri::ipc::JavaScriptChannelId>,
+    webview: tauri::Webview,
     state: tauri::State<'_, NetworkState>,
     cookie_state: tauri::State<'_, crate::cookies::CookieState>,
 ) -> Result<HttpResponse, HttpFailure> {
@@ -190,6 +204,9 @@ pub async fn send_http(
         ));
     }
     let mut cancelled = state.begin(&request.id).map_err(HttpFailure::early)?;
+    state
+        .publish_started(&request.id, on_started, webview)
+        .map_err(HttpFailure::early)?;
     let mut jar = None;
     let requested_url = url.clone();
     let overall = Instant::now();
@@ -354,6 +371,8 @@ pub async fn fetch_oauth_token(
     app: tauri::AppHandle,
     mut request: HttpRequest,
     config: crate::oauth::OAuthConfig,
+    on_started: Option<tauri::ipc::JavaScriptChannelId>,
+    webview: tauri::Webview,
     state: tauri::State<'_, NetworkState>,
     cookie_state: tauri::State<'_, crate::cookies::CookieState>,
 ) -> Result<crate::oauth::OAuthToken, String> {
@@ -370,6 +389,7 @@ pub async fn fetch_oauth_token(
     request.netrc = false;
     request.socket_path = None;
     let mut cancelled = state.begin(&request.id)?;
+    state.publish_started(&request.id, on_started, webview)?;
     let mut jar = None;
     let exchange = async {
         if request.use_cookies && (request.send_cookies || request.store_cookies) {

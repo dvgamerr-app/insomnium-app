@@ -16,7 +16,8 @@ import { multipartHeaders, multipartEncodings } from "./multipart-headers.js";
 import { serializeOpenApiQuery } from "./openapi-query.js";
 import { serializeOpenApiHeader } from "./openapi-header.js";
 import { expandOpenApiPath } from "./openapi-path.js";
-import { invoke, isTauri } from "@tauri-apps/api/core";
+import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
+import { createNativeCancellation } from "./native-cancellation.js";
 import { environmentFor, render, workspaceFor, protocolFor } from "./model.js";
 import { oauthHeader } from "./oauth-model.js";
 import {
@@ -722,10 +723,15 @@ async function readPreviewBody(response, signal) {
 
 /** @param {Record<string, any>} request @param {AbortSignal} signal @returns {Promise<Record<string,any>>} */
 export async function send(request, signal) {
+  signal.throwIfAborted();
   if (isTauri()) {
+    const cancellation = createNativeCancellation(request.id, signal);
+    const onStarted = new Channel();
+    onStarted.onmessage = cancellation.started;
+    /** @type {Record<string,any>} */ let result;
     try {
-      const response=/** @type {Record<string,any>} */(await invoke("send_http", { request }));
-      return {...response,body:responseBodyText(response)};
+      const response=/** @type {Record<string,any>} */(await invoke("send_http", { request, onStarted }));
+      result = {...response,body:responseBodyText(response)};
     } catch (/** @type {any} */ error) {
       // Native failures arrive as { message, networkLog }; keep the log.
       if (error && typeof error === "object" && "message" in error)
@@ -734,7 +740,11 @@ export async function send(request, signal) {
           Array.isArray(error.networkLog) ? error.networkLog : [],
         );
       throw error;
+    } finally {
+      await cancellation.close();
     }
+    signal.throwIfAborted();
+    return result;
   }
   if (request.socketPath)
     throw new Error("Unix socket requests require the desktop app.");

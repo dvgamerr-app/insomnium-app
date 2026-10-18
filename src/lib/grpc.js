@@ -1,33 +1,10 @@
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
+import { createNativeCancellation as cancellation } from "./native-cancellation.js";
 
 function nativeOnly() {
   if (!isTauri())
     throw new Error("Open the desktop app to use gRPC and server reflection.");
 }
-/** @param {string} id @param {AbortSignal} signal */
-function cancellation(id, signal) {
-  let active = true;
-  /** @type {unknown} */
-  let error;
-  const cancel = () => {
-    if (active && signal.aborted)
-      void invoke("cancel_http", { id }).catch((e) => {
-        error = e;
-      });
-  };
-  signal.addEventListener("abort", cancel);
-  return {
-    started: cancel,
-    close: () => {
-      active = false;
-      signal.removeEventListener("abort", cancel);
-    },
-    get error() {
-      return error;
-    },
-  };
-}
-
 /** @param {Record<string,any>} request @param {AbortSignal} signal */
 export async function loadGrpcSchema(request, signal) {
   nativeOnly();
@@ -40,7 +17,7 @@ export async function loadGrpcSchema(request, signal) {
     if (signal.aborted) throw new Error("gRPC schema lookup cancelled.");
     return /** @type {Record<string,any>} */ (result);
   } finally {
-    cancel.close();
+    await cancel.close();
   }
 }
 
@@ -60,7 +37,7 @@ export async function connectGrpc(request, signal, onmessage) {
   const failed = (error) => {
     if (!deliveryFailed) deliveryError = error;
     deliveryFailed = true;
-    void invoke("cancel_http", { id: request.id }).catch(() => {});
+    cancel.request();
   };
   channel.onmessage = ({ event, sequence }) => {
     if (event.kind === "started") cancel.started();
@@ -79,12 +56,12 @@ export async function connectGrpc(request, signal, onmessage) {
     await invoke("connect_grpc", { request, onEvent: channel });
     await Promise.all(acknowledgements);
     if (deliveryFailed) throw deliveryError;
-    if (cancel.error) throw cancel.error;
   } finally {
     // Keep the call tracked until ACK callbacks settle, including native failure.
     await Promise.all(acknowledgements);
-    cancel.close();
+    await cancel.close();
   }
+  if (cancel.failed) throw cancel.error;
 }
 /** @param {string} runId @param {string|null} text @param {boolean} [finish] */
 export async function sendGrpcMessage(runId, text, finish = false) {

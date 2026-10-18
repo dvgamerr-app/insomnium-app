@@ -1,4 +1,5 @@
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
+import { createNativeCancellation } from "./native-cancellation.js";
 import {
   hasManualAuthorization,
   prepareRequest,
@@ -119,31 +120,41 @@ export async function fetchOAuthToken(exchange, signal, onprogress = () => {}) {
   if (!isTauri())
     throw new Error("OAuth token requests require the desktop app.");
   if (signal.aborted) throw new Error("OAuth token request cancelled.");
-  const interactive = ["authorization_code", "implicit"].includes(
-    exchange.config.grantType,
-  );
+  const cancellation = createNativeCancellation(exchange.request.id, signal);
+  const onStarted = new Channel();
+  onStarted.onmessage = cancellation.started;
+  const interactive = ["authorization_code", "implicit"].includes(exchange.config.grantType);
+  let deliveryFailed = false;
+  /** @type {unknown} */ let deliveryError;
   /** @type {Channel<Record<string, any>> | undefined} */
   let channel;
   if (interactive) {
     channel = new Channel();
     channel.onmessage = (event) => {
       if (signal.aborted) {
-        void invoke("cancel_http", { id: exchange.request.id }).catch(() => {});
+        cancellation.request();
         return;
       }
-      onprogress(event);
+      try { onprogress(event); } catch (error) {
+        if (!deliveryFailed) deliveryError = error;
+        deliveryFailed = true;
+        cancellation.request();
+      }
     };
   }
-  const result = await invoke(
-    interactive ? "authorize_oauth" : "fetch_oauth_token",
-    {
+  try {
+    const result = await invoke(interactive ? "authorize_oauth" : "fetch_oauth_token", {
       request: exchange.request,
       config: exchange.config,
+      onStarted,
       ...(interactive ? { onEvent: channel } : {}),
-    },
-  );
-  if (signal.aborted) throw new Error("OAuth token request cancelled.");
-  return /** @type {Record<string, any> | null} */ (result);
+    });
+    if (deliveryFailed) throw deliveryError;
+    if (signal.aborted) throw new Error("OAuth token request cancelled.");
+    return /** @type {Record<string, any> | null} */ (result);
+  } finally {
+    await cancellation.close();
+  }
 }
 
 /** @param {string} id @param {string} url */
