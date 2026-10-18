@@ -87,6 +87,22 @@ await withPreview("workspace-shortcuts",async (page,output) => {
   await page.keyboard.press('Control+Shift+f');
   assert.match(await bodyEditor.evaluate(el=>/** @type {any} */(el).CodeMirror.getValue()),/\n\s+"large": 9007199254740993\n/);
   assert.equal(await bodyEditor.evaluate(el=>/** @type {any} */(el).CodeMirror.hasFocus()),true);
+  await url.fill('https://codegen.invalid/request?item=one&item=two');
+  await bodyEditor.evaluate(el=>/** @type {any} */(el).CodeMirror.focus());
+  await page.keyboard.press('Control+Shift+g');
+  const generated=page.getByRole('dialog',{name:'Generate code',exact:true});await generated.waitFor();
+  await generated.getByRole('button',{name:'Copy code',exact:true}).waitFor();
+  await page.waitForFunction(()=>{const cm=/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror;return cm?.getValue().includes('9007199254740993');});
+  const generatedCode=()=>generated.locator('.CodeMirror').evaluate(el=>/** @type {any} */(el).CodeMirror.getValue());
+  assert.match(await generatedCode(),/curl/);
+  assert.ok((await generatedCode()).includes('item=one&item=two'));
+  await generated.getByRole('combobox',{name:'Code language',exact:true}).selectOption('python');
+  await generated.getByRole('combobox',{name:'Code client',exact:true}).selectOption('requests');
+  await page.waitForFunction(()=>{const cm=/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror;return cm?.getValue().includes('import requests');});
+  assert.match(await generatedCode(),/9007199254740993/);
+  assert.equal(await generated.locator('.CodeMirror').evaluate(el=>/** @type {any} */(el).CodeMirror.getOption('readOnly')),true);
+  await generated.screenshot({path:output+'/code-generation.png'});
+  await page.keyboard.press('Escape');await generated.waitFor({state:'detached'});
   for (const [chord,label] of [["Control+Shift+e","Active environment"],["Meta+Shift+l","HTTP method"]]) {
     await page.keyboard.press(chord);
     assert.equal(await page.getByRole("combobox",{name:label,exact:true}).evaluate((el) => el === document.activeElement || el.contains(document.activeElement)),true,label);

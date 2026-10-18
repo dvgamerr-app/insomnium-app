@@ -36,6 +36,7 @@
     cancelAllTemplatePrompts,
   } from "$lib/template-prompt-dialog.js";
   import CodeEditor from "$lib/components/CodeEditor.svelte";
+  import GenerateCode from "$lib/components/GenerateCode.svelte";
   import { onMount, onDestroy, untrack, tick } from "svelte";
   import { isTauri } from "@tauri-apps/api/core";
   import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -273,6 +274,12 @@
     if (type === "new-environment") newEnvironmentPrivate = false;
     modalError = "";
     environmentNameError = null;
+  }
+  let codeRequestId=$state('');
+  function showCode(){
+    if(!request||!['http','sse'].includes(protocolFor(request)))return;
+    codeRequestId=request._id;
+    showModal('generate-code');
   }
   function openSettings(/** @type {string} */ tab = "") {
     if (!canEditWorkspace()) return;
@@ -615,9 +622,8 @@
       event.preventDefault();
       setSidebarHidden(false);
       void tick().then(() => { if (mainView === "requests") filterInput?.focus(); });
-    } else if (event.shiftKey && key === "g") {
-      event.preventDefault();
-      mainView = "git";
+    } else if (event.shiftKey && key === "g" && request && ['http','sse'].includes(protocol) && mainView === "requests") {
+      event.preventDefault();showCode();
     } else if (!event.shiftKey && ((modifier && ["enter", "r"].includes(key)) || plainF5) && request && mainView === "requests") {
       event.preventDefault();
       void sendCurrentRequest().catch((error) => (app.error = String(error)));
@@ -644,13 +650,20 @@
       void persist();
     }
   }
+  function captureKeyboard(/** @type {KeyboardEvent} */event){
+    if(event.defaultPrevented)return;
+    // This application chord takes precedence over CodeMirror's Find Previous.
+    if((event.ctrlKey||event.metaKey)&&event.shiftKey&&event.code==='KeyG'){
+      keyboard(event);if(event.defaultPrevented)event.stopPropagation();
+    }
+  }
 </script>
 
 <TemplatePromptDialog />
 <PluginThemeHost onSchemeChange={scheme=>displayedTheme=scheme}/>
 <TemplateFieldDialogHost />
 <PluginDomDialogHost />
-<svelte:window onkeydown={keyboard} />
+<svelte:window onkeydown={keyboard} onkeydowncapture={captureKeyboard} />
 {#if switcher}<RequestSwitcher entries={switcher.entries} initialIndex={switcher.initialIndex} recent={switcher.recent}
   onclose={()=>switcher=null} onselect={requestId=>{
     const opening=switcher;switcher=null;
@@ -925,7 +938,9 @@
                     update(request._id, {
                       name,
                     })}
-                />{/key}<span class="spacer"></span><Button
+                />{/key}<span class="spacer"></span>{#if protocol!=='websocket'}<Button
+                variant="ghost" class="icon-button subtle" title="Generate code" aria-label="Generate code"
+                onclick={showCode}><Icon name="code" size={15}/></Button>{/if}<Button
                 variant="ghost"
                 class="icon-button subtle"
                 title="Move or manage request"
@@ -1236,7 +1251,8 @@
                         .replace(/^./, (c) => c.toUpperCase())}
     {/snippet}
     {#snippet children()}
-      {#if modal === "manage-item" && managedResource}
+      {#if modal === 'generate-code'}{#key codeRequestId}<GenerateCode requestId={codeRequestId}/>{/key}
+      {:else if modal === "manage-item" && managedResource}
         {#key managedId}<ResourceManager
             resource={managedResource}
             resources={app.data.resources}

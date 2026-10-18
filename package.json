@@ -72,6 +72,7 @@
     "date-fns": "4.4.0",
     "diff": "9.0.0",
     "graphql": "16",
+    "httpsnippet-lite": "3.0.5",
     "iconv-lite": "0.6.3",
     "jsonpath-plus": "11.1.0",
     "mime-db": "1.52.0",

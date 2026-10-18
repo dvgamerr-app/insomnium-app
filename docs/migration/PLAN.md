@@ -77,3 +77,7 @@ Open `STATUS.md` first, then `PARITY.md`. Inspect working tree without reverting
 - https://v2.tauri.app/plugin/http-client/ — native HTTP capability and API.
 - https://v2.tauri.app/plugin/store/ — local persistent store.
 - https://v2.tauri.app/plugin/dialog/ — native file selection.
+
+## Request code generation follow-up — 2026-10-19
+
+The missing legacy Generate Code modal/shortcut now exposes the browser generator catalog through the shared owned renderer/HAR workflow; representative cURL/Python mounted checks pass. See IMPORT-EXPORT.md Request code generation workflow. Native-signer/negotiated auth, socket/binary/file/custom multipart adapters, target-specific escaping/prototype/duplicate/interleaved-query semantics, complete target/native/provider/platform acceptance and all retained requirements remain open. The catalog is not full code-generation acceptance. Continue concrete missing adapter/transport behavior; do not repeat matrices for the covered UI flow.

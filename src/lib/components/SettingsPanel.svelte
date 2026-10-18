@@ -180,6 +180,7 @@
                 Ctrl/Cmd + Shift + H: response or connection history.
                 Ctrl/Cmd + Shift + P: pin/unpin request.
                 Ctrl/Cmd + Shift + R: reload loaded plugins.
+                Ctrl/Cmd + Shift + G: generate request code.
                 Ctrl/Cmd + \: toggle sidebar · + ': focus and select HTTP response.
               </p>
             </section>

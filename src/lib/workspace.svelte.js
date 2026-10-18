@@ -2673,6 +2673,32 @@ export function createWorkspacePluginPreviewServices(data, requestId, signal, is
     dependency=>requestDataScope(data,dependency._id).activeEnvironmentId);
   return workspacePluginServices(data,owner,resolveResponse);
 }
+/** Render the same request/hooks as Send without dispatching the exported request.
+ * The dialog's registered workspace lease owns all rendering/dependency work.
+ * @param {string} requestId @param {AbortSignal} signal @param {()=>boolean} isCurrent */
+export async function prepareCodeRequest(requestId, signal, isCurrent) {
+  const data=requestDataScope($state.snapshot(workspace.data),requestId);
+  const request=data.resources.find(resource=>resource._id===requestId);
+  if(!request||!['http','sse'].includes(protocolFor(request)))throw Error('Code generation requires an HTTP request.');
+  if(!String(request.url||'').trim())throw Error('Enter a request URL before generating code.');
+  const check=()=>{signal.throwIfAborted();if(!isCurrent())throw new DOMException('Code generation owner changed','AbortError');};
+  check();
+  const owner={requestId,runId:id('code'),isCurrent:()=>!signal.aborted&&isCurrent()};
+  const resolveResponse=createResponseTemplateResolver(data.resources,data.history||[],data.activeEnvironmentId,
+    (dependency,chain,childSignal)=>sendDependentRequest(data,dependency,chain,childSignal,resolveResponse,owner),
+    dependency=>requestDataScope(data,dependency._id).activeEnvironmentId);
+  const result=await renderSendRequest(data,request,signal,{responseResolver:resolveResponse,pluginServices:workspacePluginServices(data,owner,resolveResponse)});
+  check();
+  const rendered=result.request;
+  const manual=rendered.headers.some((/** @type {any} */h)=>h.name.toLowerCase()==='authorization');
+  const prepared=prepareRenderedRequest(data,rendered,id('code-export'),rendered.authentication?.type==='oauth2'&&!rendered.authentication.disabled&&!manual?
+    {oauthAuthorization:oauthHeader(data,rendered,{resolved:true})}:{});
+  if(prepared.socketPath)throw Error('Code generation for a Unix socket requires a client-specific adapter.');
+  if(prepared.bodyBase64!==null)throw Error('Code generation for binary request bodies requires a client-specific file adapter.');
+  if(prepared.multipart&&(prepared.multipartContentType||prepared.multipart.some((/** @type {any} */part)=>part.fileName!==null||part.valueBase64||part.headers.length||part.transferEncoding||part.contentType)))throw Error('Code generation for file/custom multipart parts requires a client-specific adapter.');
+  check();
+  return pluginHarEntry(rendered,prepared,undefined,new Date().toISOString()).request;
+}
 /** Capture actual workspace services for one root Send and all nested guests.
  * @param {ReturnType<typeof initialData>} data
  * @param {PluginWorkspaceOwner} owner
