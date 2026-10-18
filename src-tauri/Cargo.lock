@@ -2951,6 +2951,7 @@ dependencies = [
  "hmac 0.12.1",
  "http-auth",
  "http-body-util",
+ "httparse",
  "hyper",
  "hyper-util",
  "jsonwebtoken",

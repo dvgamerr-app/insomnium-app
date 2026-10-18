@@ -21,6 +21,9 @@ mod arrival_tests;
 #[path = "grpc_tls.rs"]
 mod tls;
 
+#[path = "grpc_proxy.rs"]
+mod proxy;
+
 #[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Connection {
@@ -202,10 +205,7 @@ pub(crate) async fn channel(config: &Connection) -> Result<Channel, String> {
         }
         .map_err(|_| "Invalid gRPC TLS configuration.")?;
     }
-    endpoint
-        .connect()
-        .await
-        .map_err(|e| format!("Could not connect to gRPC endpoint: {e}"))
+    proxy::connect(endpoint, &url).await
 }
 
 // Reflection v1 and v1alpha messages share the same wire field numbers.
