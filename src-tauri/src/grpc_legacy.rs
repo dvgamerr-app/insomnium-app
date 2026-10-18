@@ -1711,6 +1711,24 @@ impl Serialize for LegacyValue<'_> {
             }
             Value::EnumNumber(v) => {
                 if let Kind::Enum(desc) = &self.1 {
+                    // protobuf.js uses the first declared name for an aliased
+                    // number. get_value explicitly leaves alias selection
+                    // unspecified, so preserve source order for these enums.
+                    if desc
+                        .enum_descriptor_proto()
+                        .options
+                        .as_ref()
+                        .is_some_and(|options| options.allow_alias.unwrap_or(false))
+                    {
+                        if let Some(value) = desc
+                            .enum_descriptor_proto()
+                            .value
+                            .iter()
+                            .find(|value| value.number() == *v)
+                        {
+                            return s.serialize_str(value.name());
+                        }
+                    }
                     if let Some(value) = desc.get_value(*v) {
                         s.serialize_str(value.name())
                     } else {
@@ -1872,19 +1890,37 @@ mod tests {
     fn legacy_nested_and_typed_extensions_match_pinned_profiles() {
         use crate::grpc_schema::{compile, json_mode, JsonMode, ProtoFile, ProtoInput};
         let pool=compile(ProtoInput {entry:"ext.proto".into(),files:vec![
-            ProtoFile{name:"base.proto".into(),text:r#"syntax="proto2";package p;message M{optional int32 normal=200;extensions 100 to 199;}message Child{optional string child_name=1;}enum E{ZERO=0;ONE=1;}message Only{extensions 100 to 199;}"#.into()},
+            ProtoFile{name:"base.proto".into(),text:r#"syntax="proto2";package p;message M{optional int32 normal=200;extensions 100 to 199;}message Child{optional string child_name=1;}enum E{option allow_alias=true;ZERO=0;ONE=1;ALIAS=1;}message Only{extensions 100 to 199;}"#.into()},
             ProtoFile{name:"ext.proto".into(),text:r#"syntax="proto2";import "base.proto";package p;extend M{optional Child child=102;optional E e=103[default=ONE];optional bytes blob=104[default="AB"];optional int64 large=105;repeated bytes chunks=106;}message Scope{extend M{optional int32 nested=107;}}extend Only{optional int32 n=100;}"#.into()},
         ],include_paths:vec![]}).unwrap();
         let snapshot = pool.encode_to_vec();
         let original = pool.get_message_by_name("p.M").unwrap();
-        let example =
-            crate::grpc_example::generate_saved(original.clone(), JsonMode::Legacy).unwrap();
-        let sample = parse(original.clone(), &example).unwrap();
-        let blob = sample.descriptor().get_extension(104).unwrap();
-        assert_eq!(
-            sample.get_extension(&blob).as_ref(),
-            &Value::Bytes(vec![65, 66].into())
-        );
+        // Archived automock + pinned protobuf.js 7.2.4 produce this wire for
+        // both file and reflection descriptors, including extension samples.
+        for mode in [JsonMode::Legacy, JsonMode::ProtoJson] {
+            for reflection in [false, true] {
+                let example = if reflection {
+                    crate::grpc_example::generate(original.clone(), mode)
+                } else {
+                    crate::grpc_example::generate_saved(original.clone(), mode)
+                }
+                .unwrap();
+                let sample = crate::grpc_schema::parse_mode(
+                    original.clone(),
+                    &example,
+                    mode.from_schema(reflection),
+                )
+                .unwrap();
+                assert_eq!(
+                    sample
+                        .encode_to_vec()
+                        .iter()
+                        .map(|byte| format!("{byte:02x}"))
+                        .collect::<String>(),
+                    "b206070a0548656c6c6fb80600c20603a1b2c3c80614d20603a1b2c3d8060ac00c0a"
+                );
+            }
+        }
         let input = r#"{".p.child":{"child_name":"Ω"},".p.e":"ONE",".p.blob":"AP+A",".p.large":"42",".p.chunks":["AQI=","Aw=="],".p.Scope.nested":7,"normal":3}"#;
         for reflection in [false, true] {
             let mode = if reflection {

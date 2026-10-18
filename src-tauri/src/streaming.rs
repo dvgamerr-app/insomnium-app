@@ -384,11 +384,11 @@ mod sse_limit_tests {
         assert_eq!(raw.as_ref(), b"data:one\r\r");
 
         let chunks: Vec<Result<Bytes, String>> = [
-            &b"id:42\r"[..],
+            &b"id:42\rretry: +100\rretry: -1\rretry: 1.5\r"[..],
             &b"\ndata:one\r"[..],
             &b"\ndata:two\r"[..],
             &b"\n\r"[..],
-            &b"\n"[..],
+            &b"\nretry: 00050\nretry: +100\nretry: \nretry: 1e2\nretry:  100\nretry: \t100\nretry: 18446744073709551616\ndata:valid\n\n"[..],
         ]
         .into_iter()
         .map(|chunk| Ok(Bytes::copy_from_slice(chunk)))
@@ -397,9 +397,15 @@ mod sse_limit_tests {
             .eventsource()
             .collect::<Vec<_>>()
             .await;
-        assert_eq!(parsed.len(), 1);
+        assert_eq!(parsed.len(), 2);
         assert_eq!(parsed[0].as_ref().unwrap().id, "42");
         assert_eq!(parsed[0].as_ref().unwrap().data, "one\ntwo");
+        assert_eq!(parsed[0].as_ref().unwrap().retry, None);
+        assert_eq!(parsed[1].as_ref().unwrap().data, "valid");
+        assert_eq!(
+            parsed[1].as_ref().unwrap().retry,
+            Some(Duration::from_millis(50))
+        );
         let incomplete = sse_text(futures_util::stream::iter([Ok::<_, String>(
             Bytes::from_static(b"data:unfinished"),
         )]))

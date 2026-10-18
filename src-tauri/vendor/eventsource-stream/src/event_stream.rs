@@ -60,8 +60,12 @@ impl EventBuilder {
                         }
                     }
                     "retry" => {
-                        if let Ok(val) = val.parse::<u64>() {
-                            self.event.retry = Some(Duration::from_millis(val))
+                        // WHATWG requires a nonempty sequence of ASCII digits;
+                        // Rust's integer parser also accepts a leading '+'.
+                        if !val.is_empty() && val.bytes().all(|byte| byte.is_ascii_digit()) {
+                            if let Ok(val) = val.parse::<u64>() {
+                                self.event.retry = Some(Duration::from_millis(val))
+                            }
                         }
                     }
                     _ => {}

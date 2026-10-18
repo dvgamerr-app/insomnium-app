@@ -1,7 +1,7 @@
 //! Request samples inspired by the original Insomnium automock.
 //! Kept separate from response serialization and never applied to saved bodies.
 use crate::grpc_schema::{self, JsonMode};
-use prost_reflect::{FieldDescriptor, Kind, MessageDescriptor};
+use prost_reflect::{Kind, MessageDescriptor};
 use serde_json::{json, Map, Value};
 use std::collections::{HashMap, HashSet};
 
@@ -200,7 +200,7 @@ fn message(desc: &MessageDescriptor, budget: &mut Budget, depth: usize) -> Resul
             // Samples must match the actual reflected request serializer.
             Value::Array(vec![message(&entry, budget, depth + 1)?])
         } else {
-            let value = field_value(&field, field.name(), budget, depth + 1)?;
+            let value = field_value(field.kind(), field.name(), budget, depth + 1)?;
             if field.is_list() {
                 Value::Array(vec![value])
             } else {
@@ -209,16 +209,32 @@ fn message(desc: &MessageDescriptor, budget: &mut Budget, depth: usize) -> Resul
         };
         result.insert(field.name().to_string(), value);
     }
+    // protobuf.js appends resolved extension sister fields to fieldsArray.
+    // Use the same naming, recursion and expansion limits as ordinary fields.
+    for extension in desc.extensions() {
+        if matches!(extension.kind(), Kind::Message(ref child) if child == desc) {
+            continue;
+        }
+        let name = format!(".{}", extension.full_name());
+        budget.field(&name)?;
+        if !budget.visit(format!("field:{name}")) {
+            continue;
+        }
+        let value = field_value(extension.kind(), &name, budget, depth + 1)?;
+        result.insert(
+            name,
+            if extension.is_list() {
+                Value::Array(vec![value])
+            } else {
+                value
+            },
+        );
+    }
     Ok(Value::Object(result))
 }
 
-fn field_value(
-    field: &FieldDescriptor,
-    name: &str,
-    budget: &mut Budget,
-    depth: usize,
-) -> Result<Value, String> {
-    match field.kind() {
+fn field_value(kind: Kind, name: &str, budget: &mut Budget, depth: usize) -> Result<Value, String> {
+    match kind {
         Kind::Message(desc) => message(&desc, budget, depth),
         Kind::Enum(desc) => Ok(json!(desc
             .enum_descriptor_proto()
@@ -226,12 +242,12 @@ fn field_value(
             .first()
             .map(|v| v.number())
             .unwrap_or(0))),
-        _ => scalar(field, name),
+        kind => scalar(kind, name),
     }
 }
 
-fn scalar(field: &FieldDescriptor, name: &str) -> Result<Value, String> {
-    Ok(match field.kind() {
+fn scalar(kind: Kind, name: &str) -> Result<Value, String> {
+    Ok(match kind {
         Kind::String => {
             let name = name.to_lowercase();
             json!(if name.starts_with("id") || name.ends_with("id") {
