@@ -513,11 +513,6 @@
   }
   function keyboard(/** @type {KeyboardEvent} */ event) {
     const key = event.key.toLowerCase();
-    if (["=", "+", "-", "0"].includes(key) && (!event.shiftKey || key === "+")) {
-      event.preventDefault();
-      void nativeMenuAction(key === "0" ? "zoom-reset" : key === "-" ? "zoom-out" : "zoom-in");
-      return;
-    }
     const modifier = event.ctrlKey || event.metaKey;
     const variableDisplayChord = event.altKey && event.shiftKey && event.code === "KeyU" && !modifier;
     const requestSettingsChord = modifier && event.altKey && event.shiftKey && event.code === "Comma";
@@ -533,6 +528,13 @@
       !(modifier || plainF5 || variableDisplayChord)
     )
       return;
+    if (modifier && ["=", "+", "-", "0"].includes(key) && (!event.shiftKey || key === "+")) {
+      event.preventDefault();
+      // Native menu owns its registered accelerators; plus also handles shifted/numpad input.
+      if (!isTauri() || key === "+")
+        void nativeMenuAction(key === "0" ? "zoom-reset" : key === "-" ? "zoom-out" : "zoom-in");
+      return;
+    }
     if (event.ctrlKey && !event.metaKey && key === "tab" && mainView === "requests") {
       event.preventDefault();openSwitcher(true,event.shiftKey);
     } else if (variableDisplayChord) {

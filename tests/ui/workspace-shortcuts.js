@@ -8,7 +8,7 @@ await withPreview("workspace-shortcuts",async (page,output) => {
   const originalUrl = await url.inputValue();
   await url.click();
   await url.press("End");
-  await url.pressSequentially("x");
+  await url.pressSequentially("0");
   await page.evaluate(async () => {
     const path = "/owned-editor-history.js";
     const { runEditorHistory } = await import(path);
@@ -24,7 +24,7 @@ await withPreview("workspace-shortcuts",async (page,output) => {
     const { runEditorHistory } = await import(path);
     runEditorHistory("redo");
   });
-  assert.equal(await url.inputValue(), originalUrl + "x");
+  assert.equal(await url.inputValue(), originalUrl + "0");
   await page.evaluate(async () => {
     const path = "/owned-editor-history.js";
     const { runEditorHistory } = await import(path);

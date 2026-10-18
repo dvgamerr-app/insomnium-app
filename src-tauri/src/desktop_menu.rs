@@ -67,6 +67,12 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
     let fullscreen = MenuItemBuilder::with_id("fullscreen", "Toggle Full Screen")
         .accelerator(fullscreen_accelerator)
         .build(app)?;
+    let zoom_reset = MenuItemBuilder::with_id("zoom-reset", "Actual Size")
+        .accelerator("CmdOrCtrl+0").build(app)?;
+    let zoom_in = MenuItemBuilder::with_id("zoom-in", "Zoom In")
+        .accelerator("CmdOrCtrl+=").build(app)?;
+    let zoom_out = MenuItemBuilder::with_id("zoom-out", "Zoom Out")
+        .accelerator("CmdOrCtrl+-").build(app)?;
     let view = SubmenuBuilder::new(app, "View")
         .item(&fullscreen)
         .separator()
@@ -76,9 +82,9 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
         .separator()
         .text("sidebar", "Toggle Sidebar")
         .separator()
-        .text("zoom-reset", "Actual Size")
-        .text("zoom-in", "Zoom In")
-        .text("zoom-out", "Zoom Out")
+        .item(&zoom_reset)
+        .item(&zoom_in)
+        .item(&zoom_out)
         .build()?;
     let menu = MenuBuilder::new(app)
         .items(&[&application, &file, &edit, &request, &view])
