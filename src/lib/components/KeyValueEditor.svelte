@@ -4,6 +4,8 @@
   import Field from "./ui/Field.svelte";
   import Checkbox from "./ui/Checkbox.svelte";
   import Input from "./ui/Input.svelte";
+  import Textarea from "./ui/Textarea.svelte";
+  import { multipartEncodings } from "../multipart-headers.js";
   import Select from "./ui/Select.svelte";
   import Button from "./ui/Button.svelte";
   import { onDestroy, tick } from "svelte";
@@ -238,6 +240,23 @@
     </div>
     {#if files}<details class="multipart-options">
         <summary>Part options</summary>
+        <Field label="Transfer encoding">
+          <Select aria-label={`Transfer encoding for ${row.name || index + 1}`}
+            value={row.transferEncoding ?? ""}
+            onchange={(event) => change(index, { transferEncoding: event.currentTarget.value || undefined })}>
+            <option value="">None</option>
+            {#if row.transferEncoding && !multipartEncodings.includes(row.transferEncoding)}<option value={row.transferEncoding}>{row.transferEncoding} (unsupported)</option>{/if}
+            {#each multipartEncodings as encoding}<option value={encoding}>{encoding}</option>{/each}
+          </Select>
+        </Field>
+        <Field label="Part headers">
+          <Textarea
+            aria-label={`Part headers for ${row.name || index + 1}`}
+            placeholder="X-Custom: value"
+            value={row.partHeaders ?? ""}
+            oninput={(event) => change(index, { partHeaders: event.currentTarget.value })}
+          />
+        </Field>
         {#if row.type === "file"}<Field layout="inline"
             ><Checkbox
               checked={row.fileContent === true}

@@ -1,3 +1,4 @@
+import { multipartHeaders, multipartEncodings } from "./multipart-headers.js";
 /** Parse curl's form argument grammar after shell quoting has already been removed.
  * No files are read. Unsupported multipart constructs fail explicitly. */
 
@@ -104,13 +105,13 @@ export function parseCurlForm(source, literal = false) {
       );
     index++;
     while (/[ \t]/.test(input[index] || "")) index++;
-    const match = /^(type|filename)=/i.exec(input.slice(index));
+    const match = /^(type|filename|headers|encoder)=/i.exec(input.slice(index));
     if (!match)
       throw new Error(
-        "Unsupported cURL multipart attribute. Supported: type= and filename=.",
+        "Unsupported cURL multipart attribute. Supported: type=, filename=, inline headers= and encoder=.",
       );
     const attribute = match[1].toLowerCase();
-    if (seen.has(attribute))
+    if (seen.has(attribute) && attribute !== "headers")
       throw new Error("Repeated cURL multipart attributes are not supported.");
     seen.add(attribute);
     const item = (attribute === "type" ? mimeWord : word)(
@@ -120,7 +121,16 @@ export function parseCurlForm(source, literal = false) {
     );
     if (/[\x00-\x1f\x7f]/.test(item.value))
       throw new Error("Invalid control character in multipart metadata.");
-    if (attribute === "type") {
+    if (attribute === "encoder") {
+      const encoding = item.value.toLowerCase();
+      if (!multipartEncodings.includes(encoding)) throw new Error("Unsupported cURL multipart encoder.");
+      result.transferEncoding = encoding;
+    } else if (attribute === "headers") {
+      if (item.value.startsWith("@"))
+        throw new Error("cURL multipart header files must be replaced with inline headers.");
+      result.partHeaders = [result.partHeaders, item.value].filter(Boolean).join("\n");
+      multipartHeaders(result.partHeaders);
+    } else if (attribute === "type") {
       result.contentTypeOverride = item.value;
     } else if (!fileContent) result.fileNameOverride = item.value;
     index = item.index;

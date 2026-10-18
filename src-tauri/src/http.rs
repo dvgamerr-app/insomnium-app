@@ -11,6 +11,8 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::sync::watch;
+#[path = "multipart_encoding.rs"]
+mod multipart_encoding;
 
 #[derive(Default)]
 pub struct NetworkState {
@@ -106,6 +108,10 @@ pub struct FormPart {
     #[serde(default)]
     pub(crate) value_base64: bool,
     pub(crate) content_type: Option<String>,
+    #[serde(default)]
+    pub(crate) headers: Vec<(String, String)>,
+    #[serde(default)]
+    pub(crate) transfer_encoding: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -538,7 +544,47 @@ pub(crate) fn build_request(
     if let Some(parts) = &request.multipart {
         let mut form = reqwest::multipart::Form::new();
         for part in parts {
-            let mut field = if part.value_base64 || part.file_name.is_some() {
+            if part.headers.len() > 128
+                || part
+                    .headers
+                    .iter()
+                    .map(|(name, value)| name.len().saturating_add(value.len()))
+                    .sum::<usize>()
+                    > 65536
+            {
+                return Err("Multipart headers exceed 128 rows or 64 KiB.".into());
+            }
+            let mut part_headers = reqwest::header::HeaderMap::new();
+            for (name, value) in &part.headers {
+                if [
+                    "content-disposition",
+                    "content-type",
+                    "content-transfer-encoding",
+                    "content-length",
+                ]
+                .contains(&name.to_ascii_lowercase().as_str())
+                {
+                    return Err("Raw multipart framing header overrides are not supported.".into());
+                }
+                let name = HeaderName::from_bytes(name.as_bytes())
+                    .map_err(|e| format!("Invalid multipart header name: {e}"))?;
+                let value = HeaderValue::from_str(value)
+                    .map_err(|e| format!("Invalid multipart header value: {e}"))?;
+                part_headers.append(name, value);
+            }
+            let mut field = if let Some(encoding) = &part.transfer_encoding {
+                let bytes = if part.value_base64 || part.file_name.is_some() {
+                    STANDARD.decode(&part.value).map_err(|e| e.to_string())?
+                } else {
+                    part.value.as_bytes().to_vec()
+                };
+                let bytes = multipart_encoding::encode(bytes, encoding)?;
+                part_headers.insert(
+                    "content-transfer-encoding",
+                    HeaderValue::from_str(encoding).map_err(|e| e.to_string())?,
+                );
+                reqwest::multipart::Part::bytes(bytes)
+            } else if part.value_base64 || part.file_name.is_some() {
                 reqwest::multipart::Part::bytes(
                     STANDARD.decode(&part.value).map_err(|e| e.to_string())?,
                 )
@@ -551,6 +597,7 @@ pub(crate) fn build_request(
             if let Some(mime) = &part.content_type {
                 field = field.mime_str(mime).map_err(|e| e.to_string())?;
             }
+            field = field.headers(part_headers);
             form = form.part(part.name.clone(), field);
         }
         multipart_content_type = request.multipart_content_type.as_ref().map(|value| {

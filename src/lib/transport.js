@@ -12,6 +12,7 @@ import {
   joinUrlAndQueryString,
 } from "./template-url.js";
 import { composeCurlBody, appendCurlFileQuery } from "./curl-body.js";
+import { multipartHeaders, multipartEncodings } from "./multipart-headers.js";
 import { serializeOpenApiQuery } from "./openapi-query.js";
 import { serializeOpenApiHeader } from "./openapi-header.js";
 import { expandOpenApiPath } from "./openapi-path.js";
@@ -561,8 +562,13 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
           throw new Error(
             `Select the file again for multipart field “${p.name}”`,
           );
+        const transferEncoding = p.transferEncoding ?? null;
+        if (transferEncoding !== null && !multipartEncodings.includes(transferEncoding))
+          throw new Error("Choose a supported multipart transfer encoding.");
         return {
           name: resolve(p.name || ""),
+          headers: multipartHeaders(resolve(p.partHeaders ?? "")),
+          transferEncoding,
           value:
             file
               ? p.base64
@@ -760,6 +766,8 @@ export async function send(request, signal) {
   if (request.multipart) {
     const form = new FormData();
     for (const p of request.multipart) {
+      if (p.headers?.length || p.transferEncoding)
+        throw new Error("Custom multipart headers and transfer encoding require the desktop application.");
       if (p.valueBase64 && p.fileName === null)
         throw new Error(
           "File-content multipart fields require the desktop app to preserve exact bytes.",
