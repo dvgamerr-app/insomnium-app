@@ -1,4 +1,7 @@
-import { serializeTemplateArgument } from "./template-authoring.js";
+import {
+  jsonStringContext,
+  serializeTemplateArgument,
+} from "./template-authoring.js";
 
 /** Names only: completion must not render or expose environment values.
  * @param {Record<string, any>} environment
@@ -70,4 +73,23 @@ export function environmentHints(line, cursor, paths, force = false) {
       displayText: `${path.startsWith("_[") ? "" : alias}${path}`,
     }));
   return { list, from, to };
+}
+
+/** Match decoded template expressions while replacing only their JSON source.
+ * @param {string} line @param {number} cursor @param {string[]} paths @param {boolean} force
+ * @param {ReturnType<typeof jsonStringContext>} [context] */
+export function jsonEnvironmentHints(line, cursor, paths, force = false,
+  context = jsonStringContext(line, cursor, cursor)) {
+  // A cursor in the middle of an escape has no decoded character boundary.
+  if (!context || context.offsets[context.start] !== cursor) return null;
+  const hints = environmentHints(context.value, context.start, paths, force);
+  if (!hints) return null;
+  return {
+    from: context.offsets[hints.from],
+    to: context.offsets[hints.to],
+    list: hints.list.map(hint => ({
+      ...hint,
+      text: JSON.stringify(hint.text).slice(1, -1),
+    })),
+  };
 }

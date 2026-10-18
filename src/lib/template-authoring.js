@@ -332,50 +332,62 @@ export function templateTagRange(text, start, end) {
   return { start, end, text: "" };
 }
 
+/** Decode only the owning JSON string and retain UTF-16 source boundaries.
+ * @param {string} source @param {number} start @param {number} end */
+export function jsonStringContext(source, start, end) {
+  for (let quote = 0; quote < source.length; quote++) {
+    if (source[quote] !== '"') continue;
+    let finish = quote + 1;
+    for (; finish < source.length; finish++) {
+      if (source[finish] === "\\") finish++;
+      else if (source[finish] === '"') break;
+    }
+    if (start > quote && end <= finish && finish < source.length) {
+      try {
+        const decoded = JSON.parse(source.slice(quote, finish + 1));
+        /** @type {number[]} */ const offsets = [quote + 1];
+        let offset = quote + 1;
+        while (offset < finish) {
+          offset +=
+            source[offset] === "\\"
+              ? source[offset + 1] === "u"
+                ? 6
+                : 2
+              : 1;
+          offsets.push(offset);
+        }
+        const index = (/** @type {number} */ position) => {
+          const found = offsets.findIndex((offset) => offset >= position);
+          return found < 0 ? decoded.length : found;
+        };
+        return {
+          value: /** @type {string} */ (decoded),
+          offsets,
+          start: index(start),
+          end: index(end),
+        };
+      } catch {
+        /* Incomplete JSON remains editable through raw authoring. */
+      }
+    }
+    quote = finish;
+  }
+  return null;
+}
+
 /** JSON editors display escaped string source. Decode only the owning JSON
- * string, map the tag selection back to source offsets, and escape replacement
- * on Apply. Never parse/evaluate the surrounding document or template.
+ * string and map the tag selection back to source offsets.
  * @param {string} source @param {number} start @param {number} end @param {boolean} json */
 export function templateEditorRange(source, start, end, json) {
-  if (json) {
-    for (let quote = 0; quote < source.length; quote++) {
-      if (source[quote] !== '"') continue;
-      let finish = quote + 1;
-      for (; finish < source.length; finish++) {
-        if (source[finish] === "\\") finish++;
-        else if (source[finish] === '"') break;
-      }
-      if (start > quote && end <= finish && finish < source.length) {
-        try {
-          const decoded = JSON.parse(source.slice(quote, finish + 1));
-          /** @type {number[]} */ const offsets = [quote + 1];
-          let offset = quote + 1;
-          while (offset < finish) {
-            offset +=
-              source[offset] === "\\"
-                ? source[offset + 1] === "u"
-                  ? 6
-                  : 2
-                : 1;
-            offsets.push(offset);
-          }
-          const index = (/** @type {number} */ position) => {
-            const found = offsets.findIndex((offset) => offset >= position);
-            return found < 0 ? decoded.length : found;
-          };
-          const range = templateTagRange(decoded, index(start), index(end));
-          return {
-            start: offsets[range.start],
-            end: offsets[range.end],
-            text: range.text,
-            jsonString: true,
-          };
-        } catch {
-          /* Incomplete JSON remains editable through raw authoring. */
-        }
-      }
-      quote = finish;
-    }
+  const context = json ? jsonStringContext(source, start, end) : null;
+  if (context) {
+    const range = templateTagRange(context.value, context.start, context.end);
+    return {
+      start: context.offsets[range.start],
+      end: context.offsets[range.end],
+      text: range.text,
+      jsonString: true,
+    };
   }
   return { ...templateTagRange(source, start, end), jsonString: false };
 }

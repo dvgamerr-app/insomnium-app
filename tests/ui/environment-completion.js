@@ -13,12 +13,15 @@ await withPreview("environment-completion",async (page,output) => {
   const editor = page.locator(".CodeMirror").first();
   await editor.waitFor();
   for (const path of ["_['api-key']","_['quote\\'\"key']","user['display name']"]) {
-    await editor.evaluate((element) => {
+    const prefix = "{{ " + (path.includes("\\") ? path.slice(0,-4) : "");
+    const text = JSON.stringify({value:prefix + "}}"});
+    const cursor = JSON.stringify({value:prefix}).length - 2;
+    await editor.evaluate((element,{text,cursor}) => {
       const cm = /** @type {any} */ (element).CodeMirror;
-      cm.setValue('{"value":"{{ }}"}');
-      cm.setCursor({line:0,ch:13});
+      cm.setValue(text);
+      cm.setCursor({line:0,ch:cursor});
       cm.focus();
-    });
+    },{text,cursor});
     await page.keyboard.press("Control+Space");
     const hints = page.locator(".CodeMirror-hints");
     await hints.waitFor();

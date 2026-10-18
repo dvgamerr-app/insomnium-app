@@ -3,7 +3,7 @@
   import {attachVariablePreview} from "../editor-variable-preview.js";
   import Feedback from "./ui/Feedback.svelte";
   import TemplateTagDialog from "./TemplateTagDialog.svelte";
-  import { templateEditorRange } from "../template-authoring.js";
+  import { jsonStringContext, templateEditorRange } from "../template-authoring.js";
   import { isJsonBodyMediaType } from "../media-type.js";
   import { onMount, tick } from "svelte";
   import { fontPreferencesEvent } from "../font-preferences.js";
@@ -11,7 +11,11 @@
   import { editorHistoryEvent } from "../editor-history.js";
   import { attachGraphqlHover } from "../editor-hover.js";
   import { loadEditorKeymap } from "../editor-keymaps.js";
-  import { environmentPaths, environmentHints } from "../editor-completion.js";
+  import {
+    environmentPaths,
+    environmentHints,
+    jsonEnvironmentHints,
+  } from "../editor-completion.js";
   import {
     editorMode,
     saveEditorState,
@@ -171,18 +175,22 @@
       completeSingle: false,
       hint: (/** @type {import('codemirror').Editor} */ editor) => {
         const cursor = editor.getCursor();
-        const hints = environmentHints(
-          editor.getLine(cursor.line),
-          cursor.ch,
-          paths,
-          force && !editorMode(mode).startsWith("graphql"),
-        );
-        if (hints && (templateRange || isJsonBodyMediaType(mode) || mode === "graphql-variables")) {
-          const source = editor.getValue();
-          const offset = editor.indexFromPos(cursor);
-          if ((templateRange ? templateRange(source,offset,offset) : templateEditorRange(source, offset, offset, true)).jsonString)
-            hints.list = hints.list.map((hint) => ({...hint,text:JSON.stringify(hint.text).slice(1,-1)}));
+        const line = editor.getLine(cursor.line);
+        let context = null;
+        if ((force || line.slice(0, cursor.ch).includes("{{")) &&
+            (templateRange || isJsonBodyMediaType(mode) || mode === "graphql-variables")) {
+          let jsonString = !templateRange;
+          if (templateRange) {
+            const source = editor.getValue();
+            const offset = editor.indexFromPos(cursor);
+            jsonString = templateRange(source, offset, offset).jsonString;
+          }
+          if (jsonString) context = jsonStringContext(line, cursor.ch, cursor.ch);
         }
+        const forceEnvironment = force && !editorMode(mode).startsWith("graphql");
+        const hints = context
+          ? jsonEnvironmentHints(line, cursor.ch, paths, forceEnvironment, context)
+          : environmentHints(line, cursor.ch, paths, forceEnvironment);
         return hints
           ? {
               ...hints,
