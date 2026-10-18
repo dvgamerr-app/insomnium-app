@@ -12,7 +12,8 @@ import {pathToFileURL} from "node:url";
 import { createHash } from "node:crypto";
 import { newRequest } from "../../src/lib/model.js";
 import { builtinTemplateNames } from "../../src/lib/template-registration.js";
-import { withNativeApp, poll, probeIdentifier } from "./helpers/native-app.js";
+import { withNativeApp, poll, probeIdentifier, integrationProbeIdentifier, selectedNativeProbeIdentifier } from "./helpers/native-app.js";
+import { preserveNativeProfile } from "./helpers/native-profile-preservation.js";
 import {
   installPluginWorkerProbe,
   pluginWorkerRecords,
@@ -58,7 +59,7 @@ const socketMessages = /** @type {string[]} */ ([]);
 let socketConnections = 0;
 
 const readyText =
-  "Plugin loaded in isolation. Custom template tags are available to request rendering. Hooks and actions are not connected yet.";
+  "Plugin loaded in isolation. Supported template tags, hooks, actions and themes are available.";
 const names = ["insomnia-plugin-render-a", "insomnia-plugin-render-b"];
 const publicNames = [
   "UnicodeTag",
@@ -72,12 +73,15 @@ const publicNames = [
   "a\\b",
 ];
 assert.ok(process.env.APPDATA);
-const storeRoot = resolve(process.env.APPDATA, probeIdentifier);
+const selectedIdentifier = selectedNativeProbeIdentifier();
+assert.ok([probeIdentifier,integrationProbeIdentifier].includes(selectedIdentifier));
+const storeRoot = resolve(process.env.APPDATA, selectedIdentifier);
 assert.equal(
   (await realpath(storeRoot)).toLowerCase(),
   storeRoot.toLowerCase(),
 );
 const storePath = join(storeRoot, "plugin-data-v1.json");
+/** @type {Buffer | undefined} */
 let originalStore;
 try {
   const stat = await lstat(storePath);
@@ -121,6 +125,7 @@ const server = Bun.serve({
     message(socket,message) {const text=String(message);socketMessages.push(text);socket.send(text);},
   },
 });
+const run = async () => {
 try {
   await withNativeApp(
     editorMode ? "plugin-template-editor" : "plugin-template-tags",
@@ -908,3 +913,6 @@ try {
     assert.equal(await Bun.file(storePath).exists(), false);
   }
 }
+};
+if(selectedIdentifier===integrationProbeIdentifier) await preserveNativeProfile(run);
+else await run();
