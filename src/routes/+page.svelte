@@ -52,6 +52,7 @@
     persist,
     update,
     selectRequest,
+    refreshHttpResponses,
     selectWorkspace,
     setSidebarHidden,
     setSidebarFilter,
@@ -135,6 +136,7 @@
   let pendingImport = $state(
     /** @type {ReturnType<typeof parseImport> | null} */ (null),
   );
+  let importPreferences = $state(false);
   let importHistoryReview = $state(
     /** @type {ReturnType<typeof reviewImportedHistory> | null} */ (null),
   );
@@ -386,7 +388,13 @@
   /** @param {ReturnType<typeof parseImport>} review */
   function setImportReview(review) {
     pendingImport = review;
+    importPreferences = false;
     importHistoryReview = reviewImportedHistory(app.data, review);
+  }
+  function reviewImportPreferences(/** @type {boolean} */ enabled) {
+    if (!pendingImport) return;
+    importPreferences = enabled;
+    importHistoryReview = reviewImportedHistory(app.data, pendingImport, {preferences:enabled});
   }
   async function loadLegacyResponseFiles() {
     return loadLegacyFiles(pickLegacyResponseHistory);
@@ -422,20 +430,22 @@
   function applyImport() {
     if (!canEditWorkspace()) return;
     if (!pendingImport || importBusy || !importHistoryReview) return;
-    const checked = reviewImportedHistory(app.data, pendingImport);
+    const checked = reviewImportedHistory(app.data, pendingImport, {preferences:importPreferences});
     if (checked.signature !== importHistoryReview.signature) {
       importHistoryReview = checked;
-      modalError = "Saved history or its limits changed. Review the updated response counts before importing.";
+      modalError = "Saved history or app preferences changed. Review the updated import before applying.";
       return;
     }
     if (checked.blocked) return;
-    try{applyImportedData(app.data,pendingImport);}catch(error){modalError=String(error);return;}
+    try{applyImportedData(app.data,pendingImport,{preferences:importPreferences});}catch(error){modalError=String(error);return;}
+    if (Object.hasOwn(checked.settingsPatch,"filterResponsesByEnv")) refreshHttpResponses();
     const target = pendingImport.resources.find((r) => r._type === "workspace");
     if (target) selectWorkspace(target._id);
     if (checked.accepted.length && app.data.activeRequestId) selectRequest(app.data.activeRequestId);
     if (pendingImport.apiSpecs) mainView = "design";
     app.notice = `Imported ${pendingImport.requests} requests and ${pendingImport.environments} environments. ${pendingImport.preserved} additional resources preserved.`;
     if (checked.accepted.length) app.notice += ` Restored ${checked.accepted.length} saved responses.`;
+    if (importPreferences) app.notice += " Compatible app preferences applied.";
     if (pendingImport.cookieJars)
       app.notice +=
         " Open Cookies → Restore cookies from imported collections to review and activate the saved cookies.";
@@ -1313,6 +1323,17 @@
             Existing collections will be kept. {pendingImport.preserved} additional
             resources will be preserved.
           </p>
+          {#if pendingImport.legacyPreferences.count}
+            {#if pendingImport.legacyPreferences.canApply}
+              <Field layout="inline" class="checkbox-label"><Checkbox checked={importPreferences} disabled={importBusy}
+                onchange={event=>reviewImportPreferences(event.currentTarget.checked)}/>Apply compatible app preferences</Field>
+              <details class="hint"><summary>Preference changes ({pendingImport.legacyPreferences.fields.length})</summary>
+                {#each pendingImport.legacyPreferences.fields as field}<p>{field.label}: {field.value}</p>{/each}
+              </details>
+            {/if}
+            <p class="hint">The settings record stays preserved. Only the listed values can be applied; paths, credentials, plugin activation and other preferences stay as they are.</p>
+            {#each pendingImport.legacyPreferences.warnings as warning}<p class="hint">{warning}</p>{/each}
+          {/if}
           {#each pendingImport.warnings as warning}<p class="hint">
               {warning}
             </p>{/each}

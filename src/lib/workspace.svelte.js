@@ -80,6 +80,7 @@ import { prepareRenderedRequest, send, cancel } from "./transport.js";
 import { connectStream, sendMessage, appendStreamEvent } from "./streaming.js";
 import { loadGrpcSchema, connectGrpc, sendGrpcMessage } from "./grpc.js";
 import { createNativeCancellation } from "./native-cancellation.js";
+import { redirectLimit } from "./request-redirects.js";
 import {
   prepareProtoChange,
   protoFingerprint,
@@ -605,6 +606,10 @@ export function canEditWorkspace() {
 export function updateSettings(patch) {
   if (!canEditWorkspace()) return;
   const next = { ...patch };
+  if (Object.hasOwn(next, "maxRedirects")) {
+    try { next.maxRedirects = redirectLimit(next.maxRedirects) ?? 10; }
+    catch (error) { workspace.error = String(error); return; }
+  }
   if (Object.hasOwn(next, "filterResponsesByEnv")) next.filterResponsesByEnv = next.filterResponsesByEnv === true;
   if (Object.hasOwn(next, "editorIndentSize"))
     next.editorIndentSize = Math.max(
@@ -2564,7 +2569,7 @@ function refreshStreamResponses(onlyRequestId) {
 /** Select the newest saved ordinary HTTP response for each current environment.
  * SSE/WebSocket saved choices refresh under the same environment policy; live runs are untouched. */
 /** @param {string} [onlyRequestId] */
-function refreshHttpResponses(onlyRequestId) {
+export function refreshHttpResponses(onlyRequestId) {
   for (const request of workspace.data.resources) {
     if (request._type !== "request" || protocolFor(request) !== "http" || workspace.running[request._id] || (onlyRequestId && request._id !== onlyRequestId)) continue;
     const environmentId = selectedEnvironmentFor(workspace.data, workspaceFor(workspace.data.resources, request._id) || "");

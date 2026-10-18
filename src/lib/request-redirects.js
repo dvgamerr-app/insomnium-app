@@ -1,4 +1,4 @@
-/** Blank retains the application's existing ten-redirect policy.
+/** Blank leaves this level's redirect limit unspecified.
  * @param {unknown} value */
 export function redirectLimit(value) {
   if (value == null || value === "") return null;
@@ -13,4 +13,13 @@ export function redirectLimit(value) {
       "Maximum redirects must be -1 (unlimited) or a whole number from 0 to 2,147,483,647.",
     );
   return Number(value);
+}
+
+/** Request overrides take precedence; the ordinary default keeps its old IPC shape.
+ * @param {Record<string,any>} settings @param {Record<string,any>} request */
+export function requestRedirectLimit(settings, request) {
+  const override = redirectLimit(request.settingMaxRedirects);
+  if (override !== null) return override;
+  const global = redirectLimit(settings.maxRedirects);
+  return global === 10 ? null : global;
 }

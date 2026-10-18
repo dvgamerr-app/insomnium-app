@@ -252,6 +252,9 @@
                       updateSettings({ timeout: optionalNumber(event) })}
                   /></Field
                 >
+                <Field label="Maximum redirects"><Input type="number" min="-1" max="2147483647" step="1"
+                  value={settings.maxRedirects ?? 10}
+                  onchange={event=>{if(event.currentTarget.reportValidity()) updateSettings({maxRedirects:optionalNumber(event)})}}/></Field>
                 <Field label="Response history limit"
                   ><Input
                     type="number"
@@ -263,6 +266,7 @@
                   /></Field
                 >
               </div>
+              <p class="hint">Maximum redirects applies unless a request overrides it. Use -1 for unlimited, or 0 to reject redirects.</p>
               <Field layout="inline" class="checkbox-label"
                 ><Checkbox
                   checked={settings.filterResponsesByEnv}
@@ -276,7 +280,7 @@
                     updateSettings({
                       followRedirects: event.currentTarget.checked,
                     })}
-                />Follow redirects (maximum 10)</Field
+                />Follow redirects</Field
               >
               <Field layout="inline" class="checkbox-label"
                 ><Checkbox

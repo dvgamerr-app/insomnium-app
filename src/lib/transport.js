@@ -29,7 +29,7 @@ import { prepareOAuth1 } from "./oauth1-model.js";
 import { prepareHawk } from "./hawk-model.js";
 import { prepareAsap } from "./asap-model.js";
 import { requestProxy } from "./request-proxy.js";
-import { redirectLimit } from "./request-redirects.js";
+import { requestRedirectLimit } from "./request-redirects.js";
 import { requestTimeouts } from "./request-timeouts.js";
 import { assertCurlHeaderFiles } from "./curl-headers.js";
 
@@ -651,7 +651,7 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
     timeoutMs: Number(settings.timeout),
     ...requestTimeouts(request),
     decodeResponse: request.settingDecodeResponse ?? null,
-    maxRedirects: redirectLimit(request.settingMaxRedirects),
+    maxRedirects: requestRedirectLimit(settings, request),
     followRedirects:
       request.settingFollowRedirects === "on"
         ? true

@@ -4,6 +4,7 @@ import { open, save } from "@tauri-apps/plugin-dialog";
 import { readTextFile, writeTextFile, writeFile, stat } from "@tauri-apps/plugin-fs";
 import { id, initialData, newRequest, protocolFor } from "./model.js";
 import { parseLegacyFiles } from "./legacy-import.js";
+import { legacyPreferenceCandidate } from "./legacy-preferences.js";
 import { legacyV1Resources } from "./legacy-v1-import.js";
 import { hoppscotchResources } from "./hoppscotch-import.js";
 import { wsdlResources } from './wsdl-import.js';
@@ -448,6 +449,7 @@ export function parseImport(text,options = {}) {
   return {
     resources,
     history: legacyHistory.history,
+    legacyPreferences: legacyPreferenceCandidate(resources),
     legacyResponses: resources.filter((r) => ["response","websocket_response"].includes(r._type)).length,
     legacyHistoryWarnings: legacyHistory.warnings,
     legacyRequestFiles: requestFiles.pending,

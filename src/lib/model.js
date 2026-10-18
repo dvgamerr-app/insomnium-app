@@ -94,6 +94,7 @@ export function initialData() {
       autocompleteDelay: 1200,
       timeout: 30000,
       followRedirects: true,
+      maxRedirects: 10,
       validateCertificates: true,
       useCookies: true,
       proxy: "",
