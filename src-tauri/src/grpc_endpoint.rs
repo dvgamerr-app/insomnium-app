@@ -2,6 +2,27 @@ pub(crate) struct Target {
     pub url: reqwest::Url,
     pub addresses: Vec<reqwest::Url>,
     pub socket_path: Option<String>,
+    pub dns_server: Option<std::net::SocketAddr>,
+}
+
+fn dns_server(raw: &str) -> Result<std::net::SocketAddr, String> {
+    let host = raw
+        .strip_prefix('[')
+        .and_then(|s| s.strip_suffix(']'))
+        .unwrap_or(raw);
+    if let Ok(ip) = host.parse::<std::net::IpAddr>() {
+        return Ok(std::net::SocketAddr::new(ip, 53));
+    }
+    let mut address: std::net::SocketAddr = raw
+        .parse()
+        .map_err(|_| "A gRPC DNS server requires an IP address and optional port.")?;
+    if matches!(address, std::net::SocketAddr::V6(v6) if v6.scope_id() != 0) {
+        return Err("Scoped gRPC DNS server addresses are not supported.".into());
+    }
+    if address.port() == 0 {
+        address.set_port(53);
+    }
+    Ok(address)
 }
 
 pub(crate) fn parse(raw: &str) -> Result<Target, String> {
@@ -40,15 +61,17 @@ pub(crate) fn parse(raw: &str) -> Result<Target, String> {
             .map_err(|_| "Invalid gRPC socket authority.")?,
             addresses: Vec::new(),
             socket_path: Some(path),
+            dns_server: None,
         });
     }
     let dns = address.to_ascii_lowercase().starts_with("dns:");
+    let mut server = None;
     if dns {
         let mut path = &address[4..];
         if let Some(rest) = path.strip_prefix("//") {
             let (authority, host) = rest.split_once('/').ok_or("Invalid gRPC DNS target.")?;
             if !authority.is_empty() {
-                return Err("Custom gRPC DNS servers are not supported yet.".into());
+                server = Some(dns_server(authority)?);
             }
             path = host;
         }
@@ -132,6 +155,7 @@ pub(crate) fn parse(raw: &str) -> Result<Target, String> {
             url: addresses[0].clone(),
             addresses,
             socket_path: None,
+            dns_server: None,
         });
     }
     let grpc_style = dns
@@ -166,5 +190,6 @@ pub(crate) fn parse(raw: &str) -> Result<Target, String> {
         url,
         addresses: Vec::new(),
         socket_path: None,
+        dns_server: server,
     })
 }

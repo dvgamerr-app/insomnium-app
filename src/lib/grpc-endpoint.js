@@ -1,5 +1,29 @@
-/** Parse transport addresses without changing the saved request URL.
+/** Validate a DNS server's numeric address and optional port.
  * @param {string} raw */
+function dnsServer(raw) {
+  const bracket = /^\[([^\]]+)\](?::([0-9]+))?$/.exec(raw);
+  const parts = raw.split(":");
+  const host = bracket ? bracket[1] : parts.length === 2 ? parts[0] : raw;
+  const port = bracket ? bracket[2] : parts.length === 2 ? parts[1] : undefined;
+  if (bracket && !host.includes(":"))
+    throw new Error("A bracketed gRPC DNS server requires IPv6.");
+  if (port !== undefined && (!/^[0-9]+$/.test(port) || Number(port) > 65535))
+    throw new Error("Invalid gRPC DNS server port.");
+  if (
+    !host.includes(":") &&
+    (host.split(".").length !== 4 ||
+      host
+        .split(".")
+        .some(
+          (part) => !/^(0|[1-9][0-9]{0,2})$/.test(part) || Number(part) > 255,
+        ))
+  )
+    throw new Error("A gRPC DNS server requires an IP address.");
+  const url = new URL(`http://${host.includes(":") ? `[${host}]` : host}/`);
+  return `${url.hostname}:${Number(port ?? 53) || 53}`;
+}
+
+/** @param {string} raw */
 export function grpcEndpoint(raw) {
   const secure = /^grpcs:\/\//i.test(raw);
   let address = raw.replace(/^grpcs?:\/\//i, "");
@@ -18,13 +42,13 @@ export function grpcEndpoint(raw) {
     };
   }
   const dns = /^dns:/i.test(address);
+  let server = "";
   if (dns) {
     let path = address.slice(4);
     if (path.startsWith("//")) {
       const slash = path.indexOf("/", 2);
       if (slash < 0) throw new Error("Invalid gRPC DNS target.");
-      if (slash > 2)
-        throw new Error("Custom gRPC DNS servers are not supported yet.");
+      if (slash > 2) server = dnsServer(path.slice(2, slash));
       path = path.slice(slash + 1);
     }
     if (!path || /[/?#@\\]/.test(path))
@@ -106,5 +130,10 @@ export function grpcEndpoint(raw) {
     const probe = new URL(`grpc://${host}`);
     if (!probe.port) url.port = "443";
   }
-  return { url, target: url.toString() };
+  return {
+    url,
+    target: server
+      ? `${secure ? "grpcs://" : ""}dns://${server}/${url.hostname}:${url.port || (secure ? 443 : 80)}`
+      : url.toString(),
+  };
 }

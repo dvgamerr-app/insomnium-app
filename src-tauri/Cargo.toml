@@ -76,6 +76,7 @@ md-5 = "=0.11.0"
 rustls = { version = "=0.23.45", default-features = false, features = ["ring", "std", "tls12"] }
 tauri-plugin-clipboard-manager = "2"
 flate2 = { version = "=1.1.10", default-features = false, features = ["rust_backend"] }
+hickory-resolver = { version = "=0.26.3", default-features = false, features = ["system-config", "tokio"] }
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

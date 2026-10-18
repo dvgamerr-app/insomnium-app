@@ -4,8 +4,10 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use hyper_util::rt::TokioIo;
 use reqwest::Url;
 use std::{
+    future::Future,
     io,
     net::{Ipv4Addr, SocketAddr},
+    pin::Pin,
     sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc,
@@ -178,6 +180,14 @@ pub(crate) async fn tunnel(proxy: &Proxy, target: &str) -> io::Result<BufReader<
 
 pub(crate) async fn connect(endpoint: Endpoint, target: &Url) -> Result<Channel, String> {
     let selected = select(target, |key| std::env::var(key).ok())?;
+    connect_selected(endpoint, target, selected).await
+}
+
+pub(crate) async fn connect_selected(
+    endpoint: Endpoint,
+    target: &Url,
+    selected: Option<Proxy>,
+) -> Result<Channel, String> {
     if let Some(proxy) = selected {
         let target = authority(target);
         endpoint
@@ -200,10 +210,15 @@ struct StaticDial {
     proxy: Option<Proxy>,
 }
 
+pub(crate) type AddressResolver = Arc<
+    dyn Fn() -> Pin<Box<dyn Future<Output = io::Result<Vec<SocketAddr>>> + Send>> + Send + Sync,
+>;
+
 async fn static_candidate(
     endpoint: Endpoint,
     addresses: Arc<Vec<StaticDial>>,
     start: usize,
+    resolver: Option<AddressResolver>,
 ) -> Result<Channel, tonic::transport::Error> {
     // A disconnected selected channel starts at the following address. Each
     // connector owns its cursor, so losing initial races cannot alter the winner.
@@ -214,13 +229,34 @@ async fn static_candidate(
             let addresses = addresses.clone();
             let next = next.clone();
             let first = first.clone();
+            let resolver = resolver.clone();
             async move {
                 let mut last = io::Error::other("No gRPC IP address was reachable.");
-                let attempts = if first.swap(false, Ordering::Relaxed) {
-                    1
+                let initial = first.swap(false, Ordering::Relaxed);
+                let addresses = if !initial {
+                    if let Some(resolve) = resolver {
+                        let refreshed = resolve().await?;
+                        if refreshed.is_empty() {
+                            return Err(io::Error::other("gRPC DNS returned no addresses."));
+                        }
+                        Arc::new(
+                            refreshed
+                                .into_iter()
+                                .take(256)
+                                .map(|address| StaticDial {
+                                    address,
+                                    target: String::new(),
+                                    proxy: None,
+                                })
+                                .collect(),
+                        )
+                    } else {
+                        addresses
+                    }
                 } else {
-                    addresses.len()
+                    addresses
                 };
+                let attempts = if initial { 1 } else { addresses.len() };
                 for _ in 0..attempts {
                     let dial = &addresses[next.fetch_add(1, Ordering::Relaxed) % addresses.len()];
                     let result = if let Some(proxy) = &dial.proxy {
@@ -250,7 +286,6 @@ pub(crate) async fn connect_static(
     targets: &[Url],
     timeout: Option<Duration>,
 ) -> Result<Channel, String> {
-    use futures_util::{stream::FuturesUnordered, StreamExt};
     let mut addresses = Vec::with_capacity(targets.len());
     for target in targets {
         let host = target
@@ -265,13 +300,46 @@ pub(crate) async fn connect_static(
             proxy: select(target, |key| std::env::var(key).ok())?,
         });
     }
+    connect_dials(endpoint, addresses, None, timeout).await
+}
+
+pub(crate) async fn connect_resolved(
+    endpoint: Endpoint,
+    addresses: &[SocketAddr],
+    resolver: AddressResolver,
+    timeout: Option<Duration>,
+) -> Result<Channel, String> {
+    let addresses = addresses
+        .iter()
+        .take(256)
+        .map(|address| StaticDial {
+            address: *address,
+            target: String::new(),
+            proxy: None,
+        })
+        .collect();
+    connect_dials(endpoint, addresses, Some(resolver), timeout).await
+}
+
+async fn connect_dials(
+    endpoint: Endpoint,
+    addresses: Vec<StaticDial>,
+    resolver: Option<AddressResolver>,
+    timeout: Option<Duration>,
+) -> Result<Channel, String> {
+    use futures_util::{stream::FuturesUnordered, StreamExt};
     if addresses.is_empty() {
         return Err("A gRPC IP target requires at least one address.".into());
     }
     let addresses = Arc::new(addresses);
     let connect = async {
         let mut pending = FuturesUnordered::new();
-        pending.push(static_candidate(endpoint.clone(), addresses.clone(), 0));
+        pending.push(static_candidate(
+            endpoint.clone(),
+            addresses.clone(),
+            0,
+            resolver.clone(),
+        ));
         let mut next = 1;
         loop {
             tokio::select! {
@@ -279,7 +347,7 @@ pub(crate) async fn connect_static(
                     Ok(channel) => return Ok(channel),
                     Err(error) => {
                         if next < addresses.len() {
-                            pending.push(static_candidate(endpoint.clone(), addresses.clone(), next));
+                            pending.push(static_candidate(endpoint.clone(), addresses.clone(), next, resolver.clone()));
                             next += 1;
                         } else if pending.is_empty() {
                             return Err(format!("Could not connect to gRPC IP targets: {error}"));
@@ -290,7 +358,7 @@ pub(crate) async fn connect_static(
                     // grpc-js pick_first starts another address after 250 ms.
                     // Race whole Tonic connections, including TLS and HTTP/2,
                     // rather than choosing a socket before its handshake works.
-                    pending.push(static_candidate(endpoint.clone(), addresses.clone(), next));
+                    pending.push(static_candidate(endpoint.clone(), addresses.clone(), next, resolver.clone()));
                     next += 1;
                 }
             }

@@ -20,6 +20,9 @@ mod endpoint_url;
 #[path = "grpc_socket.rs"]
 mod socket;
 
+#[path = "grpc_dns.rs"]
+mod dns;
+
 #[cfg(test)]
 #[path = "grpc_reflection_arrival_tests.rs"]
 mod arrival_tests;
@@ -203,10 +206,12 @@ pub(crate) async fn channel(config: &Connection) -> Result<Channel, String> {
     }
     if let Some(path) = &target.socket_path {
         socket::connect(endpoint, path).await
-    } else if target.addresses.is_empty() {
-        proxy::connect(endpoint, url).await
-    } else {
+    } else if !target.addresses.is_empty() {
         proxy::connect_static(endpoint, &target.addresses, connect_timeout).await
+    } else if dns::enabled() {
+        dns::connect(endpoint, url, target.dns_server, connect_timeout).await
+    } else {
+        proxy::connect(endpoint, url).await
     }
 }
 
