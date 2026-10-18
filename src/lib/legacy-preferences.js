@@ -33,6 +33,7 @@ export function legacyPreferenceCandidate(resources) {
       2000,
     ],
     ["editorIndentSize", "editorIndentSize", "Editor indent width", 1, 16],
+    ["editorFontSize", "editorFontSize", "Editor font size (px)", 8, 24],
   ];
   for (const [source, key, label, min, max] of numbers) {
     if (!Object.hasOwn(record, source)) continue;

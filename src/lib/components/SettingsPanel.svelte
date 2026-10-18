@@ -185,6 +185,9 @@
                     ]}
                   /></Field
                 >
+                <Field label="Font size (px)"><Input type="number" min="8" max="24" step="1"
+                  value={settings.editorFontSize ?? 12}
+                  onchange={event => { if (event.currentTarget.reportValidity()) updateSettings({editorFontSize:event.currentTarget.valueAsNumber}); }} /></Field>
                 <Field label="Indent width"
                   ><Input
                     type="number"

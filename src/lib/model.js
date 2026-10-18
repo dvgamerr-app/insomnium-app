@@ -86,6 +86,7 @@ export function initialData() {
       autoDetectColorScheme: false,
       lightTheme: "light",
       darkTheme: "dark",
+      editorFontSize: 12,
       editorIndentSize: 2,
       editorIndentWithTabs: true,
       editorKeyMap: "default",

@@ -4,7 +4,8 @@
   import TemplateTagDialog from "./TemplateTagDialog.svelte";
   import { templateEditorRange } from "../template-authoring.js";
   import { isJsonBodyMediaType } from "../media-type.js";
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
+  import { editorFontSize } from "../editor-preferences.js";
   import { editorHistoryEvent } from "../editor-history.js";
   import { attachGraphqlHover } from "../editor-hover.js";
   import { loadEditorKeymap } from "../editor-keymaps.js";
@@ -44,6 +45,14 @@
       undefined
     ),
   );
+  $effect(() => {
+    const size = editorFontSize(settings.editorFontSize);
+    const editor = cm;
+    if (!editor) return;
+    let active = true;
+    void tick().then(() => { if (active) editor.refresh(); });
+    return () => { active = false; };
+  });
   let failure = $state("");
   let editingTag = $state(
     /** @type {{session:ReturnType<typeof import('../template-editor-session.svelte.js').createTemplateEditorSession>,identity:string,source:string,start:number,end:number,text:string,jsonString:boolean}|null} */ (
@@ -594,7 +603,7 @@
   });
 </script>
 
-<div class="shared-code-editor" bind:this={host}>
+<div class="shared-code-editor" bind:this={host} style:--editor-font-size={`${editorFontSize(settings.editorFontSize)}px`}>
   {#if failure}<Feedback as="p" class="inline-error"
       >Editor unavailable: {failure}</Feedback
     >{/if}
@@ -701,13 +710,14 @@
     min-height: 180px;
     resize: vertical;
     font-family: var(--font-mono);
+    font-size: var(--editor-font-size, var(--font-size-12));
   }
   .shared-code-editor :global(.CodeMirror) {
     height: 100%;
     min-height: 180px;
     background: var(--bg);
     color: var(--text);
-    font: var(--font-size-12)/1.6 var(--font-mono);
+    font: var(--editor-font-size, var(--font-size-12))/1.6 var(--font-mono);
   }
   .shared-code-editor :global(.CodeMirror-gutters) {
     background: var(--bg);

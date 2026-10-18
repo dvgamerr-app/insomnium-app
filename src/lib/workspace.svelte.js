@@ -606,6 +606,13 @@ export function canEditWorkspace() {
 export function updateSettings(patch) {
   if (!canEditWorkspace()) return;
   const next = { ...patch };
+  if (Object.hasOwn(next, "editorFontSize")) {
+    const value = next.editorFontSize;
+    if (typeof value !== "number" || !Number.isInteger(value) || value < 8 || value > 24) {
+      workspace.error = "Editor font size must be a whole number from 8 to 24 px.";
+      return;
+    }
+  }
   if (Object.hasOwn(next, "timeout")) {
     const value = next.timeout;
     if ((typeof value !== "number" && typeof value !== "string") || value === "" ||
