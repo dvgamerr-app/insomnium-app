@@ -278,6 +278,7 @@ const flags = new Set([
   "location",
   "no-location",
   "globoff",
+  "no-globoff",
   "silent",
   "show-error",
   "verbose",
@@ -825,7 +826,8 @@ export function curlResources(text, importOptions = {}) {
     // Currently accepted global flags affect CLI presentation only. They have
     // no transfer state to carry. Every request-local option starts afresh.
     return groups.flatMap((entries) => {
-      const globoff = entries.some((entry) => entry.name === "globoff");
+      const globoff = entries.filter((entry) =>
+        ["globoff", "no-globoff"].includes(entry.name)).at(-1)?.name === "globoff";
       const expanded = [];
       const uploads = entries.filter(entry => entry.name === "upload-file");
       if (uploads.length > entries.filter(entry => entry.name === "url").length)

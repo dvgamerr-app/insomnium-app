@@ -89,7 +89,11 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf rpm libgles2 dpkg-dev
+          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf rpm libgles2 dpkg-dev libclang-dev
+          # Override the checkout's Windows-only extracted LLVM fallback.
+          libclang=$(find /usr/lib -name libclang.so -print -quit)
+          test -n "$libclang"
+          echo "LIBCLANG_PATH=$(dirname "$libclang")" >> "$GITHUB_ENV"
 
       - name: Install pinned Rust
         run: |
