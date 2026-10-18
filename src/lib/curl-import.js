@@ -1,4 +1,5 @@
 import { parseCurlForm } from "./curl-form.js";
+import { expandCurlUrl } from "./curl-url-glob.js";
 import { id, newRequest } from "./model.js";
 
 // Parse pasted text only. Never run curl, a shell, expansions, or file reads.
@@ -615,10 +616,6 @@ function requestsFor(words, workspaceId, entries) {
       throw new Error(
         "cURL import requires an explicit http:// or https:// URL.",
       );
-    if (!has("globoff") && (/[{}]/.test(url) || /\[[^\]]*-[^\]]*\]/.test(url)))
-      throw new Error(
-        "cURL URL globbing is not supported. Expand URLs or use --globoff for a literal URL.",
-      );
     try {
       new URL(url);
     } catch {
@@ -685,15 +682,6 @@ export function curlResources(text) {
   const parsed = commands(text);
   let count = 0,
     projected = 0;
-  for (const words of parsed) {
-    const urls = options(words).filter((entry) => entry.name === "url").length;
-    count += urls;
-    projected += words.reduce((sum, word) => sum + word.length + 1, 0) * urls;
-    if (count > 1000 || projected > 8 * 1024 * 1024)
-      throw new Error(
-        "cURL import expands beyond 1,000 requests or 8 MiB. Import smaller batches.",
-      );
-  }
   const requests = parsed.flatMap((words) => {
     /** @type {{name:string,value:string}[][]} */
     const groups = [[]];
@@ -703,9 +691,21 @@ export function curlResources(text) {
     }
     // Currently accepted global flags affect CLI presentation only. They have
     // no transfer state to carry. Every request-local option starts afresh.
-    return groups.flatMap((entries) =>
-      requestsFor(words, workspaceId, entries),
-    );
+    return groups.flatMap((entries) => {
+      const globoff = entries.some((entry) => entry.name === "globoff");
+      const expanded = [];
+      const commandSize = words.reduce((sum, word) => sum + word.length + 1, 0);
+      for (const entry of entries) {
+        if (entry.name !== "url") { expanded.push(entry); continue; }
+        const urls = globoff ? [entry.value] : expandCurlUrl(entry.value);
+        count += urls.length;
+        projected += commandSize * urls.length;
+        if (count > 1000 || projected > 8 * 1024 * 1024)
+          throw new Error("cURL import expands beyond 1,000 requests or 8 MiB. Import smaller batches.");
+        expanded.push(...urls.map((value) => ({ name: "url", value })));
+      }
+      return requestsFor(words, workspaceId, expanded);
+    });
   });
   if (requests.length > 1000)
     throw new Error("cURL import exceeds 1,000 requests.");
