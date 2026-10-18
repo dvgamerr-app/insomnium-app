@@ -2,7 +2,7 @@
   import {onMount,onDestroy} from 'svelte';
   import {workspace,createWorkspaceWorkScope,prepareCodeRequest} from '../workspace.svelte.js';
   import {copyText} from '../clipboard.js';
-  import {javascriptFetchCode,generatedCodeLimit} from '../request-code.js';
+  import {javascriptFetchCode,nodeNativeCode,shellCurlCode,generatedCodeLimit} from '../request-code.js';
   import CodeEditor from './CodeEditor.svelte';
   import Button from './ui/Button.svelte';
   import Field from './ui/Field.svelte';
@@ -44,7 +44,16 @@
       const har=structuredClone(snapshot);
       let output;
       if(target==='javascript'&&client==='fetch')output=javascriptFetchCode(har);
+      else if(target==='node'&&client==='native')output=nodeNativeCode(har);
+      else if(target==='shell'&&client==='curl')output=shellCurlCode(har);
       else {
+        if(har.asap)throw Error('Choose Node.js / Native to generate ASAP authentication.');
+        if(har.aws)throw Error('Choose Node.js / Native to generate AWS signatures.');
+        if(har.oauth1)throw Error('Choose Node.js / Native to generate OAuth1 authentication.');
+        if(har.hawk)throw Error('Choose Node.js / Native to generate Hawk authentication.');
+        if(har.nativeAuth)throw Error('Choose Shell / cURL to generate code for negotiated authentication.');
+        if(har.socketPath)throw Error('Choose Node.js / Native to generate code for a socket request.');
+        if(har.multipartParts&&(har.multipartContentType!==null||har.multipartParts.some(part=>part.fileName!==null||part.valueBase64||part.headers.length||part.transferEncoding||part.contentType)))throw Error('Choose JavaScript / fetch to generate code for this multipart request.');
         if(typeof har.bodyBase64==='string')throw Error('Choose JavaScript / fetch to generate code for this binary request.');
         const exactUrl=har.url;
         // HAR carries query rows separately. Feeding the same query in the URL

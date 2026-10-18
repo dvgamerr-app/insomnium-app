@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import {withPreview} from "./helpers/preview-app.js";
 import {initialData} from "../../src/lib/model.js";
+import {digestChallenge,digestProof} from './helpers/proxy-ntlm-fixture.js';
+import {assertSerializedSignature} from './helpers/serialized-signing.js';
+import {generateKeyPairSync} from 'node:crypto';
 
 const shortcutData=initialData();
 const shortcutRequest=shortcutData.resources.find(row=>row._id===shortcutData.activeRequestId);
@@ -8,6 +11,21 @@ assert.ok(shortcutRequest);
 shortcutRequest.headers=[{name:'X-Escape',value:'quote\'"\\tail'},{name:'__proto__',value:'literal-header'}];
 shortcutRequest.settingEncodeUrl=false;
 let generatedFetchRequests=0;
+let generatedDigestAttempts=0;
+const digestUser='owned-codegen-user',digestPassword="synthetic'\\:password",digestNonce='owned-codegen-digest';
+const asapRsa=generateKeyPairSync('rsa',{modulusLength:2048});
+const asapEc=generateKeyPairSync('ec',{namedCurve:'secp521r1'});
+// Execute only the owned fixture: JavaScript in Bun, or generated cURL in sh.
+/** @param {string} code @param {boolean} [shell] */
+async function runGeneratedSnippet(code,shell=false){
+  const child=Bun.spawn(shell?[process.platform==='win32'?'C:/Program Files/Git/bin/bash.exe':'/bin/sh','-s']:[process.execPath,'--eval',code],{stdout:'pipe',stderr:'pipe',...(shell?{stdin:Buffer.from(code+'\n')}:{} )});
+  const timer=setTimeout(()=>child.kill(),15000);
+  try{
+    const [stdout,stderr,exit]=await Promise.all([new Response(child.stdout).text(),new Response(child.stderr).text(),child.exited]);
+    assert.equal(exit,0,stderr);
+    return JSON.parse(stdout);
+  }finally{clearTimeout(timer);}
+}
 
 await withPreview("workspace-shortcuts",async (page,output) => {
   const url = page.getByRole("textbox",{name:"Request URL",exact:true});
@@ -136,6 +154,189 @@ await withPreview("workspace-shortcuts",async (page,output) => {
   assert.equal(binaryWire.bodyBase64,binary.toString('base64'));assert.equal(binaryWire.size,binary.length);
   assert.equal(binaryWire.contentType,'application/octet-stream');assert.equal(binaryWire.count,2);
   await Bun.write(output+'/generated-fetch-binary-wire.json',JSON.stringify(binaryWire,null,2));
+  await generated.getByRole('combobox',{name:'Code language',exact:true}).selectOption('node');
+  await generated.getByRole('combobox',{name:'Code client',exact:true}).selectOption('native');
+  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes("import http from 'node:http'"));
+  const nodeBinaryWire=await runGeneratedSnippet(await generatedCode());
+  assert.equal(nodeBinaryWire.bodyBase64,binary.toString('base64'));assert.equal(nodeBinaryWire.size,binary.length);
+  assert.equal(nodeBinaryWire.count,3);assert.equal(nodeBinaryWire.url,fetchUrl);
+  await Bun.write(output+'/generated-node-binary-wire.json',JSON.stringify(nodeBinaryWire,null,2));
+  await generated.getByRole('combobox',{name:'Code language',exact:true}).selectOption('shell');
+  await generated.getByRole('combobox',{name:'Code client',exact:true}).selectOption('curl');
+  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes('base64 -d'));
+  const curlBinaryWire=await runGeneratedSnippet(await generatedCode(),true);
+  assert.equal(curlBinaryWire.bodyBase64,binary.toString('base64'));assert.equal(curlBinaryWire.size,binary.length);
+  assert.equal(curlBinaryWire.count,4);assert.equal(curlBinaryWire.url,fetchUrl);
+  await Bun.write(output+'/generated-curl-binary-wire.json',JSON.stringify(curlBinaryWire,null,2));
+  await generated.getByRole('combobox',{name:'Code language',exact:true}).selectOption('javascript');
+  await generated.getByRole('combobox',{name:'Code client',exact:true}).selectOption('fetch');
+  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes('const response = await fetch('));
+  await page.keyboard.press('Escape');await generated.waitFor({state:'detached'});
+  await page.getByRole('combobox',{name:'Body type',exact:true}).selectOption('multipart/form-data');
+  await page.getByRole('button',{name:'Add parameter',exact:true}).click();
+  await page.getByRole('textbox',{name:'Parameter 1',exact:true}).fill('upload');
+  await page.getByRole('combobox',{name:'Field type',exact:true}).first().selectOption('file');
+  await page.getByLabel('File value 1',{exact:true}).setInputFiles({name:'owned-codegen.bin',mimeType:'application/octet-stream',buffer:binary});
+  await page.getByRole('button',{name:'Generate code',exact:true}).click();await generated.waitFor();
+  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes('new Blob(['));
+  const multipartWire=await page.evaluate(code=>new Function('return (async()=>{'+code+';return JSON.parse(data);})()')(),await generatedCode());
+  assert.deepEqual(multipartWire.parts,[{name:'upload',fileName:'owned-codegen.bin',contentType:'application/octet-stream',bodyBase64:binary.toString('base64')}]);
+  assert.equal(multipartWire.count,5,'Generating multipart code must not dispatch the request');
+  await Bun.write(output+'/generated-fetch-multipart-wire.json',JSON.stringify(multipartWire,null,2));
+  await page.keyboard.press('Escape');await generated.waitFor({state:'detached'});
+  await page.locator('.multipart-options summary').first().click();
+  await page.getByRole('checkbox',{name:'Send file contents without a filename',exact:true}).check();
+  await page.getByRole('combobox',{name:'Transfer encoding for upload',exact:true}).selectOption('base64');
+  await page.getByRole('textbox',{name:'Part headers for upload',exact:true}).fill('X-Part: one\nX-Part: two');
+  await page.getByRole('button',{name:'Add parameter',exact:true}).click();
+  await page.getByRole('textbox',{name:'Parameter 2',exact:true}).fill('note');
+  await page.getByRole('textbox',{name:'Value 2',exact:true}).fill('café = tail ');
+  await page.locator('.multipart-options summary').nth(1).click();
+  await page.getByRole('combobox',{name:'Transfer encoding for note',exact:true}).selectOption('quoted-printable');
+  await page.getByRole('textbox',{name:'Content-Type for note',exact:true}).fill('text/plain; charset=utf-8');
+  await page.getByRole('button',{name:'Generate code',exact:true}).click();await generated.waitFor();
+  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes('content-transfer-encoding: quoted-printable'));
+  const customWire=await page.evaluate(code=>new Function('return (async()=>{'+code+';return JSON.parse(data);})()')(),await generatedCode());
+  const boundary=customWire.contentType.split('boundary=')[1];
+  const expectedCustom='--'+boundary+'\r\nContent-Disposition: form-data; name="upload"\r\nx-part: one\r\nx-part: two\r\ncontent-transfer-encoding: base64\r\n\r\nAP+A77u/wygNCgBB\r\n--'+boundary+'\r\nContent-Disposition: form-data; name="note"\r\nContent-Type: text/plain; charset=utf-8\r\ncontent-transfer-encoding: quoted-printable\r\n\r\ncaf=C3=A9 =3D tail=20\r\n--'+boundary+'--\r\n';
+  assert.equal(customWire.bodyBase64,Buffer.from(expectedCustom).toString('base64'));
+  assert.equal(customWire.count,6,'Generating custom multipart code must not dispatch the request');
+  await Bun.write(output+'/generated-fetch-custom-multipart-wire.json',JSON.stringify(customWire,null,2));
+  await generated.getByRole('combobox',{name:'Code language',exact:true}).selectOption('node');
+  await generated.getByRole('combobox',{name:'Code client',exact:true}).selectOption('native');
+  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes("import http from 'node:http'"));
+  const nodeWire=await runGeneratedSnippet(await generatedCode());
+  const nodeBoundary=nodeWire.contentType.split('boundary=')[1];
+  assert.equal(nodeWire.bodyBase64,Buffer.from(expectedCustom.replaceAll(boundary,nodeBoundary)).toString('base64'));
+  assert.equal(nodeWire.count,7);assert.equal(nodeWire.url,fetchUrl);
+  assert.equal(nodeWire.escape,'quote\'"\\tail');assert.equal(nodeWire.proto,'literal-header');
+  await Bun.write(output+'/generated-node-custom-multipart-wire.json',JSON.stringify(nodeWire,null,2));
+  await generated.getByRole('combobox',{name:'Code language',exact:true}).selectOption('shell');
+  await generated.getByRole('combobox',{name:'Code client',exact:true}).selectOption('curl');
+  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes('base64 -d'));
+  const curlWire=await runGeneratedSnippet(await generatedCode(),true);
+  const curlBoundary=curlWire.contentType.split('boundary=')[1];
+  assert.equal(curlWire.bodyBase64,Buffer.from(expectedCustom.replaceAll(boundary,curlBoundary)).toString('base64'));
+  assert.equal(curlWire.count,8);assert.equal(curlWire.url,fetchUrl);
+  assert.equal(curlWire.escape,'quote\'"\\tail');assert.equal(curlWire.proto,'literal-header');
+  await Bun.write(output+'/generated-curl-custom-multipart-wire.json',JSON.stringify(curlWire,null,2));
+  await page.keyboard.press('Escape');await generated.waitFor({state:'detached'});
+  await url.fill(new URL('/owned-code-generation/digest',page.url()).href);
+  await page.getByRole('tablist',{name:'Request editor',exact:true}).getByRole('tab',{name:'Auth',exact:true}).click();
+  await page.getByRole('combobox',{name:'Authentication',exact:true}).selectOption('digest');
+  await page.getByRole('textbox',{name:'Username',exact:true}).fill(digestUser);
+  await page.getByLabel('Password',{exact:true}).fill(digestPassword);
+  await page.getByRole('button',{name:'Generate code',exact:true}).click();await generated.waitFor();
+  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes('--digest'));
+  // Keep the actual stronger challenge; curl documents this upstream limitation.
+  // This is retained negative evidence, not positive Digest acceptance.
+  assert.match(await generatedCode(),/cURL cannot handle Digest auth-int/);
+  if(process.platform==='win32'){
+    await assert.rejects(runGeneratedSnippet(await generatedCode(),true),/curl: \(94\) An authentication function returned an error/);
+    assert.equal(generatedDigestAttempts,1);assert.equal(generatedFetchRequests,8);
+    await Bun.write(output+'/generated-curl-digest-limitation.json',JSON.stringify({status:'known-client-limitation',curlExitCode:94,challenge:'SHA-256/auth-int',method:'POST',attempts:generatedDigestAttempts,successfulAuthenticatedRequests:0,positiveAcceptance:false},null,2));
+  }
+  await generated.getByRole('combobox',{name:'Code language',exact:true}).selectOption('node');
+  await generated.getByRole('combobox',{name:'Code client',exact:true}).selectOption('native');
+  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes('const credentials ='));
+  const priorDigestAttempts=generatedDigestAttempts;
+  const digestWire=await runGeneratedSnippet(await generatedCode());
+  assert.equal(digestWire.proofValid,true);assert.equal(digestWire.digestQop,'auth-int');
+  assert.equal(digestWire.digestAttempts,priorDigestAttempts+2);
+  const digestBoundary=digestWire.contentType.split('boundary=')[1];
+  assert.equal(digestWire.bodyBase64,Buffer.from(expectedCustom.replaceAll(boundary,digestBoundary)).toString('base64'));
+  assert.equal(digestWire.count,9,'Only explicit snippet execution may perform the Digest exchange');
+  await Bun.write(output+'/generated-node-digest-wire.json',JSON.stringify(digestWire,null,2));
+  await page.keyboard.press('Escape');await generated.waitFor({state:'detached'});
+  await url.fill(fetchUrl);
+  await page.getByRole('combobox',{name:'Authentication',exact:true}).selectOption('hawk');
+  await page.getByLabel('Auth ID',{exact:true}).fill('owned-codegen-hawk');
+  await page.getByLabel('Auth key',{exact:true}).fill('owned-signing-key');
+  await page.getByRole('combobox',{name:'Signing mode',exact:true}).selectOption('standard');
+  await page.getByRole('checkbox',{name:'Validate payload',exact:true}).check();
+  await page.getByRole('button',{name:'Generate code',exact:true}).click();await generated.waitFor();
+  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes('const hawkHeader ='));
+  const hawkWire=await runGeneratedSnippet(await generatedCode());
+  assertSerializedSignature(hawkWire,fetchUrl,'hawk');
+  const hawkBoundary=hawkWire.contentType.split('boundary=')[1];
+  assert.equal(hawkWire.bodyBase64,Buffer.from(expectedCustom.replaceAll(boundary,hawkBoundary)).toString('base64'));
+  assert.match(hawkWire.authorization,/^Hawk id="owned-codegen-hawk"/);
+  assert.equal(hawkWire.count,10,'Generation alone must not dispatch a signed request');
+  await Bun.write(output+'/generated-node-hawk-wire.json',JSON.stringify(hawkWire,null,2));
+  await page.keyboard.press('Escape');await generated.waitFor({state:'detached'});
+  await page.getByRole('combobox',{name:'Authentication',exact:true}).selectOption('oauth1');
+  await page.getByLabel('Consumer key',{exact:true}).fill('owned-consumer');
+  await page.getByLabel('Consumer secret',{exact:true}).fill('owned-consumer-secret');
+  await page.getByLabel('Token key',{exact:true}).fill('owned-token');
+  await page.getByLabel('Token secret',{exact:true}).fill('owned-token-secret');
+  await page.getByRole('combobox',{name:'Body signing',exact:true}).selectOption('standard');
+  await page.getByRole('checkbox',{name:'Hash body',exact:true}).check();
+  await page.getByRole('button',{name:'Generate code',exact:true}).click();await generated.waitFor();
+  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes('const signed = oauth1Sign('));
+  const oauthWire=await runGeneratedSnippet(await generatedCode());
+  assertSerializedSignature(oauthWire,fetchUrl,'oauth1');
+  const oauthBoundary=oauthWire.contentType.split('boundary=')[1];
+  assert.equal(oauthWire.bodyBase64,Buffer.from(expectedCustom.replaceAll(boundary,oauthBoundary)).toString('base64'));
+  assert.equal(oauthWire.count,11,'Generating OAuth1 code must not send the request');
+  await Bun.write(output+'/generated-node-oauth1-wire.json',JSON.stringify(oauthWire,null,2));
+  await page.keyboard.press('Escape');await generated.waitFor({state:'detached'});
+  await page.getByRole('combobox',{name:'Authentication',exact:true}).selectOption('iam');
+  await page.getByLabel('Access key ID',{exact:true}).fill('OWNEDAWSKEY');
+  await page.getByLabel('Secret access key',{exact:true}).fill('owned-aws-secret');
+  await page.getByLabel('Region (blank infers from Host; defaults to us-east-1)',{exact:true}).fill('us-east-1');
+  await page.getByLabel('Service (blank infers from AWS Host)',{exact:true}).fill('s3');
+  await page.getByLabel('Session token (optional)',{exact:true}).fill('owned-session-token');
+  await page.getByRole('button',{name:'Generate code',exact:true}).click();await generated.waitFor();
+  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes('const awsHeaders ='));
+  const awsWire=await runGeneratedSnippet(await generatedCode());
+  assertSerializedSignature(awsWire,fetchUrl,'aws');
+  assert.equal(awsWire.count,12);assert.equal(awsWire.url,fetchUrl);
+  const awsBoundary=awsWire.contentType.split('boundary=')[1];
+  assert.equal(awsWire.bodyBase64,Buffer.from(expectedCustom.replaceAll(boundary,awsBoundary)).toString('base64'));
+  await Bun.write(output+'/generated-node-aws-header-wire.json',JSON.stringify(awsWire,null,2));
+  await page.keyboard.press('Escape');await generated.waitFor({state:'detached'});
+  await page.getByRole('checkbox',{name:'Add authentication to query',exact:true}).check();
+  await page.getByRole('button',{name:'Generate code',exact:true}).click();await generated.waitFor();
+  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes('const awsHeaders ='));
+  const awsQueryWire=await runGeneratedSnippet(await generatedCode());
+  assertSerializedSignature(awsQueryWire,fetchUrl,'aws');assert.equal(awsQueryWire.count,13);
+  const awsQueryBoundary=awsQueryWire.contentType.split('boundary=')[1];
+  assert.equal(awsQueryWire.bodyBase64,Buffer.from(expectedCustom.replaceAll(boundary,awsQueryBoundary)).toString('base64'));
+  await Bun.write(output+'/generated-node-aws-query-wire.json',JSON.stringify(awsQueryWire,null,2));
+  await page.keyboard.press('Escape');await generated.waitFor({state:'detached'});
+  await page.getByRole('combobox',{name:'Authentication',exact:true}).selectOption('asap');
+  await page.getByRole('combobox',{name:'Claims mode',exact:true}).selectOption('legacy');
+  await page.getByLabel('Issuer (iss)',{exact:true}).fill('owned-asap-issuer');
+  await page.getByLabel('Audience (aud; string or JSON array)',{exact:true}).fill('["owned-audience","second"]');
+  await page.getByLabel('Key ID (kid; blank uses data URI kid)',{exact:true}).fill('owned-asap-rsa');
+  await page.getByLabel('Additional claims (JSON)',{exact:true}).fill('{"large":9007199254740993}');
+  const asapKeyField=page.getByLabel('Private key (PEM, base64 DER/PEM or PKCS8 data URI)',{exact:true});
+  await asapKeyField.fill(asapRsa.privateKey.export({type:'pkcs8',format:'pem'}).toString());
+  await page.getByRole('button',{name:'Generate code',exact:true}).click();await generated.waitFor();
+  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes("headers.push('Authorization', asapAuthorization("));
+  const asapWire=await runGeneratedSnippet(await generatedCode());
+  assertSerializedSignature(asapWire,fetchUrl,'asap',asapRsa.publicKey.export({type:'spki',format:'pem'}).toString());
+  const [asapHeader,asapPayload]=asapWire.authorization.slice(7).split('.').slice(0,2).map((/** @type {string} */value)=>JSON.parse(Buffer.from(value,'base64url').toString()));
+  assert.equal(asapHeader.alg,'RS256');assert.equal(asapHeader.typ,'JWT');assert.equal(asapPayload.exp-asapPayload.iat,600);assert.equal(asapPayload.nbf,asapPayload.iat);
+  assert.equal(asapWire.count,14);
+  const asapBoundary=asapWire.contentType.split('boundary=')[1];
+  assert.equal(asapWire.bodyBase64,Buffer.from(expectedCustom.replaceAll(boundary,asapBoundary)).toString('base64'));
+  await Bun.write(output+'/generated-node-asap-rsa-wire.json',JSON.stringify(asapWire,null,2));
+  await page.keyboard.press('Escape');await generated.waitFor({state:'detached'});
+  await page.getByRole('combobox',{name:'Claims mode',exact:true}).selectOption('postman');
+  await page.getByRole('combobox',{name:'Algorithm',exact:true}).selectOption('ES512');
+  await page.getByLabel('Expiry (seconds; default 3600)',{exact:true}).fill('120');
+  await page.getByLabel('Key ID (kid; blank uses data URI kid)',{exact:true}).fill('');
+  await asapKeyField.fill('data:application/pkcs8;kid=owned-asap-ec;base64,'+asapEc.privateKey.export({type:'pkcs8',format:'der'}).toString('base64'));
+  await page.getByRole('button',{name:'Generate code',exact:true}).click();await generated.waitFor();
+  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes('"ES512"'));
+  const asapEcWire=await runGeneratedSnippet(await generatedCode());
+  assertSerializedSignature(asapEcWire,fetchUrl,'asap',asapEc.publicKey.export({type:'spki',format:'pem'}).toString());
+  const [ecHeader,ecPayload]=asapEcWire.authorization.slice(7).split('.').slice(0,2).map((/** @type {string} */value)=>JSON.parse(Buffer.from(value,'base64url').toString()));
+  assert.equal(ecHeader.kid,'owned-asap-ec');assert.equal(ecHeader.typ,undefined);assert.equal(ecPayload.nbf,undefined);assert.equal(ecPayload.exp-ecPayload.iat,120);assert.equal(asapEcWire.count,15);
+  const ecBoundary=asapEcWire.contentType.split('boundary=')[1];
+  assert.equal(asapEcWire.bodyBase64,Buffer.from(expectedCustom.replaceAll(boundary,ecBoundary)).toString('base64'));
+  await Bun.write(output+'/generated-node-asap-ec-wire.json',JSON.stringify(asapEcWire,null,2));
   await page.keyboard.press('Escape');await generated.waitFor({state:'detached'});
   for (const [chord,label] of [["Control+Shift+e","Active environment"],["Meta+Shift+l","HTTP method"]]) {
     await page.keyboard.press(chord);
@@ -216,8 +417,20 @@ await withPreview("workspace-shortcuts",async (page,output) => {
   await Bun.write(output + "/result.json",JSON.stringify({status:"passed",headless:true,shortcuts:5,modalGuard:true,repeatCompositionAltConsumedGuards:true,focusedHistoryDispatch:true,plainInputHistory:true,readOnlyHistoryGuard:true,generatedFetchWire:true,scope:"Actual built-app keyboard/focus/dialogs/history and generated fetch to an owned loopback peer; no native menu/provider"},null,2));
 },{fetch:async (request) => {
   if(new URL(request.url).pathname.startsWith('/owned-code-generation/')){
+    const digest=new URL(request.url).pathname==='/owned-code-generation/digest';
+    if(digest){
+      generatedDigestAttempts++;
+      if(!request.headers.get('authorization'))return new Response(null,{status:401,headers:{'WWW-Authenticate':digestChallenge(digestNonce)}});
+    }
+    const parts=[];
+    if(request.headers.get('content-type')?.startsWith('multipart/form-data')){
+      for(const [name,value] of await request.clone().formData())parts.push(typeof value==='string'?{name,value}:{name,fileName:value.name,contentType:value.type,bodyBase64:Buffer.from(await value.arrayBuffer()).toString('base64')});
+    }
     const bytes=Buffer.from(await request.arrayBuffer());
-    return Response.json({count:++generatedFetchRequests,url:request.url,body:new TextDecoder().decode(bytes),bodyBase64:bytes.toString('base64'),size:bytes.length,contentType:request.headers.get('content-type'),escape:request.headers.get('x-escape'),proto:request.headers.get('__proto__')});
+    const proof=digest?{...digestProof(request.headers.get('authorization')??'',request.method,new URL(request.url).pathname+new URL(request.url).search,bytes,digestNonce,digestUser,digestPassword),digestAttempts:generatedDigestAttempts}:{};
+    const authorization=request.headers.get('authorization')??'';
+    const hawk=/^(?:Hawk|OAuth|AWS4-HMAC-SHA256|Bearer) /.test(authorization)||new URL(request.url).searchParams.has('X-Amz-Signature')?{authorization,headers:[...request.headers],method:request.method,target:new URL(request.url).pathname+new URL(request.url).search,type:request.headers.get('content-type')}:{};
+    return Response.json({count:++generatedFetchRequests,url:request.url,parts,body:new TextDecoder().decode(bytes),bodyBase64:bytes.toString('base64'),size:bytes.length,contentType:request.headers.get('content-type'),escape:request.headers.get('x-escape'),proto:request.headers.get('__proto__'),...proof,...hawk});
   }
   if (new URL(request.url).pathname === "/owned-editor-history.js")
     return new Response(await Bun.file("src/lib/editor-history.js").text(), {headers:{"Content-Type":"text/javascript"}});

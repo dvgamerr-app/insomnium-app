@@ -31,13 +31,13 @@ const challengeNonce = Buffer.from("0123456789abcdef", "hex");
 const originNonce = Buffer.from("fedcba9876543210", "hex");
 const digestNonce = 'owned-proxy-digest-nonce';
 /** @param {string} nonce @param {boolean} [stale] */
-function digestChallenge(nonce,stale=false){
+export function digestChallenge(nonce,stale=false){
   return `Digest realm="owned Digest", nonce="${nonce}", algorithm=SHA-256, qop="auth-int"${stale?', stale=true':''}`;
 }
 /** Independent RFC7616 SHA-256/auth-int oracle from actual target/entity bytes.
  * @param {string} value @param {string} method @param {string} target @param {Buffer} body
  * @param {string} nonce @param {string} [user] @param {string} [secret] */
-function digestProof(value,method,target,body,nonce,user=username,secret=password){
+export function digestProof(value,method,target,body,nonce,user=username,secret=password){
   assert.match(value,/^Digest /);
   const fields=Object.fromEntries([...value.matchAll(/([\w*]+)=(?:"((?:\\.|[^"\\])*)"|([^,\s]+))/g)]
     .map(match=>[match[1],match[2]===undefined?match[3]:match[2].replace(/\\(.)/g,'$1')]));

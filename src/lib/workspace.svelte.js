@@ -2693,13 +2693,15 @@ export async function prepareCodeRequest(requestId, signal, isCurrent) {
   const manual=rendered.headers.some((/** @type {any} */h)=>h.name.toLowerCase()==='authorization');
   const prepared=prepareRenderedRequest(data,rendered,id('code-export'),rendered.authentication?.type==='oauth2'&&!rendered.authentication.disabled&&!manual?
     {oauthAuthorization:oauthHeader(data,rendered,{resolved:true})}:{});
-  if(prepared.socketPath)throw Error('Code generation for a Unix socket requires a client-specific adapter.');
-  if(prepared.multipart&&(prepared.multipartContentType||prepared.multipart.some((/** @type {any} */part)=>part.fileName!==null||part.valueBase64||part.headers.length||part.transferEncoding||part.contentType)))throw Error('Code generation for file/custom multipart parts requires a client-specific adapter.');
   check();
-  const har=pluginHarEntry(rendered,prepared,undefined,new Date().toISOString()).request;
+  // These protocols negotiate at client execution time, rather than supplying
+  // a precomputed Authorization header. Hawk signs the final byte body below.
+  const netrc=prepared.netrc&&!manual;
+  const nativeAuth=prepared.digest||prepared.ntlm||netrc?{digest:prepared.digest,ntlm:prepared.ntlm?{username:prepared.ntlm.username,password:prepared.ntlm.password,domain:prepared.ntlm.domain,workstation:prepared.ntlm.workstation}:null,netrc}:null;
+  const har=pluginHarEntry(rendered,{...prepared,digest:null,ntlm:null,netrc:false,hawk:null,oauth1:null,aws:null,asap:null},undefined,new Date().toISOString()).request;
   // Binary transport bytes must never fall through as a Base64 text body.
   if(prepared.bodyBase64!==null)har.postData.text='';
-  return {...har,bodyBase64:prepared.bodyBase64};
+  return {...har,bodyBase64:prepared.bodyBase64,multipartParts:prepared.multipart,multipartContentType:prepared.multipartContentType,socketPath:prepared.socketPath,suppressDefaultHeaders:prepared.suppressDefaultHeaders,nativeAuth,hawk:prepared.hawk,oauth1:prepared.oauth1,aws:prepared.aws,asap:prepared.asap};
 }
 /** Capture actual workspace services for one root Send and all nested guests.
  * @param {ReturnType<typeof initialData>} data
