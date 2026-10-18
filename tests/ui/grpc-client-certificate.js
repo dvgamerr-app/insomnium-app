@@ -24,509 +24,542 @@ assert.ok(
   "Explicit current native build required",
 );
 const message = "owned mutual TLS gRPC response";
+const validationDisabled =
+  process.env.INSOMNIUM_GRPC_TLS_VALIDATION_OFF === "1";
 await preserveNativeProfile(() =>
-  withNativeApp("grpc-client-certificate", async ({ page, invoke, output }) => {
-    const fixture = await clientCertificateFixture(output, {
-      grpc: true,
-      fileIdentities: true,
-    });
-    const original = (await invoke("load_workspace")).settings;
-    const setTls = tlsPreferences(page, invoke);
-    const cases = /** @type {Array<Record<string,any>>} */ ([]);
-    try {
-      await fixture.verifyFixture();
-      const session = connect(fixture.grpc.url, {
-        ca: fixture.ca,
-        cert: fixture.client.certificate,
-        key: fixture.client.key,
-        rejectUnauthorized: true,
+  withNativeApp(
+    validationDisabled ? "grpc-validation-off" : "grpc-client-certificate",
+    async ({ page, invoke, output }) => {
+      const fixture = await clientCertificateFixture(output, {
+        grpc: true,
+        fileIdentities: true,
       });
+      const original = (await invoke("load_workspace")).settings;
+      const setTls = tlsPreferences(page, invoke);
+      const cases = /** @type {Array<Record<string,any>>} */ ([]);
       try {
-        await new Promise((resolve, reject) => {
-          const timer = setTimeout(
-            () => reject(Error("gRPC fixture self-check timeout")),
-            5000,
-          );
-          session.once("error", reject);
-          const request = session.request({
-            ":method": "POST",
-            ":path": "/owned.Sample/Echo",
-            "content-type": "application/grpc",
-            te: "trailers",
-          });
-          const chunks = /** @type {Buffer[]} */ ([]);
-          let status = "";
-          request.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
-          request.on("trailers", (headers) => {
-            status = String(headers["grpc-status"]);
-          });
-          request.once("error", reject);
-          request.once("end", () => {
-            clearTimeout(timer);
-            try {
-              assert.equal(status, "0");
-              const bytes = Buffer.concat(chunks);
-              assert.equal(bytes[0], 0);
-              assert.equal(bytes.readUInt32BE(1), bytes.length - 5);
-              assert.equal(bytes[5], 10);
-              assert.equal(bytes[6], Buffer.byteLength(message));
-              assert.equal(bytes.subarray(7).toString(), message);
-              resolve(null);
-            } catch (error) {
-              reject(error);
-            }
-          });
-          request.end(Buffer.from([0, 0, 0, 0, 0]));
+        await fixture.verifyFixture();
+        const session = connect(fixture.grpc.url, {
+          ca: fixture.ca,
+          cert: fixture.client.certificate,
+          key: fixture.client.key,
+          rejectUnauthorized: true,
         });
-      } finally {
-        session.destroy();
-      }
-      await poll(
-        async () => fixture.grpcRequests.length === 1,
-        "independent authenticated HTTP/2 fixture",
-      );
-      assert.equal(
-        fixture.grpcRequests[0].fingerprint,
-        fixture.client.fingerprint,
-      );
-      assert.equal(fixture.grpcRequests[0].cn, fixture.clientName);
-      assert.equal(fixture.grpcRequests[0].alpn, "h2");
-      const independent = structuredClone(fixture.grpcRequests[0]);
-      fixture.grpcRequests.length = 0;
-      fixture.grpcConnections.count = 0;
-      // TLS needs an owned collection, not a filesystem Git repository.
-      const data = await invoke("load_workspace");
-      const workspaceId = id("wrk"),
-        environmentId = id("env");
-      const placeholder = newRequest(workspaceId, {
-        name: "Owned TLS placeholder",
-      });
-      data.resources.push(
-        {
-          _id: workspaceId,
-          _type: "workspace",
-          parentId: null,
-          name: "Owned gRPC TLS",
-          scope: "collection",
-        },
-        {
-          _id: environmentId,
-          _type: "environment",
-          parentId: workspaceId,
-          name: "Base Environment",
-          data: {},
-        },
-        placeholder,
-      );
-      data.activeWorkspaceId = workspaceId;
-      data.activeEnvironmentId = environmentId;
-      data.activeRequestId = placeholder._id;
-      data.openTabs = [placeholder._id];
-      await invoke("save_workspace", { data });
-      await page.reload();
-      await page.locator(".new-request-menu summary").waitFor();
-      await page.locator(".new-request-menu summary").click();
-      await page
-        .getByRole("button", { name: "gRPC Request", exact: true })
-        .click();
-      await page
-        .getByRole("textbox", { name: "gRPC server URL", exact: true })
-        .fill(fixture.grpc.url.replace("https:", "grpcs:"));
-      await page.getByRole("tab", { name: "Proto Files", exact: true }).click();
-      await page.getByLabel("Import files", { exact: true }).setInputFiles({
-        name: "owned-mtls.proto",
-        mimeType: "text/plain",
-        buffer: Buffer.from(
-          'syntax = "proto3"; package owned; message Input { string name = 1; } service Sample { rpc Echo (Input) returns (Input); rpc Watch (Input) returns (stream Input); rpc Collect (stream Input) returns (Input); rpc Chat (stream Input) returns (stream Input); rpc Hold (Input) returns (stream Input); }',
-        ),
-      });
-      await page
-        .getByRole("button", { name: "Import 1 files", exact: true })
-        .click();
-      await page
-        .getByRole("button", { name: "owned-mtls.proto", exact: true })
-        .waitFor();
-      const requestId = (await invoke("load_workspace")).activeRequestId;
-      const fileCases = protocolCertificateCases(fixture);
-      for (const [id, ca, host, identity, success] of [
-        ["missing-identity", fixture.ca, "127.0.0.1", "", false],
-        [
-          "trusted-client",
-          fixture.ca,
-          "127.0.0.1",
-          fixture.client.identity,
-          true,
-        ],
-        [
-          "ca-bundle-required-root-second",
-          fixture.otherCa + fixture.ca,
-          "127.0.0.1",
-          fixture.client.identity,
-          true,
-        ],
-        [
-          "ca-bundle-required-root-first",
-          fixture.ca + fixture.otherCa,
-          "127.0.0.1",
-          fixture.client.identity,
-          true,
-        ],
-        [
-          "host-mismatch",
-          fixture.ca,
-          "other.invalid",
-          fixture.client.identity,
-          false,
-        ],
-        [
-          "untrusted-client",
-          fixture.ca,
-          "127.0.0.1",
-          fixture.wrongClient.identity,
-          false,
-        ],
-        [
-          "untrusted-server",
-          fixture.otherCa,
-          "127.0.0.1",
-          fixture.client.identity,
-          false,
-        ],
-        [
-          "malformed-ca",
-          "-----BEGIN CERTIFICATE-----\n%%%\n-----END CERTIFICATE-----",
-          "127.0.0.1",
-          fixture.client.identity,
-          false,
-        ],
-        [
-          "malformed-identity",
-          fixture.ca,
-          "127.0.0.1",
-          "invalid client identity",
-          false,
-        ],
-        ...fixture.invalidServers.map((server) => [
-          "server-" + server.id,
-          fixture.ca,
-          "127.0.0.1",
-          fixture.client.identity,
-          false,
-        ]),
-        [
-          "recovered-client",
-          fixture.ca,
-          "127.0.0.1",
-          fixture.client.identity,
-          true,
-        ],
-        ...fileCases.map((entry) => [
-          entry.id,
-          entry.ca || fixture.ca,
-          "127.0.0.1",
-          entry.preTcp ? fixture.client.identity : "",
-          entry.success,
-        ]),
-      ]) {
-        await setTls(String(ca), String(host), String(identity));
-        const fileCase = fileCases.find((entry) => entry.id === id);
-        if (fileCase) await certificateSettings(page, invoke, fileCase);
-        await page.reload();
-        const server = fixture.invalidServers.find(
-          (server) => id === "server-" + server.id,
-        );
-        const url = (server ? server.grpcUrl : fixture.grpc.url).replace(
-          "https:",
-          "grpcs:",
-        );
-        const input = page.getByRole("textbox", {
-          name: "gRPC server URL",
-          exact: true,
-        });
-        await input.fill(url);
-        await input.blur();
-        await poll(
-          async () =>
-            (await invoke("load_workspace")).resources.find(
-              (/** @type {any} */ resource) => resource._id === requestId,
-            )?.url === url,
-          "Unary server certificate URL persisted",
-        );
-        await page
-          .getByRole("button", { name: "Load methods", exact: true })
-          .click();
-        await page
-          .getByRole("combobox", { name: "gRPC method", exact: true })
-          .selectOption({ label: "/Sample/Echo · Unary" });
-        await page
-          .getByRole("tablist", { name: "gRPC request editor", exact: true })
-          .getByRole("tab", { name: "Body", exact: true })
-          .click();
-        await page
-          .locator(".CodeMirror")
-          .first()
-          .evaluate((el) => {
-            /** @type {any} */ (el).CodeMirror.setValue(
-              '{"name":"owned request"}',
+        try {
+          await new Promise((resolve, reject) => {
+            const timer = setTimeout(
+              () => reject(Error("gRPC fixture self-check timeout")),
+              5000,
             );
+            session.once("error", reject);
+            const request = session.request({
+              ":method": "POST",
+              ":path": "/owned.Sample/Echo",
+              "content-type": "application/grpc",
+              te: "trailers",
+            });
+            const chunks = /** @type {Buffer[]} */ ([]);
+            let status = "";
+            request.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+            request.on("trailers", (headers) => {
+              status = String(headers["grpc-status"]);
+            });
+            request.once("error", reject);
+            request.once("end", () => {
+              clearTimeout(timer);
+              try {
+                assert.equal(status, "0");
+                const bytes = Buffer.concat(chunks);
+                assert.equal(bytes[0], 0);
+                assert.equal(bytes.readUInt32BE(1), bytes.length - 5);
+                assert.equal(bytes[5], 10);
+                assert.equal(bytes[6], Buffer.byteLength(message));
+                assert.equal(bytes.subarray(7).toString(), message);
+                resolve(null);
+              } catch (error) {
+                reject(error);
+              }
+            });
+            request.end(Buffer.from([0, 0, 0, 0, 0]));
           });
+        } finally {
+          session.destroy();
+        }
         await poll(
-          async () =>
-            (await invoke("load_workspace")).resources.find(
-              (/** @type {any} */ r) => r._id === requestId,
-            )?.body?.text === '{"name":"owned request"}',
-          "gRPC body persisted",
+          async () => fixture.grpcRequests.length === 1,
+          "independent authenticated HTTP/2 fixture",
         );
-        const before = await invoke("load_workspace");
-        const count = fixture.grpcRequests.length;
-        const connections = fixture.grpcConnections.count;
-        const rejected = fixture.rejected.length;
-        await page.getByRole("button", { name: "Send", exact: true }).click();
-        await poll(
-          async () =>
-            (await invoke("load_workspace")).history.some(
-              (/** @type {any} */ row) =>
-                row.requestId === requestId &&
-                !before.history.some(
-                  (/** @type {any} */ old) => old._id === row._id,
-                ) &&
-                ["closed", "error"].includes(row.connectionState),
-            ),
-          "gRPC TLS call settled " + id,
+        assert.equal(
+          fixture.grpcRequests[0].fingerprint,
+          fixture.client.fingerprint,
         );
-        await page.getByRole("button", { name: "Send", exact: true }).waitFor();
-        const after = await invoke("load_workspace");
-        assert.deepEqual(after.resources, before.resources);
-        const fresh = after.history.filter(
-          (/** @type {any} */ row) =>
-            !before.history.some(
-              (/** @type {any} */ old) => old._id === row._id,
-            ),
+        assert.equal(fixture.grpcRequests[0].cn, fixture.clientName);
+        assert.equal(fixture.grpcRequests[0].alpn, "h2");
+        const independent = structuredClone(fixture.grpcRequests[0]);
+        fixture.grpcRequests.length = 0;
+        fixture.grpcConnections.count = 0;
+        // TLS needs an owned collection, not a filesystem Git repository.
+        const data = await invoke("load_workspace");
+        const workspaceId = id("wrk"),
+          environmentId = id("env");
+        const placeholder = newRequest(workspaceId, {
+          name: "Owned TLS placeholder",
+        });
+        data.resources.push(
+          {
+            _id: workspaceId,
+            _type: "workspace",
+            parentId: null,
+            name: "Owned gRPC TLS",
+            scope: "collection",
+          },
+          {
+            _id: environmentId,
+            _type: "environment",
+            parentId: workspaceId,
+            name: "Base Environment",
+            data: {},
+          },
+          placeholder,
         );
-        assert.equal(fresh.length, 1);
-        const response = fresh[0];
-        assert.equal(response.protocol, "grpc");
-        for (const old of after.history.filter(
-          (/** @type {any} */ row) => row._id !== response._id,
-        ))
-          assert.deepEqual(
-            old,
-            before.history.find(
-              (/** @type {any} */ row) => row._id === old._id,
-            ),
+        data.activeWorkspaceId = workspaceId;
+        data.activeEnvironmentId = environmentId;
+        data.activeRequestId = placeholder._id;
+        data.openTabs = [placeholder._id];
+        await invoke("save_workspace", { data });
+        await page.reload();
+        await page.locator(".new-request-menu summary").waitFor();
+        await page.locator(".new-request-menu summary").click();
+        await page
+          .getByRole("button", { name: "gRPC Request", exact: true })
+          .click();
+        await page
+          .getByRole("textbox", { name: "gRPC server URL", exact: true })
+          .fill(fixture.grpc.url.replace("https:", "grpcs:"));
+        await page
+          .getByRole("tab", { name: "Proto Files", exact: true })
+          .click();
+        await page.getByLabel("Import files", { exact: true }).setInputFiles({
+          name: "owned-mtls.proto",
+          mimeType: "text/plain",
+          buffer: Buffer.from(
+            'syntax = "proto3"; package owned; message Input { string name = 1; } service Sample { rpc Echo (Input) returns (Input); rpc Watch (Input) returns (stream Input); rpc Collect (stream Input) returns (Input); rpc Chat (stream Input) returns (stream Input); rpc Hold (Input) returns (stream Input); }',
+          ),
+        });
+        await page
+          .getByRole("button", { name: "Import 1 files", exact: true })
+          .click();
+        await page
+          .getByRole("button", { name: "owned-mtls.proto", exact: true })
+          .waitFor();
+        const requestId = (await invoke("load_workspace")).activeRequestId;
+        const fileCases = protocolCertificateCases(fixture);
+        for (const [id, ca, host, identity, success] of [
+          ["missing-identity", fixture.ca, "127.0.0.1", "", false],
+          [
+            "trusted-client",
+            fixture.ca,
+            "127.0.0.1",
+            fixture.client.identity,
+            true,
+          ],
+          [
+            "ca-bundle-required-root-second",
+            fixture.otherCa + fixture.ca,
+            "127.0.0.1",
+            fixture.client.identity,
+            true,
+          ],
+          [
+            "ca-bundle-required-root-first",
+            fixture.ca + fixture.otherCa,
+            "127.0.0.1",
+            fixture.client.identity,
+            true,
+          ],
+          [
+            "host-mismatch",
+            fixture.ca,
+            "other.invalid",
+            fixture.client.identity,
+            false,
+          ],
+          [
+            "untrusted-client",
+            fixture.ca,
+            "127.0.0.1",
+            fixture.wrongClient.identity,
+            false,
+          ],
+          [
+            "untrusted-server",
+            fixture.otherCa,
+            "127.0.0.1",
+            fixture.client.identity,
+            false,
+          ],
+          [
+            "malformed-ca",
+            "-----BEGIN CERTIFICATE-----\n%%%\n-----END CERTIFICATE-----",
+            "127.0.0.1",
+            fixture.client.identity,
+            false,
+          ],
+          [
+            "malformed-identity",
+            fixture.ca,
+            "127.0.0.1",
+            "invalid client identity",
+            false,
+          ],
+          ...fixture.invalidServers.map((server) => [
+            "server-" + server.id,
+            fixture.ca,
+            "127.0.0.1",
+            fixture.client.identity,
+            false,
+          ]),
+          [
+            "recovered-client",
+            fixture.ca,
+            "127.0.0.1",
+            fixture.client.identity,
+            true,
+          ],
+          ...fileCases.map((entry) => [
+            entry.id,
+            entry.ca || fixture.ca,
+            "127.0.0.1",
+            entry.preTcp ? fixture.client.identity : "",
+            entry.success,
+          ]),
+        ]) {
+          if (
+            validationDisabled &&
+            !["missing-identity", "malformed-ca"].includes(String(id))
+          )
+            continue;
+          const expectedSuccess = validationDisabled
+            ? id === "malformed-ca"
+            : success;
+          await setTls(
+            String(ca),
+            String(host),
+            String(identity),
+            !validationDisabled,
           );
-        const reached = fixture.grpcRequests.slice(count);
-        if (server) {
-          assert.ok(
-            fixture.grpcConnections.count > connections,
-            "Native attempts invalid server TLS handshake",
+          const fileCase = fileCases.find((entry) => entry.id === id);
+          if (fileCase) await certificateSettings(page, invoke, fileCase);
+          await page.reload();
+          const server = fixture.invalidServers.find(
+            (server) => id === "server-" + server.id,
           );
-          const alert =
-            server.id === "hostname" ? "BadCertificate" : "CertificateExpired";
+          const url = (server ? server.grpcUrl : fixture.grpc.url).replace(
+            "https:",
+            "grpcs:",
+          );
+          const input = page.getByRole("textbox", {
+            name: "gRPC server URL",
+            exact: true,
+          });
+          await input.fill(url);
+          await input.blur();
           await poll(
             async () =>
-              fixture.rejected
-                .slice(rejected)
-                .some(
-                  (event) =>
-                    event.role === "grpc" &&
-                    event.detail.includes("received fatal alert: " + alert),
-                ),
-            "Native gRPC certificate alert " + server.id,
-          );
-        }
-        const received = response.events.filter(
-          (/** @type {any} */ event) => event.kind === "message",
-        );
-        if (success) {
-          assert.equal(response.connectionState, "closed");
-          assert.equal(response.status, 0);
-          assert.equal(reached.length, 1);
-          assert.equal(reached[0].cn, fixture.clientName);
-          assert.equal(reached[0].fingerprint, fixture.client.fingerprint);
-          assert.equal(reached[0].authorized, true);
-          assert.equal(reached[0].alpn, "h2");
-          assert.equal(reached[0].method, "POST");
-          assert.equal(reached[0].url, "/owned.Sample/Echo");
-          const text = Buffer.from("owned request");
-          assert.deepEqual(reached[0].bodyBytes, [
-            ...Buffer.concat([
-              Buffer.from([0, 0, 0, 0, text.length + 2, 10, text.length]),
-              text,
-            ]),
-          ]);
-          assert.equal(received.length, 1);
-          assert.deepEqual(JSON.parse(received[0].text), { name: message });
-          assert.ok(
-            response.headers.some(
-              (/** @type {any} */ row) =>
-                row[0] === "owned-metadata" && row[1] === "authenticated",
-            ),
-          );
-          assert.ok(
-            response.trailers.some(
-              (/** @type {any} */ row) =>
-                row[0] === "owned-trailer" && row[1] === "complete",
-            ),
+              (await invoke("load_workspace")).resources.find(
+                (/** @type {any} */ resource) => resource._id === requestId,
+              )?.url === url,
+            "Unary server certificate URL persisted",
           );
           await page
-            .locator(".grpc-message")
-            .filter({ hasText: message })
-            .waitFor();
-        } else {
-          assert.equal(reached.length, 0);
-          assert.equal(received.length, 0);
-          assert.ok(
-            response.connectionState === "error" ||
-              (response.status != null && response.status !== 0),
-            "TLS refusal must retain error or nonzero gRPC status",
-          );
-          assert.ok(
-            response.events.some(
-              (/** @type {any} */ e) =>
-                e.kind === "error" || (e.kind === "status" && e.code !== 0),
-            ),
-          );
-        }
-        if (
-          ["malformed-ca", "malformed-identity"].includes(String(id)) ||
-          fileCase?.preTcp
-        )
-          assert.equal(
-            fixture.grpcConnections.count,
-            connections,
-            "Malformed PEM refuses before TCP",
-          );
-        if (["missing-identity", "host-mismatch"].includes(String(id)))
-          assert.ok(
-            fixture.rejected
-              .slice(rejected)
-              .some((event) => /peer sent no certificates/i.test(event.detail)),
-          );
-        if (fileCase?.caFile && !success && !fileCase.preTcp) {
-          assert.ok(
-            fixture.grpcConnections.count > connections,
-            "Untrusted collection CA reaches TLS handshake",
-          );
+            .getByRole("button", { name: "Load methods", exact: true })
+            .click();
+          await page
+            .getByRole("combobox", { name: "gRPC method", exact: true })
+            .selectOption({ label: "/Sample/Echo · Unary" });
+          await page
+            .getByRole("tablist", { name: "gRPC request editor", exact: true })
+            .getByRole("tab", { name: "Body", exact: true })
+            .click();
+          await page
+            .locator(".CodeMirror")
+            .first()
+            .evaluate((el) => {
+              /** @type {any} */ (el).CodeMirror.setValue(
+                '{"name":"owned request"}',
+              );
+            });
           await poll(
             async () =>
+              (await invoke("load_workspace")).resources.find(
+                (/** @type {any} */ r) => r._id === requestId,
+              )?.body?.text === '{"name":"owned request"}',
+            "gRPC body persisted",
+          );
+          const before = await invoke("load_workspace");
+          const count = fixture.grpcRequests.length;
+          const connections = fixture.grpcConnections.count;
+          const rejected = fixture.rejected.length;
+          await page.getByRole("button", { name: "Send", exact: true }).click();
+          await poll(
+            async () =>
+              (await invoke("load_workspace")).history.some(
+                (/** @type {any} */ row) =>
+                  row.requestId === requestId &&
+                  !before.history.some(
+                    (/** @type {any} */ old) => old._id === row._id,
+                  ) &&
+                  ["closed", "error"].includes(row.connectionState),
+              ),
+            "gRPC TLS call settled " + id,
+          );
+          await page
+            .getByRole("button", { name: "Send", exact: true })
+            .waitFor();
+          const after = await invoke("load_workspace");
+          assert.deepEqual(after.resources, before.resources);
+          const fresh = after.history.filter(
+            (/** @type {any} */ row) =>
+              !before.history.some(
+                (/** @type {any} */ old) => old._id === row._id,
+              ),
+          );
+          assert.equal(fresh.length, 1);
+          const response = fresh[0];
+          assert.equal(response.protocol, "grpc");
+          for (const old of after.history.filter(
+            (/** @type {any} */ row) => row._id !== response._id,
+          ))
+            assert.deepEqual(
+              old,
+              before.history.find(
+                (/** @type {any} */ row) => row._id === old._id,
+              ),
+            );
+          const reached = fixture.grpcRequests.slice(count);
+          if (server) {
+            assert.ok(
+              fixture.grpcConnections.count > connections,
+              "Native attempts invalid server TLS handshake",
+            );
+            const alert =
+              server.id === "hostname"
+                ? "BadCertificate"
+                : "CertificateExpired";
+            await poll(
+              async () =>
+                fixture.rejected
+                  .slice(rejected)
+                  .some(
+                    (event) =>
+                      event.role === "grpc" &&
+                      event.detail.includes("received fatal alert: " + alert),
+                  ),
+              "Native gRPC certificate alert " + server.id,
+            );
+          }
+          const received = response.events.filter(
+            (/** @type {any} */ event) => event.kind === "message",
+          );
+          if (expectedSuccess) {
+            assert.equal(response.connectionState, "closed");
+            assert.equal(response.status, 0);
+            assert.equal(reached.length, 1);
+            assert.equal(reached[0].cn, fixture.clientName);
+            assert.equal(reached[0].fingerprint, fixture.client.fingerprint);
+            assert.equal(reached[0].authorized, true);
+            assert.equal(reached[0].alpn, "h2");
+            assert.equal(reached[0].method, "POST");
+            assert.equal(reached[0].url, "/owned.Sample/Echo");
+            const text = Buffer.from("owned request");
+            assert.deepEqual(reached[0].bodyBytes, [
+              ...Buffer.concat([
+                Buffer.from([0, 0, 0, 0, text.length + 2, 10, text.length]),
+                text,
+              ]),
+            ]);
+            assert.equal(received.length, 1);
+            assert.deepEqual(JSON.parse(received[0].text), { name: message });
+            assert.ok(
+              response.headers.some(
+                (/** @type {any} */ row) =>
+                  row[0] === "owned-metadata" && row[1] === "authenticated",
+              ),
+            );
+            assert.ok(
+              response.trailers.some(
+                (/** @type {any} */ row) =>
+                  row[0] === "owned-trailer" && row[1] === "complete",
+              ),
+            );
+            await page
+              .locator(".grpc-message")
+              .filter({ hasText: message })
+              .waitFor();
+          } else {
+            assert.equal(reached.length, 0);
+            assert.equal(received.length, 0);
+            assert.ok(
+              response.connectionState === "error" ||
+                (response.status != null && response.status !== 0),
+              "TLS refusal must retain error or nonzero gRPC status",
+            );
+            assert.ok(
+              response.events.some(
+                (/** @type {any} */ e) =>
+                  e.kind === "error" || (e.kind === "status" && e.code !== 0),
+              ),
+            );
+          }
+          if (
+            !expectedSuccess &&
+            (["malformed-ca", "malformed-identity"].includes(String(id)) ||
+              fileCase?.preTcp)
+          )
+            assert.equal(
+              fixture.grpcConnections.count,
+              connections,
+              "Malformed PEM refuses before TCP",
+            );
+          if (["missing-identity", "host-mismatch"].includes(String(id)))
+            assert.ok(
               fixture.rejected
                 .slice(rejected)
-                .some(
-                  (event) =>
-                    event.role === "grpc" &&
-                    event.detail.includes("received fatal alert: UnknownCA"),
+                .some((event) =>
+                  /peer sent no certificates/i.test(event.detail),
                 ),
-            "Native unary collection CA trust refusal",
-          );
+            );
+          if (fileCase?.caFile && !expectedSuccess && !fileCase.preTcp) {
+            assert.ok(
+              fixture.grpcConnections.count > connections,
+              "Untrusted collection CA reaches TLS handshake",
+            );
+            await poll(
+              async () =>
+                fixture.rejected
+                  .slice(rejected)
+                  .some(
+                    (event) =>
+                      event.role === "grpc" &&
+                      event.detail.includes("received fatal alert: UnknownCA"),
+                  ),
+              "Native unary collection CA trust refusal",
+            );
+          }
+          assert.ok(!JSON.stringify(response).includes("BEGIN PRIVATE KEY"));
+          assert.equal(fixture.sinkRequests.length, 0);
+          assert.equal(fixture.connections.sink, 0);
+          await page.screenshot({ path: join(output, String(id) + ".png") });
+          cases.push({
+            id,
+            success: expectedSuccess,
+            validateCertificates: !validationDisabled,
+            response,
+            requests: reached,
+            connections: fixture.grpcConnections.count - connections,
+            rejections: fixture.rejected.slice(rejected),
+            serverCertificate: server
+              ? fixture.serverCertificates.find(
+                  (certificate) => certificate.id === server.id,
+                )
+              : undefined,
+          });
         }
-        assert.ok(!JSON.stringify(response).includes("BEGIN PRIVATE KEY"));
-        assert.equal(fixture.sinkRequests.length, 0);
-        assert.equal(fixture.connections.sink, 0);
-        await page.screenshot({ path: join(output, String(id) + ".png") });
-        cases.push({
-          id,
-          success,
-          response,
-          requests: reached,
-          connections: fixture.grpcConnections.count - connections,
-          rejections: fixture.rejected.slice(rejected),
-          serverCertificate: server
-            ? fixture.serverCertificates.find(
-                (certificate) => certificate.id === server.id,
-              )
-            : undefined,
-        });
-      }
-      const saved = (await invoke("load_workspace")).history.find(
-        (/** @type {any} */ r) => r.requestId === requestId,
-      );
-      const count = fixture.grpcRequests.length;
-      await page.reload();
-      await page
-        .locator(".grpc-message")
-        .filter({ hasText: message })
-        .waitFor();
-      assert.deepEqual(
-        (await invoke("load_workspace")).history.find(
-          (/** @type {any} */ r) => r._id === saved._id,
-        ),
-        saved,
-      );
-      assert.equal(
-        fixture.grpcRequests.length,
-        count,
-        "Reload does not send another RPC",
-      );
-      await certificateSettings(page, invoke, {
-        pfx: fixture.identityFiles.pfx,
-        password: fixture.identityFiles.password,
-        caFile: fixture.caFiles.trusted,
-      });
-      await setTls(fixture.otherCa, "127.0.0.1", "");
-      const streaming = await grpcStreamCertificate(
-        { page, invoke, output },
-        fixture,
-        requestId,
-      );
-      await certificateSettings(page, invoke, { disabled: true });
-      await setTls(fixture.ca, "127.0.0.1", fixture.client.identity);
-      const reflection = await grpcReflectionCertificate(
-        { page, invoke, output },
-        fixture,
-        requestId,
-      );
-      await Bun.write(
-        join(output, "acceptance.json"),
-        JSON.stringify(
-          {
-            passed: true,
-            checks: [
-              "independent mandatory-mTLS HTTP2 check",
-              ...cases.map((c) => c.id),
-              "full response reload without resend",
-              ...streaming.map((c) => c.id),
-              ...reflection.map((c) => c.id),
-            ],
-            independent,
-            cases,
-            streaming,
-            reflection,
-            limits:
-              "Actual Windows native unary/server/client/bidirectional gRPC and reflection v1/v1alpha fallback through persisted Preferences and UI, HTTP2 ALPN, server-observed peer fingerprint and exact protobuf bytes. Explicit Commit EOF, all three Cancel shapes produce actual RST_STREAM CANCEL, saved response/reconnect observed. Reflection TLS refusals and discovery-to-Send verified. CA-signed hostname/expired/future server refusal and successful recovery verified. No trust-store modification or network TLS-validation bypass; offline OpenSSL no_check_time isolates chain validity only. Arbitrary reflection graphs/errors, provider/proxy/legacy/platform remain separate gates.",
-          },
-          null,
-          2,
-        ),
-      );
-    } finally {
-      try {
-        await Bun.write(
-          join(output, "partial-cases.json"),
-          JSON.stringify(cases, null, 2),
+        const saved = (await invoke("load_workspace")).history.find(
+          (/** @type {any} */ r) => r.requestId === requestId,
         );
-        await setTls(
-          original.caPem || "",
-          original.identityHost || "",
-          original.identityPem || "",
-          original.validateCertificates,
+        const count = fixture.grpcRequests.length;
+        await page.reload();
+        await page
+          .locator(".grpc-message")
+          .filter({ hasText: message })
+          .waitFor();
+        assert.deepEqual(
+          (await invoke("load_workspace")).history.find(
+            (/** @type {any} */ r) => r._id === saved._id,
+          ),
+          saved,
         );
-        const restored = (await invoke("load_workspace")).settings;
-        const keys = [
-          "caPem",
-          "identityHost",
-          "identityPem",
-          "validateCertificates",
-        ];
-        for (const key of keys)
-          assert.equal(restored[key], original[key], "Restore " + key);
+        assert.equal(
+          fixture.grpcRequests.length,
+          count,
+          "Reload does not send another RPC",
+        );
+        let streaming = /** @type {Array<Record<string,any>>} */ ([]);
+        if (!validationDisabled) {
+          await certificateSettings(page, invoke, {
+            pfx: fixture.identityFiles.pfx,
+            password: fixture.identityFiles.password,
+            caFile: fixture.caFiles.trusted,
+          });
+          await setTls(fixture.otherCa, "127.0.0.1", "");
+          streaming = await grpcStreamCertificate(
+            { page, invoke, output },
+            fixture,
+            requestId,
+          );
+          await certificateSettings(page, invoke, { disabled: true });
+          await setTls(fixture.ca, "127.0.0.1", fixture.client.identity);
+        }
+        const reflection = await grpcReflectionCertificate(
+          { page, invoke, output },
+          fixture,
+          requestId,
+        );
         await Bun.write(
-          join(output, "settings-restored.json"),
-          JSON.stringify({ restored: true, keys }),
+          join(output, "acceptance.json"),
+          JSON.stringify(
+            {
+              passed: true,
+              validateCertificates: !validationDisabled,
+              checks: [
+                "independent mandatory-mTLS HTTP2 check",
+                ...cases.map((c) => c.id),
+                "full response reload without resend",
+                ...streaming.map((c) => c.id),
+                ...reflection.map((c) => c.id),
+              ],
+              independent,
+              cases,
+              streaming,
+              reflection,
+              limits: validationDisabled
+                ? "Focused existing missing-identity/malformed-CA call and reflection controls with global validation disabled, exact peer client fingerprint/protobuf response and reload/profile restoration. Default full trusted-mode cases remain unchanged; explicit request overrides, other TLS variants, deadline/platform/provider acceptance are separate gates."
+                : "Actual Windows native unary/server/client/bidirectional gRPC and reflection v1/v1alpha fallback through persisted Preferences and UI, HTTP2 ALPN, server-observed peer fingerprint and exact protobuf bytes. Explicit Commit EOF, all three Cancel shapes produce actual RST_STREAM CANCEL, saved response/reconnect observed. Reflection TLS refusals and discovery-to-Send verified. CA-signed hostname/expired/future server refusal and successful recovery verified. No trust-store modification or network TLS-validation bypass; offline OpenSSL no_check_time isolates chain validity only. Arbitrary reflection graphs/errors, provider/proxy/legacy/platform remain separate gates.",
+            },
+            null,
+            2,
+          ),
         );
       } finally {
-        await fixture.close();
+        try {
+          await Bun.write(
+            join(output, "partial-cases.json"),
+            JSON.stringify(cases, null, 2),
+          );
+          await setTls(
+            original.caPem || "",
+            original.identityHost || "",
+            original.identityPem || "",
+            original.validateCertificates,
+          );
+          const restored = (await invoke("load_workspace")).settings;
+          const keys = [
+            "caPem",
+            "identityHost",
+            "identityPem",
+            "validateCertificates",
+          ];
+          for (const key of keys)
+            assert.equal(restored[key], original[key], "Restore " + key);
+          await Bun.write(
+            join(output, "settings-restored.json"),
+            JSON.stringify({ restored: true, keys }),
+          );
+        } finally {
+          await fixture.close();
+        }
       }
-    }
-  }),
+    },
+  ),
 );

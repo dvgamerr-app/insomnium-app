@@ -16,6 +16,8 @@ export async function grpcReflectionCertificate(
   requestId,
 ) {
   const setTls = tlsPreferences(page, invoke);
+  const validationDisabled =
+    process.env.INSOMNIUM_GRPC_TLS_VALIDATION_OFF === "1";
   const cases = /** @type {Array<Record<string,any>>} */ ([]);
   const fileCases = protocolCertificateCases(fixture);
   try {
@@ -134,6 +136,16 @@ export async function grpcReflectionCertificate(
       ],
     ]) {
       const label = String(id);
+      if (
+        validationDisabled &&
+        !["reflection-missing-identity", "reflection-malformed-ca"].includes(
+          label,
+        )
+      )
+        continue;
+      const expectedSuccess = validationDisabled
+        ? label === "reflection-malformed-ca"
+        : success;
       const server = fixture.invalidServers.find(
         (server) => label === "reflection-server-" + server.id,
       );
@@ -156,7 +168,12 @@ export async function grpcReflectionCertificate(
         );
         return request.url === url && request.protoFileId === "";
       }, "reflection source persisted");
-      await setTls(String(ca), String(host), String(identity));
+      await setTls(
+        String(ca),
+        String(host),
+        String(identity),
+        !validationDisabled,
+      );
       const fileCase = fileCases.find(
         (entry) => "reflection-" + entry.id === id,
       );
@@ -182,7 +199,7 @@ export async function grpcReflectionCertificate(
         name: "gRPC method",
         exact: true,
       });
-      if (success) {
+      if (expectedSuccess) {
         await poll(
           async () => !(await methods.isDisabled()),
           "reflected methods available",
@@ -239,7 +256,7 @@ export async function grpcReflectionCertificate(
       const requests = fixture.grpcRequests.slice(requestsBefore);
       const events = fixture.grpcEvents.slice(eventsBefore);
       const queries = events.filter((e) => e.event === "grpc-reflection");
-      if (success) {
+      if (expectedSuccess) {
         await methods.selectOption({ label: "/Sample/Echo · Unary" });
         assert.equal(requests.length, 1);
         assert.equal(requests[0].fingerprint, fixture.client.fingerprint);
@@ -347,7 +364,14 @@ export async function grpcReflectionCertificate(
               (/** @type {any} */ r) => r._id === old._id,
             ),
           );
-        cases.push({ id: label, success, requests, events, called, response });
+        cases.push({
+          id: label,
+          success: expectedSuccess,
+          requests,
+          events,
+          called,
+          response,
+        });
       } else {
         assert.equal(requests.length, 0);
         assert.equal(queries.length, 0);
@@ -395,7 +419,7 @@ export async function grpcReflectionCertificate(
           );
         cases.push({
           id: label,
-          success,
+          success: expectedSuccess,
           requests,
           events,
           serverCertificate: server
