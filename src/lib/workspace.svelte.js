@@ -2694,10 +2694,12 @@ export async function prepareCodeRequest(requestId, signal, isCurrent) {
   const prepared=prepareRenderedRequest(data,rendered,id('code-export'),rendered.authentication?.type==='oauth2'&&!rendered.authentication.disabled&&!manual?
     {oauthAuthorization:oauthHeader(data,rendered,{resolved:true})}:{});
   if(prepared.socketPath)throw Error('Code generation for a Unix socket requires a client-specific adapter.');
-  if(prepared.bodyBase64!==null)throw Error('Code generation for binary request bodies requires a client-specific file adapter.');
   if(prepared.multipart&&(prepared.multipartContentType||prepared.multipart.some((/** @type {any} */part)=>part.fileName!==null||part.valueBase64||part.headers.length||part.transferEncoding||part.contentType)))throw Error('Code generation for file/custom multipart parts requires a client-specific adapter.');
   check();
-  return pluginHarEntry(rendered,prepared,undefined,new Date().toISOString()).request;
+  const har=pluginHarEntry(rendered,prepared,undefined,new Date().toISOString()).request;
+  // Binary transport bytes must never fall through as a Base64 text body.
+  if(prepared.bodyBase64!==null)har.postData.text='';
+  return {...har,bodyBase64:prepared.bodyBase64};
 }
 /** Capture actual workspace services for one root Send and all nested guests.
  * @param {ReturnType<typeof initialData>} data

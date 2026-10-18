@@ -2,6 +2,13 @@ import assert from "node:assert/strict";
 import {withPreview} from "./helpers/preview-app.js";
 import {initialData} from "../../src/lib/model.js";
 
+const shortcutData=initialData();
+const shortcutRequest=shortcutData.resources.find(row=>row._id===shortcutData.activeRequestId);
+assert.ok(shortcutRequest);
+shortcutRequest.headers=[{name:'X-Escape',value:'quote\'"\\tail'},{name:'__proto__',value:'literal-header'}];
+shortcutRequest.settingEncodeUrl=false;
+let generatedFetchRequests=0;
+
 await withPreview("workspace-shortcuts",async (page,output) => {
   const url = page.getByRole("textbox",{name:"Request URL",exact:true});
   await url.waitFor();
@@ -103,6 +110,33 @@ await withPreview("workspace-shortcuts",async (page,output) => {
   assert.equal(await generated.locator('.CodeMirror').evaluate(el=>/** @type {any} */(el).CodeMirror.getOption('readOnly')),true);
   await generated.screenshot({path:output+'/code-generation.png'});
   await page.keyboard.press('Escape');await generated.waitFor({state:'detached'});
+  await page.getByRole('combobox',{name:'HTTP method',exact:true}).selectOption('POST');
+  const fetchUrl=new URL("/owned-code-generation/it's?__proto__=value&item=one&constructor=literal&item=two",page.url()).href;
+  await url.fill(fetchUrl);await bodyEditor.evaluate(el=>/** @type {any} */(el).CodeMirror.focus());
+  await page.keyboard.press('Control+Shift+g');await generated.waitFor();
+  await generated.getByRole('combobox',{name:'Code language',exact:true}).selectOption('javascript');
+  await generated.getByRole('combobox',{name:'Code client',exact:true}).selectOption('fetch');
+  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes('const response = await fetch('));
+  const fetchCode=await generatedCode();
+  const wire=await page.evaluate(code=>new Function('return (async()=>{'+code+';return JSON.parse(data);})()')(),fetchCode);
+  assert.equal(wire.url,fetchUrl);
+  assert.equal(wire.body,await bodyEditor.evaluate(el=>/** @type {any} */(el).CodeMirror.getValue()));
+  assert.equal(wire.escape,'quote\'"\\tail');assert.equal(wire.proto,'literal-header');
+  assert.equal(wire.count,1,'Generation must not dispatch the request before executing the snippet');
+  await Bun.write(output+'/generated-fetch-wire.json',JSON.stringify(wire,null,2));
+  await page.keyboard.press('Escape');await generated.waitFor({state:'detached'});
+  const binary=Buffer.from([0,255,128,239,187,191,195,40,13,10,0,65]);
+  await page.getByRole('combobox',{name:'Body type',exact:true}).selectOption('application/octet-stream');
+  await page.locator('.binary-picker input[type="file"]').setInputFiles({name:'owned-codegen.bin',mimeType:'application/octet-stream',buffer:binary});
+  await page.waitForFunction(expected=>{const data=JSON.parse(localStorage.getItem('insomnium-tauri-preview-v1')||'{}');return data.resources?.find((/** @type {any} */row)=>row._id===data.activeRequestId)?.body?.base64===expected;},binary.toString('base64'));
+  await page.getByRole('button',{name:'Generate code',exact:true}).click();await generated.waitFor();
+  await page.waitForFunction(()=>/** @type {any} */(document.querySelector('dialog[open] .CodeMirror'))?.CodeMirror.getValue().includes('Uint8Array.from(atob('));
+  const binaryCode=await generatedCode();
+  const binaryWire=await page.evaluate(code=>new Function('return (async()=>{'+code+';return JSON.parse(data);})()')(),binaryCode);
+  assert.equal(binaryWire.bodyBase64,binary.toString('base64'));assert.equal(binaryWire.size,binary.length);
+  assert.equal(binaryWire.contentType,'application/octet-stream');assert.equal(binaryWire.count,2);
+  await Bun.write(output+'/generated-fetch-binary-wire.json',JSON.stringify(binaryWire,null,2));
+  await page.keyboard.press('Escape');await generated.waitFor({state:'detached'});
   for (const [chord,label] of [["Control+Shift+e","Active environment"],["Meta+Shift+l","HTTP method"]]) {
     await page.keyboard.press(chord);
     assert.equal(await page.getByRole("combobox",{name:label,exact:true}).evaluate((el) => el === document.activeElement || el.contains(document.activeElement)),true,label);
@@ -179,15 +213,19 @@ await withPreview("workspace-shortcuts",async (page,output) => {
   await dialog.getByRole("button",{name:"Create",exact:true}).click();
   await dialog.waitFor({state:"detached"});
   await page.waitForFunction(() => JSON.parse(localStorage.getItem("insomnium-tauri-preview-v1") || "{}").resources.some((/** @type {any} */ r) => r._type === "request_group" && r.name === "Owned shortcut folder"));
-  await Bun.write(output + "/result.json",JSON.stringify({status:"passed",headless:true,shortcuts:5,modalGuard:true,repeatCompositionAltConsumedGuards:true,focusedHistoryDispatch:true,plainInputHistory:true,readOnlyHistoryGuard:true,scope:"Actual built-app keyboard/focus/dialogs and shared history dispatcher; no native menu/network"},null,2));
+  await Bun.write(output + "/result.json",JSON.stringify({status:"passed",headless:true,shortcuts:5,modalGuard:true,repeatCompositionAltConsumedGuards:true,focusedHistoryDispatch:true,plainInputHistory:true,readOnlyHistoryGuard:true,generatedFetchWire:true,scope:"Actual built-app keyboard/focus/dialogs/history and generated fetch to an owned loopback peer; no native menu/provider"},null,2));
 },{fetch:async (request) => {
+  if(new URL(request.url).pathname.startsWith('/owned-code-generation/')){
+    const bytes=Buffer.from(await request.arrayBuffer());
+    return Response.json({count:++generatedFetchRequests,url:request.url,body:new TextDecoder().decode(bytes),bodyBase64:bytes.toString('base64'),size:bytes.length,contentType:request.headers.get('content-type'),escape:request.headers.get('x-escape'),proto:request.headers.get('__proto__')});
+  }
   if (new URL(request.url).pathname === "/owned-editor-history.js")
     return new Response(await Bun.file("src/lib/editor-history.js").text(), {headers:{"Content-Type":"text/javascript"}});
 },beforeNavigate:async (page) => {
   await page.addInitScript((data) => {
     if (!localStorage.getItem("insomnium-tauri-preview-v1"))
       localStorage.setItem("insomnium-tauri-preview-v1",JSON.stringify(data));
-  },initialData());
+  },shortcutData);
 }});
 
 const websocketData = initialData();
