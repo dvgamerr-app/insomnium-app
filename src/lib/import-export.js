@@ -143,7 +143,8 @@ export function parseImport(text,options = {}) {
   if (new TextEncoder().encode(text).byteLength > 64 * 1024 * 1024)
     throw new Error("Collection import exceeds 64 MiB. The source was not changed.");
   let source;
-  if (isCurlImport(text)) source = { resources: curlResources(text) };
+  if (isCurlImport(text) || /\.curlrc$/i.test(options.name || ""))
+    source = { resources: curlResources(text, {config: /\.curlrc$/i.test(options.name || "")}) };
   else if (text.trimStart().startsWith('<')) source = {resources:wsdlResources(text,options)};
   else {
     try {
@@ -466,7 +467,7 @@ export function parseImport(text,options = {}) {
         : []),
       ...(resources.some((r) => r._curlSource)
         ? [
-            "cURL commands use literal Bash quoting. Shell variables, config files and unsupported options are rejected.",
+            "cURL commands use literal Bash quoting; supplied config text uses curl config quoting. Shell expansion, referenced config paths and unsupported options are rejected.",
             "Raw data stays in the text editor with its Content-Type header to preserve encoding. Referenced body and multipart files must be selected before sending.",
           ]
         : []),
@@ -611,7 +612,7 @@ export async function pickImport() {
     filters: [
       {
         name: "API collections / legacy databases",
-        extensions: ["json", "yaml", "yml", "har", "db", "curl", "txt", "wsdl", "xml", "xsd"],
+        extensions: ["json", "yaml", "yml", "har", "db", "curl", "curlrc", "cfg", "txt", "wsdl", "xml", "xsd"],
       },
     ],
   });
@@ -646,7 +647,8 @@ export async function pickImport() {
     throw new Error(
       "Select one collection file, legacy .db files together, or a WSDL root with its WSDL/XSD dependencies.",
     );
-  return parseImport(await readTextFile(path[0]));
+  const name = path[0].split(/[\\/]/).at(-1) || "";
+  return parseImport(await readTextFile(path[0]), /\.curlrc$/i.test(name) ? {name} : {});
 }
 /** @param {ReturnType<typeof initialData>} data */
 export async function exportData(data) {

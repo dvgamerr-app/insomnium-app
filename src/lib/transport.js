@@ -27,6 +27,7 @@ import {
 import { prepareOAuth1 } from "./oauth1-model.js";
 import { prepareHawk } from "./hawk-model.js";
 import { prepareAsap } from "./asap-model.js";
+import { requestProxy } from "./request-proxy.js";
 
 /** @param {Uint8Array} bytes */
 export function encodeBase64(bytes) {
@@ -111,6 +112,8 @@ export function prepareRenderedRequest(data, request, runId, options = {}) {
 /** @param {Record<string,any>} data @param {Record<string,any>} request @param {string} runId
  * @param {(value:unknown)=>string} resolve @param {()=>string} resolvedOAuthHeader */
 function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
+  if (request.settingDecodeResponse != null && typeof request.settingDecodeResponse !== "boolean")
+    throw new Error("Choose a valid response decompression setting in Settings.");
   if (request.settingValidateCertificates != null &&
       !["global", "on", "off"].includes(request.settingValidateCertificates))
     throw new Error("Choose the request TLS certificate validation preference in Settings.");
@@ -640,6 +643,7 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
     netrc,
     oauth: auth.type === "oauth2" && !auth.disabled && !manualAuthorization,
     timeoutMs: Number(settings.timeout),
+    decodeResponse: request.settingDecodeResponse ?? null,
     followRedirects:
       request.settingFollowRedirects === "on"
         ? true
@@ -656,7 +660,7 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
     cookieSnapshot: request.cookieSnapshot || null,
     sendCookies: request.settingSendCookies !== false,
     storeCookies: request.settingStoreCookies !== false,
-    proxy: settings.proxy || null,
+    ...requestProxy(settings, request, resolve),
     caPem: settings.caPem || null,
     caFile: collectionCaCertificatePath(data, request),
     caAsset: collectionCaCertificateAsset(data, request),
@@ -727,6 +731,10 @@ export async function send(request, signal) {
   }
   if (request.socketPath)
     throw new Error("Unix socket requests require the desktop app.");
+  if (request.proxyOverride)
+    throw new Error("Request proxy overrides require the desktop app.");
+  if (request.decodeResponse != null)
+    throw new Error("Explicit response decompression settings require the desktop app.");
   if (request.caFile || request.caAsset || request.caPem || request.identityPem || request.clientCertificates?.length)
     throw new Error("Custom CA and client certificates require the desktop app.");
   if (request.digest)

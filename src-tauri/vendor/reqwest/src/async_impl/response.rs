@@ -33,6 +33,11 @@ pub struct Response {
 }
 
 impl Response {
+    /// Insomnium extension: response headers before content decompression.
+    pub fn original_headers(&self) -> &HeaderMap {
+        self.res.extensions().get::<super::download_meter::OriginalHeaders>()
+            .map(|headers| &headers.0).unwrap_or_else(|| self.headers())
+    }
     /// Insomnium extension: payload bytes consumed before content decompression.
     /// The count is live until the body is drained, excludes headers/framing,
     /// and is absent for synthetic responses built outside the client service.

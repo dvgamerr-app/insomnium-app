@@ -11,6 +11,8 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::sync::watch;
+#[path = "http_compression.rs"]
+pub(crate) mod compression;
 #[path = "multipart_encoding.rs"]
 mod multipart_encoding;
 
@@ -50,6 +52,8 @@ pub struct HttpRequest {
     pub(crate) suppress_default_headers: Vec<String>,
     #[serde(default)]
     pub(crate) auto_referer: Option<bool>,
+    #[serde(default)]
+    pub(crate) decode_response: Option<bool>,
     pub(crate) body: Option<String>,
     pub(crate) body_base64: Option<String>,
     pub(crate) multipart: Option<Vec<FormPart>>,
@@ -63,6 +67,10 @@ pub struct HttpRequest {
     pub(crate) send_cookies: bool,
     pub(crate) store_cookies: bool,
     pub(crate) proxy: Option<String>,
+    #[serde(default)]
+    pub(crate) proxy_disabled: bool,
+    #[serde(default)]
+    pub(crate) proxy_basic_auth: bool,
     pub(crate) ca_pem: Option<String>,
     pub(crate) ca_file: Option<String>,
     pub(crate) ca_asset: Option<crate::client_certificates::PortableCertificateAsset>,
@@ -206,11 +214,12 @@ pub async fn send_http(
             |outgoing| {
                 let (client, log, hops) = (&client, log.clone(), hops.clone());
                 let validate = request.validate_certificates;
+                let decode_response = request.decode_response;
                 async move {
                     let sent = crate::network_log::Outgoing::capture(&outgoing);
                     let hop_started = Instant::now();
                     let number = hops.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
-                    let response = match client.execute(outgoing).await {
+                    let mut response = match client.execute(outgoing).await {
                         Ok(response) => response,
                         Err(error) => {
                             if let Ok(mut log) = log.lock() {
@@ -228,6 +237,7 @@ pub async fn send_http(
                             });
                         }
                     };
+                    let compression_result = compression::response(&mut response, decode_response);
                     if let Ok(mut log) = log.lock() {
                         log.extend(crate::network_log::hop(
                             number,
@@ -237,6 +247,7 @@ pub async fn send_http(
                             validate,
                         ));
                     }
+                    compression_result?;
                     Ok(response)
                 }
             },
@@ -426,6 +437,7 @@ pub(crate) fn build_client(
         .tls_info(true)
         .danger_accept_invalid_certs(!request.validate_certificates);
     builder = builder.referer(request.auto_referer.unwrap_or(true));
+    builder = compression::client(builder, request.decode_response);
     if request
         .suppress_default_headers
         .iter()
@@ -443,8 +455,13 @@ pub(crate) fn build_client(
             request.cookie_snapshot.as_ref(),
         )?);
     }
-    if let Some(proxy) = request.proxy.as_ref().filter(|p| !p.is_empty()) {
-        builder = builder.proxy(crate::proxy_auth::configure_proxy(proxy)?);
+    if request.proxy_disabled {
+        builder = builder.no_proxy();
+    } else if let Some(proxy) = request.proxy.as_ref().filter(|p| !p.is_empty()) {
+        builder = builder.proxy(crate::proxy_auth::configure_proxy(
+            proxy,
+            request.proxy_basic_auth,
+        )?);
     }
     let ca = crate::client_certificates::load_ca_certificate(
         request.ca_file.as_deref(),
@@ -533,6 +550,14 @@ pub(crate) fn build_request(
     }
     let method = Method::from_bytes(request.method.as_bytes()).map_err(|e| e.to_string())?;
     let mut outgoing = client.request(method, url);
+    outgoing = compression::request(
+        outgoing,
+        request.decode_response,
+        request
+            .headers
+            .iter()
+            .any(|(name, _)| name.eq_ignore_ascii_case("accept-encoding")),
+    );
     for (name, value) in &request.headers {
         let name = HeaderName::from_bytes(name.as_bytes())
             .map_err(|e| format!("Invalid header name: {e}"))?;

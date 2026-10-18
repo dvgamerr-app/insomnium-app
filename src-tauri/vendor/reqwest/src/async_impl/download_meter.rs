@@ -16,6 +16,8 @@ use tower_service::Service;
 
 #[derive(Clone, Debug, Default)]
 pub(crate) struct DownloadCount(Arc<AtomicU64>);
+#[derive(Clone, Debug)]
+pub(crate) struct OriginalHeaders(pub(crate) http::HeaderMap);
 impl DownloadCount {
     pub(crate) fn bytes(&self) -> u64 {
         self.0.load(Ordering::Relaxed)
@@ -94,6 +96,16 @@ where
         };
         let (mut parts, body) = response.into_parts();
         let count = DownloadCount::default();
+        parts.extensions.insert(OriginalHeaders(parts.headers.clone()));
+        // Content codings are case-insensitive; retain wire spelling above.
+        if let Some(value) = parts.headers.get_mut(http::header::CONTENT_ENCODING) {
+            if let Ok(text) = value.to_str() {
+                if let Some(coding) = ["gzip", "deflate", "br"].into_iter()
+                    .find(|coding| text.trim().eq_ignore_ascii_case(coding)) {
+                    *value = http::HeaderValue::from_static(coding);
+                }
+            }
+        }
         parts.extensions.insert(count.clone());
         Poll::Ready(Ok(http::Response::from_parts(
             parts,

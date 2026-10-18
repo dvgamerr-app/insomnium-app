@@ -1,5 +1,7 @@
 import { parseCurlForm } from "./curl-form.js";
 import { expandCurlUrl } from "./curl-url-glob.js";
+import { curlConfigWords } from "./curl-config.js";
+import { curlProxyUrl } from "./request-proxy.js";
 import { id, newRequest } from "./model.js";
 
 // Parse pasted text only. Never run curl, a shell, expansions, or file reads.
@@ -35,9 +37,33 @@ function commands(text) {
     started = false,
     quote = "",
     count = 0;
+  /** @type {number[]|null} */
+  let wordBytes = null;
+  const utf8 = new TextEncoder();
+  const appendWordBytes = () => {
+    if (wordBytes === null) wordBytes = [];
+    for (const byte of utf8.encode(word)) wordBytes.push(byte);
+    word = "";
+    return wordBytes;
+  };
   const flush = () => {
     if (!started) return;
     if (++count > MAX_WORDS) throw new Error("Too many cURL arguments.");
+    if (wordBytes !== null) {
+      appendWordBytes();
+      try {
+        // Decode the entire argument, including adjacent quoted segments.
+        // Keep a leading BOM as data; never replace invalid shell bytes.
+        word = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(
+          new Uint8Array(wordBytes),
+        );
+      } catch {
+        throw new Error(
+          "cURL byte escapes must form valid UTF-8. Select a binary file for other bytes.",
+        );
+      }
+      wordBytes = null;
+    }
     words.push(word);
     word = "";
     started = false;
@@ -89,15 +115,15 @@ function commands(text) {
           .slice(start, start + length)
           .match(octal ? /^[0-7]+/ : /^[\da-fA-F]+/)?.[0];
         if (!digits) throw new Error("Invalid ANSI-C escape in cURL command.");
-        const code = parseInt(digits, octal ? 8 : 16);
-        // Non-ASCII byte escapes require a byte-oriented body/argument model.
-        if ((octal || next === "x") && code > 127)
-          throw new Error(
-            "Non-ASCII byte escapes are not supported; paste Unicode text instead.",
-          );
+        const byteEscape = octal || next === "x";
+        const code = byteEscape
+          ? parseInt(digits, octal ? 8 : 16) & 255
+          : parseInt(digits, 16);
         if (!code || code > 0x10ffff || (code >= 0xd800 && code <= 0xdfff))
           throw new Error("Invalid Unicode or NUL escape in cURL command.");
-        word += String.fromCodePoint(code);
+        if (byteEscape) {
+          appendWordBytes().push(code);
+        } else word += String.fromCodePoint(code);
         i = start + digits.length - 1;
       } else throw new Error("Unsupported ANSI-C escape in cURL command.");
       continue;
@@ -195,8 +221,12 @@ const aliases = /** @type {Record<string, string>} */ ({
   i: "include",
   N: "no-buffer",
   k: "insecure",
+  x: "proxy",
+  U: "proxy-user",
 });
 const values = new Set([
+  "proxy",
+  "proxy-user",
   "aws-sigv4",
   "oauth2-bearer",
   "url",
@@ -217,6 +247,9 @@ const values = new Set([
   "url-query",
 ]);
 const flags = new Set([
+  "proxy-basic",
+  "compressed",
+  "no-compressed",
   "insecure",
   "no-insecure",
   "ntlm",
@@ -322,6 +355,11 @@ function requestsFor(words, workspaceId, entries) {
     entries.some((e) => e.name === name);
   const last = (/** @type {string} */ name) => all(name).at(-1);
   const urls = all("url");
+  const proxy = last("proxy");
+  const proxyUser = last("proxy-user");
+  if (has("proxy-basic") && !proxy)
+    throw new Error("cURL --proxy-basic requires an explicit nonempty --proxy.");
+  const proxyUrl = curlProxyUrl(proxy ?? "", proxyUser);
   if (!urls.length) throw new Error("cURL command has no URL.");
   /** @type {Record<string, any>[]} */
   const headers = [];
@@ -636,6 +674,10 @@ function requestsFor(words, workspaceId, entries) {
       authentication: structuredClone(authentication),
       body: structuredClone(body),
       settingFollowRedirects: location ? "on" : "off",
+      settingProxy: proxy === undefined ? "global" : proxy === "" ? "off" : "custom",
+      settingProxyUrl: proxyUrl,
+      settingProxyBasicAuth: Boolean(proxy),
+      settingDecodeResponse: entries.filter((e) => ["compressed", "no-compressed"].includes(e.name)).at(-1)?.name === "compressed",
       settingAutoReferer:autoReferer,
       settingValidateCertificates:
         entries.filter((e) => ["insecure", "no-insecure"].includes(e.name)).at(-1)?.name === "insecure"
@@ -649,7 +691,17 @@ function requestsFor(words, workspaceId, entries) {
 
 /** @param {string} text */
 export function isCurlImport(text) {
-  return /^\s*(?:\x60|\^|&\s*)?curl(?:\.exe)?(?:\s|$)/i.test(text);
+  return /^\s*(?:\x60|\^|&\s*)?curl(?:\.exe)?(?:\s|$)/i.test(text) || isCurlConfig(text);
+}
+
+/** @param {string} text */
+export function isCurlConfig(text) {
+  if (/^\s*#\s*curl\s+config\b/i.test(text)) return true;
+  if (/^\s*(?:openapi|swagger)\s*:/m.test(text)) return false;
+  const first = text.split(/\r?\n/).find((line) => line.trim() && !line.trimStart().startsWith("#"))?.trimStart() || "";
+  const token = /^([^\s:=]+)/.exec(first)?.[1] || "";
+  const name = token.startsWith("--") ? token.slice(2) : token.startsWith("-") ? aliases[token.slice(1)] : token;
+  return (values.has(name) || flags.has(name)) && /^\s*(?:url(?:[ \t]+|[ \t]*[:=])|--url[ \t]+)/m.test(text);
 }
 
 /**
@@ -669,6 +721,10 @@ export function curlRequestPatch(text) {
     authentication: request.authentication,
     body: request.body,
     settingFollowRedirects: request.settingFollowRedirects,
+    settingProxy: request.settingProxy,
+    settingProxyUrl: request.settingProxyUrl,
+    settingProxyBasicAuth: request.settingProxyBasicAuth,
+    settingDecodeResponse: request.settingDecodeResponse,
     settingAutoReferer: request.settingAutoReferer,
     settingValidateCertificates: request.settingValidateCertificates,
     settingEncodeUrl: false,
@@ -676,10 +732,15 @@ export function curlRequestPatch(text) {
   };
 }
 
-/** @param {string} text */
-export function curlResources(text) {
+/** @param {string} text @param {{config?:boolean}} [importOptions] */
+export function curlResources(text, importOptions = {}) {
   const workspaceId = id("wrk");
-  const parsed = commands(text);
+  const parsed = importOptions.config || isCurlConfig(text) ? [curlConfigWords(text, (option) => {
+    const name = option.startsWith("--") ? option.slice(2) : aliases[option.slice(1)];
+    if (!name || (!values.has(name) && !flags.has(name)))
+      throw new Error("Unsupported cURL config option: " + option);
+    return values.has(name);
+  })] : commands(text);
   let count = 0,
     projected = 0;
   const requests = parsed.flatMap((words) => {

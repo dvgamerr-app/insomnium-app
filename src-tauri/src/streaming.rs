@@ -855,10 +855,11 @@ async fn sse_session(
         request.has_identity(),
         |outgoing| async { client.execute(outgoing).await.map_err(|e| e.to_string()) },
     );
-    let response = tokio::select! {
+    let mut response = tokio::select! {
         response = tokio::time::timeout(Duration::from_millis(request.timeout_ms.clamp(1, 3_600_000)), handshake) => response.map_err(|_| "SSE handshake timed out")??,
         _ = delivery.cancelled.changed() => return emit(&channel, StreamEvent::Closed { code: None, reason: "Connection cancelled".into() }),
     };
+    crate::http::compression::response(&mut response, request.decode_response)?;
     emit(&channel, open_event(&response, started, "sse"))?;
     flush_cookies(jar, &channel).await?;
     if !response.status().is_success() {

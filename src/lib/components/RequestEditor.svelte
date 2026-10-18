@@ -655,6 +655,29 @@
             <option value="off">Skip certificate validation</option>
           </Select></Field
         >
+        <Field label="Response decompression"><Select
+          value={request.settingDecodeResponse == null ? "default" : request.settingDecodeResponse ? "on" : "off"}
+          onchange={(event) => onchange({ settingDecodeResponse: event.currentTarget.value === "default" ? undefined : event.currentTarget.value === "on" })}>
+          <option value="default">Use default behavior</option>
+          <option value="on">Request and decode compressed responses</option>
+          <option value="off">Keep encoded response bytes</option>
+        </Select></Field>
+        <Field label="Proxy"><Select
+          value={request.settingProxy ?? "global"}
+          onchange={(event) => onchange({ settingProxy: event.currentTarget.value })}>
+          <option value="global">Use global preference</option>
+          <option value="custom">Use request proxy</option>
+          <option value="off">Do not use a proxy</option>
+        </Select></Field>
+        {#if request.settingProxy === "custom"}<Field label="Request proxy URL"><Input
+          placeholder="http://127.0.0.1:8080"
+          value={request.settingProxyUrl ?? ""}
+          oninput={(event) => onchange({ settingProxyUrl: event.currentTarget.value })}
+          /></Field>
+          <Field layout="inline" class="checkbox-label"><Checkbox
+            checked={request.settingProxyBasicAuth === true}
+            onchange={(event) => onchange({ settingProxyBasicAuth: event.currentTarget.checked })}
+          /> Use HTTP Basic proxy authentication</Field>{/if}
         <Field layout="inline" class="checkbox-label"
           ><Checkbox
             checked={request.settingEncodeUrl ?? !request._curlSource}

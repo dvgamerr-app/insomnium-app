@@ -31,7 +31,7 @@ struct Session {
     phase: Phase,
 }
 
-pub(crate) fn configure_proxy(value: &str) -> Result<Proxy, String> {
+pub(crate) fn configure_proxy(value: &str, basic: bool) -> Result<Proxy, String> {
     // Let pinned IntoProxy validate the accepted syntax first, including its
     // original errors and SOCKS default-port behavior. IntoUrl accepts parsed
     // URLs only when they have a host; IntoProxy retries a missing scheme or
@@ -52,6 +52,12 @@ pub(crate) fn configure_proxy(value: &str) -> Result<Proxy, String> {
     let password = credential(url.password().unwrap_or(""))?;
     if username.is_empty() || username.contains(':') {
         return Err("Invalid explicit proxy username".into());
+    }
+    if basic {
+        // Proxy::all retains percent-encoded URL credentials and performs
+        // preemptive Basic for HTTP/CONNECT. Do not round-trip through
+        // basic_auth: its URL setters could reinterpret a literal %HH password.
+        return Ok(ordinary);
     }
     let tls = url.scheme() == "https";
     url.set_username("")

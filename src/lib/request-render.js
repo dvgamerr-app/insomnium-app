@@ -37,6 +37,9 @@ export async function renderRequestSnapshot(session, request, options = {}) {
   const uploads = separateRequestUploads(request);
   checkCookieSnapshot(options.cookieJar);
   const input = uploads.input;
+  const inactiveProxy = input.settingProxy !== "custom" && Object.hasOwn(input, "settingProxyUrl");
+  const authoredProxy = input.settingProxyUrl;
+  if (inactiveProxy) input.settingProxyUrl = "";
   const cookieJar = structuredClone(options.cookieJar ?? null);
   let graphqlBody = null;
   // Preserve the original GraphQL comment workaround before any body rendering.
@@ -71,6 +74,7 @@ export async function renderRequestSnapshot(session, request, options = {}) {
     },
   );
   const rendered = result._request;
+  if (inactiveProxy) rendered.settingProxyUrl = authoredProxy;
   const renderedCookies=await renderCookieSnapshot(cookieJar,session.renderValue,session.signal);
   if (graphqlBody) {
     rendered.body.text = JSON.stringify(await renderGraphqlTemplateBody(session, graphqlBody));
@@ -202,6 +206,7 @@ export async function renderOAuthRequest(data, request, signal, options = {}) {
     const resolved = await session.renderValue({
       url: request.url,
       authentication: request.authentication,
+      ...(request.settingProxy === "custom" ? { settingProxyUrl: request.settingProxyUrl } : {}),
     });
     const renderedCookies=await renderCookieSnapshot(cookieJar,session.renderValue,signal);
     signal.throwIfAborted();
