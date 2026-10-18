@@ -4,6 +4,10 @@ Updated 2026-10-14. Authentic frontend283 inputs and current packaging receipts 
 
 See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity requirements](PARITY.md). No original scope was removed by consolidation.
 
+## Current patched-source notice refresh — 2026-10-18
+
+Source e7e19119: current reqwest proxy-bypass patch is admitted by the existing native notice generator and validator (770identities/424texts). The normal production release hook regenerates and validates the admitted native/frontend/Spectral assets; current Windows no-bundle release and unchanged native-hidden import flow pass. Evidence: artifacts/native-plan-current-20261018/verification.json and STATUS.md current release checkpoint. This advances current-source packaging evidence only: corpus coverage remains incomplete, target linkage unproven, and installers/distribution/platform/legal requirements remain open. No license text/source policy or discovery rule changed.
+
 ## Current tower-http gzip patch acquisition
 
 Complete published tower-http0.6.11 source/LICENSE retained under src-tauri/vendor/tower-http from cached .crate SHA4cfcf7e2740e6fc6d4d688b4ef00650406bb94adf4731e43c096c3a19fe40840, matching the original Cargo.lock registry checksum. Acquisition/delta: artifacts/tower-http-original-acquisition.json and tower-http-patch-delta.json; exactly one upstream code file differs (enable gzip multiple_members) plus INSOMNIUM-PATCH.md. Registry source is unchanged. Source policy and generator admit the added local patch root; bun scripts/generate-native-notices.mjs x86_64-pc-windows-msvc passes770identities/424texts. The fresh gzip-members native candidate closes original source/notices/assets/packages exactly; HTTP.md#current-consecutive-gzip-member-correction records evidence. This is bounded source/notices provenance, not complete license/linkage/platform acceptance.
