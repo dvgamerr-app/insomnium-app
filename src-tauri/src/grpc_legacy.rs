@@ -1044,11 +1044,15 @@ fn from_object_inner(
             .filter(|v| !v.is_null())
         else {
             if field.cardinality() == prost_reflect::Cardinality::Required {
-                if matches!(field.kind(), Kind::Message(_)) {
-                    return Err(format!(
-                        "{}: required message is missing",
-                        field.full_name()
-                    ));
+                if let Kind::Message(nested) = field.kind() {
+                    // An empty protobuf.js encoder never dereferences its input,
+                    // so even the null prototype default encodes an empty message.
+                    if nested.fields().next().is_some() || nested.extensions().next().is_some() {
+                        return Err(format!(
+                            "{}: required message is missing",
+                            field.full_name()
+                        ));
+                    }
                 }
                 message.set_field(&field, legacy_field_default(&field, &original_field, true));
             }
@@ -1132,10 +1136,15 @@ fn from_object_inner(
             }
             Value::List(values)
         } else {
-            let Some(value) = scalar(&field, &original_field, input, depth + 1, context)? else {
-                continue;
-            };
-            value
+            match scalar(&field, &original_field, input, depth + 1, context)? {
+                Some(value) => value,
+                // fromObject can ignore unknown enums and non-byte values.
+                // protobuf.js still encodes required fields from prototype defaults.
+                None if field.cardinality() == prost_reflect::Cardinality::Required => {
+                    legacy_field_default(&field, &original_field, true)
+                }
+                None => continue,
+            }
         };
         if let Some(oneof) = field.containing_oneof() {
             if oneof.fields().any(|f| message.has_field(&f)) {
@@ -1803,6 +1812,64 @@ impl Serialize for LegacyValue<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn legacy_required_ignored_values_keep_wire_defaults() {
+        use crate::grpc_schema::{compile, JsonMode, ProtoFile, ProtoInput};
+        let pool = compile(ProtoInput {
+            entry: "required.proto".into(),
+            files: vec![ProtoFile {
+                name: "required.proto".into(),
+                text: r#"syntax="proto2"; enum E { A=3; B=7; }
+                    message Empty {} message Nonempty { optional string s=1; }
+                    message Refusal { required Nonempty child=1; }
+                    message M { required E e=1 [default=B];
+                        required bytes b=2 [default="AB"]; optional E opt=3;
+                        required Empty empty=4; }"#
+                    .into(),
+            }],
+            include_paths: vec![],
+        })
+        .unwrap();
+        let snapshot = pool.encode_to_vec();
+        let original = pool.get_message_by_name("M").unwrap();
+        // Exact fromObject/encode output from protobuf.js 7.2.4.
+        for (body, expected) in [
+            (r#"{}"#, "0807120241422200"),
+            (r#"{"empty":null}"#, "0807120241422200"),
+            (
+                r#"{"e":"unknown","b":{},"opt":"unknown"}"#,
+                "0807120241422200",
+            ),
+            (r#"{"e":[],"b":false}"#, "0807120241422200"),
+            (r#"{"e":"A","b":[]}"#, "080312002200"),
+        ] {
+            for mode in [JsonMode::Legacy, JsonMode::LegacyReflection] {
+                let message = crate::grpc_schema::parse_mode(original.clone(), body, mode).unwrap();
+                let hex: String = message
+                    .encode_to_vec()
+                    .iter()
+                    .map(|byte| format!("{byte:02x}"))
+                    .collect();
+                assert_eq!(hex, expected, "{body}");
+            }
+        }
+        assert!(crate::grpc_schema::parse_mode(
+            original,
+            r#"{"e":"unknown","b":{}}"#,
+            JsonMode::ProtoJson
+        )
+        .is_err());
+        for mode in [JsonMode::Legacy, JsonMode::LegacyReflection] {
+            assert!(crate::grpc_schema::parse_mode(
+                pool.get_message_by_name("Refusal").unwrap(),
+                "{}",
+                mode
+            )
+            .unwrap_err()
+            .contains("required message is missing"));
+        }
+        assert_eq!(pool.encode_to_vec(), snapshot);
+    }
     #[test]
     fn legacy_extensions_preserve_wire_defaults_and_profiles() {
         use crate::grpc_schema::{compile, json_mode, JsonMode, ProtoFile, ProtoInput};
