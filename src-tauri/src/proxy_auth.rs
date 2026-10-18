@@ -10,10 +10,18 @@ use reqwest::{
 use std::{error::Error, sync::Arc};
 
 type BoxError = Box<dyn Error + Send + Sync>;
+#[derive(Clone, Copy, PartialEq)]
+enum AuthMode {
+    Auto,
+    Basic,
+    Digest,
+    Ntlm,
+}
 struct Credentials {
     username: String,
     password: String,
     tls: bool,
+    mode: AuthMode,
 }
 struct Provider(Arc<Credentials>);
 enum Phase {
@@ -31,7 +39,18 @@ struct Session {
     phase: Phase,
 }
 
-pub(crate) fn configure_proxy(value: &str, basic: bool) -> Result<Proxy, String> {
+pub(crate) fn configure_proxy(
+    value: &str,
+    basic: bool,
+    mode: Option<&str>,
+) -> Result<Proxy, String> {
+    let mode = match mode.unwrap_or(if basic { "basic" } else { "auto" }) {
+        "auto" => AuthMode::Auto,
+        "basic" => AuthMode::Basic,
+        "digest" => AuthMode::Digest,
+        "ntlm" => AuthMode::Ntlm,
+        _ => return Err("Invalid proxy authentication mode".into()),
+    };
     // Let pinned IntoProxy validate the accepted syntax first, including its
     // original errors and SOCKS default-port behavior. IntoUrl accepts parsed
     // URLs only when they have a host; IntoProxy retries a missing scheme or
@@ -44,6 +63,11 @@ pub(crate) fn configure_proxy(value: &str, basic: bool) -> Result<Proxy, String>
             .map_err(|_| "Invalid proxy configuration")?,
     };
     if !matches!(url.scheme(), "http" | "https")
+        && matches!(mode, AuthMode::Digest | AuthMode::Ntlm)
+    {
+        return Err("Digest and NTLM proxy authentication require HTTP(S)".into());
+    }
+    if !matches!(url.scheme(), "http" | "https")
         || (url.username().is_empty() && url.password().is_none())
     {
         return Ok(ordinary);
@@ -53,7 +77,7 @@ pub(crate) fn configure_proxy(value: &str, basic: bool) -> Result<Proxy, String>
     if username.is_empty() || username.contains(':') {
         return Err("Invalid explicit proxy username".into());
     }
-    if basic {
+    if mode == AuthMode::Basic {
         // Proxy::all retains percent-encoded URL credentials and performs
         // preemptive Basic for HTTP/CONNECT. Do not round-trip through
         // basic_auth: its URL setters could reinterpret a literal %HH password.
@@ -70,6 +94,7 @@ pub(crate) fn configure_proxy(value: &str, basic: bool) -> Result<Proxy, String>
             username,
             password,
             tls,
+            mode,
         })))))
 }
 
@@ -140,7 +165,14 @@ impl Session {
         if matches!(phase, Phase::Finished) {
             return Err("Proxy authentication was rejected".into());
         }
-        let schemes = schemes(headers)?;
+        let mut schemes = schemes(headers)?;
+        // A forced mode never falls back to another advertised credential scheme.
+        // Existing callers retain the original negotiation policy.
+        match self.credentials.mode {
+            AuthMode::Digest => schemes.retain(|scheme| scheme.eq_ignore_ascii_case("digest")),
+            AuthMode::Ntlm => schemes.retain(|scheme| scheme.eq_ignore_ascii_case("ntlm")),
+            _ => {}
+        }
         let ntlm = schemes
             .iter()
             .filter(|scheme| scheme.eq_ignore_ascii_case("ntlm"))

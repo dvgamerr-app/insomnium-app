@@ -1,4 +1,28 @@
 export const maxCurlBodyBytes = 20 * 1024 * 1024;
+/** curl appends the basename to directory targets only when no query is present.
+ * @param {URL} url @param {Record<string,any>|undefined} body
+ * @param {(value:unknown)=>string} resolve */
+export function appendCurlUploadName(url, body, resolve) {
+  if (
+    body?.curlFileMode !== "upload-file" ||
+    !url.pathname.endsWith("/") ||
+    url.search
+  )
+    return;
+  const name = resolve(body.fileName).split(/[\\/]/).at(-1) || "";
+  if (
+    !name ||
+    name === "." ||
+    name === ".." ||
+    name.length > 8192 ||
+    /[\x00-\x1f\x7f]/.test(name)
+  )
+    throw new Error("Select a file with a valid upload filename.");
+  url.pathname += encodeURIComponent(name).replace(
+    /[!'()*]/g,
+    (character) => "%" + character.charCodeAt(0).toString(16).toUpperCase(),
+  );
+}
 /** Join already converted file bytes and editable literal segments in argument order.
  * @param {Record<string,any>} body @param {(value:unknown)=>string} resolve */
 export function composeCurlBody(body, resolve) {

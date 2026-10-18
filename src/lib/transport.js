@@ -11,7 +11,7 @@ import {
   buildQueryParameter,
   joinUrlAndQueryString,
 } from "./template-url.js";
-import { composeCurlBody, appendCurlFileQuery } from "./curl-body.js";
+import { composeCurlBody, appendCurlFileQuery, appendCurlUploadName } from "./curl-body.js";
 import { multipartHeaders, multipartEncodings } from "./multipart-headers.js";
 import { serializeOpenApiQuery } from "./openapi-query.js";
 import { serializeOpenApiHeader } from "./openapi-header.js";
@@ -28,6 +28,7 @@ import { prepareOAuth1 } from "./oauth1-model.js";
 import { prepareHawk } from "./hawk-model.js";
 import { prepareAsap } from "./asap-model.js";
 import { requestProxy } from "./request-proxy.js";
+import { requestTimeouts } from "./request-timeouts.js";
 
 /** @param {Uint8Array} bytes */
 export function encodeBase64(bytes) {
@@ -267,6 +268,7 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
       )
         url.search += (url.search ? "&" : "?") + query;
     }
+  appendCurlUploadName(url, request.body, resolve);
   /** @type {string[][]} */
   const headers = (request.headers ?? [])
     .filter((/** @type {any} */ h) => !h.disabled && h.name)
@@ -493,7 +495,7 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
         throw new Error("Select a binary file before sending");
       bodyBase64 = body.base64;
     }
-    if (mime && !headers.some(([name]) => name.toLowerCase() === "content-type"))
+    if (mime && body.curlFileMode !== "upload-file" && !headers.some(([name]) => name.toLowerCase() === "content-type"))
       headers.push(["Content-Type", mime]);
   } else if (mime === "application/graphql") {
     const graphql = readGraphqlBody(body.text || "{}");
@@ -643,6 +645,7 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
     netrc,
     oauth: auth.type === "oauth2" && !auth.disabled && !manualAuthorization,
     timeoutMs: Number(settings.timeout),
+    ...requestTimeouts(request),
     decodeResponse: request.settingDecodeResponse ?? null,
     followRedirects:
       request.settingFollowRedirects === "on"
@@ -733,6 +736,8 @@ export async function send(request, signal) {
     throw new Error("Unix socket requests require the desktop app.");
   if (request.proxyOverride)
     throw new Error("Request proxy overrides require the desktop app.");
+  if (request.connectTimeoutMs != null)
+    throw new Error("Connection timeout overrides require the desktop app.");
   if (request.decodeResponse != null)
     throw new Error("Explicit response decompression settings require the desktop app.");
   if (request.caFile || request.caAsset || request.caPem || request.identityPem || request.clientCertificates?.length)
@@ -799,9 +804,9 @@ export async function send(request, signal) {
     body = form;
   } else if (typeof request.bodyBase64 === "string")
     body = Uint8Array.from(atob(request.bodyBase64), (c) => c.charCodeAt(0));
-  const fetchSignal = AbortSignal.any([
-    signal,
-    AbortSignal.timeout(request.timeoutMs),
+  const timeoutMs = request.requestTimeoutMs ?? request.timeoutMs;
+  const fetchSignal = timeoutMs === 0 ? signal : AbortSignal.any([
+    signal, AbortSignal.timeout(timeoutMs),
   ]);
   /** @type {Response} */ let response;
   /** @type {Uint8Array} */ let bytes;

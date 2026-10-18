@@ -18,11 +18,29 @@ export function requestProxy(
     const proxy = resolve(request.settingProxyUrl).trim();
     if (!proxy || proxy.length > 8192 || /[\x00-\x20\x7f]/.test(proxy))
       throw new Error("Enter a valid request proxy URL.");
+    const auth =
+      request.settingProxyAuth ??
+      (request.settingProxyBasicAuth ? "basic" : "auto");
+    if (!["auto", "basic", "digest", "ntlm"].includes(auth))
+      throw new Error("Choose a valid proxy authentication setting.");
+    if (["digest", "ntlm"].includes(auth)) {
+      let url;
+      try {
+        url = new URL(proxy.includes("://") ? proxy : "http://" + proxy);
+      } catch {
+        throw new Error("Enter a valid HTTP(S) proxy URL.");
+      }
+      if (!["http:", "https:"].includes(url.protocol))
+        throw new Error(
+          "Digest and NTLM proxy authentication require an HTTP(S) proxy.",
+        );
+    }
     return {
       proxy,
       proxyDisabled: false,
       proxyOverride: true,
-      proxyBasicAuth: request.settingProxyBasicAuth === true,
+      proxyBasicAuth: auth === "basic",
+      proxyAuthMode: auth,
     };
   }
   return {

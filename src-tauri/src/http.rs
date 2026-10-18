@@ -5,16 +5,14 @@ use reqwest::{
     Client, Method, Url,
 };
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::HashMap,
-    sync::Mutex,
-    time::{Duration, Instant},
-};
+use std::{collections::HashMap, sync::Mutex, time::Instant};
 use tokio::sync::watch;
 #[path = "http_compression.rs"]
 pub(crate) mod compression;
 #[path = "multipart_encoding.rs"]
 mod multipart_encoding;
+#[path = "http_timeouts.rs"]
+pub(crate) mod timeouts;
 
 #[derive(Default)]
 pub struct NetworkState {
@@ -60,6 +58,10 @@ pub struct HttpRequest {
     #[serde(default)]
     pub(crate) multipart_content_type: Option<String>,
     pub(crate) timeout_ms: u64,
+    #[serde(default)]
+    pub(crate) request_timeout_ms: Option<u64>,
+    #[serde(default)]
+    pub(crate) connect_timeout_ms: Option<u64>,
     pub(crate) follow_redirects: bool,
     pub(crate) validate_certificates: bool,
     pub(crate) use_cookies: bool,
@@ -71,6 +73,8 @@ pub struct HttpRequest {
     pub(crate) proxy_disabled: bool,
     #[serde(default)]
     pub(crate) proxy_basic_auth: bool,
+    #[serde(default)]
+    pub(crate) proxy_auth_mode: Option<String>,
     pub(crate) ca_pem: Option<String>,
     pub(crate) ca_file: Option<String>,
     pub(crate) ca_asset: Option<crate::client_certificates::PortableCertificateAsset>,
@@ -173,6 +177,8 @@ pub async fn send_http(
     state: tauri::State<'_, NetworkState>,
     cookie_state: tauri::State<'_, crate::cookies::CookieState>,
 ) -> Result<HttpResponse, HttpFailure> {
+    timeouts::validate(request.request_timeout_ms, request.connect_timeout_ms)
+        .map_err(HttpFailure::early)?;
     let url =
         Url::parse(&request.url).map_err(|e| HttpFailure::early(format!("Invalid URL: {e}")))?;
     if !matches!(url.scheme(), "http" | "https") {
@@ -311,7 +317,7 @@ pub async fn send_http(
         })
     };
     let mut response: Result<HttpResponse, String> = tokio::select! {
-        result = tokio::time::timeout(Duration::from_millis(request.timeout_ms.clamp(1, 3_600_000)), result) => result.unwrap_or_else(|_| Err("Request timed out".into())),
+        result = timeouts::run(timeouts::selected(request.request_timeout_ms, request.timeout_ms), result, "Request timed out") => result,
         _ = cancelled.changed() => Err("Request cancelled".into()),
     };
     if let Some(jar) = jar {
@@ -348,6 +354,7 @@ pub async fn fetch_oauth_token(
     state: tauri::State<'_, NetworkState>,
     cookie_state: tauri::State<'_, crate::cookies::CookieState>,
 ) -> Result<crate::oauth::OAuthToken, String> {
+    timeouts::validate(request.request_timeout_ms, request.connect_timeout_ms)?;
     let url = Url::parse(&request.url).map_err(|_| "Invalid OAuth token URL.")?;
     // Never forward client credentials to a token endpoint redirect.
     request.follow_redirects = false;
@@ -370,7 +377,7 @@ pub async fn fetch_oauth_token(
         crate::oauth::exchange(&client, &url, &config).await
     };
     let mut result: Result<crate::oauth::OAuthToken, String> = tokio::select! {
-        result = tokio::time::timeout(Duration::from_millis(request.timeout_ms.clamp(1, 3_600_000)), exchange) => result.unwrap_or_else(|_| Err("OAuth token request timed out.".into())),
+        result = timeouts::run(timeouts::selected(request.request_timeout_ms, request.timeout_ms), exchange, "OAuth token request timed out.") => result,
         _ = cancelled.changed() => Err("OAuth token request cancelled.".into()),
     };
     if let Some(jar) = jar {
@@ -396,6 +403,7 @@ pub(crate) fn build_client(
     streaming: bool,
     websocket: bool,
 ) -> Result<Client, String> {
+    timeouts::validate(request.request_timeout_ms, request.connect_timeout_ms)?;
     // An identity belongs to this origin; a redirect must not offer it to a different server.
     let identity_origin = request.has_identity().then(|| url.origin());
     let manual_authorization = request
@@ -403,9 +411,6 @@ pub(crate) fn build_client(
         .iter()
         .any(|(name, _)| name.eq_ignore_ascii_case("authorization"));
     let mut builder = Client::builder()
-        .connect_timeout(Duration::from_millis(
-            request.timeout_ms.clamp(1, 3_600_000),
-        ))
         .redirect(
             if request.aws.is_some()
                 || (!manual_authorization
@@ -437,6 +442,9 @@ pub(crate) fn build_client(
         .tls_info(true)
         .danger_accept_invalid_certs(!request.validate_certificates);
     builder = builder.referer(request.auto_referer.unwrap_or(true));
+    if let Some(timeout) = timeouts::selected(request.connect_timeout_ms, request.timeout_ms) {
+        builder = builder.connect_timeout(timeout);
+    }
     builder = compression::client(builder, request.decode_response);
     if request
         .suppress_default_headers
@@ -461,6 +469,7 @@ pub(crate) fn build_client(
         builder = builder.proxy(crate::proxy_auth::configure_proxy(
             proxy,
             request.proxy_basic_auth,
+            request.proxy_auth_mode.as_deref(),
         )?);
     }
     let ca = crate::client_certificates::load_ca_certificate(
@@ -499,9 +508,9 @@ pub(crate) fn build_client(
         builder = builder.identity(identity);
     }
     if !streaming {
-        builder = builder.timeout(Duration::from_millis(
-            request.timeout_ms.clamp(1, 3_600_000),
-        ));
+        if let Some(timeout) = timeouts::selected(request.request_timeout_ms, request.timeout_ms) {
+            builder = builder.timeout(timeout);
+        }
     }
     if websocket {
         builder = builder.http1_only();

@@ -31,7 +31,7 @@ export async function readBodyUpload(file, body) {
   const mode = body.curlFileMode;
   if (mode == null) return readUpload(file);
   if (
-    !["data", "data-ascii", "data-binary", "json", "data-urlencode"].includes(
+    !["data", "data-ascii", "data-binary", "json", "data-urlencode", "upload-file"].includes(
       mode,
     )
   )
@@ -39,7 +39,7 @@ export async function readBodyUpload(file, body) {
       "Unsupported imported file mode. Import the command again.",
     );
   const upload = await readUpload(file);
-  if (mode === "data-binary" || mode === "json") return upload;
+  if (mode === "data-binary" || mode === "json" || mode === "upload-file") return upload;
   const binary = atob(upload.base64);
   if (mode === "data" || mode === "data-ascii")
     return { ...upload, base64: btoa(binary.replace(/[\0\r\n]/g, "")) };

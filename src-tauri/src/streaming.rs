@@ -587,6 +587,7 @@ pub async fn connect_stream(
     if !matches!(protocol.as_str(), "websocket" | "sse") {
         return Err("Unknown streaming protocol".into());
     }
+    crate::http::timeouts::validate(request.request_timeout_ms, request.connect_timeout_ms)?;
     let websocket = protocol == "websocket";
     let mut url = Url::parse(&request.url).map_err(|e| e.to_string())?;
     if websocket {
@@ -645,7 +646,14 @@ pub async fn connect_stream(
             )
             .await
         }
-    }
+    };
+    let result = crate::http::timeouts::run(
+        request
+            .request_timeout_ms
+            .and_then(crate::http::timeouts::duration),
+        result,
+        "Stream request timed out",
+    )
     .await;
     streams
         .sockets
@@ -721,7 +729,9 @@ async fn websocket_session(
         },
     );
     let response = tokio::select! {
-        response = tokio::time::timeout(Duration::from_millis(request.timeout_ms.clamp(1, 3_600_000)), handshake) => response.map_err(|_| "WebSocket handshake timed out")??,
+        response = crate::http::timeouts::run(
+            if request.connect_timeout_ms.is_some() { None } else { crate::http::timeouts::selected(None, request.timeout_ms) },
+            handshake, "WebSocket handshake timed out") => response?,
         _ = delivery.cancelled.changed() => return emit(&channel, StreamEvent::Closed { code: None, reason: "Connection cancelled".into() }),
     };
     let metadata = open_event(&response, started, "websocket");
@@ -856,7 +866,9 @@ async fn sse_session(
         |outgoing| async { client.execute(outgoing).await.map_err(|e| e.to_string()) },
     );
     let mut response = tokio::select! {
-        response = tokio::time::timeout(Duration::from_millis(request.timeout_ms.clamp(1, 3_600_000)), handshake) => response.map_err(|_| "SSE handshake timed out")??,
+        response = crate::http::timeouts::run(
+            if request.connect_timeout_ms.is_some() { None } else { crate::http::timeouts::selected(None, request.timeout_ms) },
+            handshake, "SSE handshake timed out") => response?,
         _ = delivery.cancelled.changed() => return emit(&channel, StreamEvent::Closed { code: None, reason: "Connection cancelled".into() }),
     };
     crate::http::compression::response(&mut response, request.decode_response)?;

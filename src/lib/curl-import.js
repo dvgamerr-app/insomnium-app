@@ -2,6 +2,7 @@ import { parseCurlForm } from "./curl-form.js";
 import { expandCurlUrl } from "./curl-url-glob.js";
 import { curlConfigWords } from "./curl-config.js";
 import { curlProxyUrl } from "./request-proxy.js";
+import { curlTimeout } from "./request-timeouts.js";
 import { id, newRequest } from "./model.js";
 
 // Parse pasted text only. Never run curl, a shell, expansions, or file reads.
@@ -223,8 +224,13 @@ const aliases = /** @type {Record<string, string>} */ ({
   k: "insecure",
   x: "proxy",
   U: "proxy-user",
+  m: "max-time",
+  T: "upload-file",
 });
 const values = new Set([
+  "upload-file",
+  "max-time",
+  "connect-timeout",
   "proxy",
   "proxy-user",
   "aws-sigv4",
@@ -248,6 +254,8 @@ const values = new Set([
 ]);
 const flags = new Set([
   "proxy-basic",
+  "proxy-digest",
+  "proxy-ntlm",
   "compressed",
   "no-compressed",
   "insecure",
@@ -347,19 +355,27 @@ function appendQuery(url, query) {
   );
 }
 
-/** @param {string[]} words @param {string} workspaceId @param {{name:string,value:string}[]} entries */
-function requestsFor(words, workspaceId, entries) {
+/** @param {string[]} words @param {string} workspaceId @param {{name:string,value:string}[]} entries
+ * @param {(string|undefined)[]} [uploadFiles] */
+function requestsFor(words, workspaceId, entries, uploadFiles = []) {
   const all = (/** @type {string} */ name) =>
     entries.filter((e) => e.name === name).map((e) => e.value);
   const has = (/** @type {string} */ name) =>
     entries.some((e) => e.name === name);
   const last = (/** @type {string} */ name) => all(name).at(-1);
   const urls = all("url");
+  const requestTimeout = curlTimeout(last("max-time"), 0);
+  const connectTimeout = curlTimeout(last("connect-timeout"), 300000) || 300000;
   const proxy = last("proxy");
   const proxyUser = last("proxy-user");
-  if (has("proxy-basic") && !proxy)
-    throw new Error("cURL --proxy-basic requires an explicit nonempty --proxy.");
+  const proxyAuth = ["basic", "digest", "ntlm"].filter(mode => has("proxy-" + mode));
+  if (proxyAuth.length > 1)
+    throw new Error("Combined cURL proxy authentication modes are not supported.");
+  if (proxyAuth.length && !proxy)
+    throw new Error("cURL proxy authentication requires an explicit nonempty --proxy.");
   const proxyUrl = curlProxyUrl(proxy ?? "", proxyUser);
+  if (proxyAuth.some(mode => mode !== "basic") && !/^https?:/i.test(proxyUrl))
+    throw new Error("Digest and NTLM proxy authentication require an HTTP(S) proxy.");
   if (!urls.length) throw new Error("cURL command has no URL.");
   /** @type {Record<string, any>[]} */
   const headers = [];
@@ -628,6 +644,8 @@ function requestsFor(words, workspaceId, entries) {
     );
     body = { mimeType: "multipart/form-data", text: "", params };
   }
+  if (uploadFiles.some(file => file !== undefined) && (data.length || forms.length || has("head") || has("get")))
+    throw new Error("cURL file uploads cannot be combined with data, form, head or get options.");
   const method =
     last("request") ??
     (has("head")
@@ -643,13 +661,13 @@ function requestsFor(words, workspaceId, entries) {
     throw new Error(
       "cURL --head combined with a different --request method is not supported.",
     );
-  if (awsSigv4 !== undefined && (forms.length || fileBody ||
+  if (awsSigv4 !== undefined && (forms.length || fileBody || uploadFiles.some(file => file !== undefined) ||
       (data.length && !has("get") && method !== "POST")))
     throw new Error("cURL AWS signing currently supports buffered POST data or requests without a body.");
   const location =
     entries.filter((e) => ["location", "no-location"].includes(e.name)).at(-1)
       ?.name === "location";
-  return urls.map((url) => {
+  return urls.map((url, index) => {
     if (!/^https?:\/\//i.test(url))
       throw new Error(
         "cURL import requires an explicit http:// or https:// URL.",
@@ -669,14 +687,20 @@ function requestsFor(words, workspaceId, entries) {
     return newRequest(workspaceId, {
       name: url,
       url,
-      method,
+      method: uploadFiles[index] !== undefined ? last("request") ?? "PUT" : method,
       headers: structuredClone(headers),
       authentication: structuredClone(authentication),
-      body: structuredClone(body),
+      body: uploadFiles[index] !== undefined ? {
+        mimeType: "application/octet-stream", text: "", params: [],
+        fileName: uploadFiles[index], curlFileMode: "upload-file",
+      } : structuredClone(body),
       settingFollowRedirects: location ? "on" : "off",
       settingProxy: proxy === undefined ? "global" : proxy === "" ? "off" : "custom",
       settingProxyUrl: proxyUrl,
-      settingProxyBasicAuth: Boolean(proxy),
+      settingProxyBasicAuth: Boolean(proxy) && (proxyAuth[0] ?? "basic") === "basic",
+      settingProxyAuth: proxy ? proxyAuth[0] ?? "basic" : "auto",
+      settingRequestTimeout: requestTimeout,
+      settingConnectTimeout: connectTimeout,
       settingDecodeResponse: entries.filter((e) => ["compressed", "no-compressed"].includes(e.name)).at(-1)?.name === "compressed",
       settingAutoReferer:autoReferer,
       settingValidateCertificates:
@@ -724,6 +748,9 @@ export function curlRequestPatch(text) {
     settingProxy: request.settingProxy,
     settingProxyUrl: request.settingProxyUrl,
     settingProxyBasicAuth: request.settingProxyBasicAuth,
+    settingProxyAuth: request.settingProxyAuth,
+    settingRequestTimeout: request.settingRequestTimeout,
+    settingConnectTimeout: request.settingConnectTimeout,
     settingDecodeResponse: request.settingDecodeResponse,
     settingAutoReferer: request.settingAutoReferer,
     settingValidateCertificates: request.settingValidateCertificates,
@@ -755,17 +782,28 @@ export function curlResources(text, importOptions = {}) {
     return groups.flatMap((entries) => {
       const globoff = entries.some((entry) => entry.name === "globoff");
       const expanded = [];
+      const uploads = entries.filter(entry => entry.name === "upload-file");
+      if (uploads.length > entries.filter(entry => entry.name === "url").length)
+        throw new Error("Each cURL upload-file requires its own URL argument.");
+      /** @type {(string|undefined)[]} */ const uploadFiles = [];
+      let urlIndex = 0;
       const commandSize = words.reduce((sum, word) => sum + word.length + 1, 0);
       for (const entry of entries) {
         if (entry.name !== "url") { expanded.push(entry); continue; }
         const urls = globoff ? [entry.value] : expandCurlUrl(entry.value);
-        count += urls.length;
-        projected += commandSize * urls.length;
+        const upload = uploads[urlIndex++]?.value;
+        const files = upload === undefined ? [undefined] : globoff ? [upload] : expandCurlUrl(upload);
+        if (files.some(file => file !== undefined && (!file || file === "-" || file === "." || file.length > 8192 || /[\0\r\n]/.test(file))))
+          throw new Error("cURL uploads require a named file path of at most 8192 characters; stdin is not supported.");
+        count += urls.length * files.length;
+        projected += commandSize * urls.length * files.length;
         if (count > 1000 || projected > 8 * 1024 * 1024)
           throw new Error("cURL import expands beyond 1,000 requests or 8 MiB. Import smaller batches.");
-        expanded.push(...urls.map((value) => ({ name: "url", value })));
+        for (const file of files) for (const value of urls) {
+          expanded.push({ name: "url", value }); uploadFiles.push(file);
+        }
       }
-      return requestsFor(words, workspaceId, expanded);
+      return requestsFor(words, workspaceId, expanded, uploadFiles);
     });
   });
   if (requests.length > 1000)

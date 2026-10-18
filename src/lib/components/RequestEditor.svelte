@@ -298,6 +298,9 @@
                 : request.body.curlFileMode === "data-urlencode"
                   ? "File bytes are URL-encoded."
                   : "File bytes are preserved."}
+              {#if request.body.curlFileMode === "upload-file"}
+                Directory URLs without a query receive the selected file's name.
+              {/if}
             </p>{/if}
           <FilePicker
             class="binary-picker"
@@ -644,6 +647,16 @@
                 })}>I have corrected these request fields</Button
             >
           </Feedback>{/if}
+        <Field label="Request timeout (ms)"><Input type="number" min="0" max="3600000" step="1"
+          placeholder="Global preference; 0 disables timeout"
+          value={request.settingRequestTimeout ?? ""}
+          oninput={(event) => onchange({ settingRequestTimeout: event.currentTarget.value })}
+        /></Field>
+        <Field label="Connection timeout (ms)"><Input type="number" min="0" max="3600000" step="1"
+          placeholder="Global preference; 0 disables timeout"
+          value={request.settingConnectTimeout ?? ""}
+          oninput={(event) => onchange({ settingConnectTimeout: event.currentTarget.value })}
+        /></Field>
         <Field label="TLS certificate validation"
           ><Select
             value={request.settingValidateCertificates || "global"}
@@ -674,10 +687,15 @@
           value={request.settingProxyUrl ?? ""}
           oninput={(event) => onchange({ settingProxyUrl: event.currentTarget.value })}
           /></Field>
-          <Field layout="inline" class="checkbox-label"><Checkbox
-            checked={request.settingProxyBasicAuth === true}
-            onchange={(event) => onchange({ settingProxyBasicAuth: event.currentTarget.checked })}
-          /> Use HTTP Basic proxy authentication</Field>{/if}
+          <Field label="Proxy authentication"><Select
+            value={request.settingProxyAuth ?? (request.settingProxyBasicAuth ? "basic" : "auto")}
+            onchange={(event) => onchange({ settingProxyAuth: event.currentTarget.value,
+              settingProxyBasicAuth: event.currentTarget.value === "basic" })}>
+            <option value="auto">Negotiate supported authentication</option>
+            <option value="basic">HTTP Basic</option>
+            <option value="digest">HTTP Digest only</option>
+            <option value="ntlm">NTLM only</option>
+          </Select></Field>{/if}
         <Field layout="inline" class="checkbox-label"
           ><Checkbox
             checked={request.settingEncodeUrl ?? !request._curlSource}
