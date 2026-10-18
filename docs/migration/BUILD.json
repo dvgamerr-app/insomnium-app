@@ -3658,6 +3658,71 @@
         "oldProfileFilesPreserved": 74,
         "newOpaqueProfileFilesPreserved": 65
       }
+    },
+    {
+      "platform": "Windows",
+      "target": "x86_64-pc-windows-msvc",
+      "sourceCommit": "e8201c2290e2b7174101852bd9229d266f8a8e9c",
+      "command": "bun run desktop:build --bundles msi -- --locked",
+      "identifier": "app.insomnium.desktop",
+      "builtAt": "2026-10-18T21:51:20.413Z",
+      "exitCode": 0,
+      "sourceFingerprint": "3695a8fdea1e9678618e55dbcbef7c1499505ef69f9be4b7a18020c0a394ad1c",
+      "sourceFileCount": 897,
+      "sourceScope": "897 selected tracked product/tool inputs unchanged; not universal source/loader/linkage closure",
+      "trackedInputsChanged": [],
+      "artifacts": [
+        {
+          "path": "artifacts/windows-production-msi-e8201c22-20261019/insomnium.exe",
+          "bytes": 23298560,
+          "sha256": "a107e50c3e5d0966efd23d2793ab9a8992048960c2b6fc2029d65031a6f25885"
+        },
+        {
+          "path": "artifacts/windows-production-msi-e8201c22-20261019/Insomnium_0.1.0_x64_en-US.msi",
+          "bytes": 57039903,
+          "sha256": "3abf9f43fd37770b3739364a1ab1f5ef2d1fb6d74befa835812aa9abaae3d0e1"
+        }
+      ],
+      "payloadFilesVerified": 2170,
+      "exactUntransformedFiles": 2169,
+      "bundledExecutableTransform": {
+        "markerOffset": 21679063,
+        "changedBytes": 3,
+        "from": "UNK",
+        "to": "MSI"
+      },
+      "signatures": [
+        {
+          "name": "insomnium.exe",
+          "status": "NotSigned"
+        },
+        {
+          "name": "Insomnium_0.1.0_x64_en-US.msi",
+          "status": "NotSigned"
+        }
+      ],
+      "darkWarnings": [
+        "DARK1059",
+        "DARK1059",
+        "DARK1059",
+        "DARK1059",
+        "DARK1059",
+        "DARK1059",
+        "DARK1059"
+      ],
+      "evidence": "artifacts/windows-production-msi-e8201c22-20261019/verification.json",
+      "notVerified": [
+        "Install/upgrade/uninstall/profile retention",
+        "App/UI/protocol/chooser/graceful-close runtime",
+        "Signing/authenticity and hosted CI/other platforms",
+        "Complete source/loader/linkage/legal and all retained PLAN/PARITY acceptance"
+      ],
+      "fullMigrationComplete": false
     }
-  ]
+  ],
+  "latestWindowsProductionBuild": {
+    "sourceCommit": "e8201c2290e2b7174101852bd9229d266f8a8e9c",
+    "evidence": "artifacts/windows-production-msi-e8201c22-20261019/verification.json",
+    "note": "Current Windows package checkpoint; original top-level Windows build metadata remains historical and all previous limitations are retained"
+  }
 }
