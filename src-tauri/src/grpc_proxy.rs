@@ -3,7 +3,15 @@
 use base64::{engine::general_purpose::STANDARD, Engine};
 use hyper_util::rt::TokioIo;
 use reqwest::Url;
-use std::{io, net::Ipv4Addr};
+use std::{
+    io,
+    net::{Ipv4Addr, SocketAddr},
+    sync::{
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, BufReader},
     net::TcpStream,
@@ -183,4 +191,115 @@ pub(crate) async fn connect(endpoint: Endpoint, target: &Url) -> Result<Channel,
         endpoint.connect().await
     }
     .map_err(|error| format!("Could not connect to gRPC endpoint: {error}"))
+}
+
+#[derive(Clone)]
+struct StaticDial {
+    address: SocketAddr,
+    target: String,
+    proxy: Option<Proxy>,
+}
+
+async fn static_candidate(
+    endpoint: Endpoint,
+    addresses: Arc<Vec<StaticDial>>,
+    start: usize,
+) -> Result<Channel, tonic::transport::Error> {
+    // A disconnected selected channel starts at the following address. Each
+    // connector owns its cursor, so losing initial races cannot alter the winner.
+    let next = Arc::new(AtomicUsize::new(start));
+    let first = Arc::new(AtomicBool::new(true));
+    endpoint
+        .connect_with_connector(tower::service_fn(move |_| {
+            let addresses = addresses.clone();
+            let next = next.clone();
+            let first = first.clone();
+            async move {
+                let mut last = io::Error::other("No gRPC IP address was reachable.");
+                let attempts = if first.swap(false, Ordering::Relaxed) {
+                    1
+                } else {
+                    addresses.len()
+                };
+                for _ in 0..attempts {
+                    let dial = &addresses[next.fetch_add(1, Ordering::Relaxed) % addresses.len()];
+                    let result = if let Some(proxy) = &dial.proxy {
+                        tunnel(proxy, &dial.target).await
+                    } else {
+                        match TcpStream::connect(dial.address).await {
+                            Ok(stream) => {
+                                stream.set_nodelay(true)?;
+                                Ok(BufReader::new(stream))
+                            }
+                            Err(error) => Err(error),
+                        }
+                    };
+                    match result {
+                        Ok(stream) => return Ok(TokioIo::new(stream)),
+                        Err(error) => last = error,
+                    }
+                }
+                Err(last)
+            }
+        }))
+        .await
+}
+
+pub(crate) async fn connect_static(
+    endpoint: Endpoint,
+    targets: &[Url],
+    timeout: Option<Duration>,
+) -> Result<Channel, String> {
+    use futures_util::{stream::FuturesUnordered, StreamExt};
+    let mut addresses = Vec::with_capacity(targets.len());
+    for target in targets {
+        let host = target
+            .host_str()
+            .ok_or("Invalid gRPC IP target.")?
+            .trim_start_matches('[')
+            .trim_end_matches(']');
+        let ip = host.parse().map_err(|_| "Invalid gRPC IP target.")?;
+        addresses.push(StaticDial {
+            address: SocketAddr::new(ip, target.port_or_known_default().unwrap_or(443)),
+            target: authority(target),
+            proxy: select(target, |key| std::env::var(key).ok())?,
+        });
+    }
+    if addresses.is_empty() {
+        return Err("A gRPC IP target requires at least one address.".into());
+    }
+    let addresses = Arc::new(addresses);
+    let connect = async {
+        let mut pending = FuturesUnordered::new();
+        pending.push(static_candidate(endpoint.clone(), addresses.clone(), 0));
+        let mut next = 1;
+        loop {
+            tokio::select! {
+                Some(result) = pending.next() => match result {
+                    Ok(channel) => return Ok(channel),
+                    Err(error) => {
+                        if next < addresses.len() {
+                            pending.push(static_candidate(endpoint.clone(), addresses.clone(), next));
+                            next += 1;
+                        } else if pending.is_empty() {
+                            return Err(format!("Could not connect to gRPC IP targets: {error}"));
+                        }
+                    }
+                },
+                _ = tokio::time::sleep(Duration::from_millis(250)), if next < addresses.len() => {
+                    // grpc-js pick_first starts another address after 250 ms.
+                    // Race whole Tonic connections, including TLS and HTTP/2,
+                    // rather than choosing a socket before its handshake works.
+                    pending.push(static_candidate(endpoint.clone(), addresses.clone(), next));
+                    next += 1;
+                }
+            }
+        }
+    };
+    match timeout {
+        Some(timeout) => tokio::time::timeout(timeout, connect)
+            .await
+            .map_err(|_| "gRPC IP target connection timed out.".to_owned())?,
+        None => connect.await,
+    }
 }

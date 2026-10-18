@@ -1,4 +1,5 @@
 import { requestDataScope } from "./request-scope.js";
+import { grpcEndpoint } from "./grpc-endpoint.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import { environmentFor, render, workspaceFor, id } from "./model.js";
@@ -269,12 +270,7 @@ export function grpcConnection(data, request, options = {}) {
     : (/** @type {any} */ value) => render(value, environment);
   const raw = resolve(request.url).trim();
   if (!raw) throw new Error("Enter a gRPC server address.");
-  const normalized = raw
-    .replace(/^grpcs:\/\//i, "https://")
-    .replace(/^grpc:\/\//i, "http://");
-  const url = new URL(
-    normalized.includes("://") ? normalized : `http://${normalized}`,
-  );
+  const { url, target } = grpcEndpoint(raw);
   if (
     !["http:", "https:"].includes(url.protocol) ||
     url.pathname !== "/" ||
@@ -304,7 +300,7 @@ export function grpcConnection(data, request, options = {}) {
       ? clientCertificateSelection(data, request, url.toString())
       : [];
   return {
-    url: url.toString(),
+    url: target,
     deadlineMs: Number(deadline),
     validateCertificates,
     metadata: (request.metadata || [])

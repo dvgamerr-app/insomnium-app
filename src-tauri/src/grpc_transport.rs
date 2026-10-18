@@ -14,6 +14,12 @@ use tonic::{
     Request, Status,
 };
 
+#[path = "grpc_endpoint.rs"]
+mod endpoint_url;
+
+#[path = "grpc_socket.rs"]
+mod socket;
+
 #[cfg(test)]
 #[path = "grpc_reflection_arrival_tests.rs"]
 mod arrival_tests;
@@ -138,19 +144,8 @@ pub(crate) fn metadata_rows(metadata: &MetadataMap) -> Result<Vec<(String, Strin
 }
 
 pub(crate) async fn channel(config: &Connection) -> Result<Channel, String> {
-    let lower = config.url.to_ascii_lowercase();
-    let url = if lower.starts_with("grpcs://") {
-        let host = &config.url[8..];
-        format!("https://{host}")
-    } else if lower.starts_with("grpc://") {
-        let host = &config.url[7..];
-        format!("http://{host}")
-    } else if config.url.contains("://") {
-        config.url.clone()
-    } else {
-        format!("http://{}", config.url)
-    };
-    let url = reqwest::Url::parse(&url).map_err(|_| "Invalid gRPC endpoint.")?;
+    let target = endpoint_url::parse(&config.url)?;
+    let url = &target.url;
     if !matches!(url.scheme(), "http" | "https")
         || url.host_str().is_none()
         || url.path() != "/"
@@ -168,7 +163,8 @@ pub(crate) async fn channel(config: &Connection) -> Result<Channel, String> {
         .map_err(|_| "Invalid gRPC endpoint.")?
         .user_agent(concat!("Insomnium/", env!("CARGO_PKG_VERSION")))
         .map_err(|_| "Invalid gRPC user agent.")?;
-    if let Some(timeout) = crate::http::timeouts::selected(None, config.timeout_ms) {
+    let connect_timeout = crate::http::timeouts::selected(None, config.timeout_ms);
+    if let Some(timeout) = connect_timeout {
         endpoint = endpoint.connect_timeout(timeout);
     }
     if url.scheme() == "https" {
@@ -205,7 +201,13 @@ pub(crate) async fn channel(config: &Connection) -> Result<Channel, String> {
         }
         .map_err(|_| "Invalid gRPC TLS configuration.")?;
     }
-    proxy::connect(endpoint, &url).await
+    if let Some(path) = &target.socket_path {
+        socket::connect(endpoint, path).await
+    } else if target.addresses.is_empty() {
+        proxy::connect(endpoint, url).await
+    } else {
+        proxy::connect_static(endpoint, &target.addresses, connect_timeout).await
+    }
 }
 
 // Reflection v1 and v1alpha messages share the same wire field numbers.
