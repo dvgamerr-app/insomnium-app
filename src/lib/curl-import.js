@@ -422,7 +422,9 @@ function requestsFor(words, workspaceId, entries, uploadFiles = []) {
       }));
     }
   }
-  const cookies = all("cookie");
+  // curl's empty cookie filename enables its cookie engine without reading a
+  // file. The app already uses its collection jar; emit no empty Cookie header.
+  const cookies = all("cookie").filter((value) => value !== "");
   if (cookies.some((c) => !c.includes("=")))
     throw new Error(
       "cURL cookie files are not supported. Paste name=value cookies.",

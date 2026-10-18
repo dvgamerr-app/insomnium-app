@@ -66,6 +66,12 @@ function mimeWord(source, start, file) {
     /[ \t]+$/,
     "",
   );
+  return { value, index };
+}
+
+/** Validate the effective type, after curl's later attribute replacements.
+ * @param {string} value */
+function validateMime(value) {
   if (
     !/^[!#$%&'*+\-.^_\x60|~\da-zA-Z]+\/[!#$%&'*+\-.^_\x60|~\da-zA-Z]+(?:[ \t]*;[ \t]*[!#$%&'*+\-.^_\x60|~\da-zA-Z]+=(?:[!#$%&'*+\-.^_\x60|~\da-zA-Z]+|"(?:[\x20\x21\x23-\x5b\x5d-\x7e]|\\[\x20-\x7e])*"))*$/.test(
       value,
@@ -74,7 +80,6 @@ function mimeWord(source, start, file) {
     throw new Error(
       "cURL multipart type requires a valid MIME type and parameters.",
     );
-  return { value, index };
 }
 
 /** @param {string} source @param {boolean} literal @returns {Record<string, any>} */
@@ -88,7 +93,10 @@ export function parseCurlForm(source, literal = false) {
     throw new Error("cURL nested multipart is not supported yet.");
   const fileContent = input.startsWith("<");
   const file = input.startsWith("@") || fileContent;
-  const primary = word(input, file ? 1 : 0, file);
+  // Only @ uses curl's comma-separated file-list grammar. For <, commas
+  // belong to the single content source and its attributes, just as for text.
+  const fileList = file && !fileContent;
+  const primary = word(input, file ? 1 : 0, fileList);
   /** @type {Record<string, any>} */
   const result = file
     ? { name, type: "file", fileName: primary.value }
@@ -97,7 +105,6 @@ export function parseCurlForm(source, literal = false) {
     throw new Error("Select a named multipart file; stdin is not supported.");
   if (fileContent) result.fileContent = true;
   let index = primary.index;
-  const seen = new Set();
   while (index < input.length) {
     if (input[index] === ",")
       throw new Error(
@@ -111,20 +118,15 @@ export function parseCurlForm(source, literal = false) {
         "Unsupported cURL multipart attribute. Supported: type=, filename=, inline headers= and encoder=.",
       );
     const attribute = match[1].toLowerCase();
-    if (seen.has(attribute) && attribute !== "headers")
-      throw new Error("Repeated cURL multipart attributes are not supported.");
-    seen.add(attribute);
     const item = (attribute === "type" ? mimeWord : word)(
       input,
       index + match[0].length,
-      file,
+      fileList,
     );
     if (/[\x00-\x1f\x7f]/.test(item.value))
       throw new Error("Invalid control character in multipart metadata.");
     if (attribute === "encoder") {
-      const encoding = item.value.toLowerCase();
-      if (!multipartEncodings.includes(encoding)) throw new Error("Unsupported cURL multipart encoder.");
-      result.transferEncoding = encoding;
+      result.transferEncoding = item.value.toLowerCase();
     } else if (attribute === "headers") {
       if (item.value.startsWith("@"))
         throw new Error("cURL multipart header files must be replaced with inline headers.");
@@ -135,5 +137,13 @@ export function parseCurlForm(source, literal = false) {
     } else if (!fileContent) result.fileNameOverride = item.value;
     index = item.index;
   }
+  // curl's get_param_part replaces filename/encoder and any new type after
+  // filename/headers/encoder ends the previous MIME value. Headers accumulate.
+  // A contiguous ;type= remains a MIME parameter, as collected by mimeWord.
+  if (typeof result.contentTypeOverride === "string")
+    validateMime(result.contentTypeOverride);
+  if (typeof result.transferEncoding === "string" &&
+      !multipartEncodings.includes(result.transferEncoding))
+    throw new Error("Unsupported cURL multipart encoder.");
   return result;
 }

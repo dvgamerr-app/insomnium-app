@@ -210,6 +210,29 @@ struct StaticDial {
     proxy: Option<Proxy>,
 }
 
+fn interleave_families(addresses: Vec<StaticDial>) -> Vec<StaticDial> {
+    let Some(first) = addresses.first() else {
+        return addresses;
+    };
+    let ipv6_first = first.address.is_ipv6();
+    let (first, second): (Vec<_>, Vec<_>) = addresses
+        .into_iter()
+        .partition(|dial| dial.address.is_ipv6() == ipv6_first);
+    let mut result = Vec::with_capacity(first.len() + second.len());
+    let mut first = first.into_iter();
+    let mut second = second.into_iter();
+    loop {
+        match (first.next(), second.next()) {
+            (None, None) => break,
+            (a, b) => {
+                result.extend(a);
+                result.extend(b);
+            }
+        }
+    }
+    result
+}
+
 pub(crate) type AddressResolver = Arc<
     dyn Fn() -> Pin<Box<dyn Future<Output = io::Result<Vec<SocketAddr>>> + Send>> + Send + Sync,
 >;
@@ -219,12 +242,12 @@ async fn static_candidate(
     addresses: Arc<Vec<StaticDial>>,
     start: usize,
     resolver: Option<AddressResolver>,
-) -> Result<Channel, tonic::transport::Error> {
+) -> (usize, Result<Channel, tonic::transport::Error>) {
     // A disconnected selected channel starts at the following address. Each
     // connector owns its cursor, so losing initial races cannot alter the winner.
     let next = Arc::new(AtomicUsize::new(start));
     let first = Arc::new(AtomicBool::new(true));
-    endpoint
+    let result = endpoint
         .connect_with_connector(tower::service_fn(move |_| {
             let addresses = addresses.clone();
             let next = next.clone();
@@ -239,7 +262,7 @@ async fn static_candidate(
                         if refreshed.is_empty() {
                             return Err(io::Error::other("gRPC DNS returned no addresses."));
                         }
-                        Arc::new(
+                        Arc::new(interleave_families(
                             refreshed
                                 .into_iter()
                                 .take(256)
@@ -249,7 +272,7 @@ async fn static_candidate(
                                     proxy: None,
                                 })
                                 .collect(),
-                        )
+                        ))
                     } else {
                         addresses
                     }
@@ -278,7 +301,8 @@ async fn static_candidate(
                 Err(last)
             }
         }))
-        .await
+        .await;
+    (start, result)
 }
 
 pub(crate) async fn connect_static(
@@ -331,7 +355,9 @@ async fn connect_dials(
     if addresses.is_empty() {
         return Err("A gRPC IP target requires at least one address.".into());
     }
-    let addresses = Arc::new(addresses);
+    // grpc-js pick_first preserves order within each family, alternating them
+    // with the original first address's family first (Happy Eyeballs).
+    let addresses = Arc::new(interleave_families(addresses));
     let connect = async {
         let mut pending = FuturesUnordered::new();
         pending.push(static_candidate(
@@ -341,25 +367,30 @@ async fn connect_dials(
             resolver.clone(),
         ));
         let mut next = 1;
+        let mut next_start = tokio::time::Instant::now() + Duration::from_millis(250);
         loop {
             tokio::select! {
-                Some(result) = pending.next() => match result {
+                Some((index, result)) = pending.next() => match result {
                     Ok(channel) => return Ok(channel),
                     Err(error) => {
-                        if next < addresses.len() {
+                        // Only the most recently started candidate can advance
+                        // the sequence early. Older failures leave its timer intact.
+                        if index + 1 == next && next < addresses.len() {
                             pending.push(static_candidate(endpoint.clone(), addresses.clone(), next, resolver.clone()));
                             next += 1;
+                            next_start = tokio::time::Instant::now() + Duration::from_millis(250);
                         } else if pending.is_empty() {
                             return Err(format!("Could not connect to gRPC IP targets: {error}"));
                         }
                     }
                 },
-                _ = tokio::time::sleep(Duration::from_millis(250)), if next < addresses.len() => {
+                _ = tokio::time::sleep_until(next_start), if next < addresses.len() => {
                     // grpc-js pick_first starts another address after 250 ms.
                     // Race whole Tonic connections, including TLS and HTTP/2,
                     // rather than choosing a socket before its handshake works.
                     pending.push(static_candidate(endpoint.clone(), addresses.clone(), next, resolver.clone()));
                     next += 1;
+                    next_start = tokio::time::Instant::now() + Duration::from_millis(250);
                 }
             }
         }
