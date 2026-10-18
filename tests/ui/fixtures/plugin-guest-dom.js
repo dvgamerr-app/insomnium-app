@@ -78,6 +78,20 @@ exports.templateTags=[{name:'dom',run(c,label){
   if(paragraph.parentNode!==null||mutations.firstElementChild.tagName!=='SECTION'||mutations.textContent!=='replacement')throw Error('outerHTML replacement mismatch');
   const table=document.createElement('table');table.innerHTML='<tr><td>cell</td></tr>';
   if(table.querySelector('tbody td').textContent!=='cell')throw Error('HTML table context mismatch');
+  const adjacent=document.createDocumentFragment(),anchor=document.createElement('div'),before=document.createElement('span'),after=document.createElement('span'),insideFirst=document.createElement('em'),insideLast=document.createElement('span');
+  before.textContent='before';after.textContent='after';insideFirst.textContent='first';insideLast.textContent='last';
+  if(anchor.insertAdjacentElement('beforebegin',before)!==null||anchor.insertAdjacentText('afterend','detached')!==undefined||before.parentNode!==null)throw Error('Detached adjacent insertion mismatch');
+  adjacent.append(anchor);
+  if(anchor.insertAdjacentElement('BEFOREBEGIN',before)!==before||anchor.insertAdjacentElement('afterend',after)!==after)throw Error('Adjacent Element return identity mismatch');
+  anchor.insertAdjacentText('afterbegin','<head>');anchor.insertAdjacentText('beforeend','tail');
+  anchor.insertAdjacentElement('afterbegin',insideFirst);anchor.insertAdjacentElement('beforeend',insideLast);
+  anchor.insertAdjacentText('beforebegin','left');anchor.insertAdjacentText('afterend','right');
+  if(adjacent.textContent!=='beforeleftfirst<head>taillastrightafter'||anchor.firstChild!==insideFirst||anchor.lastChild!==insideLast||anchor.querySelector('head')!==null)throw Error('Adjacent ordering or literal text mismatch');
+  const adjacentBefore=anchor.outerHTML;let adjacentSyntax=false,adjacentType=false,adjacentSymbol=false;
+  try{anchor.insertAdjacentText('invalid','no');}catch(error){adjacentSyntax=error instanceof DOMException&&error.name==='SyntaxError';}
+  try{anchor.insertAdjacentElement('beforeend',document.createTextNode('no'));}catch(error){adjacentType=error instanceof TypeError;}
+  try{anchor.insertAdjacentText('beforeend',Symbol());}catch(error){adjacentSymbol=error instanceof TypeError;}
+  if(!adjacentSyntax||!adjacentType||!adjacentSymbol||anchor.outerHTML!==adjacentBefore)throw Error('Adjacent refusal changed the tree');
   if(!body.contains(button)||!body.contains(body)||body.contains(null)||button.contains(body)||!button.isSameNode(button)||button.isSameNode(input)||button.isEqualNode(null))throw Error('Owned Node relation mismatch');
   const equalCopy=mutations.cloneNode(true);
   if(equalCopy===mutations||!mutations.isEqualNode(equalCopy)||!(mutations.compareDocumentPosition(equalCopy)&Node.DOCUMENT_POSITION_DISCONNECTED))throw Error('Owned equality/disconnected position mismatch');

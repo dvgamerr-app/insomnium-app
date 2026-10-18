@@ -728,6 +728,15 @@ export function createPluginGuestDom(call,retain,now) {
     const result=call('dom.node',[idOf(this),'insertAdjacentHTML',[domString(position),domString(text)]]);
     if(result?.exception)throw new DOMException(result.exception.message,result.exception.name);
   }});
+  for(const method of ['insertAdjacentElement','insertAdjacentText'])Object.defineProperty(GuestElement.prototype,method,{configurable:true,writable:true,enumerable:true,value:function(/** @type {any} */ position,/** @type {any} */ value){
+    if(!elements.has(this))throw new TypeError('Illegal Element receiver');
+    if(arguments.length<2)throw new TypeError('Position and insertion value are required');
+    const where=domString(position);
+    if(method==='insertAdjacentElement'&&!elements.has(value))throw new TypeError('An owned Element is required');
+    const result=call('dom.node',[idOf(this),method,[where,method==='insertAdjacentElement'?idOf(value):domString(value)]]);
+    if(result?.exception)throw new DOMException(result.exception.message,result.exception.name);
+    return method==='insertAdjacentElement'?wrap(result):undefined;
+  }});
   const propertyHandlers=new WeakMap();
   for(const type of ['click','input','change','keydown','keyup','focus','blur'])Object.defineProperty(GuestElement.prototype,'on'+type,{enumerable:true,configurable:true,get(){if(!elements.has(this))throw new TypeError('Illegal event handler receiver');return propertyHandlers.get(this)?.get(type)?.listener??null;},set(listener){
     if(!elements.has(this))throw new TypeError('Illegal event handler receiver');

@@ -314,6 +314,27 @@ export function createPluginDomBridge(owner) {
             return found&&ids.has(found)?describe(found):null;
           }catch(error){if(error instanceof DOMException)return {exception:{name:error.name,message:error.message}};throw error;}
         }
+        if(name==='insertAdjacentElement'||name==='insertAdjacentText'){
+          if(!(target instanceof Element)||values.length!==2||typeof values[0]!=='string')throw Error('Invalid owned adjacent insertion');
+          const textInsertion=name==='insertAdjacentText';
+          if(textInsertion?typeof values[1]!=='string':!Number.isSafeInteger(values[1]))throw Error('Invalid adjacent insertion value');
+          const element=textInsertion?null:node(values[1]);
+          if(element&&!(element instanceof Element))throw Error('Adjacent insertion requires an owned Element');
+          const placement=values[0].toLowerCase();
+          if(!['beforebegin','afterbegin','beforeend','afterend'].includes(placement))return {exception:{name:'SyntaxError',message:'Invalid adjacent insertion position'}};
+          const sibling=placement==='beforebegin'||placement==='afterend',parent=target.parentNode;
+          if(sibling&&!parent)return textInsertion?undefined:null;
+          if(sibling&&parent&&!ids.has(parent))throw Error('Plugin DOM sibling parent is not owned');
+          try{
+            if(element instanceof Element)return describe(target.insertAdjacentElement(/** @type {InsertPosition} */(placement),element));
+            if(nodes.size>=2048)throw Error('Plugin DOM node limit exceeded');
+            charge(values[1]);
+            const text=target.ownerDocument.createTextNode(values[1]);describe(text,true);
+            if(sibling){if(!parent)throw Error('The element has no parent');parent.insertBefore(text,placement==='beforebegin'?target:target.nextSibling);}
+            else target.insertBefore(text,placement==='afterbegin'?target.firstChild:null);
+            return undefined;
+          }catch(error){if(error instanceof DOMException)return {exception:{name:error.name,message:error.message}};throw error;}
+        }
         if(name==='markup'||name==='insertAdjacentHTML'){
           if(!(target instanceof Element)||values.length!==2||values.some(value=>typeof value!=='string'))throw Error('Invalid DOM markup operation');
           const [position,markup]=values;
