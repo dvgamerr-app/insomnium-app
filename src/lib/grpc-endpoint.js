@@ -70,8 +70,6 @@ export function grpcEndpoint(raw) {
   if (ip) {
     const family = ip[1].toLowerCase();
     const entries = ip[2].split(",");
-    if (entries.length > 256)
-      throw new Error("gRPC targets exceed 256 addresses.");
     const urls = entries.map((entry) => {
       const bracket = /^\[([^\]]+)\](?::([0-9]+))?$/.exec(entry);
       const parts = entry.split(":");

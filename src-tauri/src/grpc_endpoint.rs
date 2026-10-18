@@ -109,9 +109,6 @@ pub(crate) fn parse(raw: &str) -> Result<Target, String> {
             path = rest.split_once('/').ok_or("Invalid gRPC IP target.")?.1;
         }
         let entries: Vec<_> = path.split(',').collect();
-        if entries.len() > 256 {
-            return Err("gRPC targets exceed 256 addresses.".into());
-        }
         let mut addresses = Vec::with_capacity(entries.len());
         for entry in entries {
             let (host, port) = if let Some(rest) = entry.strip_prefix('[') {

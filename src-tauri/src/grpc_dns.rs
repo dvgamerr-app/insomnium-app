@@ -6,7 +6,7 @@ use hickory_resolver::{
     TokioResolver,
 };
 use reqwest::Url;
-use std::{io, net::SocketAddr, sync::Arc, time::Duration};
+use std::{collections::HashSet, io, net::SocketAddr, sync::Arc, time::Duration};
 use tonic::transport::{Channel, Endpoint};
 
 pub(crate) fn enabled() -> bool {
@@ -79,13 +79,11 @@ pub(crate) async fn connect(
                     .await
                     .map_err(|_| io::Error::other("gRPC DNS name resolution failed."))?;
                 let mut addresses = Vec::new();
+                let mut seen = HashSet::new();
                 for ip in result.iter() {
                     let address = SocketAddr::new(ip, port);
-                    if !addresses.contains(&address) {
+                    if seen.insert(address) {
                         addresses.push(address);
-                    }
-                    if addresses.len() == 256 {
-                        break;
                     }
                 }
                 if addresses.is_empty() {

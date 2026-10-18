@@ -254,7 +254,6 @@ async fn static_candidate(
             let first = first.clone();
             let resolver = resolver.clone();
             async move {
-                let mut last = io::Error::other("No gRPC IP address was reachable.");
                 let initial = first.swap(false, Ordering::Relaxed);
                 let addresses = if !initial {
                     if let Some(resolve) = resolver {
@@ -265,7 +264,6 @@ async fn static_candidate(
                         Arc::new(interleave_families(
                             refreshed
                                 .into_iter()
-                                .take(256)
                                 .map(|address| StaticDial {
                                     address,
                                     target: String::new(),
@@ -280,29 +278,67 @@ async fn static_candidate(
                     addresses
                 };
                 let attempts = if initial { 1 } else { addresses.len() };
-                for _ in 0..attempts {
-                    let dial = &addresses[next.fetch_add(1, Ordering::Relaxed) % addresses.len()];
-                    let result = if let Some(proxy) = &dial.proxy {
-                        tunnel(proxy, &dial.target).await
-                    } else {
-                        match TcpStream::connect(dial.address).await {
-                            Ok(stream) => {
-                                stream.set_nodelay(true)?;
-                                Ok(BufReader::new(stream))
-                            }
-                            Err(error) => Err(error),
-                        }
-                    };
-                    match result {
-                        Ok(stream) => return Ok(TokioIo::new(stream)),
-                        Err(error) => last = error,
-                    }
-                }
-                Err(last)
+                let start = next.load(Ordering::Relaxed) % addresses.len();
+                let (index, stream) = race_sockets(addresses.clone(), start, attempts).await?;
+                next.store((index + 1) % addresses.len(), Ordering::Relaxed);
+                Ok(TokioIo::new(stream))
             }
         }))
         .await;
     (start, result)
+}
+
+async fn dial_socket(
+    addresses: Arc<Vec<StaticDial>>,
+    start: usize,
+    offset: usize,
+) -> (usize, io::Result<BufReader<TcpStream>>) {
+    let dial = &addresses[(start + offset) % addresses.len()];
+    let result = if let Some(proxy) = &dial.proxy {
+        tunnel(proxy, &dial.target).await
+    } else {
+        match TcpStream::connect(dial.address).await {
+            Ok(stream) => stream.set_nodelay(true).map(|()| BufReader::new(stream)),
+            Err(error) => Err(error),
+        }
+    };
+    (offset, result)
+}
+
+// Tonic owns TLS/HTTP2 and the connection timeout outside this connector.
+// Reconnect must still race sockets (or complete CONNECT tunnels), otherwise
+// an unresponsive address blocks every later address until that timeout.
+async fn race_sockets(
+    addresses: Arc<Vec<StaticDial>>,
+    start: usize,
+    attempts: usize,
+) -> io::Result<(usize, BufReader<TcpStream>)> {
+    use futures_util::{stream::FuturesUnordered, StreamExt};
+    let mut pending = FuturesUnordered::new();
+    pending.push(dial_socket(addresses.clone(), start, 0));
+    let mut next = 1;
+    let mut next_start = tokio::time::Instant::now() + Duration::from_millis(250);
+    loop {
+        tokio::select! {
+            Some((offset, result)) = pending.next() => match result {
+                Ok(stream) => return Ok(((start + offset) % addresses.len(), stream)),
+                Err(error) => {
+                    if offset + 1 == next && next < attempts {
+                        pending.push(dial_socket(addresses.clone(), start, next));
+                        next += 1;
+                        next_start = tokio::time::Instant::now() + Duration::from_millis(250);
+                    } else if pending.is_empty() {
+                        return Err(error);
+                    }
+                }
+            },
+            _ = tokio::time::sleep_until(next_start), if next < attempts => {
+                pending.push(dial_socket(addresses.clone(), start, next));
+                next += 1;
+                next_start = tokio::time::Instant::now() + Duration::from_millis(250);
+            }
+        }
+    }
 }
 
 pub(crate) async fn connect_static(
@@ -335,7 +371,6 @@ pub(crate) async fn connect_resolved(
 ) -> Result<Channel, String> {
     let addresses = addresses
         .iter()
-        .take(256)
         .map(|address| StaticDial {
             address: *address,
             target: String::new(),
