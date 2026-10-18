@@ -973,6 +973,43 @@ fn from_object(
 ) -> Result<DynamicMessage, String> {
     from_object_inner(desc, original, object, depth, context, true)
 }
+// ES2022 prototype methods visible to protobuf.js property lookup. Object.prototype
+// names are rejected by its source parser and are deliberately not synthesized here.
+fn inherited_method<'a>(object: &Json, name: &'a str) -> Option<(&'a str, usize)> {
+    let arity = match object {
+        Json::Array(_) => match name {
+            "map" | "filter" | "forEach" | "find" | "findIndex" | "flatMap" | "every" | "some"
+            | "concat" | "includes" | "indexOf" | "join" | "lastIndexOf" | "push" | "unshift"
+            | "at" | "fill" | "reduce" | "reduceRight" | "sort" => 1,
+            "slice" | "splice" | "copyWithin" => 2,
+            "keys" | "values" | "entries" | "pop" | "reverse" | "shift" | "flat" => 0,
+            _ => return None,
+        },
+        Json::String(_) => match name {
+            "charAt" | "charCodeAt" | "codePointAt" | "at" | "concat" | "endsWith" | "includes"
+            | "indexOf" | "lastIndexOf" | "match" | "matchAll" | "padEnd" | "padStart"
+            | "repeat" | "search" | "startsWith" | "anchor" | "fontcolor" | "fontsize" | "link" => {
+                1
+            }
+            "replace" | "replaceAll" | "slice" | "split" | "substr" | "substring" => 2,
+            "normalize" | "toLowerCase" | "toUpperCase" | "toLocaleLowerCase"
+            | "toLocaleUpperCase" | "trim" | "trimStart" | "trimEnd" | "trimLeft" | "trimRight"
+            | "big" | "blink" | "bold" | "fixed" | "italics" | "small" | "strike" | "sub"
+            | "sup" => 0,
+            _ => return None,
+        },
+        _ => return None,
+    };
+    Some((
+        match name {
+            "trimLeft" => "trimStart",
+            "trimRight" => "trimEnd",
+            _ => name,
+        },
+        arity,
+    ))
+}
+
 fn from_object_inner(
     desc: MessageDescriptor,
     original: MessageDescriptor,
@@ -1073,6 +1110,45 @@ fn from_object_inner(
         } else {
             None
         };
+        if length.is_none() && object.get(name).is_none() {
+            if let Some((method, arity)) = inherited_method(object, name) {
+                if original_field.is_map() && !context.reflection {
+                    return Err(format!("{}: object expected", field.full_name()));
+                }
+                if field.is_list() {
+                    return Err(format!("{}: array expected", field.full_name()));
+                }
+                let value = match original_field.kind() {
+                    Kind::String => {
+                        let text = format!("function {method}() {{ [native code] }}");
+                        if matches!(field.kind(), Kind::Bytes) {
+                            Value::Bytes(text.into_bytes().into())
+                        } else {
+                            Value::String(text)
+                        }
+                    }
+                    Kind::Bytes => Value::Bytes(vec![0; arity].into()),
+                    Kind::Bool => Value::Bool(true),
+                    Kind::Int32 | Kind::Sint32 | Kind::Sfixed32 => Value::I32(0),
+                    Kind::Uint32 | Kind::Fixed32 => Value::U32(0),
+                    Kind::Int64 | Kind::Sint64 | Kind::Sfixed64 => Value::I64(0),
+                    Kind::Uint64 | Kind::Fixed64 => Value::U64(0),
+                    Kind::Float => Value::F32(f32::NAN),
+                    Kind::Double => Value::F64(f64::NAN),
+                    Kind::Enum(_) => {
+                        if field.cardinality() != prost_reflect::Cardinality::Required {
+                            continue;
+                        }
+                        legacy_field_default(&field, &original_field, true)
+                    }
+                    Kind::Message(_) => {
+                        return Err(format!("{}: object expected", field.full_name()))
+                    }
+                };
+                message.set_field(&field, value);
+                continue;
+            }
+        }
         let Some(input) = length
             .as_ref()
             .or_else(|| object.get(name))
@@ -2110,10 +2186,28 @@ mod tests {
             entry: "length.proto".into(),
             files: vec![crate::grpc_schema::ProtoFile {
                 name: "length.proto".into(),
-                text: "syntax=\"proto3\"; message Child { uint32 length=1; } message Envelope { Child child=1; repeated Child children=2; map<string, Child> values=3; }".into(),
+                text: "syntax=\"proto3\"; message Child { uint32 length=1; } message Envelope { Child child=1; repeated Child children=2; map<string, Child> values=3; } message M { string map=1; bytes forEach=2; bool join=3; int32 push=4; double reduce=5; int64 slice=6; }".into(),
             }],
             include_paths: vec![],
         }).unwrap();
+        let snapshot = pool.encode_to_vec();
+        let methods = pool.get_message_by_name("M").unwrap();
+        for (body, hex) in [
+            ("[]", "0a2066756e6374696f6e206d61702829207b205b6e617469766520636f64655d207d1201001801200029000000000000f87f3000"),
+            (r#""abc""#, "3000"),
+            ("{}", ""),
+        ] {
+            let message = crate::grpc_schema::parse_mode(methods.clone(), body, crate::grpc_schema::JsonMode::Legacy).unwrap();
+            let actual: String = message.encode_to_vec().iter().map(|byte| format!("{byte:02x}")).collect();
+            assert_eq!(actual, hex, "{body}");
+        }
+        assert!(crate::grpc_schema::parse_mode(
+            methods,
+            "[]",
+            crate::grpc_schema::JsonMode::ProtoJson
+        )
+        .is_err());
+        assert_eq!(snapshot, pool.encode_to_vec());
         let desc = pool.get_message_by_name("Envelope").unwrap();
         // Exact protobuf.js 7.2.4 fromObject/encode outputs, checked under Bun.
         for (body, hex) in [
