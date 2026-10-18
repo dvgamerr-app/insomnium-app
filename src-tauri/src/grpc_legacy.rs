@@ -807,6 +807,19 @@ fn legacy_field_default(
     original: &FieldDescriptor,
     for_wire: bool,
 ) -> Value {
+    if let Some(text) = crate::grpc_defaults::value(&original.parent_file(), original.path()) {
+        let bytes =
+            Value::Bytes(legacy_string_bytes(&text.encode_utf16().collect::<Vec<_>>()).into());
+        if matches!(original.kind(), Kind::String) {
+            return bytes;
+        }
+        return legacy_default_value(
+            bytes,
+            field.kind(),
+            field.field_descriptor_proto().default_value.as_deref(),
+            for_wire,
+        );
+    }
     if matches!(original.kind(), Kind::String)
         && matches!(field.kind(), Kind::Bytes)
         && !field.is_list()
@@ -847,6 +860,19 @@ fn legacy_default(field: &FieldDescriptor, for_wire: bool) -> Value {
     )
 }
 fn extension_default(field: &ExtensionDescriptor, original: &ExtensionDescriptor) -> Value {
+    if let Some(text) = crate::grpc_defaults::value(&original.parent_file(), original.path()) {
+        let bytes =
+            Value::Bytes(legacy_string_bytes(&text.encode_utf16().collect::<Vec<_>>()).into());
+        if matches!(original.kind(), Kind::String) {
+            return bytes;
+        }
+        return legacy_default_value(
+            bytes,
+            field.kind(),
+            field.field_descriptor_proto().default_value.as_deref(),
+            false,
+        );
+    }
     if matches!(original.kind(), Kind::String)
         && matches!(field.kind(), Kind::Bytes)
         && !field.is_list()
@@ -1835,13 +1861,39 @@ mod tests {
                         required bytes b=2 [default="Zh=="]; optional E opt=3;
                         required Empty empty=4; optional bytes o=5 [default="Zm9="];
                         extensions 100 to 199; }
-                    extend M { optional bytes ext=100 [default="AB=="]; }"#
+                    extend M { optional bytes ext=100 [default="AB=="]; }
+                    message Lexical { required string s=1 [default="\x41\101\a\v\b\f\'\"\u0041"];
+                        required bytes b=2 [default="\x41\101"];
+                        optional string t=3 [default="one" /* between */ 'two\n']; extensions 100 to 199; }
+                    extend Lexical { optional string lexical_ext=100 [default="\x42"]; }"#
                     .into(),
             }],
             include_paths: vec![],
         })
         .unwrap();
         let snapshot = pool.encode_to_vec();
+        // The pinned source parser drops unknown escape letters, unlike protoc.
+        // Exercise the serialized descriptor path used by discovery and calls.
+        let decoded_pool = DescriptorPool::decode(snapshot.as_slice()).unwrap();
+        let lexical = decoded_pool.get_message_by_name("Lexical").unwrap();
+        assert_eq!(
+            Value::default_value_for_field(&lexical.get_field_by_name("s").unwrap()),
+            Value::String("AA\u{7}\u{b}\u{8}\u{c}'\"A".into())
+        );
+        let message =
+            crate::grpc_schema::parse_mode(lexical.clone(), "{}", JsonMode::Legacy).unwrap();
+        assert_eq!(
+            message.encode_to_vec(),
+            [0x0a, 8, b'4', b'1', b'0', b'1', b'0', b'0', b'4', b'1', 0x12, 3, 0xe3, 0x5d, 0x35]
+        );
+        let output: serde_json::Value = serde_json::from_str(
+            &crate::grpc_schema::json_mode(&message, JsonMode::Legacy, lexical).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            output,
+            serde_json::json!({"s":"41010041","b":{"0":227,"1":93,"2":53},"t":"onetwo\n",".lexical_ext":"42"})
+        );
         let original = pool.get_message_by_name("M").unwrap();
         // Exact fromObject/encode output from protobuf.js 7.2.4.
         for (body, expected) in [

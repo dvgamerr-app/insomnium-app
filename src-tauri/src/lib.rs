@@ -20,6 +20,7 @@ mod git_remote_checkout;
 mod git_remote_job;
 mod git_push;
 mod grpc;
+mod grpc_defaults;
 mod grpc_example;
 mod grpc_legacy;
 mod grpc_legacy_lookup;

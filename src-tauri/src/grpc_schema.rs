@@ -96,8 +96,8 @@ pub(crate) fn compile(input: ProtoInput) -> Result<DescriptorPool, String> {
         }
     }
     let mut compiler = protox::Compiler::with_file_resolver(MemoryFiles {
-        files,
-        includes: input.include_paths,
+        files: files.clone(),
+        includes: input.include_paths.clone(),
     });
     compiler
         .include_imports(true)
@@ -108,7 +108,7 @@ pub(crate) fn compile(input: ProtoInput) -> Result<DescriptorPool, String> {
     if pool.encode_to_vec().len() > MAX_SCHEMA {
         return Err("Compiled descriptors exceed 8 MiB.".into());
     }
-    Ok(pool)
+    crate::grpc_defaults::annotate(pool, &files, &input.include_paths)
 }
 
 #[derive(Serialize)]
