@@ -1,20 +1,24 @@
 {
-  "builtAt": "2026-10-18T18:14:37.323Z",
-  "sourceCommit": "d67fe4fc7cbeca4ac5037e420582bc09426dbd60",
-  "command": "bun run desktop:build --bundles nsis -- --locked",
+  "builtAt": "2026-10-18T20:08:32.852Z",
+  "sourceCommit": "46d77019ac5d6c69704058fd535d9a6180e6b949",
+  "command": "bun run desktop:build --bundles msi -- --locked",
   "identifier": "app.insomnium.desktop",
   "target": "x86_64-pc-windows-msvc",
   "bundles": [
-    "nsis"
+    "msi"
   ],
   "bun": "1.4.2",
-  "sourceFingerprint": "9f46396fcbea2fc22b2bbe65bbe21bbb4b318ef83963556d53f07b8a6fd00696",
+  "sourceFingerprint": "ec5a31e38211c4f7e83cbc45de98ea6cfff5f0b67499b6485b07e0582b368006",
   "fingerprintAlgorithm": "SHA-256 of localeCompare(en)-sorted selected tracked product/tool path + LF + SHA-256 + LF; partial source witness, not universal source/loader/linkage closure",
-  "sourceFileCount": 887,
+  "sourceFileCount": 870,
   "sources": [
     {
+      "path": ".cargo/config.toml",
+      "sha256": "06222f5e088bb173936d11ea73860ce796edcea4acb1215d878d17ecc743e6f4"
+    },
+    {
       "path": "bun.lock",
-      "sha256": "4256e5721fd4f7372fddbac923d9dc0032727a7d0258e478ae461ec78630379d"
+      "sha256": "4150dac8b6e882040f6e51b704e0070d822f395aafb52e1df20a00b309deeda3"
     },
     {
       "path": "jsconfig.json",
@@ -22,7 +26,7 @@
     },
     {
       "path": "package.json",
-      "sha256": "daa48240e6266cfc51d5ec0406bd1eb55dd5e31d806522a932b925d2f510ac33"
+      "sha256": "629ccdee396f0bb7829e5a11b6c43928c1e48b92a0d5fffe7c93b94530656a08"
     },
     {
       "path": "scripts/build-desktop.mjs",
@@ -2229,6 +2233,10 @@
       "sha256": "ee5698d66c4c62260f53fe8e149b011802711cd6176e5b9e425537d806dc2186"
     },
     {
+      "path": "src/lib/components/GenerateCode.svelte",
+      "sha256": "e6f41adf86bad453467b113f9042c62c01316791cbf4ac5d108870abf05efa45"
+    },
+    {
       "path": "src/lib/components/GitCloneDialog.svelte",
       "sha256": "1e2695f43defd66d14d714d7fe75a2af76804279b68d49b8cf921db97a31edcf"
     },
@@ -2370,7 +2378,7 @@
     },
     {
       "path": "src/lib/components/SettingsPanel.svelte",
-      "sha256": "8e0f544507280cb15e26e6a3fa18ceb3a766e309f936afddcf42ad882f0f7776"
+      "sha256": "03ce04a9d3bc6a274b68abbc3d220f1ff47c701fc570516afd56c128deabba8d"
     },
     {
       "path": "src/lib/components/StreamPane.svelte",
@@ -2974,7 +2982,7 @@
     },
     {
       "path": "src/lib/plugin-dom-bridge.js",
-      "sha256": "9d41b15db0ef00ea1e34bc9ae92583878e679445fe2e00406f35839ac52a0e64"
+      "sha256": "e2f65377c712c0909afb9616143380d6941fae2a39f79566f6f31fcba4b1e168"
     },
     {
       "path": "src/lib/plugin-dom-callback-leases.js",
@@ -2994,7 +3002,7 @@
     },
     {
       "path": "src/lib/plugin-guest-dom.js",
-      "sha256": "0d75b59888597a0c69b93bf7e626d1a96f3c1d1b1e02dfa651d8a183e213312b"
+      "sha256": "7c55ad63df5f21409eeab0b7ebfc05d7067df26ac89db3fce1c91985c191c61a"
     },
     {
       "path": "src/lib/plugin-har-export.js",
@@ -3091,6 +3099,34 @@
     {
       "path": "src/lib/proto-management.js",
       "sha256": "4c0412bf35a6f9b4be2345602708fdc5d106596507d6bd38c2e76ac38f9b79bc"
+    },
+    {
+      "path": "src/lib/request-code-asap.js",
+      "sha256": "e70b203b0fcc5555c3e9a6630c28bff3b56de63900b108299695a4efac1838a7"
+    },
+    {
+      "path": "src/lib/request-code-aws.js",
+      "sha256": "6a0191c97b87eafb7040be715b3b292e77fd0f2e8b377a4706519aba04721f7e"
+    },
+    {
+      "path": "src/lib/request-code-digest.js",
+      "sha256": "f192ec4e0554fc76f242d5f2046c3c858e5d1c26a82f87738f30a453340f0fa9"
+    },
+    {
+      "path": "src/lib/request-code-hawk.js",
+      "sha256": "6812bca9eb39b2fd6daeca809b351cbed12257ff56635d572a41be5138df5ec9"
+    },
+    {
+      "path": "src/lib/request-code-multipart.js",
+      "sha256": "46faddc44400c23826771b752b74d1724a08a37a0cfa502ef1ebff3d4ccaa1ec"
+    },
+    {
+      "path": "src/lib/request-code-oauth1.js",
+      "sha256": "1c23cbfeb3df6ee8658bef023537e08fc0ef25b66482c071edb20578137405d4"
+    },
+    {
+      "path": "src/lib/request-code.js",
+      "sha256": "79dfebcfad9a8d4cc60c6042d18e6399967281babf89b34387bafa6fac36e7f0"
     },
     {
       "path": "src/lib/request-default-headers.js",
@@ -3410,7 +3446,7 @@
     },
     {
       "path": "src/lib/workspace.svelte.js",
-      "sha256": "01725dd0c19f985d648777de4329d48634ca0d7918f12328c0b9802b7046a6da"
+      "sha256": "ae1068a0c3250d50d5764e0779851b4e81efe4b8b782a6ce6aec82359991b05f"
     },
     {
       "path": "src/lib/wsdl-documents.js",
@@ -3446,115 +3482,11 @@
     },
     {
       "path": "src/routes/+page.svelte",
-      "sha256": "2fce6f2ef5cd1b64044444b6c68c1af13250d39f91f253bc4d8c2baf51220d21"
+      "sha256": "32887c38478d64c9f29adfc15112a6550ea8647170f288c41bc371a1503ffcc5"
     },
     {
       "path": "svelte.config.js",
       "sha256": "fbbe499446ddd986b7f224da770e6c0e9280c765aed9d80070b3872b7ccd6a46"
-    },
-    {
-      "path": "tools/native-notices/repository-sources/00229c125c597e4f0ddb9e598738ee5b38a9086fd59eea6d2577cdda5f8e5875",
-      "sha256": "00229c125c597e4f0ddb9e598738ee5b38a9086fd59eea6d2577cdda5f8e5875"
-    },
-    {
-      "path": "tools/native-notices/repository-sources/0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
-      "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
-    },
-    {
-      "path": "tools/native-notices/repository-sources/0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73",
-      "sha256": "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73"
-    },
-    {
-      "path": "tools/native-notices/repository-sources/41b5c8fdd6494e98c73563f5d989dbc3f741841744f561acc7abf73039d71848",
-      "sha256": "41b5c8fdd6494e98c73563f5d989dbc3f741841744f561acc7abf73039d71848"
-    },
-    {
-      "path": "tools/native-notices/repository-sources/5d0444d55131aa8a4290fc3cd54bd8598e9528577ddf5c3368ee48a02e297f6d",
-      "sha256": "5d0444d55131aa8a4290fc3cd54bd8598e9528577ddf5c3368ee48a02e297f6d"
-    },
-    {
-      "path": "tools/native-notices/repository-sources/86df68bbb014e816ac356a462838914d813ce6aaa1d11b2aa284941701c6c7c2",
-      "sha256": "86df68bbb014e816ac356a462838914d813ce6aaa1d11b2aa284941701c6c7c2"
-    },
-    {
-      "path": "tools/native-notices/repository-sources/9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d",
-      "sha256": "9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d"
-    },
-    {
-      "path": "tools/native-notices/repository-sources/a615e325d5acebc64f6553724028cd5e3639397e534cef107f172540cb78d0fd",
-      "sha256": "a615e325d5acebc64f6553724028cd5e3639397e534cef107f172540cb78d0fd"
-    },
-    {
-      "path": "tools/native-notices/repository-sources/bee8a11a0f7c152ff835ea5ca64bcb5558e8a6079be56eccc4086dddb383288c",
-      "sha256": "bee8a11a0f7c152ff835ea5ca64bcb5558e8a6079be56eccc4086dddb383288c"
-    },
-    {
-      "path": "tools/native-notices/repository-sources/f6eab0a90a5ab759040c82f16e9507c1c8425422667ec642eb722c7f973df41d",
-      "sha256": "f6eab0a90a5ab759040c82f16e9507c1c8425422667ec642eb722c7f973df41d"
-    },
-    {
-      "path": "tools/native-notices/source-policy.json",
-      "sha256": "d944fab494d3349aa02d95ea96c03c22bb4e7456b99146bd05e12de31bb613ba"
-    },
-    {
-      "path": "tools/spectral-linter/build.mjs",
-      "sha256": "df1c2e6e9cb1988abf585490cbbf2c437ce02eb2777a420d878ee5fd158417f0"
-    },
-    {
-      "path": "tools/spectral-linter/bun.lock",
-      "sha256": "2b647d41231545747271d86b75e7b95f6e8ad42514714163c1cb1233b315682c"
-    },
-    {
-      "path": "tools/spectral-linter/host.js",
-      "sha256": "cf41667425ae409e79c1bcc34f0cba459092d9303a53a3c8dfa4c2f96291ba3b"
-    },
-    {
-      "path": "tools/spectral-linter/notice-sources.json",
-      "sha256": "9253f7ea9c3810ed7f1d9c6e259d3d4548b5e15e953d1e61a690645031bc6759"
-    },
-    {
-      "path": "tools/spectral-linter/notice-sources/bun-1.4.2-LICENSE.md",
-      "sha256": "b9caf52728691b4057e371232c221a132883198be2f3d2ddf92c90404c984b1a"
-    },
-    {
-      "path": "tools/spectral-linter/notice-sources/bun-744846-uSockets-uWS-LICENSE",
-      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
-    },
-    {
-      "path": "tools/spectral-linter/notice-sources/icu-21d1eb-LICENSE",
-      "sha256": "e55522d81edc687a341a4411e0776e54ca654e90147f354a90458aaced4116af"
-    },
-    {
-      "path": "tools/spectral-linter/notice-sources/jsc-2e2aa-COPYING.LIB",
-      "sha256": "5094ecb9c9dcd0eadc34f3c11511d9b5535063032bc150164ecd1a5d5a445547"
-    },
-    {
-      "path": "tools/spectral-linter/notice-sources/libuv-802358-LICENSE",
-      "sha256": "16de0c32b265cb7d46a6d3bd614f259dd4d693a5e26b3407b04aae8d73041f0c"
-    },
-    {
-      "path": "tools/spectral-linter/notice-sources/spectral-runtime-1.1.6-package.json",
-      "sha256": "b2e2446abb1ee3987c1433fec7dc3976a2b7ccdb3ac791d61bc4d3e7c15bb74a"
-    },
-    {
-      "path": "tools/spectral-linter/notice-sources/spectral-runtime-1.1.6-repository-LICENSE",
-      "sha256": "d45c17f7ecc80e0deab3372ff352c7d00b7d573755c3c672088c21a376673698"
-    },
-    {
-      "path": "tools/spectral-linter/package.json",
-      "sha256": "22162980f31faad0046d39eb66988443c9f4824531ed78312fca930767040930"
-    },
-    {
-      "path": "tools/spectral-linter/protocol.js",
-      "sha256": "7da45bd55b513c260da939940fa609162fb77fd104963c652f131fa5851ad37e"
-    },
-    {
-      "path": "tools/spectral-linter/read-receipts.js",
-      "sha256": "e5ce69b3446a58d2b40774fc4a5bed017bacdb1b99078c271d92ad2249e754e3"
-    },
-    {
-      "path": "tools/spectral-linter/runtime-source-texts.json",
-      "sha256": "1794d86148c2f94aeccf1cf9d069676eccd3ca66c65d44b598d514f2a6f387d9"
     },
     {
       "path": "vite.config.js",
@@ -3563,28 +3495,30 @@
   ],
   "artifacts": [
     {
-      "path": "artifacts/windows-production-d67fe4fc-20261019/insomnium.exe",
-      "bytes": 23255040,
-      "sha256": "a0e4e8b2e41805840d4f5cc6d481bed5b1e464a5e63bcfbb887634f877c867b7"
+      "path": "artifacts/windows-production-msi-46d77019-20261019-attempt2/insomnium.exe",
+      "bytes": 23287808,
+      "sha256": "bd133e35e890199333be8f0dc00b58788b71007ee432f7bed2d0af526eb2d2a4"
     },
     {
-      "path": "artifacts/windows-production-d67fe4fc-20261019/Insomnium_0.1.0_x64-setup.exe",
-      "bytes": 43004399,
-      "sha256": "38c4de18bcf700973aedf8e2d2569804eb92b2f865ad6bfcaae367bc8725a416"
+      "path": "artifacts/windows-production-msi-46d77019-20261019-attempt2/Insomnium_0.1.0_x64_en-US.msi",
+      "bytes": 57023519,
+      "sha256": "87a74ff5d3b976da9b08d86bbc1b5e7f84069d208d2af6ac6dffb9f5c870fa19"
     }
   ],
-  "checks": [
-    "Default production release beforeBuildCommand and beforeBundleCommand passed; SDK version checking enabled; Cargo --locked; no custom identity/frontend/low-memory override.",
-    "Tauri built one NSIS package; both retained files rehashed with matching size/SHA256; selected tracked source/tool inputs unchanged.",
-    "PE headers validated; Windows Get-AuthenticodeSignature returns NotSigned for both files; no app or installer executed."
-  ],
-  "evidence": "artifacts/windows-production-d67fe4fc-20261019/build-state.json",
-  "previousBuildRecord": "artifacts/windows-production-d67fe4fc-20261019/previous-BUILD.json",
+  "checks": {
+    "exitCode": 0,
+    "selectedInputsUnchanged": true,
+    "payloadFilesVerified": 2170,
+    "exactUntransformedFiles": 2169,
+    "bundlePatch": "Unique Tauri UNK marker replaced with MSI; complete transformed executable byte equality"
+  },
+  "evidence": "artifacts/windows-production-msi-46d77019-20261019-attempt2/verification.json",
+  "previousBuildRecord": "artifacts/windows-production-msi-46d77019-20261019-attempt2/previous-BUILD.json",
   "notVerified": [
-    "Current NSIS installation/uninstallation/upgrade and installed payload/runtime acceptance; MSI not built in this checkpoint; signing/SmartScreen/platform/hosted CI/distribution and all retained PLAN/PARITY/legal/source/linkage gates remain open.",
-    "All remaining current PLAN.md/PARITY.md and topic acceptance requirements. This packaging checkpoint does not verify application workflows, providers, profiles, OS-close, accessibility or other platforms.",
-    "Complete source/license coverage and target linkage remain unproven.",
-    "Historical acceptance requirements are retained below; later topic receipts supersede historical implementation-gap wording only within their verified scope."
+    "Unsigned; installation, upgrade, uninstall and installed runtime unverified",
+    "DARK1059 UI decompile warnings retained; installer UI correctness unverified",
+    "Selected source hashes are a partial witness; complete source/license/linkage closure unproven",
+    "Other platforms, hosted CI and remaining PLAN/PARITY gates remain open"
   ],
   "fullMigrationComplete": false,
   "historicalAcceptanceRequirements": [
