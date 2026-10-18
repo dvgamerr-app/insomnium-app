@@ -2,6 +2,7 @@ import { parseCurlForm } from "./curl-form.js";
 import { expandCurlUrl } from "./curl-url-glob.js";
 import { curlConfigWords } from "./curl-config.js";
 import { curlProxyUrl } from "./request-proxy.js";
+import { redirectLimit } from "./request-redirects.js";
 import { curlTimeout } from "./request-timeouts.js";
 import { curlHeader, curlOptionHeader } from "./curl-headers.js";
 import { id, newRequest } from "./model.js";
@@ -229,6 +230,7 @@ const aliases = /** @type {Record<string, string>} */ ({
   T: "upload-file",
 });
 const values = new Set([
+  "max-redirs",
   "upload-file",
   "max-time",
   "connect-timeout",
@@ -649,6 +651,8 @@ function requestsFor(words, workspaceId, entries, uploadFiles = []) {
   if (awsSigv4 !== undefined && (forms.length || fileBody || uploadFiles.some(file => file !== undefined) ||
       (data.length && !has("get") && method !== "POST")))
     throw new Error("cURL AWS signing currently supports buffered POST data or requests without a body.");
+  if (last("max-redirs") === "") throw new Error("cURL --max-redirs requires a whole number.");
+  const maxRedirects = redirectLimit(last("max-redirs") ?? 50);
   const location =
     entries.filter((e) => ["location", "no-location"].includes(e.name)).at(-1)
       ?.name === "location";
@@ -680,6 +684,7 @@ function requestsFor(words, workspaceId, entries, uploadFiles = []) {
         fileName: uploadFiles[index], curlFileMode: "upload-file",
       } : structuredClone(body),
       settingFollowRedirects: location ? "on" : "off",
+      settingMaxRedirects: maxRedirects,
       settingProxy: proxy === undefined ? "global" : proxy === "" ? "off" : "custom",
       settingProxyUrl: proxyUrl,
       settingProxyBasicAuth: Boolean(proxy) && (proxyAuth[0] ?? "basic") === "basic",
@@ -730,6 +735,7 @@ export function curlRequestPatch(text) {
     authentication: request.authentication,
     body: request.body,
     settingFollowRedirects: request.settingFollowRedirects,
+    settingMaxRedirects: request.settingMaxRedirects,
     settingProxy: request.settingProxy,
     settingProxyUrl: request.settingProxyUrl,
     settingProxyBasicAuth: request.settingProxyBasicAuth,

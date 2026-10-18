@@ -728,6 +728,10 @@
             ><option value="off">Do not follow redirects</option>
           </Select></Field
         >
+        <Field label="Maximum redirects"><Input type="number" min="-1" max="2147483647" step="1"
+          value={request.settingMaxRedirects ?? ""} placeholder="Default: 10"
+          oninput={event=>onchange({settingMaxRedirects:event.currentTarget.value})}/></Field>
+        <p class="hint">Use -1 for unlimited redirects, or 0 to stop with an error at the first redirect.</p>
         <Field label="Redirect Referer"><Select
           value={typeof request.settingAutoReferer==='boolean'?(request.settingAutoReferer?'on':'off'):'default'}
           onchange={event=>onchange({settingAutoReferer:event.currentTarget.value==='default'?undefined:event.currentTarget.value==='on'})}

@@ -13,6 +13,7 @@ pub struct DigestCredentials {
 
 pub(crate) struct Auth<'a> {
     pub auto_referer: bool,
+    pub max_redirects: Option<i32>,
     pub digest: Option<&'a DigestCredentials>,
     pub oauth1: Option<&'a crate::oauth1::OAuth1Credentials>,
     pub aws: Option<&'a crate::aws::AwsCredentials>,
@@ -208,7 +209,9 @@ where
         ntlm,
         netrc,
         auto_referer,
+        max_redirects,
     } = auth;
+    let redirect_limit = crate::http_redirects::limit(max_redirects)?;
     if (aws.is_none() && outgoing.headers().contains_key(header::AUTHORIZATION))
         || (credentials.is_none()
             && oauth1.is_none()
@@ -368,8 +371,11 @@ where
         let Some(location) = response.headers().get(header::LOCATION) else {
             return Ok(reply);
         };
-        if redirects >= 10 {
-            return Err("Too many redirects (maximum 10)".into());
+        if redirect_limit.is_some_and(|limit| redirects >= limit) {
+            return Err(format!(
+                "Too many redirects (maximum {})",
+                redirect_limit.unwrap()
+            ));
         }
         let previous = outgoing.url().clone();
         let mut next = previous

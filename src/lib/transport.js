@@ -28,6 +28,7 @@ import { prepareOAuth1 } from "./oauth1-model.js";
 import { prepareHawk } from "./hawk-model.js";
 import { prepareAsap } from "./asap-model.js";
 import { requestProxy } from "./request-proxy.js";
+import { redirectLimit } from "./request-redirects.js";
 import { requestTimeouts } from "./request-timeouts.js";
 import { assertCurlHeaderFiles } from "./curl-headers.js";
 
@@ -649,6 +650,7 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
     timeoutMs: Number(settings.timeout),
     ...requestTimeouts(request),
     decodeResponse: request.settingDecodeResponse ?? null,
+    maxRedirects: redirectLimit(request.settingMaxRedirects),
     followRedirects:
       request.settingFollowRedirects === "on"
         ? true
@@ -774,6 +776,8 @@ export async function send(request, signal) {
     throw new Error(
       "Suppressing the default User-Agent requires the desktop app. Browser preview controls its own User-Agent.",
     );
+  if (request.followRedirects && request.maxRedirects != null)
+    throw new Error("A custom redirect limit requires the desktop application.");
   // Browser preview is explicitly separate; desktop always uses native HTTP.
   const started = performance.now();
   /** @type {BodyInit | null} */

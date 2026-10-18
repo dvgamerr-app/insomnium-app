@@ -63,6 +63,8 @@ pub struct HttpRequest {
     #[serde(default)]
     pub(crate) connect_timeout_ms: Option<u64>,
     pub(crate) follow_redirects: bool,
+    #[serde(default)]
+    pub(crate) max_redirects: Option<i32>,
     pub(crate) validate_certificates: bool,
     pub(crate) use_cookies: bool,
     pub(crate) cookie_snapshot: Option<crate::cookies::CookieSnapshot>,
@@ -107,6 +109,7 @@ impl HttpRequest {
             ntlm: self.ntlm.as_ref(),
             netrc: self.netrc.then_some(self.url.as_str()),
             auto_referer: self.auto_referer.unwrap_or(false),
+            max_redirects: self.max_redirects,
         }
     }
 }
@@ -405,6 +408,8 @@ pub(crate) fn build_client(
 ) -> Result<Client, String> {
     timeouts::validate(request.request_timeout_ms, request.connect_timeout_ms)?;
     // An identity belongs to this origin; a redirect must not offer it to a different server.
+    let redirect_policy =
+        crate::http_redirects::policy(crate::http_redirects::limit(request.max_redirects)?);
     let identity_origin = request.has_identity().then(|| url.origin());
     let manual_authorization = request
         .headers
@@ -432,7 +437,7 @@ pub(crate) fn build_client(
                         attempt
                             .error("Client certificate redirect to a different origin was blocked")
                     } else {
-                        Policy::limited(10).redirect(attempt)
+                        redirect_policy.redirect(attempt)
                     }
                 })
             } else {

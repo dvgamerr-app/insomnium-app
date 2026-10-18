@@ -29,6 +29,7 @@ mod grpc_transport;
 mod hawk;
 mod client_certificates;
 mod http;
+mod http_redirects;
 mod netrc;
 mod network_log;
 mod ntlm;
