@@ -100,6 +100,8 @@ export function initialData() {
       editorKeyMap: "default",
       editorLineWrapping: true,
       showVariableSourceAndValue: false,
+      showPasswords: false,
+      disableResponsePreviewLinks: false,
       autocompleteDelay: 1200,
       httpVersion: "default",
       timeout: 30000,
@@ -256,6 +258,8 @@ export function validateData(value) {
       );
   }
   result.settings.maxHistory = historyLimit(result.settings.maxHistory);
+  result.settings.disableResponsePreviewLinks = result.settings.disableResponsePreviewLinks === true;
+  result.settings.showPasswords = result.settings.showPasswords === true;
   result.settings.filterResponsesByEnv = result.settings.filterResponsesByEnv === true;
   result.responseSelections = validResponseSelections(result);
   return result;

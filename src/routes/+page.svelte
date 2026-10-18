@@ -1,4 +1,5 @@
 <script>
+  import {providePasswordVisibility} from "$lib/password-visibility.js";
   import {applyFontPreferences, fontPreferencesEvent} from "$lib/font-preferences.js";
   import {toggleWindowFullscreen} from "$lib/window-fullscreen.js";
   import {windowZoom, applyWindowZoom} from "$lib/desktop-zoom.js";
@@ -99,6 +100,7 @@
   const editingBlocked = $derived(
     app.draining || app.persistencePhase !== "idle",
   );
+  providePasswordVisibility(() => app.data.settings.showPasswords === true);
   const importWork = createWorkspaceWorkScope();
   onDestroy(importWork.dispose);
   onDestroy(() => pluginRegistry.dispose());

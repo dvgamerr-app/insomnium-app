@@ -2,7 +2,9 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capability for the main window",
-  "windows": ["main"],
+  "windows": [
+    "main"
+  ],
   "permissions": [
     "allow-reserve-spectral-lint",
     "allow-run-spectral-lint",
@@ -92,6 +94,17 @@
     "allow-git-remote-fetch-inspect",
     "allow-git-remote-fetch-recovery-status",
     "allow-git-remote-fetch-recover",
-    "allow-git-remote-cleanup-staging"
+    "allow-git-remote-cleanup-staging",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        {
+          "url": "http://*"
+        },
+        {
+          "url": "https://*"
+        }
+      ]
+    }
   ]
 }

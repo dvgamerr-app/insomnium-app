@@ -1,4 +1,5 @@
 <script>
+  import {passwordVisibility} from "../password-visibility.js";
   import Feedback from "./ui/Feedback.svelte";
   import Field from "./ui/Field.svelte";
   import Checkbox from "./ui/Checkbox.svelte";
@@ -32,6 +33,7 @@
   let { request, onchange } = $props();
   let selected = $state("");
   let show = $state(false);
+  const revealPasswords = passwordVisibility();
   let callbackUrl = $state("");
   let now = $state(Date.now());
   onMount(() => {
@@ -549,9 +551,11 @@
         autocomplete="off"
       /></Field
     >
+    {#if !revealPasswords()}
     <Field layout="inline" class="checkbox-label"
       ><Checkbox bind:checked={show} />Show token</Field
     >
+    {/if}
   {/if}
   <div class="oauth-actions">
     {#if running}<Button

@@ -1,10 +1,16 @@
-import { mediaTypeName, isUtf8PlainTextMediaType } from "./media-type.js";
+import { parseMediaType, isUtf8PlainTextMediaType } from "./media-type.js";
 import { readOpenApiValue } from "./openapi-value.js";
 
-/** RFC8259 application/json recognition for content parameters/form fields.
+/** JSON content parameters/form fields use UTF-8, including RFC6839 +json types.
+ * Wildcard ranges and legacy text/json are not concrete JSON content contracts.
  * @param {unknown} value */
 export function isOpenApiJsonMediaType(value) {
-  return mediaTypeName(value) === "application/json";
+  const media = parseMediaType(value);
+  if (!media || media.name.includes("*") ||
+      (media.name !== "application/json" && !/\/.+\+json$/.test(media.name))) return false;
+  const charsets = media.parameters.filter(parameter => parameter.name === "charset");
+  return charsets.length === 0 ||
+    (charsets.length === 1 && charsets[0].value.toLowerCase() === "utf-8");
 }
 
 /** Media serialization precedes location encoding; JSON null is a represented value.

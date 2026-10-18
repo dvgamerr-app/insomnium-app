@@ -126,6 +126,8 @@
               <h3 id="settings-appearance-title">Appearance</h3>
               <p class="hint">Colour theme for the whole application.</p>
               <div class="settings-grid">
+                <Field layout="inline" class="checkbox-label" description="Show password fields as text throughout the application."><Checkbox checked={settings.showPasswords === true} onchange={event=>updateSettings({showPasswords:event.currentTarget.checked})}/>Reveal passwords</Field>
+                <Field layout="inline" class="checkbox-label" description="Response source links open in your system browser. Alt+Enter opens the link at the caret."><Checkbox checked={settings.disableResponsePreviewLinks === true} onchange={event=>updateSettings({disableResponsePreviewLinks:event.currentTarget.checked})}/>Disable response preview links</Field>
                 <Field label="Request and response layout"><Select
                   value={settings.forceVerticalLayout === false ? "horizontal" : "vertical"}
                   onchange={event => updateSettings({forceVerticalLayout:event.currentTarget.value === "vertical"})}>

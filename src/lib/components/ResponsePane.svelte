@@ -20,6 +20,7 @@
   import { responseNetworkLog, tokenizeLine } from "../network-log.js";
   import CodeEditor from "./CodeEditor.svelte";
   import HtmlResponsePreview from "./HtmlResponsePreview.svelte";
+  import {openResponseLink} from "../response-links.js";
   import { responseVisual, responsePreviewMime } from "../response-visual.js";
   import CsvResponsePreview from "./CsvResponsePreview.svelte";
   import MultipartResponsePreview from "./MultipartResponsePreview.svelte";
@@ -494,6 +495,7 @@
             (raw ? ":raw" : ":preview")}
           value={body}
           label="Response body"
+          onopenlink={workspace.data.settings.disableResponsePreviewLinks === true ? undefined : url=>openResponseLink(url,/^\s*<\?xml [^?]*\?>/.test(response.body || ""))}
           readOnly
           mode={raw
             ? "text/plain"

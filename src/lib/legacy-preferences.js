@@ -59,6 +59,8 @@ export function legacyPreferenceCandidate(resources, sourceId) {
     ["editorIndentWithTabs", "Indent with tabs"],
     ["editorLineWrapping", "Editor line wrapping"],
     ["fontVariantLigatures", "Font ligatures"],
+    ["showPasswords", "Reveal passwords"],
+    ["disableResponsePreviewLinks", "Disable response preview links"],
     ["useBulkHeaderEditor", "Bulk header editor"],
     ["useBulkParametersEditor", "Bulk query editor"],
     ["forceVerticalLayout", "Stack request and response vertically"],

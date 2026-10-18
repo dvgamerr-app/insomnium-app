@@ -1,4 +1,5 @@
 <script>
+  import {passwordVisibility, visibleInputType} from "../../password-visibility.js";
   import { fieldContext, fieldDescriptions } from "./field-context.js";
   import {
     templateField,
@@ -17,6 +18,7 @@
     ...rest
   } = $props();
   const field = fieldContext();
+  const revealPasswords = passwordVisibility();
 </script>
 
 <input
@@ -36,7 +38,7 @@
     rest["aria-describedby"],
     field?.describedBy,
   )}
-  {type}
+  type={visibleInputType(type,revealPasswords())}
   {value}
   readonly={rest.readonly ?? field?.readOnly}
   aria-invalid={invalid || field?.invalid || rest["aria-invalid"] || undefined}

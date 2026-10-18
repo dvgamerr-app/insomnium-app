@@ -1,4 +1,5 @@
 <script>
+  import {attachResponseLinks} from "../response-links.js";
   import {attachVariablePreview} from "../editor-variable-preview.js";
   import Feedback from "./ui/Feedback.svelte";
   import TemplateTagDialog from "./TemplateTagDialog.svelte";
@@ -16,7 +17,7 @@
     saveEditorState,
     takeEditorState,
   } from "../editor-state.js";
-  /** @type {{identity:string,value?:string,mode?:string,label?:string,placeholder?:string,readOnly?:boolean,semanticAnnotations?:{identity:string,source:string,diagnostics:Record<string,any>[]},lineDecorations?:{line:number,className:string,gutterText:string,gutterLabel:string}[],maxBytes?:number,onlimit?:()=>void,settings?:Record<string,any>,environment?:Record<string,any>,schema?:import('graphql').GraphQLSchema|null,variableToType?:Record<string,import('graphql').GraphQLInputType>,onnavigate?:(reference:any)=>void,onformat?:()=>void,templateEditor?:()=>ReturnType<typeof import('../template-editor-session.svelte.js').createTemplateEditorSession>,templateRange?:(source:string,start:number,end:number)=>ReturnType<typeof templateEditorRange>,captureHistory?:()=>any,restoreHistory?:(saved:any)=>boolean,onchange?:(value:string)=>void}} */
+  /** @type {{identity:string,value?:string,mode?:string,label?:string,placeholder?:string,readOnly?:boolean,semanticAnnotations?:{identity:string,source:string,diagnostics:Record<string,any>[]},lineDecorations?:{line:number,className:string,gutterText:string,gutterLabel:string}[],maxBytes?:number,onlimit?:()=>void,settings?:Record<string,any>,environment?:Record<string,any>,schema?:import('graphql').GraphQLSchema|null,variableToType?:Record<string,import('graphql').GraphQLInputType>,onnavigate?:(reference:any)=>void,onformat?:()=>void,templateEditor?:()=>ReturnType<typeof import('../template-editor-session.svelte.js').createTemplateEditorSession>,templateRange?:(source:string,start:number,end:number)=>ReturnType<typeof templateEditorRange>,onopenlink?:(url:string)=>void|Promise<void>,captureHistory?:()=>any,restoreHistory?:(saved:any)=>boolean,onchange?:(value:string)=>void}} */
   let {
     identity,
     value = "",
@@ -36,6 +37,7 @@
     onformat,
     templateEditor,
     templateRange,
+    onopenlink,
     captureHistory,
     restoreHistory,
     onchange = () => {},
@@ -134,6 +136,13 @@
     }
     closeTemplateTag();
   }
+  let linkError = $state("");
+  $effect(() => {
+    const editor=cm, open=onopenlink;
+    identity;
+    linkError="";
+    if(editor && readOnly && open) return attachResponseLinks(editor,open,error=>linkError=String(error));
+  });
   let active = "";
   let synchronizing = false;
   /** @type {{handle:import('codemirror').LineHandle,className:string}[]} */
@@ -636,6 +645,7 @@
   {#if failure}<Feedback as="p" class="inline-error"
       >Editor unavailable: {failure}</Feedback
     >{/if}
+  {#if linkError}<Feedback as="p" role="alert" class="inline-error">Could not open response link: {linkError}</Feedback>{/if}
   {#key fallbackGeneration}
   <textarea
     bind:this={textarea}
@@ -831,6 +841,7 @@
   .shared-code-editor :global(.cm-builtin) {
     color: var(--syntax-process);
   }
+  .shared-code-editor :global(.cm-response-link) { color:var(--syntax-link);text-decoration:underline;cursor:pointer; }
   .shared-code-editor :global(.cm-link),
   .shared-code-editor :global(.cm-header) {
     color: var(--syntax-link);

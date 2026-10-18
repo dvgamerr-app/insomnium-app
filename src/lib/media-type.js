@@ -84,7 +84,7 @@ export function isUtf8PlainTextMediaType(value) {
 }
 
 /** JSON representation for bodies/editors, including legacy text/json support.
- * Content parameters/form fields retain their separate application/json rule.
+ * Content parameters/form fields separately require a concrete UTF-8 JSON type.
  * @param {unknown} value */
 export function isJsonBodyMediaType(value) {
   const name = mediaTypeName(value);

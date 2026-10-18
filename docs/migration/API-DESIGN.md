@@ -4,6 +4,10 @@ Updated 2026-10-15. OpenAPI request generation and owned Spectral linting are im
 
 See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity requirements](PARITY.md). No original scope was removed by consolidation.
 
+## JSON suffix content serialization — 2026-10-18
+
+Concrete +json media types now share application/json content serialization for generated parameters and form fields, retaining their declared MIME and exact edited JSON numeric/string lexemes. Generic JSON syntax follows RFC6839; schema and location validation still apply. Only absent charset or one UTF-8 charset is serialized by the current text encoder. Wildcard/malformed/duplicate/nonUTF8 charset contracts remain review-only, including application/json;charset=UTF-16; text/json remains a legacy body/editor type rather than an OpenAPI content encoding. Existing reviewed rows are retained; regenerate from the source document to obtain updated metadata. Local generator/serializer controls and unchanged headless whole-query contract pass (STATUS.md checkpoint); new suffix native wire/provider/platform acceptance remains open.
+
 ## Accepted import callback lifetime
 
 Verified source:9638705. Document import, reference attachments and example files now retain their registered workspace work until the existing save promise settles. update() and API create() return that same promise; their synchronous mutations and one-save behavior are unchanged. Generation already awaited its accepted save. The persistence queue separately serializes transitions; this correction establishes callback ownership, not evidence of prior data loss.

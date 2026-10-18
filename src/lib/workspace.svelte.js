@@ -609,6 +609,12 @@ export function canEditWorkspace() {
 export function updateSettings(patch) {
   if (!canEditWorkspace()) return;
   const next = { ...patch };
+  if (Object.hasOwn(next,"disableResponsePreviewLinks") && typeof next.disableResponsePreviewLinks !== "boolean") {
+    workspace.error = "Choose whether response preview links are disabled."; return;
+  }
+  if (Object.hasOwn(next,"showPasswords") && typeof next.showPasswords !== "boolean") {
+    workspace.error = "Choose whether passwords are revealed."; return;
+  }
   for(const key of ["useBulkHeaderEditor","useBulkParametersEditor"]) {
     if(Object.hasOwn(next,key) && typeof next[key] !== "boolean") { workspace.error="Choose a valid bulk editor mode.";return; }
   }

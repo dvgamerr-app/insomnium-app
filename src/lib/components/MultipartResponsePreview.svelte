@@ -1,4 +1,5 @@
 <script>
+  import {openResponseLink} from "../response-links.js";
   import {parseMultipart,partHeader} from '../response-multipart.js';
   import {responsePreviewMime,responseVisual} from '../response-visual.js';
   import {jsonPrettify} from '../json-prettify.js';
@@ -48,7 +49,7 @@
       {:else if mime==='application/pdf'}<PdfResponsePreview bytes={part.bodyBase64}/>
       {:else if mime==='text/csv'}<CsvResponsePreview text={part.body}/>
       {:else if visual}<HtmlResponsePreview html={visual.html} title={visual.title}/>
-      {:else}<CodeEditor identity={`multipart:${depth}:${selected}`} value={text} label="Response part body" readOnly mode={mime||'text/plain'} {settings}/>{/if}
+      {:else}<CodeEditor identity={`multipart:${depth}:${selected}`} value={text} label="Response part body" onopenlink={settings.disableResponsePreviewLinks === true ? undefined : url=>openResponseLink(url,/^\s*<\?xml [^?]*\?>/.test(part.body || ""))} readOnly mode={mime||'text/plain'} {settings}/>{/if}
     {/key}
   {/if}
 </div>
