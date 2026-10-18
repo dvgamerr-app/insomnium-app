@@ -347,3 +347,9 @@ handles. `/compact` cannot be invoked by this interface; this is the handoff.
 
 
 </details>
+
+## GraphQL variable completion dependency — 2026-10-18
+
+Source parent 9a4d8264. GraphqlEditor now derives query text and operation name separately before computing variable types. Variables-only body edits no longer replace the type mapping or trigger CodeEditor's mapping-change completion close effect; query/operation/schema changes still invalidate it. Official contract: https://svelte.dev/docs/svelte/$derived (update propagation skips unchanged derived values). No API/transport/schema-fetch contract changes.
+
+Verification: bun run check exits0/0errors0warnings (session81322); bun run build exits0 (session65523). Reused unchanged INSOMNIUM_GRAPHQL_NAVIGATION=1 INSOMNIUM_UI_RUN_LABEL=stable-variable-types bun tests/ui/graphql-editor.js exits0/headless; artifacts/playwright/graphql-navigation-stable-variable-types/result.json verifies existing navigation/Back/schema-replacement/held-fetch behavior, not completion persistence while typing. No testcase or new script added. Completion-popup runtime/native/provider/platform acceptance and every broader PLAN/PARITY gate remain open. No live owned handles. Unrelated pre-existing docs and runner/helper edits preserved. Topic commit is the commit adding this section. /compact unavailable; this is the explicit feature handoff.

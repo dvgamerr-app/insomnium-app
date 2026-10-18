@@ -95,11 +95,16 @@
       schemaSearch?.focus();
     }
   }
+  // Variable-value edits replace the JSON body too. Keep the schema mapping
+  // stable unless its actual inputs change, so an open completion can update
+  // without CodeEditor's mapping-change effect closing it on every keystroke.
+  const variableQuery = $derived(content.body.query || "");
+  const variableOperation = $derived(content.body.operationName);
   const variableTypes = $derived(
     graphqlVariableTypes(
       schema,
-      content.body.query || "",
-      content.body.operationName,
+      variableQuery,
+      variableOperation,
     ),
   );
   function navigate(/** @type {any} */ reference) {
