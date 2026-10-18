@@ -973,16 +973,21 @@ fn from_object(
 ) -> Result<DynamicMessage, String> {
     from_object_inner(desc, original, object, depth, context, true)
 }
-// ES2022 prototype methods visible to protobuf.js property lookup. Object.prototype
+// Built-in methods available in the archived Electron 25 runtime, visible to protobuf.js lookup. Object.prototype
 // names are rejected by its source parser and are deliberately not synthesized here.
 fn inherited_method<'a>(object: &Json, name: &'a str) -> Option<(&'a str, usize)> {
     let arity = match object {
         Json::Array(_) => match name {
             "map" | "filter" | "forEach" | "find" | "findIndex" | "flatMap" | "every" | "some"
             | "concat" | "includes" | "indexOf" | "join" | "lastIndexOf" | "push" | "unshift"
-            | "at" | "fill" | "reduce" | "reduceRight" | "sort" => 1,
-            "slice" | "splice" | "copyWithin" => 2,
-            "keys" | "values" | "entries" | "pop" | "reverse" | "shift" | "flat" => 0,
+            | "at" | "fill" | "reduce" | "reduceRight" | "sort" | "findLast" | "findLastIndex"
+            | "toSorted" => 1,
+            "slice" | "splice" | "copyWithin" | "toSpliced" | "with" => 2,
+            "keys" | "values" | "entries" | "pop" | "reverse" | "shift" | "flat" | "toReversed" => 0,
+            _ => return None,
+        },
+        Json::Number(_) => match name {
+            "toFixed" | "toExponential" | "toPrecision" => 1,
             _ => return None,
         },
         Json::String(_) => match name {
@@ -995,7 +1000,7 @@ fn inherited_method<'a>(object: &Json, name: &'a str) -> Option<(&'a str, usize)
             "normalize" | "toLowerCase" | "toUpperCase" | "toLocaleLowerCase"
             | "toLocaleUpperCase" | "trim" | "trimStart" | "trimEnd" | "trimLeft" | "trimRight"
             | "big" | "blink" | "bold" | "fixed" | "italics" | "small" | "strike" | "sub"
-            | "sup" => 0,
+            | "sup" | "isWellFormed" | "toWellFormed" => 0,
             _ => return None,
         },
         _ => return None,
@@ -2186,15 +2191,16 @@ mod tests {
             entry: "length.proto".into(),
             files: vec![crate::grpc_schema::ProtoFile {
                 name: "length.proto".into(),
-                text: "syntax=\"proto3\"; message Child { uint32 length=1; } message Envelope { Child child=1; repeated Child children=2; map<string, Child> values=3; } message M { string map=1; bytes forEach=2; bool join=3; int32 push=4; double reduce=5; int64 slice=6; string localeCompare=7; }".into(),
+                text: "syntax=\"proto3\"; message Child { uint32 length=1; } message Envelope { Child child=1; repeated Child children=2; map<string, Child> values=3; } message M { string map=1; bytes forEach=2; bool join=3; int32 push=4; double reduce=5; int64 slice=6; string localeCompare=7; string toFixed=8; bytes toExponential=9; bool toPrecision=10; string findLast=11; bytes findLastIndex=12; string toReversed=13; int32 toSorted=14; bytes toSpliced=15; bool with=16; string isWellFormed=17; bytes toWellFormed=18; }".into(),
             }],
             include_paths: vec![],
         }).unwrap();
         let snapshot = pool.encode_to_vec();
         let methods = pool.get_message_by_name("M").unwrap();
         for (body, hex) in [
-            ("[]", "0a2066756e6374696f6e206d61702829207b205b6e617469766520636f64655d207d1201001801200029000000000000f87f3000"),
-            (r#""abc""#, "30003a2a66756e6374696f6e206c6f63616c65436f6d706172652829207b205b6e617469766520636f64655d207d"),
+            ("[]", "0a2066756e6374696f6e206d61702829207b205b6e617469766520636f64655d207d1201001801200029000000000000f87f30005a2566756e6374696f6e2066696e644c6173742829207b205b6e617469766520636f64655d207d6201006a2766756e6374696f6e20746f52657665727365642829207b205b6e617469766520636f64655d207d70007a020000800101"),
+            (r#""abc""#, "30003a2a66756e6374696f6e206c6f63616c65436f6d706172652829207b205b6e617469766520636f64655d207d8a012966756e6374696f6e20697357656c6c466f726d65642829207b205b6e617469766520636f64655d207d920100"),
+            ("1", "422466756e6374696f6e20746f46697865642829207b205b6e617469766520636f64655d207d4a01005001"),
             ("{}", ""),
         ] {
             let message = crate::grpc_schema::parse_mode(methods.clone(), body, crate::grpc_schema::JsonMode::Legacy).unwrap();

@@ -16,7 +16,7 @@
     saveEditorState,
     takeEditorState,
   } from "../editor-state.js";
-  /** @type {{identity:string,value?:string,mode?:string,label?:string,placeholder?:string,readOnly?:boolean,semanticAnnotations?:{identity:string,source:string,diagnostics:Record<string,any>[]},lineDecorations?:{line:number,className:string,gutterText:string,gutterLabel:string}[],maxBytes?:number,onlimit?:()=>void,settings?:Record<string,any>,environment?:Record<string,any>,schema?:import('graphql').GraphQLSchema|null,variableToType?:Record<string,import('graphql').GraphQLInputType>,onnavigate?:(reference:any)=>void,onformat?:()=>void,templateEditor?:()=>ReturnType<typeof import('../template-editor-session.svelte.js').createTemplateEditorSession>,templateRange?:(source:string,start:number,end:number)=>ReturnType<typeof templateEditorRange>,onchange?:(value:string)=>void}} */
+  /** @type {{identity:string,value?:string,mode?:string,label?:string,placeholder?:string,readOnly?:boolean,semanticAnnotations?:{identity:string,source:string,diagnostics:Record<string,any>[]},lineDecorations?:{line:number,className:string,gutterText:string,gutterLabel:string}[],maxBytes?:number,onlimit?:()=>void,settings?:Record<string,any>,environment?:Record<string,any>,schema?:import('graphql').GraphQLSchema|null,variableToType?:Record<string,import('graphql').GraphQLInputType>,onnavigate?:(reference:any)=>void,onformat?:()=>void,templateEditor?:()=>ReturnType<typeof import('../template-editor-session.svelte.js').createTemplateEditorSession>,templateRange?:(source:string,start:number,end:number)=>ReturnType<typeof templateEditorRange>,captureHistory?:()=>any,restoreHistory?:(saved:any)=>boolean,onchange?:(value:string)=>void}} */
   let {
     identity,
     value = "",
@@ -36,6 +36,8 @@
     onformat,
     templateEditor,
     templateRange,
+    captureHistory,
+    restoreHistory,
     onchange = () => {},
   } = $props();
   let textarea = $state(
@@ -194,11 +196,27 @@
       },
     });
   }
+  let fallbackGeneration = $state(0);
+  export function resetHistory() {
+    takeEditorState(identity);
+    if (cm) { cm.clearHistory(); return; }
+    const focused = textarea === document.activeElement;
+    const start = textarea?.selectionStart ?? 0;
+    const end = textarea?.selectionEnd ?? start;
+    const owner = identity;
+    fallbackGeneration += 1;
+    void tick().then(() => {
+      if (focused && identity === owner && textarea?.isConnected && !cm) {
+        textarea.focus(); textarea.setSelectionRange(start, end);
+      }
+    });
+  }
   function remember() {
     if (!cm || !active) return;
     saveEditorState(active, {
       text: cm.getValue(),
       history: cm.getHistory(),
+      data: captureHistory?.(),
       selections: cm.listSelections(),
       scroll: cm.getScrollInfo(),
     });
@@ -346,7 +364,8 @@
     window.addEventListener(editorHistoryEvent, history);
     /** @type {ResizeObserver|undefined} */ let observer;
     import("../editor-engine.js")
-      .then(({ default: CodeMirror }) => {
+      .then(async ({ default: CodeMirror }) => {
+        await tick();
         if (disposed || !textarea || !host) return;
         pass = CodeMirror.Pass;
         const editor = CodeMirror.fromTextArea(textarea, {
@@ -472,7 +491,7 @@
         cm.setValue(value);
         cm.clearHistory();
         const saved = takeEditorState(identity);
-        if (saved?.text === value) {
+        if (saved?.text === value && (!restoreHistory || restoreHistory(saved.data))) {
           cm.setHistory(saved.history);
           cm.setSelections(saved.selections);
           cm.scrollTo(saved.scroll.left, saved.scroll.top);
@@ -487,6 +506,7 @@
           cm.posFromIndex(cm.getValue().length),
           "external",
         );
+        if (captureHistory) cm.clearHistory();
       }
       cm.setOption("mode", editorMode(mode));
       cm.setOption("lineNumbers", !lineDecorations);
@@ -616,6 +636,7 @@
   {#if failure}<Feedback as="p" class="inline-error"
       >Editor unavailable: {failure}</Feedback
     >{/if}
+  {#key fallbackGeneration}
   <textarea
     bind:this={textarea}
     aria-label={label}
@@ -639,6 +660,7 @@
         onlimit();
       } else onchange(event.currentTarget.value);
     }}></textarea>
+  {/key}
 </div>
 
 {#if editingTag}
