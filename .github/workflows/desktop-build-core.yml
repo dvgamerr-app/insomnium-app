@@ -95,6 +95,24 @@ jobs:
           test -n "$libclang"
           echo "LIBCLANG_PATH=$(dirname "$libclang")" >> "$GITHUB_ENV"
 
+      - name: Select Windows libclang
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $libclang = Join-Path $env:ProgramFiles 'LLVM/bin'
+          if (-not (Test-Path -LiteralPath (Join-Path $libclang 'libclang.dll') -PathType Leaf)) {
+            throw "Hosted LLVM libclang.dll missing: $libclang"
+          }
+          "LIBCLANG_PATH=$libclang" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Select macOS libclang
+        if: runner.os == 'macOS'
+        run: |
+          clang=$(xcrun --find clang)
+          libclang="$(dirname "$(dirname "$clang")")/lib"
+          test -f "$libclang/libclang.dylib"
+          echo "LIBCLANG_PATH=$libclang" >> "$GITHUB_ENV"
+
       - name: Install pinned Rust
         run: |
           rustup toolchain install 1.98.1 --profile minimal

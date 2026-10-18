@@ -410,3 +410,11 @@ Default dnf remove -y insomnium passes0, rpm -q reports absent1, all1,677 packag
 Evidence artifacts/rpm-production-lifecycle-20261019/verification.json and raw install/remove/startup/native-check logs/states, installed manifest, old/new profile hash lists and Spectral reply. BUILD.json attaches this bounded runtime evidence to corrected RPM; prior limitations/failures retained. Official DNF install/remove documentation read before invocation: https://dnf5.readthedocs.io/en/latest/commands/install.8.html and https://dnf5.readthedocs.io/en/latest/commands/remove.8.html .
 
 Remaining: real signed packages, version-to-version upgrades and collection/schema retention, native UI/protocol/chooser/graceful-close, other distros/architectures/platforms/hosted CI plus every retained PLAN/PARITY/legal/source/linkage gate. Full migration incomplete. /compact unavailable; topic handoff follows.
+
+## Hosted Windows/macOS libclang selection — 2026-10-19
+
+Clean hosted checkouts cannot rely on ignored artifacts/tools/llvm-20.1.8/bin from Cargo config. Desktop workflow now explicitly selects Windows runner LLVM/bin under ProgramFiles, requires libclang.dll, and exports LIBCLANG_PATH through GITHUB_ENV. macOS resolves active clang with xcrun, requires its toolchain lib/libclang.dylib and exports the same override. Existing Linux prerequisite/selection and local Cargo fallback remain. Missing hosted libraries fail early with no download or machine mutation.
+
+Bun YAML parse retains all3 matrix targets; native PowerShell Parser and Git Bash -n both exit0; git diff --check passes. Evidence artifacts/ci-libclang-platforms-20261019/verification.json. Initial inline edit quoting failed before writes, then apply_patch succeeded. No saved tests/scenarios added/modified/rerun, no hosted workflow dispatched or native build claimed. Official references: https://github.com/actions/runner-images/blob/main/images/windows/Windows2022-Readme.md , https://github.com/KyleMayes/clang-sys , https://rust-lang.github.io/rust-bindgen/requirements.html .
+
+Hosted libclang availability/loading, full platform builds/runtime/signing and every retained PLAN/PARITY/legal gate remain unverified; migration incomplete. No owned live processes. /compact unavailable; explicit topic commit handoff follows.
