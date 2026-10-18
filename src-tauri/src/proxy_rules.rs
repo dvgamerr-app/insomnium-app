@@ -9,10 +9,7 @@ pub(crate) fn configured(
     if value.len() > 8192 || value.chars().any(|c| c.is_whitespace() || c.is_control()) {
         return Err("Invalid bounded proxy URL".into());
     }
-    let bypass = bypass.filter(|value| !value.is_empty());
-    if bypass.is_some_and(|value| value.len() > 8192 || value.chars().any(char::is_control)) {
-        return Err("Invalid bounded proxy bypass list".into());
-    }
+    let bypass = checked_bypass(bypass)?;
     let proxy = match scheme {
         None => Proxy::all(value),
         Some("http") => Proxy::http(value),
@@ -20,5 +17,13 @@ pub(crate) fn configured(
         _ => return Err("Invalid proxy destination scheme".into()),
     }
     .map_err(|_| "Invalid proxy configuration".to_string())?;
-    Ok(proxy.no_proxy(bypass.and_then(reqwest::NoProxy::from_string)))
+    Ok(proxy.no_proxy(bypass))
+}
+
+pub(crate) fn checked_bypass(value: Option<&str>) -> Result<Option<reqwest::NoProxy>, String> {
+    let value = value.filter(|value| !value.is_empty());
+    if value.is_some_and(|value| value.len() > 8192 || value.chars().any(char::is_control)) {
+        return Err("Invalid bounded proxy bypass list".into());
+    }
+    Ok(value.and_then(reqwest::NoProxy::from_string))
 }

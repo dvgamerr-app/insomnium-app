@@ -49,7 +49,7 @@ export function requestProxy(
   return {
     proxy: proxy.proxy || null,
     proxyDisabled: false,
-    proxyOverride: Boolean(proxy.proxy || proxy.httpProxy || proxy.httpsProxy),
+    proxyOverride: Boolean(proxy.proxy || proxy.httpProxy || proxy.httpsProxy || proxy.noProxy),
     proxyBasicAuth: false,
     ...(proxy.httpProxy ? {proxyHttp:proxy.httpProxy} : {}),
     ...(proxy.httpsProxy ? {proxyHttps:proxy.httpsProxy} : {}),

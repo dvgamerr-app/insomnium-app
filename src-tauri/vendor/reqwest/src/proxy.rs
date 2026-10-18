@@ -108,6 +108,7 @@ struct Extra {
 
 pub(crate) struct Matcher {
     inner: Matcher_,
+    system_bypass: Option<Box<Matcher>>,
     extra: Extra,
     maybe_has_http_auth: bool,
     maybe_has_http_custom_headers: bool,
@@ -458,6 +459,7 @@ impl Proxy {
 
         Matcher {
             inner,
+            system_bypass: None,
             extra,
             maybe_has_http_auth,
             maybe_has_http_custom_headers,
@@ -559,6 +561,7 @@ impl Matcher {
     pub(crate) fn system() -> Self {
         Self {
             inner: Matcher_::Util(matcher::Matcher::from_system()),
+            system_bypass: None,
             extra: Extra {
                 auth: None,
                 provider: None,
@@ -570,7 +573,28 @@ impl Matcher {
         }
     }
 
+    pub(crate) fn system_with_bypass(bypass: Option<NoProxy>) -> Self {
+        let mut system = Self::system();
+        // Only the exclusion decision is used; this filter never opens a connection.
+        system.system_bypass = bypass.map(|list| {
+            Box::new(
+                Proxy::all("http://bypass.invalid")
+                    .expect("constant proxy filter URL")
+                    .no_proxy(Some(list))
+                    .into_matcher(),
+            )
+        });
+        system
+    }
+
     pub(crate) fn intercept(&self, dst: &Uri) -> Option<Intercepted> {
+        if self
+            .system_bypass
+            .as_ref()
+            .is_some_and(|filter| filter.intercept(dst).is_none())
+        {
+            return None;
+        }
         let inner = match self.inner {
             Matcher_::Util(ref m) => m.intercept(dst),
             Matcher_::Custom(ref c) => c.call(dst),

@@ -204,6 +204,7 @@ struct Config {
     identity: Option<Identity>,
     proxies: Vec<ProxyMatcher>,
     auto_sys_proxy: bool,
+    system_proxy_bypass: Option<crate::NoProxy>,
     redirect_policy: redirect::Policy,
     retry_policy: crate::retry::Builder,
     referer: bool,
@@ -331,6 +332,7 @@ impl ClientBuilder {
                 tcp_user_timeout: Some(Duration::from_secs(30)),
                 proxies: Vec::new(),
                 auto_sys_proxy: true,
+                system_proxy_bypass: None,
                 redirect_policy: redirect::Policy::default(),
                 retry_policy: crate::retry::Builder::default(),
                 referer: true,
@@ -441,7 +443,7 @@ impl ClientBuilder {
 
         let mut proxies = config.proxies;
         if config.auto_sys_proxy {
-            proxies.push(ProxyMatcher::system());
+            proxies.push(ProxyMatcher::system_with_bypass(config.system_proxy_bypass));
         }
         // Local Unix sockets bypass proxy routing AND proxy-generated headers.
         #[cfg(any(unix, windows))]
@@ -1470,6 +1472,15 @@ impl ClientBuilder {
     pub fn no_proxy(mut self) -> ClientBuilder {
         self.config.proxies.clear();
         self.config.auto_sys_proxy = false;
+        self
+    }
+
+    /// Insomnium extension: add exclusions to automatically discovered proxies.
+    /// Existing environment/OS exclusions still apply. Explicit proxy rules keep
+    /// their own exclusion lists; this does not enable system proxies after
+    /// proxy() or no_proxy(), and never changes the process environment.
+    pub fn system_proxy_bypass(mut self, bypass: Option<crate::NoProxy>) -> ClientBuilder {
+        self.config.system_proxy_bypass = bypass;
         self
     }
 

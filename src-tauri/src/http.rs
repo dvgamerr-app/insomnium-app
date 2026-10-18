@@ -517,6 +517,8 @@ pub(crate) fn build_client(
     if request.proxy_disabled {
         builder = builder.no_proxy();
     } else {
+        builder =
+            crate::proxy_auth::configure_system_bypass(builder, request.proxy_no_proxy.as_deref())?;
         for (proxy, scheme) in [
             (request.proxy_http.as_deref(), Some("http")),
             (request.proxy_https.as_deref(), Some("https")),

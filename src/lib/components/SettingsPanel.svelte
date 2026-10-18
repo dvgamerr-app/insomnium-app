@@ -324,7 +324,7 @@
                 <Field {label}><Input placeholder="Use fallback proxy" value={settings[key] ?? ""}
                   onchange={event => updateSettings({[key]:event.currentTarget.value})}/></Field>
               {/each}
-              <Field label="Bypass configured proxies"><Input placeholder="localhost, .example.com, 192.168.0.0/16"
+              <Field label="Bypass proxies"><Input placeholder="localhost, .example.com, 192.168.0.0/16"
                 value={settings.noProxy ?? ""} onchange={event => updateSettings({noProxy:event.currentTarget.value})}/></Field>
               <Field label="Proxy URL"
                 ><Input
@@ -339,7 +339,8 @@
                 Scheme-specific URLs take priority over the fallback Proxy URL. With explicit rules,
                 other schemes connect directly when no fallback is set. Bypass accepts comma-separated
                 domains (including subdomains), IP addresses, CIDR ranges, or * for all hosts.
-                Bypass applies to configured proxies. With no URL set, system proxy settings apply;
+                Bypass applies to configured and system proxies, adding to system exclusions.
+                With no URL set, system proxy settings apply;
                 disabling app proxy settings connects directly. Request-specific overrides take priority.</p>
             </section>
             <section

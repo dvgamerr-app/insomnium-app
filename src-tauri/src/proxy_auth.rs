@@ -343,3 +343,11 @@ fn schemes(headers: &HeaderMap) -> Result<Vec<String>, String> {
     }
     Ok(result)
 }
+
+/// App exclusions also apply when proxy URLs come from the environment or OS.
+pub(crate) fn configure_system_bypass(
+    builder: reqwest::ClientBuilder,
+    bypass: Option<&str>,
+) -> Result<reqwest::ClientBuilder, String> {
+    Ok(builder.system_proxy_bypass(rules::checked_bypass(bypass)?))
+}
