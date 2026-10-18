@@ -7,6 +7,8 @@ import {
   withNativeApp,
   poll,
   resourceCrudProbeIdentifier,
+  integrationProbeIdentifier,
+  selectedNativeProbeIdentifier,
 } from "./native-app.js";
 import {
   withResourceProbePreserved,
@@ -19,10 +21,16 @@ import { createSseRuntimeFixture } from "./sse-runtime-fixture.js";
 export async function runSseRuntimeNativeCases() {
   assert.equal(process.platform, "win32");
   const markerPath = process.env.INSOMNIUM_UI_PROFILE_OWNERSHIP;
-  assert.ok(markerPath);
+  const identifier = selectedNativeProbeIdentifier();
+  assert.ok(
+    [resourceCrudProbeIdentifier, integrationProbeIdentifier].includes(
+      identifier,
+    ),
+  );
+  if (identifier === resourceCrudProbeIdentifier) assert.ok(markerPath);
   assert.ok(process.env.INSOMNIUM_UI_BUILD_STATE);
   const options = {
-    expectedIdentifier: resourceCrudProbeIdentifier,
+    expectedIdentifier: identifier,
     profileOwnershipPath: markerPath,
   };
   const fixture = await createSseRuntimeFixture();
@@ -40,7 +48,7 @@ export async function runSseRuntimeNativeCases() {
             evidence = output;
             page.on("pageerror", (error) => pageErrors.push(String(error)));
             await resourceSaved(page);
-            await capture();
+            if (identifier === resourceCrudProbeIdentifier) await capture();
             const original = await invoke("load_workspace");
             const suffix = crypto.randomUUID().replaceAll("-", ""),
               workspaceId = "wrk_sse_" + suffix;
@@ -752,7 +760,7 @@ export async function runSseRuntimeNativeCases() {
           options,
         );
       },
-      { ...options, lazyCapture: true },
+      { ...options, lazyCapture: identifier === resourceCrudProbeIdentifier },
     );
   } catch (error) {
     failures.push(error);
