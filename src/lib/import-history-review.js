@@ -34,7 +34,7 @@ export function reviewImportedHistory(data, review, options = {}) {
     blocked: missingExisting.length > 0 || preferencesBlocked,
     warnings: [
       ...(preferences && !preferences.canApply ? ["Compatible preferences cannot be applied from this review."] : []),
-      ...(missingExisting.length ? ["Existing saved history exceeds the current retention settings. Save or adjust it before importing; no existing reply will be removed by this import."] : []),
+      ...(missingExisting.length ? [preferences ? "Selected preferences would remove existing saved history. Keep current preferences or adjust the history limit before importing." : "Existing saved history exceeds the current retention settings. Save or adjust it before importing; no existing reply will be removed by this import."] : []),
       ...(excluded.length ? [`${excluded.length} imported replies will remain as preserved response records, outside active history, because of the current history limit or 40 MiB history budget. Their loaded response files remain included in the collection export.`] : []),
     ],
   };

@@ -1334,6 +1334,7 @@
             <p class="hint">The settings record stays preserved. Only the listed values can be applied; paths, credentials, plugin activation and other preferences stay as they are.</p>
             {#each pendingImport.legacyPreferences.warnings as warning}<p class="hint">{warning}</p>{/each}
           {/if}
+          {#each importHistoryReview?.warnings || [] as warning}<p class="hint">{warning}</p>{/each}
           {#each pendingImport.warnings as warning}<p class="hint">
               {warning}
             </p>{/each}
@@ -1358,7 +1359,7 @@
               {importHistoryReview?.accepted.length || 0} saved responses will be added to history.
               Loaded response files will also be included in collection exports.
             </p>
-            {#each importHistoryReview?.warnings || [] as warning}<p class="hint">{warning}</p>{/each}
+
             {#if pendingImport.legacyHistoryWarnings.length}<details class="hint">
                 <summary>Response file diagnostics ({pendingImport.legacyHistoryWarnings.length})</summary>
                 {#each pendingImport.legacyHistoryWarnings.slice(0, 20) as warning}<p>{warning.message}</p>{/each}
