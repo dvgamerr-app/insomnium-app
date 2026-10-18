@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {withPreview} from "./helpers/preview-app.js";
-import {withNativeApp,poll,resourceCrudProbeIdentifier} from "./helpers/native-app.js";
+import {preserveNativeProfile} from "./helpers/native-profile-preservation.js";
+import {withNativeApp,poll,resourceCrudProbeIdentifier,integrationProbeIdentifier,selectedNativeProbeIdentifier} from "./helpers/native-app.js";
 import {withResourceProbePreserved,registerResourceProbeCollection,resourceSaved} from "./helpers/resource-manager-cases.js";
 
 /** @type {{name:string,body:string,source:Record<string,any>,text?:string}[]} */
@@ -40,6 +41,12 @@ inputs.push({name:'OwnedSOAP',source:{},body:'<soap:Envelope xmlns:soap="http://
 <wsdl:portType name="Port"><wsdl:operation name="OwnedSOAP"><wsdl:input message="tns:Input"/></wsdl:operation></wsdl:portType>
 <wsdl:binding name="Binding" type="tns:Port"><soap:binding transport="http://schemas.xmlsoap.org/soap/http"/><wsdl:operation name="OwnedSOAP"><soap:operation soapAction="urn:echo"/><wsdl:input><soap:body use="literal"/><soap:header message="tns:Header" part="auth" use="literal"/></wsdl:input></wsdl:operation></wsdl:binding>
 <wsdl:service name="Service"><wsdl:port name="Endpoint" binding="tns:Binding"><soap:address location="https://owned.invalid/soap"/></wsdl:port></wsdl:service></wsdl:definitions>`});
+const preferenceInput = inputs.find(input => input.name === "Owned legacy v2");
+assert.ok(preferenceInput);
+preferenceInput.source.resources.push(
+  {_id:"set_owned_a",_type:"settings",name:"Owned preferences A",timeout:1700},
+  {_id:"set_owned_b",_type:"settings",name:"Owned preferences B",timeout:2300},
+);
 /** @param {import('playwright-core').Page} page @param {string} output
  * @param {{read?:()=>Promise<any>,onImported?:(data:any)=>void}} [options] */
 async function runImports(page, output, options = {}) {
@@ -51,18 +58,36 @@ async function runImports(page, output, options = {}) {
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel("Import collection or cURL commands", {exact:true}).fill(input.text ?? JSON.stringify(input.source));
     await dialog.getByRole("button", {name:"Review import",exact:true}).click();
+    if (input === preferenceInput) {
+      const before = (await stored()).settings.timeout;
+      const source = dialog.getByLabel("Settings record",{exact:true});
+      const apply = dialog.getByRole("checkbox",{name:"Apply compatible app preferences",exact:true});
+      assert.equal(await apply.count(),0);
+      const first = await source.locator('option').filter({hasText:'Owned preferences A'}).getAttribute('value');
+      const second = await source.locator('option').filter({hasText:'Owned preferences B'}).getAttribute('value');
+      assert.ok(first && second);
+      await source.selectOption(first);await apply.check();
+      await source.selectOption(second);assert.equal(await apply.isChecked(),false);
+      assert.equal((await stored()).settings.timeout,before);
+      await apply.check();
+    }
     await dialog.getByRole("button", {name:"Import",exact:true}).click();
     await dialog.waitFor({state:"detached"});
     await poll(async () => imported({resources:(await stored()).resources ?? []},input.name),"Imported request persisted: " + input.name);
     const data = await stored();
     options.onImported?.(data);
     const request = imported(data,input.name);
+    if (input === preferenceInput) {
+      assert.equal(data.settings.timeout,2300);
+      assert.equal(data.resources.filter((/** @type {any} */r)=>r._type==="settings" && /^Owned preferences [AB]$/.test(r.name)).length,2);
+    }
     assert.equal(request.body.text, input.body);
     assert.equal(Object.hasOwn(request.body,"0"),false);
   }
   await page.reload();
   await page.getByRole("button", {name:"Import collection",exact:true}).waitFor();
   const data = await stored();
+  assert.equal(data.settings.timeout,2300,"Selected settings survive actual reload");
   const raw = imported(data,"Owned Hoppscotch raw");
   const hoppscotch = imported(data,'Owned Hoppscotch');
   assert.deepEqual(hoppscotch.headers.filter((/** @type {any} */ h)=>h.name.toLowerCase()==='x-token').map((/** @type {any} */ h)=>h.value),['child']);
@@ -109,17 +134,18 @@ async function runImports(page, output, options = {}) {
   const soap = imported(data,'OwnedSOAP');
   assert.equal(soap.headers.find((/** @type {any} */ h)=>h.name==='SOAPAction').value,'"urn:echo"');
   assert.equal(imported(data,'Owned WSDL')._wsdlSource,inputs.at(-1)?.text);
-  const receipt = {status:"passed",renderingMode:options.read ? "native-hidden" : "headless",mockedIpc:false,scope:"Actual UI review/apply/reload and storage; no file chooser or network",formats:[1,2,"hoppscotch-v2","har","postman","wsdl-soap11"],bodyTextPreserved:true,folderEnvironment:true,harSourceAndCookies:true,postmanActiveBodyMode:true,wsdlHeaderInheritanceGroupsAttributesAndSimpleContent:true,wsdlListsUnionsAndInheritedNumericDigits:true,wsdlInlineRestrictionBase:true,wsdlAbstractTypeXsiType:true,wsdlSimpleContentRestrictionMixedWildcardAndRecursiveNil:true};
+  const receipt = {status:"passed",renderingMode:options.read ? "native-hidden" : "headless",mockedIpc:false,scope:"Actual UI review/apply/reload and storage; no file chooser or network",formats:[1,2,"hoppscotch-v2","har","postman","wsdl-soap11"],bodyTextPreserved:true,explicitSettingsSource:true,sourceChangeResetsActivation:true,preferencesReload:true,folderEnvironment:true,harSourceAndCookies:true,postmanActiveBodyMode:true,wsdlHeaderInheritanceGroupsAttributesAndSimpleContent:true,wsdlListsUnionsAndInheritedNumericDigits:true,wsdlInlineRestrictionBase:true,wsdlAbstractTypeXsiType:true,wsdlSimpleContentRestrictionMixedWildcardAndRecursiveNil:true};
   await Bun.write(output + "/import-acceptance.json",JSON.stringify(receipt,null,2));
   return receipt;
 }
 if (process.env.INSOMNIUM_LEGACY_EXPORT_NATIVE === "1") {
   assert.ok(process.env.INSOMNIUM_UI_BUILD_STATE);
-  assert.ok(process.env.INSOMNIUM_UI_PROFILE_OWNERSHIP);
-  const ownership = {expectedIdentifier:resourceCrudProbeIdentifier,profileOwnershipPath:process.env.INSOMNIUM_UI_PROFILE_OWNERSHIP};
-  await withResourceProbePreserved(async (capture) => {
+  const integration=selectedNativeProbeIdentifier()===integrationProbeIdentifier;
+  if (!integration) assert.ok(process.env.INSOMNIUM_UI_PROFILE_OWNERSHIP);
+  const ownership = {expectedIdentifier:integration?integrationProbeIdentifier:resourceCrudProbeIdentifier,profileOwnershipPath:process.env.INSOMNIUM_UI_PROFILE_OWNERSHIP};
+  const run = async () => withResourceProbePreserved(async (capture) => {
     await withNativeApp("legacy-export-import-native",async ({page,invoke,output}) => {
-      await resourceSaved(page);await capture();
+      await resourceSaved(page);if(!integration) await capture();
       const original = new Set((await invoke("load_workspace")).resources.map((/** @type {any} */ r) => r._id));
       const registered = new Set();
       await runImports(page,output,{read:() => invoke("load_workspace"),onImported:(data) => {
@@ -129,7 +155,8 @@ if (process.env.INSOMNIUM_LEGACY_EXPORT_NATIVE === "1") {
           }
       }});
     },ownership);
-  },{...ownership,lazyCapture:true});
+  },{...ownership,lazyCapture:!integration});
+  if(integration) await preserveNativeProfile(run); else await run();
 } else await withPreview("legacy-export-import",async (page,output) => {
   const receipt = await runImports(page,output);
   await Bun.write(output + "/result.json",JSON.stringify({...receipt,headless:true},null,2));
