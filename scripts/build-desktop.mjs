@@ -1,8 +1,9 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, resolve, dirname } from "node:path";
 import {validateSpectralArtifact} from './spectral-artifact.mjs';
 import {elfAbi} from './linux-elf-inputs.mjs';
+import {normalizeRpmArchiveSize} from './normalize-rpm-archive-size.mjs';
 
 export function linuxOptions(args) {
   const bundleArgs = [];
@@ -100,7 +101,7 @@ async function readJsonConfig(value) {
   return Bun.file(resolve(value)).json();
 }
 
-async function run(args, captureBinary = false) {
+async function run(args, captureBinary = false, onLine) {
   let binary;
   const child = Bun.spawn(args, {
     stdin: "inherit",
@@ -114,10 +115,11 @@ async function run(args, captureBinary = false) {
       const plain = line.replace(/\x1b\[[0-9;]*m/g, "");
       const match = plain.match(/Built application at:\s*(.+)$/);
       if (match) binary = match[1].trim();
+      onLine?.(plain);
     }
     for await (const chunk of stream) {
       await Bun.write(destination, chunk);
-      if (captureBinary) {
+      if (captureBinary || onLine) {
         pending += decoder.decode(chunk, { stream: true });
         const lines = pending.split(/\r?\n/);
         pending = lines.pop() ?? "";
@@ -125,7 +127,7 @@ async function run(args, captureBinary = false) {
         if (pending.length > 65536) pending = pending.slice(-65536);
       }
     }
-    if (captureBinary) inspect(pending + decoder.decode());
+    if (captureBinary || onLine) inspect(pending + decoder.decode());
   }
   const [, , exit] = await Promise.all([
     forward(child.stdout, Bun.stdout),
@@ -259,7 +261,18 @@ export async function main(args = Bun.argv.slice(2)) {
       generated = mergeConfig(generated, appimage);
     }
     await Bun.write(overlay, JSON.stringify(generated, null, 2) + "\n");
-    await run([...cli, "bundle", ...options.bundleArgs, "--config", overlay]);
+    const rpms = new Set();
+    await run([...cli, "bundle", ...options.bundleArgs, "--config", overlay], false, hasRpm ? (line) => {
+      const match = /^\s*(\/.+\.rpm)(?:\s+\(.+\))?\s*$/.exec(line);
+      if (match) rpms.add(resolve(match[1]));
+    } : undefined);
+    if (hasRpm) {
+      if (!rpms.size) throw Error("Tauri did not report an RPM output; refusing stale package normalization");
+      for (const path of rpms) {
+        if (dirname(path) !== resolve(dirname(binary), "bundle/rpm")) throw Error("Unexpected RPM output directory");
+        console.log(JSON.stringify(await normalizeRpmArchiveSize(path)));
+      }
+    }
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

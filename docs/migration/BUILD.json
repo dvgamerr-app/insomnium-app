@@ -3612,6 +3612,33 @@
         "Installation/runtime/signing and full additional dependency legal/source/linkage/platform acceptance remain open"
       ],
       "fullMigrationComplete": false
+    },
+    {
+      "builtAt": "2026-10-18T21:17:58.308Z",
+      "command": "bun run desktop:build --bundles rpm --ci -- --locked",
+      "identifier": "app.insomnium.desktop",
+      "target": "x86_64-unknown-linux-gnu",
+      "bundles": [
+        "rpm"
+      ],
+      "exitCode": 0,
+      "artifact": {
+        "path": "artifacts/rpm-archive-size-20261019/primary/Insomnium-0.1.0-1.x86_64.rpm",
+        "bytes": 54261559,
+        "sha256": "d7fc12d6e7261c6721e60a3f759fd21b2c50b2765e34c63208c18df70429bb6a"
+      },
+      "payloadFilesVerified": 1677,
+      "rpmCompatibility": "Corrected size tags; native RPM digest/rpm2cpio/CPIO extraction exit0; original header/payload unchanged",
+      "sourceHashes": {
+        "wrapper": "bd09a3696b15ebc382a7e033ffb0e6155e2979d63221270eb6785e5f36b7233a",
+        "normalizer": "9e20a8b43e18821e487672e47a6b50738dc4dddd82b74f1cfc3dce4045f8e4f6"
+      },
+      "evidence": "artifacts/rpm-archive-size-20261019/primary/verification.json",
+      "notVerified": [
+        "Real signed package/authenticity verification, install/upgrade/uninstall/runtime/provider/platform",
+        "All retained PLAN/PARITY/legal/source/linkage/release gates"
+      ],
+      "fullMigrationComplete": false
     }
   ]
 }
