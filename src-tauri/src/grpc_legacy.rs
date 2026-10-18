@@ -11,8 +11,8 @@ use base64::{
 };
 use prost::Message;
 use prost_reflect::{
-    DescriptorPool, DynamicMessage, FieldDescriptor, Kind, MapKey, MessageDescriptor,
-    ReflectMessage, Value,
+    DescriptorPool, DynamicMessage, ExtensionDescriptor, FieldDescriptor, Kind, MapKey,
+    MessageDescriptor, ReflectMessage, Value,
 };
 use serde::{
     ser::{SerializeMap, SerializeSeq},
@@ -23,16 +23,36 @@ use std::collections::{HashMap, HashSet};
 // protobuf.js retains all oneof members. Independent presence groups let prost
 // preserve both their values and explicit default values, without changing the
 // user schema or the standard ProtoJSON descriptor pool.
+// protobuf.js Field.packed defaults to true even in proto2. Never change the
+// source pool or an explicitly declared packed=false option.
+fn needs_legacy_packing(field: &prost_types::FieldDescriptorProto) -> bool {
+    use prost_types::field_descriptor_proto::{Label, Type};
+    field.label == Some(Label::Repeated as i32)
+        && matches!(field.r#type,Some(kind) if ![Type::String as i32,Type::Bytes as i32,Type::Message as i32,Type::Group as i32].contains(&kind))
+        && field
+            .options
+            .as_ref()
+            .and_then(|options| options.packed)
+            .is_none()
+}
+fn legacy_packing(field: &mut prost_types::FieldDescriptorProto) {
+    if needs_legacy_packing(field) {
+        field.options.get_or_insert_with(Default::default).packed = Some(true);
+    }
+}
 pub(crate) fn legacy_pool(pool: &DescriptorPool) -> Result<DescriptorPool, String> {
     if !pool.all_messages().any(|message| {
         message.is_map_entry()
-            || message
-                .fields()
-                .any(|field| matches!(field.kind(), Kind::String))
+            || message.fields().any(|field| {
+                matches!(field.kind(), Kind::String)
+                    || needs_legacy_packing(field.field_descriptor_proto())
+            })
             || message
                 .fields()
                 .any(|field| !field.is_list() && !field.is_map() && !field.supports_presence())
             || message.oneofs().any(|group| group.fields().len() > 1)
+    }) && !pool.all_extensions().any(|field| {
+        matches!(field.kind(), Kind::String) || needs_legacy_packing(field.field_descriptor_proto())
     }) {
         return Ok(pool.clone());
     }
@@ -103,6 +123,7 @@ pub(crate) fn legacy_pool(pool: &DescriptorPool) -> Result<DescriptorPool, Strin
         }
         // Legacy BufferWriter can emit WTF8; bytes keep the original wire intact.
         for field in &mut message.field {
+            legacy_packing(field);
             if field.r#type == Some(prost_types::field_descriptor_proto::Type::String as i32) {
                 field.r#type = Some(prost_types::field_descriptor_proto::Type::Bytes as i32);
                 if proto3
@@ -213,12 +234,24 @@ pub(crate) fn legacy_pool(pool: &DescriptorPool) -> Result<DescriptorPool, Strin
                 field.oneof_index = Some(remap[index as usize] as i32);
             }
         }
+        for field in &mut message.extension {
+            legacy_packing(field);
+            if field.r#type == Some(prost_types::field_descriptor_proto::Type::String as i32) {
+                field.r#type = Some(prost_types::field_descriptor_proto::Type::Bytes as i32);
+            }
+        }
         for nested in &mut message.nested_type {
             split(nested, proto3, &full_name);
         }
     }
     let mut files: Vec<_> = pool.file_descriptor_protos().cloned().collect();
     for file in &mut files {
+        for field in &mut file.extension {
+            legacy_packing(field);
+            if field.r#type == Some(prost_types::field_descriptor_proto::Type::String as i32) {
+                field.r#type = Some(prost_types::field_descriptor_proto::Type::Bytes as i32);
+            }
+        }
         for message in &mut file.message_type {
             split(
                 message,
@@ -800,19 +833,44 @@ fn legacy_default(field: &FieldDescriptor, for_wire: bool) -> Value {
     if field.is_list() || field.is_map() {
         return value;
     }
+    legacy_default_value(
+        value,
+        field.kind(),
+        field.field_descriptor_proto().default_value.as_deref(),
+        for_wire,
+    )
+}
+fn extension_default(field: &ExtensionDescriptor, original: &ExtensionDescriptor) -> Value {
+    if matches!(original.kind(), Kind::String)
+        && matches!(field.kind(), Kind::Bytes)
+        && !field.is_list()
+    {
+        if let Value::String(value) = Value::default_value_for_extension(original) {
+            return Value::Bytes(
+                legacy_string_bytes(&value.encode_utf16().collect::<Vec<_>>()).into(),
+            );
+        }
+    }
+    let value = Value::default_value_for_extension(field);
+    if field.is_list() {
+        return value;
+    }
+    legacy_default_value(
+        value,
+        field.kind(),
+        field.field_descriptor_proto().default_value.as_deref(),
+        false,
+    )
+}
+fn legacy_default_value(value: Value, kind: Kind, default: Option<&str>, for_wire: bool) -> Value {
     match value {
         Value::I64(v) => Value::I64(v as f64 as i64),
-        Value::U64(v) if matches!(field.kind(), Kind::Fixed64) => {
+        Value::U64(v) if matches!(kind.clone(), Kind::Fixed64) => {
             Value::U64(v as f64 as i64 as u64)
         }
         Value::U64(v) => Value::U64(v as f64 as u64),
         Value::F32(_) if !for_wire => {
-            let number = field
-                .field_descriptor_proto()
-                .default_value
-                .as_deref()
-                .and_then(|v| v.parse::<f64>().ok())
-                .unwrap_or(0.0);
+            let number = default.and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.0);
             Value::F64(number)
         }
         Value::Bytes(bytes) => {
@@ -891,7 +949,7 @@ fn from_object_inner(
     if depth > 64 {
         return Err("gRPC message nesting exceeds 64 levels.".into());
     }
-    if object.is_null() && desc.fields().next().is_some() {
+    if object.is_null() && (desc.fields().next().is_some() || desc.extensions().next().is_some()) {
         return Err("gRPC message requires an object.".into());
     }
     let mut message = DynamicMessage::new(desc.clone());
@@ -1088,6 +1146,66 @@ fn from_object_inner(
             .try_set_field(&field, value)
             .map_err(|e| format!("Invalid {}: {e}", field.name()))?;
     }
+    for extension in desc.extensions() {
+        let original_extension = original
+            .get_extension(extension.number())
+            .ok_or("Missing original extension descriptor.")?;
+        let name = format!(".{}", original_extension.full_name());
+        let Some(input) = object.get(&name).filter(|value| !value.is_null()) else {
+            continue;
+        };
+        let value = if extension.is_list() {
+            if !truthy(input) {
+                continue;
+            }
+            let array = input
+                .as_array()
+                .ok_or_else(|| format!("{name}: array expected"))?;
+            let mut values = Vec::new();
+            let mut skipped_bytes = false;
+            for input in array {
+                match scalar_kind(
+                    extension.kind(),
+                    original_extension.kind(),
+                    &name,
+                    input,
+                    depth + 1,
+                    context,
+                )? {
+                    Some(value) => {
+                        if skipped_bytes {
+                            return Err(
+                                "Legacy repeated bytes contain an unwritten array element.".into(),
+                            );
+                        }
+                        values.push(value);
+                    }
+                    None if matches!(original_extension.kind(), Kind::Bytes) => {
+                        skipped_bytes = true;
+                    }
+                    None => values.push(Value::default_value(&extension.kind())),
+                }
+            }
+            Value::List(values)
+        } else {
+            let Some(value) = scalar_kind(
+                extension.kind(),
+                original_extension.kind(),
+                &name,
+                input,
+                depth + 1,
+                context,
+            )?
+            else {
+                continue;
+            };
+            value
+        };
+        if !value.is_valid_for_extension(&extension) {
+            return Err(format!("Invalid extension {name}"));
+        }
+        message.set_extension(&extension, value);
+    }
     Ok(message)
 }
 fn map_int32_key(input: &Json) -> Result<Value, String> {
@@ -1112,8 +1230,25 @@ fn scalar(
     depth: usize,
     context: &ConversionContext,
 ) -> Result<Option<Value>, String> {
-    if matches!(
+    scalar_kind(
+        field.kind(),
         original.kind(),
+        field.full_name(),
+        input,
+        depth,
+        context,
+    )
+}
+fn scalar_kind(
+    kind: Kind,
+    original_kind: Kind,
+    name: &str,
+    input: &Json,
+    depth: usize,
+    context: &ConversionContext,
+) -> Result<Option<Value>, String> {
+    if matches!(
+        original_kind.clone(),
         Kind::String
             | Kind::Double
             | Kind::Float
@@ -1125,15 +1260,15 @@ fn scalar(
     ) {
         ensure_primitive_conversion(input)?;
     }
-    if matches!(field.kind(), Kind::Int64) && matches!(original.kind(), Kind::Int32) {
+    if matches!(kind.clone(), Kind::Int64) && matches!(original_kind.clone(), Kind::Int32) {
         return Ok(Some(Value::I64(uint32(input) as i32 as i64)));
     }
-    if matches!(field.kind(), Kind::Bytes) && matches!(original.kind(), Kind::String) {
+    if matches!(kind.clone(), Kind::Bytes) && matches!(original_kind.clone(), Kind::String) {
         return Ok(Some(Value::Bytes(
             legacy_string_bytes(&js_string_units(input)).into(),
         )));
     }
-    Ok(Some(match field.kind() {
+    Ok(Some(match kind.clone() {
         Kind::Double => Value::F64(number(input)),
         Kind::Float => Value::F32(number(input) as f32),
         Kind::Int32 | Kind::Sint32 | Kind::Sfixed32 => Value::I32(uint32(input) as i32),
@@ -1193,9 +1328,9 @@ fn scalar(
         }
         Kind::Message(desc) => {
             if !input.is_object() && !input.is_array() && !input.is_null() {
-                return Err(format!("{}: object expected", field.full_name()));
+                return Err(format!("{}: object expected", name));
             }
-            let Kind::Message(original) = original.kind() else {
+            let Kind::Message(original) = original_kind.clone() else {
                 return Err("Mismatched original message descriptor.".into());
             };
             Value::Message(from_object(desc, original, input, depth, context)?)
@@ -1203,6 +1338,51 @@ fn scalar(
     }))
 }
 
+enum LegacyOutputField {
+    Ordinary(FieldDescriptor),
+    Extension(ExtensionDescriptor),
+}
+fn output_fields(
+    desc: &MessageDescriptor,
+    original: &MessageDescriptor,
+    grouped: bool,
+) -> Vec<LegacyOutputField> {
+    let mut fields: Vec<_> = desc
+        .fields()
+        .map(LegacyOutputField::Ordinary)
+        .chain(desc.extensions().map(LegacyOutputField::Extension))
+        .collect();
+    fields.sort_by_key(|field| match field {
+        LegacyOutputField::Ordinary(field) => {
+            let original = original
+                .get_field(field.number())
+                .unwrap_or_else(|| field.clone());
+            let rank = if !grouped {
+                0
+            } else if original.containing_oneof().is_some() {
+                3
+            } else if original.is_map() {
+                1
+            } else if original.is_list() {
+                0
+            } else {
+                2
+            };
+            (rank, field.number())
+        }
+        LegacyOutputField::Extension(field) => (
+            if !grouped {
+                0
+            } else if field.is_list() {
+                0
+            } else {
+                2
+            },
+            field.number(),
+        ),
+    });
+    fields
+}
 pub(crate) struct LegacyMessage<'a>(pub &'a DynamicMessage, pub usize, pub MessageDescriptor);
 impl Serialize for LegacyMessage<'_> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
@@ -1223,30 +1403,40 @@ impl Serialize for LegacyMessage<'_> {
                 selectors.insert(name, field_name(&field).to_string());
             }
         }
-        // protobuf.js initializes repeated, map and ordinary defaults first.
-        // Present oneof members are appended later; overwriting an initialized
-        // field does not change its JavaScript property position. Four stable
-        // descriptor passes preserve field-number order without copying values.
-        let descriptor = self.0.descriptor();
-        let ordered = (0..4).flat_map(|group| {
-            descriptor.fields().filter(move |field| {
-                let original = self
-                    .2
-                    .get_field(field.number())
-                    .unwrap_or_else(|| field.clone());
-                let rank = if original.containing_oneof().is_some() {
-                    3
-                } else if original.is_map() {
-                    1
-                } else if original.is_list() {
-                    0
-                } else {
-                    2
-                };
-                rank == group
-            })
-        });
-        for field in ordered {
+        // All ordinary and extension fields share protobuf.js number/rank ordering.
+        for output in output_fields(&self.0.descriptor(), &self.2, true) {
+            let field = match output {
+                LegacyOutputField::Ordinary(field) => field,
+                LegacyOutputField::Extension(extension) => {
+                    let original = self.2.get_extension(extension.number()).ok_or_else(|| {
+                        serde::ser::Error::custom("Missing original extension descriptor")
+                    })?;
+                    let name = format!(".{}", original.full_name());
+                    let present = self.0.has_extension(&extension);
+                    if !present
+                        && !extension.is_list()
+                        && matches!(extension.kind(), Kind::Message(_))
+                    {
+                        out.serialize_entry(&name, &Option::<()>::None)?;
+                    } else {
+                        let value = if present {
+                            self.0.get_extension(&extension)
+                        } else {
+                            std::borrow::Cow::Owned(extension_default(&extension, &original))
+                        };
+                        out.serialize_entry(
+                            &name,
+                            &LegacyValue(
+                                &value,
+                                extension.kind(),
+                                self.1 + 1,
+                                Some(original.kind()),
+                            ),
+                        )?;
+                    }
+                    continue;
+                }
+            };
             let present = self.0.has_field(&field);
             if !present && oneof_name(&field, &self.2).is_some() {
                 continue;
@@ -1302,12 +1492,33 @@ impl Serialize for ReflectionMessage<'_> {
             ));
         }
         let mut out = serializer.serialize_map(None)?;
-        for field in self
-            .0
-            .descriptor()
-            .fields()
-            .filter(|field| self.0.has_field(field))
-        {
+        for output in output_fields(&self.0.descriptor(), &self.2, false) {
+            let field = match output {
+                LegacyOutputField::Ordinary(field) => {
+                    if !self.0.has_field(&field) {
+                        continue;
+                    }
+                    field
+                }
+                LegacyOutputField::Extension(extension) => {
+                    if !self.0.has_extension(&extension) {
+                        continue;
+                    }
+                    let original = self.2.get_extension(extension.number()).ok_or_else(|| {
+                        serde::ser::Error::custom("Missing original extension descriptor")
+                    })?;
+                    out.serialize_entry(
+                        &format!(".{}", original.full_name()),
+                        &ReflectionValue(
+                            &self.0.get_extension(&extension),
+                            extension.kind(),
+                            self.1 + 1,
+                            Some(original.kind()),
+                        ),
+                    )?;
+                    continue;
+                }
+            };
             let original = self
                 .2
                 .get_field(field.number())
@@ -1574,7 +1785,148 @@ impl Serialize for LegacyValue<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn legacy_extensions_preserve_wire_defaults_and_profiles() {
+        use crate::grpc_schema::{compile, json_mode, JsonMode, ProtoFile, ProtoInput};
+        for packed in ["", " [packed=false]"] {
+            let source = format!(
+                r#"syntax="proto2"; package p;
+              message M {{ optional int32 normal=200; extensions 100 to 199; }}
+              extend M {{ optional string text=100 [default="hello"]; repeated int32 nums=101{packed}; }}"#
+            );
+            let pool = compile(ProtoInput {
+                entry: "ext.proto".into(),
+                files: vec![ProtoFile {
+                    name: "ext.proto".into(),
+                    text: source,
+                }],
+                include_paths: vec![],
+            })
+            .unwrap();
+            let snapshot = pool.encode_to_vec();
+            let original = pool.get_message_by_name("p.M").unwrap();
+            for reflection in [false, true] {
+                let mode = if reflection {
+                    JsonMode::LegacyReflection
+                } else {
+                    JsonMode::Legacy
+                };
+                for (input, expected) in [
+                    (
+                        r#"{}"#,
+                        if reflection {
+                            r#"{}"#
+                        } else {
+                            r#"{".p.nums":[],".p.text":"hello","normal":0}"#
+                        },
+                    ),
+                    (
+                        r#"{".p.text":"Thai Ω",".p.nums":[1,2],"normal":3}"#,
+                        if reflection {
+                            r#"{".p.text":"Thai Ω",".p.nums":[1,2],"normal":3}"#
+                        } else {
+                            r#"{".p.nums":[1,2],".p.text":"Thai Ω","normal":3}"#
+                        },
+                    ),
+                ] {
+                    let message = parse_prepared_profile(
+                        legacy_descriptor(original.clone()).unwrap(),
+                        original.clone(),
+                        input,
+                        reflection,
+                    )
+                    .unwrap();
+                    let wire = message.encode_to_vec();
+                    let expected_wire = if input == "{}" {
+                        ""
+                    } else if packed.is_empty() {
+                        "a206075468616920cea9aa06020102c00c03"
+                    } else {
+                        "a206075468616920cea9a80601a80602c00c03"
+                    };
+                    assert_eq!(
+                        wire.iter()
+                            .map(|byte| format!("{byte:02x}"))
+                            .collect::<String>(),
+                        expected_wire
+                    );
+                    let decoded =
+                        DynamicMessage::decode(message.descriptor(), wire.as_slice()).unwrap();
+                    assert_eq!(
+                        json_mode(&decoded, mode, original.clone()).unwrap(),
+                        expected
+                    );
+                }
+            }
+            assert!(crate::grpc_schema::parse_mode(
+                original,
+                r#"{".p.text":"value"}"#,
+                JsonMode::ProtoJson
+            )
+            .is_err());
+            assert_eq!(snapshot, pool.encode_to_vec());
+        }
+    }
 
+    #[test]
+    fn legacy_nested_and_typed_extensions_match_pinned_profiles() {
+        use crate::grpc_schema::{compile, json_mode, JsonMode, ProtoFile, ProtoInput};
+        let pool=compile(ProtoInput {entry:"ext.proto".into(),files:vec![
+            ProtoFile{name:"base.proto".into(),text:r#"syntax="proto2";package p;message M{optional int32 normal=200;extensions 100 to 199;}message Child{optional string child_name=1;}enum E{ZERO=0;ONE=1;}message Only{extensions 100 to 199;}"#.into()},
+            ProtoFile{name:"ext.proto".into(),text:r#"syntax="proto2";import "base.proto";package p;extend M{optional Child child=102;optional E e=103[default=ONE];optional bytes blob=104[default="AB"];optional int64 large=105;repeated bytes chunks=106;}message Scope{extend M{optional int32 nested=107;}}extend Only{optional int32 n=100;}"#.into()},
+        ],include_paths:vec![]}).unwrap();
+        let snapshot = pool.encode_to_vec();
+        let original = pool.get_message_by_name("p.M").unwrap();
+        let example =
+            crate::grpc_example::generate_saved(original.clone(), JsonMode::Legacy).unwrap();
+        let sample = parse(original.clone(), &example).unwrap();
+        let blob = sample.descriptor().get_extension(104).unwrap();
+        assert_eq!(
+            sample.get_extension(&blob).as_ref(),
+            &Value::Bytes(vec![65, 66].into())
+        );
+        let input = r#"{".p.child":{"child_name":"Ω"},".p.e":"ONE",".p.blob":"AP+A",".p.large":"42",".p.chunks":["AQI=","Aw=="],".p.Scope.nested":7,"normal":3}"#;
+        for reflection in [false, true] {
+            let mode = if reflection {
+                JsonMode::LegacyReflection
+            } else {
+                JsonMode::Legacy
+            };
+            let only = pool.get_message_by_name("p.Only").unwrap();
+            assert!(parse_prepared_profile(
+                legacy_descriptor(only.clone()).unwrap(),
+                only,
+                "null",
+                reflection
+            )
+            .is_err());
+            let message = parse_prepared_profile(
+                legacy_descriptor(original.clone()).unwrap(),
+                original.clone(),
+                input,
+                reflection,
+            )
+            .unwrap();
+            let wire = message.encode_to_vec();
+            assert_eq!(
+                wire.iter()
+                    .map(|byte| format!("{byte:02x}"))
+                    .collect::<String>(),
+                "b206040a02cea9b80601c2060300ff80c8062ad206020102d2060103d80607c00c03"
+            );
+            let decoded = DynamicMessage::decode(message.descriptor(), wire.as_slice()).unwrap();
+            let expected = if reflection {
+                r#"{".p.child":{"child_name":"Ω"},".p.e":1,".p.blob":{"0":0,"1":255,"2":128},".p.large":{"low":42,"high":0,"unsigned":false},".p.chunks":[{"0":1,"1":2},{"0":3}],".p.Scope.nested":7,"normal":3}"#
+            } else {
+                r#"{".p.chunks":[{"0":1,"1":2},{"0":3}],".p.child":{"child_name":"Ω"},".p.e":"ONE",".p.blob":{"0":0,"1":255,"2":128},".p.large":"42",".p.Scope.nested":7,"normal":3}"#
+            };
+            assert_eq!(
+                json_mode(&decoded, mode, original.clone()).unwrap(),
+                expected
+            );
+        }
+        assert_eq!(snapshot, pool.encode_to_vec());
+    }
     #[test]
     fn legacy_array_message_length_matches_pinned_loader() {
         let pool = crate::grpc_schema::compile(crate::grpc_schema::ProtoInput {
@@ -3274,7 +3626,11 @@ mod tests {
             assert_eq!(parsed.encode_to_vec(), vec![8, 1, 18, 1, 120]);
             assert_eq!(
                 serde_json::to_value(LegacyMessage(&parsed, 0, descriptor)).unwrap(),
-                serde_json::json!({"a":1,"b":"x","pick":"b"})
+                if extensions {
+                    serde_json::json!({"a":1,"b":"x","pick":"b",".Choice.insomnium_legacy_2":0,".Choice.insomnium_legacy_2_":0})
+                } else {
+                    serde_json::json!({"a":1,"b":"x","pick":"b"})
+                }
             );
             assert_eq!(pool.encode_to_vec(), snapshot);
         }

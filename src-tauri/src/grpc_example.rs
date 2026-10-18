@@ -77,6 +77,20 @@ fn request_shape(value: &mut Value, kind: Kind, depth: usize) -> Result<(), Stri
                     request_shape(child, field.kind(), depth + 1)?;
                 }
             }
+            for extension in desc.extensions() {
+                let Some(child) = value.get_mut(format!(".{}", extension.full_name())) else {
+                    continue;
+                };
+                if extension.is_list() {
+                    if let Some(entries) = child.as_array_mut() {
+                        for entry in entries {
+                            request_shape(entry, extension.kind(), depth + 1)?;
+                        }
+                    }
+                } else {
+                    request_shape(child, extension.kind(), depth + 1)?;
+                }
+            }
         }
         _ => {}
     }

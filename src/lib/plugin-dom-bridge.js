@@ -250,6 +250,20 @@ export function createPluginDomBridge(owner) {
       if(method==="dom.node") {
         if(args.length!==3 || !Array.isArray(args[2]))throw Error("Invalid DOM method");
         const [_,name,values]=args;let result;
+        if(['contains','isSameNode','isEqualNode','compareDocumentPosition'].includes(name)){
+          if(values.length!==1||(values[0]===null?name==='compareDocumentPosition':!Number.isSafeInteger(values[0])))throw Error('Invalid owned Node comparison');
+          return target[name](values[0]===null?null:node(values[0]));
+        }
+        if(name==='matches'||name==='closest'){
+          if(!(target instanceof Element)||values.length!==1||typeof values[0]!=='string')throw Error('Invalid owned Element selector');
+          try{
+            if(name==='matches')return target.matches(values[0]);
+            // Native closest retains the original selector scoping root. Never
+            // turn an unowned wrapper/document ancestor into a guest capability.
+            const found=target.closest(values[0]);
+            return found&&ids.has(found)?describe(found):null;
+          }catch(error){if(error instanceof DOMException)return {exception:{name:error.name,message:error.message}};throw error;}
+        }
         if(name==='markup'||name==='insertAdjacentHTML'){
           if(!(target instanceof Element)||values.length!==2||values.some(value=>typeof value!=='string'))throw Error('Invalid DOM markup operation');
           const [position,markup]=values;

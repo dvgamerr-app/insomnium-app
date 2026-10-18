@@ -62,9 +62,16 @@ exports.templateTags=[{name:'dom',run(c,label){
   if(paragraph.parentNode!==null||mutations.firstElementChild.tagName!=='SECTION'||mutations.textContent!=='replacement')throw Error('outerHTML replacement mismatch');
   const table=document.createElement('table');table.innerHTML='<tr><td>cell</td></tr>';
   if(table.querySelector('tbody td').textContent!=='cell')throw Error('HTML table context mismatch');
+  if(!body.contains(button)||!body.contains(body)||body.contains(null)||button.contains(body)||!button.isSameNode(button)||button.isSameNode(input)||button.isEqualNode(null))throw Error('Owned Node relation mismatch');
+  const equalCopy=mutations.cloneNode(true);
+  if(equalCopy===mutations||!mutations.isEqualNode(equalCopy)||!(mutations.compareDocumentPosition(equalCopy)&Node.DOCUMENT_POSITION_DISCONNECTED))throw Error('Owned equality/disconnected position mismatch');
+  if(body.compareDocumentPosition(button)!==(Node.DOCUMENT_POSITION_FOLLOWING|Node.DOCUMENT_POSITION_CONTAINED_BY)||button.compareDocumentPosition(input)!==Node.DOCUMENT_POSITION_FOLLOWING)throw Error('Owned document position mismatch');
+  if(!button.matches('button')||!button.webkitMatchesSelector('button')||button.matches('input')||button.closest('div')!==body||button.closest('button')!==button||button.closest('section')!==null)throw Error('Owned Element selector mismatch');
+  let badSelector=false,badNode=false;try{button.closest('[');}catch(error){badSelector=error instanceof DOMException&&error.name==='SyntaxError';}try{body.contains({});}catch(error){badNode=error instanceof TypeError;}
+  if(!badSelector||!badNode)throw Error('Owned selector/Node argument refusal mismatch');
   const parent=button.parentNode===body,queried=body.querySelector('input')===input,style=body.style===body.style;
   let clicks=0;
-  function clicked(event){status.textContent=label+':'+(++clicks)+':'+(this===button)+':'+(event.target===button)+':'+(event.currentTarget===button)+':'+c.app.getInfo().version;}
+  function clicked(event){if(event.target.closest('button')!==button||button.closest('dialog')!==null)throw Error('Delegation must retain owned identity and hide the dialog wrapper');status.textContent=label+':'+(++clicks)+':'+(this===button)+':'+(event.target===button)+':'+(event.currentTarget===button)+':'+c.app.getInfo().version;}
   button.addEventListener('click',clicked);button.addEventListener('click',clicked);
   input.addEventListener('input',function(event){status.textContent=input.value+':'+(this===input)+':'+(event.target===input);});
   const removed=()=>{status.textContent='leaked removed listener';};button.addEventListener('click',removed);button.removeEventListener('click',removed);

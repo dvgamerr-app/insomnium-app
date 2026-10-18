@@ -508,6 +508,13 @@ export function createPluginGuestDom(call,retain,now) {
   const idOf=(/** @type {any} */ node)=>{
     const id=ids.get(node);if(!id)throw Error("An owned DOM node is required");return id;
   };
+  /** @param {any} receiver @param {string} method @param {any} other @param {boolean} nullable */
+  const compareNode=(receiver,method,other,nullable)=>{
+    if(!ids.has(receiver))throw new TypeError('Illegal Node receiver');
+    const otherId=nullable&&other==null?null:ids.get(other);
+    if(otherId===undefined)throw new TypeError('An owned Node is required');
+    return call('dom.node',[idOf(receiver),method,[otherId]]);
+  };
   class GuestNode {
     /** @param {symbol} token @param {number} id */
     constructor(token,id){if(token!==secret)throw Error("Illegal DOM node constructor");ids.set(this,id);}
@@ -517,6 +524,10 @@ export function createPluginGuestDom(call,retain,now) {
     /** @param {any} child @param {any} previous */ replaceChild(child,previous){return wrap(call("dom.node",[idOf(this),"replaceChild",[idOf(child),idOf(previous)]]));}
     remove(){call("dom.node",[idOf(this),"remove",[]]);}
     /** @param {boolean} [deep] */cloneNode(deep=false){return wrap(call("dom.node",[idOf(this),"cloneNode",[!!deep]]));}
+    /** @param {any} other */contains(other){if(!arguments.length)throw new TypeError('A Node argument is required');return compareNode(this,'contains',other,true);}
+    /** @param {any} other */isSameNode(other){if(!arguments.length)throw new TypeError('A Node argument is required');return compareNode(this,'isSameNode',other,true);}
+    /** @param {any} other */isEqualNode(other){if(!arguments.length)throw new TypeError('A Node argument is required');return compareNode(this,'isEqualNode',other,true);}
+    /** @param {any} other */compareDocumentPosition(other){if(!arguments.length)throw new TypeError('A Node argument is required');return compareNode(this,'compareDocumentPosition',other,false);}
     /** @param {string} type @param {any} listener @param {any} [options] */
     addEventListener(type,listener,options={}) {
       type=domString(type);options??={};
@@ -559,7 +570,24 @@ export function createPluginGuestDom(call,retain,now) {
   ['ELEMENT_NODE','ATTRIBUTE_NODE','TEXT_NODE','CDATA_SECTION_NODE','ENTITY_REFERENCE_NODE','ENTITY_NODE','PROCESSING_INSTRUCTION_NODE','COMMENT_NODE','DOCUMENT_NODE','DOCUMENT_TYPE_NODE','DOCUMENT_FRAGMENT_NODE','NOTATION_NODE'].forEach((name,index)=>{
     for(const target of [GuestNode,GuestNode.prototype])Object.defineProperty(target,name,{value:index+1,enumerable:true});
   });
+  ['DISCONNECTED','PRECEDING','FOLLOWING','CONTAINS','CONTAINED_BY','IMPLEMENTATION_SPECIFIC'].forEach((name,index)=>{
+    for(const target of [GuestNode,GuestNode.prototype])Object.defineProperty(target,'DOCUMENT_POSITION_'+name,{value:2**index,enumerable:true});
+  });
   class GuestElement extends GuestNode {
+    /** @param {any} selector */matches(selector){
+      if(!elements.has(this))throw new TypeError('Illegal Element receiver');
+      if(!arguments.length)throw new TypeError('A selector is required');
+      const result=call('dom.node',[idOf(this),'matches',[domString(selector)]]);
+      if(result?.exception)throw new DOMException(result.exception.message,result.exception.name);
+      return result;
+    }
+    /** @param {any} selector */closest(selector){
+      if(!elements.has(this))throw new TypeError('Illegal Element receiver');
+      if(!arguments.length)throw new TypeError('A selector is required');
+      const result=call('dom.node',[idOf(this),'closest',[domString(selector)]]);
+      if(result?.exception)throw new DOMException(result.exception.message,result.exception.name);
+      return wrap(result);
+    }
     get dataset(){if(!elements.has(this))throw new TypeError('Illegal dataset receiver');if(!datasetObjects.has(this))datasetObjects.set(this,dataset(idOf(this)));return datasetObjects.get(this);}
     get classList(){
       if(!tokenObjects.has(this)){
@@ -585,6 +613,7 @@ export function createPluginGuestDom(call,retain,now) {
       set:(_,key,value)=>{call("dom.style",[id,"set",String(key),String(value)]);return true;},
     });styleObjects.set(this,style);return style;}
   }
+  Object.defineProperty(GuestElement.prototype,'webkitMatchesSelector',{value:GuestElement.prototype.matches,writable:true,enumerable:true,configurable:true});
   const fragments=new WeakSet();
   class GuestDocumentFragment extends GuestNode {
     /** @param {symbol} [token] @param {number} [id] */
