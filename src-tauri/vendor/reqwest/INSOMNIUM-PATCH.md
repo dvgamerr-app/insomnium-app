@@ -36,3 +36,7 @@ The existing pre-decompression DownloadMeter retains an owned HeaderMap in respo
 ## Additional system-proxy exclusions (2026-10-18)
 
 Insomnium adds async ClientBuilder::system_proxy_bypass(Option<NoProxy>). The automatically discovered system matcher keeps its original proxy URLs, credentials and environment/OS exclusions, then applies the supplied additional exclusions with the same pinned NoProxy parser used for explicit rules. A filter matcher is decision-only and never connects to its constant URL. Existing proxy()/no_proxy() disable automatic discovery exactly as before. No process environment changes, alternate discovery or registry mutation. None preserves upstream behavior; this does not replace NO_PROXY/OS exclusions. Keep the Config default, system matcher wrapper and pre-intercept filter together on upgrades. Existing licenses and other patches remain unchanged.
+
+## Automatic proxy exclusion replacement (2026-10-18)
+
+Supersedes the additive filter above. Some(NoProxy) now uses the pinned local hyper-util Matcher::from_system_with_no_proxy extension to replace the discovered matcher exclusion list; None retains upstream discovery/exclusions unchanged. Proxy URLs/authentication/CGI and feature-gated OS discovery stay inside hyper-util. proxy()/no_proxy() still disable automatic rules. No process environment mutation or fake filter URL. This matches archived nonempty CURLOPT_NOPROXY settings overriding environment no_proxy. Existing empty app settings do not override discovery. Keep both local patches together on upgrades.

@@ -28,3 +28,5 @@ scripts/frontend-notice-core/parser/package.json -text
 scripts/frontend-notice-core/tar-parser.mjs -text
 scripts/frontend-notice-core/parser/LICENSE.md whitespace=cr-at-eol
 scripts/frontend-notice-core/parser/README.md whitespace=-blank-at-eol
+# Keep the complete pinned proxy-matcher crate byte-identical on checkout.
+src-tauri/vendor/hyper-util/** -text

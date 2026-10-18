@@ -1475,10 +1475,10 @@ impl ClientBuilder {
         self
     }
 
-    /// Insomnium extension: add exclusions to automatically discovered proxies.
-    /// Existing environment/OS exclusions still apply. Explicit proxy rules keep
-    /// their own exclusion lists; this does not enable system proxies after
-    /// proxy() or no_proxy(), and never changes the process environment.
+    /// Insomnium extension: override exclusions for automatically discovered proxies.
+    /// None preserves environment/OS exclusions; Some replaces them. Explicit proxy
+    /// rules keep their own lists. This never enables discovery after proxy() or
+    /// no_proxy(), and never changes the process environment.
     pub fn system_proxy_bypass(mut self, bypass: Option<crate::NoProxy>) -> ClientBuilder {
         self.config.system_proxy_bypass = bypass;
         self

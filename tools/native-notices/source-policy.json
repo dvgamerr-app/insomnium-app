@@ -9,7 +9,8 @@
     "http-auth": "vendor/http-auth",
     "eventsource-stream": "vendor/eventsource-stream",
     "p12-keystore": "vendor/p12-keystore",
-    "tower-http": "vendor/tower-http"
+    "tower-http": "vendor/tower-http",
+    "hyper-util": "vendor/hyper-util"
   },
   "unresolvedScopes": [
     "source-unavailable",

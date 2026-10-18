@@ -354,8 +354,8 @@
                 Scheme-specific URLs take priority over the fallback Proxy URL. With explicit rules,
                 other schemes connect directly when no fallback is set. Bypass accepts comma-separated
                 domains (including subdomains), IP addresses, CIDR ranges, or * for all hosts.
-                Bypass applies to configured and system proxies, adding to system exclusions.
-                With no URL set, system proxy settings apply;
+                Bypass applies to configured and automatic proxies. A nonempty list replaces automatic exclusions; blank keeps them.
+                With no URL set, environment or Windows/macOS manual system proxy settings apply;
                 disabling app proxy settings connects directly. Request-specific overrides take priority.</p>
             </section>
             <section

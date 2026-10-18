@@ -1,5 +1,13 @@
 # HTTP migration
 
+## OS automatic proxy feature wiring — 2026-10-18
+
+Explicit reqwest system-proxy feature now enables its existing Windows/macOS manual/static OS proxy discovery, previously compiled out by default-features=false. Per-scheme environment entries retain priority over matching system entries; ALL_PROXY stays the fallback after per-scheme values. Explicit app/request proxy/off and bypass replacement keep their existing paths. Linux environment discovery remains; PAC/WPAD evaluation is not introduced. Actual Windows library/features and unchanged5owned HTTP routing/auth controls pass; macOS is dependency-graph evidence only. Three original macOS dependency archives are checksum-verified; native notices773identities/425texts validate with incomplete coverage/linkage unproven. STATUS.md records exact scope. Configured-OS positive routing/native UI/protocol/provider/platform acceptance remains required.
+
+## Automatic proxy exclusion replacement — 2026-10-18
+
+Nonempty app bypass lists now replace automatically discovered exclusions, matching archived CURLOPT_NOPROXY behavior. Blank app values retain environment exclusions; configured/explicit proxy and off modes keep their existing precedence. Local hyper-util0.1.21 adds a six-line builder-based matcher constructor, preserving discovery/authentication without process-environment mutation or enabling new OS features; complete upstream source/license are retained. Rebuilt reqwest and production bounded bypass helper verify5owned HTTP routing/auth/no-leak controls, with both peers joined. Compiler/build/native notice validation pass; STATUS.md retains acquisition/linkage receipts and scope. This supersedes additive-only system bypass. Native app/OS discovery/redirect/protocol/provider/platform/full legal acceptance remain open.
+
 ## SSE accepted events before a size failure — 2026-10-17
 
 SseLimits now records the valid byte prefix of each transport chunk. After complete Raw capture, the parser receives that prefix before a later size error is emitted. Previously accepted? rejected the entire transport chunk, so a complete valid event preceding an oversized line in the same chunk disappeared; identical bytes split into different transport chunks could preserve it. sse_checked_parts uses a zero-copy Bytes slice for the accepted prefix and then returns the original error. The offending byte and later input never enter the parser, limits are unchanged, and native processing still stops on the error. Upstream Raw capture/chunk offsets and acknowledged delivery remain in place.
