@@ -196,6 +196,7 @@ const aliases = /** @type {Record<string, string>} */ ({
   k: "insecure",
 });
 const values = new Set([
+  "aws-sigv4",
   "oauth2-bearer",
   "url",
   "request",
@@ -425,6 +426,36 @@ function requestsFor(words, workspaceId, entries) {
       );
     authentication = { type: "bearer", token: bearer, prefix: "Bearer" };
   }
+  const awsSigv4 = last("aws-sigv4");
+  if (awsSigv4 !== undefined) {
+    if (["basic", "digest", "ntlm", "oauth2-bearer"].some(has))
+      throw new Error("Import cURL AWS signing with one authentication method.");
+    const [provider, headerProvider, region = "", service = "", ...extra] =
+      awsSigv4.split(":");
+    if (provider !== "aws" || headerProvider !== "amz" || extra.length ||
+        !/^[a-z0-9-]*$/.test(region) || !/^[a-z0-9-]*$/.test(service))
+      throw new Error("cURL AWS signing supports aws:amz[:region[:service]].");
+    if (user === undefined || !authentication.username || !authentication.password)
+      throw new Error("cURL AWS signing requires --user accessKey:secretKey.");
+    // curl respects these overrides; the native signer regenerates them.
+    if (headers.some((header) =>
+      ["authorization", "x-amz-date", "x-amz-content-sha256", "date"]
+        .includes(header.name.toLowerCase())))
+      throw new Error("cURL AWS signing with manual authorization, date or payload-hash headers is not supported.");
+    const tokens = headers.filter((header) =>
+      header.name.toLowerCase() === "x-amz-security-token");
+    if (tokens.length > 1)
+      throw new Error("cURL AWS signing supports one session-token header.");
+    authentication = {
+      type: "iam",
+      accessKeyId: authentication.username,
+      secretAccessKey: authentication.password,
+      sessionToken: tokens[0]?.value || "",
+      region,
+      service,
+      addAuthDataToQuery: false,
+    };
+  }
   const data = entries.filter((e) =>
     [
       "data",
@@ -573,6 +604,9 @@ function requestsFor(words, workspaceId, entries) {
     throw new Error(
       "cURL --head combined with a different --request method is not supported.",
     );
+  if (awsSigv4 !== undefined && (forms.length || fileBody ||
+      (data.length && !has("get") && method !== "POST")))
+    throw new Error("cURL AWS signing currently supports buffered POST data or requests without a body.");
   const location =
     entries.filter((e) => ["location", "no-location"].includes(e.name)).at(-1)
       ?.name === "location";

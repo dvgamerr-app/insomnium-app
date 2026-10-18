@@ -203,7 +203,16 @@ fn opened_path(file: &File) -> Result<PathBuf, Failure> {
     fs::canonicalize(format!("/proc/self/fd/{}", file.as_raw_fd())).map_err(|_| REFUSED)
 }
 
-#[cfg(not(any(windows, target_os = "linux")))]
+#[cfg(target_os = "macos")]
+#[path = "legacy_opened_path_macos.rs"]
+mod macos_path;
+
+#[cfg(target_os = "macos")]
+fn opened_path(file: &File) -> Result<PathBuf, Failure> {
+    macos_path::opened_path(file).map_err(|_| REFUSED)
+}
+
+#[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
 fn opened_path(_file: &File) -> Result<PathBuf, Failure> {
     Err((
         "unsupported",
@@ -762,7 +771,7 @@ pub async fn read_legacy_certificate_assets(
     read_assets(window, root, entries, 1024 * 1024).await
 }
 
-#[cfg(all(test, any(windows, target_os = "linux")))]
+#[cfg(all(test, any(windows, target_os = "linux", target_os = "macos")))]
 mod tests {
     use super::*;
 
