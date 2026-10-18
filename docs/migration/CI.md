@@ -327,3 +327,7 @@ Match target/debug/config to the executable used to generate metadata. The prima
 
 
 </details>
+
+## Local current Windows NSIS checkpoint — 2026-10-19
+
+Source d67fe4fc: normal production bun run desktop:build --bundles nsis -- --locked passes with app.insomnium.desktop and default build/bundle hooks. BUILD.json records current executable and43004399byte NSIS package, source fingerprint and SHA256; artifacts/windows-production-d67fe4fc-20261019 holds receipts and retained files. Both files are unsigned; no installer/app launch or hosted workflow occurred. This advances local packaging only; MSI, signing, installation/runtime, hosted three-platform/retention/download/distribution and all original PLAN/PARITY/legal gates remain open. See STATUS.md for exact scope and handoff.
