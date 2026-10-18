@@ -18,6 +18,9 @@ use tonic::{
 #[path = "grpc_reflection_arrival_tests.rs"]
 mod arrival_tests;
 
+#[path = "grpc_tls.rs"]
+mod tls;
+
 #[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Connection {
@@ -25,12 +28,31 @@ pub struct Connection {
     #[serde(default)]
     pub metadata: Vec<(String, String)>,
     pub timeout_ms: u64,
+    #[serde(default)]
+    pub deadline_ms: Option<u64>,
+    #[serde(default = "validate_certificates_default")]
+    pub validate_certificates: bool,
     pub ca_pem: Option<String>,
     pub ca_file: Option<String>,
     pub(crate) ca_asset: Option<crate::client_certificates::PortableCertificateAsset>,
     pub identity_pem: Option<String>,
     #[serde(default)]
     pub(crate) client_certificates: Vec<crate::client_certificates::ClientCertificateSource>,
+}
+
+impl Connection {
+    pub(crate) fn call_deadline(&self) -> Option<Duration> {
+        // Old IPC callers omitted this field and used timeout_ms for the call.
+        // The current renderer sends explicit zero for legacy no-deadline calls.
+        let ms = self
+            .deadline_ms
+            .unwrap_or(self.timeout_ms.clamp(1, 3_600_000));
+        (ms != 0).then(|| Duration::from_millis(ms.clamp(1, 3_600_000)))
+    }
+}
+
+fn validate_certificates_default() -> bool {
+    true
 }
 
 pub(crate) fn metadata(rows: &[(String, String)]) -> Result<MetadataMap, String> {
@@ -145,20 +167,22 @@ pub(crate) async fn channel(config: &Connection) -> Result<Channel, String> {
         .user_agent(concat!("Insomnium/", env!("CARGO_PKG_VERSION")))
         .map_err(|_| "Invalid gRPC user agent.")?;
     if url.scheme() == "https" {
-        let ca = crate::client_certificates::load_ca_certificate(
-            config.ca_file.as_deref(),
-            config.ca_pem.as_deref(),
-            config.ca_asset.as_ref(),
-        )?;
         let mut tls = ClientTlsConfig::new();
-        if !ca.replace_roots {
-            tls = tls.with_webpki_roots();
-        }
-        if let Some(pem) = ca.pem {
-            if pem.len() > 1024 * 1024 {
-                return Err("gRPC CA exceeds 1 MiB.".into());
+        if config.validate_certificates {
+            let ca = crate::client_certificates::load_ca_certificate(
+                config.ca_file.as_deref(),
+                config.ca_pem.as_deref(),
+                config.ca_asset.as_ref(),
+            )?;
+            if !ca.replace_roots {
+                tls = tls.with_webpki_roots();
             }
-            tls = tls.ca_certificate(Certificate::from_pem(&pem));
+            if let Some(pem) = ca.pem {
+                if pem.len() > 1024 * 1024 {
+                    return Err("gRPC CA exceeds 1 MiB.".into());
+                }
+                tls = tls.ca_certificate(Certificate::from_pem(&pem));
+            }
         }
         if let Some(pem) = crate::client_certificates::load_identity(
             &config.client_certificates,
@@ -169,9 +193,12 @@ pub(crate) async fn channel(config: &Connection) -> Result<Channel, String> {
             }
             tls = tls.identity(Identity::from_pem(&pem, &pem));
         }
-        endpoint = endpoint
-            .tls_config(tls)
-            .map_err(|_| "Invalid gRPC TLS configuration.")?;
+        endpoint = if config.validate_certificates {
+            endpoint.tls_config(tls)
+        } else {
+            endpoint.tls_config_with_verifier(tls, tls::unverified_server())
+        }
+        .map_err(|_| "Invalid gRPC TLS configuration.")?;
     }
     endpoint
         .connect()
@@ -237,7 +264,9 @@ where
         .map_err(|_| "Invalid gRPC method path.")?;
     let mut request = Request::new(ReceiverStream::new(messages));
     *request.metadata_mut() = metadata(&config.metadata)?;
-    request.set_timeout(Duration::from_millis(config.timeout_ms.clamp(1, 3_600_000)));
+    if let Some(deadline) = config.call_deadline() {
+        request.set_timeout(deadline);
+    }
     emit(Event::Connected).await?;
     // The streaming dispatcher uses the same gRPC wire protocol for every shape;
     // schema-aware IPC restricts sends and response cardinality below.
@@ -420,6 +449,12 @@ mod status_tests {
                     let trailers = trailers.clone();
                     async move {
                         assert_eq!(request.uri().path(), format!("/owned.Status/{method_name}"));
+                        assert_eq!(request.headers().contains_key("grpc-timeout"), shape != 1);
+                        if shape == 1 {
+                            // The existing streaming case must outlive the
+                            // connection timeout when its call has no deadline.
+                            tokio::time::sleep(Duration::from_millis(150)).await;
+                        }
                         let accepted = request
                             .headers()
                             .get("grpc-accept-encoding")
@@ -490,10 +525,19 @@ mod status_tests {
                     .serve_connection(TokioIo::new(socket), service)
                     .await;
             });
-            let config: Connection = serde_json::from_value(serde_json::json!({
-                "url": format!("grpc://{address}"), "timeoutMs": 3000
+            let mut config: Connection = serde_json::from_value(serde_json::json!({
+                "url": format!("grpc://{address}"), "timeoutMs": if shape == 1 { 100 } else { 3000 }
             }))
             .unwrap();
+            if shape == 1 {
+                config.deadline_ms = Some(0);
+                assert_eq!(config.call_deadline(), None);
+            } else if shape == 0 {
+                config.deadline_ms = Some(500);
+                assert_eq!(config.call_deadline(), Some(Duration::from_millis(500)));
+            } else {
+                assert_eq!(config.call_deadline(), Some(Duration::from_millis(3000)));
+            }
             let (sender, receiver) = mpsc::channel(1);
             sender
                 .send(DynamicMessage::new(method.input()))

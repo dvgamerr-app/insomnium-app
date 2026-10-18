@@ -166,6 +166,36 @@ function children(node, namespace, name) {
   return Array.from(node?.childNodes || []).filter((/** @type {any} */ child) =>
     child.nodeType === 1 && (!namespace || child.namespaceURI === namespace) && (!name || child.localName === name));
 }
+/** WSDL 1.1 sections 2.4.5/2.5: message names, including their pattern-specific
+ * defaults, identify an overloaded portType operation from a binding.
+ * @param {any} portType @param {any} binding @param {string} name */
+function boundOperation(portType,binding,name) {
+  const named = children(portType,WSDL,'operation').filter(node=>node.getAttribute('name') === name);
+  const bound = children(binding,WSDL).filter(node=>['input','output'].includes(node.localName));
+  if (new Set(bound.map(node=>node.localName)).size !== bound.length || bound.some(node=>
+    node.hasAttribute('name') && !xmlNcName.test(node.getAttribute('name'))))
+    throw new Error('Invalid WSDL binding message names.');
+  const candidates = named.map(operation=>{
+    const messages = children(operation,WSDL).filter(node=>['input','output'].includes(node.localName));
+    const pattern = messages.map(node=>node.localName).join(',');
+    if (!['input','output','input,output','output,input'].includes(pattern))
+      throw new Error('Invalid WSDL operation message pattern.');
+    const names = messages.map((node,index)=>{
+      const suffix = messages.length === 1 ? '' : index === 1 ? 'Response' :
+        node.localName === 'input' ? 'Request' : 'Solicit';
+      const label = node.hasAttribute('name') ? node.getAttribute('name') : name+suffix;
+      if (!xmlNcName.test(label)) throw new Error('Invalid WSDL operation message name.');
+      return {kind:node.localName,name:label};
+    });
+    return {operation,names,pattern};
+  }).filter(candidate=>bound.every(node=>candidate.names.some(message=>
+    message.kind === node.localName && (!node.hasAttribute('name') || message.name === node.getAttribute('name')))));
+  if (candidates.length !== 1) throw new Error('Ambiguous or unresolved WSDL operation.');
+  const selected = candidates[0];
+  if (!['input','input,output'].includes(selected.pattern))
+    throw new Error('WSDL SOAP operations require one-way or request-response messages.');
+  return {...selected,displayName:named.length > 1 ? `${name} (${selected.names.map(message=>message.name).join(' → ')})` : name};
+}
 /** @param {any} node @param {string} value */
 function qname(node, value) {
   const parts = value.split(':');
@@ -894,9 +924,8 @@ export function wsdlResources(text,options = {}) {
       const soapOperation = children(operation,soapNamespace,'operation')[0];
       const style = soapOperation?.getAttribute('style') || soap.getAttribute('style') || 'document';
       if (!['document','rpc'].includes(style)) throw new Error('Unsupported WSDL operation style.');
-      const abstractOperations = children(portType,WSDL,'operation').filter(item => item.getAttribute('name') === name);
-      if (abstractOperations.length !== 1) throw new Error('Ambiguous or unresolved WSDL operation.');
-      const abstractInput = children(abstractOperations[0],WSDL,'input')[0];
+      const selectedOperation = boundOperation(portType,operation,name);
+      const abstractInput = children(selectedOperation.operation,WSDL,'input')[0];
       const input = children(operation,WSDL,'input')[0];
       const body = children(input,soapNamespace,'body')[0];
       const headers = children(input,soapNamespace,'header');
@@ -917,7 +946,7 @@ export function wsdlResources(text,options = {}) {
       /** @type {string[]} */ const selected = body.hasAttribute('parts') ? body.getAttribute('parts').trim().split(/\s+/).filter(Boolean) : parts.map(part=>part.getAttribute('name'));
       if (new Set(parts.map(part=>part.getAttribute('name'))).size !== parts.length || new Set(selected).size !== selected.length)
         throw new Error('Duplicate WSDL message parts.');
-      const order = abstractOperations[0].getAttribute('parameterOrder')?.trim().split(/\s+/).filter(Boolean);
+      const order = selectedOperation.operation.getAttribute('parameterOrder')?.trim().split(/\s+/).filter(Boolean);
       if (style === 'rpc' && order?.length) {
         if (selected.some(part=>!order.includes(part))) throw new Error('WSDL parameterOrder omits an input part.');
         selected.sort((a,b)=>order.indexOf(a)-order.indexOf(b));
@@ -944,7 +973,7 @@ export function wsdlResources(text,options = {}) {
       const soap12 = soapNamespace === SOAP12;
       const envelope = soap12 ? 'http://www.w3.org/2003/05/soap-envelope' : 'http://schemas.xmlsoap.org/soap/envelope/';
       const mime = soap12 ? 'application/soap+xml' : 'text/xml';
-      resources.push(newRequest(folderId,{name,method:'POST',url:endpoint,description:children(abstractOperations[0],WSDL,'documentation')[0]?.textContent?.trim() || '',
+      resources.push(newRequest(folderId,{name:selectedOperation.displayName,method:'POST',url:endpoint,description:children(selectedOperation.operation,WSDL,'documentation')[0]?.textContent?.trim() || '',
         headers:[{name:'Content-Type',value:mime+'; charset=utf-8'+(soap12 && action ? '; action='+JSON.stringify(action) : '')},
           {name:'Accept',value:mime},...(!soap12 ? [{name:'SOAPAction',value:JSON.stringify(action)}] : [])],
         body:{mimeType:'application/xml',text:`<soap:Envelope xmlns:soap="${envelope}">${headers.length ? `<soap:Header>${headerPayload}</soap:Header>` : ''}<soap:Body>${payload}</soap:Body></soap:Envelope>`},

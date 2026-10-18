@@ -1,8 +1,20 @@
 # CI migration
 
-Updated 2026-10-14. Bun/Cargo build and Windows package evidence exists. Platform CI/installer/signing/distribution and complete release/legal acceptance remain open.
+Updated 2026-10-18. Optional manual draft-release package retention is implemented with Bun/native gh; default builds remain read-only. Hosted execution/upload/download, platform CI/installer/signing/distribution and complete release/legal acceptance remain open.
 
 See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity requirements](PARITY.md). No original scope was removed by consolidation.
+
+## Manual package retention without a JavaScript action — 2026-10-18
+
+Source parentfaaef5d7. Desktop build now delegates its unchanged three-platform matrix, pinned toolchains, native Git checkout, frozen install and build/hash steps to desktop-build-core.yml. The entry workflow keeps push and default manual runs read-only/build-only. Explicit workflow_dispatch with retain_packages=true selects a separate contents:write caller; the callee inherits that permission rather than attempting elevation. The upload token exists only in the retention step environment (checkout retains its separate process-local fetch credential). No Node-based setup/checkout/upload action, SDK runtime-token workaround, dependency or app runtime change.
+
+Operator flow: open Actions → Desktop build (Bun and Cargo) → Run workflow, select the reviewed ref and enable retain_packages. Each successful platform job creates an unpublished prerelease draft tagged ci-RUN_ID-ATTEMPT-TARGET-SHORT_SHA and uploads that target's packages plus desktop-packages.json. Repository policy must permit the manual caller's GITHUB_TOKEN contents:write. Draft assets are available through the repository Releases page to authorized collaborators; these are release assets, not expiring Actions artifacts. The script does not publish, overwrite, delete or schedule cleanup. Failed/partial drafts remain for inspection; reruns use a new run-attempt tag. Signing/installer/runtime approval is separate.
+
+scripts/retain-desktop-packages.mjs validates GitHub.com/manual coordinates, the bounded ordinary-file manifest, bundle confinement, unique stable asset names, regular local package files, size and streaming SHA256. It uploads through native gh, verifies draft/source identity before every asset and checks returned uploaded state/size/SHA256 digests and the final draft identity. The release body/job summary preserve source/run/target/hash provenance; desktop-retention.json records remote asset IDs/digests. --plan validates local bytes and prints the plan without a token or network. No live release/upload was attempted here.
+
+Verification: native actionlint1.7.12 accepts entry/core/PR workflows with shellcheck/pyflakes disabled. Parsed YAML proves default read-only/manual-only write, unchanged platform strategy and exact equality of every original build/checkout step to HEAD's prior workflow; no step uses a JavaScript action and GH_TOKEN appears only on retention. Actual production --plan executes under Bun against owned synthetic bytes, returns a draft/two-asset plan without a token/network, and refuses content changed after manifest generation. Evidence: artifacts/ci-retention-20261018/verification.json. Prettier/diffcheck pass. No testcase/script/scenario was added for verification; the new script is the production retention implementation.
+
+Primary contracts: https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows ; https://docs.github.com/en/rest/releases/releases ; https://docs.github.com/en/rest/releases/assets ; https://cli.github.com/manual/gh_release_upload . Runner images document native gh availability at https://github.com/actions/runner-images/tree/main/images . Remaining: actual GitHub permission/draft/upload/digest/download/rerun/cancellation behavior, full hosted Linux/Windows/macOS builds and every packaging/legal/platform/PLAN/PARITY gate. No push/workflow dispatch/release creation/publication, profile change or owned live process. /compact unavailable; explicit handoff.
 
 ## Topic records
 
@@ -15,7 +27,7 @@ See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity 
 
 ## Current implementation
 
-.github/workflows/desktop-build.yml is a build-only workflow for main/master pushes and manual dispatch. It has Linux x64 (Ubuntu22.04), Windows x64 (Windows2022) and macOS universal (macOS15) jobs. Bun1.4.2 and Rust1.98.1 are pinned to the development baseline. Pull requests use pr-check.yml, which now runs a pinned-Bun frontend check/build job alongside Qlty on Ubuntu24.04. No pull_request_target event is used.
+.github/workflows/desktop-build.yml defaults to build-only for main/master pushes and manual dispatch, with optional explicit manual draft retention described above. The actual matrix build now lives in desktop-build-core.yml. It has Linux x64 (Ubuntu22.04), Windows x64 (Windows2022) and macOS universal (macOS15) jobs. Bun1.4.2 and Rust1.98.1 are pinned to the development baseline. Pull requests use pr-check.yml, which now runs a pinned-Bun frontend check/build job alongside Qlty on Ubuntu24.04. No pull_request_target event is used.
 
 All steps use native shell commands or Bun/Cargo. No JavaScript actions are invoked: official setup-bun and checkout currently start Node24 internally. Bun is installed with the documented versioned installers; Git checkout fetches the exact event SHA. The checkout token is step-scoped and passed only to the fetch subprocess via Git environment configuration; it is not written to repository config or passed to build steps. No pull_request_target execution is configured.
 

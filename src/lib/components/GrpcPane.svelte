@@ -474,9 +474,37 @@
               ProtoJSON uses standard timestamp strings and base64 bytes.
               Changing format does not rewrite the body.
             </Feedback>
+            <Field label="TLS certificate validation" class="grpc-hint">
+              <Select
+                disabled={running}
+                value={request.settingValidateCertificates || "global"}
+                onchange={(event) => update(request._id, {
+                  settingValidateCertificates: event.currentTarget.value,
+                })}
+              >
+                <option value="global">Use global preference</option>
+                <option value="on">Validate certificates</option>
+                <option value="off">Skip certificate validation</option>
+              </Select>
+            </Field>
+            <Field label="Call deadline (ms, 0 = none)" class="grpc-hint">
+              <Input
+                type="number" min="0" max="3600000" step="1"
+                disabled={running}
+                value={request.grpcDeadlineMs ?? 0}
+                oninput={(event) => update(request._id, {
+                  grpcDeadlineMs: Number(event.currentTarget.value),
+                })}
+              />
+            </Field>
             <Feedback tone="hint" density="compact" class="grpc-hint">
-              grpcs:// validates server certificates. Global custom CA and
-              matching-host client identity apply. HTTP proxy, cookie and HTTP
+              Calls have no deadline by default. The global timeout still limits
+              connection and schema lookup. Stop cancels an active call.
+            </Feedback>
+            <Feedback tone="hint" density="compact" class="grpc-hint">
+              grpcs:// uses the selected certificate validation setting. Custom CA
+              certificates apply when validation is enabled; matching-host client
+              identity still applies when validation is skipped. HTTP proxy, cookie and HTTP
               auth settings do not apply; use metadata for authentication.
             </Feedback>
           {/if}

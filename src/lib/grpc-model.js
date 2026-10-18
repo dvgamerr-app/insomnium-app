@@ -287,12 +287,24 @@ export function grpcConnection(data, request, options = {}) {
       "Enter a gRPC host and port without a path, query or credentials.",
     );
   const settings = data.settings || {};
+  const deadline = request.grpcDeadlineMs ?? 0;
+  if (!["number", "string"].includes(typeof deadline) ||
+      !Number.isInteger(Number(deadline)) || Number(deadline) < 0 ||
+      Number(deadline) > 3600000)
+    throw new Error("Set a gRPC call deadline from 0 to 3,600,000 ms (0 means none).");
+  if (request.settingValidateCertificates != null &&
+      !["global", "on", "off"].includes(request.settingValidateCertificates))
+    throw new Error("Choose a valid TLS certificate validation setting.");
   const clientCertificates =
     url.protocol === "https:"
       ? clientCertificateSelection(data, request, url.toString())
       : [];
   return {
     url: url.toString(),
+    deadlineMs: Number(deadline),
+    validateCertificates: request.settingValidateCertificates === "on"
+      ? true : request.settingValidateCertificates === "off"
+        ? false : settings.validateCertificates ?? true,
     metadata: (request.metadata || [])
       .filter((/** @type {Resource} */ row) => !row.disabled && row.name)
       .map((/** @type {Resource} */ row) => [
@@ -412,6 +424,8 @@ export function grpcSourceContext(data, request) {
     metadata: request.metadata,
     protoFileId: request.protoFileId,
     grpcJsonMode: request.grpcJsonMode,
+    grpcDeadlineMs: request.grpcDeadlineMs,
+    settingValidateCertificates: request.settingValidateCertificates,
     _migrationIssues: request._migrationIssues,
   };
   const resources = scope.resources

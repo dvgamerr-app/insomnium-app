@@ -34,7 +34,7 @@ pub fn reserve_plugin_save(
     state: tauri::State<'_, SaveState>,
 ) -> Result<String, String> {
     main_window(&window)?;
-    if !cfg!(any(windows, target_os = "linux")) {
+    if !cfg!(any(windows, target_os = "linux", target_os = "macos")) {
         return Err("Owned save chooser is not implemented on this platform".into());
     }
     let serial = SERIAL
@@ -129,7 +129,7 @@ pub async fn show_plugin_save(
     {
         return Err("Invalid plugin save default path".into());
     }
-    #[cfg(any(windows, target_os = "linux"))]
+    #[cfg(any(windows, target_os = "linux", target_os = "macos"))]
     {
         let operation = {
             let entries = state
@@ -168,6 +168,8 @@ pub async fn show_plugin_save(
         };
         #[cfg(target_os = "linux")]
         let selected = linux_dialog::show(window.clone(), default_path, lease).await?;
+        #[cfg(target_os = "macos")]
+        let selected = macos_dialog::show(window.clone(), default_path, lease).await?;
         if let Some(path) = &selected {
             // Match tauri-plugin-dialog's selected-file grants, without granting
             // the directory or any path on cancellation/failure.
@@ -183,7 +185,7 @@ pub async fn show_plugin_save(
         }
         Ok(selected)
     }
-    #[cfg(not(any(windows, target_os = "linux")))]
+    #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
     {
         let _ = (state, id, default_path);
         Err("Owned save chooser is not implemented on this platform".into())
@@ -192,6 +194,9 @@ pub async fn show_plugin_save(
 
 #[cfg(target_os = "linux")]
 mod linux_dialog;
+
+#[cfg(target_os = "macos")]
+mod macos_dialog;
 
 #[cfg(windows)]
 mod windows_dialog {

@@ -195,7 +195,7 @@ pub async fn connect_grpc(
         acknowledgements,
         sequence: 0,
     }));
-    let timeout_ms = request.connection.timeout_ms.clamp(1, 3_600_000);
+    let deadline = request.connection.call_deadline();
     let work = async move {
         delivery.lock().await.send(Event::Started).await?;
         grpc_transport::call(
@@ -210,8 +210,17 @@ pub async fn connect_grpc(
         )
         .await
     };
+    let work = async {
+        match deadline {
+            Some(deadline) => tokio::time::timeout(deadline, work)
+                .await
+                .map_err(|_| "gRPC deadline exceeded.".to_string())
+                .and_then(|result| result),
+            None => work.await,
+        }
+    };
     let result = tokio::select! {
-        result = tokio::time::timeout(Duration::from_millis(timeout_ms), work) => result.map_err(|_| "gRPC deadline exceeded.".to_string()).and_then(|r| r),
+        result = work => result,
         _ = cancelled.changed() => Err("gRPC call cancelled.".into()),
     };
     let calls_removed = state
