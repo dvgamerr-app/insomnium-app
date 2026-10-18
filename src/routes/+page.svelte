@@ -1,4 +1,5 @@
 <script>
+  import {applyFontPreferences, fontPreferencesEvent} from "$lib/font-preferences.js";
   import {toggleWindowFullscreen} from "$lib/window-fullscreen.js";
   import {windowZoom, applyWindowZoom} from "$lib/desktop-zoom.js";
   import { runEditorHistory } from "$lib/editor-history.js";
@@ -201,6 +202,12 @@
     void applyWindowZoom(zoom).catch(error => {
       if (windowZoom(app.data.settings.windowZoom) === zoom) app.error = "Could not change window zoom: " + String(error);
     });
+  });
+  $effect(() => {
+    if (!app.ready) return;
+    const restore = applyFontPreferences(document.documentElement.style,app.data.settings);
+    window.dispatchEvent(new Event(fontPreferencesEvent));
+    return restore;
   });
   onMount(() => {
     void initialize();

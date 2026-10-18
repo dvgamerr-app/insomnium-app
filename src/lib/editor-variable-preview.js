@@ -3,7 +3,7 @@ import {templateVariablePath} from './template-variable-path.js';
 /** Display-only marks use the existing preview session; editor text/history stay untouched.
  * @param {import('codemirror').Editor} editor
  * @param {()=>ReturnType<typeof import('./template-editor-session.svelte.js').createTemplateEditorSession>} factory
- * @param {boolean} json */
+ * @param {boolean|((source:string,start:number,end:number)=>ReturnType<typeof templateEditorRange>)} json */
 export function attachVariablePreview(editor,factory,json) {
   /** @type {import('codemirror').TextMarker[]} */let marks=[];
   /** @type {ReturnType<typeof setTimeout>|undefined} */let timer;
@@ -22,7 +22,7 @@ export function attachVariablePreview(editor,factory,json) {
       const deadline=setTimeout(()=>{operation.abort();owned.close();},3000);
       void(async()=>{
         for(let index=source.indexOf('{{');index>=0;){
-          const range=templateEditorRange(source,index+2,index+2,json);
+          const range=typeof json === "function" ? json(source,index+2,index+2) : templateEditorRange(source,index+2,index+2,json);
           index=source.indexOf('{{',Math.max(index+2,range.end));
           if(!range.text.startsWith('{{')||!range.text.endsWith('}}'))continue;
           const key=range.text.slice(2,-2).trim();

@@ -1,4 +1,5 @@
 <script>
+  import BulkKeyValueEditor from "./BulkKeyValueEditor.svelte";
   import Feedback from "./ui/Feedback.svelte";
   import FilePicker from "./ui/FilePicker.svelte";
   import Field from "./ui/Field.svelte";
@@ -14,13 +15,14 @@
   import { readUpload } from "../uploads.js";
   import { readCurlHeaderFile, resolveCurlHeaderFile } from "../curl-headers.js";
   import { isUtf8PlainTextMediaType } from "../media-type.js";
-  /** @type {{ rows: Record<string, any>[], onchange: (rows: Record<string, any>[]) => void, label?: string, files?: boolean, templateEditor?:()=>ReturnType<import('../template-editor-session.svelte.js').createTemplateEditorSession> }} */
+  /** @type {{ rows: Record<string, any>[], onchange: (rows: Record<string, any>[]) => void, label?: string, files?: boolean, templateEditor?:()=>ReturnType<import('../template-editor-session.svelte.js').createTemplateEditorSession>,bulk?:boolean,identity?:string,settings?:Record<string,any>,environment?:Record<string,any>,onbulktoggle?:()=>void }} */
   let {
     rows = [],
     onchange,
     label = "Header",
     files = false,
     templateEditor,
+    bulk=false, identity="", settings={}, environment, onbulktoggle,
   } = $props();
   const editorId = $props.id();
   let error = $state("");
@@ -110,6 +112,8 @@
   }
 </script>
 
+{#if onbulktoggle}<div class="bulk-editor-toolbar"><Button class="text-button" aria-pressed={bulk} onclick={onbulktoggle}>{bulk ? "Table Edit" : "Bulk Edit"}</Button></div>{/if}
+{#if bulk && !files}<BulkKeyValueEditor {rows} {onchange} {label} identity={identity || editorId} {settings} {environment} {templateEditor}/>{:else}
 <div class="kv-editor" bind:this={editor}>
   {#if error}<Feedback as="p" class="inline-error" role="alert"
       >{error}</Feedback
@@ -321,8 +325,10 @@
     ><Icon name="plus" size={14} /> Add {label.toLowerCase()}</Button
   >
 </div>
+{/if}
 
 <style>
+  .bulk-editor-toolbar {display:flex;justify-content:flex-end;padding:var(--space-5) var(--space-9);}
   .multipart-options {
     margin: var(--space-3) 0 var(--space-9) var(--space-24);
   }

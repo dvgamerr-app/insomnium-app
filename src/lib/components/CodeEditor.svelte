@@ -5,6 +5,7 @@
   import { templateEditorRange } from "../template-authoring.js";
   import { isJsonBodyMediaType } from "../media-type.js";
   import { onMount, tick } from "svelte";
+  import { fontPreferencesEvent } from "../font-preferences.js";
   import { editorFontSize } from "../editor-preferences.js";
   import { editorHistoryEvent } from "../editor-history.js";
   import { attachGraphqlHover } from "../editor-hover.js";
@@ -15,7 +16,7 @@
     saveEditorState,
     takeEditorState,
   } from "../editor-state.js";
-  /** @type {{identity:string,value?:string,mode?:string,label?:string,placeholder?:string,readOnly?:boolean,semanticAnnotations?:{identity:string,source:string,diagnostics:Record<string,any>[]},lineDecorations?:{line:number,className:string,gutterText:string,gutterLabel:string}[],maxBytes?:number,onlimit?:()=>void,settings?:Record<string,any>,environment?:Record<string,any>,schema?:import('graphql').GraphQLSchema|null,variableToType?:Record<string,import('graphql').GraphQLInputType>,onnavigate?:(reference:any)=>void,onformat?:()=>void,templateEditor?:()=>ReturnType<typeof import('../template-editor-session.svelte.js').createTemplateEditorSession>,onchange?:(value:string)=>void}} */
+  /** @type {{identity:string,value?:string,mode?:string,label?:string,placeholder?:string,readOnly?:boolean,semanticAnnotations?:{identity:string,source:string,diagnostics:Record<string,any>[]},lineDecorations?:{line:number,className:string,gutterText:string,gutterLabel:string}[],maxBytes?:number,onlimit?:()=>void,settings?:Record<string,any>,environment?:Record<string,any>,schema?:import('graphql').GraphQLSchema|null,variableToType?:Record<string,import('graphql').GraphQLInputType>,onnavigate?:(reference:any)=>void,onformat?:()=>void,templateEditor?:()=>ReturnType<typeof import('../template-editor-session.svelte.js').createTemplateEditorSession>,templateRange?:(source:string,start:number,end:number)=>ReturnType<typeof templateEditorRange>,onchange?:(value:string)=>void}} */
   let {
     identity,
     value = "",
@@ -34,6 +35,7 @@
     onnavigate,
     onformat,
     templateEditor,
+    templateRange,
     onchange = () => {},
   } = $props();
   let textarea = $state(
@@ -50,8 +52,15 @@
     const editor = cm;
     if (!editor) return;
     let active = true;
-    void tick().then(() => { if (active) editor.refresh(); });
-    return () => { active = false; };
+    const refresh = () => { void tick().then(() => {
+      if (!active) return;
+      editor.refresh();
+      if (document.fonts?.status === "loading")
+        void document.fonts.ready.then(() => { if (active) editor.refresh(); });
+    }); };
+    window.addEventListener(fontPreferencesEvent,refresh);
+    refresh();
+    return () => { active = false; window.removeEventListener(fontPreferencesEvent,refresh); };
   });
   let failure = $state("");
   let editingTag = $state(
@@ -78,7 +87,7 @@
       const end = cm
         ? cm.indexFromPos(cm.getCursor("to"))
         : (textarea?.selectionEnd ?? start);
-      const range = templateEditorRange(
+      const range = templateRange ? templateRange(source,start,end) : templateEditorRange(
         source,
         start,
         end,
@@ -157,10 +166,10 @@
           paths,
           force && !editorMode(mode).startsWith("graphql"),
         );
-        if (hints && (isJsonBodyMediaType(mode) || mode === "graphql-variables")) {
+        if (hints && (templateRange || isJsonBodyMediaType(mode) || mode === "graphql-variables")) {
           const source = editor.getValue();
           const offset = editor.indexFromPos(cursor);
-          if (templateEditorRange(source, offset, offset, true).jsonString)
+          if ((templateRange ? templateRange(source,offset,offset) : templateEditorRange(source, offset, offset, true)).jsonString)
             hints.list = hints.list.map((hint) => ({...hint,text:JSON.stringify(hint.text).slice(1,-1)}));
         }
         return hints
@@ -590,7 +599,7 @@
     const editor=cm,factory=templateEditor;
     identity;environment;
     if(!editor||!factory||readOnly||!settings.showVariableSourceAndValue)return;
-    return attachVariablePreview(editor,factory,isJsonBodyMediaType(mode));
+    return attachVariablePreview(editor,factory,templateRange ?? isJsonBodyMediaType(mode));
   });
   $effect(() => {
     if (cm)
@@ -676,6 +685,7 @@
     border: 1px solid var(--line);
     border-radius: var(--radius-group);
     font: var(--font-size-12)/1.6 var(--font-mono);
+    font-variant-ligatures: var(--font-ligatures, normal);
     padding: var(--space-8) var(--space-12);
     box-shadow: var(--editor-popup-shadow);
     max-width: min(600px, calc(100vw - 24px));
@@ -718,6 +728,7 @@
     background: var(--bg);
     color: var(--text);
     font: var(--editor-font-size, var(--font-size-12))/1.6 var(--font-mono);
+    font-variant-ligatures: var(--font-ligatures, normal);
   }
   .shared-code-editor :global(.CodeMirror-gutters) {
     background: var(--bg);

@@ -132,6 +132,12 @@
                   <option value="vertical">Vertical (stacked)</option>
                   <option value="horizontal">Horizontal (side by side)</option>
                 </Select><span class="hint">Narrow panels always stack vertically.</span></Field>
+                <Field label="Interface font" description="Comma-separated font families. Leave blank for the application default.">
+                  <Input placeholder='"Segoe UI", sans-serif' value={settings.fontInterface ?? ""}
+                    onchange={event => updateSettings({fontInterface:event.currentTarget.value})}/></Field>
+                <Field label="Interface font size (px)"><Input type="number" min="8" max="24" step="1"
+                  value={settings.fontSize ?? 12}
+                  onchange={event => { if(event.currentTarget.reportValidity()) updateSettings({fontSize:event.currentTarget.valueAsNumber}); }}/></Field>
                 <Field label="Window zoom"><Select value={settings.windowZoom ?? 1}
                   onchange={event => updateSettings({windowZoom:Number(event.currentTarget.value)})}>
                   {#each [...new Set([0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.5,3,4,5,settings.windowZoom ?? 1])].sort((a,b)=>a-b) as zoom}
@@ -183,6 +189,8 @@
               <h3 id="settings-editor-title">Code editor</h3>
               <p class="hint">Code editors for bodies, scripts and specs.</p>
               <div class="settings-grid">
+                <Field layout="inline" class="checkbox-label"><Checkbox checked={settings.useBulkHeaderEditor === true} onchange={event=>updateSettings({useBulkHeaderEditor:event.currentTarget.checked})}/>Bulk edit headers</Field>
+                <Field layout="inline" class="checkbox-label"><Checkbox checked={settings.useBulkParametersEditor === true} onchange={event=>updateSettings({useBulkParametersEditor:event.currentTarget.checked})}/>Bulk edit query parameters</Field>
                 <Field label="Keymap"
                   ><Dropdown
                     value={settings.editorKeyMap}
@@ -198,6 +206,11 @@
                     ]}
                   /></Field
                 >
+                <Field label="Text editor font" description="Comma-separated font families. Leave blank for the application default.">
+                  <Input placeholder='Consolas, monospace' value={settings.fontMonospace ?? ""}
+                    onchange={event => updateSettings({fontMonospace:event.currentTarget.value})}/></Field>
+                <Field layout="inline" class="checkbox-label"><Checkbox checked={settings.fontVariantLigatures !== false}
+                  onchange={event => updateSettings({fontVariantLigatures:event.currentTarget.checked})}/>Font ligatures</Field>
                 <Field label="Font size (px)"><Input type="number" min="8" max="24" step="1"
                   value={settings.editorFontSize ?? 12}
                   onchange={event => { if (event.currentTarget.reportValidity()) updateSettings({editorFontSize:event.currentTarget.valueAsNumber}); }} /></Field>

@@ -4,6 +4,7 @@
   -webkit-font-smoothing: antialiased;
   font-size: var(--font-size-12);
   font-synthesis: none;
+  font-variant-ligatures: var(--font-ligatures, normal);
 }
 
 * {

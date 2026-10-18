@@ -1,3 +1,4 @@
+import { checkedFontFamily } from "./font-preferences.js";
 /** Compatible, explicitly reviewed preferences. Source records remain portable.
  * @param {Record<string,any>[]} resources @param {string} [sourceId] */
 export function legacyPreferenceCandidate(resources, sourceId) {
@@ -29,6 +30,7 @@ export function legacyPreferenceCandidate(resources, sourceId) {
     ],
     ["editorIndentSize", "editorIndentSize", "Editor indent width", 1, 16],
     ["editorFontSize", "editorFontSize", "Editor font size (px)", 8, 24],
+    ["fontSize", "fontSize", "Interface font size (px)", 8, 24],
   ];
   for (const [source, key, label, min, max] of numbers) {
     if (!Object.hasOwn(record, source)) continue;
@@ -56,6 +58,9 @@ export function legacyPreferenceCandidate(resources, sourceId) {
   const booleans = [
     ["editorIndentWithTabs", "Indent with tabs"],
     ["editorLineWrapping", "Editor line wrapping"],
+    ["fontVariantLigatures", "Font ligatures"],
+    ["useBulkHeaderEditor", "Bulk header editor"],
+    ["useBulkParametersEditor", "Bulk query editor"],
     ["forceVerticalLayout", "Stack request and response vertically"],
     ["proxyEnabled", "Enable app proxy settings"],
     ["followRedirects", "Follow redirects"],
@@ -79,6 +84,14 @@ export function legacyPreferenceCandidate(resources, sourceId) {
       patch[key] = value;
       fields.push({key,label,value});
     } else warnings.push(label + " is preserved without applying an incompatible value.");
+  }
+  for (const [key,label] of [["fontInterface","Interface font"],["fontMonospace","Text editor font"]]) {
+    if (!Object.hasOwn(record,key)) continue;
+    try {
+      const value = checkedFontFamily(record[key]);
+      patch[key] = value;
+      fields.push({key,label,value:value || "Application default"});
+    } catch { warnings.push(label + " is preserved without applying an incompatible value."); }
   }
   if (Object.hasOwn(record, "preferredHttpVersion")) {
     const versions = {default:"default",V1_0:"1.0",V1_1:"1.1",V2PriorKnowledge:"2-prior-knowledge"};

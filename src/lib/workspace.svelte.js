@@ -1,3 +1,4 @@
+import { checkedFontFamily, interfaceFontSize } from "./font-preferences.js";
 import { globalProxySettings } from "./request-proxy.js";
 import {requestHttpVersion} from "./request-http-version.js";
 import {readTextFile,stat} from '@tauri-apps/plugin-fs';
@@ -608,6 +609,22 @@ export function canEditWorkspace() {
 export function updateSettings(patch) {
   if (!canEditWorkspace()) return;
   const next = { ...patch };
+  for(const key of ["useBulkHeaderEditor","useBulkParametersEditor"]) {
+    if(Object.hasOwn(next,key) && typeof next[key] !== "boolean") { workspace.error="Choose a valid bulk editor mode.";return; }
+  }
+  if (Object.hasOwn(next,"fontSize") && (typeof next.fontSize !== "number" || interfaceFontSize(next.fontSize) !== next.fontSize)) {
+    workspace.error = "Interface font size must be a whole number from 8 to 24 px.";
+    return;
+  }
+  for (const key of ["fontInterface","fontMonospace"]) {
+    if (!Object.hasOwn(next,key)) continue;
+    try { next[key] = checkedFontFamily(next[key]); }
+    catch (error) { workspace.error = String(error); return; }
+  }
+  if (Object.hasOwn(next,"fontVariantLigatures") && typeof next.fontVariantLigatures !== "boolean") {
+    workspace.error = "Choose whether font ligatures are enabled.";
+    return;
+  }
   if (["proxyEnabled","proxy","httpProxy","httpsProxy","noProxy"].some(key => Object.hasOwn(next,key))) {
     try { globalProxySettings({...workspace.data.settings,...next}); }
     catch (error) { workspace.error = String(error); return; }

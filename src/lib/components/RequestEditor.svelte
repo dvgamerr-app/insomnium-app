@@ -23,6 +23,7 @@
   import { curlHeadersPatch } from "../curl-headers.js";
   import {
     workspace as app,
+    updateSettings,
     createWorkspaceWorkScope,
   } from "../workspace.svelte.js";
   import GraphqlEditor from "./GraphqlEditor.svelte";
@@ -386,6 +387,10 @@
         />{/if}
     {:else if tab === "Headers"}<KeyValueEditor
         rows={request.headers || []}
+        bulk={app.data.settings.useBulkHeaderEditor === true}
+        identity={request._id+":bulk-headers"} settings={app.data.settings}
+        environment={environmentFor(app.data.resources,request,app.data.activeEnvironmentId)}
+        onbulktoggle={()=>updateSettings({useBulkHeaderEditor:app.data.settings.useBulkHeaderEditor !== true})}
         templateEditor={() => createTemplateEditorSession(request._id)}
         onchange={(headers) => onchange(curlHeadersPatch(request, headers))}
       />
@@ -418,6 +423,10 @@
       {/if}
       <KeyValueEditor
         rows={request.parameters || []}
+        bulk={app.data.settings.useBulkParametersEditor === true}
+        identity={request._id+":bulk-query"} settings={app.data.settings}
+        environment={environmentFor(app.data.resources,request,app.data.activeEnvironmentId)}
+        onbulktoggle={()=>updateSettings({useBulkParametersEditor:app.data.settings.useBulkParametersEditor !== true})}
         templateEditor={() => createTemplateEditorSession(request._id)}
         label="Parameter"
         onchange={(parameters) => onchange({ parameters })}
