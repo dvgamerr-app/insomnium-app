@@ -1,3 +1,4 @@
+import {requestHttpVersion} from "./request-http-version.js";
 import {readTextFile,stat} from '@tauri-apps/plugin-fs';
 import {readPluginImportUri} from './plugin-import-uri.js';
 import {exportPluginInsomnia} from './plugin-data-export.js';
@@ -606,6 +607,10 @@ export function canEditWorkspace() {
 export function updateSettings(patch) {
   if (!canEditWorkspace()) return;
   const next = { ...patch };
+  if (Object.hasOwn(next, "httpVersion")) {
+    try { next.httpVersion = requestHttpVersion(next.httpVersion) ?? "default"; }
+    catch (error) { workspace.error = String(error); return; }
+  }
   if (Object.hasOwn(next, "editorFontSize")) {
     const value = next.editorFontSize;
     if (typeof value !== "number" || !Number.isInteger(value) || value < 8 || value > 24) {

@@ -28,6 +28,7 @@ import {
 import { prepareOAuth1 } from "./oauth1-model.js";
 import { prepareHawk } from "./hawk-model.js";
 import { prepareAsap } from "./asap-model.js";
+import { selectedHttpVersion } from "./request-http-version.js";
 import { requestProxy } from "./request-proxy.js";
 import { requestRedirectLimit } from "./request-redirects.js";
 import { requestTimeouts } from "./request-timeouts.js";
@@ -649,6 +650,7 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
     ntlm,
     netrc,
     oauth: auth.type === "oauth2" && !auth.disabled && !manualAuthorization,
+    httpVersion: selectedHttpVersion(settings, request, url.protocol),
     timeoutMs: Number(settings.timeout),
     ...requestTimeouts(request),
     decodeResponse: request.settingDecodeResponse ?? null,
@@ -747,6 +749,8 @@ export async function send(request, signal) {
     signal.throwIfAborted();
     return result;
   }
+  if (request.httpVersion)
+    throw new Error("HTTP version selection requires the desktop app.");
   if (request.socketPath)
     throw new Error("Unix socket requests require the desktop app.");
   if (request.proxyOverride)

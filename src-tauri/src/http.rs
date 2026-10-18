@@ -13,6 +13,8 @@ pub(crate) mod compression;
 mod multipart_encoding;
 #[path = "http_timeouts.rs"]
 pub(crate) mod timeouts;
+#[path = "http_versions.rs"]
+pub(crate) mod versions;
 
 #[derive(Default)]
 pub struct NetworkState {
@@ -69,6 +71,8 @@ pub struct HttpRequest {
     pub(crate) multipart: Option<Vec<FormPart>>,
     #[serde(default)]
     pub(crate) multipart_content_type: Option<String>,
+    #[serde(default)]
+    pub(crate) http_version: Option<String>,
     pub(crate) timeout_ms: u64,
     #[serde(default)]
     pub(crate) request_timeout_ms: Option<u64>,
@@ -537,6 +541,7 @@ pub(crate) fn build_client(
             builder = builder.timeout(timeout);
         }
     }
+    builder = versions::configure(builder, request.http_version.as_deref(), websocket, request.ntlm.is_some() && !manual_authorization)?;
     if websocket {
         builder = builder.http1_only();
     }
@@ -584,6 +589,9 @@ pub(crate) fn build_request(
     }
     let method = Method::from_bytes(request.method.as_bytes()).map_err(|e| e.to_string())?;
     let mut outgoing = client.request(method, url);
+    if let Some(version) = versions::selected(request.http_version.as_deref())? {
+        outgoing = outgoing.version(version);
+    }
     outgoing = compression::request(
         outgoing,
         request.decode_response,

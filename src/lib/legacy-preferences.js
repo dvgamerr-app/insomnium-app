@@ -75,6 +75,14 @@ export function legacyPreferenceCandidate(resources) {
         label + " is preserved without applying an incompatible value.",
       );
   }
+  if (Object.hasOwn(record, "preferredHttpVersion")) {
+    const versions = {default:"default",V1_0:"1.0",V1_1:"1.1",V2PriorKnowledge:"2-prior-knowledge"};
+    const value = record.preferredHttpVersion;
+    if (typeof value === "string" && Object.hasOwn(versions, value)) {
+      patch.httpVersion = versions[/** @type {keyof typeof versions} */ (value)];
+      fields.push({key:"httpVersion",label:"HTTP version",value:patch.httpVersion});
+    } else warnings.push("Preferred HTTP version is preserved without applying an unsupported value.");
+  }
   if (Object.hasOwn(record, "editorKeyMap")) {
     const value = record.editorKeyMap;
     if (["default", "vim", "emacs", "sublime"].includes(value)) {

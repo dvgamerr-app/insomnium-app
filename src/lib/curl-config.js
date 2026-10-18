@@ -20,7 +20,7 @@ export function curlConfigWords(text, takesValue) {
     if (!match) throw fail();
     const [, name, spacing, separator, , tail] = match;
     if (
-      !/^(?:--?[A-Za-z0-9:-]+|[A-Za-z][A-Za-z0-9-]*)$/.test(name) ||
+      !/^(?:--?[A-Za-z0-9:.-]+|[A-Za-z][A-Za-z0-9.-]*)$/.test(name) ||
       (name.startsWith("-") && separator)
     )
       throw fail();

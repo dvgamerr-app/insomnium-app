@@ -93,6 +93,7 @@ export function initialData() {
       editorLineWrapping: true,
       showVariableSourceAndValue: false,
       autocompleteDelay: 1200,
+      httpVersion: "default",
       timeout: 30000,
       followRedirects: true,
       maxRedirects: 10,

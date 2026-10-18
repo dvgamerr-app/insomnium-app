@@ -1,4 +1,5 @@
 <script>
+  import Select from "./ui/Select.svelte";
   import Icon from "./Icon.svelte";
   import ClientCertificates from "./ClientCertificates.svelte";
   import PluginsPanel from "./PluginsPanel.svelte";
@@ -245,6 +246,11 @@
                 Defaults used when a request does not override them.
               </p>
               <div class="settings-grid">
+                <Field label="HTTP version"><Select value={settings.httpVersion ?? "default"}
+                  onchange={event => updateSettings({httpVersion:event.currentTarget.value})}>
+                  <option value="default">Automatic</option><option value="1.0">HTTP/1.0</option>
+                  <option value="1.1">HTTP/1.1</option><option value="2-prior-knowledge">HTTP/2 (prior knowledge)</option>
+                </Select></Field>
                 <Field label="Request timeout (ms, 0 = unlimited)"
                   ><Input
                     type="number"

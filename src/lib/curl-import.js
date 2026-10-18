@@ -228,6 +228,7 @@ const aliases = /** @type {Record<string, string>} */ ({
   U: "proxy-user",
   m: "max-time",
   T: "upload-file",
+  0: "http1.0",
 });
 const values = new Set([
   "max-redirs",
@@ -256,6 +257,10 @@ const values = new Set([
   "url-query",
 ]);
 const flags = new Set([
+  "http1.0",
+  "http1.1",
+  "http2-prior-knowledge",
+  "proxy-anyauth",
   "proxy-basic",
   "proxy-digest",
   "proxy-ntlm",
@@ -371,7 +376,7 @@ function requestsFor(words, workspaceId, entries, uploadFiles = []) {
   const connectTimeout = curlTimeout(last("connect-timeout"), 300000) || 300000;
   const proxy = last("proxy");
   const proxyUser = last("proxy-user");
-  const proxyAuth = ["basic", "digest", "ntlm"].filter(mode => has("proxy-" + mode));
+  const proxyAuth = ["basic", "digest", "ntlm", "anyauth"].filter(mode => has("proxy-" + mode));
   if (proxyAuth.length > 1)
     throw new Error("Combined cURL proxy authentication modes are not supported.");
   if (proxyAuth.length && !proxy)
@@ -379,6 +384,7 @@ function requestsFor(words, workspaceId, entries, uploadFiles = []) {
   const proxyUrl = curlProxyUrl(proxy ?? "", proxyUser);
   if (proxyAuth.some(mode => mode !== "basic") && !/^https?:/i.test(proxyUrl))
     throw new Error("Digest and NTLM proxy authentication require an HTTP(S) proxy.");
+  const proxyAuthMode = proxyAuth[0] === "anyauth" ? "auto" : proxyAuth[0] ?? "basic";
   if (!urls.length) throw new Error("cURL command has no URL.");
   /** @type {Record<string, any>[]} */
   const headers = [];
@@ -685,10 +691,11 @@ function requestsFor(words, workspaceId, entries, uploadFiles = []) {
       } : structuredClone(body),
       settingFollowRedirects: location ? "on" : "off",
       settingMaxRedirects: maxRedirects,
+      settingHttpVersion: ({"http1.0":"1.0","http1.1":"1.1","http2-prior-knowledge":"2-prior-knowledge"})[entries.filter(e => ["http1.0","http1.1","http2-prior-knowledge"].includes(e.name)).at(-1)?.name || ""] ?? null,
       settingProxy: proxy === undefined ? "global" : proxy === "" ? "off" : "custom",
       settingProxyUrl: proxyUrl,
-      settingProxyBasicAuth: Boolean(proxy) && (proxyAuth[0] ?? "basic") === "basic",
-      settingProxyAuth: proxy ? proxyAuth[0] ?? "basic" : "auto",
+      settingProxyBasicAuth: Boolean(proxy) && proxyAuthMode === "basic",
+      settingProxyAuth: proxy ? proxyAuthMode : "auto",
       settingRequestTimeout: requestTimeout,
       settingConnectTimeout: connectTimeout,
       settingDecodeResponse: entries.filter((e) => ["compressed", "no-compressed"].includes(e.name)).at(-1)?.name === "compressed",
@@ -736,6 +743,7 @@ export function curlRequestPatch(text) {
     body: request.body,
     settingFollowRedirects: request.settingFollowRedirects,
     settingMaxRedirects: request.settingMaxRedirects,
+    settingHttpVersion: request.settingHttpVersion,
     settingProxy: request.settingProxy,
     settingProxyUrl: request.settingProxyUrl,
     settingProxyBasicAuth: request.settingProxyBasicAuth,

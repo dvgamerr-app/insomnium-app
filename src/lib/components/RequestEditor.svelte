@@ -651,6 +651,12 @@
                 })}>I have corrected these request fields</Button
             >
           </Feedback>{/if}
+        <Field label="HTTP version"><Select value={request.settingHttpVersion ?? (request._curlSource ? "default" : "global")}
+          onchange={event => onchange({settingHttpVersion:event.currentTarget.value})}>
+          <option value="global">Use global preference</option>
+          <option value="default">Automatic</option><option value="1.0">HTTP/1.0</option>
+          <option value="1.1">HTTP/1.1</option><option value="2-prior-knowledge">HTTP/2 (prior knowledge)</option>
+        </Select></Field>
         <Field label="Request timeout (ms)"><Input type="number" min="0" max="3600000" step="1"
           placeholder="Global preference; 0 disables timeout"
           value={request.settingRequestTimeout ?? ""}
