@@ -9,9 +9,11 @@ const nativeEventIds=new WeakMap(/** @type {[Event,number][]} */([]));
 const tags=new Set("div span button input textarea label select option p ul ol li pre code strong em small section article header footer h1 h2 h3 table thead tbody tr td th br hr".split(" "));
 const strings=new Set("textContent nodeValue value className id type placeholder title name".split(" "));
 const booleans=new Set(["checked","disabled"]),numbers=new Set(["tabIndex"]);
-const reads=new Set([...strings,...booleans,...numbers,"tagName","nodeType","isConnected"]);
-const relations=new Set("parentNode parentElement firstChild lastChild nextSibling previousSibling".split(" "));
+const reads=new Set([...strings,...booleans,...numbers,"tagName","nodeType","nodeName","isConnected","childElementCount"]);
+const relations=new Set("parentNode parentElement firstChild lastChild nextSibling previousSibling firstElementChild lastElementChild".split(" "));
 const styles=new Set("color backgroundColor padding display fontSize fontWeight width height margin border borderRadius gap flexDirection alignItems justifyContent".split(" "));
+const allowedAttribute=(/** @type {string} */ key)=>key.toLowerCase().startsWith('data-') || /^(aria-[a-z-]+|id|class|type|value|name|title|placeholder|disabled|checked|role|tabindex)$/i.test(key);
+const cssProperties=new Set([...styles].map(key=>key.replace(/[A-Z]/g,value=>'-'+value.toLowerCase())));
 
 /** Actual DOM graph with an explicit trusted owner and retained guest functions.
  * No app-document/window capability or host executable HTML is exposed.
@@ -53,6 +55,43 @@ export function createPluginDomBridge(owner) {
       id=++nodeSequence;ids.set(value,id);nodes.set(id,value);
     }
     return {id,nodeType:value.nodeType};
+  };
+  /** Parse in the template contents' inert owner document, validate the entire
+   * result, then admit it. No parsed node reaches active UI before validation.
+   * @param {string} context @param {string} markup */
+  const parseMarkup=(context,markup)=>{
+    const bytes=new TextEncoder().encode(markup).byteLength;
+    if(textBytes+bytes>8*1024*1024)throw Error('Plugin DOM text limit exceeded');
+    let tokens=0;for(const character of markup)if(character==='<'&&++tokens>8192)throw Error('Plugin DOM markup parse limit exceeded');
+    const template=document.createElement('template');
+    const holder=template.content.ownerDocument.createElement(context);
+    if(holder.ownerDocument.defaultView)throw Error('Unexpected active markup document');
+    holder.innerHTML=markup;
+    const pending=Array.from(holder.childNodes),admitted=/** @type {Node[]} */([]);
+    while(pending.length){
+      const value=pending.pop();if(!value)continue;
+      if(nodes.size+admitted.length>=2048)throw Error('Plugin DOM node limit exceeded');
+      if(value.nodeType===1){
+        const element=/** @type {HTMLElement} */(value);
+        if(element.namespaceURI!=='http://www.w3.org/1999/xhtml'||!tags.has(element.localName))throw Error('Unsupported DOM markup element');
+        for(const attribute of Array.from(element.attributes)){
+          if(attribute.name==='style'){
+            if(/url\s*\(|@import|expression\s*\(/i.test(attribute.value))throw Error('Unsupported DOM style value');
+            for(const declaration of attribute.value.split(';').filter(value=>value.trim())){
+              const colon=declaration.indexOf(':'),name=declaration.slice(0,colon).trim().toLowerCase();
+              if(colon<0||!cssProperties.has(name)||!element.style.getPropertyValue(name))throw Error('Unsupported DOM markup style');
+            }
+          }else if(!allowedAttribute(attribute.name))throw Error('Unsupported DOM markup attribute');
+        }
+      }else if(![3,8].includes(value.nodeType))throw Error('Unsupported DOM markup node');
+      admitted.push(value);pending.push(...Array.from(value.childNodes));
+    }
+    const serialized=holder.innerHTML;
+    charge(new TextEncoder().encode(serialized).byteLength>bytes?serialized:markup);
+    for(const value of admitted)describe(value,true);
+    const fragment=holder.ownerDocument.createDocumentFragment();
+    while(holder.firstChild)fragment.appendChild(holder.firstChild);
+    return fragment;
   };
   const callback=(/** @type {number} */ id)=>{const value=callbacks.get(id);if(!value)throw Error("Unknown owned DOM callback");return value;};
   const report=(/** @type {unknown} */ error)=>{if(!disposed&&!owner.signal.aborted)owner.onError(error);};
@@ -97,6 +136,7 @@ export function createPluginDomBridge(owner) {
       if(cleanup && (closing || owner.signal.aborted || !owner.current()) && !["dom.get","dom.set","dom.node","dom.attribute","dom.style","dom.query","dom.collection","dom.tokens","dom.dataset"].includes(method))throw Error("Plugin DOM cleanup cannot create UI or callbacks");
       if(method==="dom.create") {
         if(args.length!==2 || typeof args[1]!=="string")throw Error("Invalid DOM creation");
+        if(args[0]==="fragment"&&args[1]==="")return describe(document.createDocumentFragment(),true);
         if(args[0]==="text"){charge(args[1]);return describe(document.createTextNode(args[1]),true);}
         if(args[0]!=="element" || !tags.has(args[1].toLowerCase()))throw Error("Unsupported DOM element");
         return describe(document.createElement(args[1]),true);
@@ -141,7 +181,7 @@ export function createPluginDomBridge(owner) {
         if(args.length!==3)throw Error('Invalid DOM collection');
         const [_,kind,filter]=args;
         if(!['children','childNodes','tag','class'].includes(kind)||(['tag','class'].includes(kind)?typeof filter!=='string':filter!==null))throw Error('Invalid DOM collection filter');
-        if(kind!=='childNodes'&&!(target instanceof Element))throw Error('Element collection requires an owned element');
+        if(kind!=='childNodes'&&!(target instanceof Element) && !(kind==='children'&&target instanceof DocumentFragment))throw Error('Element collection requires an owned parent');
         const values=kind==='tag'?target.getElementsByTagName(filter):kind==='class'?target.getElementsByClassName(filter):target[kind];
         return Array.from(values).map(value=>{
           const descriptor=describe(/** @type {Node} */(value),true);
@@ -150,7 +190,9 @@ export function createPluginDomBridge(owner) {
       }
       if(method==="dom.get") {
         if(args.length!==2)throw Error("Invalid DOM read");
-        const key=args[1];if(reads.has(key))return target[key];
+        const key=args[1];
+        if(['innerHTML','outerHTML'].includes(key)&&target instanceof Element){const value=key==='innerHTML'?target.innerHTML:target.outerHTML;if(new TextEncoder().encode(value).byteLength>8*1024*1024)throw Error('Plugin DOM markup read limit exceeded');return value;}
+        if(reads.has(key))return target[key];
         if(relations.has(key))return describe(target[key],!["parentNode","parentElement","nextSibling","previousSibling"].includes(key));
         if(key==="children" || key==="childNodes")return Array.from(target[key]||[]).map(value=>describe(/** @type {Node} */(value),true));
         throw Error("Unsupported DOM property");
@@ -178,7 +220,51 @@ export function createPluginDomBridge(owner) {
       if(method==="dom.node") {
         if(args.length!==3 || !Array.isArray(args[2]))throw Error("Invalid DOM method");
         const [_,name,values]=args;let result;
-        if(["appendChild","removeChild"].includes(name)&&values.length===1)result=target[name](node(values[0]));
+        if(name==='markup'||name==='insertAdjacentHTML'){
+          if(!(target instanceof Element)||values.length!==2||values.some(value=>typeof value!=='string'))throw Error('Invalid DOM markup operation');
+          const [position,markup]=values;
+          if(name==='markup'&&!['innerHTML','outerHTML'].includes(position))throw Error('Invalid DOM markup property');
+          const placement=name==='markup'?(position==='innerHTML'?'contents':'replace'):position.toLowerCase();
+          if(!['contents','replace','beforebegin','afterbegin','beforeend','afterend'].includes(placement))return {exception:{name:'SyntaxError',message:'Invalid insertAdjacentHTML position'}};
+          const sibling=['replace','beforebegin','afterend'].includes(placement),parent=target.parentNode;
+          if(sibling&&!parent){if(placement==='replace')return undefined;return {exception:{name:'NoModificationAllowedError',message:'The element has no parent'}};}
+          if(sibling&&parent&&!ids.has(parent))throw Error('Plugin DOM sibling parent is not owned');
+          const context=sibling?parent:target;
+          const fragment=parseMarkup(context instanceof Element?context.localName:'body',markup);
+          if(placement==='contents')target.replaceChildren(fragment);
+          else if(placement==='replace')target.replaceWith(fragment);
+          else if(placement==='beforebegin'||placement==='afterend'){
+            if(!parent)throw Error('The element has no parent');
+            parent.insertBefore(fragment,placement==='beforebegin'?target:target.nextSibling);
+          }
+          else target.insertBefore(fragment,placement==='afterbegin'?target.firstChild:null);
+          return undefined;
+        }
+        if(['append','prepend','replaceChildren','before','after','replaceWith'].includes(name)) {
+          const parentMethod=['append','prepend','replaceChildren'].includes(name);
+          if(values.length>2048 || (parentMethod ? !(target instanceof Element || target instanceof DocumentFragment) : !(target instanceof Element || target instanceof Text)))throw Error('Invalid variadic DOM method');
+          // Sibling mutations may only operate inside this bridge's graph. The
+          // mounted dialog wrapper is host UI, even when its body is owned.
+          if(!parentMethod&&target.parentNode&&!ids.has(target.parentNode))throw Error('Plugin DOM sibling parent is not owned');
+          const converted=values.map(value=>{
+            if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).length!==1)throw Error('Invalid variadic DOM argument');
+            if(Object.hasOwn(value,'node')&&Number.isSafeInteger(value.node))return node(value.node);
+            if(Object.hasOwn(value,'text')&&typeof value.text==='string')return value.text;
+            throw Error('Invalid variadic DOM argument');
+          });
+          if(!parentMethod&&!target.parentNode)return undefined;
+          const added=converted.filter(value=>typeof value==='string');
+          if(nodes.size+added.length>2048)throw Error('Plugin DOM node limit exceeded');
+          for(const value of added)charge(value);
+          const children=converted.map(value=>{
+            if(typeof value!=='string')return value;
+            const text=document.createTextNode(value);describe(text,true);return text;
+          });
+          try{target[name](...children);return undefined;}
+          catch(error){if(error instanceof DOMException)return {exception:{name:error.name,message:error.message}};throw error;}
+        }
+        if(name==='getElementById'&&target instanceof DocumentFragment&&values.length===1&&typeof values[0]==='string')result=target.getElementById(values[0]);
+        else if(["appendChild","removeChild"].includes(name)&&values.length===1)result=target[name](node(values[0]));
         else if(name==="insertBefore"&&values.length===2)result=target.insertBefore(node(values[0]),values[1]===null?null:node(values[1]));
         else if(name==="replaceChild"&&values.length===2)result=target.replaceChild(node(values[0]),node(values[1]));
         else if(name==="cloneNode"&&values.length===1&&typeof values[0]==="boolean"){if(values[0])charge(target.textContent||"");result=target.cloneNode(values[0]);}
@@ -188,7 +274,7 @@ export function createPluginDomBridge(owner) {
       }
       if(method==="dom.attribute") {
         const [_,name,key,value]=args;
-        if(typeof key!=="string" || !(key.toLowerCase().startsWith('data-') || /^(aria-[a-z-]+|id|class|type|value|name|title|placeholder|disabled|checked|role|tabindex)$/i.test(key)))throw Error("Unsupported DOM attribute");
+        if(typeof key!=="string" || !allowedAttribute(key))throw Error("Unsupported DOM attribute");
         if(name==="setAttribute"&&args.length===4&&typeof value==="string"){charge(value);return target.setAttribute(key,value);}
         if(["getAttribute","removeAttribute","hasAttribute"].includes(name)&&args.length===3)return target[name](key);
         throw Error("Invalid DOM attribute call");

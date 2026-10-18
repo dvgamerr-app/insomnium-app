@@ -177,6 +177,7 @@
     <CodeEditor
       identity={payload._id + ":websocket-message"}
       label="WebSocket message"
+      onformat={isJsonBodyMediaType(payload.mode) ? format : undefined}
       value={payload.value}
       mode={payload.mode === "text" ? "text/plain" : payload.mode}
       settings={app.data.settings}

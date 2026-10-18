@@ -285,15 +285,25 @@ export function wsdlResources(text,options = {}) {
     return [...inherited,...own];
   }
   /** @param {any} context @param {string} name @param {number} depth
-   * @returns {[bigint,bigint|null]|null} */
+   * @returns {[bigint,bigint|null,string]|null} */
   function stringTypeRange(context,name,depth) {
     enter(depth);
     const {node,builtin} = resolveScalarType(context,name);
-    if (builtin) return ['string','normalizedString','token','anyURI'].includes(builtin) ? [0n,null] : null;
+    if (builtin) {
+      if (['string','normalizedString','token','anyURI'].includes(builtin)) return [0n,null,builtin];
+      // These lexical spaces cannot contain the empty string. ASCII x is a
+      // valid name/token; language additionally bounds each hyphenated subtag.
+      return ['language','Name','NCName','NMTOKEN','ID','IDREF','ENTITY'].includes(builtin)
+        ? [1n,null,builtin] : null;
+    }
     const restriction = scalarDerivation(node);
     if (!restriction) return null;
     const base=stringTypeRange(restriction,restriction.getAttribute('base') || '',depth+1);
-    return restriction.localName === 'extension' ? base : stringRestrictionRange(restriction,base);
+    if (!base || restriction.localName === 'extension') return base;
+    if (['language','Name','NCName','NMTOKEN','ID','IDREF','ENTITY'].includes(base[2]))
+      checkCollapsedWhitespace(restriction,'name/token');
+    const range=stringRestrictionRange(restriction,[base[0],base[1]]);
+    return range ? [range[0],range[1],base[2]] : null;
   }
   /** @param {any} restriction @param {string} [kind] */
   function checkCollapsedWhitespace(restriction,kind='list') {
@@ -393,16 +403,26 @@ export function wsdlResources(text,options = {}) {
           }
         }
         if (own.every(child=>stringFacets.includes(child.localName))) {
-          const range = stringRestrictionRange(restriction,
-            stringTypeRange(restriction,restriction.getAttribute('base') || '',depth+1));
+          const stringBase=stringTypeRange(restriction,restriction.getAttribute('base') || '',depth+1);
+          if (stringBase && ['language','Name','NCName','NMTOKEN','ID','IDREF','ENTITY'].includes(stringBase[2]))
+            checkCollapsedWhitespace(restriction,'name/token');
+          const range = stringRestrictionRange(restriction,stringBase ? [stringBase[0],stringBase[1]] : null);
           if (range !== null) {
             const [min,max] = range;
+            const lexicalType=stringBase?.[2];
             let length = min > 6n ? min : 6n;
             if (max !== null && length > max) length = max;
             if (length > 8n*1024n*1024n) throw new Error('WSDL string example exceeds 8 MiB.');
             // ASCII has identical XML-character and UTF8 lengths and satisfies
             // preserve/replace/collapse without introducing whitespace.
-            return bounded('x'.repeat(Number(length)));
+            const size=Number(length);
+            // language follows [a-zA-Z]{1,8}(-[a-zA-Z0-9]{1,8})*.
+            // Reserve a nonempty last subtag, including lengths divisible by9.
+            const blocks=lexicalType === 'language' ? Math.floor((size-1)/9) : 0;
+            const tail=size-blocks*9;
+            return bounded(lexicalType === 'language'
+              ? 'xxxxxxxx-'.repeat(blocks)+(tail === 9 ? 'xxxxxxx-x' : 'x'.repeat(tail))
+              : 'x'.repeat(size));
           }
           const list = listTypeInfo(restriction,restriction.getAttribute('base') || '',depth+1);
           if (list) {

@@ -148,9 +148,10 @@
               <h3 id="settings-shortcuts-title" tabindex="-1">Shortcuts</h3>
               <p class="hint">
                 Ctrl/Cmd + Enter, Ctrl/Cmd + R or F5: send.
-                Ctrl/Cmd + N: new request · + P: filter.
+                Ctrl/Cmd + N: new request · + P: switch requests.
+                Ctrl + Tab / Ctrl + Shift + Tab: recent requests (release Ctrl to open).
                 + L: URL · + E: environment · + K: cookies · + ,: preferences.
-                Ctrl/Cmd + Shift + F: filter.
+                Ctrl/Cmd + Shift + F: format the focused body editor, or filter requests outside an editor.
                 Ctrl/Cmd + Shift + Enter: request options.
                 Ctrl/Cmd + Shift + E: switch environment · + Shift + L: HTTP method.
                 Ctrl/Cmd + D: duplicate request · + Shift + Delete: delete request.

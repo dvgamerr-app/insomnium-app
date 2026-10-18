@@ -52,6 +52,13 @@
   let sourceMessageId = $state("");
   let follow = $state(true);
   export function openSettings() { tab = "Settings"; }
+  function formatBody() {
+    if (selectedSent) return;
+    try {
+      body(jsonPrettify(request.body?.text || '{}',jsonIndent(app.data.settings),false));
+      error='';
+    } catch(e) {error=String(e);}
+  }
   let log = $state(/** @type {HTMLDivElement|undefined} */ (undefined));
   const running = $derived(!!app.running[request._id]);
   const run = $derived(app.grpcRuns[request._id]);
@@ -358,14 +365,7 @@
                 variant="ghost"
                 class="text-button"
                 disabled={!!selectedSent}
-                onclick={() => {
-                  try {
-                    body(jsonPrettify(request.body?.text || "{}", jsonIndent(app.data.settings), false));
-                    error = "";
-                  } catch (e) {
-                    error = String(e);
-                  }
-                }}>Format</Button
+                onclick={formatBody}>Format</Button
               >
               <Button
                 variant="ghost"
@@ -427,6 +427,7 @@
                   templateEditor={() =>
                     createTemplateEditorSession(request._id)}
                   identity={request._id + ":grpc-body"}
+                  onformat={formatBody}
                   value={request.body?.text || ""}
                   mode="application/json"
                   label="gRPC JSON message"

@@ -36,6 +36,7 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import Icon from "$lib/components/Icon.svelte";
   import RequestTree from "$lib/components/RequestTree.svelte";
+  import RequestSwitcher from "$lib/components/RequestSwitcher.svelte";
   import ResourceManager from "$lib/components/ResourceManager.svelte";
   import CookieManager from "$lib/components/CookieManager.svelte";
   import RequestEditor from "$lib/components/RequestEditor.svelte";
@@ -77,7 +78,7 @@
   } from "$lib/workspace.svelte.js";
   import { id, indexWorkspaces, protocolFor, historyMatchesEnvironment } from "$lib/model.js";
   import { orderedChildren } from "$lib/resources.js";
-  import { pinnedRequests, requestMeta } from "$lib/request-meta.js";
+  import { pinnedRequests, recentRequests, requestMeta } from "$lib/request-meta.js";
   import { curlRequestPatch, isCurlImport } from "$lib/curl-import.js";
   import { pickImport, parseImport, exportData, pickLegacyResponseHistory, pickLegacyRequestFiles, pickLegacyCertificateFiles } from "$lib/import-export.js";
   import { reviewImportedHistory, applyImportedData } from "$lib/import-history-review.js";
@@ -113,6 +114,14 @@
   let importRevision = 0;
   let managedId = $state("");
   let mainView = $state("requests");
+  let switcher=$state.raw(/** @type {{entries:Record<string,any>[],initialIndex:number,recent:boolean,data:typeof app.data,collectionId:string}|null} */(null));
+  function openSwitcher(recent=false,reverse=false){
+    const rows=recentRequests(app.data.resources,app.data.activeWorkspaceId);
+    const active=rows.find(row=>row._id===app.data.activeRequestId);
+    const entries=active?[active,...rows.filter(row=>row!==active)]:rows;
+    switcher={entries,initialIndex:recent&&entries.length>1?(reverse?entries.length-1:1):0,recent,data:app.data,collectionId:app.data.activeWorkspaceId};
+  }
+  $effect(()=>{if(switcher&&(!app.ready||editingBlocked||app.data!==switcher.data||app.data.activeWorkspaceId!==switcher.collectionId||mainView!=='requests'))switcher=null;});
   const collectionMeta = $derived(app.data.resources.find((r) => r._type === "workspace_meta" && r.parentId === app.data.activeWorkspaceId));
   const sidebarHidden = $derived(collectionMeta?.sidebarHidden === true);
   const sidebarFilter = $derived(typeof collectionMeta?.sidebarFilter === "string" ? collectionMeta.sidebarFilter : "");
@@ -487,7 +496,9 @@
       !(modifier || plainF5 || variableDisplayChord)
     )
       return;
-    if (variableDisplayChord) {
+    if (event.ctrlKey && !event.metaKey && key === "tab" && mainView === "requests") {
+      event.preventDefault();openSwitcher(true,event.shiftKey);
+    } else if (variableDisplayChord) {
       event.preventDefault();updateSettings({showVariableSourceAndValue:!app.data.settings.showVariableSourceAndValue});
     } else if (event.shiftKey && key === "r") {
       event.preventDefault();
@@ -579,8 +590,7 @@
       toggleRequestPin(request._id);
     } else if (!event.shiftKey && key === "p" && mainView === "requests") {
       event.preventDefault();
-      setSidebarHidden(false);
-      void tick().then(() => { if (mainView === "requests") filterInput?.focus(); });
+      openSwitcher();
     } else if (!event.shiftKey && key === "s") {
       event.preventDefault();
       void persist();
@@ -593,6 +603,12 @@
 <TemplateFieldDialogHost />
 <PluginDomDialogHost />
 <svelte:window onkeydown={keyboard} />
+{#if switcher}<RequestSwitcher entries={switcher.entries} initialIndex={switcher.initialIndex} recent={switcher.recent}
+  onclose={()=>switcher=null} onselect={requestId=>{
+    const opening=switcher;switcher=null;
+    if(opening&&app.ready&&canEditWorkspace()&&app.data===opening.data&&app.data.activeWorkspaceId===opening.collectionId&&
+      recentRequests(app.data.resources,opening.collectionId).some(row=>row._id===requestId))selectRequest(requestId);
+  }}/>{/if}
 <svelte:head
   ><title>{collection?.name || "Insomnium"} · Insomnium</title></svelte:head
 >

@@ -778,6 +778,19 @@ export function selectRequest(requestId) {
     activateCollection(collectionId);
   }
   workspace.data.activeRequestId = requestId;
+  if (requestId) {
+    const selected = workspace.data.resources.find(r => r._id === requestId);
+    if (selected) {
+      const meta = requestPinMeta(workspace.data.resources,selected);
+      let lastActive = Date.now();
+      for (const row of workspace.data.resources)
+        if (['request_meta','grpc_request_meta'].includes(row._type) &&
+            Number.isSafeInteger(row.lastActive) && row.lastActive >= lastActive && row.lastActive < Number.MAX_SAFE_INTEGER)
+          lastActive = row.lastActive + 1;
+      if (meta) { meta.lastActive = lastActive; meta.modified = Date.now(); }
+      else workspace.data.resources.push({...withRequestPin(undefined,selected,false),lastActive});
+    }
+  }
   rememberRequest(workspace.data, collectionId, requestId);
   refreshHttpResponses();
   if (requestId && !workspace.data.openTabs.includes(requestId))

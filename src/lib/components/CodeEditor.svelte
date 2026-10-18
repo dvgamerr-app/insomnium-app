@@ -13,7 +13,7 @@
     saveEditorState,
     takeEditorState,
   } from "../editor-state.js";
-  /** @type {{identity:string,value?:string,mode?:string,label?:string,placeholder?:string,readOnly?:boolean,semanticAnnotations?:{identity:string,source:string,diagnostics:Record<string,any>[]},lineDecorations?:{line:number,className:string,gutterText:string,gutterLabel:string}[],maxBytes?:number,onlimit?:()=>void,settings?:Record<string,any>,environment?:Record<string,any>,schema?:import('graphql').GraphQLSchema|null,variableToType?:Record<string,import('graphql').GraphQLInputType>,onnavigate?:(reference:any)=>void,templateEditor?:()=>ReturnType<typeof import('../template-editor-session.svelte.js').createTemplateEditorSession>,onchange?:(value:string)=>void}} */
+  /** @type {{identity:string,value?:string,mode?:string,label?:string,placeholder?:string,readOnly?:boolean,semanticAnnotations?:{identity:string,source:string,diagnostics:Record<string,any>[]},lineDecorations?:{line:number,className:string,gutterText:string,gutterLabel:string}[],maxBytes?:number,onlimit?:()=>void,settings?:Record<string,any>,environment?:Record<string,any>,schema?:import('graphql').GraphQLSchema|null,variableToType?:Record<string,import('graphql').GraphQLInputType>,onnavigate?:(reference:any)=>void,onformat?:()=>void,templateEditor?:()=>ReturnType<typeof import('../template-editor-session.svelte.js').createTemplateEditorSession>,onchange?:(value:string)=>void}} */
   let {
     identity,
     value = "",
@@ -30,6 +30,7 @@
     schema = null,
     variableToType,
     onnavigate,
+    onformat,
     templateEditor,
     onchange = () => {},
   } = $props();
@@ -348,6 +349,8 @@
               if (templateEditor) editTemplateTag();
               else return CodeMirror.Pass;
             },
+            "Shift-Ctrl-F": () => { if (readOnly || !onformat) return CodeMirror.Pass; onformat(); },
+            "Shift-Cmd-F": () => { if (readOnly || !onformat) return CodeMirror.Pass; onformat(); },
             "Ctrl-F": "findPersistent",
             "Cmd-F": "findPersistent",
             "Ctrl-Q": "foldCode",
@@ -591,6 +594,12 @@
     {value}
     {placeholder}
     readonly={readOnly}
+    onkeydown={event => {
+      if (!event.defaultPrevented && !event.isComposing && !event.repeat && !event.altKey &&
+          (event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "f" && !readOnly && onformat) {
+        event.preventDefault(); onformat();
+      }
+    }}
     spellcheck="false"
     oninput={(event) => {
       if (

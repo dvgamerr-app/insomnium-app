@@ -20,6 +20,19 @@ export function pinnedRequests(resources, workspaceId) {
     workspaceFor(resources, r._id) === workspaceId && requestPinMeta(resources, r)?.pinned === true);
 }
 
+/** Legacy lastActive metadata determines request-switch order without changing
+ * authored request modification times or exposing other collections.
+ * @param {Record<string,any>[]} resources @param {string} workspaceId
+ * @returns {Record<string,any>[]} */
+export function recentRequests(resources, workspaceId) {
+  const metadata = new Map(resources.filter(r => ['request_meta','grpc_request_meta'].includes(r._type)).map(r => [r.parentId,r]));
+  return resources.filter(r => ['request','websocket_request','grpc_request'].includes(r._type) &&
+    workspaceFor(resources,r._id) === workspaceId).map(request => {
+      const value=metadata.get(request._id)?.lastActive;
+      return {...request,lastActive:typeof value === 'number' && Number.isFinite(value) ? value : 0};
+    }).sort((a,b)=>b.lastActive-a.lastActive);
+}
+
 /** @param {Record<string,any>|undefined} meta @param {Record<string,any>} request @param {boolean} pinned */
 export function withRequestPin(meta, request, pinned) {
   const grpc = request._type === "grpc_request";

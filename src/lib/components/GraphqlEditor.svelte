@@ -24,6 +24,7 @@
   } from "../graphql-editor.js";
   import { environmentFor } from "../model.js";
   import { printType } from "graphql";
+  import { jsonPrettify, jsonIndent } from "../json-prettify.js";
   import {
     readGraphqlBody,
     formatQuery,
@@ -193,6 +194,19 @@
     message = "";
     error = "";
   }
+  function formatQueryBody() {
+    if (content.error) return;
+    try { change({query:formatQuery(content.body.query || '')});error=''; }
+    catch(e) {error=String(e);}
+  }
+  function formatVariables() {
+    if (content.error) return;
+    try {
+      const value=content.body.variables;
+      change({variables:jsonPrettify(typeof value === 'string' ? value : JSON.stringify(value ?? {}),jsonIndent(workspace.data.settings),false)});
+      error='';
+    } catch(e) {error=String(e);}
+  }
   let validating = $state(false);
   /** @type {AbortController | undefined} */
   let validationController;
@@ -301,13 +315,7 @@
     <Button
       variant="ghost"
       disabled={Boolean(content.error)}
-      onclick={() => {
-        try {
-          change({ query: formatQuery(content.body.query || "") });
-        } catch (e) {
-          error = String(e);
-        }
-      }}>Format</Button
+      onclick={formatQueryBody}>Format</Button
     >
     <Button
       variant="ghost"
@@ -403,6 +411,7 @@
             mode="graphql"
             onnavigate={navigate}
             label="GraphQL query"
+            onformat={formatQueryBody}
             value={content.body.query || ""}
             {schema}
             settings={workspace.data.settings}
@@ -423,6 +432,7 @@
             mode="graphql-variables"
             variableToType={variableTypes}
             label="GraphQL variables"
+            onformat={formatVariables}
             value={typeof content.body.variables === "string"
               ? content.body.variables
               : JSON.stringify(content.body.variables ?? {}, null, 2)}

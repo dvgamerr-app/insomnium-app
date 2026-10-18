@@ -134,8 +134,8 @@ for (const clientStreaming of sourceOnly || legacyIdsOnly ? [] : [false,true]) a
   await page.getByRole("button", {name:"Load methods", exact:true}).click();
   if (!clientStreaming) {
     const editor = page.getByRole("region", {name:"Body editor", exact:true}).locator(".CodeMirror");
-    await editor.evaluate(element => /** @type {any} */ (element).CodeMirror.setValue('}'));
-    await page.getByRole("button", {name:"Format", exact:true}).click();
+    await editor.evaluate(element => {const cm=/** @type {any} */ (element).CodeMirror;cm.setValue('}');cm.focus();});
+    await page.keyboard.press('Control+Shift+f');
     await page.locator(".inline-error").filter({hasText:"JSON formatting nesting"}).waitFor();
   }
   await page.getByRole("button", {name:"Use example", exact:true}).click();

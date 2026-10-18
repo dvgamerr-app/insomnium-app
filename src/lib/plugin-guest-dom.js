@@ -556,6 +556,9 @@ export function createPluginGuestDom(call,retain,now) {
       call("dom.unlisten",[idOf(this),type,list[index].id,capture]);list.splice(index,1);
     }
   }
+  ['ELEMENT_NODE','ATTRIBUTE_NODE','TEXT_NODE','CDATA_SECTION_NODE','ENTITY_REFERENCE_NODE','ENTITY_NODE','PROCESSING_INSTRUCTION_NODE','COMMENT_NODE','DOCUMENT_NODE','DOCUMENT_TYPE_NODE','DOCUMENT_FRAGMENT_NODE','NOTATION_NODE'].forEach((name,index)=>{
+    for(const target of [GuestNode,GuestNode.prototype])Object.defineProperty(target,name,{value:index+1,enumerable:true});
+  });
   class GuestElement extends GuestNode {
     get dataset(){if(!elements.has(this))throw new TypeError('Illegal dataset receiver');if(!datasetObjects.has(this))datasetObjects.set(this,dataset(idOf(this)));return datasetObjects.get(this);}
     get classList(){
@@ -582,31 +585,74 @@ export function createPluginGuestDom(call,retain,now) {
       set:(_,key,value)=>{call("dom.style",[id,"set",String(key),String(value)]);return true;},
     });styleObjects.set(this,style);return style;}
   }
+  const fragments=new WeakSet();
+  class GuestDocumentFragment extends GuestNode {
+    /** @param {symbol} [token] @param {number} [id] */
+    constructor(token=undefined,id=0){
+      if(token===secret){super(token,id);fragments.add(this);}
+      else {
+        const descriptor=call('dom.create',['fragment','']);
+        super(secret,descriptor.id);fragments.add(this);nodes.set(descriptor.id,this);
+      }
+    }
+    /** @param {string} query */querySelector(query){if(!arguments.length)throw new TypeError('Missing selector');return wrap(call('dom.query',[idOf(this),domString(query),false]));}
+    /** @param {string} query */querySelectorAll(query){if(!arguments.length)throw new TypeError('Missing selector');const rows=call('dom.query',[idOf(this),domString(query),true]);return collection('NodeList',()=>rows);}
+    /** @param {string} name */getElementById(name){if(!arguments.length)throw new TypeError('Missing element ID');return wrap(call('dom.node',[idOf(this),'getElementById',[domString(name)]]));}
+  }
+  Object.defineProperty(GuestDocumentFragment.prototype,Symbol.toStringTag,{value:'DocumentFragment',configurable:true});
+  // Convert the complete variadic input before one native mutation, preserving
+  // node identity and WebIDL DOMString conversion without accepting raw IDs.
+  for(const [prototype,methods] of /** @type {[object,string[]][]} */([[GuestElement.prototype,['append','prepend','replaceChildren']],[GuestDocumentFragment.prototype,['append','prepend','replaceChildren']],[GuestNode.prototype,['before','after','replaceWith']]])) {
+    for(const method of methods)Object.defineProperty(prototype,method,{configurable:true,writable:true,enumerable:true,value:function(/** @type {any[]} */...values){
+      const id=idOf(this);
+      if(prototype===GuestElement.prototype&&!elements.has(this))throw new TypeError('Illegal ParentNode receiver');
+      if(prototype===GuestDocumentFragment.prototype&&!fragments.has(this))throw new TypeError('Illegal DocumentFragment receiver');
+      if(values.length>2048)throw Error('Plugin DOM node limit exceeded');
+      const args=values.map(value=>ids.has(value)?{node:idOf(value)}:{text:domString(value)});
+      const result=call('dom.node',[id,method,args]);
+      if(result?.exception)throw new DOMException(result.exception.message,result.exception.name);
+    }});
+  }
   /** @param {any} descriptor @returns {any} */
   function wrap(descriptor) {
     if(descriptor===null)return null;
     const {id,nodeType}=descriptor;
     if(nodes.has(id))return nodes.get(id);
-    const node=new (nodeType===1?GuestElement:GuestNode)(secret,id);if(nodeType===1)elements.add(node);nodes.set(id,node);return node;
+    const node=new (nodeType===1?GuestElement:nodeType===11?GuestDocumentFragment:GuestNode)(secret,id);if(nodeType===1)elements.add(node);nodes.set(id,node);return node;
   }
-  for(const key of ["textContent","nodeValue","value","checked","disabled","className","id","type","placeholder","title","name","tabIndex","tagName","nodeType","isConnected"]) {
+  for(const key of ["textContent","nodeValue","value","checked","disabled","className","id","type","placeholder","title","name","tabIndex","tagName","nodeType","nodeName","isConnected"]) {
     Object.defineProperty(GuestNode.prototype,key,{get(){return call("dom.get",[idOf(this),key]);},set(value){call("dom.set",[idOf(this),key,value]);}});
   }
   for(const key of ["parentNode","parentElement","firstChild","lastChild","nextSibling","previousSibling"])
     Object.defineProperty(GuestNode.prototype,key,{get(){return wrap(call("dom.get",[idOf(this),key]));}});
-  for(const key of ["children","childNodes"])
-    Object.defineProperty(key==='children'?GuestElement.prototype:GuestNode.prototype,key,{get(){
+  for(const [prototype,key] of /** @type {[object,string][]} */([[GuestElement.prototype,'children'],[GuestDocumentFragment.prototype,'children'],[GuestNode.prototype,'childNodes']]))
+    Object.defineProperty(prototype,key,{get(){
       let cache=liveCollections.get(this);if(!cache){cache=new Map();liveCollections.set(this,cache);}
       if(!cache.has(key))cache.set(key,collection(key==='children'?'HTMLCollection':'NodeList',()=>call('dom.collection',[idOf(this),key,null])));
       return cache.get(key);
     }});
+  for(const prototype of [GuestElement.prototype,GuestDocumentFragment.prototype]){
+    Object.defineProperty(prototype,'childElementCount',{get(){return call('dom.get',[idOf(this),'childElementCount']);}});
+    for(const key of ['firstElementChild','lastElementChild'])Object.defineProperty(prototype,key,{get(){return wrap(call('dom.get',[idOf(this),key]));}});
+  }
   const document=Object.freeze({
+    createDocumentFragment:()=>new GuestDocumentFragment(),
     createElement:(/** @type {string} */ tag)=>wrap(call("dom.create",["element",tag])),
     createTextNode:(/** @type {string} */ text)=>wrap(call("dom.create",["text",String(text)])),
   });
   Object.defineProperty(GuestNode.prototype,"ownerDocument",{get(){return document;}});
   for(const key of ["innerHTML","outerHTML"])
-    Object.defineProperty(GuestElement.prototype,key,{get(){throw Error("HTML content is not bridged yet");},set(){throw Error("HTML content is not bridged yet");}});
+    Object.defineProperty(GuestElement.prototype,key,{get(){if(!elements.has(this))throw new TypeError('Illegal HTML receiver');return call('dom.get',[idOf(this),key]);},set(value){
+      if(!elements.has(this))throw new TypeError('Illegal HTML receiver');
+      const result=call('dom.node',[idOf(this),'markup',[key,value===null?'':domString(value)]]);
+      if(result?.exception)throw new DOMException(result.exception.message,result.exception.name);
+    }});
+  Object.defineProperty(GuestElement.prototype,'insertAdjacentHTML',{configurable:true,writable:true,enumerable:true,value:function(/** @type {any} */ position,/** @type {any} */ text){
+    if(!elements.has(this))throw new TypeError('Illegal HTML receiver');
+    if(arguments.length<2)throw new TypeError('Position and markup are required');
+    const result=call('dom.node',[idOf(this),'insertAdjacentHTML',[domString(position),domString(text)]]);
+    if(result?.exception)throw new DOMException(result.exception.message,result.exception.name);
+  }});
   const propertyHandlers=new WeakMap();
   for(const type of ['click','input','change','keydown','keyup','focus','blur'])Object.defineProperty(GuestElement.prototype,'on'+type,{enumerable:true,configurable:true,get(){if(!elements.has(this))throw new TypeError('Illegal event handler receiver');return propertyHandlers.get(this)?.get(type)?.listener??null;},set(listener){
     if(!elements.has(this))throw new TypeError('Illegal event handler receiver');
@@ -616,7 +662,7 @@ export function createPluginGuestDom(call,retain,now) {
     const row={listener:value,id:0};row.id=retain(packet=>{const event=nativeEvent(packet),data=eventState(event);try{const result=row.listener.call(this,event);if(result===false)event.preventDefault();return undefined;}finally{eventCheckpoints.at(-1)?.add(data);}});
     call('dom.handler',[idOf(this),type,row.id]);list.set(type,row);propertyHandlers.set(this,list);
   }});
-  for(const [constructor,name] of /** @type {[any,string][]} */([[GuestNode,'Node'],[GuestElement,'HTMLElement'],[GuestNodeList,'NodeList'],[GuestHTMLCollection,'HTMLCollection'],[GuestDOMTokenList,'DOMTokenList'],[GuestDOMStringMap,'DOMStringMap'],[DOMException,'DOMException']])){
+  for(const [constructor,name] of /** @type {[any,string][]} */([[GuestNode,'Node'],[GuestElement,'HTMLElement'],[GuestDocumentFragment,'DocumentFragment'],[GuestNodeList,'NodeList'],[GuestHTMLCollection,'HTMLCollection'],[GuestDOMTokenList,'DOMTokenList'],[GuestDOMStringMap,'DOMStringMap'],[DOMException,'DOMException']])){
     objectDefine(constructor,'name',{value:name});objectDefine(constructor,'length',{value:0});
   }
   objectDefine(Reflect,'defineProperty',{value:({defineProperty(/** @type {any} */ target,/** @type {any} */ key,/** @type {any} */ descriptor){
@@ -639,7 +685,7 @@ export function createPluginGuestDom(call,retain,now) {
     for(const [key,descriptor] of definitions)if(!defineOwned(target,key,descriptor,true))throw new TypeError('Cannot define property');
     return target;
   }}).defineProperties});
-  return Object.freeze({document,window:guestWindow,self:guestWindow,...eventClasses,Node:GuestNode,HTMLElement:GuestElement,NodeList:GuestNodeList,HTMLCollection:GuestHTMLCollection,DOMTokenList:GuestDOMTokenList,DOMStringMap:GuestDOMStringMap,DOMException,beginEventCheckpoint,finishEventCheckpoint,
+  return Object.freeze({document,window:guestWindow,self:guestWindow,...eventClasses,Node:GuestNode,HTMLElement:GuestElement,DocumentFragment:GuestDocumentFragment,NodeList:GuestNodeList,HTMLCollection:GuestHTMLCollection,DOMTokenList:GuestDOMTokenList,DOMStringMap:GuestDOMStringMap,DOMException,beginEventCheckpoint,finishEventCheckpoint,
     /** @param {()=>boolean} current */app(current){return Object.freeze({
       /** @param {string} title @param {any} body @param {any} [options] */
       dialog(title,body,options={}) {

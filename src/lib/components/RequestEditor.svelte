@@ -362,6 +362,7 @@
               .mimeType}.</Feedback
           >{/if}<CodeEditor
           bind:this={bodyCodeEditor}
+          onformat={isJsonBodyMediaType(request.body?.mimeType) ? format : xmlBody ? () => { if (!formatting) formatXml(); } : undefined}
           templateEditor={() => createTemplateEditorSession(request._id)}
           identity={request._id + ":body"}
           value={request.body.text || ""}

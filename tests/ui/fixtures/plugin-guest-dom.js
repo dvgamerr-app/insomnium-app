@@ -27,9 +27,41 @@ const privateClockHidden=!Object.hasOwn(globalThis,'__pluginEventClock');
 const privateCheckpointsHidden=!Object.hasOwn(globalThis,'__pluginInstallEventCheckpoints')&&!Object.hasOwn(__pluginGuestDom,'beginEventCheckpoint')&&!Object.hasOwn(__pluginGuestDom,'finishEventCheckpoint');
 const captured={define:Object.defineProperty,defines:Object.defineProperties,reflect:Reflect.defineProperty};
 exports.templateTags=[{name:'dom',run(c,label){
-  const body=document.createElement('div'),button=document.createElement('button'),input=document.createElement('input'),status=document.createElement('span');
+  const body=document.createElement('div'),controls=document.createElement('div');
+  controls.innerHTML='<button></button><input><span></span>';
+  const button=controls.querySelector('button'),input=controls.querySelector('input'),status=controls.querySelector('span');
   button.textContent='Guest DOM click';input.setAttribute('aria-label','Guest DOM input');status.setAttribute('role','status');status.textContent='waiting';
-  body.appendChild(button);body.appendChild(input);body.appendChild(status);body.style.padding='12px';
+  button.addEventListener('click',clicked);
+  const fragment=document.createDocumentFragment(),liveChildren=fragment.children;
+  input.id='owned-fragment-input';fragment.append(button,input,status);
+  if(!(fragment instanceof DocumentFragment)||!(fragment instanceof Node)||fragment instanceof HTMLElement||fragment.nodeType!==Node.DOCUMENT_FRAGMENT_NODE||fragment.nodeName!=='#document-fragment'||fragment.ownerDocument!==document)throw Error('Fragment brand/owner mismatch');
+  if(liveChildren!==fragment.children||liveChildren.length!==3||fragment.firstElementChild!==button||fragment.lastElementChild!==status||fragment.childElementCount!==3||fragment.getElementById(input.id)!==input||fragment.querySelector('input')!==input||fragment.querySelectorAll('input')[0]!==input)throw Error('Fragment lookup/collection mismatch');
+  if(body.appendChild(fragment)!==fragment||liveChildren.length||fragment.childNodes.length||button.parentNode!==body)throw Error('Fragment transfer did not preserve identity or empty source');
+  const constructed=new DocumentFragment();constructed.prepend('ไทย');const clone=constructed.cloneNode(true);
+  if(!(clone instanceof DocumentFragment)||clone===constructed||clone.textContent!=='ไทย'||constructed.textContent!=='ไทย')throw Error('Fragment constructor/clone mismatch');
+  clone.replaceChildren();if(clone.childElementCount||clone.childNodes.length)throw Error('Fragment clear failed');
+  body.style.padding='12px';
+  const mutations=document.createElement('div'),member=document.createElement('span');
+  if(mutations.append('tail')!==undefined)throw Error('append must return undefined');
+  mutations.prepend(member,'head');member.after('after');member.before('before');member.replaceWith('replace');
+  if(mutations.textContent!=='beforereplaceafterheadtail')throw Error('Variadic sibling order mismatch');
+  mutations.replaceChildren(member,member,'<b>literal</b>',null,undefined,7);
+  if(mutations.firstChild!==member||mutations.childNodes.length!==5||mutations.textContent!=='<b>literal</b>nullundefined7')throw Error('Variadic conversion/identity mismatch');
+  let symbols=false;try{mutations.append(Symbol('invalid'));}catch(e){symbols=e instanceof TypeError;}
+  if(!symbols||mutations.childNodes.length!==5)throw Error('Symbol conversion must refuse before mutation');
+  mutations.replaceChildren();if(mutations.childNodes.length)throw Error('Empty replaceChildren must clear');
+  mutations.innerHTML='<p style="color: red"><strong>markup &amp; text</strong><!--owned--></p>';
+  const paragraph=mutations.querySelector('p'),strong=paragraph.querySelector('strong');
+  strong.insertAdjacentHTML('beforebegin','<span>before</span>');strong.insertAdjacentHTML('AFTEREND','<em>after</em>');
+  paragraph.insertAdjacentHTML('afterbegin','start');paragraph.insertAdjacentHTML('beforeend','end');
+  if(paragraph.textContent!=='startbeforemarkup & textafterend'||!paragraph.outerHTML.includes('&amp;'))throw Error('HTML parsing/adjacent positions/serialization mismatch');
+  const originalMarkup=mutations.innerHTML;let rejected=false;
+  try{mutations.innerHTML='<p onclick="leaked=true">rejected</p>';}catch{rejected=true;}
+  if(!rejected||mutations.innerHTML!==originalMarkup||mutations.querySelector('p')!==paragraph)throw Error('Rejected HTML must preserve the complete original tree');
+  paragraph.outerHTML='<section>replacement</section>';
+  if(paragraph.parentNode!==null||mutations.firstElementChild.tagName!=='SECTION'||mutations.textContent!=='replacement')throw Error('outerHTML replacement mismatch');
+  const table=document.createElement('table');table.innerHTML='<tr><td>cell</td></tr>';
+  if(table.querySelector('tbody td').textContent!=='cell')throw Error('HTML table context mismatch');
   const parent=button.parentNode===body,queried=body.querySelector('input')===input,style=body.style===body.style;
   let clicks=0;
   function clicked(event){status.textContent=label+':'+(++clicks)+':'+(this===button)+':'+(event.target===button)+':'+(event.currentTarget===button)+':'+c.app.getInfo().version;}
