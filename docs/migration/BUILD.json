@@ -3635,10 +3635,29 @@
       },
       "evidence": "artifacts/rpm-archive-size-20261019/primary/verification.json",
       "notVerified": [
+        "Fedora44 isolated maintained runtime baseline; not pristine fresh image dependency proof",
+        "DNF installed206/upgraded4/replaced4 in its normal transaction; package DB/dependency updates not claimed restored to original image",
+        "Nonroot Xvfb process/ABI startup only, with portal GTK display warnings; no UI/chooser/GPU/IPC/graceful-close acceptance",
+        "Opaque WebKit/cache profile hashes, not real collection/workspace/schema data-retention or version-upgrade acceptance",
+        "Signing/other distros/architectures/platforms/hosted CI/full PLAN/PARITY/legal/source/linkage gates remain open"
+      ],
+      "fullMigrationComplete": false,
+      "historicalNotVerifiedBeforeRuntime": [
         "Real signed package/authenticity verification, install/upgrade/uninstall/runtime/provider/platform",
         "All retained PLAN/PARITY/legal/source/linkage/release gates"
       ],
-      "fullMigrationComplete": false
+      "runtimeAcceptance": {
+        "evidence": "artifacts/rpm-production-lifecycle-20261019/verification.json",
+        "platform": "Fedora44/x86_64 retained isolated container",
+        "installExitCode": 0,
+        "installedFilesVerified": 1677,
+        "nonrootProcessStartup": true,
+        "installedSpectralDefaultReply": true,
+        "removeExitCode": 0,
+        "packageFilesRemaining": 0,
+        "oldProfileFilesPreserved": 74,
+        "newOpaqueProfileFilesPreserved": 65
+      }
     }
   ]
 }
