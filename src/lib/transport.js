@@ -29,6 +29,7 @@ import { prepareHawk } from "./hawk-model.js";
 import { prepareAsap } from "./asap-model.js";
 import { requestProxy } from "./request-proxy.js";
 import { requestTimeouts } from "./request-timeouts.js";
+import { assertCurlHeaderFiles } from "./curl-headers.js";
 
 /** @param {Uint8Array} bytes */
 export function encodeBase64(bytes) {
@@ -113,6 +114,7 @@ export function prepareRenderedRequest(data, request, runId, options = {}) {
 /** @param {Record<string,any>} data @param {Record<string,any>} request @param {string} runId
  * @param {(value:unknown)=>string} resolve @param {()=>string} resolvedOAuthHeader */
 function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
+  assertCurlHeaderFiles(request.headers);
   if (request.settingDecodeResponse != null && typeof request.settingDecodeResponse !== "boolean")
     throw new Error("Choose a valid response decompression setting in Settings.");
   if (request.settingValidateCertificates != null &&

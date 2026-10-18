@@ -12,6 +12,7 @@
   import Icon from "./Icon.svelte";
   import { createWorkspaceWorkScope } from "../workspace.svelte.js";
   import { readUpload } from "../uploads.js";
+  import { readCurlHeaderFile, resolveCurlHeaderFile } from "../curl-headers.js";
   import { isUtf8PlainTextMediaType } from "../media-type.js";
   /** @type {{ rows: Record<string, any>[], onchange: (rows: Record<string, any>[]) => void, label?: string, files?: boolean, templateEditor?:()=>ReturnType<import('../template-editor-session.svelte.js').createTemplateEditorSession> }} */
   let {
@@ -71,6 +72,7 @@
     if (!file) return;
     const original = rows[index];
     if (!original) return;
+    const originalRows = rows;
     const selection = Symbol();
     selections.set(original, selection);
     /** @type {import("../workspace.svelte.js").ScopedWorkspaceWork|undefined} */ let work;
@@ -78,12 +80,13 @@
       alive &&
       (!work || work.current()) &&
       rows[index] === original &&
+      (!original._curlHeaderFile || rows === originalRows) &&
       selections.get(original) === selection;
     try {
       work = fileWork.begin();
       let upload;
       try {
-        upload = await readUpload(file);
+        upload = original._curlHeaderFile ? await readCurlHeaderFile(file) : await readUpload(file);
       } catch (cause) {
         if (current()) fileErrors = [
           ...fileErrors.filter((failure) => failure.row !== original),
@@ -95,7 +98,8 @@
         throw new Error(
           "The field changed while reading the file. Select it again.",
         );
-      change(index, { type: "file", ...upload, _legacyFileAsset: undefined, _legacyFileAssetError: undefined, _legacyFilePath: undefined });
+      if (original._curlHeaderFile) onchange(resolveCurlHeaderFile(rows, index, /** @type {Record<string,any>[]} */(upload)));
+      else change(index, { type: "file", ...upload, _legacyFileAsset: undefined, _legacyFileAssetError: undefined, _legacyFilePath: undefined });
       fileErrors = fileErrors.filter((failure) => failure.row !== rows[index]);
       error = "";
     } catch (e) {
@@ -125,12 +129,19 @@
         variant="inline"
         aria-label={`${label} ${index + 1}`}
         placeholder={label}
-        {templateEditor}
+        templateEditor={row._curlHeaderFile ? undefined : templateEditor}
+        readonly={!!row._curlHeaderFile}
         value={row.name}
         oninput={(event) => change(index, { name: event.currentTarget.value })}
       />
       <div class="kv-value">
-          {#if files && row.type === "file"}<Field
+          {#if row._curlHeaderFile}<Field label="" class="kv-file-state"
+            error={fileErrors.find((failure) => failure.row === row)?.message || ""}>
+            <FilePicker variant="inline" disabled={row.disabled}
+              aria-label={`Select header file ${index + 1}`}
+              onchange={(event) => fileChanged(index, event)}>{row._curlHeaderFile}</FilePicker>
+          </Field>
+          {:else if files && row.type === "file"}<Field
               label=""
               class="kv-file-state"
               error={fileErrors.find((failure) => failure.row === row)?.message || ""}

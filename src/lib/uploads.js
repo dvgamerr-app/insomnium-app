@@ -43,6 +43,8 @@ export async function readBodyUpload(file, body) {
   const binary = atob(upload.base64);
   if (mode === "data" || mode === "data-ascii")
     return { ...upload, base64: btoa(binary.replace(/[\0\r\n]/g, "")) };
+  // curl emits no name= prefix when a file/stdin read produces no bytes.
+  if (!binary.length) return upload;
   const prefix = body.curlFilePrefix ?? "";
   if (typeof prefix !== "string" || /[^\x21-\x7e]/.test(prefix))
     throw new Error("The cURL form name must already be URL-encoded ASCII.");

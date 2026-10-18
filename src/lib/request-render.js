@@ -10,6 +10,7 @@ import { setDefaultProtocol } from "./template-url.js";
 import { checkTemplateValue } from "./template-object.js";
 import { applyDefaultRequestHeaders } from "./request-default-headers.js";
 import { isJsonBodyMediaType } from "./media-type.js";
+import { assertCurlHeaderFiles } from "./curl-headers.js";
 import { renderGraphqlTemplateBody } from "./graphql-template.js";
 import { withCookieTemplateSources, normalizeRenderedCookieSnapshot, checkCookieSnapshot, renderCookieSnapshot } from './cookie-template-sources.js';
 /** @typedef {import('./template-session.js').PluginRenderOptions} PluginRenderOptions */
@@ -34,12 +35,15 @@ async function requestCookieSnapshot(data, request) {
  */
 export async function renderRequestSnapshot(session, request, options = {}) {
   session.signal.throwIfAborted();
+  assertCurlHeaderFiles(request.headers);
   const uploads = separateRequestUploads(request);
   checkCookieSnapshot(options.cookieJar);
   const input = uploads.input;
   const inactiveProxy = input.settingProxy !== "custom" && Object.hasOwn(input, "settingProxyUrl");
   const authoredProxy = input.settingProxyUrl;
   if (inactiveProxy) input.settingProxyUrl = "";
+  for (const row of input.headers ?? [])
+    if (row._curlHeaderFile && row.disabled) row._curlHeaderFile = "";
   const cookieJar = structuredClone(options.cookieJar ?? null);
   let graphqlBody = null;
   // Preserve the original GraphQL comment workaround before any body rendering.

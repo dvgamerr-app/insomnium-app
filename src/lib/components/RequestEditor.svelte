@@ -20,6 +20,7 @@
   import CodeEditor from "./CodeEditor.svelte";
   import { createTemplateEditorSession } from "../template-editor-session.svelte.js";
   import CurlBodyEditor from "./CurlBodyEditor.svelte";
+  import { curlHeadersPatch } from "../curl-headers.js";
   import {
     workspace as app,
     createWorkspaceWorkScope,
@@ -241,6 +242,7 @@
               ...(request.body?.curlFileMode || request.body?.curlSegments
                 ? {
                     curlFileMode: undefined,
+                    curlStdin: undefined,
                     curlSegments: undefined,
                     curlJoin: undefined,
                     curlQuery: undefined,
@@ -290,7 +292,9 @@
           {#key request._id}<CurlBodyEditor {request} onchange={body} />{/key}
         {:else}
           {#if request.body.curlFileMode}<p class="hint">
-              Select the file referenced by the imported command. {[
+              {request.body.curlStdin
+                ? "Select a file containing this command's stdin bytes."
+                : "Select the file referenced by the imported command."} {[
                 "data",
                 "data-ascii",
               ].includes(request.body.curlFileMode)
@@ -383,7 +387,7 @@
     {:else if tab === "Headers"}<KeyValueEditor
         rows={request.headers || []}
         templateEditor={() => createTemplateEditorSession(request._id)}
-        onchange={(headers) => onchange({ headers })}
+        onchange={(headers) => onchange(curlHeadersPatch(request, headers))}
       />
       {#if Array.isArray(request.cookieParameters)}<div
           role="group"

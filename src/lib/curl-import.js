@@ -3,6 +3,7 @@ import { expandCurlUrl } from "./curl-url-glob.js";
 import { curlConfigWords } from "./curl-config.js";
 import { curlProxyUrl } from "./request-proxy.js";
 import { curlTimeout } from "./request-timeouts.js";
+import { curlHeader, curlOptionHeader } from "./curl-headers.js";
 import { id, newRequest } from "./model.js";
 
 // Parse pasted text only. Never run curl, a shell, expansions, or file reads.
@@ -380,31 +381,15 @@ function requestsFor(words, workspaceId, entries, uploadFiles = []) {
   /** @type {Record<string, any>[]} */
   const headers = [];
   for (const value of all("header")) {
-    if (value.startsWith("@"))
-      throw new Error(
-        "cURL header files are not supported. Paste literal headers.",
-      );
-    const colon = value.indexOf(":");
-    const empty = colon < 0 && value.endsWith(";");
-    if (colon < 1 && !empty)
-      throw new Error("Invalid cURL header; use Name: value.");
-    const name = value.slice(0, empty ? -1 : colon).trim();
-    const content = empty ? "" : value.slice(colon + 1).trim();
-    if (
-      !/^[!#$%&'*+\-.^_\x60|~\da-zA-Z]+$/.test(name) ||
-      /[\r\n\0]/.test(content)
-    )
-      throw new Error("Invalid cURL header name or value.");
-    const suppressed=!empty&&!content;
-    if (suppressed && !['user-agent','accept','content-type'].includes(name.toLowerCase()))
-      throw new Error(
-        "cURL header suppression is not supported for " +
-          name +
-          ". Use Name; for an empty header.",
-      );
-    headers.push({ name, value: content, disabled: suppressed,
-      ...(suppressed&&name.toLowerCase()!=='user-agent'?{_curlSuppressDefault:true}:{}) });
+    if (value.startsWith("@")) {
+      const file = value.slice(1);
+      if (!file || file === "-" || file.length > 8192 || /[\0\r\n]/.test(file))
+        throw new Error("cURL header files require a named path of at most 8192 characters. Header stdin is not supported.");
+      headers.push({ name: "", value: "", disabled: false, _curlHeaderFile: file });
+    } else headers.push(curlHeader(value));
   }
+  const optionHeader = headers.some(header => header._curlHeaderFile) ? curlOptionHeader
+    : (/** @type {Record<string,any>} */row) => row;
   const autoReferer=Boolean(last('referer')?.endsWith(';auto'))&&!headers.some(h=>h.name.toLowerCase()==='referer');
   for (const [option, header] of [
     ["user-agent", "User-Agent"],
@@ -417,11 +402,11 @@ function requestsFor(words, workspaceId, entries, uploadFiles = []) {
     ) {
       const content=option==='referer'&&value.endsWith(';auto')?value.slice(0,-5):value;
       if(option==='referer'&&!content)continue;
-      headers.push({
+      headers.push(optionHeader({
         name: header,
         value:content,
         disabled: option === "user-agent" && !value,
-      });
+      }));
     }
   }
   const cookies = all("cookie");
@@ -432,7 +417,7 @@ function requestsFor(words, workspaceId, entries, uploadFiles = []) {
   if (cookies.length) {
     const existing = headers.find((h) => h.name.toLowerCase() === "cookie");
     // An explicit Cookie header overrides --cookie regardless of option order.
-    if (!existing) headers.push({ name: "Cookie", value: cookies.join("; ") });
+    if (!existing) headers.push(optionHeader({ name: "Cookie", value: cookies.join("; ") }));
   }
   /** @type {Record<string, any>} */
   let authentication = {};
@@ -483,6 +468,8 @@ function requestsFor(words, workspaceId, entries, uploadFiles = []) {
   }
   const awsSigv4 = last("aws-sigv4");
   if (awsSigv4 !== undefined) {
+    if (headers.some(header => header._curlHeaderFile))
+      throw new Error("Resolve cURL AWS signing headers explicitly before importing a header file.");
     if (["basic", "digest", "ntlm", "oauth2-bearer"].some(has))
       throw new Error("Import cURL AWS signing with one authentication method.");
     const [provider, headerProvider, region = "", service = "", ...extra] =
@@ -557,14 +544,12 @@ function requestsFor(words, workspaceId, entries, uploadFiles = []) {
             };
           const at = entry.value.indexOf("@"),
             fileName = entry.value.slice(at + 1);
-          if (!fileName || fileName === "-")
-            throw new Error(
-              "cURL stdin is not supported. Select a named file.",
-            );
+          if (!fileName) throw new Error("Choose a nonempty cURL body file reference.");
           return {
             id: id("part"),
             type: "file",
             fileName,
+            ...(fileName === "-" ? { curlStdin: true } : {}),
             curlFileMode: entry.name,
             curlFilePrefix:
               entry.name === "data-urlencode" && at > 0
@@ -577,13 +562,13 @@ function requestsFor(words, workspaceId, entries, uploadFiles = []) {
       const entry = fileInputs[0];
       const at = entry.value.indexOf("@");
       const fileName = entry.value.slice(at + 1);
-      if (!fileName || fileName === "-")
-        throw new Error("cURL stdin is not supported. Select a named file.");
+      if (!fileName) throw new Error("Choose a nonempty cURL body file reference.");
       fileBody = {
         mimeType: "application/octet-stream",
         text: "",
         params: [],
         fileName,
+        ...(fileName === "-" ? { curlStdin: true } : {}),
         curlFileMode: entry.name,
         curlFilePrefix:
           entry.name === "data-urlencode" && at > 0
@@ -615,7 +600,7 @@ function requestsFor(words, workspaceId, entries, uploadFiles = []) {
     const mime =
       contentType?.value.split(";")[0].trim() ||
       (has("json") ? "application/json" : "application/x-www-form-urlencoded");
-    if (!contentType) headers.push({ name: "Content-Type", value: mime });
+    if (!contentType) headers.push(optionHeader({ name: "Content-Type", value: mime }));
     // Keep exact wire text; the form editor would decode/re-encode %, + and bare fields.
     body = {
       mimeType: [
@@ -635,9 +620,9 @@ function requestsFor(words, workspaceId, entries, uploadFiles = []) {
     has("json") &&
     !headers.some((h) => h.name.toLowerCase() === "content-type")
   )
-    headers.push({ name: "Content-Type", value: "application/json" });
+    headers.push(optionHeader({ name: "Content-Type", value: "application/json" }));
   if (has("json") && !headers.some((h) => h.name.toLowerCase() === "accept"))
-    headers.push({ name: "Accept", value: "application/json" });
+    headers.push(optionHeader({ name: "Accept", value: "application/json" }));
   if (forms.length) {
     const params = forms.map(({ name, value }) =>
       parseCurlForm(value, name === "form-string"),
@@ -773,7 +758,18 @@ export function curlResources(text, importOptions = {}) {
   const requests = parsed.flatMap((words) => {
     /** @type {{name:string,value:string}[][]} */
     const groups = [[]];
-    for (const entry of options(words)) {
+    let stdinConsumed = false;
+    for (let entry of options(words)) {
+      const stdin = ["data", "data-ascii", "data-binary", "json"].includes(entry.name)
+        ? entry.value === "@-"
+        : entry.name === "data-urlencode" && !entry.value.includes("=") && entry.value.includes("@")
+          && entry.value.slice(entry.value.indexOf("@") + 1) === "-";
+      if (stdin) {
+        // curl consumes stdin while reading data options, once per command.
+        // Subsequent references, including after --next, see EOF.
+        if (stdinConsumed) entry = { ...entry, value: "" };
+        stdinConsumed = true;
+      }
       if (entry.name === "next") groups.push([]);
       else groups[groups.length - 1].push(entry);
     }

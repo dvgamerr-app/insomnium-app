@@ -69,7 +69,7 @@
       variant="dropzone"
       aria-label={"File for body part " + (index + 1)}
       onchange={(event) => selectFile(event, segment)}
-      >Part {index + 1}: {segment.fileName}</FilePicker
+      >Part {index + 1}: {segment.curlStdin ? "Select stdin contents" : segment.fileName}</FilePicker
     ></span>
     </Field>
   {:else}
