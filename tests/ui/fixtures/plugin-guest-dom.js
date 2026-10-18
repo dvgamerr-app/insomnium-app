@@ -280,8 +280,31 @@ function operation(label,purpose="send") {
     const graph=operation("budget"),value=graph.domCall({method:"dom.create",args:["element","div"]});
     const chunk="x".repeat(1024*1024);
     for(let i=0;i<8;i++)graph.domCall({method:"dom.set",args:[value.id,"textContent",chunk]});
-    try{graph.domCall({method:"dom.set",args:[value.id,"textContent","x"]});return "leaked";}
-    catch(error){return String(error);}
+    let refusal='';try{graph.domCall({method:"dom.set",args:[value.id,"textContent","x"]});}
+    catch(error){refusal=String(error);}
+    if(!refusal.includes('DOM text limit exceeded'))throw Error('Original text budget refusal missing');
+    const rejects=(/** @type {()=>unknown} */ call,/** @type {string} */ message)=>{
+      try{call();}catch(error){if(String(error).includes(message))return;throw error;}
+      throw Error('Expected quota refusal: '+message);
+    };
+    const tree=operation('clone node budget'),root=tree.domCall({method:'dom.create',args:['element','div']});
+    const markup='<span></span>'.repeat(1023);
+    tree.domCall({method:'dom.node',args:[root.id,'markup',['innerHTML',markup]]});
+    const copied=tree.domCall({method:'dom.node',args:[root.id,'cloneNode',[true]]});
+    rejects(()=>tree.domCall({method:'dom.node',args:[root.id,'cloneNode',[false]]}),'DOM node limit exceeded');
+    rejects(()=>tree.domCall({method:'dom.set',args:[root.id,'textContent','replacement']}),'DOM node limit exceeded');
+    if(tree.domCall({method:'dom.get',args:[root.id,'innerHTML']})!==markup||tree.domCall({method:'dom.collection',args:[copied.id,'childNodes',null]}).length!==1023)throw Error('Clone quota refusal changed original tree or lost descendants');
+    const textGraph=operation('shallow text copy budget'),text=textGraph.domCall({method:'dom.create',args:['text','😀'.repeat(1024*1024)]});
+    textGraph.domCall({method:'dom.node',args:[text.id,'cloneNode',[false]]});
+    rejects(()=>textGraph.domCall({method:'dom.node',args:[text.id,'cloneNode',[false]]}),'DOM text limit exceeded');
+    const inputGraph=operation('attribute and dirty-value copy budget'),input=inputGraph.domCall({method:'dom.create',args:['element','input']});
+    const name='data-copy',half='x'.repeat(2*1024*1024);
+    inputGraph.domCall({method:'dom.attribute',args:[input.id,'setAttribute',name,half.slice(name.length)]});
+    inputGraph.domCall({method:'dom.set',args:[input.id,'value',half]});
+    const copiedInput=inputGraph.domCall({method:'dom.node',args:[input.id,'cloneNode',[false]]});
+    rejects(()=>inputGraph.domCall({method:'dom.set',args:[copiedInput.id,'value','x']}),'DOM text limit exceeded');
+    if(inputGraph.domCall({method:'dom.get',args:[copiedInput.id,'value']})!==half)throw Error('Refused copy write changed retained input value');
+    return refusal;
   },
   close(){for(const bridge of bridges)bridge.dispose();session?.close();controller.abort();},
 };

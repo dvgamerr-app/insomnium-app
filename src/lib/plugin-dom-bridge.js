@@ -35,14 +35,15 @@ export function createPluginDomBridge(owner) {
   let hideDone=Promise.resolve();
   /** @type {Promise<void>|undefined} */let disposal;
   let textBytes=0;
-  /** Conservative cumulative write budget also bounds orphaned text retained by IDs.
-   * @param {string} value */
-  const charge=value=>{
-    const bytes=new TextEncoder().encode(value).byteLength;
+  /** @param {number} bytes */
+  const chargeBytes=bytes=>{
     const total=textBytes+bytes;
     if(total>8*1024*1024)throw Error("Plugin DOM text limit exceeded");
     textBytes=total;
   };
+  /** Conservative cumulative write budget also bounds orphaned data retained by IDs.
+   * @param {string} value */
+  const charge=value=>chargeBytes(new TextEncoder().encode(value).byteLength);
   const check=()=>{owner.signal.throwIfAborted();if(disposed || closing || !owner.current())throw Error("Plugin DOM owner changed");};
   const node=(/** @type {number} */ id)=>{const value=nodes.get(id);if(!value)throw Error("Unknown owned DOM node");return value;};
   /** @param {Node|null} value @param {boolean} [admit] */
@@ -55,6 +56,28 @@ export function createPluginDomBridge(owner) {
       id=++nodeSequence;ids.set(value,id);nodes.set(id,value);
     }
     return {id,nodeType:value.nodeType};
+  };
+  /** Reserve the complete copy before allocating it, including attributes and
+   * dirty input/textarea values which clone even without child nodes.
+   * @param {Node} source @param {boolean} deep */
+  const cloneOwned=(source,deep)=>{
+    const pending=[source];let count=0,bytes=0;
+    const account=(/** @type {string} */ value)=>{
+      bytes+=new TextEncoder().encode(value).byteLength;
+      if(textBytes+bytes>8*1024*1024)throw Error('Plugin DOM text limit exceeded');
+    };
+    while(pending.length){
+      const value=pending.pop();if(!value)continue;
+      if(nodes.size+(++count)>2048)throw Error('Plugin DOM node limit exceeded');
+      if(value.nodeValue!==null)account(value.nodeValue);
+      if(value instanceof Element)for(const attribute of Array.from(value.attributes))account(attribute.name+attribute.value);
+      if(value instanceof HTMLInputElement||value instanceof HTMLTextAreaElement)account(value.value);
+      if(deep)pending.push(...Array.from(value.childNodes));
+    }
+    chargeBytes(bytes);
+    const copy=source.cloneNode(deep),copies=[copy];
+    while(copies.length){const value=copies.pop();if(!value)continue;describe(value,true);copies.push(...Array.from(value.childNodes));}
+    return copy;
   };
   /** Parse in the template contents' inert owner document, validate the entire
    * result, then admit it. No parsed node reaches active UI before validation.
@@ -201,6 +224,13 @@ export function createPluginDomBridge(owner) {
         if(args.length!==3)throw Error("Invalid DOM write");
         const [_,key,value]=args;
         if(!(strings.has(key)&&typeof value==="string" || booleans.has(key)&&typeof value==="boolean" || numbers.has(key)&&Number.isFinite(value)))throw Error("Unsupported DOM property value");
+        if(key==='textContent'&&(target instanceof Element||target instanceof DocumentFragment)){
+          if(value&&nodes.size>=2048)throw Error('Plugin DOM node limit exceeded');
+          charge(value);
+          const text=value?target.ownerDocument.createTextNode(value):null;
+          if(text)describe(text,true);
+          target.replaceChildren(...(text?[text]:[]));return undefined;
+        }
         if(typeof value==="string")charge(value);
         target[key]=value;return undefined;
       }
@@ -267,7 +297,7 @@ export function createPluginDomBridge(owner) {
         else if(["appendChild","removeChild"].includes(name)&&values.length===1)result=target[name](node(values[0]));
         else if(name==="insertBefore"&&values.length===2)result=target.insertBefore(node(values[0]),values[1]===null?null:node(values[1]));
         else if(name==="replaceChild"&&values.length===2)result=target.replaceChild(node(values[0]),node(values[1]));
-        else if(name==="cloneNode"&&values.length===1&&typeof values[0]==="boolean"){if(values[0])charge(target.textContent||"");result=target.cloneNode(values[0]);}
+        else if(name==="cloneNode"&&values.length===1&&typeof values[0]==="boolean")result=cloneOwned(target,values[0]);
         else if(["remove","focus","blur","click"].includes(name)&&values.length===0)result=target[name]();
         else throw Error("Unsupported DOM method");
         return result instanceof Node?describe(result,true):undefined;
@@ -275,7 +305,7 @@ export function createPluginDomBridge(owner) {
       if(method==="dom.attribute") {
         const [_,name,key,value]=args;
         if(typeof key!=="string" || !allowedAttribute(key))throw Error("Unsupported DOM attribute");
-        if(name==="setAttribute"&&args.length===4&&typeof value==="string"){charge(value);return target.setAttribute(key,value);}
+        if(name==="setAttribute"&&args.length===4&&typeof value==="string"){charge(key+value);return target.setAttribute(key,value);}
         if(["getAttribute","removeAttribute","hasAttribute"].includes(name)&&args.length===3)return target[name](key);
         throw Error("Invalid DOM attribute call");
       }
