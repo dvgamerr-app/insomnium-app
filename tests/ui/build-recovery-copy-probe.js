@@ -73,9 +73,10 @@ try {
         identifier,
         build: { beforeBuildCommand: null },
       }),
+      "--",
+      "--locked",
       ...(lowMemory
         ? [
-            "--",
             "--config",
             "profile.release.package.insomnium.opt-level=1",
             "--config",
