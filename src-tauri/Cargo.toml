@@ -77,6 +77,8 @@ rustls = { version = "=0.23.45", default-features = false, features = ["ring", "
 tauri-plugin-clipboard-manager = "2"
 flate2 = { version = "=1.1.10", default-features = false, features = ["rust_backend"] }
 hickory-resolver = { version = "=0.26.3", default-features = false, features = ["system-config", "tokio"] }
+chrono = { version = "=0.4.45", default-features = false, features = ["clock"] }
+h2 = "=0.4.19"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
@@ -88,6 +90,7 @@ panic = "abort"
 strip = true
 
 [patch.crates-io]
+tonic = { path = "vendor/tonic-0.14.6" }
 hyper-util = { path = "vendor/hyper-util" }
 tower-http = { path = "vendor/tower-http" }
 reqwest = { path = "vendor/reqwest" }

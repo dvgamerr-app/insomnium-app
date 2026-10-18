@@ -22,7 +22,7 @@ struct Outgoing {
     input: MessageDescriptor,
     original_input: MessageDescriptor,
     mode: JsonMode,
-    sender: Option<mpsc::Sender<DynamicMessage>>,
+    sender: Option<grpc_transport::admission::Sender<DynamicMessage>>,
 }
 
 #[derive(Deserialize)]
@@ -105,17 +105,42 @@ struct Delivery {
     channel: Channel<Packet>,
     acknowledgements: mpsc::Receiver<u64>,
     sequence: u64,
+    terminal_sent: bool,
+    acknowledged_sequence: u64,
+    acknowledgement_deadline: Option<tokio::time::Instant>,
+    pending_terminal: Option<Event>,
 }
 impl Delivery {
     async fn send(&mut self, event: Event) -> Result<(), String> {
+        let terminal = matches!(&event, Event::Status { .. });
+        if let Event::FinalMessage { status, .. } | Event::FinalError { status, .. } = &event {
+            self.pending_terminal = Some((**status).clone());
+        } else if terminal {
+            self.pending_terminal = None;
+        }
         self.sequence += 1;
         let sequence = self.sequence;
         self.channel
             .send(Packet { event, sequence })
             .map_err(|_| "gRPC view closed.")?;
-        tokio::time::timeout(Duration::from_secs(30), async {
+        self.terminal_sent |= terminal;
+        self.acknowledgement_deadline = Some(tokio::time::Instant::now() + Duration::from_secs(30));
+        self.wait_for_ack(sequence).await
+    }
+    async fn wait_for_ack(&mut self, sequence: u64) -> Result<(), String> {
+        if self.acknowledged_sequence >= sequence {
+            return Ok(());
+        }
+        // Resuming the same packet after deadline/cancel must not renew its
+        // renderer budget. Only send() creates a new packet deadline.
+        let deadline = self
+            .acknowledgement_deadline
+            .ok_or("gRPC acknowledgement state unavailable.")?;
+        tokio::time::timeout_at(deadline, async {
             while let Some(ack) = self.acknowledgements.recv().await {
                 if ack == sequence {
+                    self.acknowledged_sequence = sequence;
+                    self.acknowledgement_deadline = None;
                     return Ok(());
                 }
             }
@@ -151,7 +176,7 @@ pub async fn connect_grpc(
         }
         grpc_schema::JsonMode::ProtoJson => method.input(),
     };
-    let (sender, receiver) = mpsc::channel(1);
+    let (sender, receiver) = grpc_transport::admission::channel(1);
     let sender = if method.is_client_streaming() {
         Some(sender)
     } else {
@@ -194,38 +219,93 @@ pub async fn connect_grpc(
         channel: on_event,
         acknowledgements,
         sequence: 0,
+        terminal_sent: false,
+        acknowledged_sequence: 0,
+        acknowledgement_deadline: None,
+        pending_terminal: None,
     }));
+    let terminal_delivery = delivery.clone();
     let deadline = request
         .connection
         .call_deadline()
         .map(|duration| tokio::time::Instant::now() + duration);
+    enum CallEnd {
+        Finished(Result<(), String>),
+        Terminal(tonic::Code, &'static str),
+    }
     let work = async move {
-        delivery.lock().await.send(Event::Started).await?;
-        grpc_transport::call(
-            &request.connection,
-            method,
-            receiver,
-            request.json_mode,
-            deadline,
-            move |event| {
-                let delivery = delivery.clone();
-                async move { delivery.lock().await.send(event).await }
+        // Transport setup and RPC work enforce the same absolute deadline.
+        // This wrapper owns only the earlier Started ACK portion of that budget.
+        let started = async { delivery.lock().await.send(Event::Started).await };
+        let started = match deadline {
+            Some(deadline) => match tokio::time::timeout_at(deadline, started).await {
+                Ok(result) => result,
+                Err(_) => {
+                    return CallEnd::Terminal(
+                        tonic::Code::DeadlineExceeded,
+                        "gRPC deadline exceeded.",
+                    )
+                }
             },
-        )
-        .await
-    };
-    let work = async {
-        match deadline {
-            Some(deadline) => tokio::time::timeout_at(deadline, work)
-                .await
-                .map_err(|_| "gRPC deadline exceeded.".to_string())
-                .and_then(|result| result),
-            None => work.await,
+            None => started.await,
+        };
+        if let Err(error) = started {
+            return CallEnd::Finished(Err(error));
         }
+        CallEnd::Finished(
+            grpc_transport::call(
+                &request.connection,
+                method,
+                receiver,
+                request.json_mode,
+                deadline,
+                move |event| {
+                    let delivery = delivery.clone();
+                    async move { delivery.lock().await.send(event).await }
+                },
+            )
+            .await,
+        )
     };
-    let result = tokio::select! {
+    let end = tokio::select! {
         result = work => result,
-        _ = cancelled.changed() => Err("gRPC call cancelled.".into()),
+        _ = cancelled.changed() => CallEnd::Terminal(tonic::Code::Cancelled, "gRPC call cancelled."),
+    };
+    // The stopped call future has been dropped before terminal delivery;
+    // transport/replay ownership cannot outlive the terminal ACK wait.
+    let result = match end {
+        CallEnd::Finished(result) => result,
+        CallEnd::Terminal(code, details) => {
+            let mut delivery = terminal_delivery.lock().await;
+            if delivery.terminal_sent {
+                // A terminal packet may already be queued when its ACK races
+                // deadline/cancel. Preserve that result and finish its ACK.
+                let sequence = delivery.sequence;
+                delivery.wait_for_ack(sequence).await
+            } else if let Some(status) = delivery.pending_terminal.take() {
+                // Unary callback result already selected before its ACK.
+                // Finish that callback and its chosen status instead of cancel.
+                let sequence = delivery.sequence;
+                match delivery.wait_for_ack(sequence).await {
+                    Ok(()) => delivery.send(status).await,
+                    Err(error) => Err(error),
+                }
+            } else {
+                let status = Event::Status {
+                    code: code as i32,
+                    details: details.into(),
+                    trailers: Vec::new(),
+                };
+                if let Some(callback) = grpc_transport::terminal_callback(&status) {
+                    match delivery.send(callback).await {
+                        Ok(()) => delivery.send(status).await,
+                        Err(error) => Err(error),
+                    }
+                } else {
+                    delivery.send(status).await
+                }
+            }
+        }
     };
     let calls_removed = state
         .calls

@@ -402,6 +402,7 @@ pub(crate) fn json_mode(
     String::from_utf8(bytes.0).map_err(|_| "Invalid gRPC JSON encoding.".into())
 }
 
+#[derive(Clone)]
 pub(crate) struct DynamicCodec {
     pub output: MessageDescriptor,
 }
@@ -446,7 +447,9 @@ impl tonic::codec::Decoder for DynamicDecoder {
         DynamicMessage::decode(self.0.clone(), src)
             .map(Some)
             .map_err(|_| {
-                tonic::Status::internal("Response does not match the selected protobuf type.")
+                tonic::Status::internal(
+                    "Response message parsing error: Response does not match the selected protobuf type.",
+                )
             })
     }
 }

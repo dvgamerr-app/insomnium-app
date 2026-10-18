@@ -162,3 +162,10 @@ WebSocket NDJSON activation is implemented and bounded-verified at 869ad32: revi
 ## Completion rule
 
 Each area requires implementation and direct evidence covering its complete acceptance scope. Keep source/code, current runtime, profile restoration, provider/platform, packaging/legal and recovery evidence distinct. Do not mark full migration complete until every requirement in the matrix and retained topic records is verified or explicitly removed by the owner. The owner removed only the request-body Template preview panel/Clear prompt values control; template engine/native tags/Send remain required. Deferred UX redesign follows POST-MIGRATION-UX.md after migration.
+
+
+## Current-source native gRPC checkpoint (2026-10-19)
+
+Source9b5b85da fresh production-release product-only probe passed the unchanged saved95case Windows native-hidden scenario:43unary/TLS+7stream+45reflection. Host100636 exit0 without force; all3Cancel shapes status1/closed/exact terminal[1], original profile inventory/buffers and independent workspace hashes restored, scenario/helper hashes unchanged. Evidence artifacts/native-grpc-current-1792388562398/acceptance.json and artifacts/playwright/grpc-client-certificate-1792389140909; full source/binary/limits receipt in GRPC.md current-source acceptance section. No testcase edits or owned live handles; dev Cargo97076/110976 untouched.
+
+This is fresh bounded UI/IPC evidence, not full gRPC/migration acceptance. Weighted/outlier/ORCA/global cache/alias/timer/race and retained parser/provider/platform/legal/release plus every other PLAN/PARITY gate remain. Product-only beforeBuild:null producer is not full release closure. /compact unavailable; explicit handoff follows.

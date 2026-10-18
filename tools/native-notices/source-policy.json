@@ -10,7 +10,8 @@
     "eventsource-stream": "vendor/eventsource-stream",
     "p12-keystore": "vendor/p12-keystore",
     "tower-http": "vendor/tower-http",
-    "hyper-util": "vendor/hyper-util"
+    "hyper-util": "vendor/hyper-util",
+    "tonic": "vendor/tonic-0.14.6"
   },
   "unresolvedScopes": [
     "source-unavailable",

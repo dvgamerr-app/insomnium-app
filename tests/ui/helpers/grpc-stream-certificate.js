@@ -215,11 +215,14 @@ export async function grpcStreamCertificate(
           "CANCEL",
           "Explicit Cancel must reach the server as HTTP2 RST_STREAM CANCEL",
         );
-        assert.ok(
-          response.events.some(
-            (/** @type {any} */ e) =>
-              e.kind === "error" && /cancelled/i.test(e.message),
-          ),
+        assert.equal(response.status, 1);
+        assert.equal(response.connectionState, "closed");
+        assert.deepEqual(
+          response.events
+            .filter((/** @type {any} */ e) => e.kind === "status")
+            .map((/** @type {any} */ e) => e.code),
+          [1],
+          "Cancel persists exactly one terminal CANCELLED status",
         );
         assert.deepEqual(
           received,

@@ -5,6 +5,28 @@ pub(crate) struct Target {
     pub dns_server: Option<std::net::SocketAddr>,
 }
 
+/// Legacy parseGrpcUrl followed by grpc-js's registered/default resolver key.
+/// Keep resolver authority and explicit port spelling: pool keys use the URI,
+/// not merely the eventual socket address or the normalized HTTP origin.
+pub(super) fn channel_target(raw: &str) -> String {
+    let lower = raw.to_lowercase();
+    let address = lower
+        .strip_prefix("grpc://")
+        .or_else(|| lower.strip_prefix("grpcs://"))
+        .unwrap_or(&lower);
+    // Do not trim line endings: the pinned non-multiline URI regex rejects
+    // them in the path. In particular, an invalid spelling must not inherit
+    // a valid target's cache or retry state through this identity helper.
+    if ["dns:", "unix:", "ipv4:", "ipv6:"]
+        .iter()
+        .any(|scheme| address.starts_with(scheme))
+    {
+        address.to_owned()
+    } else {
+        format!("dns:{address}")
+    }
+}
+
 fn dns_server(raw: &str) -> Result<std::net::SocketAddr, String> {
     let host = raw
         .strip_prefix('[')
@@ -35,6 +57,26 @@ pub(crate) fn parse(raw: &str) -> Result<Target, String> {
     } else {
         raw
     };
+    // grpc-js parses the target before resolving it. Its URI path uses `.+`
+    // without multiline/dotAll, whereas URL parsing can silently remove CR/LF.
+    // Authority uses a different character class and may contain line endings.
+    let uri_path = address
+        .split_once(':')
+        .filter(|(scheme, _)| {
+            !scheme.is_empty()
+                && scheme
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'+' | b'.' | b'-'))
+        })
+        .map_or(address, |(_, rest)| rest);
+    let uri_path = uri_path
+        .strip_prefix("//")
+        .and_then(|rest| rest.split_once('/'))
+        .filter(|(_, path)| !path.is_empty())
+        .map_or(uri_path, |(_, path)| path);
+    if uri_path.is_empty() || uri_path.contains(['\n', '\r', '\u{2028}', '\u{2029}']) {
+        return Err("Invalid gRPC target URI path.".into());
+    }
     if address.to_ascii_lowercase().starts_with("unix:") {
         let original = address[5..].to_lowercase();
         let mut path = original.clone();

@@ -7,7 +7,7 @@ import {sha256, compare, jsonBytes, fileBytes, treeFiles, treeDigest, candidates
 export const nativeRoot=resolve(import.meta.dir,'..');
 const policyPath='tools/native-notices/source-policy.json';
 const modulePaths=['scripts/generate-native-notices.mjs','scripts/native-notice-sources.mjs','scripts/native-notice-artifact.mjs','scripts/tauri-spectral-hook.mjs','scripts/generate-spectral-notices.mjs','scripts/spectral-artifact.mjs','scripts/build-desktop.mjs','src-tauri/tauri.conf.json','.gitignore',policyPath];
-const patchRoots={reqwest:'vendor/reqwest','http-auth':'vendor/http-auth','eventsource-stream':'vendor/eventsource-stream','p12-keystore':'vendor/p12-keystore','tower-http':'vendor/tower-http','hyper-util':'vendor/hyper-util'};
+const patchRoots={reqwest:'vendor/reqwest','http-auth':'vendor/http-auth','eventsource-stream':'vendor/eventsource-stream','p12-keystore':'vendor/p12-keystore','tower-http':'vendor/tower-http','hyper-util':'vendor/hyper-util',tonic:'vendor/tonic-0.14.6'};
 const reviewedAuthors=[
  {source:'registry+https://github.com/rust-lang/crates.io-index',name:'r-efi',version:'5.3.0',checksum:'69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f',path:'AUTHORS',bytes:3693,sha256:'ff92bed461f50338dd703a9ba9aee496a425957873df1d91192776e4bdf5dda7',kind:'authors-license-notice'},
  {source:'registry+https://github.com/rust-lang/crates.io-index',name:'r-efi',version:'6.0.0',checksum:'f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf',path:'AUTHORS',bytes:3733,sha256:'d027e91dbc9cdbb2f1190068e498bd6b61cff022b6a032b191021ba658d96111',kind:'authors-license-notice'},

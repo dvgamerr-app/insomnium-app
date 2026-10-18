@@ -794,3 +794,5 @@ Coverage remains incomplete and target linkage unproven. Missing filename candid
 
 
 </details>
+
+2026-10-19 tonic0.14.6 native-readiness patch: full68-file registry archive SHA256 ac2a5518c70fa84342385732db33fb3f44bc4cc748936eb5833d2df34d6445ef retained,5upstream files changed plus ready.rs/patch note, MIT LICENSE byte-identical. Explicit patch roots admitted in generator/source-policy; normal generation and artifact validation0,778identities/437texts. Coverage remains incomplete/linkage unproven; no legal/platform completion claim. Complete bindings and receipts artifacts/grpc-unbuffered-transport/{source-bindings,verification}.json; upstream test cases unchanged.

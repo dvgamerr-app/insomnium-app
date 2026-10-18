@@ -3024,6 +3024,7 @@ dependencies = [
  "base64 0.22.1",
  "block2",
  "cbc",
+ "chrono",
  "cookie",
  "cookie_store",
  "des",
@@ -3033,6 +3034,7 @@ dependencies = [
  "futures-util",
  "git2",
  "gtk",
+ "h2",
  "hickory-resolver",
  "hmac 0.12.1",
  "http-auth",
@@ -7107,8 +7109,6 @@ checksum = "7d56353a2a665ad0f41a421187180aab746c8c325620617ad883a99a1cbe66d2"
 [[package]]
 name = "tonic"
 version = "0.14.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac2a5518c70fa84342385732db33fb3f44bc4cc748936eb5833d2df34d6445ef"
 dependencies = [
  "async-trait",
  "base64 0.22.1",

@@ -1,19 +1,21 @@
 //! Reflection roots use the archived client's cached-first dependency batches.
 //! Packet validation and budgets remain shared across every advertised service.
-use super::{channel, metadata, Connection, ReflectionDiscovery, MAX_SCHEMA};
+use super::admission as mpsc;
+use super::lb_transport::Channel as NativeChannel;
+use super::{call_setup, metadata, retry, Connection, ReflectionDiscovery, MAX_SCHEMA};
 use crate::grpc_schema::ReflectionService;
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use prost::Message;
 use prost_reflect::DescriptorPool;
+#[cfg(test)]
+use std::time::Duration;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     sync::{Arc, Mutex},
 };
 #[cfg(test)]
-use std::time::Duration;
-use tokio::sync::mpsc;
-use tokio_stream::wrappers::ReceiverStream;
-use tonic::{transport::Channel, Request, Status, Streaming};
+use tonic::transport::Channel;
+use tonic::{Status, Streaming};
 use tonic_reflection::pb::v1::{
     server_reflection_request::MessageRequest as Query,
     server_reflection_response::MessageResponse as Answer, ServerReflectionRequest,
@@ -157,78 +159,176 @@ struct Driver {
     sender: Option<mpsc::Sender<ServerReflectionRequest>>,
     response: Streaming<ServerReflectionResponse>,
     listed: Vec<String>,
+    deadline: Option<tokio::time::Instant>,
+    completion: retry::Completion<ServerReflectionRequest>,
+}
+struct RequestInput {
+    sender: mpsc::Sender<ServerReflectionRequest>,
+    guard: super::replay::Guard<ServerReflectionRequest>,
 }
 impl Driver {
-    async fn open(channel: Channel, config: &Connection, version: &str) -> Result<Self, Status> {
-        let mut client = tonic::client::Grpc::new(channel)
+    async fn open(
+        channel: impl Into<NativeChannel>,
+        config: &Connection,
+        version: &str,
+    ) -> Result<Self, Status> {
+        let channel = channel.into();
+        let service = format!("grpc.reflection.{version}.ServerReflection");
+        let policy = config
+            .resolution_config
+            .method(&service, "ServerReflectionInfo")
+            .map_err(Status::unavailable)?;
+        let previous = crate::http::timeouts::selected(None, config.timeout_ms)
+            .map(|timeout| tokio::time::Instant::now() + timeout);
+        let budget = policy
+            .deadline(previous)
+            .map_err(Status::invalid_argument)?;
+        let session = policy.retry().map_err(Status::invalid_argument)?;
+        Self::start(
+            call_setup::Prepared {
+                channel,
+                session,
+                budget,
+            },
+            config,
+            version,
+            None,
+        )
+        .await
+    }
+    async fn start(
+        prepared: call_setup::Prepared,
+        config: &Connection,
+        version: &str,
+        input: Option<RequestInput>,
+    ) -> Result<Self, Status> {
+        let call_setup::Prepared {
+            channel,
+            session,
+            budget,
+        } = prepared;
+        let deadline = budget.timer;
+        let mut client = tonic::client::Grpc::new(session.channel(channel))
             .max_decoding_message_size(MAX_SCHEMA)
             .max_encoding_message_size(MAX_SCHEMA)
             .accept_compressed(tonic::codec::CompressionEncoding::Gzip)
             .accept_compressed(tonic::codec::CompressionEncoding::Deflate);
-        client
-            .ready()
-            .await
-            .map_err(|_| Status::unavailable("Reflection connection is not ready."))?;
-        let (sender, receiver) = mpsc::channel(1);
-        sender
-            .send(request(Query::ListServices(String::new())))
-            .await
-            .map_err(|_| Status::cancelled("Reflection closed."))?;
-        let mut outgoing = Request::new(ReceiverStream::new(receiver));
-        *outgoing.metadata_mut() = metadata(&config.metadata).map_err(Status::invalid_argument)?;
-        if let Some(timeout) = crate::http::timeouts::selected(None, config.timeout_ms) {
-            outgoing.set_timeout(timeout);
-        }
-        let path = format!("/grpc.reflection.{version}.ServerReflection/ServerReflectionInfo")
-            .parse()
-            .map_err(|_| Status::internal("Invalid reflection path."))?;
-        let codec =
+        let work = async {
+            let RequestInput { sender, guard } = match input {
+                Some(input) => input,
+                None => {
+                    let (sender, receiver) = mpsc::channel(1);
+                    sender
+                        .send(request(Query::ListServices(String::new())))
+                        .await
+                        .map_err(|_| Status::cancelled("Reflection closed."))?;
+                    let guard = super::replay::Input::new(
+                        receiver,
+                        config.resolution_config.retry_budget(),
+                        true,
+                    );
+                    guard.0.stage_pending();
+                    RequestInput { sender, guard }
+                }
+            };
+            let headers = metadata(&config.metadata).map_err(Status::invalid_argument)?;
+            let path = format!("/grpc.reflection.{version}.ServerReflection/ServerReflectionInfo")
+                .parse()
+                .map_err(|_| Status::internal("Invalid reflection path."))?;
+            let codec =
             tonic_prost::ProstCodec::<ServerReflectionRequest, ServerReflectionResponse>::default();
-        let mut response = client.streaming(outgoing, path, codec).await?.into_inner();
-        let initial = response
-            .message()
-            .await?
-            .ok_or_else(|| Status::internal("Reflection ended before service list."))?;
-        if initial
-            .original_request
-            .as_ref()
-            .and_then(|query| query.message_request.as_ref())
-            != Some(&Query::ListServices(String::new()))
-        {
-            return Err(Status::internal(
-                "Reflection service list does not match the request.",
-            ));
-        }
-        let listed = match initial.message_response {
-            Some(Answer::ListServicesResponse(list)) => list
-                .service
-                .into_iter()
-                .map(|service| service.name)
-                .collect::<Vec<_>>(),
-            Some(Answer::ErrorResponse(error)) => {
-                return Err(Status::new(
-                    tonic::Code::from_i32(error.error_code),
-                    error.error_message,
-                ))
-            }
-            _ => {
+            let retry::Started {
+                response,
+                completion,
+            } = retry::streaming_prepared(
+                &mut client,
+                guard,
+                headers,
+                path,
+                codec,
+                session,
+                budget.wire,
+            )
+            .await?;
+            let mut driver = Self {
+                sender: Some(sender),
+                response: response.into_inner(),
+                listed: Vec::new(),
+                deadline,
+                completion,
+            };
+            let initial = driver
+                .message()
+                .await?
+                .ok_or_else(|| Status::internal("Reflection ended before service list."))?;
+            if initial
+                .original_request
+                .as_ref()
+                .and_then(|query| query.message_request.as_ref())
+                != Some(&Query::ListServices(String::new()))
+            {
                 return Err(Status::internal(
-                    "Invalid reflection service-list response.",
-                ))
+                    "Reflection service list does not match the request.",
+                ));
             }
+            let listed = match initial.message_response {
+                Some(Answer::ListServicesResponse(list)) => list
+                    .service
+                    .into_iter()
+                    .map(|service| service.name)
+                    .collect::<Vec<_>>(),
+                Some(Answer::ErrorResponse(error)) => {
+                    return Err(Status::new(
+                        tonic::Code::from_i32(error.error_code),
+                        error.error_message,
+                    ))
+                }
+                _ => {
+                    return Err(Status::internal(
+                        "Invalid reflection service-list response.",
+                    ))
+                }
+            };
+            if listed.len() > 1024 {
+                return Err(Status::resource_exhausted(
+                    "Reflection exceeds 1024 services.",
+                ));
+            }
+            driver.listed = listed;
+            Ok(driver)
         };
-        if listed.len() > 1024 {
-            return Err(Status::resource_exhausted(
-                "Reflection exceeds 1024 services.",
-            ));
+        match deadline {
+            Some(deadline) => tokio::time::timeout_at(deadline, work)
+                .await
+                .map_err(|_| Status::deadline_exceeded("Reflection deadline exceeded."))?,
+            None => work.await,
         }
-        Ok(Self {
-            sender: Some(sender),
-            response,
-            listed,
-        })
+    }
+    async fn message(&mut self) -> Result<Option<ServerReflectionResponse>, Status> {
+        let result = self.response.message().await;
+        match &result {
+            Ok(None) => self.completion.succeeded(),
+            Err(_) => self.completion.failed(),
+            _ => {}
+        }
+        result
     }
     async fn batch(
+        &mut self,
+        queries: Vec<Query>,
+        session: &Session,
+        drain: bool,
+    ) -> Result<Vec<String>, Status> {
+        let deadline = self.deadline;
+        let work = self.batch_inner(queries, session, drain);
+        match deadline {
+            Some(deadline) => tokio::time::timeout_at(deadline, work)
+                .await
+                .map_err(|_| Status::deadline_exceeded("Reflection deadline exceeded."))?,
+            None => work.await,
+        }
+    }
+    async fn batch_inner(
         &mut self,
         queries: Vec<Query>,
         session: &Session,
@@ -252,9 +352,9 @@ impl Driver {
                     let query = pending.pop_front().unwrap();
                     session.query()?;
                     outstanding.insert(key(&query)?);
-                    drop(permit.send(request(query)));
+                    permit.send(request(query));
                 }
-                reply = self.response.message() => {
+                reply = self.message() => {
                     let reply = reply?.ok_or_else(|| Status::internal("Reflection ended before descriptors."))?;
                     let original = reply.original_request.as_ref().and_then(|query| query.message_request.as_ref()).ok_or_else(|| Status::internal("Reflection response omitted its request."))?;
                     if !outstanding.remove(&key(original)?) { return Err(Status::internal("Reflection response does not match a pending request.")); }
@@ -271,7 +371,7 @@ impl Driver {
         }
         if drain {
             self.sender.take();
-            if self.response.message().await?.is_some() {
+            if self.message().await?.is_some() {
                 return Err(Status::internal(
                     "Unexpected additional reflection response.",
                 ));
@@ -289,10 +389,11 @@ struct Root {
 async fn resolve_files(
     seeds: Vec<String>,
     session: Arc<Session>,
-    channel: Channel,
+    channel: impl Into<NativeChannel>,
     config: &Connection,
     version: &str,
 ) -> Result<Vec<String>, Status> {
+    let channel = channel.into();
     let mut root = Root::default();
     let mut ready = VecDeque::from([seeds]);
     let mut jobs = FuturesUnordered::new();
@@ -357,11 +458,16 @@ async fn resolve_files(
 }
 
 async fn version(
-    channel: Channel,
+    channel: impl Into<NativeChannel>,
     config: &Connection,
     version: &str,
+    initial: Option<Driver>,
 ) -> Result<ReflectionDiscovery, Status> {
-    let initial = Driver::open(channel.clone(), config, version).await?;
+    let channel = channel.into();
+    let initial = match initial {
+        Some(initial) => initial,
+        None => Driver::open(channel.clone(), config, version).await?,
+    };
     let listed = initial.listed.clone();
     let mut unique = HashSet::new();
     for name in &listed {
@@ -416,10 +522,46 @@ async fn version(
     })
 }
 pub(super) async fn reflect(config: &Connection) -> Result<ReflectionDiscovery, String> {
-    let channel = channel(config).await?;
-    match version(channel.clone(), config, "v1").await {
+    let previous = crate::http::timeouts::selected(None, config.timeout_ms)
+        .map(|timeout| tokio::time::Instant::now() + timeout);
+    let (sender, receiver) = mpsc::channel(1);
+    sender
+        .send(request(Query::ListServices(String::new())))
+        .await
+        .map_err(|_| "Reflection closed.")?;
+    let mut receiver = Some(receiver);
+    let mut guard = None;
+    let prepared = call_setup::connect_with(
+        config,
+        "grpc.reflection.v1.ServerReflection",
+        "ServerReflectionInfo",
+        previous,
+        || {
+            let input = super::replay::Input::new(
+                receiver.take().expect("Reflection config selected once"),
+                config.resolution_config.retry_budget(),
+                true,
+            );
+            input.0.stage_pending();
+            guard = Some(input);
+        },
+    )
+    .await
+    .map_err(|error| error.to_string())?;
+    let channel = prepared.channel.clone();
+    let first_channel = channel.clone();
+    let first = async move {
+        let input = RequestInput {
+            sender,
+            guard: guard.expect("Connected reflection has selected config"),
+        };
+        let initial = Driver::start(prepared, config, "v1", Some(input)).await?;
+        version(first_channel, config, "v1", Some(initial)).await
+    }
+    .await;
+    match first {
         Err(error) if error.code() == tonic::Code::Unimplemented => {
-            version(channel, config, "v1alpha")
+            version(channel, config, "v1alpha", None)
                 .await
                 .map_err(|error| error.to_string())
         }

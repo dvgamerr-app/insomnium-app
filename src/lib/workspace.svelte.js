@@ -1920,6 +1920,7 @@ export async function executeGrpc(requestId, discoveryOnly = false) {
           run.phase = "open";
         }
         if (event.kind === "metadata") live.headers = event.headers;
+        if (event.kind === "error") workspace.grpcErrors[requestId] = event.message;
         if (event.kind === "status") {
           live.status = event.code;
           live.statusText = event.details;

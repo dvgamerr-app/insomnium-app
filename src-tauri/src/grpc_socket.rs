@@ -44,5 +44,10 @@ pub(crate) async fn connect(endpoint: Endpoint, path: &str) -> Result<Channel, S
             async move { open(path).await.map(TokioIo::new) }
         }))
         .await
-        .map_err(|error| format!("Could not connect to gRPC socket: {error}"))
+        .map_err(|error| {
+            format!(
+                "Could not connect to gRPC socket: {}",
+                super::lb_transport::describe(&error)
+            )
+        })
 }

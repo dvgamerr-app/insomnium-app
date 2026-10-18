@@ -88,14 +88,6 @@ pub(crate) fn select(
     let Some(host) = url.host_str() else {
         return Ok(None);
     };
-    if let Some(list) = first(&["no_grpc_proxy", "no_proxy"]) {
-        if bypass(
-            target.host_str().unwrap_or("").trim_matches(['[', ']']),
-            &list,
-        ) {
-            return Ok(None);
-        }
-    }
     let credentials = if url.username().is_empty() {
         None
     } else if let Some(password) = url.password().filter(|s| !s.is_empty()) {
@@ -119,6 +111,16 @@ pub(crate) fn select(
     } else {
         Some(url.username().to_owned())
     };
+    // grpc-js getProxyInfo decodes credentials before mapProxyName evaluates
+    // the bypass list. Invalid credentials must not become target-dependent.
+    if let Some(list) = first(&["no_grpc_proxy", "no_proxy"]) {
+        if bypass(
+            target.host_str().unwrap_or("").trim_matches(['[', ']']),
+            &list,
+        ) {
+            return Ok(None);
+        }
+    }
     Ok(Some(Proxy {
         host: host.trim_matches(['[', ']']).to_owned(),
         port: url.port().unwrap_or(80),
@@ -178,11 +180,6 @@ pub(crate) async fn tunnel(proxy: &Proxy, target: &str) -> io::Result<BufReader<
     }
 }
 
-pub(crate) async fn connect(endpoint: Endpoint, target: &Url) -> Result<Channel, String> {
-    let selected = select(target, |key| std::env::var(key).ok())?;
-    connect_selected(endpoint, target, selected).await
-}
-
 pub(crate) async fn connect_selected(
     endpoint: Endpoint,
     target: &Url,
@@ -200,7 +197,12 @@ pub(crate) async fn connect_selected(
     } else {
         endpoint.connect().await
     }
-    .map_err(|error| format!("Could not connect to gRPC endpoint: {error}"))
+    .map_err(|error| {
+        format!(
+            "Could not connect to gRPC endpoint: {}",
+            super::lb_transport::describe(&error)
+        )
+    })
 }
 
 #[derive(Clone)]
@@ -363,23 +365,6 @@ pub(crate) async fn connect_static(
     connect_dials(endpoint, addresses, None, timeout).await
 }
 
-pub(crate) async fn connect_resolved(
-    endpoint: Endpoint,
-    addresses: &[SocketAddr],
-    resolver: AddressResolver,
-    timeout: Option<Duration>,
-) -> Result<Channel, String> {
-    let addresses = addresses
-        .iter()
-        .map(|address| StaticDial {
-            address: *address,
-            target: String::new(),
-            proxy: None,
-        })
-        .collect();
-    connect_dials(endpoint, addresses, Some(resolver), timeout).await
-}
-
 async fn connect_dials(
     endpoint: Endpoint,
     addresses: Vec<StaticDial>,
@@ -415,7 +400,7 @@ async fn connect_dials(
                             next += 1;
                             next_start = tokio::time::Instant::now() + Duration::from_millis(250);
                         } else if pending.is_empty() {
-                            return Err(format!("Could not connect to gRPC IP targets: {error}"));
+                            return Err(format!("Could not connect to gRPC IP targets: {}", super::lb_transport::describe(&error)));
                         }
                     }
                 },

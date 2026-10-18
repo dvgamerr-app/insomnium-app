@@ -6,12 +6,14 @@ use base64::{
 use prost_reflect::{DescriptorPool, DynamicMessage, MethodDescriptor};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
+#[cfg(test)]
 use tokio::sync::mpsc;
+#[cfg(test)]
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{
     metadata::{Ascii, Binary, KeyAndValueRef, MetadataKey, MetadataMap, MetadataValue},
-    transport::{Certificate, Channel, ClientTlsConfig, Endpoint, Identity},
-    Request, Status,
+    transport::{Certificate, ClientTlsConfig, Endpoint, Identity},
+    Status,
 };
 
 #[path = "grpc_endpoint.rs"]
@@ -22,6 +24,24 @@ mod socket;
 
 #[path = "grpc_dns.rs"]
 mod dns;
+
+#[path = "grpc_service_config.rs"]
+mod service_config;
+
+#[path = "grpc_lb_transport.rs"]
+mod lb_transport;
+use lb_transport::Channel;
+#[path = "grpc_call_setup.rs"]
+mod call_setup;
+
+#[path = "grpc_replay.rs"]
+mod replay;
+
+#[path = "grpc_admission.rs"]
+pub(crate) mod admission;
+
+#[path = "grpc_retry.rs"]
+mod retry;
 
 #[cfg(test)]
 #[path = "grpc_reflection_arrival_tests.rs"]
@@ -36,6 +56,9 @@ mod proxy;
 #[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Connection {
+    // Native lifetime state, never accepted from or serialized into IPC data.
+    #[serde(skip)]
+    resolution_config: service_config::ResolutionConfig,
     pub url: String,
     #[serde(default)]
     pub metadata: Vec<(String, String)>,
@@ -56,9 +79,7 @@ impl Connection {
     pub(crate) fn call_deadline(&self) -> Option<Duration> {
         // Old IPC callers omitted this field and used timeout_ms for the call.
         // The current renderer sends explicit zero for legacy no-deadline calls.
-        let ms = self
-            .deadline_ms
-            .unwrap_or(self.timeout_ms.min(3_600_000));
+        let ms = self.deadline_ms.unwrap_or(self.timeout_ms.min(3_600_000));
         (ms != 0).then(|| Duration::from_millis(ms.clamp(1, 3_600_000)))
     }
 }
@@ -146,7 +167,7 @@ pub(crate) fn metadata_rows(metadata: &MetadataMap) -> Result<Vec<(String, Strin
     Ok(rows)
 }
 
-pub(crate) async fn channel(config: &Connection) -> Result<Channel, String> {
+pub(crate) async fn channel(config: &Connection) -> Result<Channel, call_setup::Error> {
     let target = endpoint_url::parse(&config.url)?;
     let url = &target.url;
     if !matches!(url.scheme(), "http" | "https")
@@ -205,13 +226,28 @@ pub(crate) async fn channel(config: &Connection) -> Result<Channel, String> {
         .map_err(|_| "Invalid gRPC TLS configuration.")?;
     }
     if let Some(path) = &target.socket_path {
-        socket::connect(endpoint, path).await
+        config.resolution_config.clear();
+        socket::connect(endpoint, path)
+            .await
+            .map(Into::into)
+            .map_err(call_setup::Error::Transport)
     } else if !target.addresses.is_empty() {
-        proxy::connect_static(endpoint, &target.addresses, connect_timeout).await
-    } else if dns::enabled() {
-        dns::connect(endpoint, url, target.dns_server, connect_timeout).await
+        config.resolution_config.clear();
+        proxy::connect_static(endpoint, &target.addresses, connect_timeout)
+            .await
+            .map(Into::into)
+            .map_err(call_setup::Error::Transport)
     } else {
-        proxy::connect(endpoint, url).await
+        dns::connect(
+            endpoint,
+            url,
+            target.dns_server,
+            connect_timeout,
+            &config.resolution_config,
+            &config.url,
+        )
+        .await
+        .map_err(call_setup::Error::Transport)
     }
 }
 
@@ -229,7 +265,7 @@ pub(crate) async fn reflect(config: &Connection) -> Result<ReflectionDiscovery, 
     reflection::reflect(config).await
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub(crate) enum Event {
     Started,
@@ -240,17 +276,34 @@ pub(crate) enum Event {
     Message {
         text: String,
     },
+    // Internal completion context; serialized exactly like a normal message.
+    #[serde(rename = "message")]
+    FinalMessage {
+        text: String,
+        #[serde(skip)]
+        status: Box<Event>,
+    },
+    #[serde(rename = "error")]
+    FinalError {
+        message: String,
+        #[serde(skip)]
+        status: Box<Event>,
+    },
     Status {
         code: i32,
         details: String,
         trailers: Vec<(String, String)>,
     },
 }
+enum Callback {
+    Message(String),
+    Error(String),
+}
 
 pub(crate) async fn call<F, Fut>(
     config: &Connection,
     method: MethodDescriptor,
-    messages: mpsc::Receiver<DynamicMessage>,
+    messages: impl Into<admission::Receiver<DynamicMessage>>,
     mode: grpc_schema::JsonMode,
     deadline: Option<tokio::time::Instant>,
     mut emit: F,
@@ -259,85 +312,189 @@ where
     F: FnMut(Event) -> Fut,
     Fut: std::future::Future<Output = Result<(), String>>,
 {
-    let channel = channel(config).await?;
-    let mut client = tonic::client::Grpc::new(channel)
+    let mut receiver = Some(messages.into());
+    let mut messages = None;
+    let call_setup::Prepared {
+        channel,
+        session,
+        budget,
+    } = match call_setup::connect_with(
+        config,
+        method.parent_service().full_name(),
+        method.name(),
+        deadline,
+        || {
+            // Retry storage begins at config selection, before transport READY.
+            let input = replay::Input::new(
+                receiver.take().expect("Call config selected once"),
+                config.resolution_config.retry_budget(),
+                true,
+            );
+            input.0.stage_pending();
+            messages = Some(input);
+        },
+    )
+    .await
+    {
+        Ok(prepared) => prepared,
+        Err(error) => {
+            // Close producer admission before waiting for renderer status ACK.
+            drop(messages);
+            drop(receiver);
+            let terminal = status_event(error.status()?)?;
+            if let Some(callback) = terminal_callback(&terminal) {
+                emit(callback).await?;
+            }
+            return emit(terminal).await;
+        }
+    };
+    let messages = messages.expect("Connected call has selected config");
+    let deadline = budget.wire;
+    let mut client = tonic::client::Grpc::new(session.channel(channel))
         .max_decoding_message_size(MAX_MESSAGE)
         .max_encoding_message_size(MAX_MESSAGE)
         .accept_compressed(tonic::codec::CompressionEncoding::Gzip)
         .accept_compressed(tonic::codec::CompressionEncoding::Deflate);
-    client
-        .ready()
-        .await
-        .map_err(|e| format!("gRPC connection is not ready: {e}"))?;
-    let path = format!("/{}/{}", method.parent_service().full_name(), method.name())
-        .parse()
-        .map_err(|_| "Invalid gRPC method path.")?;
-    let mut request = Request::new(ReceiverStream::new(messages));
-    *request.metadata_mut() = metadata(&config.metadata)?;
-    emit(Event::Connected).await?;
-    let codec = DynamicCodec {
-        output: match mode {
-            grpc_schema::JsonMode::Legacy | grpc_schema::JsonMode::LegacyReflection => {
-                crate::grpc_legacy::legacy_descriptor(method.output())?
+    let (unary_response, terminal) = {
+        let emit = &mut emit;
+        let work = async move {
+            let path = format!("/{}/{}", method.parent_service().full_name(), method.name())
+                .parse()
+                .map_err(|_| "Invalid gRPC method path.")?;
+            let headers = metadata(&config.metadata)?;
+            emit(Event::Connected).await?;
+            let codec = DynamicCodec {
+                output: match mode {
+                    grpc_schema::JsonMode::Legacy | grpc_schema::JsonMode::LegacyReflection => {
+                        crate::grpc_legacy::legacy_descriptor(method.output())?
+                    }
+                    grpc_schema::JsonMode::ProtoJson => method.output(),
+                },
+            };
+            // The streaming dispatcher uses the same gRPC wire protocol for every shape;
+            // schema-aware IPC restricts sends and response cardinality below.
+            let result = retry::streaming_prepared(
+                &mut client,
+                messages,
+                headers,
+                path,
+                codec,
+                session,
+                deadline,
+            )
+            .await;
+            let retry::Started {
+                mut response,
+                mut completion,
+            } = match result {
+                Ok(response) => response,
+                Err(status) => return status_event(status).map(|event| (None, event)),
+            };
+            // Tonic keeps a successful trailers-only block in response metadata and
+            // exposes an empty body with no subsequent trailers.
+            let terminal_headers = response
+                .metadata()
+                .get("grpc-status")
+                .map(|_| response.metadata().clone());
+            emit(Event::Metadata {
+                headers: metadata_rows(response.metadata())?,
+            })
+            .await?;
+            let stream = response.get_mut();
+            let mut count = 0;
+            let mut unary_response = None;
+            loop {
+                match stream.message().await {
+                    Ok(Some(message)) => {
+                        count += 1;
+                        if !method.is_server_streaming() && count > 1 {
+                            completion.failed();
+                            return status_event(Status::unimplemented(
+                                "Too many responses received",
+                            ))
+                            .map(|event| {
+                                (
+                                    Some(Callback::Error(
+                                        "12 UNIMPLEMENTED: Too many responses received".into(),
+                                    )),
+                                    event,
+                                )
+                            });
+                        }
+                        let text = grpc_schema::json_mode(&message, mode, method.output())?;
+                        if method.is_server_streaming() {
+                            emit(Event::Message { text }).await?;
+                        } else {
+                            // grpc-js unary/client-stream callbacks publish a
+                            // response only after final OK, never before error.
+                            unary_response = Some(Callback::Message(text));
+                        }
+                    }
+                    Ok(None) => {
+                        completion.succeeded();
+                        if !method.is_server_streaming() && count != 1 {
+                            // grpc-js reports a unary callback error while
+                            // preserving the actual final OK status event.
+                            unary_response = Some(Callback::Error(
+                                "12 UNIMPLEMENTED: No message received".into(),
+                            ));
+                        }
+                        let trailers = stream
+                            .trailers()
+                            .await
+                            .map_err(|s| s.to_string())?
+                            .or(terminal_headers)
+                            .unwrap_or_default();
+                        return successful_status_event(&trailers)
+                            .map(|event| (unary_response, event));
+                    }
+                    Err(status) => {
+                        completion.failed();
+                        return status_event(status).map(|event| (None, event));
+                    }
+                }
             }
-            grpc_schema::JsonMode::ProtoJson => method.output(),
-        },
-    };
-    if let Some(deadline) = deadline {
-        // Connecting and renderer ACK delivery consume the same call budget.
-        // Do not advertise a fresh timeout to the server after that work.
-        let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
-        if remaining.is_zero() {
-            return Err("gRPC deadline exceeded.".into());
+        };
+        match budget.timer {
+            Some(deadline) => match tokio::time::timeout_at(deadline, work).await {
+                Ok(result) => result,
+                Err(_) => status_event(Status::deadline_exceeded("gRPC deadline exceeded."))
+                    .map(|event| (None, event)),
+            },
+            None => work.await,
         }
-        request.set_timeout(remaining);
+    }?;
+    // The owned transport/response/replay future is gone before renderer ACK.
+    // Terminal delivery belongs to the bridge lifecycle, outside method timeout.
+    if let Some(callback) = unary_response {
+        let status = Box::new(terminal.clone());
+        emit(match callback {
+            Callback::Message(text) => Event::FinalMessage { text, status },
+            Callback::Error(message) => Event::FinalError { message, status },
+        })
+        .await?;
+    } else if let Some(callback) = terminal_callback(&terminal) {
+        emit(callback).await?;
     }
-    // The streaming dispatcher uses the same gRPC wire protocol for every shape;
-    // schema-aware IPC restricts sends and response cardinality below.
-    let result = client.streaming(request, path, codec).await;
-    let mut response = match result {
-        Ok(response) => response,
-        Err(status) => return emit(status_event(status)?).await,
+    emit(terminal).await
+}
+
+pub(crate) fn terminal_callback(status: &Event) -> Option<Event> {
+    let Event::Status { code, details, .. } = status else {
+        return None;
     };
-    // Tonic keeps a successful trailers-only block in response metadata and
-    // exposes an empty body with no subsequent trailers.
-    let terminal_headers = response
-        .metadata()
-        .get("grpc-status")
-        .map(|_| response.metadata().clone());
-    emit(Event::Metadata {
-        headers: metadata_rows(response.metadata())?,
+    // Legacy forwards grpc.error separately, except for explicit cancellation.
+    if *code == 0 || *code == 1 {
+        return None;
+    }
+    let name = retry::CODES
+        .get(*code as usize)
+        .copied()
+        .unwrap_or("UNKNOWN");
+    Some(Event::FinalError {
+        message: format!("{code} {name}: {details}"),
+        status: Box::new(status.clone()),
     })
-    .await?;
-    let stream = response.get_mut();
-    let mut count = 0;
-    loop {
-        match stream.message().await {
-            Ok(Some(message)) => {
-                count += 1;
-                if !method.is_server_streaming() && count > 1 {
-                    return Err("Server sent multiple messages for a unary response.".into());
-                }
-                emit(Event::Message {
-                    text: grpc_schema::json_mode(&message, mode, method.output())?,
-                })
-                .await?;
-            }
-            Ok(None) => {
-                if !method.is_server_streaming() && count != 1 {
-                    return Err("Server completed without the required response message.".into());
-                }
-                let trailers = stream
-                    .trailers()
-                    .await
-                    .map_err(|s| s.to_string())?
-                    .or(terminal_headers)
-                    .unwrap_or_default();
-                return emit(successful_status_event(&trailers)?).await;
-            }
-            Err(status) => return emit(status_event(status)?).await,
-        }
-    }
 }
 
 fn successful_status_event(metadata: &MetadataMap) -> Result<Event, String> {
@@ -555,7 +712,11 @@ mod status_tests {
                     .await;
             });
             let mut config: Connection = serde_json::from_value(serde_json::json!({
-                "url": format!("grpc://{address}"), "timeoutMs": if shape == 1 { 100 } else { 3000 }
+                // Keep the original 100ms connection-budget control numeric;
+                // it intentionally cannot wait for the 250ms family fallback.
+                // The other existing shapes exercise OS DNS against this same
+                // IPv4-only peer, including IPv6-to-IPv4 fallback if supplied.
+                "url": if shape == 1 { format!("grpc://{address}") } else { format!("grpc://localhost:{}", address.port()) }, "timeoutMs": if shape == 1 { 100 } else { 3000 }
             }))
             .unwrap();
             if shape == 1 {
