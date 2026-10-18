@@ -523,6 +523,7 @@ export function createPluginGuestDom(call,retain,now) {
     /** @param {any} child @param {any} before */ insertBefore(child,before){return wrap(call("dom.node",[idOf(this),"insertBefore",[idOf(child),before===null?null:idOf(before)]]));}
     /** @param {any} child @param {any} previous */ replaceChild(child,previous){return wrap(call("dom.node",[idOf(this),"replaceChild",[idOf(child),idOf(previous)]]));}
     remove(){call("dom.node",[idOf(this),"remove",[]]);}
+    normalize(){call('dom.node',[idOf(this),'normalize',[]]);}
     /** @param {boolean} [deep] */cloneNode(deep=false){return wrap(call("dom.node",[idOf(this),"cloneNode",[!!deep]]));}
     /** @param {any} other */contains(other){if(!arguments.length)throw new TypeError('A Node argument is required');return compareNode(this,'contains',other,true);}
     /** @param {any} other */isSameNode(other){if(!arguments.length)throw new TypeError('A Node argument is required');return compareNode(this,'isSameNode',other,true);}
@@ -642,12 +643,54 @@ export function createPluginGuestDom(call,retain,now) {
       if(result?.exception)throw new DOMException(result.exception.message,result.exception.name);
     }});
   }
+  const characterNodes=new WeakSet(),textNodes=new WeakSet();
+  /** @param {any} receiver */
+  const characterReceiver=receiver=>{if(!characterNodes.has(receiver))throw new TypeError('Illegal CharacterData receiver');};
+  /** @param {any} receiver @param {string} action @param {any[]} parameters */
+  const characterCall=(receiver,action,parameters=[])=>{
+    characterReceiver(receiver);
+    const result=call('dom.node',[idOf(receiver),'characterData',[action,...parameters]]);
+    if(result?.exception)throw new DOMException(result.exception.message,result.exception.name);
+    return result;
+  };
+  /** WebIDL unsigned long uses ToNumber, truncation and modulo, without accepting BigInt.
+   * @param {any} value */
+  const unsignedLong=value=>{const number=+value;return Number.isFinite(number)?((Math.trunc(number)%4294967296)+4294967296)%4294967296:0;};
+  class GuestCharacterData extends GuestNode {
+    /** @param {symbol} token @param {number} id */
+    constructor(token,id){super(token,id);characterNodes.add(this);}
+    get data(){return characterCall(this,'data');}
+    set data(value){characterReceiver(this);characterCall(this,'data',[value===null?'':domString(value)]);}
+    get length(){return characterCall(this,'length');}
+    /** @param {any} offset @param {any} count */
+    substringData(offset,count){characterReceiver(this);if(arguments.length<2)throw new TypeError('Offset and count are required');return characterCall(this,'substringData',[unsignedLong(offset),unsignedLong(count)]);}
+    /** @param {any} data */
+    appendData(data){characterReceiver(this);if(!arguments.length)throw new TypeError('Data is required');characterCall(this,'appendData',[domString(data)]);}
+    /** @param {any} offset @param {any} data */
+    insertData(offset,data){characterReceiver(this);if(arguments.length<2)throw new TypeError('Offset and data are required');characterCall(this,'insertData',[unsignedLong(offset),domString(data)]);}
+    /** @param {any} offset @param {any} count */
+    deleteData(offset,count){characterReceiver(this);if(arguments.length<2)throw new TypeError('Offset and count are required');characterCall(this,'deleteData',[unsignedLong(offset),unsignedLong(count)]);}
+    /** @param {any} offset @param {any} count @param {any} data */
+    replaceData(offset,count,data){characterReceiver(this);if(arguments.length<3)throw new TypeError('Offset, count and data are required');characterCall(this,'replaceData',[unsignedLong(offset),unsignedLong(count),domString(data)]);}
+  }
+  class GuestText extends GuestCharacterData {
+    /** @param {any} [data] @param {number} [id] */
+    constructor(data='',id){if(data===secret){super(secret,/** @type {number} */(id));}else{const descriptor=call('dom.create',['text',domString(data)]);super(secret,descriptor.id);nodes.set(descriptor.id,this);}textNodes.add(this);}
+    get wholeText(){if(!textNodes.has(this))throw new TypeError('Illegal Text receiver');return characterCall(this,'wholeText');}
+    /** @param {any} offset */
+    splitText(offset){if(!textNodes.has(this))throw new TypeError('Illegal Text receiver');if(!arguments.length)throw new TypeError('Offset is required');return wrap(characterCall(this,'splitText',[unsignedLong(offset)]));}
+  }
+  class GuestComment extends GuestCharacterData {
+    /** @param {any} [data] @param {number} [id] */
+    constructor(data='',id){if(data===secret){super(secret,/** @type {number} */(id));}else{const descriptor=call('dom.create',['comment',domString(data)]);super(secret,descriptor.id);nodes.set(descriptor.id,this);}}
+  }
+  for(const [prototype,name] of /** @type {[object,string][]} */([[GuestCharacterData.prototype,'CharacterData'],[GuestText.prototype,'Text'],[GuestComment.prototype,'Comment']]))Object.defineProperty(prototype,Symbol.toStringTag,{value:name,configurable:true});
   /** @param {any} descriptor @returns {any} */
   function wrap(descriptor) {
     if(descriptor===null)return null;
     const {id,nodeType}=descriptor;
     if(nodes.has(id))return nodes.get(id);
-    const node=new (nodeType===1?GuestElement:nodeType===11?GuestDocumentFragment:GuestNode)(secret,id);if(nodeType===1)elements.add(node);nodes.set(id,node);return node;
+    const node=new (nodeType===1?GuestElement:nodeType===3?GuestText:nodeType===8?GuestComment:nodeType===11?GuestDocumentFragment:GuestNode)(secret,id);if(nodeType===1)elements.add(node);nodes.set(id,node);return node;
   }
   for(const key of ["textContent","nodeValue","value","checked","disabled","className","id","type","placeholder","title","name","tabIndex","tagName","nodeType","nodeName","isConnected"]) {
     Object.defineProperty(GuestNode.prototype,key,{get(){return call("dom.get",[idOf(this),key]);},set(value){call("dom.set",[idOf(this),key,value]);}});
@@ -667,7 +710,10 @@ export function createPluginGuestDom(call,retain,now) {
   const document=Object.freeze({
     createDocumentFragment:()=>new GuestDocumentFragment(),
     createElement:(/** @type {string} */ tag)=>wrap(call("dom.create",["element",tag])),
-    createTextNode:(/** @type {string} */ text)=>wrap(call("dom.create",["text",String(text)])),
+    /** @param {string} text */
+    createTextNode(text){if(!arguments.length)throw new TypeError('Text data is required');return wrap(call('dom.create',['text',domString(text)]));},
+    /** @param {string} text */
+    createComment(text){if(!arguments.length)throw new TypeError('Comment data is required');return wrap(call('dom.create',['comment',domString(text)]));},
   });
   Object.defineProperty(GuestNode.prototype,"ownerDocument",{get(){return document;}});
   for(const key of ["innerHTML","outerHTML"])
@@ -691,7 +737,7 @@ export function createPluginGuestDom(call,retain,now) {
     const row={listener:value,id:0};row.id=retain(packet=>{const event=nativeEvent(packet),data=eventState(event);try{const result=row.listener.call(this,event);if(result===false)event.preventDefault();return undefined;}finally{eventCheckpoints.at(-1)?.add(data);}});
     call('dom.handler',[idOf(this),type,row.id]);list.set(type,row);propertyHandlers.set(this,list);
   }});
-  for(const [constructor,name] of /** @type {[any,string][]} */([[GuestNode,'Node'],[GuestElement,'HTMLElement'],[GuestDocumentFragment,'DocumentFragment'],[GuestNodeList,'NodeList'],[GuestHTMLCollection,'HTMLCollection'],[GuestDOMTokenList,'DOMTokenList'],[GuestDOMStringMap,'DOMStringMap'],[DOMException,'DOMException']])){
+  for(const [constructor,name] of /** @type {[any,string][]} */([[GuestNode,'Node'],[GuestCharacterData,'CharacterData'],[GuestText,'Text'],[GuestComment,'Comment'],[GuestElement,'HTMLElement'],[GuestDocumentFragment,'DocumentFragment'],[GuestNodeList,'NodeList'],[GuestHTMLCollection,'HTMLCollection'],[GuestDOMTokenList,'DOMTokenList'],[GuestDOMStringMap,'DOMStringMap'],[DOMException,'DOMException']])){
     objectDefine(constructor,'name',{value:name});objectDefine(constructor,'length',{value:0});
   }
   objectDefine(Reflect,'defineProperty',{value:({defineProperty(/** @type {any} */ target,/** @type {any} */ key,/** @type {any} */ descriptor){
@@ -714,7 +760,7 @@ export function createPluginGuestDom(call,retain,now) {
     for(const [key,descriptor] of definitions)if(!defineOwned(target,key,descriptor,true))throw new TypeError('Cannot define property');
     return target;
   }}).defineProperties});
-  return Object.freeze({document,window:guestWindow,self:guestWindow,...eventClasses,Node:GuestNode,HTMLElement:GuestElement,DocumentFragment:GuestDocumentFragment,NodeList:GuestNodeList,HTMLCollection:GuestHTMLCollection,DOMTokenList:GuestDOMTokenList,DOMStringMap:GuestDOMStringMap,DOMException,beginEventCheckpoint,finishEventCheckpoint,
+  return Object.freeze({document,window:guestWindow,self:guestWindow,...eventClasses,Node:GuestNode,CharacterData:GuestCharacterData,Text:GuestText,Comment:GuestComment,HTMLElement:GuestElement,DocumentFragment:GuestDocumentFragment,NodeList:GuestNodeList,HTMLCollection:GuestHTMLCollection,DOMTokenList:GuestDOMTokenList,DOMStringMap:GuestDOMStringMap,DOMException,beginEventCheckpoint,finishEventCheckpoint,
     /** @param {()=>boolean} current */app(current){return Object.freeze({
       /** @param {string} title @param {any} body @param {any} [options] */
       dialog(title,body,options={}) {

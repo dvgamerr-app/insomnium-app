@@ -97,7 +97,7 @@ export function createPluginVm(engine, snapshot, eventTimeOrigin = performance.t
       const {beginEventCheckpoint,finishEventCheckpoint,...publicDom}=dom;
       __pluginInstallEventCheckpoints(beginEventCheckpoint,finishEventCheckpoint);delete globalThis.__pluginInstallEventCheckpoints;
       Object.defineProperty(globalThis,'__pluginGuestDom',{value:Object.freeze(publicDom),writable:false,configurable:false});
-      for(const key of ['document','window','self','Event','UIEvent','MouseEvent','PointerEvent','WheelEvent','KeyboardEvent','FocusEvent','InputEvent','CustomEvent','Node','HTMLElement','DocumentFragment','NodeList','HTMLCollection','DOMTokenList','DOMStringMap','DOMException'])Object.defineProperty(globalThis,key,{value:dom[key],writable:false,configurable:false});
+      for(const key of ['document','window','self','Event','UIEvent','MouseEvent','PointerEvent','WheelEvent','KeyboardEvent','FocusEvent','InputEvent','CustomEvent','Node','CharacterData','Text','Comment','HTMLElement','DocumentFragment','NodeList','HTMLCollection','DOMTokenList','DOMStringMap','DOMException'])Object.defineProperty(globalThis,key,{value:dom[key],writable:false,configurable:false});
     })();`, "plugin-dom-bootstrap.js").dispose();
     evaluate(pluginBufferSource, "plugin-buffer.js").dispose();
     vm.runtime.setModuleLoader(

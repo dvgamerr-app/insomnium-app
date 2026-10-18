@@ -32,6 +32,22 @@ exports.templateTags=[{name:'dom',run(c,label){
   const button=controls.querySelector('button'),input=controls.querySelector('input'),status=controls.querySelector('span');
   button.textContent='Guest DOM click';input.setAttribute('aria-label','Guest DOM input');status.setAttribute('role','status');status.textContent='waiting';
   button.addEventListener('click',clicked);
+  const textParent=document.createElement('div'),text=new Text('A😀B'),comment=new Comment('boundary');
+  if(!(text instanceof CharacterData)||!(text instanceof Node)||text instanceof HTMLElement||text.nodeType!==Node.TEXT_NODE||text.length!==4||text.substringData(1,2)!=='😀')throw Error('Text brand or UTF16 data mismatch');
+  text.replaceData(0,1,'ไทย');text.insertData(0,'<');text.appendData('>');text.deleteData(0,1);
+  if(text.data!=='ไทย😀B>'||text.nodeValue!==text.data||text.textContent!==text.data)throw Error('CharacterData edit mismatch');
+  textParent.append(text,comment,document.createTextNode('tail'));
+  const suffix=text.splitText(3),textCopy=suffix.cloneNode();
+  if(!(suffix instanceof Text)||!(textCopy instanceof Text)||textCopy.data!=='😀B>'||text.nextSibling!==suffix||suffix.wholeText!=='ไทย😀B>'||text.wholeText!==suffix.wholeText)throw Error('Text split/wholeText identity mismatch');
+  textParent.normalize();
+  if(textParent.firstChild!==text||text.data!=='ไทย😀B>'||suffix.parentNode!==null||suffix.data!=='😀B>'||comment.parentNode!==textParent||textParent.childNodes.length!==3)throw Error('Owned normalize identity/comment boundary mismatch');
+  comment.data='changed';comment.appendData('!');
+  if(!(comment instanceof CharacterData)||!(comment instanceof Comment)||comment.data!=='changed!'||comment.length!==8)throw Error('Comment data mismatch');
+  let indexError=false,bigintError=false,symbolError=false;
+  try{text.splitText(-1);}catch(error){indexError=error instanceof DOMException&&error.name==='IndexSizeError';}
+  try{text.deleteData(0n,1);}catch(error){bigintError=error instanceof TypeError;}
+  try{text.appendData(Symbol());}catch(error){symbolError=error instanceof TypeError;}
+  if(!indexError||!bigintError||!symbolError||text.data!=='ไทย😀B>')throw Error('CharacterData refusal mutated text');
   const fragment=document.createDocumentFragment(),liveChildren=fragment.children;
   input.id='owned-fragment-input';fragment.append(button,input,status);
   if(!(fragment instanceof DocumentFragment)||!(fragment instanceof Node)||fragment instanceof HTMLElement||fragment.nodeType!==Node.DOCUMENT_FRAGMENT_NODE||fragment.nodeName!=='#document-fragment'||fragment.ownerDocument!==document)throw Error('Fragment brand/owner mismatch');

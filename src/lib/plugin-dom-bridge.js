@@ -161,6 +161,7 @@ export function createPluginDomBridge(owner) {
         if(args.length!==2 || typeof args[1]!=="string")throw Error("Invalid DOM creation");
         if(args[0]==="fragment"&&args[1]==="")return describe(document.createDocumentFragment(),true);
         if(args[0]==="text"){charge(args[1]);return describe(document.createTextNode(args[1]),true);}
+        if(args[0]==="comment"){charge(args[1]);return describe(document.createComment(args[1]),true);}
         if(args[0]!=="element" || !tags.has(args[1].toLowerCase()))throw Error("Unsupported DOM element");
         return describe(document.createElement(args[1]),true);
       }
@@ -250,6 +251,55 @@ export function createPluginDomBridge(owner) {
       if(method==="dom.node") {
         if(args.length!==3 || !Array.isArray(args[2]))throw Error("Invalid DOM method");
         const [_,name,values]=args;let result;
+        if(name==='characterData'){
+          if(!(target instanceof CharacterData)||!values.length)throw Error('CharacterData requires an owned text or comment node');
+          const [action,...parameters]=values;
+          const unsigned=(/** @type {any} */ value)=>Number.isInteger(value)&&value>=0&&value<=4294967295;
+          if(action==='data'&&parameters.length===0)return target.data;
+          if(action==='length'&&parameters.length===0)return target.length;
+          if(action==='wholeText'&&target instanceof Text&&parameters.length===0){
+            for(const direction of /** @type {('previousSibling'|'nextSibling')[]} */(['previousSibling','nextSibling'])){
+              let sibling=target[direction];
+              while(sibling instanceof Text){if(!ids.has(sibling))throw Error('Text sibling is outside the owned DOM');sibling=sibling[direction];}
+            }
+            return target.wholeText;
+          }
+          try{
+            if(action==='splitText'&&target instanceof Text&&parameters.length===1&&unsigned(parameters[0])){
+              const offset=parameters[0];
+              if(offset>target.length)throw new DOMException('Offset exceeds text length','IndexSizeError');
+              if(target.parentNode&&!ids.has(target.parentNode))throw Error('Text parent is outside the owned DOM');
+              if(nodes.size>=2048)throw Error('Plugin DOM node limit exceeded');
+              chargeBytes(new TextEncoder().encode(target.data.slice(0,offset)).byteLength+new TextEncoder().encode(target.data.slice(offset)).byteLength);
+              return describe(target.splitText(offset),true);
+            }
+            if(action==='substringData'&&parameters.length===2&&parameters.every(unsigned))return target.substringData(parameters[0],parameters[1]);
+            let offset=0,count=target.length,text='';
+            if(action==='data'&&parameters.length===1&&typeof parameters[0]==='string')text=parameters[0];
+            else if(action==='appendData'&&parameters.length===1&&typeof parameters[0]==='string'){offset=target.length;count=0;text=parameters[0];}
+            else if(action==='insertData'&&parameters.length===2&&unsigned(parameters[0])&&typeof parameters[1]==='string'){offset=parameters[0];count=0;text=parameters[1];}
+            else if(action==='deleteData'&&parameters.length===2&&parameters.every(unsigned)){offset=parameters[0];count=parameters[1];}
+            else if(action==='replaceData'&&parameters.length===3&&unsigned(parameters[0])&&unsigned(parameters[1])&&typeof parameters[2]==='string'){offset=parameters[0];count=parameters[1];text=parameters[2];}
+            else throw Error('Unsupported CharacterData operation');
+            if(offset>target.length)throw new DOMException('Offset exceeds character data length','IndexSizeError');
+            charge(target.data.slice(0,offset)+text+target.data.slice(offset+count));
+            target.replaceData(offset,count,text);return undefined;
+          }catch(error){if(error instanceof DOMException)return {exception:{name:error.name,message:error.message}};throw error;}
+        }
+        if(name==='normalize'&&values.length===0){
+          const pending=[target];let bytes=0;
+          while(pending.length){
+            const parent=pending.pop();if(!parent)continue;
+            let run='';let count=0;
+            const account=()=>{if(count>1)bytes+=new TextEncoder().encode(run).byteLength;run='';count=0;};
+            for(const child of Array.from(parent.childNodes)){
+              if(!ids.has(child))throw Error('Normalize descendant is outside the owned DOM');
+              if(child instanceof Text){run+=child.data;count++;}else{account();pending.push(child);}
+            }
+            account();
+          }
+          chargeBytes(bytes);target.normalize();return undefined;
+        }
         if(['contains','isSameNode','isEqualNode','compareDocumentPosition'].includes(name)){
           if(values.length!==1||(values[0]===null?name==='compareDocumentPosition':!Number.isSafeInteger(values[0])))throw Error('Invalid owned Node comparison');
           return target[name](values[0]===null?null:node(values[0]));
