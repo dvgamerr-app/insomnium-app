@@ -765,7 +765,7 @@ export async function send(request, signal) {
   if (request.socketPath)
     throw new Error("Unix socket requests require the desktop app.");
   if (request.proxyOverride)
-    throw new Error("Request proxy overrides require the desktop app.");
+    throw new Error("Explicit proxy settings require the desktop app.");
   if (request.connectTimeoutMs != null)
     throw new Error("Connection timeout overrides require the desktop app.");
   if (request.decodeResponse != null)

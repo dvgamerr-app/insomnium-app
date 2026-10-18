@@ -88,6 +88,12 @@ pub struct HttpRequest {
     pub(crate) store_cookies: bool,
     pub(crate) proxy: Option<String>,
     #[serde(default)]
+    pub(crate) proxy_http: Option<String>,
+    #[serde(default)]
+    pub(crate) proxy_https: Option<String>,
+    #[serde(default)]
+    pub(crate) proxy_no_proxy: Option<String>,
+    #[serde(default)]
     pub(crate) proxy_disabled: bool,
     #[serde(default)]
     pub(crate) proxy_basic_auth: bool,
@@ -218,7 +224,17 @@ pub async fn send_http(
         &request.method,
         &url,
         &crate::network_log::Settings {
-            proxy: request.proxy.as_deref().filter(|p| !p.is_empty()),
+            proxy: if request.proxy_disabled {
+                None
+            } else {
+                match url.scheme() {
+                    "http" | "ws" => request.proxy_http.as_deref(),
+                    "https" | "wss" => request.proxy_https.as_deref(),
+                    _ => None,
+                }
+                .filter(|p| !p.is_empty())
+                .or(request.proxy.as_deref().filter(|p| !p.is_empty()))
+            },
             validate_certificates: request.validate_certificates,
             follow_redirects: request.follow_redirects,
             custom_ca: request.ca_pem.as_ref().is_some_and(|p| !p.is_empty())
@@ -401,7 +417,13 @@ pub async fn fetch_oauth_token(
         }
         let client = build_client(&request, &url, jar.as_ref(), false, false)
             .map_err(|_| "Invalid OAuth proxy, CA or client certificate settings.")?;
-        crate::oauth::exchange(&client, &url, &config, versions::selected(request.http_version.as_deref())?).await
+        crate::oauth::exchange(
+            &client,
+            &url,
+            &config,
+            versions::selected(request.http_version.as_deref())?,
+        )
+        .await
     };
     let mut result: Result<crate::oauth::OAuthToken, String> = tokio::select! {
         result = timeouts::run(timeouts::selected(request.request_timeout_ms, request.timeout_ms), exchange, "OAuth token request timed out.") => result,
@@ -494,12 +516,22 @@ pub(crate) fn build_client(
     }
     if request.proxy_disabled {
         builder = builder.no_proxy();
-    } else if let Some(proxy) = request.proxy.as_ref().filter(|p| !p.is_empty()) {
-        builder = builder.proxy(crate::proxy_auth::configure_proxy(
-            proxy,
-            request.proxy_basic_auth,
-            request.proxy_auth_mode.as_deref(),
-        )?);
+    } else {
+        for (proxy, scheme) in [
+            (request.proxy_http.as_deref(), Some("http")),
+            (request.proxy_https.as_deref(), Some("https")),
+            (request.proxy.as_deref(), None),
+        ] {
+            if let Some(proxy) = proxy.filter(|value| !value.is_empty()) {
+                builder = builder.proxy(crate::proxy_auth::configure_proxy(
+                    proxy,
+                    request.proxy_basic_auth,
+                    request.proxy_auth_mode.as_deref(),
+                    scheme,
+                    request.proxy_no_proxy.as_deref(),
+                )?);
+            }
+        }
     }
     let ca = crate::client_certificates::load_ca_certificate(
         request.ca_file.as_deref(),
@@ -541,7 +573,12 @@ pub(crate) fn build_client(
             builder = builder.timeout(timeout);
         }
     }
-    builder = versions::configure(builder, request.http_version.as_deref(), websocket, request.ntlm.is_some() && !manual_authorization)?;
+    builder = versions::configure(
+        builder,
+        request.http_version.as_deref(),
+        websocket,
+        request.ntlm.is_some() && !manual_authorization,
+    )?;
     if websocket {
         builder = builder.http1_only();
     }

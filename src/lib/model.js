@@ -83,6 +83,7 @@ export function initialData() {
     responseSelections: /** @type {Record<string,string>} */ ({}),
     settings: {
       windowZoom: 1,
+      forceVerticalLayout: true,
       theme: "dark",
       autoDetectColorScheme: false,
       lightTheme: "light",
@@ -101,6 +102,10 @@ export function initialData() {
       validateCertificates: true,
       useCookies: true,
       proxy: "",
+      proxyEnabled: true,
+      httpProxy: "",
+      httpsProxy: "",
+      noProxy: "",
       caPem: "",
       identityPem: "",
       identityHost: "",

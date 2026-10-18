@@ -1,3 +1,4 @@
+import { globalProxySettings } from "./request-proxy.js";
 import {requestHttpVersion} from "./request-http-version.js";
 import {readTextFile,stat} from '@tauri-apps/plugin-fs';
 import {readPluginImportUri} from './plugin-import-uri.js';
@@ -607,6 +608,14 @@ export function canEditWorkspace() {
 export function updateSettings(patch) {
   if (!canEditWorkspace()) return;
   const next = { ...patch };
+  if (["proxyEnabled","proxy","httpProxy","httpsProxy","noProxy"].some(key => Object.hasOwn(next,key))) {
+    try { globalProxySettings({...workspace.data.settings,...next}); }
+    catch (error) { workspace.error = String(error); return; }
+  }
+  if (Object.hasOwn(next, "forceVerticalLayout") && typeof next.forceVerticalLayout !== "boolean") {
+    workspace.error = "Request and response layout must be vertical or horizontal.";
+    return;
+  }
   if (Object.hasOwn(next, "windowZoom")) {
     const value = next.windowZoom;
     if (typeof value !== "number" || !Number.isFinite(value) || value < 0.25 || value > 5) {

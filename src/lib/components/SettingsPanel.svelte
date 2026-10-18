@@ -126,6 +126,12 @@
               <h3 id="settings-appearance-title">Appearance</h3>
               <p class="hint">Colour theme for the whole application.</p>
               <div class="settings-grid">
+                <Field label="Request and response layout"><Select
+                  value={settings.forceVerticalLayout === false ? "horizontal" : "vertical"}
+                  onchange={event => updateSettings({forceVerticalLayout:event.currentTarget.value === "vertical"})}>
+                  <option value="vertical">Vertical (stacked)</option>
+                  <option value="horizontal">Horizontal (side by side)</option>
+                </Select><span class="hint">Narrow panels always stack vertically.</span></Field>
                 <Field label="Window zoom"><Select value={settings.windowZoom ?? 1}
                   onchange={event => updateSettings({windowZoom:Number(event.currentTarget.value)})}>
                   {#each [...new Set([0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.5,3,4,5,settings.windowZoom ?? 1])].sort((a,b)=>a-b) as zoom}
@@ -312,6 +318,14 @@
               aria-labelledby="settings-proxy-title"
             >
               <h3 id="settings-proxy-title">Proxy</h3>
+              <Field layout="inline" class="checkbox-label"><Checkbox checked={settings.proxyEnabled !== false}
+                onchange={event => updateSettings({proxyEnabled:event.currentTarget.checked})}/>Enable app proxy settings</Field>
+              {#each [["httpProxy","HTTP proxy URL"],["httpsProxy","HTTPS proxy URL"]] as [key,label]}
+                <Field {label}><Input placeholder="Use fallback proxy" value={settings[key] ?? ""}
+                  onchange={event => updateSettings({[key]:event.currentTarget.value})}/></Field>
+              {/each}
+              <Field label="Bypass configured proxies"><Input placeholder="localhost, .example.com, 192.168.0.0/16"
+                value={settings.noProxy ?? ""} onchange={event => updateSettings({noProxy:event.currentTarget.value})}/></Field>
               <Field label="Proxy URL"
                 ><Input
                   placeholder="http://127.0.0.1:8080"
@@ -321,7 +335,12 @@
                 /></Field
               >
               <p class="hint">HTTP/HTTPS, SOCKS4/4a and SOCKS5/5h URLs are supported.
-                Use socks4a or socks5h to resolve destination names through the proxy.</p>
+                Use socks4a or socks5h to resolve destination names through the proxy.
+                Scheme-specific URLs take priority over the fallback Proxy URL. With explicit rules,
+                other schemes connect directly when no fallback is set. Bypass accepts comma-separated
+                domains (including subdomains), IP addresses, CIDR ranges, or * for all hosts.
+                Bypass applies to configured proxies. With no URL set, system proxy settings apply;
+                disabling app proxy settings connects directly. Request-specific overrides take priority.</p>
             </section>
             <section
               class="settings-section"

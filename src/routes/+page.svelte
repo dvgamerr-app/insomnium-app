@@ -1032,7 +1032,8 @@
             <SplitPane
               storageKey="request-response"
               label="Request and response size"
-              axis="y"
+              axis={app.data.settings.forceVerticalLayout === false ? "x" : "y"}
+              stackAt={900}
               initial={45}
               minFirst={140}
               minSecond={120}

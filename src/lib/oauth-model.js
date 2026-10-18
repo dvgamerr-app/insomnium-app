@@ -121,7 +121,7 @@ export function oauthContext(data, request, options = {}) {
     request.authentication?.type,
     config,
     request.authentication?.disabled === true,
-    (request.settingProxy ?? "global") === "global" ? settings.proxy
+    (request.settingProxy ?? "global") === "global" && settings.proxyEnabled !== false && !settings.httpProxy && !settings.httpsProxy && !settings.noProxy ? settings.proxy
       : requestProxy(settings, request, options.resolved ? undefined : (value) => render(value, environment)),
     settings.validateCertificates,
     settings.caPem,

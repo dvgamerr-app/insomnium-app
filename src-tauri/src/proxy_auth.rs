@@ -1,6 +1,9 @@
 //! Explicit proxy credentials, isolated from origin authentication and OS sign-in.
 //! RFC9110 11.7: https://www.rfc-editor.org/rfc/rfc9110.html#section-11.7
 //! Socket ownership is enforced by reqwest's proxy challenge transport.
+#[path = "proxy_rules.rs"]
+mod rules;
+
 use base64::{engine::general_purpose::STANDARD, Engine};
 use percent_encoding::percent_decode_str;
 use reqwest::{
@@ -43,6 +46,8 @@ pub(crate) fn configure_proxy(
     value: &str,
     basic: bool,
     mode: Option<&str>,
+    scheme: Option<&str>,
+    bypass: Option<&str>,
 ) -> Result<Proxy, String> {
     let mode = match mode.unwrap_or(if basic { "basic" } else { "auto" }) {
         "auto" => AuthMode::Auto,
@@ -56,7 +61,7 @@ pub(crate) fn configure_proxy(
     // URLs only when they have a host; IntoProxy retries a missing scheme or
     // hostless BadScheme with http://. Thus user:pass@host:port must not be
     // mistaken for an unsupported `user:` URL scheme and bypass negotiation.
-    let ordinary = Proxy::all(value).map_err(|_| "Invalid proxy configuration".to_string())?;
+    let ordinary = rules::configured(value, scheme, bypass)?;
     let mut url = match reqwest::Url::parse(value) {
         Ok(url) if url.has_host() => url,
         _ => reqwest::Url::parse(&format!("http://{value}"))
@@ -88,14 +93,16 @@ pub(crate) fn configure_proxy(
         .map_err(|_| "Invalid proxy credential URL")?;
     url.set_password(None)
         .map_err(|_| "Invalid proxy credential URL")?;
-    Ok(Proxy::all(url)
-        .map_err(|_| "Invalid proxy configuration")?
-        .challenge_provider(Arc::new(Provider(Arc::new(Credentials {
-            username,
-            password,
-            tls,
-            mode,
-        })))))
+    Ok(
+        rules::configured(url.as_str(), scheme, bypass)?.challenge_provider(Arc::new(Provider(
+            Arc::new(Credentials {
+                username,
+                password,
+                tls,
+                mode,
+            }),
+        ))),
+    )
 }
 
 fn credential(encoded: &str) -> Result<String, String> {

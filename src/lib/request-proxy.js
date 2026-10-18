@@ -43,12 +43,35 @@ export function requestProxy(
       proxyAuthMode: auth,
     };
   }
+  const disabled = mode === "off" || settings.proxyEnabled === false;
+  if (disabled) return {proxy:null,proxyDisabled:true,proxyOverride:true,proxyBasicAuth:false};
+  const proxy = globalProxySettings(settings);
   return {
-    proxy: mode === "off" ? null : settings.proxy || null,
-    proxyDisabled: mode === "off",
-    proxyOverride: mode === "off",
+    proxy: proxy.proxy || null,
+    proxyDisabled: false,
+    proxyOverride: Boolean(proxy.proxy || proxy.httpProxy || proxy.httpsProxy),
     proxyBasicAuth: false,
+    ...(proxy.httpProxy ? {proxyHttp:proxy.httpProxy} : {}),
+    ...(proxy.httpsProxy ? {proxyHttps:proxy.httpsProxy} : {}),
+    ...(proxy.noProxy ? {proxyNoProxy:proxy.noProxy} : {}),
   };
+}
+
+/** Validate literal app-level rules before mutation or request admission.
+ * Empty scheme-specific URLs fall back to the shared proxy URL.
+ * @param {Record<string,any>} settings */
+export function globalProxySettings(settings) {
+  if (settings.proxyEnabled != null && typeof settings.proxyEnabled !== "boolean")
+    throw new Error("Choose whether app proxy settings are enabled.");
+  const result = {proxy:"",httpProxy:"",httpsProxy:"",noProxy:""};
+  for (const key of /** @type {const} */ (["proxy","httpProxy","httpsProxy","noProxy"])) {
+    const value = settings[key] ?? "";
+    if (typeof value !== "string" || value.length > 8192 || /[\x00-\x1f\x7f]/.test(value) ||
+        (key !== "noProxy" && /\s/.test(value)))
+      throw new Error("Enter a valid bounded proxy URL or comma-separated bypass list.");
+    result[key] = value.trim();
+  }
+  return result;
 }
 
 /** curl uses HTTP without a scheme and port 1080 when no port was supplied.

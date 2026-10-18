@@ -56,6 +56,8 @@ export function legacyPreferenceCandidate(resources, sourceId) {
   const booleans = [
     ["editorIndentWithTabs", "Indent with tabs"],
     ["editorLineWrapping", "Editor line wrapping"],
+    ["forceVerticalLayout", "Stack request and response vertically"],
+    ["proxyEnabled", "Enable app proxy settings"],
     ["followRedirects", "Follow redirects"],
     ["filterResponsesByEnv", "Filter response history by environment"],
   ];
@@ -69,6 +71,14 @@ export function legacyPreferenceCandidate(resources, sourceId) {
       warnings.push(
         label + " is preserved without applying an incompatible value.",
       );
+  }
+  for (const [key,label] of [["httpProxy","HTTP proxy URL"],["httpsProxy","HTTPS proxy URL"],["noProxy","Proxy bypass list"]]) {
+    if (!Object.hasOwn(record,key)) continue;
+    const value = record[key];
+    if (typeof value === "string" && value.length <= 8192 && !/[\x00-\x1f\x7f]/.test(value) && (key === "noProxy" || !/\s/.test(value))) {
+      patch[key] = value;
+      fields.push({key,label,value});
+    } else warnings.push(label + " is preserved without applying an incompatible value.");
   }
   if (Object.hasOwn(record, "preferredHttpVersion")) {
     const versions = {default:"default",V1_0:"1.0",V1_1:"1.1",V2PriorKnowledge:"2-prior-knowledge"};
