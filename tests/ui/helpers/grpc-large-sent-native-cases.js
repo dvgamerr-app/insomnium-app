@@ -13,6 +13,8 @@ import {
   withNativeApp,
   poll,
   resourceCrudProbeIdentifier,
+  integrationProbeIdentifier,
+  selectedNativeProbeIdentifier,
 } from "./native-app.js";
 import {
   withResourceProbePreserved,
@@ -20,6 +22,7 @@ import {
   registerResourceProbeCollection,
   manageResource,
 } from "./resource-manager-cases.js";
+import { preserveNativeProfile } from "./native-profile-preservation.js";
 import { respondToOwnedSaveDialog } from "./windows-save-dialog.js";
 import { createGrpcLargeSentFixture } from "./grpc-large-sent-fixture.js";
 import { handleGrpcProfileReflection } from "./grpc-reflection-profile-wire.js";
@@ -115,7 +118,7 @@ export async function runGrpcLargeSentNativeCases({
   assert.ok(variants.filter((variant) => variant.enabled).length <= 1);
   const selected = variants.find((variant) => variant.enabled);
   const scenario = selected?.scenario ?? "grpc-large-sent-native";
-  const modes = grpcLargeModes.filter((mode) =>
+  let modes = grpcLargeModes.filter((mode) =>
     selected
       ? mode.startsWith(selected.tag) &&
         (!objectPrimitiveOnly ||
@@ -123,12 +126,40 @@ export async function runGrpcLargeSentNativeCases({
           grpcObjectPrimitiveSmokeModes.includes(mode))
       : !variants.some((variant) => mode.startsWith(variant.tag)),
   );
+  const requestedModes = process.env.INSOMNIUM_GRPC_LARGE_SENT_MODES;
+  if (requestedModes !== undefined) {
+    assert.ok(
+      !selected,
+      "Explicit modes apply only to the original core scenario",
+    );
+    const requested = requestedModes.split(",");
+    assert.deepEqual(
+      [...new Set(requested)],
+      requested,
+      "Duplicate core modes",
+    );
+    assert.ok(
+      requested.every((mode) => modes.includes(mode)),
+      "Unknown core mode",
+    );
+    modes = requested;
+  }
   const marker = process.env.INSOMNIUM_UI_PROFILE_OWNERSHIP;
-  assert.ok(marker && process.env.INSOMNIUM_UI_BUILD_STATE);
+  const integration =
+    selectedNativeProbeIdentifier() === integrationProbeIdentifier;
+  assert.ok(process.env.INSOMNIUM_UI_BUILD_STATE);
+  if (!integration) assert.ok(marker);
+  /** @type {typeof withResourceProbePreserved} */
+  const preserve = integration
+    ? (run, options) =>
+        preserveNativeProfile(() => withResourceProbePreserved(run, options))
+    : withResourceProbePreserved;
   const options = {
-    expectedIdentifier: resourceCrudProbeIdentifier,
+    expectedIdentifier: integration
+      ? integrationProbeIdentifier
+      : resourceCrudProbeIdentifier,
     profileOwnershipPath: marker,
-    allowParentTermination: true,
+    allowParentTermination: !integration,
   };
   const fixture = await createGrpcLargeSentFixture({
     handleDiscovery:
@@ -144,7 +175,7 @@ export async function runGrpcLargeSentNativeCases({
   /** @type {unknown[]} */ const errors = [];
   /** @type {string|undefined} */ let output;
   try {
-    await withResourceProbePreserved(
+    await preserve(
       async (capture) => {
         await withNativeApp(
           scenario,
@@ -152,7 +183,7 @@ export async function runGrpcLargeSentNativeCases({
             output = directory;
             page.setDefaultTimeout(60000);
             await resourceSaved(page);
-            await capture();
+            if (!integration) await capture();
             const original = await invoke("load_workspace");
             assert.ok(
               Buffer.byteLength(JSON.stringify(original.history)) <
@@ -200,6 +231,8 @@ export async function runGrpcLargeSentNativeCases({
                 activeEnvironmentId: null,
                 settings: {
                   ...original.settings,
+                  editorIndentWithTabs: false,
+                  editorIndentSize: 2,
                   proxy: "",
                   timeout: 120000,
                   maxHistory: 40,
@@ -543,7 +576,17 @@ export async function runGrpcLargeSentNativeCases({
                 const sent = entry.events.filter(
                   (/** @type {any} */ e) => e.kind === "sent",
                 );
-                assert.equal(sent.length, receives ? 0 : 1);
+                // Single requests retain their submitted JSON too; an oversized
+                // response still replaces the earlier payload under the 8 MiB budget.
+                const submittedBody =
+                  spec.editor || useExample ? spec.formattedBody : body;
+                const retainsSent =
+                  !receives ||
+                  Buffer.byteLength(submittedBody) +
+                    Buffer.byteLength(spec.responseText) <=
+                    8 * 1024 * 1024;
+                assert.equal(sent.length, retainsSent ? 1 : 0);
+                if (retainsSent) assert.equal(sent[0].text, submittedBody);
                 const messages = entry.events.filter(
                   (/** @type {any} */ e) => e.kind === "message",
                 );
@@ -866,7 +909,7 @@ export async function runGrpcLargeSentNativeCases({
           options,
         );
       },
-      { ...options, lazyCapture: true },
+      { ...options, lazyCapture: !integration },
     );
   } catch (error) {
     errors.push(error);
@@ -884,6 +927,7 @@ export async function runGrpcLargeSentNativeCases({
         {
           passed: !errors.length,
           renderingMode: "native-hidden",
+          selectedModes: modes,
           checks,
           retirement,
           records: fixture.records,
