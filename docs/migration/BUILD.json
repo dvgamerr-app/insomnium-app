@@ -3541,5 +3541,77 @@
     "gRPC real Tauri UI/IPC/ACL/acknowledgement/backpressure/shutdown races, native directory picker, provider/reflection and persisted reload/history/layout",
     "gRPC malformed base64/UTF-16/coercion/map/default/extension/reflection WKT edges and multiple-oneof legacy differences; method grouping/sample generation implemented with documented differences; shared editor remains incomplete (GRPC-COMPATIBILITY.md)",
     "Shared CodeMirror mounted typing/IME/cursor/undo/read-only, UTF-8 size rejection, diagnostic jump, GraphQL hint/lint/hover/directive navigation, lazy keymap races/disposal, Save-Cancel/settings reload and layout/theme CSS; CUA inventory empty and iab creation explicitly unavailable"
+  ],
+  "additionalPlatformBuilds": [
+    {
+      "builtAt": "2026-10-18T20:48:53.947Z",
+      "sourceParent": "0fff88a1",
+      "sourceDelta": "scripts/frontend-notice-fs.mjs as recorded in portable-root-verification.json",
+      "productEquivalentCommit": "59a4d83ed93b454d456dce6862e185cfcf88b1b6",
+      "command": "bun run desktop:build --bundles deb --ci -- --locked",
+      "identifier": "app.insomnium.desktop",
+      "target": "x86_64-unknown-linux-gnu",
+      "bundles": [
+        "deb"
+      ],
+      "exitCode": 0,
+      "artifacts": [
+        {
+          "path": "artifacts/linux-production-0fff88a1-20261019/Insomnium_0.1.0_amd64.deb",
+          "bytes": 54193790,
+          "sha256": "5fea08c9560efca9e966a2c58a700e3d3310c563c1490a43670f1a07217fc914"
+        },
+        {
+          "path": "artifacts/linux-production-0fff88a1-20261019/insomnium",
+          "bytes": 25966656,
+          "sha256": "5e8276c52edd593d96d9ee7524cb979647fab696a9cb7fa74be80f6aedaccc0d"
+        }
+      ],
+      "payloadFileCount": 1677,
+      "exactSourceFiles": 1675,
+      "bundledExecutableTransform": "Unique Tauri UNK-to-DEB marker substitution,3bytes; complete transformed-byte equality",
+      "evidence": "artifacts/linux-production-0fff88a1-20261019/verification.json",
+      "notVerified": [
+        "No installation/upgrade/uninstall/current runtime acceptance",
+        "No signing, hosted CI, other-platform or full migration acceptance",
+        "Existing vendor5/application1warnings retained in logs",
+        "Payload hashes do not prove universal legal/source/target-linkage closure"
+      ],
+      "fullMigrationComplete": false
+    },
+    {
+      "builtAt": "2026-10-18T20:57:32.858Z",
+      "productEquivalentCommit": "59a4d83ed93b454d456dce6862e185cfcf88b1b6",
+      "identifier": "app.insomnium.desktop",
+      "target": "x86_64-unknown-linux-gnu",
+      "bundles": [
+        "rpm",
+        "appimage"
+      ],
+      "command": "Production generate-rpm-config.mjs + generate-appimage-config.mjs; bun x --bun tauri bundle --bundles rpm,appimage --ci --config artifacts/production-formats-20261019/overlay.json",
+      "bundleExitCode": 0,
+      "artifacts": [
+        {
+          "path": "artifacts/linux-production-formats-20261019/Insomnium-0.1.0-1.x86_64.rpm",
+          "bytes": 54261810,
+          "sha256": "9f127fb4182fd343531566e8c9ef1112337a485b203be1b28db0165e03510eb8"
+        },
+        {
+          "path": "artifacts/linux-production-formats-20261019/Insomnium_0.1.0_amd64.AppImage",
+          "bytes": 147819000,
+          "sha256": "cb966a3a651ae4badd8bdc6c0e07e4c9c3854103b5b158935aae4d4d69d04fb0"
+        }
+      ],
+      "appimageProductFilesVerified": 1677,
+      "additionalGlesFiles": 2,
+      "rpmRequirementsVerified": 57,
+      "rpmCompatibility": "FAILED: RPM4.18 rpm2cpio exit1 with archive-size tags absent; CPIO extraction and integrity checks do not waive this failure",
+      "evidence": "artifacts/linux-production-formats-20261019/verification.json",
+      "notVerified": [
+        "RPM archive-size metadata compatibility must be fixed",
+        "Installation/runtime/signing and full additional dependency legal/source/linkage/platform acceptance remain open"
+      ],
+      "fullMigrationComplete": false
+    }
   ]
 }
