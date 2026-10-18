@@ -232,6 +232,7 @@ const aliases = /** @type {Record<string, string>} */ ({
   0: "http1.0",
 });
 const values = new Set([
+  "proto-default",
   "range",
   "max-redirs",
   "upload-file",
@@ -363,6 +364,33 @@ function appendQuery(url, query) {
     query +
     (hash < 0 ? "" : url.slice(hash))
   );
+}
+
+/** Resolve curl's omitted scheme without rewriting the authored path/query.
+ * @param {string} url @param {string|undefined} protocol */
+function curlUrl(url, protocol) {
+  if (!/^[a-z][a-z\d+.-]*:\//i.test(url)) {
+    if (!url || /^[\/\\]/.test(url) || /[\x00-\x20\x7f\\]/.test(url))
+      throw new Error("Invalid cURL URL.");
+    let host;
+    try {
+      host = new URL("http://" + url).hostname;
+    } catch {
+      throw new Error("Invalid cURL URL.");
+    }
+    // libcurl guesses these protocols from the parsed hostname, not userinfo.
+    if (protocol === undefined && /^(ftp|dict|ldap|imap|smtp|pop3)\./i.test(host))
+      throw new Error("This cURL hostname implies a non-HTTP protocol. Use an explicit HTTP(S) URL or --proto-default.");
+    url = (protocol ?? "http") + "://" + url;
+  }
+  if (!/^https?:\/\//i.test(url))
+    throw new Error("cURL import supports only HTTP and HTTPS URLs.");
+  try {
+    new URL(url);
+  } catch {
+    throw new Error("Invalid cURL URL.");
+  }
+  return url;
 }
 
 /** @param {string[]} words @param {string} workspaceId @param {{name:string,value:string}[]} entries
@@ -669,16 +697,11 @@ function requestsFor(words, workspaceId, entries, uploadFiles = []) {
   const location =
     entries.filter((e) => ["location", "no-location"].includes(e.name)).at(-1)
       ?.name === "location";
+  const protocol = last("proto-default")?.toLowerCase();
+  if (protocol !== undefined && !["http", "https"].includes(protocol))
+    throw new Error("cURL --proto-default requires http or https.");
   return urls.map((url, index) => {
-    if (!/^https?:\/\//i.test(url))
-      throw new Error(
-        "cURL import requires an explicit http:// or https:// URL.",
-      );
-    try {
-      new URL(url);
-    } catch {
-      throw new Error("Invalid cURL URL.");
-    }
+    url = curlUrl(url, protocol);
     if (has("get") && data.length && !fileBody) url = appendQuery(url, text);
     // curl replaces the accumulated --url-query when --get has data, even empty.
     for (const query of has("get") && data.length ? [] : all("url-query"))

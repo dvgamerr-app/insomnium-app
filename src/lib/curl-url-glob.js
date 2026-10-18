@@ -11,6 +11,17 @@ export function expandCurlUrl(url) {
   if (!/[{}\[\]]/.test(url)) return [url];
   let urls = [""],
     literal = "";
+  const names = new Set();
+  /** curl8.21 consumes an optional bounded name immediately after { or [.
+   * Names label output substitutions; they are not part of the expanded URL.
+   * @param {number} start */
+  const contentStart = (start) => {
+    const match = /^<([^>]{1,64})>/.exec(url.slice(start));
+    if (!match) return start;
+    if (names.has(match[1])) throw new Error("Duplicate cURL URL glob name.");
+    names.add(match[1]);
+    return start + match[0].length;
+  };
   const flush = () => {
     if (
       urls.reduce((sum, prefix) => sum + prefix.length + literal.length, 0) >
@@ -40,10 +51,7 @@ export function expandCurlUrl(url) {
     }
     if (char === "}" || char === "]") throw invalid();
     if (char === "{") {
-      if (/^<[^>]{1,64}>/.test(url.slice(i + 1)))
-        throw new Error(
-          "Named cURL URL globs are not supported. Use an unnamed set or --globoff.",
-        );
+      i = contentStart(i + 1) - 1;
       const choices = [];
       let value = "",
         closed = false;
@@ -66,9 +74,10 @@ export function expandCurlUrl(url) {
       if (!closed) throw invalid();
       append(choices);
     } else if (char === "[") {
-      const end = url.indexOf("]", i + 1);
+      const start = contentStart(i + 1);
+      const end = url.indexOf("]", start);
       if (end < 0) throw invalid();
-      const expression = url.slice(i + 1, end);
+      const expression = url.slice(start, end);
       let ipv6 = false;
       if (expression.includes(":")) {
         try {
