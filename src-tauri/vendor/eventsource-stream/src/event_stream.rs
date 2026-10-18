@@ -139,6 +139,8 @@ pub struct EventStream<S> {
     #[pin]
     stream: Utf8Stream<S>,
     buffer: String,
+    consumed: usize,
+    scanned: usize,
     builder: EventBuilder,
     state: EventStreamState,
     last_event_id: String,
@@ -151,6 +153,8 @@ impl<S> EventStream<S> {
         Self {
             stream: Utf8Stream::new(stream),
             buffer: String::new(),
+            consumed: 0,
+            scanned: 0,
             builder: EventBuilder::default(),
             state: EventStreamState::NotStarted,
             last_event_id: String::new(),
@@ -213,26 +217,52 @@ impl<E> std::error::Error for EventStreamError<E> where E: fmt::Display + fmt::D
 
 fn parse_event<E>(
     buffer: &mut String,
+    consumed: &mut usize,
+    scanned: &mut usize,
     builder: &mut EventBuilder,
 ) -> Result<Option<Event>, EventStreamError<E>> {
     if buffer.is_empty() {
         return Ok(None);
     }
+    // Keep parsed lines/events in place while yielding buffered events. Compact
+    // only when more input is needed, rather than copying the tail per line.
     loop {
-        match line(buffer.as_ref()) {
+        // A fragmented long line has no parseable fields yet. Search only new
+        // bytes instead of asking nom to rescan the entire growing line.
+        if !buffer.as_bytes()[*scanned..]
+            .iter()
+            .any(|byte| matches!(byte, b'\r' | b'\n'))
+        {
+            *scanned = buffer.len() - *consumed;
+            buffer.drain(..*consumed);
+            *consumed = 0;
+            return Ok(None);
+        }
+        match line(&buffer[*consumed..]) {
             Ok((rem, next_line)) => {
                 builder.add(next_line);
-                let consumed = buffer.len() - rem.len();
-                let rem = buffer.split_off(consumed);
-                *buffer = rem;
+                *consumed = buffer.len() - rem.len();
+                *scanned = *consumed;
                 if builder.is_complete {
                     if let Some(event) = builder.dispatch() {
                         return Ok(Some(event));
                     }
                 }
             }
-            Err(nom::Err::Incomplete(_)) => return Ok(None),
-            Err(nom::Err::Error(err)) | Err(nom::Err::Failure(err)) => return Err(err.into()),
+            Err(nom::Err::Incomplete(_)) => {
+                // nom may need one more byte to distinguish CR from CRLF.
+                *scanned = buffer.len().saturating_sub(1).saturating_sub(*consumed);
+                buffer.drain(..*consumed);
+                *consumed = 0;
+                return Ok(None);
+            }
+            Err(nom::Err::Error(err)) | Err(nom::Err::Failure(err)) => {
+                let error = err.into();
+                buffer.drain(..*consumed);
+                *consumed = 0;
+                *scanned = 0;
+                return Err(error);
+            }
         }
     }
 }
@@ -247,7 +277,7 @@ where
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
 
-        match parse_event(this.buffer, this.builder) {
+        match parse_event(this.buffer, this.consumed, this.scanned, this.builder) {
             Ok(Some(event)) => {
                 *this.last_event_id = event.id.clone();
                 return Poll::Ready(Some(Ok(event)));
@@ -279,7 +309,7 @@ where
                     };
                     this.buffer.push_str(slice);
 
-                    match parse_event(this.buffer, this.builder) {
+                    match parse_event(this.buffer, this.consumed, this.scanned, this.builder) {
                         Ok(Some(event)) => {
                             *this.last_event_id = event.id.clone();
                             return Poll::Ready(Some(Ok(event)));
