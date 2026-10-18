@@ -1,4 +1,5 @@
 <script>
+  import { runEditorHistory } from "$lib/editor-history.js";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import WorkspaceRecovery from "$lib/components/WorkspaceRecovery.svelte";
   import { orderedEnvironments, environmentEditorText, parseEnvironmentEditor, newEnvironment, duplicateEnvironment, reorderEnvironment } from "$lib/environment-editor.js";
@@ -456,6 +457,10 @@
   }
   /** @param {unknown} action */
   async function nativeMenuAction(action) {
+    if (action === "undo" || action === "redo") {
+      if (app.ready && !editingBlocked) runEditorHistory(action);
+      return;
+    }
     if (!app.ready || editingBlocked || modal || document.querySelector("dialog[open]") || $templatePrompt) return;
     switch (action) {
       case "settings": openSettings("General"); break;

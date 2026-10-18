@@ -287,16 +287,16 @@ where
                 outgoing.headers_mut().insert(header::AUTHORIZATION, value);
             }
         }
-        if let Some(signer) = &aws {
-            if outgoing.url().origin() == original_origin {
-                signer.sign(&mut outgoing)?;
-            }
-        }
         // Sign a fresh attempt so URL/body parameters never accumulate on retry
         // or survive into redirect resolution, Referer generation or another origin.
         let mut attempt = outgoing
             .try_clone()
             .ok_or("Signed request cannot be replayed")?;
+        if let Some(signer) = &aws {
+            if attempt.url().origin() == original_origin {
+                signer.sign(&mut attempt)?;
+            }
+        }
         if let Some(signer) = &oauth1 {
             if attempt.url().origin() == original_origin {
                 signer.sign(&mut attempt)?;
@@ -385,6 +385,9 @@ where
             return Err("Redirect URLs containing credentials are not supported".into());
         }
         next.set_fragment(None);
+        if let Some(signer) = &aws {
+            signer.clear_redirect_query(&mut next);
+        }
         outgoing.headers_mut().remove(header::AUTHORIZATION);
         outgoing.headers_mut().remove(header::HOST);
         if aws.is_some() {

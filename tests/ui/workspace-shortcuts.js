@@ -5,6 +5,31 @@ import {initialData} from "../../src/lib/model.js";
 await withPreview("workspace-shortcuts",async (page,output) => {
   const url = page.getByRole("textbox",{name:"Request URL",exact:true});
   await url.waitFor();
+  const originalUrl = await url.inputValue();
+  await url.click();
+  await url.press("End");
+  await url.pressSequentially("x");
+  await page.evaluate(async () => {
+    const path = "/owned-editor-history.js";
+    const { runEditorHistory } = await import(path);
+    runEditorHistory("undo");
+  });
+  await page.waitForFunction((expected) => {
+    const data = JSON.parse(localStorage.getItem("insomnium-tauri-preview-v1") || "{}");
+    return data.resources?.find((/** @type {any} */ row) => row._id === data.activeRequestId)?.url === expected;
+  }, originalUrl);
+  assert.equal(await url.inputValue(), originalUrl);
+  await page.evaluate(async () => {
+    const path = "/owned-editor-history.js";
+    const { runEditorHistory } = await import(path);
+    runEditorHistory("redo");
+  });
+  assert.equal(await url.inputValue(), originalUrl + "x");
+  await page.evaluate(async () => {
+    const path = "/owned-editor-history.js";
+    const { runEditorHistory } = await import(path);
+    runEditorHistory("undo");
+  });
   await page.keyboard.press("Control+Shift+Enter");
   assert.equal(await page.getByRole("tablist",{name:"Request editor",exact:true}).getByRole("tab",{name:"Settings",exact:true}).getAttribute("aria-selected"),"true");
   assert.equal(await page.getByRole("tablist",{name:"Request editor",exact:true}).getByRole("tab",{name:"Settings",exact:true}).evaluate((el) => document.activeElement === el),true);
@@ -36,6 +61,29 @@ await withPreview("workspace-shortcuts",async (page,output) => {
   await page.getByRole('combobox',{name:'Body type',exact:true}).selectOption('application/json');
   const bodyEditor=page.locator('.shared-code-editor').filter({has:page.getByLabel('Request body',{exact:true})}).locator('.CodeMirror');
   await bodyEditor.evaluate(el=>{const cm=/** @type {any} */(el).CodeMirror;cm.setValue('{"large":9007199254740993}');cm.focus();});
+  const history = await bodyEditor.evaluate(async (el) => {
+    const path = "/owned-editor-history.js";
+    const { runEditorHistory } = await import(path);
+    const cm = /** @type {any} */ (el).CodeMirror;
+    const before = cm.getValue();
+    cm.clearHistory();
+    cm.replaceRange(" ", cm.posFromIndex(before.length));
+    cm.focus();
+    runEditorHistory("undo");
+    const undo = cm.getValue();
+    runEditorHistory("redo");
+    const redo = cm.getValue();
+    cm.setOption("readOnly", true);
+    runEditorHistory("undo");
+    const readonly = cm.getValue();
+    cm.setOption("readOnly", false);
+    runEditorHistory("undo");
+    return { before, undo, redo, readonly, final: cm.getValue() };
+  });
+  assert.equal(history.undo, history.before);
+  assert.equal(history.redo, history.before + " ");
+  assert.equal(history.readonly, history.redo);
+  assert.equal(history.final, history.before);
   await page.keyboard.press('Control+Shift+f');
   assert.match(await bodyEditor.evaluate(el=>/** @type {any} */(el).CodeMirror.getValue()),/\n\s+"large": 9007199254740993\n/);
   assert.equal(await bodyEditor.evaluate(el=>/** @type {any} */(el).CodeMirror.hasFocus()),true);
@@ -115,8 +163,11 @@ await withPreview("workspace-shortcuts",async (page,output) => {
   await dialog.getByRole("button",{name:"Create",exact:true}).click();
   await dialog.waitFor({state:"detached"});
   await page.waitForFunction(() => JSON.parse(localStorage.getItem("insomnium-tauri-preview-v1") || "{}").resources.some((/** @type {any} */ r) => r._type === "request_group" && r.name === "Owned shortcut folder"));
-  await Bun.write(output + "/result.json",JSON.stringify({status:"passed",headless:true,shortcuts:5,modalGuard:true,repeatCompositionAltConsumedGuards:true,scope:"Actual built-app keyboard/focus/dialogs; no native/network"},null,2));
-},{beforeNavigate:async (page) => {
+  await Bun.write(output + "/result.json",JSON.stringify({status:"passed",headless:true,shortcuts:5,modalGuard:true,repeatCompositionAltConsumedGuards:true,focusedHistoryDispatch:true,plainInputHistory:true,readOnlyHistoryGuard:true,scope:"Actual built-app keyboard/focus/dialogs and shared history dispatcher; no native menu/network"},null,2));
+},{fetch:async (request) => {
+  if (new URL(request.url).pathname === "/owned-editor-history.js")
+    return new Response(await Bun.file("src/lib/editor-history.js").text(), {headers:{"Content-Type":"text/javascript"}});
+},beforeNavigate:async (page) => {
   await page.addInitScript((data) => {
     if (!localStorage.getItem("insomnium-tauri-preview-v1"))
       localStorage.setItem("insomnium-tauri-preview-v1",JSON.stringify(data));

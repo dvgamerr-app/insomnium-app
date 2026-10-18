@@ -379,23 +379,29 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
           auth.addAuthDataToQuery != null &&
           ![true, false, "true", "false"].includes(auth.addAuthDataToQuery)
         )
-          throw new Error("Choose signed headers explicitly in AWS Auth.");
+          throw new Error("Choose header or query signing explicitly in AWS Auth.");
+        const querySigning = [true, "true"].includes(auth.addAuthDataToQuery);
+        const expiry = querySigning
+          ? resolve(auth.expiresIn ?? "900").trim()
+          : "900";
         if (
-          auth.addAuthDataToQuery === true ||
-          auth.addAuthDataToQuery === "true"
+          querySigning &&
+          (!/^\d+$/.test(expiry) || Number(expiry) < 1 || Number(expiry) > 604800)
         )
-          throw new Error(
-            "AWS query signing has not been migrated. Disable query signing in Auth to use signed headers.",
-          );
-        aws = Object.fromEntries(
-          [
-            "accessKeyId",
-            "secretAccessKey",
-            "sessionToken",
-            "region",
-            "service",
-          ].map((key) => [key, resolve(auth[key])]),
-        );
+          throw new Error("AWS query signing expiry must be 1–604800 seconds.");
+        aws = {
+          ...Object.fromEntries(
+            [
+              "accessKeyId",
+              "secretAccessKey",
+              "sessionToken",
+              "region",
+              "service",
+            ].map((key) => [key, resolve(auth[key])]),
+          ),
+          addAuthDataToQuery: querySigning,
+          expiresIn: querySigning ? Number(expiry) : 900,
+        };
         break;
       case "hawk":
         if (!manualAuthorization)

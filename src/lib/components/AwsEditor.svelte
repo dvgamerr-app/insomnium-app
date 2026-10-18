@@ -1,7 +1,7 @@
 <script>
   import Field from "./ui/Field.svelte";
   import Input from "./ui/Input.svelte";
-  import Button from "./ui/Button.svelte";
+  import Checkbox from "./ui/Checkbox.svelte";
   /** @type {{ authentication: Record<string, any>, onchange: (patch: Record<string, any>) => void, templateEditor?:()=>ReturnType<import('../template-editor-session.svelte.js').createTemplateEditorSession> }} */
   let { authentication: auth, onchange, templateEditor } = $props();
   const fields = [
@@ -26,21 +26,32 @@
     /></Field
   >
 {/each}
-{#if auth.addAuthDataToQuery != null && ![false, "false"].includes(auth.addAuthDataToQuery)}
-  <p class="hint">
-    This import uses AWS query signing, which is not available yet.
-  </p>
-  <Button
-    variant="ghost"
-    onclick={() => onchange({ addAuthDataToQuery: false })}
-    >Use signed headers</Button
+<Field layout="inline">
+  <Checkbox
+    checked={[true, "true"].includes(auth.addAuthDataToQuery)}
+    onchange={(event) =>
+      onchange({ addAuthDataToQuery: event.currentTarget.checked })}
+  />
+  Add authentication to query
+</Field>
+{#if [true, "true"].includes(auth.addAuthDataToQuery)}
+  <Field
+    >URL expiry (seconds, 1–604800)<Input
+      {templateEditor}
+      value={String(auth.expiresIn ?? 900)}
+      inputmode="numeric"
+      oninput={(event) => onchange({ expiresIn: event.currentTarget.value })}
+    /></Field
   >
+  <p class="hint">
+    S3 query signing uses an unsigned payload. Other services sign the body sent
+    by the desktop app.
+  </p>
 {/if}
 <p class="hint">
-  AWS Signature V4 signs the body sent by the desktop app. Set service and
-  region explicitly for custom, dualstack or FIPS endpoints. A manual Host is
-  used for signing and endpoint inference. Credentials are sent only to the
-  original origin.
+  AWS Signature V4 runs in the desktop app. Set service and region explicitly
+  for custom, dualstack or FIPS endpoints. A manual Host is used for signing and
+  endpoint inference. Credentials are sent only to the original origin.
 </p>
 <p class="hint">
   When enabled, AWS replaces Authorization, X-Amz-Date, X-Amz-Security-Token and

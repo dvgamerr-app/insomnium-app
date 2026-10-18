@@ -49,6 +49,8 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
     // Tauri's native undo/redo items are supported only on macOS.
     #[cfg(target_os = "macos")]
     let edit = edit.undo().redo().separator();
+    #[cfg(not(target_os = "macos"))]
+    let edit = edit.text("undo", "Undo").text("redo", "Redo").separator();
     let edit = edit.cut().copy().paste().select_all().build()?;
     let request = SubmenuBuilder::new(app, "Request")
         .text("send", "Send Request / Message")
@@ -88,25 +90,27 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
                 return;
             }
             let action = event.id().as_ref();
-            if matches!(
-                action,
-                "settings"
-                    | "close"
-                    | "new-request"
-                    | "new-folder"
-                    | "import"
-                    | "export"
-                    | "save"
-                    | "send"
-                    | "duplicate"
-                    | "delete"
-                    | "environment"
-                    | "cookies"
-                    | "requests"
-                    | "tests"
-                    | "git"
-                    | "sidebar"
-            ) {
+            if (cfg!(not(target_os = "macos")) && matches!(action, "undo" | "redo"))
+                || matches!(
+                    action,
+                    "settings"
+                        | "close"
+                        | "new-request"
+                        | "new-folder"
+                        | "import"
+                        | "export"
+                        | "save"
+                        | "send"
+                        | "duplicate"
+                        | "delete"
+                        | "environment"
+                        | "cookies"
+                        | "requests"
+                        | "tests"
+                        | "git"
+                        | "sidebar"
+                )
+            {
                 let _ = window.emit_to("main", "insomnium-menu", action);
             }
         });

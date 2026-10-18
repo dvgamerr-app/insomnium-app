@@ -5,6 +5,7 @@
   import { templateEditorRange } from "../template-authoring.js";
   import { isJsonBodyMediaType } from "../media-type.js";
   import { onMount } from "svelte";
+  import { editorHistoryEvent } from "../editor-history.js";
   import { attachGraphqlHover } from "../editor-hover.js";
   import { loadEditorKeymap } from "../editor-keymaps.js";
   import { environmentPaths, environmentHints } from "../editor-completion.js";
@@ -317,6 +318,14 @@
   }
   onMount(() => {
     let disposed = false;
+    /** @param {Event} event */
+    const history = (event) => {
+      const action = /** @type {CustomEvent} */ (event).detail;
+      if (disposed || !cm?.hasFocus() || !["undo", "redo"].includes(action)) return;
+      event.preventDefault();
+      if (!readOnly && !cm.getOption("readOnly")) cm.execCommand(action);
+    };
+    window.addEventListener(editorHistoryEvent, history);
     /** @type {ResizeObserver|undefined} */ let observer;
     import("../editor-engine.js")
       .then(({ default: CodeMirror }) => {
@@ -410,6 +419,7 @@
       });
     return () => {
       disposed = true;
+      window.removeEventListener(editorHistoryEvent, history);
       editingTag?.session.close();
       editingTag = null;
       observer?.disconnect();

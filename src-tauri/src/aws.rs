@@ -1,15 +1,15 @@
-//! AWS SigV4 header signing with user-supplied credentials (no credential discovery).
+//! AWS SigV4 header/query signing with user-supplied credentials.
 use aws_credential_types::Credentials;
 use aws_sigv4::{
     http_request::{
         sign, PayloadChecksumKind, PercentEncodingMode, SignableBody, SignableRequest,
-        SigningSettings, UriPathNormalizationMode,
+        SignatureLocation, SigningSettings, UriPathNormalizationMode,
     },
     sign::v4,
 };
 use reqwest::{header, Request};
 use serde::Deserialize;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
 #[derive(Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -20,6 +20,26 @@ pub struct AwsCredentials {
     pub session_token: String,
     pub region: String,
     pub service: String,
+    pub add_auth_data_to_query: bool,
+    #[serde(default = "default_expiry")]
+    pub expires_in: u64,
+}
+
+fn default_expiry() -> u64 {
+    900
+}
+
+fn signing_parameter(name: &str) -> bool {
+    matches!(
+        name.to_ascii_lowercase().as_str(),
+        "x-amz-signature"
+            | "x-amz-algorithm"
+            | "x-amz-credential"
+            | "x-amz-security-token"
+            | "x-amz-date"
+            | "x-amz-expires"
+            | "x-amz-signedheaders"
+    )
 }
 
 pub(crate) struct Signer<'a> {
@@ -85,6 +105,9 @@ pub(crate) fn clear_headers(request: &mut Request) {
 
 impl<'a> Signer<'a> {
     pub(crate) fn new(credentials: &'a AwsCredentials, request: &Request) -> Result<Self, String> {
+        if credentials.add_auth_data_to_query && !(1..=604800).contains(&credentials.expires_in) {
+            return Err("AWS query signing expiry must be 1–604800 seconds.".into());
+        }
         if !matches!(request.url().scheme(), "http" | "https") {
             return Err("AWS signing requires an HTTP or HTTPS URL.".into());
         }
@@ -166,23 +189,19 @@ impl<'a> Signer<'a> {
     }
 
     pub(crate) fn sign(&self, request: &mut Request) -> Result<(), String> {
-        if request.url().query_pairs().any(|(name, _)| {
-            matches!(
-                name.to_ascii_lowercase().as_str(),
-                "x-amz-signature"
-                    | "x-amz-algorithm"
-                    | "x-amz-credential"
-                    | "x-amz-security-token"
-                    | "x-amz-date"
-            )
-        }) {
+        if request
+            .url()
+            .query_pairs()
+            .any(|(name, _)| signing_parameter(&name))
+        {
             return Err("Remove AWS signing parameters from the URL or disable AWS IAM to send a presigned URL.".into());
         }
         clear_headers(request);
         request
             .headers_mut()
             .insert(header::HOST, self.host.clone());
-        if self.service == "codecommit" && request.method().as_str() == "GIT" {
+        let query_signing = self.credentials.add_auth_data_to_query;
+        if !query_signing && self.service == "codecommit" && request.method().as_str() == "GIT" {
             let value = codecommit_header(
                 request,
                 self.credentials,
@@ -203,6 +222,10 @@ impl<'a> Signer<'a> {
         )
         .into();
         let mut settings = SigningSettings::default();
+        if query_signing {
+            settings.signature_location = SignatureLocation::QueryParams;
+            settings.expires_in = Some(Duration::from_secs(self.credentials.expires_in));
+        }
         // These can be added/rewritten by reqwest, the WebSocket upgrade or a proxy.
         settings.excluded_headers.get_or_insert_default().extend(
             [
@@ -227,7 +250,9 @@ impl<'a> Signer<'a> {
         if self.service == "s3" {
             settings.percent_encoding_mode = PercentEncodingMode::Single;
             settings.uri_path_normalization_mode = UriPathNormalizationMode::Disabled;
-            settings.payload_checksum_kind = PayloadChecksumKind::XAmzSha256;
+            if !query_signing {
+                settings.payload_checksum_kind = PayloadChecksumKind::XAmzSha256;
+            }
         }
         let params = v4::SigningParams::builder()
             .identity(&identity)
@@ -256,19 +281,61 @@ impl<'a> Signer<'a> {
             request.method().as_str(),
             request.url().as_str(),
             headers.into_iter(),
-            SignableBody::Bytes(body),
+            if query_signing && self.service == "s3" {
+                SignableBody::UnsignedPayload
+            } else {
+                SignableBody::Bytes(body)
+            },
         )
         .map_err(|_| "Could not canonicalize AWS request.")?;
         let (instructions, _) = sign(signable, &params)
             .map_err(|_| "Could not sign AWS request.")?
             .into_parts();
-        for value in instructions.into_parts().0 {
+        let (headers, query) = instructions.into_parts();
+        for value in headers {
             let mut header = header::HeaderValue::from_str(value.value())
                 .map_err(|_| "Invalid AWS signing header.")?;
             header.set_sensitive(value.sensitive());
             request.headers_mut().insert(value.name(), header);
         }
+        if !query.is_empty() {
+            // Preserve existing raw query order/encoding, including bare keys.
+            let mut value = request.url().query().unwrap_or_default().to_string();
+            for (name, entry) in query {
+                if !value.is_empty() {
+                    value.push('&');
+                }
+                value.push_str(&legacy_encode(name));
+                value.push('=');
+                value.push_str(&legacy_encode(&entry));
+            }
+            request.url_mut().set_query(Some(&value));
+        }
         Ok(())
+    }
+
+    pub(crate) fn clear_redirect_query(&self, url: &mut reqwest::Url) {
+        if !self.credentials.add_auth_data_to_query {
+            return;
+        }
+        if let Some(query) = url.query() {
+            let mut removed = false;
+            let retained = query
+                .split('&')
+                .filter(|pair| {
+                    let name = pair.split('=').next().unwrap_or_default();
+                    let signing = signing_parameter(
+                        &percent_encoding::percent_decode_str(name).decode_utf8_lossy(),
+                    );
+                    removed |= signing;
+                    !signing
+                })
+                .collect::<Vec<_>>()
+                .join("&");
+            if removed {
+                url.set_query((!retained.is_empty()).then_some(retained.as_str()));
+            }
+        }
     }
 }
 
