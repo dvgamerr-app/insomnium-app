@@ -1,7 +1,6 @@
 import { format } from "date-fns";
 import { v1, v4 } from "uuid";
-import { md5, sha1 } from "@noble/hashes/legacy.js";
-import { sha256, sha512 } from "@noble/hashes/sha2.js";
+import { templateHash } from "./template-hash.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import { JSONPath } from "jsonpath-plus";
 
@@ -102,14 +101,7 @@ export function runLocalTag(name, rawArgs) {
       );
     if (typeof value !== "string")
       throw new Error(`Cannot hash value of type "${typeof value}"`);
-    const algorithms = { md5, sha1, sha256, sha512 };
-    const hash =
-      algorithms[
-        /** @type {keyof typeof algorithms} */ (String(algorithm).toLowerCase())
-      ];
-    if (!Object.hasOwn(algorithms, String(algorithm).toLowerCase()))
-      throw new Error(`Unsupported hash algorithm: ${algorithm}`);
-    const digest = hash(new TextEncoder().encode(value));
+    const digest = templateHash(algorithm, value);
     if (encoding === "hex") return bytesToHex(digest);
     if (encoding === "base64") return bytesToBase64(digest);
     return String.fromCharCode(...digest);
