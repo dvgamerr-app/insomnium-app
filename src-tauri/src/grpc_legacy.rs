@@ -988,7 +988,7 @@ fn inherited_method<'a>(object: &Json, name: &'a str) -> Option<(&'a str, usize)
         Json::String(_) => match name {
             "charAt" | "charCodeAt" | "codePointAt" | "at" | "concat" | "endsWith" | "includes"
             | "indexOf" | "lastIndexOf" | "match" | "matchAll" | "padEnd" | "padStart"
-            | "repeat" | "search" | "startsWith" | "anchor" | "fontcolor" | "fontsize" | "link" => {
+            | "repeat" | "search" | "localeCompare" | "startsWith" | "anchor" | "fontcolor" | "fontsize" | "link" => {
                 1
             }
             "replace" | "replaceAll" | "slice" | "split" | "substr" | "substring" => 2,
@@ -2186,7 +2186,7 @@ mod tests {
             entry: "length.proto".into(),
             files: vec![crate::grpc_schema::ProtoFile {
                 name: "length.proto".into(),
-                text: "syntax=\"proto3\"; message Child { uint32 length=1; } message Envelope { Child child=1; repeated Child children=2; map<string, Child> values=3; } message M { string map=1; bytes forEach=2; bool join=3; int32 push=4; double reduce=5; int64 slice=6; }".into(),
+                text: "syntax=\"proto3\"; message Child { uint32 length=1; } message Envelope { Child child=1; repeated Child children=2; map<string, Child> values=3; } message M { string map=1; bytes forEach=2; bool join=3; int32 push=4; double reduce=5; int64 slice=6; string localeCompare=7; }".into(),
             }],
             include_paths: vec![],
         }).unwrap();
@@ -2194,7 +2194,7 @@ mod tests {
         let methods = pool.get_message_by_name("M").unwrap();
         for (body, hex) in [
             ("[]", "0a2066756e6374696f6e206d61702829207b205b6e617469766520636f64655d207d1201001801200029000000000000f87f3000"),
-            (r#""abc""#, "3000"),
+            (r#""abc""#, "30003a2a66756e6374696f6e206c6f63616c65436f6d706172652829207b205b6e617469766520636f64655d207d"),
             ("{}", ""),
         ] {
             let message = crate::grpc_schema::parse_mode(methods.clone(), body, crate::grpc_schema::JsonMode::Legacy).unwrap();
