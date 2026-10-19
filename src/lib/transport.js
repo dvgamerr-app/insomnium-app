@@ -134,8 +134,11 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
     throw new Error(
       `Review this generated request in Settings before sending:\n${openapiIssues.join("\n")}`,
     );
-  if (request._migrationIssues?.length)
-    throw new Error(request._migrationIssues.join("\n"));
+  const migrationIssues = (request._migrationIssues || []).filter(
+    (/** @type {string} */ issue) => !(request._harSource?.request && issue === "Select imported HAR files again before sending."),
+  );
+  if (migrationIssues.length)
+    throw new Error(migrationIssues.join("\n"));
   // Saved cURL commands retain their explicit query spelling; ordinary requests
   // use Insomnium's legacy automatic encoding unless the owner disables it.
   const encodeUrl = request.settingEncodeUrl ?? !request._curlSource;

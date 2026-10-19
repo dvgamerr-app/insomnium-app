@@ -117,7 +117,9 @@ export function harResources(source) {
       settingEncodeUrl:false,
       parameters:hasQuery ? [] : query.map(({comment:_comment,...parameter}) => ({...parameter,sendEmptyName:true})),
       _harSource:structuredClone(entry),
-      _migrationIssues:body.params?.some((/** @type {any} */ part)=>part.type === "file" && typeof part.base64 !== "string") ? ["Select imported HAR files again before sending."] : [],
+      // File selection is enforced dynamically by the multipart sender. A
+      // permanent migration issue would keep blocking after selection succeeds.
+      _migrationIssues:[],
     }));
   }
   return resources;
