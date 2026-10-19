@@ -11,6 +11,8 @@ Updated 2026-10-18. Current state is in [STATUS.md](STATUS.md); all original req
 
 ### Execution checkpoint — 2026-10-19 (source2dc747e1)
 
+Compiler update (2026-10-20): current Linux native compilation now covers source2475114a, including topology/hedging and later native read/write/Save leases; see CI.md and artifacts/linux-native-leases-2475114a-verification.json. This supersedes the checkpoint's Windows-only compiler limitation, without closing runtime, OS-close, macOS, package/legal or other acceptance requirements.
+
 Resume the original item1 gRPC compatibility work after this checkpoint; recent model/import fixes do not replace that priority or close item3. Completed source changes: large additive import011f397b; indexed frontend topology dffd1d2f; large creation/duplicate42dfe6f3; indexed descendant selection f91a74d8; plugin/proto bulk snapshot preparation79360a5b; native topology ancestry a7f67287; malformed imported header diagnostics2dc747e1. Plugin cookie portability7473402e, download continuation ownership389cf550 and shortcut fixes0fcf7dd8/620d6b70 retain their separate topic scope. Do not reimplement these from older pending notes.
 
 Evidence is bounded: frontend check/build and production-helper observations; unchanged mounted ResourceManager6UI/24validation rows at7473402e (receipt611b8d2f); one unchanged native storage topology unit test at a7f67287. These do not establish current packaged native CRUD/import/save/OS-close performance, Linux/macOS behavior or full migration acceptance. No new testcase/scenario files or duplicate matrices were added for these changes. Current native topology code has Windows compiler/unit evidence only; the prior Linux WebSocket receipt942bdaf2 predates it.
