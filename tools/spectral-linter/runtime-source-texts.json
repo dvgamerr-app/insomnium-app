@@ -8,6 +8,17 @@
   },
   "candidates": [
     {
+      "component": "libarchive distribution COPYING",
+      "sourcePin": "ded82291ab41d5e355831b96b0e1ff49e24d8939",
+      "declaredBuildCondition": "Pinned Bun dependency lists libarchive C inputs on supported targets; linked objects and per-file license coverage unproven",
+      "origins": [
+        "https://raw.githubusercontent.com/libarchive/libarchive/ded82291ab41d5e355831b96b0e1ff49e24d8939/COPYING"
+      ],
+      "path": "tools/spectral-linter/notice-sources/libarchive-ded822-COPYING",
+      "bytes": 3089,
+      "sha256": "30e556b3959e3985d66efefec5eaac51d4995053caa1d3cffe6eb916f146f229"
+    },
+    {
       "component": "libuv",
       "sourcePin": "8023581113b276e7c1aee3f82da57ca0893faab1",
       "declaredBuildCondition": "Bun dependency enabled when cfg.windows; header version 1.51.1",
@@ -51,6 +62,337 @@
       "path": "tools/spectral-linter/notice-sources/icu-21d1eb-LICENSE",
       "bytes": 27718,
       "sha256": "e55522d81edc687a341a4411e0776e54ca654e90147f354a90458aaced4116af"
+    },
+    {
+      "component": "libdeflate COPYING",
+      "sourcePin": "c8c56a20f8f621e6a966b716b31f1dedab6a41e3",
+      "declaredBuildCondition": "Pinned Bun dependency source declaration; linked objects, patch and per-file license coverage unproven",
+      "origins": [
+        "https://raw.githubusercontent.com/ebiggers/libdeflate/c8c56a20f8f621e6a966b716b31f1dedab6a41e3/COPYING"
+      ],
+      "path": "tools/spectral-linter/notice-sources/libdeflate-c8c56a-COPYING",
+      "bytes": 1078,
+      "sha256": "4ad69099cb4374836fd27583d9991e2838cd86b6e4666ab26b2d32582c91e73a"
+    },
+    {
+      "component": "libspng LICENSE",
+      "sourcePin": "fb768002d4288590083a476af628e51c3f1d47cd",
+      "declaredBuildCondition": "Pinned Bun dependency source declaration; linked objects, patch and per-file license coverage unproven",
+      "origins": [
+        "https://raw.githubusercontent.com/randy408/libspng/fb768002d4288590083a476af628e51c3f1d47cd/LICENSE"
+      ],
+      "path": "tools/spectral-linter/notice-sources/libspng-fb7680-LICENSE",
+      "bytes": 1341,
+      "sha256": "0622b0794d0fecde47d743f1bb70a03e6fdf082be8e71f39de672ed995d96ff9"
+    },
+    {
+      "component": "libjpeg-turbo LICENSE.md",
+      "sourcePin": "e352b02f794f701407b39af08576035ba3360d60",
+      "declaredBuildCondition": "Pinned Bun dependency source declaration; linked objects, patch and per-file license coverage unproven",
+      "origins": [
+        "https://raw.githubusercontent.com/libjpeg-turbo/libjpeg-turbo/e352b02f794f701407b39af08576035ba3360d60/LICENSE.md"
+      ],
+      "path": "tools/spectral-linter/notice-sources/libjpeg-turbo-e352b0-LICENSE.md",
+      "bytes": 5622,
+      "sha256": "e10114e6e40f3d0311c401ca25245ac5ef459a43c20f976fd63f03e816f5741f"
+    },
+    {
+      "component": "libjpeg-turbo README.ijg",
+      "sourcePin": "e352b02f794f701407b39af08576035ba3360d60",
+      "declaredBuildCondition": "Pinned Bun dependency source declaration; linked objects, patch and per-file license coverage unproven",
+      "origins": [
+        "https://raw.githubusercontent.com/libjpeg-turbo/libjpeg-turbo/e352b02f794f701407b39af08576035ba3360d60/README.ijg"
+      ],
+      "path": "tools/spectral-linter/notice-sources/libjpeg-turbo-e352b0-README.ijg",
+      "bytes": 12799,
+      "sha256": "75815e3bf6484201a3c3d17a1bbf10f2e8e3237f84df10a2357ea896db2a81d6"
+    },
+    {
+      "component": "libwebp COPYING",
+      "sourcePin": "b7e29b9d75bd31422b00c2a446d49d7af06c328d",
+      "declaredBuildCondition": "Pinned Bun dependency source declaration; linked objects, patch and per-file license coverage unproven; Gitiles base64 source transport decoded without normalization",
+      "origins": [
+        "https://chromium.googlesource.com/webm/libwebp/+/b7e29b9d75bd31422b00c2a446d49d7af06c328d/COPYING?format=TEXT"
+      ],
+      "path": "tools/spectral-linter/notice-sources/libwebp-b7e29b-COPYING",
+      "bytes": 1496,
+      "sha256": "5aec868f669e384a22372a4e8a1a6cd7d44c64cd451f960ca69cc170d1e13acf"
+    },
+    {
+      "component": "libwebp PATENTS",
+      "sourcePin": "b7e29b9d75bd31422b00c2a446d49d7af06c328d",
+      "declaredBuildCondition": "Pinned Bun dependency source declaration; linked objects, patch and per-file license coverage unproven; Gitiles base64 source transport decoded without normalization",
+      "origins": [
+        "https://chromium.googlesource.com/webm/libwebp/+/b7e29b9d75bd31422b00c2a446d49d7af06c328d/PATENTS?format=TEXT"
+      ],
+      "path": "tools/spectral-linter/notice-sources/libwebp-b7e29b-PATENTS",
+      "bytes": 1436,
+      "sha256": "cc3273e0694ea5896145e0677699b53471b03ea43021ddc50e7923fbb9f5023c"
+    },
+    {
+      "component": "boringssl AUTHORS",
+      "sourcePin": "41bf9b59c2ebf277a7aa427e1ecad5cc80dd4d4f",
+      "declaredBuildCondition": "Pinned Bun dependency source declaration; linked objects, patch and per-file coverage unproven",
+      "origins": [
+        "https://raw.githubusercontent.com/oven-sh/boringssl/41bf9b59c2ebf277a7aa427e1ecad5cc80dd4d4f/AUTHORS"
+      ],
+      "path": "tools/spectral-linter/notice-sources/boringssl-41bf9b-AUTHORS",
+      "bytes": 1208,
+      "sha256": "6e5283f25977ae2fbbf5fd8a840b7184b2b48915279c10bf01107263d3f26936"
+    },
+    {
+      "component": "boringssl LICENSE",
+      "sourcePin": "41bf9b59c2ebf277a7aa427e1ecad5cc80dd4d4f",
+      "declaredBuildCondition": "Pinned Bun dependency source declaration; linked objects, patch and per-file coverage unproven",
+      "origins": [
+        "https://raw.githubusercontent.com/oven-sh/boringssl/41bf9b59c2ebf277a7aa427e1ecad5cc80dd4d4f/LICENSE"
+      ],
+      "path": "tools/spectral-linter/notice-sources/boringssl-41bf9b-LICENSE",
+      "bytes": 13115,
+      "sha256": "827c8d8fc207c2392794eef9e00fe246f9f61fdcc132556c275be3dd8c3cd97f"
+    },
+    {
+      "component": "brotli LICENSE",
+      "sourcePin": "ed738e842d2fbdf2d6459e39267a633c4a9b2f5d",
+      "declaredBuildCondition": "Pinned Bun dependency source declaration; declared v1.1.0 resolved to this commit; linked objects, patch and per-file coverage unproven",
+      "origins": [
+        "https://raw.githubusercontent.com/google/brotli/ed738e842d2fbdf2d6459e39267a633c4a9b2f5d/LICENSE"
+      ],
+      "path": "tools/spectral-linter/notice-sources/brotli-ed738e-LICENSE",
+      "bytes": 1084,
+      "sha256": "3d180008e36922a4e8daec11c34c7af264fed5962d07924aea928c38e8663c94"
+    },
+    {
+      "component": "cares AUTHORS",
+      "sourcePin": "c7a3138dcfe3bb0eaaf10c0c24c36dc66dc790ab",
+      "declaredBuildCondition": "Pinned Bun dependency source declaration; linked objects, patch and per-file coverage unproven",
+      "origins": [
+        "https://raw.githubusercontent.com/c-ares/c-ares/c7a3138dcfe3bb0eaaf10c0c24c36dc66dc790ab/AUTHORS"
+      ],
+      "path": "tools/spectral-linter/notice-sources/cares-c7a313-AUTHORS",
+      "bytes": 1258,
+      "sha256": "10274d04e1aa59b340e84dbef26550bfc9827fc70908f78bfa755e1a8729939b"
+    },
+    {
+      "component": "cares LICENSE.md",
+      "sourcePin": "c7a3138dcfe3bb0eaaf10c0c24c36dc66dc790ab",
+      "declaredBuildCondition": "Pinned Bun dependency source declaration; linked objects, patch and per-file coverage unproven",
+      "origins": [
+        "https://raw.githubusercontent.com/c-ares/c-ares/c7a3138dcfe3bb0eaaf10c0c24c36dc66dc790ab/LICENSE.md"
+      ],
+      "path": "tools/spectral-linter/notice-sources/cares-c7a313-LICENSE.md",
+      "bytes": 1211,
+      "sha256": "460f5e768fda3752ca2169a95df062578a10fb126bfd65f3b9b1a1bed2f84807"
+    },
+    {
+      "component": "hdrhistogram COPYING.txt",
+      "sourcePin": "be60a9987ee48d0abf0d7b6a175bad8d6c1585d1",
+      "declaredBuildCondition": "Pinned Bun dependency source declaration; linked objects, patch and per-file coverage unproven",
+      "origins": [
+        "https://raw.githubusercontent.com/HdrHistogram/HdrHistogram_c/be60a9987ee48d0abf0d7b6a175bad8d6c1585d1/COPYING.txt"
+      ],
+      "path": "tools/spectral-linter/notice-sources/hdrhistogram-be60a9-COPYING.txt",
+      "bytes": 7048,
+      "sha256": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499"
+    },
+    {
+      "component": "hdrhistogram LICENSE.txt",
+      "sourcePin": "be60a9987ee48d0abf0d7b6a175bad8d6c1585d1",
+      "declaredBuildCondition": "Pinned Bun dependency source declaration; linked objects, patch and per-file coverage unproven",
+      "origins": [
+        "https://raw.githubusercontent.com/HdrHistogram/HdrHistogram_c/be60a9987ee48d0abf0d7b6a175bad8d6c1585d1/LICENSE.txt"
+      ],
+      "path": "tools/spectral-linter/notice-sources/hdrhistogram-be60a9-LICENSE.txt",
+      "bytes": 2208,
+      "sha256": "93a583ec58cd981232ec6fab797ff6f17f350c97b83ae0700b2d9350c91028af"
+    },
+    {
+      "component": "highway LICENSE",
+      "sourcePin": "2607d3b5b0113992fe84d3848859eae13b3b52c1",
+      "declaredBuildCondition": "Pinned Bun dependency source declaration; linked objects, patch and per-file coverage unproven",
+      "origins": [
+        "https://raw.githubusercontent.com/google/highway/2607d3b5b0113992fe84d3848859eae13b3b52c1/LICENSE"
+      ],
+      "path": "tools/spectral-linter/notice-sources/highway-2607d3-LICENSE",
+      "bytes": 20785,
+      "sha256": "e340270d4f64384569a91d546acb5b094d69ce47f0c015db77abb74dc6f815af"
+    },
+    {
+      "component": "lolhtml LICENSE",
+      "sourcePin": "725ce499aa9b71e38b7a2d0a9fbb6d7294a4079e",
+      "declaredBuildCondition": "Pinned Bun dependency source declaration; linked objects, patch and per-file coverage unproven",
+      "origins": [
+        "https://raw.githubusercontent.com/oven-sh/lol-html/725ce499aa9b71e38b7a2d0a9fbb6d7294a4079e/LICENSE"
+      ],
+      "path": "tools/spectral-linter/notice-sources/lolhtml-725ce4-LICENSE",
+      "bytes": 1487,
+      "sha256": "e4ddaa9d7391bb9536fcb8c59b570a8b85a0bf6da54df5b3b26f098f6f99c9cc"
+    },
+    {
+      "component": "lshpack LICENSE",
+      "sourcePin": "8905c024b6d052f083a3d11d0a169b3c2735c8a1",
+      "declaredBuildCondition": "Pinned Bun dependency source declaration; linked objects, patch and per-file coverage unproven",
+      "origins": [
+        "https://raw.githubusercontent.com/litespeedtech/ls-hpack/8905c024b6d052f083a3d11d0a169b3c2735c8a1/LICENSE"
+      ],
+      "path": "tools/spectral-linter/notice-sources/lshpack-8905c0-LICENSE",
+      "bytes": 1090,
+      "sha256": "0490f9666828ad1b6b5503102e7ebbe491451b7174511f3b6255caa967caf955"
+    },
+    {
+      "component": "lsqpack LICENSE",
+      "sourcePin": "1e9c5b8e59f8161c54f168a570c8bfdc59ded0c3",
+      "declaredBuildCondition": "Pinned Bun dependency source declaration; linked objects, patch and per-file coverage unproven",
+      "origins": [
+        "https://raw.githubusercontent.com/litespeedtech/ls-qpack/1e9c5b8e59f8161c54f168a570c8bfdc59ded0c3/LICENSE"
+      ],
+      "path": "tools/spectral-linter/notice-sources/lsqpack-1e9c5b-LICENSE",
+      "bytes": 1090,
+      "sha256": "6b1aded50331e34502c8d2b00238c6146b1a54314ce94a5c5feb5d340a6d00d6"
+    },
+    {
+      "component": "lsquic LICENSE",
+      "sourcePin": "3181911301b1aa4f54c1ed690901abc674ee08fb",
+      "declaredBuildCondition": "Pinned Bun dependency source declaration; linked objects, patch and per-file coverage unproven",
+      "origins": [
+        "https://raw.githubusercontent.com/litespeedtech/lsquic/3181911301b1aa4f54c1ed690901abc674ee08fb/LICENSE"
+      ],
+      "path": "tools/spectral-linter/notice-sources/lsquic-318191-LICENSE",
+      "bytes": 1090,
+      "sha256": "9bc22643b3ea2b55c547c83e332253d04ba3df4f26696091e6fa9f7a1ccc65ef"
+    },
+    {
+      "component": "lsquic LICENSE.chrome",
+      "sourcePin": "3181911301b1aa4f54c1ed690901abc674ee08fb",
+      "declaredBuildCondition": "Pinned Bun dependency source declaration; linked objects, patch and per-file coverage unproven",
+      "origins": [
+        "https://raw.githubusercontent.com/litespeedtech/lsquic/3181911301b1aa4f54c1ed690901abc674ee08fb/LICENSE.chrome"
+      ],
+      "path": "tools/spectral-linter/notice-sources/lsquic-318191-LICENSE.chrome",
+      "bytes": 1618,
+      "sha256": "85d5dcb0d30ea89fa5922451957ff2a1a2c3c24f1ad2bb9ab23b5d6080763fc9"
+    },
+    {
+      "component": "mimalloc LICENSE",
+      "sourcePin": "6a64e1ba7f5b2130d4efccb67ec87fd0003f0f6a",
+      "declaredBuildCondition": "Pinned Bun dependency source declaration; linked objects, patch and per-file coverage unproven",
+      "origins": [
+        "https://raw.githubusercontent.com/oven-sh/mimalloc/6a64e1ba7f5b2130d4efccb67ec87fd0003f0f6a/LICENSE"
+      ],
+      "path": "tools/spectral-linter/notice-sources/mimalloc-6a64e1-LICENSE",
+      "bytes": 1096,
+      "sha256": "82ade5d7d9b029044b5fbbc326207fc47c2d44ee4dd71e8a559c36d728217de9"
+    },
+    {
+      "component": "rust-argon2 LICENSE-APACHE",
+      "sourcePin": "ed81866f163f0c7026aa6fd8388adf37242eb32a",
+      "declaredBuildCondition": "Pinned Bun dependency source declaration; linked objects, patch and per-file coverage unproven",
+      "origins": [
+        "https://raw.githubusercontent.com/sru-systems/rust-argon2/ed81866f163f0c7026aa6fd8388adf37242eb32a/LICENSE-APACHE"
+      ],
+      "path": "tools/spectral-linter/notice-sources/rust-argon2-ed8186-LICENSE-APACHE",
+      "bytes": 10847,
+      "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+    },
+    {
+      "component": "rust-argon2 LICENSE-MIT",
+      "sourcePin": "ed81866f163f0c7026aa6fd8388adf37242eb32a",
+      "declaredBuildCondition": "Pinned Bun dependency source declaration; linked objects, patch and per-file coverage unproven",
+      "origins": [
+        "https://raw.githubusercontent.com/sru-systems/rust-argon2/ed81866f163f0c7026aa6fd8388adf37242eb32a/LICENSE-MIT"
+      ],
+      "path": "tools/spectral-linter/notice-sources/rust-argon2-ed8186-LICENSE-MIT",
+      "bytes": 1101,
+      "sha256": "26b997d1a1496df49cb1ad2cbe024714cd9126543c18e1bc6c7bbca1b3dc42b6"
+    },
+    {
+      "component": "tinycc COPYING",
+      "sourcePin": "05f0fafaa3be31e31d7b4b5c17dc60f62c991171",
+      "declaredBuildCondition": "Pinned Bun dependency source declaration; linked objects, patch and per-file coverage unproven",
+      "origins": [
+        "https://raw.githubusercontent.com/oven-sh/tinycc/05f0fafaa3be31e31d7b4b5c17dc60f62c991171/COPYING"
+      ],
+      "path": "tools/spectral-linter/notice-sources/tinycc-05f0fa-COPYING",
+      "bytes": 26428,
+      "sha256": "512d2d21b6b3384ba64781abb0208a1b87740bc31e2df48e2b206ddb7e4d5779"
+    },
+    {
+      "component": "zlib LICENSE.md",
+      "sourcePin": "12731092979c6d07f42da27da673a9f6c7b13586",
+      "declaredBuildCondition": "Pinned Bun dependency source declaration; linked objects, patch and per-file coverage unproven",
+      "origins": [
+        "https://raw.githubusercontent.com/zlib-ng/zlib-ng/12731092979c6d07f42da27da673a9f6c7b13586/LICENSE.md"
+      ],
+      "path": "tools/spectral-linter/notice-sources/zlib-127310-LICENSE.md",
+      "bytes": 867,
+      "sha256": "6c9f0d975b41afaa34d22f55bb8986ce69e5cb7ad327cb2b28820cd425edf5ee"
+    },
+    {
+      "component": "zstd COPYING",
+      "sourcePin": "f8745da6ff1ad1e7bab384bd1f9d742439278e99",
+      "declaredBuildCondition": "Pinned Bun dependency source declaration; linked objects, patch and per-file coverage unproven",
+      "origins": [
+        "https://raw.githubusercontent.com/facebook/zstd/f8745da6ff1ad1e7bab384bd1f9d742439278e99/COPYING"
+      ],
+      "path": "tools/spectral-linter/notice-sources/zstd-f8745d-COPYING",
+      "bytes": 18091,
+      "sha256": "f9c375a1be4a41f7b70301dd83c91cb89e41567478859b77eef375a52d782505"
+    },
+    {
+      "component": "zstd LICENSE",
+      "sourcePin": "f8745da6ff1ad1e7bab384bd1f9d742439278e99",
+      "declaredBuildCondition": "Pinned Bun dependency source declaration; linked objects, patch and per-file coverage unproven",
+      "origins": [
+        "https://raw.githubusercontent.com/facebook/zstd/f8745da6ff1ad1e7bab384bd1f9d742439278e99/LICENSE"
+      ],
+      "path": "tools/spectral-linter/notice-sources/zstd-f8745d-LICENSE",
+      "bytes": 1549,
+      "sha256": "7055266497633c9025b777c78eb7235af13922117480ed5c674677adc381c9d8"
+    },
+    {
+      "component": "picohttpparser C/header license comment",
+      "sourcePin": "066d2b1e9ab820703db0837a7255d92d30f0c9f5",
+      "declaredBuildCondition": "Bun directly compiles picohttpparser.c; exact identical leading license comment bytes [0,1291) from picohttpparser.c and picohttpparser.h; linked objects and other per-file coverage unproven",
+      "origins": [
+        "https://raw.githubusercontent.com/h2o/picohttpparser/066d2b1e9ab820703db0837a7255d92d30f0c9f5/picohttpparser.c",
+        "https://raw.githubusercontent.com/h2o/picohttpparser/066d2b1e9ab820703db0837a7255d92d30f0c9f5/picohttpparser.h"
+      ],
+      "path": "tools/spectral-linter/notice-sources/picohttpparser-066d2b-NOTICE",
+      "bytes": 1291,
+      "sha256": "38a1881166cfd8b7e727bb1ad96996f7e96ce726ae4cea1dddf5d531503341d0"
+    },
+    {
+      "component": "Node.js headers source LICENSE",
+      "sourcePin": "b7e6a5d37e7a14ef0f2cc95214b95d66c4081415",
+      "declaredBuildCondition": "Bun default Node.js 26.3.0 header-only input; three official archive headers match this release source; no Node runtime; build variant and linked component coverage unproven",
+      "origins": [
+        "https://raw.githubusercontent.com/nodejs/node/b7e6a5d37e7a14ef0f2cc95214b95d66c4081415/LICENSE"
+      ],
+      "path": "tools/spectral-linter/notice-sources/node-headers-b7e6a5-LICENSE",
+      "bytes": 157606,
+      "sha256": "148eacf7863ef4329224a29398623077200a27194aa075569faf4a0a85566ca5"
+    },
+    {
+      "component": "Bun-vendored SQLite c source notice",
+      "sourcePin": "744846f844374847c902b5e7fd59b4342a51ef99",
+      "declaredBuildCondition": "Bun staticSqlite input (Linux/Windows default); exact source comment bytes [1657,2083); macOS system library, other per-file and linked coverage unproven",
+      "origins": [
+        "https://raw.githubusercontent.com/oven-sh/bun/744846f844374847c902b5e7fd59b4342a51ef99/src/jsc/bindings/sqlite/sqlite3.c"
+      ],
+      "path": "tools/spectral-linter/notice-sources/sqlite-744846-c-NOTICE",
+      "bytes": 426,
+      "sha256": "39fc4986b224f2f5575dec58ae66c7c9ee2d5d3884ba4971c932f1fd5b40b033"
+    },
+    {
+      "component": "Bun-vendored SQLite header source notice",
+      "sourcePin": "744846f844374847c902b5e7fd59b4342a51ef99",
+      "declaredBuildCondition": "Bun staticSqlite input (Linux/Windows default); exact source comment bytes [20,1504); macOS system library, other per-file and linked coverage unproven",
+      "origins": [
+        "https://raw.githubusercontent.com/oven-sh/bun/744846f844374847c902b5e7fd59b4342a51ef99/src/jsc/bindings/sqlite/sqlite3_local.h"
+      ],
+      "path": "tools/spectral-linter/notice-sources/sqlite-744846-header-NOTICE",
+      "bytes": 1484,
+      "sha256": "cc65d76f325d884dd49e319acf3764d5513920f34ad18e34347b8dedc6ddd2ec"
     }
   ]
 }

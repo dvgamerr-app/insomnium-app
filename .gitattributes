@@ -1,4 +1,5 @@
 # Preserve authenticated upstream notice/evidence bytes across Windows checkouts.
+tools/spectral-linter/notice-sources/libarchive-ded822-COPYING -text
 tools/spectral-linter/notice-sources/bun-1.4.2-LICENSE.md -text
 tools/spectral-linter/notice-sources/spectral-runtime-1.1.6-repository-LICENSE -text
 tools/spectral-linter/notice-sources/spectral-runtime-1.1.6-package.json -text
@@ -30,3 +31,33 @@ scripts/frontend-notice-core/parser/LICENSE.md whitespace=cr-at-eol
 scripts/frontend-notice-core/parser/README.md whitespace=-blank-at-eol
 # Keep the complete pinned proxy-matcher crate byte-identical on checkout.
 src-tauri/vendor/hyper-util/** -text
+tools/spectral-linter/notice-sources/libdeflate-c8c56a-COPYING -text
+tools/spectral-linter/notice-sources/libspng-fb7680-LICENSE -text
+tools/spectral-linter/notice-sources/libjpeg-turbo-e352b0-LICENSE.md -text
+tools/spectral-linter/notice-sources/libjpeg-turbo-e352b0-README.ijg -text
+tools/spectral-linter/notice-sources/libwebp-b7e29b-COPYING -text
+tools/spectral-linter/notice-sources/libwebp-b7e29b-PATENTS -text
+tools/spectral-linter/notice-sources/boringssl-41bf9b-AUTHORS -text
+tools/spectral-linter/notice-sources/boringssl-41bf9b-LICENSE -text
+tools/spectral-linter/notice-sources/brotli-ed738e-LICENSE -text
+tools/spectral-linter/notice-sources/cares-c7a313-AUTHORS -text
+tools/spectral-linter/notice-sources/cares-c7a313-LICENSE.md -text
+tools/spectral-linter/notice-sources/hdrhistogram-be60a9-COPYING.txt -text
+tools/spectral-linter/notice-sources/hdrhistogram-be60a9-LICENSE.txt -text
+tools/spectral-linter/notice-sources/highway-2607d3-LICENSE -text
+tools/spectral-linter/notice-sources/lolhtml-725ce4-LICENSE -text
+tools/spectral-linter/notice-sources/lshpack-8905c0-LICENSE -text
+tools/spectral-linter/notice-sources/lsqpack-1e9c5b-LICENSE -text
+tools/spectral-linter/notice-sources/lsquic-318191-LICENSE -text
+tools/spectral-linter/notice-sources/lsquic-318191-LICENSE.chrome -text
+tools/spectral-linter/notice-sources/mimalloc-6a64e1-LICENSE -text
+tools/spectral-linter/notice-sources/rust-argon2-ed8186-LICENSE-APACHE -text
+tools/spectral-linter/notice-sources/rust-argon2-ed8186-LICENSE-MIT -text
+tools/spectral-linter/notice-sources/tinycc-05f0fa-COPYING -text
+tools/spectral-linter/notice-sources/zlib-127310-LICENSE.md -text
+tools/spectral-linter/notice-sources/zstd-f8745d-COPYING -text
+tools/spectral-linter/notice-sources/zstd-f8745d-LICENSE -text
+tools/spectral-linter/notice-sources/picohttpparser-066d2b-NOTICE -text
+tools/spectral-linter/notice-sources/node-headers-b7e6a5-LICENSE -text
+tools/spectral-linter/notice-sources/sqlite-744846-c-NOTICE -text
+tools/spectral-linter/notice-sources/sqlite-744846-header-NOTICE -text
