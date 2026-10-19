@@ -391,6 +391,9 @@ export function parseImport(text,options = {}) {
     )
       throw new Error("The import contains invalid or duplicate resource IDs");
     ids.add(r._id);
+    if (["request", "grpc_request", "websocket_request"].includes(r._type) && r.headers != null &&
+        (!Array.isArray(r.headers) || r.headers.some((header) => !header || typeof header !== "object" || Array.isArray(header))))
+      throw new Error(`Invalid headers for ${r.name || r._id}: expected an array of header records.`);
   }
   const detachedGitBindings = resources.filter(
     (r) =>
