@@ -662,6 +662,14 @@
     {placeholder}
     readonly={readOnly}
     onkeydown={event => {
+      if (!event.defaultPrevented && !event.isComposing && !event.repeat &&
+          (event.ctrlKey || event.metaKey) && event.altKey && !event.shiftKey &&
+          event.code === "Space" && !readOnly && templateEditor) {
+        event.preventDefault();
+        event.stopPropagation();
+        editTemplateTag();
+        return;
+      }
       if (!event.defaultPrevented && !event.isComposing && !event.repeat && !event.altKey &&
           (event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "f" && !readOnly && onformat) {
         event.preventDefault(); onformat();
