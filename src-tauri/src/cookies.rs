@@ -48,6 +48,26 @@ impl JarLoad {
     }
 }
 
+/// Owns a scheduled cookie write even if its session timeout wins.
+#[derive(Default)]
+pub(crate) struct JarFlush(Option<tauri::async_runtime::JoinHandle<Result<(), String>>>);
+impl JarFlush {
+    pub(crate) async fn flush(&mut self, jar: &Arc<PersistentJar>) -> Result<(), String> {
+        let task = self.0.insert(jar.start_flush());
+        let result = task.await;
+        self.0.take();
+        result.map_err(|e| e.to_string())?
+    }
+
+    pub(crate) async fn drain(&mut self) -> Result<(), String> {
+        match self.0.take() {
+            // Writes already accepted must finish, including those still queued.
+            Some(task) => task.await.map_err(|e| e.to_string())?,
+            None => Ok(()),
+        }
+    }
+}
+
 impl CookieState {
     pub async fn jar(
         &self,
@@ -133,14 +153,16 @@ impl PersistentJar {
     }
 
     pub async fn flush(self: &Arc<Self>) -> Result<(), String> {
+        self.start_flush().await.map_err(|e| e.to_string())?
+    }
+
+    fn start_flush(self: &Arc<Self>) -> tauri::async_runtime::JoinHandle<Result<(), String>> {
         let jar = self.clone();
         tauri::async_runtime::spawn_blocking(move || {
             let mut data = jar.inner.lock().map_err(|e| e.to_string())?;
             let store = data.store.clone();
             jar.save(&mut data, &store)
         })
-        .await
-        .map_err(|e| e.to_string())?
     }
 
     pub fn provider(

@@ -565,11 +565,12 @@ fn message_event(message: &Message, direction: &str) -> StreamEvent {
     }
 }
 async fn flush_cookies(
+    pending: &mut crate::cookies::JarFlush,
     jar: Option<&Arc<PersistentJar>>,
     channel: &Channel<StreamPacket>,
 ) -> Result<(), String> {
     if let Some(jar) = jar {
-        if let Err(error) = jar.flush().await {
+        if let Err(error) = pending.flush(jar).await {
             emit(
                 channel,
                 StreamEvent::Warning {
@@ -624,6 +625,7 @@ pub async fn connect_stream(
     };
     let mut jar = None;
     let mut jar_load = crate::cookies::JarLoad::default();
+    let mut jar_flush = crate::cookies::JarFlush::default();
     let result = async {
         emit(&on_event, StreamEvent::Started)?;
         if request.use_cookies && (request.send_cookies || request.store_cookies) {
@@ -641,6 +643,7 @@ pub async fn connect_stream(
                 &streams,
                 &mut delivery,
                 jar.as_ref(),
+                &mut jar_flush,
                 started,
             )
             .await
@@ -650,6 +653,7 @@ pub async fn connect_stream(
                 build_request(&client, &request, url)?,
                 &mut delivery,
                 jar.as_ref(),
+                &mut jar_flush,
                 started,
             )
             .await
@@ -664,12 +668,13 @@ pub async fn connect_stream(
     )
     .await;
     jar_load.drain().await;
+    let pending_flushed = jar_flush.drain().await;
     streams
         .sockets
         .lock()
         .map_err(|e| e.to_string())?
         .remove(&request.id);
-    let flushed = flush_cookies(jar.as_ref(), &on_event).await;
+    let flushed = flush_cookies(&mut jar_flush, jar.as_ref(), &on_event).await;
     // Drain earlier channel events before resolving the invocation/history snapshot.
     // A failed delivery has already exhausted its ACK deadline or lost its view.
     // Waiting for another ACK on Finished would double the timeout and retain
@@ -686,7 +691,7 @@ pub async fn connect_stream(
         .map_err(|e| e.to_string())?
         .remove(&request.id);
     network.finish(&request.id)?;
-    result.and(flushed).and(delivered)
+    result.and(pending_flushed).and(flushed).and(delivered)
 }
 
 async fn websocket_session(
@@ -695,6 +700,7 @@ async fn websocket_session(
     streams: &StreamState,
     delivery: &mut Delivery,
     jar: Option<&Arc<PersistentJar>>,
+    jar_flush: &mut crate::cookies::JarFlush,
     started: Instant,
 ) -> Result<(), String> {
     let channel = delivery.channel.clone();
@@ -755,7 +761,7 @@ async fn websocket_session(
         .map_err(|e| e.to_string())?
         .insert(request.id.clone(), sender);
     emit(&channel, metadata)?;
-    flush_cookies(jar, &channel).await?;
+    flush_cookies(jar_flush, jar, &channel).await?;
     loop {
         tokio::select! {
             _ = delivery.cancelled.changed() => {
@@ -862,6 +868,7 @@ async fn sse_session(
     outgoing: reqwest::RequestBuilder,
     delivery: &mut Delivery,
     jar: Option<&Arc<PersistentJar>>,
+    jar_flush: &mut crate::cookies::JarFlush,
     started: Instant,
 ) -> Result<(), String> {
     let channel = delivery.channel.clone();
@@ -882,7 +889,7 @@ async fn sse_session(
     };
     crate::http::compression::response(&mut response, request.decode_response)?;
     emit(&channel, open_event(&response, started, "sse"))?;
-    flush_cookies(jar, &channel).await?;
+    flush_cookies(jar_flush, jar, &channel).await?;
     if !response.status().is_success() {
         return Err(format!("SSE server returned HTTP {}", response.status()));
     }
