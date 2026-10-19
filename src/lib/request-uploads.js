@@ -73,6 +73,23 @@ export function separateRequestUploads(request) {
       input.body.params = parts(input.body.params, ["body", "params"]);
     }
   }
+  // NeDB provenance may retain the same portable upload. Exempt only an exact
+  // copy at an already validated upload path; unrelated archived text is bounded.
+  const legacyRecord = request._legacySource?.record;
+  for (const { path, value } of [...uploads]) {
+    const original = path.reduce((owner, key) => owner?.[key], legacyRecord);
+    if (original !== value) continue;
+    input._legacySource ??= request._legacySource;
+    input._legacySource = { ...input._legacySource };
+    input._legacySource.record = { ...input._legacySource.record };
+    let target = input._legacySource.record;
+    for (const key of path.slice(0, -1)) {
+      target[key] = Array.isArray(target[key]) ? [...target[key]] : { ...target[key] };
+      target = target[key];
+    }
+    target[path[path.length - 1]] = "";
+    uploads.push({ path: ["_legacySource", "record", ...path], value });
+  }
   // HAR provenance retains the original encoded request. When it is the exact
   // validated body payload, it is a second archival copy of binary data, not
   // template text or a second selected upload. Other provenance stays bounded.
