@@ -2,7 +2,7 @@
   import {onMount,onDestroy} from 'svelte';
   import {workspace,createWorkspaceWorkScope,prepareCodeRequest} from '../workspace.svelte.js';
   import {copyText} from '../clipboard.js';
-  import {javascriptFetchCode,javascriptXhrCode,javascriptAxiosCode,nodeAxiosCode,nodeNativeCode,shellCurlCode,generatedCodeLimit} from '../request-code.js';
+  import {javascriptFetchCode,javascriptXhrCode,javascriptAxiosCode,nodeAxiosCode,nodeNativeCode,pythonHttpClientCode,shellCurlCode,generatedCodeLimit} from '../request-code.js';
   import CodeEditor from './CodeEditor.svelte';
   import Button from './ui/Button.svelte';
   import Field from './ui/Field.svelte';
@@ -48,6 +48,7 @@
       else if(target==='javascript'&&client==='axios')output=javascriptAxiosCode(har);
       else if(target==='node'&&client==='axios')output=nodeAxiosCode(har);
       else if(target==='node'&&client==='native')output=nodeNativeCode(har);
+      else if(target==='python'&&client==='python3')output=pythonHttpClientCode(har);
       else if(target==='shell'&&client==='curl')output=shellCurlCode(har);
       else {
         if(har.asap)throw Error('Choose Node.js / Native to generate ASAP authentication.');

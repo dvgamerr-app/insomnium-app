@@ -9,6 +9,61 @@ const forbiddenHeaders=new Set('accept-charset accept-encoding access-control-re
 /** @typedef {{digest?:{username:string,password:string}|null,ntlm?:{username:string,password:string,domain:string,workstation:string}|null,netrc?:boolean}} NativeAuth */
 /** @typedef {import('httpsnippet-lite').HarRequest & {bodyBase64?:string|null,serializedMultipart?:boolean,multipartParts?:MultipartPart[]|null,multipartContentType?:string|null,socketPath?:string|null,suppressDefaultHeaders?:string[],nativeAuth?:NativeAuth|null,hawk?:Record<string,any>|null,oauth1?:Record<string,any>|null,aws?:Record<string,any>|null,asap?:Record<string,any>|null}} CodeRequest */
 export const generatedCodeLimit=32*1024*1024;
+/** Python's low-level API preserves duplicate headers and sends bytes unchanged.
+ * @param {CodeRequest} request */
+export function pythonHttpClientCode(request){
+  if(request.asap||request.aws||request.oauth1||request.hawk||request.nativeAuth?.digest)
+    throw Error('Choose Node.js / Native to generate this authentication.');
+  if(request.nativeAuth)throw Error('Choose Shell / cURL to generate code for NTLM or netrc authentication.');
+  if(request.socketPath)throw Error('Choose Node.js / Native to generate code for a socket request.');
+  if(request.method.toUpperCase()==='CONNECT')throw Error('CONNECT requires a tunnel adapter.');
+  const url=new URL(request.url);
+  if(!['http:','https:'].includes(url.protocol))throw Error('Python http.client requires an HTTP or HTTPS URL.');
+  const headers=request.headers.map(row=>[row.name,row.value]);
+  const hasHeader=(/** @type {string} */ name)=>headers.some(row=>row[0].toLowerCase()===name);
+  if(request.cookies.length&&!hasHeader('cookie'))headers.push(['Cookie',request.cookies.map(cookie=>cookie.name+'='+cookie.value).join('; ')]);
+  const encode=(/** @type {Uint8Array} */ bytes)=>{
+    let text='';
+    for(let offset=0;offset<bytes.length;offset+=8192)text+=String.fromCharCode(...bytes.subarray(offset,offset+8192));
+    return btoa(text);
+  };
+  if((url.username||url.password)&&!hasHeader('authorization')){
+    const decode=(/** @type {string} */ value)=>decodeURIComponent(value.replace(/%(?![0-9a-f]{2})/gi,'%25'));
+    try{headers.push(['Authorization','Basic '+encode(new TextEncoder().encode(decode(url.username)+':'+decode(url.password)))]);}
+    catch{throw Error('URL credentials must contain valid UTF-8 for Python code export.');}
+  }
+  const hasBody=request.multipartParts!=null||typeof request.bodyBase64==='string'||!!request.postData?.text;
+  let encoded='';
+  if(request.multipartParts){
+    const multipart=multipartCode(request.multipartParts,request.multipartContentType??null,value=>{binaryData(value);return '';});
+    for(let index=headers.length-1;index>=0;index--)if(headers[index][0].toLowerCase()==='content-type')headers.splice(index,1);
+    headers.push(['Content-Type',multipart.contentType]);
+    const length=multipart.bytes.reduce((sum,bytes)=>sum+bytes.length,0);
+    if(length>Math.floor((generatedCodeLimit-65536)/4)*3)throw Error('Multipart body exceeds the generated code limit.');
+    const bytes=new Uint8Array(length);let offset=0;
+    for(const chunk of multipart.bytes){bytes.set(chunk,offset);offset+=chunk.length;}
+    encoded=encode(bytes);
+  }else if(typeof request.bodyBase64==='string'){
+    binaryData(request.bodyBase64,request.serializedMultipart);encoded=request.bodyBase64;
+  }else if(request.postData?.mimeType==='multipart/form-data')
+    throw Error('Multipart export requires the prepared request body. Regenerate the request.');
+  else encoded=encode(new TextEncoder().encode(request.postData?.text??''));
+  if(headers.some(([name,value])=>!/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(name)||/[^\x20-\x7e\t]/.test(value)))
+    throw Error('Python http.client export requires ASCII headers. Choose Node.js / Native for raw header bytes.');
+  const transfers=headers.filter(([name])=>name.toLowerCase()==='transfer-encoding');
+  if(transfers.length&&(transfers.length!==1||transfers[0][1].trim().toLowerCase()!=='chunked'||hasHeader('content-length')))
+    throw Error('Python http.client export supports only chunked Transfer-Encoding without Content-Length.');
+  const chunked=transfers.length>0;
+  const target=url.pathname+(url.search||(url.href.split('#',1)[0].endsWith('?')?'?':''));
+  const lines=['import base64','import http.client','import sys','',`body = base64.b64decode(${JSON.stringify(encoded)}, validate=True)`,
+    `conn = http.client.${url.protocol==='https:'?'HTTPSConnection':'HTTPConnection'}(${JSON.stringify(url.host)})`,'try:',
+    `    conn.putrequest(${JSON.stringify(request.method)}, ${JSON.stringify(target)}, skip_host=${hasHeader('host')?'True':'False'}, skip_accept_encoding=True)`];
+  for(const [name,value] of headers)lines.push(`    conn.putheader(${JSON.stringify(name)}, ${JSON.stringify(value)})`);
+  if(hasBody&&!chunked&&!hasHeader('content-length'))lines.push('    conn.putheader("Content-Length", str(len(body)))');
+  lines.push(`    conn.endheaders(${hasBody||chunked?'body':'None'}, encode_chunked=${chunked?'True':'False'})`,
+    '    response = conn.getresponse()','    sys.stdout.buffer.write(response.read())','finally:','    conn.close()');
+  return lines.join('\n');
+}
 /** A 20 MiB transport body expands to at most 28 MiB of Base64 source.
  * @param {string} value @param {boolean} [buffer] @param {boolean} [serializedMultipart] */
 function binaryLiteral(value,buffer=false,serializedMultipart=false){
