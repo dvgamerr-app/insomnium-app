@@ -1,3 +1,4 @@
+use crate::http::NetworkState;
 use atomic_write_file::AtomicWriteFile;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -303,11 +304,14 @@ pub async fn inspect_workspace_backup(
     app: tauri::AppHandle,
     git_state: tauri::State<'_, crate::git::GitState>,
     state: tauri::State<'_, StorageState>,
+    network: tauri::State<'_, NetworkState>,
 ) -> Result<BackupPreview, String> {
+    let work = network.retain_native_work(format!("storage-inspect:{}", uuid::Uuid::new_v4()))?;
     let directory = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let git = git_state.0.clone();
     let session = state.0.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
         let _git = git.lock().map_err(|e| e.to_string())?;
         let session = session.lock().map_err(|e| e.to_string())?;
         if session.loaded {
@@ -326,11 +330,14 @@ pub async fn restore_workspace_backup(
     backup_sha256: String,
     git_state: tauri::State<'_, crate::git::GitState>,
     state: tauri::State<'_, StorageState>,
+    network: tauri::State<'_, NetworkState>,
 ) -> Result<Option<String>, String> {
+    let work = network.retain_native_work(format!("storage-restore:{}", uuid::Uuid::new_v4()))?;
     let directory = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let git = git_state.0.clone();
     let session = state.0.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
         let _git = git.lock().map_err(|e| e.to_string())?;
         let mut session = session.lock().map_err(|e| e.to_string())?;
         restore_backup(
@@ -434,11 +441,14 @@ pub async fn load_workspace(
     app: tauri::AppHandle,
     git_state: tauri::State<'_, crate::git::GitState>,
     state: tauri::State<'_, StorageState>,
+    network: tauri::State<'_, NetworkState>,
 ) -> Result<Option<Value>, String> {
+    let work = network.retain_native_work(format!("storage-load:{}", uuid::Uuid::new_v4()))?;
     let directory = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let session = state.0.clone();
     let git_lock = git_state.0.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
         let _git_guard = git_lock.lock().map_err(|e| e.to_string())?;
         let mut session = session.lock().map_err(|e| e.to_string())?;
         crate::git_clone::install::recover(&directory)?;
@@ -455,12 +465,17 @@ pub async fn save_workspace(
     data: Value,
     git_state: tauri::State<'_, crate::git::GitState>,
     state: tauri::State<'_, StorageState>,
+    network: tauri::State<'_, NetworkState>,
 ) -> Result<(), String> {
+    let work = network.retain_native_work(format!("storage-save:{}", uuid::Uuid::new_v4()))?;
     validate(&data)?;
     let directory = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let session = state.0.clone();
     let git_lock = git_state.0.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        // Accepted saves/recovery must finish even after exit cancellation.
+        // The actual blocking worker owns this lease, not its IPC awaiter.
+        let _work = work;
         let _git_guard = git_lock.lock().map_err(|e| e.to_string())?;
         session
             .lock()
