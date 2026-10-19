@@ -17,7 +17,7 @@ export function closeTemplateField(frame, cursor = frame.end) {
   frame.session.signal.removeEventListener("abort", frame.abort);
   frame.session.close();
   queueMicrotask(() => {
-    if (templateFieldDialog.current || !frame.element.isConnected) return;
+    if (templateFieldDialog.current || !frame.element.isConnected || frame.element.matches(":disabled")) return;
     frame.element.focus();
     try {
       frame.element.setSelectionRange(cursor, cursor);
@@ -59,7 +59,7 @@ export function templateFieldKeydown(event, factory, value) {
     return;
   const element = event.currentTarget;
   if (
-    element.disabled ||
+    element.matches(":disabled") ||
     element.readOnly ||
     (element instanceof HTMLInputElement &&
       !["text", "password", "search", "url", "email", "tel"].includes(
@@ -90,7 +90,7 @@ export function templateFieldKeydown(event, factory, value) {
       session,
       current: () =>
         element.isConnected &&
-        !element.disabled &&
+        !element.matches(":disabled") &&
         !element.readOnly &&
         element.value === source &&
         session.isCurrent(),
