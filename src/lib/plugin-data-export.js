@@ -32,6 +32,10 @@ export function exportPluginInsomnia(data,args){
   const exported=docs.filter(r=>(requestTypes.includes(r._type)||['workspace','request_group',...extras].includes(r._type))&&(!r.isPrivate||includePrivate)).map(resource=>{
     const copy=structuredClone(resource);delete copy.type;
     if(copy._type==='workspace')copy.parentId=null;
+    if(copy._type==='cookie_jar'){
+      delete copy._nativeCookieJarView;
+      delete copy._activeTemplateCookieSource;
+    }
     return copy;
   });
   const output={_type:'export',__export_format:4,__export_date:new Date().toISOString(),__export_source:'insomnium.tauri:0.1.0',resources:exported};
