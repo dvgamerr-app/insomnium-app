@@ -81,12 +81,14 @@ export async function renderTemplateValue(input, render, options) {
       try {
         const containsTemplate = (/** @type {string} */ text) =>
           /{{[\s\S]*?}}|{%[\s\S]*?%}|{#[\s\S]*?#}/.test(text);
-        if (containsTemplate(value)) value = options.jsonPaths?.includes(path)
-          ? await renderJsonTemplateBody(value,(text) => render(text,path),options.jsonTagNames)
-          : await render(value, path);
+        const renderField = (/** @type {string} */ text) =>
+          options.jsonPaths?.includes(path)
+            ? renderJsonTemplateBody(text, (text) => render(text, path), options.jsonTagNames)
+            : render(text, path);
+        if (containsTemplate(value)) value = await renderField(value);
         options.signal.throwIfAborted();
         if (value.includes("{%") && containsTemplate(value))
-          value = await render(value, path);
+          value = await renderField(value);
         options.signal.throwIfAborted();
       } catch (error) {
         options.signal.throwIfAborted();
