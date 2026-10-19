@@ -418,7 +418,12 @@
       work = importWork.begin();
       if (file && file.size > 64 * 1024 * 1024)
         throw new Error("Collection import exceeds 64 MiB. The source was not changed.");
-      const result = file ? parseImport(await file.text()) : await pickImport();
+      let result;
+      if (file) {
+        const text = await file.text();
+        if (!work.current()) return;
+        result = parseImport(text);
+      } else result = await pickImport(work.signal);
       if (!work.current()) return;
       if (revision === importRevision && modal === "import" && result)
         setImportReview(result);
@@ -455,7 +460,7 @@
   async function loadLegacyCertificateFileAssets() {
     return loadLegacyFiles(pickLegacyCertificateFiles);
   }
-  /** @param {(review:ReturnType<typeof parseImport>)=>Promise<ReturnType<typeof parseImport>|null>} picker */
+  /** @param {(review:ReturnType<typeof parseImport>,signal?:AbortSignal)=>Promise<ReturnType<typeof parseImport>|null>} picker */
   async function loadLegacyFiles(picker) {
     if (importBusy || modal !== "import" || !pendingImport) return;
     const review = pendingImport;
@@ -465,7 +470,7 @@
     modalError = "";
     try {
       work = importWork.begin();
-      const result = await picker($state.snapshot(review));
+      const result = await picker($state.snapshot(review), work.signal);
       if (!work.current()) return;
       if (result && revision === importRevision && modal === "import" && pendingImport === review)
         setImportReview(result);

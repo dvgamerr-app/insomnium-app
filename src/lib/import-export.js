@@ -17,7 +17,7 @@ import { legacySseAssetRequests, convertLegacySseHistory } from "./legacy-sse-hi
 import { legacyRequestAssetRequests, convertLegacyRequestFiles } from "./legacy-request-files.js";
 import { legacyCertificateAssetRequests, convertLegacyCertificateFiles } from "./legacy-certificate-files.js";
 import { referenceKeys, validateTopology } from "./resources.js";
-import { parseSpec } from "./openapi-document.js";
+import { parseSpec, specLimit } from "./openapi-document.js";
 import {
   postmanUrl,
   postmanBody,
@@ -171,7 +171,7 @@ export function parseImport(text,options = {}) {
     try {
       source = JSON.parse(text);
     } catch {
-      source = parseSpec(text).value;
+      source = parseSpec(text, {maxBytes:64 * 1024 * 1024}).value;
     }
   }
   if (!source || typeof source !== "object")
@@ -181,6 +181,10 @@ export function parseImport(text,options = {}) {
   if (source.__export_format === 1) resources = legacyV1Resources(source);
   else if (source.v === 2 && "requests" in source && "folders" in source) resources = hoppscotchResources(source);
   else if (source.openapi || source.swagger) {
+    // Collection YAML has the collection budget, but API documents retain
+    // their independent parser/storage budget in either JSON or YAML form.
+    if (new TextEncoder().encode(text).byteLength > specLimit)
+      throw new Error("Each specification file is limited to 2 MiB.");
     const workspaceId = id("wrk");
     resources = [
       {
@@ -553,10 +557,12 @@ export function attachLegacyResponseAssets(resources, entries) {
 /** Choose an explicitly authorized legacy folder and read response files only.
  * Successful bytes stay on preserved resources so collection export/reimport
  * survives later history retention. The original NeDB provenance is untouched.
- * @param {ReturnType<typeof parseImport>} review */
-export async function pickLegacyResponseHistory(review) {
+ * @param {ReturnType<typeof parseImport>} review @param {AbortSignal} [signal] */
+export async function pickLegacyResponseHistory(review, signal) {
+  signal?.throwIfAborted();
   if (!isTauri()) throw new Error("External legacy response files require the desktop application.");
   const root = await open({ directory: true, multiple: false, title: "Choose the original legacy data folder" });
+  signal?.throwIfAborted();
   if (!root) return null;
   if (typeof root !== "string") throw new Error("Choose one legacy data folder.");
   const httpPlan = legacyResponseAssetRequests(review.resources);
@@ -574,6 +580,7 @@ export async function pickLegacyResponseHistory(review) {
   }).map(({ entry }) => entry);
   /** @type {{entries:(import('./legacy-response-history.js').LegacyResponseAsset & Record<string,any>)[]}} */
   const assets = await invoke("read_legacy_response_assets", { root, entries: ordered.slice(0, 100) });
+  signal?.throwIfAborted();
   const resources = attachLegacyResponseAssets(review.resources, assets.entries);
   const attached = new Map(resources.map((resource) => [resource._id, resource]));
   const converted = importedResponseHistory(resources, {
@@ -600,16 +607,19 @@ export async function pickLegacyResponseHistory(review) {
   };
 }
 /** Explicitly select the original folder; never expand imported file paths.
- * @param {ReturnType<typeof parseImport>} review */
-export async function pickLegacyRequestFiles(review) {
+ * @param {ReturnType<typeof parseImport>} review @param {AbortSignal} [signal] */
+export async function pickLegacyRequestFiles(review, signal) {
+  signal?.throwIfAborted();
   if (!isTauri()) throw new Error("External request files require the desktop application.");
   const root = await open({ directory: true, multiple: false, title: "Choose the original request files folder" });
+  signal?.throwIfAborted();
   if (!root) return null;
   if (typeof root !== "string") throw new Error("Choose one request files folder.");
   const plan = legacyRequestAssetRequests(review.resources);
   const assets = await invoke("read_legacy_request_assets", {
     root, entries: plan.entries.map(({ id, path }) => ({ id, path })),
   });
+  signal?.throwIfAborted();
   const converted = convertLegacyRequestFiles(review.resources, assets);
   return { ...review, resources: converted.resources,
     legacyRequestFiles: converted.pending,
@@ -617,20 +627,26 @@ export async function pickLegacyRequestFiles(review) {
     legacyRequestFileWarnings: [...plan.warnings, ...converted.warnings] };
 }
 /** Load only explicitly granted original certificate files into the reviewed copy.
- * @param {ReturnType<typeof parseImport>} review */
-export async function pickLegacyCertificateFiles(review) {
+ * @param {ReturnType<typeof parseImport>} review @param {AbortSignal} [signal] */
+export async function pickLegacyCertificateFiles(review, signal) {
+  signal?.throwIfAborted();
   if (!isTauri()) throw new Error("External certificate files require the desktop application.");
   const root = await open({ directory: true, multiple: false, title: "Choose the original certificate files folder" });
+  signal?.throwIfAborted();
   if (!root) return null;
   if (typeof root !== "string") throw new Error("Choose one certificate files folder.");
   const plan = legacyCertificateAssetRequests(review.resources);
   const assets = await invoke("read_legacy_certificate_assets", { root, entries: plan.entries });
+  signal?.throwIfAborted();
   const converted = convertLegacyCertificateFiles(review.resources, assets);
   return { ...review, resources: converted.resources,
     legacyCertificateFiles: converted.pending, legacyCertificateFilesLoaded: converted.loaded,
     legacyCertificateFileWarnings: [...plan.warnings, ...converted.warnings] };
 }
-export async function pickImport() {
+/** @param {AbortSignal} [signal] */
+export async function pickImport(signal) {
+  const check = () => signal?.throwIfAborted();
+  check();
   if (!isTauri()) return null;
   const path = await open({
     multiple: true,
@@ -641,21 +657,34 @@ export async function pickImport() {
       },
     ],
   });
+  check();
   if (!path) return null;
   let sourceBytes = 0;
   for (const selected of path) {
+    check();
     const metadata = await stat(selected);
+    check();
     if (!metadata.isFile || metadata.size > 64 * 1024 * 1024 || sourceBytes + metadata.size > 64 * 1024 * 1024)
       throw new Error("Selected collection files exceed the 64 MiB import limit or are not ordinary files. The source was not changed.");
     sourceBytes += metadata.size;
   }
+  let loadedBytes = 0;
+  /** @param {string} selected */
+  const readSelected = async (selected) => {
+    check();
+    const text = await readTextFile(selected);
+    check();
+    loadedBytes += new TextEncoder().encode(text).byteLength;
+    if (loadedBytes > 64 * 1024 * 1024)
+      throw new Error("Selected collection files exceed the 64 MiB import limit. The source was not changed.");
+    return text;
+  };
   if (path.every((p) => p.toLowerCase().endsWith(".db"))) {
-    const files = await Promise.all(
-      path.map(async (p) => ({
+    const files = [];
+    for (const p of path) files.push({
         name: p.split(/[\\/]/).at(-1) || p,
-        text: await readTextFile(p),
-      })),
-    );
+        text: await readSelected(p),
+      });
     return parseImport(JSON.stringify(parseLegacyFiles(files)));
   }
   if (path.length > 1 && path.every(p=>/\.(wsdl|xsd|xml)$/i.test(p))) {
@@ -664,7 +693,9 @@ export async function pickImport() {
     while (directory && !normalized.every(p=>p.startsWith(directory+'/')))
       directory = directory.slice(0,directory.lastIndexOf('/'));
     if (!directory) throw new Error('Select WSDL dependencies from a common local directory tree.');
-    const files = await Promise.all(path.map(async (p,index)=>({name:normalized[index].slice(directory.length+1),text:await readTextFile(p)})));
+    const files = [];
+    for (const [index,p] of path.entries())
+      files.push({name:normalized[index].slice(directory.length+1),text:await readSelected(p)});
     const selected = selectWsdlRoot(files);
     return parseImport(selected.text,selected);
   }
@@ -673,7 +704,7 @@ export async function pickImport() {
       "Select one collection file, legacy .db files together, or a WSDL root with its WSDL/XSD dependencies.",
     );
   const name = path[0].split(/[\\/]/).at(-1) || "";
-  return parseImport(await readTextFile(path[0]), /\.curlrc$/i.test(name) ? {name} : {});
+  return parseImport(await readSelected(path[0]), /\.curlrc$/i.test(name) ? {name} : {});
 }
 /** @param {ReturnType<typeof initialData>} data @param {AbortSignal} [signal] */
 export async function exportData(data, signal = new AbortController().signal) {

@@ -105,10 +105,12 @@ export function apiDocumentBaseUri(document, retrievalUri) {
   uri.hash = "";
   return uri.href;
 }
-/** @param {string} text @param {{allowBoolean?:boolean}} [options] */
+/** @param {string} text @param {{allowBoolean?:boolean,maxBytes?:number}} [options] */
 export function parseSpec(text, options = {}) {
-  if (new TextEncoder().encode(text).byteLength > specLimit)
-    throw new Error("Each specification file is limited to 2 MiB.");
+  if (new TextEncoder().encode(text).byteLength > (options.maxBytes ?? specLimit))
+    throw new Error(options.maxBytes === undefined
+      ? "Each specification file is limited to 2 MiB."
+      : "JSON/YAML input exceeds its size limit.");
   const lines = new LineCounter();
   const document = parseDocument(text, {
     lineCounter: lines,
