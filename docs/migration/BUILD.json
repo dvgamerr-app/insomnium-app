@@ -3718,11 +3718,186 @@
         "Complete source/loader/linkage/legal and all retained PLAN/PARITY acceptance"
       ],
       "fullMigrationComplete": false
+    },
+    {
+      "platform": "Windows",
+      "target": "x86_64-pc-windows-msvc",
+      "sourceCommit": "2a512fd917cedba97e653504b1d43dcdea769158",
+      "command": "bun run desktop:build --bundles msi,nsis -- --locked",
+      "identifier": "app.insomnium.desktop",
+      "builtAt": "2026-10-19T07:57:53.835Z",
+      "exitCode": 0,
+      "totalDurationMs": 704520,
+      "sourceFingerprint": "a02b45db25a8926850e745564af1844698e0bd38bd8d1bef5659c05a96f70670",
+      "fingerprintAlgorithm": "SHA256 of exact tracked-inputs-before.json bytes",
+      "sourceFileCount": 1632,
+      "sourceScope": "All1632tracked inputs unchanged including preserved dirty documents/test helpers; not universal generated/untracked/toolchain/source/linkage closure",
+      "trackedInputsChanged": [],
+      "artifacts": [
+        {
+          "path": "artifacts/windows-production-current-1792395964954/insomnium.exe",
+          "bytes": 23986176,
+          "sha256": "a93b96a77ae1664fcbd28bba690e240e4011a1bb4306b41036eedb3ccf32f23a"
+        },
+        {
+          "path": "artifacts/windows-production-current-1792395964954/Insomnium_0.1.0_x64_en-US.msi",
+          "bytes": 57347103,
+          "sha256": "46a7dc16eb0d4e77967240633b012f560826711def2a15fb867a984912fcc7f5"
+        },
+        {
+          "path": "artifacts/windows-production-current-1792395964954/Insomnium_0.1.0_x64-setup.exe",
+          "bytes": 43270335,
+          "sha256": "c3b3b10a078f8670b70335c52687628bf94f025d4c2584bcfad6100c2b6b0778"
+        }
+      ],
+      "payloadFilesVerified": 2170,
+      "exactUntransformedFiles": 2169,
+      "bundledExecutableTransform": {
+        "markerOffset": 22352079,
+        "changedBytes": 3,
+        "from": "UNK",
+        "to": "MSI"
+      },
+      "signatures": [
+        {
+          "name": "insomnium.exe",
+          "status": "NotSigned"
+        },
+        {
+          "name": "Insomnium_0.1.0_x64_en-US.msi",
+          "status": "NotSigned"
+        },
+        {
+          "name": "Insomnium_0.1.0_x64-setup.exe",
+          "status": "NotSigned"
+        }
+      ],
+      "darkWarnings": [
+        "DARK1059",
+        "DARK1059",
+        "DARK1059",
+        "DARK1059",
+        "DARK1059",
+        "DARK1059",
+        "DARK1059"
+      ],
+      "evidence": "artifacts/windows-production-current-1792395964954/verification.json",
+      "installerExecuted": false,
+      "appExecuted": false,
+      "testcaseFilesChanged": false,
+      "ownedLiveHandles": [],
+      "notVerified": [
+        "Install/upgrade/uninstall/profile retention",
+        "App/UI/protocol/chooser/OS-close runtime on this binary",
+        "Signing/hosted CI/Linux/macOS current source",
+        "Complete legal/source/loader/linkage and all retained PLAN/PARITY gates",
+        "Generated NSIS uninstaller source/build closure"
+      ],
+      "fullMigrationComplete": false,
+      "nsisPayloadVerification": {
+        "archiveReader": "C:/Program Files/7-Zip/7z.exe",
+        "extractionExitCode": 0,
+        "productFilesVerified": 2170,
+        "exactUntransformedFiles": 2169,
+        "executableTransform": {
+          "markerOffset": 22352079,
+          "from": "UNK",
+          "to": "NSS",
+          "changedBytes": 3
+        },
+        "extraInstallerFiles": [
+          {
+            "path": "$PLUGINSDIR/modern-wizard.bmp",
+            "bytes": 26494
+          },
+          {
+            "path": "$PLUGINSDIR/nsDialogs.dll",
+            "bytes": 9728
+          },
+          {
+            "path": "$PLUGINSDIR/NSISdl.dll",
+            "bytes": 15360
+          },
+          {
+            "path": "$PLUGINSDIR/nsis_tauri_utils.dll",
+            "bytes": 34304
+          },
+          {
+            "path": "$PLUGINSDIR/StartMenu.dll",
+            "bytes": 7680
+          },
+          {
+            "path": "$PLUGINSDIR/System.dll",
+            "bytes": 12288
+          },
+          {
+            "path": "uninstall.exe",
+            "bytes": 163990
+          }
+        ],
+        "installerExecuted": false,
+        "appExecuted": false,
+        "testcaseFilesChanged": false,
+        "limitations": [
+          "Generated uninstall.exe inventoried only; installer execution/lifecycle and complete legal/toolchain/source closure not verified"
+        ],
+        "ownedLiveHandles": [],
+        "supportFileBindings": [
+          {
+            "path": "$PLUGINSDIR/modern-wizard.bmp",
+            "bytes": 26494,
+            "sourceMatches": [
+              "C:\\Users\\dvgamerr\\AppData\\Local\\tauri\\NSIS\\Contrib\\Graphics\\Wizard\\win.bmp"
+            ],
+            "sha256": "3ad2dc318056d0a2024af1804ea741146cfc18cc404649a44610cbf8b2056cf2"
+          },
+          {
+            "path": "$PLUGINSDIR/nsDialogs.dll",
+            "bytes": 9728,
+            "sourceMatches": [
+              "C:\\Users\\dvgamerr\\AppData\\Local\\tauri\\NSIS\\Plugins\\x86-unicode\\nsDialogs.dll"
+            ],
+            "sha256": "9c76f4d53ceee2a471c936e0899688405e1009ce962d140e9acb49ed68d114cb"
+          },
+          {
+            "path": "$PLUGINSDIR/NSISdl.dll",
+            "bytes": 15360,
+            "sourceMatches": [
+              "C:\\Users\\dvgamerr\\AppData\\Local\\tauri\\NSIS\\Plugins\\x86-unicode\\NSISdl.dll"
+            ],
+            "sha256": "d3e61c4df837625ac0503cea5b6765a04d37fc35399899a5503b53a3108bfbf6"
+          },
+          {
+            "path": "$PLUGINSDIR/nsis_tauri_utils.dll",
+            "bytes": 34304,
+            "sourceMatches": [
+              "C:\\Users\\dvgamerr\\AppData\\Local\\tauri\\NSIS\\Plugins\\x86-unicode\\additional\\nsis_tauri_utils.dll"
+            ],
+            "sha256": "5ba143b5db4a87d32d6e7802e033330aae56cbceabe0d1e3ba41948385ad4709"
+          },
+          {
+            "path": "$PLUGINSDIR/StartMenu.dll",
+            "bytes": 7680,
+            "sourceMatches": [
+              "C:\\Users\\dvgamerr\\AppData\\Local\\tauri\\NSIS\\Plugins\\x86-unicode\\StartMenu.dll"
+            ],
+            "sha256": "39870682e7d1c026cd2b33ca25591db28250dde17de7eb1feec404222d534ffc"
+          },
+          {
+            "path": "$PLUGINSDIR/System.dll",
+            "bytes": 12288,
+            "sourceMatches": [
+              "C:\\Users\\dvgamerr\\AppData\\Local\\tauri\\NSIS\\Plugins\\x86-unicode\\System.dll"
+            ],
+            "sha256": "afe032f942e2ed0bf7494ec08ba813f5739fb522c640bde81d30ecaf9f894432"
+          }
+        ]
+      }
     }
   ],
   "latestWindowsProductionBuild": {
-    "sourceCommit": "e8201c2290e2b7174101852bd9229d266f8a8e9c",
-    "evidence": "artifacts/windows-production-msi-e8201c22-20261019/verification.json",
-    "note": "Current Windows package checkpoint; original top-level Windows build metadata remains historical and all previous limitations are retained"
+    "sourceCommit": "2a512fd917cedba97e653504b1d43dcdea769158",
+    "evidence": "artifacts/windows-production-current-1792395964954/verification.json",
+    "note": "Current normal Windows MSI+NSIS production build; prior metadata/checkpoints and limitations retained"
   }
 }
