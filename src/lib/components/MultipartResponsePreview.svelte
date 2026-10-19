@@ -1,4 +1,6 @@
 <script>
+  import {onDestroy} from 'svelte';
+  import {createWorkspaceWorkScope} from '../workspace.svelte.js';
   import {openResponseLink} from "../response-links.js";
   import {parseMultipart,partHeader} from '../response-multipart.js';
   import {responsePreviewMime,responseVisual} from '../response-visual.js';
@@ -15,8 +17,11 @@
   /** @type {{bytes:string|undefined,contentType:string,settings?:Record<string,any>,depth?:number}} */
   let {bytes,contentType,settings={},depth=0}=$props();
   let selected=$state(0),showHeaders=$state(false),saving=$state(false),saveError=$state('');
+  const saveWork=createWorkspaceWorkScope();
+  onDestroy(saveWork.dispose);
   const parsed=$derived.by(()=>{try{return {parts:parseMultipart(bytes,contentType),error:''};}catch(error){return {parts:[],error:String(error)};}});
   const part=$derived(parsed.parts[selected]);
+  $effect(()=>{void part;return ()=>saveWork.cancel();});
   const mime=$derived(responsePreviewMime(part));
   const visual=$derived(responseVisual(part));
   const text=$derived.by(()=>{if(!part)return '';if(mime==='application/json'||mime.endsWith('+json')){try{return jsonPrettify(part.body);}catch{}}return part.body;});
@@ -24,10 +29,11 @@
   async function savePart(){
     const owned=part;if(!owned||saving)return;
     saving=true;saveError='';
-    try {const binary=atob(owned.bodyBase64);const data=Uint8Array.from(binary,char=>char.charCodeAt(0));
+    /** @type {import('../workspace.svelte.js').ScopedWorkspaceWork|undefined} */ let work;
+    try {work=saveWork.begin();const binary=atob(owned.bodyBase64);const data=Uint8Array.from(binary,char=>char.charCodeAt(0));
       const filename=dispositionFilename(partHeader(owned.headers,'content-disposition'))||safeResponseFilename(owned.name+'.bin')||'part.bin';
-      await download(data,filename,partHeader(owned.headers,'content-type')||'application/octet-stream');
-    }catch(error){if(part===owned)saveError=String(error);}finally{saving=false;}
+      await download(data,filename,partHeader(owned.headers,'content-type')||'application/octet-stream',work.signal);
+    }catch(error){if(!work?.signal.aborted&&part===owned)saveError=String(error);}finally{work?.finish();saving=false;}
   }
 </script>
 <div class="multipart-preview">
