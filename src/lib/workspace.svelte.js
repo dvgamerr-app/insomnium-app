@@ -2118,7 +2118,7 @@ export function addGrpcProtos(requestId, files) {
   if (!canEditWorkspace()) return;
   const collectionId = workspaceFor(workspace.data.resources, requestId);
   const added = importProtoFiles(workspace.data.resources, collectionId, files);
-  workspace.data.resources.push(...added);
+  for (const resource of added) workspace.data.resources.push(resource);
   update(requestId, {
     protoFileId: added.find((r) => r._type === "proto_file")?._id || "",
     protoMethodName: "",
@@ -2190,7 +2190,7 @@ export async function replaceGrpcProtos(
       changes.delete(r._id);
       return changed || r;
     });
-    workspace.data.resources.push(...changes.values());
+    for (const resource of changes.values()) workspace.data.resources.push(resource);
     cancelChangedGrpcCalls();
     if (!(await persist()))
       throw new Error(
@@ -2753,9 +2753,11 @@ function workspacePluginServices(data, owner, resolveResponse, chain = [owner.re
       if(!canEditWorkspace())throw Error('Workspace is not available for plugin import');
       const review=parseImport(content);
       check(signal);
+      // Prepare the detached read view before mutating the live workspace.
+      const snapshotResources=data.resources!==workspace.data.resources?structuredClone(review.resources):null;
       const checked=applyImportedData(workspace.data,review);
       // Keep this operation's read snapshot aware of its own accepted import.
-      if(data.resources!==workspace.data.resources)data.resources.push(...structuredClone(review.resources));
+      if(snapshotResources)for(const resource of snapshotResources)data.resources.push(resource);
       workspace.notice='Imported '+review.requests+' requests and '+review.environments+' environments from plugin.'+
         (checked.warnings.length?' '+checked.warnings.join(' '):'')+
         (review.cookieJars?' Open Cookies to review and activate imported cookies.':'');
