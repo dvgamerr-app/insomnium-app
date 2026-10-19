@@ -181,6 +181,7 @@
                 Ctrl/Cmd + Shift + P: pin/unpin request.
                 Ctrl/Cmd + Shift + R: reload loaded plugins.
                 Ctrl/Cmd + Shift + G: generate request code.
+                Ctrl/Cmd + Shift + I: focus the loaded GraphQL schema filter.
                 Ctrl/Cmd + \: toggle sidebar · + ': focus and select HTTP response.
               </p>
             </section>

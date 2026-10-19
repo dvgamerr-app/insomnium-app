@@ -41,6 +41,13 @@
   /** @type {{ request: Record<string, any>, onchange: (patch: Record<string, any>) => void }} */
   let { request, onchange } = $props();
   let bodyCodeEditor = $state(/** @type {CodeEditor|undefined} */ (undefined));
+  let graphqlEditor = $state(/** @type {GraphqlEditor|undefined} */ (undefined));
+  export async function focusSchemaFilter() {
+    const owner = request._id;
+    tab = "Body";
+    await tick();
+    return request._id === owner ? await graphqlEditor?.focusSchemaFilter() ?? false : false;
+  }
   const openapiIssues = $derived([
     ...new Set([
       ...(request._openapiIssues || []),
@@ -355,7 +362,7 @@
           >
         {/if}
       {:else if request.body.mimeType === "application/graphql" && request.body._openapiSerialization?.style !== "serialized"}
-        {#key request._id}<GraphqlEditor {request} onchange={body} />{/key}
+        {#key request._id}<GraphqlEditor bind:this={graphqlEditor} {request} onchange={body} />{/key}
       {:else if ["application/x-www-form-urlencoded", "multipart/form-data"].includes(request.body.mimeType) && request.body._openapiSerialization?.style !== "serialized"}<KeyValueEditor
           rows={request.body.params || []}
           templateEditor={() => createTemplateEditorSession(request._id)}

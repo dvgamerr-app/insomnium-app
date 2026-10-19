@@ -84,6 +84,18 @@
     navigation=[...navigation.slice(-99),{view,search,type:type?.name||'',directive:selectedDirective,member:selectedMember}];
   }
   let schemaSearch = $state(/** @type {HTMLInputElement | undefined} */ (undefined));
+  export async function focusSchemaFilter() {
+    if (!schema || disposed) return false;
+    const owner = request._id;
+    rememberNavigation();
+    view = "Schema";
+    await tick();
+    if (disposed || request._id !== owner || !schemaSearch?.isConnected) return false;
+    schemaSearch.focus();
+    schemaSearch.select();
+    return true;
+  }
+
   async function navigateBack(/** @type {MouseEvent & {currentTarget: HTMLButtonElement}} */ event){
     const button = event.currentTarget;
     const restoreFocus = document.activeElement === button;

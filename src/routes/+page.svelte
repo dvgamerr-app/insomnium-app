@@ -161,7 +161,7 @@
     app.data.resources.find((r) => r._id === app.data.activeRequestId),
   );
   const protocol = $derived(protocolFor(request));
-  let requestEditor = $state(/** @type {{openSettings:()=>void,sendMessage:()=>Promise<void>}|undefined} */ (undefined));
+  let requestEditor = $state(/** @type {{openSettings:()=>void,sendMessage:()=>Promise<void>,focusSchemaFilter:()=>Promise<boolean>}|undefined} */ (undefined));
   let grpcEditor = $state(/** @type {{openSettings:()=>void,sendMessage:()=>Promise<void>}|undefined} */ (undefined));
   let responsePane = $state(/** @type {{focusResponse:()=>Promise<void>}|undefined} */ (undefined));
   $effect(() => {
@@ -635,6 +635,11 @@
       event.preventDefault();
       setSidebarHidden(false);
       void tick().then(() => { if (mainView === "requests") filterInput?.focus(); });
+    } else if (event.shiftKey && key === "i" && mainView === "requests" &&
+        request?.body?.mimeType === "application/graphql" && request.body._openapiSerialization?.style !== "serialized" &&
+        app.schemas[request._id] && requestEditor) {
+      event.preventDefault();
+      void requestEditor.focusSchemaFilter().catch(error => (app.error = String(error)));
     } else if (event.shiftKey && key === "g" && request && ['http','sse'].includes(protocol) && mainView === "requests") {
       event.preventDefault();showCode();
     } else if (!event.shiftKey && ((modifier && ["enter", "r"].includes(key)) || plainF5) && request && mainView === "requests") {
