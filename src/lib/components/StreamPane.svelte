@@ -13,9 +13,23 @@
   import Input from "./ui/Input.svelte";
   import SplitPane from "./ui/SplitPane.svelte";
   import Icon from "./Icon.svelte";
-  import { download } from "../import-export.js";
+  import { download as saveDownload } from "../import-export.js";
+  import { createWorkspaceWorkScope } from "../workspace.svelte.js";
   import { jsonPrettify } from "../json-prettify.js";
-  import { copyText } from "../clipboard.js";
+  import { copyText as writeClipboard } from "../clipboard.js";
+  const transferWork = createWorkspaceWorkScope();
+  onDestroy(transferWork.dispose);
+  $effect(() => { void response?._id; void response?.requestId; return () => transferWork.cancel(); });
+  /** @param {string} text */
+  async function copyText(text) {
+    const work = transferWork.begin();
+    try { await writeClipboard(text); } finally { work.finish(); }
+  }
+  /** @param {Parameters<typeof saveDownload>} args */
+  async function download(...args) {
+    const work = transferWork.begin();
+    try { await saveDownload(args[0], args[1], args[2], work.signal); } finally { work.finish(); }
+  }
   import MessageReader from "./MessageReader.svelte";
   import ResponseCookies from './ResponseCookies.svelte';
   import CodeEditor from './CodeEditor.svelte';

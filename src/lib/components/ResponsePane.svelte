@@ -1,6 +1,6 @@
 <script>
   import {responseBodyText} from "../response-text.js";
-  import { copyText } from "../clipboard.js";
+  import { copyText as writeClipboard } from "../clipboard.js";
   import { onDestroy, tick } from "svelte";
   import TabPanel from "./ui/TabPanel.svelte";
   let activeTab0 = $state("");
@@ -30,11 +30,25 @@
     setResponseFilter,
     setResponseNamespaces,
     setResponsePreviewMode,
+    createWorkspaceWorkScope,
   } from "../workspace.svelte.js";
   import { requestMeta } from "../request-meta.js";
   import Icon from "./Icon.svelte";
   import { responseDownloadName } from "../response-download.js";
-  import { download } from "../import-export.js";
+  import { download as saveDownload } from "../import-export.js";
+  const transferWork = createWorkspaceWorkScope();
+  onDestroy(transferWork.dispose);
+  $effect(() => { void requestId; void sourceResponse?._id; return () => transferWork.cancel(); });
+  /** @param {string} text */
+  async function copyText(text) {
+    const work = transferWork.begin();
+    try { await writeClipboard(text); } finally { work.finish(); }
+  }
+  /** @param {Parameters<typeof saveDownload>} args */
+  async function download(...args) {
+    const work = transferWork.begin();
+    try { await saveDownload(args[0], args[1], args[2], work.signal); } finally { work.finish(); }
+  }
   /** @type {{ requestId: string, response: Record<string, any> | undefined, running: boolean, history: Record<string, any>[], onhistory: (response: Record<string, any>) => void,onmanagecookies?:()=>void }} */
   let { requestId, response: sourceResponse, running, history, onhistory,onmanagecookies } = $props();
   const response=$derived(/** @type {Record<string,any>|undefined} */ (sourceResponse?{...sourceResponse,body:responseBodyText(sourceResponse)}:undefined));
