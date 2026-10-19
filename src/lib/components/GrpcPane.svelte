@@ -56,7 +56,7 @@
   function formatBody() {
     if (selectedSent) return;
     try {
-      body(jsonPrettify(request.body?.text || '{}',jsonIndent(app.data.settings),false));
+      body(jsonPrettify(request.body?.text ?? '',jsonIndent(app.data.settings),false));
       error='';
     } catch(e) {error=String(e);}
   }
@@ -458,16 +458,16 @@
                   onchange={body}
                 />{/if}</TabPanel
             >
-          {:else if tab === "Metadata"}<KeyValueEditor
+          {:else if tab === "Metadata"}<fieldset disabled={running} aria-label="gRPC metadata" style="border:0;padding:0;margin:0;min-width:0"><KeyValueEditor
               templateEditor={() => createTemplateEditorSession(request._id)}
               rows={request.metadata || []}
               label="Metadata"
-              onchange={(metadata) => update(request._id, { metadata })}
+              onchange={(metadata) => { if (!running) update(request._id, { metadata }); }}
             />
             <Feedback tone="hint" density="compact" class="grpc-hint">
               Use base64 values for metadata names ending in -bin.
             </Feedback>
-          {:else if tab === "Proto Files"}
+          </fieldset>{:else if tab === "Proto Files"}
             <ProtoManager {request} />
           {:else if tab === "Docs"}<Textarea
               class="code-editor grpc-body"
