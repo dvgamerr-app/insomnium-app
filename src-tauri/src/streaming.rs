@@ -134,6 +134,10 @@ impl SseLimits {
             if self.line_bytes == 0 {
                 self.data_bytes = 0;
             } else if self.field == b"data" {
+                // A colonless data field is recognized only at line end.
+                if self.data_bytes + self.line_bytes > MAX_MESSAGE {
+                    return Err("SSE line or event exceeded the 20 MiB limit".into());
+                }
                 self.data_bytes += self.line_bytes;
             }
             self.line_bytes = 0;
@@ -151,7 +155,10 @@ impl SseLimits {
             }
         }
         if self.line_bytes > MAX_MESSAGE
-            || (self.field == b"data" && self.data_bytes + self.line_bytes > MAX_MESSAGE)
+            // Before ':' this may only be a prefix, e.g. "database".
+            || (self.colon
+                && self.field == b"data"
+                && self.data_bytes + self.line_bytes > MAX_MESSAGE)
         {
             return Err("SSE line or event exceeded the 20 MiB limit".into());
         }
