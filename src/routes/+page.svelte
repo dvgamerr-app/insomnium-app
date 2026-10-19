@@ -281,6 +281,9 @@
   });
   function showModal(/** @type {string} */ type) {
     if (!canEditWorkspace()) return;
+    destinationWork.cancel();
+    destinationRevision++;
+    destinationBusy = false;
     importWork.cancel();
     importRevision++;
     importBusy = false;
@@ -515,7 +518,8 @@
     else await execute(request._id);
   }
   function showRequestActions() {
-    if (!request || !["http", "sse"].includes(protocol) || !canEditWorkspace()) return;
+    if (!request || !["http", "sse"].includes(protocol) || !canEditWorkspace() ||
+        app.running[request._id] || scheduled || downloading) return;
     actionsRequestId = request._id;
     actionsEnvironmentId = app.data.activeEnvironmentId;
     actionsData = app.data;
@@ -523,6 +527,17 @@
     showModal("request-actions");
     downloadDestination = "";
     if (isTauri() && protocol === "http") void configureDownload("get");
+  }
+  async function requestAction(/** @type {'send'|'code'} */ action) {
+    if (!request || app.data !== actionsData || request._id !== actionsRequestId ||
+        app.data.activeEnvironmentId !== actionsEnvironmentId || !canEditWorkspace()) return;
+    const data = app.data, requestId = request._id, environmentId = app.data.activeEnvironmentId;
+    closeModal();
+    await tick();
+    if (app.data !== data || app.data.activeRequestId !== requestId || app.data.activeEnvironmentId !== environmentId ||
+        mainView !== "requests" || modal || !canEditWorkspace()) return;
+    if (action === "code") showCode();
+    else await sendCurrentRequest();
   }
   async function configureDownload(/** @type {'get'|'choose'|'clear'} */ operation) {
     if (!request || protocol !== "http" || modal !== "request-actions" || !isTauri() ||
@@ -707,6 +722,9 @@
       event.preventDefault();
       openSettings("General");
       void tick().then(() => document.getElementById("settings-shortcuts-title")?.focus());
+    } else if (event.shiftKey && key === "enter" && !event.altKey && request && protocol === "http" && mainView === "requests") {
+      event.preventDefault();
+      showRequestActions();
     } else if ((requestSettingsChord || (event.shiftKey && key === "enter")) && request && mainView === "requests") {
       const editor = protocol === "grpc" ? grpcEditor : requestEditor;
       if (editor) {
@@ -1409,6 +1427,10 @@
     {/snippet}
     {#snippet children()}
       {#if modal === 'request-actions'}
+        <div class="modal-actions">
+          <Button variant="primary" onclick={() => requestAction("send").catch(error => (app.error = String(error)))}>Send Now</Button>
+          <Button variant="secondary" onclick={() => requestAction("code")}>Generate code</Button>
+        </div>
         {#if protocol === "http" && isTauri()}
           <p>{downloadDestination ? `Download After Send: ${downloadDestination}` : "Download After Send is off."}</p>
           <div class="modal-actions">

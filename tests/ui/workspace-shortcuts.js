@@ -55,7 +55,7 @@ await withPreview("workspace-shortcuts",async (page,output) => {
     const { runEditorHistory } = await import(path);
     runEditorHistory("undo");
   });
-  await page.keyboard.press("Control+Shift+Enter");
+  await page.keyboard.press("Control+Alt+Shift+Comma");
   assert.equal(await page.getByRole("tablist",{name:"Request editor",exact:true}).getByRole("tab",{name:"Settings",exact:true}).getAttribute("aria-selected"),"true");
   assert.equal(await page.getByRole("tablist",{name:"Request editor",exact:true}).getByRole("tab",{name:"Settings",exact:true}).evaluate((el) => document.activeElement === el),true);
   await page.getByRole('tablist',{name:'Request editor',exact:true}).getByRole('tab',{name:'Body',exact:true}).click();
@@ -72,7 +72,7 @@ await withPreview("workspace-shortcuts",async (page,output) => {
   await page.waitForFunction(() => JSON.parse(localStorage.getItem("insomnium-tauri-preview-v1") || "{}").resources.some((/** @type {any} */ r) => r._type === "request" && r.settingDisableRenderRequestBody === true));
   await page.reload();
   await url.waitFor();
-  await page.keyboard.press("Control+Shift+Enter");
+  await page.keyboard.press("Control+Alt+Shift+Comma");
   assert.equal(await skipBody.isChecked(),true);
   await skipBody.uncheck();
   await page.waitForFunction(() => JSON.parse(localStorage.getItem("insomnium-tauri-preview-v1") || "{}").resources.some((/** @type {any} */ r) => r._type === "request" && r.settingDisableRenderRequestBody === false));
