@@ -317,6 +317,8 @@ export async function renderGrpcRequest(
       ...(await session.renderValue({
         url: request.url,
         metadata: request.metadata || [],
+        protoFileId: request.protoFileId || "",
+        protoMethodName: request.protoMethodName || "",
       })),
     };
   } finally {

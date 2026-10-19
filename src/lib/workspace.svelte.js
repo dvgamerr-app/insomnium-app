@@ -1844,6 +1844,8 @@ export async function executeGrpc(requestId, discoveryOnly = false) {
       };
       workspace.grpcSchemas[requestId] = cached;
     }
+    cached.sourceMethodName = original.protoMethodName;
+    cached.resolvedMethodName = snapshot.protoMethodName;
     if (discoveryOnly) {runCompleted = true;return;}
     if (controller.signal.aborted) throw new Error("gRPC call cancelled.");
     const method = cached.schema.methods.find(
@@ -1876,11 +1878,11 @@ export async function executeGrpc(requestId, discoveryOnly = false) {
     controller.signal.throwIfAborted();
     if (
       grpcContext(workspace.data, request) !== context ||
-      request.protoMethodName !== snapshot.protoMethodName
+      request.protoMethodName !== original.protoMethodName
     )
       throw new Error("gRPC context changed before connecting. Start again.");
     const run = workspace.grpcRuns[requestId];
-    Object.assign(run, { phase: "connecting", method, context });
+    Object.assign(run, { phase: "connecting", method, context, sourceMethodName: original.protoMethodName });
     const response = {
       _id: runId,
       requestId,
@@ -2024,7 +2026,7 @@ export async function sendGrpc(requestId, finish = false) {
       workspace.responses[requestId]?.connectionState !== "open" ||
       run.senderClosed ||
       grpcContext(workspace.data, latest) !== run.context ||
-      latest.protoMethodName !== run.method.path
+      latest.protoMethodName !== run.sourceMethodName
     )
       throw new Error("gRPC context changed. Start a new call.");
   };
@@ -2101,7 +2103,7 @@ export function cancelChangedGrpcCalls() {
     try {
       changed =
         changed ||
-        (!!run.method && request?.protoMethodName !== run.method.path) ||
+        (!!run.method && request?.protoMethodName !== run.sourceMethodName) ||
         grpcContext(
           workspace.data,
           /** @type {Record<string,any>} */ (request),

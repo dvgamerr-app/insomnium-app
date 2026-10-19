@@ -117,12 +117,12 @@ await withPreview(legacyIdsOnly ? "grpc-legacy-event-ids" : sourceOnly ? "grpc-m
 const producerData = structuredClone(data);
 const producerRequest = producerData.resources.find((r) => r._id === request._id);
 assert.ok(producerRequest);
-Object.assign(producerRequest, {url:"grpc://127.0.0.1:50051", protoMethodName:"/owned.Service/Echo"});
+Object.assign(producerRequest, {url:"grpc://127.0.0.1:50051", protoFileId:"{{ grpc_proto }}", protoMethodName:"{{ grpc_method }}"});
 producerRequest.body.text = '{"value":' + JSON.stringify("{{ _['quote\\'\"key'] }}") + ',"large":9007199254740993,"literal":"\\u007b\\u007b missing \\u007d\\u007d"}';
 producerData.resources.push({_id:"env_grpc_capture", _type:"environment", parentId:producerData.activeWorkspaceId, name:"Captured environment", data:{}});
 const producerEnvironment = producerData.resources.find((r) => r._id === "env_grpc_capture");
 assert.ok(producerEnvironment);
-producerEnvironment.data = {"quote'\"key":'owned "Ω"\nline'};
+producerEnvironment.data = {"quote'\"key":'owned "Ω"\nline',grpc_proto:"",grpc_method:"/owned.Service/Echo"};
 producerData.activeEnvironmentId = "env_grpc_capture";
 producerData.resources = producerData.resources.filter((r) => r._type !== "workspace_meta");
 producerData.resources.push({_id:"meta_grpc_capture", _type:"workspace_meta", parentId:producerData.activeWorkspaceId, activeEnvironmentId:"env_grpc_capture"});

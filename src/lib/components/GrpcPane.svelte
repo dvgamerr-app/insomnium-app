@@ -96,10 +96,15 @@
     }
   });
   const methodGroups = $derived(grpcMethodGroups(schema?.methods || []));
+  const methodPath = $derived.by(() => {
+    const cached = app.grpcSchemas[request._id];
+    return cached && cached.sourceMethodName === request.protoMethodName
+      ? cached.resolvedMethodName : request.protoMethodName;
+  });
   const method = $derived(
     schema?.methods.find(
       (/** @type {Record<string,any>} */ m) =>
-        m.path === request.protoMethodName,
+        m.path === methodPath,
     ),
   );
   const messages = $derived(
