@@ -7,6 +7,7 @@ use std::{
     },
     time::{Duration, Instant},
 };
+use tauri::Manager;
 
 struct Operation {
     #[cfg(windows)]
@@ -101,6 +102,7 @@ struct Lease {
     state: SaveState,
     id: String,
     operation: Arc<Operation>,
+    _native_work: crate::http::NativeWorkLease,
 }
 impl Drop for Lease {
     fn drop(&mut self) {
@@ -131,6 +133,10 @@ pub async fn show_plugin_save(
     }
     #[cfg(any(windows, target_os = "linux", target_os = "macos"))]
     {
+        let native_work = window
+            .try_state::<crate::http::NetworkState>()
+            .ok_or("Native work registry is unavailable.")?
+            .retain_native_work(format!("plugin-save:{}", uuid::Uuid::new_v4()))?;
         let operation = {
             let entries = state
                 .0
@@ -149,6 +155,7 @@ pub async fn show_plugin_save(
             state: state.inner().clone(),
             id,
             operation,
+            _native_work: native_work,
         };
         #[cfg(windows)]
         let selected = {
