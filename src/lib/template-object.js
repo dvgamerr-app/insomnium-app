@@ -79,8 +79,12 @@ export async function renderTemplateValue(input, render, options) {
     }
     if (typeof value === "string") {
       try {
+        // Match legacy preflight: malformed delimiter order still reaches the
+        // parser, which owns syntax errors rather than silently sending literals.
         const containsTemplate = (/** @type {string} */ text) =>
-          /{{[\s\S]*?}}|{%[\s\S]*?%}|{#[\s\S]*?#}/.test(text);
+          (text.includes("{{") && text.includes("}}")) ||
+          (text.includes("{%") && text.includes("%}")) ||
+          (text.includes("{#") && text.includes("#}"));
         const renderField = (/** @type {string} */ text) =>
           options.jsonPaths?.includes(path)
             ? renderJsonTemplateBody(text, (text) => render(text, path), options.jsonTagNames)
