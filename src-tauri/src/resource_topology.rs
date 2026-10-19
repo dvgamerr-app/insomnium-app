@@ -18,20 +18,33 @@ pub(crate) fn owner<'a>(records: &HashMap<&'a str, &'a Value>, id: &str) -> Opti
 }
 
 pub(crate) fn validate(records: &HashMap<&str, &Value>) -> Result<(), String> {
+    let mut owners = HashMap::new();
     for resource in records.values() {
         let mut seen = HashSet::new();
+        let mut path = Vec::new();
         let mut current = *resource;
-        loop {
+        let mut collection = loop {
             let id = current["_id"]
                 .as_str()
                 .ok_or("Invalid topology resource ID")?;
+            if let Some(owner) = owners.get(id) {
+                break *owner;
+            }
             if !seen.insert(id) {
                 return Err("Circular workspace parent reference".into());
             }
+            path.push(current);
             let Some(parent) = current["parentId"].as_str().and_then(|id| records.get(id)) else {
-                break;
+                break None;
             };
             current = parent;
+        };
+        for item in path.into_iter().rev() {
+            let id = item["_id"].as_str().ok_or("Invalid topology resource ID")?;
+            if item["_type"] == "workspace" {
+                collection = Some(id);
+            }
+            owners.insert(id, collection);
         }
         let allowed: &[&str] = match resource["_type"].as_str().unwrap_or("") {
             "environment" => &["workspace", "environment"],
@@ -42,7 +55,11 @@ pub(crate) fn validate(records: &HashMap<&str, &Value>) -> Result<(), String> {
         };
         let parent = resource["parentId"].as_str().and_then(|id| records.get(id));
         if parent.is_none_or(|parent| !allowed.contains(&parent["_type"].as_str().unwrap_or("")))
-            || owner(records, resource["_id"].as_str().unwrap_or("")).is_none()
+            || owners
+                .get(resource["_id"].as_str().unwrap_or(""))
+                .copied()
+                .flatten()
+                .is_none()
         {
             return Err("Invalid or missing parent for navigable workspace resource".into());
         }
