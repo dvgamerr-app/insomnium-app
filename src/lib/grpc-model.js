@@ -2,7 +2,7 @@ import { requestDataScope } from "./request-scope.js";
 import { grpcEndpoint } from "./grpc-endpoint.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
-import { environmentFor, render, workspaceFor, id } from "./model.js";
+import { environmentFor, render, workspaceFor, indexWorkspaces, id } from "./model.js";
 import {
   clientCertificateSelection,
   collectionCaCertificatePath,
@@ -38,11 +38,12 @@ export function validProtoName(name) {
  * @param {{skipInvalid?:boolean}} [options] */
 export function protoFiles(resources, collectionId, options = {}) {
   const byId = new Map(resources.map((r) => [r._id, r]));
+  const owners = indexWorkspaces(resources);
   return resources
     .filter(
       (r) =>
         r._type === "proto_file" &&
-        workspaceFor(resources, r._id) === collectionId,
+        owners.get(r._id) === collectionId,
     )
     .map((file) => {
       try {
@@ -75,6 +76,14 @@ export function protoFiles(resources, collectionId, options = {}) {
 export function protoInput(resources, collectionId, selectedId) {
   if (!selectedId) return null;
   const byId = new Map(resources.map((row) => [row._id, row]));
+  /** @type {Map<string, Resource[]>} */
+  const childrenByParent = new Map();
+  for (const row of resources) {
+    if (!["proto_file", "proto_directory"].includes(row._type)) continue;
+    const siblings = childrenByParent.get(row.parentId) || [];
+    siblings.push(row);
+    childrenByParent.set(row.parentId, siblings);
+  }
   const collection = byId.get(collectionId), selectedResource = byId.get(selectedId);
   const missing = () => new Error(
     "The selected proto file is missing from this collection. Choose a file or server reflection.",
@@ -105,7 +114,7 @@ export function protoInput(resources, collectionId, selectedId) {
       if (item.path) includes.add(item.path);
       if (includes.size > 256)
         throw new Error("A proto directory can compile at most 256 include directories at a time.");
-      const children = resources.filter((row) => row.parentId === item.directory._id);
+      const children = childrenByParent.get(item.directory._id) || [];
       for (const child of children)
         if (child._type === "proto_file") scopedIds.add(child._id);
       // Legacy writeProtoFile lists directories parent-before-child, DFS in
