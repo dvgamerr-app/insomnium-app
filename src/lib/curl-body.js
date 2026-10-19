@@ -53,7 +53,10 @@ export function composeCurlBody(body, resolve) {
         throw new Error("Combined cURL body exceeds 20 MiB.");
       bytes = new TextEncoder().encode(value);
     }
-    const separator = size > 0 && body.curlJoin !== "json";
+    const join = segment.curlJoin ?? body.curlJoin;
+    if (join != null && !["json", "form"].includes(join))
+      throw new Error("Invalid imported cURL body segment separator.");
+    const separator = size > 0 && join !== "json";
     size += bytes.length + (separator ? 1 : 0);
     if (size > maxCurlBodyBytes)
       throw new Error("Combined cURL body exceeds 20 MiB.");

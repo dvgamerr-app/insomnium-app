@@ -558,10 +558,6 @@ function requestsFor(words, workspaceId, entries, uploadFiles = []) {
     (data.length && has("head") && !has("get"))
   )
     throw new Error("Conflicting cURL body/method options.");
-  if (has("json") && data.some((e) => e.name !== "json"))
-    throw new Error(
-      "Mixing --json with other cURL data options is not supported.",
-    );
   const fileInputs = data.filter((e) =>
     e.name === "data-urlencode"
       ? !e.value.includes("=") && e.value.includes("@")
@@ -581,6 +577,7 @@ function requestsFor(words, workspaceId, entries, uploadFiles = []) {
             return {
               id: id("part"),
               type: "literal",
+              curlJoin: entry.name === "json" ? "json" : "form",
               value:
                 entry.name === "data-urlencode"
                   ? encodedData(entry.value)
@@ -592,6 +589,7 @@ function requestsFor(words, workspaceId, entries, uploadFiles = []) {
           return {
             id: id("part"),
             type: "file",
+            curlJoin: entry.name === "json" ? "json" : "form",
             fileName,
             ...(fileName === "-" ? { curlStdin: true } : {}),
             curlFileMode: entry.name,
@@ -632,7 +630,8 @@ function requestsFor(words, workspaceId, entries, uploadFiles = []) {
         return e.value;
       });
   const text = chunks.reduce(
-    (text, chunk) => text + (text && !has("json") ? "&" : "") + chunk,
+    (text, chunk, index) =>
+      text + (text && data[index].name !== "json" ? "&" : "") + chunk,
     "",
   );
   /** @type {Record<string, any>} */
