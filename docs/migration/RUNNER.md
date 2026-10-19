@@ -383,3 +383,17 @@ Next: native callback/script acceptance and remaining legacy script/import/resul
 - Idle probe destroy completed exit 0 at 09:17:55 UTC; fixture process confirmed gone. This is not normal OS-close-during-work acceptance.
 
 </details>
+
+## Legacy guest timer overflow behavior — 2026-10-19
+
+Runner guest setTimeout/setInterval now use Node-compatible delay conversion: values outside1..2147483647 (including NaN/Infinity) become1ms, and valid fractional values truncate. Previously a large/Infinity delay saturated to2147483647 and could make a script wait until the runner deadline. Internal run watchdog bounds are unchanged. Reference: https://github.com/nodejs/node/blob/main/doc/api/timers.md .
+
+Actual production runSuiteIsolated with installed QuickJS/Mocha/Chai completes one guest flow containing large/Infinity/NaN/negative timeout callbacks and an Infinity interval that clears itself:1pass/0fail/~150ms, artifacts/runner-timer-clamp-20261019.json. Frontend check0errors/0warnings/build0. No saved testcase/scenario created/modified or existing suite rerun; no transport/provider/native UI operation. Worker/HTTP cancellation/native/platform and all retained runner/migration gates remain open.
+
+Runner response empty-header compatibility: archived network/unit-test-feature.ts reduces captured headers from an empty array, so a valid header-less response exposes headers=[] while nonempty responses expose the lowercase last-value map. runnerResponse now preserves that distinction. Production adapter matches archived reduction for empty headers, duplicates and literal __proto__ key, retaining UTF8 BOM; artifacts/runner-response-headers-20261019.json. Check0errors/0warnings/build0; no saved testcase/scenario changes/runs. Actual native header-less HTTP/worker UI and broader runner/migration gates remain open.
+
+Guest timer validation follow-up: shared bootstrap/test timer wrapper now validates callback type synchronously before delay coercion, returning TypeError with ERR_INVALID_ARG_TYPE. Delay uses ToNumber via unary plus, so BigInt/Symbol reject rather than Number(BigInt) silently accepting it. Valid string delay and callback arguments remain supported. Official legacy Node18 sources: https://github.com/nodejs/node/blob/v18.15.0/lib/timers.js and https://github.com/nodejs/node/blob/v18.15.0/lib/internal/timers.js . Exact diagnostic wording and Node Timeout-object methods are not established by this change.
+
+Actual production QuickJS/Mocha flow verifies callback validation/error code before valueOf, BigInt/Symbol refusal and string-delay arguments:1pass/0fail, artifacts/runner-timer-validation-20261019.json. Check0errors/0warnings/build0; no saved testcase/scenario changes/runs, transport/native UI/provider work. Broader runner/migration gates remain open.
+
+Current production-worker integration (2026-10-19, source8cfeb064): unchanged INSOMNIUM_RUNNER_MODULES=1 bun tests/ui/runner-management.js passes headless/2.02s, using current built runner.worker-D4AF0JSF.js. Real browser Worker/Mocha reports2pass/0fail for Chai, shared Buffer/node:buffer Unicode behavior and unsupported host-module/process isolation. artifacts/runner-current-worker-integration-20261019.json binds source/scenario/worker-entry hashes and exact result. This retains existing integration after timer/response changes; it does not add timer cases or prove native IPC/HTTP cancellation. No scenario changes, native/profile/provider operation or owned live handles; full migration remains incomplete.

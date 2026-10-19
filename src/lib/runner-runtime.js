@@ -1,6 +1,16 @@
 import { runnerTestCount } from "./runner-suite.js";
 import { pluginBufferSource } from './generated/plugin-buffer.js';
 /** @typedef {import('./runner-suite.js').RunnerTest} RunnerTest */
+/** Node validates callbacks before converting delay with ToNumber. Number()
+ * would incorrectly accept BigInt, and wrapping first hides callback errors.
+ * @param {boolean} [owned] */
+function timerGlobals(owned=false) {
+  return [false,true].map(repeat=>
+    'globalThis.'+(repeat?'setInterval':'setTimeout')+'=(fn,ms=0,...args)=>{'+
+    'if(typeof fn!=="function")throw Object.assign(new TypeError("Timer callback must be a function"),{code:"ERR_INVALID_ARG_TYPE"});'+
+    'return __scheduleRunner(()=>fn(...args),+ms,'+(repeat?1:0)+(owned?',1':'')+');};',
+  ).join('');
+}
 /**
  * Real Mocha/Chai in a fresh VM; caller owns transport and cancellation.
  * @param {import('quickjs-emscripten-core').QuickJSWASMModule} engine
@@ -111,7 +121,10 @@ export async function runSuiteIsolated(
         owned && vm.typeof(owned) === "number" && vm.getNumber(owned) === 1
           ? testController.signal
           : undefined;
-      const ms = Math.min(2147483647, Math.max(0, vm.getNumber(delay) || 0));
+      // Legacy scripts used Node timers: out-of-range/non-finite delays become
+      // 1 ms, rather than a 24-day timer that only the runner deadline can stop.
+      const requested = vm.getNumber(delay);
+      const ms = requested >= 1 && requested <= 2147483647 ? Math.trunc(requested) : 1;
       const fire = () => {
         if (!alive || !timers.has(id)) return;
         const current = handle.dup();
@@ -212,8 +225,7 @@ export async function runSuiteIsolated(
     enter(() =>
       consume(
         vm.evalCode(
-          "globalThis.setTimeout=(fn,ms=0,...args)=>__scheduleRunner(()=>fn(...args),Number(ms),0);" +
-            "globalThis.setInterval=(fn,ms=0,...args)=>__scheduleRunner(()=>fn(...args),Number(ms),1);" +
+          timerGlobals() +
             "globalThis.clearTimeout=globalThis.clearInterval=__clearRunner;" +
             "globalThis.location={search:''};globalThis.console={log(){},warn(){},error(){},info(){},debug(){}};",
         ),
@@ -233,8 +245,7 @@ export async function runSuiteIsolated(
     enter(() =>
       consume(
         vm.evalCode(
-          "globalThis.setTimeout=(fn,ms=0,...args)=>__scheduleRunner(()=>fn(...args),Number(ms),0,1);" +
-            "globalThis.setInterval=(fn,ms=0,...args)=>__scheduleRunner(()=>fn(...args),Number(ms),1,1);",
+          timerGlobals(true),
         ),
       ),
     );

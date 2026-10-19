@@ -56,14 +56,14 @@ export function runnerSuite(resources, suiteId, testId = null) {
 /** Match the legacy insomnia.send response contract, including UTF-8 replacement/BOM.
  * @param {Record<string,any>} response */
 export function runnerResponse(response) {
-  const headers = Object.fromEntries(
+  const headers = response.headers?.length ? Object.fromEntries(
     (response.headers || []).map(
       (/** @type {[string,string]} */ [name, value]) => [
         String(name).toLowerCase(),
         String(value || ""),
       ],
     ),
-  );
+  ) : [];
   return {
     status: response.status,
     statusMessage: response.statusText,
