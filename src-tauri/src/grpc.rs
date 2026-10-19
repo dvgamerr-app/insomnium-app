@@ -77,10 +77,13 @@ pub async fn load_grpc_schema(
         .connection
         .as_ref()
         .map(|c| c.timeout_ms)
-        .unwrap_or(30_000)
-        .clamp(1, 3_600_000);
+        .unwrap_or(30_000);
     let result = tokio::select! {
-        result = tokio::time::timeout(Duration::from_millis(timeout), work) => result.map_err(|_| "gRPC schema lookup timed out.".to_string()).and_then(|r| r),
+        result = crate::http::timeouts::run(
+            crate::http::timeouts::selected(None, timeout),
+            work,
+            "gRPC schema lookup timed out.",
+        ) => result,
         _ = cancelled.changed() => Err("gRPC schema lookup cancelled.".into()),
     };
     if let Some(task) = compilation {
