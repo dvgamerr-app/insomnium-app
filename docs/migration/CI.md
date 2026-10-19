@@ -1,5 +1,14 @@
 # CI migration
 
+## Current Linux native compiler — 2026-10-19
+
+Source ce07d3ff passes cargo check --manifest-path src-tauri/Cargo.toml --all-targets --release --locked --offline on the existing Debian12 Linux toolchain/cache, exit0/178714ms. This includes current native lifecycle, schema timeout, outlier and Git supervisor changes. All15changed Rust/Cargo inputs independently match committed blobs after the exact Git archive Windows LF→CRLF export transform. The source archive hash also matches its container copy. No source patch, package build or testcase execution was needed.
+
+Windows Docker context pointed at a closed TCP proxy; the existing running dockerman-backend WSL Docker unix engine was used directly without changing context or restarting services. Initial check failed because the repository Windows libclang default overrode Linux discovery; the retained failure was corrected using the already installed /usr/lib/llvm-14/lib, matching the prior build environment. No dependency installed. Prior ca6a7fe5 build/binaries/notices were reused as compiler assets only; this is not current frontend/package/notices/linkage acceptance. Diagnostics retain existing vendor and Linux unused-field warnings.
+
+Evidence artifacts/linux-native-current-ce07d3ff-verification.json plus source-bindings/preparation/check/log artifacts. Original compiler session80729 terminal1, corrected session1664/WSL131676 terminal0. Actual process inventory showed no compiler descendants before stopping owned cache container d2602e...; final Docker state exited143/runningfalse/PID0 (sleep-infinity host stopped normally). No host mounts, browser/native app/profile/installer/provider operation or saved testcase/scenario changes. Current Linux runtime/installer/full distribution, macOS/hosted CI/signing/legal and every retained PLAN/PARITY gate remain open.
+
+
 ## Current RPM/AppImage artifact inspection — 2026-10-19
 
 Frozen sourceca6a7fe5 normal desktop:build rpm,appimage command produced current packages, but **clean producer success is unproven**: Windows wrapper disappeared (observer1), Docker exec returned126 while the original Bun/Cargo descendants continued through compilation/bundling. Original process chain was observed until all descendants exited; no duplicate producer launched. Retain incomplete logs and observer receipts, not an exit0 claim. The app was recompiled despite cache; standalone SHA2561e5ea9b97ee95a0f32ae19f8717ddcc89f9f6c34b9beac5653112f8b68264b98 is distinct from DEB producer ELF.
