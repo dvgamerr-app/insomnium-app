@@ -27,6 +27,10 @@ function dnsServer(raw) {
 export function grpcEndpoint(raw) {
   const secure = /^grpcs:\/\//i.test(raw);
   let address = raw.replace(/^grpcs?:\/\//i, "");
+  // Validate before URL normalization can discard CR/LF. Keep the original
+  // spelling for native resolver/cache identity, including DNS authority.
+  if (!/^(?:([A-Za-z0-9+.-]+):)?(?:\/\/([^/]*)\/)?(.+)$/.test(address))
+    throw new Error("Invalid gRPC target URI path.");
   if (/^unix:/i.test(address)) {
     // The archived parseGrpcUrl lowercases the complete transport address.
     const parsed = /^(?:\/\/([^/]*)\/)?(.+)$/.exec(
@@ -38,17 +42,16 @@ export function grpcEndpoint(raw) {
       throw new Error("A gRPC socket path cannot contain NUL.");
     return {
       url: new URL(`${secure ? "https" : "http"}://localhost/`),
-      target: `${secure ? "grpcs://" : ""}unix:${path.startsWith("//") ? "//" : ""}${path}`,
+      target: raw,
     };
   }
   const dns = /^dns:/i.test(address);
-  let server = "";
   if (dns) {
     let path = address.slice(4);
     if (path.startsWith("//")) {
       const slash = path.indexOf("/", 2);
       if (slash < 0) throw new Error("Invalid gRPC DNS target.");
-      if (slash > 2) server = dnsServer(path.slice(2, slash));
+      if (slash > 2) dnsServer(path.slice(2, slash));
       path = path.slice(slash + 1);
     }
     if (!path || /[/?#@\\]/.test(path))
@@ -101,12 +104,9 @@ export function grpcEndpoint(raw) {
         `${secure ? "https" : "http"}://${authority}:${port ?? 443}/`,
       );
     });
-    const target = urls
-      .map((url) => `${url.hostname}:${url.port || (secure ? 443 : 80)}`)
-      .join(",");
     return {
       url: urls[0],
-      target: `${secure ? "grpcs://" : ""}${family}:${target}`,
+      target: raw,
     };
   }
   const grpcStyle = dns || !raw.includes("://") || /^grpcs?:\/\//i.test(raw);
@@ -130,8 +130,6 @@ export function grpcEndpoint(raw) {
   }
   return {
     url,
-    target: server
-      ? `${secure ? "grpcs://" : ""}dns://${server}/${url.hostname}:${url.port || (secure ? 443 : 80)}`
-      : url.toString(),
+    target: raw,
   };
 }

@@ -268,8 +268,8 @@ export function grpcConnection(data, request, options = {}) {
   const resolve = options.resolved
     ? (/** @type {any} */ value) => String(value ?? "")
     : (/** @type {any} */ value) => render(value, environment);
-  const raw = resolve(request.url).trim();
-  if (!raw) throw new Error("Enter a gRPC server address.");
+  const raw = resolve(request.url);
+  if (!raw.trim()) throw new Error("Enter a gRPC server address.");
   const { url, target } = grpcEndpoint(raw);
   if (
     !["http:", "https:"].includes(url.protocol) ||
