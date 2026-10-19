@@ -2,6 +2,7 @@
   import {onDestroy} from "svelte";
   import {copyText} from "../clipboard.js";
   import {download} from "../import-export.js";
+  import {createWorkspaceWorkScope} from "../workspace.svelte.js";
   import Button from "./ui/Button.svelte";
   import Feedback from "./ui/Feedback.svelte";
   import DialogShell from "./ui/DialogShell.svelte";
@@ -12,15 +13,20 @@
   let disposed=false,operation=0;
   let feedback=$state.raw(/** @type {{owner:typeof owner,error:string}|undefined} */(undefined));
   const error=$derived(feedback?.owner===owner?feedback.error:'');
-  onDestroy(()=>{disposed=true;});
+  const transferWork=createWorkspaceWorkScope();
+  $effect(()=>{void owner;return ()=>transferWork.cancel();});
+  onDestroy(()=>{disposed=true;transferWork.dispose();});
   /** @param {'copy'|'save'} kind */
   async function transfer(kind){
     const captured=owner,ticket=++operation;
     feedback={owner:captured,error:''};
+    /** @type {import('../workspace.svelte.js').ScopedWorkspaceWork|undefined} */ let work;
     try{
+      work=transferWork.begin();
       if(kind==='copy')await copyText(captured.value);
-      else await download(captured.value,mode.includes('json')?'message.json':'message.txt',mode);
-    }catch(cause){if(!disposed&&owner===captured&&operation===ticket)feedback={owner:captured,error:String(cause)};}
+      else await download(captured.value,mode.includes('json')?'message.json':'message.txt',mode,work.signal);
+    }catch(cause){if(!work?.signal.aborted&&!disposed&&owner===captured&&operation===ticket)feedback={owner:captured,error:String(cause)};}
+    finally{work?.finish();}
   }
 </script>
 

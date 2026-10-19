@@ -207,6 +207,9 @@ where
                             }
                             _ => {}
                         }
+                        if hedge.invalid_codes {
+                            return Err(Status::internal("gRPC hedging nonFatalStatusCodes must be an array when processing a status."));
+                        }
                         if !hedge.codes.contains(&(status.code() as i32)) {
                             if guard.0.claim_status(id) { return Err(status); }
                             continue;

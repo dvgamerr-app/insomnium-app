@@ -236,6 +236,7 @@ struct Hedge {
     max: usize,
     delay: Duration,
     codes: Vec<i32>,
+    invalid_codes: bool,
 }
 impl Session {
     pub(super) fn new(method: Option<&Value>, target: &str) -> Result<Self, String> {
@@ -287,6 +288,12 @@ impl Session {
                             .and_then(Value::as_array)
                             .map(|values| values.iter().filter_map(code).collect())
                             .unwrap_or_default(),
+                        // Normalization retains truthy non-array values, just
+                        // like grpc-js. Its status callback cannot call .some
+                        // on those values; do not silently treat them as [].
+                        invalid_codes: value
+                            .get("nonFatalStatusCodes")
+                            .is_some_and(|codes| !codes.is_array()),
                     })
                 })
                 .transpose()?,

@@ -32,6 +32,7 @@
     sendGrpc,
     stop,
     selectStreamHistory,
+    createWorkspaceWorkScope,
   } from "../workspace.svelte.js";
   import {
     grpcSourceContext as grpcContext,
@@ -116,7 +117,14 @@
     ),
   );
   let disposed=false,transferSequence=0;
-  onDestroy(()=>{disposed=true;});
+  const transferWork = createWorkspaceWorkScope();
+  $effect(() => {
+    void request._id;
+    void app.data;
+    void app.data.activeWorkspaceId;
+    return () => transferWork.cancel();
+  });
+  onDestroy(()=>{disposed=true;transferWork.dispose();});
   const transferOwner=$derived({requestId:request._id,responseId:response?._id,responseTab,
     selectedMessage,selectedSentId,fullMessage,messages:messages.length,sent:sent.length});
   let transferFeedback=$state.raw(/** @type {{owner:typeof transferOwner,operation:number,error:string}|undefined} */(undefined));
@@ -173,22 +181,31 @@
   }
   async function exportResponse() {
     const fail=beginTransfer();
+    /** @type {import('../workspace.svelte.js').ScopedWorkspaceWork|undefined} */ let work;
     try {
+      work = transferWork.begin();
       await download(
         JSON.stringify(response, null, 2),
         "grpc-response.json",
         "application/json",
+        work.signal,
       );
     } catch (e) {
-      fail(e);
+      if (!work?.signal.aborted) fail(e);
+    } finally {
+      work?.finish();
     }
   }
   async function copyMessage(/** @type {string} */ text) {
     const fail=beginTransfer();
+    /** @type {import('../workspace.svelte.js').ScopedWorkspaceWork|undefined} */ let work;
     try {
+      work = transferWork.begin();
       await copyText(text);
     } catch (e) {
-      fail(e);
+      if (!work?.signal.aborted) fail(e);
+    } finally {
+      work?.finish();
     }
   }
 </script>
