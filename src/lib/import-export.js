@@ -398,6 +398,9 @@ export function parseImport(text,options = {}) {
     if (["request", "grpc_request", "websocket_request"].includes(r._type) && r.headers != null &&
         (!Array.isArray(r.headers) || r.headers.some((header) => !header || typeof header !== "object" || Array.isArray(header))))
       throw new Error(`Invalid headers for ${r.name || r._id}: expected an array of header records.`);
+    if (r._type === "grpc_request" && r.metadata != null &&
+        (!Array.isArray(r.metadata) || r.metadata.some((row) => !row || typeof row !== "object" || Array.isArray(row))))
+      throw new Error(`Invalid metadata for ${r.name || r._id}: expected an array of metadata records.`);
   }
   const detachedGitBindings = resources.filter(
     (r) =>
