@@ -1,5 +1,5 @@
 //! Retry token buckets shared by target, as in grpc-js InternalChannel.
-use serde_json::Value;
+use crate::grpc_legacy::Json as Value;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex, OnceLock},

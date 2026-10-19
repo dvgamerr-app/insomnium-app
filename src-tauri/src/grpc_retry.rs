@@ -1,7 +1,7 @@
 //! Configured retries before response headers, with one replay/cancellation owner.
 use super::replay::{Guard, Input};
+use crate::grpc_legacy::Json as Value;
 use prost::Message;
-use serde_json::Value;
 use std::{
     future::Future,
     pin::Pin,
@@ -326,7 +326,13 @@ impl Session {
             delay
         } else {
             let delay = (0.8 + sample() * 0.4) * policy.next * 1000.0;
-            policy.next = (policy.next * policy.multiplier).min(policy.cap);
+            let next = policy.next * policy.multiplier;
+            // Math.min preserves NaN, unlike Rust's f64::min.
+            policy.next = if next.is_nan() {
+                next
+            } else {
+                next.min(policy.cap)
+            };
             delay
         };
         Some(timer(milliseconds))

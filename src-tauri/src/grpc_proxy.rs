@@ -25,6 +25,7 @@ pub(crate) struct Proxy {
     pub(crate) host: String,
     pub(crate) port: u16,
     pub(crate) authorization: Option<String>,
+    lookup_work: Option<super::dns::LookupWork>,
 }
 
 fn decimal_prefix(value: &str) -> Option<u32> {
@@ -122,6 +123,7 @@ pub(crate) fn select(
         }
     }
     Ok(Some(Proxy {
+        lookup_work: None,
         host: host.trim_matches(['[', ']']).to_owned(),
         port: url.port().unwrap_or(80),
         authorization: credentials
@@ -140,7 +142,19 @@ pub(crate) fn authority(target: &Url) -> String {
 }
 
 pub(crate) async fn tunnel(proxy: &Proxy, target: &str) -> io::Result<BufReader<TcpStream>> {
-    let stream = TcpStream::connect((proxy.host.as_str(), proxy.port)).await?;
+    // Resolve only the proxy locally. The original CONNECT authority remains
+    // remote-resolved, and address connection attempts keep OS ordering.
+    let stream = if let Ok(ip) = proxy.host.parse::<std::net::IpAddr>() {
+        TcpStream::connect(SocketAddr::new(ip, proxy.port)).await?
+    } else {
+        let addresses = proxy
+            .lookup_work
+            .as_ref()
+            .ok_or_else(|| io::Error::other("gRPC proxy DNS owner unavailable."))?
+            .resolve(proxy.host.clone(), proxy.port)
+            .await?;
+        TcpStream::connect(addresses.as_slice()).await?
+    };
     stream.set_nodelay(true)?;
     let mut stream = BufReader::new(stream);
     let mut request = format!("CONNECT {target} HTTP/1.1\r\nHost: {target}\r\n");
@@ -184,8 +198,10 @@ pub(crate) async fn connect_selected(
     endpoint: Endpoint,
     target: &Url,
     selected: Option<Proxy>,
+    lookup_work: &super::dns::LookupWork,
 ) -> Result<Channel, String> {
-    if let Some(proxy) = selected {
+    if let Some(mut proxy) = selected {
+        proxy.lookup_work = Some(lookup_work.clone());
         let target = authority(target);
         endpoint
             .connect_with_connector(tower::service_fn(move |_| {
@@ -347,6 +363,7 @@ pub(crate) async fn connect_static(
     endpoint: Endpoint,
     targets: &[Url],
     timeout: Option<Duration>,
+    lookup_work: &super::dns::LookupWork,
 ) -> Result<Channel, String> {
     let mut addresses = Vec::with_capacity(targets.len());
     for target in targets {
@@ -359,7 +376,10 @@ pub(crate) async fn connect_static(
         addresses.push(StaticDial {
             address: SocketAddr::new(ip, target.port_or_known_default().unwrap_or(443)),
             target: authority(target),
-            proxy: select(target, |key| std::env::var(key).ok())?,
+            proxy: select(target, |key| std::env::var(key).ok())?.map(|mut proxy| {
+                proxy.lookup_work = Some(lookup_work.clone());
+                proxy
+            }),
         });
     }
     connect_dials(endpoint, addresses, None, timeout).await

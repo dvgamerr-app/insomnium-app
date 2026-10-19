@@ -1,6 +1,6 @@
 //! Owned asynchronous DNS service-config selection. Policy execution is separate.
+use crate::grpc_legacy::{Json as Value, JsonObject as Map};
 use hickory_resolver::{proto::rr::RData, TokioResolver};
-use serde_json::{Map, Value};
 use std::sync::{Arc, Mutex, RwLock};
 use tokio::task::JoinHandle;
 
@@ -66,10 +66,12 @@ impl Default for Inner {
 
 #[derive(Default)]
 struct Lookup {
+    closed: bool,
     target: String,
     generation: u64,
     percentage: f64,
     task: Option<JoinHandle<()>>,
+    retired: Vec<JoinHandle<()>>,
 }
 
 struct Snapshot {
@@ -143,6 +145,9 @@ impl Drop for Inner {
             .get_mut()
             .unwrap_or_else(|error| error.into_inner());
         if let Some(task) = lookup.task.take() {
+            task.abort();
+        }
+        for task in &lookup.retired {
             task.abort();
         }
     }
@@ -293,6 +298,8 @@ impl ResolutionConfig {
             });
         };
         let configs = selected.get("methodConfig").and_then(Value::as_array);
+        let service_units: Vec<u16> = service.encode_utf16().collect();
+        let method_units: Vec<u16> = method.encode_utf16().collect();
         // Search by specificity first, then declaration order; never merge.
         for level in 0..3 {
             for config in configs.into_iter().flatten() {
@@ -304,8 +311,8 @@ impl ResolutionConfig {
                 {
                     let (candidate_service, candidate_method) = name(candidate)?;
                     let matches = match level {
-                        0 => candidate_service == service && candidate_method == method,
-                        1 => candidate_service == service && candidate_method.is_empty(),
+                        0 => candidate_service == service_units && candidate_method == method_units,
+                        1 => candidate_service == service_units && candidate_method.is_empty(),
                         _ => candidate_service.is_empty() && candidate_method.is_empty(),
                     };
                     if matches {
@@ -370,13 +377,42 @@ impl ResolutionConfig {
         }
     }
 
+    pub(super) async fn shutdown(&self) {
+        let tasks = {
+            let mut lookup = self
+                .0
+                .lookup
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
+            lookup.closed = true;
+            lookup.generation = lookup.generation.wrapping_add(1);
+            if let Ok(mut snapshot) = self.0.snapshot.write() {
+                snapshot.generation = lookup.generation;
+            }
+            let mut tasks = std::mem::take(&mut lookup.retired);
+            tasks.extend(lookup.task.take());
+            self.0
+                .updates
+                .send_modify(|revision| *revision = revision.wrapping_add(1));
+            tasks
+        };
+        for task in &tasks {
+            task.abort();
+        }
+        for task in tasks {
+            let _ = task.await;
+        }
+    }
+
     pub(super) fn clear(&self) {
         let Ok(mut lookup) = self.0.lookup.lock() else {
             return;
         };
         if let Some(task) = lookup.task.take() {
             task.abort();
+            lookup.retired.push(task);
         }
+        lookup.retired.retain(|task| !task.is_finished());
         lookup.target.clear();
         lookup.generation = lookup.generation.wrapping_add(1);
         if let Ok(mut snapshot) = self.0.snapshot.write() {
@@ -400,9 +436,14 @@ impl ResolutionConfig {
         let Ok(mut lookup) = self.0.lookup.lock() else {
             return;
         };
+        if lookup.closed {
+            return;
+        }
+        lookup.retired.retain(|task| !task.is_finished());
         if lookup.target != target {
             if let Some(task) = lookup.task.take() {
                 task.abort();
+                lookup.retired.push(task);
             }
             lookup.target = target;
             lookup.generation = lookup.generation.wrapping_add(1);
@@ -522,7 +563,7 @@ impl ResolutionConfig {
 fn invalid() -> String {
     "Invalid gRPC DNS service configuration.".into()
 }
-fn object(value: &Value) -> Result<&Map<String, Value>, String> {
+fn object(value: &Value) -> Result<&Map, String> {
     value.as_object().ok_or_else(invalid)
 }
 fn numeric(value: Option<&Value>) -> Result<f64, String> {
@@ -555,7 +596,7 @@ fn statuses(values: &[Value]) -> Result<(), String> {
     }
     Ok(())
 }
-fn attempts(value: &Map<String, Value>) -> Result<(), String> {
+fn attempts(value: &Map) -> Result<(), String> {
     let number = numeric(value.get("maxAttempts"))?;
     if number < 2.0 || number.fract() != 0.0 {
         return Err(invalid());
@@ -597,10 +638,10 @@ fn hedging(value: &Value) -> Result<(), String> {
     }
     Ok(())
 }
-fn name(value: &Value) -> Result<(String, String), String> {
+fn name(value: &Value) -> Result<(Vec<u16>, Vec<u16>), String> {
     // JSON arrays have no named service/method properties in JavaScript.
     if value.is_array() {
-        return Ok((String::new(), String::new()));
+        return Ok((Vec::new(), Vec::new()));
     }
     let value = object(value)?;
     match value.get("service") {
@@ -608,15 +649,20 @@ fn name(value: &Value) -> Result<(String, String), String> {
             if value.contains_key("method") {
                 return Err(invalid());
             }
-            Ok((String::new(), String::new()))
+            Ok((Vec::new(), Vec::new()))
         }
         Some(Value::String(service)) => {
             let method = value
                 .get("method")
-                .map(|value| value.as_str().ok_or_else(invalid))
+                .map(|value| {
+                    value
+                        .as_js_string()
+                        .map(|value| value.units().to_vec())
+                        .ok_or_else(invalid)
+                })
                 .transpose()?
-                .unwrap_or("");
-            Ok((service.clone(), method.to_owned()))
+                .unwrap_or_default();
+            Ok((service.units().to_vec(), method))
         }
         _ => Err(invalid()),
     }
@@ -700,7 +746,7 @@ fn validate_config(value: &Value) -> Result<(), String> {
     Ok(())
 }
 fn select(text: &str, percentage: f64) -> Result<Value, String> {
-    let choices: Value = serde_json::from_str(text).map_err(|_| invalid())?;
+    let choices: Value = Value::parse(text, 0).map_err(|_| invalid())?;
     for choice in choices.as_array().ok_or_else(invalid)? {
         let choice = object(choice)?;
         let config = choice.get("serviceConfig").ok_or_else(invalid)?;
@@ -741,7 +787,10 @@ fn select(text: &str, percentage: f64) -> Result<Value, String> {
                 continue;
             }
             let hostname = crate::template_os::read_os("hostname")?;
-            if !hosts.contains(&hostname) {
+            if !hosts
+                .iter()
+                .any(|host| hostname.as_str().is_some_and(|name| host == name))
+            {
                 continue;
             }
         }
@@ -755,4 +804,34 @@ fn select(text: &str, percentage: f64) -> Result<Value, String> {
         return Ok(config.clone());
     }
     Err("No matching gRPC DNS service configuration.".into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn txt_json_preserves_js_number_and_utf16_selection() {
+        let config = select(
+            r#"[{"serviceConfig":{
+            "retryThrottling":{"maxTokens":1,"tokenRatio":1e999},
+            "methodConfig":[{"name":[
+                {"service":"\ud800","method":"\udc00"},
+                {"service":"\ud801","method":"\udc01"},{}
+            ]}]
+        }}]"#,
+            50.0,
+        )
+        .unwrap();
+        assert_eq!(
+            config["retryThrottling"]["tokenRatio"].as_f64(),
+            Some(f64::INFINITY)
+        );
+        let names = config["methodConfig"].as_array().unwrap()[0]["name"]
+            .as_array()
+            .unwrap();
+        assert_eq!(name(&names[0]).unwrap(), (vec![0xd800], vec![0xdc00]));
+        assert_eq!(name(&names[1]).unwrap(), (vec![0xd801], vec![0xdc01]));
+        assert!(select(r#"[{"percentage":1e999,"serviceConfig":{}}]"#, 50.0).is_err());
+    }
 }

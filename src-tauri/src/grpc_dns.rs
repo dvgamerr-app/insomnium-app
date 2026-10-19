@@ -13,6 +13,52 @@ use reqwest::Url;
 use std::{collections::HashSet, io, net::SocketAddr, sync::Arc, time::Duration};
 use tonic::transport::Endpoint;
 
+// A logical connection owns OS lookups even when its async waiter is dropped.
+// Closing admission and taking the handles use the same lock as submission.
+#[derive(Clone, Default)]
+pub(crate) struct LookupWork(Arc<std::sync::Mutex<LookupJobs>>);
+#[derive(Default)]
+struct LookupJobs {
+    closed: bool,
+    jobs: Vec<tokio::task::JoinHandle<()>>,
+}
+impl LookupWork {
+    pub(super) async fn resolve(&self, name: String, port: u16) -> io::Result<Vec<SocketAddr>> {
+        let (sender, receiver) = tokio::sync::oneshot::channel();
+        {
+            let mut work = self.0.lock().unwrap_or_else(|error| error.into_inner());
+            if work.closed {
+                return Err(io::Error::other("gRPC DNS owner closed."));
+            }
+            work.jobs.retain(|job| !job.is_finished());
+            work.jobs.push(tokio::task::spawn_blocking(move || {
+                use std::net::ToSocketAddrs;
+                let result = (name.as_str(), port)
+                    .to_socket_addrs()
+                    .map(Iterator::collect);
+                let _ = sender.send(result);
+            }));
+        }
+        receiver
+            .await
+            .map_err(|_| io::Error::other("gRPC DNS resolver stopped unexpectedly."))?
+    }
+
+    pub(crate) async fn drain(&self) {
+        let jobs = {
+            let mut work = self.0.lock().unwrap_or_else(|error| error.into_inner());
+            work.closed = true;
+            std::mem::take(&mut work.jobs)
+        };
+        for job in &jobs {
+            job.abort();
+        }
+        for job in jobs {
+            let _ = job.await;
+        }
+    }
+}
+
 struct LookupCache {
     answer: Option<(
         tokio::time::Instant,
@@ -64,6 +110,7 @@ pub(crate) async fn connect(
     server: Option<SocketAddr>,
     timeout: Option<Duration>,
     resolution_config: &ResolutionConfig,
+    lookup_work: &LookupWork,
     target_key: &str,
 ) -> Result<Channel, String> {
     let selected = proxy::select(target, |key| std::env::var(key).ok())?;
@@ -75,7 +122,7 @@ pub(crate) async fn connect(
     // CONNECT delegates origin resolution to the proxy; numeric targets need no DNS.
     if selected.is_some() || host.parse::<std::net::IpAddr>().is_ok() {
         resolution_config.clear();
-        return proxy::connect_selected(endpoint, target, selected)
+        return proxy::connect_selected(endpoint, target, selected, lookup_work)
             .await
             .map(Into::into);
     }
@@ -106,6 +153,7 @@ pub(crate) async fn connect(
         let policy = resolution_config.clone();
         let canonical = Arc::new(std::sync::RwLock::new(None::<(u64, u64, Vec<SocketAddr>)>));
         let published = canonical.clone();
+        let lookup_work = lookup_work.clone();
         let resolve: proxy::AddressResolver = Arc::new(move || {
             let resolver = resolver.clone();
             let name = name.clone();
@@ -116,6 +164,7 @@ pub(crate) async fn connect(
             let resolution_target = resolution_target.clone();
             let retry_target = retry_target.clone();
             let published = published.clone();
+            let lookup_work = lookup_work.clone();
             Box::pin(async move {
                 use std::sync::atomic::Ordering;
                 let observed = completed.load(Ordering::Acquire);
@@ -179,15 +228,12 @@ pub(crate) async fn connect(
                             .map(|ip| SocketAddr::new(ip, port))
                             .collect()
                     } else {
-                        tokio::net::lookup_host((name.as_str(), port))
-                            .await
-                            .map_err(|error| {
-                                io::Error::new(
-                                    error.kind(),
-                                    format!("gRPC DNS name resolution failed: {error}"),
-                                )
-                            })?
-                            .collect()
+                        lookup_work.resolve(name, port).await.map_err(|error| {
+                            io::Error::new(
+                                error.kind(),
+                                format!("gRPC DNS name resolution failed: {error}"),
+                            )
+                        })?
                     };
                     // Retain OS/resolver ordering and scope IDs; never truncate the
                     // complete list before the transport interleaves address families.

@@ -61,6 +61,8 @@ pub struct Connection {
     // Native lifetime state, never accepted from or serialized into IPC data.
     #[serde(skip)]
     resolution_config: service_config::ResolutionConfig,
+    #[serde(skip)]
+    lookup_work: dns::LookupWork,
     pub url: String,
     #[serde(default)]
     pub metadata: Vec<(String, String)>,
@@ -78,6 +80,10 @@ pub struct Connection {
 }
 
 impl Connection {
+    pub(crate) async fn drain_dns(&self) {
+        self.resolution_config.shutdown().await;
+        self.lookup_work.drain().await;
+    }
     pub(crate) fn call_deadline(&self) -> Option<Duration> {
         // Old IPC callers omitted this field and used timeout_ms for the call.
         // The current renderer sends explicit zero for legacy no-deadline calls.
@@ -260,10 +266,15 @@ pub(crate) async fn channel(config: &Connection) -> Result<Channel, call_setup::
             .map_err(call_setup::Error::Transport)
     } else if !target.addresses.is_empty() {
         config.resolution_config.clear();
-        proxy::connect_static(endpoint, &target.addresses, connect_timeout)
-            .await
-            .map(Into::into)
-            .map_err(call_setup::Error::Transport)
+        proxy::connect_static(
+            endpoint,
+            &target.addresses,
+            connect_timeout,
+            &config.lookup_work,
+        )
+        .await
+        .map(Into::into)
+        .map_err(call_setup::Error::Transport)
     } else {
         dns::connect(
             endpoint,
@@ -271,6 +282,7 @@ pub(crate) async fn channel(config: &Connection) -> Result<Channel, call_setup::
             target.dns_server,
             connect_timeout,
             &config.resolution_config,
+            &config.lookup_work,
             &config.url,
         )
         .await

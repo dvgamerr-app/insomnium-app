@@ -1,7 +1,7 @@
 //! grpc-js service-config Date setters, distinct from protobuf Duration parsing.
 use super::CallDeadline;
+use crate::grpc_legacy::Json as Value;
 use chrono::{DateTime, Local, LocalResult, NaiveDateTime, TimeDelta, TimeZone, Timelike};
-use serde_json::Value;
 use std::time::Duration;
 use tokio::time::Instant;
 

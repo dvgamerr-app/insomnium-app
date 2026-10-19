@@ -290,16 +290,19 @@ fn js_array_index(key: &str) -> Option<u32> {
 // Preserve JavaScript UTF16 identity, including unpaired surrogate property keys.
 // serde_json's byte-string visitor validates escapes while retaining WTF8 units.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-struct JsString {
+pub(crate) struct JsString {
     units: Vec<u16>,
     text: String,
 }
 impl JsString {
+    pub(crate) fn units(&self) -> &[u16] {
+        &self.units
+    }
     fn from_units(units: Vec<u16>) -> Self {
         let text = String::from_utf16_lossy(&units);
         Self { units, text }
     }
-    fn as_str(&self) -> &str {
+    pub(crate) fn as_str(&self) -> &str {
         &self.text
     }
 }
@@ -370,11 +373,21 @@ impl<'de> serde::Deserialize<'de> for JsString {
     }
 }
 
-struct JsonObject {
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct JsonObject {
     entries: Vec<(JsString, Json)>,
     index: HashMap<Vec<u16>, usize>,
 }
 impl JsonObject {
+    pub(crate) fn len(&self) -> usize {
+        self.entries.len()
+    }
+    pub(crate) fn contains_key(&self, key: &str) -> bool {
+        self.get(key).is_some()
+    }
+    pub(crate) fn keys(&self) -> impl Iterator<Item = &JsString> {
+        self.entries.iter().map(|(key, _)| key)
+    }
     fn new(mut entries: Vec<(JsString, Json)>) -> Self {
         // JSON.parse keeps a property's original position on duplicate writes.
         // Object.keys then enumerates array indices first, numerically.
@@ -393,12 +406,12 @@ impl JsonObject {
             .collect();
         Self { entries, index }
     }
-    fn get(&self, key: &str) -> Option<&Json> {
+    pub(crate) fn get(&self, key: &str) -> Option<&Json> {
         self.index
             .get(&key.encode_utf16().collect::<Vec<_>>())
             .map(|index| &self.entries[*index].1)
     }
-    fn iter(&self) -> impl Iterator<Item = (&JsString, &Json)> + '_ {
+    pub(crate) fn iter(&self) -> impl Iterator<Item = (&JsString, &Json)> + '_ {
         self.entries.iter().map(|(key, value)| (key, value))
     }
 }
@@ -437,7 +450,9 @@ impl<'de> serde::Deserialize<'de> for RawJsonObject<'de> {
     }
 }
 
-enum Json {
+#[derive(Clone, Debug, PartialEq)]
+// Shared with native DNS service-config policy; workspace JSON stays separate.
+pub(crate) enum Json {
     Null,
     Bool(bool),
     Number(f64),
@@ -446,7 +461,56 @@ enum Json {
     Object(JsonObject),
 }
 impl Json {
-    fn parse(text: &str, depth: usize) -> Result<Self, String> {
+    pub(crate) fn singleton(key: &str, value: Self) -> Self {
+        Self::Object(JsonObject::new(vec![(key.into(), value)]))
+    }
+    pub(crate) fn as_object(&self) -> Option<&JsonObject> {
+        if let Self::Object(value) = self {
+            Some(value)
+        } else {
+            None
+        }
+    }
+    pub(crate) fn as_f64(&self) -> Option<f64> {
+        if let Self::Number(value) = self {
+            Some(*value)
+        } else {
+            None
+        }
+    }
+    pub(crate) fn as_str(&self) -> Option<&str> {
+        // ASCII syntax consumers may use the display view. Identity-sensitive
+        // comparisons must use as_js_string/units (or PartialEq<str>) instead.
+        if let Self::String(value) = self {
+            Some(value.as_str())
+        } else {
+            None
+        }
+    }
+    pub(crate) fn as_js_string(&self) -> Option<&JsString> {
+        if let Self::String(value) = self {
+            Some(value)
+        } else {
+            None
+        }
+    }
+    pub(crate) fn as_bool(&self) -> Option<bool> {
+        if let Self::Bool(value) = self {
+            Some(*value)
+        } else {
+            None
+        }
+    }
+    pub(crate) fn is_string(&self) -> bool {
+        matches!(self, Self::String(_))
+    }
+    pub(crate) fn is_number(&self) -> bool {
+        matches!(self, Self::Number(_))
+    }
+    pub(crate) fn is_boolean(&self) -> bool {
+        matches!(self, Self::Bool(_))
+    }
+    pub(crate) fn parse(text: &str, depth: usize) -> Result<Self, String> {
         let raw: &serde_json::value::RawValue =
             serde_json::from_str(text).map_err(|error| format!("Invalid gRPC JSON: {error}"))?;
         let text = raw.get();
@@ -489,26 +553,44 @@ impl Json {
                 .map_err(|error| format!("Invalid gRPC JSON number: {error}")),
         }
     }
-    fn get(&self, key: &str) -> Option<&Self> {
+    pub(crate) fn get(&self, key: &str) -> Option<&Self> {
         match self {
             Self::Object(values) => values.get(key),
             _ => None,
         }
     }
-    fn as_array(&self) -> Option<&Vec<Self>> {
+    pub(crate) fn as_array(&self) -> Option<&Vec<Self>> {
         match self {
             Self::Array(values) => Some(values),
             _ => None,
         }
     }
-    fn is_null(&self) -> bool {
+    pub(crate) fn is_null(&self) -> bool {
         matches!(self, Self::Null)
     }
-    fn is_object(&self) -> bool {
+    pub(crate) fn is_object(&self) -> bool {
         matches!(self, Self::Object(_))
     }
-    fn is_array(&self) -> bool {
+    pub(crate) fn is_array(&self) -> bool {
         matches!(self, Self::Array(_))
+    }
+}
+
+impl PartialEq<str> for Json {
+    fn eq(&self, text: &str) -> bool {
+        self.as_js_string()
+            .is_some_and(|value| value.units.iter().copied().eq(text.encode_utf16()))
+    }
+}
+impl PartialEq<&str> for Json {
+    fn eq(&self, text: &&str) -> bool {
+        self == *text
+    }
+}
+impl std::ops::Index<&str> for Json {
+    type Output = Self;
+    fn index(&self, key: &str) -> &Self {
+        self.get(key).unwrap_or(&Self::Null)
     }
 }
 
@@ -983,7 +1065,9 @@ fn inherited_method<'a>(object: &Json, name: &'a str) -> Option<(&'a str, usize)
             | "at" | "fill" | "reduce" | "reduceRight" | "sort" | "findLast" | "findLastIndex"
             | "toSorted" => 1,
             "slice" | "splice" | "copyWithin" | "toSpliced" | "with" => 2,
-            "keys" | "values" | "entries" | "pop" | "reverse" | "shift" | "flat" | "toReversed" => 0,
+            "keys" | "values" | "entries" | "pop" | "reverse" | "shift" | "flat" | "toReversed" => {
+                0
+            }
             _ => return None,
         },
         Json::Number(_) => match name {
@@ -993,9 +1077,8 @@ fn inherited_method<'a>(object: &Json, name: &'a str) -> Option<(&'a str, usize)
         Json::String(_) => match name {
             "charAt" | "charCodeAt" | "codePointAt" | "at" | "concat" | "endsWith" | "includes"
             | "indexOf" | "lastIndexOf" | "match" | "matchAll" | "padEnd" | "padStart"
-            | "repeat" | "search" | "localeCompare" | "startsWith" | "anchor" | "fontcolor" | "fontsize" | "link" => {
-                1
-            }
+            | "repeat" | "search" | "localeCompare" | "startsWith" | "anchor" | "fontcolor"
+            | "fontsize" | "link" => 1,
             "replace" | "replaceAll" | "slice" | "split" | "substr" | "substring" => 2,
             "normalize" | "toLowerCase" | "toUpperCase" | "toLocaleLowerCase"
             | "toLocaleUpperCase" | "trim" | "trimStart" | "trimEnd" | "trimLeft" | "trimRight"

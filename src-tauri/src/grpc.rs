@@ -92,6 +92,9 @@ pub async fn load_grpc_schema(
         task.abort();
         let _ = task.await;
     }
+    if let Some(connection) = request.connection.as_ref() {
+        connection.drain_dns().await;
+    }
     network.finish(&request.id)?;
     result
 }
@@ -248,6 +251,7 @@ pub async fn connect_grpc(
         Finished(Result<(), String>),
         Terminal(tonic::Code, &'static str),
     }
+    let dns_owner = request.connection.clone();
     let work = async move {
         // Transport setup and RPC work enforce the same absolute deadline.
         // This wrapper owns only the earlier Started ACK portion of that budget.
@@ -322,6 +326,7 @@ pub async fn connect_grpc(
             }
         }
     };
+    dns_owner.drain_dns().await;
     let calls_removed = state
         .calls
         .lock()

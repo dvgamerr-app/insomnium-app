@@ -1,5 +1,5 @@
 //! Pinned grpc-js built-in policy-list selection; picker execution is separate.
-use serde_json::Value;
+use crate::grpc_legacy::Json as Value;
 use std::sync::OnceLock;
 
 #[derive(Clone, Copy, PartialEq, Eq)]

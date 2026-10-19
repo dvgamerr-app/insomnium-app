@@ -1,7 +1,7 @@
 //! Policy-local endpoint counters and grpc-js outlier interval checks.
 use super::weighted;
+use crate::grpc_legacy::Json as Value;
 use crate::grpc_transport::service_config::lb_config;
-use serde_json::Value;
 use std::{
     net::SocketAddr,
     sync::{Arc, Mutex, Weak},
@@ -49,9 +49,10 @@ impl Policy {
                     let raw = selected.config.as_ref().expect("validated outlier config");
                     result.layers.push(Config::new(raw));
                     result.counting.push(false);
-                    selected = lb_config::select(Some(
-                        &serde_json::json!({"loadBalancingConfig": raw["child_policy"]}),
-                    ));
+                    selected = lb_config::select(Some(&Value::singleton(
+                        "loadBalancingConfig",
+                        raw["child_policy"].clone(),
+                    )));
                 }
                 lb_config::Kind::WeightedRoundRobin => {
                     result.weighted = selected.config.as_ref().map(weighted::Config::from_json);

@@ -1,6 +1,6 @@
 //! Policy-local ORCA weights and the pinned grpc-js deadline-heap picker.
+use crate::grpc_legacy::Json as Value;
 use prost::Message;
-use serde_json::Value;
 use std::{
     collections::BTreeMap,
     net::SocketAddr,
