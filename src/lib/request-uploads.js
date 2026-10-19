@@ -20,7 +20,12 @@ export function separateRequestUploads(request) {
       throw new Error("Invalid base64 in request upload.");
     let bytes;
     try {
-      bytes = atob(value).length;
+      const decoded = atob(value);
+      // Match the native strict Base64 decoder before template execution.
+      // atob alone also accepts nonzero unused padding bits (e.g. Zh==).
+      if (btoa(decoded) !== value)
+        throw new Error("Noncanonical base64 in request upload.");
+      bytes = decoded.length;
     } catch {
       throw new Error("Invalid base64 in request upload.");
     }
