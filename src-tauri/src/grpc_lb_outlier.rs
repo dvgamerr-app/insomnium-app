@@ -331,7 +331,13 @@ impl Layer {
     }
 }
 fn delay(ms: i64) -> Duration {
-    Duration::from_millis(ms.max(1) as u64)
+    // Node setTimeout clamps both ends to 1 ms. A wall-clock rollback can
+    // exceed the upper bound when reconfiguring an existing interval.
+    Duration::from_millis(if (1..=i32::MAX as i64).contains(&ms) {
+        ms as u64
+    } else {
+        1
+    })
 }
 pub(super) struct Counter(Arc<Mutex<Stats>>);
 #[derive(Default)]
