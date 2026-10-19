@@ -1007,7 +1007,11 @@ pub async fn send_stream_message(
     format: String,
     data: String,
     streams: tauri::State<'_, StreamState>,
+    network: tauri::State<'_, NetworkState>,
 ) -> Result<(), String> {
+    // The send result can settle after the connection releases its registration.
+    // Keep command ownership through decoding, admission and the result callback.
+    let work = network.retain_native_work(format!("websocket-message:{}", uuid::Uuid::new_v4()))?;
     if data.len() > MAX_MESSAGE * 4 / 3 + 4 {
         return Err("Message exceeds the 20 MiB limit".into());
     }
@@ -1024,6 +1028,9 @@ pub async fn send_stream_message(
     };
     if size > MAX_MESSAGE || matches!(&message, Message::Ping(b) if b.len() > 125) {
         return Err("Message is too large (20 MiB data / 125 bytes ping)".into());
+    }
+    if work.cancelled() {
+        return Err("WebSocket message cancelled.".into());
     }
     let sender = streams
         .sockets
