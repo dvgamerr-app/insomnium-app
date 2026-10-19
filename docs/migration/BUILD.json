@@ -4026,41 +4026,77 @@
     }
   ],
   "latestWindowsProductionBuild": {
-    "sourceCommit": "ff73f87bc8cbed6b3adfa7942429ec2fbcb4bf39",
-    "evidence": "artifacts/windows-msi-bundle-ff73f87b-20261020/verification.json",
+    "sourceCommit": "b6efc23501f252fc8145f56c2902ff3246529e1a",
+    "evidence": "artifacts/windows-msi-bundle-b6efc235-20261020/verification.json",
     "bundles": [
       "nsis",
       "msi"
     ],
     "artifacts": [
       {
-        "path": "artifacts/windows-production-ff73f87b-20261020/insomnium.exe",
-        "bytes": 24230912,
-        "sha256": "995509189f00e9e60fc0b69e3f5c8837bf0dec8317f9ed8bc1619f17c98bcad7"
+        "path": "artifacts/windows-production-b6efc235-20261020/insomnium.exe",
+        "bytes": 24231936,
+        "sha256": "d1dd76acb240dde5cd9adafcd5d8e0ba360724cc4615e73f381230a41c43f2cb"
       },
       {
-        "path": "artifacts/windows-production-ff73f87b-20261020/Insomnium_0.1.0_x64-setup.exe",
-        "bytes": 43375319,
-        "sha256": "5146820bdcdb4fa7229bb6dfb78f46f0f0d2ab09f0777357c123925883421855"
+        "path": "artifacts/windows-production-b6efc235-20261020/Insomnium_0.1.0_x64-setup.exe",
+        "bytes": 43383048,
+        "sha256": "a22a28beb72108d5db55b1a61f55892f3bb971249642b330419dfd98cc021d99"
       },
       {
-        "path": "artifacts/windows-msi-bundle-ff73f87b-20261020/Insomnium_0.1.0_x64_en-US.msi",
-        "bytes": 57564749,
-        "sha256": "91c1afa06e44b43b0ea83a869d7f89dee4b09293b23374c16119bb4be54d2f69"
+        "path": "artifacts/windows-msi-bundle-b6efc235-20261020/Insomnium_0.1.0_x64_en-US.msi",
+        "bytes": 57572941,
+        "sha256": "b4f3993c5e49bbbfccfd4fe04a4e318047ac567b671a6c68f0123c7422bda6ba"
       }
     ],
     "exitCode": 0,
     "selectedInputsUnchanged": 610,
     "payloadFilesVerified": 2173,
-    "note": "Current normal production NSIS plus normal MSI bundle from the same verified executable; all older records/limitations retained",
+    "previousBuildRecord": "artifacts/windows-production-b6efc235-20261020/previous-BUILD.json",
+    "note": "Current normal production NSIS plus normal MSI bundle from the same verified executable; historical records and all limitations retained",
     "fullMigrationComplete": false,
-    "sourceBuildEvidence": "artifacts/windows-production-ff73f87b-20261020/verification.json",
-    "nsisEvidence": "artifacts/windows-production-ff73f87b-20261020/verification.json",
+    "sourceBuildEvidence": "artifacts/windows-production-b6efc235-20261020/verification.json",
+    "nsisEvidence": "artifacts/windows-production-b6efc235-20261020/verification.json",
     "msiBundleCommand": "bun x --bun tauri bundle --bundles msi --ci"
   },
   "latestLinuxProductionBuild": {
     "sourceCommit": "ca6a7fe53b1d7f50615cee68eef26a393f668d15",
     "evidence": "artifacts/linux-production-current-ca6a7fe5-20261019/verification.json",
     "note": "Current normal DEB production build; prior records and limitations retained"
-  }
+  },
+  "windowsProductionHistory": [
+    {
+      "sourceCommit": "ff73f87bc8cbed6b3adfa7942429ec2fbcb4bf39",
+      "evidence": "artifacts/windows-msi-bundle-ff73f87b-20261020/verification.json",
+      "bundles": [
+        "nsis",
+        "msi"
+      ],
+      "artifacts": [
+        {
+          "path": "artifacts/windows-production-ff73f87b-20261020/insomnium.exe",
+          "bytes": 24230912,
+          "sha256": "995509189f00e9e60fc0b69e3f5c8837bf0dec8317f9ed8bc1619f17c98bcad7"
+        },
+        {
+          "path": "artifacts/windows-production-ff73f87b-20261020/Insomnium_0.1.0_x64-setup.exe",
+          "bytes": 43375319,
+          "sha256": "5146820bdcdb4fa7229bb6dfb78f46f0f0d2ab09f0777357c123925883421855"
+        },
+        {
+          "path": "artifacts/windows-msi-bundle-ff73f87b-20261020/Insomnium_0.1.0_x64_en-US.msi",
+          "bytes": 57564749,
+          "sha256": "91c1afa06e44b43b0ea83a869d7f89dee4b09293b23374c16119bb4be54d2f69"
+        }
+      ],
+      "exitCode": 0,
+      "selectedInputsUnchanged": 610,
+      "payloadFilesVerified": 2173,
+      "note": "Current normal production NSIS plus normal MSI bundle from the same verified executable; all older records/limitations retained",
+      "fullMigrationComplete": false,
+      "sourceBuildEvidence": "artifacts/windows-production-ff73f87b-20261020/verification.json",
+      "nsisEvidence": "artifacts/windows-production-ff73f87b-20261020/verification.json",
+      "msiBundleCommand": "bun x --bun tauri bundle --bundles msi --ci"
+    }
+  ]
 }
