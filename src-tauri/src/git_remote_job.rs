@@ -9,7 +9,7 @@ use std::{
     process::{Child, Command, Stdio},
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
+        Arc, Condvar, Mutex,
     },
     time::{Duration, Instant},
 };
@@ -69,7 +69,11 @@ struct Job {
     touched: Instant,
 }
 #[derive(Clone, Default)]
-pub struct RemoteJobState(Arc<Mutex<HashMap<String, Job>>>);
+pub struct RemoteJobState {
+    jobs: Arc<Mutex<HashMap<String, Job>>>,
+    closing: Arc<AtomicBool>,
+    settled: Arc<Condvar>,
+}
 
 fn key(id: &str) -> Result<String, String> {
     uuid::Uuid::parse_str(id)
@@ -82,7 +86,7 @@ fn prune(jobs: &mut HashMap<String, Job>) {
 impl RemoteJobState {
     pub(crate) fn ensure_idle(&self, id: &str) -> Result<(), String> {
         let id = key(id)?;
-        let jobs = self.0.lock().map_err(|_| "Remote job lock failed.")?;
+        let jobs = self.jobs.lock().map_err(|_| "Remote job lock failed.")?;
         if jobs.get(&id).is_some_and(|job| job.running) {
             return Err("Push is still running. Wait for it to settle before Inspect.".into());
         }
@@ -90,7 +94,10 @@ impl RemoteJobState {
     }
     pub(crate) fn reserve(&self, id: &str) -> Result<Reservation, String> {
         let id = key(id)?;
-        let mut jobs = self.0.lock().map_err(|_| "Remote job lock failed.")?;
+        let mut jobs = self.jobs.lock().map_err(|_| "Remote job lock failed.")?;
+        if self.closing.load(Ordering::SeqCst) {
+            return Err("The application window is closed.".into());
+        }
         prune(&mut jobs);
         if let Some(job) = jobs.get(&id) {
             return Err(if job.cancelled.load(Ordering::SeqCst) {
@@ -113,14 +120,34 @@ impl RemoteJobState {
             },
         );
         Ok(Reservation {
-            state: self.0.clone(),
+            state: self.jobs.clone(),
+            settled: self.settled.clone(),
             id,
             cancelled,
         })
     }
+    pub(crate) fn close(&self) {
+        let jobs = self.jobs.lock().unwrap_or_else(|error| error.into_inner());
+        // Serialize closing with admission. Keep reservations alive until their
+        // existing supervisors have stopped/reaped children and finished cleanup.
+        self.closing.store(true, Ordering::SeqCst);
+        for job in jobs.values() {
+            job.cancelled.store(true, Ordering::SeqCst);
+        }
+    }
+    pub(crate) fn drain(&self) {
+        self.close();
+        let mut jobs = self.jobs.lock().unwrap_or_else(|error| error.into_inner());
+        while jobs.values().any(|job| job.running) {
+            jobs = self
+                .settled
+                .wait(jobs)
+                .unwrap_or_else(|error| error.into_inner());
+        }
+    }
     fn cancel(&self, id: &str) -> Result<(), String> {
         let id = key(id)?;
-        let mut jobs = self.0.lock().map_err(|_| "Remote job lock failed.")?;
+        let mut jobs = self.jobs.lock().map_err(|_| "Remote job lock failed.")?;
         prune(&mut jobs);
         if let Some(job) = jobs.get_mut(&id) {
             job.cancelled.store(true, Ordering::SeqCst);
@@ -144,17 +171,18 @@ impl RemoteJobState {
 }
 pub(crate) struct Reservation {
     state: Arc<Mutex<HashMap<String, Job>>>,
+    settled: Arc<Condvar>,
     id: String,
     pub(crate) cancelled: Arc<AtomicBool>,
 }
 impl Drop for Reservation {
     fn drop(&mut self) {
-        if let Ok(mut jobs) = self.state.lock() {
-            if let Some(job) = jobs.get_mut(&self.id) {
-                job.running = false;
-                job.touched = Instant::now();
-            }
+        let mut jobs = self.state.lock().unwrap_or_else(|error| error.into_inner());
+        if let Some(job) = jobs.get_mut(&self.id) {
+            job.running = false;
+            job.touched = Instant::now();
         }
+        self.settled.notify_all();
     }
 }
 struct OwnedChild {

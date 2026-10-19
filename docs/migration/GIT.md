@@ -2057,3 +2057,17 @@ Evidence:44 new assertions in git-fetch-snapshot-v3-check plus282 existing curre
 
 
 </details>
+
+## Native window destruction remote-job cancellation — 2026-10-19
+
+The existing main-window Destroyed handler now closes RemoteJobState alongside network/plugin services. Closing marks every accepted reservation cancelled and sets a shared closed flag while holding the same mutex as reserve. Cloned registry handles therefore reject late jobs rather than starting a worker after destruction. Existing reservations remain until their own supervisors finish; existing cancellation checks, OwnedChild kill/reap, staging cleanup and journal recovery stay authoritative. No remote command, process protocol, journal or repository mutation policy changed.
+
+Cargo check --manifest-path src-tauri/Cargo.toml --all-targets --locked passed6.85s with existing vendor warnings; scoped rustfmt/diff0. artifacts/git-window-destruction-cancel-20261019.json binds source and source-review limits. No saved testcase/scenario additions, edits or runs; no Git remote/provider/native app/profile operation. This connects cancellation signaling and admission only: actual OS-close/process reap timing, app process-exit drain, staging recovery, provider/platform and all retained PLAN/PARITY acceptance remain open. The normal frontend close drain remains in place.
+
+## Git supervisor exit drain — 2026-10-19
+
+RunEvent::Exit now closes and drains the shared Git remote registry before Tauri cleanup. RemoteJobState uses a condition variable tied to the same job mutex; Reservation::drop marks its job settled and notifies waiters after the existing supervisor/child/staging cleanup. The wait rechecks all running jobs on every wake, tolerates spurious notifications and keeps admission closed across cloned handles. There is no new polling loop or early timeout that would abandon a child. Poisoned-lock recovery in reservation cleanup still retires the job and notifies waiters. Named registry fields replace the prior positional fields.
+
+Checked locked Tauri2.12.0 app.rs make_run_event_loop_callback: application Exit callback runs before cleanup_before_exit and process restart. Existing normal CloseRequested save/drain coordination and Spectral shutdown stay unchanged. Git reservations are owned in blocking supervisors, not main-thread UI callbacks; final exit waits for that work rather than running asynchronous UI cleanup on the event thread. This does not establish that unregistered Git operations or all other native services have complete exit coverage.
+
+Contract: https://doc.rust-lang.org/std/sync/struct.Condvar.html . Cargo all-targets --locked0/5.25s, scoped rustfmt/diff0. Actual registry/Reservation code compiled from stdin confirms drain remains pending with either of two held reservations, wakes after final drop, rejects new admission and permits repeated drain. artifacts/git-exit-reservation-drain-20261019.json binds source/results. No saved testcase/scenario additions, edits or runs, child/remote/provider/native app/profile operation. Actual Tauri Exit/blocked child/reap/staging recovery/platform acceptance remains open; full original PLAN/PARITY remains active.

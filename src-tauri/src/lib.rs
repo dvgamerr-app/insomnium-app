@@ -109,6 +109,7 @@ pub fn run() {
         .on_window_event(|window, event| {
             if window.label() == "main" && matches!(event, tauri::WindowEvent::Destroyed) {
                 if let Some(state) = window.try_state::<http::NetworkState>() { state.close(); }
+                if let Some(state) = window.try_state::<git_remote_job::RemoteJobState>() { state.close(); }
                 if let Some(state) = window.try_state::<spectral::SpectralState>() { spectral::cancel_all(&state); }
                 if let Some(state) = window.try_state::<plugin_event_transport::EventTransportState>() { plugin_event_transport::cancel_all(&state); }
                 if let Some(state) = window.try_state::<plugin_save::SaveState>() {
@@ -221,6 +222,11 @@ pub fn run() {
                             return;
                         }
                     }
+                }
+            }
+            if matches!(&event, tauri::RunEvent::Exit) {
+                if let Some(state) = app.try_state::<git_remote_job::RemoteJobState>() {
+                    state.drain();
                 }
             }
             if let Some(state) = app.try_state::<spectral::SpectralState>() {
