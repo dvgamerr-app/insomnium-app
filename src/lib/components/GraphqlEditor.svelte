@@ -48,8 +48,10 @@
   /** @type {{ request: Record<string, any>, onchange: (patch: Record<string, any>) => void }} */
   let { request, onchange } = $props();
   const fileWork = createWorkspaceWorkScope();
+  const exportWork = createWorkspaceWorkScope();
+  $effect(() => { void context; void entry; return () => exportWork.cancel(); });
   let disposed = false;
-  onDestroy(() => { disposed = true; fileWork.dispose(); });
+  onDestroy(() => { disposed = true; fileWork.dispose(); exportWork.dispose(); });
   let view = $state("Query");
   let message = $state("");
   let error = $state("");
@@ -360,11 +362,15 @@
         onclick={async () => {
           const originalRequest = request, originalContext = context, originalEntry = entry;
           if (!originalEntry) return;
+          /** @type {import('../workspace.svelte.js').ScopedWorkspaceWork|undefined} */ let work;
           try {
-            await download(originalEntry.sdl, "schema.graphql");
+            work = exportWork.begin();
+            await download(originalEntry.sdl, "schema.graphql", "text/plain", work.signal);
           } catch (e) {
-            if (!disposed && request === originalRequest && context === originalContext && entry === originalEntry)
+            if (!work?.signal.aborted && !disposed && request === originalRequest && context === originalContext && entry === originalEntry)
               error = String(e);
+          } finally {
+            work?.finish();
           }
         }}>Export SDL</Button
       ><Button

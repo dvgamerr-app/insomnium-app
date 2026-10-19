@@ -26,6 +26,7 @@
   import {
     workspace,
     beginWorkspaceWork,
+    createWorkspaceWorkScope,
     canEditWorkspace,
     persist,
     update,
@@ -194,6 +195,9 @@
   );
   /** @type {Set<ReturnType<typeof beginWorkspaceWork>>} */
   const fileWork = new Set();
+  const exportWork = createWorkspaceWorkScope();
+  onDestroy(exportWork.dispose);
+  $effect(() => { void input; return () => exportWork.cancel(); });
   let disposed = false;
   let applying = false;
   let runningInput = "";
@@ -712,13 +716,20 @@
           variant="secondary"
           class="secondary-button"
           onclick={async () => {
+            /** @type {import('../workspace.svelte.js').ScopedWorkspaceWork|undefined} */ let work;
+            const originalInput = input;
             try {
+              work = exportWork.begin();
               await download(
                 spec.contents || "",
                 spec.fileName || "openapi.yaml",
+                "text/plain",
+                work.signal,
               );
             } catch (e) {
-              error = String(e);
+              if (!work?.signal.aborted && !disposed && input === originalInput) error = String(e);
+            } finally {
+              work?.finish();
             }
           }}>Export source</Button
         >
