@@ -734,9 +734,10 @@
       variant="ghost"
       class="header-search"
       aria-label="Search requests"
+      disabled={!app.ready}
       onclick={() => {
         mainView = "requests";
-        requestAnimationFrame(() => filterInput?.focus());
+        openSwitcher();
       }}
       ><Icon name="search" size={14} /><span>Search requests</span><kbd
         >Ctrl P</kbd

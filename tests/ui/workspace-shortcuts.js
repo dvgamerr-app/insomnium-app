@@ -379,7 +379,7 @@ await withPreview("workspace-shortcuts",async (page,output) => {
   const copied = await page.evaluate(() => JSON.parse(localStorage.getItem("insomnium-tauri-preview-v1") || "{}"));
   assert.notEqual(copied.activeRequestId,original.activeRequestId);
   assert.deepEqual(copied.resources.find((/** @type {any} */ r) => r._id === copied.activeRequestId).body,original.resources.find((/** @type {any} */ r) => r._id === original.activeRequestId).body);
-  await page.keyboard.press('Control+p');
+  await page.getByRole('button',{name:'Search requests',exact:true}).click();
   const switchSearch=page.getByRole('textbox',{name:'Search requests',exact:true});
   const switchChoices=page.getByRole('listbox',{name:'Matching requests',exact:true});
   await switchSearch.waitFor();
