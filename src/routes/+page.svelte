@@ -540,16 +540,19 @@
         }
     }
   }
+  let altGraphDown = false;
   function keyboard(/** @type {KeyboardEvent} */ event) {
     const key = event.key.toLowerCase();
     const modifier = event.ctrlKey || event.metaKey;
     const variableDisplayChord = event.altKey && event.shiftKey && event.code === "KeyU" && !modifier;
     const requestSettingsChord = modifier && event.altKey && event.shiftKey && event.code === "Comma";
+    const alternateNewRequest = modifier && event.altKey && !event.shiftKey && event.code === "KeyN" &&
+      !altGraphDown;
     const shortcutHelpChord = event.ctrlKey && event.shiftKey && event.code === "Slash";
     const plainF5 = key === "f5" && !modifier && !event.shiftKey;
     if (
       !app.ready ||
-      event.defaultPrevented || event.isComposing || event.repeat || (event.altKey && !requestSettingsChord && !variableDisplayChord) ||
+      event.defaultPrevented || event.isComposing || event.repeat || (event.altKey && !requestSettingsChord && !variableDisplayChord && !alternateNewRequest) ||
       editingBlocked ||
       modal ||
       document.querySelector("dialog[open]") ||
@@ -617,6 +620,9 @@
         history.focus();
         try { history.showPicker?.(); } catch { /* Keyboard selection remains available. */ }
       }
+    } else if (event.shiftKey && !event.altKey && event.code === "Comma" && collection) {
+      event.preventDefault();
+      manageResource(collection._id);
     } else if (!event.shiftKey && key === ",") {
       event.preventDefault();
       openSettings("General");
@@ -654,7 +660,7 @@
     } else if (!event.shiftKey && key === "d" && request && mainView === "requests") {
       event.preventDefault();
       duplicate(request._id);
-    } else if (!event.shiftKey && key === "n" && mainView === "requests") {
+    } else if (((!event.shiftKey && key === "n") || alternateNewRequest) && mainView === "requests") {
       event.preventDefault();
       addRequest();
     } else if (event.shiftKey && key === "p" && request && mainView === "requests") {
@@ -669,6 +675,7 @@
     }
   }
   function captureKeyboard(/** @type {KeyboardEvent} */event){
+    if(event.key === "AltGraph") altGraphDown = true;
     if(event.defaultPrevented)return;
     // This application chord takes precedence over CodeMirror's Find Previous.
     if((event.ctrlKey||event.metaKey)&&event.shiftKey&&event.code==='KeyG'){
@@ -681,7 +688,9 @@
 <PluginThemeHost onSchemeChange={scheme=>displayedTheme=scheme}/>
 <TemplateFieldDialogHost />
 <PluginDomDialogHost />
-<svelte:window onkeydown={keyboard} onkeydowncapture={captureKeyboard} />
+<svelte:window onkeydown={keyboard} onkeydowncapture={captureKeyboard}
+  onkeyup={event => { if(event.key === "AltGraph" || event.code === "AltRight") altGraphDown = false; }}
+  onblur={() => { altGraphDown = false; }} />
 {#if switcher}<RequestSwitcher entries={switcher.entries} initialIndex={switcher.initialIndex} recent={switcher.recent}
   onclose={()=>switcher=null} onselect={requestId=>{
     const opening=switcher;switcher=null;

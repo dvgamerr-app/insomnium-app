@@ -363,7 +363,7 @@ await withPreview("workspace-shortcuts",async (page,output) => {
   await url.waitFor();
   const count = await page.evaluate(() => JSON.parse(localStorage.getItem("insomnium-tauri-preview-v1") || "{}").resources.filter((/** @type {any} */ r) => r._type === "request").length);
   await page.evaluate(async () => {
-    for (const extra of [{repeat:true},{isComposing:true},{altKey:true}])
+    for (const extra of [{repeat:true},{isComposing:true},{altKey:true,key:"x",code:"KeyX"}])
       window.dispatchEvent(new KeyboardEvent("keydown",{key:"n",ctrlKey:true,bubbles:true,cancelable:true,...extra}));
     const event = new KeyboardEvent("keydown",{key:"n",ctrlKey:true,bubbles:true,cancelable:true});
     event.preventDefault();window.dispatchEvent(event);
@@ -371,7 +371,7 @@ await withPreview("workspace-shortcuts",async (page,output) => {
     await new Promise((resolve) => requestAnimationFrame(resolve));
   });
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem("insomnium-tauri-preview-v1") || "{}").resources.filter((/** @type {any} */ r) => r._type === "request").length),count);
-  await page.keyboard.press("Control+n");
+  await page.keyboard.press("Control+Alt+n");
   await page.waitForFunction((count) => JSON.parse(localStorage.getItem("insomnium-tauri-preview-v1") || "{}").resources.filter((/** @type {any} */ r) => r._type === "request").length === count + 1,count);
   const original = await page.evaluate(() => JSON.parse(localStorage.getItem("insomnium-tauri-preview-v1") || "{}"));
   await page.keyboard.press("Control+d");
