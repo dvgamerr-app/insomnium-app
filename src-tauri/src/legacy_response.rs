@@ -11,6 +11,7 @@ use std::{
     io::Read,
     path::{Component, Path, PathBuf},
 };
+use tauri::Manager;
 use tauri_plugin_fs::FsExt;
 
 const BODY_LIMIT: usize = 20 * 1024 * 1024;
@@ -492,10 +493,22 @@ async fn read_assets(
     if !supplied_root.is_absolute() || supplied_root.as_os_str().len() > 4096 {
         return Err("Select and grant the legacy data folder before reading assets.".into());
     }
+    let lease = window
+        .try_state::<crate::http::NetworkState>()
+        .ok_or("Native work registry is unavailable.")?
+        .retain_native_work(format!("legacy-assets:{}", uuid::Uuid::new_v4()))?;
     tauri::async_runtime::spawn_blocking(move || {
-        read_assets_scoped(supplied_root, entries, body_limit, &|path| {
-            scope.is_allowed(path)
-        })
+        if lease.cancelled() {
+            return Err("Legacy asset reading was cancelled.".into());
+        }
+        let result = read_assets_scoped(supplied_root, entries, body_limit, &|path| {
+            !lease.cancelled() && scope.is_allowed(path)
+        });
+        if lease.cancelled() {
+            Err("Legacy asset reading was cancelled.".into())
+        } else {
+            result
+        }
     })
     .await
     .map_err(|_| "Legacy asset reader worker failed.".to_string())?

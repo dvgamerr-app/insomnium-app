@@ -31,7 +31,38 @@ struct NetworkCalls {
     exit_waiting: bool,
     calls: HashMap<String, watch::Sender<bool>>,
 }
+/// Retain blocking native work even if the command awaiting it is dropped.
+pub(crate) struct NativeWorkLease {
+    id: String,
+    running: Arc<Mutex<NetworkCalls>>,
+    settled: Arc<Notify>,
+    cancellation: watch::Receiver<bool>,
+}
+impl NativeWorkLease {
+    pub(crate) fn cancelled(&self) -> bool {
+        *self.cancellation.borrow()
+    }
+}
+impl Drop for NativeWorkLease {
+    fn drop(&mut self) {
+        self.running
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .calls
+            .remove(&self.id);
+        self.settled.notify_waiters();
+    }
+}
 impl NetworkState {
+    pub(crate) fn retain_native_work(&self, id: String) -> Result<NativeWorkLease, String> {
+        let cancellation = self.begin(&id)?;
+        Ok(NativeWorkLease {
+            id,
+            running: self.running.clone(),
+            settled: self.settled.clone(),
+            cancellation,
+        })
+    }
     pub(crate) fn begin(&self, id: &str) -> Result<watch::Receiver<bool>, String> {
         let (sender, receiver) = watch::channel(false);
         let mut running = self.running.lock().map_err(|e| e.to_string())?;
