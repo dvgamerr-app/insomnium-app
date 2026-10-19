@@ -247,10 +247,11 @@ export function createGitRemoteClient({
       throw new Error("Recovery requires a fresh attempt ID.");
     let submitted = false;
     let cancelled = false;
+    /** @type {Promise<unknown>|undefined} */ let cancellation;
     const cancel = () => {
       if (!submitted || cancelled) return;
       cancelled = true;
-      void Promise.resolve()
+      cancellation = Promise.resolve()
         .then(() => call("git_remote_cancel", { requestId: attemptId }))
         .catch(() => {});
     };
@@ -299,6 +300,7 @@ export function createGitRemoteClient({
       );
     } finally {
       scope.signal.removeEventListener("abort", cancel);
+      await cancellation;
     }
   }
   return {
@@ -398,12 +400,13 @@ export function createGitRemoteClient({
       const id = requestId();
       let submitted = false;
       let cancelled = false;
+      /** @type {Promise<unknown>|undefined} */ let cancellation;
       const cancel = () => {
         if (!submitted || cancelled) return;
         cancelled = true;
         // Failure cannot make an aborted request current again. The native
         // supervisor's own deadline still bounds a request if cancel IPC fails.
-        void Promise.resolve()
+        cancellation = Promise.resolve()
           .then(() => call("git_remote_cancel", { requestId: id }))
           .catch(() => {});
       };
@@ -421,6 +424,7 @@ export function createGitRemoteClient({
         return checkedResult(result, captured.url);
       } finally {
         scope.signal.removeEventListener("abort", cancel);
+        await cancellation;
       }
     },
   };

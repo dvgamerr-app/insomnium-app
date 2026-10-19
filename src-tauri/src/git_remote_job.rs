@@ -1091,11 +1091,15 @@ pub(crate) fn sync_owned_file(path: &std::path::Path) -> Result<(), String> {
 #[tauri::command]
 pub async fn git_remote_advertise(
     state: tauri::State<'_, RemoteJobState>,
+    network: tauri::State<'_, crate::http::NetworkState>,
     request_id: String,
     input: RemoteAdvertisementInput,
 ) -> Result<RemoteAdvertisement, String> {
+    let work =
+        network.retain_native_work(format!("git-remote-advertise:{}", uuid::Uuid::new_v4()))?;
     let reservation = state.reserve(&request_id)?;
     tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
         let result = run_worker(input, reservation.cancelled.clone(), TIMEOUT)
             .and_then(WorkerOutput::into_advertisement);
         drop(reservation);

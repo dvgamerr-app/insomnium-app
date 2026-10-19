@@ -8,7 +8,7 @@
   import Button from "./ui/Button.svelte";
   import { validateGitRemoteSettings } from "../git-remote-settings.js";
   import { normalizeFetchBranch } from "../git-remote-client.js";
-  import { workspace, reviewGitClone, cancelGitClone, confirmGitClone, selectWorkspace } from "../workspace.svelte.js";
+  import { workspace, reviewGitClone, cancelGitClone, confirmGitClone, selectWorkspace, createWorkspaceWorkScope } from "../workspace.svelte.js";
   /** @type {{onclose:()=>void}} */ let { onclose } = $props();
   let url = $state(""); let auth = $state("anonymous"); let username = $state(""); let secret = $state("");
   let branch = $state(""); let authorName = $state(""); let authorEmail = $state("");
@@ -16,13 +16,19 @@
   let review = $state.raw(/** @type {any} */ (null));
   let stages = $state.raw(/** @type {any[]} */ ([]));
   let disposed = false; let stopped = false;
+  const workScope = createWorkspaceWorkScope();
+  /** @type {null|(()=>Promise<void>)} */ let cancelDownload = null;
   let form = $state(/** @type {HTMLFormElement|null} */ (null));
   function remoteInput() {
     return validateGitRemoteSettings({ url, credentials: auth === "anonymous" ? { kind: "anonymous" }
       : auth === "basic" ? { kind: "basic", username, password: secret }
       : { kind: /** @type {'github'|'gitlab'} */ (auth), token: secret } });
   }
-  async function refresh() { const result = await invoke("git_clone_list"); if (!disposed) stages = /** @type {any[]} */ (result); }
+  async function refresh() {
+    const work = workScope.begin();
+    try { const result = await invoke("git_clone_list"); if (!disposed && work.current()) stages = /** @type {any[]} */ (result); }
+    finally { work.finish(); }
+  }
   /** @param {any} preview */
   function showReview(preview) {
     if (review) cancelGitClone(review);
@@ -32,29 +38,49 @@
   async function download() {
     if (busy) return;
     busy = true; stopped = false; error = "";
+    /** @type {import('../workspace.svelte.js').ScopedWorkspaceWork|undefined} */ let work;
+    /** @type {Promise<void>|undefined} */ let cancellation;
+    const cancel = () => {
+      stopped = true;
+      cancellation ??= invoke("git_remote_cancel", { requestId: operation }).catch(cause => { if (!disposed) error = String(cause); });
+      return cancellation;
+    };
+    const aborted = () => { void cancel(); };
     if (review) { cancelGitClone(review); review = null; }
     try {
+      work = workScope.begin();
       const remote = remoteInput();
       if (!authorName.trim() || !authorEmail.trim()) throw new Error("Enter the Git author name and email.");
       const selected = branch.trim() ? normalizeFetchBranch(branch) : null;
       operation = crypto.randomUUID();
+      work.signal.throwIfAborted();
+      cancelDownload = cancel;
+      work.signal.addEventListener("abort", aborted, { once: true });
       const preview = await invoke("git_clone_stage", { input: { operationId: operation, remote, branch: selected } });
-      if (!disposed && !stopped) showReview(preview);
+      if (!disposed && !stopped && work.current()) showReview(preview);
     } catch (cause) { if (!disposed) error = String(cause) + (operation ? " Operation: " + operation + ". Inspect the retained candidate before trying again." : ""); }
-    finally { if (!disposed) { busy = false; try { await refresh(); } catch (cause) { error ||= String(cause); } } }
+    finally {
+      work?.signal.removeEventListener("abort", aborted);
+      if (cancelDownload === cancel) cancelDownload = null;
+      await cancellation;
+      try { if (!disposed && work?.current()) await refresh(); }
+      catch (cause) { if (!disposed) error ||= String(cause); }
+      finally { work?.finish(); if (!disposed) busy = false; }
+    }
   }
   /** @param {any} stage */
   async function inspect(stage) {
     if (!form?.reportValidity()) return;
     if (busy) return;
     busy = true; error = ""; operation = stage.operationId;
-    try { url = stage.url; const preview = await invoke("git_clone_inspect", { operationId: operation }); if (!disposed) showReview(preview); }
+    /** @type {import('../workspace.svelte.js').ScopedWorkspaceWork|undefined} */ let work;
+    try { work = workScope.begin(); url = stage.url; const preview = await invoke("git_clone_inspect", { operationId: operation }); if (!disposed && work.current()) showReview(preview); }
     catch (cause) { if (!disposed) error = String(cause); }
-    finally { if (!disposed) busy = false; }
+    finally { work?.finish(); if (!disposed) busy = false; }
   }
   async function stop() {
     stopped = true;
-    if (operation) await invoke("git_remote_cancel", { requestId: operation }).catch(cause => { if (!disposed) error = String(cause); });
+    await cancelDownload?.();
   }
   async function confirm() {
     if (!review || busy) return;
@@ -65,7 +91,7 @@
   }
   function close() { if (busy) return; if (review) cancelGitClone(review); onclose(); }
   onMount(() => { refresh().catch(cause => { if (!disposed) error = String(cause); }); });
-  onDestroy(() => { disposed = true; if (review) cancelGitClone(review); if (busy) stop(); });
+  onDestroy(() => { disposed = true; workScope.dispose(); if (review) cancelGitClone(review); });
 </script>
 
 <DialogShell title="Clone repository" dismissible={!busy} onrequestclose={close}>

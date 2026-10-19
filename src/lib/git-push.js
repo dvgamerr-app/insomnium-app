@@ -186,17 +186,20 @@ export function createGitPush({ getData, persist, invoke, advertise, begin }) {
   }
   /** @param {string} command @param {any} args @param {string} jobId @param {AbortSignal} signal */
   async function remoteCall(command, args, jobId, signal) {
+    /** @type {Promise<unknown>|undefined} */ let cancellation;
     const cancel = () => {
-      void invoke("git_remote_cancel", { requestId: jobId }).catch(() => {});
+      cancellation = Promise.resolve()
+        .then(() => invoke("git_remote_cancel", { requestId: jobId }))
+        .catch(() => {});
     };
     signal.addEventListener("abort", cancel, { once: true });
-    if (signal.aborted) {
-      cancel();
-      throw new Error(
-        "Push stopped before submission. Inspect the saved operation.",
-      );
-    }
     try {
+      if (signal.aborted) {
+        cancel();
+        throw new Error(
+          "Push stopped before submission. Inspect the saved operation.",
+        );
+      }
       const value = await invoke(command, args);
       if (signal.aborted)
         throw new Error(
@@ -205,6 +208,7 @@ export function createGitPush({ getData, persist, invoke, advertise, begin }) {
       return value;
     } finally {
       signal.removeEventListener("abort", cancel);
+      await cancellation;
     }
   }
   /** @param {object} shown @param {AbortSignal} signal */
