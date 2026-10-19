@@ -1,4 +1,4 @@
-import { id, workspaceFor } from "./model.js";
+import { id, workspaceFor, indexWorkspaces } from "./model.js";
 import {
   protoInput,
   validProtoName,
@@ -12,9 +12,28 @@ import { bytesToHex } from "@noble/hashes/utils.js";
 const isProto = (resource) =>
   ["proto_file", "proto_directory"].includes(resource._type);
 
+/** Preserve resource order within each parent; callers own any display sort.
+ * @param {Resource[]} resources */
+function protoChildren(resources) {
+  /** @type {Map<string,Resource[]>} */
+  const children = new Map();
+  for (const resource of resources) {
+    if (!isProto(resource)) continue;
+    const siblings = children.get(resource.parentId) || [];
+    siblings.push(resource);
+    children.set(resource.parentId, siblings);
+  }
+  return children;
+}
+
 /** Flatten the saved hierarchy for a keyed, keyboard-accessible list.
  * @param {Resource[]} resources @param {string} collectionId */
 export function protoTree(resources, collectionId) {
+  const childrenByParent = protoChildren(resources);
+  /** @type {Map<string,Resource>} */
+  const byId = new Map();
+  for (const resource of resources)
+    if (!byId.has(resource._id)) byId.set(resource._id, resource);
   /** @type {{resource:Resource,depth:number}[]} */
   const rows = [];
   const seen = new Set();
@@ -23,8 +42,7 @@ export function protoTree(resources, collectionId) {
     const { parent, depth } = /** @type {{parent:string,depth:number}} */ (
       stack.pop()
     );
-    const children = resources
-      .filter((r) => isProto(r) && r.parentId === parent)
+    const children = [...(childrenByParent.get(parent) || [])]
       .sort(
         (a, b) =>
           Number(a._type === "proto_file") - Number(b._type === "proto_file") ||
@@ -38,7 +56,7 @@ export function protoTree(resources, collectionId) {
       stack.push({ parent: resource._id, depth: depth + 1 });
     }
     if (parent !== collectionId) {
-      const resource = resources.find((r) => r._id === parent);
+      const resource = byId.get(parent);
       if (resource?._type === "proto_file" && children.length)
         throw new Error("A saved proto file cannot contain other protos.");
       if (resource) rows.push({ resource, depth: depth - 1 });
@@ -50,9 +68,10 @@ export function protoTree(resources, collectionId) {
 /** Fingerprint every saved proto in this collection, including unknown fields.
  * @param {Resource[]} resources @param {string} collectionId */
 export function protoFingerprint(resources, collectionId) {
+  const owners = indexWorkspaces(resources);
   const protos = resources
     .filter(
-      (r) => isProto(r) && workspaceFor(resources, r._id) === collectionId,
+      (r) => isProto(r) && owners.get(r._id) === collectionId,
     )
     .sort((a, b) => a._id.localeCompare(b._id));
   return bytesToHex(sha256(new TextEncoder().encode(JSON.stringify(protos))));
@@ -154,18 +173,15 @@ export function prepareProtoChange(resources, collectionId, targetId, files) {
 export function protoRemoval(resources, collectionId, targetId) {
   const target = targetFor(resources, collectionId, targetId),
     ids = new Set([targetId]);
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const resource of resources)
-      if (
-        ids.has(resource.parentId) &&
-        isProto(resource) &&
-        !ids.has(resource._id)
-      ) {
-        ids.add(resource._id);
-        changed = true;
-      }
+  const children = protoChildren(resources);
+  const pending = [targetId];
+  while (pending.length) {
+    const parent = /** @type {string} */ (pending.pop());
+    for (const resource of children.get(parent) || []) {
+      if (ids.has(resource._id)) continue;
+      ids.add(resource._id);
+      pending.push(resource._id);
+    }
   }
   return {
     target,

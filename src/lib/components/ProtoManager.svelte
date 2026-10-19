@@ -107,6 +107,7 @@
     pending = [];
     targetId = "";
     reading = false;
+    progress = "";
     error = "";
     const cancelledVersion = epoch;
     await tick();
@@ -145,13 +146,19 @@
       if (selectedId && !directory && selected.length !== 1)
         throw new Error("Select one replacement file.");
       let total = 0;
-      const result = [];
+      // Refuse the whole selection before starting any read. A late oversized
+      // file must not cause earlier files to be read unnecessarily.
       for (const f of selected) {
         total += f.size;
         if (f.size > protoFileLimit || total > protoTotalLimit)
           throw new Error(
             "Proto sources exceed 2 MiB per file or 8 MiB combined.",
           );
+      }
+      let textTotal = 0;
+      const encoder = new TextEncoder();
+      const result = [];
+      for (const f of selected) {
         let name = f.webkitRelativePath || f.name;
         // Folder picker supplies a root name; refresh paths are relative to the chosen saved folder.
         if (selectedId && directory) {
@@ -162,8 +169,18 @@
           name = name.slice(name.indexOf("/") + 1);
         }
         work.signal.throwIfAborted();
-        result.push({ name, text: await f.text() });
+        const text = await f.text();
         work.signal.throwIfAborted();
+        // Blob.text decodes UTF-8 with replacement. Re-encoded text can exceed
+        // the source Blob size; enforce the same saved/compiler byte budget
+        // now, before retaining it or starting the next file read.
+        const bytes = encoder.encode(text).length;
+        textTotal += bytes;
+        if (bytes > protoFileLimit || textTotal > protoTotalLimit)
+          throw new Error(
+            "Proto sources exceed 2 MiB per file or 8 MiB combined.",
+          );
+        result.push({ name, text });
       }
       if (
         version === epoch &&
@@ -187,6 +204,9 @@
     notice = "";
     filenameOwner = null;
     const data = app.data, requestId = request._id, version = epoch;
+    const current = () => !disposed && data === app.data &&
+      requestId === request._id && app.data.activeRequestId === requestId &&
+      version === epoch;
     const submitted = pending.map((item) => ({ ...item }));
     try {
       if (pendingData !== app.data || pendingRequest !== request._id)
@@ -199,9 +219,12 @@
           targetId,
           submitted,
           (done, total) => {
-            progress = `Validating ${done}/${total} files…`;
+            if (current()) progress = `Validating ${done}/${total} files…`;
           },
         );
+        // Accepted validation/persistence keeps its original workspace owner.
+        // A closed/replaced editor must not start another discovery afterwards.
+        if (!current()) return;
         notice = `Updated ${result.updated} saved items; added ${result.added}. Other saved files were kept.`;
       } else {
         addGrpcProtos(request._id, submitted);
@@ -209,8 +232,9 @@
       }
       pending = [];
       targetId = "";
-      void executeGrpc(request._id, true);
+      if (current()) void executeGrpc(requestId, true);
     } catch (e) {
+      if (!current()) return;
       const issue = protoFilenameIssue(e);
       if (issue) {
         if (!disposed && data === app.data && requestId === request._id && version === epoch &&
@@ -220,7 +244,7 @@
         }
       } else error = String(e);
     } finally {
-      progress = "";
+      if (!disposed && version === epoch) progress = "";
     }
   }
   async function remove() {
