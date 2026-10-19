@@ -722,7 +722,7 @@
       event.preventDefault();
       openSettings("General");
       void tick().then(() => document.getElementById("settings-shortcuts-title")?.focus());
-    } else if (event.shiftKey && key === "enter" && !event.altKey && request && protocol === "http" && mainView === "requests") {
+    } else if (event.shiftKey && key === "enter" && !event.altKey && request && ["http", "sse"].includes(protocol) && mainView === "requests") {
       event.preventDefault();
       showRequestActions();
     } else if ((requestSettingsChord || (event.shiftKey && key === "enter")) && request && mainView === "requests") {
@@ -792,7 +792,7 @@
         app.schemas[request._id] && requestEditor) {
       event.preventDefault();
       void requestEditor.focusSchemaFilter().catch(error => (app.error = String(error)));
-    } else if (event.shiftKey && key === "g" && request && ['http','sse'].includes(protocol) && mainView === "requests") {
+    } else if (event.shiftKey && (event.code === "KeyG" || key === "g") && request && ['http','sse'].includes(protocol) && mainView === "requests") {
       event.preventDefault();showCode();
     } else if (!event.shiftKey && ((modifier && ["enter", "r"].includes(key)) || plainF5) && request && mainView === "requests") {
       event.preventDefault();
