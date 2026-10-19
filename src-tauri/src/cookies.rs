@@ -6,12 +6,28 @@ use std::{
     collections::HashMap,
     fs,
     path::PathBuf,
-    sync::{Arc, Mutex},
+    sync::{Arc, LazyLock, Mutex},
 };
 use tauri::Manager;
 
-#[derive(Default)]
-pub struct CookieState(Arc<Mutex<HashMap<String, Arc<PersistentJar>>>>);
+type CookieJars = Arc<Mutex<HashMap<PathBuf, Arc<PersistentJar>>>>;
+static COOKIE_JARS: LazyLock<CookieJars> = LazyLock::new(|| Arc::new(Mutex::new(HashMap::new())));
+pub struct CookieState(CookieJars);
+impl Default for CookieState {
+    fn default() -> Self {
+        Self(COOKIE_JARS.clone())
+    }
+}
+
+/// Serialize workspace publication with jar initialization and accepted writes.
+/// This fence never takes a jar's inner lock: cookie writers already hold it.
+/// Callers hold Git/Storage before this fence, then download destinations.
+pub(crate) fn with_workspace_write(
+    write: impl FnOnce() -> Result<(), String>,
+) -> Result<(), String> {
+    let _guard = COOKIE_JARS.lock().map_err(|e| e.to_string())?;
+    write()
+}
 
 fn cookie_work(network: &NetworkState) -> Result<Arc<NativeWorkLease>, String> {
     Ok(Arc::new(network.retain_native_work(format!(
@@ -121,7 +137,7 @@ impl CookieState {
             if _work.as_ref().is_some_and(|work| work.cancelled()) {
                 return Err("Cookie operation cancelled.".into());
             }
-            if let Some(jar) = jars.get(&workspace_id) {
+            if let Some(jar) = jars.get(&path) {
                 return Ok(jar.clone());
             }
             let store = match fs::read(&path) {
@@ -139,14 +155,14 @@ impl CookieState {
                 Err(e) => return Err(e.to_string()),
             };
             let jar = Arc::new(PersistentJar {
-                path,
+                path: path.clone(),
                 inner: Mutex::new(JarData {
                     store,
                     backed_up: false,
                     generation: 0,
                 }),
             });
-            jars.insert(workspace_id, jar.clone());
+            jars.insert(path, jar.clone());
             Ok(jar)
         }))
     }
@@ -154,6 +170,7 @@ impl CookieState {
 
 impl PersistentJar {
     fn save(&self, data: &mut JarData, store: &CookieStore) -> Result<(), String> {
+        let _publication = COOKIE_JARS.lock().map_err(|e| e.to_string())?;
         fs::create_dir_all(self.path.parent().ok_or("Invalid cookie directory")?)
             .map_err(|e| e.to_string())?;
         if !data.backed_up {
