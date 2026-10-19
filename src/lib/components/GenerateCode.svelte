@@ -2,7 +2,7 @@
   import {onMount,onDestroy} from 'svelte';
   import {workspace,createWorkspaceWorkScope,prepareCodeRequest} from '../workspace.svelte.js';
   import {copyText} from '../clipboard.js';
-  import {javascriptFetchCode,nodeNativeCode,shellCurlCode,generatedCodeLimit} from '../request-code.js';
+  import {javascriptFetchCode,javascriptXhrCode,javascriptAxiosCode,nodeNativeCode,shellCurlCode,generatedCodeLimit} from '../request-code.js';
   import CodeEditor from './CodeEditor.svelte';
   import Button from './ui/Button.svelte';
   import Field from './ui/Field.svelte';
@@ -44,6 +44,8 @@
       const har=structuredClone(snapshot);
       let output;
       if(target==='javascript'&&client==='fetch')output=javascriptFetchCode(har);
+      else if(target==='javascript'&&client==='xhr')output=javascriptXhrCode(har);
+      else if(target==='javascript'&&client==='axios')output=javascriptAxiosCode(har);
       else if(target==='node'&&client==='native')output=nodeNativeCode(har);
       else if(target==='shell'&&client==='curl')output=shellCurlCode(har);
       else {

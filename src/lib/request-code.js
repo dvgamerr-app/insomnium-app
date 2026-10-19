@@ -32,50 +32,99 @@ function binaryData(value,serializedMultipart=false){
 /** Emit data literals, never interpolate request text into executable syntax.
  * Browser Fetch owns header normalization and CORS. Prepared multipart has an
  * explicit MIME body so per-part transport options survive code generation.
- * @param {CodeRequest} request */
-export function javascriptFetchCode(request) {
+ * @param {CodeRequest} request @param {string} client */
+function browserCodeParts(request,client) {
   if(request.asap)throw Error('Choose Node.js / Native to generate ASAP authentication.');
   if(request.aws)throw Error('Choose Node.js / Native to generate AWS signatures.');
   if(request.oauth1)throw Error('Choose Node.js / Native to generate OAuth1 authentication.');
   if(request.hawk)throw Error('Choose Node.js / Native to generate Hawk authentication.');
   if(request.nativeAuth)throw Error(request.nativeAuth.digest?'Choose Node.js / Native to generate Digest code, including auth-int.':'Choose Shell / cURL to generate code for NTLM or netrc authentication.');
   if(request.socketPath)throw Error('Choose Node.js / Native to generate code for a socket request.');
+  if(['DELETE','GET','HEAD','OPTIONS','POST','PUT'].includes(request.method.toUpperCase())&&
+      request.method!==request.method.toUpperCase())
+    throw Error(`${client} changes this HTTP method's casing. Choose Shell / cURL to preserve it.`);
   const binary=typeof request.bodyBase64==='string';
   const multipart=!binary&&(request.multipartParts!=null||request.postData?.mimeType==='multipart/form-data');
   const text=request.postData?.text??'';
   const hasBody=binary||multipart||text!=='';
   if(['CONNECT','TRACE','TRACK'].includes(request.method.toUpperCase()))
-    throw Error('Browser fetch cannot use this HTTP method. Choose another client.');
+    throw Error(`${client} cannot use this HTTP method. Choose another client.`);
   const url=new URL(request.url);
-  if(url.username||url.password)throw Error('Browser fetch cannot use credentials in a URL. Use an Authorization header or choose another client.');
+  if(url.username||url.password)throw Error(`${client} cannot use credentials in a URL. Use an Authorization header or choose another client.`);
   if(hasBody&&['GET','HEAD'].includes(request.method.toUpperCase()))
-    throw Error('Browser fetch cannot send a body with GET or HEAD. Choose another client or change the request method.');
+    throw Error(`${client} cannot send a body with GET or HEAD. Choose another client or change the request method.`);
   if(request.cookies.length||request.headers.some(row=>row.name.toLowerCase()==='cookie'))
-    throw Error('Browser fetch uses its own cookie jar. Choose another client to export explicit cookies.');
+    throw Error(`${client} uses its own cookie jar. Choose another client to export explicit cookies.`);
   if(request.headers.some(row=>{
     const name=row.name.toLowerCase();
     return forbiddenHeaders.has(name)||name.startsWith('proxy-')||name.startsWith('sec-')||
       ['x-http-method','x-http-method-override','x-method-override'].includes(name)&&row.value.split(',').some(value=>['CONNECT','TRACE','TRACK'].includes(value.trim().toUpperCase()));
   }))
-    throw Error('Browser fetch manages transport headers. Choose another client to set them explicitly.');
+    throw Error(`${client} manages transport headers. Choose another client to set them explicitly.`);
   const lines=[`const url = ${JSON.stringify(request.url)};`];
   const preparedMultipart=multipart&&request.multipartParts?multipartCode(request.multipartParts,request.multipartContentType??null,binaryLiteral):null;
   if(preparedMultipart)lines.push('const form = new Blob([\n  '+preparedMultipart.chunks.join(',\n  ')+'\n]);');
   else if(multipart){
     lines.push('const form = new FormData();');
     for(const part of request.postData?.params??[]){
-      if(part.fileName!==undefined&&part.fileName!==null)throw Error('Browser fetch file generation requires a file adapter.');
+      if(part.fileName!==undefined&&part.fileName!==null)throw Error(`${client} file generation requires a file adapter.`);
       lines.push(`form.append(${JSON.stringify(part.name)}, ${JSON.stringify(part.value??'')});`);
     }
   }
   const headers=request.headers.filter(row=>!multipart||row.name.toLowerCase()!=='content-type').map(row=>[row.name,row.value]);
   if(preparedMultipart)headers.push(['Content-Type',preparedMultipart.contentType]);
   const body=binary?binaryLiteral(/** @type {string} */(request.bodyBase64),false,request.serializedMultipart):multipart?'form':JSON.stringify(text);
+  return {lines,headers,body,hasBody,binary,multipart};
+}
+
+/** @param {CodeRequest} request */
+export function javascriptFetchCode(request) {
+  const {lines,headers,body,hasBody}=browserCodeParts(request,'Browser fetch');
   lines.push(`const options = {`, `  method: ${JSON.stringify(request.method)},`,
     `  headers: ${JSON.stringify(headers)},`,
     ...(hasBody?[`  body: ${body},`]:[]),
     '};', '', 'const response = await fetch(url, options);',
     'const data = await response.text();', 'console.log(data);');
+  return lines.join('\n');
+}
+
+/** Use the same prepared byte/MIME body as Fetch. A text Blob avoids XHR's
+ * string-body charset rewrite and implicit text/plain Content-Type.
+ * @param {CodeRequest} request */
+export function javascriptXhrCode(request) {
+  const {lines,headers,body,hasBody,binary,multipart}=browserCodeParts(request,'XMLHttpRequest');
+  lines.push('const xhr = new XMLHttpRequest();','xhr.withCredentials = true;',`xhr.open(${JSON.stringify(request.method)}, url);`);
+  for(const [name,value] of headers)
+    lines.push(`xhr.setRequestHeader(${JSON.stringify(name)}, ${JSON.stringify(value)});`);
+  lines.push('xhr.onload = () => {', '  console.log(xhr.status, xhr.responseText);', '};',
+    "xhr.onerror = () => console.error('Request failed.');",
+    `xhr.send(${hasBody?binary||multipart?body:`new Blob([${body}])`:''});`);
+  return lines.join('\n');
+}
+
+/** Axios 1.x's XHR adapter accepts the same prepared browser body. Bypass
+ * automatic JSON/form conversion and ambient XSRF/default header injection.
+ * @param {CodeRequest} request */
+export function javascriptAxiosCode(request) {
+  const {lines,headers,body,hasBody,binary,multipart}=browserCodeParts(request,'Browser Axios');
+  // Axios uppercases every method before XHR.open, unlike XHR's limited set
+  // of standard normalized methods. Refuse spellings that it would change.
+  if(!['DELETE','GET','HEAD','OPTIONS','POST','PUT'].includes(request.method.toUpperCase())&&
+      request.method!==request.method.toUpperCase())
+    throw Error('Axios changes custom HTTP method casing. Choose JavaScript / XMLHttpRequest or Shell / cURL.');
+  lines.unshift("import axios from 'axios';",'// Axios 1.x, running in a browser.','');
+  lines.push(`const headers = Object.fromEntries(new Headers(${JSON.stringify(headers)}));`,
+    "if (!Object.hasOwn(headers, 'accept')) headers.Accept = false;",
+    "if (!Object.hasOwn(headers, 'content-type')) headers['Content-Type'] = false;",'',
+    'try {','  const response = await axios.request({',"    adapter: 'xhr',",
+    `    method: ${JSON.stringify(request.method)},`,'    url,','    headers,',
+    // An empty Blob prevents Axios from dropping an explicit Content-Type
+    // solely because data is undefined; XHR itself discards GET/HEAD bodies.
+    `    data: ${hasBody?binary||multipart?body:`new Blob([${body}])`:'new Blob([])'},`,
+    '    transformRequest: [data => data],','    transformResponse: [data => data],',
+    "    responseType: 'text',",'    xsrfCookieName: null,','    xsrfHeaderName: null,',
+    '  });','  console.log(response.status, response.data);','} catch (error) {',
+    '  console.error(error);','}');
   return lines.join('\n');
 }
 
@@ -85,6 +134,8 @@ export function javascriptFetchCode(request) {
  * @param {CodeRequest} request */
 export function nodeNativeCode(request){
   if(request.nativeAuth?.ntlm||request.nativeAuth?.netrc)throw Error('Choose Shell / cURL to generate code for NTLM or netrc authentication.');
+  if(request.method!==request.method.toUpperCase())
+    throw Error('Node.js HTTP changes HTTP method casing. Choose Shell / cURL to preserve it.');
   const url=new URL(request.url);
   if(!['http:','https:'].includes(url.protocol))throw Error('Node.js Native requires an HTTP or HTTPS URL.');
   if(request.method.toUpperCase()==='CONNECT')throw Error('CONNECT requires a tunnel adapter.');
@@ -176,7 +227,7 @@ export function shellCurlCode(request){
   if(request.socketPath)command.push('--unix-socket '+shellQuote(request.socketPath));
   for(const [name,value] of headers)command.push('--header '+shellQuote(name+(value===''?';':': '+value)));
   const hasBody=encoded!==null||text!=='';
-  if(request.method.toUpperCase()==='HEAD'){
+  if(request.method==='HEAD'){
     if(hasBody)throw Error('Choose Node.js / Native to generate HEAD with a body.');
     command.push('--head');
   }
