@@ -1,14 +1,14 @@
 //! Endpoint-owned OpenRcaService subscription shared by weighted policy watchers.
 use super::{weighted, Entry, Pool};
 use std::{
-    collections::BTreeMap,
     sync::{Arc, Mutex, Weak},
     time::Duration,
 };
 use tokio::sync::watch;
 use tonic::transport::ConnectivityState;
 
-type Watchers = Arc<Mutex<BTreeMap<uuid::Uuid, (i32, weighted::Sink)>>>;
+// grpc-js iterates its watcher Set in registration order, not UUID order.
+type Watchers = Arc<Mutex<Vec<(uuid::Uuid, (i32, weighted::Sink))>>>;
 pub(super) struct Producer {
     watchers: Watchers,
     changed: watch::Sender<u64>,
@@ -38,7 +38,7 @@ impl Registration {
         let id = uuid::Uuid::new_v4();
         let mut producer = entry.orca.lock().unwrap_or_else(|e| e.into_inner());
         let producer = producer.get_or_insert_with(|| {
-            let watchers = Arc::new(Mutex::new(BTreeMap::from([(id, (interval, sink.clone()))])));
+            let watchers = Arc::new(Mutex::new(vec![(id, (interval, sink.clone()))]));
             let (changed, receiver) = watch::channel(0);
             let task = tokio::spawn(run(pool.clone(), watchers.clone(), receiver));
             Producer {
@@ -47,11 +47,14 @@ impl Registration {
                 task,
             }
         });
-        producer
-            .watchers
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .insert(id, (interval, sink));
+        {
+            let mut watchers = producer.watchers.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some((_, value)) = watchers.iter_mut().find(|(key, _)| *key == id) {
+                *value = (interval, sink);
+            } else {
+                watchers.push((id, (interval, sink)));
+            }
+        }
         producer
             .changed
             .send_modify(|revision| *revision = revision.wrapping_add(1));
@@ -69,7 +72,7 @@ impl Registration {
             return;
         };
         let mut watchers = producer.watchers.lock().unwrap_or_else(|e| e.into_inner());
-        if let Some((previous, _)) = watchers.get_mut(&self.id) {
+        if let Some((_, (previous, _))) = watchers.iter_mut().find(|(key, _)| *key == self.id) {
             if *previous != interval {
                 *previous = interval;
                 producer
@@ -88,7 +91,7 @@ impl Drop for Registration {
         if let Some(current) = producer.as_ref() {
             let empty = {
                 let mut watchers = current.watchers.lock().unwrap_or_else(|e| e.into_inner());
-                watchers.remove(&self.id);
+                watchers.retain(|(key, _)| *key != self.id);
                 watchers.is_empty()
             };
             if empty {
@@ -137,8 +140,8 @@ async fn metrics(pool: Pool, interval: i32, watchers: Watchers) -> Result<(), to
         let sinks: Vec<_> = watchers
             .lock()
             .unwrap_or_else(|e| e.into_inner())
-            .values()
-            .map(|(_, sink)| sink.clone())
+            .iter()
+            .map(|(_, (_, sink))| sink.clone())
             .collect();
         for sink in sinks {
             sink.report(report.clone());
@@ -181,8 +184,8 @@ async fn run(pool: Pool, watchers: Watchers, mut changed: watch::Receiver<u64>) 
         let next = watchers
             .lock()
             .unwrap_or_else(|e| e.into_inner())
-            .values()
-            .map(|(ms, _)| *ms)
+            .iter()
+            .map(|(_, (ms, _))| *ms)
             .min();
         let Some(next) = next else { return };
         let snapshot = *connectivity.borrow_and_update();

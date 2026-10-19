@@ -1,6 +1,8 @@
 use crate::grpc_schema::{self, DynamicCodec, MAX_MESSAGE, MAX_SCHEMA};
 use base64::{
+    alphabet,
     engine::general_purpose::{STANDARD, STANDARD_NO_PAD},
+    engine::{DecodePaddingMode, GeneralPurpose, GeneralPurposeConfig},
     Engine,
 };
 use prost_reflect::{DescriptorPool, DynamicMessage, MethodDescriptor};
@@ -88,6 +90,32 @@ fn validate_certificates_default() -> bool {
     true
 }
 
+// grpc-js metadata.ts decodes binary headers with Buffer.from(value, "base64").
+// Preserve the tolerant ASCII decoding boundary before protobuf validation.
+fn decode_binary_metadata(encoded: &[u8]) -> Option<Vec<u8>> {
+    const DECODER: GeneralPurpose = GeneralPurpose::new(
+        &alphabet::STANDARD,
+        GeneralPurposeConfig::new()
+            .with_decode_padding_mode(DecodePaddingMode::Indifferent)
+            .with_decode_allow_trailing_bits(true),
+    );
+    let mut cleaned: Vec<_> = encoded
+        .iter()
+        .copied()
+        .take_while(|byte| *byte != b'=')
+        .filter_map(|byte| match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'+' | b'/' => Some(byte),
+            b'-' => Some(b'+'),
+            b'_' => Some(b'/'),
+            _ => None,
+        })
+        .collect();
+    // A final isolated sextet produces no complete byte in Buffer decoding.
+    if cleaned.len() % 4 == 1 {
+        cleaned.pop();
+    }
+    DECODER.decode(cleaned).ok()
+}
 pub(crate) fn metadata(rows: &[(String, String)]) -> Result<MetadataMap, String> {
     if rows.len() > 128
         || rows
@@ -100,7 +128,7 @@ pub(crate) fn metadata(rows: &[(String, String)]) -> Result<MetadataMap, String>
     }
     let mut result = MetadataMap::new();
     for (name, value) in rows {
-        let name = name.to_ascii_lowercase();
+        let name = name.to_lowercase();
         if name.is_empty()
             || !name.bytes().all(|b| {
                 b.is_ascii_lowercase() || b.is_ascii_digit() || matches!(b, b'_' | b'-' | b'.')
@@ -151,14 +179,13 @@ pub(crate) fn metadata_rows(metadata: &MetadataMap) -> Result<Vec<(String, Strin
                 String::from_utf8_lossy(v.as_encoded_bytes()).into_owned(),
             )),
             KeyAndValueRef::Binary(k, v) => {
-                // HTTP/2 peers may join duplicate binary values with commas.
-                // Decode each value separately, accepting both base64 padding forms.
-                for encoded in v.as_encoded_bytes().split(|b| *b == b',') {
+                // grpc-js splits joined custom values, but decodes reserved
+                // grpc-* values as one Buffer.from(base64) input.
+                let custom = !k.as_str().starts_with("grpc-");
+                for encoded in v.as_encoded_bytes().split(|b| custom && *b == b',') {
                     let encoded = encoded.trim_ascii();
-                    let bytes = STANDARD
-                        .decode(encoded)
-                        .or_else(|_| STANDARD_NO_PAD.decode(encoded))
-                        .map_err(|_| "Server sent invalid binary gRPC metadata.")?;
+                    let bytes = decode_binary_metadata(encoded)
+                        .ok_or("Server sent invalid binary gRPC metadata.")?;
                     rows.push((k.to_string(), STANDARD.encode(bytes)));
                 }
             }

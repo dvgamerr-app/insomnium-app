@@ -1,9 +1,4 @@
 //! Policy-local ORCA weights and the pinned grpc-js deadline-heap picker.
-use base64::{
-    alphabet,
-    engine::{DecodePaddingMode, GeneralPurpose, GeneralPurposeConfig},
-    Engine,
-};
 use prost::Message;
 use serde_json::Value;
 use std::{
@@ -111,32 +106,6 @@ pub(super) struct Sink {
     address: SocketAddr,
     config: Arc<RwLock<Config>>,
 }
-// grpc-js metadata.ts decodes binary headers with Buffer.from(value, "base64").
-// Preserve the tolerant ASCII decoding boundary before protobuf validation.
-fn binary_report(encoded: &[u8]) -> Option<Vec<u8>> {
-    const DECODER: GeneralPurpose = GeneralPurpose::new(
-        &alphabet::STANDARD,
-        GeneralPurposeConfig::new()
-            .with_decode_padding_mode(DecodePaddingMode::Indifferent)
-            .with_decode_allow_trailing_bits(true),
-    );
-    let mut cleaned: Vec<_> = encoded
-        .iter()
-        .copied()
-        .take_while(|byte| *byte != b'=')
-        .filter_map(|byte| match byte {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'+' | b'/' => Some(byte),
-            b'-' => Some(b'+'),
-            b'_' => Some(b'/'),
-            _ => None,
-        })
-        .collect();
-    // A final isolated sextet produces no complete byte in Buffer decoding.
-    if cleaned.len() % 4 == 1 {
-        cleaned.pop();
-    }
-    DECODER.decode(cleaned).ok()
-}
 impl Sink {
     pub(super) fn observe(&self, headers: &tonic::codegen::http::HeaderMap) {
         let Some(value) = headers.get("endpoint-load-metrics-bin") else {
@@ -148,7 +117,7 @@ impl Sink {
             .next()
             .unwrap_or_default()
             .trim_ascii();
-        let Some(bytes) = binary_report(encoded) else {
+        let Some(bytes) = crate::grpc_transport::decode_binary_metadata(encoded) else {
             return;
         };
         let Ok(report) = Report::decode(bytes.as_slice()) else {

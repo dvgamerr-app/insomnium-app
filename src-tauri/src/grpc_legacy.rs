@@ -593,7 +593,7 @@ fn js_whitespace(c: char) -> bool {
 }
 // Binary/octal/hex integer strings convert their exact integer value to binary64
 // once. Accumulating in f64 rounds each digit and can lose the final sticky bit.
-fn radix_number(digits: &str, radix: u32) -> f64 {
+pub(crate) fn radix_number(digits: &str, radix: u32) -> f64 {
     if digits.is_empty() {
         return f64::NAN;
     }

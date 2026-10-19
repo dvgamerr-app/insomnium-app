@@ -195,16 +195,18 @@ pub(super) fn pushback(value: &str) -> f64 {
         .strip_prefix("0x")
         .or_else(|| value.strip_prefix("0X"))
         .map_or((value, 10), |value| (value, 16));
-    let mut parsed = 0.0;
-    let mut any = false;
-    for character in value.chars() {
-        let Some(digit) = character.to_digit(radix).filter(|_| character.is_ascii()) else {
-            break;
-        };
-        any = true;
-        parsed = parsed * radix as f64 + digit as f64;
-    }
-    if !any {
+    let length = value
+        .bytes()
+        .take_while(|byte| (*byte as char).is_digit(radix))
+        .count();
+    let digits = &value[..length];
+    // parseInt rounds the integer once, not at every multiply/add step.
+    let parsed = if radix == 10 {
+        digits.parse::<f64>().unwrap_or(f64::NAN)
+    } else {
+        crate::grpc_legacy::radix_number(digits, radix)
+    };
+    if digits.is_empty() {
         f64::NAN
     } else if negative {
         -parsed
