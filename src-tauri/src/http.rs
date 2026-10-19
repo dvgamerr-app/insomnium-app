@@ -37,6 +37,7 @@ pub(crate) struct NativeWorkLease {
     running: Arc<Mutex<NetworkCalls>>,
     settled: Arc<Notify>,
     cancellation: watch::Receiver<bool>,
+    sender: watch::Sender<bool>,
 }
 impl NativeWorkLease {
     pub(crate) fn cancelled(&self) -> bool {
@@ -45,25 +46,36 @@ impl NativeWorkLease {
 }
 impl Drop for NativeWorkLease {
     fn drop(&mut self) {
-        self.running
+        let mut running = self
+            .running
             .lock()
-            .unwrap_or_else(|error| error.into_inner())
+            .unwrap_or_else(|error| error.into_inner());
+        if running
             .calls
-            .remove(&self.id);
+            .get(&self.id)
+            .is_some_and(|sender| sender.same_channel(&self.sender))
+        {
+            running.calls.remove(&self.id);
+        }
+        drop(running);
         self.settled.notify_waiters();
     }
 }
 impl NetworkState {
     pub(crate) fn retain_native_work(&self, id: String) -> Result<NativeWorkLease, String> {
-        let cancellation = self.begin(&id)?;
+        let (sender, cancellation) = self.register(&id)?;
         Ok(NativeWorkLease {
             id,
             running: self.running.clone(),
             settled: self.settled.clone(),
             cancellation,
+            sender,
         })
     }
     pub(crate) fn begin(&self, id: &str) -> Result<watch::Receiver<bool>, String> {
+        self.register(id).map(|(_, receiver)| receiver)
+    }
+    fn register(&self, id: &str) -> Result<(watch::Sender<bool>, watch::Receiver<bool>), String> {
         let (sender, receiver) = watch::channel(false);
         let mut running = self.running.lock().map_err(|e| e.to_string())?;
         if running.closing {
@@ -72,8 +84,8 @@ impl NetworkState {
         if running.calls.contains_key(id) {
             return Err("Request is already running".into());
         }
-        running.calls.insert(id.into(), sender);
-        Ok(receiver)
+        running.calls.insert(id.into(), sender.clone());
+        Ok((sender, receiver))
     }
     pub(crate) fn publish_started(
         &self,

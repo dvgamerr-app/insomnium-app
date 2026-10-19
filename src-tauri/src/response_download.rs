@@ -251,22 +251,24 @@ pub async fn response_download(
     {
         return Err("Invalid response download operation".into());
     }
-    let cancelled = network.begin(&request.id)?;
+    let lease = Arc::new(network.retain_native_work(request.id.clone())?);
     network.publish_started(&request.id, on_started, webview)?;
     let result = async {
         let directory = if request.operation == "choose" {
-            if *cancelled.borrow() {
+            if lease.cancelled() {
                 return Err("Download selection cancelled".into());
             }
             let (sender, receiver) = tokio::sync::oneshot::channel();
             let dialog = app.dialog().file().set_title("Select Download Location");
             #[cfg(desktop)]
             let dialog = dialog.set_parent(&window);
+            let chooser_lease = lease.clone();
             dialog.pick_folder(move |path| {
+                let _lease = chooser_lease;
                 let _ = sender.send(path);
             });
             let selected = receiver.await.map_err(|_| "Download chooser closed")?;
-            if *cancelled.borrow() {
+            if lease.cancelled() {
                 return Err("Download selection cancelled".into());
             }
             let Some(path) = selected else {
@@ -283,10 +285,11 @@ pub async fn response_download(
             .map_err(|e| e.to_string())?;
         let name = request.name.clone();
         let encoded = request.body_base64.clone();
+        let lease = lease.clone();
         // Never detach a selected directory update or an accepted file write.
         tauri::async_runtime::spawn_blocking(move || -> Result<Option<String>, String> {
             let _guard = lock.lock().map_err(|e| e.to_string())?;
-            if *cancelled.borrow() {
+            if lease.cancelled() {
                 return Err("Response download cancelled".into());
             }
             let config = root.join("response-downloads-v1.json");
@@ -324,7 +327,7 @@ pub async fn response_download(
                     } else {
                         destinations.remove(&key);
                     }
-                    if *cancelled.borrow() {
+                    if lease.cancelled() {
                         return Err("Download selection cancelled".into());
                     }
                     fs::create_dir_all(&root).map_err(|e| e.to_string())?;
@@ -371,7 +374,7 @@ pub async fn response_download(
                     if bytes.len() > 20 * 1024 * 1024 {
                         return Err("Response download exceeds 20 MiB".into());
                     }
-                    if *cancelled.borrow() {
+                    if lease.cancelled() {
                         return Err("Response download cancelled".into());
                     }
                     let path = directory.join(name);
@@ -385,7 +388,5 @@ pub async fn response_download(
         .map_err(|e| e.to_string())?
     }
     .await;
-    let finished = network.finish(&request.id);
-    finished?;
     result
 }
