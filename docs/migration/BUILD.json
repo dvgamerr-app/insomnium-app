@@ -4026,9 +4026,37 @@
     }
   ],
   "latestWindowsProductionBuild": {
-    "sourceCommit": "2a512fd917cedba97e653504b1d43dcdea769158",
-    "evidence": "artifacts/windows-production-current-1792395964954/verification.json",
-    "note": "Current normal Windows MSI+NSIS production build; prior metadata/checkpoints and limitations retained"
+    "sourceCommit": "ff73f87bc8cbed6b3adfa7942429ec2fbcb4bf39",
+    "evidence": "artifacts/windows-msi-bundle-ff73f87b-20261020/verification.json",
+    "bundles": [
+      "nsis",
+      "msi"
+    ],
+    "artifacts": [
+      {
+        "path": "artifacts/windows-production-ff73f87b-20261020/insomnium.exe",
+        "bytes": 24230912,
+        "sha256": "995509189f00e9e60fc0b69e3f5c8837bf0dec8317f9ed8bc1619f17c98bcad7"
+      },
+      {
+        "path": "artifacts/windows-production-ff73f87b-20261020/Insomnium_0.1.0_x64-setup.exe",
+        "bytes": 43375319,
+        "sha256": "5146820bdcdb4fa7229bb6dfb78f46f0f0d2ab09f0777357c123925883421855"
+      },
+      {
+        "path": "artifacts/windows-msi-bundle-ff73f87b-20261020/Insomnium_0.1.0_x64_en-US.msi",
+        "bytes": 57564749,
+        "sha256": "91c1afa06e44b43b0ea83a869d7f89dee4b09293b23374c16119bb4be54d2f69"
+      }
+    ],
+    "exitCode": 0,
+    "selectedInputsUnchanged": 610,
+    "payloadFilesVerified": 2173,
+    "note": "Current normal production NSIS plus normal MSI bundle from the same verified executable; all older records/limitations retained",
+    "fullMigrationComplete": false,
+    "sourceBuildEvidence": "artifacts/windows-production-ff73f87b-20261020/verification.json",
+    "nsisEvidence": "artifacts/windows-production-ff73f87b-20261020/verification.json",
+    "msiBundleCommand": "bun x --bun tauri bundle --bundles msi --ci"
   },
   "latestLinuxProductionBuild": {
     "sourceCommit": "ca6a7fe53b1d7f50615cee68eef26a393f668d15",
