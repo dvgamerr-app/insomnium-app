@@ -9,9 +9,9 @@ const forbiddenHeaders=new Set('accept-charset accept-encoding access-control-re
 /** @typedef {{digest?:{username:string,password:string}|null,ntlm?:{username:string,password:string,domain:string,workstation:string}|null,netrc?:boolean}} NativeAuth */
 /** @typedef {import('httpsnippet-lite').HarRequest & {bodyBase64?:string|null,serializedMultipart?:boolean,multipartParts?:MultipartPart[]|null,multipartContentType?:string|null,socketPath?:string|null,suppressDefaultHeaders?:string[],nativeAuth?:NativeAuth|null,hawk?:Record<string,any>|null,oauth1?:Record<string,any>|null,aws?:Record<string,any>|null,asap?:Record<string,any>|null}} CodeRequest */
 export const generatedCodeLimit=32*1024*1024;
-/** Python's low-level API preserves duplicate headers and sends bytes unchanged.
+/** Shared prepared bytes and explicit headers for Python adapters.
  * @param {CodeRequest} request */
-export function pythonHttpClientCode(request){
+function pythonCodeParts(request){
   if(request.asap||request.aws||request.oauth1||request.hawk||request.nativeAuth?.digest)
     throw Error('Choose Node.js / Native to generate this authentication.');
   if(request.nativeAuth)throw Error('Choose Shell / cURL to generate code for NTLM or netrc authentication.');
@@ -55,6 +55,12 @@ export function pythonHttpClientCode(request){
     throw Error('Python http.client export supports only chunked Transfer-Encoding without Content-Length.');
   const chunked=transfers.length>0;
   const target=url.pathname+(url.search||(url.href.split('#',1)[0].endsWith('?')?'?':''));
+  return {url,headers,hasHeader,hasBody,encoded,chunked,target};
+}
+/** Python's low-level API preserves duplicate headers and sends bytes unchanged.
+ * @param {CodeRequest} request */
+export function pythonHttpClientCode(request){
+  const {url,headers,hasHeader,hasBody,encoded,chunked,target}=pythonCodeParts(request);
   const lines=['import base64','import http.client','import sys','',`body = base64.b64decode(${JSON.stringify(encoded)}, validate=True)`,
     `conn = http.client.${url.protocol==='https:'?'HTTPSConnection':'HTTPConnection'}(${JSON.stringify(url.host)})`,'try:',
     `    conn.putrequest(${JSON.stringify(request.method)}, ${JSON.stringify(target)}, skip_host=${hasHeader('host')?'True':'False'}, skip_accept_encoding=True)`];
@@ -62,6 +68,39 @@ export function pythonHttpClientCode(request){
   if(hasBody&&!chunked&&!hasHeader('content-length'))lines.push('    conn.putheader("Content-Length", str(len(body)))');
   lines.push(`    conn.endheaders(${hasBody||chunked?'body':'None'}, encode_chunked=${chunked?'True':'False'})`,
     '    response = conn.getresponse()','    sys.stdout.buffer.write(response.read())','finally:','    conn.close()');
+  return lines.join('\n');
+}
+/** Requests receives bytes after preparation rather than re-encoding forms/JSON.
+ * @param {CodeRequest} request */
+export function pythonRequestsCode(request){
+  const {url,headers,hasHeader,hasBody,encoded,chunked,target}=pythonCodeParts(request);
+  if(request.method!==request.method.toUpperCase())
+    throw Error('Python Requests changes HTTP method casing. Choose Python / http.client to preserve it.');
+  if(target.startsWith('//')||!url.search&&target.endsWith('?'))
+    throw Error('Python Requests normalizes this request target. Choose Python / http.client to preserve it.');
+  const names=new Set();
+  for(const [name,value] of headers){
+    const key=name.toLowerCase();
+    if(names.has(key))throw Error('Python Requests combines duplicate headers. Choose Python / http.client to preserve them.');
+    if(['host','user-agent','accept-encoding'].includes(key)&&value==='@@@SKIP_HEADER@@@')
+      throw Error('This header value is reserved by urllib3. Choose Python / http.client to send it literally.');
+    names.add(key);
+  }
+  url.username='';url.password='';url.hash='';
+  const lines=['import base64','import sys','import requests','from urllib3.util import SKIP_HEADER','',
+    '# Requests 2.32+ with urllib3 2.x.',`body = base64.b64decode(${JSON.stringify(encoded)}, validate=True)`,
+    `prepared = requests.Request(${JSON.stringify(request.method)}, ${JSON.stringify(url.href)}).prepare()`,
+    `prepared.url = ${JSON.stringify(url.href)}`,
+    `prepared.body = ${hasBody||chunked?'body':'None'}`,
+    'prepared.headers = requests.structures.CaseInsensitiveDict({'];
+  for(const [name,value] of headers)lines.push(`    ${JSON.stringify(name)}: ${JSON.stringify(value)},`);
+  lines.push('})');
+  for(const name of ['User-Agent','Accept-Encoding'])if(!hasHeader(name.toLowerCase()))
+    lines.push(`prepared.headers[${JSON.stringify(name)}] = SKIP_HEADER`);
+  if(hasBody&&!chunked&&!hasHeader('content-length'))lines.push('prepared.headers["Content-Length"] = str(len(body))');
+  lines.push('with requests.Session() as session:','    session.trust_env = False',
+    '    with session.send(prepared, proxies={}, allow_redirects=False, stream=True) as response:',
+    '        sys.stdout.buffer.write(response.raw.read(decode_content=False))');
   return lines.join('\n');
 }
 /** A 20 MiB transport body expands to at most 28 MiB of Base64 source.
