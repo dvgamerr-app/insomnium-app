@@ -11,6 +11,7 @@ fn main() {
             "get_plugin_clipboard_probe",
             "end_plugin_clipboard_probe",
             "send_http",
+            "response_download",
             "cancel_http",
             "fetch_oauth_token",
             "authorize_oauth",

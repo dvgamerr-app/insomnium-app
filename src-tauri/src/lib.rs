@@ -42,6 +42,7 @@ mod oauth_embedded;
 mod oauth_implicit;
 mod oauth_navigation;
 mod storage;
+mod response_download;
 mod resource_topology;
 mod legacy_response;
 mod plugins;
@@ -99,6 +100,7 @@ pub fn run() {
         .manage(streaming::StreamState::default())
         .manage(grpc::GrpcState::default())
         .manage(storage::StorageState::default())
+        .manage(response_download::DownloadState::default())
         .manage(plugin_store::PluginStoreState::default())
         .manage(plugin_event_transport::EventTransportState::default())
         .manage(plugin_clipboard_probe::ClipboardProbeState::default())
@@ -128,6 +130,7 @@ pub fn run() {
             plugin_clipboard_probe::get_plugin_clipboard_probe,
             plugin_clipboard_probe::end_plugin_clipboard_probe,
             http::send_http,
+            response_download::response_download,
             http::cancel_http,
             http::fetch_oauth_token,
             oauth_browser::authorize_oauth,

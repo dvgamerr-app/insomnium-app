@@ -1,4 +1,27 @@
 import {mimeParameter} from './response-multipart.js';
+import { Channel, invoke } from "@tauri-apps/api/core";
+import { createNativeCancellation } from "./native-cancellation.js";
+
+/** Native destinations are selected locally and never read from imported metadata.
+ * @param {'get'|'choose'|'clear'|'write'} operation
+ * @param {string} workspaceId @param {string} requestId @param {AbortSignal} signal
+ * @param {Record<string,any>} [response] @returns {Promise<string|null>}
+ */
+export async function requestDownload(operation, workspaceId, requestId, signal, response) {
+  signal.throwIfAborted();
+  const id = "download_" + crypto.randomUUID();
+  const cancellation = createNativeCancellation(id, signal);
+  const onStarted = new Channel();
+  onStarted.onmessage = cancellation.started;
+  try {
+    const result = await invoke("response_download", { request: {
+      id, workspaceId, requestId, operation,
+      ...(response ? { name: responseDownloadName(response), bodyBase64: response.bodyBase64 } : {}),
+    }, onStarted });
+    signal.throwIfAborted();
+    return /** @type {string|null} */ (result);
+  } finally { await cancellation.close(); }
+}
 /** Header filenames are suggestions, never paths.
  * @param {string} value */
 export function safeResponseFilename(value) {

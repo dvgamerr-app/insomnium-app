@@ -729,15 +729,18 @@ export async function exportData(data, signal = new AbortController().signal) {
   }
   signal.throwIfAborted();
 }
-/** @param {BlobPart} data @param {string} name @param {string} [type] */
-export async function download(data, name, type = "text/plain") {
+/** @param {BlobPart} data @param {string} name @param {string} [type] @param {AbortSignal} [signal] */
+export async function download(data, name, type = "text/plain", signal) {
+  signal?.throwIfAborted();
   if (isTauri()) {
     const path = await save({ defaultPath: name });
-    if (path)
-      await writeFile(
-        path,
-        new Uint8Array(await new Blob([data], { type }).arrayBuffer()),
-      );
+    signal?.throwIfAborted();
+    if (path) {
+      const bytes = new Uint8Array(await new Blob([data], { type }).arrayBuffer());
+      signal?.throwIfAborted();
+      await writeFile(path, bytes);
+      signal?.throwIfAborted();
+    }
     return;
   }
   const url = URL.createObjectURL(new Blob([data], { type }));

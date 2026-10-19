@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-response-download"
+description = "Enables the response_download command without any pre-configured scope."
+commands.allow = ["response_download"]
+
+[[permission]]
+identifier = "deny-response-download"
+description = "Denies the response_download command without any pre-configured scope."
+commands.deny = ["response_download"]

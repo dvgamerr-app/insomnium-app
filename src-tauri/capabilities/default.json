@@ -16,6 +16,7 @@
     "allow-get-plugin-clipboard-probe",
     "allow-end-plugin-clipboard-probe",
     "allow-send-http",
+    "allow-response-download",
     "allow-cancel-http",
     "allow-fetch-oauth-token",
     "allow-authorize-oauth",

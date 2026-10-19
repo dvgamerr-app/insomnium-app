@@ -80,6 +80,7 @@ import {
 } from "./persistence.js";
 import { requestMeta, withResponseFilter, withResponseNamespaces, requestPinMeta, withRequestPin } from "./request-meta.js";
 import { prepareRenderedRequest, send, cancel } from "./transport.js";
+import { requestDownload } from "./response-download.js";
 import { connectStream, sendMessage, appendStreamEvent } from "./streaming.js";
 import { loadGrpcSchema, connectGrpc, sendGrpcMessage } from "./grpc.js";
 import { createNativeCancellation } from "./native-cancellation.js";
@@ -1289,11 +1290,13 @@ export function remove(resourceId) {
   void persist();
 }
 /** @param {string} requestId @param {boolean} [introspection]
- * @param {{payload: Record<string, any>, settle: (...errors: unknown[]) => void} | null} [initialPayload] */
+ * @param {{payload: Record<string, any>, settle: (...errors: unknown[]) => void} | null} [initialPayload]
+ * @param {((response:Record<string,any>)=>void)|null} [onResponse] */
 export async function execute(
   requestId,
   introspection = false,
   initialPayload = null,
+  onResponse = null,
 ) {
   if (!acceptWorkspaceRun()) {
     initialPayload?.settle(new Error("Workspace operations are stopping."));
@@ -1656,6 +1659,18 @@ export async function execute(
     if (!historyMatchesEnvironment(entry, workspace.data.settings, selectedEnvironmentFor(workspace.data, workspaceFor(workspace.data.resources, requestId) || ""))) refreshHttpResponses();
     await persist();
     runCompleted = true;
+    if (!onResponse && isTauri() && response.status >= 200 && response.status < 300 && !controller.signal.aborted) {
+      try {
+        const workspaceId = workspaceFor(dataSnapshot.resources, requestId) || "";
+        if (await requestDownload("get", workspaceId, requestId, controller.signal)) {
+          await requestDownload("write", workspaceId, requestId, controller.signal, entry);
+        }
+      } catch (error) {
+        if (!controller.signal.aborted && workspace.data === schemaData)
+          workspace.notice = "Response received; download failed: " + String(error);
+      }
+    }
+    if (!controller.signal.aborted) onResponse?.(entry);
   } catch (error) {
     if (!workspace.data.resources.some((r) => r._id === requestId)) return;
     settleInitial(error);

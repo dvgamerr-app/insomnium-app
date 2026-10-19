@@ -83,11 +83,12 @@
     createWorkspaceWorkScope,
     cancelChangedGrpcCalls,
   } from "$lib/workspace.svelte.js";
-  import { id, indexWorkspaces, protocolFor, historyMatchesEnvironment } from "$lib/model.js";
+  import { id, indexWorkspaces, protocolFor, workspaceFor, historyMatchesEnvironment } from "$lib/model.js";
   import { orderedChildren } from "$lib/resources.js";
   import { pinnedRequests, recentRequests, requestMeta } from "$lib/request-meta.js";
   import { curlRequestPatch, isCurlImport } from "$lib/curl-import.js";
-  import { pickImport, parseImport, exportData, pickLegacyResponseHistory, pickLegacyRequestFiles, pickLegacyCertificateFiles } from "$lib/import-export.js";
+  import { pickImport, parseImport, exportData, download, pickLegacyResponseHistory, pickLegacyRequestFiles, pickLegacyCertificateFiles } from "$lib/import-export.js";
+  import { responseDownloadName, requestDownload } from "$lib/response-download.js";
   import {legacyPreferenceCandidate} from "$lib/legacy-preferences.js";
   import { reviewImportedHistory, applyImportedData } from "$lib/import-history-review.js";
   import "@fontsource-variable/inter";
@@ -98,6 +99,7 @@
   import PluginThemeHost from '$lib/components/PluginThemeHost.svelte';
   let displayedTheme=$state('dark');
   import Dropdown from "$lib/components/ui/Dropdown.svelte";
+  import { runRequestSchedule } from "$lib/request-schedule.js";
   const editingBlocked = $derived(
     app.draining || app.persistencePhase !== "idle",
   );
@@ -106,6 +108,19 @@
   onDestroy(importWork.dispose);
   const exportWork = createWorkspaceWorkScope();
   onDestroy(exportWork.dispose);
+  const scheduleWork = createWorkspaceWorkScope();
+  onDestroy(scheduleWork.dispose);
+  const responseDownloadWork = createWorkspaceWorkScope();
+  onDestroy(responseDownloadWork.dispose);
+  const destinationWork = createWorkspaceWorkScope();
+  onDestroy(destinationWork.dispose);
+  let downloadDestination = $state(""), destinationBusy = $state(false);
+  let destinationRevision = 0;
+  let downloading = $state.raw(/** @type {{current:()=>boolean,cancel:()=>void}|null} */ (null));
+  let scheduled = $state.raw(/** @type {{requestId:string,environmentId:string,protocol:string,repeat:boolean,cancel:()=>void,current:()=>boolean}|null} */ (null));
+  let scheduleSeconds = $state("3");
+  let actionsRequestId = "", actionsEnvironmentId = "";
+  let actionsData = /** @type {typeof app.data|null} */ (null);
   onDestroy(() => pluginRegistry.dispose());
   $effect(() => { pluginRegistry.synchronize(); });
   let cloneOpen = $state(false);
@@ -299,6 +314,9 @@
   function closeModal() {
     environmentOwner = null;
     importWork.cancel();
+    destinationWork.cancel();
+    destinationRevision++;
+    destinationBusy = false;
     importRevision++;
     importBusy = false;
     modalElement?.close();
@@ -490,10 +508,119 @@
   }
   async function sendCurrentRequest() {
     if (!request) return;
+    const planned = scheduled;
+    if (planned && planned.requestId === request._id && !planned.repeat) planned.cancel();
     if (protocol === "websocket") await requestEditor?.sendMessage();
     else if (protocol === "grpc") await grpcEditor?.sendMessage();
     else await execute(request._id);
   }
+  function showRequestActions() {
+    if (!request || !["http", "sse"].includes(protocol) || !canEditWorkspace()) return;
+    actionsRequestId = request._id;
+    actionsEnvironmentId = app.data.activeEnvironmentId;
+    actionsData = app.data;
+    scheduleSeconds = "3";
+    showModal("request-actions");
+    downloadDestination = "";
+    if (isTauri() && protocol === "http") void configureDownload("get");
+  }
+  async function configureDownload(/** @type {'get'|'choose'|'clear'} */ operation) {
+    if (!request || protocol !== "http" || modal !== "request-actions" || !isTauri() ||
+        app.data !== actionsData || request._id !== actionsRequestId || app.data.activeEnvironmentId !== actionsEnvironmentId ||
+        destinationBusy || !canEditWorkspace()) return;
+    const work = destinationWork.begin(), revision = ++destinationRevision;
+    const requestId = request._id, environmentId = app.data.activeEnvironmentId;
+    const workspaceId = workspaceFor(app.data.resources, requestId) || "";
+    const current = () => work.current() && revision === destinationRevision && modal === "request-actions" &&
+      app.data.activeRequestId === requestId && app.data.activeEnvironmentId === environmentId;
+    destinationBusy = true;
+    modalError = "";
+    try {
+      const path = await requestDownload(operation, workspaceId, requestId, work.signal);
+      if (current() && (operation !== "choose" || path !== null)) downloadDestination = path || "";
+    } catch (error) {
+      if (current() && !work.signal.aborted) modalError = String(error);
+    } finally {
+      if (revision === destinationRevision) destinationBusy = false;
+      work.finish();
+    }
+  }
+  function cancelSchedule() {
+    const owner = scheduled;
+    if (!owner) return;
+    owner.cancel();
+    void stop(owner.requestId).catch(error => {
+      if (scheduled === owner && app.data.activeRequestId === owner.requestId) app.error = String(error);
+    });
+  }
+  function startSchedule(/** @type {boolean} */ repeat) {
+    if (!request || app.data !== actionsData || request._id !== actionsRequestId || app.data.activeEnvironmentId !== actionsEnvironmentId ||
+        !["http", "sse"].includes(protocol) || !canEditWorkspace() || scheduled || app.running[request._id]) return;
+    const milliseconds = Number(scheduleSeconds) * 1000;
+    if (!scheduleSeconds.trim() || !Number.isFinite(milliseconds) || milliseconds < 1 || milliseconds > 2147483647) {
+      modalError = "Enter a delay between 0.001 and 2147483.647 seconds.";
+      return;
+    }
+    const work = scheduleWork.begin();
+    const owner = { requestId: request._id, environmentId: app.data.activeEnvironmentId, protocol, repeat, cancel: work.cancel, current: work.current };
+    scheduled = owner;
+    const current = () => work.current() && app.ready && !editingBlocked && app.data.activeRequestId === owner.requestId &&
+      app.data.activeEnvironmentId === owner.environmentId && mainView === "requests" &&
+      app.data.resources.some(row => row._id === owner.requestId && protocolFor(row) === owner.protocol);
+    closeModal();
+    void runRequestSchedule({ signal: work.signal, milliseconds, repeat, current,
+      run: () => execute(owner.requestId),
+    }).catch(error => { if (current()) app.error = String(error); }).finally(() => {
+      if (scheduled === owner) scheduled = null;
+      work.finish();
+    });
+  }
+  async function sendAndDownload() {
+    if (!request || protocol !== "http" || app.data !== actionsData || request._id !== actionsRequestId ||
+        app.data.activeEnvironmentId !== actionsEnvironmentId || !canEditWorkspace() ||
+        downloading || scheduled || app.running[request._id]) return;
+    const work = responseDownloadWork.begin();
+    const requestId = request._id, environmentId = app.data.activeEnvironmentId;
+    const current = () => work.current() && app.ready && !editingBlocked && mainView === "requests" &&
+      app.data.activeRequestId === requestId && app.data.activeEnvironmentId === environmentId &&
+      app.data.resources.some(row => row._id === requestId && protocolFor(row) === "http");
+    const owner = { current, cancel: work.cancel };
+    downloading = owner;
+    closeModal();
+    try {
+      const completed = { response: /** @type {Record<string,any>|undefined} */ (undefined) };
+      await execute(requestId, false, null, response => { completed.response = response; });
+      const response = completed.response;
+      if (!current() || !response || response.status < 200 || response.status >= 300 ||
+          typeof response.bodyBase64 !== "string") return;
+      work.signal.throwIfAborted();
+      if (isTauri()) {
+        const workspaceId = workspaceFor(app.data.resources, requestId) || "";
+        if (await requestDownload("get", workspaceId, requestId, work.signal)) {
+          await requestDownload("write", workspaceId, requestId, work.signal, response);
+          return;
+        }
+      }
+      await download(Uint8Array.from(atob(response.bodyBase64), c => c.charCodeAt(0)),
+        responseDownloadName(response), "application/octet-stream", work.signal);
+    } catch (error) {
+      if (current() && !(error instanceof Error && error.name === "AbortError")) app.error = String(error);
+    } finally {
+      if (downloading === owner) downloading = null;
+      work.finish();
+    }
+  }
+  $effect(() => { if (downloading && !downloading.current()) untrack(downloading.cancel); });
+  $effect(() => {
+    if (scheduled && (!scheduled.current() || app.data.activeRequestId !== scheduled.requestId ||
+        app.data.activeEnvironmentId !== scheduled.environmentId || mainView !== "requests" ||
+        !request || protocol !== scheduled.protocol)) untrack(cancelSchedule);
+  });
+  $effect(() => {
+    if (modal === "request-actions" && (app.data !== actionsData || app.data.activeRequestId !== actionsRequestId ||
+        app.data.activeEnvironmentId !== actionsEnvironmentId || mainView !== "requests" ||
+        !request || !["http", "sse"].includes(protocol))) untrack(closeModal);
+  });
   async function exportCollections() {
     if (!canEditWorkspace()) return;
     /** @type {import("$lib/workspace.svelte.js").ScopedWorkspaceWork|undefined} */ let work;
@@ -992,7 +1119,7 @@
               class="url-bar"
               onsubmit={(event) => {
                 event.preventDefault();
-                void execute(request._id);
+                void (protocol === "websocket" ? execute(request._id) : sendCurrentRequest());
               }}
             >
               <div class="request-url-fields">
@@ -1063,13 +1190,13 @@
                   }}
                 />
               </div>
-              {#if app.running[request._id]}<Button
+              {#if app.running[request._id] || scheduled?.requestId === request._id}<Button
                   variant="primary"
                   type="button"
                   class="send-button"
-                  onclick={() => stop(request._id)}
+                  onclick={() => scheduled?.requestId === request._id ? cancelSchedule() : stop(request._id)}
                   ><Icon name="stop" size={15} />
-                  {protocol === "http" ? "Cancel" : "Disconnect"}</Button
+                  {protocol === "http" || !app.running[request._id] ? "Cancel" : "Disconnect"}</Button
                 >{:else}<Button
                   variant="primary"
                   type="submit"
@@ -1077,6 +1204,10 @@
                   >{protocol === "http" ? "Send" : "Connect"}
                   <Icon name="send" size={16} /></Button
                 >{/if}
+              {#if ["http", "sse"].includes(protocol)}<Button
+                variant="ghost" type="button" aria-label="Request actions" title="Request actions"
+                disabled={!!app.running[request._id] || !!scheduled || !!downloading} onclick={showRequestActions}
+                ><Icon name="more" size={17} /></Button>{/if}
             </form>
             <SplitPane
               storageKey="request-response"
@@ -1276,7 +1407,25 @@
                         .replace(/^./, (c) => c.toUpperCase())}
     {/snippet}
     {#snippet children()}
-      {#if modal === 'generate-code'}{#key codeRequestId}<GenerateCode requestId={codeRequestId}/>{/key}
+      {#if modal === 'request-actions'}
+        {#if protocol === "http" && isTauri()}
+          <p>{downloadDestination ? `Download After Send: ${downloadDestination}` : "Download After Send is off."}</p>
+          <div class="modal-actions">
+            <Button variant="secondary" disabled={destinationBusy} onclick={() => configureDownload("choose")}>Download After Send</Button>
+            {#if downloadDestination}<Button variant="ghost" disabled={destinationBusy} onclick={() => configureDownload("clear")}>Stop Auto-Download</Button>{/if}
+          </div>
+        {/if}
+        <Field label="Delay or interval (seconds)"><Input type="number" min="0.001" max="2147483.647" step="any"
+          value={scheduleSeconds} oninput={event => (scheduleSeconds = event.currentTarget.value)} /></Field>
+        <p>Scheduling stops when you cancel, leave this request, or change environment.</p>
+        {#if modalError}<p role="alert">{modalError}</p>{/if}
+        <div class="modal-actions">
+          <Button variant="ghost" onclick={closeModal}>Cancel</Button>
+          {#if protocol === "http"}<Button variant="secondary" onclick={sendAndDownload}>Send And Download</Button>{/if}
+          <Button variant="secondary" onclick={() => startSchedule(false)}>Send After Delay</Button>
+          <Button variant="primary" onclick={() => startSchedule(true)}>Repeat on Interval</Button>
+        </div>
+      {:else if modal === 'generate-code'}{#key codeRequestId}<GenerateCode requestId={codeRequestId}/>{/key}
       {:else if modal === "manage-item" && managedResource}
         {#key managedId}<ResourceManager
             resource={managedResource}
