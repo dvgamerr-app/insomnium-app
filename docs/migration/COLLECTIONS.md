@@ -450,3 +450,11 @@ Full migration/UX/CSS remains active. This selected correction closes the captur
 
 
 </details>
+
+## Large collection creation and duplication — 2026-10-19
+
+nextSortKey now computes the maximum iteratively over the same ordered siblings, retaining finite-key/index fallback and baseline zero without exceeding the call argument limit. Confirmed700000 sibling requests previously threw RangeError; actual helper now returns700099. duplicateResource builds a parent/child index and traverses it iteratively, retaining original resource output order through the existing filter. Excluded legacy model types are omitted before traversal so their descendants remain excluded. Collection alias decisions reuse indexWorkspaces; final append uses individual pushes, preserving array identity without spread limits. Payload/reference remapping policy is unchanged.
+
+Bounded Bun stdin production-helper exercise duplicated a reverse-ordered20000-folder chain plus request into20002 copies in42.6082ms (single observation only), preserved collection request aliases and literal body text, and excluded response plus its unknown child. No testcase/scenario files added/modified and no saved scenario/matrix run. This is helper evidence, not physical UI/native/durable persistence throughput.
+
+Validation bun run check exit0/0errors/0warnings/session32833terminal; bun run build exit0; scoped git diff --check exit0. No native/browser/profile/provider operations or owned live handles. Broader CRUD/duplicate/imported variants/OS-close/platform and all retained migration requirements remain open.

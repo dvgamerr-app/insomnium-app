@@ -57,14 +57,10 @@ export function orderedChildren(resources, parentId) {
 /** @param {Resource[]} resources @param {string | null} parentId */
 export function nextSortKey(resources, parentId) {
   const siblings = orderedChildren(resources, parentId);
-  return (
-    Math.max(
-      0,
-      ...siblings.map((r, i) =>
-        Number.isFinite(r.metaSortKey) ? r.metaSortKey : i,
-      ),
-    ) + 100
-  );
+  let maximum = 0;
+  for (const [index, resource] of siblings.entries())
+    maximum = Math.max(maximum, Number.isFinite(resource.metaSortKey) ? resource.metaSortKey : index);
+  return maximum + 100;
 }
 
 /** Check navigable resources before an import can be applied. Unknown types are retained.
@@ -176,26 +172,28 @@ export function duplicateResource(resources, resourceId) {
     "workspace_meta",
   ]);
   const selected = new Set([resourceId]);
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const resource of resources) {
-      if (
-        selected.has(resource.parentId) &&
-        !selected.has(resource._id) &&
-        !excludedTypes.has(resource._type)
-      ) {
-        selected.add(resource._id);
-        changed = true;
-      }
+  /** @type {Map<string, Resource[]>} */ const children = new Map();
+  for (const resource of resources) {
+    if (excludedTypes.has(resource._type)) continue;
+    const siblings = children.get(resource.parentId) || [];
+    siblings.push(resource);
+    children.set(resource.parentId, siblings);
+  }
+  const pending = [resourceId];
+  for (let index = 0; index < pending.length; index++) {
+    for (const resource of children.get(pending[index]) || []) {
+      if (selected.has(resource._id)) continue;
+      selected.add(resource._id);
+      pending.push(resource._id);
     }
   }
   const source = resources.filter((resource) => selected.has(resource._id));
+  const workspaces = indexWorkspaces(resources);
   const mapping = new Map(source.map((r) => [r._id, id(r._id.split("_")[0])]));
   const copies = source.map((resource) => {
     const copy = JSON.parse(JSON.stringify(resource));
     if (resource._type === "request") {
-      if (mapping.has(workspaceFor(resources, resource._id))) {
+      if (mapping.has(workspaces.get(resource._id))) {
         const aliases = Array.isArray(resource._importRequestIds)
           ? resource._importRequestIds.filter((value) => typeof value === "string" && value)
           : [];
@@ -217,7 +215,7 @@ export function duplicateResource(resources, resourceId) {
     }
     return copy;
   });
-  resources.push(...copies);
+  for (const copy of copies) resources.push(copy);
   return mapping.get(resourceId);
 }
 
