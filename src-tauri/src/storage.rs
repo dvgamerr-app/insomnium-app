@@ -274,8 +274,10 @@ fn restore_backup(
             "Workspace changed. Inspect again.{retained_notice}"
         ));
     }
-    atomic_write(&directory.join(WORKSPACE_FILE), &backup)
-        .map_err(|e| format!("Restore failed: {e}.{retained_notice}"))?;
+    crate::response_download::with_workspace_write(directory, &preview.data, || {
+        atomic_write(&directory.join(WORKSPACE_FILE), &backup)
+    })
+    .map_err(|e| format!("Restore failed: {e}.{retained_notice}"))?;
     session.backed_up = true; // Preserve the reviewed backup through the next save.
     Ok(retained.map(|path| path.to_string_lossy().into_owned()))
 }
@@ -358,7 +360,9 @@ pub(crate) fn write_workspace_file(directory: &Path, data: &Value) -> Result<(),
     let before = read_workspace_file(directory)?;
     crate::git_fetch_journal::protect_workspace_bindings(directory, before.as_ref(), data)?;
     let bytes = serde_json::to_vec(data).map_err(|e| e.to_string())?;
-    atomic_write(&directory.join(WORKSPACE_FILE), &bytes)
+    crate::response_download::with_workspace_write(directory, data, || {
+        atomic_write(&directory.join(WORKSPACE_FILE), &bytes)
+    })
 }
 
 impl Session {

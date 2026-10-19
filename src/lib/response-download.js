@@ -1,13 +1,14 @@
 import {mimeParameter} from './response-multipart.js';
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { createNativeCancellation } from "./native-cancellation.js";
+import { legacyMimeExtension } from "./legacy-file-mime.js";
 
 /** Native destinations are selected locally and never read from imported metadata.
  * @param {'get'|'choose'|'clear'|'write'} operation
  * @param {string} workspaceId @param {string} requestId @param {AbortSignal} signal
- * @param {Record<string,any>} [response] @returns {Promise<string|null>}
+ * @param {Record<string,any>} [response] @param {string} [requestName] @returns {Promise<string|null>}
  */
-export async function requestDownload(operation, workspaceId, requestId, signal, response) {
+export async function requestDownload(operation, workspaceId, requestId, signal, response, requestName) {
   signal.throwIfAborted();
   const id = "download_" + crypto.randomUUID();
   const cancellation = createNativeCancellation(id, signal);
@@ -16,7 +17,7 @@ export async function requestDownload(operation, workspaceId, requestId, signal,
   try {
     const result = await invoke("response_download", { request: {
       id, workspaceId, requestId, operation,
-      ...(response ? { name: responseDownloadName(response), bodyBase64: response.bodyBase64 } : {}),
+      ...(response ? { name: responseDownloadName(response, requestName), bodyBase64: response.bodyBase64 } : {}),
     }, onStarted });
     signal.throwIfAborted();
     return /** @type {string|null} */ (result);
@@ -44,8 +45,13 @@ export function dispositionFilename(disposition) {
   }
   return safeResponseFilename(extended)||safeResponseFilename(mimeParameter(disposition,'filename'));
 }
-/** @param {Record<string,any>} response */
-export function responseDownloadName(response) {
+/** @param {Record<string,any>} response @param {string} [requestName] */
+export function responseDownloadName(response, requestName) {
   const disposition=response.headers?.find((/** @type {string[]} */ row)=>row[0].toLowerCase()==='content-disposition')?.[1];
-  return dispositionFilename(String(disposition||''))||'response.bin';
+  const suggested = dispositionFilename(String(disposition || ''));
+  if (suggested) return suggested;
+  if (requestName === undefined) return 'response.bin';
+  const type = response.headers?.find((/** @type {string[]} */ row) => row[0].toLowerCase() === 'content-type')?.[1];
+  const extension = legacyMimeExtension(String(type || response.contentType || '')) || 'unknown';
+  return safeResponseFilename(`${requestName.replace(/\s/g, '-').toLowerCase()}.${extension}`) || `response.${extension}`;
 }

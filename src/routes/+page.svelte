@@ -580,6 +580,7 @@
         app.data.activeEnvironmentId !== actionsEnvironmentId || !canEditWorkspace() ||
         downloading || scheduled || app.running[request._id]) return;
     const work = responseDownloadWork.begin();
+    const downloadRequestName = String(request.name || "");
     const requestId = request._id, environmentId = app.data.activeEnvironmentId;
     const current = () => work.current() && app.ready && !editingBlocked && mainView === "requests" &&
       app.data.activeRequestId === requestId && app.data.activeEnvironmentId === environmentId &&
@@ -597,12 +598,12 @@
       if (isTauri()) {
         const workspaceId = workspaceFor(app.data.resources, requestId) || "";
         if (await requestDownload("get", workspaceId, requestId, work.signal)) {
-          await requestDownload("write", workspaceId, requestId, work.signal, response);
+          await requestDownload("write", workspaceId, requestId, work.signal, response, downloadRequestName);
           return;
         }
       }
       await download(Uint8Array.from(atob(response.bodyBase64), c => c.charCodeAt(0)),
-        responseDownloadName(response), "application/octet-stream", work.signal);
+        responseDownloadName(response, downloadRequestName), "application/octet-stream", work.signal);
     } catch (error) {
       if (current() && !(error instanceof Error && error.name === "AbortError")) app.error = String(error);
     } finally {

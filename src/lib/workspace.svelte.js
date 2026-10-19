@@ -1663,7 +1663,7 @@ export async function execute(
       try {
         const workspaceId = workspaceFor(dataSnapshot.resources, requestId) || "";
         if (await requestDownload("get", workspaceId, requestId, controller.signal)) {
-          await requestDownload("write", workspaceId, requestId, controller.signal, entry);
+          await requestDownload("write", workspaceId, requestId, controller.signal, entry, String(requestSnapshot.name || ""));
         }
       } catch (error) {
         if (!controller.signal.aborted && workspace.data === schemaData)

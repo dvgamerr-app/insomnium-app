@@ -33,3 +33,11 @@ export function lookupLegacyFileMime(path) {
     dot > 0 && name !== ".." ? name.slice(dot + 1).toLowerCase() : "";
   return extensions[extension]?.type || "application/octet-stream";
 }
+
+/** Match mime-types 2.1.35 extension(type), including MIME parameters.
+ * @param {string} type @returns {string|false} */
+export function legacyMimeExtension(type) {
+  const match = /^\s*([^;\s]*)(?:;|\s|$)/.exec(type);
+  const entry = match && database[/** @type {keyof typeof database} */ (match[1].toLowerCase())];
+  return /** @type {{extensions?:string[]}|undefined} */ (entry || undefined)?.extensions?.[0] || false;
+}

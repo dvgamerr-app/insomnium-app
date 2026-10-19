@@ -2,16 +2,80 @@
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::Deserialize;
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, HashMap, HashSet},
     fs,
-    path::PathBuf,
-    sync::{Arc, Mutex},
+    path::{Path, PathBuf},
+    sync::{Arc, LazyLock, Mutex},
 };
 use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 
-#[derive(Default)]
 pub struct DownloadState(Arc<Mutex<()>>);
+static DESTINATIONS_LOCK: LazyLock<Arc<Mutex<()>>> = LazyLock::new(|| Arc::new(Mutex::new(())));
+impl Default for DownloadState {
+    fn default() -> Self {
+        Self(DESTINATIONS_LOCK.clone())
+    }
+}
+
+fn destinations(root: &Path) -> Result<BTreeMap<String, PathBuf>, String> {
+    let config = root.join("response-downloads-v1.json");
+    let values: BTreeMap<String, PathBuf> = match fs::metadata(&config) {
+        Ok(info) if info.len() <= 2 * 1024 * 1024 => {
+            serde_json::from_slice(&fs::read(&config).map_err(|e| e.to_string())?)
+                .map_err(|e| e.to_string())?
+        }
+        Ok(_) => return Err("Download destinations file is too large".into()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => BTreeMap::new(),
+        Err(error) => return Err(error.to_string()),
+    };
+    if values.len() > 4096 {
+        return Err("Too many download destinations".into());
+    }
+    Ok(values)
+}
+
+fn live_keys(data: &serde_json::Value) -> Result<HashSet<String>, String> {
+    let resources = data["resources"]
+        .as_array()
+        .ok_or("Missing workspace resources")?;
+    let records: HashMap<&str, &serde_json::Value> = resources
+        .iter()
+        .filter_map(|r| r["_id"].as_str().map(|id| (id, r)))
+        .collect();
+    records
+        .iter()
+        .filter(|(_, r)| r["_type"] == "request")
+        .map(|(id, _)| {
+            let owner = crate::resource_topology::owner(&records, id)
+                .ok_or("Missing request collection")?;
+            serde_json::to_string(&(owner, id)).map_err(|e| e.to_string())
+        })
+        .collect()
+}
+
+/// Revoke removed owners before committing their deletion, serialized with
+/// selection and writes. A failed workspace commit cannot restore old grants.
+pub(crate) fn with_workspace_write(
+    root: &Path,
+    data: &serde_json::Value,
+    write: impl FnOnce() -> Result<(), String>,
+) -> Result<(), String> {
+    let _guard = DESTINATIONS_LOCK.lock().map_err(|e| e.to_string())?;
+    let mut values = destinations(root)?;
+    if !values.is_empty() {
+        let live = live_keys(data)?;
+        let before = values.len();
+        values.retain(|key, _| live.contains(key));
+        if values.len() != before {
+            crate::storage::atomic_write(
+                &root.join("response-downloads-v1.json"),
+                &serde_json::to_vec(&values).map_err(|e| e.to_string())?,
+            )?;
+        }
+    }
+    write()
+}
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -99,17 +163,15 @@ pub async fn response_download(
                 return Err("Response download cancelled".into());
             }
             let config = root.join("response-downloads-v1.json");
-            let mut destinations: BTreeMap<String, PathBuf> = match fs::metadata(&config) {
-                Ok(info) if info.len() <= 2 * 1024 * 1024 => {
-                    serde_json::from_slice(&fs::read(&config).map_err(|e| e.to_string())?)
-                        .map_err(|e| e.to_string())?
-                }
-                Ok(_) => return Err("Download destinations file is too large".into()),
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => BTreeMap::new(),
-                Err(error) => return Err(error.to_string()),
-            };
-            if destinations.len() > 4096 {
-                return Err("Too many download destinations".into());
+            let mut destinations = destinations(&root)?;
+            let workspace =
+                crate::storage::read_workspace_file(&root)?.ok_or("Workspace is not saved")?;
+            if operation != "clear" && !live_keys(&workspace)?.contains(&key) {
+                return if operation == "get" {
+                    Ok(None)
+                } else {
+                    Err("Request no longer belongs to this collection".into())
+                };
             }
             match operation.as_str() {
                 "get" => Ok(destinations
