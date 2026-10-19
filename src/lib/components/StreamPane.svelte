@@ -98,14 +98,18 @@
   onDestroy(()=>{disposed=true;});
   const transferOwner=$derived({responseId:response?._id,requestId:response?.requestId,
     tab,selectedId,eventId:selected?._id,data:selected?.data,events:events.length,rawBytes:response?.rawReceivedBytes,binaryEncoding});
-  let transferFeedback=$state.raw(/** @type {{owner:typeof transferOwner,operation:number,error:string}|undefined} */(undefined));
-  const error=$derived(transferFeedback?.owner===transferOwner?transferFeedback.error:'');
-  function beginTransfer(){
-    const owner=transferOwner,operation=++transferSequence;
-    transferFeedback={owner,operation,error:''};
+  const eventTransferOwner=$derived({responseId:response?._id,requestId:response?.requestId,
+    tab,selectedId,eventId:selected?._id,data:selected?.data,binaryEncoding});
+  /** @param {boolean} eventScoped */
+  const currentTransferOwner=eventScoped=>eventScoped?eventTransferOwner:transferOwner;
+  let transferFeedback=$state.raw(/** @type {{owner:typeof transferOwner|typeof eventTransferOwner,eventScoped:boolean,operation:number,error:string}|undefined} */(undefined));
+  const error=$derived(transferFeedback?.owner===currentTransferOwner(transferFeedback?.eventScoped??false)?transferFeedback?.error??'':'');
+  function beginTransfer(eventScoped=false){
+    const owner=currentTransferOwner(eventScoped),operation=++transferSequence;
+    transferFeedback={owner,eventScoped,operation,error:''};
     return (/** @type {unknown} */ cause)=>{
-      if(!disposed&&transferOwner===owner&&transferFeedback?.operation===operation)
-        transferFeedback={owner,operation,error:String(cause)};
+      if(!disposed&&currentTransferOwner(eventScoped)===owner&&transferFeedback?.operation===operation)
+        transferFeedback={owner,eventScoped,operation,error:String(cause)};
     };
   }
   function clearEvents(){
@@ -149,12 +153,12 @@
     try{JSON.parse(eventPreview.text);return 'application/json';}catch{return 'text/plain';}
   });
   function openCompleteEvent(){
-    const fail=beginTransfer();
+    const fail=beginTransfer(true);
     try{fullMessage=streamEventText(selected,binaryEncoding);}catch(cause){fail(cause);}
   }
   async function saveEvent() {
     if (!selected) return;
-    const fail=beginTransfer();
+    const fail=beginTransfer(true);
     try {
       if (["binary", "ping", "pong"].includes(selected.format))
         await download(
@@ -367,7 +371,7 @@
                 aria-label="Copy stream event"
                 title="Copy event"
                 onclick={async () => {
-                  const fail=beginTransfer();
+                  const fail=beginTransfer(true);
                   try {
                     await copyText(streamEventText(selected,binaryEncoding));
                   } catch (e) {
