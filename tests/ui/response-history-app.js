@@ -6,6 +6,8 @@ const data=initialData();
 const legacyIdsOnly=process.env.INSOMNIUM_RESPONSE_LEGACY_IDS_ONLY==='1';
 const charsetOnly=process.env.INSOMNIUM_RESPONSE_CHARSET_ONLY==='1';
 const charsetBytes=Buffer.from([65,0,0,0,66,0,0,0]);
+let charsetRequests=0;
+if(charsetOnly){const request=data.resources.find(resource=>resource._id===data.activeRequestId);if(!request)throw Error('Missing charset request');request.name='Owned Response';}
 const htmlOnly=process.env.INSOMNIUM_RESPONSE_HTML_ONLY==='1';
 const imageOnly=process.env.INSOMNIUM_RESPONSE_IMAGE_ONLY==='1';
 const audioOnly=process.env.INSOMNIUM_RESPONSE_AUDIO_ONLY==='1';
@@ -69,11 +71,16 @@ await withPreview(legacyIdsOnly?'response-legacy-ids':charsetOnly?'response-char
   const editor=page.locator('textarea[aria-label="Response body"]').first();
   await page.waitForFunction(()=>/** @type {HTMLTextAreaElement|null} */(document.querySelector('textarea[aria-label="Response body"]'))?.value==='AB');
   assert.equal(await editor.inputValue(),'AB');
-  const savedEvent=page.waitForEvent('download');await page.getByRole('button',{name:'Save response',exact:true}).click();const saved=await savedEvent;const savedPath=await saved.path();assert.ok(savedPath);assert.deepEqual(Buffer.from(await Bun.file(savedPath).bytes()),charsetBytes);
+  await page.getByRole('textbox',{name:'Request URL',exact:true}).fill(new URL('/owned-charset-response',page.url()).href);
+  const savedEvent=page.waitForEvent('download');
+  await page.getByRole('button',{name:'Request actions',exact:true}).click();
+  await page.getByRole('dialog').getByRole('button',{name:'Send And Download',exact:true}).click();
+  const saved=await savedEvent;assert.equal(saved.suggestedFilename(),'owned-response.txt');assert.equal(charsetRequests,1);
+  const savedPath=await saved.path();assert.ok(savedPath);assert.deepEqual(Buffer.from(await Bun.file(savedPath).bytes()),charsetBytes);
   await page.getByRole('group',{name:'Response formatting',exact:true}).getByRole('button',{name:'Raw',exact:true}).click();
   await page.reload();await page.waitForFunction(()=>/** @type {HTMLTextAreaElement|null} */(document.querySelector('textarea[aria-label="Response body"]'))?.value==='AB');
-  const stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('insomnium-tauri-preview-v1')||'{}').history[0]);assert.equal(stored.body,'A\u0000\u0000\u0000B\u0000\u0000\u0000');assert.equal(stored.bodyBase64,charsetBytes.toString('base64'));assert.deepEqual(errors,[]);
-  await Bun.write(output+'/result.json',JSON.stringify({status:'passed',headless:true,decodedCharset:true,exactSavedBytes:true,reload:true,originalHistoryUnchanged:true},null,2));return;
+  const stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('insomnium-tauri-preview-v1')||'{}').history.find((/** @type {any} */ entry)=>entry._id==='res_owned_history_0'));assert.equal(stored.body,'A\u0000\u0000\u0000B\u0000\u0000\u0000');assert.equal(stored.bodyBase64,charsetBytes.toString('base64'));assert.deepEqual(errors,[]);
+  await Bun.write(output+'/result.json',JSON.stringify({status:'passed',headless:true,decodedCharset:true,exactSavedBytes:true,sendAndDownload:true,wireRequests:charsetRequests,filename:'owned-response.txt',reload:true,originalHistoryUnchanged:true},null,2));return;
  }
  if(multipartOnly){
   const selector=page.getByRole('combobox',{name:'Response part',exact:true});await selector.waitFor();
@@ -233,4 +240,4 @@ await withPreview(legacyIdsOnly?'response-legacy-ids':charsetOnly?'response-char
  await page.reload();await trigger.waitFor();await page.locator('.status-badge').filter({hasText:'200 Owned 200'}).waitFor();
  assert.deepEqual(errors,[]);
  await Bun.write(output+'/result.json',JSON.stringify({status:'passed',headless:true,rows,reload:true},null,2));
-},{...(visualOnly?{headers:{'Content-Security-Policy':'frame-src blob:','Cross-Origin-Opener-Policy':'same-origin','Cross-Origin-Embedder-Policy':'require-corp'}}:{}),beforeNavigate:async page=>{page.on('pageerror',error=>errors.push(error.message));await page.addInitScript(value=>{if(window.top===window&&!localStorage.getItem('insomnium-tauri-preview-v1'))localStorage.setItem('insomnium-tauri-preview-v1',JSON.stringify(value));},data);}});
+},{fetch:request=>charsetOnly&&new URL(request.url).pathname==='/owned-charset-response'?(charsetRequests++,new Response(charsetBytes,{headers:{'Content-Type':'text/plain; charset=utf-32le'}})):undefined,...(visualOnly?{headers:{'Content-Security-Policy':'frame-src blob:','Cross-Origin-Opener-Policy':'same-origin','Cross-Origin-Embedder-Policy':'require-corp'}}:{}),beforeNavigate:async page=>{page.on('pageerror',error=>errors.push(error.message));await page.addInitScript(value=>{if(window.top===window&&!localStorage.getItem('insomnium-tauri-preview-v1'))localStorage.setItem('insomnium-tauri-preview-v1',JSON.stringify(value));},data);}});
