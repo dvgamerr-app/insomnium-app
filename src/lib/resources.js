@@ -1,4 +1,4 @@
-import { descendants, id, workspaceFor } from "./model.js";
+import { descendants, id, indexWorkspaces, workspaceFor } from "./model.js";
 
 /** @typedef {Record<string, any>} Resource */
 export const requestTypes = ["request", "grpc_request", "websocket_request"];
@@ -71,10 +71,12 @@ export function nextSortKey(resources, parentId) {
  * @param {Resource[]} resources */
 export function validateTopology(resources) {
   const byId = new Map(resources.map((r) => [r._id, r]));
+  const workspaces = indexWorkspaces(resources);
+  const checkedParents = new Set();
   for (const resource of resources) {
     const visited = new Set([resource._id]);
     let parent = byId.get(resource.parentId);
-    while (parent) {
+    while (parent && !checkedParents.has(parent._id)) {
       if (visited.has(parent._id))
         throw new Error(
           `Circular parent reference: ${resource.name || resource._id}`,
@@ -82,6 +84,7 @@ export function validateTopology(resources) {
       visited.add(parent._id);
       parent = byId.get(parent.parentId);
     }
+    for (const resourceId of visited) checkedParents.add(resourceId);
     if (
       treeTypes.includes(resource._type) ||
       resource._type === "environment"
@@ -94,7 +97,7 @@ export function validateTopology(resources) {
       if (
         !parent ||
         !allowed.includes(parent._type) ||
-        !workspaceFor(resources, resource._id)
+        !workspaces.get(resource._id)
       ) {
         throw new Error(
           `Invalid or missing parent for ${resource.name || resource._id}. Include its collection and folders in the export.`,
