@@ -75,6 +75,7 @@ export function renderTemplate(text, context, options = {}) {
     const controller = new AbortController();
     if(options.signal)linkPluginRequestSignal(controller.signal,options.signal);
     const seen = new Set();
+    /** @type {Set<Promise<void>>} */ const pendingTags = new Set();
     /** @type {Worker | undefined} */ let worker;
     /** @type {ReturnType<typeof createRenderDeadline> | undefined} */ let deadline;
     /** @type {ReturnType<typeof setTimeout> | undefined} */ let heartbeatTimeout;
@@ -98,8 +99,14 @@ export function renderTemplate(text, context, options = {}) {
       worker?.terminate();
       if(error)controller.abort(error);
       else completePluginRequest(controller);
-      if (error) reject(error);
-      else resolve(value || "");
+      const complete = () => {
+        if (error) reject(error);
+        else resolve(value || "");
+      };
+      // Native handlers may still own IPC or dependent requests after Abort.
+      // Stop the guest immediately, but keep its caller tracked until they end.
+      if (pendingTags.size) void Promise.allSettled([...pendingTags]).then(complete);
+      else complete();
     };
     const abort = () =>
       finish(
@@ -173,7 +180,7 @@ export function renderTemplate(text, context, options = {}) {
             waitingPrompts.add(id);
             if (waitingPrompts.size === 1 && !sharedWaiting) watchHeartbeat();
           }
-          Promise.resolve()
+          const operation = Promise.resolve()
             .then(() => {
               if (settled)
                 throw new DOMException(
@@ -209,11 +216,13 @@ export function renderTemplate(text, context, options = {}) {
               });
             })
             .finally(() => {
+              pendingTags.delete(operation);
               resume?.();
               waitingPrompts.delete(id);
               if (!waitingPrompts.size && !sharedWaiting)
                 clearTimeout(heartbeatTimeout);
             });
+          pendingTags.add(operation);
           return;
         }
         if (
