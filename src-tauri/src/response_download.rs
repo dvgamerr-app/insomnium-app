@@ -1,6 +1,6 @@
 //! Locally selected download directories are authority, not imported metadata.
 use base64::{engine::general_purpose::STANDARD, Engine};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     fs,
@@ -18,9 +18,136 @@ impl Default for DownloadState {
     }
 }
 
-fn destinations(root: &Path) -> Result<BTreeMap<String, PathBuf>, String> {
+#[derive(Serialize, Deserialize, PartialEq, Eq)]
+struct DirectoryIdentity {
+    volume: u64,
+    file: u64,
+    birth: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(untagged)]
+enum Destination {
+    Bound {
+        directory: PathBuf,
+        identity: DirectoryIdentity,
+    },
+    Legacy(PathBuf),
+}
+impl Destination {
+    fn path(&self) -> &Path {
+        match self {
+            Self::Bound { directory, .. } | Self::Legacy(directory) => directory,
+        }
+    }
+}
+
+#[cfg(windows)]
+fn open_directory(path: &Path) -> Result<(fs::File, DirectoryIdentity), String> {
+    use std::os::windows::{fs::OpenOptionsExt, io::AsRawHandle};
+    use windows::Win32::{
+        Foundation::HANDLE,
+        Storage::FileSystem::{
+            GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION, FILE_FLAG_BACKUP_SEMANTICS,
+            FILE_READ_ATTRIBUTES, FILE_SHARE_READ, FILE_SHARE_WRITE,
+        },
+    };
+    let file = fs::OpenOptions::new()
+        .access_mode(FILE_READ_ATTRIBUTES.0)
+        .share_mode(FILE_SHARE_READ.0 | FILE_SHARE_WRITE.0)
+        .custom_flags(FILE_FLAG_BACKUP_SEMANTICS.0)
+        .open(path)
+        .map_err(|e| e.to_string())?;
+    if !file.metadata().map_err(|e| e.to_string())?.is_dir() {
+        return Err("Download destination is not a directory".into());
+    }
+    let mut info = BY_HANDLE_FILE_INFORMATION::default();
+    // File owns this borrowed handle; keep it alive through the accepted write.
+    unsafe { GetFileInformationByHandle(HANDLE(file.as_raw_handle()), &mut info) }
+        .map_err(|e| e.to_string())?;
+    Ok((
+        file,
+        DirectoryIdentity {
+            volume: u64::from(info.dwVolumeSerialNumber),
+            file: (u64::from(info.nFileIndexHigh) << 32) | u64::from(info.nFileIndexLow),
+            birth: Some(format!(
+                "{}:{}",
+                info.ftCreationTime.dwHighDateTime, info.ftCreationTime.dwLowDateTime
+            )),
+        },
+    ))
+}
+
+#[cfg(unix)]
+fn open_directory(path: &Path) -> Result<(fs::File, DirectoryIdentity), String> {
+    let file = fs::File::open(path).map_err(|e| e.to_string())?;
+    let identity = unix_directory_identity(&file)?;
+    Ok((file, identity))
+}
+
+#[cfg(unix)]
+fn unix_directory_identity(file: &fs::File) -> Result<DirectoryIdentity, String> {
+    use std::os::unix::fs::MetadataExt;
+    let info = file.metadata().map_err(|e| e.to_string())?;
+    if !info.is_dir() {
+        return Err("Download destination is not a directory".into());
+    }
+    let birth = info
+        .created()
+        .ok()
+        .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|time| format!("{}:{}", time.as_secs(), time.subsec_nanos()));
+    Ok(DirectoryIdentity {
+        volume: info.dev(),
+        file: info.ino(),
+        birth,
+    })
+}
+
+fn write_download(path: &Path, bytes: &[u8], expected: &DirectoryIdentity) -> Result<(), String> {
+    use std::io::Write;
+    let mut file = atomic_write_file::AtomicWriteFile::open(path).map_err(|e| e.to_string())?;
+    let prepared = (|| -> Result<(), String> {
+        #[cfg(unix)]
+        {
+            use std::os::fd::AsFd;
+            // Verify the writer's actual directory, not another path lookup.
+            // The atomic writer retains this FD for its later renameat commit.
+            let directory = file
+                .directory()
+                .ok_or("Atomic download directory is unavailable")?;
+            let owned = directory
+                .as_fd()
+                .try_clone_to_owned()
+                .map_err(|e| e.to_string())?;
+            let directory_file = fs::File::from(owned);
+            if unix_directory_identity(&directory_file)? != *expected {
+                return Err("Download directory changed before writing; choose it again".into());
+            }
+        }
+        #[cfg(not(unix))]
+        let _ = expected;
+        file.write_all(bytes).map_err(|e| e.to_string())
+    })();
+    if let Err(error) = prepared {
+        return match file.discard() {
+            Ok(()) => Err(error),
+            Err(cleanup) => Err(format!(
+                "{error}; temporary download cleanup failed: {cleanup}"
+            )),
+        };
+    }
+    file.commit().map_err(|e| e.to_string())
+}
+
+#[cfg(not(any(windows, unix)))]
+fn open_directory(_path: &Path) -> Result<(fs::File, DirectoryIdentity), String> {
+    Err("Download directory identity is unavailable on this platform".into())
+}
+
+fn destinations(root: &Path) -> Result<BTreeMap<String, Destination>, String> {
     let config = root.join("response-downloads-v1.json");
-    let values: BTreeMap<String, PathBuf> = match fs::metadata(&config) {
+    let values: BTreeMap<String, Destination> = match fs::metadata(&config) {
         Ok(info) if info.len() <= 2 * 1024 * 1024 => {
             serde_json::from_slice(&fs::read(&config).map_err(|e| e.to_string())?)
                 .map_err(|e| e.to_string())?
@@ -176,7 +303,7 @@ pub async fn response_download(
             match operation.as_str() {
                 "get" => Ok(destinations
                     .get(&key)
-                    .map(|p| p.to_string_lossy().into_owned())),
+                    .map(|p| p.path().to_string_lossy().into_owned())),
                 "choose" | "clear" => {
                     if let Some(directory) = directory {
                         let directory = directory.canonicalize().map_err(|e| e.to_string())?;
@@ -186,7 +313,14 @@ pub async fn response_download(
                         if !destinations.contains_key(&key) && destinations.len() == 4096 {
                             return Err("Too many download destinations".into());
                         }
-                        destinations.insert(key.clone(), directory);
+                        let (_handle, identity) = open_directory(&directory)?;
+                        destinations.insert(
+                            key.clone(),
+                            Destination::Bound {
+                                directory,
+                                identity,
+                            },
+                        );
                     } else {
                         destinations.remove(&key);
                     }
@@ -201,16 +335,29 @@ pub async fn response_download(
                     crate::storage::atomic_write(&config, &bytes)?;
                     Ok(destinations
                         .get(&key)
-                        .map(|p| p.to_string_lossy().into_owned()))
+                        .map(|p| p.path().to_string_lossy().into_owned()))
                 }
                 "write" => {
-                    let directory = destinations
+                    let destination = destinations
                         .get(&key)
                         .ok_or("Choose a download directory first")?;
+                    let Destination::Bound {
+                        directory,
+                        identity,
+                    } = destination
+                    else {
+                        return Err(
+                            "Download directory identity is missing; choose it again".into()
+                        );
+                    };
                     if !directory.is_absolute()
                         || directory.canonicalize().map_err(|e| e.to_string())? != *directory
                     {
                         return Err("Download directory changed; choose it again".into());
+                    }
+                    let (_directory_handle, current_identity) = open_directory(directory)?;
+                    if current_identity != *identity {
+                        return Err("Download directory was replaced; choose it again".into());
                     }
                     let name = name.ok_or("Missing download filename")?;
                     if !filename(&name) {
@@ -228,7 +375,7 @@ pub async fn response_download(
                         return Err("Response download cancelled".into());
                     }
                     let path = directory.join(name);
-                    crate::storage::atomic_write(&path, &bytes)?;
+                    write_download(&path, &bytes, identity)?;
                     Ok(Some(path.to_string_lossy().into_owned()))
                 }
                 _ => unreachable!(),
