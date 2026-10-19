@@ -34,19 +34,28 @@ fn read_text(path: &str) -> Result<String, String> {
 #[tauri::command]
 pub async fn read_template_file(
     window: tauri::WebviewWindow,
+    network: tauri::State<'_, crate::http::NetworkState>,
     path: String,
 ) -> Result<String, String> {
     if window.label() != "main" {
         return Err("Template file reads are only available in the main window".into());
     }
-    tauri::async_runtime::spawn_blocking(move || read_text(&path))
-        .await
-        .map_err(|e| e.to_string())?
+    let work = network.retain_native_work(format!("template-file:{}", uuid::Uuid::new_v4()))?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
+        if _work.cancelled() {
+            return Err("Template file read cancelled.".into());
+        }
+        read_text(&path)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
 pub async fn read_template_os(
     window: tauri::WebviewWindow,
+    network: tauri::State<'_, crate::http::NetworkState>,
     function: String,
 ) -> Result<serde_json::Value, String> {
     if window.label() != "main" {
@@ -55,7 +64,14 @@ pub async fn read_template_os(
     if function.len() > 16 {
         return Err("Unknown OS template function".into());
     }
-    tauri::async_runtime::spawn_blocking(move || crate::template_os::read_os(&function))
-        .await
-        .map_err(|e| e.to_string())?
+    let work = network.retain_native_work(format!("template-os:{}", uuid::Uuid::new_v4()))?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
+        if _work.cancelled() {
+            return Err("OS template read cancelled.".into());
+        }
+        crate::template_os::read_os(&function)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
