@@ -2,9 +2,9 @@ import {stringify} from 'yaml';
 import {descendants,workspaceFor} from './model.js';
 const requestTypes=['request','grpc_request','websocket_request'];
 const extras=['cookie_jar','environment','api_spec','unit_test_suite','unit_test','proto_file','proto_directory','websocket_payload'];
-/** Legacy plugin export returns text; it never opens a file dialog or mutates data.
+/** Validate options and select legacy export documents without mutating data.
  * @param {{resources:Record<string,any>[]}} data @param {any[]} args */
-export function exportPluginInsomnia(data,args){
+export function pluginInsomniaExportSelection(data,args){
   if(args.length>1)throw Error('Invalid plugin export arguments');
   const options=args[0]===undefined?{}:args[0];
   if(!options||typeof options!=='object'||Array.isArray(options))throw Error('Invalid plugin export options');
@@ -29,6 +29,12 @@ export function exportPluginInsomnia(data,args){
     const ids=descendants(resources,workspaceId);
     resources.filter(r=>ids.has(r._id)&&extras.includes(r._type)).forEach(add);
   }
+  return {format,includePrivate,docs,usedWorkspaces};
+}
+/** Serialize the same validated selection used by native cookie projection.
+ * @param {{resources:Record<string,any>[]}} data @param {any[]} args */
+export function exportPluginInsomnia(data,args){
+  const {format,includePrivate,docs}=pluginInsomniaExportSelection(data,args);
   const exported=docs.filter(r=>(requestTypes.includes(r._type)||['workspace','request_group',...extras].includes(r._type))&&(!r.isPrivate||includePrivate)).map(resource=>{
     const copy=structuredClone(resource);delete copy.type;
     if(copy._type==='workspace')copy.parentId=null;

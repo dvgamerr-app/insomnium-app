@@ -28,6 +28,7 @@ export function pluginHelperRenderPath(ancestors, plugin) {
  * send:(request:Record<string,any>,extra:any,signal:AbortSignal,path:string[])=>Promise<any>,
  * cookieJar:(workspace:Record<string,any>,signal:AbortSignal)=>Promise<any>,
  * exportHar?:(options:Record<string,any>,signal:AbortSignal,path:string[])=>Promise<string>,
+ * exportInsomnia?:(args:any[],signal:AbortSignal)=>Promise<string>,
  * importUri?:(uri:string,signal:AbortSignal)=>Promise<void>,
  * importRaw?:(content:string,signal:AbortSignal)=>Promise<void>,
  * app?:(operation:{method:string,args:any[]})=>Promise<any>}} options */
@@ -74,7 +75,9 @@ export function createPluginHelperDispatcher(options) {
       if(!options.importRaw)throw Error("Plugin import is unavailable in this operation");
       await options.importRaw(args[0],options.signal);
     } else if(method === "data.export.insomnia") {
-      result=exportPluginInsomnia(options.getData(),args);
+      result=options.exportInsomnia
+        ?await options.exportInsomnia(args,options.signal)
+        :exportPluginInsomnia(options.getData(),args);
     } else if (method === "models.response.readBodyChunk") {
       result = responses.chunk(args);
     } else if (method.startsWith("app.")) {

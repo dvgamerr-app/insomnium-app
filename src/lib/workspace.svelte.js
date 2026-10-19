@@ -3,7 +3,7 @@ import { globalProxySettings } from "./request-proxy.js";
 import {requestHttpVersion} from "./request-http-version.js";
 import {readTextFile,stat} from '@tauri-apps/plugin-fs';
 import {readPluginImportUri} from './plugin-import-uri.js';
-import {exportPluginInsomnia} from './plugin-data-export.js';
+import {exportPluginInsomnia,pluginInsomniaExportSelection} from './plugin-data-export.js';
 import {pluginHarEntry,harEnvironmentId,latestHarResponse} from './plugin-har-export.js';
 import {parseImport} from './import-export.js';
 import {applyImportedData} from './import-history-review.js';
@@ -2783,6 +2783,28 @@ function workspacePluginServices(data, owner, resolveResponse, chain = [owner.re
         });
       check(signal);
       return response;
+    },
+    exportInsomnia:async(args,signal)=>{
+      check(signal);
+      // Validate the original options before any native read. Browser/preview
+      // callers retain the existing detached-resource export behavior.
+      const selection=pluginInsomniaExportSelection({resources:data.resources},args);
+      if(!isTauri())return exportPluginInsomnia({resources:data.resources},args);
+      const resources=structuredClone(data.resources);
+      const collections=resources.filter(item=>item._type==='workspace'&&
+        selection.usedWorkspaces.has(item._id));
+      for(const collection of collections){
+        check(signal);
+        const cookies=await invoke('snapshot_request_cookies',{workspaceId:collection._id,includeExpired:true});
+        check(signal);
+        const jarId=await pluginCookieJarId(collection._id);
+        check(signal);
+        const jar=pluginCookieJarView(resources,collection._id,jarId,pluginJarCookies(cookies));
+        const index=resources.findIndex(item=>item._id===jar._id);
+        if(index<0)resources.push(jar);else resources[index]=jar;
+      }
+      check(signal);
+      return exportPluginInsomnia({resources},args);
     },
     exportHar:async(options,signal,path)=>{
       check(signal);

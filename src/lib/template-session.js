@@ -27,6 +27,7 @@ export function capturePluginRenderOptions(options) {
   const services = options.pluginServices
     ? Object.freeze({
         ...(options.pluginServices.exportHar?{exportHar:options.pluginServices.exportHar}:{}),
+        ...(options.pluginServices.exportInsomnia?{exportInsomnia:options.pluginServices.exportInsomnia}:{}),
         ...(options.pluginServices.importUri?{importUri:options.pluginServices.importUri}:{}),
         ...(options.pluginServices.importRaw?{importRaw:options.pluginServices.importRaw}:{}),
         getData: options.pluginServices.getData,
@@ -67,6 +68,7 @@ export function capturePluginRenderOptions(options) {
  * pluginExtraInfo?:{name:string,value:any}[],
  * pluginServices?:{isCurrent?:()=>boolean,getData:()=>{resources:Record<string,any>[],history?:Record<string,any>[],settings?:Record<string,any>},
  * exportHar?:(options:Record<string,any>,signal:AbortSignal,path:string[])=>Promise<string>,
+ * exportInsomnia?:(args:any[],signal:AbortSignal)=>Promise<string>,
  * importUri?:(uri:string,signal:AbortSignal)=>Promise<void>,
  * importRaw?:(content:string,signal:AbortSignal)=>Promise<void>,
  * send:(request:Record<string,any>,extra:any,signal:AbortSignal,path:string[])=>Promise<any>,
@@ -141,7 +143,7 @@ export function createRequestRenderSession(context, options, capturedPlugins) {
               purpose,signal:options.signal,current:()=>current()&&services.isCurrent?.()===true,
               synchronous:(signal,current)=>createPluginNativeAppEndpoint({signal,current}),
               helpers:(signal,current,uiInteraction)=>createPluginHelperDispatcher({
-                plugin,ancestors:pluginPath,signal,isCurrent:current,getData:()=>services.getData(),importRaw:purpose==='send'?services.importRaw:undefined,importUri:purpose==='send'?services.importUri:undefined,exportHar:purpose==='send'?services.exportHar:undefined,
+                plugin,ancestors:pluginPath,signal,isCurrent:current,getData:()=>services.getData(),importRaw:purpose==='send'?services.importRaw:undefined,importUri:purpose==='send'?services.importUri:undefined,exportHar:purpose==='send'?services.exportHar:undefined,exportInsomnia:purpose==='send'?services.exportInsomnia:undefined,
                 send:(request,extra,nestedSignal,nestedPath)=>networkAllowed?services.send(request,extra,nestedSignal,nestedPath):Promise.reject(Error("Document actions do not have network helpers")),
                 cookieJar:(workspace,signal)=>services.cookieJar(workspace,signal),
                 render:async(text,nestedSignal,nestedPath)=>{
@@ -236,7 +238,7 @@ export function createRequestRenderSession(context, options, capturedPlugins) {
                     ancestors: pluginPath,
                     signal: childSignal,
                     isCurrent,
-                    getData: () => services.getData(),importRaw:purpose==='send'?services.importRaw:undefined,importUri:purpose==='send'?services.importUri:undefined,exportHar:purpose==='send'?services.exportHar:undefined,
+                    getData: () => services.getData(),importRaw:purpose==='send'?services.importRaw:undefined,importUri:purpose==='send'?services.importUri:undefined,exportHar:purpose==='send'?services.exportHar:undefined,exportInsomnia:purpose==='send'?services.exportInsomnia:undefined,
                     render: (text, nestedSignal, nestedPath) =>
                       run(
                         text,
@@ -407,7 +409,7 @@ export function createRequestRenderSession(context, options, capturedPlugins) {
           if(!current())throw new DOMException('Plugin request owner changed','AbortError');
           const helperCall=services?createPluginHelperDispatcher({
             plugin:hook.plugin,ancestors:rootPluginPath,signal:controller.signal,isCurrent:current,
-            getData:()=>services.getData(),importRaw:purpose==='send'?services.importRaw:undefined,importUri:purpose==='send'?services.importUri:undefined,exportHar:purpose==='send'?services.exportHar:undefined,
+            getData:()=>services.getData(),importRaw:purpose==='send'?services.importRaw:undefined,importUri:purpose==='send'?services.importUri:undefined,exportHar:purpose==='send'?services.exportHar:undefined,exportInsomnia:purpose==='send'?services.exportInsomnia:undefined,
             render:(text,signal,path)=>run(text,signal,[],{count:0},state.environment,path),
             send:(request,extra,signal,path)=>services.send(request,extra,signal,path),
             cookieJar:(workspace,signal)=>services.cookieJar(workspace,signal),
@@ -451,7 +453,7 @@ export function createRequestRenderSession(context, options, capturedPlugins) {
           const current=()=>!controller.signal.aborted&&plugins.isCurrent()&&hook.isCurrent()&&(!services||services.isCurrent?.()===true);
           if(!current())throw new DOMException('Plugin response owner changed','AbortError');
           const helperCall=services?createPluginHelperDispatcher({
-            plugin:hook.plugin,ancestors:rootPluginPath,signal:controller.signal,isCurrent:current,getData:()=>services.getData(),importRaw:purpose==='send'?services.importRaw:undefined,importUri:purpose==='send'?services.importUri:undefined,exportHar:purpose==='send'?services.exportHar:undefined,
+            plugin:hook.plugin,ancestors:rootPluginPath,signal:controller.signal,isCurrent:current,getData:()=>services.getData(),importRaw:purpose==='send'?services.importRaw:undefined,importUri:purpose==='send'?services.importUri:undefined,exportHar:purpose==='send'?services.exportHar:undefined,exportInsomnia:purpose==='send'?services.exportInsomnia:undefined,
             render:(text,signal,path)=>run(text,signal,[],{count:0},environment,path),
             send:(request,extra,signal,path)=>services.send(request,extra,signal,path),
             cookieJar:(workspace,signal)=>services.cookieJar(workspace,signal),
@@ -485,7 +487,7 @@ export function createRequestRenderSession(context, options, capturedPlugins) {
         const current=()=>!controller.signal.aborted&&action.isCurrent()&&(!services||services.isCurrent?.()===true);
         if(!current())throw new DOMException('Plugin action owner changed','AbortError');
         const helperCall=services?createPluginHelperDispatcher({
-          plugin:action.plugin,ancestors:rootPluginPath,signal:controller.signal,isCurrent:current,getData:()=>services.getData(),importRaw:purpose==='send'?services.importRaw:undefined,importUri:purpose==='send'?services.importUri:undefined,exportHar:purpose==='send'?services.exportHar:undefined,
+          plugin:action.plugin,ancestors:rootPluginPath,signal:controller.signal,isCurrent:current,getData:()=>services.getData(),importRaw:purpose==='send'?services.importRaw:undefined,importUri:purpose==='send'?services.importUri:undefined,exportHar:purpose==='send'?services.exportHar:undefined,exportInsomnia:purpose==='send'?services.exportInsomnia:undefined,
           render:(text,signal,path)=>run(text,signal,[],{count:0},environment,path),
           send:(request,extra,signal,path)=>services.send(request,extra,signal,path),
           cookieJar:(workspace,signal)=>services.cookieJar(workspace,signal),
