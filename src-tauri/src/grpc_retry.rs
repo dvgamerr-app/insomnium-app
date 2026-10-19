@@ -15,6 +15,9 @@ use tonic::{
 
 #[path = "grpc_retry_throttle.rs"]
 mod throttle;
+pub(super) fn normalize_throttle_number(value: f64) -> f64 {
+    throttle::thousandths(value)
+}
 use throttle::Throttle;
 
 #[path = "grpc_hedging.rs"]

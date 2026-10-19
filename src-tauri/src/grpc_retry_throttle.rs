@@ -15,7 +15,7 @@ static TARGETS: OnceLock<Mutex<HashMap<String, Bucket>>> = OnceLock::new();
 
 // Number(toFixed(3)) for positive finite values. Scale the exact binary
 // significand before rounding, avoiding a second binary64 rounding at *1000.
-fn thousandths(value: f64) -> f64 {
+pub(super) fn thousandths(value: f64) -> f64 {
     if value >= (1_u64 << 43) as f64 {
         return value;
     }

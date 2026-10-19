@@ -745,6 +745,138 @@ fn validate_config(value: &Value) -> Result<(), String> {
     }
     Ok(())
 }
+fn retained(value: &Value, fields: &[&str]) -> Map {
+    Map::new(
+        fields
+            .iter()
+            .filter_map(|key| value.get(key).map(|value| ((*key).into(), value.clone())))
+            .collect(),
+    )
+}
+
+// Run only after validation. Like validateServiceConfig, construct a new
+// contract object instead of exposing unknown input fields to consumers.
+fn normalized(value: &Value) -> Value {
+    let methods = value
+        .get("methodConfig")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .map(|method| {
+            let names = method
+                .get("name")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .map(|name| {
+                    let fields = if name.get("service").is_some_and(|service| service != "") {
+                        if name.get("method").is_some_and(|method| method != "") {
+                            &["service", "method"][..]
+                        } else {
+                            &["service"][..]
+                        }
+                    } else {
+                        &[][..]
+                    };
+                    Value::Object(retained(name, fields))
+                })
+                .collect();
+            let mut fields = vec![("name".into(), Value::Array(names))];
+            for key in [
+                "waitForReady",
+                "timeout",
+                "maxRequestBytes",
+                "maxResponseBytes",
+                "retryPolicy",
+                "hedgingPolicy",
+            ] {
+                let Some(value) = method.get(key) else {
+                    continue;
+                };
+                let value = match key {
+                    "timeout" => deadline::normalize(value),
+                    "retryPolicy" => Value::Object(retained(
+                        value,
+                        &[
+                            "maxAttempts",
+                            "initialBackoff",
+                            "maxBackoff",
+                            "backoffMultiplier",
+                            "retryableStatusCodes",
+                        ],
+                    )),
+                    "hedgingPolicy" => {
+                        let mut fields = vec![("maxAttempts".into(), value["maxAttempts"].clone())];
+                        for key in ["hedgingDelay", "nonFatalStatusCodes"] {
+                            if let Some(value) = value.get(key) {
+                                let truthy = match value {
+                                    Value::Null => false,
+                                    Value::Bool(value) => *value,
+                                    Value::Number(value) => *value != 0.0 && !value.is_nan(),
+                                    Value::String(_) => value != "",
+                                    _ => true,
+                                };
+                                if truthy {
+                                    fields.push((key.into(), value.clone()));
+                                }
+                            }
+                        }
+                        Value::Object(Map::new(fields))
+                    }
+                    _ => value.clone(),
+                };
+                fields.push((key.into(), value));
+            }
+            Value::Object(Map::new(fields))
+        })
+        .collect();
+    let mut fields = vec![
+        (
+            "loadBalancingConfig".into(),
+            Value::Array(
+                value
+                    .get("loadBalancingConfig")
+                    .and_then(Value::as_array)
+                    .into_iter()
+                    .flatten()
+                    .map(|config| {
+                        // Object.keys([payload]) is ["0"], and the pinned
+                        // validator returns an object with that policy key.
+                        if let Some(entries) = config.as_array() {
+                            Value::singleton("0", entries[0].clone())
+                        } else {
+                            config.clone()
+                        }
+                    })
+                    .collect(),
+            ),
+        ),
+        ("methodConfig".into(), Value::Array(methods)),
+    ];
+    if let Some(policy) = value.get("loadBalancingPolicy") {
+        fields.push(("loadBalancingPolicy".into(), policy.clone()));
+    }
+    if let Some(throttle) = value.get("retryThrottling") {
+        fields.push((
+            "retryThrottling".into(),
+            Value::Object(Map::new(
+                ["maxTokens", "tokenRatio"]
+                    .into_iter()
+                    .map(|key| {
+                        (
+                            key.into(),
+                            Value::Number(super::retry::normalize_throttle_number(
+                                throttle[key].as_f64().expect("validated throttling"),
+                            )),
+                        )
+                    })
+                    .collect(),
+            )),
+        ));
+    }
+    Value::Object(Map::new(fields))
+}
+
 fn select(text: &str, percentage: f64) -> Result<Value, String> {
     let choices: Value = Value::parse(text, 0).map_err(|_| invalid())?;
     for choice in choices.as_array().ok_or_else(invalid)? {
@@ -801,7 +933,7 @@ fn select(text: &str, percentage: f64) -> Result<Value, String> {
         {
             continue;
         }
-        return Ok(config.clone());
+        return Ok(normalized(config));
     }
     Err("No matching gRPC DNS service configuration.".into())
 }

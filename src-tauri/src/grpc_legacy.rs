@@ -388,7 +388,7 @@ impl JsonObject {
     pub(crate) fn keys(&self) -> impl Iterator<Item = &JsString> {
         self.entries.iter().map(|(key, _)| key)
     }
-    fn new(mut entries: Vec<(JsString, Json)>) -> Self {
+    pub(crate) fn new(mut entries: Vec<(JsString, Json)>) -> Self {
         // JSON.parse keeps a property's original position on duplicate writes.
         // Object.keys then enumerates array indices first, numerically.
         entries.sort_by(|(left, _), (right, _)| {

@@ -27,6 +27,19 @@ fn components(value: &Value) -> Option<(f64, f64)> {
     ))
 }
 
+pub(super) fn normalize(value: &Value) -> Value {
+    if value.is_string() {
+        let (seconds, nanos) = components(value).expect("validated service-config timeout");
+        Value::Object(crate::grpc_legacy::JsonObject::new(vec![
+            ("seconds".into(), Value::Number(seconds)),
+            ("nanos".into(), Value::Number(nanos)),
+        ]))
+    } else {
+        // The pinned validator preserves object-form timeouts verbatim.
+        value.clone()
+    }
+}
+
 fn calendar_error() -> String {
     "gRPC service-config timeout exceeds the supported local calendar range.".into()
 }
