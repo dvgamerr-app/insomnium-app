@@ -5,8 +5,12 @@ use reqwest::{
     Client, Method, Url,
 };
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, sync::Mutex, time::Instant};
-use tokio::sync::watch;
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+    time::Instant,
+};
+use tokio::sync::{watch, Notify};
 #[path = "http_compression.rs"]
 pub(crate) mod compression;
 #[path = "multipart_encoding.rs"]
@@ -18,11 +22,13 @@ pub(crate) mod versions;
 
 #[derive(Default)]
 pub struct NetworkState {
-    running: Mutex<NetworkCalls>,
+    running: Arc<Mutex<NetworkCalls>>,
+    settled: Arc<Notify>,
 }
 #[derive(Default)]
 struct NetworkCalls {
     closing: bool,
+    exit_waiting: bool,
     calls: HashMap<String, watch::Sender<bool>>,
 }
 impl NetworkState {
@@ -56,8 +62,42 @@ impl NetworkState {
             .map_err(|e| e.to_string())?
             .calls
             .remove(id);
+        self.settled.notify_waiters();
         Ok(())
     }
+    /// Delay normal application exit while command cleanup still owns registrations.
+    pub(crate) fn defer_exit(&self, app: tauri::AppHandle, code: i32) -> bool {
+        self.close();
+        let mut calls = self.running.lock().unwrap_or_else(|e| e.into_inner());
+        if calls.calls.is_empty() {
+            return false;
+        }
+        if calls.exit_waiting {
+            return true;
+        }
+        calls.exit_waiting = true;
+        drop(calls);
+        let running = self.running.clone();
+        let settled = self.settled.clone();
+        tauri::async_runtime::spawn(async move {
+            loop {
+                // Register before checking the predicate; finish may race either.
+                let notified = settled.notified();
+                if running
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .calls
+                    .is_empty()
+                {
+                    break;
+                }
+                notified.await;
+            }
+            app.exit(code);
+        });
+        true
+    }
+
     pub(crate) fn close(&self) {
         let mut running = self.running.lock().unwrap_or_else(|e| e.into_inner());
         running.closing = true;

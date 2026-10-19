@@ -224,6 +224,18 @@ pub fn run() {
                     }
                 }
             }
+            if let tauri::RunEvent::ExitRequested { code, api, .. } = &event {
+                // Keep the event loop available to native window builders/cleanup.
+                // Tauri does not honor prevent_exit for its restart sentinel.
+                if *code != Some(tauri::RESTART_EXIT_CODE) {
+                    if let Some(state) = app.try_state::<http::NetworkState>() {
+                        if state.defer_exit(app.clone(), code.unwrap_or(0)) {
+                            api.prevent_exit();
+                            return;
+                        }
+                    }
+                }
+            }
             if matches!(&event, tauri::RunEvent::Exit) {
                 if let Some(state) = app.try_state::<git_remote_job::RemoteJobState>() {
                     state.drain();
