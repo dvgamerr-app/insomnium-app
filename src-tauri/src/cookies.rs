@@ -1,3 +1,4 @@
+use crate::http::{NativeWorkLease, NetworkState};
 use cookie_store::{CookieDomain, CookieStore};
 use reqwest::{header::HeaderValue, Url};
 use serde::{Deserialize, Serialize};
@@ -11,6 +12,13 @@ use tauri::Manager;
 
 #[derive(Default)]
 pub struct CookieState(Arc<Mutex<HashMap<String, Arc<PersistentJar>>>>);
+
+fn cookie_work(network: &NetworkState) -> Result<Arc<NativeWorkLease>, String> {
+    Ok(Arc::new(network.retain_native_work(format!(
+        "cookie-command:{}",
+        uuid::Uuid::new_v4()
+    ))?))
+}
 
 pub struct PersistentJar {
     path: PathBuf,
@@ -69,17 +77,27 @@ impl JarFlush {
 }
 
 impl CookieState {
-    pub async fn jar(
+    async fn jar(
         &self,
         app: &tauri::AppHandle,
         workspace_id: String,
+        work: Arc<NativeWorkLease>,
     ) -> Result<Arc<PersistentJar>, String> {
-        self.start_jar(app, workspace_id)?
+        self.start_jar_owned(app, workspace_id, Some(work))?
             .await
             .map_err(|e| e.to_string())?
     }
 
     fn start_jar(&self, app: &tauri::AppHandle, workspace_id: String) -> Result<JarTask, String> {
+        self.start_jar_owned(app, workspace_id, None)
+    }
+
+    fn start_jar_owned(
+        &self,
+        app: &tauri::AppHandle,
+        workspace_id: String,
+        work: Option<Arc<NativeWorkLease>>,
+    ) -> Result<JarTask, String> {
         if workspace_id.is_empty()
             || workspace_id.len() > 200
             || !workspace_id
@@ -96,7 +114,13 @@ impl CookieState {
             .join(format!("{workspace_id}.json"));
         let jars = self.0.clone();
         Ok(tauri::async_runtime::spawn_blocking(move || {
+            // IPC commands retain their exit lease in the actual blocking
+            // reader, independently of the command future awaiting its handle.
+            let _work = work;
             let mut jars = jars.lock().map_err(|e| e.to_string())?;
+            if _work.as_ref().is_some_and(|work| work.cancelled()) {
+                return Err("Cookie operation cancelled.".into());
+            }
             if let Some(jar) = jars.get(&workspace_id) {
                 return Ok(jar.clone());
             }
@@ -275,13 +299,15 @@ pub async fn snapshot_request_cookies(
     app: tauri::AppHandle,
     window: tauri::WebviewWindow,
     state: tauri::State<'_, CookieState>,
+    network: tauri::State<'_, NetworkState>,
     workspace_id: String,
     include_expired: Option<bool>,
 ) -> Result<CookieSnapshot, String> {
     if window.label() != "main" {
         return Err("Request cookies are only available in the main window".into());
     }
-    let jar = state.jar(&app, workspace_id).await?;
+    let work = cookie_work(&network)?;
+    let jar = state.jar(&app, workspace_id, work.clone()).await?;
     let data = jar.inner.lock().map_err(|e| e.to_string())?;
     let snapshot = CookieSnapshot {
         generation: data.generation,
@@ -531,6 +557,7 @@ fn parse_legacy_cookie(
 pub async fn import_legacy_cookies(
     app: tauri::AppHandle,
     state: tauri::State<'_, CookieState>,
+    network: tauri::State<'_, NetworkState>,
     workspace_id: String,
     cookies: Vec<LegacyCookie>,
     overwrite: bool,
@@ -541,9 +568,13 @@ pub async fn import_legacy_cookies(
     {
         return Err("Cookie import exceeds 10,000 entries or 8 MiB".into());
     }
-    let jar = state.jar(&app, workspace_id).await?;
+    let work = cookie_work(&network)?;
+    let jar = state.jar(&app, workspace_id, work.clone()).await?;
     tauri::async_runtime::spawn_blocking(move || {
         let mut data = jar.inner.lock().map_err(|e| e.to_string())?;
+        if work.cancelled() {
+            return Err("Cookie operation cancelled.".into());
+        }
         let mut store = data.store.clone();
         let mut report = CookieImportReport::default();
         for (index, entry) in cookies.iter().enumerate() {
@@ -577,6 +608,9 @@ pub async fn import_legacy_cookies(
             }
         }
         if !preview && report.imported > 0 {
+            if work.cancelled() {
+                return Err("Cookie operation cancelled.".into());
+            }
             // Apply the complete accepted batch in one atomic write, then update the live jar.
             jar.save(&mut data, &store)?;
             data.store = store;
@@ -592,9 +626,11 @@ pub async fn import_legacy_cookies(
 pub async fn list_cookies(
     app: tauri::AppHandle,
     state: tauri::State<'_, CookieState>,
+    network: tauri::State<'_, NetworkState>,
     workspace_id: String,
 ) -> Result<Vec<CookieView>, String> {
-    let jar = state.jar(&app, workspace_id).await?;
+    let work = cookie_work(&network)?;
+    let jar = state.jar(&app, workspace_id, work.clone()).await?;
     let data = jar.inner.lock().map_err(|e| e.to_string())?;
     Ok(data
         .store
@@ -624,15 +660,20 @@ pub async fn list_cookies(
 pub async fn change_cookie(
     app: tauri::AppHandle,
     state: tauri::State<'_, CookieState>,
+    network: tauri::State<'_, NetworkState>,
     workspace_id: String,
     url: Option<String>,
     raw: Option<String>,
     previous: Option<CookieKey>,
     clear: bool,
 ) -> Result<(), String> {
-    let jar = state.jar(&app, workspace_id).await?;
+    let work = cookie_work(&network)?;
+    let jar = state.jar(&app, workspace_id, work.clone()).await?;
     tauri::async_runtime::spawn_blocking(move || {
         let mut data = jar.inner.lock().map_err(|e| e.to_string())?;
+        if work.cancelled() {
+            return Err("Cookie operation cancelled.".into());
+        }
         let mut store = data.store.clone();
         if clear {
             store.clear();
@@ -655,6 +696,9 @@ pub async fn change_cookie(
                 .map_err(|e| format!("Invalid cookie: {e}"))?;
         }
         // Commit disk first so a failed edit leaves the live jar unchanged.
+        if work.cancelled() {
+            return Err("Cookie operation cancelled.".into());
+        }
         jar.save(&mut data, &store)?;
         data.store = store;
         data.generation = data.generation.wrapping_add(1);
@@ -669,6 +713,7 @@ pub async fn read_template_cookie(
     app: tauri::AppHandle,
     window: tauri::WebviewWindow,
     state: tauri::State<'_, CookieState>,
+    network: tauri::State<'_, NetworkState>,
     workspace_id: String,
     url: String,
     name: String,
@@ -684,7 +729,8 @@ pub async fn read_template_cookie(
     if !matches!(url.scheme(), "http" | "https") {
         return Err("Cookie URL must use HTTP or HTTPS".into());
     }
-    let jar = state.jar(&app, workspace_id).await?;
+    let work = cookie_work(&network)?;
+    let jar = state.jar(&app, workspace_id, work.clone()).await?;
     let data = jar.inner.lock().map_err(|e| e.to_string())?;
     let rendered;
     let store = if let Some(snapshot) = cookie_snapshot {
