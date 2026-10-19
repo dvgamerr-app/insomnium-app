@@ -141,7 +141,10 @@ impl HttpRequest {
             || self.identity_pem.as_ref().is_some_and(|p| !p.is_empty())
     }
 
-    pub(crate) fn signing(&self) -> crate::digest::Auth<'_> {
+    pub(crate) fn signing<'a>(
+        &'a self,
+        netrc_load: &'a mut crate::netrc::Load,
+    ) -> crate::digest::Auth<'a> {
         crate::digest::Auth {
             digest: self.digest.as_ref(),
             oauth1: self.oauth1.as_ref(),
@@ -150,6 +153,7 @@ impl HttpRequest {
             asap: self.asap.as_ref(),
             ntlm: self.ntlm.as_ref(),
             netrc: self.netrc.then_some(self.url.as_str()),
+            netrc_load,
             auto_referer: self.auto_referer.unwrap_or(false),
             max_redirects: self.max_redirects,
         }
@@ -245,6 +249,7 @@ pub async fn send_http(
         .map_err(HttpFailure::early)?;
     let mut jar = None;
     let mut jar_load = crate::cookies::JarLoad::default();
+    let mut netrc_load = crate::netrc::Load::default();
     let requested_url = url.clone();
     let overall = Instant::now();
     let log = std::sync::Arc::new(Mutex::new(crate::network_log::preface(
@@ -285,7 +290,7 @@ pub async fn send_http(
             .map_err(|e| e.to_string())?;
         let mut response = crate::digest::execute(
             outgoing,
-            request.signing(),
+            request.signing(&mut netrc_load),
             request.follow_redirects,
             request.has_identity(),
             |outgoing| {
@@ -392,6 +397,7 @@ pub async fn send_http(
         _ = cancelled.changed() => Err("Request cancelled".into()),
     };
     jar_load.drain().await;
+    netrc_load.drain().await;
     if let Some(jar) = jar {
         if let Err(error) = jar.flush().await {
             let warning = format!("Cookies could not be saved: {error}");

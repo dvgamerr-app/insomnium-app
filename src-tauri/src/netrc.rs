@@ -6,19 +6,34 @@ use std::{io::Read, path::Path};
 const MAX_FILE: usize = 1024 * 1024;
 const MAX_FIELD: usize = 16 * 1024;
 
+type Files = Vec<Result<Option<Vec<u8>>, String>>;
+
+/// Held by the request owner outside its cancellable authentication future.
+#[derive(Default)]
+pub(crate) struct Load(Option<tokio::task::JoinHandle<Files>>);
+impl Load {
+    pub(crate) async fn drain(&mut self) {
+        if let Some(task) = self.0.take() {
+            task.abort();
+            let _ = task.await;
+        }
+    }
+}
+
 pub(crate) struct Session {
-    files: Vec<Result<Option<Vec<u8>>, String>>,
+    files: Files,
     original: Url,
     selector: Vec<u8>,
 }
 
 impl Session {
-    pub(crate) async fn load(original: &str) -> Result<Self, String> {
+    pub(crate) async fn load(original: &str, pending: &mut Load) -> Result<Self, String> {
         let original = Url::parse(original).map_err(|_| "Invalid netrc URL")?;
         let selector = percent_encoding::percent_decode_str(original.username()).collect();
-        let files = tokio::task::spawn_blocking(discover)
-            .await
-            .map_err(|_| "Could not read netrc credentials")?;
+        let task = pending.0.insert(tokio::task::spawn_blocking(discover));
+        let result = task.await;
+        pending.0.take();
+        let files = result.map_err(|_| "Could not read netrc credentials")?;
         Ok(Self {
             files,
             original,

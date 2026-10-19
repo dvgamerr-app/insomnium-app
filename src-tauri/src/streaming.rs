@@ -626,6 +626,7 @@ pub async fn connect_stream(
     let mut jar = None;
     let mut jar_load = crate::cookies::JarLoad::default();
     let mut jar_flush = crate::cookies::JarFlush::default();
+    let mut netrc_load = crate::netrc::Load::default();
     let result = async {
         emit(&on_event, StreamEvent::Started)?;
         if request.use_cookies && (request.send_cookies || request.store_cookies) {
@@ -644,6 +645,7 @@ pub async fn connect_stream(
                 &mut delivery,
                 jar.as_ref(),
                 &mut jar_flush,
+                &mut netrc_load,
                 started,
             )
             .await
@@ -654,6 +656,7 @@ pub async fn connect_stream(
                 &mut delivery,
                 jar.as_ref(),
                 &mut jar_flush,
+                &mut netrc_load,
                 started,
             )
             .await
@@ -668,6 +671,7 @@ pub async fn connect_stream(
     )
     .await;
     jar_load.drain().await;
+    netrc_load.drain().await;
     let pending_flushed = jar_flush.drain().await;
     streams
         .sockets
@@ -701,6 +705,7 @@ async fn websocket_session(
     delivery: &mut Delivery,
     jar: Option<&Arc<PersistentJar>>,
     jar_flush: &mut crate::cookies::JarFlush,
+    netrc_load: &mut crate::netrc::Load,
     started: Instant,
 ) -> Result<(), String> {
     let channel = delivery.channel.clone();
@@ -727,7 +732,7 @@ async fn websocket_session(
     let outgoing = outgoing.map_err(|e| e.to_string())?;
     let handshake = crate::digest::execute(
         outgoing,
-        request.signing(),
+        request.signing(netrc_load),
         request.follow_redirects,
         request.has_identity(),
         |outgoing| {
@@ -869,6 +874,7 @@ async fn sse_session(
     delivery: &mut Delivery,
     jar: Option<&Arc<PersistentJar>>,
     jar_flush: &mut crate::cookies::JarFlush,
+    netrc_load: &mut crate::netrc::Load,
     started: Instant,
 ) -> Result<(), String> {
     let channel = delivery.channel.clone();
@@ -876,7 +882,7 @@ async fn sse_session(
     let outgoing = outgoing.map_err(|e| e.to_string())?;
     let handshake = crate::digest::execute(
         outgoing,
-        request.signing(),
+        request.signing(netrc_load),
         request.follow_redirects,
         request.has_identity(),
         |outgoing| async { client.execute(outgoing).await.map_err(|e| e.to_string()) },

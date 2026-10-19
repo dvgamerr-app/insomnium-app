@@ -21,6 +21,7 @@ pub(crate) struct Auth<'a> {
     pub asap: Option<&'a crate::asap::AsapCredentials>,
     pub ntlm: Option<&'a crate::ntlm::NtlmCredentials>,
     pub netrc: Option<&'a str>,
+    pub netrc_load: &'a mut crate::netrc::Load,
 }
 
 pub(crate) trait HttpReply {
@@ -208,6 +209,7 @@ where
         asap,
         ntlm,
         netrc,
+        netrc_load,
         auto_referer,
         max_redirects,
     } = auth;
@@ -240,7 +242,7 @@ where
         return Err("Choose one authentication method per request.".into());
     }
     let netrc = match netrc {
-        Some(url) => Some(crate::netrc::Session::load(url).await?),
+        Some(url) => Some(crate::netrc::Session::load(url, netrc_load).await?),
         None => None,
     };
     let mut ntlm_session = ntlm.map(crate::ntlm::Session::new).transpose()?;
