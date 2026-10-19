@@ -350,7 +350,11 @@ pub async fn send_grpc_message(
     text: Option<String>,
     finish: bool,
     state: tauri::State<'_, GrpcState>,
+    network: tauri::State<'_, NetworkState>,
 ) -> Result<(), String> {
+    // A cloned outgoing handle can outlive connect_grpc's registration while
+    // waiting for its mutex or queue. Retain this command until it settles too.
+    let work = network.retain_native_work(format!("grpc-message:{}", uuid::Uuid::new_v4()))?;
     let call = state
         .calls
         .lock()
@@ -359,6 +363,9 @@ pub async fn send_grpc_message(
         .cloned()
         .ok_or("gRPC call is not running.")?;
     let mut outgoing = call.lock().await;
+    if work.cancelled() {
+        return Err("gRPC message cancelled.".into());
+    }
     if outgoing.sender.is_none() {
         return Err("This gRPC call cannot accept more messages.".into());
     }
@@ -375,6 +382,9 @@ pub async fn send_grpc_message(
         text.as_deref().ok_or("Provide a gRPC message.")?,
         outgoing.mode,
     )?;
+    if work.cancelled() {
+        return Err("gRPC message cancelled.".into());
+    }
     outgoing
         .sender
         .as_ref()
