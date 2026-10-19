@@ -397,15 +397,20 @@ export function indexWorkspaces(resources) {
 }
 /** @param {Resource[]} resources @param {string} parentId */
 export function descendants(resources, parentId) {
+  /** @type {Map<string, string[]>} */ const children = new Map();
+  for (const resource of resources) {
+    const siblings = children.get(resource.parentId) || [];
+    siblings.push(resource._id);
+    children.set(resource.parentId, siblings);
+  }
   const selected = new Set([parentId]);
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const r of resources)
-      if (selected.has(r.parentId) && !selected.has(r._id)) {
-        selected.add(r._id);
-        changed = true;
-      }
+  const pending = [parentId];
+  for (let index = 0; index < pending.length; index++) {
+    for (const childId of children.get(pending[index]) || []) {
+      if (selected.has(childId)) continue;
+      selected.add(childId);
+      pending.push(childId);
+    }
   }
   return selected;
 }

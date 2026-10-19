@@ -458,3 +458,11 @@ nextSortKey now computes the maximum iteratively over the same ordered siblings,
 Bounded Bun stdin production-helper exercise duplicated a reverse-ordered20000-folder chain plus request into20002 copies in42.6082ms (single observation only), preserved collection request aliases and literal body text, and excluded response plus its unknown child. No testcase/scenario files added/modified and no saved scenario/matrix run. This is helper evidence, not physical UI/native/durable persistence throughput.
 
 Validation bun run check exit0/0errors/0warnings/session32833terminal; bun run build exit0; scoped git diff --check exit0. No native/browser/profile/provider operations or owned live handles. Broader CRUD/duplicate/imported variants/OS-close/platform and all retained migration requirements remain open.
+
+## Indexed descendant selection — 2026-10-19
+
+model.descendants now builds a local parent-to-child index and uses an iterative queue with Set membership instead of rescanning the entire resource array until a fixed point. The root remains selected even if absent; cycles terminate; unknown resource types remain included. Current callers use membership/size for remove/move, ResourceManager and plugin export/action filtering; export document order remains the original array filter order. Set insertion order is traversal order rather than fixed-point scan order; no current caller relies on that ordering.
+
+Actual production helper via Bun stdin: reverse5000-folder chain selected5001 IDs in337.5872ms before and2.3248ms after (single observations only). Linked runner result removal still includes a collection-stored result for a selected nested suite while retaining unrelated requests; cyclic IDs terminate and missing root remains selected. No testcase/scenario file created/modified or saved scenario/matrix run. This does not prove native UI deletion/persistence/OS-close throughput.
+
+Validation bun run check exit0/0errors/0warnings/session27898terminal; bun run build exit0; scoped git diff --check exit0. No native/browser/profile/provider operation or owned live handles. Full CRUD/runner/export/platform/migration requirements remain open.
