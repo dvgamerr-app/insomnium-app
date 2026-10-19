@@ -14,6 +14,9 @@ import {
 import { editName } from "./helpers/editable-name-cases.js";
 import { descendants } from "../../src/lib/model.js";
 import { orderedChildren } from "../../src/lib/resources.js";
+const nonduplicable = ["git_repository", "grpc_request_meta", "oauth2_token", "plugin_data",
+  "project", "request_group_meta", "request_meta", "request_version", "response", "settings",
+  "stats", "unit_test_result", "websocket_response", "workspace_meta"];
 
 assert.ok(
   process.env.INSOMNIUM_UI_BUILD_STATE,
@@ -540,9 +543,7 @@ await withResourceProbePreserved(
           const copiedSources = beforeCopy.resources.filter(
             (item) =>
               sourceIds.has(item._id) &&
-              !["oauth2_token", "unit_test_result", "workspace_meta"].includes(
-                item._type,
-              ),
+              !nonduplicable.includes(item._type),
           );
           dialog = await manageResource(page, outer.name);
           await dialog
@@ -749,9 +750,21 @@ await withResourceProbePreserved(
           await dialog.waitFor({ state: "detached" });
           await resourceSaved(page);
           const afterDelete = await load();
+          const remainingResources = beforeDelete.resources
+            .filter((item) => !sourceIds.has(item._id))
+            .map((item) => {
+              if (item._type !== "workspace_meta") return item;
+              const retiredFields = ["activeRequestId", "activeEnvironmentId", "activeUnitTestSuiteId"]
+                .filter((field) => sourceIds.has(item[field]));
+              if (!retiredFields.length) return item;
+              const actual = afterDelete.resources.find((row) => row._id === item._id);
+              assert.ok(actual);
+              assert.ok(Number.isFinite(actual.modified) && actual.modified >= item.modified && actual.modified <= Date.now());
+              return { ...item, ...Object.fromEntries(retiredFields.map((field) => [field, ""])), modified: actual.modified };
+            });
           assert.deepEqual(
             afterDelete.resources,
-            beforeDelete.resources.filter((item) => !sourceIds.has(item._id)),
+            remainingResources,
           );
           assert.deepEqual(
             afterDelete.history,
@@ -851,9 +864,6 @@ await withResourceProbePreserved(
           collectionRows.push({ kind: "UI-rename-switch", id: createdCollection._id,
             name: renamedName, trimmed: true, registered: true, reload: true });
 
-          const nonduplicable = ["git_repository", "grpc_request_meta", "oauth2_token", "plugin_data",
-            "project", "request_group_meta", "request_meta", "request_version", "response", "settings",
-            "stats", "unit_test_result", "websocket_response", "workspace_meta"];
           const collectionFixture = await load();
           const referenceProbeId = "probe_" + crypto.randomUUID();
           const referencedTypes = ["proto_directory", "proto_file", "unit_test_suite", "unit_test", "websocket_payload", "api_spec", "cookie_jar"];
@@ -899,6 +909,7 @@ await withResourceProbePreserved(
             sourceCollectionIds.has(item._id) && !excludedIds.has(item._id) && !nonduplicable.includes(item._type));
           await page.getByRole("button", { name: "Manage collection", exact: true }).click();
           dialog = page.getByRole("dialog");
+          const collectionCopyStarted = Date.now();
           await dialog.getByRole("button", { name: "Duplicate", exact: true }).click();
           await dialog.waitFor({ state: "detached" });
           let collectionCopied = beforeCollectionCopy;
@@ -913,13 +924,20 @@ await withResourceProbePreserved(
           const duplicateCollection = duplicatedRoots[0];
           registerResourceProbeCollection(duplicateCollection._id, duplicateCollection.name);
           const duplicateIds = descendants(collectionCopied.resources, duplicateCollection._id);
-          const collectionCopies = collectionCopied.resources.filter((item) => duplicateIds.has(item._id));
+          const duplicateResources = collectionCopied.resources.filter((item) => duplicateIds.has(item._id));
+          const selectionMetadata = duplicateResources.filter((item) => item._type === "workspace_meta");
+          assert.equal(selectionMetadata.length, 1, "Selecting the duplicate creates one fresh local metadata record");
+          const initialCopyMeta = selectionMetadata[0];
+          assert.deepEqual(Object.keys(initialCopyMeta).sort(),
+            ["_id", "_type", "parentId", "activeRequestId", "created", "modified"].sort());
+          assert.ok(initialCopyMeta.created >= collectionCopyStarted && initialCopyMeta.modified >= initialCopyMeta.created);
+          const collectionCopies = duplicateResources.filter((item) => item._type !== "workspace_meta");
           assert.equal(collectionCopies.length, copyableSources.length);
           assert.deepEqual(collectionCopied.resources.filter((item) =>
             beforeCollectionCopy.resources.some((prior) => prior._id === item._id)), beforeCollectionCopy.resources,
             "Duplicate leaves every source/original resource unchanged");
           assert.deepEqual(collectionCopied.resources.filter((item) =>
-            !beforeCollectionCopy.resources.some((prior) => prior._id === item._id)), collectionCopies,
+            !beforeCollectionCopy.resources.some((prior) => prior._id === item._id)), duplicateResources,
             "All newly duplicated IDs belong to the actual copied subtree");
           const mapping = new Map();
           for (const source of copyableSources) {
@@ -937,6 +955,10 @@ await withResourceProbePreserved(
             assert.ok(copy && copy.created > 1 && copy.modified >= copy.created);
             const expected = structuredClone(source);
             for (const key of collectionReferenceKeys) if (mapping.has(expected[key])) expected[key] = mapping.get(expected[key]);
+            if (source._type === "request") {
+              assert.equal(Object.hasOwn(source, "_importRequestIds"), false, "Owned fixture starts without imported script aliases");
+              expected._importRequestIds = [source._id];
+            }
             expected.created = copy.created; expected.modified = copy.modified;
             if (source._id === createdCollection._id) {
               expected.name = source.name + " (copy)"; expected.metaSortKey = copy.metaSortKey;
@@ -944,15 +966,15 @@ await withResourceProbePreserved(
             assert.deepEqual(copy, expected, "Exact independent full-reference copy; payload literals unchanged");
           }
           assert.equal(collectionCopies.some((item) => nonduplicable.includes(item._type) || item._type === "unknown_excluded_child"), false);
+          assert.equal(initialCopyMeta.activeRequestId, mapping.get(createdRequest._id));
           assert.deepEqual(collectionCopied.history, beforeCollectionCopy.history);
           assert.equal(collectionCopied.activeWorkspaceId, duplicateCollection._id);
           assert.equal(collectionCopied.activeEnvironmentId, "", "Duplicate starts without retained environment selection");
-          const copyReloadStarted = Date.now();
           await reload();
           assert.deepEqual(await rootOrder(), [...orderedChildren(beforeCollectionCopy.resources, null)
             .map((item) => item._id), duplicateCollection._id]);
-          // Loading creates fresh local selection metadata. Persist through the
-          // actual owned collection form before using it as the reorder baseline.
+          // Loading normalizes the fresh local selection metadata. Persist through
+          // the actual owned collection form before using it as the reorder baseline.
           await page.getByRole("button", { name: "Manage collection", exact: true }).click();
           dialog = page.getByRole("dialog");
           await save(dialog);
@@ -964,18 +986,22 @@ await withResourceProbePreserved(
           }, "Fresh duplicated selection metadata persisted", 60000);
           const freshCopyMetadata = normalizedCopy.resources.filter((item) =>
             !collectionCopied.resources.some((prior) => prior._id === item._id));
-          assert.equal(freshCopyMetadata.length, 1);
-          const freshMeta = freshCopyMetadata[0];
+          assert.equal(freshCopyMetadata.length, 0, "Reload normalizes the same metadata instead of creating another record");
+          const freshMeta = normalizedCopy.resources.find((item) => item._id === initialCopyMeta._id);
+          assert.ok(freshMeta);
           assert.deepEqual(Object.keys(freshMeta).sort(),
-            ["_id", "_type", "parentId", "activeEnvironmentId", "created", "modified"].sort());
+            ["_id", "_type", "parentId", "activeRequestId", "activeEnvironmentId", "created", "modified"].sort());
           assert.equal(freshMeta._type, "workspace_meta");
           assert.equal(freshMeta.parentId, duplicateCollection._id);
           assert.equal(freshMeta.activeEnvironmentId, "");
-          assert.ok(freshMeta.created >= copyReloadStarted && freshMeta.modified >= freshMeta.created && freshMeta.modified <= Date.now());
+          assert.equal(freshMeta.activeRequestId, mapping.get(createdRequest._id));
+          assert.equal(freshMeta.created, initialCopyMeta.created);
+          assert.ok(freshMeta.modified >= initialCopyMeta.modified && freshMeta.modified <= Date.now());
           const normalizedRoot = normalizedCopy.resources.find((item) => item._id === duplicateCollection._id);
           assert.ok(normalizedRoot && Number.isFinite(normalizedRoot.modified));
-          assert.deepEqual(normalizedCopy.resources, [...collectionCopied.resources.map((item) =>
-            item._id === duplicateCollection._id ? { ...item, modified: normalizedRoot.modified } : item), freshMeta]);
+          assert.deepEqual(normalizedCopy.resources, collectionCopied.resources.map((item) =>
+            item._id === duplicateCollection._id ? { ...item, modified: normalizedRoot.modified }
+              : item._id === initialCopyMeta._id ? freshMeta : item));
           assert.deepEqual(normalizedCopy.history, collectionCopied.history);
           collectionRows.push({ kind: "UI-duplicate", sourceId: createdCollection._id, duplicateId: duplicateCollection._id,
             registered: true, excludedTypes: nonduplicable, excludedDescendants: nonduplicable.length,
