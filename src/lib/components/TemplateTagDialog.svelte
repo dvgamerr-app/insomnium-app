@@ -81,7 +81,8 @@
       ),
     ),
   );
-  /** @type {{text:string,definition:Record<string,any>|undefined}|null} */ let pending =
+  let draftRevision = 0;
+  /** @type {{text:string,definition:Record<string,any>|undefined,revision:number}|null} */ let pending =
     null;
   let refreshing = false;
   /** @type {AbortController|undefined} */ let previewController;
@@ -153,13 +154,15 @@
   async function pickPath(index, kind, arg) {
     if (!choosePath || fileBusy || !current()) return;
     const original = text;
+    const revision = draftRevision;
+    const liveDraft = () => current() && text === original && draftRevision === revision;
     fileBusy = true;
     try {
       const path = await choosePath(kind, arg);
-      if (current() && text === original && typeof path === "string")
+      if (liveDraft() && typeof path === "string")
         edit(index, "file", path);
     } catch (failure) {
-      if (current() && text === original) editError = String(failure);
+      if (liveDraft()) editError = String(failure);
     } finally {
       if (current()) fileBusy = false;
     }
@@ -168,20 +171,22 @@
   async function actionClick(action) {
     if (!runAction || !parsed || !current() || busy) return;
     const original = text;
+    const revision = draftRevision;
+    const liveDraft = () => current() && text === original && draftRevision === revision;
     busy = true;
     try {
       await runAction(parsed.name, action.index, {
         signal: controller.signal,
-        isCurrent: () => current() && text === original,
+        isCurrent: liveDraft,
       });
-      if (current() && text === original) {
-        pending = { text, definition };
+      if (liveDraft()) {
+        pending = { text, definition, revision };
         void refresh();
       }
     } catch (failure) {
-      if (current() && text === original) error = String(failure);
+      if (liveDraft()) error = String(failure);
     } finally {
-      if (current() && text === original && !refreshing) busy = false;
+      if (liveDraft() && !refreshing) busy = false;
     }
   }
   async function refresh() {
@@ -191,8 +196,9 @@
       while (pending && current()) {
         const request = pending;
         pending = null;
-        const liveDraft = () => current() && text === request.text;
-        const operation = { signal: controller.signal, isCurrent: current };
+        const liveDraft = () => current() && text === request.text && draftRevision === request.revision;
+        if (!liveDraft()) continue;
+        const operation = { signal: controller.signal, isCurrent: liveDraft };
         try {
           let next = request.definition;
           let args = /** @type {Argument[]} */ ([]);
@@ -270,6 +276,7 @@
   $effect(() => {
     const draft = text,
       selected = definition;
+    const revision = ++draftRevision;
     if (!current()) {
       error =
         "This template editor is no longer current. Close it and reopen the field.";
@@ -278,7 +285,7 @@
     busy = true;
     previewController?.abort();
     const timer = setTimeout(() => {
-      pending = { text: draft, definition: selected };
+      pending = { text: draft, definition: selected, revision };
       void refresh();
     }, 150);
     return () => clearTimeout(timer);
