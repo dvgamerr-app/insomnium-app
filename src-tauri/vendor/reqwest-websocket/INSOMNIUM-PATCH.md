@@ -23,3 +23,5 @@ These checks follow RFC 6455 sections 4.1, 4.2.2, 11.3.3 and 11.3.4.
 
 Contract: https://www.rfc-editor.org/rfc/rfc6455#section-4.2.2
 This patch does not implement compression or change frame processing.
+
+Decoder integration boundary: UpgradeResponse::into_upgraded returns the native reqwest::Upgraded transport plus optional selected protocol after the same status/version/Connection/Upgrade/Accept/subprotocol validation used by into_websocket. Existing into_websocket delegates through the shared validated upgrade and still constructs Tungstenite with the original config. The raw API does not negotiate or validate extensions; its decoder caller must do that before accepting the session. This enables a compression-capable frame adapter without bypassing the existing auth/TLS/proxy handshake or duplicating its validation. No compression implementation is claimed by this preparatory API.

@@ -130,6 +130,21 @@ impl WebSocketResponse {
         protocols: Vec<String>,
         web_socket_config: Option<WebSocketConfig>,
     ) -> Result<(WebSocketStream, Option<String>), Error> {
+        let (upgraded, protocol) = self.into_upgraded_and_protocol(protocols).await?;
+        use tokio_util::compat::TokioAsyncReadCompatExt;
+        let inner = WebSocketStream::from_raw_socket(
+            upgraded.compat(),
+            tungstenite::protocol::Role::Client,
+            web_socket_config,
+        )
+        .await;
+        Ok((inner, protocol))
+    }
+
+    pub async fn into_upgraded_and_protocol(
+        self,
+        protocols: Vec<String>,
+    ) -> Result<(reqwest::Upgraded, Option<String>), Error> {
         let headers = self.response.headers();
 
         if self.response.version() != self.version {
@@ -285,16 +300,7 @@ impl WebSocketResponse {
             }
         }
 
-        use tokio_util::compat::TokioAsyncReadCompatExt;
-
-        let inner = WebSocketStream::from_raw_socket(
-            self.response.upgrade().await?.compat(),
-            tungstenite::protocol::Role::Client,
-            web_socket_config,
-        )
-        .await;
-
-        Ok((inner, protocol))
+        Ok((self.response.upgrade().await?, protocol))
     }
 }
 

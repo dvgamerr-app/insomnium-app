@@ -3088,6 +3088,7 @@ dependencies = [
  "uuid",
  "windows",
  "x509-parser",
+ "yawc",
 ]
 
 [[package]]
@@ -8371,6 +8372,36 @@ dependencies = [
  "rusticata-macros",
  "thiserror 2.0.21",
  "time",
+]
+
+[[package]]
+name = "yawc"
+version = "0.4.3"
+dependencies = [
+ "base64 0.22.1",
+ "bytes",
+ "flate2",
+ "futures",
+ "getrandom 0.2.17",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "js-sys",
+ "log",
+ "nom 8.0.0",
+ "percent-encoding",
+ "pin-project",
+ "rand 0.8.8",
+ "sha1 0.10.7",
+ "thiserror 2.0.21",
+ "tokio",
+ "tokio-rustls",
+ "tokio-util",
+ "url",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "webpki-roots",
 ]
 
 [[package]]

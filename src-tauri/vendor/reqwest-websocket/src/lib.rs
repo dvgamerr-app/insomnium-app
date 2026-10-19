@@ -221,6 +221,14 @@ impl std::ops::Deref for UpgradeResponse {
 }
 
 impl UpgradeResponse {
+    /// Validate the handshake and return its upgraded native transport and
+    /// optional selected subprotocol for an alternative frame decoder.
+    /// Extension negotiation and validation remain the decoder's responsibility.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub async fn into_upgraded(self) -> Result<(reqwest::Upgraded, Option<String>), Error> {
+        self.inner.into_upgraded_and_protocol(self.protocols).await
+    }
+
     /// Turns the response into a `WebSocket`.
     /// This checks if the `WebSocket` handshake was successful.
     pub async fn into_websocket(self) -> Result<WebSocket, Error> {

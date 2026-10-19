@@ -12,7 +12,8 @@
     "tower-http": "vendor/tower-http",
     "hyper-util": "vendor/hyper-util",
     "tonic": "vendor/tonic-0.14.6",
-    "reqwest-websocket": "vendor/reqwest-websocket"
+    "reqwest-websocket": "vendor/reqwest-websocket",
+    "yawc": "vendor/yawc"
   },
   "unresolvedScopes": [
     "source-unavailable",

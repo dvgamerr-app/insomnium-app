@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 /** @typedef {{token:string,mode:string,url:string,method:string,headers:Record<string,string>,subprotocol:string,receivedAt:number,opened:boolean,openedAt:number|null,closed:boolean,closeCode:number|null,closeReason:string|null,closedAt:number|null,aborted:boolean,settled:boolean,released:boolean,incoming:WireMessage[],outgoing:WireMessage[],pings:WireMessage[],callbackErrors:string[]}} SessionRecord */
 
 /** Real loopback peer for saved UI/native scenarios. No transport interception.
- * @param {{largeMessages?:boolean}} [options]
+ * @param {{largeMessages?:boolean, compression?:boolean}} [options]
  * Official protocol API: https://bun.sh/docs/runtime/http/websockets
  */
 export async function createWebSocketRuntimeFixture(options = {}) {
@@ -119,6 +119,7 @@ export async function createWebSocketRuntimeFixture(options = {}) {
       }
     },
     websocket: {
+      perMessageDeflate: Boolean(options.compression),
       data: /** @type {SessionRecord} */ ({}),
       idleTimeout: 0,
       sendPings: false,
@@ -136,7 +137,7 @@ export async function createWebSocketRuntimeFixture(options = {}) {
       message(ws, message) {
         try {
           ws.data.incoming.push(bytes(message));
-          const result = ws.send(message);
+          const result = ws.send(message, Boolean(options.compression));
           assert.notEqual(result, 0, "Echo dropped");
           ws.data.outgoing.push(bytes(message));
         } catch (error) {
@@ -179,7 +180,7 @@ export async function createWebSocketRuntimeFixture(options = {}) {
     /** @param {string} token @param {string|Uint8Array} data */
     peerSend(token, data) {
       const ws = session(token);
-      assert.notEqual(ws.send(data), 0, "Peer send dropped");
+      assert.notEqual(ws.send(data, Boolean(options.compression)), 0, "Peer send dropped");
       ws.data.outgoing.push(bytes(data));
     },
     /** @param {string} token @param {number} [code] @param {string} [reason] */

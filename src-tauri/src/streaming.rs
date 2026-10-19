@@ -4,7 +4,7 @@ use crate::{
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
 use eventsource_stream::Eventsource;
-use futures_util::{SinkExt, Stream, StreamExt};
+use futures_util::{Stream, StreamExt};
 use hyper::body::Bytes;
 use reqwest::{header::HeaderValue, Url};
 use reqwest_websocket::{CloseCode, Message, RequestBuilderExt};
@@ -18,6 +18,8 @@ use tauri::ipc::Channel;
 use tokio::sync::{mpsc, oneshot, watch};
 
 const MAX_MESSAGE: usize = 20 * 1024 * 1024;
+#[path = "websocket_transport.rs"]
+mod websocket_transport;
 
 #[derive(Default)]
 pub struct StreamState {
@@ -733,7 +735,11 @@ async fn websocket_session(
         .max_message_size(Some(MAX_MESSAGE))
         .max_frame_size(Some(MAX_MESSAGE));
     let (client, outgoing) = outgoing.build_split();
-    let outgoing = outgoing.map_err(|e| e.to_string())?;
+    let mut outgoing = outgoing.map_err(|e| e.to_string())?;
+    outgoing.headers_mut().insert(
+        reqwest::header::SEC_WEBSOCKET_EXTENSIONS,
+        HeaderValue::from_static(websocket_transport::OFFER),
+    );
     let handshake = crate::digest::execute(
         outgoing,
         request.signing(netrc_load),
@@ -758,19 +764,8 @@ async fn websocket_session(
             handshake, "WebSocket handshake timed out") => response?,
         _ = delivery.cancelled.changed() => return emit(&channel, StreamEvent::Closed { code: None, reason: "Connection cancelled".into() }),
     };
-    // The raw Tungstenite transport has no extension decoder. Do not report
-    // an open connection whose negotiated frames we cannot interpret.
-    if response
-        .headers()
-        .contains_key(reqwest::header::SEC_WEBSOCKET_EXTENSIONS)
-    {
-        return Err("WebSocket handshake selected an unsupported extension".into());
-    }
     let metadata = open_event(&response, started, "websocket");
-    let mut socket = response
-        .into_websocket()
-        .await
-        .map_err(|e| format!("WebSocket upgrade failed: {e:?}"))?;
+    let mut socket = websocket_transport::Socket::open(response, MAX_MESSAGE).await?;
     let (sender, mut outgoing) = mpsc::channel::<Outgoing>(16);
     streams
         .sockets
@@ -822,7 +817,22 @@ async fn websocket_session(
                             return Ok(());
                         }
                     }
-                    Some(Err(error)) => return Err(format!("WebSocket failed: {error}")),
+                    Some(Err(error)) => {
+                        let failure = format!("WebSocket failed: {error:?}");
+                        // Protocol decoders may queue a Close while returning
+                        // their error. Keep the socket owned through its flush.
+                        let flushed = tokio::select! {
+                            result = tokio::time::timeout(Duration::from_secs(2), socket.flush()) => {
+                                result.map_err(|_| "WebSocket error close timed out".to_string())
+                                    .and_then(|result| websocket_close_result(result, "error close"))
+                            }
+                            _ = delivery.cancelled.changed() => Err("WebSocket error close cancelled".into()),
+                        };
+                        return Err(match flushed {
+                            Ok(()) => failure,
+                            Err(cleanup) => format!("{failure}; {cleanup}"),
+                        });
+                    },
                     None => return emit(&channel, StreamEvent::Closed { code: None, reason: "Connection ended".into() }),
                 }
             }

@@ -27,7 +27,7 @@ export async function runWebSocketRuntimeNativeCases() {
     expectedIdentifier: identifier,
     profileOwnershipPath: markerPath,
   };
-  const fixture = await createWebSocketRuntimeFixture();
+  const fixture = await createWebSocketRuntimeFixture({ compression: true });
   /** @type {unknown[]} */ const failures = [];
   /** @type {Record<string,any>[]} */ const checks = [];
   /** @type {string|undefined} */ let evidence;
@@ -255,6 +255,7 @@ export async function runWebSocketRuntimeNativeCases() {
             );
             const first = record(initial);
             assert.ok(first);
+            assert.equal(first.headers["sec-websocket-extensions"], "permessage-deflate; client_max_window_bits");
             assert.equal(
               first.incoming[0].text,
               expectedJson("owned-A"),
@@ -339,6 +340,7 @@ export async function runWebSocketRuntimeNativeCases() {
             await closed(initial);
             let entries = await savedTerminal(1);
             const firstHistory = entries[0];
+            assert.ok(firstHistory.headers.some((/** @type {[string,string]} */ row) => row[0].toLowerCase() === "sec-websocket-extensions" && row[1].startsWith("permessage-deflate")), "Original workflow must use the negotiated compression path");
             assert.equal(firstHistory.environmentId, envA);
             assert.ok(
               firstHistory.events.some(
@@ -391,6 +393,7 @@ export async function runWebSocketRuntimeNativeCases() {
             assert.deepEqual(await rows(), entries);
             checks.push({
               kind: "initial-json-text-binary-ping-peer-close-reload",
+              compression: "permessage-deflate",
               oneUpgrade: true,
               exactWire: true,
               preflightRefusals: 3,

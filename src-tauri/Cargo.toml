@@ -79,6 +79,7 @@ flate2 = { version = "=1.1.10", default-features = false, features = ["rust_back
 hickory-resolver = { version = "=0.26.3", default-features = false, features = ["system-config", "tokio"] }
 chrono = { version = "=0.4.45", default-features = false, features = ["clock"] }
 h2 = "=0.4.19"
+yawc = { version = "=0.4.3", default-features = false, features = ["zlib"] }
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
@@ -90,6 +91,7 @@ panic = "abort"
 strip = true
 
 [patch.crates-io]
+yawc = { path = "vendor/yawc" }
 reqwest-websocket = { path = "vendor/reqwest-websocket" }
 tonic = { path = "vendor/tonic-0.14.6" }
 hyper-util = { path = "vendor/hyper-util" }
