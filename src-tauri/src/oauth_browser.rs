@@ -115,6 +115,7 @@ pub async fn authorize_oauth(
     let mut cancelled = state.begin(&request.id)?;
     state.publish_started(&request.id, on_started, webview)?;
     let mut jar = None;
+    let mut login_creation = None;
     let operation = async {
         let (redirect, listener) = prepare_redirect(&config).await?;
         let authorization = Authorization::new(&config, redirect)?;
@@ -171,13 +172,12 @@ pub async fn authorize_oauth(
             let url = authorization.url.clone();
             let callback = authorization.callback.clone();
             let session = config.browser_session.clone();
-            Some(
-                tauri::async_runtime::spawn_blocking(move || {
-                    crate::oauth_embedded::open(app, url, callback, session, complete, notice)
-                })
-                .await
-                .map_err(|_| "Could not initialize the OAuth login window.")??,
-            )
+            let task = login_creation.insert(tauri::async_runtime::spawn_blocking(move || {
+                crate::oauth_embedded::open(app, url, callback, session, complete, notice)
+            }));
+            let result = task.await;
+            login_creation.take();
+            Some(result.map_err(|_| "Could not initialize the OAuth login window.")??)
         } else {
             app.opener()
                 .open_url(authorization.url.as_str(), None::<&str>)
@@ -227,6 +227,12 @@ pub async fn authorize_oauth(
         result = operation => result,
         _ = cancelled.changed() => Err("OAuth authorization cancelled.".into()),
     };
+    if let Some(task) = login_creation {
+        // Cancellation cannot stop an already running native window builder.
+        // Await and drop its LoginWindow result before releasing the request.
+        task.abort();
+        let _ = task.await;
+    }
     if let Some(jar) = jar {
         if jar.flush().await.is_err() {
             let warning = "OAuth collection cookies could not be saved.";
