@@ -361,6 +361,7 @@
           templateEditor={() => createTemplateEditorSession(request._id)}
           label="Parameter"
           files={request.body.mimeType === "multipart/form-data"}
+          tree={request.body._curlMultipart === true}
           onchange={(params) => body({ params })}
         />
       {:else}{#if request.body._openapiSerialization?.style === "serialized"}<Feedback

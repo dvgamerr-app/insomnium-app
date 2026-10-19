@@ -1,5 +1,6 @@
 <script>
   import BulkKeyValueEditor from "./BulkKeyValueEditor.svelte";
+  import KeyValueEditor from "./KeyValueEditor.svelte";
   import Feedback from "./ui/Feedback.svelte";
   import FilePicker from "./ui/FilePicker.svelte";
   import Field from "./ui/Field.svelte";
@@ -15,12 +16,13 @@
   import { readUpload } from "../uploads.js";
   import { readCurlHeaderFile, resolveCurlHeaderFile } from "../curl-headers.js";
   import { isUtf8PlainTextMediaType } from "../media-type.js";
-  /** @type {{ rows: Record<string, any>[], onchange: (rows: Record<string, any>[]) => void, label?: string, files?: boolean, templateEditor?:()=>ReturnType<import('../template-editor-session.svelte.js').createTemplateEditorSession>,bulk?:boolean,identity?:string,settings?:Record<string,any>,environment?:Record<string,any>,onbulktoggle?:()=>void }} */
+  /** @type {{ rows: Record<string, any>[], onchange: (rows: Record<string, any>[]) => void, label?: string, files?: boolean, tree?:boolean, templateEditor?:()=>ReturnType<import('../template-editor-session.svelte.js').createTemplateEditorSession>,bulk?:boolean,identity?:string,settings?:Record<string,any>,environment?:Record<string,any>,onbulktoggle?:()=>void }} */
   let {
     rows = [],
     onchange,
     label = "Header",
     files = false,
+    tree = false,
     templateEditor,
     bulk=false, identity="", settings={}, environment, onbulktoggle,
   } = $props();
@@ -132,14 +134,16 @@
       <Input
         variant="inline"
         aria-label={`${label} ${index + 1}`}
-        placeholder={label}
+        placeholder={tree && row.name === null ? "Unnamed" : label}
         templateEditor={row._curlHeaderFile ? undefined : templateEditor}
         readonly={!!row._curlHeaderFile}
-        value={row.name}
+        value={row.name ?? ""}
+        disabled={tree && row.name === null}
         oninput={(event) => change(index, { name: event.currentTarget.value })}
       />
       <div class="kv-value">
-          {#if row._curlHeaderFile}<Field label="" class="kv-file-state"
+          {#if tree && row.type === "multipart"}<span class="kv-value-field">Multipart group</span>
+          {:else if row._curlHeaderFile}<Field label="" class="kv-file-state"
             error={fileErrors.find((failure) => failure.row === row)?.message || ""}>
             <FilePicker variant="inline" disabled={row.disabled}
               aria-label={`Select header file ${index + 1}`}
@@ -187,9 +191,9 @@
             aria-label="Field type"
             value={row.type || "text"}
             onchange={(event) =>
-              change(index, { type: event.currentTarget.value })}
+              change(index, { type: event.currentTarget.value, ...(event.currentTarget.value === "multipart" ? {params: row.params ?? []} : {}) })}
             ><option value="text">Text</option><option value="file">File</option
-            ></Select
+            >{#if tree}<option value="multipart">Multipart group</option>{/if}</Select
           >{/if}
       </div>
       <Button
@@ -253,9 +257,15 @@
         </div>
       {/if}
     </div>
+    {#if tree && row.type === "multipart"}<fieldset disabled={row.disabled} class="multipart-options">
+      <legend>{row.name ?? "Unnamed"} parts</legend>
+      <KeyValueEditor rows={row.params ?? []} onchange={(params) => change(index, {params})} {templateEditor} {label} files tree />
+    </fieldset>{/if}
     {#if files}<details class="multipart-options">
         <summary>Part options</summary>
-        <Field label="Transfer encoding">
+        {#if tree}<Field layout="inline"><Checkbox checked={row.name === null}
+          onchange={(event) => change(index, {name: event.currentTarget.checked ? null : ""})} />Unnamed part</Field>{/if}
+        {#if row.type !== "multipart"}<Field label="Transfer encoding">
           <Select aria-label={`Transfer encoding for ${row.name || index + 1}`}
             value={row.transferEncoding ?? ""}
             onchange={(event) => change(index, { transferEncoding: event.currentTarget.value || undefined })}>
@@ -263,7 +273,7 @@
             {#if row.transferEncoding && !multipartEncodings.includes(row.transferEncoding)}<option value={row.transferEncoding}>{row.transferEncoding} (unsupported)</option>{/if}
             {#each multipartEncodings as encoding}<option value={encoding}>{encoding}</option>{/each}
           </Select>
-        </Field>
+        </Field>{/if}
         <Field label="Part headers">
           <Textarea
             aria-label={`Part headers for ${row.name || index + 1}`}
@@ -291,7 +301,7 @@
               })}
           />
         </Field>
-        {#if !(row.type === "file" && row.fileContent === true)}<Field
+        {#if row.type !== "multipart" && !(row.type === "file" && row.fileContent === true)}<Field
             layout="inline"
           >
             <Checkbox

@@ -10,7 +10,7 @@ function base64(bytes){
 }
 /** Match the native multipart_encoding encoder, including soft line breaks.
  * @param {Uint8Array} bytes @param {string} encoding */
-function transfer(bytes,encoding){
+export function transfer(bytes,encoding){
   if(bytes.length>limit)throw Error('Multipart encoding input exceeds 20 MiB.');
   if(encoding==='binary'||encoding==='8bit')return null;
   if(encoding==='7bit'){

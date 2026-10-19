@@ -282,6 +282,50 @@ try {
               oldIds = new Set(
                 before.resources.map(/** @param {any} r */ (r) => r._id),
               );
+            if (process.env.INSOMNIUM_CURL_NESTED === "1") {
+              assert.equal(selectedNativeProbeIdentifier(), integrationProbeIdentifier);
+              const url = `http://127.0.0.1:${server.port}/nested`;
+              await page.getByRole("button", {name:"Import collection",exact:true}).click();
+              const dialog = page.getByRole("dialog");
+              await dialog.getByLabel("Import collection or cURL commands").fill(
+                `curl '${url}' -F 'message=(;type=multipart/alternative' -F '=plain' -F '=html;type=text/html' -F '=)' -F 'files=@first.bin,second.bin'`);
+              await dialog.getByRole("button", {name:"Review import",exact:true}).click();
+              await dialog.getByRole("button", {name:"Import",exact:true}).click();
+              await dialog.waitFor({state:"detached"});
+              await registerImportedCollections();
+              await page.locator(".tree-request").filter({hasText:url}).click();
+              const children = page.locator("fieldset.multipart-options");
+              await children.first().getByRole("textbox", {name:"Value 1",exact:true}).fill("edited plain");
+              const bytes = Buffer.from([0, 255, 13, 10]);
+              const files = page.locator(".kv-editor input[type=file]");
+              await files.nth(0).setInputFiles({name:"first.bin",mimeType:"application/octet-stream",buffer:bytes});
+              await files.nth(1).setInputFiles({name:"second.bin",mimeType:"application/octet-stream",buffer:Buffer.from("second")});
+              /** @type {any} */ let request;
+              await poll(async () => {
+                const saved = await invoke("load_workspace");
+                request = saved.resources.find((/** @type {any} */ r) => !oldIds.has(r._id) && r._type === "request");
+                return request?.body?.params?.[1]?.params?.[1]?.base64 === Buffer.from("second").toString("base64");
+              }, "Nested selected uploads persisted");
+              assert.equal(request.body.params[0].params[0].value, "edited plain");
+              assert.equal(request.body.params[0].params[0].name, null);
+              await page.reload();
+              await page.getByRole("button", {name:"Send",exact:true}).click();
+              await poll(async () => received.length === 1, "Nested MIME arrived at native peer");
+              await poll(async () => !(await page.getByRole("button", {name:"Cancel",exact:true}).count()), "Nested send settled");
+              const wire = received[0].body.toString("latin1");
+              assert.match(wire, /Content-Type: multipart\/alternative; boundary=/);
+              assert.match(wire, /Content-Type: multipart\/mixed; boundary=/);
+              assert.ok(wire.includes("edited plain\r\n"));
+              assert.ok(wire.includes("Content-Type: text/html\r\n\r\nhtml"));
+              assert.ok(received[0].body.includes(bytes));
+              assert.ok(wire.includes('Content-Disposition: attachment; filename="first.bin"'));
+              assert.ok(!wire.includes('name="null"'));
+              const saved = await invoke("load_workspace");
+              assert.deepEqual(saved.resources.find((/** @type {any} */ r) => r._id === request._id).body, request.body);
+              await page.screenshot({path:join(output,"nested-multipart.png")});
+              await writeFile(join(output,"acceptance.json"), JSON.stringify({status:"passed",nativeMode:"native-hidden",nested:true,checks:["Import and edit unnamed child", "Select two nested files", "Reload exact tree and selected bytes", "Actual native Send preserves nested MIME and binary payload"]},null,2));
+              return;
+            }
             const url = "http://127.0.0.1:" + server.port + "/multipart";
             await page
               .getByRole("button", { name: "Import collection", exact: true })

@@ -7,21 +7,25 @@ import asapRuntime from './request-code-asap.js?raw';
 const forbiddenHeaders=new Set('accept-charset accept-encoding access-control-request-headers access-control-request-method connection content-length cookie cookie2 date dnt expect host keep-alive origin referer set-cookie te trailer transfer-encoding upgrade via'.split(' '));
 /** @typedef {import('./request-code-multipart.js').MultipartPart} MultipartPart */
 /** @typedef {{digest?:{username:string,password:string}|null,ntlm?:{username:string,password:string,domain:string,workstation:string}|null,netrc?:boolean}} NativeAuth */
-/** @typedef {import('httpsnippet-lite').HarRequest & {bodyBase64?:string|null,multipartParts?:MultipartPart[]|null,multipartContentType?:string|null,socketPath?:string|null,suppressDefaultHeaders?:string[],nativeAuth?:NativeAuth|null,hawk?:Record<string,any>|null,oauth1?:Record<string,any>|null,aws?:Record<string,any>|null,asap?:Record<string,any>|null}} CodeRequest */
+/** @typedef {import('httpsnippet-lite').HarRequest & {bodyBase64?:string|null,serializedMultipart?:boolean,multipartParts?:MultipartPart[]|null,multipartContentType?:string|null,socketPath?:string|null,suppressDefaultHeaders?:string[],nativeAuth?:NativeAuth|null,hawk?:Record<string,any>|null,oauth1?:Record<string,any>|null,aws?:Record<string,any>|null,asap?:Record<string,any>|null}} CodeRequest */
 export const generatedCodeLimit=32*1024*1024;
 /** A 20 MiB transport body expands to at most 28 MiB of Base64 source.
- * @param {string} value @param {boolean} [buffer] */
-function binaryLiteral(value,buffer=false){
-  binaryData(value);
+ * @param {string} value @param {boolean} [buffer] @param {boolean} [serializedMultipart] */
+function binaryLiteral(value,buffer=false,serializedMultipart=false){
+  binaryData(value,serializedMultipart);
   return buffer?`Buffer.from(${JSON.stringify(value)}, 'base64')`:`Uint8Array.from(atob(${JSON.stringify(value)}), character => character.charCodeAt(0))`;
 }
-/** @param {string} value */
-function binaryData(value){
-  const limit=20*1024*1024;
-  if(value.length>4*Math.ceil(limit/3))throw Error('Binary request exceeds 20 MiB.');
+/** Serialized MIME includes framing in addition to the selected upload budget.
+ * Bound its Base64 source by the existing generated-code budget, reserving
+ * room for client code/headers; ordinary raw uploads retain their 20 MiB cap.
+ * @param {string} value @param {boolean} [serializedMultipart] */
+function binaryData(value,serializedMultipart=false){
+  const limit=serializedMultipart?Math.floor((generatedCodeLimit-65536)/4)*3:20*1024*1024;
+  const message=serializedMultipart?'Multipart body exceeds the generated code limit.':'Binary request exceeds 20 MiB.';
+  if(value.length>4*Math.ceil(limit/3))throw Error(message);
   let decoded;
   try{decoded=atob(value);}catch{throw Error('Binary file data is invalid. Select the file again.');}
-  if(decoded.length>limit)throw Error('Binary request exceeds 20 MiB.');
+  if(decoded.length>limit)throw Error(message);
   if(btoa(decoded)!==value)throw Error('Binary file data is invalid. Select the file again.');
   return decoded;
 }
@@ -36,9 +40,9 @@ export function javascriptFetchCode(request) {
   if(request.hawk)throw Error('Choose Node.js / Native to generate Hawk authentication.');
   if(request.nativeAuth)throw Error(request.nativeAuth.digest?'Choose Node.js / Native to generate Digest code, including auth-int.':'Choose Shell / cURL to generate code for NTLM or netrc authentication.');
   if(request.socketPath)throw Error('Choose Node.js / Native to generate code for a socket request.');
-  const multipart=request.postData?.mimeType==='multipart/form-data';
-  const text=request.postData?.text??'';
   const binary=typeof request.bodyBase64==='string';
+  const multipart=!binary&&request.postData?.mimeType==='multipart/form-data';
+  const text=request.postData?.text??'';
   const hasBody=binary||multipart||text!=='';
   if(['CONNECT','TRACE','TRACK'].includes(request.method.toUpperCase()))
     throw Error('Browser fetch cannot use this HTTP method. Choose another client.');
@@ -66,7 +70,7 @@ export function javascriptFetchCode(request) {
   }
   const headers=request.headers.filter(row=>!multipart||row.name.toLowerCase()!=='content-type').map(row=>[row.name,row.value]);
   if(preparedMultipart)headers.push(['Content-Type',preparedMultipart.contentType]);
-  const body=binary?binaryLiteral(/** @type {string} */(request.bodyBase64)):multipart?'form':JSON.stringify(text);
+  const body=binary?binaryLiteral(/** @type {string} */(request.bodyBase64),false,request.serializedMultipart):multipart?'form':JSON.stringify(text);
   lines.push(`const options = {`, `  method: ${JSON.stringify(request.method)},`,
     `  headers: ${JSON.stringify(headers)},`,
     ...(hasBody?[`  body: ${body},`]:[]),
@@ -104,7 +108,7 @@ export function nodeNativeCode(request){
     for(let index=headers.length-1;index>=0;index--)if(headers[index][0].toLowerCase()==='content-type')headers.splice(index,1);
     headers.push(['Content-Type',multipart.contentType]);
     body='Buffer.concat([\n  '+multipart.chunks.join(',\n  ')+"\n].map(part => typeof part === 'string' ? Buffer.from(part, 'utf8') : part))";
-  }else if(typeof request.bodyBase64==='string')body=binaryLiteral(request.bodyBase64,true);
+  }else if(typeof request.bodyBase64==='string')body=binaryLiteral(request.bodyBase64,true,request.serializedMultipart);
   else if(request.postData?.text)body=`Buffer.from(${JSON.stringify(request.postData.text)}, 'utf8')`;
   if(request.cookies.length&&!hasHeader('cookie'))headers.push(['Cookie',request.cookies.map(cookie=>cookie.name+'='+cookie.value).join('; ')]);
   if(!hasHeader('host'))headers.push(['Host',url.host]);
@@ -147,7 +151,7 @@ export function shellCurlCode(request){
     let data='';
     for(const bytes of multipart.bytes)for(let offset=0;offset<bytes.length;offset+=8192)data+=String.fromCharCode(...bytes.subarray(offset,offset+8192));
     encoded=btoa(data);
-  }else if(typeof request.bodyBase64==='string'){binaryData(request.bodyBase64);encoded=request.bodyBase64;}
+  }else if(typeof request.bodyBase64==='string'){binaryData(request.bodyBase64,request.serializedMultipart);encoded=request.bodyBase64;}
   else if(text.includes('\0')||text.startsWith('@')||new TextEncoder().encode(text).length>8192){
     const bytes=new TextEncoder().encode(text);let data='';
     for(let offset=0;offset<bytes.length;offset+=8192)data+=String.fromCharCode(...bytes.subarray(offset,offset+8192));

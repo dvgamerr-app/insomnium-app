@@ -2702,7 +2702,7 @@ export async function prepareCodeRequest(requestId, signal, isCurrent) {
   const har=pluginHarEntry(rendered,{...prepared,digest:null,ntlm:null,netrc:false,hawk:null,oauth1:null,aws:null,asap:null},undefined,new Date().toISOString()).request;
   // Binary transport bytes must never fall through as a Base64 text body.
   if(prepared.bodyBase64!==null)har.postData.text='';
-  return {...har,bodyBase64:prepared.bodyBase64,multipartParts:prepared.multipart,multipartContentType:prepared.multipartContentType,socketPath:prepared.socketPath,suppressDefaultHeaders:prepared.suppressDefaultHeaders,nativeAuth,hawk:prepared.hawk,oauth1:prepared.oauth1,aws:prepared.aws,asap:prepared.asap};
+  return {...har,bodyBase64:prepared.bodyBase64,serializedMultipart:rendered.body?._curlMultipart===true&&prepared.bodyBase64!==null,multipartParts:prepared.multipart,multipartContentType:prepared.multipartContentType,socketPath:prepared.socketPath,suppressDefaultHeaders:prepared.suppressDefaultHeaders,nativeAuth,hawk:prepared.hawk,oauth1:prepared.oauth1,aws:prepared.aws,asap:prepared.asap};
 }
 /** Capture actual workspace services for one root Send and all nested guests.
  * @param {ReturnType<typeof initialData>} data

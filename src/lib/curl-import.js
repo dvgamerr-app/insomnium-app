@@ -1,4 +1,5 @@
-import { parseCurlForm } from "./curl-form.js";
+import { parseCurlForm, parseCurlForms } from "./curl-form.js";
+import { multipartHeaders } from "./multipart-headers.js";
 import { expandCurlUrl } from "./curl-url-glob.js";
 import { curlConfigWords } from "./curl-config.js";
 import { curlProxyUrl } from "./request-proxy.js";
@@ -260,6 +261,8 @@ const values = new Set([
   "url-query",
 ]);
 const flags = new Set([
+  "form-escape",
+  "no-form-escape",
   "http1.0",
   "http1.1",
   "http2-prior-knowledge",
@@ -667,10 +670,14 @@ function requestsFor(words, workspaceId, entries, uploadFiles = []) {
   if (has("json") && !headers.some((h) => h.name.toLowerCase() === "accept"))
     headers.push(optionHeader({ name: "Accept", value: "application/json" }));
   if (forms.length) {
-    const params = forms.map(({ name, value }) =>
+    const tree = parseCurlForms(forms);
+    const formEscape = entries.filter(e => ["form-escape", "no-form-escape"].includes(e.name)).at(-1)?.name === "form-escape";
+    const nested = formEscape || tree.some(part => part.type === "multipart" || part.name === null ||
+      multipartHeaders(part.partHeaders ?? "", true).some(([name]) => ["content-type", "content-disposition", "content-transfer-encoding", "content-length"].includes(name.toLowerCase())));
+    const params = nested ? tree : forms.map(({ name, value }) =>
       parseCurlForm(value, name === "form-string"),
     );
-    body = { mimeType: "multipart/form-data", text: "", params };
+    body = { mimeType: "multipart/form-data", text: "", params, ...(nested ? {_curlMultipart: true} : {}), ...(formEscape ? {_curlFormEscape: true} : {}) };
   }
   if (uploadFiles.some(file => file !== undefined) && (data.length || forms.length || has("head") || has("get")))
     throw new Error("cURL file uploads cannot be combined with data, form, head or get options.");

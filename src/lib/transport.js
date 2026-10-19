@@ -13,6 +13,7 @@ import {
 } from "./template-url.js";
 import { composeCurlBody, appendCurlFileQuery, appendCurlUploadName } from "./curl-body.js";
 import { multipartHeaders, multipartEncodings } from "./multipart-headers.js";
+import { curlMultipart, curlFileContentType } from "./curl-multipart.js";
 import { serializeOpenApiQuery } from "./openapi-query.js";
 import { serializeOpenApiHeader } from "./openapi-header.js";
 import { expandOpenApiPath } from "./openapi-path.js";
@@ -559,6 +560,50 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
       .join("&");
     if (!headers.some(([name]) => name.toLowerCase() === "content-type"))
       headers.push(["Content-Type", mime]);
+  } else if (mime === "multipart/form-data" && body._curlMultipart === true) {
+    let partCount = 0;
+    const ancestors = new Set();
+    /** @param {any[]} rows @param {number} depth @returns {import('./curl-multipart.js').CurlPart[]} */
+    function prepareParts(rows, depth) {
+      if (depth > 40 || ancestors.has(rows)) throw new Error("Multipart nesting exceeds MIME limits.");
+      ancestors.add(rows);
+      const result = rows.filter(p => !p.disabled).map(p => {
+        if (++partCount > 10000) throw new Error("Multipart exceeds part limits.");
+        const common = {
+          name: p.name == null ? null : resolve(p.name),
+          headers: multipartHeaders(resolve(p.partHeaders ?? ""), true),
+          contentType: p.contentTypeOverride ? resolve(p.contentTypeOverride) : null,
+        };
+        if (p.type === "multipart") {
+          if (!Array.isArray(p.params)) throw new Error("Invalid multipart group.");
+          return { ...common, params: prepareParts(p.params, depth + 1) };
+        }
+        const file = p.type === "file";
+        if (file && typeof p.base64 !== "string")
+          throw new Error(`Select the file again for multipart field “${p.name ?? ""}”`);
+        const fileName = file && p.fileContent === true ? null
+          : typeof p.fileNameOverride === "string" ? resolve(p.fileNameOverride)
+          : file ? p.fileName || "upload.bin" : null;
+        let inferredType = curlFileContentType(fileName) ?? (file ? curlFileContentType(p.fileName) : null);
+        if (inferredType === "text/plain" && fileName === null) inferredType = null;
+        return {
+          ...common,
+          value: file ? p.base64 : resolve(p.value ?? ""),
+          valueBase64: file,
+          fileName,
+          contentType: common.contentType ?? (common.headers.some(([name]) => name.toLowerCase() === "content-type") ? null : inferredType ?? (file && p.fileContent !== true ? "application/octet-stream" : null)),
+          transferEncoding: p.transferEncoding ?? null,
+        };
+      });
+      ancestors.delete(rows);
+      return result;
+    }
+    const selectedType = headers.find(([name]) => name.toLowerCase() === "content-type")?.[1] ?? null;
+    const encoded = curlMultipart(prepareParts(body.params ?? [], 1), selectedType, body._curlFormEscape === true);
+    bodyBase64 = encodeBase64(encoded.bytes);
+    for (let i = headers.length - 1; i >= 0; i--)
+      if (headers[i][0].toLowerCase() === "content-type") headers.splice(i, 1);
+    headers.push(["Content-Type", encoded.contentType]);
   } else if (mime === "multipart/form-data") {
     multipart = (body.params ?? [])
       .filter((/** @type {any} */ p) => !p.disabled && (body._legacyMultipart === true

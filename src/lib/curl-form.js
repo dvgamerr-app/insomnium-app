@@ -89,8 +89,19 @@ export function parseCurlForm(source, literal = false) {
   const name = source.slice(0, equal);
   const input = source.slice(equal + 1);
   if (literal) return { name, value: input, type: "text" };
-  if (input.startsWith("(") || input === ")")
+  // curl closes a group only for an unnamed =). This parser handles named
+  // fields, where a value of ) is ordinary text.
+  if (input.startsWith("("))
     throw new Error("cURL nested multipart is not supported yet.");
+  const parsed = parsePart(name, input);
+  if (parsed.index < input.length)
+    throw new Error("Multiple files in one cURL form field require nested multipart support.");
+  return parsed.part;
+}
+
+/** Parse one part, retaining a file-list delimiter for the tree parser.
+ * @param {string|null} name @param {string} input @param {boolean} [group] */
+function parsePart(name, input, group = false) {
   const fileContent = input.startsWith("<");
   const file = input.startsWith("@") || fileContent;
   // Only @ uses curl's comma-separated file-list grammar. For <, commas
@@ -106,10 +117,7 @@ export function parseCurlForm(source, literal = false) {
   if (fileContent) result.fileContent = true;
   let index = primary.index;
   while (index < input.length) {
-    if (input[index] === ",")
-      throw new Error(
-        "Multiple files in one cURL form field require nested multipart support.",
-      );
+    if (input[index] === ",") break;
     index++;
     while (/[ \t]/.test(input[index] || "")) index++;
     const match = /^(type|filename|headers|encoder)=/i.exec(input.slice(index));
@@ -126,15 +134,15 @@ export function parseCurlForm(source, literal = false) {
     if (/[\x00-\x1f\x7f]/.test(item.value))
       throw new Error("Invalid control character in multipart metadata.");
     if (attribute === "encoder") {
-      result.transferEncoding = item.value.toLowerCase();
+      if (!group) result.transferEncoding = item.value.toLowerCase();
     } else if (attribute === "headers") {
       if (item.value.startsWith("@"))
         throw new Error("cURL multipart header files must be replaced with inline headers.");
       result.partHeaders = [result.partHeaders, item.value].filter(Boolean).join("\n");
-      multipartHeaders(result.partHeaders);
+      multipartHeaders(result.partHeaders, true);
     } else if (attribute === "type") {
       result.contentTypeOverride = item.value;
-    } else if (!fileContent) result.fileNameOverride = item.value;
+    } else if (!fileContent && !group) result.fileNameOverride = item.value;
     index = item.index;
   }
   // curl's get_param_part replaces filename/encoder and any new type after
@@ -145,5 +153,62 @@ export function parseCurlForm(source, literal = false) {
   if (typeof result.transferEncoding === "string" &&
       !multipartEncodings.includes(result.transferEncoding))
     throw new Error("Unsupported cURL multipart encoder.");
-  return result;
+  return { part: result, index };
+}
+
+/** Parse ordered -F/--form-string entries into curl's MIME tree. No I/O occurs.
+ * An absent name is null, distinct from legacy flat form rows. Curl implicitly
+ * completes open groups at end of input; only an unmatched = ) terminator fails.
+ * @param {{name:string,value:string}[]} forms @returns {Record<string,any>[]} */
+export function parseCurlForms(forms) {
+  /** @type {Record<string,any>[]} */ const root = [];
+  const stack = [root];
+  for (const entry of forms) {
+    const equal = entry.value.indexOf("=");
+    if (equal < 0) throw new Error("cURL form fields require name=value.");
+    const name = equal ? entry.value.slice(0, equal) : null;
+    const input = entry.value.slice(equal + 1);
+    const literal = entry.name === "form-string";
+    const current = stack[stack.length - 1];
+    if (!literal && name === null && input === ")") {
+      if (stack.length === 1)
+        throw new Error("cURL multipart has no group to close.");
+      stack.pop();
+      continue;
+    }
+    if (!literal && input.startsWith("(")) {
+      if (stack.length >= 40) throw new Error("Multipart nesting exceeds MIME limits.");
+      const { part } = parsePart(name, "group" + input.slice(1), true);
+      /** @type {Record<string,any>[]} */ const params = [];
+      current.push({
+        name, type: "multipart", params,
+        ...(part.contentTypeOverride ? { contentTypeOverride: part.contentTypeOverride } : {}),
+        ...(part.partHeaders ? { partHeaders: part.partHeaders } : {}),
+      });
+      stack.push(params);
+      continue;
+    }
+    if (literal) {
+      current.push({ name, type: "text", value: input });
+      continue;
+    }
+    const first = parsePart(name, input);
+    if (first.index === input.length) {
+      current.push(first.part);
+      continue;
+    }
+    // curl wraps comma-separated @files in an unnamed-child multipart group.
+    if (stack.length >= 40) throw new Error("Multipart nesting exceeds MIME limits.");
+    /** @type {Record<string,any>[]} */ const params = [{ ...first.part, name: null }];
+    let remainder = input.slice(first.index + 1);
+    for (;;) {
+      const nextInput = "@" + remainder;
+      const next = parsePart(null, nextInput);
+      params.push(next.part);
+      if (next.index === nextInput.length) break;
+      remainder = nextInput.slice(next.index + 1);
+    }
+    current.push({ name, type: "multipart", params });
+  }
+  return root;
 }

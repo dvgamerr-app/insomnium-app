@@ -6,8 +6,8 @@ export const multipartEncodings = [
   "base64",
 ];
 /** Parse editable per-part headers; MIME framing remains transport-owned.
- * @param {string} text @returns {[string,string][]} */
-export function multipartHeaders(text) {
+ * @param {string} text @param {boolean} [allowFraming] @returns {[string,string][]} */
+export function multipartHeaders(text, allowFraming = false) {
   if (typeof text !== "string" || new TextEncoder().encode(text).length > 65536)
     throw new Error("Multipart headers exceed 64 KiB or are not text.");
   /** @type {[string,string][]} */
@@ -25,7 +25,7 @@ export function multipartHeaders(text) {
       throw new Error(
         "Invalid multipart header. Use one Name: value per line.",
       );
-    if (
+    if (!allowFraming &&
       [
         "content-disposition",
         "content-type",
