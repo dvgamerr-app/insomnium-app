@@ -2875,6 +2875,33 @@ mod tests {
         ))
         .unwrap();
         let pool = crate::grpc_schema::decode(any["descriptorSet"].as_str().unwrap()).unwrap();
+        let any_message = pool.get_message_by_name("google.protobuf.Any").unwrap();
+        let reflected = crate::grpc_example::generate(
+            any_message.clone(),
+            crate::grpc_schema::JsonMode::LegacyReflection,
+        )
+        .unwrap();
+        let saved = crate::grpc_example::generate_saved(
+            any_message.clone(),
+            crate::grpc_schema::JsonMode::Legacy,
+        )
+        .unwrap();
+        assert_eq!(
+            crate::grpc_schema::parse_mode(
+                any_message.clone(),
+                &saved,
+                crate::grpc_schema::JsonMode::Legacy,
+            )
+            .unwrap()
+            .encode_to_vec(),
+            crate::grpc_schema::parse_mode(
+                any_message,
+                &reflected,
+                crate::grpc_schema::JsonMode::LegacyReflection,
+            )
+            .unwrap()
+            .encode_to_vec(),
+        );
         let value = pool.get_message_by_name("google.protobuf.Value").unwrap();
         let example =
             crate::grpc_example::generate(value.clone(), crate::grpc_schema::JsonMode::Legacy)

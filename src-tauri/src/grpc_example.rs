@@ -10,8 +10,10 @@ const MAX_EXAMPLE: usize = 128 * 1024;
 /// Convert the reflected entry-array sample through the codec before exposing
 /// saved-proto JSON (whose maps use objects rather than reflected entry arrays).
 pub(crate) fn generate_saved(desc: MessageDescriptor, mode: JsonMode) -> Result<String, String> {
-    let canonical = generate(desc.clone(), JsonMode::ProtoJson)?;
-    let parsed = grpc_schema::parse_mode(desc.clone(), &canonical, JsonMode::ProtoJson)?;
+    // Legacy Any may contain raw bytes and an unresolved type URL. Do not force
+    // its sample through ProtoJSON before selecting the requested display mode.
+    let reflected = generate(desc.clone(), JsonMode::LegacyReflection)?;
+    let parsed = grpc_schema::parse_mode(desc.clone(), &reflected, JsonMode::LegacyReflection)?;
     let mut result = grpc_schema::json_mode(&parsed, mode, desc.clone())?;
     if matches!(mode, JsonMode::Legacy) {
         let mut value: Value = serde_json::from_str(&result).map_err(|e| e.to_string())?;
