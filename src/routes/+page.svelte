@@ -239,15 +239,13 @@
           if (closing) return;
           closing = true;
           cancelAllTemplatePrompts();
-          const saved = !app.ready || (await shutdown());
-          if (saved) {
-            try {
-              await window.destroy();
-            } catch (error) {
-              app.error = String(error);
-              closing = false;
-            }
-          } else closing = false;
+          try {
+            if (!app.ready) await window.destroy();
+            else if (!(await shutdown(() => window.destroy()))) closing = false;
+          } catch (error) {
+            app.error = String(error);
+            closing = false;
+          }
         })
         .then((cleanup) => {
           if (disposed) cleanup();

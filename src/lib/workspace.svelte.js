@@ -2652,9 +2652,15 @@ export async function stop(requestId) {
     }
   }
 }
-export async function shutdown() {
+/** Keep new work paused through the native close request, not just its final save.
+ * @param {()=>Promise<unknown>} [close] */
+export async function shutdown(close = async () => {}) {
   try {
-    return await withWorkspaceRunsPaused(persist);
+    return await withWorkspaceRunsPaused(async () => {
+      if (!(await persist())) return false;
+      await close();
+      return true;
+    });
   } catch (error) {
     workspace.error = String(error);
     return false;
