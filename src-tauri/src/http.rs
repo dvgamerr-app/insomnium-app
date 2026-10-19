@@ -244,6 +244,7 @@ pub async fn send_http(
         .publish_started(&request.id, on_started, webview)
         .map_err(HttpFailure::early)?;
     let mut jar = None;
+    let mut jar_load = crate::cookies::JarLoad::default();
     let requested_url = url.clone();
     let overall = Instant::now();
     let log = std::sync::Arc::new(Mutex::new(crate::network_log::preface(
@@ -271,7 +272,11 @@ pub async fn send_http(
     let hops = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let result = async {
         if request.use_cookies && (request.send_cookies || request.store_cookies) {
-            jar = Some(cookie_state.jar(&app, request.workspace_id.clone()).await?);
+            jar = Some(
+                jar_load
+                    .load(&cookie_state, &app, request.workspace_id.clone())
+                    .await?,
+            );
         }
         let started = Instant::now();
         let client = build_client(&request, &url, jar.as_ref(), false, false)?;
@@ -386,6 +391,7 @@ pub async fn send_http(
         result = timeouts::run(timeouts::selected(request.request_timeout_ms, request.timeout_ms), result, "Request timed out") => result,
         _ = cancelled.changed() => Err("Request cancelled".into()),
     };
+    jar_load.drain().await;
     if let Some(jar) = jar {
         if let Err(error) = jar.flush().await {
             let warning = format!("Cookies could not be saved: {error}");
@@ -437,9 +443,14 @@ pub async fn fetch_oauth_token(
     let mut cancelled = state.begin(&request.id)?;
     state.publish_started(&request.id, on_started, webview)?;
     let mut jar = None;
+    let mut jar_load = crate::cookies::JarLoad::default();
     let exchange = async {
         if request.use_cookies && (request.send_cookies || request.store_cookies) {
-            jar = Some(cookie_state.jar(&app, request.workspace_id.clone()).await?);
+            jar = Some(
+                jar_load
+                    .load(&cookie_state, &app, request.workspace_id.clone())
+                    .await?,
+            );
         }
         let client = build_client(&request, &url, jar.as_ref(), false, false)
             .map_err(|_| "Invalid OAuth proxy, CA or client certificate settings.")?;
@@ -455,6 +466,7 @@ pub async fn fetch_oauth_token(
         result = timeouts::run(timeouts::selected(request.request_timeout_ms, request.timeout_ms), exchange, "OAuth token request timed out.") => result,
         _ = cancelled.changed() => Err("OAuth token request cancelled.".into()),
     };
+    jar_load.drain().await;
     if let Some(jar) = jar {
         if jar.flush().await.is_err() {
             let warning = "OAuth collection cookies could not be saved.";

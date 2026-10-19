@@ -115,6 +115,7 @@ pub async fn authorize_oauth(
     let mut cancelled = state.begin(&request.id)?;
     state.publish_started(&request.id, on_started, webview)?;
     let mut jar = None;
+    let mut jar_load = crate::cookies::JarLoad::default();
     let mut login_creation = None;
     let operation = async {
         let (redirect, listener) = prepare_redirect(&config).await?;
@@ -209,7 +210,11 @@ pub async fn authorize_oauth(
             .map_err(|_| "Could not update OAuth login status.")?;
         let exchange = async {
             if request.use_cookies && (request.send_cookies || request.store_cookies) {
-                jar = Some(cookie_state.jar(&app, request.workspace_id.clone()).await?);
+                jar = Some(
+                    jar_load
+                        .load(&cookie_state, &app, request.workspace_id.clone())
+                        .await?,
+                );
             }
             let client = build_client(&request, &url, jar.as_ref(), false, false)
                 .map_err(|_| "Invalid OAuth proxy, CA or client certificate settings.")?;
@@ -233,6 +238,7 @@ pub async fn authorize_oauth(
         task.abort();
         let _ = task.await;
     }
+    jar_load.drain().await;
     if let Some(jar) = jar {
         if jar.flush().await.is_err() {
             let warning = "OAuth collection cookies could not be saved.";

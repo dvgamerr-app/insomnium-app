@@ -22,12 +22,44 @@ struct JarData {
     generation: u64,
 }
 
+pub(crate) type JarTask = tauri::async_runtime::JoinHandle<Result<Arc<PersistentJar>, String>>;
+
+/// Keeps blocking jar initialization owned across cancellation of its awaiter.
+#[derive(Default)]
+pub(crate) struct JarLoad(Option<JarTask>);
+impl JarLoad {
+    pub(crate) async fn load(
+        &mut self,
+        state: &CookieState,
+        app: &tauri::AppHandle,
+        workspace_id: String,
+    ) -> Result<Arc<PersistentJar>, String> {
+        let task = self.0.insert(state.start_jar(app, workspace_id)?);
+        let result = task.await;
+        self.0.take();
+        result.map_err(|e| e.to_string())?
+    }
+
+    pub(crate) async fn drain(&mut self) {
+        if let Some(task) = self.0.take() {
+            task.abort();
+            let _ = task.await;
+        }
+    }
+}
+
 impl CookieState {
     pub async fn jar(
         &self,
         app: &tauri::AppHandle,
         workspace_id: String,
     ) -> Result<Arc<PersistentJar>, String> {
+        self.start_jar(app, workspace_id)?
+            .await
+            .map_err(|e| e.to_string())?
+    }
+
+    fn start_jar(&self, app: &tauri::AppHandle, workspace_id: String) -> Result<JarTask, String> {
         if workspace_id.is_empty()
             || workspace_id.len() > 200
             || !workspace_id
@@ -43,7 +75,7 @@ impl CookieState {
             .join("cookies")
             .join(format!("{workspace_id}.json"));
         let jars = self.0.clone();
-        tauri::async_runtime::spawn_blocking(move || {
+        Ok(tauri::async_runtime::spawn_blocking(move || {
             let mut jars = jars.lock().map_err(|e| e.to_string())?;
             if let Some(jar) = jars.get(&workspace_id) {
                 return Ok(jar.clone());
@@ -72,9 +104,7 @@ impl CookieState {
             });
             jars.insert(workspace_id, jar.clone());
             Ok(jar)
-        })
-        .await
-        .map_err(|e| e.to_string())?
+        }))
     }
 }
 

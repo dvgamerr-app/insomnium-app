@@ -623,11 +623,12 @@ pub async fn connect_stream(
         acknowledgements,
     };
     let mut jar = None;
+    let mut jar_load = crate::cookies::JarLoad::default();
     let result = async {
         emit(&on_event, StreamEvent::Started)?;
         if request.use_cookies && (request.send_cookies || request.store_cookies) {
             jar = tokio::select! {
-                result = cookies.jar(&app, request.workspace_id.clone()) => Some(result?),
+                result = jar_load.load(&cookies, &app, request.workspace_id.clone()) => Some(result?),
                 _ = delivery.cancelled.changed() => return Ok(()),
             };
         }
@@ -662,6 +663,7 @@ pub async fn connect_stream(
         "Stream request timed out",
     )
     .await;
+    jar_load.drain().await;
     streams
         .sockets
         .lock()
