@@ -4,6 +4,7 @@ import { open, save } from "@tauri-apps/plugin-dialog";
 import { readTextFile, writeTextFile, writeFile, stat } from "@tauri-apps/plugin-fs";
 import { id, initialData, newRequest, protocolFor } from "./model.js";
 import { parseLegacyFiles } from "./legacy-import.js";
+import { pluginJarCookies, pluginCookieJarId, pluginCookieJarView } from "./plugin-cookie-jar.js";
 import { legacyPreferenceCandidate } from "./legacy-preferences.js";
 import { legacyV1Resources } from "./legacy-v1-import.js";
 import { hoppscotchResources } from "./hoppscotch-import.js";
@@ -37,6 +38,22 @@ const localGitFields = [
   "nativeRemoteBranches",
 ];
 
+/** Git HTTP credentials may be embedded in older imported URI fields.
+ * @param {unknown} value */
+function portableGitUri(value) {
+  if (typeof value !== "string") return value;
+  try {
+    const url = new URL(value);
+    if (["http:", "https:", "git+http:", "git+https:"].includes(url.protocol) &&
+        (url.username || url.password)) {
+      url.username = "";
+      url.password = "";
+      return url.href;
+    }
+  } catch { /* Preserve unknown legacy URI spellings rather than guessing. */ }
+  return value;
+}
+
 /** Native repository IDs and operation receipts identify app-data on this machine, not portable resources.
  * Keep repository settings, but never reactivate a local binding through import.
  * @param {Record<string, any>} resource @param {boolean} [forExport] */
@@ -52,6 +69,7 @@ function portableResource(resource, forExport = false) {
   for (const key of localGitFields) delete copy[key];
   if (forExport) {
     delete copy.credentials;
+    if (Object.hasOwn(copy, "uri")) copy.uri = portableGitUri(copy.uri);
     const record = resource._legacySource?.record;
     if (record && typeof record === "object" && !Array.isArray(record)) {
       // NeDB imports archive an original copy of the same Git resource. Apply
@@ -59,6 +77,7 @@ function portableResource(resource, forExport = false) {
       const portableRecord = {...record};
       for (const key of localGitFields) delete portableRecord[key];
       delete portableRecord.credentials;
+      if (Object.hasOwn(portableRecord, "uri")) portableRecord.uri = portableGitUri(portableRecord.uri);
       copy._legacySource = {...resource._legacySource,record:portableRecord};
     }
   }
@@ -653,12 +672,32 @@ export async function pickImport() {
   const name = path[0].split(/[\\/]/).at(-1) || "";
   return parseImport(await readTextFile(path[0]), /\.curlrc$/i.test(name) ? {name} : {});
 }
-/** @param {ReturnType<typeof initialData>} data */
-export async function exportData(data) {
+/** @param {ReturnType<typeof initialData>} data @param {AbortSignal} [signal] */
+export async function exportData(data, signal = new AbortController().signal) {
+  signal.throwIfAborted();
+  // Native jars are authoritative and may never have been projected into the
+  // workspace by a plugin. Export a detached current view, keeping pending
+  // imported jars and activated template sources as separate original records.
+  let sourceResources = data.resources;
+  if (isTauri()) {
+    sourceResources = [...data.resources];
+    for (const collection of data.resources.filter(resource => resource._type === "workspace")) {
+      const snapshot = await invoke("snapshot_request_cookies", {
+        workspaceId: collection._id, includeExpired: true,
+      });
+      signal.throwIfAborted();
+      const jar = pluginCookieJarView(sourceResources, collection._id,
+        await pluginCookieJarId(collection._id), pluginJarCookies(snapshot));
+      signal.throwIfAborted();
+      const index = sourceResources.findIndex(resource => resource._id === jar._id);
+      if (index < 0) sourceResources.push(jar);
+      else sourceResources[index] = jar;
+    }
+  }
   const selectedPortableResponses = new Map(Object.entries(data.responseSelections || {}).filter(([requestId, responseId]) =>
     data.history.some((entry) => entry._id === responseId && entry.requestId === requestId) &&
     data.resources.some((resource) => resource._id === responseId && ((resource._type === "response" && resource._legacyResponseAssets?.version === 1) || (resource._type === "websocket_response" && resource._legacyWebSocketAssets?.version === 1)))));
-  const resources = data.resources.map((resource) => {
+  const resources = sourceResources.map((resource) => {
     const portable = portableResource(resource, true);
     const selected = resource._type === "request_meta" ? selectedPortableResponses.get(resource.parentId) : undefined;
     return selected ? { ...portable, activeResponseId: selected } : portable;
@@ -682,8 +721,13 @@ export async function exportData(data) {
       defaultPath: "insomnium-export.json",
       filters: [{ name: "Insomnium JSON", extensions: ["json"] }],
     });
+    signal.throwIfAborted();
     if (path) await writeTextFile(path, text);
-  } else await download(text, "insomnium-export.json", "application/json");
+  } else {
+    signal.throwIfAborted();
+    await download(text, "insomnium-export.json", "application/json");
+  }
+  signal.throwIfAborted();
 }
 /** @param {BlobPart} data @param {string} name @param {string} [type] */
 export async function download(data, name, type = "text/plain") {

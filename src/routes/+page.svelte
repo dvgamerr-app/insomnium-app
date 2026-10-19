@@ -104,6 +104,8 @@
   providePasswordVisibility(() => app.data.settings.showPasswords === true);
   const importWork = createWorkspaceWorkScope();
   onDestroy(importWork.dispose);
+  const exportWork = createWorkspaceWorkScope();
+  onDestroy(exportWork.dispose);
   onDestroy(() => pluginRegistry.dispose());
   $effect(() => { pluginRegistry.synchronize(); });
   let cloneOpen = $state(false);
@@ -492,6 +494,19 @@
     else if (protocol === "grpc") await grpcEditor?.sendMessage();
     else await execute(request._id);
   }
+  async function exportCollections() {
+    if (!canEditWorkspace()) return;
+    /** @type {import("$lib/workspace.svelte.js").ScopedWorkspaceWork|undefined} */ let work;
+    try {
+      work = exportWork.begin();
+      await exportData($state.snapshot(app.data), work.signal);
+    } catch (error) {
+      if (!(error instanceof Error && error.name === "AbortError") && (!work || work.current()))
+        app.error = String(error);
+    } finally {
+      work?.finish();
+    }
+  }
   /** @param {unknown} action */
   async function nativeMenuAction(action) {
     if (action === "undo" || action === "redo") {
@@ -507,7 +522,7 @@
       case "settings": openSettings("General"); break;
       case "requests": case "tests": case "git": mainView = action; break;
       case "import": await importFile(); break;
-      case "export": await exportData($state.snapshot(app.data)); break;
+      case "export": await exportCollections(); break;
       case "save": await persist(); break;
       case "sidebar":
         if (["requests", "tests"].includes(mainView)) setSidebarHidden(!sidebarHidden);
@@ -785,10 +800,7 @@
       class="activity"
       title="Export collections"
       aria-label="Export collections"
-      onclick={() =>
-        exportData($state.snapshot(app.data)).catch(
-          (e) => (app.error = String(e)),
-        )}><Icon name="download" size={21} /></Button
+      onclick={exportCollections}><Icon name="download" size={21} /></Button
     ><span class="spacer"></span><Button
       variant="ghost"
       class="activity"
