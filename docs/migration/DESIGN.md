@@ -420,3 +420,9 @@ Validation: bun run check exit0/0errors/0warnings (session90049 terminal); bun r
 Ctrl/Cmd+Shift+Enter now routes SSE to the existing Request actions dialog, matching showRequestActions/startSchedule support for both HTTP and SSE. Previously its HTTP-only branch sent SSE to the later Settings fallback, leaving existing Send Now/Generate Code/Delay/Repeat unavailable through this shortcut. Dedicated Ctrl/Cmd+Alt+Shift+Comma Settings and WebSocket/gRPC fallback are retained. No new execution/scheduler or protocol semantics introduced.
 
 Validation: bun run check exit0/0errors/0warnings (session59936 terminal); bun run build exit0; scoped git diff --check exit0. No testcase/scenario additions, modifications or runs. Source inspection confirms dialog and scheduler accept SSE and Send And Download remains HTTP-only. Real keyboard/native scheduling lifecycle and broader platform/migration acceptance remain open.
+
+## Download continuation ownership — 2026-10-19
+
+Send And Download now rechecks its existing current() owner predicate after awaiting the saved native destination read, before submitting either the native write or fallback Save. Previously the last owner check preceded that IPC; request/environment/view changes during the await relied solely on a later reactive cancellation effect. The post-await check rejects stale context even before that effect runs, and explicitly checks the signal again. The response-download helper already checks signal on IPC completion; this adds context validation, not a replacement cancellation mechanism.
+
+Validation: bun run check exit0/0errors/0warnings (session64339 terminal), bun run build exit0, scoped git diff --check exit0. No testcase/scenario additions/changes/runs, native/profile/chooser/provider operation. Actual destination-read/context-switch races and native cancellation/cleanup/platform acceptance remain unverified.

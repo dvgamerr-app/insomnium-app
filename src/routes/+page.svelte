@@ -612,7 +612,10 @@
       work.signal.throwIfAborted();
       if (isTauri()) {
         const workspaceId = workspaceFor(app.data.resources, requestId) || "";
-        if (await requestDownload("get", workspaceId, requestId, work.signal)) {
+        const destination = await requestDownload("get", workspaceId, requestId, work.signal);
+        if (!current()) return;
+        work.signal.throwIfAborted();
+        if (destination) {
           await requestDownload("write", workspaceId, requestId, work.signal, response, downloadRequestName);
           return;
         }
