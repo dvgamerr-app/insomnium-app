@@ -2,6 +2,12 @@
 
 Updated 2026-10-18. Optional manual draft-release package retention is implemented with Bun/native gh; default builds remain read-only. Hosted execution/upload/download, platform CI/installer/signing/distribution and complete release/legal acceptance remain open.
 
+## Current workflow inspection — 2026-10-19
+
+Reviewed sourcec1bfdbe90801743d15d87af4963fbef0b90d7a37 entry/core/PR workflows; native actionlint1.7.12 accepts all3 with optional shellcheck/pyflakes disabled. GitHub read-only inspection found latest Desktop build run37559277828, dated2026-10-07, at source7f467869bebd1e60912f00151695e53a429df913: all3platform jobs failed at Build desktop packages. Their annotations report generic Tauri command failure; log download timed out at GitHub's results receiver. No current-source failure cause or hosted pass can be inferred. Evidence artifacts/ci-current-inspection-20261019/{historical-desktop-run,verification}.json; run https://github.com/dvgamerr-app/insomnium-app/actions/runs/37559277828 .
+
+An asynchronous approval question proposes pushing the exact reviewed commit to a new migration/ci-verify-c1bfdbe9 branch and dispatching the existing Desktop build with retain_packages=false. Approval is pending: no push/dispatch/release/upload was executed. This concrete remote-ref step is needed for hosted Linux/Windows/macOS execution; local Windows syntax/build evidence cannot close that gate. No testcase files changed/new cases or owned live handles. This is not full migration/release acceptance.
+
 See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity requirements](PARITY.md). No original scope was removed by consolidation.
 
 ## Manual package retention without a JavaScript action — 2026-10-18
