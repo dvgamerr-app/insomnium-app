@@ -135,7 +135,10 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
       `Review this generated request in Settings before sending:\n${openapiIssues.join("\n")}`,
     );
   const migrationIssues = (request._migrationIssues || []).filter(
-    (/** @type {string} */ issue) => !(request._harSource?.request && issue === "Select imported HAR files again before sending."),
+    (/** @type {string} */ issue) => !(
+      request._harSource?.request && issue === "Select imported HAR files again before sending." ||
+      request._hoppscotchSource && issue === "Select imported Hoppscotch files again before sending."
+    ),
   );
   if (migrationIssues.length)
     throw new Error(migrationIssues.join("\n"));

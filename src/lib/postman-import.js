@@ -141,3 +141,11 @@ export function postmanDescription(description) {
   if (typeof description === "string") return description;
   return typeof description?.content === "string" ? description.content : "";
 }
+/** Disabled events are archival metadata, not scripts that need execution.
+ * Unknown enabled events remain guarded rather than silently ignored.
+ * @param {any} events */
+export function postmanScriptsActive(events) {
+  if(events == null)return false;
+  if(!Array.isArray(events))throw new Error("Postman events must be an array.");
+  return events.some(event=>!disabled(event?.disabled));
+}

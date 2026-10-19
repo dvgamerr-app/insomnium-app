@@ -23,6 +23,7 @@ import {
   postmanVariables,
   postmanHeaders,
   postmanDescription,
+  postmanScriptsActive,
 } from "./postman-import.js";
 
 const localGitFields = [
@@ -218,7 +219,7 @@ export function parseImport(text,options = {}) {
       /** @type {any[]} */ items,
       /** @type {string} */ parentId,
       /** @type {any} */ inheritedAuth = source.auth,
-      /** @type {boolean} */ inheritedScripts = !!source.event?.length,
+      /** @type {boolean} */ inheritedScripts = postmanScriptsActive(source.event),
     ) => {
       const frames = [{items, index:0, parentId, inheritedAuth, inheritedScripts}];
       while (frames.length) {
@@ -247,7 +248,7 @@ export function parseImport(text,options = {}) {
           });
           frames.push({items:item.item, index:0, parentId:folderId,
             inheritedAuth:item.auth || inheritedAuth,
-            inheritedScripts:inheritedScripts || !!item.event?.length});
+            inheritedScripts:inheritedScripts || postmanScriptsActive(item.event)});
         } else if (Object.hasOwn(item, 'request')) {
           if (typeof item.request !== 'string' &&
               (!item.request || typeof item.request !== 'object' || Array.isArray(item.request)))
@@ -325,7 +326,7 @@ export function parseImport(text,options = {}) {
               body: postmanBody(req.body),
               _postmanSource: item,
               _migrationIssues:
-                inheritedScripts || item.event?.length
+                inheritedScripts || postmanScriptsActive(item.event)
                   ? [
                       "This request inherits Postman scripts. Script execution is not migrated yet.",
                     ]

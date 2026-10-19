@@ -106,8 +106,9 @@ export function hoppscotchResources(source) {
         headers:importedHeaders,
         parameters:rows(request.params,"parameters").map((parameter) => ({name:tokens(parameter.key),value:tokens(parameter.value),disabled:!active(parameter.active)})),
         authentication:authentication(effectiveAuth),_hoppscotchSource:structuredClone(request),
-        _migrationIssues:[...(scripts ? ["Hoppscotch scripts are retained but are not executed."] : []),
-          ...(Array.isArray(body.params) && body.params.some((field) => field.type === "file") ? ["Select imported Hoppscotch files again before sending."] : [])],
+        // Missing payloads are guarded at Send, so choosing a file can resolve
+        // them. Unsupported scripts remain a distinct blocking migration issue.
+        _migrationIssues:scripts ? ["Hoppscotch scripts are retained but are not executed."] : [],
       }));
     }
     const children = rows(folders,"folders");
