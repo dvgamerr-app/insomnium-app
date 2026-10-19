@@ -108,6 +108,7 @@ pub fn run() {
         .manage(spectral::SpectralState::default())
         .on_window_event(|window, event| {
             if window.label() == "main" && matches!(event, tauri::WindowEvent::Destroyed) {
+                if let Some(state) = window.try_state::<http::NetworkState>() { state.close(); }
                 if let Some(state) = window.try_state::<spectral::SpectralState>() { spectral::cancel_all(&state); }
                 if let Some(state) = window.try_state::<plugin_event_transport::EventTransportState>() { plugin_event_transport::cancel_all(&state); }
                 if let Some(state) = window.try_state::<plugin_save::SaveState>() {

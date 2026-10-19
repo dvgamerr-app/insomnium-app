@@ -18,16 +18,24 @@ pub(crate) mod versions;
 
 #[derive(Default)]
 pub struct NetworkState {
-    running: Mutex<HashMap<String, watch::Sender<bool>>>,
+    running: Mutex<NetworkCalls>,
+}
+#[derive(Default)]
+struct NetworkCalls {
+    closing: bool,
+    calls: HashMap<String, watch::Sender<bool>>,
 }
 impl NetworkState {
     pub(crate) fn begin(&self, id: &str) -> Result<watch::Receiver<bool>, String> {
         let (sender, receiver) = watch::channel(false);
         let mut running = self.running.lock().map_err(|e| e.to_string())?;
-        if running.contains_key(id) {
+        if running.closing {
+            return Err("The application window is closed.".into());
+        }
+        if running.calls.contains_key(id) {
             return Err("Request is already running".into());
         }
-        running.insert(id.into(), sender);
+        running.calls.insert(id.into(), sender);
         Ok(receiver)
     }
     pub(crate) fn publish_started(
@@ -43,8 +51,20 @@ impl NetworkState {
         Ok(())
     }
     pub(crate) fn finish(&self, id: &str) -> Result<(), String> {
-        self.running.lock().map_err(|e| e.to_string())?.remove(id);
+        self.running
+            .lock()
+            .map_err(|e| e.to_string())?
+            .calls
+            .remove(id);
         Ok(())
+    }
+    pub(crate) fn close(&self) {
+        let mut running = self.running.lock().unwrap_or_else(|e| e.into_inner());
+        running.closing = true;
+        for sender in running.calls.values() {
+            sender.send_replace(true);
+        }
+        // Each command retains its registration until its own cleanup finishes.
     }
 }
 
@@ -189,7 +209,13 @@ impl HttpFailure {
 
 #[tauri::command]
 pub fn cancel_http(id: String, state: tauri::State<'_, NetworkState>) -> Result<(), String> {
-    if let Some(sender) = state.running.lock().map_err(|e| e.to_string())?.get(&id) {
+    if let Some(sender) = state
+        .running
+        .lock()
+        .map_err(|e| e.to_string())?
+        .calls
+        .get(&id)
+    {
         let _ = sender.send(true);
     }
     Ok(())
