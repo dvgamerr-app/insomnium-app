@@ -5423,8 +5423,6 @@ dependencies = [
 [[package]]
 name = "reqwest-websocket"
 version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd5f79b25f7f17a62cc9337108974431a66ae5a723ac0d9fe78ac1cce2027720"
 dependencies = [
  "async-tungstenite",
  "bytes",

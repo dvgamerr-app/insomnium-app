@@ -716,6 +716,7 @@ async fn websocket_session(
         .flat_map(|(_, v)| v.split(',').map(|s| s.trim().to_string()))
         .filter(|s| !s.is_empty())
         .collect();
+    let mut offered_protocols = std::collections::HashSet::new();
     for protocol in &protocols {
         HeaderValue::from_str(protocol).map_err(|_| "Invalid WebSocket subprotocol")?;
         if !protocol
@@ -723,6 +724,9 @@ async fn websocket_session(
             .all(|c| c.is_ascii_alphanumeric() || b"!#$%&'*+-.^_`|~".contains(&c))
         {
             return Err("Invalid WebSocket subprotocol token".into());
+        }
+        if !offered_protocols.insert(protocol) {
+            return Err("Duplicate WebSocket subprotocol".into());
         }
     }
     let config = tungstenite::protocol::WebSocketConfig::default()
@@ -754,6 +758,14 @@ async fn websocket_session(
             handshake, "WebSocket handshake timed out") => response?,
         _ = delivery.cancelled.changed() => return emit(&channel, StreamEvent::Closed { code: None, reason: "Connection cancelled".into() }),
     };
+    // The raw Tungstenite transport has no extension decoder. Do not report
+    // an open connection whose negotiated frames we cannot interpret.
+    if response
+        .headers()
+        .contains_key(reqwest::header::SEC_WEBSOCKET_EXTENSIONS)
+    {
+        return Err("WebSocket handshake selected an unsupported extension".into());
+    }
     let metadata = open_event(&response, started, "websocket");
     let mut socket = response
         .into_websocket()

@@ -90,6 +90,7 @@ panic = "abort"
 strip = true
 
 [patch.crates-io]
+reqwest-websocket = { path = "vendor/reqwest-websocket" }
 tonic = { path = "vendor/tonic-0.14.6" }
 hyper-util = { path = "vendor/hyper-util" }
 tower-http = { path = "vendor/tower-http" }

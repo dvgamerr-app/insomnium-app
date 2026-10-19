@@ -5,6 +5,8 @@ import {
   withNativeApp,
   poll,
   resourceCrudProbeIdentifier,
+  integrationProbeIdentifier,
+  selectedNativeProbeIdentifier,
 } from "./native-app.js";
 import {
   withResourceProbePreserved,
@@ -17,10 +19,12 @@ import { createWebSocketRuntimeFixture } from "./websocket-runtime-fixture.js";
 export async function runWebSocketRuntimeNativeCases() {
   assert.equal(process.platform, "win32");
   const markerPath = process.env.INSOMNIUM_UI_PROFILE_OWNERSHIP;
-  assert.ok(markerPath);
+  const identifier = selectedNativeProbeIdentifier();
+  assert.ok([resourceCrudProbeIdentifier, integrationProbeIdentifier].includes(identifier));
+  if (identifier === resourceCrudProbeIdentifier) assert.ok(markerPath);
   assert.ok(process.env.INSOMNIUM_UI_BUILD_STATE);
   const options = {
-    expectedIdentifier: resourceCrudProbeIdentifier,
+    expectedIdentifier: identifier,
     profileOwnershipPath: markerPath,
   };
   const fixture = await createWebSocketRuntimeFixture();
@@ -35,7 +39,7 @@ export async function runWebSocketRuntimeNativeCases() {
           async ({ page, invoke, output }) => {
             evidence = output;
             await resourceSaved(page);
-            await capture();
+            if (identifier === resourceCrudProbeIdentifier) await capture();
             const original = await invoke("load_workspace");
             const suffix = crypto.randomUUID().replaceAll("-", "");
             const workspaceId = "wrk_ws_runtime_" + suffix;
@@ -592,7 +596,7 @@ export async function runWebSocketRuntimeNativeCases() {
           options,
         );
       },
-      { ...options, lazyCapture: true },
+      { ...options, lazyCapture: identifier === resourceCrudProbeIdentifier },
     );
   } catch (error) {
     failures.push(error);
