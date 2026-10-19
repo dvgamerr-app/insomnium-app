@@ -130,11 +130,13 @@ fn recovery_destination(directory: &Path, repository_id: &str) -> Result<git2::R
 #[tauri::command]
 pub async fn git_remote_fetch(
     app: tauri::AppHandle,
+    network: tauri::State<'_, crate::http::NetworkState>,
     git_state: tauri::State<'_, git::GitState>,
     storage_state: tauri::State<'_, storage::StorageState>,
     jobs: tauri::State<'_, git_remote_job::RemoteJobState>,
     request: FetchRequest,
 ) -> Result<FetchResult, String> {
+    let work = network.retain_native_work(format!("git-remote-fetch:{}", uuid::Uuid::new_v4()))?;
     validate_request(&request)?;
     let directory = app
         .path()
@@ -144,6 +146,7 @@ pub async fn git_remote_fetch(
     let storage_lock = storage_state.0.clone();
     let jobs = jobs.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
         let (remote, expected) = {
             let _git = git_lock.lock().map_err(|_| "Git lock failed.")?;
             let session = storage_lock.lock().map_err(|_| "Workspace lock failed.")?;
@@ -315,10 +318,12 @@ pub struct FetchObservation {
 #[tauri::command]
 pub async fn git_remote_fetch_inspect(
     app: tauri::AppHandle,
+    network: tauri::State<'_, crate::http::NetworkState>,
     git_state: tauri::State<'_, git::GitState>,
     storage_state: tauri::State<'_, storage::StorageState>,
     request: FetchRequest,
 ) -> Result<FetchObservation, String> {
+    let work = network.retain_native_work(format!("git-remote-fetch-inspect:{}", uuid::Uuid::new_v4()))?;
     validate_request(&request)?;
     let directory = app
         .path()
@@ -327,6 +332,7 @@ pub async fn git_remote_fetch_inspect(
     let git_lock = git_state.0.clone();
     let storage_lock = storage_state.0.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
         let _git = git_lock.lock().map_err(|_| "Git lock failed.")?;
         let session = storage_lock.lock().map_err(|_| "Workspace lock failed.")?;
         session.require_loaded()?;
@@ -364,10 +370,12 @@ pub struct RecoveryRequest {
 #[tauri::command]
 pub async fn git_remote_fetch_recovery_status(
     app: tauri::AppHandle,
+    network: tauri::State<'_, crate::http::NetworkState>,
     git_state: tauri::State<'_, git::GitState>,
     storage_state: tauri::State<'_, storage::StorageState>,
     request: FetchRequest,
 ) -> Result<Option<git_fetch_journal::RecoveryStatus>, String> {
+    let work = network.retain_native_work(format!("git-remote-fetch-recovery-status:{}", uuid::Uuid::new_v4()))?;
     validate_request(&request)?;
     let directory = app
         .path()
@@ -376,6 +384,7 @@ pub async fn git_remote_fetch_recovery_status(
     let git_lock = git_state.0.clone();
     let storage_lock = storage_state.0.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
         let _git = git_lock.lock().map_err(|_| "Git lock failed.")?;
         let session = storage_lock.lock().map_err(|_| "Workspace lock failed.")?;
         session.require_loaded()?;
@@ -392,11 +401,13 @@ pub async fn git_remote_fetch_recovery_status(
 #[tauri::command]
 pub async fn git_remote_fetch_recover(
     app: tauri::AppHandle,
+    network: tauri::State<'_, crate::http::NetworkState>,
     git_state: tauri::State<'_, git::GitState>,
     storage_state: tauri::State<'_, storage::StorageState>,
     jobs: tauri::State<'_, git_remote_job::RemoteJobState>,
     request: RecoveryRequest,
 ) -> Result<FetchResult, String> {
+    let work = network.retain_native_work(format!("git-remote-fetch-recover:{}", uuid::Uuid::new_v4()))?;
     validate_request(&request.fetch)?;
     let attempt = uuid::Uuid::parse_str(&request.attempt_id)
         .map_err(|_| "Invalid recovery attempt ID.")?
@@ -421,6 +432,7 @@ pub async fn git_remote_fetch_recover(
     let storage_lock = storage_state.0.clone();
     let jobs = jobs.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
         let request_id = &request.fetch.request_id;
         let reservation = jobs.reserve(&request.attempt_id)?;
         let _git = git_lock.lock().map_err(|_| "Git lock failed.")?;

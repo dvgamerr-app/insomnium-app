@@ -429,12 +429,15 @@ pub async fn git_clone_install(
     app: tauri::AppHandle,
     state: tauri::State<'_, git::GitState>,
     storage_state: tauri::State<'_, storage::StorageState>,
+    network: tauri::State<'_, crate::http::NetworkState>,
     input: CloneInstallInput,
 ) -> Result<Value, String> {
+    let work = network.retain_native_work(format!("git-clone-install:{}", uuid::Uuid::new_v4()))?;
     let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let git_lock = state.0.clone();
     let storage_lock = storage_state.0.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
         let _git = git_lock.lock().map_err(|_| "Git lock failed")?;
         let mut session = storage_lock.lock().map_err(|_| "Workspace lock failed")?;
         session.require_loaded()?;

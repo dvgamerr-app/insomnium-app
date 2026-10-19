@@ -765,13 +765,16 @@ pub async fn git_repository_checkout(
     app: tauri::AppHandle,
     git_state: tauri::State<'_, git::GitState>,
     storage_state: tauri::State<'_, storage::StorageState>,
+    network: tauri::State<'_, crate::http::NetworkState>,
     input: CheckoutInput,
 ) -> Result<CheckoutResult, String> {
+    let work = network.retain_native_work(format!("git-checkout:{}", uuid::Uuid::new_v4()))?;
     use tauri::Manager;
     let directory = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let git_lock = git_state.0.clone();
     let storage_lock = storage_state.0.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
         let _git_guard = git_lock.lock().map_err(|e| e.to_string())?;
         let mut session = storage_lock.lock().map_err(|e| e.to_string())?;
         checkout(&directory, &mut session, input)
@@ -907,13 +910,16 @@ pub async fn git_repository_advance(
     app: tauri::AppHandle,
     git_state: tauri::State<'_, git::GitState>,
     storage_state: tauri::State<'_, storage::StorageState>,
+    network: tauri::State<'_, crate::http::NetworkState>,
     input: CheckoutInput,
 ) -> Result<CheckoutResult, String> {
+    let work = network.retain_native_work(format!("git-advance:{}", uuid::Uuid::new_v4()))?;
     use tauri::Manager;
     let directory = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let git_lock = git_state.0.clone();
     let storage_lock = storage_state.0.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
         let _git_guard = git_lock.lock().map_err(|e| e.to_string())?;
         let mut session = storage_lock.lock().map_err(|e| e.to_string())?;
         advance(&directory, &mut session, input)
@@ -929,12 +935,13 @@ pub async fn git_repository_apply_merge(
     app: tauri::AppHandle,
     git_state: tauri::State<'_, git::GitState>,
     storage_state: tauri::State<'_, storage::StorageState>,
+    network: tauri::State<'_, crate::http::NetworkState>,
     input: CheckoutInput,
 ) -> Result<CheckoutResult, String> {
     if input.source.is_none() {
         return Err("Reviewed merge application requires an incoming source proof".into());
     }
-    git_repository_advance(app, git_state, storage_state, input).await
+    git_repository_advance(app, git_state, storage_state, network, input).await
 }
 
 #[derive(Deserialize)]
@@ -1068,13 +1075,16 @@ pub async fn git_repository_restore(
     app: tauri::AppHandle,
     git_state: tauri::State<'_, git::GitState>,
     storage_state: tauri::State<'_, storage::StorageState>,
+    network: tauri::State<'_, crate::http::NetworkState>,
     input: RestoreInput,
 ) -> Result<CheckoutResult, String> {
+    let work = network.retain_native_work(format!("git-restore:{}", uuid::Uuid::new_v4()))?;
     use tauri::Manager;
     let directory = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let git_lock = git_state.0.clone();
     let storage_lock = storage_state.0.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
         let _git_guard = git_lock.lock().map_err(|e| e.to_string())?;
         let mut session = storage_lock.lock().map_err(|e| e.to_string())?;
         restore(&directory, &mut session, input)

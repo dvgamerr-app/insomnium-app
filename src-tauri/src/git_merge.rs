@@ -278,11 +278,14 @@ pub(crate) fn prepare(repo: &Repository, input: &MergeInput) -> Result<MergeCand
 pub async fn git_repository_prepare_merge(
     app: tauri::AppHandle,
     state: tauri::State<'_, git::GitState>,
+    network: tauri::State<'_, crate::http::NetworkState>,
     input: MergeInput,
 ) -> Result<MergeCandidate, String> {
+    let work = network.retain_native_work(format!("git-prepare-merge:{}", uuid::Uuid::new_v4()))?;
     let directory = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let lock = state.0.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
         let _guard = lock.lock().map_err(|e| e.to_string())?;
         storage::ensure_no_pending_transition(&directory)?;
         let path = git::managed_path(&directory.join("git-v1"), &input.repository_id)?;

@@ -307,14 +307,17 @@ pub(crate) fn reclaim_push(
 #[tauri::command]
 pub async fn git_remote_cleanup_staging(
     app: tauri::AppHandle,
+    network: tauri::State<'_, crate::http::NetworkState>,
     state: tauri::State<'_, crate::git::GitState>,
 ) -> Result<CleanupReport, String> {
+    let work = network.retain_native_work(format!("git-remote-cleanup-staging:{}", uuid::Uuid::new_v4()))?;
     let directory = app
         .path()
         .app_data_dir()
         .map_err(|_| "Cannot resolve application data.")?;
     let git_lock = state.0.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
         let _git = git_lock.lock().map_err(|_| "Git lock failed.")?;
         cleanup(&directory)
     })

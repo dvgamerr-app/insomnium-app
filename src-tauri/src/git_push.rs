@@ -353,11 +353,13 @@ fn outgoing_snapshot(
 #[tauri::command]
 pub async fn git_remote_push(
     app: tauri::AppHandle,
+    network: tauri::State<'_, crate::http::NetworkState>,
     state: tauri::State<'_, git::GitState>,
     storage_state: tauri::State<'_, storage::StorageState>,
     jobs: tauri::State<'_, git_remote_job::RemoteJobState>,
     request: PushRequest,
 ) -> Result<PushReceipt, String> {
+    let work = network.retain_native_work(format!("git-remote-push:{}", uuid::Uuid::new_v4()))?;
     let app_data = app
         .path()
         .app_data_dir()
@@ -366,6 +368,7 @@ pub async fn git_remote_push(
     let storage_lock = storage_state.0.clone();
     let jobs = jobs.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
         validate(&request.intent)?;
         let reservation = jobs.reserve(&request.intent.operation_id)?;
         let directory = receipt_path(&app_data, &request.intent)?;
@@ -449,11 +452,13 @@ pub async fn git_remote_push(
 #[tauri::command]
 pub async fn git_remote_push_inspect(
     app: tauri::AppHandle,
+    network: tauri::State<'_, crate::http::NetworkState>,
     state: tauri::State<'_, git::GitState>,
     storage_state: tauri::State<'_, storage::StorageState>,
     jobs: tauri::State<'_, git_remote_job::RemoteJobState>,
     request: InspectRequest,
 ) -> Result<PushObservation, String> {
+    let work = network.retain_native_work(format!("git-remote-push-inspect:{}", uuid::Uuid::new_v4()))?;
     let app_data = app
         .path()
         .app_data_dir()
@@ -462,6 +467,7 @@ pub async fn git_remote_push_inspect(
     let storage_lock = storage_state.0.clone();
     let jobs = jobs.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
         uuid(&request.attempt_id)?;
         if request.attempt_id == request.push.intent.operation_id {
             return Err("Push Inspect requires a fresh attempt identity.".into());
@@ -530,11 +536,13 @@ pub async fn git_remote_push_inspect(
 #[tauri::command]
 pub async fn git_remote_push_retire(
     app: tauri::AppHandle,
+    network: tauri::State<'_, crate::http::NetworkState>,
     state: tauri::State<'_, git::GitState>,
     storage_state: tauri::State<'_, storage::StorageState>,
     jobs: tauri::State<'_, git_remote_job::RemoteJobState>,
     request: RetireRequest,
 ) -> Result<PushReceipt, String> {
+    let work = network.retain_native_work(format!("git-remote-push-retire:{}", uuid::Uuid::new_v4()))?;
     let app_data = app
         .path()
         .app_data_dir()
@@ -543,6 +551,7 @@ pub async fn git_remote_push_retire(
     let storage_lock = storage_state.0.clone();
     let jobs = jobs.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
         uuid(&request.attempt_id)?;
         if request.attempt_id == request.push.intent.operation_id {
             return Err("Push retirement requires a fresh attempt identity.".into());

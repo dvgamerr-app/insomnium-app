@@ -221,11 +221,14 @@ fn preview(path: &Path, receipt: CloneReceipt) -> Result<ClonePreview, String> {
 #[tauri::command]
 pub async fn git_clone_list(
     app: tauri::AppHandle,
+    network: tauri::State<'_, crate::http::NetworkState>,
     state: tauri::State<'_, git::GitState>,
 ) -> Result<Vec<CloneReceipt>, String> {
+    let work = network.retain_native_work(format!("git-clone-list:{}", uuid::Uuid::new_v4()))?;
     let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let lock = state.0.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
         let _git = lock.lock().map_err(|_| "Git lock failed")?;
         let root = app_data.join("git-clone-v1");
         git_remote::validate_stage_parent(&root)?;
@@ -265,12 +268,15 @@ pub async fn git_clone_list(
 #[tauri::command]
 pub async fn git_clone_inspect(
     app: tauri::AppHandle,
+    network: tauri::State<'_, crate::http::NetworkState>,
     state: tauri::State<'_, git::GitState>,
     operation_id: String,
 ) -> Result<ClonePreview, String> {
+    let work = network.retain_native_work(format!("git-clone-inspect:{}", uuid::Uuid::new_v4()))?;
     let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let lock = state.0.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
         let _git = lock.lock().map_err(|_| "Git lock failed")?;
         let path = directory(&app_data, &operation_id)?;
         let receipt =
@@ -284,16 +290,19 @@ pub async fn git_clone_inspect(
 #[tauri::command]
 pub async fn git_clone_stage(
     app: tauri::AppHandle,
+    network: tauri::State<'_, crate::http::NetworkState>,
     state: tauri::State<'_, git::GitState>,
     storage_state: tauri::State<'_, storage::StorageState>,
     jobs: tauri::State<'_, git_remote_job::RemoteJobState>,
     input: CloneStageInput,
 ) -> Result<ClonePreview, String> {
+    let work = network.retain_native_work(format!("git-clone-stage:{}", uuid::Uuid::new_v4()))?;
     let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let git_lock = state.0.clone();
     let storage_lock = storage_state.0.clone();
     let jobs = jobs.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
         uuid(&input.operation_id)?;
         let url = git_remote::endpoint(&input.remote.url)?.to_string();
         if let Some(branch) = &input.branch { git::branch_reference(branch)?; }

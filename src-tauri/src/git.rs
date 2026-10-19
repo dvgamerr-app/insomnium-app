@@ -235,13 +235,16 @@ fn inspect(repo: &Repository) -> Result<RepositoryInfo, String> {
 async fn repository_operation(
     app: tauri::AppHandle,
     state: tauri::State<'_, GitState>,
+    network: tauri::State<'_, crate::http::NetworkState>,
     repository_id: String,
     initialize: bool,
 ) -> Result<RepositoryInfo, String> {
+    let work = network.retain_native_work(format!("git-local:{}", uuid::Uuid::new_v4()))?;
     let directory = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let root = directory.join("git-v1");
     let lock = state.0.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
         let _guard = lock.lock().map_err(|e| e.to_string())?;
         if initialize {
             crate::storage::ensure_no_pending_transition(&directory)?;
@@ -283,18 +286,20 @@ async fn repository_operation(
 pub async fn git_repository_init(
     app: tauri::AppHandle,
     state: tauri::State<'_, GitState>,
+    network: tauri::State<'_, crate::http::NetworkState>,
     repository_id: String,
 ) -> Result<RepositoryInfo, String> {
-    repository_operation(app, state, repository_id, true).await
+    repository_operation(app, state, network, repository_id, true).await
 }
 
 #[tauri::command]
 pub async fn git_repository_info(
     app: tauri::AppHandle,
     state: tauri::State<'_, GitState>,
+    network: tauri::State<'_, crate::http::NetworkState>,
     repository_id: String,
 ) -> Result<RepositoryInfo, String> {
-    repository_operation(app, state, repository_id, false).await
+    repository_operation(app, state, network, repository_id, false).await
 }
 
 #[derive(Serialize)]
@@ -420,9 +425,11 @@ pub(crate) fn committed_resources(
 pub async fn git_repository_read_commit(
     app: tauri::AppHandle,
     state: tauri::State<'_, GitState>,
+    network: tauri::State<'_, crate::http::NetworkState>,
     repository_id: String,
     commit_oid: String,
 ) -> Result<CommittedResources, String> {
+    let work = network.retain_native_work(format!("git-read-commit:{}", uuid::Uuid::new_v4()))?;
     let root = app
         .path()
         .app_data_dir()
@@ -430,6 +437,7 @@ pub async fn git_repository_read_commit(
         .join("git-v1");
     let lock = state.0.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
         let _guard = lock.lock().map_err(|e| e.to_string())?;
         let path = managed_path(&root, &repository_id)?;
         committed_resources(&open_managed(&path)?, &commit_oid)
@@ -581,11 +589,13 @@ fn history_page(
 pub async fn git_repository_history(
     app: tauri::AppHandle,
     state: tauri::State<'_, GitState>,
+    network: tauri::State<'_, crate::http::NetworkState>,
     repository_id: String,
     tip_oid: String,
     offset: u32,
     limit: u32,
 ) -> Result<GitHistoryPage, String> {
+    let work = network.retain_native_work(format!("git-history:{}", uuid::Uuid::new_v4()))?;
     let root = app
         .path()
         .app_data_dir()
@@ -593,6 +603,7 @@ pub async fn git_repository_history(
         .join("git-v1");
     let lock = state.0.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
         let _guard = lock.lock().map_err(|e| e.to_string())?;
         let path = managed_path(&root, &repository_id)?;
         history_page(&open_managed(&path)?, &tip_oid, offset, limit)
@@ -829,13 +840,16 @@ fn commit_resources(repo: &Repository, input: GitCommitInput) -> Result<String, 
 pub async fn git_repository_commit(
     app: tauri::AppHandle,
     state: tauri::State<'_, GitState>,
+    network: tauri::State<'_, crate::http::NetworkState>,
     repository_id: String,
     input: GitCommitInput,
 ) -> Result<String, String> {
+    let work = network.retain_native_work(format!("git-commit:{}", uuid::Uuid::new_v4()))?;
     let directory = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let root = directory.join("git-v1");
     let lock = state.0.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
         let _guard = lock.lock().map_err(|e| e.to_string())?;
         crate::storage::ensure_no_pending_transition(&directory)?;
         let path = managed_path(&root, &repository_id)?;
@@ -1017,13 +1031,16 @@ fn create_branch(repo: &Repository, input: GitCreateBranchInput) -> Result<Strin
 pub async fn git_repository_create_branch(
     app: tauri::AppHandle,
     state: tauri::State<'_, GitState>,
+    network: tauri::State<'_, crate::http::NetworkState>,
     repository_id: String,
     input: GitCreateBranchInput,
 ) -> Result<String, String> {
+    let work = network.retain_native_work(format!("git-create-branch:{}", uuid::Uuid::new_v4()))?;
     let directory = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let root = directory.join("git-v1");
     let lock = state.0.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
         let _guard = lock.lock().map_err(|e| e.to_string())?;
         crate::storage::ensure_no_pending_transition(&directory)?;
         let path = managed_path(&root, &repository_id)?;
@@ -1116,13 +1133,16 @@ fn delete_branch(repo: &Repository, input: GitDeleteBranchInput) -> Result<Strin
 pub async fn git_repository_delete_branch(
     app: tauri::AppHandle,
     state: tauri::State<'_, GitState>,
+    network: tauri::State<'_, crate::http::NetworkState>,
     repository_id: String,
     input: GitDeleteBranchInput,
 ) -> Result<String, String> {
+    let work = network.retain_native_work(format!("git-delete-branch:{}", uuid::Uuid::new_v4()))?;
     let directory = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let root = directory.join("git-v1");
     let lock = state.0.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
         let _guard = lock.lock().map_err(|e| e.to_string())?;
         crate::storage::ensure_no_pending_transition(&directory)?;
         let path = managed_path(&root, &repository_id)?;
