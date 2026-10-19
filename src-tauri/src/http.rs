@@ -745,7 +745,18 @@ pub(crate) fn build_request(
     request: &HttpRequest,
     mut url: Url,
 ) -> Result<reqwest::RequestBuilder, String> {
-    if request.ntlm.is_some() || request.netrc {
+    if request.ntlm.is_some()
+        || request.netrc
+        || request.digest.is_some()
+        || request.oauth1.is_some()
+        || request.aws.is_some()
+        || request.hawk.is_some()
+        || request.asap.is_some()
+        || request
+            .headers
+            .iter()
+            .any(|(name, _)| name.eq_ignore_ascii_case("authorization"))
+    {
         // reqwest otherwise converts URL userinfo into preemptive Basic auth.
         // Selected native credentials (or an explicit header) own authentication.
         url.set_username("")

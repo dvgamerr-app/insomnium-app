@@ -139,7 +139,10 @@ export function nodeNativeCode(request){
   const url=new URL(request.url);
   if(!['http:','https:'].includes(url.protocol))throw Error('Node.js Native requires an HTTP or HTTPS URL.');
   if(request.method.toUpperCase()==='CONNECT')throw Error('CONNECT requires a tunnel adapter.');
-  const lines=["import http from 'node:http';","import https from 'node:https';","import { Buffer } from 'node:buffer';",'',`const url = new URL(${JSON.stringify(request.url)});`];
+  const authorityUser=url.username,authorityPassword=url.password;
+  const hasAuthority=!!(authorityUser||authorityPassword);
+  url.username='';url.password='';
+  const lines=["import http from 'node:http';","import https from 'node:https';","import { Buffer } from 'node:buffer';",'',`const url = new URL(${JSON.stringify(hasAuthority?url.href:request.url)});`];
   const headers=request.headers.map(row=>[row.name,row.value]);
   const hasHeader=(/** @type {string} */name)=>headers.some(row=>row[0].toLowerCase()===name);
   const digest=request.nativeAuth?.digest&&!hasHeader('authorization')?request.nativeAuth.digest:null;
@@ -147,6 +150,14 @@ export function nodeNativeCode(request){
   const oauth1=request.oauth1&&!hasHeader('authorization')?request.oauth1:null;
   const aws=request.aws??null;
   const asap=request.asap&&!hasHeader('authorization')?request.asap:null;
+  let authorityCredentials=null;
+  if(hasAuthority&&!hasHeader('authorization')&&!digest&&!hawk&&!oauth1&&!aws&&!asap){
+    // URL stores percent-encoded userinfo. Decode UTF-8, preserving literal
+    // malformed percent signs as percent_encoding::percent_decode does.
+    const decode=(/** @type {string} */value)=>decodeURIComponent(value.replace(/%(?![0-9a-f]{2})/gi,'%25'));
+    try{authorityCredentials=decode(authorityUser)+':'+decode(authorityPassword);}
+    catch{throw Error('URL credentials must contain valid UTF-8 for Node.js code export.');}
+  }
   if(digest||hawk||oauth1||aws)lines.push("import { createHash, createHmac, randomBytes, createPrivateKey, sign, constants } from 'node:crypto';");
   if(digest)lines.push(digestRuntime,`const credentials = ${JSON.stringify(digest)};`);
   if(hawk)lines.push(hawkRuntime);
@@ -169,6 +180,8 @@ export function nodeNativeCode(request){
   // HTTP header strings are Latin-1 byte containers, not UTF-8 text.
   if(aws)lines.push(`const awsHeaders = awsSign(${JSON.stringify(aws)}, url, ${JSON.stringify(request.method)}, ${JSON.stringify(headers)}, ${body?'body':'Buffer.alloc(0)'}, {`,"  hash: value => createHash('sha256').update(value).digest('hex'),","  mac: (key, value) => createHmac('sha256', key).update(value).digest(),","  now: () => new Date().toISOString().replace(/[:-]|\\.\\d{3}/g, ''),",'});');
   lines.push('const headers = '+(aws?'awsHeaders.flat()':oauth1?'signed.headers.flat()':JSON.stringify(headers.flat()))+".map((value, index) => index % 2 ? Buffer.from(value, 'utf8').toString('latin1') : value);");
+  // Node skips its automatic URL-auth insertion for a raw header array.
+  if(authorityCredentials!==null)lines.push(`headers.push('Authorization', 'Basic ' + Buffer.from(${JSON.stringify(authorityCredentials)}, 'utf8').toString('base64'));`);
   if(body||oauth1)lines.push(`if (${body?'true':'body.length > 0'} && !headers.some((value, index) => index % 2 === 0 && ['content-length', 'transfer-encoding'].includes(value.toLowerCase()))) headers.push('Content-Length', String(body.length));`);
   if(asap)lines.push(`headers.push('Authorization', asapAuthorization(${JSON.stringify(asap)}));`);
   if(hawk)lines.push(`const hawkHeader = hawkAuthorization(${JSON.stringify(hawk)}, url, ${JSON.stringify(request.method)}, ${JSON.stringify(headers)}, ${body?'body':'Buffer.alloc(0)'}, {`,"  hash: (algorithm, payload, mime) => createHash(algorithm).update('hawk.1.payload\\n' + mime + '\\n').update(payload).update('\\n').digest('base64'),","  mac: (algorithm, key, value) => createHmac(algorithm, key).update(value).digest('base64'),","  nonce: () => randomBytes(6).toString('base64url').slice(0, 6),","  now: () => String(Math.floor(Date.now() / 1000)),",'});',"headers.push('Authorization', Buffer.from(hawkHeader, 'utf8').toString('latin1'));");
