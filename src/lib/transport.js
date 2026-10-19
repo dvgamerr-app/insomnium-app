@@ -544,7 +544,7 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
       ]);
   } else if (mime === "application/x-www-form-urlencoded") {
     text = (body.params ?? [])
-      .filter((/** @type {any} */ p) => !p.disabled && p.name)
+      .filter((/** @type {any} */ p) => !p.disabled && (p.name || p._harExplicitPart === true))
       .map((/** @type {any} */ p) =>
         p._openapiSerialization?.formBody
           ? serializeOpenApiForm(
@@ -606,8 +606,8 @@ function composeRequest(data, request, runId, resolve, resolvedOAuthHeader) {
     headers.push(["Content-Type", encoded.contentType]);
   } else if (mime === "multipart/form-data") {
     multipart = (body.params ?? [])
-      .filter((/** @type {any} */ p) => !p.disabled && (body._legacyMultipart === true
-        ? p.name || p.value || p.fileName || p._legacyFilePath || (p.type === "file" && typeof p.base64 === "string") : p.name))
+      .filter((/** @type {any} */ p) => !p.disabled && (p._harExplicitPart === true || (body._legacyMultipart === true
+        ? p.name || p.value || p.fileName || p._legacyFilePath || (p.type === "file" && typeof p.base64 === "string") : p.name)))
       .map((/** @type {any} */ p) => {
         const file = p.type === "file" && !(body._legacyMultipart === true && !p.fileName && !p._legacyFilePath && typeof p.base64 !== "string");
         if (file && p._legacyFileAssetError) throw new Error(`Imported file for multipart field “${p.name || ""}” is invalid. Select the file again.`);

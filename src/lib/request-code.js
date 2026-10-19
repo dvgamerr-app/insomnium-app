@@ -41,7 +41,7 @@ export function javascriptFetchCode(request) {
   if(request.nativeAuth)throw Error(request.nativeAuth.digest?'Choose Node.js / Native to generate Digest code, including auth-int.':'Choose Shell / cURL to generate code for NTLM or netrc authentication.');
   if(request.socketPath)throw Error('Choose Node.js / Native to generate code for a socket request.');
   const binary=typeof request.bodyBase64==='string';
-  const multipart=!binary&&request.postData?.mimeType==='multipart/form-data';
+  const multipart=!binary&&(request.multipartParts!=null||request.postData?.mimeType==='multipart/form-data');
   const text=request.postData?.text??'';
   const hasBody=binary||multipart||text!=='';
   if(['CONNECT','TRACE','TRACK'].includes(request.method.toUpperCase()))

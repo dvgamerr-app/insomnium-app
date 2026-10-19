@@ -32,7 +32,7 @@ export function separateRequestUploads(request) {
     total += bytes;
     if (total > MAX_BYTES)
       throw new Error("Request binary uploads exceed 20 MiB.");
-    uploads.push({ path, value });
+    uploads.push({ path: [...path, "base64"], value });
     return { ...owner, base64: "" };
   }
   if (
@@ -73,16 +73,43 @@ export function separateRequestUploads(request) {
       input.body.params = parts(input.body.params, ["body", "params"]);
     }
   }
+  // HAR provenance retains the original encoded request. When it is the exact
+  // validated body payload, it is a second archival copy of binary data, not
+  // template text or a second selected upload. Other provenance stays bounded.
+  const archived = request._harSource?.request?.postData;
+  if (isBinaryBody(input.body) && typeof request.body.base64 === "string" &&
+      archived?._encoding === "base64" && archived.text === request.body.base64) {
+    input._harSource = { ...request._harSource, request: {
+      ...request._harSource.request, postData: { ...archived, text: "" },
+    } };
+    uploads.push({path:["_harSource", "request", "postData", "text"],value:archived.text});
+  }
+  if (input.body?.mimeType === "multipart/form-data" && Array.isArray(input.body.params) && Array.isArray(archived?.params)) {
+    let copied = false;
+    for (let index=0;index<input.body.params.length;index++) {
+      const part=request.body.params[index],original=archived.params[index];
+      if(part?.type !== "file" || typeof part.base64 !== "string" ||
+          original?._encoding !== "base64" || original.value !== part.base64)continue;
+      if(!copied){
+        input._harSource={...input._harSource,request:{...input._harSource.request,
+          postData:{...archived,params:[...archived.params]}}};
+        copied=true;
+      }
+      input._harSource.request.postData.params[index]={...original,value:""};
+      uploads.push({path:["_harSource","request","postData","params",index,"value"],value:original.value});
+    }
+  }
   checkTemplateValue(input);
   return {
     input: structuredClone(input),
     /** Restore before disabled-row filtering changes indices. @param {Record<string,any>} rendered */
     restore(rendered) {
       for (const { path, value } of uploads) {
-        const target = path.reduce((owner, key) => owner?.[key], rendered);
-        if (!target || target.base64 !== "")
+        const target = path.slice(0,-1).reduce((owner, key) => owner?.[key], rendered);
+        const key = path[path.length-1];
+        if (!target || target[key] !== "")
           throw new Error("Request upload structure changed during rendering.");
-        target.base64 = value;
+        target[key] = value;
       }
     },
   };
