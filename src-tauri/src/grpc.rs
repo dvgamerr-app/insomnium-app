@@ -42,14 +42,20 @@ pub async fn load_grpc_schema(
     network: tauri::State<'_, NetworkState>,
 ) -> Result<Schema, String> {
     let mut cancelled = network.begin(&request.id)?;
+    let mut compilation = None;
     let work = async {
         on_started
             .send(())
             .map_err(|_| "gRPC schema view closed.")?;
         let pool = match request.proto {
-            Some(input) => tokio::task::spawn_blocking(move || grpc_schema::compile(input))
-                .await
-                .map_err(|_| "Proto compiler stopped unexpectedly.")??,
+            Some(input) => {
+                let task = compilation.insert(tokio::task::spawn_blocking(move || {
+                    grpc_schema::compile(input)
+                }));
+                let result = task.await;
+                compilation.take();
+                result.map_err(|_| "Proto compiler stopped unexpectedly.")??
+            }
             None => {
                 let discovery = grpc_transport::reflect(
                     request
@@ -77,6 +83,12 @@ pub async fn load_grpc_schema(
         result = tokio::time::timeout(Duration::from_millis(timeout), work) => result.map_err(|_| "gRPC schema lookup timed out.".to_string()).and_then(|r| r),
         _ = cancelled.changed() => Err("gRPC schema lookup cancelled.".into()),
     };
+    if let Some(task) = compilation {
+        // Dropping a blocking task's handle detaches it. Cancel queued work,
+        // then drain any compiler already running before releasing ownership.
+        task.abort();
+        let _ = task.await;
+    }
     network.finish(&request.id)?;
     result
 }

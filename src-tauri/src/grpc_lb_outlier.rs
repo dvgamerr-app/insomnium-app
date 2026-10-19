@@ -248,6 +248,9 @@ impl Layer {
         let now = chrono::Utc::now().timestamp_millis();
         self.start = Some(now);
         self.due = Some(tokio::time::Instant::now() + delay(self.config.interval as i64));
+        // Re-arm every subscriber even when the reference aborts this check.
+        self.changed
+            .send_modify(|version| *version = version.wrapping_add(1));
         for (_, entry) in &self.entries {
             let mut entry = entry.lock().unwrap_or_else(|e| e.into_inner());
             entry.previous = entry.active;
@@ -264,6 +267,13 @@ impl Layer {
                 })
                 .collect();
             if rates.len() as f64 >= check.hosts {
+                // grpc-js reduces without an initial value. An empty candidate
+                // list aborts the callback before failure checks and unejection,
+                // after the next timer has already been armed. Preserve that
+                // state transition without panicking the native process.
+                if rates.is_empty() {
+                    return;
+                }
                 let mean = rates.iter().sum::<f64>() / rates.len() as f64;
                 let variance = rates.iter().map(|rate| (rate - mean).powi(2)).sum::<f64>()
                     / rates.len() as f64;
@@ -307,10 +317,6 @@ impl Layer {
                 entry.multiplier -= 1.0;
             }
         }
-        // Every subscriber must re-arm against the shared next deadline, even
-        // when this interval did not change aggregate health.
-        self.changed
-            .send_modify(|version| *version = version.wrapping_add(1));
     }
     fn check(&self, config: &Check, bad: impl Fn(f64, f64) -> bool) {
         for (_, entry) in &self.entries {
