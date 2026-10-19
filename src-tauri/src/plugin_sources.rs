@@ -201,9 +201,11 @@ fn inspect_sources(
 #[tauri::command]
 pub async fn discover_plugin_sources(
     app: tauri::AppHandle,
+    network: tauri::State<'_, crate::http::NetworkState>,
     directories: Vec<String>,
     legacy_path: Option<String>,
 ) -> Result<PluginSources, String> {
+    let work = network.retain_native_work(format!("plugin-sources:{}", uuid::Uuid::new_v4()))?;
     let default = app
         .path()
         .app_data_dir()
@@ -211,6 +213,7 @@ pub async fn discover_plugin_sources(
         .join("plugins");
     let home = app.path().home_dir().map_err(|e| e.to_string())?;
     tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
         inspect_sources(default, home, directories, legacy_path)
     })
     .await

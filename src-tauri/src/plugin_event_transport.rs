@@ -127,8 +127,39 @@ pub fn handle(
 ) {
     let app = context.app_handle().clone();
     let label = context.webview_label().to_owned();
+    let work = app
+        .try_state::<crate::http::NetworkState>()
+        .ok_or_else(|| "Native event transport state unavailable".to_string())
+        .and_then(|state| {
+            state.retain_native_work(format!("plugin-event:{}", uuid::Uuid::new_v4()))
+        });
+    let work = match work {
+        Ok(work) => work,
+        Err(error) => {
+            let origin = request
+                .headers()
+                .get("origin")
+                .and_then(|value| value.to_str().ok())
+                .unwrap_or("");
+            responder.respond(event_response(origin, Err(error)));
+            return;
+        }
+    };
     tauri::async_runtime::spawn_blocking(move || {
-        responder.respond(process_request(&app, &label, request))
+        // Retain the actual native callback, including clipboard/event-loop
+        // work and the final responder, independently of a renderer awaiter.
+        let _work = work;
+        let response = if _work.cancelled() {
+            let origin = request
+                .headers()
+                .get("origin")
+                .and_then(|value| value.to_str().ok())
+                .unwrap_or("");
+            event_response(origin, Err("Event transport cancelled".into()))
+        } else {
+            process_request(&app, &label, request)
+        };
+        responder.respond(response)
     });
 }
 
@@ -239,6 +270,10 @@ fn process_request(
         validate(&leases)?;
         Ok(value)
     })();
+    event_response(origin, result)
+}
+
+fn event_response(origin: &str, result: Result<serde_json::Value, String>) -> Response<Vec<u8>> {
     let (status, value) = match result {
         Ok(value) => (200, value),
         Err(error) => (403, serde_json::json!({"error":error})),

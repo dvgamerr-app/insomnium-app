@@ -102,11 +102,18 @@ fn snapshot(directory: PathBuf) -> Result<PluginPackageSource, String> {
 }
 
 #[tauri::command]
-pub async fn read_plugin_package(directory: String) -> Result<PluginPackageSource, String> {
+pub async fn read_plugin_package(
+    directory: String,
+    network: tauri::State<'_, crate::http::NetworkState>,
+) -> Result<PluginPackageSource, String> {
+    let work = network.retain_native_work(format!("plugin-package:{}", uuid::Uuid::new_v4()))?;
     if directory.is_empty() || directory.len() > 8192 {
         return Err("Select a plugin package folder.".into());
     }
-    tauri::async_runtime::spawn_blocking(move || snapshot(PathBuf::from(directory)))
-        .await
-        .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
+        snapshot(PathBuf::from(directory))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }

@@ -457,8 +457,10 @@ pub fn discover(directory: &Path, allow_missing: bool) -> Result<PluginDiscovery
 #[tauri::command]
 pub async fn discover_plugins(
     app: tauri::AppHandle,
+    network: tauri::State<'_, crate::http::NetworkState>,
     directory: Option<String>,
 ) -> Result<PluginDiscovery, String> {
+    let work = network.retain_native_work(format!("plugin-discovery:{}", uuid::Uuid::new_v4()))?;
     let selected = directory.is_some();
     let path = match directory {
         Some(value) if !value.trim().is_empty() => PathBuf::from(value),
@@ -469,7 +471,10 @@ pub async fn discover_plugins(
             .map_err(|e| e.to_string())?
             .join("plugins"),
     };
-    tauri::async_runtime::spawn_blocking(move || discover(&path, !selected))
-        .await
-        .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
+        discover(&path, !selected)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }

@@ -33,11 +33,15 @@ pub struct LegacyPluginItem {
 pub async fn import_legacy_plugin_data(
     app: tauri::AppHandle,
     state: tauri::State<'_, PluginStoreState>,
+    network: tauri::State<'_, crate::http::NetworkState>,
     records: Vec<LegacyPluginItem>,
 ) -> Result<Value, String> {
+    let work =
+        network.retain_native_work(format!("plugin-data-import:{}", uuid::Uuid::new_v4()))?;
     let directory = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let lock = state.0.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
         let _guard = lock.lock().map_err(|e| e.to_string())?;
         let mut data = read(&directory)?;
         let mut inserted = 0usize;
@@ -233,12 +237,15 @@ fn execute(
 pub async fn plugin_store(
     app: tauri::AppHandle,
     state: tauri::State<'_, PluginStoreState>,
+    network: tauri::State<'_, crate::http::NetworkState>,
     plugin: String,
     operation: PluginStoreOperation,
 ) -> Result<Value, String> {
+    let work = network.retain_native_work(format!("plugin-store:{}", uuid::Uuid::new_v4()))?;
     let directory = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let lock = state.0.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _work = work;
         let _guard = lock.lock().map_err(|e| e.to_string())?;
         execute(&directory, &plugin, operation)
     })
