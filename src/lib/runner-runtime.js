@@ -98,7 +98,8 @@ export async function runSuiteIsolated(
   function clearTimer(id) {
     const entry = timers.get(id);
     if (!entry) return;
-    clearTimeout(entry.timer);
+    if (entry.repeat) clearInterval(entry.timer);
+    else clearTimeout(entry.timer);
     timers.delete(id);
     entry.handle.dispose();
   }
@@ -137,12 +138,12 @@ export async function runSuiteIsolated(
         } finally {
           current.dispose();
         }
-        const entry = timers.get(id);
-        if (repeating && entry) entry.timer = setTimeout(fire, ms);
       };
       timers.set(id, {
         handle,
-        timer: setTimeout(fire, ms),
+        // Let the host own interval cadence. Starting another timeout after
+        // the callback would add guest execution time to every period.
+        timer: repeating ? setInterval(fire, ms) : setTimeout(fire, ms),
         repeat: repeating,
         owner,
       });
