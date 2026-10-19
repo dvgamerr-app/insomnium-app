@@ -128,6 +128,68 @@ export function javascriptAxiosCode(request) {
   return lines.join('\n');
 }
 
+/** Node's Axios HTTP adapter must receive prepared bytes rather than its JSON,
+ * form or FormData transforms. Keep unsupported raw-header semantics explicit.
+ * @param {CodeRequest} request */
+export function nodeAxiosCode(request){
+  if(request.asap||request.aws||request.oauth1||request.hawk||request.nativeAuth?.digest)
+    throw Error('Choose Node.js / Native to generate this authentication.');
+  if(request.nativeAuth?.ntlm||request.nativeAuth?.netrc)
+    throw Error('Choose Shell / cURL to generate code for NTLM or netrc authentication.');
+  if(request.method!==request.method.toUpperCase())
+    throw Error('Node.js Axios changes HTTP method casing. Choose Shell / cURL to preserve it.');
+  const url=new URL(request.url);
+  if(!['http:','https:'].includes(url.protocol))throw Error('Node.js Axios requires an HTTP or HTTPS URL.');
+  if(request.method==='CONNECT')throw Error('CONNECT requires a tunnel adapter.');
+  const user=url.username,password=url.password,hasAuthority=!!(user||password);
+  url.username='';url.password='';
+  const headers=request.headers.map(row=>[row.name,row.value]);
+  const hasHeader=(/** @type {string} */name)=>headers.some(row=>row[0].toLowerCase()===name);
+  const lines=["import axios from 'axios';","import { Buffer } from 'node:buffer';",'// Axios 1.x, running in Node.js.','',`const url = ${JSON.stringify(hasAuthority?url.href:request.url)};`];
+  const hasBody=request.multipartParts!=null||typeof request.bodyBase64==='string'||!!request.postData?.text;
+  let body="Buffer.alloc(0)";
+  if(request.multipartParts){
+    const multipart=multipartCode(request.multipartParts,request.multipartContentType??null,value=>binaryLiteral(value,true));
+    for(let index=headers.length-1;index>=0;index--)if(headers[index][0].toLowerCase()==='content-type')headers.splice(index,1);
+    headers.push(['Content-Type',multipart.contentType]);
+    body='Buffer.concat([\n  '+multipart.chunks.join(',\n  ')+"\n].map(part => typeof part === 'string' ? Buffer.from(part, 'utf8') : part))";
+  }else if(typeof request.bodyBase64==='string')body=binaryLiteral(request.bodyBase64,true,request.serializedMultipart);
+  else if(request.postData?.mimeType==='multipart/form-data')
+    throw Error('Multipart export requires the prepared request body. Regenerate the request.');
+  else if(request.postData?.text)body=`Buffer.from(${JSON.stringify(request.postData.text)}, 'utf8')`;
+  if(request.cookies.length&&!hasHeader('cookie'))headers.push(['Cookie',request.cookies.map(cookie=>cookie.name+'='+cookie.value).join('; ')]);
+  if(hasAuthority&&!hasHeader('authorization')){
+    const decode=(/** @type {string} */value)=>decodeURIComponent(value.replace(/%(?![0-9a-f]{2})/gi,'%25'));
+    let credentials;
+    try{credentials=decode(user)+':'+decode(password);}
+    catch{throw Error('URL credentials must contain valid UTF-8 for Node.js code export.');}
+    // Clear userinfo even with manual Authorization: Axios URL auth otherwise
+    // deletes that header. Emit Basic as bytes, never Axios's auth option.
+    lines.push(`const authority = 'Basic ' + Buffer.from(${JSON.stringify(credentials)}, 'utf8').toString('base64');`);
+  }
+  const names=new Set();
+  if(!hasHeader('host'))headers.push(['Host',url.host]);
+  for(const [name,value] of headers){
+    const key=name.toLowerCase();
+    if(names.has(key))throw Error('Axios normalizes duplicate headers. Choose Node.js / Native to preserve raw header rows.');
+    if(/[^\x00-\x7f]/.test(value))throw Error('Choose Node.js / Native to preserve UTF-8 header bytes across Axios versions.');
+    if(['__proto__','constructor','prototype'].includes(key))throw Error('Choose Node.js / Native to preserve this header name.');
+    names.add(key);
+  }
+  lines.push(`const body = ${body};`,`const headers = Object.fromEntries(${JSON.stringify(headers)});`);
+  if(hasAuthority&&!hasHeader('authorization'))lines.push('headers.Authorization = authority;');
+  for(const name of ['Accept','Content-Type','User-Agent','Accept-Encoding'])
+    if(!hasHeader(name.toLowerCase()))lines.push(`headers[${JSON.stringify(name)}] = false;`);
+  // Avoid adding Content-Length alongside a captured Transfer-Encoding.
+  if(hasHeader('transfer-encoding')&&!hasHeader('content-length'))lines.push("headers['Content-Length'] = false;");
+  lines.push('','const response = await axios.request({',"  adapter: 'http',",`  method: ${JSON.stringify(request.method)},`,'  url,','  headers,',...(hasBody?['  data: body,']:[]),
+    ...(request.socketPath?[`  socketPath: ${JSON.stringify(request.socketPath)},`]:[]),
+    '  transformRequest: [data => data],','  transformResponse: [data => data],',
+    '  proxy: false,','  maxRedirects: 0,','  decompress: false,',"  responseType: 'arraybuffer',",'  validateStatus: () => true,',
+    '});',"console.log(response.status, Buffer.from(response.data).toString('utf8'));");
+  return lines.join('\n');
+}
+
 /** The native HTTP client accepts raw header rows and byte bodies without the
  * browser Fetch method, cookie or multipart restrictions. No code is executed
  * by the application; the output is a standalone ECMAScript module.

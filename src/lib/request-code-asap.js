@@ -51,8 +51,10 @@ export function asapAuthorization(c){
     delete claims.nbf;
     for(const name of ['iss','sub','aud','iat','exp','jti'])if(extra[name])claims[name]=extra[name];
     const value=extra.exp;
-    // serde's float formatting uses scientific notation at large magnitudes.
-    const text=typeof value==='number'&&Math.abs(value)>=1e16?value.toExponential():typeof value==='string'?value:stringify(value);
+    // serde_json's pinned zmij f64 formatter uses fixed notation only for
+    // decimal exponents -5 through 15; parseInt observes that spelling.
+    const magnitude=typeof value==='number'?Math.abs(value):0;
+    const text=typeof value==='number'&&(magnitude>=1e16||magnitude>0&&magnitude<1e-5)?value.toExponential():typeof value==='string'?value:stringify(value);
     claims.exp=value&&decimal(text)?decimal(text):now+duration;
     if(!extra.sub&&!c.subject)claims.sub=claims.iss;
     if(extra.kid){if(typeof extra.kid!=='string')throw Error('ASAP kid must be a string.');kid=extra.kid;}
