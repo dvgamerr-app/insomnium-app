@@ -1,20 +1,29 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { deflateRawSync, constants } from "node:zlib";
 /** @typedef {{token:string|null,ready:boolean,closed:boolean,closeSent:boolean,buffer:Buffer,frames:Record<string,any>[],sent:Record<string,any>[],errors:string[]}} Peer */
 /** Bounded loopback RFC6455 peer. Frames are authored explicitly; no browser/IPC interception. */
-export function createWebSocketFrameFixture() {
+/** @param {{compression?:boolean}} [options] */
+export function createWebSocketFrameFixture(options = {}) {
+  /** RFC7692 sync-flush stream, excluding its four-byte message suffix.
+   * @param {Uint8Array} payload */
+  const compressed = (payload) => {
+    const bytes = deflateRawSync(payload, { finishFlush: constants.Z_SYNC_FLUSH });
+    assert.equal(bytes.subarray(-4).toString("hex"), "0000ffff");
+    return bytes.subarray(0, -4);
+  };
   /** @type {Map<import('bun').Socket<undefined>,Peer>} */ const peers =
     new Map();
   /** @type {Peer[]} */ const records = [];
   /** @type {string[]} */ const errors = [];
-  /** @param {number} opcode @param {Uint8Array} payload @param {boolean} [fin] */
-  const frame = (opcode, payload, fin = true) => {
+  /** @param {number} opcode @param {Uint8Array} payload @param {boolean} [fin] @param {boolean} [rsv1] */
+  const frame = (opcode, payload, fin = true, rsv1 = false) => {
     assert.ok(
       payload.length <= 32767,
       "Fixture frames are bounded to32767bytes",
     );
     const header = Buffer.alloc(payload.length < 126 ? 2 : 4);
-    header[0] = (fin ? 128 : 0) | opcode;
+    header[0] = (fin ? 128 : 0) | (rsv1 ? 64 : 0) | opcode;
     header[1] = payload.length < 126 ? payload.length : 126;
     if (payload.length >= 126) header.writeUInt16BE(payload.length, 2);
     return Buffer.concat([header, payload]);
@@ -61,6 +70,7 @@ export function createWebSocketFrameFixture() {
               request,
             );
             const key = /^sec-websocket-key:\s*(\S+)\r?$/im.exec(request)?.[1];
+            if (options.compression) assert.match(request, /\r\nsec-websocket-extensions: permessage-deflate; client_max_window_bits\r\n/i);
             assert.ok(target && key);
             assert.equal(Buffer.from(key, "base64").length, 16);
             assert.ok(!records.some((r) => r !== row && r.token === target[1]));
@@ -73,6 +83,7 @@ export function createWebSocketFrameFixture() {
               Buffer.from(
                 "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: " +
                   accept +
+                  (options.compression ? "\r\nSec-WebSocket-Extensions: permessage-deflate; server_no_context_takeover; client_no_context_takeover" : "") +
                   "\r\n\r\n",
               ),
             );
@@ -137,17 +148,19 @@ export function createWebSocketFrameFixture() {
   };
   return {
     records,
+    compressed,
     errors,
     /** @param {string} token */ target: (token) =>
       `ws://127.0.0.1:${server.port}/${token}`,
-    /** @param {string} token @param {number} opcode @param {Uint8Array} payload @param {boolean} [fin] */
-    send(token, opcode, payload, fin = true) {
+    /** @param {string} token @param {number} opcode @param {Uint8Array} payload @param {boolean} [fin] @param {boolean} [rsv1] */
+    send(token, opcode, payload, fin = true, rsv1 = false) {
       const [socket, row] = owned(token);
-      const bytes = frame(opcode, payload, fin);
+      const bytes = frame(opcode, payload, fin, rsv1);
       write(socket, bytes);
       row.sent.push({
         opcode,
         fin,
+        rsv1,
         size: payload.length,
         base64: Buffer.from(payload).toString("base64"),
         wireBase64: bytes.toString("base64"),
@@ -159,13 +172,15 @@ export function createWebSocketFrameFixture() {
      * @param {()=>Promise<void>} beforeFinal */
     async sendFragmented(token, opcode, payload, beforeFinal) {
       assert.ok(payload.length <= 20 * 1024 * 1024 + 1);
+      const wire = options.compression ? compressed(payload) : payload;
+      const step = options.compression ? Math.min(32767, Math.max(1, Math.ceil(wire.length / 2))) : 32767;
       const [socket, row] = owned(token);
-      for (let start = 0; start < payload.length; start += 32767) {
-        const part = payload.subarray(start, start + 32767);
-        const fin = start + part.length === payload.length;
+      for (let start = 0; start < wire.length; start += step) {
+        const part = wire.subarray(start, start + step);
+        const fin = start + part.length === wire.length;
         if (fin) await beforeFinal();
         const op = start === 0 ? opcode : 0;
-        const bytes = frame(op, part, fin);
+        const bytes = frame(op, part, fin, Boolean(options.compression && start === 0));
         let offset = 0,
           writes = 0,
           stalled = 0;

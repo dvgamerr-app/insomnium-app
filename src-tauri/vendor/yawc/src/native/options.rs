@@ -59,6 +59,9 @@ pub type CompressionLevel = flate2::Compression;
 /// ```
 #[derive(Clone, Debug, Default)]
 pub struct Options {
+    /// Minimum first-fragment bytes to compress when outgoing context takeover
+    /// is disabled. None preserves the upstream always-compress behavior.
+    pub compression_threshold: Option<usize>,
     /// Maximum allowed payload size for incoming messages, in bytes.
     ///
     /// If a message exceeds this size, the connection will be closed immediately

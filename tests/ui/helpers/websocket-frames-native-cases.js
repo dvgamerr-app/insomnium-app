@@ -5,6 +5,8 @@ import {
   withNativeApp,
   poll,
   resourceCrudProbeIdentifier,
+  integrationProbeIdentifier,
+  selectedNativeProbeIdentifier,
 } from "./native-app.js";
 import {
   withResourceProbePreserved,
@@ -14,12 +16,15 @@ import { createWebSocketFrameFixture } from "./websocket-frame-fixture.js";
 /** Native frame-level acceptance through separate real SDK Channel. */
 export async function runWebSocketFramesNativeCases() {
   const marker = process.env.INSOMNIUM_UI_PROFILE_OWNERSHIP;
-  assert.ok(marker && process.env.INSOMNIUM_UI_BUILD_STATE);
+  const identifier = selectedNativeProbeIdentifier();
+  assert.ok([resourceCrudProbeIdentifier, integrationProbeIdentifier].includes(identifier));
+  assert.ok(process.env.INSOMNIUM_UI_BUILD_STATE);
+  if (identifier === resourceCrudProbeIdentifier) assert.ok(marker);
   const options = {
-    expectedIdentifier: resourceCrudProbeIdentifier,
+    expectedIdentifier: identifier,
     profileOwnershipPath: marker,
   };
-  const fixture = createWebSocketFrameFixture();
+  const fixture = createWebSocketFrameFixture({ compression: true });
   /** @type {Record<string,any>[]} */ const checks = [];
   /** @type {unknown[]} */ const errors = [];
   /** @type {string|undefined} */ let output;
@@ -31,7 +36,7 @@ export async function runWebSocketFramesNativeCases() {
           async ({ page, invoke, output: directory }) => {
             output = directory;
             await resourceSaved(page);
-            await capture();
+            if (identifier === resourceCrudProbeIdentifier) await capture();
             const original = await invoke("load_workspace");
             const built = await Bun.build({
               entrypoints: ["tests/ui/fixtures/sse-ack-native-probe.js"],
@@ -105,11 +110,13 @@ export async function runWebSocketFramesNativeCases() {
                 if (mode === "binary")
                   expected = Buffer.from([0, 255, 128, 42, 13, 10]);
                 if (valid) {
+                  const compressed = fixture.compressed(expected);
                   fixture.send(
                     id,
                     mode === "binary" ? 2 : 1,
-                    expected.subarray(0, 2),
+                    compressed.subarray(0, 2),
                     false,
+                    true,
                   );
                   if (mode === "interleaved-ping") {
                     const ping = Buffer.alloc(125, 165);
@@ -135,7 +142,7 @@ export async function runWebSocketFramesNativeCases() {
                     ).length,
                     0,
                   );
-                  fixture.send(id, 0, expected.subarray(2));
+                  fixture.send(id, 0, compressed.subarray(2));
                   await poll(
                     async () =>
                       (await status(id)).packets.some(
@@ -154,11 +161,12 @@ export async function runWebSocketFramesNativeCases() {
                 else if (mode === "unexpected-continuation")
                   fixture.send(id, 0, Buffer.from("x"));
                 else if (mode === "new-data-in-fragment") {
-                  fixture.send(id, 1, Buffer.from("A"), false);
+                  fixture.send(id, 1, fixture.compressed(Buffer.from("A")), false, true);
                   fixture.send(id, 2, Buffer.from("B"));
                 } else {
-                  fixture.send(id, 1, Buffer.from([240]), false);
-                  fixture.send(id, 0, Buffer.from([40, 140, 188]));
+                  const compressed = fixture.compressed(Buffer.from([240, 40, 140, 188]));
+                  fixture.send(id, 1, compressed.subarray(0, 2), false, true);
+                  fixture.send(id, 0, compressed.subarray(2));
                 }
                 await poll(
                   async () => (await status(id)).done,
@@ -179,6 +187,7 @@ export async function runWebSocketFramesNativeCases() {
                 );
                 if (valid) {
                   assert.equal(payloads.length, 1);
+                  assert.equal(Buffer.from(record.sent[0].wireBase64, "base64")[0] & 64, 64, "First data fragment is compressed on wire");
                   assert.equal(
                     payloads[0].event.data,
                     mode === "binary"
@@ -188,6 +197,9 @@ export async function runWebSocketFramesNativeCases() {
                 } else {
                   assert.match(result.result.error, /WebSocket failed/);
                   assert.equal(payloads.length, 0);
+                  const close = record.frames.find((frame) => frame.opcode === 8);
+                  assert.ok(close, "Protocol failure Close must reach the peer");
+                  assert.equal(Buffer.from(close.base64, "base64").readUInt16BE(), mode === "invalid-utf8" ? 1007 : 1002);
                 }
                 checks.push({
                   mode,
@@ -314,13 +326,19 @@ export async function runWebSocketFramesNativeCases() {
                       ["text", "binary"].includes(p.event.format),
                   );
                   assert.equal(messages.length, extra ? 0 : 1);
+                  assert.equal(Buffer.from(record.sent[0].headerHex, "hex")[0] & 64, 64, "Aggregate first fragment is compressed on wire");
                   if (!extra) {
                     assert.equal(messages[0].event.sha256, expectedSHA256);
                     assert.equal(
                       messages[0].event.decodedBytes,
                       payload.length,
                     );
-                  } else assert.match(result.result.error, /WebSocket failed/);
+                  } else {
+                    assert.match(result.result.error, /WebSocket failed/);
+                    const close = record.frames.find((frame) => frame.opcode === 8);
+                    assert.ok(close, "Decoded-size failure Close must reach the peer");
+                    assert.equal(Buffer.from(close.base64, "base64").readUInt16BE(), 1009);
+                  }
                   checks.push({
                     mode,
                     format,
@@ -350,7 +368,7 @@ export async function runWebSocketFramesNativeCases() {
           options,
         );
       },
-      { ...options, lazyCapture: true },
+      { ...options, lazyCapture: identifier === resourceCrudProbeIdentifier },
     );
   } catch (error) {
     errors.push(error);
@@ -373,7 +391,7 @@ export async function runWebSocketFramesNativeCases() {
           retirement,
           errors: errors.map(String),
           scope:
-            "Eight small and four20MiBaggregate RFC6455 frame sequences through real native SDK Channel. No physicalTCP/platform/application history claim.",
+            "Original eight small and four20MiBaggregate RFC6455 sequences with negotiated deflate/compressed data through real native SDK Channel. No provider/platform/application history claim.",
         },
         null,
         2,

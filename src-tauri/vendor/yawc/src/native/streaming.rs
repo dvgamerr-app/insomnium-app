@@ -160,6 +160,8 @@ pub struct Streaming<S> {
     flush_sends: bool,
     // compressor
     deflate: Option<Compressor>,
+    compression_threshold: usize,
+    compress_message: bool,
     // decompressor
     inflate: Option<Decompressor>,
 }
@@ -194,6 +196,8 @@ where
             obligated_sends: VecDeque::new(),
             flush_sends: false,
             deflate: negotiated.compressor(),
+            compression_threshold: negotiated.compression_threshold,
+            compress_message: false,
             inflate: negotiated.decompressor().map(|mut decoder| {
                 decoder.set_max_message_size(negotiated.max_read_buffer);
                 decoder
@@ -459,8 +463,14 @@ where
             item.payload.len()
         );
 
-        let should_compress = !item.opcode.is_control();
-        if should_compress {
+        if !item.opcode.is_control() {
+            if !this.write_half.streaming {
+                this.compress_message = this.deflate.as_ref().is_some_and(|compressor| {
+                    compressor.should_compress(item.payload.len(), this.compression_threshold)
+                });
+            }
+        }
+        if !item.opcode.is_control() && this.compress_message {
             if let Some(deflate) = this.deflate.as_mut() {
                 let output = deflate.compress(&item.payload, item.is_fin())?;
                 // Set the RSV1 bit only when we are not streaming
@@ -478,6 +488,9 @@ where
     ) -> Poll<std::result::Result<(), Self::Error>> {
         let this = self.get_mut();
         this.wake_proxy.set_waker(ContextKind::Write, cx.waker());
+        // Explicit application flush must include queued automatic Pong/Close,
+        // including the Close queued by a read error just returned to the app.
+        ready!(this.poll_flush_obligated(ContextKind::Write, cx))?;
         this.wake_proxy
             .with_context(|cx| this.write_half.poll_flush(&mut this.stream, cx))
     }

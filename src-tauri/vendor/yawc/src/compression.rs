@@ -343,6 +343,9 @@ pub struct Compressor {
 }
 
 impl Compressor {
+    pub(crate) fn should_compress(&self, first_fragment_bytes: usize, threshold: usize) -> bool {
+        !self.no_context_takeover || first_fragment_bytes >= threshold
+    }
     /// Creates a compressor for one direction of a connection.
     pub(crate) fn new(level: CompressionLevel, config: HalfConfig) -> Self {
         Self {

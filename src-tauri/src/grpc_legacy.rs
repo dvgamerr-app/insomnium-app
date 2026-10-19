@@ -711,6 +711,10 @@ pub(crate) fn radix_number(digits: &str, radix: u32) -> f64 {
     }
     (significand as f64) * 2.0f64.powi((bits - 53) as i32)
 }
+pub(crate) fn string_number(value: &str) -> f64 {
+    number(&Json::String(value.into()))
+}
+
 fn number(value: &Json) -> f64 {
     match value {
         Json::Null => 0.0,

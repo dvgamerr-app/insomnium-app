@@ -223,6 +223,7 @@ pub type UpgradeResult = Result<(HttpResponse, UpgradeFut)>;
 /// Parameters negotiated with the client or the server.
 #[derive(Debug, Default, Clone)]
 pub(crate) struct Negotiation {
+    pub(crate) compression_threshold: usize,
     pub(crate) compression: Option<CompressionConfig>,
     pub(crate) max_payload_read: usize,
     pub(crate) max_read_buffer: usize,
@@ -265,6 +266,7 @@ impl Negotiation {
 
         Ok(Self {
             compression,
+            compression_threshold: options.compression_threshold.unwrap_or(0),
             max_payload_read,
             max_read_buffer,
             read_buffer_capacity: options.read_buffer_capacity,

@@ -22,20 +22,61 @@ fn transport(error: WebSocketError) -> Error {
 }
 
 // Validate before the decoder's permissive extension parser sees the header.
+fn window_bits(value: &str) -> Result<u8, String> {
+    let quoted = value.starts_with('"');
+    let value = if quoted {
+        value
+            .strip_prefix('"')
+            .and_then(|value| value.strip_suffix('"'))
+            .ok_or("Invalid WebSocket deflate quoted value")?
+    } else {
+        value
+    };
+    let mut decoded = String::with_capacity(value.len());
+    let mut bytes = value.bytes();
+    while let Some(mut byte) = bytes.next() {
+        if quoted && byte == b'\\' {
+            byte = bytes.next().ok_or("Invalid WebSocket deflate escape")?;
+        }
+        if !(byte.is_ascii_alphanumeric() || b"!#$%&'*+-.^_`|~".contains(&byte)) {
+            return Err("Invalid WebSocket deflate value token".into());
+        }
+        decoded.push(byte as char);
+    }
+    if decoded.is_empty() {
+        return Err("Empty WebSocket deflate window size".into());
+    }
+    let number = crate::grpc_legacy::string_number(&decoded);
+    if !(8.0..=15.0).contains(&number) || number.fract() != 0.0 {
+        return Err("Invalid WebSocket deflate window size".into());
+    }
+    Ok(number as u8)
+}
+
 fn negotiated(response: &UpgradeResponse) -> Result<Option<String>, String> {
-    let mut headers = response
+    let headers = response
         .headers()
         .get_all(reqwest::header::SEC_WEBSOCKET_EXTENSIONS)
         .iter();
-    let Some(value) = headers.next() else {
-        return Ok(None);
-    };
-    if headers.next().is_some() {
-        return Err("Repeated WebSocket extension response".into());
+    let mut selected = None;
+    for value in headers {
+        let value = value
+            .to_str()
+            .map_err(|_| "Invalid WebSocket extension response")?;
+        // Node combines repeated response fields as a comma-separated list.
+        // ws validates every configuration, then accepts the first one.
+        // Comma/semicolon cannot occur in a valid decoded parameter token.
+        for configuration in value.split(',') {
+            let normalized = configuration_value(configuration)?;
+            if selected.is_none() {
+                selected = Some(normalized);
+            }
+        }
     }
-    let value = value
-        .to_str()
-        .map_err(|_| "Invalid WebSocket extension response")?;
+    Ok(selected)
+}
+
+fn configuration_value(value: &str) -> Result<String, String> {
     let mut parts = value.split(';').map(|part| part.trim_matches([' ', '\t']));
     if parts.next() != Some("permessage-deflate") {
         return Err("Unrequested WebSocket extension".into());
@@ -43,12 +84,9 @@ fn negotiated(response: &UpgradeResponse) -> Result<Option<String>, String> {
     let mut seen = std::collections::HashSet::new();
     let mut canonical = String::from("permessage-deflate");
     for part in parts {
-        let (name, value) = part.split_once('=').map_or((part, None), |(name, value)| {
-            (
-                name.trim_matches([' ', '\t']),
-                Some(value.trim_matches([' ', '\t'])),
-            )
-        });
+        let (name, value) = part
+            .split_once('=')
+            .map_or((part, None), |(name, value)| (name, Some(value)));
         if !seen.insert(name) {
             return Err("Duplicate WebSocket deflate parameter".into());
         }
@@ -58,20 +96,14 @@ fn negotiated(response: &UpgradeResponse) -> Result<Option<String>, String> {
             "server_no_context_takeover" | "client_no_context_takeover" if value.is_none() => {}
             "server_max_window_bits" | "client_max_window_bits" => {
                 let value = value.ok_or("Missing WebSocket deflate window size")?;
-                let value = value
-                    .strip_prefix('"')
-                    .and_then(|value| value.strip_suffix('"'))
-                    .unwrap_or(value);
-                if !["8", "9", "10", "11", "12", "13", "14", "15"].contains(&value) {
-                    return Err("Invalid WebSocket deflate window size".into());
-                }
+                let value = window_bits(value)?;
                 canonical.push('=');
-                canonical.push_str(value);
+                canonical.push_str(&value.to_string());
             }
             _ => return Err("Invalid WebSocket deflate parameter".into()),
         }
     }
-    Ok(Some(canonical))
+    Ok(canonical)
 }
 impl Socket {
     pub(super) async fn open(response: UpgradeResponse, limit: usize) -> Result<Self, String> {
@@ -86,10 +118,11 @@ impl Socket {
             .into_upgraded()
             .await
             .map_err(|error| format!("WebSocket upgrade failed: {error:?}"))?;
-        let options = yawc::Options::default()
+        let mut options = yawc::Options::default()
             .with_limits(limit, limit)
             .with_utf8()
             .with_balanced_compression();
+        options.compression_threshold = Some(1024);
         yawc::WebSocket::from_stream_with_extensions(
             stream,
             yawc::Role::Client,

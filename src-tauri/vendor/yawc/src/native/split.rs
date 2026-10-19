@@ -189,6 +189,8 @@ use crate::{
 /// }
 /// ```
 pub struct ReadHalf {
+    /// A data message is awaiting continuation frames, compressed or not.
+    fragmented_message: bool,
     /// This flag is true when the first message is NOT FIN and RSV1 is set.
     pub(super) compressed_stream: bool,
     /// Indicates if the connection has been closed.
@@ -198,6 +200,7 @@ pub struct ReadHalf {
 impl ReadHalf {
     pub(super) fn new() -> Self {
         Self {
+            fragmented_message: false,
             compressed_stream: false,
             is_closed: false,
         }
@@ -256,6 +259,23 @@ impl ReadHalf {
 
         match res {
             Ok(mut frame) => {
+                // Validate message sequencing before any decompressor can
+                // consume this frame or change its context-takeover dictionary.
+                match frame.opcode {
+                    OpCode::Text | OpCode::Binary => {
+                        if self.fragmented_message {
+                            return Poll::Ready(Err(WebSocketError::InvalidFragment));
+                        }
+                        self.fragmented_message = !frame.is_fin();
+                    }
+                    OpCode::Continuation => {
+                        if !self.fragmented_message {
+                            return Poll::Ready(Err(WebSocketError::InvalidContinuationFrame));
+                        }
+                        self.fragmented_message = !frame.is_fin();
+                    }
+                    _ => {}
+                }
                 #[cfg(test)]
                 println!(
                     "<<Incoming<< OpCode={:?} Fin={} Payload={}",
