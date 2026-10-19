@@ -87,7 +87,13 @@
     try{const saved=JSON.parse(localStorage.getItem('insomnium:generate-code')||'null');if(typeof saved?.target==='string')target=saved.target;if(typeof saved?.client==='string')client=saved.client;}catch{/* Damaged preferences use Shell/cURL. */}
     void generate(true);
   });
-  async function copy(){const current=revision;try{await copyText(code);}catch(caught){if(!disposed&&current===revision)error=String(caught);}}
+  async function copy(){
+    const current=revision;
+    /** @type {import('../workspace.svelte.js').ScopedWorkspaceWork|undefined} */ let work;
+    try{work=workScope.begin();await copyText(code);}
+    catch(caught){if(!work?.signal.aborted&&!disposed&&current===revision)error=String(caught);}
+    finally{work?.finish();}
+  }
 </script>
 
 <div class="generated-code">
