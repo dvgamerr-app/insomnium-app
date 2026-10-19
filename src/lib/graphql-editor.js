@@ -20,7 +20,10 @@ import {
 export function graphqlVariableTypes(schema, query, operationName) {
   if (!schema || query.length >= 1000000) return undefined;
   try {
-    const operation = getOperationAST(parse(query), operationName || undefined);
+    const operation = getOperationAST(
+      parse(query, { maxTokens: 10000 }),
+      operationName || undefined,
+    );
     if (!operation) return undefined;
     /** @type {Record<string, import('graphql').GraphQLInputType>} */
     const types = Object.create(null);
