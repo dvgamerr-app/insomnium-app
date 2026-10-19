@@ -123,6 +123,16 @@ export function initialData() {
     },
   };
 }
+/** Shared by imports and durable workspace loading; preserve valid rows verbatim.
+ * @param {Resource} resource */
+export function validateGrpcMetadata(resource) {
+  if (resource._type === "grpc_request" && resource.metadata != null &&
+      (!Array.isArray(resource.metadata) || resource.metadata.some(
+        (/** @type {unknown} */ row) => !row || typeof row !== "object" || Array.isArray(row),
+      )))
+    throw new Error(`Invalid metadata for ${resource.name || resource._id}: expected an array of metadata records.`);
+}
+
 /** @param {unknown} value */
 export function validateData(value) {
   const data = /** @type {ReturnType<typeof initialData>} */ (value);
@@ -147,6 +157,7 @@ export function validateData(value) {
     )
       throw new Error("Invalid or duplicate resource ID");
     ids.add(resource._id);
+    validateGrpcMetadata(resource);
   }
   if (
     data.openTabs != null &&

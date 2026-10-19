@@ -2,7 +2,7 @@ import { curlResources, isCurlImport } from "./curl-import.js";
 import { isTauri, invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { readTextFile, writeTextFile, writeFile, stat } from "@tauri-apps/plugin-fs";
-import { id, initialData, newRequest, protocolFor } from "./model.js";
+import { id, initialData, newRequest, protocolFor, validateGrpcMetadata } from "./model.js";
 import { parseLegacyFiles } from "./legacy-import.js";
 import { pluginJarCookies, pluginCookieJarId, pluginCookieJarView } from "./plugin-cookie-jar.js";
 import { legacyPreferenceCandidate } from "./legacy-preferences.js";
@@ -398,9 +398,7 @@ export function parseImport(text,options = {}) {
     if (["request", "grpc_request", "websocket_request"].includes(r._type) && r.headers != null &&
         (!Array.isArray(r.headers) || r.headers.some((header) => !header || typeof header !== "object" || Array.isArray(header))))
       throw new Error(`Invalid headers for ${r.name || r._id}: expected an array of header records.`);
-    if (r._type === "grpc_request" && r.metadata != null &&
-        (!Array.isArray(r.metadata) || r.metadata.some((row) => !row || typeof row !== "object" || Array.isArray(row))))
-      throw new Error(`Invalid metadata for ${r.name || r._id}: expected an array of metadata records.`);
+    validateGrpcMetadata(r);
   }
   const detachedGitBindings = resources.filter(
     (r) =>

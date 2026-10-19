@@ -48,6 +48,22 @@ pub(crate) fn validate(value: &Value) -> Result<(), String> {
         {
             return Err("Invalid or duplicate resource".into());
         }
+        if resource["_type"] == "grpc_request" {
+            if let Some(metadata) = resource.get("metadata").filter(|rows| !rows.is_null()) {
+                if metadata
+                    .as_array()
+                    .is_none_or(|rows| rows.iter().any(|row| !row.is_object()))
+                {
+                    let name = resource["name"]
+                        .as_str()
+                        .filter(|name| !name.is_empty())
+                        .unwrap_or(id);
+                    return Err(format!(
+                        "Invalid metadata for {name}: expected an array of metadata records."
+                    ));
+                }
+            }
+        }
     }
     crate::resource_topology::validate(&records)?;
     if let Some(tabs) = value.get("openTabs").filter(|tabs| !tabs.is_null()) {
