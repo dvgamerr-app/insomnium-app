@@ -51,7 +51,8 @@ export function applyImportedData(data,review,options = {}){
     if(typeof resource._id!=='string'||!resource._id||ids.has(resource._id))throw Error('Import resource ID collision. Review the import again.');
     ids.add(resource._id);
   }
-  data.resources.push(...review.resources);
+  // A valid import can contain more resources than the engine's call argument limit.
+  for (const resource of review.resources) data.resources.push(resource);
   data.history.push(...checked.accepted);
   for(const meta of review.resources.filter(r=>r._type==='request_meta'))
     if(checked.accepted.some(entry=>entry._id===meta.activeResponseId&&entry.requestId===meta.parentId))
