@@ -8,7 +8,7 @@ async function run(mode) {
   const id = "1:00000000-0000-4000-8000-000000000001";
   /** @type {((value:string|null)=>void)|undefined} */ let finish;
   const transport = {
-    platform: async () => mode.startsWith("linux-") ? "linux" : mode === "fallback" ? "darwin" : "win32",
+    platform: async () => mode.startsWith("linux-") ? "linux" : mode === "fallback" ? "freebsd" : "win32",
     fallback: async () => "fallback-path",
     invoke: async (/** @type {string} */ command, /** @type {any} */ args) => {
       calls.push({ command, args });

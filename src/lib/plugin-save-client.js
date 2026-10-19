@@ -12,7 +12,7 @@ export function createPluginSaveClient({ invoke, platform, fallback }) {
     signal.throwIfAborted();
     const os = await platform();
     signal.throwIfAborted();
-    if (!["win32", "linux"].includes(os)) {
+    if (!["win32", "linux", "darwin"].includes(os)) {
       // Retain the native picker on other platforms; owned closure remains a gate.
       const value = await fallback(config);
       signal.throwIfAborted();
