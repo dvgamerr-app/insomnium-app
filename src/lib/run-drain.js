@@ -13,6 +13,12 @@ export function createRunDrain({
     if (active) throw new Error("Workspace operations are already stopping.");
     active = true;
     /** @type {ReturnType<typeof setTimeout>|undefined} */ let timer;
+    /** @type {Promise<void>|undefined} */ let draining;
+    let drained = true;
+    const release = () => {
+      active = false;
+      onChange(false);
+    };
     try {
       onChange(true);
       const initial = [...pending()];
@@ -32,8 +38,10 @@ export function createRunDrain({
         const failed = outcomes.find((result) => result.status === "rejected");
         if (failed?.status === "rejected") throw failed.reason;
       };
+      drained = false;
+      draining = drain().finally(() => { drained = true; });
       await Promise.race([
-        drain(),
+        draining,
         new Promise((_, reject) => {
           timer = setTimeout(
             () =>
@@ -51,8 +59,13 @@ export function createRunDrain({
       return await operation();
     } finally {
       clearTimeout(timer);
-      active = false;
-      onChange(false);
+      if (!drained && draining) {
+        // A deadline stops waiting, not the accepted work. Reopen only after
+        // that cleanup settles; never run the timed-out operation later.
+        void draining.then(release, release).catch(error => {
+          console.error("Workspace drain observer failed.", error);
+        });
+      } else release();
     }
   }
   return {
