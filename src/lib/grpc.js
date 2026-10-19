@@ -30,6 +30,9 @@ export async function connectGrpc(request, signal, onmessage) {
   const channel = new Channel();
   /** @type {Set<Promise<void>>} */
   const acknowledgements = new Set();
+  const drain = async () => {
+    while (acknowledgements.size) await Promise.all(acknowledgements);
+  };
   /** @type {unknown} */
   let deliveryError;
   let deliveryFailed = false;
@@ -54,11 +57,11 @@ export async function connectGrpc(request, signal, onmessage) {
   };
   try {
     await invoke("connect_grpc", { request, onEvent: channel });
-    await Promise.all(acknowledgements);
+    await drain();
     if (deliveryFailed) throw deliveryError;
   } finally {
     // Keep the call tracked until ACK callbacks settle, including native failure.
-    await Promise.all(acknowledgements);
+    await drain();
     await cancel.close();
   }
   if (cancel.failed) throw cancel.error;
