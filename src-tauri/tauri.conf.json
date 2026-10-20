@@ -4,10 +4,9 @@
   "version": "0.1.0",
   "identifier": "app.insomnium.desktop",
   "build": {
-    "beforeDevCommand": "bun scripts/tauri-spectral-hook.mjs dev",
+    "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "bun scripts/tauri-spectral-hook.mjs build",
-    "beforeBundleCommand": "bun scripts/tauri-spectral-hook.mjs bundle",
+    "beforeBuildCommand": "bun run build",
     "frontendDist": "../build"
   },
   "app": {
@@ -32,7 +31,7 @@
   "bundle": {
     "active": true,
     "externalBin": ["binaries/spectral-linter"],
-    "resources": {"notices/spectral/": "notices/spectral/", "notices/native/": "notices/native/", "notices/frontend/": "notices/frontend/"},
+    "resources": {"notices/spectral/": "notices/spectral/", "notices/native/": "notices/native/"},
     "targets": "all",
     "icon": [
       "icons/32x32.png",
