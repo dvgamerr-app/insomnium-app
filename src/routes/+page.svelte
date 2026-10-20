@@ -1226,12 +1226,12 @@
                   class="send-button"
                   onclick={() => scheduled?.requestId === request._id ? cancelSchedule() : stop(request._id)}
                   ><Icon name="stop" size={15} />
-                  {protocol === "http" || !app.running[request._id] ? "Cancel" : "Disconnect"}</Button
+                  {protocol === "http" || !app.running[request._id] ? "Cancel" : protocol === "sse" ? "Stop" : "Disconnect"}</Button
                 >{:else}<Button
                   variant="primary"
                   type="submit"
                   class="send-button"
-                  >{protocol === "http" ? "Send" : "Connect"}
+                  >{protocol === "http" ? "Send" : ["closed", "error"].includes(app.responses[request._id]?.connectionState) ? "Reconnect" : "Connect"}
                   <Icon name="send" size={16} /></Button
                 >{/if}
               {#if ["http", "sse"].includes(protocol)}<Button
