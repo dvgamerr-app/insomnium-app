@@ -533,42 +533,8 @@
       /></Field
     >
   </FormPanel>
+  <h4 class="remote-group">Settings</h4>
   <div class="resource-tools">
-    {#if pendingPush}
-      <p>
-        Pending Push to <strong>{pendingPush.destinationBranch}</strong>.
-        Inspect its current remote state before starting another.
-      </p>
-      <Button
-        disabled={busy || saving || disabled}
-        onclick={() => pushAction("inspect")}>Inspect pending Push</Button
-      >
-    {:else}
-      <Field
-        >Push destination branch<Input
-          aria-label="Push destination branch"
-          bind:value={pushBranch}
-          disabled={busy ||
-            saving ||
-            disabled ||
-            !!pendingPush ||
-            !!pendingFetch ||
-            !!pendingCheckout}
-          placeholder="Exact remote branch"
-        /></Field
-      >
-      <Button
-        disabled={busy ||
-          saving ||
-          disabled ||
-          !!pendingPush ||
-          !!pendingFetch ||
-          !!pendingCheckout ||
-          !pushBranch ||
-          !url.trim()}
-        onclick={() => pushAction("review")}>Review Push</Button
-      >
-    {/if}
     <Button
       variant="secondary"
       class="secondary-button"
@@ -587,6 +553,9 @@
       disabled={busy || saving || disabled || !url.trim()}
       onclick={connect}>Read remote branches</Button
     >
+  </div>
+  <h4 class="remote-group">Fetch and pull</h4>
+  <div class="resource-tools">
     <Button
       variant="secondary"
       class="secondary-button"
@@ -714,6 +683,44 @@
             : "Reading remote…"}</span
       >{/if}
   </div>
+  <h4 class="remote-group">Push</h4>
+  <div class="resource-tools">
+    {#if pendingPush}
+      <p>
+        Pending Push to <strong>{pendingPush.destinationBranch}</strong>.
+        Inspect its current remote state before starting another.
+      </p>
+      <Button
+        disabled={busy || saving || disabled}
+        onclick={() => pushAction("inspect")}>Inspect pending Push</Button
+      >
+    {:else}
+      <Field
+        >Push destination branch<Input
+          aria-label="Push destination branch"
+          bind:value={pushBranch}
+          disabled={busy ||
+            saving ||
+            disabled ||
+            !!pendingPush ||
+            !!pendingFetch ||
+            !!pendingCheckout}
+          placeholder="Exact remote branch"
+        /></Field
+      >
+      <Button
+        disabled={busy ||
+          saving ||
+          disabled ||
+          !!pendingPush ||
+          !!pendingFetch ||
+          !!pendingCheckout ||
+          !pushBranch ||
+          !url.trim()}
+        onclick={() => pushAction("review")}>Review Push</Button
+      >
+    {/if}
+  </div>
   <p class="hint">
     Settings are saved locally. Reading branches uses the fields above without
     saving them or changing this collection. Fetch uses saved settings and
@@ -773,6 +780,12 @@
     gap: var(--space-10);
     border-top: 1px solid var(--line);
     padding-top: var(--space-12);
+  }
+  .remote-group {
+    margin: 0;
+    color: var(--muted);
+    font-size: var(--font-size-12);
+    font-weight: 600;
   }
   h3,
   p {
