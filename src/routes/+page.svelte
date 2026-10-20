@@ -1460,7 +1460,7 @@
   <Modal
     inert={editingBlocked}
     bind:element={modalElement}
-    onclose={closeModal}
+    onclose={() => (modal === "environment" ? cancelEnvironment() : closeModal())}
   >
     {#snippet heading()}
       {modal === "environment"
@@ -1615,7 +1615,7 @@
               >{environmentReveal ? "Hide secret values" : "Show secret values"}</Button
             >
           </fieldset>{/if}
-        {#if environmentJsonError}<Feedback as="p" class="inline-error" role="status">Invalid JSON: {environmentJsonError}</Feedback>{/if}
+        {#if environmentJsonError}<Feedback as="p" class="inline-error" role="alert">Invalid JSON: {environmentJsonError}</Feedback>{/if}
         {#if confirmingEnvironmentDiscard}<Feedback as="p" class="inline-error" role="alert">You have unsaved changes. Choose “Discard changes” again to close without saving.</Feedback>{/if}
         <CodeEditor
           identity={environmentId + ":environment"}
@@ -1634,6 +1634,7 @@
           ><Button
             variant="primary"
             class="primary-button"
+            disabled={!!environmentJsonError}
             onclick={saveEnvironment}>Save environment</Button
           >
         </div>

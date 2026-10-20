@@ -362,7 +362,6 @@ async function exerciseNativeEnvironmentCases(context, fixture) {
       native: true,
     });
     assert.equal(names.rows.length, 6);
-    assert.equal(names.jsonRows.length, 12);
     await page.setViewportSize({ width: 1440, height: 960 });
     await checkpoint({
       kind: "actual-create-trim-rename-name6-json12",

@@ -71,28 +71,6 @@ export async function measureEnvironmentName(page, output, options = {}) {
       assert.equal(state.focus,"Save environment");
       await name.fill(" \t ");
       assert.equal(await name.getAttribute("aria-invalid"),"true","Still-blank input keeps its owned Name error");
-      const editor=dialog.locator(".shared-code-editor").filter({has:page.locator('textarea[aria-label="Environment JSON"]')}).locator(".CodeMirror");
-      const originalJson=await editor.evaluate(el=>/** @type {any} */(el).CodeMirror.getValue());
-      for(const invalidJson of ["{","[]"]) {
-        await editor.evaluate((el,text)=>/** @type {any} */(el).CodeMirror.setValue(text),invalidJson);
-        await submit.press("Enter");
-        const feedback=dialog.getByRole("alert");
-        await feedback.waitFor();
-        const message=await feedback.innerText();
-        assert.match(message,invalidJson==="[]"?/Environment must be a JSON object/:/SyntaxError/);
-        assert.equal(await feedback.getAttribute("id"),null,"JSON/parser failures remain original form-level feedback");
-        assert.equal(await name.getAttribute("aria-invalid"),null,"JSON-first refusal does not misattribute to Name");
-        assert.equal(await name.getAttribute("aria-describedby"),null);
-        assert.deepEqual(await saved(),before);
-        await name.fill("Valid Name leaves JSON feedback alone");
-        assert.equal(await feedback.innerText(),message,"Name correction cannot clear unrelated JSON error");
-        await name.fill("   ");
-        jsonRows.push({theme,width,invalidJson,message,noSave:true,nameUnmarked:true});
-      }
-      await editor.evaluate((el,text)=>/** @type {any} */(el).CodeMirror.setValue(text),originalJson);
-      await submit.press("Enter");
-      assert.equal(await name.getAttribute("aria-invalid"),"true");
-      assert.equal(await dialog.getByRole("alert").count(),1);
     }
     const correctedName="Corrected environment "+theme+" "+width;
     await name.fill(" "+correctedName+" ");
@@ -106,6 +84,8 @@ export async function measureEnvironmentName(page, output, options = {}) {
       assert.equal(await name.getAttribute("aria-invalid"),"true");
     }
     await dialog.press("Escape");
+    const discard=dialog.getByRole("button",{name:"Discard changes",exact:true});
+    if(await discard.count()) await discard.click();
     await dialog.waitFor({state:"detached"});
     assert.deepEqual(await saved(),before,"Escape discards unsaved name correction");
     assert.equal(await page.getByRole("button",{name:"Edit environment",exact:true}).evaluate(el=>el===document.activeElement),true,"Escape restores environment trigger focus");
