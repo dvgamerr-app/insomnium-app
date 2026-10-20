@@ -47,6 +47,7 @@
     username = $state(""),
     secret = $state("");
   let cleaning = $state(false);
+  let confirmingClean = $state(false);
   let recoveryAvailable = $state(false);
   let fetchBranch = $state("");
   let localBranch = $state("");
@@ -674,12 +675,32 @@
         onclick={retireFetch}>Stop tracking pending fetch</Button
       >
     {/if}
-    <Button
-      variant="secondary"
-      class="secondary-button"
-      disabled={busy || saving || disabled}
-      onclick={cleanFetchFiles}>Clean unused fetch files</Button
-    >
+    {#if confirmingClean}
+      <span role="alert"
+        >Delete downloaded fetch files that are no longer used?</span
+      >
+      <Button
+        variant="secondary"
+        class="secondary-button"
+        onclick={() => (confirmingClean = false)}>Cancel</Button
+      >
+      <Button
+        variant="danger"
+        class="danger-button"
+        disabled={busy || saving || disabled}
+        onclick={() => {
+          confirmingClean = false;
+          cleanFetchFiles();
+        }}>Clean files</Button
+      >
+    {:else}
+      <Button
+        variant="ghost"
+        disabled={busy || saving || disabled}
+        onclick={() => (confirmingClean = true)}
+        >Clean unused fetch files…</Button
+      >
+    {/if}
     {#if cleaning}<span role="status">Cleaning fetch files…</span>{/if}
     {#if busy && !cleaning}<Button
         variant="secondary"
