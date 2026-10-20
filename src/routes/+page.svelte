@@ -1460,7 +1460,7 @@
   <Modal
     inert={editingBlocked}
     bind:element={modalElement}
-    onclose={closeModal}
+    onclose={() => (modal === "environment" ? cancelEnvironment() : closeModal())}
   >
     {#snippet heading()}
       {modal === "environment"
