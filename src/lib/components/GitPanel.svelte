@@ -214,6 +214,19 @@
     message = $state("");
   let targetBranch = $state("");
   let newBranch = $state("");
+  /** @param {string} value */
+  function branchNameProblem(value) {
+    const branch = value.trim();
+    if (!branch) return "";
+    if (/\s/.test(branch)) return "Branch names cannot contain spaces.";
+    if (/[~^:?*[\\]/.test(branch) || branch.includes("..") || branch.includes("@{"))
+      return "Branch names cannot contain ~ ^ : ? * [ \\ .. or @{.";
+    if (/^[-/.]|[/.]$|\/\/|\.lock$/.test(branch))
+      return "Branch names cannot start with - / . , end with / . or .lock, or contain //.";
+    if (session?.info.branchTips?.some((tip) => tip.name === branch)) return "A branch named " + branch + " already exists.";
+    return "";
+  }
+  const newBranchProblem = $derived(branchNameProblem(newBranch));
   const pendingCreation = $derived.by(() => {
     try {
       return pendingGitCreation(workspace.data.resources, workspaceId);
@@ -951,24 +964,27 @@
           pending action.
         </p>
       {:else}
-        <div class="resource-tools">
-          <Field
+        <form class="resource-tools" onsubmit={(event) => { event.preventDefault(); if (!newBranchProblem && newBranch.trim() && session?.info.headOid && name.trim() && email.trim()) void createBranch(); }}>
+          <Field error={newBranchProblem}
             >New branch<Input
               bind:value={newBranch}
+              invalid={!!newBranchProblem}
               disabled={busy || !session?.info.headOid}
               placeholder="feature/my-change"
             /></Field
           >
           <Button
             class="secondary-button"
+            type="submit"
             disabled={busy ||
               !session?.info.headOid ||
+              !!newBranchProblem ||
               !newBranch.trim() ||
               !name.trim() ||
               !email.trim()}
-            onclick={() => createBranch()}>Create and switch</Button
+            >Create and switch</Button
           >
-        </div>
+        </form>
         {#if !session?.info.headOid}<p class="hint">
             Commit this collection before creating another branch.
           </p>{/if}
