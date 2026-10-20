@@ -1,5 +1,6 @@
 import { invokeCookie } from './cookie-native.js';
 import { curlResources, isCurlImport } from "./curl-import.js";
+import { redactEnvironment } from "./environment-secrets.js";
 import { isTauri, invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { readTextFile, writeTextFile, writeFile, stat } from "@tauri-apps/plugin-fs";
@@ -65,6 +66,7 @@ function portableResource(resource, forExport = false) {
     delete copy._activeTemplateCookieSource;
     return copy;
   }
+  if (resource._type === "environment") return forExport ? redactEnvironment(resource) : resource;
   if (resource._type !== "git_repository") return resource;
   const copy = { ...resource };
   for (const key of localGitFields) delete copy[key];

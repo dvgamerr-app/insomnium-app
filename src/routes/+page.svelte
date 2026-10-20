@@ -6,7 +6,8 @@
   import { runEditorHistory } from "$lib/editor-history.js";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import WorkspaceRecovery from "$lib/components/WorkspaceRecovery.svelte";
-  import { orderedEnvironments, environmentEditorText, parseEnvironmentEditor, newEnvironment, duplicateEnvironment, reorderEnvironment } from "$lib/environment-editor.js";
+  import { environmentTopLevelKeys, maskSecretValues, normalizeSecretKeys, restoreSecretValues } from "$lib/environment-secrets.js";
+  import { orderedEnvironments,environmentEditorText, parseEnvironmentEditor, newEnvironment, duplicateEnvironment, reorderEnvironment } from "$lib/environment-editor.js";
   import Toolbar from "$lib/components/ui/Toolbar.svelte";
   import FormPanel from "$lib/components/ui/FormPanel.svelte";
   import Feedback from "$lib/components/ui/Feedback.svelte";
@@ -135,6 +136,29 @@
     environmentText = $state("{}"),
     importText = $state("");
   let environmentPrivate = $state(false), newEnvironmentPrivate = $state(false);
+  /** @type {string[]} */
+  let environmentSecretKeys = $state([]);
+  let environmentReveal = $state(false);
+  const environmentKeys = $derived(environmentTopLevelKeys(environmentText));
+  /** Rebuild the editor text from the edited text, hiding secret values unless revealed. */
+  function renderEnvironmentText(keys = environmentSecretKeys, reveal = environmentReveal) {
+    try {
+      const original = environmentOwner?.environment.data || {};
+      const { data, dataPropertyOrder } = parseEnvironmentEditor(environmentText);
+      const full = restoreSecretValues(data, original, environmentSecretKeys);
+      environmentText = environmentEditorText(reveal ? full : maskSecretValues(full, keys), dataPropertyOrder);
+      environmentSecretKeys = keys;
+      environmentReveal = reveal;
+      modalError = "";
+    } catch (e) {
+      modalError = "Fix the environment JSON before changing secret variables. " + e;
+    }
+  }
+  /** @param {string} key @param {boolean} secret */
+  function setEnvironmentSecret(key, secret) {
+    const keys = secret ? [...new Set([...environmentSecretKeys, key])] : environmentSecretKeys.filter((item) => item !== key);
+    renderEnvironmentText(keys);
+  }
   let environmentColor = $state(/** @type {string|null} */ (null));
   let environmentNameError = $state(
     /** @type {{environmentId:string,message:string}|null} */ (null),
@@ -355,7 +379,9 @@
     environmentOwner = { data: app.data, collectionId: app.data.activeWorkspaceId, environment };
     environmentPrivate = environment?.isPrivate === true;
     environmentColor = environment?.color || null;
-    environmentText = environmentEditorText(environment?.data || {}, environment?.dataPropertyOrder);
+    environmentSecretKeys = normalizeSecretKeys(environment?.secretKeys);
+    environmentReveal = false;
+    environmentText = environmentEditorText(maskSecretValues(environment?.data || {}, environmentSecretKeys), environment?.dataPropertyOrder);
     showModal("environment");
   }
   /** @type {{data:typeof app.data,collectionId:string,environment:Record<string,any>}|null} */
@@ -377,7 +403,10 @@
     modalError = "";
     environmentNameError = null;
     try {
-      const { data, dataPropertyOrder } = parseEnvironmentEditor(environmentText);
+      const parsed = parseEnvironmentEditor(environmentText);
+      const { dataPropertyOrder } = parsed;
+      const secretKeys = environmentSecretKeys.filter((key) => Object.hasOwn(parsed.data, key));
+      const data = restoreSecretValues(parsed.data, environmentOwner?.environment.data || {}, secretKeys);
       if (!environmentName.trim()) {
         environmentNameError = {
           environmentId,
@@ -385,7 +414,7 @@
         };
         return;
       }
-      update(environmentId, { data, dataPropertyOrder, name: environmentName.trim(), isPrivate: environmentPrivate, color: environmentColor });
+      update(environmentId, { data, dataPropertyOrder, secretKeys, name: environmentName.trim(), isPrivate: environmentPrivate, color: environmentColor });
       closeModal();
     } catch (e) {
       modalError = String(e);
@@ -1552,6 +1581,26 @@
           Use <code>{"{{ _.base_url }}"}</code> in URLs, headers, bodies, and authentication.
           Selected environments override base values.
         </p>
+        {#if environmentKeys.length}<fieldset class="secret-variables">
+            <legend>Secret variables</legend>
+            <p class="hint">
+              Secret values are hidden here and left blank in exported files. They are still
+              saved in this collection, so use “Private environment” to keep them out of Git.
+            </p>
+            {#each environmentKeys as key (key)}<Field layout="inline" class="checkbox-label"
+                ><Checkbox
+                  checked={environmentSecretKeys.includes(key)}
+                  onchange={(event) => setEnvironmentSecret(key, event.currentTarget.checked)}
+                />{key}</Field
+              >{/each}
+            <Button
+              variant="secondary"
+              aria-pressed={environmentReveal}
+              disabled={!environmentSecretKeys.length}
+              onclick={() => renderEnvironmentText(environmentSecretKeys, !environmentReveal)}
+              >{environmentReveal ? "Hide secret values" : "Show secret values"}</Button
+            >
+          </fieldset>{/if}
         <CodeEditor
           identity={environmentId + ":environment"}
           mode="application/json"
