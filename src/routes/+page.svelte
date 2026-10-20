@@ -1447,9 +1447,7 @@
           : app.saveFailed
             ? "Save failed"
             : "Local workspace"}</span
-    ><span class="spacer"></span><span class="privacy-text"
-      >A local home for your APIs.</span
-    ><span class="version">v0.1.0</span>
+    ><span class="spacer"></span><span class="version">v0.1.0</span>
   </footer>
 </div>
 {#if app.persistencePhase === "recovery" || app.persistencePhase === "recovering"}

@@ -656,6 +656,7 @@
                 </p>{/each}
               {#if session?.excluded?.length}<details class="git-excluded">
                   <summary
+                    title="Resources kept out of commits, such as private environments"
                     >Excluded resources ({session?.excluded?.length})</summary
                   >{#each session?.excluded || [] as item}<p class="hint">
                       {item.id}: {item.reason}

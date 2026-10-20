@@ -455,7 +455,7 @@
                   event.currentTarget.value = "";
                 }}
               >
-                <option value="" disabled>History</option>
+                <option value="" disabled>Filter history</option>
                 {#each filterHistory as item}<option value={item}>{item}</option
                   >{/each}
               </Select>{/if}
