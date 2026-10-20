@@ -163,6 +163,18 @@ function commands(text) {
       i++;
       continue;
     }
+    if (c === "$") {
+      // $NAME and ${NAME} become environment template variables; nothing is expanded.
+      const variable = /^\$(?:([A-Za-z_]\w*)|\{([A-Za-z_]\w*)\})/.exec(
+        text.slice(i, i + 258),
+      );
+      if (variable) {
+        word += `{{ _.${variable[1] || variable[2]} }}`;
+        started = true;
+        i += variable[0].length - 1;
+        continue;
+      }
+    }
     if (
       c === "\x60" ||
       (c === "$" && /[\w{('"?@*#$!0-9-]/.test(text[i + 1] || ""))
