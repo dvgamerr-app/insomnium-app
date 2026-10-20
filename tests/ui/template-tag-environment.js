@@ -113,6 +113,8 @@ else await withPreview("template-tag-environment"+(runLabel?"-"+runLabel:""), as
   await page.keyboard.press("Escape");
   await dialog.waitFor({ state: "hidden" });
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  const discard = page.getByRole("button", { name: "Discard changes", exact: true });
+  if (await discard.count()) await discard.click();
   data.activeRequestId = "";
   data.openTabs = [];
   await page.evaluate(

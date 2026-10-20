@@ -140,6 +140,17 @@
   let environmentSecretKeys = $state([]);
   let environmentReveal = $state(false);
   const environmentKeys = $derived(environmentTopLevelKeys(environmentText));
+  const environmentJsonError = $derived.by(() => {
+    try { parseEnvironmentEditor(environmentText); return ""; } catch (e) { return String(e).replace(/^w*Error: /, ""); }
+  });
+  let environmentSnapshot = "", confirmingEnvironmentDiscard = $state(false);
+  const environmentSnapshotNow = () => JSON.stringify([environmentText, environmentName, environmentPrivate, environmentColor, environmentSecretKeys]);
+  const environmentDirty = $derived(modal === "environment" && environmentSnapshot !== "" && environmentSnapshotNow() !== environmentSnapshot);
+  function cancelEnvironment() {
+    if (environmentDirty && !confirmingEnvironmentDiscard) { confirmingEnvironmentDiscard = true; return; }
+    confirmingEnvironmentDiscard = false;
+    closeModal();
+  }
   /** Rebuild the editor text from the edited text, hiding secret values unless revealed. */
   function renderEnvironmentText(keys = environmentSecretKeys, reveal = environmentReveal) {
     try {
@@ -343,6 +354,8 @@
   }
   function closeModal() {
     environmentOwner = null;
+    environmentSnapshot = "";
+    confirmingEnvironmentDiscard = false;
     importWork.cancel();
     destinationWork.cancel();
     destinationRevision++;
@@ -383,6 +396,8 @@
     environmentReveal = false;
     environmentText = environmentEditorText(maskSecretValues(environment?.data || {}, environmentSecretKeys), environment?.dataPropertyOrder);
     showModal("environment");
+    confirmingEnvironmentDiscard = false;
+    environmentSnapshot = environmentSnapshotNow();
   }
   /** @type {{data:typeof app.data,collectionId:string,environment:Record<string,any>}|null} */
   let environmentOwner = null;
@@ -1559,8 +1574,9 @@
             onclick={() => { if (!canEditEnvironment()) return; reorderEnvironment(environments, environmentId, app.data.activeWorkspaceId, 1); void persist(); }}>Move environment down</Button>
         </div>
         <Field layout="inline" class="checkbox-label"><Checkbox bind:checked={environmentPrivate} />Private environment</Field>
+        <p class="hint">Private environments stay on this device: they are never committed to Git or included in Git sync.</p>
         <Field label="Environment color"><Input type="color" value={environmentColor || "#7d69cb"} onchange={(event) => environmentColor = event.currentTarget.value} /></Field>
-        <Button variant="secondary" disabled={!environmentColor} onclick={() => environmentColor = null}>Clear environment color</Button>
+        <Button variant="ghost" aria-label="Clear environment color" title="Clear environment color" disabled={!environmentColor} onclick={() => environmentColor = null}><Icon name="close" size={14} /></Button>
         <Field
           class="name-label environment-name"
           label="Name"
@@ -1601,6 +1617,8 @@
               >{environmentReveal ? "Hide secret values" : "Show secret values"}</Button
             >
           </fieldset>{/if}
+        {#if environmentJsonError}<Feedback as="p" class="inline-error" role="alert">Invalid JSON: {environmentJsonError}</Feedback>{/if}
+        {#if confirmingEnvironmentDiscard}<Feedback as="p" class="inline-error" role="alert">You have unsaved changes. Choose “Discard changes” again to close without saving.</Feedback>{/if}
         <CodeEditor
           identity={environmentId + ":environment"}
           mode="application/json"
@@ -1614,10 +1632,11 @@
           <Button
             variant="secondary"
             class="secondary-button"
-            onclick={closeModal}>Cancel</Button
+            onclick={cancelEnvironment}>{confirmingEnvironmentDiscard ? "Discard changes" : "Cancel"}</Button
           ><Button
             variant="primary"
             class="primary-button"
+            disabled={!!environmentJsonError}
             onclick={saveEnvironment}>Save environment</Button
           >
         </div>
