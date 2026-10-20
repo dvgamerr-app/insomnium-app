@@ -8,7 +8,7 @@
   --line: #1f1f1f;
   --text: #fafafa;
   --muted: #a3a3a3;
-  --faint: #737373;
+  --faint: #8a8a8a;
   --accent: #6366f1;
   --accent-hover: #4f46e5;
   --on-accent: #fff;
@@ -75,13 +75,13 @@
   --hover: #00000005;
   --danger: #be123c;
   --danger-surface: #fff1f2;
-  --method-get: #16a34a;
+  --method-get: #15803d;
   --method-post: #b45309;
   --method-put: #2563eb;
   --method-patch: #9333ea;
   --method-delete: #dc2626;
   --method-head: #4d7c0f;
-  --method-options: #db2777;
+  --method-options: #be185d;
   --ui-border: #d6d8e1;
   --ui-border-hover: #969baa;
   --ui-surface: #fff;

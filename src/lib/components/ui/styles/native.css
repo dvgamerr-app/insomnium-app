@@ -66,3 +66,10 @@ textarea::placeholder {
     transition: none;
   }
 }
+
+/* A disabled primary action must not keep the brand colour that signals "available". */
+button.primary-button:disabled {
+  background: var(--raised);
+  color: var(--muted);
+  opacity: 0.7;
+}
