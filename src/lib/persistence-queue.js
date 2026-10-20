@@ -118,6 +118,7 @@ export function createPersistenceQueue(write) {
 
   return {
     save,
+    flush: () => tail,
     subscribe,
     exclusive,
     recover,

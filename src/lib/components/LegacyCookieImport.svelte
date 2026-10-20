@@ -1,10 +1,11 @@
 <script>
+  import { invokeCookie } from '../cookie-native.js';
+
   import Feedback from "./ui/Feedback.svelte";
   import Field from "./ui/Field.svelte";
   import Checkbox from "./ui/Checkbox.svelte";
   import Button from "./ui/Button.svelte";
   import { onDestroy, untrack } from "svelte";
-  import { invoke } from "@tauri-apps/api/core";
   import { workspace, createWorkspaceWorkScope } from "../workspace.svelte.js";
   import { legacyCookiePlan } from "../legacy-cookies.js";
   /** @type {{ workspaceId: string, onimported: () => Promise<void>, disabled?: boolean }} */
@@ -40,10 +41,10 @@
     reviewed = "";
     try {
       work = workScope.begin();
-      const result = await invoke("import_legacy_cookies", {
+      const result = await invokeCookie("import_legacy_cookies", {
         ...JSON.parse(snapshot),
         preview,
-      });
+      }, work.signal);
       if (!work.current() || input !== snapshot) return;
       report = result;
       if (preview) reviewed = snapshot;

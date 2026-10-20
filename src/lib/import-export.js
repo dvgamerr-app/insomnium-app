@@ -1,3 +1,4 @@
+import { invokeCookie } from './cookie-native.js';
 import { curlResources, isCurlImport } from "./curl-import.js";
 import { isTauri, invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
@@ -717,9 +718,9 @@ export async function exportData(data, signal = new AbortController().signal) {
   if (isTauri()) {
     sourceResources = [...data.resources];
     for (const collection of data.resources.filter(resource => resource._type === "workspace")) {
-      const snapshot = await invoke("snapshot_request_cookies", {
+      const snapshot = await invokeCookie("snapshot_request_cookies", {
         workspaceId: collection._id, includeExpired: true,
-      });
+      }, signal);
       signal.throwIfAborted();
       const jar = pluginCookieJarView(sourceResources, collection._id,
         await pluginCookieJarId(collection._id), pluginJarCookies(snapshot));

@@ -1,3 +1,4 @@
+import { invokeCookie } from './cookie-native.js';
 import { checkedFontFamily, interfaceFontSize } from "./font-preferences.js";
 import { globalProxySettings } from "./request-proxy.js";
 import {requestHttpVersion} from "./request-http-version.js";
@@ -2797,7 +2798,7 @@ function workspacePluginServices(data, owner, resolveResponse, chain = [owner.re
         selection.usedWorkspaces.has(item._id));
       for(const collection of collections){
         check(signal);
-        const cookies=await invoke('snapshot_request_cookies',{workspaceId:collection._id,includeExpired:true});
+        const cookies=await invokeCookie('snapshot_request_cookies',{workspaceId:collection._id,includeExpired:true},signal);
         check(signal);
         const jarId=await pluginCookieJarId(collection._id);
         check(signal);
@@ -2858,9 +2859,9 @@ function workspacePluginServices(data, owner, resolveResponse, chain = [owner.re
       if (!data.resources.some(item => item._id === collection._id && item._type === "workspace"))
         throw Error("Plugin cookie collection no longer exists");
       if (!isTauri()) throw Error("Plugin cookie storage requires Tauri");
-      const snapshot = await invoke("snapshot_request_cookies", {
+      const snapshot = await invokeCookie("snapshot_request_cookies", {
         workspaceId: collection._id, includeExpired: true,
-      });
+      }, signal);
       check(signal);
       const cookies = pluginJarCookies(withCookieTemplateSources(snapshot,workspace.data.resources,collection._id));
       const deterministicId = await pluginCookieJarId(collection._id);

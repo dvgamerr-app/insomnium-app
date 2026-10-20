@@ -192,7 +192,7 @@ pub struct BackupPreview {
     backup_sha256: String,
 }
 
-fn decoded_workspace(bytes: &[u8]) -> Result<Value, String> {
+pub(crate) fn decoded_workspace(bytes: &[u8]) -> Result<Value, String> {
     let mut value: Value = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
     if value.get("workspace").is_some() {
         value = value["workspace"].take();
@@ -209,7 +209,7 @@ fn ordinary_bytes(path: &Path) -> Result<Vec<u8>, String> {
     fs::read(path).map_err(|e| e.to_string())
 }
 
-fn primary_bytes(directory: &Path) -> Result<Option<Vec<u8>>, String> {
+pub(crate) fn primary_bytes(directory: &Path) -> Result<Option<Vec<u8>>, String> {
     let path = directory.join(WORKSPACE_FILE);
     match fs::symlink_metadata(&path) {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
@@ -291,7 +291,7 @@ fn restore_backup(
             "Workspace changed. Inspect again.{retained_notice}"
         ));
     }
-    crate::cookies::with_workspace_write(|| {
+    crate::cookies::with_workspace_write(directory, &preview.data, &backup, || {
         crate::response_download::with_workspace_write(directory, &preview.data, || {
             atomic_write(&directory.join(WORKSPACE_FILE), &backup)
         })
@@ -385,7 +385,7 @@ pub(crate) fn write_workspace_file(directory: &Path, data: &Value) -> Result<(),
     let before = read_workspace_file(directory)?;
     crate::git_fetch_journal::protect_workspace_bindings(directory, before.as_ref(), data)?;
     let bytes = serde_json::to_vec(data).map_err(|e| e.to_string())?;
-    crate::cookies::with_workspace_write(|| {
+    crate::cookies::with_workspace_write(directory, data, &bytes, || {
         crate::response_download::with_workspace_write(directory, data, || {
             atomic_write(&directory.join(WORKSPACE_FILE), &bytes)
         })

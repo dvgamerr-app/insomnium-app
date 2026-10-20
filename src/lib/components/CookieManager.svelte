@@ -1,4 +1,6 @@
 <script>
+  import { invokeCookie } from '../cookie-native.js';
+
   import FormPanel from "./ui/FormPanel.svelte";
   import Feedback from "./ui/Feedback.svelte";
   import Field from "./ui/Field.svelte";
@@ -6,7 +8,7 @@
   import Button from "./ui/Button.svelte";
   import Input from "./ui/Input.svelte";
   import { onMount, onDestroy } from "svelte";
-  import { invoke, isTauri } from "@tauri-apps/api/core";
+  import { isTauri } from "@tauri-apps/api/core";
   import { createWorkspaceWorkScope, workspace, persist } from "../workspace.svelte.js";
   import {cookieTemplateSources,replaceCookieTemplateSources} from '../cookie-template-sources.js';
   import CookieTemplateSources from './CookieTemplateSources.svelte';
@@ -53,7 +55,7 @@
     nativeBusy = true;
     try {
       work = workScope.begin();
-      const result = await invoke("list_cookies", { workspaceId });
+      const result = await invokeCookie("list_cookies", { workspaceId }, work.signal);
       if (!work.current()) return;
       cookies = result;
       error = "";
@@ -80,14 +82,14 @@
     try {
       work = workScope.begin();
       nativePending = true;
-      await invoke("change_cookie", {
+      await invokeCookie("change_cookie", {
         workspaceId,
         url: null,
         raw: null,
         previous: null,
         clear: false,
         ...patch,
-      });
+      }, work.signal);
       nativePending = false;
       if (!work.current()) return;
       if(patch.clear&&templateSources.length){

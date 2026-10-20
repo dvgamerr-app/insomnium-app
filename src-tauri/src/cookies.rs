@@ -5,10 +5,15 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     fs,
-    path::PathBuf,
-    sync::{Arc, LazyLock, Mutex},
+    path::{Path, PathBuf},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, LazyLock, Mutex,
+    },
 };
 use tauri::Manager;
+#[path = "cookie_lifecycle.rs"]
+mod lifecycle;
 
 type CookieJars = Arc<Mutex<HashMap<PathBuf, Arc<PersistentJar>>>>;
 static COOKIE_JARS: LazyLock<CookieJars> = LazyLock::new(|| Arc::new(Mutex::new(HashMap::new())));
@@ -23,10 +28,32 @@ impl Default for CookieState {
 /// This fence never takes a jar's inner lock: cookie writers already hold it.
 /// Callers hold Git/Storage before this fence, then download destinations.
 pub(crate) fn with_workspace_write(
+    root: &Path,
+    data: &serde_json::Value,
+    bytes: &[u8],
     write: impl FnOnce() -> Result<(), String>,
 ) -> Result<(), String> {
-    let _guard = COOKIE_JARS.lock().map_err(|e| e.to_string())?;
-    write()
+    let mut jars = COOKIE_JARS.lock().map_err(|e| e.to_string())?;
+    let result = lifecycle::publish(root, data, bytes, write);
+    let observed = crate::storage::primary_bytes(root);
+    let state = observed
+        .as_ref()
+        .ok()
+        .and_then(|bytes| lifecycle::load(root, bytes.as_deref()).ok());
+    jars.retain(|path, jar| {
+        if jar.root != root {
+            return true;
+        }
+        let active = state
+            .as_ref()
+            .and_then(|s| s.owners.get(&jar.owner))
+            .is_some_and(|epoch| lifecycle::path(root, &jar.owner, epoch) == *path);
+        if !active {
+            jar.retired.store(true, Ordering::Release);
+        }
+        active
+    });
+    result.map(|_| ())
 }
 
 fn cookie_work(network: &NetworkState) -> Result<Arc<NativeWorkLease>, String> {
@@ -38,6 +65,10 @@ fn cookie_work(network: &NetworkState) -> Result<Arc<NativeWorkLease>, String> {
 
 pub struct PersistentJar {
     path: PathBuf,
+    root: PathBuf,
+    owner: String,
+    identity: String,
+    retired: AtomicBool,
     inner: Mutex<JarData>,
 }
 struct JarData {
@@ -114,20 +145,10 @@ impl CookieState {
         workspace_id: String,
         work: Option<Arc<NativeWorkLease>>,
     ) -> Result<JarTask, String> {
-        if workspace_id.is_empty()
-            || workspace_id.len() > 200
-            || !workspace_id
-                .bytes()
-                .all(|c| c.is_ascii_alphanumeric() || c == b'_' || c == b'-')
-        {
+        if !lifecycle::valid_id(&workspace_id) {
             return Err("Invalid collection ID for cookie storage".into());
         }
-        let path = app
-            .path()
-            .app_data_dir()
-            .map_err(|e| e.to_string())?
-            .join("cookies")
-            .join(format!("{workspace_id}.json"));
+        let root = app.path().app_data_dir().map_err(|e| e.to_string())?;
         let jars = self.0.clone();
         Ok(tauri::async_runtime::spawn_blocking(move || {
             // IPC commands retain their exit lease in the actual blocking
@@ -137,6 +158,7 @@ impl CookieState {
             if _work.as_ref().is_some_and(|work| work.cancelled()) {
                 return Err("Cookie operation cancelled.".into());
             }
+            let (path, identity) = lifecycle::admit(&root, &workspace_id)?;
             if let Some(jar) = jars.get(&path) {
                 return Ok(jar.clone());
             }
@@ -156,6 +178,10 @@ impl CookieState {
             };
             let jar = Arc::new(PersistentJar {
                 path: path.clone(),
+                root,
+                owner: workspace_id,
+                identity: format!("{identity}:{}", uuid::Uuid::new_v4()),
+                retired: AtomicBool::new(false),
                 inner: Mutex::new(JarData {
                     store,
                     backed_up: false,
@@ -169,8 +195,16 @@ impl CookieState {
 }
 
 impl PersistentJar {
+    fn ensure_active(&self) -> Result<(), String> {
+        if self.retired.load(Ordering::Acquire) {
+            Err("Cookie collection was retired. Prepare the request again.".into())
+        } else {
+            Ok(())
+        }
+    }
     fn save(&self, data: &mut JarData, store: &CookieStore) -> Result<(), String> {
         let _publication = COOKIE_JARS.lock().map_err(|e| e.to_string())?;
+        self.ensure_active()?;
         fs::create_dir_all(self.path.parent().ok_or("Invalid cookie directory")?)
             .map_err(|e| e.to_string())?;
         if !data.backed_up {
@@ -213,9 +247,10 @@ impl PersistentJar {
         snapshot: Option<&CookieSnapshot>,
     ) -> Result<Arc<CookieProvider>, String> {
         let data = self.inner.lock().map_err(|e| e.to_string())?;
+        self.ensure_active()?;
         let generation = data.generation;
         let request_store = if let Some(snapshot) = snapshot {
-            snapshot.to_store(generation)?
+            snapshot.to_store(generation, &self.identity)?
         } else {
             data.store.clone()
         };
@@ -290,12 +325,14 @@ impl SnapshotCookie {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct CookieSnapshot {
     generation: u64,
+    #[serde(default)]
+    jar_id: String,
     cookies: Vec<SnapshotCookie>,
 }
 impl CookieSnapshot {
-    fn to_store(&self, generation: u64) -> Result<CookieStore, String> {
+    fn to_store(&self, generation: u64, jar_id: &str) -> Result<CookieStore, String> {
         self.validate_size()?;
-        if self.generation != generation {
+        if self.generation != generation || self.jar_id != jar_id {
             return Err("Cookie jar changed while preparing the request. Send again.".into());
         }
         CookieStore::from_cookies(self.cookies.iter().map(SnapshotCookie::to_cookie), false)
@@ -326,8 +363,10 @@ pub async fn snapshot_request_cookies(
     let work = cookie_work(&network)?;
     let jar = state.jar(&app, workspace_id, work.clone()).await?;
     let data = jar.inner.lock().map_err(|e| e.to_string())?;
+    jar.ensure_active()?;
     let snapshot = CookieSnapshot {
         generation: data.generation,
+        jar_id: jar.identity.clone(),
         cookies: data
             .store
             .iter_any()
@@ -376,6 +415,7 @@ mod ordering_tests {
         live.parse("session=deep; Path=/api", &url).unwrap();
         let mut snapshot = CookieSnapshot {
             generation: 7,
+            jar_id: String::new(),
             cookies: live.iter_any().map(SnapshotCookie::from_cookie).collect(),
         };
         let mut source = CookieStore::default();
@@ -385,14 +425,14 @@ mod ordering_tests {
         snapshot.cookies.push(SnapshotCookie::from_cookie(
             source.iter_any().next().unwrap(),
         ));
-        let rendered = snapshot.to_store(7).unwrap();
+        let rendered = snapshot.to_store(7, "").unwrap();
         assert_eq!(matching_cookies(&rendered, &url)[0].value(), "source");
         let http = Url::parse("http://example.invalid/api/item").unwrap();
         assert_eq!(matching_cookies(&rendered, &http)[0].value(), "root");
         let foreign = Url::parse("https://other.invalid/api/item").unwrap();
         assert!(matching_cookies(&rendered, &foreign).is_empty());
         assert_eq!(matching_cookies(&live, &url)[0].value(), "deep");
-        assert!(snapshot.to_store(8).is_err());
+        assert!(snapshot.to_store(8, "").is_err());
     }
 
     #[test]
@@ -454,7 +494,7 @@ impl reqwest::cookie::CookieStore for CookieProvider {
             return;
         }
         if let Ok(mut data) = self.jar.inner.lock() {
-            if data.generation != self.generation {
+            if self.jar.retired.load(Ordering::Acquire) || data.generation != self.generation {
                 return;
             }
             // Always lock the collection before the per-request store.
@@ -477,7 +517,7 @@ impl reqwest::cookie::CookieStore for CookieProvider {
             return None;
         }
         let data = self.jar.inner.lock().ok()?;
-        if data.generation != self.generation {
+        if self.jar.retired.load(Ordering::Acquire) || data.generation != self.generation {
             return None;
         }
         let request_store = self.request_store.lock().ok()?;
@@ -589,6 +629,7 @@ pub async fn import_legacy_cookies(
     let jar = state.jar(&app, workspace_id, work.clone()).await?;
     tauri::async_runtime::spawn_blocking(move || {
         let mut data = jar.inner.lock().map_err(|e| e.to_string())?;
+        jar.ensure_active()?;
         if work.cancelled() {
             return Err("Cookie operation cancelled.".into());
         }
@@ -649,6 +690,7 @@ pub async fn list_cookies(
     let work = cookie_work(&network)?;
     let jar = state.jar(&app, workspace_id, work.clone()).await?;
     let data = jar.inner.lock().map_err(|e| e.to_string())?;
+    jar.ensure_active()?;
     Ok(data
         .store
         .iter_unexpired()
@@ -688,6 +730,7 @@ pub async fn change_cookie(
     let jar = state.jar(&app, workspace_id, work.clone()).await?;
     tauri::async_runtime::spawn_blocking(move || {
         let mut data = jar.inner.lock().map_err(|e| e.to_string())?;
+        jar.ensure_active()?;
         if work.cancelled() {
             return Err("Cookie operation cancelled.".into());
         }
@@ -749,9 +792,10 @@ pub async fn read_template_cookie(
     let work = cookie_work(&network)?;
     let jar = state.jar(&app, workspace_id, work.clone()).await?;
     let data = jar.inner.lock().map_err(|e| e.to_string())?;
+    jar.ensure_active()?;
     let rendered;
     let store = if let Some(snapshot) = cookie_snapshot {
-        rendered = snapshot.to_store(data.generation)?;
+        rendered = snapshot.to_store(data.generation, &jar.identity)?;
         &rendered
     } else {
         &data.store

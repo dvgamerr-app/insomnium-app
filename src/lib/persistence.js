@@ -46,6 +46,8 @@ export async function restoreWorkspaceBackup(preview) {
 export function saveData(data) {
   return queue.save(data);
 }
+/** Await writes already admitted before native cookie-owner validation. */
+export function flushData() { return queue.flush(); }
 /** Caller must quiesce writers, then apply native result inside operation.
  * @template T @param {()=>Promise<T>} operation */
 export function runWorkspaceTransition(operation) {

@@ -1,5 +1,6 @@
+import { invokeCookie } from './cookie-native.js';
 import { separateRequestUploads } from "./request-uploads.js";
-import { invoke, isTauri } from "@tauri-apps/api/core";
+import { isTauri } from "@tauri-apps/api/core";
 import {
   createRequestRenderSession,
   capturePluginRenderOptions,
@@ -15,15 +16,15 @@ import { renderGraphqlTemplateBody } from "./graphql-template.js";
 import { withCookieTemplateSources, normalizeRenderedCookieSnapshot, checkCookieSnapshot, renderCookieSnapshot } from './cookie-template-sources.js';
 /** @typedef {import('./template-session.js').PluginRenderOptions} PluginRenderOptions */
 
-/** @param {Record<string,any>} data @param {Record<string,any>} request */
-async function requestCookieSnapshot(data, request) {
+/** @param {Record<string,any>} data @param {Record<string,any>} request @param {AbortSignal} signal */
+async function requestCookieSnapshot(data, request, signal) {
   return isTauri() &&
     data.settings?.useCookies &&
     (request.settingSendCookies !== false ||
       request.settingStoreCookies !== false)
-    ? withCookieTemplateSources(await invoke("snapshot_request_cookies", {
+    ? withCookieTemplateSources(await invokeCookie("snapshot_request_cookies", {
         workspaceId: workspaceFor(data.resources, request._id),
-      }), data.resources, workspaceFor(data.resources, request._id))
+      }, signal), data.resources, workspaceFor(data.resources, request._id))
     : null;
 }
 
@@ -133,7 +134,7 @@ export async function renderRequestSnapshot(session, request, options = {}) {
 export async function renderSendRequest(data, request, signal, options = {}) {
   signal.throwIfAborted();
   const helperOptions = capturePluginRenderOptions(options);
-  const cookieJar = await requestCookieSnapshot(data, request);
+  const cookieJar = await requestCookieSnapshot(data, request, signal);
   signal.throwIfAborted();
   const session = createRequestRenderSession(
     {},
@@ -183,7 +184,7 @@ export async function renderOAuthRequest(data, request, signal, options = {}) {
   const helperOptions = capturePluginRenderOptions(options);
   const cookieJar =
     options.includeCookies && options.purpose !== "preview"
-      ? await requestCookieSnapshot(data, request)
+      ? await requestCookieSnapshot(data, request, signal)
       : null;
   signal.throwIfAborted();
   const session = createRequestRenderSession(

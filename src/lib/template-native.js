@@ -1,10 +1,11 @@
+import { invokeCookie } from './cookie-native.js';
 import { osFunctions } from "./template-os-functions.js";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 
 /** @param {string} workspaceId @param {AbortSignal} signal */
 export async function snapshotTemplateCookies(workspaceId,signal) {
   signal.throwIfAborted();
-  const snapshot=await invoke('snapshot_request_cookies',{workspaceId});
+  const snapshot=await invokeCookie('snapshot_request_cookies',{workspaceId},signal);
   signal.throwIfAborted();
   return /** @type {{generation:number,cookies:Record<string,any>[]}} */(snapshot);
 }
@@ -17,8 +18,8 @@ export async function readNativeTemplateCookie(meta,args,signal,cookieSnapshot) 
   if(!meta.requestId||!meta.workspaceId)return null;
   const [url,name]=args;
   if(typeof url!=='string'||typeof name!=='string')throw Error('Cookie URL and name are required');
-  const value=await invoke('read_template_cookie',{workspaceId:meta.workspaceId,url,name,
-    ...(cookieSnapshot?{cookieSnapshot}:{})});
+  const value=await invokeCookie('read_template_cookie',{workspaceId:meta.workspaceId,url,name,
+    ...(cookieSnapshot?{cookieSnapshot}:{})},signal);
   signal.throwIfAborted();
   return value;
 }
