@@ -126,7 +126,28 @@
         transferFeedback={owner,eventScoped,operation,error:String(cause)};
     };
   }
+  let confirmingClear = $state(false);
+  $effect(() => { void response?._id; confirmingClear = false; });
+  const streamState = $derived(response?.connectionState || "disconnected");
+  const streamOutcome = $derived(
+    streamState === "closed" ? "Ended normally" : streamState === "error" ? "Dropped by error" : "");
+  const eventStart = $derived(response?.created ?? events[0]?.created);
+  const firstMessage = $derived(events.find(event => ["message", "sse"].includes(event.kind)));
+  const lastEvent = $derived(events.at(-1));
+  const streamBytes = $derived(events.reduce((sum, event) => sum + (typeof event.data === "string" ? event.data.length : 0), 0));
+  /** @param {number} ms */
+  const duration = ms => ms < 1000 ? Math.round(ms) + " ms" : (ms / 1000).toFixed(2) + " s";
+  /** @param {number} n */
+  const size = n => n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(1) + " KB" : (n / 1048576).toFixed(1) + " MB";
+  /** @param {Record<string,any>} event */
+  function eventDelta(event) {
+    const index = events.indexOf(event);
+    if (index < 1) return "";
+    const gap = Number(event.created) - Number(events[index - 1].created);
+    return Number.isFinite(gap) ? "+" + gap + "ms" : "";
+  }
   function clearEvents(){
+    confirmingClear = false;
     clearedIds=new Set(events.map(event=>event._id));
     selectedId='';
     fullMessage=null;
@@ -201,12 +222,17 @@
       />{/if}
     <span
       class="status-badge"
-      class:failure={response?.connectionState === "error"}
+      class:failure={streamState === "error"}
+      class:neutral={streamState === "closed" || streamState === "disconnected"}
+      title={streamState === "closed" ? "The stream ended normally" : streamState === "error" ? "The stream ended because of an error" : ""}
       >{response?.connectionState || "Disconnected"}</span
-    >
+    >{#if streamOutcome}<span class="metric">{streamOutcome}</span>{/if}
     {#if response?.status}<span class="metric">HTTP {response.status}</span
       >{/if}
     <span class="metric">{visible.length === events.length ? events.length : `${visible.length} of ${events.length}`} events</span>
+    {#if events.length}<span class="metric" title="Time to first message / total time / received size"
+      >{firstMessage && eventStart ? "TTFB " + duration(Number(firstMessage.created) - Number(eventStart)) + " · " : ""}{lastEvent && eventStart ? duration(Number(lastEvent.created) - Number(eventStart)) + " · " : ""}{size(streamBytes)}</span
+    >{/if}
     <span class="spacer"></span>
     {#if history.length}<Select
         class="history-select"
@@ -270,7 +296,7 @@
         } catch (e) {
           fail(e);
         }
-      }}>Export log</Button
+      }}>Export log (JSON)</Button
     >
   </TabList>
   {#if response?.rawDropped}<p class="hint stream-notice">
@@ -325,9 +351,12 @@
                 <option value="closed">Close</option>
                 <option value="error">Error</option>
               </Select>
-              <Button variant="ghost" class="text-button"
+              {#if confirmingClear}<span class="stream-confirm" role="alert">Clear view?
+                  <Button variant="danger" class="text-button" onclick={clearEvents}>Clear</Button>
+                  <Button variant="ghost" class="text-button" onclick={() => (confirmingClear = false)}>Keep</Button></span
+                >{:else}<Button variant="ghost" class="text-button"
                 disabled={!events.some(event=>!clearedIds.has(event._id))}
-                onclick={clearEvents}>Clear view</Button>
+                onclick={() => (confirmingClear = true)}>Clear view</Button>{/if}
             </Toolbar>
             <Input
               class="stream-filter"
@@ -335,6 +364,8 @@
               bind:value={filter}
               placeholder="Filter events"
             />
+            {#if visible.length > 8}<Button variant="ghost" class="text-button"
+                onclick={() => (selectedId = "")}>Jump to latest event</Button>{/if}
             {#each visible as event (event._id)}<Button
                 variant="plain"
                 class={["stream-event", event._id === selected?._id && "active"]
@@ -343,6 +374,7 @@
                 onclick={() => (selectedId = event._id)}
               >
                 <span class="stream-event-type"
+                  ><span class="stream-event-index">#{events.indexOf(event) + 1}</span
                   ><Icon
                     name={event.direction === "sent"
                       ? "arrowUp"
@@ -353,7 +385,7 @@
                   />
                   {event.event || event.format || event.kind}</span
                 >
-                <time>{new Date(event.created).toLocaleTimeString()}</time>
+                <time title={new Date(event.created).toISOString()}>{new Date(event.created).toLocaleTimeString()}<span class="stream-event-delta"> {eventDelta(event)}</span></time>
                 <span class="stream-event-summary">{eventSummary(event)}</span>
               </Button>{/each}
           </div>
@@ -363,7 +395,8 @@
               <Button
                 variant="plain"
                 class={[!selectedId && "chosen"].filter(Boolean).join(" ")}
-                onclick={() => (selectedId = "")}>Follow latest</Button
+                aria-pressed={!selectedId}
+                onclick={() => (selectedId = "")}>Follow latest: {selectedId ? "off" : "on"}</Button
               >
               {#if selected?.id}<span class="hint">ID: {selected.id}</span>{/if}
               {#if selected&&onpreviewmode}<Select aria-label="Stream event display" class="stream-event-option"

@@ -107,3 +107,25 @@
   padding: var(--space-6) var(--space-12);
   border-bottom: 1px solid var(--line);
 }
+
+.status-badge.neutral {
+  background: var(--raised);
+  color: var(--text);
+}
+
+.stream-event .stream-event-index {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.stream-event .stream-event-delta {
+  color: var(--muted);
+  font-size: var(--font-size-9);
+}
+
+.stream-confirm {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  flex-wrap: wrap;
+}

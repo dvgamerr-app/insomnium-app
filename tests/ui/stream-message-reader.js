@@ -112,6 +112,7 @@ for (const protocol of ["sse","websocket"]) {
     await page.locator('.stream-event').filter({hasText:'Policy violation'}).waitFor();
     assert.equal(await page.locator('.stream-event').count(),1);
     await page.getByRole('button',{name:'Clear view',exact:true}).click();
+    await page.getByRole('button',{name:'Clear',exact:true}).click();
     await page.waitForFunction(()=>document.querySelectorAll('.stream-event').length===0);
     assert.equal(await page.getByRole('button',{name:'Copy stream event',exact:true}).isDisabled(),true);
     assert.equal(await page.getByRole('button',{name:'Save stream event',exact:true}).isDisabled(),true);
