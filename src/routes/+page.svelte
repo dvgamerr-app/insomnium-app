@@ -1224,9 +1224,10 @@
                   variant="primary"
                   type="button"
                   class="send-button"
+                  title={protocol === "sse" && app.running[request._id] ? "Stop receiving events" : undefined}
                   onclick={() => scheduled?.requestId === request._id ? cancelSchedule() : stop(request._id)}
                   ><Icon name="stop" size={15} />
-                  {protocol === "http" || !app.running[request._id] ? "Cancel" : protocol === "sse" ? "Stop" : "Disconnect"}</Button
+                  {protocol === "http" || !app.running[request._id] ? "Cancel" : "Disconnect"}</Button
                 >{:else}<Button
                   variant="primary"
                   type="submit"

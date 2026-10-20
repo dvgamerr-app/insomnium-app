@@ -137,7 +137,10 @@ try {
       assert.equal(inspected.confirmedCurrent, false);
       assert.equal(inspected.snapshot, null);
       await panel
-        .getByRole("button", { name: "Clean unused fetch files", exact: true })
+        .getByRole("button", { name: "Clean unused fetch files…", exact: true })
+        .click();
+      await panel
+        .getByRole("button", { name: "Clean files", exact: true })
         .click();
       await panel
         .getByText(

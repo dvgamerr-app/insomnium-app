@@ -105,10 +105,13 @@ try {
         exact: true,
       });
       const clean = panel.getByRole("button", {
-        name: "Clean unused fetch files",
+        name: "Clean unused fetch files…",
         exact: true,
       });
       await clean.click();
+      await panel
+        .getByRole("button", { name: "Clean files", exact: true })
+        .click();
       await panel
         .getByText(
           "Fetch file cleanup: 1 removed, 0 active, " + retained + " retained.",
