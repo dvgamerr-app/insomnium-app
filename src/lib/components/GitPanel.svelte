@@ -580,7 +580,7 @@
                       !session?.info.headOid ||
                       !selected.length}
                     onclick={() => run(() => reviewRestore([...selected]))}
-                    >Restore staged changes</Button
+                    >Review restore…</Button
                   >
                   {#if branchActionsNeeded}<Button
                       variant="ghost"
@@ -845,7 +845,7 @@
       <Button variant="secondary" disabled={busy} onclick={cancelRestore}
         >Cancel restore</Button
       >
-      <Button variant="primary" disabled={busy} onclick={confirmRestore}
+      <Button variant="danger" disabled={busy} onclick={confirmRestore}
         >{busy ? "Restoring…" : "Restore selected changes"}</Button
       >
     </div>
@@ -901,6 +901,12 @@
           <Button disabled={busy || !!pendingCreation || pendingFetchAtLoad || !targetBranch || !session?.info.headOid || !name.trim() || !email.trim()}
             onclick={() => run(reviewMerge)}>Review merge</Button>
         </div>
+        {#if session.changes?.length}<Feedback as="p" class="inline-error" role="alert"
+            >{session.changes.length} uncommitted {session.changes.length === 1
+              ? "change"
+              : "changes"}. Switching keeps non-conflicting edits; conflicting
+            changes stop the switch. Commit first to be safe.</Feedback
+          >{/if}
         <p class="hint">
           Uses your commit author. Non-conflicting local edits are kept;
           conflicting changes stop checkout.

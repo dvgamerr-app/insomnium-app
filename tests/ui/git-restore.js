@@ -308,7 +308,7 @@ try {
         .click();
     }
     await panel
-      .getByRole("button", { name: "Restore staged changes", exact: true })
+      .getByRole("button", { name: "Review restore…", exact: true })
       .click();
     await review.waitFor();
     assert.match(await review.innerText(), /Deleted restore fixture/);
