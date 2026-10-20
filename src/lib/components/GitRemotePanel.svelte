@@ -47,6 +47,17 @@
     username = $state(""),
     secret = $state("");
   let cleaning = $state(false);
+  const urlProblem = $derived.by(() => {
+    const value = url.trim();
+    if (!value) return "";
+    if (/^[w.-]+@[w.-]+:.+/.test(value)) return "";
+    try {
+      const parsed = new URL(value);
+      return ["http:", "https:", "ssh:", "git:"].includes(parsed.protocol) && parsed.host ? "" : "Use an http(s), ssh or git URL.";
+    } catch {
+      return "Enter a full URL such as https://host/owner/repository.git.";
+    }
+  });
   let confirmingClean = $state(false);
   let recoveryAvailable = $state(false);
   let fetchBranch = $state("");
@@ -459,8 +470,9 @@
 <section class="remote-panel" aria-label="Git remote">
   <h3>Remote repository</h3>
   <FormPanel class="form-panel resource-form">
-    <Field
+    <Field error={urlProblem}
       >Repository URL<Input
+        invalid={!!urlProblem}
         bind:value={url}
         oninput={changed}
         disabled={saving || disabled || !!pendingPush}
