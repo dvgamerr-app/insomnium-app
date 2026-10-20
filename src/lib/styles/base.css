@@ -29,6 +29,7 @@ code,
 kbd,
 .code-editor {
   font-family: var(--font-mono);
+  font-weight: var(--font-weight-mono);
 }
 
 kbd {

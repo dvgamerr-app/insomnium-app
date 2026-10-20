@@ -51,6 +51,7 @@
   white-space: pre-wrap;
   overflow: auto;
   font-family: var(--font-mono);
+  font-weight: var(--font-weight-mono);
   font-size: var(--font-size-12);
 }
 

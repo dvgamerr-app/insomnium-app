@@ -690,6 +690,7 @@
     white-space: pre-wrap;
     overflow-wrap: anywhere;
     font: var(--font-size-12)/1.6 var(--font-mono);
+    font-weight: var(--font-weight-mono);
   }
   .grpc-message-source {
     height: 240px;

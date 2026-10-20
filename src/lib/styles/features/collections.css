@@ -53,6 +53,7 @@
 
 .method {
   font-family: var(--font-mono);
+  font-weight: var(--font-weight-mono);
   color: var(--accent-text);
   font-size: var(--font-size-10);
   font-weight: 600;

@@ -86,6 +86,7 @@
   padding: var(--space-16) var(--space-20);
   overflow: auto;
   font-family: var(--font-mono);
+  font-weight: var(--font-weight-mono);
   font-size: var(--font-size-12);
   line-height: 1.6;
   user-select: text;

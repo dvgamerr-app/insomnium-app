@@ -733,6 +733,7 @@
     border: 1px solid var(--line);
     border-radius: var(--radius-group);
     font: var(--font-size-12)/1.6 var(--font-mono);
+    font-weight: var(--font-weight-mono);
     font-variant-ligatures: var(--font-ligatures, normal);
     padding: var(--space-8) var(--space-12);
     box-shadow: var(--editor-popup-shadow);
@@ -740,6 +741,7 @@
   }
   :global(body .CodeMirror-hints) {
     font-family: var(--font-mono);
+    font-weight: var(--font-weight-mono);
     padding: var(--space-2);
     box-shadow: var(--editor-completion-shadow);
     background: var(--raised);
@@ -768,6 +770,7 @@
     min-height: 180px;
     resize: vertical;
     font-family: var(--font-mono);
+    font-weight: var(--font-weight-mono);
     font-size: var(--editor-font-size, var(--font-size-12));
   }
   .shared-code-editor :global(.CodeMirror) {
@@ -776,6 +779,7 @@
     background: var(--bg);
     color: var(--text);
     font: var(--editor-font-size, var(--font-size-12))/1.6 var(--font-mono);
+    font-weight: var(--font-weight-mono);
     font-variant-ligatures: var(--font-ligatures, normal);
   }
   .shared-code-editor :global(.CodeMirror-gutters) {

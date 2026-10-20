@@ -93,6 +93,9 @@
   import { reviewImportedHistory, applyImportedData } from "$lib/import-history-review.js";
   import "@fontsource-variable/inter";
   import "@fontsource-variable/roboto-mono";
+  import "@fontsource/maple-mono/400.css";
+  import "@fontsource/maple-mono/500.css";
+  import "@fontsource/maple-mono/700.css";
   import "$lib/styles.css";
   import SettingsPanel from "$lib/components/SettingsPanel.svelte";
   import { pluginRegistry } from "$lib/workspace.svelte.js";
