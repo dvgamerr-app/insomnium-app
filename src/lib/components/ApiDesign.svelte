@@ -763,7 +763,7 @@
           aria-label="Example download URL"
           type="url"
           bind:value={exampleUrl}
-          placeholder="https://example.com/example.bin"
+          placeholder="Or load an example from a link · https://example.com/example.bin"
           disabled={busy || loadingExamples}
         />
         <Button
@@ -1022,7 +1022,7 @@
           {:else}<EmptyState variant="response" class="empty-response">
               <h2>{result ? "Document changed" : "API preview"}</h2>
               <p>
-                Validate the source to update operations, schemas and
+                Press “Validate & preview” to update operations, schemas and
                 diagnostics.
               </p>
             </EmptyState>{/if}
@@ -1038,6 +1038,7 @@
         variant="primary"
         class="primary-button"
         disabled={busy || !generationReady || !current?.operations?.length}
+        title={busy ? "Wait for the current task to finish." : !current?.operations?.length ? "Validate the document first: no operations to generate yet." : !generationReady ? "Fix the diagnostics or re-validate before generating." : "Generate requests from this document"}
         onclick={() => check(true)}
         >Generate {current?.operations?.length || ""} requests</Button
       ><span class="hint"
