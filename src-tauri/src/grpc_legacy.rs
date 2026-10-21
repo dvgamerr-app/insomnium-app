@@ -2989,6 +2989,30 @@ mod tests {
 
     #[test]
     fn legacy_reflection_profile_examples_are_sendable_for_both_ui_modes() {
+        let samples = crate::grpc_schema::compile(crate::grpc_schema::ProtoInput {
+            entry: "float-example.proto".into(),
+            files: vec![crate::grpc_schema::ProtoFile {
+                name: "float-example.proto".into(),
+                text: r#"syntax="proto2"; message FloatChild { optional float value=1; }
+                    message FloatInput { optional float direct=1; repeated float many=2;
+                        map<string,float> values=3; optional FloatChild child=4;
+                        extensions 100 to 199; }
+                    extend FloatInput { optional float sample=100; }"#
+                    .into(),
+            }],
+            include_paths: vec![],
+        })
+        .unwrap();
+        let sample = crate::grpc_example::generate_saved(
+            samples.get_message_by_name("FloatInput").unwrap(),
+            crate::grpc_schema::JsonMode::Legacy,
+        )
+        .unwrap();
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&sample).unwrap(),
+            serde_json::json!({"direct":1.1,"many":[1.1],"values":{"Hello":1.1},
+                "child":{"value":1.1},".sample":1.1})
+        );
         let maps = map_order_reference_pool();
         let long_map = maps.get_message_by_name("Int64").unwrap();
         for mode in [

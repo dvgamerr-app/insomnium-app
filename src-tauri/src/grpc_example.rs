@@ -17,7 +17,8 @@ pub(crate) fn generate_saved(desc: MessageDescriptor, mode: JsonMode) -> Result<
     let mut result = grpc_schema::json_mode(&parsed, mode, desc.clone())?;
     if matches!(mode, JsonMode::Legacy) {
         let mut value: Value = serde_json::from_str(&result).map_err(|e| e.to_string())?;
-        request_shape(&mut value, Kind::Message(desc.clone()), 0)?;
+        let authored: Value = serde_json::from_str(&reflected).map_err(|e| e.to_string())?;
+        request_shape(&mut value, Kind::Message(desc.clone()), Some(&authored), 0)?;
         result = serde_json::to_string(&value).map_err(|e| e.to_string())?;
     }
     if result.len() > MAX_EXAMPLE {
@@ -29,11 +30,24 @@ pub(crate) fn generate_saved(desc: MessageDescriptor, mode: JsonMode) -> Result<
 
 // Legacy response display is not request JSON: bytes need arrays and 64-bit
 // map keys need decimal strings instead of protobuf.js binary hash strings.
-fn request_shape(value: &mut Value, kind: Kind, depth: usize) -> Result<(), String> {
+fn request_shape(
+    value: &mut Value,
+    kind: Kind,
+    authored: Option<&Value>,
+    depth: usize,
+) -> Result<(), String> {
     if depth > 32 {
         return Err("Example nesting exceeds 32 levels.".into());
     }
     match kind {
+        Kind::Float => {
+            // A request example is authored JSON, not a decoded float32 value.
+            // Restore only generated fields; defaults introduced by response
+            // rendering must keep their original values.
+            if let Some(number) = authored.filter(|value| value.is_number()) {
+                *value = number.clone();
+            }
+        }
         Kind::Bytes => {
             if let Some(object) = value.as_object() {
                 let bytes = (0..object.len())
@@ -49,6 +63,7 @@ fn request_shape(value: &mut Value, kind: Kind, depth: usize) -> Result<(), Stri
         }
         Kind::Message(desc) => {
             for field in desc.fields() {
+                let authored_child = authored.and_then(|value| value.get(field.name()));
                 let Some(child) = value.get_mut(crate::grpc_legacy::field_name(&field)) else {
                     continue;
                 };
@@ -63,6 +78,9 @@ fn request_shape(value: &mut Value, kind: Kind, depth: usize) -> Result<(), Stri
                             request_shape(
                                 &mut entry_value,
                                 entry.map_entry_value_field().kind(),
+                                authored_child
+                                    .and_then(|value| value.get(0))
+                                    .and_then(|entry| entry.get("value")),
                                 depth + 1,
                             )?;
                             converted.insert(request_map_key(key, &key_kind)?, entry_value);
@@ -71,26 +89,38 @@ fn request_shape(value: &mut Value, kind: Kind, depth: usize) -> Result<(), Stri
                     }
                 } else if field.is_list() {
                     if let Some(entries) = child.as_array_mut() {
-                        for entry_value in entries {
-                            request_shape(entry_value, field.kind(), depth + 1)?;
+                        for (index, entry_value) in entries.iter_mut().enumerate() {
+                            request_shape(
+                                entry_value,
+                                field.kind(),
+                                authored_child.and_then(|value| value.get(index)),
+                                depth + 1,
+                            )?;
                         }
                     }
                 } else {
-                    request_shape(child, field.kind(), depth + 1)?;
+                    request_shape(child, field.kind(), authored_child, depth + 1)?;
                 }
             }
             for extension in desc.extensions() {
+                let name = format!(".{}", extension.full_name());
+                let authored_child = authored.and_then(|value| value.get(&name));
                 let Some(child) = value.get_mut(format!(".{}", extension.full_name())) else {
                     continue;
                 };
                 if extension.is_list() {
                     if let Some(entries) = child.as_array_mut() {
-                        for entry in entries {
-                            request_shape(entry, extension.kind(), depth + 1)?;
+                        for (index, entry) in entries.iter_mut().enumerate() {
+                            request_shape(
+                                entry,
+                                extension.kind(),
+                                authored_child.and_then(|value| value.get(index)),
+                                depth + 1,
+                            )?;
                         }
                     }
                 } else {
-                    request_shape(child, extension.kind(), depth + 1)?;
+                    request_shape(child, extension.kind(), authored_child, depth + 1)?;
                 }
             }
         }
