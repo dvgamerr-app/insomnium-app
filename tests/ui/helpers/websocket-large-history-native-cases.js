@@ -5,8 +5,10 @@ import { newRequest } from "../../../src/lib/model.js";
 import {
   withNativeApp,
   poll,
-  resourceCrudProbeIdentifier,
+  integrationProbeIdentifier,
+  selectedNativeProbeIdentifier,
 } from "./native-app.js";
+import { createClipboardPreserver } from "./clipboard-preservation.js";
 import {
   withResourceProbePreserved,
   registerResourceProbeCollection,
@@ -21,11 +23,12 @@ const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
 /** Actual application UI large WebSocket history, with original profile restoration. */
 export async function runWebSocketLargeHistoryNativeCases() {
   assert.equal(process.platform, "win32");
-  const marker = process.env.INSOMNIUM_UI_PROFILE_OWNERSHIP;
-  assert.ok(marker && process.env.INSOMNIUM_UI_BUILD_STATE);
+  const identifier = selectedNativeProbeIdentifier();
+  assert.equal(identifier, integrationProbeIdentifier,
+    "Full Copy requires the admitted integration probe and complete profile preservation");
+  assert.ok(process.env.INSOMNIUM_UI_BUILD_STATE);
   const options = {
-    expectedIdentifier: resourceCrudProbeIdentifier,
-    profileOwnershipPath: marker,
+    expectedIdentifier: identifier,
   };
   const fixture = await createWebSocketRuntimeFixture({ largeMessages: true });
   /** @type {unknown[]} */ const errors = [];
@@ -42,7 +45,6 @@ export async function runWebSocketLargeHistoryNativeCases() {
             page.setDefaultTimeout(120000);
             page.on("pageerror", (error) => pageErrors.push(String(error)));
             await resourceSaved(page);
-            await capture();
             const original = await invoke("load_workspace");
             assert.ok(
               Buffer.byteLength(JSON.stringify(original.history)) < 4 * MiB,
@@ -170,6 +172,7 @@ export async function runWebSocketLargeHistoryNativeCases() {
               assert.equal(mounted.sha256, previewSHA256);
               assert.equal(mounted.characters, 513);
               /** @type {Record<string,any>[]} */ const exports = [];
+              /** @type {Record<string,any>[]} */ const copies = [];
               if (mode === "replacement") {
                 fixture.peerSend(token, "replacement " + token);
                 await poll(
@@ -185,7 +188,7 @@ export async function runWebSocketLargeHistoryNativeCases() {
               }
               fixture.peerClose(token, 1000, "large history complete");
               await poll(
-                async () => await button("Connect").isEnabled(),
+                async () => await button("Reconnect").isEnabled(),
                 "Large stream invocation retires",
                 120000,
               );
@@ -234,6 +237,72 @@ export async function runWebSocketLargeHistoryNativeCases() {
                   .filter({ hasText: "Showing a preview of this large event" })
                   .waitFor();
               }
+              const copyFull = async (/** @type {string} */ phase) => {
+                // Each action owns fresh restoration clones; never capture the large output.
+                let lease = /** @type {any} */ (undefined);
+                let captured = false;
+                const failures = /** @type {unknown[]} */ ([]);
+                const encoding = mode === "binary"
+                  ? await stream.getByLabel("Binary event encoding", { exact: true }).inputValue()
+                  : "utf8";
+                const copyText = mode === "binary" && encoding === "utf8"
+                  ? bytes.toString("utf8") : expected;
+                const expectedBytes = Buffer.byteLength(copyText);
+                const expectedHash = sha(Buffer.from(copyText));
+                const protection = createClipboardPreserver();
+                let observation, restoration, snapshot;
+                let ownedReceipt = /** @type {Record<string,any>|undefined} */ (undefined);
+                try {
+                  snapshot = protection.capture();
+                  captured = true;
+                  protection.assertUnchanged();
+                  lease = await invoke("begin_plugin_clipboard_probe", {
+                    expectedSequence: protection.sequence(), maxTextBytes: expectedBytes,
+                  });
+                  assert.equal(lease.maxTextBytes, expectedBytes);
+                  assert.equal(lease.mutations, 0);
+                  await stream.getByRole("button", { name: "Copy stream event", exact: true }).click();
+                  await poll(async () => {
+                    const receipt = await invoke("get_plugin_clipboard_probe", { token: lease.token });
+                    assert.equal(receipt.error, null);
+                    return receipt.mutations === 1;
+                  }, "Complete UI clipboard write has an authenticated receipt", 120000);
+                  // Read through the real plugin; return only metadata, never clipboard text.
+                  observation = await page.evaluate(async () => {
+                    const value = await /** @type {any} */ (window).__TAURI_INTERNALS__.invoke("plugin:clipboard-manager|read_text");
+                    const data = new TextEncoder().encode(value);
+                    const digest = await crypto.subtle.digest("SHA-256", data);
+                    return { bytes: data.length, sha256: Array.from(new Uint8Array(digest), n => n.toString(16).padStart(2, "0")).join("") };
+                  });
+                  assert.equal(observation.bytes, expectedBytes);
+                  assert.equal(observation.sha256, expectedHash);
+                } catch (error) { failures.push(error); }
+                finally {
+                  if (lease) {
+                    try {
+                      const receipt = await invoke("get_plugin_clipboard_probe", { token: lease.token });
+                      protection.adoptOwnedReceipt(receipt, pid);
+                      ownedReceipt = {
+                        sequence: receipt.sequence, owner: receipt.owner, mutations: receipt.mutations,
+                        maxTextBytes: receipt.maxTextBytes, error: receipt.error,
+                      };
+                    } catch (error) { failures.push(error); }
+                    try { await invoke("end_plugin_clipboard_probe", { token: lease.token }); }
+                    catch (error) { failures.push(error); }
+                  }
+                  if (captured) {
+                    try { restoration = protection.restore(); }
+                    catch (error) { failures.push(error); }
+                  }
+                  try { protection.dispose(); } catch (error) { failures.push(error); }
+                  await Bun.write(join(output, mode + "-" + phase + "-" + encoding + "-clipboard.json"), JSON.stringify({
+                    phase, encoding, expectedBytes, expectedHash, observation, snapshot, ownedReceipt, restoration,
+                    passed: !failures.length, errors: failures.map(String), plaintextLogged: false,
+                  }, null, 2));
+                }
+                if (failures.length) throw new AggregateError(failures, "Large stream Copy/restoration failed");
+                copies.push({ phase, encoding, ...observation, ownedReceipt, restoration });
+              };
               const exportFull = async (/** @type {string} */ phase) => {
                 const path = join(output, mode + "-" + phase + ".bin");
                 const saving = respondToOwnedSaveDialog(
@@ -290,6 +359,13 @@ export async function runWebSocketLargeHistoryNativeCases() {
                   "Cancelled owned Save dialog retires before fresh Save",
                 );
                 await exportFull("terminal");
+                await copyFull("terminal");
+                if (mode === "binary") {
+                  await stream.getByLabel("Binary event encoding", { exact: true }).selectOption("utf8");
+                  await copyFull("terminal");
+                  await stream.getByLabel("Binary event encoding", { exact: true }).selectOption("base64");
+                  await resourceSaved(page);
+                }
               }
               await Bun.sleep(200);
               assert.deepEqual(
@@ -320,6 +396,7 @@ export async function runWebSocketLargeHistoryNativeCases() {
                   .filter({ hasText: expected.slice(0, 24) })
                   .click();
                 await exportFull("reloaded");
+                await copyFull("reloaded");
               }
               assert.deepEqual(
                 (await load()).history.filter(
@@ -350,6 +427,7 @@ export async function runWebSocketLargeHistoryNativeCases() {
                 mounted,
                 previewSHA256,
                 exports,
+                copies,
                 historyId: runId,
                 payloadCount: payloads.length,
                 retainedBytes: entry.retainedBytes,
@@ -368,7 +446,7 @@ export async function runWebSocketLargeHistoryNativeCases() {
           options,
         );
       },
-      { ...options, lazyCapture: true },
+      options,
     );
   } catch (error) {
     errors.push(error);
