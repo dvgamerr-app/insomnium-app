@@ -28,6 +28,26 @@ export function postmanAuthAttributes(attributes,schema){
   if(version20(schema)&&typeof attributes==='object')return structuredClone(attributes);
   throw new Error('Postman authentication attributes must be a v2.0 object or v2.1 key/value array.');
 }
+/** Keep API token placement distinct from token-endpoint client authentication.
+ * @param {Record<string,any>} attributes */
+export function postmanOAuth2(attributes){
+  const auth={...attributes};
+  const grant=auth.grantType??auth.grant_type;
+  auth.grantType=grant==='authorization_code_with_pkce'?'authorization_code'
+    :grant==='password_credentials'?'password':grant;
+  auth.authorizationUrl??=auth.authUrl;
+  auth.redirectUrl??=auth.redirect_uri;
+  auth.pkceMethod??=auth.challengeAlgorithm;
+  auth.tokenPrefix??=auth.headerPrefix;
+  if(auth.usePkce==null&&['authorization_code','authorization_code_with_pkce'].includes(grant))
+    auth.usePkce=grant==='authorization_code_with_pkce';
+  if(auth.credentialsInBody==null&&auth.client_authentication!=null){
+    if(!['body','header'].includes(auth.client_authentication))
+      throw new Error('Unsupported Postman OAuth client authentication placement. Use body or header.');
+    auth.credentialsInBody=auth.client_authentication==='body';
+  }
+  return auth;
+}
 /** @param {any} value */
 const decode = (value) => {
   try {

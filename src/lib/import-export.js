@@ -28,6 +28,7 @@ import {
   postmanDescription,
   postmanScriptsActive,
   postmanAuthAttributes,
+  postmanOAuth2,
 } from "./postman-import.js";
 
 const localGitFields = [
@@ -295,6 +296,7 @@ export function parseImport(text,options = {}) {
           if (authentication.type === "apikey")
             authentication.addTo =
               authentication.in === "query" ? "queryParams" : "header";
+          if (authentication.type === "oauth2") authentication=postmanOAuth2(authentication);
           if (authentication.type === "awsv4") {
             authentication.type = "iam";
             authentication.accessKeyId = authentication.accessKey ?? "";
