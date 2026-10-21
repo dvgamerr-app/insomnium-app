@@ -3420,7 +3420,7 @@ mod tests {
                         import public "b/google/protobuf/source_context.proto";
                         import "source_context.proto";
                         import "google/protobuf/descriptor.proto";
-                        import "google/protobuf/api.proto";
+                        import "google/protobuf/any.proto";
                         extend google.protobuf.FieldOptions { optional string note=50001; }
                         message Request {
                             optional string spelling=1 [default="\x41", (note)="owned"];
@@ -3443,18 +3443,11 @@ mod tests {
             [
                 "google/protobuf/source_context.proto",
                 "google/protobuf/descriptor.proto",
-                "google/protobuf/api.proto"
+                "google/protobuf/any.proto"
             ]
         );
         assert_eq!(descriptor.public_dependency, [0]);
         assert!(descriptor.weak_dependency.is_empty());
-        assert_eq!(
-            pool.get_enum_by_name("google.protobuf.Syntax")
-                .unwrap()
-                .values()
-                .count(),
-            2
-        );
         assert!(pool
             .get_message_by_name("google.protobuf.FileDescriptorProto")
             .unwrap()
@@ -3496,6 +3489,45 @@ mod tests {
             crate::grpc_schema::compile_mode(entry, crate::grpc_schema::JsonMode::ProtoJson)
                 .is_err()
         );
+        let mut api_only = input();
+        api_only.entry = "google/protobuf/api.proto".into();
+        assert!(crate::grpc_schema::compile(api_only).is_err());
+        let mut api_only = input();
+        api_only.entry = "google/protobuf/api.proto".into();
+        assert!(crate::grpc_schema::compile_mode(
+            api_only,
+            crate::grpc_schema::JsonMode::ProtoJson
+        )
+        .is_ok());
+        assert!(pool.get_message_by_name("google.protobuf.Type").is_none());
+        let mut type_only = input();
+        type_only.entry = "google/protobuf/type.proto".into();
+        let types = crate::grpc_schema::compile(type_only).unwrap();
+        assert_eq!(
+            types
+                .get_enum_by_name("google.protobuf.Syntax")
+                .unwrap()
+                .values()
+                .count(),
+            2
+        );
+        assert!(types.get_message_by_name("google.protobuf.Any").is_some());
+        assert!(types.get_message_by_name("google.protobuf.Api").is_none());
+        let mut overlap = input();
+        overlap.files[0]
+            .text
+            .push_str("\nimport \"google/protobuf/api.proto\";");
+        assert!(crate::grpc_schema::compile(overlap).is_err());
+        let mut api_with_any = input();
+        api_with_any.files[0].text = r#"syntax="proto3";
+            import "google/protobuf/api.proto"; import "google/protobuf/any.proto";
+            message Root { google.protobuf.Api api=1; }"#
+            .into();
+        let api = crate::grpc_schema::compile(api_with_any).unwrap();
+        assert!(api
+            .get_message_by_name("google.protobuf.SourceContext")
+            .is_some());
+        assert!(api.get_message_by_name("google.protobuf.Type").is_none());
     }
 
     fn assert_any_target_wire(label: &str) {

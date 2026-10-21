@@ -47,13 +47,22 @@ struct MemoryFiles {
     files: HashMap<String, String>,
     includes: Vec<String>,
     legacy: bool,
+    common: HashMap<String, prost_types::FileDescriptorProto>,
 }
 impl FileResolver for MemoryFiles {
     fn open_file(&self, name: &str) -> Result<File, protox::Error> {
         if valid_name(name) {
+            if let Some(descriptor) = self.common.get(name) {
+                return Ok(File::from_file_descriptor_proto(descriptor.clone()));
+            }
             if self.legacy {
                 if let Some(bundled) = self.bundled(name) {
-                    return bundled_file(bundled);
+                    return self
+                        .common
+                        .get(bundled)
+                        .cloned()
+                        .map(File::from_file_descriptor_proto)
+                        .ok_or_else(|| protox::Error::file_not_found(name));
                 }
             }
             if let Some(text) = self.files.get(name) {
@@ -111,6 +120,159 @@ fn bundled_name(name: &str) -> Option<&'static str> {
 }
 
 impl MemoryFiles {
+    fn text(&self, name: &str) -> Option<&str> {
+        self.files
+            .get(name)
+            .or_else(|| {
+                self.includes
+                    .iter()
+                    .find_map(|include| self.files.get(&format!("{include}/{name}")))
+            })
+            .map(String::as_str)
+    }
+
+    fn prepare_common(&mut self, entry: &str) -> Result<(), String> {
+        use std::collections::{HashSet, VecDeque};
+        let mut queue = VecDeque::from([entry.to_owned()]);
+        let mut seen = HashSet::new();
+        let mut selected = Vec::new();
+        while let Some(name) = queue.pop_front() {
+            if !seen.insert(name.clone()) || !valid_name(&name) {
+                continue;
+            }
+            if let Some(common) = self.bundled(&name) {
+                if !selected.contains(&common) {
+                    selected.push(common);
+                }
+                // Common JSON has inline declarations, not .proto imports.
+                continue;
+            }
+            if let Some(text) = self.text(&name) {
+                let file = File::from_source(&name, text).map_err(|error| error.to_string())?;
+                queue.extend(file.file_descriptor_proto().dependency.iter().cloned());
+            }
+        }
+        if selected.is_empty() {
+            return Ok(());
+        }
+        let open = |name: &str| bundled_file(name).map_err(|error| error.to_string());
+        let mut declarations = HashSet::new();
+        for name in &selected {
+            let file = open(name)?;
+            let descriptor = file.file_descriptor_proto();
+            let mut names: Vec<_> = descriptor
+                .message_type
+                .iter()
+                .filter_map(|m| m.name.as_deref())
+                .chain(
+                    descriptor
+                        .enum_type
+                        .iter()
+                        .filter_map(|e| e.name.as_deref()),
+                )
+                .collect();
+            let inline: &[&str] = match *name {
+                "google/protobuf/api.proto" => &["SourceContext", "Option", "Syntax"],
+                "google/protobuf/type.proto" => &["Any", "SourceContext"],
+                _ => &[],
+            };
+            for name in inline {
+                if !names.contains(name) {
+                    names.push(name);
+                }
+            }
+            for name in names {
+                if !declarations.insert(name.to_owned()) {
+                    return Err(format!(
+                        "Duplicate bundled protobuf declaration 'google.protobuf.{name}'."
+                    ));
+                }
+            }
+        }
+        // Inline definitions share global references in common JSON. Place
+        // them together without introducing other common files' declarations.
+        // Overlapping definitions are rejected above, as Root.addJSON does.
+        // No reachable source imports or supplied file may resolve this name.
+        let mut suffix = 0;
+        let shared_name = loop {
+            let candidate = format!("insomnium-legacy-common-{suffix}.proto");
+            if !seen.contains(&candidate) && self.text(&candidate).is_none() {
+                break candidate;
+            }
+            suffix += 1;
+        };
+        let api = selected.contains(&"google/protobuf/api.proto");
+        let types = selected.contains(&"google/protobuf/type.proto");
+        let context = api || types || selected.contains(&"google/protobuf/source_context.proto");
+        let any = types || selected.contains(&"google/protobuf/any.proto");
+        let mut shared = prost_types::FileDescriptorProto {
+            name: Some(shared_name.clone()),
+            package: Some("google.protobuf".into()),
+            syntax: Some("proto3".into()),
+            ..Default::default()
+        };
+        if context {
+            let file = open("google/protobuf/source_context.proto")?;
+            let mut message = file.file_descriptor_proto().message_type[0].clone();
+            // The inline JSON declaration already uses this name, unlike the
+            // keepCase source prototype used to construct the descriptor.
+            message.field[0].name = Some("fileName".into());
+            message.field[0].json_name = Some("fileName".into());
+            shared.message_type.push(message);
+        }
+        if api || types {
+            let file = open("google/protobuf/type.proto")?;
+            let descriptor = file.file_descriptor_proto();
+            shared.message_type.extend(
+                descriptor
+                    .message_type
+                    .iter()
+                    .filter(|message| message.name.as_deref() == Some("Option"))
+                    .cloned(),
+            );
+            shared.enum_type.extend(
+                descriptor
+                    .enum_type
+                    .iter()
+                    .filter(|enumeration| enumeration.name.as_deref() == Some("Syntax"))
+                    .cloned(),
+            );
+        }
+        if any {
+            let file = open("google/protobuf/any.proto")?;
+            shared
+                .message_type
+                .extend(file.file_descriptor_proto().message_type.iter().cloned());
+        }
+        let has_shared = !shared.message_type.is_empty() || !shared.enum_type.is_empty();
+        for name in selected {
+            let file = open(name)?;
+            let mut descriptor = file.file_descriptor_proto().clone();
+            descriptor.dependency.clear();
+            descriptor.public_dependency.clear();
+            descriptor.weak_dependency.clear();
+            descriptor.source_code_info = None;
+            descriptor.message_type.retain(|message| {
+                !matches!(
+                    message.name.as_deref(),
+                    Some("SourceContext" | "Option" | "Any")
+                )
+            });
+            descriptor
+                .enum_type
+                .retain(|enumeration| enumeration.name.as_deref() != Some("Syntax"));
+            if has_shared {
+                descriptor.dependency.push(shared_name.clone());
+                descriptor.public_dependency.push(0);
+            }
+            self.common.insert(name.into(), descriptor);
+        }
+        if has_shared {
+            self.common.insert(shared_name, shared);
+        }
+        Ok(())
+    }
+
     fn bundled(&self, name: &str) -> Option<&'static str> {
         if let Some(name) = bundled_name(name) {
             return Some(name);
@@ -241,11 +403,17 @@ pub(crate) fn compile_mode(input: ProtoInput, mode: JsonMode) -> Result<Descript
         }
     }
     let legacy = matches!(mode, JsonMode::Legacy);
-    let resolver = MemoryFiles {
+    let mut resolver = MemoryFiles {
         files: files.clone(),
         includes: input.include_paths.clone(),
         legacy,
+        common: HashMap::new(),
     };
+    if legacy {
+        resolver
+            .prepare_common(&input.entry)
+            .map_err(|error| error.to_string())?;
+    }
     let entry = if legacy {
         resolver.bundled(&input.entry).unwrap_or(&input.entry)
     } else {

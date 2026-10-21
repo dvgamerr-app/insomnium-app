@@ -1,6 +1,6 @@
 # Legacy protobuf common definitions
 
-Unmodified `google/protobuf/{api,descriptor,source_context,type}.proto` and
+Unmodified `google/protobuf/{api,descriptor,source_context,type}.{proto,json}` and
 `LICENSE` from the published protobufjs 7.2.4 package. The archive was verified
 against its npm registry SHA512 integrity value and these files matched the
 existing pinned legacy-reference installation byte for byte. See
@@ -13,9 +13,14 @@ existing legacy field-name adapter supplies the bundled JSON's camelCase names.
 ProtoJSON continues to use its normal resolver. The seven protobuf.js core
 common files remain provided by the standard Google resolver.
 
-The bundled JSON inlines some dependency definitions. Parsing these sources
-retains standard `.proto` imports; exact JSON graph/load-order compatibility is
-a separate remaining gate.
+The bundled JSON inlines some dependency definitions. The Legacy compiler plans
+only those declarations supplied by the selected common files, using the proto
+sources as descriptor prototypes rather than following their standard imports.
+Overlapping common declarations are refused, matching Root.addJSON. Inline
+definitions with global references use an internal descriptor file whose name
+cannot resolve to a supplied file or reachable source import. Its dependency
+ownership metadata differs from protobuf.js's file list; full load-order and
+cross-source global lookup compatibility remain separate gates.
 
 The upstream BSD license and provenance are included in Tauri bundle resources
 under `notices/protobufjs/`. They are separate from generated Cargo notices;

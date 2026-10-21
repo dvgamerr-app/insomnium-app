@@ -34,6 +34,30 @@
       "local": "LICENSE",
       "bytes": 1937,
       "sha256": "49d6a1c9a623784c61c6cb70f773f3457faceb1914a13c8560a9823b7631950c"
+    },
+    {
+      "path": "google/protobuf/api.json",
+      "local": "api.json",
+      "bytes": 2951,
+      "sha256": "e668c664c96276b9bcae4cc1121097606458bfd89598f7b6a8125fafad9161a5"
+    },
+    {
+      "path": "google/protobuf/type.json",
+      "local": "type.json",
+      "bytes": 5470,
+      "sha256": "f493ddfb5158dae5b3bab2c7d45551f418a3cb68d0caf62f5c9da259c818215d"
+    },
+    {
+      "path": "google/protobuf/descriptor.json",
+      "local": "descriptor.json",
+      "bytes": 20845,
+      "sha256": "c83325498a6796562c92a1e0ec90b715cebc87a49ec605cfa30dc523f90a6b81"
+    },
+    {
+      "path": "google/protobuf/source_context.json",
+      "local": "source_context.json",
+      "bytes": 332,
+      "sha256": "ef0a3a715ecd5e2cf8f3101bd1d6f3c9702c41f8ec0b0b96bcc99e3402339927"
     }
   ]
 }

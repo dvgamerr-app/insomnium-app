@@ -1,5 +1,6 @@
 # Preserve authenticated upstream notice/evidence bytes across Windows checkouts.
 src-tauri/vendor/protobufjs-google/*.proto -text
+src-tauri/vendor/protobufjs-google/*.json -text
 src-tauri/vendor/protobufjs-google/LICENSE -text
 tools/spectral-linter/notice-sources/libarchive-ded822-COPYING -text
 tools/spectral-linter/notice-sources/bun-1.4.2-LICENSE.md -text
