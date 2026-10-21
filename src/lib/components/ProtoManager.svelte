@@ -130,7 +130,11 @@
       version = ++epoch;
     feedbackRevision++;
     fileWork.cancel();
-    const selectedRequest = request._id;
+    const selectedRequest = request._id, ownerRequest = request, ownerData = app.data;
+    const workspaceId = app.data.activeWorkspaceId;
+    const current = () => !disposed && version === epoch && request === ownerRequest &&
+      app.data === ownerData && app.data.activeWorkspaceId === workspaceId &&
+      app.data.activeRequestId === selectedRequest;
     pickerOwner = { input, data: app.data, collectionId: app.data.activeWorkspaceId, requestId: selectedRequest, version };
     /** @type {import("../workspace.svelte.js").ScopedWorkspaceWork|undefined} */ let work;
     reading = true;
@@ -171,8 +175,10 @@
             );
           name = name.slice(name.indexOf("/") + 1);
         }
+        if (!current()) return;
         work.signal.throwIfAborted();
         const text = await f.text();
+        if (!current()) return;
         work.signal.throwIfAborted();
         // Blob.text decodes UTF-8 with replacement. Re-encoded text can exceed
         // the source Blob size; enforce the same saved/compiler byte budget
@@ -186,16 +192,14 @@
         result.push({ name, text });
       }
       if (
-        version === epoch &&
-        work.current() &&
-        request._id === selectedRequest
+        current() && work.current()
       ) {
         pending = result;
         pendingData = app.data;
         pendingRequest = selectedRequest;
       }
     } catch (e) {
-      if (version === epoch && (!work || work.current())) error = String(e);
+      if (current() && (!work || work.current())) error = String(e);
     } finally {
       work?.finish();
       input.value = "";
@@ -203,14 +207,14 @@
     }
   }
   async function apply() {
-    feedbackRevision++;
+    const revision = ++feedbackRevision;
     error = "";
     notice = "";
     filenameOwner = null;
-    const data = app.data, requestId = request._id, version = epoch;
+    const data = app.data, ownerRequest = request, requestId = request._id, version = epoch;
     const current = () => !disposed && data === app.data &&
-      requestId === request._id && app.data.activeRequestId === requestId &&
-      version === epoch;
+      request === ownerRequest && app.data.activeRequestId === requestId &&
+      version === epoch && feedbackRevision === revision;
     const submitted = pending.map((item) => ({ ...item }));
     try {
       if (pendingData !== app.data || pendingRequest !== request._id)
