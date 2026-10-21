@@ -47,15 +47,12 @@ pub async fn load_grpc_schema(
         on_started
             .send(())
             .map_err(|_| "gRPC schema view closed.")?;
-        let pool = match request.proto {
-            Some(input) => {
-                let task = compilation.insert(tokio::task::spawn_blocking(move || {
-                    grpc_schema::compile(input)
-                }));
-                let result = task.await;
-                compilation.take();
-                result.map_err(|_| "Proto compiler stopped unexpectedly.")??
-            }
+        let mode = request.json_mode;
+        let preparation = match request.proto {
+            Some(input) => tokio::task::spawn_blocking(move || {
+                let pool = grpc_schema::compile(input)?;
+                grpc_schema::describe(&pool, mode)
+            }),
             None => {
                 let discovery = grpc_transport::reflect(
                     request
@@ -64,14 +61,19 @@ pub async fn load_grpc_schema(
                         .ok_or("Provide proto files or a reflection endpoint.")?,
                 )
                 .await?;
-                return grpc_schema::describe_reflection_services(
-                    &discovery.pool,
-                    &discovery.services,
-                    request.json_mode,
-                );
+                tokio::task::spawn_blocking(move || {
+                    grpc_schema::describe_reflection_services(
+                        &discovery.pool,
+                        &discovery.services,
+                        mode,
+                    )
+                })
             }
         };
-        grpc_schema::describe(&pool, request.json_mode)
+        let task = compilation.insert(preparation);
+        let result = task.await;
+        compilation.take();
+        result.map_err(|_| "Proto compiler stopped unexpectedly.")?
     };
     let timeout = request
         .connection
@@ -88,7 +90,8 @@ pub async fn load_grpc_schema(
     };
     if let Some(task) = compilation {
         // Dropping a blocking task's handle detaches it. Cancel queued work,
-        // then drain any compiler already running before releasing ownership.
+        // then drain any compiler/schema preparation already running before
+        // releasing ownership.
         task.abort();
         let _ = task.await;
     }
