@@ -2034,11 +2034,13 @@ mod tests {
                 text: r#"syntax="proto2"; enum E { A=3; B=7; }
                     message Empty {} message Nonempty { optional string s=1; }
                     message Refusal { required Nonempty child=1; }
-                    message RequiredChild { required string s=1; }
+                    message RequiredChild { required string s=1; optional int32 count=2; }
                     message RequiredParent { optional RequiredChild child=1;
                         repeated RequiredChild children=2;
                         map<string,RequiredChild> entries=3;
-                        optional group G=4 { required string s=1; } }
+                        optional group G=4 { required string s=1; optional int32 count=2; }
+                        extensions 100 to 199; }
+                    extend RequiredParent { optional RequiredChild extensionChild=100; }
                     message M { required E e=1 [default=B];
                         required bytes b=2 [default="Zh=="]; optional E opt=3;
                         required Empty empty=4; optional bytes o=5 [default="Zm9="];
@@ -2056,9 +2058,27 @@ mod tests {
         let snapshot = pool.encode_to_vec();
         let response =
             legacy_descriptor(pool.get_message_by_name("RequiredParent").unwrap()).unwrap();
-        let required = crate::grpc_schema::validate_legacy_required;
+        let required = crate::grpc_schema::decode_legacy_response;
         assert!(required(&response, &[]).is_ok());
         assert!(required(&response, b"\x0a\x02\x0a\x00").is_ok());
+        // Singular children/groups/extensions replace; repeated children append.
+        let wire = [
+            b"\x0a\x04\x0a\x00\x10\x07\x0a\x02\x0a\x00".as_slice(),
+            b"\x12\x04\x0a\x00\x10\x07\x12\x02\x0a\x00",
+            b"\x23\x0a\x00\x10\x07\x24\x23\x0a\x00\x24",
+            b"\xa2\x06\x04\x0a\x00\x10\x07\xa2\x06\x02\x0a\x00",
+        ]
+        .concat();
+        assert_eq!(
+            required(&response, &wire).unwrap().encode_to_vec(),
+            [
+                b"\x0a\x02\x0a\x00".as_slice(),
+                b"\x12\x04\x0a\x00\x10\x07\x12\x02\x0a\x00",
+                b"\x23\x0a\x00\x24",
+                b"\xa2\x06\x02\x0a\x00",
+            ]
+            .concat()
+        );
         for wire in [
             b"\x0a\x00".as_slice(),
             b"\x0a\x00\x0a\x02\x0a\x00",

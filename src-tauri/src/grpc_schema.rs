@@ -855,9 +855,11 @@ impl tonic::codec::Decoder for DynamicDecoder {
         use prost::bytes::Buf;
         let bytes = src.copy_to_bytes(src.remaining());
         if self.1 {
-            validate_legacy_required(&self.0, &bytes).map_err(|error| {
-                tonic::Status::internal(format!("Response message parsing error: {error}"))
-            })?;
+            return decode_legacy_response(&self.0, &bytes)
+                .map(Some)
+                .map_err(|error| {
+                    tonic::Status::internal(format!("Response message parsing error: {error}"))
+                });
         }
         DynamicMessage::decode(self.0.clone(), bytes)
             .map(Some)
@@ -871,19 +873,21 @@ impl tonic::codec::Decoder for DynamicDecoder {
 
 // protobuf.js checks required presence on each decoded message occurrence,
 // before singular children are overwritten or map entries replace one another.
-// A final DynamicMessage tree cannot recover that occurrence information.
-pub(crate) fn validate_legacy_required(
+// Decode children separately: protobuf.js replaces singular message values,
+// whereas prost's merge_field merges them. Scalar/packed/unknown wire decoding
+// continues to use prost, and the private legacy view keeps maps as entry lists.
+pub(crate) fn decode_legacy_response(
     desc: &MessageDescriptor,
     mut bytes: &[u8],
-) -> Result<(), String> {
+) -> Result<DynamicMessage, String> {
     fn scan(
         desc: &MessageDescriptor,
         bytes: &mut &[u8],
         group: Option<u32>,
         depth: usize,
-    ) -> Result<(), String> {
-        use prost::encoding::{decode_key, decode_varint, skip_field, DecodeContext, WireType};
-        use prost_reflect::{Cardinality, Kind};
+    ) -> Result<DynamicMessage, String> {
+        use prost::encoding::{decode_key, decode_varint, DecodeContext, WireType};
+        use prost_reflect::{Cardinality, Kind, Value};
         if depth > 64 {
             return Err("gRPC message nesting exceeds 64 levels.".into());
         }
@@ -898,6 +902,7 @@ pub(crate) fn validate_legacy_required(
             )
             .collect();
         let mut ended = false;
+        let mut message = DynamicMessage::new(desc.clone());
         while !bytes.is_empty() {
             let (tag, wire) = decode_key(bytes).map_err(|error| error.to_string())?;
             if wire == WireType::EndGroup {
@@ -908,14 +913,17 @@ pub(crate) fn validate_legacy_required(
                 break;
             }
             required.remove(&tag);
-            let kind = desc
-                .get_field(tag)
+            let field = desc.get_field(tag);
+            let extension = desc.get_extension(tag);
+            let kind = field
+                .as_ref()
                 .map(|field| (field.kind(), field.is_group()))
                 .or_else(|| {
-                    desc.get_extension(tag)
+                    extension
+                        .as_ref()
                         .map(|field| (field.kind(), field.is_group()))
                 });
-            match kind {
+            let child = match kind {
                 Some((Kind::Message(child), false)) if wire == WireType::LengthDelimited => {
                     let length = decode_varint(bytes).map_err(|error| error.to_string())?;
                     let length =
@@ -924,14 +932,40 @@ pub(crate) fn validate_legacy_required(
                         return Err("Truncated protobuf message.".into());
                     }
                     let (mut nested, rest) = bytes.split_at(length);
-                    scan(&child, &mut nested, None, depth + 1)?;
+                    let child = scan(&child, &mut nested, None, depth + 1)?;
                     *bytes = rest;
+                    Some(Value::Message(child))
                 }
                 Some((Kind::Message(child), true)) if wire == WireType::StartGroup => {
-                    scan(&child, bytes, Some(tag), depth + 1)?;
+                    Some(Value::Message(scan(&child, bytes, Some(tag), depth + 1)?))
                 }
-                _ => skip_field(wire, tag, bytes, DecodeContext::default())
-                    .map_err(|error| error.to_string())?,
+                _ => {
+                    message
+                        .merge_field(tag, wire, bytes, DecodeContext::default())
+                        .map_err(|error| error.to_string())?;
+                    None
+                }
+            };
+            if let Some(child) = child {
+                if let Some(field) = field {
+                    if field.is_list() {
+                        let Value::List(values) = message.get_field_mut(&field) else {
+                            return Err("Invalid legacy repeated message field.".into());
+                        };
+                        values.push(child);
+                    } else {
+                        message.set_field(&field, child);
+                    }
+                } else if let Some(extension) = extension {
+                    if extension.is_list() {
+                        let Value::List(values) = message.get_extension_mut(&extension) else {
+                            return Err("Invalid legacy repeated message extension.".into());
+                        };
+                        values.push(child);
+                    } else {
+                        message.set_extension(&extension, child);
+                    }
+                }
             }
         }
         if group.is_some() && !ended {
@@ -940,7 +974,7 @@ pub(crate) fn validate_legacy_required(
         if let Some((_, name)) = required.into_iter().min_by_key(|(tag, _)| *tag) {
             return Err(format!("missing required '{name}' in {}", desc.full_name()));
         }
-        Ok(())
+        Ok(message)
     }
     scan(desc, &mut bytes, None, 0)
 }
