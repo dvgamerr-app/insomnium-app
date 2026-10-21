@@ -138,16 +138,21 @@
     return () => transferWork.cancel();
   });
   onDestroy(()=>{disposed=true;transferWork.dispose();});
-  const transferOwner=$derived({requestId:request._id,responseId:response?._id,responseTab,
-    selectedMessage,selectedSentId,fullMessage,messages:messages.length,sent:sent.length});
-  let transferFeedback=$state.raw(/** @type {{owner:typeof transferOwner,operation:number,error:string}|undefined} */(undefined));
-  const transferError=$derived(transferFeedback?.owner===transferOwner?transferFeedback.error:'');
-  function beginTransfer(){
+  const transferOwner=$derived({data:app.data,request,response,responseTab,
+    selectedMessage,selectedSentId,fullMessage});
+  let transferFeedback=$state.raw(/** @type {{owner:typeof transferOwner,current:()=>boolean,operation:number,error:string}|undefined} */(undefined));
+  const transferError=$derived(transferFeedback?.current()?transferFeedback.error:'');
+  function beginTransfer(messageId='',text=''){
     const owner=transferOwner,operation=++transferSequence;
-    transferFeedback={owner,operation,error:''};
+    const messageCount=messages.length,sentCount=sent.length;
+    const current=()=>!disposed&&transferOwner===owner&&(messageId
+      ? response?.events?.some((/** @type {Record<string,any>} */ event)=>
+        (event._id===messageId||event._id+':body'===messageId)&&String(event.text??'')===text)===true
+      : messages.length===messageCount&&sent.length===sentCount);
+    transferFeedback={owner,current,operation,error:''};
     return (/** @type {unknown} */ cause)=>{
-      if(!disposed&&transferOwner===owner&&transferFeedback?.operation===operation)
-        transferFeedback={owner,operation,error:String(cause)};
+      if(current()&&transferFeedback?.operation===operation)
+        transferFeedback={owner,current,operation,error:String(cause)};
     };
   }
   const selectedSent = $derived(
@@ -209,8 +214,8 @@
       work?.finish();
     }
   }
-  async function copyMessage(/** @type {string} */ text) {
-    const fail=beginTransfer();
+  async function copyMessage(/** @type {string} */ text,/** @type {string} */ messageId) {
+    const fail=beginTransfer(messageId,text);
     /** @type {import('../workspace.svelte.js').ScopedWorkspaceWork|undefined} */ let work;
     try {
       work = transferWork.begin();
@@ -227,7 +232,7 @@
   {@const source = sourceMessageId === messageId && !!messageId}
   {@const preview = displayMessage(String(text ?? ""), source)}
   <Button variant="ghost" class="text-button" aria-label="Copy gRPC message"
-    onclick={() => copyMessage(String(text ?? ""))}>Copy</Button>
+    onclick={() => copyMessage(String(text ?? ""),messageId)}>Copy</Button>
   <Button variant="ghost" class="text-button" aria-pressed={source}
     onclick={() => (sourceMessageId = source ? "" : messageId)}
     >{source ? "Formatted" : "Source"}</Button>
