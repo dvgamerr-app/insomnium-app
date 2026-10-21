@@ -1825,34 +1825,46 @@ export async function executeGrpc(requestId, discoveryOnly = false) {
         throw new Error(
           "gRPC context changed while loading methods. Load them again.",
         );
-      const bytes = new TextEncoder().encode(JSON.stringify(schema)).length;
-      if (bytes > 20 * 1024 * 1024)
+      const schemaBytes = new TextEncoder().encode(JSON.stringify(schema)).length;
+      if (schemaBytes > 20 * 1024 * 1024)
         throw new Error("gRPC schema exceeds the 20 MiB cache budget.");
-      let entries = Object.entries(workspace.grpcSchemas)
-        .filter(([key]) => key !== requestId)
-        .sort(([, a], [, b]) => a.loadedAt - b.loadedAt);
-      while (
-        entries.length &&
-        (entries.length >= 3 ||
-          entries.reduce((n, [, value]) => n + value.bytes, bytes) >
-            20 * 1024 * 1024)
-      ) {
-        const [key] = /** @type {[string,any]} */ (entries.shift());
-        delete workspace.grpcSchemas[key];
-      }
       cached = {
         schema,
         context,
         resolvedContext,
-        bytes,
+        schemaBytes,
         loadedAt: Date.now(),
       };
-      workspace.grpcSchemas[requestId] = cached;
     }
-    cached.sourceMethodName = original.protoMethodName;
-    cached.resolvedMethodName = snapshot.protoMethodName;
-    cached.sourceProtoFileId = original.protoFileId;
-    cached.resolvedProtoFileId = snapshot.protoFileId;
+    const cacheBudget = 20 * 1024 * 1024;
+    const schemaBytes = cached.schemaBytes ??
+      new TextEncoder().encode(JSON.stringify(cached.schema)).length;
+    cached = {
+      ...cached,
+      sourceMethodName: original.protoMethodName,
+      resolvedMethodName: snapshot.protoMethodName,
+      sourceProtoFileId: original.protoFileId,
+      resolvedProtoFileId: snapshot.protoFileId,
+      schemaBytes,
+      bytes: cacheBudget,
+    };
+    // Count selector/context metadata too, without serializing a reused schema.
+    // Reserve full budget-width counters, then replace the four-byte null value.
+    const bytes = new TextEncoder().encode(JSON.stringify({
+      ...cached, schema: null, schemaBytes: cacheBudget,
+    })).length - 4 + schemaBytes;
+    if (bytes > cacheBudget)
+      throw new Error("gRPC schema exceeds the 20 MiB cache budget.");
+    cached.bytes = bytes;
+    const entries = Object.entries(workspace.grpcSchemas)
+      .filter(([key]) => key !== requestId)
+      .sort(([, a], [, b]) => a.loadedAt - b.loadedAt);
+    while (entries.length && (entries.length >= 3 ||
+      entries.reduce((n, [, value]) => n + value.bytes, bytes) > cacheBudget)) {
+      const [key] = /** @type {[string,any]} */ (entries.shift());
+      delete workspace.grpcSchemas[key];
+    }
+    workspace.grpcSchemas[requestId] = cached;
     if (discoveryOnly) {runCompleted = true;return;}
     if (controller.signal.aborted) throw new Error("gRPC call cancelled.");
     const method = cached.schema.methods.find(
