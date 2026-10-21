@@ -1,0 +1,39 @@
+{
+  "package": "protobufjs",
+  "version": "7.2.4",
+  "tarball": "https://registry.npmjs.org/protobufjs/-/protobufjs-7.2.4.tgz",
+  "integrity": "sha512-AT+RJgD2sH8phPmCf7OUZR8xGdcJRga4+1cOaXJ64hvcSkVhNcRHOwIxUatPH15+nj59WAGTDv3LSGZPEQbJaQ==",
+  "tarballSHA256": "c17ae0f0cd33446f6b8374cee979ba225aea8b77f0352300f776aa67366944ef",
+  "files": [
+    {
+      "path": "google/protobuf/api.proto",
+      "local": "api.proto",
+      "bytes": 642,
+      "sha256": "d706f909f2f115f4a18c6e64e38dd6c98ad647dba70c7a88f35e0b28414dab83"
+    },
+    {
+      "path": "google/protobuf/descriptor.proto",
+      "local": "descriptor.proto",
+      "bytes": 6606,
+      "sha256": "2c997f5148f4ef2384a8362c03f901c22fe995ae59b926206809af4156e99594"
+    },
+    {
+      "path": "google/protobuf/source_context.proto",
+      "local": "source_context.proto",
+      "bytes": 98,
+      "sha256": "992d3a7a0e8f79ccd4dc8da161376219aa7294408386fa6d65e130a45d31bff8"
+    },
+    {
+      "path": "google/protobuf/type.proto",
+      "local": "type.proto",
+      "bytes": 1675,
+      "sha256": "8bb73f0bb286c2725880abe204e2a5168b084fcf851eb493c5ee90a85f270abd"
+    },
+    {
+      "path": "LICENSE",
+      "local": "LICENSE",
+      "bytes": 1937,
+      "sha256": "49d6a1c9a623784c61c6cb70f773f3457faceb1914a13c8560a9823b7631950c"
+    }
+  ]
+}

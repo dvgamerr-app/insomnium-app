@@ -3420,6 +3420,7 @@ mod tests {
                         import public "b/google/protobuf/source_context.proto";
                         import "source_context.proto";
                         import "google/protobuf/descriptor.proto";
+                        import "google/protobuf/api.proto";
                         extend google.protobuf.FieldOptions { optional string note=50001; }
                         message Request {
                             optional string spelling=1 [default="\x41", (note)="owned"];
@@ -3441,11 +3442,24 @@ mod tests {
             descriptor.dependency,
             [
                 "google/protobuf/source_context.proto",
-                "google/protobuf/descriptor.proto"
+                "google/protobuf/descriptor.proto",
+                "google/protobuf/api.proto"
             ]
         );
         assert_eq!(descriptor.public_dependency, [0]);
         assert!(descriptor.weak_dependency.is_empty());
+        assert_eq!(
+            pool.get_enum_by_name("google.protobuf.Syntax")
+                .unwrap()
+                .values()
+                .count(),
+            2
+        );
+        assert!(pool
+            .get_message_by_name("google.protobuf.FileDescriptorProto")
+            .unwrap()
+            .get_field_by_name("edition")
+            .is_none());
         let message = pool.get_message_by_name("ownedalias.Request").unwrap();
         let options = message.get_field_by_name("spelling").unwrap().options();
         let extension = pool.get_extension_by_name("ownedalias.note").unwrap();

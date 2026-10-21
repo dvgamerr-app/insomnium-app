@@ -53,7 +53,7 @@ impl FileResolver for MemoryFiles {
         if valid_name(name) {
             if self.legacy {
                 if let Some(bundled) = self.bundled(name) {
-                    return GoogleFileResolver::new().open_file(bundled);
+                    return bundled_file(bundled);
                 }
             }
             if let Some(text) = self.files.get(name) {
@@ -70,6 +70,23 @@ impl FileResolver for MemoryFiles {
         }
         Err(protox::Error::file_not_found(name))
     }
+}
+
+fn bundled_file(name: &str) -> Result<File, protox::Error> {
+    // proto-loader 0.7.13 registers these definitions from protobuf.js 7.2.4.
+    // Keep them independent of prost's newer descriptor/type schema versions.
+    let source = match name {
+        "google/protobuf/api.proto" => include_str!("../vendor/protobufjs-google/api.proto"),
+        "google/protobuf/descriptor.proto" => {
+            include_str!("../vendor/protobufjs-google/descriptor.proto")
+        }
+        "google/protobuf/source_context.proto" => {
+            include_str!("../vendor/protobufjs-google/source_context.proto")
+        }
+        "google/protobuf/type.proto" => include_str!("../vendor/protobufjs-google/type.proto"),
+        _ => return GoogleFileResolver::new().open_file(name),
+    };
+    File::from_source(name, source)
 }
 
 // protobuf.js Root.load selects common definitions by the last matching suffix,
