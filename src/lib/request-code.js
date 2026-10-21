@@ -9,16 +9,16 @@ const forbiddenHeaders=new Set('accept-charset accept-encoding access-control-re
 /** @typedef {{digest?:{username:string,password:string}|null,ntlm?:{username:string,password:string,domain:string,workstation:string}|null,netrc?:boolean}} NativeAuth */
 /** @typedef {import('httpsnippet-lite').HarRequest & {bodyBase64?:string|null,serializedMultipart?:boolean,multipartParts?:MultipartPart[]|null,multipartContentType?:string|null,socketPath?:string|null,suppressDefaultHeaders?:string[],nativeAuth?:NativeAuth|null,hawk?:Record<string,any>|null,oauth1?:Record<string,any>|null,aws?:Record<string,any>|null,asap?:Record<string,any>|null}} CodeRequest */
 export const generatedCodeLimit=32*1024*1024;
-/** Shared prepared bytes and explicit headers for Python adapters.
+/** Shared prepared bytes and explicit headers for standard HTTP adapters.
  * @param {CodeRequest} request */
-function pythonCodeParts(request){
+function preparedCodeParts(request,client='Python http.client'){
   if(request.asap||request.aws||request.oauth1||request.hawk||request.nativeAuth?.digest)
     throw Error('Choose Node.js / Native to generate this authentication.');
   if(request.nativeAuth)throw Error('Choose Shell / cURL to generate code for NTLM or netrc authentication.');
   if(request.socketPath)throw Error('Choose Node.js / Native to generate code for a socket request.');
   if(request.method.toUpperCase()==='CONNECT')throw Error('CONNECT requires a tunnel adapter.');
   const url=new URL(request.url);
-  if(!['http:','https:'].includes(url.protocol))throw Error('Python http.client requires an HTTP or HTTPS URL.');
+  if(!['http:','https:'].includes(url.protocol))throw Error(client+' requires an HTTP or HTTPS URL.');
   const headers=request.headers.map(row=>[row.name,row.value]);
   const hasHeader=(/** @type {string} */ name)=>headers.some(row=>row[0].toLowerCase()===name);
   if(request.cookies.length&&!hasHeader('cookie'))headers.push(['Cookie',request.cookies.map(cookie=>cookie.name+'='+cookie.value).join('; ')]);
@@ -30,7 +30,7 @@ function pythonCodeParts(request){
   if((url.username||url.password)&&!hasHeader('authorization')){
     const decode=(/** @type {string} */ value)=>decodeURIComponent(value.replace(/%(?![0-9a-f]{2})/gi,'%25'));
     try{headers.push(['Authorization','Basic '+encode(new TextEncoder().encode(decode(url.username)+':'+decode(url.password)))]);}
-    catch{throw Error('URL credentials must contain valid UTF-8 for Python code export.');}
+    catch{throw Error('URL credentials must contain valid UTF-8 for '+client+' code export.');}
   }
   const hasBody=request.multipartParts!=null||typeof request.bodyBase64==='string'||!!request.postData?.text;
   let encoded='';
@@ -49,18 +49,56 @@ function pythonCodeParts(request){
     throw Error('Multipart export requires the prepared request body. Regenerate the request.');
   else encoded=encode(new TextEncoder().encode(request.postData?.text??''));
   if(headers.some(([name,value])=>!/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(name)||/[^\x20-\x7e\t]/.test(value)))
-    throw Error('Python http.client export requires ASCII headers. Choose Node.js / Native for raw header bytes.');
+    throw Error(client+' export requires ASCII headers. Choose Node.js / Native for raw header bytes.');
   const transfers=headers.filter(([name])=>name.toLowerCase()==='transfer-encoding');
   if(transfers.length&&(transfers.length!==1||transfers[0][1].trim().toLowerCase()!=='chunked'||hasHeader('content-length')))
-    throw Error('Python http.client export supports only chunked Transfer-Encoding without Content-Length.');
+    throw Error(client+' export supports only chunked Transfer-Encoding without Content-Length.');
   const chunked=transfers.length>0;
   const target=url.pathname+(url.search||(url.href.split('#',1)[0].endsWith('?')?'?':''));
   return {url,headers,hasHeader,hasBody,encoded,chunked,target};
 }
+/** Go sends the captured bytes without form/JSON reconstruction.
+ * @param {CodeRequest} request */
+export function goNativeCode(request){
+  const {url,headers,hasHeader,encoded,chunked}=preparedCodeParts(request,'Go net/http');
+  if(!/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(request.method))
+    throw Error('Go net/http requires a valid HTTP method token.');
+  const rows=(/** @type {string} */ name)=>headers.filter(row=>row[0].toLowerCase()===name);
+  for(const name of ['host','content-length','user-agent'])if(rows(name).length>1)
+    throw Error('Go net/http cannot preserve duplicate '+name+' headers. Choose Node.js / Native.');
+  if(rows('host').some(([,value])=>!value||/\s/.test(value)))
+    throw Error('Go net/http cannot preserve an empty or whitespace Host. Choose Node.js / Native.');
+  if(rows('trailer').length)throw Error('Go net/http trailer declarations require a trailer adapter. Choose Node.js / Native.');
+  const size=encoded.length/4*3-(encoded.endsWith('==')?2:encoded.endsWith('=')?1:0);
+  const length=rows('content-length')[0]?.[1];
+  if(length!==undefined&&(!/^\d+$/.test(length)||BigInt(length)!==BigInt(size)))
+    throw Error('Go net/http requires Content-Length to match the prepared body bytes.');
+  url.username='';url.password='';url.hash='';
+  const lines=['package main','','import (','  "bytes"','  "encoding/base64"','  "io"','  "net/http"','  "os"',')','','func main() {',
+    `  body, err := base64.StdEncoding.DecodeString(${JSON.stringify(encoded)})`,
+    '  if err != nil { panic(err) }',
+    `  req, err := http.NewRequest(${JSON.stringify(request.method)}, ${JSON.stringify(url.href)}, bytes.NewReader(body))`,
+    '  if err != nil { panic(err) }'];
+  for(const [name,value] of headers){
+    const key=name.toLowerCase();
+    if(key==='content-length'||key==='transfer-encoding')continue;
+    if(key==='host')lines.push(`  req.Host = ${JSON.stringify(value)}`);
+    else lines.push(`  req.Header.Add(${JSON.stringify(name)}, ${JSON.stringify(value)})`);
+  }
+  if(!hasHeader('user-agent'))lines.push('  req.Header["User-Agent"] = []string{""}');
+  if(chunked)lines.push('  req.TransferEncoding = []string{"chunked"}','  req.ContentLength = -1');
+  else if(length!==undefined)lines.push(`  req.ContentLength = ${size}`);
+  lines.push('  transport := &http.Transport{Proxy: nil, DisableCompression: true}',
+    '  defer transport.CloseIdleConnections()',
+    '  client := &http.Client{Transport: transport, CheckRedirect: func(req *http.Request, via []*http.Request) error { return http.ErrUseLastResponse }}',
+    '  response, err := client.Do(req)','  if err != nil { panic(err) }','  defer response.Body.Close()',
+    '  if _, err := io.Copy(os.Stdout, response.Body); err != nil { panic(err) }','}');
+  return lines.join('\n');
+}
 /** Python's low-level API preserves duplicate headers and sends bytes unchanged.
  * @param {CodeRequest} request */
 export function pythonHttpClientCode(request){
-  const {url,headers,hasHeader,hasBody,encoded,chunked,target}=pythonCodeParts(request);
+  const {url,headers,hasHeader,hasBody,encoded,chunked,target}=preparedCodeParts(request);
   const lines=['import base64','import http.client','import sys','',`body = base64.b64decode(${JSON.stringify(encoded)}, validate=True)`,
     `conn = http.client.${url.protocol==='https:'?'HTTPSConnection':'HTTPConnection'}(${JSON.stringify(url.host)})`,'try:',
     `    conn.putrequest(${JSON.stringify(request.method)}, ${JSON.stringify(target)}, skip_host=${hasHeader('host')?'True':'False'}, skip_accept_encoding=True)`];
@@ -73,7 +111,7 @@ export function pythonHttpClientCode(request){
 /** Requests receives bytes after preparation rather than re-encoding forms/JSON.
  * @param {CodeRequest} request */
 export function pythonRequestsCode(request){
-  const {url,headers,hasHeader,hasBody,encoded,chunked,target}=pythonCodeParts(request);
+  const {url,headers,hasHeader,hasBody,encoded,chunked,target}=preparedCodeParts(request);
   if(request.method!==request.method.toUpperCase())
     throw Error('Python Requests changes HTTP method casing. Choose Python / http.client to preserve it.');
   if(target.startsWith('//')||!url.search&&target.endsWith('?'))
