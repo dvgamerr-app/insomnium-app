@@ -392,6 +392,7 @@ export function parseImport(text,options = {}) {
     if (
       !r ||
       typeof r._id !== "string" ||
+      !r._id ||
       typeof r._type !== "string" ||
       ids.has(r._id)
     )

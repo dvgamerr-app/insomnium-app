@@ -1,7 +1,11 @@
 import {templateVariablePath,templateVariableReferences} from "./template-variable-path.js";
 /** @typedef {Record<string, any>} Resource */
-export const id = (prefix = "req") =>
-  `${prefix}_${crypto.randomUUID().replaceAll("-", "")}`;
+/** Fresh IDs must remain native-safe even when an imported prefix is arbitrary. */
+export const id = (prefix = "req") => {
+  const safePrefix = typeof prefix === "string" && /^[a-zA-Z0-9_-]{0,64}$/.test(prefix)
+    ? prefix : "res";
+  return `${safePrefix}_${crypto.randomUUID().replaceAll("-", "")}`;
+};
 /** Add missing legacy identities to copies; callers validate explicit IDs first.
  * @param {Resource[]} rows @param {string} prefix */
 function assignRecordIds(rows,prefix) {
