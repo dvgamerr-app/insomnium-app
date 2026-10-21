@@ -2143,7 +2143,11 @@ export async function replaceGrpcProtos(
     throw new Error("Workspace operations are stopping.");
   if (workspace.running[requestId])
     throw new Error("Stop the current request before updating protos.");
-  const resources = $state.snapshot(workspace.data.resources);
+  const ownerData = workspace.data;
+  const ownerRequest = ownerData.resources.find(
+    (r) => r._id === requestId && r._type === "grpc_request",
+  );
+  const resources = $state.snapshot(ownerData.resources);
   const collectionId = workspaceFor(resources, requestId);
   const request = resources.find(
     (r) => r._id === requestId && r._type === "grpc_request",
@@ -2151,22 +2155,25 @@ export async function replaceGrpcProtos(
   if (!request) throw new Error("The gRPC request no longer exists.");
   const before = protoFingerprint(resources, collectionId);
   const plan = prepareProtoChange(resources, collectionId, targetId, files);
+  const jsonMode = grpcJsonMode(request);
   const runId = id("proto"),
     controller = new AbortController();
   workspace.running[requestId] = { id: runId, controller };
   /** @type {()=>void} */ let completed = () => {};
-  completions.set(
-    requestId,
-    new Promise((resolve) => {
-      completed = resolve;
-    }),
-  );
+  /** @type {Promise<void>} */ const completion = new Promise((resolve) => {
+    completed = resolve;
+  });
+  completions.set(requestId, completion);
   const current = () => {
     if (controller.signal.aborted)
       throw new Error("Proto update cancelled. Saved files were kept.");
     if (
+      workspace.data !== ownerData ||
+      workspace.running[requestId]?.id !== runId ||
+      workspace.data.resources.find((r) => r._id === requestId) !== ownerRequest ||
+      ownerRequest?._type !== "grpc_request" ||
+      grpcJsonMode(ownerRequest) !== jsonMode ||
       workspaceFor(workspace.data.resources, requestId) !== collectionId ||
-      !workspace.data.resources.some((r) => r._id === requestId) ||
       protoFingerprint(workspace.data.resources, collectionId) !== before
     )
       throw new Error(
@@ -2181,7 +2188,7 @@ export async function replaceGrpcProtos(
         {
           id: runId,
           proto: plan.validations[i],
-          jsonMode: grpcJsonMode(request),
+          jsonMode,
         },
         controller.signal,
       );
@@ -2203,8 +2210,9 @@ export async function replaceGrpcProtos(
       );
     return { updated: plan.updated, added: plan.added };
   } finally {
-    delete workspace.running[requestId];
-    completions.delete(requestId);
+    if (workspace.running[requestId]?.id === runId)
+      delete workspace.running[requestId];
+    if (completions.get(requestId) === completion) completions.delete(requestId);
     completed();
   }
 }
