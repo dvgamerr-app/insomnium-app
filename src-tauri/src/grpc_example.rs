@@ -40,8 +40,15 @@ fn request_shape(
         return Err("Example nesting exceeds 32 levels.".into());
     }
     match kind {
-        Kind::Float => {
-            // A request example is authored JSON, not a decoded float32 value.
+        Kind::Float
+        | Kind::Int64
+        | Kind::Uint64
+        | Kind::Sint64
+        | Kind::Fixed64
+        | Kind::Sfixed64
+        | Kind::Enum(_) => {
+            // Legacy automock publishes authored numeric scalars, rather than
+            // decoded float32 values, long strings or enum names.
             // Restore only generated fields; defaults introduced by response
             // rendering must keep their original values.
             if let Some(number) = authored.filter(|value| value.is_number()) {

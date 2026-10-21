@@ -2994,10 +2994,17 @@ mod tests {
             files: vec![crate::grpc_schema::ProtoFile {
                 name: "float-example.proto".into(),
                 text: r#"syntax="proto2"; message FloatChild { optional float value=1; }
+                    enum NumericChoice { THREE=3; FOUR=4; }
                     message FloatInput { optional float direct=1; repeated float many=2;
                         map<string,float> values=3; optional FloatChild child=4;
+                        optional int64 wide=5; optional uint64 unsigned_value=6;
+                        optional fixed64 fixed=7; repeated NumericChoice choices=8;
+                        map<string,NumericChoice> choices_by_key=9;
+                        optional NumericChoice choice=10; repeated int64 wide_list=11;
                         extensions 100 to 199; }
-                    extend FloatInput { optional float sample=100; }"#
+                    extend FloatInput { optional float sample=100;
+                        optional NumericChoice choice_sample=101;
+                        repeated int64 wide_sample=102; }"#
                     .into(),
             }],
             include_paths: vec![],
@@ -3011,7 +3018,9 @@ mod tests {
         assert_eq!(
             serde_json::from_str::<serde_json::Value>(&sample).unwrap(),
             serde_json::json!({"direct":1.1,"many":[1.1],"values":{"Hello":1.1},
-                "child":{"value":1.1},".sample":1.1})
+                "child":{"value":1.1},".sample":1.1,"wide":20,"unsigned_value":100,
+                "fixed":1500,"choices":[3],"choices_by_key":{"Hello":3},"choice":3,
+                "wide_list":[20],".choice_sample":3,".wide_sample":[20]})
         );
         let maps = map_order_reference_pool();
         let long_map = maps.get_message_by_name("Int64").unwrap();
