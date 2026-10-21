@@ -54,6 +54,13 @@
       else if(target==='php'&&client==='curl')output=phpCurlCode(har);
       else if(target==='shell'&&client==='curl')output=shellCurlCode(har);
       else {
+        const headerNames=new Set();
+        for(const header of har.headers){
+          const name=header.name.toLowerCase();
+          if(headerNames.has(name))
+            throw Error('This generator cannot preserve repeated header rows. Choose Node.js / Native.');
+          headerNames.add(name);
+        }
         if(har.asap)throw Error('Choose Node.js / Native to generate ASAP authentication.');
         if(har.aws)throw Error('Choose Node.js / Native to generate AWS signatures.');
         if(har.oauth1)throw Error('Choose Node.js / Native to generate OAuth1 authentication.');
