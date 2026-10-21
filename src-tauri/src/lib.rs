@@ -25,6 +25,7 @@ mod grpc_defaults;
 mod grpc_example;
 mod grpc_legacy;
 mod grpc_legacy_lookup;
+mod grpc_legacy_schema;
 mod grpc_schema;
 mod grpc_transport;
 mod hawk;

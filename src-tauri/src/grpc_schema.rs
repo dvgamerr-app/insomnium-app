@@ -48,6 +48,8 @@ struct MemoryFiles {
     includes: Vec<String>,
     legacy: bool,
     common: HashMap<String, prost_types::FileDescriptorProto>,
+    parsed: HashMap<String, prost_types::FileDescriptorProto>,
+    order: Vec<String>,
 }
 impl FileResolver for MemoryFiles {
     fn open_file(&self, name: &str) -> Result<File, protox::Error> {
@@ -120,6 +122,27 @@ fn bundled_name(name: &str) -> Option<&'static str> {
 }
 
 impl MemoryFiles {
+    fn source_name(&self, name: &str) -> Option<&str> {
+        self.files
+            .get_key_value(name)
+            .or_else(|| {
+                self.includes
+                    .iter()
+                    .find_map(|include| self.files.get_key_value(&format!("{include}/{name}")))
+            })
+            .map(|(name, _)| name.as_str())
+    }
+
+    fn resolved_name(&self, name: &str) -> Option<String> {
+        if self.common.contains_key(name) {
+            Some(name.to_owned())
+        } else if let Some(name) = self.bundled(name) {
+            Some(name.to_owned())
+        } else {
+            self.source_name(name).map(str::to_owned)
+        }
+    }
+
     fn text(&self, name: &str) -> Option<&str> {
         self.files
             .get(name)
@@ -137,19 +160,26 @@ impl MemoryFiles {
         let mut seen = HashSet::new();
         let mut selected = Vec::new();
         while let Some(name) = queue.pop_front() {
+            let name = self.resolved_name(&name).unwrap_or(name);
             if !seen.insert(name.clone()) || !valid_name(&name) {
                 continue;
             }
             if let Some(common) = self.bundled(&name) {
                 if !selected.contains(&common) {
                     selected.push(common);
+                    self.order.push(common.to_owned());
                 }
                 // Common JSON has inline declarations, not .proto imports.
                 continue;
             }
             if let Some(text) = self.text(&name) {
-                let file = File::from_source(&name, text).map_err(|error| error.to_string())?;
+                let file = self
+                    .source(&name, text)
+                    .map_err(|error| error.to_string())?;
                 queue.extend(file.file_descriptor_proto().dependency.iter().cloned());
+                self.order.push(name.clone());
+                self.parsed
+                    .insert(name, file.file_descriptor_proto().clone());
             }
         }
         if selected.is_empty() {
@@ -268,9 +298,59 @@ impl MemoryFiles {
             self.common.insert(name.into(), descriptor);
         }
         if has_shared {
+            self.order.push(shared_name.clone());
             self.common.insert(shared_name, shared);
         }
         Ok(())
+    }
+
+    fn link(mut self, entry: &str) -> Result<DescriptorPool, String> {
+        if self.order.is_empty() {
+            return Err(protox::Error::file_not_found(entry).to_string());
+        }
+        let available: std::collections::HashSet<_> = self
+            .common
+            .keys()
+            .chain(self.parsed.keys())
+            .cloned()
+            .collect();
+        let mut files = Vec::new();
+        for name in self.order.clone() {
+            let mut descriptor = self
+                .common
+                .remove(&name)
+                .or_else(|| self.parsed.remove(&name))
+                .ok_or("Missing prepared gRPC source.")?;
+            let weak: std::collections::HashSet<_> =
+                descriptor.weak_dependency.iter().copied().collect();
+            let mut dependencies = Vec::new();
+            for (index, dependency) in descriptor.dependency.iter().enumerate() {
+                let resolved = if available.contains(dependency) {
+                    Some(dependency.clone())
+                } else {
+                    self.resolved_name(dependency)
+                        .filter(|name| available.contains(name))
+                };
+                if let Some(resolved) = resolved {
+                    if resolved != name && !dependencies.contains(&resolved) {
+                        dependencies.push(resolved);
+                    }
+                } else if !weak.contains(&(index as i32)) {
+                    return Err(protox::Error::file_not_found(dependency).to_string());
+                }
+            }
+            descriptor.dependency = dependencies;
+            // Root.load uses a global namespace; public imports do not gate
+            // visibility. Missing weak imports have already been omitted.
+            descriptor.public_dependency.clear();
+            descriptor.weak_dependency.clear();
+            if let Some(info) = &mut descriptor.source_code_info {
+                info.location
+                    .retain(|location| !matches!(location.path.first(), Some(3 | 10 | 11)));
+            }
+            files.push(descriptor);
+        }
+        crate::grpc_legacy_schema::link(files)
     }
 
     fn bundled(&self, name: &str) -> Option<&'static str> {
@@ -408,24 +488,25 @@ pub(crate) fn compile_mode(input: ProtoInput, mode: JsonMode) -> Result<Descript
         includes: input.include_paths.clone(),
         legacy,
         common: HashMap::new(),
+        parsed: HashMap::new(),
+        order: Vec::new(),
     };
     if legacy {
         resolver
             .prepare_common(&input.entry)
             .map_err(|error| error.to_string())?;
     }
-    let entry = if legacy {
-        resolver.bundled(&input.entry).unwrap_or(&input.entry)
+    let pool = if legacy {
+        resolver.link(&input.entry)?
     } else {
-        &input.entry
+        let mut compiler = protox::Compiler::with_file_resolver(resolver);
+        compiler
+            .include_imports(true)
+            .include_source_info(false)
+            .open_file(&input.entry)
+            .map_err(|error| error.to_string())?;
+        compiler.descriptor_pool().clone()
     };
-    let mut compiler = protox::Compiler::with_file_resolver(resolver);
-    compiler
-        .include_imports(true)
-        .include_source_info(false)
-        .open_file(entry)
-        .map_err(|e| e.to_string())?;
-    let pool = compiler.descriptor_pool();
     if pool.encode_to_vec().len() > MAX_SCHEMA {
         return Err("Compiled descriptors exceed 8 MiB.".into());
     }

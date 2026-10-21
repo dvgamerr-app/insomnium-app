@@ -3440,13 +3440,18 @@ mod tests {
         let descriptor = file.file_descriptor_proto();
         assert_eq!(
             descriptor.dependency,
-            [
-                "google/protobuf/source_context.proto",
-                "google/protobuf/descriptor.proto",
-                "google/protobuf/any.proto"
+            vec![
+                "google/protobuf/source_context.proto".to_owned(),
+                "google/protobuf/descriptor.proto".to_owned(),
+                "google/protobuf/any.proto".to_owned(),
+                pool.get_message_by_name("google.protobuf.SourceContext")
+                    .unwrap()
+                    .parent_file()
+                    .name()
+                    .to_owned(),
             ]
         );
-        assert_eq!(descriptor.public_dependency, [0]);
+        assert!(descriptor.public_dependency.is_empty());
         assert!(descriptor.weak_dependency.is_empty());
         assert!(pool
             .get_message_by_name("google.protobuf.FileDescriptorProto")
@@ -3528,6 +3533,40 @@ mod tests {
             .get_message_by_name("google.protobuf.SourceContext")
             .is_some());
         assert!(api.get_message_by_name("google.protobuf.Type").is_none());
+        let mut source_any = input();
+        source_any.files[0].text = r#"syntax="proto3"; package google.protobuf;
+            import "google/protobuf/api.proto"; import weak "missing.proto";
+            message Any { string type_url=1; bytes value=2; }
+            message Envelope { Api api=1; }"#
+            .into();
+        let source = crate::grpc_schema::compile(source_any).unwrap();
+        assert_eq!(
+            source
+                .get_message_by_name("google.protobuf.Any")
+                .unwrap()
+                .parent_file()
+                .name(),
+            "alias.proto"
+        );
+        let envelope = source
+            .get_message_by_name("google.protobuf.Envelope")
+            .unwrap();
+        let parsed = crate::grpc_schema::parse_mode(
+            envelope.clone(),
+            r#"{"api":{"sourceContext":{"fileName":"owned.proto"}}}"#,
+            crate::grpc_schema::JsonMode::Legacy,
+        )
+        .unwrap();
+        assert_eq!(
+            parsed.encode_to_vec(),
+            b"\x0a\x0f\x2a\x0d\x0a\x0bowned.proto"
+        );
+        let json: serde_json::Value = serde_json::from_str(
+            &crate::grpc_schema::json_mode(&parsed, crate::grpc_schema::JsonMode::Legacy, envelope)
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(json["api"]["sourceContext"]["fileName"], "owned.proto");
     }
 
     fn assert_any_target_wire(label: &str) {

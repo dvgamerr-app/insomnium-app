@@ -811,7 +811,8 @@ mod status_tests {
                     .iter()
                     .filter(|event| event["kind"] == "message")
                     .count(),
-                if matches!(shape, 1 | 2) { 0 } else { 1 }
+                if matches!(shape, 1 | 2) { 0 } else { 1 },
+                "shape {shape}: {events:?}"
             );
             if !matches!(shape, 1 | 2) {
                 let data = events
