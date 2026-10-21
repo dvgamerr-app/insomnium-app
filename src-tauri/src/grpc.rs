@@ -180,40 +180,66 @@ pub async fn connect_grpc(
     network: tauri::State<'_, NetworkState>,
 ) -> Result<(), String> {
     request.json_mode = request.json_mode.from_schema(request.reflection);
-    let pool = grpc_schema::decode(&request.descriptor_set)?;
-    let method = grpc_schema::reflection_method(
-        &pool,
-        &request.method,
-        if request.reflection {
-            request.reflection_files.as_deref()
-        } else {
-            None
-        },
-    )?;
-    let original_input = method.input();
-    let input = match request.json_mode {
-        grpc_schema::JsonMode::Legacy | grpc_schema::JsonMode::LegacyReflection => {
-            crate::grpc_legacy::legacy_descriptor(method.input())?
-        }
-        grpc_schema::JsonMode::ProtoJson => method.input(),
-    };
+    let preparation_work =
+        network.retain_native_work(format!("grpc-prepare:{}", uuid::Uuid::new_v4()))?;
+    let (request, method, input, original_input, message, preparation_work) =
+        tokio::task::spawn_blocking(move || {
+            if preparation_work.cancelled() {
+                return Err("gRPC call cancelled.".to_string());
+            }
+            let pool = grpc_schema::decode(&request.descriptor_set)?;
+            let method = grpc_schema::reflection_method(
+                &pool,
+                &request.method,
+                if request.reflection {
+                    request.reflection_files.as_deref()
+                } else {
+                    None
+                },
+            )?;
+            let original_input = method.input();
+            let input = match request.json_mode {
+                grpc_schema::JsonMode::Legacy | grpc_schema::JsonMode::LegacyReflection => {
+                    crate::grpc_legacy::legacy_descriptor(method.input())?
+                }
+                grpc_schema::JsonMode::ProtoJson => method.input(),
+            };
+            let message = if method.is_client_streaming() {
+                None
+            } else {
+                Some(grpc_schema::parse_prepared_mode(
+                    input.clone(),
+                    original_input.clone(),
+                    &request.body,
+                    request.json_mode,
+                )?)
+            };
+            Ok((
+                request,
+                method,
+                input,
+                original_input,
+                message,
+                preparation_work,
+            ))
+        })
+        .await
+        .map_err(|_| "gRPC request preparation stopped unexpectedly.")??;
+    if preparation_work.cancelled() {
+        return Err("gRPC call cancelled.".into());
+    }
     let (sender, receiver) = grpc_transport::admission::channel(1);
-    let sender = if method.is_client_streaming() {
-        Some(sender)
-    } else {
+    let sender = if let Some(message) = message {
         sender
-            .send(grpc_schema::parse_prepared_mode(
-                input.clone(),
-                original_input.clone(),
-                &request.body,
-                request.json_mode,
-            )?)
+            .send(message)
             .await
             .map_err(|_| "gRPC stream closed.")?;
         // A shadowed sender otherwise stays alive until connect_grpc returns.
         // Close unary/server-streaming request input after its one message.
         drop(sender);
         None
+    } else {
+        Some(sender)
     };
     let (ack_sender, acknowledgements) = mpsc::channel(2);
     // Both maps use the same lock order; no await occurs while holding std mutexes.
@@ -379,12 +405,19 @@ pub async fn send_grpc_message(
         outgoing.sender.take();
         return Ok(());
     }
-    let message = grpc_schema::parse_prepared_mode(
-        outgoing.input.clone(),
-        outgoing.original_input.clone(),
-        text.as_deref().ok_or("Provide a gRPC message.")?,
-        outgoing.mode,
-    )?;
+    let text = text.ok_or("Provide a gRPC message.")?;
+    let input = outgoing.input.clone();
+    let original_input = outgoing.original_input.clone();
+    let mode = outgoing.mode;
+    let (message, work) = tokio::task::spawn_blocking(move || {
+        if work.cancelled() {
+            return Err("gRPC message cancelled.".to_string());
+        }
+        let message = grpc_schema::parse_prepared_mode(input, original_input, &text, mode)?;
+        Ok((message, work))
+    })
+    .await
+    .map_err(|_| "gRPC message preparation stopped unexpectedly.")??;
     if work.cancelled() {
         return Err("gRPC message cancelled.".into());
     }
