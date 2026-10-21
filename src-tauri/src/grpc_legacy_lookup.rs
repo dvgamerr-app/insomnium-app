@@ -1,4 +1,4 @@
-//! The reflection-object lookup used by protobuf.js's Any wrapper.
+//! The namespace lookup used by protobuf.js's saved sources and Any wrapper.
 //! Built from original descriptors, never the private wire-storage view.
 use prost_reflect::{DescriptorPool, FileDescriptor, MessageDescriptor};
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -36,6 +36,11 @@ impl Node {
 pub(crate) struct AnyLookup {
     nodes: Vec<Node>,
     names: HashMap<String, usize>,
+}
+enum Found {
+    Node(usize),
+    Inherited,
+    Missing,
 }
 impl AnyLookup {
     fn empty() -> Self {
@@ -401,14 +406,28 @@ impl AnyLookup {
         if path.is_empty() {
             return Target::RawContext;
         }
-        let absolute = path.starts_with('.');
-        let path = path.trim_start_matches('.');
-        if path.is_empty() {
+        if path.trim_start_matches('.').is_empty() {
             return Target::NonMessage;
         }
         let Some(start) = self.names.get("google.protobuf.Any").copied() else {
             return Target::Unknown;
         };
+        match self.find(start, path, |_| true, true) {
+            Found::Node(index) => self.target(index),
+            Found::Inherited => Target::NonMessage,
+            Found::Missing => Target::Unknown,
+        }
+    }
+
+    fn find(
+        &self,
+        start: usize,
+        path: &str,
+        accept: impl Fn(&Node) -> bool,
+        inherited: bool,
+    ) -> Found {
+        let absolute = path.starts_with('.');
+        let path = path.trim_start_matches('.');
         let parts: Vec<_> = path.split('.').collect();
         let mut pending = vec![(if absolute { 0 } else { start }, 0, false)];
         let mut visited = HashSet::new();
@@ -417,7 +436,10 @@ impl AnyLookup {
                 continue;
             }
             if offset == parts.len() {
-                return self.target(index);
+                if accept(&self.nodes[index]) {
+                    return Found::Node(index);
+                }
+                continue;
             }
             let name = parts[offset];
             if name.is_empty() {
@@ -433,15 +455,18 @@ impl AnyLookup {
             }
             if let Some(found) = node.members.get(name).copied() {
                 if offset + 1 == parts.len() {
-                    return self.target(found);
+                    if accept(&self.nodes[found]) {
+                        return Found::Node(found);
+                    }
+                    continue;
                 }
                 if self.nodes[found].namespace() {
                     pending.push((found, offset + 1, true));
                 }
             } else if node.inherited_dictionary() && inherited_name(name) {
                 // Model the resulting non-message safely, without prototypes.
-                if offset + 1 == parts.len() {
-                    return Target::NonMessage;
+                if inherited && offset + 1 == parts.len() {
+                    return Found::Inherited;
                 }
             } else {
                 for child in node.nested.iter().rev() {
@@ -451,8 +476,303 @@ impl AnyLookup {
                 }
             }
         }
-        Target::Unknown
+        Found::Missing
     }
+}
+
+enum SourceDeclaration<'a> {
+    Message(&'a prost_types::DescriptorProto),
+    Enumeration,
+    Service(&'a prost_types::ServiceDescriptorProto),
+    Extension,
+}
+struct SourceItem<'a> {
+    name: String,
+    path: Vec<i32>,
+    declaration: SourceDeclaration<'a>,
+}
+fn qualified(scope: &str, name: &str) -> String {
+    if scope.is_empty() {
+        name.to_owned()
+    } else {
+        format!("{scope}.{name}")
+    }
+}
+fn source_message<'a>(
+    items: &mut Vec<SourceItem<'a>>,
+    scope: &str,
+    message: &'a prost_types::DescriptorProto,
+    path: Vec<i32>,
+) {
+    if message
+        .options
+        .as_ref()
+        .and_then(|options| options.map_entry)
+        == Some(true)
+    {
+        return;
+    }
+    let name = qualified(scope, message.name());
+    items.push(SourceItem {
+        name: name.clone(),
+        path: path.clone(),
+        declaration: SourceDeclaration::Message(message),
+    });
+    for (index, child) in message.nested_type.iter().enumerate() {
+        source_message(
+            items,
+            &name,
+            child,
+            [path.as_slice(), &[3, index as i32]].concat(),
+        );
+    }
+    for (index, child) in message.enum_type.iter().enumerate() {
+        items.push(SourceItem {
+            name: qualified(&name, child.name()),
+            path: [path.as_slice(), &[4, index as i32]].concat(),
+            declaration: SourceDeclaration::Enumeration,
+        });
+    }
+    for (index, child) in message.extension.iter().enumerate() {
+        items.push(SourceItem {
+            name: qualified(&name, child.name()),
+            path: [path.as_slice(), &[6, index as i32]].concat(),
+            declaration: SourceDeclaration::Extension,
+        });
+    }
+}
+fn json_field(name: &str) -> String {
+    let mut result = String::new();
+    let mut upper = false;
+    for ch in name.chars() {
+        if ch == '_' {
+            upper = true;
+        } else {
+            result.push(if upper { ch.to_ascii_uppercase() } else { ch });
+            upper = false;
+        }
+    }
+    result
+}
+
+struct SourceLookup {
+    graph: AnyLookup,
+    enums: HashSet<String>,
+    cache: HashMap<(usize, String, u8), Option<usize>>,
+}
+impl SourceLookup {
+    fn new(files: &[prost_types::FileDescriptorProto]) -> Self {
+        let mut result = Self {
+            graph: AnyLookup::empty(),
+            enums: HashSet::new(),
+            cache: HashMap::new(),
+        };
+        for file in files {
+            result.graph.scope(file.package());
+            let mut items = Vec::new();
+            for (index, message) in file.message_type.iter().enumerate() {
+                source_message(&mut items, file.package(), message, vec![4, index as i32]);
+            }
+            for (index, enumeration) in file.enum_type.iter().enumerate() {
+                items.push(SourceItem {
+                    name: qualified(file.package(), enumeration.name()),
+                    path: vec![5, index as i32],
+                    declaration: SourceDeclaration::Enumeration,
+                });
+            }
+            for (index, service) in file.service.iter().enumerate() {
+                items.push(SourceItem {
+                    name: qualified(file.package(), service.name()),
+                    path: vec![6, index as i32],
+                    declaration: SourceDeclaration::Service(service),
+                });
+            }
+            for (index, extension) in file.extension.iter().enumerate() {
+                items.push(SourceItem {
+                    name: qualified(file.package(), extension.name()),
+                    path: vec![7, index as i32],
+                    declaration: SourceDeclaration::Extension,
+                });
+            }
+            let positions: HashMap<_, _> = file
+                .source_code_info
+                .iter()
+                .flat_map(|info| &info.location)
+                .filter_map(|location| {
+                    Some((
+                        location.path.as_slice(),
+                        (*location.span.first()?, *location.span.get(1)?),
+                    ))
+                })
+                .collect();
+            items.sort_by_key(|item| {
+                positions
+                    .get(item.path.as_slice())
+                    .copied()
+                    .unwrap_or((i32::MAX, i32::MAX))
+            });
+            for item in items {
+                match item.declaration {
+                    SourceDeclaration::Message(message) => {
+                        let parent = result.graph.add(&item.name, Kind::Message, true);
+                        for field in &message.field {
+                            let name = if crate::grpc_legacy::common_field_names(
+                                file.name(),
+                                file.package(),
+                            ) {
+                                field
+                                    .json_name
+                                    .clone()
+                                    .unwrap_or_else(|| json_field(field.name()))
+                            } else {
+                                field.name().to_owned()
+                            };
+                            result.graph.add_member(
+                                parent,
+                                &name,
+                                &qualified(&item.name, field.name()),
+                            );
+                        }
+                        for oneof in &message.oneof_decl {
+                            result.graph.add_member(
+                                parent,
+                                oneof.name(),
+                                &qualified(&item.name, oneof.name()),
+                            );
+                        }
+                    }
+                    SourceDeclaration::Enumeration => {
+                        result.enums.insert(item.name.clone());
+                        result.graph.add(&item.name, Kind::Other, true);
+                    }
+                    SourceDeclaration::Service(service) => {
+                        let parent = result.graph.add(&item.name, Kind::Service, true);
+                        for method in &service.method {
+                            result.graph.add_member(
+                                parent,
+                                method.name(),
+                                &qualified(&item.name, method.name()),
+                            );
+                        }
+                    }
+                    SourceDeclaration::Extension => {
+                        result.graph.add(&item.name, Kind::Other, true);
+                    }
+                }
+            }
+        }
+        result
+    }
+
+    // 0 is unfiltered (extension extendee); 1 is lookupType; 2 is lookupTypeOrEnum.
+    fn resolve(&mut self, scope: &str, name: &str, filter: u8) -> Result<(String, bool), String> {
+        let mut parent = scope;
+        let start = loop {
+            if let Some(index) = self.graph.names.get(parent) {
+                break *index;
+            }
+            parent = parent
+                .rsplit_once('.')
+                .map(|(parent, _)| parent)
+                .unwrap_or("");
+        };
+        let key = (start, name.to_owned(), filter);
+        let found = if let Some(found) = self.cache.get(&key) {
+            *found
+        } else {
+            let found = match self.graph.find(
+                start,
+                name,
+                |node| {
+                    filter == 0
+                        || matches!(node.kind, Kind::Message)
+                        || (filter == 2 && self.enums.contains(&node.name))
+                },
+                filter == 0,
+            ) {
+                Found::Node(index) => Some(index),
+                _ => None,
+            };
+            self.cache.insert(key, found);
+            found
+        };
+        let index =
+            found.ok_or_else(|| format!("Cannot resolve protobuf type '{name}' in '{scope}'."))?;
+        let node = &self.graph.nodes[index];
+        if !matches!(node.kind, Kind::Message) && !(filter == 2 && self.enums.contains(&node.name))
+        {
+            return Err(format!(
+                "Protobuf type '{name}' in '{scope}' is not a message."
+            ));
+        }
+        Ok((format!(".{}", node.name), self.enums.contains(&node.name)))
+    }
+
+    fn field(
+        &mut self,
+        scope: &str,
+        field: &mut prost_types::FieldDescriptorProto,
+    ) -> Result<(), String> {
+        // Parsed named types are unresolved. Map-entry/group references and
+        // already typed standard descriptors are compiler-generated and exact.
+        if field.r#type.is_none() {
+            if let Some(name) = &field.type_name {
+                let (name, enumeration) = self.resolve(scope, name, 2)?;
+                field.type_name = Some(name);
+                field.r#type = Some(if enumeration { 14 } else { 11 });
+            }
+        }
+        if let Some(name) = &field.extendee {
+            field.extendee = Some(self.resolve(scope, name, 0)?.0);
+        }
+        Ok(())
+    }
+    fn message(
+        &mut self,
+        parent: &str,
+        message: &mut prost_types::DescriptorProto,
+    ) -> Result<(), String> {
+        let scope = if message
+            .options
+            .as_ref()
+            .and_then(|options| options.map_entry)
+            == Some(true)
+        {
+            parent.to_owned()
+        } else {
+            qualified(parent, message.name())
+        };
+        for field in message.field.iter_mut().chain(message.extension.iter_mut()) {
+            self.field(&scope, field)?;
+        }
+        for child in &mut message.nested_type {
+            self.message(&scope, child)?;
+        }
+        Ok(())
+    }
+}
+
+pub(crate) fn resolve_source_types(
+    files: &mut [prost_types::FileDescriptorProto],
+) -> Result<(), String> {
+    let mut lookup = SourceLookup::new(files);
+    for file in files {
+        let package = file.package().to_owned();
+        for message in &mut file.message_type {
+            lookup.message(&package, message)?;
+        }
+        for field in &mut file.extension {
+            lookup.field(&package, field)?;
+        }
+        for service in &mut file.service {
+            let scope = qualified(&package, service.name());
+            for method in &mut service.method {
+                method.input_type = Some(lookup.resolve(&scope, method.input_type(), 1)?.0);
+                method.output_type = Some(lookup.resolve(&scope, method.output_type(), 1)?.0);
+            }
+        }
+    }
+    Ok(())
 }
 
 fn inherited_name(name: &str) -> bool {

@@ -924,7 +924,14 @@ pub(crate) fn field_name(field: &FieldDescriptor) -> &str {
     // Any is deliberately absent: its bundled field is named type_url.
     // Ordinary source files (including WKT namesakes) still use keepCase.
     let file = field.parent_file();
-    if file.package_name() == "google.protobuf"
+    if common_field_names(file.name(), file.package_name()) {
+        field.json_name()
+    } else {
+        field.name()
+    }
+}
+pub(crate) fn common_field_names(name: &str, package: &str) -> bool {
+    package == "google.protobuf"
         && [
             "google/protobuf/struct.proto",
             "google/protobuf/api.proto",
@@ -933,12 +940,7 @@ pub(crate) fn field_name(field: &FieldDescriptor) -> &str {
             "google/protobuf/type.proto",
         ]
         .iter()
-        .any(|name| file.name().ends_with(name))
-    {
-        field.json_name()
-    } else {
-        field.name()
-    }
+        .any(|suffix| name.ends_with(suffix))
 }
 fn legacy_default(field: &FieldDescriptor, for_wire: bool) -> Value {
     let value = Value::default_value_for_field(field);
@@ -3598,6 +3600,60 @@ mod tests {
     #[test]
     fn legacy_any_target_resolves_relative_message() {
         assert_any_target_wire("Payload");
+        let source = r#"syntax="proto2"; package ownedlookup;
+            import "google/protobuf/descriptor.proto";
+            message Box {
+                message Payload { optional string value=1; }
+                enum Choice { ZERO=0; ONE=1; }
+            }
+            message Request {
+                optional string Payload=9;
+                optional Payload data=1;
+                optional Choice choice=2;
+                optional google.protobuf.Type descriptorKind=3;
+            }
+            service Caller { rpc Call(Payload) returns(Request); }"#;
+        let input = || crate::grpc_schema::ProtoInput {
+            entry: "lookup.proto".into(),
+            files: vec![crate::grpc_schema::ProtoFile {
+                name: "lookup.proto".into(),
+                text: source.into(),
+            }],
+            include_paths: vec![],
+        };
+        let pool = crate::grpc_schema::compile(input()).unwrap();
+        let method = pool
+            .get_service_by_name("ownedlookup.Caller")
+            .unwrap()
+            .methods()
+            .next()
+            .unwrap();
+        assert_eq!(method.input().full_name(), "ownedlookup.Box.Payload");
+        assert_eq!(method.output().full_name(), "ownedlookup.Request");
+        let desc = method.output();
+        let body = r#"{"data":{"value":"owned"},"choice":"ONE","descriptorKind":"TYPE_STRING"}"#;
+        let parsed = crate::grpc_schema::parse_mode(
+            desc.clone(),
+            body,
+            crate::grpc_schema::JsonMode::Legacy,
+        )
+        .unwrap();
+        assert_eq!(
+            parsed.encode_to_vec(),
+            b"\x0a\x07\x0a\x05owned\x10\x01\x18\x09"
+        );
+        let json: serde_json::Value = serde_json::from_str(
+            &crate::grpc_schema::json_mode(&parsed, crate::grpc_schema::JsonMode::Legacy, desc)
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(json["data"]["value"], "owned");
+        assert_eq!(json["choice"], "ONE");
+        assert_eq!(json["descriptorKind"], "TYPE_STRING");
+        assert!(
+            crate::grpc_schema::compile_mode(input(), crate::grpc_schema::JsonMode::ProtoJson)
+                .is_err()
+        );
     }
 
     #[test]

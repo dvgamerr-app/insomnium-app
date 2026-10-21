@@ -80,10 +80,13 @@ fn field_kind(
     Ok(())
 }
 
-pub(crate) fn link(files: Vec<prost_types::FileDescriptorProto>) -> Result<DescriptorPool, String> {
+pub(crate) fn link(
+    mut files: Vec<prost_types::FileDescriptorProto>,
+) -> Result<DescriptorPool, String> {
     if files.is_empty() || files.len() > MAX_FILES {
         return Err("Prepared gRPC source count exceeds its budget.".into());
     }
+    crate::grpc_legacy_lookup::resolve_source_types(&mut files)?;
     let names: Vec<_> = files.iter().map(|file| file.name().to_owned()).collect();
     let original_indices: HashMap<_, _> = names
         .iter()
