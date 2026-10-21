@@ -43,6 +43,9 @@ impl NativeWorkLease {
     pub(crate) fn cancelled(&self) -> bool {
         *self.cancellation.borrow()
     }
+    pub(crate) fn cancellation(&self) -> watch::Receiver<bool> {
+        self.cancellation.clone()
+    }
 }
 impl Drop for NativeWorkLease {
     fn drop(&mut self) {

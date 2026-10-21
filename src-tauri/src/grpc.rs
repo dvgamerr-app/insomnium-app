@@ -41,15 +41,21 @@ pub async fn load_grpc_schema(
     on_started: Channel<()>,
     network: tauri::State<'_, NetworkState>,
 ) -> Result<Schema, String> {
-    let mut cancelled = network.begin(&request.id)?;
+    let lease = Arc::new(network.retain_native_work(request.id.clone())?);
+    let mut cancelled = lease.cancellation();
     let mut compilation = None;
     let work = async {
         on_started
             .send(())
             .map_err(|_| "gRPC schema view closed.")?;
         let mode = request.json_mode;
+        let worker_lease = lease.clone();
         let preparation = match request.proto {
             Some(input) => tokio::task::spawn_blocking(move || {
+                let work = worker_lease;
+                if work.cancelled() {
+                    return Err("gRPC schema lookup cancelled.".into());
+                }
                 let pool = grpc_schema::compile(input)?;
                 grpc_schema::describe(&pool, mode)
             }),
@@ -62,6 +68,10 @@ pub async fn load_grpc_schema(
                 )
                 .await?;
                 tokio::task::spawn_blocking(move || {
+                    let work = worker_lease;
+                    if work.cancelled() {
+                        return Err("gRPC schema lookup cancelled.".into());
+                    }
                     grpc_schema::describe_reflection_services(
                         &discovery.pool,
                         &discovery.services,
