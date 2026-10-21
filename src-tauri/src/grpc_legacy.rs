@@ -3650,6 +3650,27 @@ mod tests {
         assert_eq!(json["data"]["value"], "owned");
         assert_eq!(json["choice"], "ONE");
         assert_eq!(json["descriptorKind"], "TYPE_STRING");
+        // Same source-loader regression: namespace allocation determines
+        // whether Object.prototype names collide, unlike a blanket name ban.
+        let compile_source = |text: &str| {
+            crate::grpc_schema::compile(crate::grpc_schema::ProtoInput {
+                entry: "prototype.proto".into(),
+                files: vec![crate::grpc_schema::ProtoFile {
+                    name: "prototype.proto".into(),
+                    text: text.into(),
+                }],
+                include_paths: vec![],
+            })
+        };
+        assert!(compile_source(r#"syntax="proto3"; package owned; message constructor { string value=1; } service Calls { rpc Call(constructor) returns(constructor); }"#)
+            .unwrap().get_message_by_name("owned.constructor").is_some());
+        assert!(compile_source(
+            r#"syntax="proto3"; package owned; message Input { string constructor=1; }"#
+        )
+        .unwrap_err()
+        .contains("inherited dictionary member"));
+        assert!(compile_source(r#"syntax="proto3"; package owned; message First {} message constructor { string value=1; }"#)
+            .unwrap_err().contains("inherited dictionary member"));
         assert!(
             crate::grpc_schema::compile_mode(input(), crate::grpc_schema::JsonMode::ProtoJson)
                 .is_err()
