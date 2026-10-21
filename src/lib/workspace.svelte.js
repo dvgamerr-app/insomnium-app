@@ -1749,22 +1749,25 @@ export async function execute(
 export async function executeGrpc(requestId, discoveryOnly = false) {
   if (!acceptWorkspaceRun()) return;
   if (workspace.running[requestId]) return;
-  const request = workspace.data.resources.find(
+  const ownerData = workspace.data;
+  const request = ownerData.resources.find(
     (r) => r._id === requestId && r._type === "grpc_request",
   );
   if (!request) return;
   const runId = id("grpc"),
     controller = new AbortController();
   workspace.running[requestId] = { id: runId, controller };
+  const owns = () => workspace.data === ownerData &&
+    workspace.running[requestId]?.id === runId &&
+    ownerData.resources.find((r) => r._id === requestId) === request &&
+    request._type === "grpc_request";
   workspace.grpcErrors[requestId] = "";
   let runCompleted = false;
   /** @type {()=>void} */ let completed = () => {};
-  completions.set(
-    requestId,
-    new Promise((resolve) => {
-      completed = resolve;
-    }),
-  );
+  /** @type {Promise<void>} */ const completion = new Promise((resolve) => {
+    completed = resolve;
+  });
+  completions.set(requestId, completion);
   try {
     const data = requestDataScope($state.snapshot(workspace.data), requestId);
     const original = $state.snapshot(request);
@@ -1790,7 +1793,7 @@ export async function executeGrpc(requestId, discoveryOnly = false) {
       {pluginServices:workspacePluginServices(data,{requestId,runId},resolveResponse)},
     );
     controller.signal.throwIfAborted();
-    if (grpcContext(workspace.data, request) !== context)
+    if (!owns() || grpcContext(workspace.data, request) !== context)
       throw new Error("gRPC context changed during rendering. Start again.");
     const resolvedContext = grpcResolvedContext(data, snapshot, {
       resolved: true,
@@ -1815,7 +1818,7 @@ export async function executeGrpc(requestId, discoveryOnly = false) {
       );
       if (
         controller.signal.aborted ||
-        !workspace.data.resources.includes(request) ||
+        !owns() ||
         grpcContext(workspace.data, request) !== context
       )
         throw new Error(
@@ -1880,6 +1883,7 @@ export async function executeGrpc(requestId, discoveryOnly = false) {
         );
     controller.signal.throwIfAborted();
     if (
+      !owns() ||
       grpcContext(workspace.data, request) !== context ||
       request.protoMethodName !== original.protoMethodName
     )
@@ -1925,11 +1929,7 @@ export async function executeGrpc(requestId, discoveryOnly = false) {
       },
       controller.signal,
       (event) => {
-        if (
-          workspace.running[requestId]?.id !== runId ||
-          !workspace.data.resources.some((r) => r._id === requestId)
-        )
-          return;
+        if (!owns()) return;
         if (event.kind === "started") return;
         if (event.kind === "connected") {
           // Native has parsed and queued the single request body before opening
@@ -1961,14 +1961,14 @@ export async function executeGrpc(requestId, discoveryOnly = false) {
         }
       },
     );
+    if (!owns()) return;
     live.connectionState = "closed";
     live.elapsedMs = Date.now() - live.created;
-    if (!workspace.data.resources.some((r) => r._id === requestId)) return;
     remember(live);
     await persist();
     runCompleted = true;
   } catch (error) {
-    if (!workspace.data.resources.some((r) => r._id === requestId)) return;
+    if (!owns()) return;
     workspace.grpcErrors[requestId] = String(error);
     const response = workspace.responses[requestId];
     if (response?._id === runId) {
@@ -1981,14 +1981,15 @@ export async function executeGrpc(requestId, discoveryOnly = false) {
     const reason = new DOMException("gRPC call completed", "AbortError");
     if (runCompleted) completePluginRequest(controller, reason);
     else controller.abort(reason);
-    delete workspace.running[requestId];
-    delete workspace.grpcRuns[requestId];
+    const owned = owns();
+    if (workspace.running[requestId]?.id === runId) delete workspace.running[requestId];
+    if (workspace.grpcRuns[requestId]?.id === runId) delete workspace.grpcRuns[requestId];
     const terminal = workspace.responses[requestId];
-    if (terminal?._id === runId &&
+    if (owned && terminal?._id === runId &&
       !historyMatchesEnvironment(terminal, workspace.data.settings,
         selectedEnvironmentFor(workspace.data, workspaceFor(workspace.data.resources, requestId) || "")))
       refreshStreamResponses(requestId);
-    completions.delete(requestId);
+    if (completions.get(requestId) === completion) completions.delete(requestId);
     completed();
   }
 }
