@@ -608,11 +608,24 @@ mod tests {
             fs::read(directory.0.join(PREVIOUS_WORKSPACE_FILE)).unwrap(),
             backup
         );
-        assert_eq!(fs::read_dir(&directory.0).unwrap().count(), 2);
+        let mut files: Vec<_> = fs::read_dir(&directory.0)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name())
+            .collect();
+        files.sort();
+        assert_eq!(
+            files,
+            [
+                std::ffi::OsString::from("cookie-lifecycle-v1.json"),
+                std::ffi::OsString::from(WORKSPACE_FILE),
+                std::ffi::OsString::from(PREVIOUS_WORKSPACE_FILE),
+            ]
+        );
         assert_eq!(session.load(&directory.0).unwrap(), Some(workspace()));
 
         fs::remove_file(directory.0.join(WORKSPACE_FILE)).unwrap();
         fs::remove_file(directory.0.join(PREVIOUS_WORKSPACE_FILE)).unwrap();
+        fs::remove_file(directory.0.join("cookie-lifecycle-v1.json")).unwrap();
         let mut fresh = Session::default();
         assert_eq!(fresh.load(&directory.0).unwrap(), None);
         assert!(fresh.require_loaded().is_ok());
