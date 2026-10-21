@@ -1,7 +1,7 @@
 use crate::{
     grpc_schema::{self, JsonMode, ProtoInput, Schema},
     grpc_transport::{self, Connection, Event},
-    http::NetworkState,
+    http::{NativeWorkLease, NetworkState},
 };
 use prost_reflect::{DynamicMessage, MessageDescriptor};
 use serde::{Deserialize, Serialize};
@@ -15,14 +15,45 @@ use tokio::sync::{mpsc, Mutex as AsyncMutex};
 
 #[derive(Default)]
 pub struct GrpcState {
-    calls: Mutex<HashMap<String, Arc<AsyncMutex<Outgoing>>>>,
-    acknowledgements: Mutex<HashMap<String, mpsc::Sender<u64>>>,
+    calls: Arc<Mutex<HashMap<String, Arc<AsyncMutex<Outgoing>>>>>,
+    acknowledgements: Arc<Mutex<HashMap<String, mpsc::Sender<u64>>>>,
 }
 struct Outgoing {
     input: MessageDescriptor,
     original_input: MessageDescriptor,
     mode: JsonMode,
     sender: Option<grpc_transport::admission::Sender<DynamicMessage>>,
+}
+
+struct CallRegistration {
+    id: String,
+    calls: Arc<Mutex<HashMap<String, Arc<AsyncMutex<Outgoing>>>>>,
+    acknowledgements: Arc<Mutex<HashMap<String, mpsc::Sender<u64>>>>,
+    outgoing: Arc<AsyncMutex<Outgoing>>,
+    acknowledgement_sender: mpsc::Sender<u64>,
+    _work: NativeWorkLease,
+}
+impl Drop for CallRegistration {
+    fn drop(&mut self) {
+        let mut calls = self.calls.lock().unwrap_or_else(|error| error.into_inner());
+        if calls
+            .get(&self.id)
+            .is_some_and(|call| Arc::ptr_eq(call, &self.outgoing))
+        {
+            calls.remove(&self.id);
+        }
+        drop(calls);
+        let mut acknowledgements = self
+            .acknowledgements
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        if acknowledgements
+            .get(&self.id)
+            .is_some_and(|sender| sender.same_channel(&self.acknowledgement_sender))
+        {
+            acknowledgements.remove(&self.id);
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -253,24 +284,33 @@ pub async fn connect_grpc(
     };
     let (ack_sender, acknowledgements) = mpsc::channel(2);
     // Both maps use the same lock order; no await occurs while holding std mutexes.
-    let mut cancelled = {
+    let (registration, mut cancelled) = {
         let mut calls = state.calls.lock().map_err(|_| "gRPC state unavailable.")?;
         let mut acknowledgements = state
             .acknowledgements
             .lock()
             .map_err(|_| "gRPC acknowledgement state unavailable.")?;
-        let cancelled = network.begin(&request.id)?;
-        calls.insert(
-            request.id.clone(),
-            Arc::new(AsyncMutex::new(Outgoing {
-                input,
-                original_input,
-                sender,
-                mode: request.json_mode,
-            })),
-        );
-        acknowledgements.insert(request.id.clone(), ack_sender);
-        cancelled
+        let work = network.retain_native_work(request.id.clone())?;
+        let cancelled = work.cancellation();
+        let outgoing = Arc::new(AsyncMutex::new(Outgoing {
+            input,
+            original_input,
+            sender,
+            mode: request.json_mode,
+        }));
+        calls.insert(request.id.clone(), outgoing.clone());
+        acknowledgements.insert(request.id.clone(), ack_sender.clone());
+        (
+            CallRegistration {
+                id: request.id.clone(),
+                calls: state.calls.clone(),
+                acknowledgements: state.acknowledgements.clone(),
+                outgoing,
+                acknowledgement_sender: ack_sender,
+                _work: work,
+            },
+            cancelled,
+        )
     };
     let delivery = Arc::new(AsyncMutex::new(Delivery {
         channel: on_event,
@@ -366,20 +406,7 @@ pub async fn connect_grpc(
         }
     };
     dns_owner.drain_dns().await;
-    let calls_removed = state
-        .calls
-        .lock()
-        .map_err(|_| "gRPC state unavailable.")
-        .map(|mut calls| calls.remove(&request.id));
-    let acknowledgements_removed = state
-        .acknowledgements
-        .lock()
-        .map_err(|_| "gRPC state unavailable.")
-        .map(|mut acknowledgements| acknowledgements.remove(&request.id));
-    let finished = network.finish(&request.id);
-    calls_removed?;
-    acknowledgements_removed?;
-    finished?;
+    drop(registration);
     result
 }
 
