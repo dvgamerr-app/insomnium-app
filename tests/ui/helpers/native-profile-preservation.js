@@ -4,11 +4,28 @@ import {readdir,realpath,lstat,readFile,writeFile,unlink,mkdir} from 'node:fs/pr
 import {join,resolve} from 'node:path';
 import {selectedNativeProbeIdentifier,integrationProbeIdentifier} from './native-app.js';
 
-const owned=['workspace-v1.json','workspace-v1.previous.json','.window-state.json'];
+export const cookieLifecycleFile='cookie-lifecycle-v1.json';
+/** Validate clean product metadata before treating it as restorable profile data.
+ * @param {Uint8Array} bytes */
+export function validateCookieLifecycle(bytes){
+ assert.ok(bytes.length<=64*1024*1024,'Cookie lifecycle metadata exceeds its native budget');
+ const value=JSON.parse(Buffer.from(bytes).toString('utf8'));
+ assert.ok(value&&typeof value==='object'&&!Array.isArray(value));
+ assert.deepEqual(Object.keys(value).sort(),['owners','pending','version']);
+ assert.equal(value.version,1,'Unknown cookie lifecycle version retained');
+ assert.equal(value.pending,null,'Refuse pending cookie publication recovery');
+ assert.ok(value.owners&&typeof value.owners==='object'&&!Array.isArray(value.owners));
+ for(const [id,epoch] of Object.entries(value.owners)){
+  assert.match(id,/^[a-zA-Z0-9_-]{1,200}$/);
+  assert.ok(typeof epoch==='string'&&(epoch===''||/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(epoch)),'Invalid cookie owner epoch');
+ }
+ return value;
+}
+const owned=['workspace-v1.json','workspace-v1.previous.json','.window-state.json',cookieLifecycleFile];
 const journals=new Set(['git-transition-v1.json','git-clone-install-v1.json','insomnium-fetch-journal-v1.json','insomnium-restore-ref-locks-v1.json','insomnium-advance-ref-locks-v1.json']);
 /** Preserve an existing allowlisted probe profile around a fully awaited native
  * scenario. The callback must await native process exit before settling.
- * Only workspace files and the default window-state file may change; originals stay in RAM. Unknown
+ * Only workspace, clean lifecycle metadata and default window-state files may change; originals stay in RAM. Unknown
  * changes are refused and retained, never deleted or overwritten.
  * @template T
  * @param {(context:{profile:string,workspacePath:string})=>Promise<T>} run
@@ -27,21 +44,22 @@ export async function preserveNativeProfile(run){
     assert.equal((await realpath(path)).toLowerCase(),path.toLowerCase(),'Refuse redirected profile path: '+key);
     assert.ok(!journals.has(name),'Refuse pending profile recovery: '+key);
     if(stat.isDirectory()){rows.push({name:key,kind:'directory'});await visit(path,key+'/');}
-    else{assert.ok(stat.isFile(),'Refuse non-file profile entry: '+key);rows.push({name:key,kind:'file',sha256:createHash('sha256').update(await readFile(path)).digest('hex')});}
+    else{assert.ok(stat.isFile(),'Refuse non-file profile entry: '+key);const bytes=await readFile(path);if(key===cookieLifecycleFile)validateCookieLifecycle(bytes);rows.push({name:key,kind:'file',sha256:createHash('sha256').update(bytes).digest('hex')});}
    }
   };
   await visit(profile);return rows;
  };
  const before=await inventory(), originals=await Promise.all(owned.map(async name=>{
   const exists=before.some(row=>row.name===name&&row.kind==='file');
-  assert.ok(exists||name==='.window-state.json','Existing workspace file required: '+name);
+  assert.ok(exists||name==='.window-state.json'||name===cookieLifecycleFile,'Existing workspace file required: '+name);
   return {name,path:join(profile,name),bytes:exists?await readFile(join(profile,name)):undefined};
  }));
  let result=/** @type {T|undefined} */(undefined),failure=/** @type {unknown} */(undefined);
  try{result=await run({profile,workspacePath:join(profile,owned[0])});}catch(error){failure=error;}
  const errors=/** @type {unknown[]} */([]);
- try{const after=await inventory();assert.deepEqual(after.filter(row=>!owned.includes(row.name)),before.filter(row=>!owned.includes(row.name)),'Unowned profile contents and layout changed');}catch(error){errors.push(error);}
- for(const original of originals){try{
+ let canRestore=true;
+ try{const after=await inventory();assert.deepEqual(after.filter(row=>!owned.includes(row.name)),before.filter(row=>!owned.includes(row.name)),'Unowned profile contents and layout changed');}catch(error){errors.push(error);canRestore=false;}
+ if(canRestore)for(const original of originals){try{
   if(original.bytes===undefined){
    try{const stat=await lstat(original.path);assert.ok(stat.isFile()&&!stat.isSymbolicLink());assert.equal((await realpath(original.path)).toLowerCase(),original.path.toLowerCase());await unlink(original.path);}catch(error){if(/** @type {any} */(error).code!=='ENOENT')throw error;}
    continue;

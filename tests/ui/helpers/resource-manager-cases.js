@@ -11,6 +11,7 @@ import {
 } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { createHash } from "node:crypto";
+import { cookieLifecycleFile, validateCookieLifecycle } from "./native-profile-preservation.js";
 import { probeIdentifier, integrationProbeIdentifier, poll } from "./native-app.js";
 import {
   knownWindowsApplicationData,
@@ -102,6 +103,10 @@ export async function withResourceProbePreserved(run, options = {}) {
   };
   const originals =
     /** @type {{name:string,path:string,bytes:Buffer|null}[]} */ ([]);
+  const lifecycleReceipt = () => {
+    const original = originals.find(({name}) => name === cookieLifecycleFile);
+    return original ? {present:original.bytes !== null,sha256:original.bytes ? hash(original.bytes) : null} : null;
+  };
   let before = /** @type {Record<string,string>|null} */ (null);
   let oldIds = new Set();
   let cookiesOriginallyPresent = false;
@@ -126,15 +131,16 @@ export async function withResourceProbePreserved(run, options = {}) {
         canonical(root),
       );
     }
-    for (const name of ["workspace-v1.json", "workspace-v1.previous.json"]) {
+    for (const name of ["workspace-v1.json", "workspace-v1.previous.json", cookieLifecycleFile]) {
       const path = join(root, name);
       const present = await exists(path);
       assert.ok(
-        present || isolated,
+        present || isolated || name === cookieLifecycleFile,
         "Default profile requires both original buffers",
       );
       if (present) await regular(path);
       const bytes = present ? await readFile(path) : null;
+      if (bytes && name === cookieLifecycleFile) validateCookieLifecycle(bytes);
       originals.push({ name, path, bytes });
       if (bytes) await writeFile(join(output, "original-" + name), bytes);
     }
@@ -152,12 +158,13 @@ export async function withResourceProbePreserved(run, options = {}) {
         {
           identifier,
           root,
-          buffers: originals.map(({ name, bytes }) => ({
+          buffers: originals.filter(({name})=>name!==cookieLifecycleFile).map(({ name, bytes }) => ({
             name,
             present: bytes !== null,
             sha256: bytes ? hash(bytes) : null,
           })),
           immutable: before,
+          cookieLifecycle: lifecycleReceipt(),
         },
         null,
         2,
@@ -198,6 +205,8 @@ export async function withResourceProbePreserved(run, options = {}) {
         }
       }
       let changedData = /** @type {Record<string,any>|null} */ (null);
+      let changedLifecycle = /** @type {Record<string,any>|null} */ (null);
+      let canRestore = true;
       try {
         if (await exists(originals[0].path))
           changedData = JSON.parse(
@@ -206,14 +215,21 @@ export async function withResourceProbePreserved(run, options = {}) {
       } catch (error) {
         errors.push(error);
       }
-      for (const original of originals) {
+      try {
+        const path = join(root, cookieLifecycleFile);
+        if (await exists(path)) {
+          await regular(path);
+          changedLifecycle = validateCookieLifecycle(await readFile(path));
+        }
+      } catch (error) { errors.push(error); canRestore = false; }
+      if (canRestore) for (const original of originals) {
         try {
           if (original.bytes) {
             if (await exists(original.path)) await regular(original.path);
             await writeFile(original.path, original.bytes);
             assert.ok((await readFile(original.path)).equals(original.bytes));
           } else if (await exists(original.path)) {
-            assert.ok(isolated);
+            assert.ok(isolated || original.name === cookieLifecycleFile);
             await regular(original.path);
             await unlink(original.path);
           }
@@ -221,7 +237,7 @@ export async function withResourceProbePreserved(run, options = {}) {
           errors.push(error);
         }
       }
-      try {
+      if (canRestore) try {
         const after = await immutable();
         for (const [name, sha] of Object.entries(after)) {
           if (name in before) {
@@ -233,8 +249,11 @@ export async function withResourceProbePreserved(run, options = {}) {
             continue;
           }
           const match =
-            /^cookies\/(wrk_[a-zA-Z0-9_-]+)(?:\.previous)?\.json$/.exec(name);
+            /^cookies\/(wrk_[a-zA-Z0-9_-]+)(?:\.([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}))?(?:\.previous)?\.json$/.exec(name);
           const id = match?.[1];
+          const epoch = match?.[2];
+          if (epoch) assert.ok(changedLifecycle && Object.hasOwn(changedLifecycle.owners,id ?? '') && changedLifecycle.owners[id ?? ''] === epoch,
+            "Unknown cookie namespace retained: " + name);
           const collection = changedData?.resources?.find(
             (/** @type {Record<string,any>} */ item) =>
               item._id === id && item._type === "workspace",
@@ -296,13 +315,14 @@ export async function withResourceProbePreserved(run, options = {}) {
           passed: errors.length === 0,
           identifier,
           root,
-          buffers: originals.map(({ name, bytes }) => ({
+          buffers: originals.filter(({name})=>name!==cookieLifecycleFile).map(({ name, bytes }) => ({
             name,
             present: bytes !== null,
             sha256: bytes ? hash(bytes) : null,
           })),
           immutable: before,
           registered: [...owned],
+          cookieLifecycle: lifecycleReceipt(),
           cleanup,
           errors: errors.map(String),
         },
