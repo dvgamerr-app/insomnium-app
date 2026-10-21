@@ -11,10 +11,10 @@ const forbiddenHeaders=new Set('accept-charset accept-encoding access-control-re
 export const generatedCodeLimit=32*1024*1024;
 /** Shared prepared bytes and explicit headers for standard HTTP adapters.
  * @param {CodeRequest} request */
-function preparedCodeParts(request,client='Python http.client',allowSocket=false){
-  if(request.asap||request.aws||request.oauth1||request.hawk||request.nativeAuth?.digest)
+function preparedCodeParts(request,client='Python http.client',allowSocket=false,allowNegotiated=false){
+  if(request.asap||request.aws||request.oauth1||request.hawk||request.nativeAuth?.digest&&!allowNegotiated)
     throw Error('Choose Node.js / Native to generate this authentication.');
-  if(request.nativeAuth)throw Error('Choose Shell / cURL to generate code for NTLM or netrc authentication.');
+  if(request.nativeAuth&&!allowNegotiated)throw Error('Choose Shell / cURL to generate code for NTLM or netrc authentication.');
   if(request.socketPath&&!allowSocket)throw Error('Choose Node.js / Native to generate code for a socket request.');
   if(request.method.toUpperCase()==='CONNECT')throw Error('CONNECT requires a tunnel adapter.');
   const url=new URL(request.url);
@@ -27,7 +27,8 @@ function preparedCodeParts(request,client='Python http.client',allowSocket=false
     for(let offset=0;offset<bytes.length;offset+=8192)text+=String.fromCharCode(...bytes.subarray(offset,offset+8192));
     return btoa(text);
   };
-  if((url.username||url.password)&&!hasHeader('authorization')){
+  const negotiated=allowNegotiated&&(request.nativeAuth?.digest||request.nativeAuth?.ntlm||request.nativeAuth?.netrc);
+  if((url.username||url.password)&&!hasHeader('authorization')&&!negotiated){
     const decode=(/** @type {string} */ value)=>decodeURIComponent(value.replace(/%(?![0-9a-f]{2})/gi,'%25'));
     try{headers.push(['Authorization','Basic '+encode(new TextEncoder().encode(decode(url.username)+':'+decode(url.password)))]);}
     catch{throw Error('URL credentials must contain valid UTF-8 for '+client+' code export.');}
@@ -102,11 +103,29 @@ export function goNativeCode(request){
 }
 /** PHP single-quoted strings do not interpolate request-controlled dollar signs.
  * @param {string} value */
-function phpLiteral(value){return "'"+value.replace(/\\/g,'\\\\').replace(/'/g,"\\'")+"'";}
+function phpLiteral(value){
+  if(value.includes('\0')||/[\uD800-\uDFFF]/u.test(value))
+    throw Error('PHP cURL option strings must contain valid Unicode and no NUL.');
+  return "'"+value.replace(/\\/g,'\\\\').replace(/'/g,"\\'")+"'";
+}
 /** ext-curl accepts a byte string; passing a field array would rebuild MIME.
  * @param {CodeRequest} request */
 export function phpCurlCode(request){
-  const {url,headers,hasHeader,hasBody,encoded}=preparedCodeParts(request,'PHP cURL',true);
+  const {url,headers,hasHeader,hasBody,encoded}=preparedCodeParts(request,'PHP cURL',true,true);
+  const auth=hasHeader('authorization')?null:request.nativeAuth;
+  /** @type {string[]} */ const authOptions=[];
+  const credentials=auth?.digest||auth?.ntlm;
+  if(credentials){
+    let username=credentials.username;
+    if(!username)throw Error('cURL requires an explicit username to avoid automatic OS authentication.');
+    if(!auth?.digest&&auth?.ntlm){
+      if(auth.ntlm.workstation)throw Error('cURL cannot set the explicit NTLM workstation. Clear it or use the native sender.');
+      if(auth.ntlm.domain)username=auth.ntlm.domain+'\\'+username;
+      authOptions.push('        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,');
+    }
+    authOptions.push(`        CURLOPT_HTTPAUTH => ${auth?.digest?'CURLAUTH_DIGEST':'CURLAUTH_NTLM'},`,
+      `        CURLOPT_USERNAME => ${phpLiteral(username)},`,`        CURLOPT_PASSWORD => ${phpLiteral(credentials.password)},`);
+  }else if(auth?.netrc)authOptions.push('        CURLOPT_NETRC => CURL_NETRC_OPTIONAL,');
   if(!/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(request.method))
     throw Error('PHP cURL requires a valid HTTP method token.');
   if(request.method==='HEAD'&&hasBody)throw Error('Choose Node.js / Native to generate HEAD with a body.');
@@ -114,18 +133,20 @@ export function phpCurlCode(request){
     throw Error('PHP Unix socket path must contain valid Unicode and no NUL.');
   if(headers.filter(([name])=>name.toLowerCase()==='host').length>1)
     throw Error('PHP cURL cannot preserve duplicate Host headers. Choose Node.js / Native.');
-  url.username='';url.password='';url.hash='';
+  // Optional netrc uses URL credentials as libcurl's documented preference.
+  if(!auth?.netrc||credentials){url.username='';url.password='';}
+  url.hash='';
   const rawHeaders=headers.map(([name,value])=>name+(value===''?';':': '+value));
   for(const name of ['Accept','Expect'])if(!hasHeader(name.toLowerCase()))rawHeaders.push(name+':');
   if(hasBody&&!hasHeader('content-type'))rawHeaders.push('Content-Type:');
-  const lines=['<?php',`$body = base64_decode(${phpLiteral(encoded)}, true);`,
+  const lines=['<?php',...(auth?.digest?['// cURL cannot handle Digest auth-int for PUT/POST. Choose Node.js / Native or use the native sender.']:[]),`$body = base64_decode(${phpLiteral(encoded)}, true);`,
     "if ($body === false) { throw new RuntimeException('Invalid prepared body.'); }",
     '$curl = curl_init();',"if ($curl === false) { throw new RuntimeException('Unable to initialize cURL.'); }",'try {',
     '    $options = [',`        CURLOPT_URL => ${phpLiteral(url.href)},`,
     `        CURLOPT_CUSTOMREQUEST => ${phpLiteral(request.method)},`,
     '        CURLOPT_RETURNTRANSFER => true,','        CURLOPT_FOLLOWLOCATION => false,',
     "        CURLOPT_PROXY => '',",'        CURLOPT_PATH_AS_IS => true,','        CURLOPT_HTTP_CONTENT_DECODING => false,',
-    '        CURLOPT_HTTPHEADER => [',...rawHeaders.map(row=>'            '+phpLiteral(row)+','),'        ],'];
+    ...authOptions,'        CURLOPT_HTTPHEADER => [',...rawHeaders.map(row=>'            '+phpLiteral(row)+','),'        ],'];
   if(hasBody)lines.push('        CURLOPT_POSTFIELDS => $body,');
   if(request.method==='HEAD')lines.push('        CURLOPT_NOBODY => true,');
   if(request.socketPath)lines.push(`        CURLOPT_UNIX_SOCKET_PATH => ${phpLiteral(request.socketPath)},`);
