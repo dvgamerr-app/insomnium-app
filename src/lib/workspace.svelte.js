@@ -2173,6 +2173,7 @@ export async function replaceGrpcProtos(
   const ownerRequest = ownerData.resources.find(
     (r) => r._id === requestId && r._type === "grpc_request",
   );
+  const ownerTarget = ownerData.resources.find((r) => r._id === targetId);
   const resources = $state.snapshot(ownerData.resources);
   const collectionId = workspaceFor(resources, requestId);
   const request = resources.find(
@@ -2197,6 +2198,7 @@ export async function replaceGrpcProtos(
       workspace.data !== ownerData ||
       workspace.running[requestId]?.id !== runId ||
       workspace.data.resources.find((r) => r._id === requestId) !== ownerRequest ||
+      workspace.data.resources.find((r) => r._id === targetId) !== ownerTarget ||
       ownerRequest?._type !== "grpc_request" ||
       grpcJsonMode(ownerRequest) !== jsonMode ||
       workspaceFor(workspace.data.resources, requestId) !== collectionId ||

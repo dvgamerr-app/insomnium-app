@@ -32,14 +32,24 @@
     disposed = true;
     fileWork.dispose();
   });
-  /** @type {{input:HTMLInputElement,data:typeof app.data,collectionId:string,requestId:string,version:number}|null} */
+  /** @type {{input:HTMLInputElement,data:typeof app.data,collectionId:string,request:Record<string,any>,requestId:string,version:number}|null} */
   let pickerOwner = null;
-  /** @type {typeof app.data|null} */ let pendingData = null;
-  let pendingRequest = "";
+  /** @type {{data:typeof app.data,request:Record<string,any>,collectionId:string|null,targetId:string,target:Record<string,any>|undefined}|null} */
+  let pendingOwner = null;
+  function pendingCurrent() {
+    return pendingOwner && pendingOwner.data === app.data &&
+      pendingOwner.request === request &&
+      app.data.activeRequestId === request._id &&
+      app.data.activeWorkspaceId === pendingOwner.collectionId &&
+      app.data.resources.find(r=>r._id===request._id) === request &&
+      pendingOwner.collectionId === collectionId && pendingOwner.targetId === targetId &&
+      (!targetId || (pendingOwner.target &&
+        app.data.resources.find(r=>r._id===targetId) === pendingOwner.target));
+  }
   /** @type {{issue:Readonly<import('../grpc-model.js').ProtoFilenameIssue>,message:string,data:typeof app.data,requestId:string,version:number}|null} */
   let filenameOwner = $state.raw(null);
   function currentFilenameOwner() {
-    return filenameOwner && !disposed && filenameOwner.data === app.data &&
+    return filenameOwner && !disposed && pendingCurrent() && filenameOwner.data === app.data &&
       filenameOwner.requestId === request._id && filenameOwner.version === epoch
       ? filenameOwner : null;
   }
@@ -104,7 +114,7 @@
     pickerOwner = null;
     filenameOwner = null;
     fileWork.cancel();
-    pendingData = null;
+    pendingOwner = null;
     epoch++;
     pending = [];
     targetId = "";
@@ -115,7 +125,8 @@
     await tick();
     if (restore && owner && !disposed && epoch === cancelledVersion &&
       owner.data === app.data && owner.collectionId === app.data.activeWorkspaceId &&
-      owner.requestId === request._id &&
+      owner.request === request && app.data.resources.find(r=>r._id===owner.requestId) === owner.request &&
+      workspaceFor(app.data.resources, owner.requestId) === owner.collectionId &&
       owner.input.isConnected && !owner.input.disabled &&
       document.activeElement === document.body) {
       owner.input.focus({ preventScroll: true });
@@ -132,15 +143,21 @@
     fileWork.cancel();
     const selectedRequest = request._id, ownerRequest = request, ownerData = app.data;
     const workspaceId = app.data.activeWorkspaceId;
+    const selectedCollection = workspaceFor(ownerData.resources, selectedRequest);
+    const selectedTarget = ownerData.resources.find(r=>r._id===selectedId);
     const current = () => !disposed && version === epoch && request === ownerRequest &&
       app.data === ownerData && app.data.activeWorkspaceId === workspaceId &&
-      app.data.activeRequestId === selectedRequest;
-    pickerOwner = { input, data: app.data, collectionId: app.data.activeWorkspaceId, requestId: selectedRequest, version };
+      app.data.activeRequestId === selectedRequest &&
+      app.data.resources.find(r=>r._id===selectedRequest) === ownerRequest &&
+      workspaceFor(app.data.resources, selectedRequest) === selectedCollection &&
+      (!selectedId || (selectedTarget && app.data.resources.find(r=>r._id===selectedId) === selectedTarget));
+    pickerOwner = { input, data: app.data, collectionId: app.data.activeWorkspaceId, request: ownerRequest, requestId: selectedRequest, version };
     /** @type {import("../workspace.svelte.js").ScopedWorkspaceWork|undefined} */ let work;
     reading = true;
     filenameOwner = null;
     error = "";
     notice = "";
+    pendingOwner = null;
     pending = [];
     targetId = selectedId;
     try {
@@ -195,8 +212,8 @@
         current() && work.current()
       ) {
         pending = result;
-        pendingData = app.data;
-        pendingRequest = selectedRequest;
+        pendingOwner = { data: ownerData, request: ownerRequest, collectionId: selectedCollection,
+          targetId: selectedId, target: selectedTarget };
       }
     } catch (e) {
       if (current() && (!work || work.current())) error = String(e);
@@ -217,7 +234,7 @@
       version === epoch && feedbackRevision === revision;
     const submitted = pending.map((item) => ({ ...item }));
     try {
-      if (pendingData !== app.data || pendingRequest !== request._id)
+      if (!pendingCurrent())
         throw new Error(
           "Workspace or request changed. Select the proto files again.",
         );
@@ -239,6 +256,7 @@
         notice = "Proto files imported.";
       }
       pending = [];
+      pendingOwner = null;
       targetId = "";
       if (current()) void executeGrpc(requestId, true);
     } catch (e) {
