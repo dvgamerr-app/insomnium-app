@@ -3,12 +3,14 @@ use super::{Owner, Pool};
 use std::{
     collections::BTreeMap,
     net::SocketAddr,
-    sync::{Arc, Mutex, OnceLock},
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc, Mutex, OnceLock,
+    },
     time::Duration,
 };
 use tonic::transport::Endpoint;
 
-#[derive(Clone)]
 pub(crate) struct SubchannelCache(Arc<CacheOwner>);
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct Scope {
@@ -27,6 +29,7 @@ fn registry() -> &'static Mutex<BTreeMap<Scope, Arc<CacheOwner>>> {
 struct CacheOwner {
     endpoint: Endpoint,
     scope: Scope,
+    factories: AtomicUsize,
     state: Mutex<State>,
 }
 #[derive(Default)]
@@ -57,25 +60,28 @@ impl SubchannelCache {
             credentials: (endpoint.uri().scheme_str() == Some("https")).then(uuid::Uuid::new_v4),
         };
         let mut registry = registry().lock().unwrap_or_else(|error| error.into_inner());
-        Self(
-            registry
-                .entry(scope.clone())
-                .or_insert_with(|| {
-                    Arc::new(CacheOwner {
-                        endpoint,
-                        scope,
-                        state: Mutex::default(),
-                    })
+        let owner = registry
+            .entry(scope.clone())
+            .or_insert_with(|| {
+                Arc::new(CacheOwner {
+                    endpoint,
+                    scope,
+                    factories: AtomicUsize::new(0),
+                    state: Mutex::default(),
                 })
-                .clone(),
-        )
+            })
+            .clone();
+        // Admission and pruning share the registry lock. Temporary cleanup
+        // references do not count as live logical channel factories.
+        owner.factories.fetch_add(1, Ordering::Relaxed);
+        Self(owner)
     }
     fn prune(owner: &Arc<CacheOwner>) {
         // Registry -> cache is the only nested lock order. A concurrent lookup
         // clones under this registry lock, so an owner still held by a logical
         // channel cannot be removed between lookup and get_or_create.
         let mut registry = registry().lock().unwrap_or_else(|error| error.into_inner());
-        if Arc::strong_count(owner) == 2
+        if owner.factories.load(Ordering::Acquire) == 0
             && registry
                 .get(&owner.scope)
                 .is_some_and(|entry| Arc::ptr_eq(entry, owner))
@@ -163,10 +169,18 @@ impl SubchannelCache {
         pool
     }
 }
+impl Clone for SubchannelCache {
+    fn clone(&self) -> Self {
+        self.0.factories.fetch_add(1, Ordering::Relaxed);
+        Self(self.0.clone())
+    }
+}
 impl Drop for SubchannelCache {
     fn drop(&mut self) {
         // Empty factories need no timer. Nonempty factories stay in the global
         // registry until their existing periodic reference check removes them.
-        Self::prune(&self.0);
+        if self.0.factories.fetch_sub(1, Ordering::AcqRel) == 1 {
+            Self::prune(&self.0);
+        }
     }
 }
