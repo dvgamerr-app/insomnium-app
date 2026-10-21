@@ -95,19 +95,30 @@ export function prepareProtoChange(resources, collectionId, targetId, files) {
   const changes = new Map();
   const now = Date.now();
   const candidate = resources.map((r) => ({ ...r }));
+  const originalIds = new Set(resources.map((r) => r._id));
+  /** @type {Map<string,Map<string,number[]>>} */
+  const siblings = new Map();
+  const remember = (/** @type {number} */ index) => {
+    const row = candidate[index];
+    if (!isProto(row)) return;
+    let names = siblings.get(row.parentId);
+    if (!names) siblings.set(row.parentId, names = new Map());
+    let positions = names.get(row.name);
+    if (!positions) names.set(row.name, positions = []);
+    positions.push(index);
+  };
+  candidate.forEach((_, index) => remember(index));
   const lookup = (/** @type {string} */ parent, /** @type {string} */ name) => {
-    const matches = candidate.filter(
-      (r) => isProto(r) && r.parentId === parent && r.name === name,
-    );
-    if (matches.length > 1)
+    const positions = siblings.get(parent)?.get(name);
+    if (positions && positions.length > 1)
       throw new Error(`Ambiguous saved proto name: ${name}`);
-    return matches[0];
+    return positions?.[0] ?? -1;
   };
   if (target._type === "proto_file") {
     if (files.length !== 1 || files[0].name.includes("/"))
       throw new Error("Replace a proto file with one .proto file.");
     const file = files[0],
-      collision = lookup(target.parentId, file.name);
+      collision = candidate[lookup(target.parentId, file.name)];
     if (collision && collision._id !== targetId)
       throw new Error(`Proto name already exists: ${file.name}`);
     const changed = {
@@ -125,7 +136,7 @@ export function prepareProtoChange(resources, collectionId, targetId, files) {
       for (let i = 0; i < parts.length; i++) {
         const name = parts[i],
           leaf = i === parts.length - 1;
-        const found = lookup(parent, name),
+        const position = lookup(parent, name), found = candidate[position],
           type = leaf ? "proto_file" : "proto_directory";
         if (found && found._type !== type)
           throw new Error(`File/directory collision: ${file.name}`);
@@ -140,8 +151,11 @@ export function prepareProtoChange(resources, collectionId, targetId, files) {
         };
         if (leaf || !found) {
           changes.set(changed._id, changed);
-          if (found) candidate[candidate.indexOf(found)] = changed;
-          else candidate.push(changed);
+          if (found) candidate[position] = changed;
+          else {
+            candidate.push(changed);
+            remember(candidate.length - 1);
+          }
         }
         parent = changed._id;
       }
@@ -161,10 +175,10 @@ export function prepareProtoChange(resources, collectionId, targetId, files) {
     changes: [...changes.values()],
     validations,
     updated: [...changes.keys()].filter((key) =>
-      resources.some((r) => r._id === key),
+      originalIds.has(key),
     ).length,
     added: [...changes.keys()].filter(
-      (key) => !resources.some((r) => r._id === key),
+      (key) => !originalIds.has(key),
     ).length,
   };
 }
