@@ -420,10 +420,22 @@ export function grpcMethodGroups(methods) {
   return [...groups.values()];
 }
 
+// Presentation preferences cannot change rendered gRPC inputs or its connection.
+// Retain unknown settings conservatively, including plugin/dependency options.
+const presentationSettings = new Set([
+  "windowZoom", "forceVerticalLayout", "theme", "autoDetectColorScheme", "lightTheme", "darkTheme",
+  "editorFontSize", "fontInterface", "fontMonospace", "fontSize", "fontVariantLigatures",
+  "useBulkHeaderEditor", "useBulkParametersEditor", "editorIndentSize", "editorIndentWithTabs",
+  "editorKeyMap", "editorLineWrapping", "showVariableSourceAndValue", "showPasswords",
+  "disableResponsePreviewLinks", "autocompleteDelay",
+]);
 /** Raw identity for reactive UI/stale checks; does not execute templates or body edits.
  * @param {ReturnType<import('./model.js').initialData>} data @param {Resource} request */
 export function grpcSourceContext(data, request) {
   const scope = requestDataScope(data, request._id);
+  const settings = /** @type {Record<string,any>} */ (scope.settings || {});
+  const contextSettings = Object.fromEntries(Object.keys(settings)
+    .filter(key=>!presentationSettings.has(key)).map(key=>[key,settings[key]]));
   const source = {
     _id: request._id,
     parentId: request.parentId,
@@ -456,7 +468,7 @@ export function grpcSourceContext(data, request) {
         JSON.stringify([
           source,
           scope.activeEnvironmentId,
-          scope.settings,
+          contextSettings,
           resources,
         ]),
       ),
