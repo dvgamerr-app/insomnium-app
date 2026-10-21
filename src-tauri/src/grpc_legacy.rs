@@ -2034,6 +2034,11 @@ mod tests {
                 text: r#"syntax="proto2"; enum E { A=3; B=7; }
                     message Empty {} message Nonempty { optional string s=1; }
                     message Refusal { required Nonempty child=1; }
+                    message RequiredChild { required string s=1; }
+                    message RequiredParent { optional RequiredChild child=1;
+                        repeated RequiredChild children=2;
+                        map<string,RequiredChild> entries=3;
+                        optional group G=4 { required string s=1; } }
                     message M { required E e=1 [default=B];
                         required bytes b=2 [default="Zh=="]; optional E opt=3;
                         required Empty empty=4; optional bytes o=5 [default="Zm9="];
@@ -2049,6 +2054,22 @@ mod tests {
         })
         .unwrap();
         let snapshot = pool.encode_to_vec();
+        let response =
+            legacy_descriptor(pool.get_message_by_name("RequiredParent").unwrap()).unwrap();
+        let required = crate::grpc_schema::validate_legacy_required;
+        assert!(required(&response, &[]).is_ok());
+        assert!(required(&response, b"\x0a\x02\x0a\x00").is_ok());
+        for wire in [
+            b"\x0a\x00".as_slice(),
+            b"\x0a\x00\x0a\x02\x0a\x00",
+            b"\x12\x00",
+            b"\x1a\x04\x0a\x00\x12\x00",
+            b"\x23\x24",
+        ] {
+            assert!(required(&response, wire)
+                .unwrap_err()
+                .contains("missing required 's'"));
+        }
         // The pinned source parser drops unknown escape letters, unlike protoc.
         // Exercise the serialized descriptor path used by discovery and calls.
         let decoded_pool = DescriptorPool::decode(snapshot.as_slice()).unwrap();

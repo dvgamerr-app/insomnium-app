@@ -812,9 +812,10 @@ pub(crate) fn json_mode(
 #[derive(Clone)]
 pub(crate) struct DynamicCodec {
     pub output: MessageDescriptor,
+    pub legacy: bool,
 }
 pub(crate) struct DynamicEncoder;
-pub(crate) struct DynamicDecoder(MessageDescriptor);
+pub(crate) struct DynamicDecoder(MessageDescriptor, bool);
 impl tonic::codec::Codec for DynamicCodec {
     type Encode = DynamicMessage;
     type Decode = DynamicMessage;
@@ -824,7 +825,7 @@ impl tonic::codec::Codec for DynamicCodec {
         DynamicEncoder
     }
     fn decoder(&mut self) -> Self::Decoder {
-        DynamicDecoder(self.output.clone())
+        DynamicDecoder(self.output.clone(), self.legacy)
     }
 }
 impl tonic::codec::Encoder for DynamicEncoder {
@@ -851,7 +852,14 @@ impl tonic::codec::Decoder for DynamicDecoder {
         &mut self,
         src: &mut tonic::codec::DecodeBuf<'_>,
     ) -> Result<Option<Self::Item>, Self::Error> {
-        DynamicMessage::decode(self.0.clone(), src)
+        use prost::bytes::Buf;
+        let bytes = src.copy_to_bytes(src.remaining());
+        if self.1 {
+            validate_legacy_required(&self.0, &bytes).map_err(|error| {
+                tonic::Status::internal(format!("Response message parsing error: {error}"))
+            })?;
+        }
+        DynamicMessage::decode(self.0.clone(), bytes)
             .map(Some)
             .map_err(|_| {
                 tonic::Status::internal(
@@ -859,4 +867,80 @@ impl tonic::codec::Decoder for DynamicDecoder {
                 )
             })
     }
+}
+
+// protobuf.js checks required presence on each decoded message occurrence,
+// before singular children are overwritten or map entries replace one another.
+// A final DynamicMessage tree cannot recover that occurrence information.
+pub(crate) fn validate_legacy_required(
+    desc: &MessageDescriptor,
+    mut bytes: &[u8],
+) -> Result<(), String> {
+    fn scan(
+        desc: &MessageDescriptor,
+        bytes: &mut &[u8],
+        group: Option<u32>,
+        depth: usize,
+    ) -> Result<(), String> {
+        use prost::encoding::{decode_key, decode_varint, skip_field, DecodeContext, WireType};
+        use prost_reflect::{Cardinality, Kind};
+        if depth > 64 {
+            return Err("gRPC message nesting exceeds 64 levels.".into());
+        }
+        let mut required: HashMap<u32, String> = desc
+            .fields()
+            .filter(|field| field.cardinality() == Cardinality::Required)
+            .map(|field| (field.number(), field.name().to_owned()))
+            .chain(
+                desc.extensions()
+                    .filter(|field| field.cardinality() == Cardinality::Required)
+                    .map(|field| (field.number(), field.full_name().to_owned())),
+            )
+            .collect();
+        let mut ended = false;
+        while !bytes.is_empty() {
+            let (tag, wire) = decode_key(bytes).map_err(|error| error.to_string())?;
+            if wire == WireType::EndGroup {
+                if group != Some(tag) {
+                    return Err("Unexpected protobuf end group.".into());
+                }
+                ended = true;
+                break;
+            }
+            required.remove(&tag);
+            let kind = desc
+                .get_field(tag)
+                .map(|field| (field.kind(), field.is_group()))
+                .or_else(|| {
+                    desc.get_extension(tag)
+                        .map(|field| (field.kind(), field.is_group()))
+                });
+            match kind {
+                Some((Kind::Message(child), false)) if wire == WireType::LengthDelimited => {
+                    let length = decode_varint(bytes).map_err(|error| error.to_string())?;
+                    let length =
+                        usize::try_from(length).map_err(|_| "Invalid protobuf message length.")?;
+                    if length > bytes.len() {
+                        return Err("Truncated protobuf message.".into());
+                    }
+                    let (mut nested, rest) = bytes.split_at(length);
+                    scan(&child, &mut nested, None, depth + 1)?;
+                    *bytes = rest;
+                }
+                Some((Kind::Message(child), true)) if wire == WireType::StartGroup => {
+                    scan(&child, bytes, Some(tag), depth + 1)?;
+                }
+                _ => skip_field(wire, tag, bytes, DecodeContext::default())
+                    .map_err(|error| error.to_string())?,
+            }
+        }
+        if group.is_some() && !ended {
+            return Err("Unterminated protobuf group.".into());
+        }
+        if let Some((_, name)) = required.into_iter().min_by_key(|(tag, _)| *tag) {
+            return Err(format!("missing required '{name}' in {}", desc.full_name()));
+        }
+        Ok(())
+    }
+    scan(desc, &mut bytes, None, 0)
 }
