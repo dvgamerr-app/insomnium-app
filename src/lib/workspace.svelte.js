@@ -1757,10 +1757,10 @@ export async function executeGrpc(requestId, discoveryOnly = false) {
   const runId = id("grpc"),
     controller = new AbortController();
   workspace.running[requestId] = { id: runId, controller };
-  const owns = () => workspace.data === ownerData &&
-    workspace.running[requestId]?.id === runId &&
+  const ownsRequest = () => workspace.data === ownerData &&
     ownerData.resources.find((r) => r._id === requestId) === request &&
     request._type === "grpc_request";
+  const owns = () => ownsRequest() && workspace.running[requestId]?.id === runId;
   workspace.grpcErrors[requestId] = "";
   let runCompleted = false;
   /** @type {()=>void} */ let completed = () => {};
@@ -1800,6 +1800,7 @@ export async function executeGrpc(requestId, discoveryOnly = false) {
     });
     workspace.grpcRuns[requestId] = {
       id: runId,
+      ownsRequest,
       context,
       discoveryOnly,
       phase: "schema",
@@ -2007,8 +2008,13 @@ export async function sendGrpc(requestId, finish = false) {
     run.senderClosed
   )
     return;
-  const request = workspace.data.resources.find((r) => r._id === requestId);
+  const ownerData = workspace.data;
+  const request = ownerData.resources.find((r) => r._id === requestId);
   if (!request) return;
+  const ownsRequest = () => workspace.data === ownerData &&
+    ownerData.resources.find((r) => r._id === requestId) === request &&
+    run.ownsRequest?.() === true;
+  if (!ownsRequest() || running.id !== run.id) return;
   const operationId = id("grpc-message");
   /** @type {()=>void} */ let completed = () => {};
   completions.set(
@@ -2023,6 +2029,7 @@ export async function sendGrpc(requestId, finish = false) {
     running.controller.signal.throwIfAborted();
     const latest = workspace.data.resources.find((r) => r._id === requestId);
     if (
+      !ownsRequest() ||
       !latest ||
       workspace.running[requestId]?.id !== running.id ||
       workspace.grpcRuns[requestId]?.id !== run.id ||
@@ -2074,6 +2081,7 @@ export async function sendGrpc(requestId, finish = false) {
     current();
     const response = workspace.responses[requestId];
     await sendGrpcMessage(running.id, text, finish);
+    if (!ownsRequest()) return;
     if (finish) run.senderClosed = true;
     else if (
       workspace.responses[requestId] === response ||
@@ -2089,7 +2097,9 @@ export async function sendGrpc(requestId, finish = false) {
     }
   } catch (error) {
     if (
+      ownsRequest() &&
       workspace.running[requestId]?.id === running.id &&
+      workspace.grpcRuns[requestId] === run &&
       run.phase !== "completed"
     )
       workspace.grpcErrors[requestId] = String(error);
