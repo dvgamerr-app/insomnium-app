@@ -27,6 +27,7 @@ import {
   postmanHeaders,
   postmanDescription,
   postmanScriptsActive,
+  postmanAuthAttributes,
 } from "./postman-import.js";
 
 const localGitFields = [
@@ -288,12 +289,8 @@ export function parseImport(text,options = {}) {
           const selectedAuth = req.auth || inheritedAuth;
           if (selectedAuth?.type && selectedAuth.type !== "noauth")
             authentication = {
+              ...postmanAuthAttributes(selectedAuth[selectedAuth.type], source.info.schema),
               type: selectedAuth.type,
-              ...Object.fromEntries(
-                (selectedAuth[selectedAuth.type] || []).map(
-                  (/** @type {any} */ a) => [a.key, a.value],
-                ),
-              ),
             };
           if (authentication.type === "apikey")
             authentication.addTo =
@@ -349,7 +346,7 @@ export function parseImport(text,options = {}) {
               authentication,
               headers: postmanHeaders(req.header),
               description: postmanDescription(req.description),
-              body: postmanBody(req.body),
+              body: postmanBody(req.body,source.info.schema),
               _postmanSource: item,
               _migrationIssues:
                 inheritedScripts || postmanScriptsActive(item.event)

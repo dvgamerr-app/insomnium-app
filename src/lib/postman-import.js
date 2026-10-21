@@ -4,6 +4,30 @@ const disabled = (value) => {
   if (typeof value !== 'boolean') throw new Error('Postman disabled flags must be booleans.');
   return value;
 };
+/** @param {unknown} schema */
+const version20 = (schema) => typeof schema === 'string' && /(?:^|\/)v2\.0\.0(?:\/|$)/.test(schema);
+/** v2.0 archived exports used enabled; current schemas use disabled.
+ * @param {any} field @param {unknown} schema */
+function formDisabled(field,schema){
+  if(version20(schema)&&!Object.hasOwn(field,'disabled')&&Object.hasOwn(field,'enabled')){
+    if(typeof field.enabled!=='boolean')throw new Error('Postman enabled flags must be booleans.');
+    return !field.enabled;
+  }
+  return disabled(field.disabled);
+}
+/** v2.0 auth attributes are objects; v2.1 uses key/value records.
+ * @param {any} attributes @param {unknown} schema
+ * @returns {Record<string,any>} */
+export function postmanAuthAttributes(attributes,schema){
+  if(attributes == null)return {};
+  if(Array.isArray(attributes)){
+    if(attributes.some(row=>!row||typeof row!=='object'||Array.isArray(row)||typeof row.key!=='string'))
+      throw new Error('Postman authentication attributes must be key/value records.');
+    return Object.fromEntries(attributes.map(row=>[row.key,row.value]));
+  }
+  if(version20(schema)&&typeof attributes==='object')return structuredClone(attributes);
+  throw new Error('Postman authentication attributes must be a v2.0 object or v2.1 key/value array.');
+}
 /** @param {any} value */
 const decode = (value) => {
   try {
@@ -54,8 +78,8 @@ export function postmanUrl(source) {
   };
 }
 
-/** @param {any} source */
-export function postmanBody(source) {
+/** @param {any} source @param {unknown} [schema] */
+export function postmanBody(source,schema) {
   const body = source || {};
   const mode = disabled(body.disabled) ? "" : body.mode;
   if (mode && !["raw","urlencoded","formdata","graphql","file"].includes(mode))
@@ -96,7 +120,7 @@ export function postmanBody(source) {
         return files.map((/** @type {any} */ fileName) => ({
           name: p.key,
           value: p.value ?? "",
-          disabled: disabled(p.disabled),
+          disabled: formDisabled(p,schema),
           type: p.type,
           fileName: typeof fileName === "string" ? fileName : "",
           contentType: p.contentType || "",
@@ -133,6 +157,7 @@ export function postmanHeaders(headers = []) {
     name: h.key,
     value: h.value,
     disabled: disabled(h.disabled),
+    ...(Object.hasOwn(h,'description')?{description:structuredClone(h.description)}:{}),
   }));
 }
 /** Postman v2.1 descriptions may be text, a content object, or null.
