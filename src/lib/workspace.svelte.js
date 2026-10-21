@@ -1772,6 +1772,16 @@ export async function executeGrpc(requestId, discoveryOnly = false) {
     const data = requestDataScope($state.snapshot(workspace.data), requestId);
     const original = $state.snapshot(request);
     const context = grpcContext(data, original);
+    // Watch the owner while asynchronous template/plugin rendering is pending too.
+    workspace.grpcRuns[requestId] = {
+      id: runId,
+      ownsRequest,
+      context,
+      discoveryOnly,
+      phase: "schema",
+      sending: false,
+      senderClosed: false,
+    };
     /** @type {ReturnType<typeof createResponseTemplateResolver>} */
     const resolveResponse = createResponseTemplateResolver(
       data.resources,
@@ -1798,15 +1808,6 @@ export async function executeGrpc(requestId, discoveryOnly = false) {
     const resolvedContext = grpcResolvedContext(data, snapshot, {
       resolved: true,
     });
-    workspace.grpcRuns[requestId] = {
-      id: runId,
-      ownsRequest,
-      context,
-      discoveryOnly,
-      phase: "schema",
-      sending: false,
-      senderClosed: false,
-    };
     let cached = workspace.grpcSchemas[requestId];
     if (
       discoveryOnly ||
@@ -2121,7 +2122,7 @@ export async function sendGrpc(requestId, finish = false) {
     completed();
   }
 }
-/** Called from the page effect; endpoint/proto/environment changes close stale calls. */
+/** Called from the page effect; owner/context changes close stale calls. */
 export function cancelChangedGrpcCalls() {
   for (const [requestId, run] of Object.entries(workspace.grpcRuns)) {
     const request = workspace.data.resources.find((r) => r._id === requestId);
@@ -2129,6 +2130,7 @@ export function cancelChangedGrpcCalls() {
     try {
       changed =
         changed ||
+        run.ownsRequest?.() !== true ||
         (!!run.method && request?.protoMethodName !== run.sourceMethodName) ||
         grpcContext(
           workspace.data,
@@ -2137,7 +2139,8 @@ export function cancelChangedGrpcCalls() {
     } catch {
       changed = true;
     }
-    if (changed && !workspace.running[requestId]?.controller.signal.aborted)
+    if (changed && workspace.running[requestId]?.id === run.id &&
+      !workspace.running[requestId]?.controller.signal.aborted)
       void stop(requestId);
   }
 }
