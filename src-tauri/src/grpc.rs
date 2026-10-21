@@ -87,7 +87,7 @@ pub async fn load_grpc_schema(
                 if work.cancelled() {
                     return Err("gRPC schema lookup cancelled.".into());
                 }
-                let pool = grpc_schema::compile(input)?;
+                let pool = grpc_schema::compile_mode(input, mode)?;
                 grpc_schema::describe(&pool, mode)
             }),
             None => {

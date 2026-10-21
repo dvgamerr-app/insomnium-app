@@ -46,21 +46,144 @@ pub struct ProtoInput {
 struct MemoryFiles {
     files: HashMap<String, String>,
     includes: Vec<String>,
+    legacy: bool,
 }
 impl FileResolver for MemoryFiles {
     fn open_file(&self, name: &str) -> Result<File, protox::Error> {
         if valid_name(name) {
+            if self.legacy {
+                if let Some(bundled) = self.bundled(name) {
+                    return GoogleFileResolver::new().open_file(bundled);
+                }
+            }
             if let Some(text) = self.files.get(name) {
-                return File::from_source(name, text);
+                return self.source(name, text);
             }
             for include in &self.includes {
                 if let Some(text) = self.files.get(&format!("{include}/{name}")) {
-                    return File::from_source(name, text);
+                    return self.source(name, text);
                 }
             }
-            return GoogleFileResolver::new().open_file(name);
+            if !self.legacy {
+                return GoogleFileResolver::new().open_file(name);
+            }
         }
         Err(protox::Error::file_not_found(name))
+    }
+}
+
+// protobuf.js Root.load selects common definitions by the last matching suffix,
+// before fetching an entry or resolving an import. compiler/plugin is not common.
+fn bundled_name(name: &str) -> Option<&'static str> {
+    let name = &name[name.rfind("google/protobuf/")?..];
+    [
+        "google/protobuf/any.proto",
+        "google/protobuf/api.proto",
+        "google/protobuf/descriptor.proto",
+        "google/protobuf/duration.proto",
+        "google/protobuf/empty.proto",
+        "google/protobuf/field_mask.proto",
+        "google/protobuf/source_context.proto",
+        "google/protobuf/struct.proto",
+        "google/protobuf/timestamp.proto",
+        "google/protobuf/type.proto",
+        "google/protobuf/wrappers.proto",
+    ]
+    .into_iter()
+    .find(|candidate| *candidate == name)
+}
+
+impl MemoryFiles {
+    fn bundled(&self, name: &str) -> Option<&'static str> {
+        if let Some(name) = bundled_name(name) {
+            return Some(name);
+        }
+        if self.files.contains_key(name) {
+            return None;
+        }
+        for include in &self.includes {
+            let candidate = format!("{include}/{name}");
+            if self.files.contains_key(&candidate) {
+                return bundled_name(&candidate);
+            }
+        }
+        None
+    }
+
+    fn source(&self, name: &str, text: &str) -> Result<File, protox::Error> {
+        let file = File::from_source(name, text)?;
+        if !self.legacy {
+            return Ok(file);
+        }
+        let original = file.file_descriptor_proto();
+        let mut dependencies = Vec::new();
+        let mut indices = HashMap::new();
+        let mut remap = Vec::new();
+        let mut strong = std::collections::HashSet::new();
+        let weak_imports: std::collections::HashSet<_> =
+            original.weak_dependency.iter().copied().collect();
+        for (index, dependency) in original.dependency.iter().enumerate() {
+            let dependency = self.bundled(dependency).unwrap_or(dependency);
+            let next = dependencies.len() as i32;
+            let mapped = *indices.entry(dependency).or_insert_with(|| {
+                dependencies.push(dependency.to_owned());
+                next
+            });
+            remap.push(mapped);
+            if !weak_imports.contains(&(index as i32)) {
+                strong.insert(mapped);
+            }
+        }
+        if dependencies == original.dependency {
+            return Ok(file);
+        }
+        // Aliases can collapse imports. Remap public/weak indices and their
+        // source locations as well; a strong occurrence wins over a weak one.
+        let reindex = |old: &[i32], weak: bool| {
+            let mut result = Vec::new();
+            let mut positions = HashMap::new();
+            let positions: Vec<Option<i32>> = old
+                .iter()
+                .map(|index| {
+                    let index = remap[*index as usize];
+                    if weak && strong.contains(&index) {
+                        return None;
+                    }
+                    Some(*positions.entry(index).or_insert_with(|| {
+                        result.push(index);
+                        (result.len() - 1) as i32
+                    }))
+                })
+                .collect();
+            (result, positions)
+        };
+        let (public, public_positions) = reindex(&original.public_dependency, false);
+        let (weak, weak_positions) = reindex(&original.weak_dependency, true);
+        let mut descriptor = original.clone();
+        descriptor.dependency = dependencies;
+        descriptor.public_dependency = public;
+        descriptor.weak_dependency = weak;
+        if let Some(info) = &mut descriptor.source_code_info {
+            info.location.retain_mut(|location| {
+                if location.path.len() < 2 {
+                    return true;
+                }
+                let old = location.path[1] as usize;
+                let mapped = match location.path[0] {
+                    3 => remap.get(old).copied(),
+                    10 => public_positions.get(old).copied().flatten(),
+                    11 => weak_positions.get(old).copied().flatten(),
+                    _ => return true,
+                };
+                if let Some(mapped) = mapped {
+                    location.path[1] = mapped;
+                    true
+                } else {
+                    false
+                }
+            });
+        }
+        Ok(File::from_file_descriptor_proto(descriptor))
     }
 }
 
@@ -71,7 +194,12 @@ fn valid_name(name: &str) -> bool {
         && name.split('/').all(|part| !matches!(part, "" | "." | ".."))
 }
 
+#[cfg(test)]
 pub(crate) fn compile(input: ProtoInput) -> Result<DescriptorPool, String> {
+    compile_mode(input, JsonMode::Legacy)
+}
+
+pub(crate) fn compile_mode(input: ProtoInput, mode: JsonMode) -> Result<DescriptorPool, String> {
     if !valid_name(&input.entry)
         || input.files.is_empty()
         || input.files.len() > 256
@@ -95,18 +223,31 @@ pub(crate) fn compile(input: ProtoInput) -> Result<DescriptorPool, String> {
             return Err("Duplicate proto file name.".into());
         }
     }
-    let mut compiler = protox::Compiler::with_file_resolver(MemoryFiles {
+    let legacy = matches!(mode, JsonMode::Legacy);
+    let resolver = MemoryFiles {
         files: files.clone(),
         includes: input.include_paths.clone(),
-    });
+        legacy,
+    };
+    let entry = if legacy {
+        resolver.bundled(&input.entry).unwrap_or(&input.entry)
+    } else {
+        &input.entry
+    };
+    let mut compiler = protox::Compiler::with_file_resolver(resolver);
     compiler
         .include_imports(true)
         .include_source_info(false)
-        .open_file(input.entry)
+        .open_file(entry)
         .map_err(|e| e.to_string())?;
     let pool = compiler.descriptor_pool();
     if pool.encode_to_vec().len() > MAX_SCHEMA {
         return Err("Compiled descriptors exceed 8 MiB.".into());
+    }
+    if legacy {
+        // Ignored common-file text must not supply lexical defaults for the
+        // bundled descriptors during the later annotation pass.
+        files.retain(|name, _| bundled_name(name).is_none());
     }
     crate::grpc_defaults::annotate(pool, &files, &input.include_paths)
 }

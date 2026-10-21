@@ -3407,6 +3407,81 @@ mod tests {
             );
         }
         assert_eq!(pool.encode_to_vec(), snapshot);
+
+        // The same common file reached through prefix/include aliases is loaded
+        // once, ahead of owned source, while ordinary namesakes above stay owned.
+        let input = || crate::grpc_schema::ProtoInput {
+            entry: "alias.proto".into(),
+            files: vec![
+                crate::grpc_schema::ProtoFile {
+                    name: "alias.proto".into(),
+                    text: r#"syntax="proto2"; package ownedalias;
+                        import weak "a/google/protobuf/source_context.proto";
+                        import public "b/google/protobuf/source_context.proto";
+                        import "source_context.proto";
+                        import "google/protobuf/descriptor.proto";
+                        extend google.protobuf.FieldOptions { optional string note=50001; }
+                        message Request {
+                            optional string spelling=1 [default="\x41", (note)="owned"];
+                            optional google.protobuf.SourceContext source=2;
+                        }"#
+                    .into(),
+                },
+                crate::grpc_schema::ProtoFile {
+                    name: "includes/google/protobuf/source_context.proto".into(),
+                    text: "invalid owned source must be ignored in Legacy".into(),
+                },
+            ],
+            include_paths: vec!["includes/google/protobuf".into()],
+        };
+        let pool = crate::grpc_schema::compile(input()).unwrap();
+        let file = pool.get_file_by_name("alias.proto").unwrap();
+        let descriptor = file.file_descriptor_proto();
+        assert_eq!(
+            descriptor.dependency,
+            [
+                "google/protobuf/source_context.proto",
+                "google/protobuf/descriptor.proto"
+            ]
+        );
+        assert_eq!(descriptor.public_dependency, [0]);
+        assert!(descriptor.weak_dependency.is_empty());
+        let message = pool.get_message_by_name("ownedalias.Request").unwrap();
+        let options = message.get_field_by_name("spelling").unwrap().options();
+        let extension = pool.get_extension_by_name("ownedalias.note").unwrap();
+        assert_eq!(
+            options.get_extension(&extension).as_ref(),
+            &Value::String("owned".into())
+        );
+        let parsed = crate::grpc_schema::parse_mode(
+            message.clone(),
+            r#"{"source":{"fileName":"owned.proto"}}"#,
+            crate::grpc_schema::JsonMode::Legacy,
+        )
+        .unwrap();
+        assert_eq!(parsed.encode_to_vec(), b"\x12\x0d\x0a\x0bowned.proto");
+        let json =
+            crate::grpc_schema::json_mode(&parsed, crate::grpc_schema::JsonMode::Legacy, message)
+                .unwrap();
+        let json: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(json["spelling"], "41");
+        assert_eq!(json["source"]["fileName"], "owned.proto");
+        assert!(
+            crate::grpc_schema::compile_mode(input(), crate::grpc_schema::JsonMode::ProtoJson)
+                .is_err()
+        );
+        let mut entry = input();
+        entry.entry = "includes/google/protobuf/source_context.proto".into();
+        assert!(crate::grpc_schema::compile(entry)
+            .unwrap()
+            .get_file_by_name("google/protobuf/source_context.proto")
+            .is_some());
+        let mut entry = input();
+        entry.entry = "includes/google/protobuf/source_context.proto".into();
+        assert!(
+            crate::grpc_schema::compile_mode(entry, crate::grpc_schema::JsonMode::ProtoJson)
+                .is_err()
+        );
     }
 
     fn assert_any_target_wire(label: &str) {
