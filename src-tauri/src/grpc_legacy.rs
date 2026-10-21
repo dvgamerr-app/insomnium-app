@@ -920,13 +920,20 @@ fn legacy_field_default(
 }
 
 pub(crate) fn field_name(field: &FieldDescriptor) -> &str {
-    // Only the bundled Struct JSON uses these aliases. A namesake declared in
-    // an ordinary source file still goes through keepCase parsing.
-    if field.parent_message().full_name() == "google.protobuf.Value"
-        && field
-            .parent_file()
-            .name()
-            .ends_with("google/protobuf/struct.proto")
+    // Root.load adds these bundled JSON definitions without keepCase parsing.
+    // Any is deliberately absent: its bundled field is named type_url.
+    // Ordinary source files (including WKT namesakes) still use keepCase.
+    let file = field.parent_file();
+    if file.package_name() == "google.protobuf"
+        && [
+            "google/protobuf/struct.proto",
+            "google/protobuf/api.proto",
+            "google/protobuf/descriptor.proto",
+            "google/protobuf/source_context.proto",
+            "google/protobuf/type.proto",
+        ]
+        .iter()
+        .any(|name| file.name().ends_with(name))
     {
         field.json_name()
     } else {

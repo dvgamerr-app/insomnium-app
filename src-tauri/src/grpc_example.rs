@@ -49,7 +49,7 @@ fn request_shape(value: &mut Value, kind: Kind, depth: usize) -> Result<(), Stri
         }
         Kind::Message(desc) => {
             for field in desc.fields() {
-                let Some(child) = value.get_mut(field.name()) else {
+                let Some(child) = value.get_mut(crate::grpc_legacy::field_name(&field)) else {
                     continue;
                 };
                 if field.is_map() {
