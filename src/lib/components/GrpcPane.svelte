@@ -96,6 +96,14 @@
     }
   });
   const methodGroups = $derived(grpcMethodGroups(schema?.methods || []));
+  const resolvedProtoName = $derived.by(() => {
+    const cached = app.grpcSchemas[request._id];
+    if (!schema || !cached || cached.sourceProtoFileId !== request.protoFileId)
+      return null;
+    return cached.resolvedProtoFileId
+      ? files.find((file) => file.id === cached.resolvedProtoFileId)?.name ?? null
+      : "Server reflection";
+  });
   const methodPath = $derived.by(() => {
     const cached = app.grpcSchemas[request._id];
     return cached && cached.sourceMethodName === request.protoMethodName
@@ -305,7 +313,9 @@
         value={item.id}>{item.name}</option
       >{/each}
     {#if request.protoFileId && !files.some((f) => f.id === request.protoFileId)}<option
-        value={request.protoFileId}>Missing saved proto file</option
+        value={request.protoFileId}>{resolvedProtoName
+          ? `${request.protoFileId} → ${resolvedProtoName}`
+          : "Missing saved proto file"}</option
       >{/if}
   </Select>
   <Button
@@ -348,7 +358,8 @@
     {/each}
     {#if request.protoMethodName && !schema?.methods.some((/** @type {Record<string,any>} */ m) => m.path === request.protoMethodName)}<option
         value={request.protoMethodName}
-        >{request.protoMethodName} (load schema)</option
+        >{method ? `${request.protoMethodName} → ${method.path}`
+          : `${request.protoMethodName} (load schema)`}</option
       >{/if}
   </Select>
   {#if method}<span class="muted">{grpcMethodType(method)}</span>{/if}

@@ -1847,6 +1847,8 @@ export async function executeGrpc(requestId, discoveryOnly = false) {
     }
     cached.sourceMethodName = original.protoMethodName;
     cached.resolvedMethodName = snapshot.protoMethodName;
+    cached.sourceProtoFileId = original.protoFileId;
+    cached.resolvedProtoFileId = snapshot.protoFileId;
     if (discoveryOnly) {runCompleted = true;return;}
     if (controller.signal.aborted) throw new Error("gRPC call cancelled.");
     const method = cached.schema.methods.find(
