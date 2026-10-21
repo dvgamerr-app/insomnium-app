@@ -482,7 +482,7 @@ impl AnyLookup {
 
 enum SourceDeclaration<'a> {
     Message(&'a prost_types::DescriptorProto),
-    Enumeration,
+    Enumeration(&'a prost_types::EnumDescriptorProto),
     Service(&'a prost_types::ServiceDescriptorProto),
     Extension,
 }
@@ -530,7 +530,7 @@ fn source_message<'a>(
         items.push(SourceItem {
             name: qualified(&name, child.name()),
             path: [path.as_slice(), &[4, index as i32]].concat(),
-            declaration: SourceDeclaration::Enumeration,
+            declaration: SourceDeclaration::Enumeration(child),
         });
     }
     for (index, child) in message.extension.iter().enumerate() {
@@ -561,14 +561,63 @@ struct SourceLookup {
     cache: HashMap<(usize, String, u8), Option<usize>>,
 }
 impl SourceLookup {
-    fn new(files: &[prost_types::FileDescriptorProto]) -> Self {
+    fn check_name(&self, parent: usize, name: &str) -> Result<(), String> {
+        let node = &self.graph.nodes[parent];
+        if !node.members.contains_key(name) && node.inherited_dictionary() && inherited_name(name) {
+            return Err(format!(
+                "Duplicate protobuf name '{name}' in '{}': inherited dictionary member.",
+                node.name
+            ));
+        }
+        Ok(())
+    }
+
+    fn scope(&mut self, full: &str) -> Result<usize, String> {
+        if full.is_empty() {
+            return Ok(0);
+        }
+        let mut parent = 0;
+        let mut path = String::new();
+        for name in full.split('.') {
+            path = qualified(&path, name);
+            if let Some(index) = self.graph.nodes[parent].members.get(name).copied() {
+                if !self.graph.nodes[index].namespace() {
+                    return Err(format!(
+                        "Protobuf namespace '{path}' conflicts with a non-namespace declaration."
+                    ));
+                }
+                parent = index;
+            } else {
+                self.check_name(parent, name)?;
+                parent = self
+                    .graph
+                    .insert(parent, name, &path, Kind::Namespace, true);
+            }
+        }
+        Ok(parent)
+    }
+
+    fn declaration(&mut self, full: &str, kind: Kind) -> Result<usize, String> {
+        let (scope, name) = full.rsplit_once('.').unwrap_or(("", full));
+        let parent = self.scope(scope)?;
+        self.check_name(parent, name)?;
+        Ok(self.graph.add(full, kind, true))
+    }
+
+    fn member(&mut self, parent: usize, name: &str, full: &str) -> Result<(), String> {
+        self.check_name(parent, name)?;
+        self.graph.add_member(parent, name, full);
+        Ok(())
+    }
+
+    fn new(files: &[prost_types::FileDescriptorProto]) -> Result<Self, String> {
         let mut result = Self {
             graph: AnyLookup::empty(),
             enums: HashSet::new(),
             cache: HashMap::new(),
         };
         for file in files {
-            result.graph.scope(file.package());
+            result.scope(file.package())?;
             let mut items = Vec::new();
             for (index, message) in file.message_type.iter().enumerate() {
                 source_message(&mut items, file.package(), message, vec![4, index as i32]);
@@ -577,7 +626,7 @@ impl SourceLookup {
                 items.push(SourceItem {
                     name: qualified(file.package(), enumeration.name()),
                     path: vec![5, index as i32],
-                    declaration: SourceDeclaration::Enumeration,
+                    declaration: SourceDeclaration::Enumeration(enumeration),
                 });
             }
             for (index, service) in file.service.iter().enumerate() {
@@ -614,7 +663,7 @@ impl SourceLookup {
             for item in items {
                 match item.declaration {
                     SourceDeclaration::Message(message) => {
-                        let parent = result.graph.add(&item.name, Kind::Message, true);
+                        let parent = result.declaration(&item.name, Kind::Message)?;
                         for field in &message.field {
                             let name = if crate::grpc_legacy::common_field_names(
                                 file.name(),
@@ -627,41 +676,48 @@ impl SourceLookup {
                             } else {
                                 field.name().to_owned()
                             };
-                            result.graph.add_member(
-                                parent,
-                                &name,
-                                &qualified(&item.name, field.name()),
-                            );
+                            result.member(parent, &name, &qualified(&item.name, field.name()))?;
                         }
                         for oneof in &message.oneof_decl {
-                            result.graph.add_member(
+                            result.member(
                                 parent,
                                 oneof.name(),
                                 &qualified(&item.name, oneof.name()),
-                            );
+                            )?;
                         }
                     }
-                    SourceDeclaration::Enumeration => {
+                    SourceDeclaration::Enumeration(enumeration) => {
+                        // Enum.add (source parsing) checks inherited values;
+                        // Enum.fromJSON directly assigns the common JSON values.
+                        if file.source_code_info.is_some() {
+                            if let Some(value) = enumeration
+                                .value
+                                .iter()
+                                .find(|value| inherited_name(value.name()))
+                            {
+                                return Err(format!("Duplicate protobuf enum value '{}' in '{}': inherited dictionary member.", value.name(), item.name));
+                            }
+                        }
                         result.enums.insert(item.name.clone());
-                        result.graph.add(&item.name, Kind::Other, true);
+                        result.declaration(&item.name, Kind::Other)?;
                     }
                     SourceDeclaration::Service(service) => {
-                        let parent = result.graph.add(&item.name, Kind::Service, true);
+                        let parent = result.declaration(&item.name, Kind::Service)?;
                         for method in &service.method {
-                            result.graph.add_member(
+                            result.member(
                                 parent,
                                 method.name(),
                                 &qualified(&item.name, method.name()),
-                            );
+                            )?;
                         }
                     }
                     SourceDeclaration::Extension => {
-                        result.graph.add(&item.name, Kind::Other, true);
+                        result.declaration(&item.name, Kind::Other)?;
                     }
                 }
             }
         }
-        result
+        Ok(result)
     }
 
     // 0 is unfiltered (extension extendee); 1 is lookupType; 2 is lookupTypeOrEnum.
@@ -755,7 +811,7 @@ impl SourceLookup {
 pub(crate) fn resolve_source_types(
     files: &mut [prost_types::FileDescriptorProto],
 ) -> Result<(), String> {
-    let mut lookup = SourceLookup::new(files);
+    let mut lookup = SourceLookup::new(files)?;
     for file in files {
         let package = file.package().to_owned();
         for message in &mut file.message_type {
