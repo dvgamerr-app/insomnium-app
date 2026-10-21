@@ -105,7 +105,7 @@ export async function runProtoComponentMeasurement(){
         const beforeRelease=await snap();
         await settled(token,reject);
         await picker().waitFor({state:"attached"});
-        const after=await snap();assert.deepEqual(after.data.resources,baseline.data.resources,"Owned read may not mutate saved resources");assert.deepEqual(after.data.history,baseline.data.history);
+        const after=await snap();assert.deepEqual(after.data.resources,beforeRelease.data.resources,"Owned read may not mutate saved resources after navigation");assert.deepEqual(after.data.history,beforeRelease.data.history);
         assert.equal(after.persisted,beforeRelease.persisted,"Read settlement does not save; actual request navigation may persist");
         if(kind==="owned-current-rejection"){
           const feedback=panel.getByRole("alert");await feedback.waitFor();const actual=await feedback.innerText();assert.equal(actual,"Error: Owned File.text rejection "+token);
@@ -132,9 +132,10 @@ export async function runProtoComponentMeasurement(){
         const focus=await page.evaluate(()=>({id:document.activeElement?.id,tag:document.activeElement?.tagName,text:document.activeElement?.textContent}));
         assert.notEqual(focus.id,inputId,"Retired/disabled/new-owner operation must not restore old picker");
         if(retirement==="elsewhere")assert.equal(focus.text,"Select request A");
+        const beforeRelease=await snap();
         await settled(token,true);
         if(retirement==="new-operation"){assert.equal(await panel.getByRole("button",{name:"Cancel",exact:true}).count(),1);await settled(token+"-next",false);await panel.getByRole("textbox",{name:"Proto path 1",exact:true}).waitFor();assert.equal(await panel.getByRole("textbox",{name:"Proto path 1",exact:true}).inputValue(),"next.proto");}
-        const after=await snap();assert.deepEqual(after.data.resources,baseline.data.resources);assert.deepEqual(after.data.history,baseline.data.history);
+        const after=await snap();assert.deepEqual(after.data.resources,beforeRelease.data.resources);assert.deepEqual(after.data.history,beforeRelease.data.history);
         await record({theme,width,kind:"cancel-focus-retirement",retirement,focus,scriptedSameTask:true,oldPickerNotFocused:true,resourcesUnchanged:true});
       }
       await measureProtoPendingFields({page,panel,picker,reset,snap,record,failures,source,theme,width});

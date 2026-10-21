@@ -48,10 +48,10 @@ export async function measureProtoPendingFields({page,panel,picker,reset,snap,re
   await record({theme,width,kind:"pending-correction-preserves-unrelated-global",globalMessage,noSave:true});
   for(const retirement of ["data","request","tab","selection"]){
     before=await preview();await field(1).fill("../retired.proto");await refuse("Error: Invalid or duplicate proto filename: ../retired.proto");
-    await page.evaluate(async (/** @type {string} */ retirement)=>{const host=/** @type {any} */(window);if(retirement==="data")await host.__protoMeasurement.replaceData();else if(retirement==="request"){await host.__protoMeasurement.select("req_proto_measure_b");await host.__protoMeasurement.switchTab(true);}else if(retirement==="tab"){await host.__protoMeasurement.switchTab(false);await host.__protoMeasurement.switchTab(true);}},retirement);
+    const retired=await page.evaluate(async (/** @type {string} */ retirement)=>{const host=/** @type {any} */(window);if(retirement==="data")await host.__protoMeasurement.replaceData();else if(retirement==="request"){await host.__protoMeasurement.select("req_proto_measure_b");await host.__protoMeasurement.switchTab(true);}else if(retirement==="tab"){await host.__protoMeasurement.switchTab(false);await host.__protoMeasurement.switchTab(true);}return host.__protoMeasurement.snapshot();},retirement);
     if(retirement==="selection"){await picker().setInputFiles({name:"fresh.proto",mimeType:"text/plain",buffer:Buffer.from(source)});await field(1).waitFor();assert.equal(await field(1).inputValue(),"fresh.proto");}
     assert.equal(await alert().count(),0);if(retirement==="data"||retirement==="selection")assert.equal((await association(1)).invalid,null);
-    const after=await snap();assert.deepEqual(after.data.resources,before.data.resources);assert.deepEqual(after.data.history,before.data.history);
+    const after=await snap();assert.deepEqual(after.data.resources,retired.data.resources);assert.deepEqual(after.data.history,retired.data.history);
     await record({theme,width,kind:"pending-owner-retired",retirement,resourcesUnchanged:true});
   }
   before=await preview();const longName="../"+"a".repeat(900)+".proto";await field(1).fill(longName);await refuse("Error: Invalid or duplicate proto filename: "+longName);await unchanged(before);
