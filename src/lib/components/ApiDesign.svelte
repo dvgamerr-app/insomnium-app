@@ -270,14 +270,23 @@
     selectedId = resource._id;
     return persist();
   }
+  let fileActionRevision = 0;
+  function captureFileContext() {
+    const data = workspace.data, collection = workspaceId, document = spec, snapshot = input;
+    return () => !disposed && workspace.data === data && workspaceId === collection &&
+      workspace.data.activeWorkspaceId === collection && spec === document && input === snapshot;
+  }
   async function loadFile(
     /** @type {Event & { currentTarget: HTMLInputElement }} */ event,
     reference = false,
   ) {
     const files = Array.from(event.currentTarget.files || []);
     event.currentTarget.value = "";
+    if (!files.length) return;
+    const revision = ++fileActionRevision;
+    let ownsContext = captureFileContext();
+    const current = () => revision === fileActionRevision && ownsContext();
     const target = spec;
-    const snapshot = input;
     /** @type {ReturnType<typeof beginWorkspaceWork>|undefined} */ let work;
     try {
       work = beginWorkspaceWork();
@@ -291,14 +300,8 @@
         loaded.push({ name: file.name, contents: await file.text() });
         work.signal.throwIfAborted();
       }
-      if (
-        disposed ||
-        workspace.data.activeWorkspaceId !== workspaceId ||
-        input !== snapshot
-      )
-        throw new Error(
-          "Document or collection changed while reading files. Open them again.",
-        );
+      if (!current()) return;
+      let saved;
       if (reference) {
         const combined = [...(target.files || []), ...loaded];
         if (
@@ -307,11 +310,14 @@
             8 * 1024 * 1024
         )
           throw new Error("Reference files exceed 32 files or 8 MiB.");
-        await update(target._id, { files: combined });
-      } else if (loaded[0]) await create(loaded[0].contents, loaded[0].name);
-      error = "";
+        saved = update(target._id, { files: combined });
+      } else if (loaded[0]) saved = create(loaded[0].contents, loaded[0].name);
+      // Synchronous publication changes this action's own document context.
+      ownsContext = captureFileContext();
+      await saved;
+      if (current()) error = "";
     } catch (e) {
-      if (!disposed) error = String(e);
+      if (current()) error = String(e);
     } finally {
       if (work) {
         fileWork.delete(work);
@@ -569,8 +575,11 @@
   async function loadExamples(event) {
     if (!spec || busy || loadingExamples || disposed) return;
     const target = spec;
-    const snapshot = input;
     const selected = Array.from(event?.currentTarget.files || []);
+    if (event && !selected.length) return;
+    const revision = ++fileActionRevision;
+    let ownsContext = captureFileContext();
+    const current = () => revision === fileActionRevision && ownsContext();
     let work;
     let runId = "";
     const abort = () => {
@@ -627,19 +636,16 @@
         });
       }
       work.signal.throwIfAborted();
-      if (
-        disposed ||
-        workspace.data.activeWorkspaceId !== workspaceId ||
-        input !== snapshot
-      )
-        throw new Error(
-          "Document or collection changed while loading examples. Load them again.",
-        );
-      await update(target._id, { exampleFiles: addExampleAssets(target, loaded) });
-      error = "";
-      notice = `${loaded.length} example file(s) loaded. Check the document again.`;
+      if (!current()) return;
+      const saved = update(target._id, { exampleFiles: addExampleAssets(target, loaded) });
+      ownsContext = captureFileContext();
+      await saved;
+      if (current()) {
+        error = "";
+        notice = `${loaded.length} example file(s) loaded. Check the document again.`;
+      }
     } catch (e) {
-      if (!disposed)
+      if (current())
         error = work?.signal.aborted ? "Example loading cancelled." : String(e);
     } finally {
       if (work) {
@@ -647,8 +653,10 @@
         fileWork.delete(work);
         work.finish();
       }
-      loadingExamples = false;
-      exampleWork = null;
+      if (exampleWork === work) {
+        loadingExamples = false;
+        exampleWork = null;
+      }
     }
   }
 </script>
