@@ -150,6 +150,25 @@ pub(super) fn admit(root: &Path, id: &str) -> Result<(PathBuf, String), String> 
     }
     Ok((path(root, id, epoch), format!("{id}:{epoch}")))
 }
+/// Export may represent an authored, not-yet-saved collection with no native jar.
+/// Validate storage and recovery first; corruption is never an empty snapshot.
+pub(super) fn missing_owner(root: &Path, id: &str) -> Result<bool, String> {
+    let primary = crate::storage::primary_bytes(root)?;
+    let state = load(root, primary.as_deref())?;
+    if primary.is_none() && !state.owners.is_empty() {
+        return Err("Saved workspace is missing but cookie owners remain. Recover storage before exporting cookies.".into());
+    }
+    let data = primary
+        .as_deref()
+        .map(crate::storage::decoded_workspace)
+        .transpose()?;
+    let missing = !data
+        .as_ref()
+        .into_iter()
+        .flat_map(collections)
+        .any(|owner| owner == id);
+    Ok(missing)
+}
 pub(super) fn publish(
     root: &Path,
     data: &Value,

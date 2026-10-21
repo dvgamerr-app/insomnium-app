@@ -356,11 +356,38 @@ pub async fn snapshot_request_cookies(
     network: tauri::State<'_, NetworkState>,
     workspace_id: String,
     include_expired: Option<bool>,
+    allow_missing_owner: Option<bool>,
 ) -> Result<CookieSnapshot, String> {
     if window.label() != "main" {
         return Err("Request cookies are only available in the main window".into());
     }
     let work = cookie_work(&network)?;
+    if allow_missing_owner == Some(true) {
+        if !lifecycle::valid_id(&workspace_id) {
+            return Err("Invalid collection ID for cookie storage".into());
+        }
+        let root = app.path().app_data_dir().map_err(|e| e.to_string())?;
+        let owner = workspace_id.clone();
+        let registry = state.0.clone();
+        let probe_work = work.clone();
+        let missing = tauri::async_runtime::spawn_blocking(move || {
+            let _work = probe_work;
+            let _guard = registry.lock().map_err(|e| e.to_string())?;
+            if _work.cancelled() {
+                return Err("Cookie export cancelled.".into());
+            }
+            lifecycle::missing_owner(&root, &owner)
+        })
+        .await
+        .map_err(|e| e.to_string())??;
+        if missing {
+            return Ok(CookieSnapshot {
+                generation: 0,
+                jar_id: String::new(),
+                cookies: Vec::new(),
+            });
+        }
+    }
     let jar = state.jar(&app, workspace_id, work.clone()).await?;
     let data = jar.inner.lock().map_err(|e| e.to_string())?;
     jar.ensure_active()?;

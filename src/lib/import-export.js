@@ -721,7 +721,7 @@ export async function exportData(data, signal = new AbortController().signal) {
     sourceResources = [...data.resources];
     for (const collection of data.resources.filter(resource => resource._type === "workspace")) {
       const snapshot = await invokeCookie("snapshot_request_cookies", {
-        workspaceId: collection._id, includeExpired: true,
+        workspaceId: collection._id, includeExpired: true, allowMissingOwner: true,
       }, signal);
       signal.throwIfAborted();
       const jar = pluginCookieJarView(sourceResources, collection._id,

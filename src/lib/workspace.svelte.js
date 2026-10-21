@@ -2798,7 +2798,7 @@ function workspacePluginServices(data, owner, resolveResponse, chain = [owner.re
         selection.usedWorkspaces.has(item._id));
       for(const collection of collections){
         check(signal);
-        const cookies=await invokeCookie('snapshot_request_cookies',{workspaceId:collection._id,includeExpired:true},signal);
+        const cookies=await invokeCookie('snapshot_request_cookies',{workspaceId:collection._id,includeExpired:true,allowMissingOwner:true},signal);
         check(signal);
         const jarId=await pluginCookieJarId(collection._id);
         check(signal);
