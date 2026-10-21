@@ -197,6 +197,7 @@ export function protoRemoval(resources, collectionId, targetId) {
       pending.push(resource._id);
     }
   }
+  const owners = indexWorkspaces(resources);
   return {
     target,
     ids,
@@ -205,6 +206,13 @@ export function protoRemoval(resources, collectionId, targetId) {
     requests: resources.filter(
       (r) => r._type === "grpc_request" && ids.has(r.protoFileId),
     ),
+    // Review dynamic selectors without executing prompt/plugin/response tags.
+    templatedRequests: resources.filter((r) => {
+      if (r._type !== "grpc_request" || owners.get(r._id) !== collectionId ||
+        typeof r.protoFileId !== "string") return false;
+      return [["{{", "}}"], ["{%", "%}"], ["{#", "#}"]]
+        .some(([open, close]) => r.protoFileId.includes(open) && r.protoFileId.includes(close));
+    }),
   };
 }
 

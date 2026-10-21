@@ -433,12 +433,16 @@
       Remove {removal.target.name} and {removal.files} proto {removal.files ===
       1
         ? "file"
-        : "files"}? {removal.requests.length} requests reference these files and will
+        : "files"}? {removal.requests.length} requests directly reference these files and will
       need another selection.
     </p>
     {#if removal.requests.length}<ul>
         {#each removal.requests as affected}<li>{affected.name}</li>{/each}
       </ul>{/if}
+    {#if removal.templatedRequests.length}
+      <p>{removal.templatedRequests.length} requests use templated proto sources and may also be affected. Review their source selections.</p>
+      <ul>{#each removal.templatedRequests as affected}<li>{affected.name}</li>{/each}</ul>
+    {/if}
     <Button variant="ghost" disabled={running} onclick={remove}
       >Confirm remove</Button
     ><Button variant="ghost" onclick={() => (deleting = "")}>Keep files</Button>
