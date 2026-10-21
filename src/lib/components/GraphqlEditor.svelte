@@ -89,10 +89,12 @@
   export async function focusSchemaFilter() {
     if (!schema || disposed) return false;
     const owner = request._id;
+    const ownerEntry = entry, ownerContext = context;
     rememberNavigation();
     view = "Schema";
     await tick();
-    if (disposed || request._id !== owner || !schemaSearch?.isConnected) return false;
+    if (disposed || request._id !== owner || entry !== ownerEntry ||
+        context !== ownerContext || view !== "Schema" || !schemaSearch?.isConnected) return false;
     schemaSearch.focus();
     schemaSearch.select();
     return true;
@@ -103,9 +105,13 @@
     const restoreFocus = document.activeElement === button;
     const previous=navigation.at(-1);
     if(!previous)return;
+    const owner = request._id, ownerEntry = entry, ownerContext = context;
     navigation=navigation.slice(0,-1);
+    const ownerNavigation = navigation;
     view=previous.view;search=previous.search;selectedType=previous.type;selectedDirective=previous.directive;selectedMember=previous.member;
     await tick();
+    if (disposed || request._id !== owner || entry !== ownerEntry ||
+        context !== ownerContext || navigation !== ownerNavigation || view !== previous.view) return;
     if (restoreFocus && !button.isConnected && document.activeElement === document.body) {
       schemaSearch?.focus();
     }
