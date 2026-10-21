@@ -11,11 +11,11 @@ const forbiddenHeaders=new Set('accept-charset accept-encoding access-control-re
 export const generatedCodeLimit=32*1024*1024;
 /** Shared prepared bytes and explicit headers for standard HTTP adapters.
  * @param {CodeRequest} request */
-function preparedCodeParts(request,client='Python http.client'){
+function preparedCodeParts(request,client='Python http.client',allowSocket=false){
   if(request.asap||request.aws||request.oauth1||request.hawk||request.nativeAuth?.digest)
     throw Error('Choose Node.js / Native to generate this authentication.');
   if(request.nativeAuth)throw Error('Choose Shell / cURL to generate code for NTLM or netrc authentication.');
-  if(request.socketPath)throw Error('Choose Node.js / Native to generate code for a socket request.');
+  if(request.socketPath&&!allowSocket)throw Error('Choose Node.js / Native to generate code for a socket request.');
   if(request.method.toUpperCase()==='CONNECT')throw Error('CONNECT requires a tunnel adapter.');
   const url=new URL(request.url);
   if(!['http:','https:'].includes(url.protocol))throw Error(client+' requires an HTTP or HTTPS URL.');
@@ -60,7 +60,10 @@ function preparedCodeParts(request,client='Python http.client'){
 /** Go sends the captured bytes without form/JSON reconstruction.
  * @param {CodeRequest} request */
 export function goNativeCode(request){
-  const {url,headers,hasHeader,encoded,chunked}=preparedCodeParts(request,'Go net/http');
+  const {url,headers,hasHeader,encoded,chunked}=preparedCodeParts(request,'Go net/http',true);
+  const socket=request.socketPath;
+  if(socket&&(socket.includes('\0')||/[\uD800-\uDFFF]/u.test(socket)))
+    throw Error('Go Unix socket path must contain valid Unicode and no NUL.');
   if(!/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(request.method))
     throw Error('Go net/http requires a valid HTTP method token.');
   const rows=(/** @type {string} */ name)=>headers.filter(row=>row[0].toLowerCase()===name);
@@ -74,7 +77,7 @@ export function goNativeCode(request){
   if(length!==undefined&&(!/^\d+$/.test(length)||BigInt(length)!==BigInt(size)))
     throw Error('Go net/http requires Content-Length to match the prepared body bytes.');
   url.username='';url.password='';url.hash='';
-  const lines=['package main','','import (','  "bytes"','  "encoding/base64"','  "io"','  "net/http"','  "os"',')','','func main() {',
+  const lines=['package main','','import (','  "bytes"',...(socket?['  "context"','  "net"']:[]),'  "encoding/base64"','  "io"','  "net/http"','  "os"',')','','func main() {',
     `  body, err := base64.StdEncoding.DecodeString(${JSON.stringify(encoded)})`,
     '  if err != nil { panic(err) }',
     `  req, err := http.NewRequest(${JSON.stringify(request.method)}, ${JSON.stringify(url.href)}, bytes.NewReader(body))`,
@@ -88,8 +91,10 @@ export function goNativeCode(request){
   if(!hasHeader('user-agent'))lines.push('  req.Header["User-Agent"] = []string{""}');
   if(chunked)lines.push('  req.TransferEncoding = []string{"chunked"}','  req.ContentLength = -1');
   else if(length!==undefined)lines.push(`  req.ContentLength = ${size}`);
-  lines.push('  transport := &http.Transport{Proxy: nil, DisableCompression: true}',
-    '  defer transport.CloseIdleConnections()',
+  lines.push('  transport := &http.Transport{Proxy: nil, DisableCompression: true}');
+  if(socket)lines.push('  transport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {',
+    `    return (&net.Dialer{}).DialContext(ctx, "unix", ${JSON.stringify(socket)})`,'  }');
+  lines.push('  defer transport.CloseIdleConnections()',
     '  client := &http.Client{Transport: transport, CheckRedirect: func(req *http.Request, via []*http.Request) error { return http.ErrUseLastResponse }}',
     '  response, err := client.Do(req)','  if err != nil { panic(err) }','  defer response.Body.Close()',
     '  if _, err := io.Copy(os.Stdout, response.Body); err != nil { panic(err) }','}');
