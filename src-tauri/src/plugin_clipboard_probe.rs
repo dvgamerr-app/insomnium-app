@@ -6,6 +6,10 @@ use std::sync::Mutex;
 use tauri::Manager;
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
+const DEFAULT_TEXT_BYTES: usize = 1024 * 1024;
+// UTF-8 replacement decoding can expand a 20 MiB binary event to 60 MiB.
+const MAX_TEXT_BYTES: usize = 60 * 1024 * 1024;
+
 #[derive(Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Receipt {
@@ -14,6 +18,7 @@ pub struct Receipt {
     owner: String,
     mutations: u32,
     error: Option<String>,
+    max_text_bytes: usize,
 }
 struct Probe {
     receipt: Receipt,
@@ -99,9 +104,9 @@ mod native {
         }
         Ok(allocation)
     }
-    fn converted(codepage: u32, units: &[u16]) -> Result<Vec<u8>, String> {
+    fn converted(codepage: u32, units: &[u16], maximum: usize) -> Result<Vec<u8>, String> {
         let required = unsafe { WideCharToMultiByte(codepage, 0, units, None, None, None) };
-        if required <= 0 || required > 4 * 1024 * 1024 {
+        if required <= 0 || required as usize > maximum {
             return Err("Clipboard conversion size refused".into());
         }
         let mut bytes = vec![0; required as usize];
@@ -112,7 +117,11 @@ mod native {
         }
         Ok(bytes)
     }
-    pub fn begin(window: &tauri::WebviewWindow, expected: u32) -> Result<Probe, String> {
+    pub fn begin(
+        window: &tauri::WebviewWindow,
+        expected: u32,
+        max_text_bytes: usize,
+    ) -> Result<Probe, String> {
         let hwnd = window.hwnd().map_err(|e| e.to_string())?.0 as usize;
         let _open = open(hwnd)?;
         let sequence = unsafe { GetClipboardSequenceNumber() };
@@ -129,6 +138,7 @@ mod native {
                 owner: expected_owner.to_string(),
                 mutations: 0,
                 error: None,
+                max_text_bytes,
             },
         })
     }
@@ -137,7 +147,7 @@ mod native {
         // transfers on successful SetClipboardData, so failed writes free memory.
         let mut allocations = Vec::new();
         if let Some(text) = text {
-            if text.len() > 1024 * 1024 || text.contains('\0') {
+            if text.len() > probe.receipt.max_text_bytes || text.contains('\0') {
                 return Err("Invalid bounded clipboard text".into());
             }
             let units: Vec<u16> = text.encode_utf16().chain(std::iter::once(0)).collect();
@@ -162,8 +172,15 @@ mod native {
             }
             let unicode: Vec<u8> = units.iter().flat_map(|unit| unit.to_le_bytes()).collect();
             allocations.push(allocated(13, &unicode)?);
-            allocations.push(allocated(1, &converted(ansi_page, &units)?)?);
-            allocations.push(allocated(7, &converted(unsafe { GetOEMCP() }, &units)?)?);
+            let conversion_limit = probe.receipt.max_text_bytes * 4;
+            allocations.push(allocated(
+                1,
+                &converted(ansi_page, &units, conversion_limit)?,
+            )?);
+            allocations.push(allocated(
+                7,
+                &converted(unsafe { GetOEMCP() }, &units, conversion_limit)?,
+            )?);
             allocations.push(allocated(16, &locale.to_le_bytes())?);
         }
         let result = (|| {
@@ -207,8 +224,13 @@ pub fn begin_plugin_clipboard_probe(
     window: tauri::WebviewWindow,
     state: tauri::State<ClipboardProbeState>,
     expected_sequence: u32,
+    max_text_bytes: Option<usize>,
 ) -> Result<Receipt, String> {
     admit(&window)?;
+    let max_text_bytes = max_text_bytes.unwrap_or(DEFAULT_TEXT_BYTES);
+    if !(1..=MAX_TEXT_BYTES).contains(&max_text_bytes) {
+        return Err("Clipboard probe text budget must be between 1 byte and 60 MiB".into());
+    }
     let mut active = state
         .0
         .lock()
@@ -218,7 +240,7 @@ pub fn begin_plugin_clipboard_probe(
     }
     #[cfg(windows)]
     {
-        let probe = native::begin(&window, expected_sequence)?;
+        let probe = native::begin(&window, expected_sequence, max_text_bytes)?;
         let receipt = probe.receipt.clone();
         *active = Some(probe);
         Ok(receipt)
