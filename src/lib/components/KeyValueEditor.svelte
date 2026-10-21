@@ -58,11 +58,15 @@
   async function remove(index, event) {
     const focused = event.currentTarget === document.activeElement;
     const original = rows[index];
-    onchange(rows.filter((_, i) => i !== index));
+    const owner = identity, ownerEditor = editor;
+    const remaining = rows.filter((_, i) => i !== index);
+    onchange(remaining);
     fileErrors = fileErrors.filter((failure) => failure.row !== original);
     if (focused) {
       await tick();
-      if (!alive) return;
+      if (!alive || identity !== owner || editor !== ownerEditor ||
+          rows.length !== remaining.length || rows.some((row, i) => row !== remaining[i]) ||
+          document.activeElement !== document.body) return;
       const controls = editor?.querySelectorAll(".kv-row > button");
       const target = controls?.[Math.min(index, rows.length - 1)] ?? editor?.querySelector(".add-row");
       if (target instanceof HTMLElement) target.focus();
