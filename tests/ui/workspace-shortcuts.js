@@ -27,7 +27,7 @@ async function runGeneratedSnippet(code,shell=false){
   }finally{clearTimeout(timer);}
 }
 
-await withPreview("workspace-shortcuts",async (page,output) => {
+if(!process.argv.includes('--websocket-only')) await withPreview("workspace-shortcuts",async (page,output) => {
   const url = page.getByRole("textbox",{name:"Request URL",exact:true});
   await url.waitFor();
   const originalUrl = await url.inputValue();

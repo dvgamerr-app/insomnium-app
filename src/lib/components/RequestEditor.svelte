@@ -40,13 +40,15 @@
   import { isJsonBodyMediaType } from "../media-type.js";
   /** @type {{ request: Record<string, any>, onchange: (patch: Record<string, any>) => void }} */
   let { request, onchange } = $props();
+  let disposed = false;
   let bodyCodeEditor = $state(/** @type {CodeEditor|undefined} */ (undefined));
   let graphqlEditor = $state(/** @type {GraphqlEditor|undefined} */ (undefined));
   export async function focusSchemaFilter() {
-    const owner = request._id;
+    const owner = request, ownerData = app.data;
     tab = "Body";
     await tick();
-    return request._id === owner ? await graphqlEditor?.focusSchemaFilter() ?? false : false;
+    return !disposed && request === owner && app.data === ownerData && tab === "Body"
+      ? await graphqlEditor?.focusSchemaFilter() ?? false : false;
   }
   const openapiIssues = $derived([
     ...new Set([
@@ -57,10 +59,24 @@
   let tab = $state("Body");
   let messageEditor = $state(/** @type {WebSocketMessageEditor|undefined} */ (undefined));
   export async function sendMessage() {
-    const requestId = request._id;
+    const owner = request, ownerData = app.data;
+    const workspaceId = app.data.activeWorkspaceId, environmentId = app.data.activeEnvironmentId;
+    const runId = app.running[request._id]?.id;
+    const responseId = app.responses[request._id]?._id;
+    const selectedId = request.activePayloadId;
+    const payloads = app.data.resources.filter(row=>row.parentId===request._id && row._type==='websocket_payload');
+    const payload = payloads.find(row=>row._id===selectedId) || payloads[0];
+    const value = payload?.value, mode = payload?.mode;
     tab = "Body";
     await tick();
-    if (request._id === requestId) await messageEditor?.send();
+    if (disposed || request !== owner || app.data !== ownerData || tab !== "Body" ||
+        app.data.activeWorkspaceId !== workspaceId || app.data.activeEnvironmentId !== environmentId ||
+        app.running[request._id]?.id !== runId || app.responses[request._id]?._id !== responseId ||
+        request.activePayloadId !== selectedId ||
+        !payload || !app.data.resources.includes(payload) || payload.value !== value || payload.mode !== mode) return;
+    const currentPayloads = app.data.resources.filter(row=>row.parentId===request._id && row._type==='websocket_payload');
+    if ((currentPayloads.find(row=>row._id===selectedId) || currentPayloads[0]) !== payload) return;
+    await messageEditor?.send();
   }
   export function openSettings() { tab = "Settings"; }
   const binaryBody = $derived(isBinaryBody(request.body));
@@ -85,6 +101,7 @@
   const fileWork = createWorkspaceWorkScope();
   let fileSelection = 0;
   onDestroy(() => {
+    disposed = true;
     fileSelection++;
     fileWork.dispose();
   });
