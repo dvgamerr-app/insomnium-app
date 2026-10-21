@@ -140,15 +140,18 @@
   onDestroy(()=>{disposed=true;transferWork.dispose();});
   const transferOwner=$derived({data:app.data,request,response,responseTab,
     selectedMessage,selectedSentId,fullMessage});
+  const exportOwner=$derived({owner:transferOwner,lastEvent:response?.events?.at(-1),
+    headers:response?.headers,trailers:response?.trailers,status:response?.status,statusText:response?.statusText,
+    connectionState:response?.connectionState,elapsedMs:response?.elapsedMs,size:response?.size,
+    retainedBytes:response?.retainedBytes,dropped:response?.dropped});
   let transferFeedback=$state.raw(/** @type {{owner:typeof transferOwner,current:()=>boolean,operation:number,error:string}|undefined} */(undefined));
   const transferError=$derived(transferFeedback?.current()?transferFeedback.error:'');
   function beginTransfer(messageId='',text=''){
-    const owner=transferOwner,operation=++transferSequence;
-    const messageCount=messages.length,sentCount=sent.length;
+    const owner=transferOwner,snapshot=exportOwner,operation=++transferSequence;
     const current=()=>!disposed&&transferOwner===owner&&(messageId
       ? response?.events?.some((/** @type {Record<string,any>} */ event)=>
         (event._id===messageId||event._id+':body'===messageId)&&String(event.text??'')===text)===true
-      : messages.length===messageCount&&sent.length===sentCount);
+      : exportOwner===snapshot);
     transferFeedback={owner,current,operation,error:''};
     return (/** @type {unknown} */ cause)=>{
       if(current()&&transferFeedback?.operation===operation)
