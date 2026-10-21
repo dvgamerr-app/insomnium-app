@@ -2227,8 +2227,11 @@ mod tests {
                             .collect::<String>(),
                         expected_wire
                     );
-                    let decoded =
-                        DynamicMessage::decode(message.descriptor(), wire.as_slice()).unwrap();
+                    let decoded = crate::grpc_schema::decode_legacy_response(
+                        &message.descriptor(),
+                        wire.as_slice(),
+                    )
+                    .unwrap();
                     assert_eq!(
                         json_mode(&decoded, mode, original.clone()).unwrap(),
                         expected
@@ -2309,7 +2312,9 @@ mod tests {
                     .collect::<String>(),
                 "b206040a02cea9b80601c2060300ff80c8062ad206020102d2060103d80607c00c03"
             );
-            let decoded = DynamicMessage::decode(message.descriptor(), wire.as_slice()).unwrap();
+            let decoded =
+                crate::grpc_schema::decode_legacy_response(&message.descriptor(), wire.as_slice())
+                    .unwrap();
             let expected = if reflection {
                 r#"{".p.child":{"child_name":"Ω"},".p.e":1,".p.blob":{"0":0,"1":255,"2":128},".p.large":{"low":42,"high":0,"unsigned":false},".p.chunks":[{"0":1,"1":2},{"0":3}],".p.Scope.nested":7,"normal":3}"#
             } else {
@@ -2438,8 +2443,8 @@ mod tests {
                         failures.push(format!("{label}: wire {hex} != {}", row["wireHex"]));
                         continue;
                     }
-                    let decoded = DynamicMessage::decode(
-                        legacy_descriptor(original.clone()).unwrap(),
+                    let decoded = crate::grpc_schema::decode_legacy_response(
+                        &legacy_descriptor(original.clone()).unwrap(),
                         wire.as_slice(),
                     )
                     .unwrap();
@@ -2510,8 +2515,8 @@ mod tests {
                         failures.push(format!("{label}: wire {hex} != {}", row["wireHex"]));
                         continue;
                     }
-                    let decoded = DynamicMessage::decode(
-                        legacy_descriptor(original.clone()).unwrap(),
+                    let decoded = crate::grpc_schema::decode_legacy_response(
+                        &legacy_descriptor(original.clone()).unwrap(),
                         wire.as_slice(),
                     )
                     .unwrap();
@@ -2667,8 +2672,8 @@ mod tests {
                 row["wireHex"].as_str().unwrap(),
                 "Any target wire {label}"
             );
-            let decoded = DynamicMessage::decode(
-                legacy_descriptor(original.clone()).unwrap(),
+            let decoded = crate::grpc_schema::decode_legacy_response(
+                &legacy_descriptor(original.clone()).unwrap(),
                 wire.as_slice(),
             )
             .unwrap();
@@ -2759,8 +2764,11 @@ mod tests {
             .find(|row| row["label"] == "absent-reflection")
             .unwrap();
         let original = pool.get_message_by_name("ownedreflection.Input").unwrap();
-        let decoded =
-            DynamicMessage::decode(legacy_descriptor(original.clone()).unwrap(), &[][..]).unwrap();
+        let decoded = crate::grpc_schema::decode_legacy_response(
+            &legacy_descriptor(original.clone()).unwrap(),
+            &[][..],
+        )
+        .unwrap();
         // Select from explicit schema origin, independently of source positions.
         let json = crate::grpc_schema::json_mode(
             &decoded,
@@ -2842,8 +2850,8 @@ mod tests {
                     .chunks_exact(2)
                     .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap())
                     .collect();
-                let decoded = DynamicMessage::decode(
-                    legacy_descriptor(original.clone()).unwrap(),
+                let decoded = crate::grpc_schema::decode_legacy_response(
+                    &legacy_descriptor(original.clone()).unwrap(),
                     wire.as_slice(),
                 )
                 .unwrap();
@@ -2878,7 +2886,8 @@ mod tests {
                 legacy_pool(view.parent_pool()).unwrap().encode_to_vec(),
                 view.parent_pool().encode_to_vec()
             );
-            let decoded = DynamicMessage::decode(view, wire.as_slice()).unwrap();
+            let decoded =
+                crate::grpc_schema::decode_legacy_response(&view, wire.as_slice()).unwrap();
             let json = crate::grpc_schema::json_mode(&decoded, mode, original).unwrap();
             assert_eq!(json, row["json"].as_str().unwrap(), "Profile JSON {label}");
         }
@@ -2939,8 +2948,8 @@ mod tests {
                 row["wireHex"].as_str().unwrap(),
                 "Any profile wire {label}"
             );
-            let decoded = DynamicMessage::decode(
-                legacy_descriptor(original.clone()).unwrap(),
+            let decoded = crate::grpc_schema::decode_legacy_response(
+                &legacy_descriptor(original.clone()).unwrap(),
                 wire.as_slice(),
             )
             .unwrap();
@@ -3316,8 +3325,8 @@ mod tests {
                     .map(|f| f.name().to_owned())
                     .collect::<Vec<_>>()
             );
-            let decoded = DynamicMessage::decode(
-                legacy_descriptor(original.clone()).unwrap(),
+            let decoded = crate::grpc_schema::decode_legacy_response(
+                &legacy_descriptor(original.clone()).unwrap(),
                 wire.as_slice(),
             )
             .unwrap();
@@ -3391,7 +3400,8 @@ mod tests {
                 view.parent_pool().encode_to_vec(),
                 legacy_pool(view.parent_pool()).unwrap().encode_to_vec()
             );
-            let decoded = DynamicMessage::decode(view, wire.as_slice()).unwrap();
+            let decoded =
+                crate::grpc_schema::decode_legacy_response(&view, wire.as_slice()).unwrap();
             let json = crate::grpc_schema::json_mode(
                 &decoded,
                 crate::grpc_schema::JsonMode::Legacy,
@@ -3768,7 +3778,8 @@ mod tests {
                 legacy_pool(view.parent_pool()).unwrap().encode_to_vec(),
                 view.parent_pool().encode_to_vec()
             );
-            let decoded = DynamicMessage::decode(view, wire.as_slice()).unwrap();
+            let decoded =
+                crate::grpc_schema::decode_legacy_response(&view, wire.as_slice()).unwrap();
             let json = crate::grpc_schema::json_mode(
                 &decoded,
                 crate::grpc_schema::JsonMode::Legacy,
@@ -3809,8 +3820,8 @@ mod tests {
             let wire = request.encode_to_vec();
             let hex: String = wire.iter().map(|b| format!("{b:02x}")).collect();
             assert_eq!(hex, row["wireHex"].as_str().unwrap(), "Wire {label}");
-            let response = DynamicMessage::decode(
-                legacy_descriptor(original.clone()).unwrap(),
+            let response = crate::grpc_schema::decode_legacy_response(
+                &legacy_descriptor(original.clone()).unwrap(),
                 wire.as_slice(),
             )
             .unwrap();
@@ -3896,7 +3907,8 @@ mod tests {
                 legacy_pool(view.parent_pool()).unwrap().encode_to_vec(),
                 view.parent_pool().encode_to_vec()
             );
-            let decoded = DynamicMessage::decode(view, wire.as_slice()).unwrap();
+            let decoded =
+                crate::grpc_schema::decode_legacy_response(&view, wire.as_slice()).unwrap();
             let json = crate::grpc_schema::json_mode(
                 &decoded,
                 crate::grpc_schema::JsonMode::Legacy,
@@ -3993,7 +4005,7 @@ mod tests {
                 view.parent_pool().encode_to_vec(),
                 "Idempotence {label}"
             );
-            let response = DynamicMessage::decode(view, wire.as_slice())
+            let response = crate::grpc_schema::decode_legacy_response(&view, wire.as_slice())
                 .unwrap_or_else(|error| panic!("Decode {label}: {error}"));
             let json = crate::grpc_schema::json_mode(
                 &response,
@@ -4145,8 +4157,8 @@ mod tests {
             let original = pool.get_message_by_name(name).unwrap();
             let request = parse(original.clone(), body).unwrap();
             let wire = request.encode_to_vec();
-            let response = DynamicMessage::decode(
-                legacy_descriptor(original.clone()).unwrap(),
+            let response = crate::grpc_schema::decode_legacy_response(
+                &legacy_descriptor(original.clone()).unwrap(),
                 wire.as_slice(),
             )
             .unwrap();
@@ -4182,8 +4194,8 @@ mod tests {
             ),
         ] {
             let original = pool.get_message_by_name(name).unwrap();
-            let response = DynamicMessage::decode(
-                legacy_descriptor(original.clone()).unwrap(),
+            let response = crate::grpc_schema::decode_legacy_response(
+                &legacy_descriptor(original.clone()).unwrap(),
                 wire.as_slice(),
             )
             .unwrap();
@@ -4447,7 +4459,8 @@ mod tests {
                 adapted.parent_pool().encode_to_vec()
             );
             for wire in [vec![8, 1, 18, 1, 120], vec![18, 1, 120, 8, 1]] {
-                let message = DynamicMessage::decode(adapted.clone(), wire.as_slice()).unwrap();
+                let message =
+                    crate::grpc_schema::decode_legacy_response(&adapted, wire.as_slice()).unwrap();
                 let json =
                     serde_json::to_string(&LegacyMessage(&message, 0, original.clone())).unwrap();
                 assert_eq!(json, r#"{"a":1,"pick":"b","b":"x"}"#);
@@ -4519,8 +4532,8 @@ mod tests {
             serde_json::to_value(LegacyMessage(&message, 0, original.clone())).unwrap(),
             expected
         );
-        let decoded = DynamicMessage::decode(
-            legacy_descriptor(original.clone()).unwrap(),
+        let decoded = crate::grpc_schema::decode_legacy_response(
+            &legacy_descriptor(original.clone()).unwrap(),
             wire.as_slice(),
         )
         .unwrap();
