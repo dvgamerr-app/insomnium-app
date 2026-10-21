@@ -2700,11 +2700,19 @@ export function refreshHttpResponses(onlyRequestId) {
 export async function stop(requestId) {
   const running = workspace.running[requestId];
   if (running) {
+    const ownerData = workspace.data;
+    const ownerRequest = ownerData.resources.find((request) => request._id === requestId);
+    const grpcOwner = workspace.grpcRuns[requestId]?.id === running.id
+      ? workspace.grpcRuns[requestId] : null;
     running.controller.abort();
     try {
       await cancel(running.id);
     } catch (e) {
-      workspace.error = String(e);
+      if (workspace.data === ownerData && ownerRequest &&
+        ownerData.resources.find((request) => request._id === requestId) === ownerRequest &&
+        workspace.running[requestId] === running &&
+        (!grpcOwner || grpcOwner.ownsRequest?.() === true))
+        workspace.error = String(e);
     }
   }
 }
