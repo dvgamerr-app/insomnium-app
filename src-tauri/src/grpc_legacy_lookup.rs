@@ -831,6 +831,40 @@ pub(crate) fn resolve_source_types(
     Ok(())
 }
 
+/// Root.fromDescriptor uses Type.add/Service.add with allocated dictionaries.
+/// Enum.fromDescriptor assigns values directly, so enum value names are not
+/// subject to the source parser's Enum.add restriction here.
+pub(crate) fn validate_reflection_members(pool: &DescriptorPool) -> Result<(), String> {
+    fn check(scope: &str, name: &str) -> Result<(), String> {
+        if inherited_name(name) {
+            return Err(format!(
+                "Duplicate protobuf name '{name}' in '{scope}': inherited dictionary member."
+            ));
+        }
+        Ok(())
+    }
+    for message in pool.all_messages() {
+        let raw = message.descriptor_proto();
+        for name in raw
+            .field
+            .iter()
+            .chain(raw.extension.iter())
+            .map(|field| field.name())
+            .chain(raw.oneof_decl.iter().map(|oneof| oneof.name()))
+            .chain(raw.nested_type.iter().map(|child| child.name()))
+            .chain(raw.enum_type.iter().map(|child| child.name()))
+        {
+            check(message.full_name(), name)?;
+        }
+    }
+    for service in pool.services() {
+        for method in service.methods() {
+            check(service.full_name(), method.name())?;
+        }
+    }
+    Ok(())
+}
+
 fn inherited_name(name: &str) -> bool {
     matches!(
         name,

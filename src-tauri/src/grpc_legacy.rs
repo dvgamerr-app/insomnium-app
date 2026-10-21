@@ -3775,6 +3775,32 @@ mod tests {
         .contains("inherited dictionary member"));
         assert!(compile_source(r#"syntax="proto3"; package owned; message First {} message constructor { string value=1; }"#)
             .unwrap_err().contains("inherited dictionary member"));
+        let reflected = crate::grpc_schema::compile_mode(
+            crate::grpc_schema::ProtoInput {
+                entry: "reflected.proto".into(),
+                files: vec![crate::grpc_schema::ProtoFile {
+                    name: "reflected.proto".into(),
+                    text: r#"syntax="proto3"; package owned;
+                    message Input { string constructor=1; }
+                    service Calls { rpc Call(Input) returns(Input); }"#
+                        .into(),
+                }],
+                include_paths: vec![],
+            },
+            crate::grpc_schema::JsonMode::ProtoJson,
+        )
+        .unwrap();
+        assert!(crate::grpc_schema::describe_reflection(
+            &reflected,
+            crate::grpc_schema::JsonMode::Legacy
+        )
+        .err()
+        .is_some_and(|error| error.contains("inherited dictionary member")));
+        assert!(crate::grpc_schema::describe_reflection(
+            &reflected,
+            crate::grpc_schema::JsonMode::ProtoJson
+        )
+        .is_ok());
         assert!(
             crate::grpc_schema::compile_mode(input(), crate::grpc_schema::JsonMode::ProtoJson)
                 .is_err()

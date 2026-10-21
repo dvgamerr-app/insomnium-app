@@ -647,6 +647,9 @@ fn describe_with_examples(
         let service = selected_pool
             .get_service_by_name(&name)
             .ok_or("Reflection omitted a listed service descriptor.")?;
+        if reflection && !matches!(mode, JsonMode::ProtoJson) {
+            crate::grpc_legacy_lookup::validate_reflection_members(selected_pool)?;
+        }
         for method in service.methods() {
             if methods.len() >= 4096 {
                 return Err("Schema exceeds 4096 methods.".into());

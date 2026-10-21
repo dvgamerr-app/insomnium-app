@@ -239,6 +239,11 @@ pub async fn connect_grpc(
                 },
             )?;
             let original_input = method.input();
+            if matches!(request.json_mode, grpc_schema::JsonMode::LegacyReflection) {
+                crate::grpc_legacy_lookup::validate_reflection_members(
+                    original_input.parent_pool(),
+                )?;
+            }
             let input = match request.json_mode {
                 grpc_schema::JsonMode::Legacy | grpc_schema::JsonMode::LegacyReflection => {
                     crate::grpc_legacy::legacy_descriptor(method.input())?
