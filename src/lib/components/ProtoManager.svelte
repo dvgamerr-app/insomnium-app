@@ -70,6 +70,7 @@
     progress = $state("");
   let reading = $state(false),
     epoch = 0;
+  let feedbackRevision = 0;
   /** @type {{name:string,text:string}[]} */ let pending = $state([]);
   const running = $derived(!!app.running[request._id]);
   const collectionId = $derived(workspaceFor(app.data.resources, request._id));
@@ -96,6 +97,7 @@
     }
   });
   async function discard(/** @type {MouseEvent} */ event) {
+    feedbackRevision++;
     const owner = pickerOwner;
     const restore = document.activeElement === event.currentTarget &&
       owner?.version === epoch;
@@ -126,6 +128,7 @@
   ) {
     const input = /** @type {HTMLInputElement} */ (event.currentTarget),
       version = ++epoch;
+    feedbackRevision++;
     fileWork.cancel();
     const selectedRequest = request._id;
     pickerOwner = { input, data: app.data, collectionId: app.data.activeWorkspaceId, requestId: selectedRequest, version };
@@ -200,6 +203,7 @@
     }
   }
   async function apply() {
+    feedbackRevision++;
     error = "";
     notice = "";
     filenameOwner = null;
@@ -249,17 +253,25 @@
   }
   async function remove() {
     if (!removal) return;
+    const data = app.data, owner = request, workspaceId = data.activeWorkspaceId;
+    const targetId = removal.target._id, version = epoch;
+    const revision = ++feedbackRevision;
+    const current = () => !disposed && app.data === data && request === owner &&
+      data.activeWorkspaceId === workspaceId && data.activeRequestId === owner._id &&
+      deleting === targetId && epoch === version && feedbackRevision === revision;
     try {
-      await removeGrpcProto(collectionId, removal.target._id);
+      await removeGrpcProto(collectionId, targetId);
+      if (!current()) return;
       deleting = "";
       notice =
         "Saved proto removed. Affected requests keep a visible missing-file reference.";
     } catch (e) {
-      error = String(e);
+      if (current()) error = String(e);
     }
   }
   function rename(/** @type {Event} */ event) {
     if (!file) return;
+    feedbackRevision++;
     const input = /** @type {HTMLInputElement} */ (event.currentTarget);
     try {
       validateProtoRename(app.data.resources, file._id, input.value);
