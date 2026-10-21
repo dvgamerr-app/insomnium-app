@@ -15,6 +15,7 @@
     "allow-write-plugin-clipboard-probe",
     "allow-get-plugin-clipboard-probe",
     "allow-end-plugin-clipboard-probe",
+    "allow-write-clipboard-text",
     "allow-send-http",
     "allow-response-download",
     "allow-cancel-http",

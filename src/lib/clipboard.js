@@ -1,5 +1,4 @@
-import { isTauri } from "@tauri-apps/api/core";
-import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 
 /** CF_UNICODETEXT terminates at NUL even when input contains more data.
  * @param {string} text */
@@ -14,7 +13,7 @@ export function validateNativeClipboardText(text){
 export async function copyText(text) {
   if (isTauri()) {
     validateNativeClipboardText(text);
-    await writeText(text);
+    await invoke("write_clipboard_text", { text });
   }
   else await navigator.clipboard.writeText(text);
 }

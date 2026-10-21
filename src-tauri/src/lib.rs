@@ -1,5 +1,6 @@
 mod asap;
 mod aws;
+mod clipboard;
 mod cookies;
 mod digest;
 mod git;
@@ -129,6 +130,7 @@ pub fn run() {
             plugin_clipboard_probe::write_plugin_clipboard_probe,
             plugin_clipboard_probe::get_plugin_clipboard_probe,
             plugin_clipboard_probe::end_plugin_clipboard_probe,
+            clipboard::write_clipboard_text,
             http::send_http,
             response_download::response_download,
             http::cancel_http,

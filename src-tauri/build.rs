@@ -10,6 +10,7 @@ fn main() {
             "write_plugin_clipboard_probe",
             "get_plugin_clipboard_probe",
             "end_plugin_clipboard_probe",
+            "write_clipboard_text",
             "send_http",
             "response_download",
             "cancel_http",
