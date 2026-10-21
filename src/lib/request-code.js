@@ -100,6 +100,42 @@ export function goNativeCode(request){
     '  if _, err := io.Copy(os.Stdout, response.Body); err != nil { panic(err) }','}');
   return lines.join('\n');
 }
+/** PHP single-quoted strings do not interpolate request-controlled dollar signs.
+ * @param {string} value */
+function phpLiteral(value){return "'"+value.replace(/\\/g,'\\\\').replace(/'/g,"\\'")+"'";}
+/** ext-curl accepts a byte string; passing a field array would rebuild MIME.
+ * @param {CodeRequest} request */
+export function phpCurlCode(request){
+  const {url,headers,hasHeader,hasBody,encoded}=preparedCodeParts(request,'PHP cURL',true);
+  if(!/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(request.method))
+    throw Error('PHP cURL requires a valid HTTP method token.');
+  if(request.method==='HEAD'&&hasBody)throw Error('Choose Node.js / Native to generate HEAD with a body.');
+  if(request.socketPath&&(request.socketPath.includes('\0')||/[\uD800-\uDFFF]/u.test(request.socketPath)))
+    throw Error('PHP Unix socket path must contain valid Unicode and no NUL.');
+  if(headers.filter(([name])=>name.toLowerCase()==='host').length>1)
+    throw Error('PHP cURL cannot preserve duplicate Host headers. Choose Node.js / Native.');
+  url.username='';url.password='';url.hash='';
+  const rawHeaders=headers.map(([name,value])=>name+(value===''?';':': '+value));
+  for(const name of ['Accept','Expect'])if(!hasHeader(name.toLowerCase()))rawHeaders.push(name+':');
+  if(hasBody&&!hasHeader('content-type'))rawHeaders.push('Content-Type:');
+  const lines=['<?php',`$body = base64_decode(${phpLiteral(encoded)}, true);`,
+    "if ($body === false) { throw new RuntimeException('Invalid prepared body.'); }",
+    '$curl = curl_init();',"if ($curl === false) { throw new RuntimeException('Unable to initialize cURL.'); }",'try {',
+    '    $options = [',`        CURLOPT_URL => ${phpLiteral(url.href)},`,
+    `        CURLOPT_CUSTOMREQUEST => ${phpLiteral(request.method)},`,
+    '        CURLOPT_RETURNTRANSFER => true,','        CURLOPT_FOLLOWLOCATION => false,',
+    "        CURLOPT_PROXY => '',",'        CURLOPT_PATH_AS_IS => true,','        CURLOPT_HTTP_CONTENT_DECODING => false,',
+    '        CURLOPT_HTTPHEADER => [',...rawHeaders.map(row=>'            '+phpLiteral(row)+','),'        ],'];
+  if(hasBody)lines.push('        CURLOPT_POSTFIELDS => $body,');
+  if(request.method==='HEAD')lines.push('        CURLOPT_NOBODY => true,');
+  if(request.socketPath)lines.push(`        CURLOPT_UNIX_SOCKET_PATH => ${phpLiteral(request.socketPath)},`);
+  lines.push('    ];','    if (!curl_setopt_array($curl, $options)) {',
+    "        throw new RuntimeException('Unable to configure cURL: ' . curl_error($curl));",'    }',
+    '    $response = curl_exec($curl);','    if ($response === false) {',
+    '        throw new RuntimeException(curl_error($curl), curl_errno($curl));','    }','    echo $response;',
+    '} finally {','    curl_close($curl);','}');
+  return lines.join('\n');
+}
 /** Python's low-level API preserves duplicate headers and sends bytes unchanged.
  * @param {CodeRequest} request */
 export function pythonHttpClientCode(request){
