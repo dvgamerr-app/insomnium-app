@@ -1880,7 +1880,8 @@ impl Serialize for LegacyMapEntries<'_> {
                 .get_field(2)
                 .ok_or_else(|| serde::ser::Error::custom("Missing map value field."))?;
             if !entry.has_field(&field)
-                && matches!(original_value.kind(), Kind::Message(ref desc) if desc.fields().next().is_some())
+                && matches!(original_value.kind(), Kind::Message(ref desc)
+                    if desc.fields().next().is_some() || desc.extensions().next().is_some())
             {
                 return Err(serde::ser::Error::custom(
                     "Legacy map message value is missing.",
@@ -2041,6 +2042,9 @@ mod tests {
                         optional group G=4 { required string s=1; optional int32 count=2; }
                         extensions 100 to 199; }
                     extend RequiredParent { optional RequiredChild extensionChild=100; }
+                    message ExtensionOnly { extensions 100 to 199; }
+                    extend ExtensionOnly { optional int32 extensionOnlyValue=100; }
+                    message ExtensionMap { map<string,ExtensionOnly> values=1; }
                     message M { required E e=1 [default=B];
                         required bytes b=2 [default="Zh=="]; optional E opt=3;
                         required Empty empty=4; optional bytes o=5 [default="Zm9="];
@@ -2056,6 +2060,22 @@ mod tests {
         })
         .unwrap();
         let snapshot = pool.encode_to_vec();
+        let original_map = pool.get_message_by_name("ExtensionMap").unwrap();
+        let map_view = legacy_descriptor(original_map.clone()).unwrap();
+        let missing =
+            crate::grpc_schema::decode_legacy_response(&map_view, b"\x0a\x02\x0a\x00").unwrap();
+        assert!(
+            crate::grpc_schema::json_mode(&missing, JsonMode::Legacy, original_map.clone())
+                .unwrap_err()
+                .contains("Legacy map message value is missing.")
+        );
+        let present =
+            crate::grpc_schema::decode_legacy_response(&map_view, b"\x0a\x04\x0a\x00\x12\x00")
+                .unwrap();
+        assert_eq!(
+            crate::grpc_schema::json_mode(&present, JsonMode::Legacy, original_map).unwrap(),
+            r#"{"values":{"":{".extensionOnlyValue":0}}}"#
+        );
         let response =
             legacy_descriptor(pool.get_message_by_name("RequiredParent").unwrap()).unwrap();
         let required = crate::grpc_schema::decode_legacy_response;
