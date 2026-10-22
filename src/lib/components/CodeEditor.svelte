@@ -71,6 +71,13 @@
     return () => { active = false; window.removeEventListener(fontPreferencesEvent,refresh); };
   });
   let failure = $state("");
+  let keymapFailure = $state.raw(
+    /** @type {{editor:import("codemirror").EditorFromTextArea,name:string,error:string}|undefined} */(undefined),
+  );
+  const keymapError = $derived(
+    keymapFailure && keymapFailure.editor === cm && !readOnly &&
+      keymapFailure.name === settings.editorKeyMap ? keymapFailure.error : "",
+  );
   let editingTag = $state(
     /** @type {{session:ReturnType<typeof import('../template-editor-session.svelte.js').createTemplateEditorSession>,identity:string,source:string,start:number,end:number,text:string,jsonString:boolean}|null} */ (
       null
@@ -601,6 +608,7 @@
         : "default";
     if (!editor) return;
     let cancelled = false;
+    keymapFailure = undefined;
     editor.setOption("keyMap", "default");
     if (name !== "default")
       void loadEditorKeymap(name)
@@ -608,7 +616,7 @@
           if (!cancelled) editor.setOption("keyMap", name);
         })
         .catch((error) => {
-          if (!cancelled) failure = `Keymap unavailable: ${error}`;
+          if (!cancelled) keymapFailure = {editor,name,error:`Keymap unavailable: ${error}`};
         });
     return () => {
       cancelled = true;
@@ -650,8 +658,8 @@
 </script>
 
 <div class="shared-code-editor" bind:this={host} style:--editor-font-size={`${editorFontSize(settings.editorFontSize)}px`}>
-  {#if failure}<Feedback as="p" class="inline-error"
-      >Editor unavailable: {failure}</Feedback
+  {#if failure || keymapError}<Feedback as="p" class="inline-error"
+      >Editor unavailable: {failure || keymapError}</Feedback
     >{/if}
   {#if linkError}<Feedback as="p" role="alert" class="inline-error">Could not open response link: {linkError}</Feedback>{/if}
   {#key fallbackGeneration}
