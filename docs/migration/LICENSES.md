@@ -1,5 +1,7 @@
 # LICENSES migration
 
+Pinned protobufjs7.2.4 proto-source adoption (2026-10-22): four original proto files plus upstream BSD LICENSE are retained under src-tauri/vendor/protobufjs-google, with SHA512-authenticated npm archive and per-file hashes in provenance.json. Tauri resources now explicitly map LICENSE/provenance to notices/protobufjs for distribution. These static resources are separate from generated Cargo notices; no generated corpus/policy was broadened. Compiler checks do not prove an emitted or installed bundle contains them. Source/adoption/runtime limits: GRPC.md pinned common field versions. Full legal/source/binary-linkage/distribution coverage remains open.
+
 Updated 2026-10-14. Authentic frontend283 inputs and current packaging receipts are admitted. Complete source/legal/binary linkage coverage, installed distribution and platform coverage remain open.
 
 See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity requirements](PARITY.md). No original scope was removed by consolidation.

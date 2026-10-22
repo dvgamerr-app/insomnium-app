@@ -1,5 +1,9 @@
 # UI TESTING migration
 
+## Current full large stream Copy verification
+
+Use existing bun tests/ui/websocket-large-history-native.js with INSOMNIUM_WEBSOCKET_LARGE_HISTORY_NATIVE=1, INSOMNIUM_UI_PROBE_IDENTIFIER=app.insomnium.probe.agentintegration20261014 and explicit current INSOMNIUM_UI_BUILD_STATE. Complete integration-profile preservation wraps the3original cases;5actual Copy actions use fresh full-format clipboard snapshots, bounded native receipts and exact restoration. Unknown formats/concurrent changes refuse. Terminal completion now waits for Reconnect. Do not launch the old CRUD artifact for this Copy gate or widen marker/admission rules. Passed source504c219a receipts and scope: HTTP.md#full-large-stream-copy-on-windows--2026-10-22; artifacts/native-large-copy-20261022/verification.json. No duplicate scenario/matrix added.
+
 ## Workspace backup recovery UI
 
 Run `bun tests/ui/workspace-recovery.js`. It reuses component-fixture/launchUiBrowser (headless:true) and mounts the actual recovery component, persistence helpers and workspace initialization with controlled IPC. One representative flow checks preview counts, Cancel without restore, explicit confirmation with reviewed hashes and successful reinitialization/notice. No actual native profile or host is used. Passed receipt: artifacts/playwright/workspace-recovery-1792133779254/result.json. This is mounted UI coverage, not real Tauri IPC/OS filesystem acceptance.
