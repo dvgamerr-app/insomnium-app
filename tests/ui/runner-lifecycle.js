@@ -7,13 +7,16 @@ import { id, newRequest } from "../../src/lib/model.js";
 
 assert.equal(selectedNativeProbeIdentifier(), integrationProbeIdentifier);
 assert.ok(process.env.INSOMNIUM_UI_BUILD_STATE, "Explicit native build required");
+const closeDuringRun = process.env.INSOMNIUM_RUNNER_NATIVE_CLOSE === "1";
+/** @type {((context:import('./helpers/native-app.js').ScenarioContext)=>Promise<void>)|undefined} */
+let resumeAfterClose;
 const fixtureHttp = await heldHttp({
   body: "runner fixture response",
   headers: { "X-Runner": "fixture" },
 });
 try {
   await preserveNativeProfile(() => withResourceProbePreserved(async () => {
-  await withNativeApp("runner-lifecycle", async ({ page, invoke, output }) => {
+  await withNativeApp("runner-lifecycle", async ({ page, invoke, output, requestNativeClose }) => {
     const pageErrors = /** @type {string[]} */ ([]);
     page.on("pageerror", (error) => pageErrors.push(error.message));
     const fixture = { workspaceId: id("wrk"), requestId: id("req") };
@@ -215,6 +218,25 @@ expect(delegated).to.equal(1);`,
         .isDisabled(),
       true,
     );
+    if (closeDuringRun) {
+      const commands = /** @type {string[]} */ ([]);
+      page.on("request", request => {
+        const url = new URL(request.url());
+        if (url.hostname === "ipc.localhost") commands.push(decodeURIComponent(url.pathname.slice(1)));
+      });
+      await invoke("load_workspace");
+      await poll(async () => commands.includes("load_workspace"), "native IPC observer ready");
+      commands.length = 0;
+      const nativeClose = await requestNativeClose();
+      await poll(async () => fixtureHttp.cancelled === 1, "WM_CLOSE cancels held runner transport");
+      for (const command of ["cancel_http", "save_workspace", "plugin:window|destroy"])
+        assert.ok(commands.includes(command), "Shutdown reaches " + command);
+      assert.deepEqual(pageErrors, []);
+      await Bun.write(output + "/acceptance.json", JSON.stringify({
+        passed: true, nativeClose, commands, cancelledHeldCalls: fixtureHttp.cancelled,
+        states: ["real Worker held HTTP call", "WM_CLOSE cancels transport and persists before exit"],
+      }, null, 2));
+    } else {
     await runner.getByRole("button", { name: "Stop", exact: true }).click();
     await runner
       .getByRole("button", { name: "Run Tests", exact: true })
@@ -228,6 +250,15 @@ expect(delegated).to.equal(1);`,
     assert.equal(
       JSON.stringify((await invoke("load_workspace")).history),
       originalHistory,
+    );
+    }
+    /** @param {Pick<import('./helpers/native-app.js').ScenarioContext,'page'|'invoke'|'output'>} context */
+    const verifyResumed = async ({page, invoke, output}) => {
+    if (closeDuringRun) page.on("pageerror", error => pageErrors.push(error.message));
+    const runner = page.getByRole("region", { name: "Collection tests", exact: true });
+    const results = page.getByRole("region", { name: "Test results", exact: true });
+    const savedResults = async () => (await invoke("load_workspace")).resources.filter(
+      (/** @type {any} */ item) => item._type === "unit_test_result" && item.unitTestSuiteId === suiteId,
     );
     await page.reload();
     await page.getByRole("button", { name: "Tests", exact: true }).click();
@@ -290,9 +321,9 @@ expect(delegated).to.equal(1);`,
             "passing/failing assertions",
             "single test",
             "persisted reload",
-            "Stop closes transport",
+            closeDuringRun ? "WM_CLOSE closes transport and clean reopen" : "Stop closes transport",
             "no cancelled result/history",
-            "fresh run after Stop",
+            closeDuringRun ? "fresh run after WM_CLOSE" : "fresh run after Stop",
             "dark/light 1440/900/760",
           ],
         },
@@ -300,7 +331,11 @@ expect(delegated).to.equal(1);`,
         2,
       ),
     );
-  });
+    };
+    if (closeDuringRun) resumeAfterClose = verifyResumed;
+    else await verifyResumed({page, invoke, output});
+  }, {allowNativeClose: closeDuringRun});
+  if (resumeAfterClose) await withNativeApp("runner-lifecycle-reopen", resumeAfterClose);
   }, { expectedIdentifier: integrationProbeIdentifier }));
 } finally {
   await fixtureHttp.close();
