@@ -4,7 +4,7 @@ Migration is incomplete. [PARITY.md](PARITY.md) remains the full acceptance chec
 
 ## Work sequence
 
-1. **gRPC.** Complete JSON/object/map/Any, editor/template and streaming compatibility and native acceptance. Retain DNS/resolver, service-config/cache, weighted/outlier/ORCA, calendar, retry/hedging and wire/platform requirements. See [GRPC.md](GRPC.md) and [GRPC-SERVICE-CONFIG.md](GRPC-SERVICE-CONFIG.md). The response reader is implemented; current native integration is pending.
+1. **gRPC.** Complete JSON/object/map/Any, editor/template and streaming compatibility and native acceptance. Retain DNS/resolver, service-config/cache, weighted/outlier/ORCA, calendar, retry/hedging and wire/platform requirements. See [GRPC.md](GRPC.md) and [GRPC-SERVICE-CONFIG.md](GRPC-SERVICE-CONFIG.md). The response reader and representative Windows native integration are verified; remaining acceptance requirements stay open.
 2. **Streaming.** Complete WebSocket control/fragmentation/close/history and SSE UTF8/CRLF/compression/boundaries, ACK/drain, large Copy/Save and lifecycle/provider/platform acceptance. Existing receipts cover only their named cases; see [HTTP.md](HTTP.md).
 3. **Models and durable data.** Complete resource ownership, callback drains, persistence/recovery/OS-close, environment/imported-model variants, legacy assets and import/export round trips. See [COLLECTIONS.md](COLLECTIONS.md) and [IMPORT-EXPORT.md](IMPORT-EXPORT.md).
 4. **API tooling.** Complete retained GraphQL navigation/completion, OpenAPI, cURL/body/code-generation, runner, plugin and template contracts. Inspect current code before treating an old pending note as missing implementation. Use the corresponding topic documents.

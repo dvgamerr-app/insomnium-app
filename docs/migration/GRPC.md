@@ -32,9 +32,8 @@ Saved proto sources and reflection support unary, server/client/bidirectional ca
 ## Evidence and remaining acceptance
 
 - Response-reader evidence: `artifacts/grpc-response-cursor-verification-20261022.json` records 54 existing regressions and Windows/Linux all-targets checks. Two existing fixture lengths changed; expected outputs/assertions did not.
-- Previous ordinary Windows native integration: `artifacts/native-grpc-current-decoder-20261022/verification.json`, 95 unary/TLS/stream/reflection cases, native-hidden with profile restoration. That build predates later decoder/editor changes.
+- Windows native integration on the shared-reader build: `artifacts/native-grpc-cursor-resume-20261022/verification.json`, all 95 existing cases passed in 103.681 seconds (43 unary/TLS, 7 streaming, 45 reflection). Normal-hook release/no-bundle build passed; native-hidden host exited 0, settings and the entire two-file profile were restored, and 1,661 selected inputs stayed unchanged. No scenario or case was added/edited. This is ordinary integration, not complete malformed-wire/platform/package acceptance.
 - Saved numeric examples: `artifacts/native-grpc-numeric-examples-20261022/verification.json`; shared editor fields: `artifacts/template-session-owner-ui-20261022/verification.json`. These retain their recorded source/scope.
-- The latest native refresh build was cancelled when migration was paused; no scenario ran. Resume with a successful current build and the unchanged native gRPC scenario, without expanding its matrix.
 - Complete malformed/error equivalence, retained source/schema/JSON/Any/editor/template/stream variants, provider/proxy/config/routing races, worker/ACK/OS-close lifecycles, accessibility, platforms and packaging/legal remain required by PARITY and the service-config/topic contracts.
 - Original fixtures, failed receipts and source hashes remain evidence. Rebase provenance is in `artifacts/docs-cleanup-20261022/history-map.json`; a historical receipt does not verify a later build.
 
