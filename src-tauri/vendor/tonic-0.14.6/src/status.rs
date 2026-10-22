@@ -6,7 +6,9 @@ use http::{
     HeaderName,
     header::{HeaderMap, HeaderValue},
 };
-use percent_encoding::{AsciiSet, CONTROLS, percent_decode, percent_encode};
+#[cfg(not(feature = "insomnium-status-message"))]
+use percent_encoding::percent_decode;
+use percent_encoding::{AsciiSet, CONTROLS, percent_encode};
 use std::{borrow::Cow, error::Error, fmt, sync::Arc};
 use tracing::{debug, trace, warn};
 
@@ -466,6 +468,12 @@ impl Status {
     pub fn from_header_map(header_map: &HeaderMap) -> Option<Status> {
         let code = Code::from_bytes(header_map.get(Self::GRPC_STATUS)?.as_ref());
 
+        #[cfg(feature = "insomnium-status-message")]
+        let error_message: Result<String, std::str::Utf8Error> = Ok(header_map
+            .get(Self::GRPC_MESSAGE)
+            .map(|header| Self::decode_legacy_message(header.as_bytes()))
+            .unwrap_or_default());
+        #[cfg(not(feature = "insomnium-status-message"))]
         let error_message = match header_map.get(Self::GRPC_MESSAGE) {
             Some(header) => percent_decode(header.as_bytes())
                 .decode_utf8()
@@ -473,6 +481,12 @@ impl Status {
             None => Ok(String::new()),
         };
 
+        #[cfg(feature = "insomnium-status-message")]
+        let details = header_map
+            .get(Self::GRPC_STATUS_DETAILS)
+            .map(|header| Self::decode_legacy_binary_metadata(header.as_bytes()).into())
+            .unwrap_or_else(Bytes::new);
+        #[cfg(not(feature = "insomnium-status-message"))]
         let details = match header_map.get(Self::GRPC_STATUS_DETAILS) {
             Some(header) => crate::util::base64::STANDARD
                 .decode(header.as_bytes())
@@ -485,6 +499,7 @@ impl Status {
             let mut header_map = header_map.clone();
             header_map.remove(Self::GRPC_STATUS);
             header_map.remove(Self::GRPC_MESSAGE);
+            #[cfg(not(feature = "insomnium-status-message"))]
             header_map.remove(Self::GRPC_STATUS_DETAILS);
             header_map
         };
@@ -508,6 +523,69 @@ impl Status {
             }
             .into_status(),
         )
+    }
+
+    /// Decode a grpc-js status message using ECMAScript decodeURI semantics.
+    /// Reserved URI escapes retain their spelling; malformed escapes or UTF-8
+    /// preserve the complete original message instead of changing its status.
+    #[cfg(feature = "insomnium-status-message")]
+    pub fn decode_legacy_message(value: &[u8]) -> String {
+        let raw = String::from_utf8_lossy(value);
+        let mut output = Vec::with_capacity(value.len());
+        let mut index = 0;
+        while index < value.len() {
+            if value[index] != b'%' {
+                output.push(value[index]);
+                index += 1;
+                continue;
+            }
+            let hex = |byte: u8| (byte as char).to_digit(16).map(|value| value as u8);
+            let decoded = value
+                .get(index + 1)
+                .and_then(|&high| Some(hex(high)? * 16 + hex(*value.get(index + 2)?)?));
+            let Some(decoded) = decoded else {
+                return raw.into_owned();
+            };
+            if b";/?:@&=+$,#".contains(&decoded) {
+                output.extend_from_slice(&value[index..index + 3]);
+            } else {
+                output.push(decoded);
+            }
+            index += 3;
+        }
+        String::from_utf8(output).unwrap_or_else(|_| raw.into_owned())
+    }
+
+    /// Decode binary metadata like Buffer.from(value, "base64") in grpc-js.
+    /// Keep this shared with application metadata conversion, including the
+    /// status-details header, so malformed input cannot panic status decoding.
+    #[cfg(feature = "insomnium-status-message")]
+    pub fn decode_legacy_binary_metadata(encoded: &[u8]) -> Vec<u8> {
+        use base64::{
+            alphabet,
+            engine::{DecodePaddingMode, GeneralPurpose, GeneralPurposeConfig},
+        };
+        const DECODER: GeneralPurpose = GeneralPurpose::new(
+            &alphabet::STANDARD,
+            GeneralPurposeConfig::new()
+                .with_decode_padding_mode(DecodePaddingMode::Indifferent)
+                .with_decode_allow_trailing_bits(true),
+        );
+        let mut cleaned: Vec<_> = encoded
+            .iter()
+            .copied()
+            .take_while(|byte| *byte != b'=')
+            .filter_map(|byte| match byte {
+                b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'+' | b'/' => Some(byte),
+                b'-' => Some(b'+'),
+                b'_' => Some(b'/'),
+                _ => None,
+            })
+            .collect();
+        if cleaned.len() % 4 == 1 {
+            cleaned.pop();
+        }
+        DECODER.decode(cleaned).unwrap_or_default()
     }
 
     /// Get the gRPC `Code` of this `Status`.

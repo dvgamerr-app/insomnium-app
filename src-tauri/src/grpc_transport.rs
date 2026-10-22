@@ -1,8 +1,6 @@
 use crate::grpc_schema::{self, DynamicCodec, MAX_MESSAGE, MAX_SCHEMA};
 use base64::{
-    alphabet,
     engine::general_purpose::{STANDARD, STANDARD_NO_PAD},
-    engine::{DecodePaddingMode, GeneralPurpose, GeneralPurposeConfig},
     Engine,
 };
 use prost_reflect::{DescriptorPool, DynamicMessage, MethodDescriptor};
@@ -99,28 +97,7 @@ fn validate_certificates_default() -> bool {
 // grpc-js metadata.ts decodes binary headers with Buffer.from(value, "base64").
 // Preserve the tolerant ASCII decoding boundary before protobuf validation.
 fn decode_binary_metadata(encoded: &[u8]) -> Option<Vec<u8>> {
-    const DECODER: GeneralPurpose = GeneralPurpose::new(
-        &alphabet::STANDARD,
-        GeneralPurposeConfig::new()
-            .with_decode_padding_mode(DecodePaddingMode::Indifferent)
-            .with_decode_allow_trailing_bits(true),
-    );
-    let mut cleaned: Vec<_> = encoded
-        .iter()
-        .copied()
-        .take_while(|byte| *byte != b'=')
-        .filter_map(|byte| match byte {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'+' | b'/' => Some(byte),
-            b'-' => Some(b'+'),
-            b'_' => Some(b'/'),
-            _ => None,
-        })
-        .collect();
-    // A final isolated sextet produces no complete byte in Buffer decoding.
-    if cleaned.len() % 4 == 1 {
-        cleaned.pop();
-    }
-    DECODER.decode(cleaned).ok()
+    Some(Status::decode_legacy_binary_metadata(encoded))
 }
 pub(crate) fn metadata(rows: &[(String, String)]) -> Result<MetadataMap, String> {
     if rows.len() > 128
@@ -437,10 +414,14 @@ where
                 .metadata()
                 .get("grpc-status")
                 .map(|_| response.metadata().clone());
-            emit(Event::Metadata {
-                headers: metadata_rows(response.metadata())?,
-            })
-            .await?;
+            // END_STREAM headers are final trailers in grpc-js, not a second
+            // initial-metadata event. Keep their values for terminal delivery.
+            if terminal_headers.is_none() {
+                emit(Event::Metadata {
+                    headers: metadata_rows(response.metadata())?,
+                })
+                .await?;
+            }
             let stream = response.get_mut();
             let mut count = 0;
             let mut unary_response = None;
@@ -541,22 +522,21 @@ pub(crate) fn terminal_callback(status: &Event) -> Option<Event> {
 fn successful_status_event(metadata: &MetadataMap) -> Result<Event, String> {
     let details = metadata
         .get("grpc-message")
-        .map(|value| {
-            percent_encoding::percent_decode(value.as_encoded_bytes())
-                .decode_utf8_lossy()
-                .into_owned()
-        })
+        .map(|value| Status::decode_legacy_message(value.as_encoded_bytes()))
         .unwrap_or_default();
+    let mut trailers = metadata.clone();
+    trailers.remove("grpc-status");
+    trailers.remove("grpc-message");
     Ok(Event::Status {
         code: 0,
         details,
-        trailers: metadata_rows(metadata)?,
+        trailers: metadata_rows(&trailers)?,
     })
 }
 
 fn status_event(status: Status) -> Result<Event, String> {
     let mut trailers = metadata_rows(status.metadata())?;
-    if !status.details().is_empty() {
+    if !status.details().is_empty() && !status.metadata().contains_key("grpc-status-details-bin") {
         trailers.push((
             "grpc-status-details-bin".into(),
             STANDARD.encode(status.details()),
@@ -607,10 +587,57 @@ mod status_tests {
         assert!(rows.contains(&serde_json::json!(["x-result", "first"])));
         assert!(rows.contains(&serde_json::json!(["x-result", "second"])));
         assert!(rows.contains(&serde_json::json!(["proof-bin", "AP8="])));
+        assert!(!rows
+            .iter()
+            .any(|row| row[0] == "grpc-status" || row[0] == "grpc-message"));
         let empty =
             serde_json::to_value(successful_status_event(&MetadataMap::new()).unwrap()).unwrap();
         assert_eq!(empty["details"], "");
         assert_eq!(empty["trailers"], serde_json::json!([]));
+        // grpc-js decodeURI retains reserved escapes and falls back atomically
+        // on malformed input. Exercise the shared OK/error wire decoder too.
+        for (encoded, expected) in [
+            (
+                "%2f%2F%3F%23%3B%3A%40%26%3D%2B%24%2C",
+                "%2f%2F%3F%23%3B%3A%40%26%3D%2B%24%2C",
+            ),
+            ("ok%20%25%41", "ok %A"),
+            ("ok%20%FF", "ok%20%FF"),
+            ("ok%20%", "ok%20%"),
+            ("%ED%A0%80", "%ED%A0%80"),
+            ("%F0%9F%98%80", "😀"),
+        ] {
+            let mut headers = MetadataMap::new();
+            headers.insert("grpc-message", encoded.parse().unwrap());
+            let event = serde_json::to_value(successful_status_event(&headers).unwrap()).unwrap();
+            assert_eq!(event["details"], expected);
+            for code in ["0", "7"] {
+                headers.insert("grpc-status", code.parse().unwrap());
+                let status = Status::from_header_map(&headers.clone().into_headers()).unwrap();
+                assert_eq!(status.code() as i32, code.parse::<i32>().unwrap());
+                assert_eq!(status.message(), expected);
+            }
+        }
+        for (encoded, canonical) in [
+            ("", ""),
+            ("A", ""),
+            ("A!P8", "AP8="),
+            ("-_8", "+/8="),
+            ("AP8=ignored", "AP8="),
+            ("AP8,AA", "AP8A"),
+        ] {
+            let mut headers = tonic::codegen::http::HeaderMap::new();
+            headers.insert("grpc-status", "7".parse().unwrap());
+            headers.insert("grpc-status-details-bin", encoded.parse().unwrap());
+            let status = Status::from_header_map(&headers).unwrap();
+            assert_eq!(status.code(), tonic::Code::PermissionDenied);
+            assert_eq!(STANDARD.encode(status.details()), canonical);
+            let event = serde_json::to_value(status_event(status).unwrap()).unwrap();
+            assert_eq!(
+                event["trailers"],
+                serde_json::json!([["grpc-status-details-bin", canonical]])
+            );
+        }
     }
 
     #[tokio::test]
@@ -650,6 +677,11 @@ mod status_tests {
                 .append("x-result", "second".parse().unwrap());
             let mut trailers = Default::default();
             status.add_header(&mut trailers).unwrap();
+            // Retain the five original shapes, with malformed binary details
+            // on both final-trailer and trailers-only error paths.
+            if matches!(shape, 2 | 3) {
+                trailers.insert("grpc-status-details-bin", "A!P8".parse().unwrap());
+            }
             let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
             let address = listener.local_addr().unwrap();
             let server = tokio::spawn(async move {
@@ -826,12 +858,30 @@ mod status_tests {
                 assert_eq!(body["value"], "owned");
             }
             let terminal = events.last().unwrap();
+            assert_eq!(
+                events
+                    .iter()
+                    .filter(|event| event["kind"] == "metadata")
+                    .count(),
+                if matches!(shape, 1 | 2) { 0 } else { 1 }
+            );
             assert_eq!(terminal["kind"], "status");
             assert_eq!(terminal["code"], code as i32);
             assert_eq!(terminal["details"], message);
             let rows = terminal["trailers"].as_array().unwrap();
+            assert!(!rows
+                .iter()
+                .any(|row| row[0] == "grpc-status" || row[0] == "grpc-message"));
             assert!(rows.contains(&serde_json::json!(["x-result", "first"])));
             assert!(rows.contains(&serde_json::json!(["x-result", "second"])));
+            if matches!(shape, 2 | 3) {
+                assert_eq!(
+                    rows.iter()
+                        .filter(|row| row[0] == "grpc-status-details-bin")
+                        .collect::<Vec<_>>(),
+                    vec![&serde_json::json!(["grpc-status-details-bin", "AP8="])]
+                );
+            }
         }
     }
 }

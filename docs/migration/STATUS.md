@@ -2,23 +2,13 @@
 
 Migration is incomplete. [PARITY.md](PARITY.md) retains the full acceptance checklist; [PLAN.md](PLAN.md) defines the work sequence. Topic contracts describe behavior, and receipts prove only their recorded scope.
 
-## Finished topic: legacy gRPC map-value defaults
+## Finished topic: gRPC status decoding and delivery
 
-Saved-file responses now initialize omitted map enum values to `0` and omitted bytes values to `[]`, preserving explicitly encoded empty bytes as `{}`. Reflection retains absent-value omission under its separate options `{}` profile.
+Status messages preserve decodeURI semantics; malformed binary details use the shared tolerant decoder without panic. Empty/repeated details headers remain metadata without duplication. Trailers-only responses do not emit initial metadata, and OK trailers exclude the separate grpc-status/grpc-message fields. The opt-in Tonic feature also covers reflection/retry decoding; its upstream default stays unchanged.
 
-- Pinned protobuf.js 7.2.4 confirms both profiles: `artifacts/grpc-map-value-default-reference-20261022.json`.
-- All 54 existing legacy regressions passed; the existing consolidated fixture was extended without adding test files, functions or scenarios. Log: `artifacts/grpc-map-value-default-regression-20261022-final.log`.
-- The first regression run failed because the reference incorrectly enabled defaults for reflection; correcting the oracle to the production options confirmed reflection needs no code change. Failed receipt is retained.
-
-## Prior shared-reader integration
-
-Implementation commit: `14d084e3`; the following checks predate the map-default correction.
-
-- One cursor reads the whole response, including nested messages and packed fields. Original field metadata, legacy numeric/string/map/group behavior, required-field validation and singular-message replacement are retained.
-- ProtoJSON and the request writer remain separate. Native size/depth limits remain enforced.
-- Existing legacy regressions: 54 passed. Windows/Linux all-targets compiler checks passed. The cursor change added no test files, functions, assertions or UI scenarios.
-- Native Windows integration: all 95 existing cases passed (43 unary/TLS, 7 streaming, 45 reflection), native-hidden, host exit 0. Original settings and the complete two-file profile were restored; 1,661 selected inputs remained unchanged.
-- Evidence: `artifacts/grpc-response-cursor-verification-20261022.json` and `artifacts/native-grpc-cursor-resume-20261022/verification.json`. `artifacts/docs-cleanup-20261022/history-map.json` maps earlier source identities.
+- Both existing status regressions passed with five original HTTP2 shapes, including malformed details and metadata/status separation. Existing fixtures were extended; no new test function/file/scenario. All-targets locked/offline compiler and scoped formatting passed. Evidence: `artifacts/grpc-status-delivery-verification-20261022.json`; unchanged vendor inputs retain the prior notices receipt's incomplete legal/linkage scope. Related local status changes are consolidated into one topic commit.
+- Fresh Windows native integration on source `3f73f571`: normal release/no-bundle build passed; all 95 unchanged cases passed (43 unary/TLS, 7 streaming, 45 reflection), native-hidden, host exit 0. Settings and the entire two-file profile were restored; 1,661 selected inputs stayed unchanged. Evidence: `artifacts/native-grpc-status-20261022/verification.json`; its source bundle preserves the built commit before this documentation-only amendment.
+- Earlier map-default correction `d578a458`: all 54 legacy regressions passed; omitted saved-file enum/bytes values now use `0`/`[]`, while reflection omits absent values. Its pinned reference and regression receipts remain under `artifacts/grpc-map-value-default-*`.
 
 ## Pending work
 
