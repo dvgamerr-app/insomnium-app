@@ -4,6 +4,10 @@ Updated 2026-10-14. Runner and user assertions are implemented with scoped nativ
 
 See [current status](STATUS.md), [execution plan](PLAN.md) and [complete parity requirements](PARITY.md). No original scope was removed by consolidation.
 
+## Run resource ownership
+
+Each run retains its data, collection, selected suite/test objects, ancestry and run ID. Same-ID replacement cancels the worker and blocks later sends/results/errors; selection changes and ordinary edits to captured objects preserve snapshot execution. Sender callbacks share this owner, checks surround persistence, and drain cleanup removes only its own targets/completion registration. Check/build pass (0 errors/warnings); actual production-function before/after controls reproduce old stale publication/feedback/cleanup and verify rejection plus replacement-run retention. Evidence: `artifacts/runner-resource-owner-verification-20261022.json`. No test scripts/scenarios changed or rerun. Controlled worker/observer evidence is not real Worker/native same-ID or platform acceptance; the prior native binary predates this correction.
+
 ## Topic records
 
 <a id="record-agent-runner-content-resize"></a>

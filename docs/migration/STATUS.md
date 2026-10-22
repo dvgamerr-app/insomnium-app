@@ -2,17 +2,19 @@
 
 Migration is incomplete. [PARITY.md](PARITY.md) retains the full acceptance checklist; [PLAN.md](PLAN.md) defines the work sequence. Topic contracts describe behavior, and receipts prove only their recorded scope.
 
-## Finished topic: current-source native integration
+## Finished topic: runner resource ownership
 
-Source `efae450e` passed the normal-hook Windows release build and the existing native-hidden gRPC scenario (95 cases) plus plugin HTTP/nested/WS/SSE scenario (28 checks). Hosts exited 0; original profile files were restored exactly. Application inputs stayed unchanged across build/runtime; the only tracked supplement corrected two existing Connect/Reconnect test locators. Both failed plugin invocations are retained with their causes. No cases/functions/files added. Evidence: `artifacts/native-request-grpc-current-20261022/verification.json` and its source bundle.
+Runner now captures suite/test/collection object ownership, cancels retired work, guards later sends/publication and retains replacement targets/completion registrations during drain cleanup. Check/build and actual production-function before/after controls pass; no test scripts/scenarios changed or rerun. Evidence: `artifacts/runner-resource-owner-verification-20261022.json`. Controlled worker/observer evidence does not establish real Worker/native same-ID acceptance.
 
 - Request ownership/cancellation remains verified by check/build and the maintained headless scenarios: `artifacts/request-child-cancel-verification-20261022.json`. Selection changes preserve background sends; resource/run replacement cancels retired work, and normal completion preserves retained plugin UI. Native same-ID held replacement/provider/OS-close acceptance remains open.
 - gRPC topic `65311f4a` retains Windows/Linux compiler and nine wire-path evidence. The current native receipt now includes its source changes; ordinary integration does not prove every malformed-wire variant. See GRPC.md for source-bound receipts and remaining gates.
+- Prior normal-hook native build on source `efae450e` passed existing gRPC 95 cases and plugin 28 checks, with exact profile restoration and host exits: `artifacts/native-request-grpc-current-20261022/verification.json`. It predates this runner correction.
 
 ## Pending work
 
 - Specific malformed/noncanonical decoder inputs retain Rust/reference evidence; the native scenario verifies ordinary integration. It does not establish complete gRPC equivalence or OS-close acceptance.
 - Root request-action controls, OAuth provider/native publication, held cancellation/chooser/same-ID and OS-close/platform acceptance remain open.
+- Runner real Worker/native held suite/test replacement acceptance remains open; source/controlled-function ownership checks are now implemented.
 - Complete malformed/error equivalence and retained provider/lifecycle/accessibility/platform/package/legal acceptance remain open. All eight plan streams and every unclosed PARITY requirement remain required.
 
 ## Resume

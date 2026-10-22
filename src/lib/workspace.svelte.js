@@ -3111,8 +3111,9 @@ async function sendDependentRequest(
 export async function runTests(suiteId, testId = null) {
   if (!acceptWorkspaceRun()) return null;
   if (workspace.running[suiteId]) return;
+  const ownerData = workspace.data;
   const selected = runnerSuite(
-    $state.snapshot(workspace.data.resources),
+    $state.snapshot(ownerData.resources),
     suiteId,
     testId,
   );
@@ -3122,24 +3123,31 @@ export async function runTests(suiteId, testId = null) {
       throw new Error("This suite overlaps another active test run.");
   const runId = id("runner");
   const controller = new AbortController();
+  const owners = selected.parents.map(({id, parentId}) => {
+    const resource = ownerData.resources.find(row => row._id === id);
+    const current = resource ? captureRequestOwner(ownerData, resource, () => workspace.data) : () => false;
+    return () => current() && resource?.parentId === parentId;
+  });
+  const ownsRun = () => workspace.running[suiteId]?.id === runId && owners.every(current => current());
+  const checkOwner = () => {
+    controller.signal.throwIfAborted();
+    if (!ownsRun()) throw new DOMException("Test suite owner changed", "AbortError");
+  };
   workspace.running[suiteId] = { id: runId, controller };
   workspace.runnerErrors[suiteId] = "";
   runnerTargets.set(suiteId, targets);
   /** @type {Set<Promise<any>>} */ const sends = new Set();
   /** @type {()=>void} */ let completed = () => {};
-  completions.set(
-    suiteId,
-    new Promise((resolve) => {
-      completed = resolve;
-    }),
-  );
+  const completion = new Promise((resolve) => { completed = () => resolve(undefined); });
+  completions.set(suiteId, completion);
+  const releaseOwner = watchRequestOwner(ownsRun, controller);
   try {
     const result = await runSuiteInWorker(
       selected.suite,
       (requestId, signal) => {
         const operation = (async () => {
           signal.throwIfAborted();
-          controller.signal.throwIfAborted();
+          checkOwner();
           requestId = runnerRequestId(
             workspace.data.resources,
             selected.collectionId,
@@ -3155,7 +3163,7 @@ export async function runTests(suiteId, testId = null) {
           if (!request)
             throw new Error("Runner supports saved HTTP requests only");
           targets.add(requestId);
-          const owner = { requestId: suiteId, runId };
+          const owner = { requestId: suiteId, runId, isCurrent: ownsRun };
           /** @type {ReturnType<typeof createResponseTemplateResolver>} */
           const resolveResponse = createResponseTemplateResolver(
             data.resources,
@@ -3194,20 +3202,7 @@ export async function runTests(suiteId, testId = null) {
       },
       { signal: controller.signal },
     );
-    controller.signal.throwIfAborted();
-    if (
-      workspace.running[suiteId]?.id !== runId ||
-      !workspace.data.resources.some(
-        (r) => r._id === suiteId && r._type === "unit_test_suite",
-      ) ||
-      selected.parents.some(
-        (resource) =>
-          !workspace.data.resources.some(
-            (r) => r._id === resource.id && r.parentId === resource.parentId,
-          ),
-      )
-    )
-      throw new Error("Test suite changed or was deleted before completion");
+    checkOwner();
     const now = Date.now();
     workspace.data.resources.push({
       _id: id("utr"),
@@ -3220,21 +3215,23 @@ export async function runTests(suiteId, testId = null) {
       modified: now,
     });
     await persist();
+    checkOwner();
     return result;
   } catch (error) {
-    if (workspace.data.resources.some((r) => r._id === suiteId))
+    if (ownsRun())
       workspace.runnerErrors[suiteId] = controller.signal.aborted
         ? "Run cancelled"
         : String(error);
     return null;
   } finally {
+    releaseOwner();
     controller.abort();
     // shutdown waits for native cleanup, not just worker termination.
     await Promise.allSettled([...sends]);
-    runnerTargets.delete(suiteId);
+    if (runnerTargets.get(suiteId) === targets) runnerTargets.delete(suiteId);
     if (workspace.running[suiteId]?.id === runId)
       delete workspace.running[suiteId];
-    completions.delete(suiteId);
+    if (completions.get(suiteId) === completion) completions.delete(suiteId);
     completed();
   }
 }
