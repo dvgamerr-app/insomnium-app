@@ -150,7 +150,13 @@ export async function runSuiteIsolated(
       return vm.newNumber(id);
     });
     register("__clearRunner", (id) => {
-      clearTimer(vm.getNumber(id));
+      // Node looks up primitive numeric/string IDs without ToNumber-coercing
+      // arbitrary objects, booleans, symbols or BigInts into another timer.
+      const type = vm.typeof(id);
+      if (type !== "number" && type !== "string") return;
+      const number = vm.getNumber(id);
+      if (type === "string" && vm.getString(id) !== String(number)) return;
+      clearTimer(number);
     });
     register("__runnerBoundary", () => {
       testController.abort();

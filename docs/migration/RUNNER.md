@@ -10,6 +10,10 @@ Each run retains its data, collection, selected suite/test objects, ancestry and
 
 The same scenario's `INSOMNIUM_RUNNER_NATIVE_CLOSE=1` mode replaces Stop with real WM_CLOSE during its held HTTP request, then reuses the reload/result/history/fresh-run checks after reopening. Windows passes: cancellation IPC precedes save/destroy, held peer disconnects, both hosts exit0 without force, no cancelled result/history appears, and the fresh run succeeds. Four HTTP sends/one held cancellation, exact original profile restoration and check0 errors/warnings; unchanged product source/binary. Evidence: `artifacts/native-runner-close-20261022/verification.json`. No new scenario file or duplicate matrix. Native same-ID held replacement, OS shutdown and broader script/import/provider/platform acceptance remain open.
 
+## Timer cancellation
+
+Guest clearTimeout/clearInterval accepts numeric IDs and their exact string spelling; other values do not coerce into another timer. Object valueOf is not invoked, leading-zero strings do not cancel a canonical ID, Symbol/BigInt are ignored, and both APIs can cancel timeout/interval handles. This follows the primitive-ID lookup in [Node18.15 timers](https://raw.githubusercontent.com/nodejs/node/v18.15.0/lib/timers.js). Before/after actual QuickJS/Mocha flow rejects the old coercion and verifies valid cancellation with zero intervals left after teardown. Check0 errors/warnings/build0 and the unchanged saved headless Worker module scenario2 checks pass on the newly emitted worker. Evidence: `artifacts/runner-clear-timer-20261022/verification.json`. This does not establish Node Timeout-object methods or native same-ID ownership acceptance.
+
 ## Topic records
 
 <a id="record-agent-runner-content-resize"></a>
