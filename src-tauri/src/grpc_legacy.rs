@@ -2045,6 +2045,20 @@ mod tests {
                     message ExtensionOnly { extensions 100 to 199; }
                     extend ExtensionOnly { optional int32 extensionOnlyValue=100; }
                     message ExtensionMap { map<string,ExtensionOnly> values=1; }
+                    message BoolWire { optional bool flag=1; repeated bool flags=2;
+                        map<bool,bool> values=3; optional bool nonzero=4;
+                        optional bool high=5; optional bool maximum=6;
+                        optional int32 signed=7; optional uint32 unsigned=8;
+                        optional sint32 zigzag=9; optional E choice=10;
+                        repeated sint32 packed=11; map<sint32,uint32> numbers=12;
+                        optional bytes payload=13; optional string text=14;
+                        repeated float floats=15; optional Nonempty child=16;
+                        map<int32,string> signedKeys=17; optional string clipped=18;
+                        optional int64 signed64=19; optional uint64 unsigned64=20;
+                        optional sint64 zigzag64=21; repeated sint64 longValues=22;
+                        extensions 100 to 199; }
+                    extend BoolWire { optional bool bool_extra=100; repeated bool bool_extras=101;
+                        optional int32 number_extra=102; repeated uint32 number_extras=103; }
                     message M { required E e=1 [default=B];
                         required bytes b=2 [default="Zh=="]; optional E opt=3;
                         required Empty empty=4; optional bytes o=5 [default="Zm9="];
@@ -2060,6 +2074,74 @@ mod tests {
         })
         .unwrap();
         let snapshot = pool.encode_to_vec();
+        // Pinned 32-bit readers share low-word narrowing and fixed continuation skip.
+        let bool_wire = "088080808010108080808010100112068080808010011a0c088080808010108080808010208180808010288080808080808080800130ffffffffffffffffff01a0068080808010aa06068080808010013cffffffff0f47818080808000000000ff4880808080105083808080105a8a80808010ffffffff0f8080808010608c80808010088180808010108180808010b506ffffffff0fba068a80808010ffffffff0f8180808010ee808080108180808010ff708180808010417a81808080100000803f800181808080100a03616263c20c818080801000c00c8080808080808080808000cb0c808080801001d40c8a010e08818080808000000000ff1201789801ffffffffffffffffff7fa001ffffffffffffffffff7fa801ffffffffffffffffff7fb2010bffffffffffffffffff7f019201054142"
+            .as_bytes().chunks_exact(2)
+            .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap())
+            .collect::<Vec<_>>();
+        let bool_original = pool.get_message_by_name("BoolWire").unwrap();
+        let bool_view = legacy_descriptor(bool_original.clone()).unwrap();
+        let bool_response = crate::grpc_schema::decode_legacy_response_original(
+            &bool_view,
+            &bool_original,
+            &bool_wire,
+        )
+        .unwrap();
+        for mode in [JsonMode::Legacy, JsonMode::LegacyReflection] {
+            let actual: serde_json::Value = serde_json::from_str(
+                &crate::grpc_schema::json_mode(&bool_response, mode, bool_original.clone())
+                    .unwrap(),
+            )
+            .unwrap();
+            let mut expected = serde_json::json!({"flag":false,"flags":[false,true,false,true],
+                "values":{"false":false},"nonzero":true,"high":false,"maximum":true,
+                ".bool_extra":false,".bool_extras":[false,true],
+                "signed":-1,"unsigned":1,"zigzag":0,"choice":"A",
+                "packed":[-2147483648i64,0],"numbers":{"-1":1},
+                ".number_extra":-1,".number_extras":[4294967295u64,1],
+                "payload":{"0":255},"text":"A","floats":[1],"child":{"s":"abc"},
+                "signedKeys":{"1":"x"},"clipped":"AB",
+                "signed64":"-1","unsigned64":"18446744073709551615",
+                "zigzag64":"-9223372036854775808",
+                "longValues":["-9223372036854775808","-1"]});
+            if matches!(mode, JsonMode::LegacyReflection) {
+                expected["values"] = serde_json::json!([{"key":false,"value":false}]);
+                expected["numbers"] = serde_json::json!([{"key":-1,"value":1}]);
+                expected["choice"] = serde_json::json!(3);
+                expected["signedKeys"] = serde_json::json!([{"key":1,"value":"x"}]);
+                expected["signed64"] = serde_json::json!({"low":-1,"high":-1,"unsigned":false});
+                expected["unsigned64"] = serde_json::json!({"low":-1,"high":-1,"unsigned":true});
+                expected["zigzag64"] =
+                    serde_json::json!({"low":0,"high":-2147483648i64,"unsigned":false});
+                expected["longValues"] = serde_json::json!([
+                    {"low":0,"high":-2147483648i64,"unsigned":false},
+                    {"low":-1,"high":-1,"unsigned":false}]);
+            }
+            assert_eq!(actual, expected);
+        }
+        assert!(crate::grpc_schema::decode_legacy_response(
+            &bool_view,
+            b"\x08\x80\x80\x80\x80\x80\x01"
+        )
+        .is_err());
+        // Standard decoding retains its strict varint rules. The original boolean
+        // prefix remains valid and keeps the earlier full-width truthiness control.
+        assert!(DynamicMessage::decode(bool_original.clone(), bool_wire.as_slice()).is_err());
+        let standard = DynamicMessage::decode(bool_original, &bool_wire[..80]).unwrap();
+        assert_eq!(
+            standard.get_field_by_name("flag").unwrap().as_bool(),
+            Some(true)
+        );
+        let short_long = crate::grpc_schema::decode_legacy_response_original(
+            &bool_view,
+            &pool.get_message_by_name("BoolWire").unwrap(),
+            b"\x98\x01\x80\x80\x80",
+        )
+        .unwrap();
+        assert_eq!(
+            short_long.get_field_by_name("signed64").unwrap().as_i64(),
+            Some(0)
+        );
         let original_map = pool.get_message_by_name("ExtensionMap").unwrap();
         let map_view = legacy_descriptor(original_map.clone()).unwrap();
         let missing =
@@ -2081,11 +2163,12 @@ mod tests {
         let required = crate::grpc_schema::decode_legacy_response;
         assert!(required(&response, &[]).is_ok());
         assert!(required(&response, b"\x0a\x02\x0a\x00").is_ok());
+        assert!(required(&response, b"\x23\x0a\x00").is_ok());
         // Singular children/groups/extensions replace; repeated children append.
         let wire = [
             b"\x0a\x04\x0a\x00\x10\x07\x0a\x02\x0a\x00".as_slice(),
             b"\x12\x04\x0a\x00\x10\x07\x12\x02\x0a\x00",
-            b"\x23\x0a\x00\x10\x07\x24\x23\x0a\x00\x24",
+            b"\x23\x0a\x00\x10\x07\x2c\x23\x0a\x00\x2c",
             b"\xa2\x06\x04\x0a\x00\x10\x07\xa2\x06\x02\x0a\x00",
         ]
         .concat();

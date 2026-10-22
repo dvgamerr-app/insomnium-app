@@ -403,6 +403,7 @@ where
             let headers = metadata(&config.metadata)?;
             emit(Event::Connected).await?;
             let codec = DynamicCodec {
+                original: method.output(),
                 legacy: !matches!(mode, grpc_schema::JsonMode::ProtoJson),
                 output: match mode {
                     grpc_schema::JsonMode::Legacy | grpc_schema::JsonMode::LegacyReflection => {

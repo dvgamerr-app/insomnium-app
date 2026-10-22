@@ -816,9 +816,10 @@ pub(crate) fn json_mode(
 pub(crate) struct DynamicCodec {
     pub output: MessageDescriptor,
     pub legacy: bool,
+    pub original: MessageDescriptor,
 }
 pub(crate) struct DynamicEncoder;
-pub(crate) struct DynamicDecoder(MessageDescriptor, bool);
+pub(crate) struct DynamicDecoder(MessageDescriptor, bool, MessageDescriptor);
 impl tonic::codec::Codec for DynamicCodec {
     type Encode = DynamicMessage;
     type Decode = DynamicMessage;
@@ -828,7 +829,7 @@ impl tonic::codec::Codec for DynamicCodec {
         DynamicEncoder
     }
     fn decoder(&mut self) -> Self::Decoder {
-        DynamicDecoder(self.output.clone(), self.legacy)
+        DynamicDecoder(self.output.clone(), self.legacy, self.original.clone())
     }
 }
 impl tonic::codec::Encoder for DynamicEncoder {
@@ -858,7 +859,7 @@ impl tonic::codec::Decoder for DynamicDecoder {
         use prost::bytes::Buf;
         let bytes = src.copy_to_bytes(src.remaining());
         if self.1 {
-            return decode_legacy_response(&self.0, &bytes)
+            return decode_legacy_response_original(&self.0, &self.2, &bytes)
                 .map(Some)
                 .map_err(|error| {
                     tonic::Status::internal(format!("Response message parsing error: {error}"))
@@ -877,20 +878,194 @@ impl tonic::codec::Decoder for DynamicDecoder {
 // protobuf.js checks required presence on each decoded message occurrence,
 // before singular children are overwritten or map entries replace one another.
 // Decode children separately: protobuf.js replaces singular message values,
-// whereas prost's merge_field merges them. Scalar/packed/unknown wire decoding
-// continues to use prost, and the private legacy view keeps maps as entry lists.
+// whereas prost's merge_field merges them. All legacy values share a cursor
+// over the full response buffer. Unknown fields are skipped,
+// and the private legacy view keeps maps as entry lists.
+#[cfg(test)]
 pub(crate) fn decode_legacy_response(
     desc: &MessageDescriptor,
-    mut bytes: &[u8],
+    bytes: &[u8],
 ) -> Result<DynamicMessage, String> {
+    decode_legacy_response_in_pool(desc, bytes, None)
+}
+pub(crate) fn decode_legacy_response_original(
+    desc: &MessageDescriptor,
+    original: &MessageDescriptor,
+    bytes: &[u8],
+) -> Result<DynamicMessage, String> {
+    decode_legacy_response_in_pool(desc, bytes, Some(original.parent_pool()))
+}
+fn decode_legacy_response_in_pool(
+    desc: &MessageDescriptor,
+    bytes: &[u8],
+    original_pool: Option<&DescriptorPool>,
+) -> Result<DynamicMessage, String> {
+    use prost_reflect::{Cardinality, Kind, Value};
+    struct Reader<'a> {
+        bytes: &'a [u8],
+        pos: usize,
+    }
+    impl<'a> Reader<'a> {
+        fn byte(&mut self) -> Result<u8, String> {
+            let value = *self
+                .bytes
+                .get(self.pos)
+                .ok_or("Truncated legacy protobuf value.")?;
+            self.pos += 1;
+            Ok(value)
+        }
+        fn uint32(&mut self) -> Result<u32, String> {
+            let mut value = 0u32;
+            for shift in [0, 7, 14, 21, 28] {
+                let byte = self.byte()?;
+                value |= u32::from(byte & if shift == 28 { 15 } else { 127 }) << shift;
+                if byte < 128 {
+                    return Ok(value);
+                }
+            }
+            self.segment(5, false)?;
+            Ok(value)
+        }
+        fn limit(&mut self) -> Result<usize, String> {
+            let length = usize::try_from(self.uint32()?).map_err(|_| "Invalid protobuf length.")?;
+            self.pos
+                .checked_add(length)
+                .ok_or_else(|| "Invalid protobuf length.".into())
+        }
+        fn segment(&mut self, length: usize, clamp: bool) -> Result<&'a [u8], String> {
+            let end = self
+                .pos
+                .checked_add(length)
+                .ok_or("Invalid protobuf length.")?;
+            let end = if clamp {
+                end.min(self.bytes.len())
+            } else {
+                end
+            };
+            let value = self
+                .bytes
+                .get(self.pos..end)
+                .ok_or("Truncated legacy protobuf value.")?;
+            self.pos = end;
+            Ok(value)
+        }
+        fn delimited(&mut self, clamp: bool) -> Result<&'a [u8], String> {
+            let length = usize::try_from(self.uint32()?).map_err(|_| "Invalid protobuf length.")?;
+            self.segment(length, clamp)
+        }
+        fn fixed<const N: usize>(&mut self) -> Result<[u8; N], String> {
+            self.segment(N, false)?
+                .try_into()
+                .map_err(|_| "Invalid protobuf fixed value.".into())
+        }
+        fn long(&mut self) -> Result<u64, String> {
+            let mut low = 0u32;
+            if self.bytes.len().saturating_sub(self.pos) > 4 {
+                for shift in [0, 7, 14, 21] {
+                    let byte = self.byte()?;
+                    low |= u32::from(byte & 127) << shift;
+                    if byte < 128 {
+                        return Ok(u64::from(low));
+                    }
+                }
+            } else {
+                for shift in [0, 7, 14] {
+                    let byte = self.byte()?;
+                    low |= u32::from(byte & 127) << shift;
+                    if byte < 128 {
+                        return Ok(u64::from(low));
+                    }
+                }
+                // Reader's fourth low-word slot advances even when absent.
+                let byte = self.bytes.get(self.pos).copied().unwrap_or(0);
+                self.pos += 1;
+                low |= u32::from(byte & 127) << 21;
+                return Ok(u64::from(low));
+            }
+            let byte = self.byte()?;
+            low |= u32::from(byte & 127) << 28;
+            let mut high = u32::from(byte & 127) >> 4;
+            if byte < 128 {
+                return Ok(u64::from(low) | (u64::from(high) << 32));
+            }
+            for shift in [3, 10, 17, 24, 31] {
+                let byte = self.byte()?;
+                high |= u32::from(byte & 127) << shift;
+                if byte < 128 {
+                    return Ok(u64::from(low) | (u64::from(high) << 32));
+                }
+            }
+            Err("Invalid legacy 64-bit varint.".into())
+        }
+        fn skip(&mut self, wire: u32, depth: usize) -> Result<(), String> {
+            if depth > 64 {
+                return Err("gRPC message nesting exceeds 64 levels.".into());
+            }
+            match wire {
+                0 => while self.byte()? & 128 != 0 {},
+                1 => {
+                    self.segment(8, false)?;
+                }
+                2 => {
+                    self.delimited(false)?;
+                }
+                3 => loop {
+                    let wire = self.uint32()? & 7;
+                    if wire == 4 {
+                        break;
+                    }
+                    self.skip(wire, depth + 1)?;
+                },
+                5 => {
+                    self.segment(4, false)?;
+                }
+                _ => return Err("Invalid legacy protobuf wire type.".into()),
+            }
+            Ok(())
+        }
+        fn scalar(&mut self, kind: &Kind, original: Option<&Kind>) -> Result<Value, String> {
+            Ok(match kind {
+                Kind::Bool => Value::Bool(self.uint32()? != 0),
+                Kind::Int32 => Value::I32(self.uint32()? as i32),
+                Kind::Uint32 => Value::U32(self.uint32()?),
+                Kind::Sint32 => {
+                    let value = self.uint32()?;
+                    Value::I32(((value >> 1) as i32) ^ -((value & 1) as i32))
+                }
+                Kind::Int64 if matches!(original, Some(Kind::Int32)) => {
+                    Value::I64(i64::from(self.uint32()? as i32))
+                }
+                Kind::Int64 => Value::I64(self.long()? as i64),
+                Kind::Uint64 => Value::U64(self.long()?),
+                Kind::Sint64 => {
+                    let value = self.long()?;
+                    Value::I64(((value >> 1) as i64) ^ -((value & 1) as i64))
+                }
+                Kind::Fixed32 => Value::U32(u32::from_le_bytes(self.fixed()?)),
+                Kind::Sfixed32 => Value::I32(i32::from_le_bytes(self.fixed()?)),
+                Kind::Fixed64 => Value::U64(u64::from_le_bytes(self.fixed()?)),
+                Kind::Sfixed64 => Value::I64(i64::from_le_bytes(self.fixed()?)),
+                Kind::Float => Value::F32(f32::from_le_bytes(self.fixed()?)),
+                Kind::Double => Value::F64(f64::from_le_bytes(self.fixed()?)),
+                Kind::Enum(_) => Value::EnumNumber(self.uint32()? as i32),
+                Kind::Bytes => Value::Bytes(prost::bytes::Bytes::copy_from_slice(
+                    self.delimited(matches!(original, Some(Kind::String)))?,
+                )),
+                Kind::String => {
+                    Value::String(String::from_utf8_lossy(self.delimited(true)?).into_owned())
+                }
+                Kind::Message(_) => return Err("Expected a legacy scalar field.".into()),
+            })
+        }
+    }
     fn scan(
         desc: &MessageDescriptor,
-        bytes: &mut &[u8],
-        group: Option<u32>,
+        reader: &mut Reader<'_>,
+        end: usize,
+        group: bool,
         depth: usize,
+        original_pool: Option<&DescriptorPool>,
     ) -> Result<DynamicMessage, String> {
-        use prost::encoding::{decode_key, decode_varint, DecodeContext, WireType};
-        use prost_reflect::{Cardinality, Kind, Value};
         if depth > 64 {
             return Err("gRPC message nesting exceeds 64 levels.".into());
         }
@@ -904,15 +1079,18 @@ pub(crate) fn decode_legacy_response(
                     .map(|field| (field.number(), field.full_name().to_owned())),
             )
             .collect();
-        let mut ended = false;
+        let original = original_pool
+            .map(|pool| {
+                pool.get_message_by_name(desc.full_name())
+                    .ok_or("Missing original legacy response descriptor.")
+            })
+            .transpose()?;
         let mut message = DynamicMessage::new(desc.clone());
-        while !bytes.is_empty() {
-            let (tag, wire) = decode_key(bytes).map_err(|error| error.to_string())?;
-            if wire == WireType::EndGroup {
-                if group != Some(tag) {
-                    return Err("Unexpected protobuf end group.".into());
-                }
-                ended = true;
+        while reader.pos < end {
+            let key = reader.uint32()?;
+            let tag = key >> 3;
+            let wire = key & 7;
+            if group && wire == 4 {
                 break;
             }
             required.remove(&tag);
@@ -920,64 +1098,92 @@ pub(crate) fn decode_legacy_response(
             let extension = desc.get_extension(tag);
             let kind = field
                 .as_ref()
-                .map(|field| (field.kind(), field.is_group()))
+                .map(|field| (field.kind(), field.is_group(), field.is_list()))
                 .or_else(|| {
                     extension
                         .as_ref()
-                        .map(|field| (field.kind(), field.is_group()))
+                        .map(|field| (field.kind(), field.is_group(), field.is_list()))
                 });
-            let child = match kind {
-                Some((Kind::Message(child), false)) if wire == WireType::LengthDelimited => {
-                    let length = decode_varint(bytes).map_err(|error| error.to_string())?;
-                    let length =
-                        usize::try_from(length).map_err(|_| "Invalid protobuf message length.")?;
-                    if length > bytes.len() {
-                        return Err("Truncated protobuf message.".into());
-                    }
-                    let (mut nested, rest) = bytes.split_at(length);
-                    let child = scan(&child, &mut nested, None, depth + 1)?;
-                    *bytes = rest;
-                    Some(Value::Message(child))
-                }
-                Some((Kind::Message(child), true)) if wire == WireType::StartGroup => {
-                    Some(Value::Message(scan(&child, bytes, Some(tag), depth + 1)?))
-                }
-                _ => {
-                    message
-                        .merge_field(tag, wire, bytes, DecodeContext::default())
-                        .map_err(|error| error.to_string())?;
-                    None
-                }
+            let Some((kind, is_group, repeated)) = kind else {
+                reader.skip(wire, depth)?;
+                continue;
             };
-            if let Some(child) = child {
-                if let Some(field) = field {
-                    if field.is_list() {
-                        let Value::List(values) = message.get_field_mut(&field) else {
-                            return Err("Invalid legacy repeated message field.".into());
-                        };
-                        values.push(child);
+            let original_kind = original.as_ref().and_then(|desc| {
+                desc.get_field(tag)
+                    .map(|field| field.kind())
+                    .or_else(|| desc.get_extension(tag).map(|field| field.kind()))
+            });
+            // Logical message/packed ends govern iteration, not the primitive
+            // reader's available bytes: protobuf.js shares one cursor/buffer.
+            if repeated
+                && wire == 2
+                && !matches!(kind, Kind::Message(_) | Kind::Bytes | Kind::String)
+            {
+                let packed_end = reader.limit()?;
+                let target = if let Some(field) = &field {
+                    message.get_field_mut(field)
+                } else if let Some(extension) = &extension {
+                    message.get_extension_mut(extension)
+                } else {
+                    return Err("Missing legacy repeated field.".into());
+                };
+                let Value::List(values) = target else {
+                    return Err("Invalid legacy repeated field.".into());
+                };
+                while reader.pos < packed_end {
+                    values.push(reader.scalar(&kind, original_kind.as_ref())?);
+                }
+                continue;
+            }
+            let value = match kind {
+                Kind::Message(child) => {
+                    let child_end = if is_group {
+                        reader.bytes.len()
                     } else {
-                        message.set_field(&field, child);
-                    }
-                } else if let Some(extension) = extension {
-                    if extension.is_list() {
-                        let Value::List(values) = message.get_extension_mut(&extension) else {
-                            return Err("Invalid legacy repeated message extension.".into());
-                        };
-                        values.push(child);
-                    } else {
-                        message.set_extension(&extension, child);
-                    }
+                        reader.limit()?
+                    };
+                    Value::Message(scan(
+                        &child,
+                        reader,
+                        child_end,
+                        is_group,
+                        depth + 1,
+                        original_pool,
+                    )?)
+                }
+                _ => reader.scalar(&kind, original_kind.as_ref())?,
+            };
+            if let Some(field) = field {
+                if repeated {
+                    let Value::List(values) = message.get_field_mut(&field) else {
+                        return Err("Invalid legacy repeated field.".into());
+                    };
+                    values.push(value);
+                } else {
+                    message.set_field(&field, value);
+                }
+            } else if let Some(extension) = extension {
+                if repeated {
+                    let Value::List(values) = message.get_extension_mut(&extension) else {
+                        return Err("Invalid legacy repeated extension.".into());
+                    };
+                    values.push(value);
+                } else {
+                    message.set_extension(&extension, value);
                 }
             }
-        }
-        if group.is_some() && !ended {
-            return Err("Unterminated protobuf group.".into());
         }
         if let Some((_, name)) = required.into_iter().min_by_key(|(tag, _)| *tag) {
             return Err(format!("missing required '{name}' in {}", desc.full_name()));
         }
         Ok(message)
     }
-    scan(desc, &mut bytes, None, 0)
+    scan(
+        desc,
+        &mut Reader { bytes, pos: 0 },
+        bytes.len(),
+        false,
+        0,
+        original_pool,
+    )
 }
