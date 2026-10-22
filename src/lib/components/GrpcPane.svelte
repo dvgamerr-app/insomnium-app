@@ -138,8 +138,12 @@
     return () => transferWork.cancel();
   });
   onDestroy(()=>{disposed=true;transferWork.dispose();});
+  // Retention can shift an indexed unary/history tab to a different message.
+  // Keep this scalar separate so unrelated arrivals retain the same owner.
+  const selectedReceivedMessageId=$derived(responseTab==='Response'&&!response?.serverStreaming
+    ? (messages[selectedMessage]||messages[0])?._id||'' : '');
   const transferOwner=$derived({data:app.data,request,response,responseTab,
-    selectedMessage,selectedSentId,fullMessage});
+    selectedMessage,selectedReceivedMessageId,selectedSentId,fullMessage});
   const exportOwner=$derived({owner:transferOwner,lastEvent:response?.events?.at(-1),
     headers:response?.headers,trailers:response?.trailers,status:response?.status,statusText:response?.statusText,
     connectionState:response?.connectionState,elapsedMs:response?.elapsedMs,size:response?.size,
