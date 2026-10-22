@@ -39,20 +39,19 @@ export function createEnvironmentTemplateEditorSession(environmentId) {
     throw Error("Environment collection no longer exists");
   const expectedEnvironment = JSON.stringify(environment);
   const activeRequestId = workspace.data.activeRequestId;
-  const request = workspace.data.resources.find(
-    (item) =>
-      item._id === activeRequestId &&
-      ["request", "grpc_request"].includes(item._type) &&
-      workspaceFor(workspace.data.resources, item._id) === workspaceId,
-  );
+  const activeResource = workspace.data.resources.find((item) => item._id === activeRequestId);
+  const request = activeResource &&
+    ["request", "grpc_request"].includes(activeResource._type) &&
+    workspaceFor(workspace.data.resources, activeResource._id) === workspaceId
+      ? activeResource : undefined;
   return createEditorSession(
     request?._id ?? workspaceId,
     () =>
       workspace.data.activeWorkspaceId === workspaceId &&
       workspace.data.activeRequestId === activeRequestId &&
-      JSON.stringify(
-        workspace.data.resources.find((item) => item._id === environmentId),
-      ) === expectedEnvironment,
+      workspace.data.resources.find((item) => item._id === activeRequestId) === activeResource &&
+      workspace.data.resources.find((item) => item._id === environmentId) === environment &&
+      JSON.stringify(environment) === expectedEnvironment,
   );
 }
 
@@ -92,6 +91,8 @@ function createEditorSession(requestId, ownerCurrent = () => true) {
     );
   }
   try {
+    const ownerResource = workspace.data.resources.find((item) => item._id === requestId);
+    if (!ownerResource) throw Error("Request no longer exists");
     const data = requestDataScope($state.snapshot(workspace.data), requestId);
     const request = data.resources.find((item) => item._id === requestId);
     if (!request) throw Error("Request no longer exists");
@@ -112,6 +113,7 @@ function createEditorSession(requestId, ownerCurrent = () => true) {
       if (
         closed ||
         !work.current() ||
+        workspace.data.resources.find((item) => item._id === requestId) !== ownerResource ||
         !ownerCurrent() ||
         (general
           ? workspace.data.activeWorkspaceId !== requestId
