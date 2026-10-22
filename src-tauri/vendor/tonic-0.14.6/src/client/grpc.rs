@@ -330,6 +330,14 @@ impl<T> Grpc<T> {
         T::ResponseBody: HttpBody + Send + 'static,
         <T::ResponseBody as HttpBody>::Error: Into<crate::BoxError>,
     {
+        #[cfg(feature = "insomnium-status-message")]
+        if response.body().is_end_stream() && !response.headers().contains_key(Status::GRPC_STATUS)
+        {
+            return Err(Status::from_legacy_missing_status(
+                Some(response.headers()),
+                response.status(),
+            ));
+        }
         let encoding = CompressionEncoding::from_encoding_header(
             response.headers(),
             self.config.accept_compression_encodings,

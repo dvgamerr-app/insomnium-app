@@ -103,9 +103,9 @@ impl tower::Service<tonic::codegen::http::Request<tonic::body::Body>> for Observ
             let mut response = future.await?;
             // Observe metadata before Tonic's compression/codec validation:
             // an error there must not replay a call already committed by headers.
-            let terminal = tonic::codegen::Body::is_end_stream(response.body())
-                && (response.headers().contains_key("grpc-status")
-                    || response.status() != tonic::codegen::http::StatusCode::OK);
+            // END_STREAM headers are status delivery even when grpc-status is
+            // absent. They must not commit a retry as initial metadata would.
+            let terminal = tonic::codegen::Body::is_end_stream(response.body());
             if terminal && response.headers().contains_key("grpc-status") {
                 // A trailers-only response has no compressed messages. Tonic
                 // validates encoding before status, unlike grpc-js; defer this

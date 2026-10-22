@@ -650,7 +650,7 @@ mod status_tests {
             }],
             include_paths: vec![],
         }).unwrap();
-        for shape in 0..5 {
+        for shape in 0..9 {
             let method_name = if shape == 1 { "Watch" } else { "Echo" };
             let method = pool
                 .get_service_by_name("owned.Status")
@@ -658,15 +658,20 @@ mod status_tests {
                 .methods()
                 .find(|method| method.name() == method_name)
                 .unwrap();
-            let message = if shape == 2 {
-                "denied + %"
-            } else {
-                "สำเร็จ + 100%"
+            let message = match shape {
+                2 => "denied + %",
+                5 => "Received HTTP status code 403",
+                6 => "Received HTTP status code 200",
+                7 => "Received RST_STREAM with code 0 (Call ended without gRPC status)",
+                8 => "Received HTTP status code 503",
+                _ => "สำเร็จ + 100%",
             };
-            let code = if shape == 2 {
-                tonic::Code::PermissionDenied
-            } else {
-                tonic::Code::Ok
+            let code = match shape {
+                2 | 5 => tonic::Code::PermissionDenied,
+                6 => tonic::Code::Unknown,
+                7 => tonic::Code::Internal,
+                8 => tonic::Code::Unavailable,
+                _ => tonic::Code::Ok,
             };
             let mut status = Status::new(code, message);
             status
@@ -677,6 +682,11 @@ mod status_tests {
                 .append("x-result", "second".parse().unwrap());
             let mut trailers = Default::default();
             status.add_header(&mut trailers).unwrap();
+            if shape >= 5 {
+                // Distinct missing-status paths reuse this peer and ownership:
+                // headers-only, final trailers, clean EOF and invalid HTTP body.
+                trailers.remove("grpc-status");
+            }
             // Retain the five original shapes, with malformed binary details
             // on both final-trailer and trailers-only error paths.
             if matches!(shape, 2 | 3) {
@@ -755,8 +765,13 @@ mod status_tests {
                         let mut frame = vec![u8::from(encoding.is_some())];
                         frame.extend_from_slice(&(encoded.len() as u32).to_be_bytes());
                         frame.extend_from_slice(&encoded);
-                        let trailers_only = matches!(shape, 1 | 2);
-                        let frames = if !trailers_only {
+                        if shape == 8 {
+                            frame = vec![2, 0, 0, 0, 0];
+                        }
+                        let trailers_only = matches!(shape, 1 | 2 | 5);
+                        let frames = if matches!(shape, 7 | 8) {
+                            vec![Ok::<_, Infallible>(Frame::data(Bytes::from(frame)))]
+                        } else if !trailers_only {
                             vec![
                                 Ok::<_, Infallible>(Frame::data(Bytes::from(frame))),
                                 Ok(Frame::trailers(trailers.clone())),
@@ -764,8 +779,19 @@ mod status_tests {
                         } else {
                             vec![]
                         };
-                        let mut response =
-                            HttpResponse::new(StreamBody::new(tokio_stream::iter(frames)));
+                        // Empty reports end-of-stream before headers are sent;
+                        // an exhausted StreamBody can instead send a later EOF.
+                        let response_body = if trailers_only {
+                            http_body_util::Empty::<Bytes>::new().boxed()
+                        } else {
+                            StreamBody::new(tokio_stream::iter(frames)).boxed()
+                        };
+                        let mut response = HttpResponse::new(response_body);
+                        *response.status_mut() = match shape {
+                            5 => tonic::codegen::http::StatusCode::FORBIDDEN,
+                            8 => tonic::codegen::http::StatusCode::SERVICE_UNAVAILABLE,
+                            _ => tonic::codegen::http::StatusCode::OK,
+                        };
                         response
                             .headers_mut()
                             .insert("content-type", "application/grpc".parse().unwrap());
@@ -845,10 +871,10 @@ mod status_tests {
                     .iter()
                     .filter(|event| event["kind"] == "message")
                     .count(),
-                if matches!(shape, 1 | 2) { 0 } else { 1 },
+                if matches!(shape, 0 | 3 | 4) { 1 } else { 0 },
                 "shape {shape}: {events:?}"
             );
-            if !matches!(shape, 1 | 2) {
+            if matches!(shape, 0 | 3 | 4) {
                 let data = events
                     .iter()
                     .find(|event| event["kind"] == "message")
@@ -863,17 +889,24 @@ mod status_tests {
                     .iter()
                     .filter(|event| event["kind"] == "metadata")
                     .count(),
-                if matches!(shape, 1 | 2) { 0 } else { 1 }
+                if matches!(shape, 1 | 2 | 5) { 0 } else { 1 },
+                "shape {shape}: {events:?}"
             );
             assert_eq!(terminal["kind"], "status");
             assert_eq!(terminal["code"], code as i32);
             assert_eq!(terminal["details"], message);
             let rows = terminal["trailers"].as_array().unwrap();
-            assert!(!rows
-                .iter()
-                .any(|row| row[0] == "grpc-status" || row[0] == "grpc-message"));
-            assert!(rows.contains(&serde_json::json!(["x-result", "first"])));
-            assert!(rows.contains(&serde_json::json!(["x-result", "second"])));
+            assert!(!rows.iter().any(|row| row[0] == "grpc-status"));
+            assert_eq!(
+                rows.iter().any(|row| row[0] == "grpc-message"),
+                matches!(shape, 5 | 6)
+            );
+            if shape < 7 {
+                assert!(rows.contains(&serde_json::json!(["x-result", "first"])));
+                assert!(rows.contains(&serde_json::json!(["x-result", "second"])));
+            } else {
+                assert!(rows.is_empty());
+            }
             if matches!(shape, 2 | 3) {
                 assert_eq!(
                     rows.iter()

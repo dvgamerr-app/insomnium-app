@@ -270,6 +270,10 @@ impl StreamingInner {
                 // FIXME: improve buf usage.
                 return Poll::Ready(if self.buf.has_remaining() {
                     trace!("unexpected EOF decoding stream, state: {:?}", self.state);
+                    #[cfg(feature = "insomnium-status-message")]
+                    if let Direction::Response(status) = self.direction {
+                        return Poll::Ready(Err(Status::from_legacy_missing_status(None, status)));
+                    }
                     Err(Status::internal("Unexpected EOF decoding stream."))
                 } else {
                     Ok(None)
@@ -379,10 +383,24 @@ impl<T> Streaming<T> {
     }
 
     fn decode_chunk(&mut self) -> Result<Option<T>, Status> {
-        match self
+        #[cfg(feature = "insomnium-status-message")]
+        let http_status = match self.inner.direction {
+            Direction::Response(status) => Some(status),
+            _ => None,
+        };
+        let chunk = self
             .inner
-            .decode_chunk(self.decoder.get_mut().buffer_settings())?
-        {
+            .decode_chunk(self.decoder.get_mut().buffer_settings());
+        #[cfg(feature = "insomnium-status-message")]
+        let chunk = chunk.map_err(|error| {
+            if let Some(status) = http_status {
+                if status != StatusCode::OK {
+                    return Status::from_legacy_missing_status(None, status);
+                }
+            }
+            error
+        });
+        match chunk? {
             Some(mut decode_buf) => match self.decoder.get_mut().decode(&mut decode_buf)? {
                 Some(msg) => {
                     self.inner.state = State::ReadHeader;
