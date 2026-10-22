@@ -70,7 +70,7 @@ await preserveNativeProfile(() =>
               try {
                 assert.equal(status, "0");
                 const bytes = Buffer.concat(chunks);
-                assert.equal(bytes[0], 0);
+                assert.equal(bytes[0], 2);
                 assert.equal(bytes.readUInt32BE(1), bytes.length - 5);
                 assert.equal(bytes[5], 10);
                 assert.equal(bytes[6], Buffer.byteLength(message));

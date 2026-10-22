@@ -52,7 +52,20 @@ try {
         parentId: suiteId,
         name: "Callback contract",
         requestId: fixture.requestId,
-        code: `const direct = await insomnia.sendRequest('${fixture.requestId}');
+        code: `let timerFired = false;
+let coerced = 0;
+const cancelledTimer = setTimeout(() => { timerFired = true; }, 1);
+clearTimeout({valueOf() { coerced++; return cancelledTimer; }});
+expect(coerced).to.equal(0);
+clearTimeout(String(cancelledTimer));
+await new Promise(resolve => {
+  const pending = setTimeout(resolve, 5);
+  clearInterval('0' + pending);
+  clearInterval(BigInt(pending));
+  clearTimeout(Symbol());
+});
+expect(timerFired).to.equal(false);
+const direct = await insomnia.sendRequest('${fixture.requestId}');
 expect(direct.status).to.equal(200);
 expect(direct.data).to.equal('runner fixture response');
 expect(direct.headers['x-runner']).to.equal('fixture');
@@ -317,7 +330,7 @@ expect(delegated).to.equal(1);`,
           nativeHttpSends: fixtureHttp.echoes,
           cancelledHeldCalls: fixtureHttp.cancelled,
           states: [
-            "direct/detached/delegated callback",
+            "timer IDs and direct/detached/delegated callback",
             "passing/failing assertions",
             "single test",
             "persisted reload",

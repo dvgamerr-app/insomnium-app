@@ -371,7 +371,8 @@ async fn grpc_connection(
 
 #[cfg(grpc_fixture)]
 fn grpc_frame(text: &[u8]) -> tungstenite::Bytes {
-    let mut frame = vec![0];
+    // grpc-js treats every flag other than 1 as uncompressed.
+    let mut frame = vec![2];
     frame.extend_from_slice(&((text.len() + 2) as u32).to_be_bytes());
     frame.extend_from_slice(&[10, text.len() as u8]);
     frame.extend_from_slice(text);
@@ -482,7 +483,7 @@ async fn grpc_request(
             );
             if reflection {
                 let payload = grpc_reflection(&frame[5..], &path)?;
-                let mut encoded = vec![0];
+                let mut encoded = vec![2];
                 encoded.extend_from_slice(&(payload.len() as u32).to_be_bytes());
                 encoded.extend_from_slice(&payload);
                 send.send_data(encoded.into(), false)
