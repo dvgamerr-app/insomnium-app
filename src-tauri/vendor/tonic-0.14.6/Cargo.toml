@@ -70,7 +70,7 @@ allowed_external_types = [
 ]
 
 [features]
-insomnium-status-message = []
+insomnium-status-message = ["dep:h2"]
 _tls-any = [
     "dep:tokio",
     "tokio?/rt",

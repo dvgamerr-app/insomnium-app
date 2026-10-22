@@ -20,7 +20,7 @@ rust-version = {workspace = true}
 exclude = ["benches-disabled"]
 
 [features]
-insomnium-status-message = []
+insomnium-status-message = ["dep:h2"]
 codegen = ["dep:async-trait"]
 gzip = ["dep:flate2"]
 deflate = ["dep:flate2"]

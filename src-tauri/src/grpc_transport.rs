@@ -650,7 +650,7 @@ mod status_tests {
             }],
             include_paths: vec![],
         }).unwrap();
-        for shape in 0..9 {
+        for shape in 0..12 {
             let method_name = if shape == 1 { "Watch" } else { "Echo" };
             let method = pool
                 .get_service_by_name("owned.Status")
@@ -664,6 +664,9 @@ mod status_tests {
                 6 => "Received HTTP status code 200",
                 7 => "Received RST_STREAM with code 0 (Call ended without gRPC status)",
                 8 => "Received HTTP status code 503",
+                9 => "Bandwidth exhausted or memory limit exceeded",
+                10 => "Call cancelled",
+                11 => "Connection dropped",
                 _ => "สำเร็จ + 100%",
             };
             let code = match shape {
@@ -671,6 +674,9 @@ mod status_tests {
                 6 => tonic::Code::Unknown,
                 7 => tonic::Code::Internal,
                 8 => tonic::Code::Unavailable,
+                9 => tonic::Code::ResourceExhausted,
+                10 => tonic::Code::Cancelled,
+                11 => tonic::Code::Unavailable,
                 _ => tonic::Code::Ok,
             };
             let mut status = Status::new(code, message);
@@ -682,20 +688,76 @@ mod status_tests {
                 .append("x-result", "second".parse().unwrap());
             let mut trailers = Default::default();
             status.add_header(&mut trailers).unwrap();
+            // Preserve the existing success/error wire paths while checking
+            // grpc-js Number conversion of legal leading-zero status values.
+            if shape == 1 {
+                trailers.insert("grpc-status", "00".parse().unwrap());
+            } else if shape == 2 {
+                trailers.insert("grpc-status", "007".parse().unwrap());
+            }
             if shape >= 5 {
                 // Distinct missing-status paths reuse this peer and ownership:
                 // headers-only, final trailers, clean EOF and invalid HTTP body.
                 trailers.remove("grpc-status");
+            }
+            if shape == 6 {
+                // Invalid text metadata is skipped before Number conversion;
+                // a Unicode space must not turn a missing status into OK.
+                trailers.insert(
+                    "grpc-status",
+                    tonic::codegen::http::HeaderValue::from_bytes(b"\xc2\xa0").unwrap(),
+                );
             }
             // Retain the five original shapes, with malformed binary details
             // on both final-trailer and trailers-only error paths.
             if matches!(shape, 2 | 3) {
                 trailers.insert("grpc-status-details-bin", "A!P8".parse().unwrap());
             }
+            if shape == 2 {
+                trailers.append("grpc-status-details-bin", "AA".parse().unwrap());
+            }
             let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
             let address = listener.local_addr().unwrap();
+            let (headers_seen, headers_ready) = tokio::sync::oneshot::channel();
+            let headers_seen = Arc::new(Mutex::new(Some(headers_seen)));
             let server = tokio::spawn(async move {
                 let (socket, _) = listener.accept().await.unwrap();
+                if shape >= 9 {
+                    // Reuse the owned peer to surface a real remote RST_STREAM,
+                    // without a grpc-status header or synthetic error value.
+                    let mut peer = h2::server::handshake(socket).await.unwrap();
+                    let (request, mut response) = peer.accept().await.unwrap().unwrap();
+                    assert_eq!(request.uri().path(), format!("/owned.Status/{method_name}"));
+                    if shape == 9 {
+                        response.send_reset(h2::Reason::ENHANCE_YOUR_CALM);
+                    } else {
+                        let mut stream = response
+                            .send_response(
+                                HttpResponse::builder()
+                                    .header("content-type", "application/grpc")
+                                    .body(())
+                                    .unwrap(),
+                                false,
+                            )
+                            .unwrap();
+                        // Drive the connection until the actual client metadata
+                        // callback observes headers; then reset its body reader.
+                        tokio::select! {
+                            ready = headers_ready => ready.unwrap(),
+                            unexpected = peer.accept() => panic!("Peer closed before metadata: {}", unexpected.is_some()),
+                        }
+                        if shape == 11 {
+                            // Close TCP after observed headers, without a
+                            // status, trailers or a peer RST_STREAM.
+                            drop(peer);
+                            drop(stream);
+                            return;
+                        }
+                        stream.send_reset(h2::Reason::CANCEL);
+                    }
+                    while peer.accept().await.is_some() {}
+                    return;
+                }
                 let service = hyper::service::service_fn(move |request: HttpRequest<Incoming>| {
                     let trailers = trailers.clone();
                     async move {
@@ -795,6 +857,17 @@ mod status_tests {
                         response
                             .headers_mut()
                             .insert("content-type", "application/grpc".parse().unwrap());
+                        if shape == 0 {
+                            let headers = response.headers_mut();
+                            headers.insert("grpc-message", "initial%20%25".parse().unwrap());
+                            headers.append("x-prefix", "kept".parse().unwrap());
+                            headers.append(
+                                "x-prefix",
+                                tonic::codegen::http::HeaderValue::from_bytes(b"\xff").unwrap(),
+                            );
+                            headers.append("x-prefix", "not-reached".parse().unwrap());
+                            headers.insert("x!invalid", "not-admitted".parse().unwrap());
+                        }
                         if let Some(encoding) = encoding {
                             response
                                 .headers_mut()
@@ -847,6 +920,11 @@ mod status_tests {
                         .map(|duration| tokio::time::Instant::now() + duration),
                     move |event| {
                         let connected = matches!(&event, Event::Connected);
+                        if matches!(&event, Event::Metadata { .. }) {
+                            if let Some(ready) = headers_seen.lock().unwrap().take() {
+                                let _ = ready.send(());
+                            }
+                        }
                         observed
                             .lock()
                             .unwrap()
@@ -889,11 +967,28 @@ mod status_tests {
                     .iter()
                     .filter(|event| event["kind"] == "metadata")
                     .count(),
-                if matches!(shape, 1 | 2 | 5) { 0 } else { 1 },
+                if matches!(shape, 1 | 2 | 5 | 9) { 0 } else { 1 },
                 "shape {shape}: {events:?}"
             );
             assert_eq!(terminal["kind"], "status");
-            assert_eq!(terminal["code"], code as i32);
+            if shape == 0 {
+                let metadata = events
+                    .iter()
+                    .find(|event| event["kind"] == "metadata")
+                    .unwrap()["headers"]
+                    .as_array()
+                    .unwrap();
+                assert!(metadata.contains(&serde_json::json!(["grpc-message", "initial%20%25"])));
+                assert_eq!(
+                    metadata
+                        .iter()
+                        .filter(|row| row[0] == "x-prefix")
+                        .collect::<Vec<_>>(),
+                    vec![&serde_json::json!(["x-prefix", "kept"])]
+                );
+                assert!(!metadata.iter().any(|row| row[0] == "x!invalid"));
+            }
+            assert_eq!(terminal["code"], code as i32, "shape {shape}: {events:?}");
             assert_eq!(terminal["details"], message);
             let rows = terminal["trailers"].as_array().unwrap();
             assert!(!rows.iter().any(|row| row[0] == "grpc-status"));
@@ -911,8 +1006,16 @@ mod status_tests {
                 assert_eq!(
                     rows.iter()
                         .filter(|row| row[0] == "grpc-status-details-bin")
+                        .cloned()
                         .collect::<Vec<_>>(),
-                    vec![&serde_json::json!(["grpc-status-details-bin", "AP8="])]
+                    if shape == 2 {
+                        vec![
+                            serde_json::json!(["grpc-status-details-bin", "AP8="]),
+                            serde_json::json!(["grpc-status-details-bin", "AA=="]),
+                        ]
+                    } else {
+                        vec![serde_json::json!(["grpc-status-details-bin", "AP8="])]
+                    }
                 );
             }
         }

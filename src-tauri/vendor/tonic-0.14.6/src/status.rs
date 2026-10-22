@@ -384,11 +384,53 @@ impl Status {
     // FIXME: bubble this into `transport` and expose generic http2 reasons.
     #[cfg(feature = "server")]
     fn from_h2_error(err: Box<h2::Error>) -> Status {
+        #[cfg(feature = "insomnium-status-message")]
+        if let Some(mut status) = Self::from_legacy_h2_error(&err) {
+            status.0.source = Some(Arc::new(*err));
+            return status;
+        }
         let code = Self::code_from_h2(&err);
 
         let mut status = Self::new(code, format!("h2 protocol error: {err}"));
         status.0.source = Some(Arc::new(*err));
         status
+    }
+
+    // grpc-js 1.14.4's connection-loss and peer stream-close handlers.
+    // Local cancellation and GOAWAY do not become peer resets.
+    #[cfg(feature = "insomnium-status-message")]
+    fn from_legacy_h2_error(err: &h2::Error) -> Option<Status> {
+        if err.is_io() {
+            return Some(Self::unavailable("Connection dropped"));
+        }
+        if !err.is_reset() || !err.is_remote() {
+            return None;
+        }
+        let reason = err.reason()?;
+        let (code, message) = match reason {
+            h2::Reason::NO_ERROR => (
+                Code::Internal,
+                "Received RST_STREAM with code 0 (Call ended without gRPC status)".into(),
+            ),
+            h2::Reason::REFUSED_STREAM => (Code::Unavailable, "Stream refused by server".into()),
+            h2::Reason::CANCEL => (Code::Cancelled, "Call cancelled".into()),
+            h2::Reason::ENHANCE_YOUR_CALM => (
+                Code::ResourceExhausted,
+                "Bandwidth exhausted or memory limit exceeded".into(),
+            ),
+            h2::Reason::INADEQUATE_SECURITY => {
+                (Code::PermissionDenied, "Protocol not secure enough".into())
+            }
+            h2::Reason::INTERNAL_ERROR => (
+                Code::Internal,
+                "Received RST_STREAM with code 2 (Internal server error)".into(),
+            ),
+            _ => (
+                Code::Internal,
+                format!("Received RST_STREAM with code {}", u32::from(reason)),
+            ),
+        };
+        Some(Self::new(code, message))
     }
 
     #[cfg(feature = "server")]
@@ -431,6 +473,19 @@ impl Status {
     /// hyper error, but perhaps not its source, should be ignored.
     #[cfg(any(feature = "server", feature = "channel"))]
     fn from_hyper_error(err: &hyper::Error) -> Option<Status> {
+        #[cfg(feature = "insomnium-status-message")]
+        {
+            let mut source = err.source();
+            while let Some(error) = source {
+                if let Some(status) = error
+                    .downcast_ref::<h2::Error>()
+                    .and_then(Self::from_legacy_h2_error)
+                {
+                    return Some(status);
+                }
+                source = error.source();
+            }
+        }
         // is_timeout results from hyper's keep-alive logic
         // (https://docs.rs/hyper/0.14.11/src/hyper/error.rs.html#192-194).  Per the grpc spec
         // > An expired client initiated PING will cause all calls to be closed with an UNAVAILABLE
@@ -761,6 +816,14 @@ fn find_status_in_source_chain(err: &(dyn Error + 'static)) -> Option<Status> {
         // > can be corrected if retried with a backoff.
         if let Some(connect) = err.downcast_ref::<ConnectError>() {
             return Some(Status::unavailable(connect.to_string()));
+        }
+
+        #[cfg(feature = "insomnium-status-message")]
+        if let Some(status) = err
+            .downcast_ref::<h2::Error>()
+            .and_then(Status::from_legacy_h2_error)
+        {
+            return Some(status);
         }
 
         #[cfg(any(feature = "server", feature = "channel"))]

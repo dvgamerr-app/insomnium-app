@@ -1,5 +1,4 @@
 //! grpc-js Number conversion at the native/Tonic gRPC status boundary.
-use base64::{engine::general_purpose::STANDARD, Engine};
 use tonic::codegen::http::{HeaderMap, HeaderValue};
 
 // ECMAScript WhiteSpace and LineTerminator, deliberately excluding U+0085.
@@ -40,70 +39,44 @@ fn code(value: &[u8]) -> Option<usize> {
     (number.is_finite() && (0.0..=16.0).contains(&number) && number.fract() == 0.0)
         .then_some(number as usize)
 }
-fn message(value: &[u8]) -> String {
-    const ENCODE: &percent_encoding::AsciiSet = &percent_encoding::CONTROLS.add(b'%');
-    let mut decoded = Vec::with_capacity(value.len());
-    let mut index = 0;
-    let valid = loop {
-        if index == value.len() {
-            break std::str::from_utf8(&decoded).is_ok();
-        }
-        if value[index] != b'%' {
-            decoded.push(value[index]);
-            index += 1;
-            continue;
-        }
-        let Some(pair) = value.get(index + 1..index + 3) else {
-            break false;
-        };
-        let (Some(high), Some(low)) = (
-            (pair[0] as char).to_digit(16),
-            (pair[1] as char).to_digit(16),
-        ) else {
-            break false;
-        };
-        let byte = (high * 16 + low) as u8;
-        // decodeURI preserves the original escape spelling for URI reserved bytes.
-        if b";/?:@&=+$,#".contains(&byte) {
-            decoded.extend_from_slice(&value[index..index + 3]);
-        } else {
-            decoded.push(byte);
-        }
-        index += 3;
-    };
-    // grpc-js falls back to the complete original value on any decoding error.
-    // Escape percent for Tonic's decoder, leaving printable reserved bytes literal
-    // so applying this boundary more than once remains idempotent.
-    percent_encoding::percent_encode(if valid { &decoded } else { value }, ENCODE).to_string()
-}
 pub(super) fn normalize(headers: &mut HeaderMap) {
-    if let Some(value) = headers.get("grpc-message") {
-        if value
+    let legal_text = |value: &HeaderValue| {
+        value
             .as_bytes()
             .iter()
             .all(|byte| (0x20..=0x7e).contains(byte))
-        {
-            let value = message(value.as_bytes());
-            headers.insert(
-                "grpc-message",
-                HeaderValue::from_str(&value)
-                    .expect("Encoded gRPC message is a valid header value"),
-            );
-        } else {
-            // grpc-js rejects non-printable/non-ASCII text metadata before parsing status.
-            headers.remove("grpc-message");
+    };
+    // grpc-js admits each key's values in order and stops that key at its
+    // first invalid value. Binary values are decoded later, without collapsing
+    // duplicates; grpc-message stays raw until the shared status decoder.
+    for name in headers.keys().cloned().collect::<Vec<_>>() {
+        if !name.as_str().bytes().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'_' | b'-' | b'.')
+        }) {
+            headers.remove(&name);
+            continue;
         }
-    }
-    // Tonic expects strict base64 here and panics on rejected input. grpc-js
-    // decodes this reserved binary field with Buffer.from(value, "base64").
-    if let Some(value) = headers.get("grpc-status-details-bin") {
-        let bytes =
-            crate::grpc_transport::decode_binary_metadata(value.as_bytes()).unwrap_or_default();
-        headers.insert(
-            "grpc-status-details-bin",
-            HeaderValue::from_str(&STANDARD.encode(bytes))
-                .expect("Base64 encoding produces a valid header value"),
-        );
+        if name.as_str().ends_with("-bin") {
+            continue;
+        }
+        let values = headers.get_all(&name);
+        if values.iter().all(legal_text) {
+            continue;
+        }
+        let mut admitted = values
+            .iter()
+            .take_while(|value| legal_text(value))
+            .cloned()
+            .collect::<Vec<_>>()
+            .into_iter();
+        if let Some(first) = admitted.next() {
+            headers.insert(name.clone(), first);
+            for value in admitted {
+                headers.append(name.clone(), value);
+            }
+        } else {
+            headers.remove(&name);
+        }
     }
     let Some(status) = headers
         .get("grpc-status")
