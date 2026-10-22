@@ -75,6 +75,9 @@ struct Headers {
 type HeaderWatch = Arc<Mutex<Headers>>;
 #[derive(Clone)]
 struct AttemptHeaders(HeaderWatch);
+/// Retain the actual HTTP2 boundary through Tonic's response conversion.
+#[derive(Clone)]
+pub(super) struct TrailersOnly;
 #[derive(Clone)]
 pub(super) struct ObservedChannel {
     inner: super::lb_transport::Channel,
@@ -106,6 +109,9 @@ impl tower::Service<tonic::codegen::http::Request<tonic::body::Body>> for Observ
             // END_STREAM headers are status delivery even when grpc-status is
             // absent. They must not commit a retry as initial metadata would.
             let terminal = tonic::codegen::Body::is_end_stream(response.body());
+            if terminal {
+                response.extensions_mut().insert(TrailersOnly);
+            }
             if terminal && response.headers().contains_key("grpc-status") {
                 // A trailers-only response has no compressed messages. Tonic
                 // validates encoding before status, unlike grpc-js; defer this

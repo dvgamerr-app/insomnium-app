@@ -191,6 +191,12 @@ impl StreamingInner {
                 .max_message_size
                 .unwrap_or(DEFAULT_MAX_RECV_MESSAGE_SIZE);
             if len > limit {
+                #[cfg(feature = "insomnium-status-message")]
+                if matches!(self.direction, Direction::Response(_)) {
+                    return Err(Status::resource_exhausted(format!(
+                        "Received message larger than max ({len} vs {limit})"
+                    )));
+                }
                 return Err(Status::out_of_range(format!(
                     "Error, decoded message length too large: found {len} bytes, the limit is: {limit} bytes"
                 )));

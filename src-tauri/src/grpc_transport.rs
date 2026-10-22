@@ -411,8 +411,9 @@ where
             // Tonic keeps a successful trailers-only block in response metadata and
             // exposes an empty body with no subsequent trailers.
             let terminal_headers = response
-                .metadata()
-                .get("grpc-status")
+                .extensions()
+                .get::<retry::TrailersOnly>()
+                .and_then(|_| response.metadata().get("grpc-status"))
                 .map(|_| response.metadata().clone());
             // END_STREAM headers are final trailers in grpc-js, not a second
             // initial-metadata event. Keep their values for terminal delivery.
@@ -650,7 +651,7 @@ mod status_tests {
             }],
             include_paths: vec![],
         }).unwrap();
-        for shape in 0..12 {
+        for shape in 0..13 {
             let method_name = if shape == 1 { "Watch" } else { "Echo" };
             let method = pool
                 .get_service_by_name("owned.Status")
@@ -667,6 +668,7 @@ mod status_tests {
                 9 => "Bandwidth exhausted or memory limit exceeded",
                 10 => "Call cancelled",
                 11 => "Connection dropped",
+                12 => "Received message larger than max (20971521 vs 20971520)",
                 _ => "สำเร็จ + 100%",
             };
             let code = match shape {
@@ -677,6 +679,7 @@ mod status_tests {
                 9 => tonic::Code::ResourceExhausted,
                 10 => tonic::Code::Cancelled,
                 11 => tonic::Code::Unavailable,
+                12 => tonic::Code::ResourceExhausted,
                 _ => tonic::Code::Ok,
             };
             let mut status = Status::new(code, message);
@@ -722,7 +725,7 @@ mod status_tests {
             let headers_seen = Arc::new(Mutex::new(Some(headers_seen)));
             let server = tokio::spawn(async move {
                 let (socket, _) = listener.accept().await.unwrap();
-                if shape >= 9 {
+                if matches!(shape, 9..=11) {
                     // Reuse the owned peer to surface a real remote RST_STREAM,
                     // without a grpc-status header or synthetic error value.
                     let mut peer = h2::server::handshake(socket).await.unwrap();
@@ -830,6 +833,12 @@ mod status_tests {
                         if shape == 8 {
                             frame = vec![2, 0, 0, 0, 0];
                         }
+                        if shape == 12 {
+                            // Declared overflow must fail before waiting for
+                            // or allocating the absent oversized payload.
+                            frame = vec![0];
+                            frame.extend_from_slice(&((MAX_MESSAGE + 1) as u32).to_be_bytes());
+                        }
                         let trailers_only = matches!(shape, 1 | 2 | 5);
                         let frames = if matches!(shape, 7 | 8) {
                             vec![Ok::<_, Infallible>(Frame::data(Bytes::from(frame)))]
@@ -859,6 +868,9 @@ mod status_tests {
                             .insert("content-type", "application/grpc".parse().unwrap());
                         if shape == 0 {
                             let headers = response.headers_mut();
+                            // Initial status is metadata until END_STREAM;
+                            // the real final trailers below still carry OK.
+                            headers.insert("grpc-status", "7".parse().unwrap());
                             headers.insert("grpc-message", "initial%20%25".parse().unwrap());
                             headers.append("x-prefix", "kept".parse().unwrap());
                             headers.append(
@@ -979,6 +991,7 @@ mod status_tests {
                     .as_array()
                     .unwrap();
                 assert!(metadata.contains(&serde_json::json!(["grpc-message", "initial%20%25"])));
+                assert!(metadata.contains(&serde_json::json!(["grpc-status", "7"])));
                 assert_eq!(
                     metadata
                         .iter()

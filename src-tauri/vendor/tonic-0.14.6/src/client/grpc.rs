@@ -344,7 +344,14 @@ impl<T> Grpc<T> {
         )?;
 
         let status_code = response.status();
-        let trailers_only_status = Status::from_header_map(response.headers());
+        let trailers_only_status =
+            if cfg!(feature = "insomnium-status-message") && !response.body().is_end_stream() {
+                // grpc-js treats non-END_STREAM headers as initial metadata,
+                // even when they contain grpc-status. Await the real trailers.
+                None
+            } else {
+                Status::from_header_map(response.headers())
+            };
 
         // We do not need to check for trailers if the `grpc-status` header is present
         // with a valid code.

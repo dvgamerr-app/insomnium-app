@@ -415,6 +415,8 @@ async fn grpc_request(
         .status(200)
         .header("content-type", "application/grpc")
         .header("owned-metadata", "authenticated")
+        // Non-END_STREAM status must stay initial metadata; final trailers win.
+        .header("grpc-status", "7")
         .body(())
         .map_err(|e| e.to_string())?;
     let mut send = respond
@@ -422,7 +424,7 @@ async fn grpc_request(
         .map_err(|e| e.to_string())?;
     println!(
         "{}",
-        serde_json::json!({"event":"grpc-open","url":path,"authorized":true,"cn":cn,"fingerprint":fingerprint,"alpn":"h2"})
+        serde_json::json!({"event":"grpc-open","url":path,"authorized":true,"cn":cn,"fingerprint":fingerprint,"alpn":"h2","initialStatus":7})
     );
     let mut pending = Vec::new();
     let mut frames = 0;
