@@ -1,22 +1,37 @@
 import assert from "node:assert/strict";
 import { heldHttp } from "./helpers/held-http.js";
-import { withNativeApp, poll } from "./helpers/native-app.js";
-import { gitCollection } from "./helpers/git-fixture.js";
+import { withNativeApp, poll, integrationProbeIdentifier, selectedNativeProbeIdentifier } from "./helpers/native-app.js";
+import { preserveNativeProfile } from "./helpers/native-profile-preservation.js";
+import { withResourceProbePreserved, registerResourceProbeCollection } from "./helpers/resource-manager-cases.js";
+import { id, newRequest } from "../../src/lib/model.js";
 
-process.env.INSOMNIUM_UI_BUILD_STATE ||=
-  "artifacts/native-ui-ownership-probe/build-state.json";
+assert.equal(selectedNativeProbeIdentifier(), integrationProbeIdentifier);
+assert.ok(process.env.INSOMNIUM_UI_BUILD_STATE, "Explicit native build required");
 const fixtureHttp = await heldHttp({
   body: "runner fixture response",
   headers: { "X-Runner": "fixture" },
 });
 try {
+  await preserveNativeProfile(() => withResourceProbePreserved(async () => {
   await withNativeApp("runner-lifecycle", async ({ page, invoke, output }) => {
     const pageErrors = /** @type {string[]} */ ([]);
     page.on("pageerror", (error) => pageErrors.push(error.message));
-    const fixture = await gitCollection({ page, invoke });
+    const fixture = { workspaceId: id("wrk"), requestId: id("req") };
+    const environmentId = id("env");
+    const collectionName = "Runner lifecycle " + fixture.workspaceId;
     const suiteId = "uts_" + fixture.workspaceId;
     const testId = "ut_" + fixture.workspaceId;
     const data = await invoke("load_workspace");
+    data.resources.push(
+      { _id: fixture.workspaceId, _type: "workspace", parentId: null, name: collectionName, scope: "collection" },
+      { _id: environmentId, _type: "environment", parentId: fixture.workspaceId, name: "Base Environment", data: {} },
+      newRequest(fixture.workspaceId, { _id: fixture.requestId, name: "Preserved local request" }),
+      { _id: id("wrkm"), _type: "workspace_meta", parentId: fixture.workspaceId, activeEnvironmentId: environmentId, activeRequestId: fixture.requestId },
+    );
+    data.activeWorkspaceId = fixture.workspaceId;
+    data.activeRequestId = fixture.requestId;
+    data.activeEnvironmentId = environmentId;
+    data.openTabs = [fixture.requestId];
     const request = data.resources.find(
       (/** @type {any} */ item) => item._id === fixture.requestId,
     );
@@ -64,6 +79,7 @@ expect(delegated).to.equal(1);`,
       },
     );
     await invoke("save_workspace", { data });
+    registerResourceProbeCollection(fixture.workspaceId, collectionName);
     await page.reload();
     await page.getByRole("button", { name: "Tests", exact: true }).click();
     const runner = page.getByRole("region", {
@@ -285,6 +301,7 @@ expect(delegated).to.equal(1);`,
       ),
     );
   });
+  }, { expectedIdentifier: integrationProbeIdentifier }));
 } finally {
   await fixtureHttp.close();
 }

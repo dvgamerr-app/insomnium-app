@@ -2,16 +2,16 @@
 
 Migration is incomplete. [PARITY.md](PARITY.md) retains the full acceptance checklist; [PLAN.md](PLAN.md) defines the work sequence. Topic contracts describe behavior, and receipts prove only their recorded scope.
 
-## Finished topic: gRPC receive metadata admission
+## Finished topic: current gRPC and runner native integration
 
-Receive metadata now matches grpc-js key/text admission, preserves valid duplicate prefixes, raw initial grpc-message and repeated binary status details. Invalid status text cannot become OK. Removed duplicate pre-decoders; the existing Number normalizer already handles `00`/`007`, so no new parser was needed. Actual pinned Metadata API reference, two existing Rust tests/12 strengthened wire paths, Windows/Linux all-targets compiler and scoped formatting pass. No test files/functions/wire cases or native/UI matrix added. Eight Linux inputs match before/after; no-mount container stopped. Evidence: `artifacts/grpc-metadata-admission-verification-20261022.json`. Current native/platform/package/legal acceptance remains open.
+Source `8a132ccf` passed the normal-hook production release/no-bundle build, Svelte check (0 errors/warnings), unchanged native gRPC95 cases and the existing runner's eight lifecycle states (four HTTP sends/one held cancellation). Both hosts were native-hidden and exited0 without force; original profile restored exactly after each scenario. All1,718 tracked inputs remained unchanged through build/runtime. Runner fixture now owns a plain collection with existing resource/full-profile preservation; no cases/files added. Evidence/source bundle: `artifacts/native-grpc-metadata-20261022/verification.json`. This is bounded Windows integration, not complete malformed-wire/same-ID/OS-close/provider/platform/package/legal acceptance.
 
 - Request ownership/cancellation remains verified by check/build and the maintained headless scenarios: `artifacts/request-child-cancel-verification-20261022.json`. Selection changes preserve background sends; resource/run replacement cancels retired work, and normal completion preserves retained plugin UI. Native same-ID held replacement/provider/OS-close acceptance remains open.
-- Runner resource ownership passed check/build and controlled production-function before/after checks: `artifacts/runner-resource-owner-verification-20261022.json`. Real Worker/native same-ID acceptance remains open.
+- Runner resource ownership retains controlled before/after proof: `artifacts/runner-resource-owner-verification-20261022.json`. Ordinary native lifecycle now passes; held same-ID replacement acceptance remains open.
+- Receive-metadata correction retains pinned Metadata API and two Rust tests/12 strengthened wire paths plus Windows/Linux compiler proof: `artifacts/grpc-metadata-admission-verification-20261022.json`. No decoder was duplicated.
 - Reset/TCP-drop correction retains before/after Rust wire and Windows/Linux compiler proof: `artifacts/grpc-connection-drop-verification-20261022.json`. Hyper remains unpatched; simultaneous reset/drop precedence remains open.
 - GraphQL pending-fetch WM_CLOSE/reopen passed six original native checks with exact profile restoration: `artifacts/native-graphql-close-20261022/verification.json`. Other protocol/OS/platform close requirements remain open.
 - gRPC topic `65311f4a` retains Windows/Linux compiler and nine wire-path evidence. The current native receipt now includes its source changes; ordinary integration does not prove every malformed-wire variant. See GRPC.md for source-bound receipts and remaining gates.
-- Prior normal-hook native build on source `efae450e` passed existing gRPC 95 cases and plugin 28 checks, with exact profile restoration and host exits: `artifacts/native-request-grpc-current-20261022/verification.json`. It predates this runner correction.
 
 ## Pending work
 
