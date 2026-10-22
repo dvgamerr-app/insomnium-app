@@ -15,4 +15,11 @@ Each dispatch includes: objective; owned paths (builder) or investigation scope;
 
 Parallelize independent reads; serialize overlapping edits and native/profile-mutating checks. Workers return concise results and do not stage, commit, revert, publish or delegate. Missing inputs go back to the coordinator; do not repeatedly ask the user for routine implementation decisions.
 
-The coordinator resolves findings, rechecks after material changes, updates STATUS with commit/evidence/remaining gates/live handles, and commits only verified topic work. Preserve unrelated edits. Use existing Claude resume/compaction and repository handoffs; these prompts are not a new runtime, durable checkpoint engine or OS sandbox. If /compact is unavailable, say so and provide the handoff.
+The coordinator resolves findings, rechecks after material changes, and commits only verified topic work. Preserve unrelated edits. Use existing Claude resume/compaction and repository handoffs; these prompts are not a new runtime, durable checkpoint engine or OS sandbox. If /compact is unavailable, say so and provide the handoff.
+
+## Owner rule: finish a topic before documenting it
+
+- Complete implementation and relevant verification for one coherent topic, then update its documentation once with a concise summary: final behavior, evidence, remaining gates and any live handles.
+- Never turn STATUS, PLAN or topic documents into a running diary of thoughts, commands, intermediate fixes or repeated “Current”/“follow-up” checkpoints. Replace superseded summaries instead of appending another version; keep detailed execution logs in artifacts.
+- Commit verified work by topic. Do not create a separate documentation/handoff commit after every small code change. Consolidate related code and its final summary before starting the next topic.
+- If interrupted, leave only the minimal accurate resume state. Do not duplicate history or claim unfinished work passed.
