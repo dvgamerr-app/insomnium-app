@@ -4,9 +4,9 @@ Migration is incomplete. [PARITY.md](PARITY.md) retains the full acceptance chec
 
 ## Finished topic: request work ownership
 
-Request actions and accepted HTTP/SSE/OAuth/dependency work share resource/collection ownership. Same-ID replacement rejects stale results and hooks; ordinary background sends survive selection changes. Run/promise cleanup compares ownership, and retained plugin helpers distinguish valid completion from root/child replacement. Menu/timer/chooser guards and component leases remain in place.
+Request actions and accepted HTTP/SSE/OAuth/dependency work share resource/collection ownership. Same-ID replacement rejects stale results and hooks; HTTP/WS/SSE, explicit OAuth and linked dependent requests also abort quiet in-flight work when their resource or run is replaced. Ordinary background sends survive selection changes. Run/promise cleanup compares ownership, and retained plugin helpers distinguish valid completion from root/child replacement. Menu/timer/chooser guards and component leases remain in place.
 
-- Svelte check (0 errors/warnings), production build, direct owner/timer regression and maintained headless scenario passed: 20 checks, six existing HTTP controls, two stream groups and all 43 workers terminated. Existing same-ID controls were strengthened; no cases, test functions or files were added. Evidence: `artifacts/request-send-owner-verification-20261022.json`. Browser HTTP/controlled IPC is not native acceptance.
+- Svelte check (0 errors/warnings), production build and two maintained headless scenarios passed: 20/10 checks, six existing HTTP controls, two stream groups and all 41 workers terminated. Existing controls verify quiet stream cancellation, held child replacement and OAuth controller retirement; no cases, test functions or files were added. Latest evidence: `artifacts/request-child-cancel-verification-20261022.json`; prior owner/timer evidence: `artifacts/request-send-owner-verification-20261022.json`. Browser HTTP/controlled IPC is not native acceptance.
 - Prior gRPC topic `65311f4a` retains Windows/Linux compiler and nine wire-path evidence. Its prior 95-case native receipt predates missing-status and current frontend corrections. See GRPC.md for source-bound receipts and remaining gates.
 
 ## Pending work

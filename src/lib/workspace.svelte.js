@@ -25,7 +25,7 @@ import { createRunDrain } from "./run-drain.js";
 import { isTauri, invoke } from "@tauri-apps/api/core";
 import { createPluginRegistry } from "./plugin-registry.js";
 import { openPluginSession } from "./plugin-session.js";
-import {completePluginRequest,pluginRequestCompleted} from "./plugin-request-lifetime.js";
+import {completePluginRequest,linkPluginRequestSignal,pluginRequestCompleted} from "./plugin-request-lifetime.js";
 import {
   installPluginTemplateProvider,
   pluginRenderSourceKey,
@@ -1290,6 +1290,16 @@ export function remove(resourceId) {
     );
   void persist();
 }
+/** Keep quiet operations cancellable without polling or another run registry.
+ * @param {()=>boolean} current @param {AbortController} controller */
+function watchRequestOwner(current, controller) {
+  return $effect.root(() => {
+    $effect(() => {
+      if (!current())
+        controller.abort(new DOMException("Request owner changed", "AbortError"));
+    });
+  });
+}
 /** @param {string} requestId @param {boolean} [introspection]
  * @param {{payload: Record<string, any>, settle: (...errors: unknown[]) => void} | null} [initialPayload]
  * @param {((response:Record<string,any>)=>void)|null} [onResponse] */
@@ -1349,6 +1359,8 @@ export async function execute(
   let completed = () => {};
   const completion = new Promise((resolve) => { completed = () => resolve(undefined); });
   completions.set(requestId, completion);
+  // Quiet transports must retire too: there may be no next event to check.
+  const releaseOwner = watchRequestOwner(ownsRun, controller);
   /** @type {{format: string, value: string} | null} */
   let firstMessage = null;
   let firstMessageSent = false;
@@ -1727,6 +1739,7 @@ export async function execute(
         networkLog: /** @type {any} */ (error)?.networkLog,
       };
   } finally {
+    releaseOwner();
     settleInitial(
       new Error("WebSocket connection ended before the message was sent."),
     );
@@ -2380,6 +2393,7 @@ export async function authorizeOAuth(requestId, action = "fetch") {
   let completed = () => {};
   /** @type {Promise<void>} */ const completion = new Promise((resolve) => { completed = resolve; });
   completions.set(requestId, completion);
+  const releaseOwner = watchRequestOwner(ownsRun, controller);
   try {
     const data = requestDataScope($state.snapshot(workspace.data), requestId);
     const snapshot = $state.snapshot(request);
@@ -2415,6 +2429,7 @@ export async function authorizeOAuth(requestId, action = "fetch") {
     if (ownsRun())
       workspace.oauthErrors[requestId] = String(error);
   } finally {
+    releaseOwner();
     if (workspace.running[requestId]?.id === runId) {
       delete workspace.running[requestId];
       if (workspace.oauthProgress[requestId]?.id === runId) clearOAuthProgress(requestId);
@@ -2507,6 +2522,7 @@ export async function useSavedOAuth(requestId, tokenId) {
   /** @type {()=>void} */ let completed = () => {};
   /** @type {Promise<void>} */ const completion = new Promise((resolve) => { completed = resolve; });
   completions.set(requestId, completion);
+  const releaseOwner = watchRequestOwner(ownsRun, controller);
   try {
     const data = requestDataScope($state.snapshot(workspace.data), requestId);
     const request = data.resources.find((r) => r._id === requestId);
@@ -2580,6 +2596,7 @@ export async function useSavedOAuth(requestId, tokenId) {
       workspace.oauthErrors[requestId] = String(error);
     return false;
   } finally {
+    releaseOwner();
     if (workspace.running[requestId]?.id === runId) {
       delete workspace.running[requestId];
       if (workspace.oauthProgress[requestId]?.id === runId) clearOAuthProgress(requestId);
@@ -2980,18 +2997,28 @@ async function sendDependentRequest(
   const rootResource = ownerData.resources.find(row => row._id === owner.requestId);
   const ownsTarget = targetResource ? captureRequestOwner(ownerData, targetResource, () => workspace.data) : () => false;
   const ownsRoot = rootResource ? captureRequestOwner(ownerData, rootResource, () => workspace.data) : () => false;
+  const current = () => ownsTarget() && ownsRoot() &&
+    (owner.isCurrent ? owner.isCurrent() : workspace.running[owner.requestId]?.id === owner.runId);
+  const parentSignal = signal;
+  const controller = new AbortController();
+  linkPluginRequestSignal(controller.signal, parentSignal);
+  const abort = () => controller.abort(parentSignal.reason);
+  parentSignal.addEventListener("abort", abort, { once: true });
+  if (parentSignal.aborted) abort();
+  signal = controller.signal;
   const check = () => {
     signal.throwIfAborted();
-    if (!ownsTarget() || !ownsRoot() ||
-        (owner.isCurrent ? !owner.isCurrent() : workspace.running[owner.requestId]?.id !== owner.runId))
+    if (!current())
       throw new DOMException("Dependent request owner changed", "AbortError");
   };
-  check();
-  data = requestDataScope(data, request._id);
   const runId = id("dependency");
-  const sourceContext = oauthSourceContext(data, request);
   const cancellation = createNativeCancellation(runId, signal);
+  const releaseOwner = watchRequestOwner(current, controller);
+  let runCompleted = false;
   try {
+    check();
+    data = requestDataScope(data, request._id);
+    const sourceContext = oauthSourceContext(data, request);
     const renderResult = await renderSendRequest(data, request, signal, {
         ...pluginOptions,
         pluginServices: workspacePluginServices(data, owner, resolveResponse, chain),
@@ -3060,11 +3087,21 @@ async function sendDependentRequest(
       await persist();
     }
     check();
+    runCompleted = true;
     return entry;
   } finally {
+    releaseOwner();
+    parentSignal.removeEventListener("abort", abort);
+    if (!runCompleted) controller.abort(new DOMException("Dependent request ended", "AbortError"));
     await cancellation.close();
     if (workspace.oauthProgress[request._id]?.id === runId)
       clearOAuthProgress(request._id);
+    if (runCompleted) {
+      // Cancellation IPC can yield too; do not return a retired child's result.
+      try { check(); }
+      catch (error) { controller.abort(error); throw error; }
+      completePluginRequest(controller, new DOMException("Dependent request completed", "AbortError"));
+    }
   }
 }
 

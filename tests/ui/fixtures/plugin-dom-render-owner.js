@@ -244,14 +244,14 @@ async function environmentRemovalControl(mode){
     return {running:!!workspace.running.r,status:workspace.responses.r?.status,error:workspace.responses.r?.error};
   },
   changeWorkspaceSource(){workspace.data.resources[1]={...workspace.data.resources[1]};},
-  async sendResponseWorkspace(/** @type {boolean} */ hold=false){
+  async sendResponseWorkspace(/** @type {boolean|'child'} */ hold=false){
     const request={...newRequest("w"),_id:"r",name:"Response owner",method:"POST",url:location.origin+(hold?"/root-held":"/root"),body:{mimeType:"text/plain",text:"{% response 'url', 'child', '', 'always', 0 %}"}};
     const child={...newRequest("w"),_id:"child",name:"Dialog dependency",url:location.origin+"/child?dialog={% lifetimedialog %}"};
     data.resources=[data.resources[0],request,{_id:"env",_type:"environment",parentId:"w",name:"Base Environment",data:{ownerValue:"captured",derived:"{% lifetimeconstant %}"}},child];
     workspace.data={...initialData(),resources:data.resources,activeWorkspaceId:"w",activeRequestId:"r"};workspace.ready=true;
     rootHeld=false;heldSignal=undefined;
     if(hold){const original=window.fetch;restoreFetch=()=>{window.fetch=original;restoreFetch=undefined;};
-      window.fetch=/** @type {typeof window.fetch} */((input,init)=>{if(new URL(String(input),location.href).pathname!=="/root-held")return original(input,init);
+      window.fetch=/** @type {typeof window.fetch} */((input,init)=>{if(new URL(String(input),location.href).pathname!==(hold==='child'?'/child':"/root-held"))return original(input,init);
         const signal=init?.signal;if(!signal)throw Error("Missing root Send signal");heldSignal=signal;rootHeld=true;
         return new Promise((_resolve,reject)=>{signal.addEventListener("abort",()=>reject(signal.reason),{once:true});if(signal.aborted)reject(signal.reason);});});
     }

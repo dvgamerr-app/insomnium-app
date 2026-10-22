@@ -36,12 +36,14 @@ let phase='idle';
       workspace.data.resources.push({_id:'tok_owned_operation',_type:'oauth2_token',parentId:request._id,accessToken:'owned',tokenType:'Bearer',_oauthImported:true});
       const pending=mode==='fetch'?authorizeOAuth(request._id):useSavedOAuth(request._id,'tok_owned_operation');
       if(!workspace.running[request._id])throw Error('OAuth operation must enter its async run');
+      const originalSignal=workspace.running[request._id].controller.signal;
       if(mode==='saved-error'){
         workspace.running[request._id]={id:'replacement-run',controller:new AbortController()};
         workspace.oauthProgress[request._id]={id:'replacement-run',stage:'waiting',mode:'manual'};
       }else workspace.data=JSON.parse(JSON.stringify(workspace.data));
       workspace.oauthErrors[request._id]='replacement feedback';
       const result=await pending;
+      if(!originalSignal.aborted)throw Error('Retired OAuth operation did not cancel its original controller');
       if(workspace.oauthErrors[request._id]!=='replacement feedback')throw Error('Retired OAuth operation overwrote feedback');
       if(mode==='saved-error'&&(workspace.running[request._id]?.id!=='replacement-run'||workspace.oauthProgress[request._id]?.id!=='replacement-run'))throw Error('Retired OAuth cleanup removed replacement run/progress');
       if(mode==='saved-success'&&(result!==false||workspace.data.resources.filter(r=>r._type==='oauth2_token').length!==1))throw Error('Retired token adoption changed replacement workspace');

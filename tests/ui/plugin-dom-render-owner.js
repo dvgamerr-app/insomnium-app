@@ -81,8 +81,10 @@ await withPreview("plugin-dom-render-owner"+(runLabel?'-'+runLabel:''),async(pag
     checks.push("Actual builtin response tag sends a dependent request whose dialog/helper survives dependent field, root field, render-session and HTTP completion");
     await call("changeWorkspaceSource");await dialog().waitFor({state:"detached"});
     checks.push("Actual root request source loss closes the child dialog while idle, without waiting for a helper call");
-    await call("sendResponseWorkspace");await dialog().waitFor();await call("changeChildSource");await dialog().waitFor({state:"detached"});
-    checks.push("Actual dependent request source loss closes its dialog while the completed root source remains unchanged");
+    await call("sendResponseWorkspace",['child']);await poll(async()=>await call("rootHeld"),"Actual dependent transport waits with its own signal");
+    await dialog().waitFor();await call("changeChildSource");await dialog().waitFor({state:"detached"});
+    assert.deepEqual(await call("rootSettled"),{running:false,aborted:true,completed:false});
+    checks.push("Actual same-ID dependent source loss cancels held child transport and closes its dialog while the root resource remains unchanged");
     assert.equal(await call("sendResponseWorkspace",[true]),"started");await poll(async()=>await call("rootHeld"),"Actual root transport starts after response dependency completes");
     await dialog().waitFor();await dialog().getByRole("button",{name:"Retained renderer event"}).click();await dialog().getByRole("status").filter({hasText:"captured:true:true:1"}).waitFor();
     await call("cancelRoot");await dialog().waitFor({state:"detached"});assert.deepEqual(await call("rootSettled"),{running:false,aborted:true,completed:false});
@@ -95,8 +97,10 @@ await withPreview("plugin-dom-render-owner"+(runLabel?'-'+runLabel:''),async(pag
       await call("changeWorkspaceSource");await dialog().waitFor({state:"detached"});
       checks.push(protocol+": real workspace/channel frontend retains genuine guest dialog/helper across closed event and successful command/persistence; idle source loss revokes it (controlled native IPC)");
       await call("sendStreamWorkspace",[protocol]);await poll(async()=>await call("streamOpened"),"Cancel stream opened");await dialog().waitFor();
-      await call("cancelRoot");await dialog().waitFor({state:"detached"});await call("streamClosed");await call("streamFinish");const cancelled=await call("streamSettled");assert.equal(cancelled.completed,false);assert.equal(cancelled.aborted,true);assert.ok(cancelled.calls.includes("cancel_http"));
-      checks.push(protocol+": actual workspace Cancel followed by late closed/success command stays revoked (controlled native IPC)");
+      await call("changeWorkspaceSource");await dialog().waitFor({state:"detached"});
+      await poll(async()=>(await call("streamDiagnostics")).calls.includes("cancel_http"),"Quiet retired stream cancels before any late event or command completion");
+      await call("streamClosed");await call("streamFinish");const cancelled=await call("streamSettled");assert.equal(cancelled.completed,false);assert.equal(cancelled.aborted,true);assert.ok(cancelled.calls.includes("cancel_http"));
+      checks.push(protocol+": same-ID owner replacement cancels quiet stream before late closed/success command (controlled native IPC; root Cancel covered above)");
       await call("sendStreamWorkspace",[protocol]);await poll(async()=>await call("streamOpened"),"Error stream opened");await dialog().waitFor();
       await call("streamClosed");await call("streamFail");await dialog().waitFor({state:"detached"});const failed=await call("streamSettled");assert.equal(failed.completed,false);assert.equal(failed.state,"error");
       checks.push(protocol+": closed event followed by command rejection revokes dialog and keeps error state (controlled native IPC)");
