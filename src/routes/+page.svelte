@@ -103,7 +103,7 @@
   import PluginThemeHost from '$lib/components/PluginThemeHost.svelte';
   let displayedTheme=$state('dark');
   import Dropdown from "$lib/components/ui/Dropdown.svelte";
-  import { runRequestSchedule } from "$lib/request-schedule.js";
+  import { captureRequestActionOwner, runRequestSchedule } from "$lib/request-schedule.js";
   const editingBlocked = $derived(
     app.draining || app.persistencePhase !== "idle",
   );
@@ -118,13 +118,14 @@
   onDestroy(responseDownloadWork.dispose);
   const destinationWork = createWorkspaceWorkScope();
   onDestroy(destinationWork.dispose);
+  const requestActionWork = createWorkspaceWorkScope();
+  onDestroy(requestActionWork.dispose);
   let downloadDestination = $state(""), destinationBusy = $state(false);
   let destinationRevision = 0;
   let downloading = $state.raw(/** @type {{current:()=>boolean,cancel:()=>void}|null} */ (null));
-  let scheduled = $state.raw(/** @type {{requestId:string,environmentId:string,protocol:string,repeat:boolean,cancel:()=>void,current:()=>boolean}|null} */ (null));
+  let scheduled = $state.raw(/** @type {{requestId:string,runId:string,environmentId:string,protocol:string,repeat:boolean,cancel:()=>void,current:()=>boolean}|null} */ (null));
   let scheduleSeconds = $state("3");
-  let actionsRequestId = "", actionsEnvironmentId = "";
-  let actionsData = /** @type {typeof app.data|null} */ (null);
+  let actionsCurrent = () => false;
   onDestroy(() => pluginRegistry.dispose());
   $effect(() => { pluginRegistry.synchronize(); });
   let cloneOpen = $state(false);
@@ -572,34 +573,33 @@
   function showRequestActions() {
     if (!request || !["http", "sse"].includes(protocol) || !canEditWorkspace() ||
         app.running[request._id] || scheduled || downloading) return;
-    actionsRequestId = request._id;
-    actionsEnvironmentId = app.data.activeEnvironmentId;
-    actionsData = app.data;
+    actionsCurrent = captureRequestActionOwner(app.data, request, () => app.data);
+    if (!actionsCurrent()) return;
     scheduleSeconds = "3";
     showModal("request-actions");
     downloadDestination = "";
     if (isTauri() && protocol === "http") void configureDownload("get");
   }
   async function requestAction(/** @type {'send'|'code'} */ action) {
-    if (!request || app.data !== actionsData || request._id !== actionsRequestId ||
-        app.data.activeEnvironmentId !== actionsEnvironmentId || !canEditWorkspace()) return;
-    const data = app.data, requestId = request._id, environmentId = app.data.activeEnvironmentId;
-    closeModal();
-    await tick();
-    if (app.data !== data || app.data.activeRequestId !== requestId || app.data.activeEnvironmentId !== environmentId ||
-        mainView !== "requests" || modal || !canEditWorkspace()) return;
-    if (action === "code") showCode();
-    else await sendCurrentRequest();
+    if (!request || !actionsCurrent() || !canEditWorkspace()) return;
+    const current = actionsCurrent;
+    const work = requestActionWork.begin();
+    try {
+      closeModal();
+      await tick();
+      if (!work.current() || !current() || mainView !== "requests" || modal || !canEditWorkspace()) return;
+      if (action === "code") showCode();
+      else await sendCurrentRequest();
+    } finally { work.finish(); }
   }
   async function configureDownload(/** @type {'get'|'choose'|'clear'} */ operation) {
     if (!request || protocol !== "http" || modal !== "request-actions" || !isTauri() ||
-        app.data !== actionsData || request._id !== actionsRequestId || app.data.activeEnvironmentId !== actionsEnvironmentId ||
+        !actionsCurrent() ||
         destinationBusy || !canEditWorkspace()) return;
     const work = destinationWork.begin(), revision = ++destinationRevision;
-    const requestId = request._id, environmentId = app.data.activeEnvironmentId;
+    const requestId = request._id, owns = actionsCurrent;
     const workspaceId = workspaceFor(app.data.resources, requestId) || "";
-    const current = () => work.current() && revision === destinationRevision && modal === "request-actions" &&
-      app.data.activeRequestId === requestId && app.data.activeEnvironmentId === environmentId;
+    const current = () => work.current() && owns() && revision === destinationRevision && modal === "request-actions";
     destinationBusy = true;
     modalError = "";
     try {
@@ -615,13 +615,16 @@
   function cancelSchedule() {
     const owner = scheduled;
     if (!owner) return;
+    const runId = owner.runId || (owner.current() ? app.running[owner.requestId]?.id : "");
+    owner.runId = "";
     owner.cancel();
+    if (!runId || app.running[owner.requestId]?.id !== runId) return;
     void stop(owner.requestId).catch(error => {
       if (scheduled === owner && app.data.activeRequestId === owner.requestId) app.error = String(error);
     });
   }
   function startSchedule(/** @type {boolean} */ repeat) {
-    if (!request || app.data !== actionsData || request._id !== actionsRequestId || app.data.activeEnvironmentId !== actionsEnvironmentId ||
+    if (!request || !actionsCurrent() ||
         !["http", "sse"].includes(protocol) || !canEditWorkspace() || scheduled || app.running[request._id]) return;
     const milliseconds = Number(scheduleSeconds) * 1000;
     if (!scheduleSeconds.trim() || !Number.isFinite(milliseconds) || milliseconds < 1 || milliseconds > 2147483647) {
@@ -629,29 +632,32 @@
       return;
     }
     const work = scheduleWork.begin();
-    const owner = { requestId: request._id, environmentId: app.data.activeEnvironmentId, protocol, repeat, cancel: work.cancel, current: work.current };
+    const owns = actionsCurrent;
+    const current = () => work.current() && owns() && app.ready && !editingBlocked && mainView === "requests";
+    const owner = { requestId: request._id, runId: "", environmentId: app.data.activeEnvironmentId, protocol, repeat, cancel: work.cancel, current };
     scheduled = owner;
-    const current = () => work.current() && app.ready && !editingBlocked && app.data.activeRequestId === owner.requestId &&
-      app.data.activeEnvironmentId === owner.environmentId && mainView === "requests" &&
-      app.data.resources.some(row => row._id === owner.requestId && protocolFor(row) === owner.protocol);
     closeModal();
     void runRequestSchedule({ signal: work.signal, milliseconds, repeat, current,
-      run: () => execute(owner.requestId),
+      run: async () => {
+        const previous = app.running[owner.requestId];
+        const pending = execute(owner.requestId);
+        const accepted = app.running[owner.requestId];
+        if (accepted && accepted !== previous) owner.runId = accepted.id;
+        try { await pending; }
+        finally { if (owner.runId === accepted?.id) owner.runId = ""; }
+      },
     }).catch(error => { if (current()) app.error = String(error); }).finally(() => {
       if (scheduled === owner) scheduled = null;
       work.finish();
     });
   }
   async function sendAndDownload() {
-    if (!request || protocol !== "http" || app.data !== actionsData || request._id !== actionsRequestId ||
-        app.data.activeEnvironmentId !== actionsEnvironmentId || !canEditWorkspace() ||
+    if (!request || protocol !== "http" || !actionsCurrent() || !canEditWorkspace() ||
         downloading || scheduled || app.running[request._id]) return;
     const work = responseDownloadWork.begin();
     const downloadRequestName = String(request.name || "");
-    const requestId = request._id, environmentId = app.data.activeEnvironmentId;
-    const current = () => work.current() && app.ready && !editingBlocked && mainView === "requests" &&
-      app.data.activeRequestId === requestId && app.data.activeEnvironmentId === environmentId &&
-      app.data.resources.some(row => row._id === requestId && protocolFor(row) === "http");
+    const requestId = request._id, owns = actionsCurrent;
+    const current = () => work.current() && owns() && app.ready && !editingBlocked && mainView === "requests";
     const owner = { current, cancel: work.cancel };
     downloading = owner;
     closeModal();
@@ -688,8 +694,7 @@
         !request || protocol !== scheduled.protocol)) untrack(cancelSchedule);
   });
   $effect(() => {
-    if (modal === "request-actions" && (app.data !== actionsData || app.data.activeRequestId !== actionsRequestId ||
-        app.data.activeEnvironmentId !== actionsEnvironmentId || mainView !== "requests" ||
+    if (modal === "request-actions" && (!actionsCurrent() || mainView !== "requests" ||
         !request || !["http", "sse"].includes(protocol))) untrack(closeModal);
   });
   async function exportCollections() {

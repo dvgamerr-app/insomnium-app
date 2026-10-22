@@ -2,22 +2,21 @@
 
 Migration is incomplete. [PARITY.md](PARITY.md) retains the full acceptance checklist; [PLAN.md](PLAN.md) defines the work sequence. Topic contracts describe behavior, and receipts prove only their recorded scope.
 
-## Finished topic: gRPC missing-status fallback
+## Finished topic: request work ownership
 
-Missing grpc-status now follows grpc-js HTTP fallback codes/messages and retains trailer metadata. END_STREAM headers remain status delivery for retry ownership; clean EOF has its separate INTERNAL result. Malformed frame errors on non-200 responses report the HTTP error, while protobuf deserialization stays separate. These changes use the existing opt-in Tonic feature.
+Request actions and accepted HTTP/SSE/OAuth/dependency work share resource/collection ownership. Same-ID replacement rejects stale results and hooks; ordinary background sends survive selection changes. Run/promise cleanup compares ownership, and retained plugin helpers distinguish valid completion from root/child replacement. Menu/timer/chooser guards and component leases remain in place.
 
-- Both existing status regressions passed: five retained wire shapes plus four distinct missing-status paths in the same peer fixture. The fixture now sends actual END_STREAM headers for headers-only cases. No new test function/file/UI scenario. All-targets locked/offline compiler and scoped formatting passed. Evidence: `artifacts/grpc-missing-status-verification-20261022.json`; notices retain incomplete legal/linkage scope.
-- Linux all-targets release compiler passed on source `6a8ab48f` in 55.12 seconds; canonical native inputs matched before/after and the container is stopped. No tests/scenarios ran. Evidence: `artifacts/grpc-current-linux-20261022/verification.json`; cached build resources prove no runtime/package acceptance. Its source bundle preserves the compiled commit before this documentation-only amendment.
-- Previous Windows native integration on source `3f73f571` predates this correction: all 95 unchanged cases passed, native-hidden, host exit 0, settings/full two-file profile restored and 1,661 inputs unchanged. Evidence: `artifacts/native-grpc-status-20261022/verification.json`; that binary is not current-source acceptance.
-- Earlier map-default correction `d578a458`: all 54 legacy regressions passed; omitted saved-file enum/bytes values now use `0`/`[]`, while reflection omits absent values. Its pinned reference and regression receipts remain under `artifacts/grpc-map-value-default-*`.
+- Svelte check (0 errors/warnings), production build, direct owner/timer regression and maintained headless scenario passed: 20 checks, six existing HTTP controls, two stream groups and all 43 workers terminated. Existing same-ID controls were strengthened; no cases, test functions or files were added. Evidence: `artifacts/request-send-owner-verification-20261022.json`. Browser HTTP/controlled IPC is not native acceptance.
+- Prior gRPC topic `65311f4a` retains Windows/Linux compiler and nine wire-path evidence. Its prior 95-case native receipt predates missing-status and current frontend corrections. See GRPC.md for source-bound receipts and remaining gates.
 
 ## Pending work
 
 - Specific malformed/noncanonical decoder inputs retain Rust/reference evidence; the native scenario verifies ordinary integration. It does not establish complete gRPC equivalence or OS-close acceptance.
+- Root request-action controls, OAuth provider/native publication, held cancellation/chooser/same-ID and OS-close/platform acceptance remain open.
 - Complete malformed/error equivalence and retained provider/lifecycle/accessibility/platform/package/legal acceptance remain open. All eight plan streams and every unclosed PARITY requirement remain required.
 
 ## Resume
 
-Continue PLAN item 1 from a concrete source discrepancy or named acceptance gap. Reuse the verified native candidate while its input hashes match; do not replay this passed scenario without a relevant change. Finish one topic, then write one concise result summary.
+Continue retained PLAN/PARITY work from current source and named evidence gaps. Reconcile later implementation records before treating historical pending notes as missing code. Reuse matching scenarios without repeating unrelated green matrices; finish one topic before its concise summary.
 
 No owned build/native-app processes remain. This interface cannot invoke `/compact`; this file is the handoff.

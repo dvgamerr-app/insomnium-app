@@ -39,7 +39,7 @@ import {
 import { createGitSetup } from "./git-setup.js";
 import { runSuiteInWorker } from "./runner-client.js";
 import { runnerSuite, runnerResponse, runnerRequestId } from "./runner-model.js";
-import { requestDataScope } from "./request-scope.js";
+import { captureRequestOwner, requestDataScope } from "./request-scope.js";
 import { createResponseTemplateResolver } from "./template-response-send.js";
 import { pluginCookieJarId, pluginJarCookies, pluginCookieJarView } from "./plugin-cookie-jar.js";
 import {withCookieTemplateSources,captureCookieSourceOwner} from './cookie-template-sources.js';
@@ -1310,18 +1310,20 @@ export async function execute(
     return;
   }
   if (workspace.running[requestId]) return;
-  const request = workspace.data.resources.find((r) => r._id === requestId);
+  const ownerData = workspace.data;
+  const request = ownerData.resources.find((r) => r._id === requestId);
   if (!request || (initialPayload && request._type !== "websocket_request")) {
     initialPayload?.settle(new Error("WebSocket request no longer exists."));
     return;
   }
   if (request._type === "grpc_request" && !introspection)
     return executeGrpc(requestId);
-  const schemaData = workspace.data, originalSchema = workspace.schemas[requestId];
+  const ownsRequest = captureRequestOwner(ownerData, request, () => workspace.data);
+  const originalSchema = workspace.schemas[requestId];
   const schemaRevision = schemaRevisions.get(requestId);
   /** @type {string|null} */ let schemaRequestContext = null;
   const ownsSchema = () => {
-    if (workspace.data !== schemaData || workspace.schemas[requestId] !== originalSchema ||
+    if (!ownsRequest() || workspace.schemas[requestId] !== originalSchema ||
         schemaRevisions.get(requestId) !== schemaRevision) return false;
     const currentRequest = workspace.data.resources.find(resource => resource._id === requestId);
     if (!currentRequest) return false;
@@ -1335,16 +1337,18 @@ export async function execute(
   }
   const runId = id("run");
   const controller = new AbortController();
+  const ownsRun = () => ownsRequest() && workspace.running[requestId]?.id === runId;
+  const ownsDependency = () => ownsRun() || (ownsRequest() && pluginRequestCompleted(controller.signal));
+  const checkOwner = () => {
+    controller.signal.throwIfAborted();
+    if (!ownsRun()) throw new DOMException("Request owner changed", "AbortError");
+  };
   workspace.error = "";
   workspace.running[requestId] = { id: runId, controller };
   /** @type {() => void} */
   let completed = () => {};
-  completions.set(
-    requestId,
-    new Promise((resolve) => {
-      completed = resolve;
-    }),
-  );
+  const completion = new Promise((resolve) => { completed = () => resolve(undefined); });
+  completions.set(requestId, completion);
   /** @type {{format: string, value: string} | null} */
   let firstMessage = null;
   let firstMessageSent = false;
@@ -1390,7 +1394,7 @@ export async function execute(
             chain,
             signal,
             resolveResponse,
-            { requestId, runId },
+            { requestId, runId, isCurrent: ownsDependency },
           ),
         (dependency) =>
           requestDataScope(dataSnapshot, dependency._id).activeEnvironmentId,
@@ -1421,7 +1425,7 @@ export async function execute(
                 {messageMimeType:payload.mode,pluginServices:workspacePluginServices(dataSnapshot,{requestId,runId},resolveResponse)},
               );
         if (payload.mode === "application/json") JSON.parse(value);
-        controller.signal.throwIfAborted();
+        checkOwner();
         firstMessage = { format, value };
       }
       const rendered = await renderSendRequest(
@@ -1436,7 +1440,7 @@ export async function execute(
       requestSnapshot = rendered.request;
       runResponseHooks=rendered.runResponseHooks;
       protocol = protocolFor(requestSnapshot);
-      controller.signal.throwIfAborted();
+      checkOwner();
     }
     const resolution = { resolved: true, sourceContext };
     if (
@@ -1461,7 +1465,7 @@ export async function execute(
         "auto",
         resolution,
       );
-      if (controller.signal.aborted) throw new Error("Request cancelled.");
+      checkOwner();
     }
     const context = introspection
       ? schemaContext(dataSnapshot, originalRequest)
@@ -1483,7 +1487,7 @@ export async function execute(
           }
         : {}),
     });
-    controller.signal.throwIfAborted();
+    checkOwner();
     if (
       initialPayload &&
       !workspace.data.resources.some(
@@ -1526,8 +1530,7 @@ export async function execute(
       let savedAt = Date.now();
       await connectStream(prepared, protocol, controller.signal, (event) => {
         if (
-          workspace.running[requestId]?.id !== runId ||
-          !workspace.data.resources.some((r) => r._id === requestId)
+          !ownsRun()
         )
           return;
         if (["started", "finished"].includes(event.kind)) return;
@@ -1593,10 +1596,10 @@ export async function execute(
       });
       // A closed notification can precede command failure or late cancellation.
       // Only a successful transport and persistence may retain plugin UI.
-      controller.signal.throwIfAborted();
+      checkOwner();
       response.connectionState = "closed";
       response.elapsedMs = Date.now() - response.created;
-      if (workspace.data.resources.some((r) => r._id === requestId)) {
+      if (ownsRun()) {
         remember(response);
         await persist();
       }
@@ -1612,8 +1615,9 @@ export async function execute(
       started: Date.now(),
     };
     let response = await send(prepared, controller.signal);
+    if (!ownsRun()) return;
     if(runResponseHooks)response=await runResponseHooks(response);
-    if (!workspace.data.resources.some((r) => r._id === requestId)) return;
+    if (!ownsRun()) return;
     if (httpAttempt) {
       httpAttempt.networkLog = response.networkLog;
       httpAttempt.headersMs = response.headersMs;
@@ -1659,21 +1663,22 @@ export async function execute(
     remember(entry);
     if (!historyMatchesEnvironment(entry, workspace.data.settings, selectedEnvironmentFor(workspace.data, workspaceFor(workspace.data.resources, requestId) || ""))) refreshHttpResponses();
     await persist();
+    if (!ownsRun()) return;
     runCompleted = true;
     if (!onResponse && isTauri() && response.status >= 200 && response.status < 300 && !controller.signal.aborted) {
       try {
         const workspaceId = workspaceFor(dataSnapshot.resources, requestId) || "";
-        if (await requestDownload("get", workspaceId, requestId, controller.signal)) {
+        if (await requestDownload("get", workspaceId, requestId, controller.signal) && ownsRun()) {
           await requestDownload("write", workspaceId, requestId, controller.signal, entry, String(requestSnapshot.name || ""));
         }
       } catch (error) {
-        if (!controller.signal.aborted && workspace.data === schemaData)
+        if (!controller.signal.aborted && ownsRun())
           workspace.notice = "Response received; download failed: " + String(error);
       }
     }
-    if (!controller.signal.aborted) onResponse?.(entry);
+    if (!controller.signal.aborted && ownsRun()) onResponse?.(entry);
   } catch (error) {
-    if (!workspace.data.resources.some((r) => r._id === requestId)) return;
+    if (!ownsRun()) return;
     settleInitial(error);
     if (introspection) {
       if (ownsSchema()) workspace.schemaErrors[requestId] = String(error);
@@ -1729,18 +1734,19 @@ export async function execute(
     const reason = new DOMException("Request completed", "AbortError");
     if (runCompleted) completePluginRequest(controller, reason);
     else controller.abort(reason);
-    delete workspace.running[requestId];
+    const owned = ownsRun();
+    if (workspace.running[requestId]?.id === runId) delete workspace.running[requestId];
     // Environment changes preserve the live pane; reconcile its captured history
     // only after this run retires, without replacing same-environment results.
     const terminal = workspace.responses[requestId];
     const currentRequest = workspace.data.resources.find(item => item._id === requestId);
-    if (currentRequest && protocolFor(currentRequest) !== protocol) refreshHttpResponses(requestId);
-    else if (terminal?._id === runId &&
+    if (owned && currentRequest && protocolFor(currentRequest) !== protocol) refreshHttpResponses(requestId);
+    else if (owned && terminal?._id === runId &&
       !historyMatchesEnvironment(terminal, workspace.data.settings, selectedEnvironmentFor(workspace.data, workspaceFor(workspace.data.resources, requestId) || ""))) {
       refreshHttpResponses(requestId);
     }
-    clearOAuthProgress(requestId);
-    completions.delete(requestId);
+    if (workspace.oauthProgress[requestId]?.id === runId) clearOAuthProgress(requestId);
+    if (completions.get(requestId) === completion) completions.delete(requestId);
     completed();
   }
 }
@@ -1791,6 +1797,7 @@ export async function executeGrpc(requestId, discoveryOnly = false) {
         sendDependentRequest(data, dependency, chain, signal, resolveResponse, {
           requestId,
           runId,
+          isCurrent: () => owns() || (ownsRequest() && pluginRequestCompleted(controller.signal)),
         }),
       (dependency) =>
         requestDataScope(data, dependency._id).activeEnvironmentId,
@@ -2072,7 +2079,8 @@ export async function sendGrpc(requestId, finish = false) {
             chain,
             signal,
             resolveResponse,
-            { requestId, runId: running.id },
+            { requestId, runId: running.id, isCurrent: () => ownsRequest() &&
+              (workspace.running[requestId]?.id === running.id || pluginRequestCompleted(running.controller.signal)) },
           ),
         (dependency) =>
           requestDataScope(data, dependency._id).activeEnvironmentId,
@@ -2264,7 +2272,7 @@ export async function removeGrpcProto(collectionId, targetId) {
       "Proto removal is applied in memory but could not be saved. Export the workspace before closing.",
     );
 }
-/** @param {Record<string, any>} data @param {Record<string, any>} request @param {string} runId @param {AbortSignal} signal @param {"auto" | "fetch" | "refresh"} [action] @param {{resolved?:boolean,sourceContext?:string,dependencyOwner?:{requestId:string,runId:string}}} [options] */
+/** @param {Record<string, any>} data @param {Record<string, any>} request @param {string} runId @param {AbortSignal} signal @param {"auto" | "fetch" | "refresh"} [action] @param {{resolved?:boolean,sourceContext?:string,dependencyOwner?:PluginWorkspaceOwner}} [options] */
 async function ensureOAuth(
   data,
   request,
@@ -2278,14 +2286,18 @@ async function ensureOAuth(
   workspace.oauthErrors[request._id] = "";
   const context = oauthContext(data, request, options);
   const ownerData = workspace.data;
+  const ownerRequest = ownerData.resources.find(row => row._id === request._id);
+  const ownsRequest = ownerRequest ? captureRequestOwner(ownerData, ownerRequest, () => workspace.data) : () => false;
+  const dependency = options.dependencyOwner;
+  const dependencyResource = dependency && ownerData.resources.find(row => row._id === dependency.requestId);
+  const ownsDependency = dependencyResource ? captureRequestOwner(ownerData, dependencyResource, () => workspace.data) : () => false;
+  const dependencyActive = () => !!dependency && ownsDependency() &&
+    (dependency.isCurrent ? dependency.isCurrent() : workspace.running[dependency.requestId]?.id === dependency.runId);
   const result = await fetchOAuthToken(exchange, signal, (event) => {
-    const ownerActive =
-      options.dependencyOwner &&
-      workspace.running[options.dependencyOwner.requestId]?.id ===
-        options.dependencyOwner.runId;
+    const ownerActive = dependencyActive();
     if (
       signal.aborted ||
-      workspace.data !== ownerData ||
+      !ownsRequest() ||
       (!ownerActive && workspace.running[request._id]?.id !== runId) ||
       event.id !== runId
     )
@@ -2299,9 +2311,8 @@ async function ensureOAuth(
         "OAuth login is waiting. Open this request’s Auth tab to paste the final callback URL.";
   });
   const current = workspace.data.resources.find((r) => r._id === request._id);
-  const ownerActive = options.dependencyOwner &&
-    workspace.running[options.dependencyOwner.requestId]?.id === options.dependencyOwner.runId;
-  if (signal.aborted || !current || workspace.data !== ownerData ||
+  const ownerActive = dependencyActive();
+  if (signal.aborted || !current || !ownsRequest() ||
       (!ownerActive && workspace.running[request._id]?.id !== runId))
     throw new Error("OAuth token request cancelled.");
   if (
@@ -2359,7 +2370,9 @@ export async function authorizeOAuth(requestId, action = "fetch") {
   const request = workspace.data.resources.find((r) => r._id === requestId);
   if (!request) return;
   const ownerData = workspace.data;
+  const ownsRequest = captureRequestOwner(ownerData, request, () => workspace.data);
   const runId = id("oauth");
+  const ownsRun = () => ownsRequest() && workspace.running[requestId]?.id === runId;
   const controller = new AbortController();
   workspace.running[requestId] = { id: runId, controller };
   workspace.oauthErrors[requestId] = "";
@@ -2380,6 +2393,7 @@ export async function authorizeOAuth(requestId, action = "fetch") {
         sendDependentRequest(data, dependency, chain, signal, resolveResponse, {
           requestId,
           runId,
+          isCurrent: ownsRun,
         }),
       (dependency) =>
         requestDataScope(data, dependency._id).activeEnvironmentId,
@@ -2392,19 +2406,18 @@ export async function authorizeOAuth(requestId, action = "fetch") {
         pluginServices:workspacePluginServices(data,{requestId,runId},resolveResponse) },
     );
     controller.signal.throwIfAborted();
-    if (workspace.data !== ownerData || workspace.running[requestId]?.id !== runId) return;
+    if (!ownsRun()) return;
     await ensureOAuth(data, rendered, runId, controller.signal, action, {
       resolved: true,
       sourceContext,
     });
   } catch (error) {
-    if (workspace.data === ownerData && workspace.running[requestId]?.id === runId &&
-        workspace.data.resources.some((r) => r._id === requestId))
+    if (ownsRun())
       workspace.oauthErrors[requestId] = String(error);
   } finally {
     if (workspace.running[requestId]?.id === runId) {
       delete workspace.running[requestId];
-      clearOAuthProgress(requestId);
+      if (workspace.oauthProgress[requestId]?.id === runId) clearOAuthProgress(requestId);
     }
     if (completions.get(requestId) === completion) completions.delete(requestId);
     completed();
@@ -2482,7 +2495,12 @@ export async function useSavedOAuth(requestId, tokenId) {
   if (!acceptWorkspaceRun()) return false;
   if (workspace.running[requestId]) return false;
   const ownerData = workspace.data;
+  const ownerRequest = ownerData.resources.find(row => row._id === requestId);
+  if (!ownerRequest) return false;
+  const ownerToken = savedOAuthTokens(ownerData, requestId).find(row => row._id === tokenId);
+  const ownsRequest = captureRequestOwner(ownerData, ownerRequest, () => workspace.data);
   const runId = id("oauth-adopt");
+  const ownsRun = () => ownsRequest() && workspace.running[requestId]?.id === runId;
   const controller = new AbortController();
   workspace.running[requestId] = { id: runId, controller };
   workspace.oauthErrors[requestId] = "";
@@ -2516,6 +2534,7 @@ export async function useSavedOAuth(requestId, tokenId) {
         sendDependentRequest(data, dependency, chain, signal, resolveResponse, {
           requestId,
           runId,
+          isCurrent: ownsRun,
         }),
       (dependency) =>
         requestDataScope(data, dependency._id).activeEnvironmentId,
@@ -2537,10 +2556,9 @@ export async function useSavedOAuth(requestId, tokenId) {
       (r) => r._id === tokenId,
     );
     if (
-      workspace.data !== ownerData ||
-      workspace.running[requestId]?.id !== runId ||
+      !ownsRun() ||
       !current ||
-      !currentToken ||
+      !currentToken || currentToken !== ownerToken ||
       JSON.stringify($state.snapshot(currentToken)) !== tokenSource ||
       oauthSourceContext(
         requestDataScope(workspace.data, requestId),
@@ -2558,14 +2576,13 @@ export async function useSavedOAuth(requestId, tokenId) {
     storeOAuthRecord(workspace.data, record);
     return await persist();
   } catch (error) {
-    if (workspace.data === ownerData && workspace.running[requestId]?.id === runId &&
-        workspace.data.resources.some((r) => r._id === requestId))
+    if (ownsRun())
       workspace.oauthErrors[requestId] = String(error);
     return false;
   } finally {
     if (workspace.running[requestId]?.id === runId) {
       delete workspace.running[requestId];
-      clearOAuthProgress(requestId);
+      if (workspace.oauthProgress[requestId]?.id === runId) clearOAuthProgress(requestId);
     }
     if (completions.get(requestId) === completion) completions.delete(requestId);
     completed();
@@ -2748,13 +2765,16 @@ export function createWorkspacePluginPreviewServices(data, requestId, signal, is
  * The dialog's registered workspace lease owns all rendering/dependency work.
  * @param {string} requestId @param {AbortSignal} signal @param {()=>boolean} isCurrent */
 export async function prepareCodeRequest(requestId, signal, isCurrent) {
+  const ownerData=workspace.data,ownerRequest=ownerData.resources.find(resource=>resource._id===requestId);
+  if(!ownerRequest)throw Error('Code generation request no longer exists.');
+  const ownsRequest=captureRequestOwner(ownerData,ownerRequest,()=>workspace.data);
   const data=requestDataScope($state.snapshot(workspace.data),requestId);
   const request=data.resources.find(resource=>resource._id===requestId);
   if(!request||!['http','sse'].includes(protocolFor(request)))throw Error('Code generation requires an HTTP request.');
   if(!String(request.url||'').trim())throw Error('Enter a request URL before generating code.');
-  const check=()=>{signal.throwIfAborted();if(!isCurrent())throw new DOMException('Code generation owner changed','AbortError');};
+  const check=()=>{signal.throwIfAborted();if(!ownsRequest()||!isCurrent())throw new DOMException('Code generation owner changed','AbortError');};
   check();
-  const owner={requestId,runId:id('code'),isCurrent:()=>!signal.aborted&&isCurrent()};
+  const owner={requestId,runId:id('code'),isCurrent:()=>!signal.aborted&&ownsRequest()&&isCurrent()};
   const resolveResponse=createResponseTemplateResolver(data.resources,data.history||[],data.activeEnvironmentId,
     (dependency,chain,childSignal)=>sendDependentRequest(data,dependency,chain,childSignal,resolveResponse,owner),
     dependency=>requestDataScope(data,dependency._id).activeEnvironmentId);
@@ -2785,12 +2805,22 @@ function workspacePluginServices(data, owner, resolveResponse, chain = [owner.re
   const sourceKey = pluginRenderSourceKey(data.resources, owner.requestId, data.activeEnvironmentId);
   const workspaceData = workspace.data;
   const collectionId = workspace.data.activeWorkspaceId;
+  const ownerResource = workspaceData.resources.find(row => row._id === owner.requestId);
+  const ownsResource = ownerResource ? captureRequestOwner(workspaceData, ownerResource, () => workspace.data) : () => false;
+  const sourceId = chain.at(-1) || owner.requestId;
+  const sourceResource = workspaceData.resources.find(row => row._id === sourceId);
+  const ownsSource = sourceId === owner.requestId ? ownsResource :
+    sourceResource ? captureRequestOwner(workspaceData, sourceResource, () => workspace.data) : () => false;
   const checkOwner = () => {
-    const retained = ownedRun?.id === owner.runId && pluginRequestCompleted(ownedRun.controller.signal)
+    if (!workspace.ready || !ownsResource() || !ownsSource())
+      throw new DOMException("Plugin workspace owner changed", "AbortError");
+    const completed = ownedRun?.id === owner.runId && pluginRequestCompleted(ownedRun.controller.signal);
+    const retained = completed
       && workspace.data === workspaceData && workspace.data.activeWorkspaceId === collectionId
       && pluginRenderSourceKey(workspace.data.resources, owner.requestId,
         requestDataScope(workspace.data, owner.requestId).activeEnvironmentId) === sourceKey;
-    if (!workspace.ready || !(owner.isCurrent ? owner.isCurrent() : workspace.running[owner.requestId]?.id === owner.runId || retained))
+    const callerCurrent = owner.isCurrent?.();
+    if (!(completed ? retained && callerCurrent !== false : callerCurrent ?? workspace.running[owner.requestId]?.id === owner.runId))
       throw new DOMException("Plugin workspace owner changed", "AbortError");
   };
   const check = (/** @type {AbortSignal} */ signal) => {signal.throwIfAborted();checkOwner();};
@@ -2945,7 +2975,18 @@ async function sendDependentRequest(
   owner,
   pluginOptions = {},
 ) {
-  signal.throwIfAborted();
+  const ownerData = workspace.data;
+  const targetResource = ownerData.resources.find(row => row._id === request._id);
+  const rootResource = ownerData.resources.find(row => row._id === owner.requestId);
+  const ownsTarget = targetResource ? captureRequestOwner(ownerData, targetResource, () => workspace.data) : () => false;
+  const ownsRoot = rootResource ? captureRequestOwner(ownerData, rootResource, () => workspace.data) : () => false;
+  const check = () => {
+    signal.throwIfAborted();
+    if (!ownsTarget() || !ownsRoot() ||
+        (owner.isCurrent ? !owner.isCurrent() : workspace.running[owner.requestId]?.id !== owner.runId))
+      throw new DOMException("Dependent request owner changed", "AbortError");
+  };
+  check();
   data = requestDataScope(data, request._id);
   const runId = id("dependency");
   const sourceContext = oauthSourceContext(data, request);
@@ -2958,6 +2999,7 @@ async function sendDependentRequest(
           resolveResponse(args, childSignal, chain, data.activeEnvironmentId),
       });
     const rendered=renderResult.request;
+    check();
     // Response tags await the completed HTTP body, including SSE framing.
     // Native send_http bounds this wait/body; it does not open a live stream pane.
     const needsOAuth =
@@ -2978,7 +3020,7 @@ async function sendDependentRequest(
         dependencyOwner: owner,
       });
     }
-    signal.throwIfAborted();
+    check();
     const manual = (rendered.headers || []).some(
       (/** @type {Record<string,any>} */ header) =>
         String(header.name).toLowerCase() === "authorization",
@@ -2993,10 +3035,11 @@ async function sendDependentRequest(
           }
         : {},
     );
-    if (owner.isCurrent && !owner.isCurrent()) throw new DOMException("Plugin preview owner changed", "AbortError");
-    const response = await renderResult.runResponseHooks(await send(prepared, signal));
-    signal.throwIfAborted();
-    if (owner.isCurrent && !owner.isCurrent()) throw new DOMException("Plugin preview owner changed", "AbortError");
+    check();
+    let response = await send(prepared, signal);
+    check();
+    response = await renderResult.runResponseHooks(response);
+    check();
     const entry = {
       ...response,
       _id: runId,
@@ -3006,7 +3049,7 @@ async function sendDependentRequest(
       environmentId: data.activeEnvironmentId || null,
       graphql: rendered.body?.mimeType === "application/graphql",
     };
-    if (workspace.data.resources.some((r) => r._id === request._id)) {
+    if (ownsTarget()) {
       if (
         !workspace.running[request._id] ||
         workspace.running[request._id].id === owner.runId
@@ -3016,6 +3059,7 @@ async function sendDependentRequest(
       owner.onHistory?.($state.snapshot(workspace.data.history));
       await persist();
     }
+    check();
     return entry;
   } finally {
     await cancellation.close();

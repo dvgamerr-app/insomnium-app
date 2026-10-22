@@ -1,5 +1,11 @@
 # HTTP migration
 
+## Request resource ownership
+
+Accepted HTTP/SSE work captures data, request and collection objects plus ancestry through `captureRequestOwner`; changing selection alone preserves background completion, while same-ID replacement rejects stale dispatch, hooks, response/error/history publication and automatic downloads. OAuth exchange/adoption and dependent requests retain their source owners. Running/completion cleanup compares the owned run or promise before removal. Retained plugin helpers also hold their originating resource; normal completion retains valid UI, while root/child replacement revokes it.
+
+Evidence: `artifacts/request-send-owner-verification-20261022.json` — Svelte check/build, production helper/timer checks and the maintained headless scenario (20 checks, six existing HTTP controls, two stream groups, all 43 workers terminated). Existing controls now recreate deleted IDs and replace root/child objects without changing their values; fixture logs/quota assertions match current model contracts. No cases/files/functions were added. Controlled IPC is not native binary acceptance; OAuth providers, held native cancellation/chooser, OS-close and platform gates remain open.
+
 ## Cancellation failure feedback retains its owner — 2026-10-22
 
 Shared stop previously published a late cancel rejection directly into the current workspace error. It now retains the original workspace/request/running objects and admits error feedback only while those owners remain current; gRPC also checks its existing request-owner closure. Replaced/removed owners and a new run cannot receive the old cancellation error. Immediate controller abort, original native run ID, awaited cancellation and the nonthrowing stop API remain unchanged. Current-owner cancellation failures are still visible.

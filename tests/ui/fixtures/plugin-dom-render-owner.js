@@ -112,14 +112,18 @@ async function httpControl(mode){
     else{
       await entered;
       if(mode==='cancel')await stop(request._id);
-      if(mode.startsWith('delete-'))removeResource(request._id);
-      if(mode==='error'||mode==='delete-reject')rejectSend?.({message:'Controlled wire failure',networkLog:[{kind:'controlled-wire',message:'Preserved failure log'}]});
+      if(mode.startsWith('delete-')){
+        removeResource(request._id);
+        // Recreate the deleted ID before its original response settles.
+        workspace.data.resources.push({...request,name:'Replacement owner'});
+      }
+      if(mode==='error'||mode==='delete-reject')rejectSend?.({message:'Controlled wire failure',networkLog:['Preserved failure log']});
       else resolveSend?.({status:200,statusText:'OK',url:request.url,headers:[],body:'late controlled success',bodyBase64:btoa('late controlled success'),size:23,elapsedMs:7,headersMs:3,networkLog:[]});
       await pending;
     }
-    const beforeReload=JSON.parse(JSON.stringify({history:workspace.data.history,response:workspace.responses[request._id],resources:workspace.data.resources,saveFailed:workspace.saveFailed}));
+    const beforeReload=JSON.parse(JSON.stringify({history:workspace.data.history,response:workspace.responses[request._id],resources:workspace.data.resources,saveFailed:workspace.saveFailed,error:workspace.error}));
     if(saved){workspace.responses={};await initialize();}
-    return {mode,calls,runId,beforeReload,saved,hydrated:JSON.parse(JSON.stringify(workspace.responses[request._id]??null)),running:!!workspace.running[request._id]};
+    return {mode,calls,runId,beforeReload,saved,hydrated:JSON.parse(JSON.stringify(workspace.responses[request._id]??null)),loadError:workspace.error,running:!!workspace.running[request._id]};
   }finally{clearMocks();delete /** @type {any} */(window).isTauri;}
 }
 /** Controlled compiled remove() state transitions, not native body evidence.
@@ -239,7 +243,7 @@ async function environmentRemovalControl(mode){
     await execute("r");
     return {running:!!workspace.running.r,status:workspace.responses.r?.status,error:workspace.responses.r?.error};
   },
-  changeWorkspaceSource(){workspace.data.resources[1].name+=" edited after Send";},
+  changeWorkspaceSource(){workspace.data.resources[1]={...workspace.data.resources[1]};},
   async sendResponseWorkspace(/** @type {boolean} */ hold=false){
     const request={...newRequest("w"),_id:"r",name:"Response owner",method:"POST",url:location.origin+(hold?"/root-held":"/root"),body:{mimeType:"text/plain",text:"{% response 'url', 'child', '', 'always', 0 %}"}};
     const child={...newRequest("w"),_id:"child",name:"Dialog dependency",url:location.origin+"/child?dialog={% lifetimedialog %}"};
@@ -258,7 +262,7 @@ async function environmentRemovalControl(mode){
   rootHeld:()=>rootHeld,
   cancelRoot(){return stop("r");},
   async rootSettled(){await pendingRoot;return{running:!!workspace.running.r,aborted:heldSignal?.aborted,completed:heldSignal?pluginRequestCompleted(heldSignal):false};},
-  changeChildSource(){const child=workspace.data.resources.find(row=>row._id==="child");if(child)child.name+=" edited";},
+  changeChildSource(){const index=workspace.data.resources.findIndex(row=>row._id==="child");if(index>=0)workspace.data.resources[index]={...workspace.data.resources[index]};},
   sendStreamWorkspace(/** @type {'websocket'|'sse'} */ protocol){
     const request={...newRequest("w"),_id:"r",name:"Stream owner",_type:protocol==="websocket"?"websocket_request":"request",responseMode:protocol==="sse"?"sse":undefined,url:(protocol==="websocket"?"ws://127.0.0.1":"http://127.0.0.1")+"/stream?dialog={% lifetimedialog %}"};
     data.resources=[data.resources[0],request,{_id:"env",_type:"environment",parentId:"w",name:"Base Environment",data:{ownerValue:"captured"}}];

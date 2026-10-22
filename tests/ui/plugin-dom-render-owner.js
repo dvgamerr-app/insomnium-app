@@ -104,15 +104,17 @@ await withPreview("plugin-dom-render-owner"+(runLabel?'-'+runLabel:''),async(pag
     }
     const httpControls=[];
     for(const mode of ['cancel','error','preflight','delete-resolve','delete-reject','save-failure']){
-      const result=await call('httpControl',[mode]);httpControls.push(result);assert.equal(result.running,false);
+      const result=await call('httpControl',[mode]);httpControls.push(result);
+      await Bun.write(output+'/http-controls.json',JSON.stringify(httpControls,null,2));
+      assert.equal(result.running,false);
       const history=result.beforeReload.history;
       if(mode==='preflight'){assert.equal(result.calls.includes('send_http'),false);assert.deepEqual(history,[]);assert.equal(result.saved,null);}
-      else if(mode.startsWith('delete-')){assert.deepEqual(history,[]);assert.equal(result.beforeReload.response,undefined);assert.equal(result.beforeReload.resources.some((/** @type {any} */ row)=>row._id==='http-controlled'),false);assert.equal(result.hydrated,null);}
+      else if(mode.startsWith('delete-')){assert.deepEqual(history,[]);assert.equal(result.beforeReload.response,undefined);assert.equal(result.beforeReload.resources.find((/** @type {any} */ row)=>row._id==='http-controlled')?.name,'Replacement owner');assert.equal(result.hydrated,null);}
       else if(mode==='save-failure'){assert.equal(history.length,1);assert.equal(history[0].status,200);assert.equal(history[0].error,undefined);assert.equal(result.beforeReload.saveFailed,true);assert.equal(result.saved,null);}
       else{
         assert.equal(history.length,1);assert.equal(history[0]._id,result.runId);assert.equal(history[0].status,0);assert.equal(history[0].body,'');assert.equal(history[0].bodyBase64,'');assert.equal(history[0].method,'GET');assert.equal(history[0].environmentId,null);assert.ok(history[0].elapsedMs>=0);assert.deepEqual(result.hydrated,history[0]);assert.deepEqual(result.saved.history,history);
         if(mode==='cancel'){assert.equal(history[0].statusText,'Cancelled');assert.ok(result.calls.includes('cancel_http'));assert.equal(history[0].error,'Request cancelled.');}
-        else{assert.equal(history[0].statusText,'Error');assert.ok(history[0].error.includes('Controlled wire failure'));assert.deepEqual(history[0].networkLog,[{kind:'controlled-wire',message:'Preserved failure log'}]);}
+        else{assert.equal(history[0].statusText,'Error');assert.ok(history[0].error.includes('Controlled wire failure'));assert.deepEqual(history[0].networkLog,['Preserved failure log']);}
       }
     }
     const row=(/** @type {string} */ _id,/** @type {string} */ requestId,/** @type {string|null} */ environmentId=null)=>({_id,requestId,environmentId});
@@ -120,7 +122,8 @@ await withPreview("plugin-dom-render-owner"+(runLabel?'-'+runLabel:''),async(pag
     assert.deepEqual(retainedHistory(retentionInput,{maxHistory:1}).map(r=>r._id),['a-new','b-new']);
     assert.deepEqual(retainedHistory(retentionInput,{maxHistory:1,filterResponsesByEnv:true}).map(r=>r._id),['a-new','b-new','a-env']);
     const oversized={...row('oversized','a'),body:'😀'.repeat(11*1024*1024)};
-    assert.deepEqual(retainedHistory([oversized,row('older','a'),row('other','b')],{maxHistory:1}).map(r=>r._id),['other']);
+    // A skipped oversized candidate does not consume the retained quota.
+    assert.deepEqual(retainedHistory([oversized,row('older','a'),row('other','b')],{maxHistory:1}).map(r=>r._id),['older','other']);
     const large={...row('large','a'),bodyBase64:'A'.repeat(22*1024*1024)};
     assert.deepEqual(retainedHistory([large,{...large,_id:'large-b',requestId:'b'},row('small','c')],{maxHistory:2}).map(r=>r._id),['large','small']);
     assert.deepEqual(retentionInput,[row('a-new','a','one'),row('b-new','b'),row('a-env','a','two'),row('a-old','a','one')]);
