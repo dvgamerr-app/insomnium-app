@@ -7,11 +7,13 @@ const data = initialData();
 const fixture = {
   calls: /** @type {{command:string,args:any}[]} */ ([]),
   restored: false,
+  saves: 0,
+  saved: /** @type {any} */ (null),
 };
 owner.workspaceRecoveryFixture = fixture;
 owner.isTauri = true;
 owner.__TAURI_INTERNALS__ = {
-  async invoke(/** @type {string} */ command, args = {}) {
+  async invoke(/** @type {string} */ command, /** @type {any} */ args = {}) {
     fixture.calls.push({ command, args });
     if (command === "load_workspace") {
       if (!fixture.restored) throw new Error("Controlled damaged workspace");
@@ -26,6 +28,12 @@ owner.__TAURI_INTERNALS__ = {
     if (command === "restore_workspace_backup") {
       fixture.restored = true;
       return "/owned/workspace-v1.damaged-fixture.json";
+    }
+    if (command === "save_workspace") {
+      fixture.saves++;
+      if (fixture.saves === 1) throw new Error("Controlled save failure");
+      fixture.saved = structuredClone(args.data);
+      return;
     }
     throw new Error("Unexpected recovery fixture IPC: " + command);
   },

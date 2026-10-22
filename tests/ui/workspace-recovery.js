@@ -65,6 +65,14 @@ await withComponentFixture("workspace-recovery", async (page, output) => {
     backupSha256: "b".repeat(64),
   });
   assert.equal(await dialog.count(), 0);
+  const save = page.getByRole("button", {name: "Save recovered workspace", exact: true});
+  await save.click();
+  await page.getByRole("alert").getByText(/Controlled save failure/).waitFor();
+  await save.click();
+  await page.getByRole("alert").waitFor({state: "detached"});
+  const saved = await page.evaluate(() => /** @type {any} */ (window).workspaceRecoveryFixture);
+  assert.equal(saved.saves, 2);
+  assert.ok(saved.saved.resources.length > 0, "Retry persists the recovered workspace");
   await Bun.write(
     output + "/result.json",
     JSON.stringify(
@@ -76,7 +84,8 @@ await withComponentFixture("workspace-recovery", async (page, output) => {
         cancelReadOnly: true,
         explicitRestore: true,
         reinitialized: true,
-        commands,
+        commands: await calls(),
+        saveRetry: {failedWriteObserved: true, successfulRetryCleared: true, writes: saved.saves},
       },
       null,
       2,

@@ -231,6 +231,7 @@ export async function setupGit(workspaceId) {
   }
 }
 let revision = 0;
+let persistenceFailure = "";
 /** @type {Map<string, Promise<void>>} */
 const completions = new Map();
 const schemaRevisions = new Map(/** @type {[string,symbol][]} */ ([]));
@@ -735,15 +736,24 @@ export async function persist() {
   workspace.data.settings.maxHistory = historyLimit(
     workspace.data.settings.maxHistory,
   );
+  const data = workspace.data;
   const current = ++revision;
+  const ownsFeedback = () => current === revision && workspace.data === data;
   workspace.saving = true;
   try {
     await saveData($state.snapshot(workspace.data));
-    if (current === revision) workspace.saveFailed = false;
+    if (ownsFeedback()) {
+      workspace.saveFailed = false;
+      if (workspace.error === persistenceFailure) workspace.error = "";
+      persistenceFailure = "";
+    }
     return true;
   } catch (error) {
-    workspace.saveFailed = true;
-    workspace.error = `Changes could not be saved: ${error}. Export your workspace before closing.`;
+    if (ownsFeedback()) {
+      workspace.saveFailed = true;
+      persistenceFailure = `Changes could not be saved: ${error}. Export your workspace before closing.`;
+      workspace.error = persistenceFailure;
+    }
     return false;
   } finally {
     if (current === revision) workspace.saving = false;
