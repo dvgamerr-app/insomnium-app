@@ -2,11 +2,12 @@
 
 Migration is incomplete. [PARITY.md](PARITY.md) retains the full acceptance checklist; [PLAN.md](PLAN.md) defines the work sequence. Topic contracts describe behavior, and receipts prove only their recorded scope.
 
-## Finished topic: runner resource ownership
+## Finished topic: GraphQL pending-fetch window close
 
-Runner now captures suite/test/collection object ownership, cancels retired work, guards later sends/publication and retains replacement targets/completion registrations during drain cleanup. Check/build and actual production-function before/after controls pass; no test scripts/scenarios changed or rerun. Evidence: `artifacts/runner-resource-owner-verification-20261022.json`. Controlled worker/observer evidence does not establish real Worker/native same-ID acceptance.
+Existing GraphQL close/reopen scenario passes all six original checks: real WM_CLOSE cancels held introspection, persists and exits 0 without force; reopen preserves the request and fresh schema fetch succeeds. Existing resource/full-profile preservation now registers its owned collection and cleans its cookie files. Initial outer-only preservation refusal and reversible recovery are retained; final independent profile hashes match and hosts are gone. Evidence: `artifacts/native-graphql-close-20261022/verification.json`. No cases/files added. Built source `efae450e` differs from current application only in the uncalled runner function; this is bounded Windows close evidence, not OS shutdown or other protocol/platform acceptance.
 
 - Request ownership/cancellation remains verified by check/build and the maintained headless scenarios: `artifacts/request-child-cancel-verification-20261022.json`. Selection changes preserve background sends; resource/run replacement cancels retired work, and normal completion preserves retained plugin UI. Native same-ID held replacement/provider/OS-close acceptance remains open.
+- Runner resource ownership passed check/build and controlled production-function before/after checks: `artifacts/runner-resource-owner-verification-20261022.json`. Real Worker/native same-ID acceptance remains open.
 - gRPC topic `65311f4a` retains Windows/Linux compiler and nine wire-path evidence. The current native receipt now includes its source changes; ordinary integration does not prove every malformed-wire variant. See GRPC.md for source-bound receipts and remaining gates.
 - Prior normal-hook native build on source `efae450e` passed existing gRPC 95 cases and plugin 28 checks, with exact profile restoration and host exits: `artifacts/native-request-grpc-current-20261022/verification.json`. It predates this runner correction.
 

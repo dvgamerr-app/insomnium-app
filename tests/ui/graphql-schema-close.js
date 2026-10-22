@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { buildSchema, introspectionFromSchema } from "graphql";
-import { withNativeApp, poll } from "./helpers/native-app.js";
-process.env.INSOMNIUM_UI_BUILD_STATE ||=
-  "artifacts/native-unix-socket-ui-probe/build-state.json";
+import { withNativeApp, poll, integrationProbeIdentifier, selectedNativeProbeIdentifier } from "./helpers/native-app.js";
+import { preserveNativeProfile } from "./helpers/native-profile-preservation.js";
+import { withResourceProbePreserved, registerResourceProbeCollection } from "./helpers/resource-manager-cases.js";
+assert.equal(selectedNativeProbeIdentifier(), integrationProbeIdentifier);
+assert.ok(process.env.INSOMNIUM_UI_BUILD_STATE, "Explicit native build required");
 const schema = introspectionFromSchema(
   buildSchema("type Query { ping: String }"),
 );
@@ -36,6 +38,7 @@ let firstOutput;
 /** @type {string[]} */
 const commands = [];
 try {
+  await preserveNativeProfile(() => withResourceProbePreserved(async () => {
   await withNativeApp(
     "graphql-schema-close",
     async ({ page, invoke, output, requestNativeClose }) => {
@@ -87,6 +90,7 @@ try {
         (/** @type {Record<string, any>} */ r) =>
           r._type === "request" && r.name === name,
       );
+      registerResourceProbeCollection(baseline.parentId, name);
       await page
         .locator(".graphql-panel")
         .getByRole("button", { name: "Fetch schema", exact: true })
@@ -207,6 +211,7 @@ try {
       );
     },
   );
+  }, { expectedIdentifier: integrationProbeIdentifier }));
 } finally {
   release.current?.();
   server.stop(true);

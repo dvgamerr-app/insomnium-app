@@ -1,5 +1,9 @@
 # GRAPHQL migration
 
+## Windows close during pending introspection
+
+The existing `graphql-schema-close` scenario passes its six original close/reopen checks on the normal-hook release binary from `efae450e`: real WM_CLOSE cancels the held native request, persists, exits 0 without force, and reopening preserves the request with no schema-response history before a fresh fetch succeeds. Existing resource/full-profile wrappers now register the fixture collection and restore its cookie files and original buffers; independent two-file hashes match. Evidence: `artifacts/native-graphql-close-20261022/verification.json`, including the initial preservation refusal and reversible recovery. No cases/files added. GraphQL/close code matches current source outside the unrelated runner correction; OS shutdown, other protocols/providers/platforms remain open.
+
 ## Referenced type navigation — 2026-10-16
 
 Introspection target follow-up — 2026-10-17: explicitly selected introspection types now remain eligible in the explorer instead of silently falling back to an unrelated first type. Searching a name beginning with __ also exposes introspection definitions. Their referenced-type links can traverse other introspection types (for example __Type→__Field); ordinary schema lists continue hiding them. Back restores prior selection/filter eligibility. Final compiler0errors0warnings/build0; the existing headless INSOMNIUM_GRAPHQL_NAVIGATION=1 bun tests/ui/graphql-editor.js passes (~2.3s), adding actual jump-callback __Type selection, __Field traversal, Back, hidden default and explicit search checks. No new runner/native build; physical gesture/native/provider/platform and complete GraphQL parity remain open.
