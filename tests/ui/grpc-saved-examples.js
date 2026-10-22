@@ -9,7 +9,8 @@ assert.ok(process.env.INSOMNIUM_UI_BUILD_STATE,'Explicit current native build re
 const proto = `syntax = "proto3";
 import "extensions.proto";
 package savedexample;
-message Child { bytes payload = 1; }
+message Child { bytes payload = 1; float amount = 2; }
+enum Choice { ZERO = 0; ONE = 1; }
 message Input {
   string title = 1;
   bytes payload = 2;
@@ -19,6 +20,11 @@ message Input {
   map<string,Child> children = 6;
   map<int64,int32> longLabels = 7;
   ExtensionValues extensionValues = 8;
+  float amount = 9;
+  int64 wide = 10;
+  Choice choice = 11;
+  repeated float amounts = 12;
+  map<string,float> rates = 13;
 }
 service Examples { rpc Call(Input) returns (Input); }`;
 const extensions = `syntax = "proto2";
@@ -28,6 +34,7 @@ message ExtensionChild { optional bytes payload = 1; }
 extend ExtensionValues {
   optional bytes extension_payload = 100 [default = "AB"];
   repeated ExtensionChild extension_children = 101;
+  optional int64 extension_count = 102;
 }`;
 
 await preserveNativeProfile(()=>withResourceProbePreserved(async()=>{
@@ -59,15 +66,17 @@ await preserveNativeProfile(()=>withResourceProbePreserved(async()=>{
       await poll(async()=>await persisted()!=='{}','Example persisted');
       const bytes=mode==='legacy'?[161,178,195]:'obLD';
       const expected={title:'Hello',payload:bytes,labels:{Hello:10},chunks:[bytes],
-        child:{payload:bytes},children:{Hello:{payload:bytes}},longLabels:{20:10},
+        child:{payload:bytes,amount:1.1},children:{Hello:{payload:bytes,amount:1.1}},longLabels:{20:10},
+        amount:1.1,wide:mode==='legacy'?20:'20',choice:mode==='legacy'?0:'ZERO',amounts:[1.1],rates:{Hello:1.1},
         extensionValues:{note:'Hello',
           [mode==='legacy'?'.savedexample.extension_payload':'[savedexample.extension_payload]']:bytes,
-          [mode==='legacy'?'.savedexample.extension_children':'[savedexample.extension_children]']:[{payload:bytes}]}};
+          [mode==='legacy'?'.savedexample.extension_children':'[savedexample.extension_children]']:[{payload:bytes}],
+          [mode==='legacy'?'.savedexample.extension_count':'[savedexample.extension_count]']:mode==='legacy'?20:'20'}};
       assert.deepEqual(JSON.parse(await persisted()),expected);
       await page.reload();
       await page.getByRole('button',{name:'Load methods',exact:true}).waitFor();
       assert.deepEqual(JSON.parse(await persisted()),expected);
-      checks.push({mode,explicitBodyReplacement:true,nestedAndRepeatedAndMapBytes:true,proto2ExtensionExamples:true,reload:true});
+      checks.push({mode,explicitBodyReplacement:true,nestedAndRepeatedAndMapBytes:true,proto2ExtensionExamples:true,authoredNumericExamples:true,reload:true});
     }
     await Bun.write(output+'/acceptance.json',JSON.stringify({status:'passed',
       scope:'Actual saved proto compilation, Use example and persistence; no Send or wire claim',checks},null,2));
