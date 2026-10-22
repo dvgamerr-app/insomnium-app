@@ -46,19 +46,21 @@
   /** @type {{request:Record<string,any>}} */ let { request } = $props();
   let tab = $state("Body"),
     responseTab = $state("Response"),
-    error = $state(""),
     selectedMessage = $state(0),
     selectedSentId = $state("");
   let fullMessage = $state(/** @type {string|null} */ (null));
   let sourceMessageId = $state("");
   let follow = $state(true);
+  const bodyOwner=$derived({data:app.data,request,text:request.body?.text??''});
+  let formatFeedback=$state.raw(/** @type {{owner:typeof bodyOwner,error:string}|undefined} */(undefined));
+  const error=$derived(formatFeedback?.owner===bodyOwner?formatFeedback.error:'');
   export function openSettings() { tab = "Settings"; }
   function formatBody() {
     if (selectedSent) return;
+    const owner=bodyOwner;
     try {
-      body(jsonPrettify(request.body?.text ?? '',jsonIndent(app.data.settings),false));
-      error='';
-    } catch(e) {error=String(e);}
+      body(jsonPrettify(owner.text,jsonIndent(owner.data.settings),false));
+    } catch(e) {formatFeedback={owner,error:String(e)};}
   }
   let log = $state(/** @type {HTMLDivElement|undefined} */ (undefined));
   const running = $derived(!!app.running[request._id]);
@@ -202,7 +204,7 @@
   }
   function body(/** @type {string} */ text) {
     update(request._id, { body: { ...request.body, text } });
-    error = "";
+    formatFeedback = undefined;
   }
   async function exportResponse() {
     const fail=beginTransfer();
