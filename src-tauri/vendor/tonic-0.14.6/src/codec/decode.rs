@@ -156,6 +156,9 @@ impl StreamingInner {
 
             let compression_encoding = match self.buf.get_u8() {
                 0 => None,
+                // grpc-js only treats the exact value 1 as compressed.
+                #[cfg(feature = "insomnium-status-message")]
+                flag if flag != 1 && matches!(self.direction, Direction::Response(_)) => None,
                 1 => {
                     {
                         if self.encoding.is_some() {
@@ -192,7 +195,12 @@ impl StreamingInner {
                 .unwrap_or(DEFAULT_MAX_RECV_MESSAGE_SIZE);
             if len > limit {
                 #[cfg(feature = "insomnium-status-message")]
-                if matches!(self.direction, Direction::Response(_)) {
+                if let Direction::Response(status) = self.direction {
+                    // Only the framing decoder's size error prefers HTTP
+                    // fallback. Compression-filter errors retain their status.
+                    if status != StatusCode::OK {
+                        return Err(Status::from_legacy_missing_status(None, status));
+                    }
                     return Err(Status::resource_exhausted(format!(
                         "Received message larger than max ({len} vs {limit})"
                     )));
@@ -234,8 +242,20 @@ impl StreamingInner {
                     len,
                 ) {
                     if matches!(err.kind(), std::io::ErrorKind::WriteZero) {
+                        #[cfg(feature = "insomnium-status-message")]
+                        if matches!(self.direction, Direction::Response(_)) {
+                            return Err(Status::resource_exhausted(format!(
+                                "Received message that decompresses to a size larger than {limit}"
+                            )));
+                        }
                         return Err(Status::resource_exhausted(format!(
                             "Error decompressing: size limit, of {limit} bytes, exceeded while decompressing message"
+                        )));
+                    }
+                    #[cfg(feature = "insomnium-status-message")]
+                    if matches!(self.direction, Direction::Response(_)) {
+                        return Err(Status::internal(format!(
+                            "Failed to decompress {encoding}-encoded message"
                         )));
                     }
                     let message = if let Direction::Response(status) = self.direction {
@@ -389,23 +409,9 @@ impl<T> Streaming<T> {
     }
 
     fn decode_chunk(&mut self) -> Result<Option<T>, Status> {
-        #[cfg(feature = "insomnium-status-message")]
-        let http_status = match self.inner.direction {
-            Direction::Response(status) => Some(status),
-            _ => None,
-        };
         let chunk = self
             .inner
             .decode_chunk(self.decoder.get_mut().buffer_settings());
-        #[cfg(feature = "insomnium-status-message")]
-        let chunk = chunk.map_err(|error| {
-            if let Some(status) = http_status {
-                if status != StatusCode::OK {
-                    return Status::from_legacy_missing_status(None, status);
-                }
-            }
-            error
-        });
         match chunk? {
             Some(mut decode_buf) => match self.decoder.get_mut().decode(&mut decode_buf)? {
                 Some(msg) => {

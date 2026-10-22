@@ -651,7 +651,7 @@ mod status_tests {
             }],
             include_paths: vec![],
         }).unwrap();
-        for shape in 0..13 {
+        for shape in 0..16 {
             let method_name = if shape == 1 { "Watch" } else { "Echo" };
             let method = pool
                 .get_service_by_name("owned.Status")
@@ -669,6 +669,9 @@ mod status_tests {
                 10 => "Call cancelled",
                 11 => "Connection dropped",
                 12 => "Received message larger than max (20971521 vs 20971520)",
+                13 => "Failed to decompress deflate-encoded message",
+                14 => "Failed to decompress gzip-encoded message",
+                15 => "Received message that decompresses to a size larger than 20971520",
                 _ => "สำเร็จ + 100%",
             };
             let code = match shape {
@@ -680,6 +683,8 @@ mod status_tests {
                 10 => tonic::Code::Cancelled,
                 11 => tonic::Code::Unavailable,
                 12 => tonic::Code::ResourceExhausted,
+                13 | 14 => tonic::Code::Internal,
+                15 => tonic::Code::ResourceExhausted,
                 _ => tonic::Code::Ok,
             };
             let mut status = Status::new(code, message);
@@ -817,19 +822,29 @@ mod status_tests {
                                 encoder.write_all(payload).unwrap();
                                 (encoder.finish().unwrap(), Some("deflate"))
                             }
-                            4 => {
+                            4 | 15 => {
                                 let mut encoder = flate2::write::GzEncoder::new(
                                     Vec::new(),
                                     flate2::Compression::default(),
                                 );
-                                encoder.write_all(payload).unwrap();
+                                if shape == 15 {
+                                    encoder.write_all(&vec![0; MAX_MESSAGE + 1]).unwrap();
+                                } else {
+                                    encoder.write_all(payload).unwrap();
+                                }
                                 (encoder.finish().unwrap(), Some("gzip"))
                             }
+                            13 => (vec![0xff; 8], Some("deflate")),
+                            14 => (vec![0xff; 8], Some("gzip")),
                             _ => (payload.to_vec(), None),
                         };
                         let mut frame = vec![u8::from(encoding.is_some())];
                         frame.extend_from_slice(&(encoded.len() as u32).to_be_bytes());
                         frame.extend_from_slice(&encoded);
+                        if shape == 0 {
+                            // Legacy reads every flag other than 1 as raw.
+                            frame[0] = 2;
+                        }
                         if shape == 8 {
                             frame = vec![2, 0, 0, 0, 0];
                         }
@@ -860,7 +875,7 @@ mod status_tests {
                         let mut response = HttpResponse::new(response_body);
                         *response.status_mut() = match shape {
                             5 => tonic::codegen::http::StatusCode::FORBIDDEN,
-                            8 => tonic::codegen::http::StatusCode::SERVICE_UNAVAILABLE,
+                            8 | 13 => tonic::codegen::http::StatusCode::SERVICE_UNAVAILABLE,
                             _ => tonic::codegen::http::StatusCode::OK,
                         };
                         response
