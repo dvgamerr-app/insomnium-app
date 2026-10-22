@@ -1887,7 +1887,20 @@ impl Serialize for LegacyMapEntries<'_> {
                     "Legacy map message value is missing.",
                 ));
             }
-            let value = entry.get_field(&field);
+            // Map decoders initialize missing values from the scalar type,
+            // not the entry field's proto2/default conversion value.
+            let missing = !entry.has_field(&field);
+            if missing && matches!(original_value.kind(), Kind::Bytes) {
+                // Reader's absent bytes default is a plain array. An explicitly
+                // encoded empty bytes field remains a Buffer-shaped object.
+                output.serialize_entry(&key, &[] as &[u8])?;
+                continue;
+            }
+            let value = if missing && matches!(original_value.kind(), Kind::Enum(_)) {
+                std::borrow::Cow::Owned(Value::EnumNumber(0))
+            } else {
+                entry.get_field(&field)
+            };
             output.serialize_entry(
                 &key,
                 &LegacyValue(&value, field.kind(), self.1, Some(original_value.kind())),
@@ -2056,6 +2069,7 @@ mod tests {
                         map<int32,string> signedKeys=17; optional string clipped=18;
                         optional int64 signed64=19; optional uint64 unsigned64=20;
                         optional sint64 zigzag64=21; repeated sint64 longValues=22;
+                        map<string,E> enumDefaults=23; map<string,bytes> blobDefaults=24;
                         extensions 100 to 199; }
                     extend BoolWire { optional bool bool_extra=100; repeated bool bool_extras=101;
                         optional int32 number_extra=102; repeated uint32 number_extras=103; }
@@ -2075,7 +2089,7 @@ mod tests {
         .unwrap();
         let snapshot = pool.encode_to_vec();
         // Pinned 32-bit readers share low-word narrowing and fixed continuation skip.
-        let bool_wire = "088080808010108080808010100112068080808010011a0c088080808010108080808010208180808010288080808080808080800130ffffffffffffffffff01a0068080808010aa06068080808010013cffffffff0f47818080808000000000ff4880808080105083808080105a8a80808010ffffffff0f8080808010608c80808010088180808010108180808010b506ffffffff0fba068a80808010ffffffff0f8180808010ee808080108180808010ff708180808010417a81808080100000803f800181808080100a03616263c20c818080801000c00c8080808080808080808000cb0c808080801001d40c8a010e08818080808000000000ff1201789801ffffffffffffffffff7fa001ffffffffffffffffff7fa801ffffffffffffffffff7fb2010bffffffffffffffffff7f019201054142"
+        let bool_wire = "088080808010108080808010100112068080808010011a0c088080808010108080808010208180808010288080808080808080800130ffffffffffffffffff01a0068080808010aa06068080808010013cffffffff0f47818080808000000000ff4880808080105083808080105a8a80808010ffffffff0f8080808010608c80808010088180808010108180808010b506ffffffff0fba068a80808010ffffffff0f8180808010ee808080108180808010ff708180808010417a81808080100000803f800181808080100a03616263c20c818080801000c00c8080808080808080808000cb0c808080801001d40c8a010e08818080808000000000ff1201789801ffffffffffffffffff7fa001ffffffffffffffffff7fa801ffffffffffffffffff7fb2010bffffffffffffffffff7f01ba01030a0161c201030a0162c201050a016312009201054142"
             .as_bytes().chunks_exact(2)
             .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap())
             .collect::<Vec<_>>();
@@ -2103,11 +2117,15 @@ mod tests {
                 "signedKeys":{"1":"x"},"clipped":"AB",
                 "signed64":"-1","unsigned64":"18446744073709551615",
                 "zigzag64":"-9223372036854775808",
-                "longValues":["-9223372036854775808","-1"]});
+                "longValues":["-9223372036854775808","-1"],
+                "enumDefaults":{"a":0},"blobDefaults":{"b":[],"c":{}}});
             if matches!(mode, JsonMode::LegacyReflection) {
                 expected["values"] = serde_json::json!([{"key":false,"value":false}]);
                 expected["numbers"] = serde_json::json!([{"key":-1,"value":1}]);
                 expected["choice"] = serde_json::json!(3);
+                expected["enumDefaults"] = serde_json::json!([{"key":"a"}]);
+                expected["blobDefaults"] = serde_json::json!([
+                    {"key":"b"},{"key":"c","value":{}}]);
                 expected["signedKeys"] = serde_json::json!([{"key":1,"value":"x"}]);
                 expected["signed64"] = serde_json::json!({"low":-1,"high":-1,"unsigned":false});
                 expected["unsigned64"] = serde_json::json!({"low":-1,"high":-1,"unsigned":true});

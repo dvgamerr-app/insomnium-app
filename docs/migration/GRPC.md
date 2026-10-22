@@ -20,6 +20,7 @@ Saved proto sources and reflection support unary, server/client/bidirectional ca
 - Request conversion retains authored numeric/string/bytes semantics; nondeterministic or unwritten legacy writer bytes are refused explicitly. Private conversion views do not modify original descriptor pools.
 - Legacy responses share one cursor across the whole buffer. Nested/packed lengths control iteration; primitive reads check actual buffer availability. The reader handles 32/64-bit varints, fixed-width values, string clamping, unknown-field skipping and groups.
 - Original metadata distinguishes private string-as-bytes and widened int32 map keys. Each message occurrence validates required fields before replacement; singular messages replace, repeated fields append. JSON serialization restores original field/profile semantics.
+- Saved-file map entries with omitted enum/bytes values initialize to `0`/`[]`; explicit empty bytes retain `{}`. Reflection options `{}` omit absent entry values. Pinned reference: `artifacts/grpc-map-value-default-reference-20261022.json`; all 54 existing legacy regressions pass in `artifacts/grpc-map-value-default-regression-20261022-final.log`.
 - Examples traverse original/private nested/list/map/extension fields. Failed examples stay explicit and must not hide discovery results.
 
 ## UI and ownership

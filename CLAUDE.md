@@ -19,6 +19,7 @@ The coordinator resolves findings, rechecks after material changes, and commits 
 
 ## Owner rule: finish a topic before documenting it
 
+- Focus on completing the agreed plan. Do not create redundant test cases, duplicate scenarios or repeatedly rerun passing checks without a relevant change, failure or unresolved concern. Reuse the existing scenario for the same behavior and run only verification needed for the topic.
 - Complete implementation and relevant verification for one coherent topic, then update its documentation once with a concise summary: final behavior, evidence, remaining gates and any live handles.
 - Never turn STATUS, PLAN or topic documents into a running diary of thoughts, commands, intermediate fixes or repeated “Current”/“follow-up” checkpoints. Replace superseded summaries instead of appending another version; keep detailed execution logs in artifacts.
 - Commit verified work by topic. Do not create a separate documentation/handoff commit after every small code change. Consolidate related code and its final summary before starting the next topic.
