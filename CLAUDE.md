@@ -19,6 +19,7 @@ The coordinator resolves findings, rechecks after material changes, and commits 
 
 ## Owner rule: finish a topic before documenting it
 
+- ข้อห้ามจากเจ้าของ: ห้ามเขียน Current ซ้ำ ๆ ห้ามจดทุกความคิดหรือทุกขั้นตอนจนเอกสารยาวหลายพันบรรทัด ห้ามสร้าง testcase ซ้ำซาก ให้ทำงานตามแผนจนจบเป็นเรื่อง ๆ ตรวจเฉพาะที่จำเป็น แล้วอัปเดตสรุปสั้น ๆ ครั้งเดียว
 - Focus on completing the agreed plan. Do not create redundant test cases, duplicate scenarios or repeatedly rerun passing checks without a relevant change, failure or unresolved concern. Reuse the existing scenario for the same behavior and run only verification needed for the topic.
 - Complete implementation and relevant verification for one coherent topic, then update its documentation once with a concise summary: final behavior, evidence, remaining gates and any live handles.
 - Never turn STATUS, PLAN or topic documents into a running diary of thoughts, commands, intermediate fixes or repeated “Current”/“follow-up” checkpoints. Replace superseded summaries instead of appending another version; keep detailed execution logs in artifacts.
