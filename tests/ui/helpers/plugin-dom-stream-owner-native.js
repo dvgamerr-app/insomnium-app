@@ -50,13 +50,13 @@ export async function exercisePluginDomStreamOwnerNative({page,invoke,output,wir
       const url=fixture.url(protocol)+`?case=${kind}&dialog={% ownednativedialog %}`;
       await page.getByRole("textbox",{name:"Request URL",exact:true}).fill(url);await poll(async()=>(await read(id)).url===url,"Native stream fixture URL persisted");
       const before=fixture.records.length,old=(await latest(id))?._id;
-      await page.getByRole("button",{name:"Connect",exact:true}).click();
+      await page.getByRole("button",{name:/^(Connect|Reconnect)$/}).click();
       await poll(async()=>fixture.records.length===before+1&&fixture.records.at(-1).events.some((/** @type {any} */ event)=>event.kind==="open"),"Actual native stream reaches owned server");
       assert.equal(new URL(fixture.records.at(-1).url).searchParams.get("dialog"),"native-dialog-value");
       await dialog().waitFor();return old;
     };
     const settled=async(/** @type {string|undefined} */ old,/** @type {string} */ state)=>{
-      await page.getByRole("button",{name:"Connect",exact:true}).waitFor();
+      await page.getByRole("button",{name:"Reconnect",exact:true}).waitFor();
       await poll(async()=>{const response=await latest(id);return response?._id!==old&&response?.connectionState===state;},"Actual native stream history persisted");
       return latest(id);
     };

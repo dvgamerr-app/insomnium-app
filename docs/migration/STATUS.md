@@ -2,12 +2,12 @@
 
 Migration is incomplete. [PARITY.md](PARITY.md) retains the full acceptance checklist; [PLAN.md](PLAN.md) defines the work sequence. Topic contracts describe behavior, and receipts prove only their recorded scope.
 
-## Finished topic: request work ownership
+## Finished topic: current-source native integration
 
-Request actions and accepted HTTP/SSE/OAuth/dependency work share resource/collection ownership. Same-ID replacement rejects stale results and hooks; HTTP/WS/SSE, explicit OAuth and linked dependent requests also abort quiet in-flight work when their resource or run is replaced. Ordinary background sends survive selection changes. Run/promise cleanup compares ownership, and retained plugin helpers distinguish valid completion from root/child replacement. Menu/timer/chooser guards and component leases remain in place.
+Source `efae450e` passed the normal-hook Windows release build and the existing native-hidden gRPC scenario (95 cases) plus plugin HTTP/nested/WS/SSE scenario (28 checks). Hosts exited 0; original profile files were restored exactly. Application inputs stayed unchanged across build/runtime; the only tracked supplement corrected two existing Connect/Reconnect test locators. Both failed plugin invocations are retained with their causes. No cases/functions/files added. Evidence: `artifacts/native-request-grpc-current-20261022/verification.json` and its source bundle.
 
-- Svelte check (0 errors/warnings), production build and two maintained headless scenarios passed: 20/10 checks, six existing HTTP controls, two stream groups and all 41 workers terminated. Existing controls verify quiet stream cancellation, held child replacement and OAuth controller retirement; no cases, test functions or files were added. Latest evidence: `artifacts/request-child-cancel-verification-20261022.json`; prior owner/timer evidence: `artifacts/request-send-owner-verification-20261022.json`. Browser HTTP/controlled IPC is not native acceptance.
-- Prior gRPC topic `65311f4a` retains Windows/Linux compiler and nine wire-path evidence. Its prior 95-case native receipt predates missing-status and current frontend corrections. See GRPC.md for source-bound receipts and remaining gates.
+- Request ownership/cancellation remains verified by check/build and the maintained headless scenarios: `artifacts/request-child-cancel-verification-20261022.json`. Selection changes preserve background sends; resource/run replacement cancels retired work, and normal completion preserves retained plugin UI. Native same-ID held replacement/provider/OS-close acceptance remains open.
+- gRPC topic `65311f4a` retains Windows/Linux compiler and nine wire-path evidence. The current native receipt now includes its source changes; ordinary integration does not prove every malformed-wire variant. See GRPC.md for source-bound receipts and remaining gates.
 
 ## Pending work
 
