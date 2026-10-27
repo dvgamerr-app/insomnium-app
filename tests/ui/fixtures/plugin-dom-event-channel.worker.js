@@ -1,3 +1,4 @@
+import {exerciseFileReaderSync} from '../helpers/plugin-dom-event-subclass-cases.js';
 import {newQuickJSWASMModuleFromVariant,newVariant} from 'quickjs-emscripten-core';
 import release from '@jitl/quickjs-wasmfile-release-sync';
 import {createPluginVm} from '../../../src/lib/plugin-runtime.js';
@@ -9,10 +10,12 @@ const codec=createPluginValueCodec();
 /** @type {import('quickjs-emscripten-core').QuickJSHandle|undefined} */let nestedHandle;
 self.onmessage=async event=>{
  const message=event.data;
+ if(message.type==='file-reader-sync-oracle'){try{self.postMessage({value:exerciseFileReaderSync(globalThis,message.file)});}catch(error){self.postMessage({error:String(error)});}return;}
  if(message.type==='init'){
   const wasmBinary=await(await fetch(new URL('./event-engine.wasm',import.meta.url))).arrayBuffer();
   const engine=await newQuickJSWASMModuleFromVariant(newVariant(release,{wasmBinary}));
   loaded=createPluginVm(engine,{name:'event-channel-probe',entry:'main.cjs',format:'commonjs',files:{'main.cjs':'exports.templateTags=[];'}});
+      await loaded.ready;
   loaded.evaluate(`Object.defineProperty(globalThis,'__pluginValueCodec',{value:(${createPluginValueCodec.toString()})()});`).dispose();
   const vm=loaded.vm;
   const rpc=vm.newFunction('probeEventControl',operation=>vm.newString(caller?.call(vm.getString(operation))??''));

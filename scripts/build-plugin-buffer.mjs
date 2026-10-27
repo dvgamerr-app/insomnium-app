@@ -13,7 +13,7 @@ const bundle = await Bun.build({
 });
 if (!bundle.success) throw Error(bundle.logs.map(String).join("\n"));
 await mkdir("src/lib/generated", { recursive: true });
-// Retain licenses for the already installed URL polyfill and its transitive code.
+// Retain licenses for every bundled polyfill and its transitive code.
 const urlLicenses = [];
 const visited = new Set();
 async function collectUrlLicenses(name, from = process.cwd()) {
@@ -32,6 +32,7 @@ async function collectUrlLicenses(name, from = process.cwd()) {
 }
 await collectUrlLicenses('url');
 await collectUrlLicenses('core-js-pure');
+await collectUrlLicenses('web-streams-polyfill');
 const license = (
   await Promise.all(
     ["buffer", "base64-js", "ieee754", "readable-stream", "events", "string_decoder", "safe-buffer", "abort-controller", "event-target-shim"].map(

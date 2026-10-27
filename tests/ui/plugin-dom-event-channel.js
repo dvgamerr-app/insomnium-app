@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
+import {createPluginEventMailbox,createPluginEventCaller,resumePluginEventPrefix} from '../../src/lib/plugin-dom-event-channel.js';
 import {withPreview} from './helpers/preview-app.js';
 import {createSvelteUiFixturePlugin} from './helpers/component-fixture.js';
+const prefix=createPluginEventMailbox(71),prefixCaller=createPluginEventCaller(prefix,71);
+assert.throws(()=>resumePluginEventPrefix(prefix,71),/Invalid resumable/);
+assert.equal(prefixCaller.finish('prefix'),true);assert.throws(()=>resumePluginEventPrefix(prefix,72),/owner changed/);
+resumePluginEventPrefix(prefix,71);assert.equal(Atomics.load(new Int32Array(prefix,0,4),0),0);
+assert.throws(()=>resumePluginEventPrefix(prefix,71),/Invalid resumable/);
+assert.equal(prefixCaller.finish('complete'),true);assert.throws(()=>resumePluginEventPrefix(prefix,71),/Invalid resumable/);
 const fixtures=new Map(/** @type {[string,()=>Response][]} */([]));
 const headers={'Cross-Origin-Opener-Policy':'same-origin','Cross-Origin-Embedder-Policy':'require-corp'};
 await withPreview('plugin-dom-event-channel',async(page,output)=>{
@@ -15,7 +22,7 @@ await withPreview('plugin-dom-event-channel',async(page,output)=>{
  fixtures.set('/event-engine.wasm',()=>new Response(wasmBytes,{headers:{...headers,'Content-Type':'application/wasm'}}));
  await page.evaluate(await fixture.outputs[0].text());
  const url=new URL('/event-probe-worker.js',page.url()).href,call=(/** @type {string} */ method,/** @type {any[]} */ args=[])=>page.evaluate(({method,args})=>/** @type {any} */(window).__eventChannel[method](...args),{method,args});
- const checks=[],observations=/** @type {any[]} */([]);
+ const checks=['Window resume accepts only a published same-owner prefix; wrong phase/owner/complete/reuse refuse'],observations=/** @type {any[]} */([]);
  const wire=/** @type {string[]} */([]),token=crypto.randomUUID(),nativeValue={version:crypto.randomUUID(),platform:'fixture'};
  fixtures.set('/'+token,()=>{wire.push('/'+token);return new Response(JSON.stringify(nativeValue),{headers:{...headers,'Content-Type':'application/json'}});});
  try{

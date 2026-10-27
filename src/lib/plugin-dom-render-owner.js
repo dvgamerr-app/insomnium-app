@@ -44,7 +44,7 @@ export function createPluginDomRenderOwner(options) {
       syncCall,
       prepareEvent:async()=>{if(!current())throw new DOMException('Plugin dialog owner changed','AbortError');await /** @type {any} */(syncCall).prepareEvent?.();if(!current())throw new DOMException('Plugin dialog owner changed','AbortError');},
       subscribeInteraction:interaction.subscribe.bind(interaction),
-      domCallbacks:bridge.domCallbacks,domCall:bridge.call,
+      domCallbacks:bridge.domCallbacks,domCall:bridge.call,objectURLs:bridge.objectURLs,
     });
     if(!current())throw new DOMException("Plugin dialog owner changed","AbortError");
     return result;

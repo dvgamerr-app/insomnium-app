@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { withNativeApp } from "./helpers/native-app.js";
+import {preserveNativeProfile} from './helpers/native-profile-preservation.js';
 import {
   installPluginSessionFixture,
   openSession,
@@ -10,7 +11,7 @@ import {
 } from "./helpers/plugin-session.js";
 import { withIpcAudit } from "./helpers/ipc-audit.js";
 
-await withNativeApp("plugin-values", async ({ page, invoke, output }) => {
+await preserveNativeProfile(()=>withNativeApp("plugin-values", async ({ page, invoke, output }) => {
   const workspace = await invoke("load_workspace");
   const directory = join(output, "package");
   await mkdir(directory, { recursive: true });
@@ -44,10 +45,10 @@ exports.requestHooks=[()=>()=>1,()=>Symbol('result'),()=>new(class Custom{})(),(
       ),
     );
     assert.equal(audit.calls, 0);
-    assert.equal(audit.value.roundTrips, 12);
-    assert.equal(audit.value.refusals, 12);
+    assert.equal(audit.value.roundTrips, 20);
+    assert.equal(audit.value.refusals, 14);
     assert.equal(audit.value.getters, 0);
-    assert.equal(audit.value.callbackCount, 12);
+    assert.equal(audit.value.callbackCount, 20);
     await closeSession(page, session.id);
     const errors = [];
     for (let index = 0; index < 5; index++) {
@@ -99,4 +100,4 @@ exports.requestHooks=[()=>()=>1,()=>Symbol('result'),()=>new(class Custom{})(),(
       /** @type {any} */ (window).__pluginSessionFixture?.closeAll(),
     );
   }
-});
+}));

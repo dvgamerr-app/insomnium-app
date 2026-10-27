@@ -7,6 +7,7 @@ export function resolvePluginModule(files, request, parent, mode='require',resol
   if(request==='events'||request==='node:events')return 'insomnium:events';
   if(request==='string_decoder'||request==='node:string_decoder')return 'insomnium:string_decoder';
   if(request==='stream'||request==='node:stream')return 'insomnium:stream';
+  if(request==='stream/web'||request==='node:stream/web')return 'insomnium:stream/web';
   if(request==='stream/promises'||request==='node:stream/promises')return 'insomnium:stream/promises';
   const own = (/** @type {string} */ path) => Object.hasOwn(files, path);
   const normalize = (/** @type {string} */ path) => {

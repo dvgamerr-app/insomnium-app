@@ -12,6 +12,15 @@ import {
 } from "./helpers/plugin-sources.js";
 import { pluginEntriesScenario } from "./helpers/plugin-entries.js";
 import { pluginRuntimeScenario } from "./helpers/plugin-runtime.js";
+import { bunInspectionScenario,bunSessionScenario } from "./helpers/plugin-runtime.js";
+import { preserveNativeProfile } from "./helpers/native-profile-preservation.js";
+
+if(process.env.INSOMNIUM_BUN_PLUGIN_INSPECTION==='1'||process.env.INSOMNIUM_BUN_PLUGIN_SESSION==='1'){
+  const session=process.env.INSOMNIUM_BUN_PLUGIN_SESSION==='1';
+  assert.ok(process.env.INSOMNIUM_UI_BUILD_STATE,'Current inspection build required');
+  await preserveNativeProfile(async()=>await withNativeApp(session?'plugin-bun-session':'plugin-bun-inspection',session?bunSessionScenario:bunInspectionScenario),{pluginData:session});
+  process.exit(0);
+}
 
 const sourcesMode = process.env.INSOMNIUM_PLUGIN_SOURCES === "1";
 const runtimeMode = process.env.INSOMNIUM_PLUGIN_RUNTIME === "1";

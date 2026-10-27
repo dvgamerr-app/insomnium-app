@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-set-bun-plugin-interaction"
+description = "Enables the set_bun_plugin_interaction command without any pre-configured scope."
+commands.allow = ["set_bun_plugin_interaction"]
+
+[[permission]]
+identifier = "deny-set-bun-plugin-interaction"
+description = "Denies the set_bun_plugin_interaction command without any pre-configured scope."
+commands.deny = ["set_bun_plugin_interaction"]

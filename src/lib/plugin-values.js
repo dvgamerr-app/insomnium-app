@@ -21,6 +21,7 @@ export function createPluginValueCodec(profile="standard") {
     "BigUint64Array",
     "DataView",
   ];
+  const errorClasses=/** @type {Record<string,any>} */({Error,EvalError,RangeError,ReferenceError,SyntaxError,TypeError,URIError,AggregateError});
   /** @returns {never} */
   const fail = () => {
     throw TypeError("Unsupported or invalid plugin value");
@@ -56,8 +57,10 @@ export function createPluginValueCodec(profile="standard") {
     return text;
   };
   const hex=Array.from({length:256},(_,i)=>i.toString(16).padStart(2,'0'));
+  const toHex=Uint8Array.prototype.toHex,fromHex=Uint8Array.fromHex;
   /** @param {ArrayBuffer} buffer */
   const encodeBytes=buffer=>{
+    if(toHex)return toHex.call(new Uint8Array(buffer));
     const bytes=new Uint8Array(buffer),chunks=[];
     for(let offset=0;offset<bytes.length;offset+=4096){let part='';for(let i=offset;i<Math.min(offset+4096,bytes.length);i++)part+=hex[bytes[i]];chunks.push(part);}
     return chunks.join('');
@@ -214,7 +217,19 @@ export function createPluginValueCodec(profile="standard") {
             depth + 1,
           ),
         ];
-      } else fail();
+      } else {
+        const name=Object.keys(errorClasses).find(name=>proto===errorClasses[name].prototype);
+        if(!name)return fail();
+        const entries=[];
+        for(const key of Object.getOwnPropertyNames(value)){
+          const descriptor=Object.getOwnPropertyDescriptor(value,key);
+          // shortcut: omit accessor-backed stacks, upgrade when a getter-free stack snapshot is available.
+          if(key==='stack'&&descriptor&&!Object.hasOwn(descriptor,'value'))continue;
+          if(!descriptor||!Object.hasOwn(descriptor,'value'))return fail();
+          entries.push([charge(key),visit(descriptor.value,depth+1),!!descriptor.enumerable]);
+        }
+        nodes[id]=['error',name,entries];
+      }
       return ["ref", id];
     }
     const root = visit(input, 0);
@@ -346,8 +361,8 @@ export function createPluginValueCodec(profile="standard") {
         typeof n[1] === "string" &&
         n[1].length%2===0 && !/[^0-9a-f]/.test(n[1])
       ) {
-        const bytes = new Uint8Array(n[1].length / 2);
-        for (let i = 0; i < bytes.length; i++) {
+        const bytes = fromHex?fromHex(n[1]):new Uint8Array(n[1].length / 2);
+        if(!fromHex)for (let i = 0; i < bytes.length; i++) {
           const high=n[1].charCodeAt(i*2),low=n[1].charCodeAt(i*2+1);
           bytes[i]=((high<=57?high-48:high-87)<<4)|(low<=57?low-48:low-87);
         }
@@ -377,6 +392,14 @@ export function createPluginValueCodec(profile="standard") {
       ) {
         values[id] = new RegExp(n[1], n[2]);
         values[id].lastIndex = read(n[3], depth);
+      } else if(type==='error'&&n.length===3&&typeof n[1]==='string'&&Object.hasOwn(errorClasses,n[1])&&Array.isArray(n[2])){
+        const ctor=errorClasses[n[1]],error=n[1]==='AggregateError'?new ctor([]):new ctor();
+        for(const key of Object.getOwnPropertyNames(error))delete error[key];
+        values[id]=error;const keys=new Set();
+        for(const entry of n[2]){
+          if(!Array.isArray(entry)||entry.length!==3||typeof entry[0]!=='string'||typeof entry[2]!=='boolean'||keys.has(entry[0]))return fail();
+          keys.add(entry[0]);Object.defineProperty(error,entry[0],{value:read(entry[1],depth),enumerable:entry[2],writable:true,configurable:true});
+        }
       } else return fail();
       states[id] = 2;
       return values[id];

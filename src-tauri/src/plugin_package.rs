@@ -1,17 +1,18 @@
-//! A bounded read-only snapshot for the separate plugin VM, never native execution.
+//! A bounded read-only source snapshot; capturing it never executes package code.
 use crate::plugins::{entry_format, read_manifest, resolve_entry, valid_name};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct PluginPackageSource {
-    name: String,
-    entry: String,
-    format: String,
-    files: BTreeMap<String, String>,
+    pub(crate) name: String,
+    pub(crate) entry: String,
+    pub(crate) format: String,
+    pub(crate) files: BTreeMap<String, String>,
 }
 
 fn relative(root: &Path, path: &Path) -> Result<String, String> {
@@ -22,7 +23,7 @@ fn relative(root: &Path, path: &Path) -> Result<String, String> {
         .replace('\\', "/"))
 }
 
-fn snapshot(directory: PathBuf) -> Result<PluginPackageSource, String> {
+pub(crate) fn snapshot(directory: PathBuf) -> Result<PluginPackageSource, String> {
     let root = fs::canonicalize(directory).map_err(|e| e.to_string())?;
     let manifest = read_manifest(&root)?;
     let name = manifest

@@ -13,6 +13,12 @@ function write(buffer,control,text){const bytes=encode.encode(text);if(bytes.len
 function read(buffer,control){const size=Atomics.load(control,1);if(size<0||size>buffer.byteLength-HEADER)throw Error('Invalid event mailbox payload');return decode.decode(new Uint8Array(buffer,HEADER,size).slice());}
 /** @param {number} owner @param {number} [bytes] */
 export function createPluginEventMailbox(owner,bytes=BYTES){if(![BYTES,4*1024*1024].includes(bytes))throw Error('Invalid event mailbox capacity');const buffer=new SharedArrayBuffer(HEADER+bytes);Atomics.store(new Int32Array(buffer,0,4),2,owner);controlOf(buffer,owner);return buffer;}
+/** Reuse only a published Window prefix, while its worker awaits host resume.
+ * @param {SharedArrayBuffer} buffer @param {number} owner */
+export function resumePluginEventPrefix(buffer,owner){
+ const control=controlOf(buffer,owner);
+ if(Atomics.load(control,0)!==3||read(buffer,control)!=='prefix'||Atomics.compareExchange(control,0,3,0)!==3)throw Error('Invalid resumable event prefix');
+}
 /** Dedicated worker only. The mailbox is host-side and never exposed to guest code.
  * @param {SharedArrayBuffer} buffer @param {number} owner */
 export function createPluginEventCaller(buffer,owner,options=/** @type {{poll?:()=>void,timeout?:number}} */({})){

@@ -12,7 +12,7 @@ import {createPluginEventCaller,takePluginEventInvocation} from './plugin-dom-ev
 import {validatePluginAppSyncCall} from './plugin-app-sync.js';
 
 let started = false;
-/** @type {ReturnType<typeof createPluginCallbackRuntime>|undefined} */
+/** @type {Awaited<ReturnType<typeof createPluginCallbackRuntime>>|undefined} */
 let session;
 let callbackId = 0,
   storeId = 0,
@@ -54,6 +54,11 @@ const helperCalls = new Map();
 const storeCalls = new Map();
 self.onmessage = async (event) => {
   const message = event.data;
+  if(message?.type==='release-object-urls'){
+    if(Object.keys(message).sort().join(',')==='type,urls'&&Array.isArray(message.urls)&&message.urls.length<=2048&&message.urls.every(/** @param {any} url */url=>typeof url==='string'&&url.length<=4096&&url.startsWith('blob:')))session?.releaseObjectURLs(message.urls);
+    return;
+  }
+  if(message?.type==='cancel-timeout'){if(Number.isSafeInteger(message.timerId)&&message.timerId>0)session?.cancelTimeout(message.timerId);return;}
   if(message?.type==="prepare-dom-cleanup"){
     retiring=true;session?.beginCleanup();windowCheckpoint?.resume();windowCheckpoint=undefined;
     for(const call of helperCalls.values())call.reject(new Error("Plugin owner retired"));helperCalls.clear();
@@ -94,7 +99,12 @@ self.onmessage = async (event) => {
     return;
   }
   if(message?.type==='resume-dom-checkpoint'){
-    if(windowCheckpoint&&message.id===windowCheckpoint.id&&message.id===callbackId){const checkpoint=windowCheckpoint;windowCheckpoint=undefined;checkpoint.resume();}
+    const context=nativeContext;
+    if(windowCheckpoint&&message.id===windowCheckpoint.id&&message.id===callbackId&&context&&context.owner===message.id&&!eventCaller){
+      const checkpoint=windowCheckpoint;windowCheckpoint=undefined;
+      eventCaller=createPluginEventCaller(context.frames[0],message.id,{timeout:4000,poll:enterNativeNested});
+      checkpoint.resume();
+    }
     return;
   }
   if(message?.type==='invoke-dom-while-waiting'){
@@ -110,7 +120,7 @@ self.onmessage = async (event) => {
     finally{callbackId=parentId;eventCaller=parentCaller;nativeContext=parentContext;}
     return;
   }
-  if (["invoke","invoke-dom-callback"].includes(message?.type)) {
+  if (["invoke","invoke-dom-callback","invoke-timeout"].includes(message?.type)) {
     if(message.type==="invoke-dom-callback" && message.cleanup===true)await callbackDone;
     if (!session || callbackId) return;
     callbackId = message.id;
@@ -120,7 +130,7 @@ self.onmessage = async (event) => {
     let eventCompletion;
     const checkpoint=message.windowCheckpoint===true?new Promise(/** @param {(value?:any)=>void} resume */ resume=>{windowCheckpoint={id:message.id,resume};}):undefined;
     try {
-      const result = message.type==="invoke-dom-callback"
+      const result = message.type==='invoke-timeout'?await session.invokeTimeout(message.timerId):message.type==="invoke-dom-callback"
         ? await session.invokeDomCallback(message.leaseId,message.args,message.cleanupLocal===true,message.cleanup===true,message.eventBuffer?()=>{eventCaller?.finish('prefix');eventCaller=undefined;}:undefined,checkpoint)
         : await session.invoke(
         message.kind,
@@ -152,7 +162,7 @@ self.onmessage = async (event) => {
       const completedCaller=eventCaller;eventCaller=undefined;
       nativeContext=undefined;
       windowCheckpoint=undefined;callbackId = 0;
-      finishCallback();
+      finishCallback();for(const id of session?.readyTimeouts()??[])self.postMessage({type:'timeout-ready',timerId:id});
       if(eventCompletion)completedCaller?.finish(codec.encode(eventCompletion));
     }
     return;
@@ -164,10 +174,10 @@ self.onmessage = async (event) => {
       newVariant(release, { wasmLocation: wasmUrl }),
     );
     if (message.type === "inspect") {
-      const result = inspectPluginExportsIsolated(engine, message.snapshot);
+      const result = await inspectPluginExportsIsolated(engine, message.snapshot);
       self.postMessage({ result });
     } else {
-      session = createPluginCallbackRuntime(
+      session = await createPluginCallbackRuntime(
         engine,
         message.snapshot,
         (operation) =>
@@ -210,6 +220,8 @@ self.onmessage = async (event) => {
         },
         leaseId=>{if(eventCaller)eventCaller.call(codec.encode({method:'event.retain-callback',args:[leaseId]}));else self.postMessage({type:"dom-retain",callbackId,leaseId});},
         message.eventTimeOrigin,
+        url=>self.postMessage({type:'release-object-url',url}),
+        (type,id)=>{if(type==='ready'){if(session&&!callbackId&&!retiring)self.postMessage({type:'timeout-ready',timerId:id});}else self.postMessage({type:'timeout-'+type,timerId:id,callbackId});},
       );
       self.postMessage({ id: 0, result: session.metadata });
     }

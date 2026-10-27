@@ -10,7 +10,7 @@
     class={`plugin-dom-dialog ${request.tall?"plugin-dialog-tall":""} ${request.skinny?"plugin-dialog-skinny":""} ${request.wide?"plugin-dialog-wide":""}`}
     closeLabel="Close plugin dialog"
     onrequestclose={()=>closePluginDomDialog(request.id)}
-    onclose={()=>closePluginDomDialog(request.id)}
+    onclose={event=>{if(event.target===event.currentTarget)closePluginDomDialog(request.id);}}
     onopenerror={error=>{closePluginDomDialog(request.id);request.onError(error);}}>
     <div class="plugin-dom-body" use:mountPluginDomBody={request}></div>
   </DialogShell>

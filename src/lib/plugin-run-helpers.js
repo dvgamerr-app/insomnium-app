@@ -1,5 +1,7 @@
 /** Explicit RPC names shared by host and guest. */
 export const pluginRunHelperMethods = Object.freeze([
+  "dom.file.read",
+  "dom.transfer.string.read",
   "app.alert",
   "app.prompt",
   "app.showSaveDialog",

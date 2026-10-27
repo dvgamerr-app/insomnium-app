@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-reply-bun-plugin-helper"
+description = "Enables the reply_bun_plugin_helper command without any pre-configured scope."
+commands.allow = ["reply_bun_plugin_helper"]
+
+[[permission]]
+identifier = "deny-reply-bun-plugin-helper"
+description = "Denies the reply_bun_plugin_helper command without any pre-configured scope."
+commands.deny = ["reply_bun_plugin_helper"]

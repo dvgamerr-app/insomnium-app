@@ -17,6 +17,7 @@ self.onmessage=async event=>{
       const wasmBinary=await(await fetch(new URL("./callback-engine.wasm",import.meta.url))).arrayBuffer();
       const engine=await newQuickJSWASMModuleFromVariant(newVariant(release,{wasmBinary}));
       loaded=createPluginVm(engine,{name:"owned-dom-callbacks",entry:"main.cjs",format:"commonjs",files:{"main.cjs":source}});
+      await loaded.ready;
       leases=createPluginDomCallbackLeases(loaded,{onFatal:error=>failures.push(error.message)});
       value={ready:true};
     } else {

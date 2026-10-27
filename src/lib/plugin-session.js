@@ -5,7 +5,7 @@ import { validatePluginHelperCall } from "./plugin-run-helpers.js";
 import { createRenderDeadline, PROMPT_TOTAL_MS } from "./template-deadline.js";
 import { validatePluginAppSyncCall } from "./plugin-app-sync.js";
 import {validatePluginDomCall} from "./plugin-guest-dom.js";
-import {createPluginEventMailbox,pumpPluginEventMailbox,publishPluginEventInvocation} from './plugin-dom-event-channel.js';
+import {createPluginEventMailbox,pumpPluginEventMailbox,publishPluginEventInvocation,resumePluginEventPrefix} from './plugin-dom-event-channel.js';
 import {
   validatePluginSyncMailbox,
   replyPluginSyncMailbox,
@@ -15,7 +15,7 @@ import {
  * @typedef {{subscribe:(listener:(waiting:boolean)=>void)=>()=>void}} PluginInteraction */
 /** @typedef {{invoke:(args?:any[])=>Promise<any>,invokeEvent?:(args:any[])=>Promise<any>,invokeOnHide?:(domCall:(operation:{method:string,args:any[]})=>any)=>Promise<any>,release:()=>boolean}} PluginDomCallback */
 /** @typedef {{retain:(callback:PluginDomCallback,id:number)=>void}} PluginDomRetention */
-/** @typedef {{current:()=>boolean,frame?:object,helperCall?:(operation:{method:string,args:any[]})=>Promise<any>,syncCall?:(operation:{method:string,args:any[]})=>Promise<any>,prepareEvent?:()=>Promise<void>,subscribeInteraction?:PluginInteraction['subscribe'],domCallbacks?:PluginDomRetention,domCall?:(operation:{method:string,args:any[]})=>any,dispose?:()=>void|Promise<void>,bindSession?:(current:()=>boolean)=>void}} PluginDomOwner */
+/** @typedef {{current:()=>boolean,frame?:object,helperCall?:(operation:{method:string,args:any[]})=>Promise<any>,syncCall?:(operation:{method:string,args:any[]})=>Promise<any>,prepareEvent?:()=>Promise<void>,subscribeInteraction?:PluginInteraction['subscribe'],domCallbacks?:PluginDomRetention,domCall?:(operation:{method:string,args:any[]})=>any,dispose?:()=>void|Promise<void>,objectURLs?:{release:(url:string)=>boolean,subscribe:(listener:(urls:string[])=>void)=>()=>void},bindSession?:(current:()=>boolean)=>void}} PluginDomOwner */
 
 /** A retained, serialized plugin worker with an explicit live-owner guard.
  * @param {{name:string,entry:string,format:string,files:Record<string,string>}} snapshot
@@ -53,7 +53,27 @@ export async function openPluginSession(snapshot, options) {
     const context={frames,owner:id,depth:0,servicing:false,dispatch};sharedNativeFrames.set(active,context);return context;
   };
   const domCallbacks=new Map(/** @type {[number,PluginDomOwner][]} */([]));
+  /** @param {PluginDomOwner & {cleanup?:boolean}} owner @param {{method:string,args:any[]}} operation */
+  const dispatchDom=(owner,operation)=>{
+    if(operation.method!=='dom.unlisten'||owner.cleanup)return owner.domCall?.(operation);
+    const args=operation.args;if(args.length!==4||!Number.isSafeInteger(args[0])||typeof args[1]!=='string'||!Number.isSafeInteger(args[2])||args[2]<=0||typeof args[3]!=='boolean')throw Error('Invalid owned listener removal');
+    const retained=domCallbacks.get(args[2]);if(!retained||!retained.current())return undefined;
+    return retained.domCall?.(operation);
+  };
+  const timeoutOwners=new Map(/** @type {[number,PluginDomOwner|undefined][]} */([])),readyTimeouts=new Set(/** @type {number[]} */([]));let timeoutSequence=0,timeoutPump=false;
+  const cancelTimeout=(/** @type {number} */id)=>{timeoutOwners.delete(id);readyTimeouts.delete(id);if(!terminated)worker.postMessage({type:'cancel-timeout',timerId:id});};
+  const pumpTimeouts=()=>{
+    if(timeoutPump||!readyTimeouts.size||terminated||closed)return;timeoutPump=true;
+    const job=queue.then(async()=>{
+      const id=readyTimeouts.values().next().value;if(id===undefined)return;readyTimeouts.delete(id);
+      if(!timeoutOwners.has(id))return;const owner=timeoutOwners.get(id);
+      if(owner&&!owner.current()){cancelTimeout(id);return;}
+      await send({type:'invoke-timeout',timerId:id},()=>current()&&(!owner||owner.current()),owner?.frame,owner?.helperCall,owner?.subscribeInteraction,owner?.syncCall,owner?.domCallbacks,owner,owner?.domCall);
+    }).catch(error=>{close(error instanceof Error?error:Error(String(error)));}).finally(()=>{timeoutPump=false;pumpTimeouts();});
+    queue=job;
+  };
   const domOwners=new Set(/** @type {PluginDomOwner[]} */([]));
+  const domURLSubscriptions=new Map(/** @type {[NonNullable<PluginDomOwner['objectURLs']>,()=>void][]} */([]));
   const syncMailboxes=new Map(/** @type {[number,{buffer:SharedArrayBuffer,owner:NonNullable<typeof active>,id:number}][]} */([]));
   const cancelSync=(/** @type {PluginDomOwner|undefined} */ retained=undefined)=>{
     for(const [id,mailbox] of syncMailboxes){
@@ -70,7 +90,7 @@ export async function openPluginSession(snapshot, options) {
     owner.resume = undefined;
   };
   const terminateWorker=(/** @type {Error} */ error)=>{
-    if(terminated)return;terminated=true;worker.terminate();domCallbacks.clear();domOwners.clear();
+    if(terminated)return;terminated=true;worker.terminate();domCallbacks.clear();domOwners.clear();timeoutOwners.clear();readyTimeouts.clear();for(const unsubscribe of domURLSubscriptions.values())unsubscribe();domURLSubscriptions.clear();
     if(active){disposeOperation(active);active.reject(error);active=undefined;}
   };
   const close = (/** @type {Error} */ error = aborted()) => {
@@ -114,6 +134,7 @@ export async function openPluginSession(snapshot, options) {
       ? active.retentionOwner?.current() === false
       : !active.current());
     if (!current() || activeOwnerLost) close();
+    for(const [id,owner]of timeoutOwners)if(owner&&!owner.current())cancelTimeout(id);
     for(const owner of domOwners)if(!owner.current()){
       cancelSync(owner);
       void Promise.resolve(owner.dispose?.()).finally(()=>domOwners.delete(owner));
@@ -146,6 +167,12 @@ export async function openPluginSession(snapshot, options) {
       if(retentionOwner){
         if(domOwners.size>=128&&!domOwners.has(retentionOwner)){reject(Error("Plugin dialog owner limit exceeded"));return;}
         domOwners.add(retentionOwner);
+        const urls=retentionOwner.objectURLs;
+        if(urls&&!domURLSubscriptions.has(urls))domURLSubscriptions.set(urls,urls.subscribe(released=>{
+          domURLSubscriptions.delete(urls);
+          for(const [id,owner]of timeoutOwners)if(owner?.objectURLs===urls)cancelTimeout(id);
+          if(!terminated&&released.length)worker.postMessage({type:'release-object-urls',urls:released});
+        }));
       }
       const id = message.type === "init" ? 0 : ++nextId;
       active = {
@@ -172,7 +199,7 @@ export async function openPluginSession(snapshot, options) {
         ),
       };
       try {
-        const genericFrames=domCall&&domRetention&&message.type==='invoke'?[...Array.from({length:7},()=>createPluginEventMailbox(id,4*1024*1024))]:undefined;
+        const genericFrames=domCall&&domRetention&&['invoke','invoke-timeout'].includes(message.type)?[...Array.from({length:7},()=>createPluginEventMailbox(id,4*1024*1024))]:undefined;
         if(genericFrames){
           const frameOwner=active;
           const context=rememberNativeFrames(id,genericFrames,wire=>{
@@ -191,7 +218,7 @@ export async function openPluginSession(snapshot, options) {
               return codec.encode(reply);
             }
             const operation=validatePluginDomCall(raw),wasServicing=context.servicing;context.servicing=true;
-            try{return codec.encode(frameOwner.domCall?.(operation));}finally{context.servicing=wasServicing;}
+            try{return codec.encode(dispatchDom(frameOwner,operation));}finally{context.servicing=wasServicing;}
           });
         }
         worker.postMessage({
@@ -300,11 +327,18 @@ export async function openPluginSession(snapshot, options) {
             }
             const operation=validatePluginDomCall(raw);
             const wasServicing=context.servicing;context.servicing=true;
-            try{return codec.encode(owner.domCall?.(operation));}finally{context.servicing=wasServicing;}
+            try{return codec.encode(dispatchDom(owner,operation));}finally{context.servicing=wasServicing;}
           });
             const completion=pumpPluginEventMailbox(buffer,eventId,{current:owned,timeout:5000,dispatch:context.dispatch});
             if(suspended&&completion==='prefix')throw Error('Waiting DOM callback needs an additional asynchronous frame');
-            if(!owned())throw aborted();if(!suspended&&completion==='prefix'&&args[0]?.windowCheckpoint===true&&active){windowCheckpointFrames.add(active);queueMicrotask(()=>{if(current()&&active?.id===eventId&&owned()){windowCheckpointFrames.delete(active);worker.postMessage({type:'resume-dom-checkpoint',id:eventId});}});}completeOwnedEvent(eventId,completion);
+            if(!owned())throw aborted();if(!suspended&&completion==='prefix'&&args[0]?.windowCheckpoint===true&&active){windowCheckpointFrames.add(active);queueMicrotask(()=>{if(current()&&active?.id===eventId&&owned()){
+                  try{
+                    windowCheckpointFrames.delete(active);resumePluginEventPrefix(buffer,eventId);
+                    worker.postMessage({type:'resume-dom-checkpoint',id:eventId});
+                    const resumed=pumpPluginEventMailbox(buffer,eventId,{current:owned,timeout:5000,dispatch:context.dispatch});
+                    completeOwnedEvent(eventId,resumed);
+                  }catch(error){close(error instanceof Error?error:Error(String(error)));}
+                }});}completeOwnedEvent(eventId,completion);
           }catch(error){close(error instanceof Error?error:Error(String(error)));throw error;}
           finally{if(suspended){if(closed||terminated){disposeOperation(suspended);suspended.reject(closeReason??aborted());}else active=suspended;}}
           return job;
@@ -319,8 +353,8 @@ export async function openPluginSession(snapshot, options) {
           } catch(error) {return Promise.reject(error);}
           queued++;
           const job=queue.then(()=>{
-            const owned=()=>current() && owner.current() && domCallbacks.get(id)===owner;
-            if(!owned())throw aborted();
+            const owned=()=>current() && owner.current();
+            if(!owned()||domCallbacks.get(id)!==owner)throw aborted();
             return send({type:"invoke-dom-callback",leaseId:id,args:detached},owned,owner.frame,
               owner.helperCall,owner.subscribeInteraction,owner.syncCall,owner.domCallbacks,owner,owner.domCall);
           }).finally(()=>{queued--;});
@@ -357,13 +391,25 @@ export async function openPluginSession(snapshot, options) {
       close();
       return;
     }
+    if(['timeout-retain','timeout-ready','timeout-release'].includes(message?.type)){
+      const id=message.timerId;if(!Number.isSafeInteger(id)||id<=0){close(Error('Invalid timeout task'));return;}
+      if(message.type==='timeout-retain'){
+        if(!active||active.id!==message.callbackId||id<=timeoutSequence||timeoutOwners.size>=128){close(Error('Invalid timeout owner'));return;}
+        timeoutSequence=id;timeoutOwners.set(id,active.id===0?undefined:active.retentionOwner??active);
+      }else if(message.type==='timeout-release'){timeoutOwners.delete(id);readyTimeouts.delete(id);}
+      else if(timeoutOwners.has(id)){readyTimeouts.add(id);pumpTimeouts();}
+      return;
+    }
+    if(message?.type==='release-object-url'){
+      if(Object.keys(message).sort().join(',')!=='type,url'||typeof message.url!=='string'||message.url.length>4096||!message.url.startsWith('blob:')){close(Error('Invalid owned object URL release'));return;}
+      for(const urls of domURLSubscriptions.keys())if(urls.release(message.url))break;
+      return;
+    }
     if(message?.type==='dom-retain'){retainOwnedDomCallback(message);return;}
     if (message?.type === "sync-helper") {
       const owner = active;
       if (
-        (!owner?.syncCall && !owner?.domCall) ||
-        !owner.helperCall ||
-        !owner.id ||
+        !owner?.id ||
         owner.id !== message.callbackId ||
         !Number.isInteger(message.id) ||
         message.id <= syncId
@@ -382,8 +428,10 @@ export async function openPluginSession(snapshot, options) {
         syncMailboxes.set(message.id,{buffer:message.buffer,owner,id:message.id});
         const decoded=codec.decode(message.operation),dom=decoded?.method?.startsWith("dom.");
         const call = dom?validatePluginDomCall(decoded):validatePluginAppSyncCall(decoded);
-        const dispatch=dom?owner.domCall:owner.syncCall;
-        if(!dispatch || dom&&!owner.domCallbacks)throw Error("Plugin DOM/native synchronous capability is unavailable");
+        const removing=dom&&call.method==='dom.unlisten'&&domCallbacks.has(call.args[2]);
+        if(!removing&&((!owner.syncCall&&!owner.domCall)||!owner.helperCall)){close(Error('Invalid synchronous plugin helper ownership'));return;}
+        const dispatch=dom?(owner.domCall||removing?(/** @type {{method:string,args:any[]}} */operation)=>dispatchDom(owner,operation):undefined):owner.syncCall;
+        if(!dispatch || dom&&!owner.domCallbacks&&!removing)throw Error("Plugin DOM/native synchronous capability is unavailable");
         if (!(dom?transportCurrent(owner):privilegedCurrent(owner)) || active !== owner) throw aborted();
         const context=dom?sharedNativeFrames.get(owner):undefined;
         let dispatched;
@@ -436,9 +484,11 @@ export async function openPluginSession(snapshot, options) {
       let value, error;
       try {
         const call = validatePluginHelperCall(codec.decode(message.operation));
-        if (!privilegedCurrent(owner) || active !== owner) throw aborted();
-        value = codec.encode(await dispatch(call));
-        if(!privilegedCurrent(owner) || active!==owner)throw aborted();
+        const fileRead=['dom.file.read','dom.transfer.string.read'].includes(call.method);
+        const current=fileRead?()=>transportCurrent(owner)&&!!owner.domCall&&!!owner.domCallbacks:()=>privilegedCurrent(owner);
+        if (!current() || active !== owner) throw aborted();
+        value = codec.encode(await (fileRead?owner.domCall?.(validatePluginDomCall(call)):dispatch(call)));
+        if(!current() || active!==owner)throw aborted();
       } catch (cause) {
         value=undefined;
         error = (cause instanceof Error ? cause.message : String(cause)).slice(
@@ -600,7 +650,8 @@ export async function openPluginSession(snapshot, options) {
       try {
         if(domOwner!==undefined && (!domCall || !domRetention || typeof domOwner.current!=="function" ||
             typeof domOwner.helperCall!=="function" || typeof domOwner.syncCall!=="function" ||
-            domOwner.dispose!==undefined&&typeof domOwner.dispose!=="function"))throw Error("Dialog lifetime requires a trusted capability owner");
+            domOwner.dispose!==undefined&&typeof domOwner.dispose!=="function" ||
+            domOwner.objectURLs!==undefined&&(typeof domOwner.objectURLs.release!=="function"||typeof domOwner.objectURLs.subscribe!=="function")))throw Error("Dialog lifetime requires a trusted capability owner");
         if(domRetention!==undefined && (!helperCall || typeof operationGuard!=="function" ||
             typeof domRetention?.retain!=="function"))throw Error("DOM callbacks require guarded helper capabilities");
         if(domCall!==undefined && (!domRetention || typeof domCall!=="function"))throw Error("DOM transport requires guarded callback retention");

@@ -407,6 +407,7 @@ export function createPluginRegistry(adapters) {
             record.recovery = (async () => {
               let replacement;
               try {
+                await record.session.close();
                 if (!current()) throw aborted();
                 // Never reread changed source or replay the cancelled callback.
                 replacement = await adapters.openSession(

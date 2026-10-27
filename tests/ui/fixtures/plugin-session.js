@@ -223,6 +223,9 @@ async function inspectSnapshot(snapshot,url,mode='normal') {
       '[1,["ref",0],[["view","Function",["null"],0,0]]]',
       '[1,["ref",0],[["buffer","0z"]]]',
       '[1,["ref",0],[["array",10001,[]]]]',
+      '[1,["ref",0],[["error","Function",[]]]]',
+      '[1,["ref",0],[["error","Error",[["message",["null"],true],["message",["null"],true]]]]]',
+      '[1,["ref",0],[["error","Error",[["message",["null"],1]]]]]',
       '[1,["ref",0],[["object",false,[["next",["ref",1]]]], ["array",10000,[["0",["ref",2]]]],["array",10000,[]]]]',
     ];
     for (const wire of malformed) {
@@ -267,6 +270,15 @@ async function inspectSnapshot(snapshot,url,mode='normal') {
         "literal " + typeof value + ":" + String(value),
       );
     }
+    const errorTypes=/** @type {any[]} */([Error,EvalError,RangeError,ReferenceError,SyntaxError,TypeError,URIError,AggregateError]);
+    for(const Ctor of errorTypes){
+      const cause=/** @type {any} */({owned:true}),value=Ctor===AggregateError?new Ctor([cause],'owned',{cause}):new Ctor('owned',{cause});
+      cause.error=value;value.again=cause;Object.defineProperty(value,'stack',{value:'owned-stack',configurable:true});Object.defineProperty(value,'__proto__',{value:cause,enumerable:true,configurable:true});
+      const result=await session.invoke('templateTags',0,[value]);
+      check(Object.getPrototypeOf(result)===Ctor.prototype&&result.message==='owned'&&result.stack==='owned-stack'&&result.cause.error===result&&result.again===result.cause&&result.__proto__===result.cause&&!Object.getOwnPropertyDescriptor(result,'message')?.enumerable&&(Ctor!==AggregateError||result.errors[0]===result.cause),'Error graph '+Ctor.name);
+    }
+    let stackReads=0;const lazy=new Error('lazy');Object.defineProperty(lazy,'stack',{get(){stackReads++;throw Error('stack accessor invoked');},configurable:true});
+    const lazyResult=codec.decode(codec.encode(lazy));check(stackReads===0&&lazyResult.message==='lazy'&&!Object.hasOwn(lazyResult,'stack'),'Accessor stack omitted without evaluation');
     const buffer = new Uint8Array([0, 255, 128, 13, 10, 0, 42, 90]).buffer;
     const sparse = new Array(3);
     sparse[1] = undefined;
@@ -393,6 +405,8 @@ async function inspectSnapshot(snapshot,url,mode='normal') {
       cursor = cursor.next;
     }
     const refused = [
+      new(class CustomError extends Error{})(),
+      Object.defineProperty(new Error('accessor'),'message',{get(){getters++;return 'executed';},configurable:true}),
       new (class CustomArray extends Array {})(),
       Object.assign(new DataView(new ArrayBuffer(1)), { 0: "extra" }),
       () => 1,
@@ -428,12 +442,12 @@ async function inspectSnapshot(snapshot,url,mode='normal') {
     }
     const after = await session.invoke("templateTags", 1);
     check(
-      getters === 0 && before === after && after === 12,
+      getters === 0 && before === after && after === 20,
       "refusals execute no guest callback/getter/toJSON and leave session usable",
     );
     return {
       checks,
-      roundTrips: 12,
+      roundTrips: 20,
       refusals: refused.length,
       getters,
       callbackCount: after,

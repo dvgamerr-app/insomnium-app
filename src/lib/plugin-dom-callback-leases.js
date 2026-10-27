@@ -154,6 +154,9 @@ export function createPluginDomCallbackLeases(loaded, options) {
             prefixPublished=true;waiting=true;onPrefix?.();
             const wait=loaded.beginHostWait();
             try{await windowCheckpoint;}finally{loaded.accountHostWait(wait);}
+            // The host now pumps the resumed ready checkpoint. Publish a new
+            // prefix only if it reaches a real asynchronous provider wait.
+            prefixPublished=false;
           }
           // Drain the ready guest checkpoint on the native stack. Only a real
           // asynchronous host wait publishes an unfinished prefix; settled
@@ -172,7 +175,7 @@ export function createPluginDomCallbackLeases(loaded, options) {
             const state = vm.getPromiseState(result);
             if (state.type === "fulfilled") {
               try {
-                if (!vm.runtime.hasPendingJob() && (!options.isIdle || options.isIdle())) {
+                if (!vm.runtime.hasPendingJob() && !loaded.hasDomTasks() && (!options.isIdle || options.isIdle())) {
                   if(checkpointOpen){loaded.finishDomEventCheckpoint();checkpointOpen=false;}
                   return codec.decode(vm.getString(state.value));
                 }
@@ -187,8 +190,10 @@ export function createPluginDomCallbackLeases(loaded, options) {
             }
             if(vm.runtime.hasPendingJob())continue;
             if(!prefixPublished){if(checkpointOpen){loaded.finishDomEventCheckpoint();checkpointOpen=false;}prefixPublished=true;onPrefix?.();}
+            if(current(lease)&&loaded.hasDomTasks(true)){loaded.executeDomTask();continue;}
             waiting=true;
-            await new Promise(resolve => setTimeout(resolve,1));
+            const idle=loaded.beginHostWait();try{await new Promise(resolve=>setTimeout(resolve,1));}finally{loaded.accountHostWait(idle);}
+            if(current(lease)&&!vm.runtime.hasPendingJob()&&loaded.hasDomTasks())loaded.executeDomTask();
           }
         } catch (error) {
           // Unsettled jobs may retain guest state after cancellation/failure.

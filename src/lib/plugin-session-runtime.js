@@ -20,8 +20,10 @@ import {
  * @param {(operation:{method:string,args:any[]})=>Promise<any>} [helperCall]
  * @param {(operation:{method:string,args:any[]})=>string} [syncCall]
  * @param {(id:number)=>void} [onRetainDomCallback]
- * @param {number} [eventTimeOrigin] */
-export function createPluginCallbackRuntime(
+ * @param {number} [eventTimeOrigin]
+ * @param {(url:string)=>void} [onRevokeObjectURL]
+ * @param {(type:string,id:number)=>void} [onTask] */
+export async function createPluginCallbackRuntime(
   engine,
   snapshot,
   storeCall,
@@ -29,9 +31,9 @@ export function createPluginCallbackRuntime(
   syncCall,
   onRetainDomCallback,
   eventTimeOrigin,
+  onRevokeObjectURL,
+  onTask,
 ) {
-  const loaded = createPluginVm(engine, snapshot, eventTimeOrigin),
-    { vm, evaluate } = loaded;
   let closed = false,
     running = false,
     storeAllowed = false,
@@ -50,6 +52,14 @@ export function createPluginCallbackRuntime(
     waited = 0;
   let domAllowed = false;
   let domTransport = false;
+  const timeoutOwners=new Map(/** @type {[number,{generation:number,store:boolean,helpers:boolean,synchronous:boolean,interactive:boolean,dom:boolean,transport:boolean}][]} */([]));
+  const loaded=createPluginVm(engine,snapshot,eventTimeOrigin,onRevokeObjectURL,{
+    owner:()=>activeGeneration,
+    capture:id=>{if(closed||retiring)throw Error('Plugin timeout owner retired');timeoutOwners.set(id,{generation:activeGeneration,store:storeAllowed,helpers:helperAllowed,synchronous:syncAllowed,interactive,dom:domAllowed,transport:domTransport});onTask?.('retain',id);return activeGeneration;},
+    ready:id=>onTask?.('ready',id),
+    release:id=>{timeoutOwners.delete(id);onTask?.('release',id);},
+  }),{vm,evaluate}=loaded;
+  await loaded.ready;
   try {
     metadata = inspectPluginVm(loaded, snapshot.name);
   } catch (error) {
@@ -64,7 +74,9 @@ export function createPluginCallbackRuntime(
     deadlineExpired: elapsed => elapsed>PROMPT_TOTAL_MS ||
       elapsed-waited-(waitingSince?performance.now()-waitingSince:0)>5000,
   });
+  const releaseDomCallback=(/** @type {number} */id)=>{const owner=domOwners.get(id);if(!owner)return false;domOwners.delete(id);domLeases.release(id);return true;};
   const retainDomCallback = vm.newFunction("retainDomCallback", handle => {
+    loaded.throwIfInterrupted();
     if (closed || cleanupMode || !running || !helperAllowed || !domAllowed || !onRetainDomCallback)
       throw Error("DOM callback retention is unavailable for this operation");
     const controller = new AbortController();
@@ -82,18 +94,22 @@ export function createPluginCallbackRuntime(
       : vm.false,
   );
   const domBridge=vm.newFunction("domCall",request=>{
-    if(closed || !running || !helperAllowed || !domAllowed || !domTransport || !syncCall)
-      throw Error("Plugin DOM transport is unavailable for this operation");
-    if(++calls>256 || pending.size>=64)throw Error("Plugin helper call limit exceeded");
+    loaded.throwIfInterrupted();
+    if(closed || !running || !syncCall)throw Error("Plugin DOM transport is unavailable for this operation");
     const wire=vm.getString(request);if(wire.length>16*1024*1024)throw Error("Plugin DOM request exceeds its limit");
-    const call=validatePluginDomCall(codec.decode(wire)),wait=loaded.beginHostWait();
-    try {return vm.newString(syncCall(call));}
+    const call=validatePluginDomCall(codec.decode(wire)),removing=call.method==='dom.unlisten';
+    if(removing){const args=call.args;if(args.length!==4||!Number.isSafeInteger(args[0])||typeof args[1]!=='string'||!Number.isSafeInteger(args[2])||args[2]<=0||typeof args[3]!=='boolean')throw Error('Invalid owned listener removal');if(!domOwners.has(args[2]))return vm.newString(codec.encode(undefined));}
+    if(!removing&&(!helperAllowed||!domAllowed||!domTransport))throw Error('Plugin DOM transport is unavailable for this operation');
+    if(++calls>256||pending.size>=64)throw Error('Plugin helper call limit exceeded');
+    if(['dom.file.read','dom.transfer.string.read'].includes(call.method))throw Error('Owned File reads require asynchronous transport');let urlBytes=0;if(call.method==='dom.url.create'){const parts=call.args[0]?.parts;if(Array.isArray(parts))for(const part of parts)if(part?.bytes instanceof ArrayBuffer)urlBytes+=part.bytes.byteLength;loaded.assertObjectURLCapacity(urlBytes);}const wait=loaded.beginHostWait();
+    try {const reply=syncCall(call);if(call.method==='dom.url.create')loaded.adoptObjectURL(codec.decode(reply).url,urlBytes,true);if(call.method==='dom.unlisten')releaseDomCallback(call.args[2]);return vm.newString(reply);}
     catch(error) {
       if(error instanceof Error&&error.name==="TimeoutError"){syncFailure=error;closed=true;loaded.abortExecution();}
       throw error;
     } finally {loaded.accountHostWait(wait);}
   });
   const syncBridge = vm.newFunction("syncApp", (request) => {
+    loaded.throwIfInterrupted();
     if (closed || !running || !helperAllowed || !syncAllowed || !syncCall)
       throw Error(
         "Synchronous plugin app helpers are unavailable for this callback",
@@ -125,7 +141,9 @@ export function createPluginCallbackRuntime(
       loaded.accountHostWait(wait);
     }
   });
-  const bridge = vm.newFunction("store", (request) => {
+  /** @param {import('quickjs-emscripten-core').QuickJSHandle} request */
+  const asyncCall = (request,dom=false) => {
+    loaded.throwIfInterrupted();
     if (closed || !running) throw Error("Plugin callback is not active");
     if (!storeAllowed)
       throw Error("Plugin store is unavailable during metadata evaluation");
@@ -134,17 +152,20 @@ export function createPluginCallbackRuntime(
     const json = vm.getString(request);
     if (json.length > 16 * 1024 * 1024)
       throw Error("Plugin store request exceeds its limit");
-    const operation = JSON.parse(json);
-    const helper =
+    if(dom&&(!domAllowed||!domTransport))throw Error('Owned File reads are unavailable for this operation');
+    const operation = dom?codec.decode(json):JSON.parse(json);
+    const helper = dom||
       Object.keys(operation).sort().join(",") === "generation,helper";
-    const requestData = helper
+    const requestData = dom?validatePluginDomCall(operation):helper
       ? validatePluginHelperCall(codec.decode(operation.helper))
       : operation;
     if (
       helper &&
-      (!helperAllowed || !helperCall || operation.generation !== activeGeneration)
+      (!helperAllowed || !helperCall || !dom&&operation.generation !== activeGeneration)
     )
       throw Error("Plugin run helpers are unavailable for this callback");
+    if(dom&&!['dom.file.read','dom.transfer.string.read'].includes(requestData.method))throw Error('Invalid owned File read');
+    if(helper&&['dom.file.read','dom.transfer.string.read'].includes(requestData.method)&&(!domAllowed||!domTransport))throw Error('Owned File reads are unavailable for this operation');
     const deferred = vm.newPromise();
     pending.add(deferred);
     Promise.resolve()
@@ -199,8 +220,12 @@ export function createPluginCallbackRuntime(
         deferred.dispose();
       });
     return deferred.handle.dup();
-  });
+  };
+  const bridge = vm.newFunction("store", request=>asyncCall(request));
+  const fileBridge = vm.newFunction("readFile", request=>asyncCall(request,true));
   try {
+    vm.setProp(vm.global,'__pluginDomReadFile',fileBridge);
+    evaluate("Object.defineProperty(globalThis,'__pluginDomReadFile',{writable:false,configurable:false});").dispose();
     vm.setProp(vm.global,"__pluginDomSync",domBridge);
     evaluate(`Object.defineProperty(globalThis,'__pluginDomSync',{writable:false,configurable:false});`).dispose();
     vm.setProp(vm.global,"__pluginRetainDomCallback",retainDomCallback);
@@ -245,6 +270,7 @@ export function createPluginCallbackRuntime(
     domBridge.dispose();
     retainDomCallback.dispose();
     bridge.dispose();
+    fileBridge.dispose();
     helperCurrent.dispose();
     syncBridge.dispose();
     domLeases.dispose();
@@ -254,25 +280,25 @@ export function createPluginCallbackRuntime(
     if(domBridge.alive)domBridge.dispose();
     if (retainDomCallback.alive) retainDomCallback.dispose();
     if (bridge.alive) bridge.dispose();
+    if (fileBridge.alive) fileBridge.dispose();
     if (helperCurrent.alive) helperCurrent.dispose();
     if (syncBridge.alive) syncBridge.dispose();
   }
 
   return {
     metadata,
+    readyTimeouts:loaded.readyTimeouts,
+    cancelTimeout:loaded.cancelTimeout,
+    invokeTimeout(/** @type {number} */id){const owner=timeoutOwners.get(id);if(!owner)return Promise.resolve(codec.encode(undefined));return this.invoke('timeout',id,codec.encode([]),owner.helpers,owner.interactive,owner.synchronous,owner.dom,owner.transport);},
+    releaseObjectURLs:loaded.releaseObjectURLs,
     beginCleanup(){
-      retiring=true;storeAllowed=false;syncAllowed=false;
+      retiring=true;loaded.cancelTimeouts();storeAllowed=false;syncAllowed=false;
       if(onHideRunning){cleanupMode=true;helperAllowed=true;}
       else helperAllowed=false;
       loaded.setInteractionWaiting(false);
     },
     /** Host releases only handles admitted for an owned operation. @param {number} id */
-    releaseDomCallback(id) {
-      const owner=domOwners.get(id);
-      if(!owner)return false;
-      domOwners.delete(id);domLeases.release(id);
-      return true;
-    },
+    releaseDomCallback,
     /** Same capability owner, entered only between outer callback job turns.
      * @param {number} id @param {string} args */
     invokeDomCallbackWhileWaiting(id,args){
@@ -350,7 +376,7 @@ export function createPluginCallbackRuntime(
       if (running) throw Error("Plugin callback is already running");
       if (
         typeof helpers !== "boolean" ||
-        (helpers && (!["templateTags","requestHooks","responseHooks","requestActions","requestGroupActions","workspaceActions","documentActions"].includes(kind) || !helperCall)) ||
+        (helpers && (!["timeout","templateTags","requestHooks","responseHooks","requestActions","requestGroupActions","workspaceActions","documentActions"].includes(kind) || !helperCall)) ||
         typeof interaction !== "boolean" ||
         (interaction && !helpers) ||
         typeof synchronous !== "boolean" ||
@@ -359,7 +385,10 @@ export function createPluginCallbackRuntime(
         typeof transportDom!=="boolean" || transportDom&&(!retainDom || !syncCall)
       )
         throw Error("Invalid plugin run helper activation");
+      const timeoutOwner=kind==='timeout'?timeoutOwners.get(index):undefined;
+      if(kind==='timeout'&&!timeoutOwner)throw Error('Timeout task is no longer current');
       const kinds = [
+        "timeout",
         "templateTags",
         "templateTagMetadata",
         "templateTagAction",
@@ -374,7 +403,7 @@ export function createPluginCallbackRuntime(
         !kinds.includes(kind) ||
         !Number.isInteger(index) ||
         index < 0 ||
-        index > 63 ||
+        kind!=="timeout"&&index > 63 ||
         typeof args !== "string"
       )
         throw Error("Invalid plugin callback");
@@ -405,15 +434,15 @@ export function createPluginCallbackRuntime(
           throw Error("Invalid template tag action index");
       }
       running = true;
-      storeAllowed = kind !== "templateTagMetadata";
+      storeAllowed = timeoutOwner?timeoutOwner.store:kind !== "templateTagMetadata";
       helperAllowed = helpers;
       syncAllowed = synchronous;
       syncFailure = undefined;
       interactive = interaction;
       waitingSince = 0;
       waited = 0;
-      generation++;
-      activeGeneration = generation;
+      if(!timeoutOwner)generation++;
+      activeGeneration = timeoutOwner?.generation??generation;
       domAllowed = retainDom;
       domTransport = transportDom;
       calls = 0;
@@ -422,7 +451,7 @@ export function createPluginCallbackRuntime(
       /** @type {Error|undefined} */ let failure;
       const started = performance.now();
       try {
-        handle = evaluate(`(async()=>{
+        handle = kind==='timeout'?loaded.executeTimeout(index):evaluate(`(async()=>{
           const kind=${JSON.stringify(kind)},item=__pluginExports[kind==='templateTagMetadata'||kind==='templateTagAction'?'templateTags':kind]?.[${index}];
           const callbackCodec=kind.endsWith('Hooks')?__pluginHookValueCodec:__pluginValueCodec;
           const payload=callbackCodec.decode(${JSON.stringify(args)});
@@ -485,8 +514,8 @@ export function createPluginCallbackRuntime(
           const state = vm.getPromiseState(handle);
           if (state.type === "fulfilled") {
             try {
-              if (!pending.size && !vm.runtime.hasPendingJob())
-                return vm.getString(state.value);
+              if (!pending.size && !vm.runtime.hasPendingJob() && !loaded.hasDomTasks())
+                return kind==='timeout'?codec.encode(undefined):vm.getString(state.value);
             } finally {
               state.value.dispose();
             }
@@ -500,7 +529,9 @@ export function createPluginCallbackRuntime(
               state.error.dispose();
             }
           }
-          await new Promise((resolve) => setTimeout(resolve, 1));
+          if(!closed&&!vm.runtime.hasPendingJob()&&loaded.hasDomTasks(true)){loaded.executeDomTask();continue;}
+          const idle=loaded.beginHostWait();try{await new Promise((resolve)=>setTimeout(resolve,1));}finally{loaded.accountHostWait(idle);}
+          if(!closed&&!vm.runtime.hasPendingJob()&&loaded.hasDomTasks())loaded.executeDomTask();
         }
         throw syncFailure ?? Error("Plugin session is closed");
       } catch (error) {

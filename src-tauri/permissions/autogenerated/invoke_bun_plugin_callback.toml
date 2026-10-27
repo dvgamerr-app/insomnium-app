@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-invoke-bun-plugin-callback"
+description = "Enables the invoke_bun_plugin_callback command without any pre-configured scope."
+commands.allow = ["invoke_bun_plugin_callback"]
+
+[[permission]]
+identifier = "deny-invoke-bun-plugin-callback"
+description = "Denies the invoke_bun_plugin_callback command without any pre-configured scope."
+commands.deny = ["invoke_bun_plugin_callback"]

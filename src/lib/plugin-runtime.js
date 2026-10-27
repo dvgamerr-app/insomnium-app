@@ -1,14 +1,17 @@
+import {inspectPluginMetadata} from "./plugin-metadata.js";
 import { resolvePluginModule, pluginModuleFormat } from "./plugin-modules.js";
 import { createPluginTagMetadata } from "./plugin-tag-metadata.js";
 import { createPluginValueCodec } from "./plugin-values.js";
 import { pluginBufferSource } from "./generated/plugin-buffer.js";
-import { createPluginGuestDom } from "./plugin-guest-dom.js";
+import { createPluginGuestDom,pluginEventHandlerTypes } from "./plugin-guest-dom.js";
 
 /** Load a package in its own bounded VM; caller owns the returned context.
  * @param {import('quickjs-emscripten-core').QuickJSWASMModule} engine
  * @param {{name:string,entry:string,format:string,files:Record<string,string>}} snapshot
- * @param {number} [eventTimeOrigin] Owning Window origin; inspection uses this worker's origin. */
-export function createPluginVm(engine, snapshot, eventTimeOrigin = performance.timeOrigin) {
+ * @param {number} [eventTimeOrigin] Owning Window origin; inspection uses this worker's origin.
+ * @param {(url:string)=>void} [onRevokeObjectURL]
+ * @param {{owner:()=>number,capture:(id:number)=>number,ready:(id:number)=>void,release:(id:number)=>void}} [taskHooks] */
+export function createPluginVm(engine, snapshot, eventTimeOrigin = performance.timeOrigin, onRevokeObjectURL, taskHooks) {
   if (!Number.isFinite(eventTimeOrigin) || eventTimeOrigin < 0)
     throw Error("Invalid plugin Event time origin");
   if (
@@ -32,30 +35,54 @@ export function createPluginVm(engine, snapshot, eventTimeOrigin = performance.t
   const vm = engine.newContext();
   let beginCheckpoint=/** @type {import('quickjs-emscripten-core').QuickJSHandle|undefined} */(undefined);
   let finishCheckpoint=/** @type {import('quickjs-emscripten-core').QuickJSHandle|undefined} */(undefined);
+  let taskCount=/** @type {import('quickjs-emscripten-core').QuickJSHandle|undefined} */(undefined);
+  let runTask=/** @type {import('quickjs-emscripten-core').QuickJSHandle|undefined} */(undefined);
+  const objectURLs=new Map();let objectURLBytes=0;
+  const assertObjectURLCapacity=(bytes=0)=>{if(objectURLs.size>=2048)throw Error('Plugin object URL handle limit exceeded');if(!Number.isSafeInteger(bytes)||bytes<0||bytes>128*1024*1024-objectURLBytes)throw Error('Plugin object URL byte limit exceeded');};
+  const adoptObjectURL=(/** @type {string} */url,bytes=0,notify=false)=>{assertObjectURLCapacity(bytes);if(typeof url!=='string'||!url.startsWith('blob:')||objectURLs.has(url))throw Error('Invalid native object URL');objectURLs.set(url,{bytes,notify});objectURLBytes+=bytes;};
+  const revokeObjectURL=(/** @type {string} */url,notify=true)=>{let key;try{key=new URL(url).href;}catch{return;}if(!objectURLs.has(key))return;URL.revokeObjectURL(key);const entry=objectURLs.get(key);objectURLBytes-=entry.bytes;objectURLs.delete(key);if(notify&&entry.notify)onRevokeObjectURL?.(key);};
+  const timeouts=new Map(/** @type {[number,{handle:import('quickjs-emscripten-core').QuickJSHandle,owner:number,at:number,ready:boolean,timer:ReturnType<typeof setTimeout>|undefined}][]} */([]));let timeoutId=0;
+  const cancelTimeout=(/** @type {number} */id)=>{const record=timeouts.get(id);if(!record)return false;timeouts.delete(id);clearTimeout(record.timer);record.handle.dispose();taskHooks?.release(id);return true;};
+  const cancelTimeouts=()=>{for(const id of timeouts.keys())cancelTimeout(id);};
+  const readyTimeout=()=>[...timeouts].find(([,record])=>record.ready&&record.owner===(taskHooks?.owner()??0))?.[0];
+  const executeTimeout=(/** @type {number} */id)=>{const record=timeouts.get(id);if(!record?.ready||record.owner!==(taskHooks?.owner()??0))throw Error('Timeout task owner changed');timeouts.delete(id);clearTimeout(record.timer);try{return execute(()=>vm.unwrapResult(vm.callFunction(record.handle,vm.undefined)));}finally{record.handle.dispose();taskHooks?.release(id);}};
   const disposeVm=vm.dispose.bind(vm);
-  vm.dispose=()=>{if(beginCheckpoint?.alive)beginCheckpoint.dispose();if(finishCheckpoint?.alive)finishCheckpoint.dispose();disposeVm();};
+  vm.dispose=()=>{cancelTimeouts();for(const url of objectURLs.keys())URL.revokeObjectURL(url);objectURLs.clear();objectURLBytes=0;for(const hook of[beginCheckpoint,finishCheckpoint,taskCount,runTask])if(hook?.alive)hook.dispose();disposeVm();};
   let nestedCpu=0,creditedWait=0;
   vm.runtime.setMemoryLimit(128 * 1024 * 1024);
   vm.runtime.setMaxStackSize(512 * 1024);
   let deadline = performance.now() + 2000;
+  let interrupted=false;
+  const throwIfInterrupted=()=>{if(interrupted)throw Error('Plugin execution interrupted');};
   /** @type {number|undefined} */ let pausedAt;
   /** @type {number|undefined} */ let executingAt;
   let pausedExecution = 0;
   // Exclude trusted idle waiting, never time spent executing guest jobs.
-  vm.runtime.setInterruptHandler(
-    () =>
-      performance.now() >=
+  vm.runtime.setInterruptHandler(() => {
+    if(performance.now() >=
       deadline +
         (pausedAt === undefined
           ? 0
-          : (executingAt ?? pausedAt) - pausedAt - pausedExecution),
-  );
+          : (executingAt ?? pausedAt) - pausedAt - pausedExecution))interrupted=true;
+    return interrupted;
+  });
   /** @template T @param {()=>T} run @returns {T} */
   const execute = (run) => {
+    throwIfInterrupted();
     if (executingAt !== undefined) return run();
     executingAt = performance.now();
     try {
-      return run();
+      const result=run();
+      // QuickJS can turn an interrupt inside a Promise job into a rejection.
+      // Retire the VM even if guest code catches it or the job queue reports success.
+      if(interrupted){
+        const owned=/** @type {any} */(result);
+        if(owned?.dispose)owned.dispose();
+        else if(owned?.error?.dispose)owned.error.dispose();
+        else if(owned?.value?.dispose)owned.value.dispose();
+        throwIfInterrupted();
+      }
+      return result;
     } finally {
       if (pausedAt !== undefined)
         pausedExecution += performance.now() - executingAt;
@@ -74,39 +101,91 @@ export function createPluginVm(engine, snapshot, eventTimeOrigin = performance.t
     }
     return result.value;
   };
+  const hasGuestDomTasks=(checkpoint=false)=>{const hook=taskCount;if(!hook)return false;const value=execute(()=>vm.unwrapResult(vm.callFunction(hook,vm.undefined,checkpoint?vm.true:vm.false)));try{return vm.getNumber(value)>0;}finally{value.dispose();}};
+  const hasDomTasks=(checkpoint=false)=>hasGuestDomTasks(checkpoint)||!checkpoint&&readyTimeout()!==undefined;
+  const executeDomTask=()=>{if(hasGuestDomTasks()){const hook=runTask;if(!hook)throw Error('DOM tasks are unavailable');execute(()=>vm.unwrapResult(vm.callFunction(hook,vm.undefined))).dispose();}else{const id=readyTimeout();if(id!==undefined)executeTimeout(id).dispose();}};
+  /** @param {any} error */
+  const rejectInitialization=(error)=>{
+    try {
+      vm.dispose();
+    } catch (cleanup) {
+      // Keep the original initialization failure observable. The caller owns
+      // this isolated worker and must retire it; a failed VM is never reused.
+      if (!(error instanceof Error))
+        error = new Error(String(error), { cause: error });
+      Object.defineProperty(error, "cleanupError", {
+        value: (cleanup instanceof Error ? cleanup.message : String(cleanup)).slice(0, 8192),
+      });
+    }
+    throw error;
+  };
   try {
-    const installCheckpoints=vm.newFunction('installEventCheckpoints',(begin,finish)=>{
-      if(beginCheckpoint||finishCheckpoint||vm.typeof(begin)!=='function'||vm.typeof(finish)!=='function')throw Error('Invalid Event checkpoint hooks');
-      beginCheckpoint=begin.dup();finishCheckpoint=finish.dup();
+    const installCheckpoints=vm.newFunction('installEventCheckpoints',(begin,finish,count,task)=>{
+      if(beginCheckpoint||finishCheckpoint||[begin,finish,count,task].some(hook=>vm.typeof(hook)!=='function'))throw Error('Invalid Event checkpoint hooks');
+      beginCheckpoint=begin.dup();finishCheckpoint=finish.dup();taskCount=count.dup();runTask=task.dup();
       return vm.undefined;
     });
     try{vm.setProp(vm.global,'__pluginInstallEventCheckpoints',installCheckpoints);}finally{installCheckpoints.dispose();}
     // Capture a clock-only host primitive before package code runs. The private
     // closure performs no RPC and grants no DOM/helper access during loading.
+    const scheduleTimeout=vm.newFunction('scheduleTimeout',(callback,milliseconds)=>{
+      const delay=vm.getNumber(milliseconds);if(vm.typeof(callback)!=='function'||!Number.isFinite(delay)||delay<0||delay>Number.MAX_SAFE_INTEGER||Math.trunc(delay)!==delay)throw Error('Invalid timeout task');
+      if(timeouts.size>=128)throw Error('Plugin timeout task limit exceeded');
+      const id=++timeoutId,record={handle:callback.dup(),owner:0,at:performance.now()+delay,ready:false,timer:/** @type {ReturnType<typeof setTimeout>|undefined} */(undefined)};timeouts.set(id,record);
+      try{record.owner=taskHooks?.capture(id)??0;const fire=()=>{if(!timeouts.has(id))return;const remaining=record.at-performance.now();if(remaining>0){record.timer=setTimeout(fire,Math.min(remaining,2147483647));return;}record.ready=true;taskHooks?.ready(id);};record.timer=setTimeout(fire,Math.min(delay,2147483647));return vm.undefined;}catch(error){cancelTimeout(id);throw error;}
+    });
+    try{vm.setProp(vm.global,'__pluginScheduleTimeout',scheduleTimeout);}finally{scheduleTimeout.dispose();}
     const eventClock = vm.newFunction("eventClock", () =>
       vm.newNumber(Math.max(0, performance.timeOrigin - eventTimeOrigin + performance.now())),
     );
     try { vm.setProp(vm.global, "__pluginEventClock", eventClock); }
     finally { eventClock.dispose(); }
+    const readBlobSync=vm.newFunction('readBlobSync',(value,length)=>{
+      const url=vm.getString(value),size=vm.getNumber(length);if(!objectURLs.has(url)||!Number.isSafeInteger(size)||size<0||size>128*1024*1024)throw Error('Invalid owned synchronous File read');
+      const started=performance.now();try{const xhr=new XMLHttpRequest();xhr.open('GET',url,false);xhr.responseType='arraybuffer';xhr.timeout=4000;xhr.send();if(xhr.status!==200||!(xhr.response instanceof ArrayBuffer)||xhr.response.byteLength!==size)throw Error('Owned File could not be read');return vm.newArrayBuffer(xhr.response);}finally{const elapsed=performance.now()-started;creditedWait+=elapsed;if(pausedAt===undefined)deadline+=elapsed;else pausedExecution-=elapsed;}
+    });
+    try{vm.setProp(vm.global,'__pluginReadBlobSync',readBlobSync);}finally{readBlobSync.dispose();}
+    const decodeFileText=vm.newFunction('decodeFileText',(buffer,label)=>{
+      const bytes=vm.getArrayBuffer(buffer);
+      try{
+        // shortcut: Chromium ignores MIME charset, recalibrate when another engine is supported.
+        const raw=vm.typeof(label)==='undefined'?'utf-8':vm.getString(label);let encoding;
+        try{encoding=new TextDecoder(raw).encoding;}catch{encoding='utf-8';}
+        const data=bytes.value;
+        if(data[0]===0xef&&data[1]===0xbb&&data[2]===0xbf)encoding='utf-8';
+        else if(data[0]===0xff&&data[1]===0xfe)encoding='utf-16le';
+        else if(data[0]===0xfe&&data[1]===0xff)encoding='utf-16be';
+        // QuickJS newString uses a C string; JSON preserves embedded NULs.
+        return vm.newString(JSON.stringify(new TextDecoder(encoding??'utf-8').decode(data)));
+      }finally{bytes.dispose();}
+    });
+    try{vm.setProp(vm.global,'__pluginDecodeFileText',decodeFileText);}finally{decodeFileText.dispose();}
+    const createURL=vm.newFunction('createObjectURL',(buffer,type)=>{const bytes=vm.getArrayBuffer(buffer);try{assertObjectURLCapacity(bytes.value.byteLength);const url=URL.createObjectURL(new Blob([new Uint8Array(bytes.value)],{type:vm.getString(type)}));adoptObjectURL(url,bytes.value.byteLength);return vm.newString(url);}finally{bytes.dispose();}});
+    const revokeURL=vm.newFunction('revokeObjectURL',url=>{revokeObjectURL(vm.getString(url));return vm.undefined;});
+    try{vm.setProp(vm.global,'__pluginCreateObjectURL',createURL);vm.setProp(vm.global,'__pluginRevokeObjectURL',revokeURL);}finally{createURL.dispose();revokeURL.dispose();}
     // Install realm-local collection reflection before modules can capture it.
     // These closures grant no DOM access until the callback runtime binds its
     // guarded transport; initialization itself performs no host operations.
     evaluate(`(() => {
-      const now=globalThis.__pluginEventClock;delete globalThis.__pluginEventClock;
-      const dom=(${createPluginGuestDom.toString()})((method,args)=>__pluginValueCodec.decode(__pluginDomSync(__pluginValueCodec.encode({method,args}))),callback=>__pluginRetainDomCallback(callback),now);
-      const {beginEventCheckpoint,finishEventCheckpoint,...publicDom}=dom;
-      __pluginInstallEventCheckpoints(beginEventCheckpoint,finishEventCheckpoint);delete globalThis.__pluginInstallEventCheckpoints;
+      const parseFileText=JSON.parse;
+      const now=globalThis.__pluginEventClock;delete globalThis.__pluginEventClock;const decodeFileText=globalThis.__pluginDecodeFileText;delete globalThis.__pluginDecodeFileText;const readBlobSync=globalThis.__pluginReadBlobSync;delete globalThis.__pluginReadBlobSync;const createURL=globalThis.__pluginCreateObjectURL,revokeURL=globalThis.__pluginRevokeObjectURL,scheduleTimeout=globalThis.__pluginScheduleTimeout;delete globalThis.__pluginScheduleTimeout;delete globalThis.__pluginCreateObjectURL;delete globalThis.__pluginRevokeObjectURL;
+      const dom=(${createPluginGuestDom.toString()})((method,args)=>__pluginValueCodec.decode(__pluginDomSync(__pluginValueCodec.encode({method,args}))),callback=>__pluginRetainDomCallback(callback),now,${JSON.stringify(pluginEventHandlerTypes)},(buffer,label)=>parseFileText(decodeFileText(buffer,label)),createURL,revokeURL,scheduleTimeout,readBlobSync);
+      const {beginEventCheckpoint,finishEventCheckpoint,hasDomTasks,executeDomTask,...publicDom}=dom;
+      __pluginInstallEventCheckpoints(beginEventCheckpoint,finishEventCheckpoint,hasDomTasks,executeDomTask);delete globalThis.__pluginInstallEventCheckpoints;
       Object.defineProperty(globalThis,'__pluginGuestDom',{value:Object.freeze(publicDom),writable:false,configurable:false});
-      for(const key of ['document','window','self','Event','UIEvent','MouseEvent','PointerEvent','WheelEvent','KeyboardEvent','FocusEvent','InputEvent','CustomEvent','Node','CharacterData','Text','Comment','HTMLElement','DocumentFragment','NodeList','HTMLCollection','DOMTokenList','DOMStringMap','DOMException'])Object.defineProperty(globalThis,key,{value:dom[key],writable:false,configurable:false});
+      for(const key of ['document','window','self','AbstractRange','StaticRange','DataTransfer','DataTransferItem','DataTransferItemList','EventTarget','FileReader','FileReaderSync','AbortController','AbortSignal','Event','UIEvent','MouseEvent','DragEvent','PointerEvent','WheelEvent','KeyboardEvent','FocusEvent','InputEvent','CompositionEvent','TextEvent','AnimationEvent','TransitionEvent','DeviceOrientationEvent','DeviceMotionEvent','DeviceMotionEventAcceleration','DeviceMotionEventRotationRate','BeforeUnloadEvent','CloseEvent','ProgressEvent','HashChangeEvent','ErrorEvent','MessageEvent','StorageEvent','SubmitEvent','CustomEvent','Node','CharacterData','Text','Comment','HTMLElement','DocumentFragment','FileList','NodeList','HTMLCollection','DOMTokenList','DOMStringMap','DOMException'])Object.defineProperty(globalThis,key,{value:dom[key],writable:false,configurable:false});
     })();`, "plugin-dom-bootstrap.js").dispose();
+    const endings=vm.newString(new Blob(['\n'],{endings:'native'}).size===2?'\r\n':'\n');
+    try{vm.setProp(vm.global,'__pluginNativeEndings',endings);}finally{endings.dispose();}
     evaluate(pluginBufferSource, "plugin-buffer.js").dispose();
     vm.runtime.setModuleLoader(
       (name) => {
         if(name==='insomnium:url')return 'export const {URL,URLSearchParams,Url,parse,format,resolve,resolveObject}=globalThis.__pluginUrlModule;export default globalThis.__pluginUrlModule;';
-        if(name==='insomnium:buffer')return 'export const {Buffer,SlowBuffer,INSPECT_MAX_BYTES,kMaxLength}=globalThis.__pluginBufferModule;export default globalThis.__pluginBufferModule;';
+        if(name==='insomnium:buffer')return 'export const {Buffer,SlowBuffer,INSPECT_MAX_BYTES,kMaxLength,Blob,File}=globalThis.__pluginBufferModule;export default globalThis.__pluginBufferModule;';
         if(name==='insomnium:events')return 'export const {EventEmitter,once,listenerCount,defaultMaxListeners}=globalThis.__pluginEventsModule;export default globalThis.__pluginEventsModule;';
         if(name==='insomnium:string_decoder')return 'export const {StringDecoder}=globalThis.__pluginStringDecoderModule;export default globalThis.__pluginStringDecoderModule;';
         if(name==='insomnium:stream')return 'export const {Stream,Readable,Writable,Duplex,Transform,PassThrough,pipeline,finished,compose,addAbortSignal,destroy,isDestroyed,isDisturbed,isErrored,isReadable,isWritable,getDefaultHighWaterMark,setDefaultHighWaterMark,promises}=globalThis.__pluginStreamModule;export default globalThis.__pluginStreamModule;';
+        if(name==='insomnium:stream/web')return 'export const {ReadableStream,ReadableStreamDefaultReader,ReadableStreamBYOBReader,ReadableStreamDefaultController,ReadableByteStreamController,ReadableStreamBYOBRequest,WritableStream,WritableStreamDefaultWriter,WritableStreamDefaultController,TransformStream,TransformStreamDefaultController,ByteLengthQueuingStrategy,CountQueuingStrategy}=globalThis.__pluginWebStreamsModule;export default globalThis.__pluginWebStreamsModule;';
         if(name==='insomnium:stream/promises')return 'export const {pipeline,finished}=globalThis.__pluginStreamPromises;export default globalThis.__pluginStreamPromises;';
         const format = pluginModuleFormat(files, name);
         if (format === "module") return files[name].replace(/^\uFEFF/, "");
@@ -125,6 +204,7 @@ export function createPluginVm(engine, snapshot, eventTimeOrigin = performance.t
         if(id==='insomnium:events')return globalThis.__pluginEventsModule;
         if(id==='insomnium:string_decoder')return globalThis.__pluginStringDecoderModule;
         if(id==='insomnium:stream')return globalThis.__pluginStreamModule;
+        if(id==='insomnium:stream/web')return globalThis.__pluginWebStreamsModule;
         if(id==='insomnium:stream/promises')return globalThis.__pluginStreamPromises;
         const filename = '/' + id;
         const attach = child => {
@@ -171,6 +251,7 @@ export function createPluginVm(engine, snapshot, eventTimeOrigin = performance.t
         }
       };
     })();`).dispose();
+    const ready=(async()=>{
     if (snapshot.format === "module") {
       const initialization = evaluate(
         `import * as exports from ${JSON.stringify("./" + snapshot.entry)};globalThis.__pluginExports=exports;`,
@@ -181,6 +262,7 @@ export function createPluginVm(engine, snapshot, eventTimeOrigin = performance.t
         // Module evaluation can finish only after its original native jobs.
         // Initialization remains outside all callback/helper owner scopes.
         while (true) {
+          if(performance.now()>=deadline)throw Error("Plugin module initialization interrupted");
           const state = vm.getPromiseState(initialization);
           if (state.type === "rejected") {
             try { const error = vm.dump(state.error);throw Error(error?.message || String(error) || "Plugin module initialization failed"); }
@@ -189,7 +271,12 @@ export function createPluginVm(engine, snapshot, eventTimeOrigin = performance.t
           const ready = state.type === "fulfilled";
           if (ready && !state.notAPromise) state.value.dispose();
           if (!vm.runtime.hasPendingJob()) {
-            if (!ready) throw Error("Plugin module initialization is pending without executable guest jobs");
+            if(hasDomTasks()){executeDomTask();continue;}
+            if(!ready){
+              const at=Math.min(...[...timeouts.values()].filter(record=>record.owner===0).map(record=>record.at));
+              if(!Number.isFinite(at))throw Error('Plugin module initialization is pending without executable guest jobs');
+              await new Promise(resolve=>setTimeout(resolve,Math.max(1,Math.min(at-performance.now(),deadline-performance.now()))));continue;
+            }
             break;
           }
           // Tiny jobs can finish before QuickJS next polls its interrupt hook.
@@ -206,10 +293,27 @@ export function createPluginVm(engine, snapshot, eventTimeOrigin = performance.t
       evaluate(
         `globalThis.__pluginExports=globalThis.__requirePluginModule(${JSON.stringify(snapshot.entry)});`,
       ).dispose();
+      while(vm.runtime.hasPendingJob()||hasDomTasks()){
+        if(performance.now()>=deadline)throw Error('Plugin module initialization interrupted');
+        if(!vm.runtime.hasPendingJob()){executeDomTask();continue;}
+        const jobs=execute(()=>vm.runtime.executePendingJobs(1));if(jobs.error){try{throw Error(vm.dump(jobs.error)?.message||'Plugin module initialization job failed');}finally{jobs.error.dispose();}}
+      }
     }
+    })().catch(rejectInitialization);
     return {
+      ready,
+      cancelTimeout,
+      cancelTimeouts,
+      readyTimeouts:()=>[...timeouts].filter(([,record])=>record.ready).map(([id])=>id),
+      executeTimeout,
       vm,
       evaluate,
+      hasDomTasks,
+      executeDomTask,
+      assertObjectURLCapacity,
+      adoptObjectURL,
+      /** @param {string[]} urls */
+      releaseObjectURLs(urls){for(const url of urls)revokeObjectURL(url,false);},
       beginDomEventCheckpoint(){const hook=beginCheckpoint;if(!hook)throw Error('Event checkpoint is unavailable');execute(()=>vm.unwrapResult(vm.callFunction(hook,vm.undefined))).dispose();},
       finishDomEventCheckpoint(){const hook=finishCheckpoint;if(!hook)throw Error('Event checkpoint is unavailable');execute(()=>vm.unwrapResult(vm.callFunction(hook,vm.undefined))).dispose();},
       /** Keep reentered guest execution charged even inside an outer host wait.
@@ -217,6 +321,7 @@ export function createPluginVm(engine, snapshot, eventTimeOrigin = performance.t
       executeNativeNested(run){const started=performance.now(),beforeCpu=nestedCpu,beforeWait=creditedWait;try{return run();}finally{nestedCpu+=Math.max(0,performance.now()-started-(creditedWait-beforeWait)-(nestedCpu-beforeCpu));}},
       beginHostWait:()=>({started:performance.now(),nestedCpu,creditedWait}),
       resetDeadline: (budget = 2000) => {
+        throwIfInterrupted();
         if(![2000,5000].includes(budget))throw Error("Invalid plugin CPU budget");
         deadline = performance.now() + budget;
         pausedAt = undefined;
@@ -237,6 +342,7 @@ export function createPluginVm(engine, snapshot, eventTimeOrigin = performance.t
       /** @param {number} count */
       executePendingJobs: (count) =>
         execute(() => vm.runtime.executePendingJobs(count)),
+      throwIfInterrupted,
       /** Bounded host waiting is not guest execution; this hook stays in worker.
        * @param {{started:number,nestedCpu:number,creditedWait:number}} wait */
       accountHostWait(wait) {
@@ -248,23 +354,11 @@ export function createPluginVm(engine, snapshot, eventTimeOrigin = performance.t
         else pausedExecution -= milliseconds;
       },
       abortExecution() {
+        interrupted=true;
         deadline = -Infinity;
       },
     };
-  } catch (error) {
-    try {
-      vm.dispose();
-    } catch (cleanup) {
-      // Keep the original initialization failure observable. The caller owns
-      // this isolated worker and must retire it; a failed VM is never reused.
-      if (!(error instanceof Error))
-        error = new Error(String(error), { cause: error });
-      Object.defineProperty(error, "cleanupError", {
-        value: (cleanup instanceof Error ? cleanup.message : String(cleanup)).slice(0, 8192),
-      });
-    }
-    throw error;
-  }
+  } catch (error) { return rejectInitialization(error); }
 }
 
 /** @param {ReturnType<typeof createPluginVm>} loaded @param {string} name */
@@ -276,38 +370,7 @@ export function inspectPluginVm(loaded, name) {
   evaluate(
     `globalThis.__pluginMetadataCodec=(${createPluginValueCodec.toString()})();`,
   ).dispose();
-  const result = evaluate(`__pluginMetadataCodec.encode((() => {
-      const exports = globalThis.__pluginExports;
-      if (!exports || (typeof exports !== 'object' && typeof exports !== 'function')) throw Error('Plugin exports must be an object');
-      const names = ['templateTags','requestHooks','responseHooks','themes','requestGroupActions','requestActions','workspaceActions','documentActions'];
-      const contributions = [];
-      for (const kind of names) {
-        if (exports[kind] === undefined) continue;
-        const values = exports[kind];
-        if (!Array.isArray(values) || values.length > 64) throw Error('Invalid contribution array: ' + kind);
-        const items = values.map((value, index) => {
-          if (kind.endsWith('Hooks')) { if (typeof value !== 'function') throw Error('Hook must be a function: ' + kind); return { index }; }
-          if (!value || typeof value !== 'object') throw Error('Invalid contribution: ' + kind);
-          if (kind === 'templateTags') {
-            const definition=__pluginTagMetadata.inspect(value);
-            const name=definition.name,label=definition.displayName??definition.label??name;
-            if(label.length>1024)throw Error('Contribution label exceeds its limit');
-            return {index,name,label,definition};
-          }
-          if (kind.endsWith('Actions') && typeof value.action !== 'function') throw Error('Action requires an action function: ' + kind);
-          const name = typeof value.name === 'string' ? value.name : '';
-          const label = typeof value.displayName === 'string' ? value.displayName : typeof value.label === 'string' ? value.label : name;
-          if (name.length > 256 || label.length > 1024) throw Error('Contribution label exceeds its limit');
-          if (kind === 'themes') {
-            if (!name || !value.theme || typeof value.theme !== 'object' || Array.isArray(value.theme)) throw Error('Theme requires a name and theme object');
-            return { index, name, label, definition: { name, displayName: label, theme: value.theme } };
-          }
-          return { index, name, label, ...(kind==='documentActions'?{hideAfterClick:value.hideAfterClick===true}:{}) };
-        });
-        contributions.push({ kind, count: items.length, items });
-      }
-      return { contributions, unknownExports: Object.keys(exports).filter(name => !names.includes(name)).slice(0,64) };
-    })())`);
+  const result = evaluate(`__pluginMetadataCodec.encode((${inspectPluginMetadata.toString()})(__pluginExports,__pluginTagMetadata))`);
   try {
     const json = vm.getString(result);
     if (json.length > 256 * 1024)
@@ -321,8 +384,9 @@ export function inspectPluginVm(loaded, name) {
 /** Execute a package and retain metadata only; inspection never invokes callbacks.
  * @param {import('quickjs-emscripten-core').QuickJSWASMModule} engine
  * @param {{name:string,entry:string,format:string,files:Record<string,string>}} snapshot */
-export function inspectPluginExportsIsolated(engine, snapshot) {
+export async function inspectPluginExportsIsolated(engine, snapshot) {
   const loaded = createPluginVm(engine, snapshot);
+  await loaded.ready;
   try {
     return inspectPluginVm(loaded, snapshot.name);
   } finally {

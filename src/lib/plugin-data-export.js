@@ -1,5 +1,5 @@
 import {stringify} from 'yaml';
-import {descendants,workspaceFor} from './model.js';
+import {descendants,indexWorkspaces} from './model.js';
 const requestTypes=['request','grpc_request','websocket_request'];
 const extras=['cookie_jar','environment','api_spec','unit_test_suite','unit_test','proto_file','proto_directory','websocket_payload'];
 /** Validate options and select legacy export documents without mutating data.
@@ -11,18 +11,20 @@ export function pluginInsomniaExportSelection(data,args){
   const format=options.format||'json',includePrivate=Boolean(options.includePrivate);
   if(typeof format!=='string'||!['json','yaml'].includes(format.toLowerCase()))throw Error('Invalid export format. Must be "json" or "yaml"');
   const resources=data.resources;
+  const ancestry=indexWorkspaces(resources),byId=new Map();
+  for(const resource of resources)if(!byId.has(resource._id))byId.set(resource._id,resource);
   const selected=options.workspace;
   if(selected!==undefined&&(!selected||typeof selected._id!=='string'||!resources.some(r=>r._id===selected._id&&r._type==='workspace')))throw Error('Plugin export workspace no longer exists');
   const workspaces=new Set(resources.filter(r=>r._type==='workspace'&&(!selected||r._id===selected._id)).map(r=>r._id));
   const docs=/** @type {Record<string,any>[]} */([]),seen=new Set(),usedWorkspaces=new Set();
   /** @param {Record<string,any>} resource */
   const add=resource=>{if(!seen.has(resource._id)){seen.add(resource._id);docs.push(resource);if(resource._type==='workspace')usedWorkspaces.add(resource._id);}};
-  for(const request of resources.filter(r=>requestTypes.includes(r._type)&&(!r.isPrivate||includePrivate)&&workspaces.has(workspaceFor(resources,r._id)))){
+  for(const request of resources.filter(r=>requestTypes.includes(r._type)&&(!r.isPrivate||includePrivate)&&workspaces.has(ancestry.get(r._id)))){
     const visited=new Set();let current=/** @type {Record<string,any>|undefined} */(request);
     while(current&&!visited.has(current._id)){
       visited.add(current._id);add(current);
       const parentId=current.parentId;
-      current=resources.find(r=>r._id===parentId);
+      current=byId.get(parentId);
     }
   }
   for(const workspaceId of usedWorkspaces){

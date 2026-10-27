@@ -1,7 +1,7 @@
 //! Independent event transport. Complete event/clipboard acceptance is pending.
 use std::{
     collections::HashMap,
-    sync::Mutex,
+    sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
 use tauri::{
@@ -15,6 +15,7 @@ struct Lease {
     origin: String,
     expires: Instant,
     clipboard: bool,
+    bun: Option<(String, Arc<Mutex<crate::plugin_bun_session::EventPipe>>)>,
 }
 #[derive(Default)]
 pub struct EventTransportState(Mutex<HashMap<String, Lease>>);
@@ -27,6 +28,8 @@ pub struct EventTransportLease {
     clipboard_read_url: Option<String>,
     clipboard_write_url: Option<String>,
     clipboard_clear_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    bun_url: Option<String>,
 }
 
 fn admitted_origin(origin: &str) -> bool {
@@ -35,7 +38,7 @@ fn admitted_origin(origin: &str) -> bool {
         "http://tauri.localhost" | "https://tauri.localhost" | "tauri://localhost"
     )
 }
-fn caller(window: &tauri::WebviewWindow) -> Result<String, String> {
+pub(crate) fn caller(window: &tauri::WebviewWindow) -> Result<String, String> {
     let origin = window
         .url()
         .map_err(|e| e.to_string())?
@@ -52,9 +55,16 @@ pub fn begin_plugin_event_transport(
     state: tauri::State<EventTransportState>,
     ttl_ms: u64,
     clipboard_access: Option<bool>,
+    bun_session: Option<String>,
 ) -> Result<EventTransportLease, String> {
     let origin = caller(&window)?;
-    if !(100..=20_000).contains(&ttl_ms) {
+    if !(100..=20_000).contains(&ttl_ms)
+        || bun_session.as_ref().is_some_and(|id| {
+            id.is_empty()
+                || id.len() > 128
+                || !id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
+        })
+    {
         return Err("Invalid event transport lifetime".into());
     }
     let mut leases = state
@@ -73,6 +83,12 @@ pub fn begin_plugin_event_transport(
             origin,
             expires: Instant::now() + Duration::from_millis(ttl_ms),
             clipboard: clipboard_access == Some(true),
+            bun: bun_session.as_ref().map(|id| {
+                (
+                    id.clone(),
+                    Arc::new(Mutex::new(crate::plugin_bun_session::EventPipe::default())),
+                )
+            }),
         },
     );
     let base = if cfg!(any(target_os = "windows", target_os = "android")) {
@@ -81,6 +97,7 @@ pub fn begin_plugin_event_transport(
         "insomnium-event://localhost"
     };
     Ok(EventTransportLease {
+        bun_url: bun_session.map(|_| format!("{base}/bun?token={token}")),
         info_url: format!("{base}/info?token={token}"),
         desktop_url: format!("{base}/desktop?token={token}"),
         clipboard_read_url: clipboard_access
@@ -175,7 +192,12 @@ fn process_request(
         .unwrap_or("");
     let result = (|| -> Result<serde_json::Value, String> {
         if !matches!(request.method().as_str(), "GET" | "POST")
-            || request.body().len() > 1024 * 1024
+            || request.body().len()
+                > if request.uri().path() == "/bun" {
+                    2 * 1024 * 1024 + 65536
+                } else {
+                    1024 * 1024
+                }
             || label != "main"
             || !admitted_origin(origin)
         {
@@ -201,15 +223,28 @@ fn process_request(
             }
             Ok(lease.clipboard)
         };
-        let clipboard = {
+        let (clipboard, bun) = {
             let leases = state
                 .0
                 .lock()
                 .map_err(|_| "Event transport lock poisoned")?;
-            validate(&leases)?
+            (
+                validate(&leases)?,
+                leases.get(token).and_then(|lease| lease.bun.clone()),
+            )
         };
         let get = request.method() == "GET" && request.body().is_empty();
         let value = match request.uri().path() {
+            "/bun" if request.method() == "POST" => {
+                let (session, pipe) = bun.ok_or("Bun event capability is unavailable")?;
+                let command = serde_json::from_slice(request.body()).map_err(|_| "Invalid Bun event payload")?;
+                if let crate::plugin_bun_session::EventRequest::FileReply { request, wire, error } = command {
+                    crate::plugin_bun_session::reply_file_helper(&app.state::<crate::plugin_inspection::InspectionState>(), &session, request, wire, error)
+                } else {
+                    let mut pipe = pipe.lock().map_err(|_| "Bun event state unavailable")?;
+                    pipe.request(&app.state::<crate::plugin_inspection::InspectionState>(), &session, command)
+                }
+            }
             "/info" if get => Ok(
                 serde_json::json!({"version": app.package_info().version.to_string(), "platform": if cfg!(target_os="windows") {"win32"} else if cfg!(target_os="macos") {"darwin"} else {std::env::consts::OS}}),
             ),
