@@ -347,6 +347,97 @@ export function schemaResourceEvidence() {
       }),
       "dialect is not supported",
     );
+    const unsupported = "https://unknown.example.test/dialect";
+    const supported = "https://json-schema.org/draft/2020-12/schema";
+    refuse(
+      name("ordinary schema unknown dialect"),
+      make(version, { $schema: unsupported, ...value() }),
+      "dialect is not supported",
+    );
+    const inherited = make(version, value());
+    inherited.jsonSchemaDialect = unsupported;
+    refuse(
+      name("ordinary schema unknown document dialect"),
+      inherited,
+      "dialect is not supported",
+    );
+    for (const [label, declaration] of [
+      ["number", 7],
+      ["null", null],
+      ["boolean", false],
+      ["empty", ""],
+      ["relative", "dialect.json"],
+    ])
+      refuse(
+        name("ordinary schema malformed dialect " + label),
+        make(version, { $schema: declaration, ...value() }),
+        "absolute URI string",
+      );
+    verify(
+      name("ordinary schema supported dialect"),
+      make(version, { $schema: supported, ...value("ordinary") }),
+      "ordinary",
+    );
+    verify(
+      name("literal example schema key"),
+      make(version, { type: "object", example: { $schema: 7 } }),
+      { $schema: 7 },
+    );
+    const override = make(version, {
+      $schema: supported,
+      ...value("override"),
+    });
+    override.jsonSchemaDialect = unsupported;
+    verify(
+      name("schema overrides unsupported document dialect"),
+      override,
+      "override",
+    );
+    const noWalk = analyzeSpec({
+      contents: JSON.stringify(
+        make(version, { $schema: unsupported, $ref: "missing.json#/No" }),
+      ),
+    });
+    const noWalkErrors = noWalk.diagnostics.filter(
+      (d) => d.severity === "error",
+    );
+    if (
+      noWalk.valid ||
+      noWalkErrors.length !== 1 ||
+      !noWalkErrors[0].message.includes("dialect is not supported")
+    )
+      throw Error(
+        "Unsupported dialect was traversed as the default vocabulary",
+      );
+    checks.push({
+      name: name("unknown vocabulary ref is not followed"),
+      passed: true,
+    });
+    const attachedContents = JSON.stringify({ $schema: 7, ...value() });
+    const attached = analyzeSpec({
+      fileName: base + "/api.yaml",
+      contents: JSON.stringify(make(version, ref("schema.json"))),
+      files: [{ name: "schema.json", contents: attachedContents }],
+    });
+    const declarationError = attached.diagnostics.find((d) =>
+      d.message.includes("absolute URI string"),
+    );
+    if (
+      attached.valid ||
+      declarationError?.source !== base + "/schema.json" ||
+      JSON.stringify(declarationError?.sourcePath) !==
+        JSON.stringify(["$schema"]) ||
+      !declarationError.range ||
+      attachedContents.slice(
+        declarationError.range.start.character,
+        declarationError.range.end.character,
+      ) !== "7"
+    )
+      throw Error("Attached dialect error lost lexical source/range");
+    checks.push({
+      name: name("attached ordinary dialect source/range"),
+      passed: true,
+    });
     refuse(
       name("nonstring identifier"),
       make(version, { $id: 7 }),

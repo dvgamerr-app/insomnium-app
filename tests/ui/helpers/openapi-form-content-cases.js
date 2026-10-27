@@ -169,3 +169,8 @@ export const openApiFormContentCases =
         "color=%7B%22a%22%3A%5B1%2C%7B%22x%22%3A%22comma%2C+quote%5C%22%22%7D%5D%7D",
     },
   ]);
+
+export const openApiFormSuffixCases = /** @type {Array<Record<string,any>>} */([
+  {id:'suffix-utf8',content:true,contentType:'Application/Problem+JSON; charset="UTF-8"; note="a,b;c"',schema:{type:'object'},value:{n:1},expected:'color=%7B%22n%22%3A1%7D',editText:'{"n":9007199254740993,"e":1e+3,"s":"\\u0061"}',editExpected:'color=%7B%22n%22%3A9007199254740993%2C%22e%22%3A1e%2B3%2C%22s%22%3A%22%5Cu0061%22%7D'},
+  ...[['utf16','application/problem+json; charset=UTF-16'],['duplicate','application/problem+json; charset=UTF-8; charset=UTF-8']].map(([id,contentType])=>({id:'suffix-'+id,content:true,contentType,schema:{type:'object'},value:{n:1},expected:null,refusal:'Review form serialization for color'}))
+]);

@@ -100,6 +100,60 @@ const fields = {
 };
 export const schemaReferenceFields = Object.freeze(fields.schema);
 
+/** Fields with semantic effect on a Reference Object; null for other Objects.
+ * @param {string} kind @param {boolean} legacy */
+export function referenceObjectFields(kind, legacy) {
+  if (
+    !(kind === "schema" && legacy) &&
+    ![
+      "parameter",
+      "header",
+      "requestBody",
+      "response",
+      "example",
+      "link",
+      "securityScheme",
+      "callback",
+    ].includes(kind)
+  )
+    return null;
+  const retained = new Set(["$ref"]);
+  if (!legacy && kind !== "callback") retained.add("description");
+  if (!legacy && kind === "example") retained.add("summary");
+  return retained;
+}
+
+/** Identify declared OpenAPI object positions without interpreting payload keys.
+ * @param {any} root @param {(string|number)[]} path */
+export function apiObjectRole(root, path) {
+  let kind = "openapi",
+    node = root;
+  for (const part of path) {
+    const key = String(part);
+    if (kind === "schemaOrArray")
+      kind = Array.isArray(node) ? "array:schema" : "schema";
+    if (kind.startsWith("array:")) kind = kind.slice(6);
+    else if (kind.startsWith("map:")) kind = kind.slice(4);
+    else if (kind === "paths")
+      kind = key.startsWith("/") ? "pathItem" : "other";
+    else if (kind === "responses")
+      kind = key.startsWith("x-") ? "other" : "response";
+    else if (kind === "callback" && !Object.hasOwn(node || {}, "$ref"))
+      kind = key.startsWith("x-") ? "other" : "pathItem";
+    else
+      kind =
+        /** @type {Record<string,Record<string,string>>} */ (fields)[kind]?.[
+          key
+        ] || "other";
+    node = node?.[key];
+  }
+  return kind === "schemaOrArray"
+    ? Array.isArray(node)
+      ? "array:schema"
+      : "schema"
+    : kind;
+}
+
 /** Rename in place without changing JSON member order or invoking __proto__ setters.
  * @param {Record<string,any>} node @param {string} from @param {string} to */
 function rename(node, from, to) {
@@ -159,12 +213,17 @@ export function prepareApiReferences(files) {
     keys.has(marker) ||
     keys.has(marker + "_origin") ||
     keys.has(marker + "_schema") ||
-    keys.has(marker + "_boolean")
+    keys.has(marker + "_boolean") ||
+    keys.has(marker + "_ignored")
   )
     marker += "_";
   const origin = marker + "_origin";
   const binding = marker + "_schema";
   const booleanMarker = marker + "_boolean";
+  const ignored = marker + "_ignored";
+  const referenceObjects = /** @type {Map<Record<string,any>,Set<string>>} */ (
+    new Map()
+  );
   const booleans = /** @type {Map<Record<string,any>,boolean>} */ (new Map());
   /** @param {boolean} value @param {Record<string,any>} parent @param {string} key @param {{file:string,path:string[]}} location */
   function boxBoolean(value, parent, key, location) {
@@ -383,63 +442,79 @@ export function prepareApiReferences(files) {
       if (Array.isArray(node)) continue;
       allowed.add(node);
       if (kind === "schema" && dialect !== "legacy") {
-        dialect = String(node.$schema || dialect);
+        if (Object.hasOwn(node, "$schema")) {
+          let valid = typeof node.$schema === "string";
+          try {
+            if (valid) new URL(node.$schema);
+          } catch {
+            valid = false;
+          }
+          if (!valid) {
+            report(
+              "Schema $schema must be an absolute URI string.",
+              node,
+              "$schema",
+            );
+            allowed.delete(node);
+            continue;
+          }
+          dialect = node.$schema;
+        }
+        if (!supportedDialect(dialect)) {
+          report(
+            "Schema resource dialect is not supported: " + dialect,
+            node,
+            Object.hasOwn(node, "$schema") ? "$schema" : undefined,
+          );
+          // Unknown vocabularies cannot safely be walked as the default one.
+          // Literal protection also prevents the parser from following $ref.
+          allowed.delete(node);
+          continue;
+        }
         if (
           Object.hasOwn(node, "$id") ||
           Object.hasOwn(node, "$anchor") ||
           Object.hasOwn(node, "$dynamicAnchor") ||
           Object.hasOwn(node, "$dynamicRef")
         ) {
-          if (!supportedDialect(dialect))
-            report(
-              "Schema resource dialect is not supported: " + dialect,
-              node,
-              Object.hasOwn(node, "$schema") ? "$schema" : undefined,
-            );
-          else {
-            if (Object.hasOwn(node, "$id")) {
-              if (typeof node.$id !== "string")
+          if (Object.hasOwn(node, "$id")) {
+            if (typeof node.$id !== "string")
+              report("Schema $id must be a URI-reference string.", node, "$id");
+            else {
+              const uri = new URL(node.$id, base);
+              if (uri.hash)
                 report(
-                  "Schema $id must be a URI-reference string.",
+                  "Schema $id must not contain a non-empty fragment: " +
+                    node.$id,
                   node,
                   "$id",
                 );
               else {
-                const uri = new URL(node.$id, base);
-                if (uri.hash)
-                  report(
-                    "Schema $id must not contain a non-empty fragment: " +
-                      node.$id,
-                    node,
-                    "$id",
-                  );
-                else {
-                  uri.hash = "";
-                  base = uri.href;
-                  register(resources, base, node);
-                }
+                uri.hash = "";
+                base = uri.href;
+                register(resources, base, node);
               }
             }
-            for (const keyword of ["$anchor", "$dynamicAnchor"])
-              if (Object.hasOwn(node, keyword)) {
-                if (
-                  typeof node[keyword] !== "string" ||
-                  !/^[A-Za-z_][-A-Za-z0-9._]*$/.test(node[keyword])
-                )
-                  report(
-                    "Schema " +
-                      keyword +
-                      " must be a valid plain-name identifier.",
-                    node,
-                    keyword,
-                  );
-                else {
-                  register(anchors, base + "#" + node[keyword], node);
-                  if (keyword === "$dynamicAnchor")
-                    register(dynamicAnchors, base + "#" + node[keyword], node);
-                }
-              }
           }
+          for (const keyword of ["$anchor", "$dynamicAnchor"])
+            if (Object.hasOwn(node, keyword)) {
+              if (
+                typeof node[keyword] !== "string" ||
+                !/^[A-Za-z_][-A-Za-z0-9._]*$/.test(node[keyword])
+              )
+                report(
+                  "Schema " +
+                    keyword +
+                    " must be a valid plain-name identifier.",
+                  node,
+                  keyword,
+                );
+              else {
+                register(anchors, base + "#" + node[keyword], node);
+                if (keyword === "$dynamicAnchor")
+                  register(dynamicAnchors, base + "#" + node[keyword], node);
+              }
+            }
         }
         schemaBases.set(node, base);
         dialects.set(node, dialect);
@@ -462,6 +537,13 @@ export function prepareApiReferences(files) {
       }
       if (typeof node.$ref === "string") {
         references.push({ node, base, kind, keyword: "$ref", followed: false });
+        // Reference Object siblings are not arbitrary overrides. Modern
+        // Schema and Path Item have their own $ref semantics and stay separate.
+        const retained = referenceObjectFields(kind, dialect === "legacy");
+        if (retained) {
+          referenceObjects.set(node, retained);
+          continue;
+        }
       }
       for (const [key, childKind] of Object.entries(
         fields[/** @type {keyof typeof fields} */ (kind)] || {},
@@ -514,6 +596,7 @@ export function prepareApiReferences(files) {
   // cloneable across the worker boundary; no private keys enter saved resources.
   let evaluation = undefined;
   if (
+    modern ||
     booleans.size ||
     references.some((reference) => reference.keyword === "$dynamicRef")
   ) {
@@ -565,6 +648,23 @@ export function prepareApiReferences(files) {
     });
     for (const [node, id] of ids) node[binding] = id;
   }
+  // Hide ignored fields from Scalar's sibling merge without deleting pointer
+  // targets inside those fields. References below are rewritten through this
+  // private container; it is removed from the resolved view, never saved.
+  for (const [node, retained] of referenceObjects) {
+    const siblings = {};
+    for (const key of Object.keys(node))
+      if (!retained.has(key) && key !== binding) {
+        Object.defineProperty(siblings, key, {
+          value: node[key],
+          enumerable: true,
+          writable: true,
+          configurable: true,
+        });
+        delete node[key];
+      }
+    if (Object.keys(siblings).length) node[ignored] = siblings;
+  }
   for (const node of all)
     if (!allowed.has(node) && Object.hasOwn(node, "$ref"))
       rename(node, "$ref", marker);
@@ -591,6 +691,10 @@ export function prepareApiReferences(files) {
       let target = documents.get(location.file);
       const parts = [];
       for (const key of location.path) {
+        if (target?.[ignored] && Object.hasOwn(target[ignored], key)) {
+          parts.push(ignored);
+          target = target[ignored];
+        }
         const mapped =
           key === "$ref" && target && Object.hasOwn(target, marker)
             ? marker
@@ -611,6 +715,7 @@ export function prepareApiReferences(files) {
     origin,
     binding,
     booleanMarker,
+    ignored,
     evaluation,
     errors: [...new Set(errors)],
     errorDetails,
@@ -618,10 +723,10 @@ export function prepareApiReferences(files) {
 }
 
 /** Restore payload members after parser cloning/resolution, including cyclic schemas.
- * @param {Record<string,any>} root @param {{marker:string,origin:string,binding:string,booleanMarker:string}} protection */
+ * @param {Record<string,any>} root @param {{marker:string,origin:string,binding:string,booleanMarker:string,ignored:string}} protection */
 export function restoreApiReferences(
   root,
-  { marker, origin, binding, booleanMarker },
+  { marker, origin, binding, booleanMarker, ignored },
 ) {
   const bindings = /** @type {Map<Record<string,any>,number>} */ (new Map());
   const replacements = /** @type {Map<Record<string,any>,boolean>} */ (
@@ -633,6 +738,7 @@ export function restoreApiReferences(
     const node = pending.pop();
     if (!node || typeof node !== "object" || seen.has(node)) continue;
     seen.add(node);
+    delete node[ignored];
     if (Object.hasOwn(node, binding)) {
       bindings.set(node, node[binding]);
       delete node[binding];

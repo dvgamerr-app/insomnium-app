@@ -1,6 +1,7 @@
 import { Spectral, Document } from "@stoplight/spectral-core";
 import Parsers from "@stoplight/spectral-parsers";
 import { oas } from "@stoplight/spectral-rulesets";
+import { defaultOpenApiRuleset } from "./openapi-examples.js";
 import { Resolver } from "@stoplight/spectral-ref-resolver";
 import { bundleAndLoadRuleset } from "@stoplight/spectral-ruleset-bundler/with-loader";
 import { builtins } from "@stoplight/spectral-ruleset-bundler/plugins/builtins";
@@ -181,9 +182,10 @@ async function run(frame) {
     } catch (error) {
       if (["binding", "output_limit"].includes(error?.code)) throw error;
       fallback = true;
-      spectral.setRuleset(oas);
+      spectral.setRuleset(defaultOpenApiRuleset(oas, document.data?.openapi || document.data?.swagger));
     }
-  } else spectral.setRuleset(oas);
+  } else
+    spectral.setRuleset(defaultOpenApiRuleset(oas, document.data?.openapi || document.data?.swagger));
   // YAML also parses JSON, matching legacy spectral.run(string) behavior.
   const diagnostics = await spectral.run(document);
   const sources = [...known.values()].map(({ contents, ...entry }) =>

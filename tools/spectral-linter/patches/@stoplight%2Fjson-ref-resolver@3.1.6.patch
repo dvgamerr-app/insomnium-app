@@ -1,0 +1,113 @@
+diff --git a/node_modules/@stoplight/json-ref-resolver/.bun-tag-4fe8412987285835 b/.bun-tag-4fe8412987285835
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/crawler.js b/crawler.js
+index eab2445e275bba08254b52c8bddba20290658d9e..f8ac4f1c04b4e6e02e9cabb31f3973b96241e829 100644
+--- a/crawler.js
++++ b/crawler.js
+@@ -123,10 +123,26 @@ class ResolveCrawler {
+                     if (this._runner.root !== targetRef)
+                         this._runner.graph.addDependency(this._runner.root, targetRef);
+                     this.pointerGraph.addDependency(parentPointer, targetPointer);
+-                    if (this.jsonPointer && (pointerStack.length < 2 || !pointerStack.includes(targetPointer))) {
++                    // Insomnium: a target hidden inside a $ref ancestor is not
++                    // reached by the ordinary root walk. Discover its own refs
++                    // once without recursively expanding visible pointer chains.
++                    const hiddenTarget = targetPath.some((part, index) => {
++                        const ancestor = get(this._runner.source, targetPath.slice(0, index));
++                        return ancestor && typeof ancestor.$ref === 'string';
++                    });
++                    if ((this.jsonPointer || hiddenTarget) && !this._discoveredPointers.has(targetPointer) && (pointerStack.length < 2 || !pointerStack.includes(targetPointer))) {
++                        this._discoveredPointers.add(targetPointer);
+                         pointerStack.push(targetPointer);
+                         this.computeGraph(get(this._runner.source, targetPath), targetPath, targetPointer, pointerStack);
+                         pointerStack.pop();
++                        if (hiddenTarget) {
++                            for (const child of this.pointerGraph.overallOrder()) {
++                                const childPath = (0, json_1.pointerToPath)(child);
++                                if (childPath.length > targetPath.length && (0, json_1.startsWith)(childPath, targetPath)) {
++                                    this._hiddenOrder.push([targetPointer, child]);
++                                }
++                            }
++                        }
+                     }
+                 }
+             }
+@@ -142,6 +158,8 @@ class ResolveCrawler {
+             }
+         };
+         this.jsonPointer = jsonPointer;
++        this._discoveredPointers = new Set();
++        this._hiddenOrder = [];
+         this._runner = runner;
+     }
+ }
+diff --git a/runner.js b/runner.js
+index 2ebf4e7a93a3eb7a8c403b16795eda6a0435bb66..ea6cdb0502e697fb863701640cb5bda63521b4e3 100644
+--- a/runner.js
++++ b/runner.js
+@@ -221,7 +221,15 @@ class ResolveRunner {
+         return this._source;
+     }
+     resolve(opts) {
++        // Insomnium: cached runners retain pristine lexical data. Each resolve
++        // gets its own working source, including concurrent fragment requests.
++        if (!Object.prototype.hasOwnProperty.call(this, '_insomniumResolveScope')) {
++            const scope = Object.create(this);
++            scope._insomniumResolveScope = true;
++            return scope.resolve(opts);
++        }
+         return tslib_1.__awaiter(this, void 0, void 0, function* () {
++            const lexicalSource = this.source;
+             const resolved = {
+                 result: this.source,
+                 graph: this.graph,
+@@ -300,13 +308,29 @@ class ResolveRunner {
+                     this._source = (0, immer_1.default)(this._source, (draft) => {
+                         let processOrder = [];
+                         try {
+-                            processOrder = crawler.pointerGraph.overallOrder();
++                            const order = crawler.pointerGraph.clone();
++                            order.circular = crawler.pointerGraph.circular;
++                            for (const [parent, child] of crawler._hiddenOrder) order.addDependency(parent, child);
++                            processOrder = order.overallOrder();
++                            // Insomnium: keep lexical pointer values separate from ancestor
++                            // replacement. Resolve child dependencies into the indexed value
++                            // before publishing it; source paths and graph edges stay authored.
++                            const pointerValues = new Map(processOrder.map(pointer => {
++                                const path = (0, json_1.pointerToPath)(pointer);
++                                const current = path.length === 0 ? (0, immer_1.original)(draft) : get((0, immer_1.original)(draft), path);
++                                return [(0, json_1.pathToPointer)(path), current === void 0 ? get(lexicalSource, path) : current];
++                            }));
+                             for (const pointer of processOrder) {
+                                 const dependants = crawler.pointerGraph.dependantsOf(pointer);
+                                 if (!dependants.length)
+                                     continue;
+                                 const pointerPath = (0, json_1.pointerToPath)(pointer);
+-                                const val = pointerPath.length === 0 ? (0, immer_1.original)(draft) : get(draft, pointerPath);
++                                const currentValue = pointerPath.length === 0 ? (0, immer_1.original)(draft) : get(draft, pointerPath);
++                                const hiddenTarget = pointerPath.some((part, index) => {
++                                    const ancestor = get(lexicalSource, pointerPath.slice(0, index));
++                                    return ancestor && typeof ancestor.$ref === 'string';
++                                });
++                                const val = hiddenTarget || currentValue === void 0 ? pointerValues.get((0, json_1.pathToPointer)(pointerPath)) : currentValue;
+                                 for (const dependant of dependants) {
+                                     let isCircular;
+                                     const dependantPath = (0, json_1.pointerToPath)(dependant);
+@@ -322,6 +346,16 @@ class ResolveRunner {
+                                     resolved.refMap[(0, json_1.pathToPointer)(dependantPath)] = (0, json_1.pathToPointer)(pointerPath);
+                                     this._setGraphNodeEdge(this.root, (0, json_1.pathToPointer)(dependantPath), (0, json_1.pathToPointer)(pointerPath));
+                                     if (val !== void 0) {
++                                        pointerValues.set((0, json_1.pathToPointer)(dependantPath), val);
++                                        for (let length = 0; length < dependantPath.length; length++) {
++                                            const ancestor = (0, json_1.pathToPointer)(dependantPath.slice(0, length));
++                                            const value = pointerValues.get(ancestor);
++                                            if (value && typeof value === 'object') {
++                                                pointerValues.set(ancestor, (0, immer_1.default)(value, target => {
++                                                    set(target, dependantPath.slice(length), val);
++                                                }));
++                                            }
++                                        }
+                                         set(draft, dependantPath, val);
+                                         this._setGraphNodeData((0, json_1.pathToPointer)(pointerPath), val);
+                                     }

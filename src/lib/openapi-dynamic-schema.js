@@ -1,4 +1,5 @@
-import { sample } from "openapi-sampler";
+import { restoreNumericSchema, numericAssertions } from "./openapi-literal.js";
+import { parseOpenApiNumbers, cloneOpenApiNumbers } from "./openapi-value.js";
 import { schemaReferenceFields } from "./openapi-references.js";
 import {
   sampleBooleanSchema,
@@ -29,8 +30,9 @@ function put(target, key, value) {
 
 /** Expand each sampling path with its own resource scope. This chooses reference
  * targets; instance validation and the sampler's existing approximation remain separate.
- * @param {number} entry @param {SchemaEvaluation} graph */
-export function expandDynamicSchema(entry, graph) {
+ * @param {number} entry @param {SchemaEvaluation} graph
+ * @param {Map<Record<string,any>,Map<string,string>>} [literals] */
+export function expandDynamicSchema(entry, graph, literals) {
   const cache =
     /** @type {Map<string,{value:Record<string,any>|boolean,pending:boolean,referenced:boolean}>} */ (
       new Map()
@@ -44,7 +46,7 @@ export function expandDynamicSchema(entry, graph) {
       throw Error(
         "Dynamic schema sampling exceeds the literal processing limit.",
       );
-    return structuredClone(value);
+    return cloneOpenApiNumbers(value);
   }
   /** @param {number} id @param {Map<string,number>} inherited @param {number} depth @returns {Record<string,any>|boolean} */
   function visit(id, inherited, depth) {
@@ -107,7 +109,13 @@ export function expandDynamicSchema(entry, graph) {
       )
         expanded = value.map(childSchema);
       else if (role) expanded = childSchema(value);
-      else expanded = copyLiteral(value);
+      else {
+        const exact = numericAssertions.has(field)
+          ? literals?.get(node)?.get(field)
+          : undefined;
+        expanded =
+          exact === undefined ? copyLiteral(value) : parseOpenApiNumbers(exact);
+      }
       put(/** @type {Record<string,any>} */ (state.value), field, expanded);
     }
     const targets = references.map((reference) => {
@@ -148,41 +156,78 @@ export function expandDynamicSchema(entry, graph) {
 }
 
 /** @param {Record<string,any>|boolean} definition @param {Record<string,any>} root
- * @param {SchemaEvaluation|undefined} evaluation */
-export function sampleApiSchema(definition, root, evaluation) {
+ * @param {SchemaEvaluation|undefined} evaluation @param {boolean} [deferValidation]
+ * @param {Map<Record<string,any>,Map<string,string>>} [literals] */
+export function sampleApiSchema(
+  definition,
+  root,
+  evaluation,
+  deferValidation = false,
+  literals,
+) {
   const entry =
     typeof definition === "object"
       ? evaluation?.bindings.get(definition)
       : undefined;
+  const graphLiterals = new Map(literals);
+  if (evaluation && literals)
+    for (const [owner, id] of evaluation.bindings) {
+      const fields = literals.get(owner);
+      if (fields && evaluation.nodes[id])
+        graphLiterals.set(evaluation.nodes[id], fields);
+    }
   const schema =
     entry === undefined || !evaluation
-      ? definition
-      : expandDynamicSchema(entry, evaluation);
-  if (typeof schema === "boolean" || evaluation?.booleans.size)
-    return sampleBooleanSchema(schema, root);
-  return sample(schema, { skipReadOnly: true, quiet: true }, root);
+      ? restoreNumericSchema(definition, literals)
+      : expandDynamicSchema(entry, evaluation, graphLiterals);
+  return sampleBooleanSchema(
+    schema,
+    root,
+    deferValidation,
+    String(root.openapi || root.swagger || ""),
+  );
 }
 
-/** @param {Record<string,any>|boolean} definition @param {any} value @param {SchemaEvaluation|undefined} evaluation */
-export function validateApiSchemaSample(definition, value, evaluation) {
-  if (typeof definition !== "boolean" && !evaluation?.booleans.size)
+/** @param {Record<string,any>|boolean} definition @param {any} value @param {SchemaEvaluation|undefined} evaluation @param {string} [version]
+ * @param {Map<Record<string,any>,Map<string,string>>} [literals] */
+export function validateApiSchemaSample(
+  definition,
+  value,
+  evaluation,
+  version = "",
+  literals,
+) {
+  const legacy = version === "2.0" || /^3\.0\./.test(version);
+  if (
+    version === "2.0" &&
+    typeof definition === "object" &&
+    definition.type === "file"
+  )
     return value;
+  if (typeof definition !== "boolean" && !evaluation && !legacy) return value;
   const entry =
     typeof definition === "object"
       ? evaluation?.bindings.get(definition)
       : undefined;
+  const graphLiterals = new Map(literals);
+  if (evaluation && literals)
+    for (const [owner, id] of evaluation.bindings) {
+      const fields = literals.get(owner);
+      if (fields && evaluation.nodes[id])
+        graphLiterals.set(evaluation.nodes[id], fields);
+    }
   return validateBooleanSample(
     entry === undefined || !evaluation
-      ? definition
-      : expandDynamicSchema(entry, evaluation),
+      ? restoreNumericSchema(definition, literals)
+      : expandDynamicSchema(entry, evaluation, graphLiterals),
     value,
+    version,
   );
 }
 
 /** @param {Record<string,any>|boolean} definition @param {SchemaEvaluation|undefined} evaluation */
 export function isImpossibleApiSchema(definition, evaluation) {
-  if (typeof definition !== "boolean" && !evaluation?.booleans.size)
-    return false;
+  if (typeof definition !== "boolean" && !evaluation) return false;
   const entry =
     typeof definition === "object"
       ? evaluation?.bindings.get(definition)

@@ -1,3 +1,4 @@
+import { isOpenApiScalar } from "./openapi-value.js";
 import { readOpenApiValue } from "./openapi-value.js";
 /** Shared RFC6570 flat value expansion, with destination-owned atom encoding.
  * @param {string} name @param {string} text
@@ -17,7 +18,7 @@ export function serializeOpenApiStyle(
   const atom = (/** @type {unknown} */ value) => {
     if (
       value !== null &&
-      !["string", "number", "boolean"].includes(typeof value)
+      !isOpenApiScalar(value)
     )
       throw new Error(
         `${location} parameter ${name} requires flat scalar values.`,

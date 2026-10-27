@@ -11,6 +11,40 @@ for (const version of ["2.0", "3.0", "3.1", "3.2"]) {
   const { default: schema } = await import(
     new URL(`./schemas/v${version}/schema.js`, packageEntry).href
   );
+  // Path Item has its own $ref field; it is not a Reference Object. Upstream
+  // convenience schemas currently route it through Reference and reject legal
+  // disjoint sibling operations. Keep all Path Item field validation in place.
+  if (version === "2.0") {
+    // JSON Reference extra properties are ignored, including non-Schema uses.
+    delete schema.definitions.jsonReference.additionalProperties;
+    // A Schema position may instead contain a JSON Reference. Its siblings
+    // have no schema meaning, including fields unknown to Swagger's Schema.
+    schema.definitions.schema = {
+      anyOf: [
+        schema.definitions.schema,
+        {
+          type: "object",
+          required: ["$ref"],
+          properties: { $ref: { type: "string" } },
+        },
+      ],
+    };
+  } else if (version === "3.0") {
+    schema.definitions.PathItem.properties.$ref = {
+      type: "string",
+      format: "uri-reference",
+    };
+    schema.definitions.PathItemOrReference = { $ref: "#/definitions/PathItem" };
+  } else if (version === "3.1" || version === "3.2") {
+    // Fixed Reference annotations retain their types; unknown siblings are
+    // ignored by the normative Reference Object contract, not schema facets.
+    delete schema.$defs.reference.unevaluatedProperties;
+    schema.$defs["path-item"].properties.$ref = {
+      type: "string",
+      format: "uri-reference",
+    };
+    schema.$defs["path-item-or-reference"] = { $ref: "#/$defs/path-item" };
+  }
   const Engine = version === "2.0" || version === "3.0" ? Ajv04 : Ajv2020;
   const ajv = new Engine({
     strict: false,

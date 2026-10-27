@@ -1,10 +1,15 @@
+import { structuralNumbers } from "./openapi-structural-numbers.js";
 import v2 from "./generated/openapi-2.0.js";
 import v30 from "./generated/openapi-3.0.js";
 import v31 from "./generated/openapi-3.1.js";
 import v32 from "./generated/openapi-3.2.js";
 
-/** @param {Record<string, any>} value */
-export function validateApiDocument(value) {
+/** @param {Record<string, any>} value
+ * @param {(path:(string|number)[],fallback:any)=>any} [read] */
+export function validateApiDocument(
+  value,
+  read = (path, fallback) => fallback,
+) {
   const version =
     value.swagger === "2.0"
       ? "2.0"
@@ -29,12 +34,26 @@ export function validateApiDocument(value) {
         },
       ],
     };
-  const valid = validate(value);
+  const counts = /** @type {{path:(string|number)[],message:string}[]} */ ([]);
+  const normalized = structuralNumbers(value, read, counts);
+  const valid = validate(normalized) && counts.length === 0;
   return {
     valid,
-    errors: (validate.errors || []).map((/** @type {any} */ error) => ({
-      message: error.message,
-      path: error.instancePath || "",
-    })),
+    errors: [
+      ...counts.map((error) => ({
+        message: error.message,
+        path:
+          "/" +
+          error.path
+            .map((part) =>
+              String(part).replaceAll("~", "~0").replaceAll("/", "~1"),
+            )
+            .join("/"),
+      })),
+      ...(validate.errors || []).map((/** @type {any} */ error) => ({
+        message: error.message,
+        path: error.instancePath || "",
+      })),
+    ],
   };
 }

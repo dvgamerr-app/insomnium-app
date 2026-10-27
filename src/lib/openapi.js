@@ -1,3 +1,6 @@
+import { collectApiLiterals, restoreLiteral, restoreSampleNumbers, literal } from "./openapi-literal.js";
+import { OpenApiNumber, stringifyOpenApiNumbers, parseOpenApiNumbers } from "./openapi-value.js";
+import { swaggerArrayOptions, swaggerArrayValues } from "./openapi-swagger-array.js";
 import { serializeOpenApiCookie } from "./openapi-cookie.js";
 import {
   selectSerializedExample,
@@ -42,6 +45,7 @@ import {
   exampleAssetIndex,
   applyExampleAssets,
   selectedExternalExample,
+  externalExampleJson,
 } from "./openapi-example-assets.js";
 import {
   effectiveParameters,
@@ -166,7 +170,12 @@ export function analyzeSpec(spec, capturedSources) {
         : { sourceUnavailable: true }),
     });
   };
-  const strict = validateApiDocument(structuredClone(parsed.value));
+  const strict = validateApiDocument(parsed.value, (path, fallback) => {
+    const location = apiSourceLocation(parsed.document, path);
+    if (!location) return fallback;
+    const value = literal(location.node, parsed.document);
+    return value.numeric ? parseOpenApiNumbers(value.json) : fallback;
+  });
   for (const error of strict.errors || [])
     add(
       "error",
@@ -247,6 +256,7 @@ export function analyzeSpec(spec, capturedSources) {
     referenceProtection.origin,
     referenceProtection.binding,
     referenceProtection.booleanMarker,
+    referenceProtection.ignored,
   ]);
   const resolved = dereference(filesystem, {
     onDereference: origins.onDereference,
@@ -386,6 +396,7 @@ export function analyzeSpec(spec, capturedSources) {
   }
   return {
     schema,
+    literalJson: collectApiLiterals(schema, origins, sourceIndex),
     original: parsed.value,
     schemaEvaluation: referenceProtection.evaluation
       ? { ...referenceProtection.evaluation, bindings }
@@ -400,25 +411,44 @@ export function analyzeSpec(spec, capturedSources) {
 
 /** @param {Record<string, any>} node @param {Record<string, any>} schema
  * @param {Record<string, any>|undefined} [fallback]
- * @param {import('./openapi-dynamic-schema.js').SchemaEvaluation|undefined} [evaluation] */
-function example(node, schema, fallback, evaluation) {
-  const definition = Object.hasOwn(node, "schema") ? node.schema : node;
+ * @param {import('./openapi-dynamic-schema.js').SchemaEvaluation|undefined} [evaluation]
+ * @param {ReturnType<typeof collectApiLiterals>} [literals] */
+function example(node, schema, fallback, evaluation, literals) {
+  let definition = Object.hasOwn(node, "schema") ? node.schema : node;
+  if (
+    schema.swagger === "2.0" &&
+    !Object.hasOwn(node, "schema") &&
+    typeof node.in === "string"
+  ) {
+    // Swagger non-body parameters put transport requiredness beside schema facets.
+    definition = { ...node };
+    delete definition.required;
+  }
+  const validationLiterals = new Map(literals);
+  const definitionFields = literals?.get(node);
+  if (definition !== node && !Object.hasOwn(node, "schema") && definitionFields) validationLiterals.set(definition, definitionFields);
   const checked = (/** @type {any} */ value) =>
-    validateApiSchemaSample(definition, value, evaluation);
+    validateApiSchemaSample(
+      definition,
+      value,
+      evaluation,
+      String(schema.openapi || schema.swagger || ""),
+      validationLiterals,
+    );
   for (const candidate of [node, fallback]) {
     if (!candidate) continue;
-    if (Object.hasOwn(candidate, "example")) return checked(candidate.example);
+    if (Object.hasOwn(candidate, "example")) return checked(restoreLiteral(candidate, "example", candidate.example, literals));
     const first = Object.values(candidate.examples || {})[0];
     if (first && typeof first === "object") {
       if (
         String(schema.openapi || "").startsWith("3.2.") &&
         Object.hasOwn(first, "dataValue")
       )
-        return checked(first.dataValue);
-      if (Object.hasOwn(first, "value")) return checked(first.value);
+        return checked(restoreLiteral(first, "dataValue", first.dataValue, literals));
+      if (Object.hasOwn(first, "value")) return checked(restoreLiteral(first, "value", first.value, literals));
     }
   }
-  return sampleApiSchema(definition, schema, evaluation);
+  return checked(restoreSampleNumbers(Object.hasOwn(node, "schema") ? node.schema : node, sampleApiSchema(definition, schema, evaluation, true, validationLiterals), literals));
 }
 
 /** @param {ReturnType<typeof analyzeSpec>} analysis @param {string} workspaceId @param {string} specId @param {string} [serverOverride]
@@ -605,12 +635,13 @@ export function generateRequests(
             ? parameter
             : undefined,
           analysis.schemaEvaluation,
+          analysis.literalJson,
         );
       } catch (error) {
         issues.push(`Parameter ${parameter.name}: ${error}`);
         value = "";
       }
-      const compound = value != null && typeof value === "object";
+      const compound = value != null && typeof value === "object" && !(value instanceof OpenApiNumber);
       const descriptor = describeOpenApiValue(
         value,
         parameter.schema || contentMedia?.schema || {},
@@ -630,13 +661,34 @@ export function generateRequests(
           ).length !== 1
         )
           descriptor.kind = "json";
-        descriptor.text = JSON.stringify(value ?? null);
+        descriptor.text = stringifyOpenApiNumbers(value ?? null);
       }
       const row = /** @type {Record<string,any>} */ ({
         name: parameter.name,
         value: descriptor.text,
         disabled: false,
       });
+      if (schema.swagger === "2.0" && parameter.type === "array" &&
+          ["query", "header", "path", "formData"].includes(parameter.in)) {
+        let serialization = /** @type {Record<string,any>} */ ({ style: "swagger", kind: "array", explode: false, review: true });
+        try {
+          serialization = swaggerArrayOptions(parameter);
+          swaggerArrayValues(row.name, row.value, serialization, parameter.in);
+        } catch (error) {
+          serialization.review = true;
+          issues.push(`Parameter ${parameter.name}: ${error}`);
+        }
+        row._openapiSerialization = serialization;
+        if (parameter.in === "formData") {
+          serialization.formBody = true;
+          request.body.mimeType = (operation.consumes || schema.consumes || ["application/x-www-form-urlencoded"])[0];
+          request.body.params.push(row);
+        } else if (parameter.in === "path") {
+          request._openapiPath = true;
+          request.pathParameters.push(row);
+        } else (parameter.in === "query" ? request.parameters : request.headers).push(row);
+        continue;
+      }
       if (parameter.in === "querystring") {
         const serialization = {
           ...querystringOptions(contentMedia || {}, String(schema.openapi)),
@@ -646,7 +698,7 @@ export function generateRequests(
           ...(contentEntries.length !== 1 ? { review: true } : {}),
         };
         if (!isUtf8PlainTextMediaType(mediaType))
-          row.value = JSON.stringify(value ?? null);
+          row.value = stringifyOpenApiNumbers(value ?? null);
         row.sendEmptyName = true;
         row._openapiSerialization = serialization;
         try {
@@ -812,7 +864,7 @@ export function generateRequests(
         request.body = {
           mimeType: (operation.consumes ||
             schema.consumes || ["application/json"])[0],
-          text: JSON.stringify(value, null, 2),
+          text: stringifyOpenApiNumbers(value, 2),
         };
         if (!isJsonBodyMediaType(request.body.mimeType))
           issues.push("Review the non-JSON body serialization before sending.");
@@ -864,23 +916,17 @@ export function generateRequests(
                 mime || "",
               ));
           if (external) {
-            if (
-              json &&
-              Object.hasOwn(media, "schema") &&
-              (typeof media.schema === "boolean" ||
-                analysis.schemaEvaluation?.booleans.size)
-            )
-              validateApiSchemaSample(
-                media.schema,
-                JSON.parse(
-                  new TextDecoder().decode(
-                    Uint8Array.from(atob(external.base64), (character) =>
-                      character.charCodeAt(0),
-                    ),
-                  ),
-                ),
-                analysis.schemaEvaluation,
-              );
+            if (json) {
+              const value = externalExampleJson(external);
+              if (Object.hasOwn(media, "schema"))
+                validateApiSchemaSample(
+                  media.schema,
+                  value,
+                  analysis.schemaEvaluation,
+                  String(schema.openapi || schema.swagger || ""),
+                  analysis.literalJson,
+                );
+            }
             request.body = {
               mimeType: mime,
               binary: true,
@@ -889,16 +935,13 @@ export function generateRequests(
                 String(external.name).split("/").at(-1) || "example.bin",
             };
           } else if (serialized) {
-            if (
-              json &&
-              Object.hasOwn(media, "schema") &&
-              (typeof media.schema === "boolean" ||
-                analysis.schemaEvaluation?.booleans.size)
-            )
+            if (json && Object.hasOwn(media, "schema"))
               validateApiSchemaSample(
                 media.schema,
-                JSON.parse(serialized.text),
+                parseOpenApiNumbers(serialized.text),
                 analysis.schemaEvaluation,
+                String(schema.openapi || schema.swagger || ""),
+                analysis.literalJson,
               );
             const serialization = {
               style: "serialized",
@@ -924,6 +967,7 @@ export function generateRequests(
               schema,
               undefined,
               analysis.schemaEvaluation,
+              analysis.literalJson,
             );
             if (
               mime === "multipart/form-data" ||
@@ -1005,7 +1049,7 @@ export function generateRequests(
                     name,
                     value:
                       typeof value === "object"
-                        ? JSON.stringify(value)
+                        ? stringifyOpenApiNumbers(value)
                         : String(value),
                     ...(property.format === "binary" ? { type: "file" } : {}),
                   };
@@ -1029,7 +1073,7 @@ export function generateRequests(
                 text:
                   typeof value === "string" && !json
                     ? value
-                    : JSON.stringify(value, null, 2),
+                    : stringifyOpenApiNumbers(value, 2),
               };
             if (
               !json &&
@@ -1095,8 +1139,15 @@ export function generateRequests(
         );
     }
     request._openapiIssues = issues;
-    if (analysis.schemaEvaluation?.booleans.size)
-      request._openapiSchemaIssues = [...issues];
+    const schemaIssues = issues.filter((issue) =>
+      /(?:Example does not satisfy the schema:|Schema accepts no value|External JSON example requires valid UTF-8 JSON:)/.test(
+        issue,
+      ),
+    );
+    if (analysis.schemaEvaluation || schemaIssues.length)
+      request._openapiSchemaIssues = analysis.schemaEvaluation?.booleans.size
+        ? [...issues]
+        : schemaIssues;
     resources.push(request);
   }
   return resources;

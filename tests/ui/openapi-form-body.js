@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
-import { withNativeApp, poll } from "./helpers/native-app.js";
+import { openApiFormSuffixCases } from "./helpers/openapi-form-content-cases.js";
+import { preserveNativeProfile } from "./helpers/native-profile-preservation.js";
+import { withResourceProbePreserved } from "./helpers/resource-manager-cases.js";
+import { withNativeApp, poll, integrationProbeIdentifier, selectedNativeProbeIdentifier } from "./helpers/native-app.js";
 import { generateOwnedOpenApi } from "./helpers/openapi-generation.js";
 import { assertKeyValueHelp } from "./helpers/key-value-help.js";
 import {
@@ -7,6 +10,8 @@ import {
   openApiFormDocument,
 } from "./helpers/openapi-form-cases.js";
 
+const suffixOnly=process.env.INSOMNIUM_OPENAPI_FORM_SUFFIX==='1';
+if(suffixOnly){assert.equal(selectedNativeProbeIdentifier(),integrationProbeIdentifier);assert.ok(process.env.INSOMNIUM_UI_BUILD_STATE);}
 const received =
   /** @type {{path:string,type:string|null,body:string}[]} */ ([]);
 const server = Bun.serve({
@@ -22,7 +27,7 @@ const server = Bun.serve({
   },
 });
 try {
-  await withNativeApp("openapi-form-body", async ({ page, invoke, output }) => {
+  const run=()=>withNativeApp(suffixOnly?"openapi-form-suffix":"openapi-form-body", async ({ page, invoke, output }) => {
     const cases = [];
     const casePrefix = process.env.INSOMNIUM_OPENAPI_CASE_PREFIX || "";
     const versions = process.env.INSOMNIUM_OPENAPI_VERSIONS?.split(",") || [
@@ -87,12 +92,13 @@ try {
       );
     };
     for (const version of versions) {
-      const generationCases = openApiFormCasesFor(version);
+      const generationCases = suffixOnly?openApiFormSuffixCases:openApiFormCasesFor(version);
       const specId = await generateOwnedOpenApi(
-        { page, invoke },
-        openApiFormDocument(version, `http://127.0.0.1:${server.port}`),
+        { page, invoke, output },
+        openApiFormDocument(version, `http://127.0.0.1:${server.port}`,generationCases),
         generationCases.length,
         "Forms " + version,
+        {preserveOwnedCollection:suffixOnly,...(suffixOnly?{afterCheck:async({design})=>{await design.getByRole('tab',{name:/^Diagnostics/}).click();const text=await design.locator('.design-diagnostics').innerText();await Bun.write(output+'/diagnostics-'+version+'.txt',text);await design.getByRole('tab',{name:'Operations',exact:true}).click();assert.ok(await design.getByRole('button',{name:'Generate '+generationCases.length+' requests',exact:true}).isEnabled(),text);}}:{})},
       );
       const generated = (await invoke("load_workspace")).resources.filter(
         (/** @type {any} */ row) =>
@@ -121,6 +127,7 @@ try {
           (/** @type {any} */ row) => row.name === entry.id,
         );
         assert.ok(request);
+        if(suffixOnly)await Bun.write(output+"/"+version+"-"+entry.id+"-metadata.json",JSON.stringify({params:request.body.params,issues:request._openapiIssues},null,2));
         if (entry.refusal)
           assert.ok(
             request._openapiIssues.some((/** @type {string} */ issue) =>
@@ -183,6 +190,7 @@ try {
           });
         if (entry.refusal) {
           await send(request, null, "Review this generated request");
+          if(suffixOnly)cases.push({version,id:entry.id+"-review",expected:null,refusal:"Review this generated request",reviewGate:true});
           await select(entry.id);
           await page
             .getByRole("tablist", { name: "Request editor", exact: true })
@@ -253,6 +261,7 @@ try {
           });
         }
       }
+      if(suffixOnly)continue;
       const request = generated.find(
         (/** @type {any} */ row) => row.name === "array-exploded",
       );
@@ -382,6 +391,7 @@ try {
         cases.push({ version, id: "disable-invalid-content", expected: "" });
       }
     }
+    if(suffixOnly)for(const version of versions)assert.equal(cases.filter(c=>c.version===version).length,8,"Suffix form controls retained");
     if (casePrefix === "text-media-") {
       for (const version of versions)
         assert.equal(
@@ -395,6 +405,7 @@ try {
       JSON.stringify(
         {
           passed: true,
+          ...(suffixOnly?{received,versions,suffixOnly,limits:"Windows native JSON-suffix form content, lexical edits and UTF16/duplicate-charset review/runtime refusal/disabled recovery; other form/provider/platform scope remains open."}:{}),
           casePrefix: casePrefix || null,
           cases,
           count: cases.length,
@@ -404,6 +415,7 @@ try {
       ),
     );
   });
+  if(suffixOnly)await preserveNativeProfile(()=>withResourceProbePreserved(run,{expectedIdentifier:integrationProbeIdentifier}));else await run();
 } finally {
   await server.stop(true);
 }

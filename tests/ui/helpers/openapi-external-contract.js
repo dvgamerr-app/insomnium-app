@@ -11,6 +11,55 @@ import {
 } from "../../../src/lib/git-resources.js";
 import { initialData } from "../../../src/lib/model.js";
 
+export const externalUtf8Vectors = [
+  { name: "unicode", bytes: new TextEncoder().encode('"é😀"'), valid: true },
+  {
+    name: "replacement codepoint",
+    bytes: new TextEncoder().encode('"�"'),
+    valid: true,
+  },
+  {
+    name: "leading BOM",
+    bytes: Uint8Array.from([239, 187, 191, 34, 111, 107, 34]),
+    valid: true,
+  },
+  {
+    name: "numeric lexical bytes",
+    bytes: new TextEncoder().encode(' { "n": 9007199254740993 }\n'),
+    valid: true,
+  },
+  {
+    name: "invalid byte",
+    bytes: Uint8Array.from([34, 255, 34]),
+    valid: false,
+  },
+  {
+    name: "overlong",
+    bytes: Uint8Array.from([34, 192, 175, 34]),
+    valid: false,
+  },
+  {
+    name: "encoded surrogate",
+    bytes: Uint8Array.from([34, 237, 160, 128, 34]),
+    valid: false,
+  },
+  {
+    name: "above Unicode range",
+    bytes: Uint8Array.from([34, 244, 144, 128, 128, 34]),
+    valid: false,
+  },
+  {
+    name: "truncated sequence",
+    bytes: Uint8Array.from([34, 226, 130, 34]),
+    valid: false,
+  },
+  {
+    name: "JSON syntax",
+    bytes: new TextEncoder().encode('{ "n": }'),
+    valid: false,
+  },
+];
+
 /** Browser contract evidence; no HTTP requests or native IPC.
  * The native scenario separately tests actual attachment/download/worker/wire. */
 export function externalContractEvidence() {
@@ -478,9 +527,9 @@ export function externalContractEvidence() {
     );
     document.servers = [{ url: "http://127.0.0.1:55555" }];
     document.components = components;
-    document.paths["/body"].post.requestBody.content[
-      "application/json"
-    ].examples = { owned: { $ref: reference } };
+    document.paths["/body"].post.requestBody.content = {
+      "application/octet-stream": { examples: { owned: { $ref: reference } } },
+    };
     const analysis = analyzeSpec({
       ...spec,
       contents: JSON.stringify(document),
@@ -905,5 +954,630 @@ export function externalContractEvidence() {
       errors,
     });
   }
+  for (const version of ["3.0.3", "3.0.4", "3.1.2", "3.2.0", "3.2.1"]) {
+    const operation = (
+      /** @type {string} */ name,
+      /** @type {string} */ externalValue,
+    ) => ({
+      operationId: name,
+      requestBody: {
+        content: {
+          "application/octet-stream": {
+            examples: { owned: { externalValue } },
+          },
+        },
+      },
+      responses: { 200: { description: "OK" } },
+    });
+    const pathItem = {
+      $ref: "refs/item.yaml#/value",
+      put: operation("fromSibling", "main.bin"),
+    };
+    const document = {
+      openapi: version,
+      info: { title: "Owned sibling references", version: "1" },
+      servers: [{ url: "http://127.0.0.1:55555" }],
+      paths: { "/owned": pathItem },
+    };
+    const source = {
+      fileName: "api.yaml",
+      contents: JSON.stringify(document),
+      files: [
+        {
+          name: "refs/item.yaml",
+          contents: JSON.stringify({
+            value: { post: operation("fromRef", "../ref.bin") },
+          }),
+        },
+      ],
+      exampleFiles: [
+        { name: "main.bin", base64: btoa("from-main") },
+        { name: "ref.bin", base64: btoa("from-ref") },
+      ],
+    };
+    for (const location of version.startsWith("3.0.")
+      ? ["paths"]
+      : ["paths", "components"]) {
+      const candidate = /** @type {Record<string,any>} */ (
+        structuredClone(document)
+      );
+      if (location === "components") {
+        candidate.components = {
+          pathItems: { Owned: candidate.paths["/owned"] },
+        };
+        candidate.paths["/owned"] = { $ref: "#/components/pathItems/Owned" };
+      }
+      const input = { ...source, contents: JSON.stringify(candidate) };
+      const analysis = analyzeSpec(input);
+      if (!analysis.valid)
+        throw Error(
+          version + " " + location + JSON.stringify(analysis.diagnostics),
+        );
+      const generated = generateRequests(
+        analysis,
+        workspace._id,
+        "spc_pathitem_sibling",
+      );
+      const requests = generated.filter((r) => r._type === "request");
+      if (requests.length !== 2)
+        throw Error("Disjoint Path Item operations were lost");
+      for (const [name, text] of [
+        ["fromSibling", "from-main"],
+        ["fromRef", "from-ref"],
+      ]) {
+        const request = requests.find((r) => r.name === name);
+        if (
+          !request ||
+          request._openapiIssues?.length ||
+          request.body.base64 !== btoa(text)
+        )
+          throw Error("Path Item asset base changed: " + name);
+        const prepared = prepareRenderedRequest(
+          { ...initialData(), resources: [workspace, ...generated] },
+          request,
+          "pathitem_contract",
+        );
+        if (prepared.bodyBase64 !== btoa(text))
+          throw Error("Prepared Path Item bytes changed: " + name);
+      }
+      if (input.contents !== JSON.stringify(candidate))
+        throw Error("Source document mutated");
+      controls.push({
+        name:
+          version +
+          " " +
+          location +
+          " disjoint Path Item siblings preserve lexical assets",
+        passed: true,
+      });
+    }
+    for (const invalid of [
+      "ref type",
+      "unknown field",
+      "operation type",
+      "reference object",
+    ]) {
+      const candidate = /** @type {Record<string,any>} */ (
+        structuredClone(document)
+      );
+      const item = candidate.paths["/owned"];
+      if (invalid === "ref type") item.$ref = 42;
+      if (invalid === "unknown field") item.unknownOwnedField = true;
+      if (invalid === "operation type") item.put.parameters = 42;
+      if (invalid === "reference object")
+        item.put.requestBody = {
+          $ref: "#/components/requestBodies/Body",
+          put: operation("notPathItem", "main.bin"),
+        };
+      const analysis = analyzeSpec({
+        ...source,
+        contents: JSON.stringify(candidate),
+      });
+      if (
+        analysis.valid ||
+        !analysis.diagnostics.some((d) => d.severity === "error")
+      )
+        throw Error(
+          "Path Item compatibility weakened " + invalid + " " + version,
+        );
+      controls.push({
+        name: version + " Path Item retains guard: " + invalid,
+        passed: true,
+      });
+    }
+    const missing = analyzeSpec({
+      ...source,
+      exampleFiles: source.exampleFiles.filter((f) => f.name !== "main.bin"),
+    });
+    if (!missing.valid)
+      throw Error("Missing asset should stay a request review gate");
+    const request = generateRequests(
+      missing,
+      workspace._id,
+      "spc_pathitem_missing",
+    ).find((r) => r._type === "request" && r.name === "fromSibling");
+    if (
+      !request?._openapiIssues?.length ||
+      request.body.base64 === btoa("from-ref")
+    )
+      throw Error("Missing local asset inherited reference bytes");
+    controls.push({
+      name: version + " missing sibling asset stays review-only",
+      passed: true,
+    });
+  }
+
+  for (const version of ["3.0.3", "3.1.2", "3.2.1"]) {
+    for (const declared of [false, true])
+      for (const entry of externalUtf8Vectors) {
+        const base64 = btoa(String.fromCharCode(...entry.bytes));
+        const media = {
+          ...(declared ? { schema: {} } : {}),
+          examples: { owned: { externalValue: "raw.json" } },
+        };
+        const document = {
+          openapi: version,
+          info: { title: "External JSON bytes", version: "1" },
+          servers: [{ url: "http://127.0.0.1:55555" }],
+          paths: {
+            "/json": {
+              post: {
+                requestBody: { content: { "application/json": media } },
+                responses: { 200: { description: "OK" } },
+              },
+            },
+          },
+        };
+        const source = {
+            contents: JSON.stringify(document),
+            exampleFiles: [{ name: "raw.json", base64 }],
+          },
+          before = JSON.stringify(source),
+          analysis = analyzeSpec(source);
+        if (!analysis.valid)
+          throw Error(
+            "UTF8 source invalid " + JSON.stringify(analysis.diagnostics),
+          );
+        const generated = generateRequests(analysis, workspace._id, "spc_utf8"),
+          request = generated.find((r) => r._type === "request");
+        if (!request || JSON.stringify(source) !== before)
+          throw Error("UTF8 source mutated");
+        if (entry.valid) {
+          if (request._openapiIssues.length || request.body.base64 !== base64)
+            throw Error("Valid external UTF8 bytes changed: " + entry.name);
+          const prepared = prepareRenderedRequest(
+            { ...initialData(), resources: [workspace, ...generated] },
+            request,
+            "utf8_contract",
+          );
+          if (prepared.bodyBase64 !== base64)
+            throw Error("Valid external UTF8 composer changed");
+        } else {
+          if (
+            !request._openapiSchemaIssues?.some((/** @type {string} */ i) =>
+              i.includes("External JSON example requires valid UTF-8 JSON:"),
+            )
+          )
+            throw Error("Malformed external JSON has no durable review");
+          const encoded = encodeGitResource({ ...request, _openapiIssues: [] }),
+            restored = decodeGitResource(encoded.path, encoded.content);
+          if (!restored) throw Error("UTF8 Git request missing");
+          let refused = false;
+          try {
+            prepareRenderedRequest(
+              { ...initialData(), resources: [workspace, ...generated] },
+              restored,
+              "utf8_contract",
+            );
+          } catch (error) {
+            refused = String(error).includes(
+              "External JSON example requires valid UTF-8 JSON:",
+            );
+          }
+          if (!refused)
+            throw Error("Malformed external JSON became sendable through Git");
+        }
+        controls.push({
+          name:
+            version +
+            " " +
+            (declared ? "schema" : "no schema") +
+            " external JSON " +
+            entry.name,
+          passed: true,
+        });
+      }
+    const base64 = btoa(String.fromCharCode(34, 255, 34));
+    const document = {
+      openapi: version,
+      info: { title: "Binary byte control", version: "1" },
+      servers: [{ url: "http://127.0.0.1:55555" }],
+      paths: {
+        "/binary": {
+          post: {
+            requestBody: {
+              content: {
+                "application/octet-stream": {
+                  examples: { owned: { externalValue: "raw.bin" } },
+                },
+              },
+            },
+            responses: { 200: { description: "OK" } },
+          },
+        },
+      },
+    };
+    const analysis = analyzeSpec({
+        contents: JSON.stringify(document),
+        exampleFiles: [{ name: "raw.bin", base64 }],
+      }),
+      request = generateRequests(
+        analysis,
+        workspace._id,
+        "spc_utf8_binary",
+      ).find((r) => r._type === "request");
+    if (
+      !analysis.valid ||
+      !request ||
+      request._openapiIssues.length ||
+      request.body.base64 !== base64
+    )
+      throw Error("Opaque binary bytes were decoded as JSON");
+    controls.push({
+      name: version + " opaque binary preserves invalid UTF8 bytes",
+      passed: true,
+    });
+  }
+  for (const version of ["2.0", "3.0.3", "3.0.4", "3.1.2", "3.2.0", "3.2.1"]) {
+    const swagger = version === "2.0",
+      modern = /^3\.[12]\./.test(version);
+    const document = referenceObjectDocument(version);
+    const contents = JSON.stringify(document),
+      analysis = analyzeSpec({ contents });
+    if (!analysis.valid)
+      throw Error(
+        version + " reference roles: " + JSON.stringify(analysis.diagnostics),
+      );
+    if (
+      JSON.stringify(analysis.original) !== contents ||
+      JSON.stringify(analysis.schema).includes("__insomnium_literal_ref__")
+    )
+      throw Error("Reference roles changed source or leaked private fields");
+    const resolved = swagger ? analysis.schema : analysis.schema.components;
+    const ownedParameter = analysis.schema.paths["/owned"].post.parameters[0];
+    const ownedResponse = analysis.schema.paths["/owned"].post.responses[200];
+    const desc = modern ? "local" : "base";
+    for (const [name, passed] of [
+      [
+        "parameter",
+        ownedParameter.name === "owned" &&
+          ownedParameter.description === desc &&
+          !Object.hasOwn(ownedParameter, "summary"),
+      ],
+      [
+        "response",
+        ownedResponse.description === desc &&
+          !Object.hasOwn(ownedResponse, "summary") &&
+          !Object.hasOwn(ownedResponse.headers || {}, "broken"),
+      ],
+      ...(!swagger
+        ? [
+            [
+              "header",
+              resolved.headers.Owned.schema.type === "integer" &&
+                resolved.headers.Owned.description === desc &&
+                !Object.hasOwn(resolved.headers.Owned, "summary"),
+            ],
+            [
+              "request body",
+              Object.hasOwn(
+                resolved.requestBodies.Owned.content,
+                "application/json",
+              ) &&
+                !Object.hasOwn(
+                  resolved.requestBodies.Owned.content,
+                  "text/plain",
+                ) &&
+                resolved.requestBodies.Owned.description === desc,
+            ],
+            [
+              "example",
+              resolved.examples.Owned.value.source === "owned" &&
+                !Object.hasOwn(resolved.examples.Owned, "externalValue") &&
+                resolved.examples.Owned.summary === desc &&
+                resolved.examples.Owned.description === desc,
+            ],
+            [
+              "link",
+              resolved.links.Owned.operationId === "owned" &&
+                !Object.hasOwn(resolved.links.Owned, "requestBody") &&
+                !Object.hasOwn(resolved.links.Owned, "summary") &&
+                resolved.links.Owned.description === desc,
+            ],
+            [
+              "security scheme",
+              resolved.securitySchemes.Owned.type === "apiKey" &&
+                resolved.securitySchemes.Owned.name === "X-Owned" &&
+                !Object.hasOwn(resolved.securitySchemes.Owned, "scheme") &&
+                resolved.securitySchemes.Owned.description === desc,
+            ],
+            [
+              "callback",
+              Object.keys(resolved.callbacks.Owned).length === 1 &&
+                Object.hasOwn(
+                  resolved.callbacks.Owned,
+                  "{$request.query.callback}",
+                ),
+            ],
+          ]
+        : []),
+    ]) {
+      if (!passed)
+        throw Error(version + " Reference Object role changed: " + name);
+      controls.push({
+        name: version + " reference role " + name,
+        passed: true,
+      });
+    }
+    if (modern) {
+      for (const [group, field] of [
+        ["parameters", "description"],
+        ["examples", "summary"],
+        ["parameters", "$ref"],
+      ]) {
+        const invalid = referenceObjectDocument(version);
+        invalid.components[group].Owned[field] = 7;
+        const rejected = analyzeSpec({ contents: JSON.stringify(invalid) });
+        if (
+          rejected.valid ||
+          !rejected.diagnostics.some(
+            (d) => d.severity === "error" && d.path.includes(group + "/Owned"),
+          )
+        )
+          throw Error(
+            "Malformed Reference Object fixed field accepted: " +
+              group +
+              "/" +
+              field,
+          );
+        controls.push({
+          name: version + " reference fixed-field type " + group + "/" + field,
+          passed: true,
+        });
+      }
+    }
+    for (const [transport, current] of [
+      ["direct", analysis],
+      ["worker-clone", structuredClone(analysis)],
+    ]) {
+      const requests = generateRequests(
+        /** @type {ReturnType<typeof analyzeSpec>} */ (current),
+        workspace._id,
+        "spc_reference_roles",
+      );
+      const request = requests.find(
+        (r) => r._type === "request" && r.name === "owned",
+      );
+      const detached = requests.find(
+        (r) => r._type === "request" && r.name === "detached",
+      );
+      if (
+        !request ||
+        request.parameters[0].name !== "owned" ||
+        request.parameters[0].value !== "correct" ||
+        request._openapiSchemaIssues?.length ||
+        (!swagger &&
+          request.body.text !== JSON.stringify({ source: "owned" }, null, 2))
+      )
+        throw Error(
+          "Ignored Reference Object fields changed generated request",
+        );
+      if (
+        !detached ||
+        detached.parameters[0].name !== "nested" ||
+        detached.parameters[0].value !== "nestedvalue"
+      )
+        throw Error("Pointer into ignored Reference Object field lost target");
+      controls.push({
+        name: version + " reference roles generation/pointer " + transport,
+        passed: true,
+      });
+    }
+  }
   return { passed: true, checks, controls };
+}
+
+/** Shared source/producer/native Reference Object contract. @param {string} version */
+export function referenceObjectDocument(version) {
+  const swagger = version === "2.0";
+  const nested = swagger
+    ? { name: "nested", in: "query", type: "string", default: "nestedvalue" }
+    : {
+        name: "nested",
+        in: "query",
+        schema: { $ref: "#/components/schemas/Detached" },
+      };
+  const parameter = swagger
+    ? {
+        name: "owned",
+        in: "query",
+        type: "string",
+        default: "correct",
+        description: "base",
+      }
+    : {
+        name: "owned",
+        in: "query",
+        schema: { type: "string", default: "correct" },
+        description: "base",
+      };
+  const prefix = swagger ? "#/" : "#/components/";
+  const reference = (
+    /** @type {string} */ group,
+    /** @type {string} */ name,
+  ) => ({ $ref: prefix + group + "/" + name });
+  const parameters = {
+    Base: parameter,
+    Owned: {
+      ...reference("parameters", "Base"),
+      name: "wrong",
+      description: "local",
+      summary: "unsupported",
+      schema: { $ref: "missing.json#/No", "x-detached": nested },
+    },
+  };
+  const operation = /** @type {Record<string,any>} */ ({
+    operationId: "owned",
+    parameters: [reference("parameters", "Owned")],
+    responses: { 200: reference("responses", "Owned") },
+  });
+  const document = /** @type {Record<string,any>} */ ({
+    info: { title: "Reference roles", version: "1" },
+    paths: {
+      "/owned": { post: operation },
+      "/detached": {
+        get: {
+          operationId: "detached",
+          parameters: [{ $ref: prefix + "parameters/Owned/schema/x-detached" }],
+          responses: { 200: { description: "OK" } },
+        },
+      },
+    },
+    ...(swagger
+      ? {
+          swagger: version,
+          host: "127.0.0.1:55555",
+          schemes: ["http"],
+          parameters,
+        }
+      : {
+          openapi: version,
+          servers: [{ url: "http://127.0.0.1:55555" }],
+          components: { parameters },
+        }),
+  });
+  const responses = {
+    Base: { description: "base" },
+    Owned: {
+      ...reference("responses", "Base"),
+      description: "local",
+      summary: "unsupported",
+      headers: { broken: { schema: { $ref: "missing.json#/No" } } },
+    },
+  };
+  if (swagger) {
+    // Swagger's reusable maps contain concrete Objects; references occupy
+    // operation positions, unlike OAS 3 Components maps.
+    document.parameters = { Base: parameter };
+    document.responses = { Base: responses.Base };
+    operation.parameters = [parameters.Owned];
+    operation.responses[200] = responses.Owned;
+    document.paths["/detached"].get.parameters[0].$ref =
+      "#/paths/~1owned/post/parameters/0/schema/x-detached";
+  } else {
+    const components = document.components;
+    Object.assign(components, {
+      schemas: { Detached: { type: "string", default: "nestedvalue" } },
+      responses,
+      headers: {
+        Base: {
+          schema: { type: "integer", default: 9 },
+          description: "base",
+        },
+        Owned: {
+          ...reference("headers", "Base"),
+          schema: { $ref: "missing.json#/No" },
+          description: "local",
+          summary: "unsupported",
+        },
+      },
+      examples: {
+        Base: {
+          value: { source: "owned" },
+          summary: "base",
+          description: "base",
+        },
+        Owned: {
+          ...reference("examples", "Base"),
+          value: { source: "wrong" },
+          externalValue: "missing.json",
+          summary: "local",
+          description: "local",
+        },
+      },
+      requestBodies: {
+        Base: {
+          description: "base",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: { source: { type: "string" } },
+                required: ["source"],
+              },
+              examples: { owned: reference("examples", "Owned") },
+            },
+          },
+        },
+        Owned: {
+          ...reference("requestBodies", "Base"),
+          description: "local",
+          summary: "unsupported",
+          content: { "text/plain": { schema: { $ref: "missing.json#/No" } } },
+        },
+      },
+      links: {
+        Base: { operationId: "owned", description: "base" },
+        Owned: {
+          ...reference("links", "Base"),
+          operationId: "wrong",
+          requestBody: { $ref: "missing.json#/No" },
+          description: "local",
+          summary: "unsupported",
+        },
+      },
+      securitySchemes: {
+        Base: {
+          type: "apiKey",
+          name: "X-Owned",
+          in: "header",
+          description: "base",
+        },
+        Owned: {
+          ...reference("securitySchemes", "Base"),
+          type: "http",
+          scheme: "basic",
+          description: "local",
+          summary: "unsupported",
+        },
+      },
+      callbacks: {
+        Base: {
+          "{$request.query.callback}": {
+            post: { responses: { 200: { description: "OK" } } },
+          },
+        },
+        Owned: {
+          ...reference("callbacks", "Base"),
+          summary: "unsupported",
+          description: "unsupported",
+          post: {
+            requestBody: {
+              content: {
+                "application/json": { schema: { $ref: "missing.json#/No" } },
+              },
+            },
+          },
+        },
+      },
+    });
+    components.responses.Base.headers = {
+      owned: reference("headers", "Owned"),
+    };
+    components.responses.Base.links = { owned: reference("links", "Owned") };
+    operation.requestBody = reference("requestBodies", "Owned");
+    operation.callbacks = { owned: reference("callbacks", "Owned") };
+    operation.security = [{ Owned: [] }];
+  }
+  return document;
 }

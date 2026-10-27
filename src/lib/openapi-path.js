@@ -1,3 +1,5 @@
+import { isOpenApiScalar } from "./openapi-value.js";
+import { swaggerArrayValues } from "./openapi-swagger-array.js";
 import { readOpenApiValue } from "./openapi-value.js";
 import { serializeOpenApiSerialized } from "./openapi-serialized-example.js";
 import {
@@ -8,6 +10,7 @@ import {
  * @param {string} name @param {string} text
  * @param {{style:string,explode:boolean,kind:string,nullable?:boolean,mediaType?:string,review?:boolean}} options */
 export function serializeOpenApiPath(name, text, options) {
+  if (options.style === "swagger") return swaggerArrayValues(name, text, options, "path").join("");
   if (options.style === "serialized")
     return serializeOpenApiSerialized(name, text, options, "path");
   if (options.style === "content") {
@@ -20,7 +23,7 @@ export function serializeOpenApiPath(name, text, options) {
   const atom = (/** @type {unknown} */ value) => {
     if (
       value !== null &&
-      !["string", "number", "boolean"].includes(typeof value)
+      !isOpenApiScalar(value)
     )
       throw new Error(`Path parameter ${name} requires flat scalar values.`);
     return encodeURIComponent(String(value ?? "")).replace(

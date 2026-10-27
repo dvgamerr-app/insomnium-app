@@ -1,3 +1,5 @@
+import { isOpenApiScalar } from "./openapi-value.js";
+import { swaggerArrayValues } from "./openapi-swagger-array.js";
 import { serializeOpenApiStyle } from "./openapi-style.js";
 import { serializeOpenApiSerialized } from "./openapi-serialized-example.js";
 import { serializeOpenApiQuerystring } from "./openapi-querystring.js";
@@ -9,6 +11,7 @@ import {
  * @param {string} name @param {string} text
  * @param {{style:string,explode:boolean,kind:string,nullable?:boolean,mediaType?:string,review?:boolean,allowReserved?:boolean,querystring?:boolean}} options */
 export function serializeOpenApiQuery(name, text, options) {
+  if (options.style === "swagger") return swaggerArrayValues(name, text, options, "query").map(value => `${encodeOpenApiContent(name)}=${value}`).join("&");
   if (options.style === "serialized")
     return serializeOpenApiSerialized(name, text, options, "query");
   if (options.querystring)
@@ -22,7 +25,7 @@ export function serializeOpenApiQuery(name, text, options) {
   const atom = (/** @type {unknown} */ value) => {
     if (
       value !== null &&
-      !["string", "number", "boolean"].includes(typeof value)
+      !isOpenApiScalar(value)
     )
       throw new Error(`Query parameter ${name} requires flat scalar values.`);
     const text = String(value ?? "");

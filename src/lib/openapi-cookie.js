@@ -1,3 +1,4 @@
+import { isOpenApiScalar, OpenApiNumber } from "./openapi-value.js";
 import { readOpenApiValue } from "./openapi-value.js";
 import { serializeOpenApiSerialized } from "./openapi-serialized-example.js";
 import { serializeOpenApiContent } from "./openapi-content.js";
@@ -25,7 +26,7 @@ export function serializeOpenApiCookie(name, text, options) {
     throw new Error(`Unsupported cookie style ${options.style}.`);
   const value = readOpenApiValue(name, text, options, "Cookie");
   if (value === null) return null;
-  const compound = Array.isArray(value) || typeof value === "object";
+  const compound = Array.isArray(value) || (typeof value === "object" && !(value instanceof OpenApiNumber));
   if (
     compound &&
     options.style !== "text/plain" &&
@@ -43,7 +44,7 @@ export function serializeOpenApiCookie(name, text, options) {
     );
   const pair = (/** @type {string} */ name, /** @type {unknown} */ value) => {
     if (
-      !["string", "number", "boolean"].includes(typeof value) ||
+      !isOpenApiScalar(value) ||
       (typeof value === "number" && !Number.isFinite(value))
     )
       throw new Error(`Cookie parameter ${name} requires flat scalar values.`);

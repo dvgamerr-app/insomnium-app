@@ -11,11 +11,11 @@ await withComponentFixture("openapi-schema-resources", async (page, output) => {
     JSON.stringify(evidence, null, 2),
   );
   assert.equal(evidence.passed, true);
-  assert.equal(evidence.checks.length, 83);
+  assert.equal(evidence.checks.length, 119);
   for (const check of evidence.checks)
     assert.equal(check.passed, true, check.name);
   assert.equal(evidence.sourceRanges.passed, true);
-  assert.equal(evidence.sourceRanges.checks.length, 32);
+  assert.equal(evidence.sourceRanges.checks.length, 34);
   for (const check of evidence.sourceRanges.checks)
     assert.equal(check.passed, true, check.name);
 });

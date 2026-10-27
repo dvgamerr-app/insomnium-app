@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
+import { registerResourceProbeCollection } from "./resource-manager-cases.js";
 import { poll } from "./native-app.js";
 
 /** Actual owned collection import and API Design worker generation.
  * @param {Pick<import('./native-app.js').ScenarioContext,'page'|'invoke'> & Partial<Pick<import('./native-app.js').ScenarioContext,'output'>>} context
- * @param {Record<string,any>} document @param {number} count @param {string} label
- * @param {{beforeCheck?:(context:{design:import('playwright-core').Locator,specId:string})=>Promise<void>,afterCheck?:(context:{design:import('playwright-core').Locator,specId:string})=>Promise<void>}} [options] */
+ * @param {Record<string,any>|string} document @param {number} count @param {string} label
+ * @param {{preserveOwnedCollection?:boolean,previewOnly?:boolean,beforeCheck?:(context:{design:import('playwright-core').Locator,specId:string})=>Promise<void>,afterCheck?:(context:{design:import('playwright-core').Locator,specId:string})=>Promise<void>}} [options] */
 export async function generateOwnedOpenApi(
   { page, invoke, output },
   document,
@@ -87,6 +88,8 @@ export async function generateOwnedOpenApi(
     60000,
   );
   assert.ok(workspaceId);
+  if (options.preserveOwnedCollection)
+    registerResourceProbeCollection(workspaceId, ownedName);
   await page.getByRole("button", { name: "API Design", exact: true }).click();
   const design = page.getByRole("region", { name: "API Design", exact: true });
   const beforeCreate = new Set(
@@ -153,7 +156,8 @@ export async function generateOwnedOpenApi(
         2,
       ),
     );
-  const text = JSON.stringify(document, null, 2);
+  const text =
+    typeof document === "string" ? document : JSON.stringify(document, null, 2);
   await design
     .locator(".CodeMirror")
     .first()
@@ -192,6 +196,7 @@ export async function generateOwnedOpenApi(
   });
   await generate.waitFor();
   await options.afterCheck?.({ design, specId: spec._id });
+  if (options.previewOnly) return spec._id;
   await generate.click();
   await poll(
     async () =>

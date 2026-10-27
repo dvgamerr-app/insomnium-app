@@ -13,6 +13,10 @@ const formSchema = {
     object,
   },
 };
+export const openApiQuerystringSuffixCases = [
+  {id:'whole-suffix-json',media:'Application/Problem+JSON; charset="UTF-8"; note="a,b;c"',schema:object,value:{n:1},expected:'?%7B%22n%22%3A1%7D'},
+  ...[['utf16','application/problem+json; charset=UTF-16'],['duplicate','application/problem+json; charset=UTF-8; charset=UTF-8']].map(([id,media])=>({id:'whole-suffix-'+id,media,schema:object,value:{n:1},expected:null,refusal:'Review whole query media encoding'}))
+];
 export const openApiQuerystringCases = [
   {
     id: "whole-json",
@@ -117,14 +121,14 @@ export const openApiQuerystringCases = [
   },
 ];
 
-/** @param {string} base @param {string} version */
-export function openApiQuerystringDocument(base, version) {
+/** @param {string} base @param {string} version @param {Record<string,any>[]} [entries] */
+export function openApiQuerystringDocument(base, version, entries = openApiQuerystringCases) {
   return {
     openapi: version,
     info: { title: "Owned whole query media", version: "1" },
     servers: [{ url: base }],
     paths: Object.fromEntries(
-      openApiQuerystringCases.map((entry) => [
+      entries.map((entry) => [
         "/" + entry.id,
         {
           get: {

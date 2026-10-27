@@ -1,3 +1,5 @@
+import { isOpenApiScalar } from "./openapi-value.js";
+import { swaggerArrayValues } from "./openapi-swagger-array.js";
 import { readOpenApiValue } from "./openapi-value.js";
 import { serializeOpenApiSerialized } from "./openapi-serialized-example.js";
 import { serializeOpenApiContent } from "./openapi-content.js";
@@ -5,6 +7,7 @@ import { serializeOpenApiContent } from "./openapi-content.js";
  * @param {string} name @param {string} text
  * @param {{style:string,explode:boolean,kind:string,nullable?:boolean,mediaType?:string,review?:boolean}} options */
 export function serializeOpenApiHeader(name, text, options) {
+  if (options.style === "swagger") return swaggerArrayValues(name, text, options, "header").join("");
   if (options.style === "serialized")
     return serializeOpenApiSerialized(name, text, options, "header");
   if (options.style === "content")
@@ -14,7 +17,7 @@ export function serializeOpenApiHeader(name, text, options) {
   const atom = (/** @type {unknown} */ value) => {
     if (
       value !== null &&
-      !["string", "number", "boolean"].includes(typeof value)
+      !isOpenApiScalar(value)
     )
       throw new Error(`Header parameter ${name} requires flat scalar values.`);
     const result = String(value ?? "");

@@ -5,6 +5,7 @@
   "completenessBlocksBuild": false,
   "registrySource": "registry+https://github.com/rust-lang/crates.io-index",
   "patchRoots": {
+    "hyper": "vendor/hyper-1.12.0",
     "reqwest": "vendor/reqwest",
     "http-auth": "vendor/http-auth",
     "eventsource-stream": "vendor/eventsource-stream",

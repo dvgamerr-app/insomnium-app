@@ -1,4 +1,4 @@
-import { parseMediaType } from "./media-type.js";
+import { parseMediaType, isJsonBodyMediaType } from "./media-type.js";
 import { encodeOpenApiContent } from "./openapi-content.js";
 import {
   selectedExternalExample,
@@ -61,7 +61,7 @@ export function serializeOpenApiSerialized(name, text, options, location) {
       /[^\x00-\x7f]/.test(text)
     )
       fail("contains non-ASCII text.");
-    const json = /^(?:application|text)\/(?:[\w.-]+\+)?json$/.test(media.name);
+    const json = isJsonBodyMediaType(options.mediaType);
     form = media.name === "application/x-www-form-urlencoded";
     if (
       !json &&

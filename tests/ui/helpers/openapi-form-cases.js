@@ -92,14 +92,14 @@ export const openApiFormCases = /** @type {Array<Record<string,any>>} */ ([
   },
 ]);
 
-/** @param {string} version @param {string} base */
-export function openApiFormDocument(version, base) {
+/** @param {string} version @param {string} base @param {Record<string,any>[]} [entries] */
+export function openApiFormDocument(version, base, entries = openApiFormCasesFor(version)) {
   const document = {
     openapi: version,
     info: { title: "Owned form style bodies", version: "1" },
     servers: [{ url: base }],
     paths: Object.fromEntries(
-      openApiFormCasesFor(version).map((entry) => {
+      entries.map((entry) => {
         const name = entry.name || "color";
         const property =
           entry.schema ||
@@ -159,7 +159,7 @@ export function openApiFormDocument(version, base) {
       }),
     ),
   };
-  for (const entry of openApiFormCasesFor(version)) {
+  for (const entry of entries) {
     if (entry.omitEncoding) {
       const media = /** @type {Record<string,any>} */ (
         document.paths["/" + entry.id].post.requestBody.content[

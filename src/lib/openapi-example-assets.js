@@ -1,3 +1,4 @@
+import { parseOpenApiNumbers } from "./openapi-value.js";
 import { apiDocumentBaseUri, parseSpec } from "./openapi-document.js";
 
 export const exampleAssetLimit = 2 * 1024 * 1024;
@@ -193,7 +194,9 @@ export function applyExampleAssets(
         target = target && Object.hasOwn(target, key) ? target[key] : undefined;
       }
       if (target) stack.push({ node: target, kind, base: reference.href });
-      continue;
+      // Path Item $ref may have disjoint sibling operations. Their relative
+      // example URIs belong to this lexical document, not the reference target.
+      if (kind !== "pathItem") continue;
     }
     if (
       kind.startsWith("map:") ||
@@ -258,6 +261,20 @@ export function externalExampleText(file) {
   } catch {
     throw new Error(
       `External parameter example ${file.name} requires valid UTF-8 text.`,
+    );
+  }
+}
+
+/** Validate JSON external bytes without changing the saved byte representation.
+ * TextDecoder retains the previous single leading BOM tolerance.
+ * @param {{name:string,base64:string}} file */
+export function externalExampleJson(file) {
+  try {
+    const bytes = Uint8Array.from(atob(file.base64), (c) => c.charCodeAt(0));
+    return parseOpenApiNumbers(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+  } catch {
+    throw Error(
+      "External JSON example requires valid UTF-8 JSON: " + file.name,
     );
   }
 }

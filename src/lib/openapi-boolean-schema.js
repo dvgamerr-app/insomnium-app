@@ -1,5 +1,8 @@
-import { Validator } from "@cfworker/json-schema";
-import { sample } from "openapi-sampler";
+import { prepareCountSchema } from "./openapi-counts.js";
+import { prepareNumericSamples } from "./openapi-numeric-sample.js";
+import { validateExact } from "./openapi-exact-validation.js";
+import { OpenApiNumber, cloneOpenApiNumbers } from "./openapi-value.js";
+import { sample } from "./openapi-sampler.js";
 import { schemaReferenceFields } from "./openapi-references.js";
 
 const assertions = new Set([
@@ -62,8 +65,8 @@ function readOnlyProperty(schema) {
 
 /** Turn a resolved, possibly cyclic graph into local references for the
  * interpreter. Resource identities already resolved on the actual sampling path.
- * @param {Record<string,any>|boolean} schema */
-export function booleanSchemaValidator(schema) {
+ * @param {Record<string,any>|boolean} schema @param {string} [version] */
+export function booleanSchemaValidator(schema, version = "") {
   const pending = /** @type {Record<string,any>[]} */ ([]);
   const ids = new Map();
   const definitions = /** @type {Record<string,any>} */ ({});
@@ -85,6 +88,7 @@ export function booleanSchemaValidator(schema) {
     const node = pending[index],
       result = /** @type {Record<string,any>} */ ({});
     for (const [key, value] of Object.entries(node)) {
+      if (value === undefined) continue;
       if (
         ["$defs", "definitions", "contentSchema", "dependencies"].includes(key)
       )
@@ -109,7 +113,32 @@ export function booleanSchemaValidator(schema) {
       )
         put(result, key, value.map(link));
       else if (role) put(result, key, link(value));
-      else if (assertions.has(key)) put(result, key, structuredClone(value));
+      else if (assertions.has(key))
+        put(result, key, cloneOpenApiNumbers(value));
+    }
+    if (version === "2.0" || /^3\.0\./.test(version)) {
+      // Draft-4 bounds are boolean modifiers; the projection uses numeric
+      // exclusive bounds. Nullable changes type only, retaining enum/allOf/etc.
+      for (const [flag, bound] of [
+        ["exclusiveMinimum", "minimum"],
+        ["exclusiveMaximum", "maximum"],
+      ]) {
+        if (typeof node[flag] === "boolean") {
+          delete result[flag];
+          if (
+            node[flag] &&
+            (typeof node[bound] === "number" ||
+              node[bound] instanceof OpenApiNumber)
+          )
+            put(result, flag, node[bound]);
+        }
+      }
+      if (
+        /^3\.0\./.test(version) &&
+        node.nullable === true &&
+        typeof node.type === "string"
+      )
+        put(result, "type", [node.type, "null"]);
     }
     // OpenAPI request sampling intentionally excludes read-only properties.
     if (Array.isArray(result.required))
@@ -118,10 +147,12 @@ export function booleanSchemaValidator(schema) {
       );
     definitions["s" + index] = result;
   }
-  return new Validator(
-    typeof root === "boolean" ? root : { ...root, $defs: definitions },
-    "2020-12",
-  );
+  const projected =
+    typeof root === "boolean" ? root : { ...root, $defs: definitions };
+  return {
+    validate: (/** @type {any} */ instance) =>
+      validateExact(projected, instance),
+  };
 }
 
 /** Preserve false as an impossible branch; omit forbidden optional properties
@@ -165,7 +196,7 @@ export function prepareBooleanSample(schema) {
       )
         put(result, key, value.map(visit));
       else if (role) put(result, key, visit(value));
-      else put(result, key, structuredClone(value));
+      else put(result, key, cloneOpenApiNumbers(value));
     }
     const impossible = () => {
       seen.set(node, false);
@@ -230,9 +261,9 @@ export function prepareBooleanSample(schema) {
   return visit(schema);
 }
 
-/** @param {Record<string,any>|boolean} schema @param {any} value */
-export function validateBooleanSample(schema, value) {
-  const result = booleanSchemaValidator(schema).validate(value);
+/** @param {Record<string,any>|boolean} schema @param {any} value @param {string} [version] */
+export function validateBooleanSample(schema, value, version = "") {
+  const result = booleanSchemaValidator(schema, version).validate(value);
   if (!result.valid)
     throw Error(
       "Example does not satisfy the schema: " +
@@ -244,11 +275,32 @@ export function validateBooleanSample(schema, value) {
   return value;
 }
 
-/** @param {Record<string,any>|boolean} schema @param {Record<string,any>} root */
-export function sampleBooleanSchema(schema, root) {
-  const prepared = prepareBooleanSample(schema);
+/** @param {Record<string,any>|boolean} schema @param {Record<string,any>} root @param {boolean} [deferValidation] @param {string} [version] */
+export function sampleBooleanSchema(
+  schema,
+  root,
+  deferValidation = false,
+  version = "",
+) {
+  const prepared = prepareBooleanSample(prepareCountSchema(schema));
   if (prepared === false)
     throw Error("Schema accepts no value for the generated sample.");
-  const value = sample(prepared, { skipReadOnly: true, quiet: true }, root);
-  return validateBooleanSample(schema, value);
+  const validators = new WeakMap();
+  const accepts = (/** @type {any} */ node, /** @type {any} */ value) => {
+    if (typeof node === "boolean") return node;
+    let validator = validators.get(node);
+    if (!validator) {
+      validator = booleanSchemaValidator(node, version);
+      validators.set(node, validator);
+    }
+    return validator.validate(value).valid;
+  };
+  const numeric = prepareNumericSamples(prepared, root, accepts);
+  const value = sample(numeric, { skipReadOnly: true, quiet: true }, root, {
+    accepts,
+    child: (child) => sampleBooleanSchema(child, root, true, version),
+  });
+  return deferValidation
+    ? value
+    : validateBooleanSample(schema, value, version);
 }

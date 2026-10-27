@@ -4,6 +4,22 @@ import { withComponentFixture } from "./helpers/component-fixture.js";
 await withComponentFixture(
   "openapi-serialized-contract",
   async (page, output) => {
+    const cardinality=JSON.parse(await page.getByLabel("Cardinality composer evidence",{exact:true}).innerText());await Bun.write(output+"/cardinality-acceptance.json",JSON.stringify(cardinality,null,2));assert.equal(cardinality.passed,true,JSON.stringify(cardinality.checks.filter((/** @type {any} */ c)=>!c.passed)));
+    const counts=JSON.parse(await page.getByLabel("Count schema and sampling evidence",{exact:true}).innerText());await Bun.write(output+"/count-acceptance.json",JSON.stringify(counts,null,2));assert.equal(counts.passed,true,JSON.stringify([...counts.checks,...counts.budgetChecks].filter((/** @type {any} */ c)=>!c.passed)));
+    const derived=JSON.parse(await page.getByLabel("Derived numeric composer evidence",{exact:true}).innerText());await Bun.write(output+"/derived-acceptance.json",JSON.stringify(derived,null,2));assert.equal(derived.passed,true,JSON.stringify(derived.checks.filter((/** @type {any} */ c)=>!c.passed)));
+    const exact=JSON.parse(await page.getByLabel("Exact numeric validation evidence",{exact:true}).innerText());await Bun.write(output+"/exact-acceptance.json",JSON.stringify(exact,null,2));assert.equal(exact.passed,true,JSON.stringify(exact));
+
+    const sourceNumbers=JSON.parse(await page.getByLabel("Source number composer evidence",{exact:true}).innerText());
+    await Bun.write(output+"/source-number-acceptance.json",JSON.stringify(sourceNumbers,null,2));assert.equal(sourceNumbers.passed,true,JSON.stringify(sourceNumbers));
+
+    const numbers=JSON.parse(await page.getByLabel("Number lexeme composer evidence",{exact:true}).innerText());
+    await Bun.write(output+"/number-acceptance.json",JSON.stringify(numbers,null,2));
+    assert.equal(numbers.passed,true,JSON.stringify(numbers));
+
+    const swagger = JSON.parse(await page.getByLabel("Swagger array composer evidence", {exact:true}).innerText());
+    await Bun.write(output+"/swagger-acceptance.json",JSON.stringify(swagger,null,2));
+    assert.equal(swagger.passed,true,JSON.stringify(swagger.checks.filter((/** @type {any} */ c)=>!c.passed)));
+
     const external = JSON.parse(
       await page
         .getByLabel("External example contract evidence", { exact: true })
@@ -11,7 +27,7 @@ await withComponentFixture(
     );
     assert.equal(external.passed, true);
     assert.equal(external.checks.length, 8);
-    assert.equal(external.controls.length, 68);
+    assert.equal(external.controls.length, 227);
     await Bun.write(
       output + "/external-acceptance.json",
       JSON.stringify(external, null, 2),
@@ -25,8 +41,8 @@ await withComponentFixture(
       output + "/acceptance.json",
       JSON.stringify(result, null, 2),
     );
-    assert.equal(result.checks.length, 168);
-    assert.equal(result.controls.length, 11);
+    assert.equal(result.checks.length, 192);
+    assert.equal(result.controls.length, 12);
     assert.equal(result.signingControls.length, 8);
     assert.equal(result.passed, true, JSON.stringify(result));
     const editor = page.getByRole("region", { name: "Serialized rows editor" });

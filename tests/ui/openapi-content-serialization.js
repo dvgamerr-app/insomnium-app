@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import net from "node:net";
-import { withNativeApp, poll } from "./helpers/native-app.js";
+import { preserveNativeProfile } from "./helpers/native-profile-preservation.js";
+import { withResourceProbePreserved } from "./helpers/resource-manager-cases.js";
+import { withNativeApp, poll, integrationProbeIdentifier, selectedNativeProbeIdentifier } from "./helpers/native-app.js";
 import { generateOwnedOpenApi } from "./helpers/openapi-generation.js";
 import {
   openApiContentCases,
@@ -8,8 +10,10 @@ import {
   contentWireExpectation,
 } from "./helpers/openapi-content-cases.js";
 
-await withNativeApp(
-  "openapi-content-serialization",
+const suffixOnly=process.env.INSOMNIUM_OPENAPI_CONTENT_KIND==='suffix';
+if(suffixOnly){assert.equal(selectedNativeProbeIdentifier(),integrationProbeIdentifier);assert.ok(process.env.INSOMNIUM_UI_BUILD_STATE);}
+const run=()=>withNativeApp(
+  suffixOnly?"openapi-json-suffix":"openapi-content-serialization",
   async ({ page, invoke, output }) => {
     const received =
       /** @type {Array<{target:string,headers:string[][]}>} */ ([]);
@@ -121,10 +125,10 @@ await withNativeApp(
           ),
       );
       const contentKind = process.env.INSOMNIUM_OPENAPI_CONTENT_KIND || "all";
-      assert.ok(["all", "text", "raw-text", "json"].includes(contentKind));
+      assert.ok(["all", "text", "raw-text", "json", "suffix"].includes(contentKind));
       const selectedCases = openApiContentCases.filter(
         (entry) =>
-          contentKind === "all" ||
+          contentKind === "suffix" ? entry.suffix === true : contentKind === "all" ||
           (contentKind === "raw-text"
             ? entry.textContent && entry.nullable === false
             : contentKind === "text"
@@ -134,14 +138,15 @@ await withNativeApp(
       assert.ok(selectedCases.length > 0);
       for (const version of versions) {
         lastSpec = await generateOwnedOpenApi(
-          { page, invoke },
-          openApiContentDocument(base, version),
-          openApiContentCases.length,
+          { page, invoke, output },
+          openApiContentDocument(base, version, suffixOnly?selectedCases:openApiContentCases),
+          suffixOnly?selectedCases.length:openApiContentCases.length,
           "Owned JSON content " + version,
+          {preserveOwnedCollection:suffixOnly,...(suffixOnly?{afterCheck:async({design})=>{await design.getByRole('tab',{name:/^Diagnostics/}).click();const diagnostics=await design.locator('.design-diagnostics').innerText();await Bun.write(output+'/diagnostics-'+version+'.txt',diagnostics);await design.getByRole('tab',{name:'Operations',exact:true}).click();assert.ok(await design.getByRole('button',{name:'Generate '+selectedCases.length+' requests',exact:true}).isEnabled(),diagnostics);}}:{})},
         );
         for (const entry of selectedCases) {
           await select(entry.id);
-          const before = await invoke("load_workspace");
+          let before = await invoke("load_workspace");
           const request = before.resources.find(
             (/** @type {any} */ row) =>
               row.sourceSpecId === lastSpec && row.name === entry.id,
@@ -163,6 +168,11 @@ await withNativeApp(
               request._openapiIssues.join("\n").includes(entry.refusal),
             );
           else assert.deepEqual(request._openapiIssues, []);
+          if(entry.editedJson){
+            await page.getByRole('tablist',{name:'Request editor',exact:true}).getByRole('tab',{name:entry.location==='header'||entry.location==='cookie'?/^Headers/:/^Query/}).click();
+            await page.getByRole('textbox',{name:'Value 1',exact:true}).fill(entry.editedJson);
+            await poll(async()=> (await invoke('load_workspace')).resources.find((/** @type {any} */r)=>r._id===request._id)?.[fields[entry.location]][0]?.value===entry.editedJson,'Suffix JSON edit persisted');before=await invoke('load_workspace');
+          }
           const count = await send(
             request,
             contentWireExpectation(entry),
@@ -418,7 +428,7 @@ await withNativeApp(
           textRuntimeControls++;
         }
       }
-      const runtimeControls = contentKind === "raw-text" ? 0 : 41;
+      const runtimeControls = (contentKind === "raw-text" || suffixOnly) ? 0 : 41;
       if (runtimeControls) {
         for (const location of ["query", "header", "path", "cookie"]) {
           const entry = openApiContentCases.find(
@@ -674,6 +684,7 @@ await withNativeApp(
           {
             passed: true,
             contentKind,
+            ...(suffixOnly?{received,limits:"Windows native generated JSON-suffix parameter content across query/header/path/cookie, exact edited numeric/string lexemes, UTF16/duplicate-charset refusal; whole-query/form/provider/platform remain open."}:{}),
             versions,
             selectedCases: selectedCases.length,
             runtimeControls,
@@ -692,3 +703,5 @@ await withNativeApp(
     }
   },
 );
+
+if(suffixOnly)await preserveNativeProfile(()=>withResourceProbePreserved(run,{expectedIdentifier:integrationProbeIdentifier}));else await run();

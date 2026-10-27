@@ -16,6 +16,10 @@ const jsonValues = [
   { id: "empty-array", value: [] },
 ];
 export const openApiContentCases = /** @type {Array<Record<string,any>>} */ ([
+  ...["query","header","path","cookie"].flatMap(location=>[
+    {id:location+"-suffix-utf8",location,suffix:true,mediaType:'Application/Problem+JSON; charset="UTF-8"; note="a,b;c"',value:location==="cookie"?0:{n:1},editedJson:location==="cookie"?' 9007199254740993 ':' { "n": 9007199254740993, "s": "\\u0061" } ',expectedJson:location==="cookie"?'9007199254740993':'{"n":9007199254740993,"s":"\\u0061"}'},
+    ...[["utf16","application/problem+json; charset=UTF-16"],["duplicate","application/problem+json; charset=UTF-8; charset=UTF-8"]].map(([label,mediaType])=>({id:location+"-suffix-"+label,location,suffix:true,mediaType,value:0,refusal:"Review "+location+" content serialization"}))
+  ]),
   ...["query", "header", "path", "cookie"].flatMap((location) =>
     [
       { id: "canonical", value: "blue", mediaType: "text/plain" },
@@ -148,14 +152,14 @@ export function contentParameterName(location) {
   return location === "header" ? "x-owned" : "color";
 }
 
-/** @param {string} server @param {string} version */
-export function openApiContentDocument(server, version) {
+/** @param {string} server @param {string} version @param {Record<string,any>[]} [entries] */
+export function openApiContentDocument(server, version, entries = openApiContentCases) {
   return {
     openapi: version,
     info: { title: "Owned JSON parameter content", version: "1" },
     servers: [{ url: server }],
     paths: Object.fromEntries(
-      openApiContentCases.map((entry) => {
+      entries.map((entry) => {
         const type = Array.isArray(entry.value)
           ? "array"
           : entry.value && typeof entry.value === "object"
@@ -180,7 +184,7 @@ export function openApiContentDocument(server, version) {
         return [
           "/" +
             entry.id +
-            (entry.location === "path" ? "/pre-{color}-{color}:tail" : ""),
+            (entry.location === "path" ? (entry.suffix?"/pre-{color}:tail":"/pre-{color}-{color}:tail") : ""),
           {
             get: {
               summary: entry.id,
@@ -219,7 +223,7 @@ function uriData(text) {
 /** @param {Record<string,any>} entry @param {any} [value] */
 export function contentWireExpectation(entry, value = entry.value) {
   const omitted = entry.textContent && value === null;
-  const json = entry.textContent ? String(value ?? "") : JSON.stringify(value);
+  const json = entry.expectedJson ?? (entry.textContent ? String(value ?? "") : JSON.stringify(value));
   return {
     target:
       "/" +
@@ -227,7 +231,7 @@ export function contentWireExpectation(entry, value = entry.value) {
       (entry.location === "query" && !omitted
         ? "?color=" + uriData(json)
         : entry.location === "path"
-          ? "/pre-" + uriData(json) + "-" + uriData(json) + ":tail"
+          ? "/pre-" + uriData(json) + (entry.suffix?"":"-"+uriData(json)) + ":tail"
           : ""),
     header: entry.location === "header" && !omitted ? json : null,
     cookie: entry.location === "cookie" && !omitted ? "color=" + json : null,

@@ -1,13 +1,19 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:net";
-import { withNativeApp, poll } from "./helpers/native-app.js";
+import { preserveNativeProfile } from "./helpers/native-profile-preservation.js";
+import { withResourceProbePreserved } from "./helpers/resource-manager-cases.js";
+import { withNativeApp, poll, integrationProbeIdentifier, selectedNativeProbeIdentifier } from "./helpers/native-app.js";
 import { generateOwnedOpenApi } from "./helpers/openapi-generation.js";
 import { assertKeyValueHelp } from "./helpers/key-value-help.js";
 import {
   openApiQuerystringCases,
+  openApiQuerystringSuffixCases,
   openApiQuerystringDocument,
 } from "./helpers/openapi-querystring-cases.js";
 
+const suffixOnly=process.env.INSOMNIUM_OPENAPI_QUERYSTRING_SUFFIX==='1';
+if(suffixOnly){assert.equal(selectedNativeProbeIdentifier(),integrationProbeIdentifier);assert.ok(process.env.INSOMNIUM_UI_BUILD_STATE);}
+const selectedCases=suffixOnly?openApiQuerystringSuffixCases:openApiQuerystringCases;
 process.env.INSOMNIUM_UI_BUILD_STATE ||=
   "artifacts/native-recovery-copy-probe/build-state.json";
 const version = process.env.INSOMNIUM_OPENAPI_VERSION || "3.2.1";
@@ -39,14 +45,15 @@ const address = server.address();
 assert.ok(address && typeof address !== "string");
 const base = `http://127.0.0.1:${address.port}`;
 try {
-  await withNativeApp(
-    "openapi-querystring",
+  const run=()=>withNativeApp(
+    suffixOnly?"openapi-querystring-suffix-"+version:"openapi-querystring",
     async ({ page, invoke, output }) => {
       const sourceSpecId = await generateOwnedOpenApi(
-        { page, invoke },
-        openApiQuerystringDocument(base, version),
-        openApiQuerystringCases.length,
+        { page, invoke, output },
+        openApiQuerystringDocument(base, version,selectedCases),
+        selectedCases.length,
         "Owned whole query media",
+        {preserveOwnedCollection:suffixOnly,...(suffixOnly?{afterCheck:async({design})=>{await design.getByRole('tab',{name:/^Diagnostics/}).click();const text=await design.locator('.design-diagnostics').innerText();await Bun.write(output+'/diagnostics.txt',text);await design.getByRole('tab',{name:'Operations',exact:true}).click();assert.ok(await design.getByRole('button',{name:'Generate '+selectedCases.length+' requests',exact:true}).isEnabled(),text);}}:{})},
       );
       const cases = /** @type {Record<string,any>[]} */ ([]);
       const select = async (/** @type {string} */ name) => {
@@ -63,6 +70,7 @@ try {
           .getByRole("complementary", { name: "Collections" })
           .getByRole("button")
           .filter({ has: page.getByText(name, { exact: true }) });
+        await button.waitFor({state:"visible",timeout:60000});
         assert.equal(await button.count(), 1);
         if (data.activeRequestId !== request._id)
           await button.click({ timeout: 60000 });
@@ -93,7 +101,7 @@ try {
         if (query === null) {
           const error = page.locator(".error-state");
           await error.waitFor();
-          if (refusal) assert.ok((await error.innerText()).includes(refusal));
+          if (refusal) await poll(async()=> (await error.innerText()).includes(refusal),"Current whole-query refusal "+refusal);
           assert.equal(received.length, count);
           assert.deepEqual(
             (await invoke("load_workspace")).history,
@@ -148,7 +156,7 @@ try {
           ),
         );
       };
-      for (const entry of openApiQuerystringCases) {
+      for (const entry of selectedCases) {
         let request = await select(entry.id);
         assert.equal(request.parameters.length, 1);
         assert.equal(request.parameters[0].sendEmptyName, true);
@@ -235,7 +243,7 @@ try {
           await send(request, entry.id, entry.expected);
         }
       }
-      for (const group of [
+      const controlGroups = [
         {
           name: "whole-json",
           controls: [
@@ -294,7 +302,8 @@ try {
             },
           ],
         },
-      ]) {
+      ];
+      for(const group of (suffixOnly?[{...controlGroups[0],name:"whole-suffix-json"}]:controlGroups)) {
         for (const control of group.controls) {
           const request = await select(group.name);
           const editor = page.getByRole("region", {
@@ -328,12 +337,13 @@ try {
           await send(request, control.id, control.query);
         }
       }
-      assert.equal(cases.length, 25);
+      assert.equal(cases.length,suffixOnly?10:25);
       await Bun.write(
         output + "/acceptance.json",
         JSON.stringify(
           {
             passed: true,
+            suffixOnly,
             version,
             sourceSpecId,
             base,
@@ -349,6 +359,7 @@ try {
       );
     },
   );
+  if(suffixOnly)await preserveNativeProfile(()=>withResourceProbePreserved(run,{expectedIdentifier:integrationProbeIdentifier}));else await run();
 } finally {
   await new Promise((resolve, reject) =>
     server.close((error) => (error ? reject(error) : resolve(null))),

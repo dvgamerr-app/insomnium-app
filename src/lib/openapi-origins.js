@@ -27,7 +27,10 @@ export function prepareApiOrigins(files, internalKeys = []) {
       for (const [key, value] of Object.entries(item.node)) {
         keys.add(key);
         if (value && typeof value === "object")
-          pending.push({ node: value, path: [...item.path, key] });
+          pending.push({
+            node: value,
+            path: internalKeys.includes(key) ? item.path : [...item.path, key],
+          });
       }
     }
   }

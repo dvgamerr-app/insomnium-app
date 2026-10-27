@@ -1,3 +1,5 @@
+import { OpenApiNumber, stringifyOpenApiNumbers } from "./openapi-value.js";
+import { swaggerArrayValues } from "./openapi-swagger-array.js";
 import { serializeOpenApiStyle } from "./openapi-style.js";
 import {
   encodeOpenApiContent,
@@ -90,7 +92,7 @@ export function describeOpenApiFormContent(
   };
   return {
     name: "",
-    value: json || array ? JSON.stringify(value ?? null) : descriptor.text,
+    value: json || array ? stringifyOpenApiNumbers(value ?? null) : descriptor.text,
     _openapiSerialization: serialization,
   };
 }
@@ -152,9 +154,9 @@ function serializeFormContent(name, text, options) {
       "Form",
     );
     if (parsed === null) return null;
-    if (typeof parsed === "object")
+    if (typeof parsed === "object" && !(parsed instanceof OpenApiNumber))
       throw new Error(`Form parameter ${name} requires flat scalar values.`);
-    return typeof parsed === "number" || typeof parsed === "boolean"
+    return parsed instanceof OpenApiNumber || typeof parsed === "number" || typeof parsed === "boolean"
       ? value
       : String(parsed);
   };
@@ -185,6 +187,7 @@ function serializeFormContent(name, text, options) {
  * @param {string} name @param {string} text
  * @param {Record<string,any>} options @returns {string} */
 export function serializeOpenApiForm(name, text, options) {
+  if (options.style === "swagger") return swaggerArrayValues(name, text, options, "formData").map(value => new URLSearchParams([[name, value]]).toString()).join("&");
   if (options.review)
     throw new Error(
       `Review form serialization for ${name}. Disable this row and supply a manually serialized value.`,

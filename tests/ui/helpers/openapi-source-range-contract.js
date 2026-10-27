@@ -491,6 +491,90 @@ export function sourceRangeEvidence() {
         ) === String(value),
     );
   }
+  const detachedFiles = [
+    {
+      filename: "memory:///legacy-main.json",
+      isEntrypoint: true,
+      dir: "./",
+      references: [],
+      specification: {
+        openapi: "3.0.4",
+        components: {
+          schemas: {
+            Payload: {
+              $ref: "legacy-target.json#/components/schemas/Base/properties/owned",
+            },
+          },
+        },
+      },
+    },
+    {
+      filename: "memory:///legacy-target.json",
+      isEntrypoint: false,
+      dir: "./",
+      references: [],
+      specification: {
+        openapi: "3.0.4",
+        components: {
+          schemas: {
+            Base: {
+              $ref: "#/components/schemas/Plain",
+              properties: { owned: { type: "integer", default: 7 } },
+            },
+            Plain: { type: "string" },
+          },
+        },
+      },
+    },
+  ];
+  const detachedProtection = prepareApiReferences(detachedFiles);
+  const detachedOrigins = prepareApiOrigins(detachedFiles, [
+    detachedProtection.marker,
+    detachedProtection.origin,
+    detachedProtection.binding,
+    detachedProtection.booleanMarker,
+    detachedProtection.ignored,
+  ]);
+  const detachedResolved = dereference(detachedFiles, {
+    onDereference: detachedOrigins.onDereference,
+  });
+  if (!detachedResolved.schema) throw Error("Detached reference has no schema");
+  const detachedSchema = /** @type {Record<string,any>} */ (
+    detachedResolved.schema
+  );
+  detachedOrigins.strip(detachedResolved.schema);
+  restoreApiReferences(detachedResolved.schema, detachedProtection);
+  check(
+    "attached pointer into ignored sibling resolves without private fields",
+    !detachedProtection.errors.length &&
+      !(detachedResolved.errors || []).length &&
+      detachedSchema.components.schemas.Payload.default === 7 &&
+      !JSON.stringify(detachedResolved.schema).includes(
+        detachedProtection.ignored,
+      ),
+  );
+  check(
+    "attached ignored sibling target retains authored lexical origin",
+    JSON.stringify(
+      detachedOrigins.locate(detachedResolved.schema, [
+        "components",
+        "schemas",
+        "Payload",
+        "default",
+      ]),
+    ) ===
+      JSON.stringify({
+        source: "memory:///legacy-target.json",
+        path: [
+          "components",
+          "schemas",
+          "Base",
+          "properties",
+          "owned",
+          "default",
+        ],
+      }),
+  );
   return {
     passed: checks.every((row) => row.passed),
     checks,

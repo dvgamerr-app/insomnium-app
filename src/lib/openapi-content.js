@@ -1,3 +1,4 @@
+import { OpenApiNumber } from "./openapi-value.js";
 import { parseMediaType, isUtf8PlainTextMediaType } from "./media-type.js";
 import { readOpenApiValue } from "./openapi-value.js";
 
@@ -21,12 +22,12 @@ export function serializeOpenApiContent(name, text, options, location) {
   if (!options.review && isUtf8PlainTextMediaType(options.mediaType)) {
     const value = readOpenApiValue(name, text, options, location);
     if (value === null) return null;
-    if (typeof value === "object")
+    if (typeof value === "object" && !(value instanceof OpenApiNumber))
       throw new Error(
         `${location} parameter ${name} requires scalar text content.`,
       );
     const result =
-      typeof value === "number" || typeof value === "boolean"
+      value instanceof OpenApiNumber || typeof value === "number" || typeof value === "boolean"
         ? text
         : String(value);
     if (

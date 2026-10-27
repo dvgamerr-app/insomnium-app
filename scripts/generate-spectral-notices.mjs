@@ -84,6 +84,17 @@ export async function collectSpectralNotices(projectRoot = root) {
   const sourceRoot = 'https://raw.githubusercontent.com/stoplightio/spectral/' + recoveredRuntime.gitHead + '/';
   if (!recovered || Object.entries(recoveredRuntime).some(([key, value]) => recovered[key] !== value) || recovered.kind !== 'repository-license-at-published-commit' || recovered.source !== sourceRoot + 'LICENSE' || recovered.packageJSONSource !== sourceRoot + 'packages/runtime/package.json' || recovered.path !== 'tools/spectral-linter/notice-sources/spectral-runtime-1.1.6-repository-LICENSE' || recovered.packageJSONPath !== 'tools/spectral-linter/notice-sources/spectral-runtime-1.1.6-package.json') throw Error('Recovered Spectral notice provenance mismatch');
   await bytes('scripts/generate-spectral-notices.mjs');
+  const resolverPatch = {
+    id: '@stoplight/json-ref-resolver@3.1.6',
+    path: 'tools/spectral-linter/patches/@stoplight%2Fjson-ref-resolver@3.1.6.patch',
+    modifiedFiles: ['runner.js', 'crawler.js'],
+    changes: 'Insomnium modifies fragment resolution to retain pristine cached sources, resolve hidden lexical targets and their dependencies, and preserve authored graph/source paths.',
+  };
+  const producerPackage = JSON.parse(Buffer.from(await bytes('tools/spectral-linter/package.json')).toString());
+  if (producerPackage.patchedDependencies?.[resolverPatch.id] !== resolverPatch.path.slice('tools/spectral-linter/'.length)) throw Error('Resolver patch declaration mismatch');
+  await bytes(resolverPatch.path);
+  for (const file of resolverPatch.modifiedFiles) await bytes('tools/spectral-linter/node_modules/@stoplight/json-ref-resolver/' + file);
+  chunks.push(Buffer.from('\nModified dependency: ' + resolverPatch.id + ' (Apache-2.0). Modified files: ' + resolverPatch.modifiedFiles.join(', ') + '.\n' + resolverPatch.changes + '\nPatch: ' + resolverPatch.path + '\n'));
   const installed = new Map();
   async function modules(dir) {
     for (const item of (await readdir(resolve(projectRoot, dir), { withFileTypes: true })).sort((a, b) => order(a.name, b.name))) {
@@ -136,6 +147,24 @@ export async function collectSpectralNotices(projectRoot = root) {
     }
     packages.push({ ...row, state: 'installed', license, installPaths: copies.map(x => x.path), fullTextAvailable: files.length > 0, files, ...(files.length ? {} : { reason: 'Published installed package has no full LICENSE/NOTICE/COPYING file; metadata alone is not license text.' }) });
   }
+  // Static validators are generated from root-workspace packages rather than
+  // the Spectral workspace lock. Keep their attribution with the sidecar too.
+  await bytes('bun.lock');
+  const generatedValidatorPackages = [];
+  for (const name of ['@scalar/openapi-validator','ajv','ajv-draft-04','ajv-formats']) {
+    const dir = 'node_modules/' + name;
+    const meta = JSON.parse(Buffer.from(await bytes(dir + '/package.json')).toString());
+    if (meta.name !== name || meta.license !== 'MIT') throw Error('Generated validator notice metadata changed: ' + name);
+    const files = [];
+    for (const path of await licenseFiles(dir)) {
+      const data = await bytes(path);
+      if (!data.length) throw Error('Empty generated validator notice: ' + path);
+      files.push({path,bytes:data.length,sha256:hash(data)});
+      chunks.push(Buffer.from('\n=== Generated OpenAPI validator: ' + name + '@' + meta.version + ' ===\n'),Buffer.from(data),Buffer.from('\n'));
+    }
+    if (!files.length) throw Error('Generated validator license text absent: ' + name);
+    generatedValidatorPackages.push({id:name+'@'+meta.version,license:meta.license,files});
+  }
   const runtimeData = await bytes(sources.bun.path);
   if (hash(runtimeData) !== sources.bun.sha256) throw Error('Pinned Bun notice hash mismatch');
   chunks.push(Buffer.from('\n=== Bun ' + sources.bun.version + ' upstream LICENSE.md ===\n'), Buffer.from(runtimeData), Buffer.from('\n'));
@@ -150,7 +179,7 @@ export async function collectSpectralNotices(projectRoot = root) {
       emittedRuntimeTexts.add(candidate.sha256);
     }
   }
-  const inventory = { schemaVersion: 1, coverage: 'incomplete', completenessBlocksBuild: false, lockIdentities: locked.length, installedIdentities: packages.filter(x => x.state === 'installed').length, packages, runtime: { ...sources.bun, coverage: 'incomplete', reason: 'Pinned upstream LICENSE.md inventories linked libraries/polyfills; their full texts and redistribution acceptance remain unverified.' }, runtimeSourceTexts: sourceTexts, sourceInputs: [...inputs.values()].sort((a, b) => order(a.path, b.path)) };
+  const inventory = { patchedDependencies: [resolverPatch], generatedValidatorPackages, schemaVersion: 1, coverage: 'incomplete', completenessBlocksBuild: false, lockIdentities: locked.length, installedIdentities: packages.filter(x => x.state === 'installed').length, packages, runtime: { ...sources.bun, coverage: 'incomplete', reason: 'Pinned upstream LICENSE.md inventories linked libraries/polyfills; their full texts and redistribution acceptance remain unverified.' }, runtimeSourceTexts: sourceTexts, sourceInputs: [...inputs.values()].sort((a, b) => order(a.path, b.path)) };
   const output = 'src-tauri/notices/spectral/';
   return { inventory, assets: [{ path: output + 'THIRD_PARTY_NOTICES.txt', data: Buffer.concat(chunks) }, { path: output + 'inventory.json', data: Buffer.from(JSON.stringify(inventory, null, 2) + '\n') }] };
 }

@@ -9,7 +9,7 @@ const targets={
  'x86_64-apple-darwin':'bun-darwin-x64',
  'aarch64-apple-darwin':'bun-darwin-arm64',
 };
-const inputs=['scripts/build-spectral-linter.mjs','tools/spectral-linter/build.mjs','tools/spectral-linter/host.js','tools/spectral-linter/protocol.js','tools/spectral-linter/read-receipts.js','tools/spectral-linter/package.json','tools/spectral-linter/bun.lock'];
+const inputs=['scripts/build-spectral-linter.mjs','tools/spectral-linter/build.mjs','tools/spectral-linter/host.js','tools/spectral-linter/openapi-examples.js','tools/spectral-linter/exact-examples.js','src/lib/openapi-numeric-domain.js','src/lib/openapi-structural-numbers.js','src/lib/openapi-counts.js','src/lib/openapi-value.js','src/lib/openapi-literal.js','src/lib/openapi-document.js','package.json','bun.lock','src/lib/media-type.js','src/lib/openapi-references.js','src/lib/openapi-validation.js','src/lib/generated/openapi-2.0.js','src/lib/generated/openapi-3.0.js','src/lib/generated/openapi-3.1.js','src/lib/generated/openapi-3.2.js','tools/spectral-linter/protocol.js','tools/spectral-linter/read-receipts.js','tools/spectral-linter/patches/@stoplight%2Fjson-ref-resolver@3.1.6.patch','tools/spectral-linter/package.json','tools/spectral-linter/bun.lock'];
 export function spectralPaths(target,projectRoot=root){
  if(typeof target!=='string'||!Object.hasOwn(targets,target))throw Error('Unsupported or missing TAURI_ENV_TARGET_TRIPLE for Spectral packaging');
  const filename='spectral-linter-'+target+(target.includes('windows')?'.exe':'');
